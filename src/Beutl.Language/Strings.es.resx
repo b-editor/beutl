@@ -113,6 +113,9 @@
   <data name="History_OperationFailed" xml:space="preserve">
     <value>La operación del historial falló.</value>
   </data>
+  <data name="History_RestrictedAfterFailure" xml:space="preserve">
+    <value>La operación del historial falló. El historial se conserva, pero no se puede deshacer ni rehacer más allá de este punto. Revise los cambios actuales. Puede seguir editando y guardando, y deshacer o rehacer las nuevas ediciones.</value>
+  </data>
   <data name="Settings" xml:space="preserve">
     <value>Configuración</value>
   </data>

@@ -258,6 +258,9 @@
   <data name="History_OperationFailed" xml:space="preserve">
     <value>履歴操作に失敗しました。</value>
   </data>
+  <data name="History_RestrictedAfterFailure" xml:space="preserve">
+    <value>履歴操作に失敗しました。履歴は保持していますが、この地点を越える元に戻す・やり直しはできません。現在の編集内容を確認してください。編集と保存、新しい編集の元に戻す・やり直しは引き続き行えます。</value>
+  </data>
   <data name="Search" xml:space="preserve">
     <value>検索</value>
   </data>

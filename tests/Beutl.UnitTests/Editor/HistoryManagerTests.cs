@@ -46,37 +46,224 @@ public class HistoryManagerTests
         Assert.That(value, Is.EqualTo(redo ? 0 : 2));
     }
 
-    [Test]
-    public void UnknownPartialFailure_CannotBeReplayedOrCommittedUntilHistoryIsCleared()
+    [TestCase(false, false)]
+    [TestCase(false, true)]
+    [TestCase(true, false)]
+    [TestCase(true, true)]
+    public void UnknownPartialFailure_PreservesHistoryAndAllowsReplayOfNewEdits(bool redo, bool jump)
     {
         using var manager = new HistoryManager(_root, _sequenceGenerator);
-        int value = 2;
-        manager.Record(() => value++, () => { value--; throw new IOException("partial mutation"); });
+        CreateValueOperation(manager, 1, 0, "Earlier operation");
+        manager.Commit("Earlier operation");
+        HistoryTransaction earlier = manager.PeekUndo()!;
+        var failure = new IOException("partial mutation");
+        manager.Record(
+            () => { _root.Value++; if (redo) throw failure; },
+            () => { _root.Value--; if (!redo) throw failure; });
+        _root.Value = 2;
         manager.Commit("unsafe operation");
-        Assert.Throws<IOException>(() => manager.Undo());
-        Assert.That(value, Is.EqualTo(1));
-        Assert.Throws<InvalidOperationException>(() => manager.Undo());
-        Assert.Throws<InvalidOperationException>(() => manager.Redo());
-        Assert.Throws<InvalidOperationException>(() => manager.Commit("unsafe"));
-        Assert.That(value, Is.EqualTo(1));
-        Assert.DoesNotThrow(manager.Clear);
+        HistoryTransaction unsafeTransaction = manager.PeekUndo()!;
+        CreateValueOperation(manager, 3, 2, "Later operation");
+        manager.Commit("Later operation");
+        HistoryTransaction later = manager.PeekUndo()!;
+        HistoryEntry[] entries = manager.GetEntriesSnapshot();
+        if (!jump)
+        {
+            manager.Undo();
+            if (redo)
+                manager.Undo();
+        }
+        else if (redo)
+        {
+            manager.JumpTo(0);
+        }
+
+        var states = new List<HistoryState>();
+        using var subscription = manager.StateChanged.Subscribe(states.Add);
+        var exception = Assert.Throws<HistoryReplayException>(() =>
+        {
+            if (jump) manager.JumpTo(redo ? 3 : 0);
+            else if (redo) manager.Redo();
+            else manager.Undo();
+        });
+        int survivingValue = redo ? 2 : 1;
+        int boundary = redo ? 1 : 2;
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(exception!.InnerException, Is.SameAs(failure));
+            Assert.That(_root.Value, Is.EqualTo(survivingValue));
+            Assert.That(manager.CurrentIndex, Is.EqualTo(boundary));
+            Assert.That(manager.UndoCount, Is.EqualTo(boundary));
+            Assert.That(manager.RedoCount, Is.EqualTo(3 - boundary));
+            Assert.That(manager.PeekUndo(), Is.SameAs(redo ? earlier : unsafeTransaction));
+            Assert.That(manager.PeekRedo(), Is.SameAs(redo ? unsafeTransaction : later));
+            Assert.That(manager.HasPendingOperations, Is.False);
+            Assert.That(manager.Entries, Is.EqualTo(entries));
+            Assert.That(states, Is.EqualTo(new[] { new HistoryState(false, false, boundary, 3 - boundary) }));
+        }
+        Assert.DoesNotThrow(() => manager.Commit());
+        Assert.DoesNotThrow(() => manager.Rollback());
+        Assert.DoesNotThrow(() => manager.ExecuteInTransaction(() => { }));
+        Assert.That(manager.Undo(), Is.False);
+        Assert.That(manager.Redo(), Is.False);
+        for (int index = 0; index < entries.Length; index++)
+        {
+            Assert.That(manager.WouldJumpToMove(index), Is.False);
+            Assert.That(manager.JumpTo(index), Is.False);
+        }
+        Assert.That(_root.Value, Is.EqualTo(survivingValue));
+        Assert.That(manager.Entries, Is.EqualTo(entries));
+
+        CreateValueOperation(manager, 10, survivingValue, "New edit");
+        Assert.DoesNotThrow(() => manager.Commit("New edit"));
+        Assert.That(states[^1], Is.EqualTo(new HistoryState(true, false, boundary + 1, 0)));
+        Assert.That(manager.Entries.Take(boundary + 1), Is.EqualTo(entries.Take(boundary + 1)));
+        Assert.That(manager.WouldJumpToMove(0), Is.False);
+        Assert.That(manager.JumpTo(0), Is.False, "An unreachable jump must not undo even the safe new edit.");
+        Assert.That(_root.Value, Is.EqualTo(10));
+        Assert.That(manager.Undo(), Is.True);
+        Assert.That(_root.Value, Is.EqualTo(survivingValue));
+        Assert.That(manager.CanUndo, Is.False);
+        Assert.That(manager.Undo(), Is.False);
+        Assert.That(manager.Redo(), Is.True);
+        Assert.That(_root.Value, Is.EqualTo(10));
+
+        CreateValueOperation(manager, 20, 10, "Another edit");
+        manager.Commit("Another edit");
+        Assert.That(manager.WouldJumpToMove(boundary), Is.True);
+        Assert.That(manager.JumpTo(boundary), Is.True);
+        Assert.That(_root.Value, Is.EqualTo(survivingValue));
+        Assert.That(manager.JumpTo(boundary + 2), Is.True);
+        Assert.That(_root.Value, Is.EqualTo(20));
+    }
+
+    [TestCase("Rollback")]
+    [TestCase("Undo")]
+    [TestCase("Redo")]
+    [TestCase("JumpTo")]
+    public void UnknownPendingFailure_PreservesBothStacksAndNotifies(string action)
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        CreateValueOperation(manager, 1, 0, "Undo entry");
+        manager.Commit("Undo entry");
+        CreateValueOperation(manager, 2, 1, "Redo entry");
+        manager.Commit("Redo entry");
+        manager.Undo();
+        HistoryEntry[] entries = manager.GetEntriesSnapshot();
+        HistoryTransaction undo = manager.PeekUndo()!;
+        HistoryTransaction redo = manager.PeekRedo()!;
+        manager.Record(() => _root.Value++, () => { _root.Value--; throw new IOException("partial rollback"); });
+        _root.Value++;
+
+        var states = new List<HistoryState>();
+        using var subscription = manager.StateChanged.Subscribe(states.Add);
+        Assert.Throws<HistoryReplayException>(() =>
+        {
+            switch (action)
+            {
+                case "Rollback": manager.Rollback(); break;
+                case "Undo": manager.Undo(); break;
+                case "Redo": manager.Redo(); break;
+                case "JumpTo": manager.JumpTo(0); break;
+            }
+        });
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(_root.Value, Is.EqualTo(1));
+            Assert.That(manager.UndoCount, Is.EqualTo(1));
+            Assert.That(manager.RedoCount, Is.EqualTo(1));
+            Assert.That(manager.PeekUndo(), Is.SameAs(undo));
+            Assert.That(manager.PeekRedo(), Is.SameAs(redo));
+            Assert.That(manager.HasPendingOperations, Is.False);
+            Assert.That(manager.Entries, Is.EqualTo(entries));
+            Assert.That(states, Is.EqualTo(new[] { new HistoryState(false, false, 1, 1) }));
+        }
+        Assert.That(manager.Undo(), Is.False);
+        Assert.That(manager.Redo(), Is.False);
+        Assert.That(manager.JumpTo(0), Is.False);
+        Assert.That(manager.JumpTo(2), Is.False);
+
+        CreateValueOperation(manager, 10, 1, "New edit");
+        Assert.DoesNotThrow(() => manager.Commit("New edit"));
+        Assert.That(manager.Undo(), Is.True);
+        Assert.That(_root.Value, Is.EqualTo(1));
+        Assert.That(manager.Undo(), Is.False);
+        Assert.That(manager.Redo(), Is.True);
+        Assert.That(_root.Value, Is.EqualTo(10));
     }
 
     [Test]
-    public void UndoFailureKeepsHistory()
+    public void UnknownFailure_BlockedJumpDoesNotDiscardPendingEdit()
     {
         using var manager = new HistoryManager(_root, _sequenceGenerator);
-        manager.Record(() => { }, () => throw new InvalidOperationException("probe"));
+        manager.Record(() => { }, () => throw new IOException("unknown undo failure"));
+        manager.Commit("unsafe operation");
+        Assert.Throws<HistoryReplayException>(() => manager.Undo());
+
+        CreateValueOperation(manager, 10, 0, "Pending edit");
+        Assert.That(manager.WouldJumpToMove(0), Is.False);
+        Assert.That(manager.JumpTo(0), Is.False);
+        Assert.That(manager.HasPendingOperations, Is.True);
+        Assert.That(_root.Value, Is.EqualTo(10));
+        manager.Commit("Pending edit");
+        Assert.That(manager.Undo(), Is.True);
+        Assert.That(_root.Value, Is.Zero);
+        Assert.That(manager.Undo(), Is.False);
+    }
+
+    [Test]
+    public void UnknownFailure_SecondFailureAdvancesBoundaryAndExplicitClearResetsIt()
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        for (int i = 0; i < 2; i++)
+        {
+            manager.Record(() => { }, () => throw new IOException("unknown undo failure"));
+            manager.Commit("unsafe operation");
+            Assert.Throws<HistoryReplayException>(() => manager.Undo());
+            Assert.That(manager.CurrentIndex, Is.EqualTo(i + 1));
+            Assert.That(manager.Entries, Has.Count.EqualTo(i + 2));
+            Assert.That(manager.Undo(), Is.False);
+        }
+
+        CreateValueOperation(manager, 10, 0, "New edit");
+        manager.Commit("New edit");
+        Assert.That(manager.JumpTo(1), Is.False);
+        Assert.That(manager.JumpTo(2), Is.True);
+        Assert.That(_root.Value, Is.Zero);
+        manager.Clear();
+        Assert.That(manager.Entries.Single().IsInitial, Is.True);
+        Assert.That(manager.CurrentIndex, Is.Zero);
+        CreateValueOperation(manager, 20, 0, "Edit after clear");
+        manager.Commit("Edit after clear");
+        Assert.That(manager.Undo(), Is.True);
+        Assert.That(_root.Value, Is.Zero);
+        Assert.That(manager.Redo(), Is.True);
+        Assert.That(_root.Value, Is.EqualTo(20));
+    }
+
+    [Test]
+    public void AtomicUndoFailureKeepsHistory()
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        manager.Record(new CustomOperation(_ => { }, _ => throw new InvalidOperationException("probe"))
+        {
+            SequenceNumber = _sequenceGenerator.GetNext(),
+            FailureIsAtomic = true,
+        });
         manager.Commit("probe");
         Assert.Throws<InvalidOperationException>(() => manager.Undo());
         Assert.That(manager.UndoCount, Is.EqualTo(1), "Failed undo must retain the transaction");
     }
 
     [Test]
-    public void RedoFailureKeepsHistory()
+    public void AtomicRedoFailureKeepsHistory()
     {
         using var manager = new HistoryManager(_root, _sequenceGenerator);
-        manager.Record(() => throw new InvalidOperationException("probe"), () => { });
+        manager.Record(new CustomOperation(_ => throw new InvalidOperationException("probe"), _ => { })
+        {
+            SequenceNumber = _sequenceGenerator.GetNext(),
+            FailureIsAtomic = true,
+        });
         manager.Commit("probe");
         manager.Undo();
         Assert.Throws<InvalidOperationException>(() => manager.Redo());
@@ -84,11 +271,15 @@ public class HistoryManagerTests
     }
 
     [Test]
-    public void PartialUndoFailureNotifiesAndKeepsTheEntry()
+    public void PartialAtomicUndoFailureNotifiesAndKeepsTheEntry()
     {
         using var manager = new HistoryManager(_root, _sequenceGenerator);
         int value = 2;
-        manager.Record(() => { }, () => throw new InvalidOperationException("failure"));
+        manager.Record(new CustomOperation(_ => { }, _ => throw new InvalidOperationException("failure"))
+        {
+            SequenceNumber = _sequenceGenerator.GetNext(),
+            FailureIsAtomic = true,
+        });
         manager.Record(() => value = 2, () => value = 1);
         manager.Commit("partial");
         HistoryState? observed = null;
@@ -709,6 +900,91 @@ public class HistoryManagerTests
         manager.Record(CreateTestOperation());
         manager.Commit("After failure");
         Assert.That(manager.UndoCount, Is.EqualTo(1));
+    }
+
+    [TestCase(ChangeOperationFailureState.Unknown)]
+    [TestCase(ChangeOperationFailureState.Unchanged)]
+    [TestCase(ChangeOperationFailureState.Completed)]
+    public void ExecuteInTransaction_FailedRollbackRestrictsReplayUnlessCompleted(ChangeOperationFailureState failureState)
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        CreateValueOperation(manager, 1, 0, "Undo entry");
+        manager.Commit("Undo entry");
+        CreateValueOperation(manager, 2, 1, "Redo entry");
+        manager.Commit("Redo entry");
+        manager.Undo();
+        HistoryEntry[] entries = manager.GetEntriesSnapshot();
+        HistoryTransaction undo = manager.PeekUndo()!;
+        HistoryTransaction redo = manager.PeekRedo()!;
+        var states = new List<HistoryState>();
+        using var subscription = manager.StateChanged.Subscribe(states.Add);
+        var actionFailure = new IOException("action failed");
+        var rollbackFailure = new IOException("rollback failed");
+        int otherValue = 0;
+
+        var exception = Assert.Throws<AggregateException>(() => manager.ExecuteInTransaction(() =>
+        {
+            otherValue = 1;
+            manager.Record(() => otherValue = 1, () => otherValue = 0);
+            _root.Value = 5;
+            manager.Record(new FailingRollbackOperation(() =>
+            {
+                if (failureState == ChangeOperationFailureState.Unknown)
+                    _root.Value = 4;
+                else if (failureState == ChangeOperationFailureState.Completed)
+                    _root.Value = 1;
+                throw rollbackFailure;
+            }, failureState)
+            { SequenceNumber = _sequenceGenerator.GetNext() });
+            throw actionFailure;
+        }));
+
+        bool completed = failureState == ChangeOperationFailureState.Completed;
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(exception!.InnerExceptions, Is.EqualTo(new[] { actionFailure, rollbackFailure }));
+            Assert.That(otherValue, Is.Zero, "Best-effort rollback must continue after a failed operation.");
+            Assert.That(manager.HasPendingOperations, Is.False);
+            Assert.That(manager.Entries, Is.EqualTo(entries));
+            Assert.That(manager.PeekUndo(), Is.SameAs(undo));
+            Assert.That(manager.PeekRedo(), Is.SameAs(redo));
+            Assert.That(manager.CanUndo, Is.EqualTo(completed));
+            Assert.That(manager.CanRedo, Is.EqualTo(completed));
+        }
+
+        if (completed)
+        {
+            Assert.That(_root.Value, Is.EqualTo(1));
+            Assert.That(manager.Undo(), Is.True);
+            Assert.That(_root.Value, Is.Zero);
+            Assert.That(manager.Redo(), Is.True);
+            Assert.That(_root.Value, Is.EqualTo(1));
+            return;
+        }
+
+        Assert.That(states, Is.EqualTo(new[] { new HistoryState(false, false, 1, 1) }));
+        Assert.That(manager.Undo(), Is.False);
+        Assert.That(manager.Redo(), Is.False);
+        Assert.That(manager.JumpTo(0), Is.False);
+        Assert.That(manager.JumpTo(2), Is.False);
+        int survivingValue = failureState == ChangeOperationFailureState.Unknown ? 4 : 5;
+        Assert.That(_root.Value, Is.EqualTo(survivingValue));
+        CreateValueOperation(manager, 10, survivingValue, "New edit");
+        manager.Commit("New edit");
+        Assert.That(manager.Undo(), Is.True);
+        Assert.That(_root.Value, Is.EqualTo(survivingValue));
+        Assert.That(manager.Undo(), Is.False);
+        Assert.That(manager.Redo(), Is.True);
+        Assert.That(_root.Value, Is.EqualTo(10));
+    }
+
+    private sealed class FailingRollbackOperation(Action revert, ChangeOperationFailureState failureState) : ChangeOperation
+    {
+        public override ChangeOperationFailureState FailureState => failureState;
+
+        public override void Apply(OperationExecutionContext context) => throw new NotSupportedException();
+
+        public override void Revert(OperationExecutionContext context) => revert();
     }
 
     [Test]
@@ -1549,6 +1825,7 @@ public class HistoryManagerTests
             () => _root.Value = 200,
             _sequenceGenerator,
             "Faulty");
+        faulty.FailureIsAtomic = true;
         faulty.Apply(new OperationExecutionContext(_root));
         manager.Record(faulty);
         manager.Commit("Faulty");
@@ -1587,6 +1864,7 @@ public class HistoryManagerTests
             () => throw new InvalidOperationException("Boom"),
             _sequenceGenerator,
             "Faulty");
+        faulty.FailureIsAtomic = true;
         faulty.Apply(new OperationExecutionContext(_root));
         manager.Record(faulty);
         manager.Commit("Faulty");
@@ -1630,7 +1908,7 @@ public class HistoryManagerTests
         pending.Apply(new OperationExecutionContext(_root));
         manager.Record(pending);
 
-        Assert.Throws<InvalidOperationException>(() => manager.JumpTo(0));
+        Assert.Throws<HistoryReplayException>(() => manager.JumpTo(0));
 
         // A subsequent commit must not include the pending operation.
         CreateValueOperation(manager, 50, 999, "After");
