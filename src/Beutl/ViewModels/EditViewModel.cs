@@ -423,7 +423,8 @@ public sealed partial class EditViewModel
             $"JumpTo({index})",
             null,
             null,
-            () => HistoryManager.WouldJumpToMove(index),
+            // A blocked jump still drains pending edits, so pause before that commit.
+            () => HistoryManager.HasPendingOperations || HistoryManager.WouldJumpToMove(index),
             () => HistoryManager.JumpTo(index));
     }
 
@@ -440,7 +441,8 @@ public sealed partial class EditViewModel
             "JumpTo",
             null,
             null,
-            () => IndexOf() is var index and >= 0 && HistoryManager.WouldJumpToMove(index),
+            () => HistoryManager.HasPendingOperations
+                  || IndexOf() is var index and >= 0 && HistoryManager.WouldJumpToMove(index),
             () => !cancellationToken.IsCancellationRequested
                   && IndexOf() is var index and >= 0 && HistoryManager.JumpTo(index));
     }
@@ -500,7 +502,8 @@ public sealed partial class EditViewModel
         catch (Exception ex)
         {
             _logger.LogError(ex, "{OperationName} failed.", operationName);
-            NotificationService.ShowError(Strings.History, Strings.History_OperationFailed);
+            NotificationService.ShowError(Strings.History,
+                ex is HistoryReplayException ? Strings.History_RestrictedAfterFailure : Strings.History_OperationFailed);
             return false;
         }
     }
