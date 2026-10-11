@@ -35,7 +35,6 @@ namespace Beutl.HeadlessUITests;
 public class TimelineClosedElementActionsTests
 {
     private const string TestVideoExtension = ".timeline-closed-video";
-    private static readonly TestVideoDecoder s_videoDecoder = new();
 
     [AvaloniaTest]
     public async Task Menu_paste_adds_the_copied_element_at_the_playhead_with_the_timeline_closed()
@@ -87,18 +86,26 @@ public class TimelineClosedElementActionsTests
         var adapter = new AnimatablePropertyAdapter<VideoSource?>((AnimatableProperty<VideoSource?>)video.Source, video);
         using var viewModel = new VideoSourceEditorViewModel(adapter);
         viewModel.Accept(new EditorServices(editor, element));
-
-        // What the video source editor does once a file is picked. The test video is 37 frames at 25 fps
-        // (1.48 s), which is not a whole number of frames at the project's 30 fps.
-        viewModel.SetValue(VideoSource.Open(CreateTestVideoFile()));
-        MediaSourceEditorHelper.MatchElementToOriginalDuration(viewModel);
-
-        Assert.Multiple(() =>
+        var decoder = new TestVideoDecoder();
+        DecoderRegistry.Register(decoder);
+        try
         {
-            Assert.That(video.Source.CurrentValue, Is.Not.Null);
-            Assert.That(element.Start, Is.EqualTo(TimeSpan.Zero));
-            Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(37d / 25).FloorToRate(30)));
-        });
+            // What the video source editor does once a file is picked. The test video is 37 frames at 25 fps
+            // (1.48 s), which is not a whole number of frames at the project's 30 fps.
+            viewModel.SetValue(VideoSource.Open(CreateTestVideoFile()));
+            MediaSourceEditorHelper.MatchElementToOriginalDuration(viewModel);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(video.Source.CurrentValue, Is.Not.Null);
+                Assert.That(element.Start, Is.EqualTo(TimeSpan.Zero));
+                Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(37d / 25).FloorToRate(30)));
+            });
+        }
+        finally
+        {
+            DecoderRegistry.Unregister(decoder);
+        }
     }
 
     [AvaloniaTest]
@@ -173,8 +180,6 @@ public class TimelineClosedElementActionsTests
 
     private static string CreateTestVideoFile()
     {
-        DecoderRegistry.Unregister(s_videoDecoder);
-        DecoderRegistry.Register(s_videoDecoder);
         string path = Path.Combine(BeutlHomeIsolation.CurrentHome!, $"replacement-{Guid.NewGuid():N}{TestVideoExtension}");
         File.WriteAllBytes(path, []);
         return path;
