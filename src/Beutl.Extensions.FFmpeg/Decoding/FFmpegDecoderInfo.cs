@@ -14,6 +14,7 @@ public sealed class FFmpegDecoderInfo : IDecoderInfo
     private readonly FFmpegDecodingSettings _settings;
     private readonly Func<IpcConnection> _connectToWorker;
     private readonly FFmpegReaderIdleTracker _idleTracker;
+    private readonly TimeSpan _requestTimeout;
 
     public FFmpegDecoderInfo(FFmpegDecodingSettings settings)
         : this(settings, () => FFmpegWorkerProcess.DecodingInstance.EnsureStarted(), FFmpegReaderIdleTracker.Shared)
@@ -21,11 +22,13 @@ public sealed class FFmpegDecoderInfo : IDecoderInfo
     }
 
     internal FFmpegDecoderInfo(
-        FFmpegDecodingSettings settings, Func<IpcConnection> connectToWorker, FFmpegReaderIdleTracker idleTracker)
+        FFmpegDecodingSettings settings, Func<IpcConnection> connectToWorker, FFmpegReaderIdleTracker idleTracker,
+        TimeSpan? requestTimeout = null)
     {
         _settings = settings;
         _connectToWorker = connectToWorker;
         _idleTracker = idleTracker;
+        _requestTimeout = requestTimeout ?? FFmpegWorkerRequests.DefaultTimeout;
     }
 
     public string Name => "FFmpeg Decoder";
@@ -52,7 +55,10 @@ public sealed class FFmpegDecoderInfo : IDecoderInfo
             return new FFmpegReaderProxy(
                 connection, response.ReaderId, response,
                 () => OpenOnWorker(file, options),
-                _idleTracker);
+                _idleTracker)
+            {
+                RequestTimeout = _requestTimeout,
+            };
         }
         catch (FFmpegLibrariesNotFoundException)
         {
@@ -85,8 +91,11 @@ public sealed class FFmpegDecoderInfo : IDecoderInfo
             ForceSrgbGamma = _settings.ForceSrgbGamma,
         };
 
-        var response = connection.RequestAsync<OpenFileRequest, OpenFileResponse>(
-            MessageType.OpenFile, MessageType.OpenFileResult, request).GetAwaiter().GetResult();
+        // Nothing uses a reader the worker opens after the time limit, so close it rather than leave its decoder
+        // in the worker.
+        var response = FFmpegWorkerRequests.Send<OpenFileRequest, OpenFileResponse>(
+            connection, MessageType.OpenFile, MessageType.OpenFileResult, request, _requestTimeout,
+            late => FFmpegWorkerRequests.CloseReader(connection, late.ReaderId, _requestTimeout));
 
         return (connection, response);
     }
