@@ -7,6 +7,7 @@ using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Serialization;
 using Beutl.Services.PrimitiveImpls;
+using Beutl.ViewModels.Tools;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 
@@ -439,13 +440,7 @@ public sealed class OutputPresetService
 
         if (existing != null)
         {
-            if (existing.PresetKey == null)
-            {
-                existing.PresetKey = presetKey;
-                return true;
-            }
-
-            return false;
+            return UpdateSavedPlatformPreset(existing, presetKey);
         }
 
         CodecRecord videoCodec = FindVideoCodec("libx264");
@@ -482,8 +477,39 @@ public sealed class OutputPresetService
             Codec = audioCodec
         };
 
-        _items.Add(CreateFFmpegPreset(vid, aud, name, presetKey));
+        OutputPresetItem item = CreateFFmpegPreset(vid, aud, name, presetKey);
+        MarkAsApplyingFrameSizeAndRates(item.Json);
+        _items.Add(item);
 
+        return true;
+    }
+
+    /// <summary>Brings a platform preset restored from the saved presets up to date, reporting whether it changed.</summary>
+    internal static bool UpdateSavedPlatformPreset(OutputPresetItem existing, string presetKey)
+    {
+        bool changed = false;
+        if (existing.PresetKey == null)
+        {
+            existing.PresetKey = presetKey;
+            changed = true;
+        }
+
+        // A platform preset saved before presets could apply their frame size and rates still promises them by name,
+        // so it gets the key that makes it apply them.
+        changed |= MarkAsApplyingFrameSizeAndRates(existing.Json);
+        return changed;
+    }
+
+    /// <summary>Makes a preset apply its frame size and rates, reporting whether it did not already.</summary>
+    private static bool MarkAsApplyingFrameSizeAndRates(JsonObject preset)
+    {
+        if (preset.TryGetPropertyValueAsJsonValue(OutputViewModel.AppliesFrameSizeAndRatesKey, out bool applies)
+            && applies)
+        {
+            return false;
+        }
+
+        preset[OutputViewModel.AppliesFrameSizeAndRatesKey] = true;
         return true;
     }
 

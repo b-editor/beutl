@@ -101,6 +101,67 @@ public class EncoderSettingsJsonTests
         });
     }
 
+    // A platform preset is named after what it applies: "YouTube 4K 60fps" applied to a 1920x1080, 30 fps output has
+    // to export 3840x2160 at 60 fps, with the two-second keyframe interval it was built for.
+    [Test]
+    public void PopulateVideoPreset_ThatAppliesFrameSizeAndRate_AppliesThemAndKeepsTheSourceSize()
+    {
+        var preset = new VideoEncoderSettings
+        {
+            SourceSize = new PixelSize(3840, 2160),
+            DestinationSize = new PixelSize(3840, 2160),
+            FrameRate = new Rational(60, 1),
+            Bitrate = 45_000_000,
+            KeyframeRate = 120
+        };
+        var target = new VideoEncoderSettings
+        {
+            SourceSize = new PixelSize(1920, 1080),
+            DestinationSize = new PixelSize(1920, 1080),
+            FrameRate = new Rational(30, 1),
+            Bitrate = 5_000_000,
+            KeyframeRate = 12
+        };
+
+        EncoderSettingsJson.PopulateVideoPreset(
+            target, EncoderSettingsJson.Serialize(preset)!, appliesFrameSizeAndRate: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(target.SourceSize, Is.EqualTo(new PixelSize(1920, 1080)));
+            Assert.That(target.DestinationSize, Is.EqualTo(new PixelSize(3840, 2160)));
+            Assert.That(target.FrameRate, Is.EqualTo(new Rational(60, 1)));
+            Assert.That(target.KeyframeRate, Is.EqualTo(120));
+            Assert.That(target.Bitrate, Is.EqualTo(preset.Bitrate));
+        });
+    }
+
+    [Test]
+    public void PopulateAudioPreset_ThatAppliesSampleRate_AppliesIt()
+    {
+        var preset = new AudioEncoderSettings
+        {
+            SampleRate = 48000,
+            Channels = 1,
+            Bitrate = 96_000
+        };
+        var target = new AudioEncoderSettings
+        {
+            SampleRate = 44100,
+            Channels = 2,
+            Bitrate = 128_000
+        };
+
+        EncoderSettingsJson.PopulateAudioPreset(target, EncoderSettingsJson.Serialize(preset)!, appliesSampleRate: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(target.SampleRate, Is.EqualTo(48000));
+            Assert.That(target.Channels, Is.EqualTo(preset.Channels));
+            Assert.That(target.Bitrate, Is.EqualTo(preset.Bitrate));
+        });
+    }
+
     [Test]
     public void PopulateAudioPreset_PreservesSampleRate()
     {
