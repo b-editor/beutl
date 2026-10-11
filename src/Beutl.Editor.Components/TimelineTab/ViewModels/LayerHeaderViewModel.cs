@@ -210,9 +210,15 @@ public sealed class LayerHeaderViewModel : IDisposable
         ResyncModel();
     }
 
-    internal void ResyncModel()
+    private void ResyncModel()
     {
         _model.Value = Timeline.Scene.Layers.FirstOrDefault(l => l.ZIndex == Number.Value);
+    }
+
+    // The timeline passes the model on this header's row whenever the models change rows.
+    internal void SetModel(TimelineLayer? model)
+    {
+        _model.Value = model;
     }
 
     private TimelineLayer GetOrCreateModel()

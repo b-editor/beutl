@@ -100,9 +100,15 @@ public sealed partial class TimelineTabViewModel
 
     private void ResyncLayerHeaderModels()
     {
+        // One lookup per pass, since a move rewrites the ZIndex of every layer it shifts, one at a time. The first
+        // model on a row wins, as in ResyncModel.
+        var modelsByRow = new Dictionary<int, TimelineLayer>();
+        foreach (TimelineLayer layer in Scene.Layers)
+            modelsByRow.TryAdd(layer.ZIndex, layer);
+
         // A snapshot: a header's new model must not be able to change the list under this loop.
         foreach (LayerHeaderViewModel header in LayerHeaders.ToArray())
-            header.ResyncModel();
+            header.SetModel(modelsByRow.GetValueOrDefault(header.Number.Value));
     }
 
     private void TryApplyLayerCount(int count)
