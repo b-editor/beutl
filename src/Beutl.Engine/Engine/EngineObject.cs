@@ -163,6 +163,9 @@ public class EngineObject : Hierarchical, INotifyEdited
 
         foreach (IProperty property in _properties)
         {
+            if (!IsAutoSerialized(property))
+                continue;
+
             property.DeserializeValue(context);
             if (property.IsAnimatable && animations?.TryGetValue(property.Name, out IAnimation? animation) == true)
             {
@@ -186,24 +189,34 @@ public class EngineObject : Hierarchical, INotifyEdited
             context.SetValue(nameof(ZIndex), ZIndex);
         }
 
-        Dictionary<string, IAnimation> animations = _properties
+        IProperty[] serialized = [.. _properties.Where(IsAutoSerialized)];
+
+        Dictionary<string, IAnimation> animations = serialized
             .Where(p => p is { IsAnimatable: true, Animation: not null })
             .ToDictionary(p => p.Name, p => p.Animation!);
 
         context.SetValue("Animations", animations);
 
-        Dictionary<string, JsonNode> expressions = _properties
+        Dictionary<string, JsonNode> expressions = serialized
             .Select(p => (Name: p.Name, Node: p.SerializeExpression()))
             .Where(p => p.Node is not null)
             .ToDictionary(p => p.Name, p => p.Node!);
 
         context.SetValue("Expressions", expressions);
 
-        foreach (IProperty property in _properties)
+        foreach (IProperty property in serialized)
         {
             property.SerializeValue(context);
         }
     }
+
+    /// <summary>Whether <paramref name="property"/> is saved with this object.</summary>
+    /// <remarks>
+    /// <see cref="NotAutoSerializedAttribute"/> means here what it means on a <see cref="CoreProperty"/>: the value
+    /// is state outside the document, such as an editor's, so it is neither written nor read back.
+    /// </remarks>
+    private static bool IsAutoSerialized(IProperty property)
+        => property.GetAttributes()?.Any(static attribute => attribute is NotAutoSerializedAttribute) != true;
 
     protected static void AffectsRender<T>(params CoreProperty[] properties)
         where T : EngineObject

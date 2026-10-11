@@ -162,6 +162,13 @@ public sealed class CoreObjectOperationObserver : IOperationObserver
                 continue;
             }
 
+            // As for a CoreProperty, [NotTracked] marks state that is not an edit, such as camera mode's gizmo
+            // selection, so changing it records nothing.
+            if (property.GetAttributes()?.Any(static attribute => attribute is NotTrackedAttribute) == true)
+            {
+                continue;
+            }
+
             string childPath = BuildPropertyPath(property.Name);
             var publisherType = typeof(EnginePropertyOperationObserver<>).MakeGenericType(property.ValueType);
             var publisher = (IOperationObserver)Activator.CreateInstance(
