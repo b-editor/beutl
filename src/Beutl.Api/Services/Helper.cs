@@ -14,6 +14,9 @@ namespace Beutl.Api.Services;
 
 internal static class Helper
 {
+    // The source PackageInstaller adds for the extracted packages in InstallPath.
+    public const string InstalledPackagesSourceName = "Beutl Installed Packages";
+
     public static readonly string AppRoot;
     public static readonly string LocalSourcePath;
     public static readonly string InstallPath;
@@ -65,10 +68,18 @@ internal static class Helper
 
             if (dependencyInfoResource == null) continue;
 
-            SourcePackageDependencyInfo dependencyInfo
-                = await dependencyInfoResource.ResolvePackage(
+            SourcePackageDependencyInfo dependencyInfo;
+            try
+            {
+                dependencyInfo = await dependencyInfoResource.ResolvePackage(
                     package, framework, cacheContext, logger, cancellationToken)
                         .ConfigureAwait(false);
+            }
+            catch (FatalProtocolException) when (sourceRepository.PackageSource.Name == InstalledPackagesSourceName)
+            {
+                // An unreadable archive in the install folder is a cache miss; another source may have the package.
+                continue;
+            }
 
             if (dependencyInfo == null) continue;
 
@@ -96,6 +107,10 @@ internal static class Helper
                     cancellationToken)
                     .ConfigureAwait(false);
             }
+
+            // The first source that has the package is the one used. Asking the remaining sources
+            // only adds requests, which fail when a remote source cannot be reached.
+            return;
         }
     }
 
