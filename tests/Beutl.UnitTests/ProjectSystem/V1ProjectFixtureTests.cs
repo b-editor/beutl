@@ -318,7 +318,11 @@ public class V1ProjectFixtureTests
             return null;
         }
 
-        return CoreSerializer.SerializeToJsonObject((ICoreSerializable)Activator.CreateInstance(type)!);
+        JsonObject json = CoreSerializer.SerializeToJsonObject((ICoreSerializable)Activator.CreateInstance(type)!);
+        // A new TextBlock takes the platform's default font (FontFamily.Default), which can be the font the
+        // fixture uses. Leaving the font family out of the baseline lists the restored one on every machine.
+        json.Remove("FontFamily");
+        return json;
     }
 
     // The value of the property named key on a live object, or null.
