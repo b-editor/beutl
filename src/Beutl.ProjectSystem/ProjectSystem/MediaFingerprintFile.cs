@@ -107,11 +107,13 @@ internal static class MediaFingerprintFile
         return result;
     }
 
-    // A hand edit or a merge can leave null where a fingerprint belongs, also among a model's dependencies at any
-    // depth. Loading skips such an entry like an unreadable file, so neither a save nor the repair tool meets a
-    // null; the next scan of the media hashes it again.
+    // A hand edit or a merge can leave null where a fingerprint belongs, or a fingerprint without a hash, also among
+    // a model's dependencies at any depth. Loading skips such an entry like an unreadable file: a save or the repair
+    // tool would meet the null, and an entry without a hash never matches, which is worse than none. The next scan
+    // of the media hashes it again.
     internal static bool IsComplete([NotNullWhen(true)] MediaFileFingerprint? fingerprint)
         => fingerprint is not null
+           && !string.IsNullOrEmpty(fingerprint.Sha256)
            && (fingerprint.Dependencies is not { } dependencies || dependencies.Values.All(IsComplete));
 
     // A save of the scene to sceneUri, through StoreToUri, before it writes the scene file.

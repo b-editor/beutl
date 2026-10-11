@@ -343,19 +343,35 @@ public class MediaFingerprintPersistenceTests
         });
     }
 
-    [TestCase(false)]
-    [TestCase(true)]
-    public async Task AFingerprintWithANullDependency_IsSkippedOnLoading_AndTheNextSaveRewritesTheFile(bool inSceneFile)
+    [TestCase(false, "null dependency")]
+    [TestCase(true, "null dependency")]
+    [TestCase(false, "null hash")]
+    [TestCase(true, "null hash")]
+    [TestCase(false, "empty hash")]
+    [TestCase(true, "empty hash")]
+    public async Task AnIncompleteFingerprint_IsSkippedOnLoading_AndTheNextSaveRewritesTheFile(bool inSceneFile, string gap)
     {
         (Scene scene, string media) = CreateSceneWithImage(_root);
         await new MissingMediaService().UpdateFingerprintsAsync(scene, force: true);
         CoreSerializer.StoreToUri(scene, scene.Uri!);
         string path = MediaFingerprintFile.GetPath(scene.Uri!.LocalPath);
-        // Valid JSON, as a hand edit or a merge can leave it: null for a model's dependency, directly and one level down.
+        // Valid JSON, as a hand edit or a merge can leave it: null for a model's dependency, or a fingerprint without
+        // a hash, directly and one level down.
+        (string direct, string nested) = gap switch
+        {
+            "null dependency" => (
+                """{"Length":1,"Sha256":"AA","Dependencies":{"direct.bin":null}}""",
+                """{"Length":2,"Sha256":"BB","Dependencies":{"nested.bin":{"Length":3,"Sha256":"CC","Dependencies":{"deeper.bin":null}}}}"""),
+            "null hash" => (
+                """{"Length":1,"Sha256":null}""",
+                """{"Length":2,"Sha256":"BB","Dependencies":{"nested.bin":{"Length":3,"Sha256":null}}}"""),
+            _ => (
+                """{"Length":1,"Sha256":""}""",
+                """{"Length":2,"Sha256":"BB","Dependencies":{"nested.bin":{"Length":3,"Sha256":""}}}"""),
+        };
         var fingerprints = (JsonObject)ReadFingerprints(path).DeepClone();
-        fingerprints["direct.gltf"] = JsonNode.Parse("""{"Length":1,"Sha256":"AA","Dependencies":{"direct.bin":null}}""");
-        fingerprints["nested.gltf"] = JsonNode.Parse(
-            """{"Length":2,"Sha256":"BB","Dependencies":{"nested.bin":{"Length":3,"Sha256":"CC","Dependencies":{"deeper.bin":null}}}}""");
+        fingerprints["direct.gltf"] = JsonNode.Parse(direct);
+        fingerprints["nested.gltf"] = JsonNode.Parse(nested);
         if (inSceneFile) WriteDevelopmentBuildScene(scene.Uri, fingerprints);
         else File.WriteAllText(path, new JsonObject { ["Version"] = 1, ["Fingerprints"] = fingerprints }.ToJsonString());
 
