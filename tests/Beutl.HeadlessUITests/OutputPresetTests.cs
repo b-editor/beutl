@@ -92,6 +92,30 @@ public sealed class OutputPresetTests
         });
     }
 
+    // Only settings carried over to a new file keep their output size. A new output, or another encoder, starts at
+    // the scene's size even when the encoder gives its settings an output size of its own.
+    [AvaloniaTest]
+    public async Task A_new_controller_starts_at_the_scene_size_whatever_the_encoder_default()
+    {
+        EditViewModel editor = await OpenEditor();
+        var sized = new TestEncoder(defaultSize: new PixelSize(640, 360));
+        using var output = new OutputViewModel(editor);
+        output.DestinationFile.Value = Path.Combine(Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!, "new.mp4");
+        output.SelectedEncoder.Value = sized;
+        PixelSize created = output.Controller.Value!.VideoSettings.DestinationSize;
+
+        output.SelectedEncoder.Value = new TestEncoder();
+        output.Controller.Value!.VideoSettings.DestinationSize = new PixelSize(1280, 720);
+        output.SelectedEncoder.Value = sized;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(created, Is.EqualTo(s_sceneSize), "a new output");
+            Assert.That(output.Controller.Value!.VideoSettings.DestinationSize, Is.EqualTo(s_sceneSize),
+                "another encoder");
+        });
+    }
+
     // The platform presets are saved with the user's own, so the ones saved before presets applied their frame size
     // and rates lack the key that says so. Restoring them adds it, once, and the restored preset then applies them.
     [AvaloniaTest]
@@ -164,16 +188,16 @@ public sealed class OutputPresetTests
         };
     }
 
-    private sealed class TestEncoder : ControllableEncodingExtension
+    private sealed class TestEncoder(PixelSize defaultSize = default) : ControllableEncodingExtension
     {
         public override IEnumerable<string> SupportExtensions() => [".mp4"];
 
-        public override EncodingController CreateController(string file) => new TestController(file);
+        public override EncodingController CreateController(string file) => new TestController(file, defaultSize);
     }
 
-    private sealed class TestController(string file) : EncodingController(file)
+    private sealed class TestController(string file, PixelSize defaultSize) : EncodingController(file)
     {
-        public override VideoEncoderSettings VideoSettings { get; } = new();
+        public override VideoEncoderSettings VideoSettings { get; } = new() { DestinationSize = defaultSize };
 
         public override AudioEncoderSettings AudioSettings { get; } = new();
 

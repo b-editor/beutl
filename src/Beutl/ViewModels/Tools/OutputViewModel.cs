@@ -69,6 +69,9 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                 Project? project = Model.FindHierarchicalParent<Project>();
                 controller.VideoSettings.FrameRate = new Rational(project.GetFrameRate(), 1);
                 controller.AudioSettings.SampleRate = project.GetSampleRate();
+                // A new controller starts at the scene's size, whatever default its encoder gives. Settings copied
+                // above, because only the destination changed, keep their output size like everything else.
+                controller.VideoSettings.DestinationSize = Model.FrameSize;
                 return controller;
             })
             .ToReadOnlyReactivePropertySlim()
@@ -81,11 +84,6 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                 if (s == null) return null;
 
                 s.SourceSize = Model.FrameSize;
-                // A new controller starts at the scene's size. Settings carried over because only the destination
-                // changed already have an output size, a custom one or a preset's, and keep it like everything else.
-                if (s.DestinationSize.Width <= 0 || s.DestinationSize.Height <= 0)
-                    s.DestinationSize = Model.FrameSize;
-
                 return new EncoderSettingsViewModel(s, _editViewModel.ExtensionProvider);
             })
             .DisposePreviousValue()

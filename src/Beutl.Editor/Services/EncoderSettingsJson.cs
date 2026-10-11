@@ -37,22 +37,25 @@ public static class EncoderSettingsJson
     /// <param name="json">The preset's video settings.</param>
     /// <param name="appliesFrameSizeAndRate">
     /// Whether the preset sets the output size and the frame rate, as a platform preset named after them does. When
-    /// it does not, both stay as they are. The source size always does, because it is the scene's frame size.
+    /// it does not, or when the preset fails to apply, both stay as they are. The source size always does, because
+    /// it is the scene's frame size.
     /// </param>
     public static void PopulateVideoPreset(VideoEncoderSettings settings, JsonObject json, bool appliesFrameSizeAndRate)
     {
         PixelSize sourceSize = settings.SourceSize;
         PixelSize destinationSize = settings.DestinationSize;
         Rational frameRate = settings.FrameRate;
+        bool applied = false;
 
         try
         {
             Populate(settings, json);
+            applied = true;
         }
         finally
         {
             settings.SourceSize = sourceSize;
-            if (!appliesFrameSizeAndRate)
+            if (!appliesFrameSizeAndRate || !applied)
             {
                 settings.DestinationSize = destinationSize;
                 settings.FrameRate = frameRate;
@@ -70,20 +73,22 @@ public static class EncoderSettingsJson
     /// <param name="settings">The settings to apply the preset to.</param>
     /// <param name="json">The preset's audio settings.</param>
     /// <param name="appliesSampleRate">
-    /// Whether the preset sets the sample rate, as a platform preset does. When it does not, the sample rate stays as
-    /// it is.
+    /// Whether the preset sets the sample rate, as a platform preset does. When it does not, or when the preset fails
+    /// to apply, the sample rate stays as it is.
     /// </param>
     public static void PopulateAudioPreset(AudioEncoderSettings settings, JsonObject json, bool appliesSampleRate)
     {
         int sampleRate = settings.SampleRate;
+        bool applied = false;
 
         try
         {
             Populate(settings, json);
+            applied = true;
         }
         finally
         {
-            if (!appliesSampleRate)
+            if (!appliesSampleRate || !applied)
                 settings.SampleRate = sampleRate;
         }
     }

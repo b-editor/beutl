@@ -162,6 +162,51 @@ public class EncoderSettingsJsonTests
         });
     }
 
+    // Bitrate is read after the output size and the frame rate, so a preset that fails there has already written
+    // both; a preset that does not apply leaves them as they were.
+    [Test]
+    public void PopulateVideoPreset_ThatAppliesFrameSizeAndRate_WhenPopulateThrows_KeepsThem()
+    {
+        var preset = new VideoEncoderSettings
+        {
+            DestinationSize = new PixelSize(3840, 2160),
+            FrameRate = new Rational(60, 1),
+        };
+        JsonObject json = EncoderSettingsJson.Serialize(preset)!;
+        json[nameof(VideoEncoderSettings.Bitrate)] = JsonValue.Create("invalid");
+        var target = new VideoEncoderSettings
+        {
+            SourceSize = new PixelSize(1920, 1080),
+            DestinationSize = new PixelSize(1920, 1080),
+            FrameRate = new Rational(30, 1),
+        };
+
+        Assert.That(
+            () => EncoderSettingsJson.PopulateVideoPreset(target, json, appliesFrameSizeAndRate: true),
+            Throws.Exception);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(target.SourceSize, Is.EqualTo(new PixelSize(1920, 1080)));
+            Assert.That(target.DestinationSize, Is.EqualTo(new PixelSize(1920, 1080)));
+            Assert.That(target.FrameRate, Is.EqualTo(new Rational(30, 1)));
+        });
+    }
+
+    [Test]
+    public void PopulateAudioPreset_ThatAppliesSampleRate_WhenPopulateThrows_KeepsIt()
+    {
+        JsonObject json = EncoderSettingsJson.Serialize(new AudioEncoderSettings { SampleRate = 48000 })!;
+        json[nameof(AudioEncoderSettings.Channels)] = JsonValue.Create("invalid");
+        var target = new AudioEncoderSettings { SampleRate = 44100 };
+
+        Assert.That(
+            () => EncoderSettingsJson.PopulateAudioPreset(target, json, appliesSampleRate: true),
+            Throws.Exception);
+
+        Assert.That(target.SampleRate, Is.EqualTo(44100));
+    }
+
     [Test]
     public void PopulateAudioPreset_PreservesSampleRate()
     {
