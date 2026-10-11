@@ -82,11 +82,20 @@ public partial class Scene3D : Drawable, IFlowOperator
     /// <summary>
     /// Gets the target object ID for gizmo visualization.
     /// </summary>
+    /// <remarks>
+    /// This is editor state that camera mode sets for the preview, not part of the scene: it is not saved,
+    /// edits to it are not recorded in history, and only a preview draws the gizmo, never an export.
+    /// </remarks>
+    [NotAutoSerialized]
+    [NotTracked]
     public IProperty<Guid?> GizmoTarget { get; } = Property.Create<Guid?>();
 
     /// <summary>
     /// Gets the gizmo visualization mode.
     /// </summary>
+    /// <remarks>Editor state, like <see cref="GizmoTarget"/>.</remarks>
+    [NotAutoSerialized]
+    [NotTracked]
     public IProperty<GizmoMode> GizmoMode { get; } = Property.Create(Gizmo.GizmoMode.None);
 
     protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
