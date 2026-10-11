@@ -297,6 +297,24 @@ public class FileSystemItemViewModel : IDisposable
         }
     }
 
+    // Reads the size and details of the listed files at or below the given paths again.
+    internal void ReloadDetailsAtOrBelow(IReadOnlyCollection<string> paths)
+    {
+        if (_disposed)
+            return;
+
+        if (!IsDirectory)
+        {
+            if (paths.Any(path => FilePathComparison.IsSameOrDescendantCanonicalPath(path, FullPath)))
+                _ = LoadMediaInfoAsync();
+        }
+        else if (_childrenLoaded && Children is not null)
+        {
+            foreach (FileSystemItemViewModel child in Children)
+                child.ReloadDetailsAtOrBelow(paths);
+        }
+    }
+
     private void AddPlaceholderIfNeeded()
     {
         try

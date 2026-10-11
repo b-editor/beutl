@@ -279,7 +279,10 @@ public sealed partial class FileBrowserTabViewModel
                 }
                 else if (Directory.Exists(localPath))
                 {
-                    if (!Directory.Exists(destPath))
+                    // A folder dropped onto one of the same name, such as one a canceled copy left,
+                    // gets only the files it is missing; nothing is overwritten. A folder dropped
+                    // where it already is has nothing to copy.
+                    if (!FilePathComparison.AreSameCanonicalPath(localPath, destPath))
                     {
                         FileCopyService.CopyDirectoryRecursive(localPath, destPath, CopyFile, cancellationToken);
                     }
@@ -428,12 +431,18 @@ public sealed partial class FileBrowserTabViewModel
             return;
 
         int failures;
+        (string LocalPath, bool IsDirectory)[] entries;
+        string? targetDir = null;
         using (fileWrite)
         using (var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_transferCancellation.Token))
         {
-            (string LocalPath, bool IsDirectory)[] entries = files.ToArray();
+            entries = files.ToArray();
             Task<int> work = Task.Run(
-                () => transfer(entries, getTargetDirectory(), cancellation.Token),
+                () =>
+                {
+                    targetDir = getTargetDirectory();
+                    return transfer(entries, targetDir, cancellation.Token);
+                },
                 CancellationToken.None);
             try
             {
@@ -445,6 +454,9 @@ public sealed partial class FileBrowserTabViewModel
                 failures = 1;
             }
         }
+
+        if (targetDir is not null && !_disposed)
+            ReloadTransferredItems(entries, targetDir);
 
         for (int i = 0; i < failures; i++)
         {
@@ -493,6 +505,23 @@ public sealed partial class FileBrowserTabViewModel
         {
             dismissal.Cancel();
         }
+    }
+
+    // The listing can show a file the transfer was still writing, with the size and details of the
+    // part written so far. The watcher keeps that item when only a project, scene or element file
+    // changed, so the transferred items read theirs again; the rest of the listing stays as it is.
+    private void ReloadTransferredItems(
+        IEnumerable<(string LocalPath, bool IsDirectory)> entries,
+        string targetDir)
+    {
+        string[] destinations = entries
+            .Select(entry => Path.GetFullPath(Path.Combine(targetDir, Path.GetFileName(entry.LocalPath))))
+            .ToArray();
+        IEnumerable<FileSystemItemViewModel> items = IsHomeView.Value
+            ? ProjectDirectoryItems.Concat(FavoriteItems)
+            : ViewMode.Value == FileBrowserViewMode.Tree ? TreeRootItems : Items;
+        foreach (FileSystemItemViewModel item in items)
+            item.ReloadDetailsAtOrBelow(destinations);
     }
 
     private static void CancelTransfer(CancellationTokenSource cancellation)
