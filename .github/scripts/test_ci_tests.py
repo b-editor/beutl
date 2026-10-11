@@ -1,3 +1,4 @@
+import os
 import re
 from pathlib import Path
 import tempfile
@@ -146,6 +147,47 @@ class CiTestsTests(unittest.TestCase):
                 process.side_effect = [subprocess_result(1), subprocess_result(0)]
                 self.assertEqual(ci_tests.run(root, "other", False), 1)
                 self.assertEqual(process.call_count, 2)
+
+    def test_only_skips_for_missing_ffmpeg_are_reported(self):
+        results = [
+            ("Fixture", "NotExecuted", "OneTimeSetUp: FFmpeg native libraries are not available."),
+            ("SetUp", "NotExecuted", "SetUp : FFmpeg worker binary not present in the test output; skipping."),
+            ("Worker", "NotExecuted", "FFmpeg natives unavailable (FFmpeg worker exited because the FFmpeg "
+                                      "libraries could not be found.); skipping the process-level contract test."),
+            ("Shared", "NotExecuted", "FFmpeg shared libraries unavailable; skipping the native-dependent assertion."),
+            ("Codec", "NotExecuted", "libx264 is not available."),
+            ("Platform", "NotExecuted", "Exercises Linux library discovery."),
+            ("Present", "NotExecuted", "An FFmpeg worker is available; missing-libraries path is unreachable."),
+            ("Failed", "Failed", "FFmpeg native libraries are not available."),
+        ]
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            (directory / "test.trx").write_text(trx(results))
+            self.assertEqual(ci_tests.ffmpeg_skips(directory), ["Fixture", "SetUp", "Worker", "Shared"])
+
+    def test_a_skip_for_missing_ffmpeg_fails_only_when_ffmpeg_is_required(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            assembly = root / "Beutl.FFmpegWorker.Tests.dll"
+            assembly.touch()
+            results = root / "TestResults" / "other" / assembly.stem
+            results.mkdir(parents=True)
+            (results / "test.trx").write_text(trx([("Encode", "NotExecuted", "FFmpeg native libraries are not available.")]))
+            for value, expected in [("1", 1), ("true", 1), ("0", 0), ("", 0)]:
+                with self.subTest(BEUTL_REQUIRE_FFMPEG=value), \
+                        patch.dict(os.environ, {"BEUTL_REQUIRE_FFMPEG": value}), \
+                        patch.object(ci_tests, "assemblies", return_value=[assembly]), \
+                        patch.object(ci_tests.subprocess, "run", return_value=subprocess_result(0)):
+                    self.assertEqual(ci_tests.run(root, "other", False), expected)
+
+
+def trx(results):
+    rows = "".join(
+        f'<UnitTestResult testName="{name}" outcome="{outcome}"><Output><StdOut>{message}</StdOut>'
+        f'<ErrorInfo><Message>{message}</Message></ErrorInfo></Output></UnitTestResult>'
+        for name, outcome, message in results)
+    return ('<TestRun xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010"><Results>'
+            f'{rows}</Results><ResultSummary><Counters total="{len(results)}" /></ResultSummary></TestRun>')
 
 
 def subprocess_result(returncode):

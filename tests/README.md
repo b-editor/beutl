@@ -26,6 +26,8 @@ Most projects under `tests/` are NUnit (+ Moq where needed); the exceptions are 
 
 `tests/Beutl.FFmpegWorker.Tests/` covers the GPL worker's direct in-process FFmpeg-calling types (e.g. `FFmpegEncodingController`). Because the worker is GPL-3.0 and MIT projects must not `ProjectReference` it, this project reaches those types by **source-linking** them (`<Compile Include>` under `BEUTL_FFMPEG_WORKER`), the same firewall-preserving pattern `Beutl.FFmpegBenchmarks` uses — never a `ProjectReference`. It is `IsPackable=false` (never distributed), and its native tests self-skip (`Assert.Ignore`) when the FFmpeg shared libraries are not available.
 
+CI's `other` suite, which runs `Beutl.FFmpegWorker.Tests` and `Beutl.FFmpegIpc.Tests`, installs the FFmpeg 8 shared libraries and sets `BEUTL_REQUIRE_FFMPEG=1`. `.github/scripts/ci_tests.py` then fails the suite when a test skips because FFmpeg is missing. It recognizes such a skip by its reason: "FFmpeg native…", "FFmpeg natives", "FFmpeg shared libraries" or "FFmpeg worker…", followed later by "unavailable", "not available" or "not present", as in "FFmpeg native libraries are not available.". Keep that wording for new FFmpeg-backed tests, and word other reasons, such as a missing encoder, differently.
+
 The interactive Avalonia previewers / sample apps no longer live here. The sample extension package `PackageSample` was moved out of `tests/` (and out of `Beutl.slnx`, so CI does not build it) and now lives under `samples/`. Running it launches a window; it is not a test harness.
 
 ## Vulkan validation gate
