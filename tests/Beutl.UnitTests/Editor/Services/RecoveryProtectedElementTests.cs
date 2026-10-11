@@ -2,6 +2,7 @@
 using Beutl.Editor;
 using Beutl.Editor.Services;
 using Beutl.Engine;
+using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
@@ -108,6 +109,30 @@ public class RecoveryProtectedElementTests
             Assert.That(outcome, Is.EqualTo(ObjectPasteOutcome.Pasted));
             Assert.That(element.Objects.Single(), Is.InstanceOf<RectShape>());
             Assert.That(element.SuppressedStorageSource, Is.Null);
+        });
+    }
+
+    [Test]
+    public void ReplacingTheUnavailableObject_WithContentThatCannotBeLoadedEither_IsRefused()
+    {
+        (Uri sceneUri, _) = CreateSceneWithMissingType();
+        Scene scene = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        Element element = scene.Children.Single();
+        EngineObject unavailable = element.Objects.Single();
+        using var harness = new HistoryHarness(scene);
+        var objects = new ElementObjectService(harness.History);
+        // A known top-level type whose effect comes from a plugin that is not installed.
+        JsonObject json = CoreSerializer.SerializeToJsonObject(new RectShape { FilterEffect = { CurrentValue = new Blur() } });
+        json[nameof(RectShape.FilterEffect)]!.AsObject()["$type"] = "[Missing.Plugin]Missing.Namespace:MissingEffect";
+
+        ObjectPasteOutcome outcome = objects.PasteOver(element, 0, json.ToJsonString());
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome, Is.EqualTo(ObjectPasteOutcome.NotEditable));
+            Assert.That(element.Objects.Single(), Is.SameAs(unavailable));
+            Assert.That(element.SuppressedStorageSource, Is.Not.Null);
+            Assert.That(harness.History.CanUndo, Is.False);
         });
     }
 

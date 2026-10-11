@@ -3,10 +3,12 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
+using Beutl.Animation;
 using Beutl.Editor.Components.ElementPropertyTab.ViewModels;
 using Beutl.Editor.Components.ElementPropertyTab.Views;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
@@ -26,6 +28,8 @@ using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Editors;
 using Beutl.Views;
+using Beutl.Views.Editors;
+using FluentAvalonia.UI.Controls;
 
 namespace Beutl.HeadlessUITests;
 
@@ -202,6 +206,151 @@ public sealed class RecoveryProtectedElementEditorTests
             Assert.That(saved.Objects.OfType<IFallback>(), Is.Empty);
         });
         await TestReset.ResetShellAsync();
+    }
+
+    // Removing an animation that holds an easing that could not be read repairs the element, so the
+    // property menu offers it although the property is otherwise read-only.
+    [AvaloniaTest]
+    public async Task Property_menu_offers_removing_the_animation_that_holds_an_unreadable_easing()
+    {
+        string projectPath = await CreateProjectWithUnreadableEasing("recovery-easing");
+        EditViewModel editor = await OpenProjectAsync(projectPath);
+        Element element = editor.Scene.Children.Single();
+        var shape = (RectShape)element.Objects.Single();
+        Assert.That(element.SuppressedStorageSource, Is.Not.Null);
+        using var tab = new ElementPropertyTabViewModel(editor);
+        tab.Element.Value = element;
+        HeadlessTestHelpers.Settle();
+        NumberEditorViewModel<float> width = NumberEditor(tab, shape.Width);
+        NumberEditorViewModel<float> height = NumberEditor(tab, shape.Height);
+        var widthMenu = new PropertyEditorMenu { DataContext = width };
+        var heightMenu = new PropertyEditorMenu { DataContext = height };
+        var window = new Window
+        {
+            Width = 320,
+            Height = 260,
+            Content = new StackPanel { Children = { widthMenu, heightMenu } },
+        };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            Button widthButton = widthMenu.GetVisualDescendants().OfType<Button>().First();
+            Button heightButton = heightMenu.GetVisualDescendants().OfType<Button>().First();
+            // On a read-only property the button opens the menu instead of editing keyframes.
+            Click(window, heightButton);
+            bool healthyOffered = MenuItem(heightButton, "removeAnimationItem").IsEnabled;
+            heightButton.ContextFlyout!.Hide();
+            HeadlessTestHelpers.Settle();
+            Click(window, widthButton);
+            FAMenuFlyoutItem removeAnimation = MenuItem(widthButton, "removeAnimationItem");
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(width.CanEditProperty.Value, Is.False);
+                Assert.That(removeAnimation.IsEnabled, Is.True);
+                Assert.That(MenuItem(widthButton, "editAnimationItem").IsEnabled, Is.False);
+                Assert.That(healthyOffered, Is.False, "Removing a healthy animation would not be saved.");
+            });
+            SaveFrame(window, "recovery-remove-animation-dark.png", ThemeVariant.Dark);
+            SaveFrame(window, "recovery-remove-animation-light.png", ThemeVariant.Light);
+
+            element.IsLocked = true;
+            HeadlessTestHelpers.Settle();
+            bool offeredWhileLocked = removeAnimation.IsEnabled;
+            element.IsLocked = false;
+            HeadlessTestHelpers.Settle();
+            removeAnimation.RaiseEvent(new RoutedEventArgs(FAMenuFlyoutItem.ClickEvent));
+            HeadlessTestHelpers.Settle();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(offeredWhileLocked, Is.False, "The user's lock still wins.");
+                Assert.That(shape.Width.Animation, Is.Null);
+                Assert.That(shape.Height.Animation, Is.Not.Null);
+                Assert.That(element.SuppressedStorageSource, Is.Null);
+            });
+        }
+        finally
+        {
+            window.Close();
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    // Saves a project with one clip holding a rectangle whose width and height are animated, then
+    // rewrites the easing of one width keyframe in the clip's file to a type from an assembly that is
+    // not loaded, as when the plugin that provides it is not installed.
+    private static async Task<string> CreateProjectWithUnreadableEasing(string name)
+    {
+        await TestReset.ResetShellAsync();
+        string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, $"{name}-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(location);
+        Project project = (await TestShell.Project.CreateProject(640, 480, 30, 44100, name, location))!;
+        Scene scene = project.Items.OfType<Scene>().Single();
+        TestShell.Editor.ActivateTabItem(scene);
+        HeadlessTestHelpers.Settle();
+        var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+        var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
+        await adder.AddAsync([new ElementDescription(TimeSpan.Zero, TimeSpan.FromSeconds(2), 0,
+            new ElementSource.EngineObject(() => new RectShape()))], CancellationToken.None);
+        Element element = scene.Children.Single();
+        element.Name = ElementName;
+        var shape = (RectShape)element.Objects.Single();
+        var unreadable = new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 200 };
+        var widthAnimation = new KeyFrameAnimation<float>();
+        widthAnimation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100 });
+        widthAnimation.KeyFrames.Add(unreadable);
+        shape.Width.Animation = widthAnimation;
+        var heightAnimation = new KeyFrameAnimation<float>();
+        heightAnimation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 50 });
+        heightAnimation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 80 });
+        shape.Height.Animation = heightAnimation;
+        await editor.SaveAsync();
+        string projectPath = project.Uri!.LocalPath;
+        string elementPath = element.Uri!.LocalPath;
+        await TestReset.ResetShellAsync();
+
+        JsonObject json = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
+        FindById(json, unreadable.Id)![nameof(KeyFrame.Easing)] = "[Missing.Plugin]Missing.Namespace:MissingEasing";
+        File.WriteAllText(elementPath, json.ToJsonString());
+        return projectPath;
+    }
+
+    private static JsonObject? FindById(JsonNode? node, Guid id)
+    {
+        switch (node)
+        {
+            case JsonObject obj:
+                if (obj[nameof(CoreObject.Id)] is JsonValue value
+                    && value.TryGetValue(out string? text)
+                    && Guid.TryParse(text, out Guid parsed)
+                    && parsed == id)
+                {
+                    return obj;
+                }
+
+                return obj.Select(pair => FindById(pair.Value, id)).FirstOrDefault(found => found != null);
+            case JsonArray array:
+                return array.Select(item => FindById(item, id)).FirstOrDefault(found => found != null);
+            default:
+                return null;
+        }
+    }
+
+    private static NumberEditorViewModel<float> NumberEditor(ElementPropertyTabViewModel tab, IProperty property)
+        => Editors(tab.Items[0].Properties).OfType<NumberEditorViewModel<float>>()
+            .Single(p => ReferenceEquals(p.PropertyAdapter.GetEngineProperty(), property));
+
+    private static FAMenuFlyoutItem MenuItem(Button button, string name)
+        => ((FAMenuFlyout)button.ContextFlyout!).Items.OfType<FAMenuFlyoutItem>().Single(item => item.Name == name);
+
+    private static void Click(Window window, Control control)
+    {
+        Point center = control.TranslatePoint(new Point(control.Bounds.Width / 2, control.Bounds.Height / 2), window)!.Value;
+        window.MouseDown(center, MouseButton.Left);
+        window.MouseUp(center, MouseButton.Left);
+        HeadlessTestHelpers.Settle();
     }
 
     // Saves a project with one clip holding a rectangle with a blur, an ellipse and a second rectangle,

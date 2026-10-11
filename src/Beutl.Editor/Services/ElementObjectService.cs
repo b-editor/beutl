@@ -95,6 +95,11 @@ public sealed class ElementObjectService : IElementObjectService
             if (obj is null) return ObjectPasteOutcome.MissingType;
 
             CoreSerializer.PopulateFromJsonObject(obj, type, newJson);
+            // A replacement that still holds what could not be loaded never completes the repair, so
+            // the element would keep its original file and the paste would be lost on save.
+            if (element.IsRecoveryProtected && Scene.HoldsRecoveryBlocker(obj))
+                return ObjectPasteOutcome.NotEditable;
+
             element.Objects[index] = obj;
             ElementRecoveryService.TryCompleteRepair(element, _historyManager);
 

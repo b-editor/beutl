@@ -203,7 +203,9 @@ public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICore
 
     public void SetTarget(CoreObject? target)
     {
-        if (!CanReplace(Value.Value)) return;
+        if (IsDisposed) return;
+        // A kept presenter has only its target replaced, so check that rather than the whole value.
+        if (!CanReplace(Value.Value is IPresenter<T> kept ? kept.Target.CurrentValue : Value.Value)) return;
 
         if (Value.Value is not IPresenter<T> presenter)
         {

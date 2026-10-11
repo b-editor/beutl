@@ -238,36 +238,40 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
         }
     }
 
+    // These check the part they replace, not the whole brush: replacing the drawable while the brush's
+    // transform could not be loaded leaves the element protected, so that change would not be saved.
     public void ChangeDrawableType(Type type)
     {
-        if (!CanReplace(Value.Value)) return;
-        if (Value.Value is Media.DrawableBrush drawable)
+        if (IsDisposed || Value.Value is not Media.DrawableBrush drawable) return;
+        if (!CanReplace(drawable.Drawable.CurrentValue)) return;
+        if (Activator.CreateInstance(type) is Drawable instance)
         {
-            if (Activator.CreateInstance(type) is Drawable instance)
-            {
-
-                drawable.Drawable.CurrentValue = instance;
-                CompleteElementRepair();
-                Commit();
-            }
-        }
-    }
-
-    public void SetTarget(Brush? target)
-    {
-        if (!CanReplace(Value.Value)) return;
-        if (Value.Value is IPresenter<Brush> presenter)
-        {
-            PresenterEditorHelper.AssignTarget(presenter, target);
+            drawable.Drawable.CurrentValue = instance;
             CompleteElementRepair();
             Commit();
         }
     }
 
+    public void SetTarget(Brush? target)
+    {
+        if (IsDisposed || Value.Value is not IPresenter<Brush> presenter) return;
+        if (!CanReplace(presenter.Target.CurrentValue)) return;
+        PresenterEditorHelper.AssignTarget(presenter, target);
+        CompleteElementRepair();
+        Commit();
+    }
+
     public void SetDrawableTarget(Drawable? target)
     {
-        if (!CanReplace(Value.Value)) return;
-
+        if (IsDisposed) return;
+        // A kept brush has only its drawable, or the target of its drawable presenter, replaced.
+        object? replaced = Value.Value switch
+        {
+            DrawableBrush { Drawable.CurrentValue: DrawablePresenter current } => current.Target.CurrentValue,
+            DrawableBrush kept => kept.Drawable.CurrentValue,
+            var brush => brush,
+        };
+        if (!CanReplace(replaced)) return;
 
         if (Value.Value is not DrawableBrush drawableBrush)
         {

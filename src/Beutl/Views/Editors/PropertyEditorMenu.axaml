@@ -42,15 +42,9 @@
                                    Click="EditInlineAnimation_Click"
                                    Text="{x:Static lang:Strings.EditAnimationInInlineView}" />
                 <ui:FAMenuFlyoutItem x:Name="removeAnimationItem"
+                                   IsEnabled="{Binding CanRemoveAnimation.Value}"
                                    Click="RemoveAnimation_Click"
-                                   Text="{x:Static lang:Strings.RemoveAnimation}">
-                    <ui:FAMenuFlyoutItem.IsEnabled>
-                        <MultiBinding Converter="{x:Static BoolConverters.And}">
-                            <Binding Path="CanEditProperty.Value" />
-                            <Binding Path="HasAnimation.Value" />
-                        </MultiBinding>
-                    </ui:FAMenuFlyoutItem.IsEnabled>
-                </ui:FAMenuFlyoutItem>
+                                   Text="{x:Static lang:Strings.RemoveAnimation}" />
                 <ui:FAToggleMenuFlyoutItem x:Name="toggleLivePreview"
                                          IsChecked="{ReflectionBinding IsLivePreviewEnabled.Value,
                                                                        Mode=TwoWay}"
