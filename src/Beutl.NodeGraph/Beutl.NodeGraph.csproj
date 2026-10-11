@@ -9,6 +9,7 @@
     <ProjectReference Include="..\Beutl.Engine.SourceGenerators\Beutl.Engine.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="Avalonia.Skia" />
     <InternalsVisibleTo Include="Beutl" />
     <InternalsVisibleTo Include="Beutl.Editor.Components" />
     <InternalsVisibleTo Include="Beutl.UnitTests" />

@@ -7,6 +7,7 @@
   <ItemGroup>
     <!-- Development-only: the ClrMD unload diagnostics are compiled and wired under DEBUG only, so keep the heavy
          Microsoft.Diagnostics.Runtime dependency (and its transitive diagnostics packages) out of Release. -->
+    <PackageReference Include="Avalonia.Skia" />
     <PackageReference Include="Microsoft.Diagnostics.Runtime" Condition="'$(Configuration)' == 'Debug'" />
     <PackageReference Include="Microsoft.Extensions.DependencyModel" />
     <PackageReference Include="Nito.AsyncEx" />
