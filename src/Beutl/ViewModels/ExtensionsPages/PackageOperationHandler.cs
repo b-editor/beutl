@@ -130,7 +130,9 @@ internal class PackageOperationHandler
     }
 
     // Replaces the installed version, or queues the update for the next launch when that fails.
-    // downloadAndLoad runs after the old version has been unloaded and deleted.
+    // downloadAndLoad runs after the old version has been unloaded. It installs the new version next
+    // to the old one and activates it; only then are the old version's files removed, so a failed
+    // download, verification or activation leaves the old version installed.
     public async Task UpdateOrQueueAsync(
         string packageName,
         PackageIdentity packageId,
@@ -138,7 +140,9 @@ internal class PackageOperationHandler
         ILogger logger,
         CancellationToken cancellationToken)
     {
-        bool oldVersionRemoved = false;
+        // Activation replaces the old registration, so note now which versions it replaces.
+        PackageIdentity[] oldVersions =
+            [.. _installedPackageRepository.GetLocalPackages(packageName).Where(version => !version.Equals(packageId))];
         try
         {
             if (!await UnloadPackages(packageName))
@@ -147,20 +151,11 @@ internal class PackageOperationHandler
                     $"Package '{packageName}' could not be unloaded safely.");
             }
 
-            DeleteOldVersionFiles(packageName);
-            oldVersionRemoved = true;
-
             await downloadAndLoad(cancellationToken);
-            PackageNotifications.Updated(packageId.Id);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            if (oldVersionRemoved)
-            {
-                // The old version is gone; queue the update for the next launch.
-                _queue.InstallQueue(packageId);
-            }
-
+            // The old version is still installed, so there is nothing to queue.
             throw;
         }
         catch (Exception ex)
@@ -168,7 +163,11 @@ internal class PackageOperationHandler
             logger.LogWarning(ex, "Immediate update failed, falling back to queue.");
             _queue.InstallQueue(packageId);
             PackageNotifications.ScheduledUpdate(packageId.Id);
+            return;
         }
+
+        DeleteOldVersionFiles(oldVersions, logger);
+        PackageNotifications.Updated(packageId.Id);
     }
 
     private async Task ActivateInstalledPackageAsync(PackageIdentity packageId, CancellationToken cancellationToken)
@@ -251,15 +250,25 @@ internal class PackageOperationHandler
         return UninstallWithFallback(packageName);
     }
 
-    public void DeleteOldVersionFiles(string packageName)
+    // Removes the versions an update replaced. The new version is already installed and registered,
+    // so a version that cannot be removed only leaves files behind for a later clean-up.
+    private void DeleteOldVersionFiles(IEnumerable<PackageIdentity> versions, ILogger logger)
     {
-        foreach (PackageIdentity item in _installedPackageRepository.GetLocalPackages(packageName))
+        foreach (PackageIdentity item in versions)
         {
-            string directory = Helper.ResolveInstalledDirectory(item);
-            if (Directory.Exists(directory))
+            try
             {
-                PackageUninstallContext ctx = _packageInstaller.PrepareForUninstall(directory);
-                _packageInstaller.Uninstall(ctx, new Progress<double>());
+                string directory = Helper.ResolveInstalledDirectory(item);
+                if (Directory.Exists(directory))
+                {
+                    PackageUninstallContext ctx = _packageInstaller.PrepareForUninstall(directory);
+                    _packageInstaller.Uninstall(ctx, new Progress<double>());
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to remove {PackageId} {PackageVersion} after the update.",
+                    item.Id, item.Version);
             }
         }
     }
