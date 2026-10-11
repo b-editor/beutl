@@ -30,14 +30,15 @@ public class BufferedPlayerReadAheadTests
         long frameBytes = ReadAheadBudget.SnapshotBytes(editor.Renderer.Value.DeviceSize);
         using var isPlaying = new ReactivePropertySlim<bool>(true);
         using var player = new BufferedPlayer(
-            editor, editor.Scene, isPlaying, editor.Player.GetFrameRate(), CancellationToken.None)
+            editor, isPlaying, editor.Player.GetFrameRate(), CancellationToken.None)
         {
             ReadAheadBytes = frameBytes * BudgetFrames,
         };
 
         try
         {
-            player.Start();
+            player.Start(PlaybackRange.From(
+                TimeSpan.Zero, editor.Scene.Start, editor.Scene.Duration, editor.Player.GetFrameRate()));
             await WaitUntilAsync(() => QueuedFrames(player) >= BudgetFrames, TimeSpan.FromSeconds(20));
 
             // Nothing consumes the queue, so a producer that ignored the budget would keep rendering.

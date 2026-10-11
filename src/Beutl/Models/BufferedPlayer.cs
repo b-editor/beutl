@@ -4,9 +4,7 @@ using Beutl.Helpers;
 using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Source;
-using Beutl.ProjectSystem;
 using Beutl.ViewModels;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 
@@ -20,8 +18,6 @@ internal sealed class BufferedPlayer : IPlayer
     private readonly ILogger _logger = Log.CreateLogger<BufferedPlayer>();
     private readonly ConcurrentQueue<IPlayer.Frame> _queue = new();
     private readonly EditViewModel _editViewModel;
-    private readonly IEditorClock _editorClock;
-    private readonly Scene _scene;
     private readonly IReadOnlyReactiveProperty<bool> _isPlaying;
     private readonly CancellationToken _playbackToken;
     private readonly int _rate;
@@ -51,13 +47,11 @@ internal sealed class BufferedPlayer : IPlayer
     private bool ShouldStopProducing => IsCanceled || !_isPlaying.Value;
 
     public BufferedPlayer(
-        EditViewModel editViewModel, Scene scene,
+        EditViewModel editViewModel,
         IReactiveProperty<bool> isPlaying, int rate,
         CancellationToken playbackToken)
     {
         _editViewModel = editViewModel;
-        _editorClock = editViewModel.GetRequiredService<IEditorClock>();
-        _scene = scene;
         _isPlaying = isPlaying;
         _rate = rate;
         _playbackToken = playbackToken;
@@ -71,10 +65,10 @@ internal sealed class BufferedPlayer : IPlayer
         });
     }
 
-    public void Start()
+    // The caller computes the range once, from the playhead it starts the ticker and the audio from.
+    public void Start(PlaybackRange range)
     {
-        int startFrame = (int)_editorClock.CurrentTime.Value.ToFrameNumber(_rate);
-        int durationFrame = (int)Math.Ceiling(_scene.Duration.ToFrameNumber(_rate));
+        (int startFrame, int endFrame) = range;
 
         RenderThread.Dispatcher.Dispatch(() =>
         {
@@ -88,9 +82,7 @@ internal sealed class BufferedPlayer : IPlayer
                 if (IsCanceled)
                     return;
 
-                _logger.LogInformation("Start rendering from frame {StartFrame} to {DurationFrame}", startFrame,
-                    durationFrame);
-                int endFrame = (int)_scene.Start.ToFrameNumber(_rate) + durationFrame;
+                _logger.LogInformation("Start rendering from frame {StartFrame} to {EndFrame}", startFrame, endFrame);
                 for (; frame < endFrame; frame++)
                 {
                     if (ShouldStopProducing)

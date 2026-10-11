@@ -9,7 +9,7 @@ internal interface IPlayer : IDisposable
 
     bool ProducerStopped { get; }
 
-    void Start();
+    void Start(PlaybackRange range);
 
     bool TryDequeue(out Frame frame);
 }
