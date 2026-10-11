@@ -239,37 +239,43 @@ public partial class ParticleEmitter : Drawable
 
             var emitter = (ParticleEmitter)obj;
 
-            var versionBefore = Version;
-            ResourceReconciler.ReconcileValue(this, context, emitter.Seed, ref _seed, ref versionBumped);
-            ResourceReconciler.ReconcileValue(this, context, emitter.EmitterShape, ref _emitterShape, ref versionBumped);
-            ResourceReconciler.ReconcileValue(this, context, emitter.EmitterWidth, ref _emitterWidth, ref versionBumped);
-            ResourceReconciler.ReconcileValue(this, context, emitter.EmitterHeight, ref _emitterHeight, ref versionBumped);
-            ResourceReconciler.ReconcileValue(this, context, emitter.MaxParticles, ref _maxParticles, ref versionBumped);
-            ResourceReconciler.ReconcileValue(this, context, emitter.PrewarmDuration, ref _prewarmDuration, ref versionBumped);
-            ResourceReconciler.ReconcileValue(this, context, emitter.EmissionRate, ref _emissionRate, ref versionBumped);
-            ResourceReconciler.ReconcileValue(this, context, emitter.Lifetime, ref _lifetime, ref versionBumped);
-            ResourceReconciler.ReconcileValue(this, context, emitter.LifetimeRandom, ref _lifetimeRandom, ref versionBumped);
-            ResourceReconciler.ReconcileValue(this, context, emitter.Speed, ref _speed, ref versionBumped);
-            ResourceReconciler.ReconcileValue(this, context, emitter.SpeedRandom, ref _speedRandom, ref versionBumped);
-            ResourceReconciler.ReconcileValue(this, context, emitter.Direction, ref _direction, ref versionBumped);
-            ResourceReconciler.ReconcileValue(this, context, emitter.Spread, ref _spread, ref versionBumped);
-            ResourceReconciler.ReconcileValue(this, context, emitter.Gravity, ref _gravity, ref versionBumped);
-            ResourceReconciler.ReconcileValue(this, context, emitter.AirResistance, ref _airResistance, ref versionBumped);
-            ResourceReconciler.ReconcileValue(this, context, emitter.TurbulenceStrength, ref _turbulenceStrength, ref versionBumped);
-            ResourceReconciler.ReconcileValue(this, context, emitter.TurbulenceScale, ref _turbulenceScale, ref versionBumped);
-            ResourceReconciler.ReconcileValue(this, context, emitter.TurbulenceSpeed, ref _turbulenceSpeed, ref versionBumped);
-            ResourceReconciler.ReconcileValue(this, context, emitter.ParticleSize, ref _particleSize, ref versionBumped);
-            ResourceReconciler.ReconcileValue(this, context, emitter.SizeRandom, ref _sizeRandom, ref versionBumped);
-            ResourceReconciler.ReconcileValue(this, context, emitter.ParticleColor, ref _color, ref versionBumped);
-            ResourceReconciler.ReconcileValue(this, context, emitter.ParticleOpacity, ref _particleOpacity, ref versionBumped);
-            ResourceReconciler.ReconcileValue(this, context, emitter.InitialRotation, ref _initialRotation, ref versionBumped);
-            ResourceReconciler.ReconcileValue(this, context, emitter.InitialRotationRandom, ref _initialRotationRandom, ref versionBumped);
-            ResourceReconciler.ReconcileValue(this, context, emitter.AngularVelocity, ref _angularVelocity, ref versionBumped);
-            ResourceReconciler.ReconcileValue(this, context, emitter.EndSizeMultiplier, ref _endSizeMultiplier, ref versionBumped);
-            ResourceReconciler.ReconcileValue(this, context, emitter.EndOpacityMultiplier, ref _endOpacityMultiplier, ref versionBumped);
-            ResourceReconciler.ReconcileValue(this, context, emitter.EndColor, ref _endColor, ref versionBumped);
-            ResourceReconciler.ReconcileValue(this, context, emitter.UseEndColor, ref _useEndColor, ref versionBumped);
-            var paramChanged = versionBefore != Version;
+            // Base properties may have already bumped the render version. Track simulation changes separately.
+            bool parametersChanged = false;
+            ReconcileParameter(context, emitter.Seed, ref _seed, ref parametersChanged);
+            ReconcileParameter(context, emitter.EmitterShape, ref _emitterShape, ref parametersChanged);
+            ReconcileParameter(context, emitter.EmitterWidth, ref _emitterWidth, ref parametersChanged);
+            ReconcileParameter(context, emitter.EmitterHeight, ref _emitterHeight, ref parametersChanged);
+            ReconcileParameter(context, emitter.MaxParticles, ref _maxParticles, ref parametersChanged);
+            ReconcileParameter(context, emitter.PrewarmDuration, ref _prewarmDuration, ref parametersChanged);
+            ReconcileParameter(context, emitter.EmissionRate, ref _emissionRate, ref parametersChanged);
+            ReconcileParameter(context, emitter.Lifetime, ref _lifetime, ref parametersChanged);
+            ReconcileParameter(context, emitter.LifetimeRandom, ref _lifetimeRandom, ref parametersChanged);
+            ReconcileParameter(context, emitter.Speed, ref _speed, ref parametersChanged);
+            ReconcileParameter(context, emitter.SpeedRandom, ref _speedRandom, ref parametersChanged);
+            ReconcileParameter(context, emitter.Direction, ref _direction, ref parametersChanged);
+            ReconcileParameter(context, emitter.Spread, ref _spread, ref parametersChanged);
+            ReconcileParameter(context, emitter.Gravity, ref _gravity, ref parametersChanged);
+            ReconcileParameter(context, emitter.AirResistance, ref _airResistance, ref parametersChanged);
+            ReconcileParameter(context, emitter.TurbulenceStrength, ref _turbulenceStrength, ref parametersChanged);
+            ReconcileParameter(context, emitter.TurbulenceScale, ref _turbulenceScale, ref parametersChanged);
+            ReconcileParameter(context, emitter.TurbulenceSpeed, ref _turbulenceSpeed, ref parametersChanged);
+            ReconcileParameter(context, emitter.ParticleSize, ref _particleSize, ref parametersChanged);
+            ReconcileParameter(context, emitter.SizeRandom, ref _sizeRandom, ref parametersChanged);
+            ReconcileParameter(context, emitter.ParticleColor, ref _color, ref parametersChanged);
+            ReconcileParameter(context, emitter.ParticleOpacity, ref _particleOpacity, ref parametersChanged);
+            ReconcileParameter(context, emitter.InitialRotation, ref _initialRotation, ref parametersChanged);
+            ReconcileParameter(context, emitter.InitialRotationRandom, ref _initialRotationRandom, ref parametersChanged);
+            ReconcileParameter(context, emitter.AngularVelocity, ref _angularVelocity, ref parametersChanged);
+            ReconcileParameter(context, emitter.EndSizeMultiplier, ref _endSizeMultiplier, ref parametersChanged);
+            ReconcileParameter(context, emitter.EndOpacityMultiplier, ref _endOpacityMultiplier, ref parametersChanged);
+            ReconcileParameter(context, emitter.EndColor, ref _endColor, ref parametersChanged);
+            ReconcileParameter(context, emitter.UseEndColor, ref _useEndColor, ref parametersChanged);
+
+            if (parametersChanged)
+            {
+                BumpVersion(ref versionBumped);
+                _simulator.InvalidateCache();
+            }
 
             // Update particle drawable resource
             ResourceReconciler.ReconcileChild(this, context, emitter.ParticleDrawable, ref _particleDrawable, ref versionBumped);
@@ -281,11 +287,6 @@ public partial class ParticleEmitter : Drawable
             {
                 // Keep the original composition clock for animated properties and the particle drawable.
                 _time += Math.Max(0, _prewarmDuration.TotalSeconds);
-            }
-
-            if (paramChanged)
-            {
-                _simulator.InvalidateCache();
             }
 
             // Run simulation
@@ -326,6 +327,14 @@ public partial class ParticleEmitter : Drawable
             {
                 Version++;
             }
+        }
+
+        private static void ReconcileParameter<TValue>(
+            CompositionContext context, IProperty<TValue> property, ref TValue field, ref bool parametersChanged)
+        {
+            TValue newValue = context.Get(property);
+            parametersChanged = parametersChanged || !EqualityComparer<TValue>.Default.Equals(newValue, field);
+            field = newValue;
         }
 
         protected override void Dispose(bool disposing)
