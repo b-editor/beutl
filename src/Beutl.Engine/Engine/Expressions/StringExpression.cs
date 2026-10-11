@@ -1,9 +1,13 @@
 ﻿using System.Diagnostics.CodeAnalysis;
+using Beutl.Scripting;
 using Microsoft.CodeAnalysis.CSharp.Scripting;
 using Microsoft.CodeAnalysis.Scripting;
 
 namespace Beutl.Engine.Expressions;
 
+/// <summary>
+/// Evaluates a C# expression synchronously. Scripts containing <c>await</c> are rejected during validation.
+/// </summary>
 public sealed class StringExpression<T> : IExpression<T>
 {
     private static readonly ScriptOptions s_scriptOptions = CreateScriptOptions();
@@ -55,12 +59,11 @@ public sealed class StringExpression<T> : IExpression<T>
                 s_scriptOptions,
                 typeof(ExpressionGlobals));
 
-            var diagnostics = script.Compile();
-            var errors = diagnostics.Where(d => d.Severity == Microsoft.CodeAnalysis.DiagnosticSeverity.Error).ToList();
+            var errors = SynchronousScriptCompiler.GetErrors(script);
 
             if (errors.Count > 0)
             {
-                return new ParseResult(null, string.Join(Environment.NewLine, errors.Select(e => e.GetMessage())));
+                return new ParseResult(null, string.Join(Environment.NewLine, errors));
             }
             else
             {

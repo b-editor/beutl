@@ -4,7 +4,7 @@ using Beutl.Engine;
 using Beutl.Graphics.Shaders;
 using Beutl.Language;
 using Beutl.Logging;
-using Microsoft.CodeAnalysis;
+using Beutl.Scripting;
 using Microsoft.CodeAnalysis.CSharp.Scripting;
 using Microsoft.CodeAnalysis.Scripting;
 using Microsoft.Extensions.Logging;
@@ -35,6 +35,8 @@ public sealed partial class CSharpScriptEffect : FilterEffect, IScriptCompilable
                // Duration - total duration in seconds
                // Time - current time in seconds
 
+               // Scripts run synchronously: await, await using, and await foreach are not supported.
+
                // Example: Apply a blur effect
                // Context.Blur(new Size(10, 10));
 
@@ -61,7 +63,7 @@ public sealed partial class CSharpScriptEffect : FilterEffect, IScriptCompilable
             var errors = CompileErrors(script, out _);
 
             return errors.Count > 0
-                ? ScriptCompilationResult.Fail(string.Join(Environment.NewLine, errors.Select(e => e.GetMessage())))
+                ? ScriptCompilationResult.Fail(string.Join(Environment.NewLine, errors))
                 : ScriptCompilationResult.Compiled;
         }
         catch (Exception ex)
@@ -71,15 +73,14 @@ public sealed partial class CSharpScriptEffect : FilterEffect, IScriptCompilable
     }
 
     /// <summary>Compiles <paramref name="script"/> against the effect's globals and returns its error diagnostics.</summary>
-    private static List<Diagnostic> CompileErrors(string script, out Script<object> roslynScript)
+    private static List<string> CompileErrors(string script, out Script<object> roslynScript)
     {
         roslynScript = CSharpScript.Create<object>(
             script,
             s_scriptOptions,
             typeof(CSharpScriptEffectGlobals));
 
-        var diagnostics = roslynScript.Compile();
-        return diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
+        return SynchronousScriptCompiler.GetErrors(roslynScript);
     }
 
     private static ScriptOptions CreateScriptOptions()
@@ -170,7 +171,7 @@ public sealed partial class CSharpScriptEffect : FilterEffect, IScriptCompilable
 
                 if (errors.Count > 0)
                 {
-                    _compileError = string.Join(Environment.NewLine, errors.Select(e => e.GetMessage()));
+                    _compileError = string.Join(Environment.NewLine, errors);
                     s_logger.LogError("Failed to compile C# script: {ErrorText}", _compileError);
                 }
                 else
