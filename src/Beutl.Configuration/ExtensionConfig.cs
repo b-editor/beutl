@@ -39,25 +39,31 @@ public sealed class ExtensionConfig : ConfigurationBase
     public override void Deserialize(ICoreSerializationContext context)
     {
         base.Deserialize(context);
-        Dictionary<string, string[]>? ee = context.GetValue<Dictionary<string, string[]>>(nameof(EditorExtensions));
-        EditorExtensions.Clear();
-        if (ee != null)
+        if (TryReadValue(context, nameof(EditorExtensions), out Dictionary<string, string[]>? ee))
         {
-            foreach (KeyValuePair<string, string[]> item in ee)
+            EditorExtensions.Clear();
+            if (ee != null)
             {
-                EditorExtensions.Add(item.Key, new CoreList<TypeLazy>(item.Value
-                    .Select(str => new TypeLazy(str))
-                    .Where(type => type.FormattedTypeName != null)));
+                foreach (KeyValuePair<string, string[]> item in ee)
+                {
+                    // A hand-edited entry can be null, or hold nulls; those list no types.
+                    EditorExtensions.Add(item.Key, new CoreList<TypeLazy>((item.Value ?? [])
+                        .OfType<string>()
+                        .Select(str => new TypeLazy(str))
+                        .Where(type => type.FormattedTypeName != null)));
+                }
             }
         }
 
-        string?[]? dp = context.GetValue<string?[]>(nameof(DecoderPriority));
-        DecoderPriority.Clear();
-        if (dp != null)
+        if (TryReadValue(context, nameof(DecoderPriority), out string?[]? dp))
         {
-            DecoderPriority.AddRange(dp
-                .Where(v => v != null)
-                .Select(v => new TypeLazy(v!)));
+            DecoderPriority.Clear();
+            if (dp != null)
+            {
+                DecoderPriority.AddRange(dp
+                    .Where(v => v != null)
+                    .Select(v => new TypeLazy(v!)));
+            }
         }
     }
 }

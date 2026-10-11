@@ -48,6 +48,7 @@ internal static class Program
         CultureInfo.CurrentUICulture = view.UICulture;
 
         using IDisposable _ = Telemetry.GetDisposable();
+        config.LogRestoreFailures();
 
         // ProfileOptimizationを有効化
         string jitProfiles = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "jitProfiles");
