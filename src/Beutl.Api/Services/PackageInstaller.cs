@@ -489,7 +489,7 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
     private SourceRepository CreateInstalledPackagesRepository()
     {
         return _sourceRepositoryProvider.CreateRepository(
-            new PackageSource(Helper.InstallPath, "Beutl Installed Packages"),
+            new PackageSource(Helper.InstallPath, Helper.InstalledPackagesSourceName),
             NuGet.Protocol.FeedType.FileSystemPackagesConfig);
     }
 

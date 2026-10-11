@@ -168,6 +168,40 @@ public class PluginDependencyResolutionTests
         }));
     }
 
+    // Common 2.0.0 was left by an interrupted install: its dependency was never installed.
+    [Test]
+    public async Task Re_resolution_ignores_an_installed_version_whose_dependencies_are_missing()
+    {
+        CreatePackage("Common", "1.0.0");
+        CreatePackage("Common", "2.0.0", ("Missing", "1.0.0"));
+        string root = CreatePackage("Root", "1.0.0", ("Common", "1.0.0"));
+        DeleteDownloads();
+        AddUnreachableSource();
+        using var client = new HttpClient();
+        await using var installer = new PackageInstaller(client, new InstalledPackageRepository(), null!);
+
+        await installer.ReResolveDependencies(Identity("Root", "1.0.0"), NuGet.Common.NullLogger.Instance);
+
+        using var reader = new PackageFolderReader(root);
+        Assert.That(ResolvedPackageDependencies.Load(reader, Helper.GetFrameworkName()),
+            Is.EquivalentTo(new[] { Identity("Root", "1.0.0"), Identity("Common", "1.0.0") }));
+    }
+
+    [Test]
+    public async Task Re_resolution_reads_another_source_when_the_installed_archive_is_unreadable()
+    {
+        string root = CreatePackage("Root", "1.0.0");
+        // The installed copy of the nupkg is truncated; the download in the local source is intact.
+        File.WriteAllText(Path.Combine(root, Helper.PackagePathResolver.GetPackageFileName(Identity("Root", "1.0.0"))), "truncated");
+        using var client = new HttpClient();
+        await using var installer = new PackageInstaller(client, new InstalledPackageRepository(), null!);
+
+        await installer.ReResolveDependencies(Identity("Root", "1.0.0"), NuGet.Common.NullLogger.Instance);
+
+        using var reader = new PackageFolderReader(root);
+        Assert.That(ResolvedPackageDependencies.Load(reader, Helper.GetFrameworkName()), Is.EqualTo(new[] { Identity("Root", "1.0.0") }));
+    }
+
     [Test]
     public async Task Startup_re_resolution_records_the_current_Beutl_version_after_the_download_is_deleted()
     {
