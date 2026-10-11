@@ -7,7 +7,7 @@ namespace Beutl.Api.Services;
 internal sealed class AiEntitlementStore : IBeutlApiResource, IDisposable
 {
     private readonly ReactivePropertySlim<AiEntitlements?> _entitlements = new();
-    private readonly ReadOnlyReactivePropertySlim<AiEntitlements?> _readOnlyEntitlements;
+    private readonly SynchronizedReadOnlyReactiveProperty<AiEntitlements?> _readOnlyEntitlements;
     private readonly IDisposable _authenticationSubscription;
     private readonly object _gate = new();
     private readonly SemaphoreSlim _balanceRequestGate = new(1, 1);
@@ -18,7 +18,7 @@ internal sealed class AiEntitlementStore : IBeutlApiResource, IDisposable
 
     public AiEntitlementStore(BeutlApiApplication application)
     {
-        _readOnlyEntitlements = _entitlements.ToReadOnlyReactivePropertySlim();
+        _readOnlyEntitlements = new SynchronizedReadOnlyReactiveProperty<AiEntitlements?>(_entitlements);
         _authenticationSubscription = application.AuthenticatedUser.Subscribe(HandleAuthenticatedUserChanged);
     }
 

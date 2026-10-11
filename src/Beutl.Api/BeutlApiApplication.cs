@@ -30,7 +30,7 @@ public partial class BeutlApiApplication : IAsyncDisposable
     private readonly Func<HttpClient> _packageInstallerHttpClientFactory;
     private readonly Action<AuthenticatedUser> _persistAuthenticatedUser;
     private readonly ReactivePropertySlim<AuthenticatedUser?> _authenticatedUser = new();
-    private readonly ReadOnlyReactivePropertySlim<AuthenticatedUser?> _readOnlyAuthenticatedUser;
+    private readonly SynchronizedReadOnlyReactiveProperty<AuthenticatedUser?> _readOnlyAuthenticatedUser;
     private readonly Dictionary<Type, Lazy<object>> _services = [];
     private readonly object _disposeGate = new();
     private readonly object _authenticationGate = new();
@@ -79,7 +79,7 @@ public partial class BeutlApiApplication : IAsyncDisposable
         _packageInstallerHttpClientFactory = packageInstallerHttpClientFactory;
         _persistAuthenticatedUser = persistAuthenticatedUser ?? PersistAuthenticatedUser;
         _authenticationSubscription = _authenticatedUser.Subscribe(HandleAuthenticatedUserChanged);
-        _readOnlyAuthenticatedUser = _authenticatedUser.ToReadOnlyReactivePropertySlim();
+        _readOnlyAuthenticatedUser = new SynchronizedReadOnlyReactiveProperty<AuthenticatedUser?>(_authenticatedUser);
         _httpClient.BaseAddress = new Uri(BaseUrl);
         App = RestService.For<IAppClient>(_httpClient);
         Packages = RestService.For<IPackagesClient>(_httpClient);
