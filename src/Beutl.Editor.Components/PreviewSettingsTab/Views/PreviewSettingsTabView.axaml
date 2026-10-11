@@ -89,13 +89,17 @@
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
 
+            <!--  Disabled during playback, like the render quality: the renderer only takes new node cache options
+                  once playback releases the render thread.  -->
             <Grid Margin="8,16,8,0" ColumnDefinitions="*,Auto">
                 <TextBlock VerticalAlignment="Center"
                            Text="{x:Static lang:SettingsStrings.NodeCache}"
                            Theme="{StaticResource BodyStrongTextBlockStyle}" />
-                <ToggleSwitch Grid.Column="1"
+                <ToggleSwitch x:Name="NodeCacheToggle"
+                              Grid.Column="1"
                               Classes="left"
                               IsChecked="{CompiledBinding IsNodeCacheEnabled.Value}"
+                              IsEnabled="{CompiledBinding !IsPlaying.Value}"
                               Theme="{StaticResource CompactToggleSwitchStyle}" />
             </Grid>
 
@@ -105,7 +109,13 @@
                         Message="{x:Static lang:SettingsStrings.NodeCacheWarning}"
                         Severity="Warning" />
 
-            <ItemsControl IsEnabled="{CompiledBinding IsNodeCacheEnabled.Value}" ItemsSource="{CompiledBinding NodeCacheProperties}">
+            <ItemsControl x:Name="NodeCacheLimits" ItemsSource="{CompiledBinding NodeCacheProperties}">
+                <ItemsControl.IsEnabled>
+                    <MultiBinding Converter="{x:Static BoolConverters.And}">
+                        <Binding Path="IsNodeCacheEnabled.Value" />
+                        <Binding Converter="{x:Static BoolConverters.Not}" Path="IsPlaying.Value" />
+                    </MultiBinding>
+                </ItemsControl.IsEnabled>
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
                         <ContentControl Content="{Binding Converter={StaticResource ViewModelToViewConverter}}" />

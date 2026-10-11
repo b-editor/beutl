@@ -2,6 +2,7 @@
 using Beutl.Configuration;
 using Beutl.Editor;
 using Beutl.Editor.Operations;
+using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Media;
 using Beutl.Media.Proxy;
@@ -45,9 +46,36 @@ public partial class EditViewModel
                      or nameof(EditorConfig.NodeCacheMinPixels))
             {
                 _logger.LogInformation("Updating RenderNodeCacheHelper options due to EditorConfig change.");
-                Renderer.Value.CacheOptions = RenderCacheOptions.CreateFromGlobalConfiguration();
+                ApplyNodeCacheOptions(Renderer.Value, RenderCacheOptions.CreateFromGlobalConfiguration());
             }
         }
+    }
+
+    // The CacheOptions setter waits for the render thread, which playback holds until its producer reaches the end of
+    // the scene, so the options are applied there without waiting for it. They are read here, on the UI thread, which
+    // writes EditorConfig. A renderer replaced in the meantime is created with the new options and the old one is
+    // disposed, so a disposed renderer is skipped.
+    private void ApplyNodeCacheOptions(SceneRenderer renderer, RenderCacheOptions options)
+    {
+        RenderThread.Dispatcher.Dispatch(() =>
+        {
+            if (renderer.IsDisposed)
+                return;
+
+            try
+            {
+                renderer.CacheOptions = options;
+            }
+            catch (ObjectDisposedException) when (renderer.IsDisposed)
+            {
+                // Disposed on the UI thread after the check above.
+            }
+            catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
+            {
+                // An exception that escapes a render-thread job ends the process.
+                _logger.LogError(ex, "Failed to apply the node cache options. ({SceneId})", SceneId);
+            }
+        });
     }
 
     private void OnProxyStoreChanged(object? sender, ProxyStoreChangedEventArgs e)
