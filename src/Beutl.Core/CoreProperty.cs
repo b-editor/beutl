@@ -290,9 +290,10 @@ public class CoreProperty<T>(
         if (metadata.ShouldSerialize && (this is not IStaticProperty sprop || sprop.CanWrite))
         {
             if (context is JsonSerializationContext jsonContext
-                && jsonContext.TryGetPreservedValue(Name, PropertyType, out object? preserved))
+                && jsonContext.TryGetPreservedValue(Name, PropertyType, out _, allowCollections: true))
             {
-                return new Optional<object?>(preserved);
+                // Skip the setter as it may rebuild a collection rather than replace its reference.
+                return default;
             }
 
             if (context is IJsonSerializationContext jsonCtxt

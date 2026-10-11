@@ -267,6 +267,12 @@ public class AnimatableProperty<T> : IProperty<T>
 
     public void DeserializeValue(ICoreSerializationContext context)
     {
+        if (context is JsonSerializationContext jsonContext
+            && jsonContext.TryGetPreservedValue(Name, typeof(T), out _, allowCollections: true))
+        {
+            return;
+        }
+
         var optional = context.GetValue<Optional<T>>(Name);
         if (optional.HasValue)
         {

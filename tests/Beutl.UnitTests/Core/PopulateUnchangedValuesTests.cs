@@ -1,4 +1,5 @@
 ﻿using System.Text.Json.Nodes;
+using Beutl.Engine;
 using Beutl.Serialization;
 
 namespace Beutl.UnitTests.Core;
@@ -143,5 +144,94 @@ public class PopulateUnchangedValuesTests
         });
 
         Assert.That(project.Variables, Is.EquivalentTo(variables));
+    }
+
+    private sealed class RegisteredCollectionOwner : CoreObject
+    {
+        public static readonly CoreProperty<List<int>> ValuesProperty =
+            ConfigureProperty<List<int>, RegisteredCollectionOwner>(nameof(Values)).Register();
+
+        public static readonly CoreProperty<List<int>> CopiedValuesProperty =
+            ConfigureProperty<List<int>, RegisteredCollectionOwner>(nameof(CopiedValues))
+                .Accessor(owner => owner.CopiedValues, (owner, value) => owner.CopiedValues = value)
+                .Register();
+
+        private readonly List<int> _copiedValues = [3, 4];
+
+        public RegisteredCollectionOwner() => Values = [1, 2];
+
+        public List<int> Values
+        {
+            get => GetValue(ValuesProperty)!;
+            set => SetValue(ValuesProperty, value);
+        }
+
+        public List<int> CopiedValues
+        {
+            get => _copiedValues;
+            set
+            {
+                _copiedValues.Clear();
+                _copiedValues.AddRange(value);
+            }
+        }
+    }
+
+    [Test]
+    public void Populate_keeps_unchanged_registered_collections_without_invoking_their_setters()
+    {
+        var owner = new RegisteredCollectionOwner();
+        List<int> original = owner.Values;
+        JsonObject document = CoreSerializer.SerializeToJsonObject(owner);
+
+        CoreSerializer.PopulateFromJsonObject(owner, document, new CoreSerializerOptions
+        {
+            PreserveUnchangedValues = true
+        });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(owner.Values, Is.SameAs(original));
+            Assert.That(owner.Values, Is.EqualTo(new[] { 1, 2 }));
+            Assert.That(owner.CopiedValues, Is.EqualTo(new[] { 3, 4 }));
+        });
+    }
+
+    [SuppressResourceClassGeneration]
+    private sealed class EngineCollectionOwner : EngineObject
+    {
+        public EngineCollectionOwner(bool animatable)
+        {
+            Values = animatable
+                ? Property.CreateAnimatable<List<int>>([1, 2])
+                : Property.Create<List<int>>([1, 2]);
+            ScanProperties<EngineCollectionOwner>();
+        }
+
+        public IProperty<List<int>> Values { get; }
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Populate_keeps_unchanged_engine_collection_properties(bool animatable)
+    {
+        var owner = new EngineCollectionOwner(animatable);
+        List<int> original = owner.Values.CurrentValue;
+        int changed = 0;
+        owner.Values.ValueChanged += (_, _) => changed++;
+        JsonObject document = CoreSerializer.SerializeToJsonObject(owner);
+        document[nameof(CoreObject.Name)] = "updated";
+
+        CoreSerializer.PopulateFromJsonObject(owner, document, new CoreSerializerOptions
+        {
+            PreserveUnchangedValues = true
+        });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(owner.Name, Is.EqualTo("updated"));
+            Assert.That(owner.Values.CurrentValue, Is.SameAs(original));
+            Assert.That(changed, Is.Zero);
+        });
     }
 }

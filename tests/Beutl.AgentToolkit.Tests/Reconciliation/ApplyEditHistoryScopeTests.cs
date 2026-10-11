@@ -1,10 +1,12 @@
-﻿using System.Text.Json;
+﻿using System.Collections.Immutable;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.AgentToolkit.Tools;
+using Beutl.Collections;
 using Beutl.Editor;
 using Beutl.Editor.Operations;
 using Beutl.Graphics;
@@ -12,6 +14,8 @@ using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.Graphics.Transitions;
+using Beutl.Graphics3D.Meshes;
+using Beutl.Graphics3D.Models;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
@@ -23,6 +27,117 @@ namespace Beutl.AgentToolkit.Tests.Reconciliation;
 // otherwise each edit records equal-copy replacements across the whole timeline.
 public sealed class ApplyEditHistoryScopeTests
 {
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Apply_edit_keeps_unchanged_pen_dash_array(bool rename)
+    {
+        var pen = new Pen { Name = "original", DashArray = { CurrentValue = [2, 3] } };
+        CoreList<float>? original = pen.DashArray.CurrentValue;
+        int changed = 0;
+        pen.DashArray.ValueChanged += (_, _) => changed++;
+        using var session = new AgentToolkitTestSession(pen);
+        EditTools tools = CreateTools(session);
+
+        ToolResult<ApplyEditResponse> result = tools.ApplyEdit(
+            patch: rename ? new JsonObject { [nameof(CoreObject.Name)] = "updated" } : new JsonObject(),
+            schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+            Assert.That(result.Value?.ChangeCount, Is.EqualTo(rename ? 1 : 0));
+            Assert.That(DescribeOperations(session.History.PeekUndo()), Is.EqualTo(rename
+                ? new[] { $"{pen.Id}:Name original -> updated" }
+                : Array.Empty<string>()));
+            Assert.That(pen.DashArray.CurrentValue, Is.SameAs(original));
+            Assert.That(changed, Is.Zero);
+        });
+
+        if (rename)
+        {
+            Assert.That(session.History.Undo(), Is.True);
+            Assert.That(pen.Name, Is.EqualTo("original"));
+            Assert.That(session.History.Redo(), Is.True);
+            Assert.That(pen.Name, Is.EqualTo("updated"));
+            Assert.That(pen.DashArray.CurrentValue, Is.SameAs(original));
+            Assert.That(changed, Is.Zero);
+        }
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Apply_edit_keeps_unchanged_mesh_arrays(bool rename)
+    {
+        var mesh = new ModelMesh
+        {
+            Name = "original",
+            Vertices = { CurrentValue = [new Vertex3D()] },
+            Indices = { CurrentValue = [0] }
+        };
+        ImmutableArray<Vertex3D> vertices = mesh.Vertices.CurrentValue;
+        ImmutableArray<uint> indices = mesh.Indices.CurrentValue;
+        int changed = 0;
+        mesh.Vertices.ValueChanged += (_, _) => changed++;
+        mesh.Indices.ValueChanged += (_, _) => changed++;
+        using var session = new AgentToolkitTestSession(mesh);
+        EditTools tools = CreateTools(session);
+
+        ToolResult<ApplyEditResponse> result = tools.ApplyEdit(
+            patch: rename ? new JsonObject { [nameof(CoreObject.Name)] = "updated" } : new JsonObject(),
+            schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+            Assert.That(result.Value?.ChangeCount, Is.EqualTo(rename ? 1 : 0));
+            Assert.That(DescribeOperations(session.History.PeekUndo()), Is.EqualTo(rename
+                ? new[] { $"{mesh.Id}:Name original -> updated" }
+                : Array.Empty<string>()));
+            Assert.That(mesh.Vertices.CurrentValue == vertices, Is.True);
+            Assert.That(mesh.Indices.CurrentValue == indices, Is.True);
+            Assert.That(changed, Is.Zero);
+        });
+
+        if (rename)
+        {
+            Assert.That(session.History.Undo(), Is.True);
+            Assert.That(mesh.Name, Is.EqualTo("original"));
+            Assert.That(session.History.Redo(), Is.True);
+            Assert.That(mesh.Name, Is.EqualTo("updated"));
+            Assert.That(mesh.Vertices.CurrentValue == vertices, Is.True);
+            Assert.That(mesh.Indices.CurrentValue == indices, Is.True);
+            Assert.That(changed, Is.Zero);
+        }
+    }
+
+    [Test]
+    public void Apply_edit_still_replaces_changed_pen_dash_array()
+    {
+        var pen = new Pen { DashArray = { CurrentValue = [2, 3] } };
+        CoreList<float>? original = pen.DashArray.CurrentValue;
+        using var session = new AgentToolkitTestSession(pen);
+        EditTools tools = CreateTools(session);
+
+        ToolResult<ApplyEditResponse> result = tools.ApplyEdit(
+            patch: new JsonObject { [nameof(Pen.DashArray)] = new JsonArray(4, 5) },
+            schemaVersion: SchemaVersion.Current);
+        CoreList<float>? applied = pen.DashArray.CurrentValue;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+            Assert.That(result.Value?.ChangeCount, Is.EqualTo(1));
+            Assert.That(session.History.PeekUndo()?.Operations, Has.Count.EqualTo(1));
+            Assert.That(applied, Is.EqualTo(new[] { 4f, 5f }));
+            Assert.That(applied, Is.Not.SameAs(original));
+        });
+
+        Assert.That(session.History.Undo(), Is.True);
+        Assert.That(pen.DashArray.CurrentValue, Is.SameAs(original));
+        Assert.That(session.History.Redo(), Is.True);
+        Assert.That(pen.DashArray.CurrentValue, Is.SameAs(applied));
+    }
+
     [Test]
     public void Apply_edit_records_only_the_patched_property()
     {

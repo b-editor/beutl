@@ -38,10 +38,7 @@ public partial class JsonSerializationContext(
     {
         foreach ((string name, object? value) in values)
         {
-            // Readers may clear and refill their destination collection, so it must not alias
-            // the value they read from this context.
             if (value is not null
-                && value is not IEnumerable
                 && _json.TryGetPropertyValue(name, out JsonNode? desired)
                 && desired is JsonObject or JsonArray
                 && current.TryGetPropertyValue(name, out JsonNode? existing)
@@ -52,16 +49,19 @@ public partial class JsonSerializationContext(
         }
     }
 
-    internal bool TryGetPreservedValue(string name, Type type, out object? value)
+    internal bool TryGetPreservedValue(string name, Type type, out object? value, bool allowCollections = false)
     {
-        if (_preservedValues is not null && _preservedValues.TryGetValue(name, out value))
+        // Property readers can skip assigning an unchanged collection. Ordinary GetValue calls
+        // must not return it: custom readers may clear and refill their destination collection.
+        if (_preservedValues is not null && _preservedValues.TryGetValue(name, out value)
+            && (allowCollections || value is not IEnumerable))
         {
             if (type.IsInstanceOfType(value))
             {
                 return true;
             }
 
-            // Engine properties write T but read Optional<T> to distinguish omission from null.
+            // Some property readers write T but read Optional<T> to distinguish omission from null.
             if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Optional<>)
                 && type.GenericTypeArguments[0].IsInstanceOfType(value))
             {

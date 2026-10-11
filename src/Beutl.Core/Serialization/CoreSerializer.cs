@@ -12,7 +12,8 @@ public record CoreSerializerOptions
     /// <summary>
     /// Reuses existing structured member values when populating an object with equal JSON.
     /// Missing or changed members retain their normal deserialization behavior.
-    /// Collections are deserialized normally so readers can safely clear and refill their destination.
+    /// Built-in property readers skip assigning unchanged values, including collections.
+    /// Custom collection reads deserialize normally so readers can safely clear and refill their destination.
     /// </summary>
     public bool PreserveUnchangedValues { get; init; }
 }
