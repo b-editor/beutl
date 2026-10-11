@@ -66,10 +66,10 @@ public class EnginePropertyBackedInputPort<T> : InputPort<T>, IEnginePropertyBac
         if (_property != null)
         {
             _property.Edited -= OnTargetEdited;
-            if (!Connection.IsNull && _property.Expression is NodePortExpression<T> && !HasOtherConnectedInput())
+            if (!Connection.IsNull && _property.Expression is NodePortExpression<T> expression && !HasOtherConnectedInput())
             {
                 using var suppression = RecordingSuppression.Enter();
-                _property.Expression = null;
+                _property.Expression = expression.Replaced;
             }
         }
 
@@ -94,12 +94,13 @@ public class EnginePropertyBackedInputPort<T> : InputPort<T>, IEnginePropertyBac
     {
         if (_property == null || !_property.SupportsExpression) return;
         // Observers must update their previous-expression state, but this derived change must not
-        // be recorded separately from the connection (or replayed on a replaced object).
+        // be recorded separately from the connection (or replayed on a replaced object). The user's
+        // expression rides along in the port expression, so undoing the connection gives it back.
         using var suppression = RecordingSuppression.Enter();
         if (!Connection.IsNull && _property.Expression is not NodePortExpression<T>)
-            _property.Expression = new NodePortExpression<T>();
-        else if (Connection.IsNull && _property.Expression is NodePortExpression<T> && !HasOtherConnectedInput())
-            _property.Expression = null;
+            _property.Expression = new NodePortExpression<T> { Replaced = _property.Expression };
+        else if (Connection.IsNull && _property.Expression is NodePortExpression<T> expression && !HasOtherConnectedInput())
+            _property.Expression = expression.Replaced;
     }
 
     void IConnectionExpressionController.UpdateExpression(bool enabled)
@@ -108,10 +109,10 @@ public class EnginePropertyBackedInputPort<T> : InputPort<T>, IEnginePropertyBac
         {
             UpdateExpression();
         }
-        else if (_property?.Expression is NodePortExpression<T> && !HasOtherConnectedInput(acceptedOnly: true))
+        else if (_property?.Expression is NodePortExpression<T> expression && !HasOtherConnectedInput(acceptedOnly: true))
         {
             using var suppression = RecordingSuppression.Enter();
-            _property.Expression = null;
+            _property.Expression = expression.Replaced;
         }
     }
 
@@ -138,10 +139,23 @@ public class EnginePropertyBackedInputPort<T> : InputPort<T>, IEnginePropertyBac
 /// <summary>Identifies an expression supplied by a node connection rather than a user formula.</summary>
 public interface INodePortExpression : IExpression;
 
+// Lets the non-generic converter read and write the replaced expression.
+internal interface IReplacedExpressionHolder
+{
+    JsonNode? ReplacedToNode();
+
+    void ReplacedFromNode(JsonNode node);
+}
+
 [JsonConverter(typeof(NodePortExpressionJsonConverter))]
-public class NodePortExpression<T> : IExpression<T>, INodePortExpression
+public class NodePortExpression<T> : IExpression<T>, INodePortExpression, IReplacedExpressionHolder
 {
     public T? Value { get; set; }
+
+    /// <summary>
+    /// Gets the expression the connection replaced, which the property gets back once nothing is connected to it.
+    /// </summary>
+    public IExpression<T>? Replaced { get; internal set; }
 
     public string ExpressionString => "[NodePort Connected]";
 
@@ -155,11 +169,23 @@ public class NodePortExpression<T> : IExpression<T>, INodePortExpression
     {
         return Value!;
     }
+
+    JsonNode? IReplacedExpressionHolder.ReplacedToNode()
+    {
+        return Replaced == null ? null : Expression.ToNode(Replaced);
+    }
+
+    void IReplacedExpressionHolder.ReplacedFromNode(JsonNode node)
+    {
+        Replaced = Expression.CreateFromNode<T>(node);
+    }
 }
 
-// 空のオブジェクトを書き込み、空のExpressionを生成するだけのコンバーター
+// The connection supplies the value, so only the expression it replaced is written.
 internal class NodePortExpressionJsonConverter : JsonConverter<IExpression>
 {
+    private const string ReplacedKey = "Replaced";
+
     public override bool CanConvert(Type typeToConvert)
     {
         return typeToConvert.GetGenericTypeDefinition() == typeof(NodePortExpression<>);
@@ -168,15 +194,27 @@ internal class NodePortExpressionJsonConverter : JsonConverter<IExpression>
     public override IExpression? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
         var node = JsonNode.Parse(ref reader);
-        if (node is not JsonObject) throw new JsonException();
+        if (node is not JsonObject obj) throw new JsonException();
 
         // typeToConvertはNodePortExpression
-        return Activator.CreateInstance(typeToConvert) as IExpression;
+        var expression = Activator.CreateInstance(typeToConvert) as IExpression;
+        if (expression is IReplacedExpressionHolder holder && obj[ReplacedKey] is { } replaced)
+        {
+            holder.ReplacedFromNode(replaced);
+        }
+
+        return expression;
     }
 
     public override void Write(Utf8JsonWriter writer, IExpression value, JsonSerializerOptions options)
     {
         writer.WriteStartObject();
+        if (value is IReplacedExpressionHolder holder && holder.ReplacedToNode() is { } replaced)
+        {
+            writer.WritePropertyName(ReplacedKey);
+            replaced.WriteTo(writer, options);
+        }
+
         writer.WriteEndObject();
     }
 }

@@ -1,4 +1,5 @@
 ﻿using System.Reactive.Linq;
+using System.Text.Json.Nodes;
 using Beutl.Animation;
 using Beutl.Composition;
 using Beutl.Editor;
@@ -111,6 +112,49 @@ public class InvalidNestedInputExpressionTests
         Assert.That(connection.Status, Is.EqualTo(ConnectionStatus.Error));
         Assert.That(brush.Opacity.Expression, Is.SameAs(expression));
         Assert.That(brush.Opacity.GetValue(CompositionContext.Default), Is.EqualTo(73f));
+    }
+
+    [Test]
+    public void AUserExpressionComesBackWhenTheConnectionGoes()
+    {
+        var graph = new GraphModel();
+        var node = new FactoryNode<Pen>();
+        var brush = new SolidColorBrush();
+        node.Object.Brush.CurrentValue = brush;
+        graph.Nodes.Add(node);
+        IOutputPort source = Source(graph, 12f);
+        using var history = new HistoryHarness(graph);
+        var expression = Expression.Create<float>("73");
+        brush.Opacity.Expression = expression;
+        history.History.Commit("Set expression");
+
+        graph.Connect(Find(node, brush.Opacity), source);
+        history.History.Commit("Connect");
+        Assert.That(brush.Opacity.Expression, Is.InstanceOf<NodePortExpression<float>>());
+
+        Assert.That(history.History.Undo(), Is.True);
+        Assert.That(brush.Opacity.Expression, Is.SameAs(expression), "undoing the connection gives the expression back");
+
+        var again = graph.Connect(Find(node, brush.Opacity), source);
+        graph.Disconnect(again);
+        Assert.That(brush.Opacity.Expression, Is.SameAs(expression), "disconnecting gives the expression back");
+    }
+
+    [Test]
+    public void APortExpressionSavesTheExpressionItReplaced()
+    {
+        var graph = new GraphModel();
+        var node = new FactoryNode<Pen>();
+        var brush = new SolidColorBrush();
+        node.Object.Brush.CurrentValue = brush;
+        graph.Nodes.Add(node);
+        brush.Opacity.Expression = Expression.Create<float>("73");
+        graph.Connect(Find(node, brush.Opacity), Source(graph, 12f));
+
+        JsonNode saved = Expression.ToNode(brush.Opacity.Expression!);
+        var restored = Expression.CreateFromNode<float>(saved) as NodePortExpression<float>;
+
+        Assert.That(restored?.Replaced?.ExpressionString, Is.EqualTo("73"));
     }
 
     private static INestedInputPort Find(GraphNode node, IProperty property)
