@@ -623,19 +623,26 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
     {
         lock (_restoreLock)
         {
-            IsPlaying.Value = false;
-            BufferStatusViewModel bufferStatus = EditViewModel.BufferStatus;
-            bufferStatus.StartTime.Value = TimeSpan.Zero;
-            bufferStatus.EndTime.Value = TimeSpan.Zero;
-            FrameCacheManager frameCacheManager = EditViewModel.FrameCacheManager.Value;
-            frameCacheManager.Options = frameCacheManager.Options with
+            try
             {
-                DeletionStrategy = FrameCacheDeletionStrategy.Old
-            };
+                IsPlaying.Value = false;
+            }
+            finally
+            {
+                // Runs even when an IsPlaying subscriber throws, so the preview follows the playhead and edits again.
+                BufferStatusViewModel bufferStatus = EditViewModel.BufferStatus;
+                bufferStatus.StartTime.Value = TimeSpan.Zero;
+                bufferStatus.EndTime.Value = TimeSpan.Zero;
+                FrameCacheManager frameCacheManager = EditViewModel.FrameCacheManager.Value;
+                frameCacheManager.Options = frameCacheManager.Options with
+                {
+                    DeletionStrategy = FrameCacheDeletionStrategy.Old
+                };
 
-            _currentFrameSubscription?.Dispose();
-            _currentFrameSubscription = CurrentFrame.Subscribe(UpdateCurrentFrame);
-            ReattachSceneEdited();
+                _currentFrameSubscription?.Dispose();
+                _currentFrameSubscription = CurrentFrame.Subscribe(UpdateCurrentFrame);
+                ReattachSceneEdited();
+            }
         }
     }
 

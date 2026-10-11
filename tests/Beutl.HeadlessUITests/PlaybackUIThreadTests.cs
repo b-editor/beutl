@@ -7,6 +7,7 @@ using Avalonia.Threading;
 
 using Beutl.Editor.Services;
 using Beutl.Graphics.Rendering;
+using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
@@ -219,6 +220,33 @@ public class PlaybackUIThreadTests
             await editor.Player.Pause();
             editor.Player.IsLoopEnabled.Value = false;
         }
+    }
+
+    // When playback ends, the stopped state is restored on the UI thread: the frame cache leaves its playback mode
+    // and the preview follows the playhead again. A subscriber that throws on IsPlaying's change to false must not
+    // cut that restoration short.
+    [AvaloniaTest]
+    public async Task EndWhoseSubscriberThrows_StillRestoresThePausedPreview()
+    {
+        GpuTestGate.EnsureAvailable();
+        EditViewModel editor = await OpenEditor(TimeSpan.FromSeconds(0.3));
+        IEditorClock clock = editor.GetRequiredService<IEditorClock>();
+        int stops = 0;
+        using IDisposable subscription = editor.Player.IsPlaying.Skip(1).Where(playing => !playing).Subscribe(_ =>
+        {
+            if (Interlocked.Increment(ref stops) == 1)
+                throw new InvalidOperationException("An IsPlaying subscriber failed.");
+        });
+
+        editor.Player.Play();
+        await WaitUntilAsync(() => stops >= 1 && !editor.Player.IsPlaybackActive, TimeSpan.FromMinutes(2));
+        Assert.That(editor.FrameCacheManager.Value.Options.DeletionStrategy, Is.EqualTo(FrameCacheDeletionStrategy.Old));
+
+        int previews = 0;
+        using IDisposable previewSubscription =
+            editor.Player.PreviewImage.Skip(1).Subscribe(_ => Interlocked.Increment(ref previews));
+        clock.CurrentTime.Value = TimeSpan.FromSeconds(0.1);
+        await WaitUntilAsync(() => Volatile.Read(ref previews) >= 1, TimeSpan.FromMinutes(2));
     }
 
     private static void Record(ref int count, ConcurrentQueue<string> offThread, string what)
