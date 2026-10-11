@@ -17,6 +17,8 @@
     <InternalsVisibleTo Include="Beutl.FFmpegIpc.Tests" />
     <!-- The GPL worker constructs the internal providers; it reaches them via IVT, not public API. -->
     <InternalsVisibleTo Include="Beutl.FFmpegWorker" />
+    <!-- The worker's tests compile its message handlers from source, so they need the same access. -->
+    <InternalsVisibleTo Include="Beutl.FFmpegWorker.Tests" />
   </ItemGroup>
 
 </Project>

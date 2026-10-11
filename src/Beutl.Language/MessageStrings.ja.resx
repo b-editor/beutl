@@ -498,4 +498,10 @@
   <data name="RecoveryProtectedElementToolTip" xml:space="preserve">
     <value>この要素の一部を読み込めなかったため、読み取り専用になっています。不足している型が利用できるようになるか、利用できないオブジェクトを削除するまで、編集は保存されません。</value>
   </data>
+  <data name="UnmigratedNodeTreeTitle" xml:space="preserve">
+    <value>Beutl 1.x のノードツリーは移行されていません</value>
+  </data>
+  <data name="UnmigratedNodeTreeMessage" xml:space="preserve">
+    <value>次の要素のノードツリーは Beutl 1.x で作成されたもので、移行されていないため描画されません: {0}。ノードツリーを保持しているオブジェクトを削除するまで、これらの要素のファイルは変更されません。保存するとプロジェクトの残りの部分が変換され、Beutl 1.x では開けなくなります。編集やプロジェクトを閉じる操作でも保存されるため、Beutl 1.x で引き続き使う場合は今のうちにプロジェクトのコピーを残してください。</value>
+  </data>
 </root>

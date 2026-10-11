@@ -504,4 +504,10 @@
   <data name="RecoveryProtectedElementToolTip" xml:space="preserve">
     <value>이 요소의 일부를 불러오지 못해 읽기 전용입니다. 누락된 유형을 사용할 수 있게 되거나 사용할 수 없는 개체를 제거할 때까지 편집 내용은 저장되지 않습니다.</value>
   </data>
+  <data name="UnmigratedNodeTreeTitle" xml:space="preserve">
+    <value>Beutl 1.x의 노드 트리가 마이그레이션되지 않았습니다</value>
+  </data>
+  <data name="UnmigratedNodeTreeMessage" xml:space="preserve">
+    <value>다음 요소의 노드 트리는 Beutl 1.x에서 만들어졌으며 마이그레이션되지 않아 그려지지 않습니다: {0}. 노드 트리를 담고 있는 개체를 제거할 때까지 이 요소들의 파일은 변경되지 않습니다. 저장하면 프로젝트의 나머지 부분이 변환되어 이후 Beutl 1.x에서 열 수 없습니다. 편집하거나 프로젝트를 닫을 때도 저장되므로, Beutl 1.x에서 계속 사용하려면 지금 프로젝트의 복사본을 보관하세요.</value>
+  </data>
 </root>

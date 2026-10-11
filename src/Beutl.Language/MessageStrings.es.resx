@@ -504,4 +504,10 @@ Se capturaron {1} fotogramas (se descartaron {2}).</value>
   <data name="RecoveryProtectedElementToolTip" xml:space="preserve">
     <value>Una parte de este elemento no se pudo cargar, por lo que es de solo lectura. Sus cambios no se guardan hasta que el tipo que falta esté disponible o se quite el objeto no disponible.</value>
   </data>
+  <data name="UnmigratedNodeTreeTitle" xml:space="preserve">
+    <value>Los árboles de nodos de Beutl 1.x no se migraron</value>
+  </data>
+  <data name="UnmigratedNodeTreeMessage" xml:space="preserve">
+    <value>Los árboles de nodos de estos elementos se crearon en Beutl 1.x y no se migraron, por lo que no se dibujan: {0}. Sus archivos se conservan sin cambios hasta que quites el objeto que contiene el árbol de nodos. Al guardar se convierte el resto del proyecto y Beutl 1.x ya no podrá abrirlo. Las ediciones y el cierre del proyecto también lo guardan, así que conserva ahora una copia del proyecto si aún lo necesitas en Beutl 1.x.</value>
+  </data>
 </root>
