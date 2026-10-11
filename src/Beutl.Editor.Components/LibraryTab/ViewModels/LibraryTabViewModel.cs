@@ -208,6 +208,8 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
         bool collect = recordUsage && usage?.TryGetCollectionEpoch(out epoch) == true;
         using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetimeToken);
         CancellationToken token = cancellation.Token;
+        // Taken before waiting, so that a later search or a clear makes this one stale while it is still queued.
+        int searchVersion = Interlocked.Increment(ref _searchVersion);
         try
         {
             await _asyncLock.WaitAsync(token);
@@ -217,7 +219,6 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
             return;
         }
 
-        int searchVersion = Interlocked.Increment(ref _searchVersion);
         try
         {
             token.ThrowIfCancellationRequested();
