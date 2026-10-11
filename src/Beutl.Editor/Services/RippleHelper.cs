@@ -74,8 +74,7 @@ internal static class RippleHelper
         }
     }
 
-    // removed carries each removed element's pre-removal (ZIndex, End, Length),
-    // because Scene.RemoveChild mutates Element.ZIndex to -1.
+    // removed carries each removed element's (ZIndex, End, Length), taken before the removal.
     // OrderByDescending(End) is load-bearing: processing right-to-left keeps
     // non-contiguous multi-element ripple correct.
     public static void ShiftAfterRemoved(

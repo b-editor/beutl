@@ -232,7 +232,9 @@ public partial class Scene : ProjectItem, INotifyEdited
     {
         ArgumentNullException.ThrowIfNull(element);
 
-        new RemoveCommand(this, element).Do();
+        // The element keeps its ZIndex. The history does not see a write made after the element leaves
+        // Children, so undoing the removal would bring the element back on the written layer.
+        Children.Remove(element);
     }
 
     public void MoveChild(int zIndex, TimeSpan start, TimeSpan length, Element element)

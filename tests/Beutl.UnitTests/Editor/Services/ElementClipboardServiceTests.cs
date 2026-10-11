@@ -101,6 +101,22 @@ public class ElementClipboardServiceTests
     }
 
     [Test]
+    public async Task CutAsync_Undo_PutsTheElementBackOnItsLayer()
+    {
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), zIndex: 2);
+        _history.Commit("Setup");
+
+        await _service.CutAsync(_scene, [element]);
+        _history.Undo();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(_scene.Children, Does.Contain(element));
+            Assert.That(element.ZIndex, Is.EqualTo(2));
+        });
+    }
+
+    [Test]
     public async Task CutAsync_PrunesCutIdsFromGroups()
     {
         Element e1 = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
