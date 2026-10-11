@@ -31,7 +31,13 @@ public sealed class CheckForUpdatesTask : StartupTask
 
                 if (v1 != null)
                 {
-                    if (!v1.IsLatest)
+                    UpdateCheckResult result = Classify(v1.IsLatest, v1.MustLatest);
+                    if (result == UpdateCheckResult.UpgradeRequired)
+                    {
+                        _logger.LogWarning("Current version must be updated to the latest version.");
+                        await ShowUpgradeRequiredDialog(v1.Url);
+                    }
+                    else if (result == UpdateCheckResult.UpdateAvailable)
                     {
                         _logger.LogInformation("A new version is available: {VersionUrl}", v1.Url);
                         NotificationService.ShowInformation(
@@ -39,15 +45,16 @@ public sealed class CheckForUpdatesTask : StartupTask
                             v1.Url,
                             actions: [new(Strings.Open, () => OpenUrl(v1.Url))]);
                     }
-                    else if (v1.MustLatest)
-                    {
-                        _logger.LogWarning("Current version must be updated to the latest version.");
-                        await ShowDialogAndClose(v1);
-                    }
                 }
                 else if (v3 != null)
                 {
-                    if (!v3.IsLatest)
+                    UpdateCheckResult result = Classify(v3.IsLatest, v3.MustLatest);
+                    if (result == UpdateCheckResult.UpgradeRequired)
+                    {
+                        _logger.LogWarning("Current version must be updated to the latest version.");
+                        await ShowUpgradeRequiredDialog(GetReleaseUrl(v3, activity));
+                    }
+                    else if (result == UpdateCheckResult.UpdateAvailable)
                     {
                         _logger.LogInformation("A new version is available: {DownloadUrl}", v3.DownloadUrl);
                         if (FlatpakUpdater.RequiresManualUpdate)
@@ -71,24 +78,37 @@ public sealed class CheckForUpdatesTask : StartupTask
                                 })
                             ]);
                     }
-                    else if (v3.MustLatest)
-                    {
-                        _logger.LogWarning("Current version must be updated to the latest version.");
-                        string releaseUrl = GetReleaseUrl(v3, activity);
-                        await ShowDialogAndClose(new CheckForUpdatesResponse
-                        {
-                            Url = releaseUrl,
-                            IsLatest = v3.IsLatest,
-                            MustLatest = v3.MustLatest,
-                            LatestVersion = v3.LatestVersion
-                        });
-                    }
                 }
             }
         });
     }
 
     public override Task Task { get; }
+
+    // The server sets mustLatest only together with isLatest = false, when the running version
+    // is below the release's minimum version, so mustLatest has to be checked first.
+    internal static UpdateCheckResult Classify(bool isLatest, bool mustLatest)
+    {
+        if (mustLatest)
+            return UpdateCheckResult.UpgradeRequired;
+
+        return isLatest ? UpdateCheckResult.UpToDate : UpdateCheckResult.UpdateAvailable;
+    }
+
+    // "No" keeps Beutl running and does not open the browser. Quitting would leave users who cannot
+    // update right away with no way to open or save their projects; the dialog shows again on the next start.
+    internal static void HandleUpgradeRequiredAnswer(
+        FAContentDialogResult answer,
+        Func<bool> openReleasePage,
+        Action closeApp)
+    {
+        // Only close the app if we actually managed to send the user to the update page.
+        // Otherwise the user would be locked out without any way to obtain the new version.
+        if (answer == FAContentDialogResult.Primary && openReleasePage())
+        {
+            closeApp();
+        }
+    }
 
     private string GetReleaseUrl(AppUpdateResponse v3, Activity? activity)
     {
@@ -154,7 +174,7 @@ public sealed class CheckForUpdatesTask : StartupTask
         }
     }
 
-    private async Task ShowDialogAndClose(CheckForUpdatesResponse response)
+    private async Task ShowUpgradeRequiredDialog(string releaseUrl)
     {
         await App.WaitWindowOpened();
         await Dispatcher.UIThread.InvokeAsync(async () =>
@@ -167,14 +187,18 @@ public sealed class CheckForUpdatesTask : StartupTask
                 CloseButtonText = Strings.No,
             };
 
-            await dialog.ShowAsync();
-
-            // Only close the app if we actually managed to send the user to the update page.
-            // Otherwise the user would be locked out without any way to obtain the new version.
-            if (OpenUrl(response.Url))
-            {
-                (AppHelper.GetTopLevel() as Window)?.Close();
-            }
+            FAContentDialogResult answer = await dialog.ShowAsync();
+            HandleUpgradeRequiredAnswer(
+                answer,
+                () => OpenUrl(releaseUrl),
+                () => (AppHelper.GetTopLevel() as Window)?.Close());
         });
+    }
+
+    internal enum UpdateCheckResult
+    {
+        UpToDate,
+        UpdateAvailable,
+        UpgradeRequired,
     }
 }
