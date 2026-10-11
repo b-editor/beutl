@@ -376,9 +376,7 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
         // Call the core directly; the outer operation is already admitted.
         var context = PrepareForInstallCore(
             package.Id, package.Version.ToString(), force: true, cancellationToken);
-        // The versions selected at install time are installed, so the sources are only needed for
-        // a dependency that no installed version satisfies.
-        await ResolveDependenciesCoreAsync(context, logger, cancellationToken, preferInstalledVersions: true);
+        await ResolveDependenciesCoreAsync(context, logger, cancellationToken);
     }
 
     public Task ResolveDependencies(
@@ -390,8 +388,7 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
     private async Task ResolveDependenciesCoreAsync(
         PackageInstallContext context,
         ILogger? logger,
-        CancellationToken cancellationToken,
-        bool preferInstalledVersions = false)
+        CancellationToken cancellationToken)
     {
         PackageIdentity? package = null;
         try
@@ -420,8 +417,7 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
                     // are not on nuget.org.
                     [CreateInstalledPackagesRepository(), .. repositories],
                     availablePackages,
-                    cancellationToken,
-                    preferInstalledVersions)
+                    cancellationToken)
                     .ConfigureAwait(false);
 
                 var resolverContext = new PackageResolverContext(

@@ -1,6 +1,5 @@
 ﻿using System.IO.Compression;
 using System.Reflection;
-using System.Runtime.ExceptionServices;
 using System.Runtime.Versioning;
 
 using NuGet.Common;
@@ -8,7 +7,6 @@ using NuGet.Frameworks;
 using NuGet.Packaging;
 using NuGet.Packaging.Core;
 using NuGet.Protocol.Core.Types;
-using NuGet.Versioning;
 
 using static Beutl.Api.Services.CoreLibraries;
 
@@ -52,16 +50,13 @@ internal static class Helper
         return NuGetFramework.Parse(frameworkName.FullName);
     }
 
-    // With preferInstalledVersions, a dependency that an installed version satisfies is resolved from the
-    // installed versions instead of from its minimum version, so it needs no other source.
     public static async Task GetPackageDependencies(PackageIdentity package,
         NuGetFramework framework,
         SourceCacheContext cacheContext,
         ILogger logger,
         IEnumerable<SourceRepository> repositories,
         ISet<SourcePackageDependencyInfo> availablePackages,
-        CancellationToken cancellationToken = default,
-        bool preferInstalledVersions = false)
+        CancellationToken cancellationToken = default)
     {
         if (availablePackages.Contains(package) || IncludedInPackageDependencies(package.Id, package.Version)) return;
 
@@ -102,71 +97,21 @@ internal static class Helper
             availablePackages.Add(dependencyInfo);
             foreach (PackageDependency? dependency in dependencyInfo.Dependencies)
             {
-                IReadOnlyList<PackageIdentity> candidates = preferInstalledVersions ? GetInstalledVersions(dependency) : [];
-                if (candidates.Count == 0)
-                    candidates = [new PackageIdentity(dependency.Id, dependency.VersionRange.MinVersion)];
-
-                ExceptionDispatchInfo? failure = null;
-                bool walked = false;
-                foreach (PackageIdentity candidate in candidates)
-                {
-                    try
-                    {
-                        await GetPackageDependencies(
-                            candidate,
-                            framework,
-                            cacheContext,
-                            logger,
-                            repositories,
-                            availablePackages,
-                            cancellationToken,
-                            preferInstalledVersions)
-                            .ConfigureAwait(false);
-                        walked = true;
-                    }
-                    catch (Exception ex) when (candidates.Count > 1 && ex is not OperationCanceledException)
-                    {
-                        // Another installed version can satisfy this dependency. Drop this one, so the resolver
-                        // only chooses among versions whose dependencies were all found.
-                        failure ??= ExceptionDispatchInfo.Capture(ex);
-                        if (availablePackages.FirstOrDefault(p => PackageIdentityComparer.Default.Equals(p, candidate)) is { } dropped)
-                            availablePackages.Remove(dropped);
-                    }
-                }
-
-                if (!walked)
-                    failure?.Throw();
+                await GetPackageDependencies(
+                    new PackageIdentity(dependency.Id, dependency.VersionRange.MinVersion),
+                    framework,
+                    cacheContext,
+                    logger,
+                    repositories,
+                    availablePackages,
+                    cancellationToken)
+                    .ConfigureAwait(false);
             }
 
             // The first source that has the package is the one used. Asking the remaining sources
             // only adds requests, which fail when a remote source cannot be reached.
             return;
         }
-    }
-
-    // The extracted versions of a dependency that satisfy its version range.
-    public static IReadOnlyList<PackageIdentity> GetInstalledVersions(PackageDependency dependency)
-    {
-        if (!Directory.Exists(InstallPath))
-            return [];
-
-        string prefix = dependency.Id + ".";
-        var versions = new List<PackageIdentity>();
-        foreach (string directory in Directory.GetDirectories(InstallPath))
-        {
-            string name = Path.GetFileName(directory);
-            if (name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
-                && NuGetVersion.TryParse(name[prefix.Length..], out NuGetVersion? version)
-                && dependency.VersionRange.Satisfies(version))
-            {
-                // The directory's spelling of the ID, which a case-sensitive file system needs.
-                var identity = new PackageIdentity(name[..dependency.Id.Length], version);
-                if (PackagePathResolver.GetInstalledPath(identity) != null)
-                    versions.Add(identity);
-            }
-        }
-
-        return versions;
     }
 
     public static string GetNupkgFilePath(string packageId, string version)
