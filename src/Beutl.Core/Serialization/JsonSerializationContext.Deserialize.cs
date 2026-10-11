@@ -97,7 +97,7 @@ public partial class JsonSerializationContext
     {
         result = null;
 
-        Type? actualType = baseType.IsSealed ? baseType : obj.GetDiscriminator(baseType);
+        Type? actualType = CoreSerializer.ResolveActualType(obj, baseType);
 
         if (actualType?.IsAssignableTo(typeof(ICoreSerializable)) != true) return false;
 

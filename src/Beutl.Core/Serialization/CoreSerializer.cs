@@ -130,10 +130,7 @@ public static partial class CoreSerializer
 
     public static object DeserializeFromJsonObject(JsonObject json, Type baseType, CoreSerializerOptions? options = null)
     {
-        // A sealed baseType deliberately ignores any present discriminator: sealed wrapper types
-        // (e.g. Optional<T>) legitimately carry the wrapped payload's $type on their own node and
-        // interpret it themselves during Deserialize.
-        Type? actualType = baseType.IsSealed ? baseType : json.GetDiscriminator(baseType);
+        Type? actualType = ResolveActualType(json, baseType);
         if (actualType == null)
         {
             throw new InvalidOperationException("Discriminator not found in JSON object.");
@@ -150,6 +147,44 @@ public static partial class CoreSerializer
         {
             return fallback;
         }
+    }
+
+    // Decides the type that a node read as baseType is created as.
+    internal static Type? ResolveActualType(JsonObject json, Type baseType)
+    {
+        // A sealed baseType deliberately ignores any present discriminator: sealed wrapper types
+        // (e.g. Optional<T>) legitimately carry the wrapped payload's $type on their own node and
+        // interpret it themselves during Deserialize.
+        if (baseType.IsSealed)
+        {
+            return baseType;
+        }
+
+        // $type is written only for a declared type that is not sealed, so a node without one was written
+        // while its declared type was sealed. Reading it as that type lets a type be unsealed without breaking
+        // the files that hold it. A node that has a discriminator, even one that cannot be resolved, is not
+        // read this way.
+        if (!json.ContainsKey("$type") && !json.ContainsKey("@type") && CanReadAsDeclaredType(baseType))
+        {
+            return baseType;
+        }
+
+        return json.GetDiscriminator(baseType);
+    }
+
+    // Whether a node without a discriminator is created as baseType itself. That needs a concrete
+    // ICoreSerializable, and not one whose own fallback can take its place, such as EngineObject: such a type
+    // cannot be sealed, so its nodes are written with $type, and one without stays the fallback, which writes
+    // it back unchanged instead of dropping every member the type does not know.
+    private static bool CanReadAsDeclaredType(Type baseType)
+    {
+        if (baseType.IsAbstract || !baseType.IsAssignableTo(typeof(ICoreSerializable)))
+        {
+            return false;
+        }
+
+        return Attribute.GetCustomAttribute(baseType, typeof(FallbackTypeAttribute)) is not FallbackTypeAttribute attribute
+               || !baseType.IsAssignableFrom(attribute.FallbackType);
     }
 
     // Creates the type a discriminator names once it is known to stand in for baseType.
@@ -288,7 +323,7 @@ public static partial class CoreSerializer
         bool hasDiscriminator = jsonObject.ContainsKey("$type") || jsonObject.ContainsKey("@type");
         Type? actualType = hasDiscriminator
             ? jsonObject.GetDiscriminator()
-            : type.IsSealed ? type : jsonObject.GetDiscriminator(type);
+            : ResolveActualType(jsonObject, type);
         if (hasDiscriminator
             && actualType == null
             && FallbackDeserializationHelper.TryCreateFallback(type, null, jsonObject) is { } unknownTypeFallback)

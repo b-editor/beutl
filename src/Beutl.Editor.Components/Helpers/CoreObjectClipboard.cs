@@ -45,7 +45,7 @@ public static class CoreObjectClipboard
             if (JsonNode.Parse(json) is not JsonObject jsonObj) return false;
 
             Type baseType = typeof(T);
-            Type? actualType = baseType.IsSealed ? baseType : jsonObj.GetDiscriminator(baseType);
+            Type? actualType = CoreSerializer.ResolveActualType(jsonObj, baseType);
             if (actualType == null || !actualType.IsAssignableTo(baseType)) return false;
 
             if (Activator.CreateInstance(actualType) is not ICoreSerializable tmp) return false;
