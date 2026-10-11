@@ -5,7 +5,7 @@ namespace Beutl.Services.PrimitiveImpls;
 public sealed class AnimatedImageReaderExtension : DecodingExtension
 {
     public static readonly AnimatedImageReaderExtension Instance = new();
-    private static readonly AnimatedImageDecoderInfo s_info = new();
+    private static readonly AnimatedImageDecoderInfo s_info = BuiltInDecoders.AnimatedImage;
 
     public override string Name => s_info.Name;
 

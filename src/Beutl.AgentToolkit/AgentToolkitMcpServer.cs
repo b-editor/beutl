@@ -21,6 +21,10 @@ public static class AgentToolkitMcpServer
         ArgumentNullException.ThrowIfNull(services);
         ArgumentException.ThrowIfNullOrWhiteSpace(profileDirectory);
 
+        // Without the decoders the app registers at startup, every video, sound and animated image
+        // would render as offline media and analyze_audio_rhythm could not open any file.
+        DecoderRegistration.EnsureRegistered();
+
         services
             .AddSingleton<IOutputOperationLeaseProvider>(StandaloneOutputOperationLeaseProvider.Instance)
             .AddSingleton<DestructiveGuard>()
