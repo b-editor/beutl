@@ -78,6 +78,7 @@ internal sealed unsafe class VulkanInstance : IDisposable
         return devices;
     }
 
+    /// <summary>Gets the devices the engine can render on, which are the ones it offers and chooses from.</summary>
     public VulkanPhysicalDeviceInfo[] GetAvailableGpus()
     {
         var devices = EnumeratePhysicalDevices();
@@ -88,16 +89,49 @@ internal sealed unsafe class VulkanInstance : IDisposable
             result[i] = GetPhysicalDeviceDetails(devices[i]);
         }
 
-        return result;
+        return FilterRenderableDevices(result, OperatingSystem.IsMacOS());
+    }
+
+    /// <summary>Leaves out the devices the engine cannot render on.</summary>
+    /// <remarks>
+    /// On macOS Skia renders through Metal, because Beutl's libSkiaSharp is built without Vulkan there, and only a
+    /// device MoltenVK drives has a Metal device behind it. A context on any other driver, SwiftShader for one, would
+    /// have no Skia GPU context, so such a device is neither offered for selection nor chosen automatically.
+    /// </remarks>
+    /// <param name="gpus">Every device the instance enumerated.</param>
+    /// <param name="macOS">Whether the process runs on macOS.</param>
+    internal static VulkanPhysicalDeviceInfo[] FilterRenderableDevices(VulkanPhysicalDeviceInfo[] gpus, bool macOS)
+    {
+        if (!macOS)
+            return gpus;
+
+        foreach (var gpu in gpus)
+        {
+            if (!gpu.IsMoltenVK)
+            {
+                s_logger.LogDebug(
+                    "Leaving out GPU {DeviceName} ({DriverId}): on macOS only a MoltenVK device can back Skia.",
+                    gpu.Name,
+                    gpu.DriverId);
+            }
+        }
+
+        return Array.FindAll(gpus, static gpu => gpu.IsMoltenVK);
     }
 
     public VulkanPhysicalDeviceInfo SelectBestPhysicalDevice()
-    {
-        var gpus = GetAvailableGpus();
+        => SelectBest(GetAvailableGpus()) ?? throw new InvalidOperationException("No Vulkan-capable GPU found");
 
+    /// <summary>Selects the device to render on from <paramref name="gpus"/>, or <see langword="null"/> when there is none.</summary>
+    /// <remarks>
+    /// A working instance can leave nothing to select: on a Mac whose only device is SwiftShader,
+    /// <see cref="FilterRenderableDevices"/> leaves the list empty, and the shared context renders on the CPU.
+    /// </remarks>
+    internal static VulkanPhysicalDeviceInfo? SelectBest(VulkanPhysicalDeviceInfo[] gpus)
+    {
         if (gpus.Length == 0)
         {
-            throw new InvalidOperationException("No Vulkan-capable GPU found");
+            return null;
         }
 
         VulkanPhysicalDeviceInfo? selected = null;
@@ -155,7 +189,33 @@ internal sealed unsafe class VulkanInstance : IDisposable
 
         var memoryInfo = new VulkanMemoryInfo(deviceLocalMemory, hostVisibleMemory);
 
-        return new VulkanPhysicalDeviceInfo(device, deviceName, deviceType, properties.ApiVersion, memoryInfo);
+        return new VulkanPhysicalDeviceInfo(
+            device, deviceName, deviceType, properties.ApiVersion, memoryInfo, GetDriverId(device, properties.ApiVersion));
+    }
+
+    /// <summary>Reads which driver implements <paramref name="device"/>, or <see langword="default"/> when it cannot say.</summary>
+    private DriverId GetDriverId(PhysicalDevice device, uint apiVersion)
+    {
+        // The driver properties are core from Vulkan 1.2 and come from VK_KHR_driver_properties on a 1.1 device.
+        // A device with neither does not know the structure, and chaining it anyway is not valid usage.
+        if (apiVersion < Vk.Version12
+            && (apiVersion < Vk.Version11
+                || !VulkanPhysicalDeviceQueries.GetDeviceExtensionNames(_vk, device).Contains("VK_KHR_driver_properties")))
+        {
+            return default;
+        }
+
+        var driverProperties = new PhysicalDeviceDriverProperties
+        {
+            SType = StructureType.PhysicalDeviceDriverProperties,
+        };
+        var properties2 = new PhysicalDeviceProperties2
+        {
+            SType = StructureType.PhysicalDeviceProperties2,
+            PNext = &driverProperties,
+        };
+        _vk.GetPhysicalDeviceProperties2(device, &properties2);
+        return driverProperties.DriverID;
     }
 
     private string[] GetRequiredInstanceExtensions()

@@ -13,7 +13,8 @@ public class VulkanContextDeviceSupportTests
             "Legacy GPU",
             PhysicalDeviceType.DiscreteGpu,
             (uint)Vk.Version10,
-            new VulkanMemoryInfo(0, 0));
+            new VulkanMemoryInfo(0, 0),
+            DriverId: default);
 
         // No instance is passed: the device has to be refused before the context calls into Vulkan at all, so that
         // GraphicsContextFactory falls back to CPU rendering without a half-built context.
