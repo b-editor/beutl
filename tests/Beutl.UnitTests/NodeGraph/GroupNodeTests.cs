@@ -1,7 +1,9 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using Beutl.Collections;
+using Beutl.Editor.Services;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes.Group;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.NodeGraph;
 
@@ -119,6 +121,169 @@ public class GroupNodeTests
         ((CoreList<INodeMember>)output.Items).Replace([CreatePort(true, "Out0"), CreatePort(true, "Out1")]);
         input.Items.Add(CreatePort(false, "AddedInput"));
         input.Items.RemoveAt(0);
+        AssertMirrors(group, output, input);
+    }
+
+    [Test]
+    public void RemovingAnotherPortAfterUndoKeepsMirrorsInSync([Values] bool outputSide)
+    {
+        GroupNode group = CreateGroupWithPorts(2, 2, out GroupOutput output, out GroupInput input);
+        GraphNode owner = outputSide ? output : input;
+        INodeMember[] originalMirrors = [.. group.Items];
+        var first = (INodePort)owner.Items[0];
+        var second = (INodePort)owner.Items[1];
+        using var harness = new HistoryHarness(group);
+        var service = new NodeGraphMutationService(harness.History);
+
+        Assert.That(service.RemovePort(owner, first), Is.True);
+        AssertMirrors(group, output, input);
+        harness.History.Undo();
+        Assert.That(group.Items, Is.EqualTo(originalMirrors));
+        AssertMirrors(group, output, input);
+
+        Assert.That(service.RemovePort(owner, second), Is.True);
+        AssertMirrors(group, output, input);
+        RenamePortsAndAssertMirrors(group, output, input);
+    }
+
+    [Test]
+    public void RestoredPortsMirrorNamesAndDisplayAfterUndoAndRedo([Values] bool outputSide)
+    {
+        GroupNode group = CreateGroupWithPorts(2, 2, out GroupOutput output, out GroupInput input);
+        GraphNode owner = outputSide ? output : input;
+        using var harness = new HistoryHarness(group);
+        var service = new NodeGraphMutationService(harness.History);
+        INodeMember port = owner.Items[0];
+        INodeMember mirror = group.Items[outputSide ? 0 : output.Items.Count];
+
+        service.RemovePort(owner, (INodePort)port);
+        harness.History.Undo();
+        harness.History.Redo();
+        AssertMirrors(group, output, input);
+        harness.History.Undo();
+        RenamePortsAndAssertMirrors(group, output, input);
+        harness.History.Commit("Rename ports");
+        harness.History.Undo();
+        AssertMirrors(group, output, input);
+        harness.History.Redo();
+        AssertMirrors(group, output, input);
+
+        service.RemovePort(owner, (INodePort)port);
+        AssertStopsMirroring([port], [mirror]);
+    }
+
+    [Test]
+    public void ClearingPortsAfterUndoingAnAdditionKeepsTheOtherSide([Values] bool outputSide)
+    {
+        GroupNode group = CreateGroupWithPorts(2, 2, out GroupOutput output, out GroupInput input);
+        var ports = (CoreList<INodeMember>)(outputSide ? output.Items : input.Items);
+        ports.ResetBehavior = ResetBehavior.Reset;
+        INodeMember added = CreatePort(outputSide, "Added");
+        using var harness = new HistoryHarness(group);
+
+        ports.Add(added);
+        INodeMember mirror = group.Items[outputSide ? ports.Count - 1 : group.Items.Count - 1];
+        harness.History.Commit("Add port");
+        harness.History.Undo();
+        AssertMirrors(group, output, input);
+        AssertStopsMirroring([added], [mirror]);
+
+        ports.Clear();
+        AssertMirrors(group, output, input);
+        RenamePortsAndAssertMirrors(group, output, input);
+    }
+
+    [Test]
+    public void PortEditsPreserveMirrorIdentityThroughUndoAndRedo(
+        [Values] bool outputSide, [Values("Add", "Move", "Replace", "Reset")] string edit)
+    {
+        GroupNode group = CreateGroupWithPorts(2, 2, out GroupOutput output, out GroupInput input);
+        var ports = (CoreList<INodeMember>)(outputSide ? output.Items : input.Items);
+        ports.ResetBehavior = ResetBehavior.Reset;
+        INodeMember[] originalMirrors = [.. group.Items];
+        using var harness = new HistoryHarness(group);
+
+        switch (edit)
+        {
+            case "Add":
+                ports.Add(CreatePort(outputSide, "Added"));
+                break;
+            case "Move":
+                ports.Move(0, 1);
+                break;
+            case "Replace":
+                ports[0] = CreatePort(outputSide, "Replacement");
+                break;
+            case "Reset":
+                ports.Replace([CreatePort(outputSide, "Reset0"), CreatePort(outputSide, "Reset1"),
+                    CreatePort(outputSide, "Reset2")]);
+                break;
+        }
+
+        harness.History.Commit(edit);
+        INodeMember[] editedMirrors = [.. group.Items];
+        AssertMirrors(group, output, input);
+        harness.History.Undo();
+        Assert.That(group.Items, Is.EqualTo(originalMirrors));
+        AssertMirrors(group, output, input);
+        harness.History.Redo();
+        Assert.That(group.Items, Is.EqualTo(editedMirrors));
+        AssertMirrors(group, output, input);
+        RenamePortsAndAssertMirrors(group, output, input);
+    }
+
+    [Test]
+    public void RollingBackPortEditsRestoresSubscriptions([Values] bool outputSide, [Values] bool addPort)
+    {
+        GroupNode group = CreateGroupWithPorts(2, 2, out GroupOutput output, out GroupInput input);
+        GraphNode owner = outputSide ? output : input;
+        INodeMember[] originalMirrors = [.. group.Items];
+        using var harness = new HistoryHarness(group);
+
+        if (addPort)
+            owner.Items.Add(CreatePort(outputSide, "Added"));
+        else
+            owner.Items.RemoveAt(0);
+
+        harness.History.Rollback();
+        Assert.That(group.Items, Is.EqualTo(originalMirrors));
+        AssertMirrors(group, output, input);
+        RenamePortsAndAssertMirrors(group, output, input);
+        owner.Items.RemoveAt(1);
+        AssertMirrors(group, output, input);
+    }
+
+    [Test]
+    public void RestoringAGroupIONodeReattachesItsPortSubscriptions([Values] bool outputSide)
+    {
+        GroupNode group = CreateGroupWithPorts(2, 2, out GroupOutput output, out GroupInput input);
+        GraphNode owner = outputSide ? output : input;
+        INodeMember[] originalMirrors = [.. group.Items];
+        INodeMember[] oppositeMirrors = [.. group.Items.Where(port => outputSide ? port is IInputPort : port is IOutputPort)];
+        using var harness = new HistoryHarness(group);
+        var service = new NodeGraphMutationService(harness.History);
+
+        service.RemoveNode(group.Group, owner);
+        Assert.That(group.Items, Is.EqualTo(oppositeMirrors));
+        harness.History.Undo();
+        Assert.That(group.Items, Is.EqualTo(originalMirrors));
+        AssertMirrors(group, output, input);
+        harness.History.Redo();
+        Assert.That(group.Items, Is.EqualTo(oppositeMirrors));
+        harness.History.Undo();
+        RenamePortsAndAssertMirrors(group, output, input);
+        service.RemovePort(owner, (INodePort)owner.Items[1]);
+        AssertMirrors(group, output, input);
+    }
+
+    private static void RenamePortsAndAssertMirrors(GroupNode group, GroupOutput output, GroupInput input)
+    {
+        foreach (INodeMember port in output.Items.Concat(input.Items))
+        {
+            port.Name += "Renamed";
+            ((NodeMember)port).Display = new DisplayAttribute { Name = port.Name };
+        }
+
         AssertMirrors(group, output, input);
     }
 

@@ -13,8 +13,8 @@ public partial class GroupNode : GraphNode
 {
     public static readonly CoreProperty<GraphGroup> GroupProperty;
     private readonly CompositeDisposable _disposables = [];
-    private readonly List<IDisposable> _outputNodePortDisposable = [];
-    private readonly List<IDisposable> _inputNodePortDisposable = [];
+    private readonly Dictionary<INodeMember, IDisposable> _outputPortSubscriptions = [];
+    private readonly Dictionary<INodeMember, IDisposable> _inputPortSubscriptions = [];
 
     static GroupNode()
     {
@@ -33,25 +33,52 @@ public partial class GroupNode : GraphNode
         Group.GetObservable(NameProperty).Subscribe(v => Name = v == "Group" ? "" : v);
     }
 
-    private static void DisposeAll(List<IDisposable> disposables)
+    private void SynchronizePortSubscriptions(GraphNode? node,
+        Dictionary<INodeMember, IDisposable> subscriptions, bool outputSide)
     {
-        foreach (IDisposable item in disposables)
+        foreach ((INodeMember source, IDisposable subscription) in subscriptions.ToArray())
         {
-            item.Dispose();
+            if (node == null || !node.Items.Contains(source))
+            {
+                subscription.Dispose();
+                subscriptions.Remove(source);
+            }
         }
 
-        disposables.Clear();
+        if (node == null) return;
+        foreach (INodeMember source in node.Items)
+        {
+            if (!subscriptions.ContainsKey(source))
+                subscriptions.Add(source, MirrorNameAndDisplay(source, outputSide));
+        }
     }
 
-    // Keeps a port of this node named and displayed like the group port it stands for.
-    private static CompositeDisposable MirrorNameAndDisplay(INodeMember source, INodeMember mirror)
+    // History restores the inner and outer lists in separate operations. Subscribe to changes only,
+    // and find the current mirror when a property changes instead of retaining a removed mirror.
+    private CompositeDisposable MirrorNameAndDisplay(INodeMember source, bool outputSide)
     {
         var subscriptions = new CompositeDisposable();
-        ((CoreObject)source).GetObservable(NameProperty)
-            .Subscribe(v => mirror.Name = v).DisposeWith(subscriptions);
-        ((NodeMember)source).GetObservable(NodeMember.DisplayProperty)
-            .Subscribe(v => ((NodeMember)mirror).Display = v).DisposeWith(subscriptions);
+        ((CoreObject)source).GetPropertyChangedObservable(NameProperty)
+            .Subscribe(_ =>
+            {
+                if (FindMirror(source, outputSide) is { } mirror) mirror.Name = source.Name;
+            }).DisposeWith(subscriptions);
+        ((NodeMember)source).GetPropertyChangedObservable(NodeMember.DisplayProperty)
+            .Subscribe(e =>
+            {
+                if (FindMirror(source, outputSide) is NodeMember mirror) mirror.Display = e.NewValue;
+            }).DisposeWith(subscriptions);
         return subscriptions;
+    }
+
+    private INodeMember? FindMirror(INodeMember source, bool outputSide)
+    {
+        int outputCount = Group.Output?.Items.Count ?? 0;
+        int inputCount = Group.Input?.Items.Count ?? 0;
+        if (Items.Count != outputCount + inputCount) return null;
+
+        int index = (outputSide ? Group.Output?.Items : Group.Input?.Items)?.IndexOf(source) ?? -1;
+        return index < 0 ? null : Items[(outputSide ? 0 : outputCount) + index];
     }
 
     private void OnGroupEdited(object? sender, EventArgs e)
@@ -82,38 +109,35 @@ public partial class GroupNode : GraphNode
 
     private void OnOutputChanged(GroupOutput? newObj, GroupOutput? oldObj)
     {
-        if (RecordingSuppression.IsSuppressed) return;
         if (oldObj != null)
         {
             oldObj.Items.CollectionChanged -= OutputItemsCollectionChanged;
-            var outputNodePortCount = oldObj.Items.Count;
-            Items.RemoveRange(0, outputNodePortCount);
-            DisposeAll(_outputNodePortDisposable);
+            if (!RecordingSuppression.IsSuppressed)
+                Items.RemoveRange(0, oldObj.Items.Count);
         }
 
         if (newObj != null)
         {
             newObj.Items.CollectionChanged += OutputItemsCollectionChanged;
 
-            for (int i = 0; i < newObj.Items.Count; i++)
+            if (!RecordingSuppression.IsSuppressed)
             {
-                IInputPort item = (IInputPort)newObj.Items[i];
-                AddOutput(i, item);
+                for (int i = 0; i < newObj.Items.Count; i++)
+                    AddOutput(i, (IInputPort)newObj.Items[i]);
             }
         }
+
+        SynchronizePortSubscriptions(newObj, _outputPortSubscriptions, outputSide: true);
     }
 
     private void AddOutput(int index, IInputPort item)
     {
         IOutputPort? outputNodePort = CreateOutput(item.Name, item.AssociatedType!, item.Display);
-        _outputNodePortDisposable.Insert(index, MirrorNameAndDisplay(item, outputNodePort));
         Items.Insert(index, outputNodePort);
     }
 
     private void OutputItemsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
-        if (RecordingSuppression.IsSuppressed) return;
-
         void Add(int index, IList items)
         {
             foreach (IInputPort item in items)
@@ -124,21 +148,13 @@ public partial class GroupNode : GraphNode
 
         void Remove(int index, IList items)
         {
-            for (int i = index; i < index + items.Count; i++)
-            {
-                _outputNodePortDisposable[i].Dispose();
-            }
-
-            _outputNodePortDisposable.RemoveRange(index, items.Count);
-
             Items.RemoveRange(index, items.Count);
         }
 
         void Reset()
         {
             // Reset is raised after the source list has already changed.
-            int outputNodePortCount = _outputNodePortDisposable.Count;
-            DisposeAll(_outputNodePortDisposable);
+            int outputNodePortCount = _outputPortSubscriptions.Count;
             Items.RemoveRange(0, outputNodePortCount);
 
             if (Group.Output is { } output)
@@ -150,32 +166,33 @@ public partial class GroupNode : GraphNode
             }
         }
 
-        ApplyItemsCollectionChange(e, Add, Remove, Reset);
+        if (!RecordingSuppression.IsSuppressed)
+            ApplyItemsCollectionChange(e, Add, Remove, Reset);
+        SynchronizePortSubscriptions(Group.Output, _outputPortSubscriptions, outputSide: true);
     }
 
     private void OnInputChanged(GroupInput? newObj, GroupInput? oldObj)
     {
-        if (RecordingSuppression.IsSuppressed) return;
         if (oldObj != null)
         {
             oldObj.Items.CollectionChanged -= InputItemsCollectionChanged;
 
-            var outputNodePortCount = Group.Output?.Items.Count ?? 0;
-            var inputNodePortCount = oldObj.Items.Count;
-            Items.RemoveRange(outputNodePortCount, inputNodePortCount);
-            DisposeAll(_inputNodePortDisposable);
+            if (!RecordingSuppression.IsSuppressed)
+                Items.RemoveRange(Group.Output?.Items.Count ?? 0, oldObj.Items.Count);
         }
 
         if (newObj != null)
         {
             newObj.Items.CollectionChanged += InputItemsCollectionChanged;
 
-            for (int i = 0; i < newObj.Items.Count; i++)
+            if (!RecordingSuppression.IsSuppressed)
             {
-                IGroupPort item = (IGroupPort)newObj.Items[i];
-                AddInput(i, item);
+                for (int i = 0; i < newObj.Items.Count; i++)
+                    AddInput(i, (IGroupPort)newObj.Items[i]);
             }
         }
+
+        SynchronizePortSubscriptions(newObj, _inputPortSubscriptions, outputSide: false);
     }
 
     private void AddInput(int index, IGroupPort item)
@@ -189,15 +206,12 @@ public partial class GroupNode : GraphNode
             inputNodePort.Property?.SetValue(value);
         }
 
-        _inputNodePortDisposable.Insert(index, MirrorNameAndDisplay(item, inputNodePort));
         var outputNodePortCount = Group.Output?.Items.Count ?? 0;
         Items.Insert(outputNodePortCount + index, inputNodePort);
     }
 
     private void InputItemsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
-        if (RecordingSuppression.IsSuppressed) return;
-
         void Add(int index, IList items)
         {
             foreach (IGroupPort item in items)
@@ -208,23 +222,14 @@ public partial class GroupNode : GraphNode
 
         void Remove(int index, IList items)
         {
-            for (int i = index; i < index + items.Count; i++)
-            {
-                _inputNodePortDisposable[i].Dispose();
-            }
-
-            _inputNodePortDisposable.RemoveRange(index, items.Count);
-
-
             var outputNodePortCount = Group.Output?.Items.Count ?? 0;
             Items.RemoveRange(outputNodePortCount + index, items.Count);
         }
 
         void Reset()
         {
-            int outputNodePortCount = _outputNodePortDisposable.Count;
-            int inputNodePortCount = _inputNodePortDisposable.Count;
-            DisposeAll(_inputNodePortDisposable);
+            int outputNodePortCount = _outputPortSubscriptions.Count;
+            int inputNodePortCount = _inputPortSubscriptions.Count;
             Items.RemoveRange(outputNodePortCount, inputNodePortCount);
 
             if (Group.Input is { } input)
@@ -236,7 +241,9 @@ public partial class GroupNode : GraphNode
             }
         }
 
-        ApplyItemsCollectionChange(e, Add, Remove, Reset);
+        if (!RecordingSuppression.IsSuppressed)
+            ApplyItemsCollectionChange(e, Add, Remove, Reset);
+        SynchronizePortSubscriptions(Group.Input, _inputPortSubscriptions, outputSide: false);
     }
 
     // Move and Replace remove before adding: Items is one flat list indexed by a running port
