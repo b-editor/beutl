@@ -66,7 +66,7 @@ public static class ObjectRegenerator
 
     // The server answers an idempotency key it has already seen with the earlier job, so an AI node in a copy must
     // not send its first request under the original's key. The key's seed is not an Id, so it is renewed here.
-    private static void RenewRequestKeys(object copy)
+    internal static void RenewRequestKeys(object copy)
     {
         foreach (object node in new ObjectSearcher(copy, static v => v is GenerativeNode).SearchAll())
             ((GenerativeNode)node).RenewRequestKey();

@@ -61,8 +61,16 @@ public sealed class ObjectTemplateItem(
                 ? new CoreSerializerOptions { BaseUri = ToFileUri(FilePath) }
                 : null;
 
-            return CoreSerializer.DeserializeFromJsonObject(
-                (JsonObject)Json.DeepClone(), BaseType, options) as ICoreSerializable;
+            if (CoreSerializer.DeserializeFromJsonObject((JsonObject)Json.DeepClone(), BaseType, options)
+                is not ICoreSerializable instance)
+            {
+                return null;
+            }
+
+            // A template saved before AI results were left out still holds the request key of the node it was
+            // saved from, and the property editors apply instances as they are, so each one gets a key of its own.
+            ObjectRegenerator.RenewRequestKeys(instance);
+            return instance;
         }
         catch
         {

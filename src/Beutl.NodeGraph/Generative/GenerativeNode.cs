@@ -318,9 +318,14 @@ public abstract partial class GenerativeNode : GraphNode
         switch (json)
         {
             case JsonObject obj:
-                obj.Remove(nameof(Generations));
-                obj.Remove(nameof(ActiveGenerationId));
-                obj.Remove(nameof(RequestKeySeed));
+                // Only from AI nodes: any other object may have a member of the same name.
+                if (obj.TryGetDiscriminator(out Type? type) && type.IsAssignableTo(typeof(GenerativeNode)))
+                {
+                    obj.Remove(nameof(Generations));
+                    obj.Remove(nameof(ActiveGenerationId));
+                    obj.Remove(nameof(RequestKeySeed));
+                }
+
                 foreach (KeyValuePair<string, JsonNode?> child in obj.ToArray())
                     StripResults(child.Value);
                 break;

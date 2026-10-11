@@ -1,5 +1,6 @@
 ﻿using Beutl.Editor.Models;
 using Beutl.Editor.Services;
+using Beutl.Engine;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Generative;
 using Beutl.NodeGraph.Nodes.Generative;
@@ -223,6 +224,57 @@ public class ObjectRegeneratorTests
         });
     }
 
+    // Only AI nodes leave their results behind: any other object may have members of the same names
+    [Test]
+    public void SavingATemplate_KeepsMembersNamedLikeAiResultsOnOtherObjects()
+    {
+        var (element, _, _) = CreateElementWithAiNodes();
+        var other = new ObjectWithMembersNamedLikeAiResults();
+        other.Generations.CurrentValue = 3;
+        other.ActiveGenerationId.CurrentValue = "active";
+        other.RequestKeySeed.CurrentValue = "seed";
+        element.AddObject(other);
+
+        ObjectTemplateItem template = ObjectTemplateItem.CreateFromInstance(element, "AI clip");
+
+        var instance = (Element)template.CreateInstance()!;
+        ObjectWithMembersNamedLikeAiResults restored =
+            instance.Objects.OfType<ObjectWithMembersNamedLikeAiResults>().Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(restored.Generations.CurrentValue, Is.EqualTo(3));
+            Assert.That(restored.ActiveGenerationId.CurrentValue, Is.EqualTo("active"));
+            Assert.That(restored.RequestKeySeed.CurrentValue, Is.EqualTo("seed"));
+            Assert.That(FindAiNodes(instance).Image.Generations, Is.Empty, "the AI node still leaves its results behind");
+        });
+    }
+
+    // A template saved by an earlier build still holds the seed of the node it was saved from, and the property
+    // editors apply what CreateInstance returns without regenerating it
+    [Test]
+    public void LegacyObjectTemplate_GivesTheAiNodesOfEveryInstanceRequestKeysOfTheirOwn()
+    {
+        var effect = new NodeGraphFilterEffect();
+        var image = new AiImageGenerationNode();
+        effect.Model.CurrentValue!.Nodes.Add(image);
+        (Type baseType, string format) = ObjectTemplateCategoryResolver.Resolve(typeof(NodeGraphFilterEffect));
+        var template = new ObjectTemplateItem(
+            Guid.NewGuid(), baseType, typeof(NodeGraphFilterEffect), CoreSerializer.SerializeToJsonObject(effect),
+            "AI effect", format, null);
+        Assert.That(template.Json.ToJsonString(), Does.Contain(image.RequestKeySeed));
+
+        string[] seeds = Enumerable.Range(0, 2)
+            .Select(_ => ((NodeGraphFilterEffect)template.CreateInstance()!).Model.CurrentValue!.Nodes
+                .OfType<AiImageGenerationNode>().Single().RequestKeySeed)
+            .ToArray();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(seeds, Is.Unique);
+            Assert.That(seeds, Has.None.EqualTo(image.RequestKeySeed));
+        });
+    }
+
     // A clip showing an AI node's result, with a second AI node inside a group node.
     private static (Element Element, AiImageGenerationNode Image, AiImageGenerationNode Nested) CreateElementWithAiNodes()
     {
@@ -259,4 +311,20 @@ public class ObjectRegeneratorTests
             graph.Nodes.OfType<AiImageGenerationNode>().Single(),
             graph.Nodes.OfType<GroupNode>().Single().Group.Nodes.OfType<AiImageGenerationNode>().Single());
     }
+}
+
+// Not an AI node, but with members named like an AI node's results.
+[SuppressResourceClassGeneration]
+public sealed class ObjectWithMembersNamedLikeAiResults : EngineObject
+{
+    public ObjectWithMembersNamedLikeAiResults()
+    {
+        ScanProperties<ObjectWithMembersNamedLikeAiResults>();
+    }
+
+    public IProperty<int> Generations { get; } = Property.Create(0);
+
+    public IProperty<string> ActiveGenerationId { get; } = Property.Create(string.Empty);
+
+    public IProperty<string> RequestKeySeed { get; } = Property.Create(string.Empty);
 }
