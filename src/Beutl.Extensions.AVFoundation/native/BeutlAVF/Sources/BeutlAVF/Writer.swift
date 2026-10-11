@@ -250,6 +250,9 @@ final class Writer {
             AVVideoCodecKey: codec,
             AVVideoWidthKey: Int(config.width),
             AVVideoHeightKey: Int(config.height),
+            // Frames arrive at the source size. One of another aspect ratio is fitted inside the output with
+            // black bars, as the FFmpeg encoder does, instead of being stretched to it.
+            AVVideoScalingModeKey: AVVideoScalingModeResizeAspect,
         ]
         if !compressionProps.isEmpty {
             settings[AVVideoCompressionPropertiesKey] = compressionProps
