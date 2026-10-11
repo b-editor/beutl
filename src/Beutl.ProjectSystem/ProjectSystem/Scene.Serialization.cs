@@ -89,24 +89,25 @@ public partial class Scene
         {
             if (elementsJson is JsonObject elementsObject)
             {
-                var matcher = new Matcher();
                 var directoryName = Path.GetDirectoryName(Uri!.LocalPath)!;
-                var directory = new DirectoryInfoWrapper(new DirectoryInfo(directoryName));
+                IEnumerable<string> includes = [];
+                IEnumerable<string> excludes = [];
 
                 // 含めるクリップ
                 if (elementsObject.TryGetPropertyValue("Include", out JsonNode? includeNode))
                 {
-                    ReadElementPatterns(matcher.AddInclude, includeNode!, _includeElements);
+                    ReadElementPatterns(includeNode!, _includeElements);
+                    includes = _includeElements;
                 }
 
                 // 除外するクリップ
                 if (elementsObject.TryGetPropertyValue("Exclude", out JsonNode? excludeNode))
                 {
-                    ReadElementPatterns(matcher.AddExclude, excludeNode!, _excludeElements);
+                    ReadElementPatterns(excludeNode!, _excludeElements);
+                    excludes = _excludeElements;
                 }
 
-                PatternMatchingResult result = matcher.Execute(directory);
-                SyncronizeFiles(result.Files.Select(x => x.Path));
+                SyncronizeFiles(MatchElementFiles(directoryName, includes, excludes));
             }
             else
             {
@@ -160,7 +161,7 @@ public partial class Scene
         }
     }
 
-    private static void ReadElementPatterns(Func<string, Matcher> add, JsonNode node, List<string> list)
+    private static void ReadElementPatterns(JsonNode node, List<string> list)
     {
         list.Clear();
         if (node is JsonValue jvalue &&
@@ -168,7 +169,6 @@ public partial class Scene
         {
             pattern = NormalizeElementPattern(pattern);
             list.Add(pattern);
-            add(pattern);
         }
         else if (node is JsonArray array)
         {
@@ -178,7 +178,6 @@ public partial class Scene
                 {
                     pattern = NormalizeElementPattern(pattern);
                     list.Add(pattern);
-                    add(pattern);
                 }
             }
         }
@@ -221,18 +220,14 @@ public partial class Scene
     private void UpdateInclude()
     {
         string dirPath = Path.GetDirectoryName(Uri!.LocalPath)!;
-        var directory = new DirectoryInfoWrapper(new DirectoryInfo(dirPath));
         var elementPaths = Children.Select(item => NormalizeElementPattern(
-            Path.GetRelativePath(dirPath, item.Uri!.LocalPath))).ToHashSet(s_elementPathComparer);
+            Path.GetRelativePath(dirPath, item.Uri!.LocalPath))).ToHashSet(StringComparer.Ordinal);
 
         // Attached children must not retain exclusions left by an earlier removal.
-        _excludeElements.RemoveAll(elementPaths.Contains);
+        _excludeElements.RemoveAll(pattern => elementPaths.Contains(pattern)
+            || elementPaths.Any(path => AreSameElementPaths(dirPath, pattern, path)));
 
-        var matcher = new Matcher();
-        matcher.AddIncludePatterns(_includeElements);
-        matcher.AddExcludePatterns(_excludeElements);
-
-        string[] files = matcher.Execute(directory).Files.Select(x => x.Path).ToArray();
+        string[] files = MatchElementFiles(dirPath, _includeElements, _excludeElements);
         foreach (string rel in elementPaths)
         {
             // 含まれていない場合追加
@@ -241,6 +236,47 @@ public partial class Scene
                 _includeElements.Add(rel);
             }
         }
+    }
+
+    private static string[] MatchElementFiles(
+        string directoryName, IEnumerable<string> includes, IEnumerable<string> excludes)
+    {
+        var matcher = new Matcher();
+        matcher.AddIncludePatterns(includes);
+        var literalExclusions = new List<string>();
+        foreach (string pattern in excludes)
+        {
+            if (pattern.Contains('*') || pattern.EndsWith('/')
+                || Directory.Exists(Path.Combine(directoryName, pattern)))
+            {
+                matcher.AddExclude(pattern);
+            }
+            else
+            {
+                literalExclusions.Add(pattern);
+            }
+        }
+
+        // The glob matcher ignores case. Literal files instead follow their actual storage identity.
+        var directory = new DirectoryInfoWrapper(new DirectoryInfo(directoryName));
+        return matcher.Execute(directory).Files.Select(file => file.Path)
+            .Where(path => !literalExclusions.Any(pattern => AreSameElementPaths(directoryName, pattern, path)))
+            .ToArray();
+    }
+
+    private static bool AreSameElementPaths(string directoryName, string left, string right)
+    {
+        if (string.Equals(left, right, StringComparison.Ordinal)) return true;
+        if (!Path.GetFileName(left.AsSpan()).Equals(Path.GetFileName(right.AsSpan()), StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        // Matcher's leading slash is relative to the scene, and dot segments do not change a literal path.
+        string leftPath = Path.GetFullPath(left.TrimStart('/'), directoryName);
+        string rightPath = Path.GetFullPath(right.TrimStart('/'), directoryName);
+        return string.Equals(leftPath, rightPath, StringComparison.Ordinal)
+            || string.Equals(leftPath, rightPath, StringComparison.OrdinalIgnoreCase)
+            && FilePathComparison.AreSameCanonicalPath(
+                leftPath, rightPath);
     }
 
     private static string NormalizeElementPattern(string pattern)

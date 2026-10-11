@@ -43,10 +43,6 @@ public partial class Scene : ProjectItem, INotifyEdited
     public static readonly CoreProperty<CoreList<ImmutableHashSet<Guid>>> GroupsProperty;
     public static readonly CoreProperty<CoreList<TimelineLayer>> LayersProperty;
     public static readonly CoreProperty<CoreList<SceneMarker>> MarkersProperty;
-    private static readonly StringComparer s_elementPathComparer =
-        OperatingSystem.IsWindows() || OperatingSystem.IsMacOS()
-            ? StringComparer.OrdinalIgnoreCase
-            : StringComparer.Ordinal;
     private readonly List<string> _includeElements = ["**/*.belm"];
     private readonly List<string> _excludeElements = [];
     private readonly Elements _children;
@@ -304,7 +300,7 @@ public partial class Scene : ProjectItem, INotifyEdited
                 if (TryGetStoredElementPattern(dirPath, item, out _, out string? rel))
                 {
                     // Undo/Redo can reattach an element before auto-save recreates its file.
-                    _excludeElements.RemoveAll(pattern => s_elementPathComparer.Equals(pattern, rel));
+                    _excludeElements.RemoveAll(pattern => AreSameElementPaths(dirPath!, pattern, rel));
                 }
 
                 affectedRange.Add(item.Range);

@@ -125,17 +125,17 @@ public class SceneTests
     [TestCase(true)]
     public void SceneReload_PreservesRestoredChildWithDifferentPathCasing(bool replace)
     {
-        if (!OperatingSystem.IsWindows() && !OperatingSystem.IsMacOS())
-            Assert.Ignore("Case-insensitive element paths are supported on Windows and macOS.");
-
         var scene = new Scene { Uri = new Uri(Path.Combine(_tempDirectory, "project.scene")) };
         var element = new Element { Uri = new Uri(Path.Combine(_tempDirectory, "elements", "child.belm")) };
+        var restoredUri = new Uri(Path.Combine(_tempDirectory, "elements", "CHILD.belm"));
         scene.Children.Add(element);
         CoreSerializer.StoreToUri(scene, scene.Uri);
+        if (!File.Exists(restoredUri.LocalPath))
+            Assert.Ignore("This volume distinguishes case-sensitive element names.");
 
         scene.Children.Remove(element);
         File.Delete(element.Uri.LocalPath);
-        element.Uri = new Uri(Path.Combine(_tempDirectory, "elements", "CHILD.belm"));
+        element.Uri = restoredUri;
         if (replace)
         {
             scene.Children.Add(new Element());
@@ -156,6 +156,56 @@ public class SceneTests
             Assert.That(restored.Children.Select(child => child.Id), Is.EqualTo(new[] { element.Id }));
             Assert.That(patterns["Exclude"], Is.Null);
         });
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void SceneReload_KeepsCaseDistinctElementExcluded(bool addAfterExclusion)
+    {
+        var scene = new Scene { Uri = new Uri(Path.Combine(_tempDirectory, "project.scene")) };
+        var excluded = new Element { Uri = new Uri(Path.Combine(_tempDirectory, "elements", "child.belm")) };
+        var retained = new Element { Uri = new Uri(Path.Combine(_tempDirectory, "elements", "CHILD.belm")) };
+        scene.Children.Add(excluded);
+        CoreSerializer.StoreToUri(scene, scene.Uri);
+        if (File.Exists(retained.Uri.LocalPath))
+            Assert.Ignore("This volume does not distinguish case-sensitive element names.");
+
+        if (!addAfterExclusion)
+            scene.Children.Add(retained);
+        scene.Children.Remove(excluded);
+        if (addAfterExclusion)
+            scene.Children.Add(retained);
+        CoreSerializer.StoreToUri(scene, scene.Uri);
+
+        Scene restored = CoreSerializer.RestoreFromUri<Scene>(scene.Uri);
+        JsonNode patterns = JsonNode.Parse(File.ReadAllText(scene.Uri.LocalPath))!["Elements"]!;
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.Exists(excluded.Uri.LocalPath), Is.True);
+            Assert.That(restored.Children.Select(child => child.Id), Is.EqualTo(new[] { retained.Id }));
+            Assert.That(patterns["Exclude"]!.GetValue<string>(), Is.EqualTo("elements/child.belm"));
+        });
+    }
+
+    [TestCase("elements/*.belm")]
+    [TestCase("elements/")]
+    [TestCase("elements")]
+    [TestCase("./elements/excluded.belm")]
+    [TestCase("/elements/excluded.belm")]
+    public void SceneReload_PreservesExclusionPatterns(string pattern)
+    {
+        var scene = new Scene { Uri = new Uri(Path.Combine(_tempDirectory, "project.scene")) };
+        var retained = new Element { Uri = new Uri(Path.Combine(_tempDirectory, "retained.belm")) };
+        var excluded = new Element { Uri = new Uri(Path.Combine(_tempDirectory, "elements", "excluded.belm")) };
+        scene.Children.AddRange([retained, excluded]);
+        CoreSerializer.StoreToUri(scene, scene.Uri);
+        JsonObject json = JsonNode.Parse(File.ReadAllText(scene.Uri.LocalPath))!.AsObject();
+        json["Elements"]!["Exclude"] = pattern;
+        json.JsonSave(scene.Uri.LocalPath);
+
+        Scene restored = CoreSerializer.RestoreFromUri<Scene>(scene.Uri);
+
+        Assert.That(restored.Children.Select(child => child.Id), Is.EqualTo(new[] { retained.Id }));
     }
 
     [Test]
