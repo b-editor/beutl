@@ -124,7 +124,8 @@ public partial class PlayerViewModel
         catch (Exception ex)
         {
             _logger.LogError(ex, "An exception occurred during audio playback.");
-            _sessionGuard.TryApply(generation, () =>
+            // On the UI thread, like the other playback state changes.
+            await TryApplyOnUIThreadAsync(generation, () =>
             {
                 NotificationService.ShowError(MessageStrings.UnexpectedError,
                     MessageStrings.AudioPlaybackException);
