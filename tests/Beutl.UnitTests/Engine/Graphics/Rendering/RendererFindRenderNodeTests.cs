@@ -27,7 +27,7 @@ public class RendererFindRenderNodeTests
         (DrawableRenderNode? Rect, DrawableRenderNode[] Drawn) found =
             Find(renderer => (renderer.FindRenderNode(rect), DrawableNodesUnder(renderer, group)), group);
 
-        Assert.That(found.Drawn, Has.Length.EqualTo(1), "The group draws its child into a node of the child's own.");
+        Assert.That(found.Drawn, Has.Length.EqualTo(1), "The child is drawn into a drawable node of its own.");
         Assert.That(found.Rect, Is.SameAs(found.Drawn[0]));
     }
 
