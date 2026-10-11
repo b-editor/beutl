@@ -4,6 +4,7 @@ using Beutl.AgentToolkit.Schema;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.AgentToolkit.Tools;
+using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
 using Beutl.ProjectSystem;
 
@@ -14,6 +15,10 @@ namespace Beutl.AgentToolkit.Tests.Reconciliation;
 public sealed class ApplyEditLockTests
 {
     private const int LockedLayer = 2;
+
+    // MCP binds tool arguments with the Web serializer defaults, so a JsonObject argument, and every
+    // clone of it, finds members whatever their case.
+    private static readonly JsonNodeOptions s_mcpArguments = new() { PropertyNameCaseInsensitive = true };
 
     [TestCase("start")]
     [TestCase("delete")]
@@ -212,6 +217,128 @@ public sealed class ApplyEditLockTests
         });
     }
 
+    // The plan reports the whole Layers array as removed, so the edit is refused like one that drops
+    // a locked element.
+    [Test]
+    public void Apply_edit_rejects_a_full_document_that_drops_the_layers_while_one_is_locked()
+    {
+        Scene scene = CreateScene();
+        AddElement(scene, "Title", zIndex: 0);
+        scene.Layers.Add(new TimelineLayer { ZIndex = LockedLayer, IsLocked = true });
+        using var session = new AgentToolkitTestSession(scene);
+        EditTools tools = CreateTools(session);
+        JsonObject desired = session.Documents.Read(scene);
+        desired.Remove("Layers");
+
+        ToolResult<ApplyEditResponse> result = tools.ApplyEdit(desired: desired, schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error!.Message, Does.Contain($"Layer {LockedLayer} is locked"));
+            Assert.That(result.Error.Target, Is.EqualTo("$/Layers"));
+            Assert.That(scene.IsLayerLocked(LockedLayer), Is.True);
+        });
+    }
+
+    // The diff reports "islocked" or "zindex" under that spelling, while the applier reads the
+    // case-insensitive document as IsLocked or ZIndex.
+    [TestCase("desired", "islocked")]
+    [TestCase("desired", "zindex")]
+    [TestCase("replace", "islocked")]
+    public void Apply_edit_refuses_to_unlock_a_layer_through_differently_cased_members(string shape, string member)
+    {
+        Scene scene = CreateScene();
+        AddElement(scene, "Title", zIndex: 0);
+        var layer = new TimelineLayer { ZIndex = LockedLayer, IsLocked = true };
+        scene.Layers.Add(layer);
+        using var session = new AgentToolkitTestSession(scene);
+        EditTools tools = CreateTools(session);
+        string before = session.Documents.Read(scene).ToJsonString();
+
+        ToolResult<ApplyEditResponse> result;
+        if (shape == "desired")
+        {
+            JsonObject desired = AsMcpArgument(session.Documents.Read(scene));
+            JsonObject layerJson = desired["Layers"]![0]!.AsObject();
+            // The object ignores case, so this removes IsLocked or ZIndex before adding the new spelling.
+            layerJson.Remove(member);
+            layerJson[member] = member == "islocked" ? false : LockedLayer + 1;
+            result = tools.ApplyEdit(desired: desired, schemaVersion: SchemaVersion.Current);
+        }
+        else
+        {
+            // $replace rebuilds the array from the patch's own objects, so the replacement keeps its
+            // spelling and the case-insensitive lookup.
+            JsonObject patch = AsMcpArgument(new JsonObject
+            {
+                ["Layers"] = new JsonArray(
+                    new JsonObject { ["$replace"] = true },
+                    new JsonObject { ["Id"] = layer.Id.ToString(), ["zindex"] = LockedLayer, [member] = false })
+            });
+            result = tools.ApplyEdit(patch: patch, schemaVersion: SchemaVersion.Current);
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error!.Message, Does.Contain($"Layer {LockedLayer} is locked, so an agent cannot unlock"));
+            Assert.That(session.Documents.Read(scene).ToJsonString(), Is.EqualTo(before));
+            Assert.That(scene.IsLayerLocked(LockedLayer), Is.True);
+        });
+    }
+
+    [Test]
+    public void Apply_edit_rejects_moving_an_element_onto_a_locked_layer_through_a_differently_cased_member()
+    {
+        Scene scene = CreateScene();
+        Element element = AddElement(scene, "Title", zIndex: 0);
+        scene.Layers.Add(new TimelineLayer { ZIndex = LockedLayer, IsLocked = true });
+        using var session = new AgentToolkitTestSession(scene);
+        EditTools tools = CreateTools(session);
+        JsonObject desired = AsMcpArgument(session.Documents.Read(scene));
+        JsonObject elementJson = desired["Elements"]![0]!.AsObject();
+        elementJson.Remove("ZIndex");
+        elementJson["zindex"] = LockedLayer;
+
+        ToolResult<ApplyEditResponse> result = tools.ApplyEdit(desired: desired, schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error!.Message, Does.Contain($"Layer {LockedLayer} is locked"));
+            Assert.That(element.ZIndex, Is.Zero);
+        });
+    }
+
+    // The diff skips $type: an Id-less replacement gets a fresh Id, and LumaColor and PartsSplitEffect
+    // have the same members, so the plan has no change while the applier swaps the effect.
+    [Test]
+    public void Apply_edit_rejects_swapping_the_type_of_an_object_inside_a_locked_element()
+    {
+        Scene scene = CreateScene();
+        Element element = AddElement(scene, "Title", zIndex: 0);
+        var rect = new RectShape { Name = "Box" };
+        rect.FilterEffect.CurrentValue = new LumaColor();
+        element.AddObject(rect);
+        element.IsLocked = true;
+        using var session = new AgentToolkitTestSession(scene);
+        EditTools tools = CreateTools(session);
+        JsonObject desired = session.Documents.Read(scene);
+        JsonObject effect = desired["Elements"]![0]!["Objects"]![0]!["FilterEffect"]!.AsObject();
+        effect.Remove("Id");
+        effect["$type"] = IdentityHelper.WriteDiscriminator(typeof(PartsSplitEffect));
+
+        ToolResult<ApplyEditResponse> result = tools.ApplyEdit(desired: desired, schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error!.Message, Does.Contain($"({element.Id}) is locked"));
+            Assert.That(rect.FilterEffect.CurrentValue, Is.InstanceOf<LumaColor>());
+        });
+    }
+
     [TestCase(false)]
     [TestCase(true)]
     public void Duplicate_object_rejects_an_object_in_a_locked_element(bool wrapInGroup)
@@ -240,6 +367,11 @@ public sealed class ApplyEditLockTests
         var manager = new AgentSessionManager();
         manager.UseSource(new AgentToolkitTestSessionSource(session));
         return new EditTools(manager);
+    }
+
+    private static JsonObject AsMcpArgument(JsonObject json)
+    {
+        return JsonNode.Parse(json.ToJsonString(), s_mcpArguments)!.AsObject();
     }
 
     private static JsonObject ElementPatch(Element element, JsonObject members)

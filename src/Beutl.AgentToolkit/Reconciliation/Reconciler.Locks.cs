@@ -12,24 +12,33 @@ public sealed partial class Reconciler
     private const string LockHint = "Agents can lock elements and layers but cannot unlock them.";
 
     // The timeline and property editors refuse to change an element that is locked or sits on a locked
-    // layer (Scene.IsElementLocked), and to place an element on a locked layer. Judge every change against
-    // the current scene so an agent's edit follows the same rule. Locking is allowed; unlocking stays a
-    // user action.
-    private static void ThrowIfLockedChanges(CoreObject root, CoreObject sandboxRoot, List<ChangeSetEntry> changes)
+    // layer (Scene.IsElementLocked), and to place an element on a locked layer. Agent edits follow the
+    // same rule, judged against the current scene. Locking is allowed; unlocking stays a user action.
+    //
+    // The planned changes alone are not enough: MCP binds JSON case-insensitively, so a desired document
+    // can carry "islocked" or "zindex", which the diff reports under that spelling while the applier still
+    // reads it as IsLocked or ZIndex. So the applied sandbox is checked as well, and so is $type, which
+    // the diff never reports.
+    private static void ThrowIfLockedChanges(
+        CoreObject root,
+        CoreObject sandboxRoot,
+        JsonObject currentDocument,
+        JsonObject desiredDocument,
+        List<ChangeSetEntry> changes)
     {
-        if (root is not Scene scene || changes.Count == 0)
+        if (root is not Scene scene || sandboxRoot is not Scene sandbox)
         {
             return;
         }
 
-        // A corrupted project can repeat an Id; a locked copy keeps that Id locked.
-        ILookup<Guid, Element> elements = scene.Children.ToLookup(element => element.Id);
-        foreach (ChangeSetEntry change in changes)
+        Element[] lockedElements = scene.Children.Where(scene.IsElementLocked).ToArray();
+        TimelineLayer[] lockedLayers = scene.Layers.Where(layer => layer.IsLocked).ToArray();
+        ToolError? error = FindPlannedLockViolation(scene, lockedElements, lockedLayers, changes)
+                           ?? FindAppliedLockViolation(scene, sandbox, lockedElements, lockedLayers)
+                           ?? FindLockedTypeChange(scene, lockedElements, currentDocument, desiredDocument);
+        if (error is not null)
         {
-            if (FindLockViolation(scene, sandboxRoot, elements, change) is { } error)
-            {
-                throw new ReconcileException(error);
-            }
+            throw new ReconcileException(error);
         }
     }
 
@@ -61,79 +70,182 @@ public sealed partial class Reconciler
             "Leave this element out of the edit.");
     }
 
-    private static ToolError? FindLockViolation(
+    // What the plan says: any change under a locked element, deleting it, or replacing the whole
+    // Elements or Layers array while it holds something locked.
+    private static ToolError? FindPlannedLockViolation(
         Scene scene,
-        CoreObject sandboxRoot,
-        ILookup<Guid, Element> elements,
-        ChangeSetEntry change)
+        Element[] lockedElements,
+        TimelineLayer[] lockedLayers,
+        List<ChangeSetEntry> changes)
     {
-        if (TrySplitItemPath(change.Path, ElementsPath, out Guid elementId, out string member))
+        if (lockedElements.Length == 0 && lockedLayers.Length == 0)
         {
-            // Setting IsLocked to true only adds protection, even on an element its layer already locks.
-            if (member == "/IsLocked" && IsTrue(change.NewValue))
-            {
-                return null;
-            }
-
-            if (elements[elementId].FirstOrDefault(scene.IsElementLocked) is { } locked)
-            {
-                return CreateLockedElementError(scene, locked, change.Path);
-            }
-
-            return member == "/ZIndex" && FindElement(sandboxRoot, elementId) is { } moved
-                ? CreateLockedLayerPlacementError(scene, moved, change.Path)
-                : null;
-        }
-
-        if (change.Path == ElementsPath)
-        {
-            switch (change.Operation)
-            {
-                case ChangeOperations.RemoveChild when Guid.TryParse(change.TargetId, out Guid removedId)
-                    && elements[removedId].FirstOrDefault(scene.IsElementLocked) is { } removed:
-                    return CreateLockedElementError(scene, removed, $"{ElementsPath}[Id={removed.Id}]");
-                case ChangeOperations.InsertChild when Guid.TryParse(change.TargetId, out Guid insertedId)
-                    && FindElement(sandboxRoot, insertedId) is { } inserted:
-                    return CreateLockedLayerPlacementError(scene, inserted, $"{ElementsPath}[Id={inserted.Id}]");
-                // A full desired document that omits Elements clears the scene.
-                case ChangeOperations.SetProperty when scene.Children.FirstOrDefault(scene.IsElementLocked) is { } cleared:
-                    return CreateLockedElementError(scene, cleared, $"{ElementsPath}[Id={cleared.Id}]");
-            }
-
-            // A move within the Elements array changes no timeline position: inserting or deleting
-            // another element shifts every later index.
             return null;
         }
 
-        // A locked layer keeps its Name, Color and mute and solo flags editable, as in the timeline. Moving
-        // or removing it would unlock its row.
-        if (TrySplitItemPath(change.Path, LayersPath, out Guid layerId, out string layerMember))
+        foreach (ChangeSetEntry change in changes)
         {
-            return layerMember is "/IsLocked" or "/ZIndex" && FindLockedLayer(scene, layerId) is { } layer
-                ? CreateLayerUnlockError(layer, change.Path)
-                : null;
+            if (TrySplitItemPath(change.Path, ElementsPath, out Guid elementId, out string member))
+            {
+                // Setting IsLocked to true only adds protection, even on an element its layer already locks.
+                if (member.Equals("/IsLocked", StringComparison.OrdinalIgnoreCase) && IsTrue(change.NewValue))
+                {
+                    continue;
+                }
+
+                if (lockedElements.FirstOrDefault(element => element.Id == elementId) is { } locked)
+                {
+                    return CreateLockedElementError(scene, locked, change.Path);
+                }
+            }
+            else if (change.Path == ElementsPath)
+            {
+                // Inserts are judged on the applied result below. A move inside the array changes no
+                // timeline position: inserting or deleting another element shifts every later index.
+                Element? removed = change.Operation switch
+                {
+                    ChangeOperations.SetProperty => lockedElements.FirstOrDefault(),
+                    ChangeOperations.RemoveChild when Guid.TryParse(change.TargetId, out Guid removedId)
+                        => lockedElements.FirstOrDefault(element => element.Id == removedId),
+                    _ => null,
+                };
+                if (removed is not null)
+                {
+                    return CreateLockedElementError(scene, removed, $"{ElementsPath}[Id={removed.Id}]");
+                }
+            }
+            else if (change.Path == LayersPath
+                     && change.Operation == ChangeOperations.SetProperty
+                     && lockedLayers.Length > 0)
+            {
+                return CreateLayerUnlockError(lockedLayers[0], LayersPath);
+            }
         }
 
-        return change.Path == LayersPath
-               && change.Operation == ChangeOperations.RemoveChild
-               && Guid.TryParse(change.TargetId, out Guid removedLayerId)
-               && FindLockedLayer(scene, removedLayerId) is { } removedLayer
-            ? CreateLayerUnlockError(removedLayer, $"{LayersPath}[Id={removedLayer.Id}]")
-            : null;
+        return null;
     }
 
-    private static ToolError? CreateLockedLayerPlacementError(Scene scene, Element placed, string target)
+    // What the apply does, whatever shape the edit took: a locked element keeps its timing, layer and
+    // lock; a locked layer keeps its row and lock; nothing new or moved lands on a locked layer.
+    private static ToolError? FindAppliedLockViolation(
+        Scene scene,
+        Scene sandbox,
+        Element[] lockedElements,
+        TimelineLayer[] lockedLayers)
     {
-        if (!scene.IsLayerLocked(placed.ZIndex))
+        foreach (Element locked in lockedElements)
+        {
+            Element? applied = sandbox.Children.FirstOrDefault(element => element.Id == locked.Id);
+            if (applied is null
+                || applied.Start != locked.Start
+                || applied.Length != locked.Length
+                || applied.ZIndex != locked.ZIndex
+                || (locked.IsLocked && !applied.IsLocked))
+            {
+                return CreateLockedElementError(scene, locked, $"{ElementsPath}[Id={locked.Id}]");
+            }
+        }
+
+        foreach (TimelineLayer locked in lockedLayers)
+        {
+            if (!sandbox.Layers.Any(layer => layer.Id == locked.Id && layer.IsLocked && layer.ZIndex == locked.ZIndex))
+            {
+                return CreateLayerUnlockError(locked, $"{LayersPath}[Id={locked.Id}]");
+            }
+        }
+
+        if (lockedLayers.Length == 0)
         {
             return null;
         }
 
-        return new ToolError(
-            ErrorCode.ValidationRejected,
-            $"Layer {placed.ZIndex} is locked, so element {DescribeElement(placed)} cannot be placed on it.",
-            target,
-            $"Use an unlocked layer (ZIndex), or ask the user to unlock layer {placed.ZIndex} in the timeline. {LockHint}");
+        Dictionary<Guid, int> currentZIndices = scene.Children
+            .GroupBy(element => element.Id)
+            .ToDictionary(group => group.Key, group => group.First().ZIndex);
+        foreach (Element applied in sandbox.Children)
+        {
+            bool placed = !currentZIndices.TryGetValue(applied.Id, out int zIndex) || zIndex != applied.ZIndex;
+            if (placed && scene.IsLayerLocked(applied.ZIndex))
+            {
+                return new ToolError(
+                    ErrorCode.ValidationRejected,
+                    $"Layer {applied.ZIndex} is locked, so element {DescribeElement(applied)} cannot be placed on it.",
+                    $"{ElementsPath}[Id={applied.Id}]",
+                    $"Use an unlocked layer (ZIndex), or ask the user to unlock layer {applied.ZIndex} in the timeline. {LockHint}");
+            }
+        }
+
+        return null;
+    }
+
+    // The diff skips $type, so replacing an object inside a locked element with one of another type
+    // that has the same members leaves no planned change, while the applier swaps the object.
+    private static ToolError? FindLockedTypeChange(
+        Scene scene,
+        Element[] lockedElements,
+        JsonObject currentDocument,
+        JsonObject desiredDocument)
+    {
+        if (lockedElements.Length == 0
+            || currentDocument["Elements"] is not JsonArray currentElements
+            || desiredDocument["Elements"] is not JsonArray desiredElements)
+        {
+            return null;
+        }
+
+        Dictionary<Guid, (int Index, JsonObject Node)> current = IndexById(currentElements);
+        Dictionary<Guid, (int Index, JsonObject Node)> desired = IndexById(desiredElements);
+        foreach (Element locked in lockedElements)
+        {
+            if (current.TryGetValue(locked.Id, out (int Index, JsonObject Node) currentItem)
+                && desired.TryGetValue(locked.Id, out (int Index, JsonObject Node) desiredItem)
+                && HasTypeChange(currentItem.Node, desiredItem.Node))
+            {
+                return CreateLockedElementError(scene, locked, $"{ElementsPath}[Id={locked.Id}]");
+            }
+        }
+
+        return null;
+    }
+
+    // Walks the nodes the diff pairs: objects by member name, identity arrays by Id. The diff compares
+    // other arrays whole, $type included.
+    private static bool HasTypeChange(JsonNode? current, JsonNode? desired)
+    {
+        switch (current, desired)
+        {
+            case (JsonObject currentObject, JsonObject desiredObject):
+                if (!JsonEquals(currentObject["$type"], desiredObject["$type"])
+                    && (currentObject.GetDiscriminator() is not { } currentType
+                        || currentType != desiredObject.GetDiscriminator()))
+                {
+                    return true;
+                }
+
+                foreach (KeyValuePair<string, JsonNode?> pair in desiredObject)
+                {
+                    if (currentObject.TryGetPropertyValue(pair.Key, out JsonNode? child) && HasTypeChange(child, pair.Value))
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
+            case (JsonArray currentArray, JsonArray desiredArray):
+                Dictionary<Guid, (int Index, JsonObject Node)> currentById = IndexById(currentArray);
+                foreach (KeyValuePair<Guid, (int Index, JsonObject Node)> item in IndexById(desiredArray))
+                {
+                    if (currentById.TryGetValue(item.Key, out (int Index, JsonObject Node) currentItem)
+                        && HasTypeChange(currentItem.Node, item.Value.Node))
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
+            default:
+                return false;
+        }
     }
 
     private static ToolError CreateLayerUnlockError(TimelineLayer layer, string target)
@@ -143,17 +255,6 @@ public sealed partial class Reconciler
             $"Layer {layer.ZIndex} is locked, so an agent cannot unlock, move or remove it.",
             target,
             $"Keep the layer's IsLocked, ZIndex and its entry in Layers unchanged; only the user can unlock it in the timeline. {LockHint}");
-    }
-
-    private static TimelineLayer? FindLockedLayer(Scene scene, Guid layerId)
-    {
-        return scene.Layers.FirstOrDefault(layer => layer.Id == layerId && layer.IsLocked);
-    }
-
-    // The sandbox holds the edit already applied, so it carries the ZIndex an element ends up on.
-    private static Element? FindElement(CoreObject sandboxRoot, Guid elementId)
-    {
-        return IdentityHelper.FindById(sandboxRoot, elementId) as Element;
     }
 
     // Splits "$/Elements[Id=<guid>]/Start" into the item's Id and the member path after it.
