@@ -1,7 +1,5 @@
-﻿using System.Text.Json;
-using Beutl.Editor;
+﻿using Beutl.Editor;
 using Beutl.ProjectSystem;
-using Beutl.Serialization;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.ViewModels;
@@ -97,10 +95,8 @@ public sealed partial class EditViewModel
                 // for admission. Keep its save intent until the final stable scan.
                 if (_fingerprintScanRequested) continue;
                 MergeSavedMediaFingerprints(scene);
-                var saved = Scene.ToSerializedMediaFingerprints(_savedMediaFingerprints, uri);
-                // Patch advisory metadata only; never serialize unsaved scene or element edits.
-                bool changed = CoreSerializer.UpdateStoredMetadata(uri, scene.Id, nameof(Scene.MediaFingerprints),
-                    saved.Count == 0 ? null : JsonSerializer.SerializeToNode(saved));
+                // Write the fingerprint file only; never serialize unsaved scene or element edits.
+                bool changed = MediaFingerprintFile.Update(uri, scene.Id, _savedMediaFingerprints);
                 bool finishSaveSnapshot = _finishFingerprintSaveSnapshot;
                 _finishFingerprintSaveSnapshot = false;
                 if (changed && finishSaveSnapshot && EditorService.ProjectVersionControlSession is { } session)

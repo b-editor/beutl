@@ -273,7 +273,7 @@ public class ResourceRelocationService
             // A replacement can have different content despite identical size/timestamps.
             // Keep the original fingerprint until the whole scene graph is pruned;
             // other media kinds can still refer to the old URI while remaining offline.
-            scene.MediaFingerprints.Remove(newUri.AbsoluteUri);
+            scene.RemoveMediaFingerprint(newUri.AbsoluteUri);
         }
     }
 

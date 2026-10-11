@@ -294,7 +294,7 @@ public partial class MissingMediaTests
         var item = service.FindMissing(restored).Single();
         Assert.That(item.Fingerprint, Is.Not.Null);
         Assert.That((await service.FindMatchesAsync([item], search))[item].Single(), Is.EqualTo(renamed));
-        restored.MediaFingerprints.Clear();
+        restored.SetMediaFingerprints([]);
         Assert.That(await service.FindMatchesAsync(service.FindMissing(restored), search), Is.Empty);
     }
 
@@ -416,6 +416,10 @@ public partial class MissingMediaTests
         Assert.That(await vm.ApplyAsync(), Is.True, vm.Error.Value);
         Assert.That(editor.HistoryManager.UndoCount, Is.Zero, "Repairs are separate from editing history.");
         Assert.That(GlobalConfiguration.Instance.EditorConfig.LastMediaDirectory, Is.EqualTo(directory));
+        await editor.WaitForMediaFingerprintsAsync();
+        // The repair saved the scene before the replacements were hashed, so the next save writes their fingerprints.
+        Assert.That(editor.Scene.MediaFingerprints, Has.Count.EqualTo(300));
+        Assert.That(await editor.SaveAsync(), Is.True);
         await editor.WaitForMediaFingerprintsAsync();
         await TestReset.ResetShellAsync();
         await TestShell.Project.OpenProject(projectPath);
@@ -873,7 +877,13 @@ public partial class MissingMediaTests
             await editor.WaitForMediaFingerprintsAsync();
             var reopened = CoreSerializer.RestoreFromUri<Scene>(editor.Scene.Uri!);
             Assert.That(reopened.Duration, Is.Not.EqualTo(TimeSpan.FromSeconds(17)));
-            Assert.That(reopened.MediaFingerprints.ContainsKey(new Uri(path).AbsoluteUri), Is.True);
+            // The scene file that the save wrote has no fingerprints and references no fingerprint file, so the
+            // hash waits in the scene for the next save.
+            Assert.That(reopened.MediaFingerprints, Is.Empty);
+            Assert.That(editor.Scene.MediaFingerprints.ContainsKey(new Uri(path).AbsoluteUri), Is.True);
+            Assert.That(await editor.SaveAsync(), Is.True);
+            await editor.WaitForMediaFingerprintsAsync();
+            Assert.That(CoreSerializer.RestoreFromUri<Scene>(editor.Scene.Uri!).MediaFingerprints.ContainsKey(new Uri(path).AbsoluteUri), Is.True);
         }
         finally { release.TrySetResult(); await TestReset.ResetShellAsync(); }
     }
@@ -944,6 +954,13 @@ public partial class MissingMediaTests
             Assert.That(CoreSerializer.RestoreFromUri<Scene>(editor.Scene.Uri!).Children, Has.Count.EqualTo(1));
             release.SetResult();
             await editor.WaitForMediaFingerprintsAsync();
+            // The auto-save wrote the scene file before the hash, so it references no fingerprint file, and the hash
+            // waits in the scene. The next auto-save of the scene writes the reference, and the update after it the file.
+            Assert.That(CoreSerializer.RestoreFromUri<Scene>(editor.Scene.Uri!).MediaFingerprints, Is.Empty);
+            editor.Scene.Duration += TimeSpan.FromSeconds(1);
+            editor.HistoryManager.Commit("Edit the scene");
+            HeadlessTestHelpers.Settle();
+            await editor.WaitForMediaFingerprintsAsync();
             string renamed = Path.Combine(directory, "renamed.png"); File.Move(path, renamed);
             var saved = CoreSerializer.RestoreFromUri<Scene>(editor.Scene.Uri!);
             var service = new MissingMediaService();
@@ -979,7 +996,8 @@ public partial class MissingMediaTests
             await vm.WaitForCandidatesAsync();
             Assert.That(await vm.ApplyAsync(), Is.True, vm.Error.Value);
             await editor.WaitForMediaFingerprintsAsync();
-            session.Verify(value => value.NotifySavedAsync(Moq.It.Is<Beutl.Editor.VersionControl.IProjectFileWriteLease>(lease => lease != null), Moq.It.IsAny<CancellationToken>()), Moq.Times.Exactly(2));
+            // The repair's save. The replacement is hashed after it, and its fingerprint waits for the next save.
+            session.Verify(value => value.NotifySavedAsync(Moq.It.Is<Beutl.Editor.VersionControl.IProjectFileWriteLease>(lease => lease != null), Moq.It.IsAny<CancellationToken>()), Moq.Times.Once());
         }
         finally { editor.EditorService.ProjectVersionControlCoordinator = old; await TestReset.ResetShellAsync(); }
     }

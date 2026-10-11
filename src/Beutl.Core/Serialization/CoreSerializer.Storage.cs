@@ -1,7 +1,5 @@
 ﻿using System.Text.Json;
 
-using System.Text.Json.Nodes;
-
 namespace Beutl.Serialization;
 
 public static partial class CoreSerializer
@@ -231,37 +229,6 @@ public static partial class CoreSerializer
     // 中途半端な状態で残るのを防ぐ。
     // 固定 `.tmp` サフィックスだとユーザーや他ツールが既に持つ同名ファイルを
     // 上書きしてしまうため、ランダムサフィックスを付与して衝突を避ける。
-    internal static bool UpdateStoredMetadata(Uri uri, Guid objectId, string name, JsonNode? value)
-    {
-        if (!uri.IsFile || !File.Exists(uri.LocalPath)) return false;
-        JsonObject json;
-        using (var stream = UriHelper.ResolveStream(uri)) json = ParseStoredObject(stream, uri);
-        if (!Guid.TryParse(json[nameof(CoreObject.Id)]?.GetValue<string>(), out var id) || id != objectId)
-            return false;
-        if (JsonNode.DeepEquals(json[name], value)) return false;
-        if (value is null) json.Remove(name);
-        else if (json.ContainsKey(name)) json[name] = value;
-        else InsertBeforeTrailingDiscriminator(json, name, value);
-        WriteJsonAtomically(uri.LocalPath, false, writer => json.WriteTo(writer, JsonHelper.SerializerOptions));
-        return true;
-    }
-
-    // A full save writes the type discriminator after the object's own properties. A new property goes
-    // just before it, where an object that writes the property last puts it on a full save, so the
-    // next full save keeps the text as it is instead of moving the property.
-    private static void InsertBeforeTrailingDiscriminator(JsonObject json, string name, JsonNode value)
-    {
-        int last = json.Count - 1;
-        if (last >= 0 && json.GetAt(last).Key is "$type" or "@type")
-        {
-            json.Insert(last, name, value);
-        }
-        else
-        {
-            json[name] = value;
-        }
-    }
-
     private static void WriteJsonAtomically(string path, bool isCompatibilityGate, Action<Utf8JsonWriter> write)
     {
         string? directory = Path.GetDirectoryName(path);

@@ -48,7 +48,10 @@ public class EditorSwitchMenuTests
         editor.CaptureMediaFingerprints = async (scene, token) =>
         {
             started.TrySetResult(); await release.Task.WaitAsync(token);
-            scene.MediaFingerprints[new Uri(path).AbsoluteUri] = new MediaFileFingerprint(42, 123, "captured-before-dispose");
+            scene.SetMediaFingerprints(new Dictionary<string, MediaFileFingerprint>(scene.MediaFingerprints)
+            {
+                [new Uri(path).AbsoluteUri] = new MediaFileFingerprint(42, 123, "captured-before-dispose"),
+            });
         };
         try
         {

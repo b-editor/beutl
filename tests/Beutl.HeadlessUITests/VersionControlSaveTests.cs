@@ -199,7 +199,7 @@ public class VersionControlSaveTests
     [AvaloniaTest]
     [TestCase(false)]
     [TestCase(true)]
-    public async Task Delayed_media_fingerprints_are_recorded_in_save_snapshots(bool saveAll)
+    public async Task Delayed_media_fingerprints_are_recorded_by_the_next_save(bool saveAll)
     {
         await TestReset.ResetShellAsync();
         using var environment = new IsolatedGitEnvironment();
@@ -254,10 +254,24 @@ public class VersionControlSaveTests
             HeadlessTestHelpers.Settle();
             release.SetResult();
             await editor.WaitForMediaFingerprintsAsync();
-            string relativeScene = Path.GetRelativePath(projectRoot, scene.Uri!.LocalPath).Replace('\\', '/');
+            // The save wrote the scene file before the media were hashed, so it references no fingerprint file,
+            // and the update writes none and asks for no snapshot. The scene keeps the fingerprints instead.
+            string hash = scene.MediaFingerprints[new Uri(media).AbsoluteUri].Sha256;
+            Assert.That(File.Exists(MediaFingerprintFile.GetPath(scene.Uri!.LocalPath)), Is.False);
+            Assert.That(await CountSaveSnapshotsAsync(gitPath, projectRoot), Is.EqualTo(1));
+
+            // The next save writes them, and its snapshot records them.
+            if (saveAll) await TestShell.MainViewModel.MenuBar.SaveAll.ExecuteAsync();
+            else await TestShell.MainViewModel.MenuBar.Save.ExecuteAsync();
+            await editor.WaitForMediaFingerprintsAsync();
+            string relativeScene = Path.GetRelativePath(projectRoot, scene.Uri.LocalPath).Replace('\\', '/');
             string committedScene = await RunGitAsync(gitPath, projectRoot, "show", $"HEAD:{relativeScene}");
-            var saved = CoreSerializer.RestoreFromUri<Scene>(scene.Uri);
-            Assert.That(committedScene, Does.Contain(saved.MediaFingerprints[new Uri(media).AbsoluteUri].Sha256));
+            string relativeFingerprints = Path.GetRelativePath(projectRoot, MediaFingerprintFile.GetPath(scene.Uri.LocalPath))
+                .Replace('\\', '/');
+            string committedFingerprints = await RunGitAsync(gitPath, projectRoot, "show", $"HEAD:{relativeFingerprints}");
+            Assert.That(committedFingerprints, Does.Contain(hash));
+            Assert.That(committedScene, Does.Contain("\"MediaFingerprintFile\": \"media-fingerprints.json\""));
+            Assert.That(committedScene, Does.Not.Contain(nameof(Scene.MediaFingerprints)));
             Assert.That(await CountSaveSnapshotsAsync(gitPath, projectRoot), Is.EqualTo(2));
             Assert.That((await TestShell.VersionControl.CurrentService!.GetStatusAsync(CancellationToken.None)).IsClean, Is.True);
         }
@@ -309,12 +323,24 @@ public class VersionControlSaveTests
                 element.Objects.Add(new Beutl.Graphics.SourceImage { Source = { CurrentValue = source } });
                 scene.Children.Add(element);
             }
+            // Hash the media before the first save, which then writes the fingerprints with the scene.
+            editor.ScheduleMediaFingerprints();
+            await editor.WaitForMediaFingerprintsAsync();
             await TestShell.MainViewModel.MenuBar.Save.ExecuteAsync();
             await editor.WaitForMediaFingerprintsAsync();
             Assert.That(CoreSerializer.RestoreFromUri<Scene>(scene.Uri).MediaFingerprints, Has.Count.EqualTo(1));
             Assert.That((await TestShell.VersionControl.CurrentService!.GetStatusAsync(CancellationToken.None)).IsClean, Is.True);
+            // The fingerprints are committed in their own file next to the scene, not in the scene file.
+            string fingerprintFile = MediaFingerprintFile.GetPath(scene.Uri.LocalPath);
+            string relativeFingerprints = Path.GetRelativePath(projectRoot, fingerprintFile).Replace('\\', '/');
+            Assert.That(
+                (await RunGitAsync(gitPath, projectRoot, "ls-tree", "-r", "--name-only", "HEAD")).Split('\n'),
+                Does.Contain(relativeFingerprints));
+            Assert.That(File.ReadAllText(scene.Uri.LocalPath), Does.Not.Contain(nameof(Scene.MediaFingerprints)));
             int snapshots = await CountSaveSnapshotsAsync(gitPath, projectRoot);
             byte[] savedScene = File.ReadAllBytes(scene.Uri.LocalPath);
+            byte[] savedFingerprints = File.ReadAllBytes(fingerprintFile);
+            DateTime fingerprintsWritten = File.GetLastWriteTimeUtc(fingerprintFile);
 
             // As after a checkout on another machine: the same file with another timestamp.
             File.SetLastWriteTimeUtc(media, File.GetLastWriteTimeUtc(media).AddHours(-3));
@@ -326,6 +352,8 @@ public class VersionControlSaveTests
             Assert.Multiple(() =>
             {
                 Assert.That(File.ReadAllBytes(scene.Uri.LocalPath), Is.EqualTo(savedScene));
+                Assert.That(File.ReadAllBytes(fingerprintFile), Is.EqualTo(savedFingerprints));
+                Assert.That(File.GetLastWriteTimeUtc(fingerprintFile), Is.EqualTo(fingerprintsWritten), "The fingerprint file is not rewritten.");
                 Assert.That(snapshotsAfter, Is.EqualTo(snapshots));
                 Assert.That(clean, Is.True);
             });
