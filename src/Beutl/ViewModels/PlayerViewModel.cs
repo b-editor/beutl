@@ -480,7 +480,8 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
     }
 
     // On the UI thread an exception that escapes a dispatcher job ends the process, so a subscriber that throws
-    // is logged instead.
+    // is logged instead, and playback stops: a failed loop restart would otherwise leave IsPlaying set with
+    // nothing playing, and Play() would refuse to start again.
     private bool TryApplyLogged(int generation, Action update)
     {
         try
@@ -491,6 +492,16 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         {
             _logger.LogError(ex, "An exception occurred while changing the playback state. ({SceneId})",
                 _editViewModel.SceneId);
+            try
+            {
+                _sessionGuard.TryApply(generation, () => IsPlaying.Value = false);
+            }
+            catch (Exception stopEx)
+            {
+                _logger.LogError(stopEx, "An exception occurred while stopping the playback. ({SceneId})",
+                    _editViewModel.SceneId);
+            }
+
             return false;
         }
     }

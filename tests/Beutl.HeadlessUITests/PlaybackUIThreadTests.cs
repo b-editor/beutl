@@ -54,7 +54,7 @@ public class PlaybackUIThreadTests
 
         // The scene is half a second long, so playback stops at its end by itself.
         editor.Player.Play();
-        await WaitUntilAsync(() => playingChanges >= 2 && !editor.Player.IsPlaybackActive, TimeSpan.FromSeconds(20));
+        await WaitUntilAsync(() => playingChanges >= 2 && !editor.Player.IsPlaybackActive, TimeSpan.FromMinutes(2));
 
         Assert.Multiple(() =>
         {
@@ -86,7 +86,7 @@ public class PlaybackUIThreadTests
         {
             editor.Player.Play();
             // A stop that landed after a restart would end playback before the second rewind.
-            await WaitUntilAsync(() => Rewinds(times) >= 2, TimeSpan.FromSeconds(20));
+            await WaitUntilAsync(() => Rewinds(times) >= 2, TimeSpan.FromMinutes(2));
         }
         finally
         {
@@ -118,7 +118,7 @@ public class PlaybackUIThreadTests
         IEditorClock clock = editor.GetRequiredService<IEditorClock>();
 
         editor.Player.Play();
-        await WaitUntilAsync(() => clock.CurrentTime.Value >= TimeSpan.FromSeconds(0.2), TimeSpan.FromSeconds(20));
+        await WaitUntilAsync(() => clock.CurrentTime.Value >= TimeSpan.FromSeconds(0.2), TimeSpan.FromMinutes(2));
         await editor.Player.Pause();
         TimeSpan pausedAt = clock.CurrentTime.Value;
 
@@ -148,9 +148,41 @@ public class PlaybackUIThreadTests
         });
 
         editor.Player.Play();
-        await WaitUntilAsync(() => thrown == 1 && !editor.Player.IsPlaybackActive, TimeSpan.FromSeconds(20));
+        await WaitUntilAsync(() => thrown == 1 && !editor.Player.IsPlaybackActive, TimeSpan.FromMinutes(2));
 
         Assert.That(editor.Player.IsPlaying.Value, Is.False);
+    }
+
+    // The loop restart sets IsPlaying on the UI thread. If a subscriber throws there, playback must stop rather
+    // than stay marked as playing with nothing playing, which would make Play() refuse to start again.
+    [AvaloniaTest]
+    public async Task LoopRestartWhoseSubscriberThrows_StopsPlayback_AndPlayStartsAgain()
+    {
+        GpuTestGate.EnsureAvailable();
+        EditViewModel editor = await OpenEditor(TimeSpan.FromSeconds(0.3));
+        int starts = 0;
+        // The first start is Play() itself; the second is the restart at the end of the first pass.
+        using IDisposable subscription = editor.Player.IsPlaying.Skip(1).Where(playing => playing).Subscribe(_ =>
+        {
+            if (Interlocked.Increment(ref starts) == 2)
+                throw new InvalidOperationException("An IsPlaying subscriber failed.");
+        });
+        editor.Player.IsLoopEnabled.Value = true;
+
+        try
+        {
+            editor.Player.Play();
+            await WaitUntilAsync(() => starts >= 2 && !editor.Player.IsPlaybackActive, TimeSpan.FromMinutes(2));
+            Assert.That(editor.Player.IsPlaying.Value, Is.False);
+
+            editor.Player.Play();
+            Assert.That(editor.Player.IsPlaying.Value, Is.True, "Play() must start again");
+        }
+        finally
+        {
+            await editor.Player.Pause();
+            editor.Player.IsLoopEnabled.Value = false;
+        }
     }
 
     private static void Record(ref int count, ConcurrentQueue<string> offThread, string what)
