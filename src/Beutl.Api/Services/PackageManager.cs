@@ -7,7 +7,7 @@ using Microsoft.Extensions.Logging;
 using NuGet.Packaging;
 using NuGet.Packaging.Core;
 using NuGet.Versioning;
-using Telemetry = Beutl.Api.Services.PackageManagemantActivitySource;
+using Telemetry = Beutl.Api.Services.PackageManagementActivitySource;
 
 namespace Beutl.Api.Services;
 

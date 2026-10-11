@@ -2,7 +2,7 @@
 using Beutl.Extensibility;
 using Beutl.Services;
 using Microsoft.Extensions.Logging;
-using Telemetry = Beutl.Api.Services.PackageManagemantActivitySource;
+using Telemetry = Beutl.Api.Services.PackageManagementActivitySource;
 
 namespace Beutl.Api.Services;
 
