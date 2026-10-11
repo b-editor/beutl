@@ -14,6 +14,9 @@ namespace Beutl.Models;
 
 internal sealed class BufferedPlayer : IPlayer
 {
+    // The fixed lead playback had before the read-ahead budget, still the most frames it renders ahead.
+    private const int MaxReadAheadFrames = 120;
+
     private readonly ILogger _logger = Log.CreateLogger<BufferedPlayer>();
     private readonly ConcurrentQueue<IPlayer.Frame> _queue = new();
     private readonly EditViewModel _editViewModel;
@@ -37,6 +40,9 @@ internal sealed class BufferedPlayer : IPlayer
     private volatile bool _producerStopped;
 
     public bool ProducerStopped => _producerStopped;
+
+    // The memory the queued frames may take; tests lower it to check the bound with small frames.
+    internal long ReadAheadBytes { get; init; } = ReadAheadBudget.Bytes;
 
     internal RenderFailure? Failure => Volatile.Read(ref _renderFailure);
 
@@ -93,7 +99,9 @@ internal sealed class BufferedPlayer : IPlayer
                         break;
                     }
 
-                    if (_queue.Count >= 120)
+                    // A rendered frame is queued as a full-size snapshot (one from the frame cache is smaller), so
+                    // the lead is bounded by memory rather than by a fixed frame count.
+                    if (_queue.Count >= MaxQueuedFrames(_editViewModel.Renderer.Value))
                     {
                         WaitTimer();
                     }
@@ -175,6 +183,10 @@ internal sealed class BufferedPlayer : IPlayer
             }
         }, Threading.DispatchPriority.High);
     }
+
+    private int MaxQueuedFrames(SceneRenderer renderer)
+        => ReadAheadBudget.FrameCount(
+            ReadAheadBudget.SnapshotBytes(renderer.DeviceSize), MaxReadAheadFrames, ReadAheadBytes);
 
     // Queues the frame from the cache, or renders and caches it. False when playback was canceled
     // part-way, which ends the producer loop.

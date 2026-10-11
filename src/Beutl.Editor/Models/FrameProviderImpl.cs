@@ -12,6 +12,9 @@ namespace Beutl.Models;
 
 public sealed class FrameProviderImpl : IFrameProvider, IDisposable
 {
+    // The buffer size before the read-ahead budget, still the most frames an export renders ahead by default.
+    private const int MaxBufferedFrames = 100;
+
     private readonly ILogger _logger = Log.CreateLogger<FrameProviderImpl>();
     private readonly Scene _scene;
     private readonly Rational _rate;
@@ -41,7 +44,11 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
         _progress = progress;
         _retentionCheckpoint = new RetainedRenderTargetCheckpoint(retainedRenderTargetReleaseInterval);
 
-        int bufferSize = Preferences.Default.Get("Output.FrameBufferSize", 100);
+        // A buffered frame is an RgbaF16 snapshot at the frame size, so by default the buffer holds what fits the
+        // read-ahead budget. An Output.FrameBufferSize preference still overrides it.
+        int bufferSize = Preferences.Default.Get(
+            "Output.FrameBufferSize",
+            ReadAheadBudget.FrameCount(ReadAheadBudget.SnapshotBytes(renderer.FrameSize), MaxBufferedFrames));
         _channel = Channel.CreateBounded<(long Frame, Bitmap Bitmap)>(
             new BoundedChannelOptions(bufferSize)
             {
