@@ -281,7 +281,7 @@ public sealed partial class FileBrowserTabViewModel
                 {
                     if (!Directory.Exists(destPath))
                     {
-                        CopyDirectoryOrRemovePartialCopy(localPath, destPath, cancellationToken);
+                        FileCopyService.CopyDirectoryRecursive(localPath, destPath, CopyFile, cancellationToken);
                     }
                 }
             }
@@ -297,33 +297,6 @@ public sealed partial class FileBrowserTabViewModel
         }
 
         return failures;
-    }
-
-    // The next drop of a folder skips a destination folder that already exists, so a copy canceled
-    // partway removes the folder it created instead of leaving it half filled.
-    private void CopyDirectoryOrRemovePartialCopy(
-        string sourceDir,
-        string destDir,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            FileCopyService.CopyDirectoryRecursive(sourceDir, destDir, CopyFile, cancellationToken);
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            try
-            {
-                if (Directory.Exists(destDir))
-                    Directory.Delete(destDir, recursive: true);
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-            {
-                _logger.LogWarning(ex, "Could not remove the partly copied folder {Dest}", destDir);
-            }
-
-            throw;
-        }
     }
 
     public Task CopyFilesToResourcesAsync(IEnumerable<(string LocalPath, bool IsDirectory)> files)
@@ -472,11 +445,6 @@ public sealed partial class FileBrowserTabViewModel
                 failures = 1;
             }
         }
-
-        // Files the transfer wrote may have been listed while they were still being written, and
-        // their details read from the part written so far. Rebuilding the listing shows them finished.
-        if (!_disposed)
-            Refresh();
 
         for (int i = 0; i < failures; i++)
         {
