@@ -24,6 +24,12 @@ This subtree is the **rendering / scene-graph core**. Nothing else in the soluti
 
 ## Common traps
 
+- **C# scripts run synchronously.** `CSharpScriptEffect`, property `StringExpression<T>`, and the node
+  graph's `ExpressionNode` use `SynchronousScriptCompiler` before creating a runner. It rejects `await`,
+  `await using`, and `await foreach`, including awaits in nested methods and lambdas, with a compilation
+  error. These hosts access frame-owned state and synchronously wait for the runner, so an asynchronous
+  continuation can deadlock the render dispatcher or outlive the frame. Keep computations synchronous.
+
 - **Integer animator overflow** — interpolating `int` / `long` between distant keyframes can overflow. Always go through the checked helpers in `Animation/Animators/`; see `cd6c40b5b` for the regression test pattern.
 - **Render-node invalidation** — when state affecting `Process(...)` output changes, call `MarkChanged()` so a cached recording is not replayed for stale state.
 - **`GeometryShape` placement is not origin-normalized** — `Shape.OnDraw` draws the path at its own coordinates while alignment centers a box of `geometry.Bounds.Size`, so the drawn center = alignment-resolved center + `geometry.Bounds.Position` (deliberately kept; characterized by `GeometryShapePlacementTests` in Beutl.AgentToolkit.Tests). Paths must be authored with bounds starting at `(0,0)`; the GUI path editor and player overlay mirror this model (`PathEditorViewModel.CalculateMatrix`, `PlayerView.axaml.MouseControl.cs`).
