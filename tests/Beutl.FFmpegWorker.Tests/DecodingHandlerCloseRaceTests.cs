@@ -9,10 +9,16 @@ namespace Beutl.FFmpegWorker.Tests;
 
 // The worker handles messages in parallel, so a CloseReader can retire a reader between the moment another operation
 // looks the reader up and the moment it starts using it. That operation must answer as for an unknown reader instead
-// of failing on the reader the close disposed.
+// of failing on the reader the close disposed. A close that arrives while an operation uses the reader must wait for it.
 [TestFixture, NonParallelizable]
 public sealed class DecodingHandlerCloseRaceTests
 {
+    // Bounds every wait, so a close that never completes fails the test instead of hanging the run.
+    private static readonly TimeSpan WaitLimit = TimeSpan.FromMinutes(1);
+
+    // How long a close must stay blocked while a use is held. A close that does not wait finishes well within it.
+    private static readonly TimeSpan StillBlockedWait = TimeSpan.FromSeconds(1);
+
     private static string VideoFixturePath => Path.Combine(AppContext.BaseDirectory, "Fixtures", "mf-unsupported.flv");
 
     [OneTimeSetUp]
@@ -88,6 +94,83 @@ public sealed class DecodingHandlerCloseRaceTests
             Assert.That(kept.GetPayload<ReadVideoResponse>()?.Success, Is.True, "the other reader must keep working");
         });
     }
+
+    [Test]
+    public void Close_WaitsForAReadInProgress_AndCompletesOnceTheReadEnds()
+    {
+        using var handler = new DecodingHandler();
+        int readerId = Open(handler, VideoFixturePath, MediaMode.Video);
+        using var release = new ManualResetEventSlim();
+        try
+        {
+            Task<IpcMessage> read = StartHeldRead(handler, readerId, release);
+            Task<IpcMessage> close = Task.Run(() => handler.HandleClose(CloseMessage(readerId)));
+            Assert.That(close.Wait(StillBlockedWait), Is.False, "the close must wait while the read holds its use");
+
+            release.Set();
+            Assert.That(read.Wait(WaitLimit), Is.True, "the read must finish once released");
+            Assert.That(close.Wait(WaitLimit), Is.True, "the close must complete once the read has ended");
+            Assert.Multiple(() =>
+            {
+                Assert.That(read.Result.GetPayload<ReadVideoResponse>()?.Success, Is.True, "the read must finish normally");
+                Assert.That(close.Result.Type, Is.EqualTo(MessageType.CloseReaderResult));
+            });
+        }
+        finally
+        {
+            release.Set();
+        }
+    }
+
+    [Test]
+    public void Close_CompletesOnceAReadInProgressFails()
+    {
+        using var handler = new DecodingHandler();
+        int readerId = Open(handler, VideoFixturePath, MediaMode.Video);
+        using var release = new ManualResetEventSlim();
+        try
+        {
+            Task<IpcMessage> read = StartHeldRead(
+                handler, readerId, release, new InvalidOperationException("The read failed."));
+            Task<IpcMessage> close = Task.Run(() => handler.HandleClose(CloseMessage(readerId)));
+            Assert.That(close.Wait(StillBlockedWait), Is.False, "the close must wait while the read holds its use");
+
+            release.Set();
+            var failure = Assert.Throws<AggregateException>(() => read.Wait(WaitLimit), "the read must fail once released");
+            Assert.Multiple(() =>
+            {
+                Assert.That(failure!.InnerException, Is.TypeOf<InvalidOperationException>());
+                Assert.That(close.Wait(WaitLimit), Is.True, "the close must complete once the failed read has ended its use");
+            });
+        }
+        finally
+        {
+            release.Set();
+        }
+    }
+
+    // Starts a ReadVideo on another thread and returns once it holds its use of the reader. The read stays there until
+    // released, then reads the frame, or throws the given failure.
+    private static Task<IpcMessage> StartHeldRead(
+        DecodingHandler handler, int readerId, ManualResetEventSlim release, Exception? failure = null)
+    {
+        var inUse = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        handler.ReadVideoInUseForTest = _ =>
+        {
+            inUse.TrySetResult();
+            release.Wait(WaitLimit);
+            if (failure is not null)
+                throw failure;
+        };
+
+        Task<IpcMessage> read = Task.Run(() => handler.HandleReadVideo(IpcMessage.Create(
+            2, MessageType.ReadVideo, new ReadVideoRequest { ReaderId = readerId, Frame = 0 })));
+        Assert.That(inUse.Task.Wait(WaitLimit), Is.True, "the read must begin its use of the reader");
+        return read;
+    }
+
+    private static IpcMessage CloseMessage(int readerId)
+        => IpcMessage.Create(5, MessageType.CloseReader, new CloseReaderRequest { ReaderId = readerId });
 
     private static void AssertAnsweredAsUnknown(IpcMessage response, int readerId, CloseAfterLookup close)
     {

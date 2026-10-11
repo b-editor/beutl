@@ -126,6 +126,10 @@ internal sealed partial class DecodingHandler : IDisposable
     // and before it began using it, the window in which a parallel CloseReader can retire the reader.
     internal Action<int>? ReaderLookedUpForTest { get; set; }
 
+    // Test-only hook (null and inert in production): runs with the reader ID once a ReadVideo holds its use of the
+    // reader, so a test can keep the use, or fail the read, while a close waits for it.
+    internal Action<int>? ReadVideoInUseForTest { get; set; }
+
     // A close removes the reader before retiring it, so an operation that looked the reader up just before can still
     // be about to use it. A use holds the close off until it ends; once the close has begun, the operation answers as
     // for an unknown reader instead of using one that is being disposed.
@@ -144,6 +148,8 @@ internal sealed partial class DecodingHandler : IDisposable
         using ReaderUse use = BeginReaderUse(request.ReaderId);
         if (use.State is not { } state)
             return IpcMessage.CreateError(msg.Id, $"Unknown reader ID: {request.ReaderId}");
+
+        ReadVideoInUseForTest?.Invoke(request.ReaderId);
 
         if (state.RingBuffer != null)
             return HandleReadVideoRingBuffer(msg.Id, request.Frame, state.RingBuffer);
