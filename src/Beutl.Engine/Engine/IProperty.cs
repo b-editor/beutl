@@ -46,6 +46,12 @@ public interface IProperty : INotifyEdited
 
     bool HasExpression { get; }
 
+    /// <summary>
+    /// Gets the latest expression evaluation error, cleared after a successful evaluation or
+    /// when the expression changes. This transient diagnostic is not a document edit.
+    /// </summary>
+    string? ExpressionError => null;
+
     void SetAttributes(string name, Attribute[] attributes);
 
     Attribute[]? GetAttributes();

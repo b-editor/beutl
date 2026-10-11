@@ -5,6 +5,62 @@ namespace Beutl.UnitTests.Engine.Expressions;
 [TestFixture]
 public class ExpressionTests
 {
+    [TestCase("\"abc\"")]
+    [TestCase("Time > 1")]
+    [TestCase("return \"abc\";")]
+    [TestCase("if (Time > 1) return true; return 1.0;")]
+    [TestCase("new Point(1, 2)")]
+    [TestCase("'a'")]
+    public void TryParse_WithIncompatibleResult_RejectsExpression(string source)
+    {
+        bool result = Expression.TryParse<float>(source, out var expression, out string? error);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.False);
+            Assert.That(expression, Is.Null);
+            Assert.That(error, Does.Contain("float"));
+        });
+    }
+
+    [TestCase("1.25", 1.25f)]
+    [TestCase("1.25m", 1.25f)]
+    [TestCase("(int?)2", 2f)]
+    [TestCase("null", 0f)]
+    [TestCase("Console.WriteLine()", 0f)]
+    [TestCase("return 2.5;", 2.5f)]
+    [TestCase("string Text() { return \"ignored\"; } 2.5", 2.5f)]
+    [TestCase("Func<string> text = () => { return \"ignored\"; }; 2.5", 2.5f)]
+    [TestCase("object result = 2.5; result", 2.5f)]
+    public void TryParse_WithSupportedConversion_PreservesEvaluation(string source, float expected)
+    {
+        Assert.That(Expression.TryParse<float>(source, out var expression, out string? error), Is.True, error);
+        Assert.That(expression!.Evaluate(TestHelper.CreateExpressionContext(TimeSpan.Zero)), Is.EqualTo(expected));
+    }
+
+    [TestCase("0", false)]
+    [TestCase("-0.5", true)]
+    public void TryParse_NumericToBool_PreservesConversion(string source, bool expected)
+    {
+        Assert.That(Expression.TryParse<bool>(source, out var expression, out string? error), Is.True, error);
+        Assert.That(expression!.Evaluate(TestHelper.CreateExpressionContext(TimeSpan.Zero)), Is.EqualTo(expected));
+    }
+
+    [Test]
+    public void TryParse_WithReferenceAndGenericResults_AcceptsAssignableValues()
+    {
+        Assert.That(Expression.TryParse<IEnumerable<int>>("new[] { 1, 2 }", out var expression, out string? error), Is.True, error);
+        Assert.That(expression!.Evaluate(TestHelper.CreateExpressionContext(TimeSpan.Zero)), Is.EqualTo(new[] { 1, 2 }));
+        Assert.That(Expression.TryParse<Beutl.Media.Brush>("new SolidColorBrush()", out _, out error), Is.True, error);
+        Assert.That(Expression.TryParse<int?>("1", out _, out error), Is.True, error);
+    }
+
+    [Test]
+    public void Validate_DoesNotExecuteTheScript()
+    {
+        Assert.That(Expression.TryParse<float>("throw new InvalidOperationException();", out _, out string? error), Is.True, error);
+    }
+
     [Test]
     public void Constructor_WithValidExpression_ShouldNotThrow()
     {

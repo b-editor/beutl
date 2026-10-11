@@ -18,6 +18,7 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null)
     private string? _name;
     private EngineObject? _owner;
     private IExpression<T>? _expression;
+    private ExpressionEvaluationState _expressionState;
     private PropertyLookup? _propertyLookup;
 
     public string Name => _name ?? throw new InvalidOperationException("Property is not initialized.");
@@ -93,6 +94,7 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null)
             if (_expression != value)
             {
                 _expression = value;
+                _expressionState = default;
                 ExpressionChanged?.Invoke(_expression);
                 Edited?.Invoke(this, EventArgs.Empty);
             }
@@ -102,6 +104,8 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null)
     public bool HasLocalValue { get; private set; }
 
     public bool HasExpression => _expression != null;
+
+    public string? ExpressionError => _expressionState.Error;
 
     public event EventHandler<PropertyValueChangedEventArgs<T>>? ValueChanged;
 
@@ -142,7 +146,12 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null)
             try
             {
                 T value = _expression.Evaluate(expressionContext);
+                _expressionState.ClearError();
                 return ValidateAndCoerce(value);
+            }
+            catch (ExpressionException ex)
+            {
+                _expressionState.ReportFailure(_name, _owner, ex);
             }
             finally
             {

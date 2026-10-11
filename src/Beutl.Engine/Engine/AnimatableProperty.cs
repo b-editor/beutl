@@ -14,6 +14,7 @@ public class AnimatableProperty<T> : IProperty<T>
     private T _currentValue;
     private IAnimation<T>? _animation;
     private IExpression<T>? _expression;
+    private ExpressionEvaluationState _expressionState;
     private IValidator<T>? _validator;
     private Attribute[]? _attributes;
     private string? _name;
@@ -103,6 +104,8 @@ public class AnimatableProperty<T> : IProperty<T>
 
     public bool HasExpression => _expression != null;
 
+    public string? ExpressionError => _expressionState.Error;
+
     public IExpression<T>? Expression
     {
         get => _expression;
@@ -111,6 +114,7 @@ public class AnimatableProperty<T> : IProperty<T>
             if (_expression != value)
             {
                 _expression = value;
+                _expressionState = default;
                 ExpressionChanged?.Invoke(_expression);
                 Edited?.Invoke(this, EventArgs.Empty);
             }
@@ -157,7 +161,12 @@ public class AnimatableProperty<T> : IProperty<T>
             try
             {
                 value = _expression.Evaluate(expressionContext);
-                value = ValidateAndCoerce(value);
+                _expressionState.ClearError();
+                return ValidateAndCoerce(value);
+            }
+            catch (ExpressionException ex)
+            {
+                _expressionState.ReportFailure(_name, _owner, ex);
             }
             finally
             {
@@ -165,7 +174,7 @@ public class AnimatableProperty<T> : IProperty<T>
             }
         }
         // アニメーション値を次に優先
-        else if (_animation != null)
+        if (_animation != null)
         {
             value = _animation.GetAnimatedValue(context.Time) ?? _currentValue;
 
