@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel;
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Text;
 
 namespace Beutl.Editor.VersionControl;
@@ -12,20 +13,29 @@ namespace Beutl.Editor.VersionControl;
 // exited or been killed; then reading stops and the readers return what they have read. Nothing
 // waits for such a process: a repository lock it still holds surfaces as Git's own lock error on a
 // later command.
-internal static class GitProcess
+internal static partial class GitProcess
 {
+    private const int SigTerm = 15;
     private static readonly TimeSpan s_drainGracePeriod = TimeSpan.FromSeconds(2);
 
     // The readers get a token that stops them; a stopped reader returns what it has read. Throws
     // Win32Exception when the command cannot start, TimeoutException when the timeout elapses first,
     // and OperationCanceledException when the caller cancels.
+    //
+    // A kill leaves the lock files Git holds, such as .git/index.lock, behind. Given a stop grace
+    // period, a command that is canceled or times out on Unix is first sent SIGTERM, on which Git
+    // removes its lock files and signals the filters and hooks it runs, and its process tree is
+    // killed only if it is still running when the grace period ends. A descendant that Git does not
+    // stop then outlives it, as a descendant of an exited command does. Windows has no such request
+    // for a process without a console, so there the command is killed at once.
     public static async Task<(int ExitCode, TOutput Output, string Error)> RunAsync<TOutput>(
         ProcessStartInfo startInfo,
         byte[]? standardInput,
         Func<StreamReader, CancellationToken, Task<TOutput>> readStandardOutput,
         Func<StreamReader, CancellationToken, Task<string>> readStandardError,
         TimeSpan? timeout,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        TimeSpan? stopGracePeriod = null)
     {
         using var process = new Process { StartInfo = startInfo };
         process.Start();
@@ -52,6 +62,11 @@ internal static class GitProcess
             }
             catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
             {
+                if (stopGracePeriod is { } gracePeriod && RequestStop(process))
+                {
+                    await WaitWithinAsync(exit, gracePeriod).ConfigureAwait(false);
+                }
+
                 KillProcessTree(process);
                 await DrainAsync(Task.WhenAll(exit, pipes)).ConfigureAwait(false);
                 stopPipes.Cancel();
@@ -129,6 +144,32 @@ internal static class GitProcess
         }
     }
 
+    // Sends SIGTERM to a command that is still running and reports whether it was sent. Like
+    // KillProcessTree, it leaves an exited command alone, so a reused id is never signaled.
+    private static bool RequestStop(Process process)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return false;
+        }
+
+        try
+        {
+            return !process.HasExited && SendSignal(process.Id, SigTerm) == 0;
+        }
+        catch (Exception ex) when (ex is InvalidOperationException
+                                   or Win32Exception
+                                   or NotSupportedException
+                                   or DllNotFoundException
+                                   or EntryPointNotFoundException)
+        {
+            return false;
+        }
+    }
+
+    [LibraryImport("libc", EntryPoint = "kill")]
+    private static partial int SendSignal(int processId, int signal);
+
     private static async Task WriteStandardInputAsync(
         Stream stream,
         byte[]? input,
@@ -160,12 +201,17 @@ internal static class GitProcess
     }
 
     // Waits up to the grace period and reports whether the task finished in time.
-    private static async Task<bool> DrainAsync(Task task)
+    private static Task<bool> DrainAsync(Task task)
     {
-        Task drained = ObserveAsync(task);
+        return WaitWithinAsync(task, s_drainGracePeriod);
+    }
+
+    private static async Task<bool> WaitWithinAsync(Task task, TimeSpan period)
+    {
+        Task observed = ObserveAsync(task);
         try
         {
-            await drained.WaitAsync(s_drainGracePeriod).ConfigureAwait(false);
+            await observed.WaitAsync(period).ConfigureAwait(false);
             return true;
         }
         catch (TimeoutException)
