@@ -2690,6 +2690,9 @@ Resolve the conflicts with an external Git tool before editing. The project may 
   <data name="AiAbandonRequest" xml:space="preserve">
     <value>Abandon</value>
   </data>
+  <data name="AiAbandonedRequestInJobs" xml:space="preserve">
+    <value>The pending request was abandoned. If it had already been sent, you can check its status or result in AI jobs.</value>
+  </data>
   <data name="AiSubtitle_CueListEmpty" xml:space="preserve">
     <value>Transcribe or import captions, and the cues appear here.</value>
   </data>

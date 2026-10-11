@@ -450,7 +450,12 @@ public sealed class FileAiRequestRecoveryStoreTests
             null,
             new AiRequestFormSnapshot(Prompt: "video"));
         store.WriteOrGet(attempt);
-        using (store.Claim(attempt.AccountId, attempt.Operation, attempt.Fingerprint, attempt.Key)!) { }
+        using (store.Claim(attempt.AccountId, attempt.Operation, attempt.Fingerprint, attempt.Key)!)
+        {
+            // A live claim that is not dispatched belongs to a request that is about to be sent.
+            Assert.That(store.Abandon(attempt), Is.False);
+        }
+
         Assert.That(store.Abandon(attempt), Is.True);
     }
 
@@ -469,7 +474,6 @@ public sealed class FileAiRequestRecoveryStoreTests
 
         now = now.AddMinutes(10);
         Assert.That(claim.Renew(), Is.True);
-        Assert.That(store.Abandon(attempt), Is.False);
 
         now = now.AddMinutes(16);
         using AiRequestRecoveryLease adopted = store.Claim(
@@ -480,7 +484,6 @@ public sealed class FileAiRequestRecoveryStoreTests
             Assert.That(adopted.Generation, Is.EqualTo(claim.Generation));
             Assert.That(adopted.OwnerToken, Is.Not.EqualTo(claim.OwnerToken));
             Assert.That(claim.Renew(), Is.False);
-            Assert.That(store.Abandon(attempt), Is.False);
         });
     }
 
@@ -504,7 +507,6 @@ public sealed class FileAiRequestRecoveryStoreTests
         Assert.That(secondStore.Claim(
             attempt.AccountId, attempt.Operation, attempt.Fingerprint, attempt.Key),
             Is.Null);
-        Assert.That(secondStore.Abandon(attempt), Is.False);
 
         now = now.AddMinutes(14);
         Assert.That(secondStore.Claim(
@@ -530,7 +532,6 @@ public sealed class FileAiRequestRecoveryStoreTests
         Assert.That(adopted.IsDispatched, Is.True);
         Assert.That(adopted.OwnerToken, Is.Not.EqualTo(claim.OwnerToken));
         Assert.That(claim.Renew(), Is.False);
-        Assert.That(first.Abandon(attempt), Is.False);
     }
 
     [Test]
@@ -558,7 +559,10 @@ public sealed class FileAiRequestRecoveryStoreTests
         AiRequestRecoveryLease claim = store.Claim(attempt.AccountId, attempt.Operation, attempt.Fingerprint, attempt.Key)!;
         Assert.That(claim.MarkDispatched(), Is.True);
         claim.Dispose();
-        Assert.That(store.Abandon(attempt), Is.False);
+        Assert.That(
+            store.Claim(attempt.AccountId, attempt.Operation, attempt.Fingerprint, attempt.Key),
+            Is.Null,
+            "Disposing the lease alone does not give its dispatched fence up.");
         now = now.AddMinutes(16);
         using AiRequestRecoveryLease adopted = store.Claim(
             attempt.AccountId, attempt.Operation, attempt.Fingerprint, attempt.Key)!;
@@ -567,7 +571,61 @@ public sealed class FileAiRequestRecoveryStoreTests
             Assert.That(adopted.IsDispatched, Is.True);
             Assert.That(adopted.Generation, Is.EqualTo(0));
             Assert.That(adopted.OwnerToken, Is.Not.EqualTo(claim.OwnerToken));
-            Assert.That(store.Abandon(attempt), Is.False);
+        });
+    }
+
+    // A relinquished fence whose handover could not be written stays with its old owner, so the next
+    // claim from this process still adopts it at once.
+    [Test]
+    public void RelinquishedFenceStaysAdoptableAfterAFailedHandover()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("This test makes the store folder read-only with Unix permissions.");
+            return;
+        }
+
+        var store = new FileAiRequestRecoveryStore(_directory);
+        var attempt = new AiPendingAttempt(
+            "account", "image.generate", "relinquished", "relinquished-key", null,
+            new AiRequestFormSnapshot(Prompt: "relinquished"));
+        store.WriteOrGet(attempt);
+        AiRequestRecoveryLease original = store.Claim(
+            attempt.AccountId, attempt.Operation, attempt.Fingerprint, attempt.Key)!;
+        Assert.That(original.MarkDispatched(), Is.True);
+        original.Relinquish();
+
+        UnixFileMode mode = File.GetUnixFileMode(_directory);
+        File.SetUnixFileMode(_directory, UnixFileMode.UserRead | UnixFileMode.UserExecute);
+        try
+        {
+            AiRequestRecoveryLease? written = null;
+            try
+            {
+                written = store.Claim(attempt.AccountId, attempt.Operation, attempt.Fingerprint, attempt.Key);
+            }
+            catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
+            {
+            }
+
+            if (written is not null)
+            {
+                written.Dispose();
+                Assert.Ignore("The read-only folder still accepted the write, as it does for root.");
+            }
+        }
+        finally
+        {
+            File.SetUnixFileMode(_directory, mode);
+        }
+
+        using AiRequestRecoveryLease? adopted = store.Claim(
+            attempt.AccountId, attempt.Operation, attempt.Fingerprint, attempt.Key);
+        Assert.Multiple(() =>
+        {
+            Assert.That(adopted, Is.Not.Null);
+            Assert.That(adopted?.IsDispatched, Is.True);
+            Assert.That(adopted?.OwnerToken, Is.Not.EqualTo(original.OwnerToken));
         });
     }
 
@@ -622,7 +680,10 @@ public sealed class FileAiRequestRecoveryStoreTests
 
             Assert.That(results, Has.All.True, $"round {round}");
             Assert.That(claim.IsDispatched, Is.True, $"round {round}");
-            Assert.That(store.Abandon(attempt), Is.False, $"round {round}");
+            Assert.That(
+                store.Claim(attempt.AccountId, attempt.Operation, attempt.Fingerprint, attempt.Key),
+                Is.Null,
+                $"round {round}");
         }
     }
 

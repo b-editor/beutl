@@ -212,8 +212,10 @@ internal sealed class AiRequestKey : IDisposable
         _disposed = true;
         if (_recoveryContext is not null)
             _recoveryContext.IdentityChanged -= RefreshIdentity;
+        // Nothing under this key can reacquire its dispatched fences any more, so
+        // a new key in this process, such as the reopened dialog's, adopts them.
         foreach (AiRequestRecoveryLease claim in _claims.Values)
-            claim.Dispose();
+            claim.Relinquish();
         _claims.Clear();
         _hasOutstandingName.Dispose();
     }
@@ -436,7 +438,7 @@ internal sealed class AiRequestKey : IDisposable
                     {
                         throw new InvalidDataException(
                             StringComparer.Ordinal.Equals(current.Key, attempt.Key)
-                                ? "The AI recovery attempt has an active dispatch fence and cannot be abandoned."
+                                ? "The AI recovery attempt is about to be sent and cannot be abandoned."
                                 : "The AI recovery attempt changed while it was being abandoned.");
                     }
                 }
