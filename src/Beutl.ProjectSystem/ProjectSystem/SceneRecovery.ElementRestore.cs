@@ -21,7 +21,8 @@ internal sealed partial class SceneRecovery
             return element;
         }
         catch (Exception ex) when (!ExceptionHelpers.ContainsFatalFailure(ex)
-                                   && !ExceptionHelpers.ContainsNonRecoverableFileSystemFailure(ex))
+                                   && !ExceptionHelpers.ContainsNonRecoverableFileSystemFailure(ex)
+                                   && ExceptionHelpers.Find<UnsupportedFileVersionException>(ex) is null)
         {
             return CreateUnreadableElement(uri, ex, storageCapture);
         }

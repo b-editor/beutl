@@ -143,43 +143,60 @@ public class ProjectPersistenceTests
         });
     }
 
-    [TestCase("1.0.0", Project.DefaultMinAppVersion)]
-    [TestCase("2.0.0-alpha.1", Project.DefaultMinAppVersion)]
+    [TestCase("1.0.0-preview.9", FileFormat.Floor)]
+    [TestCase("2.0.0-alpha.1", FileFormat.Floor)]
     [TestCase("2.0.0-preview.2", "2.0.0-preview.2")]
     [TestCase("2.0.0", "2.0.0")]
     [TestCase("2.1.0", "2.1.0")]
-    [TestCase("10.0.0", "10.0.0")]
-    [TestCase("unknown-version", "unknown-version")]
-    [TestCase("1.0.0+", "1.0.0+")]
-    [TestCase("1.0.0-alpha..1", "1.0.0-alpha..1")]
-    public void External_project_item_migration_does_not_weaken_minimum_app_version(
-        string persistedMinAppVersion,
+    public void A_save_records_the_higher_of_the_recorded_minimum_and_the_floor(
+        string recordedMinAppVersion,
         string expectedMinAppVersion)
     {
-        var project = new Project();
-        project.Items.Add(new ExternalMigratingProjectItem());
-        JsonObject json = CoreSerializer.SerializeToJsonObject(project);
-        json["appVersion"] = "1.0.0";
-        json["minAppVersion"] = persistedMinAppVersion;
+        string path = SaveProjectRecording(recordedMinAppVersion);
 
-        var restored = (Project)CoreSerializer.DeserializeFromJsonObject(json, typeof(Project));
-        JsonObject migrated = CoreSerializer.SerializeToJsonObject(restored);
+        Project restored = CoreSerializer.RestoreFromUri<Project>(new Uri(path));
+        string loadedMinAppVersion = restored.MinAppVersion;
+        CoreSerializer.StoreToUri(restored, new Uri(path));
+        JsonObject saved = JsonNode.Parse(File.ReadAllText(path))!.AsObject();
 
         Assert.Multiple(() =>
         {
-            Assert.That(restored.Items.Single(), Is.TypeOf<ExternalMigratingProjectItem>());
-            Assert.That(restored.AppVersion, Is.EqualTo(BeutlApplication.Version));
+            Assert.That(loadedMinAppVersion, Is.EqualTo(recordedMinAppVersion));
+            Assert.That((string?)saved["minAppVersion"], Is.EqualTo(expectedMinAppVersion));
+            Assert.That((string?)saved["appVersion"], Is.EqualTo(BeutlApplication.Version));
             Assert.That(restored.MinAppVersion, Is.EqualTo(expectedMinAppVersion));
-            Assert.That((string?)migrated["minAppVersion"], Is.EqualTo(expectedMinAppVersion));
+            Assert.That(restored.AppVersion, Is.EqualTo(BeutlApplication.Version));
         });
     }
 
-    public sealed class ExternalMigratingProjectItem : ProjectItem
+    [TestCase("10.0.0")]
+    [TestCase("unknown-version")]
+    [TestCase("1.0.0+")]
+    [TestCase("1.0.0-alpha..1")]
+    public void A_project_recording_a_minimum_this_build_does_not_meet_is_refused(string recordedMinAppVersion)
     {
-        public override void Deserialize(ICoreSerializationContext context)
+        string path = SaveProjectRecording(recordedMinAppVersion);
+
+        UnsupportedFileVersionException? refused = Assert.Throws<UnsupportedFileVersionException>(() =>
+            CoreSerializer.RestoreFromUri<Project>(new Uri(path)));
+
+        Assert.Multiple(() =>
         {
-            base.Deserialize(context);
-            context.ReportPersistedContentMigration(Project.DefaultMinAppVersion);
-        }
+            Assert.That(refused!.RequiredVersion, Is.EqualTo(recordedMinAppVersion));
+            Assert.That(refused.Uri.LocalPath, Is.EqualTo(path));
+            Assert.That(refused.Message, Does.Contain(path).And.Contain(recordedMinAppVersion));
+        });
+    }
+
+    // A project file an older build saved, recording its own version and the given minimum.
+    private string SaveProjectRecording(string minAppVersion)
+    {
+        string path = Path.Combine(_baseDir, "recorded.bep");
+        CoreSerializer.StoreToUri(new Project(), new Uri(path));
+        JsonObject json = JsonNode.Parse(File.ReadAllText(path))!.AsObject();
+        json["appVersion"] = "1.1.0";
+        json["minAppVersion"] = minAppVersion;
+        json.JsonSave(path);
+        return path;
     }
 }

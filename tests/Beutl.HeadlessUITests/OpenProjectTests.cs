@@ -208,12 +208,12 @@ public class OpenProjectTests
     }
 
     [AvaloniaTest]
-    public async Task OpenProject_plain_resave_preserves_an_old_project_version()
+    public async Task OpenProject_resave_records_the_version_that_saved_it()
     {
         await ResetProjectAsync();
 
         Project project = (await TestShell.Project.CreateProject(
-            640, 480, 30, 44100, "plain-old-version", NewWorkspace("plain-old-version")))!;
+            640, 480, 30, 44100, "resave-version", NewWorkspace("resave-version")))!;
         HeadlessTestHelpers.Settle();
         string projectFile = project.Uri!.LocalPath;
 
@@ -226,12 +226,13 @@ public class OpenProjectTests
 
         await TestShell.Project.OpenProject(projectFile);
         HeadlessTestHelpers.Settle();
+        // Until the project is saved again, its file names the version that saved it last.
         Assert.That(BeutlApplication.Current.Project!.AppVersion, Is.EqualTo(LegacyAppVersion));
 
         await TestShell.MainViewModel.MenuBar.SaveAll.ExecuteAsync();
         HeadlessTestHelpers.Settle();
 
         JsonObject savedProject = JsonNode.Parse(await File.ReadAllTextAsync(projectFile))!.AsObject();
-        Assert.That((string?)savedProject["appVersion"], Is.EqualTo(LegacyAppVersion));
+        Assert.That((string?)savedProject["appVersion"], Is.EqualTo(BeutlApplication.Version));
     }
 }

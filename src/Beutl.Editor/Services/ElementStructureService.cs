@@ -81,7 +81,7 @@ public sealed class ElementStructureService : IElementStructureService
 
                     ShiftLocalKeyFrames(backward, -forwardDuration);
 
-                    CoreSerializer.StoreToUri(backward, ElementFileNaming.GetUri(scene.Uri, backward.Id));
+                    CoreSerializer.StoreToUri(backward, ElementFileNaming.GetUri(scene.Uri, backward.Id), owner: scene);
                     storedFiles.Add(backward.Uri!.LocalPath);
                     target.ExitTransition = null;
                     scene.MoveChild(target.ZIndex, target.Start, forwardDuration, target);

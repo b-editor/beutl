@@ -45,20 +45,9 @@ public sealed class AutoSaveService : IDisposable
     private void SaveObjects(IEnumerable<CoreObject> objectsToSave, IReadOnlySet<CoreObject>? detachedCollectionItems)
     {
         ThrowIfDisposed();
-        CoreObject[] objects = objectsToSave.ToArray();
-        try
-        {
-            CoreSerializer.PersistProjectMigrationMetadata(objects);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Could not persist project migration requirements; auto-save was aborted.");
-            _saveError.OnNext(ex);
-            return;
-        }
 
         // 各オブジェクトを保存
-        foreach (CoreObject obj in objects)
+        foreach (CoreObject obj in objectsToSave)
         {
             try
             {

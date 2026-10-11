@@ -126,7 +126,7 @@ public class SaveRoundTripTests
             Assert.That((string?)savedProject["appVersion"], Is.EqualTo(BeutlApplication.Version));
             Assert.That(
                 (string?)savedProject["minAppVersion"],
-                Is.EqualTo(Project.DefaultMinAppVersion));
+                Is.EqualTo(FileFormat.Floor));
             Assert.That(ReadJson(migrated.ElementFile)["$type"], Is.Not.Null);
             Assert.That(migrated.ReadPersistedUnrelatedSceneName(), Is.EqualTo("unrelated-original"));
         });
@@ -163,7 +163,7 @@ public class SaveRoundTripTests
         Assert.That(await migrated.Editor.SaveAsync(), Is.True);
         Assert.That(
             (string?)ReadJson(migrated.ProjectFile)["minAppVersion"],
-            Is.EqualTo(Project.DefaultMinAppVersion));
+            Is.EqualTo(FileFormat.Floor));
     }
 
     [AvaloniaTest]
@@ -177,9 +177,11 @@ public class SaveRoundTripTests
         Scene scene = migrated.Editor.Scene;
         Uri projectUri = project.Uri!;
         Uri sceneUri = scene.Uri!;
-        // An existing file cannot serve as the destination's parent directory.
+        // The project file has to be raised before anything else is written, and one held open
+        // without sharing cannot be. An existing file cannot serve as the scene's parent directory.
+        FileStream? lockedProject = null;
         if (blockedStep == SaveStep.Project)
-            project.Uri = new Uri(Path.Combine(migrated.ProjectFile, "blocked.bep"));
+            lockedProject = new FileStream(migrated.ProjectFile, FileMode.Open, FileAccess.Read, FileShare.None);
         else
             scene.Uri = new Uri(Path.Combine(migrated.ProjectFile, "blocked.scene"));
 
@@ -190,6 +192,7 @@ public class SaveRoundTripTests
         }
         finally
         {
+            lockedProject?.Dispose();
             project.Uri = projectUri;
             scene.Uri = sceneUri;
         }
@@ -231,7 +234,7 @@ public class SaveRoundTripTests
             // Migrated bytes may still be on disk, so older applications must keep refusing the project.
             Assert.That(
                 (string?)ReadJson(migrated.ProjectFile)["minAppVersion"],
-                Is.EqualTo(Project.DefaultMinAppVersion));
+                Is.EqualTo(FileFormat.Floor));
             Assert.That(File.ReadAllBytes(migrated.SceneFile), Is.EqualTo(before.Scene));
             if (unrestorableStep == SaveStep.Element)
                 Assert.That(ReadJson(migrated.ElementFile)["$type"], Is.Not.Null);

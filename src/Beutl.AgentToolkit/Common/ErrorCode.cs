@@ -10,6 +10,7 @@ public static class ErrorCode
     public const string RenderingUnavailable = "rendering_unavailable";
     public const string CodecUnavailable = "codec_unavailable";
     public const string SchemaVersionMismatch = "schema_version_mismatch";
+    public const string UnsupportedFileVersion = "unsupported_file_version";
     public const string NoActiveEditorSession = "no_active_editor_session";
     public const string DestructiveIntent = "destructive_intent";
     public const string ProjectConflict = "project_conflict";

@@ -1,4 +1,5 @@
 ﻿using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace Beutl.Serialization;
 
@@ -25,6 +26,26 @@ public static partial class CoreSerializer
         where T : ICoreSerializable
     {
         StoreToUriCore(obj, uri, mode, authorizedRootPath);
+    }
+
+    /// <summary>
+    /// Stores <paramref name="obj"/>, which belongs to the project of <paramref name="owner"/> but is not
+    /// in the hierarchy yet, such as an element written before it is added to its scene.
+    /// </summary>
+    /// <remarks>
+    /// A scene reads every element file in its folder, so the file is part of the project as soon as it
+    /// exists, and the project file is raised first as for any other file of the project.
+    /// </remarks>
+    internal static void StoreToUri<T>(T obj, Uri uri, ICoreSerializable owner)
+        where T : ICoreSerializable
+    {
+        ArgumentNullException.ThrowIfNull(owner);
+        if ((owner as Project ?? FindProject(owner)) is { } project)
+        {
+            RaiseProjectFile(project, GetMinAppVersionToWrite(obj));
+        }
+
+        StoreToUriCore(obj, uri, mode: null, authorizedRootPath: null);
     }
 
     private static void StoreToUriCore<T>(
@@ -57,19 +78,6 @@ public static partial class CoreSerializer
         string? authorizedRootPath)
         where T : ICoreSerializable
     {
-        // A project save writes the files it references while the project itself is still being
-        // serialized, so its own bytes reach the disk last. Gate the destination first, the way the
-        // scene save and the auto-save do, so the compatibility gate is never behind the sidecars it
-        // guards. The gate is written to the URI this save names rather than the one the project
-        // currently carries, which a first save does not have and a Save As points elsewhere. That
-        // write omits SaveReferencedObjects, so it stops here rather than recursing.
-        if (obj is Project project
-            && uri.Scheme == "file"
-            && (mode ?? DefaultStoreMode).HasFlag(CoreSerializationMode.SaveReferencedObjects))
-        {
-            PersistProjectMigrationGate(project, uri);
-        }
-
         // Serialization is synchronous, like ThreadLocalSerializationContext. Track
         // object identity AND destination so back edges retain their URI without
         // re-entering a file that this call chain is already writing.
@@ -103,6 +111,14 @@ public static partial class CoreSerializer
         string? authorizedRootPath)
         where T : ICoreSerializable
     {
+        // Released builds read only the project file's version fields, so it is raised before this file is
+        // written. A project's own file needs no raise: the files it references are written while it is
+        // serialized, and each of them raises it first.
+        if (obj is not Project && FindProject(obj) is { } project)
+        {
+            RaiseProjectFile(project, GetMinAppVersionToWrite(obj));
+        }
+
         if (obj is CoreObject { SuppressedStorageSource: { } suppressed } suppressedObj)
         {
             StoreSuppressedSource(suppressed, suppressedObj, uri, authorizedRootPath);
@@ -117,11 +133,26 @@ public static partial class CoreSerializer
             }
 
             var options = new CoreSerializerOptions { BaseUri = uri, Mode = mode ?? DefaultStoreMode };
+            string? minAppVersion = null;
             WriteJsonAtomically(
                 uri.LocalPath,
                 isCompatibilityGate: obj is Project,
-                writer => SerializeToJsonObject(obj, options)
-                    .WriteTo(writer, JsonHelper.SerializerOptions));
+                writer =>
+                {
+                    JsonObject json = SerializeToJsonObject(obj, options);
+                    if (IsRootFile(obj))
+                    {
+                        // Read after serializing: a project records what the files it wrote meanwhile require.
+                        minAppVersion = GetMinAppVersionToWrite(obj);
+                        WriteVersionFields(json, BeutlApplication.Version, minAppVersion);
+                    }
+
+                    json.WriteTo(writer, JsonHelper.SerializerOptions);
+                });
+            if (minAppVersion is not null)
+            {
+                RootFileVersions.RecordWrite(obj, BeutlApplication.Version, minAppVersion);
+            }
         }
         else
         {

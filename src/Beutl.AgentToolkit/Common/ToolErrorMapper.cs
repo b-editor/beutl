@@ -4,6 +4,8 @@ using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Workspace;
 using Beutl.Logging;
 using Beutl.Media.Decoding;
+using Beutl.Serialization;
+using Beutl.Utilities;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.AgentToolkit.Common;
@@ -14,6 +16,17 @@ internal static class ToolErrorMapper
 
     public static ToolError Map(Exception exception)
     {
+        // A project, or a file it references, that needs a newer Beutl is refused when it is read,
+        // possibly from inside a parallel read that wraps the refusal.
+        if (ExceptionHelpers.Find<UnsupportedFileVersionException>(exception) is { } unsupported)
+        {
+            return new ToolError(
+                ErrorCode.UnsupportedFileVersion,
+                unsupported.Message,
+                unsupported.Uri.IsFile ? unsupported.Uri.LocalPath : unsupported.Uri.ToString(),
+                $"Open it with Beutl {unsupported.RequiredVersion} or later.");
+        }
+
         return exception switch
         {
             ReconcileException ex => ex.Error,

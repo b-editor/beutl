@@ -76,7 +76,6 @@ public static partial class CoreSerializer
         {
             CapturedValues = capturedValues
         };
-        context.BeginSerialization(obj);
         // Registered whether this is an embedded reference or the root of an embedding pass, so a back
         // edge to the root keeps its URI instead of embedding the root a second time.
         bool embedding = context.Mode.HasFlag(CoreSerializationMode.EmbedReferencedObjects)
@@ -101,11 +100,6 @@ public static partial class CoreSerializer
         using (ThreadLocalSerializationContext.Enter(context))
         {
             obj.Serialize(context);
-            // A System.Text.Json converter routes a nested value through this entry point instead of
-            // SerializeCoreSerializable — an Optional<T> holding one, or a property whose declared
-            // type sends it to CoreSerializableJsonConverter — so the requirement is handed to the
-            // ambient owner here as well. A save that starts here has no parent and skips it.
-            JsonSerializationContext.TransferRetainedMigration(obj, context.Parent);
             var jsonObject = context.GetJsonObject();
             jsonObject.WriteDiscriminator(type);
             return jsonObject;
@@ -177,7 +171,6 @@ public static partial class CoreSerializer
         ReflectUri(json, obj, parent, ref options);
 
         var context = new JsonSerializationContext(actualType, parent, json, options);
-        context.EnablePersistedContentMigrationReporting();
         using (ThreadLocalSerializationContext.Enter(context))
         {
             obj.Deserialize(context);
@@ -215,7 +208,6 @@ public static partial class CoreSerializer
     {
         var ownerJson = new JsonObject { ["Value"] = json.DeepClone() };
         var context = new JsonSerializationContext(type, ThreadLocalSerializationContext.Current, ownerJson, options);
-        context.EnablePersistedContentMigrationReporting();
         using (ThreadLocalSerializationContext.Enter(context))
         {
             return context.GetValue("Value", type);
@@ -231,12 +223,12 @@ public static partial class CoreSerializer
     public static void PopulateFromJsonObject(ICoreSerializable obj, Type type, JsonObject json,
         CoreSerializerOptions? options = null)
     {
-        bool addedTypeDiscriminator = AddLegacyTypeDiscriminator(json, obj.GetType());
-        PopulateFromJsonObjectCore(obj, type, json, options, addedTypeDiscriminator);
+        AddLegacyTypeDiscriminator(json, obj.GetType());
+        PopulateFromJsonObjectCore(obj, type, json, options);
     }
 
     private static void PopulateFromJsonObjectCore(ICoreSerializable obj, Type type, JsonObject json,
-        CoreSerializerOptions? options, bool addedTypeDiscriminator)
+        CoreSerializerOptions? options)
     {
         var parentContext = ThreadLocalSerializationContext.Current;
         ReflectUri(json, obj, parentContext, ref options);
@@ -253,19 +245,10 @@ public static partial class CoreSerializer
             }, capturedValues);
             context.PreserveUnchangedValues(current, capturedValues);
         }
-        context.EnablePersistedContentMigrationReporting();
         using (ThreadLocalSerializationContext.Enter(context))
         {
             obj.Deserialize(context);
-            if (addedTypeDiscriminator)
-            {
-                context.ReportPersistedContentMigration(Project.DefaultMinAppVersion);
-            }
             context.AfterDeserialized(obj);
-        }
-        if (addedTypeDiscriminator && obj is CoreObject coreObject)
-        {
-            coreObject.MergePersistedContentMigration(Project.DefaultMinAppVersion);
         }
     }
 
@@ -279,11 +262,12 @@ public static partial class CoreSerializer
     {
         using var stream = UriHelper.ResolveStream(uri);
         JsonObject jsonObject = ParseStoredObject(stream, uri);
+        StoredVersion version = TakeVersionFields(jsonObject, uri);
 
         // 互換性処理
         // 1.x で作成されたファイルでは一部のオブジェクトに $type が付与されないため、
         // 期待される型に基づいてディスクリミネータを補完する。
-        bool addedTypeDiscriminator = AddLegacyTypeDiscriminator(jsonObject, type);
+        AddLegacyTypeDiscriminator(jsonObject, type);
 
         bool hasDiscriminator = jsonObject.ContainsKey("$type") || jsonObject.ContainsKey("@type");
         Type? actualType = hasDiscriminator
@@ -299,6 +283,7 @@ public static partial class CoreSerializer
                 coreObject.Uri = uri;
             }
 
+            RecordRead(unknownTypeFallback, version);
             return unknownTypeFallback;
         }
 
@@ -324,6 +309,7 @@ public static partial class CoreSerializer
                     coreObject.Uri = uri;
                 }
 
+                RecordRead(incompatibleTypeFallback, version);
                 return incompatibleTypeFallback;
             }
 
@@ -335,7 +321,8 @@ public static partial class CoreSerializer
             var obj = Activator.CreateInstance(actualType) as ICoreSerializable
                       ?? throw new InvalidOperationException($"Could not create instance of type {actualType.FullName}.");
 
-            PopulateFromStorage(obj, type, jsonObject, uri, addedTypeDiscriminator);
+            RecordRead(obj, version);
+            PopulateFromStorage(obj, type, jsonObject, uri);
             MarkFallbackInstance(obj);
             return obj;
         }
@@ -344,6 +331,7 @@ public static partial class CoreSerializer
         {
             if (fallback is CoreObject coreObject)
                 coreObject.Uri = uri;
+            RecordRead(fallback, version);
             return fallback;
         }
     }
@@ -358,8 +346,10 @@ public static partial class CoreSerializer
     {
         using var stream = UriHelper.ResolveStream(uri);
         JsonObject jsonObject = ParseStoredObject(stream, uri);
-        bool addedTypeDiscriminator = AddLegacyTypeDiscriminator(jsonObject, obj.GetType());
-        PopulateFromStorage(obj, type, jsonObject, uri, addedTypeDiscriminator);
+        StoredVersion version = TakeVersionFields(jsonObject, uri);
+        AddLegacyTypeDiscriminator(jsonObject, obj.GetType());
+        RecordRead(obj, version);
+        PopulateFromStorage(obj, type, jsonObject, uri);
     }
 
     // The caller owns the stream, so the file stays open until the whole restore has finished.
@@ -376,8 +366,7 @@ public static partial class CoreSerializer
         ICoreSerializable obj,
         Type type,
         JsonObject json,
-        Uri uri,
-        bool addedTypeDiscriminator)
+        Uri uri)
     {
         if (obj is CoreObject coreObj)
         {
@@ -385,33 +374,35 @@ public static partial class CoreSerializer
         }
 
         var options = new CoreSerializerOptions { BaseUri = uri, Mode = CoreSerializationMode.Read };
-        PopulateFromJsonObjectCore(obj, type, json, options, addedTypeDiscriminator);
-        if (addedTypeDiscriminator && obj is CoreObject populatedCoreObject)
+        if (obj is Project project)
         {
-            populatedCoreObject.MergePersistedContentMigration(Project.DefaultMinAppVersion);
+            // The files the project references are read while it is, and record it as their project.
+            using (RootFileVersions.BeginReading(project))
+            {
+                PopulateFromJsonObjectCore(obj, type, json, options);
+            }
+        }
+        else
+        {
+            PopulateFromJsonObjectCore(obj, type, json, options);
         }
     }
 
-    private static bool AddLegacyTypeDiscriminator(JsonObject json, Type type)
+    private static void AddLegacyTypeDiscriminator(JsonObject json, Type type)
     {
         // Preserve present but invalid discriminators for unknown-type recovery.
         if (json.ContainsKey("$type") || json.ContainsKey("@type"))
         {
-            return false;
+            return;
         }
 
         if (type == typeof(ProjectItem) || type.FullName == "Beutl.ProjectSystem.Scene")
         {
             json["$type"] = LegacyTypeNames.SceneDiscriminator;
-            return true;
         }
-
-        if (type.FullName == LegacyTypeNames.ElementFullName)
+        else if (type.FullName == LegacyTypeNames.ElementFullName)
         {
             json["$type"] = LegacyTypeNames.ElementDiscriminator;
-            return true;
         }
-
-        return false;
     }
 }

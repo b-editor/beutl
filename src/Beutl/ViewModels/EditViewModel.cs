@@ -534,8 +534,6 @@ public sealed partial class EditViewModel
         {
             try
             {
-                CoreSerializer.PersistProjectMigrationMetadata([scene]);
-
                 relocation.Apply();
                 Parallel.ForEach(scene.Children, item => CoreSerializer.StoreToUri(item, item.Uri!));
                 // The scene is stored without SaveReferencedObjects, which would store the children
