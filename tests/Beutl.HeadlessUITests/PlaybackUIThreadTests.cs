@@ -242,6 +242,8 @@ public class PlaybackUIThreadTests
         await WaitUntilAsync(() => stops >= 1 && !editor.Player.IsPlaybackActive, TimeSpan.FromMinutes(2));
         Assert.That(editor.FrameCacheManager.Value.Options.DeletionStrategy, Is.EqualTo(FrameCacheDeletionStrategy.Old));
 
+        // Let the render that the stopped state queued land first, so that only the seek below can change the preview.
+        DrainPreviewRender();
         int previews = 0;
         using IDisposable previewSubscription =
             editor.Player.PreviewImage.Skip(1).Subscribe(_ => Interlocked.Increment(ref previews));
@@ -280,13 +282,19 @@ public class PlaybackUIThreadTests
         Scene scene = project.Items.OfType<Scene>().First();
         scene.Duration = duration;
         TestShell.Editor.ActivateTabItem(scene);
-        HeadlessTestHelpers.Settle();
 
         // Let the preview render queued by opening the scene finish first.
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        DrainPreviewRender();
+        return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+    }
+
+    // Runs the UI job that hands a queued preview render to the render thread, then waits for the render thread.
+    private static void DrainPreviewRender()
+    {
+        HeadlessTestHelpers.Settle();
+        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
         RenderThread.Dispatcher.Invoke(static () => { }, ct: timeout.Token);
         HeadlessTestHelpers.Settle();
-        return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
     }
 
     private static async Task WaitUntilAsync(Func<bool> condition, TimeSpan timeout)
