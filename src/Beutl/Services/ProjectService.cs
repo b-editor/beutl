@@ -19,6 +19,8 @@ public sealed partial class ProjectService
     private readonly ReadOnlyReactivePropertySlim<bool> _isOpened;
     private readonly BeutlApplication _app = BeutlApplication.Current;
     private readonly ILogger _logger = Log.CreateLogger<ProjectService>();
+    // Dismisses the notices about the open project once it closes.
+    private CancellationTokenSource? _projectNoticeDismissal;
 
     public ProjectService()
     {
@@ -356,6 +358,7 @@ public sealed partial class ProjectService
         if (_app.Project is { } project)
         {
             _app.Project = null;
+            Interlocked.Exchange(ref _projectNoticeDismissal, null)?.Cancel();
             Media.FontManager.Instance.ClearProjectFonts(project);
             try
             {
@@ -494,6 +497,17 @@ public sealed partial class ProjectService
             await RollBackFailedActivationAsync(project);
             throw;
         }
+
+        ShowProjectNotices(project);
+    }
+
+    private void ShowProjectNotices(Project project)
+    {
+        if (Beutl.Editor.Services.UnmigratedNodeTreeNotice.Create(project) is not { } notice) return;
+
+        var dismissal = new CancellationTokenSource();
+        Interlocked.Exchange(ref _projectNoticeDismissal, dismissal)?.Cancel();
+        NotificationService.Show(notice with { CancellationToken = dismissal.Token });
     }
 
     private async Task RollBackFailedActivationAsync(Project project)

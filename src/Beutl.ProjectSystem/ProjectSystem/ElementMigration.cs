@@ -1,4 +1,5 @@
 ﻿using System.Collections.Frozen;
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
 using Beutl.Audio;
 using Beutl.Engine;
@@ -38,6 +39,40 @@ internal static class ElementMigration
         new KeyValuePair<string, Type>("[Beutl.Operators].Source:DirectionalLight3DOperator", typeof(DirectionalLight3D)),
         new KeyValuePair<string, Type>("[Beutl.Operators].Source:PointLight3DOperator", typeof(PointLight3D)),
         new KeyValuePair<string, Type>("[Beutl.Operators].Source:SpotLight3DOperator", typeof(SpotLight3D)));
+
+    // The type Beutl 1.x wrote for an element's node tree. Nothing in 2.x provides it.
+    internal const string LegacyNodeTreeTypeName = "[Beutl.ProjectSystem]Beutl.NodeTree:ElementNodeTreeModel";
+
+    // Beutl 1.x drew an element whose UseNode was on through its node tree instead of its operators.
+    // 2.x cannot read those nodes, so the tree becomes content that could not be loaded: recovery then
+    // keeps the element's original file, and removing this object is the explicit way to drop the tree.
+    internal static bool TryCreateUnmigratedNodeTree(
+        IJsonSerializationContext jsonContext,
+        [NotNullWhen(true)] out FallbackEngineObject? nodeTree)
+    {
+        nodeTree = null;
+        if (jsonContext.GetNode("UseNode") is not JsonValue useNode
+            || !useNode.TryGetValue(out bool used)
+            || !used
+            || jsonContext.GetNode("NodeTree") is not JsonObject tree
+            || tree["Nodes"] is not JsonArray { Count: > 0 })
+        {
+            return false;
+        }
+
+        JsonObject json = tree.DeepClone().AsObject();
+        json.Remove("@type");
+        json["$type"] = LegacyNodeTreeTypeName;
+        nodeTree = new FallbackEngineObject { Json = json, Reason = FallbackReason.TypeNotFound };
+        return true;
+    }
+
+    internal static bool IsUnmigratedNodeTree(EngineObject obj)
+    {
+        return obj is FallbackEngineObject fallback
+               && fallback.TryGetTypeName(out string? typeName)
+               && typeName == LegacyNodeTreeTypeName;
+    }
 
     internal static bool TryMigrateFromOperation(
         IJsonSerializationContext jsonContext,
