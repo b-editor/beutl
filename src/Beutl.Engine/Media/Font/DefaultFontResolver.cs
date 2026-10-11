@@ -1,32 +1,20 @@
-﻿using System.Diagnostics;
+﻿using System.Runtime.Versioning;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
 using SkiaSharp;
 
 namespace Beutl.Media;
 
+[SupportedOSPlatform("linux")]
 internal static class DefaultFontResolver
 {
     public static SKTypeface Resolve(string executable = "fc-match", int timeoutMilliseconds = 3000)
     {
         using var cancellation = new CancellationTokenSource(timeoutMilliseconds);
-        using var process = new Process
-        {
-            StartInfo = new ProcessStartInfo(executable)
-            {
-                ArgumentList = { "--format", "%{file}" },
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                CreateNoWindow = true
-            }
-        };
-        bool started = false;
+        LinuxFontMatchProcess? process = null;
         try
         {
-            started = process.Start();
-            if (!started)
-                return SKTypeface.Default;
+            process = new LinuxFontMatchProcess(executable);
 
             // Drain both pipes while waiting, and bound the entire query, including output reads.
             Task<string> output = process.StandardOutput.ReadToEndAsync(cancellation.Token);
@@ -34,9 +22,16 @@ internal static class DefaultFontResolver
             Task.WhenAll(process.WaitForExitAsync(cancellation.Token), output, error)
                 .WaitAsync(cancellation.Token).GetAwaiter().GetResult();
 
-            string file = output.GetAwaiter().GetResult().Trim();
-            if (process.ExitCode == 0 && !string.IsNullOrEmpty(file))
-                return SKTypeface.FromFile(file) ?? SKTypeface.Default;
+            process.Stop();
+            string file = output.GetAwaiter().GetResult().TrimEnd('\r', '\n');
+            SKTypeface? face = process.ExitCode == 0 && !string.IsNullOrEmpty(file) ? SKTypeface.FromFile(file) : null;
+            if (face is not null)
+                return face;
+
+            string diagnostic = error.GetAwaiter().GetResult();
+            Log.CreateLogger(typeof(DefaultFontResolver)).LogDebug(
+                "Default font query {Executable} fell back to the Skia default: exit code {ExitCode}, font path {FontFile}, stderr {StandardError}",
+                executable, process.ExitCode, file, diagnostic[..Math.Min(diagnostic.Length, 512)]);
         }
         catch (Exception ex)
         {
@@ -46,15 +41,11 @@ internal static class DefaultFontResolver
         finally
         {
             cancellation.Cancel();
-            if (started)
+            if (process is not null)
             {
                 try
                 {
-                    if (!process.HasExited)
-                    {
-                        process.Kill(entireProcessTree: true);
-                        process.WaitForExit(1000);
-                    }
+                    process.Dispose();
                 }
                 catch (Exception ex)
                 {

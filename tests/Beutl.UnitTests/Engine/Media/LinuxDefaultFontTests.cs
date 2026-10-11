@@ -47,6 +47,18 @@ public class LinuxDefaultFontTests
     public async Task MissingPathCommand_StillInitializesText(bool familyFirst)
         => await RunWorkerAsync(familyFirst, "fallback");
 
+    [TestCase("")]
+    [TestCase("\n")]
+    [TestCase("\r\n")]
+    public async Task Query_PreservesLeadingAndTrailingPathSpaces(string newline)
+    {
+        const string relativeFont = " Roboto Regular.ttf ";
+        File.Copy(_font, Path.Combine(_directory, relativeFont));
+        File.Delete(_font);
+        WriteFcMatch($"printf '%s%s' {Quote(relativeFont)} {Quote(newline)}\nprintf 'called\\n' >> {Quote(_calls)}");
+        await RunWorkerAsync(familyFirst: true, "Roboto");
+    }
+
     [Test]
     public void MissingExecutable_UsesSkiaDefault()
     {
@@ -102,21 +114,63 @@ public class LinuxDefaultFontTests
         }
     }
 
-    [Test]
-    public void TimedOutQuery_UsesSkiaDefaultAndStopsTheProcess()
+    [TestCase(false)]
+    [TestCase(true)]
+    public void TimedOutQuery_UsesSkiaDefaultAndStopsTheProcess(bool parentExitsFirst)
     {
-        string pidFile = Path.Combine(_directory, "pid");
-        string executable = WriteFcMatch($"printf '%s' \"$$\" > {Quote(pidFile)}\nexec /bin/sleep 60");
-        var elapsed = Stopwatch.StartNew();
-        SKTypeface face = DefaultFontResolver.Resolve(executable, timeoutMilliseconds: 500);
-
-        Assert.Multiple(() =>
+        string identityFile = Path.Combine(_directory, "process");
+        string sleeper = $"""
+            IFS= read -r identity < /proc/$$/stat
+            printf '%s' "$identity" > {Quote(identityFile)}
+            exec /bin/sleep 60
+            """;
+        string body = parentExitsFirst
+            ? $"/bin/sh -c {Quote(sleeper)} &\nexit 0"
+            : sleeper;
+        string executable = WriteFcMatch(body);
+        try
         {
-            Assert.That(face, Is.SameAs(SKTypeface.Default));
-            Assert.That(elapsed.Elapsed, Is.LessThan(TimeSpan.FromSeconds(5)));
-            int pid = int.Parse(File.ReadAllText(pidFile));
-            Assert.That(() => Process.GetProcessById(pid), Throws.TypeOf<ArgumentException>());
-        });
+            var elapsed = Stopwatch.StartNew();
+            SKTypeface face = DefaultFontResolver.Resolve(executable, timeoutMilliseconds: 500);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(face, Is.SameAs(SKTypeface.Default));
+                Assert.That(elapsed.Elapsed, Is.LessThan(TimeSpan.FromSeconds(5)));
+                Assert.That(SpinWait.SpinUntil(() => !IsRecordedProcessRunning(identityFile), 1000), Is.True,
+                    "The original sleep process must stop even if its parent has already exited.");
+            });
+        }
+        finally
+        {
+            // A failing regression check must not leave the sleeper running.
+            if (File.Exists(identityFile) && IsRecordedProcessRunning(identityFile))
+            {
+                int pid = int.Parse(File.ReadAllText(identityFile).Split(' ')[0]);
+                using var process = Process.GetProcessById(pid);
+                process.Kill(entireProcessTree: true);
+            }
+        }
+    }
+
+    private static bool IsRecordedProcessRunning(string identityFile)
+    {
+        string recorded = File.ReadAllText(identityFile);
+        string pid = recorded.Split(' ')[0];
+        string current;
+        try
+        {
+            current = File.ReadAllText($"/proc/{pid}/stat");
+        }
+        catch (IOException)
+        {
+            return false;
+        }
+
+        // Compare start time as well as PID; an exited PID may already have been reused.
+        string[] before = recorded[(recorded.LastIndexOf(')') + 2)..].Split(' ');
+        string[] after = current[(current.LastIndexOf(')') + 2)..].Split(' ');
+        return before[19] == after[19] && after[0] != "Z";
     }
 
     private async Task RunWorkerAsync(bool familyFirst, string expected)
@@ -125,6 +179,7 @@ public class LinuxDefaultFontTests
         {
             // Keep the .NET host available while fc-match can only be found in this directory.
             start.FileName = Path.GetFullPath(Path.Combine(RuntimeEnvironment.GetRuntimeDirectory(), "../../..", "dotnet"));
+            start.WorkingDirectory = _directory;
             start.Environment["PATH"] = _directory;
             start.Environment["BEUTL_HOME"] = Path.Combine(_directory, "home");
         }, TestWorkerProgram.DefaultFontWorkerArgument, familyFirst.ToString(), expected, _calls);
