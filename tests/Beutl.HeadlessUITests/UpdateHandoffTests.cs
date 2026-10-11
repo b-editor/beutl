@@ -18,13 +18,14 @@ public sealed class UpdateHandoffTests
             : ("/mnt/apps", "/home/user/.beutl/tmp/update");
         string app = Path.Combine(apps, "Beutl") + Path.DirectorySeparatorChar;
 
-        string staging = UpdateDialogViewModel.GetZipStagingDirectory(app, stagingRoot, isWindows: true);
+        string staging = UpdateDialogViewModel.GetZipStagingDirectory(app, stagingRoot, isWindows: true, out bool besideApplication);
 
         // win-update.ps1 moves the staged folder into place, which Windows PowerShell can only do on one volume.
         Assert.Multiple(() =>
         {
             Assert.That(staging, Is.EqualTo(Path.Combine(apps, "Beutl.update")));
             Assert.That(Path.GetPathRoot(staging), Is.EqualTo(Path.GetPathRoot(app)));
+            Assert.That(besideApplication, Is.True);
         });
     }
 
@@ -32,9 +33,10 @@ public sealed class UpdateHandoffTests
     public void UnixZipStaging_StaysInTheHomeDirectory()
     {
         string staging = UpdateDialogViewModel.GetZipStagingDirectory(
-            "/mnt/apps/Beutl/", "/home/user/.beutl/tmp/update", isWindows: false);
+            "/mnt/apps/Beutl/", "/home/user/.beutl/tmp/update", isWindows: false, out bool besideApplication);
 
         Assert.That(staging, Is.EqualTo(Path.Combine("/home/user/.beutl/tmp/update", "Beutl")));
+        Assert.That(besideApplication, Is.False);
     }
 
     [Test]

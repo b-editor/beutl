@@ -330,17 +330,19 @@ public class UpdateDialogViewModel
 
     // A zip update unpacks into a folder named like the one the application runs from.
     private static string ZipStagingDirectory
-        => GetZipStagingDirectory(AppContext.BaseDirectory, UpdateStagingRoot, OperatingSystem.IsWindows());
+        => GetZipStagingDirectory(AppContext.BaseDirectory, UpdateStagingRoot, OperatingSystem.IsWindows(), out _);
 
     // On Windows the folder sits next to the application folder, on the same volume: win-update.ps1
     // moves it into place, and Windows PowerShell cannot move a directory to another volume.
     // The Linux and macOS scripts copy the update, so it stays in the home directory there.
-    internal static string GetZipStagingDirectory(string appDirectory, string stagingRoot, bool isWindows)
+    internal static string GetZipStagingDirectory(
+        string appDirectory, string stagingRoot, bool isWindows, out bool besideApplication)
     {
         var app = new DirectoryInfo(appDirectory);
-        if (isWindows && app.Parent is { } parent)
+        besideApplication = isWindows && app.Parent is not null;
+        if (besideApplication)
         {
-            return Path.Combine(parent.FullName, app.Name + ".update");
+            return Path.Combine(app.Parent!.FullName, app.Name + ".update");
         }
 
         return Path.Combine(stagingRoot, app.Name);
@@ -353,15 +355,16 @@ public class UpdateDialogViewModel
     private async Task<bool> StageExtractedUpdateAsync(AssetMetadataJson metadata, string file)
     {
         var destination = UpdateStagingRoot;
+        bool besideApplication = false;
         if (metadata.Type == "zip")
         {
-            destination = ZipStagingDirectory;
+            destination = GetZipStagingDirectory(
+                AppContext.BaseDirectory, UpdateStagingRoot, OperatingSystem.IsWindows(), out besideApplication);
         }
 
         try
         {
-            PrepareStagingDirectory(destination,
-                besideApplication: !destination.StartsWith(UpdateStagingRoot, StringComparison.Ordinal));
+            PrepareStagingDirectory(destination, besideApplication);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -394,8 +397,19 @@ public class UpdateDialogViewModel
         Directory.CreateDirectory(destination);
         if (besideApplication)
         {
-            File.WriteAllText(Path.Combine(destination, StagingMarkerFileName),
-                "Created by the Beutl updater. A folder with this file is replaced by the next update.");
+            try
+            {
+                File.WriteAllText(Path.Combine(destination, StagingMarkerFileName),
+                    "Created by the Beutl updater. A folder with this file is replaced by the next update.");
+            }
+            catch
+            {
+                // This attempt created the folder. Without its marker, the next attempt would keep it as
+                // someone else's, so remove it.
+                try { Directory.Delete(destination, true); }
+                catch (Exception cleanup) when (cleanup is IOException or UnauthorizedAccessException) { }
+                throw;
+            }
         }
     }
 
