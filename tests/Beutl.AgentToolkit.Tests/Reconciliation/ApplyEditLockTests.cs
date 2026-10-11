@@ -4,9 +4,16 @@ using Beutl.AgentToolkit.Schema;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.AgentToolkit.Tools;
+using Beutl.Animation;
+using Beutl.Animation.Easings;
+using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
+using Beutl.Graphics.Transformation;
+using Beutl.Graphics.Transitions;
+using Beutl.Media;
 using Beutl.ProjectSystem;
+using Beutl.Serialization;
 
 namespace Beutl.AgentToolkit.Tests.Reconciliation;
 
@@ -71,7 +78,7 @@ public sealed class ApplyEditLockTests
         {
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.Error!.Message, Does.Contain($"is on locked layer {LockedLayer}"));
-            Assert.That(result.Error.Target, Is.EqualTo($"$/Elements[Id={element.Id}]/ZIndex"));
+            Assert.That(result.Error.Target, Is.EqualTo($"$/Elements[Id={element.Id}]"));
             Assert.That(element.ZIndex, Is.EqualTo(LockedLayer));
         });
     }
@@ -219,25 +226,190 @@ public sealed class ApplyEditLockTests
 
     // The plan reports the whole Layers array as removed, so the edit is refused like one that drops
     // a locked element.
+    // The diff reports the case-insensitive "layers" member as a new whole array at $/layers, while
+    // the applier reads it as Layers and drops the locked layer.
     [Test]
-    public void Apply_edit_rejects_a_full_document_that_drops_the_layers_while_one_is_locked()
+    public void Apply_edit_rejects_a_full_document_that_replaces_the_layers_while_one_is_locked()
     {
         Scene scene = CreateScene();
         AddElement(scene, "Title", zIndex: 0);
         scene.Layers.Add(new TimelineLayer { ZIndex = LockedLayer, IsLocked = true });
         using var session = new AgentToolkitTestSession(scene);
         EditTools tools = CreateTools(session);
-        JsonObject desired = session.Documents.Read(scene);
+        string before = session.Documents.Read(scene).ToJsonString();
+        JsonObject desired = AsMcpArgument(session.Documents.Read(scene));
         desired.Remove("Layers");
+        desired["layers"] = new JsonArray();
 
         ToolResult<ApplyEditResponse> result = tools.ApplyEdit(desired: desired, schemaVersion: SchemaVersion.Current);
 
         Assert.Multiple(() =>
         {
             Assert.That(result.IsSuccess, Is.False);
-            Assert.That(result.Error!.Message, Does.Contain($"Layer {LockedLayer} is locked"));
-            Assert.That(result.Error.Target, Is.EqualTo("$/Layers"));
+            Assert.That(result.Error!.Message, Does.Contain($"Layer {LockedLayer} is locked, so an agent cannot unlock"));
+            Assert.That(session.Documents.Read(scene).ToJsonString(), Is.EqualTo(before));
             Assert.That(scene.IsLayerLocked(LockedLayer), Is.True);
+        });
+    }
+
+    // The applier writes only the members a desired document has, so omitting Layers leaves them, and
+    // their locks, as they are.
+    [Test]
+    public void Apply_edit_keeps_a_locked_layer_when_a_full_document_omits_the_layers()
+    {
+        Scene scene = CreateScene();
+        Element element = AddElement(scene, "Title", zIndex: 0);
+        scene.Layers.Add(new TimelineLayer { ZIndex = LockedLayer, IsLocked = true });
+        using var session = new AgentToolkitTestSession(scene);
+        EditTools tools = CreateTools(session);
+        JsonObject desired = session.Documents.Read(scene);
+        desired.Remove("Layers");
+        desired["Elements"]![0]![nameof(Element.Start)] = TimeSpan.FromSeconds(5).ToString("c");
+
+        ToolResult<ApplyEditResponse> result = tools.ApplyEdit(desired: desired, schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+            Assert.That(element.Start, Is.EqualTo(TimeSpan.FromSeconds(5)));
+            Assert.That(scene.IsLayerLocked(LockedLayer), Is.True);
+        });
+    }
+
+    // The diff names paths after the desired document's own keys, so "elements" yields $/elements, while
+    // the case-insensitive document still applies as Elements.
+    [Test]
+    public void Apply_edit_rejects_edits_to_a_locked_element_under_a_differently_cased_elements_member()
+    {
+        Scene scene = CreateScene();
+        Element locked = AddElement(scene, "Title", zIndex: 0);
+        var rect = new RectShape { Name = "Box" };
+        locked.AddObject(rect);
+        locked.IsLocked = true;
+        using var session = new AgentToolkitTestSession(scene);
+        EditTools tools = CreateTools(session);
+        string before = session.Documents.Read(scene).ToJsonString();
+        JsonObject desired = AsMcpArgument(session.Documents.Read(scene));
+        JsonNode elements = desired["Elements"]!.DeepClone();
+        desired.Remove("Elements");
+        desired["elements"] = elements;
+        elements[0]![nameof(CoreObject.Name)] = "Renamed";
+        elements[0]![nameof(Element.Objects)] = new JsonArray();
+
+        ToolResult<ApplyEditResponse> result = tools.ApplyEdit(desired: desired, schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error!.Message, Does.Contain($"({locked.Id}) is locked"));
+            Assert.That(session.Documents.Read(scene).ToJsonString(), Is.EqualTo(before));
+            Assert.That(locked.Name, Is.EqualTo("Title"));
+            Assert.That(locked.Objects, Is.EqualTo(new[] { rect }));
+        });
+    }
+
+    // Ids are matched as Guids, so another spelling still addresses the locked element.
+    [TestCase("upper")]
+    [TestCase("braced")]
+    public void Apply_edit_rejects_an_edit_that_spells_the_id_of_a_locked_element_differently(string spelling)
+    {
+        Scene scene = CreateScene();
+        Element locked = AddElement(scene, "Title", zIndex: 0);
+        locked.IsLocked = true;
+        using var session = new AgentToolkitTestSession(scene);
+        EditTools tools = CreateTools(session);
+        string before = session.Documents.Read(scene).ToJsonString();
+        string id = spelling == "upper" ? locked.Id.ToString().ToUpperInvariant() : locked.Id.ToString("B");
+
+        ToolResult<ApplyEditResponse> result = tools.ApplyEdit(
+            patch: new JsonObject
+            {
+                ["Elements"] = new JsonArray(new JsonObject { ["Id"] = id, [nameof(CoreObject.Name)] = "Renamed" })
+            },
+            schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(session.Documents.Read(scene).ToJsonString(), Is.EqualTo(before));
+            Assert.That(locked.Name, Is.EqualTo("Title"));
+        });
+    }
+
+    // An equal copy under a new Id is not the locked element: the user's lock would be gone.
+    [TestCase("Elements")]
+    [TestCase("elements")]
+    public void Apply_edit_rejects_replacing_a_locked_element_with_an_equal_copy(string member)
+    {
+        Scene scene = CreateScene();
+        Element locked = AddElement(scene, "Title", zIndex: 0);
+        locked.AddObject(new RectShape { Name = "Box" });
+        locked.IsLocked = true;
+        using var session = new AgentToolkitTestSession(scene);
+        EditTools tools = CreateTools(session);
+        string before = session.Documents.Read(scene).ToJsonString();
+        JsonObject desired = AsMcpArgument(session.Documents.Read(scene));
+        JsonObject copy = desired["Elements"]![0]!.DeepClone().AsObject();
+        RemoveIds(copy);
+        desired.Remove("Elements");
+        desired[member] = new JsonArray(copy);
+
+        ToolResult<ApplyEditResponse> result = tools.ApplyEdit(desired: desired, schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error!.Message, Does.Contain($"({locked.Id}) is locked"));
+            Assert.That(session.Documents.Read(scene).ToJsonString(), Is.EqualTo(before));
+            Assert.That(scene.Children, Is.EqualTo(new[] { locked }));
+        });
+    }
+
+    // The locked element's serialized form must come back the same from the sandbox; transitions,
+    // keyframes, brushes, effects and an object of a missing plugin type must not read as edits.
+    [Test]
+    public void Apply_edit_accepts_edits_beside_a_locked_element_with_rich_content()
+    {
+        Scene scene = CreateScene();
+        Element locked = AddElement(scene, "Title", zIndex: 0);
+        locked.EnterTransition = new CrossDissolveTransition();
+        locked.ExitTransition = new WipeTransition();
+        var text = new TextBlock { Name = "Caption", Text = { CurrentValue = "Hello" } };
+        var opacity = new KeyFrameAnimation<float>();
+        opacity.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 0, Easing = new LinearEasing() }, out _);
+        opacity.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 100, Easing = new SineEaseOut() }, out _);
+        text.Opacity.Animation = opacity;
+        locked.AddObject(text);
+        var group = new TransformGroup();
+        group.Children.Add(new RotationTransform { Rotation = { CurrentValue = 15 } });
+        group.Children.Add((Transform)CoreSerializer.DeserializeFromJsonObject(
+            new JsonObject
+            {
+                ["$type"] = "[Missing.Plugin]Missing.Namespace:MissingTransform",
+                ["Id"] = Guid.NewGuid().ToString(),
+            },
+            typeof(Transform)));
+        locked.AddObject(new RectShape
+        {
+            Name = "Box",
+            Fill = { CurrentValue = new SolidColorBrush(Colors.Orange) },
+            Transform = { CurrentValue = group },
+            FilterEffect = { CurrentValue = new Blur { Sigma = { CurrentValue = new Size(4, 4) } } },
+        });
+        locked.IsLocked = true;
+        Element other = AddElement(scene, "Other", zIndex: 1);
+        using var session = new AgentToolkitTestSession(scene);
+        EditTools tools = CreateTools(session);
+
+        ToolResult<ApplyEditResponse> result = tools.ApplyEdit(
+            patch: ElementPatch(other, new JsonObject { [nameof(CoreObject.Name)] = "Renamed" }),
+            schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+            Assert.That(other.Name, Is.EqualTo("Renamed"));
         });
     }
 
@@ -372,6 +544,25 @@ public sealed class ApplyEditLockTests
     private static JsonObject AsMcpArgument(JsonObject json)
     {
         return JsonNode.Parse(json.ToJsonString(), s_mcpArguments)!.AsObject();
+    }
+
+    private static void RemoveIds(JsonNode? node)
+    {
+        if (node is JsonObject obj)
+        {
+            obj.Remove(nameof(CoreObject.Id));
+            foreach (JsonNode? child in obj.Select(pair => pair.Value).ToArray())
+            {
+                RemoveIds(child);
+            }
+        }
+        else if (node is JsonArray array)
+        {
+            foreach (JsonNode? child in array.ToArray())
+            {
+                RemoveIds(child);
+            }
+        }
     }
 
     private static JsonObject ElementPatch(Element element, JsonObject members)
