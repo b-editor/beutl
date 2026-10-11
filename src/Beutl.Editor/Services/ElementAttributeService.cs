@@ -17,6 +17,8 @@ public sealed class ElementAttributeService : IElementAttributeService
     public void SetEnabled(Element element, bool isEnabled)
     {
         ArgumentNullException.ThrowIfNull(element);
+        // Same backstop as SetAccentColor: the timeline menu already refuses this on a read-only clip.
+        if (IsReadOnly(element)) return;
         if (element.IsEnabled == isEnabled) return;
 
         element.IsEnabled = isEnabled;

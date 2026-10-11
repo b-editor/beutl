@@ -159,6 +159,7 @@ public class RecoveryProtectedElementTests
         bool removedHealthy = objects.Remove(element, healthy);
         ObjectPasteOutcome pastedOverHealthy = objects.PasteOver(element, 1, json);
         attributes.SetName(element, "renamed");
+        attributes.SetEnabled(element, !element.IsEnabled);
 
         Assert.Multiple(() =>
         {
@@ -166,6 +167,7 @@ public class RecoveryProtectedElementTests
             Assert.That(movedObject || toggledUnavailable || toggledHealthy || removedHealthy, Is.False);
             Assert.That(pastedOverHealthy, Is.EqualTo(ObjectPasteOutcome.NotEditable));
             Assert.That(element.Name, Is.EqualTo(name));
+            Assert.That(element.IsEnabled, Is.True, "Disabling the clip would not be saved.");
             Assert.That(element.SuppressedStorageSource, Is.Not.Null);
             Assert.That(harness.History.CanUndo, Is.False);
         });

@@ -114,14 +114,25 @@ public sealed class RecoveryProtectedElementEditorTests
             SaveFrame(window, "recovery-protected-clip-light.png", ThemeVariant.Light);
 
             var menu = (FAMenuFlyout)border.ContextFlyout!;
-            menu.ShowAt(border);
-            HeadlessTestHelpers.Render();
             FAToggleMenuFlyoutItem lockItem = menu.Items.OfType<FAToggleMenuFlyoutItem>().Single(item => item.Name == "lockElement");
-            Assert.That(lockItem.IsEnabled, Is.False, "Locking this clip would not be saved.");
-            SaveFrame(window, "recovery-protected-clip-menu-dark.png", ThemeVariant.Dark);
-            SaveFrame(window, "recovery-protected-clip-menu-light.png", ThemeVariant.Light);
-            menu.Hide();
-            HeadlessTestHelpers.Settle();
+            // The menu updates its items each time it opens, so check a later opening as well.
+            var lockOffered = new List<bool>();
+            for (int i = 0; i < 2; i++)
+            {
+                menu.ShowAt(border);
+                HeadlessTestHelpers.Render();
+                lockOffered.Add(lockItem.IsEnabled);
+                if (i == 1)
+                {
+                    SaveFrame(window, "recovery-protected-clip-menu-dark.png", ThemeVariant.Dark);
+                    SaveFrame(window, "recovery-protected-clip-menu-light.png", ThemeVariant.Light);
+                }
+
+                menu.Hide();
+                HeadlessTestHelpers.Settle();
+            }
+
+            Assert.That(lockOffered, Is.EqualTo(new[] { false, false }), "Locking this clip would not be saved.");
 
             viewModel.Timeline.SelectElement(viewModel);
             viewModel.Delete.Execute();
