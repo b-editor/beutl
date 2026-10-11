@@ -401,8 +401,11 @@ public partial class GraphEditorView
         else if (e.Key == Key.F) FitGraph(e.KeyModifiers.HasFlag(KeyModifiers.Shift));
         else if (e.Key == Key.Z && e.KeyModifiers.HasFlag(command))
         {
-            if (e.KeyModifiers.HasFlag(KeyModifiers.Shift)) model.HistoryManager.Redo();
-            else model.HistoryManager.Undo();
+            // Through the editor, which pauses playback before it replays history and reports a failure.
+            if (model.EditorContext is not IUndoRedoEditorContext editor) return;
+            e.Handled = true;
+            if (e.KeyModifiers.HasFlag(KeyModifiers.Shift)) await editor.RedoAsync();
+            else await editor.UndoAsync();
         }
         else return;
         UpdateSelectionAdorner();

@@ -10,6 +10,7 @@ using Beutl.Editor.Components.GraphEditorTab.ViewModels;
 using Beutl.Editor.Components.GraphEditorTab.Views;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Testing.Headless;
+using Beutl.ViewModels;
 using GraphScope = Beutl.HeadlessUITests.GraphEditorContextMenuTests.GraphScope;
 
 namespace Beutl.HeadlessUITests;
@@ -674,6 +675,43 @@ public class GraphEditorInteractionTests
         graph.Model.HistoryManager.Undo();
         Assert.That(graph.Second.KeyTime, Is.EqualTo(time));
         Assert.That(AssertSelectionBounds(), Is.EqualTo(changed));
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Command_z_pauses_playback_before_it_moves_the_history(bool redo)
+    {
+        using var graph = await GraphScope.CreateAsync();
+        var editor = (EditViewModel)graph.Model.EditorContext;
+        graph.Model.HistoryManager.Commit();
+        graph.Second.Value = 300;
+        graph.Model.HistoryManager.Commit();
+        if (redo) graph.Model.HistoryManager.Undo();
+        float before = graph.Second.Value;
+        bool? playingWhenMoved = null;
+        using IDisposable watch = graph.Second.GetObservable(KeyFrame<float>.ValueProperty)
+            .Subscribe(value =>
+            {
+                if (value != before) playingWhenMoved ??= editor.Player.IsPlaying.Value;
+            });
+        editor.Player.IsPlaying.Value = true;
+
+        graph.View.Focus();
+        PressKey(graph, Key.Z, redo ? CommandModifier | RawInputModifiers.Shift : CommandModifier);
+        // The key handler awaits the editor, which pauses the player first.
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        while (playingWhenMoved is null)
+        {
+            HeadlessTestHelpers.Settle();
+            await Task.Delay(10, timeout.Token);
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(graph.Second.Value, Is.EqualTo(redo ? 300 : 500));
+            Assert.That(playingWhenMoved, Is.False, "the history moves only after playback has paused");
+        });
     }
 
     private static RawInputModifiers CommandModifier => KeyGestureHelper.GetCommandModifier() == KeyModifiers.Meta
