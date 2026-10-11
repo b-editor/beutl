@@ -18,24 +18,37 @@ internal sealed class CompositeContext : IGraphicsContext
             throw new PlatformNotSupportedException("CompositeContext is only available on macOS");
         }
 
-        // MoltenVKの場合はMetalコンテキストを使用する
-        if (physicalDevice.IsMoltenVK)
+        // Skia renders through Metal here, because the macOS libSkiaSharp is built without Vulkan, and only a device
+        // MoltenVK drives has a Metal device behind it. A context on any other driver, SwiftShader for one, would have
+        // no Skia GPU context, so the device is refused before anything is created on it and GraphicsContextFactory
+        // falls back to CPU rendering instead.
+        if (!physicalDevice.IsMoltenVK)
         {
-            Metal = new MetalContext();
+            throw new NotSupportedException(
+                $"{physicalDevice.Name} is not driven by MoltenVK, and Skia on macOS renders only through Metal.");
         }
 
-        Vulkan = new VulkanContext(vulkanInstance, physicalDevice);
-        if (Metal != null)
+        Metal = new MetalContext();
+        try
         {
-            Timeline = MetalVulkanTimeline.TryCreate(Metal, Vulkan);
+            Vulkan = new VulkanContext(vulkanInstance, physicalDevice);
         }
+        catch
+        {
+            // The factory falls back to CPU rendering on this failure and does not retry, so nothing else would
+            // release the Metal device and the Skia context made on it.
+            Metal.Dispose();
+            throw;
+        }
+
+        Timeline = MetalVulkanTimeline.TryCreate(Metal, Vulkan);
     }
 
     public GraphicsBackend Backend => GraphicsBackend.Metal;
 
-    public GRContext SkiaContext => Metal?.SkiaContext ?? Vulkan.SkiaContext!;
+    public GRContext SkiaContext => Metal.SkiaContext;
 
-    public MetalContext? Metal { get; }
+    public MetalContext Metal { get; }
 
     public VulkanContext Vulkan { get; }
 
@@ -53,7 +66,7 @@ internal sealed class CompositeContext : IGraphicsContext
 
     public ITexture2D CreateTexture2D(int width, int height, TextureFormat format)
     {
-        if (Metal != null && !format.IsDepthFormat())
+        if (!format.IsDepthFormat())
         {
             // The Metal texture is built first and MoltenVK aborts the process on an over-limit extent, so
             // the refusal cannot be left to the Vulkan path this shares its limits with.
@@ -164,7 +177,7 @@ internal sealed class CompositeContext : IGraphicsContext
     public void WaitIdle()
     {
         Vulkan.WaitIdle();
-        Metal?.WaitIdle();
+        Metal.WaitIdle();
     }
 
     public void Dispose()
@@ -176,11 +189,11 @@ internal sealed class CompositeContext : IGraphicsContext
         {
             // Vulkan first: the Metal waits only finish once the Vulkan signals they wait for have run.
             Vulkan.WaitIdle();
-            Metal?.WaitForHandOffs();
+            Metal.WaitForHandOffs();
             Timeline.Dispose();
         }
 
         Vulkan.Dispose();
-        Metal?.Dispose();
+        Metal.Dispose();
     }
 }

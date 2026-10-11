@@ -215,7 +215,9 @@ public class GraphicsContextFactory
     /// <summary>
     /// Gets the currently selected or best available graphics device.
     /// </summary>
-    /// <returns>The selected graphics device info, or null if no Vulkan instance exists.</returns>
+    /// <returns>
+    /// The selected graphics device info, or null if no Vulkan instance exists or no device can render.
+    /// </returns>
     public static GraphicsDeviceInfo? GetSelectedDevice()
     {
         return GetSelectedGpuDetails()?.ToGraphicsDeviceInfo();
@@ -229,7 +231,10 @@ public class GraphicsContextFactory
         VulkanPhysicalDeviceInfo? selectedPhysicalDevice = s_selectedPhysicalDevice ?? default;
         if (selectedPhysicalDevice == null || selectedPhysicalDevice.Device.Handle == IntPtr.Zero)
         {
-            selectedPhysicalDevice = s_vulkanInstance.SelectBestPhysicalDevice();
+            // On a Mac without a MoltenVK device nothing is left to choose, and the shared context renders on the
+            // CPU. There is no device to report then, and a throw would end the app from the information page's
+            // render-thread callback.
+            selectedPhysicalDevice = VulkanInstance.SelectBest(s_vulkanInstance.GetAvailableGpus());
         }
 
         return selectedPhysicalDevice;
