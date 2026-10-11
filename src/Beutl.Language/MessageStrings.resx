@@ -494,4 +494,10 @@ Do you want to restart the application?</value>
   <data name="GraphKeyFrameTransformRejected" xml:space="preserve">
     <value>Keyframe times would overlap, or the selection contains easing that cannot be reversed.</value>
   </data>
+  <data name="UnmigratedNodeTreeTitle" xml:space="preserve">
+    <value>Node trees from Beutl 1.x were not migrated</value>
+  </data>
+  <data name="UnmigratedNodeTreeMessage" xml:space="preserve">
+    <value>The node trees of these elements were made in Beutl 1.x and were not migrated, so they are not drawn: {0}. Their files are kept unchanged until you remove the object that holds the node tree. Saving converts the rest of the project, after which Beutl 1.x cannot open it. Edits and closing the project also save it, so keep a copy of the project now if you still need it in Beutl 1.x.</value>
+  </data>
 </root>

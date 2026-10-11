@@ -238,7 +238,14 @@ public class Element : Hierarchical, INotifyEdited
         }
         else if (context is IJsonSerializationContext jsonContext)
         {
-            if (ElementMigration.TryMigrateFromOperation(jsonContext, out EngineObject[] migrated))
+            bool isLegacy = ElementMigration.TryMigrateFromOperation(jsonContext, out EngineObject[] migrated);
+            if (ElementMigration.TryCreateUnmigratedNodeTree(jsonContext, out FallbackEngineObject? nodeTree))
+            {
+                migrated = [nodeTree, .. migrated];
+                isLegacy = true;
+            }
+
+            if (isLegacy)
             {
                 Objects.Replace(migrated);
                 context.ReportPersistedContentMigration(Project.DefaultMinAppVersion);
