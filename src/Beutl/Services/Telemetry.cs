@@ -83,16 +83,16 @@ internal class Telemetry : IDisposable
 
     public static Telemetry Instance { get; private set; } = null!;
 
-    private TracerProvider? CreateTracer()
+    // The names of the ActivitySources the tracer listens to under the given consent.
+    internal static List<string> GetActivitySourceNames(TelemetryConfig t)
     {
-        TelemetryConfig t = GlobalConfiguration.Instance.TelemetryConfig;
         var list = new List<string>(4);
         bool configured = IsConsentConfigured(t);
         if (configured && t.Beutl_Application == true)
             list.Add("Beutl.Application");
 
         if (configured && t.Beutl_PackageManagement == true)
-            list.Add("Beutl.PackageManagement");
+            list.Add(Api.Services.PackageManagementActivitySource.Name);
 
         if (configured && t.Beutl_Api_Client == true)
             list.Add("Beutl.Api.Client");
@@ -101,7 +101,12 @@ internal class Telemetry : IDisposable
         // UsageTelemetry itself never records without current application consent.
         list.Add(UsageTelemetry.SourceName);
 #endif
+        return list;
+    }
 
+    private TracerProvider? CreateTracer()
+    {
+        List<string> list = GetActivitySourceNames(GlobalConfiguration.Instance.TelemetryConfig);
         if (list.Count == 0)
         {
             return null;
