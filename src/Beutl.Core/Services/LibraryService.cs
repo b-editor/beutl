@@ -57,7 +57,17 @@ public sealed class GroupLibraryItem(string displayName, string? description = n
     private readonly List<LibraryItem> _items = [];
     private readonly object _lock = new();
 
-    public IReadOnlyList<LibraryItem> Items => _items;
+    // A copy, since a registration or an unload on another thread can change the items while they are read.
+    public IReadOnlyList<LibraryItem> Items
+    {
+        get
+        {
+            lock (_lock)
+            {
+                return [.. _items];
+            }
+        }
+    }
 
     public void Merge(IReadOnlyList<LibraryItem> items)
     {
@@ -72,7 +82,7 @@ public sealed class GroupLibraryItem(string displayName, string? description = n
         lock (_lock)
         {
             if (item is GroupLibraryItem group1
-                && Items.FirstOrDefault(x => x.DisplayName == item.DisplayName) is GroupLibraryItem group2)
+                && _items.FirstOrDefault(x => x.DisplayName == item.DisplayName) is GroupLibraryItem group2)
             {
                 group2.Merge(group1.Items);
             }
@@ -136,12 +146,20 @@ public sealed class GroupLibraryItem(string displayName, string? description = n
         }
     }
 
+    internal bool RemoveUnloaded(Type[] types)
+    {
+        lock (_lock)
+        {
+            return LibraryService.RemoveUnloaded(_items, types);
+        }
+    }
+
     internal int Count()
     {
         int count = 1;
         lock (_lock)
         {
-            foreach (LibraryItem item in Items)
+            foreach (LibraryItem item in _items)
             {
                 if (item is GroupLibraryItem groupable1)
                 {
@@ -189,7 +207,22 @@ public sealed class LibraryService
 
     public static LibraryService Current { get; } = new();
 
-    public IReadOnlyList<LibraryItem> Items => _items;
+    // A copy, since a registration or an unload on another thread can change the items while they are read.
+    public IReadOnlyList<LibraryItem> Items
+    {
+        get
+        {
+            lock (_lock)
+            {
+                return [.. _items];
+            }
+        }
+    }
+
+    /// <summary>
+    /// Raised after items are registered or unregistered, on the thread that changed them.
+    /// </summary>
+    public event EventHandler? ItemsChanged;
 
     public IReadOnlySet<Type> GetTypesFromFormat(string format)
     {
@@ -220,6 +253,8 @@ public sealed class LibraryService
                 _items.Add(item);
             }
         }
+
+        ItemsChanged?.Invoke(this, EventArgs.Empty);
     }
 
     public void Register<T>(string format, string displayName, string? description = null)
@@ -317,30 +352,55 @@ public sealed class LibraryService
         }
     }
 
+    // Removes the items whose types unload, also from groups, and the groups that removing them leaves empty.
+    internal static bool RemoveUnloaded(List<LibraryItem> items, Type[] types)
+    {
+        bool removed = false;
+        for (int i = items.Count - 1; i >= 0; i--)
+        {
+            bool remove;
+            if (items[i] is GroupLibraryItem group)
+            {
+                bool changed = group.RemoveUnloaded(types);
+                removed |= changed;
+                remove = changed && group.Items.Count == 0;
+            }
+            else
+            {
+                remove = items[i] switch
+                {
+                    SingleTypeLibraryItem single => types.Contains(single.ImplementationType),
+                    MultipleTypeLibraryItem multi => multi.Types.Values.Any(types.Contains),
+                    _ => false
+                };
+            }
+
+            if (remove)
+            {
+                items.RemoveAt(i);
+                removed = true;
+            }
+        }
+
+        return removed;
+    }
+
     private void Unregister(Type[] types)
     {
+        bool removed;
         lock (_lock)
         {
-            _items.RemoveAll(item =>
-            {
-                if (item is SingleTypeLibraryItem single)
-                {
-                    return types.Contains(single.ImplementationType);
-                }
-                else if (item is MultipleTypeLibraryItem multi)
-                {
-                    return multi.Types.Values.Any(t => types.Contains(t));
-                }
-                else
-                {
-                    return false;
-                }
-            });
+            removed = RemoveUnloaded(_items, types);
 
             foreach (HashSet<Type> hashSet in _formatToType.Values)
             {
-                hashSet.RemoveWhere(t => types.Contains(t));
+                removed |= hashSet.RemoveWhere(t => types.Contains(t)) > 0;
             }
+        }
+
+        if (removed)
+        {
+            ItemsChanged?.Invoke(this, EventArgs.Empty);
         }
     }
 }

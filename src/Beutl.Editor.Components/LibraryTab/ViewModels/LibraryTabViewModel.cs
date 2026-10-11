@@ -23,23 +23,27 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
     private readonly CancellationToken _lifetimeToken;
     private int _disposed;
     private int _searchVersion;
+    private int _refreshQueued;
+    private string? _query;
 
     public LibraryTabViewModel(IEditorContext editorContext)
     {
         _ = editorContext;
         _lifetimeToken = _lifetimeCancellation.Token;
 
+        // Subscribed before the items are read, so that nothing registered in between is missed.
+        LibraryService.Current.ItemsChanged += OnLibraryItemsChanged;
+        _disposables.Add(Disposable.Create(() => LibraryService.Current.ItemsChanged -= OnLibraryItemsChanged));
+
         IReadOnlyList<LibraryItem> libItems = LibraryService.Current.Items;
-        LibraryItems = new List<LibraryItemViewModel>(libItems.Count);
+        LibraryItems = new CoreList<LibraryItemViewModel>(libItems.Count);
         LibraryItems.AddRange(libItems.Select(x => LibraryItemViewModel.CreateFromLibraryItem(x)));
 
         IList<GraphNodeRegistry.BaseRegistryItem> nodes = GraphNodeRegistry.GetRegistered();
         Nodes = new List<LibraryItemViewModel>(nodes.Count);
         Nodes.AddRange(nodes.Select(x => LibraryItemViewModel.CreateFromGraphNodeRegistryItem(x)));
 
-        AllItems = new(LibraryService.Current._totalCount + GraphNodeRegistry.s_totalCount);
-        AddAllItems(LibraryItems);
-        AddAllItems(Nodes);
+        AllItems = new(CreateAllItems(LibraryService.Current._totalCount + GraphNodeRegistry.s_totalCount));
     }
 
     public ReactiveCollection<Easing> Easings { get; } =
@@ -78,11 +82,11 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
         new HoldEasing(),
     ];
 
-    public List<LibraryItemViewModel> LibraryItems { get; }
+    public CoreList<LibraryItemViewModel> LibraryItems { get; }
 
     public List<LibraryItemViewModel> Nodes { get; }
 
-    public List<KeyValuePair<int, LibraryItemViewModel>> AllItems { get; }
+    public CoreList<KeyValuePair<int, LibraryItemViewModel>> AllItems { get; }
 
     public ReactiveCollection<KeyValuePair<int, LibraryItemViewModel>> SearchResult { get; } = [];
 
@@ -93,25 +97,119 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
     public CoreDictionary<string, LibraryTabDisplayMode> LibraryTabDisplayModes
         => GlobalConfiguration.Instance.EditorConfig.LibraryTabDisplayModes;
 
-    private void AddAllItems(List<LibraryItemViewModel> items)
+    private List<KeyValuePair<int, LibraryItemViewModel>> CreateAllItems(int capacity = 0)
+    {
+        var allItems = new List<KeyValuePair<int, LibraryItemViewModel>>(capacity);
+        AddAllItems(allItems, LibraryItems);
+        AddAllItems(allItems, Nodes);
+        return allItems;
+    }
+
+    private static void AddAllItems(List<KeyValuePair<int, LibraryItemViewModel>> allItems,
+        IEnumerable<LibraryItemViewModel> items)
     {
         foreach (LibraryItemViewModel innerItem in items)
         {
-            AllItems.Add(new(0, innerItem));
-            AddAllItems(innerItem.Children);
+            allItems.Add(new(0, innerItem));
+            AddAllItems(allItems, innerItem.Children);
         }
     }
 
-    public async Task Search(string str, CancellationToken cancellationToken)
+    // Raised on the thread that registered or unregistered the items.
+    private void OnLibraryItemsChanged(object? sender, EventArgs e)
+    {
+        // Coalesced, since an extension registers its items one at a time.
+        if (Interlocked.Exchange(ref _refreshQueued, 1) != 0)
+            return;
+
+        Dispatcher.UIThread.Post(RefreshLibraryItems, DispatcherPriority.Background);
+    }
+
+    private void RefreshLibraryItems()
+    {
+        Volatile.Write(ref _refreshQueued, 0);
+        if (Volatile.Read(ref _disposed) != 0)
+            return;
+
+        SyncItems(LibraryItems, LibraryService.Current.Items, null);
+        AllItems.Replace(CreateAllItems(AllItems.Count));
+        if (_query is { } query)
+            _ = SearchCore(query, CancellationToken.None, recordUsage: false);
+    }
+
+    // Brings `viewModels` in line with `items`. The view models of the items that stay are kept, with their
+    // children brought in line the same way, so that their nodes in the tree stay expanded.
+    private static void SyncItems(CoreList<LibraryItemViewModel> viewModels, IReadOnlyList<LibraryItem> items,
+        string? parentFullName)
+    {
+        var existing = new Dictionary<LibraryItem, LibraryItemViewModel>();
+        foreach (LibraryItemViewModel viewModel in viewModels)
+        {
+            if (viewModel.Data is LibraryItem item)
+                existing[item] = viewModel;
+        }
+
+        var next = new LibraryItemViewModel[items.Count];
+        for (int i = 0; i < next.Length; i++)
+        {
+            LibraryItem item = items[i];
+            if (existing.TryGetValue(item, out LibraryItemViewModel? viewModel))
+            {
+                if (item is GroupLibraryItem group)
+                    SyncItems(viewModel.Children, group.Items, viewModel.FullDisplayName);
+            }
+            else
+            {
+                viewModel = LibraryItemViewModel.CreateFromLibraryItem(item, parentFullName);
+            }
+
+            next[i] = viewModel;
+        }
+
+        for (int i = viewModels.Count - 1; i >= 0; i--)
+        {
+            if (Array.IndexOf(next, viewModels[i]) < 0)
+                viewModels.RemoveAt(i);
+        }
+
+        // Registering appends and unregistering removes, so the view models that stay are already in order.
+        for (int i = 0; i < next.Length; i++)
+        {
+            if (i == viewModels.Count || !ReferenceEquals(viewModels[i], next[i]))
+                viewModels.Insert(i, next[i]);
+        }
+    }
+
+    // The search box was emptied, so a library change no longer searches again.
+    public void ClearSearch()
+    {
+        _query = null;
+        // A search still running, such as one a library change started, must not fill the results again.
+        Interlocked.Increment(ref _searchVersion);
+        SearchResult.Clear();
+    }
+
+    public Task Search(string str, CancellationToken cancellationToken)
+    {
+        return SearchCore(str, cancellationToken, recordUsage: true);
+    }
+
+    // A search that only follows a library change is not a search by the user, so it records no usage.
+    private async Task SearchCore(string str, CancellationToken cancellationToken, bool recordUsage)
     {
         if (Volatile.Read(ref _disposed) != 0)
             return;
 
+        // Searched again when the library changes, so that the results show what is registered now.
+        _query = str;
+
         UsageTelemetry? usage = UsageTelemetry.Current;
         long epoch = 0;
-        bool collect = usage?.TryGetCollectionEpoch(out epoch) == true;
+        bool collect = recordUsage && usage?.TryGetCollectionEpoch(out epoch) == true;
         using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetimeToken);
         CancellationToken token = cancellation.Token;
+        // Taken before waiting, so that a later search or a clear makes this one stale while it is still queued.
+        int searchVersion = Interlocked.Increment(ref _searchVersion);
         try
         {
             await _asyncLock.WaitAsync(token);
@@ -121,7 +219,6 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
             return;
         }
 
-        int searchVersion = Interlocked.Increment(ref _searchVersion);
         try
         {
             token.ThrowIfCancellationRequested();
