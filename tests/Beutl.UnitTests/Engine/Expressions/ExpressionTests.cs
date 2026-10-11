@@ -1,4 +1,5 @@
 ﻿using Beutl.Engine.Expressions;
+using Beutl.Threading;
 
 namespace Beutl.UnitTests.Engine.Expressions;
 
@@ -58,6 +59,47 @@ public class ExpressionTests
         // Assert
         Assert.That(result, Is.False);
         Assert.That(error, Is.Not.Null);
+    }
+
+    [TestCase("await System.Threading.Tasks.Task.Delay(1); 42")]
+    [TestCase("await System.Threading.Tasks.Task.Delay(-1); 42")]
+    public void Validate_WithAwait_ShouldRejectBeforeEvaluation(string script)
+    {
+        var expression = new StringExpression<int>(script);
+
+        Assert.That(expression.Validate(out string? error), Is.False);
+        Assert.That(error, Does.Contain("synchronous").And.Contain("await"));
+        var context = TestHelper.CreateExpressionContext(TimeSpan.Zero);
+        Assert.That(() => expression.Evaluate(context),
+            Throws.TypeOf<ExpressionException>().With.Message.Contains("synchronous"));
+    }
+
+    [TestCase(1)]
+    [TestCase(-1)]
+    public async Task Evaluate_WithAwait_ShouldFailWithoutBlockingTheDispatcher(int delay)
+    {
+        var dispatcher = Dispatcher.Spawn();
+        dispatcher.Thread.IsBackground = true;
+        try
+        {
+            await dispatcher.InvokeAsync(() =>
+            {
+                var expression = new StringExpression<int>($"await System.Threading.Tasks.Task.Delay({delay}); 42");
+                var context = TestHelper.CreateExpressionContext(TimeSpan.Zero);
+
+                Assert.That(() => expression.Evaluate(context), Throws.TypeOf<ExpressionException>());
+                Assert.That(expression.Validate(out string? error), Is.False);
+                Assert.That(error, Does.Contain("synchronous"));
+                Assert.That(new StringExpression<int>("21 * 2").Evaluate(context), Is.EqualTo(42));
+            }).WaitAsync(TimeSpan.FromSeconds(10));
+
+            await dispatcher.InvokeAsync(() => { }).WaitAsync(TimeSpan.FromSeconds(5));
+        }
+        finally
+        {
+            dispatcher.Shutdown();
+            Assert.That(dispatcher.Thread.Join(TimeSpan.FromSeconds(5)), Is.True);
+        }
     }
 
     [Test]

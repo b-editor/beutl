@@ -1,6 +1,8 @@
 ﻿using Beutl.Composition;
+using Beutl.Graphics;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics.Effects;
+using Beutl.Threading;
 using Moq;
 
 namespace Beutl.UnitTests.Engine.Graphics.FilterEffects;
@@ -43,6 +45,82 @@ public sealed class ScriptCompilableEffectTests
             Assert.That(result.Status, Is.EqualTo(ScriptCompilationStatus.Failed));
             Assert.That(result.Error, Is.Not.Null.And.Not.Empty);
         });
+    }
+
+    [TestCase("await System.Threading.Tasks.Task.Delay(1);")]
+    [TestCase("await System.Threading.Tasks.Task.Delay(-1);")]
+    public void CSharp_await_is_rejected_before_execution(string script)
+    {
+        var effect = new CSharpScriptEffect();
+
+        ScriptCompilationResult result = effect.ValidateScript(script);
+
+        Assert.That(result.Status, Is.EqualTo(ScriptCompilationStatus.Failed));
+        Assert.That(result.Error, Does.Contain("synchronous").And.Contain("await"));
+    }
+
+    [TestCase("await System.Threading.Tasks.Task.Yield();")]
+    [TestCase("async System.Threading.Tasks.Task Run() { await System.Threading.Tasks.Task.Delay(1); } Run();")]
+    [TestCase("System.Func<System.Threading.Tasks.Task> run = async () => { await System.Threading.Tasks.Task.Delay(1); }; run();")]
+    [TestCase("await foreach (var x in Values()) { } async System.Collections.Generic.IAsyncEnumerable<int> Values() { yield return 1; }")]
+    [TestCase("await foreach (var (x, y) in Values()) { } async System.Collections.Generic.IAsyncEnumerable<(int, int)> Values() { yield return (1, 2); }")]
+    [TestCase("{ await using var x = new Resource(); } class Resource : System.IAsyncDisposable { public System.Threading.Tasks.ValueTask DisposeAsync() => default; }")]
+    [TestCase("await using (var x = new Resource()) { } class Resource : System.IAsyncDisposable { public System.Threading.Tasks.ValueTask DisposeAsync() => default; }")]
+    public void CSharp_all_await_forms_are_rejected(string script)
+    {
+        var effect = new CSharpScriptEffect();
+
+        ScriptCompilationResult result = effect.ValidateScript(script);
+
+        Assert.That(result.Status, Is.EqualTo(ScriptCompilationStatus.Failed));
+        Assert.That(result.Error, Does.Contain("synchronous").And.Contain("await"));
+    }
+
+    [TestCase("var text = \"await System.Threading.Tasks.Task.Delay(1);\";")]
+    [TestCase("// await System.Threading.Tasks.Task.Delay(1);\nvar x = 1;")]
+    [TestCase("var @await = 1;")]
+    public void CSharp_await_in_text_or_identifiers_is_allowed(string script)
+    {
+        var effect = new CSharpScriptEffect();
+
+        Assert.That(effect.ValidateScript(script).Status, Is.EqualTo(ScriptCompilationStatus.Compiled));
+    }
+
+    [TestCase(1)]
+    [TestCase(-1)]
+    public async Task CSharp_resource_rejects_await_without_blocking_the_dispatcher(int delay)
+    {
+        var dispatcher = Dispatcher.Spawn();
+        dispatcher.Thread.IsBackground = true;
+        try
+        {
+            await dispatcher.InvokeAsync(() =>
+            {
+                var effect = new CSharpScriptEffect();
+                effect.Script.CurrentValue = $"Context.Blur(new Size(2, 2)); await System.Threading.Tasks.Task.Delay({delay});";
+                using var resource = effect.ToResource(CompositionContext.Default);
+                using var context = new FilterEffectContext(new Rect(0, 0, 10, 10));
+
+                Assert.That(resource._compileError, Does.Contain("synchronous"));
+                Assert.That(resource._scriptRunner, Is.Null);
+                effect.ApplyTo(context, resource);
+                Assert.That(context._items, Is.Empty, "Rejected scripts must not apply a partial effect.");
+
+                effect.Script.CurrentValue = "Context.Blur(new Size(2, 2));";
+                bool versionBumped = false;
+                resource.Reconcile(effect, CompositionContext.Default, ref versionBumped);
+                Assert.That(resource._compileError, Is.Null);
+                effect.ApplyTo(context, resource);
+                Assert.That(context._items, Has.Count.EqualTo(1));
+            }).WaitAsync(TimeSpan.FromSeconds(10));
+
+            await dispatcher.InvokeAsync(() => { }).WaitAsync(TimeSpan.FromSeconds(5));
+        }
+        finally
+        {
+            dispatcher.Shutdown();
+            Assert.That(dispatcher.Thread.Join(TimeSpan.FromSeconds(5)), Is.True);
+        }
     }
 
     [Test]

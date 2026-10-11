@@ -1,10 +1,13 @@
 ﻿using Beutl.NodeGraph.Composition;
-using Microsoft.CodeAnalysis;
+using Beutl.Scripting;
 using Microsoft.CodeAnalysis.CSharp.Scripting;
 using Microsoft.CodeAnalysis.Scripting;
 
 namespace Beutl.NodeGraph.Nodes.Utilities;
 
+/// <summary>
+/// Evaluates a synchronous C# script. Scripts containing <c>await</c> are reported in the error monitor.
+/// </summary>
 public partial class ExpressionNode : GraphNode
 {
     private static readonly ScriptOptions s_scriptOptions = CreateScriptOptions();
@@ -104,14 +107,11 @@ public partial class ExpressionNode : GraphNode
                     expression,
                     options,
                     typeof(ExpressionNodeGlobals));
-                var diagnostics = script.Compile();
-                var errors = diagnostics
-                    .Where(d => d.Severity == DiagnosticSeverity.Error)
-                    .ToList();
+                var errors = SynchronousScriptCompiler.GetErrors(script);
 
                 if (errors.Count > 0)
                 {
-                    CompileError = string.Join(Environment.NewLine, errors.Select(e => e.GetMessage()));
+                    CompileError = string.Join(Environment.NewLine, errors);
                 }
                 else
                 {
