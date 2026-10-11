@@ -1,5 +1,4 @@
-﻿using System.Reflection;
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Interactivity;
@@ -8,6 +7,7 @@ using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Beutl.Animation;
 using Beutl.Composition;
+using Beutl.Controls.PropertyEditors;
 using Beutl.Engine;
 using Beutl.Engine.Expressions;
 using Beutl.Graphics.Shapes;
@@ -15,6 +15,7 @@ using Beutl.PropertyAdapters;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels.Editors;
 using Beutl.Views.Editors;
+using FluentAvalonia.UI.Controls;
 
 namespace Beutl.HeadlessUITests;
 
@@ -26,7 +27,7 @@ public class PropertyExpressionTests
     [TestCase(true, false)]
     [TestCase(false, true)]
     [TestCase(true, true)]
-    public void ExpressionFlyout_DisplaysFailuresAndPreservesAnimation(bool runtimeFailure, bool light)
+    public void ExpressionMenu_DisplaysFailuresAndPreservesAnimation(bool runtimeFailure, bool light)
     {
         var shape = new RectShape();
         var property = (AnimatableProperty<float>)shape.Opacity;
@@ -41,34 +42,36 @@ public class PropertyExpressionTests
         }
 
         using var model = new NumberEditorViewModel<float>(new AnimatablePropertyAdapter<float>(property, shape));
-        var anchor = new Button { Content = "Opacity expression" };
+        var menu = new PropertyEditorMenu { DataContext = model };
         var window = new Window
         {
-            Content = anchor,
+            Content = menu,
             Width = 640,
             Height = 480,
             RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark
         };
-        var flyout = new ExpressionEditorFlyout
-        {
-            ExpressionText = runtimeFailure ? model.GetExpressionString() : "\"abc\"",
-            ErrorMessage = property.ExpressionError
-        };
-        flyout.Confirmed += (_, args) =>
-        {
-            args.IsValid = model.SetExpression(args.ExpressionText, out string? error);
-            args.Error = error;
-        };
-
         try
         {
             window.Show();
-            flyout.ShowAt(anchor);
             HeadlessTestHelpers.Render();
-            var presenter = (Control)typeof(ExpressionEditorFlyout)
-                .GetField("_presenter", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(flyout)!;
+            Button button = menu.GetVisualDescendants().OfType<Button>().First();
+            button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            HeadlessTestHelpers.Render();
             if (!runtimeFailure)
             {
+                var contextMenu = (FAMenuFlyout)button.ContextFlyout!;
+                contextMenu.Items.OfType<FAMenuFlyoutItem>().Single(item => item.Name == "editExpressionItem")
+                    .RaiseEvent(new RoutedEventArgs(FAMenuFlyoutItem.ClickEvent));
+                contextMenu.Hide();
+                HeadlessTestHelpers.Render();
+            }
+
+            var popup = window.OpenedPopups.Single(popup => popup.Child is ExpressionEditorFlyoutPresenter);
+            var presenter = (ExpressionEditorFlyoutPresenter)popup.Child!;
+            if (!runtimeFailure)
+            {
+                presenter.GetVisualDescendants().OfType<TextBox>().Single(text => text.Name == "ExpressionTextBox")
+                    .Text = "\"abc\"";
                 presenter.GetVisualDescendants().OfType<Button>().Single(button => button.Name == "AcceptButton")
                     .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 HeadlessTestHelpers.Render();
@@ -78,12 +81,17 @@ public class PropertyExpressionTests
                 .Single(text => text.Name == "ErrorTextBlock");
             Assert.Multiple(() =>
             {
-                Assert.That(flyout.IsOpen, Is.True);
+                Assert.That(popup.IsOpen, Is.True);
                 Assert.That(errorText.IsVisible, Is.True);
                 Assert.That(errorText.Text, Is.Not.Empty);
                 Assert.That(property.Animation, Is.SameAs(animation));
                 Assert.That(property.CurrentValue, Is.EqualTo(75));
-                if (!runtimeFailure)
+                if (runtimeFailure)
+                {
+                    Assert.That(errorText.Text, Is.EqualTo(property.ExpressionError));
+                    Assert.That(presenter.ExpressionText, Is.EqualTo(model.GetExpressionString()));
+                }
+                else
                 {
                     Assert.That(property.Expression, Is.Null);
                     Assert.That(errorText.Text, Does.Contain("string").And.Contain("float"));
@@ -100,7 +108,8 @@ public class PropertyExpressionTests
         }
         finally
         {
-            flyout.Hide();
+            foreach (var popup in window.OpenedPopups.ToArray())
+                popup.Close();
             window.Close();
         }
     }

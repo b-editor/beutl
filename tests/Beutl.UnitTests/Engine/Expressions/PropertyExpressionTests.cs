@@ -69,6 +69,73 @@ public class PropertyExpressionTests
         Assert.That(logs.Errors, Has.Count.EqualTo(2));
     }
 
+    [TestCase(false, false)]
+    [TestCase(true, false)]
+    [TestCase(false, true)]
+    [TestCase(true, true)]
+    public async Task ReplacingExpression_DoesNotShareDiagnosticsWithPendingEvaluation(bool animated, bool oldFailure)
+    {
+        if (!Log.IsLoggerFactoryConfigured)
+            Log.LoggerFactory = LoggerFactory.Create(builder => builder.SetMinimumLevel(LogLevel.Warning));
+        using var logs = new CaptureLoggerProvider();
+        Log.LoggerFactory.AddProvider(logs);
+        IProperty<float> property = animated ? new AnimatableProperty<float>(7) : new SimpleProperty<float>(7);
+        property.SetAttributes("Value", []);
+        using var started = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        property.Expression = new TestExpression(() =>
+        {
+            started.Set();
+            if (!release.Wait(TimeSpan.FromSeconds(10)))
+                throw new TimeoutException("The pending evaluation was not released.");
+            return oldFailure ? throw new ExpressionException("Old failure") : 42;
+        });
+        Task<float> pending = Task.Run(() => property.GetValue(new CompositionContext(TimeSpan.Zero)));
+        try
+        {
+            Assert.That(started.Wait(TimeSpan.FromSeconds(10)), Is.True);
+            property.Expression = new TestExpression(() => throw new ExpressionException("New failure"));
+            if (!oldFailure)
+            {
+                Assert.That(property.GetValue(new CompositionContext(TimeSpan.Zero)), Is.EqualTo(7));
+                Assert.That(property.ExpressionError, Is.EqualTo("New failure"));
+            }
+
+            release.Set();
+            Assert.That(await pending.WaitAsync(TimeSpan.FromSeconds(10)), Is.EqualTo(oldFailure ? 7 : 42));
+            Assert.That(property.ExpressionError, Is.EqualTo(oldFailure ? null : "New failure"));
+            Assert.That(property.GetValue(new CompositionContext(TimeSpan.Zero)), Is.EqualTo(7));
+            Assert.That(property.ExpressionError, Is.EqualTo("New failure"));
+            Assert.That(logs.Errors.Count(error => error?.Message == "New failure"), Is.EqualTo(1));
+        }
+        finally
+        {
+            release.Set();
+            await pending.WaitAsync(TimeSpan.FromSeconds(10));
+        }
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void FailedExpression_WhenLoggingThrows_StillUsesFallback(bool animated)
+    {
+        if (!Log.IsLoggerFactoryConfigured)
+            Log.LoggerFactory = LoggerFactory.Create(builder => builder.SetMinimumLevel(LogLevel.Warning));
+        using var logs = new CaptureLoggerProvider(throwOnLog: true);
+        Log.LoggerFactory.AddProvider(logs);
+        IProperty<float> property = animated ? new AnimatableProperty<float>(7) : new SimpleProperty<float>(7);
+        property.Expression = new TestExpression(() => throw new ExpressionException("Evaluation failed"));
+        var context = TestHelper.CreateExpressionContext(TimeSpan.Zero, property);
+
+        Assert.That(property.GetValue(context), Is.EqualTo(7));
+        Assert.Multiple(() =>
+        {
+            Assert.That(property.ExpressionError, Is.EqualTo("Evaluation failed"));
+            Assert.That(context.IsEvaluating(property), Is.False);
+            Assert.That(logs.Errors, Has.Count.EqualTo(1));
+        });
+    }
+
     [Test]
     public void FailedExpression_FallsBackToAnimationAtTheRequestedTime()
     {
@@ -101,9 +168,23 @@ public class PropertyExpressionTests
         Assert.That(((RectShape.Resource)frame.Objects[0]).Opacity, Is.EqualTo(75));
     }
 
-    private sealed class CaptureLoggerProvider : ILoggerProvider
+    private sealed class TestExpression(Func<float> evaluate) : IExpression<float>
+    {
+        public string ExpressionString => "test";
+
+        public float Evaluate(ExpressionContext context) => evaluate();
+
+        public bool Validate(out string? error)
+        {
+            error = null;
+            return true;
+        }
+    }
+
+    private sealed class CaptureLoggerProvider(bool throwOnLog = false) : ILoggerProvider
     {
         private bool _disposed;
+        private readonly bool _throwOnLog = throwOnLog;
         public ConcurrentQueue<Exception?> Errors { get; } = new();
 
         public ILogger CreateLogger(string categoryName) => new CaptureLogger(this, categoryName);
@@ -119,7 +200,11 @@ public class PropertyExpressionTests
             public void Log<TState>(LogLevel level, EventId id, TState state, Exception? exception,
                 Func<TState, Exception?, string> formatter)
             {
-                if (IsEnabled(level)) provider.Errors.Enqueue(exception);
+                if (IsEnabled(level))
+                {
+                    provider.Errors.Enqueue(exception);
+                    if (provider._throwOnLog) throw new InvalidOperationException("Logging failed");
+                }
             }
         }
     }

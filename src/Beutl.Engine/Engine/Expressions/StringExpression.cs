@@ -103,6 +103,9 @@ public sealed class StringExpression<T> : IExpression<T>
 
                 foreach (ExpressionSyntax result in results)
                 {
+                    // ConvertResult accepts null as default(T), regardless of its declared type.
+                    if (model.GetConstantValue(result) is { HasValue: true, Value: null }) continue;
+
                     ITypeSymbol? sourceType = model.GetTypeInfo(result).Type;
                     if (sourceType != null && !CanConvertResultType(compilation, sourceType, targetType))
                     {

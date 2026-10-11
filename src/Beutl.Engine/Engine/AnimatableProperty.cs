@@ -13,8 +13,7 @@ public class AnimatableProperty<T> : IProperty<T>
 {
     private T _currentValue;
     private IAnimation<T>? _animation;
-    private IExpression<T>? _expression;
-    private ExpressionEvaluationState _expressionState;
+    private ExpressionEvaluationState<T>? _expressionState;
     private IValidator<T>? _validator;
     private Attribute[]? _attributes;
     private string? _name;
@@ -102,20 +101,19 @@ public class AnimatableProperty<T> : IProperty<T>
 
     public bool HasLocalValue { get; private set; }
 
-    public bool HasExpression => _expression != null;
+    public bool HasExpression => Volatile.Read(ref _expressionState) != null;
 
-    public string? ExpressionError => _expressionState.Error;
+    public string? ExpressionError => Volatile.Read(ref _expressionState)?.Error;
 
     public IExpression<T>? Expression
     {
-        get => _expression;
+        get => Volatile.Read(ref _expressionState)?.Expression;
         set
         {
-            if (_expression != value)
+            if (Expression != value)
             {
-                _expression = value;
-                _expressionState = default;
-                ExpressionChanged?.Invoke(_expression);
+                Volatile.Write(ref _expressionState, value == null ? null : new ExpressionEvaluationState<T>(value));
+                ExpressionChanged?.Invoke(value);
                 Edited?.Invoke(this, EventArgs.Empty);
             }
         }
@@ -144,7 +142,7 @@ public class AnimatableProperty<T> : IProperty<T>
         T value;
 
         // 式を最優先
-        if (_expression != null)
+        if (Volatile.Read(ref _expressionState) is { } expressionState)
         {
             _propertyLookup ??= new PropertyLookup(_owner?.FindHierarchicalRoot() as ICoreObject ?? BeutlApplication.Current);
             if (context is ExpressionContext expressionContext)
@@ -160,13 +158,13 @@ public class AnimatableProperty<T> : IProperty<T>
             expressionContext.BeginEvaluation(this);
             try
             {
-                value = _expression.Evaluate(expressionContext);
-                _expressionState.ClearError();
+                value = expressionState.Expression.Evaluate(expressionContext);
+                expressionState.ClearError();
                 return ValidateAndCoerce(value);
             }
             catch (ExpressionException ex)
             {
-                _expressionState.ReportFailure(_name, _owner, ex);
+                expressionState.ReportFailure(_name, _owner, ex);
             }
             finally
             {

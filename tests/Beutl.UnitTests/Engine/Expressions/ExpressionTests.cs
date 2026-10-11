@@ -38,6 +38,16 @@ public class ExpressionTests
         Assert.That(expression!.Evaluate(TestHelper.CreateExpressionContext(TimeSpan.Zero)), Is.EqualTo(expected));
     }
 
+    [TestCase("(string)null")]
+    [TestCase("default(string)")]
+    [TestCase("return (string)null;")]
+    [TestCase("const string result = null; result")]
+    public void TryParse_WithTypedNull_ReturnsDefaultValue(string source)
+    {
+        Assert.That(Expression.TryParse<float>(source, out var expression, out string? error), Is.True, error);
+        Assert.That(expression!.Evaluate(TestHelper.CreateExpressionContext(TimeSpan.Zero)), Is.Zero);
+    }
+
     [TestCase("0", false)]
     [TestCase("-0.5", true)]
     public void TryParse_NumericToBool_PreservesConversion(string source, bool expected)
