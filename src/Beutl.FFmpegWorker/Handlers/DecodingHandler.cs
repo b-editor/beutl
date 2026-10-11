@@ -122,10 +122,27 @@ internal sealed partial class DecodingHandler : IDisposable
         return response;
     }
 
+    // Test-only hook (null and inert in production): runs with the reader ID after an operation looked the reader up
+    // and before it began using it, the window in which a parallel CloseReader can retire the reader.
+    internal Action<int>? ReaderLookedUpForTest { get; set; }
+
+    // A close removes the reader before retiring it, so an operation that looked the reader up just before can still
+    // be about to use it. A use holds the close off until it ends; once the close has begun, the operation answers as
+    // for an unknown reader instead of using one that is being disposed.
+    private ReaderUse BeginReaderUse(int readerId)
+    {
+        if (!_readers.TryGetValue(readerId, out var state))
+            return default;
+
+        ReaderLookedUpForTest?.Invoke(readerId);
+        return state.TryBeginUse() ? new ReaderUse(state) : default;
+    }
+
     public IpcMessage HandleReadVideo(IpcMessage msg)
     {
         var request = msg.RequirePayload<ReadVideoRequest>(MessageType.ReadVideo);
-        if (!_readers.TryGetValue(request.ReaderId, out var state))
+        using ReaderUse use = BeginReaderUse(request.ReaderId);
+        if (use.State is not { } state)
             return IpcMessage.CreateError(msg.Id, $"Unknown reader ID: {request.ReaderId}");
 
         if (state.RingBuffer != null)
@@ -169,7 +186,8 @@ internal sealed partial class DecodingHandler : IDisposable
     public unsafe IpcMessage HandleReadAudio(IpcMessage msg)
     {
         var request = msg.RequirePayload<ReadAudioRequest>(MessageType.ReadAudio);
-        if (!_readers.TryGetValue(request.ReaderId, out var state))
+        using ReaderUse use = BeginReaderUse(request.ReaderId);
+        if (use.State is not { } state)
             return IpcMessage.CreateError(msg.Id, $"Unknown reader ID: {request.ReaderId}");
 
         state.ReaderLock.Wait();
@@ -236,7 +254,10 @@ internal sealed partial class DecodingHandler : IDisposable
 
         foreach (KeyValuePair<int, ReaderState> kvp in _readers)
         {
-            var state = kvp.Value;
+            // A reader that is being closed needs no settings.
+            using ReaderUse use = BeginReaderUse(kvp.Key);
+            if (use.State is not { } state)
+                continue;
 
             // プリフェッチ停止（ReaderLock の外で行う — StopPrefetch 内部でロック取得する場合のデッドロック防止）
             state.RingBuffer?.StopPrefetch();
@@ -273,11 +294,11 @@ internal sealed partial class DecodingHandler : IDisposable
 
     private static void RetireReader(ReaderState state)
     {
-        // プリフェッチ停止（ReaderLock の外で行う — プリフェッチタスクがロックを取得するためデッドロック防止）
+        // TryRemove keeps new operations from finding the reader, but one that found it just before may still be
+        // running or about to start. Wait for those in progress; later ones answer as for an unknown reader.
+        state.StopUses();
+        // With no operation left to restart it, stop the prefetch, the last user of ReaderLock, and dispose.
         state.RingBuffer?.StopPrefetch();
-        // 進行中の ReadVideo/ReadAudio が完了するのを待ってから Dispose する
-        state.ReaderLock.Wait();
-        // TryRemove 済みなので新規操作は来ない。Dispose で ReaderLock も破棄されるため Release 不要。
         state.Dispose();
     }
 
