@@ -11,8 +11,6 @@ internal static class ElementTransitions
     // end a tick off the next element's start. Anything closer than this is one boundary.
     internal static readonly TimeSpan AdjacencyTolerance = TimeSpan.FromMilliseconds(1);
 
-    private const int DefaultFrameRate = 30;
-
     // Whether outgoing and incoming meet at a boundary: enabled, on the same layer, incoming starting
     // after outgoing and no later than its end, and outgoing not reaching past incoming's end.
     public static bool AreAdjacent(Element outgoing, Element incoming)
@@ -290,19 +288,7 @@ internal static class ElementTransitions
 
     private static TimeSpan Max(TimeSpan a, TimeSpan b) => a > b ? a : b;
 
-    private static int GetFrameRate(Element element)
-    {
-        Project? project = element.FindHierarchicalParent<Project>();
-        if (project != null
-            && project.Variables.TryGetValue(ProjectVariableKeys.FrameRate, out string? value)
-            && int.TryParse(value, out int rate)
-            && rate > 0)
-        {
-            return rate;
-        }
-
-        return DefaultFrameRate;
-    }
+    private static int GetFrameRate(Element element) => element.FindHierarchicalParent<Project>().GetFrameRate();
 }
 
 // A duration that stands in for one transition side's own, so an edit can be previewed before it is

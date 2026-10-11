@@ -48,15 +48,7 @@ public sealed class SceneTimeRangeService : ISceneTimeRangeService
         _historyManager.Commit(CommandNames.ChangeSceneDuration);
     }
 
-    internal static int GetFrameRate(Scene scene)
-    {
-        Project? project = scene.FindHierarchicalParent<Project>();
-        if (project is null) return 30;
-        return project.Variables.TryGetValue(ProjectVariableKeys.FrameRate, out string? value)
-            && int.TryParse(value, out int rate)
-            ? rate
-            : 30;
-    }
+    internal static int GetFrameRate(Scene scene) => scene.FindHierarchicalParent<Project>().GetFrameRate();
 
     internal static TimeSpan GetFrameDuration(Scene scene) => TimeSpan.FromSeconds(1d / GetFrameRate(scene));
 

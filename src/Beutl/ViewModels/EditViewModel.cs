@@ -106,7 +106,10 @@ public sealed partial class EditViewModel
             .DisposeWith(_disposables)!;
         // SceneComposer is scale-independent; rebuild only on frame-size changes.
         Composer = scene.GetObservable(Scene.FrameSizeProperty)
-            .Select(_ => new SceneComposer(Scene))
+            .Select(_ => new SceneComposer(Scene)
+            {
+                SampleRate = Scene.FindHierarchicalParent<Project>().GetSampleRate()
+            })
             .DisposePreviousValue()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables)!;
