@@ -110,14 +110,7 @@ public sealed partial class LibraryTabExtension : IContextCommandHandler
         IEditorContext editorContext, Scene scene, CancellationToken cancellationToken,
         Func<TimeSpan, int, ElementDescription> createDescription)
     {
-        TimeSpan time = editorContext.GetService<IEditorClock>()?.CurrentTime.Value ?? TimeSpan.Zero;
-        TimeSpan start = time.RoundToRate(scene.FindHierarchicalParent<Project>().GetFrameRate());
-        // Above everything showing at the playhead, like a drop on the player.
-        int layer = scene.Children
-            .Where(e => e.Start <= start && start < e.Range.End)
-            .Select(e => e.ZIndex + 1)
-            .DefaultIfEmpty(0)
-            .Max();
+        (TimeSpan start, int layer) = PlayheadPlacement.Find(editorContext, scene);
         ElementDescription description = createDescription(start, layer);
 
         // An open timeline also scrolls to the new clip and reports the failure itself.

@@ -125,17 +125,31 @@ public sealed partial class PropertyEditorMenu : UserControl
         if (DataContext is BaseEditorViewModel { IsDisposed: false, CanEditProperty.Value: true } viewModel
             && viewModel.PropertyAdapter is IAnimatablePropertyAdapter animatableProperty
             && viewModel.GetService<EditViewModel>() is { } editViewModel
-            && viewModel.GetService<Element>() is { } element
-            && editViewModel.FindToolTab<TimelineTabViewModel>() is { } timeline)
+            && viewModel.GetService<Element>() is { } element)
         {
             viewModel.PrepareToEditAnimation();
 
-            if (animatableProperty.Animation is IKeyFrameAnimation)
+            if (animatableProperty.Animation is IKeyFrameAnimation
+                && FindOrOpenTimeline(editViewModel) is { } timeline)
             {
-                // タイムラインのタブを開く
                 timeline.AttachInline(animatableProperty, element);
             }
         }
+    }
+
+    // The inline view lives in the timeline, so a closed timeline is opened first, the way
+    // "Edit animation" opens its graph editor tab.
+    private static TimelineTabViewModel? FindOrOpenTimeline(EditViewModel editViewModel)
+    {
+        if (editViewModel.FindToolTab<TimelineTabViewModel>() is { } timeline)
+            return timeline;
+
+        var created = new TimelineTabViewModel(editViewModel);
+        if (editViewModel.OpenToolTab(created))
+            return created;
+
+        created.Dispose();
+        return null;
     }
 
     private void EditExpression_Click(object? sender, RoutedEventArgs e)
