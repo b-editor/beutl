@@ -134,7 +134,7 @@ jobs:
             net.beditor.Beutl
 
       - name: Upload Flatpak artifact
-        uses: actions/upload-artifact@v7.0.1
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: beutl-flatpak-${{ matrix.arch }}-${{ inputs.semVer }}
           path: ${{ github.workspace }}/artifacts/${{ matrix.bundle }}

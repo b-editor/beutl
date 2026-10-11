@@ -121,7 +121,7 @@ jobs:
 
       - name: Upload the notes for opencode
         if: steps.state.outputs.mode == 'translate'
-        uses: actions/upload-artifact@v7.0.1
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: translation-input
           path: translation-input.md
@@ -197,7 +197,7 @@ jobs:
           fi
 
       - name: Upload the translation
-        uses: actions/upload-artifact@v7.0.1
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: translation
           path: ${{ runner.temp }}/opencode/translation.md

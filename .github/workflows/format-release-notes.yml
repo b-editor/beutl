@@ -91,7 +91,7 @@ jobs:
 
       - name: Upload the changelog for opencode
         if: steps.release.outputs.mode == 'format'
-        uses: actions/upload-artifact@v7.0.1
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: changelog
           path: changelog.md
@@ -167,7 +167,7 @@ jobs:
           fi
 
       - name: Upload the summary
-        uses: actions/upload-artifact@v7.0.1
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: summary
           path: ${{ runner.temp }}/opencode/summary.json
