@@ -110,7 +110,25 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
             }
         }
 
-        File.WriteAllText(configPath, DefaultNuGetConfigContent);
+        // Only defaults are written here. Replace the legacy config's directory entry so
+        // read-only files can be regenerated and shared symlink targets remain untouched.
+        string temporaryPath = configPath + $".{Guid.NewGuid():N}.tmp";
+        try
+        {
+            var options = new FileStreamOptions { Mode = FileMode.CreateNew, Access = FileAccess.Write, Share = FileShare.None };
+            if (!OperatingSystem.IsWindows())
+                options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+            using (var stream = new FileStream(temporaryPath, options))
+            {
+                stream.Write(Encoding.UTF8.GetBytes(DefaultNuGetConfigContent));
+                stream.Flush(flushToDisk: true);
+            }
+            File.Move(temporaryPath, configPath, overwrite: true);
+        }
+        finally
+        {
+            File.Delete(temporaryPath);
+        }
     }
 
     private SourceRepository GetRepositoryForCurrentHome(SourceRepository repository)

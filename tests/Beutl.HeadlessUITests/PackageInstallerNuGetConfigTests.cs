@@ -134,6 +134,62 @@ public sealed partial class PackageInstallerNuGetConfigTests
         });
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task LegacySymbolicLink_IsReplacedWithoutChangingTheSharedTarget(bool relativeTarget)
+    {
+        string targetDirectory = Path.Combine(Helper.AppRoot, $"legacy-config-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(targetDirectory);
+        _createdDirectories.Add(targetDirectory);
+        string targetPath = Path.Combine(targetDirectory, "shared.config");
+        const string LegacyConfig = """
+            <configuration>
+              <packageSources><add key="Custom" value="sharedSource" /></packageSources>
+              <config><add key="maxHttpRequestsPerSource" value="8" /></config>
+            </configuration>
+            """;
+        File.WriteAllText(targetPath, LegacyConfig);
+        File.Delete(ConfigPath);
+        _createdFiles.Add(ConfigPath);
+        string linkTarget = relativeTarget ? Path.GetRelativePath(Helper.AppRoot, targetPath) : targetPath;
+        CreateSymbolicLinkOrIgnore(ConfigPath, linkTarget);
+        using var client = new HttpClient();
+        await using var installer = new PackageInstaller(client, new InstalledPackageRepository(), null!);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(new FileInfo(ConfigPath).LinkTarget, Is.Null);
+            Assert.That(File.ReadAllText(targetPath), Is.EqualTo(LegacyConfig));
+            AssertDefaultSource();
+        });
+    }
+
+    [TestCase(UnixFileMode.UserRead)]
+    [TestCase(UnixFileMode.UserRead | UnixFileMode.GroupRead | UnixFileMode.OtherRead)]
+    public async Task ReadOnlyLegacyConfig_CanBeRegenerated(UnixFileMode mode)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("This regression uses Unix read-only permissions.");
+            return;
+        }
+
+        File.WriteAllText(ConfigPath, "<configuration />");
+        File.SetUnixFileMode(ConfigPath, mode);
+        try
+        {
+            using var client = new HttpClient();
+            await using var installer = new PackageInstaller(client, new InstalledPackageRepository(), null!);
+
+            AssertDefaultSource();
+        }
+        finally
+        {
+            if (File.Exists(ConfigPath))
+                File.SetUnixFileMode(ConfigPath, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+        }
+    }
+
     [TestCase("Custom", "customSource")]
     [TestCase("Beutl Local Packages", "packageSource")]
     [TestCase("Beutl Local Packages", "oldSource")]
@@ -247,15 +303,7 @@ public sealed partial class PackageInstallerNuGetConfigTests
         File.Delete(ConfigPath);
         _createdFiles.Add(ConfigPath);
         string linkTarget = relativeTarget ? Path.GetRelativePath(Helper.AppRoot, targetPath) : targetPath;
-        try
-        {
-            File.CreateSymbolicLink(ConfigPath, linkTarget);
-        }
-        catch (Exception ex) when (ex is UnauthorizedAccessException or PlatformNotSupportedException
-            || ex is IOException && OperatingSystem.IsWindows() && (ex.HResult & 0xffff) == 1314)
-        {
-            Assert.Ignore("Symlink creation is not available.");
-        }
+        CreateSymbolicLinkOrIgnore(ConfigPath, linkTarget);
         using var client = new HttpClient();
         await using var installer = new PackageInstaller(client, new InstalledPackageRepository(), null!);
 
@@ -321,6 +369,28 @@ public sealed partial class PackageInstallerNuGetConfigTests
         string? installedPath = Helper.PackagePathResolver.GetInstalledPath(identity);
         Assert.That(installedPath, Is.Not.Null);
         Assert.That(File.ReadAllText(Path.Combine(installedPath!, "content/payload.txt")), Is.EqualTo("local payload"));
+    }
+
+    private static void AssertDefaultSource()
+    {
+        var provider = new PackageSourceProvider(new Settings(Helper.AppRoot, "nuget.config"));
+        Assert.That(provider.LoadPackageSources().Single(source => source.Name == "Beutl Local Packages").Source,
+            Is.EqualTo(Helper.LocalSourcePath));
+        Assert.That(XDocument.Load(ConfigPath).Root!.Element("packageSources")!.Element("clear"), Is.Not.Null);
+        Assert.That(Directory.GetFiles(Helper.AppRoot, "nuget.config.*.tmp"), Is.Empty);
+    }
+
+    private static void CreateSymbolicLinkOrIgnore(string path, string target)
+    {
+        try
+        {
+            File.CreateSymbolicLink(path, target);
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or PlatformNotSupportedException
+            || ex is IOException && OperatingSystem.IsWindows() && (ex.HResult & 0xffff) == 1314)
+        {
+            Assert.Ignore("Symlink creation is not available.");
+        }
     }
 
     private static void SetUnixAcl(string text)
