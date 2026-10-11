@@ -1,5 +1,4 @@
-﻿using System.Runtime.InteropServices;
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.LogicalTree;
@@ -8,7 +7,6 @@ using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Services;
 using Beutl.ProjectSystem;
 using FluentAvalonia.UI.Controls;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Editor.Components.TimelineTab.Views;
 
@@ -97,26 +95,16 @@ public sealed partial class LayerHeader : UserControl
 
         LayerHeaderViewModel vm = ViewModel;
         int newLayerNum = _newLayer;
-        int oldLayerNum = vm.Number.Value;
         ElementViewModel[] directElements = _elements;
         _elements = [];
 
-        if (newLayerNum == oldLayerNum)
+        if (newLayerNum == vm.Number.Value)
         {
             vm.PosY.Value = 0;
             return;
         }
 
-        // Snapshot the headers shifted by the move (against pre-move state) so we can
-        // update their Number.Value after the service rewrites Element.ZIndex.
-        List<LayerHeaderViewModel> shiftedHeaders = CollectShiftedHeaders(vm, oldLayerNum, newLayerNum);
-
-        ILayerMoveService service = vm.Timeline.EditorContext.GetRequiredService<ILayerMoveService>();
-        LayerMovePlan plan = service.ApplyMove(
-            vm.Timeline.Scene,
-            oldLayerNum,
-            newLayerNum,
-            directElements.Select(x => x.Model).ToArray());
+        LayerMovePlan plan = vm.MoveTo(newLayerNum, directElements.Select(x => x.Model).ToArray());
 
         // A lock-blocked move returns IsNoop without writing the model; snap the
         // dragged header back rather than syncing the UI to an unmoved drop row.
@@ -128,17 +116,8 @@ public sealed partial class LayerHeader : UserControl
             return;
         }
 
-        // Service already wrote Element.ZIndex and committed history; now sync VM-side
-        // state (Number.Value, header order) and animate the affected element views.
-        int headerShift = oldLayerNum < newLayerNum ? -1 : 1;
-        vm.UpdateZIndex(newLayerNum);
-        foreach (LayerHeaderViewModel item in CollectionsMarshal.AsSpan(shiftedHeaders))
-        {
-            item.UpdateZIndex(item.Number.Value + headerShift);
-        }
-
-        vm.Timeline.LayerHeaders.Move(oldLayerNum, newLayerNum);
-
+        // The headers stay on their rows and follow the TimelineLayer models the service moved, as they do on undo
+        // and redo; only the clip views animate to their new rows.
         // affectModel: false — ZIndex already written by the service; just drive the visual.
         foreach (ElementViewModel item in directElements)
         {
@@ -150,23 +129,6 @@ public sealed partial class LayerHeader : UserControl
             ElementViewModel? shiftedVm = vm.Timeline.Elements.FirstOrDefault(v => v.Model == shifted);
             shiftedVm?.AnimationRequest(shifted.ZIndex, affectModel: false);
         }
-    }
-
-    private static List<LayerHeaderViewModel> CollectShiftedHeaders(LayerHeaderViewModel vm, int oldLayerNum, int newLayerNum)
-    {
-        List<LayerHeaderViewModel> shiftedHeaders = [];
-        foreach (LayerHeaderViewModel item in vm.Timeline.LayerHeaders.GetMarshal().Value)
-        {
-            int n = item.Number.Value;
-            if (n == oldLayerNum) continue;
-            if ((oldLayerNum < newLayerNum && n > oldLayerNum && n <= newLayerNum)
-                || (oldLayerNum > newLayerNum && n < oldLayerNum && n >= newLayerNum))
-            {
-                shiftedHeaders.Add(item);
-            }
-        }
-
-        return shiftedHeaders;
     }
 
     private static void RestoreDraggedRows(LayerHeaderViewModel vm, ElementViewModel[] directElements)

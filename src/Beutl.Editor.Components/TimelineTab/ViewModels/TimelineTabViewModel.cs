@@ -86,6 +86,8 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
 
         InitializeTransitionParticipants();
 
+        TrackLayerModels().AddTo(_disposables);
+
         TimelineOptions options = Options.Value;
         LayerHeaders.AddRange(Enumerable.Range(0, options.MaxLayerCount)
             .Select(num => new LayerHeaderViewModel(num, this)));

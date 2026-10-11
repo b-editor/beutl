@@ -21,12 +21,10 @@ public sealed class LayerHeaderViewModel : IDisposable
         Timeline = timeline;
         _model.Value = timeline.Scene.Layers.FirstOrDefault(i => i.ZIndex == num);
 
-        // Never (not ReturnThenNever(num)): when the model is pruned after this
-        // header moved rows, re-emitting the construction-time num would snap
-        // Number back to the original row.
-        Number = _model.Select(i => i?.GetObservable(TimelineLayer.ZIndexProperty) ?? Observable.Never<int>())
-            .Switch()
-            .ToReactiveProperty(num);
+        // A header is a fixed row: Number is its index in the timeline's LayerHeaders, and it shows the
+        // TimelineLayer whose ZIndex is that row. The timeline has every header look its model up again when a
+        // model changes rows or is added or removed, as a layer move and its undo and redo do.
+        Number = new ReactiveProperty<int>(num);
         Name = _model.Select(i => i?.GetObservable(CoreObject.NameProperty) ?? Number.Select(n => n.ToString()))
             .Switch()
             .Select(s => string.IsNullOrEmpty(s) ? $"{Number.Value}" : s)
@@ -69,13 +67,6 @@ public sealed class LayerHeaderViewModel : IDisposable
 
         Inlines.CollectionChangedAsObservable()
             .Subscribe(OnInlinesCollectionChanged)
-            .AddTo(_disposables);
-
-        // Undo/redo inserts or removes TimelineLayer models directly in
-        // Scene.Layers (e.g. restoring a pruned model), which no command-side
-        // resync covers — track the collection so the header rebinds.
-        Timeline.Scene.Layers.CollectionChangedAsObservable()
-            .Subscribe(_ => ResyncModel())
             .AddTo(_disposables);
     }
 
@@ -152,18 +143,20 @@ public sealed class LayerHeaderViewModel : IDisposable
 
     public ReactiveCommand ToggleSoloCommand { get; }
 
+    [Obsolete("Layer headers stay on their rows and follow the TimelineLayer models; MoveTo moves a layer.")]
     public void UpdateZIndex(int layerNum)
     {
-        // For model-backed headers, LayerMoveService already wrote ZIndex (in its
-        // committed transaction) and Number reflects it; re-touching the model here
-        // would leak into the next history entry and double-apply the shift. Only a
-        // model-less header needs its Number pushed manually.
-        if (_model.Value is null)
-        {
-            Number.Value = layerNum;
-        }
-
         PosY.Value = 0;
+    }
+
+    // Moves the layer on this header's row to newLayerNum, together with directElements, the clips on the row that
+    // can move. The service moves the clips and the TimelineLayer models in one history entry. The headers stay on
+    // their rows and follow the models, so neither the move nor its undo or redo has to change them.
+    public LayerMovePlan MoveTo(int newLayerNum, IReadOnlyList<Element> directElements)
+    {
+        PosY.Value = 0;
+        return Timeline.EditorContext.GetRequiredService<ILayerMoveService>()
+            .ApplyMove(Timeline.Scene, Number.Value, newLayerNum, directElements);
     }
 
     public void ElementAdded(ElementViewModel element) => ItemsCount.Value++;
@@ -217,7 +210,7 @@ public sealed class LayerHeaderViewModel : IDisposable
         ResyncModel();
     }
 
-    private void ResyncModel()
+    internal void ResyncModel()
     {
         _model.Value = Timeline.Scene.Layers.FirstOrDefault(l => l.ZIndex == Number.Value);
     }

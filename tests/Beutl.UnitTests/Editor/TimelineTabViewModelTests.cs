@@ -6,6 +6,7 @@ using Beutl.Editor.Models;
 using Beutl.Editor.Services;
 using Beutl.Extensibility;
 using Beutl.ProjectSystem;
+using Beutl.UnitTests.TestInfrastructure;
 
 using Reactive.Bindings;
 
@@ -139,13 +140,68 @@ public class TimelineTabViewModelTests
         });
     }
 
-    private static TimelineTabViewModel CreateViewModel()
+    // Dragging a layer header moves the clips and the TimelineLayer models in one history entry. Undo and redo
+    // rewrite only the models, so the headers must keep Number == row and show the model on their row at every
+    // step, and every clip must belong to the header of its row.
+    [Test]
+    public void MovingANamedLayerPastPlainRows_KeepsEveryHeaderOnItsRow_ThroughUndoAndRedo()
     {
-        var scene = new Scene();
+        using var harness = new SceneHistoryHarness("beutl_layer_header");
+        Element namedRowClip = harness.AddElement(0);
+        harness.AddElement(1);
+        harness.AddElement(2);
+        TimelineLayer named = harness.AddLayer(0);
+        named.Name = "Named";
+        named.IsAudioMuted = true;
+        harness.History.Commit("Setup");
+        using TimelineTabViewModel viewModel = CreateViewModel(harness.Scene, new LayerMoveService(harness.History));
+
+        LayerMovePlan plan = viewModel.LayerHeaders[0].MoveTo(2, [namedRowClip]);
+
+        Assert.That(plan.IsNoop, Is.False);
+        AssertHeadersShowTheirRows(viewModel, namedRow: 2);
+
+        Assert.That(harness.History.Undo(), Is.True);
+        AssertHeadersShowTheirRows(viewModel, namedRow: 0);
+
+        Assert.That(harness.History.Redo(), Is.True);
+        AssertHeadersShowTheirRows(viewModel, namedRow: 2);
+
+        Assert.That(harness.History.Undo(), Is.True);
+        AssertHeadersShowTheirRows(viewModel, namedRow: 0);
+    }
+
+    private static void AssertHeadersShowTheirRows(TimelineTabViewModel viewModel, int namedRow)
+    {
+        Assert.Multiple(() =>
+        {
+            for (int row = 0; row < viewModel.LayerHeaders.Count; row++)
+            {
+                LayerHeaderViewModel header = viewModel.LayerHeaders[row];
+                Assert.That(header.Number.Value, Is.EqualTo(row), $"the number of the header on row {row}");
+                Assert.That(header.Name.Value, Is.EqualTo(row == namedRow ? "Named" : $"{row}"),
+                    $"the name on row {row}");
+                Assert.That(header.IsAudioMuted.Value, Is.EqualTo(row == namedRow), $"the audio mute on row {row}");
+            }
+
+            foreach (ElementViewModel element in viewModel.Elements)
+            {
+                int row = element.Model.ZIndex;
+                Assert.That(element.LayerHeader.Value, Is.SameAs(viewModel.LayerHeaders[row]),
+                    $"the header of the clip on row {row}");
+            }
+        });
+    }
+
+    private static TimelineTabViewModel CreateViewModel(Scene? scene = null, ILayerMoveService? layerMoveService = null)
+    {
+        scene ??= new Scene();
         var editorContext = new TestEditorContext(scene);
         editorContext.AddService<ITimelineOptionsProvider>(new TestTimelineOptionsProvider(scene));
         editorContext.AddService<IEditorClock>(new TestEditorClock());
         editorContext.AddService<IBufferStatus>(new TestBufferStatus());
+        if (layerMoveService is not null)
+            editorContext.AddService(layerMoveService);
         return new TimelineTabViewModel(editorContext);
     }
 
