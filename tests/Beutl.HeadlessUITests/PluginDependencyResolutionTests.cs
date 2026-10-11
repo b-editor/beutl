@@ -137,24 +137,35 @@ public class PluginDependencyResolutionTests
         CreatePackage("Common", "1.0.0");
         string root = CreatePackage("Root", "1.0.0", ("Common", "1.0.0"));
         DeleteDownloads();
-        // A source that cannot be reached, as nuget.org is when offline.
-        int port;
-        using (var listener = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0))
-        {
-            listener.Start();
-            port = ((System.Net.IPEndPoint)listener.LocalEndpoint).Port;
-        }
-
-        new XElement("configuration", new XElement("packageSources", new XElement("clear"),
-            new XElement("add", new XAttribute("key", "test"), new XAttribute("value", Helper.LocalSourcePath)),
-            new XElement("add", new XAttribute("key", "unreachable"), new XAttribute("value", $"http://127.0.0.1:{port}/v3/index.json"))))
-            .Save(Path.Combine(Helper.AppRoot, "nuget.config"));
+        AddUnreachableSource();
         using var client = new HttpClient();
         await using var installer = new PackageInstaller(client, new InstalledPackageRepository(), null!);
 
         await installer.ReResolveDependencies(Identity("Root", "1.0.0"), NuGet.Common.NullLogger.Instance);
 
         Assert.That(File.Exists(Path.Combine(root, ResolvedPackageDependencies.FileName)), Is.True);
+    }
+
+    // Left asks for Common 1.0.0 or later and Right for 2.0.0 or later, so only Common 2.0.0 was installed.
+    [Test]
+    public async Task Re_resolution_uses_an_installed_version_above_a_dependency_minimum()
+    {
+        CreatePackage("Common", "2.0.0");
+        CreatePackage("Left", "1.0.0", ("Common", "1.0.0"));
+        CreatePackage("Right", "1.0.0", ("Common", "2.0.0"));
+        string root = CreatePackage("Root", "1.0.0", ("Left", "1.0.0"), ("Right", "1.0.0"));
+        DeleteDownloads();
+        AddUnreachableSource();
+        using var client = new HttpClient();
+        await using var installer = new PackageInstaller(client, new InstalledPackageRepository(), null!);
+
+        await installer.ReResolveDependencies(Identity("Root", "1.0.0"), NuGet.Common.NullLogger.Instance);
+
+        using var reader = new PackageFolderReader(root);
+        Assert.That(ResolvedPackageDependencies.Load(reader, Helper.GetFrameworkName()), Is.EquivalentTo(new[]
+        {
+            Identity("Root", "1.0.0"), Identity("Left", "1.0.0"), Identity("Right", "1.0.0"), Identity("Common", "2.0.0"),
+        }));
     }
 
     [Test]
@@ -290,6 +301,22 @@ public class PluginDependencyResolutionTests
     private void DeleteDownloads()
     {
         foreach (string archive in _archives) File.Delete(archive);
+    }
+
+    // Adds a source that cannot be reached, as nuget.org is when offline.
+    private static void AddUnreachableSource()
+    {
+        int port;
+        using (var listener = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0))
+        {
+            listener.Start();
+            port = ((System.Net.IPEndPoint)listener.LocalEndpoint).Port;
+        }
+
+        new XElement("configuration", new XElement("packageSources", new XElement("clear"),
+            new XElement("add", new XAttribute("key", "test"), new XAttribute("value", Helper.LocalSourcePath)),
+            new XElement("add", new XAttribute("key", "unreachable"), new XAttribute("value", $"http://127.0.0.1:{port}/v3/index.json"))))
+            .Save(Path.Combine(Helper.AppRoot, "nuget.config"));
     }
 
     private string CreatePackage(string name, string version, params (string Name, string Version)[] dependencies)
