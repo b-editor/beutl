@@ -159,7 +159,9 @@ public class UpdateDialogViewModel
             var directory = ZipStagingDirectory;
             var target = AppContext.BaseDirectory;
 
-            var psi = new ProcessStartInfo(@"C:\WINDOWS\System32\WindowsPowerShell\v1.0\powershell.EXE")
+            // Windows PowerShell, which the script is written for, wherever Windows is installed.
+            var psi = new ProcessStartInfo(
+                Path.Combine(Environment.SystemDirectory, "WindowsPowerShell", "v1.0", "powershell.exe"))
             {
                 WorkingDirectory = BeutlEnvironment.GetHomeDirectoryPath(),
                 CreateNoWindow = !Preferences.Default.Get("Updater.ShowWindow", false),
@@ -182,6 +184,7 @@ public class UpdateDialogViewModel
 
     private async Task InstallOnLinux(AssetMetadataJson metadata)
     {
+        string command;
         if (metadata.Type == "debian")
         {
             if (_downloadFile == null)
@@ -190,17 +193,7 @@ public class UpdateDialogViewModel
                 return;
             }
 
-            var psi = new ProcessStartInfo("gnome-terminal")
-            {
-                ArgumentList =
-                {
-                    "--",
-                    "bash",
-                    "-c",
-                     $"sudo apt update && sudo apt install \"{_downloadFile}\""
-                }
-            };
-            await LaunchInstallerAsync(psi);
+            command = $"sudo apt update && sudo apt install \"{_downloadFile}\"";
         }
         else if (metadata.Type == "zip")
         {
@@ -213,19 +206,22 @@ public class UpdateDialogViewModel
             var directory = ZipStagingDirectory;
             var target = AppContext.BaseDirectory;
 
-            var psi = new ProcessStartInfo("gnome-terminal")
-            {
-                ArgumentList =
-                {
-                    "--",
-                    "bash",
-                    "-c",
-                    $"chmod +x \"{scriptPath}\" && \"{scriptPath}\" \"{directory}\" \"{target}\" Beutl \"{Path.Combine(AppContext.BaseDirectory, "Beutl")}\""
-                }
-            };
-
-            await LaunchInstallerAsync(psi);
+            command = $"chmod +x \"{scriptPath}\" && \"{scriptPath}\" \"{directory}\" \"{target}\" Beutl \"{Path.Combine(AppContext.BaseDirectory, "Beutl")}\"";
         }
+        else
+        {
+            return;
+        }
+
+        if (TerminalLauncher.CreateStartInfo(["bash", "-c", command]) is not { } psi)
+        {
+            // Beutl keeps running, and the user can finish the update by running the command themselves.
+            _logger.LogWarning("No terminal emulator was found for the update command: {Command}", command);
+            ProgressText.Value = string.Format(MessageStrings.TerminalNotFound, command);
+            return;
+        }
+
+        await LaunchInstallerAsync(psi);
     }
 
     private async Task InstallOnOSX(AssetMetadataJson metadata)
@@ -334,7 +330,21 @@ public class UpdateDialogViewModel
 
     // A zip update unpacks into a folder named like the one the application runs from.
     private static string ZipStagingDirectory
-        => Path.Combine(UpdateStagingRoot, new DirectoryInfo(AppContext.BaseDirectory).Name);
+        => GetZipStagingDirectory(AppContext.BaseDirectory, UpdateStagingRoot, OperatingSystem.IsWindows());
+
+    // On Windows the folder sits next to the application folder, on the same volume: win-update.ps1
+    // moves it into place, and Windows PowerShell cannot move a directory to another volume.
+    // The Linux and macOS scripts copy the update, so it stays in the home directory there.
+    internal static string GetZipStagingDirectory(string appDirectory, string stagingRoot, bool isWindows)
+    {
+        var app = new DirectoryInfo(appDirectory);
+        if (isWindows && app.Parent is { } parent)
+        {
+            return Path.Combine(parent.FullName, app.Name + ".update");
+        }
+
+        return Path.Combine(stagingRoot, app.Name);
+    }
 
     // Unpacks a zip or app update into an empty staging folder and offers the restart.
     private async Task<bool> StageExtractedUpdateAsync(AssetMetadataJson metadata, string file)
@@ -345,12 +355,23 @@ public class UpdateDialogViewModel
             destination = ZipStagingDirectory;
         }
 
-        if (Directory.Exists(destination))
+        try
         {
-            Directory.Delete(destination, true);
+            if (Directory.Exists(destination))
+            {
+                Directory.Delete(destination, true);
+            }
+
+            Directory.CreateDirectory(destination);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // For example, the folder next to the application is not writable.
+            _logger.LogError(ex, "Failed to prepare the update folder {Destination}", destination);
+            ProgressText.Value = ex.Message;
+            return false;
         }
 
-        Directory.CreateDirectory(destination);
         var result = await ExtractIfNeeded(metadata, file, destination);
         if (!result) return false;
 

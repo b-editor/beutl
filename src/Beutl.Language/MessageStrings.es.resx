@@ -254,6 +254,10 @@ Podrás seguir editando cuando termine.</value>
   <data name="FailedToLoadScript" xml:space="preserve">
     <value>No se pudo cargar el script.</value>
   </data>
+  <data name="TerminalNotFound" xml:space="preserve">
+    <value>No se encontró ningún emulador de terminal. Para terminar la actualización, ejecuta este comando en una terminal:
+{0}</value>
+  </data>
   <data name="ExportMissingSourceFile" xml:space="preserve">
     <value>La exportación no puede comenzar porque falta un archivo de origen referenciado: {0} ({1} faltantes).</value>
   </data>
