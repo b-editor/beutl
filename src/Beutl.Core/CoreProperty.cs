@@ -270,11 +270,14 @@ public class CoreProperty<T>(
                 && value != null)
             {
                 JsonSerializerOptions options = metadata.GetSerializerOptions();
+                using var objects = context is JsonSerializationContext { CapturedValues: not null }
+                    ? new SerializedObjectCapture()
+                    : null;
                 JsonNode? node = JsonSerializer.SerializeToNode(value, PropertyType, options);
                 jsonCtxt.SetNode(Name, PropertyType, value.GetType(), node);
                 if (context is JsonSerializationContext captureContext)
                 {
-                    captureContext.CaptureValue(Name, value);
+                    captureContext.CaptureValue(Name, value, objects);
                 }
             }
             else

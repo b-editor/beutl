@@ -14,6 +14,7 @@ public record CoreSerializerOptions
     /// Missing or changed members retain their normal deserialization behavior.
     /// Built-in property readers skip assigning unchanged values, including collections.
     /// Custom collection reads deserialize normally so readers can safely clear and refill their destination.
+    /// Preserved objects remain available for reference resolution.
     /// </summary>
     public bool PreserveUnchangedValues { get; init; }
 }
@@ -67,7 +68,7 @@ public static partial class CoreSerializer
     }
 
     private static JsonObject SerializeToJsonObject(ICoreSerializable obj, CoreSerializerOptions? options,
-        Dictionary<string, object?>? capturedValues)
+        Dictionary<string, JsonSerializationContext.CapturedValue>? capturedValues)
     {
         SerializedObjectCapture.Record(obj);
         var type = obj.GetType();
@@ -244,7 +245,7 @@ public static partial class CoreSerializer
         if (options?.PreserveUnchangedValues == true && obj is not IFallback
             && json.Any(pair => pair.Value is JsonObject or JsonArray))
         {
-            var capturedValues = new Dictionary<string, object?>();
+            var capturedValues = new Dictionary<string, JsonSerializationContext.CapturedValue>();
             JsonObject current = SerializeToJsonObject(obj, new CoreSerializerOptions
             {
                 BaseUri = context.BaseUri,

@@ -22,29 +22,31 @@ public partial class JsonSerializationContext(
     private string? _requiredMinAppVersionAfterMigration;
     private bool _acceptsPersistedContentMigrationReports;
     private bool _afterDeserializedCompleted;
-    private Dictionary<string, object?>? _preservedValues;
+    private Dictionary<string, CapturedValue>? _preservedValues;
 
-    internal Dictionary<string, object?>? CapturedValues { get; init; }
+    internal sealed record CapturedValue(object? Value, CoreObject[] Objects);
 
-    internal void CaptureValue(string name, object? value)
+    internal Dictionary<string, CapturedValue>? CapturedValues { get; init; }
+
+    internal void CaptureValue(string name, object? value, SerializedObjectCapture? objects = null)
     {
         if (CapturedValues is not null)
         {
-            CapturedValues[name] = value;
+            CapturedValues[name] = new CapturedValue(value, objects?.Objects.ToArray() ?? []);
         }
     }
 
-    internal void PreserveUnchangedValues(JsonObject current, Dictionary<string, object?> values)
+    internal void PreserveUnchangedValues(JsonObject current, Dictionary<string, CapturedValue> values)
     {
-        foreach ((string name, object? value) in values)
+        foreach ((string name, CapturedValue captured) in values)
         {
-            if (value is not null
+            if (captured.Value is not null
                 && _json.TryGetPropertyValue(name, out JsonNode? desired)
                 && desired is JsonObject or JsonArray
                 && current.TryGetPropertyValue(name, out JsonNode? existing)
                 && JsonNode.DeepEquals(existing, desired))
             {
-                (_preservedValues ??= [])[name] = value;
+                (_preservedValues ??= [])[name] = captured;
             }
         }
     }
@@ -53,11 +55,13 @@ public partial class JsonSerializationContext(
     {
         // Property readers can skip assigning an unchanged collection. Ordinary GetValue calls
         // must not return it: custom readers may clear and refill their destination collection.
-        if (_preservedValues is not null && _preservedValues.TryGetValue(name, out value)
-            && (allowCollections || value is not IEnumerable))
+        if (_preservedValues is not null && _preservedValues.TryGetValue(name, out CapturedValue? captured)
+            && (allowCollections || captured.Value is not IEnumerable))
         {
+            value = captured.Value;
             if (type.IsInstanceOfType(value))
             {
+                RegisterPreservedObjects(captured);
                 return true;
             }
 
@@ -66,12 +70,28 @@ public partial class JsonSerializationContext(
                 && type.GenericTypeArguments[0].IsInstanceOfType(value))
             {
                 value = Activator.CreateInstance(type, [value]);
+                RegisterPreservedObjects(captured);
                 return true;
             }
         }
 
         value = null;
         return false;
+    }
+
+    private void RegisterPreservedObjects(CapturedValue captured)
+    {
+        // Only register a member once its reader actually reuses it. Indexing the whole snapshot
+        // would let references resolve to objects that the desired document removes or replaces.
+        if (captured.Value is CoreObject coreObject)
+        {
+            SetObjectAndId(coreObject);
+        }
+
+        foreach (CoreObject obj in captured.Objects)
+        {
+            SetObjectAndId(obj);
+        }
     }
 
     public ICoreSerializationContext? Parent { get; } = parent;
