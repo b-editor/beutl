@@ -1250,7 +1250,8 @@ Beutl.Utilities
 ## Tool tabs
 # Every ToolTabExtension, by the $type a dock layout writes for it (tools[].extension in the view state of
 # a scene and in dock-layout-presets.json), which is also the key that pins it (View.PinnedToolTabs in
-# settings.json). The id is the tools[].id a dock layout writes for it.
+# settings.json). The id is the tools[].id that BeutlToolDockable.CreateId gives it, with <guid> in place
+# of a GUID it generates.
 
 [Beutl.Editor.Components].AudioVisualizerTab:AudioVisualizerTabExtension
   id: Beutl.Editor.Components.AudioVisualizerTab.AudioVisualizerTabExtension#<guid>

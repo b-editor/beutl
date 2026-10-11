@@ -3,6 +3,7 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using Beutl.Animation;
 using Beutl.Api.Services;
 using Beutl.Engine;
@@ -10,13 +11,14 @@ using Beutl.Extensibility;
 using Beutl.Media.Decoding;
 using Beutl.Serialization;
 using Beutl.ViewModels.Dock;
+using Reactive.Bindings;
 
 namespace Beutl.HeadlessUITests;
 
 // Builds FormatManifest.txt: the names that first-party code writes into project files and the app's stores, and
 // resolves by exact match when it reads them back. FormatManifestTests compares it with the checked-in file, so a
 // rename, or a change to what a type writes, shows up in the diff of the pull request that makes it (#2875).
-internal static class FormatManifest
+internal static partial class FormatManifest
 {
     // Every project under src/ that the manifest reads, with the name of the assembly the app loads. The Windows app
     // builds the Media Foundation decoder in under its Embedding name, and this test project builds it the same way.
@@ -282,7 +284,8 @@ internal static class FormatManifest
             "Tool tabs",
             "Every ToolTabExtension, by the $type a dock layout writes for it (tools[].extension in the view state of",
             "a scene and in dock-layout-presets.json), which is also the key that pins it (View.PinnedToolTabs in",
-            "settings.json). The id is the tools[].id a dock layout writes for it.");
+            "settings.json). The id is the tools[].id that BeutlToolDockable.CreateId gives it, with <guid> in place",
+            "of a GUID it generates.");
         var toolTabs = new SortedDictionary<string, string>(StringComparer.Ordinal);
         foreach ((Type type, Extension? extension) in extensions)
         {
@@ -299,8 +302,7 @@ internal static class FormatManifest
             if (NewToolTabDockable.GetPinKey(toolTab) != discriminator)
                 throw new InvalidOperationException($"The pin key of {type} is no longer its $type.");
 
-            // BeutlToolDockable.CreateId: the full name, followed by #<guid> for a tool that can be open more than once.
-            toolTabs.Add(discriminator, toolTab.CanMultiple ? $"{type.FullName}#<guid>" : type.FullName!);
+            toolTabs.Add(discriminator, DockId(toolTab));
         }
 
         foreach ((string discriminator, string id) in toolTabs)
@@ -369,6 +371,23 @@ internal static class FormatManifest
             "and settings are not listed above.");
         WriteLines(text, extensions.Where(pair => pair.Value is null).Select(pair => pair.Key.FullName!));
     }
+
+    // The id BeutlToolDockable gives a new tool, which a dock layout saves as tools[].id. CreateId is private, so it is
+    // called by reflection with a context that has only the extension. A tool that can be open more than once gets a
+    // new GUID each time, so the GUID is replaced, and nothing else.
+    private static string DockId(ToolTabExtension extension)
+    {
+        MethodInfo createId = typeof(BeutlToolDockable).GetMethod(
+                                  "CreateId", BindingFlags.NonPublic | BindingFlags.Static, [typeof(IToolContext)])
+                              ?? throw new InvalidOperationException(
+                                  "BeutlToolDockable.CreateId(IToolContext), which makes the id a dock layout saves, "
+                                  + "is gone. Point FormatManifest.DockId at what makes the id now.");
+        string id = (string)createId.Invoke(null, [new ExtensionOnlyContext(extension)])!;
+        return GeneratedGuid().Replace(id, "<guid>");
+    }
+
+    [GeneratedRegex("[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{12}")]
+    private static partial Regex GeneratedGuid();
 
     // The instance the app registers: the extension's static Instance, or one made with its public parameterless
     // constructor, as the media backends built into the app are.
@@ -444,6 +463,26 @@ internal static class FormatManifest
         {
             builder.Append('<').AppendJoin(", ", type.GetGenericArguments().Select(FormatName)).Append('>');
         }
+    }
+
+    // A tool context that has only its extension, which is all CreateId reads.
+    private sealed class ExtensionOnlyContext(ToolTabExtension extension) : IToolContext
+    {
+        public ToolTabExtension Extension { get; } = extension;
+
+        public IReactiveProperty<bool> IsSelected => throw new NotSupportedException();
+
+        public IReadOnlyReactiveProperty<string> Header => throw new NotSupportedException();
+
+        public void Dispose()
+        {
+        }
+
+        public object? GetService(Type serviceType) => null;
+
+        public void ReadFromJson(JsonObject json) => throw new NotSupportedException();
+
+        public void WriteToJson(JsonObject json) => throw new NotSupportedException();
     }
 
     // Writes "\n" line endings and no trailing whitespace on every OS.

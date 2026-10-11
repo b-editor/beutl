@@ -8,6 +8,18 @@
     <TargetFrameworks>net10.0</TargetFrameworks>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <!-- ARM64, detected as in src/Beutl/Beutl.csproj: an arm64 RID, or a RID-less build on a Windows ARM64 host. -->
+    <_BeutlTargetsArm64 Condition="$(RuntimeIdentifier.Contains('arm64'))">true</_BeutlTargetsArm64>
+    <_BeutlTargetsArm64 Condition="'$(_BeutlTargetsArm64)' == '' And '$(RuntimeIdentifier)' == '' And '$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Windows)))' == 'true' And '$([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture)' == 'Arm64'">true</_BeutlTargetsArm64>
+    <!-- The app leaves the Media Foundation decoder out of Windows ARM64: it builds as x64 for Windows (Direct3D9/DXVA2),
+         so an ARM64 test process could not load it, and FormatManifestTests skips the comparison. Without a RID,
+         _BeutlTargetsArm64 is set only on a Windows host; with one, the RID must be a Windows RID, so macOS and Linux
+         keep the reference on ARM64. -->
+    <_WithoutMediaFoundation Condition="'$(_BeutlTargetsArm64)' == 'true' And ('$(RuntimeIdentifier)' == '' Or $(RuntimeIdentifier.StartsWith('win')))">true</_WithoutMediaFoundation>
+    <DefineConstants Condition="'$(_WithoutMediaFoundation)' == 'true'">$(DefineConstants);WITHOUT_MEDIA_FOUNDATION</DefineConstants>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="NUnit" />
@@ -30,9 +42,12 @@
   <ItemGroup>
     <ProjectReference Include="..\Beutl.Testing.Headless\Beutl.Testing.Headless.csproj" />
     <ProjectReference Include="..\..\src\Beutl\Beutl.csproj" />
-    <!-- Only the Windows app builds this decoder in; FormatManifestTests reads its types on every OS. -->
-    <ProjectReference Include="..\..\src\Beutl.Extensions.MediaFoundation\Beutl.Extensions.MediaFoundation.csproj" />
     <ProjectReference Include="..\..\src\Beutl.Engine.SourceGenerators\Beutl.Engine.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <!-- Only the Windows app builds this decoder in. FormatManifestTests reads its types everywhere but Windows ARM64. -->
+  <ItemGroup Condition="'$(_WithoutMediaFoundation)' != 'true'">
+    <ProjectReference Include="..\..\src\Beutl.Extensions.MediaFoundation\Beutl.Extensions.MediaFoundation.csproj" />
   </ItemGroup>
 
 </Project>

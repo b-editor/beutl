@@ -11,6 +11,11 @@ public sealed class FormatManifestTests
     [Test]
     public void TheManifestMatchesWhatFirstPartyCodeWrites()
     {
+#if WITHOUT_MEDIA_FOUNDATION
+        Assert.Ignore(
+            "This Windows ARM64 build leaves out Beutl.Extensions.MediaFoundation, as the app does, because the decoder "
+            + "builds as x64. The manifest lists its types, so it is compared and regenerated on other platforms.");
+#endif
         string path = Path.Combine(FindRepositoryRoot(), "tests", "Beutl.HeadlessUITests", "FormatManifest.txt");
         string actual = FormatManifest.Build();
 
@@ -56,9 +61,12 @@ public sealed class FormatManifestTests
     [Test]
     public void EveryProjectUnderSrcIsReadOrLeftOutWithAReason()
     {
+        // Every project file below src/ at any depth, leaving out the build output in bin and obj.
         string src = Path.Combine(FindRepositoryRoot(), "src");
-        string[] projects = Directory.GetDirectories(src)
-            .SelectMany(directory => Directory.GetFiles(directory, "*.csproj"))
+        string[] projects = Directory.GetFiles(src, "*.csproj", SearchOption.AllDirectories)
+            .Where(file => !Path.GetRelativePath(src, file)
+                .Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                .Any(directory => directory is "bin" or "obj"))
             .Select(file => Path.GetFileNameWithoutExtension(file))
             .Order(StringComparer.Ordinal)
             .ToArray();

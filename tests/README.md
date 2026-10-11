@@ -139,9 +139,10 @@ BEUTL_UPDATE_FORMAT_MANIFEST=1 dotnet test tests/Beutl.HeadlessUITests/Beutl.Hea
   --filter "FullyQualifiedName~FormatManifestTests"
 ```
 
-A new project under `src/` goes into `FormatManifest.ScannedProjects`, or into `SkippedProjects` with the reason it is
-left out. `Beutl.HeadlessUITests` references `Beutl.Extensions.MediaFoundation` so that the manifest is the same on
-every OS.
+A new project under `src/`, at any depth, goes into `FormatManifest.ScannedProjects`, or into `SkippedProjects` with the
+reason it is left out. `Beutl.HeadlessUITests` references `Beutl.Extensions.MediaFoundation` so that the manifest is the
+same on every OS. Like the app, a Windows ARM64 build leaves that x64-only decoder out, and the comparison is skipped
+there.
 
 ## NUnit conventions
 
