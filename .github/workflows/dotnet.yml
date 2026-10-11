@@ -176,7 +176,7 @@ jobs:
           du -h "$RUNNER_TEMP/test-binaries.tar.zst"
 
       - name: Share test binaries
-        uses: actions/upload-artifact@v7.0.1
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: TestBinaries
           path: ${{ runner.temp }}/test-binaries.tar.zst
@@ -216,7 +216,7 @@ jobs:
           dotnet-version: ${{ needs.compile.outputs.dotnet-version }}
 
       - name: Download test binaries
-        uses: actions/download-artifact@v8.0.1
+        uses: actions/download-artifact@v8.0.2
         with:
           name: TestBinaries
           path: ${{ runner.temp }}/test-binaries
@@ -267,7 +267,7 @@ jobs:
 
       - name: Save test diagnostics
         if: always()
-        uses: actions/upload-artifact@v7.0.1
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: TestDiagnostics-${{ matrix.suite }}-${{ matrix.validation && 'validation' || 'coverage' }}
           path: |
@@ -280,7 +280,7 @@ jobs:
 
       - name: Save coverage reports
         if: ${{ !matrix.validation }}
-        uses: actions/upload-artifact@v7.0.1
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: Coverage-${{ matrix.suite }}
           path: |
@@ -318,7 +318,7 @@ jobs:
           dotnet-version: ${{ needs.compile.outputs.dotnet-version }}
 
       - name: Download coverage reports
-        uses: actions/download-artifact@v8.0.1
+        uses: actions/download-artifact@v8.0.2
         with:
           pattern: Coverage-*
           path: coverage-shards
@@ -329,7 +329,7 @@ jobs:
           reportgenerator -reports:"coverage-shards/**/coverage.cobertura.xml" -targetdir:coveragereport -reporttypes:Cobertura
 
       - name: Save merged coverage
-        uses: actions/upload-artifact@v7.0.1
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: Coverage
           path: coveragereport
@@ -384,7 +384,7 @@ jobs:
 
       - name: Save Linux ARM64 test diagnostics
         if: always()
-        uses: actions/upload-artifact@v7.0.1
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: LinuxArm64TestDiagnostics
           path: TestResults/linux-arm64/
@@ -424,7 +424,7 @@ jobs:
 
       - name: Save font test diagnostics
         if: always()
-        uses: actions/upload-artifact@v7.0.1
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: MacOSFontTestDiagnostics
           path: TestResults/macos-fonts/
@@ -459,7 +459,7 @@ jobs:
 
       - name: Save Media Foundation test diagnostics
         if: always()
-        uses: actions/upload-artifact@v7.0.1
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: MediaFoundationTestDiagnostics
           path: TestResults/mediafoundation/
