@@ -183,7 +183,8 @@ public class NestedInputPortTests
             node = factory;
             input = (IInputPort)node.Items.Single(p => p.Name == nameof(Brush.Opacity));
         }
-        brush.Opacity.Expression = Expression.Create<float>("75");
+        var originalExpression = Expression.Create<float>("75");
+        brush.Opacity.Expression = originalExpression;
         graph.Nodes.Add(node);
         var output = Source(graph, 25f);
         using var history = new HistoryHarness(graph);
@@ -192,7 +193,7 @@ public class NestedInputPortTests
         history.History.Commit("Connect");
         graph.Disconnect(connection);
         history.History.Commit("Disconnect");
-        Assert.That(brush.Opacity.Expression, Is.Null);
+        Assert.That(brush.Opacity.Expression, Is.SameAs(originalExpression), "Disconnecting gives the replaced expression back.");
 
         var editedExpression = Expression.Create<float>("30");
         brush.Opacity.Expression = editedExpression;
@@ -200,7 +201,7 @@ public class NestedInputPortTests
         Assert.That(history.History.UndoCount, Is.EqualTo(3));
 
         Assert.That(history.History.Undo(), Is.True);
-        Assert.That(brush.Opacity.Expression, Is.Null, "Undo must restore the state after disconnection, not the old expression 75.");
+        Assert.That(brush.Opacity.Expression, Is.SameAs(originalExpression), "Undo must restore the state after disconnection.");
         Assert.That(graph.AllConnections, Is.Empty);
         Assert.That(history.History.HasPendingOperations, Is.False);
 
