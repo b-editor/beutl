@@ -574,6 +574,61 @@ public sealed class FileAiRequestRecoveryStoreTests
         });
     }
 
+    // A relinquished fence whose handover could not be written stays with its old owner, so the next
+    // claim from this process still adopts it at once.
+    [Test]
+    public void RelinquishedFenceStaysAdoptableAfterAFailedHandover()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("This test makes the store folder read-only with Unix permissions.");
+            return;
+        }
+
+        var store = new FileAiRequestRecoveryStore(_directory);
+        var attempt = new AiPendingAttempt(
+            "account", "image.generate", "relinquished", "relinquished-key", null,
+            new AiRequestFormSnapshot(Prompt: "relinquished"));
+        store.WriteOrGet(attempt);
+        AiRequestRecoveryLease original = store.Claim(
+            attempt.AccountId, attempt.Operation, attempt.Fingerprint, attempt.Key)!;
+        Assert.That(original.MarkDispatched(), Is.True);
+        original.Relinquish();
+
+        UnixFileMode mode = File.GetUnixFileMode(_directory);
+        File.SetUnixFileMode(_directory, UnixFileMode.UserRead | UnixFileMode.UserExecute);
+        try
+        {
+            AiRequestRecoveryLease? written = null;
+            try
+            {
+                written = store.Claim(attempt.AccountId, attempt.Operation, attempt.Fingerprint, attempt.Key);
+            }
+            catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
+            {
+            }
+
+            if (written is not null)
+            {
+                written.Dispose();
+                Assert.Ignore("The read-only folder still accepted the write, as it does for root.");
+            }
+        }
+        finally
+        {
+            File.SetUnixFileMode(_directory, mode);
+        }
+
+        using AiRequestRecoveryLease? adopted = store.Claim(
+            attempt.AccountId, attempt.Operation, attempt.Fingerprint, attempt.Key);
+        Assert.Multiple(() =>
+        {
+            Assert.That(adopted, Is.Not.Null);
+            Assert.That(adopted?.IsDispatched, Is.True);
+            Assert.That(adopted?.OwnerToken, Is.Not.EqualTo(original.OwnerToken));
+        });
+    }
+
     [Test]
     public void ReleasedClaimCannotBeDispatched()
     {

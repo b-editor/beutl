@@ -560,7 +560,7 @@ internal sealed class FileAiRequestRecoveryStore : IDisposable
             if (existingClaim is not null
                 && existingClaim.Dispatched
                 && (existingClaim.ExpiresAt <= now
-                    || _relinquishedOwners.Remove(existingClaim.OwnerToken)))
+                    || _relinquishedOwners.Contains(existingClaim.OwnerToken)))
             {
                 // The renewal TTL has elapsed, or the owner in this process
                 // relinquished the fence, but a dispatched provider call
@@ -574,6 +574,9 @@ internal sealed class FileAiRequestRecoveryStore : IDisposable
                     ExpiresAt = now.Add(ClaimLifetime),
                 };
                 SaveClaims(claims);
+                // Only once the handover is written: if writing fails, the
+                // fence stays with the old owner and stays adoptable here.
+                _relinquishedOwners.Remove(existingClaim.OwnerToken);
                 return new AiRequestRecoveryLease(
                     this,
                     accountId,
