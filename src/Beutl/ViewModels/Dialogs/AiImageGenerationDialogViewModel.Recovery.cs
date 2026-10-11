@@ -1,4 +1,5 @@
 ﻿using Beutl.Api.Services;
+using Beutl.Services;
 using Beutl.Services.AI;
 using Microsoft.Extensions.Logging;
 
@@ -187,6 +188,9 @@ internal sealed partial class AiImageGenerationDialogViewModel
             }
 
             _recoveryRevision.Value++;
+            // A request that was sent before may still finish, or may already have been paid for.
+            // Either way its job stays in the account's AI job list.
+            NotificationService.ShowInformation(Strings.AiPendingRequest, Strings.AiAbandonedRequestInJobs);
         }
         catch (Exception ex) when (ex is InvalidDataException or AuthenticationRequiredException)
         {

@@ -339,6 +339,19 @@ internal sealed class AiRequestRecoveryLease : IDisposable
         DisposeRenewalTimer();
         _store.ReleaseClaim(this, force: false);
     }
+
+    /// <summary>
+    /// Disposes the lease for an owner that will never reacquire it, such as a
+    /// request key whose dialog closed. A dispatched fence stays durable for
+    /// other processes, but the next claim from this process adopts it at once
+    /// instead of after the claim lifetime runs out.
+    /// </summary>
+    internal void Relinquish()
+    {
+        Dispose();
+        if (WasDispatched)
+            _store.RelinquishClaim(this);
+    }
 }
 
 /// <summary>Atomic, bounded local storage for unresolved metered AI attempts.</summary>
@@ -365,6 +378,9 @@ internal sealed class FileAiRequestRecoveryStore : IDisposable
     private readonly object _gate = new();
     private readonly HashSet<string> _newSourceFiles = new(StringComparer.Ordinal);
     private readonly Dictionary<string, FileStream> _pendingPublicationMarkers = new(StringComparer.Ordinal);
+    // Owner tokens of dispatched claims whose owner in this process will never reacquire them. The
+    // provider call each one fenced has ended here, so a new claim from this process adopts it.
+    private readonly HashSet<string> _relinquishedOwners = new(StringComparer.Ordinal);
     private readonly string _path;
     private readonly string _sourceDirectory;
     private readonly string _generationPath;
@@ -531,7 +547,8 @@ internal sealed class FileAiRequestRecoveryStore : IDisposable
             List<AiRequestRecoveryClaim> claims = LoadClaims();
             DateTimeOffset now = _utcNow();
             // A dispatched claim is a durable paid-job fence. Expiry controls
-            // renewal only; it cannot make the request abandonable or reusable.
+            // renewal only; it cannot remove the fence, which a later claim can
+            // only adopt under the same key.
             claims.RemoveAll(claim => !claim.Dispatched && claim.ExpiresAt <= now);
             int removedStale = claims.RemoveAll(claim =>
                 HasIdentity(claim, accountId, operation, fingerprint)
@@ -539,13 +556,16 @@ internal sealed class FileAiRequestRecoveryStore : IDisposable
                     || !StringComparer.Ordinal.Equals(claim.Key, key)));
             AiRequestRecoveryClaim? existingClaim = claims.FirstOrDefault(claim =>
                 HasIdentity(claim, accountId, operation, fingerprint));
+            _relinquishedOwners.RemoveWhere(owner => !claims.Any(claim => claim.OwnerToken == owner));
             if (existingClaim is not null
                 && existingClaim.Dispatched
-                && existingClaim.ExpiresAt <= now)
+                && (existingClaim.ExpiresAt <= now
+                    || _relinquishedOwners.Remove(existingClaim.OwnerToken)))
             {
-                // The renewal TTL has elapsed, but a dispatched provider call
+                // The renewal TTL has elapsed, or the owner in this process
+                // relinquished the fence, but a dispatched provider call
                 // remains fenced. Atomically hand the durable fence to the
-                // recovering process, preserving key and generation while
+                // recovering owner, preserving key and generation while
                 // fencing the old owner token.
                 string adoptedOwner = $"{Guid.NewGuid():N}";
                 claims[claims.IndexOf(existingClaim)] = existingClaim with
@@ -666,7 +686,22 @@ internal sealed class FileAiRequestRecoveryStore : IDisposable
                 return false;
             claims[index] = current with { ExpiresAt = _utcNow().Add(ClaimLifetime) };
             SaveClaims(claims);
+            _relinquishedOwners.Remove(claim.OwnerToken);
             return true;
+        }
+    }
+
+    /// <summary>
+    /// Lets the next claim from this process adopt a dispatched fence whose
+    /// owner here will never reacquire it. Another process still waits for
+    /// the fence to expire.
+    /// </summary>
+    internal void RelinquishClaim(AiRequestRecoveryLease claim)
+    {
+        ArgumentNullException.ThrowIfNull(claim);
+        lock (_gate)
+        {
+            _relinquishedOwners.Add(claim.OwnerToken);
         }
     }
 
@@ -763,11 +798,15 @@ internal sealed class FileAiRequestRecoveryStore : IDisposable
             DateTimeOffset now = _utcNow();
             if (claims.Any(claim => HasIdentity(claim, attempt.AccountId, attempt.Operation, attempt.Fingerprint)
                 && claim.Key == attempt.Key
-                && (claim.Dispatched || claim.ExpiresAt > now)))
+                && !claim.Dispatched
+                && claim.ExpiresAt > now))
             {
-                // A dispatched request cannot be abandoned by a competing
-                // process. The exact owner (or a later fence adopter) must
-                // settle it; expiry alone is not proof of provider terminality.
+                // A live claim that is not dispatched yet belongs to a request
+                // that is about to be sent. A dispatched request does not stop
+                // the user from giving the attempt up: only its exact owner can
+                // settle it, but abandoning loses only the way back through
+                // this form, because the job, and any result it paid for, stays
+                // in the account's AI job list.
                 return false;
             }
 

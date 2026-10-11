@@ -2867,6 +2867,9 @@ Resuelve los conflictos con una herramienta externa de Git antes de editar. Es p
   <data name="AiAbandonRequest" xml:space="preserve">
     <value>Descartar</value>
   </data>
+  <data name="AiAbandonedRequestInJobs" xml:space="preserve">
+    <value>Se descartó la solicitud pendiente. Si ya se había enviado, su resultado sigue en Tareas de IA.</value>
+  </data>
   <data name="AiSubtitle_Edit" xml:space="preserve">
     <value>Editar subtítulos</value>
   </data>

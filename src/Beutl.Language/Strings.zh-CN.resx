@@ -2867,6 +2867,9 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="AiAbandonRequest" xml:space="preserve">
     <value>丢弃</value>
   </data>
+  <data name="AiAbandonedRequestInJobs" xml:space="preserve">
+    <value>已丢弃待处理的请求。如果它已发送，其结果仍会列在 AI 任务中。</value>
+  </data>
   <data name="AiSubtitle_Edit" xml:space="preserve">
     <value>编辑字幕</value>
   </data>

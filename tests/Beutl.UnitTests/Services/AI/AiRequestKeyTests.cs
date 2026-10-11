@@ -606,7 +606,6 @@ public sealed class AiRequestKeyTests
             AiRequestRecoveryLease? competing = competingStore.Claim(
                 pending.AccountId, pending.Operation, pending.Fingerprint, issued.Key);
             Assert.That(competing, Is.Null);
-            Assert.That(competingStore.Abandon(pending), Is.False);
 
             AiRequestName retry = first.NameFor("prompt");
             AiRequestRecoveryLease? resumed = first.TryClaim(retry);
@@ -625,8 +624,109 @@ public sealed class AiRequestKeyTests
         }
     }
 
+    // A request went out without a known result, and its dialog was closed, or the AI tab reopened.
+    // The new dialog's key adopts the dispatched fence at once instead of after its lifetime, while
+    // another process still waits for the fence to expire.
     [Test]
-    public void ExpiredDispatchedFenceRejectsAbandonAndCompetingClaimButExactOwnerCanSettle()
+    public void NewKeyInTheSameProcessTakesOverTheDispatchedClaimOfADisposedKey()
+    {
+        string directory = CreateTemporaryDirectory();
+        try
+        {
+            var store = new FileAiRequestRecoveryStore(directory);
+            AiRequestRecoveryContext context = RecoveryContext(store, () => "account");
+            var first = new AiRequestKey(recoveryContext: context, operation: "image.generate");
+            AiRequestName issued = first.NameFor("prompt");
+            AiRequestRecoveryLease original = first.TryClaim(issued)!;
+            first.MarkClaimDispatched(original);
+            original.Dispose();
+            first.Dispose();
+
+            var second = new AiRequestKey(recoveryContext: context, operation: "image.generate");
+            AiRequestName resumed = second.NameFor("prompt");
+            AiRequestRecoveryLease? adopted = second.TryClaim(resumed);
+            AiPendingAttempt pending = store.PendingFor("account", "image.generate").Single();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(resumed.Key, Is.EqualTo(issued.Key));
+                Assert.That(resumed.IsRepeat, Is.True);
+                Assert.That(adopted, Is.Not.Null);
+                Assert.That(adopted?.IsDispatched, Is.True);
+                Assert.That(adopted?.OwnerToken, Is.Not.EqualTo(original.OwnerToken));
+                Assert.That(
+                    new FileAiRequestRecoveryStore(directory).Claim(
+                        pending.AccountId,
+                        pending.Operation,
+                        pending.Fingerprint,
+                        pending.Key),
+                    Is.Null,
+                    "Another process still waits for the fence to expire.");
+            });
+
+            Assert.That(second.Retire(resumed), Is.True);
+            Assert.That(store.Find(pending.AccountId, pending.Operation, pending.Fingerprint), Is.Null);
+            second.Dispose();
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    // A reference image changed after the request went out without a known result, so the attempt
+    // can never be sent again. Abandoning it gives up only the way back through the form, because the
+    // job stays in the account's AI job list.
+    [Test]
+    public void DispatchedAttemptWhoseSourceChangedCanBeAbandoned()
+    {
+        string directory = CreateTemporaryDirectory();
+        try
+        {
+            var store = new FileAiRequestRecoveryStore(directory);
+            var key = new AiRequestKey(
+                recoveryContext: RecoveryContext(store, () => "account"),
+                operation: "image.generate");
+            string inputs = Directory.CreateDirectory(Path.Combine(directory, "inputs")).FullName;
+            string referencePath = Path.Combine(inputs, "reference.png");
+            File.WriteAllBytes(referencePath, [1, 2, 3]);
+            byte[] reference = File.ReadAllBytes(referencePath);
+            AiRequestRecoverySource source = FileAiRequestRecoveryStore.CreateExternalSource(
+                "reference",
+                referencePath,
+                "reference.png",
+                reference);
+            AiRequestName issued = key.NameFor(
+                ["prompt", AiRequestKey.FileStamp("reference.png", reference)],
+                new AiRequestFormSnapshot(Prompt: "prompt"),
+                [source]);
+            AiRequestRecoveryLease claim = key.TryClaim(issued)!;
+            key.MarkClaimDispatched(claim);
+            claim.Dispose();
+            AiPendingAttempt pending = store.PendingFor("account", "image.generate").Single();
+            File.WriteAllBytes(referencePath, [4, 5, 6]);
+            Assert.Throws<InvalidDataException>(() => key.ResolveSources(pending));
+
+            key.Abandon(pending);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(store.Find(pending.AccountId, pending.Operation, pending.Fingerprint), Is.Null);
+                Assert.That(
+                    File.ReadAllText(Path.Combine(directory, "ai-request-recovery-claims.json")),
+                    Does.Not.Contain(pending.Key));
+                Assert.That(key.HasOutstandingName.Value, Is.False);
+            });
+            key.Dispose();
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Test]
+    public void ExpiredDispatchedFenceRejectsCompetingClaimButExactOwnerCanSettle()
     {
         string directory = CreateTemporaryDirectory();
         try
@@ -660,7 +760,6 @@ public sealed class AiRequestKeyTests
                 Assert.That(adopted.IsDispatched, Is.True);
                 Assert.That(adopted.OwnerToken, Is.Not.EqualTo(owner.OwnerToken));
                 Assert.That(adopted.Generation, Is.EqualTo(owner.Generation));
-                Assert.That(restartedStore.Abandon(pending), Is.False);
                 Assert.That(owner.Renew(), Is.False);
                 Assert.That(restartedStore.TrySettle(
                     pending.AccountId,
@@ -820,7 +919,6 @@ public sealed class AiRequestKeyTests
                 "video.generate",
                 pending));
             Assert.That(store.PendingFor("account", "video.generate"), Has.Count.EqualTo(2));
-            Assert.Throws<InvalidDataException>(() => key.Abandon(pending.Single(item => item.Key == first.Key)));
             Assert.That(store.Find("account", "video.generate", pending.Single(item => item.Key == first.Key).Fingerprint), Is.Not.Null);
             claim.Dispose();
         }
