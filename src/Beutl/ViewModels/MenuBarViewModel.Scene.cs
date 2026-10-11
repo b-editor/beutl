@@ -10,6 +10,7 @@ using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Services;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels;
@@ -147,12 +148,37 @@ public partial class MenuBarViewModel
         }
     }
 
-    private Task OnPasteElement()
+    private async Task OnPasteElement()
     {
-        return TryGetSelectedEditViewModel(out EditViewModel? viewModel)
-               && viewModel.FindToolTab<TimelineTabViewModel>() is { } timeline
-            ? timeline.Paste.ExecuteAsync()
-            : Task.CompletedTask;
+        if (!TryGetSelectedEditViewModel(out EditViewModel? viewModel)) return;
+
+        // An open timeline pastes where it was last clicked and scrolls to the pasted clip.
+        if (viewModel.FindToolTab<TimelineTabViewModel>() is { } timeline)
+        {
+            await timeline.Paste.ExecuteAsync();
+            return;
+        }
+
+        Scene scene = viewModel.Scene;
+        (TimeSpan start, int layer) = PlayheadPlacement.Find(viewModel, scene);
+        try
+        {
+            ElementPasteOutcome outcome = await viewModel.GetRequiredService<IElementClipboardService>()
+                .PasteAsync(scene, start, layer);
+            if (outcome.AddFailure is LockedElementLayerFailure)
+            {
+                NotificationService.ShowWarning(Strings.Lock, Strings.LayerIsLocked);
+            }
+            else if (outcome.AddFailure is not null)
+            {
+                NotificationService.ShowError(Strings.AddElement, MessageStrings.UnexpectedError);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "An exception has occurred while pasting an element.");
+            NotificationService.ShowError(MessageStrings.UnexpectedError, ex.Message);
+        }
     }
 
     private void OnShowSceneSettings()

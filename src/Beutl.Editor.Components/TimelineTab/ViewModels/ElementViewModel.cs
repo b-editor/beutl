@@ -632,28 +632,11 @@ public sealed partial class ElementViewModel : IDisposable, IContextCommandHandl
     private async void OnChangeToOriginalDuration()
     {
         if (!IsEditable.Value) return;
-        if (SlippableMedia.GetOriginalDuration(Model) is { } timeSpan)
+
+        PrepareAnimationContext context = PrepareAnimation();
+        if (Timeline.EditorContext.GetRequiredService<IElementResizeService>()
+            .ResizeToOriginalDuration(Scene, Model, Timeline.IsRippleEnabled.Value))
         {
-            PrepareAnimationContext context = PrepareAnimation();
-
-            int rate = Scene.FindHierarchicalParent<Project>().GetFrameRate();
-            TimeSpan duration = timeSpan.FloorToRate(rate);
-
-            bool ripple = Timeline.IsRippleEnabled.Value;
-            Element? after = Model.GetAfter(Model.ZIndex, Model.Range.End);
-            if (!ripple && after != null)
-            {
-                TimeSpan delta = after.Start - Model.Start;
-                if (delta < duration)
-                {
-                    duration = delta;
-                }
-            }
-
-            var request = new ElementResizeRequest(Model, Model.Start, duration, Model.ZIndex) { ClampToSource = true };
-            Timeline.EditorContext.GetRequiredService<IElementResizeService>()
-                .Resize(Scene, [request], ripple);
-
             await AnimationRequest(context);
         }
     }

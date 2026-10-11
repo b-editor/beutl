@@ -29,6 +29,38 @@ public interface IElementResizeService
     void Resize(Scene scene, IReadOnlyList<ElementResizeRequest> requests, bool ripple = false);
 
     /// <summary>
+    /// Sets <paramref name="element"/>'s length to its media's original duration, floored to the
+    /// scene's frame rate, keeping its start and layer. Without <paramref name="ripple"/>, the clip
+    /// stops where the next clip on its layer starts. Returns <see langword="false"/> without a history
+    /// entry when the element is locked or its media has no original duration. Built on
+    /// <see cref="Resize"/>, so replacements written before this member existed get it too.
+    /// </summary>
+    bool ResizeToOriginalDuration(Scene scene, Element element, bool ripple = false)
+    {
+        ArgumentNullException.ThrowIfNull(scene);
+        ArgumentNullException.ThrowIfNull(element);
+        if (scene.IsElementLocked(element)
+            || SlippableMedia.GetOriginalDuration(element) is not { } originalDuration)
+        {
+            return false;
+        }
+
+        TimeSpan duration = originalDuration.FloorToRate(SceneTimeRangeService.GetFrameRate(scene));
+        if (!ripple && element.GetAfter(element.ZIndex, element.Range.End) is { } after)
+        {
+            TimeSpan delta = after.Start - element.Start;
+            if (delta < duration)
+            {
+                duration = delta;
+            }
+        }
+
+        var request = new ElementResizeRequest(element, element.Start, duration, element.ZIndex) { ClampToSource = true };
+        Resize(scene, [request], ripple);
+        return true;
+    }
+
+    /// <summary>
     /// Roll: shift the boundary between two adjacent clips, for every supplied pair at
     /// once. Per pair: <c>front.Length += d</c>, <c>back.Start += d</c>,
     /// <c>back.Length -= d</c>; total length is preserved. One shared delta — clamped to

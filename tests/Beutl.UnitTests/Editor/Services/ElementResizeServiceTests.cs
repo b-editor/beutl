@@ -2034,4 +2034,67 @@ public class ElementResizeServiceTests
             Assert.That(_history.UndoCount, Is.EqualTo(before));
         });
     }
+
+    [Test]
+    public void ResizeToOriginalDuration_SetsLengthToMediaDurationFlooredToFrameRate()
+    {
+        // 37 frames at 25 fps is 1.48 s, which floors to 44 frames at the scene's 30 fps.
+        Element element = AddVideoElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(5), new Rational(25, 1), 37);
+        IElementResizeService service = _service;
+        int before = _history.UndoCount;
+
+        bool resized = service.ResizeToOriginalDuration(_scene, element);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(resized, Is.True);
+            Assert.That(element.Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(44d / 30)));
+            Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
+        });
+    }
+
+    [Test]
+    public void ResizeToOriginalDuration_WithoutRipple_StopsAtNextClip()
+    {
+        Element element = AddVideoElement(TimeSpan.Zero, TimeSpan.FromSeconds(1), new Rational(30, 1), 90);
+        Element next = AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1));
+        IElementResizeService service = _service;
+
+        service.ResizeToOriginalDuration(_scene, element);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(next.Start, Is.EqualTo(TimeSpan.FromSeconds(2)));
+        });
+    }
+
+    [Test]
+    public void ResizeToOriginalDuration_LockedOrWithoutMedia_NoCommit()
+    {
+        Element withoutMedia = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        Element locked = AddVideoElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(1), new Rational(30, 1), 90);
+        locked.IsLocked = true;
+        IElementResizeService service = _service;
+        int before = _history.UndoCount;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(service.ResizeToOriginalDuration(_scene, withoutMedia), Is.False);
+            Assert.That(service.ResizeToOriginalDuration(_scene, locked), Is.False);
+            Assert.That(withoutMedia.Length, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(locked.Length, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    private Element AddVideoElement(TimeSpan start, TimeSpan length, Rational frameRate, int frameCount)
+    {
+        var source = new VideoSource();
+        source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(16, 16, frameRate, frameCount)));
+        Element element = AddElement(start, length);
+        element.Objects.Add(new SourceVideo { Source = { CurrentValue = source } });
+        return element;
+    }
 }
