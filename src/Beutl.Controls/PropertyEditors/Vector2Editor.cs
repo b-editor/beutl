@@ -93,7 +93,8 @@ public class Vector2Editor<TElement> : Vector2Editor
         valueHandlers.Subscribe(InnerSecondTextBox, _disposables);
 
         var headerHandlers = new ScrubHeaderHandlers(
-            OnTextBlockPointerPressed, OnTextBlockPointerReleased, OnTextBlockPointerMoved, RoutingStrategies.Tunnel);
+            OnTextBlockPointerPressed, OnTextBlockPointerReleased, OnTextBlockPointerMoved,
+            OnTextBlockPointerCaptureLost, RoutingStrategies.Tunnel);
         headerHandlers.Subscribe(FirstHeaderTextBlock, _disposables);
         headerHandlers.Subscribe(SecondHeaderTextBlock, _disposables);
         _headerText = e.NameScope.Find<TextBlock>("PART_HeaderTextBlock");
@@ -104,6 +105,13 @@ public class Vector2Editor<TElement> : Vector2Editor
 
     private void OnTextBlockPointerMoved(object? sender, PointerEventArgs e)
     {
+        // A move with the button up means the release never reached the header.
+        if (_scrub.IsActive && !e.Properties.IsLeftButtonPressed)
+        {
+            CompleteScrub();
+            return;
+        }
+
         if (!(InnerFirstTextBox.IsKeyboardFocusWithin || InnerSecondTextBox?.IsKeyboardFocusWithin == true)
             && _scrub.IsActive
             && sender is TextBlock headerText)
@@ -142,11 +150,24 @@ public class Vector2Editor<TElement> : Vector2Editor
     {
         if (_scrub.IsActive)
         {
-            RaiseConfirmedIfChanged();
-
-            _scrub.End();
+            CompleteScrub();
             e.Handled = true;
         }
+    }
+
+    // Another window, a dialog or a rebuilt header took the pointer; end as a release would.
+    private void OnTextBlockPointerCaptureLost(object? sender, PointerCaptureLostEventArgs e)
+    {
+        CompleteScrub();
+    }
+
+    private void CompleteScrub()
+    {
+        if (!_scrub.IsActive) return;
+
+        // Ended before confirming, so a confirmation that rebuilds the header cannot end it twice.
+        _scrub.End();
+        RaiseConfirmedIfChanged();
     }
 
     private void OnTextBlockPointerPressed(object? sender, PointerPressedEventArgs e)

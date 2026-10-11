@@ -2,6 +2,7 @@
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Testing.Headless;
@@ -103,6 +104,32 @@ internal sealed class EditorTestHost<TEditor> : IDisposable
         HeadlessTestHelpers.Settle();
         Window.MouseUp(end, MouseButton.Left);
         HeadlessTestHelpers.Settle();
+    }
+
+    // Presses on the control and drags without releasing, returning the pointer so a test can take its capture.
+    public IPointer PressAndDrag(Control control, double deltaX)
+    {
+        IPointer? pointer = null;
+        void OnPressed(object? sender, PointerPressedEventArgs e) => pointer = e.Pointer;
+        Window.AddHandler(InputElement.PointerPressedEvent, OnPressed, RoutingStrategies.Tunnel, handledEventsToo: true);
+        try
+        {
+            HeadlessTestHelpers.Settle();
+            Point start = Center(control);
+            Window.MouseMove(start);
+            HeadlessTestHelpers.Settle();
+            Window.MouseDown(start, MouseButton.Left);
+            HeadlessTestHelpers.Settle();
+            Window.MouseMove(start + new Vector(deltaX, 0), RawInputModifiers.LeftMouseButton);
+            HeadlessTestHelpers.Settle();
+        }
+        finally
+        {
+            Window.RemoveHandler(InputElement.PointerPressedEvent, OnPressed);
+        }
+
+        Assert.That(pointer, Is.Not.Null, "The press did not reach the window.");
+        return pointer!;
     }
 
     public void MoveFocusToSink()

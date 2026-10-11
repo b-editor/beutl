@@ -53,12 +53,19 @@ public class RationalEditor : StringEditor
         _headerText = e.NameScope.Find<TextBlock>("PART_HeaderTextBlock");
         new ScrubHeaderHandlers(
                 OnTextBlockPointerPressed, OnTextBlockPointerReleased, OnTextBlockPointerMoved,
-                RoutingStrategies.Direct | RoutingStrategies.Bubble)
+                OnTextBlockPointerCaptureLost, RoutingStrategies.Direct | RoutingStrategies.Bubble)
             .Subscribe(_headerText, _disposables);
     }
 
     private void OnTextBlockPointerMoved(object? sender, PointerEventArgs e)
     {
+        // A move with the button up means the release never reached the header.
+        if (_scrub.IsActive && !e.Properties.IsLeftButtonPressed)
+        {
+            CompleteScrub();
+            return;
+        }
+
         if (InnerTextBox == null) return;
         if (_headerText is not { } headerText) return;
         if (!InnerTextBox.IsKeyboardFocusWithin && _scrub.IsActive)
@@ -83,13 +90,26 @@ public class RationalEditor : StringEditor
     {
         if (_scrub.IsActive)
         {
-            if (Value != _oldValue)
-            {
-                RaiseEvent(new PropertyEditorValueChangedEventArgs<Rational>(Value, _oldValue, ValueConfirmedEvent));
-            }
-
-            _scrub.End();
+            CompleteScrub();
             e.Handled = true;
+        }
+    }
+
+    // Another window, a dialog or a rebuilt header took the pointer; end as a release would.
+    private void OnTextBlockPointerCaptureLost(object? sender, PointerCaptureLostEventArgs e)
+    {
+        CompleteScrub();
+    }
+
+    private void CompleteScrub()
+    {
+        if (!_scrub.IsActive) return;
+
+        // Ended before confirming, so a confirmation that rebuilds the header cannot end it twice.
+        _scrub.End();
+        if (Value != _oldValue)
+        {
+            RaiseEvent(new PropertyEditorValueChangedEventArgs<Rational>(Value, _oldValue, ValueConfirmedEvent));
         }
     }
 

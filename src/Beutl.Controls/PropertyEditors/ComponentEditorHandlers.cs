@@ -72,6 +72,7 @@ internal readonly struct ScrubHeaderHandlers(
     EventHandler<PointerPressedEventArgs> pressed,
     EventHandler<PointerReleasedEventArgs> released,
     EventHandler<PointerEventArgs> moved,
+    EventHandler<PointerCaptureLostEventArgs> captureLost,
     RoutingStrategies routes)
 {
     public void Subscribe(TextBlock? header, CompositeDisposable disposables)
@@ -83,6 +84,9 @@ internal readonly struct ScrubHeaderHandlers(
             header.AddDisposableHandler(InputElement.PointerReleasedEvent, released, routes)
                 .DisposeWith(disposables);
             header.AddDisposableHandler(InputElement.PointerMovedEvent, moved, routes)
+                .DisposeWith(disposables);
+            // Raised directly on each element that loses the capture, including when it leaves the tree.
+            header.AddDisposableHandler(InputElement.PointerCaptureLostEvent, captureLost, RoutingStrategies.Direct)
                 .DisposeWith(disposables);
             header.Cursor = PointerLockHelper.SizeWestEast;
         }
