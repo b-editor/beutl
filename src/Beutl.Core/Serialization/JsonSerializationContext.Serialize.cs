@@ -203,6 +203,7 @@ public partial class JsonSerializationContext
 
     private void SetValueCore(string name, object? value, Type baseType)
     {
+        CaptureValue(name, value);
         // Unit型は削除
         if (value is Unit)
         {
@@ -240,6 +241,7 @@ public partial class JsonSerializationContext
 
     private void RemoveValue(string name)
     {
+        CapturedValues?.Remove(name);
         _json.Remove(name);
         _knownTypes.Remove(name);
     }

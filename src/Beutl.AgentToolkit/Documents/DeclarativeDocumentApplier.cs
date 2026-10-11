@@ -1,7 +1,6 @@
 ﻿using System.Collections.Immutable;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using System.Text.Json.Serialization;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
 using Beutl.Animation;
@@ -143,7 +142,6 @@ internal sealed partial class DeclarativeDocumentApplier
         // existing element's .belm outside the project.
         payload.Remove("Uri");
         NormalizeRegisteredPropertyValues(element, payload);
-        RemoveUnchangedStructuredValues(element, payload);
 
         CoreSerializer.PopulateFromJsonObject(element, element.GetType(), payload, CreateOptions(element));
         ClearAbsentRegisteredObjectProperties(element, desired, payload);
@@ -172,7 +170,6 @@ internal sealed partial class DeclarativeDocumentApplier
 
         NormalizeRegisteredPropertyValues(target, payload);
         NormalizeEnginePropertyValues(target, payload);
-        RemoveUnchangedStructuredValues(target, payload);
         CoreSerializer.PopulateFromJsonObject(target, target.GetType(), payload, CreateOptions(target));
         ClearAbsentRegisteredObjectProperties(target, desired, payload);
         ClearAbsentObjectProperties(target, desired, payload);
@@ -221,52 +218,6 @@ internal sealed partial class DeclarativeDocumentApplier
         {
             payload[propertyName] = EnumJsonValueNormalizer.Normalize(valueNode, valueType);
         }
-    }
-
-    // A merge patch is resolved into a full desired document, so every object reaches the applier on
-    // every apply_edit. Deserializing a structured value (brush, pen, transform, effect group) always
-    // yields a new instance, which the setter records as a replacement even when nothing changed.
-    // Drop the members whose JSON equals the current serialization so they keep their instances.
-    // Only members the base Deserialize sets when present are dropped: custom keys such as
-    // Element.EnterTransition are assigned unconditionally, so omitting them would clear them.
-    private void RemoveUnchangedStructuredValues(CoreObject target, JsonObject payload)
-    {
-        // A fallback replaces its Json with the payload it is populated from and saves that Json
-        // verbatim, so it must see every member.
-        if (target is IFallback)
-        {
-            return;
-        }
-
-        JsonObject? current = null;
-        foreach (KeyValuePair<string, JsonNode?> pair in payload.ToArray())
-        {
-            if (pair.Value is not (JsonObject or JsonArray) || !IsPopulatedOnlyWhenPresent(target, pair.Key))
-            {
-                continue;
-            }
-
-            current ??= SerializeCurrent(target);
-            if (current.TryGetPropertyValue(pair.Key, out JsonNode? currentValue)
-                && JsonNode.DeepEquals(currentValue, pair.Value))
-            {
-                payload.Remove(pair.Key);
-            }
-        }
-    }
-
-    private static bool IsPopulatedOnlyWhenPresent(CoreObject target, string propertyName)
-    {
-        if (PropertyRegistry.FindRegistered(target, propertyName) is { } property)
-        {
-            // CoreProperty.RouteDeserialize reads a converter-backed property even when its key is
-            // absent (the missing node deserializes as null), so dropping it would clear it.
-            CorePropertyMetadata metadata = property.GetMetadata<CorePropertyMetadata>(target.GetType());
-            return metadata.ShouldSerialize && !metadata.Attributes.Any(attribute => attribute is JsonConverterAttribute);
-        }
-
-        return target is EngineObject engineObject
-               && engineObject.Properties.Any(property => property.Name == propertyName && property is not IListProperty);
     }
 
     // Serializes the live object as Documents.Read wrote it into the document being applied, so its
@@ -444,7 +395,8 @@ internal sealed partial class DeclarativeDocumentApplier
         return new CoreSerializerOptions
         {
             BaseUri = baseUri,
-            Mode = CoreSerializationMode.Read | CoreSerializationMode.EmbedReferencedObjects
+            Mode = CoreSerializationMode.Read | CoreSerializationMode.EmbedReferencedObjects,
+            PreserveUnchangedValues = true
         };
     }
 

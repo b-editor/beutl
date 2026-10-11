@@ -21,6 +21,54 @@ public partial class JsonSerializationContext(
     private string? _requiredMinAppVersionAfterMigration;
     private bool _acceptsPersistedContentMigrationReports;
     private bool _afterDeserializedCompleted;
+    private Dictionary<string, object?>? _preservedValues;
+
+    internal Dictionary<string, object?>? CapturedValues { get; init; }
+
+    internal void CaptureValue(string name, object? value)
+    {
+        if (CapturedValues is not null)
+        {
+            CapturedValues[name] = value;
+        }
+    }
+
+    internal void PreserveUnchangedValues(JsonObject current, Dictionary<string, object?> values)
+    {
+        foreach ((string name, object? value) in values)
+        {
+            if (value is not null
+                && _json.TryGetPropertyValue(name, out JsonNode? desired)
+                && desired is JsonObject or JsonArray
+                && current.TryGetPropertyValue(name, out JsonNode? existing)
+                && JsonNode.DeepEquals(existing, desired))
+            {
+                (_preservedValues ??= [])[name] = value;
+            }
+        }
+    }
+
+    internal bool TryGetPreservedValue(string name, Type type, out object? value)
+    {
+        if (_preservedValues is not null && _preservedValues.TryGetValue(name, out value))
+        {
+            if (type.IsInstanceOfType(value))
+            {
+                return true;
+            }
+
+            // Engine properties write T but read Optional<T> to distinguish omission from null.
+            if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Optional<>)
+                && type.GenericTypeArguments[0].IsInstanceOfType(value))
+            {
+                value = Activator.CreateInstance(type, [value]);
+                return true;
+            }
+        }
+
+        value = null;
+        return false;
+    }
 
     public ICoreSerializationContext? Parent { get; } = parent;
 
@@ -156,6 +204,7 @@ public partial class JsonSerializationContext(
 
     public void SetJsonObject(JsonObject obj)
     {
+        CapturedValues?.Clear();
         _json.Clear();
         JsonDeepClone.CopyTo(obj, _json);
     }
@@ -167,6 +216,7 @@ public partial class JsonSerializationContext(
 
     public void SetNode(string name, Type definedType, Type actualType, JsonNode? node)
     {
+        CapturedValues?.Remove(name);
         _json[name] = node;
         _knownTypes[name] = (definedType, actualType);
     }

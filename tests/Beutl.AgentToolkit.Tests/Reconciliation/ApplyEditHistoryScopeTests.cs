@@ -11,6 +11,7 @@ using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
+using Beutl.Graphics.Transitions;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
@@ -118,9 +119,7 @@ public sealed class ApplyEditHistoryScopeTests
         });
     }
 
-    // Element.EnterTransition/ExitTransition follow this pattern: Deserialize assigns them whether
-    // or not the JSON carries them, so the applier must keep passing such members through even when
-    // they are unchanged.
+    // Custom members can be assigned unconditionally by Deserialize, just like clip transitions.
     private sealed class CustomSerializedTransformElement : Element
     {
         public static readonly CoreProperty<Transform?> CustomTransformProperty;
@@ -156,33 +155,149 @@ public sealed class ApplyEditHistoryScopeTests
         }
     }
 
-    [Test]
-    public void Apply_edit_keeps_unchanged_members_that_deserialize_assigns_unconditionally()
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Apply_edit_keeps_unchanged_members_that_deserialize_assigns_unconditionally(bool editAnotherElement)
     {
         Scene scene = CreateScene();
-        var element = new CustomSerializedTransformElement
-        {
-            Length = TimeSpan.FromSeconds(2),
-            Uri = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, "custom.belm")),
-            CustomTransform = new TranslateTransform(10, 20)
-        };
-        var rect = new RectShape();
-        element.AddObject(rect);
-        scene.Children.Add(element);
+        CustomSerializedTransformElement element = AddCustomElement(scene);
+        RectShape otherRect = AddRectElement(scene, "other", TimeSpan.FromSeconds(2), zIndex: 1);
+        Element otherElement = scene.Children[1];
+        Transform? transform = element.CustomTransform;
+        ClipTransition? enter = element.EnterTransition;
+        ClipTransition? exit = element.ExitTransition;
+        int edited = 0;
+        element.Edited += (_, _) => edited++;
         using var session = new AgentToolkitTestSession(scene);
         EditTools tools = CreateTools(session);
 
         ToolResult<ApplyEditResponse> result = tools.ApplyEdit(
-            patch: CreateObjectPatch(element, rect, new JsonObject { [nameof(RectShape.Width)] = 200 }),
+            patch: editAnotherElement
+                ? CreateObjectPatch(otherElement, otherRect, new JsonObject { [nameof(RectShape.Width)] = 200 })
+                : new JsonObject(),
             schemaVersion: SchemaVersion.Current);
 
         Assert.Multiple(() =>
         {
             Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
-            Assert.That(rect.Width.CurrentValue, Is.EqualTo(200f));
-            Assert.That(element.CustomTransform, Is.InstanceOf<TranslateTransform>());
-            Assert.That((element.CustomTransform as TranslateTransform)?.X.CurrentValue, Is.EqualTo(10f));
+            Assert.That(result.Value?.ChangeCount, Is.EqualTo(editAnotherElement ? 1 : 0));
+            Assert.That(result.Value?.CreatedIdCount, Is.Zero);
+            Assert.That(DescribeOperations(session.History.PeekUndo()), Is.EqualTo(editAnotherElement
+                ? new[] { $"{otherRect.Id}:Width 100 -> 200" }
+                : Array.Empty<string>()));
+            Assert.That(element.CustomTransform, Is.SameAs(transform));
+            Assert.That(element.EnterTransition, Is.SameAs(enter));
+            Assert.That(element.ExitTransition, Is.SameAs(exit));
+            Assert.That(edited, Is.Zero);
         });
+
+        if (editAnotherElement)
+        {
+            Assert.That(session.History.Undo(), Is.True);
+            Assert.That(otherRect.Width.CurrentValue, Is.EqualTo(100f));
+            Assert.That(session.History.Redo(), Is.True);
+            Assert.That(otherRect.Width.CurrentValue, Is.EqualTo(200f));
+            Assert.Multiple(() =>
+            {
+                Assert.That(element.CustomTransform, Is.SameAs(transform));
+                Assert.That(element.EnterTransition, Is.SameAs(enter));
+                Assert.That(element.ExitTransition, Is.SameAs(exit));
+                Assert.That(edited, Is.Zero);
+            });
+        }
+    }
+
+    [TestCase(nameof(Element.EnterTransition), false)]
+    [TestCase(nameof(Element.ExitTransition), false)]
+    [TestCase(nameof(CustomSerializedTransformElement.CustomTransform), false)]
+    [TestCase(nameof(Element.EnterTransition), true)]
+    [TestCase(nameof(Element.ExitTransition), true)]
+    [TestCase(nameof(CustomSerializedTransformElement.CustomTransform), true)]
+    public void Apply_edit_changes_or_removes_only_the_requested_custom_member(string propertyName, bool remove)
+    {
+        Scene scene = CreateScene();
+        CustomSerializedTransformElement element = AddCustomElement(scene);
+        CoreProperty[] properties =
+        [
+            Element.EnterTransitionProperty,
+            Element.ExitTransitionProperty,
+            CustomSerializedTransformElement.CustomTransformProperty
+        ];
+        var original = properties.ToDictionary(property => property, element.GetValue);
+        CoreProperty changedProperty = properties.Single(property => property.Name == propertyName);
+        JsonObject? value = null;
+        if (!remove)
+        {
+            value = CoreSerializer.SerializeToJsonObject((ICoreSerializable)original[changedProperty]!);
+            if (propertyName == nameof(CustomSerializedTransformElement.CustomTransform))
+            {
+                value[nameof(TranslateTransform.X)] = 50;
+            }
+            else
+            {
+                value[nameof(ClipTransition.Duration)] = CoreSerializer.SerializeToJsonNode(TimeSpan.FromSeconds(1));
+            }
+        }
+
+        using var session = new AgentToolkitTestSession(scene);
+        EditTools tools = CreateTools(session);
+        ToolResult<ApplyEditResponse> result = tools.ApplyEdit(
+            patch: new JsonObject
+            {
+                ["Elements"] = new JsonArray(new JsonObject
+                {
+                    [nameof(CoreObject.Id)] = element.Id.ToString(),
+                    [propertyName] = value
+                })
+            },
+            schemaVersion: SchemaVersion.Current);
+
+        Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+        // Attaching a changed transition also aligns its transient TimeRange with the element.
+        int expectedOperations = !remove && propertyName != nameof(CustomSerializedTransformElement.CustomTransform) ? 2 : 1;
+        Assert.That(session.History.PeekUndo()?.Operations, Has.Count.EqualTo(expectedOperations));
+        var operations = session.History.PeekUndo()!.Operations.OfType<IUpdatePropertyValueOperation>().ToArray();
+        IUpdatePropertyValueOperation operation = operations.Single(update => ReferenceEquals(update.Object, element));
+        object? applied = element.GetValue(changedProperty);
+        Assert.Multiple(() =>
+        {
+            Assert.That(operation.Object, Is.SameAs(element));
+            Assert.That(operation.PropertyPath.Split('.')[^1], Is.EqualTo(propertyName));
+            Assert.That(operation.OldValue, Is.SameAs(original[changedProperty]));
+            Assert.That(applied, Is.Not.SameAs(original[changedProperty]));
+            Assert.That(remove ? applied is null : JsonNode.DeepEquals(
+                CoreSerializer.SerializeToJsonObject((ICoreSerializable)applied!), value), Is.True);
+            if (expectedOperations == 2)
+            {
+                IUpdatePropertyValueOperation timeRange = operations.Single(update => !ReferenceEquals(update.Object, element));
+                Assert.That(timeRange.Object, Is.SameAs(applied));
+                Assert.That(timeRange.PropertyPath.Split('.')[^1], Is.EqualTo(nameof(ClipTransition.TimeRange)));
+            }
+            foreach (CoreProperty property in properties.Where(property => property != changedProperty))
+            {
+                Assert.That(element.GetValue(property), Is.SameAs(original[property]));
+            }
+        });
+
+        Assert.That(session.History.Undo(), Is.True);
+        Assert.That(element.GetValue(changedProperty), Is.SameAs(original[changedProperty]));
+        Assert.That(session.History.Redo(), Is.True);
+        Assert.That(element.GetValue(changedProperty), Is.SameAs(applied));
+    }
+
+    private static CustomSerializedTransformElement AddCustomElement(Scene scene)
+    {
+        var element = new CustomSerializedTransformElement
+        {
+            Length = TimeSpan.FromSeconds(2),
+            Uri = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, "custom.belm")),
+            CustomTransform = new TranslateTransform(10, 20),
+            EnterTransition = new CrossDissolveTransition(),
+            ExitTransition = new WipeTransition()
+        };
+        element.AddObject(new RectShape());
+        scene.Children.Add(element);
+        return element;
     }
 
     public sealed record Dimensions(int Width, int Height);
@@ -236,6 +351,7 @@ public sealed class ApplyEditHistoryScopeTests
         var rect = new RectShape();
         element.AddObject(rect);
         scene.Children.Add(element);
+        Dimensions? dimensions = element.Dimensions;
         using var session = new AgentToolkitTestSession(scene);
         EditTools tools = CreateTools(session);
 
@@ -247,7 +363,9 @@ public sealed class ApplyEditHistoryScopeTests
         {
             Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
             Assert.That(rect.Width.CurrentValue, Is.EqualTo(200f));
-            Assert.That(element.Dimensions, Is.EqualTo(new Dimensions(3, 4)));
+            Assert.That(element.Dimensions, Is.SameAs(dimensions));
+            Assert.That(DescribeOperations(session.History.PeekUndo()),
+                Is.EqualTo(new[] { $"{rect.Id}:Width 100 -> 200" }));
         });
     }
 
