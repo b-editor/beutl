@@ -453,8 +453,10 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
         {
             unsafe
             {
-                Buffer.MemoryCopy((void*)converted.Data, (void*)srcFrame.Data[0], converted.ByteCount,
-                    converted.ByteCount);
+                // FFmpeg aligns each row independently, so its stride can exceed the bitmap's row size.
+                FFmpegUtil.CopyPlane(converted.Data, converted.RowBytes,
+                    (IntPtr)srcFrame.Data[0], srcFrame.Linesize[0],
+                    converted.Width * converted.BytesPerPixel, converted.Height);
             }
         }
 
