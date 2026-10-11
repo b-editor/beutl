@@ -502,6 +502,18 @@
     <value>已安装 {0} 个文件。</value>
     <comment />
   </data>
+  <data name="AiAgents_EditedFilesBackedUp" xml:space="preserve">
+    <value>已在替换前将您编辑过的 {0} 个文件保存为备份 (.bak)。</value>
+    <comment />
+  </data>
+  <data name="AiAgents_McpConfigHasComments" xml:space="preserve">
+    <value>{0} 包含注释，重写会删除这些注释，因此 Beutl 未修改该文件。请手动添加下面的条目。</value>
+    <comment />
+  </data>
+  <data name="AiAgents_McpConfigObsoleteEntries" xml:space="preserve">
+    <value>同时请删除以下条目：{0}</value>
+    <comment />
+  </data>
   <data name="AiAgents_InstalledFiles" xml:space="preserve">
     <value>已安装的文件</value>
     <comment />
@@ -576,7 +588,7 @@
     <comment />
   </data>
   <data name="AiAgents_UpdateAvailable_Content" xml:space="preserve">
-    <value>此版本的 Beutl 捆绑了比您安装的更新的技能和子代理。现在使用您保存的设置重新安装它们吗？您在目标位置手动编辑的文件将被覆盖。</value>
+    <value>此版本的 Beutl 捆绑了比您安装的更新的技能和子代理。现在使用您保存的设置重新安装它们吗？您在目标位置手动编辑的文件会在替换前备份。</value>
     <comment />
   </data>
   <data name="AiAgents_Mcp" xml:space="preserve">
@@ -596,7 +608,7 @@
     <comment />
   </data>
   <data name="AiAgents_McpChanged_Content" xml:space="preserve">
-    <value>Beutl 现在只安装一个 "beutl-agent" MCP 服务器：当代理传入 instanceId 时编辑正在运行的 Beutl，否则以无界面方式编辑项目文件。是否立即使用已保存的设置重新安装？单独的 "beutl-live" 条目及其令牌将从代理配置中移除，目标位置中手动编辑的文件将被覆盖。</value>
+    <value>Beutl 现在只安装一个 "beutl-agent" MCP 服务器：当代理传入 instanceId 时编辑正在运行的 Beutl，否则以无界面方式编辑项目文件。是否立即使用已保存的设置重新安装？单独的 "beutl-live" 条目及其令牌将从代理配置中移除，目标位置中手动编辑的文件会在替换前备份。</value>
     <comment />
   </data>
   <data name="AiAgents_Reinstall" xml:space="preserve">

@@ -74,7 +74,6 @@ public sealed class AgentToolkitInstallerTests
             configPath,
             """
             {
-              // user-managed server must stay
               "mcpServers": {
                 "existing": { "type": "stdio", "command": "other" }
               },
@@ -349,6 +348,228 @@ public sealed class AgentToolkitInstallerTests
                 McpCommand = "dotnet",
             },
             []));
+    }
+
+    // Writing a JSON file back drops its comments, so a file with comments is left as it is and the
+    // install returns the entry to add by hand.
+    [Test]
+    public async Task InstallAsync_LeavesAConfigWithCommentsAsItIsAndReturnsTheEntryToAdd()
+    {
+        string configPath = Path.Combine(_tempRoot, ".gemini", "settings.json");
+        Directory.CreateDirectory(Path.GetDirectoryName(configPath)!);
+        const string original = """
+            {
+              // keep me
+              "theme": "dark",
+              "mcpServers": {
+                "beutl-live": { "httpUrl": "http://127.0.0.1:59737/mcp" }
+              }
+            }
+            """;
+        await File.WriteAllTextAsync(configPath, original);
+
+        AgentToolkitInstallResult result = await AgentToolkitInstaller.InstallAsync(
+            new AgentToolkitInstallOptions
+            {
+                AgentRoot = _tempRoot,
+                InstallSkills = false,
+                InstallSubagents = false,
+                McpConfigFileName = Path.Combine(".gemini", "settings.json"),
+                McpCommand = "beutl-mcp",
+            },
+            []);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.ReadAllText(configPath), Is.EqualTo(original));
+            Assert.That(result.InstalledMcp, Is.False);
+            Assert.That(result.InstalledFiles, Is.Empty);
+            Assert.That(result.ManualMcpEdit, Is.Not.Null);
+            Assert.That(result.ManualMcpEdit!.ConfigPath, Is.EqualTo(result.McpConfigPath));
+            Assert.That(result.ManualMcpEdit.ObsoleteEntries, Is.EqualTo(new[] { "beutl-live" }));
+            JsonObject entry = JsonNode.Parse(result.ManualMcpEdit.Snippet)!["mcpServers"]!["beutl-agent"]!.AsObject();
+            Assert.That(entry["command"]!.GetValue<string>(), Is.EqualTo("beutl-mcp"));
+        });
+    }
+
+    // A reinstall that changes nothing leaves the file alone, comments and formatting included.
+    [TestCase(true)]
+    [TestCase(false)]
+    public async Task InstallAsync_DoesNotRewriteAConfigThatAlreadyHasTheEntry(bool withComment)
+    {
+        string configPath = Path.Combine(_tempRoot, ".mcp.json");
+        string original = (withComment ? "// managed by hand\n" : "")
+                          + "{\n    \"mcpServers\": {\n        \"beutl-agent\": { \"command\": \"beutl-mcp\", \"args\": [ \"mcp\" ] }\n    }\n}\n";
+        await File.WriteAllTextAsync(configPath, original);
+
+        AgentToolkitInstallResult result = await AgentToolkitInstaller.InstallAsync(
+            new AgentToolkitInstallOptions
+            {
+                AgentRoot = _tempRoot,
+                InstallSkills = false,
+                InstallSubagents = false,
+                McpCommand = "beutl-mcp",
+                McpArguments = ["mcp"],
+            },
+            []);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.ReadAllText(configPath), Is.EqualTo(original));
+            Assert.That(result.InstalledMcp, Is.True);
+            Assert.That(result.ManualMcpEdit, Is.Null);
+            Assert.That(result.InstalledFiles, Is.EqualTo(new[] { configPath }));
+        });
+    }
+
+    [TestCase(false, false)]
+    [TestCase(false, true)]
+    [TestCase(true, false)]
+    [TestCase(true, true)]
+    public async Task JsonMcpConfig_failed_or_cancelled_writes_preserve_the_original_and_remove_temporary_files(
+        bool exists,
+        bool cancel)
+    {
+        string configPath = Path.Combine(_tempRoot, ".mcp.json");
+        const string original = "{\n  \"mcpServers\": {\n    \"other\": { \"command\": \"keep this\" }\n  }\n}\n";
+        if (exists)
+        {
+            await File.WriteAllTextAsync(configPath, original);
+        }
+
+        using var cancellation = new CancellationTokenSource();
+        Task Write() => JsonMcpConfigWriter.WriteAsync(
+            configPath,
+            new AgentToolkitInstallOptions { AgentRoot = _tempRoot, McpCommand = "beutl-mcp" },
+            cancellation.Token,
+            async (stream, _, token) =>
+            {
+                await stream.WriteAsync("partial"u8.ToArray(), CancellationToken.None);
+                if (cancel)
+                {
+                    cancellation.Cancel();
+                    token.ThrowIfCancellationRequested();
+                }
+
+                throw new IOException("Simulated write failure.");
+            });
+
+        if (cancel)
+        {
+            await Assert.ThrowsAsync<OperationCanceledException>(Write);
+        }
+        else
+        {
+            await Assert.ThrowsAsync<IOException>(Write);
+        }
+
+        Assert.That(File.Exists(configPath), Is.EqualTo(exists));
+        if (exists)
+        {
+            Assert.That(await File.ReadAllTextAsync(configPath), Is.EqualTo(original));
+        }
+
+        Assert.That(Directory.EnumerateFiles(_tempRoot, "*.tmp"), Is.Empty);
+    }
+
+    [Test]
+    public async Task InstallAsync_KeepsAJsonConfigSymlinkAndItsPermissions()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("Creating symlinks requires additional Windows privileges.");
+            return;
+        }
+
+        string target = Path.Combine(_tempRoot, "managed-mcp.json");
+        await File.WriteAllTextAsync(target, "{ \"theme\": \"dark\" }");
+        File.SetUnixFileMode(target, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+        string configPath = Path.Combine(_tempRoot, ".mcp.json");
+        File.CreateSymbolicLink(configPath, target);
+
+        await AgentToolkitInstaller.InstallAsync(
+            new AgentToolkitInstallOptions
+            {
+                AgentRoot = _tempRoot,
+                InstallSkills = false,
+                InstallSubagents = false,
+                McpCommand = "beutl-mcp",
+            },
+            []);
+
+        JsonObject root = ReadJson(target);
+        UnixFileMode mode = File.GetUnixFileMode(target);
+        Assert.Multiple(() =>
+        {
+            Assert.That(new FileInfo(configPath).LinkTarget, Is.EqualTo(target));
+            Assert.That(root["theme"]!.GetValue<string>(), Is.EqualTo("dark"));
+            Assert.That(root["mcpServers"]!["beutl-agent"], Is.Not.Null);
+            Assert.That(mode, Is.EqualTo(UnixFileMode.UserRead | UnixFileMode.UserWrite));
+        });
+    }
+
+    // The manifest records what an earlier install wrote, so an edit since then is recognized and
+    // copied aside before a newer bundled version replaces it; an untouched file is simply replaced.
+    [Test]
+    public async Task InstallAsync_BacksUpAnEditedSkillBeforeReplacingIt()
+    {
+        AgentToolkitAsset[] assets =
+        [
+            new(AgentToolkitAssetKind.Skill, "demo/SKILL.md", "bundled skill"),
+            new(AgentToolkitAssetKind.Subagent, "demo.md", "bundled agent"),
+        ];
+        var options = new AgentToolkitInstallOptions { AgentRoot = _tempRoot, InstallMcp = false };
+        AgentToolkitInstallResult first = await AgentToolkitInstaller.InstallAsync(options, assets);
+        string skillPath = Path.Combine(_tempRoot, "skills", "demo", "SKILL.md");
+        string agentPath = Path.Combine(_tempRoot, "agents", "demo.md");
+        await File.WriteAllTextAsync(skillPath, "my edits");
+
+        AgentToolkitInstallResult second = await AgentToolkitInstaller.InstallAsync(
+            options with { PreviousFiles = first.AssetFileRecords },
+            [
+                new(AgentToolkitAssetKind.Skill, "demo/SKILL.md", "updated skill"),
+                new(AgentToolkitAssetKind.Subagent, "demo.md", "updated agent"),
+            ]);
+
+        Assert.That(second.BackedUpFiles, Has.Count.EqualTo(1));
+        BackedUpFile backup = second.BackedUpFiles[0];
+        Assert.Multiple(() =>
+        {
+            Assert.That(backup.Path, Is.EqualTo(skillPath));
+            Assert.That(File.ReadAllText(backup.BackupPath), Is.EqualTo("my edits"));
+            Assert.That(Path.GetDirectoryName(backup.BackupPath), Is.EqualTo(Path.GetDirectoryName(skillPath)));
+            Assert.That(backup.BackupPath, Does.EndWith(".bak"));
+            Assert.That(File.ReadAllText(skillPath), Is.EqualTo("updated skill"));
+            Assert.That(File.ReadAllText(agentPath), Is.EqualTo("updated agent"));
+            Assert.That(Directory.EnumerateFiles(Path.GetDirectoryName(agentPath)!, "*.bak"), Is.Empty);
+        });
+    }
+
+    // A file no install recorded may be the user's own, so it is backed up too unless it already holds
+    // the bundled content.
+    [Test]
+    public async Task InstallAsync_BacksUpADifferentFileThatNoInstallRecorded()
+    {
+        string skillPath = Path.Combine(_tempRoot, "skills", "demo", "SKILL.md");
+        string agentPath = Path.Combine(_tempRoot, "agents", "demo.md");
+        Directory.CreateDirectory(Path.GetDirectoryName(skillPath)!);
+        Directory.CreateDirectory(Path.GetDirectoryName(agentPath)!);
+        await File.WriteAllTextAsync(skillPath, "a skill of my own");
+        await File.WriteAllTextAsync(agentPath, "bundled agent");
+
+        AgentToolkitInstallResult result = await AgentToolkitInstaller.InstallAsync(
+            new AgentToolkitInstallOptions { AgentRoot = _tempRoot, InstallMcp = false },
+            [
+                new AgentToolkitAsset(AgentToolkitAssetKind.Skill, "demo/SKILL.md", "bundled skill"),
+                new AgentToolkitAsset(AgentToolkitAssetKind.Subagent, "demo.md", "bundled agent"),
+            ]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.BackedUpFiles.Select(file => file.Path), Is.EqualTo(new[] { skillPath }));
+            Assert.That(File.ReadAllText(result.BackedUpFiles[0].BackupPath), Is.EqualTo("a skill of my own"));
+            Assert.That(File.ReadAllText(skillPath), Is.EqualTo("bundled skill"));
+        });
     }
 
     private static JsonObject ReadJson(string path)

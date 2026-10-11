@@ -506,6 +506,18 @@
     <value>{0} 個のファイルをインストールしました。</value>
     <comment/>
   </data>
+  <data name="AiAgents_EditedFilesBackedUp" xml:space="preserve">
+    <value>編集されていた {0} 個のファイルを、置き換える前にバックアップ (.bak) として保存しました。</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_McpConfigHasComments" xml:space="preserve">
+    <value>{0} にはコメントが含まれており、書き換えるとコメントが失われるため、変更しませんでした。下のエントリを手動で追加してください。</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_McpConfigObsoleteEntries" xml:space="preserve">
+    <value>あわせて、次のエントリを削除してください: {0}</value>
+    <comment/>
+  </data>
   <data name="AiAgents_InstalledFiles" xml:space="preserve">
     <value>インストールされたファイル</value>
     <comment/>
@@ -584,7 +596,7 @@
     <comment/>
   </data>
   <data name="AiAgents_UpdateAvailable_Content" xml:space="preserve">
-    <value>このバージョンの Beutl には、インストール済みのものより新しいスキル／サブエージェントが同梱されています。保存済みの設定で今すぐ再インストールしますか？（配布先で手動編集したファイルは上書きされます）</value>
+    <value>このバージョンの Beutl には、インストール済みのものより新しいスキル／サブエージェントが同梱されています。保存済みの設定で今すぐ再インストールしますか？（配布先で手動編集したファイルは、置き換える前にバックアップされます）</value>
     <comment/>
   </data>
   <data name="AiAgents_McpChanged_Title" xml:space="preserve">
@@ -592,7 +604,7 @@
     <comment/>
   </data>
   <data name="AiAgents_McpChanged_Content" xml:space="preserve">
-    <value>Beutl がインストールする MCP サーバーは "beutl-agent" の 1 つになりました。エージェントが instanceId を指定すれば起動中の Beutl を、指定しなければプロジェクトファイルをヘッドレスで編集します。保存済みの設定で今すぐ再インストールしますか？エージェント設定から旧 "beutl-live" エントリとそのトークンが削除され、配布先で手動編集したファイルは上書きされます。</value>
+    <value>Beutl がインストールする MCP サーバーは "beutl-agent" の 1 つになりました。エージェントが instanceId を指定すれば起動中の Beutl を、指定しなければプロジェクトファイルをヘッドレスで編集します。保存済みの設定で今すぐ再インストールしますか？エージェント設定から旧 "beutl-live" エントリとそのトークンが削除され、配布先で手動編集したファイルは、置き換える前にバックアップされます。</value>
     <comment/>
   </data>
   <data name="AiAgents_Reinstall" xml:space="preserve">

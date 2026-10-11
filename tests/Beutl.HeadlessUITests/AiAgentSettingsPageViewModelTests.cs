@@ -512,6 +512,95 @@ public sealed class AiAgentSettingsPageViewModelTests
         });
     }
 
+    // Writing the configuration back would drop the user's comments, so the page shows the entry to add.
+    [AvaloniaTest]
+    [TestCase(true)]
+    [TestCase(false)]
+    public async Task Install_shows_the_entry_to_add_when_the_mcp_config_has_comments(bool light)
+    {
+        string root = Path.Combine(BeutlHomeIsolation.CurrentHome!, "agent-comments-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string configPath = Path.Combine(root, ".mcp.json");
+        const string original = "{\n  // keep me\n  \"mcpServers\": {}\n}\n";
+        File.WriteAllText(configPath, original);
+        using AiAgentSettingsPageViewModel viewModel = CreateViewModel(new AiAgentConfig());
+        viewModel.SelectedAgent.Value = Choice(viewModel, AiAgentSettingsPageViewModel.CustomAgentId);
+        viewModel.ProjectRoot.Value = root;
+        viewModel.McpCommand.Value = "beutl-mcp";
+        viewModel.InstallSkills.Value = false;
+        viewModel.InstallSubagents.Value = false;
+
+        await viewModel.InstallAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.ReadAllText(configPath), Is.EqualTo(original));
+            Assert.That(viewModel.ManualMcpSnippet.Value, Does.Contain("\"beutl-agent\"").And.Contain("beutl-mcp"));
+            Assert.That(viewModel.Status.Value, Does.Contain(configPath));
+            Assert.That(viewModel.InstalledFiles, Is.Empty);
+        });
+
+        var page = new AiAgentSettingsPage { DataContext = viewModel };
+        var window = new Window
+        {
+            Content = page,
+            Width = 800,
+            Height = 900,
+            RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark,
+        };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            TextBox snippet = page.GetVisualDescendants().OfType<TextBox>()
+                .Single(box => box.Text == viewModel.ManualMcpSnippet.Value);
+            snippet.BringIntoView();
+            HeadlessTestHelpers.Render();
+            Assert.Multiple(() =>
+            {
+                Assert.That(snippet.IsEffectivelyVisible, Is.True);
+                Assert.That(snippet.IsReadOnly, Is.True);
+            });
+            if (Environment.GetEnvironmentVariable("BEUTL_AGENT_INSTALL_CAPTURE") is { Length: > 0 } directory)
+            {
+                Directory.CreateDirectory(directory);
+                using var image = window.CaptureRenderedFrame();
+                image!.Save(Path.Combine(directory, $"mcp-config-comments-{(light ? "light" : "dark")}.png"), PngBitmapEncoderOptions.Default);
+            }
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Reinstall_backs_up_an_edited_skill_and_lists_the_backup()
+    {
+        string root = Path.Combine(BeutlHomeIsolation.CurrentHome!, "agent-backup-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        using AiAgentSettingsPageViewModel viewModel = CreateViewModel(new AiAgentConfig());
+        viewModel.SelectedAgent.Value = Choice(viewModel, AiAgentSettingsPageViewModel.CustomAgentId);
+        viewModel.ProjectRoot.Value = root;
+        viewModel.InstallMcp.Value = false;
+        viewModel.InstallSubagents.Value = false;
+        await viewModel.InstallAsync();
+        string skillPath = Path.Combine(root, "skills", "beutl-agent-source-grounding", "SKILL.md");
+        string bundled = File.ReadAllText(skillPath);
+        File.WriteAllText(skillPath, "my notes");
+
+        await viewModel.InstallAsync();
+
+        string backup = viewModel.InstalledFiles.Single(file => file.StartsWith("backed up: ", StringComparison.Ordinal))
+            ["backed up: ".Length..];
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.ReadAllText(backup), Is.EqualTo("my notes"));
+            Assert.That(File.ReadAllText(skillPath), Is.EqualTo(bundled));
+            Assert.That(viewModel.Status.Value, Does.Contain(string.Format(SettingsStrings.AiAgents_EditedFilesBackedUp, 1)));
+        });
+    }
+
     [AvaloniaTest]
     public async Task Manifest_keeps_the_old_mcp_layout_until_the_mcp_entry_is_replaced()
     {
