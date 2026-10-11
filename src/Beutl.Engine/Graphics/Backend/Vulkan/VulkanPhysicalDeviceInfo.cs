@@ -7,9 +7,16 @@ internal record VulkanPhysicalDeviceInfo(
     string Name,
     PhysicalDeviceType Type,
     uint ApiVersionInt,
-    VulkanMemoryInfo Memory)
+    VulkanMemoryInfo Memory,
+    DriverId DriverId)
 {
-    public bool IsMoltenVK => Name.Contains("Apple");
+    /// <summary>Gets whether MoltenVK drives this device, which is what puts a Metal device behind it.</summary>
+    /// <remarks>
+    /// MoltenVK reports the Metal device's own name, so only Apple silicon carries Apple's name: the Intel and AMD
+    /// GPUs of an Intel Mac are named after their vendors, and Asahi Linux's own driver names Apple silicon after
+    /// Apple too. The driver ID is what identifies MoltenVK.
+    /// </remarks>
+    public bool IsMoltenVK => DriverId == DriverId.Moltenvk;
 
     public string ApiVersion
     {
@@ -36,6 +43,9 @@ internal record VulkanPhysicalDeviceInfo(
             _ => GraphicsDeviceType.Other
         };
 
-        return new GraphicsDeviceInfo(Name, deviceType, ApiVersion, Memory.DeviceLocalMemory / (1024 * 1024));
+        return new GraphicsDeviceInfo(Name, deviceType, ApiVersion, Memory.DeviceLocalMemory / (1024 * 1024))
+        {
+            IsMoltenVK = IsMoltenVK
+        };
     }
 }

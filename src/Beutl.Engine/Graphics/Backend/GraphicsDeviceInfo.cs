@@ -14,7 +14,12 @@ public record GraphicsDeviceInfo(
     ulong TotalMemoryMB)
 {
     /// <summary>
-    /// Gets a value indicating whether this device is running on MoltenVK (Apple Silicon).
+    /// Gets a value indicating whether this device is running on MoltenVK, the Vulkan driver every Mac GPU runs on,
+    /// Apple silicon, Intel and AMD alike.
     /// </summary>
-    public bool IsMoltenVK => Name.Contains("Apple");
+    /// <remarks>
+    /// The engine reads this from the Vulkan driver ID rather than from the device name. An instance created outside
+    /// the engine reports <see langword="false"/> unless its creator sets it.
+    /// </remarks>
+    public bool IsMoltenVK { get; init; }
 }
