@@ -513,9 +513,11 @@ public sealed class ApplyEditLockTests
     }
 
     // As in the editor, a locked element keeps its group: it is not added to one, not taken out of
-    // one, and not left behind when a full document drops Groups.
+    // one, not added to a second group beside the one it keeps, and not left behind when a full
+    // document drops Groups.
     [TestCase("add")]
     [TestCase("remove")]
+    [TestCase("second")]
     [TestCase("drop")]
     public void Apply_edit_refuses_to_regroup_a_locked_element(string edit)
     {
@@ -542,9 +544,15 @@ public sealed class ApplyEditLockTests
         }
         else
         {
-            string group = edit == "add" ? $"{locked.Id}:{first.Id}" : $"{first.Id}:{second.Id}";
+            JsonArray groups = edit switch
+            {
+                "add" => new JsonArray($"{locked.Id}:{first.Id}"),
+                "remove" => new JsonArray($"{first.Id}:{second.Id}"),
+                // Scene.Groups accepts an Id in two groups; the unchanged group stays the first match.
+                _ => new JsonArray($"{locked.Id}:{first.Id}:{second.Id}", $"{locked.Id}:{first.Id}"),
+            };
             result = tools.ApplyEdit(
-                patch: new JsonObject { ["Groups"] = new JsonArray(group) },
+                patch: new JsonObject { ["Groups"] = groups },
                 schemaVersion: SchemaVersion.Current);
         }
 
