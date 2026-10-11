@@ -1,5 +1,6 @@
 ﻿using System.Buffers.Binary;
 using System.Text.Json.Nodes;
+using Beutl.NodeGraph.Generative;
 using Beutl.Serialization;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
@@ -84,6 +85,9 @@ public sealed class ObjectTemplateItem(
         Type actual = obj.GetType();
         (Type baseType, string format) = ObjectTemplateCategoryResolver.Resolve(actual);
         JsonObject json = CoreSerializer.SerializeToJsonObject(obj);
+        // A template is the workflow, as a group node template is: the AI results of the project it came from
+        // and the request key they were bought with stay behind.
+        GenerativeNode.StripResults(json);
 
         return new ObjectTemplateItem(Guid.NewGuid(), baseType, actual, json, name, format, null);
     }

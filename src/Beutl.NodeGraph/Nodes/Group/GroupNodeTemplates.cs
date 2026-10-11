@@ -19,9 +19,6 @@ public sealed class GroupNodeTemplates(string directory)
 {
     private static readonly ILogger s_logger = Log.CreateLogger<GroupNodeTemplates>();
 
-    // Members of a generative node that belong to one project's results, not to the workflow.
-    private static readonly string[] s_resultMembers = ["Generations", "ActiveGenerationId", "RequestKeySeed"];
-
     public static GroupNodeTemplates Default { get; } =
         new(Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "nodeTemplates"));
 
@@ -47,7 +44,7 @@ public sealed class GroupNodeTemplates(string directory)
             return null;
 
         JsonObject json = CoreSerializer.SerializeToJsonObject(group);
-        StripResults(json);
+        GenerativeNode.StripResults(json);
         System.IO.Directory.CreateDirectory(Directory);
         string path = UniquePath(name);
         File.WriteAllText(path, json.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
@@ -55,8 +52,8 @@ public sealed class GroupNodeTemplates(string directory)
     }
 
     /// <summary>
-    /// The group as it was saved, identifiers included. Adding it to a graph takes a copy with
-    /// identifiers of its own, made the way elements are duplicated, then <see cref="RenewRequestKeys"/>.
+    /// The group as it was saved, identifiers included. Adding it to a graph takes a copy made the
+    /// way elements are duplicated, which gives it identifiers and request keys of its own.
     /// </summary>
     public GroupNode? Load(GroupNodeTemplate template)
     {
@@ -93,23 +90,6 @@ public sealed class GroupNodeTemplates(string directory)
                 foreach (GraphNode nested in EnumerateNodes(inner.Group))
                     yield return nested;
             }
-        }
-    }
-
-    private static void StripResults(JsonNode? node)
-    {
-        switch (node)
-        {
-            case JsonObject obj:
-                foreach (string member in s_resultMembers)
-                    obj.Remove(member);
-                foreach (KeyValuePair<string, JsonNode?> child in obj.ToArray())
-                    StripResults(child.Value);
-                break;
-            case JsonArray array:
-                foreach (JsonNode? item in array)
-                    StripResults(item);
-                break;
         }
     }
 

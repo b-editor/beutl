@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Nodes;
 using Beutl.Collections;
 using Beutl.Extensibility;
 using Beutl.Graphics.Rendering;
@@ -86,10 +87,13 @@ public abstract partial class GenerativeNode : GraphNode
         => _generations.FirstOrDefault(record => record.Id == _activeGenerationId);
 
     /// <summary>
-    /// Stable for the life of the node and saved with it, so a request that never
-    /// reported back is asked for again under the same idempotency key after a restart.
+    /// Saved with the node, so a request that never reported back is asked for again under the
+    /// same idempotency key after a restart. The server answers a key it has already seen with
+    /// the earlier job, so a copy of the node gets a seed of its own, and undo never brings back
+    /// a seed that a request has already used.
     /// </summary>
     [NotAutoSerialized]
+    [NotTracked]
     public string RequestKeySeed
     {
         get;
@@ -302,6 +306,29 @@ public abstract partial class GenerativeNode : GraphNode
             _generations.Replace(generations);
         if (context.Contains(nameof(ActiveGenerationId)))
             ActiveGenerationId = context.GetValue<Guid>(nameof(ActiveGenerationId));
+    }
+
+    /// <summary>
+    /// Removes what belongs to one project's results, not to the workflow, from serialized
+    /// nodes anywhere in <paramref name="json"/>: the kept generations, the active one and the
+    /// request key. Templates are saved this way.
+    /// </summary>
+    internal static void StripResults(JsonNode? json)
+    {
+        switch (json)
+        {
+            case JsonObject obj:
+                obj.Remove(nameof(Generations));
+                obj.Remove(nameof(ActiveGenerationId));
+                obj.Remove(nameof(RequestKeySeed));
+                foreach (KeyValuePair<string, JsonNode?> child in obj.ToArray())
+                    StripResults(child.Value);
+                break;
+            case JsonArray array:
+                foreach (JsonNode? item in array)
+                    StripResults(item);
+                break;
+        }
     }
 
     private sealed record ActiveSnapshot(Guid Id, MediaSource Media, string ParameterFingerprint);
