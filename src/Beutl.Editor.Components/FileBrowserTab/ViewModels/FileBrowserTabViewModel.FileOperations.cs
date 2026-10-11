@@ -279,10 +279,7 @@ public sealed partial class FileBrowserTabViewModel
                 }
                 else if (Directory.Exists(localPath))
                 {
-                    // A folder dropped onto one of the same name, such as one a canceled copy left,
-                    // gets only the files it is missing; nothing is overwritten. A folder dropped
-                    // where it already is has nothing to copy.
-                    if (!FilePathComparison.AreSameCanonicalPath(localPath, destPath))
+                    if (!Directory.Exists(destPath))
                     {
                         FileCopyService.CopyDirectoryRecursive(localPath, destPath, CopyFile, cancellationToken);
                     }
@@ -458,10 +455,8 @@ public sealed partial class FileBrowserTabViewModel
         if (targetDir is not null && !_disposed)
             ReloadTransferredItems(entries, targetDir);
 
-        for (int i = 0; i < failures; i++)
-        {
+        if (failures > 0)
             NotificationService.ShowError(operation, MessageStrings.OperationFailed);
-        }
     }
 
     private async Task<int> WaitShowingCancellationAsync(

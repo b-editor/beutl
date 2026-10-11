@@ -23,6 +23,7 @@ public class FileSystemItemViewModel : IDisposable
     private readonly CancellationTokenSource _metadataCts = new();
     private bool _disposed;
     private bool _childrenLoaded;
+    private int _mediaInfoLoad;
 
     public FileSystemItemViewModel(string fullPath, bool isDirectory)
     {
@@ -140,9 +141,12 @@ public class FileSystemItemViewModel : IDisposable
 
         try
         {
+            // A reload reads the file as it is now, so an earlier load still running must not
+            // replace what the reload shows.
+            int load = Interlocked.Increment(ref _mediaInfoLoad);
             CancellationToken token = _metadataCts.Token;
             var info = await service.GetMediaInfoAsync(FullPath, token);
-            if (!token.IsCancellationRequested && info != null)
+            if (!token.IsCancellationRequested && info != null && load == Volatile.Read(ref _mediaInfoLoad))
             {
                 MediaInfoText.Value = info.ToDisplayString();
             }

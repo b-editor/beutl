@@ -284,10 +284,10 @@ public sealed class FileBrowserWriteAdmissionTests
     }
 
     // Cancel stops a folder copy before its next file, and the files already copied stay, as they do
-    // when a drop of several files is canceled. Dropping the folder again adds the missing files and
-    // overwrites none.
+    // when a drop of several files is canceled. Dropping the folder again skips it, as for any
+    // existing folder.
     [AvaloniaTest]
-    public async Task A_folder_copy_canceled_partway_keeps_its_files_and_a_second_drop_adds_the_rest()
+    public async Task A_folder_copy_canceled_partway_keeps_what_it_copied_and_a_second_drop_skips_it()
     {
         EditViewModel editor = await CreateEditor("filebrowser-cancel-folder-copy");
         using var browser = new FileBrowserTabViewModel(editor);
@@ -331,7 +331,6 @@ public sealed class FileBrowserWriteAdmissionTests
         });
 
         string kept = Directory.GetFiles(copiedFolder).Single();
-        File.WriteAllText(kept, "kept");
         browser.TransferNotificationDelay = Timeout.InfiniteTimeSpan;
         browser.CopyFile = static (source, destination) => File.Copy(source, destination);
         await browser.CopyFilesToDirectoryAsync([(folder, true)], fixture.TargetDir)
@@ -339,35 +338,8 @@ public sealed class FileBrowserWriteAdmissionTests
 
         Assert.Multiple(() =>
         {
-            foreach (string name in new[] { "a", "b" })
-            {
-                string path = Path.Combine(copiedFolder, $"{name}.txt");
-                Assert.That(File.ReadAllText(path), Is.EqualTo(path == kept ? "kept" : name));
-            }
-
+            Assert.That(Directory.GetFiles(copiedFolder), Is.EqualTo(new[] { kept }), "the existing folder is skipped");
             Assert.That(notifications.Handler.Notifications, Has.Count.EqualTo(1), "the second drop is no failure");
-        });
-    }
-
-    // As with a file, a folder dropped where it already is has nothing to copy.
-    [AvaloniaTest]
-    public async Task A_folder_dropped_where_it_already_is_is_skipped()
-    {
-        EditViewModel editor = await CreateEditor("filebrowser-folder-self-drop");
-        using var browser = new FileBrowserTabViewModel(editor);
-        Fixture fixture = Fixture.Create(ProjectRoot(editor));
-        string folder = Directory.CreateDirectory(Path.Combine(fixture.SourceDir, "footage")).FullName;
-        File.WriteAllText(Path.Combine(folder, "a.txt"), "a");
-        using var notifications = new NotificationCapture();
-        browser.TransferNotificationDelay = Timeout.InfiniteTimeSpan;
-
-        await browser.CopyFilesToDirectoryAsync([(folder, true)], fixture.SourceDir)
-            .WaitAsync(TimeSpan.FromSeconds(30));
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(notifications.Handler.Notifications, Is.Empty);
-            Assert.That(Directory.GetFileSystemEntries(folder), Is.EqualTo(new[] { Path.Combine(folder, "a.txt") }));
         });
     }
 
@@ -423,7 +395,8 @@ public sealed class FileBrowserWriteAdmissionTests
     }
 
     // An access error from the copy used to escape the async drop handler. Like any other failure, it
-    // is now reported on the UI thread once the transfer is over.
+    // is now reported on the UI thread once the transfer is over, in one notification however many
+    // entries failed.
     [AvaloniaTest]
     public async Task A_copy_failure_is_reported_on_the_UI_thread()
     {
@@ -434,7 +407,9 @@ public sealed class FileBrowserWriteAdmissionTests
         browser.TransferNotificationDelay = Timeout.InfiniteTimeSpan;
         browser.CopyFile = static (_, _) => throw new UnauthorizedAccessException("Access denied.");
 
-        await browser.CopyFilesToDirectoryAsync([(fixture.CopySource, false)], fixture.TargetDir)
+        await browser.CopyFilesToDirectoryAsync(
+                [(fixture.CopySource, false), (fixture.MoveSource, false)],
+                fixture.TargetDir)
             .WaitAsync(TimeSpan.FromSeconds(30));
 
         Assert.Multiple(() =>
