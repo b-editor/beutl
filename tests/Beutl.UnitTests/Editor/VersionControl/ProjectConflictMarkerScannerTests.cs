@@ -55,6 +55,26 @@ public class ProjectConflictMarkerScannerTests
     }
 
     [Test]
+    public async Task FindFirstAsync_scans_a_scenes_media_fingerprint_file_but_no_other_json()
+    {
+        string projectFile = Path.Combine(_root, "project.bep");
+        string sceneFile = Path.Combine(_root, "Intro", "Intro.scene");
+        string fingerprintFile = Beutl.ProjectSystem.MediaFingerprintFile.GetPath(sceneFile);
+        Directory.CreateDirectory(Path.GetDirectoryName(sceneFile)!);
+        await File.WriteAllTextAsync(projectFile, "{}\n");
+        await File.WriteAllTextAsync(sceneFile, "{}\n");
+        // Scanned first if any JSON file counted.
+        await File.WriteAllTextAsync(Path.Combine(_root, "Intro", "Assets.json"), LfConflict);
+        await File.WriteAllTextAsync(fingerprintFile, LfConflict);
+
+        string? result = await ProjectConflictMarkerScanner.FindFirstAsync(
+            projectFile,
+            CancellationToken.None);
+
+        Assert.That(result, Is.EqualTo(fingerprintFile));
+    }
+
+    [Test]
     public async Task FindFirstAsync_applies_the_per_file_budget_at_the_marker_boundary()
     {
         string projectFile = Path.Combine(_root, "project.bep");

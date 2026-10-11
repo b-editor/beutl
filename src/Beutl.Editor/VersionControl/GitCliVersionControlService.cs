@@ -62,6 +62,8 @@ internal sealed partial class GitCliVersionControlService :
         "*.[bB][eE][pP] text eol=lf",
         "*.[sS][cC][eE][nN][eE] text eol=lf",
         "*.[bB][eE][lL][mM] text eol=lf",
+        // The media fingerprints a scene keeps next to its .scene file.
+        $"*{CreateCaseInsensitiveGlob(Beutl.ProjectSystem.MediaFingerprintFile.FileNameSuffix)} text eol=lf",
         ".gitignore text eol=lf",
         ".gitattributes text eol=lf",
     ];

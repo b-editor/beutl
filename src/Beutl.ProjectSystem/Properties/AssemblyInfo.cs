@@ -5,5 +5,6 @@
 [assembly: InternalsVisibleTo("Beutl.NodeGraph")]
 [assembly: InternalsVisibleTo("Beutl.Editor.Components")]
 [assembly: InternalsVisibleTo("Beutl.UnitTests")]
+[assembly: InternalsVisibleTo("Beutl.HeadlessUITests")]
 [assembly: InternalsVisibleTo("Beutl.AgentToolkit")]
 [assembly: InternalsVisibleTo("Beutl.AgentToolkit.Tests")]

@@ -9,11 +9,14 @@ using Microsoft.Extensions.FileSystemGlobbing.Abstractions;
 
 namespace Beutl.ProjectSystem;
 
-public partial class Scene
+public partial class Scene : IStoredWithCompanionFiles
 {
-    // Keys use the same relative-URI rules as media properties when serialized.
+    // Keyed by absolute URI. A save writes them to their own file next to the scene file, not into it
+    // (MediaFingerprintFile).
     [NotAutoSerialized]
     public Dictionary<string, MediaFileFingerprint> MediaFingerprints { get; } = new(StringComparer.Ordinal);
+
+    void IStoredWithCompanionFiles.StoreCompanionFiles(Uri uri) => MediaFingerprintFile.Store(uri, MediaFingerprints);
 
     public override void Serialize(ICoreSerializationContext context)
     {
@@ -50,11 +53,6 @@ public partial class Scene
 
             context.SetValue("Elements", elementsNode);
         }
-
-        // Last, just before the type discriminator: that is where the editor's metadata patch
-        // (CoreSerializer.UpdateStoredMetadata) adds the key, so the next full save does not move it.
-        if (MediaFingerprints.Count > 0)
-            context.SetValue(nameof(MediaFingerprints), ToSerializedMediaFingerprints(MediaFingerprints, context.BaseUri));
     }
 
     public override void Deserialize(ICoreSerializationContext context)
@@ -68,7 +66,9 @@ public partial class Scene
 
         Recovery.ReadMetadata(context);
         MediaFingerprints.Clear();
-        if (context.GetValue<Dictionary<string, MediaFileFingerprint>>(nameof(MediaFingerprints)) is { } fingerprints)
+        // Development builds since #2666 wrote the fingerprints into the scene file. The next save moves them
+        // to their own file, which wins for a media file that both name.
+        if (context.GetValue<Dictionary<string, MediaFileFingerprint>>(MediaFingerprintFile.LegacySceneProperty) is { } fingerprints)
         {
             foreach (var pair in fingerprints)
             {
@@ -77,6 +77,14 @@ public partial class Scene
                 catch (JsonException) { continue; }
                 if (uri.IsFile)
                     MediaFingerprints[uri.AbsoluteUri] = pair.Value;
+            }
+        }
+
+        if (Uri is { IsFile: true } sceneUri)
+        {
+            foreach ((string key, MediaFileFingerprint fingerprint) in MediaFingerprintFile.Read(sceneUri))
+            {
+                MediaFingerprints[key] = fingerprint;
             }
         }
 
@@ -218,22 +226,6 @@ public partial class Scene
 
     internal static SuppressedStorageSource? TryResumeElementPersistence(Element element)
         => SceneRecovery.TryResumeElementPersistence(element);
-
-    // The saved form of MediaFingerprints, keyed by serialized URI in ordinal order so the text does not
-    // depend on the order the files were scanned in. The editor's background metadata patch writes the
-    // same form, so a scan that finds nothing new leaves the .scene unchanged.
-    internal static SortedDictionary<string, MediaFileFingerprint> ToSerializedMediaFingerprints(
-        IEnumerable<KeyValuePair<string, MediaFileFingerprint>> fingerprints,
-        Uri? baseUri)
-    {
-        var result = new SortedDictionary<string, MediaFileFingerprint>(StringComparer.Ordinal);
-        foreach ((string key, MediaFileFingerprint fingerprint) in fingerprints)
-        {
-            result.Add(UriHelper.ToSerializedUri(new Uri(key), baseUri).ToString(), fingerprint);
-        }
-
-        return result;
-    }
 
     private void UpdateInclude()
     {

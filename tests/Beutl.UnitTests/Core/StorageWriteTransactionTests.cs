@@ -20,22 +20,25 @@ public class StorageWriteTransactionTests
     [Test]
     [TestCase(false)]
     [TestCase(true)]
-    public void Updating_unchanged_metadata_does_not_rewrite_the_stored_file(bool hasMetadata)
+    public void Updating_unchanged_media_fingerprints_does_not_rewrite_the_stored_files(bool hasFingerprints)
     {
         var scene = new Beutl.ProjectSystem.Scene { Uri = new Uri(PathOf("main.scene")) };
         CoreSerializer.StoreToUri(scene, scene.Uri);
-        System.Text.Json.Nodes.JsonNode? value = hasMetadata
-            ? System.Text.Json.Nodes.JsonNode.Parse("{\"media.png\":{\"Sha256\":\"abc\"}}") : null;
-        if (hasMetadata)
-            Assert.That(CoreSerializer.UpdateStoredMetadata(scene.Uri, scene.Id, nameof(scene.MediaFingerprints), value), Is.True);
+        var fingerprints = new Dictionary<string, Beutl.ProjectSystem.MediaFileFingerprint>();
+        if (hasFingerprints)
+        {
+            fingerprints[new Uri(PathOf("media.png")).AbsoluteUri] = new Beutl.ProjectSystem.MediaFileFingerprint(1, 0, "abc");
+            Assert.That(Beutl.ProjectSystem.MediaFingerprintFile.Update(scene.Uri, scene.Id, fingerprints), Is.True);
+        }
         byte[] bytes = File.ReadAllBytes(scene.Uri.LocalPath);
         using var faults = StorageWriteTransaction.InjectFaultsForTesting((step, path) =>
         {
-            if (step == StorageWriteStep.Replace && path == scene.Uri.LocalPath)
-                Assert.Fail("Unchanged metadata must not be published again.");
+            if (step == StorageWriteStep.Replace)
+                Assert.Fail($"Unchanged fingerprints must not be published again: {path}");
         });
-        Assert.That(CoreSerializer.UpdateStoredMetadata(scene.Uri, scene.Id, nameof(scene.MediaFingerprints), value?.DeepClone()), Is.False);
+        Assert.That(Beutl.ProjectSystem.MediaFingerprintFile.Update(scene.Uri, scene.Id, fingerprints.ToDictionary()), Is.False);
         Assert.That(File.ReadAllBytes(scene.Uri.LocalPath), Is.EqualTo(bytes));
+        Assert.That(File.Exists(Beutl.ProjectSystem.MediaFingerprintFile.GetPath(scene.Uri.LocalPath)), Is.EqualTo(hasFingerprints));
     }
 
     [Test]
