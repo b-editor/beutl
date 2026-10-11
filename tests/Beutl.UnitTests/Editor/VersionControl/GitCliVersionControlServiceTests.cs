@@ -1109,8 +1109,8 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
 
         await service.EnsureRepositoryHygieneAsync(CancellationToken.None);
 
-        string written = "Intro/" + Path.GetFileName(MediaFingerprintFile.GetPath("Intro/Intro.scene"));
-        string[] paths = [written, written.ToUpperInvariant(), "Intro/notes.json"];
+        // The scene folder's file at any depth, and no other JSON file.
+        string[] paths = [$"Intro/{MediaFingerprintFile.FileName}", $"Intro/Takes/{MediaFingerprintFile.FileName}", "Intro/notes.json"];
         GitCommandResult attributes = await RunGitAsync(
             ["check-attr", "text", "eol", "--", .. paths]);
         string[] lines = attributes.Stdout.Split('\n', StringSplitOptions.RemoveEmptyEntries);

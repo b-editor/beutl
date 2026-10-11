@@ -11,8 +11,8 @@ namespace Beutl.ProjectSystem;
 
 public partial class Scene : IStoredWithCompanionFiles
 {
-    // Keyed by absolute URI. A save writes them to their own file next to the scene file, not into it
-    // (MediaFingerprintFile).
+    // Keyed by absolute URI. A save writes them to their own file in the scene's folder, not into the scene
+    // file (MediaFingerprintFile).
     [NotAutoSerialized]
     public Dictionary<string, MediaFileFingerprint> MediaFingerprints { get; } = new(StringComparer.Ordinal);
 

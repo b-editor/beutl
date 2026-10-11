@@ -4,7 +4,7 @@
 // it differs between machines and copies of a project, and identity uses only the length and the
 // hash, so saving it rewrote the shared fingerprints when only timestamps changed. A fingerprint read
 // from disk has 0 there, including one an earlier build wrote with the value. The fingerprints of a
-// scene are saved next to it (MediaFingerprintFile).
+// scene are saved in its folder (MediaFingerprintFile).
 public sealed record MediaFileFingerprint(
     long Length,
     [property: System.Text.Json.Serialization.JsonIgnore] long LastWriteTimeUtcTicks,
