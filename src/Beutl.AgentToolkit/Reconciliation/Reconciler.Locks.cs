@@ -72,7 +72,6 @@ public sealed partial class Reconciler
     // As in the editor (ElementStructureService.Group and Ungroup), a locked element is never added to a
     // group, taken out of one or moved to another. Its group may only lose other members, and it may be
     // left alone only when the others were deleted, since deleting an element prunes its group.
-    // Scene.Groups can hold an Id in more than one group, so every group that holds it counts.
     private static ToolError? FindRegroupedLockedElement(Scene scene, Scene sandbox, Element[] lockedElements)
     {
         if (lockedElements.Length == 0 || (scene.Groups.Count == 0 && sandbox.Groups.Count == 0))
@@ -85,10 +84,24 @@ public sealed partial class Reconciler
         {
             ImmutableHashSet<Guid>[] before = scene.Groups.Where(group => group.Contains(locked.Id)).ToArray();
             ImmutableHashSet<Guid>[] after = sandbox.Groups.Where(group => group.Contains(locked.Id)).ToArray();
-            bool kept = after.Length <= before.Length
-                        && after.All(group => before.Any(original => group.IsSubsetOf(original)))
-                        && before.All(original => after.Any(group => group.IsSubsetOf(original))
-                                                  || !original.Any(id => id != locked.Id && remaining.Contains(id)));
+            // The editor never puts an element in two groups, so that comes from a corrupted project, whose
+            // groups cannot be matched before and after the edit. Refuse until the project is repaired.
+            if (before.Length > 1)
+            {
+                return new ToolError(
+                    ErrorCode.ValidationRejected,
+                    $"Element {DescribeElement(locked)} is locked and is in more than one group, so its grouping cannot be checked.",
+                    ElementTarget(locked),
+                    "The project has overlapping groups containing a locked element, which must be repaired before an agent can edit this scene.");
+            }
+
+            ImmutableHashSet<Guid>? original = before.FirstOrDefault();
+            bool kept = after.Length switch
+            {
+                0 => original is null || !original.Any(id => id != locked.Id && remaining.Contains(id)),
+                1 => original is not null && after[0].IsSubsetOf(original),
+                _ => false,
+            };
             if (!kept)
             {
                 return new ToolError(

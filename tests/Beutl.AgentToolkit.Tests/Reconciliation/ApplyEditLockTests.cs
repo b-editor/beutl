@@ -564,6 +564,35 @@ public sealed class ApplyEditLockTests
         });
     }
 
+    // Only a corrupted project puts an element in two groups, and then the groups before and after the
+    // edit cannot be matched: one group could disappear while the other still holds the element.
+    [Test]
+    public void Apply_edit_refuses_edits_while_a_locked_element_is_in_overlapping_groups()
+    {
+        Scene scene = CreateScene();
+        Element locked = AddElement(scene, "Title", zIndex: 0);
+        locked.IsLocked = true;
+        Element first = AddElement(scene, "First", zIndex: 1);
+        Element second = AddElement(scene, "Second", zIndex: 2);
+        scene.Groups.Add(ImmutableHashSet.Create(locked.Id, first.Id));
+        scene.Groups.Add(ImmutableHashSet.Create(locked.Id, first.Id, second.Id));
+        using var session = new AgentToolkitTestSession(scene);
+        EditTools tools = CreateTools(session);
+        string before = session.Documents.Read(scene).ToJsonString();
+
+        ToolResult<ApplyEditResponse> result = tools.ApplyEdit(
+            patch: new JsonObject { ["Groups"] = new JsonArray($"{locked.Id}:{first.Id}") },
+            schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error!.Message, Does.Contain("is in more than one group"));
+            Assert.That(result.Error.Hint, Does.Contain("overlapping groups"));
+            Assert.That(session.Documents.Read(scene).ToJsonString(), Is.EqualTo(before));
+        });
+    }
+
     // Other members may leave a locked element's group, and deleting the last of them dissolves it,
     // as in the editor.
     [TestCase("leave")]
