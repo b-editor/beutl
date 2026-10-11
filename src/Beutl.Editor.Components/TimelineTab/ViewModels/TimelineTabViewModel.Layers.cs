@@ -1,4 +1,5 @@
 ﻿using System.Collections.Specialized;
+using System.ComponentModel;
 using Avalonia;
 using Beutl.Editor.Components.Helpers;
 using Beutl.ProjectSystem;
@@ -52,10 +53,63 @@ public sealed partial class TimelineTabViewModel
         }
     }
 
-    // Headers can be renumbered by a layer move, so the next row follows the last header's
-    // Number rather than the list index.
-    private int NextLayerNumber()
-        => LayerHeaders.Count == 0 ? 0 : LayerHeaders[^1].Number.Value + 1;
+    // A header's Number is its row, the list index.
+    private int NextLayerNumber() => LayerHeaders.Count;
+
+    // Every header shows the TimelineLayer on its row, so all of them look their model up again whenever a model
+    // moves to another row or is added or removed: a layer move, its undo and redo, or a model that a flag or a
+    // color created or pruned.
+    private IDisposable TrackLayerModels()
+    {
+        var tracked = new List<TimelineLayer>();
+
+        void OnLayerPropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(TimelineLayer.ZIndex))
+                ResyncLayerHeaderModels();
+        }
+
+        void Untrack()
+        {
+            foreach (TimelineLayer layer in tracked)
+                layer.PropertyChanged -= OnLayerPropertyChanged;
+            tracked.Clear();
+        }
+
+        IDisposable items = Scene.Layers.ForEachItem(
+            layer =>
+            {
+                layer.PropertyChanged += OnLayerPropertyChanged;
+                tracked.Add(layer);
+                ResyncLayerHeaderModels();
+            },
+            layer =>
+            {
+                layer.PropertyChanged -= OnLayerPropertyChanged;
+                tracked.Remove(layer);
+                ResyncLayerHeaderModels();
+            },
+            Untrack);
+
+        return Disposable.Create(() =>
+        {
+            items.Dispose();
+            Untrack();
+        });
+    }
+
+    private void ResyncLayerHeaderModels()
+    {
+        // One lookup per pass, since a move rewrites the ZIndex of every layer it shifts, one at a time. The first
+        // model on a row wins, as in ResyncModel.
+        var modelsByRow = new Dictionary<int, TimelineLayer>();
+        foreach (TimelineLayer layer in Scene.Layers)
+            modelsByRow.TryAdd(layer.ZIndex, layer);
+
+        // A snapshot: a header's new model must not be able to change the list under this loop.
+        foreach (LayerHeaderViewModel header in LayerHeaders.ToArray())
+            header.SetModel(modelsByRow.GetValueOrDefault(header.Number.Value));
+    }
 
     private void TryApplyLayerCount(int count)
     {
