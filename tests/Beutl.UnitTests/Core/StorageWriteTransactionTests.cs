@@ -20,22 +20,25 @@ public class StorageWriteTransactionTests
     [Test]
     [TestCase(false)]
     [TestCase(true)]
-    public void Updating_unchanged_metadata_does_not_rewrite_the_stored_file(bool hasMetadata)
+    public void Updating_unchanged_media_fingerprints_does_not_rewrite_the_stored_files(bool hasFingerprints)
     {
         var scene = new Beutl.ProjectSystem.Scene { Uri = new Uri(PathOf("main.scene")) };
+        var fingerprints = new Dictionary<string, Beutl.ProjectSystem.MediaFileFingerprint>();
+        if (hasFingerprints)
+        {
+            fingerprints[new Uri(PathOf("media.png")).AbsoluteUri] = new Beutl.ProjectSystem.MediaFileFingerprint(1, 0, "abc");
+            scene.SetMediaFingerprints(fingerprints);
+        }
         CoreSerializer.StoreToUri(scene, scene.Uri);
-        System.Text.Json.Nodes.JsonNode? value = hasMetadata
-            ? System.Text.Json.Nodes.JsonNode.Parse("{\"media.png\":{\"Sha256\":\"abc\"}}") : null;
-        if (hasMetadata)
-            Assert.That(CoreSerializer.UpdateStoredMetadata(scene.Uri, scene.Id, nameof(scene.MediaFingerprints), value), Is.True);
         byte[] bytes = File.ReadAllBytes(scene.Uri.LocalPath);
         using var faults = StorageWriteTransaction.InjectFaultsForTesting((step, path) =>
         {
-            if (step == StorageWriteStep.Replace && path == scene.Uri.LocalPath)
-                Assert.Fail("Unchanged metadata must not be published again.");
+            if (step == StorageWriteStep.Replace)
+                Assert.Fail($"Unchanged fingerprints must not be published again: {path}");
         });
-        Assert.That(CoreSerializer.UpdateStoredMetadata(scene.Uri, scene.Id, nameof(scene.MediaFingerprints), value?.DeepClone()), Is.False);
+        Assert.That(Beutl.ProjectSystem.MediaFingerprintFile.Update(scene.Uri, scene.Id, fingerprints.ToDictionary()), Is.False);
         Assert.That(File.ReadAllBytes(scene.Uri.LocalPath), Is.EqualTo(bytes));
+        Assert.That(File.Exists(Beutl.ProjectSystem.MediaFingerprintFile.GetPath(scene.Uri.LocalPath)), Is.EqualTo(hasFingerprints));
     }
 
     [Test]
@@ -168,6 +171,39 @@ public class StorageWriteTransactionTests
             Assert.That(File.Exists(created), Is.False);
             Assert.That(StorageWriteTransaction.Current, Is.Null);
             Assert.That(Directory.GetFiles(_directory, "*.tmp", SearchOption.AllDirectories), Is.Empty);
+        });
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Rollback_RestoresADeletedFileLikeAReplacedOne(bool restoreFails)
+    {
+        string path = CreateFile("deleted.json", "before");
+        const UnixFileMode mode = UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead;
+        if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(path, mode);
+        using IDisposable faults = StorageWriteTransaction.InjectFaultsForTesting((step, file) =>
+        {
+            if (restoreFails && step == StorageWriteStep.Restore && file == path)
+                throw new IOException("The folder is locked.");
+        });
+        bool restored;
+
+        using (StorageWriteTransaction transaction = StorageWriteTransaction.Begin())
+        {
+            StorageWriteTransaction.Delete(path);
+            Assert.That(File.Exists(path), Is.False);
+            restored = transaction.Rollback();
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(restored, Is.EqualTo(!restoreFails), "A failed restore is part of the rollback's result.");
+            Assert.That(File.Exists(path), Is.EqualTo(!restoreFails));
+            if (!restoreFails)
+            {
+                Assert.That(File.ReadAllText(path), Is.EqualTo("before"));
+                if (!OperatingSystem.IsWindows()) Assert.That(File.GetUnixFileMode(path), Is.EqualTo(mode));
+            }
         });
     }
 

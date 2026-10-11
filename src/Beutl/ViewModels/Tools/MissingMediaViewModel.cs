@@ -374,8 +374,7 @@ public sealed class MissingMediaViewModel : IToolContext
             {
                 using (_editor.HistoryManager.SuppressRecording())
                     foreach (var restore in rollback) restore();
-                _editor.Scene.MediaFingerprints.Clear();
-                foreach (var pair in fingerprints) _editor.Scene.MediaFingerprints[pair.Key] = pair.Value;
+                _editor.Scene.SetMediaFingerprints(fingerprints);
                 _editor.HasMediaRepairs.Value = hadRepairs;
                 if (fontRows.Length > 0)
                 {

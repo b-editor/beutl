@@ -127,7 +127,7 @@ internal static class ProjectConflictMarkerScanner
                          StringComparer.Ordinal))
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                if (!s_projectExtensions.Contains(Path.GetExtension(file)))
+                if (!IsProjectDocument(file))
                 {
                     continue;
                 }
@@ -463,6 +463,26 @@ internal static class ProjectConflictMarkerScanner
 
         pendingRuneByteCount = 0;
         return status != OperationStatus.Done || !Rune.IsWhiteSpace(rune);
+    }
+
+    private static bool IsProjectDocument(string file)
+    {
+        if (s_projectExtensions.Contains(Path.GetExtension(file)))
+        {
+            return true;
+        }
+
+        // A scene's media fingerprints are a project document too, though their extension is the common .json.
+        // The name is compared like a pruned folder's, by the rules of the volume that holds it.
+        string name = Path.GetFileName(file);
+        const string fingerprints = Beutl.ProjectSystem.MediaFingerprintFile.FileName;
+        return string.Equals(name, fingerprints, StringComparison.OrdinalIgnoreCase)
+               && VersionControlPathComparison.TryAreSameChildPath(
+                   Path.GetDirectoryName(file) ?? file,
+                   name,
+                   fingerprints,
+                   out bool areSame)
+               && areSame;
     }
 
     internal static bool ShouldDescendInto(string directory)

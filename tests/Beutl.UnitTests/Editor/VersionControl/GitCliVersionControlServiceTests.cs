@@ -1102,6 +1102,32 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task EnsureRepositoryHygieneAsync_marks_scene_media_fingerprint_files_as_text_like_the_scene()
+    {
+        await CommitFileAsync("project.bep", "{}\n", "existing repository");
+        using var service = CreateService();
+
+        await service.EnsureRepositoryHygieneAsync(CancellationToken.None);
+
+        // The scene folder's file at any depth, and no other JSON file.
+        string[] paths = [$"Intro/{MediaFingerprintFile.FileName}", $"Intro/Takes/{MediaFingerprintFile.FileName}", "Intro/notes.json"];
+        GitCommandResult attributes = await RunGitAsync(
+            ["check-attr", "text", "eol", "--", .. paths]);
+        string[] lines = attributes.Stdout.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        Assert.That(
+            lines,
+            Is.EqualTo(new[]
+            {
+                $"{paths[0]}: text: set",
+                $"{paths[0]}: eol: lf",
+                $"{paths[1]}: text: set",
+                $"{paths[1]}: eol: lf",
+                $"{paths[2]}: text: unspecified",
+                $"{paths[2]}: eol: unspecified",
+            }));
+    }
+
+    [Test]
     public async Task EnsureRepositoryHygieneAsync_preserves_unmanaged_lfs_rules_when_lfs_is_disabled()
     {
         await CommitFileAsync("project.bep", "{}\n", "baseline");
