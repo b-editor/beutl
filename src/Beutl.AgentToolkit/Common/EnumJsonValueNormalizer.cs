@@ -48,7 +48,7 @@ internal static class EnumJsonValueNormalizer
     private static JsonObject NormalizeCoreSerializable(JsonObject obj, Type targetType)
     {
         JsonObject normalized = (JsonObject)obj.DeepClone();
-        Type? actualType = targetType.IsSealed ? targetType : normalized.GetDiscriminator(targetType);
+        Type? actualType = CoreSerializer.ResolveActualType(normalized, targetType);
         if (actualType is null)
         {
             return normalized;

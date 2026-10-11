@@ -288,7 +288,7 @@ internal sealed partial class DeclarativeDocumentApplier
     private static JsonObject NormalizeCoreSerializableJson(JsonObject json, Type baseType)
     {
         JsonObject normalized = (JsonObject)EnumJsonValueNormalizer.Normalize(json, baseType);
-        Type? actualType = baseType.IsSealed ? baseType : normalized.GetDiscriminator(baseType);
+        Type? actualType = CoreSerializer.ResolveActualType(normalized, baseType);
         if (actualType is null)
         {
             return normalized;
