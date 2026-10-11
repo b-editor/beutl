@@ -3,7 +3,6 @@ using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Beutl.Api;
 using Beutl.Api.Clients;
-using Beutl.Configuration;
 using Beutl.Logging;
 using Beutl.Services;
 using Microsoft.Extensions.Logging;
@@ -148,38 +147,6 @@ public class UpdateDialogViewModel
             var psi = new ProcessStartInfo(_downloadFile) { UseShellExecute = true, Verb = "open" };
             await LaunchInstallerAsync(psi);
         }
-        else if (metadata.Type == "zip")
-        {
-            if (await WriteUpdateScriptAsync("update.ps1", "Beutl.Resources.win-update.ps1", withBom: true)
-                is not { } scriptPath)
-            {
-                return;
-            }
-
-            var directory = ZipStagingDirectory;
-            var target = AppContext.BaseDirectory;
-
-            // Windows PowerShell, which the script is written for, wherever Windows is installed.
-            var psi = new ProcessStartInfo(
-                Path.Combine(Environment.SystemDirectory, "WindowsPowerShell", "v1.0", "powershell.exe"))
-            {
-                WorkingDirectory = BeutlEnvironment.GetHomeDirectoryPath(),
-                CreateNoWindow = !Preferences.Default.Get("Updater.ShowWindow", false),
-                ArgumentList =
-                {
-                    "-ExecutionPolicy",
-                    "Bypass",
-                    "-File",
-                    scriptPath,
-                    directory,
-                    target,
-                    "Beutl",
-                    Path.Combine(AppContext.BaseDirectory, "Beutl.exe")
-                }
-            };
-
-            await LaunchInstallerAsync(psi);
-        }
     }
 
     private async Task InstallOnLinux(AssetMetadataJson metadata)
@@ -197,8 +164,7 @@ public class UpdateDialogViewModel
         }
         else if (metadata.Type == "zip")
         {
-            if (await WriteUpdateScriptAsync("update.sh", "Beutl.Resources.linux-update.sh", withBom: false)
-                is not { } scriptPath)
+            if (await WriteUpdateScriptAsync("update.sh", "Beutl.Resources.linux-update.sh") is not { } scriptPath)
             {
                 return;
             }
@@ -226,27 +192,17 @@ public class UpdateDialogViewModel
 
     private async Task InstallOnOSX(AssetMetadataJson metadata)
     {
-        if (await WriteUpdateScriptAsync("update.sh", "Beutl.Resources.osx-update.sh", withBom: false)
-            is not { } scriptPath)
+        // Only the signed app updates in place; the unsigned macOS zips are no longer published.
+        if (metadata.Type != "app") return;
+
+        if (await WriteUpdateScriptAsync("update.sh", "Beutl.Resources.osx-update.sh") is not { } scriptPath)
         {
             return;
         }
 
-        var directory = UpdateStagingRoot;
-        if (metadata.Type == "zip")
-        {
-            directory = ZipStagingDirectory;
-        }
-        else if (metadata.Type == "app")
-        {
-            directory = Path.Combine(directory, "Beutl.app");
-        }
-
-        var target = AppContext.BaseDirectory;
-        if (metadata.Type == "app")
-        {
-            target = Path.GetFullPath("../../", AppContext.BaseDirectory);
-        }
+        // The update unpacks to Beutl.app in the staging folder and replaces the bundle the application runs from.
+        var directory = Path.Combine(UpdateStagingRoot, "Beutl.app");
+        var target = Path.GetFullPath("../../", AppContext.BaseDirectory);
 
         var psi = new ProcessStartInfo("bash")
         {
@@ -311,7 +267,9 @@ public class UpdateDialogViewModel
                 return;
             }
 
-            if (metadata.Type is "zip" or "app")
+            // Only the Linux zip and the macOS app install from an unpacked update. Windows and macOS zips
+            // are no longer published and have no update path.
+            if ((metadata.Type == "zip" && OperatingSystem.IsLinux()) || metadata.Type == "app")
             {
                 if (!await StageExtractedUpdateAsync(metadata, _downloadFile)) return;
             }
@@ -330,45 +288,23 @@ public class UpdateDialogViewModel
 
     // A zip update unpacks into a folder named like the one the application runs from.
     private static string ZipStagingDirectory
-        => GetZipStagingDirectory(AppContext.BaseDirectory, UpdateStagingRoot, OperatingSystem.IsWindows(), out _);
+        => GetZipStagingDirectory(AppContext.BaseDirectory, UpdateStagingRoot);
 
-    // On Windows the folder sits next to the application folder, on the same volume: win-update.ps1
-    // moves it into place, and Windows PowerShell cannot move a directory to another volume.
-    // The Linux and macOS scripts copy the update, so it stays in the home directory there.
-    internal static string GetZipStagingDirectory(
-        string appDirectory, string stagingRoot, bool isWindows, out bool besideApplication)
-    {
-        var app = new DirectoryInfo(appDirectory);
-        besideApplication = isWindows && app.Parent is not null;
-        if (besideApplication)
-        {
-            return Path.Combine(app.Parent!.FullName, app.Name + ".update");
-        }
-
-        return Path.Combine(stagingRoot, app.Name);
-    }
-
-    // Marks a staging folder that an update created next to the application.
-    internal const string StagingMarkerFileName = ".beutl-update-staging";
+    // The update script copies the update over the application, so it stays in the home directory.
+    internal static string GetZipStagingDirectory(string appDirectory, string stagingRoot)
+        => Path.Combine(stagingRoot, new DirectoryInfo(appDirectory).Name);
 
     // Unpacks a zip or app update into an empty staging folder and offers the restart.
     private async Task<bool> StageExtractedUpdateAsync(AssetMetadataJson metadata, string file)
     {
-        var destination = UpdateStagingRoot;
-        bool besideApplication = false;
-        if (metadata.Type == "zip")
-        {
-            destination = GetZipStagingDirectory(
-                AppContext.BaseDirectory, UpdateStagingRoot, OperatingSystem.IsWindows(), out besideApplication);
-        }
+        var destination = metadata.Type == "zip" ? ZipStagingDirectory : UpdateStagingRoot;
 
         try
         {
-            PrepareStagingDirectory(destination, besideApplication);
+            PrepareStagingDirectory(destination);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            // For example, the folder next to the application is not writable.
             _logger.LogError(ex, "Failed to prepare the update folder {Destination}", destination);
             ProgressText.Value = ex.Message;
             return false;
@@ -382,49 +318,24 @@ public class UpdateDialogViewModel
         return true;
     }
 
-    // Creates an empty staging folder. The home directory's tmp folder belongs to Beutl, but a folder next
-    // to the application is replaced only when an earlier update created it; anything else there is kept.
-    internal static void PrepareStagingDirectory(string destination, bool besideApplication)
+    // Creates an empty staging folder in the home directory's tmp folder, which belongs to Beutl.
+    internal static void PrepareStagingDirectory(string destination)
     {
         if (Directory.Exists(destination))
         {
-            if (besideApplication && !File.Exists(Path.Combine(destination, StagingMarkerFileName)))
-                throw new IOException(string.Format(MessageStrings.UpdateFolderAlreadyExists, destination));
-
             Directory.Delete(destination, true);
         }
 
         Directory.CreateDirectory(destination);
-        if (besideApplication)
-        {
-            try
-            {
-                File.WriteAllText(Path.Combine(destination, StagingMarkerFileName),
-                    "Created by the Beutl updater. A folder with this file is replaced by the next update.");
-            }
-            catch
-            {
-                // This attempt created the folder. Without its marker, the next attempt would keep it as
-                // someone else's, so remove it.
-                try { Directory.Delete(destination, true); }
-                catch (Exception cleanup) when (cleanup is IOException or UnauthorizedAccessException) { }
-                throw;
-            }
-        }
     }
 
     // Writes the update script resource to the home directory's tmp folder. A script that
     // cannot be loaded is reported and gives no path.
-    private async Task<string?> WriteUpdateScriptAsync(string fileName, string resourceName, bool withBom)
+    private async Task<string?> WriteUpdateScriptAsync(string fileName, string resourceName)
     {
         string scriptPath = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp", fileName);
         await using (var fs = File.Create(scriptPath))
         {
-            if (withBom)
-            {
-                // UTF-8 BOMを書き込む
-                await fs.WriteAsync(new byte[] { 0xEF, 0xBB, 0xBF });
-            }
             if (!await LoadScript(resourceName, fs))
             {
                 ProgressText.Value = MessageStrings.FailedToLoadScript;
@@ -668,9 +579,9 @@ public class UpdateDialogViewModel
 
     private void ValidateApplicationPayload(AssetMetadataJson metadata, string directory)
     {
+        // Windows updates through its installer, so only Linux zips and the macOS app get here.
         string executable = metadata.OS switch
         {
-            "win" => "Beutl.exe",
             "linux" or "osx" => "Beutl",
             _ => throw new InvalidDataException(MessageStrings.OperationFailed),
         };
@@ -682,7 +593,6 @@ public class UpdateDialogViewModel
             {
                 requiredFiles.Add(metadata.OS switch
                 {
-                    "win" => library + ".dll",
                     "linux" => "lib" + library + ".so",
                     _ => "lib" + library + ".dylib",
                 });

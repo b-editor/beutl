@@ -126,8 +126,6 @@ public class UpdateExtractionTests
     }
 
     [Test]
-    [TestCase("win", false)]
-    [TestCase("win", true)]
     [TestCase("linux", false)]
     [TestCase("linux", true)]
     [TestCase("osx", false)]
@@ -144,7 +142,7 @@ public class UpdateExtractionTests
 
             Assert.That(await ExtractAsync("zip", archive, destination, os: os, standalone: standalone), Is.True);
             Assert.That(File.Exists(archive), Is.False);
-            Assert.That(File.Exists(Path.Combine(destination, os == "win" ? "Beutl.exe" : "Beutl")), Is.True);
+            Assert.That(File.Exists(Path.Combine(destination, "Beutl")), Is.True);
         }
         finally { Directory.Delete(root, true); }
     }
@@ -228,13 +226,13 @@ public class UpdateExtractionTests
     private static void AddApplicationPayload(
         ZipArchive zip, string os = "osx", bool standalone = true, string prefix = "", string? omitted = null)
     {
-        string executable = os == "win" ? "Beutl.exe" : "Beutl";
+        const string executable = "Beutl";
         List<string> files = [executable, "Beutl.dll", "Beutl.deps.json", "Beutl.runtimeconfig.json"];
         if (standalone)
         {
             files.Add("System.Private.CoreLib.dll");
             foreach (string library in new[] { "coreclr", "hostfxr", "hostpolicy" })
-                files.Add(os == "win" ? library + ".dll" : "lib" + library + (os == "linux" ? ".so" : ".dylib"));
+                files.Add("lib" + library + (os == "linux" ? ".so" : ".dylib"));
         }
         foreach (string file in files.Where(file => file != omitted))
         {

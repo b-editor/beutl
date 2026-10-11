@@ -10,74 +10,11 @@ public sealed class UpdateHandoffTests
     private static readonly string[] s_command = ["bash", "-c", "echo update"];
 
     [Test]
-    public void WindowsZipStaging_IsNextToTheApplicationFolder()
-    {
-        // The application and the Beutl home directory are on different volumes.
-        (string apps, string stagingRoot) = OperatingSystem.IsWindows()
-            ? (@"D:\Apps", @"C:\Users\user\.beutl\tmp\update")
-            : ("/mnt/apps", "/home/user/.beutl/tmp/update");
-        string app = Path.Combine(apps, "Beutl") + Path.DirectorySeparatorChar;
-
-        string staging = UpdateDialogViewModel.GetZipStagingDirectory(app, stagingRoot, isWindows: true, out bool besideApplication);
-
-        // win-update.ps1 moves the staged folder into place, which Windows PowerShell can only do on one volume.
-        Assert.Multiple(() =>
-        {
-            Assert.That(staging, Is.EqualTo(Path.Combine(apps, "Beutl.update")));
-            Assert.That(Path.GetPathRoot(staging), Is.EqualTo(Path.GetPathRoot(app)));
-            Assert.That(besideApplication, Is.True);
-        });
-    }
-
-    [Test]
     public void UnixZipStaging_StaysInTheHomeDirectory()
     {
-        string staging = UpdateDialogViewModel.GetZipStagingDirectory(
-            "/mnt/apps/Beutl/", "/home/user/.beutl/tmp/update", isWindows: false, out bool besideApplication);
+        string staging = UpdateDialogViewModel.GetZipStagingDirectory("/mnt/apps/Beutl/", "/home/user/.beutl/tmp/update");
 
         Assert.That(staging, Is.EqualTo(Path.Combine("/home/user/.beutl/tmp/update", "Beutl")));
-        Assert.That(besideApplication, Is.False);
-    }
-
-    [Test]
-    public void StagingBesideTheApplication_KeepsAFolderTheUpdaterDidNotCreate()
-    {
-        string root = Directory.CreateTempSubdirectory("beutl-staging-").FullName;
-        try
-        {
-            // For example, another portable copy that happens to have the staging folder's name.
-            string staging = Directory.CreateDirectory(Path.Combine(root, "Beutl.update")).FullName;
-            string userFile = Path.Combine(staging, "project.bep");
-            File.WriteAllText(userFile, "user data");
-
-            Assert.Throws<IOException>(() => UpdateDialogViewModel.PrepareStagingDirectory(staging, besideApplication: true));
-            Assert.That(File.ReadAllText(userFile), Is.EqualTo("user data"));
-        }
-        finally
-        {
-            Directory.Delete(root, true);
-        }
-    }
-
-    [Test]
-    public void StagingBesideTheApplication_ReplacesAFolderAnEarlierUpdateCreated()
-    {
-        string root = Directory.CreateTempSubdirectory("beutl-staging-").FullName;
-        try
-        {
-            string staging = Path.Combine(root, "Beutl.update");
-            UpdateDialogViewModel.PrepareStagingDirectory(staging, besideApplication: true);
-            File.WriteAllText(Path.Combine(staging, "Beutl.dll"), "an update that was not installed");
-
-            UpdateDialogViewModel.PrepareStagingDirectory(staging, besideApplication: true);
-
-            Assert.That(Directory.GetFileSystemEntries(staging).Select(Path.GetFileName),
-                Is.EqualTo(new[] { UpdateDialogViewModel.StagingMarkerFileName }));
-        }
-        finally
-        {
-            Directory.Delete(root, true);
-        }
     }
 
     [Test]
@@ -89,7 +26,7 @@ public sealed class UpdateHandoffTests
             string staging = Directory.CreateDirectory(Path.Combine(root, "Beutl")).FullName;
             File.WriteAllText(Path.Combine(staging, "Beutl.dll"), "an update that was not installed");
 
-            UpdateDialogViewModel.PrepareStagingDirectory(staging, besideApplication: false);
+            UpdateDialogViewModel.PrepareStagingDirectory(staging);
 
             Assert.That(Directory.GetFileSystemEntries(staging), Is.Empty);
         }
