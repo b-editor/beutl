@@ -46,7 +46,7 @@ public sealed class SampleProviderImpl : ISampleProvider, IDisposable
         _producerTask = Task.Run(ComposeSamplesAsync, _cts.Token);
     }
 
-    public long SampleCount => (long)(_scene.Duration.TotalSeconds * _sampleRate);
+    public long SampleCount => FrameProviderImpl.ToFrameCount(_scene.Duration, new Rational(_sampleRate));
 
     public long SampleRate => _sampleRate;
 

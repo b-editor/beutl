@@ -53,7 +53,7 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
         _producerTask = Task.Run(RenderFramesAsync, _cts.Token);
     }
 
-    public long FrameCount => (long)(_scene.Duration.TotalSeconds * _rate.ToDouble());
+    public long FrameCount => ToFrameCount(_scene.Duration, _rate);
 
     public Rational FrameRate => _rate;
 
@@ -100,6 +100,28 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
     // (frame / (rate.Numerator / rate.Denominator)) * TimeSpan.TicksPerSecond
     private TimeSpan FrameToTime(long frame)
         => TimeSpan.FromTicks(frame * _rate.Denominator * TimeSpan.TicksPerSecond / _rate.Numerator);
+
+    // The number of frames in duration, rounded to the nearest frame. Frame-aligned scene lengths are
+    // truncated to whole ticks and fall just short of their frame count, so truncating here would drop
+    // the last frame
+    internal static long ToFrameCount(TimeSpan duration, Rational rate)
+    {
+        long numerator = rate.Numerator;
+        long denominator = rate.Denominator;
+        if (denominator < 0)
+        {
+            numerator = -numerator;
+            denominator = -denominator;
+        }
+
+        if (duration <= TimeSpan.Zero || numerator <= 0 || denominator == 0)
+            return 0;
+
+        // duration.Ticks / (TicksPerSecond * denominator / numerator), with the frame length kept exact
+        Int128 dividend = (Int128)duration.Ticks * numerator;
+        Int128 divisor = (Int128)TimeSpan.TicksPerSecond * denominator;
+        return (long)((2 * dividend + divisor) / (2 * divisor));
+    }
 
     private async ValueTask<Bitmap> RenderFrameCore(long frame, CancellationToken cancellationToken)
     {
