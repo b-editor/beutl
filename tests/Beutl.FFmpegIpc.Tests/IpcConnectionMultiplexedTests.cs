@@ -665,6 +665,21 @@ public class IpcConnectionMultiplexedTests
         Assert.That(PendingCount(conn), Is.EqualTo(0));
     }
 
+    // A pipe on Unix keeps reporting itself connected after the remote end closed it, until a write fails, while the
+    // worker host decides by IsConnected whether the worker must be started again.
+    [Test]
+    public async Task IsConnected_TurnsFalse_WhenTheRemoteEndClosesThePipe()
+    {
+        var (server, client) = ConnectPair();
+        using var conn = new IpcConnection(client);
+        conn.StartMultiplexedReceive();
+        Assert.That(conn.IsConnected, Is.True);
+
+        server.Dispose();
+
+        await WaitUntil(() => !conn.IsConnected, TimeSpan.FromSeconds(5), "the connection reports the closed pipe");
+    }
+
     private static async Task WaitUntil(Func<bool> predicate, TimeSpan timeout, string description)
     {
         var deadline = DateTime.UtcNow + timeout;

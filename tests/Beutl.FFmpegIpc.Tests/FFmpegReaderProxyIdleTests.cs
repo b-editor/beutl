@@ -497,6 +497,174 @@ public class FFmpegReaderProxyIdleTests
         });
     }
 
+    // After the shared worker exits (a crash, or running out of memory), the host starts a new one on the next
+    // open. Readers opened on the old worker must move to the new one instead of failing every read.
+    [TestCase(false)]
+    [TestCase(true)]
+    public void ReadVideo_ReopensOnTheNewWorker_AfterTheWorkerExits(bool hostDisposedTheConnection)
+    {
+        using var restartedWorker = new FakeWorker(firstReaderId: 9);
+        int reopenCount = 0;
+        using var reader = CreateVideoProxy(() =>
+        {
+            reopenCount++;
+            return (restartedWorker.Connection, restartedWorker.OpenVideo());
+        });
+        ReadFirstByte(reader, 0);
+
+        // Starting the new worker disposes the connection to the old one.
+        if (hostDisposedTheConnection)
+            _worker.Connection.Dispose();
+        _worker.Exit();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ReadFirstByte(reader, 1), Is.EqualTo(FakeWorker.PixelValue(9, 1)));
+            Assert.That(reader.ReaderId, Is.EqualTo(9));
+            Assert.That(reader.IsSuspended, Is.False);
+            Assert.That(_tracker.TrackedCount, Is.EqualTo(1), "the reopened reader is tracked again");
+        });
+        Assert.Multiple(() =>
+        {
+            Assert.That(ReadFirstByte(reader, 2), Is.EqualTo(FakeWorker.PixelValue(9, 2)));
+            Assert.That(reopenCount, Is.EqualTo(1), "later reads stay on the new worker");
+        });
+    }
+
+    [Test]
+    public void ReadAudio_ReopensOnTheNewWorker_AfterTheWorkerExits()
+    {
+        using var restartedWorker = new FakeWorker(firstReaderId: 9);
+        OpenFileResponse response = _worker.OpenAudio(sampleRate: 8000);
+        using var reader = new FFmpegReaderProxy(
+            _worker.Connection, response.ReaderId, response,
+            () => (restartedWorker.Connection, restartedWorker.OpenAudio(sampleRate: 8000)), _tracker);
+        Assert.That(ReadSamples(reader, 100), Is.EqualTo(100));
+
+        _worker.Exit();
+
+        Assert.Multiple(() =>
+        {
+            // Longer than one second, so the proxy splits the request into chunks.
+            Assert.That(ReadSamples(reader, 9000), Is.EqualTo(9000));
+            Assert.That(reader.ReaderId, Is.EqualTo(9));
+        });
+    }
+
+    // A worker that stops answering would block the reading thread, often the render thread, for good. It is
+    // treated like one that exited, and the worker still closes the old reader once its read finishes.
+    [Test]
+    public void ReadVideo_ReopensTheReader_WhenTheWorkerStopsAnswering()
+    {
+        using var restartedWorker = new FakeWorker(firstReaderId: 9);
+        OpenFileResponse response = _worker.OpenVideo();
+        using var reader = new FFmpegReaderProxy(
+            _worker.Connection, response.ReaderId, response,
+            () => (restartedWorker.Connection, restartedWorker.OpenVideo()), _tracker)
+        {
+            RequestTimeout = TimeSpan.FromMilliseconds(200),
+        };
+        int stuckId = reader.ReaderId;
+
+        _worker.ReleaseReads.Reset();
+        try
+        {
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            Assert.Multiple(() =>
+            {
+                Assert.That(ReadFirstByte(reader, 1), Is.EqualTo(FakeWorker.PixelValue(9, 1)));
+                Assert.That(stopwatch.Elapsed, Is.LessThan(TimeSpan.FromSeconds(5)));
+            });
+        }
+        finally
+        {
+            _worker.ReleaseReads.Set();
+        }
+
+        _worker.WaitForClose(stuckId);
+    }
+
+    // The reopened reader can lose its worker too. The read then fails, as a read on a lost worker always did, but
+    // the reader stays suspended, so the next read reopens it again.
+    [Test]
+    public void ReadVideo_ReopensOncePerRead_AndTheNextReadReopensAgain()
+    {
+        using var crashingWorker = new FakeWorker(firstReaderId: 5);
+        using var restartedWorker = new FakeWorker(firstReaderId: 9);
+        int reopenCount = 0;
+        using var reader = CreateVideoProxy(() =>
+        {
+            if (++reopenCount > 1)
+                return (restartedWorker.Connection, restartedWorker.OpenVideo());
+
+            OpenFileResponse opened = crashingWorker.OpenVideo();
+            crashingWorker.Exit();
+            return (crashingWorker.Connection, opened);
+        });
+        _worker.Exit();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(() => reader.ReadVideo(0, out _), Throws.InstanceOf<IOException>());
+            Assert.That(reader.IsSuspended, Is.True);
+            Assert.That(reopenCount, Is.EqualTo(1));
+        });
+        Assert.Multiple(() =>
+        {
+            Assert.That(ReadFirstByte(reader, 1), Is.EqualTo(FakeWorker.PixelValue(9, 1)));
+            Assert.That(reopenCount, Is.EqualTo(2));
+        });
+    }
+
+    // While no worker can be started, a reader that lost its worker returns no media, like a suspended reader
+    // that fails to reopen, and the next read tries again.
+    [Test]
+    public void ReadVideo_ReturnsFalse_WhileTheReaderCannotBeReopened_AndRecoversLater()
+    {
+        using var restartedWorker = new FakeWorker(firstReaderId: 9);
+        int attempts = 0;
+        using var reader = CreateVideoProxy(() =>
+        {
+            if (++attempts == 1)
+                throw new InvalidOperationException("FFmpeg worker startup failed recently; retry after the cooldown.");
+            return (restartedWorker.Connection, restartedWorker.OpenVideo());
+        });
+        _worker.Exit();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(reader.ReadVideo(0, out var image), Is.False);
+            Assert.That(image, Is.Null);
+            Assert.That(reader.IsSuspended, Is.True);
+        });
+        Assert.Multiple(() =>
+        {
+            Assert.That(ReadFirstByte(reader, 1), Is.EqualTo(FakeWorker.PixelValue(9, 1)));
+            Assert.That(attempts, Is.EqualTo(2));
+        });
+    }
+
+    // Reopening a reader opens it on the worker as well, so an open must not wait for good either. A reader the
+    // worker opens after the time limit is closed instead of staying in the worker.
+    [Test]
+    public void DecoderInfo_Open_GivesUpOnAWorkerThatDoesNotAnswer_AndClosesTheLateReader()
+    {
+        var decoderInfo = new FFmpegDecoderInfo(
+            new FFmpegDecodingSettings(), () => _worker.Connection, _tracker, TimeSpan.FromMilliseconds(200));
+        _worker.ReleaseOpens.Reset();
+        try
+        {
+            Assert.That(decoderInfo.Open("clip.mp4", new MediaOptions(MediaMode.Video)), Is.Null);
+        }
+        finally
+        {
+            _worker.ReleaseOpens.Set();
+        }
+
+        // The first reader the worker opens gets ID 1.
+        _worker.WaitForClose(1);
+    }
+
     private static bool TrySuspend(FFmpegReaderProxy reader)
     {
         var suspendable = (IIdleSuspendableReader)reader;
@@ -562,6 +730,9 @@ public class FFmpegReaderProxyIdleTests
         public ManualResetEventSlim CloseReceived { get; } = new(false);
 
         public ManualResetEventSlim ReleaseCloses { get; } = new(true);
+
+        // While reset, the worker holds its answer to OpenFile.
+        public ManualResetEventSlim ReleaseOpens { get; } = new(true);
 
         public FakeWorker(int firstReaderId = 1)
         {
@@ -644,6 +815,19 @@ public class FFmpegReaderProxyIdleTests
                 $"the worker never received CloseReader for reader {readerId}");
         }
 
+        // Like the worker process exiting: it stops answering, its end of the pipe closes, which faults the host's
+        // connection, and the shared memory it owned goes away.
+        public void Exit()
+        {
+            _cts.Cancel();
+            _server.Dispose();
+            foreach (int readerId in _buffers.Keys)
+            {
+                if (_buffers.TryRemove(readerId, out SharedMemoryBuffer? buffer))
+                    buffer.Dispose();
+            }
+        }
+
         public void Dispose()
         {
             // Proxies close their readers asynchronously; let those CloseReader requests finish before the
@@ -666,6 +850,7 @@ public class FFmpegReaderProxyIdleTests
             ReleaseReads.Dispose();
             CloseReceived.Dispose();
             ReleaseCloses.Dispose();
+            ReleaseOpens.Dispose();
         }
 
         private async Task RunAsync()
@@ -708,6 +893,7 @@ public class FFmpegReaderProxyIdleTests
         private IpcMessage HandleOpen(IpcMessage request)
         {
             OpenRequests.Enqueue(request.GetPayload<OpenFileRequest>()!);
+            ReleaseOpens.Wait(TimeSpan.FromSeconds(10));
             return IpcMessage.Create(request.Id, MessageType.OpenFileResult, OpenVideo());
         }
 
