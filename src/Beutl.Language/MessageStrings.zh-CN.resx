@@ -495,4 +495,13 @@
   <data name="GraphKeyFrameTransformRejected" xml:space="preserve">
     <value>关键帧时间会重叠，或选区包含无法反转的缓动。</value>
   </data>
+  <data name="RecoveryProtectedElementsTitle" xml:space="preserve">
+    <value>部分元素未能完全加载</value>
+  </data>
+  <data name="RecoveryProtectedElementsMessage" xml:space="preserve">
+    <value>{0} 中的以下元素未能完全加载，通常是因为未安装某个扩展：{1}。在缺少的类型可用或移除不可用的对象之前，对这些元素的编辑不会被保存，因此在此之前它们为只读。</value>
+  </data>
+  <data name="RecoveryProtectedElementToolTip" xml:space="preserve">
+    <value>此元素的一部分未能加载，因此为只读。在缺少的类型可用或移除不可用的对象之前，编辑不会被保存。</value>
+  </data>
 </root>

@@ -7,12 +7,29 @@ namespace Beutl.Editor.Services;
 
 internal static class ElementEditability
 {
+    // False while the element or its layer is locked, or while recovery keeps the element's
+    // original file (Element.IsRecoveryProtected), because saving would not write the edit.
     public static bool IsEditable(Element? element, Scene? scene = null)
     {
         if (element is null) return true;
 
         scene ??= element.FindHierarchicalParent<Scene>();
-        return !(scene?.IsElementLocked(element) ?? element.IsLocked);
+        return !(scene?.IsElementLocked(element) ?? (element.IsLocked || element.IsRecoveryProtected));
+    }
+
+    // Whether an edit that removes or replaces content of the element (one of its objects, or a
+    // value or animation inside one) is allowed. Besides an editable element, this allows one that
+    // only recovery protects when the content holds what could not be loaded: removing or replacing
+    // that content is how the user repairs the element. When nothing of that kind is left in the
+    // element, because the unreadable value was dropped while loading, any such edit repairs it.
+    public static bool CanRepair(Element? element, object? content, Scene? scene = null)
+    {
+        if (IsEditable(element, scene)) return true;
+
+        scene ??= element!.FindHierarchicalParent<Scene>();
+        return element!.IsRecoveryProtected
+               && !(scene?.IsElementLockedByUser(element) ?? element.IsLocked)
+               && (Scene.HoldsRecoveryBlocker(content) || !Scene.HasUnresolvedRecoveryBlocker(element));
     }
 
     public static IObservable<bool> Observe(Element? element, Scene? scene = null)
@@ -20,9 +37,37 @@ internal static class ElementEditability
         if (element is null) return Observable.Return(true);
 
         scene ??= element.FindHierarchicalParent<Scene>();
-        var elementChanges = element.GetObservable(Element.IsLockedProperty).Select(_ => Unit.Default);
-        if (scene is null)
-            return elementChanges.Select(_ => IsEditable(element)).DistinctUntilChanged();
+        Scene? owner = scene;
+        return ObserveChanges(element, owner)
+            .Select(_ => IsEditable(element, owner))
+            .DistinctUntilChanged();
+    }
+
+    // Like Observe, for edits that remove or replace content (see CanRepair). It is checked again when
+    // a lock or the protection changes, not after edits inside the content; callers that act on it
+    // still go through a service that checks CanRepair at that moment.
+    public static IObservable<bool> ObserveRepair(Element? element, object? content, Scene? scene = null)
+    {
+        if (element is null) return Observable.Return(true);
+
+        scene ??= element.FindHierarchicalParent<Scene>();
+        Scene? owner = scene;
+        return ObserveChanges(element, owner)
+            .Select(_ => CanRepair(element, content, owner))
+            .DistinctUntilChanged();
+    }
+
+    // Fires on subscription and whenever the element's lock, its recovery protection, or the lock
+    // of the layer it is on may have changed.
+    private static IObservable<Unit> ObserveChanges(Element element, Scene? scene)
+    {
+        IObservable<Unit> elementChanges = element.GetObservable(Element.IsLockedProperty)
+            .Select(_ => Unit.Default)
+            .Merge(Observable.FromEventPattern(
+                    handler => element.RecoveryProtectionChanged += handler,
+                    handler => element.RecoveryProtectionChanged -= handler)
+                .Select(_ => Unit.Default));
+        if (scene is null) return elementChanges;
 
         Scene owner = scene;
         // Rebind after layer membership changes, including undo/redo. A layer can move
@@ -45,7 +90,6 @@ internal static class ElementEditability
 
         return elementChanges
             .Merge(element.GetObservable(Element.ZIndexProperty).Select(_ => Unit.Default))
-            .CombineLatest(layerChanges, (_, _) => IsEditable(element, owner))
-            .DistinctUntilChanged();
+            .CombineLatest(layerChanges, (_, _) => Unit.Default);
     }
 }

@@ -267,7 +267,7 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>,
 
     public void SetTarget(Transform? target)
     {
-        if (!IsElementEditable) return;
+        if (!CanReplace(Value.Value)) return;
         if (Value.Value is IPresenter<Transform> presenter)
         {
             PresenterEditorHelper.AssignTarget(presenter, target);

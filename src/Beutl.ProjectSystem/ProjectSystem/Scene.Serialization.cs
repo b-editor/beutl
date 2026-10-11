@@ -217,6 +217,12 @@ public partial class Scene
     internal static SuppressedStorageSource? TryResumeElementPersistence(Element element)
         => SceneRecovery.TryResumeElementPersistence(element);
 
+    internal static bool HasUnresolvedRecoveryBlocker(Element element)
+        => SceneRecovery.HasUnresolvedRecoveryBlocker(element);
+
+    internal static bool HoldsRecoveryBlocker(object? content)
+        => SceneRecovery.HoldsRecoveryBlocker(content);
+
     private void UpdateInclude()
     {
         string dirPath = Path.GetDirectoryName(Uri!.LocalPath)!;

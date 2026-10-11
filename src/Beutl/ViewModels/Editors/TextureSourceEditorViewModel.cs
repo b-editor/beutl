@@ -80,7 +80,7 @@ public sealed class TextureSourceEditorViewModel : BaseEditorViewModel
 
     public void SetValue(TextureSource? oldValue, TextureSource? newValue)
     {
-        if (!IsElementEditable) return;
+        if (!CanReplace(oldValue)) return;
         if (!EqualityComparer<TextureSource?>.Default.Equals(oldValue, newValue))
         {
             PropertyAdapter.SetValue(newValue);
@@ -111,7 +111,7 @@ public sealed class TextureSourceEditorViewModel : BaseEditorViewModel
 
     public void SetDrawableType(Type type)
     {
-        if (!IsElementEditable) return;
+        if (!CanReplace(Value.Value)) return;
         if (Value.Value is DrawableTextureSource drawableSource)
         {
 
@@ -124,7 +124,7 @@ public sealed class TextureSourceEditorViewModel : BaseEditorViewModel
 
     public void SetDrawableTarget(Drawable target)
     {
-        if (!IsElementEditable) return;
+        if (!CanReplace(Value.Value)) return;
         Type? presenterType = PresenterTypeAttribute.GetPresenterType(typeof(Drawable));
         if (presenterType != null
             && Activator.CreateInstance(presenterType) is Drawable presenterDrawable

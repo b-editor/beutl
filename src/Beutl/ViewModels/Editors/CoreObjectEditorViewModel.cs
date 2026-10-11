@@ -160,7 +160,8 @@ public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICore
 
     public override bool ApplyTemplate(ObjectTemplateItem template)
     {
-        if (!IsElementEditable) return false;
+        // SetValue checks the value it replaces.
+        if (!CanReplaceContent) return false;
         if (template.CreateInstance() is not T instance) return false;
         IsExpanded.Value = true;
         if (EditingKeyFrame.Value is { } keyFrame)
@@ -177,7 +178,9 @@ public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICore
 
     public override bool TryPasteJson(string json)
     {
-        if (!IsElementEditable) return false;
+        // Pasting into a list inserts an item, an ordinary edit; otherwise SetValue checks the value it replaces.
+        bool inserts = EditingKeyFrame.Value is null && PropertyAdapter is ListItemAccessorImpl<T>;
+        if (!(inserts ? IsElementEditable : CanReplaceContent)) return false;
         if (!CoreObjectClipboard.TryDeserializeJson<T>(json, out var pasted)) return false;
 
         IsExpanded.Value = true;
@@ -200,7 +203,7 @@ public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICore
 
     public void SetTarget(CoreObject? target)
     {
-        if (!IsElementEditable) return;
+        if (!CanReplace(Value.Value)) return;
 
         if (Value.Value is not IPresenter<T> presenter)
         {

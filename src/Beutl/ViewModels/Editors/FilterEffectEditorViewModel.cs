@@ -218,7 +218,7 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
 
     public void SetTarget(FilterEffect? target)
     {
-        if (!IsElementEditable) return;
+        if (!CanReplace(Value.Value)) return;
         if (Value.Value is IPresenter<FilterEffect> presenter)
         {
             PresenterEditorHelper.AssignTarget(presenter, target);

@@ -156,6 +156,23 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
 
     protected internal bool IsElementEditable => !IsDisposed && ElementEditability.IsEditable(_element, _scene);
 
+    // Replacing or removing content is how the user repairs a recovery-protected element, so those
+    // edits check this instead of IsElementEditable: they stay allowed there while the content holds
+    // what could not be loaded (see ElementEditability.CanRepair).
+    protected internal bool CanReplace(object? content)
+    {
+        if (IsDisposed) return false;
+        if (ElementEditability.CanRepair(_element, content, _scene)) return true;
+
+        // An easing is a value, not an object of its own: the keyframe holds an easing that could not be read.
+        return PropertyAdapter is CorePropertyAdapter<Easing> { Object: KeyFrame keyFrame }
+               && ElementEditability.CanRepair(_element, keyFrame, _scene);
+    }
+
+    // CanReplace for everything the property holds: its value and its animation.
+    protected internal bool CanReplaceContent
+        => !IsDisposed && CanReplace(new object?[] { PropertyAdapter.GetValue(), GetAnimation() });
+
     public ReadOnlyReactivePropertySlim<bool> IsReadOnly { get; }
 
     public ReadOnlyReactiveProperty<bool> HasAnimation { get; }
@@ -418,7 +435,8 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
 
     public virtual async ValueTask<bool> PasteAsync()
     {
-        if (!IsElementEditable) return false;
+        // TryPasteJson checks the edit it makes; a paste over content that could not be loaded repairs it.
+        if (!CanReplaceContent) return false;
         if (PasteFormat is not { } format) return false;
         var clipboard = ClipboardHelper.GetClipboard();
         if (clipboard == null) return false;
@@ -605,7 +623,7 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
 
     internal void SetValue(T? oldValue, T? newValue, string? commandName)
     {
-        if (!IsElementEditable) return;
+        if (!CanReplace(oldValue)) return;
         if (!EqualityComparer<T>.Default.Equals(oldValue, newValue))
         {
             WriteValue(newValue);
@@ -680,7 +698,7 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
 
     public override void RemoveKeyFrame(TimeSpan keyTime)
     {
-        if (!IsElementEditable) return;
+        if (!CanReplace(GetAnimation())) return;
         if (GetAnimation() is not KeyFrameAnimation<T> kfAnimation) return;
 
         AnimationOperations.RemoveKeyFrame(
@@ -718,7 +736,7 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
 
     public override void RemoveAnimation()
     {
-        if (!IsElementEditable) return;
+        if (!CanReplace(GetAnimation())) return;
         if (PropertyAdapter is IAnimatablePropertyAdapter<T> animatableProperty)
         {
             animatableProperty.Animation = null;
@@ -729,7 +747,8 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
 
     public override bool SetExpression(string expressionString, [NotNullWhen(false)] out string? error)
     {
-        if (!IsElementEditable)
+        // Setting an expression drops the animation, so it can discard an easing that could not be read.
+        if (!CanReplace(GetAnimation()))
         {
             error = MessageStrings.OperationFailed;
             return false;

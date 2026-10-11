@@ -128,6 +128,21 @@ public class Element : Hierarchical, INotifyEdited
         set => SetAndRaise(IsLockedProperty, ref _isLocked, value);
     }
 
+    // True while recovery keeps this element's original file because part of it could not be
+    // loaded, usually a type from a plugin that is not installed. Saving leaves that file as it
+    // is, so the editor treats the element as read-only, except for removing the element or the
+    // content that could not be loaded. A completed repair clears it; undoing the repair sets it again.
+    internal bool IsRecoveryProtected => SuppressedStorageSource is not null;
+
+    // Raised after IsRecoveryProtected changes.
+    internal event EventHandler? RecoveryProtectionChanged;
+
+    internal override void OnStorageSuppressionChanged()
+    {
+        base.OnStorageSuppressionChanged();
+        RecoveryProtectionChanged?.Invoke(this, EventArgs.Empty);
+    }
+
     [NotAutoSerialized]
     public ICoreList<EngineObject> Objects => _objects;
 

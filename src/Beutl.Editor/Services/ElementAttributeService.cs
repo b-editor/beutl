@@ -29,7 +29,7 @@ public sealed class ElementAttributeService : IElementAttributeService
         // Backstop for a locked clip whose color edit slips past a UI guard (e.g. a color picker
         // confirmed after the clip was locked). Layer-lock is enforced by the caller's IsEditable,
         // which has the scene the element alone lacks.
-        if (element.IsLocked) return;
+        if (IsReadOnly(element)) return;
         if (element.AccentColor == color) return;
 
         element.AccentColor = color;
@@ -50,7 +50,7 @@ public sealed class ElementAttributeService : IElementAttributeService
         ArgumentNullException.ThrowIfNull(element);
         ArgumentNullException.ThrowIfNull(name);
         // Same backstop as SetAccentColor; the caller enforces the layer lock.
-        if (element.IsLocked) return;
+        if (IsReadOnly(element)) return;
         if (element.Name == name) return;
 
         element.Name = name;
@@ -66,7 +66,7 @@ public sealed class ElementAttributeService : IElementAttributeService
         }
 
         // Same backstop as SetAccentColor; the caller enforces the layer lock.
-        if (element.IsLocked) return;
+        if (IsReadOnly(element)) return;
 
         // A locked element across this edge that decides how the boundary blends keeps doing so, so
         // changing this side alone would show no difference.
@@ -121,7 +121,7 @@ public sealed class ElementAttributeService : IElementAttributeService
     public void RemoveTransition(Element element, ElementEdge edge)
     {
         ArgumentNullException.ThrowIfNull(element);
-        if (element.IsLocked) return;
+        if (IsReadOnly(element)) return;
         // Removing only this side would leave the locked element's side blending the boundary.
         if (ElementTransitionEdits.HasLockedSideAcross(element, edge)) return;
 
@@ -140,7 +140,7 @@ public sealed class ElementAttributeService : IElementAttributeService
     public void SetTransitionDuration(Element element, ElementEdge edge, TimeSpan duration)
     {
         ArgumentNullException.ThrowIfNull(element);
-        if (element.IsLocked) return;
+        if (IsReadOnly(element)) return;
         if (ElementTransitionEdits.GetTransition(element, edge) is not { } transition) return;
         if (duration < TimeSpan.Zero) duration = TimeSpan.Zero;
         if (transition.Duration.CurrentValue == duration) return;
@@ -148,6 +148,9 @@ public sealed class ElementAttributeService : IElementAttributeService
         transition.Duration.CurrentValue = duration;
         _historyManager.Commit(CommandNames.ChangeTransitionDuration);
     }
+
+    // The clip's own lock, or recovery keeping its file (saving would not write the edit).
+    private static bool IsReadOnly(Element element) => element.IsLocked || element.IsRecoveryProtected;
 
     private static ElementEdge Opposite(ElementEdge edge) => edge == ElementEdge.Start ? ElementEdge.End : ElementEdge.Start;
 }

@@ -21,6 +21,11 @@ public sealed class EngineObjectPropertyViewModel : IDisposable, IPropertyEditor
         Model = model;
         _parent = parent;
         CanEdit = parent.CanEdit;
+        // Removing or replacing this object stays allowed on a recovery-protected element while the
+        // object holds what could not be loaded: that is how the user repairs the element.
+        CanReplace = ElementEditability.ObserveRepair(
+                parent.Element.Value, model, parent.GetService(typeof(Scene)) as Scene)
+            .ToReadOnlyReactivePropertySlim();
         IsEnabled = model.GetObservable(EngineObject.IsEnabledProperty)
             .ToReactiveProperty();
         _enabledSubscription = IsEnabled.Skip(1).Subscribe(v =>
@@ -56,6 +61,8 @@ public sealed class EngineObjectPropertyViewModel : IDisposable, IPropertyEditor
     public ReactiveProperty<bool> IsEnabled { get; }
 
     public IReadOnlyReactiveProperty<bool> CanEdit { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> CanReplace { get; }
 
     public CoreList<IPropertyEditorContext?> Properties { get; } = [];
 
@@ -123,6 +130,7 @@ public sealed class EngineObjectPropertyViewModel : IDisposable, IPropertyEditor
         Properties.Clear();
         _enabledSubscription.Dispose();
         IsEnabled.Dispose();
+        CanReplace.Dispose();
 
         Model = null!;
         _parent = null!;
@@ -194,7 +202,7 @@ public sealed class EngineObjectPropertyViewModel : IDisposable, IPropertyEditor
 
     public void SetJsonString(string? str)
     {
-        if (_isDisposed || !CanEdit.Value) return;
+        if (_isDisposed || !CanReplace.Value) return;
         if (Model.HierarchicalParent is not Element element) return;
 
         int index = element.Objects.IndexOf(Model);

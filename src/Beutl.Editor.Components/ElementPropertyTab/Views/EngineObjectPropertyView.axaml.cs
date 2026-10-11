@@ -58,7 +58,8 @@ public sealed partial class EngineObjectPropertyView : UserControl
 
     public void Remove_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is EngineObjectPropertyViewModel { CanEdit.Value: true } viewModel2)
+        // Recovery protection still allows removing an object that holds what could not be loaded.
+        if (DataContext is EngineObjectPropertyViewModel { CanReplace.Value: true } viewModel2)
         {
             EngineObject obj = viewModel2.Model;
             Element element = obj.FindRequiredHierarchicalParent<Element>();

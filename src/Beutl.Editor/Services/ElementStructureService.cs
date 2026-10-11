@@ -20,7 +20,7 @@ public sealed class ElementStructureService : IElementStructureService
     {
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentNullException.ThrowIfNull(elements);
-        Element[] editable = elements.Where(e => !scene.IsElementLocked(e)).ToArray();
+        Element[] editable = RemovableElements(scene, elements);
         if (editable.Length == 0) return;
 
         RippleHelper.RemoveAndShiftAfter(scene, editable, ripple, scene.RemoveChild);
@@ -34,7 +34,7 @@ public sealed class ElementStructureService : IElementStructureService
     {
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentNullException.ThrowIfNull(elements);
-        Element[] editable = elements.Where(e => !scene.IsElementLocked(e)).ToArray();
+        Element[] editable = RemovableElements(scene, elements);
         if (editable.Length == 0) return;
 
         RippleHelper.RemoveAndShiftAfter(scene, editable, ripple, scene.DeleteChild);
@@ -248,6 +248,11 @@ public sealed class ElementStructureService : IElementStructureService
         if (refused is null) return ids;
         return ids.Where(id => !refused.Contains(id)).ToArray();
     }
+
+    // Only the user's locks stop a removal. Recovery protection does not: removing a protected element
+    // leaves its retained file alone, so deleting it is how the user gets rid of content they cannot repair.
+    private static Element[] RemovableElements(Scene scene, IReadOnlyList<Element> elements)
+        => elements.Where(e => !scene.IsElementLockedByUser(e)).ToArray();
 
     // Ids with no matching element cannot be locked and pass through unchanged.
     private static IReadOnlyCollection<Guid> FilterUnlockedIds(Scene scene, IReadOnlyCollection<Guid> ids)

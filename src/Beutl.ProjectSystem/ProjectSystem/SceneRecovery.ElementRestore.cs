@@ -215,15 +215,39 @@ internal sealed partial class SceneRecovery
     internal static SuppressedStorageSource? TryResumeElementPersistence(Element element)
     {
         if (element.SuppressedStorageSource is not { } source
-            || EnumerateSerializedGraphFallbacks(element).Any()
-            || HasUnresolvedSerializedRecoveryBlocker(element, source)
-            || EnumerateSerializedGraphObjects(element).OfType<KeyFrame>().Any(static keyFrame => keyFrame.HasLossyEasing))
+            || HasUnresolvedRecoveryBlocker(element, source))
         {
             return null;
         }
 
         element.SuppressedStorageSource = null;
         return source;
+    }
+
+    // Whether a recovery-protected element still holds something that stops
+    // TryResumeElementPersistence. False for an element recovery does not protect.
+    internal static bool HasUnresolvedRecoveryBlocker(Element element)
+    {
+        return element.SuppressedStorageSource is { } source
+               && HasUnresolvedRecoveryBlocker(element, source);
+    }
+
+    // Whether content (an element, one of its objects, or a value or animation inside one) holds
+    // what could not be loaded: an object whose type was missing or whose data could not be read,
+    // or a keyframe whose easing could not be read. Content nested where the serialized graph does
+    // not reach (for example inside a record) is not found.
+    internal static bool HoldsRecoveryBlocker(object? content)
+    {
+        return SerializedGraphTraversal.Visit(
+            content,
+            "$",
+            static (value, _) => value is IFallback or KeyFrame { HasLossyEasing: true });
+    }
+
+    private static bool HasUnresolvedRecoveryBlocker(Element element, SuppressedStorageSource source)
+    {
+        return HoldsRecoveryBlocker(element)
+               || HasUnresolvedSerializedRecoveryBlocker(element, source);
     }
 
     private static bool HasUnresolvedSerializedRecoveryBlocker(

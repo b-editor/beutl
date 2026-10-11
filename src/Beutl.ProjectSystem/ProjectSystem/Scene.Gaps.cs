@@ -136,8 +136,9 @@ public partial class Scene
     }
 
     // The elements at or after fromStart that a gap close may slide left, in timeline order. A locked
-    // element is a hard wall: iteration stops at the first locked start-group, so nothing at or beyond
-    // it shifts across the lock (elements before it only move further left, never onto a lock).
+    // element (IsElementLocked, which includes recovery protection) is a hard wall: iteration stops at
+    // the first locked start-group, so nothing at or beyond it shifts across the lock (elements before
+    // it only move further left, never onto a lock).
     // Grouping by Start keeps same-start elements atomic, independent of Children enumeration order.
     private Element[] ShiftableAfter(int zIndex, TimeSpan fromStart)
     {
@@ -149,7 +150,7 @@ public partial class Scene
             .GroupBy(e => e.Start)
             .OrderBy(g => g.Key))
         {
-            if (startGroup.Any(e => e.IsLocked)) break;
+            if (startGroup.Any(IsElementLocked)) break;
 
             result.AddRange(startGroup);
         }

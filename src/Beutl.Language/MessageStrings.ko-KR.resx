@@ -495,4 +495,13 @@
   <data name="GraphKeyFrameTransformRejected" xml:space="preserve">
     <value>키프레임 시간이 겹치거나 선택 영역에 반전할 수 없는 이징이 포함되어 있습니다.</value>
   </data>
+  <data name="RecoveryProtectedElementsTitle" xml:space="preserve">
+    <value>일부 요소를 완전히 불러오지 못했습니다</value>
+  </data>
+  <data name="RecoveryProtectedElementsMessage" xml:space="preserve">
+    <value>{0}의 다음 요소를 완전히 불러오지 못했습니다. 대개 확장 프로그램이 설치되어 있지 않기 때문입니다: {1}. 누락된 유형을 사용할 수 있게 되거나 사용할 수 없는 개체를 제거할 때까지 이 요소들의 편집 내용은 저장되지 않으므로, 그때까지 읽기 전용입니다.</value>
+  </data>
+  <data name="RecoveryProtectedElementToolTip" xml:space="preserve">
+    <value>이 요소의 일부를 불러오지 못해 읽기 전용입니다. 누락된 유형을 사용할 수 있게 되거나 사용할 수 없는 개체를 제거할 때까지 편집 내용은 저장되지 않습니다.</value>
+  </data>
 </root>

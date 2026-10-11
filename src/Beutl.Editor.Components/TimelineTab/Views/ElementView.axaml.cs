@@ -93,8 +93,9 @@ public sealed partial class ElementView : UserControl
         ungroupSelectedElements.IsEnabled = viewModel.CanUngroupSelectedElements();
         split.IsEnabled = editable;
         cut.IsEnabled = editable;
-        delete.IsEnabled = editable;
-        exclude.IsEnabled = editable;
+        // Recovery protection makes a clip read-only but still lets it be removed.
+        delete.IsEnabled = viewModel.CanRemove.Value;
+        exclude.IsEnabled = viewModel.CanRemove.Value;
         finishEditingAnimation.IsEnabled = editable;
         rename.IsEnabled = editable;
         enableElement.IsEnabled = editable;
