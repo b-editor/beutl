@@ -82,7 +82,7 @@ public class PopulateUnchangedValuesTests
         });
     }
 
-    private sealed class CollectionOwner : CoreObject
+    private sealed class CollectionOwner(bool readAsArray) : CoreObject
     {
         public List<CoreObject> Children { get; } = [new ValueObject { Name = "child" }];
 
@@ -95,16 +95,20 @@ public class PopulateUnchangedValuesTests
         public override void Deserialize(ICoreSerializationContext context)
         {
             base.Deserialize(context);
-            CoreObject[] children = context.GetValue<CoreObject[]>(nameof(Children))!;
+            IEnumerable<CoreObject> children = readAsArray
+                ? context.GetValue<CoreObject[]>(nameof(Children))!
+                : context.GetValue<List<CoreObject>>(nameof(Children))!;
             Children.Clear();
             Children.AddRange(children);
         }
     }
 
-    [Test]
-    public void Populate_deserializes_when_the_reader_requires_a_different_collection_type()
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Populate_preserves_collection_contents_when_the_reader_rebuilds_the_collection(bool readAsArray)
     {
-        var owner = new CollectionOwner();
+        var owner = new CollectionOwner(readAsArray);
+        Guid childId = owner.Children[0].Id;
         JsonObject document = CoreSerializer.SerializeToJsonObject(owner);
 
         CoreSerializer.PopulateFromJsonObject(owner, document, new CoreSerializerOptions
@@ -112,6 +116,32 @@ public class PopulateUnchangedValuesTests
             PreserveUnchangedValues = true
         });
 
-        Assert.That(owner.Children.Select(child => child.Name), Is.EqualTo(new[] { "child" }));
+        Assert.Multiple(() =>
+        {
+            Assert.That(owner.Children.Select(child => child.Name), Is.EqualTo(new[] { "child" }));
+            Assert.That(owner.Children.Select(child => child.Id), Is.EqualTo(new[] { childId }));
+        });
+    }
+
+    [Test]
+    public void Populate_preserves_project_variables_when_the_document_is_unchanged()
+    {
+        var project = new Project
+        {
+            Variables =
+            {
+                [ProjectVariableKeys.FrameRate] = "30",
+                [ProjectVariableKeys.SampleRate] = "48000"
+            }
+        };
+        KeyValuePair<string, string>[] variables = project.Variables.ToArray();
+        JsonObject document = CoreSerializer.SerializeToJsonObject(project);
+
+        CoreSerializer.PopulateFromJsonObject(project, document, new CoreSerializerOptions
+        {
+            PreserveUnchangedValues = true
+        });
+
+        Assert.That(project.Variables, Is.EquivalentTo(variables));
     }
 }

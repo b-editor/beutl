@@ -1,4 +1,5 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using System.Collections;
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
 
 namespace Beutl.Serialization;
@@ -37,7 +38,10 @@ public partial class JsonSerializationContext(
     {
         foreach ((string name, object? value) in values)
         {
+            // Readers may clear and refill their destination collection, so it must not alias
+            // the value they read from this context.
             if (value is not null
+                && value is not IEnumerable
                 && _json.TryGetPropertyValue(name, out JsonNode? desired)
                 && desired is JsonObject or JsonArray
                 && current.TryGetPropertyValue(name, out JsonNode? existing)
