@@ -38,7 +38,12 @@ public sealed class IpcConnection : IDisposable
         _pipe = pipe;
     }
 
-    public bool IsConnected => _pipe.IsConnected;
+    /// <summary>
+    /// Whether requests can still be exchanged. A multiplexed connection is no longer connected once its receive
+    /// loop has stopped, for example because the remote end closed the pipe, which a pipe on Unix reports only
+    /// after a write fails.
+    /// </summary>
+    public bool IsConnected => _pipe.IsConnected && Volatile.Read(ref _receiveLoopFault) == null;
 
     public bool IsMultiplexed => _receiveLoopTask != null;
 

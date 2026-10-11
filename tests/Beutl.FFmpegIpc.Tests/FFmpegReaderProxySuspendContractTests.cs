@@ -1,4 +1,5 @@
-﻿using Beutl.Extensions.FFmpeg;
+﻿using System.Diagnostics;
+using Beutl.Extensions.FFmpeg;
 using Beutl.Extensions.FFmpeg.Decoding;
 using Beutl.FFmpegIpc.Protocol;
 using Beutl.FFmpegIpc.Protocol.Messages;
@@ -159,6 +160,29 @@ public class FFmpegReaderProxySuspendContractTests
             DeleteWhenReleased(path);
             DeleteWhenReleased(movedPath);
         }
+    }
+
+    // After the shared worker exits, for example in a crash, the host starts a new one on the next open. A reader
+    // opened on the old worker must move to the new one on its next read instead of failing until reopened.
+    [Test]
+    public void Reader_MovesToTheNewWorker_AfterTheWorkerExits()
+    {
+        using var reader = OpenFixture();
+        byte[] before = ReadFramePixels(reader, 0);
+        int exitedPid = FFmpegWorkerProcess.DecodingInstance.WorkerPid;
+        using (var worker = Process.GetProcessById(exitedPid))
+        {
+            worker.Kill();
+            Assert.That(worker.WaitForExit(10_000), Is.True);
+        }
+
+        byte[] after = ReadFramePixels(reader, 0);
+        Assert.Multiple(() =>
+        {
+            Assert.That(after, Is.EqualTo(before), "the reopened reader must decode the same frame");
+            Assert.That(FFmpegWorkerProcess.DecodingInstance.WorkerPid, Is.Not.EqualTo(exitedPid));
+            Assert.That(reader.IsSuspended, Is.False);
+        });
     }
 
     // The worker forgets the reader ID before it finishes disposing the reader, and FFmpeg opens files

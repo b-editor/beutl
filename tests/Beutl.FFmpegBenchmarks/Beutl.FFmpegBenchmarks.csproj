@@ -33,6 +33,7 @@
   <!-- FFmpegReaderProxy (IPC経由) 用のソースファイルをリンク -->
   <ItemGroup>
     <Compile Include="..\..\src\Beutl.Extensions.FFmpeg\Decoding\FFmpegReaderProxy.cs" Link="Linked\FFmpegReaderProxy.cs" />
+    <Compile Include="..\..\src\Beutl.Extensions.FFmpeg\Decoding\FFmpegWorkerRequests.cs" Link="Linked\FFmpegWorkerRequests.cs" />
     <Compile Include="..\..\src\Beutl.Extensions.FFmpeg\Decoding\FFmpegReaderIdlePolicy.cs" Link="Linked\FFmpegReaderIdlePolicy.cs" />
     <Compile Include="..\..\src\Beutl.Extensions.FFmpeg\Decoding\FFmpegReaderIdleTracker.cs" Link="Linked\FFmpegReaderIdleTracker.cs" />
     <Compile Include="..\..\src\Beutl.Extensions.FFmpeg.Core\FFmpegWorkerProcess.cs" Link="Linked\FFmpegWorkerProcess.cs" />
