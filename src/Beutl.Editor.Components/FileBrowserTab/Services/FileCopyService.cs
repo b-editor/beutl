@@ -4,13 +4,15 @@
 internal static class FileCopyService
 {
     // ソースディレクトリの内容を再帰的に宛先ディレクトリにコピーする。
-    // 既に存在するファイルはスキップされる。キャンセルは次のファイルの前に反映される。
+    // 既に存在するファイルはスキップされる。
+    // キャンセルは次のファイルかフォルダーの前に反映される。
     public static void CopyDirectoryRecursive(
         string sourceDir,
         string destDir,
         Action<string, string> copyFile,
         CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         string fullSource = Path.GetFullPath(sourceDir) + Path.DirectorySeparatorChar;
         string fullDest = Path.GetFullPath(destDir) + Path.DirectorySeparatorChar;
 

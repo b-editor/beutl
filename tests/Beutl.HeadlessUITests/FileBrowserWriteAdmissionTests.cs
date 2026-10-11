@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
+using Beutl.Editor.Components.FileBrowserTab.Services;
 using Beutl.Editor.Components.FileBrowserTab.ViewModels;
 using Beutl.Editor.VersionControl;
 using Beutl.Extensibility;
@@ -227,12 +228,14 @@ public sealed class FileBrowserWriteAdmissionTests
         using var browser = new FileBrowserTabViewModel(editor);
         Fixture fixture = Fixture.Create(ProjectRoot(editor));
         using var notifications = new NotificationCapture();
+        using var copyStarted = new ManualResetEventSlim();
         using var releaseCopy = new ManualResetEventSlim();
         int copies = 0;
         browser.TransferNotificationDelay = TimeSpan.Zero;
         browser.CopyFile = (source, destination) =>
         {
             Interlocked.Increment(ref copies);
+            copyStarted.Set();
             releaseCopy.Wait(TimeSpan.FromSeconds(30));
             File.Copy(source, destination);
         };
@@ -243,6 +246,7 @@ public sealed class FileBrowserWriteAdmissionTests
         Notification? running = null;
         try
         {
+            Assert.That(copyStarted.Wait(TimeSpan.FromSeconds(30)), Is.True, "the copy must start");
             await WaitUntilAsync(() => notifications.Handler.Notifications.Count > 0);
             Notification shown = notifications.Handler.Notifications.Single();
             running = shown;
@@ -251,6 +255,10 @@ public sealed class FileBrowserWriteAdmissionTests
                 Assert.That(shown.Type, Is.EqualTo(NotificationType.Information));
                 Assert.That(shown.Message, Is.EqualTo(Strings.FileBrowser_CopyingFiles));
                 Assert.That(shown.Actions?.Select(action => action.Text), Is.EqualTo(new[] { Strings.Cancel }));
+                Assert.That(
+                    shown.Actions?.Single().DismissOnInvoke,
+                    Is.False,
+                    "the notification stays until the file being copied is done");
             });
             shown.Actions![0].Callback();
         }
@@ -273,6 +281,99 @@ public sealed class FileBrowserWriteAdmissionTests
             Assert.That(running?.CancellationToken.IsCancellationRequested, Is.True, "the notification is dismissed");
             Assert.That(notifications.Handler.Notifications, Has.Count.EqualTo(1), "a canceled copy is no failure");
         });
+    }
+
+    // The next drop of a folder skips a destination folder that already exists, so a folder copy
+    // canceled partway removes what it created, and dropping the folder again copies all of it.
+    [AvaloniaTest]
+    public async Task A_folder_copy_canceled_partway_can_be_dropped_again()
+    {
+        EditViewModel editor = await CreateEditor("filebrowser-cancel-folder-copy");
+        using var browser = new FileBrowserTabViewModel(editor);
+        Fixture fixture = Fixture.Create(ProjectRoot(editor));
+        string folder = Directory.CreateDirectory(Path.Combine(fixture.SourceDir, "footage")).FullName;
+        File.WriteAllText(Path.Combine(folder, "a.txt"), "a");
+        File.WriteAllText(Path.Combine(folder, "b.txt"), "b");
+        string copiedFolder = Path.Combine(fixture.TargetDir, "footage");
+        using var notifications = new NotificationCapture();
+        using var copyStarted = new ManualResetEventSlim();
+        using var releaseCopy = new ManualResetEventSlim();
+        browser.TransferNotificationDelay = TimeSpan.Zero;
+        browser.CopyFile = (source, destination) =>
+        {
+            copyStarted.Set();
+            releaseCopy.Wait(TimeSpan.FromSeconds(30));
+            File.Copy(source, destination);
+        };
+
+        Task copy = browser.CopyFilesToDirectoryAsync([(folder, true)], fixture.TargetDir);
+        try
+        {
+            Assert.That(copyStarted.Wait(TimeSpan.FromSeconds(30)), Is.True, "the copy must start");
+            await WaitUntilAsync(() => notifications.Handler.Notifications.Count > 0);
+            notifications.Handler.Notifications.Single().Actions![0].Callback();
+        }
+        finally
+        {
+            releaseCopy.Set();
+            await ObserveAsync(copy);
+        }
+
+        Assert.That(Directory.Exists(copiedFolder), Is.False, "the partly copied folder is removed");
+
+        browser.CopyFile = static (source, destination) => File.Copy(source, destination);
+        await browser.CopyFilesToDirectoryAsync([(folder, true)], fixture.TargetDir)
+            .WaitAsync(TimeSpan.FromSeconds(30));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.ReadAllText(Path.Combine(copiedFolder, "a.txt")), Is.EqualTo("a"));
+            Assert.That(File.ReadAllText(Path.Combine(copiedFolder, "b.txt")), Is.EqualTo("b"));
+        });
+    }
+
+    // A file can be listed while it is still being written, with the size written so far. Once the
+    // transfer ends, the listing shows the finished file.
+    [AvaloniaTest]
+    public async Task The_listing_shows_a_copied_file_finished_once_the_copy_ends()
+    {
+        EditViewModel editor = await CreateEditor("filebrowser-copy-listing");
+        using var browser = new FileBrowserTabViewModel(editor);
+        Fixture fixture = Fixture.Create(ProjectRoot(editor));
+        browser.RootPath.Value = fixture.TargetDir;
+        HeadlessTestHelpers.Settle();
+        string copied = Path.Combine(fixture.TargetDir, "copy.txt");
+        byte[] finished = new byte[4096];
+        using var partlyWritten = new ManualResetEventSlim();
+        using var releaseCopy = new ManualResetEventSlim();
+        browser.TransferNotificationDelay = Timeout.InfiniteTimeSpan;
+        browser.CopyFile = (_, destination) =>
+        {
+            File.WriteAllBytes(destination, [0]);
+            partlyWritten.Set();
+            releaseCopy.Wait(TimeSpan.FromSeconds(30));
+            File.WriteAllBytes(destination, finished);
+        };
+
+        Task copy = browser.CopyFilesToDirectoryAsync([(fixture.CopySource, false)], fixture.TargetDir);
+        try
+        {
+            Assert.That(partlyWritten.Wait(TimeSpan.FromSeconds(30)), Is.True, "the copy must start");
+            // As the directory watcher does once the new file appears.
+            browser.Refresh();
+            Assert.That(
+                browser.Items.SingleOrDefault(item => item.FullPath == copied)?.MediaInfoText.Value,
+                Does.StartWith(MediaFileInfo.FormatFileSize(1)));
+        }
+        finally
+        {
+            releaseCopy.Set();
+            await ObserveAsync(copy);
+        }
+
+        Assert.That(
+            browser.Items.SingleOrDefault(item => item.FullPath == copied)?.MediaInfoText.Value,
+            Does.StartWith(MediaFileInfo.FormatFileSize(finished.Length)));
     }
 
     // An access error from the copy used to escape the async drop handler. Like any other failure, it
