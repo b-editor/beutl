@@ -3,8 +3,8 @@
 namespace Beutl.Serialization;
 
 /// <summary>
-/// Remembers, for each object read from or written to a root file, the version fields of that file and
-/// the project the object was read with.
+/// Remembers, for each object read from or written to a root file, the <c>minAppVersion</c> of that file
+/// and the project the object was read with, and for a project also the <c>appVersion</c> of its file.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -24,9 +24,10 @@ internal static class RootFileVersions
     // Async-local because a scene reads its element files in parallel.
     private static readonly AsyncLocal<Project?> s_readingProject = new();
 
-    internal static string? GetAppVersion(ICoreSerializable obj)
+    // Only a project file records the version that last saved it.
+    internal static string? GetAppVersion(Project project)
     {
-        return s_entries.TryGetValue(obj, out Entry? entry) ? entry.AppVersion : null;
+        return s_entries.TryGetValue(project, out Entry? entry) ? entry.AppVersion : null;
     }
 
     internal static string? GetMinAppVersion(ICoreSerializable obj)
@@ -40,29 +41,27 @@ internal static class RootFileVersions
     }
 
     /// <summary>
-    /// Records the version fields <paramref name="obj"/> was read with, and the project being read
-    /// around it, if any.
+    /// Records the <c>minAppVersion</c> <paramref name="obj"/>'s file recorded when it was read, and the
+    /// project being read around it, if any.
     /// </summary>
-    internal static void RecordRead(ICoreSerializable obj, string? appVersion, string? minAppVersion)
+    internal static void RecordRead(ICoreSerializable obj, string? minAppVersion)
     {
         Entry entry = s_entries.GetValue(obj, static _ => new Entry());
         lock (entry)
         {
-            entry.AppVersion = appVersion;
             entry.MinAppVersion = minAppVersion;
             entry.Project = obj is Project ? null : s_readingProject.Value;
         }
     }
 
     /// <summary>
-    /// Records the version fields a save wrote for <paramref name="obj"/>.
+    /// Records the <c>minAppVersion</c> a save wrote for <paramref name="obj"/>.
     /// </summary>
-    internal static void RecordWrite(ICoreSerializable obj, string appVersion, string minAppVersion)
+    internal static void RecordWrite(ICoreSerializable obj, string minAppVersion)
     {
         Entry entry = s_entries.GetValue(obj, static _ => new Entry());
         lock (entry)
         {
-            entry.AppVersion = appVersion;
             entry.MinAppVersion = FileFormat.Max(entry.MinAppVersion, minAppVersion);
         }
     }
@@ -81,7 +80,10 @@ internal static class RootFileVersions
         }
     }
 
-    internal static void RecordAppVersion(Project project, string appVersion)
+    /// <summary>
+    /// Records the <c>appVersion</c> the file of <paramref name="project"/> holds, as read or as written.
+    /// </summary>
+    internal static void RecordAppVersion(Project project, string? appVersion)
     {
         Entry entry = s_entries.GetValue(project, static _ => new Entry());
         lock (entry)
@@ -108,10 +110,11 @@ internal static class RootFileVersions
 
     private sealed class Entry
     {
-        public string? AppVersion;
-
         public string? MinAppVersion;
 
         public Project? Project;
+
+        // Kept for a project only.
+        public string? AppVersion;
     }
 }

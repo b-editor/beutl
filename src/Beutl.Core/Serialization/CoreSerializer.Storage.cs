@@ -144,14 +144,20 @@ public static partial class CoreSerializer
                     {
                         // Read after serializing: a project records what the files it wrote meanwhile require.
                         minAppVersion = GetMinAppVersionToWrite(obj);
-                        WriteVersionFields(json, BeutlApplication.Version, minAppVersion);
+                        // Only a project file records the version that saved it: a scene or element file that
+                        // a newer version saves unchanged stays byte for byte as it was.
+                        WriteVersionFields(json, obj is Project ? BeutlApplication.Version : null, minAppVersion);
                     }
 
                     json.WriteTo(writer, JsonHelper.SerializerOptions);
                 });
             if (minAppVersion is not null)
             {
-                RootFileVersions.RecordWrite(obj, BeutlApplication.Version, minAppVersion);
+                RootFileVersions.RecordWrite(obj, minAppVersion);
+                if (obj is Project savedProject)
+                {
+                    RootFileVersions.RecordAppVersion(savedProject, BeutlApplication.Version);
+                }
             }
         }
         else

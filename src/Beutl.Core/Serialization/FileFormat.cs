@@ -3,24 +3,25 @@
 namespace Beutl.Serialization;
 
 /// <summary>
-/// The version fields Beutl writes into every root file and checks when it reads one.
+/// The version fields Beutl writes into root files and checks when it reads one.
 /// </summary>
 /// <remarks>
 /// <para>
 /// A root file is the file of an object in the project hierarchy: a project (<c>.bep</c>), a scene
-/// (<c>.scene</c>) or an element (<c>.belm</c>). Every save writes two fields into each root file it
-/// writes: <c>appVersion</c>, the version of Beutl that saved it, and <c>minAppVersion</c>, the oldest
-/// version that can read it. <c>minAppVersion</c> is the higher of what the file recorded when it was
-/// read and <see cref="Floor"/>, and a project file records at least what the other files of the
-/// project require. The fields belong to the file, not to the object: they are not members, so an
-/// embedded or copied object carries neither.
+/// (<c>.scene</c>) or an element (<c>.belm</c>). Every save writes <c>minAppVersion</c>, the oldest
+/// version that can read the file, into each root file it writes: the higher of what the file recorded
+/// when it was read and <see cref="Floor"/>, and in a project file at least what the other files of the
+/// project require. A project file also records <c>appVersion</c>, the version of Beutl that saved it
+/// last. Scene and element files do not, so that a newer version that saves them unchanged leaves them
+/// byte for byte as they were. The fields belong to the file, not to the object: they are not members,
+/// so an embedded or copied object carries neither.
 /// </para>
 /// <para>
 /// One gate reads every file the serializer reads an object from, and refuses one whose
 /// <c>minAppVersion</c> is above the running version with an <see cref="UnsupportedFileVersionException"/>.
 /// Released builds check only the project file, so the first write to a project after <see cref="Floor"/>
 /// was raised, including a write of a file-backed object outside the hierarchy, first rewrites the project
-/// file's version fields, and nothing else in it.
+/// file's two version fields, and nothing else in it.
 /// </para>
 /// </remarks>
 public static class FileFormat

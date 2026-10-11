@@ -9,8 +9,9 @@ using NuGet.Versioning;
 
 namespace Beutl.UnitTests.ProjectSystem;
 
-// Every save writes the version fields into each root file it writes, one gate refuses a root file that
-// needs a newer Beutl, and the project file is raised before any other file of the project is written.
+// Every save writes minAppVersion into each root file it writes and appVersion into the project file, one gate
+// refuses a root file that needs a newer Beutl, and the project file is raised before any other file of the
+// project is written.
 [TestFixture]
 public class FormatFloorTests
 {
@@ -80,7 +81,7 @@ public class FormatFloorTests
     }
 
     [Test]
-    public void A_save_writes_the_floor_and_the_running_version_into_every_root_file()
+    public void A_save_writes_the_floor_into_every_root_file_and_the_running_version_into_the_project_file()
     {
         SaveProject();
 
@@ -88,10 +89,12 @@ public class FormatFloorTests
         {
             foreach (string path in RootFiles)
             {
-                JsonObject json = Read(path);
-                Assert.That((string?)json["minAppVersion"], Is.EqualTo(FileFormat.Floor), path);
-                Assert.That((string?)json["appVersion"], Is.EqualTo(BeutlApplication.Version), path);
+                Assert.That((string?)Read(path)["minAppVersion"], Is.EqualTo(FileFormat.Floor), path);
             }
+
+            Assert.That((string?)Read(_projectPath)["appVersion"], Is.EqualTo(BeutlApplication.Version));
+            Assert.That(Read(_scenePath).ContainsKey("appVersion"), Is.False);
+            Assert.That(Read(_elementPath).ContainsKey("appVersion"), Is.False);
         });
     }
 
@@ -104,8 +107,8 @@ public class FormatFloorTests
         {
             // Where released builds have always written them in a project file.
             Assert.That(Keys(_projectPath), Is.EqualTo("Id,Name,appVersion,minAppVersion,items,variables,$type"));
-            Assert.That(Keys(_scenePath), Does.StartWith("appVersion,minAppVersion,"));
-            Assert.That(Keys(_elementPath), Does.StartWith("appVersion,minAppVersion,"));
+            Assert.That(Keys(_scenePath), Does.StartWith("minAppVersion,"));
+            Assert.That(Keys(_elementPath), Does.StartWith("minAppVersion,"));
         });
     }
 
@@ -119,6 +122,30 @@ public class FormatFloorTests
         CoreSerializer.StoreToUri(project, project.Uri!);
 
         Assert.That(RootFiles.Select(File.ReadAllBytes), Is.EqualTo(before));
+    }
+
+    // Version control keeps scene and element files unchanged when a newer version saves them unchanged.
+    [Test]
+    public void A_resave_after_an_update_changes_only_the_app_version_of_the_project_file()
+    {
+        SaveProject();
+        SetVersionFields(_projectPath, "2.0.0-preview.3", FileFormat.Floor);
+        JsonObject projectBefore = Read(_projectPath);
+        byte[] sceneBefore = File.ReadAllBytes(_scenePath);
+        byte[] elementBefore = File.ReadAllBytes(_elementPath);
+
+        Project project = LoadProject();
+        CoreSerializer.StoreToUri(project, project.Uri!);
+        JsonObject projectAfter = Read(_projectPath);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.ReadAllBytes(_scenePath), Is.EqualTo(sceneBefore));
+            Assert.That(File.ReadAllBytes(_elementPath), Is.EqualTo(elementBefore));
+            Assert.That((string?)projectAfter["appVersion"], Is.EqualTo(BeutlApplication.Version));
+            projectAfter["appVersion"] = "2.0.0-preview.3";
+            Assert.That(JsonNode.DeepEquals(projectAfter, projectBefore), Is.True);
+        });
     }
 
     [Test]
@@ -138,10 +165,13 @@ public class FormatFloorTests
         {
             foreach (string path in RootFiles)
             {
-                JsonObject json = Read(path);
-                Assert.That((string?)json["minAppVersion"], Is.EqualTo(recorded), path);
-                Assert.That((string?)json["appVersion"], Is.EqualTo(BeutlApplication.Version), path);
+                Assert.That((string?)Read(path)["minAppVersion"], Is.EqualTo(recorded), path);
             }
+
+            Assert.That((string?)Read(_projectPath)["appVersion"], Is.EqualTo(BeutlApplication.Version));
+            // Only a project file records it; the next save drops it from the others.
+            Assert.That(Read(_scenePath).ContainsKey("appVersion"), Is.False);
+            Assert.That(Read(_elementPath).ContainsKey("appVersion"), Is.False);
         });
     }
 
@@ -186,6 +216,9 @@ public class FormatFloorTests
     public void Reading_a_root_file_takes_its_version_fields_out_of_the_object()
     {
         SaveProject();
+        // A scene or element file can still hold an appVersion, from an earlier development build or a hand edit.
+        SetVersionFields(_scenePath, AboveFloor, FileFormat.Floor);
+        SetVersionFields(_elementPath, AboveFloor, FileFormat.Floor);
         Project project = LoadProject();
         Scene scene = (Scene)project.Items.Single();
 
@@ -307,9 +340,10 @@ public class FormatFloorTests
             {
                 JsonObject json = Read(path);
                 Assert.That((string?)json["minAppVersion"], Is.EqualTo(FileFormat.Floor), path);
-                Assert.That((string?)json["appVersion"], Is.EqualTo(BeutlApplication.Version), path);
                 Assert.That(json["$type"], Is.Not.Null, path);
             }
+
+            Assert.That((string?)Read(_projectPath)["appVersion"], Is.EqualTo(BeutlApplication.Version));
         });
     }
 

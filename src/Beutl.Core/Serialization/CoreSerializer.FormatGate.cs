@@ -45,7 +45,13 @@ public static partial class CoreSerializer
 
     private static void RecordRead(ICoreSerializable obj, StoredVersion version)
     {
-        RootFileVersions.RecordRead(obj, version.AppVersion, version.MinAppVersion);
+        RootFileVersions.RecordRead(obj, version.MinAppVersion);
+        // Only a project file records the version that last saved it. Another file read with an appVersion,
+        // which earlier development builds wrote, loses it on its next save.
+        if (obj is Project project)
+        {
+            RootFileVersions.RecordAppVersion(project, version.AppVersion);
+        }
     }
 
     // Whether obj's file is a root file, which carries the version fields: the file of a project, a scene or an
@@ -72,34 +78,46 @@ public static partial class CoreSerializer
             : RootFileVersions.GetProject(obj);
     }
 
-    // A field the file already has stays where it is. A new one goes first, after the Id and Name an
-    // object such as a project starts with, which is where project files have always had them, and
-    // minAppVersion right after appVersion.
-    private static void WriteVersionFields(JsonObject json, string appVersion, string minAppVersion)
+    // Writes minAppVersion, and appVersion when one is given, which only a project file records. A field
+    // the file already has stays where it is. A new one goes first, after the Id and Name an object such as
+    // a project starts with, which is where project files have always had them, and minAppVersion right
+    // after appVersion.
+    private static void WriteVersionFields(JsonObject json, string? appVersion, string minAppVersion)
     {
-        if (json.ContainsKey(FileFormat.AppVersionKey))
+        if (appVersion is not null)
         {
-            json[FileFormat.AppVersionKey] = appVersion;
+            SetVersionField(json, FileFormat.AppVersionKey, appVersion, CountLeadingIdAndName(json));
+        }
+
+        int appVersionIndex = json.IndexOf(FileFormat.AppVersionKey);
+        SetVersionField(
+            json,
+            FileFormat.MinAppVersionKey,
+            minAppVersion,
+            appVersionIndex >= 0 ? appVersionIndex + 1 : CountLeadingIdAndName(json));
+    }
+
+    private static void SetVersionField(JsonObject json, string key, string value, int index)
+    {
+        if (json.ContainsKey(key))
+        {
+            json[key] = value;
         }
         else
         {
-            int index = 0;
-            while (index < json.Count && json.GetAt(index).Key is nameof(CoreObject.Id) or nameof(CoreObject.Name))
-            {
-                index++;
-            }
+            json.Insert(index, key, value);
+        }
+    }
 
-            json.Insert(index, FileFormat.AppVersionKey, appVersion);
+    private static int CountLeadingIdAndName(JsonObject json)
+    {
+        int count = 0;
+        while (count < json.Count && json.GetAt(count).Key is nameof(CoreObject.Id) or nameof(CoreObject.Name))
+        {
+            count++;
         }
 
-        if (json.ContainsKey(FileFormat.MinAppVersionKey))
-        {
-            json[FileFormat.MinAppVersionKey] = minAppVersion;
-        }
-        else
-        {
-            json.Insert(json.IndexOf(FileFormat.AppVersionKey) + 1, FileFormat.MinAppVersionKey, minAppVersion);
-        }
+        return count;
     }
 
     /// <summary>
