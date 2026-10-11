@@ -185,6 +185,42 @@ public class PlaybackUIThreadTests
         }
     }
 
+    // The end of a looping pass clears IsPlaying on the UI thread. If a subscriber throws there, playback must stop
+    // instead of rewinding into the next pass.
+    [AvaloniaTest]
+    public async Task LoopEndWhoseSubscriberThrows_StopsPlayback()
+    {
+        GpuTestGate.EnsureAvailable();
+        EditViewModel editor = await OpenEditor(TimeSpan.FromSeconds(0.3));
+        int starts = 0;
+        int stops = 0;
+        using IDisposable subscription = editor.Player.IsPlaying.Skip(1).Subscribe(playing =>
+        {
+            if (playing)
+                Interlocked.Increment(ref starts);
+            else if (Interlocked.Increment(ref stops) == 1)
+                throw new InvalidOperationException("An IsPlaying subscriber failed.");
+        });
+        editor.Player.IsLoopEnabled.Value = true;
+
+        try
+        {
+            editor.Player.Play();
+            await WaitUntilAsync(() => stops >= 1 && !editor.Player.IsPlaybackActive, TimeSpan.FromMinutes(2));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(editor.Player.IsPlaying.Value, Is.False);
+                Assert.That(starts, Is.EqualTo(1), "playback must not start another pass");
+            });
+        }
+        finally
+        {
+            await editor.Player.Pause();
+            editor.Player.IsLoopEnabled.Value = false;
+        }
+    }
+
     private static void Record(ref int count, ConcurrentQueue<string> offThread, string what)
     {
         Interlocked.Increment(ref count);

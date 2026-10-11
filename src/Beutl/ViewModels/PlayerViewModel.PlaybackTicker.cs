@@ -303,6 +303,9 @@ public partial class PlayerViewModel
         {
             _owner._logger.LogError(ex, "An exception occurred during playback; stopping the playback. ({SceneId})",
                 _owner._editViewModel.SceneId);
+            // A failure in the loop end's own IsPlaying change must not count as a natural end, or PlayInternal
+            // would rewind and start the next pass. PlayInternal reads this after Retire, which comes after us.
+            ReachedNaturalEnd = false;
             // Posted before completing, so that it comes before Retire.
             Dispatcher.UIThread.Post(() =>
             {
