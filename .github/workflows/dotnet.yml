@@ -292,10 +292,13 @@ jobs:
   # Preserve the required "build" check: it must include every test shard, even
   # if compile fails or a dependency is skipped. A compile-only green check would
   # let existing branch protection admit revisions whose tests failed.
+  # Finalize coverage only after the build and test results have passed this gate.
   build:
     if: always()
     needs: [compile, test]
-    permissions: {}
+    permissions:
+      contents: read
+      id-token: write
     runs-on: ubuntu-latest
     steps:
       - name: Require successful build and tests
@@ -303,6 +306,41 @@ jobs:
           COMPILE_RESULT: ${{ needs.compile.result }}
           TEST_RESULT: ${{ needs.test.result }}
         run: test "$COMPILE_RESULT" = success && test "$TEST_RESULT" = success
+
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6.0.0
+        with:
+          dotnet-version: ${{ needs.compile.outputs.dotnet-version }}
+
+      - name: Download coverage reports
+        uses: actions/download-artifact@v8.0.1
+        with:
+          pattern: Coverage-*
+          path: coverage-shards
+
+      - name: Merge coverage reports
+        run: |
+          dotnet tool install -g dotnet-reportgenerator-globaltool
+          reportgenerator -reports:"coverage-shards/**/coverage.cobertura.xml" -targetdir:coveragereport -reporttypes:Cobertura
+
+      - name: Save merged coverage
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: Coverage
+          path: coveragereport
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v7.1.1
+        with:
+          files: ./coveragereport/Cobertura.xml
+          disable_search: true
+          fail_ci_if_error: true
+          use_oidc: true
 
   # Releases cross-publish linux-arm64 from x64, so only a native ARM64 run shows that the bundled
   # libraries (Skia, HarfBuzz, SwiftShader, Shaderc, Assimp) load and render there.
@@ -427,47 +465,3 @@ jobs:
           path: TestResults/mediafoundation/
           if-no-files-found: ignore
           retention-days: 7
-
-  upload-coverage:
-    needs: [build, compile]
-    permissions:
-      contents: read
-      id-token: write
-
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v6.0.0
-        with:
-          dotnet-version: ${{ needs.compile.outputs.dotnet-version }}
-
-      - name: Download coverage reports
-        uses: actions/download-artifact@v8.0.1
-        with:
-          pattern: Coverage-*
-          path: coverage-shards
-
-      - name: Merge coverage reports
-        run: |
-          dotnet tool install -g dotnet-reportgenerator-globaltool
-          reportgenerator -reports:"coverage-shards/**/coverage.cobertura.xml" -targetdir:coveragereport -reporttypes:Cobertura
-
-      - name: Save merged coverage
-        uses: actions/upload-artifact@v7.0.1
-        with:
-          name: Coverage
-          path: coveragereport
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v7.1.1
-        with:
-          files: ./coveragereport/Cobertura.xml
-          disable_search: true
-          fail_ci_if_error: true
-          use_oidc: true
