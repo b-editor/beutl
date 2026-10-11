@@ -1,18 +1,9 @@
-﻿using System.Text.Encodings.Web;
-using System.Text.Json;
-using System.Text.Json.Nodes;
-using Beutl.AgentToolkit.Common;
+﻿using Beutl.AgentToolkit.Common;
 
 namespace Beutl.AgentToolkit.Installation;
 
 public static class AgentToolkitInstaller
 {
-    private static readonly JsonSerializerOptions s_jsonOptions = new()
-    {
-        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
-        WriteIndented = true,
-    };
-
     public static async Task<AgentToolkitInstallResult> InstallAsync(
         AgentToolkitInstallOptions options,
         IEnumerable<AgentToolkitAsset> assets,
@@ -24,6 +15,7 @@ public static class AgentToolkitInstaller
         string agentRoot = EnsureDirectory(options.AgentRoot);
         var installedFiles = new List<string>();
         var assetFileRecords = new List<InstalledFileRecord>();
+        var backedUpFiles = new List<BackedUpFile>();
 
         foreach (AgentToolkitAsset asset in assets)
         {
@@ -48,6 +40,12 @@ public static class AgentToolkitInstaller
 
             string targetPath = GetAssetTargetPath(agentRoot, options, asset.Kind, relativePath);
             Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
+            if (await BackUpEditedFileAsync(targetPath, content, options.PreviousFiles, cancellationToken)
+                    .ConfigureAwait(false) is { } backup)
+            {
+                backedUpFiles.Add(backup);
+            }
+
             await File.WriteAllTextAsync(targetPath, content, cancellationToken).ConfigureAwait(false);
             installedFiles.Add(targetPath);
             assetFileRecords.Add(new InstalledFileRecord(
@@ -55,6 +53,7 @@ public static class AgentToolkitInstaller
         }
 
         string? mcpConfigPath = null;
+        ManualMcpEdit? manualMcpEdit = null;
         if (options.InstallMcp)
         {
             mcpConfigPath = GetSafeTargetPath(options.McpConfigRoot ?? agentRoot, options.McpConfigFileName);
@@ -64,73 +63,25 @@ public static class AgentToolkitInstaller
             }
             else
             {
-                await WriteMcpConfigAsync(mcpConfigPath, options, cancellationToken).ConfigureAwait(false);
+                manualMcpEdit = await JsonMcpConfigWriter.WriteAsync(mcpConfigPath, options, cancellationToken)
+                    .ConfigureAwait(false);
             }
 
-            installedFiles.Add(mcpConfigPath);
+            if (manualMcpEdit is null)
+            {
+                installedFiles.Add(mcpConfigPath);
+            }
         }
 
         return new AgentToolkitInstallResult(
             installedFiles,
             mcpConfigPath,
-            options.InstallMcp,
-            assetFileRecords);
-    }
-
-    private static async Task WriteMcpConfigAsync(
-        string path,
-        AgentToolkitInstallOptions options,
-        CancellationToken cancellationToken)
-    {
-        JsonObject root = await ReadConfigRootAsync(path, cancellationToken).ConfigureAwait(false);
-        JsonObject servers = GetOrCreateObject(root, options.McpServersPropertyName);
-        servers[options.McpServerName] = CreateServer(options);
-        foreach (string obsolete in ObsoleteServerNames(options))
+            options.InstallMcp && manualMcpEdit is null,
+            assetFileRecords)
         {
-            servers.Remove(obsolete);
-        }
-
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        string json = root.ToJsonString(s_jsonOptions);
-        await File.WriteAllTextAsync(path, json + Environment.NewLine, cancellationToken).ConfigureAwait(false);
-    }
-
-    // A stdio launcher: the server finds and authenticates the running editors itself, so neither a
-    // URL nor the bearer token is written into the agent config.
-    private static JsonObject CreateServer(AgentToolkitInstallOptions options)
-    {
-        if (string.IsNullOrWhiteSpace(options.McpCommand))
-        {
-            throw new InvalidOperationException("MCP installation requires a command.");
-        }
-
-        var args = new JsonArray();
-        foreach (string arg in options.McpArguments)
-        {
-            args.Add(arg);
-        }
-
-        var server = new JsonObject();
-        if (options.McpTypeValue is not null)
-        {
-            server["type"] = options.McpTypeValue;
-        }
-
-        server["command"] = options.McpCommand;
-        server["args"] = args;
-
-        var env = new JsonObject();
-        foreach (KeyValuePair<string, string> pair in options.McpEnvironment)
-        {
-            env[pair.Key] = pair.Value;
-        }
-
-        if (env.Count > 0)
-        {
-            server["env"] = env;
-        }
-
-        return server;
+            ManualMcpEdit = manualMcpEdit,
+            BackedUpFiles = backedUpFiles,
+        };
     }
 
     // Entries of earlier layouts are dropped unless the user pointed the installer at that very name.
@@ -140,57 +91,41 @@ public static class AgentToolkitInstaller
             .Where(name => !string.Equals(name, options.McpServerName, StringComparison.Ordinal));
     }
 
-    private static async Task<JsonObject> ReadConfigRootAsync(string path, CancellationToken cancellationToken)
+    // A file the user edited since an earlier install wrote it, or one no install recorded, is copied
+    // aside before the bundled version replaces it. An unedited copy of an earlier install is not.
+    private static async Task<BackedUpFile?> BackUpEditedFileAsync(
+        string path,
+        string content,
+        IReadOnlyList<InstalledFileRecord> previousFiles,
+        CancellationToken cancellationToken)
     {
         if (!File.Exists(path))
         {
-            return [];
+            return null;
         }
 
-        string json = await File.ReadAllTextAsync(path, cancellationToken).ConfigureAwait(false);
-        if (string.IsNullOrWhiteSpace(json))
+        string existing = await File.ReadAllTextAsync(path, cancellationToken).ConfigureAwait(false);
+        if (existing == content)
         {
-            return [];
+            return null;
         }
 
-        JsonNode? node = JsonNode.Parse(
-            json,
-            documentOptions: new JsonDocumentOptions
-            {
-                AllowTrailingCommas = true,
-                CommentHandling = JsonCommentHandling.Skip,
-            });
-
-        return node as JsonObject
-               ?? throw new InvalidDataException($"MCP config must be a JSON object: {path}");
-    }
-
-    // A dotted name (e.g. Amp's "amp.mcpServers") addresses a nested object: amp:{ mcpServers:{} }.
-    // Writing it as one flat "amp.mcpServers" key would put the server where the agent never reads it.
-    private static JsonObject GetOrCreateObject(JsonObject parent, string propertyName)
-    {
-        if (string.IsNullOrWhiteSpace(propertyName))
+        string hash = AgentToolkitInstallManifestStore.ComputeContentHash(existing);
+        if (previousFiles.Any(record => AgentToolkitInstallManifestStore.PathComparer.Equals(record.Path, path)
+                                        && string.Equals(record.Sha256, hash, StringComparison.OrdinalIgnoreCase)))
         {
-            throw new ArgumentException("Property name cannot be empty.", nameof(propertyName));
+            return null;
         }
 
-        JsonObject current = parent;
-        foreach (string segment in propertyName.Split('.', StringSplitOptions.RemoveEmptyEntries))
+        string stem = $"{path}.{DateTime.Now:yyyyMMdd-HHmmss}";
+        string backupPath = $"{stem}.bak";
+        for (int index = 2; File.Exists(backupPath); index++)
         {
-            if (current[segment] is null)
-            {
-                var obj = new JsonObject();
-                current[segment] = obj;
-                current = obj;
-            }
-            else
-            {
-                current = current[segment] as JsonObject
-                          ?? throw new InvalidDataException($"MCP config property must be an object: {segment}");
-            }
+            backupPath = $"{stem}-{index}.bak";
         }
 
-        return current;
+        File.Copy(path, backupPath);
+        return new BackedUpFile(path, backupPath);
     }
 
     private static string GetAssetTargetPath(

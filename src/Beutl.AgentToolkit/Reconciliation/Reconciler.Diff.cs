@@ -94,9 +94,7 @@ public sealed partial class Reconciler
 
     private static void ValidateElementTimeline(Element element, List<ValidationOutcome> validation)
     {
-        string identity = string.IsNullOrWhiteSpace(element.Name)
-            ? element.Id.ToString()
-            : $"'{element.Name}' ({element.Id})";
+        string identity = DescribeElement(element);
         if (element.Start < TimeSpan.Zero)
         {
             validation.Add(ValidationOutcome.Rejected(

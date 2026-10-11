@@ -6,7 +6,7 @@ namespace Beutl.Services.PrimitiveImpls;
 public sealed class WaveReaderExtension : DecodingExtension
 {
     public static readonly WaveReaderExtension Instance = new();
-    private static readonly WaveDecoderInfo s_info = new();
+    private static readonly WaveDecoderInfo s_info = BuiltInDecoders.Wave;
 
     public override string Name => s_info.Name;
 

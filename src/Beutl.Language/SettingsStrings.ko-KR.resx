@@ -502,6 +502,18 @@
     <value>{0}개 파일을 설치했습니다.</value>
     <comment />
   </data>
+  <data name="AiAgents_EditedFilesBackedUp" xml:space="preserve">
+    <value>편집된 파일 {0}개를 교체하기 전에 백업(.bak)으로 저장했습니다.</value>
+    <comment />
+  </data>
+  <data name="AiAgents_McpConfigHasComments" xml:space="preserve">
+    <value>{0}에는 주석이 있어 다시 쓰면 주석이 사라지므로 Beutl이 변경하지 않았습니다. 아래 항목을 직접 추가하세요.</value>
+    <comment />
+  </data>
+  <data name="AiAgents_McpConfigObsoleteEntries" xml:space="preserve">
+    <value>다음 항목도 삭제하세요: {0}</value>
+    <comment />
+  </data>
   <data name="AiAgents_InstalledFiles" xml:space="preserve">
     <value>설치된 파일</value>
     <comment />
@@ -576,7 +588,7 @@
     <comment />
   </data>
   <data name="AiAgents_UpdateAvailable_Content" xml:space="preserve">
-    <value>이 버전의 Beutl에는 설치한 것보다 최신 스킬과 하위 에이전트가 포함되어 있습니다. 저장된 설정으로 지금 다시 설치하시겠습니까? 대상에서 직접 편집한 파일은 덮어쓰여집니다.</value>
+    <value>이 버전의 Beutl에는 설치한 것보다 최신 스킬과 하위 에이전트가 포함되어 있습니다. 저장된 설정으로 지금 다시 설치하시겠습니까? 대상에서 직접 편집한 파일은 교체하기 전에 백업됩니다.</value>
     <comment />
   </data>
   <data name="AiAgents_Mcp" xml:space="preserve">
@@ -596,7 +608,7 @@
     <comment />
   </data>
   <data name="AiAgents_McpChanged_Content" xml:space="preserve">
-    <value>이제 Beutl은 단일 "beutl-agent" MCP 서버를 설치합니다. 에이전트가 instanceId를 전달하면 실행 중인 Beutl을 편집하고, 그렇지 않으면 프로젝트 파일을 헤드리스로 편집합니다. 저장된 설정으로 지금 다시 설치할까요? 별도의 "beutl-live" 항목과 해당 토큰은 에이전트 구성에서 제거되며, 대상에서 직접 편집한 파일은 덮어쓰입니다.</value>
+    <value>이제 Beutl은 단일 "beutl-agent" MCP 서버를 설치합니다. 에이전트가 instanceId를 전달하면 실행 중인 Beutl을 편집하고, 그렇지 않으면 프로젝트 파일을 헤드리스로 편집합니다. 저장된 설정으로 지금 다시 설치할까요? 별도의 "beutl-live" 항목과 해당 토큰은 에이전트 구성에서 제거되며, 대상에서 직접 편집한 파일은 교체하기 전에 백업됩니다.</value>
     <comment />
   </data>
   <data name="AiAgents_Reinstall" xml:space="preserve">

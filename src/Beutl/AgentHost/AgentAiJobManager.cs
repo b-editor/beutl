@@ -24,6 +24,8 @@ public sealed record AgentAiJobOutput(
     int? Seed,
     AgentTranscript? Transcript = null);
 
+// SceneId is the scene a generation saves its result for, in that scene's resources/ai folder; a
+// transcription has none.
 public sealed record AgentAiJobSnapshot(
     string JobId,
     string Operation,
@@ -32,13 +34,14 @@ public sealed record AgentAiJobSnapshot(
     double ElapsedSeconds,
     AgentAiJobOutput? Output,
     string? ErrorCode,
-    string? ErrorMessage)
+    string? ErrorMessage,
+    string? SceneId = null)
 {
     public string? NextStep => Status switch
     {
         AgentAiJobStatus.Running => "Call read_ai_job(jobId, waitSeconds) to wait for the result; generation can take minutes.",
         AgentAiJobStatus.Succeeded when Output?.OutputPath is not null =>
-            "The file is saved next to the open scene. Place it with apply_edit (SourceImage.Source or SourceVideo.Source set to the file), or use it as an input to another AI tool.",
+            "The file is saved next to the scene sceneId names. Place it with apply_edit on that scene (SourceImage.Source or SourceVideo.Source set to the file), or use it as an input to another AI tool.",
         _ => null,
     };
 }
@@ -59,11 +62,12 @@ internal sealed class AgentAiJobManager : IDisposable
 
     public string Start(
         string operation,
-        Func<IProgress<string>, CancellationToken, Task<AgentAiJobOutput>> run)
+        Func<IProgress<string>, CancellationToken, Task<AgentAiJobOutput>> run,
+        Guid? sceneId = null)
     {
         ArgumentException.ThrowIfNullOrEmpty(operation);
         ArgumentNullException.ThrowIfNull(run);
-        var job = new Job(Guid.NewGuid().ToString("N"), operation);
+        var job = new Job(Guid.NewGuid().ToString("N"), operation, sceneId?.ToString());
         lock (_lifetimeSync)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
@@ -166,7 +170,7 @@ internal sealed class AgentAiJobManager : IDisposable
         public void Report(string value) => job.SetStatus(value);
     }
 
-    private sealed class Job(string id, string operation)
+    private sealed class Job(string id, string operation, string? sceneId)
     {
         public string Operation { get; } = operation;
 
@@ -243,7 +247,8 @@ internal sealed class AgentAiJobManager : IDisposable
                     Math.Round((_elapsed ?? _clock.Elapsed).TotalSeconds, 1),
                     _output,
                     _errorCode,
-                    _errorMessage);
+                    _errorMessage,
+                    sceneId);
             }
         }
     }

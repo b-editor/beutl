@@ -24,9 +24,6 @@ public partial class Scene
         context.SetValue("Groups", Groups.Select(ids => string.Join(':', ids)).ToArray());
         context.SetValue(nameof(Markers), Markers);
         Recovery.WriteMetadata(context);
-        if (MediaFingerprints.Count > 0)
-            context.SetValue(nameof(MediaFingerprints), MediaFingerprints.ToDictionary(
-                pair => UriHelper.ToSerializedUri(new Uri(pair.Key), context.BaseUri).ToString(), pair => pair.Value));
 
         if (context.Mode.HasFlag(CoreSerializationMode.SaveReferencedObjects))
         {
@@ -53,6 +50,11 @@ public partial class Scene
 
             context.SetValue("Elements", elementsNode);
         }
+
+        // Last, just before the type discriminator: that is where the editor's metadata patch
+        // (CoreSerializer.UpdateStoredMetadata) adds the key, so the next full save does not move it.
+        if (MediaFingerprints.Count > 0)
+            context.SetValue(nameof(MediaFingerprints), ToSerializedMediaFingerprints(MediaFingerprints, context.BaseUri));
     }
 
     public override void Deserialize(ICoreSerializationContext context)
@@ -222,6 +224,22 @@ public partial class Scene
 
     internal static bool HoldsRecoveryBlocker(object? content)
         => SceneRecovery.HoldsRecoveryBlocker(content);
+
+    // The saved form of MediaFingerprints, keyed by serialized URI in ordinal order so the text does not
+    // depend on the order the files were scanned in. The editor's background metadata patch writes the
+    // same form, so a scan that finds nothing new leaves the .scene unchanged.
+    internal static SortedDictionary<string, MediaFileFingerprint> ToSerializedMediaFingerprints(
+        IEnumerable<KeyValuePair<string, MediaFileFingerprint>> fingerprints,
+        Uri? baseUri)
+    {
+        var result = new SortedDictionary<string, MediaFileFingerprint>(StringComparer.Ordinal);
+        foreach ((string key, MediaFileFingerprint fingerprint) in fingerprints)
+        {
+            result.Add(UriHelper.ToSerializedUri(new Uri(key), baseUri).ToString(), fingerprint);
+        }
+
+        return result;
+    }
 
     private void UpdateInclude()
     {

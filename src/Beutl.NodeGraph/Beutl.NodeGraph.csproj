@@ -10,6 +10,7 @@
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Beutl" />
+    <InternalsVisibleTo Include="Beutl.Editor" />
     <InternalsVisibleTo Include="Beutl.Editor.Components" />
     <InternalsVisibleTo Include="Beutl.UnitTests" />
   </ItemGroup>

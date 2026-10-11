@@ -510,6 +510,18 @@
     <value>Installed {0} file(s).</value>
     <comment/>
   </data>
+  <data name="AiAgents_EditedFilesBackedUp" xml:space="preserve">
+    <value>{0} file(s) you had edited were saved as backups (.bak) before being replaced.</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_McpConfigHasComments" xml:space="preserve">
+    <value>{0} contains comments, and rewriting it would remove them, so Beutl left it unchanged. Add the entry below to it by hand.</value>
+    <comment/>
+  </data>
+  <data name="AiAgents_McpConfigObsoleteEntries" xml:space="preserve">
+    <value>Also remove these entries from it: {0}.</value>
+    <comment/>
+  </data>
   <data name="AiAgents_InstalledFiles" xml:space="preserve">
     <value>Installed files</value>
     <comment/>
@@ -588,7 +600,7 @@
     <comment/>
   </data>
   <data name="AiAgents_UpdateAvailable_Content" xml:space="preserve">
-    <value>This version of Beutl bundles newer skills and subagents than the ones you installed. Reinstall them now with your saved settings? Files you edited by hand in the destination will be overwritten.</value>
+    <value>This version of Beutl bundles newer skills and subagents than the ones you installed. Reinstall them now with your saved settings? Files you edited by hand in the destination are saved as backups before they are replaced.</value>
     <comment/>
   </data>
   <data name="AiAgents_McpChanged_Title" xml:space="preserve">
@@ -596,7 +608,7 @@
     <comment/>
   </data>
   <data name="AiAgents_McpChanged_Content" xml:space="preserve">
-    <value>Beutl now installs a single "beutl-agent" MCP server: it edits a running Beutl when the agent passes an instanceId and edits project files headlessly otherwise. Reinstall now with your saved settings? The separate "beutl-live" entry and its token are removed from the agent configuration, and files you edited by hand in the destination are overwritten.</value>
+    <value>Beutl now installs a single "beutl-agent" MCP server: it edits a running Beutl when the agent passes an instanceId and edits project files headlessly otherwise. Reinstall now with your saved settings? The separate "beutl-live" entry and its token are removed from the agent configuration, and files you edited by hand in the destination are saved as backups before they are replaced.</value>
     <comment/>
   </data>
   <data name="AiAgents_Reinstall" xml:space="preserve">

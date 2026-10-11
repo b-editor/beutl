@@ -240,9 +240,26 @@ public static partial class CoreSerializer
             return false;
         if (JsonNode.DeepEquals(json[name], value)) return false;
         if (value is null) json.Remove(name);
-        else json[name] = value;
+        else if (json.ContainsKey(name)) json[name] = value;
+        else InsertBeforeTrailingDiscriminator(json, name, value);
         WriteJsonAtomically(uri.LocalPath, false, writer => json.WriteTo(writer, JsonHelper.SerializerOptions));
         return true;
+    }
+
+    // A full save writes the type discriminator after the object's own properties. A new property goes
+    // just before it, where an object that writes the property last puts it on a full save, so the
+    // next full save keeps the text as it is instead of moving the property.
+    private static void InsertBeforeTrailingDiscriminator(JsonObject json, string name, JsonNode value)
+    {
+        int last = json.Count - 1;
+        if (last >= 0 && json.GetAt(last).Key is "$type" or "@type")
+        {
+            json.Insert(last, name, value);
+        }
+        else
+        {
+            json[name] = value;
+        }
     }
 
     private static void WriteJsonAtomically(string path, bool isCompatibilityGate, Action<Utf8JsonWriter> write)

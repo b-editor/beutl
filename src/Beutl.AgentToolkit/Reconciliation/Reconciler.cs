@@ -79,6 +79,7 @@ public sealed partial class Reconciler
 
         var changes = new List<ChangeSetEntry>();
         CompareObject(session.Root, currentDocument, desiredDocument, "$", changes, validation);
+        ThrowIfLockedChanges(session, sandboxRoot, currentDocument);
         ValidateInsertedSubtrees(sandboxRoot, changes, validation);
         ValidateChangedElementTimelines(sandboxRoot, changes, validation);
         ValidateSceneInvariants(sandboxRoot, validation);
