@@ -473,6 +473,12 @@
   <data name="FileBrowser_WorkspaceBusy" xml:space="preserve">
     <value>The project files are busy with another operation. Wait for it to finish, then try again.</value>
   </data>
+  <data name="FileBrowser_CopyingFiles" xml:space="preserve">
+    <value>Copying files…</value>
+  </data>
+  <data name="FileBrowser_MovingFiles" xml:space="preserve">
+    <value>Moving files…</value>
+  </data>
   <data name="ListView" xml:space="preserve">
     <value>List View</value>
   </data>

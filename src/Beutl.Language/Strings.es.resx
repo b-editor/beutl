@@ -1825,6 +1825,12 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="FileBrowser_WorkspaceBusy" xml:space="preserve">
     <value>Los archivos del proyecto están ocupados con otra operación. Espera a que termine e inténtalo de nuevo.</value>
   </data>
+  <data name="FileBrowser_CopyingFiles" xml:space="preserve">
+    <value>Copiando archivos…</value>
+  </data>
+  <data name="FileBrowser_MovingFiles" xml:space="preserve">
+    <value>Moviendo archivos…</value>
+  </data>
   <data name="PathEditor_ShowStroke" xml:space="preserve">
     <value>Mostrar contorno</value>
   </data>

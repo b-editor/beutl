@@ -20,7 +20,7 @@ public sealed class FileBrowserMoveCaseTests
         File.WriteAllText(source, "clip");
         using var browser = new FileBrowserTabViewModel(editor);
 
-        browser.MoveFilesToDirectory([(source, false)], lower);
+        await browser.MoveFilesToDirectoryAsync([(source, false)], lower);
 
         Assert.Multiple(() =>
         {
@@ -38,7 +38,7 @@ public sealed class FileBrowserMoveCaseTests
         string target = Directory.CreateDirectory(Path.Combine(lower, "sub")).FullName;
         using var browser = new FileBrowserTabViewModel(editor);
 
-        browser.MoveFilesToDirectory([(upper, true)], target);
+        await browser.MoveFilesToDirectoryAsync([(upper, true)], target);
 
         Assert.Multiple(() =>
         {
@@ -59,7 +59,7 @@ public sealed class FileBrowserMoveCaseTests
         string link = Directory.CreateSymbolicLink(Path.Combine(root, "link"), "real").FullName;
         using var browser = new FileBrowserTabViewModel(editor);
 
-        browser.MoveFilesToDirectory([(link, true)], target);
+        await browser.MoveFilesToDirectoryAsync([(link, true)], target);
 
         // Directory.Move relocates the link itself, so nothing moves into itself.
         Assert.Multiple(() =>

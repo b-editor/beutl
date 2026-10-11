@@ -234,21 +234,38 @@ public sealed partial class FileBrowserTabViewModel
             }
     }
 
-    public void CopyFilesToDirectory(IEnumerable<(string LocalPath, bool IsDirectory)> files, string targetDir)
-    {
-        if (!TryBeginProjectFileWrite(Strings.Copy, out IProjectFileWriteLease? fileWrite))
-            return;
+    /// <summary>
+    /// Copies a file. A test replaces it to hold a copy until the test releases it.
+    /// </summary>
+    internal Action<string, string> CopyFile { get; set; } = static (source, destination) => File.Copy(source, destination);
 
-        using (fileWrite)
-            CopyFilesToDirectoryCore(files, targetDir);
+    /// <summary>
+    /// How long a copy or move runs before a notification offers to cancel it.
+    /// </summary>
+    internal TimeSpan TransferNotificationDelay { get; set; } = TimeSpan.FromSeconds(1);
+
+    public Task CopyFilesToDirectoryAsync(IEnumerable<(string LocalPath, bool IsDirectory)> files, string targetDir)
+    {
+        return TransferFilesAsync(
+            Strings.Copy,
+            Strings.FileBrowser_CopyingFiles,
+            files,
+            () => targetDir,
+            CopyFilesToDirectoryCore);
     }
 
-    private void CopyFilesToDirectoryCore(
-        IEnumerable<(string LocalPath, bool IsDirectory)> files,
-        string targetDir)
+    // Runs on the thread pool. A failure is logged and counted, so the caller reports it on the UI thread.
+    private int CopyFilesToDirectoryCore(
+        IReadOnlyList<(string LocalPath, bool IsDirectory)> files,
+        string targetDir,
+        CancellationToken cancellationToken)
     {
+        int failures = 0;
         foreach (var (localPath, isDir) in files)
         {
+            if (cancellationToken.IsCancellationRequested)
+                break;
+
             string destPath = Path.Combine(targetDir, Path.GetFileName(localPath));
 
             try
@@ -257,57 +274,73 @@ public sealed partial class FileBrowserTabViewModel
                 {
                     if (!File.Exists(destPath))
                     {
-                        File.Copy(localPath, destPath);
+                        CopyFile(localPath, destPath);
                     }
                 }
                 else if (Directory.Exists(localPath))
                 {
                     if (!Directory.Exists(destPath))
                     {
-                        FileCopyService.CopyDirectoryRecursive(localPath, destPath);
+                        FileCopyService.CopyDirectoryRecursive(localPath, destPath, CopyFile, cancellationToken);
                     }
                 }
             }
-            catch (IOException ex)
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                break;
+            }
+            catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to copy {Source} to {Dest}", localPath, destPath);
-                NotificationService.ShowError(Strings.Copy, MessageStrings.OperationFailed);
+                failures++;
             }
         }
+
+        return failures;
     }
 
-    public void CopyFilesToResources(IEnumerable<(string LocalPath, bool IsDirectory)> files)
+    public Task CopyFilesToResourcesAsync(IEnumerable<(string LocalPath, bool IsDirectory)> files)
     {
         if (string.IsNullOrEmpty(_projectDirectory))
-            return;
+            return Task.CompletedTask;
 
-        if (!TryBeginProjectFileWrite(Strings.Copy, out IProjectFileWriteLease? fileWrite))
-            return;
-
-        using (fileWrite)
-            CopyFilesToDirectoryCore(files, EnsureResourcesDirectory(_projectDirectory));
+        string projectDirectory = _projectDirectory;
+        return TransferFilesAsync(
+            Strings.Copy,
+            Strings.FileBrowser_CopyingFiles,
+            files,
+            () => EnsureResourcesDirectory(projectDirectory),
+            CopyFilesToDirectoryCore);
     }
 
-    public void MoveFilesToDirectory(IEnumerable<(string LocalPath, bool IsDirectory)> files, string targetDir)
+    public Task MoveFilesToDirectoryAsync(IEnumerable<(string LocalPath, bool IsDirectory)> files, string targetDir)
     {
-        if (!TryBeginProjectFileWrite(Strings.Move, out IProjectFileWriteLease? fileWrite))
-            return;
-
-        using (fileWrite)
-            MoveFilesToDirectoryCore(files, targetDir);
+        return TransferFilesAsync(
+            Strings.Move,
+            Strings.FileBrowser_MovingFiles,
+            files,
+            () => targetDir,
+            MoveFilesToDirectoryCore);
     }
 
-    private void MoveFilesToDirectoryCore(
-        IEnumerable<(string LocalPath, bool IsDirectory)> files,
-        string targetDir)
+    // Runs on the thread pool. A failure is logged and counted, so the caller reports it on the UI thread.
+    private int MoveFilesToDirectoryCore(
+        IReadOnlyList<(string LocalPath, bool IsDirectory)> files,
+        string targetDir,
+        CancellationToken cancellationToken)
     {
         string normalizedTargetDir = Path.GetFullPath(targetDir);
         // バッチ全体で1つのコンテキストを使い、正規化で読むディレクトリ一覧を使い回す
         FilePathComparison.ResolutionContext paths = FilePathComparison.CreateResolutionContext();
         string? canonicalTargetDir = null;
+        int failures = 0;
 
         foreach (var (localPath, isDir) in files)
         {
+            // A move across volumes copies the whole entry first, so the batch stops between entries.
+            if (cancellationToken.IsCancellationRequested)
+                break;
+
             string normalizedSource = Path.GetFullPath(localPath);
             string destPath = Path.Combine(normalizedTargetDir, Path.GetFileName(normalizedSource));
 
@@ -331,7 +364,7 @@ public sealed partial class FileBrowserTabViewModel
                         paths.ResolveCanonicalPath(normalizedSource), canonicalTargetDir))
                 {
                     _logger.LogError("Cannot move {Source} into itself or a descendant directory.", normalizedSource);
-                    NotificationService.ShowError(Strings.Move, MessageStrings.OperationFailed);
+                    failures++;
                     continue;
                 }
 
@@ -353,21 +386,117 @@ public sealed partial class FileBrowserTabViewModel
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to move {Source} to {Dest}", normalizedSource, destPath);
-                NotificationService.ShowError(Strings.Move, MessageStrings.OperationFailed);
+                failures++;
             }
+        }
+
+        return failures;
+    }
+
+    public Task MoveFilesToResourcesAsync(IEnumerable<(string LocalPath, bool IsDirectory)> files)
+    {
+        if (string.IsNullOrEmpty(_projectDirectory))
+            return Task.CompletedTask;
+
+        string projectDirectory = _projectDirectory;
+        return TransferFilesAsync(
+            Strings.Move,
+            Strings.FileBrowser_MovingFiles,
+            files,
+            () => EnsureResourcesDirectory(projectDirectory),
+            MoveFilesToDirectoryCore);
+    }
+
+    /// <summary>
+    /// Copies or moves dropped files without blocking the UI thread.
+    /// </summary>
+    /// <remarks>
+    /// Footage copied from an external drive can take minutes, so the transfer runs on the thread pool.
+    /// It keeps the project-file write reservation until it ends, as it did when it ran inline, so no
+    /// worktree mutation lands on files it is still writing. A transfer that runs for a while shows a
+    /// notification that cancels it before its next entry. Failures are reported on the UI thread
+    /// once the transfer is over.
+    /// </remarks>
+    private async Task TransferFilesAsync(
+        string operation,
+        string runningMessage,
+        IEnumerable<(string LocalPath, bool IsDirectory)> files,
+        Func<string> getTargetDirectory,
+        Func<IReadOnlyList<(string LocalPath, bool IsDirectory)>, string, CancellationToken, int> transfer)
+    {
+        if (!TryBeginProjectFileWrite(operation, out IProjectFileWriteLease? fileWrite))
+            return;
+
+        int failures;
+        using (fileWrite)
+        using (var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_transferCancellation.Token))
+        {
+            (string LocalPath, bool IsDirectory)[] entries = files.ToArray();
+            Task<int> work = Task.Run(
+                () => transfer(entries, getTargetDirectory(), cancellation.Token),
+                CancellationToken.None);
+            try
+            {
+                failures = await WaitShowingCancellationAsync(work, operation, runningMessage, cancellation);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to transfer files dropped on the File Browser.");
+                failures = 1;
+            }
+        }
+
+        for (int i = 0; i < failures; i++)
+        {
+            NotificationService.ShowError(operation, MessageStrings.OperationFailed);
         }
     }
 
-    public void MoveFilesToResources(IEnumerable<(string LocalPath, bool IsDirectory)> files)
+    private async Task<int> WaitShowingCancellationAsync(
+        Task<int> work,
+        string operation,
+        string runningMessage,
+        CancellationTokenSource cancellation)
     {
-        if (string.IsNullOrEmpty(_projectDirectory))
-            return;
+        using (var delayCancellation = new CancellationTokenSource())
+        {
+            Task delay = Task.Delay(TransferNotificationDelay, delayCancellation.Token);
+            if (await Task.WhenAny(work, delay) == work)
+            {
+                delayCancellation.Cancel();
+                return await work;
+            }
+        }
 
-        if (!TryBeginProjectFileWrite(Strings.Move, out IProjectFileWriteLease? fileWrite))
-            return;
+        using var dismissal = new CancellationTokenSource();
+        NotificationService.Show(new Notification(
+            operation,
+            runningMessage,
+            Expiration: Timeout.InfiniteTimeSpan,
+            Actions: [new NotificationAction(Strings.Cancel, () => CancelTransfer(cancellation))])
+        {
+            CancellationToken = dismissal.Token,
+        });
+        try
+        {
+            return await work;
+        }
+        finally
+        {
+            dismissal.Cancel();
+        }
+    }
 
-        using (fileWrite)
-            MoveFilesToDirectoryCore(files, EnsureResourcesDirectory(_projectDirectory));
+    private static void CancelTransfer(CancellationTokenSource cancellation)
+    {
+        // The notification can be clicked after the transfer has finished and released it.
+        try
+        {
+            cancellation.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+        }
     }
 
     private static string EnsureResourcesDirectory(string projectDirectory)

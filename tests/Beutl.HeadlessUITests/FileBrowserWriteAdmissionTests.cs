@@ -2,6 +2,7 @@
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Avalonia.Platform.Storage;
+using Avalonia.Threading;
 using Beutl.Editor.Components.FileBrowserTab.ViewModels;
 using Beutl.Editor.VersionControl;
 using Beutl.Extensibility;
@@ -55,8 +56,8 @@ public sealed class FileBrowserWriteAdmissionTests
         Fixture fixture = Fixture.Create(ProjectRoot(editor));
         using var notifications = new NotificationCapture();
 
-        browser.CopyFilesToDirectory([(fixture.CopySource, false)], fixture.TargetDir);
-        browser.MoveFilesToDirectory([(fixture.MoveSource, false)], fixture.TargetDir);
+        await browser.CopyFilesToDirectoryAsync([(fixture.CopySource, false)], fixture.TargetDir);
+        await browser.MoveFilesToDirectoryAsync([(fixture.MoveSource, false)], fixture.TargetDir);
 
         Assert.Multiple(() =>
         {
@@ -83,7 +84,7 @@ public sealed class FileBrowserWriteAdmissionTests
         {
             Assert.That(mutation, Is.Not.Null);
             Assert.That(secondHost.TryBeginWorktreeMutation(), Is.Not.Null);
-            browser.CopyFilesToDirectory([(fixture.CopySource, false)], fixture.TargetDir);
+            await browser.CopyFilesToDirectoryAsync([(fixture.CopySource, false)], fixture.TargetDir);
         }
 
         Assert.Multiple(() =>
@@ -166,12 +167,170 @@ public sealed class FileBrowserWriteAdmissionTests
         });
     }
 
+    // Copying footage from an external drive can take minutes. The copy runs off the UI thread, so the
+    // editor keeps responding, and keeps the project files reserved until it ends, so no worktree
+    // mutation lands on files it is still writing.
+    [AvaloniaTest]
+    public async Task Copy_runs_off_the_UI_thread_and_keeps_the_project_files_reserved_until_it_ends()
+    {
+        EditViewModel editor = await CreateEditor("filebrowser-background-copy");
+        using var browser = new FileBrowserTabViewModel(editor);
+        Fixture fixture = Fixture.Create(ProjectRoot(editor));
+        using var copyStarted = new ManualResetEventSlim();
+        using var releaseCopy = new ManualResetEventSlim();
+        browser.CopyFile = (source, destination) =>
+        {
+            copyStarted.Set();
+            releaseCopy.Wait(TimeSpan.FromSeconds(30));
+            File.Copy(source, destination);
+        };
+
+        Task copy = browser.CopyFilesToDirectoryAsync([(fixture.CopySource, false)], fixture.TargetDir);
+        try
+        {
+            Assert.That(copyStarted.Wait(TimeSpan.FromSeconds(30)), Is.True, "the copy must start");
+            bool dispatched = false;
+            await Dispatcher.UIThread.InvokeAsync(() => dispatched = true, DispatcherPriority.Background);
+            using IProjectFileWriteLease? writeDuringCopy = TestShell.Editor.TryBeginProjectFileWrite();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(dispatched, Is.True);
+                Assert.That(copy.IsCompleted, Is.False, "the UI thread must run other work while the copy runs");
+                Assert.That(writeDuringCopy, Is.Null, "the copy keeps the project files reserved");
+            });
+        }
+        finally
+        {
+            releaseCopy.Set();
+            await ObserveAsync(copy);
+        }
+
+        // Writers that waited for the copy, such as the editor's media fingerprint update, go first.
+        using IProjectFileWriteLease writeAfterCopy = await TestShell.Editor
+            .BeginProjectFileWriteAsync(CancellationToken.None)
+            .AsTask()
+            .WaitAsync(TimeSpan.FromSeconds(30));
+        Assert.Multiple(() =>
+        {
+            Assert.That(copy.IsCompletedSuccessfully, Is.True);
+            Assert.That(File.ReadAllText(Path.Combine(fixture.TargetDir, "copy.txt")), Is.EqualTo("copy"));
+        });
+    }
+
+    // A transfer that runs for a while shows a notification, and its Cancel stops the transfer before
+    // the next entry. The file being copied when the user cancels is finished.
+    [AvaloniaTest]
+    public async Task A_long_copy_is_canceled_from_its_notification()
+    {
+        EditViewModel editor = await CreateEditor("filebrowser-cancel-copy");
+        using var browser = new FileBrowserTabViewModel(editor);
+        Fixture fixture = Fixture.Create(ProjectRoot(editor));
+        using var notifications = new NotificationCapture();
+        using var releaseCopy = new ManualResetEventSlim();
+        int copies = 0;
+        browser.TransferNotificationDelay = TimeSpan.Zero;
+        browser.CopyFile = (source, destination) =>
+        {
+            Interlocked.Increment(ref copies);
+            releaseCopy.Wait(TimeSpan.FromSeconds(30));
+            File.Copy(source, destination);
+        };
+
+        Task copy = browser.CopyFilesToDirectoryAsync(
+            [(fixture.CopySource, false), (fixture.MoveSource, false)],
+            fixture.TargetDir);
+        Notification? running = null;
+        try
+        {
+            await WaitUntilAsync(() => notifications.Handler.Notifications.Count > 0);
+            Notification shown = notifications.Handler.Notifications.Single();
+            running = shown;
+            Assert.Multiple(() =>
+            {
+                Assert.That(shown.Type, Is.EqualTo(NotificationType.Information));
+                Assert.That(shown.Message, Is.EqualTo(Strings.FileBrowser_CopyingFiles));
+                Assert.That(shown.Actions?.Select(action => action.Text), Is.EqualTo(new[] { Strings.Cancel }));
+            });
+            shown.Actions![0].Callback();
+        }
+        finally
+        {
+            releaseCopy.Set();
+            await ObserveAsync(copy);
+        }
+
+        using IProjectFileWriteLease writeAfterCopy = await TestShell.Editor
+            .BeginProjectFileWriteAsync(CancellationToken.None)
+            .AsTask()
+            .WaitAsync(TimeSpan.FromSeconds(30));
+        Assert.Multiple(() =>
+        {
+            Assert.That(copy.IsCompletedSuccessfully, Is.True);
+            Assert.That(Volatile.Read(ref copies), Is.EqualTo(1), "nothing is copied after Cancel");
+            Assert.That(File.Exists(Path.Combine(fixture.TargetDir, "copy.txt")), Is.True);
+            Assert.That(File.Exists(Path.Combine(fixture.TargetDir, "move.txt")), Is.False);
+            Assert.That(running?.CancellationToken.IsCancellationRequested, Is.True, "the notification is dismissed");
+            Assert.That(notifications.Handler.Notifications, Has.Count.EqualTo(1), "a canceled copy is no failure");
+        });
+    }
+
+    // An access error from the copy used to escape the async drop handler. Like any other failure, it
+    // is now reported on the UI thread once the transfer is over.
+    [AvaloniaTest]
+    public async Task A_copy_failure_is_reported_on_the_UI_thread()
+    {
+        EditViewModel editor = await CreateEditor("filebrowser-copy-failure");
+        using var browser = new FileBrowserTabViewModel(editor);
+        Fixture fixture = Fixture.Create(ProjectRoot(editor));
+        using var notifications = new NotificationCapture();
+        browser.TransferNotificationDelay = Timeout.InfiniteTimeSpan;
+        browser.CopyFile = static (_, _) => throw new UnauthorizedAccessException("Access denied.");
+
+        await browser.CopyFilesToDirectoryAsync([(fixture.CopySource, false)], fixture.TargetDir)
+            .WaitAsync(TimeSpan.FromSeconds(30));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                notifications.Handler.Notifications.Select(n => (n.Type, n.Title, n.Message)),
+                Is.EqualTo(new[] { (NotificationType.Error, Strings.Copy, MessageStrings.OperationFailed) }));
+            Assert.That(notifications.Handler.ShownOnUiThread, Is.EqualTo(new[] { true }));
+            Assert.That(File.Exists(Path.Combine(fixture.TargetDir, "copy.txt")), Is.False);
+        });
+    }
+
+    private static async Task WaitUntilAsync(Func<bool> condition)
+    {
+        var timeout = System.Diagnostics.Stopwatch.StartNew();
+        while (!condition() && timeout.Elapsed < TimeSpan.FromSeconds(30))
+        {
+            HeadlessTestHelpers.Settle();
+            await Task.Delay(10);
+        }
+
+        Assert.That(condition(), Is.True, "The expected state was not reached.");
+    }
+
+    private static async Task ObserveAsync(Task task)
+    {
+        try
+        {
+            await task.WaitAsync(TimeSpan.FromSeconds(30));
+        }
+        catch
+        {
+        }
+    }
+
     private static async Task AssertWritesFollowWorkspaceReservation(
         FileBrowserTabViewModel browser,
         string projectRoot,
         bool coversResources)
     {
         Fixture fixture = Fixture.Create(projectRoot);
+        // These transfers are instant; a slow machine must not show the notification for a long one.
+        browser.TransferNotificationDelay = Timeout.InfiniteTimeSpan;
         // Imports land beside the project file, which is not always the folder the scene sits in.
         string resourcesDir = Path.Combine(browser.ProjectDirectory ?? projectRoot, "resources");
         browser.RootPath.Value = fixture.TargetDir;
@@ -184,15 +343,15 @@ public sealed class FileBrowserWriteAdmissionTests
         int rejectedWrites;
         using (mutation)
         {
-            browser.CopyFilesToDirectory([(fixture.CopySource, false)], fixture.TargetDir);
-            browser.MoveFilesToDirectory([(fixture.MoveSource, false)], fixture.TargetDir);
+            await browser.CopyFilesToDirectoryAsync([(fixture.CopySource, false)], fixture.TargetDir);
+            await browser.MoveFilesToDirectoryAsync([(fixture.MoveSource, false)], fixture.TargetDir);
             browser.CreateNewFolder();
             await browser.RenameItemAsync(renameItem, "renamed.txt");
             rejectedWrites = 4;
             if (coversResources)
             {
-                browser.CopyFilesToResources([(fixture.CopySource, false)]);
-                browser.MoveFilesToResources([(fixture.MoveSource, false)]);
+                await browser.CopyFilesToResourcesAsync([(fixture.CopySource, false)]);
+                await browser.MoveFilesToResourcesAsync([(fixture.MoveSource, false)]);
                 rejectedWrites += 2;
             }
 
@@ -213,12 +372,12 @@ public sealed class FileBrowserWriteAdmissionTests
             });
         }
 
-        browser.CopyFilesToDirectory([(fixture.CopySource, false)], fixture.TargetDir);
-        browser.MoveFilesToDirectory([(fixture.MoveSource, false)], fixture.TargetDir);
+        await browser.CopyFilesToDirectoryAsync([(fixture.CopySource, false)], fixture.TargetDir);
+        await browser.MoveFilesToDirectoryAsync([(fixture.MoveSource, false)], fixture.TargetDir);
         browser.CreateNewFolder();
         await browser.RenameItemAsync(renameItem, "renamed.txt");
         if (coversResources)
-            browser.CopyFilesToResources([(Path.Combine(fixture.SourceDir, "renamed.txt"), false)]);
+            await browser.CopyFilesToResourcesAsync([(Path.Combine(fixture.SourceDir, "renamed.txt"), false)]);
 
         Assert.Multiple(() =>
         {
@@ -320,7 +479,13 @@ public sealed class FileBrowserWriteAdmissionTests
     {
         public List<Notification> Notifications { get; } = [];
 
-        public void Show(Notification notification) => Notifications.Add(notification);
+        public List<bool> ShownOnUiThread { get; } = [];
+
+        public void Show(Notification notification)
+        {
+            ShownOnUiThread.Add(Dispatcher.UIThread.CheckAccess());
+            Notifications.Add(notification);
+        }
     }
 
     /// <summary>

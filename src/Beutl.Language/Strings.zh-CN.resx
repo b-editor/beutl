@@ -1825,6 +1825,12 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="FileBrowser_WorkspaceBusy" xml:space="preserve">
     <value>项目文件正被另一项操作占用。请等待完成后重试。</value>
   </data>
+  <data name="FileBrowser_CopyingFiles" xml:space="preserve">
+    <value>正在复制文件…</value>
+  </data>
+  <data name="FileBrowser_MovingFiles" xml:space="preserve">
+    <value>正在移动文件…</value>
+  </data>
   <data name="PathEditor_ShowStroke" xml:space="preserve">
     <value>显示轮廓</value>
   </data>
