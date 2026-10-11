@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
@@ -10,9 +11,16 @@ namespace Beutl.Configuration;
 
 public sealed class GlobalConfiguration
 {
+    // Not a section: the version of the build that saved the file last.
+    private const string VersionKey = "Version";
+
     public static readonly GlobalConfiguration Instance = new();
     private readonly (string Key, string? LegacyKey, ConfigurationBase Config)[] _sections;
     private string? _filePath;
+    // The top-level entries the last Restore found that this build does not know, in the order the file had them.
+    private (string Key, JsonNode? Value)[] _unknownSections = [];
+    // The file the last Restore could neither read nor copy aside, and why the copy failed.
+    private (string File, Exception CopyFailure)? _uncopiedFile;
 
     public static string DefaultFilePath
     {
@@ -71,18 +79,33 @@ public sealed class GlobalConfiguration
 
     /// <summary>
     /// The settings the last <see cref="Restore"/> could not read, which kept their defaults. Restore runs
-    /// before logging is set up, so each host reports them through <see cref="LogRestoreFailures"/>.
+    /// before logging is set up, so each host reports them through <see cref="LogRestoreFailures"/>. A file
+    /// that could not be read at all is reported through <see cref="RestoreFileFailure"/> instead.
     /// </summary>
     public IReadOnlyList<ConfigurationRestoreFailure> RestoreFailures { get; private set; } = [];
 
     /// <summary>
-    /// Where the last <see cref="Restore"/> kept the file as it read it, because the next save drops what
-    /// <see cref="RestoreFailures"/> lists. Null when nothing failed or the copy could not be written.
+    /// Why the last <see cref="Restore"/> could not read the file at all: it is not valid JSON, repeats a
+    /// top-level key, or is not a JSON object. Every setting then keeps its default. Null when the file was
+    /// read or does not exist.
+    /// </summary>
+    public Exception? RestoreFileFailure { get; private set; }
+
+    /// <summary>
+    /// Where the last <see cref="Restore"/> kept the file as it read it, because the next save drops what could
+    /// not be read: the values <see cref="RestoreFailures"/> lists, kept as <c>settings.json.bak</c>, or the
+    /// whole file when <see cref="RestoreFileFailure"/> is set, kept as
+    /// <c>settings.json.corrupt-&lt;time&gt;-&lt;suffix&gt;</c>. Null when nothing failed or the copy could not be
+    /// written.
     /// </summary>
     public string? RestoreBackupPath { get; private set; }
 
     public void Save(string file)
     {
+        // Replacing a file the last Restore could neither read nor copy aside would lose it.
+        if (_uncopiedFile is { } uncopied && FilePathComparison.AreSameCanonicalPath(file, uncopied.File))
+            return;
+
         try
         {
             _filePath = file;
@@ -93,14 +116,23 @@ public sealed class GlobalConfiguration
                 Directory.CreateDirectory(dir);
             }
 
+            // Version names the build that saved the file, which the next start reads as LastStartedVersion, so
+            // it is this build's version even when a newer build wrote the file.
             var json = new JsonObject()
             {
-                ["Version"] = BeutlApplication.Version
+                [VersionKey] = BeutlApplication.Version
             };
 
             foreach ((string key, _, ConfigurationBase config) in _sections)
             {
                 json[key] = CoreSerializer.SerializeToJsonObject(config);
+            }
+
+            // What a newer build, or an extension that is not loaded, wrote goes back as it was read, after this
+            // build's sections and in the order the file had it. A node has one parent, so each save adds a copy.
+            foreach ((string key, JsonNode? value) in _unknownSections)
+            {
+                json[key] = value?.DeepClone();
             }
 
             // Pending migration can still include a legacy live MCP bearer token.
@@ -115,10 +147,13 @@ public sealed class GlobalConfiguration
     /// <summary>Logs what the last <see cref="Restore"/> could not read; call it once logging is set up.</summary>
     public void LogRestoreFailures()
     {
-        if (RestoreFailures.Count == 0)
+        if (RestoreFileFailure is null && RestoreFailures.Count == 0)
             return;
 
         ILogger logger = Log.CreateLogger<GlobalConfiguration>();
+        if (RestoreFileFailure is { } unreadable)
+            logger.LogError(unreadable, "Could not read settings.json, so every setting keeps its default.");
+
         foreach (ConfigurationRestoreFailure failure in RestoreFailures)
         {
             logger.LogWarning(failure.Exception, "Could not read {Setting} from settings.json, so it keeps its default.", failure.Setting);
@@ -126,6 +161,8 @@ public sealed class GlobalConfiguration
 
         if (RestoreBackupPath is { } backup)
             logger.LogWarning("settings.json as read is kept as {Backup}.", backup);
+        else if (_uncopiedFile is { } uncopied)
+            logger.LogWarning(uncopied.CopyFailure, "Could not copy settings.json aside, so settings are not saved over it this session.");
         else
             logger.LogWarning("Could not keep a copy of settings.json as read; the values it could not read are dropped at the next save.");
     }
@@ -133,33 +170,48 @@ public sealed class GlobalConfiguration
     public void Restore(string file)
     {
         var failures = new List<ConfigurationRestoreFailure>();
+        RestoreFileFailure = null;
         RestoreBackupPath = null;
+        _unknownSections = [];
+        _uncopiedFile = null;
         try
         {
             _filePath = file;
             RemoveHandlers();
-            if (JsonHelper.JsonRestore(file) is JsonObject json)
+            if (!File.Exists(file))
+                return;
+
+            if (!TryParse(file, out JsonObject? json, out Exception? unreadable))
             {
-                foreach ((string key, string? legacyKey, ConfigurationBase config) in _sections)
-                {
-                    // A section that has a lower-case legacy key is read from that key when it is present.
-                    JsonNode? node = legacyKey is null ? json[key] : json[legacyKey] ?? json[key];
-                    if (node is JsonObject section)
-                        RestoreSection(key, config, section, failures);
-                    else if (node is not null)
-                        failures.Add(new ConfigurationRestoreFailure(key, new JsonException($"{key} is not a JSON object.")));
-                }
-
-                if (json["Version"] is JsonValue version
-                    && version.TryGetValue(out string? versionString))
-                {
-                    LastStartedVersion = versionString;
-                }
-
-                // The next save drops what could not be read, so the file is kept as it was.
-                if (failures.Count > 0)
-                    RestoreBackupPath = KeepBackup(file);
+                // Nothing can be read, and the next save replaces the whole file, so it is copied aside first.
+                RestoreFileFailure = unreadable;
+                RestoreBackupPath = KeepUnreadableCopy(file);
+                return;
             }
+
+            foreach ((string key, string? legacyKey, ConfigurationBase config) in _sections)
+            {
+                // A section that has a lower-case legacy key is read from that key when it is present.
+                JsonNode? node = legacyKey is null ? json[key] : json[legacyKey] ?? json[key];
+                if (node is JsonObject section)
+                    RestoreSection(key, config, section, failures);
+                else if (node is not null)
+                    failures.Add(new ConfigurationRestoreFailure(key, new JsonException($"{key} is not a JSON object.")));
+            }
+
+            // Kept for Save. A legacy key is known and not kept: it is read in place of the section's key when
+            // present, so writing it back would hide every later change to that section.
+            _unknownSections = [.. json.Where(p => !IsKnownKey(p.Key)).Select(p => (p.Key, p.Value?.DeepClone()))];
+
+            if (json[VersionKey] is JsonValue version
+                && version.TryGetValue(out string? versionString))
+            {
+                LastStartedVersion = versionString;
+            }
+
+            // The next save drops what could not be read, so the file is kept as it was.
+            if (failures.Count > 0)
+                RestoreBackupPath = KeepBackup(file);
         }
         finally
         {
@@ -167,6 +219,36 @@ public sealed class GlobalConfiguration
             AddHandlers();
         }
     }
+
+    // Opening the file can still throw, as it did through JsonHelper.JsonRestore.
+    private static bool TryParse(
+        string file, [NotNullWhen(true)] out JsonObject? json, [NotNullWhen(false)] out Exception? failure)
+    {
+        using var stream = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.Read);
+        try
+        {
+            if (JsonNode.Parse(stream) is JsonObject root)
+            {
+                // A JsonObject reads its properties on first use, which throws for a repeated key.
+                _ = root.Count;
+                json = root;
+                failure = null;
+                return true;
+            }
+
+            failure = new JsonException($"{Path.GetFileName(file)} is not a JSON object.");
+        }
+        catch (Exception ex) when (ex is JsonException or ArgumentException)
+        {
+            failure = ex;
+        }
+
+        json = null;
+        return false;
+    }
+
+    private bool IsKnownKey(string key)
+        => key == VersionKey || Array.Exists(_sections, s => s.Key == key || s.LegacyKey == key);
 
     // A setting that cannot be read keeps its default, and the sections after it are still read.
     private static void RestoreSection(
@@ -201,6 +283,31 @@ public sealed class GlobalConfiguration
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             // The settings that could be read are restored either way; the caller reports the missing copy.
+            return null;
+        }
+    }
+
+    // Named as EditViewModel names an unreadable view state it moves aside: the UTC time and a random suffix,
+    // so copies made in the same second, by another Beutl or a later start, do not collide.
+    private string? KeepUnreadableCopy(string file)
+    {
+        string copy = string.Create(
+            CultureInfo.InvariantCulture,
+            $"{file}.corrupt-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid().ToString("N")[..8]}");
+        try
+        {
+            File.Copy(file, copy, overwrite: false);
+            return copy;
+        }
+        catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
+        {
+            // The file is gone, so there is nothing left for a save to replace.
+            return null;
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // The file stays where it is, and Save leaves it alone this session.
+            _uncopiedFile = (file, ex);
             return null;
         }
     }
