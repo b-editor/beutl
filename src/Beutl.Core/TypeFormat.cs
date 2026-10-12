@@ -13,7 +13,8 @@ internal static class TypeFormat
     private static readonly object s_sync = new();
     private static readonly object s_marker = new();
 
-    // Names that resolved. A name that does not resolve is not kept, so it resolves once its assembly loads.
+    // Names that resolved without a former name. A name that does not resolve is not kept, so it resolves once its
+    // assembly loads, and neither is one that needed a former name, so a type with that name takes over once it loads.
     private static readonly ConcurrentDictionary<string, Type> s_resolved = new(StringComparer.Ordinal);
 
     // The type that gives each former name (FormerPersistedNameAttribute), keyed by AliasKey, from the assemblies
@@ -21,8 +22,9 @@ internal static class TypeFormat
     private static readonly Dictionary<string, Type> s_aliases = new(StringComparer.Ordinal);
     private static readonly ConditionalWeakTable<Assembly, object> s_scannedAssemblies = new();
 
-    // Types TypeUnloadNotifier announced. Their assembly stays listed until its load context is collected, so they
-    // are neither kept in s_resolved nor scanned for former names again. Guarded by s_sync, with s_unloadGeneration.
+    // Types TypeUnloadNotifier announced. Their assembly stays listed until its load context is collected, so a name
+    // that holds one stops resolving, and they are neither kept in s_resolved nor scanned for former names again.
+    // Written under s_sync, with s_unloadGeneration.
     private static readonly ConditionalWeakTable<Type, object> s_unloadedTypes = new();
     private static int s_unloadGeneration;
 
@@ -38,12 +40,19 @@ internal static class TypeFormat
         }
 
         int generation = Volatile.Read(ref s_unloadGeneration);
-        Type? type = Parse(fullName);
-        if (type != null)
+        Type? type = Parse(fullName, out bool usedFormerName);
+        // The parser still finds an unloaded type while its load context waits to be collected. Handing it out
+        // would bring the plugin's type back and keep the context alive.
+        if (type == null || ContainsType(type, IsUnloaded))
+        {
+            return null;
+        }
+
+        if (!usedFormerName)
         {
             lock (s_sync)
             {
-                // Not kept when a type it holds was unloaded, even while this name was being parsed.
+                // Not kept when a type it holds was unloaded while this name was being parsed.
                 if (generation == s_unloadGeneration && !ContainsType(type, IsUnloaded))
                 {
                     s_resolved.TryAdd(fullName, type);
@@ -54,12 +63,16 @@ internal static class TypeFormat
         return type;
     }
 
-    private static Type? Parse(string fullName)
+    private static Type? Parse(string fullName, out bool usedFormerName)
     {
+        usedFormerName = false;
         try
         {
             List<Token> tokens = new TypeNameTokenizer(fullName).Tokenize();
-            return new TypeNameParser(tokens).Parse();
+            var parser = new TypeNameParser(tokens);
+            Type? type = parser.Parse();
+            usedFormerName = parser.UsedFormerName;
+            return type;
         }
         // The tokenizer/parser index freely and throw on ill-formed names (e.g. "x" from a
         // hand-edited file); every caller already treats null as "unknown type".

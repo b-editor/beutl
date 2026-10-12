@@ -24,6 +24,10 @@ internal class TypeNameParser
         _aliasResolver = aliasResolver ?? TypeFormat.FindAlias;
     }
 
+    // Whether Parse resolved part of the name, such as a type argument, through a former name. Such a result changes
+    // once a type with that name loads, which then takes its place.
+    public bool UsedFormerName { get; private set; }
+
     private static Assembly? DefaultAssemblyResolver(string s)
     {
         //AssemblyLoadContext.Default.Assemblies
@@ -171,7 +175,7 @@ internal class TypeNameParser
         }
     }
 
-    private static Type[] ParseGenericTypes(Span<Token> tokens)
+    private Type[] ParseGenericTypes(Span<Token> tokens)
     {
         if (tokens.Length == 0)
             return [];
@@ -200,6 +204,7 @@ internal class TypeNameParser
                     Span<Token> genericType = generics[start..i];
                     var parser = new TypeNameParser([.. genericType]);
                     list.Add(parser.Parse());
+                    UsedFormerName |= parser.UsedFormerName;
                 }
             }
         }
@@ -250,7 +255,11 @@ internal class TypeNameParser
         }
 
         // A former name (FormerPersistedNameAttribute) is read only when no type has the name now.
-        type ??= _aliasResolver(_assemblyName ?? "", definitionName);
+        if (type == null)
+        {
+            type = _aliasResolver(_assemblyName ?? "", definitionName);
+            UsedFormerName |= type != null;
+        }
 
         if (type == null)
         {

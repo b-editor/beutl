@@ -923,6 +923,30 @@ public class DockTabAddButtonTests
         }
     }
 
+    // The list can hold both names of a tool, for example after a build that did not read the former name let the
+    // user pin the tool again. Unpinning removes every pin of the tool and keeps the others.
+    [AvaloniaTest]
+    public void Unpinning_removes_every_pin_of_the_tool()
+    {
+        CoreList<string> pins = GlobalConfiguration.Instance.ViewConfig.PinnedToolTabs;
+        string[] saved = [.. pins];
+        var extension = new RenamedToolTabExtension();
+        var newTab = new NewToolTabDockable();
+        string other = NewToolTabDockable.GetPinKey(HistoryTabExtension.Instance);
+        try
+        {
+            pins.Replace([RenamedToolTabExtension.FormerName, other, NewToolTabDockable.GetPinKey(extension)]);
+
+            newTab.TogglePin(extension);
+
+            Assert.That(pins, Is.EqualTo(new[] { other }));
+        }
+        finally
+        {
+            pins.Replace(saved);
+        }
+    }
+
     [AvaloniaTest]
     public async Task Extension_returning_success_with_a_null_context_is_rejected()
     {

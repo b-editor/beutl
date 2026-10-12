@@ -135,11 +135,21 @@ public sealed class NewToolTabDockable : Tool
     public void TogglePin(ToolTabExtension extension)
     {
         CoreList<string> pins = GlobalConfiguration.Instance.ViewConfig.PinnedToolTabs;
-        int index = IndexOfPin(pins, extension);
-        if (index >= 0)
-            pins.RemoveAt(index);
-        else
+        if (IndexOfPin(pins, extension) < 0)
+        {
             pins.Add(GetPinKey(extension));
+        }
+        else
+        {
+            // The current name and a former name can both pin the tool, so unpinning removes every pin of it.
+            string key = GetPinKey(extension);
+            Type type = extension.GetType();
+            for (int i = pins.Count - 1; i >= 0; i--)
+            {
+                if (IsPinOf(pins[i], key, type))
+                    pins.RemoveAt(i);
+            }
+        }
 
         Refresh();
     }
@@ -151,25 +161,25 @@ public sealed class NewToolTabDockable : Tool
         return TypeFormat.ToString(extension.GetType());
     }
 
-    // Where extension is pinned, or -1. A pin is read like any other type name, so one saved under a former name
-    // of the type (FormerPersistedNameAttribute) still pins it; a new pin is saved under the current name.
+    // Where extension is first pinned, or -1. A new pin is saved under the current name.
     internal static int IndexOfPin(IReadOnlyList<string> pins, ToolTabExtension extension)
     {
         string key = GetPinKey(extension);
-        for (int i = 0; i < pins.Count; i++)
-        {
-            if (pins[i] == key)
-                return i;
-        }
-
         Type type = extension.GetType();
         for (int i = 0; i < pins.Count; i++)
         {
-            if (TypeFormat.ToType(pins[i]) == type)
+            if (IsPinOf(pins[i], key, type))
                 return i;
         }
 
         return -1;
+    }
+
+    // A pin is read like any other type name, so one saved under a former name of the type
+    // (FormerPersistedNameAttribute) pins it too.
+    private static bool IsPinOf(string pin, string key, Type type)
+    {
+        return pin == key || TypeFormat.ToType(pin) == type;
     }
 
     /// <summary>

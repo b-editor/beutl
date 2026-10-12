@@ -1,4 +1,6 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Reflection;
+using System.Reflection.Emit;
+using System.Text.Json.Nodes;
 using Beutl.Animation;
 using Beutl.Engine;
 using Beutl.Engine.Expressions;
@@ -17,6 +19,10 @@ public class FormerPersistedNameTests
     private const string FormerLeafName = "[Beutl.UnitTests].Serialization:FormerPersistedNameTests:FormerLeaf";
     private const string FormerBoxName = "[Beutl.UnitTests].Serialization:FormerPersistedNameTests:FormerBox";
     private const string FormerUnloadedName = "[Beutl.UnitTests].Serialization:FormerPersistedNameTests:FormerUnloaded";
+
+    // A name in an assembly that only the test below loads.
+    private const string LaterAssemblyName = "Beutl.UnitTests.FormerNameProbe";
+    private const string LaterName = $"[{LaterAssemblyName}]Probe:Later";
 
     [Test]
     public void A_renamed_type_loads_from_a_file_that_holds_its_former_name()
@@ -105,17 +111,51 @@ public class FormerPersistedNameTests
         }));
     }
 
-    // A plugin's types are announced through TypeUnloadNotifier before its load context is unloaded. The names that
-    // resolved to them are dropped from the cache, which would otherwise keep the context alive, and their former
-    // names no longer resolve.
+    // A plugin's types are announced through TypeUnloadNotifier before its load context is unloaded, and the context
+    // stays listed until it is collected, as this test's assembly stays loaded. A name that holds such a type stops
+    // resolving, so a read neither brings the type back nor keeps the context alive, whether the name was cached,
+    // is read through a former name or names the type as a type argument.
     [Test]
-    public void Unloading_a_type_forgets_the_names_that_resolved_to_it()
+    public void Unloading_a_type_stops_the_names_that_hold_it_from_resolving()
     {
-        Assert.That(TypeFormat.ToType(FormerUnloadedName), Is.EqualTo(typeof(UnloadedType)));
+        string name = TypeFormat.ToString(typeof(UnloadedType));
+        string argument = TypeFormat.ToString(typeof(Optional<UnloadedType>));
+        Assert.Multiple(() =>
+        {
+            Assert.That(TypeFormat.ToType(FormerUnloadedName), Is.EqualTo(typeof(UnloadedType)));
+            Assert.That(TypeFormat.ToType(name), Is.EqualTo(typeof(UnloadedType)));
+            Assert.That(TypeFormat.ToType(argument), Is.EqualTo(typeof(Optional<UnloadedType>)));
+        });
 
         TypeUnloadNotifier.NotifyUnloading([typeof(UnloadedType)]);
 
-        Assert.That(TypeFormat.ToType(FormerUnloadedName), Is.Null);
+        Assert.Multiple(() =>
+        {
+            Assert.That(TypeFormat.ToType(FormerUnloadedName), Is.Null);
+            Assert.That(TypeFormat.ToType(name), Is.Null);
+            Assert.That(TypeFormat.ToType(argument), Is.Null);
+        });
+    }
+
+    // A name read through a former name is not cached, so a type that has the name and loads later, as an extension
+    // installed afterwards would, takes it over. That holds for a former name in a type argument too.
+    [Test]
+    public void A_type_that_loads_later_under_a_former_name_takes_the_name_over()
+    {
+        string argument = TypeFormat.ToString(typeof(Optional<RenamedLater>))
+            .Replace(TypeFormat.ToString(typeof(RenamedLater)), LaterName);
+        Type? before = TypeFormat.ToType(LaterName);
+        Type? argumentBefore = TypeFormat.ToType(argument);
+
+        Type later = LoadTypeNamedLater();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(before, Is.EqualTo(typeof(RenamedLater)));
+            Assert.That(argumentBefore, Is.EqualTo(typeof(Optional<RenamedLater>)));
+            Assert.That(TypeFormat.ToType(LaterName), Is.EqualTo(later));
+            Assert.That(TypeFormat.ToType(argument), Is.EqualTo(typeof(Optional<>).MakeGenericType(later)));
+        });
     }
 
     [Test]
@@ -188,6 +228,15 @@ public class FormerPersistedNameTests
         });
     }
 
+    // Loads an assembly whose type has LaterName.
+    private static Type LoadTypeNamedLater()
+    {
+        AssemblyBuilder assembly = AssemblyBuilder.DefineDynamicAssembly(
+            new AssemblyName(LaterAssemblyName), AssemblyBuilderAccess.Run);
+        ModuleBuilder module = assembly.DefineDynamicModule(LaterAssemblyName);
+        return module.DefineType("Probe.Later", TypeAttributes.Public | TypeAttributes.Class).CreateType();
+    }
+
     private static void RenameKey(JsonObject json, string name, string newName)
     {
         Assert.That(json.Remove(name, out JsonNode? value), Is.True, $"{name} must have been written, or the test proves nothing.");
@@ -215,6 +264,9 @@ public class FormerPersistedNameTests
     // Only used by the unload test, which forgets it for the rest of the run.
     [FormerPersistedName(FormerUnloadedName)]
     private sealed class UnloadedType;
+
+    [FormerPersistedName(LaterName)]
+    private sealed class RenamedLater;
 
     [FormerPersistedName("[Beutl.UnitTests]Beutl.UnitTests.Former:Outer:BadlyNamed")]
     [FormerPersistedName("Beutl.UnitTests.Former:BadlyNamed")]
