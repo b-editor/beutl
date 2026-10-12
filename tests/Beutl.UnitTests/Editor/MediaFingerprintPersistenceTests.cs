@@ -49,6 +49,7 @@ public class MediaFingerprintPersistenceTests
         await service.UpdateFingerprintsAsync(scene, force: true);
         var replaced = new List<string>();
         bool updated;
+        string[] replacedByTheUpdate;
         using (StorageWriteTransaction.InjectFaultsForTesting((step, file) =>
                {
                    if (step == StorageWriteStep.Replace) replaced.Add(file);
@@ -56,12 +57,14 @@ public class MediaFingerprintPersistenceTests
         {
             // The editor's background update after an explicit save, then the next explicit save.
             updated = MediaFingerprintFile.Update(scene.Uri, scene.Id, scene.MediaFingerprints);
+            replacedByTheUpdate = [.. replaced];
             SaveAsTheEditorDoes(scene);
         }
 
         Assert.Multiple(() =>
         {
             Assert.That(updated, Is.False, "A changed update is what requests a version control snapshot.");
+            Assert.That(replacedByTheUpdate, Is.Empty, "The update replaces no file at all.");
             Assert.That(replaced, Has.No.Member(Path.GetFullPath(path)));
             Assert.That(File.ReadAllBytes(path), Is.EqualTo(savedFingerprints));
             Assert.That(File.ReadAllBytes(scene.Uri.LocalPath), Is.EqualTo(savedScene));

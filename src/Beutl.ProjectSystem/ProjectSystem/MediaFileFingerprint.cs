@@ -1,10 +1,8 @@
 ﻿namespace Beutl.ProjectSystem;
 
-// LastWriteTimeUtcTicks is the file's last-write time when this machine hashed it. It is not saved:
-// it differs between machines and copies of a project, and identity uses only the length and the
-// hash, so saving it rewrote the shared fingerprints when only timestamps changed. A fingerprint read
-// from disk has 0 there, including one an earlier build wrote with the value. The fingerprints of a
-// scene are saved in its folder (MediaFingerprintFile).
+// LastWriteTimeUtcTicks is when this machine hashed the file. It is not saved, because it differs between
+// machines and copies while identity uses only the length and the hash, so a fingerprint read from disk has 0
+// there.
 public sealed record MediaFileFingerprint(
     long Length,
     [property: System.Text.Json.Serialization.JsonIgnore] long LastWriteTimeUtcTicks,

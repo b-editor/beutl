@@ -30,12 +30,7 @@ public partial class Scene
     internal void SetMediaFingerprints(IEnumerable<KeyValuePair<string, MediaFileFingerprint>> fingerprints)
     {
         if (MediaFingerprintFile is { IsFromLaterVersion: true }) return;
-        var file = new MediaFingerprintFile();
-        foreach ((string key, MediaFileFingerprint fingerprint) in fingerprints)
-        {
-            file.Fingerprints[key] = fingerprint;
-        }
-
+        var file = new MediaFingerprintFile(fingerprints);
         MediaFingerprintFile = file.Fingerprints.Count == 0 ? null : file;
     }
 
