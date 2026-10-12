@@ -211,10 +211,13 @@ public partial class ImmediateCanvas
             return;
         }
 
-        int count = Canvas.Save();
+        // At density 1 the canvas already draws in content space, so only a scaled draw changes its state.
+        bool scaled = density != 1f;
+        int count = scaled ? Canvas.Save() : 0;
         try
         {
-            Canvas.SetMatrix((SKMatrix44)CreateDensityScaledContentTransform(density).ToSKMatrix());
+            if (scaled)
+                Canvas.SetMatrix((SKMatrix44)CreateDensityScaledContentTransform(density).ToSKMatrix());
 
             // The blob is shaped at device density, so its glyphs already span Bounds * density
             // under this CTM. Pass scale 1 so the density isn't applied twice to brush patterns.
@@ -231,7 +234,8 @@ public partial class ImmediateCanvas
         }
         finally
         {
-            Canvas.RestoreToCount(count);
+            if (scaled)
+                Canvas.RestoreToCount(count);
         }
     }
 
