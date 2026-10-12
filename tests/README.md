@@ -122,6 +122,28 @@ Conventions:
 - `BEUTL_HOME` is isolated to a per-assembly temp dir via a `[SetUpFixture]` calling `BeutlHomeIsolation`.
 - GPU-preview / FFmpeg-export tests must self-skip (`Assert.Ignore` + `TestContext.WriteLine` the reason) when the GPU / worker is unavailable — same spirit as `VulkanTestEnvironment` and `Beutl.Graphics3DTests`.
 
+## Format manifest
+
+`tests/Beutl.HeadlessUITests/FormatManifest.txt` lists the names that Beutl writes into project files and its stores
+and resolves by exact match when it reads them back (#2875). For every `ICoreSerializable` class in the assemblies
+built from `src/` it records the `$type`, whether a member declared as the class writes `$type` (not when the class is
+sealed) and the top-level keys of a default instance. It also records the names that built-in extensions put into
+dock layouts, tool tab pins, `keymap.json`, the decoder and editor priorities, output profiles and presets, and
+`extensionsSettings.json`. `FormatManifestTests` builds the list by reflection and fails when it differs from the file,
+so a rename shows up in the diff of the pull request that makes it.
+
+When the change is intended, regenerate the file and commit it with the change:
+
+```bash
+BEUTL_UPDATE_FORMAT_MANIFEST=1 dotnet test tests/Beutl.HeadlessUITests/Beutl.HeadlessUITests.csproj -f net10.0 \
+  --filter "FullyQualifiedName~FormatManifestTests"
+```
+
+A new project under `src/`, at any depth, goes into `FormatManifest.ScannedProjects`, or into `SkippedProjects` with the
+reason it is left out. `Beutl.HeadlessUITests` references `Beutl.Extensions.MediaFoundation` so that the manifest is the
+same on every OS. Like the app, a Windows ARM64 build leaves that x64-only decoder out, and the comparison is skipped
+there.
+
 ## NUnit conventions
 
 - `[TestFixture]` on the class, `[Test]` on each method

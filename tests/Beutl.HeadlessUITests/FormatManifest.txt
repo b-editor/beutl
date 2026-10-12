@@ -1,0 +1,1443 @@
+# Beutl format manifest
+#
+# The names that first-party code writes into project files and the app's stores, and resolves by exact
+# match when it reads them back. A change here is a change to what Beutl writes: what was saved under an
+# old name no longer resolves after a rename, and an older build cannot read what a newer one writes (#2875).
+#
+# FormatManifestTests builds this file from the assemblies built from src/ and fails when it differs. After
+# an intentional change, regenerate it and commit it with the change:
+#
+#   BEUTL_UPDATE_FORMAT_MANIFEST=1 dotnet test tests/Beutl.HeadlessUITests/Beutl.HeadlessUITests.csproj -f net10.0 --filter "FullyQualifiedName~FormatManifestTests"
+
+## Assemblies
+# The assemblies built from src/ that this manifest reads. FormatManifest.SkippedProjects says why the
+# other projects under src/ are left out.
+
+Beutl
+Beutl.AgentToolkit
+Beutl.Api
+Beutl.Configuration
+Beutl.Controls
+Beutl.Core
+Beutl.Editor
+Beutl.Editor.Components
+Beutl.Embedding.MediaFoundation
+Beutl.Engine
+Beutl.ExceptionHandler
+Beutl.Extensibility
+Beutl.Extensions.AVFoundation
+Beutl.Extensions.FFmpeg
+Beutl.Extensions.FFmpeg.Core
+Beutl.FFmpegIpc
+Beutl.Language
+Beutl.NodeGraph
+Beutl.PackageTools.UI
+Beutl.ProjectSystem
+Beutl.Threading
+Beutl.Utilities
+
+## Serializable types
+# Every ICoreSerializable class in these assemblies, by the $type that project files (.bep, .scene, .belm),
+# settings.json, extensionsSettings.json, output profiles and presets, templates and library pins write
+# for it. Closed generic types are listed where a default instance writes them: the KeyFrameAnimation<T>
+# and KeyFrame<T> of each animatable property, and those nested in the saved instance, such as node ports.
+# A generic definition, which TypeNameFormatter cannot format, is listed with its parameter names.
+#   sealed    A member declared as this type is written without $type and read back as this type.
+#   unsealed  A member declared as this type is written with $type.
+#   abstract  The same as unsealed. There is no default instance.
+#   keys      The top-level keys of a default instance saved as the root of a file.
+
+[Beutl.Configuration]:AiAgentConfig
+  sealed
+  keys: AgentId, FollowLiveMcpEdits, InstallMcp, InstallScope, InstallSkills, InstallSubagents, McpConfigFileName, McpServersPropertyName, ProjectRoot, SkillsDirectory, StdioArguments, StdioCommand, SubagentsDirectory
+[Beutl.Configuration]:BackupConfig
+  sealed
+  keys: BackupSettings
+[Beutl.Configuration]:ConfigurationBase
+  abstract
+[Beutl.Configuration]:EditorConfig
+  sealed
+  keys: AutoAdjustSceneDuration, ClampResizeToOriginalLength, EnablePointerLockInProperty, FrameCacheColorType, FrameCacheMaxSize, FrameCacheScale, IsFrameCacheEnabled, IsNodeCacheEnabled, IsOnionSkinEnabled, IsRippleEnabled, IsTimelineSnapEnabled, LastMediaDirectory, LibraryTabDisplayModes, NodeCacheMaxPixels, NodeCacheMinPixels, OnionSkinNextCount, OnionSkinNextOpacity, OnionSkinPrevCount, OnionSkinPrevOpacity, PreviewSourceMode, SwapTimelineScrollDirection, TimelineAutoScrollMode, ToneMappingExposure, ToneMappingMode, UseHdrPreview
+[Beutl.Configuration]:ExtensionConfig
+  sealed
+  keys: DecoderPriority, EditorExtensions
+[Beutl.Configuration]:FontConfig
+  sealed
+  keys: FontDirectories
+[Beutl.Configuration]:GraphicsConfig
+  sealed
+  keys: SelectedGpuName
+[Beutl.Configuration]:ProxyStoreConfig
+  sealed
+  keys: DefaultPreset, MaxTotalBytes, StoreRootPath
+[Beutl.Configuration]:TelemetryConfig
+  sealed
+  keys: Beutl_Api_Client, Beutl_Application, Beutl_Logging, Beutl_PackageManagement
+[Beutl.Configuration]:TutorialConfig
+  sealed
+  keys: CompletedTutorialIds, ShowTutorialsOnStartup
+[Beutl.Configuration]:VersionControlConfig
+  sealed
+  keys: AutoCommitOnClose, AutoCommitOnSave, EnableForNewProjects, GitExecutablePath, LargeMediaWarningThresholdMb, UseLfsWhenAvailable
+[Beutl.Configuration]:ViewConfig
+  sealed
+  keys: CustomAccentColor, IsWindowMaximized, LastOpenedProjectFile, PinnedToolTabs, RecentFiles, RecentProjects, ShowExactBoundaries, Theme, UICulture, UseCustomAccentColor
+[Beutl.Core]Beutl:BeutlApplication
+  unsealed
+  keys: Id, Name, Project
+[Beutl.Core]Beutl:CoreObject
+  abstract
+[Beutl.Core]Beutl:Hierarchical
+  abstract
+[Beutl.Core]Beutl:Project
+  sealed
+  keys: Id, Name, appVersion, items, minAppVersion, variables
+[Beutl.Core]Beutl:ProjectItem
+  abstract
+[Beutl.Editor].Services:ObjectRegenerator:ListWrapper<T>
+  sealed
+[Beutl.Editor]:VirtualProjectRoot
+  sealed
+  keys: Id, Name
+[Beutl.Embedding.MediaFoundation].Decoding:MFDecodingSettings
+  sealed
+  keys: MaxVideoBufferSize, ThresholdFrameCount
+[Beutl.Engine]:EngineObject
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, Name
+[Beutl.Engine]:FallbackEngineObject
+  sealed
+  keys: Animations, Expressions, Id, IsEnabled, Name
+[Beutl.Engine]Beutl.Animation:KeyFrame
+  unsealed
+  keys: (no public parameterless constructor)
+[Beutl.Engine]Beutl.Animation:KeyFrame<T>
+  sealed
+[Beutl.Engine]Beutl.Animation:KeyFrame<[Beutl.Engine]Beutl.Graphics.Effects:HighContrastInvertStyle>
+  sealed
+  keys: Easing, Id, KeyTime, Name, Value
+[Beutl.Engine]Beutl.Animation:KeyFrame<[Beutl.Engine]Beutl.Graphics.Effects:StrokeEffect:StrokeStyles>
+  sealed
+  keys: Easing, Id, KeyTime, Name, Value
+[Beutl.Engine]Beutl.Animation:KeyFrame<[Beutl.Engine]Beutl.Graphics:BlendMode>
+  sealed
+  keys: Easing, Id, KeyTime, Name, Value
+[Beutl.Engine]Beutl.Animation:KeyFrame<[Beutl.Engine]Beutl.Graphics:Matrix>
+  sealed
+  keys: Easing, Id, KeyTime, Name, Value
+[Beutl.Engine]Beutl.Animation:KeyFrame<[Beutl.Engine]Beutl.Graphics:Point>
+  sealed
+  keys: Easing, Id, KeyTime, Name, Value
+[Beutl.Engine]Beutl.Animation:KeyFrame<[Beutl.Engine]Beutl.Graphics:RelativePoint>
+  sealed
+  keys: Easing, Id, KeyTime, Name, Value
+[Beutl.Engine]Beutl.Animation:KeyFrame<[Beutl.Engine]Beutl.Graphics:RelativeRect>
+  sealed
+  keys: Easing, Id, KeyTime, Name, Value
+[Beutl.Engine]Beutl.Animation:KeyFrame<[Beutl.Engine]Beutl.Graphics:Size>
+  sealed
+  keys: Easing, Id, KeyTime, Name, Value
+[Beutl.Engine]Beutl.Animation:KeyFrame<[Beutl.Engine]Beutl.Media.Source:VideoSource>
+  sealed
+  keys: Easing, Id, KeyTime, Name, Value
+[Beutl.Engine]Beutl.Animation:KeyFrame<[Beutl.Engine]Beutl.Media:AlignmentX>
+  sealed
+  keys: Easing, Id, KeyTime, Name, Value
+[Beutl.Engine]Beutl.Animation:KeyFrame<[Beutl.Engine]Beutl.Media:AlignmentY>
+  sealed
+  keys: Easing, Id, KeyTime, Name, Value
+[Beutl.Engine]Beutl.Animation:KeyFrame<[Beutl.Engine]Beutl.Media:BitmapInterpolationMode>
+  sealed
+  keys: Easing, Id, KeyTime, Name, Value
+[Beutl.Engine]Beutl.Animation:KeyFrame<[Beutl.Engine]Beutl.Media:Color>
+  sealed
+  keys: Easing, Id, KeyTime, Name, Value
+[Beutl.Engine]Beutl.Animation:KeyFrame<[Beutl.Engine]Beutl.Media:CornerRadius>
+  sealed
+  keys: Easing, Id, KeyTime, Name, Value
+[Beutl.Engine]Beutl.Animation:KeyFrame<[Beutl.Engine]Beutl.Media:GradientSpreadMethod>
+  sealed
+  keys: Easing, Id, KeyTime, Name, Value
+[Beutl.Engine]Beutl.Animation:KeyFrame<[Beutl.Engine]Beutl.Media:GradingColor>
+  sealed
+  keys: Easing, Id, KeyTime, Name, Value
+[Beutl.Engine]Beutl.Animation:KeyFrame<[Beutl.Engine]Beutl.Media:PerlinNoiseType>
+  sealed
+  keys: Easing, Id, KeyTime, Name, Value
+[Beutl.Engine]Beutl.Animation:KeyFrame<[Beutl.Engine]Beutl.Media:PixelPoint>
+  sealed
+  keys: Easing, Id, KeyTime, Name, Value
+[Beutl.Engine]Beutl.Animation:KeyFrame<[Beutl.Engine]Beutl.Media:Stretch>
+  sealed
+  keys: Easing, Id, KeyTime, Name, Value
+[Beutl.Engine]Beutl.Animation:KeyFrame<[Beutl.Engine]Beutl.Media:TileMode>
+  sealed
+  keys: Easing, Id, KeyTime, Name, Value
+[Beutl.Engine]Beutl.Animation:KeyFrame<[System.Private.CoreLib]System.Numerics:Vector3>
+  sealed
+  keys: Easing, Id, KeyTime, Name, Value
+[Beutl.Engine]Beutl.Animation:KeyFrame<[System.Private.CoreLib]System:Boolean>
+  sealed
+  keys: Easing, Id, KeyTime, Name, Value
+[Beutl.Engine]Beutl.Animation:KeyFrame<[System.Private.CoreLib]System:Int32>
+  sealed
+  keys: Easing, Id, KeyTime, Name, Value
+[Beutl.Engine]Beutl.Animation:KeyFrame<[System.Private.CoreLib]System:Single>
+  sealed
+  keys: Easing, Id, KeyTime, Name, Value
+[Beutl.Engine]Beutl.Animation:KeyFrameAnimation
+  abstract
+[Beutl.Engine]Beutl.Animation:KeyFrameAnimation<T>
+  unsealed
+[Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Graphics.Effects:HighContrastInvertStyle>
+  unsealed
+  keys: Id, KeyFrames, Name, UseGlobalClock
+[Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Graphics.Effects:StrokeEffect:StrokeStyles>
+  unsealed
+  keys: Id, KeyFrames, Name, UseGlobalClock
+[Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Graphics:BlendMode>
+  unsealed
+  keys: Id, KeyFrames, Name, UseGlobalClock
+[Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Graphics:Matrix>
+  unsealed
+  keys: Id, KeyFrames, Name, UseGlobalClock
+[Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Graphics:Point>
+  unsealed
+  keys: Id, KeyFrames, Name, UseGlobalClock
+[Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Graphics:RelativePoint>
+  unsealed
+  keys: Id, KeyFrames, Name, UseGlobalClock
+[Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Graphics:RelativeRect>
+  unsealed
+  keys: Id, KeyFrames, Name, UseGlobalClock
+[Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Graphics:Size>
+  unsealed
+  keys: Id, KeyFrames, Name, UseGlobalClock
+[Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Media.Source:VideoSource>
+  unsealed
+  keys: Id, KeyFrames, Name, UseGlobalClock
+[Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Media:AlignmentX>
+  unsealed
+  keys: Id, KeyFrames, Name, UseGlobalClock
+[Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Media:AlignmentY>
+  unsealed
+  keys: Id, KeyFrames, Name, UseGlobalClock
+[Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Media:BitmapInterpolationMode>
+  unsealed
+  keys: Id, KeyFrames, Name, UseGlobalClock
+[Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Media:Color>
+  unsealed
+  keys: Id, KeyFrames, Name, UseGlobalClock
+[Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Media:CornerRadius>
+  unsealed
+  keys: Id, KeyFrames, Name, UseGlobalClock
+[Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Media:GradientSpreadMethod>
+  unsealed
+  keys: Id, KeyFrames, Name, UseGlobalClock
+[Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Media:GradingColor>
+  unsealed
+  keys: Id, KeyFrames, Name, UseGlobalClock
+[Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Media:PerlinNoiseType>
+  unsealed
+  keys: Id, KeyFrames, Name, UseGlobalClock
+[Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Media:PixelPoint>
+  unsealed
+  keys: Id, KeyFrames, Name, UseGlobalClock
+[Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Media:Stretch>
+  unsealed
+  keys: Id, KeyFrames, Name, UseGlobalClock
+[Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Media:TileMode>
+  unsealed
+  keys: Id, KeyFrames, Name, UseGlobalClock
+[Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[System.Private.CoreLib]System.Numerics:Vector3>
+  unsealed
+  keys: Id, KeyFrames, Name, UseGlobalClock
+[Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[System.Private.CoreLib]System:Boolean>
+  unsealed
+  keys: Id, KeyFrames, Name, UseGlobalClock
+[Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[System.Private.CoreLib]System:Int32>
+  unsealed
+  keys: Id, KeyFrames, Name, UseGlobalClock
+[Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[System.Private.CoreLib]System:Single>
+  unsealed
+  keys: Id, KeyFrames, Name, UseGlobalClock
+[Beutl.Engine]Beutl.Audio.Effects.Equalizer:EqualizerBand
+  sealed
+  keys: Animations, Expressions, FilterType, Frequency, Gain, Id, IsEnabled, Name, Q
+[Beutl.Engine]Beutl.Audio.Effects:AudioEffect
+  abstract
+[Beutl.Engine]Beutl.Audio.Effects:AudioEffectGroup
+  sealed
+  keys: Animations, Children, Expressions, Id, IsEnabled, Name
+[Beutl.Engine]Beutl.Audio.Effects:CompressorEffect
+  sealed
+  keys: Animations, Attack, Expressions, Id, IsEnabled, Knee, MakeupGain, Name, Ratio, Release, Threshold
+[Beutl.Engine]Beutl.Audio.Effects:DelayEffect
+  sealed
+  keys: Animations, DelayTime, DryMix, Expressions, Feedback, Id, IsEnabled, Name, WetMix
+[Beutl.Engine]Beutl.Audio.Effects:EqualizerEffect
+  sealed
+  keys: Animations, BandCountOption, Bands, Expressions, Id, IsEnabled, Name
+[Beutl.Engine]Beutl.Audio.Effects:FallbackAudioEffect
+  sealed
+  keys: Animations, Expressions, Id, IsEnabled, Name
+[Beutl.Engine]Beutl.Audio.Effects:GateEffect
+  sealed
+  keys: Animations, Attack, Expressions, Hold, Id, IsEnabled, Name, Range, Release, Threshold
+[Beutl.Engine]Beutl.Audio.Effects:LimiterEffect
+  sealed
+  keys: Animations, Expressions, Id, IsEnabled, Lookahead, MakeupGain, Name, Release, Threshold
+[Beutl.Engine]Beutl.Audio.Effects:NoiseReductionEffect
+  sealed
+  keys: Adaptation, Animations, Expressions, Id, IsEnabled, Name, Reduction, Sensitivity, Smoothing
+[Beutl.Engine]Beutl.Audio.Effects:TimeStretchEffect
+  sealed
+  keys: Animations, Expressions, Id, IsEnabled, Name, Speed
+[Beutl.Engine]Beutl.Audio:FallbackSound
+  sealed
+  keys: Animations, Effect, Expressions, Gain, Id, IsEnabled, Name, OffsetPosition, Speed
+[Beutl.Engine]Beutl.Audio:Sound
+  abstract
+[Beutl.Engine]Beutl.Audio:SoundGroup
+  sealed
+  keys: Animations, Children, Effect, Expressions, Gain, Id, IsEnabled, Name, OffsetPosition, Speed
+[Beutl.Engine]Beutl.Audio:SourceSound
+  sealed
+  keys: Animations, Effect, Expressions, Gain, Id, IsEnabled, Name, OffsetPosition, Source, Speed
+[Beutl.Engine]Beutl.Graphics.AudioVisualizers:AudioSpectrogramDrawable
+  sealed
+  keys: AlignmentX, AlignmentY, Animations, BlendMode, Expressions, FftSize, Fill, FilterEffect, FloorDb, FrequencyScale, Gain, Height, Id, IsEnabled, Name, Opacity, Source, TimeColumns, Transform, TransformOrigin, Width, WindowSeconds
+[Beutl.Engine]Beutl.Graphics.AudioVisualizers:AudioSpectrumDrawable
+  sealed
+  keys: AlignmentX, AlignmentY, Animations, BarCount, BlendMode, Expressions, FftSize, Fill, FilterEffect, FloorDb, FrequencyScale, Gain, Height, Id, IsEnabled, Name, Opacity, Shape, Smoothing, Source, Transform, TransformOrigin, Width
+[Beutl.Engine]Beutl.Graphics.AudioVisualizers:AudioVisualizerDrawable
+  abstract
+[Beutl.Engine]Beutl.Graphics.AudioVisualizers:AudioWaveformDrawable
+  sealed
+  keys: AlignmentX, AlignmentY, Animations, BarCount, BlendMode, Expressions, Fill, FilterEffect, Gain, Height, Id, IsEnabled, Name, Opacity, Shape, Source, Transform, TransformOrigin, Width, WindowSeconds
+[Beutl.Engine]Beutl.Graphics.AudioVisualizers:BarSpectrumShape
+  sealed
+  keys: Animations, BarWidth, CornerRadius, Expressions, Id, IsEnabled, Name
+[Beutl.Engine]Beutl.Graphics.AudioVisualizers:BlockWaveformShape
+  sealed
+  keys: Animations, BarWidth, BlockCount, BlockGap, Expressions, Id, IsEnabled, Mirrored, Name
+[Beutl.Engine]Beutl.Graphics.AudioVisualizers:DotsWaveformShape
+  sealed
+  keys: Animations, DotRadius, Expressions, Id, IsEnabled, Mode, Name
+[Beutl.Engine]Beutl.Graphics.AudioVisualizers:FilledAreaSpectrumShape
+  sealed
+  keys: Animations, Expressions, Id, IsEnabled, Name, Smoothness
+[Beutl.Engine]Beutl.Graphics.AudioVisualizers:FilledEnvelopeWaveformShape
+  sealed
+  keys: Animations, Expressions, Id, IsEnabled, Name, Smoothness, Symmetric
+[Beutl.Engine]Beutl.Graphics.AudioVisualizers:FilledMirrorWaveformShape
+  sealed
+  keys: Animations, BarWidth, CornerRadius, Expressions, Id, IsEnabled, Name
+[Beutl.Engine]Beutl.Graphics.AudioVisualizers:LineSpectrumShape
+  sealed
+  keys: Animations, Expressions, Id, IsEnabled, Name, Smoothness, Thickness
+[Beutl.Engine]Beutl.Graphics.AudioVisualizers:LineWaveformShape
+  sealed
+  keys: Animations, Expressions, Id, IsEnabled, Mirrored, Name, Smoothness, Thickness
+[Beutl.Engine]Beutl.Graphics.AudioVisualizers:MinMaxBarWaveformShape
+  sealed
+  keys: Animations, BarWidth, CornerRadius, Expressions, Id, IsEnabled, Name
+[Beutl.Engine]Beutl.Graphics.AudioVisualizers:MirroredBarsSpectrumShape
+  sealed
+  keys: Animations, BarWidth, Expressions, Id, IsEnabled, Name
+[Beutl.Engine]Beutl.Graphics.AudioVisualizers:RadialSpectrumShape
+  sealed
+  keys: Animations, BarWidth, Direction, Expressions, Id, InnerRadius, IsEnabled, Name, StartAngle
+[Beutl.Engine]Beutl.Graphics.AudioVisualizers:RadialWaveformShape
+  sealed
+  keys: Animations, BarWidth, Expressions, Id, InnerRadius, IsEnabled, Name, StartAngle
+[Beutl.Engine]Beutl.Graphics.AudioVisualizers:SpectrumShape
+  abstract
+[Beutl.Engine]Beutl.Graphics.AudioVisualizers:WaveformShape
+  abstract
+[Beutl.Engine]Beutl.Graphics.Effects:BlendEffect
+  sealed
+  keys: Animations, BlendMode, Brush, Expressions, Id, IsEnabled, Name
+[Beutl.Engine]Beutl.Graphics.Effects:Blur
+  sealed
+  keys: Animations, Expressions, Id, IsEnabled, Name, Sigma
+[Beutl.Engine]Beutl.Graphics.Effects:Brightness
+  sealed
+  keys: Amount, Animations, Expressions, Id, IsEnabled, Name
+[Beutl.Engine]Beutl.Graphics.Effects:CSharpScriptEffect
+  sealed
+  keys: Animations, Expressions, Id, IsEnabled, Name, Script
+[Beutl.Engine]Beutl.Graphics.Effects:ChromaKey
+  unsealed
+  keys: Animations, Boundary, Color, Expressions, HueRange, Id, IsEnabled, Name, SaturationRange
+[Beutl.Engine]Beutl.Graphics.Effects:Clipping
+  sealed
+  keys: Animations, AutoCenter, AutoClip, Bottom, Expressions, Id, IsEnabled, Left, Name, Right, Top
+[Beutl.Engine]Beutl.Graphics.Effects:ColorGrading
+  sealed
+  keys: Animations, Contrast, ContrastPivot, Exposure, Expressions, Gain, Gamma, HighRange, Highlights, Hue, Id, IsEnabled, Lift, LowRange, Midtones, Name, Offset, Saturation, Shadows, Temperature, Tint, Vibrance
+[Beutl.Engine]Beutl.Graphics.Effects:ColorKey
+  unsealed
+  keys: Animations, Boundary, Color, Expressions, Id, IsEnabled, Name, Range
+[Beutl.Engine]Beutl.Graphics.Effects:ColorShift
+  unsealed
+  keys: AlphaOffset, Animations, BlueOffset, Expressions, GreenOffset, Id, IsEnabled, Name, RedOffset
+[Beutl.Engine]Beutl.Graphics.Effects:Curves
+  sealed
+  keys: Animations, BlueCurve, Expressions, GreenCurve, HueVsHue, HueVsLuminance, HueVsSaturation, Id, IsEnabled, LuminanceVsSaturation, MasterCurve, Name, RedCurve, SaturationVsSaturation
+[Beutl.Engine]Beutl.Graphics.Effects:DelayAnimationEffect
+  unsealed
+  keys: Animations, Delay, Effect, Expressions, Id, IsEnabled, Name
+[Beutl.Engine]Beutl.Graphics.Effects:Dilate
+  sealed
+  keys: Animations, Expressions, Id, IsEnabled, Name, RadiusX, RadiusY
+[Beutl.Engine]Beutl.Graphics.Effects:DisplacementMapEffect
+  unsealed
+  keys: Animations, Channel, DisplacementMap, Expressions, Id, IsEnabled, Name, ShowDisplacementMap, Signed, SpreadMethod, Transform
+[Beutl.Engine]Beutl.Graphics.Effects:DisplacementMapRotationTransform
+  unsealed
+  keys: Animations, CenterX, CenterY, Expressions, Id, IsEnabled, Name, Rotation
+[Beutl.Engine]Beutl.Graphics.Effects:DisplacementMapScaleTransform
+  unsealed
+  keys: Animations, CenterX, CenterY, Expressions, Id, IsEnabled, Name, Scale, ScaleX, ScaleY
+[Beutl.Engine]Beutl.Graphics.Effects:DisplacementMapTransform
+  abstract
+[Beutl.Engine]Beutl.Graphics.Effects:DisplacementMapTranslateTransform
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, Name, X, Y
+[Beutl.Engine]Beutl.Graphics.Effects:DropShadow
+  sealed
+  keys: Animations, Color, Expressions, Id, IsEnabled, Name, Position, ShadowOnly, Sigma
+[Beutl.Engine]Beutl.Graphics.Effects:Erode
+  sealed
+  keys: Animations, Expressions, Id, IsEnabled, Name, RadiusX, RadiusY
+[Beutl.Engine]Beutl.Graphics.Effects:FallbackFilterEffect
+  sealed
+  keys: Animations, Expressions, Id, IsEnabled, Name
+[Beutl.Engine]Beutl.Graphics.Effects:FilterEffect
+  abstract
+[Beutl.Engine]Beutl.Graphics.Effects:FilterEffectGroup
+  sealed
+  keys: Animations, Children, Expressions, Id, IsEnabled, Name
+[Beutl.Engine]Beutl.Graphics.Effects:FilterEffectPresenter
+  sealed
+  keys: Animations, Expressions, Id, IsEnabled, Name, Target
+[Beutl.Engine]Beutl.Graphics.Effects:FlatShadow
+  unsealed
+  keys: Angle, Animations, Brush, Expressions, Id, IsEnabled, Length, Name, ShadowOnly
+[Beutl.Engine]Beutl.Graphics.Effects:GLSLScriptEffect
+  sealed
+  keys: Animations, Expressions, FragmentShader, Id, IsEnabled, Name
+[Beutl.Engine]Beutl.Graphics.Effects:Gamma
+  sealed
+  keys: Amount, Animations, Expressions, Id, IsEnabled, Name, Strength
+[Beutl.Engine]Beutl.Graphics.Effects:HighContrast
+  sealed
+  keys: Animations, Contrast, Expressions, Grayscale, Id, InvertStyle, IsEnabled, Name
+[Beutl.Engine]Beutl.Graphics.Effects:HueRotate
+  sealed
+  keys: Angle, Animations, Expressions, Id, IsEnabled, Name
+[Beutl.Engine]Beutl.Graphics.Effects:InnerShadow
+  unsealed
+  keys: Animations, Color, Expressions, Id, IsEnabled, Name, Position, ShadowOnly, Sigma
+[Beutl.Engine]Beutl.Graphics.Effects:Invert
+  sealed
+  keys: Amount, Animations, ExcludeAlphaChannel, Expressions, Id, IsEnabled, Name
+[Beutl.Engine]Beutl.Graphics.Effects:LayerEffect
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, Name
+[Beutl.Engine]Beutl.Graphics.Effects:Lighting
+  sealed
+  keys: Add, Animations, Expressions, Id, IsEnabled, Multiply, Name
+[Beutl.Engine]Beutl.Graphics.Effects:LumaColor
+  sealed
+  keys: Animations, Expressions, Id, IsEnabled, Name
+[Beutl.Engine]Beutl.Graphics.Effects:LutEffect
+  sealed
+  keys: Animations, Expressions, Id, IsEnabled, Name, Source, Strength
+[Beutl.Engine]Beutl.Graphics.Effects:MosaicEffect
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, Name, Origin, TileSize
+[Beutl.Engine]Beutl.Graphics.Effects:Negaposi
+  unsealed
+  keys: Animations, Blue, Expressions, Green, Id, IsEnabled, Name, Red, Strength
+[Beutl.Engine]Beutl.Graphics.Effects:PartsSplitEffect
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, Name
+[Beutl.Engine]Beutl.Graphics.Effects:PathFollowEffect
+  sealed
+  keys: Animations, Expressions, FollowRotation, Geometry, Id, IsEnabled, Name, Progress
+[Beutl.Engine]Beutl.Graphics.Effects:PixelSortEffect
+  sealed
+  keys: Animations, Ascending, Direction, Expressions, Id, IsEnabled, Name, SortKey, ThresholdMax, ThresholdMin
+[Beutl.Engine]Beutl.Graphics.Effects:SKSLScriptEffect
+  sealed
+  keys: Animations, Expressions, Id, IsEnabled, Name, Script
+[Beutl.Engine]Beutl.Graphics.Effects:Saturate
+  sealed
+  keys: Amount, Animations, Expressions, Id, IsEnabled, Name
+[Beutl.Engine]Beutl.Graphics.Effects:ShakeEffect
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, Name, Speed, StrengthX, StrengthY
+[Beutl.Engine]Beutl.Graphics.Effects:SplitEffect
+  unsealed
+  keys: Animations, Expressions, HorizontalDivisions, HorizontalSpacing, Id, IsEnabled, Name, VerticalDivisions, VerticalSpacing
+[Beutl.Engine]Beutl.Graphics.Effects:StrokeEffect
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, Name, Offset, Pen, Style
+[Beutl.Engine]Beutl.Graphics.Effects:Threshold
+  sealed
+  keys: Animations, Expressions, Id, IsEnabled, Name, Smoothness, Strength, Value
+[Beutl.Engine]Beutl.Graphics.Effects:TransformEffect
+  sealed
+  keys: Animations, ApplyToTarget, BitmapInterpolationMode, Expressions, Id, IsEnabled, Name, Transform, TransformOrigin
+[Beutl.Engine]Beutl.Graphics.Particles:ParticleEmitter
+  unsealed
+  keys: AirResistance, AlignmentX, AlignmentY, AngularVelocity, Animations, BlendMode, Direction, EmissionRate, EmitterHeight, EmitterShape, EmitterWidth, EndColor, EndOpacityMultiplier, EndSizeMultiplier, Expressions, FilterEffect, Gravity, Id, InitialRotation, InitialRotationRandom, IsEnabled, Lifetime, LifetimeRandom, MaxParticles, Name, Opacity, ParticleColor, ParticleDrawable, ParticleOpacity, ParticleSize, PrewarmDuration, Seed, SizeRandom, Speed, SpeedRandom, Spread, Transform, TransformOrigin, TurbulenceScale, TurbulenceSpeed, TurbulenceStrength, UseEndColor
+[Beutl.Engine]Beutl.Graphics.Shapes:EllipseShape
+  sealed
+  keys: AlignmentX, AlignmentY, Animations, BlendMode, Expressions, Fill, FilterEffect, Height, Id, IsEnabled, Name, Opacity, Pen, Transform, TransformOrigin, Width
+[Beutl.Engine]Beutl.Graphics.Shapes:GeometryShape
+  sealed
+  keys: AlignmentX, AlignmentY, Animations, BlendMode, Data, Expressions, Fill, FilterEffect, Id, IsEnabled, Name, Opacity, Pen, Transform, TransformOrigin
+[Beutl.Engine]Beutl.Graphics.Shapes:RectShape
+  sealed
+  keys: AlignmentX, AlignmentY, Animations, BlendMode, Expressions, Fill, FilterEffect, Height, Id, IsEnabled, Name, Opacity, Pen, Transform, TransformOrigin, Width
+[Beutl.Engine]Beutl.Graphics.Shapes:RoundedRectShape
+  sealed
+  keys: AlignmentX, AlignmentY, Animations, BlendMode, CornerRadius, Expressions, Fill, FilterEffect, Height, Id, IsEnabled, Name, Opacity, Pen, Smoothing, Transform, TransformOrigin, Width
+[Beutl.Engine]Beutl.Graphics.Shapes:Shape
+  abstract
+[Beutl.Engine]Beutl.Graphics.Shapes:TextBlock
+  unsealed
+  keys: AlignmentX, AlignmentY, Animations, BlendMode, Expressions, Fill, FilterEffect, FontFamily, FontStyle, FontWeight, Id, IsEnabled, Name, Opacity, Pen, Size, Spacing, SplitByCharacters, Text, Transform, TransformOrigin
+[Beutl.Engine]Beutl.Graphics.Transformation:FallbackTransform
+  sealed
+  keys: Animations, Expressions, Id, IsEnabled, Name
+[Beutl.Engine]Beutl.Graphics.Transformation:MatrixTransform
+  sealed
+  keys: Animations, Expressions, Id, IsEnabled, Matrix, Name
+[Beutl.Engine]Beutl.Graphics.Transformation:Rotation3DTransform
+  sealed
+  keys: Animations, CenterX, CenterY, CenterZ, Depth, Expressions, Id, IsEnabled, Name, RotationX, RotationY, RotationZ
+[Beutl.Engine]Beutl.Graphics.Transformation:RotationTransform
+  sealed
+  keys: Animations, Expressions, Id, IsEnabled, Name, Rotation
+[Beutl.Engine]Beutl.Graphics.Transformation:ScaleTransform
+  sealed
+  keys: Animations, Expressions, Id, IsEnabled, Name, Scale, ScaleX, ScaleY
+[Beutl.Engine]Beutl.Graphics.Transformation:SkewTransform
+  sealed
+  keys: Animations, Expressions, Id, IsEnabled, Name, SkewX, SkewY
+[Beutl.Engine]Beutl.Graphics.Transformation:Transform
+  abstract
+[Beutl.Engine]Beutl.Graphics.Transformation:TransformGroup
+  sealed
+  keys: Animations, Children, Expressions, Id, IsEnabled, Name
+[Beutl.Engine]Beutl.Graphics.Transformation:TransformPresenter
+  sealed
+  keys: Animations, Expressions, Id, IsEnabled, Name, Target
+[Beutl.Engine]Beutl.Graphics.Transformation:TranslateTransform
+  sealed
+  keys: Animations, Expressions, Id, IsEnabled, Name, X, Y
+[Beutl.Engine]Beutl.Graphics.Transitions:ClipTransition
+  abstract
+[Beutl.Engine]Beutl.Graphics.Transitions:ClipTransitionPresenter
+  sealed
+  keys: AlignmentX, AlignmentY, Animations, BlendMode, Expressions, FilterEffect, Id, IsEnabled, Name, Opacity, Transform, TransformOrigin
+[Beutl.Engine]Beutl.Graphics.Transitions:CrossDissolveTransition
+  sealed
+  keys: Animations, Duration, Easing, Expressions, Id, IsEnabled, Name
+[Beutl.Engine]Beutl.Graphics.Transitions:DipToColorTransition
+  sealed
+  keys: Animations, Color, Duration, Easing, Expressions, Id, IsEnabled, Name
+[Beutl.Engine]Beutl.Graphics.Transitions:DipToWhiteTransition
+  sealed
+  keys: Animations, Duration, Easing, Expressions, Id, IsEnabled, Name
+[Beutl.Engine]Beutl.Graphics.Transitions:FadeTransition
+  sealed
+  keys: Animations, Duration, Easing, Expressions, Id, IsEnabled, Name
+[Beutl.Engine]Beutl.Graphics.Transitions:FallbackClipTransition
+  sealed
+  keys: Animations, Duration, Easing, Expressions, Id, IsEnabled, Name
+[Beutl.Engine]Beutl.Graphics.Transitions:IrisTransition
+  sealed
+  keys: Animations, Duration, Easing, Expressions, Id, IsEnabled, Name
+[Beutl.Engine]Beutl.Graphics.Transitions:PushTransition
+  sealed
+  keys: Animations, Direction, Duration, Easing, Expressions, Id, IsEnabled, Name
+[Beutl.Engine]Beutl.Graphics.Transitions:SlideTransition
+  sealed
+  keys: Animations, Direction, Duration, Easing, Expressions, Id, IsEnabled, Name
+[Beutl.Engine]Beutl.Graphics.Transitions:SplitTransition
+  sealed
+  keys: Animations, Duration, Easing, Expressions, Id, IsEnabled, Name, Orientation
+[Beutl.Engine]Beutl.Graphics.Transitions:WipeTransition
+  sealed
+  keys: Animations, Direction, Duration, Easing, Expressions, Id, IsEnabled, Name
+[Beutl.Engine]Beutl.Graphics.Transitions:ZoomTransition
+  sealed
+  keys: Animations, Duration, Easing, Expressions, Id, IsEnabled, Name
+[Beutl.Engine]Beutl.Graphics3D.Camera:Camera3D
+  abstract
+[Beutl.Engine]Beutl.Graphics3D.Camera:OrthographicCamera
+  unsealed
+  keys: Animations, Expressions, FarPlane, Id, IsEnabled, Name, NearPlane, Position, Target, Up, Width
+[Beutl.Engine]Beutl.Graphics3D.Camera:PerspectiveCamera
+  unsealed
+  keys: Animations, Expressions, FarPlane, FieldOfView, Id, IsEnabled, Name, NearPlane, Position, Target, Up
+[Beutl.Engine]Beutl.Graphics3D.Lighting:DirectionalLight3D
+  unsealed
+  keys: Animations, CastsShadow, Color, Direction, Expressions, Id, Intensity, IsEnabled, Name, ShadowBias, ShadowDistance, ShadowMapSize, ShadowNormalBias, ShadowStrength
+[Beutl.Engine]Beutl.Graphics3D.Lighting:Light3D
+  abstract
+[Beutl.Engine]Beutl.Graphics3D.Lighting:PointLight3D
+  unsealed
+  keys: Animations, CastsShadow, Color, ConstantAttenuation, Expressions, Id, Intensity, IsEnabled, LinearAttenuation, Name, Position, QuadraticAttenuation, Range, ShadowBias, ShadowNormalBias, ShadowStrength
+[Beutl.Engine]Beutl.Graphics3D.Lighting:SpotLight3D
+  unsealed
+  keys: Animations, CastsShadow, Color, ConstantAttenuation, Direction, Expressions, Id, InnerConeAngle, Intensity, IsEnabled, LinearAttenuation, Name, OuterConeAngle, Position, QuadraticAttenuation, Range, ShadowBias, ShadowNormalBias, ShadowStrength
+[Beutl.Engine]Beutl.Graphics3D.Materials:BasicMaterial
+  sealed
+  keys: AmbientColor, Animations, DiffuseColor, DiffuseMap, Expressions, Id, IsEnabled, Name, Shininess, SpecularColor
+[Beutl.Engine]Beutl.Graphics3D.Materials:Material3D
+  abstract
+[Beutl.Engine]Beutl.Graphics3D.Materials:PBRMaterial
+  sealed
+  keys: AOMap, Albedo, AlbedoMap, AmbientOcclusion, Animations, Emissive, EmissiveIntensity, EmissiveMap, Expressions, Id, IsEnabled, Metallic, MetallicRoughnessMap, Name, NormalMap, NormalMapStrength, Roughness
+[Beutl.Engine]Beutl.Graphics3D.Materials:TransparentMaterial
+  sealed
+  keys: Animations, Color, ColorMap, Expressions, Id, IndexOfRefraction, IsEnabled, Name, Opacity, Roughness
+[Beutl.Engine]Beutl.Graphics3D.Materials:UnlitMaterial
+  sealed
+  keys: Animations, Color, ColorMap, Expressions, Id, IsEnabled, Name, Opacity
+[Beutl.Engine]Beutl.Graphics3D.Meshes:CubeMesh
+  sealed
+  keys: Animations, Depth, Expressions, Height, Id, IsEnabled, Name, Width
+[Beutl.Engine]Beutl.Graphics3D.Meshes:Mesh
+  abstract
+[Beutl.Engine]Beutl.Graphics3D.Meshes:PlaneMesh
+  sealed
+  keys: Animations, Expressions, Height, HeightSegments, Id, IsEnabled, Name, Width, WidthSegments
+[Beutl.Engine]Beutl.Graphics3D.Meshes:SphereMesh
+  sealed
+  keys: Animations, Expressions, Id, IsEnabled, Name, Radius, Rings, Segments
+[Beutl.Engine]Beutl.Graphics3D.Models:MeshObject3D
+  sealed
+  keys: Animations, CastShadows, Expressions, Id, IsEnabled, Material, Mesh, Name, Position, ReceiveShadows, Rotation, Scale
+[Beutl.Engine]Beutl.Graphics3D.Models:Model3D
+  sealed
+  keys: Animations, CastShadows, Children, Expressions, Id, IsEnabled, Material, Name, Position, ReceiveShadows, Rotation, Scale, Source
+[Beutl.Engine]Beutl.Graphics3D.Models:ModelMesh
+  sealed
+  keys: Animations, Expressions, Id, Indices, IsEnabled, Name, Vertices
+[Beutl.Engine]Beutl.Graphics3D.Models:ModelSource
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, Name
+[Beutl.Engine]Beutl.Graphics3D.Primitives:Cube3D
+  sealed
+  keys: Animations, CastShadows, Depth, Expressions, Height, Id, IsEnabled, Material, Name, Position, ReceiveShadows, Rotation, Scale, Width
+[Beutl.Engine]Beutl.Graphics3D.Primitives:Plane3D
+  sealed
+  keys: Animations, CastShadows, Expressions, Height, HeightSegments, Id, IsEnabled, Material, Name, Position, ReceiveShadows, Rotation, Scale, Width, WidthSegments
+[Beutl.Engine]Beutl.Graphics3D.Primitives:Sphere3D
+  sealed
+  keys: Animations, CastShadows, Expressions, Id, IsEnabled, Material, Name, Position, Radius, ReceiveShadows, Rings, Rotation, Scale, Segments
+[Beutl.Engine]Beutl.Graphics3D.Textures:DrawableTextureSource
+  sealed
+  keys: Animations, Drawable, Expressions, Id, IsEnabled, Name, TextureHeight, TextureWidth
+[Beutl.Engine]Beutl.Graphics3D.Textures:ImageTextureSource
+  sealed
+  keys: Animations, Expressions, Id, IsEnabled, Name, Source
+[Beutl.Engine]Beutl.Graphics3D.Textures:TextureSource
+  abstract
+[Beutl.Engine]Beutl.Graphics3D:DrawableObject3D
+  sealed
+  keys: Animations, CastShadows, Children, Expressions, Id, IsEnabled, Material, Name, Position, ReceiveShadows, Rotation, Scale
+[Beutl.Engine]Beutl.Graphics3D:Group3D
+  unsealed
+  keys: Animations, CastShadows, Children, Expressions, Id, IsEnabled, Material, Name, Position, ReceiveShadows, Rotation, Scale
+[Beutl.Engine]Beutl.Graphics3D:Object3D
+  abstract
+[Beutl.Engine]Beutl.Graphics3D:Scene3D
+  unsealed
+  keys: AlignmentX, AlignmentY, AmbientColor, AmbientIntensity, Animations, BackgroundColor, BlendMode, Camera, Expressions, FilterEffect, Id, IsEnabled, Lights, Name, Objects, Opacity, RenderHeight, RenderWidth, Transform, TransformOrigin
+[Beutl.Engine]Beutl.Graphics:Drawable
+  abstract
+[Beutl.Engine]Beutl.Graphics:DrawableDecorator
+  sealed
+  keys: AlignmentX, AlignmentY, Animations, BlendMode, Children, Expressions, FilterEffect, Id, IsEnabled, Name, Opacity, Transform, TransformOrigin
+[Beutl.Engine]Beutl.Graphics:DrawableGroup
+  sealed
+  keys: AlignmentX, AlignmentY, Animations, BlendMode, Children, Expressions, FilterEffect, Id, IsEnabled, Name, Opacity, Transform, TransformOrigin
+[Beutl.Engine]Beutl.Graphics:DrawablePresenter
+  sealed
+  keys: AlignmentX, AlignmentY, Animations, BlendMode, Expressions, FilterEffect, Id, IsEnabled, Name, Opacity, Target, Transform, TransformOrigin
+[Beutl.Engine]Beutl.Graphics:DrawableTimeController
+  sealed
+  keys: AdjustTimeRange, AlignmentX, AlignmentY, Animations, BlendMode, Expressions, FilterEffect, FrameRate, HoldFirstFrame, HoldLastFrame, Id, IsEnabled, Loop, Name, OffsetPosition, Opacity, Reverse, Speed, Target, Transform, TransformOrigin
+[Beutl.Engine]Beutl.Graphics:FallbackDrawable
+  sealed
+  keys: AlignmentX, AlignmentY, Animations, BlendMode, Expressions, FilterEffect, Id, IsEnabled, Name, Opacity, Transform, TransformOrigin
+[Beutl.Engine]Beutl.Graphics:SourceBackdrop
+  unsealed
+  keys: AlignmentX, AlignmentY, Animations, BlendMode, Clear, Expressions, FilterEffect, Id, IsEnabled, Name, Opacity, Transform, TransformOrigin
+[Beutl.Engine]Beutl.Graphics:SourceImage
+  unsealed
+  keys: AlignmentX, AlignmentY, Animations, BlendMode, Expressions, FilterEffect, Id, IsEnabled, Name, Opacity, Source, Transform, TransformOrigin
+[Beutl.Engine]Beutl.Graphics:SourceVideo
+  unsealed
+  keys: AlignmentX, AlignmentY, Animations, BlendMode, Expressions, FilterEffect, Id, IsEnabled, IsLoop, Name, OffsetPosition, Opacity, Source, Speed, Transform, TransformOrigin
+[Beutl.Engine]Beutl.Media.Encoding:AudioEncoderSettings
+  unsealed
+  keys: Bitrate, Channels, CodecOptions, Id, Name, SampleRate
+[Beutl.Engine]Beutl.Media.Encoding:MediaEncoderSettings
+  abstract
+[Beutl.Engine]Beutl.Media.Encoding:VideoEncoderSettings
+  unsealed
+  keys: Bitrate, CodecOptions, DestinationSize, FrameRate, Id, KeyframeRate, Name, SourceSize
+[Beutl.Engine]Beutl.Media.Source:CubeSource
+  sealed
+  keys: Animations, Expressions, Id, IsEnabled, Name
+[Beutl.Engine]Beutl.Media.Source:ImageSource
+  sealed
+  keys: Animations, Expressions, Id, IsEnabled, Name
+[Beutl.Engine]Beutl.Media.Source:MediaSource
+  abstract
+[Beutl.Engine]Beutl.Media.Source:SoundSource
+  sealed
+  keys: Animations, Expressions, Id, IsEnabled, Name
+[Beutl.Engine]Beutl.Media.Source:VideoSource
+  sealed
+  keys: Animations, Expressions, Id, IsEnabled, Name
+[Beutl.Engine]Beutl.Media:ArcSegment
+  sealed
+  keys: Animations, Expressions, Id, IsEnabled, IsLargeArc, Name, Point, Radius, RotationAngle, SweepClockwise
+[Beutl.Engine]Beutl.Media:Brush
+  abstract
+[Beutl.Engine]Beutl.Media:BrushPresenter
+  sealed
+  keys: Animations, Expressions, Id, IsEnabled, Name, Opacity, Target, Transform, TransformOrigin
+[Beutl.Engine]Beutl.Media:ConicGradientBrush
+  sealed
+  keys: Angle, Animations, Center, Expressions, GradientStops, Id, IsEnabled, Name, Opacity, SpreadMethod, Transform, TransformOrigin
+[Beutl.Engine]Beutl.Media:ConicSegment
+  sealed
+  keys: Animations, ControlPoint, EndPoint, Expressions, Id, IsEnabled, Name, Weight
+[Beutl.Engine]Beutl.Media:CubicBezierSegment
+  sealed
+  keys: Animations, ControlPoint1, ControlPoint2, EndPoint, Expressions, Id, IsEnabled, Name
+[Beutl.Engine]Beutl.Media:DrawableBrush
+  unsealed
+  keys: AlignmentX, AlignmentY, Animations, BitmapInterpolationMode, DestinationRect, Drawable, Expressions, Id, IsEnabled, Name, Opacity, SourceRect, Stretch, TileMode, Transform, TransformOrigin
+[Beutl.Engine]Beutl.Media:EllipseGeometry
+  sealed
+  keys: Animations, Expressions, Height, Id, IsEnabled, Name, Width
+[Beutl.Engine]Beutl.Media:FallbackBrush
+  sealed
+  keys: Animations, Expressions, Id, IsEnabled, Name, Opacity, Transform, TransformOrigin
+[Beutl.Engine]Beutl.Media:FallbackGeometry
+  sealed
+  keys: Animations, Expressions, Id, IsEnabled, Name
+[Beutl.Engine]Beutl.Media:FallbackPathSegment
+  sealed
+  keys: Animations, Expressions, Id, IsEnabled, Name
+[Beutl.Engine]Beutl.Media:Geometry
+  abstract
+[Beutl.Engine]Beutl.Media:GradientBrush
+  abstract
+[Beutl.Engine]Beutl.Media:GradientStop
+  sealed
+  keys: Animations, Color, Expressions, Id, IsEnabled, Name, Offset
+[Beutl.Engine]Beutl.Media:ImageBrush
+  unsealed
+  keys: AlignmentX, AlignmentY, Animations, BitmapInterpolationMode, DestinationRect, Expressions, Id, IsEnabled, Name, Opacity, Source, SourceRect, Stretch, TileMode, Transform, TransformOrigin
+[Beutl.Engine]Beutl.Media:LineSegment
+  sealed
+  keys: Animations, Expressions, Id, IsEnabled, Name, Point
+[Beutl.Engine]Beutl.Media:LinearGradientBrush
+  sealed
+  keys: Animations, EndPoint, Expressions, GradientStops, Id, IsEnabled, Name, Opacity, SpreadMethod, StartPoint, Transform, TransformOrigin
+[Beutl.Engine]Beutl.Media:PathFigure
+  sealed
+  keys: Animations, Expressions, Id, IsClosed, IsEnabled, Name, Segments, StartPoint
+[Beutl.Engine]Beutl.Media:PathGeometry
+  sealed
+  keys: Animations, Expressions, Figures, Id, IsEnabled, Name
+[Beutl.Engine]Beutl.Media:PathSegment
+  abstract
+[Beutl.Engine]Beutl.Media:Pen
+  sealed
+  keys: Animations, Brush, DashArray, DashOffset, Expressions, Id, IsEnabled, MiterLimit, Name, Offset, StrokeAlignment, StrokeCap, StrokeJoin, Thickness, TrimEnd, TrimOffset, TrimStart
+[Beutl.Engine]Beutl.Media:PerlinNoiseBrush
+  sealed
+  keys: Animations, BaseFrequencyX, BaseFrequencyY, Expressions, Id, IsEnabled, Name, Octaves, Opacity, PerlinNoiseType, Seed, Transform, TransformOrigin
+[Beutl.Engine]Beutl.Media:QuadraticBezierSegment
+  sealed
+  keys: Animations, ControlPoint, EndPoint, Expressions, Id, IsEnabled, Name
+[Beutl.Engine]Beutl.Media:RadialGradientBrush
+  sealed
+  keys: Animations, Center, Expressions, GradientOrigin, GradientStops, Id, IsEnabled, Name, Opacity, Radius, SpreadMethod, Transform, TransformOrigin
+[Beutl.Engine]Beutl.Media:RectGeometry
+  sealed
+  keys: Animations, Expressions, Height, Id, IsEnabled, Name, Width
+[Beutl.Engine]Beutl.Media:RoundedRectGeometry
+  sealed
+  keys: Animations, CornerRadius, Expressions, Height, Id, IsEnabled, Name, Smoothing, Width
+[Beutl.Engine]Beutl.Media:SKPathGeometry
+  sealed
+  keys: Animations, Expressions, Id, IsEnabled, Name
+[Beutl.Engine]Beutl.Media:SolidColorBrush
+  unsealed
+  keys: Animations, Color, Expressions, Id, IsEnabled, Name, Opacity, Transform, TransformOrigin
+[Beutl.Engine]Beutl.Media:TileBrush
+  abstract
+[Beutl.Extensibility]:ExtensionSettings
+  abstract
+[Beutl.Extensions.AVFoundation].Decoding:AVFDecodingSettings
+  sealed
+  keys: MaxAudioBufferSize, MaxVideoBufferSize, ThresholdFrameCount, ThresholdSampleCount
+[Beutl.Extensions.AVFoundation].Encoding:AVFAudioEncoderSettings
+  sealed
+  keys: Bitrate, Channels, CodecOptions, Format, Id, LinearPcmBigEndian, LinearPcmBitDepth, LinearPcmFloat, LinearPcmNonInterleaved, Name, Quality, SampleRate, SampleRateConverterQuality
+[Beutl.Extensions.AVFoundation].Encoding:AVFVideoEncoderSettings
+  sealed
+  keys: Bitrate, Codec, CodecOptions, ColorPrimaries, ColorTransfer, DestinationSize, FrameRate, Id, JPEGQuality, KeyframeRate, Name, ProfileLevelH264, SourceSize, YCbCrMatrix
+[Beutl.Extensions.FFmpeg.Core]Beutl.Extensions.FFmpeg.Encoding:AdditionalOption
+  sealed
+  keys: Id, Name, Value
+[Beutl.Extensions.FFmpeg.Core]Beutl.Extensions.FFmpeg.Encoding:FFmpegAudioEncoderSettings
+  sealed
+  keys: Bitrate, Channels, Codec, CodecOptions, Format, Id, Name, SampleRate
+[Beutl.Extensions.FFmpeg.Core]Beutl.Extensions.FFmpeg.Encoding:FFmpegEncodingSettings
+  sealed
+  keys: Acceleration, ThreadCount
+[Beutl.Extensions.FFmpeg.Core]Beutl.Extensions.FFmpeg.Encoding:FFmpegVideoEncoderSettings
+  sealed
+  keys: Bitrate, Codec, CodecOptions, ColorPrimaries, ColorRange, ColorSpace, ColorTrc, DestinationSize, Format, FrameRate, Id, KeyframeRate, Name, Options, SourceSize
+[Beutl.Extensions.FFmpeg].Decoding:FFmpegDecodingSettings
+  sealed
+  keys: Acceleration, ForceSrgbGamma, ThreadCount
+[Beutl.NodeGraph].Generative:GenerationRecord
+  sealed
+  keys: CreatedAt, Fingerprint, Id, Image, IsPinned, ModelId, Name, ParameterFingerprint, Seed, Summary, Video
+[Beutl.NodeGraph].Generative:GenerativeNode
+  abstract
+[Beutl.NodeGraph].Nodes.Generative:AiImageEditNode
+  sealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position, RequestKeySeed
+[Beutl.NodeGraph].Nodes.Generative:AiImageGenerationNode
+  sealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position, RequestKeySeed
+[Beutl.NodeGraph].Nodes.Generative:AiPromptNode
+  sealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph].Nodes.Generative:AiVideoEditNode
+  sealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position, RequestKeySeed
+[Beutl.NodeGraph].Nodes.Generative:AiVideoGenerationNode
+  sealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position, RequestKeySeed
+[Beutl.NodeGraph].Nodes.Group:GroupInput
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph].Nodes.Group:GroupInput:GroupInputPort<T>
+  unsealed
+[Beutl.NodeGraph].Nodes.Group:GroupNode
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position, node-tree
+[Beutl.NodeGraph].Nodes.Group:GroupOutput
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph].Nodes.Group:GroupOutput:GroupOutputPort<T>
+  unsealed
+[Beutl.NodeGraph].Nodes.Utilities.Struct:PixelPointNode
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph].Nodes.Utilities.Struct:PixelRectNode
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph].Nodes.Utilities.Struct:PixelSizeNode
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph].Nodes.Utilities.Struct:PointNode
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph].Nodes.Utilities.Struct:RectNode
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph].Nodes.Utilities.Struct:RelativePointNode
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph].Nodes.Utilities.Struct:RelativeRectNode
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph].Nodes.Utilities.Struct:SizeNode
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph].Nodes.Utilities:ExpressionNode
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph].Nodes.Utilities:MatrixNode
+  abstract
+[Beutl.NodeGraph].Nodes.Utilities:MeasureNode
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph].Nodes.Utilities:PreviewNode
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph].Nodes.Utilities:RandomDoubleNode
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph].Nodes.Utilities:RandomInt32Node
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph].Nodes.Utilities:RandomInt64Node
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph].Nodes.Utilities:RandomSingleNode
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph].Nodes.Utilities:Rotation3DMatrixNode
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph].Nodes.Utilities:RotationMatrixNode
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph].Nodes.Utilities:ScaleMatrixNode
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph].Nodes.Utilities:SkewMatrixNode
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph].Nodes.Utilities:SwitchNode
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph].Nodes.Utilities:TimeNode
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph].Nodes.Utilities:TranslateMatrixNode
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph].Nodes:ConfigureNode
+  abstract
+[Beutl.NodeGraph].Nodes:EllipseGeometryNode
+  sealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Object, Position
+[Beutl.NodeGraph].Nodes:FactoryNode<T>
+  unsealed
+[Beutl.NodeGraph].Nodes:FilterEffectInputNode
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph].Nodes:FilterEffectNode<T>
+  unsealed
+[Beutl.NodeGraph].Nodes:GeometryNode<T>
+  unsealed
+[Beutl.NodeGraph].Nodes:GeometryShapeNode
+  sealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph].Nodes:ImageSourceNode
+  sealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph].Nodes:LayerInputNode
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph].Nodes:LayerInputNode:LayerInputPort<T>
+  unsealed
+[Beutl.NodeGraph].Nodes:OutputNode
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph].Nodes:RectGeometryNode
+  sealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Object, Position
+[Beutl.NodeGraph].Nodes:RenderNodeDrawable
+  sealed
+  keys: AlignmentX, AlignmentY, Animations, BlendMode, Expressions, FilterEffect, Id, IsEnabled, Name, Opacity, Transform, TransformOrigin
+[Beutl.NodeGraph].Nodes:RoundedRectGeometryNode
+  sealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Object, Position
+[Beutl.NodeGraph].Nodes:SceneNode
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Object, Position
+[Beutl.NodeGraph].Nodes:TextNode
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, NestedInputPorts, Object, Position
+[Beutl.NodeGraph].Nodes:TransformNode
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph].Nodes:VideoSourceNode
+  sealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph]:Connection
+  sealed
+  keys: Id, Input, Name, Output, Status
+[Beutl.NodeGraph]:DefaultInputPort<T>
+  sealed
+[Beutl.NodeGraph]:DefaultInputPort<[Beutl.Engine]Beutl.Graphics.Rendering:RenderNode>
+  sealed
+  keys: Animations, Connection, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:DefaultInputPort<[Beutl.Engine]Beutl.Graphics:Matrix>
+  sealed
+  keys: Animations, Connection, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:DefaultInputPort<[Beutl.Engine]Beutl.Graphics:Point>
+  sealed
+  keys: Animations, Connection, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:DefaultInputPort<[Beutl.Engine]Beutl.Graphics:Size>
+  sealed
+  keys: Animations, Connection, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:DefaultInputPort<[Beutl.Engine]Beutl.Media.Source:ImageSource>
+  sealed
+  keys: Animations, Connection, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:DefaultInputPort<[Beutl.Engine]Beutl.Media.Source:VideoSource>
+  sealed
+  keys: Animations, Connection, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:DefaultInputPort<[Beutl.Engine]Beutl.Media:Brush>
+  sealed
+  keys: Animations, Connection, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:DefaultInputPort<[Beutl.Engine]Beutl.Media:Geometry>
+  sealed
+  keys: Animations, Connection, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:DefaultInputPort<[Beutl.Engine]Beutl.Media:Pen>
+  sealed
+  keys: Animations, Connection, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:DefaultInputPort<[Beutl.Engine]Beutl.Media:PixelPoint>
+  sealed
+  keys: Animations, Connection, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:DefaultInputPort<[Beutl.Engine]Beutl.Media:PixelSize>
+  sealed
+  keys: Animations, Connection, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:DefaultInputPort<[Beutl.NodeGraph].Generative:AiImageEditTask>
+  sealed
+  keys: Animations, Connection, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:DefaultInputPort<[Beutl.NodeGraph].Generative:AiMotionOrientation>
+  sealed
+  keys: Animations, Connection, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:DefaultInputPort<[Beutl.NodeGraph].Generative:AiMotionQuality>
+  sealed
+  keys: Animations, Connection, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:DefaultInputPort<[Beutl.NodeGraph].Generative:AiOutpaintExpansion>
+  sealed
+  keys: Animations, Connection, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:DefaultInputPort<[Beutl.NodeGraph].Generative:AiVideoEditMode>
+  sealed
+  keys: Animations, Connection, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:DefaultInputPort<[Beutl.NodeGraph].Nodes.Generative:GenerativeSeedControl>
+  sealed
+  keys: Animations, Connection, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:DefaultInputPort<[System.Private.CoreLib]System:Boolean>
+  sealed
+  keys: Animations, Connection, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:DefaultInputPort<[System.Private.CoreLib]System:Double>
+  sealed
+  keys: Animations, Connection, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:DefaultInputPort<[System.Private.CoreLib]System:Int32>
+  sealed
+  keys: Animations, Connection, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:DefaultInputPort<[System.Private.CoreLib]System:Int64>
+  sealed
+  keys: Animations, Connection, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:DefaultInputPort<[System.Private.CoreLib]System:Object>
+  sealed
+  keys: Animations, Connection, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:DefaultInputPort<[System.Private.CoreLib]System:Single>
+  sealed
+  keys: Animations, Connection, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:DefaultInputPort<[System.Private.CoreLib]System:String>
+  sealed
+  keys: Animations, Connection, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:DefaultInputPort<[System.Private.CoreLib]System:TimeSpan>
+  sealed
+  keys: Animations, Connection, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:DefaultNodeMember<T>
+  sealed
+[Beutl.NodeGraph]:DefaultNodeMember<[Beutl.Engine]Beutl.Graphics:RelativeUnit>
+  sealed
+  keys: Animations, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:DefaultNodeMember<[System.Private.CoreLib]System:String>
+  sealed
+  keys: Animations, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:EnginePropertyBackedInputPort<T>
+  unsealed
+[Beutl.NodeGraph]:EnginePropertyBackedInputPort<[Beutl.Engine]Beutl.Media:Brush>
+  unsealed
+  keys: (no public parameterless constructor)
+[Beutl.NodeGraph]:EnginePropertyBackedInputPort<[Beutl.Engine]Beutl.Media:CornerRadius>
+  unsealed
+  keys: (no public parameterless constructor)
+[Beutl.NodeGraph]:EnginePropertyBackedInputPort<[Beutl.Engine]Beutl.Media:FontFamily>
+  unsealed
+  keys: (no public parameterless constructor)
+[Beutl.NodeGraph]:EnginePropertyBackedInputPort<[Beutl.Engine]Beutl.Media:FontStyle>
+  unsealed
+  keys: (no public parameterless constructor)
+[Beutl.NodeGraph]:EnginePropertyBackedInputPort<[Beutl.Engine]Beutl.Media:FontWeight>
+  unsealed
+  keys: (no public parameterless constructor)
+[Beutl.NodeGraph]:EnginePropertyBackedInputPort<[Beutl.Engine]Beutl.Media:Pen>
+  unsealed
+  keys: (no public parameterless constructor)
+[Beutl.NodeGraph]:EnginePropertyBackedInputPort<[Beutl.ProjectSystem]:Scene>
+  unsealed
+  keys: (no public parameterless constructor)
+[Beutl.NodeGraph]:EnginePropertyBackedInputPort<[System.Private.CoreLib]System:Boolean>
+  unsealed
+  keys: (no public parameterless constructor)
+[Beutl.NodeGraph]:EnginePropertyBackedInputPort<[System.Private.CoreLib]System:Single>
+  unsealed
+  keys: (no public parameterless constructor)
+[Beutl.NodeGraph]:EnginePropertyBackedInputPort<[System.Private.CoreLib]System:String>
+  unsealed
+  keys: (no public parameterless constructor)
+[Beutl.NodeGraph]:FallbackGraphNode
+  sealed
+  keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
+[Beutl.NodeGraph]:GraphGroup
+  unsealed
+  keys: AllConnections, Animations, Expressions, Id, IsEnabled, Name, Nodes
+[Beutl.NodeGraph]:GraphModel
+  unsealed
+  keys: AllConnections, Animations, Expressions, Id, IsEnabled, Name, Nodes
+[Beutl.NodeGraph]:GraphNode
+  abstract
+[Beutl.NodeGraph]:InputPort<T>
+  unsealed
+[Beutl.NodeGraph]:ListInputPort<T>
+  unsealed
+[Beutl.NodeGraph]:ListInputPort<[Beutl.Engine]Beutl.Graphics.Rendering:RenderNode>
+  unsealed
+  keys: Animations, Connections, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:ListInputPort<[Beutl.Engine]Beutl.Media.Source:VideoSource>
+  unsealed
+  keys: Animations, Connections, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:ListInputPort<[System.Private.CoreLib]System:Object>
+  unsealed
+  keys: Animations, Connections, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:ListOutputPort<T>
+  unsealed
+[Beutl.NodeGraph]:NestedInputPort<T>
+  sealed
+[Beutl.NodeGraph]:NestedInputPort<[Beutl.Engine]Beutl.Graphics.Transformation:Transform>
+  sealed
+  keys: Animations, Connection, Expressions, Id, IsEnabled, Name, PropertyPath, RootMember
+[Beutl.NodeGraph]:NestedInputPort<[Beutl.Engine]Beutl.Graphics:RelativePoint>
+  sealed
+  keys: Animations, Connection, Expressions, Id, IsEnabled, Name, PropertyPath, RootMember
+[Beutl.NodeGraph]:NestedInputPort<[Beutl.Engine]Beutl.Media:Color>
+  sealed
+  keys: Animations, Connection, Expressions, Id, IsEnabled, Name, PropertyPath, RootMember
+[Beutl.NodeGraph]:NestedInputPort<[System.Private.CoreLib]System:Single>
+  sealed
+  keys: Animations, Connection, Expressions, Id, IsEnabled, Name, PropertyPath, RootMember
+[Beutl.NodeGraph]:NodeGraphDrawable
+  sealed
+  keys: AlignmentX, AlignmentY, Animations, BlendMode, Expressions, FilterEffect, Id, IsEnabled, Model, Name, Opacity, Transform, TransformOrigin
+[Beutl.NodeGraph]:NodeGraphFilterEffect
+  sealed
+  keys: Animations, Expressions, Id, IsEnabled, Model, Name
+[Beutl.NodeGraph]:NodeMember
+  abstract
+[Beutl.NodeGraph]:NodeMember<T>
+  unsealed
+[Beutl.NodeGraph]:NodeMonitor<T>
+  unsealed
+[Beutl.NodeGraph]:NodeMonitor<[Beutl.Engine]Beutl.Media.Source:Ref<[Beutl.Engine]Beutl.Media:Bitmap>>
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:NodeMonitor<[System.Private.CoreLib]System:String>
+  unsealed
+  keys: Animations, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:NodePort<T>
+  unsealed
+[Beutl.NodeGraph]:OutputPort<T>
+  unsealed
+[Beutl.NodeGraph]:OutputPort<[Beutl.Engine]Beutl.Graphics.Rendering:ContainerRenderNode>
+  unsealed
+  keys: Animations, Connections, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:OutputPort<[Beutl.Engine]Beutl.Graphics.Rendering:DrawableRenderNode>
+  unsealed
+  keys: Animations, Connections, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:OutputPort<[Beutl.Engine]Beutl.Graphics.Rendering:GeometryRenderNode>
+  unsealed
+  keys: Animations, Connections, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:OutputPort<[Beutl.Engine]Beutl.Graphics.Rendering:ImageSourceRenderNode>
+  unsealed
+  keys: Animations, Connections, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:OutputPort<[Beutl.Engine]Beutl.Graphics.Rendering:RenderNode>
+  unsealed
+  keys: Animations, Connections, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:OutputPort<[Beutl.Engine]Beutl.Graphics.Rendering:VideoSourceRenderNode>
+  unsealed
+  keys: Animations, Connections, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:OutputPort<[Beutl.Engine]Beutl.Graphics:Matrix>
+  unsealed
+  keys: Animations, Connections, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:OutputPort<[Beutl.Engine]Beutl.Graphics:Point>
+  unsealed
+  keys: Animations, Connections, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:OutputPort<[Beutl.Engine]Beutl.Graphics:Rect>
+  unsealed
+  keys: Animations, Connections, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:OutputPort<[Beutl.Engine]Beutl.Graphics:RelativePoint>
+  unsealed
+  keys: Animations, Connections, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:OutputPort<[Beutl.Engine]Beutl.Graphics:RelativeRect>
+  unsealed
+  keys: Animations, Connections, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:OutputPort<[Beutl.Engine]Beutl.Graphics:Size>
+  unsealed
+  keys: Animations, Connections, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:OutputPort<[Beutl.Engine]Beutl.Media.Source:VideoSource>
+  unsealed
+  keys: Animations, Connections, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:OutputPort<[Beutl.Engine]Beutl.Media:EllipseGeometry>
+  unsealed
+  keys: Animations, Connections, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:OutputPort<[Beutl.Engine]Beutl.Media:PixelPoint>
+  unsealed
+  keys: Animations, Connections, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:OutputPort<[Beutl.Engine]Beutl.Media:PixelRect>
+  unsealed
+  keys: Animations, Connections, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:OutputPort<[Beutl.Engine]Beutl.Media:PixelSize>
+  unsealed
+  keys: Animations, Connections, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:OutputPort<[Beutl.Engine]Beutl.Media:RectGeometry>
+  unsealed
+  keys: Animations, Connections, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:OutputPort<[Beutl.Engine]Beutl.Media:RoundedRectGeometry>
+  unsealed
+  keys: Animations, Connections, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:OutputPort<[System.Private.CoreLib]System:Double>
+  unsealed
+  keys: Animations, Connections, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:OutputPort<[System.Private.CoreLib]System:Int32>
+  unsealed
+  keys: Animations, Connections, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:OutputPort<[System.Private.CoreLib]System:Int64>
+  unsealed
+  keys: Animations, Connections, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:OutputPort<[System.Private.CoreLib]System:Object>
+  unsealed
+  keys: Animations, Connections, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:OutputPort<[System.Private.CoreLib]System:Single>
+  unsealed
+  keys: Animations, Connections, Expressions, Id, IsEnabled, Name
+[Beutl.NodeGraph]:OutputPort<[System.Private.CoreLib]System:String>
+  unsealed
+  keys: Animations, Connections, Expressions, Id, IsEnabled, Name
+[Beutl.ProjectSystem]:Element
+  unsealed
+  keys: AccentColor, Id, IsEnabled, IsLocked, Length, Name, Objects, Start, ZIndex
+[Beutl.ProjectSystem]:MediaFingerprintFile
+  sealed
+  keys: Fingerprints, Version
+[Beutl.ProjectSystem]:PortalObject
+  sealed
+  keys: Animations, Clear, Count, Expressions, Id, IsEnabled, Name
+[Beutl.ProjectSystem]:Scene
+  unsealed
+  keys: Duration, Elements, FrameSize, Groups, Height, Id, Layers, Markers, Name, Start, Width
+[Beutl.ProjectSystem]:SceneDrawable
+  sealed
+  keys: AlignmentX, AlignmentY, Animations, BlendMode, Expressions, FilterEffect, Id, IsEnabled, Name, Opacity, ReferencedScene, Transform, TransformOrigin
+[Beutl.ProjectSystem]:SceneMarker
+  unsealed
+  keys: Color, Id, Name, Note, Time
+[Beutl.ProjectSystem]:SceneSound
+  sealed
+  keys: Animations, Effect, Expressions, Gain, Id, IsEnabled, Name, OffsetPosition, ReferencedScene, Speed
+[Beutl.ProjectSystem]:TimelineLayer
+  unsealed
+  keys: Color, Id, IsAudioMuted, IsLocked, IsSolo, IsVideoMuted, Name, ZIndex
+
+## Tool tabs
+# Every ToolTabExtension, by the $type a dock layout writes for it (tools[].extension in the view state of
+# a scene and in dock-layout-presets.json), which is also the key that pins it (View.PinnedToolTabs in
+# settings.json). The id is the tools[].id that BeutlToolDockable.CreateId gives it, with <guid> in place
+# of a GUID it generates.
+
+[Beutl.Editor.Components].AudioVisualizerTab:AudioVisualizerTabExtension
+  id: Beutl.Editor.Components.AudioVisualizerTab.AudioVisualizerTabExtension#<guid>
+[Beutl.Editor.Components].ColorGradingTab:ColorGradingTabExtension
+  id: Beutl.Editor.Components.ColorGradingTab.ColorGradingTabExtension#<guid>
+[Beutl.Editor.Components].ColorScopesTab:ColorScopesTabExtension
+  id: Beutl.Editor.Components.ColorScopesTab.ColorScopesTabExtension#<guid>
+[Beutl.Editor.Components].CurvesTab:CurvesTabExtension
+  id: Beutl.Editor.Components.CurvesTab.CurvesTabExtension#<guid>
+[Beutl.Editor.Components].ElementPropertyTab:ElementPropertyTabExtension
+  id: Beutl.Editor.Components.ElementPropertyTab.ElementPropertyTabExtension#<guid>
+[Beutl.Editor.Components].FileBrowserTab:FileBrowserTabExtension
+  id: Beutl.Editor.Components.FileBrowserTab.FileBrowserTabExtension#<guid>
+[Beutl.Editor.Components].GraphEditorTab:GraphEditorTabExtension
+  id: Beutl.Editor.Components.GraphEditorTab.GraphEditorTabExtension#<guid>
+[Beutl.Editor.Components].LibraryTab:LibraryTabExtension
+  id: Beutl.Editor.Components.LibraryTab.LibraryTabExtension
+[Beutl.Editor.Components].NodeGraphTab:NodeGraphTabExtension
+  id: Beutl.Editor.Components.NodeGraphTab.NodeGraphTabExtension#<guid>
+[Beutl.Editor.Components].ObjectPropertyTab:ObjectPropertyTabExtension
+  id: Beutl.Editor.Components.ObjectPropertyTab.ObjectPropertyTabExtension#<guid>
+[Beutl.Editor.Components].PathEditorTab:PathEditorTabExtension
+  id: Beutl.Editor.Components.PathEditorTab.PathEditorTabExtension#<guid>
+[Beutl.Editor.Components].PreviewSettingsTab:PreviewSettingsTabExtension
+  id: Beutl.Editor.Components.PreviewSettingsTab.PreviewSettingsTabExtension
+[Beutl.Editor.Components].ProxiesTab:ProxiesTabExtension
+  id: Beutl.Editor.Components.ProxiesTab.ProxiesTabExtension
+[Beutl.Editor.Components].SceneSettingsTab:SceneSettingsTabExtension
+  id: Beutl.Editor.Components.SceneSettingsTab.SceneSettingsTabExtension
+[Beutl.Editor.Components].TerminalTab:TerminalTabExtension
+  id: Beutl.Editor.Components.TerminalTab.TerminalTabExtension#<guid>
+[Beutl.Editor.Components].WebBrowserTab:WebBrowserTabExtension
+  id: Beutl.Editor.Components.WebBrowserTab.WebBrowserTabExtension#<guid>
+[Beutl.Editor.Components]Beutl.Services.PrimitiveImpls:TimelineTabExtension
+  id: Beutl.Services.PrimitiveImpls.TimelineTabExtension
+[Beutl].Services.PrimitiveImpls:AiWorkspaceTabExtension
+  id: Beutl.Services.PrimitiveImpls.AiWorkspaceTabExtension#<guid>
+[Beutl].Services.PrimitiveImpls:DockLayoutTabExtension
+  id: Beutl.Services.PrimitiveImpls.DockLayoutTabExtension
+[Beutl].Services.PrimitiveImpls:HistoryTabExtension
+  id: Beutl.Services.PrimitiveImpls.HistoryTabExtension
+[Beutl].Services.PrimitiveImpls:MissingMediaTabExtension
+  id: Beutl.Services.PrimitiveImpls.MissingMediaTabExtension
+[Beutl].Services.PrimitiveImpls:OutputTabExtension
+  id: Beutl.Services.PrimitiveImpls.OutputTabExtension
+[Beutl].Services.PrimitiveImpls:TransitionTabExtension
+  id: Beutl.Services.PrimitiveImpls.TransitionTabExtension#<guid>
+[Beutl].Services.PrimitiveImpls:VersionControlTabExtension
+  id: Beutl.Services.PrimitiveImpls.VersionControlTabExtension
+
+## Keymap
+# keymap.json: the <namespace>.<type>.<command> key of every context command of every ViewExtension.
+
+Beutl.Editor.Components.LibraryTab.LibraryTabExtension.AddElement
+Beutl.Editor.Components.LibraryTab.LibraryTabExtension.AddElementFromTemplate
+Beutl.Editor.Components.PreviewSettingsTab.PreviewSettingsTabExtension.ChangePreviewRenderQuality
+Beutl.Editor.Components.SceneSettingsTab.SceneSettingsTabExtension.ChangeSceneDuration
+Beutl.Editor.Components.SceneSettingsTab.SceneSettingsTabExtension.ChangeSceneSize
+Beutl.Editor.Components.SceneSettingsTab.SceneSettingsTabExtension.ChangeSceneStart
+Beutl.Services.PrimitiveImpls.DockLayoutTabExtension.ApplyDockLayout
+Beutl.Services.PrimitiveImpls.DockLayoutTabExtension.DeleteDockLayout
+Beutl.Services.PrimitiveImpls.DockLayoutTabExtension.RenameDockLayout
+Beutl.Services.PrimitiveImpls.DockLayoutTabExtension.SaveDockLayout
+Beutl.Services.PrimitiveImpls.HistoryTabExtension.JumpToHistory
+Beutl.Services.PrimitiveImpls.MainViewExtension.ChangeTheme
+Beutl.Services.PrimitiveImpls.MainViewExtension.CloseProject
+Beutl.Services.PrimitiveImpls.MainViewExtension.CommitVersion
+Beutl.Services.PrimitiveImpls.MainViewExtension.CreateNewFile
+Beutl.Services.PrimitiveImpls.MainViewExtension.CreateNewProject
+Beutl.Services.PrimitiveImpls.MainViewExtension.CreateToolTab
+Beutl.Services.PrimitiveImpls.MainViewExtension.EnableVersionControl
+Beutl.Services.PrimitiveImpls.MainViewExtension.Exit
+Beutl.Services.PrimitiveImpls.MainViewExtension.NextTab
+Beutl.Services.PrimitiveImpls.MainViewExtension.NextToolTab
+Beutl.Services.PrimitiveImpls.MainViewExtension.OpenFile
+Beutl.Services.PrimitiveImpls.MainViewExtension.OpenProject
+Beutl.Services.PrimitiveImpls.MainViewExtension.OpenRecentFile
+Beutl.Services.PrimitiveImpls.MainViewExtension.OpenRecentProject
+Beutl.Services.PrimitiveImpls.MainViewExtension.PreviousTab
+Beutl.Services.PrimitiveImpls.MainViewExtension.PreviousToolTab
+Beutl.Services.PrimitiveImpls.MainViewExtension.Redo
+Beutl.Services.PrimitiveImpls.MainViewExtension.Save
+Beutl.Services.PrimitiveImpls.MainViewExtension.SaveAll
+Beutl.Services.PrimitiveImpls.MainViewExtension.ShowCommandPalette
+Beutl.Services.PrimitiveImpls.MainViewExtension.Undo
+Beutl.Services.PrimitiveImpls.SceneEditorExtension.AddMarker
+Beutl.Services.PrimitiveImpls.SceneEditorExtension.GoToMarker
+Beutl.Services.PrimitiveImpls.SceneEditorExtension.GotoTimecode
+Beutl.Services.PrimitiveImpls.SceneEditorExtension.Next
+Beutl.Services.PrimitiveImpls.SceneEditorExtension.NextKeyFrame
+Beutl.Services.PrimitiveImpls.SceneEditorExtension.NextMarker
+Beutl.Services.PrimitiveImpls.SceneEditorExtension.PlayPause
+Beutl.Services.PrimitiveImpls.SceneEditorExtension.Previous
+Beutl.Services.PrimitiveImpls.SceneEditorExtension.PreviousKeyFrame
+Beutl.Services.PrimitiveImpls.SceneEditorExtension.PreviousMarker
+Beutl.Services.PrimitiveImpls.SceneEditorExtension.RenameMarker
+Beutl.Services.PrimitiveImpls.SceneEditorExtension.SeekEnd
+Beutl.Services.PrimitiveImpls.SceneEditorExtension.SeekStart
+Beutl.Services.PrimitiveImpls.SceneEditorExtension.ShuttleBackward
+Beutl.Services.PrimitiveImpls.SceneEditorExtension.ShuttleBackwardFine
+Beutl.Services.PrimitiveImpls.SceneEditorExtension.ShuttleForward
+Beutl.Services.PrimitiveImpls.SceneEditorExtension.ShuttleForwardFine
+Beutl.Services.PrimitiveImpls.SceneEditorExtension.ShuttleStop
+Beutl.Services.PrimitiveImpls.SceneEditorExtension.ToggleLoop
+Beutl.Services.PrimitiveImpls.SceneEditorExtension.ToggleMarker
+Beutl.Services.PrimitiveImpls.SceneEditorExtension.ToggleOnionSkin
+Beutl.Services.PrimitiveImpls.TimelineTabExtension.CloseAllGaps
+Beutl.Services.PrimitiveImpls.TimelineTabExtension.CloseGap
+Beutl.Services.PrimitiveImpls.TimelineTabExtension.Copy
+Beutl.Services.PrimitiveImpls.TimelineTabExtension.Cut
+Beutl.Services.PrimitiveImpls.TimelineTabExtension.Delete
+Beutl.Services.PrimitiveImpls.TimelineTabExtension.Duplicate
+Beutl.Services.PrimitiveImpls.TimelineTabExtension.Exclude
+Beutl.Services.PrimitiveImpls.TimelineTabExtension.ExitRazorMode
+Beutl.Services.PrimitiveImpls.TimelineTabExtension.ExitRollMode
+Beutl.Services.PrimitiveImpls.TimelineTabExtension.ExitSlideMode
+Beutl.Services.PrimitiveImpls.TimelineTabExtension.ExitSlipMode
+Beutl.Services.PrimitiveImpls.TimelineTabExtension.GoToNextGap
+Beutl.Services.PrimitiveImpls.TimelineTabExtension.GoToPreviousGap
+Beutl.Services.PrimitiveImpls.TimelineTabExtension.NudgeLeftFrame
+Beutl.Services.PrimitiveImpls.TimelineTabExtension.NudgeLeftLarge
+Beutl.Services.PrimitiveImpls.TimelineTabExtension.NudgeLeftSecond
+Beutl.Services.PrimitiveImpls.TimelineTabExtension.NudgeRightFrame
+Beutl.Services.PrimitiveImpls.TimelineTabExtension.NudgeRightLarge
+Beutl.Services.PrimitiveImpls.TimelineTabExtension.NudgeRightSecond
+Beutl.Services.PrimitiveImpls.TimelineTabExtension.Paste
+Beutl.Services.PrimitiveImpls.TimelineTabExtension.Rename
+Beutl.Services.PrimitiveImpls.TimelineTabExtension.SaveAsTemplate
+Beutl.Services.PrimitiveImpls.TimelineTabExtension.SetEndTime
+Beutl.Services.PrimitiveImpls.TimelineTabExtension.SetStartTime
+Beutl.Services.PrimitiveImpls.TimelineTabExtension.Split
+Beutl.Services.PrimitiveImpls.TimelineTabExtension.ToggleGroup
+Beutl.Services.PrimitiveImpls.TimelineTabExtension.ToggleRazorMode
+Beutl.Services.PrimitiveImpls.TimelineTabExtension.ToggleRippleMode
+Beutl.Services.PrimitiveImpls.TimelineTabExtension.ToggleRollMode
+Beutl.Services.PrimitiveImpls.TimelineTabExtension.ToggleSlideMode
+Beutl.Services.PrimitiveImpls.TimelineTabExtension.ToggleSlipMode
+
+## Decoders
+# Extension.DecoderPriority in settings.json: the $type of every IDecoderInfo.
+
+[Beutl.Embedding.MediaFoundation].Decoding:MFDecoderInfo
+[Beutl.Engine]Beutl.Media.Decoding:AnimatedImageDecoderInfo
+[Beutl.Engine]Beutl.Media.Decoding:AnimatedPngDecoderInfo
+[Beutl.Engine]Beutl.Media.Wave:WaveDecoderInfo
+[Beutl.Extensions.AVFoundation].Decoding:AVFDecoderInfo
+[Beutl.Extensions.FFmpeg].Decoding:FFmpegDecoderInfo
+
+## Editors
+# Extension.EditorExtensions in settings.json: the $type of every EditorExtension.
+
+[Beutl].Services.PrimitiveImpls:SceneEditorExtension
+
+## Outputs
+# Extension in output-profile.json and output-presets.json: the $type of every OutputExtension.
+
+[Beutl].Services.PrimitiveImpls:SceneOutputExtension
+
+## Encoders
+# SelectedEncoder in output-profile.json and output-presets.json: the $type of every
+# ControllableEncodingExtension.
+
+[Beutl.Extensions.AVFoundation].Encoding:AVFEncodingExtension
+[Beutl.Extensions.FFmpeg.Core]Beutl.Extensions.FFmpeg.Encoding:FFmpegHeadlessEncodingExtension
+[Beutl.Extensions.FFmpeg].Encoding:FFmpegControlledEncodingExtension
+
+## Extension settings
+# extensionsSettings.json: the full name of every extension that has settings, which keys them, and the
+# $type of the settings.
+
+Beutl.Embedding.MediaFoundation.Decoding.MFDecodingExtension
+  settings: [Beutl.Embedding.MediaFoundation].Decoding:MFDecodingSettings
+Beutl.Extensions.AVFoundation.Decoding.AVFDecodingExtension
+  settings: [Beutl.Extensions.AVFoundation].Decoding:AVFDecodingSettings
+Beutl.Extensions.FFmpeg.Decoding.FFmpegDecodingExtension
+  settings: [Beutl.Extensions.FFmpeg].Decoding:FFmpegDecodingSettings
+Beutl.Extensions.FFmpeg.Encoding.FFmpegControlledEncodingExtension
+  settings: [Beutl.Extensions.FFmpeg.Core]Beutl.Extensions.FFmpeg.Encoding:FFmpegEncodingSettings
+Beutl.Extensions.FFmpeg.Encoding.FFmpegHeadlessEncodingExtension
+  settings: [Beutl.Extensions.FFmpeg.Core]Beutl.Extensions.FFmpeg.Encoding:FFmpegEncodingSettings
+
+## Extensions without an instance
+# Extensions with neither a static Instance nor a public parameterless constructor. Their context commands
+# and settings are not listed above.
+
+Beutl.Services.PrimitiveImpls.DefaultTutorialExtension
