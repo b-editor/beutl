@@ -65,3 +65,39 @@ jobs:
       with:
         name: beutl_${{ matrix.rid }}
         path: ./artifacts/
+
+  # A failing nightly build went unnoticed for five days, until a release failed the same way (#2887).
+  # One open issue with a fixed title tracks failures: the first failure opens it, later ones comment on it.
+  report-failure:
+    needs: [ determine-version, daily-build ]
+    if: failure() && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # One report at a time, so that two failed runs cannot both find no issue and each open one.
+    concurrency:
+      group: daily-build-failure-report
+      cancel-in-progress: false
+    permissions:
+      issues: write
+    steps:
+    - name: Open or update the tracking issue
+      env:
+        GH_TOKEN: ${{ github.token }}
+        REPO: ${{ github.repository }}
+        RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        SHA: ${{ github.sha }}
+        TITLE: Daily build is failing
+      run: |
+        set -euo pipefail
+        # A listing, unlike a search, already holds an issue that the previous report just opened.
+        number=$(gh issue list -R "$REPO" --state open --limit 1000 --json number,title \
+          --jq 'map(select(.title == env.TITLE)) | first | .number // empty')
+        if [ -n "$number" ]; then
+          gh issue comment "$number" -R "$REPO" --body "The daily build failed again: $RUN_URL (commit $SHA)"
+        else
+          body=$(printf '%s\n' \
+            "The daily build failed: $RUN_URL (commit $SHA)" \
+            "" \
+            "Later failures are added as comments while this issue is open. Close it once the daily build passes again.")
+          gh issue create -R "$REPO" --title "$TITLE" --label bug --body "$body"
+        fi
