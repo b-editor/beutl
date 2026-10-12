@@ -15,6 +15,9 @@ public partial class LayerInputNode : GraphNode, IDynamicPortNode
         void SetupProperty(string propertyName);
     }
 
+    // Earlier builds also wrote the adapter type under Target, which nothing has read since dbf5054eb. It is dropped
+    // rather than kept as an unknown member.
+    [DroppedMembers("Target")]
     public class LayerInputPort<T> : OutputPort<T>, ILayerInputPort
     {
         private NodePropertyAdapter<T>? _property;

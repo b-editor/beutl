@@ -2,13 +2,9 @@
 using Beutl.Engine;
 using Beutl.Extensibility;
 using Beutl.NodeGraph.Composition;
-using Beutl.Serialization;
 
 namespace Beutl.NodeGraph;
 
-// Earlier builds wrote the type of a member's NodePropertyAdapter under Target, which nothing has read since
-// dbf5054eb. A stored type is dropped rather than kept as an unknown member.
-[DroppedMembers("Target")]
 [SuppressResourceClassGeneration]
 public abstract class NodeMember : EngineObject
 {

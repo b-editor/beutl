@@ -2,9 +2,9 @@
 
 namespace Beutl.NodeGraph;
 
-// Earlier builds also wrote the property name here, which the port does not read: it finds its property by Name. A
-// stored name is dropped rather than kept as an unknown member.
-[DroppedMembers("Property")]
+// Earlier builds also wrote the property name and the adapter type here. The port finds its property by Name, and
+// nothing has read the type since dbf5054eb, so both are dropped rather than kept as unknown members.
+[DroppedMembers("Property", "Target")]
 public sealed class DefaultInputPort<T> : InputPort<T>, IDefaultInputPort
 {
     public void SetPropertyAdapter(NodePropertyAdapter<T> property)
