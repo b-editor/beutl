@@ -69,13 +69,8 @@ public sealed class FontManager
         {
             var family = new FontFamily(item.Key);
             SKTypeface[] typefaces = [.. item];
-            if (typefaces.Length == 0) continue;
             _fonts.Add(family, TypefaceCollection.Create(typefaces));
-
-            if (!_fontNames.ContainsKey(family))
-            {
-                TryRegisterFontName(family, typefaces[0]);
-            }
+            TryRegisterFontName(family, typefaces[0]);
         }
     }
 
@@ -251,15 +246,13 @@ public sealed class FontManager
         }
     }
 
-    public void AddFont(Stream stream) => AddFont(stream, null);
-
-    internal void AddFont(Stream stream, FontWeight? weight)
+    public void AddFont(Stream stream)
     {
         SKTypeface? typeface = SKTypeface.FromStream(stream);
         if (typeface == null) return;
         // 重複登録された SKTypeface は AddFont 側で false が返るので、
         // 戻り値を無視せず必ず Dispose する。
-        if (!AddFont(typeface, weight))
+        if (!AddFont(typeface))
         {
             typeface.Dispose();
         }
@@ -479,6 +472,7 @@ public sealed class FontManager
         }
     }
 
+    // Test-only (via InternalsVisibleTo): the face a registered typeface renders with.
     internal SKTypeface GetRenderFace(SKTypeface typeface)
     {
         lock (_gate) return _renderFaces.Get(typeface);
@@ -620,12 +614,7 @@ internal static class TypefaceCollection
         return map.ToFrozenDictionary();
     }
 
-    public static TValue Get<TValue>(this IReadOnlyDictionary<Typeface, TValue> typefaces, Typeface typeface)
-    {
-        return GetNearestMatch(typefaces, typeface);
-    }
-
-    private static TValue GetNearestMatch<TValue>(IReadOnlyDictionary<Typeface, TValue> typefaces, Typeface key)
+    public static TValue Get<TValue>(this IReadOnlyDictionary<Typeface, TValue> typefaces, Typeface key)
     {
         if (typefaces.TryGetValue(key, out TValue? typeface))
         {

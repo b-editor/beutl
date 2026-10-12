@@ -8,9 +8,11 @@ namespace Beutl.Media;
 [SupportedOSPlatform("linux")]
 internal static class DefaultFontResolver
 {
-    public static SKTypeface Resolve(string executable = "fc-match", int timeoutMilliseconds = 3000)
+    private const int TimeoutMilliseconds = 3000;
+
+    public static SKTypeface Resolve(string executable = "fc-match")
     {
-        using var cancellation = new CancellationTokenSource(timeoutMilliseconds);
+        using var cancellation = new CancellationTokenSource(TimeoutMilliseconds);
         LinuxFontMatchProcess? process = null;
         try
         {

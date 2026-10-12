@@ -17,7 +17,7 @@ public class APNG
         using MemoryStream stream = new(fileBytes);
 
         // check file signature.
-        if (!Helper.IsBytesEqual(stream.ReadBytes(Frame.Signature.Length), Frame.Signature))
+        if (!stream.ReadBytes(Frame.Signature.Length).AsSpan().SequenceEqual(Frame.Signature))
             throw new Exception("File signature incorrect.");
 
         // Read IHDR chunk.

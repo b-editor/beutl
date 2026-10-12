@@ -27,19 +27,12 @@ public sealed class ProxyEvictionService : IProxyStoreCapInfo
     }
 
     /// <param name="openProjectSourceProvider">
-    /// Returns the absolute paths of media files referenced by the currently-open project so
-    /// those proxies are evicted last (only when nothing else satisfies the cap). The set is
-    /// compared by <see cref="StringComparer.Ordinal"/> after path normalization. This callback
-    /// is invoked once per <see cref="Sweep"/> and <see cref="SweepForDiskPressure"/> call; it
-    /// must be O(1) or memoized by the consumer (e.g. a cached snapshot invalidated on project
-    /// open/close), not a fresh per-call enumeration of the project tree.
+    /// The media paths of the open project, whose proxies are evicted last. It is called once per sweep, so it
+    /// must be cheap (for example a cached snapshot).
     /// </param>
     /// <param name="isGenerationActive">
-    /// Tests whether a proxy generation job for the given (source, preset) is currently in flight so
-    /// the eviction never deletes a proxy whose replacement is still being written. A predicate rather
-    /// than a set snapshot: the sweep queries it once per candidate immediately before deleting (to see
-    /// regenerations queued mid-sweep), so it must be a cheap membership test, not a per-call rebuild of
-    /// the whole active set.
+    /// Whether a generation for the (source, preset) is in flight. It is asked right before each delete, so it
+    /// must be a cheap membership test.
     /// </param>
     public ProxyEvictionService(
         IProxyStore store,
@@ -76,22 +69,11 @@ public sealed class ProxyEvictionService : IProxyStoreCapInfo
     }
 
     /// <summary>
-    /// Evicts proxies in reaction to disk pressure: it enforces the app cap and, in
-    /// addition, restores host free-disk headroom (independent of the cap) so a
-    /// queued generation job has room to write. Intended to run before a job starts
-    /// and after a job fails. If eviction cannot plausibly restore the headroom it
-    /// leaves proxies intact rather than deleting unrelated proxies for nothing.
+    /// Enforces the app cap and also restores free-disk headroom for a queued job, leaving proxies intact when
+    /// eviction cannot plausibly restore it.
     /// </summary>
-    /// <param name="additionalBytesNeeded">
-    /// Extra free space required on top of the configured headroom (e.g. an estimate
-    /// of the job's output size). Must be non-negative.
-    /// </param>
-    /// <param name="notify">
-    /// When <see langword="false"/>, evictions performed by this sweep are not reported
-    /// through the notification callback. The routine pre-job disk-pressure path passes
-    /// <see langword="false"/> so it does not spam the user; the cap-overage <see cref="Sweep"/>
-    /// path notifies instead.
-    /// </param>
+    /// <param name="additionalBytesNeeded">Non-negative free space needed on top of the configured headroom.</param>
+    /// <param name="notify">Whether to report this sweep's evictions through the notification callback.</param>
     public ProxyEvictionResult SweepForDiskPressure(long additionalBytesNeeded = 0, bool notify = true)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(additionalBytesNeeded);
@@ -146,7 +128,7 @@ public sealed class ProxyEvictionService : IProxyStoreCapInfo
         // if eviction can reach it, otherwise pursue the cap goal alone rather than delete for nothing.
         long totalOnDiskReclaimable = candidates.Sum(static c => c.OnDiskBytes);
         long diskTarget = totalOnDiskReclaimable >= diskShortfall ? diskShortfall : 0;
-        long capTarget = Math.Max(capOverage, 0);
+        long capTarget = capOverage;
         if (capTarget <= 0 && diskTarget <= 0)
             return default;
 
@@ -224,18 +206,8 @@ public sealed class ProxyEvictionService : IProxyStoreCapInfo
             && _resolver.IsPinned(pinnedPath))
             return false;
 
-        // Test the active generation immediately before each delete, mirroring the pin re-check
-        // above: a regenerate for this key may have been queued while the sweep deleted earlier
-        // candidates, so a check taken once before the loop would miss it and this delete would drop
-        // a proxy whose replacement is still in flight (losing the usable fallback if that generation
-        // later fails). The predicate is a cheap per-key membership test, not a per-candidate rebuild
-        // of the whole active set.
-        // Delete keys on (Source, Preset), so a regenerate that ran since collection would make this
-        // remove the current (possibly freshly Ready) entry rather than the ranked one. Skip unless the
-        // current entry is still the ranked proxy and no generation for the key is active. Compare only
-        // identity fields (proxy file + generation time), not the whole record: ProxyStore.Touch
-        // replaces the entry to bump LastUsedUtc, so a full-record check would read a normal playback
-        // touch between collection and here as a regenerate and starve eviction while over cap.
+        // Re-check right before deleting: a regenerate queued or finished during the sweep must keep its proxy.
+        // Compare only identity fields, because ProxyStore.Touch replaces the entry to bump LastUsedUtc.
         ProxyEntry? current = _store.TryGet(candidate.Entry.Source, candidate.Entry.Preset);
         if (current is null
             || current.ProxyFileRelative != candidate.Entry.ProxyFileRelative
@@ -278,7 +250,7 @@ public sealed class ProxyEvictionService : IProxyStoreCapInfo
 
             try
             {
-                normalized.Add(ResolveComparablePath(path));
+                normalized.Add(ProxyFingerprint.ResolveComparableKey(path));
             }
             catch
             {
@@ -288,9 +260,6 @@ public sealed class ProxyEvictionService : IProxyStoreCapInfo
 
         return normalized;
     }
-
-    private static string ResolveComparablePath(string path)
-        => ProxyFingerprint.ResolveComparableKey(path);
 
     private long? GetAvailableFreeSpace(string storeRootPath)
     {

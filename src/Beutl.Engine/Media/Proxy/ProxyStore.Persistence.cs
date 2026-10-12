@@ -8,17 +8,8 @@ namespace Beutl.Media.Proxy;
 
 public sealed partial class ProxyStore
 {
-    // Intentionally holds _lock for the full read-merge-write. Moving the write outside _lock
-    // (to unblock TryGet/Touch/Enumerate during flush) breaks two invariants the single-lock span
-    // guarantees: (1) the disk read must happen under the cross-process index.lock so another
-    // instance cannot write between our read and our write; (2) the _entries clear+refill from the
-    // merged result is only safe with no concurrent in-process mutation — once _lock is released
-    // during the write, a concurrent Register/Delete can land between the refill and the write, and
-    // the refill re-adds a just-deleted key from disk while Phase 3's HashSet.Remove(key) clears a
-    // concurrent degraded flush's pending addition, losing that change. Fixing (2) needs a
-    // ref-counted pending structure plus an incremental _entries reconcile, which is high-risk for a
-    // LOW-severity finding and not deterministically testable. The Touch debounce (1 s) and
-    // DegradePersistence (pending replay on the next uncontended flush) mitigate the perf concern.
+    // Holds _lock for the full read-merge-write: the disk read must stay under the cross-process index.lock, and
+    // refilling _entries from the merge is only safe while no in-process Register/Delete can interleave.
     private void FlushCore(
         IReadOnlySet<ProxyKey>? changedKeys = null,
         IReadOnlySet<ProxyKey>? removedKeys = null)
@@ -66,12 +57,8 @@ public sealed partial class ProxyStore
         out HashSet<ProxyKey> effectiveChanged,
         out HashSet<ProxyKey> effectiveRemoved)
     {
-        // Seed from the degraded-and-pending ops, then let this flush's own ops supersede them per key:
-        // a fresh registration cancels a stale pending delete (the delete/regenerate race after
-        // transient lock contention) and a fresh delete cancels a stale pending persist. Without the
-        // supersede, effectiveChanged.ExceptWith below would drop the freshly registered proxy and
-        // _entries.Clear() would lose it from memory too. Mirrors the re-Register-supersedes-Delete rule
-        // DegradePersistence already applies on the degrade path.
+        // Seed from the pending ops, then let this flush's own ops supersede them per key: a fresh registration
+        // cancels a stale pending delete and a fresh delete cancels a stale pending persist.
         effectiveRemoved = [.. _pendingRemoveKeys];
         effectiveChanged = [.. _pendingPersistKeys];
         if (changedKeys != null)
@@ -277,10 +264,8 @@ public sealed partial class ProxyStore
             _ = FlushTouchesAsync();
     }
 
-    // Returns false only when index.json exists but cannot be deserialized (corrupt / truncated): the
-    // on-disk content is unknown, so FlushCore must not overwrite it and drop valid in-memory entries.
-    // A missing file (fresh store) and an old-version index (intentionally discarded and upgraded on
-    // load) are both legitimate empty reads, not failures.
+    // Returns false only when index.json exists but cannot be deserialized, so FlushCore must not overwrite it.
+    // A missing file or an index of another version is an empty read.
     private bool TryReadIndexEntriesFromDisk(out List<ProxyEntry> entries, out Exception? failure)
     {
         entries = [];

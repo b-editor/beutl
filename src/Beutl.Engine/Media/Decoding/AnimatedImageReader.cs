@@ -12,6 +12,7 @@ public class AnimatedImageReader : MediaReader
     private readonly SKCodecFrameInfo[] _frameInfo;
     private readonly int _frameCount;
     private readonly int _repetitionCount;
+    private readonly int _cycleDuration;
     private Frame? _lastFrame;
 
     public AnimatedImageReader(string file)
@@ -30,6 +31,10 @@ public class AnimatedImageReader : MediaReader
         _frameCount = _codec.FrameCount;
         _frameInfo = _codec.FrameInfo;
         _repetitionCount = _codec.RepetitionCount;
+        for (int i = 0; i < _frameCount; i++)
+        {
+            _cycleDuration += _frameInfo[i].Duration;
+        }
     }
 
     public override VideoStreamInfo VideoInfo { get; }
@@ -46,19 +51,8 @@ public class AnimatedImageReader : MediaReader
         if (_repetitionCount == 0)
             return 0;
 
-        // 元コードは `for (rp; rp < _repetitionCount || _repetitionCount == -1; rp++)`
-        // で外側を永久ループにしていたため、ms がコンテンツ全体の duration を
-        // 超えるとレンダリングスレッドがハングしていた。1巡分の duration を
-        // 先に計算し、無限ループ素材は ms をその範囲に wrap してフレーム検出する。
-        int cycleDuration = 0;
-        for (int i = 0; i < _frameCount; i++)
+        if (_cycleDuration <= 0)
         {
-            cycleDuration += _frameInfo[i].Duration;
-        }
-
-        if (cycleDuration <= 0)
-        {
-            // 全フレームの duration が 0。元コードなら無限ループだったケース。
             return -1;
         }
 
@@ -66,15 +60,15 @@ public class AnimatedImageReader : MediaReader
 
         if (_repetitionCount > 0)
         {
-            long fullDuration = (long)cycleDuration * _repetitionCount;
+            long fullDuration = (long)_cycleDuration * _repetitionCount;
             if (effective >= fullDuration)
             {
                 return -1;
             }
         }
 
-        // wrap effective into [0, cycleDuration)
-        effective %= cycleDuration;
+        // Wrap ms into one cycle so that infinitely looping media still finds a frame.
+        effective %= _cycleDuration;
 
         int accumulated = 0;
         for (int i = 0; i < _frameCount; i++)
@@ -97,7 +91,7 @@ public class AnimatedImageReader : MediaReader
         if (_codec == null)
             return false;
 
-        // frameを秒数に変換
+        // Convert the frame index to milliseconds.
         long ms = frame * VideoInfo.FrameRate.Denominator * 1000 / VideoInfo.FrameRate.Numerator;
 
         int detectedFrame = FindFrameIndex(ms);
@@ -117,7 +111,7 @@ public class AnimatedImageReader : MediaReader
         _lastFrame?.Dispose();
         if (disposalMethod != SKCodecAnimationDisposalMethod.RestoreBackgroundColor)
         {
-            _lastFrame = new Frame(bitmap, disposalMethod, detectedFrame);
+            _lastFrame = new Frame(bitmap, detectedFrame);
         }
         else
         {
@@ -140,14 +134,9 @@ public class AnimatedImageReader : MediaReader
             if (i != index && info.DisposalMethod == SKCodecAnimationDisposalMethod.RestoreBackgroundColor)
                 break;
 
-            if (_lastFrame is not null &&
-                _lastFrame.Index == i)
-            {
-                stack.Push((info, i));
-                break;
-            }
-
             stack.Push((info, i));
+            if (_lastFrame?.Index == i)
+                break;
         }
 
         var frameBitmap = new SKBitmap(_codec!.Info);
@@ -188,7 +177,7 @@ public class AnimatedImageReader : MediaReader
         _lastFrame = null;
     }
 
-    private record Frame(SKBitmap Bitmap, SKCodecAnimationDisposalMethod DisposalMethod, int Index) : IDisposable
+    private record Frame(SKBitmap Bitmap, int Index) : IDisposable
     {
         public void Dispose()
         {

@@ -6,7 +6,6 @@ namespace Beutl.Media.TextFormatting;
 
 public static class FormattedTextParser
 {
-    // タグを解析
     public static bool TryParseTag(StringSpan tag, out TagInfo result)
     {
         ReadOnlySpan<char> span = tag.AsSpan();
@@ -26,7 +25,7 @@ public static class FormattedTextParser
         }
         TagType tagType = GetTagType(first);
 
-        // "<#fffff>" みたいなタグ
+        // Tags whose name is the whole value: <#rrggbb>, <b>, <i>, <noparse> and <single-line>.
         if (tagType is TagType.ColorHash or TagType.FontWeightBold or TagType.FontStyleItalic or TagType.NoParse or TagType.SingleLine)
         {
             result = new TagInfo(first, tagType);
@@ -44,7 +43,6 @@ public static class FormattedTextParser
         }
     }
 
-    // 終了タグの種類を取得
     public static TagType GetCloseTagType(StringSpan tag)
     {
         ReadOnlySpan<char> span = TrimAngleBrackets(tag.AsSpan());
@@ -53,7 +51,6 @@ public static class FormattedTextParser
             : TagType.Invalid;
     }
 
-    // 開始タグの種類を取得
     public static TagType GetTagType(StringSpan tag)
     {
         return ClassifyTagName(TrimAngleBrackets(tag.AsSpan()));
@@ -286,7 +283,7 @@ public static class FormattedTextParser
             {
                 ReadOnlySpan<char> str = RemoveQuotation(Value);
                 font = new FontFamily(str.ToString());
-                if (!FontManager.Instance.FontFamilies.Contains(font))
+                if (!FontManager.Instance.IsRegistered(font))
                 {
                     font = null;
                 }

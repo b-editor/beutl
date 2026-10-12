@@ -1,12 +1,7 @@
 ﻿namespace Beutl.Media;
 
 /// <summary>
-/// A backend-independent color-primaries tag (a named code point, using Beutl's own stable
-/// numbering — not the ITU-T H.273 color-primaries code points).
-/// Encode/decode backends map their native primaries tags onto this enum and let
-/// <see cref="BitmapColorSpaceMapping"/> resolve the concrete <see cref="BitmapColorSpaceXyz"/>
-/// gamut, so the mapping logic lives in exactly one place across the
-/// FFmpeg / AVFoundation paths.
+/// A color-primaries tag with Beutl's own numbering, not the ITU-T H.273 code points.
 /// </summary>
 /// <remarks>
 /// The numeric values are part of the wire contract with the AVFoundation native layer

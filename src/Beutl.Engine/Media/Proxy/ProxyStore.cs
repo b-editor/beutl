@@ -16,10 +16,8 @@ public sealed partial class ProxyStore : IProxyStore
     // ~0.5 s before DegradePersistence engages and replays on the next uncontended flush.
     private const int DefaultLockAcquireMaxAttempts = 50;
 
-    // A live encode keeps its *.tmp mtime fresh, so the mtime-based age check below already spares an
-    // active file. The wide margin adds headroom for a shared store where a peer instance's long
-    // encode may have a laggy mtime (e.g. a network share) — a cross-process in-flight marker would
-    // remove the residual race but is out of scope here.
+    // A live encode keeps its *.tmp mtime fresh, so the age check spares an active file; the wide margin covers a
+    // peer instance's long encode on a shared store whose mtime lags.
     private static readonly TimeSpan s_generatedTempCleanupMinAge = TimeSpan.FromHours(24);
 
     private static readonly ILogger s_logger = Log.CreateLogger<ProxyStore>();
@@ -274,13 +272,8 @@ public sealed partial class ProxyStore : IProxyStore
             FlushCore(removedKeys: new HashSet<ProxyKey> { (source, preset) });
         }
 
-        // Delete the proxy file outside _lock: File.Delete has no bound (a network-share store can stall
-        // seconds), and preview reads (TryGet/Touch/Enumerate) contend on _lock, so holding it across the
-        // delete would stall playback. Deferred deletion remains tracked for last-pin release or a
-        // later successful flush, and continues counting toward the cache cap.
-
-        // Re-check references after releasing _lock: a legacy-path re-registration or another entry
-        // may still own this file.
+        // Delete outside _lock, which preview reads contend on, since File.Delete can stall on a network share.
+        // Re-check first: a re-registration or another entry may still own the file.
         if (!IsProxyFileReferenced(proxyPath))
         {
             TryReclaimProxyFile(proxyPath);
@@ -293,30 +286,13 @@ public sealed partial class ProxyStore : IProxyStore
 
     private bool IsProxyFileReferenced(string absoluteProxyPath)
     {
-        string normalized;
-        try
-        {
-            normalized = ProxyFingerprint.NormalizeAbsolutePath(absoluteProxyPath);
-        }
-        catch
-        {
-            return false;
-        }
+        string normalized = ProxyFingerprint.NormalizeAbsolutePath(absoluteProxyPath);
 
         lock (_lock)
         {
             foreach (ProxyEntry entry in _entries.Values)
             {
-                string candidate;
-                try
-                {
-                    candidate = ProxyFingerprint.NormalizeAbsolutePath(GetAbsolutePath(entry));
-                }
-                catch
-                {
-                    continue;
-                }
-
+                string candidate = ProxyFingerprint.NormalizeAbsolutePath(GetAbsolutePath(entry));
                 if (string.Equals(candidate, normalized, StringComparison.Ordinal))
                     return true;
             }
@@ -408,26 +384,9 @@ public sealed partial class ProxyStore : IProxyStore
             string path = GetAbsolutePath(entry);
             return entry.State switch
             {
-                ProxyState.Ready or ProxyState.Stale => File.Exists(path) && HasValidReadyFile(entry, path),
+                ProxyState.Ready or ProxyState.Stale => ProxyEntryChecks.IsValidReadyFile(entry, path),
                 _ => true,
             };
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
-    private static bool HasValidReadyFile(ProxyEntry entry, string absolutePath)
-    {
-        if (!ProxyEntryChecks.HasPositiveSizes(entry))
-        {
-            return false;
-        }
-
-        try
-        {
-            return new FileInfo(absolutePath).Length == entry.ProxyFileSizeBytes;
         }
         catch
         {

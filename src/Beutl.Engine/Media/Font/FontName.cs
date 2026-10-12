@@ -25,49 +25,15 @@ internal enum PlatformIDs : ushort
 
 internal enum KnownNameIds : ushort
 {
-    CopyrightNotice = 0,
     FontFamilyName = 1,
-    FontSubfamilyName = 2,
-    UniqueFontID = 3,
-    FullFontName = 4,
-    Version = 5,
-    PostscriptName = 6,
-    Trademark = 7,
-    Manufacturer = 8,
-    Designer = 9,
-    Description = 10,
-    VendorUrl = 11,
-    DesignerUrl = 12,
-    LicenseDescription = 13,
-    LicenseInfoUrl = 14,
     TypographicFamilyName = 16,
-    TypographicSubfamilyName = 17,
-    SampleText = 19,
     WwsFamilyName = 21,
 }
 
 // A family name record as the name table spells it for one platform and language.
 internal readonly record struct FamilyNameRecord(KnownNameIds NameId, PlatformIDs Platform, ushort LanguageId, string Value);
 
-internal record FontName(
-    string? CopyrightNotice,
-    string? FontFamilyName,
-    string? FontSubfamilyName,
-    string? UniqueFontID,
-    string? FullFontName,
-    string? Version,
-    string? PostscriptName,
-    string? Trademark,
-    string? Manufacturer,
-    string? Designer,
-    string? Description,
-    string? VendorUrl,
-    string? DesignerUrl,
-    string? LicenseDescription,
-    string? LicenseInfoUrl,
-    string? TypographicFamilyName,
-    string? TypographicSubfamilyName,
-    string? SampleText)
+internal record FontName
 {
     private const ushort UsEnglishLanguageId = 0x0409;
 
@@ -168,26 +134,7 @@ internal record FontName(
             }
         }
 
-        return new FontName(
-            CopyrightNotice: GetNameById(CultureInfo.CurrentUICulture, KnownNameIds.CopyrightNotice),
-            FontFamilyName: GetNameById(CultureInfo.CurrentUICulture, KnownNameIds.FontFamilyName),
-            FontSubfamilyName: GetNameById(CultureInfo.CurrentUICulture, KnownNameIds.FontSubfamilyName),
-            UniqueFontID: GetNameById(CultureInfo.CurrentUICulture, KnownNameIds.UniqueFontID),
-            FullFontName: GetNameById(CultureInfo.CurrentUICulture, KnownNameIds.FullFontName),
-            Version: GetNameById(CultureInfo.CurrentUICulture, KnownNameIds.Version),
-            PostscriptName: GetNameById(CultureInfo.CurrentUICulture, KnownNameIds.PostscriptName),
-            Trademark: GetNameById(CultureInfo.CurrentUICulture, KnownNameIds.Trademark),
-            Manufacturer: GetNameById(CultureInfo.CurrentUICulture, KnownNameIds.Manufacturer),
-            Designer: GetNameById(CultureInfo.CurrentUICulture, KnownNameIds.Designer),
-            Description: GetNameById(CultureInfo.CurrentUICulture, KnownNameIds.Description),
-            VendorUrl: GetNameById(CultureInfo.CurrentUICulture, KnownNameIds.VendorUrl),
-            DesignerUrl: GetNameById(CultureInfo.CurrentUICulture, KnownNameIds.DesignerUrl),
-            LicenseDescription: GetNameById(CultureInfo.CurrentUICulture, KnownNameIds.LicenseDescription),
-            LicenseInfoUrl: GetNameById(CultureInfo.CurrentUICulture, KnownNameIds.LicenseInfoUrl),
-            TypographicFamilyName: GetNameById(CultureInfo.CurrentUICulture, KnownNameIds.TypographicFamilyName),
-            TypographicSubfamilyName: GetNameById(CultureInfo.CurrentUICulture, KnownNameIds.TypographicSubfamilyName),
-            SampleText: GetNameById(CultureInfo.CurrentUICulture, KnownNameIds.SampleText)
-        )
+        return new FontName
         {
             FamilyNames =
             [
@@ -198,39 +145,5 @@ internal record FontName(
                     .Select(item => new FamilyNameRecord(item.Name, item.Platform, item.Language, item.Value))
             ],
         };
-
-        string GetNameById(CultureInfo culture, KnownNameIds nameId)
-        {
-            int languageId = culture.LCID;
-            string? usaVersion = null;
-            string? firstWindows = null;
-            string? first = null;
-            foreach (var item in entry)
-            {
-                if (item.Name == nameId)
-                {
-                    // Get just the first one, just in case.
-                    first ??= item.Value;
-                    if (item.Platform == PlatformIDs.Windows)
-                    {
-                        // If us not found return the first windows one.
-                        firstWindows ??= item.Value;
-                        if (item.Language == 0x0409)
-                        {
-                            // Grab the us version as its on next best match.
-                            usaVersion ??= item.Value;
-                        }
-
-                        if (item.Language == languageId)
-                        {
-                            // Return the most exact first.
-                            return item.Value;
-                        }
-                    }
-                }
-            }
-
-            return usaVersion ?? firstWindows ?? first ?? string.Empty;
-        }
     }
 }

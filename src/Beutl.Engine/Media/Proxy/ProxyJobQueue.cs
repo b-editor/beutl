@@ -78,12 +78,8 @@ public sealed partial class ProxyJobQueue : IProxyJobQueue
     }
 
     /// <summary>
-    /// Constructs the queue with a generator resolved lazily from <paramref name="generatorProvider"/>
-    /// on the first job dispatch. Supports composition roots where the generator is registered after
-    /// the queue is constructed (e.g. a proxy generator registered by an extension's <c>Load</c>,
-    /// which runs after the app's <c>RegisterServices</c> builds this queue). The provider may return
-    /// null to signal "not yet registered"; such jobs stay queued and the drain loop re-probes, so a
-    /// job queued before extension registration is not lost.
+    /// Constructs the queue with a generator resolved from <paramref name="generatorProvider"/> on first dispatch, so an
+    /// extension can register it later; while the provider returns null, jobs stay queued and are re-probed.
     /// </summary>
     public ProxyJobQueue(Func<IProxyGenerator?> generatorProvider, IProxyStore? store)
         : this(generatorProvider, store, s_defaultMinUnavailableBackoff, s_defaultMaxUnavailableBackoff)
@@ -149,8 +145,7 @@ public sealed partial class ProxyJobQueue : IProxyJobQueue
         _drainTask = Task.Run(DrainAsync);
     }
 
-    // Wraps a concrete generator as a provider for the eager constructors. The null check runs in
-    // the :this(...) initializer evaluation, preserving the pre-lazy throw-at-construction contract.
+    // Wraps a concrete generator as a provider for the eager constructors; a null generator throws at construction.
     private static Func<IProxyGenerator?> EagerProvider(IProxyGenerator generator)
     {
         ArgumentNullException.ThrowIfNull(generator);
@@ -198,10 +193,7 @@ public sealed partial class ProxyJobQueue : IProxyJobQueue
     }
 
     /// <summary>
-    /// Drops the cached generator so the next dispatch re-resolves it from the provider. A composition
-    /// root calls this when its provider's result changes — e.g. a proxy extension unloads and its
-    /// factory leaves <see cref="ProxyGeneratorRegistry"/> — so the queue neither keeps a strong
-    /// reference to the removed generator (blocking the extension's collection) nor keeps invoking it.
+    /// Drops the cached generator so the next dispatch re-resolves it, for example after its extension unloads.
     /// Idempotent and safe to call from any thread.
     /// </summary>
     public void InvalidateGenerator()
@@ -223,9 +215,8 @@ public sealed partial class ProxyJobQueue : IProxyJobQueue
 
     public event EventHandler<ProxyJobChangedEventArgs>? JobChanged;
 
-    // Synchronous despite the ValueTask return: the item is registered under the lock and the channel
-    // write is a non-blocking TryWrite, so there is nothing to await. The Async name and ValueTask
-    // signature are kept to satisfy IProxyJobQueue and leave room for a future awaiting implementation.
+    // Synchronous despite the ValueTask that IProxyJobQueue requires: the item is registered under the lock and the
+    // channel write is a non-blocking TryWrite.
     public ValueTask<ProxyJob> EnqueueAsync(
         ProxyFingerprint source,
         ProxyPreset preset,
@@ -611,12 +602,8 @@ public sealed partial class ProxyJobQueue : IProxyJobQueue
             return false;
         }
 
-        // Either the unavailability is environmental (a signal exists to learn recovery),
-        // or InvalidateGenerator raced mid-generate — a generator swap/unload, where the
-        // next dispatch re-resolves the provider like the not-yet-registered path. Both
-        // keep the job Queued and re-probe after a bounded backoff instead of dropping it.
-        // Carry the reason so the UI can distinguish "blocked on availability" from a
-        // plain backlog; the next dispatch clears it before GenerateAsync.
+        // Environmental unavailability, or a generator swapped mid-generate: keep the job queued and re-probe after a
+        // backoff. The reason stays visible in the UI until the next dispatch clears it.
         item.Job.StatusMessage = ex.Message;
         bool requeued = RequeueForRetry(item);
         if (!requeued)

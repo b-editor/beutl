@@ -10,18 +10,11 @@ namespace Beutl.Media;
 /// </summary>
 public partial class ImageBrush : TileBrush
 {
-    /// <summary>
-    /// Initializes a new instance of the <see cref="ImageBrush"/> class.
-    /// </summary>
     public ImageBrush()
     {
         ScanProperties<ImageBrush>();
     }
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="ImageBrush"/> class.
-    /// </summary>
-    /// <param name="source">The image to draw.</param>
     public ImageBrush(ImageSource source) : this()
     {
         Source.CurrentValue = source;

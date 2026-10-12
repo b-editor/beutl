@@ -74,12 +74,8 @@ public sealed class ProxyResolver : IProxyResolver
         if (string.IsNullOrEmpty(absolutePath))
             return null;
 
-        // The original is gone, so there is no current fingerprint to match. Determine the newest source
-        // version from ALL same-path entries regardless of state, then serve a Ready proxy only from that
-        // source: after an original is replaced, a failed regeneration records a newer Failed/Stale entry
-        // for the new fingerprint while an older Ready proxy for the same path lingers. Ranking only Ready
-        // entries would miss that newer source and preview the stale older proxy; including every state in
-        // the version choice makes an unproxied-but-newer source win, yielding no proxy (fall to original).
+        // With no current fingerprint, pick the newest source version from same-path entries in every state, so a
+        // failed regeneration for a replaced original wins over an older Ready proxy and yields no proxy.
         var matches = new List<(ProxyFingerprint Source, DateTime GeneratedAtUtc, ProxyResolution? Resolution)>();
         foreach (ProxyEntry entry in _store.Enumerate())
         {
@@ -93,10 +89,7 @@ public sealed class ProxyResolver : IProxyResolver
         if (matches.Count == 0)
             return null;
 
-        // Precompute newest generation per source once rather than re-scanning inside the sort comparer
-        // (O(n²) on a path with many accumulated versions/presets). Rank by newest generation, then newer
-        // source mtime as a stable tiebreak (a replaced original has a newer mtime even if two proxies
-        // happen to share a generation timestamp).
+        // Rank sources by their newest generation (precomputed once, not per comparison), then by source mtime.
         Dictionary<ProxyFingerprint, DateTime> newestBySource = matches
             .GroupBy(m => m.Source)
             .ToDictionary(g => g.Key, g => g.Max(m => m.GeneratedAtUtc));
@@ -115,11 +108,8 @@ public sealed class ProxyResolver : IProxyResolver
 
     private ProxyResolution? SelectBest(IReadOnlyList<ProxyResolution> candidates, ProxyPreset preferredPreset)
     {
-        // preferredPreset is a resolve-time density cap, not only a generation-time floor: prefer the
-        // densest Ready proxy whose actual decoded density does not exceed the cap, so clamped large
-        // sources are ranked by the proxy file that exists rather than by the preset's nominal scale.
-        // Fall back to the densest Ready proxy overall if nothing fits — denser-than-requested is still
-        // cheaper than the original.
+        // preferredPreset caps the actual decoded density: prefer the densest proxy within it, else the densest overall,
+        // which is still cheaper than the original.
         float cap = ScaleOf(preferredPreset);
         ProxyResolution? cappedWinner = null;
         float cappedWinnerDensity = -1f;
@@ -159,8 +149,7 @@ public sealed class ProxyResolver : IProxyResolver
     /// <summary>
     /// Takes a transient, reference-counted decode-lifetime safety pin on a resolved proxy file so
     /// eviction cannot delete it while a MediaReader is decoding it. Dispose the returned handle to
-    /// release the reference. This is NOT the future user-facing "do-not-evict" pin (FR-018a); that
-    /// is a separate, persistent, user-driven concept — do not conflate the two.
+    /// release the reference.
     /// </summary>
     public IDisposable Pin(ProxyResolution resolution)
     {
@@ -175,7 +164,7 @@ public sealed class ProxyResolver : IProxyResolver
 
     /// <summary>
     /// True while at least one transient decode-lifetime safety pin (see <see cref="Pin"/>) is held
-    /// for the proxy file. Unrelated to FR-018a's future persistent user pin.
+    /// for the proxy file.
     /// </summary>
     public bool IsPinned(string absoluteProxyFilePath)
     {
@@ -196,22 +185,11 @@ public sealed class ProxyResolver : IProxyResolver
 
     private ProxyResolution? EvaluateEntry(ProxyEntry entry)
     {
-        if (entry.State != ProxyState.Ready)
-            return null;
-
-        if (!TryGetAbsolutePath(entry, out string absolutePath))
-            return null;
-
-        if (ProxyEntryChecks.TryGetFileLength(absolutePath) is not { } fileSize)
-            return null;
-
-        if (!ProxyEntryChecks.HasPositiveSizes(entry))
+        if (!TryGetAbsolutePath(entry, out string absolutePath)
+            || !ProxyEntryChecks.IsValidReadyFile(entry, absolutePath))
         {
             return null;
         }
-
-        if (fileSize != entry.ProxyFileSizeBytes)
-            return null;
 
         return new ProxyResolution(
             absolutePath,
@@ -278,11 +256,7 @@ public sealed class ProxyResolver : IProxyResolver
 
     private void Unpin(string path)
     {
-        // Decrement-and-remove-if-zero, atomic against concurrent Pin. The naive TryGetValue →
-        // TryRemove is racy: a Pin landing between seeing count 0 and TryRemove would add a fresh
-        // reference that TryRemove then drops. Loop on the observed value and only act while it still
-        // matches: decrement via TryUpdate(old → old-1, old), or remove via the KeyValuePair overload
-        // of TryRemove which removes only if the value still equals what we observed.
+        // Decrement or remove only while the count still equals the observed value, so a concurrent Pin is never dropped.
         while (_pins.TryGetValue(path, out int current))
         {
             if (current > 1)
@@ -301,7 +275,6 @@ public sealed class ProxyResolver : IProxyResolver
     }
 
     // Disposable release token for a transient decode-lifetime safety pin (see Pin).
-    // Not related to FR-018a's future persistent user pin.
     private sealed class PinHandle(ProxyResolver resolver, string path) : IDisposable
     {
         private int _disposed;

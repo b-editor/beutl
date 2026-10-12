@@ -1,4 +1,6 @@
-﻿namespace Beutl.Media.Decoding.APNG.Chunks;
+﻿using System.Buffers.Binary;
+
+namespace Beutl.Media.Decoding.APNG.Chunks;
 
 // ReSharper disable once InconsistentNaming
 public class acTLChunk : Chunk
@@ -24,7 +26,7 @@ public class acTLChunk : Chunk
 
     protected override void ParseData(MemoryStream ms)
     {
-        NumFrames = Helper.ConvertEndian(ms.ReadUInt32());
-        NumPlays = Helper.ConvertEndian(ms.ReadUInt32());
+        NumFrames = BinaryPrimitives.ReadUInt32BigEndian(ms.ReadBytes(4));
+        NumPlays = BinaryPrimitives.ReadUInt32BigEndian(ms.ReadBytes(4));
     }
 }

@@ -32,7 +32,7 @@ public readonly record struct ProxyFingerprint
 
     // The original, case-preserving absolute path. Use this — not AbsolutePath — whenever opening or
     // stat-ing the source media; on a case-sensitive volume the folded AbsolutePath will not resolve.
-    // Falls back to AbsolutePath for entries persisted before this field existed.
+    // Falls back to AbsolutePath when it is not set (for example by ForPathKey).
     public string SourcePath
     {
         get => string.IsNullOrEmpty(_sourcePath) ? AbsolutePath : _sourcePath;
@@ -66,11 +66,8 @@ public readonly record struct ProxyFingerprint
     }
 
     /// <summary>
-    /// A fingerprint carrying only the normalized source key (<see cref="ResolveComparableKey"/>) for an
-    /// offline original that cannot be stat-ed. It is NOT a content fingerprint — <see cref="FileSizeBytes"/>
-    /// and <see cref="MtimeUtc"/> are unset — so use it ONLY for <see cref="AbsolutePath"/>-based tracking
-    /// or lookup (e.g. matching a store change event by path). Never register it or compare it for
-    /// staleness; a real entry keyed on the same path has a different size/mtime and will not equal it.
+    /// A fingerprint with only the path key (<see cref="ResolveComparableKey"/>) of an original that cannot be
+    /// stat-ed, for path-based lookup only: it has no size or mtime, so never register it or compare it for staleness.
     /// </summary>
     public static ProxyFingerprint ForPathKey(string path)
     {
@@ -93,10 +90,8 @@ public readonly record struct ProxyFingerprint
     }
 
     /// <summary>
-    /// The key by which a path matches a store entry / change event (<see cref="AbsolutePath"/>).
-    /// Entries key their source through <see cref="FromFile"/> (which resolves the final symlink target
-    /// before folding), so a path referenced via a symlink resolves the same way; falls back to plain
-    /// normalization for offline media whose original can no longer be stat-ed.
+    /// The <see cref="AbsolutePath"/> key a path matches entries by, resolved through symlinks like <see cref="FromFile"/>
+    /// and plainly normalized for an original that can no longer be stat-ed.
     /// </summary>
     public static string ResolveComparableKey(string path)
     {

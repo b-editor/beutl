@@ -1,5 +1,7 @@
 ﻿// ReSharper disable VirtualMemberCallInConstructor
 
+using System.Buffers.Binary;
+
 namespace Beutl.Media.Decoding.APNG.Chunks;
 
 public class Chunk
@@ -7,10 +9,10 @@ public class Chunk
     internal Chunk(byte[] bytes)
     {
         var ms = new MemoryStream(bytes);
-        Length = Helper.ConvertEndian(ms.ReadUInt32());
+        Length = BinaryPrimitives.ReadUInt32BigEndian(ms.ReadBytes(4));
         ChunkType = System.Text.Encoding.ASCII.GetString(ms.ReadBytes(4));
         ChunkData = ms.ReadBytes((int)Length);
-        Crc = Helper.ConvertEndian(ms.ReadUInt32());
+        Crc = BinaryPrimitives.ReadUInt32BigEndian(ms.ReadBytes(4));
 
         if (ms.Position != ms.Length)
             throw new Exception("Chunk length not correct.");
@@ -22,10 +24,10 @@ public class Chunk
 
     internal Chunk(MemoryStream ms)
     {
-        Length = Helper.ConvertEndian(ms.ReadUInt32());
+        Length = BinaryPrimitives.ReadUInt32BigEndian(ms.ReadBytes(4));
         ChunkType = System.Text.Encoding.ASCII.GetString(ms.ReadBytes(4));
         ChunkData = ms.ReadBytes((int)Length);
-        Crc = Helper.ConvertEndian(ms.ReadUInt32());
+        Crc = BinaryPrimitives.ReadUInt32BigEndian(ms.ReadBytes(4));
 
         ParseData(new MemoryStream(ChunkData));
     }
@@ -52,11 +54,11 @@ public class Chunk
         get
         {
             var ms = new MemoryStream();
-            ms.WriteUInt32(Helper.ConvertEndian(Length));
+            ms.WriteUInt32(BinaryPrimitives.ReverseEndianness(Length));
             ms.WriteBytes(System.Text.Encoding.ASCII.GetBytes(ChunkType));
             ms.WriteBytes(ChunkData);
 
-            ms.WriteUInt32(Helper.ConvertEndian(Crc));
+            ms.WriteUInt32(BinaryPrimitives.ReverseEndianness(Crc));
 
             return ms.ToArray();
         }

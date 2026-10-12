@@ -1,17 +1,16 @@
 ﻿namespace Beutl.Media;
 
 /// <summary>
-/// Backend-independent SDR/HDR color-space mapping shared by every encode/decode backend
-/// (FFmpeg, AVFoundation). Each backend converts its native transfer/primaries
-/// tags to <see cref="BitmapColorTransfer"/> / <see cref="BitmapColorPrimaries"/> and calls in
-/// here, so the HDR luminance-scaling strategy (PQ: reference white 203 nit out of a 10000 nit
-/// peak; HLG: scale from the BT.2100 reference code level, with an OOTF γ=3 fallback) is defined
-/// in exactly one place instead of being copy-pasted per backend.
+/// SDR/HDR color-space mapping shared by the encode/decode backends, so the HDR luminance scaling (PQ: reference
+/// white 203 nit out of a 10000 nit peak; HLG: the BT.2100 reference code level) is defined in one place.
 /// </summary>
 public static class BitmapColorSpaceMapping
 {
     private const float PqReferenceWhiteNits = 203f;
     private const float PqPeakNits = 10000f;
+
+    // The reciprocal of the HLG EOTF at the BT.2100 reference code level (0.75).
+    private static readonly float s_hlgLuminanceScale = 1f / BitmapColorSpaceTransferFn.Hlg.Transform(0.75f);
 
     /// <summary>
     /// Returns whether <paramref name="transfer"/> denotes an HDR transfer (PQ / HLG), which
@@ -106,31 +105,14 @@ public static class BitmapColorSpaceMapping
         return BitmapColorSpace.CreateRgb(transferFn, gamut);
     }
 
-    /// <summary>
-    /// Returns the luminance scale baked into an HDR gamut matrix: <c>10000 / 203</c> for PQ, and
-    /// for HLG the reciprocal of the EOTF at the BT.2100 reference code level (0.75), falling back to
-    /// the OOTF γ=3 approximation when the EOTF is unusable. Non-HDR transfers return 1.0.
-    /// </summary>
+    /// <summary>Returns the luminance scale baked into an HDR gamut matrix, or 1.0 for a non-HDR transfer.</summary>
     public static float GetHdrLuminanceScale(BitmapColorTransfer transfer)
     {
         return transfer switch
         {
             BitmapColorTransfer.Pq => PqPeakNits / PqReferenceWhiteNits,
-            BitmapColorTransfer.Hlg => GetHlgLuminanceScale(),
+            BitmapColorTransfer.Hlg => s_hlgLuminanceScale,
             _ => 1.0f,
         };
-    }
-
-    private static float GetHlgLuminanceScale()
-    {
-        const float hlgReferenceCode = 0.75f;
-        float eotfValue = BitmapColorSpaceTransferFn.Hlg.Transform(hlgReferenceCode);
-        if (eotfValue <= 0 || !float.IsFinite(eotfValue))
-        {
-            // Fallback to the OOTF γ=3 approximation.
-            return 18.0f;
-        }
-
-        return 1f / eotfValue;
     }
 }

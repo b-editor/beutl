@@ -89,16 +89,7 @@ public sealed partial class ProxyStore
         foreach (ProxyEntry entry in snapshot)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            string path;
-            try
-            {
-                path = GetAbsolutePath(entry);
-            }
-            catch
-            {
-                missing.Add(entry);
-                continue;
-            }
+            string path = GetAbsolutePath(entry);
 
             if (entry.State == ProxyState.Failed)
                 continue;
@@ -110,7 +101,7 @@ public sealed partial class ProxyStore
             }
 
             if (entry.State is ProxyState.Ready or ProxyState.Stale
-                && !HasValidReadyFile(entry, path))
+                && !ProxyEntryChecks.IsValidReadyFile(entry, path))
             {
                 missing.Add(entry);
                 continue;
@@ -270,17 +261,7 @@ public sealed partial class ProxyStore
                 if (!TryValidateEntry(entry))
                     continue;
 
-                string proxyPath;
-                try
-                {
-                    proxyPath = GetAbsolutePath(entry);
-                }
-                catch
-                {
-                    continue;
-                }
-
-                if (File.Exists(proxyPath))
+                if (File.Exists(GetAbsolutePath(entry)))
                     candidates.Add(entry);
             }
         }
@@ -310,15 +291,7 @@ public sealed partial class ProxyStore
     {
         HashSet<string> tracked = [];
         foreach (ProxyEntry entry in _entries.Values)
-        {
-            try
-            {
-                tracked.Add(ProxyFingerprint.NormalizeAbsolutePath(GetAbsolutePath(entry)));
-            }
-            catch
-            {
-            }
-        }
+            tracked.Add(ProxyFingerprint.NormalizeAbsolutePath(GetAbsolutePath(entry)));
 
         return tracked;
     }

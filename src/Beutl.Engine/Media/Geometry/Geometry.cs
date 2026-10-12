@@ -82,9 +82,7 @@ public abstract partial class Geometry : EngineObject
             Guid penIdentity = EngineResourceIdentity.Of(pen);
             int penVersion = pen.Version;
             if (_capturedVersion != Version
-                || _cachedPath == null
                 || _cachedStrokePath == null
-                || _cachedPen == null
                 || _cachedPen?.Identity != penIdentity
                 || _cachedPen?.Version != penVersion)
             {
@@ -125,9 +123,9 @@ public abstract partial class Geometry : EngineObject
             return PathContainsCore(GetCachedPath(), point);
         }
 
-        private static bool PathContainsCore(SKPath? path, Point point)
+        private static bool PathContainsCore(SKPath path, Point point)
         {
-            return path is not null && path.Contains(point.X, point.Y);
+            return path.Contains(point.X, point.Y);
         }
 
         public bool StrokeContains(Pen.Resource? pen, Point point)

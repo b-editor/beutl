@@ -19,6 +19,12 @@ internal static class ProxyEntryChecks
             && entry.ProxyDecodedFrameSize.Height > 0;
     }
 
+    // A Ready file has positive recorded sizes and a length on disk that matches the record.
+    public static bool IsValidReadyFile(ProxyEntry entry, string absolutePath)
+    {
+        return HasPositiveSizes(entry) && TryGetFileLength(absolutePath) == entry.ProxyFileSizeBytes;
+    }
+
     // Null when the file is missing or cannot be inspected.
     public static long? TryGetFileLength(string path)
     {

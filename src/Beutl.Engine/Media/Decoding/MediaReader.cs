@@ -34,14 +34,6 @@ public abstract class MediaReader : IDisposable
         ArgumentNullException.ThrowIfNull(file);
         ArgumentNullException.ThrowIfNull(options);
 
-        // In PreferProxy mode a Ready proxy can stand in for a moved/deleted original, so defer the
-        // existence check to OpenMediaFile's proxy-resolution path (which keys on the path string, not
-        // the file). Reject up front only when the original is actually required.
-        if (!options.PreferProxy && !File.Exists(file))
-        {
-            throw new FileNotFoundException(null, file);
-        }
-
         MediaReader? reader = DecoderRegistry.OpenMediaFile(file, options);
         if (reader is not null)
         {
@@ -66,28 +58,14 @@ public abstract class MediaReader : IDisposable
     /// <param name="start">First sample (frame) index to read, in source sample-rate units.</param>
     /// <param name="length">Number of samples (frames) requested. Passing 0 is valid and yields an empty buffer.</param>
     /// <param name="sound">
-    /// On success, a <see cref="Pcm{T}"/> of <see cref="Music.Samples.Stereo32BitFloat"/>. The output is
-    /// always stereo regardless of the source channel count (see <see cref="AudioStreamInfo.NumChannels"/>).
-    /// <para>
-    /// End-of-stream is signalled by <see cref="IPcm.NumSamples"/> being less than
-    /// <paramref name="length"/> (a short read), including <c>NumSamples == 0</c> when
-    /// <paramref name="start"/> is at or past the end of the stream. A backend that cannot report a
-    /// precise decoded count may instead return a full
-    /// <paramref name="length"/> buffer whose trailing uncovered region is zero-filled (silence).
-    /// </para>
-    /// <para>
-    /// Callers must therefore always size copies with
-    /// <c>Math.Min(pcm.NumSamples, destinationLength)</c>, treat a zero <see cref="IPcm.NumSamples"/>
-    /// (for a non-zero <paramref name="length"/>) as end-of-stream, and never assume
-    /// <c>pcm.NumSamples == length</c>.
-    /// </para>
+    /// On success, a <see cref="Pcm{T}"/> of <see cref="Music.Samples.Stereo32BitFloat"/>, stereo whatever the source
+    /// channel count. A short read (<see cref="IPcm.NumSamples"/> below <paramref name="length"/>, down to 0 at or past
+    /// the end) signals end-of-stream, though a backend without a precise count may zero-fill the uncovered tail
+    /// instead. Callers size copies with <c>Math.Min(pcm.NumSamples, destinationLength)</c>.
     /// </param>
     /// <returns>
-    /// <see langword="true"/> whenever a buffer is produced — including an empty buffer for
-    /// <paramref name="length"/> == 0 and for a <paramref name="start"/> at/after end-of-stream.
-    /// <see langword="false"/> is returned only when no buffer can be produced at all: the reader is
-    /// disposed, has no audio stream, or hit an unrecoverable decode/transport error. End-of-stream is
-    /// not reported via <see langword="false"/>; use <see cref="IPcm.NumSamples"/> for that.
+    /// <see langword="false"/> only when no buffer can be produced at all: the reader is disposed, has no audio
+    /// stream, or hit an unrecoverable decode or transport error. End-of-stream still returns <see langword="true"/>.
     /// </returns>
     public abstract bool ReadAudio(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound);
 

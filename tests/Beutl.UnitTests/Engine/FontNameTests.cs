@@ -61,7 +61,7 @@ public class FontNameTests
     }
 
     [Test]
-    public void ReadFontName_SelectsTheUsEnglishWindowsRecord()
+    public void Localize_SelectsTheUsEnglishWindowsRecord()
     {
         byte[] table = BuildNameTable(
             (LanguageId: (ushort)0xFFFF, Value: "ZZ"),
@@ -70,18 +70,18 @@ public class FontNameTests
         using var stream = new MemoryStream(table, writable: false);
         FontName name = FontName.ReadFontName(stream);
 
-        Assert.That(name.FontFamilyName, Is.EqualTo("AB"));
+        Assert.That(FontName.Localize(name.FamilyNames, CultureInfo.GetCultureInfo("es-ES")), Is.EqualTo("AB"));
     }
 
     [Test]
-    public void ReadFontName_ReturnsEmptyForAnAbsentNameId()
+    public void Localize_ReturnsNullForAFamilyTheTableDoesNotName()
     {
         byte[] table = BuildNameTable((LanguageId: UsEnglishLanguageId, Value: "AB"));
 
         using var stream = new MemoryStream(table, writable: false);
         FontName name = FontName.ReadFontName(stream);
 
-        Assert.That(name.SampleText, Is.Empty);
+        Assert.That(FontName.Localize(name.GetFamilySpellings("CD"), CultureInfo.GetCultureInfo("en-US")), Is.Null);
     }
 
     [Test]

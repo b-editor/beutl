@@ -54,10 +54,6 @@ public readonly struct FormattedTextTokenizer(string str)
         }
     }
 
-    // 文字列をトークン化
-    // Tokenize -> Process -> Tokenize
-    //                     -> TokenizeTag
-    //                     -> Tokenize
     private void Tokenize(StringSpan s)
     {
         ReadOnlySpan<char> span = s.AsSpan();
@@ -77,10 +73,8 @@ public readonly struct FormattedTextTokenizer(string str)
         }
     }
 
-    // タグをトークンにして追加
     private void TokenizeTag(StringSpan s)
     {
-        // TagClose
         if (s.AsSpan().StartsWith("</", StringComparison.Ordinal))
         {
             Result.Add(new Token(s, TokenType.TagClose));

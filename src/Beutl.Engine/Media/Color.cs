@@ -19,24 +19,12 @@ public readonly struct Color(byte a, byte r, byte g, byte b)
       ISpanParsable<Color>
 {
 
-    /// <summary>
-    /// Gets the Alpha component of the color.
-    /// </summary>
     public byte A { get; } = a;
 
-    /// <summary>
-    /// Gets the Red component of the color.
-    /// </summary>
     public byte R { get; } = r;
 
-    /// <summary>
-    /// Gets the Green component of the color.
-    /// </summary>
     public byte G { get; } = g;
 
-    /// <summary>
-    /// Gets the Blue component of the color.
-    /// </summary>
     public byte B { get; } = b;
 
     /// <summary>
@@ -64,11 +52,6 @@ public readonly struct Color(byte a, byte r, byte g, byte b)
         return new Color(0xff, r, g, b);
     }
 
-    /// <summary>
-    /// Creates a <see cref="Color"/> from an integer.
-    /// </summary>
-    /// <param name="value">The integer value.</param>
-    /// <returns>The color.</returns>
     public static Color FromUInt32(uint value)
     {
         return new Color(
@@ -79,11 +62,6 @@ public readonly struct Color(byte a, byte r, byte g, byte b)
         );
     }
 
-    /// <summary>
-    /// Creates a <see cref="Color"/> from an integer.
-    /// </summary>
-    /// <param name="value">The integer value.</param>
-    /// <returns>The color.</returns>
     public static Color FromInt32(int value)
     {
         return new Color(
@@ -94,11 +72,6 @@ public readonly struct Color(byte a, byte r, byte g, byte b)
         );
     }
 
-    /// <summary>
-    /// Parses a color string.
-    /// </summary>
-    /// <param name="s">The color string.</param>
-    /// <returns>The <see cref="Color"/>.</returns>
     public static Color Parse(string s)
     {
         if (s is null)
@@ -114,11 +87,6 @@ public readonly struct Color(byte a, byte r, byte g, byte b)
         throw new FormatException($"Invalid color string: '{s}'.");
     }
 
-    /// <summary>
-    /// Parses a color string.
-    /// </summary>
-    /// <param name="s">The color string.</param>
-    /// <returns>The <see cref="Color"/>.</returns>
     public static Color Parse(ReadOnlySpan<char> s)
     {
         if (TryParse(s, out Color color))
@@ -129,12 +97,6 @@ public readonly struct Color(byte a, byte r, byte g, byte b)
         throw new FormatException($"Invalid color string: '{s.ToString()}'.");
     }
 
-    /// <summary>
-    /// Parses a color string.
-    /// </summary>
-    /// <param name="s">The color string.</param>
-    /// <param name="color">The parsed color</param>
-    /// <returns>The status of the operation.</returns>
     public static bool TryParse(string s, out Color color)
     {
         color = default;
@@ -166,12 +128,6 @@ public readonly struct Color(byte a, byte r, byte g, byte b)
         return false;
     }
 
-    /// <summary>
-    /// Parses a color string.
-    /// </summary>
-    /// <param name="s">The color string.</param>
-    /// <param name="color">The parsed color</param>
-    /// <returns>The status of the operation.</returns>
     public static bool TryParse(ReadOnlySpan<char> s, out Color color)
     {
         color = default;
@@ -246,44 +202,22 @@ public readonly struct Color(byte a, byte r, byte g, byte b)
         return TryParseCore(input, ref color);
     }
 
-    /// <summary>
-    /// Returns the string representation of the color.
-    /// </summary>
-    /// <returns>
-    /// The string representation of the color.
-    /// </returns>
     public override string ToString()
     {
         uint rgb = ToUint32();
         return KnownColors.GetKnownColorName(rgb) ?? $"#{rgb:x8}";
     }
 
-    /// <summary>
-    /// Returns the integer representation of the color.
-    /// </summary>
-    /// <returns>
-    /// The integer representation of the color.
-    /// </returns>
     public uint ToUint32()
     {
         return (uint)A << 24 | (uint)R << 16 | (uint)G << 8 | B;
     }
 
-    /// <summary>
-    /// Returns the integer representation of the color.
-    /// </summary>
-    /// <returns>
-    /// The integer representation of the color.
-    /// </returns>
     public int ToInt32()
     {
         return A << 24 | R << 16 | G << 8 | B;
     }
 
-    /// <summary>
-    /// Converts this 32Bit color to HSV.
-    /// </summary>
-    /// <returns>Returns the HSV.</returns>
     public Hsv ToHsv()
     {
         float h = default;
@@ -334,10 +268,6 @@ public readonly struct Color(byte a, byte r, byte g, byte b)
         return new Hsv(h, s, v, a);
     }
 
-    /// <summary>
-    /// Converts this 32Bit color to CMYK.
-    /// </summary>
-    /// <returns>Returns the CMYK.</returns>
     public Cmyk ToCmyk()
     {
         float rr = R / 255.0F;
@@ -353,9 +283,6 @@ public readonly struct Color(byte a, byte r, byte g, byte b)
         return new Cmyk(c, m, y, k, aa);
     }
 
-    /// <summary>
-    /// Converts this 32Bit color to linear color space.
-    /// </summary>
     public Vector4 ToLinear()
     {
         float a = A / 255f;
@@ -366,9 +293,6 @@ public readonly struct Color(byte a, byte r, byte g, byte b)
         return new Vector4(r, g, b, a);
     }
 
-    /// <summary>
-    /// Converts this 32Bit color to linear color space with premultiplied alpha.
-    /// </summary>
     public Vector4 ToLinearPremultiplied()
     {
         float a = A / 255f;
@@ -384,10 +308,6 @@ public readonly struct Color(byte a, byte r, byte g, byte b)
         return srgb <= 0.04045f ? srgb / 12.92f : MathF.Pow((srgb + 0.055f) / 1.055f, 2.4f);
     }
 
-    /// <summary>
-    /// Creates a <see cref="Color"/> from a linear color.
-    /// </summary>
-    /// <param name="linear">The linear color.</param>
     public static Color FromLinear(Vector4 linear)
     {
         byte r = (byte)Math.Clamp(LinearToSrgb(linear.X) * 255f, 0, 255);
@@ -403,9 +323,6 @@ public readonly struct Color(byte a, byte r, byte g, byte b)
         return linear <= 0.0031308f ? linear * 12.92f : 1.055f * MathF.Pow(linear, 1 / 2.4f) - 0.055f;
     }
 
-    /// <summary>
-    /// Check if two colors are equal.
-    /// </summary>
     public bool Equals(Color other)
     {
         return A == other.A && R == other.R && G == other.G && B == other.B;
@@ -438,8 +355,7 @@ public readonly struct Color(byte a, byte r, byte g, byte b)
 
     static bool IParsable<Color>.TryParse([NotNullWhen(true)] string? s, IFormatProvider? provider, [MaybeNullWhen(false)] out Color result)
     {
-        result = default;
-        return s != null && TryParse(s, out result);
+        return TryParse(s!, out result);
     }
 
     static Color ISpanParsable<Color>.Parse(ReadOnlySpan<char> s, IFormatProvider? provider)

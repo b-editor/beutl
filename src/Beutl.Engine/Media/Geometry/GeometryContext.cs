@@ -13,11 +13,6 @@ public sealed class GeometryContext : IGeometryContext, IDisposable
     // Paths NativeObject handed out before a later edit replaced them; a caller may still hold one.
     private List<SKPath>? _supersededPaths;
 
-    public GeometryContext()
-    {
-
-    }
-
     /// <summary>
     /// Gets the path built so far.
     /// </summary>

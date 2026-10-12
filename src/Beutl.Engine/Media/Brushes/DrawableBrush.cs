@@ -11,18 +11,11 @@ namespace Beutl.Media;
 [Display(Name = nameof(GraphicsStrings.Drawable), ResourceType = typeof(GraphicsStrings))]
 public partial class DrawableBrush : TileBrush
 {
-    /// <summary>
-    /// Initializes a new instance of the <see cref="DrawableBrush"/> class.
-    /// </summary>
     public DrawableBrush()
     {
         ScanProperties<DrawableBrush>();
     }
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="DrawableBrush"/> class.
-    /// </summary>
-    /// <param name="drawable">The drawable to draw.</param>
     public DrawableBrush(Drawable drawable) : this()
     {
         Drawable.CurrentValue = drawable;

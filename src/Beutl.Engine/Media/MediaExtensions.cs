@@ -4,7 +4,7 @@ using Beutl.Utilities;
 namespace Beutl.Media;
 
 /// <summary>
-/// Provides extension methods for Avalonia media.
+/// Provides extension methods for Beutl media.
 /// </summary>
 public static class MediaExtensions
 {
@@ -31,7 +31,6 @@ public static class MediaExtensions
         if ((stretch == Stretch.Uniform || stretch == Stretch.UniformToFill || stretch == Stretch.Fill)
              && (isConstrainedWidth || isConstrainedHeight))
         {
-            // Compute scaling factors for both axes
             scaleX = MathUtilities.IsZero(sourceSize.Width) ? 0.0f : destinationSize.Width / sourceSize.Width;
             scaleY = MathUtilities.IsZero(sourceSize.Height) ? 0.0f : destinationSize.Height / sourceSize.Height;
 
@@ -45,23 +44,20 @@ public static class MediaExtensions
             }
             else
             {
-                // If not preserving aspect ratio, then just apply transform to fit
+                // Both axes are constrained, so the stretch mode decides how the two scales combine.
                 switch (stretch)
                 {
                     case Stretch.Uniform:
-                        // Find minimum scale that we use for both axes
                         float minscale = scaleX < scaleY ? scaleX : scaleY;
                         scaleX = scaleY = minscale;
                         break;
 
                     case Stretch.UniformToFill:
-                        // Find maximum scale that we use for both axes
                         float maxscale = scaleX > scaleY ? scaleX : scaleY;
                         scaleX = scaleY = maxscale;
                         break;
 
                     case Stretch.Fill:
-                        // We already computed the fill scale factors above, so just use them
                         break;
                 }
             }
@@ -84,12 +80,6 @@ public static class MediaExtensions
                         scaleX = 1.0f;
                     if (scaleY > 1.0f)
                         scaleY = 1.0f;
-                    break;
-
-                case StretchDirection.Both:
-                    break;
-
-                default:
                     break;
             }
         }

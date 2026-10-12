@@ -11,10 +11,6 @@ public sealed class ImageSource : MediaSource
 {
     private WeakReference<Counter<Bitmap>>? _bitmapRef;
 
-    public ImageSource()
-    {
-    }
-
     public override void ReadFrom(Uri uri)
     {
         if (HasUri && Uri != uri)

@@ -154,8 +154,6 @@ public sealed partial class PathGeometry : Geometry
     {
         public override void ApplyTo(IGeometryContext context)
         {
-            base.ApplyTo(context);
-
             foreach (PathFigure.Resource item in Figures)
             {
                 item.ApplyTo(context);

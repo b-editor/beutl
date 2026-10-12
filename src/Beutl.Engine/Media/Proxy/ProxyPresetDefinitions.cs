@@ -11,12 +11,8 @@ public readonly record struct ProxyEncodeParameters(
     string Preset);
 
 /// <summary>
-/// Provides and overrides the encode parameters (CRF / scale / long-edge clamp / tune / preset) for the
-/// built-in <see cref="ProxyPreset"/> values. The preset <strong>value set</strong> is closed per FR-017
-/// (see <see cref="ProxyPreset"/>); the encode <strong>parameters</strong> for those built-in presets ARE
-/// overridable via <see cref="Register"/> / <see cref="Unregister"/>. <see cref="Unregister"/> restores the
-/// built-in default rather than removing the key, so <see cref="Get"/> always returns a usable value for a
-/// built-in preset.
+/// Provides the encode parameters for the built-in <see cref="ProxyPreset"/> values. <see cref="Unregister"/>
+/// restores the default rather than removing the key, so <see cref="Get"/> always returns a usable value.
 /// </summary>
 public static class ProxyPresetDefinitions
 {
@@ -41,9 +37,7 @@ public static class ProxyPresetDefinitions
     }
 
     /// <summary>
-    /// Overrides (add/update) the encode parameters for a built-in <paramref name="preset"/>. Only the
-    /// three built-in <see cref="ProxyPreset"/> values are accepted (the preset value set is closed per
-    /// FR-017).
+    /// Overrides the encode parameters for a built-in <paramref name="preset"/>.
     /// </summary>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="preset"/> is not a built-in value.</exception>
     public static void Register(ProxyPreset preset, ProxyEncodeParameters parameters)
