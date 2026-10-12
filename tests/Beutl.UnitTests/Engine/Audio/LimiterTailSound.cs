@@ -3,7 +3,6 @@ using Beutl.Audio.Effects;
 using Beutl.Audio.Graph;
 using Beutl.Audio.Graph.Nodes;
 using Beutl.Engine;
-using Beutl.Media;
 using Beutl.Media.Source;
 
 namespace Beutl.UnitTests.Engine.Audio;
@@ -11,13 +10,50 @@ namespace Beutl.UnitTests.Engine.Audio;
 // Resource source generation requires a top-level partial Sound.
 public sealed partial class LimiterTailSound : Sound
 {
+    internal static int LastFlushSampleCount { get; private set; }
+
     public LimiterTailSound() => ScanProperties<LimiterTailSound>();
 
     public float LookaheadMs { get; set; } = 5f;
 
+    public bool LimiterBeforeClip { get; set; } = true;
+
+    public bool LimiterAfterClip { get; set; }
+
+    // Wraps the output in a node that records the sample count of its last flush.
+    public bool WrapOutput { get; set; }
+
+    internal static void ResetFlushState() => LastFlushSampleCount = -1;
+
     public override void Compose(AudioContext context, Sound.Resource resource)
     {
-        var source = context.AddNode(new ClipLocalSineNode(context.SampleRate));
+        AudioNode output = context.AddNode(new AbsoluteSineNode(context.SampleRate));
+        if (LimiterBeforeClip)
+        {
+            output = ConnectLimiter(context, output);
+        }
+
+        var clip = context.CreateClipNode(TimeRange.Start, TimeRange.Duration);
+        context.Connect(output, clip);
+        output = clip;
+
+        if (LimiterAfterClip)
+        {
+            output = ConnectLimiter(context, output);
+        }
+
+        if (WrapOutput)
+        {
+            var wrapper = context.AddNode(new RecordingWrapperNode());
+            context.Connect(output, wrapper);
+            output = wrapper;
+        }
+
+        context.MarkAsOutput(output);
+    }
+
+    private AudioNode ConnectLimiter(AudioContext context, AudioNode input)
+    {
         var limiter = context.AddNode(new LimiterNode
         {
             Threshold = Property.CreateAnimatable(LimiterParameters.MaxThresholdDb),
@@ -25,30 +61,19 @@ public sealed partial class LimiterTailSound : Sound
             Lookahead = Property.CreateAnimatable(LookaheadMs),
             MakeupGain = Property.CreateAnimatable(0f),
         });
-        context.Connect(source, limiter);
-
-        var clip = context.CreateClipNode(TimeRange.Start, TimeRange.Duration);
-        context.Connect(limiter, clip);
-        context.MarkAsOutput(clip);
+        context.Connect(input, limiter);
+        return limiter;
     }
 
-    private sealed class ClipLocalSineNode(int sampleRate) : AudioNode
+    private sealed class RecordingWrapperNode : AudioNode
     {
         public override AudioBuffer Process(AudioProcessContext context)
-        {
-            int count = context.GetSampleCount();
-            var buffer = new AudioBuffer(sampleRate, 2, count);
-            long startIndex = AudioMath.TimeToSampleIndex(context.TimeRange.Start, sampleRate);
-            for (int ch = 0; ch < 2; ch++)
-            {
-                var data = buffer.GetChannelData(ch);
-                for (int i = 0; i < count; i++)
-                {
-                    data[i] = 0.25f * MathF.Sin(2f * MathF.PI * 200f * (startIndex + i) / sampleRate);
-                }
-            }
+            => Inputs[0].Process(context);
 
-            return buffer;
+        public override AudioBuffer Flush(AudioProcessContext context)
+        {
+            LastFlushSampleCount = context.GetSampleCount();
+            return base.Flush(context);
         }
     }
 

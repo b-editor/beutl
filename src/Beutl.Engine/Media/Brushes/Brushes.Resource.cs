@@ -2,9 +2,6 @@
 
 namespace Beutl.Media;
 
-/// <summary>
-/// Predefined brushes.
-/// </summary>
 public static partial class Brushes
 {
     public static class Resource

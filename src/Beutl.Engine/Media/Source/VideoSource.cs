@@ -20,10 +20,6 @@ public sealed class VideoSource : MediaSource
     // different preset is reused).
     private int _sharedReaderProxyPreset;
 
-    public VideoSource()
-    {
-    }
-
     public override void ReadFrom(Uri uri)
     {
         if (!uri.IsFile) throw new NotSupportedException("Only file URIs are supported.");
@@ -121,7 +117,7 @@ public sealed class VideoSource : MediaSource
             var videoSource = (VideoSource)obj;
             IProxyResolver? proxyResolver = context.PreferProxy ? DecoderRegistry.ProxyResolver : null;
             // Compare only THIS source's proxy version so a proxy change to another
-            // source does not force this reader to reopen (FR-023).
+            // source does not force this reader to reopen.
             long proxyResolverVersion = GetSourceVersion(proxyResolver, _proxyVersionSource);
 
             // Load media reader if URI or proxy preference changed.
@@ -167,13 +163,8 @@ public sealed class VideoSource : MediaSource
                 if (shared is null && !context.DisableResourceShare
                     && (!context.PreferProxy || ProxyResolution != null))
                 {
-                    // Record the version/preset/ref this shared reader was opened with, before
-                    // publishing it, so a later fresh Resource can validate reuse against it. The
-                    // version is written LAST as the single "all valid" signal: the reuse guard
-                    // reads version first, so a reader observing the fresh version is then
-                    // guaranteed to also see the matching preset AND the new ref. Writing the ref
-                    // after the version would let a reuser pass the version/preset guard yet still
-                    // read the previous preset's ref and decode from the wrong-density proxy.
+                    // Record the preset, ref and version this shared reader was opened with. The version is
+                    // written last, so a reuser that reads the fresh version also sees the matching preset and ref.
                     Volatile.Write(ref videoSource._sharedReaderProxyPreset, (int)context.PreferredProxyPreset);
                     Volatile.Write(ref videoSource._mediaReaderRef, new(_counter));
                     Volatile.Write(ref videoSource._sharedReaderProxyVersion, proxyResolverVersion);

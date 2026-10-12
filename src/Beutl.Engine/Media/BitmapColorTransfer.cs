@@ -1,12 +1,7 @@
 ﻿namespace Beutl.Media;
 
 /// <summary>
-/// A backend-independent transfer-characteristics tag (a named code point, using Beutl's own
-/// stable numbering — not the ITU-T H.273 transfer-characteristics code points). Encode/decode
-/// backends map their native transfer tags onto this enum and let
-/// <see cref="BitmapColorSpaceMapping"/> resolve the concrete
-/// <see cref="BitmapColorSpaceTransferFn"/> and HDR luminance handling, so the mapping logic lives
-/// in exactly one place across the FFmpeg / AVFoundation paths.
+/// A transfer-characteristics tag with Beutl's own numbering, not the ITU-T H.273 code points.
 /// </summary>
 /// <remarks>
 /// The numeric values are part of the wire contract with the AVFoundation native layer

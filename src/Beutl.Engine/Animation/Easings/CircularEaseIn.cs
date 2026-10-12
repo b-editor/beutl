@@ -4,6 +4,6 @@ public sealed class CircularEaseIn : UnitRangeEasing
 {
     public override float Ease(float progress)
     {
-        return Funcs.CircularEaseIn(progress);
+        return 1f - MathF.Sqrt(1f - progress * progress);
     }
 }

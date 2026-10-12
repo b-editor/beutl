@@ -14,43 +14,8 @@ public class KeyFrames : HierarchicalList<IKeyFrame>
 
     public void Add(IKeyFrame item, out int index)
     {
-        if (Count >= 1)
-        {
-            IKeyFrame first = this[0];
-            if (item.KeyTime <= first.KeyTime)
-            {
-                index = 0;
-                Insert(index, item);
-                return;
-            }
-        }
-
-        for (int i = 1; i < Count; i++)
-        {
-            IKeyFrame prev = this[i - 1];
-            IKeyFrame next = this[i];
-            if (prev.KeyTime < item.KeyTime
-                && item.KeyTime <= next.KeyTime)
-            {
-                index = i;
-                Insert(index, item);
-                return;
-            }
-        }
-
-        if (Count >= 1)
-        {
-            IKeyFrame last = this[^1];
-            if (last.KeyTime <= item.KeyTime)
-            {
-                index = Count;
-                Insert(index, item);
-                return;
-            }
-        }
-
-        Add(item);
-        index = Count - 1;
+        index = IndexAtOrCount(item.KeyTime);
+        Insert(index, item);
     }
 
     public (IKeyFrame? Previous, IKeyFrame? Next) GetPreviousAndNextKeyFrame(IKeyFrame keyframe)
@@ -78,36 +43,10 @@ public class KeyFrames : HierarchicalList<IKeyFrame>
 
     public (IKeyFrame? Previous, IKeyFrame? Next) GetPreviousAndNextKeyFrame(TimeSpan timeSpan)
     {
-        if (Count >= 1)
-        {
-            IKeyFrame first = this[0];
-            if (timeSpan <= first.KeyTime)
-            {
-                return (null, first);
-            }
-        }
-
-        for (int i = 1; i < Count; i++)
-        {
-            IKeyFrame prev = this[i - 1];
-            IKeyFrame next = this[i];
-            if (prev.KeyTime < timeSpan
-                && timeSpan <= next.KeyTime)
-            {
-                return (prev, next);
-            }
-        }
-
-        if (Count >= 1)
-        {
-            IKeyFrame last = this[^1];
-            if (last.KeyTime <= timeSpan)
-            {
-                return (last, null);
-            }
-        }
-
-        return (null, null);
+        int index = IndexAtOrCount(timeSpan);
+        IKeyFrame? prev = index > 0 ? this[index - 1] : null;
+        IKeyFrame? next = index < Count ? this[index] : null;
+        return (prev, next);
     }
 
     public int IndexAt(TimeSpan timeSpan)

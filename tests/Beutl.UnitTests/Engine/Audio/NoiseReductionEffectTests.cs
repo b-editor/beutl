@@ -9,13 +9,12 @@ using Beutl.Audio.Graph.Nodes;
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Media;
-using Beutl.Media.Decoding;
 using Beutl.Media.Source;
-using Beutl.Media.Wave;
 using Beutl.Serialization;
-using NAudio.Wave;
 
 using static Beutl.Audio.Effects.NoiseReductionParameters;
+using static Beutl.UnitTests.Engine.Audio.AudioEffectAssertions;
+using static Beutl.UnitTests.Engine.Audio.AudioTestWaves;
 using static Beutl.UnitTests.Engine.Audio.SpectralNoiseReducerTests;
 
 namespace Beutl.UnitTests.Engine.Audio;
@@ -159,10 +158,7 @@ public class NoiseReductionEffectTests
 
     [TestCaseSource(nameof(ParameterRanges))]
     public void NoiseReductionParameters_RangeIsConsistent(float min, float def, float max)
-    {
-        Assert.That(min, Is.LessThan(max));
-        Assert.That(def, Is.InRange(min, max));
-    }
+        => AssertRangeIsConsistent(min, def, max);
 
     [Test]
     public void Normalize_ReplacesNonFiniteValuesAndClamps()
@@ -465,22 +461,8 @@ public class NoiseReductionEffectTests
     [TestCase(12f)]
     public void Composer_AppliesTheEffectToRealWaveAudio(float reduction)
     {
-        string path = Path.Combine(Path.GetTempPath(), $"beutl-noise-reduction-{Guid.NewGuid():N}.wav");
-        var decoder = new WaveDecoderInfo();
-        DecoderRegistry.Register(decoder);
-        try
+        WithTemporaryWave(SampleRate, SampleRate * 4, i => (s_signal[i], s_signal[i]), source =>
         {
-            using (var writer = new WaveFileWriter(path, WaveFormat.CreateIeeeFloatWaveFormat(SampleRate, 2)))
-            {
-                for (int i = 0; i < SampleRate * 4; i++)
-                {
-                    writer.WriteSample(s_signal[i]);
-                    writer.WriteSample(s_signal[i]);
-                }
-            }
-
-            var source = new SoundSource();
-            source.ReadFrom(new Uri(path));
             var effect = new NoiseReductionEffect();
             effect.Reduction.CurrentValue = reduction;
             float[] processed = ComposeSound(source, effect);
@@ -497,12 +479,7 @@ public class NoiseReductionEffectTests
                                      / Power(Subtract(original, bursts), 0, SampleRate * 2)),
                     Is.LessThan(-6));
             }
-        }
-        finally
-        {
-            DecoderRegistry.Unregister(decoder);
-            File.Delete(path);
-        }
+        });
     }
 
     // Composes seconds 1 to 3 of a sound that starts at 0 and plays the whole source.
@@ -596,28 +573,11 @@ public class NoiseReductionEffectTests
         return node;
     }
 
-    private static void AssertNameAndRange(IProperty<float> property, string expectedName, float min, float max)
-    {
-        Assert.That(property.Name, Is.EqualTo(expectedName));
-
-        property.CurrentValue = max + 1000f;
-        Assert.That(property.CurrentValue, Is.EqualTo(max), $"{expectedName} must be clamped to its maximum.");
-
-        property.CurrentValue = min - 1000f;
-        Assert.That(property.CurrentValue, Is.EqualTo(min), $"{expectedName} must be clamped to its minimum.");
-    }
-
     private static float[] Subtract(float[] first, float[] second)
         => first.Zip(second, (a, b) => a - b).ToArray();
 
     private static AudioProcessContext Context(int start, int count, TimeSpan? end = null, int sampleRate = SampleRate)
-        => new(new TimeRange(
-                TimeSpan.FromTicks((long)Math.Ceiling(start * (double)TimeSpan.TicksPerSecond / sampleRate)),
-                AudioProcessContext.GetDurationForSampleCount(count, sampleRate)),
-            sampleRate, new AnimationSampler(), null)
-        {
-            ProcessEndTime = end
-        };
+        => AudioTestContexts.AtSample(start, count, sampleRate, end);
 
     // Plays a fixed buffer on both channels at absolute sample positions and silence elsewhere.
     private sealed class SignalSource(float[] samples, int latency = 0) : AudioNode

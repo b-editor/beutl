@@ -1,16 +1,6 @@
 ﻿namespace Beutl.Audio.Effects;
 
-/// <summary>
-/// Single source of truth for the <see cref="DelayEffect"/> / <see cref="Beutl.Audio.Graph.Nodes.DelayNode"/>
-/// parameter ranges and defaults.
-/// </summary>
-/// <remarks>
-/// Shared by the <c>[Range]</c> attributes on <see cref="DelayEffect"/> and the per-sample processing in
-/// <c>DelayNode</c> so the two cannot drift. Plain constants (not <c>[ModuleInitializer]</c>) so they stay
-/// usable in attribute arguments. The boundary constants keep their original literal types (delay-time as
-/// <c>float</c>, percentages as <c>int</c>) so the
-/// <see cref="System.ComponentModel.DataAnnotations.RangeAttribute"/> overload and <c>OperandType</c> are unchanged.
-/// </remarks>
+// Ranges and defaults shared by DelayEffect's [Range] attributes and DelayNode.
 internal static class DelayParameters
 {
     // Delay time, in milliseconds. (double-operand range)

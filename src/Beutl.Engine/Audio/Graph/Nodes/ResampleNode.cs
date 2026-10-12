@@ -236,19 +236,11 @@ public sealed class ResampleNode : AudioNode
 
         public void Append(AudioBuffer input)
         {
-            if (_disposed)
-                throw new ObjectDisposedException(nameof(ResampleSampleProvider));
-            if (input.SampleRate != _sourceSampleRate || input.ChannelCount != _channelCount)
-                throw new InvalidOperationException("Resample input format changed while streaming.");
-
             _inputProvider.Append(input);
         }
 
         public AudioBuffer Read(int sampleCount)
         {
-            if (_disposed)
-                throw new ObjectDisposedException(nameof(ResampleSampleProvider));
-
             var output = new AudioBuffer(_targetSampleRate, _channelCount, sampleCount);
             try
             {
@@ -306,19 +298,11 @@ public sealed class ResampleNode : AudioNode
 
         public void Append(AudioBuffer buffer)
         {
-            if (_disposed)
-                throw new ObjectDisposedException(nameof(AudioBufferSampleProvider));
-            if (buffer.SampleRate != _waveFormat.SampleRate || buffer.ChannelCount != ChannelCount)
-                throw new InvalidOperationException("Resample input format changed while streaming.");
-
             _inputBuffers.Enqueue(buffer);
         }
 
         public int Read(Span<float> buffer)
         {
-            if (_disposed)
-                return 0;
-
             int total = 0;
             while (total < buffer.Length)
             {

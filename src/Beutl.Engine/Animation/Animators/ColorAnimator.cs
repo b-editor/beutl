@@ -6,11 +6,6 @@ public sealed class ColorAnimator : Animator<Color>
 {
     public override Color Interpolate(float progress, Color oldValue, Color newValue)
     {
-        return InterpolateCore(progress, oldValue, newValue);
-    }
-
-    internal static Color InterpolateCore(float progress, Color oldValue, Color newValue)
-    {
         // normalize sRGB values.
         var oldA = oldValue.A / 255f;
         var oldR = oldValue.R / 255f;

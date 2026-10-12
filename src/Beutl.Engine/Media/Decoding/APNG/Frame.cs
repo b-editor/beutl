@@ -1,4 +1,5 @@
-﻿using Beutl.Media.Decoding.APNG.Chunks;
+﻿using System.Buffers.Binary;
+using Beutl.Media.Decoding.APNG.Chunks;
 
 namespace Beutl.Media.Decoding.APNG;
 
@@ -7,7 +8,7 @@ public class Frame
     public static readonly byte[] Signature = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
 
     /// <summary>
-    ///     Gets or Sets the acTL chunk
+    ///     Gets or Sets the IHDR chunk
     /// </summary>
     public IHDRChunk? IHDRChunk { get; set; }
 
@@ -31,17 +32,11 @@ public class Frame
     /// </summary>
     public List<IDATChunk> IDATChunks { get; set; } = [];
 
-    /// <summary>
-    ///     Add an Chunk to end end of existing list.
-    /// </summary>
     public void AddOtherChunk(OtherChunk chunk)
     {
         OtherChunks.Add(chunk);
     }
 
-    /// <summary>
-    ///     Add an IDAT Chunk to end end of existing list.
-    /// </summary>
     public void AddIDATChunk(IDATChunk chunk)
     {
         IDATChunks.Add(chunk);
@@ -61,8 +56,8 @@ public class Frame
         if (fcTLChunk != null)
         {
             // Fix frame size with fcTL data.
-            ihdrChunk.ModifyChunkData(0, Helper.ConvertEndian(fcTLChunk.Width));
-            ihdrChunk.ModifyChunkData(4, Helper.ConvertEndian(fcTLChunk.Height));
+            ihdrChunk.ModifyChunkData(0, BinaryPrimitives.ReverseEndianness(fcTLChunk.Width));
+            ihdrChunk.ModifyChunkData(4, BinaryPrimitives.ReverseEndianness(fcTLChunk.Height));
         }
 
         // Write image data

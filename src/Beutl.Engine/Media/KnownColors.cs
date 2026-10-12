@@ -9,7 +9,6 @@ internal static class KnownColors
 {
     private static readonly IReadOnlyDictionary<string, KnownColor> s_knownColorNames;
     private static readonly IReadOnlyDictionary<uint, string> s_knownColors;
-    private static readonly Dictionary<KnownColor, SolidColorBrush> s_knownBrushes;
 
     static KnownColors()
     {
@@ -33,7 +32,6 @@ internal static class KnownColors
 
         s_knownColorNames = knownColorNames.ToFrozenDictionary();
         s_knownColors = knownColors.ToFrozenDictionary();
-        s_knownBrushes = [];
     }
 
     public static KnownColor GetKnownColor(string s)
@@ -51,13 +49,7 @@ internal static class KnownColors
         return Color.FromUInt32((uint)color);
     }
 
-    public static SolidColorBrush ToBrush(this KnownColor color)
-    {
-        lock (s_knownBrushes)
-        {
-            return new SolidColorBrush(color.ToColor(), 100);
-        }
-    }
+    public static SolidColorBrush ToBrush(this KnownColor color) => new SolidColorBrush(color.ToColor());
 }
 
 internal enum KnownColor : uint

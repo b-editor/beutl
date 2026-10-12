@@ -19,11 +19,11 @@ public sealed partial class MixedInlineUnknownTailSound : Sound
     {
         context.MarkAsOutput(context.AddNode(new UnknownTailNode()));
 
-        var source = context.AddNode(new ClipLocalSilenceNode(context.SampleRate));
+        var source = context.AddNode(new FixedLatencyNode(0));
         var clip = context.CreateClipNode(TimeRange.Start, TimeRange.Duration);
         context.Connect(source, clip);
 
-        var downstream = context.AddNode(new RecordingLatencyNode(240));
+        var downstream = context.AddNode(new FixedLatencyNode(240));
         context.Connect(clip, downstream);
         context.MarkAsOutput(downstream);
     }
@@ -43,23 +43,6 @@ public sealed partial class MixedInlineUnknownTailSound : Sound
         }
 
         public override int GetLatencySamples(int sampleRate) => int.MaxValue;
-    }
-
-    private sealed class RecordingLatencyNode(int latencySamples) : AudioNode
-    {
-        public override AudioBuffer Process(AudioProcessContext context)
-            => new(context.SampleRate, 2, context.GetSampleCount());
-
-        public override AudioBuffer Flush(AudioProcessContext context)
-            => new(context.SampleRate, 2, context.GetSampleCount());
-
-        public override int GetLatencySamples(int sampleRate) => latencySamples;
-    }
-
-    private sealed class ClipLocalSilenceNode(int sampleRate) : AudioNode
-    {
-        public override AudioBuffer Process(AudioProcessContext context)
-            => new(sampleRate, 2, context.GetSampleCount());
     }
 
     public partial class Resource

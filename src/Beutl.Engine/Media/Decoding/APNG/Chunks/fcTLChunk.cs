@@ -1,4 +1,6 @@
-﻿namespace Beutl.Media.Decoding.APNG.Chunks;
+﻿using System.Buffers.Binary;
+
+namespace Beutl.Media.Decoding.APNG.Chunks;
 
 // ReSharper disable once InconsistentNaming
 public class fcTLChunk : Chunk
@@ -65,13 +67,13 @@ public class fcTLChunk : Chunk
 
     protected override void ParseData(MemoryStream ms)
     {
-        SequenceNumber = Helper.ConvertEndian(ms.ReadUInt32());
-        Width = Helper.ConvertEndian(ms.ReadUInt32());
-        Height = Helper.ConvertEndian(ms.ReadUInt32());
-        XOffset = Helper.ConvertEndian(ms.ReadUInt32());
-        YOffset = Helper.ConvertEndian(ms.ReadUInt32());
-        DelayNum = Helper.ConvertEndian(ms.ReadUInt16());
-        DelayDen = Helper.ConvertEndian(ms.ReadUInt16());
+        SequenceNumber = BinaryPrimitives.ReadUInt32BigEndian(ms.ReadBytes(4));
+        Width = BinaryPrimitives.ReadUInt32BigEndian(ms.ReadBytes(4));
+        Height = BinaryPrimitives.ReadUInt32BigEndian(ms.ReadBytes(4));
+        XOffset = BinaryPrimitives.ReadUInt32BigEndian(ms.ReadBytes(4));
+        YOffset = BinaryPrimitives.ReadUInt32BigEndian(ms.ReadBytes(4));
+        DelayNum = BinaryPrimitives.ReadUInt16BigEndian(ms.ReadBytes(2));
+        DelayDen = BinaryPrimitives.ReadUInt16BigEndian(ms.ReadBytes(2));
         DisposeOp = (DisposeOps)ms.ReadByte();
         BlendOp = (BlendOps)ms.ReadByte();
     }

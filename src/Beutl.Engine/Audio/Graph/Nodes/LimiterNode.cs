@@ -18,7 +18,6 @@ public sealed class LimiterNode : AudioNode
 
     private CircularBuffer<float>[]? _delayLines;
     private CircularBuffer<float>? _peakBuffer;
-    private int _maxLookaheadSamples;
     private int _lastSampleRate;
     private TimeSpan? _lastTimeRangeEnd;
     private float _currentGain = 1f;
@@ -66,11 +65,7 @@ public sealed class LimiterNode : AudioNode
             throw new InvalidOperationException(
                 $"LimiterNode requires exactly one input but has {Inputs.Count}.");
 
-        return RecordProcessedOutput(ProcessTail(
-            Inputs[0].Process(context)
-                ?? throw new InvalidOperationException("LimiterNode: upstream Process returned null."),
-            context,
-            draining: false));
+        return RecordProcessedOutput(ProcessTail(Inputs[0].Process(context), context, draining: false));
     }
 
     protected override AudioBuffer ProcessTail(AudioBuffer input, AudioProcessContext context, bool draining)
@@ -83,10 +78,8 @@ public sealed class LimiterNode : AudioNode
 
         if (input.SampleCount == 0)
         {
-            // Empty chunks only reach here when TimeRange.Duration == Zero, so log once as a
-            // notable upstream event. Do NOT touch _lastTimeRangeEnd: an empty chunk processes no
-            // audio, so the next non-empty chunk must be evaluated against the previous *non-empty*
-            // chunk's end — updating it here would mask a discontinuity.
+            // Log once. Do not advance _lastTimeRangeEnd: the next non-empty chunk must be checked
+            // against the previous non-empty chunk's end, or a discontinuity would be missed.
             if (!_warnedEmptyChunk)
             {
                 s_logger.LogDebug(
@@ -130,21 +123,16 @@ public sealed class LimiterNode : AudioNode
         if (draining && Lookahead.Animation != null && _hasLastDerived)
         {
             // Freeze the terminal lookahead while the other parameters remain animated during drain.
-            output = DrainWithFrozenLookahead(input, context, _lastDerived.LookaheadSamples);
+            output = ProcessAnimated(input, context, _lastDerived.LookaheadSamples);
         }
         else
         {
             output = hasAnimation
-                ? ProcessAnimated(input, context)
+                ? ProcessAnimated(input, context, frozenLookaheadSamples: null)
                 : ProcessStatic(input, context);
         }
 
-        // Update only on success. If Process throws mid-buffer the state is left partially mutated,
-        // but no production caller retries the same chunk: a next call at a different Start hits the
-        // discontinuity branch and Reset()s, and a throw after Reset() already cleared
-        // _lastTimeRangeEnd so the next call Reset()s again. A same-Start retry would inherit the
-        // partial state; that's tolerated rather than guarded, since always resetting after a throw
-        // would needlessly discard correct delay-line state no caller actually retries.
+        // Update only on success; state partially mutated by a throw is Reset by the next discontinuous chunk.
         _lastTimeRangeEnd = context.TimeRange.Start + context.TimeRange.Duration;
 
         return output;
@@ -208,7 +196,6 @@ public sealed class LimiterNode : AudioNode
             throw;
         }
 
-        _maxLookaheadSamples = max;
         _delayLines = lines;
 
         // The deque capacity needs max + 2 entries: a push transiently holds (window + 1) entries
@@ -268,9 +255,8 @@ public sealed class LimiterNode : AudioNode
     private DerivedCoefficients Derive(float thresholdDbRaw, float releaseMsRaw, float lookaheadMsRaw, float makeupDbRaw, int sampleRate)
     {
         float lookaheadMs = ClampFinite(lookaheadMsRaw, MinLookaheadMs, MaxLookaheadMs, MinLookaheadMs, nameof(Lookahead), ref _warnedNonFiniteLookahead);
-        int lookaheadSamples = Math.Clamp((int)(lookaheadMs / 1000f * sampleRate), 0, _maxLookaheadSamples - 1);
         return DeriveWithLookaheadSamples(
-            thresholdDbRaw, releaseMsRaw, makeupDbRaw, sampleRate, lookaheadSamples);
+            thresholdDbRaw, releaseMsRaw, makeupDbRaw, sampleRate, ToLatencySamples(lookaheadMs, sampleRate));
     }
 
     private DerivedCoefficients DeriveWithLookaheadSamples(
@@ -290,7 +276,7 @@ public sealed class LimiterNode : AudioNode
         return new DerivedCoefficients(
             ThresholdLin: AudioMath.ConvertDbToLinear(thresholdDb),
             MakeupLin: AudioMath.ConvertDbToLinear(makeupDb),
-            LookaheadSamples: Math.Clamp(lookaheadSamples, 0, _maxLookaheadSamples - 1),
+            LookaheadSamples: lookaheadSamples,
             ReleaseCoef: MathF.Exp(-1f / (releaseMs * 0.001f * sampleRate)));
     }
 
@@ -330,14 +316,14 @@ public sealed class LimiterNode : AudioNode
         }
     }
 
-    private AudioBuffer ProcessAnimated(AudioBuffer input, AudioProcessContext context)
+    // A frozen lookahead drains at the terminal lookahead while the other parameters stay animated.
+    private AudioBuffer ProcessAnimated(AudioBuffer input, AudioProcessContext context, int? frozenLookaheadSamples)
     {
         var output = new AudioBuffer(input.SampleRate, input.ChannelCount, input.SampleCount);
         try
         {
             // Per-chunk animation-sampling scratch, sized to the actual work (capped at
-            // AnimationChunkSize) so small buffers pay a proportionally small stack cost, matching the
-            // sibling nodes (CompressorNode/DelayNode/GainNode).
+            // AnimationChunkSize) so small buffers pay a proportionally small stack cost.
             int scratchSize = Math.Min(AnimationChunkSize, input.SampleCount);
             Span<float> thresholds = stackalloc float[scratchSize];
             Span<float> releases = stackalloc float[scratchSize];
@@ -362,7 +348,8 @@ public sealed class LimiterNode : AudioNode
 
                 context.AnimationSampler.SampleBuffer(Threshold, chunkRange, context.SampleRate, thresholds[..chunkSize]);
                 context.AnimationSampler.SampleBuffer(Release, chunkRange, context.SampleRate, releases[..chunkSize]);
-                context.AnimationSampler.SampleBuffer(Lookahead, chunkRange, context.SampleRate, lookaheads[..chunkSize]);
+                if (frozenLookaheadSamples is null)
+                    context.AnimationSampler.SampleBuffer(Lookahead, chunkRange, context.SampleRate, lookaheads[..chunkSize]);
                 context.AnimationSampler.SampleBuffer(MakeupGain, chunkRange, context.SampleRate, makeups[..chunkSize]);
 
                 for (int i = 0; i < chunkSize; i++)
@@ -370,9 +357,18 @@ public sealed class LimiterNode : AudioNode
                     // Derive recomputes one Exp + two Pow per sample — the deliberate cost of
                     // sample-accurate automation. The common no-animation case takes ProcessStatic,
                     // which derives the coefficients once per call.
-                    var c = Derive(thresholds[i], releases[i], lookaheads[i], makeups[i], context.SampleRate);
-                    _lastDerived = c;
-                    _hasLastDerived = true;
+                    DerivedCoefficients c;
+                    if (frozenLookaheadSamples is { } frozen)
+                    {
+                        c = DeriveWithLookaheadSamples(thresholds[i], releases[i], makeups[i], context.SampleRate, frozen);
+                    }
+                    else
+                    {
+                        c = Derive(thresholds[i], releases[i], lookaheads[i], makeups[i], context.SampleRate);
+                        _lastDerived = c;
+                        _hasLastDerived = true;
+                    }
+
                     int idx = processed + i;
                     // The window maximum comes from ScanWindowPeak over the ring, so IngestSample's
                     // returned peak is ignored here (only its delay-line/peak-ring side-effects matter).
@@ -395,77 +391,9 @@ public sealed class LimiterNode : AudioNode
         }
     }
 
-    // Drain at the terminal lookahead while keeping the other parameters animated.
-    private AudioBuffer DrainWithFrozenLookahead(
-        AudioBuffer input,
-        AudioProcessContext context,
-        int lookaheadSamples)
-    {
-        var output = new AudioBuffer(input.SampleRate, input.ChannelCount, input.SampleCount);
-        try
-        {
-            int scratchSize = Math.Min(AnimationChunkSize, input.SampleCount);
-            Span<float> thresholds = stackalloc float[scratchSize];
-            Span<float> releases = stackalloc float[scratchSize];
-            Span<float> makeups = stackalloc float[scratchSize];
-
-            // Rebuild the static-path deque after this variable-lookahead drain.
-            _dequeLookahead = -1;
-
-            int channelCount = _delayLines!.Length;
-            int sampleCount = input.SampleCount;
-            ReadOnlySpan<float> inRaw = input.GetRawSpan();
-            Span<float> outRaw = output.GetRawSpan();
-
-            int processed = 0;
-            while (processed < sampleCount)
-            {
-                int chunkSize = Math.Min(AnimationChunkSize, sampleCount - processed);
-                var chunkRange = context.GetChunkRange(processed, chunkSize);
-
-                context.AnimationSampler.SampleBuffer(Threshold, chunkRange, context.SampleRate, thresholds[..chunkSize]);
-                context.AnimationSampler.SampleBuffer(Release, chunkRange, context.SampleRate, releases[..chunkSize]);
-                context.AnimationSampler.SampleBuffer(MakeupGain, chunkRange, context.SampleRate, makeups[..chunkSize]);
-
-                for (int i = 0; i < chunkSize; i++)
-                {
-                    var c = DeriveWithLookaheadSamples(
-                        thresholds[i], releases[i], makeups[i], context.SampleRate, lookaheadSamples);
-                    int idx = processed + i;
-                    _ = IngestSample(inRaw, sampleCount, channelCount, idx);
-                    float windowPeak = ScanWindowPeak(c.LookaheadSamples);
-                    EmitSample(
-                        outRaw,
-                        sampleCount,
-                        channelCount,
-                        idx,
-                        windowPeak,
-                        c.ThresholdLin,
-                        c.MakeupLin,
-                        c.LookaheadSamples,
-                        c.ReleaseCoef);
-                }
-
-                processed += chunkSize;
-            }
-
-            return output;
-        }
-        catch
-        {
-            output.Dispose();
-            OutputBuffersDisposedAfterFailure++;
-            throw;
-        }
-    }
-
-    // Reads one input sample per channel, coerces non-finite values, feeds the delay lines and the
-    // peak-detection ring, advances the global position, and returns the channel-linked peak.
-    // inRaw is the channel-major backing span (channel ch sample i at ch * sampleCount + i),
-    // passed in so the hot loop avoids AudioBuffer.GetChannelData's per-sample overhead.
-    //
-    // The peak is max(|s_ch|) across channels, so one shared gain applies to every channel and
-    // inter-channel phase is preserved. NaN/Inf samples are coerced to 0 — otherwise NaN passes
+    // Feeds one sample per channel into the delay lines and the peak ring and returns the
+    // channel-linked peak max(|s_ch|), so one shared gain preserves inter-channel phase. inRaw is
+    // channel-major (ch * sampleCount + i). NaN/Inf samples are coerced to 0: otherwise NaN passes
     // through the delay line and Inf drives targetGain to 0, turning `Inf * 0` into NaN.
     private float IngestSample(ReadOnlySpan<float> inRaw, int sampleCount, int channelCount, int sampleIndex)
     {
@@ -501,10 +429,8 @@ public sealed class LimiterNode : AudioNode
         return currentPeak;
     }
 
-    // Applies the gain envelope for one output sample and writes it to every channel (outRaw is the
-    // channel-major backing span, see IngestSample). With non-zero lookahead the reduction lands
-    // before the offending sample reaches the output; with lookahead=0 it degrades to a
-    // hard-clipper-style limiter (still correct, just less transparent).
+    // Applies the gain envelope to one output sample on every channel. With lookahead=0 this
+    // degrades to a hard-clipper-style limiter.
     private void EmitSample(
         Span<float> outRaw,
         int sampleCount,
@@ -517,7 +443,7 @@ public sealed class LimiterNode : AudioNode
         float releaseCoef)
     {
         float targetGain;
-        if (windowPeak > thresholdLin && windowPeak > 0f)
+        if (windowPeak > thresholdLin)
         {
             targetGain = thresholdLin / windowPeak;
         }
@@ -572,17 +498,8 @@ public sealed class LimiterNode : AudioNode
         while (_dqCount > 0 && _dqVal![(_dqHead + _dqCount - 1) & mask] <= value)
             _dqCount--;
 
-        // Correct operation keeps the deque at <= lookaheadSamples + 1 (<= cap - 2) entries, so a
-        // slot is always free and this never trips. Checking the physical length (not cap - 2) fires
-        // only when a future bound regression would actually overwrite the front.
-        if (_dqCount >= _dqVal!.Length)
-        {
-            throw new InvalidOperationException(
-                "LimiterNode deque overflow: no free slot, front would be overwritten.");
-        }
-
         int tail = (_dqHead + _dqCount) & mask;
-        _dqVal[tail] = value;
+        _dqVal![tail] = value;
         _dqPos![tail] = pos;
         _dqCount++;
 
@@ -633,10 +550,8 @@ public sealed class LimiterNode : AudioNode
     }
 
     /// <summary>
-    /// Clears the delay lines and peak buffer, resets the gain to unity, and clears the cached
-    /// chunk timestamp so the next Process() call is not treated as contiguous. Process() calls
-    /// this automatically on a chunk discontinuity, so external callers rarely need it. The
-    /// non-finite warning latches are intentionally NOT cleared here (see InitializeBuffers).
+    /// Clears the delay and gain state so the next Process() call is not treated as contiguous.
+    /// Process() calls this on a chunk discontinuity. The non-finite warning latches are kept.
     /// </summary>
     public void Reset()
     {

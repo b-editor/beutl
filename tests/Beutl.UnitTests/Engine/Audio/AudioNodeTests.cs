@@ -3,6 +3,8 @@ using Beutl.Audio.Graph;
 using Beutl.Audio.Graph.Nodes;
 using Beutl.Engine;
 
+using static Beutl.UnitTests.Engine.Audio.AudioTestContexts;
+
 namespace Beutl.UnitTests.Engine.Audio;
 
 [TestFixture]
@@ -276,8 +278,8 @@ public class AudioNodeTests
         context.Connect(source, resample);
         context.Connect(resample, failing);
 
-        AudioProcessContext firstContext = ExactContext(TimeSpan.Zero, blockSamples, outputSampleRate);
-        AudioProcessContext secondContext = ExactContext(
+        AudioProcessContext firstContext = Exact(TimeSpan.Zero, blockSamples, outputSampleRate);
+        AudioProcessContext secondContext = Exact(
             ExactDuration(blockSamples, outputSampleRate),
             blockSamples,
             outputSampleRate);
@@ -402,8 +404,8 @@ public class AudioNodeTests
         context.Connect(source, resample);
         context.Connect(source, failing);
 
-        AudioProcessContext firstContext = ExactContext(TimeSpan.Zero, blockSamples, outputSampleRate);
-        AudioProcessContext secondContext = ExactContext(
+        AudioProcessContext firstContext = Exact(TimeSpan.Zero, blockSamples, outputSampleRate);
+        AudioProcessContext secondContext = Exact(
             ExactDuration(blockSamples, outputSampleRate),
             blockSamples,
             outputSampleRate);
@@ -438,9 +440,9 @@ public class AudioNodeTests
         using var gain = new GainNode { Gain = Property.Create(50f) };
         gain.AddInput(input);
 
-        using var processed = gain.Process(ExactContext(TimeSpan.Zero, sampleCount, sampleRate));
+        using var processed = gain.Process(Exact(TimeSpan.Zero, sampleCount, sampleRate));
         gain.RemoveInput(input);
-        using var flushed = gain.Flush(ExactContext(ExactDuration(sampleCount, sampleRate), sampleCount, sampleRate));
+        using var flushed = gain.Flush(Exact(ExactDuration(sampleCount, sampleRate), sampleCount, sampleRate));
 
         Assert.That(processed.ChannelCount, Is.EqualTo(1));
         Assert.That(flushed.ChannelCount, Is.EqualTo(1),
@@ -587,14 +589,4 @@ public class AudioNodeTests
                 Target!.AddInput(InputToAdd!);
         }
     }
-
-    private static AudioProcessContext ExactContext(TimeSpan start, int sampleCount, int sampleRate)
-        => new(
-            new Beutl.Media.TimeRange(start, AudioProcessContext.GetDurationForSampleCount(sampleCount, sampleRate)),
-            sampleRate,
-            new Beutl.Animation.AnimationSampler(),
-            null);
-
-    private static TimeSpan ExactDuration(int sampleCount, int sampleRate)
-        => AudioProcessContext.GetDurationForSampleCount(sampleCount, sampleRate);
 }

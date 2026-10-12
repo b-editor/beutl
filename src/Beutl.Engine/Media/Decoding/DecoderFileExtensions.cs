@@ -13,9 +13,7 @@ public enum MediaFileKind
 /// </summary>
 /// <remarks>
 /// Video and audio extensions are the registered <see cref="IDecoderInfo"/>s' extensions unioned
-/// with a baseline, so a side-loaded decoder widens them without any list here being edited while a
-/// well-known container still classifies when the decoder that reads it is absent or not yet
-/// registered. Still images are decoded by Skia rather than by a decoder, so they keep a fixed list.
+/// with a baseline. Still images are decoded by Skia rather than by a decoder, so they keep a fixed list.
 /// </remarks>
 public static class DecoderFileExtensions
 {

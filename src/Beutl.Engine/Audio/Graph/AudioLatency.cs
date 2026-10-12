@@ -53,20 +53,7 @@ internal static class AudioLatency
 
         using AudioBuffer drained = node.Flush(drainContext);
         var output = new AudioBuffer(drained.SampleRate, drained.ChannelCount, windowSamples);
-        try
-        {
-            int copyCount = Math.Min(drained.SampleCount, windowSamples);
-            if (copyCount > 0)
-            {
-                drained.CopyTo(output, 0, copyCount);
-            }
-
-            return output;
-        }
-        catch
-        {
-            output.Dispose();
-            throw;
-        }
+        drained.CopyTo(output, 0, Math.Min(drained.SampleCount, windowSamples));
+        return output;
     }
 }

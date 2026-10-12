@@ -29,7 +29,6 @@ internal sealed partial class SKPathGeometry : Geometry
 
         public override void ApplyTo(IGeometryContext context)
         {
-            base.ApplyTo(context);
             if (_path == null) return;
 
             if (context is GeometryContext typed)

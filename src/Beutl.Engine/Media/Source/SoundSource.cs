@@ -14,10 +14,6 @@ public sealed class SoundSource : MediaSource
 {
     private WeakReference<Counter<MediaReader>>? _mediaReaderRef;
 
-    public SoundSource()
-    {
-    }
-
     public override void ReadFrom(Uri uri)
     {
         if (!uri.IsFile) throw new NotSupportedException("Only file URIs are supported.");
@@ -149,11 +145,8 @@ public sealed class SoundSource : MediaSource
                     }
                 }
 
-                // A media without an audio stream (e.g. a video-only file) cannot expose AudioInfo
-                // without throwing, so treat it as an unreadable source (#2183): release the reader
-                // and zero the metadata so callers safely see "no audio". Never publish such a
-                // counter to the shared cache, which would poison other resources with a silent
-                // source.
+                // A media without an audio stream cannot expose AudioInfo, so treat it as unreadable (#2183) and never
+                // publish its counter to the shared cache, which would give other resources a silent source.
                 if (!_counter.Value.HasAudio)
                 {
                     _counter.Release();
@@ -165,11 +158,11 @@ public sealed class SoundSource : MediaSource
                     return;
                 }
 
+                // When DisableResourceShare is set, do not rewrite the WeakReference: it would
+                // contaminate other renderers' (preview-side) shared counter with an
+                // encode-only counter.
                 if (!context.DisableResourceShare && shared is null)
                 {
-                    // When DisableResourceShare is set, do not rewrite the WeakReference: it would
-                    // contaminate other renderers' (preview-side) shared counter with an
-                    // encode-only counter.
                     Volatile.Write(ref soundSource._mediaReaderRef, new WeakReference<Counter<MediaReader>>(_counter));
                 }
 

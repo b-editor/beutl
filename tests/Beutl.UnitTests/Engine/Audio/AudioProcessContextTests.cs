@@ -29,11 +29,9 @@ public class AudioProcessContextTests
         var oneSampleTicksFloor = TimeSpan.TicksPerSecond / 44100; // 226 (true boundary is ~226.7575)
         var range = new TimeRange(TimeSpan.Zero, TimeSpan.FromTicks(oneSampleTicksFloor + 1));
 
-        var truncated = (int)(range.Duration.TotalSeconds * 44100);
         var ceiled = AudioProcessContext.GetSampleCount(range, 44100);
 
-        Assert.That(truncated, Is.EqualTo(1), "前提: 旧 truncation ロジックでは 1 サンプル");
-        Assert.That(ceiled, Is.EqualTo(2), "修正後: Ceiling で 2 サンプルになるべき");
+        Assert.That(ceiled, Is.EqualTo(2), "Ceiling で 2 サンプルになるべき");
     }
 
     [Test]
@@ -146,10 +144,7 @@ public class AudioProcessContextTests
     [Test]
     public void GetSampleCount_Static_OverflowsInt32_Throws()
     {
-        // double で計算してから (int) キャストすると、Int32.MaxValue を超える値は
-        // 暗黙に未定義動作 (-2147483648 になる実装が多い) になり後段で気付けない。
-        // 長時間 × 高サンプルレートで int をはみ出すケースを早期に弾けることを担保する。
-        // 例: ~14 時間 @ 48000Hz は 2.4e9 サンプルで Int32.MaxValue (~2.15e9) を超える。
+        // The double-to-int conversion overflows, so a length past Int32 must throw (e.g. ~14 h at 48 kHz).
         var range = new TimeRange(TimeSpan.Zero, TimeSpan.FromHours(14));
 
         var ex = Assert.Throws<ArgumentOutOfRangeException>(
@@ -160,10 +155,7 @@ public class AudioProcessContextTests
     [Test]
     public void GetSampleCount_Static_NegativeDuration_Throws()
     {
-        // TimeRange は構造体で Duration の不変条件を保証しない (コンストラクタや WithDuration /
-        // SubtractStart などで負値が入り得る)。負の duration を Math.Ceiling に渡すと負の int が返り、
-        // 後段 AudioBuffer のコンストラクタで "sampleCount" の例外として出るため、ここで早期に弾いて
-        // エラーの帰属を正しく保つ。
+        // TimeRange allows a negative Duration, so reject it here before it becomes an AudioBuffer exception.
         var range = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(-1));
 
         var ex = Assert.Throws<ArgumentOutOfRangeException>(

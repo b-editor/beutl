@@ -82,7 +82,6 @@ public sealed class BitmapColorSpace : IEquatable<BitmapColorSpace>
 
     public override int GetHashCode()
     {
-        // Hash based on transferFn + xyz gamut
         var fn = _skColorSpace.GetNumericalTransferFunction();
         _skColorSpace.ToColorSpaceXyz(out var xyz);
         return HashCode.Combine(fn.G, fn.A, fn.B, xyz.Values[0], xyz.Values[1], xyz.Values[2]);

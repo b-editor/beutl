@@ -14,21 +14,8 @@ namespace Beutl.Audio.Effects;
 /// exponential (one-pole IIR) release.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <see cref="Lookahead"/> above 0 ms delays the whole signal by that amount so gain
-/// reduction can precede a peak. Beutl's audio graph reports this latency and drains the
-/// buffered tail at a natural contiguous clip end. Seeks, loops, edits, and other
-/// discontinuities reset the limiter and can still drop buffered samples. The default 0 ms
-/// keeps audio sample-accurate and A/V-synchronized; raise it to trade a fixed delay for
-/// better transient transparency.
-/// </para>
-/// <para>
-/// A master limiter (<see cref="Beutl.Audio.Composing.Composer"/>) always re-limits the
-/// mixed bus after this effect, so the brick-wall ceiling configured here holds end-to-end
-/// only when the summed bus stays at or below 0 dBFS — multiple sounds sum on the master
-/// bus, so that can be exceeded even when this limiter's
-/// <see cref="Threshold"/> + <see cref="MakeupGain"/> is within 0 dBFS.
-/// </para>
+/// A <see cref="Lookahead"/> above 0 ms delays the whole signal and its tail is recovered at the clip end.
+/// The master limiter in <see cref="Beutl.Audio.Composing.Composer"/> limits the mixed bus again afterwards.
 /// </remarks>
 [Display(Name = nameof(AudioStrings.LimiterEffect), ResourceType = typeof(AudioStrings))]
 public sealed partial class LimiterEffect : AudioEffect

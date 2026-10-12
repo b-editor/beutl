@@ -14,19 +14,10 @@ public readonly struct Typeface(
     FontWeight weight = FontWeight.Regular) : IEquatable<Typeface>
 {
 
-    /// <summary>
-    /// Gets the font family.
-    /// </summary>
     public FontFamily FontFamily { get; } = fontFamily;
 
-    /// <summary>
-    /// Gets the font style.
-    /// </summary>
     public FontStyle Style { get; } = style;
 
-    /// <summary>
-    /// Gets the font weight.
-    /// </summary>
     public FontWeight Weight { get; } = weight;
 
     internal static Typeface FromSKTypeface(SKTypeface typeface)

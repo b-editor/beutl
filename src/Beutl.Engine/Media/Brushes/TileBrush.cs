@@ -22,7 +22,7 @@ public abstract partial class TileBrush : Brush
     public IProperty<AlignmentX> AlignmentX { get; } = Property.CreateAnimatable(Media.AlignmentX.Center);
 
     /// <summary>
-    /// Gets or sets the horizontal alignment of a tile in the destination.
+    /// Gets or sets the vertical alignment of a tile in the destination.
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.TileBrush_AlignmentY), ResourceType = typeof(GraphicsStrings))]
     public IProperty<AlignmentY> AlignmentY { get; } = Property.CreateAnimatable(Media.AlignmentY.Center);
@@ -55,9 +55,6 @@ public abstract partial class TileBrush : Brush
     /// <summary>
     /// Gets or sets the bitmap interpolation mode.
     /// </summary>
-    /// <value>
-    /// The bitmap interpolation mode.
-    /// </value>
     [Display(Name = nameof(GraphicsStrings.TileBrush_BitmapInterpolationMode), ResourceType = typeof(GraphicsStrings))]
     public IProperty<BitmapInterpolationMode> BitmapInterpolationMode { get; } = Property.CreateAnimatable(Media.BitmapInterpolationMode.Default);
 }

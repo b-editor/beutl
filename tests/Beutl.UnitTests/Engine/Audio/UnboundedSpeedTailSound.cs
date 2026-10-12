@@ -1,5 +1,4 @@
 ﻿using Beutl.Animation;
-using Beutl.Animation.Easings;
 using Beutl.Audio;
 using Beutl.Audio.Effects;
 using Beutl.Audio.Graph;
@@ -21,7 +20,7 @@ public sealed partial class UnboundedSpeedTailSound : Sound
 
     public override void Compose(AudioContext context, Sound.Resource resource)
     {
-        var source = context.AddNode(new ClipLocalSineNode(context.SampleRate));
+        var source = context.AddNode(new AbsoluteSineNode(context.SampleRate));
         var limiter = context.AddNode(new LimiterNode
         {
             Threshold = Property.CreateAnimatable(LimiterParameters.MaxThresholdDb),
@@ -70,31 +69,6 @@ public sealed partial class UnboundedSpeedTailSound : Sound
         {
             FlushCount++;
             return Inputs[0].Flush(context);
-        }
-    }
-
-    private sealed class UnknownRangeEasing : Easing
-    {
-        public override float Ease(float progress) => progress;
-    }
-
-    private sealed class ClipLocalSineNode(int sampleRate) : AudioNode
-    {
-        public override AudioBuffer Process(AudioProcessContext context)
-        {
-            int count = context.GetSampleCount();
-            var buffer = new AudioBuffer(sampleRate, 2, count);
-            long startIndex = AudioMath.TimeToSampleIndex(context.TimeRange.Start, sampleRate);
-            for (int ch = 0; ch < 2; ch++)
-            {
-                var data = buffer.GetChannelData(ch);
-                for (int i = 0; i < count; i++)
-                {
-                    data[i] = 0.25f * MathF.Sin(2f * MathF.PI * 200f * (startIndex + i) / sampleRate);
-                }
-            }
-
-            return buffer;
         }
     }
 

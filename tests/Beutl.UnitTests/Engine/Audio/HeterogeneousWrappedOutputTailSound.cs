@@ -17,11 +17,11 @@ public sealed partial class HeterogeneousWrappedOutputTailSound : Sound
 
     public override void Compose(AudioContext context, Sound.Resource resource)
     {
-        var shortSource = context.AddNode(new RecordingLatencyNode(240));
+        var shortSource = context.AddNode(new FixedLatencyNode(240));
         var shortClip = context.CreateClipNode(TimeRange.Start, TimeRange.Duration);
         context.Connect(shortSource, shortClip);
 
-        var longSource = context.AddNode(new RecordingLatencyNode(960));
+        var longSource = context.AddNode(new FixedLatencyNode(960));
         var longClip = context.CreateClipNode(TimeRange.Start, TimeRange.Duration);
         context.Connect(longSource, longClip);
 
@@ -44,17 +44,6 @@ public sealed partial class HeterogeneousWrappedOutputTailSound : Sound
             LastFlushSampleCount = context.GetSampleCount();
             return base.Flush(context);
         }
-    }
-
-    private sealed class RecordingLatencyNode(int latencySamples) : AudioNode
-    {
-        public override AudioBuffer Process(AudioProcessContext context)
-            => new(context.SampleRate, 2, context.GetSampleCount());
-
-        public override AudioBuffer Flush(AudioProcessContext context)
-            => new(context.SampleRate, 2, context.GetSampleCount());
-
-        public override int GetLatencySamples(int sampleRate) => latencySamples;
     }
 
     public partial class Resource

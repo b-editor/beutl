@@ -1,4 +1,6 @@
-﻿namespace Beutl.Media.Decoding.APNG.Chunks;
+﻿using System.Buffers.Binary;
+
+namespace Beutl.Media.Decoding.APNG.Chunks;
 
 public class IHDRChunk : Chunk
 {
@@ -33,8 +35,8 @@ public class IHDRChunk : Chunk
 
     protected override void ParseData(MemoryStream ms)
     {
-        Width = Helper.ConvertEndian(ms.ReadInt32());
-        Height = Helper.ConvertEndian(ms.ReadInt32());
+        Width = BinaryPrimitives.ReadInt32BigEndian(ms.ReadBytes(4));
+        Height = BinaryPrimitives.ReadInt32BigEndian(ms.ReadBytes(4));
         BitDepth = Convert.ToByte(ms.ReadByte());
         ColorType = Convert.ToByte(ms.ReadByte());
         CompressionMethod = Convert.ToByte(ms.ReadByte());

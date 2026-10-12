@@ -13,8 +13,6 @@ public sealed class CompressorNode : DynamicsNode
 
     private float _envelopeDb = MinDb;
 
-    private bool _loggedNonFiniteEnvelope;
-
     public required IProperty<float> Threshold { get; init; }
 
     public required IProperty<float> Ratio { get; init; }
@@ -48,63 +46,15 @@ public sealed class CompressorNode : DynamicsNode
         {
             EffectiveParameters p = ReadStaticParameters();
 
-            float attackCoeff = ComputeCoeff(p.Attack, context.SampleRate);
-            float releaseCoeff = ComputeCoeff(p.Release, context.SampleRate);
-            float slope = 1f - 1f / p.Ratio;
+            var gain = new StaticGain(
+                this,
+                ComputeCoeff(p.Attack, context.SampleRate),
+                ComputeCoeff(p.Release, context.SampleRate),
+                p,
+                1f - 1f / p.Ratio);
 
-            int channels = input.ChannelCount;
-            int sampleCount = input.SampleCount;
             var (inputChannels, outputChannels) = MapChannels(input, output);
-
-            // Materialize the channel spans ONCE for the mono/stereo fast path to avoid the per-sample
-            // Memory.Span getter the >2-channel fallback still pays. Span<float>[] is impossible (ref
-            // struct), hence the explicit locals.
-            if (channels <= 2)
-            {
-                Span<float> in0 = inputChannels[0].Span;
-                Span<float> out0 = outputChannels[0].Span;
-                Span<float> in1 = channels == 2 ? inputChannels[1].Span : default;
-                Span<float> out1 = channels == 2 ? outputChannels[1].Span : default;
-
-                for (int i = 0; i < sampleCount; i++)
-                {
-                    float s0 = in0[i];
-                    float peak = AccumulatePeak(0f, s0);
-                    float s1 = 0f;
-                    if (channels == 2)
-                    {
-                        s1 = in1[i];
-                        peak = AccumulatePeak(peak, s1);
-                    }
-
-                    float gainLinear = NextGain(peak, attackCoeff, releaseCoeff, p, slope);
-
-                    out0[i] = SanitizeOutput(s0 * gainLinear);
-                    if (channels == 2)
-                    {
-                        out1[i] = SanitizeOutput(s1 * gainLinear);
-                    }
-                }
-            }
-            else
-            {
-                for (int i = 0; i < sampleCount; i++)
-                {
-                    float peak = 0f;
-                    for (int ch = 0; ch < channels; ch++)
-                    {
-                        peak = AccumulatePeak(peak, inputChannels[ch].Span[i]);
-                    }
-
-                    float gainLinear = NextGain(peak, attackCoeff, releaseCoeff, p, slope);
-
-                    for (int ch = 0; ch < channels; ch++)
-                    {
-                        float sample = inputChannels[ch].Span[i] * gainLinear;
-                        outputChannels[ch].Span[i] = SanitizeOutput(sample);
-                    }
-                }
-            }
+            ApplyLinkedGain(inputChannels, outputChannels, input.ChannelCount, 0, input.SampleCount, ref gain);
 
             return output;
         }
@@ -130,30 +80,29 @@ public sealed class CompressorNode : DynamicsNode
             Span<float> knees = stackalloc float[bufferSize];
             Span<float> makeups = stackalloc float[bufferSize];
 
-            // Fallbacks for when an animated parameter samples to NaN/Infinity (e.g. malformed
-            // KeyFrame); otherwise one non-finite value would zero out every output sample.
-            EffectiveParameters fallback = ReadStaticParameters();
+            var gain = new AnimatedGain
+            {
+                Node = this,
+                Thresholds = thresholds,
+                Ratios = ratios,
+                Attacks = attacks,
+                Releases = releases,
+                Knees = knees,
+                Makeups = makeups,
+                // Fallbacks for when an animated parameter samples to NaN/Infinity (e.g. malformed
+                // KeyFrame); otherwise one non-finite value would zero out every output sample.
+                Fallback = ReadStaticParameters(),
+                SampleRate = context.SampleRate,
+                // Seed with NaN so the first comparison is always unequal and coefficients compute on
+                // sample 0; afterwards Exp runs only when the animated ms value changes.
+                LastAttackMs = float.NaN,
+                LastReleaseMs = float.NaN,
+            };
 
-            int channels = input.ChannelCount;
             int sampleCount = input.SampleCount;
             var (inputChannels, outputChannels) = MapChannels(input, output);
 
-            // Materialize the channel spans once (matching ProcessStatic) for the mono/stereo fast path;
-            // the >2-channel path keeps Memory indexing where the getter cost is negligible.
-            Span<float> in0 = channels <= 2 ? inputChannels[0].Span : default;
-            Span<float> out0 = channels <= 2 ? outputChannels[0].Span : default;
-            Span<float> in1 = channels == 2 ? inputChannels[1].Span : default;
-            Span<float> out1 = channels == 2 ? outputChannels[1].Span : default;
-
             int processed = 0;
-
-            // Seed with NaN so the first comparison is always unequal and coefficients compute on
-            // sample 0; afterwards Exp runs only when the animated ms value changes.
-            float lastAttackMs = float.NaN;
-            float lastReleaseMs = float.NaN;
-            float attackCoeff = 0f;
-            float releaseCoeff = 0f;
-
             while (processed < sampleCount)
             {
                 int chunkSize = Math.Min(bufferSize, sampleCount - processed);
@@ -167,61 +116,8 @@ public sealed class CompressorNode : DynamicsNode
                 context.AnimationSampler.SampleBuffer(Knee, chunkRange, context.SampleRate, knees[..chunkSize]);
                 context.AnimationSampler.SampleBuffer(MakeupGain, chunkRange, context.SampleRate, makeups[..chunkSize]);
 
-                for (int i = 0; i < chunkSize; i++)
-                {
-                    int idx = processed + i;
-
-                    EffectiveParameters p = SanitizeAnimated(
-                        thresholds[i], ratios[i], attacks[i], releases[i], knees[i], makeups[i], fallback);
-
-                    if (p.Attack != lastAttackMs)
-                    {
-                        attackCoeff = ComputeCoeff(p.Attack, context.SampleRate);
-                        lastAttackMs = p.Attack;
-                    }
-                    if (p.Release != lastReleaseMs)
-                    {
-                        releaseCoeff = ComputeCoeff(p.Release, context.SampleRate);
-                        lastReleaseMs = p.Release;
-                    }
-                    float slope = 1f - 1f / p.Ratio;
-
-                    if (channels <= 2)
-                    {
-                        float s0 = in0[idx];
-                        float peak = AccumulatePeak(0f, s0);
-                        float s1 = 0f;
-                        if (channels == 2)
-                        {
-                            s1 = in1[idx];
-                            peak = AccumulatePeak(peak, s1);
-                        }
-
-                        float gainLinear = NextGain(peak, attackCoeff, releaseCoeff, p, slope);
-
-                        out0[idx] = SanitizeOutput(s0 * gainLinear);
-                        if (channels == 2)
-                        {
-                            out1[idx] = SanitizeOutput(s1 * gainLinear);
-                        }
-                    }
-                    else
-                    {
-                        float peak = 0f;
-                        for (int ch = 0; ch < channels; ch++)
-                        {
-                            peak = AccumulatePeak(peak, inputChannels[ch].Span[idx]);
-                        }
-
-                        float gainLinear = NextGain(peak, attackCoeff, releaseCoeff, p, slope);
-
-                        for (int ch = 0; ch < channels; ch++)
-                        {
-                            float sample = inputChannels[ch].Span[idx] * gainLinear;
-                            outputChannels[ch].Span[idx] = SanitizeOutput(sample);
-                        }
-                    }
-                }
+                gain.ChunkStart = processed;
+                ApplyLinkedGain(inputChannels, outputChannels, input.ChannelCount, processed, chunkSize, ref gain);
 
                 processed += chunkSize;
             }
@@ -264,18 +160,6 @@ public sealed class CompressorNode : DynamicsNode
         };
     }
 
-    // Defensive fallback if the finite detector-peak invariant is broken.
-    private void RecoverEnvelopeIfNonFinite()
-    {
-        if (float.IsFinite(_envelopeDb)) return;
-        _envelopeDb = MinDb;
-        if (_loggedNonFiniteEnvelope) return;
-        Logger.LogWarning(
-            "Compressor envelope became non-finite (input sample produced inf/NaN); resetting to {MinDb} dB. Further occurrences will be suppressed.",
-            MinDb);
-        _loggedNonFiniteEnvelope = true;
-    }
-
     // Advances the envelope follower by one sample's peak and returns the linear gain. Shared by
     // ProcessStatic and ProcessAnimated so the envelope/gain math cannot drift between the paths.
     private float NextGain(float peak, float attackCoeff, float releaseCoeff, in EffectiveParameters p, float slope)
@@ -284,17 +168,9 @@ public sealed class CompressorNode : DynamicsNode
         float inputDb = peak > 0f ? 20f * MathF.Log10(peak) : MinDb;
         float coeff = inputDb > _envelopeDb ? attackCoeff : releaseCoeff;
         _envelopeDb = inputDb + coeff * (_envelopeDb - inputDb);
-        RecoverEnvelopeIfNonFinite();
 
         float gainReductionDb = ComputeGainReductionDb(_envelopeDb, p.Threshold, p.Knee, slope);
-        return ComputeGainLinear(gainReductionDb, p.MakeupGain);
-    }
-
-    // Combined linear gain: subtract the dB reduction, add makeup, then a single dB→linear
-    // conversion. Shared by both paths so the static and animated math cannot drift apart.
-    private static float ComputeGainLinear(float gainReductionDb, float makeupDb)
-    {
-        return AudioMath.ConvertDbToLinear(makeupDb - gainReductionDb);
+        return AudioMath.ConvertDbToLinear(p.MakeupGain - gainReductionDb);
     }
 
     // Soft-knee gain computer (Reece/Giannoulis): when kneeDb > 0, a C¹-continuous quadratic blends
@@ -328,14 +204,51 @@ public sealed class CompressorNode : DynamicsNode
         _envelopeDb = MinDb;
     }
 
-    protected override void ResetDiagnostics()
+    private readonly struct StaticGain(
+        CompressorNode node, float attackCoeff, float releaseCoeff, EffectiveParameters p, float slope) : ILinkedGain
     {
-        base.ResetDiagnostics();
-        _loggedNonFiniteEnvelope = false;
+        public float Next(int index, float peak) => node.NextGain(peak, attackCoeff, releaseCoeff, p, slope);
     }
 
-    // readonly + init-only: built once via object initializer, then only read (passed `in`), so
-    // immutability is intentional.
+    private ref struct AnimatedGain : ILinkedGain
+    {
+        public CompressorNode Node;
+        public Span<float> Thresholds;
+        public Span<float> Ratios;
+        public Span<float> Attacks;
+        public Span<float> Releases;
+        public Span<float> Knees;
+        public Span<float> Makeups;
+        public EffectiveParameters Fallback;
+        public int SampleRate;
+        public int ChunkStart;
+        public float LastAttackMs;
+        public float LastReleaseMs;
+        public float AttackCoeff;
+        public float ReleaseCoeff;
+
+        public float Next(int index, float peak)
+        {
+            int i = index - ChunkStart;
+            EffectiveParameters p = Node.SanitizeAnimated(
+                Thresholds[i], Ratios[i], Attacks[i], Releases[i], Knees[i], Makeups[i], Fallback);
+
+            if (p.Attack != LastAttackMs)
+            {
+                AttackCoeff = ComputeCoeff(p.Attack, SampleRate);
+                LastAttackMs = p.Attack;
+            }
+            if (p.Release != LastReleaseMs)
+            {
+                ReleaseCoeff = ComputeCoeff(p.Release, SampleRate);
+                LastReleaseMs = p.Release;
+            }
+            float slope = 1f - 1f / p.Ratio;
+
+            return Node.NextGain(peak, AttackCoeff, ReleaseCoeff, p, slope);
+        }
+    }
+
     private readonly struct EffectiveParameters
     {
         public float Threshold { get; init; }

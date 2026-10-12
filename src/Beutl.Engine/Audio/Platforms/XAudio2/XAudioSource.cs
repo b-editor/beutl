@@ -72,14 +72,7 @@ public sealed class XAudioSource : IDisposable
             ObjectDisposedException.ThrowIf(_isDisposed, this);
             if (_sourceVoice == null)
             {
-                IXAudio2SourceVoice voice = _createSourceVoice(buffer.Format!);
-                // A factory which reenters disposal must not publish new ownership afterward.
-                if (_isDisposed)
-                {
-                    DisposeVoice(voice);
-                    throw new ObjectDisposedException(nameof(XAudioSource));
-                }
-                _sourceVoice = voice;
+                _sourceVoice = _createSourceVoice(buffer.Format!);
             }
 
             _sourceVoice.SubmitSourceBuffer(buffer.Buffer);

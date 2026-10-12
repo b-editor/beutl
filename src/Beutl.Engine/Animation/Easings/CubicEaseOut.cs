@@ -4,6 +4,7 @@ public sealed class CubicEaseOut : UnitRangeEasing
 {
     public override float Ease(float progress)
     {
-        return Funcs.CubicEaseOut(progress);
+        var f = progress - 1f;
+        return f * f * f + 1f;
     }
 }

@@ -25,6 +25,7 @@ public abstract class DynamicsNode : AudioNode
     private readonly HashSet<string> _loggedNonFiniteParameters = new();
     private readonly HashSet<string> _loggedClampedParameters = new();
 
+    // Test-only counters (via InternalsVisibleTo) of the non-finite sample and clamp warnings logged.
     internal int NonFiniteSampleWarnings;
     internal int ClampWarnings;
 
@@ -169,6 +170,71 @@ public abstract class DynamicsNode : AudioNode
     }
 
     /// <summary>
+    /// Applies one linked gain per sample, computed by <paramref name="gain"/> from the peak across all
+    /// channels, to samples [<paramref name="start"/>, <paramref name="start"/> + <paramref name="count"/>).
+    /// </summary>
+    private protected void ApplyLinkedGain<TGain>(
+        Memory<float>[] inputChannels, Memory<float>[] outputChannels, int channels, int start, int count, ref TGain gain)
+        where TGain : ILinkedGain, allows ref struct
+    {
+        int end = start + count;
+        // A local copy lets the JIT keep the gain state in registers; it is written back at the end.
+        TGain local = gain;
+
+        // Materialize the channel spans ONCE for the mono/stereo fast path to avoid the per-sample
+        // Memory.Span getter the >2-channel fallback still pays. Span<float>[] is impossible (ref
+        // struct), hence the explicit locals.
+        if (channels <= 2)
+        {
+            Span<float> in0 = inputChannels[0].Span;
+            Span<float> out0 = outputChannels[0].Span;
+            Span<float> in1 = channels == 2 ? inputChannels[1].Span : default;
+            Span<float> out1 = channels == 2 ? outputChannels[1].Span : default;
+
+            for (int i = start; i < end; i++)
+            {
+                float s0 = in0[i];
+                float peak = AccumulatePeak(0f, s0);
+                float s1 = 0f;
+                if (channels == 2)
+                {
+                    s1 = in1[i];
+                    peak = AccumulatePeak(peak, s1);
+                }
+
+                float gainLinear = local.Next(i, peak);
+
+                out0[i] = SanitizeOutput(s0 * gainLinear);
+                if (channels == 2)
+                {
+                    out1[i] = SanitizeOutput(s1 * gainLinear);
+                }
+            }
+        }
+        else
+        {
+            for (int i = start; i < end; i++)
+            {
+                float peak = 0f;
+                for (int ch = 0; ch < channels; ch++)
+                {
+                    peak = AccumulatePeak(peak, inputChannels[ch].Span[i]);
+                }
+
+                float gainLinear = local.Next(i, peak);
+
+                for (int ch = 0; ch < channels; ch++)
+                {
+                    float sample = inputChannels[ch].Span[i] * gainLinear;
+                    outputChannels[ch].Span[i] = SanitizeOutput(sample);
+                }
+            }
+        }
+
+        gain = local;
+    }
+
+    /// <summary>
     /// Substitutes <paramref name="fallback"/> for a non-finite value, then clamps to
     /// [<paramref name="min"/>, <paramref name="max"/>].
     /// </summary>
@@ -257,4 +323,11 @@ public abstract class DynamicsNode : AudioNode
 
         base.Dispose(disposing);
     }
+}
+
+// Computes the linear gain of one sample from its linked peak. A struct (or ref struct) type argument keeps
+// ApplyLinkedGain free of virtual calls on the hot path.
+internal interface ILinkedGain
+{
+    float Next(int index, float peak);
 }

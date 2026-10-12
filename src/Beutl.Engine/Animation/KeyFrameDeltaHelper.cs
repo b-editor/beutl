@@ -1,14 +1,8 @@
 ﻿namespace Beutl.Animation;
 
 /// <summary>
-/// Helper for writing back keyframe values during a drag. By updating the surrounding (previous/next)
-/// keyframes to "snapshot value at OnPressed + drag delta", both keyframes shift in the same direction
-/// so the animation amplitude is preserved while a global offset is applied.
-///
-/// <para>
-/// The drag delta must be the "total delta from the start of the drag to now". Because it is added
-/// directly to the snapshot, OnMoved becomes idempotent (the same delta produces the same result).
-/// </para>
+/// Moves the surrounding keyframes in the same direction during a drag by adding the delta accumulated
+/// since the drag started to their values at drag start, so the same delta gives the same result.
 /// </summary>
 internal static class KeyFrameDeltaHelper
 {

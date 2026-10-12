@@ -12,21 +12,11 @@ public class DelayNodeTests
 {
     private const int SampleRate = 100;
 
-    private static AudioProcessContext CreateContext() =>
-        new(new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)), SampleRate, new AnimationSampler(), null);
-
     private static float[][] Render(Func<float, IProperty<float>> makeProperty)
     {
-        using var node = new DelayNode
-        {
-            DelayTime = makeProperty(200f),
-            Feedback = makeProperty(50f),
-            DryMix = makeProperty(60f),
-            WetMix = makeProperty(40f),
-        };
-        node.AddInput(new RampInputNode(SampleRate));
+        using var node = CreateNode(new RampInputNode(SampleRate), makeProperty);
 
-        using AudioBuffer buffer = node.Process(CreateContext());
+        using AudioBuffer buffer = node.Process(ContextAt(0));
         return
         [
             buffer.GetChannelData(0).ToArray(),
@@ -57,50 +47,40 @@ public class DelayNodeTests
     }
 
     private static AudioProcessContext ContextAt(double startSeconds) =>
-        new(new TimeRange(TimeSpan.FromSeconds(startSeconds), TimeSpan.FromSeconds(1)), SampleRate,
-            new AnimationSampler(), null);
+        AudioTestContexts.CreateContext(TimeSpan.FromSeconds(startSeconds), TimeSpan.FromSeconds(1), SampleRate);
 
-    private static DelayNode CreateStaticNode()
+    private static DelayNode CreateNode(AudioNode? input, Func<float, IProperty<float>>? makeProperty = null)
     {
+        makeProperty ??= v => Property.Create(v);
         var node = new DelayNode
         {
-            DelayTime = Property.Create(200f),
-            Feedback = Property.Create(50f),
-            DryMix = Property.Create(60f),
-            WetMix = Property.Create(40f),
+            DelayTime = makeProperty(200f),
+            Feedback = makeProperty(50f),
+            DryMix = makeProperty(60f),
+            WetMix = makeProperty(40f),
         };
-        node.AddInput(new RampInputNode(SampleRate));
+        if (input != null)
+            node.AddInput(input);
         return node;
     }
 
-    // A constant input prevents RampInputNode's time-dependent values from masking a reset.
-    private static DelayNode CreateNodeWithConstantInput(AudioBuffer input)
-    {
-        var node = new DelayNode
-        {
-            DelayTime = Property.Create(200f),
-            Feedback = Property.Create(50f),
-            DryMix = Property.Create(60f),
-            WetMix = Property.Create(40f),
-        };
-        node.AddInput(new BufferReplayNode(input));
-        return node;
-    }
-
-    // One-tick rounding must preserve the previous chunk's delay tail.
+    // The previous chunk's wet tail feeds the next one's first samples, so the delay lines must
+    // carry across a contiguous or one-tick-rounded boundary.
     [TestCase(-1L)]
+    [TestCase(0L)]
     [TestCase(1L)]
     public void Process_OneTickBoundaryRounding_PreservesDelayLines(long tickOffset)
     {
+        // A constant input prevents RampInputNode's time-dependent values from masking a reset.
         using var input = AudioTestBuffers.CreateConstantBuffer(0.5f, SampleRate, 2, SampleRate);
 
-        using var continuing = CreateNodeWithConstantInput(input);
+        using var continuing = CreateNode(new BufferReplayNode(input));
         continuing.Process(ContextAt(0)).Dispose();
         using AudioBuffer afterRounding = continuing.Process(new AudioProcessContext(
             new TimeRange(TimeSpan.FromSeconds(1) + TimeSpan.FromTicks(tickOffset), TimeSpan.FromSeconds(1)),
             SampleRate, new AnimationSampler(), null));
 
-        using var fresh = CreateNodeWithConstantInput(input);
+        using var fresh = CreateNode(new BufferReplayNode(input));
         using AudioBuffer freshRun = fresh.Process(ContextAt(1));
 
         Assert.That(afterRounding.GetChannelData(0).ToArray(),
@@ -114,11 +94,11 @@ public class DelayNodeTests
     [Test]
     public void Process_ForwardSeek_ResetsDelayLines()
     {
-        using var seeked = CreateStaticNode();
+        using var seeked = CreateNode(new RampInputNode(SampleRate));
         seeked.Process(ContextAt(0)).Dispose();
         using AudioBuffer afterSeek = seeked.Process(ContextAt(2));
 
-        using var fresh = CreateStaticNode();
+        using var fresh = CreateNode(new RampInputNode(SampleRate));
         using AudioBuffer freshRun = fresh.Process(ContextAt(2));
 
         Assert.Multiple(() =>
@@ -133,12 +113,12 @@ public class DelayNodeTests
     [Test]
     public void Process_BackwardSeekAfterPlayback_ResetsDelayLines()
     {
-        using var seeked = CreateStaticNode();
+        using var seeked = CreateNode(new RampInputNode(SampleRate));
         seeked.Process(ContextAt(0)).Dispose();
         seeked.Process(ContextAt(1)).Dispose();
         using AudioBuffer afterSeek = seeked.Process(ContextAt(1));
 
-        using var fresh = CreateStaticNode();
+        using var fresh = CreateNode(new RampInputNode(SampleRate));
         using AudioBuffer freshRun = fresh.Process(ContextAt(1));
 
         Assert.Multiple(() =>
@@ -148,22 +128,6 @@ public class DelayNodeTests
             Assert.That(afterSeek.GetChannelData(1).ToArray(),
                 Is.EqualTo(freshRun.GetChannelData(1).ToArray()).AsCollection);
         });
-    }
-
-    // Contiguous playback is NOT a discontinuity: the delay lines must carry across chunks
-    // (the previous chunk's wet tail feeds the next one's first samples).
-    [Test]
-    public void Process_ContiguousChunks_PreserveDelayLines()
-    {
-        using var continuous = CreateStaticNode();
-        continuous.Process(ContextAt(0)).Dispose();
-        using AudioBuffer second = continuous.Process(ContextAt(1));
-
-        using var fresh = CreateStaticNode();
-        using AudioBuffer freshRun = fresh.Process(ContextAt(1));
-
-        Assert.That(second.GetChannelData(0).ToArray(),
-            Is.Not.EqualTo(freshRun.GetChannelData(0).ToArray()).AsCollection);
     }
 
     // Emits a ramp with a configurable channel count so a reused node can be driven first with one
@@ -193,22 +157,16 @@ public class DelayNodeTests
     [Test]
     public void Process_ChannelCountIncreaseOnReusedNode_ProcessesAllChannels()
     {
-        using var node = new DelayNode
-        {
-            DelayTime = Property.Create(200f),
-            Feedback = Property.Create(50f),
-            DryMix = Property.Create(60f),
-            WetMix = Property.Create(40f),
-        };
+        using var node = CreateNode(null);
 
         // First render sizes the cached delay-line array to a single channel.
         node.AddInput(new ConfigurableChannelInputNode(SampleRate, 1));
-        node.Process(CreateContext()).Dispose();
+        node.Process(ContextAt(0)).Dispose();
 
         // Re-render on the SAME node with a stereo source: the delay lines must grow to 2 channels.
         node.ClearInputs();
         node.AddInput(new ConfigurableChannelInputNode(SampleRate, 2));
-        using AudioBuffer stereo = node.Process(CreateContext());
+        using AudioBuffer stereo = node.Process(ContextAt(0));
 
         float[] right = stereo.GetChannelData(1).ToArray();
         Assert.That(Array.Exists(right, v => v != 0f), Is.True,

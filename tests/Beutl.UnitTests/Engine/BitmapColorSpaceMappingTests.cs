@@ -30,7 +30,7 @@ public class BitmapColorSpaceMappingTests
         const float hlgReferenceCode = 0.75f;
         float eotf = BitmapColorSpaceTransferFn.Hlg.Transform(hlgReferenceCode);
 
-        // The EOTF is usable (finite & positive), so the OOTF γ=3 fallback is not taken.
+        // The scale is only usable while the EOTF stays finite and positive.
         Assert.That(float.IsFinite(eotf), Is.True);
         Assert.That(eotf, Is.GreaterThan(0f));
 

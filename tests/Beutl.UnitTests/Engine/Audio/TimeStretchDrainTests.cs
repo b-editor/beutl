@@ -250,9 +250,7 @@ public class TimeStretchDrainTests
     }
 
     private static AudioProcessContext Context(int start, int count)
-        => new(new TimeRange(TimeSpan.FromSeconds(start / (double)SampleRate),
-                AudioProcessContext.GetDurationForSampleCount(count, SampleRate)),
-            SampleRate, new AnimationSampler(), null);
+        => AudioTestContexts.Exact(TimeSpan.FromSeconds(start / (double)SampleRate), count, SampleRate);
 
     private sealed class StepSource(long boundary) : AudioNode
     {

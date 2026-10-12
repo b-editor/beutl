@@ -337,14 +337,9 @@ public abstract class AudioNode : IDisposable
     }
 
     /// <summary>
-    /// Reports the processing latency this node alone introduces at <paramref name="sampleRate"/>, in
-    /// samples (a lookahead/delay-line node returns the samples its output lags its input; pass-through
-    /// nodes return 0). Report-only: it never affects <see cref="Process"/> output. Pass the output
-    /// (post-resample) sample rate, since latency is rate-dependent. Valid results are in the inclusive
-    /// range 0..<see cref="int.MaxValue"/>; <see cref="int.MaxValue"/> denotes an unbounded or saturated
-    /// latency budget.
+    /// Reports the latency this node alone introduces, in samples at the output <paramref name="sampleRate"/>
+    /// (0 for pass-through). Report-only; <see cref="int.MaxValue"/> denotes an unbounded budget.
     /// </summary>
-    /// <exception cref="ArgumentOutOfRangeException"><paramref name="sampleRate"/> is not positive.</exception>
     public virtual int GetLatencySamples(int sampleRate)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
@@ -352,15 +347,9 @@ public abstract class AudioNode : IDisposable
     }
 
     /// <summary>
-    /// Latency accumulated along the path feeding this node's output: this node's own latency plus the
-    /// largest total latency among its <see cref="Inputs"/>. A single-input cascade therefore sums,
-    /// while a fan-in node (a mixer) takes the slowest branch — the alignment a compensator would use.
-    /// Override to impose a different upstream fold (e.g. a weighted-sum mixer). Requires an acyclic
-    /// input graph, the same precondition <see cref="Process"/> already relies on.
-    /// <see cref="int.MaxValue"/> denotes an unbounded or saturated budget and is propagated without
-    /// overflow.
+    /// This node's own latency plus the largest total latency among its <see cref="Inputs"/>, so a cascade
+    /// sums and a fan-in takes its slowest branch. <see cref="int.MaxValue"/> propagates without overflow.
     /// </summary>
-    /// <exception cref="ArgumentOutOfRangeException"><paramref name="sampleRate"/> is not positive.</exception>
     public virtual int GetTotalLatencySamples(int sampleRate)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);

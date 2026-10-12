@@ -19,12 +19,12 @@ public readonly struct GradingColor
         ISpanParsable<GradingColor>
 {
     /// <summary>
-    /// Represents a neutral grading color (0, 0, 0) with intensity 1.
+    /// Represents a neutral grading color (0, 0, 0).
     /// </summary>
     public static readonly GradingColor Zero = new(0f, 0f, 0f);
 
     /// <summary>
-    /// Represents a neutral grading color (1, 1, 1) with intensity 1.
+    /// Represents a neutral grading color (1, 1, 1).
     /// </summary>
     public static readonly GradingColor One = new(1f, 1f, 1f);
 
@@ -72,7 +72,6 @@ public readonly struct GradingColor
     /// Creates a <see cref="GradingColor"/> from a <see cref="Color"/>.
     /// </summary>
     /// <param name="color">The source color.</param>
-    /// <param name="intensity">The intensity multiplier (default: 1.0).</param>
     /// <param name="scale">The scale factor for conversion (default: 1/255).</param>
     /// <returns>The grading color.</returns>
     public static GradingColor FromColor(Color color, float scale = 1f / 255f)
@@ -95,7 +94,6 @@ public readonly struct GradingColor
 
     /// <summary>
     /// Converts this <see cref="GradingColor"/> to a <see cref="Vector3"/>.
-    /// Uses effective values (R * Intensity, G * Intensity, B * Intensity).
     /// </summary>
     /// <returns>The vector representation.</returns>
     public Vector3 ToVector3()
@@ -104,8 +102,7 @@ public readonly struct GradingColor
     }
 
     /// <summary>
-    /// Converts this <see cref="GradingColor"/> to a <see cref="Color"/>.
-    /// Uses effective values and clamps to 0-255 range.
+    /// Converts this <see cref="GradingColor"/> to a <see cref="Color"/>, clamping each component to the 0-255 range.
     /// </summary>
     /// <returns>The color representation.</returns>
     public Color ToColor()
@@ -118,7 +115,7 @@ public readonly struct GradingColor
     }
 
     /// <summary>
-    /// Parses a grading color string in format "R, G, B" or "R, G, B, I".
+    /// Parses a grading color string in format "R, G, B".
     /// </summary>
     /// <param name="s">The color string.</param>
     /// <returns>The <see cref="GradingColor"/>.</returns>
@@ -135,7 +132,7 @@ public readonly struct GradingColor
     }
 
     /// <summary>
-    /// Parses a grading color string in format "R, G, B" or "R, G, B, I".
+    /// Parses a grading color string in format "R, G, B".
     /// </summary>
     /// <param name="s">The color string.</param>
     /// <returns>The <see cref="GradingColor"/>.</returns>
@@ -150,7 +147,7 @@ public readonly struct GradingColor
     }
 
     /// <summary>
-    /// Tries to parse a grading color string in format "R, G, B" or "R, G, B, I".
+    /// Tries to parse a grading color string in format "R, G, B".
     /// </summary>
     /// <param name="s">The color string.</param>
     /// <param name="color">The parsed color.</param>
@@ -159,7 +156,7 @@ public readonly struct GradingColor
     {
         color = default;
 
-        if (string.IsNullOrWhiteSpace(s))
+        if (s is null)
         {
             return false;
         }
@@ -168,7 +165,7 @@ public readonly struct GradingColor
     }
 
     /// <summary>
-    /// Tries to parse a grading color string in format "R, G, B" or "R, G, B, I".
+    /// Tries to parse a grading color string in format "R, G, B".
     /// </summary>
     /// <param name="s">The color string.</param>
     /// <param name="color">The parsed color.</param>
@@ -213,8 +210,7 @@ public readonly struct GradingColor
     }
 
     /// <summary>
-    /// Returns the string representation of the grading color.
-    /// Format: "R, G, B, I" if intensity is not 1.0, otherwise "R, G, B".
+    /// Returns the string representation of the grading color in format "R, G, B".
     /// </summary>
     /// <returns>The string representation.</returns>
     public override string ToString()
@@ -257,7 +253,7 @@ public readonly struct GradingColor
     }
 
     /// <summary>
-    /// Adds two grading colors. Intensity is averaged.
+    /// Adds two grading colors.
     /// </summary>
     public static GradingColor operator +(GradingColor left, GradingColor right)
     {
@@ -268,7 +264,7 @@ public readonly struct GradingColor
     }
 
     /// <summary>
-    /// Subtracts two grading colors. Intensity is averaged.
+    /// Subtracts two grading colors.
     /// </summary>
     public static GradingColor operator -(GradingColor left, GradingColor right)
     {
@@ -279,7 +275,7 @@ public readonly struct GradingColor
     }
 
     /// <summary>
-    /// Multiplies a grading color by a scalar (affects RGB, not intensity).
+    /// Multiplies a grading color by a scalar.
     /// </summary>
     public static GradingColor operator *(GradingColor color, float scalar)
     {
@@ -287,7 +283,7 @@ public readonly struct GradingColor
     }
 
     /// <summary>
-    /// Multiplies a scalar by a grading color (affects RGB, not intensity).
+    /// Multiplies a scalar by a grading color.
     /// </summary>
     public static GradingColor operator *(float scalar, GradingColor color)
     {

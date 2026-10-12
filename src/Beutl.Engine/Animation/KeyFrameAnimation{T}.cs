@@ -56,7 +56,6 @@ public class KeyFrameAnimation<T> : KeyFrameAnimation, IAnimation<T>
 
             float progress = (float)((timeSpan - prevTime) / (nextTime - prevTime));
             float ease = next.Easing.Ease(progress);
-            // どちらかがnullの場合、片方を返す
             if (prevValue == null)
                 return nextValue;
             else if (nextValue == null)

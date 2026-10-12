@@ -2,8 +2,10 @@
 
 public sealed class SineEaseOut : UnitRangeEasing
 {
+    private const float HalfPI = MathF.PI / 2;
+
     public override float Ease(float progress)
     {
-        return Funcs.SineEaseOut(progress);
+        return MathF.Sin(progress * HalfPI);
     }
 }

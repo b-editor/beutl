@@ -10,11 +10,9 @@ using Beutl.Audio.Graph.Nodes;
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Media;
-using Beutl.Media.Decoding;
-using Beutl.Media.Source;
-using Beutl.Media.Wave;
 using Beutl.Serialization;
-using NAudio.Wave;
+
+using static Beutl.UnitTests.Engine.Audio.AudioTestWaves;
 
 namespace Beutl.UnitTests.Engine.Audio;
 
@@ -238,12 +236,7 @@ public class TimeStretchEffectTests
         double expected = 0;
         for (int i = 0; i < SampleRate; i++)
             expected += animation.Interpolate(TimeSpan.FromSeconds(i / (double)SampleRate)) / 100d;
-        object processor = typeof(TimeStretchNode)
-            .GetField("_processor", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(node)!;
-        object stretcher = processor.GetType()
-            .GetField("_stretcher", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(processor)!;
-        double position = (double)stretcher.GetType()
-            .GetField("_sourcePosition", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(stretcher)!;
+        double position = StretcherSourcePosition(node);
         Assert.That(position, Is.EqualTo(expected).Within(1e-5),
             "Continuous playback must use the same integrated mapping as seeking.");
     }
@@ -295,12 +288,7 @@ public class TimeStretchEffectTests
         double expected = 0;
         for (int i = 0; i < frames; i++)
             expected += animation.GetAnimatedValue(effect.TimeRange.Start + TimeSpan.FromSeconds(i / (double)sampleRate)) / 100d;
-        object processor = typeof(TimeStretchNode)
-            .GetField("_processor", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(chunkedNode)!;
-        object stretcher = processor.GetType()
-            .GetField("_stretcher", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(processor)!;
-        double position = (double)stretcher.GetType()
-            .GetField("_sourcePosition", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(stretcher)!;
+        double position = StretcherSourcePosition(chunkedNode);
         Assert.That(position, Is.EqualTo(expected).Within(1e-8),
             "Tick quantization must not repeat the previous output sample's speed.");
         Assert.That(output, Is.EqualTo(whole.GetChannelData(0).ToArray()));
@@ -370,21 +358,8 @@ public class TimeStretchEffectTests
     [TestCase(200f, 48000, 44100)]
     public void Composer_AppliesTheEffectToRealWaveAudio(float speed, int sourceRate, int outputRate)
     {
-        string path = Path.Combine(Path.GetTempPath(), $"beutl-time-stretch-{Guid.NewGuid():N}.wav");
-        var decoder = new WaveDecoderInfo();
-        DecoderRegistry.Register(decoder);
-        try
+        WithTemporaryWave(sourceRate, sourceRate * 3, i => (Sine(i, sourceRate, 440), Sine(i, sourceRate, 660)), source =>
         {
-            using (var writer = new WaveFileWriter(path, WaveFormat.CreateIeeeFloatWaveFormat(sourceRate, 2)))
-            {
-                for (int i = 0; i < sourceRate * 3; i++)
-                {
-                    writer.WriteSample(Sine(i, sourceRate, 440));
-                    writer.WriteSample(Sine(i, sourceRate, 660));
-                }
-            }
-            var source = new SoundSource();
-            source.ReadFrom(new Uri(path));
             var effect = new TimeStretchEffect();
             effect.Speed.CurrentValue = speed;
             var sound = new SourceSound
@@ -406,12 +381,7 @@ public class TimeStretchEffectTests
                 Is.EqualTo(440).Within(3));
             Assert.That(EstimateFrequency(output.GetChannelData(1).Slice(outputRate / 5, outputRate / 2), outputRate),
                 Is.EqualTo(660).Within(3));
-        }
-        finally
-        {
-            DecoderRegistry.Unregister(decoder);
-            File.Delete(path);
-        }
+        });
     }
 
     [TestCase(48000, 48000, 1920, 400f)]
@@ -421,22 +391,8 @@ public class TimeStretchEffectTests
     public void Composer_ShortWaveStopsAtItsScaledEndAndKeepsSlowedAudio(
         int sourceRate, int outputRate, int sourceFrames, float speed)
     {
-        string path = Path.Combine(Path.GetTempPath(), $"beutl-short-stretch-{Guid.NewGuid():N}.wav");
-        var decoder = new WaveDecoderInfo();
-        DecoderRegistry.Register(decoder);
-        try
+        WithTemporaryWave(sourceRate, sourceFrames, i => (Sine(i, sourceRate, 440), -Sine(i, sourceRate, 440)), source =>
         {
-            using (var writer = new WaveFileWriter(path, WaveFormat.CreateIeeeFloatWaveFormat(sourceRate, 2)))
-            {
-                for (int i = 0; i < sourceFrames; i++)
-                {
-                    float value = Sine(i, sourceRate, 440);
-                    writer.WriteSample(value);
-                    writer.WriteSample(-value);
-                }
-            }
-            var source = new SoundSource();
-            source.ReadFrom(new Uri(path));
             var effect = new TimeStretchEffect();
             effect.Speed.CurrentValue = speed;
             var sound = new SourceSound
@@ -464,12 +420,7 @@ public class TimeStretchEffectTests
                     Assert.That(Rms(output.GetChannelData(0).Slice(start, Math.Min(240, expected - start))),
                         Is.GreaterThan(0.15), "A slowed short sound must remain audible after its original duration.");
             }
-        }
-        finally
-        {
-            DecoderRegistry.Unregister(decoder);
-            File.Delete(path);
-        }
+        });
     }
 
     [Test]
@@ -674,19 +625,24 @@ public class TimeStretchEffectTests
     private static SignalNode ToneSource()
         => new(SampleRate, (channel, index) => (channel == 0 ? 1 : -1) * Sine(index, SampleRate, 440));
 
-    private sealed class UnknownRangeEasing : Easing
+    // The WSOLA source position sits three private fields below the node.
+    private static double StretcherSourcePosition(TimeStretchNode node)
     {
-        public override float Ease(float progress) => progress;
+        object processing = typeof(TimeStretchNode)
+            .GetField("_processing", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(node)!;
+        object processor = processing.GetType()
+            .GetField("_processor", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(processing)!;
+        object stretcher = processor.GetType()
+            .GetField("_stretcher", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(processor)!;
+        return (double)stretcher.GetType()
+            .GetField("_sourcePosition", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(stretcher)!;
     }
 
     private static float Sine(long index, int sampleRate, double frequency)
         => (float)(0.5 * Math.Sin(2 * Math.PI * frequency * index / sampleRate));
 
     private static AudioProcessContext Context(int start, int count, int sampleRate = SampleRate)
-        => new(new TimeRange(
-                TimeSpan.FromTicks((long)Math.Ceiling(start * (double)TimeSpan.TicksPerSecond / sampleRate)),
-                AudioProcessContext.GetDurationForSampleCount(count, sampleRate)),
-            sampleRate, new AnimationSampler(), null);
+        => AudioTestContexts.AtSample(start, count, sampleRate);
 
     private static double Rms(ReadOnlySpan<float> data)
     {

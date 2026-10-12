@@ -85,11 +85,6 @@ public sealed partial class AudioContext
             throw;
         }
 
-        foreach (var list in _connections.Values)
-        {
-            list.Clear();
-        }
-
         _outputNodes.Clear();
         _currentNode = null;
 
@@ -253,12 +248,6 @@ public sealed partial class AudioContext
         {
             RollBackRemoval(removalException, node, removedFrom, affected);
             throw;
-        }
-
-        _connections.Remove(node);
-        foreach (var list in _connections.Values)
-        {
-            RemoveReference(list, node);
         }
 
         _outputNodes.Remove(node);

@@ -45,11 +45,7 @@ public class SpectralNoiseReducerTests
 
         // White noise puts sigma^2 times the window energy (3N/8 for Hann) into every bin.
         double expected = sigma * sigma * reducer.FrameSize * 3 / 8;
-        ReadOnlySpan<float> noise = reducer.NoiseEstimate;
-        double mean = 0;
-        for (int k = 8; k < noise.Length - 8; k++)
-            mean += noise[k];
-        mean /= noise.Length - 16;
+        double mean = MeanNoise(reducer);
         Assert.That(10 * Math.Log10(mean / expected), Is.EqualTo(0).Within(1));
     }
 

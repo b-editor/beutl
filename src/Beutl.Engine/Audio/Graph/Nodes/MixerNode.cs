@@ -154,7 +154,7 @@ public sealed class MixerNode : AudioNode
                 bool unknownDrain = drainBranch
                     && Inputs[i].GetDrainLatencySamples(context.SampleRate) == int.MaxValue;
                 buffers[i] = drainBranch
-                    ? FlushBranch(i, context, out _)
+                    ? FlushBranch(i, context)
                     : Inputs[i].Process(context);
                 if (unknownDrain && context.GetSampleCount() > 0)
                     _unknownDrainAttempts.Add(Inputs[i]);
@@ -195,17 +195,12 @@ public sealed class MixerNode : AudioNode
                     throw new InvalidOperationException($"All inputs must have the same sample count. Expected {firstBuffer.SampleCount}, but input {i} has {buffer.SampleCount}.");
             }
 
-            // Create output buffer
             var output = new AudioBuffer(firstBuffer.SampleRate, firstBuffer.ChannelCount, firstBuffer.SampleCount);
             try
             {
-                // Mix all channels
                 for (int ch = 0; ch < output.ChannelCount; ch++)
                 {
                     var outData = output.GetChannelData(ch);
-
-                    // Clear output buffer (already cleared in constructor, but being explicit)
-                    outData.Clear();
 
                     for (int i = 0; i < buffers.Length; i++)
                     {
@@ -216,7 +211,6 @@ public sealed class MixerNode : AudioNode
                         var gain = i < _gains.Length ? _gains[i] : 1.0f;
                         var inData = inBuffer.GetChannelData(ch);
 
-                        // Add with gain
                         for (int s = 0; s < output.SampleCount; s++)
                         {
                             outData[s] += inData[s] * gain;
@@ -269,10 +263,9 @@ public sealed class MixerNode : AudioNode
         return tailEndTicks <= deadAfterTicks;
     }
 
-    private AudioBuffer FlushBranch(int index, AudioProcessContext context, out int drainedSamples)
+    private AudioBuffer FlushBranch(int index, AudioProcessContext context)
     {
         AudioNode branch = Inputs[index];
-        drainedSamples = 0;
         if (!_branchEndTimes.TryGetValue(branch, out TimeSpan branchEndTime)
             || context.TimeRange.Start < branchEndTime)
         {
@@ -311,8 +304,7 @@ public sealed class MixerNode : AudioNode
 
         if (remainingSamples >= sampleCount)
         {
-            drainedSamples = sampleCount;
-            budget.RemainingSamples = Math.Max(0, remainingSamples - drainedSamples);
+            budget.RemainingSamples = Math.Max(0, remainingSamples - sampleCount);
             return branch.Flush(context);
         }
 
@@ -322,7 +314,6 @@ public sealed class MixerNode : AudioNode
         // The full-window and empty cases returned above, so FlushIntoWindow always builds a shortened drain
         // context here.
         AudioBuffer output = AudioLatency.FlushIntoWindow(branch, context, remainingSamples, sampleCount);
-        drainedSamples = remainingSamples;
         budget.RemainingSamples = 0;
         return output;
     }

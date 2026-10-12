@@ -14,21 +14,6 @@ internal static class StreamExtensions
         return buffer;
     }
 
-    public static Int32 ReadInt32(this Stream ms)
-    {
-        return BitConverter.ToInt32(ReadBytes(ms, 4), 0);
-    }
-
-    public static UInt16 ReadUInt16(this Stream ms)
-    {
-        return BitConverter.ToUInt16(ReadBytes(ms, 2), 0);
-    }
-
-    public static UInt32 ReadUInt32(this Stream ms)
-    {
-        return BitConverter.ToUInt32(ReadBytes(ms, 4), 0);
-    }
-
     #endregion Read
 
     #region Write

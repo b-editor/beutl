@@ -141,7 +141,6 @@ public class AnimatableProperty<T> : IProperty<T>
     {
         T value;
 
-        // 式を最優先
         if (Volatile.Read(ref _expressionState) is { } expressionState)
         {
             _propertyLookup ??= new PropertyLookup(_owner?.FindHierarchicalRoot() as ICoreObject ?? BeutlApplication.Current);
@@ -171,17 +170,13 @@ public class AnimatableProperty<T> : IProperty<T>
                 expressionContext.EndEvaluation(this);
             }
         }
-        // アニメーション値を次に優先
         if (_animation != null)
         {
             value = _animation.GetAnimatedValue(context.Time) ?? _currentValue;
-
-            // アニメーション値もバリデーション
             value = ValidateAndCoerce(value);
         }
         else
         {
-            // アニメーションがない場合は現在値
             value = _currentValue;
         }
 

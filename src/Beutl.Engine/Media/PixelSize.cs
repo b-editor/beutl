@@ -14,9 +14,6 @@ namespace Beutl.Media;
 /// <summary>
 /// Represents a size in device pixels.
 /// </summary>
-/// <remarks>
-/// Initializes a new instance of the <see cref="PixelSize"/> structure.
-/// </remarks>
 /// <param name="width">The width.</param>
 /// <param name="height">The height.</param>
 [JsonConverter(typeof(PixelSizeJsonConverter))]
@@ -62,7 +59,7 @@ public readonly struct PixelSize(int width, int height)
     }
 
     /// <summary>
-    /// Checks for inequality between two <see cref="Size"/>s.
+    /// Checks for inequality between two <see cref="PixelSize"/>s.
     /// </summary>
     /// <param name="left">The first size.</param>
     /// <param name="right">The second size.</param>
@@ -205,7 +202,7 @@ public readonly struct PixelSize(int width, int height)
     /// </summary>
     /// <param name="size">The size.</param>
     /// <param name="scale">The scaling factor.</param>
-    /// <returns>The device-independent size.</returns>
+    /// <returns>The device pixel size.</returns>
     public static PixelSize FromSize(Size size, float scale)
     {
         return new PixelSize(
@@ -218,7 +215,7 @@ public readonly struct PixelSize(int width, int height)
     /// </summary>
     /// <param name="size">The size.</param>
     /// <param name="scale">The scaling factor.</param>
-    /// <returns>The device-independent size.</returns>
+    /// <returns>The device pixel size.</returns>
     public static PixelSize FromSize(Size size, Vector scale)
     {
         return new PixelSize(
@@ -233,8 +230,7 @@ public readonly struct PixelSize(int width, int height)
 
     static bool IParsable<PixelSize>.TryParse([NotNullWhen(true)] string? s, IFormatProvider? provider, [MaybeNullWhen(false)] out PixelSize result)
     {
-        result = default;
-        return s != null && TryParse(s, out result);
+        return TryParse(s, out result);
     }
 
     static PixelSize ISpanParsable<PixelSize>.Parse(ReadOnlySpan<char> s, IFormatProvider? provider)

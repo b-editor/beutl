@@ -17,7 +17,7 @@ public sealed partial class FallbackEngineObject : EngineObject, IFallback;
 [FallbackType(typeof(FallbackEngineObject))]
 public class EngineObject : Hierarchical, INotifyEdited
 {
-    // これらのプロパティは描画時ではなく編集時に更新されるべき
+    // CoreProperty rather than IProperty: these change only through edits and are not evaluated per frame.
     public static readonly CoreProperty<bool> IsTimeAnchorProperty;
     public static readonly CoreProperty<bool> IsEnabledProperty;
     public static readonly CoreProperty<int> ZIndexProperty;
@@ -461,27 +461,14 @@ public class EngineObject : Hierarchical, INotifyEdited
         /// The number every cache over this resource keys on.
         /// </summary>
         /// <remarks>
-        /// A change to this number invalidates such a cache, and nothing else does. Reconciling against an
-        /// engine object is the one thing that moves it on its own: <see cref="Reconcile"/> and the
-        /// <see cref="ResourceReconciler"/> methods it calls step it whenever a parameter of this resource or of
-        /// one it owns changed, so an attached resource asks nothing of its caller. No setter moves it. A resource built
-        /// by hand never reconciles, so nothing moves it there at all - assigning a property stores the
-        /// value and stops, and resource lists are handed out as plain <see cref="List{T}"/>, so a caller
-        /// reaches the children the same way. Moving it is then the caller's job: whoever edits a hand-built
-        /// resource - setting one of its properties, or adding to, removing from, reordering, or mutating a
-        /// child of it - bumps its version themselves, or every cache keyed on it goes on serving what it
-        /// built before the edit.
+        /// Only <see cref="Reconcile"/> moves it. A caller that edits a hand-built resource bumps it themselves.
         /// </remarks>
         public int Version { get; set; }
 
         /// <summary>
         /// Whether the engine acts on this resource at all.
         /// </summary>
-        /// <remarks>
-        /// Assigning this stores the value and does nothing else, as every other setter here does.
-        /// Reconciling moves <see cref="Version"/> when it copies a changed value across; a caller that sets
-        /// this on a hand-built resource moves the version themselves.
-        /// </remarks>
+        /// <remarks>Setting it does not move <see cref="Version"/>.</remarks>
         public bool IsEnabled { get; set; }
 
         public bool IsDisposed { get; private set; }
@@ -489,10 +476,7 @@ public class EngineObject : Hierarchical, INotifyEdited
         /// <summary>
         /// Gets whether this resource has a backing engine object.
         /// </summary>
-        /// <remarks>
-        /// Only <see cref="Reconcile"/> attaches one, so a resource built through its public constructor rather
-        /// than through <see cref="ToResource"/> is detached.
-        /// </remarks>
+        /// <remarks>Only <see cref="Reconcile"/> attaches one; a resource built through its constructor is detached.</remarks>
         public bool IsAttached => _original is not null;
 
         /// <summary>
@@ -500,10 +484,8 @@ public class EngineObject : Hierarchical, INotifyEdited
         /// <see cref="IsAttached"/> is <see langword="false"/>.
         /// </summary>
         /// <remarks>
-        /// A resource constructed directly instead of through <see cref="EngineObject.ToResource"/> - a
-        /// detached resource - never receives a backing object. Engine code that only needs an
-        /// equality-stable key uses <c>EngineResourceIdentity</c> instead, which handles that case. Use
-        /// <see cref="RequireOriginal"/> when a missing backing object cannot be handled.
+        /// Code that only needs a stable key uses <c>EngineResourceIdentity</c>; use <see cref="RequireOriginal"/>
+        /// when a detached resource cannot be handled.
         /// </remarks>
         public EngineObject? GetOriginal() => _original;
 

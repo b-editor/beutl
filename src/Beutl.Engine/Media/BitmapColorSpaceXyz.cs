@@ -176,12 +176,10 @@ public readonly struct BitmapColorSpaceXyz : IEquatable<BitmapColorSpaceXyz>
         double xr, double yr, double xg, double yg, double xb, double yb,
         double xw, double yw)
     {
-        // 各原色のXYZ座標を計算
         double Xr = xr / yr, Yr = 1.0, Zr = (1.0 - xr - yr) / yr;
         double Xg = xg / yg, Yg = 1.0, Zg = (1.0 - xg - yg) / yg;
         double Xb = xb / yb, Yb = 1.0, Zb = (1.0 - xb - yb) / yb;
 
-        // ホワイトポイントのXYZ
         double Xw = xw / yw, Yw = 1.0, Zw = (1.0 - xw - yw) / yw;
 
         // 原色行列 M = [[Xr,Xg,Xb],[Yr,Yg,Yb],[Zr,Zg,Zb]] の逆行列でスケーリング係数を求める
@@ -202,27 +200,22 @@ public readonly struct BitmapColorSpaceXyz : IEquatable<BitmapColorSpaceXyz>
         // Bradford色順応変換: ソースホワイト → D50
         const double d50X = 0.96422, d50Y = 1.0, d50Z = 0.82521;
 
-        // Bradford行列
         const double b00 = 0.8951, b01 = 0.2664, b02 = -0.1614;
         const double b10 = -0.7502, b11 = 1.7135, b12 = 0.0367;
         const double b20 = 0.0389, b21 = -0.0685, b22 = 1.0296;
 
-        // Bradford逆行列
         const double bi00 = 0.9869929, bi01 = -0.1470543, bi02 = 0.1599627;
         const double bi10 = 0.4323053, bi11 = 0.5183603, bi12 = 0.0492912;
         const double bi20 = -0.0085287, bi21 = 0.0400428, bi22 = 0.9684867;
 
-        // コーン応答空間でのソースホワイト
         double coneS0 = b00 * Xw + b01 * Yw + b02 * Zw;
         double coneS1 = b10 * Xw + b11 * Yw + b12 * Zw;
         double coneS2 = b20 * Xw + b21 * Yw + b22 * Zw;
 
-        // コーン応答空間でのD50
         double coneD0 = b00 * d50X + b01 * d50Y + b02 * d50Z;
         double coneD1 = b10 * d50X + b11 * d50Y + b12 * d50Z;
         double coneD2 = b20 * d50X + b21 * d50Y + b22 * d50Z;
 
-        // スケーリング
         double s0 = coneD0 / coneS0;
         double s1 = coneD1 / coneS1;
         double s2 = coneD2 / coneS2;

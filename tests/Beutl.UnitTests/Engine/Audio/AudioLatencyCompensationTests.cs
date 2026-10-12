@@ -1,6 +1,4 @@
-﻿using System.Collections.Immutable;
-
-using Beutl.Animation;
+﻿using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Audio;
 using Beutl.Audio.Composing;
@@ -10,11 +8,10 @@ using Beutl.Audio.Graph;
 using Beutl.Audio.Graph.Nodes;
 using Beutl.Composition;
 using Beutl.Engine;
-using Beutl.Logging;
 using Beutl.Media;
-using Microsoft.Extensions.Logging;
 
 using static Beutl.UnitTests.Engine.Audio.AudioTestBuffers;
+using static Beutl.UnitTests.Engine.Audio.AudioTestContexts;
 
 namespace Beutl.UnitTests.Engine.Audio;
 
@@ -22,15 +19,6 @@ namespace Beutl.UnitTests.Engine.Audio;
 public class AudioLatencyCompensationTests
 {
     private const int SampleRate = 48000;
-
-    [OneTimeSetUp]
-    public void OneTimeSetUp()
-    {
-        if (Log.LoggerFactory is null)
-        {
-            Log.LoggerFactory = LoggerFactory.Create(_ => { });
-        }
-    }
 
     private static int LookaheadSamples(float lookaheadMs, int sampleRate = SampleRate)
         => (int)(lookaheadMs / 1000f * sampleRate);
@@ -45,59 +33,27 @@ public class AudioLatencyCompensationTests
         };
 
     private static AudioProcessContext Context(TimeSpan start, int sampleCount, int sampleRate = SampleRate)
-    {
-        var duration = TimeSpan.FromSeconds((double)sampleCount / sampleRate);
-        return new AudioProcessContext(new TimeRange(start, duration), sampleRate, new AnimationSampler(), null);
-    }
+        => Seconds(start, sampleCount, sampleRate);
 
     [Test]
     public void Composer_InlineDrainCountsPaddingOnceAcrossBothLimiters()
     {
         var duration = ExactDuration(SampleRate, SampleRate);
         var padding = ExactDuration(120, SampleRate);
-        var sound = new LimiterAfterClipTailSound
+        var sound = new LimiterTailSound
         {
-            LimiterBeforeClip = true,
+            LimiterAfterClip = true,
             LookaheadMs = 5f,
             TimeRange = new TimeRange(TimeSpan.Zero, duration),
         };
-        using var resource = sound.ToResource(CompositionContext.Default);
-        var eligibility = new CompositionEligibility([sound]);
+        using var resource = Setup(sound, out var eligibility);
         using var composer = new Composer { SampleRate = SampleRate };
         var range = new TimeRange(TimeSpan.Zero, duration + padding);
-        var frame = new CompositionFrame(ImmutableArray.Create<EngineObject.Resource>(resource), range, default, eligibility);
-        using var first = composer.Compose(range, frame);
+        using var first = ComposeWindow(composer, range, eligibility, resource);
         Assert.That(composer.GetTotalLatencySamples(SampleRate), Is.EqualTo(360));
         var nextRange = new TimeRange(range.End, ExactDuration(360, SampleRate));
-        using var tail = composer.Compose(nextRange, new CompositionFrame(
-            ImmutableArray<EngineObject.Resource>.Empty, nextRange, default, eligibility));
+        using var tail = ComposeWindow(composer, nextRange, eligibility);
         Assert.That(HasNonZero(tail!.GetChannelData(0)[^120..]), Is.True);
-    }
-
-    [Test]
-    public void Flush_RecoversTheTailHeldInTheDelayLine()
-    {
-        const float lookaheadMs = 5f;
-        const int sampleCount = 4096;
-        int L = LookaheadSamples(lookaheadMs);
-
-        using var input = CreateBuffer(2, sampleCount, (_, i) => 0.25f * MathF.Sin(2f * MathF.PI * 220f * i / SampleRate));
-
-        using var node = CreateTransparentLimiter(lookaheadMs);
-        node.AddInput(new BufferReplayNode(input));
-
-        using var processed = node.Process(Context(TimeSpan.Zero, sampleCount));
-
-        var flushDuration = TimeSpan.FromSeconds((double)sampleCount / SampleRate);
-        using var tail = node.Flush(Context(flushDuration, sampleCount));
-
-        var inData = input.GetChannelData(0);
-        var tailData = tail.GetChannelData(0);
-        for (int k = 0; k < L; k++)
-        {
-            Assert.That(tailData[k], Is.EqualTo(inData[sampleCount - L + k]).Within(1e-5f),
-                $"Flushed tail sample {k} must equal the input sample lost off the processed tail.");
-        }
     }
 
     [Test]
@@ -145,30 +101,6 @@ public class AudioLatencyCompensationTests
     }
 
     [Test]
-    public void Flush_DoesNotResetTheLimiter_StaysContiguousWithProcess()
-    {
-        const float lookaheadMs = 5f;
-        const int sampleCount = 1024;
-        int L = LookaheadSamples(lookaheadMs);
-
-        using var input = CreateBuffer(2, sampleCount, (_, i) => 0.25f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
-        using var node = CreateTransparentLimiter(lookaheadMs);
-        node.AddInput(new BufferReplayNode(input));
-
-        using var processed = node.Process(Context(TimeSpan.Zero, sampleCount));
-        using var tail = node.Flush(Context(TimeSpan.FromSeconds((double)sampleCount / SampleRate), sampleCount));
-
-        var tailData = tail.GetChannelData(0);
-        bool anyNonZero = false;
-        for (int k = 0; k < L; k++)
-        {
-            if (MathF.Abs(tailData[k]) > 1e-6f) { anyNonZero = true; break; }
-        }
-
-        Assert.That(anyNonZero, Is.True, "Flush stayed contiguous; the delay line drained real audio, not a post-reset silence.");
-    }
-
-    [Test]
     public void ResampleNode_GetTotalLatencySamples_ConvertsSourceLatencyToOutputRate()
     {
         const int sourceSampleRate = 48000;
@@ -193,7 +125,7 @@ public class AudioLatencyCompensationTests
         const int processSamples = 4096;
         const int flushSamples = 1024;
 
-        using var source = new RangeSineNode(sourceSampleRate);
+        using var source = new AbsoluteSineNode(sourceSampleRate);
         using var limiter = CreateTransparentLimiter(lookaheadMs);
         limiter.AddInput(source);
         using var resample = new ResampleNode { SourceSampleRate = sourceSampleRate };
@@ -258,7 +190,7 @@ public class AudioLatencyCompensationTests
         float[] firstSamples = new float[blockCount];
         for (int i = 0; i < blockCount; i++)
         {
-            using var output = resample.Process(ExactContext(ExactDuration(i, outputSampleRate), 1, outputSampleRate));
+            using var output = resample.Process(Exact(ExactDuration(i, outputSampleRate), 1, outputSampleRate));
             firstSamples[i] = output.GetChannelData(0)[0];
         }
 
@@ -281,12 +213,12 @@ public class AudioLatencyCompensationTests
         using var resample = new ResampleNode { SourceSampleRate = sourceSampleRate };
         resample.AddInput(sourceA);
 
-        using var first = resample.Process(ExactContext(TimeSpan.Zero, blockSamples, outputSampleRate));
+        using var first = resample.Process(Exact(TimeSpan.Zero, blockSamples, outputSampleRate));
 
         resample.ClearInputs();
         resample.AddInput(sourceB);
         using var second = resample.Process(
-            ExactContext(ExactDuration(blockSamples, outputSampleRate), blockSamples, outputSampleRate));
+            Exact(ExactDuration(blockSamples, outputSampleRate), blockSamples, outputSampleRate));
 
         Assert.That(second.GetChannelData(0)[128..].ToArray(), Has.All.EqualTo(-0.75f).Within(1e-3f),
             "Replacing a same-format source must discard the previous resampler queue and filter history.");
@@ -307,7 +239,7 @@ public class AudioLatencyCompensationTests
         TimeSpan blockDuration = ExactDuration(1, outputSampleRate);
         for (int i = 0; i < blockCount; i++)
         {
-            using var output = resample.Process(ExactContext(start, 1, outputSampleRate));
+            using var output = resample.Process(Exact(start, 1, outputSampleRate));
             Assert.That(output.SampleCount, Is.EqualTo(1));
             start += blockDuration;
         }
@@ -339,7 +271,7 @@ public class AudioLatencyCompensationTests
         {
             var start = TimeSpan.FromTicks(
                 (long)Math.Ceiling(position * (double)TimeSpan.TicksPerSecond / sampleRate));
-            using var output = resample.Process(ExactContext(start, count, sampleRate));
+            using var output = resample.Process(Exact(start, count, sampleRate));
 
             Assert.That(output.SampleCount, Is.EqualTo(count), $"block at {position}");
             Assert.That(output.GetChannelData(0)[0], Is.EqualTo(position * 0.01f), $"block at {position}");
@@ -355,7 +287,7 @@ public class AudioLatencyCompensationTests
         const int clipSamples = 4096;
         var clipDuration = TimeSpan.FromSeconds((double)clipSamples / SampleRate);
 
-        var source = new RangeSineNode(SampleRate);
+        var source = new AbsoluteSineNode(SampleRate);
         using var limiter = CreateTransparentLimiter(lookaheadMs);
         limiter.AddInput(source);
 
@@ -364,14 +296,7 @@ public class AudioLatencyCompensationTests
 
         using var output = clip.Process(Context(TimeSpan.Zero, clipSamples + L));
 
-        var data = output.GetChannelData(0);
-        bool tailNonZero = false;
-        for (int i = clipSamples; i < clipSamples + L; i++)
-        {
-            if (MathF.Abs(data[i]) > 1e-5f) { tailNonZero = true; break; }
-        }
-
-        Assert.That(tailNonZero, Is.True,
+        Assert.That(HasNonZero(output.GetChannelData(0)[clipSamples..(clipSamples + L)], 1e-5f), Is.True,
             "The limiter's held tail, normally lost in the delay line, is recovered into the trailing L samples.");
     }
 
@@ -382,12 +307,12 @@ public class AudioLatencyCompensationTests
         const int refOffset = 256;
         var clipDuration = TimeSpan.FromSeconds((double)clipSamples / SampleRate);
 
-        var sourceA = new RangeSineNode(SampleRate);
+        var sourceA = new AbsoluteSineNode(SampleRate);
         using var clipA = new ClipNode { Start = TimeSpan.Zero, Duration = clipDuration };
         clipA.AddInput(sourceA);
         using var withDrain = clipA.Process(Context(TimeSpan.Zero, clipSamples));
 
-        var sourceB = new RangeSineNode(SampleRate);
+        var sourceB = new AbsoluteSineNode(SampleRate);
         using var clipB = new ClipNode { Start = TimeSpan.Zero, Duration = clipDuration };
         clipB.AddInput(sourceB);
         using var reference = clipB.Process(Context(TimeSpan.Zero, clipSamples - refOffset));
@@ -433,7 +358,7 @@ public class AudioLatencyCompensationTests
         const int sampleCount = 4096;
         int L = LookaheadSamples(lookaheadMs);
 
-        var source = new RangeSineNode(SampleRate);
+        var source = new AbsoluteSineNode(SampleRate);
         using var limiter = CreateTransparentLimiter(lookaheadMs);
         limiter.AddInput(source);
         var speedProperty = Property.CreateAnimatable(50f);
@@ -478,7 +403,7 @@ public class AudioLatencyCompensationTests
         const float lookaheadMs = 5f;
         const int sampleCount = 4096;
 
-        var source = new RangeSineNode(SampleRate);
+        var source = new AbsoluteSineNode(SampleRate);
         using var limiter = CreateTransparentLimiter(lookaheadMs);
         limiter.AddInput(source);
         var speedProperty = Property.CreateAnimatable(100f);
@@ -502,7 +427,7 @@ public class AudioLatencyCompensationTests
         const float lookaheadMs = 5f;
         const int sampleCount = 4096;
 
-        var source = new RangeSineNode(SampleRate);
+        var source = new AbsoluteSineNode(SampleRate);
         using var limiter = CreateTransparentLimiter(lookaheadMs);
         limiter.AddInput(source);
         var speedProperty = Property.CreateAnimatable(processSpeed);
@@ -596,14 +521,8 @@ public class AudioLatencyCompensationTests
         using var processed = mixer.Process(Context(TimeSpan.Zero, sampleCount));
         using var tail = mixer.Flush(Context(TimeSpan.FromSeconds((double)sampleCount / SampleRate), sampleCount));
 
-        var tailData = tail.GetChannelData(0);
-        bool anyNonZero = false;
-        for (int k = 0; k < L; k++)
-        {
-            if (MathF.Abs(tailData[k]) > 1e-6f) { anyNonZero = true; break; }
-        }
-
-        Assert.That(anyNonZero, Is.True, "The mixer flush merged branch A's drained tail instead of returning silence.");
+        Assert.That(HasNonZero(tail.GetChannelData(0)[..L]), Is.True,
+            "The mixer flush merged branch A's drained tail instead of returning silence.");
     }
 
     [Test]
@@ -626,8 +545,8 @@ public class AudioLatencyCompensationTests
         mixer.AddInput(clip);
         mixer.SetBranchEndTime(clip, branchEnd);
 
-        using var processed = mixer.Process(ExactContext(TimeSpan.Zero, processSamples, SampleRate));
-        using var tail = mixer.Process(ExactContext(branchEnd, drainSamples, SampleRate));
+        using var processed = mixer.Process(Exact(TimeSpan.Zero, processSamples, SampleRate));
+        using var tail = mixer.Process(Exact(branchEnd, drainSamples, SampleRate));
 
         Assert.That(HasNonZero(tail.GetChannelData(0)[..L]), Is.True,
             "A branch that ended at the previous block must drain its retained tail during normal mixer processing.");
@@ -653,8 +572,8 @@ public class AudioLatencyCompensationTests
         mixer.AddInput(delay);
         mixer.SetBranchEndTime(delay, branchEnd);
 
-        using var processed = mixer.Process(ExactContext(TimeSpan.Zero, sampleCount, SampleRate));
-        using var tail = mixer.Process(ExactContext(branchEnd, sampleCount, SampleRate));
+        using var processed = mixer.Process(Exact(TimeSpan.Zero, sampleCount, SampleRate));
+        using var tail = mixer.Process(Exact(branchEnd, sampleCount, SampleRate));
 
         Assert.That(tail.GetChannelData(0).ToArray(), Has.All.EqualTo(0f),
             "At branchEnd + reported latency, the mixer must not flush a zero-latency stateful branch.");
@@ -667,7 +586,7 @@ public class AudioLatencyCompensationTests
         var branchEnd = ExactDuration(sampleCount, SampleRate);
         var oneSample = ExactDuration(1, SampleRate);
 
-        using var source = new RangeSineNode(SampleRate);
+        using var source = new AbsoluteSineNode(SampleRate);
         using var limiter = CreateTransparentLimiter(20f);
         limiter.Lookahead.Animation = new KeyFrameAnimation<float>
         {
@@ -691,8 +610,8 @@ public class AudioLatencyCompensationTests
         mixer.AddInput(delay);
         mixer.SetBranchEndTime(delay, branchEnd);
 
-        using var processed = mixer.Process(ExactContext(TimeSpan.Zero, sampleCount, SampleRate));
-        using var tail = mixer.Process(ExactContext(branchEnd, sampleCount, SampleRate));
+        using var processed = mixer.Process(Exact(TimeSpan.Zero, sampleCount, SampleRate));
+        using var tail = mixer.Process(Exact(branchEnd, sampleCount, SampleRate));
 
         Assert.That(tail.GetChannelData(0).ToArray(), Has.All.EqualTo(0f),
             "Mixer branch liveness must use the terminal animated drain latency, not the public worst case.");
@@ -718,11 +637,11 @@ public class AudioLatencyCompensationTests
         mixer.AddInput(clip);
         mixer.SetBranchEndTime(clip, branchEnd);
 
-        using var processed = mixer.Process(ExactContext(TimeSpan.Zero, processSamples, SampleRate));
+        using var processed = mixer.Process(Exact(TimeSpan.Zero, processSamples, SampleRate));
         var seekStart = branchEnd + TimeSpan.FromMilliseconds(1);
-        using var seekOutput = mixer.Process(ExactContext(seekStart, seekSamples, SampleRate));
+        using var seekOutput = mixer.Process(Exact(seekStart, seekSamples, SampleRate));
         using var nextOutput = mixer.Process(
-            ExactContext(seekStart + ExactDuration(seekSamples, SampleRate), seekSamples, SampleRate));
+            Exact(seekStart + ExactDuration(seekSamples, SampleRate), seekSamples, SampleRate));
 
         Assert.Multiple(() =>
         {
@@ -784,49 +703,20 @@ public class AudioLatencyCompensationTests
         mixer.AddInput(limiter);
         mixer.SetBranchEndTime(limiter, branchEnd);
 
-        using var processed = mixer.Process(ExactContext(TimeSpan.Zero, sampleCount, SampleRate));
-        using var tail = mixer.Flush(ExactContext(groupEnd, sampleCount, SampleRate));
+        using var processed = mixer.Process(Exact(TimeSpan.Zero, sampleCount, SampleRate));
+        using var tail = mixer.Flush(Exact(groupEnd, sampleCount, SampleRate));
 
         Assert.That(HasNonZero(tail.GetChannelData(0)[..L]), Is.True,
             "A branch whose retained latency extends past the group boundary must remain live during flush.");
     }
 
-    [Test]
-    public void MixerNode_Process_LimitsPartialFinalBranchFlushToRemainingTail()
+    // At 44.1 kHz the remaining tail must be counted in exact samples, without timestamp re-rounding.
+    [TestCase(SampleRate, 960, 720, 480, TestName = "MixerNode_Process_LimitsPartialFinalBranchFlushToRemainingTail")]
+    [TestCase(44100, 882, 221, 662, TestName = "MixerNode_Process_TracksRemainingTailInSamplesAtNonIntegerRate")]
+    public void MixerNode_Process_LimitsPartialFinalBranchFlushToRemainingTail(
+        int sampleRate, int latencySamples, int firstDrainSamples, int finalBlockSamples)
     {
-        const int latencySamples = 960;
         const int processSamples = 4096;
-        const int firstDrainSamples = 720;
-        const int finalBlockSamples = 480;
-        var branchEnd = ExactDuration(processSamples, SampleRate);
-
-        using var branch = new RecordingLatencyNode(latencySamples);
-        using var mixer = new MixerNode();
-        mixer.AddInput(branch);
-        mixer.SetBranchEndTime(branch, branchEnd);
-
-        using var processed = mixer.Process(ExactContext(TimeSpan.Zero, processSamples, SampleRate));
-        using var firstDrain = mixer.Process(ExactContext(branchEnd, firstDrainSamples, SampleRate));
-        using var finalDrain = mixer.Process(
-            ExactContext(branchEnd + ExactDuration(firstDrainSamples, SampleRate), finalBlockSamples, SampleRate));
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(branch.LastFlushSampleCount, Is.EqualTo(latencySamples - firstDrainSamples),
-                "The final branch block must flush only the tail that remains after the prior drain.");
-            Assert.That(finalDrain.SampleCount, Is.EqualTo(finalBlockSamples),
-                "Mixer output must remain padded to the requested block length after a shortened branch flush.");
-        });
-    }
-
-    [Test]
-    public void MixerNode_Process_TracksRemainingTailInSamplesAtNonIntegerRate()
-    {
-        const int sampleRate = 44100;
-        const int latencySamples = 882;
-        const int processSamples = 4096;
-        const int firstDrainSamples = 221;
-        const int finalBlockSamples = 662;
         var branchEnd = ExactDuration(processSamples, sampleRate);
 
         using var branch = new RecordingLatencyNode(latencySamples);
@@ -834,16 +724,17 @@ public class AudioLatencyCompensationTests
         mixer.AddInput(branch);
         mixer.SetBranchEndTime(branch, branchEnd);
 
-        using var processed = mixer.Process(ExactContext(TimeSpan.Zero, processSamples, sampleRate));
-        using var firstDrain = mixer.Process(ExactContext(branchEnd, firstDrainSamples, sampleRate));
+        using var processed = mixer.Process(Exact(TimeSpan.Zero, processSamples, sampleRate));
+        using var firstDrain = mixer.Process(Exact(branchEnd, firstDrainSamples, sampleRate));
         using var finalDrain = mixer.Process(
-            ExactContext(branchEnd + ExactDuration(firstDrainSamples, sampleRate), finalBlockSamples, sampleRate));
+            Exact(branchEnd + ExactDuration(firstDrainSamples, sampleRate), finalBlockSamples, sampleRate));
 
         Assert.Multiple(() =>
         {
             Assert.That(branch.LastFlushSampleCount, Is.EqualTo(latencySamples - firstDrainSamples),
-                "Mixer tail accounting must subtract the exact samples already drained, without timestamp re-rounding.");
-            Assert.That(finalDrain.SampleCount, Is.EqualTo(finalBlockSamples));
+                "The final branch block must flush only the tail that remains after the prior drain.");
+            Assert.That(finalDrain.SampleCount, Is.EqualTo(finalBlockSamples),
+                "Mixer output must remain padded to the requested block length after a shortened branch flush.");
         });
     }
 
@@ -859,10 +750,10 @@ public class AudioLatencyCompensationTests
         mixer.AddInput(branch);
         mixer.SetBranchEndTime(branch, branchEnd);
 
-        using var processed = mixer.Process(ExactContext(TimeSpan.Zero, processSamples, SampleRate));
-        using var firstDrain = mixer.Process(ExactContext(branchEnd, drainSamples, SampleRate));
+        using var processed = mixer.Process(Exact(TimeSpan.Zero, processSamples, SampleRate));
+        using var firstDrain = mixer.Process(Exact(branchEnd, drainSamples, SampleRate));
         using var secondDrain = mixer.Process(
-            ExactContext(branchEnd + ExactDuration(drainSamples, SampleRate), drainSamples, SampleRate));
+            Exact(branchEnd + ExactDuration(drainSamples, SampleRate), drainSamples, SampleRate));
 
         Assert.Multiple(() =>
         {
@@ -885,12 +776,12 @@ public class AudioLatencyCompensationTests
         mixer.AddInput(branch);
         mixer.SetBranchEndTime(branch, branchEnd);
 
-        using var processed = mixer.Process(ExactContext(TimeSpan.Zero, processSamples, SampleRate));
-        using var firstDrain = mixer.Process(ExactContext(branchEnd, drainSamples, SampleRate));
+        using var processed = mixer.Process(Exact(TimeSpan.Zero, processSamples, SampleRate));
+        using var firstDrain = mixer.Process(Exact(branchEnd, drainSamples, SampleRate));
 
         var replayStart = ExactDuration(processSamples / 2, SampleRate);
-        using var replay = mixer.Process(ExactContext(replayStart, processSamples / 2, SampleRate));
-        using var secondDrain = mixer.Process(ExactContext(branchEnd, drainSamples, SampleRate));
+        using var replay = mixer.Process(Exact(replayStart, processSamples / 2, SampleRate));
+        using var secondDrain = mixer.Process(Exact(branchEnd, drainSamples, SampleRate));
 
         Assert.That(branch.FlushCount, Is.EqualTo(2),
             "A discontinuous replay must clear the prior unknown-drain attempt so the new tail can be flushed.");
@@ -909,9 +800,9 @@ public class AudioLatencyCompensationTests
         mixer.AddInput(branch);
         mixer.SetBranchEndTime(branch, branchEnd);
 
-        using var processed = mixer.Process(ExactContext(TimeSpan.Zero, processSamples, SampleRate));
+        using var processed = mixer.Process(Exact(TimeSpan.Zero, processSamples, SampleRate));
         using var replay = mixer.Process(
-            ExactContext(branchEnd + ExactDuration(replaySamples, SampleRate), replaySamples, SampleRate));
+            Exact(branchEnd + ExactDuration(replaySamples, SampleRate), replaySamples, SampleRate));
 
         Assert.That(mixer.GetDrainLatencySamples(SampleRate), Is.EqualTo(0),
             "A branch that ended before a discontinuous replay and was not processed in that run must not keep its old latency alive.");
@@ -933,7 +824,7 @@ public class AudioLatencyCompensationTests
         mixer.SetBranchEndTime(earlyBranch, earlyEnd);
         mixer.SetBranchEndTime(activeBranch, groupEnd);
 
-        using var processed = mixer.Process(ExactContext(TimeSpan.Zero, sampleCount, SampleRate));
+        using var processed = mixer.Process(Exact(TimeSpan.Zero, sampleCount, SampleRate));
 
         Assert.That(mixer.GetDrainLatencySamples(SampleRate), Is.EqualTo(activeLatencySamples),
             "A branch whose tail ended inside the processed block must not keep the mixer drain budget alive.");
@@ -958,7 +849,7 @@ public class AudioLatencyCompensationTests
         mixer.AddInput(branch);
         mixer.SetBranchEndTime(branch, branchEnd);
 
-        using var processed = mixer.Process(ExactContext(TimeSpan.Zero, processSamples, SampleRate));
+        using var processed = mixer.Process(Exact(TimeSpan.Zero, processSamples, SampleRate));
 
         Assert.That(mixer.GetDrainLatencySamples(SampleRate), Is.EqualTo(expectedRemaining),
             "A branch that ends inside the last process block must report only the tail after that block.");
@@ -977,7 +868,7 @@ public class AudioLatencyCompensationTests
         mixer.AddInput(branch);
         mixer.SetBranchEndTime(branch, branchEnd);
 
-        using var processed = mixer.Process(ExactContext(TimeSpan.Zero, 1, sampleRate));
+        using var processed = mixer.Process(Exact(TimeSpan.Zero, 1, sampleRate));
 
         Assert.That(mixer.GetDrainLatencySamples(sampleRate), Is.EqualTo(branchLatency),
             "A fractional remaining tail still occupies the final sample and must use ceiling coverage.");
@@ -995,12 +886,12 @@ public class AudioLatencyCompensationTests
         mixer.AddInput(branch);
         mixer.SetBranchEndTime(branch, branchEnd);
 
-        using var processed = mixer.Process(ExactContext(TimeSpan.Zero, processSamples, SampleRate));
-        using var drain = mixer.Process(ExactContext(branchEnd, drainSamples, SampleRate));
+        using var processed = mixer.Process(Exact(TimeSpan.Zero, processSamples, SampleRate));
+        using var drain = mixer.Process(Exact(branchEnd, drainSamples, SampleRate));
         Assert.That(mixer.ClearBranchEndTime(branch), Is.True);
 
         using var live = mixer.Process(
-            ExactContext(branchEnd + ExactDuration(drainSamples, SampleRate), drainSamples, SampleRate));
+            Exact(branchEnd + ExactDuration(drainSamples, SampleRate), drainSamples, SampleRate));
 
         Assert.That(mixer.GetDrainLatencySamples(SampleRate), Is.EqualTo(int.MaxValue),
             "Clearing a branch end must make an unknown-latency branch visible to enclosing drain reports again.");
@@ -1227,7 +1118,7 @@ public class AudioLatencyCompensationTests
         const int clipSamples = 4096;
         var clipDuration = TimeSpan.FromSeconds((double)clipSamples / SampleRate);
 
-        var source = new RangeSineNode(SampleRate);
+        var source = new AbsoluteSineNode(SampleRate);
         using var limiter = CreateTransparentLimiter(lookaheadMs);
         limiter.AddInput(source);
 
@@ -1238,14 +1129,7 @@ public class AudioLatencyCompensationTests
 
         using var tail = clip.Flush(Context(TimeSpan.FromSeconds(123.0), L));
 
-        var tailData = tail.GetChannelData(0);
-        bool anyNonZero = false;
-        for (int k = 0; k < L; k++)
-        {
-            if (MathF.Abs(tailData[k]) > 1e-6f) { anyNonZero = true; break; }
-        }
-
-        Assert.That(anyNonZero, Is.True,
+        Assert.That(HasNonZero(tail.GetChannelData(0)[..L]), Is.True,
             "A nested ClipNode flushed in a parent's time domain must remap to clip-local time so the "
             + "cached limiter stays contiguous and drains its held tail instead of resetting to silence.");
     }
@@ -1258,7 +1142,7 @@ public class AudioLatencyCompensationTests
         const int clipSamples = 4096;
         var clipDuration = TimeSpan.FromSeconds((double)clipSamples / SampleRate);
 
-        var source = new RangeSineNode(SampleRate);
+        var source = new AbsoluteSineNode(SampleRate);
         using var limiter = CreateTransparentLimiter(lookaheadMs);
         limiter.AddInput(source);
 
@@ -1283,7 +1167,7 @@ public class AudioLatencyCompensationTests
         const int processedSamples = 4096;
 
         var clipDuration = TimeSpan.FromSeconds((double)clipSamples / SampleRate);
-        var source = new RangeSineNode(SampleRate);
+        var source = new AbsoluteSineNode(SampleRate);
         using var limiter = CreateTransparentLimiter(lookaheadMs);
         limiter.AddInput(source);
 
@@ -1294,14 +1178,7 @@ public class AudioLatencyCompensationTests
 
         using var tail = clip.Flush(Context(TimeSpan.FromSeconds(99.0), L));
 
-        var tailData = tail.GetChannelData(0);
-        bool anyNonZero = false;
-        for (int k = 0; k < L; k++)
-        {
-            if (MathF.Abs(tailData[k]) > 1e-6f) { anyNonZero = true; break; }
-        }
-
-        Assert.That(anyNonZero, Is.True,
+        Assert.That(HasNonZero(tail.GetChannelData(0)[..L]), Is.True,
             "A clip trimmed by its parent must flush from its last processed local time so the cached "
             + "limiter stays contiguous and drains the tail held at the trim boundary, not at Duration.");
     }
@@ -1315,7 +1192,7 @@ public class AudioLatencyCompensationTests
         const int clipSamples = 4096;
         var clipDuration = TimeSpan.FromSeconds((double)clipSamples / SampleRate);
 
-        var source = new RangeSineNode(SampleRate);
+        var source = new AbsoluteSineNode(SampleRate);
         using var limiter = CreateTransparentLimiter(lookaheadMs);
         limiter.AddInput(source);
 
@@ -1326,14 +1203,7 @@ public class AudioLatencyCompensationTests
 
         using var tail = clip.Flush(Context(TimeSpan.FromSeconds(77.0), L));
 
-        var tailData = tail.GetChannelData(0);
-        bool anyNonZero = false;
-        for (int k = 0; k < L - pad; k++)
-        {
-            if (MathF.Abs(tailData[k]) > 1e-6f) { anyNonZero = true; break; }
-        }
-
-        Assert.That(anyNonZero, Is.True,
+        Assert.That(HasNonZero(tail.GetChannelData(0)[..(L - pad)]), Is.True,
             "After a partial tail append, the parent flush must continue from the advanced drain position "
             + "so the remaining held samples are recovered, not dropped by a backward-discontinuity reset.");
     }
@@ -1351,7 +1221,7 @@ public class AudioLatencyCompensationTests
         using var clip = new ClipNode { Start = TimeSpan.Zero, Duration = clipDuration };
         clip.AddInput(input);
 
-        using var processed = clip.Process(ExactContext(TimeSpan.Zero, clipSamples + pad, sampleRate));
+        using var processed = clip.Process(Exact(TimeSpan.Zero, clipSamples + pad, sampleRate));
 
         Assert.That(input.LastFlushSampleCount, Is.EqualTo(pad),
             "The partial drain must request exactly 3087 samples; a rounded-up 3088th sample would be "
@@ -1505,36 +1375,18 @@ public class AudioLatencyCompensationTests
             LookaheadMs = lookaheadMs,
             TimeRange = new TimeRange(TimeSpan.Zero, oneSecond),
         };
-        var resource = sound.ToResource(CompositionContext.Default);
+        using var resource = Setup(sound, out var eligibility);
 
         using var composer = new Composer { SampleRate = SampleRate };
 
         var window1 = new TimeRange(TimeSpan.Zero, oneSecond);
-        var eligibility = new CompositionEligibility([sound]);
-        var frame1 = new CompositionFrame(
-            ImmutableArray.Create<EngineObject.Resource>(resource),
-            window1,
-            default,
-            eligibility);
-        using var buffer1 = composer.Compose(window1, frame1);
+        using var buffer1 = ComposeWindow(composer, window1, eligibility, resource);
 
         var window2 = new TimeRange(oneSecond, oneSecond);
-        var frame2 = new CompositionFrame(
-            ImmutableArray<EngineObject.Resource>.Empty,
-            window2,
-            default,
-            eligibility);
-        using var buffer2 = composer.Compose(window2, frame2);
+        using var buffer2 = ComposeWindow(composer, window2, eligibility);
 
         Assert.That(buffer2, Is.Not.Null);
-        var tail = buffer2!.GetChannelData(0);
-        bool tailNonZero = false;
-        for (int k = 0; k < L; k++)
-        {
-            if (MathF.Abs(tail[k]) > 1e-5f) { tailNonZero = true; break; }
-        }
-
-        Assert.That(tailNonZero, Is.True,
+        Assert.That(HasNonZero(buffer2!.GetChannelData(0)[..L], 1e-5f), Is.True,
             "A sound ending exactly at the window boundary must have its limiter tail flushed into the next window's start.");
     }
 
@@ -1553,26 +1405,15 @@ public class AudioLatencyCompensationTests
             LookaheadMs = lookaheadMs,
             TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
         };
-        var resource = sound.ToResource(CompositionContext.Default);
+        using var resource = Setup(sound, out var eligibility);
 
         using var composer = new Composer { SampleRate = SampleRate };
 
         var window1 = new TimeRange(TimeSpan.Zero, window1Duration);
-        var eligibility = new CompositionEligibility([sound]);
-        var frame1 = new CompositionFrame(
-            ImmutableArray.Create<EngineObject.Resource>(resource),
-            window1,
-            default,
-            eligibility);
-        using var buffer1 = composer.Compose(window1, frame1);
+        using var buffer1 = ComposeWindow(composer, window1, eligibility, resource);
 
         var window2 = new TimeRange(window1Duration, window1Duration);
-        var frame2 = new CompositionFrame(
-            ImmutableArray<EngineObject.Resource>.Empty,
-            window2,
-            default,
-            eligibility);
-        using var buffer2 = composer.Compose(window2, frame2);
+        using var buffer2 = ComposeWindow(composer, window2, eligibility);
 
         Assert.That(buffer2, Is.Not.Null);
         var tail = buffer2!.GetChannelData(0);
@@ -1599,28 +1440,17 @@ public class AudioLatencyCompensationTests
             LookaheadMs = lookaheadMs,
             TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
         };
-        var resource = sound.ToResource(CompositionContext.Default);
-        var eligibility = new CompositionEligibility([sound]);
+        using var resource = Setup(sound, out var eligibility);
 
         using var composer = new Composer { SampleRate = SampleRate };
         var firstRange = new TimeRange(TimeSpan.Zero, windowDuration);
-        var firstFrame = new CompositionFrame(
-            ImmutableArray.Create<EngineObject.Resource>(resource),
-            firstRange,
-            default,
-            eligibility);
-        using var first = composer.Compose(firstRange, firstFrame);
+        using var first = ComposeWindow(composer, firstRange, eligibility, resource);
 
         Assert.That(composer.GetTotalLatencySamples(SampleRate), Is.EqualTo(0),
             "The terminal ClipNode already drained the limiter's full reported latency into the first window.");
 
         var secondRange = new TimeRange(windowDuration, windowDuration);
-        var secondFrame = new CompositionFrame(
-            ImmutableArray<EngineObject.Resource>.Empty,
-            secondRange,
-            default,
-            eligibility);
-        using var second = composer.Compose(secondRange, secondFrame);
+        using var second = ComposeWindow(composer, secondRange, eligibility);
 
         Assert.That(second, Is.Not.Null);
         Assert.That(HasNonZero(second!.GetChannelData(0)), Is.False,
@@ -1641,27 +1471,16 @@ public class AudioLatencyCompensationTests
             LookaheadMs = 5f,
             TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
         };
-        var resource = sound.ToResource(CompositionContext.Default);
-        var eligibility = new CompositionEligibility([sound]);
+        using var resource = Setup(sound, out var eligibility);
 
         using var composer = new Composer { SampleRate = SampleRate };
         var firstRange = new TimeRange(TimeSpan.Zero, clipDuration);
-        var firstFrame = new CompositionFrame(
-            ImmutableArray.Create<EngineObject.Resource>(resource),
-            firstRange,
-            default,
-            eligibility);
-        using var first = composer.Compose(firstRange, firstFrame);
+        using var first = ComposeWindow(composer, firstRange, eligibility, resource);
 
         Assert.That(composer.GetTotalLatencySamples(SampleRate), Is.EqualTo(tailSamples));
 
         var secondRange = new TimeRange(clipDuration, windowDuration);
-        var secondFrame = new CompositionFrame(
-            ImmutableArray<EngineObject.Resource>.Empty,
-            secondRange,
-            default,
-            eligibility);
-        using var second = composer.Compose(secondRange, secondFrame);
+        using var second = ComposeWindow(composer, secondRange, eligibility);
 
         Assert.That(second, Is.Not.Null);
         Assert.That(second!.GetChannelData(0)[tailSamples..].ToArray(), Has.All.EqualTo(0f),
@@ -1676,32 +1495,23 @@ public class AudioLatencyCompensationTests
         var clipDuration = ExactDuration(clipSamples, SampleRate);
         var drainDuration = ExactDuration(tailSamples, SampleRate);
 
-        var sound = new LimiterAfterClipTailSound
+        var sound = new LimiterTailSound
         {
+            LimiterBeforeClip = false,
+            LimiterAfterClip = true,
             LookaheadMs = 5f,
             TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
         };
-        var resource = sound.ToResource(CompositionContext.Default);
-        var eligibility = new CompositionEligibility([sound]);
+        using var resource = Setup(sound, out var eligibility);
 
         using var composer = new Composer { SampleRate = SampleRate };
-        var firstFrame = new CompositionFrame(
-            ImmutableArray.Create<EngineObject.Resource>(resource),
-            new TimeRange(TimeSpan.Zero, clipDuration),
-            default,
-            eligibility);
-        using var first = composer.Compose(firstFrame.Time, firstFrame);
+        using var first = ComposeWindow(composer, new TimeRange(TimeSpan.Zero, clipDuration), eligibility, resource);
 
         Assert.That(composer.GetTotalLatencySamples(SampleRate), Is.EqualTo(tailSamples),
             "Inline drain accounting must retain latency introduced after the descendant clip.");
 
         var secondRange = new TimeRange(clipDuration, drainDuration);
-        var secondFrame = new CompositionFrame(
-            ImmutableArray<EngineObject.Resource>.Empty,
-            secondRange,
-            default,
-            eligibility);
-        using var second = composer.Compose(secondRange, secondFrame);
+        using var second = ComposeWindow(composer, secondRange, eligibility);
 
         Assert.That(HasNonZero(second!.GetChannelData(0)), Is.True,
             "The downstream limiter tail must remain eligible for the following window.");
@@ -1717,33 +1527,24 @@ public class AudioLatencyCompensationTests
         var firstDuration = ExactDuration(clipSamples + paddingSamples, SampleRate);
         var drainDuration = ExactDuration(tailSamples, SampleRate);
 
-        var sound = new LimiterAfterClipTailSound
+        var sound = new LimiterTailSound
         {
+            LimiterBeforeClip = false,
+            LimiterAfterClip = true,
             LookaheadMs = 5f,
             TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
         };
-        var resource = sound.ToResource(CompositionContext.Default);
-        var eligibility = new CompositionEligibility([sound]);
+        using var resource = Setup(sound, out var eligibility);
 
         using var composer = new Composer { SampleRate = SampleRate };
         var firstRange = new TimeRange(TimeSpan.Zero, firstDuration);
-        var firstFrame = new CompositionFrame(
-            ImmutableArray.Create<EngineObject.Resource>(resource),
-            firstRange,
-            default,
-            eligibility);
-        using var first = composer.Compose(firstRange, firstFrame);
+        using var first = ComposeWindow(composer, firstRange, eligibility, resource);
 
         Assert.That(composer.GetTotalLatencySamples(SampleRate), Is.EqualTo(tailSamples - paddingSamples),
             "Trailing clip padding already consumed part of the downstream limiter latency.");
 
         var secondRange = new TimeRange(firstRange.End, drainDuration);
-        var secondFrame = new CompositionFrame(
-            ImmutableArray<EngineObject.Resource>.Empty,
-            secondRange,
-            default,
-            eligibility);
-        using var second = composer.Compose(secondRange, secondFrame);
+        using var second = ComposeWindow(composer, secondRange, eligibility);
 
         Assert.That(HasNonZero(second!.GetChannelData(0)[..(tailSamples - paddingSamples)]), Is.True,
             "Only the downstream limiter tail that remains after terminal padding should be flushed.");
@@ -1761,25 +1562,14 @@ public class AudioLatencyCompensationTests
         {
             TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
         };
-        var resource = sound.ToResource(CompositionContext.Default);
-        var eligibility = new CompositionEligibility([sound]);
+        using var resource = Setup(sound, out var eligibility);
         MixedInlineUnknownTailSound.ResetFlushCount();
 
         using var composer = new Composer { SampleRate = SampleRate };
-        var firstFrame = new CompositionFrame(
-            ImmutableArray.Create<EngineObject.Resource>(resource),
-            new TimeRange(TimeSpan.Zero, clipDuration),
-            default,
-            eligibility);
-        using var first = composer.Compose(firstFrame.Time, firstFrame);
+        using var first = ComposeWindow(composer, new TimeRange(TimeSpan.Zero, clipDuration), eligibility, resource);
 
         var secondRange = new TimeRange(clipDuration, drainDuration);
-        var secondFrame = new CompositionFrame(
-            ImmutableArray<EngineObject.Resource>.Empty,
-            secondRange,
-            default,
-            eligibility);
-        using var second = composer.Compose(secondRange, secondFrame);
+        using var second = ComposeWindow(composer, secondRange, eligibility);
 
         Assert.That(MixedInlineUnknownTailSound.UnknownFlushCount, Is.EqualTo(1),
             "An unknown output without an inline drain must retain its independent follow-up drain.");
@@ -1797,26 +1587,15 @@ public class AudioLatencyCompensationTests
         {
             TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
         };
-        var resource = sound.ToResource(CompositionContext.Default);
-        var eligibility = new CompositionEligibility([sound]);
+        using var resource = Setup(sound, out var eligibility);
         HeterogeneousOutputTailSound.ResetFlushCounts();
 
         using var composer = new Composer { SampleRate = SampleRate };
         var firstRange = new TimeRange(TimeSpan.Zero, clipDuration);
-        var firstFrame = new CompositionFrame(
-            ImmutableArray.Create<EngineObject.Resource>(resource),
-            firstRange,
-            default,
-            eligibility);
-        using var first = composer.Compose(firstRange, firstFrame);
+        using var first = ComposeWindow(composer, firstRange, eligibility, resource);
 
         var secondRange = new TimeRange(clipDuration, drainDuration);
-        var emptyFrame = new CompositionFrame(
-            ImmutableArray<EngineObject.Resource>.Empty,
-            secondRange,
-            default,
-            eligibility);
-        using var second = composer.Compose(secondRange, emptyFrame);
+        using var second = ComposeWindow(composer, secondRange, eligibility);
 
         Assert.Multiple(() =>
         {
@@ -1826,12 +1605,7 @@ public class AudioLatencyCompensationTests
         });
 
         var thirdRange = new TimeRange(clipDuration + drainDuration, drainDuration);
-        var thirdFrame = new CompositionFrame(
-            ImmutableArray<EngineObject.Resource>.Empty,
-            thirdRange,
-            default,
-            eligibility);
-        using var third = composer.Compose(thirdRange, thirdFrame);
+        using var third = ComposeWindow(composer, thirdRange, eligibility);
 
         Assert.Multiple(() =>
         {
@@ -1852,28 +1626,17 @@ public class AudioLatencyCompensationTests
         {
             TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
         };
-        var resource = sound.ToResource(CompositionContext.Default);
-        var eligibility = new CompositionEligibility([sound]);
+        using var resource = Setup(sound, out var eligibility);
         UnboundedSpeedTailSound.ResetFlushCount();
 
         using var composer = new Composer { SampleRate = sampleRate };
         var firstRange = new TimeRange(TimeSpan.Zero, clipDuration);
-        var firstFrame = new CompositionFrame(
-            ImmutableArray.Create<EngineObject.Resource>(resource),
-            firstRange,
-            default,
-            eligibility);
-        using var first = composer.Compose(firstRange, firstFrame);
+        using var first = ComposeWindow(composer, firstRange, eligibility, resource);
         Assert.That(composer.GetTotalLatencySamples(sampleRate), Is.EqualTo(int.MaxValue),
             "An unknown speed-animation range must report an unbounded drain budget before a drain attempt.");
 
         var secondRange = new TimeRange(clipDuration, drainDuration);
-        var emptyFrame = new CompositionFrame(
-            ImmutableArray<EngineObject.Resource>.Empty,
-            secondRange,
-            default,
-            eligibility);
-        using var second = composer.Compose(secondRange, emptyFrame);
+        using var second = ComposeWindow(composer, secondRange, eligibility);
 
         Assert.Multiple(() =>
         {
@@ -1883,92 +1646,41 @@ public class AudioLatencyCompensationTests
         });
 
         var thirdRange = new TimeRange(clipDuration + drainDuration, drainDuration);
-        var thirdFrame = new CompositionFrame(
-            ImmutableArray<EngineObject.Resource>.Empty,
-            thirdRange,
-            default,
-            eligibility);
-        using var third = composer.Compose(thirdRange, thirdFrame);
+        using var third = ComposeWindow(composer, thirdRange, eligibility);
 
         Assert.That(UnboundedSpeedTailSound.FlushCount, Is.EqualTo(1),
             "An unknown latency budget must be bounded to one drain attempt.");
     }
 
-    [Test]
-    public void Composer_UsesTerminalAnimatedLimiterLatencyForInlineDrain()
+    // With one trailing sample the terminal window drains inline; without it there is no inline capacity.
+    [TestCase(1, TestName = "Composer_UsesTerminalAnimatedLimiterLatencyForInlineDrain")]
+    [TestCase(0, TestName = "Composer_UsesTerminalAnimatedLimiterLatency_WhenTerminalWindowHasNoInlineCapacity")]
+    public void Composer_UsesTerminalAnimatedLimiterLatency(int trailingSamples)
     {
         const int sampleRate = SampleRate;
         var clipDuration = ExactDuration(sampleRate, sampleRate);
-        var oneSample = ExactDuration(1, sampleRate);
         var drainDuration = ExactDuration(240, sampleRate);
 
-        var sound = new AnimatedLimiterDelayTailSound
+        var sound = new LimiterDelayTailSound
         {
+            LookaheadMs = 20f,
+            LookaheadRampEnd = clipDuration,
             TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
         };
-        var resource = sound.ToResource(CompositionContext.Default);
-        var eligibility = new CompositionEligibility([sound]);
+        using var resource = Setup(sound, out var eligibility);
 
         using var composer = new Composer { SampleRate = sampleRate };
-        var firstRange = new TimeRange(TimeSpan.Zero, clipDuration + oneSample);
-        var firstFrame = new CompositionFrame(
-            ImmutableArray.Create<EngineObject.Resource>(resource),
-            firstRange,
-            default,
-            eligibility);
-        using var first = composer.Compose(firstRange, firstFrame);
+        var firstRange = new TimeRange(TimeSpan.Zero, clipDuration + ExactDuration(trailingSamples, sampleRate));
+        using var first = ComposeWindow(composer, firstRange, eligibility, resource);
 
         Assert.That(composer.GetTotalLatencySamples(sampleRate), Is.EqualTo(0),
             "Composer must use the limiter's terminal animated lookahead, not its worst-case reservation.");
 
         var secondRange = new TimeRange(firstRange.End, drainDuration);
-        var secondFrame = new CompositionFrame(
-            ImmutableArray<EngineObject.Resource>.Empty,
-            secondRange,
-            default,
-            eligibility);
-        using var second = composer.Compose(secondRange, secondFrame);
+        using var second = ComposeWindow(composer, secondRange, eligibility);
 
         Assert.That(HasNonZero(second!.GetChannelData(0)), Is.False,
             "A zero terminal lookahead must not feed unnecessary zero blocks into a stateful delay effect.");
-    }
-
-    [Test]
-    public void Composer_UsesTerminalAnimatedLimiterLatency_WhenTerminalWindowHasNoInlineCapacity()
-    {
-        const int sampleRate = SampleRate;
-        var clipDuration = ExactDuration(sampleRate, sampleRate);
-        var drainDuration = ExactDuration(240, sampleRate);
-
-        var sound = new AnimatedLimiterDelayTailSound
-        {
-            TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
-        };
-        var resource = sound.ToResource(CompositionContext.Default);
-        var eligibility = new CompositionEligibility([sound]);
-
-        using var composer = new Composer { SampleRate = sampleRate };
-        var firstRange = new TimeRange(TimeSpan.Zero, clipDuration);
-        var firstFrame = new CompositionFrame(
-            ImmutableArray.Create<EngineObject.Resource>(resource),
-            firstRange,
-            default,
-            eligibility);
-        using var first = composer.Compose(firstRange, firstFrame);
-
-        Assert.That(composer.GetTotalLatencySamples(sampleRate), Is.EqualTo(0),
-            "A terminal block with no trailing capacity must still seed the actual terminal drain latency.");
-
-        var secondRange = new TimeRange(clipDuration, drainDuration);
-        var secondFrame = new CompositionFrame(
-            ImmutableArray<EngineObject.Resource>.Empty,
-            secondRange,
-            default,
-            eligibility);
-        using var second = composer.Compose(secondRange, secondFrame);
-
-        Assert.That(HasNonZero(second!.GetChannelData(0)), Is.False,
-            "A zero terminal lookahead must not flush a stateful nested delay after an exact-boundary clip.");
     }
 
     [Test]
@@ -1983,18 +1695,12 @@ public class AudioLatencyCompensationTests
         {
             TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
         };
-        var resource = sound.ToResource(CompositionContext.Default);
-        var eligibility = new CompositionEligibility([sound]);
+        using var resource = Setup(sound, out var eligibility);
         UnboundedSpeedTailSound.ResetFlushCount();
 
         using var composer = new Composer { SampleRate = sampleRate };
         var firstRange = new TimeRange(TimeSpan.Zero, clipDuration + oneSample);
-        var firstFrame = new CompositionFrame(
-            ImmutableArray.Create<EngineObject.Resource>(resource),
-            firstRange,
-            default,
-            eligibility);
-        using var first = composer.Compose(firstRange, firstFrame);
+        using var first = ComposeWindow(composer, firstRange, eligibility, resource);
 
         Assert.That(composer.GetTotalLatencySamples(sampleRate), Is.EqualTo(int.MaxValue),
             "A partial inline drain of an unknown budget must retain one bounded follow-up attempt.");
@@ -2002,12 +1708,7 @@ public class AudioLatencyCompensationTests
             "The terminal block must account for its one inline drain sample.");
 
         var secondRange = new TimeRange(firstRange.End, drainDuration);
-        var secondFrame = new CompositionFrame(
-            ImmutableArray<EngineObject.Resource>.Empty,
-            secondRange,
-            default,
-            eligibility);
-        using var second = composer.Compose(secondRange, secondFrame);
+        using var second = ComposeWindow(composer, secondRange, eligibility);
 
         Assert.Multiple(() =>
         {
@@ -2027,17 +1728,11 @@ public class AudioLatencyCompensationTests
         {
             TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
         };
-        var resource = sound.ToResource(CompositionContext.Default);
-        var eligibility = new CompositionEligibility([sound]);
+        using var resource = Setup(sound, out var eligibility);
         UnboundedSpeedTailSound.ResetFlushCount();
 
         using var composer = new Composer { SampleRate = sampleRate };
-        var firstFrame = new CompositionFrame(
-            ImmutableArray.Create<EngineObject.Resource>(resource),
-            new TimeRange(TimeSpan.Zero, clipDuration),
-            default,
-            eligibility);
-        using var first = composer.Compose(firstFrame.Time, firstFrame);
+        using var first = ComposeWindow(composer, new TimeRange(TimeSpan.Zero, clipDuration), eligibility, resource);
 
         using var emptyFlush = composer.Flush(new TimeRange(clipDuration, TimeSpan.Zero), eligibility);
         Assert.That(composer.GetTotalLatencySamples(sampleRate), Is.EqualTo(int.MaxValue),
@@ -2063,36 +1758,26 @@ public class AudioLatencyCompensationTests
         var oneSample = ExactDuration(1, sampleRate);
         var drainDuration = ExactDuration(latencySamples, sampleRate);
 
-        var sound = new WrappedOutputTailSound
+        var sound = new LimiterTailSound
         {
+            WrapOutput = true,
             LookaheadMs = lookaheadMs,
             TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
         };
-        var resource = sound.ToResource(CompositionContext.Default);
-        var eligibility = new CompositionEligibility([sound]);
-        WrappedOutputTailSound.ResetFlushState();
+        using var resource = Setup(sound, out var eligibility);
+        LimiterTailSound.ResetFlushState();
 
         using var composer = new Composer { SampleRate = sampleRate };
         var firstRange = new TimeRange(TimeSpan.Zero, clipDuration + oneSample);
-        var firstFrame = new CompositionFrame(
-            ImmutableArray.Create<EngineObject.Resource>(resource),
-            firstRange,
-            default,
-            eligibility);
-        using var first = composer.Compose(firstRange, firstFrame);
+        using var first = ComposeWindow(composer, firstRange, eligibility, resource);
 
         Assert.That(composer.GetTotalLatencySamples(sampleRate), Is.EqualTo(latencySamples - 1),
             "Inline drain accounting must find the ClipNode beneath a wrapper output.");
 
         var secondRange = new TimeRange(firstRange.End, drainDuration);
-        var secondFrame = new CompositionFrame(
-            ImmutableArray<EngineObject.Resource>.Empty,
-            secondRange,
-            default,
-            eligibility);
-        using var second = composer.Compose(secondRange, secondFrame);
+        using var second = ComposeWindow(composer, secondRange, eligibility);
 
-        Assert.That(WrappedOutputTailSound.LastFlushSampleCount, Is.EqualTo(latencySamples - 1),
+        Assert.That(LimiterTailSound.LastFlushSampleCount, Is.EqualTo(latencySamples - 1),
             "The wrapped output must be flushed only for the tail not already recovered inline.");
     }
 
@@ -2109,18 +1794,12 @@ public class AudioLatencyCompensationTests
             LookaheadMs = lookaheadMs,
             TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
         };
-        var resource = sound.ToResource(CompositionContext.Default);
-        var eligibility = new CompositionEligibility([sound]);
+        using var resource = Setup(sound, out var eligibility);
 
         using var composer = new Composer { SampleRate = SampleRate };
         IComposer composerContract = composer;
         var firstRange = new TimeRange(TimeSpan.Zero, clipDuration + oneSample);
-        var firstFrame = new CompositionFrame(
-            ImmutableArray.Create<EngineObject.Resource>(resource),
-            firstRange,
-            default,
-            eligibility);
-        using var first = composer.Compose(firstRange, firstFrame);
+        using var first = ComposeWindow(composer, firstRange, eligibility, resource);
 
         Assert.That(composerContract.GetDrainLatencySamples(SampleRate), Is.EqualTo(latencySamples - 1),
             "The interface contract must expose the nested composer's remaining, not full, drain budget.");
@@ -2138,29 +1817,18 @@ public class AudioLatencyCompensationTests
         {
             TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
         };
-        var resource = sound.ToResource(CompositionContext.Default);
-        var eligibility = new CompositionEligibility([sound]);
+        using var resource = Setup(sound, out var eligibility);
         HeterogeneousWrappedOutputTailSound.ResetFlushState();
 
         using var composer = new Composer { SampleRate = sampleRate };
         var firstRange = new TimeRange(TimeSpan.Zero, clipDuration + oneSample);
-        var firstFrame = new CompositionFrame(
-            ImmutableArray.Create<EngineObject.Resource>(resource),
-            firstRange,
-            default,
-            eligibility);
-        using var first = composer.Compose(firstRange, firstFrame);
+        using var first = ComposeWindow(composer, firstRange, eligibility, resource);
 
         Assert.That(composer.GetTotalLatencySamples(sampleRate), Is.EqualTo(longLatency - 1),
             "A wrapped fan-in output must retain the dominant branch's remaining tail after inline recovery.");
 
         var secondRange = new TimeRange(firstRange.End, ExactDuration(longLatency, sampleRate));
-        var secondFrame = new CompositionFrame(
-            ImmutableArray<EngineObject.Resource>.Empty,
-            secondRange,
-            default,
-            eligibility);
-        using var second = composer.Compose(secondRange, secondFrame);
+        using var second = ComposeWindow(composer, secondRange, eligibility);
 
         Assert.That(HeterogeneousWrappedOutputTailSound.LastFlushSampleCount, Is.EqualTo(longLatency - 1),
             "The wrapped fan-in must not reflush the sample already recovered by each descendant ClipNode.");
@@ -2178,17 +1846,11 @@ public class AudioLatencyCompensationTests
         {
             TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
         };
-        var resource = sound.ToResource(CompositionContext.Default);
-        var eligibility = new CompositionEligibility([sound]);
+        using var resource = Setup(sound, out var eligibility);
 
         using var composer = new Composer { SampleRate = sampleRate };
         var firstRange = new TimeRange(TimeSpan.Zero, clipDuration + oneSample);
-        var firstFrame = new CompositionFrame(
-            ImmutableArray.Create<EngineObject.Resource>(resource),
-            firstRange,
-            default,
-            eligibility);
-        using var first = composer.Compose(firstRange, firstFrame);
+        using var first = ComposeWindow(composer, firstRange, eligibility, resource);
 
         Assert.That(composer.GetTotalLatencySamples(sampleRate), Is.EqualTo(downstreamLatency - 1),
             "Inline drain accounting must retain the downstream latency of each fan-in path independently.");
@@ -2206,17 +1868,11 @@ public class AudioLatencyCompensationTests
         {
             TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
         };
-        var resource = sound.ToResource(CompositionContext.Default);
-        var eligibility = new CompositionEligibility([sound]);
+        using var resource = Setup(sound, out var eligibility);
 
         using var composer = new Composer { SampleRate = sampleRate };
         var firstRange = new TimeRange(TimeSpan.Zero, clipDuration + oneSample);
-        var firstFrame = new CompositionFrame(
-            ImmutableArray.Create<EngineObject.Resource>(resource),
-            firstRange,
-            default,
-            eligibility);
-        using var first = composer.Compose(firstRange, firstFrame);
+        using var first = ComposeWindow(composer, firstRange, eligibility, resource);
 
         Assert.That(composer.GetTotalLatencySamples(sampleRate), Is.EqualTo(downstreamLatency - 1),
             "A shared ClipNode must contribute its downstream latency on every fan-out path.");
@@ -2236,16 +1892,10 @@ public class AudioLatencyCompensationTests
         {
             TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
         };
-        var resource = sound.ToResource(CompositionContext.Default);
-        var eligibility = new CompositionEligibility([sound]);
+        using var resource = Setup(sound, out var eligibility);
 
         using var composer = new Composer { SampleRate = outputSampleRate };
-        var firstFrame = new CompositionFrame(
-            ImmutableArray.Create<EngineObject.Resource>(resource),
-            firstRange,
-            default,
-            eligibility);
-        using var first = composer.Compose(firstRange, firstFrame);
+        using var first = ComposeWindow(composer, firstRange, eligibility, resource);
 
         Assert.That(composer.GetTotalLatencySamples(outputSampleRate), Is.EqualTo(49),
             "Inline drain samples recorded before a resampler must be converted from the source domain.");
@@ -2264,16 +1914,10 @@ public class AudioLatencyCompensationTests
         {
             TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
         };
-        var resource = sound.ToResource(CompositionContext.Default);
-        var eligibility = new CompositionEligibility([sound]);
+        using var resource = Setup(sound, out var eligibility);
 
         using var composer = new Composer { SampleRate = sampleRate };
-        var firstFrame = new CompositionFrame(
-            ImmutableArray.Create<EngineObject.Resource>(resource),
-            firstRange,
-            default,
-            eligibility);
-        using var first = composer.Compose(firstRange, firstFrame);
+        using var first = ComposeWindow(composer, firstRange, eligibility, resource);
 
         Assert.That(composer.GetTotalLatencySamples(sampleRate), Is.EqualTo(62),
             "The source-domain tail remaining after the SpeedNode's inline drain must be scaled to output samples.");
@@ -2293,27 +1937,16 @@ public class AudioLatencyCompensationTests
             LookaheadMs = lookaheadMs,
             TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
         };
-        var resource = sound.ToResource(CompositionContext.Default);
+        using var resource = Setup(sound, out var eligibility);
 
         using var composer = new Composer { SampleRate = SampleRate };
-        var eligibility = new CompositionEligibility([sound]);
         var firstRange = new TimeRange(TimeSpan.Zero, clipDuration);
-        var firstFrame = new CompositionFrame(
-            ImmutableArray.Create<EngineObject.Resource>(resource),
-            firstRange,
-            default,
-            eligibility);
-        using var first = composer.Compose(firstRange, firstFrame);
+        using var first = ComposeWindow(composer, firstRange, eligibility, resource);
 
         for (int i = 0; i < 2; i++)
         {
             var range = new TimeRange(clipDuration + (chunkDuration * i), chunkDuration);
-            var frame = new CompositionFrame(
-                ImmutableArray<EngineObject.Resource>.Empty,
-                range,
-                default,
-                eligibility);
-            using var tail = composer.Compose(range, frame);
+            using var tail = ComposeWindow(composer, range, eligibility);
 
             Assert.That(tail, Is.Not.Null);
             Assert.That(HasNonZero(tail!.GetChannelData(0)), Is.True,
@@ -2336,24 +1969,13 @@ public class AudioLatencyCompensationTests
             LookaheadMs = lookaheadMs,
             TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
         };
-        var resource = sound.ToResource(CompositionContext.Default);
+        using var resource = Setup(sound, out var eligibility);
 
         using var composer = new Composer { SampleRate = SampleRate };
-        var eligibility = new CompositionEligibility([sound]);
-        var firstFrame = new CompositionFrame(
-            ImmutableArray.Create<EngineObject.Resource>(resource),
-            new TimeRange(TimeSpan.Zero, clipDuration),
-            default,
-            eligibility);
-        using var first = composer.Compose(firstFrame.Time, firstFrame);
+        using var first = ComposeWindow(composer, new TimeRange(TimeSpan.Zero, clipDuration), eligibility, resource);
 
         var partialRange = new TimeRange(clipDuration, chunkDuration);
-        var partialFrame = new CompositionFrame(
-            ImmutableArray<EngineObject.Resource>.Empty,
-            partialRange,
-            default,
-            eligibility);
-        using var partial = composer.Compose(partialRange, partialFrame);
+        using var partial = ComposeWindow(composer, partialRange, eligibility);
 
         Assert.Multiple(() =>
         {
@@ -2374,16 +1996,11 @@ public class AudioLatencyCompensationTests
         {
             TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
         };
-        var resource = sound.ToResource(CompositionContext.Default);
+        using var resource = Setup(sound, out var eligibility);
         var range = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1));
-        var frame = new CompositionFrame(
-            ImmutableArray.Create<EngineObject.Resource>(resource),
-            range,
-            default,
-            new CompositionEligibility([sound]));
 
         using var composer = new Composer { SampleRate = SampleRate };
-        using var output = composer.Compose(range, frame);
+        using var output = ComposeWindow(composer, range, eligibility, resource);
 
         InvalidOperationException? exception = Assert.Throws<InvalidOperationException>(
             () => composer.GetTotalLatencySamples(SampleRate));
@@ -2404,43 +2021,22 @@ public class AudioLatencyCompensationTests
             LookaheadMs = lookaheadMs,
             TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
         };
-        var resource = sound.ToResource(CompositionContext.Default);
+        using var resource = Setup(sound, out var eligibility);
 
         using var composer = new Composer { SampleRate = SampleRate };
-        var eligibility = new CompositionEligibility([sound]);
         var firstRange = new TimeRange(TimeSpan.Zero, clipDuration);
-        var firstFrame = new CompositionFrame(
-            ImmutableArray.Create<EngineObject.Resource>(resource),
-            firstRange,
-            default,
-            eligibility);
-        using var first = composer.Compose(firstRange, firstFrame);
+        using var first = ComposeWindow(composer, firstRange, eligibility, resource);
 
         var partialRange = new TimeRange(clipDuration, chunkDuration);
-        var partialFrame = new CompositionFrame(
-            ImmutableArray<EngineObject.Resource>.Empty,
-            partialRange,
-            default,
-            eligibility);
-        using var partial = composer.Compose(partialRange, partialFrame);
+        using var partial = ComposeWindow(composer, partialRange, eligibility);
         Assert.That(HasNonZero(partial!.GetChannelData(0)), Is.True,
             "The setup must retain a partially drained tail before eligibility is lost.");
 
         var mutedRange = new TimeRange(clipDuration + chunkDuration, chunkDuration);
-        var mutedFrame = new CompositionFrame(
-            ImmutableArray<EngineObject.Resource>.Empty,
-            mutedRange,
-            default,
-            CompositionEligibility.Empty);
-        using var muted = composer.Compose(mutedRange, mutedFrame);
+        using var muted = ComposeWindow(composer, mutedRange, CompositionEligibility.Empty);
 
         var reenabledRange = new TimeRange(clipDuration + (chunkDuration * 2), chunkDuration);
-        var reenabledFrame = new CompositionFrame(
-            ImmutableArray<EngineObject.Resource>.Empty,
-            reenabledRange,
-            default,
-            eligibility);
-        using var reenabled = composer.Compose(reenabledRange, reenabledFrame);
+        using var reenabled = ComposeWindow(composer, reenabledRange, eligibility);
 
         Assert.Multiple(() =>
         {
@@ -2467,17 +2063,11 @@ public class AudioLatencyCompensationTests
             LookaheadMs = lookaheadMs,
             TimeRange = new TimeRange(TimeSpan.Zero, clipDuration),
         };
-        var resource = sound.ToResource(CompositionContext.Default);
+        using var resource = Setup(sound, out var eligibility);
 
         using var composer = new Composer { SampleRate = SampleRate };
-        var eligibility = new CompositionEligibility([sound]);
         var composeRange = new TimeRange(TimeSpan.Zero, clipDuration);
-        var frame = new CompositionFrame(
-            ImmutableArray.Create<EngineObject.Resource>(resource),
-            composeRange,
-            default,
-            eligibility);
-        using var processed = composer.Compose(composeRange, frame);
+        using var processed = ComposeWindow(composer, composeRange, eligibility, resource);
 
         var firstRange = new TimeRange(clipDuration, chunkDuration);
         using var firstTail = composer.Flush(firstRange, eligibility);
@@ -2504,17 +2094,11 @@ public class AudioLatencyCompensationTests
             LookaheadMs = lookaheadMs,
             TimeRange = new TimeRange(TimeSpan.Zero, oneSecond),
         };
-        var resource = sound.ToResource(CompositionContext.Default);
-        var eligibility = new CompositionEligibility([sound]);
+        using var resource = Setup(sound, out var eligibility);
 
         using var composer = new Composer { SampleRate = SampleRate };
         var firstRange = new TimeRange(TimeSpan.Zero, oneSecond);
-        var frame = new CompositionFrame(
-            ImmutableArray.Create<EngineObject.Resource>(resource),
-            firstRange,
-            default,
-            eligibility);
-        using var processed = composer.Compose(firstRange, frame);
+        using var processed = ComposeWindow(composer, firstRange, eligibility, resource);
 
         using var tail = composer.Flush(new TimeRange(oneSecond, oneSecond));
 
@@ -2527,8 +2111,9 @@ public class AudioLatencyCompensationTests
         });
     }
 
-    [Test]
-    public void Composer_Flush_DoesNotDrainAfterNonContiguousRange()
+    [TestCase(3 * TimeSpan.TicksPerSecond, TestName = "Composer_Flush_DoesNotDrainAfterNonContiguousRange")]
+    [TestCase(TimeSpan.TicksPerSecond + TimeSpan.TicksPerMillisecond / 2, TestName = "Composer_Flush_DoesNotDrainAfterSubMillisecondSeek")]
+    public void Composer_Flush_DoesNotDrainAfterSeek(long seekStartTicks)
     {
         const float lookaheadMs = 5f;
         int L = LookaheadSamples(lookaheadMs);
@@ -2539,56 +2124,18 @@ public class AudioLatencyCompensationTests
             LookaheadMs = lookaheadMs,
             TimeRange = new TimeRange(TimeSpan.Zero, oneSecond),
         };
-        var resource = sound.ToResource(CompositionContext.Default);
+        using var resource = Setup(sound, out var eligibility);
 
         using var composer = new Composer { SampleRate = SampleRate };
         var firstRange = new TimeRange(TimeSpan.Zero, oneSecond);
-        var frame = new CompositionFrame(
-            ImmutableArray.Create<EngineObject.Resource>(resource),
-            firstRange,
-            default,
-            new CompositionEligibility([sound]));
-        using var processed = composer.Compose(firstRange, frame);
+        using var processed = ComposeWindow(composer, firstRange, eligibility, resource);
 
-        var seekRange = new TimeRange(TimeSpan.FromSeconds(3), oneSecond);
-        using var tail = composer.Flush(seekRange, (CompositionEligibility)frame.Eligibility!);
+        var seekRange = new TimeRange(TimeSpan.FromTicks(seekStartTicks), oneSecond);
+        using var tail = composer.Flush(seekRange, eligibility);
 
         Assert.That(tail, Is.Not.Null);
         Assert.That(tail!.GetChannelData(0)[..L].ToArray(), Has.All.EqualTo(0f),
             "A non-contiguous flush must discard the old tail instead of emitting it at the seek destination.");
-        Assert.That(composer.GetTotalLatencySamples(SampleRate), Is.EqualTo(0));
-    }
-
-    [Test]
-    public void Composer_Flush_DoesNotDrainAfterSubMillisecondSeek()
-    {
-        const float lookaheadMs = 5f;
-        int L = LookaheadSamples(lookaheadMs);
-        var oneSecond = TimeSpan.FromSeconds(1);
-
-        var sound = new LimiterTailSound
-        {
-            LookaheadMs = lookaheadMs,
-            TimeRange = new TimeRange(TimeSpan.Zero, oneSecond),
-        };
-        var resource = sound.ToResource(CompositionContext.Default);
-
-        using var composer = new Composer { SampleRate = SampleRate };
-        var firstRange = new TimeRange(TimeSpan.Zero, oneSecond);
-        var frame = new CompositionFrame(
-            ImmutableArray.Create<EngineObject.Resource>(resource),
-            firstRange,
-            default,
-            new CompositionEligibility([sound]));
-        using var processed = composer.Compose(firstRange, frame);
-
-        var subMillisecondGap = TimeSpan.FromTicks(TimeSpan.TicksPerMillisecond / 2);
-        var seekRange = new TimeRange(oneSecond + subMillisecondGap, oneSecond);
-        using var tail = composer.Flush(seekRange, (CompositionEligibility)frame.Eligibility!);
-
-        Assert.That(tail, Is.Not.Null);
-        Assert.That(tail!.GetChannelData(0)[..L].ToArray(), Has.All.EqualTo(0f),
-            "A sub-millisecond seek must discard the old tail instead of draining it at the seek destination.");
         Assert.That(composer.GetTotalLatencySamples(SampleRate), Is.EqualTo(0));
     }
 
@@ -2604,20 +2151,15 @@ public class AudioLatencyCompensationTests
             LookaheadMs = lookaheadMs,
             TimeRange = new TimeRange(TimeSpan.Zero, oneSecond),
         };
-        var resource = sound.ToResource(CompositionContext.Default);
+        using var resource = Setup(sound, out var eligibility);
 
         using var composer = new Composer { SampleRate = SampleRate };
         var firstRange = new TimeRange(TimeSpan.Zero, oneSecond);
-        var frame = new CompositionFrame(
-            ImmutableArray.Create<EngineObject.Resource>(resource),
-            firstRange,
-            default,
-            new CompositionEligibility([sound]));
-        using var processed = composer.Compose(firstRange, frame);
+        using var processed = ComposeWindow(composer, firstRange, eligibility, resource);
 
         sound.Gain.CurrentValue = 50f;
 
-        using var tail = composer.Flush(new TimeRange(oneSecond, oneSecond), (CompositionEligibility)frame.Eligibility!);
+        using var tail = composer.Flush(new TimeRange(oneSecond, oneSecond), eligibility);
 
         Assert.That(tail, Is.Not.Null);
         Assert.That(tail!.GetChannelData(0)[..L].ToArray(), Has.All.EqualTo(0f),
@@ -2635,16 +2177,11 @@ public class AudioLatencyCompensationTests
             LookaheadMs = lookaheadMs,
             TimeRange = new TimeRange(TimeSpan.Zero, oneSecond),
         };
-        var resource = sound.ToResource(CompositionContext.Default);
+        using var resource = Setup(sound, out var eligibility);
 
         using var composer = new Composer { SampleRate = SampleRate };
         var firstRange = new TimeRange(TimeSpan.Zero, oneSecond);
-        var frame = new CompositionFrame(
-            ImmutableArray.Create<EngineObject.Resource>(resource),
-            firstRange,
-            default,
-            new CompositionEligibility([sound]));
-        using var processed = composer.Compose(firstRange, frame);
+        using var processed = ComposeWindow(composer, firstRange, eligibility, resource);
 
         composer.InvalidateCache();
 
@@ -2668,33 +2205,19 @@ public class AudioLatencyCompensationTests
             LookaheadMs = lookaheadMs,
             TimeRange = new TimeRange(TimeSpan.Zero, oneSecond),
         };
-        var resource = sound.ToResource(CompositionContext.Default);
+        using var resource = Setup(sound, out var eligibility);
 
         using var composer = new Composer { SampleRate = SampleRate };
 
         var window1 = new TimeRange(TimeSpan.Zero, oneSecond);
-        var frame1 = new CompositionFrame(
-            ImmutableArray.Create<EngineObject.Resource>(resource),
-            window1,
-            default,
-            new CompositionEligibility([sound]));
-        using var buffer1 = composer.Compose(window1, frame1);
+        using var buffer1 = ComposeWindow(composer, window1, eligibility, resource);
 
         var window2 = new TimeRange(oneSecond, oneSecond);
-        var frame2 = new CompositionFrame(
-            ImmutableArray<EngineObject.Resource>.Empty,
-            window2,
-            default,
-            CompositionEligibility.Empty);
-        using var buffer2 = composer.Compose(window2, frame2);
+        using var buffer2 = ComposeWindow(composer, window2, CompositionEligibility.Empty);
 
         Assert.That(buffer2, Is.Not.Null);
-        var output = buffer2!.GetChannelData(0);
-        for (int k = 0; k < L; k++)
-        {
-            Assert.That(MathF.Abs(output[k]), Is.LessThanOrEqualTo(1e-5f),
-                $"An ineligible sound must not leak a cached tail at its natural end (sample {k}).");
-        }
+        Assert.That(buffer2!.GetChannelData(0)[..L].ToArray(), Has.All.EqualTo(0f).Within(1e-5f),
+            "An ineligible sound must not leak a cached tail at its natural end.");
     }
 
     [Test]
@@ -2709,36 +2232,21 @@ public class AudioLatencyCompensationTests
             LookaheadMs = lookaheadMs,
             TimeRange = new TimeRange(TimeSpan.Zero, oneSecond),
         };
-        var resource = sound.ToResource(CompositionContext.Default);
+        using var resource = Setup(sound, out var eligibility);
 
         using var composer = new Composer { SampleRate = SampleRate };
 
         var window1 = new TimeRange(TimeSpan.Zero, oneSecond);
-        var eligibility = new CompositionEligibility([sound]);
-        var frame1 = new CompositionFrame(
-            ImmutableArray.Create<EngineObject.Resource>(resource),
-            window1,
-            default,
-            eligibility);
-        using var buffer1 = composer.Compose(window1, frame1);
+        using var buffer1 = ComposeWindow(composer, window1, eligibility, resource);
 
         sound.TimeRange = new TimeRange(TimeSpan.FromSeconds(10), oneSecond);
 
         var window2 = new TimeRange(oneSecond, oneSecond);
-        var frame2 = new CompositionFrame(
-            ImmutableArray<EngineObject.Resource>.Empty,
-            window2,
-            default,
-            eligibility);
-        using var buffer2 = composer.Compose(window2, frame2);
+        using var buffer2 = ComposeWindow(composer, window2, eligibility);
 
         Assert.That(buffer2, Is.Not.Null);
-        var output = buffer2!.GetChannelData(0);
-        for (int k = 0; k < L; k++)
-        {
-            Assert.That(MathF.Abs(output[k]), Is.LessThanOrEqualTo(1e-5f),
-                $"A moved sound must not flush a tail cached at its former range (sample {k}).");
-        }
+        Assert.That(buffer2!.GetChannelData(0)[..L].ToArray(), Has.All.EqualTo(0f).Within(1e-5f),
+            "A moved sound must not flush a tail cached at its former range.");
     }
 
     [Test]
@@ -2753,36 +2261,21 @@ public class AudioLatencyCompensationTests
             LookaheadMs = lookaheadMs,
             TimeRange = new TimeRange(TimeSpan.Zero, oneSecond),
         };
-        var resource = sound.ToResource(CompositionContext.Default);
+        using var resource = Setup(sound, out var eligibility);
 
         using var composer = new Composer { SampleRate = SampleRate };
 
         var window1 = new TimeRange(TimeSpan.Zero, oneSecond);
-        var eligibility = new CompositionEligibility([sound]);
-        var frame1 = new CompositionFrame(
-            ImmutableArray.Create<EngineObject.Resource>(resource),
-            window1,
-            default,
-            eligibility);
-        using var buffer1 = composer.Compose(window1, frame1);
+        using var buffer1 = ComposeWindow(composer, window1, eligibility, resource);
 
         sound.Gain.CurrentValue = 50f;
 
         var window2 = new TimeRange(oneSecond, oneSecond);
-        var frame2 = new CompositionFrame(
-            ImmutableArray<EngineObject.Resource>.Empty,
-            window2,
-            default,
-            eligibility);
-        using var buffer2 = composer.Compose(window2, frame2);
+        using var buffer2 = ComposeWindow(composer, window2, eligibility);
 
         Assert.That(buffer2, Is.Not.Null);
-        var output = buffer2!.GetChannelData(0);
-        for (int k = 0; k < L; k++)
-        {
-            Assert.That(MathF.Abs(output[k]), Is.LessThanOrEqualTo(1e-5f),
-                $"An edited sound must not flush a tail from its dirty cached graph (sample {k}).");
-        }
+        Assert.That(buffer2!.GetChannelData(0)[..L].ToArray(), Has.All.EqualTo(0f).Within(1e-5f),
+            "An edited sound must not flush a tail from its dirty cached graph.");
     }
 
     [Test]
@@ -2798,33 +2291,19 @@ public class AudioLatencyCompensationTests
             LookaheadMs = lookaheadMs,
             TimeRange = new TimeRange(TimeSpan.Zero, twoSeconds),
         };
-        var resource = sound.ToResource(CompositionContext.Default);
+        using var resource = Setup(sound, out var eligibility);
 
         using var composer = new Composer { SampleRate = SampleRate };
 
         var window1 = new TimeRange(TimeSpan.Zero, oneSecond);
-        var frame1 = new CompositionFrame(
-            ImmutableArray.Create<EngineObject.Resource>(resource),
-            window1,
-            default,
-            new CompositionEligibility([sound]));
-        using var buffer1 = composer.Compose(window1, frame1);
+        using var buffer1 = ComposeWindow(composer, window1, eligibility, resource);
 
         var window2 = new TimeRange(oneSecond, oneSecond);
-        var frame2 = new CompositionFrame(
-            ImmutableArray<EngineObject.Resource>.Empty,
-            window2,
-            default,
-            CompositionEligibility.Empty);
-        using var buffer2 = composer.Compose(window2, frame2);
+        using var buffer2 = ComposeWindow(composer, window2, CompositionEligibility.Empty);
 
         Assert.That(buffer2, Is.Not.Null);
-        var output = buffer2!.GetChannelData(0);
-        for (int k = 0; k < L; k++)
-        {
-            Assert.That(MathF.Abs(output[k]), Is.LessThanOrEqualTo(1e-5f),
-                $"A sound removed before its natural end must not leak a cached limiter tail (sample {k}).");
-        }
+        Assert.That(buffer2!.GetChannelData(0)[..L].ToArray(), Has.All.EqualTo(0f).Within(1e-5f),
+            "A sound removed before its natural end must not leak a cached limiter tail.");
     }
 
     [Test]
@@ -2839,34 +2318,19 @@ public class AudioLatencyCompensationTests
             LookaheadMs = lookaheadMs,
             TimeRange = new TimeRange(TimeSpan.Zero, oneSecond),
         };
-        var resource = sound.ToResource(CompositionContext.Default);
+        using var resource = Setup(sound, out var eligibility);
 
         using var composer = new Composer { SampleRate = SampleRate };
 
         var window1 = new TimeRange(TimeSpan.Zero, oneSecond);
-        var eligibility = new CompositionEligibility([sound]);
-        var frame1 = new CompositionFrame(
-            ImmutableArray.Create<EngineObject.Resource>(resource),
-            window1,
-            default,
-            eligibility);
-        using var buffer1 = composer.Compose(window1, frame1);
+        using var buffer1 = ComposeWindow(composer, window1, eligibility, resource);
 
         var window2 = new TimeRange(TimeSpan.FromSeconds(3), oneSecond);
-        var frame2 = new CompositionFrame(
-            ImmutableArray<EngineObject.Resource>.Empty,
-            window2,
-            default,
-            eligibility);
-        using var buffer2 = composer.Compose(window2, frame2);
+        using var buffer2 = ComposeWindow(composer, window2, eligibility);
 
         Assert.That(buffer2, Is.Not.Null);
-        var tail = buffer2!.GetChannelData(0);
-        for (int k = 0; k < L; k++)
-        {
-            Assert.That(MathF.Abs(tail[k]), Is.LessThanOrEqualTo(1e-5f),
-                $"A discontinuous window must not inject the previous clip's stale limiter tail (sample {k}).");
-        }
+        Assert.That(buffer2!.GetChannelData(0)[..L].ToArray(), Has.All.EqualTo(0f).Within(1e-5f),
+            "A discontinuous window must not inject the previous clip's stale limiter tail.");
     }
 
     [Test]
@@ -2881,65 +2345,33 @@ public class AudioLatencyCompensationTests
             LookaheadMs = lookaheadMs,
             TimeRange = new TimeRange(TimeSpan.Zero, oneSecond),
         };
-        var resource = sound.ToResource(CompositionContext.Default);
+        using var resource = Setup(sound, out var eligibility);
 
         using var composer = new Composer { SampleRate = SampleRate };
 
         var window1 = new TimeRange(TimeSpan.Zero, oneSecond);
-        var eligibility = new CompositionEligibility([sound]);
-        var frame1 = new CompositionFrame(
-            ImmutableArray.Create<EngineObject.Resource>(resource),
-            window1,
-            default,
-            eligibility);
-        using var buffer1 = composer.Compose(window1, frame1);
+        using var buffer1 = ComposeWindow(composer, window1, eligibility, resource);
 
         composer.InvalidateCache();
 
         var window2 = new TimeRange(oneSecond, oneSecond);
-        var frame2 = new CompositionFrame(
-            ImmutableArray<EngineObject.Resource>.Empty,
-            window2,
-            default,
-            eligibility);
-        using var buffer2 = composer.Compose(window2, frame2);
+        using var buffer2 = ComposeWindow(composer, window2, eligibility);
 
         Assert.That(buffer2, Is.Not.Null);
-        var tail = buffer2!.GetChannelData(0);
-        for (int k = 0; k < L; k++)
-        {
-            Assert.That(MathF.Abs(tail[k]), Is.LessThanOrEqualTo(1e-5f),
-                $"InvalidateCache must drop the recorded previous window so no stale tail is flushed (sample {k}).");
-        }
+        Assert.That(buffer2!.GetChannelData(0)[..L].ToArray(), Has.All.EqualTo(0f).Within(1e-5f),
+            "InvalidateCache must drop the recorded previous window so no stale tail is flushed.");
     }
 
-    [Test]
-    public void DelayNode_Flush_DrainsThroughProcessTail_NoThrow()
+    private static IEnumerable<TestCaseData> ProcessTailNodes()
     {
-        const int sampleCount = 512;
-        using var input = CreateBuffer(2, sampleCount, (_, i) => 0.25f * MathF.Sin(2f * MathF.PI * 220f * i / SampleRate));
-        using var node = new DelayNode
+        yield return new TestCaseData(new Func<AudioNode>(() => new DelayNode
         {
             DelayTime = Property.Create(5f),
             Feedback = Property.Create(50f),
             DryMix = Property.Create(50f),
             WetMix = Property.Create(50f),
-        };
-        node.AddInput(new BufferReplayNode(input));
-
-        using var processed = node.Process(Context(TimeSpan.Zero, sampleCount));
-        using var tail = node.Flush(Context(TimeSpan.FromSeconds((double)sampleCount / SampleRate), sampleCount));
-
-        Assert.That(tail.ChannelCount, Is.EqualTo(processed.ChannelCount));
-        Assert.That(tail.SampleCount, Is.EqualTo(sampleCount));
-    }
-
-    [Test]
-    public void CompressorNode_Flush_DrainsThroughProcessTail_NoThrow()
-    {
-        const int sampleCount = 512;
-        using var input = CreateBuffer(2, sampleCount, (_, i) => 0.25f * MathF.Sin(2f * MathF.PI * 220f * i / SampleRate));
-        using var node = new CompressorNode
+        })).SetName("DelayNode_Flush_DrainsThroughProcessTail_NoThrow");
+        yield return new TestCaseData(new Func<AudioNode>(() => new CompressorNode
         {
             Threshold = Property.Create(-20f),
             Ratio = Property.Create(4f),
@@ -2947,22 +2379,17 @@ public class AudioLatencyCompensationTests
             Release = Property.Create(50f),
             Knee = Property.Create(0f),
             MakeupGain = Property.Create(0f),
-        };
-        node.AddInput(new BufferReplayNode(input));
-
-        using var processed = node.Process(Context(TimeSpan.Zero, sampleCount));
-        using var tail = node.Flush(Context(TimeSpan.FromSeconds((double)sampleCount / SampleRate), sampleCount));
-
-        Assert.That(tail.ChannelCount, Is.EqualTo(processed.ChannelCount));
-        Assert.That(tail.SampleCount, Is.EqualTo(sampleCount));
+        })).SetName("CompressorNode_Flush_DrainsThroughProcessTail_NoThrow");
+        yield return new TestCaseData(new Func<AudioNode>(() => new EqualizerNode { Bands = [new EqualizerBand()] }))
+            .SetName("EqualizerNode_Flush_DrainsThroughProcessTail_NoThrow");
     }
 
-    [Test]
-    public void EqualizerNode_Flush_DrainsThroughProcessTail_NoThrow()
+    [TestCaseSource(nameof(ProcessTailNodes))]
+    public void Flush_DrainsThroughProcessTail_NoThrow(Func<AudioNode> create)
     {
         const int sampleCount = 512;
         using var input = CreateBuffer(2, sampleCount, (_, i) => 0.25f * MathF.Sin(2f * MathF.PI * 220f * i / SampleRate));
-        using var node = new EqualizerNode { Bands = [new EqualizerBand()] };
+        using var node = create();
         node.AddInput(new BufferReplayNode(input));
 
         using var processed = node.Process(Context(TimeSpan.Zero, sampleCount));
@@ -2970,26 +2397,6 @@ public class AudioLatencyCompensationTests
 
         Assert.That(tail.ChannelCount, Is.EqualTo(processed.ChannelCount));
         Assert.That(tail.SampleCount, Is.EqualTo(sampleCount));
-    }
-
-    private sealed class RangeSineNode(int sampleRate) : AudioNode
-    {
-        public override AudioBuffer Process(AudioProcessContext context)
-        {
-            int count = context.GetSampleCount();
-            var buffer = new AudioBuffer(sampleRate, 2, count);
-            long startIndex = AudioMath.TimeToSampleIndex(context.TimeRange.Start, sampleRate);
-            for (int ch = 0; ch < 2; ch++)
-            {
-                var data = buffer.GetChannelData(ch);
-                for (int i = 0; i < count; i++)
-                {
-                    data[i] = 0.25f * MathF.Sin(2f * MathF.PI * 200f * (startIndex + i) / sampleRate);
-                }
-            }
-
-            return buffer;
-        }
     }
 
     private sealed class IndexedAudioNode(int sampleRate) : AudioNode
@@ -3015,21 +2422,22 @@ public class AudioLatencyCompensationTests
         }
     }
 
-    private static AudioProcessContext ExactContext(TimeSpan start, int sampleCount, int sampleRate)
-        => new(
-            new TimeRange(start, ExactDuration(sampleCount, sampleRate)),
-            sampleRate,
-            new AnimationSampler(),
-            null);
+    // The sound's resource and its eligibility snapshot; the caller disposes the resource.
+    private static EngineObject.Resource Setup(Sound sound, out CompositionEligibility eligibility)
+    {
+        eligibility = new CompositionEligibility([sound]);
+        return sound.ToResource(CompositionContext.Default);
+    }
 
-    private static TimeSpan ExactDuration(int sampleCount, int sampleRate)
-        => AudioProcessContext.GetDurationForSampleCount(sampleCount, sampleRate);
+    private static AudioBuffer? ComposeWindow(
+        Composer composer, TimeRange range, CompositionEligibility eligibility, params EngineObject.Resource[] resources)
+        => composer.Compose(range, new CompositionFrame([.. resources], range, default, eligibility));
 
-    private static bool HasNonZero(ReadOnlySpan<float> samples)
+    private static bool HasNonZero(ReadOnlySpan<float> samples, float threshold = 1e-6f)
     {
         foreach (float sample in samples)
         {
-            if (MathF.Abs(sample) > 1e-6f)
+            if (MathF.Abs(sample) > threshold)
                 return true;
         }
 

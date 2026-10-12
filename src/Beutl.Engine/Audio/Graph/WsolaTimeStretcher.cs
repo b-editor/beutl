@@ -133,6 +133,8 @@ internal sealed class WsolaTimeStretcher
                 // the same cursor when callers split the output into differently sized chunks.
                 double adjusted = speed - compensation;
                 double next = position + adjusted;
+                // Before EOF, wait for enough real input to cover the source-domain advance. At EOF,
+                // allow only the last fractional step, matching ceil(input length / static tempo).
                 if (!_finished && next > _receivedInputFrames + 1e-9)
                     break;
                 compensation = (next - position) - adjusted;
@@ -141,8 +143,6 @@ internal sealed class WsolaTimeStretcher
             if (available == 0)
                 break;
 
-            // Before EOF, wait for enough real input to cover the source-domain advance. At EOF,
-            // allow only the last fractional step, matching ceil(input length / static tempo).
             count = available;
             if (startupSilence)
             {

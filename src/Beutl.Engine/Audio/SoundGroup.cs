@@ -25,7 +25,6 @@ public sealed partial class SoundGroup : Sound, IFlowOperator
         var r = (Resource)resource;
         if (r.Children.Count == 0)
         {
-            context.Clear();
             return;
         }
 
@@ -56,7 +55,6 @@ public sealed partial class SoundGroup : Sound, IFlowOperator
         {
             Sound original = child.RequireOriginal();
 
-            // 各子要素の出力ノードにShiftNodeを挿入してMixerに接続
             foreach (var outputNode in ComposeChildInto(context, original, child))
             {
                 // ShiftNodeでSoundGroupのStartを加算して打ち消す
@@ -70,12 +68,10 @@ public sealed partial class SoundGroup : Sound, IFlowOperator
 
         AudioNode currentNode = mixerNode;
 
-        // SoundGroup全体のGainを適用
         var gainNode = context.CreateGainNode(Gain);
         context.Connect(currentNode, gainNode);
         currentNode = gainNode;
 
-        // SoundGroup全体のEffectを適用
         if (Effect.CurrentValue != null && Effect.CurrentValue.IsEnabled)
         {
             currentNode = Effect.CurrentValue.CreateNode(context, currentNode);

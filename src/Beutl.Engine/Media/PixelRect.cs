@@ -81,74 +81,32 @@ public readonly struct PixelRect
         Height = bottomRight.Y - topLeft.Y;
     }
 
-    /// <summary>
-    /// Gets the X position.
-    /// </summary>
     public int X { get; }
 
-    /// <summary>
-    /// Gets the Y position.
-    /// </summary>
     public int Y { get; }
 
-    /// <summary>
-    /// Gets the width.
-    /// </summary>
     public int Width { get; }
 
-    /// <summary>
-    /// Gets the height.
-    /// </summary>
     public int Height { get; }
 
-    /// <summary>
-    /// Gets the position of the rectangle.
-    /// </summary>
     public PixelPoint Position => new(X, Y);
 
-    /// <summary>
-    /// Gets the size of the rectangle.
-    /// </summary>
     public PixelSize Size => new(Width, Height);
 
-    /// <summary>
-    /// Gets the right position of the rectangle.
-    /// </summary>
     public int Right => X + Width;
 
-    /// <summary>
-    /// Gets the bottom position of the rectangle.
-    /// </summary>
     public int Bottom => Y + Height;
 
-    /// <summary>
-    /// Gets the top left point of the rectangle.
-    /// </summary>
     public PixelPoint TopLeft => new(X, Y);
 
-    /// <summary>
-    /// Gets the top right point of the rectangle.
-    /// </summary>
     public PixelPoint TopRight => new(Right, Y);
 
-    /// <summary>
-    /// Gets the bottom left point of the rectangle.
-    /// </summary>
     public PixelPoint BottomLeft => new(X, Bottom);
 
-    /// <summary>
-    /// Gets the bottom right point of the rectangle.
-    /// </summary>
     public PixelPoint BottomRight => new(Right, Bottom);
 
-    /// <summary>
-    /// Gets the center point of the rectangle.
-    /// </summary>
     public PixelPoint Center => new(X + Width / 2, Y + Height / 2);
 
-    /// <summary>
-    /// Gets a value that indicates whether the rectangle is empty.
-    /// </summary>
     public bool IsEmpty => Width == 0 && Height == 0;
 
     static int ITupleConvertible<PixelRect, int>.TupleLength => 4;
@@ -176,7 +134,7 @@ public readonly struct PixelRect
     }
 
     /// <summary>
-    /// Determines whether a point in in the bounds of the rectangle.
+    /// Determines whether a point is in the bounds of the rectangle.
     /// </summary>
     /// <param name="p">The point.</param>
     /// <returns>true if the point is in the bounds of the rectangle; otherwise false.</returns>
@@ -488,8 +446,7 @@ public readonly struct PixelRect
 
     static bool IParsable<PixelRect>.TryParse([NotNullWhen(true)] string? s, IFormatProvider? provider, [MaybeNullWhen(false)] out PixelRect result)
     {
-        result = default;
-        return s != null && TryParse(s, out result);
+        return TryParse(s, out result);
     }
 
     static PixelRect ISpanParsable<PixelRect>.Parse(ReadOnlySpan<char> s, IFormatProvider? provider)

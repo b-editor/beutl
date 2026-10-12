@@ -23,7 +23,6 @@ public sealed partial class EllipseGeometry : Geometry
     {
         public override void ApplyTo(IGeometryContext context)
         {
-            base.ApplyTo(context);
             float width = Width;
             float height = Height;
             if (float.IsInfinity(width))

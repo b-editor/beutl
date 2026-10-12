@@ -1,17 +1,9 @@
-﻿namespace Beutl.Media.Decoding.APNG.Chunks;
+﻿using System.Buffers.Binary;
+
+namespace Beutl.Media.Decoding.APNG.Chunks;
 
 internal class fdATChunk : Chunk
 {
-    public fdATChunk(byte[] bytes)
-        : base(bytes)
-    {
-    }
-
-    public fdATChunk(MemoryStream ms)
-        : base(ms)
-    {
-    }
-
     public fdATChunk(Chunk chunk)
         : base(chunk)
     {
@@ -23,7 +15,7 @@ internal class fdATChunk : Chunk
 
     protected override void ParseData(MemoryStream ms)
     {
-        SequenceNumber = Helper.ConvertEndian(ms.ReadUInt32());
+        SequenceNumber = BinaryPrimitives.ReadUInt32BigEndian(ms.ReadBytes(4));
         FrameData = ms.ReadBytes((int)Length - 4);
     }
 
@@ -40,10 +32,10 @@ internal class fdATChunk : Chunk
 
         using (var ms = new MemoryStream())
         {
-            ms.WriteUInt32(Helper.ConvertEndian(Length - 4));
+            ms.WriteUInt32(BinaryPrimitives.ReverseEndianness(Length - 4));
             ms.WriteBytes("IDAT"u8.ToArray());
             ms.WriteBytes(FrameData);
-            ms.WriteUInt32(Helper.ConvertEndian(newCrc));
+            ms.WriteUInt32(BinaryPrimitives.ReverseEndianness(newCrc));
             ms.Position = 0;
 
             return new IDATChunk(ms);

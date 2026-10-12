@@ -13,7 +13,7 @@ public sealed partial class SharedClipFanOutTailSound : Sound
 
     public override void Compose(AudioContext context, Sound.Resource resource)
     {
-        var source = context.AddNode(new RecordingLatencyNode());
+        var source = context.AddNode(new FixedLatencyNode(0));
         var clip = context.CreateClipNode(TimeRange.Start, TimeRange.Duration);
         context.Connect(source, clip);
 
@@ -28,22 +28,10 @@ public sealed partial class SharedClipFanOutTailSound : Sound
         context.MarkAsOutput(mixer);
     }
 
-    private sealed class RecordingLatencyNode : AudioNode
-    {
-        public override AudioBuffer Process(AudioProcessContext context)
-            => new(context.SampleRate, 2, context.GetSampleCount());
-
-        public override AudioBuffer Flush(AudioProcessContext context)
-            => new(context.SampleRate, 2, context.GetSampleCount());
-    }
-
     private sealed class ForwardingLatencyNode(int latencySamples) : AudioNode
     {
         public override AudioBuffer Process(AudioProcessContext context)
             => Inputs[0].Process(context);
-
-        public override AudioBuffer Flush(AudioProcessContext context)
-            => Inputs[0].Flush(context);
 
         public override int GetLatencySamples(int sampleRate) => latencySamples;
     }

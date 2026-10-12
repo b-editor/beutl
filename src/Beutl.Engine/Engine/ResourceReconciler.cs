@@ -23,8 +23,7 @@ public static class ResourceReconciler
 
         if (!EqualityComparer<TValue>.Default.Equals(newValue, oldValue))
         {
-            owner.Version++;
-            versionBumped = true;
+            owner.BumpVersion(ref versionBumped);
         }
     }
 
@@ -38,38 +37,11 @@ public static class ResourceReconciler
         ref TResource? field, ref bool versionBumped)
         where TObject : EngineObject? where TResource : EngineObject.Resource
     {
-        var value = context.Get(property);
-        if (value is null)
+        bool changed = false;
+        ReconcileResource(context, context.Get(property), ref field, ref changed);
+        if (changed)
         {
-            if (field is not null)
-            {
-                field.Dispose();
-                field = null;
-                owner.BumpVersion(ref versionBumped);
-            }
-        }
-        else
-        {
-            if (field is null)
-            {
-                field = (TResource)value.ToResource(context);
-                owner.BumpVersion(ref versionBumped);
-            }
-            else
-            {
-                if (field.GetOriginal() != value)
-                {
-                    var oldField = field;
-                    field = (TResource)value.ToResource(context);
-                    owner.Version++;
-                    versionBumped = true;
-                    oldField.Dispose();
-                }
-                else if (ReconcileInPlace(field, value, context))
-                {
-                    owner.BumpVersion(ref versionBumped);
-                }
-            }
+            owner.BumpVersion(ref versionBumped);
         }
     }
 
@@ -83,45 +55,11 @@ public static class ResourceReconciler
         ref List<TResource> field, ref bool versionBumped)
         where TItem : EngineObject where TResource : EngineObject.Resource
     {
-        for (int i = 0; i < items.Count; i++)
+        bool changed = false;
+        ReconcileList(context, items, 0, field, ref changed);
+        if (changed)
         {
-            var child = items[i];
-            if (i < field.Count)
-            {
-                var item = field[i];
-                if (item.GetOriginal() != child)
-                {
-                    var oldItem = item;
-                    item = (TResource)child.ToResource(context);
-                    field[i] = item;
-                    owner.Version++;
-                    versionBumped = true;
-                    oldItem.Dispose();
-                }
-                else if (ReconcileInPlace(item, child, context))
-                {
-                    owner.BumpVersion(ref versionBumped);
-                }
-            }
-            else
-            {
-                var item = (TResource)child.ToResource(context);
-                field.Add(item);
-                owner.BumpVersion(ref versionBumped);
-            }
-        }
-
-        if (!versionBumped && field.Count != items.Count)
-        {
-            owner.Version++;
-            versionBumped = true;
-        }
-
-        while (field.Count > items.Count)
-        {
-            var oldItem = field[^1];
-            field.RemoveAt(field.Count - 1);
-            oldItem.Dispose();
+            owner.BumpVersion(ref versionBumped);
         }
     }
 
@@ -143,7 +81,6 @@ public static class ResourceReconciler
                 versions.Add(consumed[i].Version);
             }
 
-            // 引数のpropertyを追加
             changed = true;
         }
         else
@@ -153,33 +90,21 @@ public static class ResourceReconciler
             for (int i = 0; i < consumed.Count; i++)
             {
                 var resource = consumed[i];
-                if (i < field.Count)
+                if (field[i] != resource)
                 {
-                    if (field[i] != resource)
-                    {
-                        field[i] = resource;
-                        changed = true;
-                    }
-                    else
-                    {
-                        var oldVersion = versions[i]; // consumed.Count == versionList.Countなのでiは常に有効
-                        changed |= oldVersion != resource.Version;
-                    }
-
-                    versions[i] = resource.Version;
+                    field[i] = resource;
+                    changed = true;
                 }
                 else
                 {
-                    // Addではないのは後ろにプロパティによって追加されたリソースがいる可能性があるため
-                    field.Insert(i, resource);
-                    // versionListはAddで良い
-                    versions.Add(resource.Version);
-                    changed = true;
+                    var oldVersion = versions[i]; // consumed.Count == versionList.Countなのでiは常に有効
+                    changed |= oldVersion != resource.Version;
                 }
+
+                versions[i] = resource.Version;
             }
         }
 
-        // propertyの残りを追加
         ReconcileListFromProperty(context, property, consumed.Count, field, ref changed);
     }
 
@@ -188,9 +113,17 @@ public static class ResourceReconciler
         int offsetIndex, IList<TResource> field, ref bool changed)
         where TItem : EngineObject where TResource : EngineObject.Resource
     {
-        for (int i = 0; i < prop.Count; i++)
+        ReconcileList(context, prop, offsetIndex, field, ref changed);
+    }
+
+    private static void ReconcileList<TItem, TResource>(
+        CompositionContext context, IList<TItem> items,
+        int offsetIndex, IList<TResource> field, ref bool changed)
+        where TItem : EngineObject where TResource : EngineObject.Resource
+    {
+        for (int i = 0; i < items.Count; i++)
         {
-            var child = prop[i];
+            var child = items[i];
             if (i + offsetIndex < field.Count)
             {
                 var item = field[i + offsetIndex];
@@ -216,12 +149,12 @@ public static class ResourceReconciler
         }
 
         // Propertyから削除されたときに対応するため
-        if (!changed && field.Count != prop.Count + offsetIndex)
+        if (!changed && field.Count != items.Count + offsetIndex)
         {
             changed = true;
         }
 
-        while (field.Count > prop.Count + offsetIndex)
+        while (field.Count > items.Count + offsetIndex)
         {
             var oldItem = field[^1];
             field.RemoveAt(field.Count - 1);

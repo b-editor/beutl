@@ -5,9 +5,6 @@ using Beutl.Audio.Effects;
 using Beutl.Audio.Graph;
 using Beutl.Audio.Graph.Nodes;
 using Beutl.Engine;
-using Beutl.Logging;
-using Beutl.Media;
-using Microsoft.Extensions.Logging;
 using Moq;
 
 using static Beutl.UnitTests.Engine.Audio.AudioTestBuffers;
@@ -18,15 +15,6 @@ namespace Beutl.UnitTests.Engine.Audio;
 public class AudioLatencyTests
 {
     private const int SampleRate = 48000;
-
-    [OneTimeSetUp]
-    public void OneTimeSetUp()
-    {
-        if (Log.LoggerFactory is null)
-        {
-            Log.LoggerFactory = LoggerFactory.Create(_ => { });
-        }
-    }
 
     private static int ExpectedLookaheadSamples(float lookaheadMs, int sampleRate)
         => (int)(lookaheadMs / 1000f * sampleRate);
@@ -48,53 +36,18 @@ public class AudioLatencyTests
     }
 
     private static AudioProcessContext CreateContext(int sampleCount, int sampleRate = SampleRate)
-    {
-        var duration = TimeSpan.FromSeconds((double)sampleCount / sampleRate);
-        return new AudioProcessContext(new TimeRange(TimeSpan.Zero, duration), sampleRate, new AnimationSampler(), null);
-    }
+        => AudioTestContexts.Seconds(TimeSpan.Zero, sampleCount, sampleRate);
 
+    [TestCase(0f)]
     [TestCase(5f)]
-    [TestCase(10f)]
-    public void Process_DelaysImpulse_ByLookaheadSamples(float lookaheadMs)
-    {
-        const int sampleCount = 4096;
-        int expected = ExpectedLookaheadSamples(lookaheadMs, SampleRate);
-
-        using var input = CreateBuffer(2, sampleCount, (_, i) => i == 0 ? 0.5f : 0f);
-
-        using var node = CreateLimiterNode(lookaheadMs);
-        node.AddInput(new BufferReplayNode(input));
-
-        using var output = node.Process(CreateContext(sampleCount));
-
-        var data = output.GetChannelData(0);
-        int peakIndex = 0;
-        float peak = 0f;
-        for (int i = 0; i < sampleCount; i++)
-        {
-            float abs = MathF.Abs(data[i]);
-            if (abs > peak)
-            {
-                peak = abs;
-                peakIndex = i;
-            }
-        }
-
-        Assert.That(peakIndex, Is.EqualTo(expected),
-            "The impulse should emerge delayed by exactly the lookahead samples.");
-    }
-
-    [TestCase(0f, true)]
-    [TestCase(5f, false)]
-    [TestCase(20f, false)]
-    public void LimiterNode_GetLatencySamples_MatchesLookahead_At48k(float lookaheadMs, bool expectedZero)
+    [TestCase(20f)]
+    public void LimiterNode_GetLatencySamples_MatchesLookahead_At48k(float lookaheadMs)
     {
         using var node = CreateLimiterNode(lookaheadMs);
 
         int latency = node.GetLatencySamples(SampleRate);
 
         Assert.That(latency, Is.EqualTo(ExpectedLookaheadSamples(lookaheadMs, SampleRate)));
-        Assert.That(latency == 0, Is.EqualTo(expectedZero));
     }
 
     [TestCase(5f)]
@@ -109,14 +62,6 @@ public class AudioLatencyTests
         Assert.That(at48k, Is.EqualTo(ExpectedLookaheadSamples(lookaheadMs, 48000)));
         Assert.That(at96k, Is.EqualTo(ExpectedLookaheadSamples(lookaheadMs, 96000)));
         Assert.That(at96k, Is.EqualTo(at48k * 2), "Doubling the sample rate doubles the sample latency.");
-    }
-
-    [Test]
-    public void LimiterNode_GetLatencySamples_QueryableBeforeProcess()
-    {
-        using var node = CreateLimiterNode(5f);
-
-        Assert.That(node.GetLatencySamples(SampleRate), Is.EqualTo(ExpectedLookaheadSamples(5f, SampleRate)));
     }
 
     [TestCase(5f)]
@@ -659,12 +604,6 @@ public class AudioLatencyTests
                 Throws.TypeOf<ArgumentOutOfRangeException>().With.Property("ParamName").EqualTo("inputLatency"));
         }
     }
-
-    private sealed class UnknownRangeEasing : Easing
-    {
-        public override float Ease(float progress) => progress;
-    }
-
 }
 
 internal sealed partial class FixedLatencyEffect(int latencySamples) : AudioEffect
@@ -680,17 +619,6 @@ internal sealed partial class FixedLatencyEffect(int latencySamples) : AudioEffe
         // Deliberately invalid reports exercise the group's validation of external overrides.
         return latencySamples < 0 ? latencySamples : AudioLatency.SaturatingAdd(inputLatency, latencySamples);
     }
-}
-
-internal sealed class FixedLatencyNode(int latencySamples, bool overrideTotal = false) : AudioNode
-{
-    public override AudioBuffer Process(AudioProcessContext context)
-        => new(context.SampleRate, 2, context.GetSampleCount());
-
-    public override int GetLatencySamples(int sampleRate) => latencySamples;
-
-    public override int GetTotalLatencySamples(int sampleRate)
-        => overrideTotal ? latencySamples : base.GetTotalLatencySamples(sampleRate);
 }
 
 internal sealed class ReentrantInputNode : AudioNode

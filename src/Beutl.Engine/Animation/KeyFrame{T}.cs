@@ -102,7 +102,7 @@ public sealed class KeyFrame<T> : KeyFrame, IKeyFrame
                     KeyTimeChanged?.Invoke(this, EventArgs.Empty);
                     break;
                 case nameof(Value):
-                    // IAffectsRenderのイベント登録
+                    // Resubscribe to the value's INotifyEdited.
                     if (args1.OldValue is INotifyEdited oldEdited)
                     {
                         oldEdited.Edited -= OnPropertyEdited;

@@ -434,7 +434,6 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
         List<ShapedRun> shapedRuns = Shape(font, density);
         int glyphCount = shapedRuns.Sum(run => run.Result.Codepoints.Length);
 
-        // create the text blob
         using var builder = new SKTextBlobBuilder();
         using var fillBuilder = new SKPathBuilder();
         Span<Geometry.Resource> pathList = default;
@@ -524,7 +523,7 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
 
         SKPath fillPath = fillBuilder.Detach();
         SKPath? strokePath = null;
-        // 空白で開始または、終了した場合
+        // Measure from the advance and the letter spacing so leading and trailing spaces count toward the width.
         float width = MathF.Max(0, (Math.Max(0, glyphCount - 1) * spacing) + advance);
         Rect actualBounds = fillPath.TightBounds.ToGraphicsRect();
         Rect fillBounds = actualBounds.Union(nonOutlineBounds);

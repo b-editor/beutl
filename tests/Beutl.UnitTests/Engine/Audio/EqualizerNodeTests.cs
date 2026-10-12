@@ -1,9 +1,7 @@
-﻿using Beutl.Animation;
-using Beutl.Audio;
+﻿using Beutl.Audio;
 using Beutl.Audio.Effects.Equalizer;
 using Beutl.Audio.Graph;
 using Beutl.Audio.Graph.Nodes;
-using Beutl.Media;
 
 using static Beutl.UnitTests.Engine.Audio.AudioTestBuffers;
 
@@ -28,7 +26,7 @@ public class EqualizerNodeTests
     }
 
     private static AudioProcessContext CreateContext(TimeSpan start) =>
-        new(new TimeRange(start, s_chunkDuration), SampleRate, new AnimationSampler(), null);
+        AudioTestContexts.CreateContext(start, s_chunkDuration, SampleRate);
 
     private static float FirstSampleAfterWarmup(EqualizerNode node, TimeSpan followStart)
     {

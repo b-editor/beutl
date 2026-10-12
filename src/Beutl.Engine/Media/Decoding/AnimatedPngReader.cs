@@ -12,6 +12,7 @@ public class AnimatedPngReader : MediaReader
 {
     private APNG.APNG _apng;
     private readonly int _frameCount;
+    private readonly Rational _cycleDuration;
     private Bitmap? _defaultImage;
     private FrameCache? _lastFrame;
 
@@ -35,6 +36,7 @@ public class AnimatedPngReader : MediaReader
             new Rational(_apng.Frames.Length * duration.Denominator, duration.Numerator)
         );
         _frameCount = _apng.Frames.Length;
+        _cycleDuration = duration;
         if (_apng.IsSimplePNG)
         {
             _defaultImage = Bitmap.FromStream(_apng.DefaultImage.GetStream());
@@ -62,26 +64,8 @@ public class AnimatedPngReader : MediaReader
     // Returns the frame shown at the given time, or -1 when there is none.
     private int FindFrameIndex(Rational seconds)
     {
-        // APNG 仕様で NumPlays == 0 は無限ループ再生。元コードは
-        // `for (rp; rp < NumPlays || NumPlays == 0; rp++)` で外側を永久ループに
-        // していたため、要求時間がコンテンツ全体の duration を超えるとレンダリ
-        // ングスレッドがハングしていた。
-        //
-        // 1巡分の duration を先に計算し、無限ループ素材は seconds をその範囲に
-        // wrap してフレーム検出する。これでハングを防ぎつつ、playhead が 1 巡分
-        // を超えても正しいフレームが返るので「再生が止まる」回帰も起きない。
-        Rational cycleDuration = new Rational(0, 1);
-        for (int i = 0; i < _frameCount; i++)
+        if (_cycleDuration <= new Rational(0, 1))
         {
-            var f = _apng.Frames[i];
-            if (f.fcTLChunk == null) continue;
-
-            cycleDuration += FrameDelay(f.fcTLChunk);
-        }
-
-        if (cycleDuration <= new Rational(0, 1))
-        {
-            // 進行する frame chunk が一つも無い。元のロジックなら無限ループだったケース。
             return -1;
         }
 
@@ -90,18 +74,17 @@ public class AnimatedPngReader : MediaReader
 
         if (numPlays != 0)
         {
-            Rational fullDuration = cycleDuration * (long)numPlays;
+            Rational fullDuration = _cycleDuration * (long)numPlays;
             if (effective >= fullDuration)
             {
-                // 最終再生分の最後を超えた要求は元コードでは detectedFrame=-1 のまま。
                 return -1;
             }
         }
 
-        // wrap effective into [0, cycleDuration) for both finite and infinite loops.
-        while (effective >= cycleDuration)
+        // Wrap into one cycle so that NumPlays == 0, which loops forever, still finds a frame.
+        while (effective >= _cycleDuration)
         {
-            effective -= cycleDuration;
+            effective -= _cycleDuration;
         }
 
         Rational accumulated = new Rational(0, 1);
@@ -135,7 +118,6 @@ public class AnimatedPngReader : MediaReader
     {
         image = null;
 
-        // frameを秒数に変換
         var seconds = new Rational(frame * VideoInfo.FrameRate.Denominator, VideoInfo.FrameRate.Numerator);
 
         if (_defaultImage != null)
@@ -161,7 +143,7 @@ public class AnimatedPngReader : MediaReader
         _lastFrame?.Dispose();
         if (disposeOp != DisposeOps.APNGDisposeOpBackground)
         {
-            _lastFrame = new FrameCache(bitmap, disposeOp, detectedFrame);
+            _lastFrame = new FrameCache(bitmap, detectedFrame);
         }
         else
         {
@@ -248,7 +230,7 @@ public class AnimatedPngReader : MediaReader
         _lastFrame = null;
     }
 
-    private record FrameCache(SKBitmap Bitmap, DisposeOps DisposalMethod, int Index) : IDisposable
+    private record FrameCache(SKBitmap Bitmap, int Index) : IDisposable
     {
         public void Dispose()
         {

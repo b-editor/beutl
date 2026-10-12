@@ -2,29 +2,21 @@
 using Beutl.Audio.Effects;
 using Beutl.Audio.Graph;
 using Beutl.Audio.Graph.Nodes;
-using Beutl.Engine;
 
 using static Beutl.Audio.Effects.GateParameters;
+using static Beutl.UnitTests.Engine.Audio.AudioEffectAssertions;
 
 namespace Beutl.UnitTests.Engine.Audio;
 
 [TestFixture]
 public class GateEffectTests
 {
-    private sealed class StubInputNode : AudioNode
-    {
-        public override AudioBuffer Process(AudioProcessContext context)
-        {
-            return new AudioBuffer(context.SampleRate, 2, 0);
-        }
-    }
-
     [Test]
     public void CreateNode_WiresEveryPropertyToMatchingNodeSlot()
     {
         var effect = new GateEffect();
         using var context = new AudioContext(48000, 2);
-        var inputNode = context.AddNode(new StubInputNode());
+        var inputNode = context.AddNode(new ConstantInputNode(48000, 2, 0, 0f));
 
         var node = effect.CreateNode(context, inputNode);
 
@@ -43,7 +35,7 @@ public class GateEffectTests
     {
         var effect = new GateEffect();
         using var context = new AudioContext(48000, 2);
-        var inputNode = context.AddNode(new StubInputNode());
+        var inputNode = context.AddNode(new ConstantInputNode(48000, 2, 0, 0f));
 
         var node = effect.CreateNode(context, inputNode);
 
@@ -76,20 +68,6 @@ public class GateEffectTests
         AssertNameAndRange(effect.Range, nameof(effect.Range), MinRangeDb, MaxRangeDb);
     }
 
-    private static void AssertNameAndRange(IProperty<float> property, string expectedName, float min, float max)
-    {
-        Assert.That(property.Name, Is.EqualTo(expectedName),
-            $"ScanProperties must name the property '{expectedName}'.");
-
-        property.CurrentValue = max + 1000f;
-        Assert.That(property.CurrentValue, Is.EqualTo(max),
-            $"{expectedName}: a value above the max must be coerced to {max}; validator appears unwired.");
-
-        property.CurrentValue = min - 1000f;
-        Assert.That(property.CurrentValue, Is.EqualTo(min),
-            $"{expectedName}: a value below the min must be coerced to {min}; validator appears unwired.");
-    }
-
     private static IEnumerable<TestCaseData> ParameterRanges()
     {
         yield return new TestCaseData(MinThresholdDb, DefaultThresholdDb, MaxThresholdDb).SetName("Threshold");
@@ -101,8 +79,5 @@ public class GateEffectTests
 
     [TestCaseSource(nameof(ParameterRanges))]
     public void GateParameters_RangeIsConsistent(float min, float def, float max)
-    {
-        Assert.That(min, Is.LessThan(max), "Min must be strictly less than Max.");
-        Assert.That(def, Is.InRange(min, max), "Default must lie within [Min, Max].");
-    }
+        => AssertRangeIsConsistent(min, def, max);
 }

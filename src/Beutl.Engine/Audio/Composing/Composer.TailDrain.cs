@@ -27,7 +27,7 @@ public partial class Composer
                 continue;
 
             buffers.Add(FlushTail(outputNode, context, outputLatency, sampleCount, out int drainedSamples));
-            RecordTailAfterDrain(entry, outputNode, outputLatency, drainedSamples);
+            SetTailBudget(entry, outputNode, outputLatency, drainedSamples);
         }
     }
 
@@ -44,42 +44,30 @@ public partial class Composer
 
     private void RecordInlineDrainBudget(AudioNodeEntry entry, AudioNode[] outputNodes)
     {
-        bool hasInlineDrain = outputNodes.Any(
-            outputNode => TryGetInlineDrain(outputNode, SampleRate, out _));
-        if (!hasInlineDrain)
-            return;
-
         foreach (AudioNode outputNode in outputNodes)
         {
+            if (!TryGetInlineRemaining(outputNode, SampleRate, out int remainingLatency))
+                continue;
+
             int outputLatency = outputNode.GetDrainLatencySamples(SampleRate);
             AudioLatency.ThrowIfNegative(outputNode, outputLatency, "total latency");
 
-            bool inlineDrainAttempted = TryGetInlineDrain(
-                outputNode,
-                SampleRate,
-                out int inlineDrain,
-                outputLatency);
-            if (!inlineDrainAttempted)
-                continue;
-
-            if (outputLatency == int.MaxValue)
-                inlineDrain = 0;
-            else
-                inlineDrain = Math.Min(outputLatency, inlineDrain);
+            int inlineDrain = remainingLatency == int.MaxValue
+                ? 0
+                : Math.Max(0, outputLatency - remainingLatency);
             SetTailBudget(
                 entry,
                 outputNode,
                 outputLatency,
                 inlineDrain,
-                allowUnknownFollowUp: inlineDrainAttempted);
+                allowUnknownFollowUp: true);
         }
     }
 
-    private static bool TryGetInlineDrain(
+    private static bool TryGetInlineRemaining(
         AudioNode outputNode,
         int sampleRate,
-        out int inlineDrain,
-        int outputLatency = 0)
+        out int remainingLatency)
     {
         var branches = new List<InlineDrainBranch>();
         CollectInlineDrainBranches(
@@ -87,13 +75,10 @@ public partial class Composer
             sampleRate,
             branches,
             new HashSet<AudioNode>(ReferenceEqualityComparer.Instance));
+        remainingLatency = 0;
         if (branches.Count == 0)
-        {
-            inlineDrain = 0;
             return false;
-        }
 
-        int remainingLatency = 0;
         foreach (InlineDrainBranch branch in branches)
         {
             int branchRemaining = SubtractTail(
@@ -101,7 +86,6 @@ public partial class Composer
             if (branchRemaining == int.MaxValue)
             {
                 remainingLatency = int.MaxValue;
-                inlineDrain = 0;
                 break;
             }
 
@@ -110,15 +94,11 @@ public partial class Composer
                 ScaleByFactor(branchRemaining, branch.OutputScale));
         }
 
-        inlineDrain = remainingLatency == int.MaxValue
-            ? 0
-            : Math.Max(0, outputLatency - remainingLatency);
         return true;
     }
 
     private sealed record InlineDrainBranch(
         int LatencySamples,
-        int DrainedSamples,
         int PaddingSamples,
         int DownstreamLatencySamples,
         double OutputScale);
@@ -143,7 +123,6 @@ public partial class Composer
 
                 branches.Add(new InlineDrainBranch(
                     latency,
-                    clipNode.InlineDrainedSamples,
                     clipNode.InlinePaddingSamples,
                     downstreamLatency,
                     outputScale));
@@ -278,15 +257,6 @@ public partial class Composer
 
         latency = 0;
         return false;
-    }
-
-    private static void RecordTailAfterDrain(
-        AudioNodeEntry entry,
-        AudioNode outputNode,
-        int outputLatency,
-        int drainedSamples)
-    {
-        SetTailBudget(entry, outputNode, outputLatency, drainedSamples);
     }
 
     private static void SetTailBudget(

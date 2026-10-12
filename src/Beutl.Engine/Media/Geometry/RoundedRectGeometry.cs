@@ -197,7 +197,6 @@ public sealed partial class RoundedRectGeometry : Geometry
     {
         public override void ApplyTo(IGeometryContext context)
         {
-            base.ApplyTo(context);
             float width = Width;
             float height = Height;
             if (float.IsInfinity(width))

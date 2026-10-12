@@ -190,7 +190,7 @@ public sealed class NoiseReductionNode : AudioNode
 
         // Never warm up on audio before the timeline origin; a clip's own start is its first sample.
         long earliest = Math.Min(outputStart, 0);
-        long origin = FloorToHop(Math.Max(earliest, outputStart - seed / 2), reducer.HopSize);
+        long origin = SpectralNoiseReducer.FloorToHop(Math.Max(earliest, outputStart - seed / 2), reducer.HopSize);
 
         reducer.Reset(origin, outputStart);
         _stream!.Begin(outputStart / (double)_sampleRate, origin / (double)_sampleRate, forceReanchor: true);
@@ -298,11 +298,11 @@ public sealed class NoiseReductionNode : AudioNode
 
     private float Sample(IProperty<float> property, TimeSpan time)
     {
-        if (property.Animation is null || _sampler is null)
+        if (property.Animation is null)
             return property.CurrentValue;
 
         Span<float> value = stackalloc float[1];
-        _sampler.SampleBuffer(property, new TimeRange(time, TimeSpan.Zero), _sampleRate, value);
+        _sampler!.SampleBuffer(property, new TimeRange(time, TimeSpan.Zero), _sampleRate, value);
         return value[0];
     }
 
@@ -312,12 +312,6 @@ public sealed class NoiseReductionNode : AudioNode
         double value = time.TotalSeconds * _sampleRate;
         double rounded = Math.Round(value);
         return (long)(Math.Abs(value - rounded) < 1e-6 ? rounded : Math.Ceiling(value));
-    }
-
-    private static long FloorToHop(long position, int hop)
-    {
-        long remainder = position % hop;
-        return position - (remainder < 0 ? remainder + hop : remainder);
     }
 
     private readonly record struct Controls(

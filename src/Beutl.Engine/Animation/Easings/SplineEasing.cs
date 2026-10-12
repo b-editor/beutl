@@ -70,10 +70,6 @@ public class SplineEasing : Easing
     {
         // KeySpline caches 3*Y1 and 3*Y2. Finite control points can still overflow those
         // coefficients, in which case Ease may produce a non-finite value despite a finite hull.
-        float bx = 3f * X1;
-        float cx = 3f * X2;
-        float cxBx = 2f * (cx - bx);
-        float threeCx = 3f - cx;
         float by = 3f * Y1;
         float cy = 3f * Y2;
         if (X1 < 0f
@@ -84,10 +80,6 @@ public class SplineEasing : Easing
             || !float.IsFinite(X2)
             || !float.IsFinite(Y1)
             || !float.IsFinite(Y2)
-            || !float.IsFinite(bx)
-            || !float.IsFinite(cx)
-            || !float.IsFinite(cxBx)
-            || !float.IsFinite(threeCx)
             || !float.IsFinite(by)
             || !float.IsFinite(cy))
         {
@@ -99,7 +91,7 @@ public class SplineEasing : Easing
         // A cubic Bézier curve stays inside the convex hull of its control points.
         minimum = Math.Min(0, Math.Min(Y1, Math.Min(Y2, 1)));
         maximum = Math.Max(0, Math.Max(Y1, Math.Max(Y2, 1)));
-        return float.IsFinite(minimum) && float.IsFinite(maximum);
+        return true;
     }
 
     public override float Ease(float progress)

@@ -34,24 +34,12 @@ public readonly struct CornerRadius : IEquatable<CornerRadius>, ITupleConvertibl
         BottomLeft = bottomLeft;
     }
 
-    /// <summary>
-    /// Radius of the top left corner.
-    /// </summary>
     public float TopLeft { get; }
 
-    /// <summary>
-    /// Radius of the top right corner.
-    /// </summary>
     public float TopRight { get; }
 
-    /// <summary>
-    /// Radius of the bottom right corner.
-    /// </summary>
     public float BottomRight { get; }
 
-    /// <summary>
-    /// Radius of the bottom left corner.
-    /// </summary>
     public float BottomLeft { get; }
 
     /// <summary>
@@ -66,11 +54,6 @@ public readonly struct CornerRadius : IEquatable<CornerRadius>, ITupleConvertibl
 
     static int ITupleConvertible<CornerRadius, float>.TupleLength => 4;
 
-    /// <summary>
-    /// Returns a boolean indicating whether the corner radius is equal to the other given corner radius.
-    /// </summary>
-    /// <param name="other">The other corner radius to test equality against.</param>
-    /// <returns>True if this corner radius is equal to other; False otherwise.</returns>
     public bool Equals(CornerRadius other)
     {
         return TopLeft == other.TopLeft &&
@@ -79,11 +62,6 @@ public readonly struct CornerRadius : IEquatable<CornerRadius>, ITupleConvertibl
                BottomLeft == other.BottomLeft;
     }
 
-    /// <summary>
-    /// Returns a boolean indicating whether the given Object is equal to this corner radius instance.
-    /// </summary>
-    /// <param name="obj">The Object to compare against.</param>
-    /// <returns>True if the Object is equal to this corner radius; False otherwise.</returns>
     public override bool Equals(object? obj)
     {
         return obj is CornerRadius other && Equals(other);
