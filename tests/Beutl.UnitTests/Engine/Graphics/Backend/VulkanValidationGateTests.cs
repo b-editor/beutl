@@ -103,16 +103,14 @@ public sealed class VulkanValidationGateTests
 
         // Deliberately not EnsureAvailable(): that reports an unusable Vulkan as a skip, which is the very
         // outcome this test exists to reject once validation has been asked for.
-        VulkanTestEnvironment.EnsureInitialized();
-
         using (Assert.EnterMultipleScope())
         {
             Assert.That(
-                VulkanTestEnvironment.IsAvailable,
+                TestGpu.IsAvailable,
                 Is.True,
                 "Validation was requested but the Vulkan context could not be created, so every GPU test "
                 + "would skip and the gate would observe nothing: "
-                + (VulkanTestEnvironment.UnavailableReason ?? "(no reason recorded)"));
+                + (TestGpu.UnavailableReason ?? "(no reason recorded)"));
             Assert.That(
                 GraphicsContextFactory.VulkanInstance?.EnableValidation,
                 Is.True,

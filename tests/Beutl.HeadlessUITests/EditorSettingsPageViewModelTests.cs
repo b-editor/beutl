@@ -15,7 +15,7 @@ public sealed class EditorSettingsPageViewModelTests
     [AvaloniaTest]
     public void Over_cap_input_at_the_cap_re_syncs_the_textbox_to_the_clamped_value()
     {
-        GpuTestGate.EnsureAvailable();
+        TestGpu.RequireAnyDevice();
 
         ProxyStoreConfig config = GlobalConfiguration.Instance.ProxyStoreConfig;
         long priorBytes = config.MaxTotalBytes;
@@ -44,7 +44,7 @@ public sealed class EditorSettingsPageViewModelTests
     [AvaloniaTest]
     public void Over_cap_input_below_the_cap_clamps_and_re_syncs()
     {
-        GpuTestGate.EnsureAvailable();
+        TestGpu.RequireAnyDevice();
 
         ProxyStoreConfig config = GlobalConfiguration.Instance.ProxyStoreConfig;
         long priorBytes = config.MaxTotalBytes;
@@ -73,7 +73,7 @@ public sealed class EditorSettingsPageViewModelTests
     [AvaloniaTest]
     public void Version_control_options_round_trip_through_the_editor_settings_view_model()
     {
-        GpuTestGate.EnsureAvailable();
+        TestGpu.RequireAnyDevice();
 
         VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
         (bool EnableForNewProjects,

@@ -63,7 +63,7 @@ public class TransformHandlesOverlayTests
     [TestCase(Content.Text)]
     public async Task Transform_box_spans_what_the_drawable_draws(Content content)
     {
-        GpuTestGate.EnsureAvailable();
+        TestGpu.RequireAnyDevice();
         (EditViewModel editor, PlayerView view, Window window, Drawable drawable) = await OpenPreview(content);
         try
         {
@@ -101,7 +101,7 @@ public class TransformHandlesOverlayTests
     public async Task Dragging_a_corner_takes_it_to_the_pointer_and_keeps_the_opposite_corner(
         Content content, int grabbed, double dx, double dy)
     {
-        GpuTestGate.EnsureAvailable();
+        TestGpu.RequireAnyDevice();
         (EditViewModel editor, PlayerView view, Window window, _) = await OpenPreview(content);
         try
         {
@@ -141,7 +141,7 @@ public class TransformHandlesOverlayTests
     [TestCase(true)]
     public async Task Dragging_an_edge_takes_it_to_the_pointer_and_keeps_the_opposite_edge(bool shift)
     {
-        GpuTestGate.EnsureAvailable();
+        TestGpu.RequireAnyDevice();
         (EditViewModel editor, PlayerView view, Window window, _) = await OpenPreview(Content.TurnedBlurredRect);
         try
         {
@@ -186,7 +186,7 @@ public class TransformHandlesOverlayTests
     [AvaloniaTest]
     public async Task Pressing_a_handle_of_a_thin_box_takes_the_nearest_handle()
     {
-        GpuTestGate.EnsureAvailable();
+        TestGpu.RequireAnyDevice();
         (_, PlayerView view, Window window, _) = await OpenPreview(Content.Thin);
         try
         {
@@ -213,7 +213,7 @@ public class TransformHandlesOverlayTests
     [AvaloniaTest]
     public async Task Dragging_a_corner_of_a_drawable_with_a_lone_transform_wraps_it_and_undo_restores_it()
     {
-        GpuTestGate.EnsureAvailable();
+        TestGpu.RequireAnyDevice();
         (EditViewModel editor, PlayerView view, Window window, Drawable drawable) = await OpenPreview(Content.LoneTranslate);
         try
         {
@@ -257,7 +257,7 @@ public class TransformHandlesOverlayTests
     [AvaloniaTest]
     public async Task Dragging_the_body_of_a_scaled_and_turned_drawable_moves_it_with_the_pointer()
     {
-        GpuTestGate.EnsureAvailable();
+        TestGpu.RequireAnyDevice();
         (EditViewModel editor, PlayerView view, Window window, _) = await OpenPreview(Content.ScaledAndTurned);
         try
         {
@@ -294,7 +294,7 @@ public class TransformHandlesOverlayTests
     [TestCase(true, false)]
     public async Task Dragging_inside_a_zoom_transition_moves_the_drawable_with_the_pointer(bool body, bool selected)
     {
-        GpuTestGate.EnsureAvailable();
+        TestGpu.RequireAnyDevice();
         (EditViewModel editor, PlayerView view, Window window, _) = await OpenPreview(Content.ShadowedEllipse);
         try
         {
@@ -352,7 +352,7 @@ public class TransformHandlesOverlayTests
     [AvaloniaTest]
     public async Task Transform_box_stays_on_the_drawable_after_the_view_is_attached_again()
     {
-        GpuTestGate.EnsureAvailable();
+        TestGpu.RequireAnyDevice();
         (EditViewModel editor, PlayerView view, Window window, Drawable drawable) = await OpenPreview(Content.ShadowedEllipse);
         try
         {

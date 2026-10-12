@@ -150,7 +150,7 @@ public sealed class RenderStillTests
         Scene scene = CreateScene(dir, new Scene3D());
 
         var renderer = new StillRenderer();
-        if (AgentToolkitGpuTestEnvironment.IsAvailable)
+        if (TestGpu.IsAvailable)
         {
             RenderStillResponse result = await renderer.RenderAsync(scene, TimeSpan.Zero, output, 1, CancellationToken.None);
 

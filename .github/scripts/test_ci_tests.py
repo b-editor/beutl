@@ -1,10 +1,15 @@
+import contextlib
+import io
 import os
 import re
 from pathlib import Path
+import subprocess
+import sys
 import tempfile
 import threading
 import unittest
 from unittest.mock import patch
+from xml.sax.saxutils import escape
 
 import ci_tests
 import archive_ci
@@ -18,6 +23,19 @@ def matches(expression, name):
 
 
 class CiTestsTests(unittest.TestCase):
+    def setUp(self):
+        # The compile job runs these tests. Keep crafted reports out of its annotations and job summary, and
+        # keep the capabilities a job declares from changing the results.
+        environment = patch.dict(os.environ)
+        environment.start()
+        self.addCleanup(environment.stop)
+        for variable in ("GITHUB_STEP_SUMMARY", *ci_tests.REQUIREMENTS):
+            os.environ.pop(variable, None)
+        self.output = io.StringIO()
+        redirect = contextlib.redirect_stdout(self.output)
+        redirect.__enter__()
+        self.addCleanup(redirect.__exit__, None, None, None)
+
     def test_validation_children_overlap_and_a_failure_is_not_hidden(self):
         barrier = threading.Barrier(3)
         started = set()
@@ -148,46 +166,159 @@ class CiTestsTests(unittest.TestCase):
                 self.assertEqual(ci_tests.run(root, "other", False), 1)
                 self.assertEqual(process.call_count, 2)
 
-    def test_only_skips_for_missing_ffmpeg_are_reported(self):
+    def test_skips_are_counted_by_reason(self):
         results = [
-            ("Fixture", "NotExecuted", "OneTimeSetUp: FFmpeg native libraries are not available."),
-            ("SetUp", "NotExecuted", "SetUp : FFmpeg worker binary not present in the test output; skipping."),
-            ("Worker", "NotExecuted", "FFmpeg natives unavailable (FFmpeg worker exited because the FFmpeg "
-                                      "libraries could not be found.); skipping the process-level contract test."),
-            ("Shared", "NotExecuted", "FFmpeg shared libraries unavailable; skipping the native-dependent assertion."),
-            ("Codec", "NotExecuted", "libx264 is not available."),
-            ("Platform", "NotExecuted", "Exercises Linux library discovery."),
-            ("Present", "NotExecuted", "An FFmpeg worker is available; missing-libraries path is unreachable."),
-            ("Failed", "Failed", "FFmpeg native libraries are not available."),
+            ("Gpu", "NotExecuted", "No GPU device: GraphicsContextFactory.GetOrCreateShared returned null."),
+            ("GpuFixture", "NotExecuted", "OneTimeSetUp: SetUp : No GPU device: the shared Vulkan context cannot render 3D."),
+            ("Parity", "NotExecuted", "Needs a hardware GPU: SwiftShader Device (Subzero) is a Cpu device. InnerShadow: ..."),
+            ("Scaled", "NotExecuted", "Needs a hardware GPU: SwiftShader Device (Subzero) is a Cpu device. FlatShadow: ..."),
+            ("Worker", "NotExecuted", "SetUp : FFmpeg worker binary not present in the test output; skipping."),
+            ("Mac", "NotExecuted", "Only supported on MacOSX"),
+            ("MacFixture", "NotExecuted", "OneTimeSetUp: Only supported on MacOSX"),
+            ("Lines", "NotExecuted", "First   line\nsecond line"),
+            ("Long", "NotExecuted", "x" * 200),
+            ("Silent", "NotExecuted", None),
+            ("Ran", "Passed", ""),
+            ("Broke", "Failed", "No GPU device: a failure is not a skip."),
         ]
         with tempfile.TemporaryDirectory() as temporary:
-            directory = Path(temporary)
-            (directory / "test.trx").write_text(trx(results))
-            self.assertEqual(ci_tests.ffmpeg_skips(directory), ["Fixture", "SetUp", "Worker", "Shared"])
+            path = Path(temporary) / "test.trx"
+            path.write_text(trx(results))
+            self.assertTrue(ci_tests.report_skips("unit-golden/Beutl.UnitTests", [path]))
+        self.assertEqual(self.output.getvalue().splitlines(), [
+            "unit-golden/Beutl.UnitTests: 10 of 12 tests not executed",
+            "      2  Needs a hardware GPU",
+            "      2  No GPU device",
+            "      2  Only supported on MacOSX",
+            "      1  (no reason given)",
+            "      1  FFmpeg is missing",
+            "      1  First line",
+            "      1  " + "x" * 159 + "\u2026",
+        ])
 
-    def test_a_skip_for_missing_ffmpeg_fails_only_when_ffmpeg_is_required(self):
+    def test_the_job_summary_gets_the_counts_but_no_markup_from_a_reason(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            summary = directory / "summary.md"
+            summary.write_text("earlier steps\n")
+            skipped = directory / "skipped.trx"
+            skipped.write_text(trx([("Odd", "NotExecuted", "Needs <b>x</b> | `y` *z* [a](b) & c_d"), ("Ran", "Passed", "")]))
+            ran = directory / "ran.trx"
+            ran.write_text(trx([("Ran", "Passed", "")]))
+            with patch.dict(os.environ, {"GITHUB_STEP_SUMMARY": str(summary)}):
+                ci_tests.report_skips("other/Beutl.AgentToolkit.Tests", [skipped])
+                ci_tests.report_skips("other/Beutl.FFmpegIpc.Tests", [ran])
+            self.assertEqual(summary.read_text(), (
+                "earlier steps\n"
+                "**other/Beutl.AgentToolkit.Tests**: 1 of 2 tests not executed\n\n"
+                "| Tests | Reason |\n| ---: | --- |\n"
+                "| 1 | Needs \\<b\\>x\\</b\\> \\| \\`y\\` \\*z\\* \\[a\\](b) \\& c\\_d |\n\n"
+                "**other/Beutl.FFmpegIpc.Tests**: 0 of 1 tests not executed\n\n"))
+
+    def test_only_a_skip_for_the_missing_capability_counts_against_it(self):
+        cases = {
+            "BEUTL_REQUIRE_FFMPEG": ("FFmpeg is missing", [
+                ("Fixture", "NotExecuted", "OneTimeSetUp: FFmpeg native libraries are not available."),
+                ("SetUp", "NotExecuted", "SetUp : FFmpeg worker binary not present in the test output; skipping."),
+                ("Worker", "NotExecuted", "FFmpeg natives unavailable (FFmpeg worker exited because the FFmpeg "
+                                          "libraries could not be found.); skipping the process-level contract test."),
+                ("Shared", "NotExecuted", "FFmpeg shared libraries unavailable; skipping the native-dependent assertion."),
+                ("Codec", "NotExecuted", "libx264 is not available."),
+                ("Platform", "NotExecuted", "Exercises Linux library discovery."),
+                ("Present", "NotExecuted", "An FFmpeg worker is available; missing-libraries path is unreachable."),
+                ("Failed", "Failed", "FFmpeg native libraries are not available."),
+            ], ["Fixture", "SetUp", "Worker", "Shared"]),
+            "BEUTL_REQUIRE_GPU": ("no GPU device was available", [
+                ("Device", "NotExecuted", "No GPU device: GraphicsContextFactory.GetOrCreateShared returned null."),
+                ("Fixture", "NotExecuted", "OneTimeSetUp: No GPU device: initializing the shared graphics context threw."),
+                ("Nested", "NotExecuted", "OneTimeSetUp: SetUp : No GPU device: the shared Vulkan context cannot render 3D."),
+                ("Hardware", "NotExecuted", "Needs a hardware GPU: SwiftShader Device (Subzero) is a Cpu device. ..."),
+                ("Available", "NotExecuted", "A graphics context is available; the Unavailable path is not exercised here."),
+                ("Quoted", "NotExecuted", "Validation was not requested, so a later No GPU device: skip is not this one."),
+                ("Metal", "NotExecuted", "Skia renders through Metal on the composite backend, which already wraps textures."),
+                ("Failed", "Failed", "No GPU device: a failure is reported as a failure."),
+            ], ["Device", "Fixture", "Nested"]),
+        }
+        for variable, (description, results, names) in cases.items():
+            with self.subTest(variable), tempfile.TemporaryDirectory() as temporary, \
+                    patch.dict(os.environ, {variable: "1"}):
+                path = Path(temporary) / "test.trx"
+                path.write_text(trx(results))
+                self.output.seek(0)
+                self.output.truncate()
+                self.assertFalse(ci_tests.report_skips("other/Example", [path]))
+                self.assertEqual(self.output.getvalue().splitlines()[-1],
+                                 f"::error::{variable} is set, but {len(names)} other/Example tests skipped "
+                                 f"because {description}: {', '.join(names)}")
+
+    def test_a_skip_fails_only_for_a_capability_the_job_declares(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             assembly = root / "Beutl.FFmpegWorker.Tests.dll"
             assembly.touch()
             results = root / "TestResults" / "other" / assembly.stem
             results.mkdir(parents=True)
-            (results / "test.trx").write_text(trx([("Encode", "NotExecuted", "FFmpeg native libraries are not available.")]))
-            for value, expected in [("1", 1), ("true", 1), ("0", 0), ("", 0)]:
-                with self.subTest(BEUTL_REQUIRE_FFMPEG=value), \
-                        patch.dict(os.environ, {"BEUTL_REQUIRE_FFMPEG": value}), \
-                        patch.object(ci_tests, "assemblies", return_value=[assembly]), \
-                        patch.object(ci_tests.subprocess, "run", return_value=subprocess_result(0)):
-                    self.assertEqual(ci_tests.run(root, "other", False), expected)
+            cases = [
+                ("FFmpeg native libraries are not available.", "BEUTL_REQUIRE_FFMPEG", [("1", 1), ("true", 1), ("0", 0), ("", 0)]),
+                ("No GPU device: GraphicsContextFactory.GetOrCreateShared returned null.", "BEUTL_REQUIRE_GPU",
+                 [("1", 1), ("TRUE", 1), ("0", 0), ("", 0)]),
+                # CI provides SwiftShader, so a hardware-only expectation is skipped there by design.
+                ("Needs a hardware GPU: SwiftShader Device (Subzero) is a Cpu device. ...", "BEUTL_REQUIRE_GPU", [("1", 0)]),
+                # Each declaration covers its own capability only.
+                ("No GPU device: GraphicsContextFactory.GetOrCreateShared returned null.", "BEUTL_REQUIRE_FFMPEG", [("1", 0)]),
+                ("FFmpeg native libraries are not available.", "BEUTL_REQUIRE_GPU", [("1", 0)]),
+            ]
+            for message, variable, values in cases:
+                (results / "test.trx").write_text(trx([("Skipped", "NotExecuted", message), ("Ran", "Passed", "")]))
+                for value, expected in values:
+                    with self.subTest(message=message, **{variable: value}), \
+                            patch.dict(os.environ, {variable: value}), \
+                            patch.object(ci_tests, "assemblies", return_value=[assembly]), \
+                            patch.object(ci_tests.subprocess, "run", return_value=subprocess_result(0)):
+                        self.assertEqual(ci_tests.run(root, "other", False), expected)
+
+    def test_results_of_a_run_without_the_script_are_checked_per_assembly(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            missing = directory / "missing"
+            missing.mkdir()
+            (directory / "a.trx").write_text(trx(
+                [("Render", "NotExecuted", "No GPU device: GraphicsContextFactory.GetOrCreateShared returned null."),
+                 ("Ran", "Passed", "")], assembly="Beutl.UnitTests"))
+            (directory / "b.trx").write_text(trx([("Ran", "Passed", "")], assembly="Beutl.Graphics3DTests"))
+            self.assertEqual(ci_tests.check_results(directory), 0)
+            self.assertEqual(self.output.getvalue().splitlines(), [
+                "Beutl.UnitTests: 1 of 2 tests not executed",
+                "      1  No GPU device",
+                "Beutl.Graphics3DTests: 0 of 1 tests not executed",
+            ])
+            with patch.dict(os.environ, {"BEUTL_REQUIRE_GPU": "1"}):
+                self.assertEqual(ci_tests.check_results(directory), 1)
+                # The same check through the command line that the Linux ARM64 job runs.
+                command = [sys.executable, ci_tests.__file__, "--check-results", str(directory)]
+                result = subprocess.run(command, capture_output=True, text=True, check=False)
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("::error::BEUTL_REQUIRE_GPU is set, but 1 Beutl.UnitTests tests skipped", result.stdout)
+            self.assertEqual(ci_tests.check_results(missing), 1)
+            self.assertIn(f"::error::No test results in {missing}", self.output.getvalue())
+            (missing / "truncated.trx").write_text("<TestRun><Results>")
+            self.assertEqual(ci_tests.check_results(missing), 1)
+            self.assertIn("::error::Could not read the test results of truncated", self.output.getvalue())
 
 
-def trx(results):
+def trx(results, assembly=None):
     rows = "".join(
-        f'<UnitTestResult testName="{name}" outcome="{outcome}"><Output><StdOut>{message}</StdOut>'
-        f'<ErrorInfo><Message>{message}</Message></ErrorInfo></Output></UnitTestResult>'
+        f'<UnitTestResult testName="{name}" outcome="{outcome}" />' if message is None else
+        f'<UnitTestResult testName="{name}" outcome="{outcome}"><Output><StdOut>{escape(message)}</StdOut>'
+        f'<ErrorInfo><Message>{escape(message)}</Message></ErrorInfo></Output></UnitTestResult>'
         for name, outcome, message in results)
-    return ('<TestRun xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010"><Results>'
-            f'{rows}</Results><ResultSummary><Counters total="{len(results)}" /></ResultSummary></TestRun>')
+    # VSTest lowercases the storage path; the code base keeps the assembly's spelling.
+    definitions = "" if assembly is None else (
+        f'<TestDefinitions><UnitTest name="Test" storage="/repo/bin/{assembly.lower()}.dll">'
+        f'<TestMethod codeBase="/repo/bin/{assembly}.dll" className="Fixture" name="Test" /></UnitTest></TestDefinitions>')
+    return ('<TestRun xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">'
+            f'{definitions}<Results>{rows}</Results><ResultSummary><Counters total="{len(results)}" /></ResultSummary>'
+            '</TestRun>')
 
 
 def subprocess_result(returncode):

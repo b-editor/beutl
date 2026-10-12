@@ -146,7 +146,7 @@ public class OutputFileSafetyTests
     private static async Task<EditViewModel> OpenEditorAsync()
     {
         await TestReset.ResetShellAsync();
-        GpuTestGate.EnsureAvailable();
+        TestGpu.RequireAnyDevice();
         string directory = Path.Combine(BeutlHomeIsolation.CurrentHome!, "output-safety-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(directory);
         var scene = new Scene

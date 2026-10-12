@@ -166,7 +166,7 @@ public class VideoExporterFileSafetyTests
             Assert.Ignore("AVFoundation requires macOS.");
             return;
         }
-        AgentToolkitGpuTestEnvironment.EnsureAvailable();
+        TestGpu.RequireAnyDevice();
         using var cancellation = new CancellationTokenSource();
         var exporter = new VideoExporter(new EncoderRegistration(new AVFEncodingExtension()));
 

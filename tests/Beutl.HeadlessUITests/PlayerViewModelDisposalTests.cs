@@ -78,7 +78,7 @@ public class PlayerViewModelDisposalTests
     [AvaloniaTest]
     public async Task Disposing_the_editor_while_the_playback_timer_is_active_stops_cleanly()
     {
-        GpuTestGate.EnsureAvailable();
+        TestGpu.RequireAnyDevice();
         await ResetProjectAsync();
         EditViewModel editor = await OpenEditorForNewScene("player-timer-dispose");
         PlayerViewModel player = editor.Player;

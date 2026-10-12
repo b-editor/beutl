@@ -28,6 +28,10 @@ Most projects under `tests/` are NUnit (+ Moq where needed); the exceptions are 
 
 CI's `other` suite, which runs `Beutl.FFmpegWorker.Tests` and `Beutl.FFmpegIpc.Tests`, installs the FFmpeg 8 shared libraries and sets `BEUTL_REQUIRE_FFMPEG=1`. `.github/scripts/ci_tests.py` then fails the suite when a test skips because FFmpeg is missing. It recognizes such a skip by its reason: "FFmpeg native…", "FFmpeg natives", "FFmpeg shared libraries" or "FFmpeg worker…", followed later by "unavailable", "not available" or "not present", as in "FFmpeg native libraries are not available.". Keep that wording for new FFmpeg-backed tests, and word other reasons, such as a missing encoder, differently.
 
+GPU-backed tests go through `tests/TestGpu.cs`, which each GPU test project links. A test calls `TestGpu.RequireAnyDevice()` when any Vulkan device will do, SwiftShader included; `VulkanTestEnvironment.EnsureAvailable()` and `GpuTestEnvironment.EnsureAvailable()` call it. Without a device the test skips with a reason that starts with "No GPU device:". An expectation that holds only on a hardware GPU calls `TestGpu.RequireHardwareGpu(...)` instead, which skips on SwiftShader or another CPU implementation with a reason that starts with "Needs a hardware GPU:". CI's test shards and its Linux ARM64 job provide SwiftShader and set `BEUTL_REQUIRE_GPU=1`, so `ci_tests.py` fails them when a test skipped with "No GPU device:". Hardware-only skips do not fail them: no CI job has a hardware GPU. Only `ci_tests.py` reads `BEUTL_REQUIRE_GPU`; a plain `dotnet test` reports the skips and passes.
+
+For each shard and assembly, `ci_tests.py` prints how many tests were not executed, grouped by reason, to the log and to the job summary. `--check-results <directory>` does the same for the TRX files of a `dotnet test` run that did not go through the script. Skips for a reason other than a capability the job declares are only counted.
+
 The interactive Avalonia previewers / sample apps no longer live here. The sample extension package `PackageSample` was moved out of `tests/` (and out of `Beutl.slnx`, so CI does not build it) and now lives under `samples/`. Running it launches a window; it is not a test harness.
 
 ## Vulkan validation gate
@@ -45,8 +49,7 @@ Vulkan validation job with the layer installed. Neither pass filters by category
 remembered, and a GPU test that forgets one is exactly the test the gate would then not cover. Locally:
 
 ```bash
-BEUTL_REQUIRE_GPU=1 BEUTL_VULKAN_VALIDATION=1 \
-  dotnet test tests/Beutl.Graphics3DTests/Beutl.Graphics3DTests.csproj -f net10.0
+BEUTL_VULKAN_VALIDATION=1 dotnet test tests/Beutl.Graphics3DTests/Beutl.Graphics3DTests.csproj -f net10.0
 ```
 
 `VulkanValidationGateTests.WhenTheJobAsksForValidation_TheInstanceEnabledIt` fails when the variable is set
@@ -120,7 +123,7 @@ Conventions:
 - The headless `Application` uses Skia rendering (`UseHeadlessDrawing = false`) so real templates (FontIcon glyphs, text) inflate; a layout-only suite can keep the default stub drawing.
 - Shell tests that drive global singletons (`ProjectService.Current`, `EditorService.Current`, …) must reset them at the START of each `[AvaloniaTest]` body, NOT in `[SetUp]`/`[TearDown]` — those run off the UI thread, where mutating Avalonia / reactive state silently fails. Control- and domain-level tests that never touch those singletons (e.g. the `Beutl.E2ETests` property-editor tests, which don't even reference `src/Beutl`) need no such reset.
 - `BEUTL_HOME` is isolated to a per-assembly temp dir via a `[SetUpFixture]` calling `BeutlHomeIsolation`.
-- GPU-preview / FFmpeg-export tests must self-skip (`Assert.Ignore` + `TestContext.WriteLine` the reason) when the GPU / worker is unavailable — same spirit as `VulkanTestEnvironment` and `Beutl.Graphics3DTests`.
+- GPU-preview tests start with `TestGpu.RequireAnyDevice()`, which skips them when no GPU is available. FFmpeg-export tests must self-skip (`Assert.Ignore` + `TestContext.WriteLine` the reason) when the worker is unavailable.
 
 ## Format manifest
 

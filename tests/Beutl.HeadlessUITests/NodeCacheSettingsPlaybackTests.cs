@@ -28,7 +28,7 @@ public class NodeCacheSettingsPlaybackTests
     [AvaloniaTest]
     public async Task ChangingTheNodeCache_DuringPlayback_DoesNotWaitForTheRenderThread()
     {
-        GpuTestGate.EnsureAvailable();
+        TestGpu.RequireAnyDevice();
         // Much longer than the producer's read-ahead and the bound below, so the producer holds the render thread
         // for the whole test.
         EditViewModel editor = await OpenEditor(TimeSpan.FromMinutes(2));

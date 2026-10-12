@@ -25,7 +25,7 @@ public class BufferedPlayerReadAheadTests
     [AvaloniaTest]
     public async Task Producer_StopsRenderingAhead_OnceTheQueuedFramesFillTheBudget()
     {
-        GpuTestGate.EnsureAvailable();
+        TestGpu.RequireAnyDevice();
         EditViewModel editor = await OpenEditor();
         long frameBytes = ReadAheadBudget.SnapshotBytes(editor.Renderer.Value.DeviceSize);
         using var isPlaying = new ReactivePropertySlim<bool>(true);
