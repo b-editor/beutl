@@ -169,8 +169,12 @@ public sealed class NodePropertyAdapter<T> : IAnimatablePropertyAdapter<T>
     public void Serialize(ICoreSerializationContext context)
     {
         context.SetValue("Property", Name);
-        context.SetValue("Target", TypeFormat.ToString(ImplementedType));
+        SerializeValue(context);
+    }
 
+    // Writes the value alone, for a port that finds its property by its own Name.
+    internal void SerializeValue(ICoreSerializationContext context)
+    {
         context.SetValue("Setter", PropertyEntrySerializer.ToJson(_rxProperty.Value, Animation, PropertyType));
     }
 

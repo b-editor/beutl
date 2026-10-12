@@ -2,6 +2,9 @@
 
 namespace Beutl.NodeGraph;
 
+// Earlier builds also wrote the property name here, which the member does not read: it finds its property by Name.
+// A stored name is dropped rather than kept as an unknown member.
+[DroppedMembers("Property")]
 public sealed class DefaultNodeMember<T> : NodeMember<T>
 {
     public void SetProperty(NodePropertyAdapter<T> property)
@@ -23,7 +26,7 @@ public sealed class DefaultNodeMember<T> : NodeMember<T>
     public override void Serialize(ICoreSerializationContext context)
     {
         base.Serialize(context);
-        GetProperty()?.Serialize(context);
+        GetProperty()?.SerializeValue(context);
     }
 
     public override void Deserialize(ICoreSerializationContext context)

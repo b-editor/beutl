@@ -2,6 +2,9 @@
 
 namespace Beutl.NodeGraph;
 
+// Earlier builds also wrote the property name here, which the port does not read: it finds its property by Name. A
+// stored name is dropped rather than kept as an unknown member.
+[DroppedMembers("Property")]
 public sealed class DefaultInputPort<T> : InputPort<T>, IDefaultInputPort
 {
     public void SetPropertyAdapter(NodePropertyAdapter<T> property)
@@ -28,7 +31,7 @@ public sealed class DefaultInputPort<T> : InputPort<T>, IDefaultInputPort
     public override void Serialize(ICoreSerializationContext context)
     {
         base.Serialize(context);
-        GetProperty()?.Serialize(context);
+        GetProperty()?.SerializeValue(context);
     }
 
     public override void Deserialize(ICoreSerializationContext context)
