@@ -41,16 +41,16 @@ public class FFmpegInstallNotifierTests
         int changes = 0;
         void OnAvailabilityChanged(object? sender, EventArgs e) => changes++;
 
-        FFmpegInstallNotifier.AvailabilityChanged += OnAvailabilityChanged;
+        FFmpegLibraryState.AvailabilityChanged += OnAvailabilityChanged;
         try
         {
-            FFmpegInstallNotifier.MarkMissing();
-            FFmpegInstallNotifier.MarkMissing();
+            FFmpegLibraryState.MarkMissing();
+            FFmpegLibraryState.MarkMissing();
             FFmpegInstallNotifier.MarkInstalled();
         }
         finally
         {
-            FFmpegInstallNotifier.AvailabilityChanged -= OnAvailabilityChanged;
+            FFmpegLibraryState.AvailabilityChanged -= OnAvailabilityChanged;
         }
 
         Assert.That(changes, Is.EqualTo(2));
@@ -59,18 +59,18 @@ public class FFmpegInstallNotifierTests
     [Test]
     public void MarkVerificationStarted_ClearsMissingWithoutAvailabilitySignal()
     {
-        FFmpegInstallNotifier.MarkMissing();
+        FFmpegLibraryState.MarkMissing();
         int changes = 0;
         void OnAvailabilityChanged(object? sender, EventArgs e) => changes++;
 
-        FFmpegInstallNotifier.AvailabilityChanged += OnAvailabilityChanged;
+        FFmpegLibraryState.AvailabilityChanged += OnAvailabilityChanged;
         try
         {
             FFmpegInstallNotifier.MarkVerificationStarted();
             Assert.Multiple(() =>
             {
-                Assert.That(FFmpegInstallNotifier.IsLibrariesMissing, Is.False);
-                Assert.That(FFmpegInstallNotifier.IsVerificationInProgress, Is.True);
+                Assert.That(FFmpegLibraryState.IsLibrariesMissing, Is.False);
+                Assert.That(FFmpegLibraryState.IsVerificationInProgress, Is.True);
                 Assert.That(changes, Is.EqualTo(0));
             });
 
@@ -78,11 +78,11 @@ public class FFmpegInstallNotifierTests
         }
         finally
         {
-            FFmpegInstallNotifier.AvailabilityChanged -= OnAvailabilityChanged;
+            FFmpegLibraryState.AvailabilityChanged -= OnAvailabilityChanged;
         }
 
         Assert.That(changes, Is.EqualTo(1));
-        Assert.That(FFmpegInstallNotifier.IsVerificationInProgress, Is.False);
+        Assert.That(FFmpegLibraryState.IsVerificationInProgress, Is.False);
     }
 
     [Test]
@@ -104,21 +104,21 @@ public class FFmpegInstallNotifierTests
             }
         }
 
-        FFmpegInstallNotifier.AvailabilityChanged += OnAvailabilityChanged;
+        FFmpegLibraryState.AvailabilityChanged += OnAvailabilityChanged;
         try
         {
             Task blocker = Task.Run(FFmpegInstallNotifier.MarkInstalled);
             Assert.That(firstNotificationEntered.Wait(TimeSpan.FromSeconds(5)), Is.True,
                 "the first availability notification did not start");
 
-            Task missing = Task.Run(FFmpegInstallNotifier.MarkMissing);
+            Task missing = Task.Run(FFmpegLibraryState.MarkMissing);
             Assert.That(SpinWait.SpinUntil(
-                () => FFmpegInstallNotifier.IsLibrariesMissing,
+                () => FFmpegLibraryState.IsLibrariesMissing,
                 TimeSpan.FromSeconds(5)), Is.True,
                 "the missing transition did not update state");
 
             FFmpegInstallNotifier.MarkVerificationStarted();
-            Assert.That(FFmpegInstallNotifier.IsLibrariesMissing, Is.False);
+            Assert.That(FFmpegLibraryState.IsLibrariesMissing, Is.False);
 
             releaseFirstNotification.Set();
             Assert.That(blocker.Wait(TimeSpan.FromSeconds(5)), Is.True);
@@ -132,7 +132,7 @@ public class FFmpegInstallNotifierTests
         finally
         {
             releaseFirstNotification.Set();
-            FFmpegInstallNotifier.AvailabilityChanged -= OnAvailabilityChanged;
+            FFmpegLibraryState.AvailabilityChanged -= OnAvailabilityChanged;
             FFmpegInstallNotifier.MarkInstalled();
         }
     }
@@ -142,15 +142,15 @@ public class FFmpegInstallNotifierTests
     {
         const long cooldownMs = 30_000; // mirrors FFmpegLibraryState.ReprobeCooldownMs
 
-        FFmpegInstallNotifier.MarkMissing();
-        long since = FFmpegInstallNotifier.MissingSinceTicks;
+        FFmpegLibraryState.MarkMissing();
+        long since = FFmpegLibraryState.MissingSinceTicks;
 
         Assert.Multiple(() =>
         {
             Assert.That(since, Is.Not.EqualTo(0), "MarkMissing must arm the re-probe cooldown");
-            Assert.That(FFmpegInstallNotifier.ShouldSkipStartProbe(since + 1_000), Is.True);
-            Assert.That(FFmpegInstallNotifier.ShouldSkipStartProbe(since + cooldownMs), Is.False);
-            Assert.That(FFmpegInstallNotifier.ShouldSkipStartProbe(since + cooldownMs + 1_000), Is.False);
+            Assert.That(FFmpegLibraryState.ShouldSkipStartProbe(since + 1_000), Is.True);
+            Assert.That(FFmpegLibraryState.ShouldSkipStartProbe(since + cooldownMs), Is.False);
+            Assert.That(FFmpegLibraryState.ShouldSkipStartProbe(since + cooldownMs + 1_000), Is.False);
         });
     }
 
@@ -160,12 +160,12 @@ public class FFmpegInstallNotifierTests
         // A burst of decode attempts inside the cooldown window must all short-circuit (no worker
         // re-probe). This is what suppresses the hundreds-of-errors-per-session pattern: only the
         // first attempt in the window pays for a real worker start.
-        FFmpegInstallNotifier.MarkMissing();
-        long since = FFmpegInstallNotifier.MissingSinceTicks;
+        FFmpegLibraryState.MarkMissing();
+        long since = FFmpegLibraryState.MissingSinceTicks;
 
         for (long t = since; t < since + 25_000; t += 1_000)
         {
-            Assert.That(FFmpegInstallNotifier.ShouldSkipStartProbe(t), Is.True,
+            Assert.That(FFmpegLibraryState.ShouldSkipStartProbe(t), Is.True,
                 $"expected a short-circuit at t={t - since}ms into the cooldown");
         }
     }
@@ -177,10 +177,10 @@ public class FFmpegInstallNotifierTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(FFmpegInstallNotifier.RecordMissingObserved(), Is.False,
+            Assert.That(FFmpegLibraryState.RecordMissingObserved(), Is.False,
                 "the first observation is a genuine discovery, so callers must log it as an error");
-            Assert.That(FFmpegInstallNotifier.IsLibrariesMissing, Is.True);
-            Assert.That(FFmpegInstallNotifier.MissingSinceTicks, Is.EqualTo(0),
+            Assert.That(FFmpegLibraryState.IsLibrariesMissing, Is.True);
+            Assert.That(FFmpegLibraryState.MissingSinceTicks, Is.EqualTo(0),
                 "an observe-only decode failure must not arm the re-probe cooldown");
         });
     }
@@ -189,45 +189,45 @@ public class FFmpegInstallNotifierTests
     public void RecordMissingObserved_SecondObservation_ReturnsTrue()
     {
         FFmpegInstallNotifier.MarkInstalled();
-        FFmpegInstallNotifier.RecordMissingObserved();
+        FFmpegLibraryState.RecordMissingObserved();
 
-        Assert.That(FFmpegInstallNotifier.RecordMissingObserved(), Is.True,
+        Assert.That(FFmpegLibraryState.RecordMissingObserved(), Is.True,
             "a later observation is an expected short-circuit, so callers must fail quietly");
     }
 
     [Test]
     public void RecordMissingObserved_DoesNotPushCooldownWindowForward()
     {
-        FFmpegInstallNotifier.MarkMissing();
-        long since = FFmpegInstallNotifier.MissingSinceTicks;
+        FFmpegLibraryState.MarkMissing();
+        long since = FFmpegLibraryState.MissingSinceTicks;
 
-        FFmpegInstallNotifier.RecordMissingObserved();
+        FFmpegLibraryState.RecordMissingObserved();
 
-        Assert.That(FFmpegInstallNotifier.MissingSinceTicks, Is.EqualTo(since),
+        Assert.That(FFmpegLibraryState.MissingSinceTicks, Is.EqualTo(since),
             "a short-circuited decode must not re-arm and push the cooldown window forward");
     }
 
     [Test]
     public void NotifyMissing_DoesNotPushActiveCooldownWindowForward()
     {
-        FFmpegInstallNotifier.MarkMissing();
-        long since = FFmpegInstallNotifier.MissingSinceTicks;
+        FFmpegLibraryState.MarkMissing();
+        long since = FFmpegLibraryState.MissingSinceTicks;
 
         FFmpegInstallNotifier.NotifyMissing();
 
-        Assert.That(FFmpegInstallNotifier.MissingSinceTicks, Is.EqualTo(since),
+        Assert.That(FFmpegLibraryState.MissingSinceTicks, Is.EqualTo(since),
             "a short-circuited encoding retry must not re-arm the cooldown");
     }
 
     [Test]
     public void NotifyMissing_UnderConcurrency_DoesNotRearmActiveCooldown()
     {
-        FFmpegInstallNotifier.MarkMissing();
-        long since = FFmpegInstallNotifier.MissingSinceTicks;
+        FFmpegLibraryState.MarkMissing();
+        long since = FFmpegLibraryState.MissingSinceTicks;
         RunConcurrentIterations(32, 1,
             beforeIteration: () => { },
             action: FFmpegInstallNotifier.NotifyMissing,
-            afterIteration: () => Assert.That(FFmpegInstallNotifier.MissingSinceTicks, Is.EqualTo(since)));
+            afterIteration: () => Assert.That(FFmpegLibraryState.MissingSinceTicks, Is.EqualTo(since)));
     }
 
     [Test]
@@ -242,7 +242,7 @@ public class FFmpegInstallNotifierTests
             },
             action: () =>
             {
-                if (!FFmpegInstallNotifier.RecordMissingObserved())
+                if (!FFmpegLibraryState.RecordMissingObserved())
                     Interlocked.Increment(ref firstObservations);
             },
             afterIteration: () => Assert.That(firstObservations, Is.EqualTo(1)));
@@ -266,10 +266,10 @@ public class FFmpegInstallNotifierTests
             }
         }
 
-        FFmpegInstallNotifier.AvailabilityChanged += OnAvailabilityChanged;
+        FFmpegLibraryState.AvailabilityChanged += OnAvailabilityChanged;
         try
         {
-            Task first = Task.Run(FFmpegInstallNotifier.MarkMissing);
+            Task first = Task.Run(FFmpegLibraryState.MarkMissing);
             Assert.That(firstNotificationEntered.Wait(TimeSpan.FromSeconds(5)), Is.True,
                 "the first availability notification did not start");
 
@@ -277,7 +277,7 @@ public class FFmpegInstallNotifierTests
                 "the state transition must complete while its subscriber is dispatching another transition");
             Assert.Multiple(() =>
             {
-                Assert.That(FFmpegInstallNotifier.IsLibrariesMissing, Is.False);
+                Assert.That(FFmpegLibraryState.IsLibrariesMissing, Is.False);
                 Assert.That(Volatile.Read(ref callbackCount), Is.EqualTo(2),
                     "both transitions must raise AvailabilityChanged");
                 Assert.That(observedStates, Is.EqualTo(new[] { true, false }),
@@ -286,7 +286,7 @@ public class FFmpegInstallNotifierTests
         }
         finally
         {
-            FFmpegInstallNotifier.AvailabilityChanged -= OnAvailabilityChanged;
+            FFmpegLibraryState.AvailabilityChanged -= OnAvailabilityChanged;
             FFmpegInstallNotifier.MarkInstalled();
         }
     }
@@ -306,19 +306,19 @@ public class FFmpegInstallNotifierTests
             }
         }
 
-        FFmpegInstallNotifier.AvailabilityChanged += OnAvailabilityChanged;
+        FFmpegLibraryState.AvailabilityChanged += OnAvailabilityChanged;
         try
         {
-            Task transition = Task.Run(FFmpegInstallNotifier.MarkMissing);
+            Task transition = Task.Run(FFmpegLibraryState.MarkMissing);
 
             Assert.That(transition.Wait(TimeSpan.FromSeconds(5)), Is.True,
                 "the callback and its cross-thread transition must both complete");
             transition.GetAwaiter().GetResult();
-            Assert.That(FFmpegInstallNotifier.IsLibrariesMissing, Is.False);
+            Assert.That(FFmpegLibraryState.IsLibrariesMissing, Is.False);
         }
         finally
         {
-            FFmpegInstallNotifier.AvailabilityChanged -= OnAvailabilityChanged;
+            FFmpegLibraryState.AvailabilityChanged -= OnAvailabilityChanged;
             FFmpegInstallNotifier.MarkInstalled();
         }
     }
@@ -341,19 +341,19 @@ public class FFmpegInstallNotifierTests
             }
         }
 
-        FFmpegInstallNotifier.AvailabilityChanged += OnAvailabilityChanged;
+        FFmpegLibraryState.AvailabilityChanged += OnAvailabilityChanged;
         try
         {
-            Task transition = Task.Run(FFmpegInstallNotifier.MarkMissing);
+            Task transition = Task.Run(FFmpegLibraryState.MarkMissing);
 
             Assert.That(transition.Wait(TimeSpan.FromSeconds(5)), Is.True,
                 "the callback and its suppressed-flow transition must both complete");
             transition.GetAwaiter().GetResult();
-            Assert.That(FFmpegInstallNotifier.IsLibrariesMissing, Is.False);
+            Assert.That(FFmpegLibraryState.IsLibrariesMissing, Is.False);
         }
         finally
         {
-            FFmpegInstallNotifier.AvailabilityChanged -= OnAvailabilityChanged;
+            FFmpegLibraryState.AvailabilityChanged -= OnAvailabilityChanged;
             FFmpegInstallNotifier.MarkInstalled();
         }
     }
@@ -377,14 +377,14 @@ public class FFmpegInstallNotifierTests
                 if (!allowReentrantTransition.Wait(TimeSpan.FromSeconds(5)))
                     throw new TimeoutException("the reentrant transition was not released");
 
-                FFmpegInstallNotifier.MarkMissing();
+                FFmpegLibraryState.MarkMissing();
             }
         }
 
-        FFmpegInstallNotifier.AvailabilityChanged += OnAvailabilityChanged;
+        FFmpegLibraryState.AvailabilityChanged += OnAvailabilityChanged;
         try
         {
-            Task first = Task.Run(FFmpegInstallNotifier.MarkMissing);
+            Task first = Task.Run(FFmpegLibraryState.MarkMissing);
             Assert.That(firstNotificationEntered.Wait(TimeSpan.FromSeconds(5)), Is.True,
                 "the first availability notification did not start");
 
@@ -411,7 +411,7 @@ public class FFmpegInstallNotifierTests
         finally
         {
             allowReentrantTransition.Set();
-            FFmpegInstallNotifier.AvailabilityChanged -= OnAvailabilityChanged;
+            FFmpegLibraryState.AvailabilityChanged -= OnAvailabilityChanged;
             FFmpegInstallNotifier.MarkInstalled();
         }
     }
@@ -434,21 +434,21 @@ public class FFmpegInstallNotifierTests
                 throw expected;
         }
 
-        FFmpegInstallNotifier.AvailabilityChanged += QueueInstalledTransition;
-        FFmpegInstallNotifier.AvailabilityChanged += ThrowForInstalledTransition;
+        FFmpegLibraryState.AvailabilityChanged += QueueInstalledTransition;
+        FFmpegLibraryState.AvailabilityChanged += ThrowForInstalledTransition;
         try
         {
-            Task transition = Task.Run(FFmpegInstallNotifier.MarkMissing);
+            Task transition = Task.Run(FFmpegLibraryState.MarkMissing);
 
             Assert.That(transition.Wait(TimeSpan.FromSeconds(5)), Is.True,
                 "the owning transition must not receive a nested transition's exception");
             transition.GetAwaiter().GetResult();
-            Assert.That(FFmpegInstallNotifier.IsLibrariesMissing, Is.False);
+            Assert.That(FFmpegLibraryState.IsLibrariesMissing, Is.False);
         }
         finally
         {
-            FFmpegInstallNotifier.AvailabilityChanged -= QueueInstalledTransition;
-            FFmpegInstallNotifier.AvailabilityChanged -= ThrowForInstalledTransition;
+            FFmpegLibraryState.AvailabilityChanged -= QueueInstalledTransition;
+            FFmpegLibraryState.AvailabilityChanged -= ThrowForInstalledTransition;
             FFmpegInstallNotifier.MarkInstalled();
         }
     }
@@ -475,10 +475,10 @@ public class FFmpegInstallNotifierTests
             }
         }
 
-        FFmpegInstallNotifier.AvailabilityChanged += OnAvailabilityChanged;
+        FFmpegLibraryState.AvailabilityChanged += OnAvailabilityChanged;
         try
         {
-            Task first = Task.Run(FFmpegInstallNotifier.MarkMissing);
+            Task first = Task.Run(FFmpegLibraryState.MarkMissing);
             Assert.That(firstNotificationEntered.Wait(TimeSpan.FromSeconds(5)), Is.True,
                 "the first availability notification did not start");
 
@@ -503,7 +503,7 @@ public class FFmpegInstallNotifierTests
         finally
         {
             releaseFirstNotification.Set();
-            FFmpegInstallNotifier.AvailabilityChanged -= OnAvailabilityChanged;
+            FFmpegLibraryState.AvailabilityChanged -= OnAvailabilityChanged;
             FFmpegInstallNotifier.MarkInstalled();
         }
     }
@@ -516,16 +516,16 @@ public class FFmpegInstallNotifierTests
 
         void OnAvailabilityChanged(object? sender, EventArgs e) => throw expected;
 
-        FFmpegInstallNotifier.AvailabilityChanged += OnAvailabilityChanged;
+        FFmpegLibraryState.AvailabilityChanged += OnAvailabilityChanged;
         try
         {
             InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(
-                FFmpegInstallNotifier.MarkMissing);
+                FFmpegLibraryState.MarkMissing);
             Assert.That(actual, Is.SameAs(expected));
         }
         finally
         {
-            FFmpegInstallNotifier.AvailabilityChanged -= OnAvailabilityChanged;
+            FFmpegLibraryState.AvailabilityChanged -= OnAvailabilityChanged;
             FFmpegInstallNotifier.MarkInstalled();
         }
     }
@@ -549,10 +549,10 @@ public class FFmpegInstallNotifierTests
             }
         }
 
-        FFmpegInstallNotifier.AvailabilityChanged += OnAvailabilityChanged;
+        FFmpegLibraryState.AvailabilityChanged += OnAvailabilityChanged;
         try
         {
-            Task first = Task.Run(FFmpegInstallNotifier.MarkMissing);
+            Task first = Task.Run(FFmpegLibraryState.MarkMissing);
             Assert.That(firstNotificationEntered.Wait(TimeSpan.FromSeconds(5)), Is.True,
                 "the first availability notification did not start");
 
@@ -572,7 +572,7 @@ public class FFmpegInstallNotifierTests
         finally
         {
             releaseFirstNotification.Set();
-            FFmpegInstallNotifier.AvailabilityChanged -= OnAvailabilityChanged;
+            FFmpegLibraryState.AvailabilityChanged -= OnAvailabilityChanged;
             FFmpegInstallNotifier.MarkInstalled();
         }
     }
@@ -580,26 +580,26 @@ public class FFmpegInstallNotifierTests
     [Test]
     public void NotifyWorkerStarted_ClearsMissingLatchAndSignalsAvailability()
     {
-        FFmpegInstallNotifier.MarkMissing();
+        FFmpegLibraryState.MarkMissing();
         int changes = 0;
         void OnAvailabilityChanged(object? sender, EventArgs e) => changes++;
 
-        FFmpegInstallNotifier.AvailabilityChanged += OnAvailabilityChanged;
+        FFmpegLibraryState.AvailabilityChanged += OnAvailabilityChanged;
         try
         {
-            FFmpegInstallNotifier.NotifyWorkerStarted();
+            FFmpegLibraryState.NotifyWorkerStarted();
 
             Assert.Multiple(() =>
             {
-                Assert.That(FFmpegInstallNotifier.IsLibrariesMissing, Is.False);
-                Assert.That(FFmpegInstallNotifier.MissingSinceTicks, Is.EqualTo(0));
+                Assert.That(FFmpegLibraryState.IsLibrariesMissing, Is.False);
+                Assert.That(FFmpegLibraryState.MissingSinceTicks, Is.EqualTo(0));
                 Assert.That(changes, Is.EqualTo(1));
-                Assert.That(FFmpegInstallNotifier.ShouldSkipStartProbe(long.MaxValue), Is.False);
+                Assert.That(FFmpegLibraryState.ShouldSkipStartProbe(long.MaxValue), Is.False);
             });
         }
         finally
         {
-            FFmpegInstallNotifier.AvailabilityChanged -= OnAvailabilityChanged;
+            FFmpegLibraryState.AvailabilityChanged -= OnAvailabilityChanged;
         }
     }
 

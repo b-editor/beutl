@@ -70,7 +70,7 @@ public sealed class DecodingHandlerCloseRaceTests
         var close = CloseAfterLookup.Arm(handler, closedId);
 
         IpcMessage response = handler.HandleUpdateDecoderSettings(IpcMessage.Create(
-            3, MessageType.UpdateDecoderSettings, new UpdateDecoderSettingsRequest { ThreadCount = 1 }));
+            3, MessageType.UpdateDecoderSettings, new UpdateDecoderSettingsRequest { ForceSrgbGamma = true }));
         IpcMessage kept = handler.HandleReadVideo(IpcMessage.Create(
             4, MessageType.ReadVideo, new ReadVideoRequest { ReaderId = keptId, Frame = 0 }));
 

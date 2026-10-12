@@ -32,6 +32,7 @@ internal sealed class IpcFrameProvider : IFrameProvider
 
     public long FrameCount { get; }
     public Rational FrameRate { get; }
+    // Test-only probe: no production code reads it.
     public long FramesRendered { get; private set; }
 
     public async ValueTask<Bitmap> RenderFrame(long frame)
@@ -50,7 +51,7 @@ internal sealed class IpcFrameProvider : IFrameProvider
         {
             // Prefetch in flight but for a different frame (seek / non-sequential request): drain the stale
             // prefetch before issuing the fresh request so it can't be read in place of the new response.
-            Task<IpcMessage>? stale = _prefetch.TryDetachStale(frame);
+            Task<IpcMessage>? stale = _prefetch.Detach();
             if (stale != null)
             {
                 try
@@ -101,19 +102,12 @@ internal sealed class IpcFrameProvider : IFrameProvider
 
     private Bitmap BuildBitmap(ProvideFrameMessage frameInfo, int bufferIndex)
     {
-        // SharedMemoryBuffer.Read bounds-checks the shared buffer, not the destination bitmap, so a
-        // worker-reported frame that doesn't match the destination bitmap must be rejected before it
-        // overruns the bitmap. Dimensions and format are checked first so invalid metadata can't pass
-        // the DataLength check with a degenerate length.
+        // SharedMemoryBuffer.Read checks only the shared buffer, so reject a frame that would overrun the bitmap.
         if (frameInfo.Width <= 0 || frameInfo.Height <= 0)
             throw new InvalidOperationException(
                 $"Frame has non-positive dimensions {frameInfo.Width}x{frameInfo.Height}.");
 
-        // The buffer is sized SourceWidth*SourceHeight*8 (RgbaF16) but the encoder copies each converted
-        // frame into a MediaFrame fixed at SourceWidth*SourceHeight*4 (BGRA). A BGRA frame with more pixels
-        // than the negotiated source still fits the *8 buffer and passes the capacity guard below, then
-        // overruns that fixed MediaFrame. Reject any frame whose dimensions differ from the negotiated
-        // source size so the size the encoder assumes is the size it gets.
+        // The encoder copies each frame into a MediaFrame fixed at the source size, which a larger frame would overrun.
         if (frameInfo.Width != _sourceWidth || frameInfo.Height != _sourceHeight)
             throw new InvalidOperationException(
                 $"Frame dimensions {frameInfo.Width}x{frameInfo.Height} do not match the negotiated source " +
@@ -126,9 +120,7 @@ internal sealed class IpcFrameProvider : IFrameProvider
                 $"Frame DataLength {frameInfo.DataLength} does not match the {frameInfo.Width}x{frameInfo.Height} " +
                 $"{colorType} buffer size {expected}.");
 
-        // Reject an oversized frame BEFORE allocating the native bitmap: the frame's pixel data must
-        // fit the shared buffer it is read from, so a frame that cannot fit is invalid and would
-        // otherwise trigger a huge native allocation that only fails later in Read.
+        // Reject a frame larger than the shared buffer before allocating a native bitmap that Read would reject.
         if (expected > _videoBuffers[bufferIndex].Capacity)
             throw new InvalidOperationException(
                 $"Frame size {expected} exceeds the shared buffer capacity {_videoBuffers[bufferIndex].Capacity}.");
@@ -138,10 +130,7 @@ internal sealed class IpcFrameProvider : IFrameProvider
 
         try
         {
-            // Read into the bitmap's own span so the copy length is its real ByteCount, not a recomputed
-            // size. SharedMemoryBuffer.Read still bounds-checks against the shared-buffer Capacity (the
-            // DataLength guard above does not), so a frame that exceeds Capacity throws here — dispose the
-            // freshly allocated native bitmap before propagating so the throw can't leak it.
+            // Read into the bitmap's own span, and dispose the bitmap if Read throws so it doesn't leak.
             _videoBuffers[bufferIndex].Read(bmp.GetPixelSpan());
             return bmp;
         }
@@ -205,15 +194,8 @@ internal sealed class IpcFrameProvider : IFrameProvider
         if (_disposed) return;
         _disposed = true;
 
-        // A prefetch may still be in flight when the encode is torn down (cancel, error, normal end). The
-        // connection/pipe it talks to may already be closing, so we must NOT synchronously wait on it here:
-        // .Wait()/.GetAwaiter().GetResult() could deadlock or rethrow the pipe-teardown fault. Instead attach
-        // a fault-swallowing continuation so any fault is observed (preventing UnobservedTaskException) and
-        // return promptly. Owning the connection is the caller's job, so we only neutralize our own task.
-        // OnlyOnFaulted here, but not in IpcSampleProvider.Dispose: a frame prefetch yields a managed
-        // IpcMessage with nothing to release (the Bitmap is built lazily only when a frame is consumed), so a
-        // successful prefetch leaks nothing — whereas a sample prefetch yields a native Pcm its continuation
-        // must dispose on the success path.
+        // Don't wait on a prefetch whose connection may be closing; only observe its fault. Unlike a sample
+        // prefetch, a successful frame prefetch holds nothing to release.
         _prefetch.Detach()?.ContinueWith(
             static t => { _ = t.Exception; },
             CancellationToken.None,

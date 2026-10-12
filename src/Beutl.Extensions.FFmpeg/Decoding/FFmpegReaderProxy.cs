@@ -67,9 +67,6 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
                 Duration = new Rational(vi.DurationNum, vi.DurationDen)
             };
 
-            // 色空間復元
-            _colorSpace = BuildColorSpace(openResponse);
-
             // リングバッファ情報
             _ringSlotCount = openResponse.VideoRingBufferSlotCount;
             _ringSlotSize = openResponse.VideoRingBufferSlotSize;
@@ -294,7 +291,7 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
             return false;
         }
 
-        EnsureAudioBuffer(response.DataLength, response.SharedMemoryName);
+        EnsureAudioBuffer(response.DataLength);
 
         // ゼロコピー: 共有メモリを直接ポインタで参照するPcmを作成
         var buffer = _audioBuffer!;
@@ -474,7 +471,6 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
         _audioShmName = response.AudioSharedMemoryName;
         if (response.HasVideo)
         {
-            _colorSpace = BuildColorSpace(response);
             _ringSlotCount = response.VideoRingBufferSlotCount;
             _ringSlotSize = response.VideoRingBufferSlotSize;
             Volatile.Write(ref _memoryBytes, _ringSlotSize * _ringSlotCount);
@@ -579,34 +575,15 @@ public sealed class FFmpegReaderProxy : MediaReader, IIdleSuspendableReader
         _videoBuffer = SharedMemoryBuffer.Open(shmName, requiredCapacity);
     }
 
-    private void EnsureAudioBuffer(int requiredSize, string? newShmName)
+    private void EnsureAudioBuffer(int requiredSize)
     {
-        bool nameChanged = newShmName != null;
-        if (nameChanged)
-            _audioShmName = newShmName;
-
-        if (!nameChanged && _audioBuffer != null && _audioBuffer.Capacity >= requiredSize)
+        if (_audioBuffer != null && _audioBuffer.Capacity >= requiredSize)
             return;
 
         _audioBuffer?.Dispose();
         string shmName = _audioShmName
             ?? throw new InvalidOperationException("Audio shared memory name not provided");
         _audioBuffer = SharedMemoryBuffer.Open(shmName, requiredSize);
-    }
-
-    private static BitmapColorSpace? BuildColorSpace(OpenFileResponse response)
-    {
-        if (response.IccProfile != null)
-        {
-            return BitmapColorSpace.CreateIcc(response.IccProfile);
-        }
-
-        if (response.TransferFn != null && response.ToXyzD50 != null)
-        {
-            return BuildColorSpaceFromArrays(response.TransferFn, response.ToXyzD50);
-        }
-
-        return BitmapColorSpace.Srgb;
     }
 
     private static BitmapColorSpace BuildColorSpaceFromArrays(float[] transferFn, float[] toXyzD50)

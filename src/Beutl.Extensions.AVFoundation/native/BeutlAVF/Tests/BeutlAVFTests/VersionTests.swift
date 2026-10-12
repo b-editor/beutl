@@ -3,6 +3,6 @@ import XCTest
 
 final class VersionTests: XCTestCase {
     func testVersionIncludesAudioDecodedCount() {
-        XCTAssertEqual(beutl_avf_version(), 2)
+        XCTAssertEqual(beutl_avf_version(), 3)
     }
 }

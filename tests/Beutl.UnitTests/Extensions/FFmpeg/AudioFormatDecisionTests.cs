@@ -34,7 +34,7 @@ public class AudioFormatDecisionTests
     // The point of the degraded->all rule: a degraded result must NOT collapse the list to empty,
     // because an empty list would make the editor reset the user's current format to Default. Showing
     // every format keeps the selection. This composes ResolveSupportedFormats with CodecFormatSelection
-    // exactly as AudioFormatEditorViewModel.UpdateAsync/ApplyFormats do.
+    // exactly as AudioFormatEditorViewModel.ApplyResult/ApplyFormats do.
     [Test]
     public void DegradedResult_PreservesCurrentSelection_InsteadOfResettingToDefault()
     {

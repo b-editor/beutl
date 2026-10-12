@@ -80,14 +80,8 @@
   <data name="Failed_to_find_FFmpeg_release" xml:space="preserve">
     <value>No se pudo encontrar la versión de FFmpeg. Plataforma no compatible o error de red.</value>
   </data>
-  <data name="Installation_complete" xml:space="preserve">
-    <value>Instalación completada.</value>
-  </data>
   <data name="Installing_FFmpeg_via_Homebrew" xml:space="preserve">
     <value>Instalando FFmpeg mediante Homebrew...</value>
-  </data>
-  <data name="Homebrew_not_found" xml:space="preserve">
-    <value>No se encontró Homebrew. Instala Homebrew primero: https://brew.sh</value>
   </data>
   <data name="Installation_failed" xml:space="preserve">
     <value>Error de instalación: {0}</value>

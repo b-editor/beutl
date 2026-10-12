@@ -1,3 +1,4 @@
+import CBeutlAVFTypes
 import Foundation
 import XCTest
 @testable import BeutlAVF
@@ -44,8 +45,10 @@ final class ReaderFailureTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: url) }
 
         var handle: OpaquePointer?
+        var options = BeutlReaderOptions(
+            maxVideoBufferSize: 4, maxAudioBufferSize: 20, thresholdFrameCount: 30, thresholdSampleCount: 30000)
         let result = url.path.withCString { path in
-            beutl_avf_reader_open(path, 1, nil, &handle)
+            beutl_avf_reader_open(path, 1, &options, &handle)
         }
         defer { beutl_avf_reader_close(handle) }
 

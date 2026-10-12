@@ -72,7 +72,8 @@ internal sealed class FFmpegReaderIdleTracker : IDisposable
     }
 
     // Stops the periodic sweep and waits for one in progress, so no sweep runs after this returns. Shared
-    // lives for the process; this is for trackers with a shorter lifetime. Must not be called from a sweep.
+    // lives for the process, so only tests, which create short-lived trackers, call this. Must not be called
+    // from a sweep.
     public void Dispose()
     {
         Timer? timer;

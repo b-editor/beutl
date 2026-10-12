@@ -27,7 +27,6 @@ public sealed class EncodeStartRequest
     public FFColorSpace ColorSpace { get; set; }
     public FFColorRange ColorRange { get; set; }
     public Dictionary<string, string> VideoOptions { get; set; } = [];
-    public bool IsHdr { get; set; }
 
     // Audio settings
     public int AudioSampleRate { get; set; }

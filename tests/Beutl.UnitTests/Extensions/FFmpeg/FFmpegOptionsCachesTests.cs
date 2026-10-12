@@ -5,24 +5,14 @@ using NUnit.Framework;
 
 namespace Beutl.UnitTests.Extensions.FFmpeg;
 
-// The holder exposes static singletons, so each test clears them around itself to avoid cross-test leakage.
+// The holder exposes static singletons, so each test uses its own key to avoid cross-test leakage.
 [TestFixture]
 public class FFmpegOptionsCachesTests
 {
-    [SetUp]
-    public void SetUp()
-    {
-        FFmpegOptionsCaches.ClearAll();
-    }
-
-    [TearDown]
-    public void TearDown()
-    {
-        FFmpegOptionsCaches.ClearAll();
-    }
-
     private static Task<OptionsQueryResult<T>> Ok<T>(params T[] items)
         => Task.FromResult(new OptionsQueryResult<T>(items, Degraded: false));
+
+    private static string UniqueKey(string codec) => $"{codec}\0{Guid.NewGuid():N}.mp4";
 
     [Test]
     public void EachCache_ReturnsSameInstanceAcrossAccesses()
@@ -40,14 +30,15 @@ public class FFmpegOptionsCachesTests
         // Two editor code paths asking for the same codec must share one factory invocation
         // (single-flight is now cross-instance).
         int calls = 0;
+        string key = UniqueKey("aac");
         var gate = new TaskCompletionSource<OptionsQueryResult<FFmpegAudioEncoderSettings.AudioFormat>>();
 
         Task<OptionsQueryResult<FFmpegAudioEncoderSettings.AudioFormat>> first =
             FFmpegOptionsCaches.AudioFormats.GetOrQueryAsync(
-                "aac\0out.mp4", () => { calls++; return gate.Task; });
+                key, () => { calls++; return gate.Task; });
         Task<OptionsQueryResult<FFmpegAudioEncoderSettings.AudioFormat>> second =
             FFmpegOptionsCaches.AudioFormats.GetOrQueryAsync(
-                "aac\0out.mp4", () => { calls++; return Ok(FFmpegAudioEncoderSettings.AudioFormat.Default); });
+                key, () => { calls++; return Ok(FFmpegAudioEncoderSettings.AudioFormat.Default); });
 
         gate.SetResult(new OptionsQueryResult<FFmpegAudioEncoderSettings.AudioFormat>(
             [FFmpegAudioEncoderSettings.AudioFormat.Default], Degraded: false));
@@ -61,11 +52,12 @@ public class FFmpegOptionsCachesTests
     [Test]
     public async Task PixelFormats_PopulatedEntry_IsServedByTryGetCached()
     {
+        string key = UniqueKey("h264");
         await FFmpegOptionsCaches.PixelFormats.GetOrQueryAsync(
-            "h264\0out.mp4", () => Ok(new PixelFormatInfo()));
+            key, () => Ok(new PixelFormatInfo()));
 
         Assert.That(
-            FFmpegOptionsCaches.PixelFormats.TryGetCached("h264\0out.mp4", out PixelFormatInfo[]? cached),
+            FFmpegOptionsCaches.PixelFormats.TryGetCached(key, out PixelFormatInfo[]? cached),
             Is.True);
         Assert.That(cached, Has.Length.EqualTo(1));
     }
@@ -73,29 +65,12 @@ public class FFmpegOptionsCachesTests
     [Test]
     public async Task SampleRates_PopulatedEntry_IsServedByTryGetCached()
     {
-        await FFmpegOptionsCaches.SampleRates.GetOrQueryAsync("aac\0out.mp4", () => Ok(48000));
+        string key = UniqueKey("aac");
+        await FFmpegOptionsCaches.SampleRates.GetOrQueryAsync(key, () => Ok(48000));
 
         Assert.That(
-            FFmpegOptionsCaches.SampleRates.TryGetCached("aac\0out.mp4", out int[]? cached),
+            FFmpegOptionsCaches.SampleRates.TryGetCached(key, out int[]? cached),
             Is.True);
         Assert.That(cached, Is.EqualTo(new[] { 48000 }));
-    }
-
-    [Test]
-    public async Task ClearAll_EmptiesEveryOptionCache()
-    {
-        await FFmpegOptionsCaches.AudioFormats.GetOrQueryAsync(
-            "aac\0out.mp4", () => Ok(FFmpegAudioEncoderSettings.AudioFormat.Default));
-        await FFmpegOptionsCaches.PixelFormats.GetOrQueryAsync(
-            "h264\0out.mp4", () => Ok(new PixelFormatInfo()));
-        await FFmpegOptionsCaches.SampleRates.GetOrQueryAsync("aac\0out.mp4", () => Ok(48000));
-        await FFmpegOptionsCaches.EncoderOptions.GetOrQueryAsync("libx264\0out.mp4\00", () => Ok(new EncoderOptionInfo()));
-
-        FFmpegOptionsCaches.ClearAll();
-
-        Assert.That(FFmpegOptionsCaches.AudioFormats.TryGetCached("aac\0out.mp4", out _), Is.False);
-        Assert.That(FFmpegOptionsCaches.PixelFormats.TryGetCached("h264\0out.mp4", out _), Is.False);
-        Assert.That(FFmpegOptionsCaches.SampleRates.TryGetCached("aac\0out.mp4", out _), Is.False);
-        Assert.That(FFmpegOptionsCaches.EncoderOptions.TryGetCached("libx264\0out.mp4\00", out _), Is.False);
     }
 }

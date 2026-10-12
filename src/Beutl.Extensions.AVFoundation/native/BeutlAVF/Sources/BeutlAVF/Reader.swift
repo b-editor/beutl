@@ -42,14 +42,11 @@ func rational64(from value: Double) -> RationalInt64 {
 // Top-level wrapper exposed via opaque handle to C#.
 final class Reader {
     private let asset: AVURLAsset
-    private let options: BeutlReaderOptions
 
     var videoContext: VideoReaderContext?
     var audioContext: AudioReaderContext?
 
     init(path: String, modeFlags: Int32, options: BeutlReaderOptions) throws {
-        self.options = options
-
         let url = URL(fileURLWithPath: path)
         guard FileManager.default.fileExists(atPath: url.path) else {
             throw BeutlAVFError.fileNotFound(path)
@@ -139,7 +136,6 @@ final class VideoReaderContext {
         let duration = track.timeRange.duration
         let frameRational = rational32(from: Double(nominalFrameRate))
         let durationSeconds = CMTimeGetSeconds(duration)
-        let durationRational = rational64(from: durationSeconds.isFinite ? durationSeconds : 0)
         let nominalFrameCount = Int64((durationSeconds * Double(nominalFrameRate)).rounded())
 
         var codecFourCC: Int32 = 0
@@ -154,13 +150,10 @@ final class VideoReaderContext {
             codecFourCC: codecFourCC,
             frameRateNum: frameRational.num,
             frameRateDen: frameRational.den,
-            durationNum: durationRational.num,
-            durationDen: durationRational.den,
             nominalFrameCount: nominalFrameCount,
             isHdr: tags.isHdr ? 1 : 0,
             transferFunction: tags.transfer,
-            colorPrimaries: tags.primaries,
-            bytesPerPixel: tags.isHdr ? 8 : 4)
+            colorPrimaries: tags.primaries)
     }
 
     func readFrame(index: Int, outBuffer: UnsafeMutableRawPointer, capacityBytes: Int, rowBytes: Int) throws {
@@ -331,7 +324,6 @@ final class AudioReaderContext {
         self.endTimestamp = CMTimeRangeGetEnd(timeRange)
         let duration = timeRange.duration
         let durationSeconds = CMTimeGetSeconds(duration)
-        let nominalSampleCount = Int64((durationSeconds * Double(sampleRate)).rounded())
         let durationRational = rational64(from: durationSeconds.isFinite ? durationSeconds : 0)
 
         self.info = BeutlAudioInfo(
@@ -339,8 +331,7 @@ final class AudioReaderContext {
             channelCount: channelCount,
             codecFourCC: codecFourCC,
             durationNum: durationRational.num,
-            durationDen: durationRational.den,
-            nominalSampleCount: nominalSampleCount)
+            durationDen: durationRational.den)
 
         try calibrateFirstGap()
     }

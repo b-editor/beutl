@@ -107,7 +107,7 @@ public class MFReaderIntegrationTests
             wav,
             new MediaOptions(MediaMode.Audio),
             new MFDecodingExtension(),
-            static (_, _, _) => throw new AssertionException("Audio-only opens must not create a video decoder."),
+            static (_, _) => throw new AssertionException("Audio-only opens must not create a video decoder."),
             static (file, settings) => new MediaFoundationReader(file, settings),
             getFirstVideoTimestamp: _ => nativeFailure
                 ? MFStreamProbe.GetFirstVideoTimestamp(Path.Combine(_workDir, "missing-video.mp4"))
@@ -133,7 +133,7 @@ public class MFReaderIntegrationTests
             wav,
             new MediaOptions(MediaMode.Audio),
             new MFDecodingExtension(),
-            static (_, _, _) => throw new AssertionException("Audio-only opens must not create a video decoder."),
+            static (_, _) => throw new AssertionException("Audio-only opens must not create a video decoder."),
             static (file, settings) => new MediaFoundationReader(file, settings),
             getFirstVideoTimestamp: static _ => throw new InvalidOperationException("Unexpected probe failure"))));
     }

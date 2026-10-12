@@ -53,11 +53,11 @@ public sealed class FFmpegDecoderInfoTests
         FFmpegInstallNotifier.MarkInstalled();
         bool cooldownArmedWhenNotified = false;
         EventHandler handler = (_, _) =>
-            cooldownArmedWhenNotified = FFmpegInstallNotifier.ShouldSkipStartProbe(Environment.TickCount64);
-        FFmpegInstallNotifier.AvailabilityChanged += handler;
+            cooldownArmedWhenNotified = FFmpegLibraryState.ShouldSkipStartProbe(Environment.TickCount64);
+        FFmpegLibraryState.AvailabilityChanged += handler;
         try
         {
-            FFmpegInstallNotifier.MarkMissing();
+            FFmpegLibraryState.MarkMissing();
 
             // A synchronous listener must already observe ShouldSkipStartProbe == true, otherwise it
             // could re-probe the worker before the cooldown is in effect.
@@ -65,7 +65,7 @@ public sealed class FFmpegDecoderInfoTests
         }
         finally
         {
-            FFmpegInstallNotifier.AvailabilityChanged -= handler;
+            FFmpegLibraryState.AvailabilityChanged -= handler;
             FFmpegInstallNotifier.MarkInstalled();
         }
     }
@@ -76,7 +76,7 @@ public sealed class FFmpegDecoderInfoTests
         // Force the "libraries missing" short-circuit so the worker start fails without launching a
         // real process. Open must NOT rethrow the typed exception (that would abort DecoderRegistry
         // before it can try a fallback decoder like MediaFoundation for a regular open).
-        FFmpegInstallNotifier.MarkMissing();
+        FFmpegLibraryState.MarkMissing();
         try
         {
             var decoder = new FFmpegDecoderInfo(new FFmpegDecodingSettings());
@@ -96,7 +96,7 @@ public sealed class FFmpegDecoderInfoTests
     [Test]
     public async Task ProxyGenerator_WhenFFmpegMissing_ThrowsUnavailableSoQueuePauses()
     {
-        FFmpegInstallNotifier.MarkMissing();
+        FFmpegLibraryState.MarkMissing();
         try
         {
             string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));

@@ -5,7 +5,7 @@
 
 #pragma pack(push, 4)
 
-// --- Transfer function tags (mirrors BitmapColorSpaceTransferFn enum on the C# side). ---
+// --- Transfer function tags (mirrors BitmapColorTransfer enum on the C# side). ---
 #define BEUTL_TRANSFER_UNKNOWN      0
 #define BEUTL_TRANSFER_SRGB         1
 #define BEUTL_TRANSFER_LINEAR       2
@@ -25,7 +25,7 @@
 #define BEUTL_MATRIX_REC2020       3
 #define BEUTL_MATRIX_SMPTE240M     4
 
-// --- Color primaries tags (mirrors BitmapColorSpaceXyz enum on the C# side). ---
+// --- Color primaries tags (mirrors BitmapColorPrimaries enum on the C# side). ---
 #define BEUTL_PRIMARIES_UNKNOWN    0
 #define BEUTL_PRIMARIES_SRGB       1
 #define BEUTL_PRIMARIES_BT709      2
@@ -46,13 +46,10 @@ typedef struct {
     int32_t codecFourCC;
     int32_t frameRateNum;
     int32_t frameRateDen;
-    int64_t durationNum;
-    int64_t durationDen;
     int64_t nominalFrameCount;
     int32_t isHdr;                 // 0 = SDR, 1 = HDR (PQ or HLG transfer)
     int32_t transferFunction;      // BEUTL_TRANSFER_*
     int32_t colorPrimaries;        // BEUTL_PRIMARIES_*
-    int32_t bytesPerPixel;         // 4 (Bgra8888) or 8 (Rgba16161616)
 } BeutlVideoInfo;
 
 typedef struct {
@@ -61,7 +58,6 @@ typedef struct {
     int32_t codecFourCC;
     int64_t durationNum;
     int64_t durationDen;
-    int64_t nominalSampleCount;
 } BeutlAudioInfo;
 
 typedef struct {

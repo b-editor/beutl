@@ -1,6 +1,5 @@
 ﻿using System.Runtime.Versioning;
 using Beutl.Embedding.MediaFoundation.Decoding;
-using Beutl.Media.Decoding;
 using Microsoft.Extensions.Logging;
 using SharpGen.Runtime;
 using SharpGen.Runtime.Diagnostics;
@@ -64,7 +63,7 @@ public class MFDecoderLifecycleTests
         int before = CountTrackedMediaFoundationObjects();
 
         Assert.Throws<NoVideoStreamException>(() =>
-            _ = new MFDecoder(wav, new MediaOptions(MediaMode.Video), new MFDecodingExtension()));
+            _ = new MFDecoder(wav, new MFDecodingExtension()));
 
         int after = CountTrackedMediaFoundationObjects();
         Assert.That(after, Is.EqualTo(before),
@@ -95,7 +94,7 @@ public class MFDecoderLifecycleTests
         int before = CountTrackedMediaFoundationObjects();
 
         SharpGenException? exception = Assert.Throws<SharpGenException>(() =>
-            _ = new MFDecoder(file, new MediaOptions(MediaMode.Video), new MFDecodingExtension(), logger));
+            _ = new MFDecoder(file, new MFDecodingExtension(), logger));
 
         Assert.Multiple(() =>
         {
@@ -115,7 +114,7 @@ public class MFDecoderLifecycleTests
         int before = CountTrackedMediaFoundationObjects();
 
         SharpGenException? exception = Assert.Throws<SharpGenException>(() =>
-            _ = new MFDecoder(file, new MediaOptions(MediaMode.Video), new MFDecodingExtension(), logger));
+            _ = new MFDecoder(file, new MFDecodingExtension(), logger));
 
         Assert.Multiple(() =>
         {

@@ -10,7 +10,6 @@ public sealed class AVFDecoderInfo(AVFDecodingExtension extension) : IDecoderInf
 
     public string Name => "AVFoundation";
 
-    //https://learn.microsoft.com/ja-jp/windows/win32/medfound/supported-media-formats-in-media-foundation
     public IEnumerable<string> AudioExtensions()
     {
         yield return ".mp3";
