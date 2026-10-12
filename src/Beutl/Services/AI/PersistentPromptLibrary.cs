@@ -1,6 +1,6 @@
 ﻿namespace Beutl.Services.AI;
 
-internal sealed partial class PersistentPromptLibrary : IPromptLibrary, IPromptLibraryChangeSource
+internal sealed partial class PersistentPromptLibrary : IPromptLibrary
 {
     internal const int CurrentStorageVersion = 2;
     private const int LegacyMaxPromptLength = 32_768;
@@ -40,7 +40,6 @@ internal sealed partial class PersistentPromptLibrary : IPromptLibrary, IPromptL
         }
 
         _options = options ?? new PromptLibraryOptions();
-        ValidateOptions(_options);
         _timeProvider = timeProvider ?? TimeProvider.System;
         _lockPath = StoragePath + ".lock";
         _replaceFile = replaceFile ?? ReplaceFile;
@@ -54,10 +53,6 @@ internal sealed partial class PersistentPromptLibrary : IPromptLibrary, IPromptL
     }
 
     public string StoragePath { get; }
-
-    public bool RetainRecentPromptText => _options.RetainRecentPromptText;
-
-    public string? RecoveredCorruptFilePath { get; private set; }
 
     public IReadOnlyList<PromptHistoryEntry> History
     {
@@ -79,16 +74,6 @@ internal sealed partial class PersistentPromptLibrary : IPromptLibrary, IPromptL
                 return _templates.ToArray();
             }
         }
-    }
-
-    public IDisposable SubscribeChanged(Action callback)
-    {
-        ArgumentNullException.ThrowIfNull(callback);
-        return PromptLibraryChangeHub.Subscribe(path =>
-        {
-            if (StringComparer.Ordinal.Equals(StoragePath, path))
-                callback();
-        });
     }
 
     public PromptHistoryEntry Record(PromptTaskKind taskKind, string prompt)
@@ -281,23 +266,6 @@ internal sealed partial class PersistentPromptLibrary : IPromptLibrary, IPromptL
             PublishChanged();
     }
 
-    public void ClearTemplates()
-    {
-        bool changed = false;
-        lock (_gate)
-        {
-            using FileStream writeLock = BeginWrite();
-            ReloadForWrite();
-            if (_templates.Count > 0)
-            {
-                Commit([.. _history], [], writeLock);
-                changed = true;
-            }
-        }
-        if (changed)
-            PublishChanged();
-    }
-
     public void ClearAll()
     {
         bool changed = false;
@@ -313,17 +281,6 @@ internal sealed partial class PersistentPromptLibrary : IPromptLibrary, IPromptL
         }
         if (changed)
             PublishChanged();
-    }
-
-    private static void ValidateOptions(PromptLibraryOptions options)
-    {
-        if (options.MaxRecentItems is < 1 or > PromptLibraryOptions.MaximumMaxRecentItems)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(options),
-                options.MaxRecentItems,
-                $"MaxRecentItems must be between 1 and {PromptLibraryOptions.MaximumMaxRecentItems}.");
-        }
     }
 
     private static void ValidateTaskKind(PromptTaskKind taskKind)

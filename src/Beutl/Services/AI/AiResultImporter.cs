@@ -293,16 +293,13 @@ internal sealed class AiResultImporter
         }
     }
 
-    internal static string GetUnsavedSceneDirectory(Guid sceneId)
-        => UnsavedSceneStorage.GetDirectory(sceneId);
-
     private string GetResourceDirectory() => GetResourceDirectory(_scene);
 
     internal static string GetResourceDirectory(Scene scene)
     {
         string projectDirectory = scene.Uri?.LocalPath is { } scenePath
             ? Path.GetDirectoryName(scenePath)!
-            : GetUnsavedSceneDirectory(scene.Id);
+            : UnsavedSceneStorage.GetDirectory(scene.Id);
         return GetResourceDirectoryIn(projectDirectory);
     }
 

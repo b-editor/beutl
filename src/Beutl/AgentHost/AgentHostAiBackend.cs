@@ -109,13 +109,12 @@ internal sealed class AgentHostAiBackend(
         var words = new List<AgentTranscriptWord>();
         bool hasWords = false;
         string? detected = null;
-        // Each part starts where the last one stopped reading. The encoder ends a part at a short
-        // read, which a decoder may return mid-file, so a short part is not the end of the recording.
+        // Each part starts where the last one stopped reading; a short read can come mid-file.
         long start = 0;
         int part = 0;
         bool reachedEnd = false;
-        // Every part is a paid request, so a decoder that keeps reading short cannot multiply them:
-        // at most twice the parts the length calls for, and no part cut short under a second.
+        // Every part is a paid request: a decoder that keeps reading short gets at most twice the
+        // parts the length calls for, and no part cut short under a second.
         int maxParts = estimatedParts * 2;
         while (start < totalSamples && part < maxParts)
         {
@@ -126,9 +125,7 @@ internal sealed class AgentHostAiBackend(
             progress.Report(estimatedParts == 1 && part == 1
                 ? "Transcribing"
                 : $"Transcribing part {part} of {Math.Max(part, estimatedParts)}");
-            // Some files report a length past their last sample. A read there succeeds with nothing,
-            // which ends the recording; a read that fails is a decode error the caller must hear
-            // about, not a shorter transcript. The encoder raises the same exception for both.
+            // Some files report a length past their last sample.
             if (partStart > 0 && !await HasAudioAtAsync(reader, partStart, sampleRate, cancellationToken).ConfigureAwait(false))
             {
                 reachedEnd = true;
@@ -148,10 +145,8 @@ internal sealed class AgentHostAiBackend(
                             cancellationToken).ConfigureAwait(false);
                     }
                 }
-                // The file opened but its audio could not be read: the input's fault, as for a file
-                // that does not open, not a service failure worth retrying. An IOException is left
-                // out: writing the temporary WAV (a full disk) raises it too, and it is not the
-                // recording's fault, so it takes the logged path for unexpected failures.
+                // Unreadable audio is the input's fault, not a service failure worth retrying. IOException is
+                // left out: writing the temporary WAV (a full disk) raises it too.
                 catch (Exception ex) when (ex is SubtitleInputException or InvalidDataException)
                 {
                     throw new AgentAiException(
@@ -159,8 +154,6 @@ internal sealed class AgentHostAiBackend(
                         $"The audio could not be decoded from {TimeSpan.FromSeconds(partStart / (double)sampleRate):hh\\:mm\\:ss} on.");
                 }
 
-                if (chunk.SourceSampleCount <= 0)
-                    break;
                 // Cut short under a second: the true end of the audio, in a file that reports a length
                 // past it, or a decoder reading in pieces. Only the end is sent.
                 bool tail = false;

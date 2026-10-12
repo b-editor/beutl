@@ -76,7 +76,7 @@ public class PlaybackFrameRangeTests
         await WaitUntilAsync(() => player.ProducerStopped, TimeSpan.FromMinutes(2));
 
         var frames = new List<int>();
-        while (player.TryDequeue(out IPlayer.Frame frame))
+        while (player.TryDequeue(out BufferedPlayer.Frame frame))
         {
             frames.Add(frame.Time);
             frame.Bitmap.Dispose();

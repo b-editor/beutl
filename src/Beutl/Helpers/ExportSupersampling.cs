@@ -9,7 +9,6 @@ namespace Beutl.Helpers;
 /// </summary>
 public static class ExportSupersampling
 {
-    /// <summary>Returns <c>frameSize * max(1, factor)</c>.</summary>
     public static (long Width, long Height) GetRenderSize(PixelSize frameSize, int factor)
     {
         long f = Math.Max(1, factor);
@@ -22,13 +21,8 @@ public static class ExportSupersampling
     /// <paramref name="budget"/> is <see langword="default"/> and names nothing to fit.
     /// </exception>
     /// <remarks>
-    /// A caller passes <see cref="BufferBudgetScope.Prediction"/> rather than
-    /// <see cref="BufferDimensionBudget.EngineCeiling"/>: a warning taken against the ceiling clears an
-    /// export the device then refuses mid-render, and on a device that attaches 8192 that is every 4K frame
-    /// past 2x. It is <see cref="BufferBudgetScope.Prediction"/> rather than
-    /// <see cref="BufferBudgetScope.Allocation"/> because this is pre-validation: every caller asks before
-    /// the render starts, from a thread that is not the one that will allocate, and an allocation from such
-    /// a thread is the CPU raster's - the engine ceiling, which is the answer that admits the refused export.
+    /// Pass <see cref="BufferBudgetScope.Prediction"/>: this runs before the render, off the allocating thread.
+    /// Checking against <see cref="BufferDimensionBudget.EngineCeiling"/> clears exports the device refuses.
     /// </remarks>
     public static bool FitsBufferLimit(PixelSize frameSize, int factor, BufferDimensionBudget budget)
     {

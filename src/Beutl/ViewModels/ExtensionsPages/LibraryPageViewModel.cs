@@ -7,6 +7,7 @@ using Beutl.Services;
 using Microsoft.Extensions.Logging;
 using NuGet.Versioning;
 using Reactive.Bindings;
+using Reactive.Bindings.Extensions;
 using LibraryService = Beutl.Api.Services.LibraryService;
 
 namespace Beutl.ViewModels.ExtensionsPages;
@@ -30,7 +31,7 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
         _editorService = editorService;
         _projectService = projectService;
 
-        Refresh = new AsyncReactiveCommand(IsBusy.Not())
+        Refresh = new AsyncReactiveCommand(IsBusy.Inverse())
             .WithSubscribe(async () =>
             {
                 using Activity? activity = Services.Telemetry.StartActivity("LibraryPage.Refresh");
@@ -76,7 +77,7 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
 
         Refresh.Execute();
 
-        CheckUpdate = new AsyncReactiveCommand(IsBusy.Not())
+        CheckUpdate = new AsyncReactiveCommand(IsBusy.Inverse())
             .WithSubscribe(async () =>
             {
                 using Activity? activity = Services.Telemetry.StartActivity("LibraryPage.CheckUpdate");

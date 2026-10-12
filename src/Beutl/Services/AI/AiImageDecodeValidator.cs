@@ -7,7 +7,6 @@ internal static class AiImageDecodeValidator
 {
     internal const int MaxDimension = 8_192;
     internal const long MaxPixels = 16_777_216;
-    internal const long MaxDecodedBytes = 64L * 1024 * 1024;
 
     public static void ValidateEncoded(Stream encoded, long maxEncodedBytes)
     {
@@ -58,8 +57,7 @@ internal static class AiImageDecodeValidator
     {
         if (width <= 0 || height <= 0
             || width > MaxDimension || height > MaxDimension
-            || (long)width * height > MaxPixels
-            || (long)width * height * 4 > MaxDecodedBytes)
+            || (long)width * height > MaxPixels)
         {
             throw new InvalidDataException("The AI image dimensions are unsupported.");
         }

@@ -46,7 +46,7 @@ public class BufferedPlayerReadAheadTests
             Assert.That(QueuedFrames(player), Is.EqualTo(BudgetFrames));
 
             // A consumed frame makes room for one more, and no further.
-            Assert.That(player.TryDequeue(out IPlayer.Frame frame), Is.True);
+            Assert.That(player.TryDequeue(out BufferedPlayer.Frame frame), Is.True);
             frame.Bitmap.Dispose();
             await WaitUntilAsync(() => QueuedFrames(player) == BudgetFrames, TimeSpan.FromSeconds(10));
             await Task.Delay(TimeSpan.FromMilliseconds(300));
@@ -60,7 +60,7 @@ public class BufferedPlayerReadAheadTests
     }
 
     private static int QueuedFrames(BufferedPlayer player)
-        => ((ConcurrentQueue<IPlayer.Frame>)typeof(BufferedPlayer)
+        => ((ConcurrentQueue<BufferedPlayer.Frame>)typeof(BufferedPlayer)
             .GetField("_queue", BindingFlags.NonPublic | BindingFlags.Instance)!
             .GetValue(player)!).Count;
 

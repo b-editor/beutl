@@ -587,7 +587,7 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
     internal IAiPlanCoordinator AiPlanCoordinator => _aiPlanCoordinator;
 
     internal void RefreshAvailability()
-        => _availabilityTracker.Refresh(new AiOperationAvailabilityRequest.Video(
+        => _availabilityTracker.Check(new AiOperationAvailabilityRequest.Video(
             Operation,
             RequestDuration,
             ModelPicker.SelectedModel));
@@ -936,7 +936,7 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
                 _requestKey,
                 name,
                 claim,
-                token => _availabilityTracker.CheckNowAsync(
+                token => _availability.CheckAsync(
                     new AiOperationAvailabilityRequest.Video(
                         Operation,
                         durationSeconds,

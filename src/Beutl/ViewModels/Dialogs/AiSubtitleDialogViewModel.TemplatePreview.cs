@@ -4,7 +4,6 @@ using Beutl.Editor.Services.Captions;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.Services;
-using Beutl.Services.AI;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.ViewModels.Dialogs;
@@ -24,10 +23,15 @@ public sealed partial class AiSubtitleDialogViewModel
         Task<byte[]?>> TemplatePreviewRenderer
     { get; set; }
         = static (elements, frameSize, cancellationToken) =>
-            CaptionTemplatePreviewRenderer.RenderPngAsync(
-                elements,
-                frameSize,
-                cancellationToken).AsTask();
+            frameSize.Width <= 0 || frameSize.Height <= 0
+                ? Task.FromResult<byte[]?>(null)
+                // Render captions at 4x the object-template thumbnail density. The UI scales this bitmap
+                // down to its display size, preserving glyph detail that would otherwise be lost at 256x144.
+                : ObjectTemplatePreviewRenderer.RenderElementsPngAsync(
+                    elements,
+                    frameSize,
+                    new Beutl.Media.PixelSize(1024, 576),
+                    cancellationToken).AsTask();
 
     private void RefreshTemplatePreview()
     {

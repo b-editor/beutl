@@ -28,11 +28,8 @@ internal sealed class HistoryMutationPlaybackGuard : IDisposable
             // when Dispose() ran passed the pre-wait check, so reject it here too.
             ObjectDisposedException.ThrowIf(_disposed, this);
 
-            // shouldPause() reflects whether this operation will change scene state, including
-            // any pending transaction the drain below will commit (callers' predicates check
-            // HasPendingOperations). Evaluate it before draining so the pause can bracket the
-            // drain: a flush that commits pending work (e.g. a nudge) schedules frame-cache
-            // rebuilds, which must not race a live player.
+            // The drain commits pending work and rebuilds the frame cache, which must not race a live player,
+            // so evaluate shouldPause() before the drain.
             if (shouldPause() && player is not null)
             {
                 // Pause() is a no-op when nothing is playing, but still awaits any
@@ -49,9 +46,7 @@ internal sealed class HistoryMutationPlaybackGuard : IDisposable
                 }
             }
 
-            // Drain debounced work (e.g. a pending nudge) and mutate only after the player is
-            // confirmed stopped. Both run on one synchronous turn after the last Pause await
-            // (callers invoke the guard on the UI thread), so no restart can interleave here.
+            // Drain and mutate in one synchronous turn after the last Pause, so no restart can interleave.
             drainPendingMutations();
             return mutate();
         }

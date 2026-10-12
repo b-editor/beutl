@@ -458,7 +458,7 @@ public sealed class PromptLibraryProviderTests
     public void LegacyFileIsClaimedOnceByFirstAuthenticatedAccount()
     {
         string legacy = Path.Combine(_home, "ai-prompts.json");
-        var seed = new PersistentPromptLibrary(legacy, new PromptLibraryOptions { RetainRecentPromptText = true });
+        var seed = new PersistentPromptLibrary(legacy);
         seed.SaveTemplate("legacy", PromptTaskKind.Image, "legacy prompt");
 
         string? account = "account-a";
@@ -560,9 +560,6 @@ public sealed class PromptLibraryProviderTests
         Func<bool> shouldThrow,
         Exception? failure = null) : IPromptLibrary
     {
-        public string StoragePath => string.Empty;
-        public bool RetainRecentPromptText => false;
-        public string? RecoveredCorruptFilePath => null;
         public IReadOnlyList<PromptHistoryEntry> History
             => shouldThrow()
                 ? throw failure ?? new InvalidDataException("corrupt")
@@ -575,8 +572,6 @@ public sealed class PromptLibraryProviderTests
         public bool DeleteHistory(Guid id) => false;
         public bool DeleteTemplate(Guid id) => false;
         public void ClearHistory() { }
-        public void ClearTemplates() { }
-        public void ClearAll() { }
     }
 
     private sealed class BlockingAccountPromptLibrary(
@@ -587,9 +582,6 @@ public sealed class PromptLibraryProviderTests
     {
         private int _templateReads;
 
-        public string StoragePath => string.Empty;
-        public bool RetainRecentPromptText => false;
-        public string? RecoveredCorruptFilePath => null;
         public IReadOnlyList<PromptHistoryEntry> History => [];
         public IReadOnlyList<PromptTemplate> Templates
         {
@@ -625,8 +617,6 @@ public sealed class PromptLibraryProviderTests
         public bool DeleteHistory(Guid id) => false;
         public bool DeleteTemplate(Guid id) => false;
         public void ClearHistory() { }
-        public void ClearTemplates() { }
-        public void ClearAll() { }
     }
 
     private sealed class QueuedUiDispatcher

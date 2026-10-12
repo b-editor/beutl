@@ -11,11 +11,8 @@ namespace Beutl.Services.AI;
 /// A request's name, and whether it has been sent under that name before.
 /// </summary>
 /// <remarks>
-/// A repeat may be answered by the job the first attempt already reserved, and
-/// the server looks that job up before it looks at what the account can afford.
-/// A caller that checks the balance itself must not check it for a repeat, or
-/// it refuses to collect something already bought — most visibly when the
-/// request that emptied the balance is the one being collected.
+/// The server finds the job a repeat already reserved before it checks the balance, so a caller must not check
+/// the balance for a repeat, or it refuses to collect something already bought.
 /// </remarks>
 internal readonly record struct AiRequestName(string Key, bool IsRepeat);
 
@@ -25,12 +22,9 @@ internal readonly record struct AiRequestName(string Key, bool IsRepeat);
 internal static class AiRequestOutcome
 {
     /// <summary>
-    /// Whether this failure authoritatively proves that the name is not the route back to a job.
-    /// Authentication is checked before the server looks up an idempotency key, so a first attempt
-    /// may be withdrawn only when its current request is known not to have been reserved. A repeat
-    /// keeps its name because the same authentication refusal says nothing about an older job.
-    /// An outer upload-size rejection has the same repeat boundary. The remaining refusals are
-    /// returned only after the server finds no job under the key.
+    /// Whether this failure proves the name is not the route back to a job. Authentication and outer upload-size
+    /// refusals come before the key lookup, so they withdraw only a first attempt known to be unreserved; the
+    /// remaining refusals come only after the server finds no job under the key.
     /// </summary>
     public static bool CanWithdraw(AiRequestName name, Exception exception)
     {
@@ -53,30 +47,14 @@ internal static class AiRequestOutcome
 }
 
 /// <summary>
-/// Names the requests of one metered AI attempt, so that repeating a request
-/// whose answer never arrived recovers what it may already have paid for
-/// instead of buying it again.
+/// Names the requests of one metered AI attempt, so a request whose answer never arrived goes back out under
+/// the key it first used and recovers what it may already have paid for instead of buying it again.
 /// </summary>
 /// <remarks>
-/// <para>
-/// The server charges an operation when it accepts it, and answers a repeat of
-/// a key it has already seen with the job that key created — the finished
-/// result, or a refusal while it is still running. Neither charges twice, so a
-/// request whose outcome the client never learned has to go back out under the
-/// key it first used. A request made of anything else is a different request
-/// and takes a different key: the server refuses a key that comes back with a
-/// different fingerprint behind it, which is why every part that identifies the
-/// request is passed to <see cref="NameFor(ReadOnlySpan{string})"/>.
-/// </para>
-/// <para>
-/// Once the server has settled a job — a result, or a failure it owns and has
-/// refunded — the key that named it is spent. It would keep answering with that
-/// settled job, so asking for anything more has to be a new request:
-/// <see cref="Retire(AiRequestName)"/> says one request was settled, and
-/// <see cref="Retire()"/> says the whole run was. A name the server made no job
-/// under is not settled but spent for nothing, and
-/// <see cref="Withdraw(AiRequestName)"/> takes it back.
-/// </para>
+/// Every part that identifies a request goes to <see cref="NameFor(ReadOnlySpan{string})"/>, as the server
+/// refuses a key with a different fingerprint. A settled key is spent: <see cref="Retire(AiRequestName)"/> and
+/// <see cref="Retire()"/> start fresh names, and <see cref="WithdrawAfterNoReservation(AiRequestName)"/> takes
+/// back a name the server made no job under.
 /// </remarks>
 internal sealed class AiRequestKey : IDisposable
 {
@@ -118,9 +96,8 @@ internal sealed class AiRequestKey : IDisposable
             }
             catch (InvalidDataException)
             {
-                // A corrupt or locked store must not be treated as an empty
-                // store. Remember the failure so the first new request fails
-                // closed instead of buying work without a durable recovery row.
+                // A corrupt or locked store is not an empty one. Nothing is recorded here: the first
+                // new request fails closed when its own Store.Find throws again.
             }
         }
         // A paid request may have exhausted the current balance. Publish only
@@ -155,14 +132,10 @@ internal sealed class AiRequestKey : IDisposable
     internal string? CurrentAccountId => _recoveryContext?.TryGetIdentity()?.AccountId;
 
     /// <summary>
-    /// Whether a name has been handed out that the server has not been seen to
-    /// settle.
+    /// Whether a name has been handed out that the server has not been seen to settle.
     /// </summary>
     /// <remarks>
-    /// While this holds, asking again may be answered by a job already paid
-    /// for. The server looks that job up before it looks at the balance, so a
-    /// caller that gates on the balance itself has to leave the way open — most
-    /// of all when the request being collected is the one that emptied it.
+    /// While this holds, a caller that gates on the balance has to leave the way open (see <see cref="AiRequestName"/>).
     /// </remarks>
     public IReadOnlyReactiveProperty<bool> HasOutstandingName
     {
@@ -179,8 +152,7 @@ internal sealed class AiRequestKey : IDisposable
         bool has = false;
         lock (_gate)
         {
-            // The key is still useful without durable recovery (unit callers and
-            // the pre-recovery subtitle flow use that mode). In that case the
+            // The subtitle flow and node execution use the key without a recovery context. Then the
             // in-memory map is the complete source of truth.
             if (_recoveryContext is null)
             {
@@ -485,10 +457,8 @@ internal sealed class AiRequestKey : IDisposable
     /// Identifies bytes already in hand, sent under <paramref name="fileName"/>.
     /// </summary>
     /// <remarks>
-    /// Reading the file once and naming that reading is the only way the name
-    /// is sure to belong to what goes out: read for the name and read again to
-    /// send, and a file rewritten in between is recorded under a name that
-    /// describes something else.
+    /// Name the reading that is sent: reading again to send would let a file rewritten in between go out under a
+    /// name that describes something else.
     /// </remarks>
     public static string FileStamp(string fileName, ReadOnlySpan<byte> content)
         => string.Create(
@@ -500,25 +470,17 @@ internal sealed class AiRequestKey : IDisposable
     /// name from.
     /// </summary>
     /// <remarks>
-    /// A video's frames are identified by their contents and their type, never
-    /// by what the file was called: a frame is a picture, and the name it
-    /// reached disk under says nothing about the request. Naming it here would
-    /// make the same picture two requests — a frame captured from the scene
-    /// lands in a file named for uniqueness, so capturing it again to retry an
-    /// interrupted run would buy that run a second time.
+    /// A frame is named by its contents, never by its file name, so capturing it again to retry an interrupted
+    /// run does not buy the run a second time.
     /// </remarks>
     public static string ContentStamp(ReadOnlySpan<byte> content)
         => Convert.ToHexString(SHA256.HashData(content));
 
     /// <summary>
-    /// Says the server settled the job this one name made. Only that request
-    /// starts again under a fresh name.
+    /// Says the server settled the job this one name made. Only that request starts again under a fresh name.
     /// </summary>
     /// <remarks>
-    /// Settling the whole run instead would throw away the names of every other
-    /// request still waiting to be collected: a run that finishes a second
-    /// request while a first one is still outstanding would leave the first
-    /// unreachable, and asking for it again would buy it a second time.
+    /// Settling the whole run instead would strand every other outstanding request and buy it again on retry.
     /// </remarks>
     public bool Retire(AiRequestName name)
     {
@@ -622,9 +584,6 @@ internal sealed class AiRequestKey : IDisposable
     /// withdrawal and cross-process abandon remain fail-closed.
     /// </remarks>
     internal bool WithdrawAfterNoReservation(AiRequestName name)
-        => WithdrawCore(name, ownerAuthorizedDispatched: true);
-
-    private bool WithdrawCore(AiRequestName name, bool ownerAuthorizedDispatched)
     {
         if (string.IsNullOrEmpty(name.Key))
             return false;
@@ -638,11 +597,10 @@ internal sealed class AiRequestKey : IDisposable
                 string? issuedAccount = _outstandingAccounts.GetValueOrDefault(name.Key);
                 string? issuedOperation = _outstandingOperations.GetValueOrDefault(name.Key);
                 AiRequestRecoveryLease? claim = _claims.GetValueOrDefault(name.Key);
-                bool exactDispatchedOwner = ownerAuthorizedDispatched
-                    && claim is { IsDispatched: true };
+                bool exactDispatchedOwner = claim is { IsDispatched: true };
                 // A pre-dispatch refusal may still be withdrawn by the claim
                 // owner. Once dispatch is persisted, however, the owner proof
-                // is accepted only through WithdrawAfterNoReservation.
+                // is accepted only on this no-reservation path.
                 bool exactPredispatchOwner = claim is not null
                     && !claim.WasDispatched;
                 bool authorizedOwner = exactDispatchedOwner || exactPredispatchOwner;
@@ -797,8 +755,7 @@ internal sealed class AiRequestKey : IDisposable
         return new AiRequestName(persistedKey, true);
     }
 
-    // Generation 0 keeps the shape used before generations existed. Both the seed in
-    // recovery and the name retained by the server continue to work unchanged.
+    // Generation 0 has no suffix. The format has shipped, so it must not change.
     private string ComposeKey(string request, string? account, string operation, int generation)
     {
         string keyBase = _recoveryContext is null

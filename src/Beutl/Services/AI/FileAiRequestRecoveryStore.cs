@@ -57,7 +57,7 @@ internal sealed record AiRequestFormSnapshot(
     string? SourceElementId = null,
     string? FirstFrameElementId = null,
     string? LastFrameElementId = null,
-    // Read legacy attempts without making the rest of the recovery store unreadable.
+    // preview.8 wrote "SourceJobId": null on every row, so the name stays allowed.
     string? SourceJobId = null,
     double? SourceVideoSeconds = null,
     string? VideoOrientation = null,
@@ -804,12 +804,8 @@ internal sealed class FileAiRequestRecoveryStore : IDisposable
                 && !claim.Dispatched
                 && claim.ExpiresAt > now))
             {
-                // A live claim that is not dispatched yet belongs to a request
-                // that is about to be sent. A dispatched request does not stop
-                // the user from giving the attempt up: only its exact owner can
-                // settle it, but abandoning loses only the way back through
-                // this form, because the job, and any result it paid for, stays
-                // in the account's AI job list.
+                // A live undispatched claim belongs to a request about to be sent. A dispatched one may be
+                // given up: the job and any result it paid for stay in the account's AI job list.
                 return false;
             }
 
@@ -1155,21 +1151,16 @@ internal sealed class FileAiRequestRecoveryStore : IDisposable
                 string name = Path.GetFileName(path);
                 if (name.EndsWith(".pending", StringComparison.Ordinal))
                 {
-                    // A crash can happen after the publication marker is
-                    // flushed but before the source rename. There is then no
-                    // `.src` entry below to reclaim the marker. Keep a marker
-                    // while its owner is active or inside the grace period;
-                    // once it is old and unlocked, it is an orphan temp file.
+                    // A crash between flushing the marker and renaming the source leaves no `.src` entry to
+                    // reclaim it, so an old, unlocked marker is an orphan temp file.
                     string sourcePath = path[..^".pending".Length];
                     bool sourceExists = File.Exists(sourcePath);
                     bool markerLocked = IsMarkerLocked(path);
                     bool markerIsOld = now - File.GetLastWriteTimeUtc(path) >= OrphanSourceAge;
                     if (sourceExists)
                     {
-                        // Once the source is referenced by a durable row, a
-                        // stale marker is no longer needed. This closes the
-                        // crash window between row publication and marker
-                        // deletion without touching an unregistered source.
+                        // A stale marker of a source a durable row references is no longer needed; this closes
+                        // the crash window between row publication and marker deletion.
                         if (retained.Contains(Path.GetFileName(sourcePath))
                             && !markerLocked
                             && markerIsOld)

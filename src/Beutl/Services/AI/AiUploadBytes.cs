@@ -3,17 +3,9 @@
 namespace Beutl.Services.AI;
 
 /// <summary>
-/// Reading a file that is about to be uploaded, without letting it decide how
-/// much memory that takes.
+/// Reads a file that is about to be uploaded. The file may have grown since it was chosen, so this never
+/// reads past <c>limit</c>.
 /// </summary>
-/// <remarks>
-/// A request is named by what its file contains, so the bytes have to be in
-/// hand before the request goes out. What is on disk can have changed since it
-/// was chosen, though — the same path can hold something enormous by the time
-/// it is read — and the size the request is allowed is known up front. Reading
-/// past it serves no purpose and is how a picture picked at ten megabytes turns
-/// into a process with none left.
-/// </remarks>
 internal static class AiUploadBytes
 {
     public static async Task<byte[]> ReadWithinAsync(

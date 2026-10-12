@@ -4,19 +4,7 @@ public static class DotNetProcess
 {
     public static void Configure(ProcessStartInfo processStartInfo, string path)
     {
-        if (path.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
-        {
-            path = path.Substring(0, path.Length - 4);
-        }
-
-        if (path.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
-        {
-            if (!OperatingSystem.IsWindows())
-            {
-                path = path.Substring(0, path.Length - 4);
-            }
-        }
-        else if (OperatingSystem.IsWindows())
+        if (OperatingSystem.IsWindows())
         {
             path += ".exe";
         }

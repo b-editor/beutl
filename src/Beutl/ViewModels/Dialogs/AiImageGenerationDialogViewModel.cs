@@ -846,7 +846,7 @@ internal sealed partial class AiImageGenerationDialogViewModel : IDisposable, IA
         using IdentityOperationLifetime.Operation? operation = TryEnterIdentityOperation();
         if (operation is null)
             return;
-        using Ref<Bitmap>? resultImage = AiResultImageLease.Acquire(ResultImage.Value);
+        using Ref<Bitmap>? resultImage = ResultImage.Value?.TryClone();
         if (resultImage?.Value is not { } bitmap)
             return;
 

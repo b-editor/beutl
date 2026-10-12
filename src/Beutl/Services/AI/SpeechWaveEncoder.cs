@@ -131,11 +131,8 @@ internal static class SpeechWaveEncoder
     }
 
     /// <summary>
-    /// Writes one 16-bit mono PCM wave from as many composed slices as it is
-    /// handed. The slices are separate calls because a whole upload chunk cannot
-    /// be composed at once (see the composition slice duration), and the
-    /// resampling position carries across them so a slice boundary neither drops
-    /// a sample nor shifts the ones after it.
+    /// Writes one 16-bit mono PCM wave from composed slices, as a whole upload chunk cannot be composed at
+    /// once. The resampling position carries across slices, so a boundary neither drops nor shifts a sample.
     /// </summary>
     internal sealed class SpeechWaveWriter(Stream stream)
     {

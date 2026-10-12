@@ -7,6 +7,7 @@ using Microsoft.Extensions.Logging;
 using NuGet.Packaging.Core;
 using NuGet.Versioning;
 using Reactive.Bindings;
+using Reactive.Bindings.Extensions;
 
 namespace Beutl.ViewModels.ExtensionsPages;
 
@@ -29,15 +30,15 @@ public sealed class LocalUserPackageViewModel : BaseViewModel, IUserPackageViewM
         (CanCancel, IsInstallButtonVisible, IsUpdateButtonVisible, IsUninstallButtonVisible) = PackageButtonStates.Create(
             _handler, package.Name, IsBusy, LatestRelease, _disposables);
 
-        Install = new AsyncReactiveCommand(IsBusy.Not())
+        Install = new AsyncReactiveCommand(IsBusy.Inverse())
             .WithSubscribe(InstallAsync)
             .DisposeWith(_disposables);
 
-        Update = new AsyncReactiveCommand(IsBusy.Not())
+        Update = new AsyncReactiveCommand(IsBusy.Inverse())
             .WithSubscribe(UpdateAsync)
             .DisposeWith(_disposables);
 
-        Uninstall = new AsyncReactiveCommand(IsBusy.Not())
+        Uninstall = new AsyncReactiveCommand(IsBusy.Inverse())
             .WithSubscribe(UninstallAsync)
             .DisposeWith(_disposables);
 

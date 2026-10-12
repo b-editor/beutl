@@ -439,10 +439,7 @@ public sealed partial class AiSubtitleDialogViewModel
 
     private async Task EnsureAvailableAsync(AiOperationAvailabilityRequest request)
     {
-        AiOperationAvailabilityTracker tracker = request is AiOperationAvailabilityRequest.Translation
-            ? _translationAvailability
-            : _transcriptionAvailability;
-        if (!await tracker.CheckNowAsync(request, RequestToken))
+        if (!await _availability.CheckAsync(request, RequestToken))
             throw new AiUsageLimitExceededException();
     }
 

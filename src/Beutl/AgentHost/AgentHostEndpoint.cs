@@ -31,6 +31,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
     private static readonly ILogger s_logger = Log.CreateLogger<AgentHostEndpoint>();
     private readonly ProjectService _projectService;
     private readonly EditorService _editorService;
+    private readonly IAgentAiBackend _aiBackend;
     private readonly AiAgentConfig _config;
     private readonly int _preferredPort;
     private readonly Func<CancellationToken, Task>? _beforeStart;
@@ -50,14 +51,14 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
     private AgentHostInstanceLease? _instanceRegistration;
     private long _toolsVersion;
 
-    public AgentHostEndpoint(ProjectService projectService, EditorService editorService)
-        : this(projectService, editorService, GlobalConfiguration.Instance.AiAgentConfig)
+    internal AgentHostEndpoint(ProjectService projectService, EditorService editorService, IAgentAiBackend aiBackend)
+        : this(projectService, editorService, aiBackend, GlobalConfiguration.Instance.AiAgentConfig)
     {
     }
 
-    internal AgentHostEndpoint(ProjectService projectService, EditorService editorService, AiAgentConfig config,
-        string? tokenStoreDirectory = null)
-        : this(projectService, editorService, DefaultPort, "", config,
+    internal AgentHostEndpoint(ProjectService projectService, EditorService editorService, IAgentAiBackend aiBackend,
+        AiAgentConfig config, string? tokenStoreDirectory = null)
+        : this(projectService, editorService, aiBackend, DefaultPort, "", config,
             tokenFactory: () => ResolveToken(config, tokenStoreDirectory))
     {
     }
@@ -73,6 +74,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
     internal AgentHostEndpoint(
         ProjectService projectService,
         EditorService editorService,
+        IAgentAiBackend aiBackend,
         int preferredPort,
         string token,
         Func<CancellationToken, Task>? beforeStart = null,
@@ -80,6 +82,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
         : this(
             projectService,
             editorService,
+            aiBackend,
             preferredPort,
             token,
             GlobalConfiguration.Instance.AiAgentConfig,
@@ -91,6 +94,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
     private AgentHostEndpoint(
         ProjectService projectService,
         EditorService editorService,
+        IAgentAiBackend aiBackend,
         int preferredPort,
         string token,
         AiAgentConfig config,
@@ -112,6 +116,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
 
         _projectService = projectService;
         _editorService = editorService;
+        _aiBackend = aiBackend;
         _config = config;
         _preferredPort = preferredPort;
         _beforeStart = beforeStart;
@@ -137,12 +142,6 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
 
     private AgentHostInstanceRouter CreateInstanceRouter(string token)
         => new(_instanceRegistry, _projectService, _editorService, token, _instanceId);
-
-    /// <summary>
-    /// The application's AI services for the AI tools. Set once the API clients exist; until then,
-    /// and in hosts without them, the AI tools report that generation is unavailable.
-    /// </summary>
-    internal IAgentAiBackend? AiBackend { get; set; }
 
     public Uri? EndpointUri
     {
@@ -422,7 +421,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             .AddSingleton<IOutputOperationLeaseProvider>(_ => _editorService)
             .AddAgentToolkitRendering()
             .AddSingleton<AgentAiJobManager>()
-            .AddSingleton<IAgentAiBackend>(_ => AiBackend ?? UnavailableAgentAiBackend.Instance);
+            .AddSingleton(_aiBackend);
 
         builder.Services
             .AddMcpServer()

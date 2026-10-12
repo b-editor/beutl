@@ -445,7 +445,8 @@ public sealed class AgentHostInstanceTests
     }
 
     private static AgentHostEndpoint CreateHost(EditorService editor, string directory, int? firstPort = null)
-        => new(new ProjectService(), editor, firstPort ?? AvailablePort(), "instance-test-token", registryDirectory: directory);
+        => new(new ProjectService(), editor, UnavailableAgentAiBackend.Instance, firstPort ?? AvailablePort(),
+            "instance-test-token", registryDirectory: directory);
 
     private static int AvailablePort()
     {

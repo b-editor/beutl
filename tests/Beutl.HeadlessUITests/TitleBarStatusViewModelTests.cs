@@ -24,7 +24,7 @@ public sealed class TitleBarStatusViewModelTests
         var snapshots = new ReactivePropertySlim<AiJobMonitorSnapshot>(AiJobMonitorSnapshot.Empty);
         var editorService = new EditorService(new ExtensionProvider(), (_, _) => { });
         await using var endpoint = new AgentHostEndpoint(
-            new ProjectService(), editorService, AgentHostEndpoint.DefaultPort, "test-token");
+            new ProjectService(), editorService, UnavailableAgentAiBackend.Instance, AgentHostEndpoint.DefaultPort, "test-token");
         using var status = new TitleBarStatusViewModel(
             startup,
             editorService,
@@ -86,7 +86,7 @@ public sealed class TitleBarStatusViewModelTests
     {
         var editorService = new EditorService(new ExtensionProvider(), (_, _) => { });
         await using var endpoint = new AgentHostEndpoint(
-            new ProjectService(), editorService, AgentHostEndpoint.DefaultPort, "test-token");
+            new ProjectService(), editorService, UnavailableAgentAiBackend.Instance, AgentHostEndpoint.DefaultPort, "test-token");
         using var status = new TitleBarStatusViewModel(
             Observable.Return(false),
             editorService,

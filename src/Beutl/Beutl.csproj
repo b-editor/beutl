@@ -33,9 +33,6 @@
     <CFBundleName>Beutl</CFBundleName>
     <CFBundleDisplayName>Beutl</CFBundleDisplayName>
     <CFBundleIdentifier>net.beditor.beutl</CFBundleIdentifier>
-    <!-- スクリプトから指定 -->
-    <!-- <CFBundleVersion>$(AssemblyVersion)</CFBundleVersion> -->
-    <!-- <CFBundleShortVersionString>$(AssemblyVersion)</CFBundleShortVersionString> -->
     <CFBundlePackageType>APPL</CFBundlePackageType>
     <CFBundleSignature>????</CFBundleSignature>
     <CFBundleExecutable>Beutl</CFBundleExecutable>
@@ -43,11 +40,6 @@
     <NSPrincipalClass>NSApplication</NSPrincipalClass>
     <NSHighResolutionCapable>true</NSHighResolutionCapable>
   </PropertyGroup>
-  <!-- <PropertyGroup>
-    <OutputPath>bin\$(Configuration)\$(Platform)\Beutl.app/Contents/MacOS</OutputPath>
-    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
-    <UseAppHost>true</UseAppHost>
-  </PropertyGroup> -->
 
   <ItemGroup Condition="$(TargetFramework.Contains('windows'))">
     <Using Remove="System.Drawing" />
@@ -58,7 +50,6 @@
     <PackageReference Include="AsyncImageLoader.Avalonia" />
     <PackageReference Include="Avalonia" />
     <PackageReference Include="Avalonia.Controls.ItemsRepeater" />
-    <PackageReference Include="PanAndZoom" />
     <PackageReference Include="Avalonia.Desktop" />
     <PackageReference Include="AvaloniaUI.DiagnosticsSupport" Condition="'$(Configuration)' == 'Debug'" />
     <PackageReference Include="ReactiveUI.Avalonia.Reactive" />
@@ -73,9 +64,7 @@
     <PackageReference Include="FluentIcons.Avalonia.Fluent" />
     <PackageReference Include="LiveMarkdown.Avalonia" />
     <PackageReference Include="Markdig" />
-    <!-- Microsoft.Extensions.DependencyInjection / .Logging are supplied by the
-         Microsoft.AspNetCore.App FrameworkReference below, so referencing the packages here is
-         redundant (NU1510). -->
+    <!-- Microsoft.Extensions.DependencyInjection and .Logging come from Microsoft.AspNetCore.App (NU1510). -->
     <PackageReference Include="ModelContextProtocol" />
     <PackageReference Include="ModelContextProtocol.AspNetCore" />
     <PackageReference Include="OpenTelemetry" />
@@ -88,7 +77,6 @@
     <PackageReference Include="Serilog.Sinks.File" />
     <PackageReference Include="Serilog.Sinks.Debug" />
     <PackageReference Include="System.Reactive" />
-    <PackageReference Include="System.Interactive" />
     <PackageReference Include="Roslynator.Analyzers">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -122,39 +110,20 @@
     <Compile Include="..\Beutl.Extensions.FFmpeg\FFmpegNativeRid.cs" Link="Linked\FFmpegNativeRid.cs" />
   </ItemGroup>
 
-  <!-- Dev-only build of the GPL worker. ReferenceOutputAssembly=false keeps the GPL assembly
-       out of the MIT compile closure (GPL/MIT boundary invariant); CopyFFmpegWorkerForApp below
-       mirrors the worker's full output into an isolated FFmpegWorker/ subdirectory next to the
-       app, where FFmpegWorkerProcess probes (it prefers that subdir, then falls back to
-       AppContext.BaseDirectory). The worker resolves its own (possibly different-versioned)
-       shared assemblies from its own deps.json inside that subdir, so its dependency closure
-       never overwrites the app's. Nuke release publishes (Publish / BundleApp targets) instead lay
-       the worker out flat, merging its whole closure into the app dir with FileSkip so the app's
-       shared assemblies stay the single canonical set; only the worker's identity and its private
-       GPL deps (FFmpeg.AutoGen, FFmpegSharp) — absent from the app's MIT set — are added. Copying
-       only Beutl.FFmpegWorker* would strand those private deps and the worker would fail to start.
-       NOTE: CopyFFmpegWorkerForApp runs AfterTargets="Build" and copies into $(OutDir) (bin), not
-       $(PublishDir). A bare `dotnet publish` (NukePublish!=True) therefore omits the worker and
-       yields a non-runnable app; publishing a runnable app must go through Nuke (NukePublish=True),
-       which lays out the worker as above. -->
+  <!-- Dev-only build of the GPL worker. ReferenceOutputAssembly=false keeps the GPL assembly out of the
+       MIT compile closure. CopyFFmpegWorkerForApp mirrors the worker's full output into FFmpegWorker/
+       next to the app. A bare `dotnet publish` omits the worker, so runnable apps are published by Nuke. -->
   <ItemGroup Condition="'$(NukePublish)'!='True'">
     <ProjectReference Include="..\Beutl.FFmpegWorker\Beutl.FFmpegWorker.csproj"
                       ReferenceOutputAssembly="false" />
   </ItemGroup>
 
-  <!-- The '$(TargetFramework)' != '' guard keeps this off the outer (dispatch) pass of the
-       multi-targeting build, where TargetFramework and OutDir are empty: there the glob base
-       would collapse to bin\$(Configuration)\ (pulling the TFM folders into %(RecursiveDir)) and
-       the empty OutDir would land the copy in the project source directory. Only the inner
-       per-TFM build has the correct OutDir under bin\. -->
+  <!-- Skip the outer pass of the multi-targeting build, where TargetFramework and OutDir are empty. -->
   <Target Name="CopyFFmpegWorkerForApp"
           AfterTargets="Build"
           Condition="'$(NukePublish)'!='True' And '$(TargetFramework)' != ''">
     <PropertyGroup>
-      <!-- The worker's own output dir mirrors this app's: it gains a <RID> segment only when a
-           RuntimeIdentifier is set. Anchor the glob there so a RID build does not duplicate the
-           RID into $(OutDir) (which already ends in <RID>) and strand the worker outside
-           AppContext.BaseDirectory. -->
+      <!-- Like this app's, the worker's output dir gains a <RID> segment only when a RuntimeIdentifier is set. -->
       <_FFmpegWorkerOutDir>..\Beutl.FFmpegWorker\bin\$(Configuration)\$(TargetFramework)\$(RuntimeIdentifier)\</_FFmpegWorkerOutDir>
     </PropertyGroup>
     <ItemGroup>
@@ -175,12 +144,8 @@
       Include="..\Beutl.Extensions.AVFoundation\Beutl.Extensions.AVFoundation.csproj" />
   </ItemGroup>
 
-  <!-- ProjectReferences don't transitively copy native runtime assets (runtimes/<rid>/native),
-       so mirror the Swift dylib from the referenced project's runtimes/ folder into this
-       project's output via the AVF package's shared CopyBeutlAVFDylibsToConsumerOutput target.
-       BeutlAVFOwnsSwiftBuild=false keeps the Swift build/packaging pipeline off in this import;
-       the mirror is gated on AVFBuildIn so Linux/Windows publishes don't pick up the macOS-only
-       dylibs. -->
+  <!-- ProjectReferences don't copy native runtime assets, so mirror the AVF Swift dylib into the output.
+       BeutlAVFOwnsSwiftBuild=false keeps the Swift build off here; the mirror runs only with AVFBuildIn. -->
   <PropertyGroup>
     <BeutlAVFOwnsSwiftBuild>false</BeutlAVFOwnsSwiftBuild>
     <CopyBeutlAVFDylibsToOutput Condition="'$(AVFBuildIn)'=='True'">true</CopyBeutlAVFDylibsToOutput>
@@ -198,11 +163,8 @@
           SkipUnchangedFiles="true"
           Condition="Exists('$(_BeutlAVFPublishSource)')" />
 
-    <!-- Sweep every libBeutlAVF.dylib that Build mirrored into runtimes/, then
-         drop any folders left empty by the cleanup. CopyBeutlAVFDylibsToConsumerOutput
-         intentionally seeds runtimes/<rid>/native for all RIDs so non-macOS
-         pipelines can reuse them, but those copies are redundant once we have
-         the dylib in the publish root, so we strip them here. -->
+    <!-- Build mirrors libBeutlAVF.dylib into runtimes/ for every RID. Once the dylib is in the publish
+         root those copies are redundant, so remove them and any folders the cleanup leaves empty. -->
     <ItemGroup>
       <_BeutlAVFPublishStaleDylib Include="$(PublishDir)runtimes/**/libBeutlAVF.dylib" />
     </ItemGroup>
@@ -224,21 +186,10 @@
     <Service Include="{508349b6-6b84-4df5-91f0-309beebad82d}" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Update="Pages\SettingsPages\PropertyEditorGroup.axaml.cs">
-      <DependentUpon>%(Filename)</DependentUpon>
-    </Compile>
     <Compile Update="ViewModels\Editors\VectorEditorViewModels.cs">
       <DesignTime>True</DesignTime>
       <AutoGen>True</AutoGen>
       <DependentUpon>VectorEditorViewModels.tt</DependentUpon>
-    </Compile>
-    <Compile Update="Views\EditorHostFallback.axaml.cs">
-      <DependentUpon>EditPageFallback.axaml</DependentUpon>
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Update="Views\Dialogs\UpdateDialog.axaml.cs">
-      <DependentUpon>UpdateDialog.axaml</DependentUpon>
-      <SubType>Code</SubType>
     </Compile>
   </ItemGroup>
   <ItemGroup>

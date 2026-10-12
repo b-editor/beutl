@@ -92,6 +92,8 @@ internal abstract class BuiltInAiJobResultCapability(
 {
     protected virtual bool HasImagePreview => false;
 
+    protected string KindDisplayName => getKindDisplayName();
+
     private static readonly IReadOnlyDictionary<string, Func<string>> s_statusDisplayNames =
         new Dictionary<string, Func<string>>(StringComparer.OrdinalIgnoreCase)
         {
@@ -209,17 +211,10 @@ internal abstract class BuiltInAiJobResultCapability(
     }
 }
 
-internal sealed class ImageAiJobResultCapabilities : BuiltInAiJobResultCapability
+internal sealed class ImageAiJobResultCapabilities(Func<string> getDisplayName)
+    : BuiltInAiJobResultCapability(getDisplayName)
 {
-    private readonly Func<string> _getDisplayName;
-
     protected override bool HasImagePreview => true;
-
-    public ImageAiJobResultCapabilities(Func<string> getDisplayName)
-        : base(getDisplayName)
-    {
-        _getDisplayName = getDisplayName ?? throw new ArgumentNullException(nameof(getDisplayName));
-    }
 
     public override async Task ApplyAsync(
         AiJob job,
@@ -242,7 +237,7 @@ internal sealed class ImageAiJobResultCapabilities : BuiltInAiJobResultCapabilit
                 start,
                 TimeSpan.FromSeconds(5),
                 editor.GetNextLayer(start),
-                _getDisplayName()),
+                KindDisplayName),
             cancellationToken);
         ShowImportResult(result);
     }
@@ -307,7 +302,7 @@ internal sealed class VideoAiJobResultCapabilities()
                     start,
                     duration,
                     editor.GetNextLayer(start),
-                    Strings.AiVideoGeneration),
+                    KindDisplayName),
                 cancellationToken);
             ShowImportResult(result);
         }

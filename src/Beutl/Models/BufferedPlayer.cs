@@ -10,13 +10,15 @@ using Reactive.Bindings;
 
 namespace Beutl.Models;
 
-internal sealed class BufferedPlayer : IPlayer
+internal sealed class BufferedPlayer : IDisposable
 {
-    // The fixed lead playback had before the read-ahead budget, still the most frames it renders ahead.
+    public record struct Frame(Ref<Bitmap> Bitmap, int Time);
+
+    // The most frames playback renders ahead.
     private const int MaxReadAheadFrames = 120;
 
     private readonly ILogger _logger = Log.CreateLogger<BufferedPlayer>();
-    private readonly ConcurrentQueue<IPlayer.Frame> _queue = new();
+    private readonly ConcurrentQueue<Frame> _queue = new();
     private readonly EditViewModel _editViewModel;
     private readonly IReadOnlyReactiveProperty<bool> _isPlaying;
     private readonly CancellationToken _playbackToken;
@@ -28,11 +30,8 @@ internal sealed class BufferedPlayer : IPlayer
     private RenderFailure? _renderFailure;
     private volatile bool _isDisposed;
 
-    // Set true whenever the producer (Start's dispatched loop) is no longer running. The consumer waits on a
-    // per-wait token that only the producer cancels, so a producer that stops while no one is waiting (e.g. a
-    // mid-playback renderer rebuild) would leave the next WaitRender blocked forever. WaitRender re-checks this
-    // flag after publishing its token; the producer sets it before cancelling — together that closes the race.
-    // Exposed via IPlayer.ProducerStopped so the consumer timer can auto-stop playback on a premature exit.
+    // True once the producer loop stops. WaitRender re-checks it after publishing its token, so a producer that
+    // stops while no one waits cannot block the next wait; ProducerStopped lets the consumer end playback early.
     private volatile bool _producerStopped;
 
     public bool ProducerStopped => _producerStopped;
@@ -141,11 +140,8 @@ internal sealed class BufferedPlayer : IPlayer
                 || activeRenderer?.IsDisposed == true
                 || activeCacheManager?.IsDisposed == true)
             {
-                // A concurrent rebuild disposed the renderer/cache between the IsDisposed re-check and
-                // Render()/Snapshot() — a TOCTOU the per-frame re-read narrows but cannot close, since disposal
-                // runs on the UI thread and the loop on the render thread. This is an expected mid-swap race, not
-                // a drawing failure, so do NOT surface a user-facing FrameDrawingException; just log and let the
-                // producer stop (the finally records the stop and wakes the consumer).
+                // A concurrent rebuild disposed the renderer or cache mid-frame. That is not a drawing failure, so
+                // log it and let the producer stop instead of surfacing a FrameDrawingException.
                 _logger.LogWarning(ex, "Renderer disposed mid-frame by a concurrent rebuild; stopping the playback producer.");
             }
             catch (Exception ex)
@@ -158,16 +154,14 @@ internal sealed class BufferedPlayer : IPlayer
             }
             finally
             {
-                // Whenever the producer thread exits — normal completion, mid-playback renderer rebuild, or an
-                // exception — record the stop before waking any current waiter: setting _producerStopped first
-                // pairs with WaitRender's post-publish re-check (Cancel fences), so a consumer reaching WaitRender
-                // after this point observes the stop instead of blocking forever on a wakeup that never comes.
+                // Record the stop before waking the waiters, so a consumer reaching WaitRender after this point
+                // sees the stop through its post-publish re-check instead of waiting for a wakeup that never comes.
                 _producerStopped = true;
                 _waitRenderGate.Cancel();
                 _waitTimerGate.Cancel();
                 if (_isDisposed)
                 {
-                    while (_queue.TryDequeue(out IPlayer.Frame queuedFrame))
+                    while (_queue.TryDequeue(out Frame queuedFrame))
                     {
                         queuedFrame.Bitmap.Dispose();
                     }
@@ -184,7 +178,6 @@ internal sealed class BufferedPlayer : IPlayer
     // part-way, which ends the producer loop.
     private bool TryEnqueueFrame(SceneRenderer renderer, FrameCacheManager cacheManager, int frame, TimeSpan time)
     {
-        // キャッシュを探す
         // cacheは参照を既に追加されている
         if (cacheManager.TryGet(frame, out Ref<Bitmap>? cache))
         {
@@ -216,10 +209,10 @@ internal sealed class BufferedPlayer : IPlayer
         return true;
     }
 
-    public bool TryDequeue(out IPlayer.Frame frame)
+    public bool TryDequeue(out Frame frame)
     {
         _waitTimerGate.Cancel();
-        if (_queue.TryDequeue(out IPlayer.Frame f))
+        if (_queue.TryDequeue(out Frame f))
         {
             frame = f;
             return true;

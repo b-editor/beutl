@@ -164,6 +164,7 @@ public sealed class AgentHostInstanceAuthenticationTests
         listener.Start();
         int port = ((IPEndPoint)listener.LocalEndpoint).Port;
         return new AgentHostEndpoint(new ProjectService(), new EditorService(TestShell.Extensions),
+            UnavailableAgentAiBackend.Instance,
             port, AgentHostInstanceTestWorker.Token, registryDirectory: directory);
     }
 }
