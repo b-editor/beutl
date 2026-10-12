@@ -10,19 +10,8 @@ public abstract partial class DisplacementMapTransform
 {
     /// <summary>Declares a hit test that resolves a coordinate the way the shader fallback resamples one.</summary>
     /// <remarks>
-    /// <para>
-    /// Every fallback entry point discards the fragment it writes and returns <c>src</c> somewhere else, at a
-    /// displacement it reads from the map at that fragment. Forwarding the query unchanged therefore answers
-    /// for the input's coverage at the vacated point rather than at the point the stage read: an opaque map
-    /// moves content out of a pixel while the query still reports the content that used to be there, and
-    /// misses the pixel the content arrived in.
-    /// </para>
-    /// <para>
-    /// Resolving that coordinate needs the displacement itself, which is a sample and not coverage, so the map
-    /// is evaluated here through the very <see cref="SKShader"/> the stage binds. A tile brush is the one map
-    /// this cannot do: its shader rasterizes an intermediate render target, which a hit test must not
-    /// allocate. Those stages keep the forwarded query and the defect it carries.
-    /// </para>
+    /// The stage reads <c>src</c> at a point displaced by the map, so the map is sampled here as the stage samples it.
+    /// A tile brush would rasterize a render target, so those stages keep the forwarded query and its defect.
     /// </remarks>
     private protected static (
         RenderHitTestContract? Contract,
@@ -184,18 +173,8 @@ public abstract partial class DisplacementMapTransform
 
     /// <summary>Moves a source coordinate onto the input the way the sampler's tile mode does.</summary>
     /// <remarks>
-    /// <para>
-    /// The stage samples its input with the user's spread method, so a coordinate outside the input reads a
-    /// clamped, repeated or mirrored part of it rather than transparency, and the pixel is painted with
-    /// whatever that part carries. Only <see cref="SKShaderTileMode.Decal"/> leaves it empty.
-    /// </para>
-    /// <para>
-    /// Where the input's edge is follows the engine's rule for what a content node covers, which is
-    /// bottom-right exclusive (<see cref="Rect.ContainsExclusive"/>). Landing on
-    /// <see cref="Rect.Right"/> itself would therefore land on the one coordinate the input rejects, so every
-    /// mode ends on the last <see langword="float"/> below it. An input with no such coordinate on an axis
-    /// covers no column there and carries nothing to read.
-    /// </para>
+    /// The stage samples with the user's spread method, so only <see cref="SKShaderTileMode.Decal"/> leaves an outside
+    /// point empty. Coverage is bottom-right exclusive, so every mode ends on the last float below the edge.
     /// </remarks>
     private static bool TryTileIntoBounds(Point point, Rect bounds, SKShaderTileMode mode, out Point tiled)
     {

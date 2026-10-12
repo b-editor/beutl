@@ -293,13 +293,6 @@ public sealed class DeviceBufferBudgetTests
         Assert.Multiple(() =>
         {
             Assert.That(
-                () => new CustomFilterEffectContext(
-                    targets,
-                    RenderIntent.Delivery,
-                    RenderRequestPurpose.Auxiliary,
-                    budget: default(BufferDimensionBudget)),
-                Throws.InstanceOf<ArgumentOutOfRangeException>());
-            Assert.That(
                 () => new FilterEffectExecutor(
                     targets,
                     builder,

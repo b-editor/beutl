@@ -213,7 +213,7 @@ public sealed class FilterEffectRecordingTransactionTests
     }
 
     [Test]
-    public void FilterEffectGroup_DirectApplyRollsBackEarlierChildrenWhenLaterChildFails()
+    public void FilterEffectGroup_TransactionalApplyRollsBackEarlierChildrenWhenLaterChildFails()
     {
         using var context = new FilterEffectContext(new Rect(0, 0, 10, 10));
         var firstResource = new TrackingDisposable();
@@ -236,7 +236,7 @@ public sealed class FilterEffectRecordingTransactionTests
         FilterEffect.Resource groupResource = group.ToResource(CompositionContext.Default);
 
         Assert.That(
-            () => group.ApplyTo(context, groupResource),
+            () => context.ApplyTransactional(group, groupResource),
             Throws.TypeOf<InvalidOperationException>().With.Message.EqualTo("group-child-failure"));
         Assert.Multiple(() =>
         {

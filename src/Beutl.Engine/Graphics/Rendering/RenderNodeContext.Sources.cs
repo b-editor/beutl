@@ -524,8 +524,7 @@ public sealed partial class RenderNodeContext
             bool outputMayBeEmpty = requiresOwningTargetDomain
                                     || outputBounds.Width == 0
                                     || outputBounds.Height == 0
-                                    || items.Any(static item =>
-                                        item is IFEItem_Skia { ResolveBoundsAtExecutionTime: true });
+                                    || items.Any(static item => item is IFEItem_DeferredBounds);
             return outputMayBeEmpty
                 ? RenderValueCardinality.ZeroOrOne
                 : RenderValueCardinality.Single;

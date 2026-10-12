@@ -121,7 +121,6 @@ public class TextElements : IReadOnlyList<TextElement>, IDisposable
         }
     }
 
-    // 内部の一時バッファにArrayPoolを使う。
     public struct LineEnumerator : IDisposable
     {
         private readonly int _arrayCount;

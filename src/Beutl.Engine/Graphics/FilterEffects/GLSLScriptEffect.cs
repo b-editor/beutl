@@ -81,14 +81,13 @@ public sealed partial class GLSLScriptEffect : FilterEffect, IScriptCompilableEf
             return;
 
         context.CustomEffect(
-            (progress: r.Progress, duration: r.Duration, time: r.Time, shader: r._shader,
-                compileError: r._compileError),
+            (progress: r.Progress, duration: r.Duration, time: r.Time, shader: r._shader),
             OnApplyTo,
             static (_, r) => r);
     }
 
     private static void OnApplyTo(
-        (float progress, float duration, float time, GLSLShader shader, string? compileError) data,
+        (float progress, float duration, float time, GLSLShader shader) data,
         CustomFilterEffectContext c)
     {
         // Push constants report device px at the clamped buffer density.
@@ -130,28 +129,21 @@ public sealed partial class GLSLScriptEffect : FilterEffect, IScriptCompilableEf
         internal string? _compiledShader;
         internal string? _compileError;
 
-        public float Progress { get; private set; }
+        private ScriptTimeline _timeline;
 
-        public float Duration { get; private set; }
+        public float Progress => _timeline.Progress;
 
-        public float Time { get; private set; }
+        public float Duration => _timeline.Duration;
+
+        public float Time => _timeline.Time;
 
         partial void PostReconcile(GLSLScriptEffect obj, CompositionContext context)
         {
-            float duration = (float)obj.TimeRange.Duration.TotalSeconds;
-            float time = (float)(context.Time - obj.TimeRange.Start).TotalSeconds;
-            float progress = duration > 0 ? time / duration : 0;
-
-            // ReSharper disable CompareOfFloatsByEqualityOperator
-            if (Duration != duration || Time != time || Progress != progress)
+            if (_timeline.Update(obj, context))
             {
                 Version++;
             }
-            // ReSharper restore CompareOfFloatsByEqualityOperator
 
-            Duration = duration;
-            Time = time;
-            Progress = progress;
             CompileShader(FragmentShader);
         }
 

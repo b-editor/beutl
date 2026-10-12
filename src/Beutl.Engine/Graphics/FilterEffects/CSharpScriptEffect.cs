@@ -119,31 +119,22 @@ public sealed partial class CSharpScriptEffect : FilterEffect, IScriptCompilable
     {
         internal ScriptRunner<object>? _scriptRunner;
         internal string? _compiledScript;
-        internal string? _compileError;
         internal ScriptGlslProgramCache GlslPrograms { get; } = new();
 
-        public float Progress { get; private set; }
+        private ScriptTimeline _timeline;
 
-        public float Duration { get; private set; }
+        public float Progress => _timeline.Progress;
 
-        public float Time { get; private set; }
+        public float Duration => _timeline.Duration;
+
+        public float Time => _timeline.Time;
 
         partial void PostReconcile(CSharpScriptEffect obj, CompositionContext context)
         {
-            float duration = (float)obj.TimeRange.Duration.TotalSeconds;
-            float time = (float)(context.Time - obj.TimeRange.Start).TotalSeconds;
-            float progress = duration > 0 ? time / duration : 0;
-
-            // ReSharper disable CompareOfFloatsByEqualityOperator
-            if (Duration != duration || Time != time || Progress != progress)
+            if (_timeline.Update(obj, context))
             {
                 Version++;
             }
-            // ReSharper restore CompareOfFloatsByEqualityOperator
-
-            Duration = duration;
-            Time = time;
-            Progress = progress;
 
             CompileScript(Script);
         }
@@ -159,7 +150,6 @@ public sealed partial class CSharpScriptEffect : FilterEffect, IScriptCompilable
                 return;
 
             _scriptRunner = null;
-            _compileError = null;
             _compiledScript = script;
 
             if (string.IsNullOrWhiteSpace(script))
@@ -171,8 +161,8 @@ public sealed partial class CSharpScriptEffect : FilterEffect, IScriptCompilable
 
                 if (errors.Count > 0)
                 {
-                    _compileError = string.Join(Environment.NewLine, errors);
-                    s_logger.LogError("Failed to compile C# script: {ErrorText}", _compileError);
+                    string compileError = string.Join(Environment.NewLine, errors);
+                    s_logger.LogError("Failed to compile C# script: {ErrorText}", compileError);
                 }
                 else
                 {
@@ -181,7 +171,6 @@ public sealed partial class CSharpScriptEffect : FilterEffect, IScriptCompilable
             }
             catch (Exception ex)
             {
-                _compileError = $"Compilation error: {ex.Message}";
                 s_logger.LogError(ex, "Failed to compile C# script");
             }
         }

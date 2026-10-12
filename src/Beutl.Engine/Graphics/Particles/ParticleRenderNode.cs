@@ -184,8 +184,7 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
                            (byte)Math.Clamp(MathF.Round(opacity * byte.MaxValue), 0, byte.MaxValue)),
             })
             {
-                // The particle transform already carries the resampling, so the blit itself stays
-                // unfiltered -- the same footprint the source would have drawn under that transform.
+                // The blit resamples the source under the particle transform; see s_particleSampling.
                 input.Draw(canvas, paint, s_particleSampling);
             }
         }
@@ -195,18 +194,14 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
     /// Whether a particle reaches the canvas at all, and the scale and opacity it reaches it with.
     /// </summary>
     /// <remarks>
-    /// The bounds loop and the drawing loop must decide this identically. The union is what the layer buffer is
-    /// allocated from, so a particle the bounds loop counts but the drawing loop skips - a fully faded one, which
-    /// <see cref="ParticleEmitter.EndOpacityMultiplier"/> drives every particle towards - buys buffer for pixels
-    /// that never appear. A non-finite value is rejected rather than merely a non-positive one, because
-    /// <c>NaN &lt;= 0</c> is false and a NaN would otherwise reach the union as an unbounded coordinate.
+    /// The bounds loop and the drawing loop must decide this identically, or the layer buffer pays for pixels that
+    /// never appear. Non-finite values are rejected because <c>NaN &lt;= 0</c> is false and a NaN would reach the union.
     /// </remarks>
     private static bool IsVisibleParticle(in Particle particle, out float scale, out float opacity)
     {
         scale = particle.CurrentSize / 10f;
         opacity = particle.CurrentOpacity / 100f;
-        return particle.IsAlive
-               && float.IsFinite(scale)
+        return float.IsFinite(scale)
                && float.IsFinite(opacity)
                && scale > 0
                && opacity > 0;

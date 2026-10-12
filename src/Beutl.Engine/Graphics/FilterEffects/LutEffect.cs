@@ -16,27 +16,6 @@ public sealed partial class LutEffect : FilterEffect
 {
     private static readonly ConditionalWeakTable<CubeFile, LutSnapshotState> s_lutSnapshots = new();
 
-    /// <summary>The sRGB transfer function pair both lookup programs apply their table in.</summary>
-    /// <remarks>
-    /// A lookup table is authored against sRGB-encoded values, so the linear working colour is encoded
-    /// before the lookup and decoded after it. The two programs have to agree on the encoding, or one
-    /// table maps a colour two ways.
-    /// </remarks>
-    private const string SrgbTransferSource =
-        """
-            float3 linearToSrgb(float3 c) {
-                float3 lo = c * 12.92;
-                float3 hi = 1.055 * pow(max(c, float3(0.0)), float3(1.0/2.4)) - 0.055;
-                return mix(lo, hi, step(float3(0.0031308), c));
-            }
-
-            float3 srgbToLinear(float3 c) {
-                float3 lo = c / 12.92;
-                float3 hi = pow(max((c + 0.055) / 1.055, float3(0.0)), float3(2.4));
-                return mix(lo, hi, step(float3(0.04045), c));
-            }
-            """;
-
     private const string LutSamplingSource =
         """
             uniform shader lut;
@@ -117,7 +96,7 @@ public sealed partial class LutEffect : FilterEffect
 
 
             """
-        + SrgbTransferSource
+        + SkslSnippets.SrgbTransfer
         + """
 
 
@@ -148,7 +127,7 @@ public sealed partial class LutEffect : FilterEffect
 
 
             """
-        + SrgbTransferSource
+        + SkslSnippets.SrgbTransfer
         + """
 
 
@@ -211,7 +190,7 @@ public sealed partial class LutEffect : FilterEffect
         var r = (Resource)resource;
         CubeSource.Resource? source = r.Source;
         CubeFile? cube = source?.Cube;
-        if (source is null || cube is null)
+        if (cube is null)
             return;
 
         LutShaderResource lutSnapshot = s_lutSnapshots

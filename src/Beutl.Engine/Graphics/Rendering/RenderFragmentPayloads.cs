@@ -65,12 +65,7 @@ internal sealed record FilterEffectSegmentRenderFragmentPayload(
     public bool SupportsDirectReplay
         => StreamInputCount == 1
            && !BoundsItems.IsDefaultOrEmpty
-           && BoundsItems.All(static item =>
-               item is IFEItem_Skia
-               {
-                   SupportsDirectReplay: true,
-                   ResolveBoundsAtExecutionTime: false,
-               });
+           && BoundsItems.All(static item => item is IFEItem_Skia { SupportsDirectReplay: true });
 }
 
 internal sealed record MaterializedInputRenderFragmentPayload(

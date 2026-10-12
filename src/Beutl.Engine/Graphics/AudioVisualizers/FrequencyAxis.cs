@@ -14,4 +14,16 @@ internal readonly record struct FrequencyAxis(float FMin, float FMax, double Mel
         double melMax = scale == FrequencyScale.Mel ? 2595.0 * Math.Log10(1 + fMax / 700.0) : 0;
         return new FrequencyAxis(fMin, fMax, melMin, melMax);
     }
+
+    /// <summary>The frequency at the fraction <paramref name="t"/> of the axis on <paramref name="scale"/>.</summary>
+    public double FrequencyAt(double t, FrequencyScale scale)
+        => scale switch
+        {
+            FrequencyScale.Logarithmic => FMin * Math.Pow(FMax / FMin, t),
+            FrequencyScale.Mel => MelToFrequency(MelMin + (MelMax - MelMin) * t),
+            _ => t * FMax,
+        };
+
+    /// <summary>Inverts the mel scale that <see cref="Create"/> expresses the axis ends in.</summary>
+    public static double MelToFrequency(double mel) => 700.0 * (Math.Pow(10, mel / 2595.0) - 1);
 }

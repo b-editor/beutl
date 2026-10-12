@@ -40,7 +40,8 @@ public sealed class RenderTargetFactoryReachTests
                 cache,
                 target.RenderTarget!,
                 source),
-            session);
+            session,
+            budget: BufferDimensionBudget.Resolve(BufferBudgetScope.Allocation));
 
         Assert.That(factory.Requests, Is.Not.Empty,
             "A typed shader stage must ask the caller's factory for its output surface.");
@@ -65,7 +66,8 @@ public sealed class RenderTargetFactoryReachTests
             maxWorkingScale: 1,
             RenderIntent.Preview,
             RenderRequestPurpose.Auxiliary,
-            session);
+            session,
+            budget: BufferDimensionBudget.Resolve(BufferBudgetScope.Allocation));
 
         Assert.That(factory.Requests, Is.Not.Empty,
             "A typed geometry stage must ask the caller's factory for its output surface.");

@@ -86,15 +86,7 @@ public sealed class EffectTarget : IDisposable
     private static object CopyValidatedBacking(RenderTarget renderTarget, EffectiveScale scale, PixelRect deviceBounds)
     {
         ArgumentNullException.ThrowIfNull(renderTarget);
-        if (scale.IsUnbounded)
-            throw new ArgumentException("An effect target requires a concrete density.", nameof(scale));
-        if (deviceBounds.Size != new PixelSize(renderTarget.Width, renderTarget.Height))
-        {
-            throw new ArgumentException(
-                "Effect target device bounds must match the backing target size.",
-                nameof(deviceBounds));
-        }
-
+        ValidateBacking(renderTarget.Width, renderTarget.Height, scale, deviceBounds);
         return renderTarget.ShallowCopy();
     }
 
@@ -105,18 +97,21 @@ public sealed class EffectTarget : IDisposable
         PixelRect deviceBounds)
     {
         ArgumentNullException.ThrowIfNull(renderTargetLease);
+        RenderTarget backing = renderTargetLease.Target;
+        ValidateBacking(backing.Width, backing.Height, scale, deviceBounds);
+        return renderTargetLease;
+    }
+
+    private static void ValidateBacking(int width, int height, EffectiveScale scale, PixelRect deviceBounds)
+    {
         if (scale.IsUnbounded)
             throw new ArgumentException("An effect target requires a concrete density.", nameof(scale));
-        if (deviceBounds.Size != new PixelSize(
-                renderTargetLease.Target.Width,
-                renderTargetLease.Target.Height))
+        if (deviceBounds.Size != new PixelSize(width, height))
         {
             throw new ArgumentException(
                 "Effect target device bounds must match the backing target size.",
                 nameof(deviceBounds));
         }
-
-        return renderTargetLease;
     }
 
     public EffectTarget()
@@ -210,27 +205,19 @@ public sealed class EffectTarget : IDisposable
     }
 
     internal EffectTarget CreateReplacement(RenderTarget renderTarget)
-    {
-        return new EffectTarget(
-            renderTarget,
-            _allocationBounds,
-            Scale,
-            DeviceBounds,
-            DeviceGridOffset,
-            PreserveImperativeRasterPlacement)
-        {
-            Bounds = Bounds,
-            OriginalBounds = OriginalBounds,
-        };
-    }
+        => CreateReplacementCore(CopyValidatedBacking(renderTarget, Scale, DeviceBounds));
 
     internal EffectTarget CreateReplacement(RenderTargetLease renderTargetLease)
         => CreateReplacement(new EffectTargetRenderTargetLease(renderTargetLease));
 
     private EffectTarget CreateReplacement(EffectTargetRenderTargetLease renderTargetLease)
+        => CreateReplacementCore(ValidatedBacking(renderTargetLease, Scale, DeviceBounds));
+
+    /// <summary>Wraps a validated backing as a target with this target's footprint and bounds.</summary>
+    private EffectTarget CreateReplacementCore(object backing)
     {
         return new EffectTarget(
-            renderTargetLease,
+            backing,
             _allocationBounds,
             Scale,
             DeviceBounds,

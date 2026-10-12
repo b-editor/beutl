@@ -222,7 +222,8 @@ public sealed class EffectItemTypedSuffixExecutionTests
                     target.RenderTarget!,
                     source);
             },
-            leaseSession: null);
+            leaseSession: null,
+            budget: BufferDimensionBudget.Resolve(BufferBudgetScope.Allocation));
 
         Assert.Multiple(() =>
         {
@@ -272,7 +273,8 @@ public sealed class EffectItemTypedSuffixExecutionTests
                     cache,
                     target.RenderTarget!,
                     source),
-                session));
+                session,
+                budget: BufferDimensionBudget.Resolve(BufferBudgetScope.Allocation)));
 
         Assert.Multiple(() =>
         {
@@ -312,7 +314,8 @@ public sealed class EffectItemTypedSuffixExecutionTests
             maxWorkingScale: 1,
             intent,
             RenderRequestPurpose.Auxiliary,
-            leaseSession: null);
+            leaseSession: null,
+            budget: BufferDimensionBudget.Resolve(BufferBudgetScope.Allocation));
 
         Assert.That(observedIntent, Is.EqualTo(intent));
     }

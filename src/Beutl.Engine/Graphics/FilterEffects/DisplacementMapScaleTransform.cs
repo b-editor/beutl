@@ -1,8 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.Numerics;
 using Beutl.Engine;
-using Beutl.Graphics.Rendering;
-using Beutl.Graphics.Shaders;
 using Beutl.Language;
 using Beutl.Media;
 
@@ -11,31 +9,6 @@ namespace Beutl.Graphics.Effects;
 [Display(Name = nameof(GraphicsStrings.Scale), ResourceType = typeof(GraphicsStrings))]
 public partial class DisplacementMapScaleTransform : DisplacementMapTransform
 {
-    private const string ShaderSource =
-        """
-        uniform shader src;
-        uniform shader uDisplacementMap;
-
-        uniform float2 uScale;
-        uniform float2 uPivot;
-
-        """
-        + DisplacementSamplingSource
-        + """
-
-
-        half4 main(float2 coord) {
-            half4 dispColor = uDisplacementMap.eval(coord);
-            float2 s = max(mix(float2(1.0, 1.0), uScale, getDisplacement(dispColor)), float2(0.001, 0.001));
-
-            float2 uv = (coord - uPivot) / s + uPivot;
-            return src.eval(uv);
-        }
-        """;
-
-    private static readonly SkslSource s_shaderSource =
-        new(ShaderSource, ShaderDescriptionKind.WholeSource);
-
     public DisplacementMapScaleTransform()
     {
         ScanProperties<DisplacementMapScaleTransform>();
@@ -65,47 +38,16 @@ public partial class DisplacementMapScaleTransform : DisplacementMapTransform
             var scale = new Vector2(
                 Scale * ScaleX / 10000,
                 Scale * ScaleY / 10000);
-            var center = new Vector2(CenterX, CenterY);
-            if (TryApplyDrawableMap(
-                    context,
-                    displacementMap,
-                    spreadMethod,
-                    channel,
-                    signed,
-                    DrawableMapTransformKind.Scale,
-                    scale,
-                    angle: 0,
-                    center: center))
-            {
-                return;
-            }
-
-            RenderResource<Brush.Resource> map = BorrowDisplacementMap(context, displacementMap);
-            var hitTest = DeclareSampling(
+            ApplyCore(
+                context,
                 displacementMap,
-                map,
+                spreadMethod,
+                channel,
+                signed,
                 DrawableMapTransformKind.Scale,
                 scale,
                 angle: 0,
-                center: center,
-                spreadMethod,
-                channel,
-                signed);
-            context.Shader(ShaderDescription.WholeSource(
-                s_shaderSource,
-                RenderBoundsContract.FullInput,
-                bindings =>
-                {
-                    AddDisplacementBindings(bindings, map, channel, signed);
-                    bindings.Uniform("uScale", scale);
-                    bindings.Uniform(
-                        "uPivot",
-                        center,
-                        BindPivot);
-                },
-                spreadMethod.ToSKShaderTileMode(),
-                hitTest: hitTest.Contract,
-                hitTestResources: hitTest.Resources));
+                center: new Vector2(CenterX, CenterY));
         }
     }
 }

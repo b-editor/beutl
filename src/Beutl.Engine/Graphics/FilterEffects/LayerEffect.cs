@@ -33,12 +33,7 @@ public partial class LayerEffect : FilterEffect
                     }
                 }
 
-                for (int i = ctx.Targets.Count - 1; i >= 0; i--)
-                {
-                    ctx.Targets[i].Dispose();
-                    ctx.Targets.RemoveAt(i);
-                }
-
+                ctx.Targets.Clear();
                 ctx.Targets.Add(newTarget);
             },
             // Flattening the targets into their own union never leaves the incoming extent.

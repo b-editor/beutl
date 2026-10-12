@@ -255,13 +255,6 @@ public sealed partial class PixelSortEffect : FilterEffect
         PixelSortKey sortKey,
         bool ascending)
     {
-        IGraphicsContext? context = GraphicsContextFactory.SharedContext;
-        if (context == null || !context.Supports3DRendering)
-        {
-            s_logger.LogWarning("Vulkan 3D rendering is not available; PixelSort effect will be inactive.");
-            return null;
-        }
-
         try
         {
             return s_shaderCache.GetOrCreate(sortKey, direction, ascending);
@@ -284,15 +277,6 @@ public sealed partial class PixelSortEffect : FilterEffect
         return true;
     }
 
-    internal static void ThrowIfDeliveryAllocationFailure(RenderIntent intent, int targetIndex)
-    {
-        if (intent == RenderIntent.Delivery)
-        {
-            throw new InvalidOperationException(
-                $"PixelSort output target {targetIndex} has no GPU texture; the delivery render fails instead of shipping unsorted pixels.");
-        }
-    }
-
     private readonly record struct EffectData(
         PixelSortDirection Direction,
         PixelSortKey SortKey,
@@ -309,15 +293,18 @@ public sealed partial class PixelSortEffect : FilterEffect
 
     private static void OnApplyTo(EffectData r, CustomFilterEffectContext ctx)
     {
+        IGraphicsContext? gfx = GraphicsContextFactory.SharedContext;
+        if (gfx == null || !gfx.Supports3DRendering)
+        {
+            s_logger.LogWarning("Vulkan 3D rendering is not available; PixelSort effect will be inactive.");
+            return;
+        }
+
         PixelSortPipelines<GLSLShader>? shaderPipelines = GetOrCreateShaders(
             r.Direction,
             r.SortKey,
             r.Ascending);
         if (shaderPipelines is not { } shaders)
-            return;
-
-        IGraphicsContext? gfx = GraphicsContextFactory.SharedContext;
-        if (gfx == null || !gfx.Supports3DRendering)
             return;
 
         for (int i = 0; i < ctx.Targets.Count; i++)
@@ -391,7 +378,7 @@ public sealed partial class PixelSortEffect : FilterEffect
         // Pass 2: Rank - compute each pixel's rank within its segment
         shaders.Rank.ExecuteSingleTarget(
             prepTexture, rankTexture,
-            new RankPushConstants
+            new SizePushConstants
             {
                 Width = width,
                 Height = height,
@@ -426,8 +413,10 @@ public sealed partial class PixelSortEffect : FilterEffect
         if (newRenderTarget.Texture is null)
         {
             newTarget.Dispose();
-            ThrowIfDeliveryAllocationFailure(ctx.Intent, index);
-            ctx.RenderTargetLeaseSession?.MarkContentDropped();
+            EffectTargetAllocation.FailDeliveryOrDrop(
+                ctx.Intent,
+                ctx.RenderTargetLeaseSession,
+                $"PixelSort output target {index} has no GPU texture; the delivery render fails instead of shipping unsorted pixels.");
             return;
         }
 
@@ -435,14 +424,13 @@ public sealed partial class PixelSortEffect : FilterEffect
         {
             gather.ExecuteSingleTargetWithMask(
                 rankTexture, originalTexture, newRenderTarget.Texture,
-                new GatherPushConstants
+                new SizePushConstants
                 {
                     Width = size.Width,
                     Height = size.Height,
                 });
             gather.SubmitPendingCommands();
 
-            target.Dispose();
             ctx.Targets[index] = newTarget;
         }
         catch (Exception ex)
@@ -467,14 +455,7 @@ public sealed partial class PixelSortEffect : FilterEffect
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    private struct RankPushConstants
-    {
-        public float Width;
-        public float Height;
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct GatherPushConstants
+    private struct SizePushConstants
     {
         public float Width;
         public float Height;

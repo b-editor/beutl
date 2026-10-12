@@ -207,7 +207,7 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
             effectItems.Add(item);
             // A deferred-bound item resolves at execution time; authoring it against the
             // provisional hint would freeze the wrong matrix, so the segment stays symbolic.
-            if (!effectItemBounds.IsInvalid && item is not IFEItem_Skia { ResolveBoundsAtExecutionTime: true })
+            if (!effectItemBounds.IsInvalid && item is not IFEItem_DeferredBounds)
                 effectItemBounds = item.TransformBounds(effectItemBounds);
             opaqueTail |= effectItemBounds.IsInvalid;
         }

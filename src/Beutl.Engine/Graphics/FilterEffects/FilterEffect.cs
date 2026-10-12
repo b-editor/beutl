@@ -8,6 +8,10 @@ namespace Beutl.Graphics.Effects;
 [PresenterType(typeof(FilterEffectPresenter))]
 public abstract partial class FilterEffect : EngineObject
 {
+    /// <remarks>
+    /// The call is not atomic: whatever it recorded before throwing stays recorded. Rolling a failed effect
+    /// back is the caller's job, which is why a composite effect applies its children directly.
+    /// </remarks>
     public abstract void ApplyTo(FilterEffectContext context, Resource resource);
 
     public abstract partial class Resource

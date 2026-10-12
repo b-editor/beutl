@@ -17,12 +17,9 @@ public sealed partial class FilterEffectGroup : FilterEffect
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;
-        context.ApplyTransactional(() =>
+        foreach (FilterEffect.Resource item in r.Children)
         {
-            foreach (FilterEffect.Resource item in r.Children)
-            {
-                context.ApplyTransactional(item.RequireOriginal(), item);
-            }
-        });
+            item.RequireOriginal().ApplyTo(context, item);
+        }
     }
 }

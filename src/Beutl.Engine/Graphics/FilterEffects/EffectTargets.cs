@@ -93,11 +93,6 @@ public sealed class EffectTargets : IList<EffectTarget>, IDisposable
     public bool Contains(EffectTarget item) => _targets.Contains(item);
     public void CopyTo(EffectTarget[] array, int arrayIndex) => _targets.CopyTo(array, arrayIndex);
     /// <summary>Gets a struct enumerator, so a <see langword="foreach"/> over this list allocates nothing.</summary>
-    /// <remarks>
-    /// The interface form below is what the language would otherwise bind to, and it boxes the list's own
-    /// struct enumerator. Every recorded effect walks its targets several times per frame, so the box is
-    /// paid on the render path; <see cref="Collections.Pooled.PooledList{T}"/> keeps the same split.
-    /// </remarks>
     public List<EffectTarget>.Enumerator GetEnumerator() => _targets.GetEnumerator();
 
     IEnumerator<EffectTarget> IEnumerable<EffectTarget>.GetEnumerator()

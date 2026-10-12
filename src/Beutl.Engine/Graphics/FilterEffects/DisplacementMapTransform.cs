@@ -13,10 +13,6 @@ public abstract partial class DisplacementMapTransform : EngineObject
     /// The displacement sample every transform reads: the uniforms that name the source channel and its
     /// signedness, and the function that resolves one sample through them.
     /// </summary>
-    /// <remarks>
-    /// Concatenated into each transform's program rather than declared once, because every SKSL program is
-    /// compiled on its own and shares no declarations with the next.
-    /// </remarks>
     private protected const string DisplacementSamplingSource =
         """
         uniform int uChannel;
@@ -36,7 +32,7 @@ public abstract partial class DisplacementMapTransform : EngineObject
         }
         """;
 
-    private const string DrawableMapShaderSource =
+    private const string ShaderSource =
         """
         uniform shader src;
         uniform shader uDisplacementMap;
@@ -72,8 +68,11 @@ public abstract partial class DisplacementMapTransform : EngineObject
         }
         """;
 
+    private static readonly SkslSource s_shaderSource =
+        new(ShaderSource, ShaderDescriptionKind.WholeSource);
+
     private static readonly Lazy<SKSLShader> s_drawableMapShader =
-        new(() => SKSLShader.Create(DrawableMapShaderSource));
+        new(() => SKSLShader.Create(ShaderSource));
 
     // SkiaSharp declares its named colours as plain static fields, which anything in the process can
     // assign; a binder read by a keyed recording callback needs a value nothing can write.
@@ -98,21 +97,69 @@ public abstract partial class DisplacementMapTransform : EngineObject
         /// <remarks>
         /// <see cref="DisplacementMapEffect"/> calls this once per application in place of its own lowering
         /// whenever <see cref="DisplacementMapEffect.Transform"/> is set and the map is not being shown. An
-        /// out-of-tree transform records its stages through the public <see cref="FilterEffectContext"/>
-        /// surface, typically <see cref="FilterEffectContext.Shader(Shaders.ShaderDescription)"/> with a
-        /// <see cref="Shaders.ShaderDescription"/> whose <see cref="Shaders.ShaderBindingBuilder"/> callback
-        /// binds <paramref name="displacementMap"/> as a resource. The sampling helpers the built-in
-        /// transforms share are not part of the public contract.
+        /// out-of-tree transform records its stages through the public <see cref="FilterEffectContext"/> surface
+        /// only, because the sampling helpers the built-in transforms share are not part of the contract.
         /// </remarks>
         public abstract void ApplyTo(
             Brush.Resource displacementMap, GradientSpreadMethod spreadMethod,
             DisplacementMapChannel channel, bool signed, FilterEffectContext context);
     }
 
-    private protected static RenderResource<Brush.Resource> BorrowDisplacementMap(
+    /// <summary>Lowers a built-in transform of the given <paramref name="kind"/> into <paramref name="context"/>.</summary>
+    private protected static void ApplyCore(
         FilterEffectContext context,
-        Brush.Resource displacementMap)
-        => context.Borrow(displacementMap);
+        Brush.Resource displacementMap,
+        GradientSpreadMethod spreadMethod,
+        DisplacementMapChannel channel,
+        bool signed,
+        DrawableMapTransformKind kind,
+        Vector2 vector,
+        float angle,
+        Vector2 center)
+    {
+        if (TryApplyDrawableMap(
+                context,
+                displacementMap,
+                spreadMethod,
+                channel,
+                signed,
+                kind,
+                vector,
+                angle,
+                center))
+        {
+            return;
+        }
+
+        RenderResource<Brush.Resource> map = context.Borrow(displacementMap);
+        var hitTest = DeclareSampling(
+            displacementMap,
+            map,
+            kind,
+            vector,
+            angle,
+            center,
+            spreadMethod,
+            channel,
+            signed);
+        context.Shader(ShaderDescription.WholeSource(
+            s_shaderSource,
+            RenderBoundsContract.FullInput,
+            bindings =>
+            {
+                AddDisplacementBindings(bindings, map, channel, signed);
+                bindings.Uniform("uMode", (int)kind);
+                if (kind == DrawableMapTransformKind.Translate)
+                    bindings.Uniform("uVector", vector, BindScaledVector);
+                else
+                    bindings.Uniform("uVector", vector);
+                bindings.Uniform("uAngle", angle);
+                bindings.Uniform("uPivot", center, BindPivot);
+            },
+            spreadMethod.ToSKShaderTileMode(),
+            hitTest: hitTest.Contract,
+            hitTestResources: hitTest.Resources));
+    }
 
     private protected static void AddDisplacementBindings(
         ShaderBindingBuilder bindings,
@@ -147,23 +194,9 @@ public abstract partial class DisplacementMapTransform : EngineObject
     }
 
     private static Brush.Resource? ResolvePresentedBrush(Brush.Resource? brush)
-    {
-        var seen = new HashSet<Brush.Resource>(ReferenceEqualityComparer.Instance);
-        while (brush is BrushPresenter.Resource presenter)
-        {
-            if (!seen.Add(brush))
-            {
-                throw new InvalidOperationException(
-                    "A BrushPresenter cycle was detected while lowering a displacement map.");
-            }
-
-            if (presenter.Target is not { } target)
-                return null;
-            brush = target;
-        }
-
-        return brush;
-    }
+        => BrushPresenter.Resource.ResolveTarget(
+            brush,
+            "A BrushPresenter cycle was detected while lowering a displacement map.");
 
     private static void CreateDisplacementMapShader(
         ShaderResourceWriter writer,
@@ -175,7 +208,7 @@ public abstract partial class DisplacementMapTransform : EngineObject
                 displacementMap,
                 BlendMode.SrcOver,
                 context.Intent,
-                // A drawable map never reaches this binder: TryApplyEffectItemDrawableMap routes it to the
+                // A drawable map never reaches this binder: TryApplyDrawableMap routes it to the
                 // custom-effect path, whose canvas carries the request's materializer.
                 drawableBrushMaterializer: null,
                 context.WorkingScale,

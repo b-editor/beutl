@@ -25,28 +25,15 @@ public sealed partial class RectShape : Shape
     public partial class Resource
     {
         private readonly RectGeometry _geometry = new();
-        private RectGeometry.Resource? _geometryResource;
 
         partial void PostReconcile(RectShape obj, CompositionContext context)
         {
             _geometry.Width.CurrentValue = Math.Max(Width, 0);
             _geometry.Height.CurrentValue = Math.Max(Height, 0);
 
-            bool changed = false;
-            ResourceReconciler.ReconcileResource(
-                context: context,
-                value: _geometry,
-                field: ref _geometryResource,
-                changed: ref changed);
-            if (changed)
-                Version++;
+            ReconcileGeometry(_geometry, context);
         }
 
-        partial void PostDispose(bool disposing)
-        {
-            _geometryResource?.Dispose();
-        }
-
-        public override Geometry.Resource? GetGeometry() => _geometryResource;
+        public override Geometry.Resource? GetGeometry() => GeometryResource;
     }
 }

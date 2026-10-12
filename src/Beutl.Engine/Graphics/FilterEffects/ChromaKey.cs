@@ -18,20 +18,15 @@ public partial class ChromaKey : FilterEffect
         uniform float saturationRange;
         uniform float boundary;
 
-        // Match in linear light, where the 8-bit quantization error is uniform. Include half-storage error;
-        // premultiplication makes the bound alpha-independent but intentionally dominates at low alpha.
+        // Match in linear light, where 8-bit quantization error is uniform, plus the half-storage error.
         const float kLinearQuantum = 0.5 / 255.0;
         const float kHalfStorageUlp = 1.0 / 2048.0;
 
-        // Hue divides by the chroma, and that same quantization can manufacture one linear code of chroma, so
-        // a key colour below one code has no dependable hue and full confidence only above two. Only the key
-        // is measured: withholding the hue term is a vote to remove, because the shader removes what no term
-        // claims, and a pixel whose own chroma is low is thereby known not to be a chromatic key.
+        // Quantization can manufacture one code of chroma, so a key below one code has no dependable hue;
+        // only the key is measured, and withholding the hue term votes to remove.
         const half kHueChromaFloor = 1.0 / 255.0;
 
-        // Slack for content that arrives near, but not on, the key colour, and the narrowest smoothstep
-        // this shader will run: equal edges are undefined in the shading languages, and Boundary 0 is the
-        // natural authoring choice for a hard key.
+        // Slack around the key colour, and the narrowest smoothstep: equal edges are undefined.
         const half kEdgeTolerance = 1.0 / 255.0;
 
         half3 rgb2hsv(half3 value) {
