@@ -3,8 +3,6 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
-using Beutl.Logging;
-using Microsoft.Extensions.Logging;
 using AvaPoint = Avalonia.Point;
 using AvaRect = Avalonia.Rect;
 using AvaSize = Avalonia.Size;
@@ -19,8 +17,6 @@ namespace Beutl.Views;
 
 internal sealed class TransformHandlesOverlay : Control
 {
-    private static readonly ILogger s_logger = Log.CreateLogger<TransformHandlesOverlay>();
-
     private const double HandleSize = 8.0;
     private const double EdgeHandleLength = 14.0;
     private const double RotateOuterDistance = 18.0;
@@ -120,13 +116,6 @@ internal sealed class TransformHandlesOverlay : Control
         _userMatrix = userMatrix;
         _frameScale = frameScale;
         PivotLocal = pivotLocal;
-
-        if (drawable != null && localBounds.Width > 0 && localBounds.Height > 0 && frameScale > 0 && !userMatrix.HasInverse)
-        {
-            s_logger.LogDebug(
-                "TransformHandlesOverlay: userMatrix non-invertible, hiding overlay. Drawable={DrawableType}",
-                drawable.GetType().Name);
-        }
 
         RecomputeImageGeometry();
         InvalidateVisual();
@@ -259,7 +248,6 @@ internal sealed class TransformHandlesOverlay : Control
 
         if (nearest != HandleKind.None) return nearest;
 
-        // Rotate: within RotateOuterDistance from a corner and outside the polygon.
         if (!IsPointInsidePolygon(imagePoint))
         {
             for (int i = 0; i < 4; i++)
@@ -269,9 +257,8 @@ internal sealed class TransformHandlesOverlay : Control
             }
         }
 
-        // Return None for clicks inside the polygon so they pass through to the normal renderer hit-test
-        // (toggling selection between overlapping objects, double-click on a shape to start path editing).
-        // Translate operations go through the central pivot marker (Center handle).
+        // Return None inside the box so selection toggling, double-click and body drags go through the
+        // normal renderer hit-test.
         return HandleKind.None;
     }
 

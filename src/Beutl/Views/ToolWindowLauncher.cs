@@ -6,7 +6,7 @@ namespace Beutl.Views;
 // Opens tool-window extensions for one main window; a single-instance window is activated instead of reopened.
 internal sealed class ToolWindowLauncher
 {
-    private readonly Dictionary<ToolWindowExtension, List<Window>> _openToolWindows = new();
+    private readonly Dictionary<ToolWindowExtension, Window> _openToolWindows = new();
 
     public async Task OpenAsync(ToolWindowExtension extension, Func<Window?> resolveOwner)
     {
@@ -15,13 +15,11 @@ internal sealed class ToolWindowLauncher
             if (resolveOwner() is not Window owner)
                 return;
 
-            // 非モーダル・単一インスタンスの場合、既存があればアクティブ化するだけ
             if (extension.Mode == ToolWindowMode.Window
                 && !extension.CanMultiple
-                && _openToolWindows.TryGetValue(extension, out List<Window>? existingList)
-                && existingList.Count > 0)
+                && _openToolWindows.TryGetValue(extension, out Window? existing))
             {
-                existingList[0].Activate();
+                existing.Activate();
                 return;
             }
 
@@ -54,20 +52,14 @@ internal sealed class ToolWindowLauncher
                     break;
 
                 case ToolWindowMode.Window:
-                    if (!_openToolWindows.TryGetValue(extension, out List<Window>? list))
+                    if (!extension.CanMultiple)
                     {
-                        list = new List<Window>();
-                        _openToolWindows[extension] = list;
+                        _openToolWindows[extension] = window;
                     }
 
-                    list.Add(window);
                     window.Closed += (_, _) =>
                     {
-                        list.Remove(window);
-                        if (list.Count == 0)
-                        {
-                            _openToolWindows.Remove(extension);
-                        }
+                        _openToolWindows.Remove(extension);
                         context.Dispose();
                     };
                     window.Show(owner);

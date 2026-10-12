@@ -36,8 +36,7 @@
                                 <icons:FluentIcon VerticalAlignment="Center"
                                                   FontSize="16"
                                                   Icon="BranchFork" />
-                                <TextBlock x:Name="CurrentBranchHeader"
-                                           Grid.Column="1"
+                                <TextBlock Grid.Column="1"
                                            VerticalAlignment="Center"
                                            FontWeight="SemiBold"
                                            Text="{Binding CurrentBranchName.Value}"
@@ -89,8 +88,7 @@
                                                        Classes="branchName"
                                                        Text="{Binding Name}"
                                                        TextTrimming="CharacterEllipsis" />
-                                            <TextBlock x:Name="RemoteBranchMark"
-                                                       Grid.Column="1"
+                                            <TextBlock Grid.Column="1"
                                                        VerticalAlignment="Center"
                                                        FontSize="11"
                                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"

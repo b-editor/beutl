@@ -10,6 +10,7 @@ using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Dock;
+using Beutl.ViewModels.SettingsPages;
 using Beutl.Views.Dock;
 using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.Logging;
@@ -135,8 +136,7 @@ public sealed partial class TabSwitcherView : UserControl
     {
         if (TabSwitcherViewModel.IsTextInputGesture(e)) return null;
         if (this.FindAncestorOfType<MainView>()?.DataContext is not MainViewModel main) return null;
-        OSPlatform platform = OperatingSystem.IsWindows() ? OSPlatform.Windows
-            : OperatingSystem.IsMacOS() ? OSPlatform.OSX : OSPlatform.Linux;
+        OSPlatform platform = KeyMapSettingsItem.CurrentPlatform;
         return main.ContextCommandManager?.GetDefinitions<MainViewExtension>()
             .FirstOrDefault(command => TabSwitcherViewModel.IsNavigationCommand(command.Definition.Name)
                                        && command.KeyGestures.Any(gesture => gesture.Platform == platform

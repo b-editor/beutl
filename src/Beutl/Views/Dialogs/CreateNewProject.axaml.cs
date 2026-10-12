@@ -24,13 +24,9 @@ public sealed partial class CreateNewProject : FAContentDialog
         if (carousel.SelectedIndex == 1)
         {
             args.Cancel = true;
-            // '戻る'を無効化
             IsPrimaryButtonEnabled = false;
-            // IsSecondaryButtonEnabledのバインド解除
             _sBtnBinding?.Dispose();
-            // '新規作成'を'次へ'に変更
             SecondaryButtonText = Strings.Next;
-            // '次へ'を有効化
             IsSecondaryButtonEnabled = true;
             carousel.Previous();
         }
@@ -50,17 +46,13 @@ public sealed partial class CreateNewProject : FAContentDialog
         {
             args.Cancel = true;
 
-            // '戻る'を表示
             IsPrimaryButtonEnabled = true;
-            // IsSecondaryButtonEnabledとCanCreateをバインド
             _sBtnBinding = this.Bind(IsSecondaryButtonEnabledProperty, vm.CanCreate);
-            // '次へ'を'新規作成に変更'
             SecondaryButtonText = Strings.CreateNew;
             carousel.Next();
         }
     }
 
-    // 場所を選択
     private async void PickLocation(object? sender, RoutedEventArgs e)
     {
         if (DataContext is CreateNewProjectViewModel vm

@@ -176,7 +176,7 @@ public partial class EditorHostFallback : UserControl
             {
                 // Let the row render its progress ring before project deserialization starts.
                 await Dispatcher.Yield(DispatcherPriority.Background);
-                if (fileName.EndsWith($".{EditorConstants.ProjectFileExtension}", StringComparison.OrdinalIgnoreCase))
+                if (IsProjectFile(fileName))
                 {
                     await viewModel.MenuBar.OpenRecentProject.ExecuteAsync(fileName);
                 }
@@ -194,28 +194,9 @@ public partial class EditorHostFallback : UserControl
 
     private void SocialClick(object? sender, RoutedEventArgs e)
     {
-        static void OpenBrowser(string? url)
+        if (sender is Button { Tag: string url })
         {
-            if (!string.IsNullOrWhiteSpace(url))
-            {
-                Process.Start(new ProcessStartInfo(url) { UseShellExecute = true, Verb = "open" });
-            }
-        }
-
-        if (sender is Button { Tag: string tag })
-        {
-            switch (tag)
-            {
-                case "GitHub":
-                    OpenBrowser("https://github.com/b-editor/beutl");
-                    break;
-                case "X":
-                    OpenBrowser("https://x.com/yuto_daisensei");
-                    break;
-                case "Url":
-                    OpenBrowser("https://github.com/b-editor");
-                    break;
-            }
+            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true, Verb = "open" });
         }
     }
 
@@ -234,8 +215,8 @@ public partial class EditorHostFallback : UserControl
         viewConfig.RecentFiles.ToObservableChangeSet<CoreList<string>, string>()
             .Filter(filter.Select<int, Func<string, bool>>(
                 f => (x) => f == 0
-                        || (f == 1 && x.EndsWith($".{EditorConstants.ProjectFileExtension}", StringComparison.OrdinalIgnoreCase))
-                        || (f == 2 && !x.EndsWith($".{EditorConstants.ProjectFileExtension}", StringComparison.OrdinalIgnoreCase))))
+                        || (f == 1 && IsProjectFile(x))
+                        || (f == 2 && !IsProjectFile(x))))
             .AddKey(x => x)
             .Cast(x => new FileInfo(x))
             .SortBy(x => x.LastAccessTimeUtc, sortOrder: SortDirection.Descending)
@@ -243,5 +224,10 @@ public partial class EditorHostFallback : UserControl
             .Subscribe();
 
         recentList.ItemsSource = list;
+    }
+
+    private static bool IsProjectFile(string path)
+    {
+        return path.EndsWith($".{EditorConstants.ProjectFileExtension}", StringComparison.OrdinalIgnoreCase);
     }
 }
