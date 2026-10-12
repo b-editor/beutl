@@ -49,10 +49,8 @@ public abstract class ToolTabExtension : ViewExtension
     /// <remarks>
     /// Called for each opened tab and wherever the host lists the tool (the tab switcher's create list
     /// and the new-tab page), so keep it cheap and return a new icon source each time: the caller owns it.
-    /// Uses FluentAvalonia 3's icon source contract: the Avalonia 12 host requires extensions to be
-    /// rebuilt against the matching Beutl SDK, and overrides compiled with FluentAvalonia 2's
-    /// IconSource return type are not binary compatible.
-    /// See docs/extension-authoring/avalonia-12-migration.md for the migration steps.
+    /// It is a FluentAvalonia 3 <see cref="FAIconSource"/>; see docs/extension-authoring/avalonia-12-migration.md
+    /// for the migration steps.
     /// </remarks>
     public virtual FAIconSource? GetIcon() => null;
 

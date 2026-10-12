@@ -5,12 +5,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace Beutl.Engine.SourceGenerators.Analyzers;
 
 /// <summary>Decides which nested functions written in a body are ones that body runs.</summary>
-/// <remarks>
-/// A lambda and a local function are written inside the body and run only where something reaches them,
-/// so a walk that reads every nested function as part of the body answers for code the body never
-/// executes. Every analyzer that walks a body has to draw that line the same way, or the two rules
-/// disagree about what a single method does.
-/// </remarks>
+/// <remarks>Shared so that the analyzers agree on what a single method does.</remarks>
 internal static class NestedFunctionSyntax
 {
     /// <summary>Whether <paramref name="nested"/> is a nested function that <paramref name="body"/> runs.</summary>

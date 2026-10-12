@@ -7,16 +7,8 @@ namespace Beutl.Engine.SourceGenerators.Analyzers;
 
 public sealed partial class RenderNodeChangeMarkingAnalyzer
 {
-    /// <summary>
-    /// The tracked state of this instance that <paramref name="alias"/> is bound to by every binding
-    /// <paramref name="body"/> gives it, or null when any binding names something else or cannot be read.
-    /// </summary>
-    /// <remarks>
-    /// The walk is flow-insensitive, so a local rebound with <c>alias = ref other</c> can reach either
-    /// storage at a later write. Reporting only when every binding names the same state keeps this rule
-    /// from reporting a write that may have landed elsewhere - the direction it is documented never to err
-    /// in. A ref parameter is never followed: what it names on entry is the caller's storage.
-    /// </remarks>
+    /// <summary>The tracked state every binding of <paramref name="alias"/> names, or null when they disagree.</summary>
+    /// <remarks>The walk is flow-insensitive, so a write is followed only when every binding agrees.</remarks>
     private static ISymbol? ResolveRefTarget(
         SemanticModel model,
         SyntaxNode body,
@@ -205,23 +197,9 @@ public sealed partial class RenderNodeChangeMarkingAnalyzer
 
     /// <summary>Whether a call written on <paramref name="state"/> changes what it holds.</summary>
     /// <remarks>
-    /// <para>
-    /// <c>_items.Add(bounds)</c> is not a write target anywhere in the syntax, so nothing above this reads
-    /// it, and a node whose <c>Process</c> walks <c>_items</c> can have the list it recorded from replaced
-    /// under it. The call is read by name: a curated set of the in-place mutators the collection types are
-    /// written with. That is unsound in both directions, and deliberately so - a type of one's own with a
-    /// pure <c>Add</c> is reported and a mutating <c>Bump</c> is not - because the alternative measured
-    /// against this repository, asking for a mark on any instance call on tracked state, reported
-    /// <c>Contains</c> and <c>IndexOf</c> as mutations: every diagnostic it added was a false one, and
-    /// this rule is documented never to err in that direction.
-    /// </para>
-    /// <para>
-    /// A call that cannot write its receiver is skipped whatever it is named. A static method - an
-    /// extension called in instance form - is handed the receiver by value; a <c>readonly</c> member and a
-    /// member of a <c>readonly struct</c> are barred from writing it; and a member of <c>string</c>
-    /// answers with a new string, which is what <c>Replace</c>, <c>Insert</c> and <c>Remove</c> on one
-    /// are, and what <c>Add</c> on a date or a duration is.
-    /// </para>
+    /// The call name is matched against the in-place mutators of the collection types. Matching by name is
+    /// unsound, but treating every instance call as a change reports too many false positives. A call that
+    /// cannot write its receiver (static, <c>readonly</c>, or on <c>string</c>) is skipped.
     /// </remarks>
     private static bool MutatesInPlace(SemanticModel model, ExpressionSyntax state)
         => FindCallOnReceiver(state) is { } call

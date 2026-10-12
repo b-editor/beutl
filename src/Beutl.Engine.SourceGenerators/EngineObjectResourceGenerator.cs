@@ -22,13 +22,11 @@ public sealed class EngineObjectResourceGenerator : IIncrementalGenerator
             .Where(static info => info is not null)
             .Select(static (info, _) => info!.Value);
 
-        var compilationAndClasses = context.CompilationProvider.Combine(classDeclarations.Collect());
-
-        context.RegisterSourceOutput(compilationAndClasses, static (productionContext, pair) =>
-            Execute(productionContext, pair.Left, pair.Right));
+        context.RegisterSourceOutput(classDeclarations.Collect(), static (productionContext, classes) =>
+            Execute(productionContext, classes));
     }
 
-    private static void Execute(SourceProductionContext context, Compilation compilation, ImmutableArray<ClassInfo> classes)
+    private static void Execute(SourceProductionContext context, ImmutableArray<ClassInfo> classes)
     {
         if (classes.IsDefaultOrEmpty)
         {
@@ -84,7 +82,7 @@ public sealed class EngineObjectResourceGenerator : IIncrementalGenerator
 
         string accessibility = EmitHelpers.GetAccessibility(symbol.DeclaredAccessibility);
         string typeParameterList = EmitHelpers.GetTypeParameterList(symbol);
-        string constraintClauses = EmitHelpers.GetTypeConstraintClauses(symbol, string.Empty);
+        string constraintClauses = EmitHelpers.GetTypeConstraintClauses(symbol);
 
         sb.AppendLine($"{accessibility} partial class {symbol.Name}{typeParameterList}");
         if (!string.IsNullOrEmpty(constraintClauses))

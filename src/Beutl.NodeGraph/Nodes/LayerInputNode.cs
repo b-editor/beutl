@@ -1,7 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.Diagnostics.CodeAnalysis;
-using Beutl.Extensibility;
-using Beutl.NodeGraph.Composition;
 using Beutl.Serialization;
 
 namespace Beutl.NodeGraph.Nodes;
@@ -20,8 +18,6 @@ public partial class LayerInputNode : GraphNode, IDynamicPortNode
     [DroppedMembers("Target")]
     public class LayerInputPort<T> : OutputPort<T>, ILayerInputPort
     {
-        private NodePropertyAdapter<T>? _property;
-
         public LayerInputPort()
         {
             Connections.Attached += conn =>
@@ -40,34 +36,26 @@ public partial class LayerInputNode : GraphNode, IDynamicPortNode
 
             if (display?.GetName() is { } name)
             {
-                _property?.DisplayName = name;
+                PropertyAdapter?.DisplayName = name;
             }
 
             if (display?.GetDescription() is { } description)
             {
-                _property?.Description = description;
+                PropertyAdapter?.Description = description;
             }
         }
 
         public void SetupProperty(string propertyName)
         {
-            _property = new NodePropertyAdapter<T>(propertyName);
-            Property = _property;
+            SetPropertyAdapterCore(new NodePropertyAdapter<T>(propertyName));
 
             ReflectDisplay(Display);
-
-            _property.Edited += OnPropertyEdited;
-        }
-
-        private void OnPropertyEdited(object? sender, EventArgs e)
-        {
-            RaiseEdited();
         }
 
         public override void Serialize(ICoreSerializationContext context)
         {
             base.Serialize(context);
-            _property?.Serialize(context);
+            PropertyAdapter?.Serialize(context);
         }
 
         public override void Deserialize(ICoreSerializationContext context)
@@ -79,7 +67,7 @@ public partial class LayerInputNode : GraphNode, IDynamicPortNode
             {
                 SetupProperty(name);
 
-                _property?.Deserialize(context);
+                PropertyAdapter?.Deserialize(context);
             }
         }
     }
@@ -111,26 +99,5 @@ public partial class LayerInputNode : GraphNode, IDynamicPortNode
     {
         base.Deserialize(context);
         RestoreDynamicPorts<ILayerInputPort>(context);
-    }
-
-    public partial class Resource
-    {
-        public override void Update(GraphCompositionContext context)
-        {
-            var node = RequireOriginal();
-
-            // UseGlobalClock=false のアニメーションに対して、
-            // Element.Start 分のオフセットを適用して再評価
-            for (int i = 0; i < node.Items.Count; i++)
-            {
-                INodeMember item = node.Items[i];
-                if (item.Property is IAnimatablePropertyAdapter animAdapter
-                    && animAdapter.Animation is { UseGlobalClock: false } animation)
-                {
-                    var time = context.Time - node.Start;
-                    ItemValues[i].TryLoadFromAnimation(animation, time);
-                }
-            }
-        }
     }
 }

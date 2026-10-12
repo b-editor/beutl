@@ -44,26 +44,15 @@ public abstract partial class GenerativeNode
         if (node is null)
             return null;
 
-        try
-        {
-            return RasterizeCopy(
-                node,
-                new RenderNodeRenderRequest { Intent = RenderIntent.Preview, ManageCacheLifecycle = false });
-        }
-        catch (RenderTargetDomainRequiredException) when (context.TargetDomain is { } domain)
-        {
-            return RasterizeCopy(node, new RenderNodeRenderRequest
-            {
-                Intent = RenderIntent.Preview,
-                TargetDomain = domain,
-                ManageCacheLifecycle = false,
-            });
-        }
+        return TargetDomainFallback.Render(
+            node,
+            new RenderNodeRenderRequest { Intent = RenderIntent.Preview, ManageCacheLifecycle = false },
+            context.TargetDomain,
+            RasterizeCopy);
     }
 
-    private static Bitmap? RasterizeCopy(RenderNode node, RenderNodeRenderRequest request)
+    private static Bitmap? RasterizeCopy(RenderNodeRenderer renderer)
     {
-        using var renderer = new RenderNodeRenderer(node, request);
         using RenderNodeRasterization rasterization = renderer.Rasterize();
         return rasterization.Bitmap?.Clone();
     }

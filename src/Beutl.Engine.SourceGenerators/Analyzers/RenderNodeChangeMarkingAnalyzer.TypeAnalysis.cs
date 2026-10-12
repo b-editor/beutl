@@ -64,11 +64,9 @@ public sealed partial class RenderNodeChangeMarkingAnalyzer
         /// one above it, and an abstract <c>Process</c> - or one whose source is in another assembly - has no
         /// body and so contributes nothing, which is exactly the case that leaves the base unanalyzed.
         /// </remarks>
-        public ImmutableHashSet<ISymbol> ReadStateOfProcessFor(
-            INamedTypeSymbol declaring,
-            INamedTypeSymbol renderNode)
+        public ImmutableHashSet<ISymbol> ReadStateOfProcessFor(INamedTypeSymbol declaring)
         {
-            if (FindProcessMethod(declaring, renderNode) is not { } process)
+            if (FindProcessMethod(declaring, renderNodeType) is not { } process)
                 return ImmutableHashSet<ISymbol>.Empty;
 
             if (_readStateByProcess.TryGetValue(process, out ImmutableHashSet<ISymbol>? cached))
@@ -108,25 +106,9 @@ public sealed partial class RenderNodeChangeMarkingAnalyzer
 
         /// <summary>Whether a <c>MarkChanged</c> call on this node is reachable from <paramref name="method"/>.</summary>
         /// <remarks>
-        /// <para>
-        /// Only a call on this instance counts. Marking another node says nothing about whether this one's
-        /// own recording went stale, and accepting it would excuse the mutation this rule is looking at.
-        /// </para>
-        /// <para>
-        /// Path-insensitive by design: one call anywhere in the member, or in a method of the same type it
-        /// calls, clears every assignment in that member. A mutation on a branch that skips the mark is
-        /// therefore missed, which is the direction this rule errs in. Naming <c>MarkChanged</c> clears the
-        /// member as much as calling it does, so handing the method group to a scheduler or storing it in a
-        /// delegate counts: the suppression is by symbol, not by invocation.
-        /// </para>
-        /// <para>
-        /// Anywhere in the member means anywhere the member runs, which is the one place path-insensitivity
-        /// stops. A nested function the body cannot reach is not walked, and a call the compiler removes is
-        /// not followed - see <see cref="RunsNestedFunction"/> and
-        /// <see cref="ConditionalCompilation.IsCallCompiled"/> - because a mark that is not in the program
-        /// the author ships leaves the node exactly as stale as no mark at all, and this is the rule's one
-        /// unrecoverable failure: silence here is what the author reads as approval.
-        /// </para>
+        /// A call on this instance counts, and so does a reference to it as a method group. Paths are not told
+        /// apart, but a nested function that never runs and a call <c>[Conditional]</c> removes do not count
+        /// (see <see cref="RunsNestedFunction"/> and <see cref="ConditionalCompilation.IsCallCompiled"/>).
         /// </remarks>
         public bool MarksChanged(IMethodSymbol method)
         {
@@ -140,13 +122,7 @@ public sealed partial class RenderNodeChangeMarkingAnalyzer
         }
 
         /// <summary>The writes to state <c>Process</c> reads that <paramref name="method"/> makes.</summary>
-        /// <remarks>
-        /// Only the parts of the member that run, on the same terms <see cref="MarksChanged"/> reads it: an
-        /// assignment in a body nothing reaches changes nothing, and reporting one while refusing to see the
-        /// mark written beside it would be a diagnostic that the node is stale, aimed at code the program
-        /// never executes. Every local function this walk skips is one no name in the member reaches, since
-        /// nothing here follows calls to find the rest.
-        /// </remarks>
+        /// <remarks>Only the parts of the member that run are read, as in <see cref="MarksChanged"/>.</remarks>
         public IEnumerable<StateAssignment> FindStateAssignments(
             IMethodSymbol method,
             ImmutableHashSet<ISymbol> trackedState)

@@ -13,16 +13,12 @@ public readonly record struct ClassInfo(
     ImmutableArray<ListPropertyInfo> ListProperties,
     ImmutableArray<NodePortPropertyInfo> NodePortProperties,
     ImmutableArray<object> OrderedProperties,
-    bool IsNodeSubclass,
     bool SuppressedResourceGeneration)
 {
-    // 生成するものがあるかどうか
     public bool ShouldGenerate()
     {
         return !SuppressedResourceGeneration
-            || ValueProperties.Any(p => p.Attributes.Length > 0 || !p.ExcludeFromResource)
-            || ObjectProperties.Any(p => p.Attributes.Length > 0 || !p.ExcludeFromResource)
-            || ListProperties.Any(p => p.Attributes.Length > 0 || !p.ExcludeFromResource)
+            || !OrderedProperties.IsEmpty
             || NodePortProperties.Length > 0;
     }
 }

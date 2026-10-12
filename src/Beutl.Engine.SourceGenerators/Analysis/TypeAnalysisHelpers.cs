@@ -34,13 +34,11 @@ public static class TypeAnalysisHelpers
 
     public static bool HasSuppressResourceClassGenerationAttribute(INamedTypeSymbol symbol, INamedTypeSymbol suppressAttribute)
     {
-        // Check current class
         if (HasAttribute(symbol, suppressAttribute))
         {
             return true;
         }
 
-        // Check base classes
         for (INamedTypeSymbol? current = symbol.BaseType; current is not null; current = current.BaseType)
         {
             if (HasAttribute(current, suppressAttribute))

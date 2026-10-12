@@ -43,7 +43,8 @@ internal class NodeGraphFilterEffectRenderNode(NodeGraphFilterEffect.Resource re
             _compositionContext.TargetDomain = context.TargetDomain;
             graphResource.Snapshot.Evaluate(CompositionTarget.Graphics, _compositionContext);
 
-            var outputRenderNodes = PullOutputValue(model, graphResource);
+            var outputRenderNodes = new List<RenderNode>();
+            graphResource.Snapshot.CollectOutputRenderNodes(model, outputRenderNodes);
             if (outputRenderNodes.Count == 0)
             {
                 context.PublishRange(binding.RecordSubtreeForPublication(inputFacade));
@@ -89,14 +90,5 @@ internal class NodeGraphFilterEffectRenderNode(NodeGraphFilterEffect.Resource re
         }
 
         return null;
-    }
-
-    private static List<RenderNode> PullOutputValue(
-        GraphModel model,
-        NodeGraphFilterEffect.Resource graphResource)
-    {
-        var result = new List<RenderNode>();
-        graphResource.Snapshot.CollectOutputRenderNodes(model, result);
-        return result;
     }
 }

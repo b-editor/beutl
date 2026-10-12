@@ -155,10 +155,8 @@ public sealed partial class MetadataCallbackPurityAnalyzer
 
     /// <summary>The disposal the compiler runs on a resource of <paramref name="type"/>.</summary>
     /// <remarks>
-    /// No public operation carries the chosen method, so it is resolved the way the compiler chooses it:
-    /// through <see cref="IDisposable"/> where the type implements it - which is also the only spelling
-    /// that finds an explicit implementation - and otherwise by the name alone, which is how a
-    /// <c>ref struct</c>, the one shape disposed without naming the interface, declares its own.
+    /// Resolved as the compiler does: through <see cref="IDisposable"/> when implemented, which also finds an
+    /// explicit implementation, and otherwise by name, as a <c>ref struct</c> declares it.
     /// </remarks>
     private static IMethodSymbol? GetDisposeMethod(
         SyntaxNodeAnalysisContext context,
@@ -235,11 +233,8 @@ public sealed partial class MetadataCallbackPurityAnalyzer
 
     /// <summary>Follows the handler an interpolated string is filled through.</summary>
     /// <remarks>
-    /// A string used as a string carries no handler the walk can read: the compiler fills it through
-    /// <c>DefaultInterpolatedStringHandler</c> or <c>string.Concat</c>, neither of which has source here,
-    /// so only an argument a handler declared in this compilation is asked for reaches a body at all. The
-    /// binder has already chosen the constructor and every append off that type, so both are read off its
-    /// answer rather than resolved a second time.
+    /// Only a handler declared in this compilation has a body to read. Its constructor and appends are the
+    /// ones the binder chose.
     /// </remarks>
     private static void FollowInterpolatedStringHandler(
         SyntaxNodeAnalysisContext context,
@@ -290,23 +285,8 @@ public sealed partial class MetadataCallbackPurityAnalyzer
 
     /// <summary>Follows the query-pattern operators a query expression is rewritten into.</summary>
     /// <remarks>
-    /// The binder has already applied every rule a query is allowed to pick its operators by - an instance
-    /// method, an extension one, a generic one whose arguments it inferred - so each method is read off its
-    /// answer rather than resolved a second time here. A clause the compiler removes rather than rewrites,
-    /// the identity <c>select</c> of a query that has any other clause, answers with nothing and is
-    /// followed nowhere, which is correct: no such call runs. A LINQ-to-objects query answers with
-    /// <c>Enumerable</c>'s methods, which have no source here and stop the walk as any other such callee
-    /// does.
-    /// <para>
-    /// An operator that runs on a receiver written in the query is re-resolved against the making of that
-    /// receiver, on the same terms an instance call named outright is: a query over a local declared as a
-    /// base and made as a derived runs the derived operator, and reading the base body would answer with
-    /// one an override replaces. Two kinds of operator have such a receiver - the first of the chain the
-    /// query builds on its own from expression, and the <c>Cast</c> an explicitly typed clause runs on the
-    /// source that clause names, which for a second from or a join is that clause's own source and not the
-    /// query's. Everything else runs on what the operator before it returned, which no creation here makes
-    /// and no declaration names, so it is followed as bound.
-    /// </para>
+    /// Each operator is the one the binder chose. Only the operator on the from expression and the
+    /// <c>Cast</c> of an explicitly typed clause are re-resolved against the making of their receiver.
     /// </remarks>
     private static void FollowQuery(
         SyntaxNodeAnalysisContext context,
@@ -387,13 +367,8 @@ public sealed partial class MetadataCallbackPurityAnalyzer
 
     /// <summary>The operators <paramref name="query"/> runs, in the order it runs them.</summary>
     /// <remarks>
-    /// A query is written in the order it is rewritten, so document order is that order: the from and its
-    /// <c>Cast</c>, then each body clause, an <c>orderby</c> contributing one operator per ordering, then
-    /// the select or group, then whatever an <c>into</c> continues with. A <c>Cast</c> is handed back with
-    /// the source its own clause names, because a second from and a join run theirs on the sequence that
-    /// clause introduces rather than on the one the chain has reached. A query written inside this one is
-    /// left for the walk to reach as the expression it is, so that its own operators are resolved against
-    /// its own sources.
+    /// Document order is the rewrite order. A <c>Cast</c> comes with the source its own clause names, and a
+    /// nested query is left for the walk to reach as an expression.
     /// </remarks>
     private static IEnumerable<(SyntaxNode Node, ISymbol? Chosen, ExpressionSyntax? Cast)> GetQueryOperators(
         SyntaxNodeAnalysisContext context,
@@ -440,11 +415,8 @@ public sealed partial class MetadataCallbackPurityAnalyzer
 
     /// <summary>Follows the members a <c>foreach</c> runs on the enumerator it makes.</summary>
     /// <remarks>
-    /// The binder has already applied every rule the loop is allowed to pick a sequence apart by - a
-    /// pattern <c>GetEnumerator</c>, an extension one, <see cref="IEnumerable{T}"/>, a <c>ref struct</c>
-    /// enumerator, <c>await foreach</c> - so the members are read off its answer rather than resolved a
-    /// second time here. An array, a string and a span answer with framework members that have no source,
-    /// which <see cref="FollowCall"/> already stops at, so none of them needs a case of its own.
+    /// The members are the ones the binder chose. Framework members without source stop the walk in
+    /// <see cref="FollowCall"/>.
     /// </remarks>
     private static void FollowIteration(
         SyntaxNodeAnalysisContext context,
@@ -536,11 +508,8 @@ public sealed partial class MetadataCallbackPurityAnalyzer
 
     /// <summary>The member that runs where the loop names one an interface declares.</summary>
     /// <remarks>
-    /// A sequence reached through <see cref="IEnumerable{T}"/>, and an enumerator disposed through
-    /// <see cref="IDisposable"/>, are named by the interface declaration, which has a body nowhere. The
-    /// implementation is what runs, and asking the receiver for it is also the only spelling that finds an
-    /// explicit one. Everything picked by pattern - a <c>ref struct</c> disposing itself, an extension
-    /// <c>GetEnumerator</c> - already is the member that runs and is handed back unchanged.
+    /// An interface member has no body, so the receiver's implementation is returned, which also finds an
+    /// explicit one. A member picked by pattern is returned unchanged.
     /// </remarks>
     private static IMethodSymbol? RunsOn(ITypeSymbol? receiver, IMethodSymbol? member)
     {

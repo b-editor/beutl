@@ -63,7 +63,7 @@ public class EngineObjectResourceGeneratorTests
             Assert.That(derived3, Does.Contain("Items"));
             Assert.That(derived3, Does.Contain("ResourceReconciler.ReconcileChildren(this, context"));
             Assert.That(derived3, Does.Contain("foreach (var item in"));
-            Assert.That(derived3, Does.Contain("item?.Dispose();"));
+            Assert.That(derived3, Does.Contain("item.Dispose();"));
         });
     }
 }
