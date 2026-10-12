@@ -11,10 +11,7 @@ Beutl 1.x migration could not convert (a node tree, or an operator it does not k
 An object whose type is missing, usually because an extension is not installed, does
 not protect its element: it loads as a fallback, which saves the JSON it was read from
 unchanged, so the rest of the element stays editable and its edits are saved. The
-fallback itself is read-only; removing or replacing it is an ordinary edit. If your
-type reads a value that it does not write back, a fallback inside that value would be
-lost on save, so recovery keeps the element's file, and nothing short of deleting the
-element repairs it.
+fallback itself is read-only; removing or replacing it is an ordinary edit.
 
 Saving does not write a protected element's edits, so the editor treats it as read-only:
 `Scene.IsElementLocked` returns `true` for it, and the built-in editors refuse its edits.

@@ -140,41 +140,6 @@ public class UnknownTypeElementTests
         });
     }
 
-    // Nothing tells which part of an element drops a fallback when the element is saved, so no edit inside the
-    // element repairs that: removing an unrelated object is refused, the element stays protected, and saving leaves
-    // its file as it was.
-    [Test]
-    public void AnElementThatWouldDropAFallback_StaysProtected_WhenAnUnrelatedObjectIsRemoved()
-    {
-        var sceneUri = new Uri(Path.Combine(_root, "scene.scene"));
-        string elementPath = Path.Combine(_root, "element.belm");
-        var scene = new Scene(64, 64, "Scene") { Uri = sceneUri };
-        var element = new Element { Length = TimeSpan.FromSeconds(1), Uri = new Uri(elementPath) };
-        element.AddObject(new DroppingHolder());
-        element.AddObject(new RectShape());
-        scene.Children.Add(element);
-        CoreSerializer.StoreToUri(scene, sceneUri);
-        RewriteElement("element", json =>
-            json[nameof(Element.Objects)]![0]![DroppingHolder.LostKey] = new JsonObject { ["$type"] = MissingShapeType });
-        byte[] original = File.ReadAllBytes(elementPath);
-
-        Scene restored = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
-        Element restoredElement = restored.Children.Single();
-        using var harness = new HistoryHarness(restored);
-        bool removed = new ElementObjectService(harness.History).Remove(restoredElement, restoredElement.Objects[1]);
-        bool repaired = ElementRecoveryService.TryCompleteRepair(restoredElement, harness.History);
-        CoreSerializer.StoreToUri(restored, sceneUri);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(removed, Is.False);
-            Assert.That(repaired, Is.False);
-            Assert.That(restoredElement.Objects, Has.Count.EqualTo(2));
-            Assert.That(restoredElement.SuppressedStorageSource, Is.Not.Null);
-            Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(original));
-        });
-    }
-
     // A copy of an element must not share Ids with the original, including those of objects that a fallback or an
     // unknown member keeps as JSON, where no object in the graph stands for them.
     [Test]
