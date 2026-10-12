@@ -1,10 +1,12 @@
 ﻿using System.Runtime.CompilerServices;
+using NuGet.Versioning;
 
 namespace Beutl.Serialization;
 
 /// <summary>
 /// Remembers, for each object read from or written to a root file, the <c>minAppVersion</c> of that file
-/// and the project the object was read with, and for a project also the <c>appVersion</c> of its file.
+/// and the project the object was read with, and for a project also the <c>appVersion</c> of its file and
+/// whether its last read kept data this build does not know.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -32,6 +34,21 @@ internal static class RootFileVersions
         return s_entries.TryGetValue(project, out Entry? entry) ? entry.AppVersion : null;
     }
 
+    /// <summary>
+    /// Returns the version that last saved <paramref name="project"/>, as its file records it, in normalized form,
+    /// or <see langword="null"/> when the file records none or the value is not a version.
+    /// </summary>
+    /// <remarks>
+    /// The value comes from the file, so a message that names it uses this instead of the recorded text: anything
+    /// that is not a version never reaches the user or an agent.
+    /// </remarks>
+    internal static string? GetLastSavedVersion(Project project)
+    {
+        return GetAppVersion(project) is { } recorded && NuGetVersion.TryParse(recorded, out NuGetVersion? version)
+            ? version.ToNormalizedString()
+            : null;
+    }
+
     internal static string? GetMinAppVersion(ICoreSerializable obj)
     {
         return s_entries.TryGetValue(obj, out Entry? entry) ? entry.MinAppVersion : null;
@@ -40,6 +57,40 @@ internal static class RootFileVersions
     internal static Project? GetProject(ICoreSerializable obj)
     {
         return s_entries.TryGetValue(obj, out Entry? entry) ? entry.Project : null;
+    }
+
+    /// <summary>
+    /// Returns whether the last read of <paramref name="project"/> kept data this build does not know: members
+    /// a type does not read, or objects whose type could not be loaded, which keep their JSON.
+    /// </summary>
+    internal static bool HasKeptUnknownData(Project project)
+    {
+        if (!s_entries.TryGetValue(project, out Entry? entry))
+        {
+            return false;
+        }
+
+        lock (entry)
+        {
+            return entry.KeptUnknownData;
+        }
+    }
+
+    /// <summary>
+    /// Records that the read of the project on this flow, if any, kept data this build does not know.
+    /// </summary>
+    internal static void RecordKeptUnknownData()
+    {
+        if (s_readingProject.Value is not { } project)
+        {
+            return;
+        }
+
+        Entry entry = s_entries.GetValue(project, static _ => new Entry());
+        lock (entry)
+        {
+            entry.KeptUnknownData = true;
+        }
     }
 
     /// <summary>
@@ -128,6 +179,12 @@ internal static class RootFileVersions
     /// </summary>
     internal static ReadingScope BeginReading(Project project)
     {
+        Entry entry = s_entries.GetValue(project, static _ => new Entry());
+        lock (entry)
+        {
+            entry.KeptUnknownData = false;
+        }
+
         Project? previous = s_readingProject.Value;
         s_readingProject.Value = project;
         return new ReadingScope(previous);
@@ -158,5 +215,7 @@ internal static class RootFileVersions
         public string? AppVersion;
 
         public ProjectFileState? ProjectFile;
+
+        public bool KeptUnknownData;
     }
 }

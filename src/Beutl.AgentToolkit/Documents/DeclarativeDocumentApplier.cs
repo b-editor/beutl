@@ -27,6 +27,12 @@ internal sealed partial class DeclarativeDocumentApplier
 
     private void ApplyCoreObject(CoreObject target, JsonObject desired)
     {
+        if (target is IFallback fallback)
+        {
+            ApplyFallback(fallback, desired);
+            return;
+        }
+
         switch (target)
         {
             case Scene scene:
@@ -50,6 +56,41 @@ internal sealed partial class DeclarativeDocumentApplier
                 CoreSerializer.PopulateFromJsonObject(target, target.GetType(), payload, CreateOptions(target));
                 break;
         }
+    }
+
+    // A fallback stands in for an object whose type could not be loaded and saves the JSON it was read from,
+    // which is what the document shows for it. There is nothing Beutl knows in it to apply, and populating it
+    // would replace that JSON with the payload, so an agent can leave it as it is or remove it, but not edit it.
+    private static void ApplyFallback(IFallback fallback, JsonObject desired)
+    {
+        if (JsonNode.DeepEquals(WithoutDirectives(desired), WithoutDirectives(fallback.Json)))
+        {
+            return;
+        }
+
+        // The type name comes from the file, so the message leaves it out.
+        string target = fallback is CoreObject { Id: var id } ? id.ToString() : string.Empty;
+        throw new ReconcileException(new ToolError(
+            ErrorCode.ValidationRejected,
+            $"Object '{target}' is of a type that could not be loaded, so it is kept as it was read and cannot be edited.",
+            target,
+            "Leave the object unchanged in the document, or remove it."));
+    }
+
+    // The node without the list directives ($index, $after, $before and $delete) an entry may carry.
+    private static JsonObject? WithoutDirectives(JsonObject? node)
+    {
+        if (node is null || !node.Any(static pair => pair.Key is "$index" or "$after" or "$before" or "$delete"))
+        {
+            return node;
+        }
+
+        var copy = (JsonObject)node.DeepClone();
+        copy.Remove("$index");
+        copy.Remove("$after");
+        copy.Remove("$before");
+        copy.Remove("$delete");
+        return copy;
     }
 
     private void ApplyScene(Scene scene, JsonObject desired)
@@ -229,7 +270,8 @@ internal sealed partial class DeclarativeDocumentApplier
             new CoreSerializerOptions
             {
                 BaseUri = ResolveBaseUri(target) ?? _documentBaseUri,
-                Mode = CoreSerializationMode.EmbedReferencedObjects
+                Mode = CoreSerializationMode.EmbedReferencedObjects,
+                KeepUnknownMembers = false
             });
     }
 

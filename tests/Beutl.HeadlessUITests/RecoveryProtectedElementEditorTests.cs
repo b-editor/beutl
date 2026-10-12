@@ -1,6 +1,7 @@
 ﻿using System.Text.Json.Nodes;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
@@ -19,6 +20,7 @@ using Beutl.Engine;
 using Beutl.Extensibility;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
+using Beutl.Graphics.Transformation;
 using Beutl.Language;
 using Beutl.ProjectSystem;
 using Beutl.PropertyAdapters;
@@ -33,19 +35,25 @@ using FluentAvalonia.UI.Controls;
 
 namespace Beutl.HeadlessUITests;
 
-// An element whose file holds a type that could not be loaded (a plugin that is not installed) keeps
-// that file until it is repaired, so its edits would not be saved. The editor says so once when the
-// scene opens, shows the clip as read-only, refuses ordinary edits, and still lets the user remove or
-// replace what could not be loaded, or delete the clip.
+// An element whose file holds a value that could not be loaded and that saving would not write back (here a
+// keyframe easing from a plugin that is not installed) keeps that file until it is repaired, so its edits would
+// not be saved. The editor says so once when the scene opens, shows the clip as read-only, refuses ordinary
+// edits, and still lets the user remove or replace what could not be loaded, or delete the clip.
+//
+// An object whose type could not be loaded does not protect its element: it saves the JSON it was read from,
+// so the clip stays editable, the object itself is read-only, and the project shows once that it keeps data it
+// cannot show.
 [TestFixture]
 public sealed class RecoveryProtectedElementEditorTests
 {
     private const string ElementName = "Protected clip";
 
+    private const string MissingEasingType = "[Missing.Plugin]Missing.Namespace:MissingEasing";
+
     [AvaloniaTest]
     public async Task Opening_the_scene_shows_one_notice_that_names_the_element()
     {
-        (string projectPath, _) = await CreateProjectWithMissingTypes("recovery-notice");
+        (string projectPath, _) = await CreateProjectWithUnreadableEasing("recovery-notice");
         var previousHandler = NotificationService.Handler;
         var handler = new CaptureNotificationHandler();
         NotificationService.Handler = handler;
@@ -80,7 +88,7 @@ public sealed class RecoveryProtectedElementEditorTests
     [AvaloniaTest]
     public async Task Timeline_shows_the_clip_as_read_only_and_still_deletes_it()
     {
-        (string projectPath, string elementPath) = await CreateProjectWithMissingTypes("recovery-timeline");
+        (string projectPath, string elementPath) = await CreateProjectWithUnreadableEasing("recovery-timeline");
         byte[] original = File.ReadAllBytes(elementPath);
         EditViewModel editor = await OpenProjectAsync(projectPath);
         var window = new Window { Content = new EditView { DataContext = editor }, Width = 1200, Height = 800 };
@@ -154,7 +162,89 @@ public sealed class RecoveryProtectedElementEditorTests
     [AvaloniaTest]
     public async Task Property_editors_refuse_edits_but_allow_removing_and_replacing_what_could_not_be_loaded()
     {
-        (string projectPath, string elementPath) = await CreateProjectWithMissingTypes("recovery-properties");
+        (string projectPath, string elementPath) = await CreateProjectWithUnreadableEasings("recovery-properties");
+        EditViewModel editor = await OpenProjectAsync(projectPath);
+        Element element = editor.Scene.Children.Single();
+        var shape = (RectShape)element.Objects[0];
+        EngineObject healthy = element.Objects[1];
+        EngineObject unavailable = element.Objects[2];
+        Assert.That(element.SuppressedStorageSource, Is.Not.Null);
+        ((IEditorSelection)editor.GetService(typeof(IEditorSelection))!).SelectedObject.Value = element;
+        HeadlessTestHelpers.Settle();
+        using var tab = new ElementPropertyTabViewModel(editor);
+        tab.Element.Value = element;
+        HeadlessTestHelpers.Settle();
+        editor.HistoryManager.Commit("test setup");
+        int before = editor.HistoryManager.UndoCount;
+
+        NumberEditorViewModel<float> width = Editors(tab.Items[0].Properties).OfType<NumberEditorViewModel<float>>()
+            .Single(p => ReferenceEquals(p.PropertyAdapter.GetEngineProperty(), shape.Width));
+        TransformEditorViewModel transform = Editors(tab.Items[0].Properties).OfType<TransformEditorViewModel>().Single();
+        float oldWidth = shape.Width.CurrentValue;
+        width.SetValue(oldWidth, oldWidth + 10);
+        transform.IsEnabled.Value = !transform.IsEnabled.Value;
+        var objectView = new EngineObjectPropertyView { DataContext = tab.Items[1] };
+        objectView.Remove_Click(null, new RoutedEventArgs());
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(tab.CanEdit.Value, Is.False);
+            Assert.That(width.CanEdit.Value, Is.False);
+            Assert.That(shape.Width.CurrentValue, Is.EqualTo(oldWidth));
+            Assert.That(shape.Transform.CurrentValue!.IsEnabled, Is.True, "Toggling the transform would not be saved.");
+            Assert.That(tab.Items[0].CanReplace.Value, Is.True, "The shape holds the transform with the unreadable easing.");
+            Assert.That(tab.Items[1].CanReplace.Value, Is.False);
+            Assert.That(element.Objects, Does.Contain(healthy));
+            Assert.That(tab.Items[2].CanReplace.Value, Is.True);
+            Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(before));
+        });
+
+        // Replacing the transform is a repair. Another unreadable easing remains, so the element stays
+        // protected until the object that holds it is removed too.
+        transform.SetNull();
+        HeadlessTestHelpers.Settle();
+        objectView.DataContext = tab.Items[0];
+        objectView.Remove_Click(null, new RoutedEventArgs());
+        Assert.Multiple(() =>
+        {
+            Assert.That(shape.Transform.CurrentValue, Is.Null);
+            Assert.That(element.SuppressedStorageSource, Is.Not.Null);
+            Assert.That(tab.CanEdit.Value, Is.False);
+            Assert.That(element.Objects, Does.Contain(shape), "The shape no longer holds anything to repair.");
+        });
+
+        objectView.DataContext = tab.Items.Single(item => item.Model == unavailable);
+        objectView.Remove_Click(null, new RoutedEventArgs());
+        HeadlessTestHelpers.Settle();
+        Assert.Multiple(() =>
+        {
+            Assert.That(element.Objects, Does.Not.Contain(unavailable));
+            Assert.That(element.SuppressedStorageSource, Is.Null, "Removing the last unreadable easing completes the repair.");
+            Assert.That(tab.CanEdit.Value, Is.True);
+            Assert.That(width.CanEdit.Value, Is.True);
+        });
+
+        width.SetValue(oldWidth, oldWidth + 10);
+        await editor.SaveAsync();
+        Element saved = CoreSerializer.RestoreFromUri<Element>(new Uri(elementPath));
+        Assert.Multiple(() =>
+        {
+            Assert.That(((RectShape)saved.Objects[0]).Width.CurrentValue, Is.EqualTo(oldWidth + 10));
+            Assert.That(((RectShape)saved.Objects[0]).Transform.CurrentValue, Is.Null);
+            Assert.That(saved.Objects, Has.Count.EqualTo(2));
+            Assert.That(saved.SuppressedStorageSource, Is.Null);
+        });
+        await TestReset.ResetShellAsync();
+    }
+
+    // A clip whose effect and one of whose objects have types that could not be loaded stays editable: the
+    // fallbacks save the JSON they were read from, so editing the rest of the clip is saved. The fallbacks
+    // themselves are read-only, since turning one off would not be saved.
+    [AvaloniaTest]
+    public async Task Property_editors_keep_a_clip_with_missing_types_editable_and_its_fallbacks_read_only()
+    {
+        (string projectPath, string elementPath) = await CreateProjectWithMissingTypes("missing-types-properties");
+        JsonObject written = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
         EditViewModel editor = await OpenProjectAsync(projectPath);
         Element element = editor.Scene.Children.Single();
         var shape = (RectShape)element.Objects[0];
@@ -167,8 +257,7 @@ public sealed class RecoveryProtectedElementEditorTests
         using var tab = new ElementPropertyTabViewModel(editor);
         tab.Element.Value = element;
         HeadlessTestHelpers.Settle();
-        editor.HistoryManager.Commit("test setup");
-        int before = editor.HistoryManager.UndoCount;
+        EngineObjectPropertyViewModel unavailableItem = tab.Items.Single(item => item.Model == unavailable);
 
         NumberEditorViewModel<float> width = Editors(tab.Items[0].Properties).OfType<NumberEditorViewModel<float>>()
             .Single(p => ReferenceEquals(p.PropertyAdapter.GetEngineProperty(), shape.Width));
@@ -176,58 +265,95 @@ public sealed class RecoveryProtectedElementEditorTests
         float oldWidth = shape.Width.CurrentValue;
         width.SetValue(oldWidth, oldWidth + 10);
         filter.IsEnabled.Value = !filter.IsEnabled.Value;
+        unavailableItem.IsEnabled.Value = false;
         var objectView = new EngineObjectPropertyView { DataContext = tab.Items[1] };
         objectView.Remove_Click(null, new RoutedEventArgs());
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(tab.CanEdit.Value, Is.False);
-            Assert.That(width.CanEdit.Value, Is.False);
-            Assert.That(shape.Width.CurrentValue, Is.EqualTo(oldWidth));
-            Assert.That(shape.FilterEffect.CurrentValue!.IsEnabled, Is.True, "Toggling the unavailable effect would not be saved.");
-            Assert.That(tab.Items[0].CanReplace.Value, Is.True, "The shape holds the unavailable effect.");
-            Assert.That(tab.Items[1].CanReplace.Value, Is.False);
-            Assert.That(element.Objects, Does.Contain(healthy));
-            Assert.That(tab.Items[2].CanReplace.Value, Is.True);
-            Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(before));
-        });
-
-        // Replacing the unavailable effect is a repair. Another unavailable object remains, so the
-        // element stays protected until that one is removed too.
-        filter.SetNull();
         HeadlessTestHelpers.Settle();
-        objectView.DataContext = tab.Items[0];
-        objectView.Remove_Click(null, new RoutedEventArgs());
-        Assert.Multiple(() =>
-        {
-            Assert.That(shape.FilterEffect.CurrentValue, Is.Null);
-            Assert.That(element.SuppressedStorageSource, Is.Not.Null);
-            Assert.That(tab.CanEdit.Value, Is.False);
-            Assert.That(element.Objects, Does.Contain(shape), "The shape no longer holds anything to repair.");
-        });
 
-        objectView.DataContext = tab.Items.Single(item => item.Model == unavailable);
-        objectView.Remove_Click(null, new RoutedEventArgs());
-        HeadlessTestHelpers.Settle();
         Assert.Multiple(() =>
         {
-            Assert.That(element.Objects, Does.Not.Contain(unavailable));
-            Assert.That(element.SuppressedStorageSource, Is.Null, "Removing the last unavailable object completes the repair.");
+            Assert.That(element.SuppressedStorageSource, Is.Null);
             Assert.That(tab.CanEdit.Value, Is.True);
-            Assert.That(width.CanEdit.Value, Is.True);
+            Assert.That(shape.Width.CurrentValue, Is.EqualTo(oldWidth + 10));
+            Assert.That(shape.FilterEffect.CurrentValue!.IsEnabled, Is.True, "Turning off the unavailable effect would not be saved.");
+            Assert.That(unavailable.IsEnabled, Is.True, "Turning off the unavailable object would not be saved.");
+            Assert.That(unavailableItem.CanToggleEnabled.Value, Is.False);
+            Assert.That(element.Objects, Does.Not.Contain(healthy));
         });
 
-        width.SetValue(oldWidth, oldWidth + 10);
+        var window = new Window
+        {
+            Width = 360,
+            Height = 220,
+            Content = new EngineObjectPropertyView { DataContext = unavailableItem },
+        };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(5);
+            ToggleButton visibility = window.GetVisualDescendants().OfType<ToggleButton>()
+                .Single(button => button.Name == "VisibilityButton");
+            Assert.That(visibility.IsEnabled, Is.False);
+            SaveFrame(window, "missing-type-object-dark.png", ThemeVariant.Dark);
+            SaveFrame(window, "missing-type-object-light.png", ThemeVariant.Light);
+        }
+        finally
+        {
+            window.Close();
+        }
+
         await editor.SaveAsync();
-        Element saved = CoreSerializer.RestoreFromUri<Element>(new Uri(elementPath));
+        JsonObject saved = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
+        JsonArray writtenObjects = written[nameof(Element.Objects)]!.AsArray();
+        JsonArray savedObjects = saved[nameof(Element.Objects)]!.AsArray();
         Assert.Multiple(() =>
         {
-            Assert.That(((RectShape)saved.Objects[0]).Width.CurrentValue, Is.EqualTo(oldWidth + 10));
-            Assert.That(((RectShape)saved.Objects[0]).FilterEffect.CurrentValue, Is.Null);
-            Assert.That(saved.Objects, Has.Count.EqualTo(2));
-            Assert.That(saved.Objects.OfType<IFallback>(), Is.Empty);
+            Assert.That(savedObjects, Has.Count.EqualTo(2));
+            Assert.That(savedObjects[0]![nameof(RectShape.Width)]!.GetValue<float>(), Is.EqualTo(oldWidth + 10));
+            Assert.That(JsonNode.DeepEquals(
+                savedObjects[0]![nameof(RectShape.FilterEffect)],
+                writtenObjects[0]![nameof(RectShape.FilterEffect)]), Is.True, "The effect is saved as it was read.");
+            Assert.That(JsonNode.DeepEquals(savedObjects[1], writtenObjects[2]), Is.True, "The object is saved as it was read.");
         });
         await TestReset.ResetShellAsync();
+    }
+
+    // Opening a project whose clip holds types that could not be loaded tells the user once that the project
+    // keeps data it cannot show, and names the version that last saved it. No element is read-only.
+    [AvaloniaTest]
+    public async Task Opening_a_project_with_missing_types_shows_once_that_it_keeps_data_it_cannot_show()
+    {
+        (string projectPath, _) = await CreateProjectWithMissingTypes("missing-types-notice");
+        var previousHandler = NotificationService.Handler;
+        var handler = new CaptureNotificationHandler();
+        NotificationService.Handler = handler;
+        try
+        {
+            await OpenProjectAsync(projectPath);
+            Notification[] kept = handler.Notifications
+                .Where(n => n.Title == MessageStrings.KeptUnknownDataTitle)
+                .ToArray();
+
+            Assert.That(kept, Has.Length.EqualTo(1));
+            Assert.Multiple(() =>
+            {
+                Assert.That(kept[0].Type, Is.EqualTo(NotificationType.Warning));
+                Assert.That(kept[0].Expiration, Is.EqualTo(Timeout.InfiniteTimeSpan));
+                Assert.That(kept[0].Message, Does.Contain(BeutlApplication.Version));
+                Assert.That(handler.Notifications.Where(n => n.Title == MessageStrings.RecoveryProtectedElementsTitle),
+                    Is.Empty);
+                Assert.That(kept[0].CancellationToken.IsCancellationRequested, Is.False);
+            });
+
+            await TestReset.ResetShellAsync();
+            Assert.That(kept[0].CancellationToken.IsCancellationRequested, Is.True,
+                "Closing the project must dismiss its notice.");
+        }
+        finally
+        {
+            await TestReset.ResetShellAsync();
+            NotificationService.Handler = previousHandler;
+        }
     }
 
     // Removing an animation that holds an easing that could not be read repairs the element, so the
@@ -235,7 +361,7 @@ public sealed class RecoveryProtectedElementEditorTests
     [AvaloniaTest]
     public async Task Property_menu_offers_removing_the_animation_that_holds_an_unreadable_easing()
     {
-        string projectPath = await CreateProjectWithUnreadableEasing("recovery-easing");
+        (string projectPath, _) = await CreateProjectWithUnreadableEasing("recovery-easing");
         EditViewModel editor = await OpenProjectAsync(projectPath);
         Element element = editor.Scene.Children.Single();
         var shape = (RectShape)element.Objects.Single();
@@ -303,7 +429,7 @@ public sealed class RecoveryProtectedElementEditorTests
     // Saves a project with one clip holding a rectangle whose width and height are animated, then
     // rewrites the easing of one width keyframe in the clip's file to a type from an assembly that is
     // not loaded, as when the plugin that provides it is not installed.
-    private static async Task<string> CreateProjectWithUnreadableEasing(string name)
+    private static async Task<(string ProjectPath, string ElementPath)> CreateProjectWithUnreadableEasing(string name)
     {
         await TestReset.ResetShellAsync();
         string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, $"{name}-{Guid.NewGuid():N}");
@@ -334,9 +460,9 @@ public sealed class RecoveryProtectedElementEditorTests
         await TestReset.ResetShellAsync();
 
         JsonObject json = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
-        FindById(json, unreadable.Id)![nameof(KeyFrame.Easing)] = "[Missing.Plugin]Missing.Namespace:MissingEasing";
+        FindById(json, unreadable.Id)![nameof(KeyFrame.Easing)] = MissingEasingType;
         File.WriteAllText(elementPath, json.ToJsonString());
-        return projectPath;
+        return (projectPath, elementPath);
     }
 
     private static JsonObject? FindById(JsonNode? node, Guid id)
@@ -407,6 +533,58 @@ public sealed class RecoveryProtectedElementEditorTests
         objects[2]!.AsObject()["$type"] = "[Missing.Plugin]Missing.Namespace:MissingShape";
         File.WriteAllText(elementPath, json.ToJsonString());
         return (projectPath, elementPath);
+    }
+
+    // Saves a project with one clip holding a rectangle with a translation, an ellipse and a second rectangle,
+    // then gives the translation and the second rectangle a keyframe whose easing type is from an assembly that is
+    // not loaded, as when the plugin that provides it is not installed.
+    private static async Task<(string ProjectPath, string ElementPath)> CreateProjectWithUnreadableEasings(string name)
+    {
+        await TestReset.ResetShellAsync();
+        string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, $"{name}-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(location);
+        Project project = (await TestShell.Project.CreateProject(640, 480, 30, 44100, name, location))!;
+        Scene scene = project.Items.OfType<Scene>().Single();
+        TestShell.Editor.ActivateTabItem(scene);
+        HeadlessTestHelpers.Settle();
+        var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+        var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
+        var translation = new TranslateTransform();
+        translation.X.Animation = CreateAnimation(0f);
+        await adder.AddAsync([new ElementDescription(TimeSpan.Zero, TimeSpan.FromSeconds(2), 0,
+            new ElementSource.EngineObject(() => new RectShape { Transform = { CurrentValue = translation } }))],
+            CancellationToken.None);
+        Element element = scene.Children.Single();
+        element.Name = ElementName;
+        element.AddObject(new EllipseShape());
+        var second = new RectShape();
+        second.Width.Animation = CreateAnimation(100f);
+        element.AddObject(second);
+        await editor.SaveAsync();
+        string projectPath = project.Uri!.LocalPath;
+        string elementPath = element.Uri!.LocalPath;
+        IKeyFrame[] unreadable =
+        [
+            ((KeyFrameAnimation<float>)translation.X.Animation!).KeyFrames.Single(),
+            ((KeyFrameAnimation<float>)second.Width.Animation!).KeyFrames.Single(),
+        ];
+        await TestReset.ResetShellAsync();
+
+        JsonObject json = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
+        foreach (IKeyFrame keyFrame in unreadable)
+        {
+            FindById(json, ((CoreObject)keyFrame).Id)![nameof(KeyFrame.Easing)] = MissingEasingType;
+        }
+
+        File.WriteAllText(elementPath, json.ToJsonString());
+        return (projectPath, elementPath);
+    }
+
+    private static KeyFrameAnimation<float> CreateAnimation(float value)
+    {
+        var animation = new KeyFrameAnimation<float>();
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = value });
+        return animation;
     }
 
     private static async Task<EditViewModel> OpenProjectAsync(string projectPath)

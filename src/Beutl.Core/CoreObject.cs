@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.ComponentModel;
 using System.Linq.Expressions;
+using System.Text.Json.Nodes;
 using Beutl.Serialization;
 using Beutl.Validation;
 
@@ -94,6 +95,26 @@ public abstract class CoreObject : ICoreObject
     // Called after SuppressedStorageSource changes between null and non-null.
     internal virtual void OnStorageSuppressionChanged()
     {
+    }
+
+    // The members of the JSON this object was read from that it did not read, usually ones that a newer
+    // version of Beutl or of an extension wrote. Serializing the object writes them back after its own
+    // members, so an older version keeps that data instead of dropping it on save.
+    internal JsonObject? UnknownMembers { get; private set; }
+
+    // Adds members to UnknownMembers; a member read again replaces the one kept before.
+    internal void KeepUnknownMembers(JsonObject members)
+    {
+        if (UnknownMembers is null)
+        {
+            UnknownMembers = members;
+            return;
+        }
+
+        foreach ((string key, JsonNode? node) in members)
+        {
+            UnknownMembers[key] = node?.DeepClone();
+        }
     }
 
     private Dictionary<int, IEntry> Values => _values ??= [];

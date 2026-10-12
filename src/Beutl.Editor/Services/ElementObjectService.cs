@@ -116,6 +116,8 @@ public sealed class ElementObjectService : IElementObjectService
     public bool SetEnabled(EngineObject obj, bool isEnabled)
     {
         ArgumentNullException.ThrowIfNull(obj);
+        // A fallback saves the JSON it was read from, so the change would be lost on save.
+        if (obj is IFallback) return false;
         if (!ElementEditability.IsEditable(obj.FindHierarchicalParent<Element>())) return false;
         if (obj.IsEnabled == isEnabled) return false;
 

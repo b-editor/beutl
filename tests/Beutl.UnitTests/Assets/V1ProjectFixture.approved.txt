@@ -4,6 +4,7 @@ Scene "V1Project": 1920x1080, duration 00:05:00, 12 elements
 Notices on open:
   Warning for the project: Node trees from Beutl 1.x were not migrated
     The node trees of these elements were made in Beutl 1.x and were not migrated, so they are not drawn: Node tree. Their files are kept unchanged until you remove the object that holds the node tree. Saving converts the rest of the project, after which Beutl 1.x cannot open it. Edits and closing the project also save it, so keep a copy of the project now if you still need it in Beutl 1.x.
+  none for the project's kept data
   Warning for the scene "V1Project": Some elements could not be fully loaded
     These elements in V1Project could not be fully loaded, usually because an extension is not installed: Node tree. Their edits are not saved until the missing type is available or the unavailable object is removed, so they are read-only until then.
 

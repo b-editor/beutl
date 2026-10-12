@@ -10,6 +10,10 @@ using Microsoft.Extensions.FileSystemGlobbing.Abstractions;
 
 namespace Beutl.ProjectSystem;
 
+// Development builds since #2666 kept the media fingerprints in the scene file under MediaFingerprints. They are
+// in a file of their own now (MediaFingerprintFile), and a scene drops that key rather than keeping it as an
+// unknown member.
+[DroppedMembers("MediaFingerprints")]
 public partial class Scene
 {
     // The file that stores the scene's media fingerprints, or null while the scene has none: its scene file then

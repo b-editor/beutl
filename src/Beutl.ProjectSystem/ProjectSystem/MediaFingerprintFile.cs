@@ -86,6 +86,10 @@ internal sealed class MediaFingerprintFile : CoreObject
         if (version > CurrentVersion)
         {
             _laterVersion = version;
+            // Nothing else of a later format is read, or kept to be written back: such a file is never rewritten, and
+            // an embedded copy holds only the version. Taking the JSON object tells the serializer that this object
+            // handles every key itself.
+            (context as IJsonSerializationContext)?.GetJsonObject();
         }
         else if (version != CurrentVersion
                  || context.GetValue<JsonNode>(FingerprintsProperty) is not JsonObject stored)

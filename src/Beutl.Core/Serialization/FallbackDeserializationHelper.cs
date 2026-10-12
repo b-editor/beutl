@@ -35,6 +35,16 @@ internal static class FallbackDeserializationHelper
         fallback.Json = json.DeepClone().AsObject();
         fallback.Reason = FallbackReason.DeserializationFailed;
         fallback.ErrorMessage = exception?.Message;
+        // The fallback stands in for the object the JSON describes, so it takes that object's Id, as one
+        // whose type could not be found does when it reads the JSON. Saving writes the JSON back, Id included.
+        if (fallback is CoreObject coreObject
+            && json[nameof(CoreObject.Id)] is JsonValue idValue
+            && idValue.TryGetValue(out string? idText)
+            && Guid.TryParse(idText, out Guid id)
+            && id != Guid.Empty)
+        {
+            coreObject.Id = id;
+        }
 
         DeserializationIncidents.RecordFallback(fallback);
         return fallback;

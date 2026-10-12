@@ -504,4 +504,13 @@
   <data name="UnmigratedNodeTreeMessage" xml:space="preserve">
     <value>次の要素のノードツリーは Beutl 1.x で作成されたもので、移行されていないため描画されません: {0}。ノードツリーを保持しているオブジェクトを削除するまで、これらの要素のファイルは変更されません。保存するとプロジェクトの残りの部分が変換され、Beutl 1.x では開けなくなります。編集やプロジェクトを閉じる操作でも保存されるため、Beutl 1.x で引き続き使う場合は今のうちにプロジェクトのコピーを残してください。</value>
   </data>
+  <data name="KeptUnknownDataTitle" xml:space="preserve">
+    <value>表示できないデータを保持しています</value>
+  </data>
+  <data name="KeptUnknownDataMessage" xml:space="preserve">
+    <value>このプロジェクトには、新しいバージョンの Beutl またはインストールされていない拡張機能のデータが含まれています。Beutl はプロジェクトの保存時にこのデータを保持しますが、表示や使用はしません。</value>
+  </data>
+  <data name="KeptUnknownDataSavedByMessage" xml:space="preserve">
+    <value>このプロジェクトは Beutl {0} で最後に保存されたもので、新しいバージョンの Beutl またはインストールされていない拡張機能のデータが含まれています。Beutl はプロジェクトの保存時にこのデータを保持しますが、表示や使用はしません。</value>
+  </data>
 </root>

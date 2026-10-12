@@ -76,8 +76,10 @@ public sealed class FallbackEditorPersistenceTests
         }
     }
 
+    // A brush whose type is missing does not protect its element: pasting over it is an ordinary edit, and
+    // undoing it brings the fallback back, which saves the JSON it was read from.
     [AvaloniaTest]
-    public async Task BrushTryPasteJson_LastFallbackResumesPersistenceInReplacementTransaction()
+    public async Task BrushTryPasteJson_OverAFallback_IsSavedAndUndoWritesTheFallbackBack()
     {
         await TestReset.ResetShellAsync();
 
@@ -107,13 +109,15 @@ public sealed class FallbackEditorPersistenceTests
             JsonObject brushJson = elementJson[nameof(Element.Objects)]!.AsArray()[0]!
                 [nameof(Shape.Fill)]!.AsObject();
             brushJson["$type"] = "[Beutl.Engine]Beutl.Media:DoesNotExist";
-            File.WriteAllText(elementPath, elementJson.ToJsonString());
+            string originalJson = elementJson.ToJsonString();
+            File.WriteAllText(elementPath, originalJson);
             byte[] originalBytes = File.ReadAllBytes(elementPath);
 
             Scene recoveredScene = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
             Element recoveredElement = recoveredScene.Children.Single();
             var recoveredShape = (RectShape)recoveredElement.Objects.Single();
             Assert.That(recoveredShape.Fill.CurrentValue, Is.InstanceOf<IFallback>());
+            Assert.That(recoveredElement.SuppressedStorageSource, Is.Null);
 
             var sequence = new OperationSequenceGenerator();
             using var history = new HistoryManager(recoveredElement, sequence);
@@ -138,7 +142,7 @@ public sealed class FallbackEditorPersistenceTests
                 Assert.That(repairedBytes, Is.Not.EqualTo(originalBytes));
                 Assert.That(undone, Is.True);
                 Assert.That(recoveredShape.Fill.CurrentValue, Is.InstanceOf<IFallback>());
-                Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(originalBytes));
+                Assert.That(HoldsWhatWasRead(elementPath, originalJson), Is.True);
             });
         }
         finally
@@ -151,31 +155,31 @@ public sealed class FallbackEditorPersistenceTests
     }
 
     [AvaloniaTest]
-    public async Task BrushPresenterClearTarget_LastFallbackResumesPersistenceInReplacementTransaction()
+    public async Task BrushPresenterClearTarget_OverAFallback_IsSavedAndUndoWritesTheFallbackBack()
     {
-        await AssertPresenterTargetClearResumesPersistence(PresenterKind.Brush);
+        await AssertPresenterTargetClearOverAFallbackIsSaved(PresenterKind.Brush);
     }
 
     [AvaloniaTest]
-    public async Task TransformPresenterClearTarget_LastFallbackResumesPersistenceInReplacementTransaction()
+    public async Task TransformPresenterClearTarget_OverAFallback_IsSavedAndUndoWritesTheFallbackBack()
     {
-        await AssertPresenterTargetClearResumesPersistence(PresenterKind.Transform);
+        await AssertPresenterTargetClearOverAFallbackIsSaved(PresenterKind.Transform);
     }
 
     [AvaloniaTest]
-    public async Task FilterEffectPresenterClearTarget_LastFallbackResumesPersistenceInReplacementTransaction()
+    public async Task FilterEffectPresenterClearTarget_OverAFallback_IsSavedAndUndoWritesTheFallbackBack()
     {
-        await AssertPresenterTargetClearResumesPersistence(PresenterKind.FilterEffect);
+        await AssertPresenterTargetClearOverAFallbackIsSaved(PresenterKind.FilterEffect);
     }
 
     [AvaloniaTest]
-    public async Task GenericPresenterClearTarget_LastFallbackResumesPersistenceInReplacementTransaction()
+    public async Task GenericPresenterClearTarget_OverAFallback_IsSavedAndUndoWritesTheFallbackBack()
     {
-        await AssertPresenterTargetClearResumesPersistence(PresenterKind.Transform, genericEditor: true);
+        await AssertPresenterTargetClearOverAFallbackIsSaved(PresenterKind.Transform, genericEditor: true);
     }
 
     [AvaloniaTest]
-    public async Task PenWholeValueReplacements_ResumePersistenceInReplacementTransaction()
+    public async Task PenWholeValueReplacements_OverAFallbackBrush_AreSavedAndUndoWritesTheFallbackBack()
     {
         await TestReset.ResetShellAsync();
 
@@ -202,7 +206,8 @@ public sealed class FallbackEditorPersistenceTests
             JsonObject brushJson = FindObjectWithProperty(elementJson, nameof(Pen.Brush))!
                 [nameof(Pen.Brush)]!.AsObject();
             brushJson["$type"] = "[Beutl.Engine]Beutl.Media:MissingBrush";
-            File.WriteAllText(elementPath, elementJson.ToJsonString());
+            string originalJson = elementJson.ToJsonString();
+            File.WriteAllText(elementPath, originalJson);
             byte[] originalBytes = File.ReadAllBytes(elementPath);
 
             Scene recoveredScene = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
@@ -210,6 +215,7 @@ public sealed class FallbackEditorPersistenceTests
             var recoveredHolder = (EditorValueHolder)recoveredElement.Objects.Single();
             var recoveredPen = recoveredHolder.PenValue.CurrentValue!;
             Assert.That(recoveredPen.Brush.CurrentValue, Is.InstanceOf<FallbackBrush>());
+            Assert.That(recoveredElement.SuppressedStorageSource, Is.Null);
             using var context = new EditorTestContext(recoveredElement);
             var adapter = new SimplePropertyAdapter<Pen?>(
                 (SimpleProperty<Pen?>)recoveredHolder.PenValue,
@@ -220,16 +226,16 @@ public sealed class FallbackEditorPersistenceTests
             var directPen = new Pen();
             directPen.Brush.CurrentValue = new SolidColorBrush(Colors.Blue);
             viewModel.SetValue(recoveredPen, directPen);
-            AssertPenRepairAndUndo(recoveredElement, recoveredHolder, context.History, elementPath, originalBytes);
+            AssertPenReplacementAndUndo(recoveredElement, recoveredHolder, context.History, elementPath, originalBytes, originalJson);
 
             bool applied = viewModel.ApplyTemplate(
                 ObjectTemplateItem.CreateFromInstance(new Pen(), "Template"));
             Assert.That(applied, Is.True);
-            AssertPenRepairAndUndo(recoveredElement, recoveredHolder, context.History, elementPath, originalBytes);
+            AssertPenReplacementAndUndo(recoveredElement, recoveredHolder, context.History, elementPath, originalBytes, originalJson);
 
             bool pasted = viewModel.TryPasteJson(CoreSerializer.SerializeToJsonString(new Pen()));
             Assert.That(pasted, Is.True);
-            AssertPenRepairAndUndo(recoveredElement, recoveredHolder, context.History, elementPath, originalBytes);
+            AssertPenReplacementAndUndo(recoveredElement, recoveredHolder, context.History, elementPath, originalBytes, originalJson);
         }
         finally
         {
@@ -539,7 +545,8 @@ public sealed class FallbackEditorPersistenceTests
     }
 
     // A generic presenter editor that keeps the presenter replaces only its target. While the presenter's
-    // own transform could not be loaded, pointing it at another target would not complete the repair.
+    // own transform holds an easing that could not be read, pointing it at another target would not complete
+    // the repair.
     [AvaloniaTest]
     public async Task PresenterTargetEdit_ChecksTheTargetItReplaces()
     {
@@ -559,15 +566,17 @@ public sealed class FallbackEditorPersistenceTests
             scene.Children.Add(element);
             CoreSerializer.StoreToUri(scene, sceneUri);
             JsonObject elementJson = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
-            FindObjectWithProperty(elementJson, nameof(DrawableTextureSource.Drawable))![nameof(DrawableTextureSource.Drawable)]!
-                [nameof(Drawable.Transform)]!["$type"] = "[Missing.Plugin]Missing.Namespace:MissingTransform";
+            AddUnreadableEasing<TranslateTransform>(
+                FindObjectWithProperty(elementJson, nameof(DrawableTextureSource.Drawable))![nameof(DrawableTextureSource.Drawable)]!
+                    [nameof(Drawable.Transform)]!.AsObject(),
+                nameof(TranslateTransform.X));
             File.WriteAllText(elementPath, elementJson.ToJsonString());
 
             Element recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single();
             var recoveredHolder = (EditorValueHolder)recovered.Objects.Single();
             var recoveredTexture = (DrawableTextureSource)recoveredHolder.TextureValue.CurrentValue!;
             var presenter = (DrawablePresenter)recoveredTexture.Drawable.CurrentValue!;
-            Assert.That(presenter.Transform.CurrentValue, Is.InstanceOf<IFallback>());
+            Assert.That(recovered.SuppressedStorageSource, Is.Not.Null);
             using var context = new EditorTestContext(recovered);
             using var editor = new CoreObjectEditorViewModel<Drawable>(new SimplePropertyAdapter<Drawable>(
                 (SimpleProperty<Drawable>)recoveredTexture.Drawable, recoveredTexture));
@@ -590,7 +599,7 @@ public sealed class FallbackEditorPersistenceTests
     }
 
     [AvaloniaTest]
-    public async Task TextureDrawableTypeRepair_ResumesPersistenceInReplacementTransaction()
+    public async Task TextureDrawableType_OverAFallback_IsSavedAndUndoWritesTheFallbackBack()
     {
         await TestReset.ResetShellAsync();
 
@@ -617,7 +626,8 @@ public sealed class FallbackEditorPersistenceTests
             JsonObject drawableJson = FindObjectWithProperty(elementJson, nameof(DrawableTextureSource.Drawable))!
                 [nameof(DrawableTextureSource.Drawable)]!.AsObject();
             drawableJson["$type"] = "[Beutl.Engine]Beutl.Graphics:MissingDrawable";
-            File.WriteAllText(elementPath, elementJson.ToJsonString());
+            string originalJson = elementJson.ToJsonString();
+            File.WriteAllText(elementPath, originalJson);
             byte[] originalBytes = File.ReadAllBytes(elementPath);
 
             Scene recoveredScene = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
@@ -625,6 +635,7 @@ public sealed class FallbackEditorPersistenceTests
             var recoveredHolder = (EditorValueHolder)recoveredElement.Objects.Single();
             var recoveredTexture = (DrawableTextureSource)recoveredHolder.TextureValue.CurrentValue!;
             Assert.That(recoveredTexture.Drawable.CurrentValue, Is.InstanceOf<FallbackDrawable>());
+            Assert.That(recoveredElement.SuppressedStorageSource, Is.Null);
             using var context = new EditorTestContext(recoveredElement);
             var adapter = new SimplePropertyAdapter<TextureSource?>(
                 (SimpleProperty<TextureSource?>)recoveredHolder.TextureValue,
@@ -643,7 +654,7 @@ public sealed class FallbackEditorPersistenceTests
                 Assert.That(repairedBytes, Is.Not.EqualTo(originalBytes));
                 Assert.That(undone, Is.True);
                 Assert.That(recoveredTexture.Drawable.CurrentValue, Is.InstanceOf<FallbackDrawable>());
-                Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(originalBytes));
+                Assert.That(HoldsWhatWasRead(elementPath, originalJson), Is.True);
             });
         }
         finally
@@ -653,7 +664,7 @@ public sealed class FallbackEditorPersistenceTests
     }
 
     [AvaloniaTest]
-    public async Task TextureSourceReplacement_ResumesPersistenceInReplacementTransaction()
+    public async Task TextureSourceReplacement_OverAFallbackDrawable_IsSavedAndUndoWritesTheFallbackBack()
     {
         await TestReset.ResetShellAsync();
 
@@ -680,7 +691,8 @@ public sealed class FallbackEditorPersistenceTests
             JsonObject drawableJson = FindObjectWithProperty(elementJson, nameof(DrawableTextureSource.Drawable))!
                 [nameof(DrawableTextureSource.Drawable)]!.AsObject();
             drawableJson["$type"] = "[Beutl.Engine]Beutl.Graphics:MissingDrawable";
-            File.WriteAllText(elementPath, elementJson.ToJsonString());
+            string originalJson = elementJson.ToJsonString();
+            File.WriteAllText(elementPath, originalJson);
             byte[] originalBytes = File.ReadAllBytes(elementPath);
 
             Scene recoveredScene = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
@@ -688,6 +700,7 @@ public sealed class FallbackEditorPersistenceTests
             var recoveredHolder = (EditorValueHolder)recoveredElement.Objects.Single();
             var recoveredTexture = (DrawableTextureSource)recoveredHolder.TextureValue.CurrentValue!;
             Assert.That(recoveredTexture.Drawable.CurrentValue, Is.InstanceOf<FallbackDrawable>());
+            Assert.That(recoveredElement.SuppressedStorageSource, Is.Null);
             using var context = new EditorTestContext(recoveredElement);
             var adapter = new SimplePropertyAdapter<TextureSource?>(
                 (SimpleProperty<TextureSource?>)recoveredHolder.TextureValue,
@@ -707,7 +720,7 @@ public sealed class FallbackEditorPersistenceTests
                 Assert.That(undone, Is.True);
                 Assert.That(recoveredHolder.TextureValue.CurrentValue, Is.SameAs(recoveredTexture));
                 Assert.That(recoveredTexture.Drawable.CurrentValue, Is.InstanceOf<FallbackDrawable>());
-                Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(originalBytes));
+                Assert.That(HoldsWhatWasRead(elementPath, originalJson), Is.True);
             });
         }
         finally
@@ -717,7 +730,7 @@ public sealed class FallbackEditorPersistenceTests
     }
 
     [AvaloniaTest]
-    public async Task TextureDrawableTargetRepair_ResumesPersistenceInReplacementTransaction()
+    public async Task TextureDrawableTarget_OverAFallback_IsSavedAndUndoWritesTheFallbackBack()
     {
         await TestReset.ResetShellAsync();
 
@@ -744,7 +757,8 @@ public sealed class FallbackEditorPersistenceTests
             JsonObject drawableJson = FindObjectWithProperty(elementJson, nameof(DrawableTextureSource.Drawable))!
                 [nameof(DrawableTextureSource.Drawable)]!.AsObject();
             drawableJson["$type"] = "[Beutl.Engine]Beutl.Graphics:MissingDrawable";
-            File.WriteAllText(elementPath, elementJson.ToJsonString());
+            string originalJson = elementJson.ToJsonString();
+            File.WriteAllText(elementPath, originalJson);
             byte[] originalBytes = File.ReadAllBytes(elementPath);
 
             Scene recoveredScene = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
@@ -752,6 +766,7 @@ public sealed class FallbackEditorPersistenceTests
             var recoveredHolder = (EditorValueHolder)recoveredElement.Objects.Single();
             var recoveredTexture = (DrawableTextureSource)recoveredHolder.TextureValue.CurrentValue!;
             Assert.That(recoveredTexture.Drawable.CurrentValue, Is.InstanceOf<FallbackDrawable>());
+            Assert.That(recoveredElement.SuppressedStorageSource, Is.Null);
             using var context = new EditorTestContext(recoveredElement);
             var adapter = new SimplePropertyAdapter<TextureSource?>(
                 (SimpleProperty<TextureSource?>)recoveredHolder.TextureValue,
@@ -771,7 +786,7 @@ public sealed class FallbackEditorPersistenceTests
                 Assert.That(repairedBytes, Is.Not.EqualTo(originalBytes));
                 Assert.That(undone, Is.True);
                 Assert.That(recoveredTexture.Drawable.CurrentValue, Is.InstanceOf<FallbackDrawable>());
-                Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(originalBytes));
+                Assert.That(HoldsWhatWasRead(elementPath, originalJson), Is.True);
             });
         }
         finally
@@ -781,18 +796,18 @@ public sealed class FallbackEditorPersistenceTests
     }
 
     [AvaloniaTest]
-    public async Task ListRemoveItem_LastFallbackResumesPersistenceInReplacementTransaction()
+    public async Task ListRemoveItem_OfAFallback_IsSavedAndUndoWritesTheFallbackBack()
     {
-        await AssertListClearResumesPersistence(initialize: false);
+        await AssertListClearOfAFallbackIsSaved(initialize: false);
     }
 
     [AvaloniaTest]
-    public async Task ListInitialize_LastFallbackResumesPersistenceInReplacementTransaction()
+    public async Task ListInitialize_OverAFallback_IsSavedAndUndoWritesTheFallbackBack()
     {
-        await AssertListClearResumesPersistence(initialize: true);
+        await AssertListClearOfAFallbackIsSaved(initialize: true);
     }
 
-    private static async Task AssertListClearResumesPersistence(bool initialize)
+    private static async Task AssertListClearOfAFallbackIsSaved(bool initialize)
     {
         await TestReset.ResetShellAsync();
 
@@ -823,7 +838,8 @@ public sealed class FallbackEditorPersistenceTests
                 nameof(FilterEffectGroup.Children))!;
             groupJson[nameof(FilterEffectGroup.Children)]!.AsArray()[0]!.AsObject()["$type"]
                 = "[Beutl.Engine]Beutl.Graphics.Effects:MissingFilterEffect";
-            File.WriteAllText(elementPath, elementJson.ToJsonString());
+            string originalJson = elementJson.ToJsonString();
+            File.WriteAllText(elementPath, originalJson);
             byte[] originalBytes = File.ReadAllBytes(elementPath);
 
             Scene recoveredScene = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
@@ -831,6 +847,7 @@ public sealed class FallbackEditorPersistenceTests
             var recoveredShape = (RectShape)recoveredElement.Objects.Single();
             var recoveredGroup = (FilterEffectGroup)recoveredShape.FilterEffect.CurrentValue!;
             Assert.That(recoveredGroup.Children.Single(), Is.InstanceOf<FallbackFilterEffect>());
+            Assert.That(recoveredElement.SuppressedStorageSource, Is.Null);
             using var context = new EditorTestContext(recoveredElement);
             var adapter = new EnginePropertyAdapter<ICoreList<FilterEffect>>(
                 recoveredGroup.Children,
@@ -852,7 +869,7 @@ public sealed class FallbackEditorPersistenceTests
                 Assert.That(repairedBytes, Is.Not.EqualTo(originalBytes));
                 Assert.That(undone, Is.True);
                 Assert.That(recoveredGroup.Children.Single(), Is.InstanceOf<FallbackFilterEffect>());
-                Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(originalBytes));
+                Assert.That(HoldsWhatWasRead(elementPath, originalJson), Is.True);
             });
         }
         finally
@@ -909,8 +926,8 @@ public sealed class FallbackEditorPersistenceTests
     }
 
     // Changing a drawable brush's drawable replaces only the drawable, so it repairs the element only when
-    // the drawable is what could not be loaded. When the brush's transform is, the change is refused
-    // instead of being lost on save.
+    // the drawable holds what could not be loaded (here an easing). When the brush's transform holds it, the
+    // change is refused instead of being lost on save.
     [AvaloniaTest]
     [TestCase(true)]
     [TestCase(false)]
@@ -935,8 +952,17 @@ public sealed class FallbackEditorPersistenceTests
             CoreSerializer.StoreToUri(scene, sceneUri);
             JsonObject json = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
             JsonObject brushJson = json["Objects"]![0]![nameof(RectShape.Fill)]!.AsObject();
-            brushJson[drawableIsUnreadable ? nameof(DrawableBrush.Drawable) : nameof(Brush.Transform)]!["$type"]
-                = "[Missing.Plugin]Missing.Namespace:MissingType";
+            if (drawableIsUnreadable)
+            {
+                AddUnreadableEasing<EllipseShape>(
+                    brushJson[nameof(DrawableBrush.Drawable)]!.AsObject(), nameof(EllipseShape.Width));
+            }
+            else
+            {
+                AddUnreadableEasing<TranslateTransform>(
+                    brushJson[nameof(Brush.Transform)]!.AsObject(), nameof(TranslateTransform.X));
+            }
+
             File.WriteAllText(elementPath, json.ToJsonString());
 
             Element recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single();
@@ -980,7 +1006,8 @@ public sealed class FallbackEditorPersistenceTests
     }
 
     // A replacement that itself holds what could not be loaded (a transform group with a child whose
-    // type is missing) never completes the repair, so it is refused instead of being lost on save.
+    // keyframe easing could not be read) never completes the repair, so it is refused instead of being lost
+    // on save.
     [AvaloniaTest]
     public async Task SetValue_RefusesAReplacementThatHoldsWhatCouldNotBeLoaded()
     {
@@ -998,19 +1025,20 @@ public sealed class FallbackEditorPersistenceTests
             scene.Children.Add(element);
             CoreSerializer.StoreToUri(scene, sceneUri);
             JsonObject json = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
-            json["Objects"]![0]![nameof(RectShape.Transform)]!["$type"] = "[Missing.Plugin]Missing.Namespace:MissingTransform";
+            AddUnreadableEasing<TranslateTransform>(
+                json["Objects"]![0]![nameof(RectShape.Transform)]!.AsObject(), nameof(TranslateTransform.X));
             File.WriteAllText(elementPath, json.ToJsonString());
 
             Element recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single();
             var recoveredShape = (RectShape)recovered.Objects.Single();
             Transform? unavailable = recoveredShape.Transform.CurrentValue;
-            Assert.That(unavailable, Is.InstanceOf<IFallback>());
+            Assert.That(recovered.SuppressedStorageSource, Is.Not.Null);
             using var context = new EditorTestContext(recovered);
             using var editor = new CoreObjectEditorViewModel<Transform>(new SimplePropertyAdapter<Transform>(
                 (SimpleProperty<Transform>)recoveredShape.Transform, recoveredShape));
             editor.Accept(new Visitor(recovered, context.History));
             var replacement = new TransformGroup();
-            replacement.Children.Add(new FallbackTransform());
+            replacement.Children.Add(CreateWithUnreadableEasing<TranslateTransform>(nameof(TranslateTransform.X)));
 
             editor.SetValue(unavailable, replacement);
             editor.SetValue(replacement);
@@ -1028,8 +1056,8 @@ public sealed class FallbackEditorPersistenceTests
         }
     }
 
-    // Pasting a brush over the unavailable one goes through the same replacement check: a pasted drawable
-    // brush whose transform cannot be loaded either would leave the element protected and be lost.
+    // Pasting a brush over the one that holds an easing that could not be read goes through the same replacement
+    // check: a pasted drawable brush whose transform holds one too would leave the element protected and be lost.
     [AvaloniaTest]
     public async Task BrushTryPasteJson_RefusesABrushThatCannotBeLoadedEither()
     {
@@ -1045,13 +1073,14 @@ public sealed class FallbackEditorPersistenceTests
             scene.Children.Add(element);
             CoreSerializer.StoreToUri(scene, sceneUri);
             JsonObject elementJson = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
-            elementJson[nameof(Element.Objects)]![0]![nameof(Shape.Fill)]!["$type"] = "[Beutl.Engine]Beutl.Media:DoesNotExist";
+            AddUnreadableEasing<SolidColorBrush>(
+                elementJson[nameof(Element.Objects)]![0]![nameof(Shape.Fill)]!.AsObject(), nameof(Brush.Opacity));
             File.WriteAllText(elementPath, elementJson.ToJsonString());
 
             Element recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single();
             var recoveredShape = (RectShape)recovered.Objects.Single();
             Brush? unavailable = recoveredShape.Fill.CurrentValue;
-            Assert.That(unavailable, Is.InstanceOf<IFallback>());
+            Assert.That(recovered.SuppressedStorageSource, Is.Not.Null);
             using var context = new EditorTestContext(recovered);
             using var viewModel = new BrushEditorViewModel(new SimplePropertyAdapter<Brush?>(
                 (SimpleProperty<Brush?>)recoveredShape.Fill, recoveredShape));
@@ -1061,7 +1090,7 @@ public sealed class FallbackEditorPersistenceTests
                 Drawable = { CurrentValue = new EllipseShape() },
                 Transform = { CurrentValue = new TranslateTransform() },
             });
-            pastedJson[nameof(Brush.Transform)]!["$type"] = "[Missing.Plugin]Missing.Namespace:MissingTransform";
+            AddUnreadableEasing<TranslateTransform>(pastedJson[nameof(Brush.Transform)]!.AsObject(), nameof(TranslateTransform.X));
 
             viewModel.TryPasteJson(pastedJson.ToJsonString());
 
@@ -1131,7 +1160,7 @@ public sealed class FallbackEditorPersistenceTests
         return animation;
     }
 
-    private static async Task AssertPresenterTargetClearResumesPersistence(PresenterKind kind, bool genericEditor = false)
+    private static async Task AssertPresenterTargetClearOverAFallbackIsSaved(PresenterKind kind, bool genericEditor = false)
     {
         await TestReset.ResetShellAsync();
 
@@ -1162,13 +1191,15 @@ public sealed class FallbackEditorPersistenceTests
                 PresenterKind.FilterEffect => "[Beutl.Engine]Beutl.Graphics.Effects:MissingFilterEffect",
                 _ => throw new ArgumentOutOfRangeException(nameof(kind)),
             };
-            File.WriteAllText(elementPath, elementJson.ToJsonString());
+            string originalJson = elementJson.ToJsonString();
+            File.WriteAllText(elementPath, originalJson);
             byte[] originalBytes = File.ReadAllBytes(elementPath);
 
             Scene recoveredScene = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
             Element recoveredElement = recoveredScene.Children.Single();
             var recoveredShape = (RectShape)recoveredElement.Objects.Single();
             Assert.That(GetPresenterTarget(recoveredShape, kind), Is.InstanceOf<IFallback>());
+            Assert.That(recoveredElement.SuppressedStorageSource, Is.Null);
             using var context = new EditorTestContext(recoveredElement);
             using BaseEditorViewModel viewModel = genericEditor
                 ? new CoreObjectEditorViewModel<Transform>(
@@ -1190,7 +1221,7 @@ public sealed class FallbackEditorPersistenceTests
                 Assert.That(repairedBytes, Is.Not.EqualTo(originalBytes));
                 Assert.That(undone, Is.True);
                 Assert.That(GetPresenterTarget(recoveredShape, kind), Is.InstanceOf<IFallback>());
-                Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(originalBytes));
+                Assert.That(HoldsWhatWasRead(elementPath, originalJson), Is.True);
             });
         }
         finally
@@ -1330,12 +1361,13 @@ public sealed class FallbackEditorPersistenceTests
         }
     }
 
-    private static void AssertPenRepairAndUndo(
+    private static void AssertPenReplacementAndUndo(
         Element recoveredElement,
         EditorValueHolder recoveredHolder,
         HistoryManager history,
         string elementPath,
-        byte[] originalBytes)
+        byte[] originalBytes,
+        string originalJson)
     {
         CoreSerializer.StoreToUri(recoveredElement, recoveredElement.Uri!);
         byte[] repairedBytes = File.ReadAllBytes(elementPath);
@@ -1347,7 +1379,7 @@ public sealed class FallbackEditorPersistenceTests
             Assert.That(repairedBytes, Is.Not.EqualTo(originalBytes));
             Assert.That(undone, Is.True);
             Assert.That(recoveredHolder.PenValue.CurrentValue!.Brush.CurrentValue, Is.InstanceOf<FallbackBrush>());
-            Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(originalBytes));
+            Assert.That(HoldsWhatWasRead(elementPath, originalJson), Is.True);
         });
     }
 
@@ -1382,6 +1414,41 @@ public sealed class FallbackEditorPersistenceTests
         scene.Children.Add(element);
         CoreSerializer.StoreToUri(scene, sceneUri);
         return (sceneUri, elementPath);
+    }
+
+    private const string MissingEasingType = "[Missing.Assembly]Missing.Namespace:MissingEasing";
+
+    // Gives the object that objectJson describes an animation of its float property propertyName whose keyframe
+    // easing type is missing. Recovery keeps the file of an element that holds one, so the tests of repairs use it
+    // now that an object whose type is missing no longer protects its element.
+    private static void AddUnreadableEasing<T>(JsonObject objectJson, string propertyName)
+        where T : EngineObject, new()
+    {
+        var obj = new T();
+        var animation = new KeyFrameAnimation<float>();
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 1 });
+        obj.Properties.Single(property => property.Name == propertyName).Animation = animation;
+        JsonObject animationJson = CoreSerializer.SerializeToJsonObject(obj)["Animations"]![propertyName]!
+            .DeepClone()
+            .AsObject();
+        animationJson[nameof(KeyFrameAnimation.KeyFrames)]![0]![nameof(KeyFrame.Easing)] = MissingEasingType;
+        objectJson["Animations"]![propertyName] = animationJson;
+    }
+
+    // A new T whose float property propertyName has a keyframe whose easing could not be read.
+    private static T CreateWithUnreadableEasing<T>(string propertyName)
+        where T : EngineObject, new()
+    {
+        JsonObject json = CoreSerializer.SerializeToJsonObject(new T());
+        AddUnreadableEasing<T>(json, propertyName);
+        return (T)CoreSerializer.DeserializeFromJsonObject(json, typeof(T));
+    }
+
+    // Whether the element file holds what it held when it was read: a fallback saves the JSON it was read from,
+    // and everything else is saved as it was loaded.
+    private static bool HoldsWhatWasRead(string elementPath, string originalJson)
+    {
+        return JsonNode.DeepEquals(JsonNode.Parse(File.ReadAllText(elementPath)), JsonNode.Parse(originalJson));
     }
 
     private static JsonObject? FindObjectWithProperty(JsonNode node, string propertyName)

@@ -2,6 +2,7 @@
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Sessions;
+using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.AgentToolkit.Tools;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
@@ -323,8 +324,7 @@ public sealed class FileEditingSessionTests
         session.Save(skipConflictCheck: true);
 
         JsonObject elementJson = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
-        elementJson[nameof(Element.Objects)]!.AsArray()[0]!.AsObject()["$type"]
-            = "[Beutl.Engine]Beutl.Graphics.Shapes:MissingShape";
+        UnreadableEasing.AddTo(elementJson[nameof(Element.Objects)]!.AsArray()[0]!.AsObject());
         File.WriteAllText(elementPath, elementJson.ToJsonString());
         byte[] malformedBytes = File.ReadAllBytes(elementPath);
         FileEditingSession recovered = source.OpenProject(projectPath);

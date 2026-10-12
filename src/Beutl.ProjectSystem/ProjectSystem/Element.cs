@@ -12,6 +12,9 @@ using Beutl.Serialization;
 
 namespace Beutl.ProjectSystem;
 
+// A Beutl 1.x element kept its operators and its node tree under these keys. The migration reads them, and a 2.x
+// element drops them rather than keeping them as unknown members.
+[DroppedMembers("Operation", "UseNode", "NodeTree")]
 public class Element : Hierarchical, INotifyEdited
 {
     public static readonly CoreProperty<TimeSpan> StartProperty;
@@ -128,10 +131,12 @@ public class Element : Hierarchical, INotifyEdited
         set => SetAndRaise(IsLockedProperty, ref _isLocked, value);
     }
 
-    // True while recovery keeps this element's original file because part of it could not be
-    // loaded, usually a type from a plugin that is not installed. Saving leaves that file as it
-    // is, so the editor treats the element as read-only, except for removing the element or the
-    // content that could not be loaded. A completed repair clears it; undoing the repair sets it again.
+    // True while recovery keeps this element's original file because saving would lose part of
+    // what it was read with, for example a keyframe easing from a plugin that is not installed (an
+    // object whose type is missing does not count: its fallback saves the JSON it was read from).
+    // Saving leaves that file as it is, so the editor treats the element as read-only, except for
+    // removing the element or the content that could not be loaded. A completed repair clears it;
+    // undoing the repair sets it again.
     internal bool IsRecoveryProtected => SuppressedStorageSource is not null;
 
     // Raised after IsRecoveryProtected changes.

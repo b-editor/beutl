@@ -1,4 +1,5 @@
-﻿using Beutl.Editor;
+﻿using System.Text.Json.Nodes;
+using Beutl.Editor;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.ProjectSystem;
@@ -43,6 +44,10 @@ public class ElementObjectServiceTests
 
     [SuppressResourceClassGeneration]
     private sealed class TestEngineObject : EngineObject;
+
+    // A fallback that makes recovery keep its element's file: the one that stands in for a Beutl 1.x node tree.
+    // A fallback for a missing type does not, since it saves the JSON it was read from.
+    private static FallbackEngineObject CreateBlocker() => RecoveryBlockers.CreateUnmigratedObject();
 
     [SuppressResourceClassGeneration]
     private sealed class FallbackContainer : EngineObject
@@ -130,7 +135,7 @@ public class ElementObjectServiceTests
     [Test]
     public void Remove_LastFallback_ClearsPersistenceSuppression()
     {
-        var fallback = new FallbackEngineObject();
+        var fallback = CreateBlocker();
         _service.Add(_element, fallback);
         var suppression = new SuppressedStorageSource([], _element.Uri!);
         _element.SuppressedStorageSource = suppression;
@@ -148,7 +153,7 @@ public class ElementObjectServiceTests
     [Test]
     public void Remove_LastFallback_UndoRestoresPersistenceSuppressionAndPreservesSidecar()
     {
-        var fallback = new FallbackEngineObject();
+        var fallback = CreateBlocker();
         _service.Add(_element, fallback);
         byte[] originalBytes = "{ preserved fallback bytes"u8.ToArray();
         File.WriteAllBytes(_element.Uri!.LocalPath, originalBytes);
@@ -174,7 +179,7 @@ public class ElementObjectServiceTests
     {
         var container = new FallbackContainer
         {
-            Child = { CurrentValue = new FallbackEngineObject() },
+            Child = { CurrentValue = CreateBlocker() },
         };
         var other = new TestEngineObject();
         _service.Add(_element, container);
@@ -204,7 +209,7 @@ public class ElementObjectServiceTests
     [Test]
     public void Remove_LastFallbackAfterRehome_UndoRestoresRehomedSidecar()
     {
-        var fallback = new FallbackEngineObject();
+        var fallback = CreateBlocker();
         _service.Add(_element, fallback);
         byte[] originalBytes = "{ preserved fallback bytes"u8.ToArray();
         File.WriteAllBytes(_element.Uri!.LocalPath, originalBytes);
@@ -233,7 +238,7 @@ public class ElementObjectServiceTests
     [Test]
     public void Remove_LastFallback_UndoRecreatesDeletedSidecarAndDirectory()
     {
-        var fallback = new FallbackEngineObject();
+        var fallback = CreateBlocker();
         _service.Add(_element, fallback);
         byte[] originalBytes = "{ preserved fallback bytes"u8.ToArray();
         File.WriteAllBytes(_element.Uri!.LocalPath, originalBytes);
@@ -259,8 +264,8 @@ public class ElementObjectServiceTests
     [Test]
     public void Remove_WhenAnotherFallbackRemains_KeepsPersistenceSuppression()
     {
-        var first = new FallbackEngineObject();
-        var second = new FallbackEngineObject();
+        var first = CreateBlocker();
+        var second = CreateBlocker();
         _service.Add(_element, first);
         _service.Add(_element, second);
         var suppression = new SuppressedStorageSource([], _element.Uri!);
@@ -364,7 +369,7 @@ public class ElementObjectServiceTests
     [Test]
     public void PasteOver_LastFallback_ClearsPersistenceSuppression()
     {
-        _service.Add(_element, new FallbackEngineObject());
+        _service.Add(_element, CreateBlocker());
         _element.SuppressedStorageSource = new SuppressedStorageSource([], _element.Uri!);
         string json = CoreSerializer.SerializeToJsonString(new TestEngineObject());
 
@@ -380,7 +385,7 @@ public class ElementObjectServiceTests
     [Test]
     public void PasteOver_LastFallback_UndoRestoresPersistenceSuppressionAndPreservesSidecar()
     {
-        var fallback = new FallbackEngineObject();
+        var fallback = CreateBlocker();
         _service.Add(_element, fallback);
         byte[] originalBytes = "{ preserved fallback bytes"u8.ToArray();
         File.WriteAllBytes(_element.Uri!.LocalPath, originalBytes);
@@ -407,7 +412,7 @@ public class ElementObjectServiceTests
     {
         var container = new FallbackContainer
         {
-            Child = { CurrentValue = new FallbackEngineObject() },
+            Child = { CurrentValue = CreateBlocker() },
         };
         var other = new TestEngineObject();
         _service.Add(_element, container);
@@ -438,7 +443,7 @@ public class ElementObjectServiceTests
     [Test]
     public void PasteOver_StaleNonFallbackIncidentFlagWithoutLiveMarker_ResumesPersistence()
     {
-        _service.Add(_element, new FallbackEngineObject());
+        _service.Add(_element, CreateBlocker());
         byte[] originalBytes = "{ preserved lossy bytes"u8.ToArray();
         File.WriteAllBytes(_element.Uri!.LocalPath, originalBytes);
         var suppression = new SuppressedStorageSource(originalBytes, _element.Uri, true);
@@ -459,8 +464,8 @@ public class ElementObjectServiceTests
     [Test]
     public void PasteOver_WhenAnotherFallbackRemains_KeepsPersistenceSuppression()
     {
-        _service.Add(_element, new FallbackEngineObject());
-        _service.Add(_element, new FallbackEngineObject());
+        _service.Add(_element, CreateBlocker());
+        _service.Add(_element, CreateBlocker());
         var suppression = new SuppressedStorageSource([], _element.Uri!);
         _element.SuppressedStorageSource = suppression;
         string json = CoreSerializer.SerializeToJsonString(new TestEngineObject());
@@ -471,6 +476,32 @@ public class ElementObjectServiceTests
         {
             Assert.That(outcome, Is.EqualTo(ObjectPasteOutcome.Pasted));
             Assert.That(_element.SuppressedStorageSource, Is.SameAs(suppression));
+        });
+    }
+
+    // A fallback saves the JSON it was read from, so turning it off would be lost on save. Its element stays
+    // editable, so the other object can still be turned off.
+    [Test]
+    public void SetEnabled_OnAFallback_IsRefusedWhileItsElementStaysEditable()
+    {
+        var fallback = (FallbackEngineObject)CoreSerializer.DeserializeFromJsonObject(
+            new JsonObject { ["$type"] = "[Missing.Plugin]Missing.Namespace:MissingObject" },
+            typeof(EngineObject));
+        var other = new TestEngineObject();
+        _service.Add(_element, fallback);
+        _service.Add(_element, other);
+        int before = _history.UndoCount;
+
+        bool toggledFallback = _service.SetEnabled(fallback, false);
+        bool toggledOther = _service.SetEnabled(other, false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(toggledFallback, Is.False);
+            Assert.That(fallback.IsEnabled, Is.True);
+            Assert.That(toggledOther, Is.True);
+            Assert.That(other.IsEnabled, Is.False);
+            Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
     }
 

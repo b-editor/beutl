@@ -1,5 +1,6 @@
 ﻿using System.Collections.Frozen;
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 using System.Text.Json.Nodes;
 using Beutl.Audio;
 using Beutl.Engine;
@@ -40,6 +41,9 @@ internal static class ElementMigration
         new KeyValuePair<string, Type>("[Beutl.Operators].Source:PointLight3DOperator", typeof(PointLight3D)),
         new KeyValuePair<string, Type>("[Beutl.Operators].Source:SpotLight3DOperator", typeof(SpotLight3D)));
 
+    private static readonly ConditionalWeakTable<FallbackEngineObject, object> s_unmigratedOperators = new();
+    private static readonly object s_unmigratedOperator = new();
+
     // The type Beutl 1.x wrote for an element's node tree. Nothing in 2.x provides it.
     internal const string LegacyNodeTreeTypeName = "[Beutl.ProjectSystem]Beutl.NodeTree:ElementNodeTreeModel";
 
@@ -72,6 +76,16 @@ internal static class ElementMigration
         return obj is FallbackEngineObject fallback
                && fallback.TryGetTypeName(out string? typeName)
                && typeName == LegacyNodeTreeTypeName;
+    }
+
+    // The objects that stand in for 1.x content this migration could not convert: a node tree, or an operator
+    // it does not know or could not read. They keep only part of what 1.x wrote (an operator keeps its Value,
+    // not the operator around it), so recovery keeps the element's original file while it holds one, and
+    // removing the object is the explicit way to drop that content.
+    internal static bool IsUnmigratedContent(EngineObject obj)
+    {
+        return IsUnmigratedNodeTree(obj)
+               || (obj is FallbackEngineObject fallback && s_unmigratedOperators.TryGetValue(fallback, out _));
     }
 
     internal static bool TryMigrateFromOperation(
@@ -132,9 +146,11 @@ internal static class ElementMigration
                 if (operatorType != null
                     && s_typeMap.TryGetValue(operatorType, out Type? targetType))
                 {
+                    // 2.x does not read the runtime state and the values 1.x kept for itself, so they are dropped
+                    // rather than kept as unknown members.
                     return (EngineObject)CoreSerializer.DeserializeFromJsonObject(
                         valueObj, targetType,
-                        new CoreSerializerOptions { BaseUri = jsonContext.BaseUri });
+                        new CoreSerializerOptions { BaseUri = jsonContext.BaseUri, KeepUnknownMembers = false });
                 }
 
                 throw new InvalidOperationException("Unknown type");
@@ -146,6 +162,7 @@ internal static class ElementMigration
                 dummy.Json = valueObj.DeepClone().AsObject();
                 dummy.Reason = FallbackReason.DeserializationFailed;
                 dummy.ErrorMessage = ex.Message;
+                s_unmigratedOperators.AddOrUpdate(dummy, s_unmigratedOperator);
                 return dummy;
             }
         }
@@ -153,6 +170,7 @@ internal static class ElementMigration
         // 不明なOperator: FallbackEngineObjectにJSON保存
         var fallback = new FallbackEngineObject();
         fallback.Json = operatorObj.DeepClone().AsObject();
+        s_unmigratedOperators.AddOrUpdate(fallback, s_unmigratedOperator);
         return fallback;
     }
 }

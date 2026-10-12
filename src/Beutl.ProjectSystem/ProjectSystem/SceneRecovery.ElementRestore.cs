@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System.Runtime.CompilerServices;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Beutl.Animation;
@@ -35,52 +36,99 @@ internal sealed partial class SceneRecovery
         ReferencedStorageCapture storageCapture)
     {
         IFallback[] fallbacks = EnumerateSerializedGraphFallbacks(element).ToArray();
-        int incidentCount = incidentCapture.Count;
-
-        if (fallbacks.Length > 0 || incidentCount > 0)
+        IReadOnlyList<DeserializationIncidents.DeserializationIncident> incidents = incidentCapture.Incidents;
+        if (fallbacks.Length == 0 && incidents.Count == 0)
         {
-            var traversedFallbacks = new HashSet<IFallback>(
-                fallbacks,
-                ReferenceEqualityComparer.Instance);
-            DeserializationIncidents.DeserializationIncident[] untraversedIncidents
-                = incidentCapture.Incidents
-                    .Where(incident => incident.Fallback is null
-                                       || !traversedFallbacks.Contains(incident.Fallback))
-                    .ToArray();
-            JsonObject[] untraversedFallbacks = untraversedIncidents
-                .Where(static incident => incident.Fallback?.Json != null)
-                .Select(static incident => incident.Fallback!.Json!.DeepClone().AsObject())
-                .ToArray();
-            SuppressedRecoveryIncident[] recoveryIncidents = untraversedIncidents
-                .Select(CreateSuppressedRecoveryIncident)
-                .ToArray();
+            return;
+        }
+
+        if (!KeepsOriginalFile(element, incidents))
+        {
+            // Saving writes every fallback's JSON back, so the element saves normally and stays editable.
             foreach (IFallback fallback in fallbacks)
             {
-                if (fallback is CoreObject fallbackObject)
-                {
-                    if (RecoveredElementJsonScanner.TryGetSerializedId(fallback.Json, out Guid serializedId))
-                    {
-                        fallbackObject.Id = serializedId;
-                    }
-                    else
-                    {
-                        _idlessRecoveredDescendants.GetValue(
-                            fallbackObject,
-                            static _ => new IdlessRecoveredDescendant());
-                    }
-                }
-
-                EnsureFallbackProjection(fallback);
+                GiveIdlessFallbackItsRuntimeId(fallback);
             }
 
-            MarkRecoveredElement(
-                element,
-                File.ReadAllBytes(uri.LocalPath),
-                uri,
-                recoveryIncidents.Length > 0,
-                untraversedFallbacks,
-                recoveryIncidents,
-                storageCapture.Sources);
+            return;
+        }
+
+        var traversedFallbacks = new HashSet<IFallback>(
+            fallbacks,
+            ReferenceEqualityComparer.Instance);
+        SuppressedRecoveryIncident[] recoveryIncidents = incidents
+            .Where(incident => incident.Fallback is null
+                               || !traversedFallbacks.Contains(incident.Fallback))
+            .Select(CreateSuppressedRecoveryIncident)
+            .ToArray();
+        foreach (IFallback fallback in fallbacks)
+        {
+            if (fallback is CoreObject fallbackObject)
+            {
+                if (RecoveredElementJsonScanner.TryGetSerializedId(fallback.Json, out Guid serializedId))
+                {
+                    fallbackObject.Id = serializedId;
+                }
+                else
+                {
+                    _idlessRecoveredDescendants.GetValue(
+                        fallbackObject,
+                        static _ => new IdlessRecoveredDescendant());
+                }
+            }
+
+            EnsureFallbackProjection(fallback);
+        }
+
+        MarkRecoveredElement(
+            element,
+            File.ReadAllBytes(uri.LocalPath),
+            uri,
+            recoveryIncidents.Length > 0,
+            recoveryIncidents,
+            storageCapture.Sources);
+    }
+
+    // Whether saving the element would lose part of what it was read with, so that recovery must keep its
+    // original file: content the Beutl 1.x migration could not convert, a load incident that left no fallback
+    // (such as a keyframe easing that could not be read), or a fallback that saving the element does not
+    // write. A fallback that saving writes is no reason: it writes the JSON it was read from back, so the
+    // object whose type could not be loaded survives the save as it was.
+    private static bool KeepsOriginalFile(
+        Element element,
+        IReadOnlyList<DeserializationIncidents.DeserializationIncident> incidents)
+    {
+        if (element.Objects.Any(ElementMigration.IsUnmigratedContent)
+            || incidents.Any(static incident => incident.Fallback is null))
+        {
+            return true;
+        }
+
+        if (incidents.Count == 0)
+        {
+            return false;
+        }
+
+        using var serialized = new SerializedObjectCapture();
+        CoreSerializer.SerializeToJsonObject(
+            element,
+            new CoreSerializerOptions
+            {
+                BaseUri = element.Uri,
+                Mode = CoreSerializationMode.ReadWrite | CoreSerializationMode.EmbedReferencedObjects,
+            });
+        return incidents.Any(incident => !serialized.Contains(incident.Fallback!));
+    }
+
+    // A fallback whose JSON has no Id gets the one it has at runtime written into its JSON, so that it keeps one
+    // identity across saves and an agent edit can match it. Nothing else in its JSON changes.
+    private static void GiveIdlessFallbackItsRuntimeId(IFallback fallback)
+    {
+        if (fallback is CoreObject coreObject
+            && fallback.Json is { } json
+            && !json.ContainsKey(nameof(CoreObject.Id)))
+        {
+            json[nameof(CoreObject.Id)] = coreObject.Id.ToString();
         }
     }
 
@@ -114,6 +162,7 @@ internal sealed partial class SceneRecovery
                 : null,
         };
         fallback.Json = CreateFallbackProjection(fallback, topLevelTypeName);
+        s_unreadableElementData.AddOrUpdate(fallback, s_unreadableElementDataMarker);
         element.AddObject(fallback);
         _idlessRecoveredDescendants.GetValue(
             fallback,
@@ -124,12 +173,16 @@ internal sealed partial class SceneRecovery
 
     private sealed class IdlessRecoveredDescendant;
 
+    // The objects that stand in for an element file that could not be read. Unlike other fallbacks, they hold
+    // none of the file's content, so removing one is the repair that accepts losing that content.
+    private static readonly ConditionalWeakTable<FallbackEngineObject, object> s_unreadableElementData = new();
+    private static readonly object s_unreadableElementDataMarker = new();
+
     private void MarkRecoveredElement(
         Element element,
         byte[] rawBytes,
         Uri uri,
         bool hasNonFallbackIncidents = false,
-        JsonObject[]? untraversedFallbacks = null,
         SuppressedRecoveryIncident[]? recoveryIncidents = null,
         IReadOnlyList<Uri>? referencedSources = null)
     {
@@ -139,7 +192,6 @@ internal sealed partial class SceneRecovery
             rawBytes,
             uri,
             hasNonFallbackIncidents,
-            untraversedFallbacks,
             CollectReferencedStorageSources(element, uri, sourceRootPath, referencedSources ?? []),
             sourceRootPath,
             recoveryIncidents);
@@ -216,7 +268,7 @@ internal sealed partial class SceneRecovery
     internal static SuppressedStorageSource? TryResumeElementPersistence(Element element)
     {
         if (element.SuppressedStorageSource is not { } source
-            || HasUnresolvedRecoveryBlocker(element, source))
+            || HoldsUnresolvedRecoveryBlocker(element))
         {
             return null;
         }
@@ -229,34 +281,41 @@ internal sealed partial class SceneRecovery
     // TryResumeElementPersistence. False for an element recovery does not protect.
     internal static bool HasUnresolvedRecoveryBlocker(Element element)
     {
-        return element.SuppressedStorageSource is { } source
-               && HasUnresolvedRecoveryBlocker(element, source);
+        return element.SuppressedStorageSource is not null
+               && HoldsUnresolvedRecoveryBlocker(element);
     }
 
     // Whether content (an element, one of its objects, or a value or animation inside one) holds
-    // what could not be loaded: an object whose type was missing or whose data could not be read,
-    // or a keyframe whose easing could not be read. Content nested where the serialized graph does
-    // not reach (for example inside a record) is not found.
+    // what recovery keeps the element's original file for: content the Beutl 1.x migration could not
+    // convert, the stand-in for an element file that could not be read, or a keyframe whose easing could
+    // not be read. A fallback for an object whose type could not be loaded is not one: saving writes its
+    // JSON back. Content nested where the serialized graph does not reach (for example inside a record) is
+    // not found.
     internal static bool HoldsRecoveryBlocker(object? content)
     {
         return SerializedGraphTraversal.Visit(
             content,
             "$",
-            static (value, _) => value is IFallback or KeyFrame { HasLossyEasing: true });
+            static (value, _) => value is KeyFrame { HasLossyEasing: true }
+                                 || (value is EngineObject obj && IsRecoveryBlockerObject(obj)));
     }
 
-    private static bool HasUnresolvedRecoveryBlocker(Element element, SuppressedStorageSource source)
+    private static bool IsRecoveryBlockerObject(EngineObject obj)
+    {
+        return ElementMigration.IsUnmigratedContent(obj)
+               || (obj is FallbackEngineObject fallback && s_unreadableElementData.TryGetValue(fallback, out _));
+    }
+
+    private static bool HoldsUnresolvedRecoveryBlocker(Element element)
     {
         return HoldsRecoveryBlocker(element)
-               || HasUnresolvedSerializedRecoveryBlocker(element, source);
+               || HasUnresolvedSerializedRecoveryBlocker(element);
     }
 
-    private static bool HasUnresolvedSerializedRecoveryBlocker(
-        Element element,
-        SuppressedStorageSource source)
+    // Finds the easings that could not be read where the serialized graph does not reach.
+    private static bool HasUnresolvedSerializedRecoveryBlocker(Element element)
     {
         using var capture = new LossyEasingSerializationCapture();
-        using var objects = new SerializedObjectCapture();
         CoreSerializer.SerializeToJsonObject(
             element,
             new CoreSerializerOptions
@@ -264,29 +323,7 @@ internal sealed partial class SceneRecovery
                 BaseUri = element.Uri,
                 Mode = CoreSerializationMode.ReadWrite | CoreSerializationMode.EmbedReferencedObjects,
             });
-        if (capture.HasLossyEasing || objects.HasFallback) return true;
-        if (source.UntraversedFallbacks is not { Length: > 0 } snapshots) return false;
-        // Keep the original representation for fallback snapshot matching; embedding adds URI metadata.
-        JsonObject current = CoreSerializer.SerializeToJsonObject(
-            element, new CoreSerializerOptions { BaseUri = element.Uri });
-        return snapshots.Any(snapshot => ContainsEquivalentJsonNode(current, snapshot));
-    }
-
-    private static bool ContainsEquivalentJsonNode(JsonNode? current, JsonNode snapshot)
-    {
-        if (JsonNode.DeepEquals(current, snapshot))
-        {
-            return true;
-        }
-
-        return current switch
-        {
-            JsonObject obj => obj.Any(item =>
-                item.Value != null && ContainsEquivalentJsonNode(item.Value, snapshot)),
-            JsonArray array => array.Any(item =>
-                item != null && ContainsEquivalentJsonNode(item, snapshot)),
-            _ => false,
-        };
+        return capture.HasLossyEasing;
     }
 
     private static void EnsureFallbackProjection(IFallback fallback)

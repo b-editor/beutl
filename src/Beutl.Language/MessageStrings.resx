@@ -509,4 +509,13 @@ Do you want to restart the application?</value>
   <data name="UnmigratedNodeTreeMessage" xml:space="preserve">
     <value>The node trees of these elements were made in Beutl 1.x and were not migrated, so they are not drawn: {0}. Their files are kept unchanged until you remove the object that holds the node tree. Saving converts the rest of the project, after which Beutl 1.x cannot open it. Edits and closing the project also save it, so keep a copy of the project now if you still need it in Beutl 1.x.</value>
   </data>
+  <data name="KeptUnknownDataTitle" xml:space="preserve">
+    <value>Some data is kept but not shown</value>
+  </data>
+  <data name="KeptUnknownDataMessage" xml:space="preserve">
+    <value>This project contains data from a newer version of Beutl or from an extension that is not installed. Beutl keeps that data when it saves the project, but does not show or use it.</value>
+  </data>
+  <data name="KeptUnknownDataSavedByMessage" xml:space="preserve">
+    <value>This project was last saved with Beutl {0} and contains data from a newer version of Beutl or from an extension that is not installed. Beutl keeps that data when it saves the project, but does not show or use it.</value>
+  </data>
 </root>

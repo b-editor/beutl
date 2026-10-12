@@ -29,6 +29,11 @@ public class EngineObject : Hierarchical, INotifyEdited
     private IDisposable? _timeAnchorSubscription;
     private readonly List<IProperty> _properties = new();
     private List<IProperty>? _displayProperties;
+    // The entries of Animations and Expressions for properties this type does not have, kept as unknown members
+    // are (see CoreObject.UnknownMembers), so the animation or expression a newer version gave a new property
+    // survives an older version too.
+    private JsonObject? _unknownAnimations;
+    private JsonObject? _unknownExpressions;
 
     public event EventHandler? Edited;
 
@@ -177,6 +182,47 @@ public class EngineObject : Hierarchical, INotifyEdited
                 property.DeserializeExpression(expressionNode);
             }
         }
+
+        // A fallback keeps its whole JSON already.
+        if (this is not IFallback && context is JsonSerializationContext { KeepsUnknownMembers: true } jsonContext)
+        {
+            KeepUnknownEntries(jsonContext, "Animations", ref _unknownAnimations);
+            KeepUnknownEntries(jsonContext, "Expressions", ref _unknownExpressions);
+        }
+    }
+
+    // Keeps the entries of the name member that belong to no property of this object. Like unknown members,
+    // entries read again replace the ones kept before, and a populate without the member keeps them.
+    private void KeepUnknownEntries(JsonSerializationContext context, string name, ref JsonObject? kept)
+    {
+        if (context.GetNode(name) is not JsonObject entries) return;
+
+        foreach ((string key, JsonNode? node) in entries)
+        {
+            if (_properties.Exists(property => property.Name == key)) continue;
+
+            (kept ??= [])[key] = node?.DeepClone();
+            RootFileVersions.RecordKeptUnknownData();
+        }
+    }
+
+    // Writes the entries KeepUnknownEntries kept back into the name member, after this object's own entries.
+    private static void WriteUnknownEntries(ICoreSerializationContext context, string name, JsonObject? kept)
+    {
+        if (kept is null
+            || context is not JsonSerializationContext { KeepsUnknownMembers: true } jsonContext
+            || jsonContext.GetNode(name) is not JsonObject entries)
+        {
+            return;
+        }
+
+        foreach ((string key, JsonNode? node) in kept)
+        {
+            if (!entries.ContainsKey(key))
+            {
+                entries[key] = node?.DeepClone();
+            }
+        }
     }
 
     public override void Serialize(ICoreSerializationContext context)
@@ -196,6 +242,7 @@ public class EngineObject : Hierarchical, INotifyEdited
             .ToDictionary(p => p.Name, p => p.Animation!);
 
         context.SetValue("Animations", animations);
+        WriteUnknownEntries(context, "Animations", _unknownAnimations);
 
         Dictionary<string, JsonNode> expressions = serialized
             .Select(p => (Name: p.Name, Node: p.SerializeExpression()))
@@ -203,6 +250,7 @@ public class EngineObject : Hierarchical, INotifyEdited
             .ToDictionary(p => p.Name, p => p.Node!);
 
         context.SetValue("Expressions", expressions);
+        WriteUnknownEntries(context, "Expressions", _unknownExpressions);
 
         foreach (IProperty property in serialized)
         {

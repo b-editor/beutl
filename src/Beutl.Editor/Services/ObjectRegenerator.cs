@@ -17,18 +17,21 @@ public static class ObjectRegenerator
     {
         var searcher = new ObjectSearcher(obj, v => v is ICoreObject);
 
-        Guid[] ids = searcher.SearchAll()
-            .Cast<ICoreObject>()
-            .Select(v => v.Id)
-            .Distinct()
-            .ToArray();
-
         // ICoreObjects with a Uri serialize as a file reference by default, hiding their
         // inner Ids from the JSON. Embed them so GuidToUtf8 can rewrite every Id.
         var jsonObject = CoreSerializer.SerializeToJsonObject(obj, new CoreSerializerOptions
         {
             Mode = CoreSerializationMode.EmbedReferencedObjects
         });
+
+        // A fallback and an object's unknown members keep objects as JSON that no object in the graph
+        // stands for, so their Ids are read from the JSON: the copy must not share them with the original.
+        Guid[] ids = searcher.SearchAll()
+            .Cast<ICoreObject>()
+            .Select(v => v.Id)
+            .Concat(CollectSerializedIds(jsonObject))
+            .Distinct()
+            .ToArray();
 
         // UTF-8に書き込む
         JsonSerializerOptions options = JsonHelper.SerializerOptions;
@@ -70,6 +73,41 @@ public static class ObjectRegenerator
     {
         foreach (object node in new ObjectSearcher(copy, static v => v is GenerativeNode).SearchAll())
             ((GenerativeNode)node).RenewRequestKey();
+    }
+
+    // The Ids of every object serialized in node, found under the "Id" key that CoreObject writes them to.
+    private static IEnumerable<Guid> CollectSerializedIds(JsonNode? node)
+    {
+        switch (node)
+        {
+            case JsonObject obj:
+                foreach ((string key, JsonNode? child) in obj)
+                {
+                    if (key == nameof(ICoreObject.Id)
+                        && child is JsonValue value
+                        && value.TryGetValue(out string? text)
+                        && Guid.TryParse(text, out Guid id)
+                        && id != Guid.Empty)
+                    {
+                        yield return id;
+                    }
+                    else
+                    {
+                        foreach (Guid nested in CollectSerializedIds(child))
+                            yield return nested;
+                    }
+                }
+
+                break;
+            case JsonArray array:
+                foreach (JsonNode? item in array)
+                {
+                    foreach (Guid nested in CollectSerializedIds(item))
+                        yield return nested;
+                }
+
+                break;
+        }
     }
 
     private static Span<byte> GetWrittenSpan(PooledArrayBufferWriter<byte> output)

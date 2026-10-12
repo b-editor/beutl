@@ -72,7 +72,8 @@ public sealed class AudioEffectEditorViewModel : ValueEditorViewModel<AudioEffec
             {
                 if (Value.Value is { } effect && effect.IsEnabled != v)
                 {
-                    if (!IsElementEditable)
+                    // A fallback saves the JSON it was read from, so the change would be lost.
+                    if (!IsElementEditable || effect is IFallback)
                     {
                         IsEnabled.Value = effect.IsEnabled;
                         return;
