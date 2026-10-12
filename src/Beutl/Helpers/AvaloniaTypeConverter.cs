@@ -275,8 +275,7 @@ public static partial class AvaloniaTypeConverter
                         (o, rc) => o.ToResource(rc),
                         r =>
                         {
-                            handler ??= new DrawableImageBrushHandler(
-                                r, imageBrush, RenderThread.Dispatcher, ownsResource: false);
+                            handler ??= new DrawableImageBrushHandler(r, imageBrush, RenderThread.Dispatcher);
                             handler.Update();
                         });
 

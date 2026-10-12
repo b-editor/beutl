@@ -8,13 +8,12 @@ using Avalonia.VisualTree;
 using Beutl.Animation.Easings;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor;
-using Beutl.Editor.Observers;
 using Beutl.Engine;
-using Beutl.Extensibility;
 using Beutl.PropertyAdapters;
 using Beutl.Services;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels.Editors;
+using static Beutl.HeadlessUITests.PropertyEditorTestHost;
 
 namespace Beutl.HeadlessUITests;
 
@@ -102,12 +101,9 @@ public sealed class EasingEditorTests
     {
         var holder = new EasingHolder();
         Easing original = holder.Curve.CurrentValue;
-        var (vm, control) = CreateControl(new EnginePropertyAdapter<Easing>(holder.Curve, holder));
-        using var _ = vm;
-        using var history = new HistoryScope(holder);
-        vm.Accept(new Services(history.History));
-        var editor = (EasingEditor)control;
-        var window = new Window { Content = editor, Width = 480, Height = 320 };
+        using var scope = new CurveEditorScope(holder, holder.Curve, height: 320);
+        EasingEditor editor = scope.Editor;
+        Window window = scope.Window;
         try
         {
             window.Show();
@@ -124,20 +120,20 @@ public sealed class EasingEditorTests
                 Assert.That(holder.Curve.CurrentValue, Is.TypeOf<BackEaseOut>());
                 Assert.That(holder.Curve.CurrentValue, Is.Not.SameAs(back.Preview),
                     "The item preview must not be shared with the property.");
-                Assert.That(history.History.UndoCount, Is.EqualTo(1));
+                Assert.That(scope.History.UndoCount, Is.EqualTo(1));
             });
 
-            Assert.That(history.History.Undo(), Is.True);
+            Assert.That(scope.History.Undo(), Is.True);
             HeadlessTestHelpers.Settle();
             Assert.Multiple(() =>
             {
                 Assert.That(holder.Curve.CurrentValue, Is.SameAs(original));
                 Assert.That(SelectedType(comboBox), Is.EqualTo(typeof(LinearEasing)));
-                Assert.That(history.History.UndoCount, Is.EqualTo(0), "Following an undo must not record an edit.");
-                Assert.That(history.History.RedoCount, Is.EqualTo(1));
+                Assert.That(scope.History.UndoCount, Is.EqualTo(0), "Following an undo must not record an edit.");
+                Assert.That(scope.History.RedoCount, Is.EqualTo(1));
             });
 
-            Assert.That(history.History.Redo(), Is.True);
+            Assert.That(scope.History.Redo(), Is.True);
             HeadlessTestHelpers.Settle();
             Assert.That(SelectedType(comboBox), Is.EqualTo(typeof(BackEaseOut)));
         }
@@ -153,18 +149,15 @@ public sealed class EasingEditorTests
         var holder = new EasingHolder();
         var original = new SplineEasing(0.25f, 0.1f, 0.25f, 1f);
         holder.Curve.CurrentValue = original;
-        var (vm, control) = CreateControl(new EnginePropertyAdapter<Easing>(holder.Curve, holder));
-        using var _ = vm;
-        using var history = new HistoryScope(holder);
-        vm.Accept(new Services(history.History));
-        var editor = (EasingEditor)control;
-        var window = new Window { Content = editor, Width = 480, Height = 400 };
+        using var scope = new CurveEditorScope(holder, holder.Curve, height: 400);
+        EasingEditor editor = scope.Editor;
+        Window window = scope.Window;
         try
         {
             window.Show();
             EasingCurveEditor curve = editor.GetVisualDescendants().OfType<EasingCurveEditor>().Single();
             Point start = ToWindow(window, curve, 0.25, 0.1);
-            WaitForHitTest(window, curve, start);
+            TimelineTestHost.WaitForHitTest(window, curve, start);
 
             window.MouseMove(start);
             window.MouseDown(start, MouseButton.Left);
@@ -192,10 +185,10 @@ public sealed class EasingEditorTests
                 Assert.That(edited.Y1, Is.EqualTo(0.6).Within(0.01));
                 Assert.That(edited.X2, Is.EqualTo(0.25f));
                 Assert.That(edited.Y2, Is.EqualTo(1f));
-                Assert.That(history.History.UndoCount, Is.EqualTo(1));
+                Assert.That(scope.History.UndoCount, Is.EqualTo(1));
             });
 
-            Assert.That(history.History.Undo(), Is.True);
+            Assert.That(scope.History.Undo(), Is.True);
             HeadlessTestHelpers.Settle();
             Assert.Multiple(() =>
             {
@@ -203,7 +196,7 @@ public sealed class EasingEditorTests
                 Assert.That(curve.Easing, Is.SameAs(original));
                 Assert.That(original.X1, Is.EqualTo(0.25f));
             });
-            Assert.That(history.History.Redo(), Is.True);
+            Assert.That(scope.History.Redo(), Is.True);
             Assert.That(holder.Curve.CurrentValue, Is.SameAs(edited));
         }
         finally
@@ -217,18 +210,15 @@ public sealed class EasingEditorTests
     {
         var holder = new EasingHolder();
         Easing original = holder.Bounded.CurrentValue;
-        var (vm, control) = CreateControl(new EnginePropertyAdapter<Easing>(holder.Bounded, holder));
-        using var _ = vm;
-        using var history = new HistoryScope(holder);
-        vm.Accept(new Services(history.History));
-        var editor = (EasingEditor)control;
-        var window = new Window { Content = editor, Width = 480, Height = 400 };
+        using var scope = new CurveEditorScope(holder, holder.Bounded, height: 400);
+        EasingEditor editor = scope.Editor;
+        Window window = scope.Window;
         try
         {
             window.Show();
             EasingCurveEditor curve = editor.GetVisualDescendants().OfType<EasingCurveEditor>().Single();
             Point start = ToWindow(window, curve, 0.25, 0.1);
-            WaitForHitTest(window, curve, start);
+            TimelineTestHost.WaitForHitTest(window, curve, start);
 
             window.MouseMove(start);
             window.MouseDown(start, MouseButton.Left);
@@ -249,7 +239,7 @@ public sealed class EasingEditorTests
             {
                 Assert.That(((SplineEasing)holder.Bounded.CurrentValue).Y1, Is.EqualTo(0.6).Within(0.01));
                 Assert.That(curve.Easing, Is.SameAs(holder.Bounded.CurrentValue));
-                Assert.That(history.History.UndoCount, Is.EqualTo(1));
+                Assert.That(scope.History.UndoCount, Is.EqualTo(1));
             });
         }
         finally
@@ -276,7 +266,7 @@ public sealed class EasingEditorTests
         {
             window.Show();
             Point start = ToWindow(window, curve, 0.25, 0.1);
-            WaitForHitTest(window, curve, start);
+            TimelineTestHost.WaitForHitTest(window, curve, start);
 
             window.MouseMove(start);
             window.MouseDown(start, MouseButton.Left);
@@ -323,7 +313,7 @@ public sealed class EasingEditorTests
             window.Show();
             // Off-centre on the handle: the press alone must not move the control point.
             Point press = ToWindow(window, curve, 0.25, 0.1) + new Vector(3, -2);
-            WaitForHitTest(window, curve, press);
+            TimelineTestHost.WaitForHitTest(window, curve, press);
 
             window.MouseMove(press);
             window.MouseDown(press, MouseButton.Left);
@@ -352,18 +342,15 @@ public sealed class EasingEditorTests
         var holder = new EasingHolder();
         var original = new SplineEasing(0.25f, 0.1f, 0.25f, 1f);
         holder.Curve.CurrentValue = original;
-        var (vm, control) = CreateControl(new EnginePropertyAdapter<Easing>(holder.Curve, holder));
-        using var _ = vm;
-        using var history = new HistoryScope(holder);
-        vm.Accept(new Services(history.History));
-        var editor = (EasingEditor)control;
-        var window = new Window { Content = editor, Width = 480, Height = 400 };
+        using var scope = new CurveEditorScope(holder, holder.Curve, height: 400);
+        EasingEditor editor = scope.Editor;
+        Window window = scope.Window;
         try
         {
             window.Show();
             EasingCurveEditor curve = editor.GetVisualDescendants().OfType<EasingCurveEditor>().Single();
             Point press = ToWindow(window, curve, 0.25, 0.1);
-            WaitForHitTest(window, curve, press);
+            TimelineTestHost.WaitForHitTest(window, curve, press);
 
             window.MouseMove(press);
             window.MouseDown(press, MouseButton.Left);
@@ -377,13 +364,13 @@ public sealed class EasingEditorTests
             {
                 Assert.That(holder.Curve.CurrentValue, Is.SameAs(original));
                 Assert.That(editor.Value, Is.SameAs(original));
-                Assert.That(history.History.UndoCount, Is.Zero);
-                Assert.That(history.History.HasPendingOperations, Is.False);
+                Assert.That(scope.History.UndoCount, Is.Zero);
+                Assert.That(scope.History.HasPendingOperations, Is.False);
             });
 
             // A commit from another feature, such as the one before an export, must not record the drag.
-            history.History.Commit();
-            Assert.That(history.History.UndoCount, Is.Zero);
+            scope.History.Commit();
+            Assert.That(scope.History.UndoCount, Is.Zero);
         }
         finally
         {
@@ -397,22 +384,19 @@ public sealed class EasingEditorTests
         var holder = new EasingHolder();
         var original = new SplineEasing(0.25f, 0.1f, 0.25f, 1f);
         holder.Curve.CurrentValue = original;
-        var (vm, control) = CreateControl(new EnginePropertyAdapter<Easing>(holder.Curve, holder));
-        using var _ = vm;
-        using var history = new HistoryScope(holder);
-        vm.Accept(new Services(history.History));
-        var editor = (EasingEditor)control;
-        var window = new Window { Content = editor, Width = 480, Height = 400 };
+        using var scope = new CurveEditorScope(holder, holder.Curve, height: 400);
+        EasingEditor editor = scope.Editor;
+        Window window = scope.Window;
         try
         {
             window.Show();
             EasingCurveEditor curve = editor.GetVisualDescendants().OfType<EasingCurveEditor>().Single();
             Point press = ToWindow(window, curve, 0.25, 0.1);
-            WaitForHitTest(window, curve, press);
+            TimelineTestHost.WaitForHitTest(window, curve, press);
             // Another feature's edit that has not been committed yet, like a timeline nudge.
             Easing previous = holder.Spline.CurrentValue;
             holder.Spline.CurrentValue = new SplineEasing(0.5f, 0.5f, 0.5f, 0.5f);
-            Assert.That(history.History.HasPendingOperations, Is.True);
+            Assert.That(scope.History.HasPendingOperations, Is.True);
             Easing nudged = holder.Spline.CurrentValue;
 
             window.MouseMove(press);
@@ -425,15 +409,15 @@ public sealed class EasingEditorTests
             Assert.Multiple(() =>
             {
                 Assert.That(holder.Spline.CurrentValue, Is.SameAs(nudged), "The other edit must survive.");
-                Assert.That(history.History.HasPendingOperations, Is.True, "The drag must not commit the other edit early.");
-                Assert.That(history.History.UndoCount, Is.Zero);
+                Assert.That(scope.History.HasPendingOperations, Is.True, "The drag must not commit the other edit early.");
+                Assert.That(scope.History.UndoCount, Is.Zero);
                 Assert.That(holder.Curve.CurrentValue, Is.SameAs(original));
                 Assert.That(editor.Value, Is.SameAs(original));
             });
 
             // The other edit is still in history, not only in the property.
-            history.History.Commit();
-            Assert.That(history.History.Undo(), Is.True);
+            scope.History.Commit();
+            Assert.That(scope.History.Undo(), Is.True);
             Assert.Multiple(() =>
             {
                 Assert.That(holder.Spline.CurrentValue, Is.SameAs(previous));
@@ -451,12 +435,9 @@ public sealed class EasingEditorTests
     {
         var holder = new EasingHolder();
         Easing original = holder.Bounded.CurrentValue;
-        var (vm, control) = CreateControl(new EnginePropertyAdapter<Easing>(holder.Bounded, holder));
-        using var _ = vm;
-        using var history = new HistoryScope(holder);
-        vm.Accept(new Services(history.History));
-        var editor = (EasingEditor)control;
-        var window = new Window { Content = editor, Width = 480, Height = 320 };
+        using var scope = new CurveEditorScope(holder, holder.Bounded, height: 320);
+        EasingEditor editor = scope.Editor;
+        Window window = scope.Window;
         try
         {
             window.Show();
@@ -496,7 +477,7 @@ public sealed class EasingEditorTests
         {
             window.Show();
             Point press = ToWindow(window, curve, 0.25, 0.1);
-            WaitForHitTest(window, curve, press);
+            TimelineTestHost.WaitForHitTest(window, curve, press);
             window.MouseMove(press);
             window.MouseDown(press, MouseButton.Left);
 
@@ -543,7 +524,7 @@ public sealed class EasingEditorTests
             window.Show();
             // Placed in the [0, 1] range, which the NaN handle must not turn into NaN.
             Point finite = nanFirst ? ToWindow(window, curve, 0.75, 1) : ToWindow(window, curve, 0.25, 0.1);
-            WaitForHitTest(window, curve, finite);
+            TimelineTestHost.WaitForHitTest(window, curve, finite);
 
             // Far from the drawable handle: the NaN handle must not be grabbed instead.
             Drag(window, ToWindow(window, curve, 0.5, 0.5), ToWindow(window, curve, 0.6, 0.4));
@@ -571,7 +552,7 @@ public sealed class EasingEditorTests
         {
             window.Show();
             Point press = ToWindow(window, curve, 0.25, 1);
-            WaitForHitTest(window, curve, press);
+            TimelineTestHost.WaitForHitTest(window, curve, press);
 
             window.MouseMove(press);
             window.MouseDown(press, MouseButton.Left);
@@ -601,7 +582,7 @@ public sealed class EasingEditorTests
         {
             window.Show();
             Point start = ToWindow(window, curve, 0.25, 0.1);
-            WaitForHitTest(window, curve, start);
+            TimelineTestHost.WaitForHitTest(window, curve, start);
 
             Drag(window, start, ToWindow(window, curve, 0.6, 0.6));
             Assert.That(events, Is.Zero);
@@ -632,7 +613,7 @@ public sealed class EasingEditorTests
         {
             window.Show();
             Point start = ToWindow(window, curve, 0.25, 0.1);
-            WaitForHitTest(window, curve, start);
+            TimelineTestHost.WaitForHitTest(window, curve, start);
 
             window.MouseMove(start);
             window.MouseDown(start, MouseButton.Left);
@@ -669,7 +650,7 @@ public sealed class EasingEditorTests
         {
             window.Show();
             Point start = ToWindow(window, curve, 0.25, 0.1);
-            WaitForHitTest(window, curve, start);
+            TimelineTestHost.WaitForHitTest(window, curve, start);
 
             Drag(window, start, ToWindow(window, curve, 0.6, 0.6));
             Assert.That(events, Is.Zero, "A drag step would turn the subclass into a plain SplineEasing.");
@@ -705,54 +686,33 @@ public sealed class EasingEditorTests
         return curve.TranslatePoint(local, window)!.Value;
     }
 
-    // Avalonia's headless hit test answers only after the window has rendered a frame.
-    private static void WaitForHitTest(Window window, Visual target, Point point)
+    // An EasingEditor for the property in a window that is not shown yet, with History recording its edits.
+    private sealed class CurveEditorScope : IDisposable
     {
-        for (int i = 0; i < 20; i++)
+        private readonly BaseEditorViewModel _vm;
+        private readonly HistoryScope _history;
+
+        public CurveEditorScope(EasingHolder holder, IProperty<Easing> property, double height)
         {
-            HeadlessTestHelpers.Render();
-            if (window.InputHitTest(point) is Visual hit && (hit == target || target.IsVisualAncestorOf(hit)))
-                return;
+            (_vm, Control control) = CreateControl(new EnginePropertyAdapter<Easing>(property, holder));
+            _history = new HistoryScope(holder);
+            _vm.Accept(new HistoryServices(_history.History));
+            Editor = (EasingEditor)control;
+            Window = new Window { Content = Editor, Width = 480, Height = height };
         }
 
-        Assert.Fail("The curve editor never became hit-testable.");
+        public EasingEditor Editor { get; }
+
+        public Window Window { get; }
+
+        public HistoryManager History => _history.History;
+
+        public void Dispose()
+        {
+            _history.Dispose();
+            _vm.Dispose();
+        }
     }
-
-    private static (BaseEditorViewModel Vm, Control Control) CreateControl(IPropertyAdapter adapter, EditorSurface surface = EditorSurface.Property)
-    {
-        PropertyEditorExtension extension = PropertyEditorExtension.Instance;
-        Assert.That(extension.MatchProperty([adapter]), Is.EqualTo(new[] { adapter }));
-        IPropertyEditorContext? context;
-        Control? control;
-        bool createdContext = surface switch
-        {
-            EditorSurface.Node => extension.TryCreateContextForNode([adapter], out context),
-            EditorSurface.Settings => extension.TryCreateContextForSettings([adapter], out context),
-            EditorSurface.ListItem => extension.TryCreateContextForListItem(adapter, out context),
-            _ => extension.TryCreateContext([adapter], out context)
-        };
-        Assert.That(createdContext, Is.True);
-        bool createdControl;
-        if (surface == EditorSurface.ListItem)
-        {
-            createdControl = extension.TryCreateControlForListItem(context!, out var listControl);
-            control = listControl as Control;
-        }
-        else
-        {
-            createdControl = surface switch
-            {
-                EditorSurface.Node => extension.TryCreateControlForNode(context!, out control),
-                EditorSurface.Settings => extension.TryCreateControlForSettings(context!, out control),
-                _ => extension.TryCreateControl(context!, out control)
-            };
-        }
-        Assert.That(createdControl, Is.True);
-        control!.DataContext = context;
-        return ((BaseEditorViewModel)context!, control);
-    }
-
-    public enum EditorSurface { Property, Node, Settings, ListItem }
 
     [SuppressResourceClassGeneration]
     public sealed class EasingHolder : EngineObject
@@ -794,35 +754,5 @@ public sealed class EasingEditorTests
         public ThrowingEasing() => throw new InvalidOperationException("The extension is not ready.");
 
         public override float Ease(float progress) => progress;
-    }
-
-    private sealed class HistoryScope : IDisposable
-    {
-        private readonly CoreObjectOperationObserver _observer;
-        private readonly IDisposable _subscription;
-
-        public HistoryScope(CoreObject target)
-        {
-            var sequence = new OperationSequenceGenerator();
-            History = new HistoryManager(target, sequence);
-            _observer = new CoreObjectOperationObserver(null, target, sequence);
-            _subscription = History.Subscribe(_observer);
-        }
-
-        public HistoryManager History { get; }
-
-        public void Dispose()
-        {
-            _subscription.Dispose();
-            _observer.Dispose();
-            History.Dispose();
-        }
-    }
-
-    private sealed record Services(HistoryManager History) : IServiceProvider, IPropertyEditorContextVisitor
-    {
-        public object? GetService(Type type) => type == typeof(HistoryManager) ? History : null;
-
-        public void Visit(IPropertyEditorContext context) { }
     }
 }

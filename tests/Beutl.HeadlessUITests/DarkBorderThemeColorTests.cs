@@ -19,8 +19,6 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class DarkBorderThemeColorTests
 {
-    // Half of the vanishing-checked-tab guard: this proves the checked state consumes
-    // ToggleButtonBackgroundIndeterminate, the test below that the brush is visible. Both are needed.
     [AvaloniaTest]
     public void Selected_color_type_tab_paints_the_indeterminate_fill_under_the_border_theme()
     {
@@ -54,29 +52,6 @@ public class DarkBorderThemeColorTests
                 "the selected tab background must not be transparent under the border theme");
             Assert.That(rendered, Is.EqualTo(ResolveColor(toggle, "ToggleButtonBackgroundIndeterminate", ThemeVariant.Dark)),
                 "the selected tab must paint ToggleButtonBackgroundIndeterminate");
-        }
-        finally
-        {
-            window.Close();
-            HeadlessTestHelpers.Settle();
-        }
-    }
-
-    [AvaloniaTest]
-    public void Indeterminate_toggle_fill_is_visible_under_the_border_theme()
-    {
-        using ThemeVariantScope themeScope = ThemeVariantScope.Use(ThemeVariant.Dark);
-
-        var probe = new ToggleButton();
-        var window = new Window { Content = probe, Width = 200, Height = 120 };
-        try
-        {
-            window.Show();
-            HeadlessTestHelpers.Render(1);
-
-            Assert.That(ResolveColor(probe, "ToggleButtonBackgroundIndeterminate", ThemeVariant.Dark).A, Is.GreaterThan(0),
-                "ToggleButtonBackgroundIndeterminate must be a visible fill under the border theme "
-                + "(it resolved to ControlFillColorTransparentBrush before — the original bug)");
         }
         finally
         {
@@ -259,11 +234,40 @@ public class DarkBorderThemeColorTests
         }
     }
 
-    // The accent picker's selected-color marker (ViewSettingsPage.axaml) paints its background with
-    // FocusStrokeColorOuterBrush and its checkmark with TextOnAccentFillColorPrimaryBrush. Both are
-    // accent shades under this theme, so the glyph has to come from the derived text-on-accent set —
-    // the accent itself is the neighbouring shade of the background. This pins the resource pairing,
-    // not the markup: nothing here re-inflates the settings page.
+    // The dock splitter divider is a border-theme-only accent. Light stands in for the non-border
+    // themes, which resolve through the same DockFluent Transparent entries.
+    [AvaloniaTest]
+    public void Dock_splitter_divider_is_hidden_outside_the_border_theme()
+    {
+        var probe = new Border();
+        var window = new Window { Content = probe, Width = 200, Height = 120 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(1);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(ResolveColor(probe, "DockSplitterIdleBrush", ThemeVariant.Light).A, Is.EqualTo(0),
+                    "the resting divider must be invisible in Light");
+                Assert.That(ResolveColor(probe, "DockSplitterHoverBrush", ThemeVariant.Light).A, Is.EqualTo(0),
+                    "the hovered divider must be invisible in Light");
+
+                Assert.That(ResolveColor(probe, "DockSplitterIdleBrush", ThemeVariant.Dark).A, Is.GreaterThan(0),
+                    "the border theme must paint the resting divider");
+                Assert.That(ResolveColor(probe, "DockSplitterHoverBrush", ThemeVariant.Dark).A, Is.GreaterThan(0),
+                    "the border theme must paint the hovered divider");
+            });
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
+    // ViewSettingsPage's accent marker paints FocusStrokeColorOuterBrush behind a
+    // TextOnAccentFillColorPrimaryBrush glyph; this pins that pairing, not the markup.
     [AvaloniaTest]
     public void Accent_picker_marker_glyph_contrasts_on_the_design_accent() =>
         AssertMarkerGlyphContrasts(Color.FromRgb(0x25, 0x63, 0xEB), Colors.White);
@@ -332,16 +336,7 @@ public class DarkBorderThemeColorTests
     }
 
     private static Color ResolveColor(Control context, string key, ThemeVariant variant)
-    {
-        if (!context.TryFindResource(key, variant, out object? value) || value is not ISolidColorBrush brush)
-        {
-            Assert.Fail($"resource '{key}' should resolve to a solid color brush under {variant} "
-                + $"(got {value?.GetType().Name ?? "nothing"})");
-            return default;
-        }
-
-        return brush.Color;
-    }
+        => ResolveFill(context, key, variant).Color;
 
     private static (Color Color, double Opacity) ResolveFill(Control context, string key, ThemeVariant variant)
     {

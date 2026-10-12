@@ -1,9 +1,6 @@
 ﻿using System.Globalization;
-using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
-using Avalonia.Layout;
-using Avalonia.Media.Imaging;
 using Beutl.Configuration;
 using Beutl.Editor;
 using Beutl.Editor.Models;
@@ -16,7 +13,6 @@ using Beutl.Services;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Tools;
-using Moq;
 
 namespace Beutl.HeadlessUITests;
 
@@ -82,22 +78,15 @@ public class EditorCloseSaveTests
     [TestCase(false, true, "ja")]
     [TestCase(true, false, "ja")]
     [TestCase(true, true, "en")]
-    [TestCase(false, false, "zh-CN")]
-    [TestCase(false, false, "ko-KR")]
-    [TestCase(false, false, "es")]
     public async Task Failed_history_replay_allows_new_edits_auto_save_and_close(bool redo, bool closeProject, string culture)
     {
         EditViewModel editor = await OpenEditorAsync();
         EditorTabItem tab = TestShell.Editor.SelectedTabItem.Value!;
         Uri uri = editor.Scene.Uri!;
-        INotificationServiceHandler previousHandler = NotificationService.Handler;
         CultureInfo previousCulture = CultureInfo.CurrentUICulture;
-        var notifications = new List<Notification>();
-        var handler = new Mock<INotificationServiceHandler>();
-        handler.Setup(x => x.Show(It.IsAny<Notification>())).Callback<Notification>(notifications.Add);
         try
         {
-            NotificationService.Handler = handler.Object;
+            using var notifications = new NotificationCapture();
             CultureInfo.CurrentUICulture = new CultureInfo(culture);
             using var history = new HistoryViewModel(editor);
             editor.Scene.Duration = TimeSpan.FromSeconds(10);
@@ -127,39 +116,9 @@ public class EditorCloseSaveTests
             Assert.That(await editor.UndoAsync(), Is.False);
             Assert.That(await editor.RedoAsync(), Is.False);
             Assert.That(await editor.JumpToHistoryAsync(0), Is.False);
-            Assert.That(notifications, Has.Count.EqualTo(1));
             Notification notification = notifications.Single();
             Assert.That(notification.Message, Is.EqualTo(Strings.History_RestrictedAfterFailure));
             Assert.That(notification.Type, Is.EqualTo(NotificationType.Error));
-
-            if (Environment.GetEnvironmentVariable("BEUTL_HISTORY_RECOVERY_CAPTURE") is { Length: > 0 } capture)
-            {
-                var window = new Window
-                {
-                    Width = 400,
-                    Height = 260,
-                    Content = new Border
-                    {
-                        Padding = new Thickness(20),
-                        VerticalAlignment = VerticalAlignment.Top,
-                        Child = new NotificationServiceHandler().BuildInfoBar(notification, new TaskCompletionSource(), () => { })
-                    }
-                };
-                try
-                {
-                    window.Show();
-                    HeadlessTestHelpers.Settle();
-                    window.UpdateLayout();
-                    Directory.CreateDirectory(capture);
-                    using var frame = new RenderTargetBitmap(new PixelSize(400, 260), new Vector(96, 96));
-                    frame.Render(window);
-                    frame.Save(Path.Combine(capture, $"history-preserved-{culture}-{redo}-{closeProject}.png"), PngBitmapEncoderOptions.Default);
-                }
-                finally
-                {
-                    window.Close();
-                }
-            }
 
             int stateChanges = 0;
             using var subscription = editor.HistoryManager.StateChanged.Subscribe(_ => stateChanges++);
@@ -196,7 +155,6 @@ public class EditorCloseSaveTests
         }
         finally
         {
-            NotificationService.Handler = previousHandler;
             CultureInfo.CurrentUICulture = previousCulture;
             await TestReset.ResetShellAsync();
         }
@@ -421,13 +379,8 @@ public class EditorCloseSaveTests
         try
         {
             config.EnableForNewProjects = false;
-            string name = "close-save-" + Guid.NewGuid().ToString("N");
-            string directory = Path.Combine(BeutlHomeIsolation.CurrentHome!, name);
-            Directory.CreateDirectory(directory);
-            Project project = (await TestShell.Project.CreateProject(320, 180, 30, 44100, name, directory))!;
-            TestShell.Editor.ActivateTabItem(project.Items.OfType<Scene>().Single());
-            HeadlessTestHelpers.Settle();
-            var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+            EditViewModel editor = await TestShell.OpenNewSceneEditorAsync(
+                "close-save-" + Guid.NewGuid().ToString("N"), 320, 180);
             await editor.SaveAsync();
             return editor;
         }

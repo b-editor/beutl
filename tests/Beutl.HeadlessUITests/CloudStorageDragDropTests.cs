@@ -1,5 +1,4 @@
 ﻿using System.Net;
-using System.Text;
 using System.Text.Json;
 using Avalonia;
 using Avalonia.Controls;
@@ -22,15 +21,6 @@ namespace Beutl.HeadlessUITests;
 [TestFixture, NonParallelizable]
 public sealed class CloudStorageDragDropTests
 {
-    private static IStorageFile FileSource(string name, string content)
-    {
-        var file = new Mock<IStorageFile>();
-        file.SetupGet(x => x.Name).Returns(name);
-        file.SetupGet(x => x.Path).Returns(new Uri("file:///source/" + Uri.EscapeDataString(name)));
-        file.Setup(x => x.OpenReadAsync()).ReturnsAsync(() => new MemoryStream(Encoding.UTF8.GetBytes(content)));
-        return file.Object;
-    }
-
     [AvaloniaTest]
     [TestCase(false)]
     [TestCase(true)]
@@ -69,10 +59,7 @@ public sealed class CloudStorageDragDropTests
     {
         await using var scope = new StorageScope();
         await scope.LoadFirstAsync(Response());
-        var folder = new Mock<IStorageFolder>();
-        folder.SetupGet(x => x.Name).Returns("Clips");
-        folder.SetupGet(x => x.Path).Returns(new Uri("content://provider/clips"));
-        folder.Setup(x => x.GetItemsAsync()).Returns(Children(FileSource("nested.bin", "abc")));
+        IStorageFolder folder = Folder("Clips", FileSource("nested.bin", "abc"));
         var view = new CloudStorageView { DataContext = scope.ViewModel };
         var window = new Window { Content = view, Width = 640, Height = 520 };
         try
@@ -81,7 +68,7 @@ public sealed class CloudStorageDragDropTests
             var list = view.FindControl<ListBox>("StorageItems")!;
             var point = list.ContainerFromIndex(0)!.TranslatePoint(new Point(20, 20), view)!.Value;
             using var data = new DataTransfer();
-            data.Add(DataTransferItem.CreateFile(folder.Object));
+            data.Add(DataTransferItem.CreateFile(folder));
             var over = new DragEventArgs(DragDrop.DragOverEvent, data, view, point, KeyModifiers.None);
             view.RaiseEvent(over);
             Assert.That(over.DragEffects, Is.EqualTo(DragDropEffects.Copy));
@@ -110,12 +97,6 @@ public sealed class CloudStorageDragDropTests
             Assert.That(scope.ViewModel.ActionError.Value, Is.Null);
         }
         finally { window.Close(); }
-    }
-
-    private static async IAsyncEnumerable<IStorageItem> Children(params IStorageItem[] items)
-    {
-        foreach (var item in items) yield return item;
-        await Task.CompletedTask;
     }
 
     [AvaloniaTest]

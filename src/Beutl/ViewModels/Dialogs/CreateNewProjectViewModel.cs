@@ -17,11 +17,6 @@ public sealed class CreateNewProjectViewModel
     private readonly IProjectVersionControlInitializer? _versionControlInitializer;
     private readonly Func<CancellationToken, Task<GitIdentity?>>? _requestIdentityAsync;
 
-    public CreateNewProjectViewModel(ProjectService projectService)
-        : this(projectService, versionControlInitializer: null, requestIdentityAsync: null)
-    {
-    }
-
     internal CreateNewProjectViewModel(
         ProjectService projectService,
         IProjectVersionControlInitializer? versionControlInitializer,

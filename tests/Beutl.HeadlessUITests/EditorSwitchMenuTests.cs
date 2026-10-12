@@ -1,12 +1,9 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Reactive.Linq;
 using System.Reflection;
-using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Interactivity;
-using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
 using Avalonia.Styling;
 using Beutl.Extensibility;
@@ -29,14 +26,10 @@ public class EditorSwitchMenuTests
     {
         await TestReset.ResetShellAsync();
         string name = "switch-fingerprints-" + Guid.NewGuid().ToString("N");
-        string directory = Path.Combine(BeutlHomeIsolation.CurrentHome!, name);
-        Directory.CreateDirectory(directory);
-        var project = (await TestShell.Project.CreateProject(640, 480, 30, 44100, name, directory))!;
-        TestShell.Editor.ActivateTabItem(project.Items.OfType<Scene>().Single());
+        var editor = await TestShell.OpenNewSceneEditorAsync(name);
         var tab = TestShell.Editor.SelectedTabItem.Value!;
-        var editor = (Beutl.ViewModels.EditViewModel)tab.Context.Value;
         await editor.WaitForMediaFingerprintsAsync();
-        string path = Path.Combine(directory, "large-image.png");
+        string path = Path.Combine(BeutlHomeIsolation.CurrentHome!, name, "large-image.png");
         var imageSource = new Beutl.Media.Source.ImageSource(); imageSource.ReadFrom(new Uri(path));
         var started = new TaskCompletionSource(); var release = new TaskCompletionSource();
         using (editor.HistoryManager.SuppressRecording())
@@ -88,13 +81,14 @@ public class EditorSwitchMenuTests
         var tab = new EditorTabItem(original);
         var replacement = new ReplacementEditorExtension();
         var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var notifications = new CaptureNotificationHandler(completed);
-        INotificationServiceHandler previousHandler = NotificationService.Handler;
         Action? closeMenu = null;
         TestShell.Editor.TabItems.Add(tab);
         TestShell.Editor.SelectedTabItem.Value = tab;
         TestShell.Extensions.AddExtensions(packageId, [replacement]);
-        NotificationService.Handler = notifications;
+        using var notifications = new NotificationCapture(notification =>
+        {
+            if (notification.Title == MessageStrings.UnableToSaveFile) completed.TrySetResult();
+        });
         using IDisposable subscription = tab.Context.Subscribe(context =>
         {
             if (!ReferenceEquals(context, original)) completed.TrySetResult();
@@ -114,8 +108,7 @@ public class EditorSwitchMenuTests
             });
 
             original.SaveCompletion.SetResult(saveSucceeds);
-            // Both a replacement and a failure notification complete this signal, so the old
-            // behavior fails on the preserved-context assertions rather than a timeout.
+            // Either a replacement or a failure notification completes this signal.
             await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
             Assert.Multiple(() =>
@@ -124,17 +117,15 @@ public class EditorSwitchMenuTests
                     Is.SameAs(saveSucceeds ? replacement.CreatedContext : original));
                 Assert.That(original.DisposeCalls, Is.EqualTo(saveSucceeds ? 1 : 0));
                 Assert.That(replacement.CreateCalls, Is.EqualTo(saveSucceeds ? 1 : 0));
-                Assert.That(notifications.Items, Has.Count.EqualTo(saveSucceeds ? 0 : 1));
-                if (!saveSucceeds && notifications.Items.Count == 1)
+                Assert.That(notifications.All, Has.Count.EqualTo(saveSucceeds ? 0 : 1));
+                if (!saveSucceeds && notifications.All.Count == 1)
                 {
-                    Assert.That(notifications.Items[0].Type, Is.EqualTo(NotificationType.Error));
-                    Assert.That(notifications.Items[0].Title, Is.EqualTo(MessageStrings.UnableToSaveFile));
-                    Assert.That(notifications.Items[0].Message, Is.EqualTo("switch.scene"));
+                    Notification notification = notifications.All.Single();
+                    Assert.That(notification.Type, Is.EqualTo(NotificationType.Error));
+                    Assert.That(notification.Title, Is.EqualTo(MessageStrings.UnableToSaveFile));
+                    Assert.That(notification.Message, Is.EqualTo("switch.scene"));
                 }
             });
-
-            if (!saveSucceeds)
-                CaptureFailureNotification(notifications.Items.Single(), nativeMenu);
         }
         finally
         {
@@ -142,7 +133,6 @@ public class EditorSwitchMenuTests
             if (original.SaveCalls > 0)
                 await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
             closeMenu?.Invoke();
-            NotificationService.Handler = previousHandler;
             await TestReset.ResetShellAsync();
             TestShell.Extensions.RemoveExtensions(packageId);
         }
@@ -170,35 +160,6 @@ public class EditorSwitchMenuTests
             Assert.That(original.DisposeCalls, Is.EqualTo(1));
         }
         finally { original.SaveCompletion.TrySetResult(false); await TestReset.ResetShellAsync(); }
-    }
-
-    private static void CaptureFailureNotification(Notification notification, bool nativeMenu)
-    {
-        if (Environment.GetEnvironmentVariable("BEUTL_EDITOR_SWITCH_CAPTURE") is not { Length: > 0 } directory)
-            return;
-
-        FAInfoBar infoBar = new NotificationServiceHandler().BuildInfoBar(
-            notification, new TaskCompletionSource(), () => { });
-        var window = new Window
-        {
-            Content = new Border { Padding = new Thickness(16), Child = infoBar },
-            Width = 400,
-            Height = 160,
-            RequestedThemeVariant = nativeMenu ? ThemeVariant.Dark : ThemeVariant.Light,
-        };
-        try
-        {
-            window.Show();
-            HeadlessTestHelpers.Render();
-            Directory.CreateDirectory(directory);
-            using var image = window.CaptureRenderedFrame();
-            Assert.That(image, Is.Not.Null);
-            image!.Save(Path.Combine(directory, $"save-failed-{nativeMenu}.png"), PngBitmapEncoderOptions.Default);
-        }
-        finally
-        {
-            window.Close();
-        }
     }
 
     private static Action CreateMenuClick(
@@ -298,17 +259,6 @@ public class EditorSwitchMenuTests
             CreateCalls++;
             context = CreatedContext = new TestEditorContext(obj, this);
             return true;
-        }
-    }
-
-    private sealed class CaptureNotificationHandler(TaskCompletionSource completed) : INotificationServiceHandler
-    {
-        public List<Notification> Items { get; } = [];
-
-        public void Show(Notification notification)
-        {
-            Items.Add(notification);
-            if (notification.Title == MessageStrings.UnableToSaveFile) completed.TrySetResult();
         }
     }
 }

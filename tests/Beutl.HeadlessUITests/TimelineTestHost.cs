@@ -1,6 +1,9 @@
-﻿using Avalonia.Controls;
+﻿using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Input;
 using Avalonia.Styling;
+using Avalonia.VisualTree;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.Views;
@@ -85,5 +88,44 @@ internal sealed class TimelineTestHost : IDisposable
     {
         View.DataContext = null;
         Window.Close();
+    }
+
+    // Resets the shell and adds the clips to a new ten-second scene whose timeline is at scale 1 and offset 0,
+    // without showing the timeline.
+    public static async Task<(EditViewModel Editor, TimelineTabViewModel Timeline)> OpenTimelineAsync(
+        string name, IReadOnlyList<ElementDescription> clips)
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync(name);
+        var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
+        Assert.That((await adder.AddAsync(clips, CancellationToken.None)).IsSuccess, Is.True);
+        editor.Scene.Duration = TimeSpan.FromSeconds(10);
+        TimelineTabViewModel timeline = editor.FindToolTab<TimelineTabViewModel>()!;
+        timeline.Options.Value = timeline.Options.Value with { Scale = 1, Offset = System.Numerics.Vector2.Zero };
+        HeadlessTestHelpers.Settle();
+        return (editor, timeline);
+    }
+
+    // Ends any drag, then detaches and closes a timeline view that the test shows itself.
+    public static void Close(TimelineTabView? view, Window? window)
+    {
+        window?.MouseUp(new Point(5, 5), MouseButton.Left);
+        if (view is not null) view.DataContext = null;
+        window?.Close();
+        HeadlessTestHelpers.Settle();
+    }
+
+    // Avalonia's headless hit test answers only after the window has rendered a frame, so a press made
+    // before then lands on nothing.
+    public static void WaitForHitTest(Window window, Visual target, Point point)
+    {
+        for (int i = 0; i < 20; i++)
+        {
+            HeadlessTestHelpers.Render();
+            if (window.InputHitTest(point) is Visual hit && (hit == target || target.IsVisualAncestorOf(hit)))
+                return;
+        }
+
+        Assert.Fail($"{target.Name ?? target.GetType().Name} never became hit-testable at {point}.");
     }
 }

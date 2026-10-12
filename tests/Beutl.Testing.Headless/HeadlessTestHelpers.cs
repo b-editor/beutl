@@ -43,6 +43,11 @@ public static class HeadlessTestHelpers
         }
     }
 
+    // The center of the visual, in relativeTo's coordinates.
+    public static Point Center(Visual visual, Visual relativeTo)
+        => visual.TranslatePoint(new Point(visual.Bounds.Width / 2, visual.Bounds.Height / 2), relativeTo)
+            ?? throw new InvalidOperationException("The visuals are not in the same visual tree.");
+
     // Reads the frame the top level rendered last, as 32bpp RGBA or BGRA rows.
     public static (byte[] Pixels, int RowBytes, PixelSize Size) CaptureFramePixels(TopLevel topLevel)
     {

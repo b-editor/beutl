@@ -1,103 +1,22 @@
 ﻿using System.Reactive.Linq;
-using System.Reflection;
 
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 
-using Beutl.Api.Services;
 using Beutl.Configuration;
 using Beutl.Editor.VersionControl;
 using Beutl.Language;
 using Beutl.Services;
-using Beutl.ViewModels;
 using Beutl.ViewModels.Dialogs;
 using Beutl.Views.Dialogs;
-using Reactive.Bindings;
 
 namespace Beutl.HeadlessUITests;
 
-// Reads the logical content tree rather than showing the dialog: a ContentDialog not opened via
-// ShowAsync keeps its content collapsed (close animation sets LayoutRoot IsVisible=False), so the
-// Carousel pages are never realized in the visual tree. The unit suffixes are static XAML
-// InnerRightContent labels, which exist in the logical tree at construction without any rendering.
 [TestFixture]
 public class CreateNewProjectDialogTests
 {
-    [Test]
-    public void Public_view_model_constructors_preserve_the_standalone_creation_path()
-    {
-        Type[][] createProjectPublicParameters = typeof(CreateNewProjectViewModel)
-            .GetConstructors()
-            .Select(static constructor => constructor
-                .GetParameters()
-                .Select(static parameter => parameter.ParameterType)
-                .ToArray())
-            .ToArray();
-        ConstructorInfo? createProjectInitializerConstructor = typeof(CreateNewProjectViewModel)
-            .GetConstructors(BindingFlags.Instance | BindingFlags.NonPublic)
-            .SingleOrDefault(static constructor => constructor
-                .GetParameters()
-                .Select(static parameter => parameter.ParameterType)
-                .SequenceEqual([
-                    typeof(ProjectService),
-                    typeof(IProjectVersionControlInitializer),
-                    typeof(Func<CancellationToken, Task<GitIdentity?>>),
-                ]));
-        Type[][] menuBarPublicParameters = typeof(MenuBarViewModel)
-            .GetConstructors()
-            .Select(static constructor => constructor
-                .GetParameters()
-                .Select(static parameter => parameter.ParameterType)
-                .ToArray())
-            .ToArray();
-        ConstructorInfo? menuBarSessionConstructor = typeof(MenuBarViewModel)
-            .GetConstructors(BindingFlags.Instance | BindingFlags.NonPublic)
-            .SingleOrDefault(static constructor => constructor
-                .GetParameters()
-                .Select(static parameter => parameter.ParameterType)
-                .SequenceEqual([
-                    typeof(ProjectService),
-                    typeof(EditorService),
-                    typeof(IProjectVersionControlSession),
-                ]));
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(createProjectPublicParameters, Has.Length.EqualTo(1));
-            Assert.That(
-                createProjectPublicParameters[0],
-                Is.EqualTo(new[] { typeof(ProjectService) }));
-            Assert.That(createProjectInitializerConstructor, Is.Not.Null);
-            Assert.That(menuBarPublicParameters, Has.Length.EqualTo(1));
-            Assert.That(
-                menuBarPublicParameters[0],
-                Is.EqualTo(new[] { typeof(ProjectService), typeof(EditorService) }));
-            Assert.That(menuBarSessionConstructor, Is.Not.Null);
-            Assert.That(
-                typeof(MenuBarViewModel).GetProperty(nameof(MenuBarViewModel.CloseProject))!.PropertyType,
-                Is.EqualTo(typeof(AsyncReactiveCommand)));
-        });
-
-        var projectService = new ProjectService();
-        var initializer = new TestVersionControlInitializer(
-            _ => Task.FromResult(GitAvailability.NotInstalled),
-            (_, _, _) => Task.FromResult(true));
-        Func<CancellationToken, Task<GitIdentity?>> requestIdentityAsync =
-            _ => Task.FromResult<GitIdentity?>(null);
-        var editorService = new EditorService(new ExtensionProvider());
-        Assert.Multiple(() =>
-        {
-            Assert.Throws<ArgumentNullException>(() =>
-                new CreateNewProjectViewModel(null!, initializer, requestIdentityAsync));
-            Assert.DoesNotThrow(() => new CreateNewProjectViewModel(projectService));
-            Assert.DoesNotThrow(() =>
-                new CreateNewProjectViewModel(projectService, null, requestIdentityAsync));
-            Assert.DoesNotThrow(() =>
-                new CreateNewProjectViewModel(projectService, initializer, null));
-            Assert.DoesNotThrow(() => new MenuBarViewModel(projectService, editorService));
-        });
-    }
-
+    // These two tests read the logical tree: a ContentDialog not opened with ShowAsync never realizes
+    // its Carousel pages.
     [AvaloniaTest]
     public void NumericInputs_show_unit_suffixes()
     {
@@ -169,12 +88,7 @@ public class CreateNewProjectDialogTests
             var command = TestShell.MainViewModel.MenuBar.EnableVersionControl;
             Assert.That(((System.Windows.Input.ICommand)command).CanExecute(null), Is.False);
 
-            string location = Path.Combine(
-                Beutl.Testing.Headless.BeutlHomeIsolation.CurrentHome!,
-                "command-gating");
-            Directory.CreateDirectory(location);
-            await TestShell.Project.CreateProject(640, 480, 30, 44100, "project", location);
-            Beutl.Testing.Headless.HeadlessTestHelpers.Settle();
+            await TestShell.CreateProjectAsync("command-gating");
 
             Assert.Multiple(() =>
             {
@@ -207,12 +121,7 @@ public class CreateNewProjectDialogTests
                 = await TestShell.VersionControl.GetAvailabilityAsync();
             Assert.That(availability.State, Is.EqualTo(GitAvailabilityState.NotInstalled));
 
-            string location = Path.Combine(
-                Beutl.Testing.Headless.BeutlHomeIsolation.CurrentHome!,
-                "unavailable-command-gating");
-            Directory.CreateDirectory(location);
-            await TestShell.Project.CreateProject(640, 480, 30, 44100, "project", location);
-            Beutl.Testing.Headless.HeadlessTestHelpers.Settle();
+            await TestShell.CreateProjectAsync("unavailable-command-gating");
 
             Assert.That(
                 ((System.Windows.Input.ICommand)TestShell.MainViewModel.MenuBar.EnableVersionControl)
@@ -244,8 +153,7 @@ public class CreateNewProjectDialogTests
             var viewModel = new CreateNewProjectViewModel(
                 TestShell.Project,
                 initializer,
-                _ => Task.FromResult<GitIdentity?>(
-                    new GitIdentity("Beutl Headless Test", "headless@example.invalid")));
+                TestIdentity);
 
             Assert.Multiple(() =>
             {
@@ -253,12 +161,9 @@ public class CreateNewProjectDialogTests
                 Assert.That(viewModel.TrackHistory.Value, Is.False);
             });
 
-            availabilitySource.SetResult(new GitAvailability(
-                GitAvailabilityState.Installed,
-                "git",
-                new Version(2, 50, 0),
-                LfsInstalled: false));
-            await WaitUntilAsync(() => viewModel.IsGitAvailable.Value);
+            availabilitySource.SetResult(s_installedGit);
+            await Beutl.Testing.Headless.HeadlessTestHelpers.WaitUntilAsync(
+                () => viewModel.IsGitAvailable.Value, TimeSpan.FromSeconds(10));
 
             Assert.That(viewModel.TrackHistory.Value, Is.True);
         }
@@ -293,8 +198,7 @@ public class CreateNewProjectDialogTests
             var viewModel = new CreateNewProjectViewModel(
                 TestShell.Project,
                 initializer,
-                _ => Task.FromResult<GitIdentity?>(
-                    new GitIdentity("Beutl Headless Test", "headless@example.invalid")));
+                TestIdentity);
             var availabilityPublished = new TaskCompletionSource(
                 TaskCreationOptions.RunContinuationsAsynchronously);
             using IDisposable availabilitySubscription = viewModel.IsGitAvailable
@@ -316,12 +220,9 @@ public class CreateNewProjectDialogTests
             });
 
             createTask = viewModel.Create.ExecuteAsync();
-            await WaitUntilAsync(() => TestShell.Project.CurrentProject.Value is not null);
-            availabilitySource.SetResult(new GitAvailability(
-                GitAvailabilityState.Installed,
-                "git",
-                new Version(2, 50, 0),
-                LfsInstalled: false));
+            await Beutl.Testing.Headless.HeadlessTestHelpers.WaitUntilAsync(
+                () => TestShell.Project.CurrentProject.Value is not null, TimeSpan.FromSeconds(10));
+            availabilitySource.SetResult(s_installedGit);
             await createTask.WaitAsync(TimeSpan.FromSeconds(10));
             await availabilityPublished.Task.WaitAsync(TimeSpan.FromSeconds(10));
 
@@ -369,8 +270,7 @@ public class CreateNewProjectDialogTests
             var viewModel = new CreateNewProjectViewModel(
                 TestShell.Project,
                 initializer,
-                _ => Task.FromResult<GitIdentity?>(
-                    new GitIdentity("Beutl Headless Test", "headless@example.invalid")));
+                TestIdentity);
             string location = Path.Combine(
                 Beutl.Testing.Headless.BeutlHomeIsolation.CurrentHome!,
                 "create-detection-failure");
@@ -410,11 +310,7 @@ public class CreateNewProjectDialogTests
         try
         {
             var initializer = new TestVersionControlInitializer(
-                _ => Task.FromResult(new GitAvailability(
-                    GitAvailabilityState.Installed,
-                    "git",
-                    new Version(2, 50, 0),
-                    LfsInstalled: false)),
+                _ => Task.FromResult(s_installedGit),
                 async (project, _, _) =>
                 {
                     initializationTarget = project;
@@ -428,9 +324,9 @@ public class CreateNewProjectDialogTests
             var viewModel = new CreateNewProjectViewModel(
                 TestShell.Project,
                 initializer,
-                _ => Task.FromResult<GitIdentity?>(
-                    new GitIdentity("Beutl Headless Test", "headless@example.invalid")));
-            await WaitUntilAsync(() => viewModel.IsGitAvailable.Value);
+                TestIdentity);
+            await Beutl.Testing.Headless.HeadlessTestHelpers.WaitUntilAsync(
+                () => viewModel.IsGitAvailable.Value, TimeSpan.FromSeconds(10));
             string location = Path.Combine(
                 Beutl.Testing.Headless.BeutlHomeIsolation.CurrentHome!,
                 "create-explicit-version-control-target");
@@ -486,18 +382,12 @@ public class CreateNewProjectDialogTests
     public async Task Version_control_initialization_failure_keeps_created_project_open_and_notifies_user()
     {
         await TestReset.ResetShellAsync();
-        INotificationServiceHandler previousHandler = NotificationService.Handler;
-        var notifications = new CaptureNotificationHandler();
         int initializationRequests = 0;
         try
         {
-            NotificationService.Handler = notifications;
+            using var notifications = new NotificationCapture();
             var initializer = new TestVersionControlInitializer(
-                _ => Task.FromResult(new GitAvailability(
-                    GitAvailabilityState.Installed,
-                    "git",
-                    new Version(2, 50, 0),
-                    LfsInstalled: false)),
+                _ => Task.FromResult(s_installedGit),
                 (_, _, _) =>
                 {
                     Interlocked.Increment(ref initializationRequests);
@@ -507,9 +397,9 @@ public class CreateNewProjectDialogTests
             var viewModel = new CreateNewProjectViewModel(
                 TestShell.Project,
                 initializer,
-                _ => Task.FromResult<GitIdentity?>(
-                    new GitIdentity("Beutl Headless Test", "headless@example.invalid")));
-            await WaitUntilAsync(() => viewModel.IsGitAvailable.Value);
+                TestIdentity);
+            await Beutl.Testing.Headless.HeadlessTestHelpers.WaitUntilAsync(
+                () => viewModel.IsGitAvailable.Value, TimeSpan.FromSeconds(10));
             string location = Path.Combine(
                 Beutl.Testing.Headless.BeutlHomeIsolation.CurrentHome!,
                 "create-initialization-failure");
@@ -521,7 +411,7 @@ public class CreateNewProjectDialogTests
 
             await viewModel.Create.ExecuteAsync();
 
-            Notification notification = notifications.Notifications.Single();
+            Notification notification = notifications.All.Single();
             Assert.Multiple(() =>
             {
                 Assert.That(TestShell.Project.CurrentProject.Value, Is.Not.Null);
@@ -537,19 +427,15 @@ public class CreateNewProjectDialogTests
         }
         finally
         {
-            NotificationService.Handler = previousHandler;
             await TestReset.ResetShellAsync();
         }
     }
 
-    private static async Task WaitUntilAsync(Func<bool> predicate)
-    {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        while (!predicate())
-        {
-            await Task.Delay(10, timeout.Token);
-        }
-    }
+    private static readonly GitAvailability s_installedGit =
+        new(GitAvailabilityState.Installed, "git", new Version(2, 50, 0), LfsInstalled: false);
+
+    private static Task<GitIdentity?> TestIdentity(CancellationToken cancellationToken)
+        => Task.FromResult<GitIdentity?>(new GitIdentity("Beutl Headless Test", "headless@example.invalid"));
 
     private static CreateNewProjectViewModel CreateViewModel(ProjectService projectService)
     {
@@ -622,12 +508,5 @@ public class CreateNewProjectDialogTests
                 return ValueTask.CompletedTask;
             }
         }
-    }
-
-    private sealed class CaptureNotificationHandler : INotificationServiceHandler
-    {
-        public List<Notification> Notifications { get; } = [];
-
-        public void Show(Notification notification) => Notifications.Add(notification);
     }
 }

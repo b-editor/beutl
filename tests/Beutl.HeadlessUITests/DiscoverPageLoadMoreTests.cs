@@ -16,10 +16,8 @@ using NUnit.Framework;
 
 namespace Beutl.HeadlessUITests;
 
-// Regression: the Discover page's "Show more" tile shares Package_Click with the package cards, but
-// the handler only navigated for packages, so clicking the tile never ran DiscoverPageViewModel.More
-// and the featured list could not be paged past the first page. The tile must also survive a failed
-// request so the user can retry.
+// Regression: the Show more tile shares Package_Click with the cards; it must load the next page and stay
+// available after a failed request.
 [TestFixture]
 public class DiscoverPageLoadMoreTests
 {
@@ -29,7 +27,7 @@ public class DiscoverPageLoadMoreTests
         await RunWithShowMoreTileAsync(async (view, viewModel, handler) =>
         {
             ClickShowMore(view);
-            await WaitFor(() => handler.FeaturedRequests.Count == 2 && !viewModel.IsBusy.Value);
+            await HeadlessTestHelpers.WaitUntilAsync(() => handler.FeaturedRequests.Count == 2 && !viewModel.IsBusy.Value, TimeSpan.FromSeconds(10));
 
             Assert.That(
                 handler.FeaturedRequests.Last().Query,
@@ -49,7 +47,7 @@ public class DiscoverPageLoadMoreTests
         {
             handler.FailNextFeaturedRequest = true;
             ClickShowMore(view);
-            await WaitFor(() => handler.FeaturedRequests.Count == 2 && !viewModel.IsBusy.Value);
+            await HeadlessTestHelpers.WaitUntilAsync(() => handler.FeaturedRequests.Count == 2 && !viewModel.IsBusy.Value, TimeSpan.FromSeconds(10));
 
             Assert.That(
                 viewModel.Items.OfType<LoadMoreItem>().Count(),
@@ -58,7 +56,7 @@ public class DiscoverPageLoadMoreTests
 
             HeadlessTestHelpers.Render();
             ClickShowMore(view);
-            await WaitFor(() => handler.FeaturedRequests.Count == 3 && !viewModel.IsBusy.Value);
+            await HeadlessTestHelpers.WaitUntilAsync(() => handler.FeaturedRequests.Count == 3 && !viewModel.IsBusy.Value, TimeSpan.FromSeconds(10));
 
             Assert.That(
                 handler.FeaturedRequests.Last().Query,
@@ -88,7 +86,7 @@ public class DiscoverPageLoadMoreTests
         try
         {
             window.Show();
-            await WaitFor(() => handler.FeaturedRequests.Count == 1 && !viewModel.IsBusy.Value);
+            await HeadlessTestHelpers.WaitUntilAsync(() => handler.FeaturedRequests.Count == 1 && !viewModel.IsBusy.Value, TimeSpan.FromSeconds(10));
 
             viewModel.Items.Add(new DummyItem());
             viewModel.Items.Add(new DummyItem());
@@ -115,16 +113,6 @@ public class DiscoverPageLoadMoreTests
             "the Show more tile did not materialize headlessly - revisit the test host before trusting it");
 
         showMore!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-    }
-
-    private static async Task WaitFor(Func<bool> predicate)
-    {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        while (!predicate())
-        {
-            HeadlessTestHelpers.Settle();
-            await Task.Delay(10, timeout.Token);
-        }
     }
 
     private sealed class RecordingHandler : HttpMessageHandler

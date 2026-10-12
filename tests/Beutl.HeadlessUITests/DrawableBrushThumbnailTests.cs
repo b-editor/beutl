@@ -1,5 +1,4 @@
 ﻿using System.Collections.Concurrent;
-using System.Diagnostics;
 using System.Reactive.Subjects;
 using Avalonia.Headless.NUnit;
 using Avalonia.Media.Imaging;
@@ -10,6 +9,7 @@ using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
+using Beutl.Testing.Headless;
 using Beutl.Threading;
 using AvaDispatcher = Avalonia.Threading.Dispatcher;
 using AvaImageBrush = Avalonia.Media.ImageBrush;
@@ -27,34 +27,23 @@ public class DrawableBrushThumbnailTests
     public async Task Update_publishes_initial_thumbnail_and_propagates_resource_changes()
     {
         TestGpu.RequireAnyDevice();
-        var drawableBrush = new DrawableBrush(CreateRectangle(40, 24, Colors.Red));
-        drawableBrush.Stretch.CurrentValue = Stretch.Uniform;
-        var resource = (DrawableBrush.Resource)drawableBrush.ToResource(new CompositionContext(TimeSpan.Zero));
-        var imageBrush = new AvaImageBrush();
-        var handler = new AvaloniaTypeConverter.DrawableImageBrushHandler(resource, imageBrush);
-
-        try
+        AvaImageBrush imageBrush;
+        using (var scope = new ThumbnailScope(CreateRectangle(40, 24, Colors.Red), Stretch.Uniform))
         {
-            handler.Update();
-            await WaitUntilAsync(
-                () => imageBrush.Source is WriteableBitmap bitmap
-                      && bitmap.PixelSize == new AvaPixelSize(40, 24),
-                TimeSpan.FromSeconds(5));
-
-            var first = (WriteableBitmap)imageBrush.Source!;
+            imageBrush = scope.ImageBrush;
+            WriteableBitmap first = await scope.PublishFirstAsync();
             uint initialPixel = SamplePixel(first, 20, 12);
             Assert.That(imageBrush.Stretch, Is.EqualTo(AvaStretch.Uniform));
 
-            drawableBrush.Drawable.CurrentValue = CreateRectangle(72, 36, Colors.Blue);
-            drawableBrush.Stretch.CurrentValue = Stretch.None;
-            UpdateResource(resource, drawableBrush);
-            handler.Update();
+            scope.DrawableBrush.Drawable.CurrentValue = CreateRectangle(72, 36, Colors.Blue);
+            scope.DrawableBrush.Stretch.CurrentValue = Stretch.None;
+            UpdateResource(scope.Resource, scope.DrawableBrush);
+            scope.Handler.Update();
 
-            await WaitUntilAsync(
+            await HeadlessTestHelpers.WaitUntilAsync(
                 () => imageBrush.Source is WriteableBitmap bitmap
                       && !ReferenceEquals(bitmap, first)
-                      && bitmap.PixelSize == new AvaPixelSize(72, 36),
-                TimeSpan.FromSeconds(5));
+                      && bitmap.PixelSize == new AvaPixelSize(72, 36));
             var second = (WriteableBitmap)imageBrush.Source!;
             uint updatedPixel = SamplePixel(second, 36, 18);
 
@@ -72,11 +61,6 @@ public class DrawableBrushThumbnailTests
                 Assert.That((initialPixel >> 24), Is.GreaterThan(200));
                 Assert.That((updatedPixel >> 24), Is.GreaterThan(200));
             });
-        }
-        finally
-        {
-            handler.Dispose();
-            await WaitUntilAsync(() => resource.IsDisposed, TimeSpan.FromSeconds(5));
         }
 
         Assert.That(imageBrush.Source, Is.Null);
@@ -110,42 +94,29 @@ public class DrawableBrushThumbnailTests
     {
         TestGpu.RequireAnyDevice();
         var staleDrawable = new BlockingThumbnailDrawable(40, 24, Brushes.Resource.Red);
-        var drawableBrush = new DrawableBrush(staleDrawable);
-        var resource = (DrawableBrush.Resource)drawableBrush.ToResource(new CompositionContext(TimeSpan.Zero));
         var imageBrush = new AvaImageBrush();
-        var publishedSizes = new ConcurrentQueue<AvaPixelSize>();
-        imageBrush.PropertyChanged += (_, args) =>
-        {
-            if (args.Property == AvaImageBrush.SourceProperty
-                && imageBrush.Source is WriteableBitmap bitmap)
-            {
-                publishedSizes.Enqueue(bitmap.PixelSize);
-            }
-        };
-        var handler = new AvaloniaTypeConverter.DrawableImageBrushHandler(resource, imageBrush);
+        ConcurrentQueue<AvaPixelSize> publishedSizes = RecordPublishedSizes(imageBrush);
+        using var scope = new ThumbnailScope(staleDrawable, imageBrush: imageBrush);
 
         try
         {
-            handler.Update();
+            scope.Handler.Update();
             await staleDrawable.RenderEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
-            drawableBrush.Drawable.CurrentValue = CreateRectangle(72, 36, Colors.Blue);
-            UpdateResource(resource, drawableBrush);
-            handler.Update();
+            scope.DrawableBrush.Drawable.CurrentValue = CreateRectangle(72, 36, Colors.Blue);
+            UpdateResource(scope.Resource, scope.DrawableBrush);
+            scope.Handler.Update();
             staleDrawable.ReleaseRender();
 
-            await WaitUntilAsync(
+            await HeadlessTestHelpers.WaitUntilAsync(
                 () => imageBrush.Source is WriteableBitmap bitmap
-                      && bitmap.PixelSize == new AvaPixelSize(72, 36),
-                TimeSpan.FromSeconds(5));
+                      && bitmap.PixelSize == new AvaPixelSize(72, 36));
 
             Assert.That(publishedSizes.ToArray(), Is.EqualTo(new[] { new AvaPixelSize(72, 36) }));
         }
         finally
         {
             staleDrawable.ReleaseRender();
-            handler.Dispose();
-            await WaitUntilAsync(() => resource.IsDisposed, TimeSpan.FromSeconds(5));
         }
     }
 
@@ -153,47 +124,28 @@ public class DrawableBrushThumbnailTests
     public async Task Superseded_queued_publication_is_discarded_before_ui_delivery()
     {
         TestGpu.RequireAnyDevice();
-        var drawableBrush = new DrawableBrush(CreateRectangle(40, 24, Colors.Red));
-        var resource = (DrawableBrush.Resource)drawableBrush.ToResource(new CompositionContext(TimeSpan.Zero));
         var imageBrush = new AvaImageBrush();
-        var publishedSizes = new ConcurrentQueue<AvaPixelSize>();
-        imageBrush.PropertyChanged += (_, args) =>
-        {
-            if (args.Property == AvaImageBrush.SourceProperty
-                && imageBrush.Source is WriteableBitmap bitmap)
-            {
-                publishedSizes.Enqueue(bitmap.PixelSize);
-            }
-        };
-        var handler = new AvaloniaTypeConverter.DrawableImageBrushHandler(resource, imageBrush);
+        ConcurrentQueue<AvaPixelSize> publishedSizes = RecordPublishedSizes(imageBrush);
+        using var scope = new ThumbnailScope(CreateRectangle(40, 24, Colors.Red), imageBrush: imageBrush);
 
-        try
-        {
-            Assert.That(AvaDispatcher.UIThread.CheckAccess(), Is.True);
-            handler.Update();
-            RenderThread.Dispatcher.Invoke(
-                static () => { },
-                DispatchPriority.Low,
-                CancellationToken.None);
+        Assert.That(AvaDispatcher.UIThread.CheckAccess(), Is.True);
+        scope.Handler.Update();
+        RenderThread.Dispatcher.Invoke(
+            static () => { },
+            DispatchPriority.Low,
+            CancellationToken.None);
 
-            drawableBrush.Drawable.CurrentValue = CreateRectangle(72, 36, Colors.Blue);
-            UpdateResource(resource, drawableBrush);
-            handler.Update();
+        scope.DrawableBrush.Drawable.CurrentValue = CreateRectangle(72, 36, Colors.Blue);
+        UpdateResource(scope.Resource, scope.DrawableBrush);
+        scope.Handler.Update();
 
-            await WaitUntilAsync(
-                () => imageBrush.Source is WriteableBitmap bitmap
-                      && bitmap.PixelSize == new AvaPixelSize(72, 36),
-                TimeSpan.FromSeconds(5));
+        await HeadlessTestHelpers.WaitUntilAsync(
+            () => imageBrush.Source is WriteableBitmap bitmap
+                  && bitmap.PixelSize == new AvaPixelSize(72, 36));
 
-            Assert.That(
-                publishedSizes.ToArray(),
-                Is.EqualTo(new[] { new AvaPixelSize(72, 36) }));
-        }
-        finally
-        {
-            handler.Dispose();
-            await WaitUntilAsync(() => resource.IsDisposed, TimeSpan.FromSeconds(5));
-        }
+        Assert.That(
+            publishedSizes.ToArray(),
+            Is.EqualTo(new[] { new AvaPixelSize(72, 36) }));
     }
 
     [AvaloniaTest]
@@ -203,7 +155,7 @@ public class DrawableBrushThumbnailTests
         var drawableBrush = new DrawableBrush(CreateRectangle(40, 24, Colors.Red));
         var resource = (DrawableBrush.Resource)drawableBrush.ToResource(new CompositionContext(TimeSpan.Zero));
         var imageBrush = new AvaImageBrush();
-        var handler = new AvaloniaTypeConverter.DrawableImageBrushHandler(resource, imageBrush);
+        var handler = new AvaloniaTypeConverter.DrawableImageBrushHandler(resource, imageBrush, RenderThread.Dispatcher);
         var callbackResult = new TaskCompletionSource<bool>(
             TaskCreationOptions.RunContinuationsAsynchronously);
         Task? disposalTask = null;
@@ -232,14 +184,12 @@ public class DrawableBrushThumbnailTests
                 Is.True,
                 "A synchronous Source callback must not wait on the handler publication lock.");
             await disposalTask!.WaitAsync(TimeSpan.FromSeconds(5));
-            await WaitUntilAsync(
-                () => resource.IsDisposed && imageBrush.Source is null,
-                TimeSpan.FromSeconds(5));
+            await HeadlessTestHelpers.WaitUntilAsync(() => imageBrush.Source is null);
         }
         finally
         {
             handler.Dispose();
-            await WaitUntilAsync(() => resource.IsDisposed, TimeSpan.FromSeconds(5));
+            ReleaseResource(resource);
         }
 
         Assert.That(imageBrush.Source, Is.Null);
@@ -253,15 +203,14 @@ public class DrawableBrushThumbnailTests
         drawableBrush.Stretch.CurrentValue = Stretch.Uniform;
         var resource = (DrawableBrush.Resource)drawableBrush.ToResource(new CompositionContext(TimeSpan.Zero));
         var imageBrush = new AvaImageBrush();
-        var handler = new AvaloniaTypeConverter.DrawableImageBrushHandler(resource, imageBrush);
+        var handler = new AvaloniaTypeConverter.DrawableImageBrushHandler(resource, imageBrush, RenderThread.Dispatcher);
 
         try
         {
             handler.Update();
-            await WaitUntilAsync(
+            await HeadlessTestHelpers.WaitUntilAsync(
                 () => imageBrush.Source is WriteableBitmap bitmap
-                      && bitmap.PixelSize == new AvaPixelSize(40, 24),
-                TimeSpan.FromSeconds(5));
+                      && bitmap.PixelSize == new AvaPixelSize(40, 24));
 
             var first = (WriteableBitmap)imageBrush.Source!;
             var replacementPublications = new ConcurrentQueue<WriteableBitmap>();
@@ -293,11 +242,10 @@ public class DrawableBrushThumbnailTests
             UpdateResource(resource, drawableBrush);
             handler.Update();
 
-            await WaitUntilAsync(
+            await HeadlessTestHelpers.WaitUntilAsync(
                 () => imageBrush.Source is WriteableBitmap bitmap
                       && !ReferenceEquals(bitmap, first)
-                      && bitmap.PixelSize == new AvaPixelSize(72, 36),
-                TimeSpan.FromSeconds(5));
+                      && bitmap.PixelSize == new AvaPixelSize(72, 36));
             RenderThread.Dispatcher.Invoke(
                 static () => { },
                 DispatchPriority.Low,
@@ -319,7 +267,7 @@ public class DrawableBrushThumbnailTests
         finally
         {
             handler.Dispose();
-            await WaitUntilAsync(() => resource.IsDisposed, TimeSpan.FromSeconds(5));
+            ReleaseResource(resource);
         }
 
         Assert.That(imageBrush.Source, Is.Null);
@@ -333,15 +281,14 @@ public class DrawableBrushThumbnailTests
         drawableBrush.Stretch.CurrentValue = Stretch.Uniform;
         var resource = (DrawableBrush.Resource)drawableBrush.ToResource(new CompositionContext(TimeSpan.Zero));
         var imageBrush = new AvaImageBrush();
-        var handler = new AvaloniaTypeConverter.DrawableImageBrushHandler(resource, imageBrush);
+        var handler = new AvaloniaTypeConverter.DrawableImageBrushHandler(resource, imageBrush, RenderThread.Dispatcher);
 
         try
         {
             handler.Update();
-            await WaitUntilAsync(
+            await HeadlessTestHelpers.WaitUntilAsync(
                 () => imageBrush.Source is WriteableBitmap bitmap
-                      && bitmap.PixelSize == new AvaPixelSize(40, 24),
-                TimeSpan.FromSeconds(5));
+                      && bitmap.PixelSize == new AvaPixelSize(40, 24));
 
             var first = (WriteableBitmap)imageBrush.Source!;
             WriteableBitmap? rejected = null;
@@ -363,9 +310,8 @@ public class DrawableBrushThumbnailTests
             UpdateResource(resource, drawableBrush);
             handler.Update();
 
-            await WaitUntilAsync(
-                () => rejected is not null && ReferenceEquals(imageBrush.Source, first),
-                TimeSpan.FromSeconds(5));
+            await HeadlessTestHelpers.WaitUntilAsync(
+                () => rejected is not null && ReferenceEquals(imageBrush.Source, first));
             imageBrush.PropertyChanged -= restorePrevious;
 
             Assert.Multiple(() =>
@@ -385,7 +331,7 @@ public class DrawableBrushThumbnailTests
         finally
         {
             handler.Dispose();
-            await WaitUntilAsync(() => resource.IsDisposed, TimeSpan.FromSeconds(5));
+            ReleaseResource(resource);
         }
 
         Assert.That(imageBrush.Source, Is.Null);
@@ -399,15 +345,14 @@ public class DrawableBrushThumbnailTests
         drawableBrush.Stretch.CurrentValue = Stretch.Uniform;
         var resource = (DrawableBrush.Resource)drawableBrush.ToResource(new CompositionContext(TimeSpan.Zero));
         var imageBrush = new AvaImageBrush();
-        var handler = new AvaloniaTypeConverter.DrawableImageBrushHandler(resource, imageBrush);
+        var handler = new AvaloniaTypeConverter.DrawableImageBrushHandler(resource, imageBrush, RenderThread.Dispatcher);
 
         try
         {
             handler.Update();
-            await WaitUntilAsync(
+            await HeadlessTestHelpers.WaitUntilAsync(
                 () => imageBrush.Source is WriteableBitmap bitmap
-                      && bitmap.PixelSize == new AvaPixelSize(40, 24),
-                TimeSpan.FromSeconds(5));
+                      && bitmap.PixelSize == new AvaPixelSize(40, 24));
 
             var first = (WriteableBitmap)imageBrush.Source!;
             WriteableBitmap? rejected = null;
@@ -440,9 +385,8 @@ public class DrawableBrushThumbnailTests
             UpdateResource(resource, drawableBrush);
             handler.Update();
 
-            await WaitUntilAsync(
-                () => rejected is not null && ReferenceEquals(imageBrush.Source, first),
-                TimeSpan.FromSeconds(5));
+            await HeadlessTestHelpers.WaitUntilAsync(
+                () => rejected is not null && ReferenceEquals(imageBrush.Source, first));
             imageBrush.PropertyChanged -= throwOnReplacement;
             imageBrush.PropertyChanged -= throwOnStretchRollback;
 
@@ -470,10 +414,9 @@ public class DrawableBrushThumbnailTests
             UpdateResource(resource, drawableBrush);
             handler.Update();
 
-            await WaitUntilAsync(
+            await HeadlessTestHelpers.WaitUntilAsync(
                 () => imageBrush.Source is WriteableBitmap bitmap
-                      && bitmap.PixelSize == new AvaPixelSize(96, 48),
-                TimeSpan.FromSeconds(5));
+                      && bitmap.PixelSize == new AvaPixelSize(96, 48));
             Assert.Multiple(() =>
             {
                 Assert.That(imageBrush.Source, Is.Not.SameAs(first));
@@ -484,56 +427,10 @@ public class DrawableBrushThumbnailTests
         finally
         {
             handler.Dispose();
-            await WaitUntilAsync(() => resource.IsDisposed, TimeSpan.FromSeconds(5));
+            ReleaseResource(resource);
         }
 
         Assert.That(imageBrush.Source, Is.Null);
-    }
-
-    [AvaloniaTest]
-    public async Task Dispose_during_empty_update_cancels_publication_and_releases_resource_once_idle()
-    {
-        var blockingDrawable = new BlockingThumbnailDrawable(0, 0, null);
-        var drawableBrush = new DrawableBrush(blockingDrawable);
-        var resource = (DrawableBrush.Resource)drawableBrush.ToResource(new CompositionContext(TimeSpan.Zero));
-        var imageBrush = new AvaImageBrush();
-        var handler = new AvaloniaTypeConverter.DrawableImageBrushHandler(resource, imageBrush);
-
-        try
-        {
-            handler.Update();
-            await blockingDrawable.RenderEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
-
-            handler.Dispose();
-            Assert.Multiple(() =>
-            {
-                Assert.That(resource.IsDisposed, Is.False,
-                    "The resource must remain alive until the render-thread update exits.");
-                Assert.That(imageBrush.Source, Is.Null);
-            });
-
-            blockingDrawable.ReleaseRender();
-            await WaitUntilAsync(() => resource.IsDisposed, TimeSpan.FromSeconds(5));
-
-            handler.Update();
-            await RenderThread.Dispatcher.InvokeAsync(
-                static () => { },
-                DispatchPriority.Low,
-                CancellationToken.None);
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(resource.IsDisposed, Is.True);
-                Assert.That(imageBrush.Source, Is.Null);
-            });
-
-            handler.Dispose();
-        }
-        finally
-        {
-            blockingDrawable.ReleaseRender();
-            handler.Dispose();
-        }
     }
 
     [AvaloniaTest]
@@ -591,20 +488,17 @@ public class DrawableBrushThumbnailTests
         using var clock = new BehaviorSubject<TimeSpan>(TimeSpan.Zero);
         (_, IDisposable subscription, _) = drawableBrush.ToAvaBrushSync(clock);
 
-        await WaitUntilAsync(
-            () => drawableBrush.ResourceUpdateCalls == 1,
-            TimeSpan.FromSeconds(5));
+        await HeadlessTestHelpers.WaitUntilAsync(
+            () => drawableBrush.ResourceUpdateCalls == 1);
 
         clock.OnNext(TimeSpan.FromSeconds(1));
-        await WaitUntilAsync(
-            () => drawableBrush.ResourceUpdateCalls == 2,
-            TimeSpan.FromSeconds(5));
+        await HeadlessTestHelpers.WaitUntilAsync(
+            () => drawableBrush.ResourceUpdateCalls == 2);
 
         subscription.Dispose();
 
-        await WaitUntilAsync(
-            () => drawableBrush.ResourceDisposeCalls == 1,
-            TimeSpan.FromSeconds(5));
+        await HeadlessTestHelpers.WaitUntilAsync(
+            () => drawableBrush.ResourceDisposeCalls == 1);
         Assert.Multiple(() =>
         {
             Assert.That(drawableBrush.ResourceDisposeCalls, Is.EqualTo(1));
@@ -620,131 +514,9 @@ public class DrawableBrushThumbnailTests
         });
     }
 
-    [AvaloniaTest]
-    public void Render_dispatcher_shutdown_abandons_queued_update_and_releases_resource()
-    {
-        var drawableBrush = new DrawableBrush();
-        var resource = (DrawableBrush.Resource)drawableBrush.ToResource(
-            new CompositionContext(TimeSpan.Zero));
-        var imageBrush = new AvaImageBrush();
-        var blockerEntered = new ManualResetEventSlim();
-        var releaseBlocker = new ManualResetEventSlim();
-        Dispatcher dispatcher = Dispatcher.Spawn();
-        var handler = new AvaloniaTypeConverter.DrawableImageBrushHandler(
-            resource,
-            imageBrush,
-            dispatcher);
-
-        try
-        {
-            dispatcher.Dispatch(
-                () =>
-                {
-                    blockerEntered.Set();
-                    releaseBlocker.Wait();
-                },
-                DispatchPriority.High);
-            Assert.That(blockerEntered.Wait(TimeSpan.FromSeconds(5)), Is.True);
-
-            handler.Update();
-            handler.Dispose();
-            Assert.That(resource.IsDisposed, Is.False);
-
-            dispatcher.Shutdown();
-
-            Assert.That(
-                resource.IsDisposed, Is.False,
-                "the dispatcher thread is still inside the blocked operation");
-
-            releaseBlocker.Set();
-            Assert.That(dispatcher.Thread.Join(TimeSpan.FromSeconds(5)), Is.True);
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(resource.IsDisposed, Is.True);
-                Assert.That(imageBrush.Source, Is.Null);
-            });
-        }
-        finally
-        {
-            handler.Dispose();
-            if (!dispatcher.HasShutdownStarted)
-                dispatcher.Shutdown();
-            releaseBlocker.Set();
-            Assert.That(dispatcher.Thread.Join(TimeSpan.FromSeconds(5)), Is.True);
-            blockerEntered.Dispose();
-            releaseBlocker.Dispose();
-            resource.Dispose();
-        }
-    }
-
-    // A dispose with no update pending settles at once and hands the release to the render dispatcher.
-    // Shutdown abandons whatever is still queued, so the handler has to stay able to recover that release
-    // instead of writing it off the moment it is queued - but not before the dispatcher thread has stopped,
-    // since the blocked operation below stands in for a frame still reading the resource.
-    [AvaloniaTest]
-    public void Render_dispatcher_shutdown_recovers_a_release_it_abandoned()
-    {
-        var drawableBrush = new DisposalTrackingDrawableBrush();
-        var resource = (DrawableBrush.Resource)drawableBrush.ToResource(
-            new CompositionContext(TimeSpan.Zero));
-        var imageBrush = new AvaImageBrush();
-        var blockerEntered = new ManualResetEventSlim();
-        var releaseBlocker = new ManualResetEventSlim();
-        Dispatcher dispatcher = Dispatcher.Spawn();
-        var handler = new AvaloniaTypeConverter.DrawableImageBrushHandler(
-            resource,
-            imageBrush,
-            dispatcher);
-
-        try
-        {
-            dispatcher.Dispatch(
-                () =>
-                {
-                    blockerEntered.Set();
-                    releaseBlocker.Wait();
-                },
-                DispatchPriority.High);
-            Assert.That(blockerEntered.Wait(TimeSpan.FromSeconds(5)), Is.True);
-
-            handler.Dispose();
-            Assert.That(resource.IsDisposed, Is.False, "the release is queued behind the blocked operation");
-
-            dispatcher.Shutdown();
-
-            Assert.That(
-                resource.IsDisposed, Is.False,
-                "the dispatcher thread is still inside the blocked operation");
-
-            releaseBlocker.Set();
-            Assert.That(dispatcher.Thread.Join(TimeSpan.FromSeconds(5)), Is.True);
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(resource.IsDisposed, Is.True);
-                Assert.That(
-                    drawableBrush.ResourceDisposeCalls,
-                    Is.EqualTo(1),
-                    "draining the queue must not release the resource a second time");
-            });
-        }
-        finally
-        {
-            handler.Dispose();
-            if (!dispatcher.HasShutdownStarted)
-                dispatcher.Shutdown();
-            releaseBlocker.Set();
-            Assert.That(dispatcher.Thread.Join(TimeSpan.FromSeconds(5)), Is.True);
-            blockerEntered.Dispose();
-            releaseBlocker.Dispose();
-            resource.Dispose();
-        }
-    }
-
     // An ImageBrush.Source subscriber is arbitrary code and may throw out of the assignment that clears the
     // source. Dispose has already latched _disposeRequested by then, so a throw escaping the clear turns every
-    // later Dispose into a no-op and strands the published bitmap and the owned resource for good.
+    // later Dispose into a no-op and strands the published bitmap for good.
     [AvaloniaTest]
     public async Task Dispose_completes_its_cleanup_when_a_source_subscriber_throws()
     {
@@ -753,7 +525,7 @@ public class DrawableBrushThumbnailTests
         drawableBrush.Stretch.CurrentValue = Stretch.Uniform;
         var resource = (DrawableBrush.Resource)drawableBrush.ToResource(new CompositionContext(TimeSpan.Zero));
         var imageBrush = new AvaImageBrush();
-        var handler = new AvaloniaTypeConverter.DrawableImageBrushHandler(resource, imageBrush);
+        var handler = new AvaloniaTypeConverter.DrawableImageBrushHandler(resource, imageBrush, RenderThread.Dispatcher);
         var failure = new InvalidOperationException("An ImageBrush.Source subscriber refused the change.");
 
         void Reject(object? sender, AvaPropertyChangedEventArgs e)
@@ -765,10 +537,9 @@ public class DrawableBrushThumbnailTests
         try
         {
             handler.Update();
-            await WaitUntilAsync(
+            await HeadlessTestHelpers.WaitUntilAsync(
                 () => imageBrush.Source is WriteableBitmap bitmap
-                      && bitmap.PixelSize == new AvaPixelSize(40, 24),
-                TimeSpan.FromSeconds(5));
+                      && bitmap.PixelSize == new AvaPixelSize(40, 24));
             var published = (WriteableBitmap)imageBrush.Source!;
 
             imageBrush.PropertyChanged += Reject;
@@ -784,7 +555,6 @@ public class DrawableBrushThumbnailTests
                 imageBrush.PropertyChanged -= Reject;
             }
 
-            await WaitUntilAsync(() => resource.IsDisposed, TimeSpan.FromSeconds(5));
             Assert.That(
                 CanLock(published), Is.False,
                 "The published bitmap has no owner left once the handler has let go of it.");
@@ -793,45 +563,7 @@ public class DrawableBrushThumbnailTests
         {
             imageBrush.PropertyChanged -= Reject;
             handler.Dispose();
-            resource.Dispose();
-        }
-    }
-
-    [AvaloniaTest]
-    public void Handler_attached_to_an_already_stopped_dispatcher_still_releases_its_resource()
-    {
-        var drawableBrush = new DrawableBrush();
-        var resource = (DrawableBrush.Resource)drawableBrush.ToResource(
-            new CompositionContext(TimeSpan.Zero));
-        var imageBrush = new AvaImageBrush();
-        Dispatcher dispatcher = Dispatcher.Spawn();
-        var loopEntered = new ManualResetEventSlim();
-
-        // Shutdown racing Start is swallowed and leaves the loop running forever, so wait until the
-        // loop is demonstrably live before stopping it.
-        dispatcher.Dispatch(loopEntered.Set, DispatchPriority.High);
-        Assert.That(loopEntered.Wait(TimeSpan.FromSeconds(5)), Is.True);
-        dispatcher.Shutdown();
-        Assert.That(dispatcher.Thread.Join(TimeSpan.FromSeconds(5)), Is.True);
-
-        // ShutdownStarted is one-shot and already fired, so this handler never receives it.
-        var handler = new AvaloniaTypeConverter.DrawableImageBrushHandler(
-            resource,
-            imageBrush,
-            dispatcher);
-
-        try
-        {
-            handler.Update();
-            handler.Dispose();
-
-            Assert.That(resource.IsDisposed, Is.True);
-        }
-        finally
-        {
-            handler.Dispose();
-            loopEntered.Dispose();
-            resource.Dispose();
+            ReleaseResource(resource);
         }
     }
 
@@ -841,24 +573,10 @@ public class DrawableBrushThumbnailTests
         TestGpu.RequireAnyDevice();
         var group = new DrawableGroup();
         group.Children.Add(CreateRectangle(40, 24, Colors.Red));
-        var drawableBrush = new DrawableBrush(group);
-        drawableBrush.Stretch.CurrentValue = Stretch.Uniform;
-        var resource = (DrawableBrush.Resource)drawableBrush.ToResource(new CompositionContext(TimeSpan.Zero));
-        var imageBrush = new AvaImageBrush();
-        var handler = new AvaloniaTypeConverter.DrawableImageBrushHandler(resource, imageBrush);
+        using var scope = new ThumbnailScope(group, Stretch.Uniform);
 
-        try
-        {
-            handler.Update();
-            await WaitUntilAsync(
-                () => imageBrush.Source is WriteableBitmap,
-                TimeSpan.FromSeconds(5));
-        }
-        finally
-        {
-            handler.Dispose();
-            await WaitUntilAsync(() => resource.IsDisposed, TimeSpan.FromSeconds(5));
-        }
+        scope.Handler.Update();
+        await HeadlessTestHelpers.WaitUntilAsync(() => scope.ImageBrush.Source is WriteableBitmap);
     }
 
     // Dispose clears the published thumbnail, so a rollback triggered by that same disposal must not
@@ -871,15 +589,14 @@ public class DrawableBrushThumbnailTests
         drawableBrush.Stretch.CurrentValue = Stretch.Uniform;
         var resource = (DrawableBrush.Resource)drawableBrush.ToResource(new CompositionContext(TimeSpan.Zero));
         var imageBrush = new AvaImageBrush();
-        var handler = new AvaloniaTypeConverter.DrawableImageBrushHandler(resource, imageBrush);
+        var handler = new AvaloniaTypeConverter.DrawableImageBrushHandler(resource, imageBrush, RenderThread.Dispatcher);
 
         try
         {
             handler.Update();
-            await WaitUntilAsync(
+            await HeadlessTestHelpers.WaitUntilAsync(
                 () => imageBrush.Source is WriteableBitmap bitmap
-                      && bitmap.PixelSize == new AvaPixelSize(40, 24),
-                TimeSpan.FromSeconds(5));
+                      && bitmap.PixelSize == new AvaPixelSize(40, 24));
 
             int disposedOnce = 0;
             imageBrush.PropertyChanged += (_, args) =>
@@ -897,8 +614,7 @@ public class DrawableBrushThumbnailTests
             UpdateResource(resource, drawableBrush);
             handler.Update();
 
-            await WaitUntilAsync(() => disposedOnce == 1, TimeSpan.FromSeconds(5));
-            await WaitUntilAsync(() => resource.IsDisposed, TimeSpan.FromSeconds(5));
+            await HeadlessTestHelpers.WaitUntilAsync(() => disposedOnce == 1);
 
             Assert.That(imageBrush.Source, Is.Null,
                 "a disposed handler must not leave the previous thumbnail installed");
@@ -906,7 +622,7 @@ public class DrawableBrushThumbnailTests
         finally
         {
             handler.Dispose();
-            await WaitUntilAsync(() => resource.IsDisposed, TimeSpan.FromSeconds(5));
+            ReleaseResource(resource);
         }
     }
 
@@ -939,16 +655,59 @@ public class DrawableBrushThumbnailTests
         }
     }
 
-    private static async Task WaitUntilAsync(Func<bool> condition, TimeSpan timeout)
+    private static ConcurrentQueue<AvaPixelSize> RecordPublishedSizes(AvaImageBrush imageBrush)
     {
-        var stopwatch = Stopwatch.StartNew();
-        while (!condition())
+        var publishedSizes = new ConcurrentQueue<AvaPixelSize>();
+        imageBrush.PropertyChanged += (_, args) =>
         {
-            AvaDispatcher.UIThread.RunJobs();
-            if (stopwatch.Elapsed >= timeout)
-                Assert.Fail($"Condition was not met within {timeout}.");
+            if (args.Property == AvaImageBrush.SourceProperty
+                && imageBrush.Source is WriteableBitmap bitmap)
+            {
+                publishedSizes.Enqueue(bitmap.PixelSize);
+            }
+        };
+        return publishedSizes;
+    }
 
-            await Task.Delay(10);
+    // Disposes the resource on the render dispatcher, after the updates queued there, as its owner does.
+    private static void ReleaseResource(DrawableBrush.Resource resource)
+        => RenderThread.Dispatcher.Invoke(resource.Dispose, DispatchPriority.Low, CancellationToken.None);
+
+    // A drawable brush, its resource, and a handler that publishes thumbnails of it to an image brush.
+    private sealed class ThumbnailScope : IDisposable
+    {
+        public ThumbnailScope(Drawable drawable, Stretch? stretch = null, AvaImageBrush? imageBrush = null)
+        {
+            DrawableBrush = new DrawableBrush(drawable);
+            if (stretch is { } value)
+                DrawableBrush.Stretch.CurrentValue = value;
+            Resource = (DrawableBrush.Resource)DrawableBrush.ToResource(new CompositionContext(TimeSpan.Zero));
+            ImageBrush = imageBrush ?? new AvaImageBrush();
+            Handler = new AvaloniaTypeConverter.DrawableImageBrushHandler(Resource, ImageBrush, RenderThread.Dispatcher);
+        }
+
+        public DrawableBrush DrawableBrush { get; }
+
+        public DrawableBrush.Resource Resource { get; }
+
+        public AvaImageBrush ImageBrush { get; }
+
+        public AvaloniaTypeConverter.DrawableImageBrushHandler Handler { get; }
+
+        // Publishes the 40x24 thumbnail the tests start from.
+        public async Task<WriteableBitmap> PublishFirstAsync()
+        {
+            Handler.Update();
+            await HeadlessTestHelpers.WaitUntilAsync(
+                () => ImageBrush.Source is WriteableBitmap bitmap
+                      && bitmap.PixelSize == new AvaPixelSize(40, 24));
+            return (WriteableBitmap)ImageBrush.Source!;
+        }
+
+        public void Dispose()
+        {
+            Handler.Dispose();
+            ReleaseResource(Resource);
         }
     }
 }

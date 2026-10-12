@@ -21,6 +21,31 @@ internal static class TestShell
 
     public static ExtensionProvider Extensions => MainViewModel.ExtensionProvider;
 
+    // A new folder under BEUTL_HOME.
+    public static string NewWorkspace(string name)
+    {
+        string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, name);
+        Directory.CreateDirectory(location);
+        return location;
+    }
+
+    // Creates a project named after its NewWorkspace folder.
+    public static async Task<Project> CreateProjectAsync(string name, int width = 640, int height = 480)
+    {
+        Project project = (await Project.CreateProject(width, height, 30, 44100, name, NewWorkspace(name)))!;
+        HeadlessTestHelpers.Settle();
+        return project;
+    }
+
+    // Creates a project with CreateProjectAsync and opens its scene, without resetting the shell first.
+    public static async Task<EditViewModel> OpenNewSceneEditorAsync(string name, int width = 640, int height = 480)
+    {
+        Project project = await CreateProjectAsync(name, width, height);
+        Editor.ActivateTabItem(project.Items.OfType<Scene>().First());
+        HeadlessTestHelpers.Settle();
+        return (EditViewModel)Editor.SelectedTabItem.Value!.Context.Value;
+    }
+
     // Resets the shell, creates a 640x480 project in a new folder under BEUTL_HOME and opens its scene.
     public static async Task<(Project Project, Scene Scene, EditViewModel Editor)> OpenNewSceneAsync(string name)
     {

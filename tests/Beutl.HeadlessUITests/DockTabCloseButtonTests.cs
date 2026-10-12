@@ -6,7 +6,6 @@ using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.VisualTree;
 using Beutl.Extensibility;
-using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Dock;
@@ -20,25 +19,6 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class DockTabCloseButtonTests
 {
-    private static string NewWorkspace(string name)
-    {
-        string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, name);
-        Directory.CreateDirectory(location);
-        return location;
-    }
-
-    private static async Task<EditViewModel> OpenEditorForNewScene(string name)
-    {
-        Project project = (await TestShell.Project.CreateProject(
-            640, 480, 30, 44100, name, NewWorkspace(name)))!;
-        HeadlessTestHelpers.Settle();
-        Scene scene = project.Items.OfType<Scene>().First();
-
-        TestShell.Editor.ActivateTabItem(scene);
-        HeadlessTestHelpers.Settle();
-        return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
-    }
-
     private static ToolTabStripItem TabFor(Visual root, IDockable dockable)
     {
         return root.GetVisualDescendants()
@@ -56,20 +36,11 @@ public class DockTabCloseButtonTests
         return tab.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "PART_TabTitleHost");
     }
 
-    private static Point Center(Control control, Visual relativeTo)
-    {
-        Point? point = control.TranslatePoint(
-            new Point(control.Bounds.Width / 2, control.Bounds.Height / 2),
-            relativeTo);
-        Assert.That(point, Is.Not.Null);
-        return point!.Value;
-    }
-
     [AvaloniaTest]
     public async Task Close_button_appears_on_selected_hover_without_changing_the_tab_width_and_fades_the_title()
     {
         await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditorForNewScene("dock-tab-close-hover");
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("dock-tab-close-hover");
 
         var view = new EditView { DataContext = editor };
         var window = new Window { Content = view, Width = 900, Height = 700 };
@@ -99,7 +70,7 @@ public class DockTabCloseButtonTests
             ToolTabStripItem secondTab = TabFor(view, second);
             Button secondClose = CloseButtonOf(secondTab);
 
-            window.MouseMove(Center(secondTab, window));
+            window.MouseMove(HeadlessTestHelpers.Center(secondTab, window));
             HeadlessTestHelpers.Settle();
             HeadlessTestHelpers.Render();
 
@@ -116,7 +87,7 @@ public class DockTabCloseButtonTests
                 Assert.That(TitleOf(secondTab).OpacityMask, Is.Null);
             });
 
-            window.MouseMove(Center(tab, window));
+            window.MouseMove(HeadlessTestHelpers.Center(tab, window));
             HeadlessTestHelpers.Settle();
             HeadlessTestHelpers.Render();
 
@@ -160,7 +131,7 @@ public class DockTabCloseButtonTests
             IToolDock playerDock = editor.DockHost.Factory.GetAnchoredDock(DockAnchor.Player)!;
             IDockable player = playerDock.VisibleDockables!.Single(d => !d.CanClose);
             ToolTabStripItem playerTab = TabFor(view, player);
-            window.MouseMove(Center(playerTab, window));
+            window.MouseMove(HeadlessTestHelpers.Center(playerTab, window));
             HeadlessTestHelpers.Settle();
 
             Assert.Multiple(() =>
@@ -180,7 +151,7 @@ public class DockTabCloseButtonTests
     public async Task Clicking_the_close_button_closes_the_tab()
     {
         await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditorForNewScene("dock-tab-close-click");
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("dock-tab-close-click");
 
         var view = new EditView { DataContext = editor };
         var window = new Window { Content = view, Width = 900, Height = 700 };
@@ -197,9 +168,9 @@ public class DockTabCloseButtonTests
             ToolTabStripItem tab = TabFor(view, target);
             Button close = CloseButtonOf(tab);
 
-            window.MouseMove(Center(tab, window));
+            window.MouseMove(HeadlessTestHelpers.Center(tab, window));
             HeadlessTestHelpers.Settle();
-            Point closeCenter = Center(close, window);
+            Point closeCenter = HeadlessTestHelpers.Center(close, window);
             window.MouseMove(closeCenter);
             HeadlessTestHelpers.Settle();
             window.MouseDown(closeCenter, MouseButton.Left);
