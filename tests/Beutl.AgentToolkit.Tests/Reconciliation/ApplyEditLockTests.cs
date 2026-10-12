@@ -1,6 +1,7 @@
 ﻿using System.Collections.Immutable;
 using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
+using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Schema;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tests.Helpers;
@@ -33,12 +34,12 @@ public sealed class ApplyEditLockTests
     [TestCase("insert")]
     public void Apply_edit_rejects_edits_under_a_locked_element_or_layer(string edit)
     {
-        Scene scene = CreateScene();
+        Scene scene = TestWorkspace.CreateScene();
         Element locked = AddElement(scene, "Locked title", zIndex: 0);
         locked.IsLocked = true;
         scene.Layers.Add(new TimelineLayer { ZIndex = LockedLayer, IsLocked = true });
         using var session = new AgentToolkitTestSession(scene);
-        EditTools tools = CreateTools(session);
+        EditTools tools = session.CreateEditTools();
         string before = session.Documents.Read(scene).ToJsonString();
 
         JsonObject patch = edit switch
@@ -65,11 +66,11 @@ public sealed class ApplyEditLockTests
     [Test]
     public void Apply_edit_rejects_edits_to_an_element_on_a_locked_layer()
     {
-        Scene scene = CreateScene();
+        Scene scene = TestWorkspace.CreateScene();
         Element element = AddElement(scene, "Title", LockedLayer);
         scene.Layers.Add(new TimelineLayer { ZIndex = LockedLayer, IsLocked = true });
         using var session = new AgentToolkitTestSession(scene);
-        EditTools tools = CreateTools(session);
+        EditTools tools = session.CreateEditTools();
 
         ToolResult<ApplyEditResponse> result = tools.ApplyEdit(
             patch: ElementPatch(element, new JsonObject { [nameof(Element.ZIndex)] = 0 }),
@@ -87,11 +88,11 @@ public sealed class ApplyEditLockTests
     [Test]
     public void Apply_edit_rejects_moving_an_element_onto_a_locked_layer()
     {
-        Scene scene = CreateScene();
+        Scene scene = TestWorkspace.CreateScene();
         Element element = AddElement(scene, "Title", zIndex: 0);
         scene.Layers.Add(new TimelineLayer { ZIndex = LockedLayer, IsLocked = true });
         using var session = new AgentToolkitTestSession(scene);
-        EditTools tools = CreateTools(session);
+        EditTools tools = session.CreateEditTools();
 
         ToolResult<ApplyEditResponse> result = tools.ApplyEdit(
             patch: ElementPatch(element, new JsonObject { [nameof(Element.ZIndex)] = LockedLayer }),
@@ -108,14 +109,14 @@ public sealed class ApplyEditLockTests
     [Test]
     public void Apply_edit_lets_an_agent_lock_elements_and_layers()
     {
-        Scene scene = CreateScene();
+        Scene scene = TestWorkspace.CreateScene();
         Element element = AddElement(scene, "Title", zIndex: 0);
         Element onLockedLayer = AddElement(scene, "Caption", LockedLayer);
         var layer = new TimelineLayer { ZIndex = 1 };
         scene.Layers.Add(layer);
         scene.Layers.Add(new TimelineLayer { ZIndex = LockedLayer, IsLocked = true });
         using var session = new AgentToolkitTestSession(scene);
-        EditTools tools = CreateTools(session);
+        EditTools tools = session.CreateEditTools();
 
         ToolResult<ApplyEditResponse> result = tools.ApplyEdit(
             patch: new JsonObject
@@ -143,13 +144,13 @@ public sealed class ApplyEditLockTests
     [TestCase("move-layer")]
     public void Apply_edit_refuses_to_unlock_an_element_or_a_layer(string target)
     {
-        Scene scene = CreateScene();
+        Scene scene = TestWorkspace.CreateScene();
         Element element = AddElement(scene, "Title", zIndex: 0);
         element.IsLocked = true;
         var layer = new TimelineLayer { ZIndex = LockedLayer, IsLocked = true };
         scene.Layers.Add(layer);
         using var session = new AgentToolkitTestSession(scene);
-        EditTools tools = CreateTools(session);
+        EditTools tools = session.CreateEditTools();
         string before = session.Documents.Read(scene).ToJsonString();
 
         JsonObject patch = target switch
@@ -176,14 +177,14 @@ public sealed class ApplyEditLockTests
     [Test]
     public void Apply_edit_keeps_editing_unlocked_content_beside_locks()
     {
-        Scene scene = CreateScene();
+        Scene scene = TestWorkspace.CreateScene();
         Element unlocked = AddElement(scene, "Intro", zIndex: 0);
         Element locked = AddElement(scene, "Outro", zIndex: 1);
         locked.IsLocked = true;
         var layer = new TimelineLayer { ZIndex = LockedLayer, IsLocked = true };
         scene.Layers.Add(layer);
         using var session = new AgentToolkitTestSession(scene);
-        EditTools tools = CreateTools(session);
+        EditTools tools = session.CreateEditTools();
 
         // Deleting the first element shifts the locked one in the Elements array, and a locked layer
         // keeps its name editable, as in the timeline.
@@ -207,11 +208,11 @@ public sealed class ApplyEditLockTests
     [Test]
     public void Apply_edit_rejects_a_full_document_that_drops_a_locked_element()
     {
-        Scene scene = CreateScene();
+        Scene scene = TestWorkspace.CreateScene();
         Element locked = AddElement(scene, "Title", zIndex: 0);
         locked.IsLocked = true;
         using var session = new AgentToolkitTestSession(scene);
-        EditTools tools = CreateTools(session);
+        EditTools tools = session.CreateEditTools();
         JsonObject desired = session.Documents.Read(scene);
         desired.Remove("Elements");
 
@@ -225,18 +226,16 @@ public sealed class ApplyEditLockTests
         });
     }
 
-    // The plan reports the whole Layers array as removed, so the edit is refused like one that drops
-    // a locked element.
-    // The diff reports the case-insensitive "layers" member as a new whole array at $/layers, while
-    // the applier reads it as Layers and drops the locked layer.
+    // A case-insensitive argument turns Layers into a new "layers" member: the diff sees the whole array
+    // replaced while the applier drops the locked layer, so the edit is refused.
     [Test]
     public void Apply_edit_rejects_a_full_document_that_replaces_the_layers_while_one_is_locked()
     {
-        Scene scene = CreateScene();
+        Scene scene = TestWorkspace.CreateScene();
         AddElement(scene, "Title", zIndex: 0);
         scene.Layers.Add(new TimelineLayer { ZIndex = LockedLayer, IsLocked = true });
         using var session = new AgentToolkitTestSession(scene);
-        EditTools tools = CreateTools(session);
+        EditTools tools = session.CreateEditTools();
         string before = session.Documents.Read(scene).ToJsonString();
         JsonObject desired = AsMcpArgument(session.Documents.Read(scene));
         desired.Remove("Layers");
@@ -258,11 +257,11 @@ public sealed class ApplyEditLockTests
     [Test]
     public void Apply_edit_keeps_a_locked_layer_when_a_full_document_omits_the_layers()
     {
-        Scene scene = CreateScene();
+        Scene scene = TestWorkspace.CreateScene();
         Element element = AddElement(scene, "Title", zIndex: 0);
         scene.Layers.Add(new TimelineLayer { ZIndex = LockedLayer, IsLocked = true });
         using var session = new AgentToolkitTestSession(scene);
-        EditTools tools = CreateTools(session);
+        EditTools tools = session.CreateEditTools();
         JsonObject desired = session.Documents.Read(scene);
         desired.Remove("Layers");
         desired["Elements"]![0]![nameof(Element.Start)] = TimeSpan.FromSeconds(5).ToString("c");
@@ -282,13 +281,13 @@ public sealed class ApplyEditLockTests
     [Test]
     public void Apply_edit_rejects_edits_to_a_locked_element_under_a_differently_cased_elements_member()
     {
-        Scene scene = CreateScene();
+        Scene scene = TestWorkspace.CreateScene();
         Element locked = AddElement(scene, "Title", zIndex: 0);
         var rect = new RectShape { Name = "Box" };
         locked.AddObject(rect);
         locked.IsLocked = true;
         using var session = new AgentToolkitTestSession(scene);
-        EditTools tools = CreateTools(session);
+        EditTools tools = session.CreateEditTools();
         string before = session.Documents.Read(scene).ToJsonString();
         JsonObject desired = AsMcpArgument(session.Documents.Read(scene));
         JsonNode elements = desired["Elements"]!.DeepClone();
@@ -314,11 +313,11 @@ public sealed class ApplyEditLockTests
     [TestCase("braced")]
     public void Apply_edit_rejects_an_edit_that_spells_the_id_of_a_locked_element_differently(string spelling)
     {
-        Scene scene = CreateScene();
+        Scene scene = TestWorkspace.CreateScene();
         Element locked = AddElement(scene, "Title", zIndex: 0);
         locked.IsLocked = true;
         using var session = new AgentToolkitTestSession(scene);
-        EditTools tools = CreateTools(session);
+        EditTools tools = session.CreateEditTools();
         string before = session.Documents.Read(scene).ToJsonString();
         string id = spelling == "upper" ? locked.Id.ToString().ToUpperInvariant() : locked.Id.ToString("B");
 
@@ -343,16 +342,16 @@ public sealed class ApplyEditLockTests
     [TestCase("elements")]
     public void Apply_edit_rejects_replacing_a_locked_element_with_an_equal_copy(string member)
     {
-        Scene scene = CreateScene();
+        Scene scene = TestWorkspace.CreateScene();
         Element locked = AddElement(scene, "Title", zIndex: 0);
         locked.AddObject(new RectShape { Name = "Box" });
         locked.IsLocked = true;
         using var session = new AgentToolkitTestSession(scene);
-        EditTools tools = CreateTools(session);
+        EditTools tools = session.CreateEditTools();
         string before = session.Documents.Read(scene).ToJsonString();
         JsonObject desired = AsMcpArgument(session.Documents.Read(scene));
         JsonObject copy = desired["Elements"]![0]!.DeepClone().AsObject();
-        RemoveIds(copy);
+        CollectionReconciler.RemoveIds(copy);
         desired.Remove("Elements");
         desired[member] = new JsonArray(copy);
 
@@ -372,7 +371,7 @@ public sealed class ApplyEditLockTests
     [Test]
     public void Apply_edit_accepts_edits_beside_a_locked_element_with_rich_content()
     {
-        Scene scene = CreateScene();
+        Scene scene = TestWorkspace.CreateScene();
         Element locked = AddElement(scene, "Title", zIndex: 0);
         locked.EnterTransition = new CrossDissolveTransition();
         locked.ExitTransition = new WipeTransition();
@@ -401,7 +400,7 @@ public sealed class ApplyEditLockTests
         locked.IsLocked = true;
         Element other = AddElement(scene, "Other", zIndex: 1);
         using var session = new AgentToolkitTestSession(scene);
-        EditTools tools = CreateTools(session);
+        EditTools tools = session.CreateEditTools();
 
         ToolResult<ApplyEditResponse> result = tools.ApplyEdit(
             patch: ElementPatch(other, new JsonObject { [nameof(CoreObject.Name)] = "Renamed" }),
@@ -421,12 +420,12 @@ public sealed class ApplyEditLockTests
     [TestCase("replace", "islocked")]
     public void Apply_edit_refuses_to_unlock_a_layer_through_differently_cased_members(string shape, string member)
     {
-        Scene scene = CreateScene();
+        Scene scene = TestWorkspace.CreateScene();
         AddElement(scene, "Title", zIndex: 0);
         var layer = new TimelineLayer { ZIndex = LockedLayer, IsLocked = true };
         scene.Layers.Add(layer);
         using var session = new AgentToolkitTestSession(scene);
-        EditTools tools = CreateTools(session);
+        EditTools tools = session.CreateEditTools();
         string before = session.Documents.Read(scene).ToJsonString();
 
         ToolResult<ApplyEditResponse> result;
@@ -464,11 +463,11 @@ public sealed class ApplyEditLockTests
     [Test]
     public void Apply_edit_rejects_moving_an_element_onto_a_locked_layer_through_a_differently_cased_member()
     {
-        Scene scene = CreateScene();
+        Scene scene = TestWorkspace.CreateScene();
         Element element = AddElement(scene, "Title", zIndex: 0);
         scene.Layers.Add(new TimelineLayer { ZIndex = LockedLayer, IsLocked = true });
         using var session = new AgentToolkitTestSession(scene);
-        EditTools tools = CreateTools(session);
+        EditTools tools = session.CreateEditTools();
         JsonObject desired = AsMcpArgument(session.Documents.Read(scene));
         JsonObject elementJson = desired["Elements"]![0]!.AsObject();
         elementJson.Remove("ZIndex");
@@ -489,14 +488,14 @@ public sealed class ApplyEditLockTests
     [Test]
     public void Apply_edit_rejects_swapping_the_type_of_an_object_inside_a_locked_element()
     {
-        Scene scene = CreateScene();
+        Scene scene = TestWorkspace.CreateScene();
         Element element = AddElement(scene, "Title", zIndex: 0);
         var rect = new RectShape { Name = "Box" };
         rect.FilterEffect.CurrentValue = new LumaColor();
         element.AddObject(rect);
         element.IsLocked = true;
         using var session = new AgentToolkitTestSession(scene);
-        EditTools tools = CreateTools(session);
+        EditTools tools = session.CreateEditTools();
         JsonObject desired = session.Documents.Read(scene);
         JsonObject effect = desired["Elements"]![0]!["Objects"]![0]!["FilterEffect"]!.AsObject();
         effect.Remove("Id");
@@ -521,7 +520,7 @@ public sealed class ApplyEditLockTests
     [TestCase("drop")]
     public void Apply_edit_refuses_to_regroup_a_locked_element(string edit)
     {
-        Scene scene = CreateScene();
+        Scene scene = TestWorkspace.CreateScene();
         Element locked = AddElement(scene, "Title", zIndex: 0);
         locked.IsLocked = true;
         Element first = AddElement(scene, "First", zIndex: 1);
@@ -532,7 +531,7 @@ public sealed class ApplyEditLockTests
         }
 
         using var session = new AgentToolkitTestSession(scene);
-        EditTools tools = CreateTools(session);
+        EditTools tools = session.CreateEditTools();
         string before = session.Documents.Read(scene).ToJsonString();
 
         ToolResult<ApplyEditResponse> result;
@@ -569,7 +568,7 @@ public sealed class ApplyEditLockTests
     [Test]
     public void Apply_edit_refuses_edits_while_a_locked_element_is_in_overlapping_groups()
     {
-        Scene scene = CreateScene();
+        Scene scene = TestWorkspace.CreateScene();
         Element locked = AddElement(scene, "Title", zIndex: 0);
         locked.IsLocked = true;
         Element first = AddElement(scene, "First", zIndex: 1);
@@ -577,7 +576,7 @@ public sealed class ApplyEditLockTests
         scene.Groups.Add(ImmutableHashSet.Create(locked.Id, first.Id));
         scene.Groups.Add(ImmutableHashSet.Create(locked.Id, first.Id, second.Id));
         using var session = new AgentToolkitTestSession(scene);
-        EditTools tools = CreateTools(session);
+        EditTools tools = session.CreateEditTools();
         string before = session.Documents.Read(scene).ToJsonString();
 
         ToolResult<ApplyEditResponse> result = tools.ApplyEdit(
@@ -599,7 +598,7 @@ public sealed class ApplyEditLockTests
     [TestCase("delete")]
     public void Apply_edit_lets_other_members_leave_a_locked_elements_group(string edit)
     {
-        Scene scene = CreateScene();
+        Scene scene = TestWorkspace.CreateScene();
         Element locked = AddElement(scene, "Title", zIndex: 0);
         locked.IsLocked = true;
         Element first = AddElement(scene, "First", zIndex: 1);
@@ -608,7 +607,7 @@ public sealed class ApplyEditLockTests
             ? ImmutableHashSet.Create(locked.Id, first.Id, second.Id)
             : ImmutableHashSet.Create(locked.Id, first.Id));
         using var session = new AgentToolkitTestSession(scene);
-        EditTools tools = CreateTools(session);
+        EditTools tools = session.CreateEditTools();
 
         ToolResult<ApplyEditResponse> result = tools.ApplyEdit(
             patch: edit == "leave"
@@ -636,7 +635,7 @@ public sealed class ApplyEditLockTests
     [Test]
     public void Apply_edit_refuses_edits_while_a_locked_element_shares_its_id()
     {
-        Scene scene = CreateScene();
+        Scene scene = TestWorkspace.CreateScene();
         Element first = AddElement(scene, "A", zIndex: 0);
         Element locked = AddElement(scene, "B", zIndex: 1);
         locked.Id = first.Id;
@@ -644,7 +643,7 @@ public sealed class ApplyEditLockTests
         AddElement(scene, "Y", zIndex: 2);
         AddElement(scene, "Z", zIndex: 3);
         using var session = new AgentToolkitTestSession(scene);
-        EditTools tools = CreateTools(session);
+        EditTools tools = session.CreateEditTools();
         JsonObject desired = session.Documents.Read(scene);
         JsonArray elements = desired["Elements"]!.AsArray();
         JsonObject original = elements[0]!.DeepClone().AsObject();
@@ -674,7 +673,7 @@ public sealed class ApplyEditLockTests
     [Test]
     public void Apply_edit_refuses_edits_while_a_locked_layer_shares_its_id()
     {
-        Scene scene = CreateScene();
+        Scene scene = TestWorkspace.CreateScene();
         AddElement(scene, "Title", zIndex: 0);
         var kept = new TimelineLayer { ZIndex = LockedLayer, IsLocked = true };
         var removed = new TimelineLayer { ZIndex = LockedLayer, IsLocked = true, Name = "Copy" };
@@ -682,7 +681,7 @@ public sealed class ApplyEditLockTests
         scene.Layers.Add(kept);
         scene.Layers.Add(removed);
         using var session = new AgentToolkitTestSession(scene);
-        EditTools tools = CreateTools(session);
+        EditTools tools = session.CreateEditTools();
         JsonObject desired = session.Documents.Read(scene);
         desired["Layers"]!.AsArray().RemoveAt(1);
 
@@ -697,42 +696,17 @@ public sealed class ApplyEditLockTests
         });
     }
 
-    [Test]
-    public void Apply_edit_refuses_a_second_element_with_the_id_of_a_locked_element()
-    {
-        Scene scene = CreateScene();
-        Element locked = AddElement(scene, "Title", zIndex: 0);
-        locked.IsLocked = true;
-        using var session = new AgentToolkitTestSession(scene);
-        EditTools tools = CreateTools(session);
-        string before = session.Documents.Read(scene).ToJsonString();
-        JsonObject desired = session.Documents.Read(scene);
-        JsonObject copy = desired["Elements"]![0]!.DeepClone().AsObject();
-        copy[nameof(CoreObject.Name)] = "Copy";
-        copy[nameof(Element.ZIndex)] = 1;
-        desired["Elements"]!.AsArray().Add(copy);
-
-        ToolResult<ApplyEditResponse> result = tools.ApplyEdit(desired: desired, schemaVersion: SchemaVersion.Current);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(result.IsSuccess, Is.False);
-            Assert.That(result.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
-            Assert.That(session.Documents.Read(scene).ToJsonString(), Is.EqualTo(before));
-        });
-    }
-
     [TestCase(false)]
     [TestCase(true)]
     public void Duplicate_object_rejects_an_object_in_a_locked_element(bool wrapInGroup)
     {
-        Scene scene = CreateScene();
+        Scene scene = TestWorkspace.CreateScene();
         Element element = AddElement(scene, "Title", zIndex: 0);
         var rect = new RectShape { Name = "Box" };
         element.AddObject(rect);
         element.IsLocked = true;
         using var session = new AgentToolkitTestSession(scene);
-        EditTools tools = CreateTools(session);
+        EditTools tools = session.CreateEditTools();
 
         ToolResult<DuplicateObjectResponse> result = tools.DuplicateObject(rect.Id.ToString(), wrapInGroup: wrapInGroup);
 
@@ -745,35 +719,9 @@ public sealed class ApplyEditLockTests
         });
     }
 
-    private static EditTools CreateTools(IEditingSession session)
-    {
-        var manager = new AgentSessionManager();
-        manager.UseSource(new AgentToolkitTestSessionSource(session));
-        return new EditTools(manager);
-    }
-
     private static JsonObject AsMcpArgument(JsonObject json)
     {
         return JsonNode.Parse(json.ToJsonString(), s_mcpArguments)!.AsObject();
-    }
-
-    private static void RemoveIds(JsonNode? node)
-    {
-        if (node is JsonObject obj)
-        {
-            obj.Remove(nameof(CoreObject.Id));
-            foreach (JsonNode? child in obj.Select(pair => pair.Value).ToArray())
-            {
-                RemoveIds(child);
-            }
-        }
-        else if (node is JsonArray array)
-        {
-            foreach (JsonNode? child in array.ToArray())
-            {
-                RemoveIds(child);
-            }
-        }
     }
 
     private static JsonObject ElementPatch(Element element, JsonObject members)
@@ -815,15 +763,5 @@ public sealed class ApplyEditLockTests
         };
         scene.Children.Add(element);
         return element;
-    }
-
-    private static Scene CreateScene()
-    {
-        string dir = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
-        return new Scene(1920, 1080, "Scene")
-        {
-            Uri = new Uri(Path.Combine(dir, "Scene.scene"))
-        };
     }
 }

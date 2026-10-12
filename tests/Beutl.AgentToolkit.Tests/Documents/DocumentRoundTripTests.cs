@@ -1,6 +1,7 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Documents;
 using Beutl.AgentToolkit.Reconciliation;
+using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.Animation;
 using Beutl.Audio.Effects;
 using Beutl.Engine;
@@ -34,8 +35,7 @@ public class DocumentRoundTripTests
     [Test]
     public void Write_with_a_present_non_array_child_list_is_rejected_without_clearing_the_list()
     {
-        string dir = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        string dir = TestWorkspace.CreateDirectory();
         var scene = new Scene(1920, 1080, "Scene") { Uri = new Uri(Path.Combine(dir, "Scene.scene")) };
         scene.Children.Add(new Element { Length = TimeSpan.FromSeconds(1), Uri = new Uri(Path.Combine(dir, "first.belm")) });
         var adapter = new DocumentAdapter();
@@ -124,20 +124,6 @@ public class DocumentRoundTripTests
             Assert.That(root.Value, Is.EqualTo(3));
             Assert.That(reread.ContainsKey("FutureField"), Is.False);
         });
-    }
-
-    private sealed class TestModel : CoreObject
-    {
-        public static readonly CoreProperty<int> ValueProperty =
-            ConfigureProperty<int, TestModel>(nameof(Value))
-                .DefaultValue(0)
-                .Register();
-
-        public int Value
-        {
-            get => GetValue(ValueProperty);
-            set => SetValue(ValueProperty, value);
-        }
     }
 
     private sealed class ContextValidatedEngineObject : EngineObject

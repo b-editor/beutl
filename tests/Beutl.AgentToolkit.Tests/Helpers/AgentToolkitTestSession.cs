@@ -1,5 +1,6 @@
 ﻿using Beutl.AgentToolkit.Documents;
 using Beutl.AgentToolkit.Sessions;
+using Beutl.AgentToolkit.Tools;
 using Beutl.Editor;
 using Beutl.ProjectSystem;
 
@@ -13,9 +14,7 @@ internal sealed class AgentToolkitTestSession : IEditingSession, IDisposable
     {
         if (root is Scene { Uri: null } scene)
         {
-            string dir = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-            Directory.CreateDirectory(dir);
-            scene.Uri = new Uri(Path.Combine(dir, "Scene.scene"));
+            scene.Uri = new Uri(Path.Combine(TestWorkspace.CreateDirectory(), "Scene.scene"));
         }
 
         Root = root;
@@ -33,9 +32,18 @@ internal sealed class AgentToolkitTestSession : IEditingSession, IDisposable
 
     public DocumentAdapter Documents { get; } = new();
 
-    public bool IsDirty { get; private set; }
+    public bool IsDirty => false;
 
     public void Invoke(Action action) => action();
+
+    public AgentSessionManager CreateManager()
+    {
+        var manager = new AgentSessionManager();
+        manager.UseSource(new AgentToolkitTestSessionSource(this));
+        return manager;
+    }
+
+    public EditTools CreateEditTools() => new(CreateManager());
 
     public void Dispose()
     {

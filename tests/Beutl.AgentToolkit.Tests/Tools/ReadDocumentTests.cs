@@ -465,6 +465,12 @@ public sealed class ReadDocumentTests
         element.AddObject(new TextBlock { Text = { CurrentValue = "Scoped" } });
         element.Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.belm"));
         scene.Children.Add(element);
+        scene.Children.Add(new Element
+        {
+            Name = "sibling",
+            Length = TimeSpan.FromSeconds(1),
+            Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.belm"))
+        });
 
         using var session = new AgentToolkitTestSession(scene);
         var manager = new AgentSessionManager();
@@ -477,9 +483,10 @@ public sealed class ReadDocumentTests
         Assert.Multiple(() =>
         {
             Assert.That(full.IsSuccess, Is.True);
-            Assert.That(full.Value!.Document["Elements"]!.AsArray(), Has.Count.EqualTo(1));
+            Assert.That(full.Value!.Document["Elements"]!.AsArray(), Has.Count.EqualTo(2));
             Assert.That(scoped.IsSuccess, Is.True);
             Assert.That(scoped.Value!.Document["Id"]!.GetValue<string>(), Is.EqualTo(element.Id.ToString()));
+            Assert.That(scoped.Value.Document.ToJsonString(), Does.Not.Contain("sibling"));
             Assert.That(scoped.Value.SchemaVersion, Is.EqualTo(SchemaVersion.Current));
         });
     }

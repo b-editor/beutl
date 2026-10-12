@@ -1,4 +1,5 @@
 ﻿using Beutl.AgentToolkit.Sessions;
+using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 
@@ -97,16 +98,7 @@ public sealed class ProjectOperationsTests
         if (entryKind == "directory")
             Directory.CreateDirectory(occupiedPath);
         else if (entryKind == "dangling-link")
-        {
-            try
-            {
-                File.CreateSymbolicLink(occupiedPath, missingTarget);
-            }
-            catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
-            {
-                Assert.Ignore($"File symlink creation is unavailable: {ex.Message}");
-            }
-        }
+            TestWorkspace.CreateSymbolicLinkOrIgnore(occupiedPath, missingTarget, directory: false);
         else
             File.WriteAllText(occupiedPath, "unrelated data");
         var element = new Element
@@ -229,7 +221,7 @@ public sealed class ProjectOperationsTests
         try
         {
             string link = Path.Combine(projectDir, "link");
-            CreateDirectorySymlinkOrIgnore(link, outsideDir);
+            TestWorkspace.CreateSymbolicLinkOrIgnore(link, outsideDir, directory: true);
 
             Scene scene = project.Items.OfType<Scene>().First();
             // A textual boundary check would accept this in-project path; the symlink actually redirects
@@ -259,18 +251,6 @@ public sealed class ProjectOperationsTests
     public void IsValidSceneName_RejectsTraversalAndSeparators(string name)
     {
         Assert.That(ProjectOperations.IsValidSceneName(name), Is.False);
-    }
-
-    private static void CreateDirectorySymlinkOrIgnore(string link, string target)
-    {
-        try
-        {
-            Directory.CreateSymbolicLink(link, target);
-        }
-        catch (Exception ex) when (ex is UnauthorizedAccessException or IOException or PlatformNotSupportedException)
-        {
-            Assert.Ignore($"Symbolic links are not creatable in this environment: {ex.Message}");
-        }
     }
 
     [TestCase("Intro")]

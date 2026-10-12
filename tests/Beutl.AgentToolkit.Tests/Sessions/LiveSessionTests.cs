@@ -1,6 +1,7 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Sessions;
+using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.AgentToolkit.Tools;
 using Beutl.Editor;
 using Beutl.ProjectSystem;
@@ -12,12 +13,7 @@ public sealed class LiveSessionTests
     [Test]
     public void Live_session_applies_on_binding_writer_and_undo_reverts()
     {
-        string dir = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
-        var scene = new Scene(1920, 1080, "Scene")
-        {
-            Uri = new Uri(Path.Combine(dir, "Scene.scene"))
-        };
+        Scene scene = TestWorkspace.CreateScene();
         using RecordingPipeline recording = RecordingPipeline.Create(scene);
         var binding = new FakeLiveBinding(scene, recording.History);
         LiveEditingSession session = LiveEditingSession.Create(binding);
@@ -63,7 +59,7 @@ public sealed class LiveSessionTests
     {
         var scene = new Scene(1920, 1080, "Scene");
         using RecordingPipeline recording = RecordingPipeline.Create(scene);
-        var binding = new MutableFakeLiveBinding(scene, recording.History);
+        var binding = new FakeLiveBinding(scene, recording.History);
         LiveEditingSession session = LiveEditingSession.Create(binding);
 
         Assert.That(session.ProbeIsAlive(), Is.True);
@@ -83,71 +79,6 @@ public sealed class LiveSessionTests
         binding.RequireDispatchedAccess = true;
 
         Assert.DoesNotThrow(() => session.Invoke(() => { }));
-    }
-
-    private sealed class FakeLiveBinding(Scene? scene, HistoryManager? history) : ILiveSessionBinding
-    {
-        public int InvokeCount { get; private set; }
-
-        public Scene? ActiveScene { get; } = scene;
-
-        public HistoryManager? ActiveHistory { get; } = history;
-
-        public bool IsAlive => ActiveScene is not null && ActiveHistory is not null;
-
-        public void Invoke(Action action)
-        {
-            InvokeCount++;
-            action();
-        }
-
-        public ValueTask<TResult> ExecuteHistoryMutationAsync<TResult>(
-            Func<HistoryManager, bool> shouldPause,
-            Func<HistoryManager, TResult> operation,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            TResult result = default!;
-            Invoke(() =>
-            {
-                HistoryManager activeHistory = ActiveHistory ?? throw new SessionUnavailableException();
-                _ = shouldPause(activeHistory);
-                activeHistory.FlushPendingMutations();
-                result = operation(activeHistory);
-            });
-            return ValueTask.FromResult(result);
-        }
-    }
-
-    private sealed class MutableFakeLiveBinding : ILiveSessionBinding
-    {
-        public MutableFakeLiveBinding(Scene? scene, HistoryManager? history)
-        {
-            ActiveScene = scene;
-            ActiveHistory = history;
-        }
-
-        public bool Alive { get; set; } = true;
-
-        public Scene? ActiveScene { get; private set; }
-
-        public HistoryManager? ActiveHistory { get; private set; }
-
-        public bool IsAlive => Alive && ActiveScene is not null && ActiveHistory is not null;
-
-        public void Invoke(Action action) => action();
-
-        public ValueTask<TResult> ExecuteHistoryMutationAsync<TResult>(
-            Func<HistoryManager, bool> shouldPause,
-            Func<HistoryManager, TResult> operation,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            HistoryManager activeHistory = ActiveHistory ?? throw new SessionUnavailableException();
-            _ = shouldPause(activeHistory);
-            activeHistory.FlushPendingMutations();
-            return ValueTask.FromResult(operation(activeHistory));
-        }
     }
 
     private sealed class GuardedFakeLiveBinding(Scene? scene, HistoryManager? history) : ILiveSessionBinding

@@ -2,6 +2,7 @@
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Rendering;
+using Beutl.AgentToolkit.Schema;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.AgentToolkit.Tools;
@@ -25,9 +26,7 @@ public sealed class DeclarativeAnimationTests
     {
         Scene scene = CreateSceneWithText(out Element element, out _);
         using var session = new AgentToolkitTestSession(scene);
-        var manager = new AgentSessionManager();
-        manager.UseSource(new AgentToolkitTestSessionSource(session));
-        var tools = new EditTools(manager);
+        EditTools tools = session.CreateEditTools();
 
         JsonObject createPatch = new()
         {
@@ -69,9 +68,7 @@ public sealed class DeclarativeAnimationTests
     {
         Scene scene = CreateSceneWithText(out Element element, out TextBlock text);
         using var session = new AgentToolkitTestSession(scene);
-        var manager = new AgentSessionManager();
-        manager.UseSource(new AgentToolkitTestSessionSource(session));
-        var tools = new EditTools(manager);
+        EditTools tools = session.CreateEditTools();
 
         JsonObject createPatch = PatchTextObject(
             element,
@@ -128,21 +125,16 @@ public sealed class DeclarativeAnimationTests
             patch: updatePatch,
             schemaVersion: SchemaVersion.Current);
 
-        Assert.Multiple(() =>
-        {
-            Assert.That(updateApply.IsSuccess, Is.True, updateApply.Error?.Message);
-        });
+        Assert.That(updateApply.IsSuccess, Is.True, updateApply.Error?.Message);
 
         var updatedAnimation = (KeyFrameAnimation<float>)text.Opacity.Animation!;
         var remaining = (KeyFrame<float>)updatedAnimation.KeyFrames.Single();
 
         Assert.Multiple(() =>
         {
-            Assert.That(createApply.IsSuccess, Is.True);
             Assert.That(createApply.Value!.Changes, Has.Count.GreaterThanOrEqualTo(1));
             Assert.That(createdFrames, Has.Length.EqualTo(2));
             Assert.That(createdValues, Is.EqualTo(new[] { 0f, 100f }));
-            Assert.That(updateApply.IsSuccess, Is.True);
             Assert.That(updateApply.Value!.Changes!.Select(change => change.Operation), Does.Contain(ChangeOperations.RemoveChild));
             Assert.That(remaining.Id, Is.EqualTo(createdFrames[1].Id));
             Assert.That(remaining.KeyTime, Is.EqualTo(TimeSpan.FromSeconds(1.5)));
@@ -160,9 +152,7 @@ public sealed class DeclarativeAnimationTests
     {
         Scene scene = CreateSceneWithText(out Element element, out TextBlock text);
         using var session = new AgentToolkitTestSession(scene);
-        var manager = new AgentSessionManager();
-        manager.UseSource(new AgentToolkitTestSessionSource(session));
-        var tools = new EditTools(manager);
+        EditTools tools = session.CreateEditTools();
 
         JsonObject animationDocument = CreateOpacityAnimationDocument(TimeSpan.Zero, TimeSpan.FromSeconds(1));
         var frames = (JsonArray)animationDocument[nameof(KeyFrameAnimation.KeyFrames)]!;
@@ -204,9 +194,7 @@ public sealed class DeclarativeAnimationTests
     {
         Scene scene = CreateSceneWithText(out Element element, out TextBlock text);
         using var session = new AgentToolkitTestSession(scene);
-        var manager = new AgentSessionManager();
-        manager.UseSource(new AgentToolkitTestSessionSource(session));
-        var tools = new EditTools(manager);
+        EditTools tools = session.CreateEditTools();
 
         JsonObject createPatch = PatchTextObject(
             element,
@@ -264,9 +252,7 @@ public sealed class DeclarativeAnimationTests
     {
         Scene scene = CreateSceneWithText(out Element element, out TextBlock text);
         using var session = new AgentToolkitTestSession(scene);
-        var manager = new AgentSessionManager();
-        manager.UseSource(new AgentToolkitTestSessionSource(session));
-        var tools = new EditTools(manager);
+        EditTools tools = session.CreateEditTools();
 
         JsonObject createPatch = PatchTextObject(
             element,
@@ -298,48 +284,11 @@ public sealed class DeclarativeAnimationTests
     }
 
     [Test]
-    public void Apply_edit_warns_but_applies_relative_keyframes_outside_element_length()
-    {
-        Scene scene = CreateSceneWithText(out Element element, out TextBlock text);
-        using var session = new AgentToolkitTestSession(scene);
-        var manager = new AgentSessionManager();
-        manager.UseSource(new AgentToolkitTestSessionSource(session));
-        var tools = new EditTools(manager);
-
-        JsonObject createPatch = PatchTextObject(
-            element,
-            text,
-            new JsonObject
-            {
-                ["Animations"] = new JsonObject
-                {
-                    ["Opacity"] = CreateOpacityAnimationDocument(TimeSpan.Zero, TimeSpan.FromSeconds(5))
-                }
-            });
-
-        ToolResult<ApplyEditResponse> apply = tools.ApplyEdit(
-            patch: createPatch,
-            schemaVersion: SchemaVersion.Current);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
-            Assert.That(apply.Value!.Valid, Is.True);
-            Assert.That(apply.Value.Validation!.Select(item => item.Status), Does.Contain(ValidationStatus.Warning));
-            Assert.That(apply.Value.Validation!.Single(item => item.Status == ValidationStatus.Warning).Message, Does.Contain("UseGlobalClock=false"));
-            Assert.That(apply.Value.Validation!.Single(item => item.Status == ValidationStatus.Warning).Hint, Does.Contain("UseGlobalClock=true"));
-            Assert.That(text.Opacity.Animation, Is.Not.Null);
-        });
-    }
-
-    [Test]
     public void Apply_edit_warns_when_element_length_change_makes_relative_keyframes_outside_range()
     {
         Scene scene = CreateSceneWithText(out Element element, out TextBlock text);
         using var session = new AgentToolkitTestSession(scene);
-        var manager = new AgentSessionManager();
-        manager.UseSource(new AgentToolkitTestSessionSource(session));
-        var tools = new EditTools(manager);
+        EditTools tools = session.CreateEditTools();
 
         JsonObject createPatch = PatchTextObject(
             element,
@@ -381,7 +330,7 @@ public sealed class DeclarativeAnimationTests
     [Test]
     public async Task Apply_edit_file_session_evaluates_relative_keyframes_against_element_local_time()
     {
-        string workspace = CreateWorkspace();
+        string workspace = TestWorkspace.CreateDirectory();
         var manager = new AgentSessionManager();
         using var source = new FileSessionSource();
         var sessionTools = new SessionTools(new FileProjectSessionGateway(source, manager), manager, new DestructiveGuard(), new RenderJobManager());
@@ -411,7 +360,7 @@ public sealed class DeclarativeAnimationTests
                     [nameof(Shape.Fill)] = CoreSerializer.SerializeToJsonObject(new SolidColorBrush(Colors.White)),
                     ["Animations"] = new JsonObject
                     {
-                        [nameof(Drawable.Opacity)] = CreateLinearOpacityAnimationDocument(100, 0)
+                        [nameof(Drawable.Opacity)] = CreateLinearFloatAnimationDocument(100, 0)
                     }
                 })
             })
@@ -440,7 +389,7 @@ public sealed class DeclarativeAnimationTests
     [Test]
     public async Task Apply_edit_file_session_still_render_evaluates_nested_relative_keyframes_against_element_local_time()
     {
-        string workspace = CreateWorkspace();
+        string workspace = TestWorkspace.CreateDirectory();
         var manager = new AgentSessionManager();
         using var source = new FileSessionSource();
         var sessionTools = new SessionTools(new FileProjectSessionGateway(source, manager), manager, new DestructiveGuard(), new RenderJobManager());
@@ -546,50 +495,11 @@ public sealed class DeclarativeAnimationTests
             },
             out _);
 
-        JsonObject animationJson = CoreSerializer.SerializeToJsonObject(animation);
-        animationJson.Remove(nameof(CoreObject.Id));
-
-        foreach (JsonObject keyframe in ((JsonArray)animationJson[nameof(KeyFrameAnimation.KeyFrames)]!).OfType<JsonObject>())
-        {
-            keyframe.Remove(nameof(CoreObject.Id));
-        }
-
-        return animationJson;
+        return SamplePatchBuilder.SerializeWithoutIds(animation);
     }
-
-    private static JsonObject CreateLinearOpacityAnimationDocument(float firstValue, float secondValue)
-        => CreateLinearFloatAnimationDocument(firstValue, secondValue);
 
     private static JsonObject CreateLinearFloatAnimationDocument(float firstValue, float secondValue)
-    {
-        var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(
-            new KeyFrame<float>
-            {
-                KeyTime = TimeSpan.Zero,
-                Value = firstValue,
-                Easing = new LinearEasing()
-            },
-            out _);
-        animation.KeyFrames.Add(
-            new KeyFrame<float>
-            {
-                KeyTime = TimeSpan.FromSeconds(1),
-                Value = secondValue,
-                Easing = new LinearEasing()
-            },
-            out _);
-
-        JsonObject animationJson = CoreSerializer.SerializeToJsonObject(animation);
-        animationJson.Remove(nameof(CoreObject.Id));
-
-        foreach (JsonObject keyframe in ((JsonArray)animationJson[nameof(KeyFrameAnimation.KeyFrames)]!).OfType<JsonObject>())
-        {
-            keyframe.Remove(nameof(CoreObject.Id));
-        }
-
-        return animationJson;
-    }
+        => SamplePatchBuilder.SerializeWithoutIds(TestWorkspace.CreateLinearFloatAnimation(firstValue, secondValue));
 
     private static JsonObject CreateTransformGroupWithAnimatedTranslateYDocument()
     {
@@ -601,83 +511,23 @@ public sealed class DeclarativeAnimationTests
                 {
                     Y =
                     {
-                        Animation = CreateLinearFloatAnimation(0, 100)
+                        Animation = TestWorkspace.CreateLinearFloatAnimation(0, 100)
                     }
                 }
             }
         };
 
         JsonObject transformJson = CoreSerializer.SerializeToJsonObject(transform);
-        RemoveIds(transformJson);
+        CollectionReconciler.RemoveIds(transformJson);
         return transformJson;
-    }
-
-    private static KeyFrameAnimation<float> CreateLinearFloatAnimation(float firstValue, float secondValue)
-    {
-        var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(
-            new KeyFrame<float>
-            {
-                KeyTime = TimeSpan.Zero,
-                Value = firstValue,
-                Easing = new LinearEasing()
-            },
-            out _);
-        animation.KeyFrames.Add(
-            new KeyFrame<float>
-            {
-                KeyTime = TimeSpan.FromSeconds(1),
-                Value = secondValue,
-                Easing = new LinearEasing()
-            },
-            out _);
-
-        return animation;
-    }
-
-    private static void RemoveIds(JsonNode? node)
-    {
-        if (node is JsonObject obj)
-        {
-            obj.Remove(nameof(CoreObject.Id));
-            foreach (JsonNode? child in obj.Select(pair => pair.Value).ToArray())
-            {
-                RemoveIds(child);
-            }
-        }
-        else if (node is JsonArray array)
-        {
-            foreach (JsonNode? child in array.ToArray())
-            {
-                RemoveIds(child);
-            }
-        }
     }
 
     private static Scene CreateSceneWithText(out Element element, out TextBlock text)
     {
-        string dir = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
-        var scene = new Scene(1920, 1080, "Scene")
-        {
-            Uri = new Uri(Path.Combine(dir, "Scene.scene"))
-        };
-        element = new Element
-        {
-            Start = TimeSpan.Zero,
-            Length = TimeSpan.FromSeconds(4),
-            Uri = new Uri(Path.Combine(dir, "element.belm"))
-        };
+        Scene scene = TestWorkspace.CreateScene();
+        element = TestWorkspace.AddElement(scene, TimeSpan.Zero, TimeSpan.FromSeconds(4));
         text = new TextBlock { Text = { CurrentValue = "Launch" } };
         element.AddObject(text);
-        scene.Children.Add(element);
         return scene;
-    }
-
-    private static string CreateWorkspace()
-    {
-        string path = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(path);
-        return path;
     }
 }

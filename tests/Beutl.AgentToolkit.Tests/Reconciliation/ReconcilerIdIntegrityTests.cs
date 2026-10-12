@@ -1,7 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
-using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.AgentToolkit.Tools;
 using Beutl.Engine;
@@ -35,7 +34,8 @@ public sealed class ReconcilerIdIntegrityTests
     [Test]
     public void Apply_repair_of_last_unreadable_easing_resumes_persistence_in_same_transaction()
     {
-        Scene source = CreateSceneWithElement(out Element sourceElement);
+        Scene source = TestWorkspace.CreateScene();
+        Element sourceElement = TestWorkspace.AddElement(source, TimeSpan.Zero, TimeSpan.FromSeconds(4));
         sourceElement.AddObject(new RectShape());
         CoreSerializer.StoreToUri(source, source.Uri!);
         string elementPath = sourceElement.Uri!.LocalPath;
@@ -101,14 +101,13 @@ public sealed class ReconcilerIdIntegrityTests
     [Test]
     public void Apply_edit_rejects_desired_document_with_duplicate_ids()
     {
-        Scene scene = CreateSceneWithElement(out Element element);
+        Scene scene = TestWorkspace.CreateScene();
+        Element element = TestWorkspace.AddElement(scene, TimeSpan.Zero, TimeSpan.FromSeconds(4));
         var rect = new RectShape { Name = "mark", Width = { CurrentValue = 100 }, Height = { CurrentValue = 100 } };
         element.AddObject(rect);
 
         using var session = new AgentToolkitTestSession(scene);
-        var manager = new AgentSessionManager();
-        manager.UseSource(new AgentToolkitTestSessionSource(session));
-        var tools = new EditTools(manager);
+        EditTools tools = session.CreateEditTools();
 
         JsonObject desired = session.Documents.Read(session.Root);
         var elementJson = (JsonObject)((JsonArray)desired["Elements"]!)
@@ -130,7 +129,8 @@ public sealed class ReconcilerIdIntegrityTests
     [Test]
     public void Apply_edit_rejects_desired_document_with_duplicate_ids_across_arrays()
     {
-        Scene scene = CreateSceneWithElement(out Element firstElement);
+        Scene scene = TestWorkspace.CreateScene();
+        Element firstElement = TestWorkspace.AddElement(scene, TimeSpan.Zero, TimeSpan.FromSeconds(4));
         var secondElement = new Element
         {
             Start = TimeSpan.FromSeconds(4),
@@ -142,9 +142,7 @@ public sealed class ReconcilerIdIntegrityTests
         firstElement.AddObject(rect);
 
         using var session = new AgentToolkitTestSession(scene);
-        var manager = new AgentSessionManager();
-        manager.UseSource(new AgentToolkitTestSessionSource(session));
-        var tools = new EditTools(manager);
+        EditTools tools = session.CreateEditTools();
 
         JsonObject desired = session.Documents.Read(session.Root);
         var elements = (JsonArray)desired["Elements"]!;
@@ -171,12 +169,11 @@ public sealed class ReconcilerIdIntegrityTests
     [Test]
     public void Apply_edit_rejects_an_element_reusing_the_scene_root_id()
     {
-        Scene scene = CreateSceneWithElement(out Element element);
+        Scene scene = TestWorkspace.CreateScene();
+        Element element = TestWorkspace.AddElement(scene, TimeSpan.Zero, TimeSpan.FromSeconds(4));
 
         using var session = new AgentToolkitTestSession(scene);
-        var manager = new AgentSessionManager();
-        manager.UseSource(new AgentToolkitTestSessionSource(session));
-        var tools = new EditTools(manager);
+        EditTools tools = session.CreateEditTools();
 
         JsonObject desired = session.Documents.Read(session.Root);
         var elementJson = (JsonObject)((JsonArray)desired["Elements"]!)
@@ -197,7 +194,8 @@ public sealed class ReconcilerIdIntegrityTests
     [Test]
     public void Apply_edit_still_works_on_document_with_preexisting_duplicate_ids()
     {
-        Scene scene = CreateSceneWithElement(out Element element);
+        Scene scene = TestWorkspace.CreateScene();
+        Element element = TestWorkspace.AddElement(scene, TimeSpan.Zero, TimeSpan.FromSeconds(4));
         var rotationA = new RotationTransform { Rotation = { CurrentValue = -18 } };
         var rotationB = new RotationTransform { Rotation = { CurrentValue = -18 } };
         rotationB.Id = rotationA.Id;
@@ -217,9 +215,7 @@ public sealed class ReconcilerIdIntegrityTests
         element.AddObject(rect);
 
         using var session = new AgentToolkitTestSession(scene);
-        var manager = new AgentSessionManager();
-        manager.UseSource(new AgentToolkitTestSessionSource(session));
-        var tools = new EditTools(manager);
+        EditTools tools = session.CreateEditTools();
 
         JsonObject renamePatch = new()
         {
@@ -242,7 +238,8 @@ public sealed class ReconcilerIdIntegrityTests
     [Test]
     public void Apply_edit_allows_preexisting_fallback_in_nonhierarchical_property_value()
     {
-        Scene scene = CreateSceneWithElement(out Element healthy);
+        Scene scene = TestWorkspace.CreateScene();
+        Element healthy = TestWorkspace.AddElement(scene, TimeSpan.Zero, TimeSpan.FromSeconds(4));
         string directory = Path.GetDirectoryName(scene.Uri!.LocalPath)!;
         var carrier = new Element
         {
@@ -267,9 +264,7 @@ public sealed class ReconcilerIdIntegrityTests
         Element recoveredHealthy = recovered.Children.Single(item => item.Id == healthy.Id);
 
         using var session = new AgentToolkitTestSession(recovered);
-        var manager = new AgentSessionManager();
-        manager.UseSource(new AgentToolkitTestSessionSource(session));
-        var tools = new EditTools(manager);
+        EditTools tools = session.CreateEditTools();
         JsonObject renamePatch = new()
         {
             ["Elements"] = new JsonArray(new JsonObject
@@ -306,24 +301,6 @@ public sealed class ReconcilerIdIntegrityTests
                 })
             })
         };
-    }
-
-    private static Scene CreateSceneWithElement(out Element element)
-    {
-        string dir = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
-        var scene = new Scene(1920, 1080, "Scene")
-        {
-            Uri = new Uri(Path.Combine(dir, "Scene.scene"))
-        };
-        element = new Element
-        {
-            Start = TimeSpan.Zero,
-            Length = TimeSpan.FromSeconds(4),
-            Uri = new Uri(Path.Combine(dir, "element.belm"))
-        };
-        scene.Children.Add(element);
-        return scene;
     }
 
     public sealed class NonHierarchicalValueHolder : EngineObject

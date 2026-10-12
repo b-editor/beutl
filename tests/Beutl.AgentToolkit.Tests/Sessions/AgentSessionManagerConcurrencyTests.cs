@@ -31,22 +31,6 @@ public sealed class AgentSessionManagerConcurrencyTests
     }
 
     [Test]
-    public void Composition_plans_are_stored_under_the_supplied_session_key()
-    {
-        var manager = new AgentSessionManager();
-
-        // The plan is keyed by the session it was BUILT against; a different current session must
-        // see it as moved, not as its own plan.
-        CompositionPlanState state = manager.StoreCompositionPlan(
-            "File:11111111-1111-1111-1111-111111111111",
-            "comp", "seed", new JsonObject(), new JsonObject(), new JsonArray(), new HashSet<Guid>());
-
-        var ex = Assert.Throws<AgentToolkit.Reconciliation.ReconcileException>(
-            () => manager.GetCompositionPlan(state.Id, "host"))!;
-        Assert.That(ex.Error.Message, Does.Contain("session"));
-    }
-
-    [Test]
     public void Get_composition_plan_validates_against_the_supplied_session_key()
     {
         var manager = new AgentSessionManager();
@@ -57,8 +41,7 @@ public sealed class AgentSessionManagerConcurrencyTests
 
         Assert.Multiple(() =>
         {
-            // The captured (planned) key sees its own plan; a swapped-in key is rejected even though
-            // the plan is the current one under the manager's live key would-be lookup.
+            // The planned key finds the plan; any other session's key is rejected.
             Assert.That(manager.GetCompositionPlan(state.Id, plannedKey).Id, Is.EqualTo(state.Id));
             Assert.That(
                 Assert.Throws<AgentToolkit.Reconciliation.ReconcileException>(

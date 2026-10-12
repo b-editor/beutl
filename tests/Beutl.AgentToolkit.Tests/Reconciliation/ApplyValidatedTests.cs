@@ -1,7 +1,7 @@
 ﻿using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Sessions;
-using Beutl.Editor;
+using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.ProjectSystem;
 
 namespace Beutl.AgentToolkit.Tests.Reconciliation;
@@ -58,49 +58,10 @@ public sealed class ApplyValidatedTests
 
     private static (LiveEditingSession Session, FakeLiveBinding Binding, Scene Scene) CreateLiveSession()
     {
-        string dir = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
-        var scene = new Scene(1920, 1080, "Scene")
-        {
-            Uri = new Uri(Path.Combine(dir, "Scene.scene"))
-        };
+        Scene scene = TestWorkspace.CreateScene();
         RecordingPipeline recording = RecordingPipeline.Create(scene);
         var binding = new FakeLiveBinding(scene, recording.History);
         LiveEditingSession session = LiveEditingSession.Create(binding);
         return (session, binding, scene);
-    }
-
-    private sealed class FakeLiveBinding(Scene scene, HistoryManager history) : ILiveSessionBinding
-    {
-        public int InvokeCount { get; private set; }
-
-        public Scene? ActiveScene { get; } = scene;
-
-        public HistoryManager? ActiveHistory { get; } = history;
-
-        public bool IsAlive => ActiveScene is not null && ActiveHistory is not null;
-
-        public void Invoke(Action action)
-        {
-            InvokeCount++;
-            action();
-        }
-
-        public ValueTask<TResult> ExecuteHistoryMutationAsync<TResult>(
-            Func<HistoryManager, bool> shouldPause,
-            Func<HistoryManager, TResult> operation,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            TResult result = default!;
-            Invoke(() =>
-            {
-                HistoryManager activeHistory = ActiveHistory ?? throw new SessionUnavailableException();
-                _ = shouldPause(activeHistory);
-                activeHistory.FlushPendingMutations();
-                result = operation(activeHistory);
-            });
-            return ValueTask.FromResult(result);
-        }
     }
 }

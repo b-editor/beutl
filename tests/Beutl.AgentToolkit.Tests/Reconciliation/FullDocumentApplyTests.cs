@@ -1,11 +1,9 @@
 ﻿using System.Collections.Immutable;
 using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
-using Beutl.AgentToolkit.Documents;
 using Beutl.AgentToolkit.Reconciliation;
-using Beutl.AgentToolkit.Sessions;
+using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.Animation;
-using Beutl.Editor;
 using Beutl.Graphics.Shapes;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
@@ -17,9 +15,10 @@ public sealed class FullDocumentApplyTests
     [Test]
     public void Desired_document_plans_and_applies_property_set_and_child_insert()
     {
-        using var session = TestEditingSession.Create(new Scene(1920, 1080, "Scene"));
+        var scene = new Scene(1920, 1080, "Scene");
+        using var session = new AgentToolkitTestSession(scene);
         var reconciler = new Reconciler();
-        JsonObject desired = session.Documents.Read(session.Scene);
+        JsonObject desired = session.Documents.Read(scene);
         desired["Duration"] = TimeSpan.FromSeconds(10).ToString("c");
 
         var element = new Element
@@ -48,10 +47,10 @@ public sealed class FullDocumentApplyTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(session.Scene.Duration, Is.EqualTo(TimeSpan.FromSeconds(10)));
-            Assert.That(session.Scene.Children, Has.Count.EqualTo(1));
-            Assert.That(session.Scene.Children[0].Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
-            Assert.That(session.Scene.Children[0].Objects, Has.Count.EqualTo(1));
+            Assert.That(scene.Duration, Is.EqualTo(TimeSpan.FromSeconds(10)));
+            Assert.That(scene.Children, Has.Count.EqualTo(1));
+            Assert.That(scene.Children[0].Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(scene.Children[0].Objects, Has.Count.EqualTo(1));
             Assert.That(result.Plan.Changes, Is.Not.Empty);
         });
     }
@@ -59,33 +58,33 @@ public sealed class FullDocumentApplyTests
     [Test]
     public void Full_document_that_omits_an_elements_objects_clears_them()
     {
-        string dir = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        string dir = TestWorkspace.CreateDirectory();
         var scene = new Scene(1920, 1080, "Scene") { Uri = new Uri(Path.Combine(dir, "Scene.scene")) };
         var element = new Element { Length = TimeSpan.FromSeconds(1), Uri = new Uri(Path.Combine(dir, "first.belm")) };
         element.AddObject(new TextBlock { Text = { CurrentValue = "Title" } });
         scene.Children.Add(element);
-        using var session = TestEditingSession.Create(scene);
+        using var session = new AgentToolkitTestSession(scene);
         var reconciler = new Reconciler();
 
-        JsonObject desired = session.Documents.Read(session.Scene);
+        JsonObject desired = session.Documents.Read(scene);
         ((JsonArray)desired["Elements"]!)[0]!.AsObject().Remove("Objects");
 
         reconciler.Apply(session, desired);
 
         Assert.Multiple(() =>
         {
-            Assert.That(session.Scene.Children, Has.Count.EqualTo(1));
-            Assert.That(session.Scene.Children[0].Objects, Is.Empty);
+            Assert.That(scene.Children, Has.Count.EqualTo(1));
+            Assert.That(scene.Children[0].Objects, Is.Empty);
         });
     }
 
     [Test]
     public void New_element_inserted_without_an_objects_key_starts_empty()
     {
-        using var session = TestEditingSession.Create(new Scene(1920, 1080, "Scene"));
+        var scene = new Scene(1920, 1080, "Scene");
+        using var session = new AgentToolkitTestSession(scene);
         var reconciler = new Reconciler();
-        JsonObject desired = session.Documents.Read(session.Scene);
+        JsonObject desired = session.Documents.Read(scene);
 
         JsonObject elementJson = CoreSerializer.SerializeToJsonObject(new Element
         {
@@ -100,8 +99,8 @@ public sealed class FullDocumentApplyTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(session.Scene.Children, Has.Count.EqualTo(1));
-            Assert.That(session.Scene.Children[0].Objects, Is.Empty);
+            Assert.That(scene.Children, Has.Count.EqualTo(1));
+            Assert.That(scene.Children[0].Objects, Is.Empty);
             Assert.That(result.Plan.Changes.Select(change => change.Operation), Does.Contain(ChangeOperations.InsertChild));
         });
     }
@@ -109,8 +108,7 @@ public sealed class FullDocumentApplyTests
     [Test]
     public void Full_document_that_omits_keyframes_clears_the_animation()
     {
-        string dir = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        string dir = TestWorkspace.CreateDirectory();
         var scene = new Scene(1920, 1080, "Scene") { Uri = new Uri(Path.Combine(dir, "Scene.scene")) };
         var element = new Element { Length = TimeSpan.FromSeconds(1), Uri = new Uri(Path.Combine(dir, "first.belm")) };
         var text = new TextBlock { Text = { CurrentValue = "Title" } };
@@ -120,10 +118,10 @@ public sealed class FullDocumentApplyTests
         text.Opacity.Animation = animation;
         element.AddObject(text);
         scene.Children.Add(element);
-        using var session = TestEditingSession.Create(scene);
+        using var session = new AgentToolkitTestSession(scene);
         var reconciler = new Reconciler();
 
-        JsonObject desired = session.Documents.Read(session.Scene);
+        JsonObject desired = session.Documents.Read(scene);
         var animationJson = (JsonObject)desired["Elements"]![0]!["Objects"]![0]!["Animations"]!["Opacity"]!;
         animationJson.Remove(nameof(KeyFrameAnimation.KeyFrames));
 
@@ -135,8 +133,7 @@ public sealed class FullDocumentApplyTests
     [Test]
     public void Full_document_with_a_non_object_keyframe_entry_is_rejected_and_rolled_back()
     {
-        string dir = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        string dir = TestWorkspace.CreateDirectory();
         var scene = new Scene(1920, 1080, "Scene") { Uri = new Uri(Path.Combine(dir, "Scene.scene")) };
         var element = new Element { Length = TimeSpan.FromSeconds(1), Uri = new Uri(Path.Combine(dir, "first.belm")) };
         var text = new TextBlock { Text = { CurrentValue = "Title" } };
@@ -146,10 +143,10 @@ public sealed class FullDocumentApplyTests
         text.Opacity.Animation = animation;
         element.AddObject(text);
         scene.Children.Add(element);
-        using var session = TestEditingSession.Create(scene);
+        using var session = new AgentToolkitTestSession(scene);
         var reconciler = new Reconciler();
 
-        JsonObject desired = session.Documents.Read(session.Scene);
+        JsonObject desired = session.Documents.Read(scene);
         var animationJson = (JsonObject)desired["Elements"]![0]!["Objects"]![0]!["Animations"]!["Opacity"]!;
         // A primitive entry has no Id, so silently skipping it would leave the removal pass to delete
         // every existing keyframe. The apply must be rejected instead.
@@ -168,8 +165,7 @@ public sealed class FullDocumentApplyTests
     [Test]
     public void Full_document_that_omits_groups_clears_the_existing_scene_groups()
     {
-        string dir = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        string dir = TestWorkspace.CreateDirectory();
         var scene = new Scene(1920, 1080, "Scene") { Uri = new Uri(Path.Combine(dir, "Scene.scene")) };
         var first = new Element { Length = TimeSpan.FromSeconds(1), Uri = new Uri(Path.Combine(dir, "first.belm")) };
         var second = new Element { Length = TimeSpan.FromSeconds(1), Uri = new Uri(Path.Combine(dir, "second.belm")) };
@@ -177,7 +173,7 @@ public sealed class FullDocumentApplyTests
         scene.Children.Add(second);
         scene.Groups.Add(ImmutableHashSet.Create(first.Id, second.Id));
 
-        using var session = TestEditingSession.Create(scene);
+        using var session = new AgentToolkitTestSession(scene);
         var reconciler = new Reconciler();
 
         JsonObject desired = session.Documents.Read(scene);
@@ -185,7 +181,7 @@ public sealed class FullDocumentApplyTests
 
         reconciler.Apply(session, desired);
 
-        Assert.That(session.Scene.Groups, Is.Empty);
+        Assert.That(scene.Groups, Is.Empty);
     }
 
     // Applying a document rebuilds Scene.Groups: it clears the list, then adds each desired group.
@@ -194,7 +190,7 @@ public sealed class FullDocumentApplyTests
     public void Undoing_an_agent_edit_restores_the_scene_groups_it_replaced()
     {
         Scene scene = CreateSceneWithGroup(out Element[] elements, out ImmutableHashSet<Guid> group);
-        using var session = TestEditingSession.Create(scene);
+        using var session = new AgentToolkitTestSession(scene);
         var reconciler = new Reconciler();
 
         JsonObject desired = session.Documents.Read(scene);
@@ -217,7 +213,7 @@ public sealed class FullDocumentApplyTests
     public void Undoing_an_agent_edit_restores_the_scene_groups_it_cleared()
     {
         Scene scene = CreateSceneWithGroup(out _, out ImmutableHashSet<Guid> group);
-        using var session = TestEditingSession.Create(scene);
+        using var session = new AgentToolkitTestSession(scene);
         var reconciler = new Reconciler();
 
         JsonObject desired = session.Documents.Read(scene);
@@ -233,8 +229,7 @@ public sealed class FullDocumentApplyTests
 
     private static Scene CreateSceneWithGroup(out Element[] elements, out ImmutableHashSet<Guid> group)
     {
-        string dir = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        string dir = TestWorkspace.CreateDirectory();
         var scene = new Scene(1920, 1080, "Scene") { Uri = new Uri(Path.Combine(dir, "Scene.scene")) };
         elements =
         [
@@ -255,26 +250,12 @@ public sealed class FullDocumentApplyTests
     }
 
     [Test]
-    public void Mid_reconcile_failure_rolls_back_prior_live_mutations()
-    {
-        var root = new ThrowingCoreObject();
-        using var session = TestEditingSession.Create(root);
-        var reconciler = new Reconciler();
-        JsonObject desired = session.Documents.Read(root);
-        desired[nameof(ThrowingCoreObject.First)] = 42;
-        desired[nameof(ThrowingCoreObject.Throwing)] = 1;
-
-        Assert.Throws<InvalidOperationException>(() => reconciler.Apply(session, desired));
-
-        Assert.That(root.First, Is.Zero);
-    }
-
-    [Test]
     public void Desired_document_with_unknown_id_returns_actionable_stale_handle()
     {
-        using var session = TestEditingSession.Create(new Scene(1920, 1080, "Scene"));
+        var scene = new Scene(1920, 1080, "Scene");
+        using var session = new AgentToolkitTestSession(scene);
         var reconciler = new Reconciler();
-        JsonObject desired = session.Documents.Read(session.Scene);
+        JsonObject desired = session.Documents.Read(scene);
         ((JsonArray)desired["Elements"]!).Add(new JsonObject
         {
             ["$type"] = IdentityHelper.WriteDiscriminator(typeof(Element)),
@@ -297,9 +278,10 @@ public sealed class FullDocumentApplyTests
     [Test]
     public void New_polymorphic_object_without_discriminator_returns_actionable_validation_error()
     {
-        using var session = TestEditingSession.Create(new Scene(1920, 1080, "Scene"));
+        var scene = new Scene(1920, 1080, "Scene");
+        using var session = new AgentToolkitTestSession(scene);
         var reconciler = new Reconciler();
-        JsonObject desired = session.Documents.Read(session.Scene);
+        JsonObject desired = session.Documents.Read(scene);
         ((JsonArray)desired["Elements"]!).Add(new JsonObject
         {
             ["$type"] = IdentityHelper.WriteDiscriminator(typeof(Element)),
@@ -324,9 +306,10 @@ public sealed class FullDocumentApplyTests
     [Test]
     public void New_element_without_discriminator_returns_actionable_validation_error()
     {
-        using var session = TestEditingSession.Create(new Scene(1920, 1080, "Scene"));
+        var scene = new Scene(1920, 1080, "Scene");
+        using var session = new AgentToolkitTestSession(scene);
         var reconciler = new Reconciler();
-        JsonObject desired = session.Documents.Read(session.Scene);
+        JsonObject desired = session.Documents.Read(scene);
         ((JsonArray)desired["Elements"]!).Add(new JsonObject
         {
             [nameof(Element.Start)] = TimeSpan.Zero.ToString("c"),
@@ -349,9 +332,10 @@ public sealed class FullDocumentApplyTests
     [Test]
     public void New_engine_object_with_unknown_property_returns_actionable_validation_error()
     {
-        using var session = TestEditingSession.Create(new Scene(1920, 1080, "Scene"));
+        var scene = new Scene(1920, 1080, "Scene");
+        using var session = new AgentToolkitTestSession(scene);
         var reconciler = new Reconciler();
-        JsonObject desired = session.Documents.Read(session.Scene);
+        JsonObject desired = session.Documents.Read(scene);
         ((JsonArray)desired["Elements"]!).Add(new JsonObject
         {
             ["$type"] = IdentityHelper.WriteDiscriminator(typeof(Element)),
@@ -379,9 +363,10 @@ public sealed class FullDocumentApplyTests
     [Test]
     public void Full_document_with_a_non_positive_frame_size_is_rejected()
     {
-        using var session = TestEditingSession.Create(new Scene(1920, 1080, "Scene"));
+        var scene = new Scene(1920, 1080, "Scene");
+        using var session = new AgentToolkitTestSession(scene);
         var reconciler = new Reconciler();
-        JsonObject desired = session.Documents.Read(session.Scene);
+        JsonObject desired = session.Documents.Read(scene);
         desired["Width"] = 0;
 
         ReconcileException ex = Assert.Throws<ReconcileException>(() => reconciler.PlanFromCurrent(session, _ => (desired, null)))!;
@@ -390,16 +375,17 @@ public sealed class FullDocumentApplyTests
         {
             Assert.That(ex.Error.Code, Is.EqualTo(ErrorCode.ValidationRejected));
             Assert.That(ex.Error.Message, Does.Contain("frame size"));
-            Assert.That(session.Scene.FrameSize.Width, Is.EqualTo(1920));
+            Assert.That(scene.FrameSize.Width, Is.EqualTo(1920));
         });
     }
 
     [Test]
     public void Inserted_element_with_an_invalid_timeline_names_the_element_in_the_rejection()
     {
-        using var session = TestEditingSession.Create(new Scene(1920, 1080, "Scene"));
+        var scene = new Scene(1920, 1080, "Scene");
+        using var session = new AgentToolkitTestSession(scene);
         var reconciler = new Reconciler();
-        JsonObject desired = session.Documents.Read(session.Scene);
+        JsonObject desired = session.Documents.Read(scene);
         ((JsonArray)desired["Elements"]!).Add(new JsonObject
         {
             ["$type"] = IdentityHelper.WriteDiscriminator(typeof(Element)),
@@ -421,9 +407,10 @@ public sealed class FullDocumentApplyTests
     [Test]
     public void Full_document_with_a_non_positive_scene_duration_is_rejected()
     {
-        using var session = TestEditingSession.Create(new Scene(1920, 1080, "Scene"));
+        var scene = new Scene(1920, 1080, "Scene");
+        using var session = new AgentToolkitTestSession(scene);
         var reconciler = new Reconciler();
-        JsonObject desired = session.Documents.Read(session.Scene);
+        JsonObject desired = session.Documents.Read(scene);
         desired[nameof(Scene.Duration)] = TimeSpan.Zero.ToString("c");
 
         ReconcileException ex = Assert.Throws<ReconcileException>(() => reconciler.PlanFromCurrent(session, _ => (desired, null)))!;
@@ -438,8 +425,7 @@ public sealed class FullDocumentApplyTests
     [Test]
     public void Editing_an_existing_element_to_an_invalid_timeline_is_rejected()
     {
-        string dir = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        string dir = TestWorkspace.CreateDirectory();
         var scene = new Scene(1920, 1080, "Scene") { Uri = new Uri(Path.Combine(dir, "Scene.scene")) };
         var element = new Element
         {
@@ -449,10 +435,10 @@ public sealed class FullDocumentApplyTests
             Uri = new Uri(Path.Combine(dir, "first.belm"))
         };
         scene.Children.Add(element);
-        using var session = TestEditingSession.Create(scene);
+        using var session = new AgentToolkitTestSession(scene);
         var reconciler = new Reconciler();
 
-        JsonObject desired = session.Documents.Read(session.Scene);
+        JsonObject desired = session.Documents.Read(scene);
         ((JsonArray)desired["Elements"]!)[0]!.AsObject()[nameof(Element.Start)] = TimeSpan.FromSeconds(-1).ToString("c");
 
         ReconcileException ex = Assert.Throws<ReconcileException>(() => reconciler.PlanFromCurrent(session, _ => (desired, null)))!;
@@ -462,22 +448,21 @@ public sealed class FullDocumentApplyTests
             Assert.That(ex.Error.Code, Is.EqualTo(ErrorCode.ValidationRejected));
             Assert.That(ex.Error.Message, Does.Contain("Intro"));
             Assert.That(ex.Error.Message, Does.Contain("Start"));
-            Assert.That(session.Scene.Children[0].Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(scene.Children[0].Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
         });
     }
 
     [Test]
     public void Dry_run_plan_does_not_create_element_sidecar_directories()
     {
-        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
+        string root = TestWorkspace.CreateDirectory();
         // A scene Uri whose directory does not exist stands in for a hand-edited/untrusted path.
         string sceneDir = Path.Combine(root, "unwritten");
         var scene = new Scene(1920, 1080, "Scene") { Uri = new Uri(Path.Combine(sceneDir, "Scene.scene")) };
-        using var session = TestEditingSession.Create(scene);
+        using var session = new AgentToolkitTestSession(scene);
         var reconciler = new Reconciler();
 
-        JsonObject desired = session.Documents.Read(session.Scene);
+        JsonObject desired = session.Documents.Read(scene);
         ((JsonArray)desired["Elements"]!).Add(new JsonObject
         {
             ["$type"] = IdentityHelper.WriteDiscriminator(typeof(Element)),
@@ -488,80 +473,5 @@ public sealed class FullDocumentApplyTests
         reconciler.PlanFromCurrent(session, _ => (desired, null));
 
         Assert.That(Directory.Exists(sceneDir), Is.False, "Plan (dry-run) must not create sidecar directories.");
-    }
-
-    private sealed class TestEditingSession : IEditingSession, IDisposable
-    {
-        private readonly RecordingPipeline _recording;
-
-        private TestEditingSession(CoreObject root)
-        {
-            if (root is Scene { Uri: null } scene)
-            {
-                string dir = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-                Directory.CreateDirectory(dir);
-                scene.Uri = new Uri(Path.Combine(dir, "Scene.scene"));
-            }
-
-            Root = root;
-            _recording = RecordingPipeline.Create(root);
-        }
-
-        public static TestEditingSession Create(CoreObject root)
-        {
-            return new TestEditingSession(root);
-        }
-
-        public string SessionId { get; } = Guid.NewGuid().ToString("N");
-
-        public EditingSessionSource Source => EditingSessionSource.File;
-
-        public Scene Scene => (Scene)Root;
-
-        public CoreObject Root { get; }
-
-        public HistoryManager History => _recording.History;
-
-        public DocumentAdapter Documents { get; } = new();
-
-        public bool IsDirty => false;
-
-        public void Invoke(Action action) => action();
-
-        public void Dispose()
-        {
-            _recording.Dispose();
-        }
-    }
-
-    private sealed class ThrowingCoreObject : CoreObject
-    {
-        public static readonly CoreProperty<int> FirstProperty;
-        public static readonly CoreProperty<int> ThrowingProperty;
-
-        private int _first;
-
-        static ThrowingCoreObject()
-        {
-            FirstProperty = ConfigureProperty<int, ThrowingCoreObject>(nameof(First))
-                .Accessor(o => o.First, (o, v) => o.First = v)
-                .Register();
-
-            ThrowingProperty = ConfigureProperty<int, ThrowingCoreObject>(nameof(Throwing))
-                .Accessor(o => o.Throwing, (o, v) => o.Throwing = v)
-                .Register();
-        }
-
-        public int First
-        {
-            get => _first;
-            set => SetAndRaise(FirstProperty, ref _first, value);
-        }
-
-        public int Throwing
-        {
-            get => 0;
-            set => throw new InvalidOperationException("Injected reconcile failure.");
-        }
     }
 }

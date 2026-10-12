@@ -18,8 +18,7 @@ public sealed class NestedSoundTimeRangeTests
     [Test]
     public void Nested_sound_applied_via_apply_edit_receives_element_time_range()
     {
-        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
+        string root = TestWorkspace.CreateDirectory();
         using var source = new FileSessionSource();
         FileEditingSession session = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
             Path.Combine(root, "demo.bep"), 640, 360, 30, TimeSpan.FromSeconds(6)));
@@ -78,8 +77,7 @@ public sealed class NestedSoundTimeRangeTests
     [Test]
     public void Nested_sound_inserted_together_with_its_drawable_receives_element_time_range()
     {
-        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
+        string root = TestWorkspace.CreateDirectory();
         using var source = new FileSessionSource();
         FileEditingSession session = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
             Path.Combine(root, "demo.bep"), 640, 360, 30, TimeSpan.FromSeconds(6)));
@@ -118,8 +116,7 @@ public sealed class NestedSoundTimeRangeTests
     [Test]
     public void Apply_edit_keeps_existing_objects_attached_to_the_hierarchy()
     {
-        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
+        string root = TestWorkspace.CreateDirectory();
         using var source = new FileSessionSource();
         FileEditingSession session = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
             Path.Combine(root, "demo.bep"), 640, 360, 30, TimeSpan.FromSeconds(6)));

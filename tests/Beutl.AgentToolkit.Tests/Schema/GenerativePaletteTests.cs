@@ -24,7 +24,6 @@ public class GenerativePaletteTests
             palettes.Add($"{palette.BackgroundA}|{palette.BackgroundB}|{palette.Accent}|{palette.SecondaryAccent}|{palette.Foreground}");
         }
 
-        TestContext.Out.WriteLine($"Distinct palettes: {palettes.Count}/50");
         Assert.That(palettes.Count, Is.GreaterThan(20), $"Only {palettes.Count} distinct palettes across 50 seeds.");
     }
 

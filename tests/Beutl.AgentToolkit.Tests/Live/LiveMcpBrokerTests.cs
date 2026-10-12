@@ -1,21 +1,18 @@
-﻿using System.IO.Pipelines;
-using System.Net;
+﻿using System.Net;
 using System.Net.Sockets;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Live;
+using Beutl.AgentToolkit.Tests.Helpers;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
 
 namespace Beutl.AgentToolkit.Tests.Live;
 
-// The installed server without any running editor: headless tools keep working like the former
-// stdio server, live targeting is described and validated, and nothing falls back silently.
-// Routing to real Beutl processes is covered by the headless UI tests, which can start editors.
+// The installed server with no editor running: headless tools work, live targeting is described and
+// validated, and nothing falls back silently. Routing to real editors is covered by the headless UI tests.
 [TestFixture]
 public sealed class LiveMcpBrokerTests
 {
@@ -39,7 +36,7 @@ public sealed class LiveMcpBrokerTests
     [Test]
     public async Task Tools_list_adds_live_targeting_to_headless_tools_and_offers_discovery()
     {
-        await using InProcessServer server = await InProcessServer.StartAsync(Registry, () => "test-token");
+        await using InProcessAgentToolkitServer server = await StartServerAsync(Registry, () => "test-token");
 
         IList<McpClientTool> tools = await server.Client.ListToolsAsync();
         string[] names = tools.Select(tool => tool.Name).ToArray();
@@ -76,7 +73,7 @@ public sealed class LiveMcpBrokerTests
     [Test]
     public async Task Calls_without_instanceId_edit_project_files_like_the_former_stdio_server()
     {
-        await using InProcessServer server = await InProcessServer.StartAsync(Registry, () => "test-token");
+        await using InProcessAgentToolkitServer server = await StartServerAsync(Registry, () => "test-token");
 
         // No directory resolves a relative path, so the agent names the file absolutely.
         AssertError(await server.Client.CallToolAsync("create_project", CreateProjectArguments("headless.bep")),
@@ -105,7 +102,7 @@ public sealed class LiveMcpBrokerTests
     [Test]
     public async Task Live_calls_are_validated_and_never_fall_back_to_the_headless_editor()
     {
-        await using InProcessServer server = await InProcessServer.StartAsync(Registry, () => "test-token");
+        await using InProcessAgentToolkitServer server = await StartServerAsync(Registry, () => "test-token");
         McpClient client = server.Client;
         string unknown = Guid.NewGuid().ToString("N");
 
@@ -141,7 +138,7 @@ public sealed class LiveMcpBrokerTests
     [Test]
     public async Task An_unreadable_token_store_only_affects_live_calls()
     {
-        await using InProcessServer server = await InProcessServer.StartAsync(Registry,
+        await using InProcessAgentToolkitServer server = await StartServerAsync(Registry,
             () => throw new InvalidDataException("corrupt token store"));
         McpClient client = server.Client;
 
@@ -159,7 +156,7 @@ public sealed class LiveMcpBrokerTests
     [Test]
     public async Task Watcher_announces_editors_that_start_change_their_tools_and_exit()
     {
-        await using InProcessServer server = await InProcessServer.StartAsync(Registry, () => "test-token");
+        await using InProcessAgentToolkitServer server = await StartServerAsync(Registry, () => "test-token");
         using var changes = new SemaphoreSlim(0);
         await using IAsyncDisposable subscription = server.Client.RegisterNotificationHandler(
             NotificationMethods.ToolListChangedNotification, (_, _) =>
@@ -169,7 +166,7 @@ public sealed class LiveMcpBrokerTests
             });
         await server.Client.ListToolsAsync();
         using var stop = new CancellationTokenSource();
-        Task watcher = server.Broker.WatchAsync(TimeSpan.FromMilliseconds(50), stop.Token);
+        Task watcher = server.Services.GetRequiredService<LiveMcpBroker>().WatchAsync(TimeSpan.FromMilliseconds(50), stop.Token);
         try
         {
             // This process stands in for an editor; the watcher only reads the registry.
@@ -192,7 +189,7 @@ public sealed class LiveMcpBrokerTests
     [Test]
     public async Task Watcher_keeps_asking_for_an_editor_that_does_not_answer_with_growing_delays()
     {
-        await using InProcessServer server = await InProcessServer.StartAsync(Registry, () => "test-token");
+        await using InProcessAgentToolkitServer server = await StartServerAsync(Registry, () => "test-token");
         using var changes = new SemaphoreSlim(0);
         await using IAsyncDisposable subscription = server.Client.RegisterNotificationHandler(
             NotificationMethods.ToolListChangedNotification, (_, _) =>
@@ -216,7 +213,7 @@ public sealed class LiveMcpBrokerTests
             catch (SocketException) { }
         });
         using var stop = new CancellationTokenSource();
-        Task watcher = server.Broker.WatchAsync(TimeSpan.FromMilliseconds(50), stop.Token);
+        Task watcher = server.Services.GetRequiredService<LiveMcpBroker>().WatchAsync(TimeSpan.FromMilliseconds(50), stop.Token);
         try
         {
             var registry = new AgentHostInstanceRegistry(Registry);
@@ -245,55 +242,8 @@ public sealed class LiveMcpBrokerTests
     private static void AssertError(CallToolResult result, string code)
         => Assert.That(Payload(result)["error"]?["code"]?.GetValue<string>(), Is.EqualTo(code), Payload(result).ToJsonString());
 
-    // The installed server, wired exactly like Program.cs but over an in-memory stdio pair and
-    // with live routing pointed at a test registry and token instead of the user's profile.
-    private sealed class InProcessServer : IAsyncDisposable
-    {
-        private readonly IHost _host;
-        private readonly Stream[] _streams;
-
-        private InProcessServer(IHost host, McpClient client, Stream[] streams)
-        {
-            _host = host;
-            Client = client;
-            _streams = streams;
-        }
-
-        public McpClient Client { get; }
-
-        public LiveMcpBroker Broker => _host.Services.GetRequiredService<LiveMcpBroker>();
-
-        public static async Task<InProcessServer> StartAsync(string registryDirectory, Func<string> tokenProvider)
-        {
-            var clientToServer = new Pipe();
-            var serverToClient = new Pipe();
-            Stream clientOutput = clientToServer.Writer.AsStream();
-            Stream serverInput = clientToServer.Reader.AsStream();
-            Stream serverOutput = serverToClient.Writer.AsStream();
-            Stream clientInput = serverToClient.Reader.AsStream();
-
-            HostApplicationBuilder builder = Host.CreateApplicationBuilder();
-            builder.Logging.ClearProviders();
-            builder.Services.AddAgentToolkitServer(registryDirectory);
-            builder.Services.AddSingleton(new LiveMcpBroker(new AgentHostInstanceRegistry(registryDirectory), tokenProvider));
-            builder.Services
-                .AddMcpServer()
-                .WithStreamServerTransport(serverInput, serverOutput)
-                .WithAgentToolkitTools();
-
-            IHost host = builder.Build();
-            await host.StartAsync().ConfigureAwait(false);
-            McpClient client = await McpClient.CreateAsync(new StreamClientTransport(clientOutput, clientInput)).ConfigureAwait(false);
-            return new InProcessServer(host, client, [clientOutput, serverInput, serverOutput, clientInput]);
-        }
-
-        public async ValueTask DisposeAsync()
-        {
-            await Client.DisposeAsync().ConfigureAwait(false);
-            await _host.StopAsync().ConfigureAwait(false);
-            _host.Dispose();
-            foreach (Stream stream in _streams)
-                stream.Dispose();
-        }
-    }
+    // Live routing points at a test registry and token instead of the user's profile.
+    private static Task<InProcessAgentToolkitServer> StartServerAsync(string registryDirectory, Func<string> tokenProvider)
+        => InProcessAgentToolkitServer.StartAsync(registryDirectory, services =>
+            services.AddSingleton(new LiveMcpBroker(new AgentHostInstanceRegistry(registryDirectory), tokenProvider)));
 }

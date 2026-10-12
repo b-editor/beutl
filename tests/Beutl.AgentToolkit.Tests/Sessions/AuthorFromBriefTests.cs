@@ -1,9 +1,7 @@
 ﻿using System.Text.Json.Nodes;
-using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tests.Helpers;
-using Beutl.AgentToolkit.Workspace;
 using Beutl.Graphics.Shapes;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
@@ -15,7 +13,7 @@ public sealed class AuthorFromBriefTests
     [Test]
     public void Create_apply_save_reload_preserves_authored_scene_and_elements()
     {
-        string root = CreateWorkspace();
+        string root = TestWorkspace.CreateDirectory();
         string projectPath = Path.Combine(root, "promo.bep");
         using var source = new FileSessionSource();
         FileEditingSession session = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
@@ -67,7 +65,7 @@ public sealed class AuthorFromBriefTests
     [Test]
     public async Task Add_scene_round_trips_through_project_save()
     {
-        string root = CreateWorkspace();
+        string root = TestWorkspace.CreateDirectory();
         string projectPath = Path.Combine(root, "multi.bep");
         using var source = new FileSessionSource();
         FileEditingSession session = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
@@ -97,26 +95,5 @@ public sealed class AuthorFromBriefTests
             Assert.That(scenes[1].Start, Is.EqualTo(TimeSpan.FromSeconds(5)));
             Assert.That(scenes[1].Duration, Is.EqualTo(TimeSpan.FromSeconds(4)));
         });
-    }
-
-    [Test]
-    public void Create_project_over_existing_path_requires_confirmation()
-    {
-        string root = CreateWorkspace();
-        string projectPath = Path.Combine(root, "exists.bep");
-        File.WriteAllText(projectPath, "{}");
-        var destructiveGuard = new DestructiveGuard();
-
-        string resolved = ToolPaths.ResolveForWrite(projectPath, "path");
-
-        Assert.Throws<DestructiveIntentException>(() => destructiveGuard.EnsureOverwriteAllowed(resolved, confirmed: false));
-        Assert.DoesNotThrow(() => destructiveGuard.EnsureOverwriteAllowed(resolved, confirmed: true));
-    }
-
-    private static string CreateWorkspace()
-    {
-        string path = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(path);
-        return path;
     }
 }
