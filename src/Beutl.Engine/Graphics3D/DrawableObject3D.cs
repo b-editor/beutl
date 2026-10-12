@@ -1,6 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.Numerics;
-using Beutl.Collections.Pooled;
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics;
@@ -41,13 +40,18 @@ public sealed partial class DrawableObject3D : Object3D, IFlowOperator
         // The card is a unit square on the XY plane facing the default camera; ContentMatrix sizes it.
         private static readonly Matrix4x4 s_planeToCard = Matrix4x4.CreateRotationX(MathF.PI / 2);
 
-        private readonly PooledList<int> _childrenVersion = [];
+        private readonly FlowChildren _children = new(keepsFlowInputs: false);
         private readonly PlaneMesh _mesh = new() { Width = { CurrentValue = 1 }, Height = { CurrentValue = 1 } };
         private PlaneMesh.Resource? _meshResource;
         private readonly DrawableContentTexture _content = new();
 
-        public List<Drawable.Resource> Children { get; set; } = [];
+        public List<Drawable.Resource> Children
+        {
+            get => _children.Items;
+            set => _children.Items = value;
+        }
 
+        // Test seam: only the card tests read this.
         internal DrawableContentTexture Content => _content;
 
         internal override Matrix4x4 ContentMatrix
@@ -96,7 +100,7 @@ public sealed partial class DrawableObject3D : Object3D, IFlowOperator
 
         partial void PreReconcile(DrawableObject3D obj, CompositionContext context)
         {
-            if (ResourceReconciler.ReconcileChildrenFromFlow(context, obj.Children, Children, _childrenVersion))
+            if (_children.Reconcile(context, obj.Children, obj))
                 Version++;
         }
 
@@ -112,7 +116,7 @@ public sealed partial class DrawableObject3D : Object3D, IFlowOperator
         {
             if (disposing)
             {
-                ResourceReconciler.ReleaseReconciledChildren(Children, _childrenVersion);
+                _children.Dispose();
                 _meshResource?.Dispose();
                 _meshResource = null;
                 _content.Dispose();

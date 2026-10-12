@@ -89,34 +89,16 @@ public partial class ImmediateCanvas
     }
 
     /// <summary>
-    /// Opens a filter's save layer over <paramref name="contentBounds"/>, widened so that every edge of
-    /// the content sits one device pixel inside the layer.
+    /// Opens a filter's save layer over <paramref name="contentBounds"/> with a one-device-pixel apron, because a
+    /// layer that hugs the content loses the coverage of content thinner than a device pixel.
     /// </summary>
-    /// <remarks>
-    /// The bound keeps a spatial filter from sampling input pixels nobody wrote, but a layer whose
-    /// device bounds hug the content loses the coverage of content thinner than one device pixel — the
-    /// Ganesh backend keeps only <c>(1 + w) / 2</c> of a w-device-pixel-wide feature. The apron restores
-    /// it by giving the rasterizer somewhere to put the antialiased spill of the content, so the replay
-    /// does write into the apron and a filter does sample it. What the layer guarantees is therefore a
-    /// bound, not an exclusion: no edge is more than one device pixel out from the content it bounds,
-    /// and the apron starts transparent because <c>SaveLayer</c> clears it, so it can never carry pixels
-    /// nobody wrote. A sheared basis needs a wider logical apron to buy that one perpendicular pixel, so
-    /// its device bounding box grows by more than a pixel along the sheared axis.
-    /// </remarks>
     internal PushedState PushFilterLayer(SKPaint paint, Rect contentBounds)
         => PushPaint(paint, InflateByOneDevicePixel(contentBounds, _currentTransform));
 
     /// <summary>
-    /// Widens <paramref name="bounds"/> so that <paramref name="transform"/> carries every edge exactly
-    /// one device pixel away from the content, measured perpendicular to that edge.
+    /// Widens <paramref name="bounds"/> so <paramref name="transform"/> carries every edge one device pixel from the
+    /// content, perpendicular to that edge: the other axis's basis length over the determinant per axis.
     /// </summary>
-    /// <remarks>
-    /// Moving a vertical edge by one logical unit displaces it perpendicularly by
-    /// <c>|det| / devicePerY</c> device pixels, not by <c>devicePerX</c>, so the apron an axis needs is
-    /// the other axis's basis length over the determinant. For an orthogonal basis that is the
-    /// reciprocal of the axis's own basis length, which is what every scale and rotation reduces to;
-    /// only a sheared basis needs more. A transform that collapses the plane leaves the bounds alone.
-    /// </remarks>
     internal static Rect InflateByOneDevicePixel(Rect bounds, Matrix transform)
     {
         float devicePerX = MathF.Sqrt((transform.M11 * transform.M11) + (transform.M12 * transform.M12));
@@ -127,10 +109,7 @@ public partial class ImmediateCanvas
             return bounds;
         }
 
-        // Composing a rotation with an anisotropic scale leaves the basis orthogonal yet misses a zero
-        // dot product by up to ~1e-7 of the basis lengths, while the shallowest shear that can move a
-        // device pixel misses it by ~1e-3. Keeping the reciprocal form below that split holds every
-        // unsheared transform bit-identical instead of moving it by the rounding of the general form.
+        // Unsheared bases miss orthogonality only by rounding, and the reciprocal form keeps them bit-identical.
         float obliqueness = MathF.Abs((transform.M11 * transform.M21) + (transform.M12 * transform.M22));
         if (obliqueness <= devicePerX * devicePerY * OrthogonalBasisTolerance)
             return bounds.Inflate(new Thickness(1f / devicePerX, 1f / devicePerY));
@@ -238,7 +217,6 @@ public partial class ImmediateCanvas
     {
         VerifyAccess();
 
-        // No-op when already in absolute device space.
         if (_currentDensity == 1f && _currentTransform.IsIdentity && _currentBaseTransform.IsIdentity)
         {
             return PushState(CanvasPushedState.NoOpPushedState.Instance);
@@ -289,15 +267,9 @@ public partial class ImmediateCanvas
     }
 
     /// <summary>
-    /// Scales a premultiplied layer by a float opacity, without the 8-bit step Skia's own layer-alpha and
-    /// DstIn-mask paths both introduce.
+    /// Scales a premultiplied layer by a float opacity without Skia's 8-bit step. A color-matrix filter would clamp
+    /// to [0, 1] and crush the out-of-range values an RGBA16F layer may carry.
     /// </summary>
-    /// <remarks>
-    /// Multiplying all four premultiplied components by the same factor is exactly what group opacity means,
-    /// and it leaves the straight color untouched. A color-matrix filter would express the same scale but
-    /// clamps its result to [0, 1], which would crush the out-of-range values an RGBA16F layer is allowed to
-    /// carry; a runtime color filter has no such clamp.
-    /// </remarks>
     private static SKRuntimeEffect CreateOpacityScaleEffect()
     {
         const string source =

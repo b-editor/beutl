@@ -47,14 +47,12 @@ public sealed class CurveMap : IEquatable<CurveMap>
                 // Normalize t to the segment range [0, 1]
                 float segmentT = (t - prev.Point.X) / (next.Point.X - prev.Point.X);
 
-                // Use Bezier interpolation if handles are present
                 if (prev.HasHandles || next.HasHandles)
                 {
                     return EvaluateCubicBezier(prev, next, segmentT);
                 }
                 else
                 {
-                    // Linear interpolation
                     return prev.Point.Y + (next.Point.Y - prev.Point.Y) * segmentT;
                 }
             }
@@ -82,7 +80,6 @@ public sealed class CurveMap : IEquatable<CurveMap>
             startPoint.X, controlPoint1.X, controlPoint2.X, endPoint.X,
             startPoint.X + t * (endPoint.X - startPoint.X));
 
-        // Then evaluate Y at that parameter
         return CubicBezier(u, startPoint.Y, controlPoint1.Y, controlPoint2.Y, endPoint.Y);
     }
 

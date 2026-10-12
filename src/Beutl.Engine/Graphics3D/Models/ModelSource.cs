@@ -16,8 +16,7 @@ namespace Beutl.Graphics3D.Models;
 internal readonly record struct MeshData(
     ImmutableArray<Vertex3D> Vertices,
     ImmutableArray<uint> Indices,
-    int MaterialIndex,
-    string? Name
+    int MaterialIndex
 );
 
 /// <summary>
@@ -28,13 +27,11 @@ internal readonly record struct MaterialData(
     Color Emissive,
     float Metallic,
     float Roughness,
-    float Opacity,
     string? AlbedoMapPath,
     string? NormalMapPath,
     string? MetallicRoughnessMapPath,
     string? EmissiveMapPath,
-    string? AOMapPath,
-    string? Name
+    string? AOMapPath
 );
 
 /// <summary>
@@ -172,7 +169,6 @@ public class ModelSource : EngineObject, IFileSource
             _toYUp = GetRotationToYUp(scene, path);
             ProcessMaterials(assimp, scene);
 
-            // Process nodes and meshes
             ProcessNode(scene->MRootNode, scene);
             _dependencies.UnionWith(fileSystem.Paths);
         }
@@ -231,42 +227,30 @@ public class ModelSource : EngineObject, IFileSource
 
     private unsafe void ProcessMaterial(Assimp assimp, Scene* scene, Material* material)
     {
-        // Get material name
-        AssimpString nameStr = default;
-        assimp.GetMaterialString(material, Assimp.MatkeyName, 0, 0, ref nameStr);
-        string? name = nameStr.Length > 0 ? nameStr.AsString : null;
-
-        // Get diffuse/albedo color
         Vector4 diffuseColor = new(1, 1, 1, 1);
         assimp.GetMaterialColor(material, Assimp.MatkeyColorDiffuse, 0, 0, ref diffuseColor);
 
-        // Get emissive color
         Vector4 emissiveColor = new(0, 0, 0, 1);
         assimp.GetMaterialColor(material, Assimp.MatkeyColorEmissive, 0, 0, ref emissiveColor);
 
-        // Get shininess (convert to roughness)
         float shininess = 0f;
         uint max = 1;
         assimp.GetMaterialFloatArray(material, Assimp.MatkeyShininess, 0, 0, ref shininess, ref max);
         // Convert shininess to roughness: roughness = 1 - sqrt(shininess / 256)
         float roughness = shininess > 0 ? 1f - MathF.Sqrt(MathF.Min(shininess, 256f) / 256f) : 0.5f;
 
-        // Get opacity
         float opacity = 1f;
         max = 1;
         assimp.GetMaterialFloatArray(material, Assimp.MatkeyOpacity, 0, 0, ref opacity, ref max);
 
-        // Get metallic (try PBR key first, fall back to reflectivity)
         float metallic = 0f;
         max = 1;
-        // Try to get metallic factor from PBR materials (gltf, etc.)
         if (assimp.GetMaterialFloatArray(material, Assimp.MatkeyMetallicFactor, 0, 0, ref metallic, ref max) != Return.Success)
         {
             // Fall back to reflectivity as a proxy for metallic
             assimp.GetMaterialFloatArray(material, Assimp.MatkeyReflectivity, 0, 0, ref metallic, ref max);
         }
 
-        // Try to get roughness from PBR materials
         float pbrRoughness = roughness;
         max = 1;
         if (assimp.GetMaterialFloatArray(material, Assimp.MatkeyRoughnessFactor, 0, 0, ref pbrRoughness, ref max) == Return.Success)
@@ -274,7 +258,6 @@ public class ModelSource : EngineObject, IFileSource
             roughness = pbrRoughness;
         }
 
-        // Get texture paths
         string? albedoMapPath = GetTexturePath(assimp, scene, material, TextureType.Diffuse, TextureType.BaseColor);
         string? normalMapPath = GetTexturePath(assimp, scene, material, TextureType.Normals, TextureType.Height);
         string? metallicRoughnessMapPath = GetTexturePath(assimp, scene, material, TextureType.Unknown, TextureType.Metalness);
@@ -294,13 +277,11 @@ public class ModelSource : EngineObject, IFileSource
                 (byte)(emissiveColor.Z * 255)),
             metallic,
             roughness,
-            opacity,
             albedoMapPath,
             normalMapPath,
             metallicRoughnessMapPath,
             emissiveMapPath,
-            aoMapPath,
-            name));
+            aoMapPath));
     }
 
     /// <summary>
@@ -342,13 +323,11 @@ public class ModelSource : EngineObject, IFileSource
 
         string texturePath = pathStr.AsString.Replace('\\', Path.DirectorySeparatorChar);
 
-        // If path is relative, resolve it relative to the model file
         if (!Path.IsPathRooted(texturePath) && _basePath != null)
         {
             texturePath = Path.Combine(_basePath, texturePath);
         }
 
-        // Check if the texture file exists
         if (!System.IO.File.Exists(texturePath))
             return null;
 
@@ -395,7 +374,6 @@ public class ModelSource : EngineObject, IFileSource
 
     private unsafe void ProcessNode(Node* node, Scene* scene)
     {
-        // Process meshes in this node
         for (uint i = 0; i < node->MNumMeshes; i++)
         {
             var meshIndex = node->MMeshes[i];
@@ -403,7 +381,6 @@ public class ModelSource : EngineObject, IFileSource
             ProcessMesh(mesh);
         }
 
-        // Process child nodes recursively
         for (uint i = 0; i < node->MNumChildren; i++)
         {
             ProcessNode(node->MChildren[i], scene);
@@ -415,13 +392,11 @@ public class ModelSource : EngineObject, IFileSource
         var vertices = new List<Vertex3D>((int)mesh->MNumVertices);
         var indices = new List<uint>();
 
-        // Extract vertex data
         for (uint i = 0; i < mesh->MNumVertices; i++)
         {
             vertices.Add(ReadVertex(mesh, i));
         }
 
-        // Extract index data from faces
         for (uint i = 0; i < mesh->MNumFaces; i++)
         {
             var face = mesh->MFaces[i];
@@ -431,16 +406,10 @@ public class ModelSource : EngineObject, IFileSource
             }
         }
 
-        // Get mesh name
-        string? meshName = mesh->MName.Length > 0
-            ? mesh->MName.AsString
-            : null;
-
         _meshDataList.Add(new MeshData(
             [.. vertices],
             [.. indices],
-            (int)mesh->MMaterialIndex,
-            meshName));
+            (int)mesh->MMaterialIndex));
     }
 
     /// <summary>Reads vertex <paramref name="index"/> of <paramref name="mesh"/> into Beutl's Y-down space.</summary>

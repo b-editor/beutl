@@ -3,7 +3,6 @@ using System.Numerics;
 using System.Runtime.InteropServices;
 using Beutl.Engine;
 using Beutl.Graphics.Backend;
-using Beutl.Graphics3D.Meshes;
 using Beutl.Graphics3D.Textures;
 using Beutl.Language;
 using Beutl.Media;
@@ -101,19 +100,17 @@ public sealed partial class PBRMaterial : Material3D
 
     public partial class Resource
     {
-        private IPipeline3D? _pipeline;
-        private IRenderPass3D? _pipelineRenderPass;
-        private MaterialDrawBindingPool? _drawBindings;
-        private ISampler? _sampler;
+        // The order of the fallback textures EnsurePipeline builds.
+        private const int WhiteFallback = 0;
+        private const int FlatNormalFallback = 1;
+        private const int BlackFallback = 2;
 
-        // Default textures (1x1 pixel)
-        private ITexture2D? _defaultWhiteTexture;
-        private ITexture2D? _defaultNormalTexture;
-        private ITexture2D? _defaultBlackTexture;
+        private readonly MaterialPipelineState _pipelineState = new();
 
-        protected internal override IPipeline3D? Pipeline => _pipeline;
+        protected internal override IPipeline3D? Pipeline => _pipelineState.Pipeline;
 
-        internal MaterialDrawBindingPool? DrawBindings => _drawBindings;
+        // Test seam: only the draw-binding reuse tests read this.
+        internal MaterialDrawBindingPool? DrawBindings => _pipelineState.DrawBindings;
 
         protected internal override IEnumerable<TextureSource.Resource> EnumerateTextureSources()
         {
@@ -131,53 +128,32 @@ public sealed partial class PBRMaterial : Material3D
 
         public override void EnsurePipeline(RenderContext3D context)
         {
-            if (IsPipelineInitialized && ReferenceEquals(_pipelineRenderPass, context.RenderPass))
+            if (IsPipelineInitialized && _pipelineState.IsBuiltFor(context.RenderPass))
                 return;
 
             PostDispose(true);
             IsPipelineInitialized = false;
 
-            var graphicsContext = context.GraphicsContext;
-            var shaderCompiler = context.ShaderCompiler;
+            // UBO + 5 texture samplers: albedoMap, normalMap, metallicRoughnessMap, emissiveMap, aoMap
+            _pipelineState.Build<PBRMaterialUBO>(
+                context,
+                VertexShaderSource,
+                FragmentShaderSource,
+                textureCount: 5,
+                options: null,
+                [
+                    [255, 255, 255, 255],
+                    // BGRA (255,128,128) is RGB (128,128,255): the flat tangent-space normal pointing up.
+                    [255, 128, 128, 255],
+                    [0, 0, 0, 255],
+                ]);
 
-            _sampler = MaterialGpuResources.CreateLinearRepeatSampler(graphicsContext);
-            CreateDefaultTextures(graphicsContext);
-
-            // Compile shaders for G-Buffer output
-            var vertexSpirv = shaderCompiler.CompileToSpirv(VertexShaderSource, ShaderStage.Vertex);
-            var fragmentSpirv = shaderCompiler.CompileToSpirv(FragmentShaderSource, ShaderStage.Fragment);
-
-            // Create descriptor bindings (UBO + 5 texture samplers: albedoMap, normalMap, metallicRoughnessMap,
-            // emissiveMap, aoMap)
-            var descriptorBindings = MaterialGpuResources.CreateDescriptorBindings(textureCount: 5);
-
-            // Create pipeline with vertex input for Vertex3D
-            _pipeline = graphicsContext.CreatePipeline3D(
-                context.RenderPass,
-                vertexSpirv,
-                fragmentSpirv,
-                descriptorBindings,
-                Vertex3D.GetVertexInputDescription());
-
-            _drawBindings = MaterialDrawBindingPool.Create<PBRMaterialUBO>(graphicsContext, _pipeline, 5);
-
-            _pipelineRenderPass = context.RenderPass;
             IsPipelineInitialized = true;
-        }
-
-        private void CreateDefaultTextures(IGraphicsContext graphicsContext)
-        {
-            _defaultWhiteTexture = MaterialGpuResources.Create1x1Texture(graphicsContext, [255, 255, 255, 255]);
-
-            // BGRA (255,128,128) is RGB (128,128,255): the flat tangent-space normal pointing up.
-            _defaultNormalTexture = MaterialGpuResources.Create1x1Texture(graphicsContext, [255, 128, 128, 255]);
-
-            _defaultBlackTexture = MaterialGpuResources.Create1x1Texture(graphicsContext, [0, 0, 0, 255]);
         }
 
         public override void Bind(RenderContext3D context, Object3D.Resource obj, Matrix4x4 worldMatrix)
         {
-            if (_pipeline == null || _drawBindings == null || _sampler == null)
+            if (!_pipelineState.IsBuilt)
                 return;
 
             var renderPass = context.RenderPass;
@@ -198,16 +174,14 @@ public sealed partial class PBRMaterial : Material3D
             if (aoTex != null) textureFlags |= 16;
 
             // Recorded draws must retain immutable bindings until the backend completes them.
-            MaterialDrawBindings bindings = _drawBindings.Acquire();
+            MaterialDrawBindings bindings = _pipelineState.DrawBindings.Acquire();
 
-            // Update texture bindings
-            bindings.Descriptors.UpdateTexture(1, albedoTex ?? _defaultWhiteTexture!, _sampler);
-            bindings.Descriptors.UpdateTexture(2, normalTex ?? _defaultNormalTexture!, _sampler);
-            bindings.Descriptors.UpdateTexture(3, metallicRoughnessTex ?? _defaultWhiteTexture!, _sampler);
-            bindings.Descriptors.UpdateTexture(4, emissiveTex ?? _defaultBlackTexture!, _sampler);
-            bindings.Descriptors.UpdateTexture(5, aoTex ?? _defaultWhiteTexture!, _sampler);
+            _pipelineState.UpdateTexture(bindings, 1, albedoTex, WhiteFallback);
+            _pipelineState.UpdateTexture(bindings, 2, normalTex, FlatNormalFallback);
+            _pipelineState.UpdateTexture(bindings, 3, metallicRoughnessTex, WhiteFallback);
+            _pipelineState.UpdateTexture(bindings, 4, emissiveTex, BlackFallback);
+            _pipelineState.UpdateTexture(bindings, 5, aoTex, WhiteFallback);
 
-            // Update material uniform buffer
             var ubo = new PBRMaterialUBO
             {
                 Model = worldMatrix,
@@ -222,28 +196,13 @@ public sealed partial class PBRMaterial : Material3D
                 TextureFlags = textureFlags | (obj.ReceiveShadows ? 0 : 32)
             };
 
-            // Upload the uniforms, then bind pipeline and descriptor set
-            _drawBindings.UploadAndBind(bindings, in ubo, renderPass, _pipeline);
+            _pipelineState.DrawBindings.UploadAndBind(bindings, in ubo, renderPass, _pipelineState.Pipeline);
         }
 
         partial void PostDispose(bool disposing)
         {
-            _pipelineRenderPass = null;
             IsPipelineInitialized = false;
-            _drawBindings?.Dispose();
-            _drawBindings = null;
-            _sampler?.Dispose();
-            _sampler = null;
-
-            _defaultWhiteTexture?.Dispose();
-            _defaultNormalTexture?.Dispose();
-            _defaultBlackTexture?.Dispose();
-            _defaultWhiteTexture = null;
-            _defaultNormalTexture = null;
-            _defaultBlackTexture = null;
-
-            _pipeline?.Dispose();
-            _pipeline = null;
+            _pipelineState.Dispose();
         }
 
         /// <summary>
@@ -261,7 +220,7 @@ public sealed partial class PBRMaterial : Material3D
             public float Roughness;
             public float AmbientOcclusion;
             public float NormalMapStrength;
-            public int TextureFlags; // bit flags: 1=albedo, 2=normal, 4=metallicRoughness, 8=emissive, 16=ao
+            public int TextureFlags; // bit flags: 1=albedo, 2=normal, 4=metallicRoughness, 8=emissive, 16=ao, 32=no shadows
         }
 
         // Both stages bind this block at descriptor binding 0, so they must declare the same fields in

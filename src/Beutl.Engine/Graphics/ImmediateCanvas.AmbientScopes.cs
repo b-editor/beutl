@@ -6,15 +6,12 @@ public partial class ImmediateCanvas
 {
     internal IDisposable PushRenderTargetLeaseSession(RenderTargetLeaseSession? leaseSession)
     {
-        VerifyAccess();
-        var scope = new RenderTargetLeaseSessionScope(
-            this,
-            parent: s_renderTargetLeaseSession.Value,
-            leaseSession: leaseSession,
-            previous: RenderTargetLeaseSession);
-        RenderTargetLeaseSession = leaseSession;
-        s_renderTargetLeaseSession.Value = scope;
-        return scope;
+        return PushAmbientScope(
+            s_renderTargetLeaseSession,
+            leaseSession,
+            RenderTargetLeaseSession,
+            static (canvas, value) => canvas.RenderTargetLeaseSession = value,
+            "Immediate-canvas render-target lease sessions must be closed in LIFO order.");
     }
 
     /// <summary>
@@ -22,25 +19,31 @@ public partial class ImmediateCanvas
     /// on dispose.
     /// </summary>
     /// <remarks>
-    /// Scopes nest, and the returned scope must be closed before any scope pushed after it — a
-    /// <see langword="using"/> declaration or block gives that ordering for free. Closing one early would
-    /// re-install a hook whose scope has ended over the one still in force, and because a canvas seeds itself
-    /// from the ambient hook at construction, every canvas built afterwards would inherit it.
+    /// Close scopes in LIFO order, as <see langword="using"/> does. Closing one while a later scope is open throws
+    /// <see cref="InvalidOperationException"/>, since every canvas built afterwards would inherit its hook.
     /// </remarks>
-    /// <exception cref="InvalidOperationException">
-    /// Thrown by the returned scope's <see cref="IDisposable.Dispose"/> when a scope pushed after it is still
-    /// open. Closing an already-closed scope stays a no-op.
-    /// </exception>
     public IDisposable PushDrawableBrushMaterializer(DrawableBrushMaterializer? materializer)
     {
+        return PushAmbientScope(
+            s_drawableBrushMaterializer,
+            materializer,
+            DrawableBrushMaterializer,
+            static (canvas, value) => canvas.DrawableBrushMaterializer = value,
+            "Immediate-canvas drawable-brush materializers must be closed in LIFO order.");
+    }
+
+    private AmbientCanvasScope<T> PushAmbientScope<T>(
+        AsyncLocal<AmbientCanvasScope<T>?> slot,
+        T? value,
+        T? previous,
+        Action<ImmediateCanvas, T?> set,
+        string orderViolationMessage)
+        where T : class
+    {
         VerifyAccess();
-        var scope = new DrawableBrushMaterializerScope(
-            this,
-            parent: s_drawableBrushMaterializer.Value,
-            materializer: materializer,
-            previous: DrawableBrushMaterializer);
-        DrawableBrushMaterializer = materializer;
-        s_drawableBrushMaterializer.Value = scope;
+        var scope = new AmbientCanvasScope<T>(this, slot, slot.Value, value, previous, set, orderViolationMessage);
+        set(this, value);
+        slot.Value = scope;
         return scope;
     }
 
@@ -88,61 +91,34 @@ public partial class ImmediateCanvas
         }
     }
 
-    private sealed class RenderTargetLeaseSessionScope(
+    /// <summary>A value installed on a canvas, and seeding the canvases built, while the scope is open.</summary>
+    private sealed class AmbientCanvasScope<T>(
         ImmediateCanvas canvas,
-        RenderTargetLeaseSessionScope? parent,
-        RenderTargetLeaseSession? leaseSession,
-        RenderTargetLeaseSession? previous) : IDisposable
+        AsyncLocal<AmbientCanvasScope<T>?> slot,
+        AmbientCanvasScope<T>? parent,
+        T? value,
+        T? previous,
+        Action<ImmediateCanvas, T?> restore,
+        string orderViolationMessage) : IDisposable
+        where T : class
     {
         private ImmediateCanvas? _canvas = canvas;
 
-        public RenderTargetLeaseSessionScope? Parent { get; } = parent;
+        public AmbientCanvasScope<T>? Parent { get; } = parent;
 
-        public RenderTargetLeaseSession? LeaseSession { get; } = leaseSession;
+        public T? Value { get; } = value;
 
         public void Dispose()
         {
             ImmediateCanvas? owner = Interlocked.Exchange(ref _canvas, null);
             if (owner is null)
                 return;
-            if (!ReferenceEquals(s_renderTargetLeaseSession.Value, this))
-            {
-                throw new InvalidOperationException(
-                    "Immediate-canvas render-target lease sessions must be closed in LIFO order.");
-            }
+            if (!ReferenceEquals(slot.Value, this))
+                throw new InvalidOperationException(orderViolationMessage);
 
-            s_renderTargetLeaseSession.Value = Parent;
+            slot.Value = Parent;
             if (!owner.IsDisposed)
-                owner.RenderTargetLeaseSession = previous;
-        }
-    }
-
-    private sealed class DrawableBrushMaterializerScope(
-        ImmediateCanvas canvas,
-        DrawableBrushMaterializerScope? parent,
-        DrawableBrushMaterializer? materializer,
-        DrawableBrushMaterializer? previous) : IDisposable
-    {
-        private ImmediateCanvas? _canvas = canvas;
-
-        public DrawableBrushMaterializerScope? Parent { get; } = parent;
-
-        public DrawableBrushMaterializer? Materializer { get; } = materializer;
-
-        public void Dispose()
-        {
-            ImmediateCanvas? owner = Interlocked.Exchange(ref _canvas, null);
-            if (owner is null)
-                return;
-            if (!ReferenceEquals(s_drawableBrushMaterializer.Value, this))
-            {
-                throw new InvalidOperationException(
-                    "Immediate-canvas drawable-brush materializers must be closed in LIFO order.");
-            }
-
-            s_drawableBrushMaterializer.Value = Parent;
-            if (!owner.IsDisposed)
-                owner.DrawableBrushMaterializer = previous;
+                restore(owner, previous);
         }
     }
 }

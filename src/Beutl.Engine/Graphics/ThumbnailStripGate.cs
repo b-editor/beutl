@@ -4,6 +4,7 @@ internal sealed class ThumbnailStripGate(int capacity)
 {
     private readonly SemaphoreSlim _semaphore = new(capacity, capacity);
 
+    // Test seam: only the gate tests read this.
     public int AvailableSlots => _semaphore.CurrentCount;
 
     // Returns false when cancelled while waiting; the caller then holds no slot and must not release one.

@@ -93,7 +93,6 @@ public partial class ImmediateCanvas
             public override void Pop(ImmediateCanvas canvas)
             {
                 // The opacity rides on the layer paint's color filter, so restoring the layer applies it.
-                // No mask draw and no retained paint are needed on pop.
                 canvas.Canvas.RestoreToCount(Count);
                 canvas.Opacity = Opacity;
             }

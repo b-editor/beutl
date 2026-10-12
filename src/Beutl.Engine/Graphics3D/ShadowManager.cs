@@ -16,20 +16,16 @@ internal sealed class ShadowManager : IDisposable
     private readonly IGraphicsContext _context;
     private readonly IShaderCompiler _shaderCompiler;
 
-    // Shadow passes pool
     private readonly ShadowPass[] _shadowPasses2D;
     private readonly PointShadowPass[] _pointShadowPasses;
 
-    // Shadow map textures for shader binding
     private ITextureArray? _shadowMapArray;
     private ITextureCubeArray? _shadowMapCubeArray;
 
-    // Shadow info for shader
     private readonly ShadowInfo[] _shadowInfos;
     private int _activeShadowCount2D;
     private int _activeShadowCountCube;
 
-    private bool _initialized;
     private bool _disposed;
 
     public ShadowManager(IGraphicsContext context, IShaderCompiler shaderCompiler)
@@ -67,9 +63,6 @@ internal sealed class ShadowManager : IDisposable
     /// </summary>
     public void Initialize()
     {
-        if (_initialized) return;
-
-        // Create shadow passes
         for (int i = 0; i < MaxShadowMaps2D; i++)
         {
             _shadowPasses2D[i] = new ShadowPass(_context, _shaderCompiler);
@@ -82,20 +75,16 @@ internal sealed class ShadowManager : IDisposable
             _pointShadowPasses[i].Initialize(PointShadowPass.DefaultCubeFaceSize, PointShadowPass.DefaultCubeFaceSize);
         }
 
-        // Create shadow map array for 2D shadows
         _shadowMapArray = _context.CreateTextureArray(
             ShadowPass.DefaultShadowMapSize,
             ShadowPass.DefaultShadowMapSize,
             MaxShadowMaps2D,
             TextureFormat.Depth32Float);
 
-        // Create shadow cube map array for point light shadows
         _shadowMapCubeArray = _context.CreateTextureCubeArray(
             PointShadowPass.DefaultCubeFaceSize,
             MaxShadowMapsCube,
             TextureFormat.Depth32Float);
-
-        _initialized = true;
     }
 
     /// <summary>
@@ -112,14 +101,10 @@ internal sealed class ShadowManager : IDisposable
         Vector3 sceneCenter,
         float sceneRadius)
     {
-        if (!_initialized)
-            Initialize();
-
         var lightToShadowIndex = new Dictionary<int, int>();
         _activeShadowCount2D = 0;
         _activeShadowCountCube = 0;
 
-        // Clear shadow infos
         Array.Clear(_shadowInfos);
 
         int shadowInfoIndex = 0;
@@ -128,7 +113,6 @@ internal sealed class ShadowManager : IDisposable
         {
             var light = lights[lightIndex];
 
-            // Check if this light casts shadows
             if (!light.CastsShadow || !light.IsEnabled)
                 continue;
 
@@ -170,7 +154,6 @@ internal sealed class ShadowManager : IDisposable
                     continue;
             }
 
-            // Set common shadow properties
             shadowInfo.Bias = light.ShadowBias;
             shadowInfo.NormalBias = light.ShadowNormalBias;
             shadowInfo.ShadowStrength = light.ShadowStrength;
@@ -222,7 +205,6 @@ internal sealed class ShadowManager : IDisposable
     {
         shadowPass.Execute(objects);
 
-        // Copy shadow map to array
         if (shadowPass.ShadowDepthTexture != null && _shadowMapArray != null)
         {
             _context.CopyTextureToArrayLayer(shadowPass.ShadowDepthTexture, _shadowMapArray, _activeShadowCount2D);
@@ -237,7 +219,6 @@ internal sealed class ShadowManager : IDisposable
         shadowPass.SetupForPointLight(light);
         shadowPass.Execute(objects);
 
-        // Copy each cube face to the cube array
         if (_shadowMapCubeArray != null)
         {
             var faceTextures = shadowPass.FaceDepthTextures;
@@ -270,36 +251,12 @@ internal sealed class ShadowManager : IDisposable
             ShadowCountCube = _activeShadowCountCube
         };
 
-        for (int i = 0; i < Math.Min(_shadowInfos.Length, ShadowInfoArray.MaxShadows); i++)
+        for (int i = 0; i < ShadowInfoArray.MaxShadows; i++)
         {
             ubo.Shadows[i] = _shadowInfos[i];
         }
 
         return ubo;
-    }
-
-    /// <summary>
-    /// Prepares all active shadow maps for sampling in the lighting pass.
-    /// Must be called after RenderShadows and before the lighting pass.
-    /// </summary>
-    public void PrepareForSampling()
-    {
-        // Prepare 2D shadow maps
-        for (int i = 0; i < _activeShadowCount2D; i++)
-        {
-            _shadowPasses2D[i].PrepareForSampling();
-        }
-
-        // CopyTextureToArrayLayer and CopyTextureToCubeArrayFace already leave each slot they wrote in
-        // ShaderReadOnlyOptimal, and a slot no light filled starts there, so nothing here has to sweep the
-        // whole array. Sweeping would be harmless - each transition reads the slot's tracked layout and
-        // skips a slot already in the target - but it would also be pointless work every frame.
-
-        // Transition the cube array to sampled state
-        if (_activeShadowCountCube > 0)
-        {
-            _shadowMapCubeArray?.TransitionToSampled();
-        }
     }
 
     public void Dispose()

@@ -29,119 +29,57 @@ public readonly struct RelativeRect
     /// </summary>
     public static readonly RelativeRect Fill = new(0, 0, 1, 1, RelativeUnit.Relative);
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="RelativeRect"/> structure.
-    /// </summary>
-    /// <param name="x">The X position.</param>
-    /// <param name="y">The Y position.</param>
-    /// <param name="width">The width.</param>
-    /// <param name="height">The height.</param>
-    /// <param name="unit">The unit of the rect.</param>
     public RelativeRect(float x, float y, float width, float height, RelativeUnit unit)
     {
         Rect = new Rect(x, y, width, height);
         Unit = unit;
     }
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="RelativeRect"/> structure.
-    /// </summary>
-    /// <param name="rect">The rectangle.</param>
-    /// <param name="unit">The unit of the rect.</param>
     public RelativeRect(Rect rect, RelativeUnit unit)
     {
         Rect = rect;
         Unit = unit;
     }
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="RelativeRect"/> structure.
-    /// </summary>
-    /// <param name="size">The size of the rectangle.</param>
-    /// <param name="unit">The unit of the rect.</param>
     public RelativeRect(Size size, RelativeUnit unit)
     {
         Rect = new Rect(size);
         Unit = unit;
     }
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="RelativeRect"/> structure.
-    /// </summary>
-    /// <param name="position">The position of the rectangle.</param>
-    /// <param name="size">The size of the rectangle.</param>
-    /// <param name="unit">The unit of the rect.</param>
     public RelativeRect(Point position, Size size, RelativeUnit unit)
     {
         Rect = new Rect(position, size);
         Unit = unit;
     }
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="RelativeRect"/> structure.
-    /// </summary>
-    /// <param name="topLeft">The top left position of the rectangle.</param>
-    /// <param name="bottomRight">The bottom right position of the rectangle.</param>
-    /// <param name="unit">The unit of the rect.</param>
     public RelativeRect(Point topLeft, Point bottomRight, RelativeUnit unit)
     {
         Rect = new Rect(topLeft, bottomRight);
         Unit = unit;
     }
 
-    /// <summary>
-    /// Gets the unit of the rectangle.
-    /// </summary>
     public RelativeUnit Unit { get; }
 
-    /// <summary>
-    /// Gets the rectangle.
-    /// </summary>
     public Rect Rect { get; }
 
-    /// <summary>
-    /// Checks for equality between two <see cref="RelativeRect"/>s.
-    /// </summary>
-    /// <param name="left">The first rectangle.</param>
-    /// <param name="right">The second rectangle.</param>
-    /// <returns>True if the rectangles are equal; otherwise false.</returns>
     public static bool operator ==(RelativeRect left, RelativeRect right)
     {
         return left.Equals(right);
     }
 
-    /// <summary>
-    /// Checks for inequality between two <see cref="RelativeRect"/>s.
-    /// </summary>
-    /// <param name="left">The first rectangle.</param>
-    /// <param name="right">The second rectangle.</param>
-    /// <returns>True if the rectangles are unequal; otherwise false.</returns>
     public static bool operator !=(RelativeRect left, RelativeRect right)
     {
         return !left.Equals(right);
     }
 
-    /// <summary>
-    /// Checks if the <see cref="RelativeRect"/> equals another object.
-    /// </summary>
-    /// <param name="obj">The other object.</param>
-    /// <returns>True if the objects are equal, otherwise false.</returns>
     public override bool Equals(object? obj) => obj is RelativeRect other && Equals(other);
 
-    /// <summary>
-    /// Checks if the <see cref="RelativeRect"/> equals another rectangle.
-    /// </summary>
-    /// <param name="p">The other rectangle.</param>
-    /// <returns>True if the objects are equal, otherwise false.</returns>
     public bool Equals(RelativeRect p)
     {
         return Unit == p.Unit && Rect == p.Rect;
     }
 
-    /// <summary>
-    /// Gets a hashcode for a <see cref="RelativeRect"/>.
-    /// </summary>
-    /// <returns>A hash code.</returns>
     public override int GetHashCode()
     {
         unchecked
@@ -154,7 +92,7 @@ public readonly struct RelativeRect
     /// Converts a <see cref="RelativeRect"/> into pixels.
     /// </summary>
     /// <param name="size">The size of the visual.</param>
-    /// <returns>The origin point in pixels.</returns>
+    /// <returns>The rectangle in pixels.</returns>
     public Rect ToPixels(Size size)
     {
         return Unit == RelativeUnit.Absolute ?
@@ -166,52 +104,26 @@ public readonly struct RelativeRect
                 Rect.Height * size.Height);
     }
 
-    /// <summary>
-    /// Parses a <see cref="RelativeRect"/> string.
-    /// </summary>
-    /// <param name="s">The string.</param>
-    /// <param name="rect">The <see cref="RelativeRect"/>.</param>
-    /// <returns>The status of the operation.</returns>
     public static bool TryParse(string s, out RelativeRect rect)
     {
         return TryParse(s.AsSpan(), out rect);
     }
 
-    /// <summary>
-    /// Parses a <see cref="RelativeRect"/> string.
-    /// </summary>
-    /// <param name="s">The string.</param>
-    /// <param name="rect">The <see cref="RelativeRect"/>.</param>
-    /// <returns>The status of the operation.</returns>
     public static bool TryParse(ReadOnlySpan<char> s, out RelativeRect rect)
     {
         return TryParse(s, null, out rect);
     }
 
-    /// <summary>
-    /// Parses a <see cref="RelativeRect"/> string.
-    /// </summary>
-    /// <param name="s">The string.</param>
-    /// <returns>The parsed <see cref="RelativeRect"/>.</returns>
     public static RelativeRect Parse(string s)
     {
         return Parse(s.AsSpan());
     }
 
-    /// <summary>
-    /// Parses a <see cref="RelativeRect"/> string.
-    /// </summary>
-    /// <param name="s">The string.</param>
-    /// <returns>The parsed <see cref="RelativeRect"/>.</returns>
     public static RelativeRect Parse(ReadOnlySpan<char> s)
     {
         return Parse(s, null);
     }
 
-    /// <summary>
-    /// Returns a String representing this RelativeRect instance.
-    /// </summary>
-    /// <returns>The string representation.</returns>
     public override string ToString()
     {
         return Unit == RelativeUnit.Absolute ?

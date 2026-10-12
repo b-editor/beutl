@@ -4,7 +4,6 @@ using System.Numerics;
 using System.Runtime.InteropServices;
 using Beutl.Engine;
 using Beutl.Graphics.Backend;
-using Beutl.Graphics3D.Meshes;
 using Beutl.Graphics3D.Textures;
 using Beutl.Language;
 using Beutl.Media;
@@ -58,15 +57,12 @@ public sealed partial class TransparentMaterial : Material3D
 
     public partial class Resource
     {
-        private IPipeline3D? _pipeline;
-        private IRenderPass3D? _pipelineRenderPass;
-        private MaterialDrawBindingPool? _drawBindings;
-        private ISampler? _sampler;
-        private ITexture2D? _defaultWhiteTexture;
+        private readonly MaterialPipelineState _pipelineState = new();
 
-        protected internal override IPipeline3D? Pipeline => _pipeline;
+        protected internal override IPipeline3D? Pipeline => _pipelineState.Pipeline;
 
-        internal MaterialDrawBindingPool? DrawBindings => _drawBindings;
+        // Test seam: only the draw-binding reuse tests read this.
+        internal MaterialDrawBindingPool? DrawBindings => _pipelineState.DrawBindings;
 
         protected internal override IEnumerable<TextureSource.Resource> EnumerateTextureSources()
         {
@@ -74,70 +70,46 @@ public sealed partial class TransparentMaterial : Material3D
                 yield return ColorMap;
         }
 
-        /// <summary>
-        /// Gets whether this material is transparent and requires forward rendering.
-        /// </summary>
         public override bool IsTransparent => true;
 
         public override void EnsurePipeline(RenderContext3D context)
         {
-            if (IsPipelineInitialized && ReferenceEquals(_pipelineRenderPass, context.RenderPass))
+            if (IsPipelineInitialized && _pipelineState.IsBuiltFor(context.RenderPass))
                 return;
 
             PostDispose(true);
             IsPipelineInitialized = false;
 
-            var graphicsContext = context.GraphicsContext;
-            var shaderCompiler = context.ShaderCompiler;
+            _pipelineState.Build<TransparentMaterialUBO>(
+                context,
+                VertexShaderSource,
+                FragmentShaderSource,
+                textureCount: 1,
+                PipelineOptions.Transparent,
+                [[255, 255, 255, 255]]);
 
-            _sampler = MaterialGpuResources.CreateLinearRepeatSampler(graphicsContext);
-            _defaultWhiteTexture = MaterialGpuResources.Create1x1Texture(graphicsContext, [255, 255, 255, 255]);
-
-            // Compile shaders for forward rendering
-            var vertexSpirv = shaderCompiler.CompileToSpirv(VertexShaderSource, ShaderStage.Vertex);
-            var fragmentSpirv = shaderCompiler.CompileToSpirv(FragmentShaderSource, ShaderStage.Fragment);
-
-            // Create descriptor bindings (UBO + 1 texture sampler: colorMap)
-            var descriptorBindings = MaterialGpuResources.CreateDescriptorBindings(textureCount: 1);
-
-            // Create pipeline with transparent blend options
-            _pipeline = graphicsContext.CreatePipeline3D(
-                context.RenderPass,
-                vertexSpirv,
-                fragmentSpirv,
-                descriptorBindings,
-                Vertex3D.GetVertexInputDescription(),
-                PipelineOptions.Transparent);
-
-            _drawBindings = MaterialDrawBindingPool.Create<TransparentMaterialUBO>(graphicsContext, _pipeline, 1);
-
-            _pipelineRenderPass = context.RenderPass;
             IsPipelineInitialized = true;
         }
 
         public override void Bind(RenderContext3D context, Object3D.Resource obj, Matrix4x4 worldMatrix)
         {
-            if (_pipeline == null || _drawBindings == null || _sampler == null)
+            if (!_pipelineState.IsBuilt)
                 return;
 
             var renderPass = context.RenderPass;
             var graphicsContext = context.GraphicsContext;
 
-            // Get texture
             ITexture2D? colorTex = ColorMap?.GetTexture(graphicsContext, context.SurfaceDensity);
             int hasTexture = colorTex != null ? 1 : 0;
 
             // Recorded draws must retain immutable bindings until the backend completes them.
-            MaterialDrawBindings bindings = _drawBindings.Acquire();
+            MaterialDrawBindings bindings = _pipelineState.DrawBindings.Acquire();
 
-            // Update texture binding
-            bindings.Descriptors.UpdateTexture(1, colorTex ?? _defaultWhiteTexture!, _sampler);
+            _pipelineState.UpdateTexture(bindings, 1, colorTex);
 
-            // Calculate primary light data
             Vector3 lightDirection = context.LightDirection;
             Vector3 lightColor = context.LightColor;
 
-            // Update uniform buffer
             var ubo = new TransparentMaterialUBO
             {
                 Model = worldMatrix,
@@ -154,24 +126,13 @@ public sealed partial class TransparentMaterial : Material3D
                 HasTexture = hasTexture
             };
 
-            // Upload the uniforms, then bind pipeline and descriptor set
-            _drawBindings.UploadAndBind(bindings, in ubo, renderPass, _pipeline);
+            _pipelineState.DrawBindings.UploadAndBind(bindings, in ubo, renderPass, _pipelineState.Pipeline);
         }
 
         partial void PostDispose(bool disposing)
         {
-            _pipelineRenderPass = null;
             IsPipelineInitialized = false;
-            _drawBindings?.Dispose();
-            _drawBindings = null;
-            _sampler?.Dispose();
-            _sampler = null;
-
-            _defaultWhiteTexture?.Dispose();
-            _defaultWhiteTexture = null;
-
-            _pipeline?.Dispose();
-            _pipeline = null;
+            _pipelineState.Dispose();
         }
 
         /// <summary>
