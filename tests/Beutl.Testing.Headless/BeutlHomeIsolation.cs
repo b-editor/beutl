@@ -11,7 +11,7 @@ public static class BeutlHomeIsolation
 
     // Must run before any GlobalConfiguration access; the directory must exist first because
     // BeutlEnvironment only honors BEUTL_HOME when the path already exists.
-    public static string Begin(string prefix = "beutl-e2e")
+    public static string Begin(string prefix)
     {
         s_previous = Environment.GetEnvironmentVariable("BEUTL_HOME");
         s_tempDir = Path.Combine(Path.GetTempPath(), $"{prefix}-{Guid.NewGuid():N}");

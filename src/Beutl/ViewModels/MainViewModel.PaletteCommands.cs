@@ -98,11 +98,8 @@ public sealed partial class MainViewModel
         Project expectedProject, IProjectVersionControlService expectedService, string message)
     {
         // The project or its repository may have been replaced while the message was being typed.
-        if (!IsCurrentCommitTarget(
-                expectedProject,
-                expectedService,
-                _projectService.CurrentProject.Value,
-                _versionControlCoordinator.CurrentService))
+        if (!ReferenceEquals(expectedProject, _projectService.CurrentProject.Value)
+            || !ReferenceEquals(expectedService, _versionControlCoordinator.CurrentService))
         {
             return;
         }
@@ -123,15 +120,5 @@ public sealed partial class MainViewModel
         {
             await ex.Handle();
         }
-    }
-
-    internal static bool IsCurrentCommitTarget(
-        Project expectedProject,
-        object expectedService,
-        Project? currentProject,
-        object? currentService)
-    {
-        return ReferenceEquals(expectedProject, currentProject)
-               && ReferenceEquals(expectedService, currentService);
     }
 }

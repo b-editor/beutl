@@ -55,7 +55,7 @@ internal sealed class EditorTestHost<TEditor> : IDisposable
     public T RequireDescendant<T>()
         where T : Control
     {
-        T? found = HeadlessTestHelpers.FindDescendant<T>(Editor);
+        T? found = Editor.FindDescendantOfType<T>();
         Assert.That(found, Is.Not.Null, $"No descendant of type {typeof(T).Name} was found.");
         return found!;
     }

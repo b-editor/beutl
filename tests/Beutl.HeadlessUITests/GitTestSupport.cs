@@ -1,49 +1,15 @@
-﻿using System.ComponentModel;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using Beutl.Configuration;
 using Beutl.Editor.VersionControl;
+using Beutl.ProjectSystem;
+using Beutl.Testing.Headless;
 
 namespace Beutl.HeadlessUITests;
 
 internal static class GitTestSupport
 {
-    public static string ProbeGitOrIgnore()
-    {
-        var startInfo = new ProcessStartInfo("git")
-        {
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-        };
-        startInfo.ArgumentList.Add("--version");
-        startInfo.Environment["GIT_CONFIG_GLOBAL"] = "/dev/null";
-        startInfo.Environment["GIT_CONFIG_NOSYSTEM"] = "1";
-        try
-        {
-            using var process = Process.Start(startInfo);
-            if (process is null)
-            {
-                Assert.Ignore("git is not available on this machine.");
-                return "git";
-            }
-
-            process.WaitForExit();
-            if (process.ExitCode != 0)
-            {
-                Assert.Ignore("git is not available on this machine.");
-            }
-
-            return FindGitOnPath();
-        }
-        catch (Win32Exception)
-        {
-            Assert.Ignore("git is not available on this machine.");
-            return "git";
-        }
-    }
-
-    private static string FindGitOnPath()
+    // The git on PATH; the test is ignored when there is none.
+    public static string FindGitOrIgnore()
     {
         string executable = OperatingSystem.IsWindows() ? "where.exe" : "which";
         var startInfo = new ProcessStartInfo(executable)
@@ -85,8 +51,6 @@ internal static class GitTestSupport
             startInfo.ArgumentList.Add(argument);
         }
 
-        startInfo.Environment["GIT_CONFIG_GLOBAL"] = "/dev/null";
-        startInfo.Environment["GIT_CONFIG_NOSYSTEM"] = "1";
         using var process = Process.Start(startInfo)!;
         string stdout = await process.StandardOutput.ReadToEndAsync();
         string stderr = await process.StandardError.ReadToEndAsync();
@@ -156,7 +120,7 @@ internal sealed class RealGitScope : IAsyncDisposable
         RealGitScope scope;
         try
         {
-            scope = new RealGitScope(environment, GitTestSupport.ProbeGitOrIgnore());
+            scope = new RealGitScope(environment, GitTestSupport.FindGitOrIgnore());
         }
         catch
         {
@@ -184,17 +148,54 @@ internal sealed class RealGitScope : IAsyncDisposable
         return scope;
     }
 
+    // Creates a project under BEUTL_HOME in the shell and, unless initialize is false, starts tracking
+    // it with the headless test identity.
+    public async Task<Project> CreateProjectAsync(
+        string directoryName,
+        string projectName,
+        bool initialize = true,
+        int width = 640,
+        int height = 480)
+    {
+        string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, directoryName);
+        Directory.CreateDirectory(location);
+        Project project = (await TestShell.Project.CreateProject(
+            width,
+            height,
+            30,
+            44100,
+            projectName,
+            location))!;
+        HeadlessTestHelpers.Settle();
+        if (initialize)
+        {
+            bool initialized = await TestShell.VersionControl.InitializeCurrentProjectAsync(
+                project,
+                _ => Task.FromResult<GitIdentity?>(
+                    new GitIdentity("Beutl Headless Test", "headless@example.invalid")));
+            Assert.That(initialized, Is.True);
+        }
+
+        return project;
+    }
+
     public async ValueTask DisposeAsync()
     {
         TestShell.VersionControl.ConfirmRestoreAsync = _oldConfirmRestoreAsync;
         TestShell.VersionControl.ConfirmSwitchBranchAsync = _oldConfirmSwitchBranchAsync;
         TestShell.VersionControl.ConfirmPullAsync = _oldConfirmPullAsync;
         TestShell.VersionControl.RequestIdentityAsync = _oldRequestIdentityAsync;
-        await TestReset.ResetShellAsync();
-        _config.GitExecutablePath = _oldGitPath;
-        _config.AutoCommitOnSave = _oldAutoCommitOnSave;
-        _config.AutoCommitOnClose = _oldAutoCommitOnClose;
-        _config.UseLfsWhenAvailable = _oldUseLfs;
-        _environment.Dispose();
+        try
+        {
+            await TestReset.ResetShellAsync();
+        }
+        finally
+        {
+            _config.GitExecutablePath = _oldGitPath;
+            _config.AutoCommitOnSave = _oldAutoCommitOnSave;
+            _config.AutoCommitOnClose = _oldAutoCommitOnClose;
+            _config.UseLfsWhenAvailable = _oldUseLfs;
+            _environment.Dispose();
+        }
     }
 }

@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
@@ -8,7 +7,6 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
-using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -37,16 +35,10 @@ public class VersionControlTabViewTests
     [AvaloniaTest]
     public async Task Title_bar_branch_widget_is_hidden_until_a_tracked_project_is_ready()
     {
-        await TestReset.ResetShellAsync();
-        using var gitEnvironment = new IsolatedGitEnvironment();
-        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
-        string? previousGitPath = config.GitExecutablePath;
-        Func<string, CancellationToken, Task<bool>> previousBranchConfirmation =
-            TestShell.VersionControl.ConfirmSwitchBranchAsync;
+        await using RealGitScope git = await RealGitScope.StartAsync();
         var window = new Window { Width = 420, Height = 120 };
         try
         {
-            config.GitExecutablePath = ProbeGitOrIgnore();
             TitleBarBranchViewModel viewModel =
                 TestShell.MainViewModel.TitleBarBranch;
             var view = new TitleBarBranchView { DataContext = viewModel };
@@ -57,23 +49,7 @@ public class VersionControlTabViewTests
 
             Assert.That(view.IsVisible, Is.False);
 
-            string location = Path.Combine(
-                BeutlHomeIsolation.CurrentHome!,
-                "title-bar-branch-widget");
-            Directory.CreateDirectory(location);
-            await TestShell.Project.CreateProject(
-                640,
-                480,
-                30,
-                44100,
-                "title-bar-branch-widget",
-                location);
-            bool initialized = await TestShell.VersionControl.InitializeCurrentProjectAsync(
-                TestShell.Project.CurrentProject.Value!,
-                _ => Task.FromResult<GitIdentity?>(new GitIdentity(
-                    "Beutl Headless Test",
-                    "headless@example.invalid")));
-            Assert.That(initialized, Is.True);
+            await git.CreateProjectAsync("title-bar-branch-widget", "title-bar-branch-widget");
             await WaitUntilAsync(() => viewModel.IsVisible.Value);
 
             TestShell.VersionControl.ConfirmSwitchBranchAsync =
@@ -101,8 +77,8 @@ public class VersionControlTabViewTests
 
             IProjectVersionControlService service =
                 TestShell.VersionControl.CurrentService!;
-            RunGit(
-                config.GitExecutablePath!,
+            await RunGitAsync(
+                git.GitPath,
                 service.Repository!.RepoRoot,
                 "branch",
                 "flyout-refresh");
@@ -137,10 +113,10 @@ public class VersionControlTabViewTests
                 Assert.That(currentMark.IsVisible, Is.True);
             });
 
-            RunGit(config.GitExecutablePath!, service.Repository!.RepoRoot, "branch", "created-while-open");
+            await RunGitAsync(git.GitPath, service.Repository!.RepoRoot, "branch", "created-while-open");
             await WaitUntilAsync(() => viewModel.Branches.Any(branch => branch.Name == "created-while-open"));
             Assert.That(branchButton.Flyout.IsOpen, Is.True);
-            RunGit(config.GitExecutablePath!, service.Repository!.RepoRoot, "branch", "-d", "created-while-open");
+            await RunGitAsync(git.GitPath, service.Repository!.RepoRoot, "branch", "-d", "created-while-open");
             await WaitUntilAsync(() => viewModel.Branches.All(branch => branch.Name != "created-while-open"));
             Assert.That(branchButton.Flyout.IsOpen, Is.True);
 
@@ -188,47 +164,22 @@ public class VersionControlTabViewTests
         finally
         {
             window.Close();
-            config.GitExecutablePath = previousGitPath;
-            TestShell.VersionControl.ConfirmSwitchBranchAsync =
-                previousBranchConfirmation;
-            await TestReset.ResetShellAsync();
         }
     }
 
     [AvaloniaTest]
     public async Task Title_bar_branch_handlers_surface_async_failures_as_notifications()
     {
-        await TestReset.ResetShellAsync();
-        using var gitEnvironment = new IsolatedGitEnvironment();
-        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
-        string? previousGitPath = config.GitExecutablePath;
-        INotificationServiceHandler previousNotificationHandler =
-            NotificationService.Handler;
-        var notifications = new CaptureNotificationHandler();
+        await using RealGitScope git = await RealGitScope.StartAsync();
         var window = new Window { Width = 420, Height = 120 };
         string? gitDirectory = null;
         string? disabledGitDirectory = null;
 
         try
         {
-            config.GitExecutablePath = ProbeGitOrIgnore();
-            string location = Path.Combine(
-                BeutlHomeIsolation.CurrentHome!,
-                "title-bar-branch-handler-errors");
-            Directory.CreateDirectory(location);
-            await TestShell.Project.CreateProject(
-                640,
-                480,
-                30,
-                44100,
+            await git.CreateProjectAsync(
                 "title-bar-branch-handler-errors",
-                location);
-            bool initialized = await TestShell.VersionControl.InitializeCurrentProjectAsync(
-                TestShell.Project.CurrentProject.Value!,
-                _ => Task.FromResult<GitIdentity?>(new GitIdentity(
-                    "Beutl Headless Test",
-                    "headless@example.invalid")));
-            Assert.That(initialized, Is.True);
+                "title-bar-branch-handler-errors");
 
             TitleBarBranchViewModel viewModel =
                 TestShell.MainViewModel.TitleBarBranch;
@@ -244,7 +195,7 @@ public class VersionControlTabViewTests
                 service.Repository.RepoRoot,
                 ".git-disabled-for-handler-test");
             Directory.Move(gitDirectory, disabledGitDirectory);
-            NotificationService.Handler = notifications;
+            using var notifications = new NotificationCapture();
 
             await view.HandleBranchFlyoutOpeningAsync();
             using var invalidBranch = new TitleBarBranchItemViewModel(
@@ -255,16 +206,15 @@ public class VersionControlTabViewTests
 
             Assert.Multiple(() =>
             {
-                Assert.That(notifications.Notifications, Has.Count.EqualTo(2));
+                Assert.That(notifications.All, Has.Count.EqualTo(2));
                 Assert.That(
-                    notifications.Notifications.All(notification =>
+                    notifications.All.All(notification =>
                         notification.Type == NotificationType.Error),
                     Is.True);
             });
         }
         finally
         {
-            NotificationService.Handler = previousNotificationHandler;
             if (gitDirectory is not null
                 && disabledGitDirectory is not null
                 && Directory.Exists(disabledGitDirectory)
@@ -274,39 +224,19 @@ public class VersionControlTabViewTests
             }
 
             window.Close();
-            config.GitExecutablePath = previousGitPath;
-            await TestReset.ResetShellAsync();
         }
     }
 
     [AvaloniaTest]
     public async Task Restored_tab_observes_the_service_published_after_view_creation()
     {
-        await TestReset.ResetShellAsync();
-        using var gitEnvironment = new IsolatedGitEnvironment();
-        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
-        string? previousGitPath = config.GitExecutablePath;
+        await using RealGitScope git = await RealGitScope.StartAsync();
         var window = new Window { Width = 900, Height = 700 };
         try
         {
-            config.GitExecutablePath = ProbeGitOrIgnore();
-            string location = Path.Combine(
-                BeutlHomeIsolation.CurrentHome!,
-                "version-control-tab-startup-race");
-            Directory.CreateDirectory(location);
-            Project project = (await TestShell.Project.CreateProject(
-                640,
-                480,
-                30,
-                44100,
-                "tracked-before-tab",
-                location))!;
-            bool initialized = await TestShell.VersionControl.InitializeCurrentProjectAsync(
-                TestShell.Project.CurrentProject.Value!,
-                _ => Task.FromResult<GitIdentity?>(new GitIdentity(
-                    "Beutl Headless Test",
-                    "headless@example.invalid")));
-            Assert.That(initialized, Is.True);
+            Project project = await git.CreateProjectAsync(
+                "version-control-tab-startup-race",
+                "tracked-before-tab");
 
             IProjectVersionControlService readyService =
                 TestShell.VersionControl.CurrentService!;
@@ -357,33 +287,20 @@ public class VersionControlTabViewTests
         finally
         {
             window.Close();
-            config.GitExecutablePath = previousGitPath;
-            await TestReset.ResetShellAsync();
         }
     }
 
     [AvaloniaTest]
     public async Task Adaptive_layout_supports_onboarding_wide_and_narrow_drill_down()
     {
-        await TestReset.ResetShellAsync();
-        using var gitEnvironment = new IsolatedGitEnvironment();
-        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
-        string? previousGitPath = config.GitExecutablePath;
+        await using RealGitScope git = await RealGitScope.StartAsync();
         var window = new Window { Width = 900, Height = 700 };
         try
         {
-            config.GitExecutablePath = ProbeGitOrIgnore();
-            string location = Path.Combine(
-                BeutlHomeIsolation.CurrentHome!,
-                "version-control-tab-view");
-            Directory.CreateDirectory(location);
-            Project project = (await TestShell.Project.CreateProject(
-                640,
-                480,
-                30,
-                44100,
+            Project project = await git.CreateProjectAsync(
+                "version-control-tab-view",
                 "untracked",
-                location))!;
+                initialize: false);
             Scene scene = project.Items.OfType<Scene>().Single();
             TestShell.Editor.ActivateTabItem(scene);
             HeadlessTestHelpers.Settle();
@@ -597,20 +514,13 @@ public class VersionControlTabViewTests
                         "Headless User",
                         "headless@example.invalid")));
 
-            INotificationServiceHandler previousNotificationHandler =
-                NotificationService.Handler;
-            var notificationHandler = new CaptureNotificationHandler();
-            try
+            Notification notification;
+            using (var notificationHandler = new NotificationCapture())
             {
-                NotificationService.Handler = notificationHandler;
                 await viewModel.ShowRemoteResultAsync(new RemoteOpResult.Offline());
-            }
-            finally
-            {
-                NotificationService.Handler = previousNotificationHandler;
+                notification = notificationHandler.All.Single();
             }
 
-            Notification notification = notificationHandler.Notifications.Single();
             Assert.Multiple(() =>
             {
                 Assert.That(notification.Type, Is.EqualTo(NotificationType.Error));
@@ -850,17 +760,16 @@ public class VersionControlTabViewTests
         finally
         {
             window.Close();
-            config.GitExecutablePath = previousGitPath;
-            await TestReset.ResetShellAsync();
         }
     }
 
     [AvaloniaTest]
-    public async Task Identity_prompt_cancellation_closes_flyout_and_cancels_request()
+    [TestCase("identity")]
+    [TestCase("remote-url")]
+    public async Task Prompt_cancellation_closes_flyout_and_cancels_request(string prompt)
     {
-        await TestReset.ResetShellAsync();
         var window = new Window { Width = 420, Height = 240 };
-        var anchor = new Button { Content = "Identity" };
+        var anchor = new Button { Content = "Prompt" };
         var flyout = new VersionControlPickerFlyout();
         window.Content = anchor;
         try
@@ -868,14 +777,21 @@ public class VersionControlTabViewTests
             window.Show();
             HeadlessTestHelpers.Render();
             using var cancellation = new CancellationTokenSource();
-            Task<VersionControlIdentityInput?> request = flyout.ShowIdentityAsync(
-                anchor,
-                Strings.VersionControl_IdentityTitle,
-                Strings.VersionControl_IdentityName,
-                Strings.VersionControl_IdentityEmail,
-                "Headless User",
-                "headless@example.invalid",
-                cancellation.Token);
+            Task request = prompt == "identity"
+                ? flyout.ShowIdentityAsync(
+                    anchor,
+                    Strings.VersionControl_IdentityTitle,
+                    Strings.VersionControl_IdentityName,
+                    Strings.VersionControl_IdentityEmail,
+                    "Headless User",
+                    "headless@example.invalid",
+                    cancellation.Token)
+                : flyout.ShowTextInputAsync(
+                    anchor,
+                    Strings.VersionControl_SetRemoteTitle,
+                    Strings.VersionControl_RemoteUrl,
+                    "https://example.invalid/old.git",
+                    cancellation.Token);
             HeadlessTestHelpers.Render();
 
             Assert.That(flyout.IsOpen, Is.True);
@@ -894,83 +810,33 @@ public class VersionControlTabViewTests
             }
 
             window.Close();
-            await TestReset.ResetShellAsync();
         }
     }
 
     [AvaloniaTest]
-    public async Task Remote_url_prompt_cancellation_closes_flyout_and_cancels_request()
+    public async Task Remote_url_prompt_accepts_credentials_and_prefills_the_clean_url()
     {
-        await TestReset.ResetShellAsync();
-        var window = new Window { Width = 420, Height = 240 };
-        var anchor = new Button { Content = "Remote" };
-        var flyout = new VersionControlPickerFlyout();
-        window.Content = anchor;
-        try
-        {
-            window.Show();
-            HeadlessTestHelpers.Render();
-            using var cancellation = new CancellationTokenSource();
-            Task<string?> request = flyout.ShowTextInputAsync(
-                anchor,
-                Strings.VersionControl_SetRemoteTitle,
-                Strings.VersionControl_RemoteUrl,
-                "https://example.invalid/old.git",
-                cancellation.Token);
-            HeadlessTestHelpers.Render();
-
-            Assert.That(flyout.IsOpen, Is.True);
-
-            await Dispatcher.UIThread.InvokeAsync(cancellation.Cancel);
-            Assert.That(flyout.IsOpen, Is.False);
-            Assert.That(
-                async () => await request,
-                Throws.InstanceOf<OperationCanceledException>());
-        }
-        finally
-        {
-            if (flyout.IsOpen)
-            {
-                flyout.Hide();
-            }
-
-            window.Close();
-            await TestReset.ResetShellAsync();
-        }
-    }
-
-    [AvaloniaTest]
-    [TestCase(420, false)]
-    [TestCase(420, true)]
-    [TestCase(900, false)]
-    [TestCase(900, true)]
-    public async Task Remote_url_prompt_accepts_credentials_and_prefills_the_clean_url(int width, bool light)
-    {
-        await TestReset.ResetShellAsync();
-        using var gitEnvironment = new IsolatedGitEnvironment();
-        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
-        string? previousGitPath = config.GitExecutablePath;
+        await using RealGitScope git = await RealGitScope.StartAsync();
         var window = new Window
         {
-            Width = width,
+            Width = 420,
             Height = 480,
-            RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark,
+            RequestedThemeVariant = ThemeVariant.Dark,
         };
         VersionControlPickerFlyout? prompt = null;
         try
         {
-            config.GitExecutablePath = ProbeGitOrIgnore();
-            string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, $"remote-credentials-{Guid.NewGuid():N}");
-            Directory.CreateDirectory(location);
-            Project project = (await TestShell.Project.CreateProject(
-                640, 480, 30, 44100, "remote-credentials", location))!;
+            Project project = await git.CreateProjectAsync(
+                $"remote-credentials-{Guid.NewGuid():N}",
+                "remote-credentials",
+                initialize: false);
             TestShell.Editor.ActivateTabItem(project.Items.OfType<Scene>().Single());
             Assert.That(await TestShell.VersionControl.InitializeCurrentProjectAsync(
                 project,
                 _ => Task.FromResult<GitIdentity?>(new GitIdentity("Beutl Headless Test", "headless@example.invalid"))),
                 Is.True);
             IProjectVersionControlService service = TestShell.VersionControl.CurrentService!;
-            RunGit(config.GitExecutablePath!, service.Repository!.RepoRoot,
+            await RunGitAsync(git.GitPath, service.Repository!.RepoRoot,
                 "config", "credential.helper", "store --file .git/test-credentials");
             HeadlessTestHelpers.Settle();
             IEditorContext editorContext = TestShell.Editor.SelectedTabItem.Value!.Context.Value;
@@ -1000,13 +866,6 @@ public class VersionControlTabViewTests
             Task configureAgain = viewModel.SetRemoteAsync();
             HeadlessTestHelpers.Render();
             Assert.That(prompt.PrimaryTextBox.Text, Is.EqualTo(remoteUrl));
-            if (Environment.GetEnvironmentVariable("BEUTL_REMOTE_CREDENTIALS_CAPTURE") is { Length: > 0 } directory)
-            {
-                Directory.CreateDirectory(directory);
-                using var image = TopLevel.GetTopLevel(prompt.PrimaryTextBox)!.CaptureRenderedFrame();
-                Assert.That(image, Is.Not.Null);
-                image!.Save(Path.Combine(directory, $"remote-url-{width}-{light}.png"), PngBitmapEncoderOptions.Default);
-            }
 
             GetPickerButton(prompt, "DismissButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             await configureAgain;
@@ -1019,53 +878,16 @@ public class VersionControlTabViewTests
             }
 
             window.Close();
-            config.GitExecutablePath = previousGitPath;
-            await TestReset.ResetShellAsync();
         }
     }
 
-    private static async Task WaitUntilAsync(Func<bool> condition)
-    {
-        // The states waited on here are reached behind real git subprocesses, which take longer
-        // than five seconds under the load of a full-suite run even though they are not stuck.
-        var timeout = Stopwatch.StartNew();
-        while (!condition() && timeout.Elapsed < TimeSpan.FromSeconds(30))
-        {
-            HeadlessTestHelpers.Settle();
-            await Task.Delay(25);
-        }
-
-        Assert.That(condition(), Is.True, "The expected UI state was not reached.");
-    }
-
-    private static void RunGit(
-        string executable,
-        string workingDirectory,
-        params string[] arguments)
-    {
-        var startInfo = new ProcessStartInfo(executable)
-        {
-            WorkingDirectory = workingDirectory,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-        };
-        startInfo.Environment["GIT_CONFIG_GLOBAL"] = "/dev/null";
-        startInfo.Environment["GIT_CONFIG_NOSYSTEM"] = "1";
-        foreach (string argument in arguments)
-        {
-            startInfo.ArgumentList.Add(argument);
-        }
-
-        using Process process = Process.Start(startInfo)!;
-        string stderr = process.StandardError.ReadToEnd();
-        process.WaitForExit();
-        Assert.That(
-            process.ExitCode,
-            Is.Zero,
-            $"git {string.Join(' ', arguments)} failed: {stderr}");
-    }
+    // The states waited on here are reached behind real git subprocesses, which take longer
+    // than five seconds under the load of a full-suite run even though they are not stuck.
+    private static Task WaitUntilAsync(Func<bool> condition)
+        => HeadlessTestHelpers.WaitUntilAsync(
+            condition,
+            TimeSpan.FromSeconds(30),
+            "The expected UI state was not reached.");
 
     private sealed class RecordingCommandHandler : IContextCommandHandler
     {
@@ -1087,15 +909,5 @@ public class VersionControlTabViewTests
             .GetVisualDescendants()
             .OfType<Button>()
             .Single(button => button.Name == name);
-    }
-
-    private sealed class CaptureNotificationHandler : INotificationServiceHandler
-    {
-        public List<Notification> Notifications { get; } = [];
-
-        public void Show(Notification notification)
-        {
-            Notifications.Add(notification);
-        }
     }
 }

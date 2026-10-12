@@ -80,19 +80,6 @@ public partial class MainViewModel
         }
     }
 
-    internal bool TryDisposeForWindowClose()
-    {
-        try
-        {
-            BeginDisposeOrThrow();
-            return true;
-        }
-        catch (ProjectCloseAbortedException)
-        {
-            return false;
-        }
-    }
-
     internal Task<bool> TryDisposeForWindowCloseAsync()
     {
         lock (_disposeGate)

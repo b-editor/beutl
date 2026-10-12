@@ -47,7 +47,7 @@ public class CommandPaletteViewLayoutTests
             window.Show();
             HeadlessTestHelpers.Render();
 
-            ListBox? listBox = HeadlessTestHelpers.FindDescendant<ListBox>(view);
+            ListBox? listBox = view.FindDescendantOfType<ListBox>();
             Assert.That(listBox, Is.Not.Null, "CommandPaletteView should inflate its results ListBox");
             IDataTemplate? template = listBox!.ItemTemplate;
             Assert.That(template, Is.Not.Null, "results ListBox should declare an ItemTemplate");

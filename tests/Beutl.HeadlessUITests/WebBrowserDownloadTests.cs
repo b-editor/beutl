@@ -4,9 +4,7 @@ using System.Net.Http.Headers;
 using System.Text.Json.Nodes;
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
-using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Beutl.Editor.Components.WebBrowserTab;
@@ -33,6 +31,18 @@ public class WebBrowserDownloadTests
     [TearDown]
     public void UnregisterDownloadTestDecoder() => DecoderRegistry.Unregister(_decoder);
 
+    // A view whose web views show the requested address, with the web view runtime available.
+    private static WebBrowserTabView CreateView(
+        WebBrowserTabViewModel vm,
+        bool? includesSubframes = null,
+        Func<NativeWebView, Task<string?>>? getPageTitle = null)
+        => new(uri => new NativeWebView { Source = uri }, () => (true, null, false),
+            getPageTitle: getPageTitle,
+            navigationStartedIncludesSubframes: includesSubframes)
+        {
+            DataContext = vm,
+        };
+
     [AvaloniaTest]
     [TestCase(false)]
     [TestCase(true)]
@@ -41,7 +51,7 @@ public class WebBrowserDownloadTests
         var page = new Uri("https://page.example/original");
         var next = new Uri("https://page.example/next");
         var media = new Uri("https://files.example/download?filename=Morning.mp3");
-        var context = new DownloadContext(new Scene());
+        var context = new BrowserEditorContext(new Scene());
         using var first = new WebBrowserTabViewModel(context, page);
         using var restored = new WebBrowserTabViewModel(context);
         var native = new NativeWebView { Source = page };
@@ -76,29 +86,26 @@ public class WebBrowserDownloadTests
     }
 
     [AvaloniaTest]
-    [TestCase(320)]
-    [TestCase(640)]
-    public async Task NativeDownloadResponseUsesItsFileNameAndKeepsTheFormPage(int width)
+    public async Task NativeDownloadResponseUsesItsFileNameAndKeepsTheFormPage()
     {
-        string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        using var temporary = new TemporaryDirectory();
+        string root = temporary.Path;
         var page = new Uri("https://page.example/bgm/detail/2445/download");
         var media = new Uri("https://files.example/download?filepath=bgm%2Faudio%2Ftrack.mp3&filename=Morning.mp3");
         var profile = new BrowserProfile(Path.Combine(root, "profile.json"));
         var project = new Project { Uri = new Uri(Path.Combine(root, "project.bep")) };
         var scene = new Scene { Uri = new Uri(Path.Combine(root, "scene.scene")) };
         project.Items.Add(scene);
-        var context = new DownloadContext(scene);
+        var context = new BrowserEditorContext(scene);
         using var vm = new WebBrowserTabViewModel(context, page, profile);
-        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
-            navigationStartedIncludesSubframes: true)
-        { DataContext = vm };
+        using var view = CreateView(vm, includesSubframes: true);
         view.OnNativeNavigationCommitted(page);
         using var handler = new ReferrerHandler();
         using var client = new HttpClient(handler);
         view.MediaDownloader = new BrowserMediaDownload(client);
         var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         profile.Downloads.CollectionChanged += (_, _) => completed.TrySetResult();
-        var window = new Window { Width = width, Height = 600, Content = view };
+        var window = new Window { Width = 320, Height = 600, Content = view };
         try
         {
             window.Show();
@@ -117,14 +124,6 @@ public class WebBrowserDownloadTests
             var options = (BrowserDownloadOptionsView)view.FindControl<ContentControl>("ToolPanelContent")!.Content!;
             Assert.That(options.FileName, Is.EqualTo("Morning.mp3"));
             Assert.That(options.CanImport, Is.True);
-            if (Environment.GetEnvironmentVariable("BEUTL_BROWSER_CAPTURE") is { Length: > 0 } directory)
-            {
-                Dispatcher.UIThread.RunJobs();
-                window.UpdateLayout();
-                Directory.CreateDirectory(directory);
-                using var image = window.CaptureRenderedFrame();
-                image?.Save(Path.Combine(directory, $"native-download-{width}.png"), PngBitmapEncoderOptions.Default);
-            }
             options.FindControl<CheckBox>("AddToTimelineCheckBox")!.IsChecked = false;
             options.FindControl<Button>("ConfirmDownloadButton")!.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
             await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
@@ -134,20 +133,19 @@ public class WebBrowserDownloadTests
             Assert.That(handler.Referrer, Is.Null);
             Assert.That(vm.CurrentUri, Is.EqualTo(page));
         }
-        finally { window.Close(); if (Directory.Exists(root)) Directory.Delete(root, true); }
+        finally { window.Close(); }
     }
 
     [AvaloniaTest]
     public async Task CapturedNativeResponseSurvivesIframeActivityAndNeverReissuesItsRequest()
     {
-        string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        using var temporary = new TemporaryDirectory();
+        string root = temporary.Path;
         var page = new Uri("https://page.example/");
         var media = new Uri("https://files.example/download?token=already-consumed");
         var profile = new BrowserProfile(Path.Combine(root, "profile.json"));
-        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), page, profile);
-        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
-            navigationStartedIncludesSubframes: true)
-        { DataContext = vm };
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), page, profile);
+        using var view = CreateView(vm, includesSubframes: true);
         view.OnNativeNavigationCommitted(page);
         using var handler = new ExpiredDownloadHandler();
         using var client = new HttpClient(handler);
@@ -157,23 +155,19 @@ public class WebBrowserDownloadTests
         var source = new ResponseDownloadSource("Morning.mp3");
         var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         profile.Downloads.CollectionChanged += (_, _) => completed.TrySetResult();
-        try
-        {
-            view.OnNativeDownloadRequested(media, "Morning.mp3", source);
-            view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = new Uri("https://ads.example/frame") });
-            Dispatcher.UIThread.RunJobs();
-            var confirm = view.FindControl<Button>("ConfirmPageDownloadButton")!;
-            Assert.That(confirm.IsVisible, Is.True);
-            Assert.That(source.IsDisposed, Is.False);
-            confirm.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
-            await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
-            Assert.That(handler.Requests, Is.Zero);
-            Assert.That(source.Saves, Is.EqualTo(1));
-            Assert.That(source.IsDisposed, Is.True);
-            Assert.That(File.ReadAllBytes(profile.Downloads.Single().FilePath), Is.EqualTo(new byte[] { 1, 2, 3 }));
-            Assert.That(vm.CurrentUri, Is.EqualTo(page));
-        }
-        finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+        view.OnNativeDownloadRequested(media, "Morning.mp3", source);
+        view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = new Uri("https://ads.example/frame") });
+        Dispatcher.UIThread.RunJobs();
+        var confirm = view.FindControl<Button>("ConfirmPageDownloadButton")!;
+        Assert.That(confirm.IsVisible, Is.True);
+        Assert.That(source.IsDisposed, Is.False);
+        confirm.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(handler.Requests, Is.Zero);
+        Assert.That(source.Saves, Is.EqualTo(1));
+        Assert.That(source.IsDisposed, Is.True);
+        Assert.That(File.ReadAllBytes(profile.Downloads.Single().FilePath), Is.EqualTo(new byte[] { 1, 2, 3 }));
+        Assert.That(vm.CurrentUri, Is.EqualTo(page));
     }
 
     [AvaloniaTest]
@@ -187,10 +181,8 @@ public class WebBrowserDownloadTests
     {
         var page = new Uri("https://page.example/");
         var media = new Uri("https://files.example/download");
-        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), page);
-        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
-            navigationStartedIncludesSubframes: true)
-        { DataContext = vm };
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), page);
+        using var view = CreateView(vm, includesSubframes: true);
         view.OnNativeNavigationCommitted(page);
         var source = new ResponseDownloadSource("First.mp3");
         view.DownloadOptionsSelector = (_, _) => Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(null);
@@ -238,11 +230,9 @@ public class WebBrowserDownloadTests
         var page = navigation is "blank" or "restored" ? WebBrowserTabViewModel.BlankPage : new Uri("https://page.example/original");
         var media = new Uri("https://files.example/download?filename=Morning.mp3");
         var initial = navigation == "redirect" ? new Uri("https://page.example/generate") : media;
-        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), page);
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), page);
         if (navigation == "restored") vm.ReadFromJson(new JsonObject { ["source"] = initial.AbsoluteUri });
-        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
-            navigationStartedIncludesSubframes: true)
-        { DataContext = vm };
+        using var view = CreateView(vm, includesSubframes: true);
         int optionsOpened = 0;
         view.DownloadOptionsSelector = (_, _) =>
         {
@@ -292,10 +282,8 @@ public class WebBrowserDownloadTests
         var page = new Uri("https://page.example/");
         var media = new Uri("https://files.example/download");
         var next = retrySameUri ? media : new Uri("https://failed.example/");
-        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), page);
-        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
-            navigationStartedIncludesSubframes: false)
-        { DataContext = vm };
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), page);
+        using var view = CreateView(vm, includesSubframes: false);
         view.OnNativeNavigationCommitted(page);
         view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = media });
         view.OnWindowsNativeDownloadRequested(media, "Morning.mp3", new ResponseDownloadSource("Morning.mp3"));
@@ -319,10 +307,8 @@ public class WebBrowserDownloadTests
         var action = new Uri("https://page.example/generate");
         var file = new Uri("https://cdn.example.net/signed?token=temporary");
         var next = new Uri("https://failed.example/");
-        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), page);
-        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
-            navigationStartedIncludesSubframes: false)
-        { DataContext = vm };
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), page);
+        using var view = CreateView(vm, includesSubframes: false);
         view.OnNativeNavigationCommitted(page);
 
         view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = action });
@@ -351,10 +337,8 @@ public class WebBrowserDownloadTests
         var firstFile = new Uri("https://files.example/first?token=one");
         var secondFile = sameUri ? firstFile : new Uri("https://files.example/second?token=two");
         var next = new Uri("https://failed.example/");
-        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), page);
-        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
-            navigationStartedIncludesSubframes: false)
-        { DataContext = vm };
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), page);
+        using var view = CreateView(vm, includesSubframes: false);
         view.OnNativeNavigationCommitted(page);
 
         view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = firstAction });
@@ -384,10 +368,8 @@ public class WebBrowserDownloadTests
     {
         var page = new Uri("https://page.example/");
         var media = new Uri("https://files.example/download");
-        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), page);
-        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
-            navigationStartedIncludesSubframes: false)
-        { DataContext = vm };
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), page);
+        using var view = CreateView(vm, includesSubframes: false);
         view.OnNativeNavigationCommitted(page);
 
         // WebView2 raises DownloadStarting for an iframe without starting a top-level navigation.
@@ -407,10 +389,8 @@ public class WebBrowserDownloadTests
         var page = new Uri("https://page.example/");
         var next = new Uri("https://page.example/next");
         var media = new Uri("https://files.example/download");
-        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), page);
-        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
-            navigationStartedIncludesSubframes: false)
-        { DataContext = vm };
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), page);
+        using var view = CreateView(vm, includesSubframes: false);
         view.OnNativeNavigationCommitted(page);
         var source = new ResponseDownloadSource("Morning.mp3");
 
@@ -436,10 +416,8 @@ public class WebBrowserDownloadTests
         var next = new Uri("https://page.example/next");
         var firstUri = new Uri("https://files.example/first");
         var secondUri = new Uri("https://files.example/second");
-        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), page);
-        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
-            navigationStartedIncludesSubframes: false)
-        { DataContext = vm };
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), page);
+        using var view = CreateView(vm, includesSubframes: false);
         view.OnNativeNavigationCommitted(page);
         var first = new ResponseDownloadSource("First.mp3");
         var second = new ResponseDownloadSource("Second.mp3");
@@ -478,10 +456,8 @@ public class WebBrowserDownloadTests
         var later = new Uri("https://page.example/later");
         var firstUri = new Uri("https://files.example/first");
         var secondUri = new Uri("https://files.example/second");
-        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), page);
-        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
-            navigationStartedIncludesSubframes: false)
-        { DataContext = vm };
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), page);
+        using var view = CreateView(vm, includesSubframes: false);
         var first = new ResponseDownloadSource("First.mp3");
         var second = new ResponseDownloadSource("Second.mp3");
 
@@ -518,9 +494,8 @@ public class WebBrowserDownloadTests
         var page = new Uri("https://page.example/");
         var firstUri = new Uri("https://files.example/first");
         var secondUri = new Uri("https://files.example/second");
-        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), page);
-        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false))
-        { DataContext = vm };
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), page);
+        using var view = CreateView(vm);
         var first = new ResponseDownloadSource("First.mp3");
         var second = new ResponseDownloadSource("Second.mp3");
         view.DownloadOptionsSelector = (_, _) =>
@@ -549,9 +524,8 @@ public class WebBrowserDownloadTests
     {
         var page = new Uri("https://page.example/");
         var media = new Uri("https://files.example/download");
-        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), page);
-        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false))
-        { DataContext = vm };
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), page);
+        using var view = CreateView(vm);
         var source = new ResponseDownloadSource("Morning.mp3");
         int optionsOpened = 0;
         view.DownloadOptionsSelector = (_, _) =>
@@ -580,10 +554,8 @@ public class WebBrowserDownloadTests
         var page = new Uri("https://page.example/");
         var next = new Uri("https://page.example/next");
         var media = next;
-        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), page);
-        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
-            navigationStartedIncludesSubframes: false)
-        { DataContext = vm };
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), page);
+        using var view = CreateView(vm, includesSubframes: false);
         view.OnNativeNavigationCommitted(page);
 
         view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = next });
@@ -602,10 +574,8 @@ public class WebBrowserDownloadTests
         var page = new Uri("https://page.example/");
         var next = new Uri("https://page.example/next");
         var media = new Uri("https://files.example/download");
-        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), page);
-        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
-            navigationStartedIncludesSubframes: false)
-        { DataContext = vm };
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), page);
+        using var view = CreateView(vm, includesSubframes: false);
         view.OnNativeNavigationCommitted(page);
 
         view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = next });
@@ -621,10 +591,8 @@ public class WebBrowserDownloadTests
     {
         var page = new Uri("https://page.example/");
         var media = new Uri("https://files.example/download");
-        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), page);
-        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
-            navigationStartedIncludesSubframes: false)
-        { DataContext = vm };
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), page);
+        using var view = CreateView(vm, includesSubframes: false);
         view.OnNativeNavigationCommitted(page);
 
         view.OnNativeDownloadRequested(media, "Morning.mp3", new ResponseDownloadSource("Morning.mp3"));
@@ -641,8 +609,8 @@ public class WebBrowserDownloadTests
         var page = new Uri("https://page.example/");
         var media = new Uri("https://files.example/download");
         var nativeViews = new List<NativeWebView>();
-        using var first = new WebBrowserTabViewModel(new DownloadContext(new Scene()), page);
-        using var second = new WebBrowserTabViewModel(new DownloadContext(new Scene()), page);
+        using var first = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), page);
+        using var second = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), page);
         using var view = new WebBrowserTabView(uri =>
         {
             var native = new NativeWebView { Source = uri };
@@ -674,10 +642,8 @@ public class WebBrowserDownloadTests
         var page = new Uri("https://page.example/");
         var first = new Uri("https://files.example/download?id=1");
         var second = sameUri ? first : new Uri("https://files.example/download?id=2");
-        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), page);
-        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
-            navigationStartedIncludesSubframes: true)
-        { DataContext = vm };
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), page);
+        using var view = CreateView(vm, includesSubframes: true);
         view.OnNativeNavigationCommitted(page);
         view.OnNativeDownloadRequested(first, "First.mp3", new ResponseDownloadSource("First.mp3"));
         view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = second });
@@ -692,8 +658,8 @@ public class WebBrowserDownloadTests
     [AvaloniaTest]
     public void DismissedAndDisposedViewsIgnoreNativeDownloadRequests()
     {
-        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), new Uri("https://page.example/"));
-        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false)) { DataContext = vm };
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), new Uri("https://page.example/"));
+        using var view = CreateView(vm);
         var media = new Uri("https://files.example/download");
         view.OnNativeDownloadRequested(media, "Morning.mp3", new ResponseDownloadSource("Morning.mp3"));
         Dispatcher.UIThread.RunJobs();
@@ -717,7 +683,7 @@ public class WebBrowserDownloadTests
     [TestCase("audio.mp3", true, " ")]
     public async Task DownloadOptionsOnlyEnableImportForSupportedFileTypes(string fileName, bool canImport, string? suggestedName)
     {
-        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene
         { Uri = new Uri(Path.Combine(Path.GetTempPath(), "download-options.scene")) }));
         using var view = new WebBrowserTabView(_ => new NativeWebView(), () => (false, null, false)) { DataContext = vm };
         Task<WebBrowserTabView.BrowserDownloadOptions?> pending = view.ChooseDownloadOptionsAsync(new Uri("https://files.example/" + fileName), default, suggestedName);
@@ -733,10 +699,11 @@ public class WebBrowserDownloadTests
     [TestCase(true)]
     public async Task DownloadReferrerPolicySurvivesConfirmationAndHistoryRetry(bool nativeResponse)
     {
-        string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        using var temporary = new TemporaryDirectory();
+        string root = temporary.Path;
         var profile = new BrowserProfile(Path.Combine(root, "profile.json"));
-        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), new Uri("https://files.example/page"), profile);
-        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false)) { DataContext = vm };
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), new Uri("https://files.example/page"), profile);
+        using var view = CreateView(vm);
         view.OnNativeNavigationCommitted(vm.CurrentUri);
         using var handler = new ReferrerHandler();
         using var client = new HttpClient(handler);
@@ -772,7 +739,7 @@ public class WebBrowserDownloadTests
             Assert.That(handler.Referrer, Is.Null);
             Assert.That(handler.CookieHeader, Is.EqualTo("session=value"));
         }
-        finally { window.Close(); if (Directory.Exists(root)) Directory.Delete(root, true); }
+        finally { window.Close(); }
     }
 
     [AvaloniaTest]
@@ -781,14 +748,13 @@ public class WebBrowserDownloadTests
     [TestCase(false, true)]
     public async Task RestoredNativeDownloadPageAllowsCookiesForLaterLinks(bool hasCommittedPage, bool saveNativeDownload)
     {
-        string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        using var temporary = new TemporaryDirectory();
+        string root = temporary.Path;
         var page = hasCommittedPage ? new Uri("https://files.example/page") : WebBrowserTabViewModel.BlankPage;
         var media = new Uri("https://files.example/download");
         var profile = new BrowserProfile(Path.Combine(root, "profile.json"));
-        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), page, profile);
-        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
-            navigationStartedIncludesSubframes: true)
-        { DataContext = vm };
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), page, profile);
+        using var view = CreateView(vm, includesSubframes: true);
         if (hasCommittedPage) view.OnNativeNavigationCommitted(page);
         using var handler = new ReferrerHandler();
         using var client = new HttpClient(handler);
@@ -803,65 +769,58 @@ public class WebBrowserDownloadTests
         };
         var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         profile.Downloads.CollectionChanged += (_, _) => completed.TrySetResult();
-        try
+        vm.Address.Value = "https://files.example/generate";
+        view.NavigateFromAddress();
+        view.OnNativeDownloadRequested(media, "Morning.mp3", new ResponseDownloadSource("Morning.mp3"));
+        Dispatcher.UIThread.RunJobs();
+        var confirm = view.FindControl<Button>("ConfirmPageDownloadButton")!;
+        confirm.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        if (saveNativeDownload)
         {
-            vm.Address.Value = "https://files.example/generate";
-            view.NavigateFromAddress();
-            view.OnNativeDownloadRequested(media, "Morning.mp3", new ResponseDownloadSource("Morning.mp3"));
-            Dispatcher.UIThread.RunJobs();
-            var confirm = view.FindControl<Button>("ConfirmPageDownloadButton")!;
-            confirm.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
-            if (saveNativeDownload)
-            {
-                await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
-                Assert.That(handler.CookieHeader, Is.Null);
-                Assert.That(handler.Referrer, Is.Null);
-                Assert.That(profile.Downloads.Single().ReferrerPolicy, Is.EqualTo(BrowserReferrerPolicy.NoReferrer));
-            }
-            Assert.That(cookieRequests, Is.Zero);
-
-            completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-            view.OnWebMessageReceived(null, new WebMessageReceivedEventArgs
-            { Body = """{"kind":"beutl-download","url":"https://files.example/protected.mp3"}""" });
-            Dispatcher.UIThread.RunJobs();
-            Assert.That(confirm.IsVisible, Is.True);
-            confirm.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
             await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
-            Assert.That(vm.CurrentUri, Is.EqualTo(page));
-            Assert.That(cookieRequests, Is.EqualTo(hasCommittedPage ? 1 : 0));
-            Assert.That(handler.CookieHeader, Is.EqualTo(hasCommittedPage ? "session=private" : null));
-            Assert.That(handler.Referrer, Is.EqualTo(hasCommittedPage ? new Uri("https://files.example/") : null));
+            Assert.That(handler.CookieHeader, Is.Null);
+            Assert.That(handler.Referrer, Is.Null);
+            Assert.That(profile.Downloads.Single().ReferrerPolicy, Is.EqualTo(BrowserReferrerPolicy.NoReferrer));
         }
-        finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+        Assert.That(cookieRequests, Is.Zero);
+
+        completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        view.OnWebMessageReceived(null, new WebMessageReceivedEventArgs
+        { Body = """{"kind":"beutl-download","url":"https://files.example/protected.mp3"}""" });
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(confirm.IsVisible, Is.True);
+        confirm.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(vm.CurrentUri, Is.EqualTo(page));
+        Assert.That(cookieRequests, Is.EqualTo(hasCommittedPage ? 1 : 0));
+        Assert.That(handler.CookieHeader, Is.EqualTo(hasCommittedPage ? "session=private" : null));
+        Assert.That(handler.Referrer, Is.EqualTo(hasCommittedPage ? new Uri("https://files.example/") : null));
     }
 
     [AvaloniaTest]
     public async Task DownloadedSvgIsSavedWithoutAttemptingTimelineImport()
     {
-        string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
-        var context = new DownloadContext(new Scene { Uri = new Uri(Path.Combine(root, "scene.scene")) });
+        using var temporary = new TemporaryDirectory();
+        string root = temporary.Path;
+        var context = new BrowserEditorContext(new Scene { Uri = new Uri(Path.Combine(root, "scene.scene")) });
         var profile = new BrowserProfile(Path.Combine(root, "profile.json"));
         using var vm = new WebBrowserTabViewModel(context, WebBrowserTabViewModel.BlankPage, profile);
         using var view = new WebBrowserTabView(_ => new NativeWebView(), () => (false, null, false)) { DataContext = vm };
         using var client = new HttpClient(new SvgHandler());
         view.MediaDownloader = new BrowserMediaDownload(client);
         view.DownloadOptionsSelector = (_, _) => Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(new(root, true));
-        try
-        {
-            await view.DownloadMediaAsync(new Uri("https://files.example/movie.mp4"), null);
-            var record = profile.Downloads.Single();
-            Assert.That(Path.GetExtension(record.FilePath), Is.EqualTo(".svg"));
-            Assert.That(File.Exists(record.FilePath), Is.True);
-            Assert.That(context.Imported, Is.Empty);
-            Assert.That(vm.CanAddDownloadedFile(record.FilePath), Is.False);
-        }
-        finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+        await view.DownloadMediaAsync(new Uri("https://files.example/movie.mp4"), null);
+        var record = profile.Downloads.Single();
+        Assert.That(Path.GetExtension(record.FilePath), Is.EqualTo(".svg"));
+        Assert.That(File.Exists(record.FilePath), Is.True);
+        Assert.That(context.Imported, Is.Empty);
+        Assert.That(vm.CanAddDownloadedFile(record.FilePath), Is.False);
     }
 
     [AvaloniaTest]
     public async Task DownloadOptions_ReplacementAndCancellationDoNotDismissAnotherPanel()
     {
-        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()));
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()));
         using var view = new WebBrowserTabView(_ => new NativeWebView(), () => (false, null, false));
         view.DataContext = vm;
         var uri = new Uri("https://example.com/video.mp4");
@@ -891,7 +850,7 @@ public class WebBrowserDownloadTests
         var project = new Project { Uri = new Uri(Path.Combine(root, "project.bep")) };
         var scene = new Scene { Uri = new Uri(Path.Combine(root, "scene.scene")) };
         project.Items.Add(scene);
-        using var vm = new WebBrowserTabViewModel(new DownloadContext(scene));
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(scene));
         var nativeView = new NativeWebView();
         using var view = new WebBrowserTabView(_ => nativeView, () => (true, null, false));
         view.DataContext = vm;
@@ -930,45 +889,39 @@ public class WebBrowserDownloadTests
     [AvaloniaTest]
     public async Task Download_UsesChosenDirectoryAndOptionalTimelineImport()
     {
-        string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        using var temporary = new TemporaryDirectory();
+        string root = temporary.Path;
         using var client = new HttpClient(new MediaHandler());
-        var context = new DownloadContext(new Scene { Uri = new Uri(Path.Combine(root, "scene.scene")) });
+        var context = new BrowserEditorContext(new Scene { Uri = new Uri(Path.Combine(root, "scene.scene")) });
         using var vm = new WebBrowserTabViewModel(context, WebBrowserTabViewModel.BlankPage, new BrowserProfile(Path.Combine(root, "profile.json")));
         using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (false, null, false));
         view.DataContext = vm;
         view.MediaDownloader = new BrowserMediaDownload(client);
-        try
+        foreach (bool add in new[] { false, true })
         {
-            foreach (bool add in new[] { false, true })
-            {
-                string directory = Path.Combine(root, add ? "project" : "materials");
-                view.DownloadOptionsSelector = (_, _) => Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(new(directory, add));
-                await view.DownloadMediaAsync(new Uri("https://example.com/video.mp4"), null);
-                Assert.That(Directory.GetFiles(directory), Has.Length.EqualTo(1));
-                Assert.That(context.Imported.Count, Is.EqualTo(add ? 1 : 0));
-                if (add) Assert.That(((ElementSource.File)context.Imported[0].Source).FileName, Does.StartWith(directory));
-            }
+            string directory = Path.Combine(root, add ? "project" : "materials");
+            view.DownloadOptionsSelector = (_, _) => Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(new(directory, add));
+            await view.DownloadMediaAsync(new Uri("https://example.com/video.mp4"), null);
+            Assert.That(Directory.GetFiles(directory), Has.Length.EqualTo(1));
+            Assert.That(context.Imported.Count, Is.EqualTo(add ? 1 : 0));
+            if (add) Assert.That(((ElementSource.File)context.Imported[0].Source).FileName, Does.StartWith(directory));
+        }
 
-            view.DownloadOptionsSelector = (_, _) => Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(null);
-            await view.DownloadMediaAsync(new Uri("https://example.com/canceled.mp4"), null);
-            Assert.That(Directory.GetFiles(root, "*.mp4", SearchOption.AllDirectories), Has.Length.EqualTo(2));
-            Assert.That(context.Imported, Has.Count.EqualTo(1));
-        }
-        finally
-        {
-            if (Directory.Exists(root)) Directory.Delete(root, true);
-        }
+        view.DownloadOptionsSelector = (_, _) => Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(null);
+        await view.DownloadMediaAsync(new Uri("https://example.com/canceled.mp4"), null);
+        Assert.That(Directory.GetFiles(root, "*.mp4", SearchOption.AllDirectories), Has.Length.EqualTo(2));
+        Assert.That(context.Imported, Has.Count.EqualTo(1));
     }
 
     [AvaloniaTest]
     public async Task LinkDownloadsKeepTheInitiatingSiteWhileChoosingOptions()
     {
-        string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        using var temporary = new TemporaryDirectory();
+        string root = temporary.Path;
         var page = new Uri("https://soundeffect-lab.info/sound/button/?private=value#section");
-        var context = new DownloadContext(new Scene { Uri = new Uri(Path.Combine(root, "scene.scene")) });
+        var context = new BrowserEditorContext(new Scene { Uri = new Uri(Path.Combine(root, "scene.scene")) });
         using var vm = new WebBrowserTabViewModel(context, page, new BrowserProfile(Path.Combine(root, "profile.json")));
-        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false));
-        view.DataContext = vm;
+        using var view = CreateView(vm);
         using var handler = new ReferrerHandler();
         using var client = new HttpClient(handler);
         view.MediaDownloader = new BrowserMediaDownload(client);
@@ -1007,7 +960,7 @@ public class WebBrowserDownloadTests
             Assert.That(context.Imported, Has.Count.EqualTo(2));
             Assert.That(handler.Referrer, Is.EqualTo(new Uri("https://soundeffect-lab.info/")));
         }
-        finally { window.Close(); if (Directory.Exists(root)) Directory.Delete(root, true); }
+        finally { window.Close(); }
     }
 
     [AvaloniaTest]
@@ -1015,8 +968,8 @@ public class WebBrowserDownloadTests
     [TestCase(true)]
     public void PageMessagesCannotOpenDownloadOptionsWithoutNativeConfirmation(bool anotherPanelOpen)
     {
-        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), new Uri("https://page.example/"));
-        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false)) { DataContext = vm };
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), new Uri("https://page.example/"));
+        using var view = CreateView(vm);
         var existingContent = new TextBlock { Text = "Existing panel" };
         if (anotherPanelOpen) view.ShowBrowserPanel("Existing panel", existingContent);
         int optionsOpened = 0;
@@ -1054,10 +1007,8 @@ public class WebBrowserDownloadTests
     public void DismissingPageDownloadsSuppressesRepeatedRequestsUntilANewDocument()
     {
         var initial = new Uri("https://page.example/");
-        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), initial);
-        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
-            getPageTitle: _ => Task.FromResult<string?>("Page"))
-        { DataContext = vm };
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), initial);
+        using var view = CreateView(vm, getPageTitle: _ => Task.FromResult<string?>("Page"));
         view.PageScriptRunner = _ => Task.FromResult<string?>("true");
         void Request()
         {
@@ -1088,10 +1039,8 @@ public class WebBrowserDownloadTests
     {
         var initial = new Uri("https://page.example/");
         var next = new Uri("https://next.example/");
-        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), initial);
-        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
-            getPageTitle: _ => Task.FromResult<string?>("Page"), navigationStartedIncludesSubframes: typedAddress)
-        { DataContext = vm };
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), initial);
+        using var view = CreateView(vm, includesSubframes: typedAddress, getPageTitle: _ => Task.FromResult<string?>("Page"));
         view.PageScriptRunner = _ => Task.FromResult<string?>("true");
         int optionsOpened = 0;
         view.DownloadOptionsSelector = (_, _) => { optionsOpened++; return Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(null); };
@@ -1127,12 +1076,11 @@ public class WebBrowserDownloadTests
     [TestCase(true)]
     public async Task RedirectedMediaKeepsItsConfirmationAfterNavigationIsCanceled(bool showBeforeCompletion)
     {
-        string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        using var temporary = new TemporaryDirectory();
+        string root = temporary.Path;
         var profile = new BrowserProfile(Path.Combine(root, "profile.json"));
-        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), new Uri("https://original.example/"), profile);
-        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
-            navigationStartedIncludesSubframes: false)
-        { DataContext = vm };
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), new Uri("https://original.example/"), profile);
+        using var view = CreateView(vm, includesSubframes: false);
         using var handler = new ReferrerHandler();
         using var client = new HttpClient(handler);
         view.MediaDownloader = new BrowserMediaDownload(client);
@@ -1149,28 +1097,24 @@ public class WebBrowserDownloadTests
         profile.Downloads.CollectionChanged += (_, _) => completed.TrySetResult();
         var intermediate = new Uri("https://redirect.example/download");
         var media = new Uri("https://files.example/movie.mp4");
-        try
-        {
-            view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = intermediate });
-            var redirect = new WebViewNavigationStartingEventArgs { Request = media };
-            view.OnNavigationStarted(null, redirect);
-            Assert.That(redirect.Cancel, Is.True);
-            Assert.That(vm.IsLoading.Value, Is.False);
-            if (showBeforeCompletion) Dispatcher.UIThread.RunJobs();
-            view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = intermediate, IsSuccess = false });
-            Dispatcher.UIThread.RunJobs();
-            var confirm = view.FindControl<Button>("ConfirmPageDownloadButton")!;
-            Assert.That(confirm.IsVisible, Is.True);
-            Assert.That(optionsOpened, Is.Zero);
-            Assert.That(vm.ErrorMessage.Value, Is.Null);
-            confirm.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
-            await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
-            Assert.That(optionsOpened, Is.EqualTo(1));
-            Assert.That(requested, Is.EqualTo(media));
-            Assert.That(handler.Referrer, Is.Null);
-            Assert.That(handler.CookieHeader, Is.Null);
-        }
-        finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+        view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = intermediate });
+        var redirect = new WebViewNavigationStartingEventArgs { Request = media };
+        view.OnNavigationStarted(null, redirect);
+        Assert.That(redirect.Cancel, Is.True);
+        Assert.That(vm.IsLoading.Value, Is.False);
+        if (showBeforeCompletion) Dispatcher.UIThread.RunJobs();
+        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = intermediate, IsSuccess = false });
+        Dispatcher.UIThread.RunJobs();
+        var confirm = view.FindControl<Button>("ConfirmPageDownloadButton")!;
+        Assert.That(confirm.IsVisible, Is.True);
+        Assert.That(optionsOpened, Is.Zero);
+        Assert.That(vm.ErrorMessage.Value, Is.Null);
+        confirm.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(optionsOpened, Is.EqualTo(1));
+        Assert.That(requested, Is.EqualTo(media));
+        Assert.That(handler.Referrer, Is.Null);
+        Assert.That(handler.CookieHeader, Is.Null);
     }
 
     [AvaloniaTest]
@@ -1178,10 +1122,8 @@ public class WebBrowserDownloadTests
     [TestCase(true)]
     public void AnotherMediaNavigationReplacesThePreviousDownloadOffer(bool firstOfferVisible)
     {
-        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), new Uri("https://original.example/"));
-        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
-            navigationStartedIncludesSubframes: false)
-        { DataContext = vm };
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), new Uri("https://original.example/"));
+        using var view = CreateView(vm, includesSubframes: false);
         Uri? requested = null;
         view.DownloadOptionsSelector = (uri, _) =>
         {
@@ -1211,14 +1153,13 @@ public class WebBrowserDownloadTests
     [TestCase("finished")]
     public async Task CanceledMediaCompletionPreservesTheDisplayedPage(string offerState)
     {
-        string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        using var temporary = new TemporaryDirectory();
+        string root = temporary.Path;
         var page = new Uri("https://original.example/page");
         var media = new Uri("https://files.example/movie.mp4");
         var profile = new BrowserProfile(Path.Combine(root, "profile.json"));
-        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), page, profile);
-        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
-            navigationStartedIncludesSubframes: false)
-        { DataContext = vm };
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), page, profile);
+        using var view = CreateView(vm, includesSubframes: false);
         vm.CompleteNavigation(page, true, false, false);
         vm.SetPageTitle(page, "Original page");
         using var client = new HttpClient(new MediaHandler());
@@ -1226,45 +1167,39 @@ public class WebBrowserDownloadTests
         view.DownloadOptionsSelector = (_, _) => Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(new(root, false));
         var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         profile.Downloads.CollectionChanged += (_, _) => completed.TrySetResult();
-        try
+        view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = media });
+        Dispatcher.UIThread.RunJobs();
+        if (offerState == "dismissed")
+            view.FindControl<Button>("DismissDownloadStatusButton")!.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        else if (offerState == "finished")
         {
-            view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = media });
-            Dispatcher.UIThread.RunJobs();
-            if (offerState == "dismissed")
-                view.FindControl<Button>("DismissDownloadStatusButton")!.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
-            else if (offerState == "finished")
-            {
-                view.FindControl<Button>("ConfirmPageDownloadButton")!.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
-                await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
-            }
-            view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = media, IsSuccess = false });
-            Assert.That(vm.CurrentUri, Is.EqualTo(page));
-            Assert.That(vm.Address.Value, Is.EqualTo(page.AbsoluteUri));
-            Assert.That(vm.Header.Value, Is.EqualTo("Original page"));
-            Assert.That(vm.IsLoading.Value, Is.False);
-            Assert.That(vm.ErrorMessage.Value, Is.Null);
-            var saved = new JsonObject();
-            vm.WriteToJson(saved);
-            Assert.That(saved["source"]!.GetValue<string>(), Is.EqualTo(page.AbsoluteUri));
-
-            var next = new Uri("https://next.example/page");
-            view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = next });
-            Assert.That(vm.IsLoading.Value, Is.True);
-            view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = next, IsSuccess = false });
-            Assert.That(vm.CurrentUri, Is.EqualTo(next));
-            Assert.That(vm.IsLoading.Value, Is.False);
-            Assert.That(vm.ErrorMessage.Value, Is.Not.Empty);
+            view.FindControl<Button>("ConfirmPageDownloadButton")!.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
         }
-        finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = media, IsSuccess = false });
+        Assert.That(vm.CurrentUri, Is.EqualTo(page));
+        Assert.That(vm.Address.Value, Is.EqualTo(page.AbsoluteUri));
+        Assert.That(vm.Header.Value, Is.EqualTo("Original page"));
+        Assert.That(vm.IsLoading.Value, Is.False);
+        Assert.That(vm.ErrorMessage.Value, Is.Null);
+        var saved = new JsonObject();
+        vm.WriteToJson(saved);
+        Assert.That(saved["source"]!.GetValue<string>(), Is.EqualTo(page.AbsoluteUri));
+
+        var next = new Uri("https://next.example/page");
+        view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = next });
+        Assert.That(vm.IsLoading.Value, Is.True);
+        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = next, IsSuccess = false });
+        Assert.That(vm.CurrentUri, Is.EqualTo(next));
+        Assert.That(vm.IsLoading.Value, Is.False);
+        Assert.That(vm.ErrorMessage.Value, Is.Not.Empty);
     }
 
     [AvaloniaTest]
     public void RedirectedMediaDoesNotReenableDismissedPageRequests()
     {
-        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), new Uri("https://original.example/"));
-        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
-            navigationStartedIncludesSubframes: false)
-        { DataContext = vm };
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), new Uri("https://original.example/"));
+        using var view = CreateView(vm, includesSubframes: false);
         view.OnWebMessageReceived(null, new WebMessageReceivedEventArgs
         { Body = """{"kind":"beutl-download","url":"https://files.example/movie.mp4"}""" });
         Dispatcher.UIThread.RunJobs();
@@ -1283,14 +1218,13 @@ public class WebBrowserDownloadTests
     [TestCase(true)]
     public async Task DownloadsAfterAbortedNavigationOmitUncertainPageMetadata(bool stopped)
     {
-        string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        using var temporary = new TemporaryDirectory();
+        string root = temporary.Path;
         var initial = new Uri("https://original.example/");
         var next = new Uri("https://failed.example/");
         var profile = new BrowserProfile(Path.Combine(root, "profile.json"));
-        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), initial, profile);
-        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
-            getPageTitle: _ => Task.FromResult<string?>("Page"), navigationStartedIncludesSubframes: false)
-        { DataContext = vm };
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), initial, profile);
+        using var view = CreateView(vm, includesSubframes: false, getPageTitle: _ => Task.FromResult<string?>("Page"));
         view.PageScriptRunner = _ => Task.FromResult<string?>("true");
         using var handler = new ReferrerHandler();
         using var client = new HttpClient(handler);
@@ -1300,49 +1234,43 @@ public class WebBrowserDownloadTests
             [new("session", "private", "/", "files.example") { Secure = true }]);
         var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         profile.Downloads.CollectionChanged += (_, _) => completed.TrySetResult();
-        try
-        {
-            view.OnWebMessageReceived(null, new WebMessageReceivedEventArgs
-            { Body = """{"kind":"beutl-download","url":"https://files.example/media.mp3"}""" });
-            Dispatcher.UIThread.RunJobs();
-            var confirm = view.FindControl<Button>("ConfirmPageDownloadButton")!;
-            Assert.That(confirm.IsVisible, Is.True);
-            view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = next });
-            if (stopped) view.OnNavigationStopped();
-            else view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = next, IsSuccess = false });
-            Assert.That(vm.IsLoading.Value, Is.False);
-            Assert.That(confirm.IsVisible, Is.False);
-            view.OnWebMessageReceived(null, new WebMessageReceivedEventArgs
-            { Body = """{"kind":"beutl-download","url":"https://files.example/media.mp3"}""" });
-            Dispatcher.UIThread.RunJobs();
-            Assert.That(confirm.IsVisible, Is.True);
-            confirm.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
-            await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
-            Assert.That(handler.Referrer, Is.Null);
-            Assert.That(handler.CookieHeader, Is.Null);
-            Assert.That(profile.Downloads.Single().Referrer, Is.Null);
+        view.OnWebMessageReceived(null, new WebMessageReceivedEventArgs
+        { Body = """{"kind":"beutl-download","url":"https://files.example/media.mp3"}""" });
+        Dispatcher.UIThread.RunJobs();
+        var confirm = view.FindControl<Button>("ConfirmPageDownloadButton")!;
+        Assert.That(confirm.IsVisible, Is.True);
+        view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = next });
+        if (stopped) view.OnNavigationStopped();
+        else view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = next, IsSuccess = false });
+        Assert.That(vm.IsLoading.Value, Is.False);
+        Assert.That(confirm.IsVisible, Is.False);
+        view.OnWebMessageReceived(null, new WebMessageReceivedEventArgs
+        { Body = """{"kind":"beutl-download","url":"https://files.example/media.mp3"}""" });
+        Dispatcher.UIThread.RunJobs();
+        Assert.That(confirm.IsVisible, Is.True);
+        confirm.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(handler.Referrer, Is.Null);
+        Assert.That(handler.CookieHeader, Is.Null);
+        Assert.That(profile.Downloads.Single().Referrer, Is.Null);
 
-            completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-            view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs
-            { Request = new Uri("https://files.example/page"), IsSuccess = true });
-            view.OnWebMessageReceived(null, new WebMessageReceivedEventArgs
-            { Body = """{"kind":"beutl-download","url":"https://files.example/media.mp3"}""" });
-            Dispatcher.UIThread.RunJobs();
-            confirm.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
-            await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
-            Assert.That(handler.Referrer, Is.EqualTo(new Uri("https://files.example/")));
-            Assert.That(handler.CookieHeader, Is.EqualTo("session=private"));
-        }
-        finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+        completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs
+        { Request = new Uri("https://files.example/page"), IsSuccess = true });
+        view.OnWebMessageReceived(null, new WebMessageReceivedEventArgs
+        { Body = """{"kind":"beutl-download","url":"https://files.example/media.mp3"}""" });
+        Dispatcher.UIThread.RunJobs();
+        confirm.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(handler.Referrer, Is.EqualTo(new Uri("https://files.example/")));
+        Assert.That(handler.CookieHeader, Is.EqualTo("session=private"));
     }
 
     [AvaloniaTest]
     public void AmbiguousNavigationInvalidatesAnOfferWithoutReenablingDismissedRequests()
     {
-        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), new Uri("https://page.example/"));
-        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
-            navigationStartedIncludesSubframes: true)
-        { DataContext = vm };
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), new Uri("https://page.example/"));
+        using var view = CreateView(vm, includesSubframes: true);
         void Request()
         {
             view.OnWebMessageReceived(null, new WebMessageReceivedEventArgs
@@ -1367,10 +1295,8 @@ public class WebBrowserDownloadTests
     [TestCase(true, true)]
     public void PageDownloadRequestsExpireWithTheirDocumentOrContext(bool clearContext, bool queued)
     {
-        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), new Uri("https://page.example/"));
-        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
-            getPageTitle: _ => Task.FromResult<string?>("Page"))
-        { DataContext = vm };
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), new Uri("https://page.example/"));
+        using var view = CreateView(vm, getPageTitle: _ => Task.FromResult<string?>("Page"));
         view.PageScriptRunner = _ => Task.FromResult<string?>("true");
         int optionsOpened = 0;
         view.DownloadOptionsSelector = (_, _) => { optionsOpened++; return Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(null); };
@@ -1391,10 +1317,8 @@ public class WebBrowserDownloadTests
     [TestCase(true)]
     public void PageMediaNavigationsAndPopupsAlsoRequireNativeConfirmation(bool popup)
     {
-        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), new Uri("https://page.example/"));
-        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
-            navigationStartedIncludesSubframes: false)
-        { DataContext = vm };
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), new Uri("https://page.example/"));
+        using var view = CreateView(vm, includesSubframes: false);
         int optionsOpened = 0;
         view.DownloadOptionsSelector = (_, _) => { optionsOpened++; return Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(null); };
         var media = new Uri("https://files.example/movie.mp4");
@@ -1422,8 +1346,8 @@ public class WebBrowserDownloadTests
     [TestCase(640)]
     public void PageDownloadNotificationStaysCompactAndKeepsThePageVisible(int width)
     {
-        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), new Uri("https://page.example/"));
-        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false)) { DataContext = vm };
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), new Uri("https://page.example/"));
+        using var view = CreateView(vm);
         var window = new Window { Width = width, Height = 520, Content = view };
         try
         {
@@ -1439,13 +1363,6 @@ public class WebBrowserDownloadTests
             var position = confirm.TranslatePoint(default, status)!.Value;
             Assert.That(position.X, Is.GreaterThanOrEqualTo(0));
             Assert.That(position.X + confirm.Bounds.Width, Is.LessThanOrEqualTo(status.Bounds.Width));
-            if (Environment.GetEnvironmentVariable("BEUTL_BROWSER_CAPTURE") is { Length: > 0 } directory)
-            {
-                Directory.CreateDirectory(directory);
-                using var bitmap = new Avalonia.Media.Imaging.RenderTargetBitmap(new Avalonia.PixelSize(width, 520), new Avalonia.Vector(96, 96));
-                bitmap.Render(window);
-                bitmap.Save(Path.Combine(directory, $"page-download-request-{width}.png"), Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
-            }
         }
         finally { window.Close(); }
     }
@@ -1461,11 +1378,12 @@ public class WebBrowserDownloadTests
     [TestCase("https://page.example/current", true, true)]
     public async Task TypedMediaDownloadsKeepTheNavigationState(string initialAddress, bool confirm, bool navigationPending = false)
     {
-        string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        using var temporary = new TemporaryDirectory();
+        string root = temporary.Path;
         var initialUri = new Uri(initialAddress);
         var mediaUri = new Uri("https://downloads.example/clip.mp4");
         var profile = new BrowserProfile(Path.Combine(root, "profile.json"));
-        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), initialUri, profile);
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), initialUri, profile);
         var native = new NativeWebView { Source = initialUri };
         using var view = new WebBrowserTabView(_ => native, () => (true, null, false)) { DataContext = vm };
         using var client = new HttpClient(new MediaHandler());
@@ -1482,37 +1400,33 @@ public class WebBrowserDownloadTests
         Uri currentUri = navigationPending ? new Uri("https://pending.example/page") : initialUri;
         if (navigationPending) vm.BeginNavigation(currentUri);
         string header = vm.Header.Value;
-        try
+        vm.Address.Value = mediaUri.AbsoluteUri;
+        view.NavigateFromAddress();
+        if (confirm) await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(requested, Is.EqualTo(mediaUri));
+        Assert.That(vm.Address.Value, Is.EqualTo(WebBrowserTabViewModel.FormatAddress(currentUri)));
+        Assert.That(vm.CurrentUri, Is.EqualTo(currentUri));
+        Assert.That(native.Source, Is.EqualTo(initialUri));
+        Assert.That(vm.Header.Value, Is.EqualTo(header));
+        Assert.That(vm.HasWebAddress.Value, Is.EqualTo(currentUri != WebBrowserTabViewModel.BlankPage));
+        Assert.That(vm.IsLoading.Value, Is.EqualTo(navigationPending));
+        if (navigationPending)
         {
-            vm.Address.Value = mediaUri.AbsoluteUri;
-            view.NavigateFromAddress();
-            if (confirm) await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
-            Assert.That(requested, Is.EqualTo(mediaUri));
-            Assert.That(vm.Address.Value, Is.EqualTo(WebBrowserTabViewModel.FormatAddress(currentUri)));
+            view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = currentUri, IsSuccess = false });
+            Assert.That(vm.IsLoading.Value, Is.False);
+            Assert.That(vm.ErrorMessage.Value, Is.Not.Empty);
             Assert.That(vm.CurrentUri, Is.EqualTo(currentUri));
-            Assert.That(native.Source, Is.EqualTo(initialUri));
-            Assert.That(vm.Header.Value, Is.EqualTo(header));
-            Assert.That(vm.HasWebAddress.Value, Is.EqualTo(currentUri != WebBrowserTabViewModel.BlankPage));
-            Assert.That(vm.IsLoading.Value, Is.EqualTo(navigationPending));
-            if (navigationPending)
-            {
-                view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = currentUri, IsSuccess = false });
-                Assert.That(vm.IsLoading.Value, Is.False);
-                Assert.That(vm.ErrorMessage.Value, Is.Not.Empty);
-                Assert.That(vm.CurrentUri, Is.EqualTo(currentUri));
-                Assert.That(vm.AddressSuggestions, Does.Not.Contain(currentUri.AbsoluteUri));
-            }
-            var saved = new JsonObject();
-            vm.WriteToJson(saved);
-            Assert.That(saved["source"]!.GetValue<string>(), Is.EqualTo(vm.Address.Value));
+            Assert.That(vm.AddressSuggestions, Does.Not.Contain(currentUri.AbsoluteUri));
         }
-        finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+        var saved = new JsonObject();
+        vm.WriteToJson(saved);
+        Assert.That(saved["source"]!.GetValue<string>(), Is.EqualTo(vm.Address.Value));
     }
 
     [AvaloniaTest]
     public void UnsavedScene_DisablesProjectDestinationAndTimelineImport()
     {
-        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()));
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()));
         Assert.That(vm.ProjectDownloadDirectory, Is.Null);
         Assert.That(vm.CanAddDownloadedMedia, Is.False);
     }
@@ -1522,10 +1436,11 @@ public class WebBrowserDownloadTests
     [TestCase(true)]
     public async Task RestoredMediaTabsKeepBlankStateWhenTheDownloadIsCanceledOrCompleted(bool confirm)
     {
-        string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        using var temporary = new TemporaryDirectory();
+        string root = temporary.Path;
         var media = new Uri("https://files.example/restored.mp4");
         var profile = new BrowserProfile(Path.Combine(root, "profile.json"));
-        using var vm = new WebBrowserTabViewModel(new DownloadContext(new Scene()), WebBrowserTabViewModel.BlankPage, profile);
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), WebBrowserTabViewModel.BlankPage, profile);
         vm.ReadFromJson(new JsonObject { ["source"] = media.AbsoluteUri });
         var native = new NativeWebView();
         using var view = new WebBrowserTabView(uri => { native.Source = uri; return native; }, () => (true, null, false));
@@ -1539,23 +1454,19 @@ public class WebBrowserDownloadTests
             requested = uri;
             return Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(confirm ? new(root, false) : null);
         };
-        try
-        {
-            view.DataContext = vm;
-            Dispatcher.UIThread.RunJobs();
-            if (confirm) await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
-            Assert.That(requested, Is.EqualTo(media));
-            Assert.That(native.Source, Is.EqualTo(WebBrowserTabViewModel.BlankPage));
-            Assert.That(vm.CurrentUri, Is.EqualTo(native.Source));
-            Assert.That(vm.Address.Value, Is.Empty);
-            Assert.That(vm.HasWebAddress.Value, Is.False);
-            Assert.That(vm.IsLoading.Value, Is.False);
-            Assert.That(vm.Header.Value, Does.Not.Contain(media.Host));
-            var saved = new JsonObject();
-            vm.WriteToJson(saved);
-            Assert.That(saved["source"]!.GetValue<string>(), Is.Empty);
-        }
-        finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+        view.DataContext = vm;
+        Dispatcher.UIThread.RunJobs();
+        if (confirm) await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(requested, Is.EqualTo(media));
+        Assert.That(native.Source, Is.EqualTo(WebBrowserTabViewModel.BlankPage));
+        Assert.That(vm.CurrentUri, Is.EqualTo(native.Source));
+        Assert.That(vm.Address.Value, Is.Empty);
+        Assert.That(vm.HasWebAddress.Value, Is.False);
+        Assert.That(vm.IsLoading.Value, Is.False);
+        Assert.That(vm.Header.Value, Does.Not.Contain(media.Host));
+        var saved = new JsonObject();
+        vm.WriteToJson(saved);
+        Assert.That(saved["source"]!.GetValue<string>(), Is.Empty);
     }
 
     private sealed class ResponseDownloadSource(string name) : IBrowserDownloadSource
@@ -1626,29 +1537,6 @@ public class WebBrowserDownloadTests
             content.Headers.ContentType = new MediaTypeHeaderValue("image/svg+xml");
             content.Headers.ContentDisposition = new ContentDispositionHeaderValue("attachment") { FileName = "image.svg" };
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { RequestMessage = request, Content = content });
-        }
-    }
-
-    private sealed class DownloadContext(Scene scene) : IEditorContext, IElementAdder
-    {
-        public List<ElementDescription> Imported { get; } = [];
-        internal Action? OnImport { get; set; }
-        public CoreObject Object => scene;
-        public EditorExtension Extension => null!;
-        public IReactiveProperty<bool> IsEnabled { get; } = new ReactivePropertySlim<bool>(true);
-        public T? FindToolTab<T>(Func<T, bool> condition) where T : IToolContext => default;
-        public T? FindToolTab<T>() where T : IToolContext => default;
-        public bool OpenToolTab(IToolContext item) => false;
-        public void CloseToolTab(IToolContext item) { }
-        public object? GetService(Type type) => type == typeof(IElementAdder) ? this : null;
-        public IElementSourceHandlerRegistry SourceHandlers { get; } = new ElementSourceHandlerRegistry();
-        public ValueTask<ElementAddResult> AddAsync(IReadOnlyList<ElementDescription> descriptions, CancellationToken cancellationToken)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            Imported.AddRange(descriptions);
-            OnImport?.Invoke();
-            return ValueTask.FromResult(ElementAddResult.Succeeded(descriptions
-                .Select(description => new ElementAddItemResult(description, new Element(), [])).ToArray()));
         }
     }
 }

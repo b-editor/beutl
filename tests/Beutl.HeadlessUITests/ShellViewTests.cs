@@ -54,7 +54,7 @@ public class ShellViewTests
             window.Show();
             HeadlessTestHelpers.Render();
 
-            DockControl? dock = HeadlessTestHelpers.FindDescendant<DockControl>(view);
+            DockControl? dock = view.FindDescendantOfType<DockControl>();
             Assert.That(dock, Is.Not.Null, "EditView should inflate its DockControl");
             Assert.That(view.IsAttachedToVisualTree(), Is.True);
             Assert.That(view.Bounds.Width, Is.GreaterThan(0));

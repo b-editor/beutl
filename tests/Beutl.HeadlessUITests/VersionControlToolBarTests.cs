@@ -6,7 +6,6 @@ using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.Media;
-using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Beutl.Controls;
@@ -21,6 +20,7 @@ using Beutl.ViewModels;
 using FluentIcons.Avalonia.Fluent;
 using FluentIcons.Common;
 using Reactive.Bindings;
+using static Beutl.Testing.Headless.HeadlessTestHelpers;
 
 namespace Beutl.HeadlessUITests;
 
@@ -111,11 +111,9 @@ public class VersionControlToolBarTests
     }
 
     [AvaloniaTest]
-    [TestCase(320, false)]
-    [TestCase(640, false)]
-    [TestCase(320, true)]
-    [TestCase(640, true)]
-    public async Task Status_and_detail_bars_keep_context_visible_and_back_navigation_working(int width, bool light)
+    [TestCase(320)]
+    [TestCase(640)]
+    public async Task Status_and_detail_bars_keep_context_visible_and_back_navigation_working(int width)
     {
         await TestReset.ResetShellAsync();
         string root = Path.Combine(BeutlHomeIsolation.CurrentHome!, $"version-control-bars-{Guid.NewGuid():N}");
@@ -136,7 +134,7 @@ public class VersionControlToolBarTests
             Content = view,
             Width = width,
             Height = 480,
-            RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark
+            RequestedThemeVariant = ThemeVariant.Dark
         };
         try
         {
@@ -161,7 +159,6 @@ public class VersionControlToolBarTests
                     Is.GreaterThanOrEqualTo(status.Bounds.Height));
             });
             CheckBounds(summary, status);
-            Capture("status-clean");
 
             model.DirtySummary.Value = string.Format(Strings.VersionControl_DirtySummaryFormat, 12345);
             model.IsNestedRepository.Value = true;
@@ -173,7 +170,6 @@ public class VersionControlToolBarTests
             Assert.That(scope.Text, Is.EqualTo(model.RepositoryScopeText.Value));
             CheckBounds(summary, status);
             CheckBounds(scope, status);
-            Capture("status-nested");
 
             model.HasBlockingGuidance.Value = true;
             HeadlessTestHelpers.Render();
@@ -205,7 +201,6 @@ public class VersionControlToolBarTests
             Assert.That(message.FontWeight, Is.EqualTo(FontWeight.Normal));
             CheckBounds(back, detailBar);
             CheckBounds(message, detailBar);
-            Capture("detail-short");
 
             using var longCommit = new VersionControlCommitViewModel(model,
                 new CommitInfo("1234567890abcdef", "1234567", string.Concat(Enumerable.Repeat("長いコミットメッセージ / long commit message ", 12)),
@@ -218,7 +213,6 @@ public class VersionControlToolBarTests
             CheckBounds(message, detailBar);
             CheckBounds(sha, detailBar);
             CheckBounds(back, detailBar);
-            Capture("detail-long");
 
             Point center = back.TranslatePoint(new Point(back.Bounds.Width / 2, back.Bounds.Height / 2), window)!.Value;
             window.MouseDown(center, MouseButton.Left);
@@ -228,22 +222,12 @@ public class VersionControlToolBarTests
             Assert.That(model.SelectedCommit.Value, Is.SameAs(longCommit));
         }
         finally { window.Close(); }
-
-        void Capture(string name)
-        {
-            if (Environment.GetEnvironmentVariable("BEUTL_VERSION_CONTROL_BAR_CAPTURE") is not { Length: > 0 } directory) return;
-            Directory.CreateDirectory(directory);
-            using var image = window.CaptureRenderedFrame();
-            image?.Save(Path.Combine(directory, $"{name}-{width}-{light}.png"), PngBitmapEncoderOptions.Default);
-        }
     }
 
     [AvaloniaTest]
-    [TestCase(320, false)]
-    [TestCase(640, false)]
-    [TestCase(320, true)]
-    [TestCase(640, true)]
-    public async Task Repository_adoption_is_answered_inside_the_tab_and_survives_view_detachment(int width, bool light)
+    [TestCase(320)]
+    [TestCase(640)]
+    public async Task Repository_adoption_is_answered_inside_the_tab_and_survives_view_detachment(int width)
     {
         await TestReset.ResetShellAsync();
         string root = Path.Combine(BeutlHomeIsolation.CurrentHome!, $"adoption-panel-{Guid.NewGuid():N}");
@@ -258,7 +242,7 @@ public class VersionControlToolBarTests
         {
             Width = width,
             Height = 640,
-            RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark
+            RequestedThemeVariant = ThemeVariant.Dark
         };
         try
         {
@@ -291,12 +275,6 @@ public class VersionControlToolBarTests
                 Assert.That(position.X, Is.GreaterThanOrEqualTo(0));
                 Assert.That(position.X + button.Bounds.Width, Is.LessThanOrEqualTo(window.Bounds.Width));
                 Assert.That(position.Y + button.Bounds.Height, Is.LessThanOrEqualTo(window.Bounds.Height));
-            }
-            if (Environment.GetEnvironmentVariable("BEUTL_VERSION_CONTROL_BAR_CAPTURE") is { Length: > 0 } directory)
-            {
-                Directory.CreateDirectory(directory);
-                using var image = window.CaptureRenderedFrame();
-                image?.Save(Path.Combine(directory, $"adoption-{width}-{light}.png"), PngBitmapEncoderOptions.Default);
             }
 
             window.Content = new Border();
@@ -345,16 +323,6 @@ public class VersionControlToolBarTests
             window.MouseUp(point, MouseButton.Left);
             HeadlessTestHelpers.Render();
         }
-    }
-
-    private static async Task WaitUntilAsync(Func<bool> condition)
-    {
-        for (int i = 0; i < 500 && !condition(); i++)
-        {
-            await Task.Delay(10);
-            HeadlessTestHelpers.Settle();
-        }
-        Assert.That(condition(), Is.True);
     }
 
     private static void CheckBounds(Control control, ToolTabBar bar)

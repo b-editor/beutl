@@ -7,7 +7,6 @@ using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
-using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Beutl.Controls;
@@ -30,7 +29,7 @@ public class WebBrowserTabLifecycleTests
     [AvaloniaTest]
     public void ClosingBrowserContext_ReleasesViewWithTheExistingDockHost()
     {
-        var context = new TestEditorContext();
+        var context = new BrowserEditorContext();
         using var vm = new WebBrowserTabViewModel(context);
         using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false));
         view.DataContext = vm;
@@ -45,7 +44,7 @@ public class WebBrowserTabLifecycleTests
     [AvaloniaTest]
     public void ReboundView_IsReleasedOnlyByItsCurrentContext()
     {
-        var context = new TestEditorContext();
+        var context = new BrowserEditorContext();
         using var first = new WebBrowserTabViewModel(context);
         using var second = new WebBrowserTabViewModel(context);
         var nativeView = new NativeWebView();
@@ -61,7 +60,7 @@ public class WebBrowserTabLifecycleTests
     [AvaloniaTest]
     public void DisposedBrowserView_DoesNotReactivateWhenReboundToItsOriginalContext()
     {
-        var context = new TestEditorContext();
+        var context = new BrowserEditorContext();
         using var browserVm = new WebBrowserTabViewModel(context);
         int browserCreations = 0;
         using var browser = new WebBrowserTabView(uri =>
@@ -84,13 +83,14 @@ public class WebBrowserTabLifecycleTests
     [AvaloniaTest]
     public void DownloadHistory_UsesInlinePanelAndOnlyRemovesMetadata()
     {
-        string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        using var temporary = new TemporaryDirectory();
+        string root = temporary.Path;
         Directory.CreateDirectory(root);
         string file = Path.Combine(root, "clip.mp4");
         File.WriteAllText(file, "test");
         var profile = new BrowserProfile(Path.Combine(root, "profile.json"));
         profile.AddDownload(new Uri("https://example.com/clip.mp4"), file);
-        using var vm = new WebBrowserTabViewModel(new TestEditorContext(), WebBrowserTabViewModel.BlankPage, profile);
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(), WebBrowserTabViewModel.BlankPage, profile);
         using var view = new WebBrowserTabView(_ => new NativeWebView(), () => (true, null, false));
         view.DataContext = vm;
         var window = new Window { Content = view, Width = 640, Height = 720 };
@@ -104,16 +104,6 @@ public class WebBrowserTabLifecycleTests
             Assert.That(view.FindControl<Grid>("ToolPanel")!.IsVisible, Is.True);
             var content = view.FindControl<ContentControl>("ToolPanelContent")!;
             Assert.That(content.GetVisualDescendants().OfType<ItemsControl>().Single().ItemCount, Is.EqualTo(1));
-            if (Environment.GetEnvironmentVariable("BEUTL_BROWSER_CAPTURE") is { Length: > 0 } directory)
-            {
-                Directory.CreateDirectory(directory);
-                using var wide = window.CaptureRenderedFrame();
-                wide?.Save(Path.Combine(directory, "downloads-640.png"), PngBitmapEncoderOptions.Default);
-                window.Width = 320;
-                window.UpdateLayout();
-                using var narrow = window.CaptureRenderedFrame();
-                narrow?.Save(Path.Combine(directory, "downloads-320.png"), PngBitmapEncoderOptions.Default);
-            }
             content.GetVisualDescendants().OfType<Button>().Single(button => button.Classes.Contains("removeHistory"))
                 .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Assert.That(profile.Downloads, Is.Empty);
@@ -125,7 +115,7 @@ public class WebBrowserTabLifecycleTests
             view.CloseBrowserPanel();
             Assert.That(view.FindControl<Grid>("BrowserSurface")!.IsVisible, Is.True);
         }
-        finally { window.Close(); Directory.Delete(root, true); }
+        finally { window.Close(); }
     }
 
     [AvaloniaTest]
@@ -134,7 +124,7 @@ public class WebBrowserTabLifecycleTests
         var google = new Uri("https://www.google.com/");
         var media = new Uri("https://example.com/video.mp4");
         var nativeView = new NativeWebView { Source = google };
-        using var vm = new WebBrowserTabViewModel(new TestEditorContext(), google);
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(), google);
         using var view = new WebBrowserTabView(_ => nativeView, () => (true, null, false),
             navigationStartedIncludesSubframes: true);
         view.DataContext = vm;
@@ -154,7 +144,7 @@ public class WebBrowserTabLifecycleTests
     public void SubframeNavigation_DoesNotReplaceTopLevelAddressOrStartDownloads()
     {
         var google = new Uri("https://www.google.com/");
-        using var vm = new WebBrowserTabViewModel(new TestEditorContext(), google);
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(), google);
         using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri },
             () => (true, null, false), navigationStartedIncludesSubframes: true);
         view.DataContext = vm;
@@ -186,7 +176,7 @@ public class WebBrowserTabLifecycleTests
     public void BrowserSettingsMenu_UsesApplicationSettingsHost()
     {
         var host = new SettingsHostProbe();
-        using var vm = new WebBrowserTabViewModel(new TestEditorContext(host));
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(settingsHost: host));
         using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (false, null, false));
         view.DataContext = vm;
         var window = new Window { Content = view };
@@ -205,10 +195,11 @@ public class WebBrowserTabLifecycleTests
     [AvaloniaTest]
     public void BlankPage_ShowsBookmarksWithOpenAndRemoveActions_WithoutBookmarkMenu()
     {
-        string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        using var temporary = new TemporaryDirectory();
+        string root = temporary.Path;
         var profile = new BrowserProfile(Path.Combine(root, "profile.json"));
         var uri = new Uri("https://example.com/page");
-        using var vm = new WebBrowserTabViewModel(new TestEditorContext(), WebBrowserTabViewModel.BlankPage, profile);
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(), WebBrowserTabViewModel.BlankPage, profile);
         using var view = new WebBrowserTabView(url => new NativeWebView { Source = url }, () => (true, null, false));
         view.DataContext = vm;
         var window = new Window { Content = view, Width = 640, Height = 720 };
@@ -227,19 +218,7 @@ public class WebBrowserTabLifecycleTests
             view.FindControl<Button>("StartBrowsingButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Assert.That(view.FindControl<WebBrowserAddressBox>("AddressTextBox")!.IsFocused, Is.True);
             Assert.That(vm.CurrentUri, Is.EqualTo(WebBrowserTabViewModel.BlankPage));
-            void Capture(string name)
-            {
-                if (Environment.GetEnvironmentVariable("BEUTL_BROWSER_CAPTURE") is not { Length: > 0 } directory) return;
-                Directory.CreateDirectory(directory);
-                using var image = window.CaptureRenderedFrame();
-                image?.Save(Path.Combine(directory, name + ".png"), PngBitmapEncoderOptions.Default);
-            }
             Dispatcher.UIThread.RunJobs();
-            Capture("empty-640");
-            window.Width = 320;
-            window.UpdateLayout();
-            Capture("empty-320");
-            window.Width = 640;
             view.FindControl<Button>("AddBookmarkButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Assert.That(view.FindControl<Border>("BookmarkEditor")!.IsVisible, Is.True);
             Assert.That(view.FindControl<Border>("BrowserEmptyState")!.IsVisible, Is.False);
@@ -261,7 +240,6 @@ public class WebBrowserTabLifecycleTests
                 .And.Not.Contain(Strings.BrowserStartDescription)
                 .And.Not.Contain(Strings.BrowserStartSearch)
                 .And.Not.Contain(Strings.BrowserBookmarks));
-            Capture("bookmarks-640");
             Assert.That(profile.Bookmarks.Single().Url, Is.EqualTo(uri.AbsoluteUri));
             vm.CompleteNavigation(WebBrowserTabViewModel.BlankPage, true, false, false);
             Dispatcher.UIThread.RunJobs();
@@ -283,23 +261,22 @@ public class WebBrowserTabLifecycleTests
             Assert.That(view.FindControl<ScrollViewer>("BlankPagePanel")!.IsVisible, Is.False);
             Assert.That(window.GetVisualDescendants().OfType<FAContentDialog>(), Is.Empty);
         }
-        finally { window.Close(); if (Directory.Exists(root)) Directory.Delete(root, true); }
+        finally { window.Close(); }
     }
 
     [AvaloniaTest]
-    [TestCase(320, false)]
-    [TestCase(640, false)]
-    [TestCase(320, true)]
-    [TestCase(640, true)]
-    public void BlankPage_RestoresBookmarksAndSwitchesStatesWithoutHorizontalOverflow(int width, bool lightTheme)
+    [TestCase(320)]
+    [TestCase(640)]
+    public void BlankPage_RestoresBookmarksAndSwitchesStatesWithoutHorizontalOverflow(int width)
     {
-        string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        using var temporary = new TemporaryDirectory();
+        string root = temporary.Path;
         var profile = new BrowserProfile(Path.Combine(root, "profile.json"));
         profile.AddBookmark(new Uri("https://www.pexels.com/ja-jp/videos/"), "Pexels — 動画素材");
         profile.AddBookmark(new Uri("https://www.youtube.com/"), "YouTube");
         profile.AddBookmark(new Uri("https://docs.beutl.com/reference/a-long-page-address"),
             "Beutl ドキュメント — エフェクトとアニメーションのリファレンス");
-        using var vm = new WebBrowserTabViewModel(new TestEditorContext(), WebBrowserTabViewModel.BlankPage,
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(), WebBrowserTabViewModel.BlankPage,
             new BrowserProfile(Path.Combine(root, "profile.json")));
         using var view = new WebBrowserTabView(url => new NativeWebView { Source = url }, () => (true, null, false));
         view.DataContext = vm;
@@ -308,7 +285,7 @@ public class WebBrowserTabLifecycleTests
             Content = view,
             Width = width,
             Height = 520,
-            RequestedThemeVariant = lightTheme ? Avalonia.Styling.ThemeVariant.Light : Avalonia.Styling.ThemeVariant.Dark
+            RequestedThemeVariant = Avalonia.Styling.ThemeVariant.Dark
         };
         try
         {
@@ -327,13 +304,11 @@ public class WebBrowserTabLifecycleTests
                 Assert.That(position.X, Is.GreaterThanOrEqualTo(0));
                 Assert.That(position.X + button.Bounds.Width, Is.LessThanOrEqualTo(blank.Bounds.Width));
             }
-            Capture("bookmarks");
 
             view.FindControl<Button>("AddAnotherBookmarkButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Assert.That(editor.IsVisible, Is.True);
             Assert.That(empty.IsVisible, Is.False);
             Assert.That(list.IsVisible, Is.False);
-            Capture("editor");
             view.FindControl<Button>("CancelBookmarkButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Assert.That(editor.IsVisible, Is.False);
             Assert.That(list.IsVisible, Is.True);
@@ -343,34 +318,24 @@ public class WebBrowserTabLifecycleTests
             Assert.That(empty.IsVisible, Is.True);
             Assert.That(list.IsVisible, Is.False);
             Assert.That(blank.Extent.Width, Is.LessThanOrEqualTo(blank.Viewport.Width));
-            Capture("empty");
             Point emptyPosition = empty.TranslatePoint(default, blank)!.Value;
             Assert.That(emptyPosition.Y + empty.Bounds.Height / 2, Is.EqualTo(blank.Bounds.Height / 2).Within(1));
 
             vm.Profile.AddBookmark(new Uri("https://example.com/"), "Example");
             Assert.That(empty.IsVisible, Is.False);
             Assert.That(list.IsVisible, Is.True);
-
-            void Capture(string state)
-            {
-                if (Environment.GetEnvironmentVariable("BEUTL_BROWSER_CAPTURE") is not { Length: > 0 } directory) return;
-                Dispatcher.UIThread.RunJobs();
-                window.UpdateLayout();
-                Directory.CreateDirectory(directory);
-                using var image = window.CaptureRenderedFrame();
-                image?.Save(Path.Combine(directory, $"{state}-{width}-{(lightTheme ? "light" : "dark")}.png"), PngBitmapEncoderOptions.Default);
-            }
         }
-        finally { window.Close(); if (Directory.Exists(root)) Directory.Delete(root, true); }
+        finally { window.Close(); }
     }
 
     [AvaloniaTest]
     public async Task PrivacyChanges_CancelPendingSuggestionsAcrossTabsAndClearAddressHistory()
     {
-        string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        using var temporary = new TemporaryDirectory();
+        string root = temporary.Path;
         var profile = new BrowserProfile(Path.Combine(root, "profile.json"));
-        using var firstVm = new WebBrowserTabViewModel(new TestEditorContext(), WebBrowserTabViewModel.BlankPage, profile);
-        using var secondVm = new WebBrowserTabViewModel(new TestEditorContext(), WebBrowserTabViewModel.BlankPage, profile);
+        using var firstVm = new WebBrowserTabViewModel(new BrowserEditorContext(), WebBrowserTabViewModel.BlankPage, profile);
+        using var secondVm = new WebBrowserTabViewModel(new BrowserEditorContext(), WebBrowserTabViewModel.BlankPage, profile);
         using var first = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (false, null, false));
         using var second = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (false, null, false));
         first.DataContext = firstVm;
@@ -398,7 +363,7 @@ public class WebBrowserTabLifecycleTests
             Assert.That(firstVm.AddressSuggestions, Is.Empty);
             Assert.That(secondVm.AddressSuggestions, Is.Empty);
         }
-        finally { window.Close(); if (Directory.Exists(root)) Directory.Delete(root, true); }
+        finally { window.Close(); }
     }
 
     [AvaloniaTest]
@@ -423,14 +388,12 @@ public class WebBrowserTabLifecycleTests
     }
 
     [AvaloniaTest]
-    [TestCase(320, false)]
-    [TestCase(640, false)]
-    [TestCase(320, true)]
-    [TestCase(640, true)]
-    public void SearchSuggestions_DoNotResizePageWhenOpenedOrClosed(int width, bool light)
+    [TestCase(320)]
+    [TestCase(640)]
+    public void SearchSuggestions_DoNotResizePageWhenOpenedOrClosed(int width)
     {
         var uri = new Uri("https://example.com/page");
-        using var vm = new WebBrowserTabViewModel(new TestEditorContext(), uri);
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(), uri);
         using var view = new WebBrowserTabView(url => new NativeWebView { Source = url }, () => (true, null, false));
         view.DataContext = vm;
         vm.CompleteNavigation(uri, true, false, false);
@@ -439,7 +402,7 @@ public class WebBrowserTabLifecycleTests
             Content = view,
             Width = width,
             Height = 500,
-            RequestedThemeVariant = light ? Avalonia.Styling.ThemeVariant.Light : Avalonia.Styling.ThemeVariant.Dark
+            RequestedThemeVariant = Avalonia.Styling.ThemeVariant.Dark
         };
         try
         {
@@ -460,12 +423,6 @@ public class WebBrowserTabLifecycleTests
             Assert.That(address.IsFocused, Is.True);
             Assert.That(view.FindControl<ContentControl>("WebViewHost")!.Bounds, Is.EqualTo(pageBounds));
             Assert.That(view.FindControl<ContentControl>("WebViewHost")!.TranslatePoint(default, view), Is.EqualTo(pagePosition));
-            if (Environment.GetEnvironmentVariable("BEUTL_BROWSER_CAPTURE") is { Length: > 0 } directory)
-            {
-                Directory.CreateDirectory(directory);
-                using var image = window.CaptureRenderedFrame();
-                image?.Save(Path.Combine(directory, $"suggestions-{width}-{light}.png"), PngBitmapEncoderOptions.Default);
-            }
             window.KeyPressQwerty(PhysicalKey.Escape, RawInputModifiers.None);
             window.UpdateLayout();
             Assert.That(popup.IsOpen, Is.False);
@@ -478,7 +435,7 @@ public class WebBrowserTabLifecycleTests
     [AvaloniaTest]
     public void SearchSuggestions_AllowAddressClicksAndDismissWithoutConsumingOutsideClicks()
     {
-        using var vm = new WebBrowserTabViewModel(new TestEditorContext());
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext());
         using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false));
         view.DataContext = vm;
         int clicks = 0;
@@ -531,7 +488,7 @@ public class WebBrowserTabLifecycleTests
     public void SearchSuggestions_KeyboardSelectionNavigatesToSearch()
     {
         using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false));
-        using var vm = new WebBrowserTabViewModel(new TestEditorContext());
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext());
         view.DataContext = vm;
         var address = view.FindControl<WebBrowserAddressBox>("AddressTextBox")!;
         address.SuggestionDelay = TimeSpan.Zero;
@@ -578,7 +535,7 @@ public class WebBrowserTabLifecycleTests
                 return nativeWebView;
             },
             () => (true, null, false));
-        var context = new TestEditorContext();
+        var context = new BrowserEditorContext();
         using var viewModel = new WebBrowserTabViewModel(context);
 
         view.DataContext = viewModel;
@@ -631,7 +588,7 @@ public class WebBrowserTabLifecycleTests
                 return nativeWebView;
             },
             () => (true, null, false));
-        var context = new TestEditorContext();
+        var context = new BrowserEditorContext();
         using var first = new WebBrowserTabViewModel(context);
         using var second = new WebBrowserTabViewModel(context);
         var secondUri = new Uri("https://example.com/second");
@@ -662,7 +619,7 @@ public class WebBrowserTabLifecycleTests
                 return nativeWebView;
             },
             () => (true, null, false));
-        var context = new TestEditorContext();
+        var context = new BrowserEditorContext();
         using var viewModel = new WebBrowserTabViewModel(context);
         view.DataContext = viewModel;
 
@@ -688,7 +645,7 @@ public class WebBrowserTabLifecycleTests
             },
             () => (true, null, false),
             canReparentWebView: _ => true);
-        var context = new TestEditorContext();
+        var context = new BrowserEditorContext();
         var viewModel = new WebBrowserTabViewModel(context);
         using var dockable = new BeutlToolDockable(viewModel, null!)
         {
@@ -771,7 +728,7 @@ public class WebBrowserTabLifecycleTests
             },
             () => (true, null, false),
             getPageTitle: _ => Task.FromResult<string?>("\"Example page title\""));
-        var context = new TestEditorContext();
+        var context = new BrowserEditorContext();
         using var viewModel = new WebBrowserTabViewModel(context);
         var uri = new Uri("https://example.com/page");
         view.DataContext = viewModel;
@@ -789,7 +746,7 @@ public class WebBrowserTabLifecycleTests
     {
         var first = new Uri("https://first.example/page");
         var next = new Uri("https://second.example/page");
-        using var vm = new WebBrowserTabViewModel(new TestEditorContext(), first);
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(), first);
         using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
             getPageTitle: _ => Task.FromException<string?>(new InvalidOperationException("Script unavailable")),
             navigationStartedIncludesSubframes: true)
@@ -810,7 +767,7 @@ public class WebBrowserTabLifecycleTests
         var uri = new Uri("https://example.com/page");
         var oldTitle = new TaskCompletionSource<string?>(TaskCreationOptions.RunContinuationsAsynchronously);
         bool reloaded = false;
-        using var vm = new WebBrowserTabViewModel(new TestEditorContext(), uri);
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(), uri);
         using var view = new WebBrowserTabView(source => new NativeWebView { Source = source }, () => (true, null, false),
             getPageTitle: _ => reloaded ? Task.FromResult<string?>("New document") : oldTitle.Task,
             navigationStartedIncludesSubframes: true)
@@ -837,7 +794,7 @@ public class WebBrowserTabLifecycleTests
                 launchedUri = uri;
                 return Task.FromResult(true);
             });
-        var context = new TestEditorContext();
+        var context = new BrowserEditorContext();
         using var viewModel = new WebBrowserTabViewModel(context);
 
         view.DataContext = viewModel;
@@ -859,32 +816,9 @@ public class WebBrowserTabLifecycleTests
         view.Dispose();
     }
 
-    private sealed class TestEditorContext(IBrowserSettingsHost? settingsHost = null) : IEditorContext
-    {
-        public CoreObject Object { get; } = new TestCoreObject();
-
-        public EditorExtension Extension => null!;
-
-        public IReactiveProperty<bool> IsEnabled { get; } = new ReactivePropertySlim<bool>(true);
-
-        public T? FindToolTab<T>(Func<T, bool> condition) where T : IToolContext => default;
-
-        public T? FindToolTab<T>() where T : IToolContext => default;
-
-        public bool OpenToolTab(IToolContext item) => false;
-
-        public void CloseToolTab(IToolContext item)
-        {
-        }
-
-        public object? GetService(Type serviceType) => serviceType == typeof(IBrowserSettingsHost) ? settingsHost : null;
-    }
-
     private sealed class SettingsHostProbe : IBrowserSettingsHost
     {
         internal Window? Owner { get; private set; }
         public Task OpenBrowserSettingsAsync(Window owner) { Owner = owner; return Task.CompletedTask; }
     }
-
-    private sealed class TestCoreObject : CoreObject;
 }

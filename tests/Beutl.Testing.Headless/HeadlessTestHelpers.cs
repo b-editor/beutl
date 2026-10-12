@@ -6,7 +6,6 @@ using Avalonia.Headless;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Threading;
-using Avalonia.VisualTree;
 
 namespace Beutl.Testing.Headless;
 
@@ -58,25 +57,5 @@ public static class HeadlessTestHelpers
         var pixels = new byte[buffer.RowBytes * buffer.Size.Height];
         Marshal.Copy(buffer.Address, pixels, 0, pixels.Length);
         return (pixels, buffer.RowBytes, buffer.Size);
-    }
-
-    public static T? FindDescendant<T>(Visual root)
-        where T : Visual
-    {
-        foreach (Visual child in root.GetVisualChildren())
-        {
-            if (child is T match)
-            {
-                return match;
-            }
-
-            T? found = FindDescendant<T>(child);
-            if (found is not null)
-            {
-                return found;
-            }
-        }
-
-        return null;
     }
 }

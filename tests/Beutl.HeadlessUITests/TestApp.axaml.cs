@@ -73,8 +73,8 @@ public sealed class TestApp : Application
                 }
             }
 
-            // Extensions are owned per composition root now, so register the Loaded singletons into this
-            // MainViewModel's provider; without it the shell cannot resolve editors or tool tabs.
+            // Register the loaded built-in extensions in this MainViewModel's provider; the shell resolves
+            // editors and tool tabs through it.
             _mainViewModel.ExtensionProvider.AddExtensions(
                 BuiltInExtensionPackageId, LoadPrimitiveExtensionTask.PrimitiveExtensions);
         }
