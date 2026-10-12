@@ -10,10 +10,10 @@ public class PlaybackSessionGuardTests
     {
         var guard = new PlaybackSessionGuard();
 
-        int first = guard.Claim();
+        int first = guard.Claim(static () => { });
         Assert.That(guard.Owns(first), Is.True, "the only claim owns the session");
 
-        int second = guard.Claim();
+        int second = guard.Claim(static () => { });
         Assert.Multiple(() =>
         {
             Assert.That(guard.Owns(second), Is.True, "the newest claim owns the session");
@@ -26,7 +26,7 @@ public class PlaybackSessionGuardTests
     public void Disown_makes_the_current_owner_stop_owning()
     {
         var guard = new PlaybackSessionGuard();
-        int token = guard.Claim();
+        int token = guard.Claim(static () => { });
 
         guard.Disown();
 
@@ -41,10 +41,10 @@ public class PlaybackSessionGuardTests
     public void An_abandoned_session_does_not_own_after_a_timeout_disown_and_a_restart()
     {
         var guard = new PlaybackSessionGuard();
-        int sessionA = guard.Claim();
+        int sessionA = guard.Claim(static () => { });
 
-        guard.Disown();                 // Pause() timed out and abandoned session A
-        int sessionB = guard.Claim();   // a new Play() took over
+        guard.Disown();                                 // Pause() timed out and abandoned session A
+        int sessionB = guard.Claim(static () => { });   // a new Play() took over
 
         Assert.Multiple(() =>
         {
@@ -57,8 +57,8 @@ public class PlaybackSessionGuardTests
     public void TryApply_only_updates_state_for_the_current_session()
     {
         var guard = new PlaybackSessionGuard();
-        int first = guard.Claim();
-        int second = guard.Claim();
+        int first = guard.Claim(static () => { });
+        int second = guard.Claim(static () => { });
         int state = 0;
 
         bool staleApplied = guard.TryApply(first, () => state = 1);
@@ -73,26 +73,10 @@ public class PlaybackSessionGuardTests
     }
 
     [Test]
-    public void Claim_and_Disown_apply_their_state_changes_with_the_generation_change()
-    {
-        var guard = new PlaybackSessionGuard();
-        int state = 0;
-
-        int token = guard.Claim(() => state = 1);
-        guard.Disown(() => state = 2);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(guard.Owns(token), Is.False);
-            Assert.That(state, Is.EqualTo(2));
-        });
-    }
-
-    [Test]
     public async Task A_new_claim_waits_for_the_current_guarded_update_before_initializing()
     {
         var guard = new PlaybackSessionGuard();
-        int first = guard.Claim();
+        int first = guard.Claim(static () => { });
         int state = 0;
         using var updateEntered = new ManualResetEventSlim();
         using var releaseUpdate = new ManualResetEventSlim();

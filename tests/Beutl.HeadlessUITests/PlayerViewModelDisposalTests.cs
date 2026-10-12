@@ -18,8 +18,6 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class PlayerViewModelDisposalTests
 {
-    private static Task ResetProjectAsync() => TestReset.ResetShellAsync();
-
     private static string NewWorkspace(string name)
     {
         string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, name);
@@ -55,11 +53,10 @@ public class PlayerViewModelDisposalTests
     [AvaloniaTest]
     public async Task Publishing_audio_after_dispose_is_safe_for_abandoned_playback_tasks()
     {
-        await ResetProjectAsync();
+        await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditorForNewScene("player-dispose");
         PlayerViewModel player = editor.Player;
 
-        // Use the normal editor-close path.
         await TestShell.Editor.CloseTabItem(TestShell.Editor.SelectedTabItem.Value!);
         HeadlessTestHelpers.Settle();
 
@@ -67,7 +64,6 @@ public class PlayerViewModelDisposalTests
         using var pcm = new Pcm<Stereo32BitFloat>(44100, 64);
         Assert.DoesNotThrow(() => player.PublishAudioSnapshot(pcm, TimeSpan.Zero));
 
-        // A fresh subscriber should observe completion after disposal.
         bool completed = false;
         ((IPreviewPlayer)player).AudioFramePushed.Subscribe(_ => { }, () => completed = true);
         Assert.That(completed, Is.True,
@@ -79,7 +75,7 @@ public class PlayerViewModelDisposalTests
     public async Task Disposing_the_editor_while_the_playback_timer_is_active_stops_cleanly()
     {
         TestGpu.RequireAnyDevice();
-        await ResetProjectAsync();
+        await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditorForNewScene("player-timer-dispose");
         PlayerViewModel player = editor.Player;
         await AddRectangleAsync(editor);
@@ -99,7 +95,6 @@ public class PlayerViewModelDisposalTests
         {
             player.Play();
 
-            // Wait until playback has advanced before disposing the editor.
             await frameApplied.Task.WaitAsync(TimeSpan.FromSeconds(10));
             bool clockAdvanced = await WaitUntilAsync(
                 () => clock.CurrentTime.Value > TimeSpan.Zero, TimeSpan.FromSeconds(5));
@@ -109,7 +104,6 @@ public class PlayerViewModelDisposalTests
             Assert.That(player.IsPlaying.Value, Is.True,
                 $"playback must still be running before the mid-playback disposal; {Diagnostics()}");
 
-            // Dispose while the playback timer is active.
             await TestShell.Editor.CloseTabItem(TestShell.Editor.SelectedTabItem.Value!);
             HeadlessTestHelpers.Settle();
 

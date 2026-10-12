@@ -37,15 +37,10 @@ public partial class PlayerViewPlaybackInputTests
         var view = new PlayerView { DataContext = editor.Player };
         var window = new Window { Content = view, Width = 800, Height = 600 };
         using var release = new CancellationTokenSource();
-        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         Task? render = null;
         try
         {
-            window.Show();
-            HeadlessTestHelpers.Render();
-            await RenderThread.Dispatcher.InvokeAsync(static () => { });
-            HeadlessTestHelpers.Render();
-            Assert.That(view.image.Bounds.Width, Is.GreaterThan(0), "The click must reach the preview hit-test path.");
+            await PreparePreview(view, window);
 
             editor.Player.IsMoveMode.Value = !handMode;
             editor.Player.IsHandMode.Value = handMode;
@@ -54,16 +49,11 @@ public partial class PlayerViewPlaybackInputTests
             var selection = editor.GetRequiredService<IEditorSelection>();
             object? selected = selection.SelectedObject.Value;
             var startMatrix = editor.Player.FrameMatrix.Value;
-            Point point = view.image.TranslatePoint(new Point(view.image.Bounds.Width / 2, view.image.Bounds.Height / 2), window)!.Value;
+            Point point = PreviewCenter(view, window);
 
             // Playback occupies the render dispatcher until its producer exits. Keep it busy in the
             // same way, with an independent deadline so a synchronous hit-test fails without hanging.
-            render = RenderThread.Dispatcher.InvokeAsync(() =>
-            {
-                entered.TrySetResult();
-                release.Token.WaitHandle.WaitOne();
-            });
-            await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            render = await BlockRenderThreadAsync(release);
             release.CancelAfter(TimeSpan.FromSeconds(2));
 
             window.MouseDown(point, button);
@@ -112,7 +102,6 @@ public partial class PlayerViewPlaybackInputTests
         var view = new PlayerView { DataContext = editor.Player };
         var window = new Window { Content = view, Width = 800, Height = 600 };
         using var release = new CancellationTokenSource();
-        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         Task? render = null;
         try
         {
@@ -126,18 +115,12 @@ public partial class PlayerViewPlaybackInputTests
             Vector3? position = scene?.Objects.Single().Position.CurrentValue;
             Point point = PreviewCenter(view, window);
 
-            render = RenderThread.Dispatcher.InvokeAsync(() =>
-            {
-                entered.TrySetResult();
-                release.Token.WaitHandle.WaitOne();
-            });
-            await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            render = await BlockRenderThreadAsync(release);
             release.CancelAfter(TimeSpan.FromSeconds(2));
 
             window.MouseDown(point, button);
             bool returnedWhileRendering = !release.IsCancellationRequested;
-            window.MouseMove(point + new Vector(20, 10), button == MouseButton.Left
-                ? RawInputModifiers.LeftMouseButton : RawInputModifiers.RightMouseButton);
+            window.MouseMove(point + new Vector(20, 10), HeldButton(button));
             window.MouseUp(point, button);
 
             Assert.Multiple(() =>
@@ -175,10 +158,9 @@ public partial class PlayerViewPlaybackInputTests
         var view = new PlayerView { DataContext = editor.Player };
         var window = new Window { Content = view, Width = 800, Height = 600 };
         using var release = new CancellationTokenSource();
-        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         Task? render = null;
         Point point = default;
-        RawInputModifiers modifiers = button == MouseButton.Left ? RawInputModifiers.LeftMouseButton : RawInputModifiers.RightMouseButton;
+        RawInputModifiers modifiers = HeldButton(button);
         try
         {
             await PreparePreview(view, window);
@@ -197,12 +179,7 @@ public partial class PlayerViewPlaybackInputTests
 
             editor.Player.IsPlaying.Value = true;
             HeadlessTestHelpers.Settle();
-            render = RenderThread.Dispatcher.InvokeAsync(() =>
-            {
-                entered.TrySetResult();
-                release.Token.WaitHandle.WaitOne();
-            });
-            await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            render = await BlockRenderThreadAsync(release);
             release.CancelAfter(TimeSpan.FromSeconds(2));
 
             window.MouseMove(point + new Vector(40, 25), modifiers);
@@ -317,8 +294,7 @@ public partial class PlayerViewPlaybackInputTests
             Vector3 position = cube.Position.CurrentValue;
             Vector3 target = camera.Target.CurrentValue;
             window.MouseDown(point, button);
-            window.MouseMove(point + new Vector(20, 10), button == MouseButton.Left
-                ? RawInputModifiers.LeftMouseButton : RawInputModifiers.RightMouseButton);
+            window.MouseMove(point + new Vector(20, 10), HeldButton(button));
             window.MouseUp(point, button);
 
             Assert.That(button == MouseButton.Left ? cube.Position.CurrentValue != position : camera.Target.CurrentValue != target,
@@ -350,11 +326,24 @@ public partial class PlayerViewPlaybackInputTests
         HeadlessTestHelpers.Render();
         await RenderThread.Dispatcher.InvokeAsync(static () => { });
         HeadlessTestHelpers.Render();
-        Assert.That(view.image.Bounds.Width, Is.GreaterThan(0));
+        Assert.That(view.image.Bounds.Width, Is.GreaterThan(0), "The click must reach the preview hit-test path.");
     }
 
     private static Point PreviewCenter(PlayerView view, Window window)
         => view.image.TranslatePoint(new Point(view.image.Bounds.Width / 2, view.image.Bounds.Height / 2), window)!.Value;
+
+    // Returns once a job holds the render thread. The job keeps it until release is canceled.
+    private static async Task<Task> BlockRenderThreadAsync(CancellationTokenSource release)
+    {
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        Task render = RenderThread.Dispatcher.InvokeAsync(() =>
+        {
+            entered.TrySetResult();
+            release.Token.WaitHandle.WaitOne();
+        });
+        await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        return render;
+    }
 
     [AvaloniaTest]
     public async Task Preview_selection_is_available_after_playback_stops()
@@ -371,15 +360,12 @@ public partial class PlayerViewPlaybackInputTests
         var window = new Window { Content = view, Width = 800, Height = 600 };
         try
         {
-            window.Show();
-            HeadlessTestHelpers.Render();
-            await RenderThread.Dispatcher.InvokeAsync(static () => { });
-            HeadlessTestHelpers.Render();
+            await PreparePreview(view, window);
             editor.Player.IsPlaying.Value = true;
             HeadlessTestHelpers.Settle();
             editor.Player.IsPlaying.Value = false;
             HeadlessTestHelpers.Settle();
-            Point point = view.image.TranslatePoint(new Point(view.image.Bounds.Width / 2, view.image.Bounds.Height / 2), window)!.Value;
+            Point point = PreviewCenter(view, window);
 
             window.MouseDown(point, MouseButton.Left);
             window.MouseUp(point, MouseButton.Left);

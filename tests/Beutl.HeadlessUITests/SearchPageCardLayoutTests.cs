@@ -13,14 +13,8 @@ using Beutl.ViewModels.ExtensionsPages.DiscoverPages;
 
 namespace Beutl.HeadlessUITests;
 
-// Layout-only assertions for the extension search result card (SearchPage). Long package/display
-// names, descriptions and author names used to break the card layout because the card's TextBlocks
-// declared no TextTrimming / TextWrapping and the author/price column was an unbounded Auto column.
-// These tests pin the fix: the single-line fields ellipsize, the description wraps with a capped line
-// count, and the author column is bounded so a long author cannot starve the name column or widen the
-// card. They inflate the real card headlessly (a real Package fed into the real ViewModel's Packages
-// list, no network) and assert arranged layout / TextBlock properties only - never pixels, which
-// crashes the software-Vulkan host when a heavy view is frame-captured.
+// Pins the search result card for long text: single-line fields ellipsize, the description wraps with a
+// line cap, and the author column is bounded. Layout and TextBlock properties only.
 [TestFixture]
 public class SearchPageCardLayoutTests
 {
@@ -120,8 +114,7 @@ public class SearchPageCardLayoutTests
                 Is.GreaterThan(0),
                 "the description must cap its line count so the card height stays bounded");
 
-            // A long author must not be allowed to grow the Auto column unbounded: the column is now
-            // capped so the name column keeps room and the card does not widen off-screen.
+            // The author column is capped so the name column keeps room.
             Assert.That(
                 double.IsFinite(owner.MaxWidth),
                 Is.True,
@@ -138,7 +131,7 @@ public class SearchPageCardLayoutTests
             Assert.That(
                 Grid.GetColumnSpan(displayName),
                 Is.EqualTo(1),
-                "the display name must not span into the price column (was the overlap bug)");
+                "the display name must not span into the price column");
 
             // Only the two secondary-column fields (author, price) are MaxWidth-capped; the
             // name/display-name in the star column are not, so an ellipsized+capped count of 2 == both.

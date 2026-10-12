@@ -1,7 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
 
-using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Avalonia.Media;
@@ -30,8 +29,6 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class TerminalTabLifecycleTests
 {
-    private static Task ResetProjectAsync() => TestReset.ResetShellAsync();
-
     private static string NewWorkspace(string name)
     {
         string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, name);
@@ -54,7 +51,7 @@ public class TerminalTabLifecycleTests
     [AvaloniaTest]
     public async Task SwitchingToolTabs_ReusesTerminalViewAndShell()
     {
-        await ResetProjectAsync();
+        await TestReset.ResetShellAsync();
 
         if (OperatingSystem.IsWindows())
         {
@@ -117,7 +114,7 @@ public class TerminalTabLifecycleTests
     [AvaloniaTest]
     public async Task SwitchingToolTabs_RecreatesNonPersistentToolContent()
     {
-        await ResetProjectAsync();
+        await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditorForNewScene("tool-tab-content-lifecycle");
         IToolDock bottomDock = editor.DockHost.Factory.GetAnchoredDock(DockAnchor.Bottom)!;
         var transientContext = new TransientToolContext();
@@ -159,7 +156,7 @@ public class TerminalTabLifecycleTests
     [AvaloniaTest]
     public async Task TerminalControl_ThemeResources_ResolvePerVariant()
     {
-        await ResetProjectAsync();
+        await TestReset.ResetShellAsync();
         if (OperatingSystem.IsWindows())
         {
             Assert.Ignore("The Windows ConPTY path is not exercised by this headless test.");
@@ -173,15 +170,6 @@ public class TerminalTabLifecycleTests
             .Single(item => ReferenceEquals(item.ToolContext, terminalContext));
         var view = new EditView { DataContext = editor };
         var window = new Window { Content = view, Width = 900, Height = 700 };
-
-        if (Application.Current is not Application currentApp)
-        {
-            throw new InvalidOperationException("Application.Current is null");
-        }
-
-#pragma warning disable CS8600
-        ThemeVariant originalVariant = currentApp.RequestedThemeVariant;
-#pragma warning restore CS8600
         try
         {
             window.Show();
@@ -194,20 +182,25 @@ public class TerminalTabLifecycleTests
 
             Assert.That(terminal.Foreground, Is.Not.Null);
 
-            currentApp.RequestedThemeVariant = ThemeVariant.Dark;
-            HeadlessTestHelpers.Render();
-            Color darkForeground = (terminal.Foreground as ISolidColorBrush)?.Color ?? default;
+            Color darkForeground;
+            using (ThemeVariantScope.Use(ThemeVariant.Dark))
+            {
+                HeadlessTestHelpers.Render();
+                darkForeground = (terminal.Foreground as ISolidColorBrush)?.Color ?? default;
+            }
 
-            currentApp.RequestedThemeVariant = ThemeVariant.Light;
-            HeadlessTestHelpers.Render();
-            Color lightForeground = (terminal.Foreground as ISolidColorBrush)?.Color ?? default;
+            Color lightForeground;
+            using (ThemeVariantScope.Use(ThemeVariant.Light))
+            {
+                HeadlessTestHelpers.Render();
+                lightForeground = (terminal.Foreground as ISolidColorBrush)?.Color ?? default;
+            }
 
             Assert.That(darkForeground, Is.Not.EqualTo(lightForeground),
                 "terminal foreground should vary between Dark and Light theme variants");
         }
         finally
         {
-            currentApp.RequestedThemeVariant = originalVariant;
             editor.CloseToolTab(terminalContext);
             window.Close();
             HeadlessTestHelpers.Settle();

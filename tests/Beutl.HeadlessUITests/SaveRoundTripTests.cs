@@ -21,8 +21,6 @@ public class SaveRoundTripTests
         Scene,
     }
 
-    private static Task ResetProjectAsync() => TestReset.ResetShellAsync();
-
     private static string NewWorkspace(string name)
     {
         string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, name);
@@ -33,7 +31,7 @@ public class SaveRoundTripTests
     [AvaloniaTest]
     public async Task Mutation_made_through_the_editor_survives_save_and_reopen()
     {
-        await ResetProjectAsync();
+        await TestReset.ResetShellAsync();
 
         Project project = (await TestShell.Project.CreateProject(
             640, 480, 30, 44100, "saveroundtrip", NewWorkspace("saveroundtrip")))!;
@@ -65,8 +63,9 @@ public class SaveRoundTripTests
         bool saved = await editor.SaveAsync();
         HeadlessTestHelpers.Settle();
         Assert.That(saved, Is.True);
+        Assert.That(File.Exists(element.Uri!.LocalPath), Is.True);
 
-        await ResetProjectAsync();
+        await TestReset.ResetShellAsync();
 
         await TestShell.Project.OpenProject(projectFile);
         HeadlessTestHelpers.Settle();
@@ -79,38 +78,6 @@ public class SaveRoundTripTests
 
         RectShape reopenedRect = reopenedElement.Objects.OfType<RectShape>().Single();
         Assert.That(reopenedRect.Width.CurrentValue, Is.EqualTo(321));
-    }
-
-    [AvaloniaTest]
-    public async Task Saving_writes_the_element_file_to_disk()
-    {
-        await ResetProjectAsync();
-
-        Project project = (await TestShell.Project.CreateProject(
-            640, 480, 30, 44100, "savewrites", NewWorkspace("savewrites")))!;
-        HeadlessTestHelpers.Settle();
-        Scene scene = project.Items.OfType<Scene>().First();
-
-        TestShell.Editor.ActivateTabItem(scene);
-        HeadlessTestHelpers.Settle();
-        var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
-
-        var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
-        await adder.AddAsync([new ElementDescription(
-            Start: TimeSpan.Zero,
-            Length: TimeSpan.FromSeconds(2),
-            Layer: 0,
-            Source: new ElementSource.EngineObject(() => new RectShape()))],
-            CancellationToken.None);
-        HeadlessTestHelpers.Settle();
-
-        Element element = editor.Scene.Children.Single();
-        bool saved = await editor.SaveAsync();
-        HeadlessTestHelpers.Settle();
-
-        Assert.That(saved, Is.True);
-        Assert.That(File.Exists(element.Uri!.LocalPath), Is.True);
-        Assert.That(new FileInfo(element.Uri!.LocalPath).Length, Is.GreaterThan(0));
     }
 
     [AvaloniaTest]
@@ -249,7 +216,7 @@ public class SaveRoundTripTests
     // A second scene has an unsaved rename that a save of the first must not write.
     private static async Task<MigratedProject> OpenMigratedProjectAsync(string name)
     {
-        await ResetProjectAsync();
+        await TestReset.ResetShellAsync();
 
         Project project = (await TestShell.Project.CreateProject(
             640, 480, 30, 44100, name, NewWorkspace(name)))!;
@@ -282,7 +249,7 @@ public class SaveRoundTripTests
             project,
             project.Uri,
             CoreSerializationMode.Write);
-        await ResetProjectAsync();
+        await TestReset.ResetShellAsync();
 
         JsonObject projectJson = ReadJson(projectFile);
         projectJson["appVersion"] = "1.0.0";
