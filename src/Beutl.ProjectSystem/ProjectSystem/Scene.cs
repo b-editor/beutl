@@ -17,13 +17,10 @@ namespace Beutl.ProjectSystem;
 [Flags]
 public enum ElementOverlapHandling
 {
-    // 例外を発生させます
     ThrowException = 0,
 
-    // 長さを調整します
     Length = 1,
 
-    // 開始位置を調整します
     Start = 1 << 1,
 
     // 空いている、ZIndexに配置します
@@ -222,20 +219,20 @@ public partial class Scene : ProjectItem, INotifyEdited
         return removed;
     }
 
-    // element.FileNameが既に設定されている状態
+    // Expects element.Uri to be set.
     public void AddChild(Element element,
         ElementOverlapHandling overlapHandling = ElementOverlapHandling.Auto)
     {
         ArgumentNullException.ThrowIfNull(element);
 
-        new AddCommand(this, element, overlapHandling).Do();
+        AddChildCore(element, overlapHandling);
     }
 
     public void DeleteChild(Element element)
     {
         ArgumentNullException.ThrowIfNull(element);
 
-        new DeleteCommand(this, element).Do();
+        DeleteChildCore(element);
     }
 
     public void RemoveChild(Element element)
@@ -257,15 +254,7 @@ public partial class Scene : ProjectItem, INotifyEdited
         if (length <= TimeSpan.Zero)
             throw new ArgumentOutOfRangeException(nameof(length));
 
-        new MoveCommand(
-            zIndex: zIndex,
-            element: element,
-            newStart: start,
-            oldStart: element.Start,
-            newLength: length,
-            oldLength: element.Length,
-            scene: this)
-            .Do();
+        MoveChildCore(zIndex, start, length, element);
     }
 
     public void MoveChildren(int deltaIndex, TimeSpan deltaStart, Element[] elements)
@@ -275,7 +264,7 @@ public partial class Scene : ProjectItem, INotifyEdited
             throw new ArgumentOutOfRangeException(nameof(elements));
         }
 
-        new MultipleMoveCommand(this, elements, deltaIndex, deltaStart).Do();
+        MoveChildrenCore(elements, deltaIndex, deltaStart);
     }
 
     private void Children_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
@@ -283,10 +272,7 @@ public partial class Scene : ProjectItem, INotifyEdited
         ImmutableArray<TimeRange>.Builder affectedRange
             = ImmutableArray.CreateBuilder<TimeRange>(Math.Max(e.OldItems?.Count ?? 0, e.NewItems?.Count ?? 0));
 
-        // Path.GetRelativePath の基点はディレクトリでなければならない。Uri.LocalPath は
-        // .scene ファイル自身を指すため、そのまま使うと _excludeElements に "../foo.belm"
-        // のような不正パスが入り、Deserialize 側 (Path.GetDirectoryName を使用) と整合せず
-        // 除外パターンが効かない。結果として削除した Element が再読み込みで復活する。
+        // Exclude patterns are relative to the scene's directory like Deserialize's, or a removed element comes back.
         string? dirPath = Uri is { IsFile: true } sceneUri
             ? Path.GetDirectoryName(sceneUri.LocalPath)
             : null;

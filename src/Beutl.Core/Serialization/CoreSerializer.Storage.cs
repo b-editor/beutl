@@ -177,13 +177,8 @@ public static partial class CoreSerializer
     {
         if (uri == suppressed.SourceUri)
         {
-            // The source location is skip-protected only while the on-disk bytes still match
-            // the retained recovery bytes. A repair that was undone re-establishes the
-            // suppression record through history with WasReinstated set, and the retained
-            // bytes must be restored verbatim so the next open sees the same recovery state
-            // the undo recorded. A continuously held record treats a mismatch as an external
-            // repair of the sidecar and leaves the changed file alone — clobbering it would
-            // destroy the user's repair.
+            // An undone repair (WasReinstated) writes the retained bytes back, so the next open sees what the undo
+            // restored. A record held all along leaves a changed file alone: that is the user's repair.
             string sourcePath = uri.LocalPath;
             if (suppressed.WasReinstated)
                 CopyReferencedStorageSources(suppressed, uri, suppressed.SourceRootPath, restore: true);
@@ -210,63 +205,15 @@ public static partial class CoreSerializer
         if (File.Exists(rehomedPath))
         {
             EnsureExistingBytesMatch(rehomedPath, suppressed.RawBytes);
-
-            CopyReferencedStorageSources(suppressed, uri, authorizedRootPath);
-            ClearReinstatement(suppressed);
-            suppressedObj.Uri = uri;
-            return;
         }
 
         CopyReferencedStorageSources(suppressed, uri, authorizedRootPath);
-
-        string? rehomedDirectory = Path.GetDirectoryName(rehomedPath);
-        if (rehomedDirectory != null)
-        {
-            Directory.CreateDirectory(rehomedDirectory);
-        }
-
-        string tempPath = $"{rehomedPath}.{Guid.NewGuid():N}.tmp";
-        try
-        {
-            using (var stream = StorageWriteTransaction.CreateTemporaryFile(tempPath, rehomedPath))
-            {
-                stream.Write(suppressed.RawBytes);
-                stream.Flush(flushToDisk: true);
-            }
-
-            try
-            {
-                StorageWriteTransaction.MoveIntoPlace(tempPath, rehomedPath, overwrite: false);
-            }
-            catch (IOException) when (File.Exists(rehomedPath))
-            {
-                EnsureExistingBytesMatch(rehomedPath, suppressed.RawBytes);
-
-                ClearReinstatement(suppressed);
-                suppressedObj.Uri = uri;
-                return;
-            }
-        }
-        finally
-        {
-            try
-            {
-                File.Delete(tempPath);
-            }
-            catch
-            {
-            }
-        }
-
+        WriteBytesAtomicallyIfMatchingOrMissing(rehomedPath, suppressed.RawBytes);
         ClearReinstatement(suppressed);
         suppressedObj.Uri = uri;
     }
 
-    // tmp に書き出してから rename する。書き込み中のクラッシュや電源断で
-    // 既存のプロジェクトファイル / Element ファイルがゼロバイト化したり
-    // 中途半端な状態で残るのを防ぐ。
-    // 固定 `.tmp` サフィックスだとユーザーや他ツールが既に持つ同名ファイルを
-    // 上書きしてしまうため、ランダムサフィックスを付与して衝突を避ける。
+    // Writes a project, scene or element file atomically, recorded in the active storage write transaction.
     private static void WriteJsonAtomically(string path, bool isCompatibilityGate, Action<Utf8JsonWriter> write)
     {
         string? directory = Path.GetDirectoryName(path);
@@ -275,36 +222,7 @@ public static partial class CoreSerializer
             Directory.CreateDirectory(directory);
         }
 
-        string temporaryPath = $"{path}.{Guid.NewGuid():N}.tmp";
-        try
-        {
-            using (var stream = StorageWriteTransaction.CreateTemporaryFile(temporaryPath, path))
-            using (var writer = new Utf8JsonWriter(stream, JsonHelper.WriterOptions))
-            {
-                write(writer);
-                writer.Flush();
-                stream.Flush(flushToDisk: true);
-            }
-
-            StorageWriteTransaction.MoveIntoPlace(
-                temporaryPath,
-                path,
-                overwrite: true,
-                isCompatibilityGate: isCompatibilityGate);
-        }
-        catch
-        {
-            try
-            {
-                if (File.Exists(temporaryPath)) File.Delete(temporaryPath);
-            }
-            catch
-            {
-                // 失敗しても元の例外は投げる
-            }
-
-            throw;
-        }
+        JsonHelper.WriteAtomically(path, write, journal: true, isCompatibilityGate: isCompatibilityGate);
     }
 
     private static void CopyReferencedStorageSources(

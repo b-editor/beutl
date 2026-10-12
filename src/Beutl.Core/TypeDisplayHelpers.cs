@@ -18,8 +18,6 @@ public static class TypeDisplayHelpers
 
     private static DisplayInfo GetDisplayInfo(Type type)
     {
-        ArgumentNullException.ThrowIfNull(type);
-
         return s_displayCache.GetOrAdd(type, CreateDisplayInfo);
     }
 

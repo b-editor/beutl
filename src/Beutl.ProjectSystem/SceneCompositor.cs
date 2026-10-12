@@ -142,7 +142,6 @@ public sealed class SceneCompositor : ICompositor
         for (int index = 0; index < currentElements.Count; index++)
         {
             flow.Clear();
-            // EngineObjectを集める
             CollectResourcesFromElement(currentElements[index], ctx, tmpObjects);
 
             allResources.AddRange(flow.Span);
@@ -194,7 +193,6 @@ public sealed class SceneCompositor : ICompositor
         for (int index = 0; index < currentElements.Count; index++)
         {
             flow.Clear();
-            // EngineObjectを集める
             CollectResourcesFromElement(currentElements[index], ctx, tmpObjects);
 
             allResources.AddRange(flow.Span);
@@ -373,24 +371,11 @@ public sealed class SceneCompositor : ICompositor
     {
         LayerSnapshot snapshot = GetLayerSnapshot();
         bool graphics = target == CompositionTarget.Graphics;
-        if (snapshot.ByZIndex.Count == 0)
+        foreach (Element item in Scene.Children)
         {
-            foreach (Element item in Scene.Children)
-            {
-                if (item.IsEnabled && CoversTime(item, time, graphics))
-                {
-                    currentElements.OrderedAdd(item, x => x.ZIndex);
-                }
-            }
-        }
-        else
-        {
-            foreach (Element item in Scene.Children)
-            {
-                if (!item.IsEnabled || !CoversTime(item, time, graphics)) continue;
-                if (ShouldSkipLayer(item.ZIndex, target, snapshot.HasSolo, snapshot.ByZIndex)) continue;
-                currentElements.OrderedAdd(item, x => x.ZIndex);
-            }
+            if (!item.IsEnabled || !CoversTime(item, time, graphics)) continue;
+            if (ShouldSkipLayer(item.ZIndex, target, snapshot.HasSolo, snapshot.ByZIndex)) continue;
+            currentElements.OrderedAdd(item, x => x.ZIndex);
         }
 
         if (graphics)
@@ -453,19 +438,6 @@ public sealed class SceneCompositor : ICompositor
     private void SortLayers(TimeRange timeRange, PooledList<Element> currentElements, CompositionTarget target)
     {
         LayerSnapshot snapshot = GetLayerSnapshot();
-        if (snapshot.ByZIndex.Count == 0)
-        {
-            foreach (Element item in Scene.Children)
-            {
-                if (item.IsEnabled && item.Range.Intersects(timeRange))
-                {
-                    currentElements.OrderedAdd(item, x => x.ZIndex);
-                }
-            }
-
-            return;
-        }
-
         foreach (Element item in Scene.Children)
         {
             if (!item.IsEnabled || !item.Range.Intersects(timeRange)) continue;

@@ -8,9 +8,8 @@ namespace Beutl.Serialization;
 public partial class JsonSerializationContext
 {
     private static object? Deserialize(
-        JsonNode node, Type baseType, string propertyName, ICoreSerializationContext? parent)
+        JsonNode node, Type baseType, ICoreSerializationContext? parent)
     {
-        // JsonNode型として要求されている場合はそのまま返す
         if (baseType.IsAssignableTo(typeof(JsonNode)))
         {
             return DeserializeWithJsonSerializer(node, baseType);
@@ -48,13 +47,11 @@ public partial class JsonSerializationContext
     private static object? DeserializeObject(
         JsonObject obj, Type baseType, ICoreSerializationContext? parent)
     {
-        // Dictionary<string, T> の場合
         if (TryDeserializeDictionary(obj, baseType, parent, out object? result))
         {
             return result;
         }
 
-        // ICoreSerializable の場合
         if (TryDeserializeCoreSerializable(obj, baseType, parent, out result))
         {
             return result;
@@ -83,7 +80,7 @@ public partial class JsonSerializationContext
         {
             object? value = item.Value == null
                 ? DefaultValueHelpers.GetDefault(valueType)
-                : Deserialize(item.Value, valueType, item.Key, parent);
+                : Deserialize(item.Value, valueType, parent);
 
             output.Add(new(item.Key, value));
         }
@@ -135,8 +132,6 @@ public partial class JsonSerializationContext
     private static void DeserializeArrayElements(
         List<object?> output, JsonArray jarray, Type elementType, ICoreSerializationContext? parent)
     {
-        int index = 0;
-
         foreach (JsonNode? item in jarray)
         {
             if (item == null)
@@ -145,17 +140,14 @@ public partial class JsonSerializationContext
             }
             else
             {
-                output.Add(Deserialize(item, elementType, index.ToString(), parent));
+                output.Add(Deserialize(item, elementType, parent));
             }
-
-            index++;
         }
     }
 
     private static object? DeserializeValue(
         JsonValue jsonValue, Type baseType, ICoreSerializationContext? parent)
     {
-        // IReference の場合
         if (jsonValue.TryGetValue(out Guid id) && baseType.IsAssignableTo(typeof(IReference)))
         {
             return Activator.CreateInstance(baseType, id);
@@ -197,13 +189,11 @@ public partial class JsonSerializationContext
         // TにはOptional型が入る場合があるので、Jsonプロパティがnullの場合と存在しない場合で分ける
         if (!_json.TryGetPropertyValue(name, out JsonNode? node))
         {
-            // プロパティが存在しない場合
             return null;
         }
 
         if (node == null)
         {
-            // プロパティがnullの場合
             return useOptionalDefault
                 ? DefaultValueHelpers.GetDefaultOrOptional(type)
                 : null;
@@ -211,6 +201,6 @@ public partial class JsonSerializationContext
 
         return TryGetPreservedValue(name, type, out object? preserved)
             ? preserved
-            : Deserialize(node, type, name, this);
+            : Deserialize(node, type, this);
     }
 }

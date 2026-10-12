@@ -151,14 +151,12 @@ public partial class Scene
                 IEnumerable<string> includes = [];
                 IEnumerable<string> excludes = [];
 
-                // 含めるクリップ
                 if (elementsObject.TryGetPropertyValue("Include", out JsonNode? includeNode))
                 {
                     ReadElementPatterns(includeNode!, _includeElements);
                     includes = _includeElements;
                 }
 
-                // 除外するクリップ
                 if (elementsObject.TryGetPropertyValue("Exclude", out JsonNode? excludeNode))
                 {
                     ReadElementPatterns(excludeNode!, _excludeElements);
@@ -254,9 +252,7 @@ public partial class Scene
             return UriHelper.CreateFromPath(fullPath);
         }).ToArray();
 
-        // 削除するElements
         Element[] elementsRemove = Children.ExceptBy(uriToElement, x => x.Uri).ToArray();
-        // 追加するElements
         Uri[] urisAdd = uriToElement.Except(Children.Select(x => x.Uri).Where(u => u != null)).ToArray()!;
 
         foreach (Element item in elementsRemove)
@@ -294,7 +290,6 @@ public partial class Scene
         string[] files = MatchElementFiles(dirPath, _includeElements, _excludeElements);
         foreach (string rel in elementPaths)
         {
-            // 含まれていない場合追加
             if (!files.Contains(rel) && !_includeElements.Contains(rel))
             {
                 _includeElements.Add(rel);

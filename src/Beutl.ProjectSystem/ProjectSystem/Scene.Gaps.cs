@@ -18,7 +18,6 @@ public partial class Scene
         foreach (IGrouping<int, Element> zGroup in Children.GroupBy(e => e.ZIndex).OrderBy(g => g.Key))
         {
             List<Element> sorted = zGroup.OrderBy(e => e.Start).ThenBy(e => e.Range.End).ToList();
-            if (sorted.Count == 0) continue;
 
             // The anchor is the run's furthest-ending element, so it ends exactly at the gap start.
             Element coveredEndElement = sorted[0];
@@ -60,42 +59,17 @@ public partial class Scene
             return false;
 
         int z = anchor.ZIndex;
-        // A locked layer's elements must not move, matching the other timeline mutation services.
-        if (IsLayerLocked(z)) return false;
-
-        List<Element> sorted = Children
-            .Where(e => e.ZIndex == z)
-            .OrderBy(e => e.Start)
-            .ThenBy(e => e.Range.End)
-            .ToList();
-        if (sorted.Count == 0) return false;
-
-        // The gap to close is the first empty interval after the continuous coverage run that
-        // contains the anchor, so an earlier element covering past the anchor means no gap exists.
-        TimeSpan coveredEnd = sorted[0].Range.End;
-        bool anchorInRun = ReferenceEquals(sorted[0], anchor);
-        for (int i = 1; i < sorted.Count; i++)
+        // The gap to close is the first one after the coverage run that contains the anchor: every gap before the
+        // run ends by the time the anchor starts, and every gap after it starts at or after the anchor's end.
+        if (EnumerateGaps().Where(g => g.ZIndex == z && g.Range.Start >= anchor.Range.End)
+                .Select(g => (SceneGap?)g)
+                .FirstOrDefault() is not { } gap)
         {
-            Element cur = sorted[i];
-            if (cur.Start > coveredEnd)
-            {
-                if (anchorInRun)
-                {
-                    Element[] toShift = ShiftableAfter(z, cur.Start);
-                    return toShift.Length != 0 && MoveChildrenAndDetectChange(toShift, coveredEnd - cur.Start);
-                }
-
-                coveredEnd = cur.Range.End;
-                anchorInRun = ReferenceEquals(cur, anchor);
-            }
-            else
-            {
-                if (cur.Range.End > coveredEnd) coveredEnd = cur.Range.End;
-                if (ReferenceEquals(cur, anchor)) anchorInRun = true;
-            }
+            return false;
         }
 
-        return false;
+        Element[] toShift = ShiftableAfter(z, gap.Range.End);
+        return toShift.Length != 0 && MoveChildrenAndDetectChange(toShift, -gap.Range.Duration);
     }
 
     /// <summary>
@@ -119,13 +93,10 @@ public partial class Scene
 
             foreach (SceneGap gap in zGroup.OrderByDescending(g => g.Range.Start))
             {
-                TimeSpan delta = -gap.Range.Duration;
-                if (delta == TimeSpan.Zero) continue;
-
                 Element[] toShift = ShiftableAfter(zGroup.Key, gap.Range.End);
                 if (toShift.Length == 0) continue;
 
-                if (MoveChildrenAndDetectChange(toShift, delta))
+                if (MoveChildrenAndDetectChange(toShift, -gap.Range.Duration))
                 {
                     closed++;
                 }

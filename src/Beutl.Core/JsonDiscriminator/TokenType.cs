@@ -25,7 +25,6 @@ internal enum TokenType
 
     EndAssembly,
 
-    // Colon
     Colon,
 
     Period,

@@ -68,10 +68,10 @@ public sealed class MalformedElementRecoveryTests
         JsonObject json = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
         json["Objects"]![0]!["Transform"]!["$type"] = TypeFormat.ToString(failingType);
         File.WriteAllText(elementPath, json.ToJsonString());
-        int before = DeserializationIncidents.FallbackCount;
+        using DeserializationIncidents.Capture incidents = DeserializationIncidents.BeginCapture();
         Exception? failure = Assert.Catch(() => CoreSerializer.RestoreFromUri<Scene>(sceneUri));
         Assert.That(Beutl.Utilities.ExceptionHelpers.ContainsFatalFailure(failure!), Is.True);
-        Assert.That(DeserializationIncidents.FallbackCount, Is.EqualTo(before));
+        Assert.That(incidents.Count, Is.Zero);
     }
 
     // A fallback hidden in a record, in a file the element references, saves the JSON it was read from like any

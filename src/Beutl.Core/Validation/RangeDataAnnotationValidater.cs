@@ -53,7 +53,6 @@ public sealed class RangeDataAnnotationValidater<TNumber> : RangeValidator<TNumb
 
             case (false, false):
                 value = TNumber.Clamp(value, Minimum, Maximum);
-                value = TNumber.Min(value, Maximum);
                 return true;
 
             default:
@@ -63,6 +62,6 @@ public sealed class RangeDataAnnotationValidater<TNumber> : RangeValidator<TNumb
 
     public override string? Validate(ValidationContext context, TNumber value)
     {
-        return DataAnnotationValidation.ValidateWithAttribute(Attribute, context, value, typeof(TNumber));
+        return DataAnnotationValidation.ValidateWithAttribute(Attribute, context, value);
     }
 }

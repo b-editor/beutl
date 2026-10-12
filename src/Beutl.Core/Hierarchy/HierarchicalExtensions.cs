@@ -12,33 +12,19 @@ public static class HierarchicalExtensions
 
     public static T? FindHierarchicalParent<T>(this IHierarchical self, bool includeSelf = false)
     {
-        try
+        IHierarchical? obj = includeSelf ? self : self.HierarchicalParent;
+
+        while (obj is not T)
         {
-            IHierarchical? obj = includeSelf ? self : self.HierarchicalParent;
-
-            while (obj is not T)
-            {
-                if (obj is null)
-                {
-                    return default;
-                }
-
-                obj = obj.HierarchicalParent;
-            }
-
-            if (obj is T result)
-            {
-                return result;
-            }
-            else
+            if (obj is null)
             {
                 return default;
             }
+
+            obj = obj.HierarchicalParent;
         }
-        catch
-        {
-            return default;
-        }
+
+        return (T)obj;
     }
 
     public static IHierarchical FindRequiredHierarchicalParent(this IHierarchical self, Type type, bool includeSelf = false)

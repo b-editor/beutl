@@ -404,6 +404,45 @@ public class SceneGapTests
     }
 
     [Test]
+    public void CloseGapAfter_ZeroLengthElements_CloseTheGapAfterTheirRun()
+    {
+        string basePath = GetTempPath();
+        try
+        {
+            Scene scene = CreateScene(basePath);
+            // [1s..3s], an empty element at 3s that touches it, an empty element at 4s inside the gap, then [6s..8s].
+            Element a = CreateElement(basePath, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+            Element touching = CreateElement(basePath, TimeSpan.FromSeconds(3), TimeSpan.Zero);
+            Element inGap = CreateElement(basePath, TimeSpan.FromSeconds(4), TimeSpan.Zero);
+            Element b = CreateElement(basePath, TimeSpan.FromSeconds(6), TimeSpan.FromSeconds(2));
+            scene.Children.Add(a);
+            scene.Children.Add(touching);
+            scene.Children.Add(inGap);
+            scene.Children.Add(b);
+
+            bool closedAfterInGap = scene.CloseGapAfter(inGap);
+            TimeSpan bAfterFirstClose = b.Start;
+            bool closedAfterTouching = scene.CloseGapAfter(touching);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(closedAfterInGap, Is.True);
+                Assert.That(bAfterFirstClose, Is.EqualTo(TimeSpan.FromSeconds(4)));
+                Assert.That(closedAfterTouching, Is.True);
+                Assert.That(a.Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
+                Assert.That(touching.Start, Is.EqualTo(TimeSpan.FromSeconds(3)));
+                Assert.That(inGap.Start, Is.EqualTo(TimeSpan.FromSeconds(3)));
+                Assert.That(b.Start, Is.EqualTo(TimeSpan.FromSeconds(3)));
+                Assert.That(Gaps(scene), Is.Empty);
+            });
+        }
+        finally
+        {
+            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
+        }
+    }
+
+    [Test]
     public void CloseGapAfter_AnchorNotInScene_ReturnsFalse()
     {
         string basePath = GetTempPath();

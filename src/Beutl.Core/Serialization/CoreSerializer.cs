@@ -254,7 +254,7 @@ public static partial class CoreSerializer
             {
                 coreObj.Uri = uri;
             }
-            options ??= new CoreSerializerOptions { BaseUri = uri, Mode = options?.Mode };
+            options ??= new CoreSerializerOptions { BaseUri = uri };
         }
     }
 
