@@ -1,5 +1,4 @@
-﻿using Beutl.FFmpegIpc;
-using Beutl.FFmpegIpc.Protocol.Messages;
+﻿using Beutl.FFmpegIpc.Protocol.Messages;
 using Beutl.FFmpegWorker.Encoding;
 using FFmpeg.AutoGen.Abstractions;
 using FFmpegSharp;
@@ -12,8 +11,7 @@ public sealed class EncoderOptionsQueryTests
     [OneTimeSetUp]
     public void InitializeFFmpeg()
     {
-        try { FFmpegLoaderWorker.Initialize(); }
-        catch (FFmpegLibrariesNotFoundException) { Assert.Ignore("FFmpeg native libraries are not available."); }
+        FFmpegTestHelpers.RequireFFmpeg();
     }
 
     [TestCase("libx264", "preset", EncoderOptionKind.Text)]

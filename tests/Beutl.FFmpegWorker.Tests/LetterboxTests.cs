@@ -1,15 +1,8 @@
-﻿using Beutl.Extensibility;
-using Beutl.FFmpegIpc;
-using Beutl.FFmpegWorker.Decoding;
+﻿using Beutl.FFmpegWorker.Decoding;
 using Beutl.FFmpegWorker.Encoding;
-using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Decoding;
-using Beutl.Media.Music;
-using Beutl.Media.Music.Samples;
 using Beutl.Media.Source;
-using FFmpeg.AutoGen.Abstractions;
-using FFmpegSharp;
 
 namespace Beutl.FFmpegWorker.Tests;
 
@@ -63,7 +56,6 @@ public sealed class LetterboxTests
     [SetUp]
     public void SetUp()
     {
-        Log.LoggerFactory = Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance;
         _workDir = Path.Combine(Path.GetTempPath(), "beutl-ffmpeg-letterbox-tests-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(_workDir);
     }
@@ -77,38 +69,11 @@ public sealed class LetterboxTests
     // FFV1 keeps every pixel, so the bars and the picture are checked on what the encoder produced.
     private async Task<Bitmap> EncodeAndDecodeFirstFrame(bool hdr, PixelSize source, PixelSize destination)
     {
-        try
-        {
-            FFmpegLoaderWorker.Initialize();
-        }
-        catch (FFmpegLibrariesNotFoundException)
-        {
-            Assert.Ignore("FFmpeg native libraries are not available.");
-        }
-        catch (DllNotFoundException)
-        {
-            Assert.Ignore("FFmpeg native library dependencies are not available.");
-        }
-
-        AVPixelFormat encodedFormat = hdr ? AVPixelFormat.AV_PIX_FMT_GBRAP16LE : AVPixelFormat.AV_PIX_FMT_BGRA;
-        MediaCodec? codec = MediaCodec.FindEncoder("ffv1");
-        if (codec == null || !codec.GetPixelFmts().Contains(encodedFormat))
-            Assert.Ignore($"The FFV1 encoder does not support {encodedFormat}.");
+        FFmpegTestHelpers.RequireFFmpeg();
 
         string outputPath = Path.Combine(_workDir, "fitted.mkv");
-        var controller = new FFmpegEncodingController(outputPath, new FFmpegEncodingSettings());
-        controller.VideoSettings.SourceSize = source;
-        controller.VideoSettings.DestinationSize = destination;
-        controller.VideoSettings.FrameRate = new Rational(30, 1);
-        controller.VideoSettings.Codec = new CodecRecord("ffv1", "FFV1");
-        controller.VideoSettings.Options.Clear();
-        controller.VideoSettings.Format = (int)encodedFormat;
-        controller.VideoSettings.ColorTrc = hdr ? FFColorTransfer.SMPTE2084 : FFColorTransfer.IEC61966_2_1;
-        controller.VideoSettings.ColorPrimaries = hdr ? FFColorPrimaries.BT2020 : FFColorPrimaries.BT709;
-        controller.VideoSettings.ColorSpace = FFColorSpace.RGB;
-        controller.VideoSettings.ColorRange = FFColorRange.JPEG;
-        controller.AudioSettings.Codec = new CodecRecord("pcm_s16le", "PCM");
-        controller.AudioSettings.Format = FFmpegAudioEncoderSettings.AudioFormat.S16;
+        FFmpegEncodingController controller = FFmpegTestHelpers.CreateLosslessController(
+            outputPath, source, destination, hdr);
         using var frames = new SolidFrameProvider(source);
         using var samples = new EmptySampleProvider();
 
@@ -161,59 +126,7 @@ public sealed class LetterboxTests
     private static byte[] ExpectedPicturePixel(bool hdr)
     {
         using Bitmap source = SolidFrameProvider.CreateFrame(new PixelSize(1, 1));
-        BitmapColorSpace colorSpace = hdr
-            ? ColorSpaceHelper.BuildHdrColorSpace(
-                AVColorTransferCharacteristic.AVCOL_TRC_SMPTE2084, AVColorPrimaries.AVCOL_PRI_BT2020)
-            : BitmapColorSpace.Srgb;
-        using Bitmap expected = source.Convert(
-            hdr ? BitmapColorType.Rgba16161616 : BitmapColorType.Bgra8888,
-            hdr ? BitmapAlphaType.Unpremul : BitmapAlphaType.Premul,
-            colorSpace);
+        using Bitmap expected = FFmpegTestHelpers.ToDecodedLayout(source, hdr);
         return expected.GetRow(0).ToArray();
-    }
-
-    private sealed class SolidFrameProvider(PixelSize size) : IFrameProvider
-    {
-        public long FrameCount => 1;
-
-        public Rational FrameRate => new(30, 1);
-
-        public static Bitmap CreateFrame(PixelSize size)
-        {
-            var bitmap = new Bitmap(size.Width, size.Height);
-            for (int y = 0; y < size.Height; y++)
-            {
-                Span<byte> row = bitmap.GetRow(y);
-                for (int x = 0; x < size.Width; x++)
-                {
-                    row[x * 4] = 40;
-                    row[x * 4 + 1] = 160;
-                    row[x * 4 + 2] = 200;
-                    row[x * 4 + 3] = 255;
-                }
-            }
-
-            return bitmap;
-        }
-
-        public ValueTask<Bitmap> RenderFrame(long frame) => ValueTask.FromResult(CreateFrame(size));
-
-        public void Dispose()
-        {
-        }
-    }
-
-    private sealed class EmptySampleProvider : ISampleProvider
-    {
-        public long SampleCount => 0;
-
-        public long SampleRate => 44100;
-
-        public ValueTask<Pcm<Stereo32BitFloat>> Sample(long offset, long length) =>
-            throw new AssertionException("There are no audio samples to encode.");
-
-        public void Dispose()
-        {
-        }
     }
 }

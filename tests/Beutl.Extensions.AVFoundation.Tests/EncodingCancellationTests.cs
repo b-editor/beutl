@@ -1,12 +1,10 @@
-﻿using Beutl.Extensibility;
-using Beutl.Extensions.AVFoundation.Encoding;
+﻿using Beutl.Extensions.AVFoundation.Encoding;
 using Beutl.Media;
 
 namespace Beutl.Extensions.AVFoundation.Tests;
 
 // A cancelled Encode must throw OperationCanceledException (both callers already catch it). This
-// AVF test pins the shared contract; FFmpegEncodingController has the identical fix but no
-// cross-platform test seam.
+// AVF test pins the shared contract.
 [TestFixture]
 [Platform("MacOSX")]
 public class EncodingCancellationTests
@@ -56,26 +54,5 @@ public class EncodingCancellationTests
         Assert.That(
             async () => await controller.Encode(frameProvider, sampleProvider, cts.Token),
             Throws.InstanceOf<OperationCanceledException>());
-    }
-
-    // Cancels the token right after the first frame, so the loop's next iteration sees cancellation.
-    private sealed class CancelAfterFirstFrameProvider(
-        CancellationTokenSource cts, long frameCount, Rational frameRate, int width, int height)
-        : IFrameProvider
-    {
-        private readonly GradientFrameProvider _inner = new(frameCount, frameRate, width, height);
-
-        public long FrameCount => _inner.FrameCount;
-
-        public Rational FrameRate => _inner.FrameRate;
-
-        public async ValueTask<Bitmap> RenderFrame(long frame)
-        {
-            Bitmap bitmap = await _inner.RenderFrame(frame);
-            cts.Cancel();
-            return bitmap;
-        }
-
-        public void Dispose() => _inner.Dispose();
     }
 }

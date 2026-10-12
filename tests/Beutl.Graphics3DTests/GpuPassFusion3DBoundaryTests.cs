@@ -67,7 +67,6 @@ public sealed class GpuPassFusion3DBoundaryTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void Scene3D_MaterializesOneBackendBoundary_ThenResumesTwoDimensionalWork()
     {
         GpuTestEnvironment.EnsureAvailable();
@@ -148,7 +147,6 @@ public sealed class GpuPassFusion3DBoundaryTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void Scene3D_ReusesItsRendererAcrossRequests()
     {
         GpuTestEnvironment.EnsureAvailable();
@@ -201,7 +199,6 @@ public sealed class GpuPassFusion3DBoundaryTests
     [TestCase(MaterialTextureDependency.PbrEmissiveMap)]
     [TestCase(MaterialTextureDependency.PbrAOMap)]
     [TestCase(MaterialTextureDependency.TransparentColorMap)]
-    [Category("GpuPassFusionGpu")]
     public void Scene3D_DrawableTextureConsumesItsPlannedNestedTarget(
         MaterialTextureDependency dependency)
     {
@@ -237,32 +234,8 @@ public sealed class GpuPassFusion3DBoundaryTests
                 Assert.That(binding.IsReady, Is.False);
             });
 
-            ushort[] renderedPixels;
-            RenderExecutionStatistics statistics;
             using var registry = new RenderTargetPool(factory: null);
-            using (RenderTargetLeaseSession targets = registry.BeginSession(RenderIntent.Preview))
-            using (RenderTargetLease root = targets.Acquire(
-                       PixelRect.FromRect(compiled.ExecutionTargetBounds, 1.75f).Size))
-            using (var canvas = new ImmediateCanvas(
-                       root.Target,
-                       RenderIntent.Preview,
-                       density: 1.75f,
-                       maxWorkingScale: 0.75f,
-                       logicalSize: compiled.ExecutionTargetBounds.Size))
-            using (canvas.PushTransform(Matrix.CreateTranslation(
-                       -compiled.ExecutionTargetBounds.X,
-                       -compiled.ExecutionTargetBounds.Y)))
-            {
-                canvas.Clear();
-                var executor = new RenderRequestExecutor(targets);
-                executor.Execute(
-                    compiled,
-                    canvas,
-                    replayBounds: compiled.ExecutionTargetBounds);
-                statistics = executor.Statistics;
-                using Bitmap rendered = root.Target.Snapshot();
-                renderedPixels = rendered.GetPixelSpan<ushort>().ToArray();
-            }
+            (ushort[] renderedPixels, RenderExecutionStatistics statistics) = ExecuteIntoPool(registry, compiled);
 
             ushort[] controlPixels = RenderScene(CreateMaterial(dependency, texture: null));
             double maximumRgbDifference = MaximumRgbDifference(renderedPixels, controlPixels);
@@ -314,26 +287,20 @@ public sealed class GpuPassFusion3DBoundaryTests
             outputScale: 1.75f,
             maxWorkingScale: 0.75f);
         using var registry = new RenderTargetPool(factory: null);
-        using RenderTargetLeaseSession targets = registry.BeginSession(RenderIntent.Preview);
-        using RenderTargetLease root = targets.Acquire(
-            PixelRect.FromRect(compiled.ExecutionTargetBounds, 1.75f).Size);
-        using var canvas = new ImmediateCanvas(
-            root.Target,
-            RenderIntent.Preview,
+        return ExecuteIntoPool(registry, compiled).Pixels;
+    }
+
+    // Executes a scene compiled at the 1.75 output scale under the 0.75 working-scale ceiling.
+    private static (ushort[] Pixels, RenderExecutionStatistics Statistics) ExecuteIntoPool(
+        RenderTargetPool registry, CompiledRenderRequest compiled)
+        => Graphics3DTestHelpers.ExecuteIntoPool(
+            registry,
+            compiled,
+            compiled.ExecutionTargetBounds,
+            compiled.ExecutionTargetBounds,
             density: 1.75f,
             maxWorkingScale: 0.75f,
-            logicalSize: compiled.ExecutionTargetBounds.Size);
-        using (canvas.PushTransform(Matrix.CreateTranslation(
-                   -compiled.ExecutionTargetBounds.X,
-                   -compiled.ExecutionTargetBounds.Y)))
-        {
-            canvas.Clear();
-            var executor = new RenderRequestExecutor(targets);
-            executor.Execute(compiled, canvas, replayBounds: compiled.ExecutionTargetBounds);
-            using Bitmap rendered = root.Target.Snapshot();
-            return rendered.GetPixelSpan<ushort>().ToArray();
-        }
-    }
+            translateToTarget: true);
 
     private static double MaximumRgbDifference(ushort[] textured, ushort[] control)
     {
@@ -412,8 +379,7 @@ public sealed class GpuPassFusion3DBoundaryTests
         Rect targetDomain,
         float outputScale = 1,
         float maxWorkingScale = 1)
-    {
-        var request = new RenderRequest(new RenderRequestOptions(
+        => Graphics3DTestHelpers.Compile(root, new RenderRequestOptions(
             RenderIntent.Preview,
             RenderRequestPurpose.Auxiliary,
             targetDomain: targetDomain,
@@ -421,17 +387,6 @@ public sealed class GpuPassFusion3DBoundaryTests
             maxWorkingScale: maxWorkingScale,
             cachePolicy: RenderCacheOptions.Disabled,
             fusionMode: FusionMode.Enabled));
-        try
-        {
-            RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(root);
-            return new RenderRequestCompiler().Compile(request, graph);
-        }
-        catch
-        {
-            request.Dispose();
-            throw;
-        }
-    }
 
     private sealed class DownstreamShaderNode(RenderNode sceneNode) : RenderNode
     {

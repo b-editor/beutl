@@ -1,5 +1,4 @@
 ﻿using Beutl.Graphics.Backend;
-using Beutl.Graphics.Backend.Composite;
 using Beutl.Graphics.Backend.Vulkan;
 using Silk.NET.Vulkan;
 
@@ -10,7 +9,6 @@ namespace Beutl.Graphics3DTests;
 public sealed class VulkanBufferConstructionTests
 {
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void ABufferWithNoCompatibleMemoryType_LeavesNothingForDeviceTeardown()
     {
         GpuTestEnvironment.EnsureAvailable();
@@ -18,12 +16,7 @@ public sealed class VulkanBufferConstructionTests
         GpuTestEnvironment.InvokeOnRenderThread(() =>
         {
             using IGraphicsContext context = GraphicsContextFactory.CreateContext();
-            VulkanContext vulkan = context switch
-            {
-                VulkanContext value => value,
-                CompositeContext composite => composite.Vulkan,
-                _ => throw new InvalidOperationException("The graphics context has no Vulkan backend."),
-            };
+            VulkanContext vulkan = GpuTestEnvironment.ResolveVulkan(context);
 
             // Host-visible and lazily allocated memory cannot coexist. Confirm the device's answer
             // before the constructor, so the refusal is caused by memory selection, not allocation.

@@ -24,7 +24,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="Fixtures\**\*.*" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Frame and sample sources shared with the FFmpeg worker encoder tests. -->
+    <Compile Include="..\EncoderTestProviders.cs" Link="EncoderTestProviders.cs" />
   </ItemGroup>
 
   <!-- Mirror the AVF dylib into this project's output (ProjectReferences don't copy native

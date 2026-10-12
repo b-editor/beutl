@@ -1,5 +1,4 @@
 ﻿using Beutl.Graphics.Backend;
-using Beutl.Graphics.Backend.Composite;
 using Beutl.Graphics.Backend.Vulkan;
 using Beutl.Media;
 using Silk.NET.Vulkan;
@@ -14,7 +13,6 @@ public sealed class VulkanContextIsolationTests
     private const int Height = 8;
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void ASecondRenderPass_IsRejectedWhileAnotherIsRecording()
     {
         IGraphicsContext context = GpuTestEnvironment.EnsureAvailable();
@@ -49,7 +47,6 @@ public sealed class VulkanContextIsolationTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void AFramebufferFromAnotherContext_IsRejected()
     {
         IGraphicsContext context = GpuTestEnvironment.EnsureAvailable();
@@ -77,7 +74,6 @@ public sealed class VulkanContextIsolationTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void ABufferFromAnotherContext_IsRejectedByACopy()
     {
         IGraphicsContext context = GpuTestEnvironment.EnsureAvailable();
@@ -102,7 +98,6 @@ public sealed class VulkanContextIsolationTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void AResourceFromAnotherContext_IsRejectedByADescriptorUpdate()
     {
         IGraphicsContext context = GpuTestEnvironment.EnsureAvailable();
@@ -111,8 +106,9 @@ public sealed class VulkanContextIsolationTests
             using IGraphicsContext foreign = GraphicsContextFactory.CreateContext();
             IShaderCompiler compiler = context.CreateShaderCompiler();
             using IDisposable? compilerLifetime = compiler as IDisposable;
-            byte[] vertex = compiler.CompileToSpirv(SampledVertexShader, ShaderStage.Vertex);
-            byte[] fragment = compiler.CompileToSpirv(SampledFragmentShader, ShaderStage.Fragment);
+            byte[] vertex = compiler.CompileToSpirv(Graphics3DTestHelpers.FullscreenVertexShader, ShaderStage.Vertex);
+            byte[] fragment = compiler.CompileToSpirv(
+                Graphics3DTestHelpers.PassthroughFragmentShader, ShaderStage.Fragment);
 
             using IRenderPass3D pass = context.CreateRenderPass3D([TextureFormat.RGBA8Unorm], null);
             DescriptorBinding[] bindings =
@@ -164,10 +160,9 @@ public sealed class VulkanContextIsolationTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void EveryBindEntryPointTheDeviceExposes_IsIntercepted()
     {
-        VulkanContext vulkanContext = ResolveVulkan(GpuTestEnvironment.EnsureAvailable());
+        VulkanContext vulkanContext = GpuTestEnvironment.EnsureVulkanAvailable();
         GpuTestEnvironment.InvokeOnRenderThread(() =>
         {
             Vk vk = vulkanContext.Vk;
@@ -189,10 +184,9 @@ public sealed class VulkanContextIsolationTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void TheLogicalDevice_EnablesTheShaderFeaturesItAdvertises()
     {
-        VulkanContext vulkanContext = ResolveVulkan(GpuTestEnvironment.EnsureAvailable());
+        VulkanContext vulkanContext = GpuTestEnvironment.EnsureVulkanAvailable();
         GpuTestEnvironment.InvokeOnRenderThread(() =>
         {
             PhysicalDeviceFeatures available = ReadAdvertisedFeatures(vulkanContext);
@@ -213,10 +207,9 @@ public sealed class VulkanContextIsolationTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void AFreshArrayTexture_IsReadableInEverySlotBeforeAnythingWritesToIt()
     {
-        VulkanContext context = ResolveVulkan(GpuTestEnvironment.EnsureAvailable());
+        VulkanContext context = GpuTestEnvironment.EnsureVulkanAvailable();
         GpuTestEnvironment.InvokeOnRenderThread(() =>
         {
             // Through the context, which picks the usage flags the format supports. Constructing the texture
@@ -241,10 +234,9 @@ public sealed class VulkanContextIsolationTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void AFreshCubeArrayTexture_IsReadableInEveryFaceBeforeAnythingWritesToIt()
     {
-        VulkanContext context = ResolveVulkan(GpuTestEnvironment.EnsureAvailable());
+        VulkanContext context = GpuTestEnvironment.EnsureVulkanAvailable();
         GpuTestEnvironment.InvokeOnRenderThread(() =>
         {
             using var cubes = (VulkanTextureCubeArray)context.CreateTextureCubeArray(
@@ -268,17 +260,6 @@ public sealed class VulkanContextIsolationTests
         });
     }
 
-    // On macOS the shared context is a CompositeContext pairing a Metal context with the Vulkan one that
-    // owns the device; everywhere else it is the Vulkan context itself.
-    private static VulkanContext ResolveVulkan(IGraphicsContext context)
-        => context switch
-        {
-            VulkanContext vulkan => vulkan,
-            CompositeContext composite => composite.Vulkan,
-            _ => throw new InvalidOperationException(
-                $"'{context.GetType().Name}' is not backed by a Vulkan context."),
-        };
-
     private static unsafe PhysicalDeviceFeatures ReadAdvertisedFeatures(VulkanContext context)
     {
         PhysicalDeviceFeatures features;
@@ -288,29 +269,4 @@ public sealed class VulkanContextIsolationTests
 
     private static ITexture2D CreateColorTexture(IGraphicsContext context)
         => context.CreateTexture2D(Width, Height, TextureFormat.RGBA8Unorm);
-
-    private const string SampledVertexShader = """
-        #version 450
-
-        layout(location = 0) out vec2 fragCoord;
-
-        void main() {
-            vec2 positions[3] = vec2[](vec2(-1.0, -1.0), vec2(3.0, -1.0), vec2(-1.0, 3.0));
-            vec2 uvs[3] = vec2[](vec2(0.0, 0.0), vec2(2.0, 0.0), vec2(0.0, 2.0));
-            gl_Position = vec4(positions[gl_VertexIndex], 0.0, 1.0);
-            fragCoord = uvs[gl_VertexIndex];
-        }
-        """;
-
-    private const string SampledFragmentShader = """
-        #version 450
-
-        layout(location = 0) in vec2 fragCoord;
-        layout(location = 0) out vec4 outColor;
-        layout(binding = 0) uniform sampler2D sourceTexture;
-
-        void main() {
-            outColor = texture(sourceTexture, fragCoord);
-        }
-        """;
 }

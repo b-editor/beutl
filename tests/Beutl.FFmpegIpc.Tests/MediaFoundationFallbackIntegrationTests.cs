@@ -1,6 +1,5 @@
 ﻿using System.Runtime.Versioning;
 using Beutl.Embedding.MediaFoundation.Decoding;
-using Beutl.Extensions.FFmpeg;
 using Beutl.Extensions.FFmpeg.Decoding;
 using Beutl.Media.Decoding;
 
@@ -19,19 +18,7 @@ public sealed class MediaFoundationFallbackIntegrationTests
     [OneTimeSetUp]
     public void EnsureWorkerAvailable()
     {
-        if (!FFmpegWorkerProcess.IsWorkerAvailable(AppContext.BaseDirectory))
-        {
-            Assert.Ignore("FFmpeg worker binary is unavailable.");
-        }
-
-        try
-        {
-            FFmpegWorkerProcess.DecodingInstance.EnsureStarted();
-        }
-        catch (FFmpegLibrariesNotFoundException ex)
-        {
-            Assert.Ignore($"FFmpeg natives are unavailable: {ex.Message}");
-        }
+        DecodingWorkerTestHelpers.RequireDecodingWorker();
     }
 
     [SetUp]

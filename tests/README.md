@@ -188,3 +188,7 @@ whole solution still builds and starts unrelated test projects. To compare execu
 each revision first, run the same project with `--no-build --logger trx` without other builds/tests
 running, and compare several runs. Report the executed test count as well as time; a skipped GPU or
 native suite is not a speed improvement.
+
+No CI job runs these platform-only tests, so run them locally when you change what they cover:
+`MediaFoundationFallbackIntegrationTests` in `Beutl.FFmpegIpc.Tests` (Windows with FFmpeg installed) and the
+`[Platform("MacOSX")]` tests in `Beutl.Graphics3DTests/ShaderDescriptionSpirvEquivalenceTests.cs` (macOS).

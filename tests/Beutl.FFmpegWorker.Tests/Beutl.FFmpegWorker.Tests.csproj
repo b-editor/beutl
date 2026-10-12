@@ -1,19 +1,16 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    GPL-side, non-distributed NUnit test project. It reaches the GPL worker's FFmpeg-calling
-    encoding types by SOURCE-LINKING them (never a ProjectReference to Beutl.FFmpegWorker), the
-    same firewall-preserving pattern Beutl.FFmpegBenchmarks uses for the decoding side: the linked
-    files compile under BEUTL_FFMPEG_WORKER into this test assembly, which is IsPackable=false and
-    never ships, so the MIT compile closure stays free of the GPL worker. The FFmpeg-native tests
-    self-skip (Assert.Ignore) when the FFmpeg shared libraries are not present.
+    GPL-side test project that never ships. It compiles the worker's types from linked sources instead of
+    a ProjectReference to Beutl.FFmpegWorker, so the MIT compile closure stays free of the GPL worker. The
+    FFmpeg tests skip when the FFmpeg shared libraries are missing.
   -->
   <PropertyGroup>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <TargetFrameworks>net10.0</TargetFrameworks>
-    <DefineConstants>$(DefineConstants);BEUTL_FFMPEG_WORKER;FFMPEG_BUILD_IN</DefineConstants>
+    <DefineConstants>$(DefineConstants);BEUTL_FFMPEG_WORKER</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
@@ -26,6 +23,11 @@
 
   <ItemGroup>
     <Using Include="NUnit.Framework" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Frame and sample sources shared with the AVFoundation encoder tests. -->
+    <Compile Include="..\EncoderTestProviders.cs" Link="EncoderTestProviders.cs" />
   </ItemGroup>
 
   <ItemGroup>
@@ -63,6 +65,7 @@
     <Compile Include="..\..\src\Beutl.FFmpegWorker\Handlers\VideoRingBuffer.cs" Link="Linked\VideoRingBuffer.cs" />
     <Compile Include="..\..\src\Beutl.FFmpegWorker\Handlers\ColorSpaceIpcHelper.cs" Link="Linked\ColorSpaceIpcHelper.cs" />
     <None Include="..\Beutl.FFmpegIpc.Tests\Fixtures\mf-unsupported.flv" Link="Fixtures\mf-unsupported.flv" CopyToOutputDirectory="PreserveNewest" />
+    <Compile Include="..\Beutl.FFmpegIpc.Tests\TestWav.cs" Link="Linked\TestWav.cs" />
   </ItemGroup>
 
   <!-- Settings/record types shared with the MIT extension (compiled here under BEUTL_FFMPEG_WORKER). -->

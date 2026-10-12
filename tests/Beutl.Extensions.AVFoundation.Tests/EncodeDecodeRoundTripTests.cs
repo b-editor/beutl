@@ -108,10 +108,8 @@ public class EncodeDecodeRoundTripTests
         }
     }
 
-    // Regression: every audio chunk used to land in the file as a stale copy of one earlier
-    // chunk because the CMBlockBuffer retained the C# PCM pointer that was freed before the
-    // encoder thread read it. Encode 2 s of a sweeping tone and verify chunks across the
-    // timeline are non-silent and pairwise distinct.
+    // Regression test: chunks across the timeline must not be stale copies of an earlier buffer. Encode 2 s of a
+    // sweeping tone and verify the chunks are non-silent and pairwise distinct.
     [Test]
     public async Task EncodedAudioPreservesTimeline()
     {

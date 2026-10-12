@@ -1,7 +1,5 @@
 ﻿using Beutl.Extensibility;
-using Beutl.FFmpegIpc;
 using Beutl.FFmpegWorker.Encoding;
-using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Music;
 using Beutl.Media.Music.Samples;
@@ -16,19 +14,7 @@ public sealed class EncodingOutputFormatTests
     [OneTimeSetUp]
     public void OneTimeSetUp()
     {
-        Log.LoggerFactory = Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance;
-        try
-        {
-            FFmpegLoaderWorker.Initialize();
-        }
-        catch (FFmpegLibrariesNotFoundException)
-        {
-            Assert.Ignore("FFmpeg native libraries are not available.");
-        }
-        catch (DllNotFoundException)
-        {
-            Assert.Ignore("FFmpeg native library dependencies are not available.");
-        }
+        FFmpegTestHelpers.RequireFFmpeg();
     }
 
     [SetUp]
@@ -61,8 +47,8 @@ public sealed class EncodingOutputFormatTests
         using var frameProvider = new UnusedFrameProvider();
         using var sampleProvider = new UnusedSampleProvider();
 
-        // GuessFormat can return a non-null wrapper around a null native format. The old
-        // null-coalescing check let it reach MediaMuxer.Create and truncate the output file.
+        // GuessFormat can return a non-null wrapper around a null native format; Encode must reject it
+        // before it opens the output file.
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(
             async () => await controller.Encode(frameProvider, sampleProvider, CancellationToken.None));
 
