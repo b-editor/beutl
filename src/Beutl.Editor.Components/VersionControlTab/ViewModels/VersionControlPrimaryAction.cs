@@ -2,17 +2,6 @@
 
 namespace Beutl.Editor.Components.VersionControlTab.ViewModels;
 
-internal enum VersionControlPrimaryActionKind
-{
-    Commit,
-    PullFromRemote,
-    Push,
-    UpToDate,
-    PublishBranch,
-    Cancel,
-}
-
 internal sealed record VersionControlPrimaryAction(
-    VersionControlPrimaryActionKind Kind,
     string Label,
     ICommand Command);

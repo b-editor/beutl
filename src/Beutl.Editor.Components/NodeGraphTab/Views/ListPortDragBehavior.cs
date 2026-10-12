@@ -24,7 +24,6 @@ public sealed class ListPortDragBehavior : Behavior<NodePortPoint>
     private int _targetIndex;
     private StackPanel? _stackPanel;
     private Canvas? _canvas;
-    private GraphNodeView? _nodeView;
     private ConnectionLine? _tempLine;
 
     protected override void OnAttached()
@@ -69,7 +68,6 @@ public sealed class ListPortDragBehavior : Behavior<NodePortPoint>
         {
             _stackPanel = AssociatedObject.FindAncestorOfType<StackPanel>();
             _canvas = AssociatedObject.FindAncestorOfType<Canvas>();
-            _nodeView = AssociatedObject.FindAncestorOfType<GraphNodeView>();
             if (_stackPanel != null)
             {
                 _enableDrag = true;
@@ -184,7 +182,7 @@ public sealed class ListPortDragBehavior : Behavior<NodePortPoint>
             }
         }
 
-        UpdateConnectionPositionsDuringDrag();
+        AssociatedObject?.FindAncestorOfType<NodePortView>()?.UpdateNodePortPosition();
     }
 
     private void ReleaseVertical()
@@ -296,7 +294,6 @@ public sealed class ListPortDragBehavior : Behavior<NodePortPoint>
         _direction = DragDirection.None;
         _stackPanel = null;
         _canvas = null;
-        _nodeView = null;
     }
 
     private static void SetTranslateTransform(Control control, double x, double y)
@@ -304,29 +301,5 @@ public sealed class ListPortDragBehavior : Behavior<NodePortPoint>
         var transformBuilder = new TransformOperations.Builder(1);
         transformBuilder.AppendTranslate(x, y);
         control.RenderTransform = transformBuilder.Build();
-    }
-
-    private void UpdateConnectionPositionsDuringDrag()
-    {
-        if (_stackPanel == null || _nodeView?.DataContext is not GraphNodeViewModel nodeVM) return;
-        bool isInput = AssociatedObject?.DataContext is InputPortViewModel;
-
-        int connectedCount = _stackPanel.Children.Count - 1; // exclude placeholder
-        for (int i = 0; i < connectedCount; i++)
-        {
-            if (_stackPanel.Children[i] is NodePortPoint sp && sp.Tag is ConnectionViewModel connVM)
-            {
-                Point? basePos = sp.TranslatePoint(new(5, 5), _nodeView);
-                if (basePos.HasValue)
-                {
-                    Point canvasPos = basePos.Value + nodeVM.Position.Value;
-
-                    if (isInput)
-                        connVM.InputPortPosition.Value = canvasPos;
-                    else
-                        connVM.OutputPortPosition.Value = canvasPos;
-                }
-            }
-        }
     }
 }

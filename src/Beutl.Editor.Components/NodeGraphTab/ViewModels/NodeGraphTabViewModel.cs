@@ -86,7 +86,6 @@ public sealed class NodeGraphTabViewModel : IPinnableToolContext
 
                 Items.Clear();
 
-                NodeGraph.Value?.Dispose();
                 NodeGraph.Value = null;
 
                 if (newModel != null)
@@ -140,15 +139,7 @@ public sealed class NodeGraphTabViewModel : IPinnableToolContext
         Model.Value = null;
 
         _disposables.Dispose();
-        foreach (NodeGraphNavigationItem item in Items)
-        {
-            item.Dispose();
-        }
-
-        Items.Clear();
         NodeGraph.Dispose();
-        NodeGraph.Value?.Dispose();
-        NodeGraph.Value = null;
         _editorContext = null!;
     }
 
@@ -196,14 +187,7 @@ public sealed class NodeGraphTabViewModel : IPinnableToolContext
                 stack.Insert(0, currentGraph);
             }
 
-            try
-            {
-                current = current?.HierarchicalParent;
-            }
-            catch
-            {
-                current = null;
-            }
+            current = current.HierarchicalParent;
         }
 
         using var list = new PooledList<NodeGraphNavigationItem>(stack.Count);
@@ -237,15 +221,7 @@ public sealed class NodeGraphTabViewModel : IPinnableToolContext
     private string ViewStateDirectory()
     {
         Scene scene = _editorContext.GetRequiredService<Scene>();
-        string directory = Path.GetDirectoryName(scene.Uri!.LocalPath)!;
-
-        directory = Path.Combine(directory, EditorConstants.BeutlFolder, EditorConstants.ViewStateFolder);
-        if (!Directory.Exists(directory))
-        {
-            Directory.CreateDirectory(directory);
-        }
-
-        return directory;
+        return EditorConstants.GetViewStateDirectory(scene.Uri!);
     }
 
     private void SaveState(GraphModel model)

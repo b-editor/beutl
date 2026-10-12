@@ -21,7 +21,6 @@ internal sealed record VersionControlDiffLineViewModel(
     public static IReadOnlyList<VersionControlDiffLineViewModel> Parse(
         string diff, CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(diff);
         bool inHunk = false;
         var lines = new List<VersionControlDiffLineViewModel>();
         int start = 0;

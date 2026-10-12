@@ -5,6 +5,7 @@ using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Threading;
+using Beutl.Editor.Components.VersionControl.ViewModels;
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Controls.Primitives;
 
@@ -88,7 +89,6 @@ internal sealed class VersionControlPickerFlyout : FAPickerFlyoutBase
     {
         ResetPendingRequest();
         ConfigureContent(title);
-        PrimaryLabelTextBlock.IsVisible = false;
         PrimaryTextBox.IsVisible = true;
         PrimaryTextBox.PlaceholderText = watermark;
         PrimaryTextBox.Text = initialText;
@@ -212,7 +212,6 @@ internal sealed class VersionControlPickerFlyout : FAPickerFlyoutBase
         Func<bool> canConfirm,
         CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(anchor);
         cancellationToken.ThrowIfCancellationRequested();
 
         _canConfirm = canConfirm;
@@ -234,19 +233,9 @@ internal sealed class VersionControlPickerFlyout : FAPickerFlyoutBase
             static state =>
             {
                 var request = (CancellationRequest)state!;
-                if (Dispatcher.UIThread.CheckAccess())
-                {
-                    request.Flyout.CancelPendingRequest(
-                        request.Completion,
-                        request.CancellationToken);
-                }
-                else
-                {
-                    Dispatcher.UIThread.Post(
-                        () => request.Flyout.CancelPendingRequest(
-                            request.Completion,
-                            request.CancellationToken));
-                }
+                VersionControlUiThread.Post(() => request.Flyout.CancelPendingRequest(
+                    request.Completion,
+                    request.CancellationToken));
             },
             new CancellationRequest(this, completion, cancellationToken));
         return await task;

@@ -29,6 +29,7 @@ public partial class NodeGraphView : UserControl
     private bool _matrixUpdating;
     private FAMenuFlyout? _portDropMenu;
 
+    // Test seam: tests reach the menu a port drop opens through this.
     internal FAMenuFlyout? PortDropMenu => _portDropMenu;
 
     public NodeGraphView()

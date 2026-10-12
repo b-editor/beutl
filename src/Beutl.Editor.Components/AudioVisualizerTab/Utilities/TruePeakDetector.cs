@@ -1,27 +1,26 @@
 ﻿namespace Beutl.Editor.Components.AudioVisualizerTab.Utilities;
 
 // 4x oversampled true-peak estimator. Uses simple zero-stuffing followed by a
-// 23-tap windowed-sinc anti-imaging filter (per BS.1770-4 Annex 2 reference
-// implementation, truncated for runtime cost). Returns the largest absolute
-// sample after upsampling, including a generous overshoot margin for the most
-// adversarial 0 dBFS sine cases.
+// windowed-sinc anti-imaging filter with 12 taps per phase (per BS.1770-4 Annex 2
+// reference implementation, truncated for runtime cost). Returns the largest
+// absolute sample after upsampling.
 internal static class TruePeakDetector
 {
     // Polyphase coefficients for the 4× anti-imaging FIR. Each phase is 12 taps.
     // Generated from a Kaiser-windowed sinc with cutoff at 0.5/4.
-    private static readonly float[] s_phase0 =
+    private static readonly float[] s_quarterPhase =
     [
         0.00131f, -0.00659f, 0.01918f, -0.04412f, 0.09640f, -0.24029f,
         0.97225f, 0.27840f, -0.10261f, 0.04575f, -0.01950f, 0.00658f
     ];
 
-    private static readonly float[] s_phase1 =
+    private static readonly float[] s_halfPhase =
     [
         0.00305f, -0.01316f, 0.03525f, -0.08017f, 0.18002f, -0.44944f,
         0.83357f, 0.83357f, -0.44944f, 0.18002f, -0.08017f, 0.03525f
     ];
 
-    private static readonly float[] s_phase2 =
+    private static readonly float[] s_threeQuarterPhase =
     [
         0.00658f, -0.01950f, 0.04575f, -0.10261f, 0.27840f, 0.97225f,
         -0.24029f, 0.09640f, -0.04412f, 0.01918f, -0.00659f, 0.00131f
@@ -30,7 +29,7 @@ internal static class TruePeakDetector
     public static float Detect(ReadOnlySpan<float> samples)
     {
         if (samples.Length == 0) return 0f;
-        int taps = s_phase0.Length;
+        int taps = s_quarterPhase.Length;
         int n = samples.Length;
         float peak = 0f;
 
@@ -46,9 +45,9 @@ internal static class TruePeakDetector
                 int idx = i + t - taps / 2;
                 if ((uint)idx >= (uint)n) continue;
                 float s = samples[idx];
-                p1 += s * s_phase1[t];
-                p2 += s * s_phase2[t];
-                p3 += s * s_phase0[t]; // phase 3 mirrors phase 0 by symmetry
+                p1 += s * s_halfPhase[t];
+                p2 += s * s_threeQuarterPhase[t];
+                p3 += s * s_quarterPhase[t];
             }
             float ap1 = MathF.Abs(p1);
             float ap2 = MathF.Abs(p2);

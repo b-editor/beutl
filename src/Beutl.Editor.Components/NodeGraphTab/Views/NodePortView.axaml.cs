@@ -69,7 +69,6 @@ public partial class NodePortView : UserControl
         {
             if (_listNodePortPanel != null)
             {
-                // ListNodePort: update each connected NodePortPoint's position individually
                 for (int i = 0; i < _listNodePortPanel.Children.Count - 1; i++) // skip placeholder
                 {
                     if (_listNodePortPanel.Children[i] is NodePortPoint sp
@@ -95,7 +94,6 @@ public partial class NodePortView : UserControl
                     if (IsEffectivelyVisible && GetPortPosition() is { } center)
                         _nodeView.PositionNestedPort(portPt, center);
                 }
-                // Single port
                 Point? pos = GetPortPosition();
                 if (pos.HasValue)
                 {
@@ -208,7 +206,6 @@ public partial class NodePortView : UserControl
             _listNodePortPanel.Margin = new Thickness(6, 4, 0, 0);
         }
 
-        // Placeholder NodePortPoint for new connections
         var placeholder = new NodePortPoint
         {
             Brush = obj.Color,
@@ -219,7 +216,6 @@ public partial class NodePortView : UserControl
         AddContextFlyout(obj, placeholder);
         _listNodePortPanel.Children.Add(placeholder);
 
-        // Subscribe to Connections changes (handles Add, Remove, Move)
         obj.Connections.ForEachItem(
             (index, connVM) =>
             {

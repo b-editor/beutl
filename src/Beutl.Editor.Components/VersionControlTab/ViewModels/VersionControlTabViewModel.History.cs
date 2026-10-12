@@ -12,17 +12,12 @@ internal partial class VersionControlTabViewModel
             return;
         }
 
-        CancellationToken cancellationToken =
-            _serviceBindingCancellation?.Token ?? CancellationToken.None;
+        CancellationToken cancellationToken = _serviceBindingCancellation!.Token;
         try
         {
             await _historyGate.WaitAsync(cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            return;
-        }
-        catch (ObjectDisposedException) when (cancellationToken.IsCancellationRequested)
         {
             return;
         }
@@ -96,7 +91,6 @@ internal partial class VersionControlTabViewModel
 
     internal async Task OpenCommitDetailAsync(VersionControlCommitViewModel commit)
     {
-        ArgumentNullException.ThrowIfNull(commit);
         _showingDetail.Value = true;
         await SelectCommitAsync(commit);
     }

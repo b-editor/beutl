@@ -206,15 +206,7 @@ public sealed class ElementPropertyTabViewModel : IPinnableToolContext
 
     private static string ViewStateDirectory(Element element)
     {
-        string directory = Path.GetDirectoryName(element.Uri!.LocalPath)!;
-
-        directory = Path.Combine(directory, EditorConstants.BeutlFolder, EditorConstants.ViewStateFolder);
-        if (!Directory.Exists(directory))
-        {
-            Directory.CreateDirectory(directory);
-        }
-
-        return directory;
+        return EditorConstants.GetViewStateDirectory(element.Uri!);
     }
 
     // Creates the view-state directory when it is missing.

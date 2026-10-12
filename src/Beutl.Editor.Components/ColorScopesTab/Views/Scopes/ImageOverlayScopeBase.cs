@@ -28,7 +28,7 @@ public abstract class ImageOverlayScopeBase : HdrScopeControlBase
         int targetHeight,
         WriteableBitmap? existingBitmap)
     {
-        // Render at the source's native resolution; the View applies Stretch.Uniform on draw.
+        // Render at the source's native resolution; Render scales it down keeping the aspect ratio.
         return RenderImage(sourceBitmap, existingBitmap);
     }
 

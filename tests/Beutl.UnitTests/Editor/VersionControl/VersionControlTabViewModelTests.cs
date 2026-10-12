@@ -1189,7 +1189,7 @@ public class VersionControlTabViewModelTests
             bool HasRemote,
             bool IsRunning,
             string CommitMessage,
-            VersionControlPrimaryActionKind ExpectedKind,
+            Func<VersionControlTabViewModel, System.Windows.Input.ICommand?> ExpectedCommand,
             string ExpectedLabel,
             bool ExpectedCanExecute)[] cases =
         [
@@ -1201,7 +1201,7 @@ public class VersionControlTabViewModelTests
                 false,
                 false,
                 "checkpoint",
-                VersionControlPrimaryActionKind.Commit,
+                vm => vm.CommitCommand,
                 Strings.VersionControl_CommitNow,
                 true),
             (
@@ -1212,7 +1212,7 @@ public class VersionControlTabViewModelTests
                 false,
                 false,
                 string.Empty,
-                VersionControlPrimaryActionKind.Commit,
+                vm => vm.CommitCommand,
                 Strings.VersionControl_CommitNow,
                 false),
             (
@@ -1223,7 +1223,7 @@ public class VersionControlTabViewModelTests
                 true,
                 false,
                 string.Empty,
-                VersionControlPrimaryActionKind.PullFromRemote,
+                vm => vm.PullCommand,
                 string.Format(Strings.VersionControl_PullCountFormat, 3),
                 true),
             (
@@ -1234,7 +1234,7 @@ public class VersionControlTabViewModelTests
                 true,
                 false,
                 string.Empty,
-                VersionControlPrimaryActionKind.Push,
+                vm => vm.PushCommand,
                 string.Format(Strings.VersionControl_PushCountFormat, 2),
                 true),
             (
@@ -1245,7 +1245,7 @@ public class VersionControlTabViewModelTests
                 true,
                 false,
                 string.Empty,
-                VersionControlPrimaryActionKind.UpToDate,
+                _ => null,
                 Strings.VersionControl_UpToDate,
                 false),
             (
@@ -1256,7 +1256,7 @@ public class VersionControlTabViewModelTests
                 false,
                 false,
                 string.Empty,
-                VersionControlPrimaryActionKind.PublishBranch,
+                vm => vm.PublishBranchCommand,
                 Strings.VersionControl_PublishBranch,
                 true),
             (
@@ -1267,7 +1267,7 @@ public class VersionControlTabViewModelTests
                 true,
                 true,
                 string.Empty,
-                VersionControlPrimaryActionKind.Cancel,
+                vm => vm.CancelRemoteOperationCommand,
                 Strings.Cancel,
                 true),
             (
@@ -1278,7 +1278,7 @@ public class VersionControlTabViewModelTests
                 true,
                 false,
                 "checkpoint",
-                VersionControlPrimaryActionKind.Commit,
+                vm => vm.CommitCommand,
                 Strings.VersionControl_CommitNow,
                 true),
         ];
@@ -1309,10 +1309,12 @@ public class VersionControlTabViewModelTests
             VersionControlPrimaryAction action = viewModel.PrimaryAction.Value;
             Assert.Multiple(() =>
             {
-                Assert.That(
-                    action.Kind,
-                    Is.EqualTo(testCase.ExpectedKind),
-                    testCase.Name);
+                // The disabled command of an up-to-date branch is private, so its label identifies it.
+                if (testCase.ExpectedCommand(viewModel) is { } expectedCommand)
+                {
+                    Assert.That(action.Command, Is.SameAs(expectedCommand), testCase.Name);
+                }
+
                 Assert.That(
                     action.Label,
                     Is.EqualTo(testCase.ExpectedLabel),
@@ -2499,13 +2501,19 @@ public class VersionControlTabViewModelTests
     {
         var now = new DateTimeOffset(2026, 7, 28, 12, 0, 0, TimeSpan.Zero);
         var timeProvider = new FakeTimeProvider(now);
-        var formatter = new VersionControlRelativeTimeFormatter(
-            timeProvider,
-            CultureInfo.GetCultureInfo(cultureName));
+        var formatter = new VersionControlRelativeTimeFormatter(timeProvider);
+        CultureInfo previousCulture = CultureInfo.CurrentUICulture;
+        CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo(cultureName);
+        try
+        {
+            string result = formatter.Format(now - TimeSpan.FromSeconds(elapsedSeconds));
 
-        string result = formatter.Format(now - TimeSpan.FromSeconds(elapsedSeconds));
-
-        Assert.That(result, Is.EqualTo(expected));
+            Assert.That(result, Is.EqualTo(expected));
+        }
+        finally
+        {
+            CultureInfo.CurrentUICulture = previousCulture;
+        }
     }
 
     [Test]
@@ -2612,7 +2620,6 @@ public class VersionControlTabViewModelTests
         Assert.That(queuedUiActions, Has.Count.EqualTo(1));
         viewModel.Dispose();
         await push.WaitAsync(TimeSpan.FromSeconds(2));
-        await viewModel.RemoteOperationCompletion.WaitAsync(TimeSpan.FromSeconds(2));
         queuedUiActions[0]();
 
         Assert.That(notificationCalls, Is.Zero);
@@ -3169,7 +3176,6 @@ public class VersionControlTabViewModelTests
         releasePrompt.TrySetResult("https://example.invalid/new.git");
         await first.WaitAsync(TimeSpan.FromSeconds(2));
         await duplicate.WaitAsync(TimeSpan.FromSeconds(2));
-        await viewModel.ConfigureRemoteCompletion.WaitAsync(TimeSpan.FromSeconds(2));
 
         Assert.That(setRemoteCalls, Is.EqualTo(1));
     }
@@ -3383,7 +3389,6 @@ public class VersionControlTabViewModelTests
 
         await promptCanceled.Task.WaitAsync(TimeSpan.FromSeconds(2));
         await configure.WaitAsync(TimeSpan.FromSeconds(2));
-        await viewModel.ConfigureRemoteCompletion.WaitAsync(TimeSpan.FromSeconds(2));
         await viewModel.RemoteOperationCompletion.WaitAsync(TimeSpan.FromSeconds(2));
         coordinator.Verify(
             x => x.SetRemoteAsync(
@@ -3441,7 +3446,6 @@ public class VersionControlTabViewModelTests
         await viewModel.Initialization;
         await promptCanceled.Task.WaitAsync(TimeSpan.FromSeconds(2));
         await configure.WaitAsync(TimeSpan.FromSeconds(2));
-        await viewModel.ConfigureRemoteCompletion.WaitAsync(TimeSpan.FromSeconds(2));
 
         await viewModel.SetRemoteAsync();
 
@@ -3542,7 +3546,6 @@ public class VersionControlTabViewModelTests
         await viewModel.Initialization;
         setRemoteCompletion.TrySetException(new ArgumentException("stale validation"));
         await configure.WaitAsync(TimeSpan.FromSeconds(2));
-        await viewModel.ConfigureRemoteCompletion.WaitAsync(TimeSpan.FromSeconds(2));
 
         Assert.Multiple(() =>
         {

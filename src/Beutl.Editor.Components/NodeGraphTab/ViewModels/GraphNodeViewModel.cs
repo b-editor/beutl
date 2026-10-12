@@ -98,8 +98,6 @@ public sealed partial class GraphNodeViewModel : IDisposable, IJsonSerializable,
 
     public ReactiveProperty<bool> IsSelected { get; } = new();
 
-    public bool IsGroupNode => GraphNode is GroupNode;
-
     public bool IsFallback => GraphNode is IFallback;
 
     public string ActualTypeName => FallbackHelper.GetTypeName(GraphNode);
@@ -223,7 +221,6 @@ public sealed partial class GraphNodeViewModel : IDisposable, IJsonSerializable,
         }
 
         Items.Clear();
-        Position.Dispose();
         _disposables.Dispose();
     }
 

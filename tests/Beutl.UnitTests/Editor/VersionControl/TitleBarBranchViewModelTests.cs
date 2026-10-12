@@ -1,5 +1,4 @@
-﻿using System.Globalization;
-using Beutl.Editor.Components.VersionControl.ViewModels;
+﻿using Beutl.Editor.Components.VersionControl.ViewModels;
 using Beutl.Editor.VersionControl;
 using Beutl.Language;
 using Moq;
@@ -815,8 +814,7 @@ public class TitleBarBranchViewModelTests
             TitleBarBranchViewModel.FormatDisplayText(
                 branchName,
                 ahead,
-                behind,
-                CultureInfo.InvariantCulture),
+                behind),
             Is.EqualTo(expected));
     }
 
