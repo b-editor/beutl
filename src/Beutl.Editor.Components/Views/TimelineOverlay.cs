@@ -1,11 +1,10 @@
 ﻿using Avalonia;
-using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
 
 namespace Beutl.Editor.Components.Views;
 
-public sealed class TimelineOverlay : Control
+public sealed class TimelineOverlay : TimelineBarsControl
 {
     public static readonly DirectProperty<TimelineOverlay, Vector> OffsetProperty
         = AvaloniaProperty.RegisterDirect<TimelineOverlay, Vector>(
@@ -19,44 +18,17 @@ public sealed class TimelineOverlay : Control
         = AvaloniaProperty.RegisterDirect<TimelineOverlay, Rect>(
             nameof(SelectionRange), o => o.SelectionRange, (o, v) => o.SelectionRange = v);
 
-    public static readonly DirectProperty<TimelineOverlay, Thickness> StartingBarMarginProperty
-        = AvaloniaProperty.RegisterDirect<TimelineOverlay, Thickness>(
-            nameof(StartingBarMargin), o => o.StartingBarMargin, (o, v) => o.StartingBarMargin = v);
-
-    public static readonly DirectProperty<TimelineOverlay, Thickness> EndingBarMarginProperty
-        = AvaloniaProperty.RegisterDirect<TimelineOverlay, Thickness>(
-            nameof(EndingBarMargin), o => o.EndingBarMargin, (o, v) => o.EndingBarMargin = v);
-
-    public static readonly DirectProperty<TimelineOverlay, Thickness> SeekBarMarginProperty
-        = AvaloniaProperty.RegisterDirect<TimelineOverlay, Thickness>(
-            nameof(SeekBarMargin), o => o.SeekBarMargin, (o, v) => o.SeekBarMargin = v);
-
     public static readonly DirectProperty<TimelineOverlay, double?> SnapBarPositionProperty
         = AvaloniaProperty.RegisterDirect<TimelineOverlay, double?>(
             nameof(SnapBarPosition), o => o.SnapBarPosition, (o, v) => o.SnapBarPosition = v);
-
-    public static readonly StyledProperty<IBrush?> SeekBarBrushProperty
-        = AvaloniaProperty.Register<TimelineOverlay, IBrush?>(nameof(SeekBarBrush));
-
-    public static readonly StyledProperty<IBrush?> StartingBarBrushProperty
-        = AvaloniaProperty.Register<TimelineOverlay, IBrush?>(nameof(StartingBarBrush));
-
-    public static readonly StyledProperty<IBrush?> EndingBarBrushProperty
-        = AvaloniaProperty.Register<TimelineOverlay, IBrush?>(nameof(EndingBarBrush));
 
     public static readonly StyledProperty<IBrush?> SnapBarBrushProperty
         = AvaloniaProperty.Register<TimelineOverlay, IBrush?>(nameof(SnapBarBrush));
 
     private Vector _offset;
-    private Thickness _startingBarMargin;
-    private Thickness _endingBarMargin;
-    private Thickness _seekBarMargin;
     private double? _snapBarPosition;
     private Size _viewport;
     private Rect _selectionRange;
-    private ImmutablePen? _seekBarPen;
-    private ImmutablePen? _startingBarPen;
-    private ImmutablePen? _endingBarPen;
     private ImmutablePen? _snapBarPen;
 
     static TimelineOverlay()
@@ -65,13 +37,7 @@ public sealed class TimelineOverlay : Control
             OffsetProperty,
             ViewportProperty,
             SelectionRangeProperty,
-            StartingBarMarginProperty,
-            EndingBarMarginProperty,
-            SeekBarMarginProperty,
             SnapBarPositionProperty,
-            SeekBarBrushProperty,
-            StartingBarBrushProperty,
-            EndingBarBrushProperty,
             SnapBarBrushProperty);
     }
 
@@ -98,24 +64,6 @@ public sealed class TimelineOverlay : Control
         set => SetAndRaise(SelectionRangeProperty, ref _selectionRange, value);
     }
 
-    public Thickness StartingBarMargin
-    {
-        get => _startingBarMargin;
-        set => SetAndRaise(StartingBarMarginProperty, ref _startingBarMargin, value);
-    }
-
-    public Thickness EndingBarMargin
-    {
-        get => _endingBarMargin;
-        set => SetAndRaise(EndingBarMarginProperty, ref _endingBarMargin, value);
-    }
-
-    public Thickness SeekBarMargin
-    {
-        get => _seekBarMargin;
-        set => SetAndRaise(SeekBarMarginProperty, ref _seekBarMargin, value);
-    }
-
     public double? SnapBarPosition
     {
         get => _snapBarPosition;
@@ -128,40 +76,10 @@ public sealed class TimelineOverlay : Control
         set => SetValue(SnapBarBrushProperty, value);
     }
 
-    public IBrush? SeekBarBrush
-    {
-        get => GetValue(SeekBarBrushProperty);
-        set => SetValue(SeekBarBrushProperty, value);
-    }
-
-    public IBrush? StartingBarBrush
-    {
-        get => GetValue(StartingBarBrushProperty);
-        set => SetValue(StartingBarBrushProperty, value);
-    }
-
-    public IBrush? EndingBarBrush
-    {
-        get => GetValue(EndingBarBrushProperty);
-        set => SetValue(EndingBarBrushProperty, value);
-    }
-
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
-        if (change.Property == SeekBarBrushProperty)
-        {
-            _seekBarPen = new ImmutablePen(SeekBarBrush?.ToImmutable(), 1.25);
-        }
-        else if (change.Property == StartingBarBrushProperty)
-        {
-            _startingBarPen = new ImmutablePen(StartingBarBrush?.ToImmutable(), 1.25);
-        }
-        else if (change.Property == EndingBarBrushProperty)
-        {
-            _endingBarPen = new ImmutablePen(EndingBarBrush?.ToImmutable(), 1.25);
-        }
-        else if (change.Property == SnapBarBrushProperty)
+        if (change.Property == SnapBarBrushProperty)
         {
             _snapBarPen = new ImmutablePen(SnapBarBrush?.ToImmutable(), 1.0, new ImmutableDashStyle([3, 3], 0));
         }
@@ -170,9 +88,6 @@ public sealed class TimelineOverlay : Control
     public override void Render(DrawingContext context)
     {
         base.Render(context);
-        _seekBarPen ??= new ImmutablePen(SeekBarBrush?.ToImmutable(), 1.25);
-        _startingBarPen ??= new ImmutablePen(StartingBarBrush?.ToImmutable(), 1.25);
-        _endingBarPen ??= new ImmutablePen(EndingBarBrush?.ToImmutable(), 1.25);
 
         Rect rect = _selectionRange.Normalize();
         context.FillRectangle(TimelineSharedObject.SelectionFillBrush, rect);
@@ -182,20 +97,13 @@ public sealed class TimelineOverlay : Control
         using (context.PushTransform(Matrix.CreateTranslation(0, _offset.Y)))
         {
             double height = _viewport.Height;
-            var seekbar = new Point(_seekBarMargin.Left, 0);
-            var startingbar = new Point(_startingBarMargin.Left, 0);
-            var endingbar = new Point(_endingBarMargin.Left, 0);
-            var bottom = new Point(0, height);
-
-            context.DrawLine(_seekBarPen, seekbar, seekbar + bottom);
-            context.DrawLine(_startingBarPen, startingbar, startingbar + bottom);
-            context.DrawLine(_endingBarPen, endingbar, endingbar + bottom);
+            DrawBars(context, height);
 
             if (_snapBarPosition is { } snap)
             {
                 _snapBarPen ??= new ImmutablePen(SnapBarBrush?.ToImmutable(), 1.0, new ImmutableDashStyle([3, 3], 0));
                 var snapBar = new Point(snap, 0);
-                context.DrawLine(_snapBarPen, snapBar, snapBar + bottom);
+                context.DrawLine(_snapBarPen, snapBar, snapBar + new Point(0, height));
             }
         }
     }

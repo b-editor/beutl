@@ -2,10 +2,8 @@
 using Avalonia.Headless.NUnit;
 using Avalonia.Threading;
 using Beutl.Editor.Components.LibraryTab.ViewModels;
-using Beutl.Extensibility;
 using Beutl.Graphics.Shapes;
 using Beutl.Services;
-using Moq;
 
 namespace Beutl.HeadlessUITests;
 
@@ -133,7 +131,7 @@ public sealed class LibraryTabSearchLifetimeTests
 
     private static LibraryTabViewModel CreateViewModel()
     {
-        var viewModel = new LibraryTabViewModel(Mock.Of<IEditorContext>());
+        var viewModel = new LibraryTabViewModel();
         viewModel.AllItems.Clear();
         return viewModel;
     }

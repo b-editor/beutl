@@ -11,14 +11,6 @@ public partial class CurvesTabView : UserControl
         InitializeComponent();
     }
 
-    private void CurveEditor_DragStarted(object? sender, EventArgs e)
-    {
-        if (sender is CurveEditor editor && DataContext is CurvesTabViewModel viewModel)
-        {
-            GetCurvePresenter(editor, viewModel)?.BeginEdit();
-        }
-    }
-
     private void CurveEditor_DragCompleted(object? sender, EventArgs e)
     {
         if (sender is CurveEditor editor && DataContext is CurvesTabViewModel viewModel)

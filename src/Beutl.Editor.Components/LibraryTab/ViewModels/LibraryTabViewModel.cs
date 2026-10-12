@@ -26,9 +26,8 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
     private int _refreshQueued;
     private string? _query;
 
-    public LibraryTabViewModel(IEditorContext editorContext)
+    public LibraryTabViewModel()
     {
-        _ = editorContext;
         _lifetimeToken = _lifetimeCancellation.Token;
 
         // Subscribed before the items are read, so that nothing registered in between is missed.

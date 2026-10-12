@@ -1,5 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.Api.Services;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Engine;
 using Beutl.PropertyAdapters;
 using Beutl.Services;
@@ -60,38 +61,12 @@ public sealed class PropertiesEditorViewModel : IDisposable, IJsonSerializable, 
 
     public void ReadFromJson(JsonObject json)
     {
-        if (json.TryGetPropertyValue(nameof(Properties), out JsonNode? propsNode)
-            && propsNode is JsonArray propsArray)
-        {
-            foreach ((JsonNode? node, IPropertyEditorContext? context) in propsArray.Zip(Properties))
-            {
-                if (context != null && node != null)
-                {
-                    context.ReadFromJson(node.AsObject());
-                }
-            }
-        }
+        NestedEditorContextHelper.ReadEditorArray(json, nameof(Properties), Properties);
     }
 
     public void WriteToJson(JsonObject json)
     {
-        var array = new JsonArray();
-
-        foreach (IPropertyEditorContext? item in Properties.GetMarshal().Value)
-        {
-            if (item == null)
-            {
-                array.Add(null);
-            }
-            else
-            {
-                var node = new JsonObject();
-                item.WriteToJson(node);
-                array.Add(node);
-            }
-        }
-
-        json[nameof(Properties)] = array;
+        NestedEditorContextHelper.WriteEditorArray(json, nameof(Properties), Properties);
     }
 
     private void InitializeEngineObject(EngineObject obj, Func<IProperty, bool>? predicate = null)

@@ -11,10 +11,8 @@ public sealed class CurvePresenterViewModel : IDisposable
     private readonly HistoryManager _history;
     private bool _isUpdating;
 
-    public CurvePresenterViewModel(string header, IProperty<CurveMap> property,
-        HistoryManager history)
+    public CurvePresenterViewModel(IProperty<CurveMap> property, HistoryManager history)
     {
-        Header = header;
         _property = property;
         _history = history;
 
@@ -23,13 +21,7 @@ public sealed class CurvePresenterViewModel : IDisposable
         _property.ValueChanged += OnPropertyChanged;
     }
 
-    public string Header { get; }
-
     public ObservableCollection<CurveControlPoint> Points { get; }
-
-    public void BeginEdit()
-    {
-    }
 
     public void EndEdit()
     {
@@ -61,13 +53,11 @@ public sealed class CurvePresenterViewModel : IDisposable
         _isUpdating = true;
         try
         {
-            Points.CollectionChanged -= OnCollectionChanged;
             Points.Clear();
             foreach (var point in _property.CurrentValue.Points)
             {
                 Points.Add(point);
             }
-            Points.CollectionChanged += OnCollectionChanged;
         }
         finally
         {

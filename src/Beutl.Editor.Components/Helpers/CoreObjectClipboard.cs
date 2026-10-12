@@ -13,7 +13,6 @@ public static class CoreObjectClipboard
 {
     private static readonly ILogger s_logger = Log.CreateLogger(typeof(CoreObjectClipboard));
 
-    // クリップボードにICoreSerializableオブジェクトをJSON化して保存する
     public static async ValueTask<bool> CopyAsync(ICoreSerializable obj, DataFormat<string> format)
     {
         IClipboard? clipboard = ClipboardHelper.GetClipboard();
@@ -27,14 +26,13 @@ public static class CoreObjectClipboard
         return true;
     }
 
-    // クリップボードから指定フォーマットのJSON文字列を取得
     public static async ValueTask<string?> TryGetJsonAsync(IClipboard clipboard, DataFormat<string> format)
     {
         if (await clipboard.TryGetValueAsync(format) is not { } data) return null;
         return IsJsonData(data) ? data : null;
     }
 
-    // JSON文字列から指定型のオブジェクトに復元し、Idを新規生成して返す
+    // 復元した複製の Id を振り直して返す
     public static bool TryDeserializeJson<T>(string? json, [NotNullWhen(true)] out T? result)
         where T : class, ICoreObject
     {
@@ -62,11 +60,11 @@ public static class CoreObjectClipboard
         }
     }
 
-    // 文字列がJSON形式かどうかを判定する
+    // 先頭が '{' かどうかだけを見る簡易判定
     public static bool IsJsonData(string? data)
     {
         if (string.IsNullOrWhiteSpace(data)) return false;
         ReadOnlySpan<char> span = data.AsSpan().TrimStart();
-        return span.Length > 0 && span[0] == '{';
+        return span[0] == '{';
     }
 }

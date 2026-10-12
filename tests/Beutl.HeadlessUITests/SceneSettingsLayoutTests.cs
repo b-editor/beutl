@@ -5,6 +5,7 @@ using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.Media.Imaging;
 using Avalonia.Styling;
+using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.SceneSettingsTab.ViewModels;
 using Beutl.Editor.Components.SceneSettingsTab.Views;
 using Beutl.Editor.Services;
@@ -52,7 +53,7 @@ public class SceneSettingsLayoutTests
             Button revert = view.FindControl<Button>("RevertButton")!;
             TextBox start = view.FindControl<TextBox>("StartInputTextBox")!;
             TextBox duration = view.FindControl<TextBox>("DurationInputTextBox")!;
-            IntEditor layers = view.FindControl<IntEditor>("countEditor")!;
+            NumberEditor<int> layers = view.FindControl<NumberEditor<int>>("countEditor")!;
             Capture(window, $"initial-{width}x{height}-{light}");
 
             if (height == 160)

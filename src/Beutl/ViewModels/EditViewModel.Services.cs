@@ -89,7 +89,7 @@ public partial class EditViewModel
                         HistoryManager,
                         _clipboardGateway,
                         (IElementDuplicateService)GetService(typeof(IElementDuplicateService))!,
-                        static () => Beutl.Editor.Components.Helpers.ColorGenerator.GenerateColor(
+                        static () => ElementAccentColorGenerator.GenerateColor(
                             typeof(Beutl.Graphics.SourceImage).FullName!),
                         _elementAdder));
 

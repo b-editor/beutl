@@ -33,6 +33,7 @@ public static class AnimationOperations
         {
             (IKeyFrame? prevIKeyFrame, IKeyFrame? nextIKeyFrame) = animation.GetPreviousAndNextKeyFrame(keyTime);
 
+            (KeyFrame<T> Next, SplineEasing Right)? split = null;
             if (defaultEasing
                 && nextIKeyFrame is KeyFrame<T> nextKeyFrame
                 && prevIKeyFrame is KeyFrame<T> prevKeyFrame
@@ -41,29 +42,24 @@ public static class AnimationOperations
                 var duration = nextKeyFrame.KeyTime - prevKeyFrame.KeyTime;
                 float t = (float)(keyTime - prevKeyFrame.KeyTime).TotalMilliseconds /
                           (float)duration.TotalMilliseconds;
-                var (left, right) = SplineEasingHelper.SplitByT(existingEasing, t);
-                createdKeyFrame = new KeyFrame<T>
-                {
-                    Value = animation.Interpolate(keyTime),
-                    Easing = left,
-                    KeyTime = keyTime
-                };
-
-                animation.KeyFrames.Add(createdKeyFrame, out _);
-                nextKeyFrame.Easing = right;
+                (easing, SplineEasing right) = SplineEasingHelper.SplitByT(existingEasing, t);
+                split = (nextKeyFrame, right);
             }
             else
             {
                 easing ??= new SplineEasing();
-                createdKeyFrame = new KeyFrame<T>
-                {
-                    Value = animation.Interpolate(keyTime),
-                    Easing = easing,
-                    KeyTime = keyTime
-                };
-
-                animation.KeyFrames.Add(createdKeyFrame, out _);
             }
+
+            createdKeyFrame = new KeyFrame<T>
+            {
+                Value = animation.Interpolate(keyTime),
+                Easing = easing,
+                KeyTime = keyTime
+            };
+
+            animation.KeyFrames.Add(createdKeyFrame, out _);
+            if (split is { } s)
+                s.Next.Easing = s.Right;
         }
 
         return createdKeyFrame;
@@ -93,7 +89,6 @@ public static class AnimationOperations
 
         var index = animation.KeyFrames.IndexOf(keyframe);
 
-        // 次の要素があるとき
         SplineEasingHelper.Remove(animation, index);
     }
 }

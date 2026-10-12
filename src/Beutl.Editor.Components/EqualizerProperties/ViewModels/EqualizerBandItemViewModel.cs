@@ -132,7 +132,7 @@ public sealed class EqualizerBandItemViewModel : IDisposable
         return keyFrames[idx] as KeyFrame<float>;
     }
 
-    private static bool IsGainUsed(BiQuadFilterType type) =>
+    internal static bool IsGainUsed(BiQuadFilterType type) =>
         type is BiQuadFilterType.Peak or BiQuadFilterType.LowShelf or BiQuadFilterType.HighShelf;
 
     private static string FormatFrequencyLabel(float freq)

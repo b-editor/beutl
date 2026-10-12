@@ -27,7 +27,7 @@ public static class TutorialHelpers
         var editVm = GetEditViewModel(editorService);
         if (editVm == null) return false;
 
-        var tab = editVm.FindToolTab<LibraryTabViewModel>() ?? new LibraryTabViewModel(editVm);
+        var tab = editVm.FindToolTab<LibraryTabViewModel>() ?? new LibraryTabViewModel();
         editVm.OpenToolTab(tab);
         return true;
     }

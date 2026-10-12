@@ -3,26 +3,10 @@
 namespace Beutl.Editor.Components.Helpers;
 
 /// <summary>
-/// A published engine resource that can only be read while its owner is holding still.
+/// A published engine resource, reachable only through <see cref="Read(Action{TResource})"/> and
+/// <see cref="Project{TChild}"/> while its owner is held off. <see cref="Version"/> identifies the publication;
+/// every access re-checks the resource, because a rebuild can release a child early.
 /// </summary>
-/// <remarks>
-/// <para>
-/// The resource itself is never handed out: the only way to reach it is <see cref="Read(Action{TResource})"/>
-/// and its siblings, which take the gate the owning dispatcher holds across the rebuild. A reader that
-/// smuggles the resource out of that callback is back to racing the rebuild, which is the whole hazard this
-/// type exists to close.
-/// </para>
-/// <para>
-/// <see cref="Version"/> is the resource's version as of the publication that produced this handle, and is
-/// what makes two handles over the same resource compare unequal once it has changed. It is not re-checked
-/// on read: a read sees whatever the resource holds at that moment, consistently.
-/// </para>
-/// <para>
-/// The gate records only the owning subscription's release, which is the end of the resource tree, not of any
-/// one resource in it. A rebuild releases a child the moment it drops it, so every entry point re-checks the
-/// resource it is about to lend as well.
-/// </para>
-/// </remarks>
 public readonly struct EngineResourceHandle<TResource> : IEquatable<EngineResourceHandle<TResource>>
     where TResource : EngineObject.Resource
 {
@@ -54,26 +38,11 @@ public readonly struct EngineResourceHandle<TResource> : IEquatable<EngineResour
     public bool Read(Action<TResource> read)
     {
         ArgumentNullException.ThrowIfNull(read);
-        if (_gate is null || _resource is null)
-            return false;
-
-        lock (_gate.SyncRoot)
+        return Read(resource =>
         {
-            if (IsGone)
-                return false;
-
-            _gate.EnterRead();
-            try
-            {
-                read(_resource);
-            }
-            finally
-            {
-                _gate.ExitRead();
-            }
-
+            read(resource);
             return true;
-        }
+        }, false);
     }
 
     /// <summary>
@@ -108,17 +77,8 @@ public readonly struct EngineResourceHandle<TResource> : IEquatable<EngineResour
     /// Reaches a resource this one owns and hands it back behind the same gate.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// A child is released with its parent, so it belongs behind the parent's gate rather than one of its
-    /// own. <paramref name="select"/> runs with the owner held off, because reaching a child is itself a
-    /// read.
-    /// </para>
-    /// <para>
-    /// A child is also released well before its parent: a rebuild that replaces or drops one disposes it on
-    /// the spot, leaving the gate open and this handle pointing at nothing. It reads as empty from then on,
-    /// while a projection whose child the rebuild kept goes on reading - a version bump alone must not
-    /// invalidate one, or every unrelated edit to the parent would blank the projection for a frame.
-    /// </para>
+    /// <paramref name="select"/> runs with the owner held off. A rebuild that drops the child leaves the handle
+    /// reading as empty, while a child the rebuild kept goes on reading even after a version bump.
     /// </remarks>
     public EngineResourceHandle<TChild>? Project<TChild>(Func<TResource, TChild?> select)
         where TChild : EngineObject.Resource

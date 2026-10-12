@@ -1,6 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.Reflection;
-using System.Text;
 using System.Text.RegularExpressions;
 
 using Avalonia.Input;
@@ -89,13 +88,13 @@ public class LibraryItemViewModel
         if (Data is LibraryItem libitem)
         {
             if (libitem is SingleTypeLibraryItem single)
-                yield return (GetKnownDataFormat(single.Format), single.ImplementationType);
+                yield return (DataFormat.CreateStringApplicationFormat(single.Format), single.ImplementationType);
 
             if (libitem is MultipleTypeLibraryItem multi)
             {
                 foreach ((string s, Type t) in multi.Types)
                 {
-                    yield return (GetKnownDataFormat(s), t);
+                    yield return (DataFormat.CreateStringApplicationFormat(s), t);
                 }
             }
         }
@@ -103,25 +102,6 @@ public class LibraryItemViewModel
         {
             yield return (BeutlDataFormats.GraphNode, regitem.Type);
         }
-    }
-
-    private static DataFormat<string> GetKnownDataFormat(string format)
-    {
-        return format switch
-        {
-            KnownLibraryItemFormats.Easing => BeutlDataFormats.Easing,
-            KnownLibraryItemFormats.Transform => BeutlDataFormats.Transform,
-            KnownLibraryItemFormats.Sound => BeutlDataFormats.Sound,
-            KnownLibraryItemFormats.Geometry => BeutlDataFormats.Geometry,
-            KnownLibraryItemFormats.Drawable => BeutlDataFormats.Drawable,
-            KnownLibraryItemFormats.Brush => BeutlDataFormats.Brush,
-            KnownLibraryItemFormats.FilterEffect => BeutlDataFormats.FilterEffect,
-            KnownLibraryItemFormats.ClipTransition => BeutlDataFormats.ClipTransition,
-            KnownLibraryItemFormats.GraphNode => BeutlDataFormats.GraphNode,
-            KnownLibraryItemFormats.AudioEffect => BeutlDataFormats.AudioEffect,
-            KnownLibraryItemFormats.EngineObject => BeutlDataFormats.EngineObject,
-            _ => DataFormat.CreateStringApplicationFormat(format)
-        };
     }
 
     public int Match(Regex[] regexes)
@@ -143,7 +123,7 @@ public class LibraryItemViewModel
             result++;
         }
 
-        if (FullDisplayName != null && RegexHelper.IsMatch(regexes, FullDisplayName))
+        if (RegexHelper.IsMatch(regexes, FullDisplayName))
         {
             result++;
         }
@@ -214,18 +194,7 @@ public class LibraryItemViewModel
                 .Where(v => !string.IsNullOrEmpty(v))
                 .ToArray();
             Array.Sort(array);
-
-            var sb = new StringBuilder(multi.Types.Count * 12);
-            for (int i = 0; i < array.Length - 1; i++)
-            {
-                sb.Append(array[i]);
-                sb.Append(" | ");
-            }
-
-            if (array.Length > 0)
-                sb.Append(array[^1]);
-
-            return sb.ToString();
+            return string.Join(" | ", array);
         }
         else
         {

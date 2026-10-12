@@ -1,5 +1,4 @@
-﻿using Beutl.Graphics.Effects;
-using Beutl.ProjectSystem;
+﻿using Beutl.ProjectSystem;
 
 namespace Beutl.Editor.Components.Helpers;
 
@@ -28,11 +27,6 @@ internal static class ToolTabHeaderHelper
         return element is null
             ? Observable.ReturnThenNever(string.Empty)
             : element.GetObservable(CoreObject.NameProperty).Select(n => ElementLabel(n, element));
-    }
-
-    public static IObservable<string> ObserveEffectLabel(FilterEffect? effect)
-    {
-        return ObserveObjectLabel(effect);
     }
 
     // The object's own name, or the label of the element it belongs to.

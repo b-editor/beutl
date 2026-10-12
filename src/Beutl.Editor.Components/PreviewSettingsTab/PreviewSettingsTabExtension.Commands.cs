@@ -27,8 +27,7 @@ public sealed partial class PreviewSettingsTabExtension : IContextCommandHandler
 
     public async Task ExecuteAsync(ContextCommandExecution execution)
     {
-        if (!CanExecute(execution)
-            || execution.Interaction is not { } interaction
+        if (execution.Interaction is not { } interaction
             || execution.EditorContext?.GetService<IPreviewRenderQuality>() is not { } quality)
         {
             return;
