@@ -55,7 +55,7 @@ jobs:
           python3 -m unittest discover -s native/SkiaSharp -p 'test_*.py'
           python3 native/SkiaSharp/verify.py
 
-      - name: Test the native architecture check
+      - name: Test the build checks
         run: python3 -m unittest discover -s build -p 'test_*.py'
 
       - name: Resolve .NET SDK version

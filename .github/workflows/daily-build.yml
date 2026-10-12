@@ -48,6 +48,11 @@ jobs:
     - name: Verify native architecture
       run: python3 build/verify_native_architecture.py --rid ${{ matrix.rid }} output/Beutl
 
+    # The release build runs the same check (build-executable.yml); here it fails before a release does.
+    - name: Smoke-test the FFmpeg worker and the MCP host
+      if: matrix.rid == 'linux_x64'
+      run: python3 build/smoke_test_output.py output/Beutl
+
     - name: Zip
       run: |
         ./build.sh zip \
