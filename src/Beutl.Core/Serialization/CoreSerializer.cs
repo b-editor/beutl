@@ -23,8 +23,9 @@ public record CoreSerializerOptions
     /// write does what the one around it does, which keeps them at the top.
     /// </summary>
     /// <remarks>
-    /// The Beutl 1.x element migration drops them, since 2.x does not read what 1.x kept for itself, and agent
-    /// documents leave them out, since an agent edits only members Beutl knows.
+    /// The Beutl 1.x element migration drops them, since 2.x does not read what 1.x kept for itself. Agent
+    /// documents leave them out and applying one keeps none of its own, since an agent edits only members Beutl
+    /// knows. Populating with this off leaves the members an object kept before alone.
     /// </remarks>
     internal bool? KeepUnknownMembers { get; init; }
 }
@@ -294,7 +295,10 @@ public static partial class CoreSerializer
             JsonObject current = SerializeToJsonObject(obj, new CoreSerializerOptions
             {
                 BaseUri = context.BaseUri,
-                Mode = context.Mode & ~CoreSerializationMode.SaveReferencedObjects
+                Mode = context.Mode & ~CoreSerializationMode.SaveReferencedObjects,
+                // Like json: JSON without the unknown members, such as an agent document, must find a value
+                // that differs only in them unchanged, or the value is replaced by one without them.
+                KeepUnknownMembers = context.KeepsUnknownMembers
             }, capturedValues);
             context.PreserveUnchangedValues(current, capturedValues);
         }

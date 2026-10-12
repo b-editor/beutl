@@ -93,7 +93,8 @@ internal sealed partial class SceneRecovery
     // original file: content the Beutl 1.x migration could not convert, a load incident that left no fallback
     // (such as a keyframe easing that could not be read), or a fallback that saving the element does not
     // write. A fallback that saving writes is no reason: it writes the JSON it was read from back, so the
-    // object whose type could not be loaded survives the save as it was.
+    // object whose type could not be loaded survives the save as it was. An element kept for a fallback that
+    // saving does not write is also recorded in s_elementsDroppingFallbacks, since no edit inside it repairs that.
     private static bool KeepsOriginalFile(
         Element element,
         IReadOnlyList<DeserializationIncidents.DeserializationIncident> incidents)
@@ -117,7 +118,13 @@ internal sealed partial class SceneRecovery
                 BaseUri = element.Uri,
                 Mode = CoreSerializationMode.ReadWrite | CoreSerializationMode.EmbedReferencedObjects,
             });
-        return incidents.Any(incident => !serialized.Contains(incident.Fallback!));
+        if (incidents.All(incident => serialized.Contains(incident.Fallback!)))
+        {
+            return false;
+        }
+
+        s_elementsDroppingFallbacks.AddOrUpdate(element, s_elementDroppingFallbacksMarker);
+        return true;
     }
 
     // A fallback whose JSON has no Id gets the one it has at runtime written into its JSON, so that it keeps one
@@ -177,6 +184,13 @@ internal sealed partial class SceneRecovery
     // none of the file's content, so removing one is the repair that accepts losing that content.
     private static readonly ConditionalWeakTable<FallbackEngineObject, object> s_unreadableElementData = new();
     private static readonly object s_unreadableElementDataMarker = new();
+
+    // The elements whose original file recovery keeps because saving them would not write a fallback read with
+    // them (see KeepsOriginalFile). Nothing tells which part of the element drops the fallback, so no edit inside
+    // the element repairs that: it stays protected until it is removed, or until a build that writes the fallback
+    // opens it again.
+    private static readonly ConditionalWeakTable<Element, object> s_elementsDroppingFallbacks = new();
+    private static readonly object s_elementDroppingFallbacksMarker = new();
 
     private void MarkRecoveredElement(
         Element element,
@@ -290,7 +304,9 @@ internal sealed partial class SceneRecovery
     // convert, the stand-in for an element file that could not be read, or a keyframe whose easing could
     // not be read. A fallback for an object whose type could not be loaded is not one: saving writes its
     // JSON back. Content nested where the serialized graph does not reach (for example inside a record) is
-    // not found.
+    // not found. Neither is a fallback that saving the element does not write: nothing tells which content
+    // drops it, so HoldsUnresolvedRecoveryBlocker counts the whole element instead, and removing content
+    // never repairs it.
     internal static bool HoldsRecoveryBlocker(object? content)
     {
         return SerializedGraphTraversal.Visit(
@@ -306,9 +322,12 @@ internal sealed partial class SceneRecovery
                || (obj is FallbackEngineObject fallback && s_unreadableElementData.TryGetValue(fallback, out _));
     }
 
+    // A recovery blocker, an easing that could not be read where the serialized graph does not reach, or a
+    // fallback that saving the element does not write.
     private static bool HoldsUnresolvedRecoveryBlocker(Element element)
     {
-        return HoldsRecoveryBlocker(element)
+        return s_elementsDroppingFallbacks.TryGetValue(element, out _)
+               || HoldsRecoveryBlocker(element)
                || HasUnresolvedSerializedRecoveryBlocker(element);
     }
 

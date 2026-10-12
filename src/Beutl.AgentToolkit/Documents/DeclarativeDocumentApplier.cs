@@ -59,11 +59,13 @@ internal sealed partial class DeclarativeDocumentApplier
     }
 
     // A fallback stands in for an object whose type could not be loaded and saves the JSON it was read from,
-    // which is what the document shows for it. There is nothing Beutl knows in it to apply, and populating it
-    // would replace that JSON with the payload, so an agent can leave it as it is or remove it, but not edit it.
-    private static void ApplyFallback(IFallback fallback, JsonObject desired)
+    // which is what the document shows for it, with the Uri of its own file when it has one. There is nothing
+    // Beutl knows in it to apply, and populating it would replace that JSON with the payload, so an agent can
+    // leave it as it is or remove it, but not edit it.
+    private void ApplyFallback(IFallback fallback, JsonObject desired)
     {
-        if (JsonNode.DeepEquals(WithoutDirectives(desired), WithoutDirectives(fallback.Json)))
+        if (JsonNode.DeepEquals(WithoutMetadata(desired), WithoutMetadata(fallback.Json))
+            && StaysInItsFile(fallback, desired))
         {
             return;
         }
@@ -77,10 +79,41 @@ internal sealed partial class DeclarativeDocumentApplier
             "Leave the object unchanged in the document, or remove it."));
     }
 
-    // The node without the list directives ($index, $after, $before and $delete) an entry may carry.
-    private static JsonObject? WithoutDirectives(JsonObject? node)
+    // Whether the Uri the document gives a fallback, if any, still resolves to the file the fallback was read
+    // from. Like any object, a fallback that the document gives no Uri keeps its file.
+    private bool StaysInItsFile(IFallback fallback, JsonObject desired)
     {
-        if (node is null || !node.Any(static pair => pair.Key is "$index" or "$after" or "$before" or "$delete"))
+        if (!desired.TryGetPropertyValue("Uri", out JsonNode? node))
+        {
+            return true;
+        }
+
+        if (fallback is not CoreObject { Uri: { } own }
+            || node is not JsonValue value
+            || !value.TryGetValue(out string? reference))
+        {
+            return false;
+        }
+
+        // The document writes the Uri relative to the base of the object around the fallback.
+        CoreObject? owner = (fallback as IHierarchical)?.HierarchicalParent as CoreObject;
+        Uri? baseUri = ResolveBaseUri(owner) ?? _documentBaseUri;
+        try
+        {
+            return UriHelper.ResolvePersistedReference(reference, baseUri) == own;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
+
+    // The node without what a document adds to an object's JSON: the list directives ($index, $after, $before
+    // and $delete) an entry may carry, and the Uri of an object stored in a file of its own.
+    private static JsonObject? WithoutMetadata(JsonObject? node)
+    {
+        if (node is null
+            || !node.Any(static pair => pair.Key is "$index" or "$after" or "$before" or "$delete" or "Uri"))
         {
             return node;
         }
@@ -90,6 +123,7 @@ internal sealed partial class DeclarativeDocumentApplier
         copy.Remove("$after");
         copy.Remove("$before");
         copy.Remove("$delete");
+        copy.Remove("Uri");
         return copy;
     }
 
@@ -432,13 +466,17 @@ internal sealed partial class DeclarativeDocumentApplier
         return CreateOptions(ResolveBaseUri(target) ?? _documentBaseUri);
     }
 
+    // Applying a document keeps no member Beutl does not know. A document leaves out the ones an object kept from
+    // its file, and populating leaves those on the object; a key the agent adds that Beutl does not know is
+    // dropped, as it was before objects kept unknown members.
     internal static CoreSerializerOptions CreateOptions(Uri? baseUri)
     {
         return new CoreSerializerOptions
         {
             BaseUri = baseUri,
             Mode = CoreSerializationMode.Read | CoreSerializationMode.EmbedReferencedObjects,
-            PreserveUnchangedValues = true
+            PreserveUnchangedValues = true,
+            KeepUnknownMembers = false
         };
     }
 
