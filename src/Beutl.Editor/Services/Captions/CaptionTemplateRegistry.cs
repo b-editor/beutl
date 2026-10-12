@@ -272,7 +272,7 @@ public sealed class CaptionTemplateRegistry : ICaptionTemplateProvider, IAsyncDi
         }
     }
 
-    internal CaptionRegistryDrain<Extension> ReplaceOwned(
+    internal CaptionRegistryDrain ReplaceOwned(
         IEnumerable<CaptionTemplateDescriptorRegistration> descriptors,
         IEnumerable<CaptionElementFactoryRegistration> factories,
         IEnumerable<CaptionPlacementPolicyRegistration> placements,
@@ -283,16 +283,13 @@ public sealed class CaptionTemplateRegistry : ICaptionTemplateProvider, IAsyncDi
         lock (_mutationGate)
         {
             ThrowIfDisposed();
-            CaptionRegistryDrain<object> retired = SwapState(State.Create(
+            return SwapState(State.Create(
                 descriptors,
                 factories,
                 placements,
                 ToObjectOwners(descriptorOwners),
                 ToObjectOwners(factoryOwners),
                 ToObjectOwners(placementOwners)));
-            return new CaptionRegistryDrain<Extension>(
-                retired.All.AsTask(),
-                owner => retired.DrainOwnerAsync(owner));
         }
     }
 
@@ -346,7 +343,7 @@ public sealed class CaptionTemplateRegistry : ICaptionTemplateProvider, IAsyncDi
         _descriptorEntries.Clear();
         _factoryEntries.Clear();
         _placementEntries.Clear();
-        CaptionRegistryDrain<object> retired = SwapState(State.Create([], [], []));
+        CaptionRegistryDrain retired = SwapState(State.Create([], [], []));
         return Task.WhenAll(
             _retiredStates.Select(state => state.RetireAsync())
                 .Append(retired.All.AsTask())
@@ -387,7 +384,7 @@ public sealed class CaptionTemplateRegistry : ICaptionTemplateProvider, IAsyncDi
                 entry => (object)entry));
     }
 
-    private CaptionRegistryDrain<object> SwapState(State next)
+    private CaptionRegistryDrain SwapState(State next)
     {
         State previous;
         lock (_stateGate)
@@ -415,7 +412,7 @@ public sealed class CaptionTemplateRegistry : ICaptionTemplateProvider, IAsyncDi
                 TaskScheduler.Default);
         }
 
-        return new CaptionRegistryDrain<object>(
+        return new CaptionRegistryDrain(
             retired,
             previous.DrainOwnerAsync);
     }
@@ -454,12 +451,12 @@ public sealed class CaptionTemplateRegistry : ICaptionTemplateProvider, IAsyncDi
         {
             if (!entries.Remove(entry))
                 return _disposeTask ?? Task.CompletedTask;
-            CaptionRegistryDrain<object> retired = SwapState(CreateDirectState());
+            CaptionRegistryDrain retired = SwapState(CreateDirectState());
             return DrainOwnerAcrossRetiredStates(entry, retired);
         }
     }
 
-    private Task DrainOwnerAcrossRetiredStates(object owner, CaptionRegistryDrain<object> retired)
+    private Task DrainOwnerAcrossRetiredStates(object owner, CaptionRegistryDrain retired)
         => Task.WhenAll(
             _retiredStates.Select(state => state.DrainOwnerAsync(owner))
                 .Append(retired.DrainOwnerAsync(owner))
@@ -489,7 +486,7 @@ public sealed class CaptionTemplateRegistry : ICaptionTemplateProvider, IAsyncDi
         }
     }
 
-    private sealed class State : CaptionRegistryLeaseState<object>
+    private sealed class State : CaptionRegistryLeaseState
     {
         private State(
             Dictionary<CaptionTemplateId, CaptionTemplateDescriptor> descriptors,

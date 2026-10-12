@@ -12,7 +12,7 @@ public sealed class WebVttCaptionCodec : ICaptionDecoder, ICaptionEncoder
         ArgumentNullException.ThrowIfNull(content);
 
         string[] lines = CaptionTextUtilities.GetLines(content);
-        if (lines.Length == 0 || !IsHeader(lines[0]))
+        if (!IsHeader(lines[0]))
         {
             return CaptionImportResult.Failure(
             [
@@ -330,13 +330,6 @@ public sealed class WebVttCaptionCodec : ICaptionDecoder, ICaptionEncoder
                     cueIndex,
                     "A WebVTT voice annotation must use canonical single-space separation without surrounding whitespace.");
             }
-        }
-
-        if (cue.Speaker?.IndexOfAny('\r', '\n') >= 0)
-        {
-            throw new CaptionExportException(
-                cueIndex,
-                "A WebVTT voice annotation cannot contain a line break.");
         }
 
         if (cue.Language is not null && !cue.Language.All(IsLanguageCharacter))

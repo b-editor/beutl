@@ -349,10 +349,11 @@ public sealed class CaptionTemplateRegistryTests
         var codec = new TestCodec();
 
         var extensions = new ExtensionProvider();
-        await using CaptionCatalog catalog = CaptionCatalog.Compose(
+        await using CaptionCatalog catalog = CaptionCatalog.ComposeWithDefaultElementFactory(
             "Default",
             [],
-            extensions);
+            extensions,
+            DefaultTextCaptionElementFactory.Instance);
         extensions.AddExtensions(1,
         [
             .. CreateCodecExtensions(format, codec),
@@ -384,7 +385,11 @@ public sealed class CaptionTemplateRegistryTests
     {
         var format = new CaptionFormatId("beutl.tests.observable-codec");
         var extensions = new ExtensionProvider();
-        await using CaptionCatalog catalog = CaptionCatalog.Compose("Default", [], extensions);
+        await using CaptionCatalog catalog = CaptionCatalog.ComposeWithDefaultElementFactory(
+            "Default",
+            [],
+            extensions,
+            DefaultTextCaptionElementFactory.Instance);
         var metadata = catalog.Codecs.Codecs;
         int changes = 0;
         metadata.CollectionChanged += (_, _) => changes++;
@@ -413,7 +418,11 @@ public sealed class CaptionTemplateRegistryTests
     {
         var format = new CaptionFormatId("beutl.tests.rolled-back-codec");
         var extensions = new ExtensionProvider();
-        await using CaptionCatalog catalog = CaptionCatalog.Compose("Default", [], extensions);
+        await using CaptionCatalog catalog = CaptionCatalog.ComposeWithDefaultElementFactory(
+            "Default",
+            [],
+            extensions,
+            DefaultTextCaptionElementFactory.Instance);
         int metadataChanges = 0;
         catalog.Codecs.Codecs.CollectionChanged += (_, _) => metadataChanges++;
         var observerEntered = new TaskCompletionSource(
@@ -493,10 +502,11 @@ public sealed class CaptionTemplateRegistryTests
         ]);
         var failures = new List<CaptionCatalogExtensionFailure>();
         var extensions = new ExtensionProvider();
-        await using CaptionCatalog catalog = CaptionCatalog.Compose(
+        await using CaptionCatalog catalog = CaptionCatalog.ComposeWithDefaultElementFactory(
             "Default",
             [],
             extensions,
+            DefaultTextCaptionElementFactory.Instance,
             failures.Add);
 
         extensions.AddExtensions(5, [replacement]);
@@ -544,10 +554,11 @@ public sealed class CaptionTemplateRegistryTests
         ]);
         var failures = new List<CaptionCatalogExtensionFailure>();
         var extensions = new ExtensionProvider();
-        await using CaptionCatalog catalog = CaptionCatalog.Compose(
+        await using CaptionCatalog catalog = CaptionCatalog.ComposeWithDefaultElementFactory(
             "Default",
             [],
             extensions,
+            DefaultTextCaptionElementFactory.Instance,
             failures.Add);
 
         extensions.AddExtensions(6, [encoder, descriptor, decoder]);
@@ -564,7 +575,11 @@ public sealed class CaptionTemplateRegistryTests
     public async Task Catalog_DecoderOnlyReplacementPreservesBuiltInDescriptorAndEncoder()
     {
         var extensions = new ExtensionProvider();
-        await using CaptionCatalog catalog = CaptionCatalog.Compose("Default", [], extensions);
+        await using CaptionCatalog catalog = CaptionCatalog.ComposeWithDefaultElementFactory(
+            "Default",
+            [],
+            extensions,
+            DefaultTextCaptionElementFactory.Instance);
         var replacement = new RegistrationDecoderExtension(
         [
             new CaptionDecoderRegistration(
@@ -619,10 +634,11 @@ public sealed class CaptionTemplateRegistryTests
         ]);
         var failures = new List<CaptionCatalogExtensionFailure>();
         var extensions = new ExtensionProvider();
-        await using CaptionCatalog catalog = CaptionCatalog.Compose(
+        await using CaptionCatalog catalog = CaptionCatalog.ComposeWithDefaultElementFactory(
             "Default",
             [],
             extensions,
+            DefaultTextCaptionElementFactory.Instance,
             failures.Add);
 
         extensions.AddExtensions(7, [invalid, healthy]);
@@ -659,10 +675,11 @@ public sealed class CaptionTemplateRegistryTests
         var healthy = new TestTemplateDescriptorExtension([healthyTemplate.DescriptorRegistration]);
         var failures = new List<CaptionCatalogExtensionFailure>();
         var extensions = new ExtensionProvider();
-        await using CaptionCatalog catalog = CaptionCatalog.Compose(
+        await using CaptionCatalog catalog = CaptionCatalog.ComposeWithDefaultElementFactory(
             "Default",
             [],
             extensions,
+            DefaultTextCaptionElementFactory.Instance,
             failures.Add);
 
         extensions.AddExtensions(8,
@@ -699,10 +716,11 @@ public sealed class CaptionTemplateRegistryTests
         var failures = new List<CaptionCatalogExtensionFailure>();
 
         var extensions = new ExtensionProvider();
-        await using CaptionCatalog catalog = CaptionCatalog.Compose(
+        await using CaptionCatalog catalog = CaptionCatalog.ComposeWithDefaultElementFactory(
             "Default",
             [],
             extensions,
+            DefaultTextCaptionElementFactory.Instance,
             failures.Add);
         extensions.AddExtensions(1,
         [
@@ -730,10 +748,11 @@ public sealed class CaptionTemplateRegistryTests
     public async Task Catalog_FailureReporterCannotInterruptRegistryChanges()
     {
         var extensions = new ExtensionProvider();
-        await using CaptionCatalog catalog = CaptionCatalog.Compose(
+        await using CaptionCatalog catalog = CaptionCatalog.ComposeWithDefaultElementFactory(
             "Default",
             [],
             extensions,
+            DefaultTextCaptionElementFactory.Instance,
             _ => throw new InvalidOperationException("Reporter failure"));
         var invalid = new TestTemplateDescriptorExtension([null!]);
 
@@ -746,7 +765,11 @@ public sealed class CaptionTemplateRegistryTests
     public async Task Catalog_RefreshObjectTemplatesUpdatesTheSharedMetadataView()
     {
         var extensions = new ExtensionProvider();
-        await using CaptionCatalog catalog = CaptionCatalog.Compose("Default", [], extensions);
+        await using CaptionCatalog catalog = CaptionCatalog.ComposeWithDefaultElementFactory(
+            "Default",
+            [],
+            extensions,
+            DefaultTextCaptionElementFactory.Instance);
         ObjectTemplateItem item = ObjectTemplateItem.CreateFromInstance(
             new Beutl.Graphics.Shapes.TextBlock(),
             "Saved caption");
@@ -772,10 +795,11 @@ public sealed class CaptionTemplateRegistryTests
         ObjectTemplateItem alpha = ObjectTemplateItem.CreateFromInstance(
             new Beutl.Graphics.Shapes.TextBlock(),
             "Alpha");
-        await using CaptionCatalog catalog = CaptionCatalog.Compose(
+        await using CaptionCatalog catalog = CaptionCatalog.ComposeWithDefaultElementFactory(
             "Default",
             [zulu, alpha],
-            extensions);
+            extensions,
+            DefaultTextCaptionElementFactory.Instance);
 
         Assert.That(
             catalog.Templates.Templates.Select(template => template.Name),
@@ -795,7 +819,11 @@ public sealed class CaptionTemplateRegistryTests
     public async Task Catalog_RemovingCodecExtensionDoesNotWaitForUnrelatedTemplateLease()
     {
         var extensions = new ExtensionProvider();
-        await using CaptionCatalog catalog = CaptionCatalog.Compose("Default", [], extensions);
+        await using CaptionCatalog catalog = CaptionCatalog.ComposeWithDefaultElementFactory(
+            "Default",
+            [],
+            extensions,
+            DefaultTextCaptionElementFactory.Instance);
         Extension[] codecExtensions = CreateCodecExtensions(
             new CaptionFormatId("beutl.tests.independent-codec"),
             new TestCodec());
@@ -817,7 +845,11 @@ public sealed class CaptionTemplateRegistryTests
     public async Task Catalog_RemovingCodecExtensionDoesNotWaitForAnotherPackageCodecLease()
     {
         var extensions = new ExtensionProvider();
-        await using CaptionCatalog catalog = CaptionCatalog.Compose("Default", [], extensions);
+        await using CaptionCatalog catalog = CaptionCatalog.ComposeWithDefaultElementFactory(
+            "Default",
+            [],
+            extensions,
+            DefaultTextCaptionElementFactory.Instance);
         var removedFormat = new CaptionFormatId("beutl.tests.removed-codec");
         var activeFormat = new CaptionFormatId("beutl.tests.active-codec");
         WeakReference removedExtension = RegisterCollectibleCodecExtension(
@@ -848,7 +880,11 @@ public sealed class CaptionTemplateRegistryTests
     public async Task Catalog_RemovingDecoderExtensionDoesNotWaitForEncoderLease()
     {
         var extensions = new ExtensionProvider();
-        await using CaptionCatalog catalog = CaptionCatalog.Compose("Default", [], extensions);
+        await using CaptionCatalog catalog = CaptionCatalog.ComposeWithDefaultElementFactory(
+            "Default",
+            [],
+            extensions,
+            DefaultTextCaptionElementFactory.Instance);
         var format = new CaptionFormatId("beutl.tests.independent-codec-directions");
         WeakReference removedDecoder = RegisterCollectibleDecoderExtension(
             extensions,
@@ -881,7 +917,11 @@ public sealed class CaptionTemplateRegistryTests
     public async Task Catalog_RemovedTemplatePolicyCanCollectWhileAnotherPackageLeaseIsActive()
     {
         var extensions = new ExtensionProvider();
-        await using CaptionCatalog catalog = CaptionCatalog.Compose("Default", [], extensions);
+        await using CaptionCatalog catalog = CaptionCatalog.ComposeWithDefaultElementFactory(
+            "Default",
+            [],
+            extensions,
+            DefaultTextCaptionElementFactory.Instance);
         var removedId = new CaptionTemplateId("beutl.tests.collectible-policy");
         WeakReference removedPolicy = RegisterCollectibleTemplateExtensions(
             extensions,
@@ -908,7 +948,11 @@ public sealed class CaptionTemplateRegistryTests
     public async Task Catalog_RemovingDecoderOwnerWaitsForItsActiveLease()
     {
         var extensions = new ExtensionProvider();
-        await using CaptionCatalog catalog = CaptionCatalog.Compose("Default", [], extensions);
+        await using CaptionCatalog catalog = CaptionCatalog.ComposeWithDefaultElementFactory(
+            "Default",
+            [],
+            extensions,
+            DefaultTextCaptionElementFactory.Instance);
         var format = new CaptionFormatId("beutl.tests.merged-codec");
         var decoder = new BlockingCodecExtension(format);
         extensions.AddExtensions(1, [decoder]);
@@ -940,7 +984,11 @@ public sealed class CaptionTemplateRegistryTests
         CaptionTemplateRegistrationSet template = CreateText(
             "beutl.tests.dispose-template",
             "Dispose template");
-        var catalog = CaptionCatalog.Compose("Default", [], extensions);
+        var catalog = CaptionCatalog.ComposeWithDefaultElementFactory(
+            "Default",
+            [],
+            extensions,
+            DefaultTextCaptionElementFactory.Instance);
         extensions.AddExtensions(1, CreateTemplateExtensions(template));
         using ICaptionTemplateLease lease = catalog.Templates.Acquire(
             template.DescriptorRegistration.Descriptor.Id);

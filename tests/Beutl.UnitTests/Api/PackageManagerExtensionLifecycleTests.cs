@@ -481,7 +481,11 @@ public class PackageManagerExtensionLifecycleTests
     public async Task Unload_DrainsLiveCaptionDescriptorAndPlacementLeases()
     {
         PackageManager manager = CreatePackageManager(out _, out ExtensionProvider provider);
-        await using CaptionCatalog catalog = CaptionCatalog.Compose("Default", [], provider);
+        await using CaptionCatalog catalog = CaptionCatalog.ComposeWithDefaultElementFactory(
+            "Default",
+            [],
+            provider,
+            DefaultTextCaptionElementFactory.Instance);
         var package = new LocalPackage { Name = "LiveCaptionPresentation" };
         manager.LoadExtensionsAndRegister(
             activity: null,
@@ -568,7 +572,11 @@ public class PackageManagerExtensionLifecycleTests
     public async Task Unload_WaitsForActiveCaptionLeaseBeforeCallingExtensionUnload()
     {
         PackageManager manager = CreatePackageManager(out _, out ExtensionProvider provider);
-        await using CaptionCatalog catalog = CaptionCatalog.Compose("Default", [], provider);
+        await using CaptionCatalog catalog = CaptionCatalog.ComposeWithDefaultElementFactory(
+            "Default",
+            [],
+            provider,
+            DefaultTextCaptionElementFactory.Instance);
         var package = new LocalPackage { Name = "BlockingCaption" };
         manager.LoadExtensionsAndRegister(
             activity: null,

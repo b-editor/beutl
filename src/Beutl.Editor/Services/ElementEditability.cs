@@ -17,11 +17,8 @@ internal static class ElementEditability
         return !(scene?.IsElementLocked(element) ?? (element.IsLocked || element.IsRecoveryProtected));
     }
 
-    // Whether an edit that removes or replaces content of the element (one of its objects, or a
-    // value or animation inside one) is allowed. Besides an editable element, this allows one that
-    // only recovery protects when the content holds what could not be loaded: removing or replacing
-    // that content is how the user repairs the element. When nothing of that kind is left in the
-    // element, because the unreadable value was dropped while loading, any such edit repairs it.
+    // Whether an edit removing or replacing content of the element is allowed: besides an editable element, one that
+    // only recovery protects when the content holds what could not be loaded, or when nothing unloadable is left.
     public static bool CanRepair(Element? element, object? content, Scene? scene = null)
     {
         if (IsEditable(element, scene)) return true;

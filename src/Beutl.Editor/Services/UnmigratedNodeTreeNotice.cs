@@ -10,37 +10,24 @@ namespace Beutl.Editor.Services;
 // cannot open it, and nothing else tells the user before that happens.
 internal static class UnmigratedNodeTreeNotice
 {
-    private const int MaxListedElements = 5;
-
     // Null when no element of the project holds a node tree that was not migrated.
     public static Notification? Create(Project project)
     {
         ArgumentNullException.ThrowIfNull(project);
-        string[] names = project.Items
-            .OfType<Scene>()
-            .SelectMany(static scene => scene.Children
-                .Where(static element => element.Objects.Any(ElementMigration.IsUnmigratedNodeTree))
-                .OrderBy(static element => element.Start)
-                .ThenBy(static element => element.ZIndex))
-            .Select(GetLabel)
-            .ToArray();
-        if (names.Length == 0) return null;
-
-        string listed = string.Join(", ", names.Take(MaxListedElements));
-        if (names.Length > MaxListedElements) listed += ", …";
+        if (ElementNoticeFormatting.FormatNames(project.Items
+                .OfType<Scene>()
+                .SelectMany(static scene => scene.Children
+                    .Where(static element => element.Objects.Any(ElementMigration.IsUnmigratedNodeTree))
+                    .OrderBy(static element => element.Start)
+                    .ThenBy(static element => element.ZIndex))) is not { } listed)
+        {
+            return null;
+        }
 
         return new Notification(
             MessageStrings.UnmigratedNodeTreeTitle,
             string.Format(CultureInfo.CurrentCulture, MessageStrings.UnmigratedNodeTreeMessage, listed),
             NotificationType.Warning,
             Expiration: Timeout.InfiniteTimeSpan);
-    }
-
-    // The element's name, or its file name when it has none.
-    private static string GetLabel(Element element)
-    {
-        if (!string.IsNullOrWhiteSpace(element.Name)) return element.Name;
-
-        return element.Uri is { } uri ? Path.GetFileNameWithoutExtension(uri.LocalPath) : string.Empty;
     }
 }
