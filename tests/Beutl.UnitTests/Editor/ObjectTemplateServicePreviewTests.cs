@@ -2,6 +2,7 @@
 using Beutl.Editor.Services;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Editor;
 
@@ -188,16 +189,7 @@ public class ObjectTemplateServicePreviewTests
             $"dangling-{Guid.NewGuid():N}.json");
         try
         {
-            try
-            {
-                File.CreateSymbolicLink(aliasPath, originalPath);
-            }
-            catch (Exception ex) when (ex is IOException
-                                       or UnauthorizedAccessException
-                                       or PlatformNotSupportedException)
-            {
-                Assert.Ignore($"Symbolic links are unavailable: {ex.Message}");
-            }
+            SymbolicLinks.CreateOrIgnore(aliasPath, originalPath);
 
             File.Delete(originalPath);
             service.RefreshFromFileSystem();
@@ -239,16 +231,7 @@ public class ObjectTemplateServicePreviewTests
         File.SetLastWriteTimeUtc(secondTarget, DateTime.UtcNow.AddMinutes(-10));
         try
         {
-            try
-            {
-                File.CreateSymbolicLink(alias, firstTarget);
-            }
-            catch (Exception ex) when (ex is IOException
-                                       or UnauthorizedAccessException
-                                       or PlatformNotSupportedException)
-            {
-                Assert.Ignore($"File symbolic links are unavailable: {ex.Message}");
-            }
+            SymbolicLinks.CreateOrIgnore(alias, firstTarget);
 
             service.RestoreItems();
             ObjectTemplateItem loadedFirst = service.FindByBaseType(first.BaseType)
@@ -285,16 +268,7 @@ public class ObjectTemplateServicePreviewTests
             $"alias-{Guid.NewGuid():N}.json");
         try
         {
-            try
-            {
-                File.CreateSymbolicLink(aliasPath, originalPath);
-            }
-            catch (Exception ex) when (ex is IOException
-                                       or UnauthorizedAccessException
-                                       or PlatformNotSupportedException)
-            {
-                Assert.Ignore($"File symbolic links are unavailable: {ex.Message}");
-            }
+            SymbolicLinks.CreateOrIgnore(aliasPath, originalPath);
 
             service.RestoreItems();
 
@@ -331,16 +305,7 @@ public class ObjectTemplateServicePreviewTests
         File.WriteAllText(targetPath, ObjectTemplateItem.ToJson(template).ToJsonString());
         try
         {
-            try
-            {
-                File.CreateSymbolicLink(aliasPath, targetPath);
-            }
-            catch (Exception ex) when (ex is IOException
-                                       or UnauthorizedAccessException
-                                       or PlatformNotSupportedException)
-            {
-                Assert.Ignore($"File symbolic links are unavailable: {ex.Message}");
-            }
+            SymbolicLinks.CreateOrIgnore(aliasPath, targetPath);
 
             service.RestoreItems();
             Assert.That(
@@ -379,16 +344,7 @@ public class ObjectTemplateServicePreviewTests
         try
         {
             File.Delete(secondPath);
-            try
-            {
-                File.CreateSymbolicLink(secondPath, firstPath);
-            }
-            catch (Exception ex) when (ex is IOException
-                                       or UnauthorizedAccessException
-                                       or PlatformNotSupportedException)
-            {
-                Assert.Ignore($"File symbolic links are unavailable: {ex.Message}");
-            }
+            SymbolicLinks.CreateOrIgnore(secondPath, firstPath);
 
             service.RefreshFromFileSystem();
 

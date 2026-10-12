@@ -1,4 +1,5 @@
 ﻿using Beutl.Editor.VersionControl;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Editor.VersionControl;
 
@@ -36,7 +37,7 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
         string expectedProjectRoot = Path.Combine(expectedRepoRoot, "nested", "project");
         string linkRoot = CreateTemporaryDirectory();
         string linkedProjectRoot = Path.Combine(linkRoot, "linked-project");
-        CreateDirectorySymbolicLinkOrIgnore(linkedProjectRoot, projectRoot);
+        SymbolicLinks.CreateOrIgnore(linkedProjectRoot, projectRoot, directory: true);
         using GitCliVersionControlService service = CreateUnassociatedService();
 
         RepositoryInfo? discovered = await service.DiscoverRepositoryAsync(
@@ -60,7 +61,7 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
         await File.WriteAllTextAsync(Path.Combine(projectRoot, "project.bep"), "{}\n");
         string linkRoot = CreateTemporaryDirectory();
         string linkedRepositoryRoot = Path.Combine(linkRoot, "linked-repository");
-        CreateDirectorySymbolicLinkOrIgnore(linkedRepositoryRoot, Root);
+        SymbolicLinks.CreateOrIgnore(linkedRepositoryRoot, Root, directory: true);
         string linkedProjectRoot = Path.Combine(linkedRepositoryRoot, "nested", "project");
         using GitCliVersionControlService service = CreateUnassociatedService();
 
@@ -87,7 +88,7 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
         string projectRoot = CreateProjectDirectory();
         await File.WriteAllTextAsync(Path.Combine(projectRoot, "project.bep"), "{}\n");
         string linkedNestedRoot = Path.Combine(Root, "linked-nested");
-        CreateDirectorySymbolicLinkOrIgnore(linkedNestedRoot, Path.Combine(Root, "nested"));
+        SymbolicLinks.CreateOrIgnore(linkedNestedRoot, Path.Combine(Root, "nested"), directory: true);
         string linkedProjectRoot = Path.Combine(linkedNestedRoot, "project");
         var selectedRepository = new RepositoryInfo(Root, linkedProjectRoot);
         using GitCliVersionControlService service = CreateUnassociatedService();

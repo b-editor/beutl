@@ -2,6 +2,7 @@
 using System.Text;
 using Beutl.Configuration;
 using Beutl.Editor.VersionControl;
+using Beutl.UnitTests.TestInfrastructure;
 using Microsoft.Extensions.Time.Testing;
 
 namespace Beutl.UnitTests.Editor.VersionControl;
@@ -1729,8 +1730,8 @@ public class GitCliRunnerTests : RealGitTestRepository
         string externalDirectory = CreateTemporaryDirectory();
         string externalLink = Path.Combine(refsDirectory, "external");
         string cycleLink = Path.Combine(refsDirectory, "cycle");
-        CreateDirectorySymbolicLinkOrIgnore(externalLink, externalDirectory);
-        CreateDirectorySymbolicLinkOrIgnore(cycleLink, refsDirectory);
+        SymbolicLinks.CreateOrIgnore(externalLink, externalDirectory, directory: true);
+        SymbolicLinks.CreateOrIgnore(cycleLink, refsDirectory, directory: true);
         await File.WriteAllTextAsync(Path.Combine(externalDirectory, "outside.lock"), "outside");
 
         string safeLockPath = Path.Combine(
@@ -1799,7 +1800,7 @@ public class GitCliRunnerTests : RealGitTestRepository
             "origin",
             "linked.lock");
         Directory.CreateDirectory(Path.GetDirectoryName(linkedLockPath)!);
-        CreateFileSymbolicLinkOrIgnore(linkedLockPath, externalLockPath);
+        SymbolicLinks.CreateOrIgnore(linkedLockPath, externalLockPath);
         var now = new DateTimeOffset(2026, 1, 2, 12, 0, 0, TimeSpan.Zero);
         File.SetLastWriteTimeUtc(
             externalLockPath,
@@ -1847,7 +1848,7 @@ public class GitCliRunnerTests : RealGitTestRepository
     {
         string externalDirectory = CreateTemporaryDirectory();
         string linkedDirectory = Path.Combine(Root, ".git", "refs", "heads", "external");
-        CreateDirectorySymbolicLinkOrIgnore(linkedDirectory, externalDirectory);
+        SymbolicLinks.CreateOrIgnore(linkedDirectory, externalDirectory, directory: true);
         await File.WriteAllTextAsync(
             Path.Combine(Root, ".git", "HEAD"),
             "ref: refs/heads/external/main\n");

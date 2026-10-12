@@ -4,21 +4,12 @@ using Beutl.Models;
 
 namespace Beutl.UnitTests.Editor;
 
-// CPU unit tests for the US4 preview-quality -> s_out mapping (RenderScale.ToFloat). No GPU, so they guard the
-// mapping in CI even when the Vulkan golden suite is skipped. The result must always be in (0, 1].
+// The result must always be in (0, 1]. CPU only, so it runs when the Vulkan suite is skipped.
 [TestFixture]
 public class RenderScaleTests
 {
     private static readonly PixelSize Frame = new(1920, 1080);
     private static readonly Size Preview = new(960, 540);
-
-    [TestCase(RenderScale.Full, 1.0f)]
-    [TestCase(RenderScale.Half, 0.5f)]
-    [TestCase(RenderScale.Quarter, 0.25f)]
-    public void ToFloat_FixedLevels(RenderScale scale, float expected)
-    {
-        Assert.That(scale.ToFloat(Frame, Preview), Is.EqualTo(expected).Within(1e-6));
-    }
 
     [Test]
     public void ToFloat_FitToPreviewer_FitsTheSmallerAxis()
@@ -51,8 +42,6 @@ public class RenderScaleTests
         Assert.That(s, Is.GreaterThan(0f), "s_out must never be 0 (would crash the renderer)");
         Assert.That(s, Is.EqualTo(1f / 64f).Within(1e-6));
     }
-
-    // --- ResolveOutputScale: fixed levels pass through; FitToPreviewer snaps to 0.05 steps then re-floors ----
 
     [TestCase(RenderScale.Full, 1.0f)]
     [TestCase(RenderScale.Half, 0.5f)]

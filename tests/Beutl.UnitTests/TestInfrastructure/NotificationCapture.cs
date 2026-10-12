@@ -2,11 +2,11 @@
 using System.Reflection;
 using Beutl.Services;
 
-namespace Beutl.UnitTests.Editor.VersionControl;
+namespace Beutl.UnitTests.TestInfrastructure;
 
 // NotificationService.Handler is a process-global facade, so tests that install this capture are
 // [NonParallelizable] and install it just before the call they observe.
-internal sealed class VersionControlNotificationCapture : INotificationServiceHandler, IDisposable
+internal sealed class NotificationCapture : INotificationServiceHandler, IDisposable
 {
     // The Handler setter rejects null, so the backing field is read and restored directly. Without
     // that, a capture installed while no handler existed would keep receiving later notifications.
@@ -17,15 +17,15 @@ internal sealed class VersionControlNotificationCapture : INotificationServiceHa
     private readonly ConcurrentQueue<Notification> _notifications = new();
     private readonly object? _previousHandler;
 
-    private VersionControlNotificationCapture()
+    private NotificationCapture()
     {
         _previousHandler = s_handlerField.GetValue(null);
         NotificationService.Handler = this;
     }
 
-    internal static VersionControlNotificationCapture Install()
+    internal static NotificationCapture Install()
     {
-        return new VersionControlNotificationCapture();
+        return new NotificationCapture();
     }
 
     internal IReadOnlyCollection<Notification> All => _notifications;

@@ -130,32 +130,6 @@ public abstract class RealGitTestRepository
             GitHostPlatform.Linux);
     }
 
-    protected static void CreateFileSymbolicLinkOrIgnore(string linkPath, string targetPath)
-    {
-        try
-        {
-            File.CreateSymbolicLink(linkPath, targetPath);
-        }
-        catch (Exception ex)
-            when (ex is UnauthorizedAccessException or IOException or PlatformNotSupportedException)
-        {
-            Assert.Ignore($"Symbolic links are not creatable in this environment: {ex.Message}");
-        }
-    }
-
-    protected static void CreateDirectorySymbolicLinkOrIgnore(string linkPath, string targetPath)
-    {
-        try
-        {
-            Directory.CreateSymbolicLink(linkPath, targetPath);
-        }
-        catch (Exception ex)
-            when (ex is UnauthorizedAccessException or IOException or PlatformNotSupportedException)
-        {
-            Assert.Ignore($"Symbolic links are not creatable in this environment: {ex.Message}");
-        }
-    }
-
     // Commands can carry `-c` overrides (LFS path filters, hooks, the upload agent) before the
     // subcommand, so tests match past that prefix instead of pinning its exact shape.
     protected static string? GetGitSubcommand(IReadOnlyList<string> arguments)

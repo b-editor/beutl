@@ -134,7 +134,12 @@ public class WebSearchSuggestionsTests
     [TestCase("https://user:password@example.com/")]
     [TestCase("http://user@example.com/")]
     [TestCase("user:password@example.com")]
-    public void CredentialUrlsAreNotConvertedToSearches(string text)
+    [TestCase("javascript:alert('private value')")]
+    [TestCase("data:text/plain,private value")]
+    [TestCase("mailto:person@example.com?subject=private value")]
+    [TestCase("user:private value@example.com")]
+    [TestCase("C:\\private folder\\file.txt")]
+    public void ExplicitUrisAndCredentialsAreNotConvertedToSearches(string text)
     {
         using var vm = new WebBrowserTabViewModel(new Mock<IEditorContext>().Object);
         vm.Address.Value = text;
@@ -153,18 +158,6 @@ public class WebSearchSuggestionsTests
         Assert.That(vm.TryCreateNavigationUri(out Uri uri), Is.True);
         Assert.That(uri.Host, Is.EqualTo("www.google.com"));
         Assert.That(Uri.UnescapeDataString(uri.Query[3..]), Is.EqualTo(text));
-    }
-
-    [TestCase("javascript:alert('private value')")]
-    [TestCase("data:text/plain,private value")]
-    [TestCase("mailto:person@example.com?subject=private value")]
-    [TestCase("user:private value@example.com")]
-    [TestCase("C:\\private folder\\file.txt")]
-    public void ExplicitUrisAndCredentialsWithSpacesAreNotConvertedToSearches(string text)
-    {
-        using var vm = new WebBrowserTabViewModel(new Mock<IEditorContext>().Object);
-        vm.Address.Value = text;
-        Assert.That(vm.TryCreateNavigationUri(out _), Is.False);
     }
 
     private sealed class SuggestionHandler : HttpMessageHandler

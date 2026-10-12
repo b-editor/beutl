@@ -1,5 +1,6 @@
 ﻿using Beutl.Editor;
 using Beutl.Editor.Components.FileBrowserTab.Services;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Editor.FileBrowser;
 
@@ -495,14 +496,14 @@ public class DirectoryWatcherServiceTests
         service.ClearCache();
         try
         {
-            CreateDirectorySymlinkOrIgnore(templateAlias, firstTarget);
+            SymbolicLinks.CreateOrIgnore(templateAlias, firstTarget, directory: true);
             string candidate = Path.Combine(secondTarget, "template.json");
             Assert.That(
                 service.IsObjectTemplateFile(candidate, templateAlias),
                 Is.False);
 
             Directory.Delete(templateAlias);
-            CreateDirectorySymlinkOrIgnore(templateAlias, secondTarget);
+            SymbolicLinks.CreateOrIgnore(templateAlias, secondTarget, directory: true);
 
             Assert.That(
                 service.IsObjectTemplateFile(candidate, templateAlias),
@@ -527,7 +528,7 @@ public class DirectoryWatcherServiceTests
         Directory.CreateDirectory(materialsRoot);
         try
         {
-            CreateDirectorySymlinkOrIgnore(templateAlias, firstTarget);
+            SymbolicLinks.CreateOrIgnore(templateAlias, firstTarget, directory: true);
             string candidate = Path.Combine(secondTarget, "template.bep");
             using var service = new DirectoryWatcherService();
             Assert.That(
@@ -535,7 +536,7 @@ public class DirectoryWatcherServiceTests
                 Is.True);
 
             Directory.Delete(templateAlias);
-            CreateDirectorySymlinkOrIgnore(templateAlias, secondTarget);
+            SymbolicLinks.CreateOrIgnore(templateAlias, secondTarget, directory: true);
 
             Assert.That(
                 service.ShouldExcludePath(candidate, templateAlias, materialsRoot),
@@ -557,7 +558,7 @@ public class DirectoryWatcherServiceTests
         Directory.CreateDirectory(materialsRoot);
         try
         {
-            CreateDirectorySymlinkOrIgnore(templateAlias, target);
+            SymbolicLinks.CreateOrIgnore(templateAlias, target, directory: true);
             using var service = new DirectoryWatcherService();
             Assert.That(
                 service.ShouldExcludePath(
@@ -587,7 +588,7 @@ public class DirectoryWatcherServiceTests
         string alias = Path.Combine(_projectRoot, "alias");
         Directory.CreateDirectory(templateTarget);
         Directory.CreateDirectory(outsideTarget);
-        CreateDirectorySymlinkOrIgnore(alias, templateTarget);
+        SymbolicLinks.CreateOrIgnore(alias, templateTarget, directory: true);
         FileThumbnailService thumbnails = FileThumbnailService.Instance;
         thumbnails.ClearCache();
         using var watcher = new DirectoryWatcherService();
@@ -601,7 +602,7 @@ public class DirectoryWatcherServiceTests
             });
 
             Directory.Delete(alias);
-            CreateDirectorySymlinkOrIgnore(alias, outsideTarget);
+            SymbolicLinks.CreateOrIgnore(alias, outsideTarget, directory: true);
 
             Assert.Multiple(() =>
             {
@@ -626,8 +627,8 @@ public class DirectoryWatcherServiceTests
         string secondAlias = Path.Combine(_projectRoot, "second-alias");
         Directory.CreateDirectory(firstTarget);
         Directory.CreateDirectory(secondTarget);
-        CreateDirectorySymlinkOrIgnore(firstAlias, firstTarget);
-        CreateDirectorySymlinkOrIgnore(secondAlias, firstTarget);
+        SymbolicLinks.CreateOrIgnore(firstAlias, firstTarget, directory: true);
+        SymbolicLinks.CreateOrIgnore(secondAlias, firstTarget, directory: true);
         var startedPaths = new List<string>();
         using var service = new DirectoryWatcherService(
             TimeSpan.Zero,
@@ -637,7 +638,7 @@ public class DirectoryWatcherServiceTests
         service.Watch(firstAlias);
         service.Watch(secondAlias);
         Directory.Delete(secondAlias);
-        CreateDirectorySymlinkOrIgnore(secondAlias, secondTarget);
+        SymbolicLinks.CreateOrIgnore(secondAlias, secondTarget, directory: true);
 
         Assert.That(service.TryRearmAfterError(), Is.True);
         Assert.That(startedPaths.Last(), Is.EqualTo(FilePathComparison.ResolveCanonicalPath(secondTarget)));
@@ -656,13 +657,13 @@ public class DirectoryWatcherServiceTests
 
         try
         {
-            CreateDirectorySymlinkOrIgnore(intermediate, templateTarget);
-            CreateDirectorySymlinkOrIgnore(alias, intermediate);
+            SymbolicLinks.CreateOrIgnore(intermediate, templateTarget, directory: true);
+            SymbolicLinks.CreateOrIgnore(alias, intermediate, directory: true);
             using var service = new DirectoryWatcherService();
             Assert.That(service.ShouldExcludePath(Path.Combine(alias, "item.bep")), Is.False);
 
             Directory.Delete(intermediate);
-            CreateDirectorySymlinkOrIgnore(intermediate, outsideTarget);
+            SymbolicLinks.CreateOrIgnore(intermediate, outsideTarget, directory: true);
 
             Assert.That(service.ShouldExcludePath(Path.Combine(alias, "item.bep")), Is.True);
         }
@@ -878,7 +879,7 @@ public class DirectoryWatcherServiceTests
         string alias = Path.Combine(_projectRoot, "alias");
         Directory.CreateDirectory(firstTarget);
         Directory.CreateDirectory(secondTarget);
-        CreateDirectorySymlinkOrIgnore(alias, firstTarget);
+        SymbolicLinks.CreateOrIgnore(alias, firstTarget, directory: true);
 
         var startedPaths = new List<string>();
         using var service = new DirectoryWatcherService(
@@ -912,7 +913,7 @@ public class DirectoryWatcherServiceTests
         string alias = Path.Combine(_projectRoot, "error-alias");
         Directory.CreateDirectory(firstTarget);
         Directory.CreateDirectory(secondTarget);
-        CreateDirectorySymlinkOrIgnore(alias, firstTarget);
+        SymbolicLinks.CreateOrIgnore(alias, firstTarget, directory: true);
 
         var startedPaths = new List<string>();
         using var service = new DirectoryWatcherService(
@@ -968,7 +969,7 @@ public class DirectoryWatcherServiceTests
     public void Navigating_to_a_symbolic_link_cycle_does_not_escape_path_comparison()
     {
         string cycle = Path.Combine(_projectRoot, "cycle");
-        CreateDirectorySymlinkOrIgnore(cycle, cycle);
+        SymbolicLinks.CreateOrIgnore(cycle, cycle, directory: true);
 
         using var service = new DirectoryWatcherService();
         service.Watch(_projectRoot);
@@ -986,20 +987,6 @@ public class DirectoryWatcherServiceTests
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllText(path, "content");
         return path;
-    }
-
-    private static void CreateDirectorySymlinkOrIgnore(string alias, string target)
-    {
-        try
-        {
-            Directory.CreateSymbolicLink(alias, target);
-        }
-        catch (Exception ex) when (ex is IOException
-                                   or UnauthorizedAccessException
-                                   or PlatformNotSupportedException)
-        {
-            Assert.Ignore($"Directory symbolic links are unavailable: {ex.Message}");
-        }
     }
 
     private static Action TakePostedAction(

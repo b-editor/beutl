@@ -1,4 +1,5 @@
 ﻿using Beutl.Serialization;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Core;
 
@@ -213,14 +214,7 @@ public class StorageWriteTransactionTests
         // A link stands in for another case on a case-insensitive volume: two spellings, one file.
         string realDirectory = Directory.CreateDirectory(PathOf("real")).FullName;
         string aliasDirectory = PathOf("alias");
-        try
-        {
-            Directory.CreateSymbolicLink(aliasDirectory, realDirectory);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or PlatformNotSupportedException)
-        {
-            Assert.Ignore($"Symbolic links are unavailable here: {ex.Message}");
-        }
+        SymbolicLinks.CreateOrIgnore(aliasDirectory, realDirectory, directory: true);
 
         string existing = CreateFile(Path.Combine("real", "existing.belm"), "before");
         string existingAlias = Path.Combine(aliasDirectory, "existing.belm");

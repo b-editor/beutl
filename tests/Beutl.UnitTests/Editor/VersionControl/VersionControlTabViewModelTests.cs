@@ -3,6 +3,7 @@ using Beutl.Editor.Components.VersionControlTab.ViewModels;
 using Beutl.Editor.VersionControl;
 using Beutl.Extensibility;
 using Beutl.Language;
+using Beutl.UnitTests.TestInfrastructure;
 using Microsoft.Extensions.Time.Testing;
 using Moq;
 using Reactive.Bindings;
@@ -646,7 +647,7 @@ public class VersionControlTabViewModelTests
         var failure = new InvalidOperationException("The shell could not initialize the repository.");
         viewModel.RequestEnableVersionControlAsync = () => Task.FromException(failure);
         await viewModel.Initialization;
-        using var notifications = VersionControlNotificationCapture.Install();
+        using var notifications = NotificationCapture.Install();
 
         await Assert.DoesNotThrowAsync(() => viewModel.EnableVersionControlCommand.ExecuteAsync());
 
@@ -902,7 +903,7 @@ public class VersionControlTabViewModelTests
             .ThrowsAsync(failure);
         using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
         await viewModel.Initialization;
-        using var notifications = VersionControlNotificationCapture.Install();
+        using var notifications = NotificationCapture.Install();
 
         await Assert.DoesNotThrowAsync(() => viewModel.LoadMoreCommand.ExecuteAsync());
 
@@ -1591,7 +1592,7 @@ public class VersionControlTabViewModelTests
             .ThrowsAsync(failure);
         using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
         await viewModel.Initialization;
-        using var notifications = VersionControlNotificationCapture.Install();
+        using var notifications = NotificationCapture.Install();
 
         await Assert.DoesNotThrowAsync(() => viewModel.RemoveStaleLockCommand.ExecuteAsync());
 
@@ -2192,7 +2193,7 @@ public class VersionControlTabViewModelTests
             _ => Task.FromResult<string?>("restored-version");
         await viewModel.Initialization;
         VersionControlCommitViewModel item = viewModel.Commits.Single();
-        using var notifications = VersionControlNotificationCapture.Install();
+        using var notifications = NotificationCapture.Install();
 
         await Assert.DoesNotThrowAsync(() => item.RestoreCommand.ExecuteAsync());
         await Assert.DoesNotThrowAsync(() => item.RestoreToNewBranchCommand.ExecuteAsync());
@@ -2684,7 +2685,7 @@ public class VersionControlTabViewModelTests
             .ThrowsAsync(failure);
         using var viewModel = CreateViewModel(service.Object, coordinator.Object);
         await viewModel.Initialization;
-        using var notifications = VersionControlNotificationCapture.Install();
+        using var notifications = NotificationCapture.Install();
 
         await viewModel.PushAsync();
 
@@ -3008,7 +3009,7 @@ public class VersionControlTabViewModelTests
         viewModel.RequestRemoteUrlAsync = (_, _) =>
             Task.FromResult<string?>("https://example.invalid/repository.git");
         await viewModel.Initialization;
-        using var notifications = VersionControlNotificationCapture.Install();
+        using var notifications = NotificationCapture.Install();
 
         await viewModel.SetRemoteAsync();
 

@@ -8,6 +8,7 @@ using Beutl.Editor.VersionControl;
 using Beutl.Language;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
+using Beutl.UnitTests.TestInfrastructure;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Time.Testing;
 using Moq;
@@ -1170,7 +1171,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         const string originalContents = "external contents\n";
         await File.WriteAllTextAsync(externalPath, originalContents);
         string hygienePath = Path.Combine(Root, fileName);
-        CreateFileSymbolicLinkOrIgnore(hygienePath, externalPath);
+        SymbolicLinks.CreateOrIgnore(hygienePath, externalPath);
         using var service = CreateService();
 
         InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(
@@ -1415,7 +1416,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                 if (path == attributesPath && Interlocked.Exchange(ref replacements, 1) == 0)
                 {
                     File.Delete(path);
-                    CreateFileSymbolicLinkOrIgnore(path, externalPath);
+                    SymbolicLinks.CreateOrIgnore(path, externalPath);
                 }
 
                 return Task.CompletedTask;
@@ -2700,13 +2701,13 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         if (intermediateAlias)
         {
             string linkedNested = Path.Combine(Root, "linked-nested");
-            CreateDirectorySymbolicLinkOrIgnore(linkedNested, Path.Combine(Root, "nested"));
+            SymbolicLinks.CreateOrIgnore(linkedNested, Path.Combine(Root, "nested"), directory: true);
             aliasedProjectFile = Path.Combine(linkedNested, "project", "project.bep");
         }
         else
         {
             string aliasRoot = Path.Combine(CreateTemporaryDirectory(), "repository");
-            CreateDirectorySymbolicLinkOrIgnore(aliasRoot, Root);
+            SymbolicLinks.CreateOrIgnore(aliasRoot, Root, directory: true);
             aliasedProjectFile = Path.Combine(aliasRoot, "project.bep");
         }
 
@@ -2757,7 +2758,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
 
         string projectFile = Path.Combine(Root, "project.bep");
         await File.WriteAllTextAsync(Path.Combine(Root, "project-target.bep"), "{}\n");
-        CreateFileSymbolicLinkOrIgnore(projectFile, "project-target.bep");
+        SymbolicLinks.CreateOrIgnore(projectFile, "project-target.bep");
         await RunGitAsync("add", "-A");
         await RunGitAsync("commit", "-m", "baseline");
         await WriteHookAsync(
@@ -3130,7 +3131,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         Directory.CreateDirectory(Path.Combine(externalRoot, ".git"));
 
         string linkedDirectory = Path.Combine(Root, "unreferenced");
-        CreateDirectorySymbolicLinkOrIgnore(linkedDirectory, externalRoot);
+        SymbolicLinks.CreateOrIgnore(linkedDirectory, externalRoot, directory: true);
         await RunGitAsync("add", "--", "unreferenced");
         await RunGitAsync("commit", "-m", "track unreferenced link");
         using var service = CreateService();
@@ -6488,7 +6489,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         string sharedScene = Path.Combine(CreateTemporaryDirectory(), "shared.scene");
         await File.WriteAllTextAsync(sharedScene, "{}\n");
         Directory.CreateDirectory(Path.Combine(Root, "templates"));
-        CreateFileSymbolicLinkOrIgnore(Path.Combine(Root, "templates", "shared.scene"), sharedScene);
+        SymbolicLinks.CreateOrIgnore(Path.Combine(Root, "templates", "shared.scene"), sharedScene);
         await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "{\"edited\":true}\n");
         using var service = CreateService();
 

@@ -4,8 +4,8 @@ using Beutl.Models;
 
 namespace Beutl.UnitTests.Editor;
 
-// Tests for PreviewFrameCacheSizing.DeriveCacheSize. The player view model reapplies this mapping to every
-// rebuilt FrameCacheManager, so it decides whether reduced caches survive a quality-switch / Fit-resize rebuild.
+// The player view model reapplies DeriveCacheSize to every rebuilt FrameCacheManager, so it decides whether
+// reduced caches survive a quality-switch / Fit-resize rebuild.
 [TestFixture]
 public class PreviewFrameCacheSizingTests
 {

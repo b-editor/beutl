@@ -5,6 +5,7 @@ using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Editor;
 
@@ -540,14 +541,7 @@ public class MediaFingerprintPersistenceTests
     {
         Directory.CreateDirectory(directory);
         string media = Path.Combine(directory, "image.png");
-        using (var bitmap = new Bitmap(4, 4))
-        {
-            bitmap.GetPixelSpan().Fill(255);
-            Assert.That(bitmap.Save(media, EncodedImageFormat.Png), Is.True);
-        }
-
-        var source = new ImageSource();
-        source.ReadFrom(new Uri(media));
+        ImageSource source = TestImages.WriteImage(media);
         var scene = new Scene(64, 64, "Scene") { Uri = new Uri(Path.Combine(directory, "scene.scene")) };
         var element = new Element
         {

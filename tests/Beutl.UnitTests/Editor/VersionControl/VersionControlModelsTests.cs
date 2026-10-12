@@ -1,5 +1,6 @@
 ﻿using Beutl.Editor;
 using Beutl.Editor.VersionControl;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Editor.VersionControl;
 
@@ -89,15 +90,7 @@ public class VersionControlModelsTests
         Directory.CreateDirectory(realRoot);
         try
         {
-            try
-            {
-                Directory.CreateSymbolicLink(linkRoot, realRoot);
-            }
-            catch (Exception ex)
-                when (ex is IOException or UnauthorizedAccessException or PlatformNotSupportedException)
-            {
-                Assert.Ignore($"Symbolic links are unavailable here: {ex.Message}");
-            }
+            SymbolicLinks.CreateOrIgnore(linkRoot, realRoot, directory: true);
 
             Assert.That(
                 new RepositoryInfo(linkRoot, linkRoot),

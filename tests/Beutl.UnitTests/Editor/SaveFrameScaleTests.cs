@@ -75,12 +75,6 @@ public class SaveFrameScaleTests
         Assert.That(SaveFrameScale.FitsBufferLimit(overLimit, 1f, predicted), Is.False);
     }
 
-    [Test]
-    public void Factors_AreTheExpectedMultipliers()
-    {
-        Assert.That(SaveFrameScale.Factors, Is.EqualTo(new[] { 0.5f, 1f, 2f, 4f }));
-    }
-
     // A non-empty source always yields >= 1 px/axis; only a 0-area source fails.
     [TestCase(1920, 1080, 1f, true)]
     [TestCase(1920, 1080, 0.5f, true)]

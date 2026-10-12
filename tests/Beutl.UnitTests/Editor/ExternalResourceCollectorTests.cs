@@ -1,7 +1,7 @@
 ﻿using Beutl.Editor;
 using Beutl.Engine;
-using Beutl.IO;
 using Beutl.Media;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Editor;
 
@@ -341,38 +341,6 @@ public class ExternalResourceCollectorTests
 
     private class TestHierarchical : Hierarchical
     {
-        public void AddChild(IHierarchical child)
-        {
-            HierarchicalChildren.Add(child);
-        }
-    }
-
-    private class TestFileSource : IFileSource
-    {
-        public TestFileSource(Uri uri)
-        {
-            Uri = uri;
-        }
-
-        public Uri Uri { get; private set; }
-
-        public void ReadFrom(Uri uri)
-        {
-            Uri = uri;
-        }
-    }
-
-    [SuppressResourceClassGeneration]
-    private class TestEngineObjectWithFileSource : EngineObject
-    {
-        public TestEngineObjectWithFileSource(IFileSource? fileSource)
-        {
-            ScanProperties<TestEngineObjectWithFileSource>();
-            FileSource.CurrentValue = fileSource;
-        }
-
-        public IProperty<IFileSource?> FileSource { get; } = Property.Create<IFileSource?>();
-
         public void AddChild(IHierarchical child)
         {
             HierarchicalChildren.Add(child);

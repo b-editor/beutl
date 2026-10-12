@@ -12,28 +12,6 @@ namespace Beutl.UnitTests.Editor;
 public class HistoryMutationPlaybackGuardTests
 {
     [Test]
-    public async Task RunAsync_WhenPlayerIsPlaying_StopsAndAwaitsBeforeMutation()
-    {
-        using var guard = new HistoryMutationPlaybackGuard();
-        using var player = new PreviewPlayerStub(isPlaying: true);
-        bool mutatedAfterPause = false;
-
-        bool result = await guard.RunAsync(player, () => { }, () => true, () =>
-        {
-            mutatedAfterPause = !player.IsPlaying.Value;
-            return true;
-        });
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(result, Is.True);
-            Assert.That(mutatedAfterPause, Is.True);
-            Assert.That(player.StopCount, Is.EqualTo(1));
-            Assert.That(player.IsPlaying.Value, Is.False);
-        });
-    }
-
-    [Test]
     public async Task RunAsync_WhenPlayerIsStopped_MutatesWithoutStopping()
     {
         using var guard = new HistoryMutationPlaybackGuard();

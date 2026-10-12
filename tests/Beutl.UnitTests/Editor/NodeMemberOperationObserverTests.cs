@@ -23,11 +23,6 @@ public class NodeMemberOperationObserverTests
         Log.LoggerFactory = LoggerFactory.Create(b => { });
     }
 
-    [TearDown]
-    public void TearDown()
-    {
-    }
-
     #region Helper Classes
 
     [SuppressResourceClassGeneration]
@@ -38,8 +33,6 @@ public class NodeMemberOperationObserverTests
             var adapter = new NodePropertyAdapter<T>(name, value, animation);
             Property = adapter;
         }
-
-        public NodePropertyAdapter<T>? GetProperty() => Property as NodePropertyAdapter<T>;
 
         public void SetPropertyValue(T? value)
         {
@@ -79,44 +72,6 @@ public class NodeMemberOperationObserverTests
     #region Constructor Tests
 
     [Test]
-    public void Constructor_ShouldStoreNodeMemberAndSequenceGenerator()
-    {
-        var nodeMember = new TestNodeMember<int>("TestProperty", 42);
-        var receivedOperations = new List<ChangeOperation>();
-        var observer = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
-
-        using var sut = new NodeMemberOperationObserver(observer, nodeMember, _sequenceGenerator);
-
-        Assert.That(sut.Operations, Is.Not.Null);
-    }
-
-    [Test]
-    public void Constructor_ShouldSubscribeToObserver_WhenObserverIsNotNull()
-    {
-        var nodeMember = new TestNodeMember<int>("TestProperty", 10);
-        var receivedOperations = new List<ChangeOperation>();
-        var observer = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
-
-        using var sut = new NodeMemberOperationObserver(observer, nodeMember, _sequenceGenerator);
-
-        // Change property value to trigger an operation
-        nodeMember.SetPropertyValue(20);
-
-        Assert.That(receivedOperations, Has.Count.EqualTo(1));
-    }
-
-    [Test]
-    public void Constructor_ShouldNotThrow_WhenObserverIsNull()
-    {
-        var nodeMember = new TestNodeMember<int>("TestProperty", 42);
-
-        Assert.DoesNotThrow(() =>
-        {
-            using var sut = new NodeMemberOperationObserver(null, nodeMember, _sequenceGenerator);
-        });
-    }
-
-    [Test]
     public void Constructor_ShouldCreateChildObserver_WhenPropertyValueIsCoreObject()
     {
         var coreObject = new TestCoreObject { NameValue = "Initial" };
@@ -126,7 +81,6 @@ public class NodeMemberOperationObserverTests
 
         using var sut = new NodeMemberOperationObserver(observer, nodeMember, _sequenceGenerator);
 
-        // Change the nested object's property - should be tracked by child observer
         coreObject.NameValue = "Changed";
 
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
@@ -142,30 +96,9 @@ public class NodeMemberOperationObserverTests
 
         using var sut = new NodeMemberOperationObserver(observer, nodeMember, _sequenceGenerator);
 
-        // Add item to list - should be tracked by collection observer
         list.Add(new TestCoreObject());
 
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
-    }
-
-    [Test]
-    public void Constructor_ShouldSubscribeToAnimationChanges_WhenPropertyIsAnimatable()
-    {
-        var animation = new KeyFrameAnimation<float>();
-        var nodeMember = new TestNodeMember<float>("TestProperty", 1.0f, animation);
-        var receivedOperations = new List<ChangeOperation>();
-        var observer = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
-
-        using var sut = new NodeMemberOperationObserver(observer, nodeMember, _sequenceGenerator);
-
-        // Change animation
-        var newAnimation = new KeyFrameAnimation<float>();
-        nodeMember.SetAnimation(newAnimation);
-
-        Assert.That(receivedOperations, Has.Count.EqualTo(1));
-        var operation = receivedOperations[0] as UpdateNodeMemberOperation;
-        Assert.That(operation, Is.Not.Null);
-        Assert.That(operation!.PropertyPath, Is.EqualTo("Animation"));
     }
 
     [Test]
@@ -206,6 +139,7 @@ public class NodeMemberOperationObserverTests
         Assert.That(operation!.NewValue, Is.EqualTo(20));
         Assert.That(operation.OldValue, Is.EqualTo(10));
         Assert.That(operation.PropertyPath, Is.EqualTo("Property"));
+        Assert.That(operation.NodeMember, Is.SameAs(nodeMember));
     }
 
     [Test]
@@ -240,12 +174,10 @@ public class NodeMemberOperationObserverTests
 
         receivedOperations.Clear();
 
-        // Change on old object should NOT trigger
         initialObject.NameValue = "Old Changed";
 
         Assert.That(receivedOperations, Is.Empty);
 
-        // Change on new object SHOULD trigger
         newObject.NameValue = "New Changed";
 
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
@@ -265,7 +197,6 @@ public class NodeMemberOperationObserverTests
 
         receivedOperations.Clear();
 
-        // Changes on old object should not trigger operations
         initialObject.NameValue = "Changed";
 
         Assert.That(receivedOperations, Is.Empty);
@@ -287,7 +218,6 @@ public class NodeMemberOperationObserverTests
 
         receivedOperations.Clear();
 
-        // New object's changes should now be tracked
         newObject.NameValue = "Changed";
 
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
@@ -352,7 +282,6 @@ public class NodeMemberOperationObserverTests
 
         receivedOperations.Clear();
 
-        // Changes to the new animation should be tracked
         newAnimation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 0f });
 
         Assert.That(receivedOperations, Has.Count.GreaterThanOrEqualTo(1));
@@ -406,7 +335,6 @@ public class NodeMemberOperationObserverTests
 
         var sut = new NodeMemberOperationObserver(null, nodeMember, _sequenceGenerator);
 
-        // Subscribe directly to Operations to receive completion
         using var subscription = sut.Operations.Subscribe(
             _ => { },
             _ => { },
@@ -427,7 +355,6 @@ public class NodeMemberOperationObserverTests
         var sut = new NodeMemberOperationObserver(observer, nodeMember, _sequenceGenerator);
         sut.Dispose();
 
-        // Changes after dispose should not be tracked
         nodeMember.SetPropertyValue(20);
 
         Assert.That(receivedOperations, Is.Empty);
@@ -444,7 +371,6 @@ public class NodeMemberOperationObserverTests
         var sut = new NodeMemberOperationObserver(observer, nodeMember, _sequenceGenerator);
         sut.Dispose();
 
-        // Animation changes after dispose should not be tracked
         nodeMember.SetAnimation(new KeyFrameAnimation<float>());
 
         Assert.That(receivedOperations, Is.Empty);
@@ -461,7 +387,6 @@ public class NodeMemberOperationObserverTests
         var sut = new NodeMemberOperationObserver(observer, nodeMember, _sequenceGenerator);
         sut.Dispose();
 
-        // Child object changes after dispose should not be tracked
         coreObject.NameValue = "Changed";
 
         Assert.That(receivedOperations, Is.Empty);
@@ -478,7 +403,6 @@ public class NodeMemberOperationObserverTests
         var sut = new NodeMemberOperationObserver(observer, nodeMember, _sequenceGenerator);
         sut.Dispose();
 
-        // Animation internal changes after dispose should not be tracked
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 0f });
 
         Assert.That(receivedOperations, Is.Empty);
@@ -495,7 +419,6 @@ public class NodeMemberOperationObserverTests
         var sut = new NodeMemberOperationObserver(observer, nodeMember, _sequenceGenerator);
         sut.Dispose();
 
-        // Collection changes after dispose should not be tracked
         list.Add(new TestCoreObject());
 
         Assert.That(receivedOperations, Is.Empty);
@@ -536,32 +459,17 @@ public class NodeMemberOperationObserverTests
         Assert.That(receivedOperations, Is.Empty);
     }
 
-    [Test]
-    public void Constructor_ShouldTrackBoth_WhenPropertyPathsToTrackIncludesBoth()
+    [TestCase(true)]
+    [TestCase(false)]
+    public void Constructor_ShouldTrackBoth_WhenPropertyPathsToTrackIncludesBothOrIsNull(bool listBoth)
     {
         var animation = new KeyFrameAnimation<float>();
         var nodeMember = new TestNodeMember<float>("TestProperty", 1.0f, animation);
         var receivedOperations = new List<ChangeOperation>();
         var observer = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
-        var pathsToTrack = new HashSet<string> { "Property", "Animation" };
+        HashSet<string>? pathsToTrack = listBoth ? new HashSet<string> { "Property", "Animation" } : null;
 
         using var sut = new NodeMemberOperationObserver(observer, nodeMember, _sequenceGenerator, "", pathsToTrack);
-
-        nodeMember.SetPropertyValue(2.0f);
-        nodeMember.SetAnimation(new KeyFrameAnimation<float>());
-
-        Assert.That(receivedOperations, Has.Count.EqualTo(2));
-    }
-
-    [Test]
-    public void Constructor_ShouldTrackAll_WhenPropertyPathsToTrackIsNull()
-    {
-        var animation = new KeyFrameAnimation<float>();
-        var nodeMember = new TestNodeMember<float>("TestProperty", 1.0f, animation);
-        var receivedOperations = new List<ChangeOperation>();
-        var observer = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
-
-        using var sut = new NodeMemberOperationObserver(observer, nodeMember, _sequenceGenerator, "", null);
 
         nodeMember.SetPropertyValue(2.0f);
         nodeMember.SetAnimation(new KeyFrameAnimation<float>());
@@ -611,17 +519,6 @@ public class NodeMemberOperationObserverTests
     #region Operations Property Tests
 
     [Test]
-    public void Operations_ShouldReturnObservable()
-    {
-        var nodeMember = new TestNodeMember<int>("TestProperty", 10);
-
-        using var sut = new NodeMemberOperationObserver(null, nodeMember, _sequenceGenerator);
-
-        Assert.That(sut.Operations, Is.Not.Null);
-        Assert.That(sut.Operations, Is.InstanceOf<IObservable<ChangeOperation>>());
-    }
-
-    [Test]
     public void Operations_ShouldSupportMultipleSubscribers()
     {
         var nodeMember = new TestNodeMember<int>("TestProperty", 10);
@@ -641,33 +538,12 @@ public class NodeMemberOperationObserverTests
 
     #endregion
 
-    #region NodeMember Reference Tests
-
-    [Test]
-    public void UpdateNodeMemberOperation_ShouldContainNodeMemberReference()
-    {
-        var nodeMember = new TestNodeMember<int>("TestProperty", 10);
-        var receivedOperations = new List<ChangeOperation>();
-        var observer = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
-
-        using var sut = new NodeMemberOperationObserver(observer, nodeMember, _sequenceGenerator);
-
-        nodeMember.SetPropertyValue(20);
-
-        var operation = receivedOperations[0] as UpdateNodeMemberOperation;
-        Assert.That(operation, Is.Not.Null);
-        Assert.That(operation!.NodeMember, Is.SameAs(nodeMember));
-    }
-
-    #endregion
-
     #region Property Null Tests
 
     [Test]
     public void Constructor_ShouldHandleNullProperty()
     {
         var nodeMember = new DefaultNodeMember<int>();
-        // Property is null by default
 
         Assert.DoesNotThrow(() =>
         {

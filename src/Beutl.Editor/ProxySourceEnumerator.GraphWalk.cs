@@ -57,7 +57,6 @@ public static partial class ProxySourceEnumerator
         {
             foreach (GraphNode node in graph.Nodes)
             {
-                // Keep every group's outer inputs even when its inner graph is shared.
                 foreach (IFileSource source in EnumerateNodePropertySources(node, localRange, visitedValues, sceneWindow, walkContext, skipDisabledElements))
                     yield return source;
 

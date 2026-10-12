@@ -1,15 +1,11 @@
-﻿using System.Reflection;
-using System.Runtime.CompilerServices;
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Services;
-using Beutl.Extensibility;
 using Beutl.Language;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.UnitTests.TestInfrastructure;
-using Reactive.Bindings;
 
 namespace Beutl.UnitTests.Editor;
 
@@ -17,33 +13,6 @@ namespace Beutl.UnitTests.Editor;
 [NonParallelizable]
 public class TimelineTabViewModelShortcutTests
 {
-    private static readonly CaptureNotificationHandler s_notificationHandler = new();
-    private INotificationServiceHandler? _previousHandler;
-
-    [OneTimeSetUp]
-    public void InstallNotificationHandler()
-    {
-        _previousHandler = NotificationService.Handler;
-        NotificationService.Handler = s_notificationHandler;
-    }
-
-    [OneTimeTearDown]
-    public void RestoreNotificationHandler()
-    {
-        // The setter rejects null; when no handler existed before, ours stays (Show is null-safe
-        // and no other fixture asserts on Handler identity).
-        if (_previousHandler is not null)
-        {
-            NotificationService.Handler = _previousHandler;
-        }
-    }
-
-    [SetUp]
-    public void ClearCapturedNotifications()
-    {
-        s_notificationHandler.Notifications.Clear();
-    }
-
     [Test]
     public void IsTextInputSource_ReturnsTrue_ForTextBox()
     {
@@ -70,9 +39,11 @@ public class TimelineTabViewModelShortcutTests
         harness.AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
         var nudgeService = new CaptureNudgeService();
         var gapService = new CaptureGapService(nudgeService);
-        TimelineTabViewModel viewModel = CreateViewModel(harness.Scene, nudgeService, gapService, anchor);
+        using TimelineTabViewModel viewModel = TimelineTabViewModelTests.CreateViewModel(
+            harness.Scene, nudgeService: nudgeService, gapService: gapService);
+        viewModel.SelectedElements.Add(viewModel.Elements.Single(element => element.Model == anchor));
 
-        InvokePrivate(viewModel, "CloseSelectedGap");
+        viewModel.CloseGap.Execute();
 
         Assert.Multiple(() =>
         {
@@ -88,17 +59,19 @@ public class TimelineTabViewModelShortcutTests
         using var harness = new SceneHistoryHarness("beutl_timeline_gap_command", duration: TimeSpan.FromSeconds(30));
         var nudgeService = new CaptureNudgeService();
         var gapService = new CaptureGapService(nudgeService);
-        TimelineTabViewModel viewModel = CreateViewModel(harness.Scene, nudgeService, gapService);
+        using TimelineTabViewModel viewModel = TimelineTabViewModelTests.CreateViewModel(
+            harness.Scene, nudgeService: nudgeService, gapService: gapService);
+        using var notifications = NotificationCapture.Install();
 
-        InvokePrivate(viewModel, "CloseSelectedGap");
+        viewModel.CloseGap.Execute();
 
+        Notification notification = notifications.All.Single();
         Assert.Multiple(() =>
         {
             Assert.That(gapService.CloseGapCalled, Is.False);
             Assert.That(nudgeService.FlushCount, Is.Zero);
-            Assert.That(s_notificationHandler.Notifications, Has.Count.EqualTo(1));
-            Assert.That(s_notificationHandler.Notifications[0].Title, Is.EqualTo(Strings.CloseGap));
-            Assert.That(s_notificationHandler.Notifications[0].Message, Is.EqualTo(Strings.NoElementSelected));
+            Assert.That(notification.Title, Is.EqualTo(Strings.CloseGap));
+            Assert.That(notification.Message, Is.EqualTo(Strings.NoElementSelected));
         });
     }
 
@@ -297,9 +270,10 @@ public class TimelineTabViewModelShortcutTests
         harness.AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
         var nudgeService = new CaptureNudgeService();
         var gapService = new CaptureGapService(nudgeService);
-        TimelineTabViewModel viewModel = CreateViewModel(harness.Scene, nudgeService, gapService);
+        using TimelineTabViewModel viewModel = TimelineTabViewModelTests.CreateViewModel(
+            harness.Scene, nudgeService: nudgeService, gapService: gapService);
 
-        InvokePrivate(viewModel, "CloseAllSceneGaps");
+        viewModel.CloseAllGaps.Execute();
 
         Assert.Multiple(() =>
         {
@@ -307,72 +281,6 @@ public class TimelineTabViewModelShortcutTests
             Assert.That(gapService.CloseAllGapsCalled, Is.True);
             Assert.That(gapService.CloseAllGapsSawFlush, Is.True);
         });
-    }
-
-    private static TimelineTabViewModel CreateViewModel(
-        Scene scene,
-        IElementNudgeService nudgeService,
-        IElementGapService gapService,
-        Element? selectedElement = null)
-    {
-        var context = new TestEditorContext(scene);
-        context.AddService<IElementNudgeService>(nudgeService);
-        context.AddService<IElementGapService>(gapService);
-
-        var viewModel = (TimelineTabViewModel)RuntimeHelpers.GetUninitializedObject(typeof(TimelineTabViewModel));
-        // GetUninitializedObject skips field initializers, so any finalizer would run against null
-        // fields and crash the finalizer thread (killing the test host). Suppress it.
-        GC.SuppressFinalize(viewModel);
-        SetAutoProperty(viewModel, nameof(TimelineTabViewModel.Scene), scene);
-        SetAutoProperty(viewModel, nameof(TimelineTabViewModel.EditorContext), context);
-        SetAutoProperty(viewModel, nameof(TimelineTabViewModel.SelectedElements), CreateSelection(selectedElement));
-        return viewModel;
-    }
-
-    private static HashSet<ElementViewModel> CreateSelection(Element? element)
-    {
-        var selection = new HashSet<ElementViewModel>();
-        if (element is not null)
-        {
-            selection.Add(CreateElementViewModel(element));
-        }
-
-        return selection;
-    }
-
-    private static ElementViewModel CreateElementViewModel(Element element)
-    {
-        var viewModel = (ElementViewModel)RuntimeHelpers.GetUninitializedObject(typeof(ElementViewModel));
-        // ElementViewModel's finalizer dereferences a field that GetUninitializedObject leaves null.
-        GC.SuppressFinalize(viewModel);
-        SetAutoProperty(viewModel, nameof(ElementViewModel.Model), element);
-        return viewModel;
-    }
-
-    private static void InvokePrivate(TimelineTabViewModel viewModel, string methodName)
-    {
-        MethodInfo method = typeof(TimelineTabViewModel).GetMethod(
-            methodName,
-            BindingFlags.Instance | BindingFlags.NonPublic)
-            ?? throw new MissingMethodException(typeof(TimelineTabViewModel).FullName, methodName);
-        method.Invoke(viewModel, null);
-    }
-
-    private static void SetAutoProperty<TTarget, TValue>(TTarget target, string propertyName, TValue value)
-        where TTarget : notnull
-    {
-        FieldInfo field = typeof(TTarget).GetField(
-            $"<{propertyName}>k__BackingField",
-            BindingFlags.Instance | BindingFlags.NonPublic)
-            ?? throw new MissingFieldException(typeof(TTarget).FullName, propertyName);
-        field.SetValue(target, value);
-    }
-
-    private sealed class CaptureNotificationHandler : INotificationServiceHandler
-    {
-        public List<Notification> Notifications { get; } = [];
-
-        public void Show(Notification notification) => Notifications.Add(notification);
     }
 
     private sealed class CaptureNudgeService : IElementNudgeService
@@ -412,49 +320,6 @@ public class TimelineTabViewModelShortcutTests
             CloseAllGapsCalled = true;
             CloseAllGapsSawFlush = nudgeService.FlushCount > 0;
             return 1;
-        }
-    }
-
-    private sealed class TestEditorContext(CoreObject obj) : IEditorContext
-    {
-        private readonly Dictionary<Type, object> _services = [];
-
-        public CoreObject Object { get; } = obj;
-
-        public EditorExtension Extension => null!;
-
-        public IReactiveProperty<bool> IsEnabled { get; } = new ReactivePropertySlim<bool>(true);
-
-        public void AddService<T>(T service)
-            where T : notnull
-        {
-            _services[typeof(T)] = service;
-        }
-
-        public object? GetService(Type serviceType)
-        {
-            return _services.GetValueOrDefault(serviceType);
-        }
-
-        public T? FindToolTab<T>(Func<T, bool> condition)
-            where T : IToolContext
-        {
-            return default;
-        }
-
-        public T? FindToolTab<T>()
-            where T : IToolContext
-        {
-            return default;
-        }
-
-        public bool OpenToolTab(IToolContext item)
-        {
-            return false;
-        }
-
-        public void CloseToolTab(IToolContext item)
-        {
         }
     }
 }

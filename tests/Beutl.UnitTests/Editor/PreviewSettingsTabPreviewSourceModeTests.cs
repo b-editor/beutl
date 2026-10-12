@@ -7,7 +7,7 @@ using Moq;
 
 namespace Beutl.UnitTests.Editor;
 
-// #5: the Preview Settings tool tab exposes PreviewSourceMode as an int so a ComboBox.SelectedIndex
+// The Preview Settings tool tab exposes PreviewSourceMode as an int so a ComboBox.SelectedIndex
 // (an int) round-trips. Binding SelectedIndex to an enum-typed ReactiveProperty writes the index back
 // untranslated, so toggling the combo from the tab never updates the setting.
 [TestFixture, NonParallelizable]

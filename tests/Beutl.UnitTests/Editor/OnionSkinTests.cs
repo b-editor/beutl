@@ -7,8 +7,7 @@ namespace Beutl.UnitTests.Editor;
 [TestFixture]
 public class OnionSkinTests
 {
-    // Mirror of the shared frame<->time conversion (int.ToTimeSpan(rate)) so expected sample
-    // times are expressed on the same frame grid the helper now derives them from.
+    // Same frame grid as int.ToTimeSpan(rate).
     private static TimeSpan FrameTime(int frame, int rate) =>
         TimeSpan.FromTicks(TimeSpan.TicksPerSecond * frame / rate);
 
@@ -300,9 +299,8 @@ public class OnionSkinTests
         Assert.That(samples[1].IsPrev, Is.False);
         Assert.That(samples[1].Time, Is.EqualTo(FrameTime(currentFrame + 2, rate)));
 
-        // Next-side falloff direction: the closest next frame gets the full base opacity and the
-        // farther one fades. Guards against a reversed/off-by-one next-side formula (the prev tests
-        // exercise a structurally different expression and cannot protect this branch).
+        // The closest next frame gets the full base opacity and the farther one fades; the prev tests
+        // use a different expression and cannot catch a reversed or off-by-one next-side formula.
         Assert.That(samples[0].Alpha, Is.EqualTo(0.4f).Within(0.0001f));
         Assert.That(samples[1].Alpha, Is.EqualTo(0.4f * 0.5f).Within(0.0001f));
         Assert.That(samples[0].Alpha, Is.GreaterThan(samples[1].Alpha));
@@ -392,7 +390,7 @@ public class OnionSkinTests
     [Test]
     public void EditorConfig_ClampsOnionSkinCounts_ViaRangeAttribute()
     {
-        // The old flyout's 0..10 bound now lives as a [Range] coerced on assignment.
+        // Counts are clamped to 0..10 by [Range].
         var config = new EditorConfig
         {
             OnionSkinPrevCount = 1_000_000,

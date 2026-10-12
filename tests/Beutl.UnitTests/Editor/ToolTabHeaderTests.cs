@@ -78,38 +78,6 @@ public class ToolTabHeaderTests
         Assert.That(FileBrowserTabViewModel.CreateHeader(root), Is.EqualTo(root));
     }
 
-    [TestCase(ColorScopeType.Waveform)]
-    [TestCase(ColorScopeType.Histogram)]
-    [TestCase(ColorScopeType.Vectorscope)]
-    [TestCase(ColorScopeType.FalseColor)]
-    [TestCase(ColorScopeType.Zebra)]
-    public void ColorScopes_LocalizesEveryScopeTypeDistinctly(ColorScopeType type)
-    {
-        string label = ColorScopesTabViewModel.LocalizeScopeType(type);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(label, Is.Not.Empty);
-            Assert.That(label, Is.Not.EqualTo(Strings.ColorScopes));
-        });
-    }
-
-    [TestCase(AudioVisualizerMode.Waveform)]
-    [TestCase(AudioVisualizerMode.Spectrum)]
-    [TestCase(AudioVisualizerMode.Meter)]
-    [TestCase(AudioVisualizerMode.Spectrogram)]
-    [TestCase(AudioVisualizerMode.PhaseScope)]
-    public void AudioVisualizer_LocalizesEveryModeDistinctly(AudioVisualizerMode mode)
-    {
-        string label = AudioVisualizerTabViewModel.LocalizeMode(mode);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(label, Is.Not.Empty);
-            Assert.That(label, Is.Not.EqualTo(Strings.AudioVisualizer));
-        });
-    }
-
     [Test]
     public void ColorScopes_MapsEveryDefinedScopeTypeToItsOwnLabel()
     {
@@ -117,7 +85,12 @@ public class ToolTabHeaderTests
             .Select(ColorScopesTabViewModel.LocalizeScopeType)
             .ToArray();
 
-        Assert.That(labels, Is.Unique);
+        Assert.Multiple(() =>
+        {
+            Assert.That(labels, Has.All.Not.Empty);
+            Assert.That(labels, Has.None.EqualTo(Strings.ColorScopes));
+            Assert.That(labels, Is.Unique);
+        });
     }
 
     [Test]
@@ -127,6 +100,11 @@ public class ToolTabHeaderTests
             .Select(AudioVisualizerTabViewModel.LocalizeMode)
             .ToArray();
 
-        Assert.That(labels, Is.Unique);
+        Assert.Multiple(() =>
+        {
+            Assert.That(labels, Has.All.Not.Empty);
+            Assert.That(labels, Has.None.EqualTo(Strings.AudioVisualizer));
+            Assert.That(labels, Is.Unique);
+        });
     }
 }

@@ -2,6 +2,7 @@
 using Beutl.Editor.Components.VersionControl.ViewModels;
 using Beutl.Editor.VersionControl;
 using Beutl.Language;
+using Beutl.UnitTests.TestInfrastructure;
 using Moq;
 using Reactive.Bindings;
 
@@ -626,7 +627,7 @@ public class TitleBarBranchViewModelTests
         using var viewModel = CreateViewModel(service.Object, coordinator: coordinator.Object);
         viewModel.RequestNewBranchNameAsync = () => Task.FromResult<string?>("experiment");
         await viewModel.Initialization;
-        using var notifications = VersionControlNotificationCapture.Install();
+        using var notifications = NotificationCapture.Install();
 
         await Assert.DoesNotThrowAsync(() => viewModel.CreateBranchCommand.ExecuteAsync());
 
