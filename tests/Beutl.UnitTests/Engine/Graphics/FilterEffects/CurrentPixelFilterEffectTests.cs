@@ -1,8 +1,6 @@
 ﻿using System.Numerics;
-using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
-using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shaders;
 using Beutl.Media;
 using SkiaSharp;
@@ -475,22 +473,13 @@ public sealed class CurrentPixelFilterEffectTests
 
     private static ShaderDescription Record(FilterEffect effect)
     {
-        using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
-        using var context = new FilterEffectContext(s_bounds);
-
-        context.ApplyTransactional(effect, resource);
-
-        IReadOnlyList<IFEItem> items = context.GetOrderedItems();
+        (ShaderDescription description, Rect bounds) = FilterEffectTestHarness.RecordShader(effect, s_bounds);
         Assert.Multiple(() =>
         {
-            Assert.That(items, Has.Count.EqualTo(1));
-            Assert.That(items.OfType<IFEItem_Custom>(), Is.Empty);
-            Assert.That(context.Bounds, Is.EqualTo(s_bounds));
+            Assert.That(bounds, Is.EqualTo(s_bounds));
+            Assert.That(description.Kind, Is.EqualTo(ShaderDescriptionKind.CurrentPixel));
         });
-
-        var item = (FEItem_Shader)items.Single();
-        Assert.That(item.Description.Kind, Is.EqualTo(ShaderDescriptionKind.CurrentPixel));
-        return item.Description;
+        return description;
     }
 
     private static IEnumerable<TestCaseData> CollapsedThresholdBandCases()
@@ -563,74 +552,10 @@ public sealed class CurrentPixelFilterEffectTests
     }
 
     private static ShaderUniformValue Bind(ShaderDescription description, string name)
-    {
-        ShaderUniformBinding binding = description.Uniforms.Single(item => item.Name == name);
-        SkslUniformDeclaration declaration = description.Source.Uniforms[name];
-        var token = new RenderExecutionSessionToken();
-        var execution = new ShaderExecutionContext(
-            token,
-            s_bounds,
-            s_bounds,
-            s_bounds,
-            PixelRect.FromRect(s_bounds, 1),
-            s_bounds.Position,
-            EffectiveScale.At(1),
-            outputScale: 1,
-            workingScale: 1,
-            maxWorkingScale: 1,
-            intent: RenderIntent.Preview,
-            purpose: RenderRequestPurpose.Frame);
-        try
-        {
-            return binding.Bind(declaration, execution);
-        }
-        finally
-        {
-            token.Complete();
-        }
-    }
+        => FilterEffectTestHarness.BindUniform(description, name, s_bounds);
 
     private static (float[] Before, float[] After) Render(FilterEffect effect, SKColor color)
-    {
-        using var backing = new CpuRenderTarget(1, 1);
-        backing.Value.Canvas.Clear(color);
-        backing.Value.Canvas.Flush();
-        using Bitmap beforeBitmap = backing.Snapshot();
-        float[] before = ReadPixel(beforeBitmap);
-        using var targets = new EffectTargets
-        {
-            new EffectTarget(
-                backing,
-                new Rect(0, 0, 1, 1),
-                EffectiveScale.At(1),
-                new PixelRect(0, 0, 1, 1)),
-        };
-        using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
-        using var context = new FilterEffectContext(new Rect(0, 0, 1, 1));
-        context.ApplyTransactional(effect, resource);
-        using var builder = new SKImageFilterBuilder();
-        using var executor = new FilterEffectExecutor(
-            targets,
-            builder,
-            RenderIntent.Preview,
-            RenderRequestPurpose.Auxiliary,
-            drawableBrushMaterializer: null,
-            outputScale: 1,
-            workingScale: 1,
-            maxWorkingScale: 1);
-
-        executor.Apply(context);
-        executor.Flush(false);
-
-        using Bitmap afterBitmap = targets.Single().RenderTarget!.Snapshot();
-        return (before, ReadPixel(afterBitmap));
-    }
-
-    private static float[] ReadPixel(Bitmap bitmap)
-        => bitmap.GetPixelSpan<ushort>()[..4]
-            .ToArray()
-            .Select(static bits => (float)BitConverter.UInt16BitsToHalf(bits))
-            .ToArray();
+        => FilterEffectTestHarness.RunOnSolidTarget(effect, color, new PixelSize(1, 1));
 
     private static float Mix(float first, float second, float amount)
         => first + (second - first) * amount;
@@ -651,18 +576,5 @@ public sealed class CurrentPixelFilterEffectTests
                 Is.EqualTo(expected[index]).Within(tolerance),
                 $"{message}; channel {index}");
         }
-    }
-
-    private sealed class CpuRenderTarget(int width, int height)
-        : RenderTarget(CreateSurface(width, height), width, height)
-    {
-        private static SKSurface CreateSurface(int width, int height)
-            => SKSurface.Create(new SKImageInfo(
-                   width,
-                   height,
-                   SKColorType.RgbaF16,
-                   SKAlphaType.Premul,
-                   SKColorSpace.CreateSrgbLinear()))
-               ?? throw new InvalidOperationException("A CPU effect-test surface could not be created.");
     }
 }

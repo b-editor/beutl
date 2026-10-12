@@ -99,33 +99,15 @@ public class AudioVisualizerDrawableTests
         Assert.That(resource.CachedSampleLength, Is.Zero);
     }
 
+    // Audio visualizers must not throw at reduced/super scale output either.
     [Test]
-    public void Waveform_Render_NoSource_DoesNotThrow()
-    {
-        var drawable = CreateWaveform();
-        Assert.DoesNotThrow(() => RenderOnce(drawable));
-    }
-
-    [Test]
-    public void Spectrum_Render_NoSource_DoesNotThrow()
-    {
-        var drawable = CreateSpectrum();
-        Assert.DoesNotThrow(() => RenderOnce(drawable));
-    }
-
-    [Test]
-    public void Spectrogram_Render_NoSource_DoesNotThrow()
-    {
-        var drawable = CreateSpectrogram();
-        Assert.DoesNotThrow(() => RenderOnce(drawable));
-    }
-
-    [TestCaseSource(nameof(WaveformShapeCases))]
-    public void Waveform_WithEachShape_DoesNotThrow(Func<WaveformShape> factory)
+    public void Waveform_WithEachShape_DoesNotThrow(
+        [ValueSource(nameof(WaveformShapeCases))] Func<WaveformShape> factory,
+        [Values(0.5f, 1f, 2f)] float outputScale)
     {
         var drawable = CreateWaveform();
         drawable.Shape.CurrentValue = factory();
-        Assert.DoesNotThrow(() => RenderOnce(drawable));
+        Assert.DoesNotThrow(() => RenderOnce(drawable, outputScale));
     }
 
     public static IEnumerable<Func<WaveformShape>> WaveformShapeCases() =>
@@ -163,33 +145,23 @@ public class AudioVisualizerDrawableTests
         Assert.DoesNotThrow(() => RenderOnce(drawable));
     }
 
-    // Audio visualizers must not throw at reduced/super scale output.
-    [TestCaseSource(nameof(WaveformShapeCases))]
-    public void Waveform_WithEachShape_AtReducedScale_DoesNotThrow(Func<WaveformShape> factory)
-    {
-        var drawable = CreateWaveform();
-        drawable.Shape.CurrentValue = factory();
-        Assert.DoesNotThrow(() => RenderOnce(drawable, 0.5f));
-        Assert.DoesNotThrow(() => RenderOnce(drawable, 2f));
-    }
-
-    [Test]
-    public void Spectrum_AtReducedScale_DoesNotThrow()
+    // Scale 1 is the Logarithmic case of the frequency-scale test.
+    [TestCase(0.5f)]
+    [TestCase(2f)]
+    public void Spectrum_AtReducedScale_DoesNotThrow(float outputScale)
     {
         var drawable = CreateSpectrum();
-        Assert.DoesNotThrow(() => RenderOnce(drawable, 0.5f));
-        Assert.DoesNotThrow(() => RenderOnce(drawable, 2f));
+        Assert.DoesNotThrow(() => RenderOnce(drawable, outputScale));
     }
 
-    [Test]
-    public void Spectrogram_AtReducedScale_DoesNotThrow()
+    [TestCase(0.5f)]
+    [TestCase(2f)]
+    public void Spectrogram_AtReducedScale_DoesNotThrow(float outputScale)
     {
         var drawable = CreateSpectrogram();
-        Assert.DoesNotThrow(() => RenderOnce(drawable, 0.5f));
-        Assert.DoesNotThrow(() => RenderOnce(drawable, 2f));
+        Assert.DoesNotThrow(() => RenderOnce(drawable, outputScale));
     }
 
-    // With a real audio source, exercises the foreground draw + brush fill at reduced/super scale. GPU-gated.
     private static void AttachSyntheticSource(AudioVisualizerDrawable drawable)
     {
         string path = TestMediaHelper.CreateTestAudioFile(sampleRate: 44100, channels: 2, durationSeconds: 2.0);
@@ -206,7 +178,7 @@ public class AudioVisualizerDrawableTests
 
     // Builds the resource at a time inside the source window, asserts the sample cache is non-empty (else the
     // render would skip the fill path and the test would be vacuous), then rasterizes at the given scale.
-    private static void RenderWithSamplesAtScale(AudioVisualizerDrawable drawable, float scale)
+    private static Bitmap RenderWithSamples(AudioVisualizerDrawable drawable, PixelSize frame, float scale)
     {
         var ctx = new CompositionContext(TimeSpan.FromSeconds(0.5));
         using Drawable.Resource resource = drawable.ToResource(ctx);
@@ -214,9 +186,10 @@ public class AudioVisualizerDrawableTests
         Assert.That(visResource.CachedSampleLength, Is.GreaterThan(0),
             "synthetic audio composed no samples — the fill path would be skipped, making the test vacuous");
 
-        using Bitmap _ = GoldenImageHarness.RenderAtScale(resource, new PixelSize(320, 80), scale);
+        return GoldenImageHarness.RenderAtScale(resource, frame, scale);
     }
 
+    // With a real audio source, exercises the foreground draw + brush fill at reduced/super scale. GPU-gated.
     [TestCaseSource(nameof(WaveformShapeCases))]
     public void Waveform_WithEachShape_WithSamples_AtScale_Renders(Func<WaveformShape> factory)
     {
@@ -226,8 +199,8 @@ public class AudioVisualizerDrawableTests
             var drawable = CreateWaveform();
             drawable.Shape.CurrentValue = factory();
             AttachSyntheticSource(drawable);
-            Assert.DoesNotThrow(() => RenderWithSamplesAtScale(drawable, 0.5f));
-            Assert.DoesNotThrow(() => RenderWithSamplesAtScale(drawable, 2f));
+            Assert.DoesNotThrow(() => RenderWithSamples(drawable, new PixelSize(320, 80), 0.5f).Dispose());
+            Assert.DoesNotThrow(() => RenderWithSamples(drawable, new PixelSize(320, 80), 2f).Dispose());
         });
     }
 
@@ -239,8 +212,8 @@ public class AudioVisualizerDrawableTests
         {
             var drawable = CreateSpectrum();
             AttachSyntheticSource(drawable);
-            Assert.DoesNotThrow(() => RenderWithSamplesAtScale(drawable, 0.5f));
-            Assert.DoesNotThrow(() => RenderWithSamplesAtScale(drawable, 2f));
+            Assert.DoesNotThrow(() => RenderWithSamples(drawable, new PixelSize(320, 80), 0.5f).Dispose());
+            Assert.DoesNotThrow(() => RenderWithSamples(drawable, new PixelSize(320, 80), 2f).Dispose());
         });
     }
 
@@ -252,22 +225,9 @@ public class AudioVisualizerDrawableTests
         {
             var drawable = CreateSpectrogram();
             AttachSyntheticSource(drawable);
-            Assert.DoesNotThrow(() => RenderWithSamplesAtScale(drawable, 0.5f));
-            Assert.DoesNotThrow(() => RenderWithSamplesAtScale(drawable, 2f));
+            Assert.DoesNotThrow(() => RenderWithSamples(drawable, new PixelSize(320, 80), 0.5f).Dispose());
+            Assert.DoesNotThrow(() => RenderWithSamples(drawable, new PixelSize(320, 80), 2f).Dispose());
         });
-    }
-
-    // Renders the spectrogram with the synthetic source at the given scale.
-    private static Bitmap RenderSpectrogramWithSamples(float scale)
-    {
-        var drawable = CreateSpectrogram();
-        AttachSyntheticSource(drawable);
-        var ctx = new CompositionContext(TimeSpan.FromSeconds(0.5));
-        using Drawable.Resource resource = drawable.ToResource(ctx);
-        var visResource = (AudioVisualizerDrawable.Resource)resource;
-        Assert.That(visResource.CachedSampleLength, Is.GreaterThan(0),
-            "synthetic audio composed no samples — the fill path would be skipped, making the test vacuous");
-        return GoldenImageHarness.RenderAtScale(resource, new PixelSize(320, 80), scale);
     }
 
     [TestCase(500f, 0.25f)]
@@ -296,27 +256,13 @@ public class AudioVisualizerDrawableTests
             var transformedFrame = new PixelSize(
                 (int)(400 / outputScale),
                 (int)(225 / outputScale));
-            using Bitmap transformed = RenderWaveformRoute(drawable, transformedFrame, outputScale);
+            using Bitmap transformed = RenderWithSamples(drawable, transformedFrame, outputScale);
 
             drawable.Transform.CurrentValue = new ScaleTransform(100f, 100f);
-            using Bitmap reference = RenderWaveformRoute(drawable, new PixelSize(320, 180), 1.25f);
+            using Bitmap reference = RenderWithSamples(drawable, new PixelSize(320, 180), 1.25f);
 
             GoldenImageHarness.AssertByteIdentical(reference, transformed);
         });
-    }
-
-    private static Bitmap RenderWaveformRoute(
-        AudioWaveformDrawable drawable,
-        PixelSize logicalFrame,
-        float outputScale)
-    {
-        var context = new CompositionContext(TimeSpan.FromSeconds(0.5));
-        using Drawable.Resource resource = drawable.ToResource(context);
-        Assert.That(
-            ((AudioWaveformDrawable.Resource)resource).CachedSampleLength,
-            Is.GreaterThan(0),
-            "synthetic audio composed no samples — the comparison would be vacuous");
-        return GoldenImageHarness.RenderAtScale(resource, logicalFrame, outputScale);
     }
 
     // Two fresh instances fed identical samples must rasterize byte-identically at density > 1,
@@ -327,9 +273,16 @@ public class AudioVisualizerDrawableTests
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            using Bitmap first = RenderSpectrogramWithSamples(2f);
-            using Bitmap second = RenderSpectrogramWithSamples(2f);
+            using Bitmap first = RenderFresh();
+            using Bitmap second = RenderFresh();
             GoldenImageHarness.AssertByteIdentical(first, second);
+
+            static Bitmap RenderFresh()
+            {
+                var drawable = CreateSpectrogram();
+                AttachSyntheticSource(drawable);
+                return RenderWithSamples(drawable, new PixelSize(320, 80), 2f);
+            }
         });
     }
 }

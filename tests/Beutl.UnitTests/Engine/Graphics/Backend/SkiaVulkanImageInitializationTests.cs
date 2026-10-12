@@ -80,9 +80,7 @@ public class SkiaVulkanImageInitializationTests
             ((ITransparentClearableTexture)vulkanTexture).ClearToTransparent();
             vulkanTexture.PrepareForSkiaSampling(requireCompletion: true);
 
-            var target = (GRBackendTexture)typeof(VulkanTexture2D).GetField(
-                "_skiaBackendTexture", BindingFlags.Instance | BindingFlags.NonPublic)!
-                .GetValue(vulkanTexture)!;
+            GRBackendTexture target = VulkanTestEnvironment.GetSkiaBackendTexture(vulkanTexture);
             Assert.That(SkiaVulkanInterop.GetImageLayout(target), Is.EqualTo(ImageLayout.TransferDstOptimal),
                 "Skia must observe the allocation clear, even when its first access is a snapshot.");
 
@@ -139,9 +137,7 @@ public class SkiaVulkanImageInitializationTests
         {
             // The shared context is a CompositeContext wherever Skia runs on another API, so the
             // Vulkan context that owns the hook has to be reached through it.
-            IGraphicsContext shared = GraphicsContextFactory.GetOrCreateShared()!;
-            VulkanContext context = shared as VulkanContext
-                ?? ((CompositeContext)shared).Vulkan;
+            VulkanContext context = VulkanTestEnvironment.ResolveVulkan(GraphicsContextFactory.GetOrCreateShared()!);
             MethodInfo getProcedureAddress = typeof(VulkanContext).GetMethod(
                 "GetVulkanProcAddress",
                 BindingFlags.Instance | BindingFlags.NonPublic)!;

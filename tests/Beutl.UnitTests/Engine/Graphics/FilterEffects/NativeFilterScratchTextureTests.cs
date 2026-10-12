@@ -2,6 +2,7 @@
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Requests;
+using Beutl.UnitTests.TestInfrastructure;
 using Moq;
 using SkiaSharp;
 
@@ -61,7 +62,7 @@ public sealed class NativeFilterScratchTextureTests
     [Test]
     public void TryAcquireNativeScratchTexture_DeclinedPreviewMarksTheContentDrop()
     {
-        using var pool = new RenderTargetPool(new DecliningTargetFactory());
+        using var pool = new RenderTargetPool(new DecliningRenderTargetFactory());
         using RenderTargetLeaseSession session = pool.BeginSession(RenderIntent.Preview);
         using var targets = new EffectTargets();
         var context = new CustomFilterEffectContext(
@@ -86,7 +87,7 @@ public sealed class NativeFilterScratchTextureTests
     [Test]
     public void TryAcquireNativeScratchTexture_DeclinedDeliveryStillFailsFast()
     {
-        using var pool = new RenderTargetPool(new DecliningTargetFactory());
+        using var pool = new RenderTargetPool(new DecliningRenderTargetFactory());
         using RenderTargetLeaseSession session = pool.BeginSession(RenderIntent.Delivery);
         using var targets = new EffectTargets();
         var context = new CustomFilterEffectContext(
@@ -100,11 +101,6 @@ public sealed class NativeFilterScratchTextureTests
             () => context.TryAcquireNativeScratchTexture(graphicsContext.Object, 8, 6),
             Throws.TypeOf<InvalidOperationException>().With.Message.Contains("could not allocate"));
         Assert.That(session.ContentDropObserved, Is.False);
-    }
-
-    private sealed class DecliningTargetFactory : IRenderTargetFactory
-    {
-        public RenderTarget? Create(RenderTargetAllocationDescriptor allocation) => null;
     }
 
     private sealed class ClearableTexture(int width, int height)

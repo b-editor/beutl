@@ -47,6 +47,10 @@ public partial class ImmediateCanvas
         return scope;
     }
 
+    /// <summary>
+    /// Reports every flush to <paramref name="observer"/> in this async flow until the returned scope is disposed.
+    /// A test seam: only tests observe flushes.
+    /// </summary>
     internal static IDisposable ObserveFlushes(Action<ImmediateCanvasFlushKind> observer)
     {
         ArgumentNullException.ThrowIfNull(observer);

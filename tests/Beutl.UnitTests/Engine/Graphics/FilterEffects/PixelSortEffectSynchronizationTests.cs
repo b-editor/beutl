@@ -76,12 +76,8 @@ public sealed class PixelSortEffectSynchronizationTests
     [Category("GpuPassFusionGpu")]
     public void PixelSort_ReadsHeavySkiaWorkOnlyAfterItFinishes()
     {
-        // The bar fixture cannot tell an ordered hand-off from a broken one: it passes even when Skia's work is
-        // never submitted ahead of the pass. A pass that reads this source too early sorts a partly drawn or empty
-        // image instead of the finished picture. Where Skia shares the Vulkan queue, only a missing submission
-        // breaks the order and it fails every run. Across APIs only the completion wait keeps the queues from
-        // racing, so Skia's queue is kept busy with another target and the hand-off is repeated until a late read
-        // would have shown.
+        // The bar fixture cannot tell a broken hand-off from an ordered one. Reading heavy Skia work too early sorts a
+        // partly drawn image, so across APIs Skia's queue is kept busy with another target while the hand-off repeats.
         var bounds = new Rect(0, 0, 1280, 720);
         IGraphicsContext context = VulkanTestEnvironment.EnsureAvailable();
         bool crossApi = context is CompositeContext;

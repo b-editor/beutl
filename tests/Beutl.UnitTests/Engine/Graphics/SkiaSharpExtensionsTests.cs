@@ -121,25 +121,14 @@ public class SkiaSharpExtensionsTests
         Assert.That(op.ToSKClipOperation(), Is.EqualTo(expected));
     }
 
-    [Test]
-    public void BitmapInterpolationMode_ToSKSamplingOptions_LowQualityIsLinearNoMip()
+    [TestCase(BitmapInterpolationMode.LowQuality, false, TestName = "BitmapInterpolationMode_ToSKSamplingOptions_LowQualityIsLinearNoMip")]
+    [TestCase(BitmapInterpolationMode.HighQuality, true, TestName = "BitmapInterpolationMode_ToSKSamplingOptions_HighQualityIsCubic")]
+    [TestCase(BitmapInterpolationMode.Default, true, TestName = "BitmapInterpolationMode_ToSKSamplingOptions_DefaultIsCubic")]
+    public void BitmapInterpolationMode_ToSKSamplingOptions_IsCubicUnlessLowQuality(
+        BitmapInterpolationMode mode, bool expectedCubic)
     {
-        SKSamplingOptions opts = BitmapInterpolationMode.LowQuality.ToSKSamplingOptions();
-        Assert.That(opts.UseCubic, Is.False);
-    }
-
-    [Test]
-    public void BitmapInterpolationMode_ToSKSamplingOptions_HighQualityIsCubic()
-    {
-        SKSamplingOptions opts = BitmapInterpolationMode.HighQuality.ToSKSamplingOptions();
-        Assert.That(opts.UseCubic, Is.True);
-    }
-
-    [Test]
-    public void BitmapInterpolationMode_ToSKSamplingOptions_DefaultIsCubic()
-    {
-        SKSamplingOptions opts = BitmapInterpolationMode.Default.ToSKSamplingOptions();
-        Assert.That(opts.UseCubic, Is.True);
+        SKSamplingOptions opts = mode.ToSKSamplingOptions();
+        Assert.That(opts.UseCubic, Is.EqualTo(expectedCubic));
     }
 
     [Test]

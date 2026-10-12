@@ -25,9 +25,7 @@ public class DrawableTimeControllerFlowTests
     public void FlowTarget_ReevaluatesTheConsumedInputsAtTheMappedTime(string kind, bool disableShare)
     {
         using var harness = new SceneHistoryHarness("beutl_controller_flow", duration: Seconds(10));
-        var source = new VideoSource();
-        source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 300)));
-        var video = new SourceVideo { Source = { CurrentValue = source } };
+        var video = CreateVideo();
         Element element = harness.AddElement(TimeSpan.Zero, Seconds(4));
         element.Objects.Add(video);
         Drawable preceding = kind switch
@@ -198,7 +196,6 @@ public class DrawableTimeControllerFlowTests
             state.Collect(context, owner, consumed);
         }
         long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
-        TestContext.WriteLine($"Stable Flow capture over 1000 updates: {allocated} allocated bytes.");
 
         Assert.Multiple(() =>
         {

@@ -6,7 +6,7 @@ using Beutl.Graphics.Particles;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Media;
-using SkiaSharp;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Engine.Graphics.Particles;
 
@@ -57,7 +57,7 @@ public sealed class ParticleRenderNodeAllocationTests
             CacheOptions = RenderCacheOptions.Disabled,
             Purpose = RenderRequestPurpose.Frame,
         }, factory);
-        using var target = new CpuRenderTarget((int)s_frame.Width, (int)s_frame.Height);
+        using var target = CpuRenderTargets.Create((int)s_frame.Width, (int)s_frame.Height);
         using var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, logicalSize: s_frame);
 
         Assert.That(() => renderer.Render(canvas), Throws.Nothing);
@@ -100,8 +100,7 @@ public sealed class ParticleRenderNodeAllocationTests
         Assert.Multiple(() =>
         {
             Assert.That(fractional, Is.GreaterThan(0), "The fixture must draw a partially covered edge.");
-            // Point sampling replicates whichever source texels the sample points land on, so a magnified
-            // particle's edge repeats a handful of alphas; measured here it was 81 against 314 resampled.
+            // Point sampling repeats a handful of edge alphas: measured 81 distinct, against 314 resampled.
             Assert.That(distinct, Has.Count.GreaterThan(150),
                 "A magnified particle's edge must be resampled, not stepped through repeated source texels.");
         });
@@ -236,7 +235,7 @@ public sealed class ParticleRenderNodeAllocationTests
             CacheOptions = RenderCacheOptions.Disabled,
             Purpose = RenderRequestPurpose.Frame,
         }, factory);
-        using var target = new CpuRenderTarget((int)s_frame.Width, (int)s_frame.Height);
+        using var target = CpuRenderTargets.Create((int)s_frame.Width, (int)s_frame.Height);
         using (var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, logicalSize: s_frame))
         {
             canvas.Clear();
@@ -289,7 +288,7 @@ public sealed class ParticleRenderNodeAllocationTests
             CacheOptions = RenderCacheOptions.Disabled,
             Purpose = RenderRequestPurpose.Frame,
         }, factory);
-        using var target = new CpuRenderTarget((int)s_frame.Width, (int)s_frame.Height);
+        using var target = CpuRenderTargets.Create((int)s_frame.Width, (int)s_frame.Height);
         using var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, logicalSize: s_frame);
         renderer.Render(canvas);
 
@@ -310,20 +309,8 @@ public sealed class ParticleRenderNodeAllocationTests
             PixelSize size = allocation.DeviceSize;
             Requests.Add(size);
             return size.Width <= MaximumDimension && size.Height <= MaximumDimension
-                ? new CpuRenderTarget(size.Width, size.Height)
+                ? CpuRenderTargets.Create(size.Width, size.Height)
                 : null;
         }
     }
-
-    private sealed class CpuRenderTarget(int width, int height)
-        : RenderTarget(CreateSurface(width, height), width, height);
-
-    private static SKSurface CreateSurface(int width, int height)
-        => SKSurface.Create(new SKImageInfo(
-               width,
-               height,
-               SKColorType.RgbaF16,
-               SKAlphaType.Premul,
-               SKColorSpace.CreateSrgbLinear()))
-           ?? throw new InvalidOperationException("Could not create a CPU render target.");
 }

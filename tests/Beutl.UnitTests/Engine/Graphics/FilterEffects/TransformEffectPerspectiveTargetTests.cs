@@ -4,7 +4,7 @@ using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
-using SkiaSharp;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Engine.Graphics.FilterEffects;
 
@@ -19,9 +19,6 @@ public sealed class TransformEffectPerspectiveTargetTests
         var bounds = new Rect(66, 43, 124, 58);
         Matrix m1 = ComposeTargetMatrix(bounds, Rotation3D(rotationY: 30f, centerX: 1030f));
 
-        TestContext.WriteLine($"pragmatic={bounds.TransformToAABB(m1)} "
-                              + $"rasterizer={bounds.TransformToAABB(m1, Rect.RasterizerNearPlane)} "
-                              + $"delivered={bounds.TransformToDeliveredAABB(m1, s_frame)}");
         Assert.Multiple(() =>
         {
             Assert.That(bounds.TransformToAABB(m1), Is.EqualTo(Rect.Empty),
@@ -48,7 +45,6 @@ public sealed class TransformEffectPerspectiveTargetTests
         Rect pragmatic = bounds.TransformToAABB(m1);
         Rect delivered = bounds.TransformToDeliveredAABB(m1, s_frame);
 
-        TestContext.WriteLine($"pragmatic={pragmatic} delivered={delivered}");
         Assert.Multiple(() =>
         {
             Assert.That(pragmatic.Width, Is.GreaterThan(0),
@@ -89,7 +85,7 @@ public sealed class TransformEffectPerspectiveTargetTests
     {
         var deviceBounds = new PixelRect(
             (int)bounds.X, (int)bounds.Y, (int)bounds.Width, (int)bounds.Height);
-        using var backing = new CpuRenderTarget(deviceBounds.Width, deviceBounds.Height);
+        using var backing = CpuRenderTargets.Create(deviceBounds.Width, deviceBounds.Height);
         var targets = new EffectTargets
         {
             new EffectTarget(backing, bounds, EffectiveScale.At(1), deviceBounds),
@@ -115,18 +111,5 @@ public sealed class TransformEffectPerspectiveTargetTests
         executor.Apply(context);
         executor.Flush(false);
         return targets;
-    }
-
-    private sealed class CpuRenderTarget(int width, int height)
-        : RenderTarget(CreateSurface(width, height), width, height)
-    {
-        private static SKSurface CreateSurface(int width, int height)
-            => SKSurface.Create(new SKImageInfo(
-                   width,
-                   height,
-                   SKColorType.RgbaF16,
-                   SKAlphaType.Premul,
-                   SKColorSpace.CreateSrgbLinear()))
-               ?? throw new InvalidOperationException("A CPU effect-test surface could not be created.");
     }
 }
