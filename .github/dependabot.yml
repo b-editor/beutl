@@ -10,12 +10,25 @@ updates:
     target-branch: "main"
     schedule:
       interval: "daily"
+    # Minor and patch updates arrive as one pull request; a major update still gets its own.
+    groups:
+      nuget-minor-and-patch:
+        patterns: [ "*" ]
+        update-types: [ "minor", "patch" ]
+    # The bundled libSkiaSharp is built from a fork pinned to one SkiaSharp version, and the build fails
+    # for any other (native/SkiaSharp/Beutl.Engine.targets), so these packages move with the fork.
+    ignore:
+      - dependency-name: "SkiaSharp*"
+      - dependency-name: "HarfBuzzSharp*"
 
   - package-ecosystem: "github-actions"
     directory: "/"
     target-branch: "main"
     schedule:
       interval: "daily"
+    groups:
+      github-actions:
+        patterns: [ "*" ]
 
   - package-ecosystem: "devcontainers"
     directory: "/"
