@@ -19,7 +19,6 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
     private CommandBuffer _recordingCommandBuffer;
     private Semaphore _submissionSemaphore;
     private bool _isRecording;
-    private int _renderPassScopeDepth;
     private IVulkanRenderPassSuspension? _activeRenderPassOwner;
     private bool _hasPendingSemaphoreSignal;
     private bool _isCompletingSubmissions;
@@ -91,9 +90,9 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentNullException.ThrowIfNull(record);
-        if (_renderPassScopeDepth > 0)
+        if (_activeRenderPassOwner is { } owner)
         {
-            RecordAroundTheRenderPassInstance(record);
+            RecordAroundTheRenderPassInstance(owner, record);
             return;
         }
 
@@ -105,17 +104,11 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
     /// that instance first and beginning it again after when one is open.
     /// </summary>
     /// <remarks>
-    /// Vulkan forbids a transfer or a barrier inside a render pass instance, and this is the arrangement
-    /// that obeys that without reordering anything: the whole sequence stays on one command buffer in the
-    /// order it was recorded, so a draw already recorded in this pass still runs before work requested
-    /// after it. Nothing is suspended when the batch is claimed but the instance is not open yet, or when
-    /// an outer split already suspended it - in both cases the work simply joins the batch in place.
+    /// Nothing is suspended when the batch is claimed but the instance is not open yet, or when an outer split
+    /// already suspended it - in both cases the work simply joins the batch in place.
     /// </remarks>
-    private void RecordAroundTheRenderPassInstance(Action<CommandBuffer> record)
+    private void RecordAroundTheRenderPassInstance(IVulkanRenderPassSuspension owner, Action<CommandBuffer> record)
     {
-        IVulkanRenderPassSuspension owner = _activeRenderPassOwner
-            ?? throw new InvalidOperationException(
-                "A claimed render-pass scope must have an owner that can suspend its instance.");
         if (!owner.TrySuspend())
         {
             record(GetRecordingCommandBuffer());
@@ -134,10 +127,8 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
 
     /// <summary>Rejects a caller that is about to record a render pass while another one owns the batch.</summary>
     /// <remarks>
-    /// Separate from <see cref="BeginRenderPassScope"/> so a pass can reject a double begin before it
-    /// records anything, while still claiming the batch only at the command that opens the pass: claiming
-    /// it earlier would send the pass's own preparation barriers through the suspend path, and there is
-    /// nothing to suspend yet.
+    /// Separate from <see cref="BeginRenderPassScope"/> so a double begin fails before anything is recorded, while
+    /// the batch is claimed only at the command that opens the pass, after the pass's own preparation barriers.
     /// </remarks>
     /// <exception cref="InvalidOperationException">Another render pass already owns the batch.</exception>
     public void ThrowIfRenderPassActive()
@@ -158,10 +149,8 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
     /// </summary>
     /// <param name="owner">The render pass claiming the batch.</param>
     /// <remarks>
-    /// Every pass on this context records into one shared command buffer, and Vulkan forbids a render pass
-    /// instance inside another on the same buffer. Ownership is exclusive rather than counted so a second
-    /// pass is rejected here instead of reaching <c>vkCmdBeginRenderPass</c>, where it would invalidate the
-    /// buffer the first pass is still recording into.
+    /// Every pass on this context shares one command buffer, so a second pass is rejected here instead of reaching
+    /// <c>vkCmdBeginRenderPass</c>, where it would invalidate the buffer the first pass is still recording into.
     /// </remarks>
     /// <exception cref="InvalidOperationException">Another render pass already owns the batch.</exception>
     public void BeginRenderPassScope(IVulkanRenderPassSuspension owner)
@@ -169,7 +158,6 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
         ArgumentNullException.ThrowIfNull(owner);
         ThrowIfRenderPassActive();
         _activeRenderPassOwner = owner;
-        _renderPassScopeDepth++;
     }
 
     /// <summary>Releases the recording batch claimed by <paramref name="owner"/>.</summary>
@@ -184,8 +172,6 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
         }
 
         _activeRenderPassOwner = null;
-        if (_renderPassScopeDepth > 0)
-            _renderPassScopeDepth--;
     }
 
     /// <summary>
@@ -193,9 +179,8 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
     /// open recording batch or retiring its deferred releases.
     /// </summary>
     /// <remarks>
-    /// This is reserved for Vulkan callbacks whose caller can use the affected resource as soon as
-    /// the callback returns. Queue order places the isolated submission after previously submitted
-    /// work and before the still-open recording batch when that batch is eventually submitted.
+    /// For Vulkan callbacks whose caller uses the resource as soon as they return. Queue order runs it after
+    /// earlier submissions and before the still-open recording batch.
     /// </remarks>
     public void SubmitIsolatedCommands(Action<CommandBuffer> record)
     {
@@ -324,10 +309,8 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
 
     /// <summary>Submits the recording batch and, when asked, waits for everything in flight.</summary>
     /// <remarks>
-    /// A caller that waits is owed everything it recorded, including work recorded during an open render
-    /// pass - a readback records its copy on the batch and then maps the staging buffer. Withholding the
-    /// batch because a pass owns it would hand that caller the memory as it was before the copy. The
-    /// instance is therefore ended, the batch submitted, and the instance begun again on the next one.
+    /// A waiting caller is owed work recorded during an open render pass too, such as a readback's copy, so the
+    /// instance is ended, the batch submitted, and the instance begun again on the next one.
     /// </remarks>
     public void Flush(bool waitForCompletion)
     {
@@ -337,8 +320,7 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
 
     /// <summary>Submits the recording batch, empty if nothing was recorded, and signals <paramref name="value"/> once it completes.</summary>
     /// <remarks>
-    /// A queue-submission signal also covers every batch submitted earlier, so the value means that all work
-    /// recorded so far has finished on the GPU.
+    /// The signal also covers every earlier batch, so the value means all work recorded so far has finished.
     /// </remarks>
     public void SubmitSignalingTimeline(Semaphore timeline, ulong value)
     {
@@ -348,9 +330,7 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
 
     private void Flush(bool waitForCompletion, TimelineSignal? signal)
     {
-        IVulkanRenderPassSuspension? owner = _renderPassScopeDepth > 0
-            ? _activeRenderPassOwner
-            : null;
+        IVulkanRenderPassSuspension? owner = _activeRenderPassOwner;
         bool suspended = owner is not null && owner.TrySuspend();
         try
         {
@@ -554,7 +534,7 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
         RecordEvent(VulkanCommandPoolEvent.FenceWait);
         while (_inFlightSubmissions.Count > 0)
         {
-            CompleteSubmission(0);
+            CompleteSubmission();
         }
         ResetSubmissionSemaphore();
     }
@@ -567,7 +547,7 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
         while (_inFlightSubmissions.Count > 0
                && _vk.GetFenceStatus(_device, _inFlightSubmissions[0].Fence) == Result.Success)
         {
-            CompleteSubmission(0);
+            CompleteSubmission();
         }
 
         if (_inFlightSubmissions.Count == 0)
@@ -576,10 +556,10 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
         }
     }
 
-    private void CompleteSubmission(int index)
+    private void CompleteSubmission()
     {
-        InFlightSubmission submission = _inFlightSubmissions[index];
-        _inFlightSubmissions.RemoveAt(index);
+        InFlightSubmission submission = _inFlightSubmissions[0];
+        _inFlightSubmissions.RemoveAt(0);
         Action[] releases = [.. submission.Releases];
         submission.Releases.Clear();
 
@@ -632,38 +612,6 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
             _submissionSemaphore = default;
             _hasPendingSemaphoreSignal = false;
         }
-    }
-
-    public void TransitionImageLayout(Image image, ImageLayout oldLayout, ImageLayout newLayout, ImageAspectFlags aspectMask)
-    {
-        RecordCommands(commandBuffer =>
-        {
-            ImageMemoryBarrier barrier = new()
-            {
-                SType = StructureType.ImageMemoryBarrier,
-                OldLayout = oldLayout,
-                NewLayout = newLayout,
-                SrcQueueFamilyIndex = Vk.QueueFamilyIgnored,
-                DstQueueFamilyIndex = Vk.QueueFamilyIgnored,
-                Image = image,
-                SubresourceRange = new ImageSubresourceRange
-                {
-                    AspectMask = aspectMask,
-                    BaseMipLevel = 0,
-                    LevelCount = 1,
-                    BaseArrayLayer = 0,
-                    LayerCount = 1
-                }
-            };
-
-            GetPipelineStages(oldLayout, newLayout, out PipelineStageFlags srcStage, out PipelineStageFlags dstStage,
-                out AccessFlags srcAccess, out AccessFlags dstAccess);
-
-            barrier.SrcAccessMask = srcAccess;
-            barrier.DstAccessMask = dstAccess;
-
-            _vk.CmdPipelineBarrier(commandBuffer, srcStage, dstStage, 0, 0, null, 0, null, 1, &barrier);
-        });
     }
 
     public void TransitionImageLayout(
@@ -794,10 +742,7 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
                 }
                 finally
                 {
-                    if (_commandPool.Handle != 0)
-                    {
-                        _vk.DestroyCommandPool(_device, _commandPool, null);
-                    }
+                    _vk.DestroyCommandPool(_device, _commandPool, null);
                 }
             }
         }
@@ -813,7 +758,6 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
         _recordingCommandBuffer = default;
         _recordingReleases.Clear();
         _isRecording = false;
-        _renderPassScopeDepth = 0;
         _activeRenderPassOwner = null;
 
         _vk.FreeCommandBuffers(_device, _commandPool, 1, &commandBuffer);

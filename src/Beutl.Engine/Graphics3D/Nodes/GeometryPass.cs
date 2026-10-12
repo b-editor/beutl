@@ -32,7 +32,7 @@ public sealed class GeometryPass : GraphicsNode3D
     }
 
     /// <summary>
-    /// Gets the world position texture (RGB16F).
+    /// Gets the world position texture (RGBA16F).
     /// </summary>
     public ITexture2D? PositionTexture { get; private set; }
 
@@ -76,14 +76,12 @@ public sealed class GeometryPass : GraphicsNode3D
 
         DisposeGBuffer();
 
-        // Create G-Buffer textures
         PositionTexture = Context.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
         NormalMetallicTexture = Context.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
         AlbedoRoughnessTexture = Context.CreateTexture2D(width, height, TextureFormat.RGBA8Unorm);
         EmissionAOTexture = Context.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
         DepthTexture = Context.CreateTexture2D(width, height, TextureFormat.Depth32Float);
 
-        // Create geometry render pass and framebuffer
         RenderPass = Context.CreateRenderPass3D(GBufferFormats, TextureFormat.Depth32Float);
         Framebuffer = Context.CreateFramebuffer3D(
             RenderPass,
@@ -107,7 +105,6 @@ public sealed class GeometryPass : GraphicsNode3D
         if (Framebuffer == null || RenderPass == null)
             return;
 
-        // Create render context for materials
         var renderContext3D = new RenderContext3D(
             Context,
             RenderPass,
@@ -120,43 +117,23 @@ public sealed class GeometryPass : GraphicsNode3D
             compositionContext,
             surfaceDensity);
 
-        // Clear colors for G-Buffer (black/zero for most, except normal which should be (0,0,1) for up)
+        // Clear values; LightingPass discards the background, marked by position alpha 0.
         Span<Color> clearColors =
         [
             new Color(0, 0, 0, 0),       // Position (black, alpha=0 for invalid background)
-            new Color(255, 128, 128, 0), // Normal (0.5,0.5,1 = up) + Metallic=0
+            new Color(255, 128, 128, 0), // Normal (0.5,0.5,0 = (0,0,-1)) + Metallic=1
             new Color(0, 0, 0, 0),       // Albedo (black) + Roughness=0
             new Color(255, 0, 0, 0)      // Emission (none) + AO=1
         ];
 
-        // Begin geometry pass
         using (UsePass(clearColors))
         {
-            foreach (var obj in objects)
+            Object3DTraversal.ForEachEnabled(objects, (obj, worldMatrix) =>
             {
-                RenderObject(renderContext3D, obj, Matrix4x4.Identity);
-            }
+                if (obj.Material?.IsTransparent != true)
+                    MeshDrawHelper.DrawWithMaterial(renderContext3D, obj, worldMatrix, _defaultMaterialResource);
+            });
         }
-    }
-
-    private void RenderObject(RenderContext3D renderContext3D, Object3D.Resource obj, Matrix4x4 parentMatrix)
-    {
-        if (!obj.IsEnabled)
-            return;
-
-        // Calculate combined world matrix
-        var worldMatrix = obj.GetWorldMatrix() * parentMatrix;
-
-        // Render children if any
-        var children = obj.GetChildResources();
-        foreach (var child in children)
-        {
-            RenderObject(renderContext3D, child, worldMatrix);
-        }
-
-        // Render this object's mesh if any
-        if (obj.Material?.IsTransparent != true)
-            MeshDrawHelper.DrawWithMaterial(renderContext3D, obj, worldMatrix, _defaultMaterialResource);
     }
 
     private void DisposeGBuffer()

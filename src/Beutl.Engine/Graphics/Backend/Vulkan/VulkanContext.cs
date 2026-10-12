@@ -56,7 +56,7 @@ internal sealed unsafe partial class VulkanContext : IGraphicsContext
             SkiaVulkanInterop.EnsureAvailable();
 
         _vulkanInstance = vulkanInstance;
-        _vulkanDevice = new VulkanDevice(vulkanInstance.Vk, vulkanInstance.Instance, physicalDevice.Device);
+        _vulkanDevice = new VulkanDevice(vulkanInstance.Vk, physicalDevice.Device);
         _vulkanCommandPool = new VulkanCommandPool(_vulkanDevice);
         _createImage = GetDeviceDelegate<VkCreateImageDelegate>("vkCreateImage");
         _destroyImage = GetDeviceDelegate<VkDestroyImageDelegate>("vkDestroyImage");
@@ -201,7 +201,7 @@ internal sealed unsafe partial class VulkanContext : IGraphicsContext
 
     public void TransitionImageLayout(Image image, ImageLayout oldLayout, ImageLayout newLayout, ImageAspectFlags aspectMask)
     {
-        _vulkanCommandPool.TransitionImageLayout(image, oldLayout, newLayout, aspectMask);
+        TransitionImageLayout(image, oldLayout, newLayout, aspectMask, baseArrayLayer: 0, layerCount: 1);
     }
 
     public void TransitionImageLayout(

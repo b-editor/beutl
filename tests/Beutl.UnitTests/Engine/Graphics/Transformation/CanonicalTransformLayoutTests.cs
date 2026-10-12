@@ -13,6 +13,28 @@ public class CanonicalTransformLayoutTests
         return new FallbackDrawable();
     }
 
+    // A group holding one Translate, Rotation and Scale, in the order the letters of order name them.
+    private static (TransformGroup Group, TranslateTransform T, RotationTransform R, ScaleTransform S) CreateGroup(
+        string order)
+    {
+        var t = new TranslateTransform(5f, 5f);
+        var r = new RotationTransform(45f);
+        var s = new ScaleTransform(150f, 150f);
+        var group = new TransformGroup();
+        foreach (char kind in order)
+        {
+            group.Children.Add(kind switch
+            {
+                'T' => (Transform)t,
+                'R' => r,
+                'S' => s,
+                _ => throw new ArgumentOutOfRangeException(nameof(order)),
+            });
+        }
+
+        return (group, t, r, s);
+    }
+
     [Test]
     public void Ensure_EmptyTransform_AppendsTRSInCanonicalOrder()
     {
@@ -118,7 +140,7 @@ public class CanonicalTransformLayoutTests
         Assert.Multiple(() =>
         {
             // [Skew, T_existing, R_new, S_new]
-            // T is at tIdx=1, R right after T (idx=2), S at the tail (idx=3). Skew is at idx=0, before T = on the post side.
+            // Skew sits before T, so PostMatrixOfT includes it.
             Assert.That(result.Group.Children.Count, Is.EqualTo(4));
             Assert.That(result.Group.Children[0], Is.SameAs(skew));
             Assert.That(result.Group.Children[1], Is.SameAs(translate));
@@ -126,38 +148,32 @@ public class CanonicalTransformLayoutTests
             Assert.That(result.Group.Children[3], Is.TypeOf<ScaleTransform>());
             Assert.That(result.Translate, Is.SameAs(translate));
             Assert.That(result.StructureChanged, Is.True);
-            // Skew sits before T (idx<tIdx, near the head) = included in PostMatrixOfT.
             Assert.That(result.PostMatrixOfT, Is.Not.EqualTo(Matrix.Identity));
         });
     }
 
-    [Test]
-    public void Ensure_LegacyRSTOrder_DoesNotReorder()
+    // With all three present nothing is added or reordered, whatever the order: opening an existing project keeps
+    // the legacy [R, S, T] layout it was saved with. The first occurrence of each type is the operative one.
+    [TestCase("TRS", TestName = "Ensure_NewCanonicalTRSOrder_DoesNotInsert")]
+    [TestCase("RST", TestName = "Ensure_LegacyRSTOrder_DoesNotReorder")]
+    [TestCase("SRT", TestName = "Ensure_ReverseOrder_DoesNotReorder")]
+    public void Ensure_AllThreePresent_DoesNotReorder(string order)
     {
-        // A Drawable with the old [R, S, T] layout is not reorganized; the existing R/S/T are returned as the operative transforms.
-        // Backward compatibility: opening an existing project does not change the order of Children.
         var drawable = CreateDrawable();
-        var r = new RotationTransform(45f);
-        var s = new ScaleTransform(150f, 150f);
-        var t = new TranslateTransform(10f, 20f);
-        var group = new TransformGroup();
-        group.Children.Add(r);
-        group.Children.Add(s);
-        group.Children.Add(t);
+        (TransformGroup group, TranslateTransform t, RotationTransform r, ScaleTransform s) = CreateGroup(order);
+        Transform[] children = [.. group.Children];
         drawable.Transform.CurrentValue = group;
 
         CanonicalTransformLayoutResult result = CanonicalTransformLayout.Ensure(drawable, Context);
 
         Assert.Multiple(() =>
         {
-            // Structure stays [R, S, T] with no additions.
             Assert.That(result.Group.Children.Count, Is.EqualTo(3));
-            Assert.That(result.Group.Children[0], Is.SameAs(r));
-            Assert.That(result.Group.Children[1], Is.SameAs(s));
-            Assert.That(result.Group.Children[2], Is.SameAs(t));
+            for (int i = 0; i < children.Length; i++)
+                Assert.That(result.Group.Children[i], Is.SameAs(children[i]));
+            Assert.That(result.Translate, Is.SameAs(t));
             Assert.That(result.Rotation, Is.SameAs(r));
             Assert.That(result.Scale, Is.SameAs(s));
-            Assert.That(result.Translate, Is.SameAs(t));
             Assert.That(result.StructureChanged, Is.False);
         });
     }
@@ -192,36 +208,6 @@ public class CanonicalTransformLayoutTests
             Assert.That(result.Group.Children[4], Is.SameAs(t));
             Assert.That(result.Rotation, Is.SameAs(r1));
             Assert.That(result.Scale, Is.SameAs(s1));
-            Assert.That(result.Translate, Is.SameAs(t));
-            Assert.That(result.StructureChanged, Is.False);
-        });
-    }
-
-    [Test]
-    public void Ensure_ReverseOrder_DoesNotReorder()
-    {
-        // Even with the completely reversed [S, R, T], since all types are present no reorganization happens.
-        // The first occurrence of each type is the operative one.
-        var drawable = CreateDrawable();
-        var s = new ScaleTransform(150f, 150f);
-        var r = new RotationTransform(30f);
-        var t = new TranslateTransform(5f, 5f);
-        var group = new TransformGroup();
-        group.Children.Add(s);
-        group.Children.Add(r);
-        group.Children.Add(t);
-        drawable.Transform.CurrentValue = group;
-
-        CanonicalTransformLayoutResult result = CanonicalTransformLayout.Ensure(drawable, Context);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(result.Group.Children.Count, Is.EqualTo(3));
-            Assert.That(result.Group.Children[0], Is.SameAs(s));
-            Assert.That(result.Group.Children[1], Is.SameAs(r));
-            Assert.That(result.Group.Children[2], Is.SameAs(t));
-            Assert.That(result.Scale, Is.SameAs(s));
-            Assert.That(result.Rotation, Is.SameAs(r));
             Assert.That(result.Translate, Is.SameAs(t));
             Assert.That(result.StructureChanged, Is.False);
         });
@@ -281,32 +267,6 @@ public class CanonicalTransformLayoutTests
     }
 
     [Test]
-    public void Ensure_NewCanonicalTRSOrder_DoesNotInsert()
-    {
-        // [T, R, S] is already in canonical order, so nothing is added.
-        var drawable = CreateDrawable();
-        var t = new TranslateTransform(5f, 5f);
-        var r = new RotationTransform(10f);
-        var s = new ScaleTransform(150f, 150f);
-        var group = new TransformGroup();
-        group.Children.Add(t);
-        group.Children.Add(r);
-        group.Children.Add(s);
-        drawable.Transform.CurrentValue = group;
-
-        CanonicalTransformLayoutResult result = CanonicalTransformLayout.Ensure(drawable, Context);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(result.Group.Children.Count, Is.EqualTo(3));
-            Assert.That(result.Translate, Is.SameAs(t));
-            Assert.That(result.Rotation, Is.SameAs(r));
-            Assert.That(result.Scale, Is.SameAs(s));
-            Assert.That(result.StructureChanged, Is.False);
-        });
-    }
-
-    [Test]
     public void Ensure_MultipleTranslates_UsesFirstOccurrence()
     {
         // When there are multiple Translates, adopt the first occurrence (closest to the head of the list).
@@ -337,7 +297,6 @@ public class CanonicalTransformLayoutTests
             Assert.That(result.Scale, Is.SameAs(s));
             Assert.That(result.Translate, Is.SameAs(tCanonical));
             Assert.That(result.StructureChanged, Is.False);
-            // T(0), R(1), S(2) are contiguous
         });
     }
 
@@ -416,61 +375,13 @@ public class CanonicalTransformLayoutTests
         Assert.That(group.Children[1], Is.SameAs(s));
     }
 
-    [Test]
-    public void FindCanonicalTransforms_CanonicalTRS_ReturnsAll()
+    // Find returns all three in any order, without order checks (backward compatibility).
+    [TestCase("TRS", TestName = "FindCanonicalTransforms_CanonicalTRS_ReturnsAll")]
+    [TestCase("RST", TestName = "FindCanonicalTransforms_LegacyRST_ReturnsAll")]
+    [TestCase("SRT", TestName = "FindCanonicalTransforms_ReverseOrder_ReturnsAll")]
+    public void FindCanonicalTransforms_AllThreePresent_ReturnsAll(string order)
     {
-        // New canonical [T, R, S]
-        var t = new TranslateTransform(5f, 5f);
-        var r = new RotationTransform(45f);
-        var s = new ScaleTransform(150f, 150f);
-        var group = new TransformGroup();
-        group.Children.Add(t);
-        group.Children.Add(r);
-        group.Children.Add(s);
-
-        var (rotation, scale, translate) = CanonicalTransformLayout.FindCanonicalTransforms(group);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(rotation, Is.SameAs(r));
-            Assert.That(scale, Is.SameAs(s));
-            Assert.That(translate, Is.SameAs(t));
-        });
-    }
-
-    [Test]
-    public void FindCanonicalTransforms_LegacyRST_ReturnsAll()
-    {
-        // Even with the old [R, S, T], return all without order checks (backward compatibility).
-        var r = new RotationTransform(45f);
-        var s = new ScaleTransform(150f, 150f);
-        var t = new TranslateTransform(5f, 5f);
-        var group = new TransformGroup();
-        group.Children.Add(r);
-        group.Children.Add(s);
-        group.Children.Add(t);
-
-        var (rotation, scale, translate) = CanonicalTransformLayout.FindCanonicalTransforms(group);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(rotation, Is.SameAs(r));
-            Assert.That(scale, Is.SameAs(s));
-            Assert.That(translate, Is.SameAs(t));
-        });
-    }
-
-    [Test]
-    public void FindCanonicalTransforms_ReverseOrder_ReturnsAll()
-    {
-        // [S, R, T] also returns all.
-        var s = new ScaleTransform(150f, 150f);
-        var r = new RotationTransform(30f);
-        var t = new TranslateTransform(5f, 5f);
-        var group = new TransformGroup();
-        group.Children.Add(s);
-        group.Children.Add(r);
-        group.Children.Add(t);
+        (TransformGroup group, TranslateTransform t, RotationTransform r, ScaleTransform s) = CreateGroup(order);
 
         var (rotation, scale, translate) = CanonicalTransformLayout.FindCanonicalTransforms(group);
 
@@ -594,41 +505,6 @@ public class CanonicalTransformLayoutTests
             Assert.That(result.Translate.IsEnabled, Is.True);
             Assert.That(result.Rotation.IsEnabled, Is.True);
             Assert.That(result.Scale.IsEnabled, Is.True);
-        });
-    }
-
-    [Test]
-    public void FindCanonicalTransforms_AgreesWithEnsureOnNewCanonical()
-    {
-        // Under the new canonical [T, R, S], Find and Ensure return the same references and do not change the structure.
-        var tForFind = new TranslateTransform(33f, 44f);
-        var rForFind = new RotationTransform(10f);
-        var sForFind = new ScaleTransform(120f, 120f);
-        var groupForFind = new TransformGroup();
-        groupForFind.Children.Add(tForFind);
-        groupForFind.Children.Add(rForFind);
-        groupForFind.Children.Add(sForFind);
-
-        var (rotF, scaleF, translateF) = CanonicalTransformLayout.FindCanonicalTransforms(groupForFind);
-
-        var drawable = CreateDrawable();
-        var tForEnsure = new TranslateTransform(33f, 44f);
-        var rForEnsure = new RotationTransform(10f);
-        var sForEnsure = new ScaleTransform(120f, 120f);
-        var groupForEnsure = new TransformGroup();
-        groupForEnsure.Children.Add(tForEnsure);
-        groupForEnsure.Children.Add(rForEnsure);
-        groupForEnsure.Children.Add(sForEnsure);
-        drawable.Transform.CurrentValue = groupForEnsure;
-
-        var ensured = CanonicalTransformLayout.Ensure(drawable, Context);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(groupForFind.Children.IndexOf(rotF!), Is.EqualTo(groupForEnsure.Children.IndexOf(ensured.Rotation)));
-            Assert.That(groupForFind.Children.IndexOf(scaleF!), Is.EqualTo(groupForEnsure.Children.IndexOf(ensured.Scale)));
-            Assert.That(groupForFind.Children.IndexOf(translateF!), Is.EqualTo(groupForEnsure.Children.IndexOf(ensured.Translate)));
-            Assert.That(ensured.StructureChanged, Is.False);
         });
     }
 }

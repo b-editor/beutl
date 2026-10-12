@@ -6,46 +6,28 @@ namespace Beutl.Extensions.AVFoundation.Tests;
 [TestFixture]
 public class ColorSpaceMapperTests
 {
-    [Test]
-    public void SdrSrgbReturnsCanonicalSrgbInstance()
+    // sRGB tags return the canonical sRGB instance, and unknown tags fall back to it.
+    [TestCase(BitmapColorTransfer.Srgb, BitmapColorPrimaries.Srgb)]
+    [TestCase(BitmapColorTransfer.Unknown, BitmapColorPrimaries.Unknown)]
+    public void SdrReturnsSrgb(BitmapColorTransfer transfer, BitmapColorPrimaries primaries)
     {
-        var cs = ColorSpaceMapper.BuildColorSpace(
-            isHdr: false, BitmapColorTransfer.Srgb, BitmapColorPrimaries.Srgb);
+        var cs = ColorSpaceMapper.BuildColorSpace(isHdr: false, transfer, primaries);
         Assert.That(cs, Is.EqualTo(BitmapColorSpace.Srgb));
     }
 
-    [Test]
-    public void HdrPqAppliesLuminanceScaling()
+    // PQ and HLG bake their luminance scale into the Rec.2020 gamut.
+    [TestCase(BitmapColorTransfer.Pq)]
+    [TestCase(BitmapColorTransfer.Hlg)]
+    public void HdrAppliesLuminanceScaling(BitmapColorTransfer transfer)
     {
-        // PQ applies a 10000/203 gamut scale for HDR — verify the resulting gamut doesn't
-        // equal the unscaled Rec.2020 one, which is how we assert the scale was applied.
-        var unscaled = BitmapColorSpace.CreateRgb(
-            BitmapColorSpaceTransferFn.Pq, BitmapColorSpaceXyz.Rec2020);
-        var hdr = ColorSpaceMapper.BuildColorSpace(
-            isHdr: true, BitmapColorTransfer.Pq, BitmapColorPrimaries.Rec2020);
+        float scale = BitmapColorSpaceMapping.GetHdrLuminanceScale(transfer);
+        var expected = BitmapColorSpace.CreateRgb(
+            BitmapColorSpaceMapping.GetTransferFunction(transfer), BitmapColorSpaceXyz.Rec2020.Scale(scale));
 
-        Assert.That(hdr, Is.Not.EqualTo(unscaled));
-        Assert.That(hdr.GetNumericalTransferFunction(), Is.EqualTo(BitmapColorSpaceTransferFn.Pq));
-    }
+        var hdr = ColorSpaceMapper.BuildColorSpace(isHdr: true, transfer, BitmapColorPrimaries.Rec2020);
 
-    [Test]
-    public void HdrHlgAppliesLuminanceScaling()
-    {
-        var unscaled = BitmapColorSpace.CreateRgb(
-            BitmapColorSpaceTransferFn.Hlg, BitmapColorSpaceXyz.Rec2020);
-        var hdr = ColorSpaceMapper.BuildColorSpace(
-            isHdr: true, BitmapColorTransfer.Hlg, BitmapColorPrimaries.Rec2020);
-
-        Assert.That(hdr, Is.Not.EqualTo(unscaled));
-        Assert.That(hdr.GetNumericalTransferFunction(), Is.EqualTo(BitmapColorSpaceTransferFn.Hlg));
-    }
-
-    [Test]
-    public void UnknownTagsFallBackToSrgb()
-    {
-        var cs = ColorSpaceMapper.BuildColorSpace(
-            isHdr: false, BitmapColorTransfer.Unknown, BitmapColorPrimaries.Unknown);
-        Assert.That(cs, Is.EqualTo(BitmapColorSpace.Srgb));
+        Assert.That(scale, Is.Not.EqualTo(1f));
+        Assert.That(hdr, Is.EqualTo(expected));
     }
 
     [Test]

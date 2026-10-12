@@ -10,9 +10,6 @@ using Beutl.Utilities;
 
 namespace Beutl.Graphics;
 
-/// <summary>
-/// Defines a rectangle.
-/// </summary>
 [JsonConverter(typeof(RectJsonConverter))]
 [TypeConverter(typeof(RectConverter))]
 public readonly struct Rect
@@ -44,9 +41,6 @@ public readonly struct Rect
     /// </summary>
     public const float RasterizerNearPlane = 1f / 16384f;
 
-    /// <summary>
-    /// An empty rectangle.
-    /// </summary>
     public static readonly Rect Empty;
 
     /// <summary>
@@ -54,13 +48,6 @@ public readonly struct Rect
     /// </summary>
     public static readonly Rect Invalid = new(float.NaN, float.NaN, float.NaN, float.NaN);
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="Rect"/> structure.
-    /// </summary>
-    /// <param name="x">The X position.</param>
-    /// <param name="y">The Y position.</param>
-    /// <param name="width">The width.</param>
-    /// <param name="height">The height.</param>
     public Rect(float x, float y, float width, float height)
     {
         X = x;
@@ -69,10 +56,6 @@ public readonly struct Rect
         Height = height;
     }
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="Rect"/> structure.
-    /// </summary>
-    /// <param name="size">The size of the rectangle.</param>
     public Rect(Size size)
     {
         X = 0;
@@ -81,11 +64,6 @@ public readonly struct Rect
         Height = size.Height;
     }
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="Rect"/> structure.
-    /// </summary>
-    /// <param name="position">The position of the rectangle.</param>
-    /// <param name="size">The size of the rectangle.</param>
     public Rect(Point position, Size size)
     {
         X = position.X;
@@ -94,11 +72,6 @@ public readonly struct Rect
         Height = size.Height;
     }
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="Rect"/> structure.
-    /// </summary>
-    /// <param name="topLeft">The top left position of the rectangle.</param>
-    /// <param name="bottomRight">The bottom right position of the rectangle.</param>
     public Rect(Point topLeft, Point bottomRight)
     {
         X = topLeft.X;
@@ -107,84 +80,36 @@ public readonly struct Rect
         Height = bottomRight.Y - topLeft.Y;
     }
 
-    /// <summary>
-    /// Gets the X position.
-    /// </summary>
     public float X { get; }
 
-    /// <summary>
-    /// Gets the Y position.
-    /// </summary>
     public float Y { get; }
 
-    /// <summary>
-    /// Gets the width.
-    /// </summary>
     public float Width { get; }
 
-    /// <summary>
-    /// Gets the height.
-    /// </summary>
     public float Height { get; }
 
-    /// <summary>
-    /// Gets the position of the rectangle.
-    /// </summary>
     public Point Position => new(X, Y);
 
-    /// <summary>
-    /// Gets the size of the rectangle.
-    /// </summary>
     public Size Size => new(Width, Height);
 
-    /// <summary>
-    /// Gets the right position of the rectangle.
-    /// </summary>
     public float Right => X + Width;
 
-    /// <summary>
-    /// Gets the bottom position of the rectangle.
-    /// </summary>
     public float Bottom => Y + Height;
 
-    /// <summary>
-    /// Gets the left position.
-    /// </summary>
     public float Left => X;
 
-    /// <summary>
-    /// Gets the top position.
-    /// </summary>
     public float Top => Y;
 
-    /// <summary>
-    /// Gets the top left point of the rectangle.
-    /// </summary>
     public Point TopLeft => new(X, Y);
 
-    /// <summary>
-    /// Gets the top right point of the rectangle.
-    /// </summary>
     public Point TopRight => new(Right, Y);
 
-    /// <summary>
-    /// Gets the bottom left point of the rectangle.
-    /// </summary>
     public Point BottomLeft => new(X, Bottom);
 
-    /// <summary>
-    /// Gets the bottom right point of the rectangle.
-    /// </summary>
     public Point BottomRight => new(Right, Bottom);
 
-    /// <summary>
-    /// Gets the center point of the rectangle.
-    /// </summary>
     public Point Center => new(X + (Width / 2), Y + (Height / 2));
 
-    /// <summary>
-    /// Gets a value that indicates whether the rectangle is empty.
-    /// </summary>
     public bool IsEmpty => Width == 0 && Height == 0;
 
     /// <summary>
@@ -194,34 +119,16 @@ public readonly struct Rect
 
     static int ITupleConvertible<Rect, float>.TupleLength => 4;
 
-    /// <summary>
-    /// Checks for equality between two <see cref="Rect"/>s.
-    /// </summary>
-    /// <param name="left">The first rect.</param>
-    /// <param name="right">The second rect.</param>
-    /// <returns>True if the rects are equal; otherwise false.</returns>
     public static bool operator ==(Rect left, Rect right)
     {
         return left.Equals(right);
     }
 
-    /// <summary>
-    /// Checks for inequality between two <see cref="Rect"/>s.
-    /// </summary>
-    /// <param name="left">The first rect.</param>
-    /// <param name="right">The second rect.</param>
-    /// <returns>True if the rects are unequal; otherwise false.</returns>
     public static bool operator !=(Rect left, Rect right)
     {
         return !(left == right);
     }
 
-    /// <summary>
-    /// Multiplies a rectangle by a scaling vector.
-    /// </summary>
-    /// <param name="rect">The rectangle.</param>
-    /// <param name="scale">The vector scale.</param>
-    /// <returns>The scaled rectangle.</returns>
     public static Rect operator *(Rect rect, Vector scale)
     {
         return new Rect(
@@ -231,12 +138,6 @@ public readonly struct Rect
             rect.Height * scale.Y);
     }
 
-    /// <summary>
-    /// Multiplies a rectangle by a scale.
-    /// </summary>
-    /// <param name="rect">The rectangle.</param>
-    /// <param name="scale">The scale.</param>
-    /// <returns>The scaled rectangle.</returns>
     public static Rect operator *(Rect rect, float scale)
     {
         return new Rect(
@@ -246,12 +147,6 @@ public readonly struct Rect
             rect.Height * scale);
     }
 
-    /// <summary>
-    /// Divides a rectangle by a vector.
-    /// </summary>
-    /// <param name="rect">The rectangle.</param>
-    /// <param name="scale">The vector scale.</param>
-    /// <returns>The scaled rectangle.</returns>
     public static Rect operator /(Rect rect, Vector scale)
     {
         return new Rect(
@@ -261,11 +156,6 @@ public readonly struct Rect
             rect.Height / scale.Y);
     }
 
-    /// <summary>
-    /// Determines whether a point in in the bounds of the rectangle.
-    /// </summary>
-    /// <param name="p">The point.</param>
-    /// <returns>true if the point is in the bounds of the rectangle; otherwise false.</returns>
     public bool Contains(Point p)
     {
         return p.X >= X && p.X <= X + Width &&
@@ -284,11 +174,6 @@ public readonly struct Rect
                p.Y >= Y && p.Y < Y + Height;
     }
 
-    /// <summary>
-    /// Determines whether the rectangle fully contains another rectangle.
-    /// </summary>
-    /// <param name="r">The rectangle.</param>
-    /// <returns>true if the rectangle is fully contained; otherwise false.</returns>
     public bool Contains(Rect r)
     {
         return Contains(r.TopLeft) && Contains(r.BottomRight);
@@ -308,21 +193,11 @@ public readonly struct Rect
             rect.Height);
     }
 
-    /// <summary>
-    /// Inflates the rectangle.
-    /// </summary>
-    /// <param name="thickness">The thickness to be subtracted for each side of the rectangle.</param>
-    /// <returns>The inflated rectangle.</returns>
     public Rect Inflate(float thickness)
     {
         return Inflate(new Thickness(thickness));
     }
 
-    /// <summary>
-    /// Inflates the rectangle.
-    /// </summary>
-    /// <param name="thickness">The thickness to be subtracted for each side of the rectangle.</param>
-    /// <returns>The inflated rectangle.</returns>
     public Rect Inflate(Thickness thickness)
     {
         return new Rect(
@@ -330,21 +205,11 @@ public readonly struct Rect
             Size.Inflate(thickness));
     }
 
-    /// <summary>
-    /// Deflates the rectangle.
-    /// </summary>
-    /// <param name="thickness">The thickness to be subtracted for each side of the rectangle.</param>
-    /// <returns>The deflated rectangle.</returns>
     public Rect Deflate(float thickness)
     {
         return Deflate(new Thickness(thickness));
     }
 
-    /// <summary>
-    /// Deflates the rectangle by a <see cref="Thickness"/>.
-    /// </summary>
-    /// <param name="thickness">The thickness to be subtracted for each side of the rectangle.</param>
-    /// <returns>The deflated rectangle.</returns>
     public Rect Deflate(Thickness thickness)
     {
         return new Rect(
@@ -352,11 +217,6 @@ public readonly struct Rect
             Size.Deflate(thickness));
     }
 
-    /// <summary>
-    /// Returns a boolean indicating whether the rect is equal to the other given rect.
-    /// </summary>
-    /// <param name="other">The other rect to test equality against.</param>
-    /// <returns>True if this rect is equal to other; False otherwise.</returns>
     public bool Equals(Rect other)
     {
         return X == other.X &&
@@ -365,30 +225,16 @@ public readonly struct Rect
                Height == other.Height;
     }
 
-    /// <summary>
-    /// Returns a boolean indicating whether the given object is equal to this rectangle.
-    /// </summary>
-    /// <param name="obj">The object to compare against.</param>
-    /// <returns>True if the object is equal to this rectangle; false otherwise.</returns>
     public override bool Equals(object? obj)
     {
         return obj is Rect other && Equals(other);
     }
 
-    /// <summary>
-    /// Returns the hash code for this instance.
-    /// </summary>
-    /// <returns>The hash code.</returns>
     public override int GetHashCode()
     {
         return HashCode.Combine(X, Y, Width, Height);
     }
 
-    /// <summary>
-    /// Gets the intersection of two rectangles.
-    /// </summary>
-    /// <param name="rect">The other rectangle.</param>
-    /// <returns>The intersection.</returns>
     public Rect Intersect(Rect rect)
     {
         float newLeft = (rect.X > X) ? rect.X : X;
@@ -406,29 +252,15 @@ public readonly struct Rect
         }
     }
 
-    /// <summary>
-    /// Determines whether a rectangle intersects with this rectangle.
-    /// </summary>
-    /// <param name="rect">The other rectangle.</param>
-    /// <returns>
-    /// True if the specified rectangle intersects with this one; otherwise false.
-    /// </returns>
     public bool Intersects(Rect rect)
     {
         return (rect.X < Right) && (X < rect.Right) && (rect.Y < Bottom) && (Y < rect.Bottom);
     }
 
     /// <summary>
-    /// The box around the four mapped corners, with no camera-plane handling.
+    /// The box around the four mapped corners, exact only on one side of the <c>w = 0</c> plane: across it the corners
+    /// reflect and the box lands opposite the image, so <see cref="TransformToAABB"/> checks that first.
     /// </summary>
-    /// <remarks>
-    /// A projective map takes lines to lines, so this box is exact — but only while the rectangle stays
-    /// on one side of <paramref name="matrix"/>'s <c>w = 0</c> plane. A rectangle that crosses that
-    /// plane has an unbounded image and its behind-plane corners are point-reflected through the origin,
-    /// so the box lands on the wrong side of the image rather than containing it. That is why this is
-    /// not the public answer: <see cref="TransformToAABB"/> establishes the precondition and then calls
-    /// this.
-    /// </remarks>
     internal Rect TransformToMappedCornerAABB(Matrix matrix)
     {
         ReadOnlySpan<Point> points =
@@ -462,25 +294,10 @@ public readonly struct Rect
     }
 
     /// <summary>
-    /// Maps this rectangle through <paramref name="matrix"/> covering every pixel the rasterizer can draw,
-    /// then keeps whatever of that box either reaches <paramref name="deliveredTo"/> or would have been
-    /// declared at <see cref="DefaultNearPlane"/>.
+    /// Maps this rectangle through <paramref name="matrix"/>, exact inside <paramref name="deliveredTo"/> so nothing
+    /// drawn there is given up, and outside it never larger than the <see cref="DefaultNearPlane"/> box, so the working
+    /// density it costs is unchanged. Without a delivery region the <see cref="DefaultNearPlane"/> box is returned.
     /// </summary>
-    /// <remarks>
-    /// <para>
-    /// A perspective-mapped rectangle's exact box runs to millions of pixels as the near edge tips towards
-    /// the eye, and <see cref="Rendering.BufferDimensionBudget.ClampWorkingScale"/> pays for that in
-    /// working density. <see cref="DefaultNearPlane"/> bought the density back by giving up a wedge the
-    /// rasterizer still draws - and, when the wedge falls inside the frame, that wedge is content the viewer
-    /// should have seen.
-    /// </para>
-    /// <para>
-    /// The union is what makes both affordable: inside <paramref name="deliveredTo"/> the box is exact, so
-    /// nothing drawn there is given up, and outside it the box is never larger than
-    /// <see cref="DefaultNearPlane"/> already made it, so the density it costs is unchanged. Without a
-    /// delivery region there is no output clip to be exact against and the pragmatic box is returned.
-    /// </para>
-    /// </remarks>
     public Rect TransformToDeliveredAABB(Matrix matrix, Rect? deliveredTo)
     {
         Rect pragmatic = TransformToAABB(matrix);
@@ -528,11 +345,8 @@ public readonly struct Rect
             if (w > max) max = w;
         }
 
-        // The divisor is affine over the rectangle, so a single sign at the corners means the singularity
-        // lies outside it. That alone is not what makes the mapped-corner box exact: a rectangle wholly in
-        // front of the eye can still hold a corner nearer than the cutoff, and mapping that corner is the
-        // unbounded box the cutoff exists to refuse. So the box is taken whole only when every corner reaches
-        // the cutoff, or when the rectangle sits wholly behind the eye and there is no cutoff to reach.
+        // One divisor sign at the corners keeps the singularity outside, but a corner nearer than the cutoff still maps
+        // unbounded, so the box is taken whole only when every corner reaches the cutoff or all lie behind the eye.
         if (min >= nearPlane || max < 0)
             return TransformToMappedCornerAABB(matrix);
 
@@ -558,11 +372,6 @@ public readonly struct Rect
         return BoundsOf(clipped[..count]);
     }
 
-    /// <summary>
-    /// Translates the rectangle by an offset.
-    /// </summary>
-    /// <param name="offset">The offset.</param>
-    /// <returns>The translated rectangle.</returns>
     public Rect Translate(Vector offset)
     {
         return new Rect(Position + offset, Size);
@@ -606,11 +415,6 @@ public readonly struct Rect
         return rect;
     }
 
-    /// <summary>
-    /// Gets the union of two rectangles.
-    /// </summary>
-    /// <param name="rect">The other rectangle.</param>
-    /// <returns>The union.</returns>
     public Rect Union(Rect rect)
     {
         if (IsEmpty)
@@ -632,11 +436,6 @@ public readonly struct Rect
         }
     }
 
-    /// <summary>
-    /// Gets the union of this rectangle and the specified point.
-    /// </summary>
-    /// <param name="point">The point.</param>
-    /// <returns>The union.</returns>
     public Rect Union(Point point)
     {
         float x1 = MathF.Min(X, point.X);
@@ -646,92 +445,46 @@ public readonly struct Rect
         return new Rect(new Point(x1, y1), new Point(x2, y2));
     }
 
-    /// <summary>
-    /// Returns a new <see cref="Rect"/> with the specified X position.
-    /// </summary>
-    /// <param name="x">The x position.</param>
-    /// <returns>The new <see cref="Rect"/>.</returns>
     public Rect WithX(float x)
     {
         return new Rect(x, Y, Width, Height);
     }
 
-    /// <summary>
-    /// Returns a new <see cref="Rect"/> with the specified Y position.
-    /// </summary>
-    /// <param name="y">The y position.</param>
-    /// <returns>The new <see cref="Rect"/>.</returns>
     public Rect WithY(float y)
     {
         return new Rect(X, y, Width, Height);
     }
 
-    /// <summary>
-    /// Returns a new <see cref="Rect"/> with the specified width.
-    /// </summary>
-    /// <param name="width">The width.</param>
-    /// <returns>The new <see cref="Rect"/>.</returns>
     public Rect WithWidth(float width)
     {
         return new Rect(X, Y, width, Height);
     }
 
-    /// <summary>
-    /// Returns a new <see cref="Rect"/> with the specified height.
-    /// </summary>
-    /// <param name="height">The height.</param>
-    /// <returns>The new <see cref="Rect"/>.</returns>
     public Rect WithHeight(float height)
     {
         return new Rect(X, Y, Width, height);
     }
 
-    /// <summary>
-    /// Returns the string representation of the rectangle.
-    /// </summary>
-    /// <returns>The string representation of the rectangle.</returns>
     public override string ToString()
     {
         return FormattableString.Invariant($"{X}, {Y}, {Width}, {Height}");
     }
 
-    /// <summary>
-    /// Parses a <see cref="Rect"/> string.
-    /// </summary>
-    /// <param name="s">The string.</param>
-    /// <param name="rect">The <see cref="Rect"/>.</param>
-    /// <returns>The status of the operation.</returns>
     public static bool TryParse(string? s, out Rect rect)
     {
         return TryParse(s.AsSpan(), out rect);
     }
 
-    /// <summary>
-    /// Parses a <see cref="Rect"/> string.
-    /// </summary>
-    /// <param name="s">The string.</param>
-    /// <param name="rect">The <see cref="Rect"/>.</param>
-    /// <returns>The status of the operation.</returns>
     public static bool TryParse(ReadOnlySpan<char> s, out Rect rect)
     {
         return TryParse(s, null, out rect);
     }
 
-    /// <summary>
-    /// Parses a <see cref="Rect"/> string.
-    /// </summary>
-    /// <param name="s">The string.</param>
-    /// <returns>The parsed <see cref="Rect"/>.</returns>
     public static Rect Parse(string s)
     {
         return Parse(s.AsSpan());
     }
 
-    /// <summary>
-    /// Parses a <see cref="Rect"/> string.
-    /// </summary>
-    /// <param name="s">The string.</param>
-    /// <returns>The parsed <see cref="Rect"/>.</returns>
     public static Rect Parse(ReadOnlySpan<char> s)
     {
         return Parse(s, null);

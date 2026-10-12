@@ -156,13 +156,13 @@ internal sealed class SpirvShaderLowering
     }
 
     /// <remarks>
-    /// <see cref="ValidateForDescription"/> already rejected a lowering whose push constant names no uniform,
-    /// so the miss here is unreachable rather than an author error.
+    /// <see cref="ValidateForDescription"/> already rejected a lowering whose push constant names no uniform.
     /// </remarks>
     private static ShaderUniformBinding FindUniform(ShaderDescription description, string name)
-        => TryFindUniform(description.Uniforms, name, out ShaderUniformBinding binding)
-            ? binding
-            : throw new InvalidOperationException($"The shader description declares no uniform '{name}'.");
+    {
+        _ = TryFindUniform(description.Uniforms, name, out ShaderUniformBinding binding);
+        return binding;
+    }
 
     /// <summary>Finds the uniform binding named <paramref name="name"/>, compared ordinally.</summary>
     private static bool TryFindUniform(

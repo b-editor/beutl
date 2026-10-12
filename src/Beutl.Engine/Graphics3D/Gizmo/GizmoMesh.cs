@@ -66,7 +66,7 @@ internal static class GizmoMesh
     public static readonly Vector3 YAxisColor = new(0.2f, 1f, 0.2f); // Green
     public static readonly Vector3 ZAxisColor = new(0.2f, 0.4f, 1f); // Blue
 
-    // Plane colors (mixed colors with alpha indicated by reduced intensity)
+    // Plane colors: each plane takes the color of the axis normal to it
     public static readonly Vector3 XYPlaneColor = ZAxisColor;
     public static readonly Vector3 YZPlaneColor = XAxisColor;
     public static readonly Vector3 ZXPlaneColor = YAxisColor;
@@ -103,13 +103,13 @@ internal static class GizmoMesh
         // Z axis arrow (blue)
         CreateArrow(Vector3.Zero, Vector3.UnitZ, ZAxisColor, vertexList, indexList);
 
-        // XY plane indicator (yellow)
+        // XY plane indicator (blue)
         CreatePlaneQuad(Vector3.UnitX, Vector3.UnitY, XYPlaneColor, vertexList, indexList);
 
-        // YZ plane indicator (cyan)
+        // YZ plane indicator (red)
         CreatePlaneQuad(Vector3.UnitY, Vector3.UnitZ, YZPlaneColor, vertexList, indexList);
 
-        // ZX plane indicator (magenta)
+        // ZX plane indicator (green)
         CreatePlaneQuad(Vector3.UnitZ, Vector3.UnitX, ZXPlaneColor, vertexList, indexList);
 
         vertices = vertexList.ToArray();
@@ -165,12 +165,10 @@ internal static class GizmoMesh
     {
         uint baseIndex = (uint)vertices.Count;
 
-        // Calculate perpendicular vectors for cylinder/cone
         GetPerpendicularBasis(direction, out var right, out var up);
 
         float shaftLength = GizmoDimensions.ArrowLength - ArrowHeadLength;
 
-        // Create shaft (cylinder)
         for (int i = 0; i < CircleSegments; i++)
         {
             float angle = i * MathF.PI * 2 / CircleSegments;
@@ -179,21 +177,16 @@ internal static class GizmoMesh
 
             var offset = right * cos * ArrowShaftRadius + up * sin * ArrowShaftRadius;
 
-            // Bottom vertex
             vertices.Add(new GizmoVertex(origin + offset, color));
-            // Top vertex (at shaft end)
             vertices.Add(new GizmoVertex(origin + direction * shaftLength + offset, color));
         }
 
-        // Shaft indices (cylinder sides)
         AddCylinderSideIndices(indices, baseIndex);
 
-        // Create cone (arrow head)
         uint coneBaseIndex = (uint)vertices.Count;
         var coneBase = origin + direction * shaftLength;
         var coneTip = origin + direction * GizmoDimensions.ArrowLength;
 
-        // Cone base vertices
         for (int i = 0; i < CircleSegments; i++)
         {
             float angle = i * MathF.PI * 2 / CircleSegments;
@@ -204,11 +197,9 @@ internal static class GizmoMesh
             vertices.Add(new GizmoVertex(coneBase + offset, color));
         }
 
-        // Cone tip
         uint tipIndex = (uint)vertices.Count;
         vertices.Add(new GizmoVertex(coneTip, color));
 
-        // Cone side indices
         for (int i = 0; i < CircleSegments; i++)
         {
             uint i0 = coneBaseIndex + (uint)i;
@@ -219,7 +210,6 @@ internal static class GizmoMesh
             indices.Add(tipIndex);
         }
 
-        // Cone base cap
         uint capCenterIndex = (uint)vertices.Count;
         vertices.Add(new GizmoVertex(coneBase, color));
 

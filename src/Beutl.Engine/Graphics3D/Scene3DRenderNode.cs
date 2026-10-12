@@ -24,8 +24,6 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
 {
     private static readonly ILogger s_logger = Log.CreateLogger<Scene3DRenderNode>();
 
-    public Rect Bounds { get; private set; } = new(0, 0, scene.RenderWidth, scene.RenderHeight);
-
     public (Scene3D.Resource Resource, int Version)? Scene { get; private set; } = scene.Capture();
 
     public bool Update(Scene3D.Resource scene)
@@ -36,7 +34,6 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
         {
             Scene = scene.Capture();
             changed = true;
-            Bounds = new Rect(0, 0, scene.RenderWidth, scene.RenderHeight);
         }
 
         if (changed)
@@ -52,10 +49,8 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
         if (Scene is not { } sceneSnapshot)
             return;
 
-        // The whole value lives on the 3D backend, so without one there is nothing to describe: a published
-        // description would answer hit tests over a scene that is never drawn and, walking topmost-first,
-        // swallow the clicks meant for the 2D content beneath it. This reads request state, not the
-        // process - the request settled the answer before any node recorded, and it keys the recording.
+        // Without a 3D backend the scene is never drawn, and describing it would let its hit test swallow clicks
+        // meant for the 2D content beneath. This reads request state, settled before any node recorded.
         if (!context.Supports3DRendering)
             return;
 
@@ -78,28 +73,9 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
             bounds,
             context.OutputScale,
             context.MaxWorkingScale).Value;
-        // The same question Renderer3D.Initialize asks, asked while there is still somewhere to put the
-        // answer. An extent the device cannot attach is refused there, and a preview drops the value rather
-        // than failing; recording it anyway would publish bounds and a hit test for a value that is never
-        // drawn, and walking topmost-first that hit swallows the clicks meant for the 2D content beneath.
-        // Delivery keeps recording, because there the refusal is reported rather than dropped and must stay
-        // so.
-        //
-        // This is exact for the 3D surface: RenderCore sizes it from these same origin-free bounds at a
-        // density the executor resolves from the same scale contract, and its extra clamps are against the
-        // engine ceiling, which can only lower a density and so can only make that allocation fit.
-        //
-        // It is not exact for the 2D intermediate the published output lands in. CreateOwnedValue sizes that
-        // one as PixelRect.FromRect(bounds.Translate(gridOffset), density), and a fractional device-grid
-        // phase makes it one pixel wider than ceil(extent x density) on each axis. The phase comes from the
-        // target being drawn into, so a recording cannot know it - RenderDeviceGridSensitivity.Insensitive
-        // declares that this node's pixels do not depend on the phase, not that the phase is integral. A
-        // scene whose footprint lands exactly on the device's limit therefore still records while the pool
-        // refuses that one-pixel-wider intermediate, and a preview drops the value with the hit answer left
-        // behind. Widening this check by that pixel would instead refuse a scene at exactly the limit on
-        // every device whose limit is under the engine ceiling, including the phases where it renders, so
-        // the exact-boundary case is left as the residue rather than paid for with dropped content. It is
-        // pinned by Scene3DRenderNodeDeviceBudgetTests.ASceneExactlyAtTheDeviceLimit_IsAKnownGap.
+        // A preview does not record a value the device cannot render, whose hit test would swallow clicks meant for
+        // the 2D content beneath; Delivery records it so the refusal is reported. The 2D intermediate can be 1 px
+        // wider, a known gap pinned by Scene3DRenderNodeDeviceBudgetTests.ASceneExactlyAtTheDeviceLimit_IsAKnownGap.
         (int deviceWidth, int deviceHeight) = ResolveDeviceFootprint(bounds, workingScale);
         if (context.Intent == RenderIntent.Preview
             && !CanRenderScene(context.Device3DExtentBudget, deviceWidth, deviceHeight))
@@ -233,7 +209,6 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
             if (obj.GetOriginal()?.Id == targetId)
                 return obj;
 
-            // Recursively search children
             var children = obj.GetChildResources();
             var found = FindObjectById(children, targetId);
             if (found != null)

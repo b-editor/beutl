@@ -52,7 +52,6 @@ public sealed class ShaderDescriptionSpirvEquivalenceTests
     [TestCase(0.5f)]
     [TestCase(1f)]
     [TestCase(2f)]
-    [Category("GpuPassFusionGpu")]
     public void LumaColor_AutoAlwaysUsesSksl(float outputScale)
     {
         GpuTestEnvironment.EnsureAvailable();
@@ -77,7 +76,6 @@ public sealed class ShaderDescriptionSpirvEquivalenceTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     [Platform("MacOSX")]
     public void Identity_ExplicitSpirvMatchesSksl()
     {
@@ -100,7 +98,6 @@ public sealed class ShaderDescriptionSpirvEquivalenceTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     [Platform("MacOSX")]
     public void Identity_SubmitsNativeCommandsBeforeExecutionReturns()
     {
@@ -125,7 +122,6 @@ public sealed class ShaderDescriptionSpirvEquivalenceTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void Identity_AutoUsesSkslForACroppedFootprint()
     {
         GpuTestEnvironment.EnsureAvailable();
@@ -150,7 +146,6 @@ public sealed class ShaderDescriptionSpirvEquivalenceTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void AutoFallsBackAndRetriesWhenNativeCompilationFails()
     {
         GpuTestEnvironment.EnsureAvailable();
@@ -189,7 +184,6 @@ public sealed class ShaderDescriptionSpirvEquivalenceTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     [Platform("MacOSX")]
     public void Renderer_ReusesNativeTestProgram()
     {
@@ -249,30 +243,18 @@ public sealed class ShaderDescriptionSpirvEquivalenceTests
         using var root = new MaterializedShaderNode(source, description);
         using CompiledRenderRequest compiled = Compile(root, outputScale, requestedRegion);
         using var registry = new RenderTargetPool(factory: null);
-        using RenderTargetLeaseSession targets = registry.BeginSession(RenderIntent.Preview);
-        using RenderTargetLease output = targets.Acquire(PixelRect.FromRect(s_bounds, outputScale).Size);
-        using var canvas = new ImmediateCanvas(
-            output.Target,
-            RenderIntent.Preview,
+        return Graphics3DTestHelpers.ExecuteIntoPool(
+            registry,
+            compiled,
+            s_bounds,
+            requestedRegion ?? s_bounds,
             outputScale,
             outputScale,
-            s_bounds.Size);
-        canvas.Clear();
-        var executor = new RenderRequestExecutor(
-            targets,
-            spirvProgramCache: spirvProgramCache,
-            shaderBackendPreference: backendPreference);
-        if (commandEvents is null)
-        {
-            executor.Execute(compiled, canvas, replayBounds: requestedRegion ?? s_bounds);
-        }
-        else
-        {
-            using (VulkanCommandPool.Observe(commandEvents.Add))
-                executor.Execute(compiled, canvas, replayBounds: requestedRegion ?? s_bounds);
-        }
-        using Bitmap bitmap = output.Target.Snapshot();
-        return (bitmap.GetPixelSpan<ushort>().ToArray(), executor.Statistics);
+            createExecutor: targets => new RenderRequestExecutor(
+                targets,
+                spirvProgramCache: spirvProgramCache,
+                shaderBackendPreference: backendPreference),
+            observeExecution: commandEvents is null ? null : () => VulkanCommandPool.Observe(commandEvents.Add));
     }
 
     private static Brush.Resource CreateGradient()
@@ -289,8 +271,7 @@ public sealed class ShaderDescriptionSpirvEquivalenceTests
         RenderNode root,
         float outputScale,
         Rect? requestedRegion)
-    {
-        var request = new RenderRequest(new RenderRequestOptions(
+        => Graphics3DTestHelpers.Compile(root, new RenderRequestOptions(
             RenderIntent.Preview,
             RenderRequestPurpose.Frame,
             targetDomain: s_bounds,
@@ -299,20 +280,6 @@ public sealed class ShaderDescriptionSpirvEquivalenceTests
             maxWorkingScale: outputScale,
             cachePolicy: RenderCacheOptions.Disabled,
             fusionMode: FusionMode.Enabled));
-        try
-        {
-            RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(root);
-            return new RenderRequestCompiler().Compile(
-                request,
-                graph,
-                SkslBackendBudgetResolver.Portable);
-        }
-        catch
-        {
-            request.Dispose();
-            throw;
-        }
-    }
 
     private sealed class MaterializedShaderNode(
         RenderNode source,

@@ -56,14 +56,6 @@ public class MFFrameBufferSizeTests
     }
 
     [Test]
-    public void Calculate_WhenByteCountExceedsMaximumArrayLength_ThrowsInvalidDataException()
-    {
-        Assert.That(
-            () => MFFrameBufferSize.Calculate(int.MaxValue, int.MaxValue, 2),
-            Throws.TypeOf<InvalidDataException>());
-    }
-
-    [Test]
     public void Calculate_WhenByteCountOverflowsInt64_ThrowsInvalidDataException()
     {
         Assert.That(

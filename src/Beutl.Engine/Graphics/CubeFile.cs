@@ -31,8 +31,8 @@ public partial class CubeFile : IEquatable<CubeFile>
     // https://shizenkarasuzon.hatenablog.com/entry/2020/08/13/185223#1DLUT%E3%81%A83DLUT
     public Vector3 TrilinearInterplate(byte v0, byte v1, byte v2)
     {
-        Span<byte> pos = stackalloc byte[3]; // 0~33
-        Span<float> delta = stackalloc float[3]; //
+        Span<byte> pos = stackalloc byte[3];
+        Span<float> delta = stackalloc float[3];
         int lut_size = Size;
         int lut_size_2 = lut_size * lut_size;
 
@@ -151,7 +151,7 @@ public partial class CubeFile : IEquatable<CubeFile>
             string? line = reader.ReadLine();
             if (line == null)
                 throw new InvalidDataException("The LUT does not contain the declared number of entries.");
-            if (line is not null && !line.StartsWith('#'))
+            if (!line.StartsWith('#'))
             {
                 string[] values = line.Split(' ');
                 if (values.Length != 3) continue;

@@ -1,8 +1,6 @@
 ﻿using System.Numerics;
-using System.Runtime.InteropServices;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics3D.Lighting;
-using Beutl.Graphics3D.Meshes;
 using Beutl.Media;
 
 namespace Beutl.Graphics3D.Nodes;
@@ -17,7 +15,6 @@ public sealed class ShadowPass : GraphicsNode3D
     /// </summary>
     public const int DefaultShadowMapSize = 2048;
 
-    // Shader sources
     private const string ShadowVertexShader = @"
 #version 450
 
@@ -47,16 +44,7 @@ void main() {
 }
 ";
 
-    [StructLayout(LayoutKind.Sequential)]
-    private struct ShadowPushConstants
-    {
-        public Matrix4x4 Model;
-        public Matrix4x4 LightViewProjection;
-    }
-
-    private IPipeline3D? _shadowPipeline;
-    private IPipeline3D? _doubleSidedShadowPipeline;
-    private IPipeline3D? _boundPipeline;
+    private readonly ShadowCasterPipelines _pipelines = new();
     private byte[]? _vertexShaderSpirv;
     private byte[]? _fragmentShaderSpirv;
 
@@ -89,8 +77,7 @@ void main() {
     public Matrix4x4 LightProjectionMatrix { get; private set; }
 
     /// <summary>
-    /// Gets the combined light view-projection matrix.
-    /// In C# System.Numerics: View * Projection (same as Camera3D.GetViewProjectionMatrix)
+    /// Gets the combined light view-projection matrix, View * Projection in System.Numerics order.
     /// </summary>
     public Matrix4x4 LightViewProjection => LightViewMatrix * LightProjectionMatrix;
 
@@ -104,8 +91,6 @@ void main() {
 
     protected override void OnResize(int width, int height)
     {
-        // Shadow map size is independent of screen size
-        // Only recreate if needed for custom sizes
     }
 
     /// <summary>
@@ -128,13 +113,10 @@ void main() {
 
         DisposeShadowMap();
 
-        // Create shadow depth texture
         ShadowDepthTexture = Context.CreateTexture2D(width, height, TextureFormat.Depth32Float);
 
-        // Create minimal dummy color texture (required for framebuffer)
         DummyColorTexture = Context.CreateTexture2D(width, height, TextureFormat.R8Unorm);
 
-        // Create shadow render pass and framebuffer
         RenderPass = Context.CreateRenderPass3D(ShadowPassFormats, TextureFormat.Depth32Float);
         Framebuffer = Context.CreateFramebuffer3D(
             RenderPass,
@@ -153,37 +135,8 @@ void main() {
         if (RenderPass == null || _vertexShaderSpirv == null || _fragmentShaderSpirv == null)
             return;
 
-        _shadowPipeline?.Dispose();
-        _doubleSidedShadowPipeline?.Dispose();
-
         // No descriptor bindings needed - we only use push constants
-        var descriptorBindings = Array.Empty<DescriptorBinding>();
-
-        var options = new PipelineOptions
-        {
-            DepthTestEnabled = true,
-            DepthWriteEnabled = true,
-            // Casters cull the sides their material culls when drawn, so a one-sided surface seen from behind
-            // casts nothing; double-sided materials use the no-cull variant.
-            CullMode = CullMode.Back
-        };
-
-        _shadowPipeline = Context.CreatePipeline3D(
-            RenderPass,
-            _vertexShaderSpirv,
-            _fragmentShaderSpirv,
-            descriptorBindings,
-            Vertex3D.GetVertexInputDescription(),
-            options);
-
-        options.CullMode = CullMode.None;
-        _doubleSidedShadowPipeline = Context.CreatePipeline3D(
-            RenderPass,
-            _vertexShaderSpirv,
-            _fragmentShaderSpirv,
-            descriptorBindings,
-            Vertex3D.GetVertexInputDescription(),
-            options);
+        _pipelines.Create(Context, RenderPass, _vertexShaderSpirv, _fragmentShaderSpirv, []);
     }
 
     /// <summary>
@@ -193,15 +146,12 @@ void main() {
     {
         var direction = NormalizeLightDirection(light.Direction);
 
-        // Position the light "camera" behind the scene, looking at the center
         var shadowDistance = light.ShadowDistance;
         var lightPosition = sceneCenter - direction * shadowDistance * 0.5f;
 
-        // Create view matrix looking at scene center
         var up = ChooseUp(direction);
         LightViewMatrix = Matrix4x4.CreateLookAt(lightPosition, sceneCenter, up);
 
-        // Orthographic projection for directional light
         var size = light.ShadowMapSize;
         LightProjectionMatrix = Matrix4x4.CreateOrthographic(size, size, 0.1f, shadowDistance);
     }
@@ -214,12 +164,10 @@ void main() {
         var position = light.Position;
         var direction = NormalizeLightDirection(light.Direction);
 
-        // Create view matrix from light position looking in light direction
         var up = ChooseUp(direction);
         var target = position + direction;
         LightViewMatrix = Matrix4x4.CreateLookAt(position, target, up);
 
-        // Perspective projection based on spot light cone angle
         var fovRadians = light.OuterConeAngle * 2f * MathF.PI / 180f;
         fovRadians = Math.Clamp(fovRadians, 0.1f, MathF.PI - 0.1f);
         // The near plane stays in front of the far plane for short ranges.
@@ -255,43 +203,24 @@ void main() {
     /// </summary>
     public void Execute(IReadOnlyList<Object3D.Resource> objects)
     {
-        if (Framebuffer == null || RenderPass == null || _shadowPipeline == null || _doubleSidedShadowPipeline == null)
+        if (Framebuffer == null || RenderPass == null || !_pipelines.IsCreated)
             return;
 
-        // Begin shadow pass with clear (clear to max depth)
         Span<Color> clearColors = [new Color(255, 255, 255, 255)]; // Dummy color
         using (UsePass(clearColors))
         {
-            _boundPipeline = null;
+            _pipelines.ResetBinding();
 
             var lightVP = LightViewProjection;
 
-            foreach (var obj in objects)
+            Object3DTraversal.ForEachEnabled(objects, (obj, worldMatrix) =>
             {
-                RenderObject(obj, lightVP, Matrix4x4.Identity);
-            }
+                // CastShadows is per object; enabled children still traverse a non-casting parent. A fully
+                // transparent material draws nothing, so it casts nothing either.
+                if (obj.CastsVisibleShadow)
+                    RenderMesh(obj, lightVP, worldMatrix);
+            });
         }
-    }
-
-    private void RenderObject(Object3D.Resource obj, Matrix4x4 lightVP, Matrix4x4 parentMatrix)
-    {
-        if (!obj.IsEnabled)
-            return;
-
-        // Calculate combined world matrix
-        var worldMatrix = obj.GetWorldMatrix() * parentMatrix;
-
-        // Render children if any
-        var children = obj.GetChildResources();
-        foreach (var child in children)
-        {
-            RenderObject(child, lightVP, worldMatrix);
-        }
-
-        // CastShadows is per object; enabled children still traverse a non-casting parent. A fully transparent
-        // material draws nothing, so it casts nothing either.
-        if (obj.CastsVisibleShadow)
-            RenderMesh(obj, lightVP, worldMatrix);
     }
 
     private void RenderMesh(Object3D.Resource obj, Matrix4x4 lightVP, Matrix4x4 worldMatrix)
@@ -300,22 +229,10 @@ void main() {
         if (meshResource == null)
             return;
 
-        IPipeline3D pipeline = obj.Material?.IsDoubleSided == true ? _doubleSidedShadowPipeline! : _shadowPipeline!;
-        if (!ReferenceEquals(pipeline, _boundPipeline))
-        {
-            RenderPass!.BindPipeline(pipeline);
-            _boundPipeline = pipeline;
-        }
+        _pipelines.Bind(RenderPass!, obj.Material?.IsDoubleSided == true, out _);
+        ShadowCasterPipelines.SetPushConstants(RenderPass!, worldMatrix, lightVP);
 
-        // Set push constants with model and light VP matrices
-        var pushConstants = new ShadowPushConstants
-        {
-            Model = worldMatrix,
-            LightViewProjection = lightVP
-        };
-        RenderPass!.SetPushConstants(pushConstants);
-
-        MeshDrawHelper.Draw(RenderPass, meshResource);
+        MeshDrawHelper.Draw(RenderPass!, meshResource);
     }
 
     private void DisposeShadowMap()
@@ -325,7 +242,7 @@ void main() {
 
     protected override void OnDispose()
     {
-        DisposeResources([_shadowPipeline, _doubleSidedShadowPipeline, Framebuffer,
+        DisposeResources([_pipelines.OneSided, _pipelines.DoubleSided, Framebuffer,
             RenderPass, ShadowDepthTexture, DummyColorTexture]);
     }
 }

@@ -1,18 +1,9 @@
 ﻿namespace Beutl.Graphics.Backend;
 
-/// <summary>
-/// Describes vertex input for a graphics pipeline.
-/// </summary>
 public struct VertexInputDescription
 {
-    /// <summary>
-    /// Gets or sets the vertex binding descriptions.
-    /// </summary>
     public VertexBindingDescription[] Bindings { get; set; }
 
-    /// <summary>
-    /// Gets or sets the vertex attribute descriptions.
-    /// </summary>
     public VertexAttributeDescription[] Attributes { get; set; }
 
     /// <summary>
@@ -25,14 +16,8 @@ public struct VertexInputDescription
     };
 }
 
-/// <summary>
-/// Describes a vertex buffer binding.
-/// </summary>
 public struct VertexBindingDescription
 {
-    /// <summary>
-    /// The binding index.
-    /// </summary>
     public uint Binding { get; set; }
 
     /// <summary>
@@ -40,30 +25,15 @@ public struct VertexBindingDescription
     /// </summary>
     public uint Stride { get; set; }
 
-    /// <summary>
-    /// Whether the data is per-vertex or per-instance.
-    /// </summary>
     public VertexInputRate InputRate { get; set; }
 }
 
-/// <summary>
-/// Describes a vertex attribute within a vertex buffer.
-/// </summary>
 public struct VertexAttributeDescription
 {
-    /// <summary>
-    /// The shader location for this attribute.
-    /// </summary>
     public uint Location { get; set; }
 
-    /// <summary>
-    /// The binding index this attribute reads from.
-    /// </summary>
     public uint Binding { get; set; }
 
-    /// <summary>
-    /// The format of the attribute data.
-    /// </summary>
     public VertexFormat Format { get; set; }
 
     /// <summary>
@@ -72,25 +42,12 @@ public struct VertexAttributeDescription
     public uint Offset { get; set; }
 }
 
-/// <summary>
-/// Specifies the rate at which vertex attributes are read.
-/// </summary>
 public enum VertexInputRate
 {
-    /// <summary>
-    /// Attributes are read per-vertex.
-    /// </summary>
     Vertex = 0,
-
-    /// <summary>
-    /// Attributes are read per-instance.
-    /// </summary>
     Instance = 1
 }
 
-/// <summary>
-/// Specifies the format of vertex attribute data.
-/// </summary>
 public enum VertexFormat
 {
     /// <summary>

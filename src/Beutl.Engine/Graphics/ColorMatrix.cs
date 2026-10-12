@@ -343,18 +343,6 @@ public readonly struct ColorMatrix(
         public float W = w;
         public float V = v;
 
-        public static Vector5 operator *(in Vector5 left, in Vector5 right)
-        {
-            return new()
-            {
-                X = left.X * right.X,
-                Y = left.Y * right.Y,
-                Z = left.Z * right.Z,
-                W = left.W * right.W,
-                V = left.V * right.V,
-            };
-        }
-
         public static Vector5 operator *(in Vector5 left, float right)
         {
             return new()
@@ -389,43 +377,28 @@ public readonly struct ColorMatrix(
 
         public readonly ColorMatrix AsColorMatrix() => Unsafe.As<Matrix4x5, ColorMatrix>(ref Unsafe.AsRef(in this));
 
-        public static Matrix4x5 operator *(in Matrix4x5 left, float right)
-        {
-            return new()
-            {
-                X = left.X * right,
-                Y = left.Y * right,
-                Z = left.Z * right,
-                W = left.W * right
-            };
-        }
-
         public static Matrix4x5 operator *(in Matrix4x5 left, in Matrix4x5 right)
         {
             Matrix4x5 result;
 
-            // result.X = Transform(left.X, in right);
             result.X = right.X * left.X.X;
             result.X += right.Y * left.X.Y;
             result.X += right.Z * left.X.Z;
             result.X += right.W * left.X.W;
             result.X.V += left.X.V;
 
-            // result.Y = Transform(left.Y, in right);
             result.Y = right.X * left.Y.X;
             result.Y += right.Y * left.Y.Y;
             result.Y += right.Z * left.Y.Z;
             result.Y += right.W * left.Y.W;
             result.Y.V += left.Y.V;
 
-            // result.Z = Transform(left.Z, in right);
             result.Z = right.X * left.Z.X;
             result.Z += right.Y * left.Z.Y;
             result.Z += right.Z * left.Z.Z;
             result.Z += right.W * left.Z.W;
             result.Z.V += left.Z.V;
 
-            // result.W = Transform(left.W, in right);
             result.W = right.X * left.W.X;
             result.W += right.Y * left.W.Y;
             result.W += right.Z * left.W.Z;

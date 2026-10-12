@@ -19,34 +19,19 @@ public abstract partial class Camera3D : EngineObject
     // 1080 px tall render, so 2D content placed there keeps its 2D size.
     internal const float DefaultDistance = 935.3074f;
 
-    /// <summary>
-    /// Gets the position of the camera in world space.
-    /// </summary>
     [Display(Name = nameof(GraphicsStrings.Position), ResourceType = typeof(GraphicsStrings)), NumberStep(1, 0.1)]
     public IProperty<Vector3> Position { get; } = Property.CreateAnimatable(new Vector3(0, 0, -DefaultDistance));
 
-    /// <summary>
-    /// Gets the target point the camera is looking at.
-    /// </summary>
     [Display(Name = nameof(GraphicsStrings.Target), ResourceType = typeof(GraphicsStrings)), NumberStep(1, 0.1)]
     public IProperty<Vector3> Target { get; } = Property.CreateAnimatable(Vector3.Zero);
 
-    /// <summary>
-    /// Gets the up direction of the camera.
-    /// </summary>
     [Display(Name = nameof(GraphicsStrings.Camera3D_Up), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Vector3> Up { get; } = Property.CreateAnimatable(-Vector3.UnitY);
 
-    /// <summary>
-    /// Gets the near clipping plane distance.
-    /// </summary>
     [Display(Name = nameof(GraphicsStrings.Camera3D_NearPlane), ResourceType = typeof(GraphicsStrings))]
     [Range(0.001f, float.MaxValue), NumberStep(1, 0.1)]
     public IProperty<float> NearPlane { get; } = Property.CreateAnimatable(1f);
 
-    /// <summary>
-    /// Gets the far clipping plane distance.
-    /// </summary>
     [Display(Name = nameof(GraphicsStrings.Camera3D_FarPlane), ResourceType = typeof(GraphicsStrings))]
     [Range(0.001f, float.MaxValue), NumberStep(1, 0.1)]
     public IProperty<float> FarPlane { get; } = Property.CreateAnimatable(10000f);

@@ -1,6 +1,4 @@
-﻿using System.Reflection;
-
-using Beutl.Graphics;
+﻿using Beutl.Graphics;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics.Backend.Vulkan;
 using Beutl.Graphics.Rendering;
@@ -35,9 +33,7 @@ public class SkiaSurfaceSamplingTests
             destination.Value.Canvas.DrawSurface(source.Value, 0, 0);
             context.SkiaContext.Flush(submit: true, synchronous: true);
 
-            var texture = (GRBackendTexture)typeof(VulkanTexture2D).GetField(
-                "_skiaBackendTexture", BindingFlags.Instance | BindingFlags.NonPublic)!
-                .GetValue((VulkanTexture2D)source.Texture!)!;
+            GRBackendTexture texture = VulkanTestEnvironment.GetSkiaBackendTexture((VulkanTexture2D)source.Texture!);
             // Sampled in place, the image is left ready for shader reads. Wrapped as a render target, which Skia
             // cannot sample, it was copied first and left as a transfer source.
             Assert.That(SkiaVulkanInterop.GetImageLayout(texture), Is.EqualTo(ImageLayout.ShaderReadOnlyOptimal));

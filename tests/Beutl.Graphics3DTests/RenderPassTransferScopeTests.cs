@@ -4,6 +4,7 @@ using Beutl.Graphics.Backend.Vulkan;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shaders;
 using Beutl.Media;
+using static Beutl.Graphics3DTests.Graphics3DTestHelpers;
 
 namespace Beutl.Graphics3DTests;
 
@@ -13,18 +14,6 @@ public sealed class RenderPassTransferScopeTests
 {
     private const int Width = 16;
     private const int Height = 8;
-
-    private const string PassthroughFragmentShader = """
-        #version 450
-
-        layout(location = 0) in vec2 fragCoord;
-        layout(location = 0) out vec4 outColor;
-        layout(binding = 0) uniform sampler2D sourceTexture;
-
-        void main() {
-            outColor = texture(sourceTexture, fragCoord);
-        }
-        """;
 
     /// <summary>Reads its geometry from a vertex buffer, its texture from a descriptor set, and its tint
     /// from push constants, so a draw is only correct when all three are bound.</summary>
@@ -50,20 +39,6 @@ public sealed class RenderPassTransferScopeTests
 
         void main() {
             outColor = texture(sourceTexture, fragCoord) * pc.tint;
-        }
-        """;
-
-    /// <summary>Builds its own fullscreen triangle, so a pipeline using it declares no vertex input.</summary>
-    private const string FullscreenVertexShader = """
-        #version 450
-
-        layout(location = 0) out vec2 fragCoord;
-
-        void main() {
-            vec2 positions[3] = vec2[](vec2(-1.0, -1.0), vec2(3.0, -1.0), vec2(-1.0, 3.0));
-            vec2 uvs[3] = vec2[](vec2(0.0, 0.0), vec2(2.0, 0.0), vec2(0.0, 2.0));
-            gl_Position = vec4(positions[gl_VertexIndex], 0.0, 1.0);
-            fragCoord = uvs[gl_VertexIndex];
         }
         """;
 
@@ -95,7 +70,7 @@ public sealed class RenderPassTransferScopeTests
         }
         """;
 
-    /// <summary>Declares binding 0 as a uniform buffer, where <see cref="PassthroughFragmentShader"/>
+    /// <summary>Declares binding 0 as a uniform buffer, where <see cref="Graphics3DTestHelpers.PassthroughFragmentShader"/>
     /// declares it as a combined image sampler, so the two descriptor set layouts differ.</summary>
     private const string UniformTintFragmentShader = """
         #version 450
@@ -136,7 +111,6 @@ public sealed class RenderPassTransferScopeTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void BeginningAPass_KeepsItsPreparationBarriersInTheRecordedBatch()
     {
         IGraphicsContext context = GpuTestEnvironment.EnsureAvailable();
@@ -182,7 +156,6 @@ public sealed class RenderPassTransferScopeTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void CopyBufferInsideARenderPass_SplitsThatPassInsteadOfSubmittingAheadOfIt()
     {
         IGraphicsContext context = GpuTestEnvironment.EnsureAvailable();
@@ -227,7 +200,6 @@ public sealed class RenderPassTransferScopeTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void AReadbackInsideARenderPass_SeesWhatWasRecordedBeforeIt()
     {
         IGraphicsContext context = GpuTestEnvironment.EnsureAvailable();
@@ -265,7 +237,6 @@ public sealed class RenderPassTransferScopeTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void APassBodyFailure_ReleasesTheRenderPassScope()
     {
         IGraphicsContext context = GpuTestEnvironment.EnsureAvailable();
@@ -314,7 +285,6 @@ public sealed class RenderPassTransferScopeTests
 
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void ADrawAfterAResumedPass_StillSeesEveryBindingMadeBeforeTheSplit()
     {
         IGraphicsContext context = GpuTestEnvironment.EnsureAvailable();
@@ -427,7 +397,6 @@ public sealed class RenderPassTransferScopeTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void AResumedPass_LoadsColorAndDepthWrittenBeforeTheSplit()
     {
         IGraphicsContext context = GpuTestEnvironment.EnsureAvailable();
@@ -509,7 +478,6 @@ public sealed class RenderPassTransferScopeTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void WaitIdleInsideARenderPass_SubmitsWhatWasRecordedAndResumesThePass()
     {
         IGraphicsContext context = GpuTestEnvironment.EnsureAvailable();
@@ -542,7 +510,6 @@ public sealed class RenderPassTransferScopeTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void DisposingAPassThatIsStillRecording_ReleasesTheRenderPassScope()
     {
         IGraphicsContext context = GpuTestEnvironment.EnsureAvailable();
@@ -600,38 +567,18 @@ public sealed class RenderPassTransferScopeTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void ADescriptorSetAllocatedFromAnotherPipeline_IsRejectedByBindDescriptorSet()
     {
         IGraphicsContext context = GpuTestEnvironment.EnsureAvailable();
         GpuTestEnvironment.InvokeOnRenderThread(() =>
         {
-            IShaderCompiler compiler = context.CreateShaderCompiler();
-            using IDisposable? compilerLifetime = compiler as IDisposable;
-            byte[] vertexSpirv = compiler.CompileToSpirv(FullscreenVertexShader, ShaderStage.Vertex);
-            byte[] sampledSpirv = compiler.CompileToSpirv(PassthroughFragmentShader, ShaderStage.Fragment);
-            byte[] tintedSpirv = compiler.CompileToSpirv(UniformTintFragmentShader, ShaderStage.Fragment);
-
             using ITexture2D color = context.CreateTexture2D(Width, Height, TextureFormat.RGBA8Unorm);
             using IRenderPass3D renderPass = context.CreateRenderPass3D([TextureFormat.RGBA8Unorm], null);
             using IFramebuffer3D framebuffer = context.CreateFramebuffer3D(renderPass, [color], null);
 
-            // Binding 0 is a combined image sampler in one layout and a uniform buffer in the other, so a set
-            // allocated from either describes nothing the other's pipeline layout declares.
-            using IPipeline3D sampledPipeline = context.CreatePipeline3D(
-                renderPass,
-                vertexSpirv,
-                sampledSpirv,
-                [new DescriptorBinding(0, DescriptorType.CombinedImageSampler, 1, ShaderStage.Fragment)],
-                VertexInputDescription.Empty,
-                PipelineOptions.Fullscreen);
-            using IPipeline3D tintedPipeline = context.CreatePipeline3D(
-                renderPass,
-                vertexSpirv,
-                tintedSpirv,
-                [new DescriptorBinding(0, DescriptorType.UniformBuffer, 1, ShaderStage.Fragment)],
-                VertexInputDescription.Empty,
-                PipelineOptions.Fullscreen);
+            var pipelines = CreatePipelinesDisagreeingOnBinding0(context, renderPass);
+            using IPipeline3D sampledPipeline = pipelines.Sampled;
+            using IPipeline3D tintedPipeline = pipelines.Tinted;
 
             using IDescriptorSet sampledSet = context.CreateDescriptorSet(
                 sampledPipeline,
@@ -675,18 +622,11 @@ public sealed class RenderPassTransferScopeTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void ADescriptorSetBoundUnderAnotherPipelinesLayout_IsRejectedByDraw()
     {
         IGraphicsContext context = GpuTestEnvironment.EnsureAvailable();
         GpuTestEnvironment.InvokeOnRenderThread(() =>
         {
-            IShaderCompiler compiler = context.CreateShaderCompiler();
-            using IDisposable? compilerLifetime = compiler as IDisposable;
-            byte[] vertexSpirv = compiler.CompileToSpirv(FullscreenVertexShader, ShaderStage.Vertex);
-            byte[] sampledSpirv = compiler.CompileToSpirv(PassthroughFragmentShader, ShaderStage.Fragment);
-            byte[] tintedSpirv = compiler.CompileToSpirv(UniformTintFragmentShader, ShaderStage.Fragment);
-
             using ITexture2D sourceTexture = context.CreateTexture2D(Width, Height, TextureFormat.RGBA8Unorm);
             byte[] white = new byte[Width * Height * 4];
             Array.Fill(white, (byte)0xFF);
@@ -697,22 +637,9 @@ public sealed class RenderPassTransferScopeTests
             using IFramebuffer3D framebuffer = context.CreateFramebuffer3D(renderPass, [color], null);
             using ISampler sampler = context.CreateSampler();
 
-            // Binding 0 is a combined image sampler in one layout and a uniform buffer in the other, so
-            // neither pipeline's layout can be compatible for set 0 with the other's.
-            using IPipeline3D sampledPipeline = context.CreatePipeline3D(
-                renderPass,
-                vertexSpirv,
-                sampledSpirv,
-                [new DescriptorBinding(0, DescriptorType.CombinedImageSampler, 1, ShaderStage.Fragment)],
-                VertexInputDescription.Empty,
-                PipelineOptions.Fullscreen);
-            using IPipeline3D tintedPipeline = context.CreatePipeline3D(
-                renderPass,
-                vertexSpirv,
-                tintedSpirv,
-                [new DescriptorBinding(0, DescriptorType.UniformBuffer, 1, ShaderStage.Fragment)],
-                VertexInputDescription.Empty,
-                PipelineOptions.Fullscreen);
+            var pipelines = CreatePipelinesDisagreeingOnBinding0(context, renderPass);
+            using IPipeline3D sampledPipeline = pipelines.Sampled;
+            using IPipeline3D tintedPipeline = pipelines.Tinted;
 
             using IDescriptorSet sampledSet = context.CreateDescriptorSet(
                 sampledPipeline,
@@ -748,5 +675,41 @@ public sealed class RenderPassTransferScopeTests
 
             context.WaitIdle();
         });
+    }
+
+    // Binding 0 is a combined image sampler in one pipeline's layout and a uniform buffer in the other's, so a
+    // set allocated from either describes nothing the other declares and their set 0 layouts are incompatible.
+    private static (IPipeline3D Sampled, IPipeline3D Tinted) CreatePipelinesDisagreeingOnBinding0(
+        IGraphicsContext context, IRenderPass3D renderPass)
+    {
+        IShaderCompiler compiler = context.CreateShaderCompiler();
+        using IDisposable? compilerLifetime = compiler as IDisposable;
+        byte[] vertexSpirv = compiler.CompileToSpirv(FullscreenVertexShader, ShaderStage.Vertex);
+        byte[] sampledSpirv = compiler.CompileToSpirv(PassthroughFragmentShader, ShaderStage.Fragment);
+        byte[] tintedSpirv = compiler.CompileToSpirv(UniformTintFragmentShader, ShaderStage.Fragment);
+
+        IPipeline3D sampled = context.CreatePipeline3D(
+            renderPass,
+            vertexSpirv,
+            sampledSpirv,
+            [new DescriptorBinding(0, DescriptorType.CombinedImageSampler, 1, ShaderStage.Fragment)],
+            VertexInputDescription.Empty,
+            PipelineOptions.Fullscreen);
+        try
+        {
+            IPipeline3D tinted = context.CreatePipeline3D(
+                renderPass,
+                vertexSpirv,
+                tintedSpirv,
+                [new DescriptorBinding(0, DescriptorType.UniformBuffer, 1, ShaderStage.Fragment)],
+                VertexInputDescription.Empty,
+                PipelineOptions.Fullscreen);
+            return (sampled, tinted);
+        }
+        catch
+        {
+            sampled.Dispose();
+            throw;
+        }
     }
 }

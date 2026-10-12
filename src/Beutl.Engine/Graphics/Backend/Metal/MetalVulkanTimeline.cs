@@ -10,15 +10,8 @@ using Semaphore = Silk.NET.Vulkan.Semaphore;
 
 /// <summary>Holds Skia's Metal queue behind the engine's MoltenVK work on the GPU.</summary>
 /// <remarks>
-/// The two queues share no submission order, so a hand-off from Vulkan to Skia used to wait for completion on the
-/// CPU. A Vulkan timeline semaphore that MoltenVK backs with an <c>MTLSharedEvent</c> is visible to both: a Vulkan
-/// submission signals the next value, and Skia's queue waits for it through an event command committed between
-/// Skia's own command buffers.
-/// <para>
-/// The other direction keeps its CPU wait on purpose. Ordering Skia's writes before a Vulkan pass on the GPU let
-/// the CPU run ahead and queue more Skia work, which then competed with the pass on the GPU: a result read right
-/// after the pass arrived about 3 ms later on Apple silicon, with no gain in the render benchmarks.
-/// </para>
+/// A timeline semaphore exported as an <c>MTLSharedEvent</c> orders Skia's Metal queue after Vulkan work on the GPU.
+/// The opposite direction keeps its CPU wait, which measured faster.
 /// </remarks>
 internal sealed unsafe class MetalVulkanTimeline : IDisposable
 {

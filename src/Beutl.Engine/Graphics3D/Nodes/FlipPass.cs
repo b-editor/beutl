@@ -42,7 +42,6 @@ public sealed class FlipPass : GraphicsNode3D
         DeviceExtentLimits.ThrowIfCannotAttach(Context, width, height);
         BeginReplacingResources();
 
-        // Dispose old resources
         Framebuffer?.Dispose();
         RenderPass?.Dispose();
         OutputTexture?.Dispose();
@@ -51,38 +50,31 @@ public sealed class FlipPass : GraphicsNode3D
         _descriptorSet?.Dispose();
         _sampler?.Dispose();
 
-        // Create output and depth textures
         OutputTexture = Context.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
         _depthTexture = Context.CreateTexture2D(width, height, TextureFormat.Depth32Float);
 
-        // Create render pass and framebuffer
         RenderPass = Context.CreateRenderPass3D([TextureFormat.RGBA16Float], TextureFormat.Depth32Float);
         Framebuffer = Context.CreateFramebuffer3D(RenderPass, [OutputTexture], _depthTexture);
 
-        // Create pipeline
         CreatePipeline();
     }
 
     private void CreatePipeline()
     {
-        // Create sampler
         _sampler = Context.CreateSampler(
             SamplerFilter.Linear,
             SamplerFilter.Linear,
             SamplerAddressMode.ClampToEdge,
             SamplerAddressMode.ClampToEdge);
 
-        // Compile shaders
         var vertexSpirv = ShaderCompiler.CompileToSpirv(FlipVertexShader, ShaderStage.Vertex);
         var fragmentSpirv = ShaderCompiler.CompileToSpirv(FlipFragmentShader, ShaderStage.Fragment);
 
-        // Descriptor bindings: 1 input texture sampler
         var descriptorBindings = new DescriptorBinding[]
         {
             new(0, DescriptorType.CombinedImageSampler, 1, ShaderStage.Fragment)
         };
 
-        // Use fullscreen pipeline
         _pipeline = Context.CreatePipeline3D(
             RenderPass!,
             vertexSpirv,
@@ -91,7 +83,6 @@ public sealed class FlipPass : GraphicsNode3D
             VertexInputDescription.Empty,
             PipelineOptions.Fullscreen);
 
-        // Create descriptor set
         var poolSizes = new DescriptorPoolSize[]
         {
             new(DescriptorType.CombinedImageSampler, 1)
@@ -121,7 +112,6 @@ public sealed class FlipPass : GraphicsNode3D
         if (Framebuffer == null || RenderPass == null || _pipeline == null || _descriptorSet == null || _inputTexture == null)
             return;
 
-        // Begin flip pass
         Span<Color> clearColors = [new Color(0, 0, 0, 255)];
         using (UsePass(clearColors))
         {
@@ -136,8 +126,6 @@ public sealed class FlipPass : GraphicsNode3D
     {
         DisposeResources([_descriptorSet, _pipeline, _sampler, Framebuffer, RenderPass, OutputTexture, _depthTexture]);
     }
-
-    // === Flip Pass Shaders ===
 
     private static string FlipVertexShader => """
         #version 450

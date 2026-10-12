@@ -28,7 +28,7 @@ internal static unsafe class VulkanSurfaceHelper
 {
     private static readonly ILogger s_logger = Log.CreateLogger(typeof(VulkanSurfaceHelper));
 
-    public static VulkanSurfaceInfo CreateSurface(Vk vk, Instance instance, IntPtr nativeHandle, string handleDescriptor)
+    public static VulkanSurfaceInfo CreateSurface(Vk vk, Instance instance, IntPtr nativeHandle)
     {
         if (OperatingSystem.IsWindows())
             return new VulkanSurfaceInfo(CreateWin32Surface(vk, instance, nativeHandle));
@@ -91,7 +91,6 @@ internal static unsafe class VulkanSurfaceHelper
         if (!vk.TryGetInstanceExtension(instance, out ExtMetalSurface metalSurface))
             throw new InvalidOperationException("VK_EXT_metal_surface extension is not available");
 
-        // Create CAMetalLayer and attach to NSView
         var metalLayer = CreateAndAttachMetalLayer(nsView);
         if (metalLayer == IntPtr.Zero)
             throw new InvalidOperationException("Failed to create CAMetalLayer for NSView");

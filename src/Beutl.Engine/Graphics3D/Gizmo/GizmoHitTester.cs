@@ -87,7 +87,6 @@ public static class GizmoHitTester
         GizmoAxis closestAxis = GizmoAxis.None;
         float closestDistance = float.MaxValue;
 
-        // Test each axis
         GizmoAxis[] axes = [GizmoAxis.X, GizmoAxis.Y, GizmoAxis.Z];
         Vector3[] axisDirections = [Vector3.UnitX, Vector3.UnitY, Vector3.UnitZ];
 
@@ -96,7 +95,7 @@ public static class GizmoHitTester
             float distance = float.MaxValue;
             bool hit = gizmoMode switch
             {
-                GizmoMode.Translate => RayIntersectsCylinder(localRay, Vector3.Zero, axisDirections[i], GizmoDimensions.ArrowLength, ArrowRadius, out distance),
+                GizmoMode.Translate => RayIntersectsCylinder(localRay, axisDirections[i], GizmoDimensions.ArrowLength, ArrowRadius, out distance),
                 GizmoMode.Rotate => RayIntersectsRing(localRay, axisDirections[i], GizmoDimensions.RotateRingRadius, RotateRingThickness, out distance),
                 GizmoMode.Scale => RayIntersectsScaleAxis(localRay, axisDirections[i], GizmoDimensions.ScaleLineLength, ScaleCubeSize, out distance),
                 _ => false
@@ -105,7 +104,6 @@ public static class GizmoHitTester
             KeepCloser(hit, distance, axes[i], ref closestDistance, ref closestAxis);
         }
 
-        // Test plane indicators for translate mode
         if (gizmoMode == GizmoMode.Translate)
         {
             bool xyHit = RayIntersectsPlaneQuad(localRay, Vector3.UnitX, Vector3.UnitY, out float xyDistance);
@@ -118,7 +116,6 @@ public static class GizmoHitTester
             KeepCloser(zxHit, zxDistance, GizmoAxis.ZX, ref closestDistance, ref closestAxis);
         }
 
-        // Test center cube for uniform scale mode
         if (gizmoMode == GizmoMode.Scale)
         {
             bool centerHit = RayIntersectsBox(localRay, Vector3.Zero, CenterCubeSize, out float centerDistance);
@@ -138,19 +135,15 @@ public static class GizmoHitTester
     {
         if (gizmoMode is GizmoMode.Rotate or GizmoMode.Scale)
         {
-            // For Rotate and Scale modes, apply inverse rotation to transform ray into object's local space
             var rotationMatrix = Matrix4x4.CreateFromQuaternion(gizmoOrientation);
 
-            // Invert the rotation matrix
             Matrix4x4.Invert(rotationMatrix, out var inverseRotation);
 
-            // Transform ray origin and direction by inverse rotation
             var localOrigin = Vector3.Transform(ray.Origin - gizmoPosition, inverseRotation) / scale;
             var localDirection = Vector3.TransformNormal(ray.Direction, inverseRotation);
             return new Ray3D(localOrigin, Vector3.Normalize(localDirection));
         }
 
-        // For Translate mode, gizmo is world-aligned
         return new Ray3D((ray.Origin - gizmoPosition) / scale, ray.Direction);
     }
 
@@ -172,15 +165,13 @@ public static class GizmoHitTester
     /// <summary>
     /// Tests if a ray intersects with a cylinder along an axis.
     /// </summary>
-    private static bool RayIntersectsCylinder(Ray3D ray, Vector3 origin, Vector3 direction, float length, float radius, out float distance)
+    private static bool RayIntersectsCylinder(Ray3D ray, Vector3 direction, float length, float radius, out float distance)
     {
         distance = float.MaxValue;
 
-        // Project the problem to 2D by removing the axis component
-        // For simplicity, use a capsule approximation (cylinder with spherical caps)
-
-        // Calculate the closest point on the cylinder axis to the ray
-        var w = ray.Origin - origin;
+        // The infinite cylinder around the axis through the origin, kept where a hit lies within its length; past
+        // that, a sphere at the tip stands in for the arrow head.
+        var w = ray.Origin;
 
         float a = Vector3.Dot(ray.Direction, ray.Direction) - MathF.Pow(Vector3.Dot(ray.Direction, direction), 2);
         float b = 2 * (Vector3.Dot(ray.Direction, w) - Vector3.Dot(ray.Direction, direction) * Vector3.Dot(w, direction));
@@ -199,9 +190,8 @@ public static class GizmoHitTester
                 return false;
         }
 
-        // Check if the hit point is within the cylinder's length
         var hitPoint = ray.GetPoint(t);
-        float axisProjection = Vector3.Dot(hitPoint - origin, direction);
+        float axisProjection = Vector3.Dot(hitPoint, direction);
 
         if (axisProjection >= 0 && axisProjection <= length)
         {
@@ -209,8 +199,7 @@ public static class GizmoHitTester
             return true;
         }
 
-        // Check sphere at the end
-        var endPoint = origin + direction * length;
+        var endPoint = direction * length;
         if (RayIntersectsSphere(ray, endPoint, radius * 1.5f, out float sphereDistance))
         {
             distance = sphereDistance;
@@ -301,7 +290,7 @@ public static class GizmoHitTester
         bool hit = false;
 
         // Check the line (thin cylinder)
-        if (RayIntersectsCylinder(ray, Vector3.Zero, direction, length, 0.05f, out float lineDistance))
+        if (RayIntersectsCylinder(ray, direction, length, 0.05f, out float lineDistance))
         {
             distance = lineDistance;
             hit = true;
@@ -372,9 +361,6 @@ public static class GizmoHitTester
 
         // Calculate the normal of the plane (perpendicular to both axes)
         var normal = Vector3.Cross(axis1, axis2);
-        if (normal.LengthSquared() < 0.0001f)
-            return false;
-        normal = Vector3.Normalize(normal);
 
         // Find intersection with the plane
         float denom = Vector3.Dot(ray.Direction, normal);

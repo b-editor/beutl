@@ -5,9 +5,6 @@ using Buffer = Silk.NET.Vulkan.Buffer;
 
 namespace Beutl.Graphics.Backend.Vulkan;
 
-/// <summary>
-/// Vulkan implementation of <see cref="IBuffer"/>.
-/// </summary>
 internal sealed unsafe class VulkanBuffer : IBuffer, IVulkanContextResource
 {
     private readonly VulkanContext _context;
@@ -33,7 +30,6 @@ internal sealed unsafe class VulkanBuffer : IBuffer, IVulkanContextResource
         var vulkanUsage = VulkanFlagConverter.ToVulkan(usage);
         var vulkanMemoryProperties = VulkanFlagConverter.ToVulkan(memoryProperties);
 
-        // Create buffer
         var bufferInfo = new BufferCreateInfo
         {
             SType = StructureType.BufferCreateInfo,
@@ -50,7 +46,6 @@ internal sealed unsafe class VulkanBuffer : IBuffer, IVulkanContextResource
         }
         _buffer = buffer;
 
-        // Get memory requirements
         MemoryRequirements memReqs;
         vk.GetBufferMemoryRequirements(device, _buffer, &memReqs);
 
@@ -65,7 +60,6 @@ internal sealed unsafe class VulkanBuffer : IBuffer, IVulkanContextResource
             throw;
         }
 
-        // Allocate memory
         var allocInfo = new MemoryAllocateInfo
         {
             SType = StructureType.MemoryAllocateInfo,
@@ -82,7 +76,6 @@ internal sealed unsafe class VulkanBuffer : IBuffer, IVulkanContextResource
         }
         _memory = memory;
 
-        // Bind memory to buffer
         result = vk.BindBufferMemory(device, _buffer, _memory, 0);
         if (result != Result.Success)
         {
@@ -152,15 +145,8 @@ internal sealed unsafe class VulkanBuffer : IBuffer, IVulkanContextResource
             var vk = _context.Vk;
             var device = _context.Device;
 
-            if (buffer.Handle != 0)
-            {
-                vk.DestroyBuffer(device, buffer, null);
-            }
-
-            if (memory.Handle != 0)
-            {
-                vk.FreeMemory(device, memory, null);
-            }
+            vk.DestroyBuffer(device, buffer, null);
+            vk.FreeMemory(device, memory, null);
         });
     }
 }

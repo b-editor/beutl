@@ -16,7 +16,7 @@ public sealed class PerspectiveNearPlaneResidualTests
     public void TheDeclaredBounds_ExcludeFramePixelsTheRasterizerStillDraws(
         float width, float height, float rotationY, float depth, int expectedDrawn, int expectedExcluded)
     {
-        Matrix matrix = ComposeCenteredRotation(width, height, rotationY, depth);
+        Matrix matrix = PerspectiveTestMatrices.ComposeCenteredRotation(width, height, rotationY, depth);
         var local = new Rect(0, 0, width, height);
         Rect declared = local.TransformToAABB(matrix);
         Rect rasterizerExact = local.TransformToAABB(matrix, Rect.RasterizerNearPlane);
@@ -53,7 +53,7 @@ public sealed class PerspectiveNearPlaneResidualTests
     public void TheDeliveredBounds_ExcludeNoFramePixelTheRasterizerDraws(
         float width, float height, float rotationY, float depth)
     {
-        Matrix matrix = ComposeCenteredRotation(width, height, rotationY, depth);
+        Matrix matrix = PerspectiveTestMatrices.ComposeCenteredRotation(width, height, rotationY, depth);
         var local = new Rect(0, 0, width, height);
         var frame = new Rect(0, 0, s_frame.Width, s_frame.Height);
         Rect pragmatic = local.TransformToAABB(matrix);
@@ -88,7 +88,7 @@ public sealed class PerspectiveNearPlaneResidualTests
     public void TheDeclaredFarEdge_SitsWhereTheDocumentedFormulaPutsIt(
         float width, float height, float rotationY, float depth)
     {
-        Matrix matrix = ComposeCenteredRotation(width, height, rotationY, depth);
+        Matrix matrix = PerspectiveTestMatrices.ComposeCenteredRotation(width, height, rotationY, depth);
         Rect declared = new Rect(0, 0, width, height).TransformToAABB(matrix);
 
         float radians = MathF.PI * rotationY / 180f;
@@ -102,7 +102,7 @@ public sealed class PerspectiveNearPlaneResidualTests
     [Test]
     public void ClippingAtTheRasterizerNearPlane_WouldCollapseTheWorkingScale()
     {
-        Matrix matrix = ComposeCenteredRotation(1200f, 54f, 60f, 500f);
+        Matrix matrix = PerspectiveTestMatrices.ComposeCenteredRotation(1200f, 54f, 60f, 500f);
         var local = new Rect(0, 0, 1200f, 54f);
         Rect declared = local.TransformToAABB(matrix);
         Rect rasterizerExact = local.TransformToAABB(matrix, Rect.RasterizerNearPlane);
@@ -126,18 +126,6 @@ public sealed class PerspectiveNearPlaneResidualTests
             Assert.That(belowCrossoverScale, Is.LessThan(2f),
                 "below the ~0.035 crossover the same flip stops fitting the buffer budget at 2x");
         });
-    }
-
-    private static Matrix ComposeCenteredRotation(float width, float height, float rotationY, float depth)
-    {
-        float radians = MathF.PI * rotationY / 180f;
-        var rotation = new Matrix(
-            MathF.Cos(radians), 0, MathF.Sin(radians) / depth,
-            0, 1, 0,
-            0, 0, 1);
-        return Matrix.CreateTranslation(-width / 2, -height / 2)
-               * rotation
-               * Matrix.CreateTranslation(s_frame.Width / 2f, s_frame.Height / 2f);
     }
 
     /// <summary>

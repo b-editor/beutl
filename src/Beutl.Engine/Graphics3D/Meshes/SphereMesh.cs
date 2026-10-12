@@ -56,7 +56,6 @@ public sealed partial class SphereMesh : Mesh
         var vertexList = new List<Vertex3D>();
         var indexList = new List<uint>();
 
-        // Generate vertices
         for (int ring = 0; ring <= rings; ring++)
         {
             float v = (float)ring / rings;
@@ -100,7 +99,6 @@ public sealed partial class SphereMesh : Mesh
             }
         }
 
-        // Generate indices
         int vertsPerRing = segments + 1;
 
         for (int ring = 0; ring < rings; ring++)
@@ -112,13 +110,10 @@ public sealed partial class SphereMesh : Mesh
                 uint below = (uint)((ring + 1) * vertsPerRing + seg);
                 uint belowNext = below + 1;
 
-                // Two triangles per quad
-                // Triangle 1
                 indexList.Add(current);
                 indexList.Add(below);
                 indexList.Add(next);
 
-                // Triangle 2
                 indexList.Add(next);
                 indexList.Add(below);
                 indexList.Add(belowNext);

@@ -226,7 +226,7 @@ public sealed partial class PixelSortEffect : FilterEffect
                 SpecializationConstant.Create(0, (int)direction, ShaderStage.Fragment),
                 SpecializationConstant.Create(1, ascending ? 1 : 0, ShaderStage.Fragment),
             ],
-            hasMaskTexture: true));
+            inputCount: 2));
 
     public PixelSortEffect()
     {

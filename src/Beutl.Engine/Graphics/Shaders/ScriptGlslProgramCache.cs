@@ -10,6 +10,7 @@ internal sealed class ScriptGlslProgramCache : IDisposable
         static program => program.RetainedByteSize,
         maxRetainedBytes: 8 * 1024 * 1024);
 
+    // Test seam: only the cache tests read this.
     internal ProgramCacheStatistics Statistics => _programs.Statistics;
 
     public GLSLShader Create(string source, int inputCount)
@@ -21,8 +22,7 @@ internal sealed class ScriptGlslProgramCache : IDisposable
         GLSLFilterPipeline.ValidateInputCount(graphics, inputCount);
 
         _programs.SynchronizeContext(_contextDomain, graphics);
-        var context = new ProgramCacheContextKey(
-            _contextDomain, graphics, "GLSL-script", ProgramCacheContextKey.LinearPremultipliedRgba16FContract, inputCount);
+        var context = new ProgramCacheContextKey(_contextDomain, graphics, "GLSL-script", inputCount);
         ShaderProgramIdentity identity = ShaderProgramIdentity.CreateSpirv(source);
         ProgramCacheLease<GLSLFilterPipeline> lease = _programs.GetOrCreate(
             identity, context, (graphics, source, inputCount),

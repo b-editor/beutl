@@ -28,7 +28,6 @@ internal static class SkRuntimeEffectProgramCache
             context.DeviceIdentity,
             context.ContextIdentity,
             budget.CapabilityClass,
-            ProgramCacheContextKey.LinearPremultipliedRgba16FContract,
             s_defaultCompileOptions);
     }
 

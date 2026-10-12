@@ -171,7 +171,6 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
         partial void PostReconcile(SourceVideo obj, CompositionContext context)
         {
             var time = context.Time;
-            // アニメーションがある場合、前回のキーフレームを引く
             // SpeedIntegrator.Integrate は「時刻 0 から入力時刻までの累積積分」を返すため、
             // UseGlobalClock=true でグローバル時刻を渡す場合は要素開始 (obj.TimeRange.Start) 時点の
             // 積分を差し引いて要素ローカルから見た累積に揃える。
@@ -193,7 +192,6 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
                 RequestedPosition = (time - obj.TimeRange.Start) * (_speed / 100);
             }
 
-            // ループ処理を追加
             if (IsLoop && Source?.IsDisposed == false && Source.Duration > TimeSpan.Zero)
             {
                 RequestedPosition = SpeedAdjustedTime.WrapIntoDuration(RequestedPosition, Source.Duration);

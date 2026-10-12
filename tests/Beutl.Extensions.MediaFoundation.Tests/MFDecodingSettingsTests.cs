@@ -23,26 +23,18 @@ public class MFDecodingSettingsTests
     // Guards the AffectsConfig re-registration: PackageManager only persists extension settings from
     // the ConfigurationChanged event, so without AffectsConfig these live settings would apply only
     // in memory and reset on reload. Dropping the AffectsConfig call must fail these tests.
-    [Test]
-    public void ChangingThresholdFrameCount_RaisesConfigurationChanged()
+    [TestCase(nameof(MFDecodingSettings.ThresholdFrameCount))]
+    [TestCase(nameof(MFDecodingSettings.MaxVideoBufferSize))]
+    public void ChangingASetting_RaisesConfigurationChanged(string setting)
     {
         var settings = new MFDecodingSettings();
         int raised = 0;
         settings.ConfigurationChanged += (_, _) => raised++;
 
-        settings.ThresholdFrameCount += 1;
-
-        Assert.That(raised, Is.GreaterThan(0));
-    }
-
-    [Test]
-    public void ChangingMaxVideoBufferSize_RaisesConfigurationChanged()
-    {
-        var settings = new MFDecodingSettings();
-        int raised = 0;
-        settings.ConfigurationChanged += (_, _) => raised++;
-
-        settings.MaxVideoBufferSize += 1;
+        if (setting == nameof(MFDecodingSettings.ThresholdFrameCount))
+            settings.ThresholdFrameCount += 1;
+        else
+            settings.MaxVideoBufferSize += 1;
 
         Assert.That(raised, Is.GreaterThan(0));
     }

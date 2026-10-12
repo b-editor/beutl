@@ -1,6 +1,4 @@
-﻿using Beutl.Graphics.Backend;
-using Beutl.Graphics.Backend.Composite;
-using Beutl.Graphics.Backend.Vulkan;
+﻿using Beutl.Graphics.Backend.Vulkan;
 using Silk.NET.Vulkan;
 
 namespace Beutl.UnitTests.Engine.Graphics.Backend;
@@ -40,10 +38,7 @@ public sealed unsafe class VulkanTimelineSubmissionTests
 
     private static VulkanContext RequireTimelineContext()
     {
-        IGraphicsContext shared = VulkanTestEnvironment.EnsureAvailable();
-        VulkanContext context = shared as VulkanContext
-            ?? (shared as CompositeContext)?.Vulkan
-            ?? throw new InvalidOperationException("The shared graphics context has no Vulkan backend.");
+        VulkanContext context = VulkanTestEnvironment.EnsureVulkanContext();
         if (!context.SupportsTimelineSemaphores)
             Assert.Ignore("The Vulkan device does not enable timeline semaphores.");
 

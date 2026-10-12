@@ -17,9 +17,7 @@ public readonly struct CurveControlPoint : IEquatable<CurveControlPoint>
     {
     }
 
-    /// <summary>
-    /// Initializes a new instance with only the main point (no handles).
-    /// </summary>
+    /// <inheritdoc cref="CurveControlPoint(float, float)"/>
     public CurveControlPoint(Point point)
         : this(point, default, default)
     {
@@ -52,14 +50,8 @@ public readonly struct CurveControlPoint : IEquatable<CurveControlPoint>
     /// </summary>
     public Point RightHandle { get; }
 
-    /// <summary>
-    /// Gets the absolute position of the left handle.
-    /// </summary>
     public Point AbsoluteLeftHandle => new(Point.X + LeftHandle.X, Point.Y + LeftHandle.Y);
 
-    /// <summary>
-    /// Gets the absolute position of the right handle.
-    /// </summary>
     public Point AbsoluteRightHandle => new(Point.X + RightHandle.X, Point.Y + RightHandle.Y);
 
     /// <summary>
@@ -67,24 +59,12 @@ public readonly struct CurveControlPoint : IEquatable<CurveControlPoint>
     /// </summary>
     public bool HasHandles => LeftHandle != default || RightHandle != default;
 
-    /// <summary>
-    /// Creates a new control point with the specified main point position.
-    /// </summary>
     public CurveControlPoint WithPoint(Point point) => new(point, LeftHandle, RightHandle);
 
-    /// <summary>
-    /// Creates a new control point with the specified left handle.
-    /// </summary>
     public CurveControlPoint WithLeftHandle(Point leftHandle) => new(Point, leftHandle, RightHandle);
 
-    /// <summary>
-    /// Creates a new control point with the specified right handle.
-    /// </summary>
     public CurveControlPoint WithRightHandle(Point rightHandle) => new(Point, LeftHandle, rightHandle);
 
-    /// <summary>
-    /// Creates a new control point with symmetric handles (left = -right).
-    /// </summary>
     public CurveControlPoint WithSymmetricHandles(Point rightHandle)
         => new(Point, new Point(-rightHandle.X, -rightHandle.Y), rightHandle);
 

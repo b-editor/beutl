@@ -218,7 +218,6 @@ public sealed class ShaderAndAllocationFailureTests
             "device",
             "context",
             "capability",
-            "linear-premul-rgba16f",
             "options");
         Acquire("half4 main(float2 p) { return half4(1); }");
         Acquire("half4 main(float2 p) { return half4(0); }");
@@ -248,7 +247,8 @@ public sealed class ShaderAndAllocationFailureTests
                     var program = new ThrowingProgram(programs.Count);
                     programs.Add(program);
                     return program;
-                });
+                },
+                static factory => factory());
         }
     }
 
@@ -266,17 +266,17 @@ public sealed class ShaderAndAllocationFailureTests
             "device",
             "context",
             "capability",
-            "linear-premul-rgba16f",
             "options");
         var primary = new InvalidOperationException("program-creation-primary");
 
         InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(
-            () => cache.GetOrCreate(identity, context, () => throw primary));
+            () => cache.GetOrCreate(identity, context, primary, static exception => throw exception));
         var recovered = new TrackingProgram();
         using (ProgramCacheLease<TrackingProgram> lease = cache.GetOrCreate(
                    identity,
                    context,
-                   () => recovered))
+                   () => recovered,
+                   static factory => factory()))
         {
             Assert.That(lease.IsCacheHit, Is.False);
         }

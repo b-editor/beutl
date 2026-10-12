@@ -111,7 +111,6 @@ public partial class Scene3D : Drawable, IFlowOperator
         if (scene3DResource.Camera == null)
             return;
 
-        // Use DrawNode to add our custom render node
         context.DrawNode<Scene3DRenderNode, Resource>(
             scene3DResource,
             static res => new Scene3DRenderNode(res),

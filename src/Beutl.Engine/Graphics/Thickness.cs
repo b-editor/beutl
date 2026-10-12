@@ -28,10 +28,6 @@ public readonly struct Thickness
       IMultiplyOperators<Thickness, float, Thickness>,
       ITupleConvertible<Thickness, float>
 {
-    /// <summary>
-    /// Initializes a new instance of the <see cref="Thickness"/> structure.
-    /// </summary>
-    /// <param name="uniformLength">The length that should be applied to all sides.</param>
     public Thickness(float uniformLength)
     {
         Left = Top = Right = Bottom = uniformLength;
@@ -48,13 +44,6 @@ public readonly struct Thickness
         Top = Bottom = vertical;
     }
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="Thickness"/> structure.
-    /// </summary>
-    /// <param name="left">The thickness on the left.</param>
-    /// <param name="top">The thickness on the top.</param>
-    /// <param name="right">The thickness on the right.</param>
-    /// <param name="bottom">The thickness on the bottom.</param>
     public Thickness(float left, float top, float right, float bottom)
     {
         Left = left;
@@ -63,24 +52,12 @@ public readonly struct Thickness
         Bottom = bottom;
     }
 
-    /// <summary>
-    /// Gets the thickness on the left.
-    /// </summary>
     public float Left { get; }
 
-    /// <summary>
-    /// Gets the thickness on the top.
-    /// </summary>
     public float Top { get; }
 
-    /// <summary>
-    /// Gets the thickness on the right.
-    /// </summary>
     public float Right { get; }
 
-    /// <summary>
-    /// Gets the thickness on the bottom.
-    /// </summary>
     public float Bottom { get; }
 
     /// <summary>
@@ -100,23 +77,11 @@ public readonly struct Thickness
 
     static int ITupleConvertible<Thickness, float>.TupleLength => 4;
 
-    /// <summary>
-    /// Compares two Thicknesses.
-    /// </summary>
-    /// <param name="a">The first thickness.</param>
-    /// <param name="b">The second thickness.</param>
-    /// <returns>The equality.</returns>
     public static bool operator ==(Thickness a, Thickness b)
     {
         return a.Equals(b);
     }
 
-    /// <summary>
-    /// Compares two Thicknesses.
-    /// </summary>
-    /// <param name="a">The first thickness.</param>
-    /// <param name="b">The second thickness.</param>
-    /// <returns>The inequality.</returns>
     public static bool operator !=(Thickness a, Thickness b)
     {
         return !a.Equals(b);
@@ -127,7 +92,7 @@ public readonly struct Thickness
     /// </summary>
     /// <param name="a">The first thickness.</param>
     /// <param name="b">The second thickness.</param>
-    /// <returns>The equality.</returns>
+    /// <returns>The sum of the thicknesses.</returns>
     public static Thickness operator +(Thickness a, Thickness b)
     {
         return new Thickness(
@@ -142,7 +107,7 @@ public readonly struct Thickness
     /// </summary>
     /// <param name="a">The first thickness.</param>
     /// <param name="b">The second thickness.</param>
-    /// <returns>The equality.</returns>
+    /// <returns>The difference of the thicknesses.</returns>
     public static Thickness operator -(Thickness a, Thickness b)
     {
         return new Thickness(
@@ -157,7 +122,7 @@ public readonly struct Thickness
     /// </summary>
     /// <param name="a">The thickness.</param>
     /// <param name="b">The scalar.</param>
-    /// <returns>The equality.</returns>
+    /// <returns>The scaled thickness.</returns>
     public static Thickness operator *(Thickness a, float b)
     {
         return new Thickness(
@@ -167,50 +132,28 @@ public readonly struct Thickness
             a.Bottom * b);
     }
 
-    /// <summary>
-    /// Parses a <see cref="Thickness"/> string.
-    /// </summary>
-    /// <param name="s">The string.</param>
-    /// <param name="thickness">The <see cref="Thickness"/>.</param>
-    /// <returns>The status of the operation.</returns>
     public static bool TryParse(string? s, out Thickness thickness)
     {
         return TryParse(s.AsSpan(), out thickness);
     }
 
-    /// <summary>
-    /// Parses a <see cref="Thickness"/> string.
-    /// </summary>
-    /// <param name="s">The string.</param>
-    /// <param name="thickness">The <see cref="Thickness"/>.</param>
-    /// <returns>The status of the operation.</returns>
     public static bool TryParse(ReadOnlySpan<char> s, out Thickness thickness)
     {
         return TryParse(s, null, out thickness);
     }
 
-    /// <summary>
-    /// Parses a <see cref="Thickness"/> string.
-    /// </summary>
-    /// <param name="s">The string.</param>
-    /// <returns>The <see cref="Thickness"/>.</returns>
     public static Thickness Parse(string s)
     {
         return Parse(s.AsSpan());
     }
 
-    /// <summary>
-    /// Parses a <see cref="Thickness"/> string.
-    /// </summary>
-    /// <param name="s">The string.</param>
-    /// <returns>The <see cref="Thickness"/>.</returns>
     public static Thickness Parse(ReadOnlySpan<char> s)
     {
         return Parse(s, null);
     }
 
     /// <summary>
-    /// Returns a boolean indicating whether the thickness is equal to the other given point.
+    /// Returns a boolean indicating whether the thickness is equal to the other given thickness.
     /// </summary>
     /// <param name="other">The other thickness to test equality against.</param>
     /// <returns>True if this thickness is equal to other; False otherwise.</returns>
@@ -227,26 +170,18 @@ public readonly struct Thickness
     /// </summary>
     /// <param name="obj">The object.</param>
     /// <returns>
-    /// True if <paramref name="obj"/> is a size that equals the current size.
+    /// True if <paramref name="obj"/> is a thickness that equals the current thickness.
     /// </returns>
     public override bool Equals(object? obj)
     {
         return obj is Thickness other && Equals(other);
     }
 
-    /// <summary>
-    /// Returns a hash code for a <see cref="Thickness"/>.
-    /// </summary>
-    /// <returns>The hash code.</returns>
     public override int GetHashCode()
     {
         return HashCode.Combine(Left, Top, Right, Bottom);
     }
 
-    /// <summary>
-    /// Returns the string representation of the thickness.
-    /// </summary>
-    /// <returns>The string representation of the thickness.</returns>
     public override string ToString()
     {
         if (Left == Right && Top == Bottom)
@@ -262,53 +197,26 @@ public readonly struct Thickness
         return FormattableString.Invariant($"{Left}, {Top}, {Right}, {Bottom}");
     }
 
-    /// <summary>
-    /// Returns a new <see cref="Thickness"/> with the specified left.
-    /// </summary>
-    /// <param name="left">The left.</param>
-    /// <returns>The new <see cref="Thickness"/>.</returns>
     public Thickness WithLeft(float left)
     {
         return new Thickness(left, Top, Right, Bottom);
     }
 
-    /// <summary>
-    /// Returns a new <see cref="Thickness"/> with the specified top.
-    /// </summary>
-    /// <param name="top">The top.</param>
-    /// <returns>The new <see cref="Thickness"/>.</returns>
     public Thickness WithTop(float top)
     {
         return new Thickness(Left, top, Right, Bottom);
     }
 
-    /// <summary>
-    /// Returns a new <see cref="Thickness"/> with the specified right.
-    /// </summary>
-    /// <param name="right">The right.</param>
-    /// <returns>The new <see cref="Thickness"/>.</returns>
     public Thickness WithRight(float right)
     {
         return new Thickness(Left, Top, right, Bottom);
     }
 
-    /// <summary>
-    /// Returns a new <see cref="Thickness"/> with the specified bottom.
-    /// </summary>
-    /// <param name="bottom">The bottom.</param>
-    /// <returns>The new <see cref="Thickness"/>.</returns>
     public Thickness WithBottom(float bottom)
     {
         return new Thickness(Left, Top, Right, bottom);
     }
 
-    /// <summary>
-    /// Deconstructor the thickness into its left, top, right and bottom thickness values.
-    /// </summary>
-    /// <param name="left">The thickness on the left.</param>
-    /// <param name="top">The thickness on the top.</param>
-    /// <param name="right">The thickness on the right.</param>
-    /// <param name="bottom">The thickness on the bottom.</param>
     public void Deconstruct(out float left, out float top, out float right, out float bottom)
     {
         left = Left;

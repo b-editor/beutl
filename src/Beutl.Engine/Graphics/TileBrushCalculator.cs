@@ -29,16 +29,16 @@ internal readonly struct TileBrushCalculator
         Size contentSize,
         Size targetSize)
     {
-        SourceRect = sourceRect.ToPixels(contentSize);
+        Rect source = sourceRect.ToPixels(contentSize);
         DestinationRect = destinationRect.ToPixels(targetSize);
 
-        Vector scale = stretch.CalculateScaling(DestinationRect.Size, SourceRect.Size);
-        Vector translate = CalculateTranslate(alignmentX, alignmentY, SourceRect, DestinationRect, scale);
+        Vector scale = stretch.CalculateScaling(DestinationRect.Size, source.Size);
+        Vector translate = CalculateTranslate(alignmentX, alignmentY, source, DestinationRect, scale);
 
         IntermediateSize = tileMode == TileMode.None ? targetSize : DestinationRect.Size;
         IntermediateTransform = CalculateIntermediateTransform(
             tileMode,
-            SourceRect,
+            source,
             DestinationRect,
             scale,
             translate,
@@ -52,8 +52,6 @@ internal readonly struct TileBrushCalculator
     public Size IntermediateSize { get; }
 
     public Matrix IntermediateTransform { get; }
-
-    public Rect SourceRect { get; }
 
     public static Vector CalculateTranslate(
         AlignmentX alignmentX,

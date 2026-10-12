@@ -17,62 +17,10 @@ public class GraphicsContextFactory
     private static bool s_failedToInitialize;
     private static VulkanInstance? s_vulkanInstance;
     private static VulkanPhysicalDeviceInfo? s_selectedPhysicalDevice;
-    private static Action s_reclaimQueueDischarge = GpuResourceReclaimQueue.DrainAfterContextSync;
-
-    // The limit and the context that reported it live in one field, so a reader can never pair one
-    // context's identity with another's answer.
-    private sealed class ResolvedAttachmentDimension(IGraphicsContext context, int value)
-    {
-        public IGraphicsContext Context { get; } = context;
-
-        public int Value { get; } = value;
-    }
-
-    private static ResolvedAttachmentDimension? s_resolvedAttachmentDimension;
 
     public static IGraphicsContext? SharedContext { get; private set; }
 
     internal static VulkanInstance? VulkanInstance => s_vulkanInstance;
-
-    /// <summary>
-    /// The largest 2D extent <paramref name="context"/> can attach, or <see langword="null"/> when there is
-    /// no context or the device did not answer.
-    /// </summary>
-    /// <param name="context">The context whose device limit to read, or <see langword="null"/> for none.</param>
-    /// <remarks>
-    /// A device reports a limit fixed for the life of its context, so it is read once and remembered - but
-    /// the shared context is replaceable, and answering for the next device out of the last one's memo asks
-    /// a device that attaches less for an attachment it cannot make. The memo is therefore keyed to the
-    /// context that answered, so any other context re-reads however it was replaced. This is context-lifetime
-    /// state, which is why it lives with the contexts rather than with the density arithmetic that consumes
-    /// it; <see cref="Rendering.BufferDimensionBudget.ForDevice"/> is what applies the engine's own ceiling
-    /// to the answer.
-    /// </remarks>
-    internal static int? ResolveAttachmentDimension(IGraphicsContext? context)
-    {
-        ResolvedAttachmentDimension? resolved = Volatile.Read(ref s_resolvedAttachmentDimension);
-        if (resolved is not null && ReferenceEquals(resolved.Context, context))
-            return resolved.Value;
-
-        if (context is null)
-        {
-            // Dropping the memo here stops it outliving the context it describes, and stops a disposed
-            // context being kept alive by it.
-            if (resolved is not null)
-                Volatile.Write(ref s_resolvedAttachmentDimension, null);
-
-            return null;
-        }
-
-        // Only remember it once a context has actually answered; before that there is no measurement and
-        // the next caller should ask again.
-        int deviceLimit = context.MaxAttachmentDimension;
-        if (deviceLimit <= 0)
-            return null;
-
-        Volatile.Write(ref s_resolvedAttachmentDimension, new ResolvedAttachmentDimension(context, deviceLimit));
-        return deviceLimit;
-    }
 
     /// <summary>
     /// Gets all available graphics devices.
@@ -149,13 +97,8 @@ public class GraphicsContextFactory
     /// Predicts whether the shared context can render 3D, from any thread.
     /// </summary>
     /// <remarks>
-    /// This is the answer a recording may read. <see cref="GetOrCreateShared"/> is render-thread-only and a
-    /// recording must not build the context, so before the first allocation builds one the answer is
-    /// <see langword="true"/>: nothing has been established yet, and refusing 3D content on a prediction
-    /// would drop it from the very request whose allocation goes on to build the backend. The answer turns
-    /// <see langword="false"/> only once the process has settled that there is no 3D backend - building the
-    /// shared context failed, or the one installed cannot render 3D - and stays so for the life of that
-    /// state, which is what lets a request snapshot it once and have every reader agree.
+    /// Before a context is built the answer is <see langword="true"/>, as refusing 3D on a prediction would drop it
+    /// from the very request whose allocation builds the backend; it turns false only once that is settled.
     /// </remarks>
     /// <returns>
     /// <see langword="false"/> when the shared context is known not to support 3D rendering; otherwise
@@ -169,17 +112,8 @@ public class GraphicsContextFactory
 
     /// <summary>Predicts the 3D extents the shared context can attach, from any thread.</summary>
     /// <remarks>
-    /// The companion to <see cref="Predict3DRenderingSupport"/> for the extents a recording may read, with
-    /// the same rule about what is settled: a limit is reported only once a context exists to report one, and
-    /// before that the answer is <see cref="Device3DExtentBudget.Unreported"/>, so nothing is refused on a
-    /// guess about a device that has not been chosen yet. A context that cannot render 3D reports nothing
-    /// either, because it has no 3D limits to give and <see cref="Predict3DRenderingSupport"/> already
-    /// answers for it.
-    /// <para>
-    /// A request settles this once and <see cref="Requests.RenderNodeRecordingKey"/> carries it, so the
-    /// unreported answer a cold start records against is never reused once a device has answered: the first
-    /// request after the context exists carries a different budget and records again.
-    /// </para>
+    /// Before a context exists the answer is <see cref="Device3DExtentBudget.Unreported"/>, so nothing is refused
+    /// on a guess about a device not chosen yet; a context that cannot render 3D reports nothing either.
     /// </remarks>
     internal static Device3DExtentBudget Predict3DExtentBudget()
     {
@@ -228,8 +162,8 @@ public class GraphicsContextFactory
         if (s_vulkanInstance == null)
             return null;
 
-        VulkanPhysicalDeviceInfo? selectedPhysicalDevice = s_selectedPhysicalDevice ?? default;
-        if (selectedPhysicalDevice == null || selectedPhysicalDevice.Device.Handle == IntPtr.Zero)
+        VulkanPhysicalDeviceInfo? selectedPhysicalDevice = s_selectedPhysicalDevice;
+        if (selectedPhysicalDevice == null)
         {
             // On a Mac without a MoltenVK device nothing is left to choose, and the shared context renders on the
             // CPU. There is no device to report then, and a throw would end the app from the information page's
@@ -291,20 +225,12 @@ public class GraphicsContextFactory
                 // that is still live, which retires it behind the submission that reads it; leaving the
                 // queue for after the release would instead run every destroy immediately against a
                 // device that no longer exists.
-                try
-                {
-                    s_reclaimQueueDischarge();
-                }
-                catch (Exception ex)
-                {
-                    AppendTeardownFailure(failures, ex);
-                }
+                GpuResourceReclaimQueue.DrainAfterContextSync();
             }
             finally
             {
-                // A context left installed is handed straight back by the next GetOrCreateShared, and the
-                // attachment-dimension memo is retired with it, so no failure above may decide whether the
-                // release happens.
+                // A context left installed is handed straight back by the next GetOrCreateShared, so no failure
+                // above may decide whether the release happens.
                 try
                 {
                     ReleaseInstalledGraphics();
@@ -345,9 +271,6 @@ public class GraphicsContextFactory
         SharedContext = null;
         s_vulkanInstance = null;
         s_selectedPhysicalDevice = null;
-        // The memo describes the device being destroyed, and holds it alive until something asks about
-        // another one. Dropping it here retires it with the context it belongs to.
-        Volatile.Write(ref s_resolvedAttachmentDimension, null);
 
         try
         {
@@ -359,26 +282,8 @@ public class GraphicsContextFactory
         }
     }
 
-    /// <summary>Installs <paramref name="replacement"/> as the discharge <see cref="Shutdown"/> runs, reporting what it replaced.</summary>
-    /// <remarks>
-    /// The production discharge cannot fail - <see cref="GpuResourceReclaimQueue"/> contains each queued
-    /// resource's own teardown failure - so standing in for it is the only way to pin that a discharge
-    /// which does fail still leaves the context released rather than stranded.
-    /// </remarks>
-    internal static Action ExchangeReclaimQueueDischarge(Action replacement)
-    {
-        ArgumentNullException.ThrowIfNull(replacement);
-        Action previous = s_reclaimQueueDischarge;
-        s_reclaimQueueDischarge = replacement;
-        return previous;
-    }
-
     /// <summary>Installs <paramref name="replacement"/> in place of the live state, reporting what it replaced.</summary>
-    /// <remarks>
-    /// <see cref="Shutdown"/> destroys state the whole process shares, so the only way to exercise it without
-    /// taking the device out from under every other caller is to stand in for that state, tear the stand-in
-    /// down, and put the real state back.
-    /// </remarks>
+    /// <remarks>Lets a test tear a stand-in down with <see cref="Shutdown"/> and then put the real state back.</remarks>
     internal static InstalledGraphics ExchangeInstalledGraphics(InstalledGraphics replacement)
     {
         var previous = new InstalledGraphics(

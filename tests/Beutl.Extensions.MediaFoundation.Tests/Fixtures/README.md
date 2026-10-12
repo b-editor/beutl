@@ -4,6 +4,7 @@
 
 A tiny, synthetic H.264 + AAC clip used by `MFReaderIntegrationTests` to exercise the real
 Media Foundation video/audio decode path.
+`MFStreamProbeTests` also reads it, and `tests/Beutl.FFmpegIpc.Tests/Fixtures/mf-unsupported.flv` is remuxed from it.
 
 - Video: H.264 (baseline), 64×64, 10 fps, ~0.6 s
 - Audio: AAC, 44100 Hz, stereo

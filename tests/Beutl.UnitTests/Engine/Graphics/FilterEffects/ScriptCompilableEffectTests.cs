@@ -3,6 +3,7 @@ using Beutl.Graphics;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics.Effects;
 using Beutl.Threading;
+using Beutl.UnitTests.TestInfrastructure;
 using Moq;
 
 namespace Beutl.UnitTests.Engine.Graphics.FilterEffects;
@@ -49,16 +50,6 @@ public sealed class ScriptCompilableEffectTests
 
     [TestCase("await System.Threading.Tasks.Task.Delay(1);")]
     [TestCase("await System.Threading.Tasks.Task.Delay(-1);")]
-    public void CSharp_await_is_rejected_before_execution(string script)
-    {
-        var effect = new CSharpScriptEffect();
-
-        ScriptCompilationResult result = effect.ValidateScript(script);
-
-        Assert.That(result.Status, Is.EqualTo(ScriptCompilationStatus.Failed));
-        Assert.That(result.Error, Does.Contain("synchronous").And.Contain("await"));
-    }
-
     [TestCase("await System.Threading.Tasks.Task.Yield();")]
     [TestCase("async System.Threading.Tasks.Task Run() { await System.Threading.Tasks.Task.Delay(1); } Run();")]
     [TestCase("System.Func<System.Threading.Tasks.Task> run = async () => { await System.Threading.Tasks.Task.Delay(1); }; run();")]
@@ -124,13 +115,11 @@ public sealed class ScriptCompilableEffectTests
     }
 
     [Test]
+    [NonParallelizable]
     public void Glsl_reports_unavailable_when_no_graphics_context()
     {
-        if (GraphicsContextFactory.SharedContext is not null)
-        {
-            Assert.Ignore("A graphics context is available; the Unavailable path is not exercised here.");
-        }
-
+        using var scope = InstalledGraphicsScope.Install(
+            new InstalledGraphics(null, null, null, FailedToInitialize: false));
         var effect = new GLSLScriptEffect();
 
         ScriptCompilationResult result = effect.ValidateScript("void main() { this does not compile }");
@@ -149,22 +138,14 @@ public sealed class ScriptCompilableEffectTests
         compiler
             .Setup(x => x.CompileToSpirv(It.IsAny<string>(), ShaderStage.Fragment, "main"))
             .Returns([0x03, 0x02, 0x23, 0x07]);
-        InstalledGraphics previous = GraphicsContextFactory.ExchangeInstalledGraphics(
-            new InstalledGraphics(context.Object, null, null, FailedToInitialize: false));
-        try
-        {
-            var effect = new GLSLScriptEffect();
+        using var scope = InstalledGraphicsScope.Install(context.Object);
+        var effect = new GLSLScriptEffect();
 
-            ScriptCompilationResult result = effect.ValidateScript(
-                "#version 450\nlayout(location=0) out vec4 color; void main() { color = vec4(1); }");
+        ScriptCompilationResult result = effect.ValidateScript(
+            "#version 450\nlayout(location=0) out vec4 color; void main() { color = vec4(1); }");
 
-            Assert.That(result.Status, Is.EqualTo(ScriptCompilationStatus.Compiled));
-            compilerLifetime.Verify(x => x.Dispose(), Times.Once);
-        }
-        finally
-        {
-            GraphicsContextFactory.ExchangeInstalledGraphics(previous);
-        }
+        Assert.That(result.Status, Is.EqualTo(ScriptCompilationStatus.Compiled));
+        compilerLifetime.Verify(x => x.Dispose(), Times.Once);
     }
 
     [TestCase("half4 apply(half4 color) { return color; } /* forgot to close")]

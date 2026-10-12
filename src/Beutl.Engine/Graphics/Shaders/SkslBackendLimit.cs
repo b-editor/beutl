@@ -5,7 +5,6 @@ internal enum SkslBackendLimit
     StageCount,
     UniformVectors,
     Samplers,
-    Children,
     SourceBytes,
     ProgramTokens,
 }

@@ -1,5 +1,4 @@
-﻿using System.Runtime.InteropServices;
-using Beutl.Logging;
+﻿using Beutl.Logging;
 using Microsoft.Extensions.Logging;
 using Silk.NET.Vulkan;
 using VkAttachmentLoadOp = Silk.NET.Vulkan.AttachmentLoadOp;
@@ -37,7 +36,6 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
         layout(set = 0, binding = 0) uniform sampler2D srcTexture;
 
         layout(push_constant) uniform PushConstants {
-            vec4 srcRect;
             vec4 dstRect;
             float exposure;
             int tmOperator;
@@ -75,14 +73,14 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
 
         void main() {
             // Map UV through stretch viewport
-            vec2 srcUV = (uv - pc.dstRect.xy) / pc.dstRect.zw * pc.srcRect.zw + pc.srcRect.xy;
+            vec2 srcUV = (uv - pc.dstRect.xy) / pc.dstRect.zw;
 
             if (srcUV.x < 0.0 || srcUV.x > 1.0 || srcUV.y < 0.0 || srcUV.y > 1.0) {
                 outColor = vec4(0.0);
                 return;
             }
 
-            vec4 c = texture(srcTexture, vec2(srcUV.x, pc.srcRect.w - srcUV.y));
+            vec4 c = texture(srcTexture, vec2(srcUV.x, 1.0 - srcUV.y));
             float alpha = c.a;
             if (alpha <= 0.0001) { outColor = vec4(0.0); return; }
 
@@ -121,15 +119,13 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
         _vk = vk;
         _device = device;
 
-        // Seven device objects, any of which can be rejected. A constructor that throws leaves no instance
-        // for anyone to dispose, so the ones already created have to go back here or they survive until the
-        // device does.
+        // A constructor that throws leaves no instance to dispose, so what it already created goes back here.
         try
         {
             CreateRenderPass(swapchainFormat);
             CreateDescriptorSetLayout();
             CreatePipelineLayout();
-            CreatePipeline(extent);
+            CreatePipeline();
             CreateSampler();
             CreateDescriptorPool();
             CreateFramebuffers(swapchainImageViews, extent);
@@ -312,7 +308,7 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
         }
     }
 
-    private void CreatePipeline(Extent2D extent)
+    private void CreatePipeline()
     {
         using var compiler = new VulkanShaderCompiler();
         var vertSpirv = compiler.CompileToSpirv(VertexShaderSource, ShaderStage.Vertex);
@@ -320,136 +316,117 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
 
         ShaderModule vertModule = default;
         ShaderModule fragModule = default;
-        nint entryPoint = 0;
         try
         {
             vertModule = VulkanPipeline3D.CreateShaderModule(_vk, _device, vertSpirv);
             fragModule = VulkanPipeline3D.CreateShaderModule(_vk, _device, fragSpirv);
-            entryPoint = Marshal.StringToHGlobalAnsi("main");
 
-            var shaderStages = stackalloc PipelineShaderStageCreateInfo[2];
-            shaderStages[0] = new PipelineShaderStageCreateInfo
+            fixed (byte* entryPoint = "main\0"u8)
             {
-                SType = StructureType.PipelineShaderStageCreateInfo,
-                Stage = ShaderStageFlags.VertexBit,
-                Module = vertModule,
-                PName = (byte*)entryPoint
-            };
-            shaderStages[1] = new PipelineShaderStageCreateInfo
-            {
-                SType = StructureType.PipelineShaderStageCreateInfo,
-                Stage = ShaderStageFlags.FragmentBit,
-                Module = fragModule,
-                PName = (byte*)entryPoint
-            };
+                var shaderStages = stackalloc PipelineShaderStageCreateInfo[2];
+                shaderStages[0] = new PipelineShaderStageCreateInfo
+                {
+                    SType = StructureType.PipelineShaderStageCreateInfo,
+                    Stage = ShaderStageFlags.VertexBit,
+                    Module = vertModule,
+                    PName = entryPoint
+                };
+                shaderStages[1] = new PipelineShaderStageCreateInfo
+                {
+                    SType = StructureType.PipelineShaderStageCreateInfo,
+                    Stage = ShaderStageFlags.FragmentBit,
+                    Module = fragModule,
+                    PName = entryPoint
+                };
 
-            var vertexInputInfo = new PipelineVertexInputStateCreateInfo
-            {
-                SType = StructureType.PipelineVertexInputStateCreateInfo
-            };
+                var vertexInputInfo = new PipelineVertexInputStateCreateInfo
+                {
+                    SType = StructureType.PipelineVertexInputStateCreateInfo
+                };
 
-            var inputAssembly = new PipelineInputAssemblyStateCreateInfo
-            {
-                SType = StructureType.PipelineInputAssemblyStateCreateInfo,
-                Topology = PrimitiveTopology.TriangleList
-            };
+                var inputAssembly = new PipelineInputAssemblyStateCreateInfo
+                {
+                    SType = StructureType.PipelineInputAssemblyStateCreateInfo,
+                    Topology = PrimitiveTopology.TriangleList
+                };
 
-            var viewport = new Viewport
-            {
-                X = 0,
-                Y = 0,
-                Width = extent.Width,
-                Height = extent.Height,
-                MinDepth = 0,
-                MaxDepth = 1
-            };
+                var viewportState = new PipelineViewportStateCreateInfo
+                {
+                    SType = StructureType.PipelineViewportStateCreateInfo,
+                    ViewportCount = 1,
+                    ScissorCount = 1
+                };
 
-            var scissor = new Rect2D
-            {
-                Offset = new Offset2D(0, 0),
-                Extent = extent
-            };
+                var rasterizer = new PipelineRasterizationStateCreateInfo
+                {
+                    SType = StructureType.PipelineRasterizationStateCreateInfo,
+                    PolygonMode = PolygonMode.Fill,
+                    LineWidth = 1.0f,
+                    CullMode = CullModeFlags.None,
+                    FrontFace = VkFrontFace.CounterClockwise
+                };
 
-            var viewportState = new PipelineViewportStateCreateInfo
-            {
-                SType = StructureType.PipelineViewportStateCreateInfo,
-                ViewportCount = 1,
-                PViewports = &viewport,
-                ScissorCount = 1,
-                PScissors = &scissor
-            };
+                var multisampling = new PipelineMultisampleStateCreateInfo
+                {
+                    SType = StructureType.PipelineMultisampleStateCreateInfo,
+                    RasterizationSamples = SampleCountFlags.Count1Bit
+                };
 
-            var rasterizer = new PipelineRasterizationStateCreateInfo
-            {
-                SType = StructureType.PipelineRasterizationStateCreateInfo,
-                PolygonMode = PolygonMode.Fill,
-                LineWidth = 1.0f,
-                CullMode = CullModeFlags.None,
-                FrontFace = VkFrontFace.CounterClockwise
-            };
+                var colorBlendAttachment = new PipelineColorBlendAttachmentState
+                {
+                    ColorWriteMask = ColorComponentFlags.RBit | ColorComponentFlags.GBit |
+                                     ColorComponentFlags.BBit | ColorComponentFlags.ABit,
+                    BlendEnable = Vk.True,
+                    SrcColorBlendFactor = VkBlendFactor.One,
+                    DstColorBlendFactor = VkBlendFactor.OneMinusSrcAlpha,
+                    ColorBlendOp = VkBlendOp.Add,
+                    SrcAlphaBlendFactor = VkBlendFactor.One,
+                    DstAlphaBlendFactor = VkBlendFactor.OneMinusSrcAlpha,
+                    AlphaBlendOp = VkBlendOp.Add
+                };
 
-            var multisampling = new PipelineMultisampleStateCreateInfo
-            {
-                SType = StructureType.PipelineMultisampleStateCreateInfo,
-                RasterizationSamples = SampleCountFlags.Count1Bit
-            };
+                var colorBlending = new PipelineColorBlendStateCreateInfo
+                {
+                    SType = StructureType.PipelineColorBlendStateCreateInfo,
+                    AttachmentCount = 1,
+                    PAttachments = &colorBlendAttachment
+                };
 
-            var colorBlendAttachment = new PipelineColorBlendAttachmentState
-            {
-                ColorWriteMask = ColorComponentFlags.RBit | ColorComponentFlags.GBit |
-                                 ColorComponentFlags.BBit | ColorComponentFlags.ABit,
-                BlendEnable = Vk.True,
-                SrcColorBlendFactor = VkBlendFactor.One,
-                DstColorBlendFactor = VkBlendFactor.OneMinusSrcAlpha,
-                ColorBlendOp = VkBlendOp.Add,
-                SrcAlphaBlendFactor = VkBlendFactor.One,
-                DstAlphaBlendFactor = VkBlendFactor.OneMinusSrcAlpha,
-                AlphaBlendOp = VkBlendOp.Add
-            };
+                var dynamicStates = stackalloc DynamicState[] { DynamicState.Viewport, DynamicState.Scissor };
+                var dynamicState = new PipelineDynamicStateCreateInfo
+                {
+                    SType = StructureType.PipelineDynamicStateCreateInfo,
+                    DynamicStateCount = 2,
+                    PDynamicStates = dynamicStates
+                };
 
-            var colorBlending = new PipelineColorBlendStateCreateInfo
-            {
-                SType = StructureType.PipelineColorBlendStateCreateInfo,
-                AttachmentCount = 1,
-                PAttachments = &colorBlendAttachment
-            };
+                var pipelineInfo = new GraphicsPipelineCreateInfo
+                {
+                    SType = StructureType.GraphicsPipelineCreateInfo,
+                    StageCount = 2,
+                    PStages = shaderStages,
+                    PVertexInputState = &vertexInputInfo,
+                    PInputAssemblyState = &inputAssembly,
+                    PViewportState = &viewportState,
+                    PRasterizationState = &rasterizer,
+                    PMultisampleState = &multisampling,
+                    PColorBlendState = &colorBlending,
+                    PDynamicState = &dynamicState,
+                    Layout = _pipelineLayout,
+                    RenderPass = _renderPass,
+                    Subpass = 0
+                };
 
-            var dynamicStates = stackalloc DynamicState[] { DynamicState.Viewport, DynamicState.Scissor };
-            var dynamicState = new PipelineDynamicStateCreateInfo
-            {
-                SType = StructureType.PipelineDynamicStateCreateInfo,
-                DynamicStateCount = 2,
-                PDynamicStates = dynamicStates
-            };
+                Pipeline pipeline;
+                var result = _vk.CreateGraphicsPipelines(_device, default, 1, &pipelineInfo, null, &pipeline);
+                if (result != Result.Success)
+                    throw new InvalidOperationException($"Failed to create graphics pipeline: {result}");
 
-            var pipelineInfo = new GraphicsPipelineCreateInfo
-            {
-                SType = StructureType.GraphicsPipelineCreateInfo,
-                StageCount = 2,
-                PStages = shaderStages,
-                PVertexInputState = &vertexInputInfo,
-                PInputAssemblyState = &inputAssembly,
-                PViewportState = &viewportState,
-                PRasterizationState = &rasterizer,
-                PMultisampleState = &multisampling,
-                PColorBlendState = &colorBlending,
-                PDynamicState = &dynamicState,
-                Layout = _pipelineLayout,
-                RenderPass = _renderPass,
-                Subpass = 0
-            };
-
-            Pipeline pipeline;
-            var result = _vk.CreateGraphicsPipelines(_device, default, 1, &pipelineInfo, null, &pipeline);
-            if (result != Result.Success)
-                throw new InvalidOperationException($"Failed to create graphics pipeline: {result}");
-
-            _pipeline = pipeline;
+                _pipeline = pipeline;
+            }
         }
         finally
         {
-            if (entryPoint != 0)
-                Marshal.FreeHGlobal(entryPoint);
             if (fragModule.Handle != 0)
                 _vk.DestroyShaderModule(_device, fragModule, null);
             if (vertModule.Handle != 0)
@@ -545,18 +522,13 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
         _framebuffers = [];
     }
 
-    /// <remarks>
-    /// Also the release path for a constructor that threw, so every handle is checked before it is
-    /// destroyed: a partially built pipeline leaves the later ones at their default, unset value.
-    /// </remarks>
+    /// <remarks>Also releases a partially built pipeline, whose later handles are still unset.</remarks>
     public void Dispose()
     {
         if (_disposed)
             return;
 
         _disposed = true;
-
-        _vk.DeviceWaitIdle(_device);
 
         DestroyFramebuffers();
 

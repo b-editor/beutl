@@ -40,7 +40,6 @@ public sealed partial class ImageTextureSource : TextureSource
 
             ref CachedTexture cached = ref _gpuTextures[(int)contentKind];
 
-            // Check if we need to recreate the texture
             bool needsRecreate = cached.Texture == null ||
                                  !ReferenceEquals(cached.Context, graphicsContext) ||
                                  cached.Version != Version ||

@@ -777,13 +777,7 @@ public class FFmpegReaderProxyIdleTests
         public FakeWorker(int firstReaderId = 1)
         {
             _nextReaderId = firstReaderId - 1;
-            string name = "beutl-fake-worker-" + Guid.NewGuid().ToString("N")[..8];
-            _server = new NamedPipeServerStream(
-                name, PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
-            var client = new NamedPipeClientStream(".", name, PipeDirection.InOut, PipeOptions.Asynchronous);
-            Task connect = _server.WaitForConnectionAsync();
-            client.Connect(TimeSpan.FromSeconds(5));
-            connect.GetAwaiter().GetResult();
+            (_server, NamedPipeClientStream client) = PipeTestHelpers.ConnectPair("beutl-fake-worker-");
 
             Connection = new IpcConnection(client);
             Connection.StartMultiplexedReceive();

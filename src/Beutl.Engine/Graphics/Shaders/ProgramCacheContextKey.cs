@@ -5,22 +5,16 @@
 /// </summary>
 internal sealed class ProgramCacheContextKey : IEquatable<ProgramCacheContextKey>
 {
-    /// <summary>The color/alpha format every program cache of the engine compiles for: linear, premultiplied RGBA16F.</summary>
-    internal const string LinearPremultipliedRgba16FContract = "linear-premultiplied-rgba16f";
-
     public ProgramCacheContextKey(
         object deviceIdentity,
         object contextIdentity,
         object backendCapabilityClass,
-        string colorAlphaFormatContract,
         object compileOptionsIdentity)
     {
         DeviceIdentity = deviceIdentity ?? throw new ArgumentNullException(nameof(deviceIdentity));
         ContextIdentity = contextIdentity ?? throw new ArgumentNullException(nameof(contextIdentity));
         BackendCapabilityClass = backendCapabilityClass
             ?? throw new ArgumentNullException(nameof(backendCapabilityClass));
-        ColorAlphaFormatContract = colorAlphaFormatContract
-            ?? throw new ArgumentNullException(nameof(colorAlphaFormatContract));
         CompileOptionsIdentity = compileOptionsIdentity
             ?? throw new ArgumentNullException(nameof(compileOptionsIdentity));
     }
@@ -31,8 +25,6 @@ internal sealed class ProgramCacheContextKey : IEquatable<ProgramCacheContextKey
 
     public object BackendCapabilityClass { get; }
 
-    public string ColorAlphaFormatContract { get; }
-
     public object CompileOptionsIdentity { get; }
 
     public bool Equals(ProgramCacheContextKey? other)
@@ -40,10 +32,6 @@ internal sealed class ProgramCacheContextKey : IEquatable<ProgramCacheContextKey
            && Equals(DeviceIdentity, other.DeviceIdentity)
            && Equals(ContextIdentity, other.ContextIdentity)
            && Equals(BackendCapabilityClass, other.BackendCapabilityClass)
-           && string.Equals(
-               ColorAlphaFormatContract,
-               other.ColorAlphaFormatContract,
-               StringComparison.Ordinal)
            && Equals(CompileOptionsIdentity, other.CompileOptionsIdentity);
 
     public override bool Equals(object? obj)
@@ -54,6 +42,5 @@ internal sealed class ProgramCacheContextKey : IEquatable<ProgramCacheContextKey
             DeviceIdentity,
             ContextIdentity,
             BackendCapabilityClass,
-            ColorAlphaFormatContract,
             CompileOptionsIdentity);
 }

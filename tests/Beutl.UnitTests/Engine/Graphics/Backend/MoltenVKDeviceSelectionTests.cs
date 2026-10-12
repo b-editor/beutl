@@ -2,6 +2,7 @@
 using Beutl.Graphics.Backend.Composite;
 using Beutl.Graphics.Backend.Vulkan;
 using Beutl.Graphics.Rendering;
+using Beutl.UnitTests.TestInfrastructure;
 using Silk.NET.Vulkan;
 
 namespace Beutl.UnitTests.Engine.Graphics.Backend;
@@ -126,24 +127,14 @@ public sealed class MoltenVKDeviceSelectionTests
         IGraphicsContext? fallback = null;
         RenderThread.Dispatcher.Invoke(() =>
         {
-            InstalledGraphics live = GraphicsContextFactory.ExchangeInstalledGraphics(
+            using var scope = InstalledGraphicsScope.InstallReleasing(
                 new InstalledGraphics(null, instance, swiftShader, FailedToInitialize: false));
-            try
-            {
-                fallback = GraphicsContextFactory.GetOrCreateShared();
-            }
-            finally
-            {
-                // The instance is the live one and goes back with the rest; only a context built on SwiftShader is
-                // this test's to release.
-                InstalledGraphics discarded = GraphicsContextFactory.ExchangeInstalledGraphics(live);
-                discarded.SharedContext?.Dispose();
-            }
+            fallback = GraphicsContextFactory.GetOrCreateShared();
         });
 
         Assert.That(fallback, Is.Null, "a SwiftShader context on macOS has no Skia GPU context to render with");
     }
 
     private static VulkanPhysicalDeviceInfo CreateDevice(string name, PhysicalDeviceType type, DriverId driver)
-        => new(default, name, type, (uint)Vk.Version13, new VulkanMemoryInfo(0, 0), driver);
+        => new(default, name, type, (uint)Vk.Version13, new VulkanMemoryInfo(0), driver);
 }

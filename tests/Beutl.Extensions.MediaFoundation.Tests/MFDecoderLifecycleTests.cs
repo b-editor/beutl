@@ -19,11 +19,6 @@ public class MFDecoderLifecycleTests
     [OneTimeSetUp]
     public void OneTimeSetUp()
     {
-        if (!OperatingSystem.IsWindows())
-        {
-            Assert.Ignore("Media Foundation is only available on Windows.");
-        }
-
         // SharpGen's Configuration is a process-global that becomes immutable on first use (the first
         // COM wrapper / ObjectTracker access). Enable tracking here, before this fixture creates any
         // Media Foundation COM object, so the baseline count sees the wrappers the MFDecoder ctor
@@ -38,14 +33,7 @@ public class MFDecoderLifecycleTests
     [OneTimeTearDown]
     public void OneTimeTearDown()
     {
-        if (!OperatingSystem.IsWindows())
-        {
-            return;
-        }
-
-        // The SharpGen tracking flags enabled in OneTimeSetUp cannot be restored: Configuration is
-        // immutable once a COM object has been created, so assigning them again throws. They are
-        // process-global one-way switches; just shut Media Foundation down.
+        // The tracking flags cannot be restored (see OneTimeSetUp), so only Media Foundation is shut down.
         MediaFactory.MFShutdown();
     }
 
@@ -72,7 +60,7 @@ public class MFDecoderLifecycleTests
     [Test]
     public void Constructor_NoVideoStream_DisposesPartiallyCreatedComObjects()
     {
-        string wav = WriteSineWav();
+        string wav = SineWav.Write(_workDir);
         int before = CountTrackedMediaFoundationObjects();
 
         Assert.Throws<NoVideoStreamException>(() =>
@@ -149,47 +137,5 @@ public class MFDecoderLifecycleTests
         public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
             Func<TState, Exception?, string> formatter)
             => Entries.Add((logLevel, exception));
-    }
-
-    private string WriteSineWav(int sampleRate = 44100, int channels = 2, double seconds = 0.2)
-    {
-        string path = Path.Combine(_workDir, "audio.wav");
-
-        const short bitsPerSample = 16;
-        int totalFrames = (int)(sampleRate * seconds);
-        short blockAlign = (short)(channels * bitsPerSample / 8);
-        int byteRate = sampleRate * blockAlign;
-        int dataSize = totalFrames * blockAlign;
-
-        using var stream = new FileStream(path, FileMode.Create, FileAccess.Write);
-        using var writer = new BinaryWriter(stream);
-
-        writer.Write("RIFF"u8.ToArray());
-        writer.Write(36 + dataSize);
-        writer.Write("WAVE"u8.ToArray());
-
-        writer.Write("fmt "u8.ToArray());
-        writer.Write(16);
-        writer.Write((short)1);
-        writer.Write((short)channels);
-        writer.Write(sampleRate);
-        writer.Write(byteRate);
-        writer.Write(blockAlign);
-        writer.Write(bitsPerSample);
-
-        writer.Write("data"u8.ToArray());
-        writer.Write(dataSize);
-
-        for (int i = 0; i < totalFrames; i++)
-        {
-            double t = (double)i / sampleRate;
-            var sample = (short)(Math.Sin(2 * Math.PI * 440 * t) * short.MaxValue * 0.3);
-            for (int ch = 0; ch < channels; ch++)
-            {
-                writer.Write(sample);
-            }
-        }
-
-        return path;
     }
 }

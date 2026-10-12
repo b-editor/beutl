@@ -32,7 +32,6 @@ internal sealed class MetalContext : IDisposable
             throw new PlatformNotSupportedException("Metal is only supported on macOS/iOS");
         }
 
-        // Get default Metal device
         _metalDevice = MTLCreateSystemDefaultDevice();
         if (_metalDevice == IntPtr.Zero)
         {
@@ -41,7 +40,6 @@ internal sealed class MetalContext : IDisposable
 
         try
         {
-            // Create command queue
             _commandQueue = objc_msgSend_IntPtr(_metalDevice, s_newCommandQueueSelector);
             if (_commandQueue == IntPtr.Zero)
             {
@@ -50,7 +48,6 @@ internal sealed class MetalContext : IDisposable
 
             try
             {
-                // Create SkiaSharp Metal context
                 var backendContext = new GRMtlBackendContext
                 {
                     DeviceHandle = _metalDevice,
@@ -141,7 +138,6 @@ internal sealed class MetalContext : IDisposable
 
     public void WaitIdle()
     {
-        // Create a command buffer and commit it with waitUntilCompleted
         var commandBuffer = objc_msgSend_IntPtr(_commandQueue, s_commandBufferSelector);
         if (commandBuffer != IntPtr.Zero)
         {
@@ -158,9 +154,8 @@ internal sealed class MetalContext : IDisposable
         _disposed = true;
 
         WaitForHandOffs();
-        _grContext?.Dispose();
+        _grContext.Dispose();
 
-        // Release Metal objects
         ReleaseObject(_commandQueue);
         ReleaseObject(_metalDevice);
     }
@@ -177,7 +172,7 @@ internal sealed class MetalContext : IDisposable
 
     private static void ReleaseObject(IntPtr obj)
     {
-        if (obj != IntPtr.Zero && s_releaseSelector != IntPtr.Zero)
+        if (obj != IntPtr.Zero)
         {
             objc_msgSend_void(obj, s_releaseSelector);
         }

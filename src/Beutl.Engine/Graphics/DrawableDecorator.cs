@@ -1,5 +1,4 @@
 ﻿using System.ComponentModel.DataAnnotations;
-using Beutl.Collections.Pooled;
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics.Rendering;
@@ -57,28 +56,25 @@ public sealed partial class DrawableDecorator : Drawable, IFlowOperator
 
     public new partial class Resource
     {
-        private readonly PooledList<int> _childrenVersion = [];
-        private readonly FlowInputState _flowInputs = new();
-        private List<Drawable.Resource> _children = [];
+        private readonly FlowChildren _children = new(keepsFlowInputs: true);
 
-        internal override IReadOnlyList<FlowNode> FlowInputs => _flowInputs.Inputs;
+        internal override IReadOnlyList<FlowNode> FlowInputs => _children.FlowInputs;
 
         public List<Drawable.Resource> Children
         {
-            get => _children;
-            set => _children = value;
+            get => _children.Items;
+            set => _children.Items = value;
         }
 
         partial void PostReconcile(DrawableDecorator obj, CompositionContext context)
         {
-            if (ResourceReconciler.ReconcileChildrenFromFlow(context, obj.Children, _children, _childrenVersion, obj, _flowInputs))
+            if (_children.Reconcile(context, obj.Children, obj))
                 Version++;
         }
 
         partial void PostDispose(bool disposing)
         {
-            ResourceReconciler.ReleaseReconciledChildren(_children, _childrenVersion);
-            _flowInputs.Dispose();
+            _children.Dispose();
         }
     }
 }

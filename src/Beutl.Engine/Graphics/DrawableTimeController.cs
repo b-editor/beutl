@@ -48,9 +48,6 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
     private TimeSpan CalculateTimeWithSpeed(TimeSpan timeSpan, Resource resource)
         => SpeedAdjustedTime.Map(Speed, resource.Speed, resource.SpeedIntegrator, timeSpan);
 
-    /// <summary>
-    /// Main time calculation (follows the order defined in the design document).
-    /// </summary>
     private TimeSpan CalculateTargetTime(TimeSpan currentTime, Resource resource, Drawable? targetDrawable)
     {
         if (targetDrawable == null)
@@ -62,7 +59,6 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
         if (targetDuration <= TimeSpan.Zero)
             return currentTime;
 
-        // 相対的な時間
         TimeSpan baseTime = currentTime - TimeRange.Start;
 
         // 1. AdjustTimeRange: baseTime = currentTime - Target's Start
@@ -103,7 +99,7 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
         }
 
         // 5. Loop: time = time % targetDuration
-        if (resource.Loop && targetDuration > TimeSpan.Zero)
+        if (resource.Loop)
         {
             baseTime = SpeedAdjustedTime.WrapIntoDuration(baseTime, targetDuration);
         }
@@ -189,7 +185,6 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
                 _flowInputs = flowTarget == null ? [] : [flowTarget];
             }
 
-            // Save the original Time
             var originalContextTime = context.Time;
             try
             {

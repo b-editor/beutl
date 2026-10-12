@@ -1,4 +1,5 @@
 ﻿using Beutl.Graphics.Backend;
+using Beutl.Graphics.Backend.Composite;
 using Beutl.Graphics.Backend.Vulkan;
 using Beutl.Graphics.Rendering;
 
@@ -19,6 +20,20 @@ internal static class GpuTestEnvironment
     /// included, is available (<see cref="TestGpu.RequireAnyDevice"/>).
     /// </summary>
     public static IGraphicsContext EnsureAvailable() => TestGpu.RequireAnyDevice();
+
+    /// <summary>Like <see cref="EnsureAvailable"/>, returning the Vulkan context behind the shared one.</summary>
+    public static VulkanContext EnsureVulkanAvailable() => ResolveVulkan(EnsureAvailable());
+
+    // On macOS the context is a CompositeContext pairing a Metal context with the Vulkan one that owns the
+    // device; everywhere else it is the Vulkan context itself.
+    public static VulkanContext ResolveVulkan(IGraphicsContext context)
+        => context switch
+        {
+            VulkanContext vulkan => vulkan,
+            CompositeContext composite => composite.Vulkan,
+            _ => throw new InvalidOperationException(
+                $"'{context.GetType().Name}' is not backed by a Vulkan context."),
+        };
 
     public static T InvokeOnRenderThread<T>(Func<T> func)
     {

@@ -4,15 +4,9 @@ using Beutl.Graphics.Rendering.Requests;
 
 namespace Beutl.UnitTests.Engine.Graphics.Backend;
 
-// The ambient hook scopes ImmediateCanvas hands back must unwind in LIFO order, like the flush observer
-// scope in the same file. Saving and restoring a value instead lets an outer
-// scope closed early re-install its own ended hook over the inner one that is still live, and the
-// ImmediateCanvas constructor seeds itself from that ambient value, so every canvas built afterwards
-// inherits the mistake.
-//
-// Each case runs inside one InvokeOnRenderThread call. The dispatcher runs an operation through
-// ExecutionContext.Run, so the ambient value a deliberate out-of-order dispose leaves pinned cannot
-// reach another test.
+// The ambient hook scopes ImmediateCanvas hands back must close in LIFO order: saving and restoring a value would let
+// an outer scope closed early re-install its ended hook, which every canvas built afterwards inherits. Each case runs
+// inside one InvokeOnRenderThread call, so a value an out-of-order dispose leaves pinned reaches no other test.
 [NonParallelizable]
 [TestFixture]
 public class ImmediateCanvasScopeLifetimeTests

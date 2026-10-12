@@ -54,22 +54,18 @@ public sealed class TransparentPass : GraphicsNode3D
         DeviceExtentLimits.ThrowIfCannotAttach(Context, width, height);
         BeginReplacingResources();
 
-        // Dispose old resources
         Framebuffer?.Dispose();
         RenderPass?.Dispose();
         OutputTexture?.Dispose();
 
-        // Create output texture (same format as LightingPass output)
         OutputTexture = Context.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
 
-        // Create render pass with Load operation to preserve existing content
         RenderPass = Context.CreateRenderPass3D(
             [TextureFormat.RGBA16Float],
             TextureFormat.Depth32Float,
             AttachmentLoadOp.Load,  // Preserve color from LightingPass
             AttachmentLoadOp.Load); // Preserve depth from GeometryPass
 
-        // Create framebuffer using output texture and the shared depth texture
         Framebuffer = Context.CreateFramebuffer3D(
             RenderPass,
             [OutputTexture],
@@ -99,13 +95,11 @@ public sealed class TransparentPass : GraphicsNode3D
         if (Framebuffer == null || RenderPass == null || OutputTexture == null || _colorInput == null)
             return;
 
-        // First, copy the LightingPass output to our output texture
         Context.CopyTexture(_colorInput, OutputTexture);
 
         if (transparentObjects.Count == 0)
             return;
 
-        // Create RenderContext3D for transparent materials
         var viewMatrix = camera.GetViewMatrix();
         var projectionMatrix = camera.GetProjectionMatrix(aspectRatio);
 
@@ -121,7 +115,6 @@ public sealed class TransparentPass : GraphicsNode3D
             compositionContext,
             surfaceDensity);
 
-        // Begin transparent pass with load (preserves copied content and depth buffer)
         Span<Color> clearColors = [Colors.Transparent];
         using (UsePass(clearColors))
         {

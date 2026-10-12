@@ -81,7 +81,6 @@ public class ImmediateCanvasVulkanTests
 
     private static void AssertEveryPixelMatches(Bitmap snapshot, float expectedRed, float expectedGreen, float expectedBlue)
     {
-        // RgbaF16 は 4ch×2byte のハーフフロート。SnapshotはLinearSrgb。
         Assert.That(snapshot.ColorType, Is.EqualTo(BitmapColorType.RgbaF16));
         Assert.That(snapshot.ColorSpace, Is.EqualTo(BitmapColorSpace.LinearSrgb));
 
@@ -100,7 +99,6 @@ public class ImmediateCanvasVulkanTests
 
     private static void AssertHalfPixelMatches(Bitmap snapshot, int x, int y, float expectedRed, float expectedGreen, float expectedBlue)
     {
-        int rowBytes = snapshot.RowBytes;
         var row = snapshot.GetRow(y);
         int offset = x * 8;
         float r = (float)BitConverter.UInt16BitsToHalf(BitConverter.ToUInt16(row.Slice(offset, 2)));
@@ -110,6 +108,5 @@ public class ImmediateCanvasVulkanTests
         Assert.That(r, Is.EqualTo(expectedRed).Within(0.01f), $"R mismatch at ({x},{y})");
         Assert.That(g, Is.EqualTo(expectedGreen).Within(0.01f), $"G mismatch at ({x},{y})");
         Assert.That(b, Is.EqualTo(expectedBlue).Within(0.01f), $"B mismatch at ({x},{y})");
-        _ = rowBytes;
     }
 }

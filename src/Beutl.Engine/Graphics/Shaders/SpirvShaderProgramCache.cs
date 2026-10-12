@@ -1,8 +1,6 @@
 ﻿using System.Runtime.CompilerServices;
 using System.Runtime.ExceptionServices;
 using Beutl.Graphics.Backend;
-using Beutl.Graphics.Backend.Composite;
-using Beutl.Graphics.Backend.Vulkan;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Requests;
@@ -26,8 +24,7 @@ internal static class SpirvShaderProgramCache
             maxRetainedBytes: DefaultRetainedByteBudget);
 
     public static bool SupportsExecution(IGraphicsContext? context)
-        => context is VulkanContext { Supports3DRendering: true }
-            or CompositeContext { Supports3DRendering: true };
+        => GLSLFilterPipeline.TryResolveVulkan(context) is not null;
 
     public static ProgramCacheContextKey CreateContextKey(RenderCacheDeviceContextIdentity context)
     {
@@ -36,7 +33,6 @@ internal static class SpirvShaderProgramCache
             context.DeviceIdentity,
             context.ContextIdentity,
             SkslBackendBudgetResolver.SpirvVulkan.CapabilityClass,
-            ProgramCacheContextKey.LinearPremultipliedRgba16FContract,
             s_defaultCompileOptions);
     }
 

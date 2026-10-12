@@ -70,7 +70,6 @@ public sealed class CurvesAndLutEffectShaderTests
                     Is.All.EqualTo(ShaderResourceCoordinateSpace.Value));
                 Assert.That(portableProgram.StageCount, Is.EqualTo(1));
                 Assert.That(portableProgram.SamplerCount, Is.EqualTo(10));
-                Assert.That(portableProgram.ChildCount, Is.EqualTo(10));
                 Assert.That(portableProgram.RequiresStandaloneExecution, Is.False);
                 Assert.That(portableProgram.OverflowReasons, Is.Empty);
                 Assert.That(vulkanProgram.RequiresStandaloneExecution, Is.False);

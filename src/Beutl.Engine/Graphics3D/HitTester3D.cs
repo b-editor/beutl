@@ -56,20 +56,14 @@ public static class HitTester3D
         if (objects.Count == 0)
             return null;
 
-        // Create ray from screen point
         if (!TryCreateSegmentFromScreen(screenPoint, width, height, camera, out var ray, out float maxDistance))
             return null;
 
-        // Test intersection with each object recursively
         Object3D.Resource? closestObject = null;
         float closestDistance = float.MaxValue;
 
         foreach (var obj in objects)
         {
-            if (!obj.IsEnabled)
-                continue;
-
-            // Recursively hit test this object and its children
             var (hitObj, distance) = HitTestRecursive(ray, maxDistance, obj, Matrix4x4.Identity);
             if (hitObj != null && IsCloser(hitObj, distance, closestObject, closestDistance))
             {
@@ -96,10 +90,8 @@ public static class HitTester3D
         Object3D.Resource? closestObject = null;
         float closestDistance = float.MaxValue;
 
-        // Combine with parent matrix
         var worldMatrix = obj.GetWorldMatrix() * parentMatrix;
 
-        // Recursively test children
         var children = obj.GetChildResources();
         foreach (var child in children)
         {
@@ -111,7 +103,6 @@ public static class HitTester3D
             }
         }
 
-        // Test this object's mesh
         if (TryHitObject(ray, maxDistance, obj, worldMatrix, out float meshDistance)
             && meshDistance < closestDistance)
         {
@@ -138,80 +129,32 @@ public static class HitTester3D
         Camera3D.Resource camera,
         IReadOnlyList<Object3D.Resource> objects)
     {
-        if (objects.Count == 0)
+        if (HitTest(screenPoint, width, height, camera, objects) is not { } hit)
             return [];
 
-        // Create ray from screen point
-        if (!TryCreateSegmentFromScreen(screenPoint, width, height, camera, out var ray, out float maxDistance))
-            return [];
+        var path = new List<Object3D.Resource>();
+        return TryFindPath(objects, hit, path) ? path : [];
+    }
 
-        // Test intersection with each object recursively
-        List<Object3D.Resource>? closestPath = null;
-        float closestDistance = float.MaxValue;
-
-        foreach (var obj in objects)
+    // Collects the enabled objects from a root down to target, the same ones HitTestRecursive passed through.
+    private static bool TryFindPath(
+        IReadOnlyList<Object3D.Resource> objects,
+        Object3D.Resource target,
+        List<Object3D.Resource> path)
+    {
+        foreach (Object3D.Resource obj in objects)
         {
             if (!obj.IsEnabled)
                 continue;
 
-            // Recursively hit test this object and its children, collecting the path
-            var currentPath = new List<Object3D.Resource>();
-            var (hitPath, distance) = HitTestRecursiveWithPath(ray, maxDistance, obj, Matrix4x4.Identity, currentPath);
-            if (hitPath != null && IsCloser(hitPath[^1], distance, closestPath?[^1], closestDistance))
-            {
-                closestDistance = distance;
-                closestPath = hitPath;
-            }
+            path.Add(obj);
+            if (ReferenceEquals(obj, target) || TryFindPath(obj.GetChildResources(), target, path))
+                return true;
+
+            path.RemoveAt(path.Count - 1);
         }
 
-        return closestPath ?? [];
-    }
-
-    /// <summary>
-    /// Recursively performs hit testing and collects the path to the hit object.
-    /// </summary>
-    private static (List<Object3D.Resource>? path, float distance) HitTestRecursiveWithPath(
-        Ray3D ray,
-        float maxDistance,
-        Object3D.Resource obj,
-        Matrix4x4 parentMatrix,
-        List<Object3D.Resource> currentPath)
-    {
-        if (!obj.IsEnabled)
-            return (null, float.MaxValue);
-
-        // Add this object to the current path
-        currentPath.Add(obj);
-
-        List<Object3D.Resource>? closestPath = null;
-        float closestDistance = float.MaxValue;
-
-        // Combine with parent matrix
-        var worldMatrix = obj.GetWorldMatrix() * parentMatrix;
-
-        // Recursively test children
-        var children = obj.GetChildResources();
-        foreach (var child in children)
-        {
-            // Create a copy of the current path for each child branch
-            var childPath = new List<Object3D.Resource>(currentPath);
-            var (hitPath, distance) = HitTestRecursiveWithPath(ray, maxDistance, child, worldMatrix, childPath);
-            if (hitPath != null && IsCloser(hitPath[^1], distance, closestPath?[^1], closestDistance))
-            {
-                closestDistance = distance;
-                closestPath = hitPath;
-            }
-        }
-
-        // Test this object's mesh; if it is closer than any child hit, use this path
-        if (TryHitObject(ray, maxDistance, obj, worldMatrix, out float meshDistance)
-            && meshDistance < closestDistance)
-        {
-            closestDistance = meshDistance;
-            closestPath = new List<Object3D.Resource>(currentPath);
-        }
-
-        return (closestPath, closestDistance);
+        return false;
     }
 
     /// <summary>
@@ -245,34 +188,27 @@ public static class HitTester3D
         ray = default;
         length = 0;
 
-        // Convert screen coordinates to normalized device coordinates (-1 to 1)
         float ndcX = (2.0f * screenPoint.X / width) - 1.0f;
         float ndcY = 1.0f - (2.0f * screenPoint.Y / height);
 
-        // Get camera matrices
         float aspectRatio = (float)width / height;
         var viewMatrix = camera.GetViewMatrix();
         var projMatrix = camera.GetProjectionMatrix(aspectRatio);
 
-        // Invert the matrices to transform from screen space to world space
         if (!Matrix4x4.Invert(viewMatrix, out var invView))
             return false;
         if (!Matrix4x4.Invert(projMatrix, out var invProj))
             return false;
 
-        // Calculate ray origin and direction
         var nearPoint = new Vector4(ndcX, ndcY, 0, 1);
         var farPoint = new Vector4(ndcX, ndcY, 1, 1);
 
-        // Transform to view space
         nearPoint = Vector4.Transform(nearPoint, invProj);
         farPoint = Vector4.Transform(farPoint, invProj);
 
-        // Perspective divide
         nearPoint /= nearPoint.W;
         farPoint /= farPoint.W;
 
-        // Transform to world space
         nearPoint = Vector4.Transform(nearPoint, invView);
         farPoint = Vector4.Transform(farPoint, invView);
 
@@ -430,7 +366,6 @@ public static class HitTester3D
         var vertices = mesh.GetVertices();
         var indices = mesh.GetIndices();
 
-        // Iterate through triangles
         for (int i = 0; i + 2 < indices.Length; i += 3)
         {
             var v0 = vertices[(int)indices[i]].Position;

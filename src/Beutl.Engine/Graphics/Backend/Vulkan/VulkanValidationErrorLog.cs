@@ -7,17 +7,8 @@ namespace Beutl.Graphics.Backend.Vulkan;
 /// can act on them.
 /// </summary>
 /// <remarks>
-/// <para>
-/// A validation error names API misuse the driver is not required to diagnose — a render pass instance
-/// begun inside another, a handle submitted to a device that never created it — so work that produced one
-/// has already entered undefined behaviour whatever its own assertions concluded. Writing it only to the
-/// log leaves it invisible to anything that could fail on it, which is what this record exists to change:
-/// a run with validation enabled reads <see cref="Shared"/> as a gate.
-/// </para>
-/// <para>
-/// The debug messenger is only created when validation is enabled, so on an ordinary run nothing is ever
-/// recorded.
-/// </para>
+/// Collects validation errors so a validation-enabled run can fail on them; nothing is recorded unless validation
+/// is enabled. Only the test gates read it back.
 /// </remarks>
 internal sealed class VulkanValidationErrorLog
 {

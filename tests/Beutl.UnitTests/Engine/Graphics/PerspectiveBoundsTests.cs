@@ -70,8 +70,7 @@ public sealed class PerspectiveBoundsTests
             Assert.That(actual.Width, Is.LessThan(unclipped.Width / 4f),
                 "the fixture must exercise a case where the cutoff changes the answer");
 
-            // What nearPlane documents: a lower cutoff widens the box. While the sign of the divisor
-            // decided this case, the two answers were identical whatever cutoff was asked for.
+            // What nearPlane documents: a lower cutoff widens the box.
             Assert.That(
                 s_local.TransformToAABB(matrix, 0.005f).Width,
                 Is.GreaterThan(actual.Width),

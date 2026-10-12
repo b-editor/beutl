@@ -141,10 +141,8 @@ internal static class SkslLexer
     /// Returns the index of the comment's closing slash, or the end of the source when it is never closed.
     /// </summary>
     /// <remarks>
-    /// An unterminated block comment is a syntax error, and reporting it belongs to the shading-language
-    /// compiler, which sees the source with its comments intact and can name a line. This scanner also runs
-    /// on the render path while an effect resource compiles its script, where throwing would fail the frame
-    /// rather than surface a message on the effect, so it consumes the rest of the source instead.
+    /// Unterminated comments are left for the compiler to report; this scanner runs on the render path and must
+    /// not throw.
     /// </remarks>
     private static int SkipBlockComment(string source, int start)
     {

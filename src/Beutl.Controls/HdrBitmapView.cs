@@ -209,7 +209,6 @@ public partial class HdrBitmapView : NativeControlHost
             var scaling = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1.0;
             _renderer.Initialize(
                 handle.Handle,
-                handle.HandleDescriptor ?? "",
                 (uint)Math.Max(1, Bounds.Width * scaling),
                 (uint)Math.Max(1, Bounds.Height * scaling));
 
@@ -270,8 +269,6 @@ public partial class HdrBitmapView : NativeControlHost
         var renderParams = new RenderParams(
             SourceWidth: bitmap.Width,
             SourceHeight: bitmap.Height,
-            DestWidth: (float)Bounds.Width,
-            DestHeight: (float)Bounds.Height,
             Stretch: (BtlStretch)(int)Stretch,
             ToneMapping: ToneMapping,
             Exposure: ToneMappingExposure,

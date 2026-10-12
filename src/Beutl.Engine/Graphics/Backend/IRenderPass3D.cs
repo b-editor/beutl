@@ -52,7 +52,7 @@ public interface IRenderPass3D : IDisposable
     void DrawIndexed(uint indexCount, uint instanceCount = 1, uint firstIndex = 0, int vertexOffset = 0, uint firstInstance = 0);
 
     /// <summary>
-    /// Draws a fullscreen triangle for post-processing.
+    /// Draws non-indexed primitives.
     /// </summary>
     void Draw(uint vertexCount, uint instanceCount = 1, uint firstVertex = 0, uint firstInstance = 0);
 
@@ -61,10 +61,5 @@ public interface IRenderPass3D : IDisposable
     /// </summary>
     /// <typeparam name="T">The type of push constants data.</typeparam>
     /// <param name="data">The push constants data.</param>
-    /// <remarks>
-    /// Which shader stages the update names is the bound pipeline layout's to decide, not the caller's: an
-    /// update must name every stage of every declared range it overlaps, so a caller naming only the stage
-    /// it happens to read from would be describing something the layout does not offer.
-    /// </remarks>
     void SetPushConstants<T>(T data) where T : unmanaged;
 }

@@ -1,12 +1,8 @@
 ﻿using Beutl.Extensibility;
-using Beutl.FFmpegIpc;
 using Beutl.FFmpegWorker.Decoding;
 using Beutl.FFmpegWorker.Encoding;
-using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Decoding;
-using Beutl.Media.Music;
-using Beutl.Media.Music.Samples;
 using Beutl.Media.Source;
 using FFmpeg.AutoGen.Abstractions;
 using FFmpegSharp;
@@ -21,19 +17,7 @@ public sealed class EncodingStrideTests
     [OneTimeSetUp]
     public void OneTimeSetUp()
     {
-        Log.LoggerFactory = Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance;
-        try
-        {
-            FFmpegLoaderWorker.Initialize();
-        }
-        catch (FFmpegLibrariesNotFoundException)
-        {
-            Assert.Ignore("FFmpeg native libraries are not available.");
-        }
-        catch (DllNotFoundException)
-        {
-            Assert.Ignore("FFmpeg native library dependencies are not available.");
-        }
+        FFmpegTestHelpers.RequireFFmpeg();
     }
 
     [SetUp]
@@ -53,12 +37,11 @@ public sealed class EncodingStrideTests
     public async Task LosslessEncodingPreservesEveryRow(
         [Values(64, 854, 1366)] int width, [Values] bool hdr)
     {
-        AVPixelFormat encodedFormat = hdr ? AVPixelFormat.AV_PIX_FMT_GBRAP16LE : AVPixelFormat.AV_PIX_FMT_BGRA;
-        MediaCodec? codec = MediaCodec.FindEncoder("ffv1");
-        if (codec == null || !codec.GetPixelFmts().Contains(encodedFormat))
-            Assert.Ignore($"The FFV1 encoder does not support {encodedFormat}.");
-
         const int height = 24;
+        string outputPath = Path.Combine(_workDir, "columns.mkv");
+        FFmpegEncodingController controller = FFmpegTestHelpers.CreateLosslessController(
+            outputPath, new PixelSize(width, height), new PixelSize(width, height), hdr);
+
         using (var frame = MediaFrame.CreateVideoFrame(
             width, height, hdr ? AVPixelFormat.AV_PIX_FMT_RGBA64LE : AVPixelFormat.AV_PIX_FMT_BGRA))
         {
@@ -67,20 +50,6 @@ public sealed class EncodingStrideTests
             Assert.That(frame.Linesize[0], width == 64 ? Is.EqualTo(packedRowBytes) : Is.GreaterThan(packedRowBytes));
         }
 
-        string outputPath = Path.Combine(_workDir, "columns.mkv");
-        var controller = new FFmpegEncodingController(outputPath, new FFmpegEncodingSettings());
-        controller.VideoSettings.SourceSize = new PixelSize(width, height);
-        controller.VideoSettings.DestinationSize = new PixelSize(width, height);
-        controller.VideoSettings.FrameRate = new Rational(30, 1);
-        controller.VideoSettings.Codec = new CodecRecord("ffv1", "FFV1");
-        controller.VideoSettings.Options.Clear();
-        controller.VideoSettings.Format = (int)encodedFormat;
-        controller.VideoSettings.ColorTrc = hdr ? FFColorTransfer.SMPTE2084 : FFColorTransfer.IEC61966_2_1;
-        controller.VideoSettings.ColorPrimaries = hdr ? FFColorPrimaries.BT2020 : FFColorPrimaries.BT709;
-        controller.VideoSettings.ColorSpace = FFColorSpace.RGB;
-        controller.VideoSettings.ColorRange = FFColorRange.JPEG;
-        controller.AudioSettings.Codec = new CodecRecord("pcm_s16le", "PCM");
-        controller.AudioSettings.Format = FFmpegAudioEncoderSettings.AudioFormat.S16;
         using var frames = new ColumnFrameProvider(width, height);
         using var samples = new EmptySampleProvider();
 
@@ -91,14 +60,9 @@ public sealed class EncodingStrideTests
         Assert.That(bitmapReader.IsHdr, Is.EqualTo(hdr));
         int bytesPerPixel = hdr ? 8 : 4;
         var pixels = new byte[width * height * bytesPerPixel];
-        BitmapColorSpace colorSpace = hdr
-            ? ColorSpaceHelper.BuildHdrColorSpace(AVColorTransferCharacteristic.AVCOL_TRC_SMPTE2084, AVColorPrimaries.AVCOL_PRI_BT2020)
-            : BitmapColorSpace.Srgb;
 
         using Bitmap source = await frames.RenderFrame(0);
-        using Bitmap expected = source.Convert(
-            hdr ? BitmapColorType.Rgba16161616 : BitmapColorType.Bgra8888,
-            hdr ? BitmapAlphaType.Unpremul : BitmapAlphaType.Premul, colorSpace);
+        using Bitmap expected = FFmpegTestHelpers.ToDecodedLayout(source, hdr);
         Assert.That(bitmapReader.ReadVideo(0, out Ref<Bitmap>? decoded), Is.True);
         using (decoded)
         {
@@ -150,20 +114,6 @@ public sealed class EncodingStrideTests
 
             return ValueTask.FromResult(bitmap);
         }
-
-        public void Dispose()
-        {
-        }
-    }
-
-    private sealed class EmptySampleProvider : ISampleProvider
-    {
-        public long SampleCount => 0;
-
-        public long SampleRate => 44100;
-
-        public ValueTask<Pcm<Stereo32BitFloat>> Sample(long offset, long length) =>
-            throw new AssertionException("There are no audio samples to encode.");
 
         public void Dispose()
         {

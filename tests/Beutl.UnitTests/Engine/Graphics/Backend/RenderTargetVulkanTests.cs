@@ -34,6 +34,7 @@ public class RenderTargetVulkanTests
             Assert.That(target!.Width, Is.EqualTo(64));
             Assert.That(target.Height, Is.EqualTo(64));
             Assert.That(target.IsDisposed, Is.False);
+            Assert.That(target.Texture, Is.Not.Null, "on the render thread the target is backed by a GPU texture");
         });
     }
 

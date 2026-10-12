@@ -214,18 +214,15 @@ public sealed class SkslSnippetMergerTests
         });
     }
 
-    [TestCase(true)]
-    [TestCase(false)]
-    public void MergeAndSplit_AccountsForSamplerAndChildLimits(bool samplerLimit)
+    [Test]
+    public void MergeAndSplit_AccountsForSamplerLimit()
     {
         using var registry = new RenderRequestResourceRegistry();
         RenderResource<object> firstResource = registry.RegisterBorrowed(new object());
         RenderResource<object> secondResource = registry.RegisterBorrowed(new object());
         ShaderDescription first = ResourceShader("lookup", firstResource);
         ShaderDescription second = ResourceShader("lookup", secondResource);
-        SkslBackendBudget budget = samplerLimit
-            ? Budget(maxSamplers: 2)
-            : Budget(maxChildren: 2);
+        SkslBackendBudget budget = Budget(maxSamplers: 2);
 
         IReadOnlyList<SkslMergedProgram> programs = SkslSnippetMerger.MergeAndSplit(
             [first, second],
@@ -235,7 +232,6 @@ public sealed class SkslSnippetMergerTests
         {
             Assert.That(programs, Has.Count.EqualTo(2));
             Assert.That(programs.Select(static program => program.SamplerCount), Is.EqualTo(new[] { 2, 2 }));
-            Assert.That(programs.Select(static program => program.ChildCount), Is.EqualTo(new[] { 2, 2 }));
             Assert.That(programs, Has.All.Matches<SkslMergedProgram>(static program => !program.RequiresStandaloneExecution));
         });
     }
@@ -263,8 +259,6 @@ public sealed class SkslSnippetMergerTests
                 Is.EqualTo(new[] { budget.MaxSamplers - 1, 1 }));
             Assert.That(programs.Select(static program => program.SamplerCount),
                 Is.EqualTo(new[] { budget.MaxSamplers, 2 }));
-            Assert.That(programs.Select(static program => program.ChildCount),
-                Is.EqualTo(new[] { budget.MaxChildren, 2 }));
             Assert.That(programs, Has.All.Matches<SkslMergedProgram>(
                 static program => !program.RequiresStandaloneExecution));
         });
@@ -287,8 +281,6 @@ public sealed class SkslSnippetMergerTests
             Assert.That(program.SamplerCount, Is.EqualTo(budget.MaxSamplers + 1));
             Assert.That(program.RequiresStandaloneExecution, Is.True);
             Assert.That(program.OverflowReasons, Does.Contain(SkslBackendLimit.Samplers));
-            Assert.That(program.OverflowReasons.Contains(SkslBackendLimit.Children),
-                Is.EqualTo(program.ChildCount > budget.MaxChildren));
             Assert.That(program.StageCount, Is.EqualTo(1),
                 "an individually unsupported stage remains visible to the ordinary unfused fallback");
         });
@@ -540,7 +532,6 @@ public sealed class SkslSnippetMergerTests
         int maxStages = int.MaxValue,
         int maxUniformVectors = int.MaxValue,
         int maxSamplers = int.MaxValue,
-        int maxChildren = int.MaxValue,
         int maxSourceBytes = int.MaxValue,
         int maxProgramTokens = int.MaxValue)
     {
@@ -549,7 +540,6 @@ public sealed class SkslSnippetMergerTests
             maxStages,
             maxUniformVectors,
             maxSamplers,
-            maxChildren,
             maxSourceBytes,
             maxProgramTokens);
     }

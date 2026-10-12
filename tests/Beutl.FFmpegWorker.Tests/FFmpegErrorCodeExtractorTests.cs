@@ -9,26 +9,10 @@ public sealed class FFmpegErrorCodeExtractorTests
     // Signature: truncated MP4 without a moov atom.
     private const int InvalidDataCode = -1094995529;
 
-    // Skip native-dependent checks when FFmpeg is unavailable.
-    private static bool RequireFFmpeg()
-    {
-        try
-        {
-            FFmpegLoaderWorker.Initialize();
-            return true;
-        }
-        catch (Exception)
-        {
-            Assert.Ignore("FFmpeg shared libraries unavailable; skipping the native-dependent assertion.");
-            return false; // Assert.Ignore always throws.
-        }
-    }
-
     [Test]
     public void TryGetFFmpegErrorCode_ReturnsAVErrorCodeFromThrowIfErrorException()
     {
-        if (!RequireFFmpeg())
-            return;
+        FFmpegTestHelpers.RequireFFmpeg();
 
         // Match the constructor used by ThrowIfError.
         var ex = new FFmpegException(InvalidDataCode);
@@ -39,8 +23,7 @@ public sealed class FFmpegErrorCodeExtractorTests
     [Test]
     public void TryGetFFmpegErrorCode_WalksInnerExceptions()
     {
-        if (!RequireFFmpeg())
-            return;
+        FFmpegTestHelpers.RequireFFmpeg();
 
         var inner = new FFmpegException(InvalidDataCode);
         var outer = new InvalidOperationException("wrapper", inner);

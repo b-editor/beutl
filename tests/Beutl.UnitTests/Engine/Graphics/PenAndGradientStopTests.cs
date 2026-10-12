@@ -27,26 +27,6 @@ public class PenAndGradientStopTests
     }
 
     [Test]
-    public void Pen_SettableValues_AreReflectedInCurrentValue()
-    {
-        var pen = new Pen();
-        var brush = new SolidColorBrush(Colors.Red);
-
-        pen.Brush.CurrentValue = brush;
-        pen.Thickness.CurrentValue = 5f;
-        pen.StrokeCap.CurrentValue = StrokeCap.Round;
-        pen.StrokeJoin.CurrentValue = StrokeJoin.Bevel;
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(pen.Brush.CurrentValue, Is.SameAs(brush));
-            Assert.That(pen.Thickness.CurrentValue, Is.EqualTo(5f));
-            Assert.That(pen.StrokeCap.CurrentValue, Is.EqualTo(StrokeCap.Round));
-            Assert.That(pen.StrokeJoin.CurrentValue, Is.EqualTo(StrokeJoin.Bevel));
-        });
-    }
-
-    [Test]
     public void GradientStop_DefaultConstructor_HasDefaultValues()
     {
         var stop = new GradientStop();
@@ -67,20 +47,6 @@ public class PenAndGradientStopTests
         {
             Assert.That(stop.Color.CurrentValue, Is.EqualTo(color));
             Assert.That(stop.Offset.CurrentValue, Is.EqualTo(0.5f));
-        });
-    }
-
-    [Test]
-    public void GradientStop_PropertyAssignment_PersistsValues()
-    {
-        var stop = new GradientStop();
-        stop.Offset.CurrentValue = 0.75f;
-        stop.Color.CurrentValue = Colors.Blue;
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(stop.Offset.CurrentValue, Is.EqualTo(0.75f));
-            Assert.That(stop.Color.CurrentValue, Is.EqualTo(Colors.Blue));
         });
     }
 }

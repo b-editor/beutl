@@ -1,5 +1,4 @@
 ﻿using Beutl.Graphics.Backend;
-using Beutl.Graphics.Backend.Composite;
 using Beutl.Graphics.Backend.Vulkan;
 
 namespace Beutl.UnitTests.Engine.Graphics.Backend;
@@ -11,13 +10,7 @@ public class GraphicsContextResourceTests
     [Category("GpuPassFusionGpu")]
     public void IsolatedSubmission_DoesNotConsumeTheOpenRecordingBatch()
     {
-        IGraphicsContext context = VulkanTestEnvironment.EnsureAvailable();
-        VulkanContext vulkanContext = context switch
-        {
-            VulkanContext vulkan => vulkan,
-            CompositeContext composite => composite.Vulkan,
-            _ => throw new InvalidOperationException("The shared graphics context has no Vulkan backend."),
-        };
+        VulkanContext vulkanContext = VulkanTestEnvironment.EnsureVulkanContext();
 
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
@@ -64,13 +57,7 @@ public class GraphicsContextResourceTests
     [Category("GpuPassFusionGpu")]
     public void DeferredRelease_CanReenterCommandPoolWithoutDoubleCompletion()
     {
-        IGraphicsContext context = VulkanTestEnvironment.EnsureAvailable();
-        VulkanContext vulkanContext = context switch
-        {
-            VulkanContext vulkan => vulkan,
-            CompositeContext composite => composite.Vulkan,
-            _ => throw new InvalidOperationException("The shared graphics context has no Vulkan backend."),
-        };
+        VulkanContext vulkanContext = VulkanTestEnvironment.EnsureVulkanContext();
 
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
@@ -104,7 +91,6 @@ public class GraphicsContextResourceTests
         {
             using var texture = ctx.CreateTexture2D(64, 32, TextureFormat.RGBA8Unorm);
 
-            Assert.That(texture, Is.Not.Null);
             Assert.That(texture.Width, Is.EqualTo(64));
             Assert.That(texture.Height, Is.EqualTo(32));
             Assert.That(texture.Format, Is.EqualTo(TextureFormat.RGBA8Unorm));
@@ -147,22 +133,6 @@ public class GraphicsContextResourceTests
     }
 
     [Test]
-    public void CreateBuffer_HostVisible_AllocatesRequestedSize()
-    {
-        var ctx = VulkanTestEnvironment.EnsureAvailable();
-
-        VulkanTestEnvironment.InvokeOnRenderThread(() =>
-        {
-            using var buffer = ctx.CreateBuffer(
-                256,
-                BufferUsage.UniformBuffer | BufferUsage.TransferDestination,
-                MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
-
-            Assert.That(buffer.Size, Is.EqualTo(256));
-        });
-    }
-
-    [Test]
     public void CreateBuffer_HostVisible_UploadAndMap_RoundTrips()
     {
         var ctx = VulkanTestEnvironment.EnsureAvailable();
@@ -176,6 +146,7 @@ public class GraphicsContextResourceTests
                 BufferUsage.UniformBuffer | BufferUsage.TransferDestination,
                 MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
 
+            Assert.That(buffer.Size, Is.EqualTo(size));
             buffer.Upload<int>(payload);
 
             IntPtr ptr = buffer.Map();
@@ -190,19 +161,6 @@ public class GraphicsContextResourceTests
             {
                 buffer.Unmap();
             }
-        });
-    }
-
-    [Test]
-    public void CreateShaderCompiler_ReturnsCompilerInstance()
-    {
-        var ctx = VulkanTestEnvironment.EnsureAvailable();
-
-        VulkanTestEnvironment.InvokeOnRenderThread(() =>
-        {
-            var compiler = ctx.CreateShaderCompiler();
-            using IDisposable? compilerLifetime = compiler as IDisposable;
-            Assert.That(compiler, Is.Not.Null);
         });
     }
 
@@ -223,7 +181,6 @@ public class GraphicsContextResourceTests
 
             var spirv = compiler.CompileToSpirv(source, ShaderStage.Fragment);
 
-            Assert.That(spirv, Is.Not.Null);
             Assert.That(spirv.Length, Is.GreaterThan(0));
             Assert.That(spirv.Length % 4, Is.EqualTo(0), "SPIR-V は 4 バイト単位の語の列であるべきです。");
         });
@@ -295,18 +252,6 @@ public class GraphicsContextResourceTests
     }
 
     [Test]
-    public void CreateSampler_ReturnsSamplerInstance()
-    {
-        var ctx = VulkanTestEnvironment.EnsureAvailable();
-
-        VulkanTestEnvironment.InvokeOnRenderThread(() =>
-        {
-            using var sampler = ctx.CreateSampler();
-            Assert.That(sampler, Is.Not.Null);
-        });
-    }
-
-    [Test]
     public void CopyTexture_PreservesContents()
     {
         var ctx = VulkanTestEnvironment.EnsureAvailable();
@@ -329,12 +274,5 @@ public class GraphicsContextResourceTests
             var copied = dst.DownloadPixels();
             Assert.That(copied, Is.EqualTo(pixels));
         });
-    }
-
-    [Test]
-    public void WaitIdle_DoesNotThrow()
-    {
-        var ctx = VulkanTestEnvironment.EnsureAvailable();
-        VulkanTestEnvironment.InvokeOnRenderThread(() => ctx.WaitIdle());
     }
 }

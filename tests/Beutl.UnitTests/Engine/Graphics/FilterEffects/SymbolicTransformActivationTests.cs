@@ -2,6 +2,7 @@
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
+using Beutl.UnitTests.TestInfrastructure;
 using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.FilterEffects;
@@ -39,8 +40,6 @@ public sealed class SymbolicTransformActivationTests
 
     private static void AssertConsistent(Activation first, Activation second)
     {
-        TestContext.WriteLine($"first: reported={first.Reported} rendered={first.Rendered}");
-        TestContext.WriteLine($"second: reported={second.Reported} rendered={second.Rendered}");
         Assert.Multiple(() =>
         {
             Assert.That(first.Rendered, Is.EqualTo(first.Reported),
@@ -115,7 +114,7 @@ public sealed class SymbolicTransformActivationTests
 
     private static EffectTargets CreateSolidTargets(Rect bounds)
     {
-        using var backing = new CpuRenderTarget((int)bounds.Width, (int)bounds.Height);
+        using var backing = CpuRenderTargets.Create((int)bounds.Width, (int)bounds.Height);
         backing.Value.Canvas.Clear(new SKColor(255, 255, 255, 255));
         backing.Value.Canvas.Flush();
 
@@ -126,17 +125,4 @@ public sealed class SymbolicTransformActivationTests
     }
 
     private readonly record struct Activation(Rect Reported, Rect Rendered);
-
-    private sealed class CpuRenderTarget(int width, int height)
-        : RenderTarget(CreateSurface(width, height), width, height)
-    {
-        private static SKSurface CreateSurface(int width, int height)
-            => SKSurface.Create(new SKImageInfo(
-                   width,
-                   height,
-                   SKColorType.RgbaF16,
-                   SKAlphaType.Premul,
-                   SKColorSpace.CreateSrgbLinear()))
-               ?? throw new InvalidOperationException("A CPU effect-test surface could not be created.");
-    }
 }

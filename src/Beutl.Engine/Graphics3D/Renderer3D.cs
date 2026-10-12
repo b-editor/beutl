@@ -23,20 +23,16 @@ internal sealed class Renderer3D : IRenderer3D
     private readonly IShaderCompiler _shaderCompiler;
     private bool _disposed;
 
-    // Render passes
     private GeometryPass? _geometryPass;
     private LightingPass? _lightingPass;
     private TransparentPass? _transparentPass;
     private GizmoPass? _gizmoPass;
     private FlipPass? _flipPass;
 
-    // Shadow management
     private ShadowManager? _shadowManager;
 
-    // Final output for Skia integration
     private ITexture2D? _outputTexture;
 
-    // Cached render state for hit testing
     private Camera3D.Resource? _lastCamera;
     private IReadOnlyList<Object3D.Resource>? _lastObjects;
 
@@ -58,16 +54,8 @@ internal sealed class Renderer3D : IRenderer3D
     /// Whether a device with <paramref name="budget"/> could <see cref="Initialize"/> this extent.
     /// </summary>
     /// <remarks>
-    /// The extent-limit half of <see cref="Initialize"/>, asked without a device and without allocating, so
-    /// a recording can answer for what the execution will do. It covers the three extents
-    /// <see cref="Initialize"/> refuses on: the output texture the caller sized, and the two fixed shadow
-    /// extents <see cref="ShadowManager"/> allocates whatever the scene is - a device that cannot attach
-    /// those refuses every 3D scene, not only a large one. It deliberately does not predict a driver's
-    /// out-of-memory or any other runtime failure, which stay the allocation's to report.
-    /// <para>
-    /// This lives beside <see cref="Initialize"/> so the two are read together: an allocation added there
-    /// whose extent a device can refuse belongs here as well.
-    /// </para>
+    /// The extent-limit half of <see cref="Initialize"/>, asked without a device so a recording can answer for the
+    /// execution. An allocation added to <see cref="Initialize"/> whose extent a device can refuse belongs here too.
     /// </remarks>
     /// <exception cref="ArgumentOutOfRangeException">A dimension is zero or negative.</exception>
     internal static bool CanInitialize(Device3DExtentBudget budget, int width, int height)
@@ -165,6 +153,9 @@ internal sealed class Renderer3D : IRenderer3D
         if (Width == width && Height == height)
             return;
 
+        if (Width == 0)
+            throw new InvalidOperationException("The renderer must be initialized before it is resized.");
+
         // Allocate into locals first; old fields stay intact on failure.
         GeometryPass? geometryPass = null;
         LightingPass? lightingPass = null;
@@ -174,29 +165,20 @@ internal sealed class Renderer3D : IRenderer3D
         ITexture2D? outputTexture = null;
         try
         {
-            if (_geometryPass != null)
-            {
-                geometryPass = new GeometryPass(_context, _shaderCompiler);
-                geometryPass.Initialize(width, height);
-            }
+            geometryPass = new GeometryPass(_context, _shaderCompiler);
+            geometryPass.Initialize(width, height);
 
-            if (geometryPass?.DepthTexture != null)
-            {
-                lightingPass = new LightingPass(_context, _shaderCompiler, geometryPass.DepthTexture);
-                lightingPass.Initialize(width, height);
+            lightingPass = new LightingPass(_context, _shaderCompiler, geometryPass.DepthTexture!);
+            lightingPass.Initialize(width, height);
 
-                transparentPass = new TransparentPass(_context, _shaderCompiler, geometryPass.DepthTexture);
-                transparentPass.Initialize(width, height);
+            transparentPass = new TransparentPass(_context, _shaderCompiler, geometryPass.DepthTexture!);
+            transparentPass.Initialize(width, height);
 
-                gizmoPass = new GizmoPass(_context, _shaderCompiler, geometryPass.DepthTexture);
-                gizmoPass.Initialize(width, height);
-            }
+            gizmoPass = new GizmoPass(_context, _shaderCompiler, geometryPass.DepthTexture!);
+            gizmoPass.Initialize(width, height);
 
-            if (_flipPass != null)
-            {
-                flipPass = new FlipPass(_context, _shaderCompiler);
-                flipPass.Initialize(width, height);
-            }
+            flipPass = new FlipPass(_context, _shaderCompiler);
+            flipPass.Initialize(width, height);
 
             outputTexture = _context.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
         }
@@ -250,44 +232,33 @@ internal sealed class Renderer3D : IRenderer3D
             _gizmoPass == null || _flipPass == null || _shadowManager == null)
             return;
 
-        // Cache for hit testing
         _lastCamera = camera;
         _lastObjects = objects;
 
         float aspectRatio = (float)Width / Height;
 
-        // Separate objects into opaque and transparent
-
         using var opaqueObjects = new PooledList<Object3D.Resource>();
         using var transparentObjects = new PooledList<TransparentObjectEntry>();
         SeparateObjectsByTransparency(objects, camera, opaqueObjects, transparentObjects);
 
-        // Calculate scene bounds for shadow mapping
         var (sceneCenter, sceneRadius) = CalculateSceneBounds(objects);
 
-        // === SHADOW PASS ===
         var lightToShadowIndex = _shadowManager.RenderShadows(lights, objects, sceneCenter, sceneRadius);
         var shadowUbo = _shadowManager.GetShadowUBO();
-        _shadowManager.PrepareForSampling();
 
-        // Convert light resources to shader-compatible LightData
         using var lightDataList = new PooledList<LightData>();
         CollectLightData(lights, lightToShadowIndex, lightDataList);
 
-        // === GEOMETRY PASS (opaque objects only) ===
         _geometryPass.Execute(compositionContext, camera, opaqueObjects, aspectRatio, lightDataList, ambientColor, ambientIntensity, SurfaceDensity);
         _geometryPass.PrepareForSampling();
 
-        // === LIGHTING PASS ===
         _lightingPass.BindGBuffer(_geometryPass);
         _lightingPass.BindShadowMaps(_shadowManager);
         _lightingPass.Execute(camera, lightDataList, backgroundColor, ambientColor, ambientIntensity, shadowUbo);
         _lightingPass.PrepareForSampling();
 
-        // Determine the texture to pass to subsequent passes
         ITexture2D? colorOutput = _lightingPass.OutputTexture;
 
-        // === TRANSPARENT PASS ===
         if (transparentObjects.Count > 0)
         {
             _transparentPass.SetColorTexture(_lightingPass.OutputTexture!);
@@ -296,7 +267,6 @@ internal sealed class Renderer3D : IRenderer3D
             colorOutput = _transparentPass.OutputTexture;
         }
 
-        // === GIZMO PASS ===
         if (gizmoTarget != null && gizmoMode != GizmoMode.None)
         {
             _gizmoPass.SetColorTexture(colorOutput!);
@@ -311,12 +281,10 @@ internal sealed class Renderer3D : IRenderer3D
             colorOutput = _gizmoPass.OutputTexture;
         }
 
-        // === FLIP PASS ===
         _flipPass.SetInputTexture(colorOutput!);
         _flipPass.Execute();
         _flipPass.PrepareForSampling();
 
-        // Copy result to output texture for Skia integration
         CopyToOutputTexture();
     }
 
@@ -341,7 +309,6 @@ internal sealed class Renderer3D : IRenderer3D
 
             var lightData = LightData.FromLight(light);
 
-            // Set shadow index if this light casts shadows
             if (lightToShadowIndex.TryGetValue(lightIndex, out int shadowIdx))
             {
                 lightData.ShadowIndex = shadowIdx;
@@ -366,17 +333,12 @@ internal sealed class Renderer3D : IRenderer3D
     {
         foreach (var obj in objects)
         {
-            if (!obj.IsEnabled) continue;
-            opaqueObjects.Add(obj);
-            CollectTransparent(obj, Matrix4x4.Identity);
+            if (obj.IsEnabled)
+                opaqueObjects.Add(obj);
         }
 
-        void CollectTransparent(Object3D.Resource obj, Matrix4x4 parentMatrix)
+        Object3DTraversal.ForEachEnabled(objects, (obj, world) =>
         {
-            if (!obj.IsEnabled) return;
-            Matrix4x4 world = obj.GetWorldMatrix() * parentMatrix;
-            foreach (Object3D.Resource child in obj.GetChildResources())
-                CollectTransparent(child, world);
             if (IsTransparent(obj))
             {
                 transparentEntries.Add(new TransparentObjectEntry
@@ -391,9 +353,8 @@ internal sealed class Renderer3D : IRenderer3D
                     Order = transparentEntries.Count,
                 });
             }
-        }
+        });
 
-        // Sort transparent objects from far to near (painter's algorithm)
         transparentEntries.Sort(static (a, b) =>
         {
             int byDepth = b.DistanceToCamera.CompareTo(a.DistanceToCamera);
@@ -419,24 +380,8 @@ internal sealed class Renderer3D : IRenderer3D
         var min = new Vector3(float.MaxValue);
         var max = new Vector3(float.MinValue);
 
-        foreach (Object3D.Resource obj in objects)
+        Object3DTraversal.ForEachEnabled(objects, (obj, world) =>
         {
-            Include(obj, Matrix4x4.Identity);
-        }
-
-        if (min.X == float.MaxValue)
-            return (Vector3.Zero, 1f);
-
-        var center = (min + max) * 0.5f;
-        var radius = Math.Max(Vector3.Distance(min, max) * 0.5f, 1f);
-        return (center, radius);
-
-        void Include(Object3D.Resource obj, Matrix4x4 parentMatrix)
-        {
-            if (!obj.IsEnabled)
-                return;
-
-            Matrix4x4 world = obj.GetWorldMatrix() * parentMatrix;
             // Only shadow casters and lit receivers need to be in the shadow map; a transparent surface such
             // as a 2D card does not sample it.
             bool takesPartInShadows = obj.CastsVisibleShadow
@@ -455,12 +400,14 @@ internal sealed class Renderer3D : IRenderer3D
                     max = Vector3.Max(max, transformed);
                 }
             }
+        });
 
-            foreach (Object3D.Resource child in obj.GetChildResources())
-            {
-                Include(child, world);
-            }
-        }
+        if (min.X == float.MaxValue)
+            return (Vector3.Zero, 1f);
+
+        var center = (min + max) * 0.5f;
+        var radius = Math.Max(Vector3.Distance(min, max) * 0.5f, 1f);
+        return (center, radius);
     }
 
     /// <summary>
@@ -545,7 +492,6 @@ internal sealed class Renderer3D : IRenderer3D
         if (_flipPass?.OutputTexture == null || _outputTexture == null)
             return;
 
-        // Copy from flip pass output to shared output texture
         _context.CopyTexture(_flipPass.OutputTexture, _outputTexture);
     }
 

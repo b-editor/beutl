@@ -78,11 +78,6 @@ internal sealed unsafe partial class VulkanContext
     /// Resolves a caller-supplied backend resource to its concrete type after confirming this context created
     /// it.
     /// </summary>
-    /// <remarks>
-    /// A Vulkan handle names nothing outside the device that produced it, and mixing two contexts' framebuffers,
-    /// pipelines, descriptors, or copy operands is undefined behaviour the driver need not report. Rejecting the
-    /// resource here turns that into an argument error before any handle reaches a native call.
-    /// </remarks>
     /// <exception cref="ArgumentNullException"><paramref name="resource"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentException">
     /// <paramref name="resource"/> is not a <typeparamref name="TResource"/>, or belongs to another context.

@@ -3,7 +3,6 @@ using System.Runtime.InteropServices;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics3D.Lighting;
 using Beutl.Graphics3D.Materials;
-using Beutl.Graphics3D.Meshes;
 using Beutl.Media;
 
 namespace Beutl.Graphics3D.Nodes;
@@ -63,14 +62,6 @@ void main() {
 }
 ";
 
-    // Push constants: 128 bytes exactly (2 matrices)
-    [StructLayout(LayoutKind.Sequential)]
-    private struct PointShadowPushConstants
-    {
-        public Matrix4x4 Model;
-        public Matrix4x4 LightViewProjection;
-    }
-
     // UBO for light data: 16 bytes (vec3 + float with padding)
     [StructLayout(LayoutKind.Sequential)]
     private struct LightDataUBO
@@ -90,9 +81,7 @@ void main() {
         (-Vector3.UnitZ, -Vector3.UnitY)   // -Z (Back)
     ];
 
-    private IPipeline3D? _shadowPipeline;
-    private IPipeline3D? _doubleSidedShadowPipeline;
-    private IPipeline3D? _boundPipeline;
+    private readonly ShadowCasterPipelines _pipelines = new();
     private IDescriptorSet? _descriptorSet;
     private IDescriptorSet? _doubleSidedDescriptorSet;
     private IBuffer? _lightDataBuffer;
@@ -148,7 +137,6 @@ void main() {
 
     protected override void OnInitialize(int width, int height)
     {
-        // Point shadow pass uses its own fixed size
         CreateShadowCubeMap(DefaultCubeFaceSize);
         CompileShaders();
         CreatePipeline();
@@ -157,7 +145,6 @@ void main() {
 
     protected override void OnResize(int width, int height)
     {
-        // Shadow map size is independent of screen size
     }
 
     /// <summary>
@@ -180,27 +167,20 @@ void main() {
         // a refused resize keeps the map it had.
         DeviceExtentLimits.ThrowIfCannotAttachCubeFaces(Context, faceSize);
 
-        // Dispose old resources
         DisposeFaceResources();
         RenderPass?.Dispose();
         ShadowCubeTexture?.Dispose();
 
-        // Create shadow cube map texture
         ShadowCubeTexture = Context.CreateTextureCube(faceSize, TextureFormat.Depth32Float);
 
-        // Create render pass (shared for all faces)
         RenderPass = Context.CreateRenderPass3D(s_shadowPassFormats, TextureFormat.Depth32Float);
 
-        // Create per-face resources
         for (int i = 0; i < 6; i++)
         {
-            // Create dummy color texture for this face
             _faceDummyTextures[i] = Context.CreateTexture2D(faceSize, faceSize, TextureFormat.R8Unorm);
 
-            // Create depth texture for this face
             _faceDepthTextures[i] = Context.CreateTexture2D(faceSize, faceSize, TextureFormat.Depth32Float);
 
-            // Create framebuffer with the face's depth texture
             _faceFramebuffers[i] = Context.CreateFramebuffer3D(
                 RenderPass,
                 [_faceDummyTextures[i]!],
@@ -228,50 +208,21 @@ void main() {
         if (RenderPass == null || _vertexShaderSpirv == null || _fragmentShaderSpirv == null)
             return;
 
-        _shadowPipeline?.Dispose();
-        _doubleSidedShadowPipeline?.Dispose();
         _descriptorSet?.Dispose();
         _doubleSidedDescriptorSet?.Dispose();
 
-        // Descriptor binding for light data UBO
         var descriptorBindings = new DescriptorBinding[]
         {
             new(0, DescriptorType.UniformBuffer, 1, ShaderStage.Fragment)
         };
+        _pipelines.Create(Context, RenderPass, _vertexShaderSpirv, _fragmentShaderSpirv, descriptorBindings);
 
-        var options = new PipelineOptions
-        {
-            DepthTestEnabled = true,
-            DepthWriteEnabled = true,
-            // Casters cull the sides their material culls when drawn, so a one-sided surface seen from behind
-            // casts nothing; double-sided materials use the no-cull variant.
-            CullMode = CullMode.Back
-        };
-
-        _shadowPipeline = Context.CreatePipeline3D(
-            RenderPass,
-            _vertexShaderSpirv,
-            _fragmentShaderSpirv,
-            descriptorBindings,
-            Vertex3D.GetVertexInputDescription(),
-            options);
-
-        // Create descriptor set for light data
         var poolSizes = new DescriptorPoolSize[]
         {
             new(DescriptorType.UniformBuffer, 1)
         };
-        _descriptorSet = Context.CreateDescriptorSet(_shadowPipeline, poolSizes);
-
-        options.CullMode = CullMode.None;
-        _doubleSidedShadowPipeline = Context.CreatePipeline3D(
-            RenderPass,
-            _vertexShaderSpirv,
-            _fragmentShaderSpirv,
-            descriptorBindings,
-            Vertex3D.GetVertexInputDescription(),
-            options);
-        _doubleSidedDescriptorSet = Context.CreateDescriptorSet(_doubleSidedShadowPipeline, poolSizes);
+        _descriptorSet = Context.CreateDescriptorSet(_pipelines.OneSided!, poolSizes);
+        _doubleSidedDescriptorSet = Context.CreateDescriptorSet(_pipelines.DoubleSided!, poolSizes);
 
         if (_lightDataBuffer != null)
         {
@@ -285,7 +236,6 @@ void main() {
         _lightDataBuffer?.Dispose();
         _lightDataBuffer = MaterialGpuResources.CreateUniformBuffer<LightDataUBO>(Context);
 
-        // Bind to descriptor set
         _descriptorSet?.UpdateBuffer(0, _lightDataBuffer);
         _doubleSidedDescriptorSet?.UpdateBuffer(0, _lightDataBuffer);
     }
@@ -311,17 +261,14 @@ void main() {
         _lightPosition = light.Position;
         _farPlane = light.Range;
 
-        // Update the light data UBO
         UpdateLightData();
 
-        // 90 degree FOV for cube faces
         _lightProjectionMatrix = Matrix4x4.CreatePerspectiveFieldOfView(
             MathF.PI / 2f,  // 90 degrees
             1.0f,           // Square faces
             0.1f,
             _farPlane);
 
-        // Create view matrices for each cube face
         for (int i = 0; i < 6; i++)
         {
             var (direction, up) = s_cubeFaceDirections[i];
@@ -336,15 +283,13 @@ void main() {
     public void Execute(IReadOnlyList<Object3D.Resource> objects)
     {
         if (RenderPass == null
-            || _shadowPipeline == null
+            || !_pipelines.IsCreated
             || _descriptorSet == null
-            || _doubleSidedShadowPipeline == null
             || _doubleSidedDescriptorSet == null)
         {
             return;
         }
 
-        // Render each cube face
         for (int faceIndex = 0; faceIndex < 6; faceIndex++)
         {
             ExecuteFace(faceIndex, objects);
@@ -358,49 +303,28 @@ void main() {
         if (framebuffer == null || depthTexture == null || ShadowCubeTexture == null)
             return;
 
-        // Calculate light VP for this face (View * Projection in C# System.Numerics)
         var lightVP = _lightViewMatrices[faceIndex] * _lightProjectionMatrix;
 
-        // Begin pass with this face's framebuffer
         Span<Color> clearColors = [new Color(255, 255, 255, 255)];
         RenderPass!.Begin(framebuffer, clearColors);
         try
         {
-            _boundPipeline = null;
+            _pipelines.ResetBinding();
 
-            foreach (var obj in objects)
+            Object3DTraversal.ForEachEnabled(objects, (obj, worldMatrix) =>
             {
-                RenderObject(obj, lightVP, Matrix4x4.Identity);
-            }
+                // CastShadows is per object; enabled children still traverse a non-casting parent. A fully
+                // transparent material draws nothing, so it casts nothing either.
+                if (obj.CastsVisibleShadow)
+                    RenderMesh(obj, lightVP, worldMatrix);
+            });
         }
         finally
         {
             RenderPass.End();
         }
 
-        // Copy the rendered depth to the cube map face
         Context.CopyTextureToCubeFace(depthTexture, ShadowCubeTexture, faceIndex);
-    }
-
-    private void RenderObject(Object3D.Resource obj, Matrix4x4 lightVP, Matrix4x4 parentMatrix)
-    {
-        if (!obj.IsEnabled)
-            return;
-
-        // Calculate combined world matrix
-        var worldMatrix = obj.GetWorldMatrix() * parentMatrix;
-
-        // Render children if any
-        var children = obj.GetChildResources();
-        foreach (var child in children)
-        {
-            RenderObject(child, lightVP, worldMatrix);
-        }
-
-        // CastShadows is per object; enabled children still traverse a non-casting parent. A fully transparent
-        // material draws nothing, so it casts nothing either.
-        if (obj.CastsVisibleShadow)
-            RenderMesh(obj, lightVP, worldMatrix);
     }
 
     private void RenderMesh(Object3D.Resource obj, Matrix4x4 lightVP, Matrix4x4 worldMatrix)
@@ -410,28 +334,17 @@ void main() {
             return;
 
         bool doubleSided = obj.Material?.IsDoubleSided == true;
-        IPipeline3D pipeline = doubleSided ? _doubleSidedShadowPipeline! : _shadowPipeline!;
-        if (!ReferenceEquals(pipeline, _boundPipeline))
-        {
-            RenderPass!.BindPipeline(pipeline);
-            RenderPass.BindDescriptorSet(pipeline, doubleSided ? _doubleSidedDescriptorSet! : _descriptorSet!);
-            _boundPipeline = pipeline;
-        }
+        if (_pipelines.Bind(RenderPass!, doubleSided, out IPipeline3D pipeline))
+            RenderPass!.BindDescriptorSet(pipeline, doubleSided ? _doubleSidedDescriptorSet! : _descriptorSet!);
 
-        // Set push constants (128 bytes: Model + LightViewProjection)
-        var pushConstants = new PointShadowPushConstants
-        {
-            Model = worldMatrix,
-            LightViewProjection = lightVP
-        };
-        RenderPass!.SetPushConstants(pushConstants);
+        ShadowCasterPipelines.SetPushConstants(RenderPass!, worldMatrix, lightVP);
 
-        MeshDrawHelper.Draw(RenderPass, meshResource);
+        MeshDrawHelper.Draw(RenderPass!, meshResource);
     }
 
     protected override void OnDispose()
     {
-        DisposeResources([_shadowPipeline, _doubleSidedShadowPipeline, _descriptorSet,
+        DisposeResources([_pipelines.OneSided, _pipelines.DoubleSided, _descriptorSet,
             _doubleSidedDescriptorSet, _lightDataBuffer, .. _faceFramebuffers,
             .. _faceDummyTextures, .. _faceDepthTextures, RenderPass, ShadowCubeTexture]);
     }

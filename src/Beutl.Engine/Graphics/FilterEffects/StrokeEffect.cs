@@ -87,7 +87,7 @@ public partial class StrokeEffect : FilterEffect
 
                     using (newCanvas.PushTransform(Matrix.CreateTranslation(data.Offset.X, data.Offset.Y)))
                     {
-                        newCanvas.DrawSKPath(borderPath, true, null, pen);
+                        newCanvas.DrawSKPath(borderPath, pen);
                     }
 
                     if (data.Style == StrokeStyles.Foreground)

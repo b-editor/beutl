@@ -96,7 +96,7 @@ public readonly struct RenderContext3D
     public float SurfaceDensity { get; }
 
     /// <summary>
-    /// Gets the primary directional light direction (for backwards compatibility).
+    /// Gets the primary directional light direction, which <see cref="Materials.TransparentMaterial"/> lights with.
     /// Returns (0, -1, -1) if no directional light is present.
     /// </summary>
     public Vector3 LightDirection
@@ -113,7 +113,7 @@ public readonly struct RenderContext3D
     }
 
     /// <summary>
-    /// Gets the primary directional light color (for backwards compatibility).
+    /// Gets the primary directional light color, which <see cref="Materials.TransparentMaterial"/> lights with.
     /// Returns (1, 1, 1) if no directional light is present.
     /// </summary>
     public Vector3 LightColor

@@ -89,7 +89,6 @@ public sealed partial class DrawableTextureSource : TextureSource
                     "A drawable texture used by a deferred render callback has no prepared nested target.");
             }
 
-            // Rasterize at surfaceDensity so vector content stays crisp.
             int textureWidth = TextureWidth;
             int textureHeight = TextureHeight;
             float density = ResolveDensity(surfaceDensity);
@@ -99,7 +98,6 @@ public sealed partial class DrawableTextureSource : TextureSource
             RenderTarget? renderTarget = EnsureRenderTarget(deviceWidth, deviceHeight);
             if (renderTarget == null) return null;
 
-            // Re-render on content change or density change.
             if (_renderTargetVersion != Version || _lastDensity != density)
             {
                 RenderContent(renderTarget, density, textureWidth, textureHeight);
@@ -152,7 +150,6 @@ public sealed partial class DrawableTextureSource : TextureSource
                 renderer.Render(canvas);
             }
 
-            // Prepare for sampling (flush the surface)
             renderTarget.PrepareForSampling(RenderTargetSamplingIntent.BackendInterop);
             _renderTargetVersion = Version;
         }

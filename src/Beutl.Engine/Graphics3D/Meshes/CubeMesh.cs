@@ -103,20 +103,21 @@ public sealed partial class CubeMesh : Mesh
             new(new Vector3(-halfW, halfH, -halfD), new Vector3(-1, 0, 0), new Vector2(0, 0), tangentLeft),
         ];
 
-        // 36 indices (6 per face, 6 faces) - counter-clockwise winding for front faces
+        // 36 indices (6 per face, 6 faces), wound so each triangle's winding normal points into the cube, as
+        // HitTester3D expects of a front face
         indices =
         [
-            // Front (looking at Z+, CCW = 0,2,1 then 0,3,2)
+            // Front (Z+)
             0, 2, 1, 0, 3, 2,
-            // Back (looking at Z-, CCW)
+            // Back (Z-)
             4, 6, 5, 4, 7, 6,
-            // Top (looking at Y+, CCW)
+            // Top (Y+)
             8, 10, 9, 8, 11, 10,
-            // Bottom (looking at Y-, CCW)
+            // Bottom (Y-)
             12, 14, 13, 12, 15, 14,
-            // Right (looking at X+, CCW)
+            // Right (X+)
             16, 18, 17, 16, 19, 18,
-            // Left (looking at X-, CCW)
+            // Left (X-)
             20, 22, 21, 20, 23, 22
         ];
 

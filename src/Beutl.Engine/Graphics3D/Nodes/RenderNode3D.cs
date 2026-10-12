@@ -5,7 +5,6 @@ namespace Beutl.Graphics3D.Nodes;
 
 /// <summary>
 /// Abstract base class for all 3D rendering nodes.
-/// Provides common functionality for both render and compute operations.
 /// </summary>
 public abstract class RenderNode3D : IDisposable
 {

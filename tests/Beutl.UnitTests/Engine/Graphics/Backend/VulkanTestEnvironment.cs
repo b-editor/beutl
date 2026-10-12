@@ -1,11 +1,14 @@
-﻿using Beutl.Graphics.Backend;
+﻿using System.Reflection;
+using Beutl.Graphics.Backend;
+using Beutl.Graphics.Backend.Composite;
 using Beutl.Graphics.Backend.Vulkan;
 using Beutl.Graphics.Rendering;
+using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Backend;
 
 /// <summary>
-/// Helpers for unit tests that need Vulkan: render-thread invocation and the validation gate.
+/// Helpers for unit tests that need Vulkan: the Vulkan context, render-thread invocation and the validation gate.
 /// <see cref="TestGpu"/> decides whether a device is available.
 /// </summary>
 internal static class VulkanTestEnvironment
@@ -17,6 +20,23 @@ internal static class VulkanTestEnvironment
     /// available (<see cref="TestGpu.RequireAnyDevice"/>).
     /// </summary>
     public static IGraphicsContext EnsureAvailable() => TestGpu.RequireAnyDevice();
+
+    /// <summary>Like <see cref="EnsureAvailable"/>, but returns the Vulkan context behind the shared one.</summary>
+    public static VulkanContext EnsureVulkanContext() => ResolveVulkan(EnsureAvailable());
+
+    /// <summary>Returns <paramref name="context"/> as a Vulkan context, or the Vulkan side of a composite one.</summary>
+    public static VulkanContext ResolveVulkan(IGraphicsContext context) => context switch
+    {
+        VulkanContext vulkan => vulkan,
+        CompositeContext composite => composite.Vulkan,
+        _ => throw new InvalidOperationException("The graphics context has no Vulkan backend."),
+    };
+
+    /// <summary>Reads the private backend texture Skia draws <paramref name="texture"/> through.</summary>
+    public static GRBackendTexture GetSkiaBackendTexture(VulkanTexture2D texture)
+        => (GRBackendTexture)typeof(VulkanTexture2D)
+            .GetField("_skiaBackendTexture", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(texture)!;
 
     public static T InvokeOnRenderThread<T>(Func<T> func)
     {
@@ -56,14 +76,9 @@ internal static class VulkanTestEnvironment
 
     /// <summary>Fails when the shared log holds an error no invocation was wrapped to read.</summary>
     /// <remarks>
-    /// <see cref="InvokeOnRenderThread(Action)"/> reads the log by taking a count before the call it
-    /// dispatches, so an error raised by GPU work invoked straight through <c>RenderThread.Dispatcher</c>
-    /// falls before the next snapshot and is never attributed to anything. The suite reads the log once at
-    /// the end so that error still fails the run rather than leaving the validation job green.
-    /// <para>
-    /// A failure here belongs to no test, so <c>dotnet test</c> still prints <c>Passed!</c> and reports it
-    /// only as "TearDown failed for test fixture" plus a non-zero exit code. Read the exit code.
-    /// </para>
+    /// The suite calls this once at the end, so a validation error recorded outside
+    /// <see cref="InvokeOnRenderThread(Action)"/> still fails the run. The failure belongs to no test, so read the
+    /// <c>dotnet test</c> exit code.
     /// </remarks>
     public static void AssertNoUnattributedValidationErrors()
     {
