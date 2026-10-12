@@ -131,13 +131,14 @@ def test_command(root, assembly, suite, validation):
     return command
 
 
+def test_count(path):
+    counters = ET.parse(path).find(".//{*}Counters")
+    return 0 if counters is None else int(counters.attrib["total"])
+
+
 def has_test_results(directory):
     # VSTest can return success for a filter matching no tests. A shard must actually discover tests.
-    for path in directory.glob("*.trx"):
-        counters = ET.parse(path).find(".//{*}Counters")
-        if counters is not None and int(counters.attrib["total"]) > 0:
-            return True
-    return False
+    return any(test_count(path) > 0 for path in directory.glob("*.trx"))
 
 
 def not_executed(paths):
@@ -220,9 +221,18 @@ def check_results(directory):
     if not paths:
         print(f"::error::No test results in {directory}", flush=True)
         return 1
+    failed = False
     # Each dotnet test run writes one TRX file, so each file holds one assembly.
-    passed = [report_skips(trx_assembly(path), [path]) for path in paths]
-    return 0 if all(passed) else 1
+    for path in paths:
+        label = trx_assembly(path)
+        if not report_skips(label, [path]):
+            failed = True
+        elif test_count(path) == 0:
+            # As in run(): dotnet test succeeds for a run that discovered no tests. Without definitions the
+            # label is the file name, which the "Results File" line of that run shows.
+            print(f"::error::No tests ran for {label}", flush=True)
+            failed = True
+    return 1 if failed else 0
 
 
 def run(root, suite, validation):

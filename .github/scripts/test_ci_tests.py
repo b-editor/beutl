@@ -305,6 +305,19 @@ class CiTestsTests(unittest.TestCase):
             self.assertEqual(ci_tests.check_results(missing), 1)
             self.assertIn("::error::Could not read the test results of truncated", self.output.getvalue())
 
+    def test_a_run_without_the_script_that_found_no_tests_fails(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            (directory / "a.trx").write_text(trx([("Ran", "Passed", "")], assembly="Beutl.UnitTests"))
+            # dotnet test exits with 0 for a run that finds no tests; its TRX has no test definitions.
+            empty = directory / "_runner_2026-10-12_03_10_08_net10.0.trx"
+            empty.write_text(trx([]))
+            self.assertEqual(ci_tests.check_results(directory), 1)
+            self.assertIn(f"::error::No tests ran for {empty.stem}", self.output.getvalue())
+            self.assertNotIn("No tests ran for Beutl.UnitTests", self.output.getvalue())
+            empty.unlink()
+            self.assertEqual(ci_tests.check_results(directory), 0)
+
 
 def trx(results, assembly=None):
     rows = "".join(
