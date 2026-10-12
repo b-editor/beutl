@@ -11,8 +11,8 @@ namespace Beutl.ProjectSystem;
 // A scene's media fingerprints, which the missing-media repair tool matches files by, in a JSON file in the scene's
 // folder (Intro/Intro.scene keeps Intro/media-fingerprints.json) that the scene file references under
 // "MediaFingerprintFile". The name is fixed because every scene gets a folder of its own. The file maps each media
-// path, relative to it, to the file's length and SHA-256, in ordinal key order, and is written only when that
-// changes. A scene without fingerprints has no file, and a file with a later Version is kept as it is.
+// path, relative to it, to the file's length and SHA-256, in ordinal key order, and the editor writes it only when
+// that changes. A scene without fingerprints has no file, and a file with a later Version is kept as it is.
 internal sealed class MediaFingerprintFile : CoreObject
 {
     // In the scene file's folder.
@@ -52,7 +52,8 @@ internal sealed class MediaFingerprintFile : CoreObject
     internal static string GetPath(string scenePath) => Path.Combine(Path.GetDirectoryName(scenePath) ?? string.Empty, FileName);
 
     // The format version and the fingerprints, keyed relative to the file: Id and Name mean nothing here. An object
-    // from a later version's file is never saved, and an embedded copy of it keeps only that version.
+    // from a later version's file is never written this way, since its file keeps the bytes it was read with, and an
+    // embedded copy of it keeps only that version.
     public override void Serialize(ICoreSerializationContext context)
     {
         context.SetValue(VersionProperty, _laterVersion ?? CurrentVersion);
@@ -113,6 +114,10 @@ internal sealed class MediaFingerprintFile : CoreObject
                 CoreSerializer.PopulateFromUri(file, source);
                 if (file.IsFromLaterVersion)
                 {
+                    // A save of the scene that stores this object keeps the file as it is instead of writing this
+                    // version's format over it.
+                    file.SuppressedStorageSource =
+                        new SuppressedStorageSource(File.ReadAllBytes(source.LocalPath), source);
                     s_logger.LogWarning(
                         "The media fingerprints in {Uri} have format version {Version}, which this version of Beutl does not read; the scene opens without them, and the file is left as it is.",
                         source,
@@ -133,10 +138,8 @@ internal sealed class MediaFingerprintFile : CoreObject
         }
     }
 
-    // Writes the fingerprints to fileUri, or removes the file there when there are none, unless the file already
-    // holds them or a later version of Beutl wrote it. An object read from such a file writes nothing. Returns
-    // whether the file changed. A save of the scene calls it rather than letting the serializer store the file,
-    // which rewrites it every time.
+    // Writes the fingerprints to fileUri, or removes the file when there are none, unless it already holds them or a
+    // later version wrote it. Returns whether the file changed.
     internal bool Save(Uri fileUri)
     {
         if (IsFromLaterVersion) return false;
