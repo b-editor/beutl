@@ -38,9 +38,10 @@ public sealed class UnsupportedFileVersionException : Exception
     public string RequiredVersion { get; }
 
     /// <summary>
-    /// Gets <see cref="RequiredVersion"/> in a form that is safe to show: <c>major.minor.patch</c>, with a
-    /// <c>preview</c>, <c>alpha</c>, <c>beta</c> or <c>rc</c> label and its number when the file records one.
-    /// <see langword="null"/> when the file does not record a version.
+    /// Gets <see cref="RequiredVersion"/> in a form that is safe to show: its numbers (<c>major.minor.patch</c>,
+    /// and the fourth number when it is not zero), with a <c>preview</c>, <c>alpha</c>, <c>beta</c> or <c>rc</c>
+    /// label and its number when the file records one. <see langword="null"/> when <see cref="RequiredVersion"/>
+    /// is not a valid version string.
     /// </summary>
     public string? DisplayVersion { get; }
 
@@ -53,7 +54,10 @@ public sealed class UnsupportedFileVersionException : Exception
             return null;
         }
 
-        string core = $"{version.Major}.{version.Minor}.{version.Patch}";
+        // NuGet compares a fourth number, so dropping it could name a version that is still refused.
+        string core = version.Revision > 0
+            ? $"{version.Major}.{version.Minor}.{version.Patch}.{version.Revision}"
+            : $"{version.Major}.{version.Minor}.{version.Patch}";
         string[] labels = version.ReleaseLabels.ToArray();
         return labels is ["preview" or "alpha" or "beta" or "rc", var number]
                && int.TryParse(number, NumberStyles.None, CultureInfo.InvariantCulture, out _)

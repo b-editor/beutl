@@ -169,11 +169,14 @@ public class ProjectPersistenceTests
         });
     }
 
-    [TestCase("10.0.0")]
-    [TestCase("unknown-version")]
-    [TestCase("1.0.0+")]
-    [TestCase("1.0.0-alpha..1")]
-    public void A_project_recording_a_minimum_this_build_does_not_meet_is_refused(string recordedMinAppVersion)
+    // The message names a version only in its safe display form, and never repeats text that is not a version.
+    [TestCase("10.0.0", "10.0.0")]
+    [TestCase("unknown-version", null)]
+    [TestCase("1.0.0+", null)]
+    [TestCase("1.0.0-alpha..1", null)]
+    public void A_project_recording_a_minimum_this_build_does_not_meet_is_refused(
+        string recordedMinAppVersion,
+        string? displayVersion)
     {
         string path = SaveProjectRecording(recordedMinAppVersion);
 
@@ -183,8 +186,13 @@ public class ProjectPersistenceTests
         Assert.Multiple(() =>
         {
             Assert.That(refused!.RequiredVersion, Is.EqualTo(recordedMinAppVersion));
+            Assert.That(refused.DisplayVersion, Is.EqualTo(displayVersion));
             Assert.That(refused.Uri.LocalPath, Is.EqualTo(path));
-            Assert.That(refused.Message, Does.Contain(path).And.Contain(recordedMinAppVersion));
+            Assert.That(
+                refused.Message,
+                displayVersion is null
+                    ? Does.Contain(path).And.Not.Contain(recordedMinAppVersion)
+                    : Does.Contain(path).And.Contain(displayVersion));
         });
     }
 
