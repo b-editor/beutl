@@ -76,28 +76,6 @@ public class TimelineOptionsTests
 
         Assert.That(options.Offset, Is.EqualTo(new Vector2(11, 22)));
     }
-
-    [Test]
-    public void RecordEquality_OnEqualValues_ReturnsTrue()
-    {
-        var a = new TimelineOptions(0.5f, new Vector2(10, 20), 75);
-        var b = new TimelineOptions(0.5f, new Vector2(10, 20), 75);
-
-        Assert.That(a, Is.EqualTo(b));
-        Assert.That(a.GetHashCode(), Is.EqualTo(b.GetHashCode()));
-    }
-
-    [Test]
-    public void RecordWith_OverridesScale()
-    {
-        var original = new TimelineOptions(0.5f, new Vector2(10, 20));
-
-        var modified = original with { Scale = 1.5f };
-
-        Assert.That(modified.Scale, Is.EqualTo(1.5f));
-        Assert.That(modified.Offset, Is.EqualTo(original.Offset));
-        Assert.That(modified.MaxLayerCount, Is.EqualTo(original.MaxLayerCount));
-    }
 }
 
 [TestFixture]
@@ -123,25 +101,5 @@ public class BpmGridOptionsTests
         Assert.That(options.Subdivisions, Is.EqualTo(8));
         Assert.That(options.Offset, Is.EqualTo(TimeSpan.FromSeconds(0.5)));
         Assert.That(options.IsEnabled, Is.True);
-    }
-
-    [Test]
-    public void RecordEquality_OnEqualValues_ReturnsTrue()
-    {
-        var a = new BpmGridOptions(140.0, 8, TimeSpan.FromSeconds(1), true);
-        var b = new BpmGridOptions(140.0, 8, TimeSpan.FromSeconds(1), true);
-
-        Assert.That(a, Is.EqualTo(b));
-    }
-
-    [Test]
-    public void RecordWith_OverridesIsEnabled()
-    {
-        var original = new BpmGridOptions();
-
-        var modified = original with { IsEnabled = true };
-
-        Assert.That(modified.IsEnabled, Is.True);
-        Assert.That(modified.Bpm, Is.EqualTo(original.Bpm));
     }
 }

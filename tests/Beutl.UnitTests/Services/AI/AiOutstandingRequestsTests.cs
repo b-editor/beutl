@@ -7,10 +7,8 @@ public class AiOutstandingRequestsTests
     [Test]
     public void TryFind_ReadsTheRequestThatWasSentLast()
     {
-        // 同じ task の依頼が 2 つ未回収で残ることがある——1 枚目を X で、2 枚目を
-        // Y で送って、どちらも答えが返らないまま戻ってきたとき。戻り先の一覧が
-        // どちらのモデルに落ち着くかが呼び出しごとに変わると、画面が見せるものが
-        // 定まらない。最後に送ったものが、画面が最後に見せていたもの。
+        // Two requests of the same task can stay outstanding.
+        // The one sent last is what the screen showed last.
         var requests = new AiOutstandingRequests();
         requests.Remember(new AiRequestName("upscale-first", IsRepeat: false), ["upscale", "model-x"]);
         requests.Remember(new AiRequestName("upscale-second", IsRepeat: false), ["upscale", "model-y"]);
