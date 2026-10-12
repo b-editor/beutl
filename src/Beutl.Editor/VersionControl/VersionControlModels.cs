@@ -2,18 +2,6 @@
 
 namespace Beutl.Editor.VersionControl;
 
-internal static class RepositoryPathComparer
-{
-    internal static bool AreEquivalent(string left, string right)
-        => VersionControlPathComparison.AreSameCanonicalPath(left, right);
-
-    internal static bool IsContainedWithin(string root, string path)
-        => VersionControlPathComparison.IsSameOrDescendant(root, path);
-
-    internal static string ResolveCanonicalPath(string path)
-        => VersionControlPathComparison.ResolveCanonicalPath(path);
-}
-
 public enum GitAvailabilityState
 {
     Installed,
@@ -53,9 +41,9 @@ public sealed record RepositoryInfo
         // case-insensitive rule would merge stay apart on a case-sensitive volume. Comparing the
         // given paths under a per-platform rule gets one of those two cases wrong either way.
         string canonicalRepoRoot = Path.TrimEndingDirectorySeparator(
-            RepositoryPathComparer.ResolveCanonicalPath(normalizedRepoRoot));
+            FilePathComparison.ResolveCanonicalPath(normalizedRepoRoot));
         string canonicalProjectRoot = Path.TrimEndingDirectorySeparator(
-            RepositoryPathComparer.ResolveCanonicalPath(normalizedProjectRoot));
+            FilePathComparison.ResolveCanonicalPath(normalizedProjectRoot));
         string relativeProject = GetContainedRelativePath(canonicalRepoRoot, canonicalProjectRoot)
                                  ?? throw new ArgumentException(
                                      "The project root must be inside the repository root.",
@@ -181,42 +169,6 @@ public sealed record WorkspaceStatus(
     public string? HeadCommit { get; init; }
 }
 
-/// <summary>
-/// Describes whether the revision created by a successful commit could be observed.
-/// </summary>
-internal abstract record CommitRevision
-{
-    private CommitRevision()
-    {
-    }
-
-    /// <summary>
-    /// The successful commit revision was observed.
-    /// </summary>
-    public sealed record Known : CommitRevision
-    {
-        /// <summary>
-        /// Creates an observed commit revision.
-        /// </summary>
-        /// <param name="sha">The non-empty Git object name.</param>
-        public Known(string sha)
-        {
-            ArgumentException.ThrowIfNullOrWhiteSpace(sha);
-            Sha = sha;
-        }
-
-        /// <summary>
-        /// Gets the observed Git object name.
-        /// </summary>
-        public string Sha { get; }
-    }
-
-    /// <summary>
-    /// The commit succeeded, but its revision could not be observed afterward.
-    /// </summary>
-    public sealed record Unavailable : CommitRevision;
-}
-
 internal abstract record CommitResult
 {
     private CommitResult()
@@ -225,25 +177,7 @@ internal abstract record CommitResult
 
     public sealed record NoChanges : CommitResult;
 
-    /// <summary>
-    /// A durable commit succeeded. <see cref="Revision"/> records whether its SHA was observed.
-    /// </summary>
-    public sealed record Committed : CommitResult
-    {
-        /// <summary>
-        /// Creates a durable commit result with its revision observation state.
-        /// </summary>
-        /// <param name="revision">The non-null revision observation state.</param>
-        public Committed(CommitRevision revision)
-        {
-            Revision = revision ?? throw new ArgumentNullException(nameof(revision));
-        }
-
-        /// <summary>
-        /// Gets the revision observation state for the successful commit.
-        /// </summary>
-        public CommitRevision Revision { get; }
-    }
+    public sealed record Committed(string Sha) : CommitResult;
 
     public sealed record SkippedNoIdentity : CommitResult;
 }
@@ -395,17 +329,7 @@ internal sealed class EnclosingRepositoryConsentRequiredException : InvalidOpera
             $"The project is inside the Git repository at '{repository.RepoRoot}'. "
             + "Explicit consent is required before Beutl can use that repository.")
     {
-        if (!repository.IsNestedInForeignRepo)
-        {
-            throw new ArgumentException(
-                "The repository must enclose the project root.",
-                nameof(repository));
-        }
-
-        Repository = repository;
     }
-
-    public RepositoryInfo Repository { get; }
 }
 
 internal sealed class VersionControlConflictedException : InvalidOperationException

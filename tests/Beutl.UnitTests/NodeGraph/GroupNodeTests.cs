@@ -344,20 +344,7 @@ public class GroupNodeTests
         var graph = new GraphModel();
         var group = new GroupNode();
         graph.Nodes.Add(group);
-        ((IModifiableHierarchical)new TestRoot()).AddChild(graph);
+        ((IModifiableHierarchical)new TestHierarchicalRoot()).AddChild(graph);
         return group;
-    }
-
-    private sealed class TestRoot : Hierarchical, IHierarchicalRoot
-    {
-        public event EventHandler<IHierarchical>? DescendantAttached;
-
-        public event EventHandler<IHierarchical>? DescendantDetached;
-
-        public void OnDescendantAttached(IHierarchical descendant)
-            => DescendantAttached?.Invoke(this, descendant);
-
-        public void OnDescendantDetached(IHierarchical descendant)
-            => DescendantDetached?.Invoke(this, descendant);
     }
 }

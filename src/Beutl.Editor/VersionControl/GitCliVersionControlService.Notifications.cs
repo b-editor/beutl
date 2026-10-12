@@ -46,11 +46,11 @@ internal sealed partial class GitCliVersionControlService
         }
     }
 
-    private static void ScheduleStatusNotificationDrain(Action drain)
+    private static void QueueOnThreadPool(Action action)
     {
         ThreadPool.UnsafeQueueUserWorkItem(
             static state => ((Action)state!).Invoke(),
-            drain,
+            action,
             preferLocal: false);
     }
 
@@ -219,14 +219,6 @@ internal sealed partial class GitCliVersionControlService
                     "Failed to notify a recoverable repository-lock subscriber.");
             }
         }
-    }
-
-    private static void ScheduleLockNotification(Action notification)
-    {
-        ThreadPool.UnsafeQueueUserWorkItem(
-            static state => ((Action)state!).Invoke(),
-            notification,
-            preferLocal: false);
     }
 
     private void OnVersionControlConfigChanged(object? sender, EventArgs e)

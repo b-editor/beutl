@@ -5,16 +5,13 @@ using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.Input.Raw;
 using Avalonia.Media;
-using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Beutl.Editor.Components.VersionControlTab.ViewModels;
 using Beutl.Editor.Components.VersionControlTab.Views;
 using Beutl.Editor.VersionControl;
-using Beutl.Extensibility;
 using Beutl.Testing.Headless;
 using Moq;
-using Reactive.Bindings;
 
 namespace Beutl.HeadlessUITests;
 
@@ -43,22 +40,14 @@ public class VersionControlCompositionLayoutTests
             new("assets/title-animation.belm", FileChangeStatus.Added),
             new("assets/old-caption.belm", FileChangeStatus.Deleted)
         ];
-        var service = new Mock<IProjectVersionControlService>();
-        service.SetupGet(x => x.Repository).Returns(new RepositoryInfo(root, root));
-        service.Setup(x => x.GetAvailabilityAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new GitAvailability(GitAvailabilityState.Installed, "git", new Version(2, 50), false));
-        service.Setup(x => x.GetStatusAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new WorkspaceStatus("main", 0, 0, files, false));
-        service.Setup(x => x.GetHistoryAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync(commits);
-        service.Setup(x => x.GetRemotesAsync(It.IsAny<CancellationToken>())).ReturnsAsync([]);
-        service.Setup(x => x.GetCommitFilesAsync(It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(files);
-        service.Setup(x => x.GetDiffAsync(It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync("diff --git a/scenes/main.scene b/scenes/main.scene\n@@ -1,2 +1,2 @@\n- previous value\n+ updated value\n unchanged");
-        var coordinator = new Mock<IProjectVersionControlCoordinator>();
-        using var serviceSource = new ReactivePropertySlim<IProjectVersionControlService?>(service.Object);
-        using var model = new VersionControlTabViewModel(Mock.Of<ToolTabExtension>(), Mock.Of<IEditorContext>(),
-            serviceSource, coordinator.Object, action => action());
-        await model.Initialization;
+        using MockedVersionControlTab tab = await MockedVersionControlTab.CreateAsync(
+            root,
+            commits,
+            files,
+            "diff --git a/scenes/main.scene b/scenes/main.scene\n@@ -1,2 +1,2 @@\n- previous value\n+ updated value\n unchanged",
+            new WorkspaceStatus("main", 0, 0, files, false),
+            Mock.Of<IProjectVersionControlCoordinator>());
+        VersionControlTabViewModel model = tab.ViewModel;
         var view = new VersionControlTabView { DataContext = model };
         var window = new Window
         {
@@ -90,7 +79,6 @@ public class VersionControlCompositionLayoutTests
             Assert.That(model.CommitMessage.Value, Is.EqualTo(draft));
             Assert.That(input.Bounds.Height, Is.GreaterThan(singleLineHeight));
             AssertLayout();
-            Capture("multiline");
 
             input.Text = string.Join('\n', Enumerable.Repeat("A long commit message with multiple lines", 12));
             HeadlessTestHelpers.Render(3);
@@ -149,7 +137,6 @@ public class VersionControlCompositionLayoutTests
                          .Where(x => x.IsEffectivelyVisible && x.Classes.Contains("sectionHeader")))
                 Assert.That(((ISolidColorBrush)header.Foreground!).Color,
                     Is.EqualTo(((ISolidColorBrush)input.Foreground!).Color), header.Text);
-            Capture("detail");
             if (view.IsNarrowLayout)
             {
                 var detailHeader = view.FindControl<VersionControlDetailHeaderView>("NarrowDetailHeader")!;
@@ -187,20 +174,11 @@ public class VersionControlCompositionLayoutTests
         {
             control.BringIntoView();
             HeadlessTestHelpers.Render(3);
-            using var frame = window.CaptureRenderedFrame();
             Point point = control.TranslatePoint(new Point(control.Bounds.Width / 2, control.Bounds.Height / 2), window)!.Value;
             window.MouseMove(point);
             window.MouseDown(point, MouseButton.Left);
             window.MouseUp(point, MouseButton.Left);
             HeadlessTestHelpers.Render(3);
-        }
-
-        void Capture(string name)
-        {
-            if (Environment.GetEnvironmentVariable("BEUTL_VERSION_LAYOUT_CAPTURE") is not { Length: > 0 } directory) return;
-            Directory.CreateDirectory(directory);
-            using var image = window.CaptureRenderedFrame();
-            image?.Save(Path.Combine(directory, $"{name}-{width}-{light}.png"), PngBitmapEncoderOptions.Default);
         }
     }
 }

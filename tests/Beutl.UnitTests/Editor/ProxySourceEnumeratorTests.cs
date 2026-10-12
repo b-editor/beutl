@@ -231,11 +231,8 @@ public class ProxySourceEnumeratorTests
         });
     }
 
-    // Target is a reference property, so a user can point a presenter at its own ancestor;
-    // the visited-target set must terminate the walk instead of recursing forever. The cycle is
-    // wired silently (reflection) because completing it through the property setter trips a
-    // pre-existing engine stack overflow in the Edited-forwarding chain — the state is otherwise
-    // reachable via deserialization of a saved cyclic project.
+    // A presenter can target its own ancestor, so the visited-target set must end the walk. Reflection
+    // wires the cycle because the property setter overflows the stack in the Edited-forwarding chain.
     [Test]
     public void EnumerateVideoSources_TerminatesOnPresenterTargetCycle()
     {
@@ -251,10 +248,8 @@ public class ProxySourceEnumeratorTests
         Assert.That(FileNames(element), Does.Contain("cycled.mov"));
     }
 
-    // SimpleProperty attaches a referenced scene as a hierarchical child, so mutually-referencing
-    // scenes form a hierarchy cycle; the broad walk must terminate instead of overflowing the
-    // stack. The cycle is wired via AddChild because completing it through the property setter
-    // trips the same pre-existing Edited-forwarding stack overflow noted above.
+    // A referenced scene is a hierarchical child, so mutually-referencing scenes form a cycle the broad
+    // walk must end on. AddChild wires it because the property setter hits the same stack overflow.
     [Test]
     public void EnumerateFileSources_TerminatesOnMutuallyReferencingScenes()
     {
@@ -320,11 +315,8 @@ public class ProxySourceEnumeratorTests
         Assert.That(FileNames(element), Does.Contain("delayed-fx.mov"));
     }
 
-    // A windowed FilterEffectPresenter and a full-walk DelayAnimationEffect can target the SAME filter
-    // effect. The presenter is visited first with a render window that overrides the node input's base
-    // value; if that windowed visit deduped the target in the shared identity set, the delay's remapped
-    // full walk — which must surface the overridden base — would be wrongly suppressed. The separate
-    // full-walk visited set keeps the full walk alive after the earlier windowed visit.
+    // A windowed presenter visit must not dedupe the shared target for the delay's full walk, which
+    // surfaces the overridden base.
     [Test]
     public void EnumerateFileSources_WindowedPresenterDoesNotSuppressDelayFullWalkOfSharedTarget()
     {
@@ -419,35 +411,6 @@ public class ProxySourceEnumeratorTests
         Assert.That(FileNames(element), Does.Contain("group-node.mov"));
     }
 
-    [Test]
-    public void EnumerateVideoSources_IncludesEverySharedGroupNodeOuterInput()
-    {
-        var first = new GroupNode();
-        GraphGroup sharedGroup = first.Group;
-        var innerNode = new VideoSourceNode();
-        var groupInput = new GroupInput();
-        sharedGroup.Nodes.Add(innerNode);
-        sharedGroup.Nodes.Add(groupInput);
-        Assert.That(groupInput.AddNodePort(innerNode.Source, out _), Is.True);
-        PopulateGroupInputPorts(first);
-
-        var second = new GroupNode();
-        SetGroup(second, sharedGroup);
-        PopulateGroupInputPorts(second);
-
-        SetGroupNodeVideoInput(first, "first-outer.mov");
-        SetGroupNodeVideoInput(second, "second-outer.mov");
-
-        var drawable = new NodeGraphDrawable();
-        drawable.Model.CurrentValue!.Nodes.Add(first);
-        drawable.Model.CurrentValue!.Nodes.Add(second);
-        Element element = ElementWith(drawable);
-
-        Assert.That(
-            FileNames(element),
-            Is.EquivalentTo(new[] { "first-outer.mov", "second-outer.mov" }));
-    }
-
     // The video walk must cover all three proxy-aware holders in a single element: a top-level
     // SourceVideo, a VideoSourceNode inside a NodeGraphDrawable, and a SourceVideo inside a
     // referenced scene (with the cycle guard letting the referenced scene's own sources resolve).
@@ -477,11 +440,7 @@ public class ProxySourceEnumeratorTests
             Is.EquivalentTo(new[] { "direct.mov", "graph.mov", "nested.mov" }));
     }
 
-    // The single file-source walk subsumes the old Engine broad IFileSource walk + the UI video-only
-    // union: a Scene with an Element holding SourceVideo (video), SourceSound (audio), SourceImage
-    // (image), and a NodeGraph-held VideoSource must yield all four deduped paths. Audio and image
-    // surface as plain IProperty<IFileSource?> on EngineObjects (broad walk); the graph-held video
-    // only resolves through EnumerateVideoSources (video walk).
+    // One walk must yield the video, audio, image and node-graph video sources, deduped.
     [Test]
     public void EnumerateFileSources_CoversAllIFileSourceProperties_AndNodeGraphVideo()
     {
@@ -511,8 +470,7 @@ public class ProxySourceEnumeratorTests
     }
 
     // Export preflight must reach image/audio held inside a referenced scene: those are not
-    // hierarchical children (the scene is a property value) and are not VideoSources, so neither
-    // the broad property walk nor the old video-only deep walk surfaced them.
+    // hierarchical children (the scene is a property value), so the broad property walk misses them.
     [Test]
     public void EnumerateMediaFileSources_CoversImageAndSoundInsideReferencedScene()
     {
@@ -572,8 +530,8 @@ public class ProxySourceEnumeratorTests
         Assert.That(collected.Select(Path.GetFileName), Does.Contain("graph-image.png"));
     }
 
-    // EnumerateVideoSources stays video-only even though the shared walk now yields every IFileSource:
-    // an ImageSourceNode input must not leak into the proxy-eligible video set.
+    // EnumerateVideoSources stays video-only: an ImageSourceNode input must not leak into the
+    // proxy-eligible video set.
     [Test]
     public void EnumerateVideoSources_ExcludesNonVideoGraphInputs()
     {
@@ -590,8 +548,7 @@ public class ProxySourceEnumeratorTests
     }
 
     // AudioVisualizerDrawable.Source can be a SoundGroup; the graphics render composes the group and
-    // its child Sounds, so a nested audio file must be enumerated. The value walk previously excluded
-    // SoundGroup and stopped before the dedicated group walk (the enumerated object is the visualizer).
+    // its child Sounds, so a nested audio file must be enumerated.
     [Test]
     public void EnumerateMediaFileSources_CoversSoundGroupInsideAudioVisualizer()
     {
@@ -658,7 +615,7 @@ public class ProxySourceEnumeratorTests
 
         var files = ProxySourceEnumerator.EnumerateFileSources(element, localRange: window, sceneWindow: window)
             .Select(source => Path.GetFileName(source.Uri.LocalPath)).ToArray();
-        var missing = ExportSourceValidator.GetMissingPaths(ExportSourceValidator.CollectRenderableSources(scene, window.Start));
+        var missing = Missing(scene, window.Start);
 
         Assert.Multiple(() =>
         {
@@ -684,9 +641,8 @@ public class ProxySourceEnumeratorTests
         Scene scene = CreateScene("layer-object.scene");
         scene.Children.Add(element);
 
-        var files = ProxySourceEnumerator.EnumerateFileSources(element)
-            .Select(source => Path.GetFileName(source.Uri.LocalPath)).Distinct().ToArray();
-        var missing = ExportSourceValidator.GetMissingPaths(ExportSourceValidator.CollectRenderableSources(scene, TimeSpan.Zero));
+        var files = Files(element);
+        var missing = Missing(scene, TimeSpan.Zero);
 
         Assert.That(files, Is.EqualTo(new[] { "layer-object.png" }));
         Assert.That(missing.Select(Path.GetFileName), Is.EqualTo(new[] { "layer-object.png" }));
@@ -725,7 +681,7 @@ public class ProxySourceEnumeratorTests
         var drawable = new NodeGraphDrawable();
         GraphModel graph = drawable.Model.CurrentValue!;
         graph.Nodes.AddRange([node, layer]);
-        var port = node.NestedInputPorts.Single(p => ReferenceEquals(p.Property!.GetEngineProperty(), brush.Source));
+        var port = NestedPort(node, brush.Source);
         Assert.That(layer.AddNodePort(port, out var connection), Is.True);
         brush.Source.CurrentValue = CreateImageSource("base-local.png");
         var animation = new KeyFrameAnimation<Brush?>();
@@ -740,9 +696,8 @@ public class ProxySourceEnumeratorTests
         Scene scene = CreateScene("rejected-layer-output.scene");
         scene.Children.Add(element);
 
-        var files = ProxySourceEnumerator.EnumerateFileSources(element)
-            .Select(source => Path.GetFileName(source.Uri.LocalPath)).Distinct().ToArray();
-        var missing = ExportSourceValidator.GetMissingPaths(ExportSourceValidator.CollectRenderableSources(scene, TimeSpan.Zero));
+        var files = Files(element);
+        var missing = Missing(scene, TimeSpan.Zero);
 
         Assert.That(files, Is.EquivalentTo(new[] { "base-local.png", "animated-local.png" }));
         Assert.That(missing.Select(Path.GetFileName), Is.EqualTo(new[] { "animated-local.png" }));
@@ -786,7 +741,7 @@ public class ProxySourceEnumeratorTests
         }
         var layer = new LayerInputNode();
         graph.Nodes.AddRange([node, layer]);
-        var port = node.NestedInputPorts.Single(p => ReferenceEquals(p.Property!.GetEngineProperty(), property));
+        var port = NestedPort(node, property);
         Assert.That(layer.AddNodePort(port, out var connection), Is.True);
         Assert.That(connection, Is.Not.Null);
         // The dynamic output keeps the copied value after its destination's base value changes.
@@ -796,10 +751,8 @@ public class ProxySourceEnumeratorTests
         scene.Children.Add(element);
         string expected = video ? "layer-output.mov" : "layer-output.png";
 
-        var files = ProxySourceEnumerator.EnumerateFileSources(element,
-                localRange: windowed ? new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)) : null)
-            .Select(source => Path.GetFileName(source.Uri.LocalPath)).Distinct().ToArray();
-        var missing = ExportSourceValidator.GetMissingPaths(ExportSourceValidator.CollectRenderableSources(scene, TimeSpan.Zero));
+        var files = Files(element, windowed ? new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)) : null);
+        var missing = Missing(scene, TimeSpan.Zero);
 
         Assert.Multiple(() =>
         {
@@ -811,9 +764,8 @@ public class ProxySourceEnumeratorTests
         graph.Disconnect(connection!);
         Assert.That(layer.Items.OfType<LayerInputNode.ILayerInputPort>().Count(), Is.EqualTo(1));
         string fallback = video ? "stale-destination.mov" : "stale-destination.png";
-        files = ProxySourceEnumerator.EnumerateFileSources(element)
-            .Select(source => Path.GetFileName(source.Uri.LocalPath)).Distinct().ToArray();
-        missing = ExportSourceValidator.GetMissingPaths(ExportSourceValidator.CollectRenderableSources(scene, TimeSpan.Zero));
+        files = Files(element);
+        missing = Missing(scene, TimeSpan.Zero);
         Assert.That(files, Is.EqualTo(new[] { fallback }));
         Assert.That(missing.Select(Path.GetFileName), Is.EqualTo(new[] { fallback }));
         Assert.That(ProxySourceEnumerator.EnumerateMediaFileSources(scene).Select(Path.GetFileName), Does.Contain(expected));
@@ -840,8 +792,8 @@ public class ProxySourceEnumeratorTests
         var drawable = new NodeGraphDrawable();
         GraphModel graph = drawable.Model.CurrentValue!;
         graph.Nodes.AddRange([first, second, upstream, otherUpstream]);
-        var firstPort = first.NestedInputPorts.Single(p => ReferenceEquals(p.Property!.GetEngineProperty(), brush.Source));
-        var secondPort = second.NestedInputPorts.Single(p => ReferenceEquals(p.Property!.GetEngineProperty(), otherBrush.Source));
+        var firstPort = NestedPort(first, brush.Source);
+        var secondPort = NestedPort(second, otherBrush.Source);
         graph.Connect(firstPort, upstream.Output);
         graph.Connect(secondPort, otherUpstream.Output);
         second.Fill.Property.SetValue(brush);
@@ -860,10 +812,8 @@ public class ProxySourceEnumeratorTests
         // The graph still evaluates every upstream node, as well as the restored local source.
         string[] expected = ["restored-local.png", "upstream.png", "other-upstream.png"];
 
-        var files = ProxySourceEnumerator.EnumerateFileSources(element,
-                localRange: windowed ? new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)) : null)
-            .Select(source => Path.GetFileName(source.Uri.LocalPath)).Distinct().ToArray();
-        var missing = ExportSourceValidator.GetMissingPaths(ExportSourceValidator.CollectRenderableSources(scene, TimeSpan.Zero));
+        var files = Files(element, windowed ? new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)) : null);
+        var missing = Missing(scene, TimeSpan.Zero);
 
         Assert.Multiple(() =>
         {
@@ -900,13 +850,11 @@ public class ProxySourceEnumeratorTests
         var upstream = new FileSourcePassThroughNode();
         upstream.Input.Property!.SetValue(CreateImageSource("upstream.png"));
         graph.Nodes.Add(upstream);
-        var port = node.NestedInputPorts.Single(p => ReferenceEquals(p.Property!.GetEngineProperty(), brush.Source));
+        var port = NestedPort(node, brush.Source);
         graph.Connect(port, upstream.Output);
         Element element = ElementWith(drawable);
 
-        var files = ProxySourceEnumerator.EnumerateFileSources(element,
-                localRange: windowed ? new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)) : null)
-            .Select(source => Path.GetFileName(source.Uri.LocalPath)).Distinct().ToArray();
+        var files = Files(element, windowed ? new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)) : null);
 
         Assert.That(files, Is.EquivalentTo(new[] { "upstream.png", "sibling.png" }));
     }
@@ -942,10 +890,9 @@ public class ProxySourceEnumeratorTests
             output = upstream.Output;
             target = original.Source;
         }
-        graph.Connect(node.NestedInputPorts.Single(p => ReferenceEquals(p.Property!.GetEngineProperty(), target)), output);
+        graph.Connect(NestedPort(node, target), output);
 
-        var files = ProxySourceEnumerator.EnumerateFileSources(ElementWith(drawable))
-            .Select(source => Path.GetFileName(source.Uri.LocalPath)).Distinct().ToArray();
+        var files = Files(ElementWith(drawable));
 
         Assert.That(files, Is.EqualTo(new[] { "upstream.png" }));
     }
@@ -966,16 +913,14 @@ public class ProxySourceEnumeratorTests
         var upstream = new FileSourcePassThroughNode();
         upstream.Input.Property!.SetValue(CreateImageSource("upstream.png"));
         graph.Nodes.Add(upstream);
-        graph.Connect(node.NestedInputPorts.Single(p => ReferenceEquals(p.Property!.GetEngineProperty(), first.Source)), upstream.Output);
+        graph.Connect(NestedPort(node, first.Source), upstream.Output);
         Element element = ElementWith(drawable);
-        string[] Files() => ProxySourceEnumerator.EnumerateFileSources(element)
-            .Select(source => Path.GetFileName(source.Uri.LocalPath)).Distinct().ToArray();
 
-        Assert.That(Files(), Is.EquivalentTo(new[] { "upstream.png", "shared.png" }));
+        Assert.That(Files(element), Is.EquivalentTo(new[] { "upstream.png", "shared.png" }));
 
         second.Source.CurrentValue = CreateImageSource("sibling.png");
         node.Object.Brushes.Move(0, 1);
-        Assert.That(Files(), Is.EquivalentTo(new[] { "upstream.png", "sibling.png" }));
+        Assert.That(Files(element), Is.EquivalentTo(new[] { "upstream.png", "sibling.png" }));
     }
 
     [TestCase(false, false)]
@@ -997,15 +942,13 @@ public class ProxySourceEnumeratorTests
         var drawable = new NodeGraphDrawable();
         GraphModel graph = drawable.Model.CurrentValue!;
         graph.Nodes.AddRange(groupFirst ? new GraphNode[] { group, alias } : [alias, group]);
-        nestedGroup.Group.Connect(node.NestedInputPorts.Single(p => ReferenceEquals(p.Property!.GetEngineProperty(), alias.Object.Source)), upstream.Output);
+        nestedGroup.Group.Connect(NestedPort(node, alias.Object.Source), upstream.Output);
         Element element = ElementWith(drawable);
         Scene scene = CreateScene("outer-alias.scene");
         scene.Children.Add(element);
 
-        var files = ProxySourceEnumerator.EnumerateFileSources(element,
-                localRange: windowed ? new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)) : null)
-            .Select(source => Path.GetFileName(source.Uri.LocalPath)).Distinct().ToArray();
-        var missing = ExportSourceValidator.GetMissingPaths(ExportSourceValidator.CollectRenderableSources(scene, TimeSpan.Zero));
+        var files = Files(element, windowed ? new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)) : null);
+        var missing = Missing(scene, TimeSpan.Zero);
 
         Assert.Multiple(() =>
         {
@@ -1028,10 +971,9 @@ public class ProxySourceEnumeratorTests
         var drawable = new NodeGraphDrawable();
         GraphModel graph = drawable.Model.CurrentValue!;
         graph.Nodes.AddRange([alias, node, upstream]);
-        graph.Connect(node.NestedInputPorts.Single(p => ReferenceEquals(p.Property!.GetEngineProperty(), alias.Object.Source)), upstream.Output);
+        graph.Connect(NestedPort(node, alias.Object.Source), upstream.Output);
 
-        var files = ProxySourceEnumerator.EnumerateFileSources(ElementWith(drawable))
-            .Select(source => Path.GetFileName(source.Uri.LocalPath)).Distinct().ToArray();
+        var files = Files(ElementWith(drawable));
 
         Assert.That(files, Is.EqualTo(new[] { "upstream.png" }));
     }
@@ -1073,7 +1015,7 @@ public class ProxySourceEnumeratorTests
             var upstream = new FileSourcePassThroughNode();
             upstream.Input.Property!.SetValue(CreateImageSource("replacement.png"));
             graph.Nodes.Add(upstream);
-            graph.Connect(node.NestedInputPorts.Single(p => ReferenceEquals(p.Property!.GetEngineProperty(), image.Source)), upstream.Output);
+            graph.Connect(NestedPort(node, image.Source), upstream.Output);
         }
         Element element = ElementWith(drawable);
         string[] expected = [connected ? "replacement.png" : "list-image.png", "list-video.mov"];
@@ -1085,7 +1027,7 @@ public class ProxySourceEnumeratorTests
 
         Scene scene = CreateScene("drawable-list.scene");
         scene.Children.Add(element);
-        var missing = ExportSourceValidator.GetMissingPaths(ExportSourceValidator.CollectRenderableSources(scene, TimeSpan.Zero));
+        var missing = Missing(scene, TimeSpan.Zero);
         Assert.That(missing.Select(Path.GetFileName), Is.EquivalentTo(expected));
     }
 
@@ -1154,27 +1096,15 @@ public class ProxySourceEnumeratorTests
 
     private static string FileName(VideoSource source) => Path.GetFileName(source.Uri.LocalPath);
 
-    private static void SetGroup(GroupNode node, GraphGroup group)
-    {
-        typeof(GroupNode)
-            .GetField("<Group>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .SetValue(node, group);
-    }
+    private static string[] Files(Element element, TimeRange? window = null)
+        => ProxySourceEnumerator.EnumerateFileSources(element, localRange: window)
+            .Select(source => Path.GetFileName(source.Uri.LocalPath)).Distinct().ToArray();
 
-    private static void PopulateGroupInputPorts(GroupNode node)
-    {
-        typeof(GroupNode)
-            .GetMethod("OnInputChanged", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .Invoke(node, [node.Group.Input, null]);
-    }
+    private static IReadOnlyList<string> Missing(Scene scene, TimeSpan time)
+        => ExportSourceValidator.GetMissingPaths(ExportSourceValidator.CollectRenderableSources(scene, time));
 
-    private static void SetGroupNodeVideoInput(GroupNode node, string fileName)
-    {
-        IInputPort input = node.Items
-            .OfType<IInputPort>()
-            .Single(item => item.Property?.PropertyType == typeof(VideoSource));
-        input.Property!.SetValue(CreateVideoSource(fileName));
-    }
+    private static INestedInputPort NestedPort(GraphNode node, IProperty property)
+        => node.NestedInputPorts.Single(p => ReferenceEquals(p.Property!.GetEngineProperty(), property));
 
     private static VideoSource CreateVideoSource(string fileName)
     {

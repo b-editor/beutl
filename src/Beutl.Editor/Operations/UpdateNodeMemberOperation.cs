@@ -28,10 +28,10 @@ public sealed class UpdateNodeMemberOperation(
 
             switch (parts[^1])
             {
-                case "Animation" when parts.Length >= 2 && NodeMember.Property is IAnimatablePropertyAdapter animatablePropertyAdapter:
+                case "Animation" when NodeMember.Property is IAnimatablePropertyAdapter animatablePropertyAdapter:
                     animatablePropertyAdapter.Animation = value as IAnimation;
                     return;
-                case "Expression" when parts.Length >= 2 && NodeMember.Property is IExpressionPropertyAdapter expressiblePropertyAdapter:
+                case "Expression" when NodeMember.Property is IExpressionPropertyAdapter expressiblePropertyAdapter:
                     expressiblePropertyAdapter.Expression = value as IExpression;
                     return;
             }

@@ -10,8 +10,8 @@ using Beutl.ProjectSystem;
 
 namespace Beutl.UnitTests.Editor;
 
-// F-TL-2: the per-clip timeline proxy badge maps a clip's backing source to a single ProxyState.
-// ElementViewModel.ResolveProxyState is the pure mapping that drives the badge color/tooltip.
+// The per-clip timeline proxy badge maps a clip's backing source to a single ProxyState.
+// ElementViewModel.AggregateProxyState is the pure mapping that drives the badge color/tooltip.
 [TestFixture]
 public sealed class ElementViewModelProxyStateTests
 {
@@ -52,7 +52,7 @@ public sealed class ElementViewModelProxyStateTests
         ProxyFingerprint fp = Fingerprint();
         var store = new FakeProxyStore();
 
-        Assert.That(ElementViewModel.ResolveProxyState(store, null, fp), Is.EqualTo(ProxyState.None));
+        Assert.That(ElementViewModel.AggregateProxyState(store, null, [fp]), Is.EqualTo(ProxyState.None));
     }
 
     [Test]
@@ -61,7 +61,7 @@ public sealed class ElementViewModelProxyStateTests
         ProxyFingerprint fp = Fingerprint();
         var store = new FakeProxyStore(Entry(fp, ProxyState.Ready));
 
-        Assert.That(ElementViewModel.ResolveProxyState(store, null, fp), Is.EqualTo(ProxyState.Ready));
+        Assert.That(ElementViewModel.AggregateProxyState(store, null, [fp]), Is.EqualTo(ProxyState.Ready));
     }
 
     [Test]
@@ -71,7 +71,7 @@ public sealed class ElementViewModelProxyStateTests
         ProxyFingerprint outdated = Fingerprint(size: 2000);
         var store = new FakeProxyStore(Entry(outdated, ProxyState.Ready));
 
-        Assert.That(ElementViewModel.ResolveProxyState(store, null, current), Is.EqualTo(ProxyState.Stale));
+        Assert.That(ElementViewModel.AggregateProxyState(store, null, [current]), Is.EqualTo(ProxyState.Stale));
     }
 
     [Test]
@@ -80,7 +80,7 @@ public sealed class ElementViewModelProxyStateTests
         ProxyFingerprint fp = Fingerprint();
         var store = new FakeProxyStore(Entry(fp, ProxyState.Failed));
 
-        Assert.That(ElementViewModel.ResolveProxyState(store, null, fp), Is.EqualTo(ProxyState.Failed));
+        Assert.That(ElementViewModel.AggregateProxyState(store, null, [fp]), Is.EqualTo(ProxyState.Failed));
     }
 
     [Test]
@@ -91,7 +91,7 @@ public sealed class ElementViewModelProxyStateTests
             Entry(fp, ProxyState.Failed, ProxyPreset.Half),
             Entry(fp, ProxyState.Ready, ProxyPreset.Quarter));
 
-        Assert.That(ElementViewModel.ResolveProxyState(store, null, fp), Is.EqualTo(ProxyState.Ready));
+        Assert.That(ElementViewModel.AggregateProxyState(store, null, [fp]), Is.EqualTo(ProxyState.Ready));
     }
 
     // After an in-place source replace + failed regen, the store holds a same-path Stale leftover
@@ -106,7 +106,7 @@ public sealed class ElementViewModelProxyStateTests
             Entry(outdated, ProxyState.Ready, ProxyPreset.Half),
             Entry(current, ProxyState.Failed, ProxyPreset.Quarter));
 
-        Assert.That(ElementViewModel.ResolveProxyState(store, null, current), Is.EqualTo(ProxyState.Failed));
+        Assert.That(ElementViewModel.AggregateProxyState(store, null, [current]), Is.EqualTo(ProxyState.Failed));
     }
 
     [Test]
@@ -118,7 +118,7 @@ public sealed class ElementViewModelProxyStateTests
             Entry(outdated, ProxyState.Ready, ProxyPreset.Half),
             Entry(current, ProxyState.Ready, ProxyPreset.Quarter));
 
-        Assert.That(ElementViewModel.ResolveProxyState(store, null, current), Is.EqualTo(ProxyState.Ready));
+        Assert.That(ElementViewModel.AggregateProxyState(store, null, [current]), Is.EqualTo(ProxyState.Ready));
     }
 
     [Test]
@@ -128,13 +128,11 @@ public sealed class ElementViewModelProxyStateTests
         ProxyFingerprint outdated = Fingerprint(size: 2000);
         var store = new FakeProxyStore(Entry(outdated, ProxyState.Failed));
 
-        Assert.That(ElementViewModel.ResolveProxyState(store, null, current), Is.EqualTo(ProxyState.Stale));
+        Assert.That(ElementViewModel.AggregateProxyState(store, null, [current]), Is.EqualTo(ProxyState.Stale));
     }
 
-    // F3: for an offline source (the original was moved/deleted so TryFromFile fails) whose newest
-    // same-path entry is a Failed generation, ResolveSourceFingerprint returns that entry's exact
-    // fingerprint rather than a size/mtime-less path key. A path key forces every entry to Stale in the
-    // badge, hiding the real failed state; the exact fingerprint lets it read Failed.
+    // For an offline source whose newest same-path entry failed, ResolveSourceFingerprint returns that
+    // entry's exact fingerprint, so the badge reads Failed instead of the Stale a path key would force.
     [Test]
     public void ResolveSourceFingerprint_OfflineSourceWithFailedEntry_ReadsFailedNotStale()
     {
@@ -147,7 +145,7 @@ public sealed class ElementViewModelProxyStateTests
         Assert.Multiple(() =>
         {
             Assert.That(resolved, Is.EqualTo(failedSource), "the newest offline entry's exact fingerprint is returned");
-            Assert.That(ElementViewModel.ResolveProxyState(store, null, resolved!.Value), Is.EqualTo(ProxyState.Failed),
+            Assert.That(ElementViewModel.AggregateProxyState(store, null, [resolved!.Value]), Is.EqualTo(ProxyState.Failed),
                 "so the badge reads the real failed state instead of a forced Stale");
         });
     }
@@ -159,10 +157,10 @@ public sealed class ElementViewModelProxyStateTests
         var store = new FakeProxyStore();
         var queue = new FakeProxyJobQueue(new ProxyJob(fp, ProxyPreset.Quarter));
 
-        Assert.That(ElementViewModel.ResolveProxyState(store, queue, fp), Is.EqualTo(ProxyState.Generating));
+        Assert.That(ElementViewModel.AggregateProxyState(store, queue, [fp]), Is.EqualTo(ProxyState.Generating));
     }
 
-    // Fix 1: the badge caches fingerprints keyed on the ordered set of source URIs. A high-frequency
+    // The badge caches fingerprints keyed on the ordered set of source URIs. A high-frequency
     // store/queue refresh (invalidateCache: false) must not re-stat, so an in-place overwrite (same
     // URIs) is not observed until a ThumbnailsInvalidated refresh busts the cache (invalidateCache: true).
     [Test]
@@ -259,12 +257,12 @@ public sealed class ElementViewModelProxyStateTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(ElementViewModel.ResolveProxyState(store, null, stale), Is.EqualTo(ProxyState.Stale));
-            Assert.That(ElementViewModel.ResolveProxyState(store, null, fresh), Is.EqualTo(ProxyState.Ready));
+            Assert.That(ElementViewModel.AggregateProxyState(store, null, [stale]), Is.EqualTo(ProxyState.Stale));
+            Assert.That(ElementViewModel.AggregateProxyState(store, null, [fresh]), Is.EqualTo(ProxyState.Ready));
         });
     }
 
-    // Fix 3: an element backing onto several sources must aggregate every source's state, not read
+    // An element backing onto several sources must aggregate every source's state, not read
     // one FirstOrDefault. Active generation dominates; otherwise a readiness disagreement is Partial.
     [Test]
     public void AggregateProxyState_AllReady_IsReady()
@@ -316,10 +314,8 @@ public sealed class ElementViewModelProxyStateTests
     public bool AffectsProxyIndicator_ProgressedIsSkippedOthersTrigger(ProxyJobChangeKind kind)
         => ElementViewModel.AffectsProxyIndicator(kind);
 
-    // C1: the badge and filmstrip refresh (both gate on this) must skip Touched (an LRU bump on reader-
-    // open that does not change state), otherwise every clip re-walks the store on every reader-open
-    // during bulk generate. Registered/StateChanged/Deleted change which proxy a source resolves to, and
-    // Reset (store swap) moves the whole store, so all four warrant a refresh.
+    // The badge and filmstrip refresh skip Touched, an LRU bump on reader-open that changes no state, so
+    // clips do not re-walk the store on every reader-open; the other kinds change what a source resolves to.
     [Test]
     [TestCase(ProxyStoreChangeKind.Registered, ExpectedResult = true)]
     [TestCase(ProxyStoreChangeKind.StateChanged, ExpectedResult = true)]
@@ -335,11 +331,8 @@ public sealed class ElementViewModelProxyStateTests
     public bool ShouldRefreshThumbnailsForDefaultPresetChange_OnlyWhenProxyDecodeCanChange(PreviewSourceMode mode)
         => ElementViewModel.ShouldRefreshThumbnailsForDefaultPresetChange(mode);
 
-    // Fix #2: a video source reachable only through a nested drawable (here a DrawableGroup child, the
-    // same shape as a node-graph/referenced-scene source) still raises Element.Edited when its URI
-    // changes and is matched by the badge's relevance gate. That is what lets the badge's Element.Edited
-    // subscription bust the stale fingerprint cache — the top-level ThumbnailsInvalidated never fires
-    // for these sources.
+    // A source reachable only through a nested drawable still raises Element.Edited when its URI changes,
+    // which is what busts the badge's fingerprint cache.
     [Test]
     public void NestedSourceUriEdit_RaisesElementEdited_AndIsMatchedByRelevanceGate()
     {
@@ -383,7 +376,7 @@ public sealed class ElementViewModelProxyStateTests
         });
     }
 
-    // Fix #7: when the original is moved/deleted, TryFromFile fails; the badge must still track the
+    // When the original is moved/deleted, TryFromFile fails; the badge must still track the
     // proxy the preview uses by adopting a path-matched Ready entry's own fingerprint (exact ⇒ Ready).
     [Test]
     public void ResolveSourceFingerprint_MissingOriginalWithReadyProxy_ReturnsEntrySourceAsReady()
@@ -397,7 +390,7 @@ public sealed class ElementViewModelProxyStateTests
         Assert.Multiple(() =>
         {
             Assert.That(resolved, Is.EqualTo(fp));
-            Assert.That(ElementViewModel.ResolveProxyState(store, null, resolved!.Value), Is.EqualTo(ProxyState.Ready));
+            Assert.That(ElementViewModel.AggregateProxyState(store, null, [resolved!.Value]), Is.EqualTo(ProxyState.Ready));
         });
     }
 
@@ -435,7 +428,7 @@ public sealed class ElementViewModelProxyStateTests
         {
             Assert.That(resolved, Is.Not.Null);
             Assert.That(resolved!.Value.AbsolutePath, Is.EqualTo(ProxyFingerprint.ResolveComparableKey(missing)));
-            Assert.That(ElementViewModel.ResolveProxyState(store, null, resolved.Value), Is.EqualTo(ProxyState.None));
+            Assert.That(ElementViewModel.AggregateProxyState(store, null, [resolved.Value]), Is.EqualTo(ProxyState.None));
         });
     }
 

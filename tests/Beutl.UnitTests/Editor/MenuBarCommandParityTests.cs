@@ -1,5 +1,6 @@
 ﻿using System.Text.RegularExpressions;
 using System.Xml.Linq;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Editor;
 
@@ -19,7 +20,7 @@ public partial class MenuBarCommandParityTests
     [Test]
     public void Mac_native_menu_binds_the_same_menu_bar_commands_as_the_in_window_menu()
     {
-        string repositoryRoot = FindRepositoryRoot();
+        string repositoryRoot = RepositoryPaths.Root;
         XElement inWindowMenu = XDocument.Load(Path.Combine(repositoryRoot, "src/Beutl/Views/MainView.axaml"))
             .Descendants(s_avalonia + "Menu")
             .Single(static element => (string?)element.Attribute(s_xaml + "Name") == "MenuBar");
@@ -55,22 +56,6 @@ public partial class MenuBarCommandParityTests
             .Distinct(StringComparer.Ordinal)
             .Order(StringComparer.Ordinal)
             .ToArray();
-    }
-
-    private static string FindRepositoryRoot()
-    {
-        DirectoryInfo? directory = new(TestContext.CurrentContext.TestDirectory);
-        while (directory is not null)
-        {
-            if (File.Exists(Path.Combine(directory.FullName, "Beutl.slnx")))
-            {
-                return directory.FullName;
-            }
-
-            directory = directory.Parent;
-        }
-
-        throw new DirectoryNotFoundException("Could not find the Beutl repository root.");
     }
 
     [GeneratedRegex(@"^\{(?:Compiled)?Binding\s+MenuBar\.(?<command>[A-Za-z0-9_]+)\}$")]

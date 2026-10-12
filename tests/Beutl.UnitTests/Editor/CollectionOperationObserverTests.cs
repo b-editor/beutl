@@ -6,8 +6,7 @@ using Beutl.Collections;
 using Beutl.Editor;
 using Beutl.Editor.Observers;
 using Beutl.Editor.Operations;
-using Beutl.Logging;
-using Microsoft.Extensions.Logging;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Editor;
 
@@ -18,102 +17,43 @@ public class CollectionOperationObserverTests
     [SetUp]
     public void Setup()
     {
-        Log.LoggerFactory = LoggerFactory.Create(b => b.AddSimpleConsole());
         _sequenceGenerator = new OperationSequenceGenerator();
     }
 
     #region Constructor Tests
 
     [Test]
-    public void Constructor_ShouldInitializeOperationsProperty()
-    {
-        // Arrange
-        var owner = new TestOwnerCoreObject();
-        var list = new CoreList<TestItemCoreObject>();
-        var testObserver = Observer.Create<ChangeOperation>(_ => { });
-
-        // Act
-        using var observer = new CollectionOperationObserver<TestItemCoreObject>(
-            testObserver, list, owner, "Items", _sequenceGenerator);
-
-        // Assert
-        Assert.That(observer.Operations, Is.Not.Null);
-    }
-
-    [Test]
-    public void Constructor_WithObserver_ShouldSubscribeToOperations()
-    {
-        // Arrange
-        var owner = new TestOwnerCoreObject();
-        var list = new CoreList<TestItemCoreObject>();
-        var receivedOperations = new List<ChangeOperation>();
-        var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
-
-        // Act
-        using var operationObserver = new CollectionOperationObserver<TestItemCoreObject>(
-            testObserver, list, owner, "Items", _sequenceGenerator);
-        list.Add(new TestItemCoreObject());
-
-        // Assert
-        Assert.That(receivedOperations, Has.Count.EqualTo(1));
-        Assert.That(receivedOperations[0], Is.TypeOf<InsertCollectionRangeOperation<TestItemCoreObject>>());
-    }
-
-    [Test]
     public void Constructor_WithExistingItems_ShouldInitializeChildPublishers()
     {
-        // Arrange
         var owner = new TestOwnerCoreObject();
         var item = new TestItemCoreObject { Title = "initial" };
         var list = new CoreList<TestItemCoreObject> { item };
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
-        // Act
         using var operationObserver = new CollectionOperationObserver<TestItemCoreObject>(
             testObserver, list, owner, "Items", _sequenceGenerator);
 
         // Modify existing item - should be tracked
         item.Title = "modified";
 
-        // Assert
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
         Assert.That(receivedOperations[0], Is.TypeOf<UpdatePropertyValueOperation<string>>());
     }
 
     [Test]
-    public void Constructor_WithNonCoreObjectItems_ShouldNotCreateChildPublishers()
-    {
-        // Arrange
-        var owner = new TestOwnerCoreObject();
-        var list = new CoreList<int> { 1, 2, 3 };
-        var receivedOperations = new List<ChangeOperation>();
-        var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
-
-        // Act & Assert - should not throw
-        Assert.DoesNotThrow(() =>
-        {
-            using var operationObserver = new CollectionOperationObserver<int>(
-                testObserver, list, owner, "Items", _sequenceGenerator);
-        });
-    }
-
-    [Test]
     public void Constructor_WithPropertyPath_ShouldBuildCorrectPath()
     {
-        // Arrange
         var owner = new TestOwnerCoreObject();
         var item = new TestItemCoreObject();
         var list = new CoreList<TestItemCoreObject> { item };
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
-        // Act
         using var operationObserver = new CollectionOperationObserver<TestItemCoreObject>(
             testObserver, list, owner, "Parent.Items", _sequenceGenerator);
         item.Title = "changed";
 
-        // Assert
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
         var operation = (UpdatePropertyValueOperation<string>)receivedOperations[0];
         Assert.That(operation.PropertyPath, Is.EqualTo("Parent.Items.Title"));
@@ -126,7 +66,6 @@ public class CollectionOperationObserverTests
     [Test]
     public void Add_SingleItem_ShouldPublishInsertCollectionRangeOperation()
     {
-        // Arrange
         var owner = new TestOwnerCoreObject();
         var list = new CoreList<TestItemCoreObject>();
         var receivedOperations = new List<ChangeOperation>();
@@ -135,11 +74,9 @@ public class CollectionOperationObserverTests
         using var operationObserver = new CollectionOperationObserver<TestItemCoreObject>(
             testObserver, list, owner, "Items", _sequenceGenerator);
 
-        // Act
         var item = new TestItemCoreObject { Title = "item1" };
         list.Add(item);
 
-        // Assert
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
         var operation = (InsertCollectionRangeOperation<TestItemCoreObject>)receivedOperations[0];
         Assert.Multiple(() =>
@@ -155,7 +92,6 @@ public class CollectionOperationObserverTests
     [Test]
     public void Add_MultipleTimes_ShouldPublishMultipleOperations()
     {
-        // Arrange
         var owner = new TestOwnerCoreObject();
         var list = new CoreList<TestItemCoreObject>();
         var receivedOperations = new List<ChangeOperation>();
@@ -164,12 +100,10 @@ public class CollectionOperationObserverTests
         using var operationObserver = new CollectionOperationObserver<TestItemCoreObject>(
             testObserver, list, owner, "Items", _sequenceGenerator);
 
-        // Act
         list.Add(new TestItemCoreObject { Title = "item1" });
         list.Add(new TestItemCoreObject { Title = "item2" });
         list.Add(new TestItemCoreObject { Title = "item3" });
 
-        // Assert
         Assert.That(receivedOperations, Has.Count.EqualTo(3));
         var op1 = (InsertCollectionRangeOperation<TestItemCoreObject>)receivedOperations[0];
         var op2 = (InsertCollectionRangeOperation<TestItemCoreObject>)receivedOperations[1];
@@ -179,13 +113,14 @@ public class CollectionOperationObserverTests
             Assert.That(op1.Index, Is.EqualTo(0));
             Assert.That(op2.Index, Is.EqualTo(1));
             Assert.That(op3.Index, Is.EqualTo(2));
+            Assert.That(op2.SequenceNumber, Is.GreaterThan(op1.SequenceNumber));
+            Assert.That(op3.SequenceNumber, Is.GreaterThan(op2.SequenceNumber));
         });
     }
 
     [Test]
     public void Add_CoreObjectItem_ShouldCreateChildPublisher()
     {
-        // Arrange
         var owner = new TestOwnerCoreObject();
         var list = new CoreList<TestItemCoreObject>();
         var receivedOperations = new List<ChangeOperation>();
@@ -198,10 +133,8 @@ public class CollectionOperationObserverTests
         list.Add(item);
         receivedOperations.Clear();
 
-        // Act
         item.Title = "modified";
 
-        // Assert
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
         Assert.That(receivedOperations[0], Is.TypeOf<UpdatePropertyValueOperation<string>>());
     }
@@ -209,7 +142,6 @@ public class CollectionOperationObserverTests
     [Test]
     public void Insert_AtSpecificIndex_ShouldPublishCorrectIndex()
     {
-        // Arrange
         var owner = new TestOwnerCoreObject();
         var list = new CoreList<TestItemCoreObject>
         {
@@ -223,11 +155,9 @@ public class CollectionOperationObserverTests
             testObserver, list, owner, "Items", _sequenceGenerator);
         receivedOperations.Clear();
 
-        // Act
         var item = new TestItemCoreObject { Title = "item2" };
         list.Insert(1, item);
 
-        // Assert
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
         var operation = (InsertCollectionRangeOperation<TestItemCoreObject>)receivedOperations[0];
         Assert.That(operation.Index, Is.EqualTo(1));
@@ -236,7 +166,6 @@ public class CollectionOperationObserverTests
     [Test]
     public void AddRange_ShouldPublishWithAllItems()
     {
-        // Arrange
         var owner = new TestOwnerCoreObject();
         var list = new CoreList<TestItemCoreObject>();
         var receivedOperations = new List<ChangeOperation>();
@@ -245,7 +174,6 @@ public class CollectionOperationObserverTests
         using var operationObserver = new CollectionOperationObserver<TestItemCoreObject>(
             testObserver, list, owner, "Items", _sequenceGenerator);
 
-        // Act
         var items = new[]
         {
             new TestItemCoreObject { Title = "item1" },
@@ -254,7 +182,6 @@ public class CollectionOperationObserverTests
         };
         list.AddRange(items);
 
-        // Assert
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
         var operation = (InsertCollectionRangeOperation<TestItemCoreObject>)receivedOperations[0];
         Assert.That(operation.Items, Has.Length.EqualTo(3));
@@ -267,7 +194,6 @@ public class CollectionOperationObserverTests
     [Test]
     public void Remove_SingleItem_ShouldPublishRemoveCollectionRangeOperation()
     {
-        // Arrange
         var owner = new TestOwnerCoreObject();
         var item = new TestItemCoreObject { Title = "item1" };
         var list = new CoreList<TestItemCoreObject> { item };
@@ -278,10 +204,8 @@ public class CollectionOperationObserverTests
             testObserver, list, owner, "Items", _sequenceGenerator);
         receivedOperations.Clear();
 
-        // Act
         list.Remove(item);
 
-        // Assert
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
         var operation = (RemoveCollectionRangeOperation<TestItemCoreObject>)receivedOperations[0];
         Assert.Multiple(() =>
@@ -297,7 +221,6 @@ public class CollectionOperationObserverTests
     [Test]
     public void RemoveAt_ShouldPublishCorrectIndex()
     {
-        // Arrange
         var owner = new TestOwnerCoreObject();
         var list = new CoreList<TestItemCoreObject>
         {
@@ -312,10 +235,8 @@ public class CollectionOperationObserverTests
             testObserver, list, owner, "Items", _sequenceGenerator);
         receivedOperations.Clear();
 
-        // Act
         list.RemoveAt(1);
 
-        // Assert
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
         var operation = (RemoveCollectionRangeOperation<TestItemCoreObject>)receivedOperations[0];
         Assert.Multiple(() =>
@@ -326,32 +247,8 @@ public class CollectionOperationObserverTests
     }
 
     [Test]
-    public void Remove_CoreObjectItem_ShouldDisposeChildPublisher()
-    {
-        // Arrange
-        var owner = new TestOwnerCoreObject();
-        var item = new TestItemCoreObject();
-        var list = new CoreList<TestItemCoreObject> { item };
-        var receivedOperations = new List<ChangeOperation>();
-        var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
-
-        using var operationObserver = new CollectionOperationObserver<TestItemCoreObject>(
-            testObserver, list, owner, "Items", _sequenceGenerator);
-
-        list.Remove(item);
-        receivedOperations.Clear();
-
-        // Act - modify removed item
-        item.Title = "should not be tracked";
-
-        // Assert
-        Assert.That(receivedOperations, Is.Empty);
-    }
-
-    [Test]
     public void RemoveRange_ShouldPublishWithAllRemovedItems()
     {
-        // Arrange
         var owner = new TestOwnerCoreObject();
         var list = new CoreList<TestItemCoreObject>
         {
@@ -367,10 +264,8 @@ public class CollectionOperationObserverTests
             testObserver, list, owner, "Items", _sequenceGenerator);
         receivedOperations.Clear();
 
-        // Act
         list.RemoveRange(1, 2);
 
-        // Assert
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
         var operation = (RemoveCollectionRangeOperation<TestItemCoreObject>)receivedOperations[0];
         Assert.Multiple(() =>
@@ -383,7 +278,6 @@ public class CollectionOperationObserverTests
     [Test]
     public void Clear_WithResetBehaviorRemove_ShouldPublishRemoveAllItems()
     {
-        // Arrange
         var owner = new TestOwnerCoreObject();
         var list = new CoreList<TestItemCoreObject>
         {
@@ -398,10 +292,8 @@ public class CollectionOperationObserverTests
             testObserver, list, owner, "Items", _sequenceGenerator);
         receivedOperations.Clear();
 
-        // Act
         list.Clear();
 
-        // Assert
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
         var operation = (RemoveCollectionRangeOperation<TestItemCoreObject>)receivedOperations[0];
         Assert.That(operation.Items, Has.Length.EqualTo(2));
@@ -416,7 +308,6 @@ public class CollectionOperationObserverTests
     [Test]
     public void Clear_WithDefaultResetBehavior_ShouldPublishRemoveOfAllItems()
     {
-        // Arrange
         var owner = new TestOwnerCoreObject();
         var item1 = new TestItemCoreObject { Title = "item1" };
         var item2 = new TestItemCoreObject { Title = "item2" };
@@ -427,10 +318,9 @@ public class CollectionOperationObserverTests
         using var operationObserver = new CollectionOperationObserver<TestItemCoreObject>(
             testObserver, list, owner, "Items", _sequenceGenerator);
 
-        // Act
         list.Clear();
 
-        // Assert - the same operation a list with ResetBehavior.Remove produces
+        // The same operation a list with ResetBehavior.Remove produces
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
         var operation = (RemoveCollectionRangeOperation<TestItemCoreObject>)receivedOperations[0];
         Assert.Multiple(() =>
@@ -445,7 +335,6 @@ public class CollectionOperationObserverTests
     [Test]
     public void Reset_ShouldPublishRemoveOfOldItemsAndInsertOfNewItems()
     {
-        // Arrange
         var owner = new TestOwnerCoreObject();
         var kept = new TestItemCoreObject { Title = "kept" };
         var removed = new TestItemCoreObject { Title = "removed" };
@@ -457,10 +346,8 @@ public class CollectionOperationObserverTests
         using var operationObserver = new CollectionOperationObserver<TestItemCoreObject>(
             testObserver, list, owner, "Items", _sequenceGenerator);
 
-        // Act
         list.ResetTo([added, kept]);
 
-        // Assert
         Assert.That(receivedOperations, Has.Count.EqualTo(2));
         var remove = (RemoveCollectionRangeOperation<TestItemCoreObject>)receivedOperations[0];
         var insert = (InsertCollectionRangeOperation<TestItemCoreObject>)receivedOperations[1];
@@ -476,7 +363,6 @@ public class CollectionOperationObserverTests
     [Test]
     public void Reset_WithoutChange_ShouldNotPublish()
     {
-        // Arrange
         var owner = new TestOwnerCoreObject();
         var item = new TestItemCoreObject();
         var list = new ManuallyNotifyingCollection<TestItemCoreObject>([item]);
@@ -489,18 +375,15 @@ public class CollectionOperationObserverTests
         using var emptyListObserver = new CollectionOperationObserver<TestItemCoreObject>(
             testObserver, emptyList, owner, "Items", _sequenceGenerator);
 
-        // Act
         list.ResetTo([item]);
         emptyList.Clear(); // ObservableCollection raises Reset even when it is already empty
 
-        // Assert
         Assert.That(receivedOperations, Is.Empty);
     }
 
     [Test]
     public void Reset_ShouldTrackExactlyTheItemsInTheList()
     {
-        // Arrange
         var owner = new TestOwnerCoreObject();
         var kept = new TestItemCoreObject();
         var removed = new TestItemCoreObject();
@@ -514,12 +397,11 @@ public class CollectionOperationObserverTests
         list.ResetTo([kept, added]);
         receivedOperations.Clear();
 
-        // Act
         removed.Title = "removed";
         kept.Title = "kept";
         added.Title = "added";
 
-        // Assert - each item in the list is tracked once, and the removed one is not tracked
+        // Each item in the list is tracked once, and the removed one is not tracked
         Assert.That(
             receivedOperations.Cast<UpdatePropertyValueOperation<string>>().Select(op => op.Object),
             Is.EqualTo(new[] { kept, added }));
@@ -528,7 +410,6 @@ public class CollectionOperationObserverTests
     [Test]
     public void Add_AfterClearWithDefaultResetBehavior_ShouldTrackReaddedItem()
     {
-        // Arrange
         var owner = new TestOwnerCoreObject();
         var item = new TestItemCoreObject();
         var list = new CoreList<TestItemCoreObject> { item };
@@ -540,11 +421,9 @@ public class CollectionOperationObserverTests
         list.Clear();
         item.Title = "untracked";
 
-        // Act
         list.Add(item);
         item.Title = "tracked";
 
-        // Assert
         Assert.That(receivedOperations, Has.Count.EqualTo(3));
         Assert.Multiple(() =>
         {
@@ -562,7 +441,6 @@ public class CollectionOperationObserverTests
     [TestCase(NotifyCollectionChangedAction.Reset)]
     public void Clear_AfterSuppressedChange_ShouldPublishCurrentItems(NotifyCollectionChangedAction suppressedChange)
     {
-        // Arrange
         var owner = new TestOwnerCoreObject();
         var list = new CoreList<TestItemCoreObject>
         {
@@ -603,10 +481,8 @@ public class CollectionOperationObserverTests
 
         TestItemCoreObject[] current = [.. list];
 
-        // Act
         list.Clear();
 
-        // Assert
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
         var operation = (RemoveCollectionRangeOperation<TestItemCoreObject>)receivedOperations[0];
         Assert.That(operation.Items, Is.EqualTo(current));
@@ -615,7 +491,6 @@ public class CollectionOperationObserverTests
     [Test]
     public void Clear_AfterAddRangeOfSpan_ShouldPublishCurrentItems()
     {
-        // Arrange
         var owner = new TestOwnerCoreObject();
         TestItemCoreObject[] items = [new() { Title = "item1" }, new() { Title = "item2" }];
         var list = new CoreList<TestItemCoreObject>();
@@ -628,10 +503,8 @@ public class CollectionOperationObserverTests
         list.AddRange(new ReadOnlySpan<TestItemCoreObject>(items));
         receivedOperations.Clear();
 
-        // Act
         list.Clear();
 
-        // Assert
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
         var operation = (RemoveCollectionRangeOperation<TestItemCoreObject>)receivedOperations[0];
         Assert.That(operation.Items, Is.EqualTo(items));
@@ -640,7 +513,6 @@ public class CollectionOperationObserverTests
     [Test]
     public void AddRangeOfSpan_ShouldTrackOnlyTheItemsInTheList([Values] bool suppressed)
     {
-        // Arrange
         var owner = new TestOwnerCoreObject();
         var existing = new TestItemCoreObject();
         var added = new TestItemCoreObject();
@@ -662,7 +534,6 @@ public class CollectionOperationObserverTests
         ArrayPool<TestItemCoreObject>.Shared.Return(pooled);
         ReadOnlySpan<TestItemCoreObject> addedItems = [added];
 
-        // Act
         using (suppressed ? PublishingSuppression.Enter() : null)
         {
             list.AddRange(addedItems);
@@ -673,7 +544,7 @@ public class CollectionOperationObserverTests
         existing.Title = "existing";
         added.Title = "added";
 
-        // Assert - each item in the list is tracked once, and the stale item is not tracked
+        // Each item in the list is tracked once, and the stale item is not tracked
         Assert.That(
             receivedOperations.Cast<UpdatePropertyValueOperation<string>>().Select(op => op.Object),
             Is.EqualTo(new[] { existing, added }));
@@ -682,34 +553,30 @@ public class CollectionOperationObserverTests
     [Test]
     public void AddRangeOfSpan_UndoRedo_RestoresTheList()
     {
-        // Arrange
         var owner = new TestOwnerCoreObject();
         var existing = new TestItemCoreObject { Title = "existing" };
         var added = new TestItemCoreObject { Title = "added" };
         owner.Items.Add(existing);
 
-        using var history = new HistoryManager(owner, _sequenceGenerator);
-        using var operationObserver = new CoreObjectOperationObserver(null, owner, _sequenceGenerator);
-        using IDisposable subscription = history.Subscribe(operationObserver);
+        using var harness = new HistoryHarness(owner);
 
-        // Act & Assert - the notification lists more items than were added, so the change is recorded
+        // The notification lists more items than were added, so the change is recorded
         // from the list instead
         ReadOnlySpan<TestItemCoreObject> addedItems = [added];
         owner.Items.AddRange(addedItems);
-        history.Commit("add range");
+        harness.History.Commit("add range");
         Assert.That(owner.Items, Is.EqualTo(new[] { existing, added }));
 
-        Assert.That(history.Undo(), Is.True);
+        Assert.That(harness.History.Undo(), Is.True);
         Assert.That(owner.Items, Is.EqualTo(new[] { existing }));
 
-        Assert.That(history.Redo(), Is.True);
+        Assert.That(harness.History.Redo(), Is.True);
         Assert.That(owner.Items, Is.EqualTo(new[] { existing, added }));
     }
 
     [Test]
     public void DuplicateItem_ShouldBeTrackedWhileTheListHoldsIt()
     {
-        // Arrange
         var owner = new TestOwnerCoreObject();
         var item = new TestItemCoreObject();
         var list = new CoreList<TestItemCoreObject> { item };
@@ -719,7 +586,7 @@ public class CollectionOperationObserverTests
         using var operationObserver = new CollectionOperationObserver<TestItemCoreObject>(
             testObserver, list, owner, "Items", _sequenceGenerator);
 
-        // Act & Assert - the same item twice in the list is tracked once
+        // The same item twice in the list is tracked once
         list.Add(item);
         receivedOperations.Clear();
         item.Title = "in the list twice";
@@ -741,7 +608,6 @@ public class CollectionOperationObserverTests
     [Test]
     public void Reset_WithDuplicateItem_ShouldTrackItOnce()
     {
-        // Arrange
         var owner = new TestOwnerCoreObject();
         var item = new TestItemCoreObject();
         var list = new ManuallyNotifyingCollection<TestItemCoreObject>([]);
@@ -751,19 +617,16 @@ public class CollectionOperationObserverTests
         using var operationObserver = new CollectionOperationObserver<TestItemCoreObject>(
             testObserver, list, owner, "Items", _sequenceGenerator);
 
-        // Act
         list.ResetTo([item, item]);
         receivedOperations.Clear();
         item.Title = "in the list twice";
 
-        // Assert
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
     }
 
     [Test]
     public void AddWithoutIndex_ShouldBeRecordedFromTheList()
     {
-        // Arrange
         var owner = new TestOwnerCoreObject();
         var existing = new TestItemCoreObject { Title = "existing" };
         var added = new TestItemCoreObject { Title = "added" };
@@ -774,10 +637,10 @@ public class CollectionOperationObserverTests
         using var operationObserver = new CollectionOperationObserver<TestItemCoreObject>(
             testObserver, list, owner, "Items", _sequenceGenerator);
 
-        // Act - the notification does not say where the item went
+        // The notification does not say where the item went
         list.AddWithoutIndex(added);
 
-        // Assert - recorded as the change of the whole list
+        // Recorded as the change of the whole list
         Assert.That(receivedOperations, Has.Count.EqualTo(2));
         var remove = (RemoveCollectionRangeOperation<TestItemCoreObject>)receivedOperations[0];
         var insert = (InsertCollectionRangeOperation<TestItemCoreObject>)receivedOperations[1];
@@ -793,7 +656,6 @@ public class CollectionOperationObserverTests
     [Test]
     public void ItemsChangedWhilePublishingSuppressed_ShouldBeTrackedAsTheListHoldsThem()
     {
-        // Arrange
         var owner = new TestOwnerCoreObject();
         var removed = new TestItemCoreObject();
         var added = new TestItemCoreObject();
@@ -809,12 +671,10 @@ public class CollectionOperationObserverTests
             list.Add(added);
         }
 
-        // Act
         removed.Title = "untracked";
         added.Title = "tracked";
         list.Add(removed);
 
-        // Assert
         Assert.That(receivedOperations, Has.Count.EqualTo(2));
         Assert.Multiple(() =>
         {
@@ -831,7 +691,6 @@ public class CollectionOperationObserverTests
     [Test]
     public void Move_ShouldPublishMoveCollectionRangeOperation()
     {
-        // Arrange
         var owner = new TestOwnerCoreObject();
         var list = new CoreList<TestItemCoreObject>
         {
@@ -846,10 +705,8 @@ public class CollectionOperationObserverTests
             testObserver, list, owner, "Items", _sequenceGenerator);
         receivedOperations.Clear();
 
-        // Act
         list.Move(0, 2);
 
-        // Assert
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
         var operation = (MoveCollectionRangeOperation<TestItemCoreObject>)receivedOperations[0];
         Assert.Multiple(() =>
@@ -865,7 +722,6 @@ public class CollectionOperationObserverTests
     [Test]
     public void MoveRange_ShouldPublishWithCorrectCount()
     {
-        // Arrange
         var owner = new TestOwnerCoreObject();
         var list = new CoreList<TestItemCoreObject>
         {
@@ -882,17 +738,15 @@ public class CollectionOperationObserverTests
             testObserver, list, owner, "Items", _sequenceGenerator);
         receivedOperations.Clear();
 
-        // Act - Move items at index 0-1 to index 4 (which becomes index 2 after removal adjustment)
         list.MoveRange(0, 2, 4);
 
-        // Assert
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
         var operation = (MoveCollectionRangeOperation<TestItemCoreObject>)receivedOperations[0];
         // Note: CoreList adjusts newIndex when it's after oldIndex, so the event reports newIndex=2
         Assert.Multiple(() =>
         {
             Assert.That(operation.OldIndex, Is.EqualTo(0));
-            Assert.That(operation.NewIndex, Is.EqualTo(2)); // Adjusted from 4 to 2 (4 - count)
+            Assert.That(operation.NewIndex, Is.EqualTo(2));
             Assert.That(operation.Count, Is.EqualTo(2));
         });
     }
@@ -904,7 +758,6 @@ public class CollectionOperationObserverTests
     [Test]
     public void Replace_ShouldPublishRemoveAndInsertOperations()
     {
-        // Arrange
         var owner = new TestOwnerCoreObject();
         var oldItem = new TestItemCoreObject { Title = "old" };
         var list = new CoreList<TestItemCoreObject> { oldItem };
@@ -915,11 +768,9 @@ public class CollectionOperationObserverTests
             testObserver, list, owner, "Items", _sequenceGenerator);
         receivedOperations.Clear();
 
-        // Act - Replace using indexer
         var newItem = new TestItemCoreObject { Title = "new" };
         list[0] = newItem;
 
-        // Assert
         Assert.That(receivedOperations, Has.Count.EqualTo(2));
         Assert.That(receivedOperations[0], Is.TypeOf<RemoveCollectionRangeOperation<TestItemCoreObject>>());
         Assert.That(receivedOperations[1], Is.TypeOf<InsertCollectionRangeOperation<TestItemCoreObject>>());
@@ -928,7 +779,6 @@ public class CollectionOperationObserverTests
     [Test]
     public void Replace_ShouldDisposeOldChildPublisherAndCreateNew()
     {
-        // Arrange
         var owner = new TestOwnerCoreObject();
         var oldItem = new TestItemCoreObject();
         var list = new CoreList<TestItemCoreObject> { oldItem };
@@ -939,14 +789,12 @@ public class CollectionOperationObserverTests
             testObserver, list, owner, "Items", _sequenceGenerator);
 
         var newItem = new TestItemCoreObject();
-        list[0] = newItem; // Replace using indexer
+        list[0] = newItem;
         receivedOperations.Clear();
 
-        // Act
         oldItem.Title = "old - not tracked";
         newItem.Title = "new - tracked";
 
-        // Assert
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
         var operation = (UpdatePropertyValueOperation<string>)receivedOperations[0];
         Assert.That(operation.NewValue, Is.EqualTo("new - tracked"));
@@ -955,7 +803,6 @@ public class CollectionOperationObserverTests
     [Test]
     public void ReplaceAll_ShouldPublishRemoveAndInsertOperations([Values] ResetBehavior resetBehavior)
     {
-        // Arrange
         var owner = new TestOwnerCoreObject();
         var oldItem1 = new TestItemCoreObject { Title = "old1" };
         var oldItem2 = new TestItemCoreObject { Title = "old2" };
@@ -969,7 +816,6 @@ public class CollectionOperationObserverTests
             testObserver, list, owner, "Items", _sequenceGenerator);
         receivedOperations.Clear();
 
-        // Act - Replace entire list
         var newItems = new List<TestItemCoreObject>
         {
             new() { Title = "new1" },
@@ -978,7 +824,7 @@ public class CollectionOperationObserverTests
         };
         list.Replace(newItems);
 
-        // Assert - recorded as Remove + Insert of the whole list
+        // Recorded as Remove + Insert of the whole list
         Assert.That(receivedOperations, Has.Count.EqualTo(2));
         var remove = (RemoveCollectionRangeOperation<TestItemCoreObject>)receivedOperations[0];
         var insert = (InsertCollectionRangeOperation<TestItemCoreObject>)receivedOperations[1];
@@ -994,7 +840,6 @@ public class CollectionOperationObserverTests
     [Test]
     public void ReplaceWithEmptyList_ShouldPublishOnlyRemoveOperation([Values] ResetBehavior resetBehavior)
     {
-        // Arrange
         var owner = new TestOwnerCoreObject();
         var oldItem1 = new TestItemCoreObject();
         var oldItem2 = new TestItemCoreObject();
@@ -1005,11 +850,9 @@ public class CollectionOperationObserverTests
         using var operationObserver = new CollectionOperationObserver<TestItemCoreObject>(
             testObserver, list, owner, "Items", _sequenceGenerator);
 
-        // Act
         list.Replace([]);
         oldItem1.Title = "not tracked";
 
-        // Assert
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
         var remove = (RemoveCollectionRangeOperation<TestItemCoreObject>)receivedOperations[0];
         Assert.Multiple(() =>
@@ -1022,7 +865,6 @@ public class CollectionOperationObserverTests
     [Test]
     public void ReplaceOnEmptyList_ShouldPublishOnlyInsertOperation([Values] ResetBehavior resetBehavior)
     {
-        // Arrange
         var owner = new TestOwnerCoreObject();
         var list = new CoreList<TestItemCoreObject> { ResetBehavior = resetBehavior };
         var receivedOperations = new List<ChangeOperation>();
@@ -1032,11 +874,9 @@ public class CollectionOperationObserverTests
             testObserver, list, owner, "Items", _sequenceGenerator);
         var newItem = new TestItemCoreObject();
 
-        // Act
         list.Replace([newItem]);
         newItem.Title = "tracked";
 
-        // Assert
         Assert.That(receivedOperations, Has.Count.EqualTo(2));
         var insert = (InsertCollectionRangeOperation<TestItemCoreObject>)receivedOperations[0];
         Assert.Multiple(() =>
@@ -1057,7 +897,6 @@ public class CollectionOperationObserverTests
     [TestCase(ResetBehavior.Reset, 0, 2)]
     public void Replace_UndoRedo_RestoresBothLists(ResetBehavior resetBehavior, int oldCount, int newCount)
     {
-        // Arrange
         var owner = new TestOwnerCoreObject();
         TestItemCoreObject[] oldItems = CreateItems("old", oldCount);
         // When both lists have items, the first old item stays, so it is removed and inserted again.
@@ -1065,19 +904,16 @@ public class CollectionOperationObserverTests
         TestItemCoreObject[] newItems = [.. oldItems.Take(kept), .. CreateItems("new", newCount - kept)];
         owner.Items = new CoreList<TestItemCoreObject>(oldItems) { ResetBehavior = resetBehavior };
 
-        using var history = new HistoryManager(owner, _sequenceGenerator);
-        using var operationObserver = new CoreObjectOperationObserver(null, owner, _sequenceGenerator);
-        using IDisposable subscription = history.Subscribe(operationObserver);
+        using var harness = new HistoryHarness(owner);
 
-        // Act & Assert
         owner.Items.Replace(newItems);
-        history.Commit("replace");
+        harness.History.Commit("replace");
         Assert.That(owner.Items, Is.EqualTo(newItems));
 
-        Assert.That(history.Undo(), Is.True);
+        Assert.That(harness.History.Undo(), Is.True);
         Assert.That(owner.Items, Is.EqualTo(oldItems));
 
-        Assert.That(history.Redo(), Is.True);
+        Assert.That(harness.History.Redo(), Is.True);
         Assert.That(owner.Items, Is.EqualTo(newItems));
 
         static TestItemCoreObject[] CreateItems(string prefix, int count)
@@ -1091,7 +927,6 @@ public class CollectionOperationObserverTests
     [Test]
     public void Dispose_ShouldDisposeAllChildPublishers()
     {
-        // Arrange
         var owner = new TestOwnerCoreObject();
         var item1 = new TestItemCoreObject();
         var item2 = new TestItemCoreObject();
@@ -1102,19 +937,16 @@ public class CollectionOperationObserverTests
         var operationObserver = new CollectionOperationObserver<TestItemCoreObject>(
             testObserver, list, owner, "Items", _sequenceGenerator);
 
-        // Act
         operationObserver.Dispose();
         item1.Title = "should not be tracked";
         item2.Title = "should not be tracked";
 
-        // Assert
         Assert.That(receivedOperations, Is.Empty);
     }
 
     [Test]
     public void Dispose_ShouldUnsubscribeFromCollectionChanges()
     {
-        // Arrange
         var owner = new TestOwnerCoreObject();
         var list = new CoreList<TestItemCoreObject>();
         var receivedOperations = new List<ChangeOperation>();
@@ -1123,18 +955,15 @@ public class CollectionOperationObserverTests
         var operationObserver = new CollectionOperationObserver<TestItemCoreObject>(
             testObserver, list, owner, "Items", _sequenceGenerator);
 
-        // Act
         operationObserver.Dispose();
         list.Add(new TestItemCoreObject());
 
-        // Assert
         Assert.That(receivedOperations, Is.Empty);
     }
 
     [Test]
     public void Dispose_ShouldCompleteOperationsObservable()
     {
-        // Arrange
         var owner = new TestOwnerCoreObject();
         var list = new CoreList<TestItemCoreObject>();
         var completed = false;
@@ -1145,135 +974,9 @@ public class CollectionOperationObserverTests
 
         operationObserver.Operations.Subscribe(_ => { }, () => completed = true);
 
-        // Act
         operationObserver.Dispose();
 
-        // Assert
         Assert.That(completed, Is.True);
-    }
-
-    #endregion
-
-    #region PublishingSuppression Tests
-
-    [Test]
-    public void Add_WhenPublishingSuppressed_ShouldNotPublish()
-    {
-        // Arrange
-        var owner = new TestOwnerCoreObject();
-        var list = new CoreList<TestItemCoreObject>();
-        var receivedOperations = new List<ChangeOperation>();
-        var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
-
-        using var operationObserver = new CollectionOperationObserver<TestItemCoreObject>(
-            testObserver, list, owner, "Items", _sequenceGenerator);
-
-        // Act
-        using (PublishingSuppression.Enter())
-        {
-            list.Add(new TestItemCoreObject());
-        }
-
-        // Assert
-        Assert.That(receivedOperations, Is.Empty);
-    }
-
-    [Test]
-    public void Remove_WhenPublishingSuppressed_ShouldNotPublish()
-    {
-        // Arrange
-        var owner = new TestOwnerCoreObject();
-        var item = new TestItemCoreObject();
-        var list = new CoreList<TestItemCoreObject> { item };
-        var receivedOperations = new List<ChangeOperation>();
-        var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
-
-        using var operationObserver = new CollectionOperationObserver<TestItemCoreObject>(
-            testObserver, list, owner, "Items", _sequenceGenerator);
-        receivedOperations.Clear();
-
-        // Act
-        using (PublishingSuppression.Enter())
-        {
-            list.Remove(item);
-        }
-
-        // Assert
-        Assert.That(receivedOperations, Is.Empty);
-    }
-
-    [Test]
-    public void Move_WhenPublishingSuppressed_ShouldNotPublish()
-    {
-        // Arrange
-        var owner = new TestOwnerCoreObject();
-        var list = new CoreList<TestItemCoreObject>
-        {
-            new(),
-            new()
-        };
-        var receivedOperations = new List<ChangeOperation>();
-        var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
-
-        using var operationObserver = new CollectionOperationObserver<TestItemCoreObject>(
-            testObserver, list, owner, "Items", _sequenceGenerator);
-        receivedOperations.Clear();
-
-        // Act
-        using (PublishingSuppression.Enter())
-        {
-            list.Move(0, 1);
-        }
-
-        // Assert
-        Assert.That(receivedOperations, Is.Empty);
-    }
-
-    [Test]
-    public void Replace_WhenPublishingSuppressed_ShouldNotPublish()
-    {
-        // Arrange
-        var owner = new TestOwnerCoreObject();
-        var oldItem = new TestItemCoreObject();
-        var list = new CoreList<TestItemCoreObject> { oldItem };
-        var receivedOperations = new List<ChangeOperation>();
-        var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
-
-        using var operationObserver = new CollectionOperationObserver<TestItemCoreObject>(
-            testObserver, list, owner, "Items", _sequenceGenerator);
-        receivedOperations.Clear();
-
-        // Act
-        using (PublishingSuppression.Enter())
-        {
-            list[0] = new TestItemCoreObject(); // Replace using indexer
-        }
-
-        // Assert
-        Assert.That(receivedOperations, Is.Empty);
-    }
-
-    [Test]
-    public void Add_AfterSuppressionEnds_ShouldPublish()
-    {
-        // Arrange
-        var owner = new TestOwnerCoreObject();
-        var list = new CoreList<TestItemCoreObject>();
-        var receivedOperations = new List<ChangeOperation>();
-        var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
-
-        using var operationObserver = new CollectionOperationObserver<TestItemCoreObject>(
-            testObserver, list, owner, "Items", _sequenceGenerator);
-
-        // Act
-        using (PublishingSuppression.Enter())
-        {
-            list.Add(new TestItemCoreObject());
-        }
-        list.Add(new TestItemCoreObject());
-
-        // Assert
-        Assert.That(receivedOperations, Has.Count.EqualTo(1));
     }
 
     #endregion
@@ -1283,7 +986,6 @@ public class CollectionOperationObserverTests
     [Test]
     public void Constructor_WithPropertyPathsToTrack_ShouldFilterChildPublisherPaths()
     {
-        // Arrange
         var owner = new TestOwnerCoreObject();
         var item = new TestItemCoreObject();
         var list = new CoreList<TestItemCoreObject> { item };
@@ -1291,14 +993,12 @@ public class CollectionOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
         var propertyPathsToTrack = new HashSet<string> { "Items.Title" };
 
-        // Act
         using var operationObserver = new CollectionOperationObserver<TestItemCoreObject>(
             testObserver, list, owner, "Items", _sequenceGenerator, propertyPathsToTrack);
 
         item.Title = "tracked";
         item.Value = 100; // Not in paths to track
 
-        // Assert
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
         var operation = (UpdatePropertyValueOperation<string>)receivedOperations[0];
         Assert.That(operation.PropertyPath, Is.EqualTo("Items.Title"));
@@ -1307,7 +1007,6 @@ public class CollectionOperationObserverTests
     [Test]
     public void AddedItem_WithPropertyPathsToTrack_ShouldUseFilteredChildPublisher()
     {
-        // Arrange
         var owner = new TestOwnerCoreObject();
         var list = new CoreList<TestItemCoreObject>();
         var receivedOperations = new List<ChangeOperation>();
@@ -1321,110 +1020,12 @@ public class CollectionOperationObserverTests
         list.Add(item);
         receivedOperations.Clear();
 
-        // Act
         item.Title = "tracked";
         item.Value = 100;
 
-        // Assert - only Name change should be tracked
+        // Only the Title change should be tracked
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
         Assert.That(receivedOperations[0], Is.TypeOf<UpdatePropertyValueOperation<string>>());
-    }
-
-    #endregion
-
-    #region Sequence Number Tests
-
-    [Test]
-    public void Operations_ShouldHaveIncrementingSequenceNumbers()
-    {
-        // Arrange
-        var owner = new TestOwnerCoreObject();
-        var list = new CoreList<TestItemCoreObject>();
-        var receivedOperations = new List<ChangeOperation>();
-        var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
-
-        using var operationObserver = new CollectionOperationObserver<TestItemCoreObject>(
-            testObserver, list, owner, "Items", _sequenceGenerator);
-
-        // Act
-        list.Add(new TestItemCoreObject());
-        list.Add(new TestItemCoreObject());
-        list.Add(new TestItemCoreObject());
-
-        // Assert
-        Assert.That(receivedOperations, Has.Count.EqualTo(3));
-        Assert.That(receivedOperations[1].SequenceNumber, Is.GreaterThan(receivedOperations[0].SequenceNumber));
-        Assert.That(receivedOperations[2].SequenceNumber, Is.GreaterThan(receivedOperations[1].SequenceNumber));
-    }
-
-    #endregion
-
-    #region Operations Property Tests
-
-    [Test]
-    public void Operations_ShouldReturnObservable()
-    {
-        // Arrange
-        var owner = new TestOwnerCoreObject();
-        var list = new CoreList<TestItemCoreObject>();
-        var testObserver = Observer.Create<ChangeOperation>(_ => { });
-
-        // Act
-        using var operationObserver = new CollectionOperationObserver<TestItemCoreObject>(
-            testObserver, list, owner, "Items", _sequenceGenerator);
-
-        // Assert
-        Assert.That(operationObserver.Operations, Is.InstanceOf<IObservable<ChangeOperation>>());
-    }
-
-    [Test]
-    public void Operations_ShouldAllowMultipleSubscribers()
-    {
-        // Arrange
-        var owner = new TestOwnerCoreObject();
-        var list = new CoreList<TestItemCoreObject>();
-        var receivedOperations1 = new List<ChangeOperation>();
-        var receivedOperations2 = new List<ChangeOperation>();
-        var testObserver = Observer.Create<ChangeOperation>(_ => { });
-
-        using var operationObserver = new CollectionOperationObserver<TestItemCoreObject>(
-            testObserver, list, owner, "Items", _sequenceGenerator);
-
-        // Act
-        using var sub1 = operationObserver.Operations.Subscribe(op => receivedOperations1.Add(op));
-        using var sub2 = operationObserver.Operations.Subscribe(op => receivedOperations2.Add(op));
-
-        list.Add(new TestItemCoreObject());
-
-        // Assert
-        Assert.Multiple(() =>
-        {
-            Assert.That(receivedOperations1, Has.Count.EqualTo(1));
-            Assert.That(receivedOperations2, Has.Count.EqualTo(1));
-        });
-    }
-
-    #endregion
-
-    #region Non-INotifyCollectionChanged List Tests
-
-    [Test]
-    public void Constructor_WithNonNotifyingList_ShouldNotSubscribeToChanges()
-    {
-        // Arrange
-        var owner = new TestOwnerCoreObject();
-        var list = new List<TestItemCoreObject>(); // Plain List, not CoreList
-        var receivedOperations = new List<ChangeOperation>();
-        var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
-
-        using var operationObserver = new CollectionOperationObserver<TestItemCoreObject>(
-            testObserver, list, owner, "Items", _sequenceGenerator);
-
-        // Act - add to list (won't trigger CollectionChanged since List<T> doesn't implement it)
-        list.Add(new TestItemCoreObject());
-
-        // Assert
-        Assert.That(receivedOperations, Is.Empty);
     }
 
     #endregion

@@ -1,5 +1,6 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
+using Avalonia.VisualTree;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Testing.Headless;
 
@@ -40,7 +41,7 @@ public class HeadlessHarnessTests
 
             Assert.That(editor.Bounds.Width, Is.GreaterThan(0));
 
-            CheckBox? toggle = HeadlessTestHelpers.FindDescendant<CheckBox>(editor);
+            CheckBox? toggle = editor.FindDescendantOfType<CheckBox>();
             Assert.That(toggle, Is.Not.Null);
 
             editor.Value = true;

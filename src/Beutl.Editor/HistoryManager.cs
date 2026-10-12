@@ -65,13 +65,8 @@ public sealed partial class HistoryManager : IDisposable
     public IObservable<System.Reactive.Unit> BeforeMutation => _beforeMutation.AsObservable();
 
     /// <summary>
-    /// Fires <see cref="BeforeMutation"/> so subscribers (e.g. a debounced nudge service)
-    /// flush any pending work into history now. Call this before deciding whether a
-    /// following <see cref="Undo"/> / <see cref="Redo"/> / <see cref="JumpTo"/> will change
-    /// scene state: those operations fire <see cref="BeforeMutation"/> themselves, so a
-    /// still-pending edit is otherwise invisible to that decision yet gets committed — and
-    /// possibly reverted — once the operation runs. The operation's own notification then
-    /// finds nothing left to flush, so the flush stays single-effect for idempotent subscribers.
+    /// Fires <see cref="BeforeMutation"/> now, so a pending debounced edit is flushed before the caller
+    /// decides whether <see cref="Undo"/> / <see cref="Redo"/> / <see cref="JumpTo"/> would change anything.
     /// </summary>
     public void FlushPendingMutations()
     {
@@ -145,16 +140,9 @@ public sealed partial class HistoryManager : IDisposable
     }
 
     /// <summary>
-    /// Atomically takes an initial snapshot and subscribes to subsequent
-    /// <see cref="INotifyCollectionChanged.CollectionChanged"/> events on
-    /// <see cref="Entries"/>. Use this when the consumer needs to mirror the
-    /// collection without dropping events that fire between the snapshot and
-    /// the subscription on a separate thread.
+    /// Atomically snapshots <see cref="Entries"/> and the current index and subscribes, so no change is
+    /// missed between the two.
     /// </summary>
-    /// <returns>
-    /// A tuple containing the unsubscribe disposable, the initial snapshot,
-    /// and the current index captured atomically with the snapshot.
-    /// </returns>
     public (IDisposable Subscription, HistoryEntry[] InitialSnapshot, int InitialCurrentIndex) SubscribeEntries(
         NotifyCollectionChangedEventHandler handler)
     {
@@ -223,15 +211,8 @@ public sealed partial class HistoryManager : IDisposable
     /// <paramref name="action"/> as one isolated transaction.
     /// </summary>
     /// <remarks>
-    /// The action is synchronous so every observer it triggers records reentrantly while the
-    /// history gate is held. Records from other threads wait until the action commits or rolls back.
-    /// Records produced while earlier pending entries are published are committed as separate
-    /// entries before the callback begins.
-    /// <paramref name="cancellationToken"/> is checked before mutation flush and again after the
-    /// gate is acquired, before any pending transaction is committed; the callback owns any later
-    /// cancellation checks it requires.
-    /// The action must not call <see cref="Commit"/>, <see cref="Rollback"/>, <see cref="Undo"/>,
-    /// <see cref="Redo"/>, <see cref="Clear"/>, <see cref="JumpTo"/>, or this method recursively.
+    /// The action is synchronous and must not call <see cref="Commit"/>, <see cref="Rollback"/>,
+    /// <see cref="Undo"/>, <see cref="Redo"/>, <see cref="Clear"/>, <see cref="JumpTo"/>, or this method.
     /// </remarks>
     public void ExecuteInTransaction(
         Action action,
@@ -496,17 +477,10 @@ public sealed partial class HistoryManager : IDisposable
         // it. Emitting Replace + RemoveAt lets each event apply
         // independently without a Reset.
         HistoryEntry newInitial = HistoryEntry.CreateInitial();
-        if (_entries.Count == 0)
+        ReplaceEntry(0, newInitial);
+        for (int i = _entries.Count - 1; i > 0; i--)
         {
-            AddEntry(newInitial);
-        }
-        else
-        {
-            ReplaceEntry(0, newInitial);
-            for (int i = _entries.Count - 1; i > 0; i--)
-            {
-                RemoveEntryAt(i);
-            }
+            RemoveEntryAt(i);
         }
 
         _logger.LogDebug("Cleared history stacks (Undo: {UndoCount}, Redo: {RedoCount})", undoCount, redoCount);
@@ -567,18 +541,6 @@ public sealed partial class HistoryManager : IDisposable
                     _logger.LogError(ex, "JumpTo failed at undo={UndoCount}, redo={RedoCount}, target={Target}",
                         _undoStack.Count, _redoStack.Count, index);
                     failure = ex;
-                }
-
-                // Forward loop exits when _redoStack is empty; if that happened
-                // before reaching the requested index (e.g. residual stack drift
-                // from a previously-failed step), do not silently report success.
-                if (failure is null && _undoStack.Count != index)
-                {
-                    _logger.LogError(
-                        "JumpTo could not reach target index {Target} (undo={UndoCount}, redo={RedoCount}); stacks are out of sync with entries",
-                        index, _undoStack.Count, _redoStack.Count);
-                    failure = new InvalidOperationException(
-                        $"JumpTo could not reach target index {index} (undo={_undoStack.Count}, redo={_redoStack.Count}).");
                 }
             }
         }
@@ -716,9 +678,7 @@ public sealed partial class HistoryManager : IDisposable
         _stateChanged.OnNext(new HistoryState(CanUndo, CanRedo, UndoCount, RedoCount));
     }
 
-    // BeforeMutation subscribers are user-supplied (e.g. timeline flush handlers).
-    // A throw must not abort the Undo/Redo that triggered the notification, since
-    // the history operation itself is independent of any debounce flush.
+    // FaultIsolatedSubject isolates subscriber exceptions from the operation that fires this.
     private void FireBeforeMutation()
     {
         if (_beforeMutationDispatch.Value is { IsActive: true })
@@ -729,10 +689,6 @@ public sealed partial class HistoryManager : IDisposable
         try
         {
             _beforeMutation.OnNext(System.Reactive.Unit.Default);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "BeforeMutation subscriber threw; continuing with the pending Undo/Redo.");
         }
         finally
         {

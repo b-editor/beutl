@@ -28,9 +28,6 @@ public class ResourceRelocationService
     private readonly ILogger _logger = Log.CreateLogger<ResourceRelocationService>();
     private readonly Func<string, IEnumerable<string>>? _fontFileFinder;
 
-    /// <summary>
-    /// Default constructor.
-    /// </summary>
     public ResourceRelocationService()
     {
     }
@@ -47,11 +44,6 @@ public class ResourceRelocationService
     /// <summary>
     /// Copies file sources to the project's resources directory and updates their URIs.
     /// </summary>
-    /// <param name="sources">The list of file sources to copy.</param>
-    /// <param name="stagingProject">The project to apply URI updates to.</param>
-    /// <param name="projectDirectory">The path of the project directory.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>A <see cref="RelocationResult"/> with success count and failed source identifiers.</returns>
     public virtual async Task<RelocationResult> RelocateFileSourcesAsync(
         IEnumerable<(Guid Object, string PropertyName, Uri OriginalUri)> sources,
         Project stagingProject,
@@ -234,20 +226,10 @@ public class ResourceRelocationService
         }
         var obj = FindObject(stagingProject, id);
 
-        if (obj != null)
+        if (obj != null && propertyName == "Uri")
         {
-            var property = PropertyRegistry.FindRegistered(obj, propertyName);
-            if (property != null && property.PropertyType == typeof(Uri))
-            {
-                obj.SetValue(property, newUri);
-                return;
-            }
-
-            if (propertyName == "Uri")
-            {
-                obj.Uri = newUri;
-                return;
-            }
+            obj.Uri = newUri;
+            return;
         }
 
         throw new InvalidOperationException("Failed to update URI: Object or property not found.");
@@ -280,10 +262,6 @@ public class ResourceRelocationService
     /// <summary>
     /// Copies font files to the project's resources/fonts directory.
     /// </summary>
-    /// <param name="fontFamilies">The list of font families to copy.</param>
-    /// <param name="projectDirectory">The path of the project directory.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>A <see cref="RelocationResult"/> with success count and failed font family names.</returns>
     public virtual async Task<RelocationResult> RelocateFontsAsync(
         IEnumerable<FontFamily> fontFamilies,
         string projectDirectory,
@@ -483,9 +461,6 @@ public class ResourceRelocationService
         return [];
     }
 
-    /// <summary>
-    /// Gets a unique file path that does not conflict with existing files.
-    /// </summary>
     private static string GetUniqueFilePath(string directory, string fileName)
     {
         string destFilePath = Path.Combine(directory, fileName);
@@ -505,9 +480,6 @@ public class ResourceRelocationService
         return destFilePath;
     }
 
-    /// <summary>
-    /// Copies a file asynchronously.
-    /// </summary>
     internal static async Task CopyFileAsync(string sourcePath, string destPath, CancellationToken cancellationToken)
     {
         await using FileStream sourceStream = new(sourcePath, FileMode.Open, FileAccess.Read, FileShare.Read, 81920,

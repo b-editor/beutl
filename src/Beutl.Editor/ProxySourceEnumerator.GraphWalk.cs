@@ -27,10 +27,10 @@ public static partial class ProxySourceEnumerator
     }
 
     private static IEnumerable<IFileSource> EnumerateGraphSources(
-        GraphModel model, HashSet<GraphGroup> visitedGraphGroups, TimeRange? localRange = null, HashSet<EngineObject>? visitedValues = null,
+        GraphModel model, HashSet<GraphGroup> visitedGraphGroups, TimeRange? localRange = null,
         TimeRange? sceneWindow = null, ObjectWalkContext? walkContext = null, bool skipDisabledElements = false)
     {
-        visitedValues ??= new HashSet<EngineObject>(ReferenceEqualityComparer.Instance);
+        var visitedValues = new HashSet<EngineObject>(ReferenceEqualityComparer.Instance);
 
         // Use property identity so aliases are treated like rendering, while an unrelated property
         // holding the same file still contributes that file. Keep this scoped to the graph walk;
@@ -48,7 +48,7 @@ public static partial class ProxySourceEnumerator
             }
         }
         walkContext ??= new ObjectWalkContext([], visitedGraphGroups,
-            new HashSet<Drawable>(ReferenceEqualityComparer.Instance), new HashSet<Drawable>(ReferenceEqualityComparer.Instance), null, sceneWindow);
+            new HashSet<Drawable>(ReferenceEqualityComparer.Instance), new HashSet<Drawable>(ReferenceEqualityComparer.Instance), sceneWindow);
         walkContext = walkContext with { ConnectedNodeInputs = connectedInputs };
 
         foreach (IFileSource source in WalkGraph(model)) yield return source;
@@ -57,7 +57,6 @@ public static partial class ProxySourceEnumerator
         {
             foreach (GraphNode node in graph.Nodes)
             {
-                // Keep every group's outer inputs even when its inner graph is shared.
                 foreach (IFileSource source in EnumerateNodePropertySources(node, localRange, visitedValues, sceneWindow, walkContext, skipDisabledElements))
                     yield return source;
 
@@ -71,7 +70,7 @@ public static partial class ProxySourceEnumerator
     }
 
     private static IEnumerable<IFileSource> EnumerateNodePropertySources(
-        GraphNode node, TimeRange? localRange, HashSet<EngineObject> visitedValues, TimeRange? sceneWindow, ObjectWalkContext? walkContext = null,
+        GraphNode node, TimeRange? localRange, HashSet<EngineObject> visitedValues, TimeRange? sceneWindow, ObjectWalkContext walkContext,
         bool skipDisabledElements = false)
     {
         // GraphSnapshot.LoadAnimatedValues evaluates a node's non-global property animations at
@@ -96,7 +95,7 @@ public static partial class ProxySourceEnumerator
             // use local values again, just as GraphSnapshot does.
             if (member is IInputPort inputPort && inputPort.Connection.Value is not null && node.CanConnectInput(inputPort)
                 || property.GetEngineProperty() is { } engineProperty
-                && walkContext?.ConnectedNodeInputs?.Contains(engineProperty) == true)
+                && walkContext.ConnectedNodeInputs?.Contains(engineProperty) == true)
                 continue;
 
             IAnimation? animation = (property as IAnimatablePropertyAdapter)?.Animation;
@@ -166,8 +165,8 @@ public static partial class ProxySourceEnumerator
                         continue;
 
                     // A child effect can carry an ordinary file-source property (LutEffect.Source) the
-                    // graph walker below never sees, so walk its own properties too. The Children list is
-                    // not an EngineObject-valued property, so the #19 property recursion cannot reach here.
+                    // graph walker below never sees, so walk its own properties too. Children is not an
+                    // EngineObject-valued property, so the property recursion does not reach it.
                     foreach (IFileSource source in EnumeratePropertyFileSources(child, localRange, skipDisabledElements, sceneWindow: sceneWindow, walkContext: walkContext))
                         yield return source;
 

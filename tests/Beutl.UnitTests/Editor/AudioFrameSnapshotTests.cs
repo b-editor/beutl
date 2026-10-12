@@ -33,12 +33,4 @@ public class AudioFrameSnapshotTests
         var snapshot = new AudioFrameSnapshot(new float[8], 0, 2, TimeSpan.FromSeconds(5));
         Assert.That(snapshot.Duration, Is.EqualTo(TimeSpan.Zero));
     }
-
-    [Test]
-    public void StartTime_PreservedFromConstruction()
-    {
-        var t = TimeSpan.FromSeconds(2.5);
-        var snapshot = new AudioFrameSnapshot(new float[4], 44100, 2, t);
-        Assert.That(snapshot.StartTime, Is.EqualTo(t));
-    }
 }

@@ -50,7 +50,6 @@ public class UpdateExtractionTests
         if (!OperatingSystem.IsMacOS())
         {
             Assert.Ignore("Uses the macOS ditto extractor.");
-            return;
         }
         string root = Directory.CreateTempSubdirectory("beutl-update-").FullName;
         try

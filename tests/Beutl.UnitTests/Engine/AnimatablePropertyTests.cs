@@ -4,6 +4,7 @@ using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Engine.Expressions;
 using Beutl.ProjectSystem;
+using Beutl.UnitTests.TestInfrastructure;
 using Beutl.Validation;
 
 namespace Beutl.UnitTests.Engine;
@@ -42,20 +43,6 @@ public class AnimatablePropertyTests
         {
             return null;
         }
-    }
-
-    // A non-EngineObject root: an EngineObject root would hijack the owner's time-anchor subscription.
-    private sealed class TestHierarchicalRoot : Hierarchical, IHierarchicalRoot
-    {
-        public event EventHandler<IHierarchical>? DescendantAttached;
-
-        public event EventHandler<IHierarchical>? DescendantDetached;
-
-        public void OnDescendantAttached(IHierarchical descendant)
-            => DescendantAttached?.Invoke(this, descendant);
-
-        public void OnDescendantDetached(IHierarchical descendant)
-            => DescendantDetached?.Invoke(this, descendant);
     }
 
     private static AnimatableProperty<T> Make<T>(T defaultValue, string name = "Value")

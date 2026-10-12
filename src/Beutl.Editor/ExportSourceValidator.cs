@@ -5,14 +5,16 @@ using Beutl.ProjectSystem;
 
 namespace Beutl.Editor;
 
+/// <summary>
+/// Collects the referenced media paths that can actually be rendered, skipping disabled, out-of-range, and
+/// muted / non-solo top-level elements exactly as <c>SceneCompositor.SortLayers</c> does. The collectors walk
+/// the mutable scene graph, so call them on the thread that owns the scene; existence is then checked
+/// off-thread via <see cref="GetMissingPaths"/>.
+/// </summary>
 public static class ExportSourceValidator
 {
     /// <summary>
-    /// Collects the referenced media paths that can actually be rendered for a single frame at
-    /// <paramref name="time"/>, skipping disabled, out-of-range, and muted / non-solo top-level elements
-    /// exactly as <c>SceneCompositor.SortLayers</c> does for the graphics pass. Walks the mutable scene
-    /// graph, so the caller must run this on the thread that owns the scene; existence is then checked
-    /// off-thread via <see cref="GetMissingPaths"/>.
+    /// Collects the sources of the graphics pass for the single frame at <paramref name="time"/>.
     /// </summary>
     public static IReadOnlySet<string> CollectRenderableSources(Scene scene, TimeSpan time)
         => CollectRenderableSources(
@@ -20,12 +22,8 @@ public static class ExportSourceValidator
             [CompositionTarget.Graphics]);
 
     /// <summary>
-    /// Collects the referenced media paths that can actually be rendered anywhere in
-    /// <paramref name="range"/>, skipping disabled, out-of-range, and muted / non-solo top-level elements
-    /// exactly as <c>SceneCompositor.SortLayers</c> does. A layer muted for only one pass (video-muted but
-    /// audio-live, or vice versa) still contributes the other pass's sources, so both the graphics and
-    /// audio passes are walked. Walks the mutable scene graph, so the caller must run this on the thread
-    /// that owns the scene; existence is then checked off-thread via <see cref="GetMissingPaths"/>.
+    /// Collects the sources rendered anywhere in <paramref name="range"/>. Both the graphics and audio passes
+    /// are walked, since a layer muted for only one pass still contributes the other pass's sources.
     /// </summary>
     public static IReadOnlySet<string> CollectRenderableSources(Scene scene, TimeRange range)
         => CollectRenderableSources(scene, range, element => element.Range.Intersects(range),
@@ -44,13 +42,8 @@ public static class ExportSourceValidator
             if (!element.IsEnabled || !inRange(element))
                 continue;
 
-            // The render window in the element's local time (keyframe times are element-local): an
-            // out-of-window animated source keyframe is then dropped as unreachable for this render.
-            // Clamp the scene window to the element's active interval first (SubtractStart is a pure
-            // shift): a range window wider than the element would otherwise map to pre-Start local time
-            // (negative) and keep keyframes the element never renders. A point sample already passed the
-            // Range.Contains gate, so it needs no clamp. sceneWindow (unclamped) still drives the
-            // global-clock keyframe filter, which samples at scene time.
+            // The render window in element-local time; a range window is first clamped to the element's
+            // interval. Global-clock keyframes are filtered by sceneWindow, which stays in scene time.
             TimeRange elementLocalWindow = sceneWindow.Duration <= TimeSpan.Zero
                 ? sceneWindow
                 : ClampToElement(sceneWindow, element.Range);

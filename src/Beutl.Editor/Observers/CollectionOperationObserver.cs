@@ -121,7 +121,7 @@ public sealed class CollectionOperationObserver<T> : IOperationObserver
             MatchChildPublishersToSnapshot();
         }
 
-        // Suppress publishing during remote operation application to prevent echo-back
+        // KeyFrameAnimation re-sorts its key frames under PublishingSuppression; that is not an edit.
         if (PublishingSuppression.IsSuppressed)
         {
             return;

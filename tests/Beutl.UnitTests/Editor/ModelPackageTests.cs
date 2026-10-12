@@ -8,6 +8,7 @@ using Beutl.Graphics3D.Models;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.UnitTests.Engine.Graphics3D;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Editor;
 
@@ -22,11 +23,7 @@ public class ModelPackageTests
             string external = Directory.CreateDirectory(Path.Combine(root, "external")).FullName;
             string projectDirectory = Directory.CreateDirectory(Path.Combine(root, "project")).FullName;
             string texture = Path.Combine(external, "albedo.png");
-            using (var bitmap = new Beutl.Media.Bitmap(1, 1))
-            {
-                bitmap.GetPixelSpan().Fill(255);
-                Assert.That(bitmap.Save(texture), Is.True);
-            }
+            TestImages.WritePng(texture, 1);
             File.WriteAllText(Path.Combine(external, "material.mtl"), $"newmtl Painted\nKd 1 1 1\nmap_Kd {texture}\n");
             string modelPath = Path.Combine(external, "model.obj");
             File.WriteAllText(modelPath, "mtllib material.mtl\nv 0 0 0\nv 1 0 0\nv 0 1 0\nusemtl Painted\nf 1 2 3\n");

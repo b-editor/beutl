@@ -4,8 +4,7 @@ namespace Beutl.UnitTests.Editor;
 
 public class ControllableEncodingExtensionTests
 {
-    // The default IsSupported must match on extension regardless of the on-disk casing,
-    // mirroring the (now removed) IEncoderInfo.IsSupported which used StringComparer.OrdinalIgnoreCase.
+    // The default IsSupported must match on extension regardless of the on-disk casing.
     [TestCase("video.mp4", ExpectedResult = true)]
     [TestCase("video.MP4", ExpectedResult = true)]
     [TestCase("video.Mp4", ExpectedResult = true)]

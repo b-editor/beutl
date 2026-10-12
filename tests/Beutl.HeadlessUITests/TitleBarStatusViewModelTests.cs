@@ -8,6 +8,7 @@ using Beutl.Extensibility;
 using Beutl.Language;
 using Beutl.ProjectSystem;
 using Beutl.Services;
+using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Moq;
 using Reactive.Bindings;
@@ -108,13 +109,9 @@ public sealed class TitleBarStatusViewModelTests
             });
 
             // The frame cache is counted off the UI thread.
-            for (int i = 0; i < 50 && status.FrameCacheText.Value == StatusStrings.Loading; i++)
-            {
-                await Task.Delay(20);
-                Dispatcher.UIThread.RunJobs();
-            }
-
-            Assert.That(status.FrameCacheText.Value, Is.Not.EqualTo(StatusStrings.Loading));
+            await HeadlessTestHelpers.WaitUntilAsync(
+                () => status.FrameCacheText.Value != StatusStrings.Loading,
+                TimeSpan.FromSeconds(1));
         }
         finally
         {

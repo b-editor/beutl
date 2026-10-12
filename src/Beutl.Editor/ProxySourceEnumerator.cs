@@ -37,24 +37,10 @@ public static partial class ProxySourceEnumerator
     /// media walk (not just the proxy-eligible video subset). Reaches direct/animated values, node-graph
     /// adapter inputs, filter-effect subgraphs, presenter/decorator targets, and referenced scenes.
     /// </summary>
-    /// <param name="skipDisabledElements">
-    /// When true, disabled elements (referenced-scene children) and disabled objects are skipped, as
-    /// the render path does via <c>Element.CollectObjects</c>. Export preflight passes true; proxy
-    /// generation / badge enumeration leaves it false so a disabled clip still contributes a source.
-    /// </param>
-    /// <param name="renderTarget">
-    /// When set, objects whose <see cref="EngineObject.GetCompositionTarget"/> is a different, non-Unknown
-    /// target are skipped (again mirroring <c>Element.CollectObjects</c>). Save-frame passes
-    /// <see cref="CompositionTarget.Graphics"/> so a missing audio original does not block a still image;
-    /// full export leaves it null so both graphics and audio sources are required.
-    /// </param>
+    /// <param name="skipDisabledElements">Skips disabled elements and objects, as the render path does.</param>
+    /// <param name="renderTarget">Skips objects of another composition target, as the render path does.</param>
     /// <param name="localRange">
-    /// When set, animated <see cref="IFileSource"/> keyframes whose governing span falls entirely
-    /// outside this render window (expressed in the element's local time) are dropped, so a
-    /// since-replaced source referenced only by an out-of-window keyframe does not block a save-frame
-    /// or partial-range export. Left null by callers with no render window (proxy scan / badge
-    /// enumeration) and reset to null wherever descent crosses a time remap (referenced scenes, time
-    /// controllers, presenters, node graphs), which keeps those paths at the conservative full walk.
+    /// The render window in the element's local time. It resets to null wherever nesting remaps time.
     /// </param>
     public static IEnumerable<IFileSource> EnumerateFileSources(
         Element element,
@@ -75,15 +61,8 @@ public static partial class ProxySourceEnumerator
     }
 
     /// <summary>
-    /// Collects the file-system paths of every <see cref="IFileSource"/> referenced anywhere in
-    /// <paramref name="root"/>, regardless of whether each file lives inside or outside the project
-    /// directory. Covers the broad <see cref="IFileSource"/> property walk AND every source the
-    /// property walk cannot reach — node-graph adapter inputs (a port is an <see cref="IPropertyAdapter"/>,
-    /// not a plain <see cref="IProperty{T}"/> on an <see cref="EngineObject"/>), including those held
-    /// inside referenced scenes. <c>SimpleProperty</c> attaches hierarchical property values (a
-    /// referenced scene, a presenter target) as hierarchical children, so the hierarchy itself is
-    /// user-cyclable and the walk is cycle-safe. Paths are deduped with
-    /// <see cref="StringComparer.Ordinal"/>.
+    /// Collects the file paths of every <see cref="IFileSource"/> under <paramref name="root"/>, including
+    /// node-graph inputs and referenced scenes.
     /// </summary>
     public static IReadOnlySet<string> EnumerateFileSources(IHierarchical root)
         => EnumerateFileSources(root, includeObjectUris: true);
@@ -187,7 +166,6 @@ public static partial class ProxySourceEnumerator
                 new HashSet<GraphGroup>(ReferenceEqualityComparer.Instance),
                 new HashSet<Drawable>(ReferenceEqualityComparer.Instance),
                 new HashSet<Drawable>(ReferenceEqualityComparer.Instance),
-                renderTarget,
                 sceneWindow);
             foreach (IFileSource source in EnumerateObjectFileSources(obj, walkContext, skipDisabledElements, localRange))
             {
@@ -236,17 +214,8 @@ public static partial class ProxySourceEnumerator
 
                 case SceneDrawable sceneDrawable
                     when ResolveExpressionValue<Scene>(sceneDrawable, sceneDrawable.ReferencedScene, walkContext: walkContext) is { } referencedScene:
-                    // A SceneDrawable renders only the referenced scene's graphics, never its audio, so
-                    // narrow the descent to Graphics regardless of the outer target: an audio-only
-                    // original missing inside a graphically-embedded scene must not block a video export.
-                    // It evaluates the referenced scene at (clock - sceneDrawable.Start); sceneDrawable.Start
-                    // is element.Start (objects are time-anchored to their element), so the referenced scene
-                    // runs in element-local time — the same space localRange is already expressed in. Thread
-                    // localRange directly; subtracting sceneDrawable.Start here would double-shift by
-                    // element.Start and drop in-window keyframes for non-zero-start elements.
-                    // The referenced scene runs in element-local time, so its own scene-time clock (what
-                    // its global-clock keyframes sample) equals this element's localRange — pass it as the
-                    // inner scene window.
+                    // A SceneDrawable renders only the referenced scene's graphics, in element-local time,
+                    // so narrow to Graphics and pass localRange unchanged as both windows.
                     foreach (IFileSource source in EnumerateReferencedSceneSources(
                         referencedScene, walkContext.VisitedScenes, skipDisabledElements, CompositionTarget.Graphics,
                         localRange, localRange))
@@ -263,13 +232,9 @@ public static partial class ProxySourceEnumerator
 
                     break;
 
-                // DrawableDecorator, DrawableTimeController, and DrawablePresenter are
-                // IFlowOperator/IPresenter that render nested drawables the property walk cannot
-                // reach, so a SourceVideo placed in them would otherwise be invisible to the Proxies
-                // tab, badges, and cache invalidation. Target is a reference property (not
-                // ownership), so target chains are user-cyclable — the visited set makes the
-                // recursion terminate. A disabled nested drawable is skipped by the render path, so the
-                // same skipDisabledElements gate applies before descending.
+                // Decorators, time controllers and presenters render nested drawables the property walk
+                // cannot reach. Targets are references and can form cycles, so the visited sets stop
+                // the recursion; disabled ones are skipped as the render path skips them.
                 case DrawableDecorator decorator:
                     // A decorator renders its children at the same composition time (it pushes only
                     // transform/opacity/effect, never remaps time), so the render window still maps
@@ -305,10 +270,8 @@ public static partial class ProxySourceEnumerator
                         && !walkContext.VisitedFullWalkTargets.Contains(presented)
                         && walkContext.VisitedTargets.Add(presented))
                     {
-                        // A presenter forwards the same composition time to its target (no remap), so the
-                        // render window maps directly — thread localRange through, unlike the time
-                        // controller above. The render uses the effective Target, so resolve an
-                        // expression-supplied one.
+                        // A presenter does not remap time, so localRange maps directly. The render uses
+                        // the effective Target, so resolve an expression-supplied one.
                         foreach (IFileSource source in EnumerateObjectFileSources(
                             presented, walkContext, skipDisabledElements, localRange))
                             yield return source;
@@ -318,12 +281,8 @@ public static partial class ProxySourceEnumerator
             }
         }
 
-        // A SceneSound is a Sound (not a Drawable), so it is not covered by the Drawable switch above;
-        // its referenced scene contributes only audio to the render, so narrow the descent to Audio. Its
-        // audio graph applies Shift(OffsetPosition) then Speed before the referenced scene is sampled. For
-        // the identity map (OffsetPosition == 0, Speed == 100, neither animated) those nodes are pass-
-        // through, so the referenced scene sees the element-local window and localRange maps directly;
-        // any real remap makes the window unexpressible, so fall back to the conservative full walk.
+        // A SceneSound's referenced scene contributes only audio, so narrow to Audio. localRange maps
+        // directly only when its offset and speed are identity; any other remap falls back to the full walk.
         if (obj is SceneSound sceneSound
             && ResolveExpressionValue<Scene>(sceneSound, sceneSound.ReferencedScene, walkContext: walkContext) is { } soundScene)
         {
@@ -447,7 +406,6 @@ public static partial class ProxySourceEnumerator
         HashSet<GraphGroup> VisitedGraphGroups,
         HashSet<Drawable> VisitedTargets,
         HashSet<Drawable> VisitedFullWalkTargets,
-        CompositionTarget? RenderTarget,
         TimeRange? SceneWindow)
     {
         public IReadOnlySet<IProperty>? ConnectedNodeInputs { get; init; }

@@ -4,7 +4,6 @@ using Beutl.Animation;
 using Beutl.Configuration;
 using Beutl.Editor.Components.ProxiesTab.ViewModels;
 using Beutl.Engine;
-using Beutl.Extensibility;
 using Beutl.Graphics;
 using Beutl.Language;
 using Beutl.Media;
@@ -14,7 +13,7 @@ using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes;
 using Beutl.ProjectSystem;
 using Beutl.Services;
-using Reactive.Bindings;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Editor;
 
@@ -76,18 +75,7 @@ public sealed class ProxiesTabViewModelTests
         string sourcePath = CreateSourceFile(root, "clip.mov", 2048);
         var store = new ProxyStore(Path.Combine(root, "proxies"));
         ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(sourcePath);
-        DateTime now = DateTime.UtcNow;
-        RegisterProxyEntry(store, new ProxyEntry(
-            fingerprint,
-            ProxyPreset.Quarter,
-            ProxyState.Ready,
-            "hash/quarter.mp4",
-            1536,
-            new PixelSize(1920, 1080),
-            new PixelSize(480, 270),
-            now,
-            now,
-            null));
+        RegisterProxyEntry(store, ReadyEntry(fingerprint, bytes: 1536));
 
         using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath));
 
@@ -198,18 +186,7 @@ public sealed class ProxiesTabViewModelTests
         string sourcePath = CreateSourceFile(root, "clip.mov", 2048);
         var store = new ProxyStore(Path.Combine(root, "proxies"));
         ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(sourcePath);
-        DateTime now = DateTime.UtcNow;
-        RegisterProxyEntry(store, new ProxyEntry(
-            fingerprint,
-            ProxyPreset.Half,
-            ProxyState.Ready,
-            "hash/half.mp4",
-            1536,
-            new PixelSize(1920, 1080),
-            new PixelSize(960, 540),
-            now,
-            now,
-            null));
+        RegisterProxyEntry(store, ReadyEntry(fingerprint, ProxyPreset.Half, 1536));
 
         using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath));
 
@@ -284,18 +261,7 @@ public sealed class ProxiesTabViewModelTests
         string sourcePath = CreateSourceFile(root, "offline.mov", 1024);
         var store = new ProxyStore(Path.Combine(root, "proxies"));
         ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(sourcePath);
-        DateTime now = DateTime.UtcNow;
-        var entry = new ProxyEntry(
-            fingerprint,
-            ProxyPreset.Quarter,
-            ProxyState.Ready,
-            "hash/quarter.mp4",
-            512,
-            new PixelSize(1920, 1080),
-            new PixelSize(480, 270),
-            now,
-            now,
-            null);
+        ProxyEntry entry = ReadyEntry(fingerprint);
         RegisterProxyEntry(store, entry);
         File.Delete(sourcePath);
 
@@ -437,15 +403,10 @@ public sealed class ProxiesTabViewModelTests
         string sourcePath = CreateSourceFile(root, "offline.mov", 1024);
         var store = new ProxyStore(Path.Combine(root, "proxies"));
         ProxyFingerprint sourceFp = ProxyFingerprint.FromFile(sourcePath);
-        DateTime now = DateTime.UtcNow;
         // One source version, two Ready presets keyed on the same fingerprint: Quarter density 0.25
         // (480/1920), Half density 0.5 (960/1920). Register the denser Half first.
-        RegisterProxyEntry(store, new ProxyEntry(
-            sourceFp, ProxyPreset.Half, ProxyState.Ready, "hash/half.mp4", 768,
-            new PixelSize(1920, 1080), new PixelSize(960, 540), now, now, null));
-        RegisterProxyEntry(store, new ProxyEntry(
-            sourceFp, ProxyPreset.Quarter, ProxyState.Ready, "hash/quarter.mp4", 512,
-            new PixelSize(1920, 1080), new PixelSize(480, 270), now, now, null));
+        RegisterProxyEntry(store, ReadyEntry(sourceFp, ProxyPreset.Half, 768));
+        RegisterProxyEntry(store, ReadyEntry(sourceFp));
         File.Delete(sourcePath);
 
         ProxyStoreConfig config = GlobalConfiguration.Instance.ProxyStoreConfig;
@@ -498,18 +459,7 @@ public sealed class ProxiesTabViewModelTests
         string sourcePath = CreateSourceFile(root, "clip.mov", 2048);
         var store = new ProxyStore(Path.Combine(root, "proxies"));
         ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(sourcePath);
-        DateTime now = DateTime.UtcNow;
-        var entry = new ProxyEntry(
-            fingerprint,
-            ProxyPreset.Quarter,
-            ProxyState.Ready,
-            "hash/quarter.mp4",
-            1536,
-            new PixelSize(1920, 1080),
-            new PixelSize(480, 270),
-            now,
-            now,
-            null);
+        ProxyEntry entry = ReadyEntry(fingerprint, bytes: 1536);
         RegisterProxyEntry(store, entry);
         var queue = new TestProxyJobQueue();
 
@@ -585,29 +535,11 @@ public sealed class ProxiesTabViewModelTests
         string root = CreateRoot();
         string target = CreateSourceFile(root, "target.mov", 1024);
         string link = Path.Combine(root, "link.mov");
-        try
-        {
-            File.CreateSymbolicLink(link, target);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or PlatformNotSupportedException)
-        {
-            Assert.Ignore("Creating a symbolic link is not permitted in this environment.");
-        }
+        SymbolicLinks.CreateOrIgnore(link, target);
 
         var store = new ProxyStore(Path.Combine(root, "proxies"));
         ProxyFingerprint resolved = ProxyFingerprint.FromFile(link);
-        DateTime now = DateTime.UtcNow;
-        RegisterProxyEntry(store, new ProxyEntry(
-            resolved,
-            ProxyPreset.Quarter,
-            ProxyState.Ready,
-            "hash/quarter.mp4",
-            512,
-            new PixelSize(1920, 1080),
-            new PixelSize(480, 270),
-            now,
-            now,
-            null));
+        RegisterProxyEntry(store, ReadyEntry(resolved));
 
         // Move the target away: TryFromFile(link) now fails, forcing the resolved-path fallback.
         File.Move(target, Path.Combine(root, "moved.mov"));
@@ -656,18 +588,7 @@ public sealed class ProxiesTabViewModelTests
         string sourcePath = CreateSourceFile(root, "clip.mov", 1024);
         var store = new ProxyStore(Path.Combine(root, "proxies"));
         ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(sourcePath);
-        DateTime now = DateTime.UtcNow;
-        RegisterProxyEntry(store, new ProxyEntry(
-            fingerprint,
-            ProxyPreset.Quarter,
-            ProxyState.Ready,
-            "hash/quarter.mp4",
-            512,
-            new PixelSize(1920, 1080),
-            new PixelSize(480, 270),
-            now,
-            now,
-            null));
+        RegisterProxyEntry(store, ReadyEntry(fingerprint));
 
         using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath))
         {
@@ -706,18 +627,7 @@ public sealed class ProxiesTabViewModelTests
         // A background proxy finishing raises Registered, which rebuilds the clip list; the user's
         // selection must survive the rebuild, not just the selected preset.
         ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(sourcePath);
-        DateTime now = DateTime.UtcNow;
-        RegisterProxyEntry(store, new ProxyEntry(
-            fingerprint,
-            ProxyPreset.Quarter,
-            ProxyState.Ready,
-            "hash/quarter.mp4",
-            512,
-            new PixelSize(1920, 1080),
-            new PixelSize(480, 270),
-            now,
-            now,
-            null));
+        RegisterProxyEntry(store, ReadyEntry(fingerprint));
 
         Assert.That(viewModel.Clips.Single(c => c.Path == selectedPath).IsSelected.Value, Is.True);
     }
@@ -771,7 +681,7 @@ public sealed class ProxiesTabViewModelTests
         }
     }
 
-    // #7: a row the user explicitly set to a preset that happens to equal the current default must keep
+    // A row the user explicitly set to a preset that happens to equal the current default must keep
     // that choice when the default later changes — the old value-equality sweep overwrote it because it
     // could not tell an explicit pick from a row merely showing the default.
     [Test]
@@ -824,10 +734,7 @@ public sealed class ProxiesTabViewModelTests
         {
             config.DefaultPreset = (int)ProxyPreset.Quarter;
             ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(sourcePath);
-            DateTime now = DateTime.UtcNow;
-            RegisterProxyEntry(store, new ProxyEntry(
-                fingerprint, ProxyPreset.Quarter, ProxyState.Ready, "hash/quarter.mp4", 512,
-                new PixelSize(1920, 1080), new PixelSize(480, 270), now, now, null));
+            RegisterProxyEntry(store, ReadyEntry(fingerprint));
 
             using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath))
             {
@@ -862,23 +769,14 @@ public sealed class ProxiesTabViewModelTests
         string root = CreateRoot();
         string target = CreateSourceFile(root, "target.mov", 1024);
         string link = Path.Combine(root, "link.mov");
-        try
-        {
-            File.CreateSymbolicLink(link, target);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or PlatformNotSupportedException)
-        {
-            Assert.Ignore("Creating a symbolic link is not permitted in this environment.");
-        }
+        SymbolicLinks.CreateOrIgnore(link, target);
 
         var store = new ProxyStore(Path.Combine(root, "proxies"));
-        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "test.scene")) };
+        Scene scene = CreateScene(root, "test.scene");
         // Both elements resolve to the same AbsolutePath, so enumeration dedupes them into one row whose
         // Path is the first-seen (link) spelling.
-        Element linkElement = CreateVideoElement(root, link);
-        Element targetElement = CreateVideoElement(root, target);
-        scene.Children.Add(linkElement);
-        scene.Children.Add(targetElement);
+        Element linkElement = AddSourceVideo(scene, root, link);
+        AddSourceVideo(scene, root, target);
 
         using var viewModel = new ProxiesTabViewModel(CreateContext(scene, store))
         {
@@ -910,11 +808,8 @@ public sealed class ProxiesTabViewModelTests
         string firstPath = CreateSourceFile(root, "first.mov", 1024);
         string secondPath = CreateSourceFile(root, "second.mov", 1024);
         var store = new ProxyStore(Path.Combine(root, "proxies"));
-        var scene = new Scene(1920, 1080, string.Empty)
-        {
-            Uri = new Uri(Path.Combine(root, "test.scene")),
-        };
-        scene.Children.Add(CreateVideoElement(root, firstPath));
+        Scene scene = CreateScene(root, "test.scene");
+        AddSourceVideo(scene, root, firstPath);
 
         using var viewModel = new ProxiesTabViewModel(CreateContext(scene, store))
         {
@@ -922,8 +817,7 @@ public sealed class ProxiesTabViewModelTests
         };
         Assert.That(viewModel.Clips, Has.Count.EqualTo(1));
 
-        Element added = CreateVideoElement(root, secondPath);
-        scene.Children.Add(added);
+        Element added = AddSourceVideo(scene, root, secondPath);
         Assert.That(viewModel.Clips, Has.Count.EqualTo(2));
 
         scene.Children.Remove(added);
@@ -937,18 +831,7 @@ public sealed class ProxiesTabViewModelTests
         string sourcePath = CreateSourceFile(root, "clip.mov", 1024);
         var store = new ProxyStore(Path.Combine(root, "proxies"));
         ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(sourcePath);
-        DateTime now = DateTime.UtcNow;
-        RegisterProxyEntry(store, new ProxyEntry(
-            fingerprint,
-            ProxyPreset.Quarter,
-            ProxyState.Ready,
-            "hash/quarter.mp4",
-            512,
-            new PixelSize(1920, 1080),
-            new PixelSize(480, 270),
-            now,
-            now,
-            null));
+        RegisterProxyEntry(store, ReadyEntry(fingerprint));
 
         var notifications = new List<Notification>();
         using var viewModel = new ProxiesTabViewModel(CreateContext(root, new UndeletableStore(store), sourcePath)) { Notify = notifications.Add };
@@ -971,20 +854,9 @@ public sealed class ProxiesTabViewModelTests
         string sourcePath = CreateSourceFile(root, "clip.mov", 1024);
         var inner = new ProxyStore(Path.Combine(root, "proxies"));
         ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(sourcePath);
-        DateTime now = DateTime.UtcNow;
-        RegisterProxyEntry(inner, new ProxyEntry(
-            fingerprint,
-            ProxyPreset.Quarter,
-            ProxyState.Ready,
-            "hash/quarter.mp4",
-            512,
-            new PixelSize(1920, 1080),
-            new PixelSize(480, 270),
-            now,
-            now,
-            null));
+        RegisterProxyEntry(inner, ReadyEntry(fingerprint));
 
-        using var viewModel = new ProxiesTabViewModel(CreateContext(root, new OrphanFileStore(inner), sourcePath));
+        using var viewModel = new ProxiesTabViewModel(CreateContext(root, new RestoreFileOnDeleteStore(inner), sourcePath));
         ProxyClipViewModel clip = viewModel.Clips.Single();
 
         viewModel.Delete(clip);
@@ -1024,18 +896,7 @@ public sealed class ProxiesTabViewModelTests
             FileSizeBytes = current.FileSizeBytes + 4096,
             MtimeUtc = current.MtimeUtc.AddMinutes(-5),
         };
-        DateTime now = DateTime.UtcNow;
-        RegisterProxyEntry(store, new ProxyEntry(
-            stale,
-            ProxyPreset.Quarter,
-            ProxyState.Ready,
-            "hash/quarter.mp4",
-            512,
-            new PixelSize(1920, 1080),
-            new PixelSize(480, 270),
-            now,
-            now,
-            null));
+        RegisterProxyEntry(store, ReadyEntry(stale));
 
         var job = new ProxyJob(stale, ProxyPreset.Quarter);
         var queue = new TestProxyJobQueue(job);
@@ -1087,18 +948,7 @@ public sealed class ProxiesTabViewModelTests
         string sourcePath = CreateSourceFile(root, "clip.mov", 2048);
         var store = new ProxyStore(Path.Combine(root, "proxies"));
         ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(sourcePath);
-        DateTime now = DateTime.UtcNow;
-        var entry = new ProxyEntry(
-            fingerprint,
-            ProxyPreset.Quarter,
-            ProxyState.Ready,
-            "hash/quarter.mp4",
-            1536,
-            new PixelSize(1920, 1080),
-            new PixelSize(480, 270),
-            now,
-            now,
-            null);
+        ProxyEntry entry = ReadyEntry(fingerprint, bytes: 1536);
         RegisterProxyEntry(store, entry);
 
         using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath));
@@ -1125,17 +975,12 @@ public sealed class ProxiesTabViewModelTests
         string sourcePath = CreateSourceFile(root, "clip.mov", 2048);
         var store = new ProxyStore(Path.Combine(root, "proxies"));
         ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(sourcePath);
-        DateTime now = DateTime.UtcNow;
-        var quarter = new ProxyEntry(
-            fingerprint, ProxyPreset.Quarter, ProxyState.Ready, "hash/quarter.mp4", 1536,
-            new PixelSize(1920, 1080), new PixelSize(480, 270), now, now, null);
+        ProxyEntry quarter = ReadyEntry(fingerprint, bytes: 1536);
         RegisterProxyEntry(store, quarter);
 
         using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath));
 
-        var half = new ProxyEntry(
-            fingerprint, ProxyPreset.Half, ProxyState.Ready, "hash/half.mp4", 3072,
-            new PixelSize(1920, 1080), new PixelSize(960, 540), now, now, null);
+        ProxyEntry half = ReadyEntry(fingerprint, ProxyPreset.Half, 3072);
         viewModel.ConfirmDeleteAllForProjectAsync = _ =>
         {
             // A project job finishes while the confirmation dialog is open and registers a new proxy.
@@ -1165,18 +1010,7 @@ public sealed class ProxiesTabViewModelTests
             FileSizeBytes = current.FileSizeBytes + 4096,
             MtimeUtc = current.MtimeUtc.AddMinutes(-5),
         };
-        DateTime now = DateTime.UtcNow;
-        var entry = new ProxyEntry(
-            stale,
-            ProxyPreset.Quarter,
-            ProxyState.Ready,
-            "hash/quarter.mp4",
-            1536,
-            new PixelSize(1920, 1080),
-            new PixelSize(480, 270),
-            now,
-            now,
-            null);
+        ProxyEntry entry = ReadyEntry(stale, bytes: 1536);
         RegisterProxyEntry(store, entry);
         var currentJob = new ProxyJob(current, ProxyPreset.Quarter);
         var queue = new TestProxyJobQueue(currentJob);
@@ -1200,18 +1034,7 @@ public sealed class ProxiesTabViewModelTests
         string sourcePath = CreateSourceFile(root, "clip.mov", 2048);
         var store = new ProxyStore(Path.Combine(root, "proxies"));
         ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(sourcePath);
-        DateTime now = DateTime.UtcNow;
-        var entry = new ProxyEntry(
-            fingerprint,
-            ProxyPreset.Quarter,
-            ProxyState.Ready,
-            "hash/quarter.mp4",
-            1536,
-            new PixelSize(1920, 1080),
-            new PixelSize(480, 270),
-            now,
-            now,
-            null);
+        ProxyEntry entry = ReadyEntry(fingerprint, bytes: 1536);
         RegisterProxyEntry(store, entry);
 
         using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath));
@@ -1439,71 +1262,24 @@ public sealed class ProxiesTabViewModelTests
         IProxyJobQueue? queue,
         params string[] sourcePaths)
     {
-        var scene = new Scene(1920, 1080, string.Empty)
-        {
-            Uri = new Uri(Path.Combine(root, "test.scene")),
-        };
-
+        Scene scene = CreateScene(root, "test.scene");
         foreach (string sourcePath in sourcePaths)
         {
-            scene.Children.Add(CreateVideoElement(root, sourcePath));
+            AddSourceVideo(scene, root, sourcePath);
         }
 
-        var context = new TestEditorContext(scene);
-        context.AddService(scene);
-        context.AddService<IProxyStore>(store);
-        if (queue != null)
-        {
-            context.AddService(queue);
-        }
-
-        return context;
-    }
-
-    private static Element CreateVideoElement(string root, string sourcePath)
-    {
-        var source = new VideoSource();
-        source.ReadFrom(new Uri(sourcePath));
-        var drawable = new SourceVideo();
-        drawable.Source.CurrentValue = source;
-        var element = new Element
-        {
-            Start = TimeSpan.Zero,
-            Length = TimeSpan.FromSeconds(1),
-            IsEnabled = true,
-            Uri = new Uri(Path.Combine(root, $"{Guid.NewGuid():N}.layer")),
-        };
-        element.AddObject(drawable);
-        return element;
+        return CreateContext(scene, store, queue);
     }
 
     private static TestEditorContext CreateGraphContext(string root, ProxyStore store, string sourcePath)
     {
-        var scene = new Scene(1920, 1080, string.Empty)
-        {
-            Uri = new Uri(Path.Combine(root, "test.scene")),
-        };
-
-        var source = new VideoSource();
-        source.ReadFrom(new Uri(sourcePath));
+        Scene scene = CreateScene(root, "test.scene");
         var node = new VideoSourceNode();
-        node.Source.Property!.SetValue(source);
+        node.Source.Property!.SetValue(CreateVideoSource(sourcePath));
         var drawable = new NodeGraphDrawable();
         drawable.Model.CurrentValue!.Nodes.Add(node);
-        var element = new Element
-        {
-            Start = TimeSpan.Zero,
-            Length = TimeSpan.FromSeconds(1),
-            IsEnabled = true,
-            Uri = new Uri(Path.Combine(root, $"{Guid.NewGuid():N}.layer")),
-        };
-        element.AddObject(drawable);
-        scene.Children.Add(element);
-
-        var context = new TestEditorContext(scene);
-        context.AddService(scene);
-        context.AddService<IProxyStore>(store);
-        return context;
+        AddObject(scene, root, drawable);
+        return CreateContext(scene, store);
     }
 
     private static TestEditorContext CreateContext(Scene scene, IProxyStore store, IProxyJobQueue? queue = null)
@@ -1527,25 +1303,24 @@ public sealed class ProxiesTabViewModelTests
         };
     }
 
-    private static SourceVideo AddSourceVideo(Scene scene, string root, string sourcePath)
+    private static Element AddSourceVideo(Scene scene, string root, string sourcePath)
     {
         var drawable = new SourceVideo();
         drawable.Source.CurrentValue = CreateVideoSource(sourcePath);
-        AddObject(scene, root, drawable);
-        return drawable;
+        return AddObject(scene, root, drawable);
     }
 
-    private static void AddObject(Scene scene, string root, EngineObject obj)
+    private static Element AddObject(Scene scene, string root, EngineObject obj)
     {
         var element = new Element
         {
             Start = TimeSpan.Zero,
             Length = TimeSpan.FromSeconds(1),
-            IsEnabled = true,
             Uri = new Uri(Path.Combine(root, $"{Guid.NewGuid():N}.layer")),
         };
         element.AddObject(obj);
         scene.Children.Add(element);
+        return element;
     }
 
     private static VideoSource CreateVideoSource(string sourcePath)
@@ -1553,6 +1328,19 @@ public sealed class ProxiesTabViewModelTests
         var source = new VideoSource();
         source.ReadFrom(new Uri(sourcePath));
         return source;
+    }
+
+    // A ready proxy of a 1920x1080 source at the preset's size.
+    private static ProxyEntry ReadyEntry(ProxyFingerprint source, ProxyPreset preset = ProxyPreset.Quarter, long bytes = 512)
+    {
+        (string file, PixelSize size) = preset switch
+        {
+            ProxyPreset.Half => ("hash/half.mp4", new PixelSize(960, 540)),
+            ProxyPreset.Quarter => ("hash/quarter.mp4", new PixelSize(480, 270)),
+            _ => throw new ArgumentOutOfRangeException(nameof(preset)),
+        };
+        DateTime now = DateTime.UtcNow;
+        return new ProxyEntry(source, preset, ProxyState.Ready, file, bytes, new PixelSize(1920, 1080), size, now, now, null);
     }
 
     private static string CreateRoot()
@@ -1572,84 +1360,9 @@ public sealed class ProxiesTabViewModelTests
 
     // Simulates a Windows sharing violation: the entry stays registered because its file could not
     // be deleted, which is exactly the shape the ViewModel must report to the user.
-    private sealed class UndeletableStore(IProxyStore inner) : IProxyStore
+    private sealed class UndeletableStore(IProxyStore inner) : DelegatingProxyStore(inner)
     {
-        public string StoreRootPath => inner.StoreRootPath;
-
-        public ProxyEntry? TryGet(ProxyFingerprint source, ProxyPreset preset) => inner.TryGet(source, preset);
-
-        public IReadOnlyList<ProxyEntry> Enumerate() => inner.Enumerate();
-
-        public void Register(ProxyEntry entry) => inner.Register(entry);
-
-        public bool TryTransition(ProxyFingerprint source, ProxyPreset preset, ProxyState newState, string? failureReason = null)
-            => inner.TryTransition(source, preset, newState, failureReason);
-
-        public bool Delete(ProxyFingerprint source, ProxyPreset preset) => false;
-
-        public void Touch(ProxyFingerprint source, ProxyPreset preset, DateTime nowUtc)
-            => inner.Touch(source, preset, nowUtc);
-
-        public long GetTotalBytes() => inner.GetTotalBytes();
-
-        public long GetTotalBytes(IReadOnlySet<string> sourceAbsolutePaths) => inner.GetTotalBytes(sourceAbsolutePaths);
-
-        public Task FlushAsync(CancellationToken cancellationToken) => inner.FlushAsync(cancellationToken);
-
-        public Task ReconcileAsync(CancellationToken cancellationToken) => inner.ReconcileAsync(cancellationToken);
-
-        public event EventHandler<ProxyStoreChangedEventArgs>? Changed
-        {
-            add => inner.Changed += value;
-            remove => inner.Changed -= value;
-        }
-    }
-
-    // Delegates to a real store but keeps the proxy file on disk after Delete (which still returns true),
-    // simulating a sharing violation where the index entry is removed yet File.Delete could not run.
-    private sealed class OrphanFileStore(ProxyStore inner) : IProxyStore
-    {
-        public string StoreRootPath => inner.StoreRootPath;
-
-        public ProxyEntry? TryGet(ProxyFingerprint source, ProxyPreset preset) => inner.TryGet(source, preset);
-
-        public IReadOnlyList<ProxyEntry> Enumerate() => inner.Enumerate();
-
-        public void Register(ProxyEntry entry) => inner.Register(entry);
-
-        public bool TryTransition(ProxyFingerprint source, ProxyPreset preset, ProxyState newState, string? failureReason = null)
-            => inner.TryTransition(source, preset, newState, failureReason);
-
-        public bool Delete(ProxyFingerprint source, ProxyPreset preset)
-        {
-            ProxyEntry? entry = inner.TryGet(source, preset);
-            string? path = entry is null
-                ? null
-                : Path.Combine(inner.StoreRootPath, entry.ProxyFileRelative.Replace('/', Path.DirectorySeparatorChar));
-            byte[]? bytes = path is not null && File.Exists(path) ? File.ReadAllBytes(path) : null;
-
-            bool result = inner.Delete(source, preset);
-
-            if (bytes is not null && path is not null)
-                File.WriteAllBytes(path, bytes);
-            return result;
-        }
-
-        public void Touch(ProxyFingerprint source, ProxyPreset preset, DateTime nowUtc) => inner.Touch(source, preset, nowUtc);
-
-        public long GetTotalBytes() => inner.GetTotalBytes();
-
-        public long GetTotalBytes(IReadOnlySet<string> sourceAbsolutePaths) => inner.GetTotalBytes(sourceAbsolutePaths);
-
-        public Task FlushAsync(CancellationToken cancellationToken) => inner.FlushAsync(cancellationToken);
-
-        public Task ReconcileAsync(CancellationToken cancellationToken) => inner.ReconcileAsync(cancellationToken);
-
-        public event EventHandler<ProxyStoreChangedEventArgs>? Changed
-        {
-            add => inner.Changed += value;
-            remove => inner.Changed -= value;
-        }
+        public override bool Delete(ProxyFingerprint source, ProxyPreset preset) => false;
     }
 
     private static void RegisterProxyEntry(ProxyStore store, ProxyEntry entry)
@@ -1660,49 +1373,6 @@ public sealed class ProxiesTabViewModelTests
         Directory.CreateDirectory(Path.GetDirectoryName(proxyPath)!);
         File.WriteAllBytes(proxyPath, Enumerable.Repeat((byte)1, checked((int)entry.ProxyFileSizeBytes)).ToArray());
         store.Register(entry);
-    }
-
-    private sealed class TestEditorContext(CoreObject obj) : IEditorContext
-    {
-        private readonly Dictionary<Type, object> _services = [];
-
-        public CoreObject Object { get; } = obj;
-
-        public EditorExtension Extension => null!;
-
-        public IReactiveProperty<bool> IsEnabled { get; } = new ReactivePropertySlim<bool>(true);
-
-        public void AddService<T>(T service)
-            where T : notnull
-        {
-            _services[typeof(T)] = service;
-        }
-
-        public object? GetService(Type serviceType)
-        {
-            return _services.GetValueOrDefault(serviceType);
-        }
-
-        public T? FindToolTab<T>(Func<T, bool> condition)
-            where T : IToolContext
-        {
-            return default;
-        }
-
-        public T? FindToolTab<T>()
-            where T : IToolContext
-        {
-            return default;
-        }
-
-        public bool OpenToolTab(IToolContext item)
-        {
-            return false;
-        }
-
-        public void CloseToolTab(IToolContext item)
-        {
-        }
     }
 
     private sealed class TestProxyJobQueue(params ProxyJob[] pendingJobs) : IProxyJobQueue

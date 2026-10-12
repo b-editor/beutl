@@ -19,8 +19,8 @@ using Beutl.ViewModels;
 
 namespace Beutl.HeadlessUITests;
 
-// Regression tests for #2183: dropping a video without an audio track onto the timeline must not
-// add a SourceSound element (which crashed when its resource dereferenced AudioInfo).
+// Video file import through IElementAdder and the browser download path. #2183: a video without an
+// audio track must not add a SourceSound element.
 [TestFixture]
 public class VideoFileImportTests
 {
@@ -42,34 +42,10 @@ public class VideoFileImportTests
         }
     }
 
-    private static Task ResetProjectAsync() => TestReset.ResetShellAsync();
-
-    private static string NewWorkspace(string name)
-    {
-        string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, name);
-        Directory.CreateDirectory(location);
-        return location;
-    }
-
-    private static async Task<EditViewModel> OpenEditorForNewScene(string name)
-    {
-        Project project = (await TestShell.Project.CreateProject(
-            640, 480, 30, 44100, name, NewWorkspace(name)))!;
-        HeadlessTestHelpers.Settle();
-        Scene scene = project.Items.OfType<Scene>().First();
-
-        TestShell.Editor.ActivateTabItem(scene);
-        HeadlessTestHelpers.Settle();
-
-        EditorTabItem tab = TestShell.Editor.SelectedTabItem.Value!;
-        return (EditViewModel)tab.Context.Value;
-    }
-
     [AvaloniaTest]
     public async Task BrowserDownloadImport_UsesAsyncPipelineAndPreservesMediaDuration()
     {
-        await ResetProjectAsync();
-        EditViewModel editor = await OpenEditorForNewScene("browser-video-import");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("browser-video-import");
         RegisterImportDecoder();
         string path = CreateImportFile("browser-download", withAudio: true);
         int undoCount = editor.HistoryManager.UndoCount;
@@ -92,8 +68,7 @@ public class VideoFileImportTests
     [AvaloniaTest]
     public async Task ImportVideoWithoutAudioTrack_AddsOnlyVideoElement()
     {
-        await ResetProjectAsync();
-        EditViewModel editor = await OpenEditorForNewScene("videoonly");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("videoonly");
         RegisterImportDecoder();
         string path = CreateImportFile("sample", withAudio: false);
 
@@ -122,13 +97,12 @@ public class VideoFileImportTests
     [AvaloniaTest]
     public async Task ImportVideoWithAudioTrack_AddsVideoAndSoundElementsAsGroup()
     {
-        await ResetProjectAsync();
-        EditViewModel editor = await OpenEditorForNewScene("videoaudio");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("videoaudio");
         RegisterImportDecoder();
         string path = CreateImportFile("sample", withAudio: true);
 
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
-        await adder.AddAsync([new ElementDescription(
+        ElementAddResult result = await adder.AddAsync([new ElementDescription(
             Start: TimeSpan.Zero,
             Length: TimeSpan.FromSeconds(5),
             Layer: 0,
@@ -136,41 +110,20 @@ public class VideoFileImportTests
             CancellationToken.None);
         HeadlessTestHelpers.Settle();
 
-        Assert.That(editor.Scene.Children, Has.Count.EqualTo(2),
-            "音声トラックのある動画はビデオ要素と音声要素の両方を追加する");
-        Assert.That(editor.Scene.Children.Count(c => c.Objects.OfType<SourceVideo>().Any()), Is.EqualTo(1));
-        Assert.That(editor.Scene.Children.Count(c => c.Objects.OfType<SourceSound>().Any()), Is.EqualTo(1));
-        Assert.That(editor.Scene.Groups, Has.Count.EqualTo(1),
-            "音声要素がある場合は従来どおりグループ化する");
-    }
-
-    [AvaloniaTest]
-    public async Task ImportVideoWithAudioTrack_CreatesBothProducedElements()
-    {
-        await ResetProjectAsync();
-        EditViewModel editor = await OpenEditorForNewScene("videoaudio-prepare");
-        RegisterImportDecoder();
-        string path = CreateImportFile("prepared", withAudio: true);
-        var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
-        ElementAddResult result = await adder.AddAsync(
-        [
-            new ElementDescription(
-                Start: TimeSpan.Zero,
-                Length: TimeSpan.FromSeconds(5),
-                Layer: 0,
-                Source: new ElementSource.File(path)),
-        ], CancellationToken.None);
-        HeadlessTestHelpers.Settle();
-
-        IReadOnlyList<Element> created = result.Elements;
         using (Assert.EnterMultipleScope())
         {
+            Assert.That(editor.Scene.Children, Has.Count.EqualTo(2),
+                "音声トラックのある動画はビデオ要素と音声要素の両方を追加する");
+            Assert.That(editor.Scene.Children.Count(c => c.Objects.OfType<SourceVideo>().Any()), Is.EqualTo(1));
+            Assert.That(editor.Scene.Children.Count(c => c.Objects.OfType<SourceSound>().Any()), Is.EqualTo(1));
+            Assert.That(editor.Scene.Groups, Has.Count.EqualTo(1),
+                "音声要素がある場合は従来どおりグループ化する");
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Items, Has.Count.EqualTo(1));
             Assert.That(result.Items[0].CompanionElements, Has.Count.EqualTo(1));
-            Assert.That(created, Has.Count.EqualTo(2));
+            Assert.That(result.Elements, Has.Count.EqualTo(2));
             Assert.That(
-                created.Select(element => element.Objects.Single().GetType()),
+                result.Elements.Select(element => element.Objects.Single().GetType()),
                 Is.EqualTo(new[] { typeof(SourceVideo), typeof(SourceSound) }));
         }
     }
@@ -178,8 +131,7 @@ public class VideoFileImportTests
     [AvaloniaTest, NonParallelizable]
     public async Task ImportVideoWithAudioTrack_ReleasesVideoResourceWhenCompanionCreationFails()
     {
-        await ResetProjectAsync();
-        EditViewModel editor = await OpenEditorForNewScene("videoaudio-companion-failure");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("videoaudio-companion-failure");
         RegisterImportDecoder();
         string path = CreateImportFile("companion-failure", withAudio: true);
         var adder = (ElementAdderImpl)editor.GetService(typeof(IElementAdder))!;
@@ -215,8 +167,7 @@ public class VideoFileImportTests
     [AvaloniaTest]
     public async Task ImportVideoWithAudioTrack_WhenCompanionLayerIsLocked_RefusesEntireImport()
     {
-        await ResetProjectAsync();
-        EditViewModel editor = await OpenEditorForNewScene("videoaudio-locked-companion");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("videoaudio-locked-companion");
         RegisterImportDecoder();
         string path = CreateImportFile("locked", withAudio: true);
         using (editor.HistoryManager.SuppressRecording())

@@ -49,7 +49,6 @@ internal sealed partial class GitCliVersionControlService :
     private const int MaxLfsFetchOutputBytes = 64 * 1024;
     private const int MaxLfsObjectListOutputBytes = 4 * 1024 * 1024;
     private const int MaxLfsPointerCandidates = 256;
-    private const int MaxSnapshotTreeInspectionBytes = 4 * 1024 * 1024;
 
     private static readonly string[] s_gitIgnoreLines =
     [
@@ -178,7 +177,6 @@ internal sealed partial class GitCliVersionControlService :
     private readonly GitInstallationLocator _installationLocator;
     private readonly Func<string, IGitCliRunner> _runnerFactory;
     private readonly Func<bool> _isWorktreeMutationAllowed;
-    private readonly string? _projectFile;
     // The LFS setting the last hygiene run applied, which tells a change made while the project is
     // open apart from a machine where LFS was never on.
     private bool? _lastLfsRequested;
@@ -211,36 +209,11 @@ internal sealed partial class GitCliVersionControlService :
     private long _statusNotificationSequence;
     private int _watcherRefreshInvalidated;
 
-    public GitCliVersionControlService(
-        GitInstallationLocator installationLocator,
-        RepositoryInfo? repository = null)
-        : this(
-            installationLocator,
-            repository,
-            repository is null ? null : new RepositoryWatcher(repository),
-            static gitPath => new GitCliRunner(gitPath),
-            createWatcherWhenRepositoryAvailable: true,
-            isWorktreeMutationAllowed: static () => true,
-            projectFile: null,
-            policyNoticeSink: null,
-            identityRequest: null,
-            beforeHygieneFileReplace: null,
-            beforeFileCommit: null,
-            afterFileExchange: null,
-            deleteVerifiedHygieneFile: null,
-            deleteOwnedLocalConfigFile: null,
-            statusNotificationScheduler: null,
-            lockNotificationScheduler: null,
-            logger: null)
-    {
-    }
-
     internal GitCliVersionControlService(
         GitInstallationLocator installationLocator,
         RepositoryInfo? repository,
         Func<bool> isWorktreeMutationAllowed,
         Func<VersionControlPolicyNotice, CancellationToken, Task>? policyNoticeSink = null,
-        string? projectFile = null,
         Func<CancellationToken, Task<GitIdentity?>>? identityRequest = null)
         : this(
             installationLocator,
@@ -249,7 +222,6 @@ internal sealed partial class GitCliVersionControlService :
             static gitPath => new GitCliRunner(gitPath),
             createWatcherWhenRepositoryAvailable: true,
             isWorktreeMutationAllowed: isWorktreeMutationAllowed,
-            projectFile: projectFile,
             policyNoticeSink: policyNoticeSink,
             identityRequest: identityRequest,
             beforeHygieneFileReplace: null,
@@ -277,7 +249,6 @@ internal sealed partial class GitCliVersionControlService :
         Func<VersionControlPolicyNotice, CancellationToken, Task>? policyNoticeSink = null,
         Action<Action>? statusNotificationScheduler = null,
         Action<Action>? lockNotificationScheduler = null,
-        string? projectFile = null,
         Func<CancellationToken, Task<GitIdentity?>>? identityRequest = null,
         Func<bool>? isWorktreeMutationAllowed = null)
         : this(
@@ -287,7 +258,6 @@ internal sealed partial class GitCliVersionControlService :
             runnerFactory,
             createWatcherWhenRepositoryAvailable: false,
             isWorktreeMutationAllowed: isWorktreeMutationAllowed ?? (static () => true),
-            projectFile: projectFile,
             policyNoticeSink,
             identityRequest: identityRequest,
             beforeHygieneFileReplace: beforeHygieneFileReplace,
@@ -308,7 +278,6 @@ internal sealed partial class GitCliVersionControlService :
         Func<string, IGitCliRunner> runnerFactory,
         bool createWatcherWhenRepositoryAvailable,
         Func<bool> isWorktreeMutationAllowed,
-        string? projectFile,
         Func<VersionControlPolicyNotice, CancellationToken, Task>? policyNoticeSink,
         Func<CancellationToken, Task<GitIdentity?>>? identityRequest,
         Func<string, CancellationToken, Task>? beforeHygieneFileReplace,
@@ -335,7 +304,6 @@ internal sealed partial class GitCliVersionControlService :
         _isWorktreeMutationAllowed = isWorktreeMutationAllowed
                                      ?? throw new ArgumentNullException(
                                          nameof(isWorktreeMutationAllowed));
-        _projectFile = projectFile is null ? null : Path.GetFullPath(projectFile);
         _policyNoticeSink = policyNoticeSink;
         _identityRequest = identityRequest;
         _beforeHygieneFileReplace = beforeHygieneFileReplace;
@@ -345,8 +313,8 @@ internal sealed partial class GitCliVersionControlService :
                                      ?? TryDeleteVerifiedHygieneFile;
         _deleteOwnedLocalConfigFile = deleteOwnedLocalConfigFile
                                       ?? DeleteOwnedLocalConfigFile;
-        _statusNotificationScheduler = statusNotificationScheduler ?? ScheduleStatusNotificationDrain;
-        _lockNotificationScheduler = lockNotificationScheduler ?? ScheduleLockNotification;
+        _statusNotificationScheduler = statusNotificationScheduler ?? QueueOnThreadPool;
+        _lockNotificationScheduler = lockNotificationScheduler ?? QueueOnThreadPool;
         _logger = logger ?? Log.CreateLogger<GitCliVersionControlService>();
         _createWatcherWhenRepositoryAvailable = createWatcherWhenRepositoryAvailable;
         if (_watcher is not null)
@@ -609,7 +577,10 @@ internal sealed partial class GitCliVersionControlService :
     {
         ArgumentNullException.ThrowIfNull(operation);
         ThrowIfDisposed();
-        return ExecuteExclusiveCoreAsync(operation, cancellationToken);
+        return RunSerializedAsync(
+            () => operation(new Transaction(this)),
+            cancellationToken,
+            runOnThreadPool: false);
     }
 
     public Task<CommitResult?> RetireAsync(ProjectVersionControlFinalSnapshot? finalSnapshot)
@@ -629,27 +600,6 @@ internal sealed partial class GitCliVersionControlService :
             _lifetimeState = (int)ServiceLifetimeState.Retiring;
             _retirementTask = RetireCoreAsync(finalSnapshot);
             return _retirementTask;
-        }
-    }
-
-    private async Task<TResult> ExecuteExclusiveCoreAsync<TResult>(
-        Func<IProjectVersionControlTransaction, Task<TResult>> operation,
-        CancellationToken cancellationToken)
-    {
-        await _operationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
-        try
-        {
-            ThrowIfDisposed();
-            return await operation(new Transaction(this)).ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            CaptureRecoverableLock(ex);
-            throw;
-        }
-        finally
-        {
-            _operationGate.Release();
         }
     }
 
@@ -777,6 +727,10 @@ internal sealed partial class GitCliVersionControlService :
     }
 
     private async Task<IGitCliRunner> GetInstalledRunnerCoreAsync(CancellationToken cancellationToken)
+        => (await GetInstalledRuntimeCoreAsync(cancellationToken).ConfigureAwait(false)).Runner;
+
+    private async Task<(GitAvailability Availability, IGitCliRunner Runner)> GetInstalledRuntimeCoreAsync(
+        CancellationToken cancellationToken)
     {
         (GitAvailability availability, IGitCliRunner? runner)
             = await GetGitRuntimeCoreAsync(cancellationToken).ConfigureAwait(false);
@@ -785,7 +739,7 @@ internal sealed partial class GitCliVersionControlService :
             throw new InvalidOperationException("Git is not available.");
         }
 
-        return runner;
+        return (availability, runner);
     }
 
     private RepositoryInfo GetRepository()
@@ -835,13 +789,15 @@ internal sealed partial class GitCliVersionControlService :
 
     private async Task<T> RunSerializedAsync<T>(
         Func<Task<T>> operation,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool runOnThreadPool = true)
     {
         await _operationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             ThrowIfDisposed();
-            return await Task.Run(operation, cancellationToken).ConfigureAwait(false);
+            return await (runOnThreadPool ? Task.Run(operation, cancellationToken) : operation())
+                .ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -854,25 +810,17 @@ internal sealed partial class GitCliVersionControlService :
         }
     }
 
-    private async Task RunSerializedAsync(
+    private Task RunSerializedAsync(
         Func<Task> operation,
         CancellationToken cancellationToken)
     {
-        await _operationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
-        try
-        {
-            ThrowIfDisposed();
-            await Task.Run(operation, cancellationToken).ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            CaptureRecoverableLock(ex);
-            throw;
-        }
-        finally
-        {
-            _operationGate.Release();
-        }
+        return RunSerializedAsync(
+            async () =>
+            {
+                await operation().ConfigureAwait(false);
+                return true;
+            },
+            cancellationToken);
     }
 
     private void LogWarningBestEffort(Exception exception, string message)

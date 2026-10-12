@@ -6,11 +6,11 @@ This subtree is the **non-UI editor logic** — undo / redo, project packaging, 
 
 - `HistoryManager.cs` / `HistoryTransaction.cs` / `HistoryEntry.cs` — undo / redo stack
 - `OperationExecutionContext.cs` / `Operations/` — `IOperation` commands that history records
-- `OperationSequenceGenerator.cs` — batches operations for atomic commits
-- `RecordingScope.cs` — opens / closes a transactional scope; everything that mutates a recorded model has to flow through this
-- `AutoSaveService.cs` — periodic save; runs on a background thread
-- `ProjectPackageService.cs` / `ResourceRelocationService.cs` — `.beutlpkg` import / export, asset relocation
-- `Observers/` / `Infrastructure/` — change-tracking glue between model and view
+- `OperationSequenceGenerator.cs` — monotonically increasing sequence numbers for recorded operations
+- `RecordingScope.cs` — opens / closes a transactional scope
+- `AutoSaveService.cs` — saves after each history commit; called on the UI thread
+- `ProjectPackageService.cs` / `ResourceRelocationService.cs` — `.beutl` package import / export, asset relocation
+- `Observers/` — turn model changes into `ChangeOperation`s for history
 - `VirtualProjectRoot.cs` — in-memory project root used by tests and packaging
 - `Services/I*Service.cs` — **editing pipeline** consumed by the Timeline View and ViewModel. The View calls a service instead of writing `Scene` properties and calling `history.Commit` itself. Services own the single-commit boundary per user-visible operation.
 
@@ -33,10 +33,9 @@ Add new edit-pipeline services here, not in `Beutl.Editor.Components`. The View 
 
 ## Mandatory rules
 
-1. **Every model mutation that the user can undo must go through `HistoryManager` inside a `RecordingScope`.** Mutating a recorded property outside a scope is the most common source of broken-undo bugs.
+1. **Every undoable model mutation must be recorded by `HistoryManager` (through the observers or `Record`) and committed with `Commit` or `ExecuteInTransaction`.**
 2. **No Avalonia / view types here.** ViewModels live in `Beutl.Editor.Components` (or in the app); this project is consumed by them, not the other way around.
-3. **`AutoSaveService` runs on a background thread.** Anything it touches needs to be thread-safe with respect to the UI thread or marshalled via the dispatcher inside the consumer.
-4. **History entries must be value-equal.** Two equivalent edits should compare equal so the manager can collapse redundant entries. Override `Equals` / `GetHashCode` whenever you introduce a new entry type.
+3. **`AutoSaveService` runs on the UI thread.** The editor calls it through the dispatcher after each history commit.
 
 ## Tests
 

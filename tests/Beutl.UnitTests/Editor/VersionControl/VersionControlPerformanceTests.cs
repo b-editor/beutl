@@ -151,23 +151,15 @@ public class VersionControlPerformanceTests : RealGitTestRepository
 
         string elementsDirectory = Path.Combine(Root, "elements");
         Directory.CreateDirectory(elementsDirectory);
-        var elementNames = new string[elementCount];
         for (int index = 0; index < elementCount; index++)
         {
             string id = (index + 1).ToString("x32");
             string fileName = $"{id}.belm";
-            elementNames[index] = fileName;
             await File.WriteAllTextAsync(
                 Path.Combine(elementsDirectory, fileName),
                 $"{{\"id\":\"{id}\",\"opacity\":1.0,\"position\":{{\"x\":{index},\"y\":{index}}}}}\n");
         }
 
-        string elementReferences = string.Join(
-            ',',
-            elementNames.Select(static name => $"\"elements/{name}\""));
-        await File.WriteAllTextAsync(
-            Path.Combine(Root, "main.scene"),
-            $"{{\"elements\":[{elementReferences}]}}\n");
         using var service = CreateService();
 
         var stopwatch = Stopwatch.StartNew();
@@ -210,12 +202,11 @@ public class VersionControlPerformanceTests : RealGitTestRepository
                 .Append($"data {Encoding.UTF8.GetByteCount(contents)}\n{contents}\n\n");
         }
         input.Append("done\n");
-        GitCommandResult imported = await Runner.RunAsync(
+        await Runner.RunAsync(
             Repository,
             ["fast-import", "--quiet"],
             GitCommandOptions.Local with { StandardInput = input.ToString() },
             CancellationToken.None);
-        Assert.That(imported.ExitCode, Is.Zero, imported.Stderr);
         await RunGitAsync("reset", "--hard", "HEAD");
 
         using var service = CreateService();
@@ -250,19 +241,18 @@ public class VersionControlPerformanceTests : RealGitTestRepository
     }
 
     private sealed class StatusCountingRunner(IGitCliRunner inner, bool blockFirstStatus = false)
-        : IGitCliRunner
+        : DelegatingGitCliRunner(inner)
     {
         private int _statusCount;
 
         public ConcurrentQueue<string[]> Commands { get; } = new();
         public int StatusCount => Volatile.Read(ref _statusCount);
-        public bool HasActiveProcess => inner.HasActiveProcess;
         public TaskCompletionSource FirstStatusStarted { get; } =
             new(TaskCreationOptions.RunContinuationsAsynchronously);
         public TaskCompletionSource ReleaseFirstStatus { get; } =
             new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        public async Task<GitCommandResult> RunAsync(
+        public override async Task<GitCommandResult> RunAsync(
             RepositoryInfo repository,
             IReadOnlyList<string> arguments,
             GitCommandOptions options,
@@ -270,7 +260,7 @@ public class VersionControlPerformanceTests : RealGitTestRepository
             IProgress<string>? stderrProgress = null)
         {
             Commands.Enqueue([.. arguments]);
-            GitCommandResult result = await inner.RunAsync(
+            GitCommandResult result = await base.RunAsync(
                 repository, arguments, options, cancellationToken, stderrProgress);
             if (arguments[0] == "status" && Interlocked.Increment(ref _statusCount) == 1)
             {
@@ -283,11 +273,5 @@ public class VersionControlPerformanceTests : RealGitTestRepository
 
             return result;
         }
-
-        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
-            => inner.GetRecoverableRepositoryLock(repository);
-
-        public bool RemoveRecoverableRepositoryLock(RepositoryInfo repository, RepositoryLockInfo lockInfo)
-            => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
     }
 }

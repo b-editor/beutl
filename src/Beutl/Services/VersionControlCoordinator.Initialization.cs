@@ -171,7 +171,7 @@ internal partial class VersionControlCoordinator
         }
 
         string projectRoot = GetProjectRoot(project);
-        IProjectVersionControlBackend service = CreateNewProjectBackend(GetProjectFile(project));
+        IProjectVersionControlBackend service = CreateNewProjectBackend();
         bool prepared = false;
         try
         {
@@ -259,7 +259,7 @@ internal partial class VersionControlCoordinator
         }
     }
 
-    private IProjectVersionControlBackend CreateNewProjectBackend(string projectFile)
+    private IProjectVersionControlBackend CreateNewProjectBackend()
     {
         return _serviceFactory?.Invoke(null)
                ?? new GitCliVersionControlService(
@@ -267,7 +267,6 @@ internal partial class VersionControlCoordinator
                    repository: null,
                    () => _projectService.CurrentProject.Value is null,
                    PresentPolicyNoticeAsync,
-                   projectFile,
                    RequestIdentityForSnapshotAsync);
     }
 

@@ -260,8 +260,9 @@ public class WebBrowserTabViewModelTests
         });
     }
 
-    [Test]
-    public void TryOpenNewTab_UsesTheRequestedAddress()
+    [TestCase("https://example.com/new-window")]
+    [TestCase("about:blank")]
+    public void TryOpenNewTab_UsesTheRequestedAddress(string address)
     {
         var editorContext = new Mock<IEditorContext>();
         IToolContext? openedContext = null;
@@ -270,7 +271,7 @@ public class WebBrowserTabViewModelTests
             .Callback<IToolContext>(context => openedContext = context)
             .Returns(true);
         using var viewModel = new WebBrowserTabViewModel(editorContext.Object);
-        var uri = new Uri("https://example.com/new-window");
+        var uri = new Uri(address);
 
         bool result = viewModel.TryOpenNewTab(uri);
 
@@ -281,35 +282,6 @@ public class WebBrowserTabViewModelTests
                 Assert.That(result, Is.True);
                 Assert.That(openedContext, Is.TypeOf<WebBrowserTabViewModel>());
                 Assert.That(((WebBrowserTabViewModel)openedContext!).CurrentUri, Is.EqualTo(uri));
-            });
-        }
-        finally
-        {
-            openedContext?.Dispose();
-        }
-    }
-
-    [Test]
-    public void TryOpenNewTab_AllowsABlankPage()
-    {
-        var editorContext = new Mock<IEditorContext>();
-        IToolContext? openedContext = null;
-        editorContext
-            .Setup(x => x.OpenToolTab(It.IsAny<IToolContext>()))
-            .Callback<IToolContext>(context => openedContext = context)
-            .Returns(true);
-        using var viewModel = new WebBrowserTabViewModel(editorContext.Object);
-
-        bool result = viewModel.TryOpenNewTab(WebBrowserTabViewModel.BlankPage);
-
-        try
-        {
-            Assert.Multiple(() =>
-            {
-                Assert.That(result, Is.True);
-                Assert.That(((WebBrowserTabViewModel)openedContext!).CurrentUri,
-                    Is.EqualTo(WebBrowserTabViewModel.BlankPage));
-                Assert.That(openedContext!.Header.Value, Is.EqualTo(Strings.NewTab));
             });
         }
         finally

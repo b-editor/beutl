@@ -1,8 +1,6 @@
 ﻿using System.Collections.Specialized;
 using Beutl.Editor;
 using Beutl.Editor.Operations;
-using Beutl.Logging;
-using Microsoft.Extensions.Logging;
 
 namespace Beutl.UnitTests.Editor;
 
@@ -301,23 +299,15 @@ public class HistoryManagerTests
     [SetUp]
     public void Setup()
     {
-        Log.LoggerFactory = LoggerFactory.Create(b => b.AddSimpleConsole());
         _root = new TestCoreObject();
         _sequenceGenerator = new OperationSequenceGenerator();
-    }
-
-    [TearDown]
-    public void TearDown()
-    {
     }
 
     [Test]
     public void Constructor_ShouldInitializeWithCorrectDefaults()
     {
-        // Arrange & Act
         using var manager = new HistoryManager(_root, _sequenceGenerator);
 
-        // Assert
         Assert.Multiple(() =>
         {
             Assert.That(manager.Root, Is.EqualTo(_root));
@@ -331,58 +321,32 @@ public class HistoryManagerTests
     [Test]
     public void Constructor_ShouldThrowArgumentNullException_WhenRootIsNull()
     {
-        // Arrange & Act & Assert
         Assert.Throws<ArgumentNullException>(() => new HistoryManager(null!, _sequenceGenerator));
     }
 
     [Test]
     public void Constructor_ShouldThrowArgumentNullException_WhenSequenceGeneratorIsNull()
     {
-        // Arrange & Act & Assert
         Assert.Throws<ArgumentNullException>(() => new HistoryManager(_root, null!));
-    }
-
-    [Test]
-    public void Record_ShouldAddOperationToCurrentTransaction()
-    {
-        // Arrange
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
-        var operation = CreateTestOperation();
-
-        // Act
-        manager.Record(operation);
-        manager.Commit("Test");
-
-        // Assert
-        Assert.Multiple(() =>
-        {
-            Assert.That(manager.CanUndo, Is.True);
-            Assert.That(manager.UndoCount, Is.EqualTo(1));
-        });
     }
 
     [Test]
     public void Record_ShouldThrowArgumentNullException_WhenOperationIsNull()
     {
-        // Arrange
         using var manager = new HistoryManager(_root, _sequenceGenerator);
 
-        // Act & Assert
         Assert.Throws<ArgumentNullException>(() => manager.Record((ChangeOperation)null!));
     }
 
     [Test]
     public void Commit_ShouldPushCurrentTransactionToUndoStack()
     {
-        // Arrange
         using var manager = new HistoryManager(_root, _sequenceGenerator);
         var operation = CreateTestOperation();
 
-        // Act
         manager.Record(operation);
         manager.Commit("Test Operation");
 
-        // Assert
         Assert.Multiple(() =>
         {
             Assert.That(manager.CanUndo, Is.True);
@@ -395,13 +359,10 @@ public class HistoryManagerTests
     [Test]
     public void Commit_ShouldNotPushEmptyTransaction()
     {
-        // Arrange
         using var manager = new HistoryManager(_root, _sequenceGenerator);
 
-        // Act
         manager.Commit("Empty");
 
-        // Assert
         Assert.Multiple(() =>
         {
             Assert.That(manager.CanUndo, Is.False);
@@ -412,25 +373,21 @@ public class HistoryManagerTests
     [Test]
     public void Commit_ShouldClearRedoStack()
     {
-        // Arrange
         using var manager = new HistoryManager(_root, _sequenceGenerator);
         manager.Record(CreateTestOperation());
         manager.Commit("First");
         manager.Undo();
         Assert.That(manager.CanRedo, Is.True);
 
-        // Act
         manager.Record(CreateTestOperation());
         manager.Commit("Second");
 
-        // Assert
         Assert.That(manager.CanRedo, Is.False);
     }
 
     [Test]
     public void Rollback_ShouldRevertCurrentTransaction()
     {
-        // Arrange
         using var manager = new HistoryManager(_root, _sequenceGenerator);
         _root.Value = 0;
 
@@ -444,10 +401,8 @@ public class HistoryManagerTests
         operation.Apply(new OperationExecutionContext(_root));
         Assert.That(_root.Value, Is.EqualTo(100));
 
-        // Act
         manager.Rollback();
 
-        // Assert
         Assert.Multiple(() =>
         {
             Assert.That(_root.Value, Is.EqualTo(0));
@@ -495,7 +450,6 @@ public class HistoryManagerTests
     [Test]
     public void Undo_ShouldRevertLastCommittedTransaction()
     {
-        // Arrange
         using var manager = new HistoryManager(_root, _sequenceGenerator);
         _root.Value = 0;
 
@@ -509,10 +463,8 @@ public class HistoryManagerTests
         manager.Record(operation);
         manager.Commit("Set Value");
 
-        // Act
         var result = manager.Undo();
 
-        // Assert
         Assert.Multiple(() =>
         {
             Assert.That(result, Is.True);
@@ -525,20 +477,16 @@ public class HistoryManagerTests
     [Test]
     public void Undo_ShouldReturnFalse_WhenNoUndoAvailable()
     {
-        // Arrange
         using var manager = new HistoryManager(_root, _sequenceGenerator);
 
-        // Act
         var result = manager.Undo();
 
-        // Assert
         Assert.That(result, Is.False);
     }
 
     [Test]
     public void Redo_ShouldReapplyLastUndoneTransaction()
     {
-        // Arrange
         using var manager = new HistoryManager(_root, _sequenceGenerator);
         _root.Value = 0;
 
@@ -553,10 +501,8 @@ public class HistoryManagerTests
         manager.Commit("Set Value");
         manager.Undo();
 
-        // Act
         var result = manager.Redo();
 
-        // Assert
         Assert.Multiple(() =>
         {
             Assert.That(result, Is.True);
@@ -569,20 +515,16 @@ public class HistoryManagerTests
     [Test]
     public void Redo_ShouldReturnFalse_WhenNoRedoAvailable()
     {
-        // Arrange
         using var manager = new HistoryManager(_root, _sequenceGenerator);
 
-        // Act
         var result = manager.Redo();
 
-        // Assert
         Assert.That(result, Is.False);
     }
 
     [Test]
     public void Clear_ShouldRemoveAllHistory()
     {
-        // Arrange
         using var manager = new HistoryManager(_root, _sequenceGenerator);
         manager.Record(CreateTestOperation());
         manager.Commit("First");
@@ -590,10 +532,8 @@ public class HistoryManagerTests
         manager.Commit("Second");
         manager.Undo();
 
-        // Act
         manager.Clear();
 
-        // Assert
         Assert.Multiple(() =>
         {
             Assert.That(manager.CanUndo, Is.False);
@@ -606,70 +546,56 @@ public class HistoryManagerTests
     [Test]
     public void PeekUndo_ShouldReturnLastTransaction()
     {
-        // Arrange
         using var manager = new HistoryManager(_root, _sequenceGenerator);
         manager.Record(CreateTestOperation());
         manager.Commit("First");
         manager.Record(CreateTestOperation());
         manager.Commit("Second");
 
-        // Act
         var transaction = manager.PeekUndo();
 
-        // Assert
         Assert.That(transaction?.DisplayName, Is.EqualTo("Second"));
     }
 
     [Test]
     public void PeekUndo_ShouldReturnNull_WhenNoUndoAvailable()
     {
-        // Arrange
         using var manager = new HistoryManager(_root, _sequenceGenerator);
 
-        // Act
         var transaction = manager.PeekUndo();
 
-        // Assert
         Assert.That(transaction, Is.Null);
     }
 
     [Test]
     public void PeekRedo_ShouldReturnLastUndoneTransaction()
     {
-        // Arrange
         using var manager = new HistoryManager(_root, _sequenceGenerator);
         manager.Record(CreateTestOperation());
         manager.Commit("First");
         manager.Undo();
 
-        // Act
         var transaction = manager.PeekRedo();
 
-        // Assert
         Assert.That(transaction?.DisplayName, Is.EqualTo("First"));
     }
 
     [Test]
     public void PeekRedo_ShouldReturnNull_WhenNoRedoAvailable()
     {
-        // Arrange
         using var manager = new HistoryManager(_root, _sequenceGenerator);
 
-        // Act
         var transaction = manager.PeekRedo();
 
-        // Assert
         Assert.That(transaction, Is.Null);
     }
 
     [Test]
     public void ExecuteInTransaction_ShouldCommitOnSuccess()
     {
-        // Arrange
         using var manager = new HistoryManager(_root, _sequenceGenerator);
         _root.Value = 0;
 
-        // Act
         manager.ExecuteInTransaction(() =>
         {
             var operation = CustomOperation.Create(
@@ -681,7 +607,6 @@ public class HistoryManagerTests
             manager.Record(operation);
         }, "Transaction");
 
-        // Assert
         Assert.Multiple(() =>
         {
             Assert.That(manager.CanUndo, Is.True);
@@ -692,11 +617,9 @@ public class HistoryManagerTests
     [Test]
     public void ExecuteInTransaction_ShouldRollbackOnException()
     {
-        // Arrange
         using var manager = new HistoryManager(_root, _sequenceGenerator);
         _root.Value = 0;
 
-        // Act & Assert
         Assert.Throws<InvalidOperationException>(() =>
         {
             manager.ExecuteInTransaction(() =>
@@ -1286,19 +1209,16 @@ public class HistoryManagerTests
     [Test]
     public void Record_WithActions_ShouldCreateCustomOperation()
     {
-        // Arrange
         using var manager = new HistoryManager(_root, _sequenceGenerator);
         _root.Value = 0;
         bool doExecuted = false;
 
-        // Act
         manager.Record(
             () => { doExecuted = true; _root.Value = 100; },
             () => { _root.Value = 0; },
             "Custom Action");
         manager.Commit("Test");
 
-        // Assert
         Assert.Multiple(() =>
         {
             Assert.That(doExecuted, Is.False);
@@ -1306,26 +1226,49 @@ public class HistoryManagerTests
         });
     }
 
-    [Test]
-    public void StateChanged_ShouldBeNotified_OnCommit()
+    [TestCase("Commit", true, false, 1, 0)]
+    [TestCase("Undo", false, true, 0, 1)]
+    [TestCase("Redo", true, false, 1, 0)]
+    [TestCase("Clear", false, false, 0, 0)]
+    public void StateChanged_ShouldBeNotified(string operation, bool canUndo, bool canRedo, int undoCount, int redoCount)
     {
-        // Arrange
         using var manager = new HistoryManager(_root, _sequenceGenerator);
+        if (operation != "Commit")
+        {
+            manager.Record(CreateTestOperation());
+            manager.Commit("Test");
+        }
+
+        if (operation == "Redo")
+            manager.Undo();
+
         HistoryState? receivedState = null;
         using var subscription = manager.StateChanged.Subscribe(state => receivedState = state);
 
-        // Act
-        manager.Record(CreateTestOperation());
-        manager.Commit("Test");
+        switch (operation)
+        {
+            case "Commit":
+                manager.Record(CreateTestOperation());
+                manager.Commit("Test");
+                break;
+            case "Undo":
+                manager.Undo();
+                break;
+            case "Redo":
+                manager.Redo();
+                break;
+            case "Clear":
+                manager.Clear();
+                break;
+        }
 
-        // Assert
         Assert.That(receivedState, Is.Not.Null);
         Assert.Multiple(() =>
         {
-            Assert.That(receivedState!.Value.CanUndo, Is.True);
-            Assert.That(receivedState!.Value.CanRedo, Is.False);
-            Assert.That(receivedState!.Value.UndoCount, Is.EqualTo(1));
-            Assert.That(receivedState!.Value.RedoCount, Is.EqualTo(0));
+            Assert.That(receivedState!.Value.CanUndo, Is.EqualTo(canUndo));
+            Assert.That(receivedState!.Value.CanRedo, Is.EqualTo(canRedo));
+            Assert.That(receivedState!.Value.UndoCount, Is.EqualTo(undoCount));
+            Assert.That(receivedState!.Value.RedoCount, Is.EqualTo(redoCount));
         });
     }
 
@@ -1353,83 +1296,11 @@ public class HistoryManagerTests
     }
 
     [Test]
-    public void StateChanged_ShouldBeNotified_OnUndo()
-    {
-        // Arrange
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
-        manager.Record(CreateTestOperation());
-        manager.Commit("Test");
-
-        HistoryState? receivedState = null;
-        using var subscription = manager.StateChanged.Subscribe(state => receivedState = state);
-
-        // Act
-        manager.Undo();
-
-        // Assert
-        Assert.That(receivedState, Is.Not.Null);
-        Assert.Multiple(() =>
-        {
-            Assert.That(receivedState!.Value.CanUndo, Is.False);
-            Assert.That(receivedState!.Value.CanRedo, Is.True);
-        });
-    }
-
-    [Test]
-    public void StateChanged_ShouldBeNotified_OnRedo()
-    {
-        // Arrange
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
-        manager.Record(CreateTestOperation());
-        manager.Commit("Test");
-        manager.Undo();
-
-        HistoryState? receivedState = null;
-        using var subscription = manager.StateChanged.Subscribe(state => receivedState = state);
-
-        // Act
-        manager.Redo();
-
-        // Assert
-        Assert.That(receivedState, Is.Not.Null);
-        Assert.Multiple(() =>
-        {
-            Assert.That(receivedState!.Value.CanUndo, Is.True);
-            Assert.That(receivedState!.Value.CanRedo, Is.False);
-        });
-    }
-
-    [Test]
-    public void StateChanged_ShouldBeNotified_OnClear()
-    {
-        // Arrange
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
-        manager.Record(CreateTestOperation());
-        manager.Commit("Test");
-
-        HistoryState? receivedState = null;
-        using var subscription = manager.StateChanged.Subscribe(state => receivedState = state);
-
-        // Act
-        manager.Clear();
-
-        // Assert
-        Assert.That(receivedState, Is.Not.Null);
-        Assert.Multiple(() =>
-        {
-            Assert.That(receivedState!.Value.CanUndo, Is.False);
-            Assert.That(receivedState!.Value.CanRedo, Is.False);
-        });
-    }
-
-    [Test]
     public void Dispose_ShouldPreventFurtherOperations()
     {
-        // Arrange
         var manager = new HistoryManager(_root, _sequenceGenerator);
         manager.Dispose();
 
-        // Act & Assert
         Assert.Throws<ObjectDisposedException>(() => manager.Record(CreateTestOperation()));
         Assert.Throws<ObjectDisposedException>(() => manager.Commit("Test"));
         Assert.Throws<ObjectDisposedException>(() => manager.Undo());
@@ -1437,12 +1308,18 @@ public class HistoryManagerTests
         Assert.Throws<ObjectDisposedException>(() => manager.Clear());
         Assert.Throws<ObjectDisposedException>(() =>
             manager.ExecuteInTransaction(static () => { }, "Test"));
+        Assert.Throws<ObjectDisposedException>(() => manager.JumpTo(0));
+        Assert.Throws<ObjectDisposedException>(() => manager.GetEntriesSnapshot());
+        Assert.Throws<ObjectDisposedException>(() =>
+            manager.SubscribeEntries((_, _) => { }));
+        Assert.Throws<ObjectDisposedException>(() => manager.WouldJumpToMove(0));
+        Assert.Throws<ObjectDisposedException>(() => _ = manager.HasPendingOperations);
+        Assert.Throws<ObjectDisposedException>(() => manager.FlushPendingMutations());
     }
 
     [Test]
     public void MultipleUndoRedo_ShouldMaintainCorrectState()
     {
-        // Arrange
         using var manager = new HistoryManager(_root, _sequenceGenerator);
         _root.Value = 0;
 
@@ -1460,7 +1337,6 @@ public class HistoryManagerTests
             manager.Commit($"Step {i}");
         }
 
-        // Act & Assert
         Assert.That(_root.Value, Is.EqualTo(300));
         Assert.That(manager.UndoCount, Is.EqualTo(3));
 
@@ -1680,7 +1556,6 @@ public class HistoryManagerTests
         CreateValueOperation(manager, 100, 0, "Committed");
         manager.Commit("Committed");
 
-        // Uncommitted operation that mutates state.
         var pending = CustomOperation.Create(
             () => _root.Value = 999,
             () => _root.Value = 100,
@@ -1754,8 +1629,6 @@ public class HistoryManagerTests
     [Test]
     public void HistoryEntry_FromTransaction_FallsBackToUnnamedWhenAllNull()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
-        manager.Record(CreateTestOperation());
         // Commit with a literal null name -> CallerArgumentExpression captures "(string?)null"
         // which is non-null, so we directly construct the entry to test the fallback path.
         var transaction = new HistoryTransaction(42);
@@ -1787,15 +1660,6 @@ public class HistoryManagerTests
     #endregion
 
     #region JumpTo Failure / Disposal Tests
-
-    [Test]
-    public void JumpTo_AfterDispose_ShouldThrowObjectDisposedException()
-    {
-        var manager = new HistoryManager(_root, _sequenceGenerator);
-        manager.Dispose();
-
-        Assert.Throws<ObjectDisposedException>(() => manager.JumpTo(0));
-    }
 
     [Test]
     public void JumpTo_WhenApplyThrowsMidForwardLoop_ShouldKeepFailingTransactionOnRedoStack()
@@ -1898,8 +1762,8 @@ public class HistoryManagerTests
         CreateValueOperation(manager, 100, 0, "Committed");
         manager.Commit("Committed");
 
-        // Pending op whose revert throws — but its operation should NOT survive
-        // into the next commit because JumpTo's finally swaps _currentTransaction.
+        // Pending op whose revert throws; it must not survive into the next commit.
+        // DiscardPendingTransaction_NoLock replaces the pending transaction even when its revert throws.
         var pending = CustomOperation.Create(
             () => _root.Value = 999,
             () => throw new InvalidOperationException("PendingRevertFailed"),
@@ -1910,7 +1774,6 @@ public class HistoryManagerTests
 
         Assert.Throws<HistoryReplayException>(() => manager.JumpTo(0));
 
-        // A subsequent commit must not include the pending operation.
         CreateValueOperation(manager, 50, 999, "After");
         manager.Commit("After");
 
@@ -1970,15 +1833,6 @@ public class HistoryManagerTests
         manager.Commit("Step2");
         Assert.That(snapshot.Length, Is.EqualTo(2));
         Assert.That(manager.Entries.Count, Is.EqualTo(3));
-    }
-
-    [Test]
-    public void GetEntriesSnapshot_AfterDispose_ShouldThrow()
-    {
-        var manager = new HistoryManager(_root, _sequenceGenerator);
-        manager.Dispose();
-
-        Assert.Throws<ObjectDisposedException>(() => manager.GetEntriesSnapshot());
     }
 
     [Test]
@@ -2049,16 +1903,6 @@ public class HistoryManagerTests
     }
 
     [Test]
-    public void SubscribeEntries_AfterDispose_ShouldThrow()
-    {
-        var manager = new HistoryManager(_root, _sequenceGenerator);
-        manager.Dispose();
-
-        Assert.Throws<ObjectDisposedException>(() =>
-            manager.SubscribeEntries((_, _) => { }));
-    }
-
-    [Test]
     public void SubscribeEntries_NullHandler_ShouldThrow()
     {
         using var manager = new HistoryManager(_root, _sequenceGenerator);
@@ -2098,26 +1942,21 @@ public class HistoryManagerTests
     [Test]
     public void BeginRecordingScope_ShouldReturnValidScope()
     {
-        // Arrange
         using var manager = new HistoryManager(_root, _sequenceGenerator);
 
-        // Act
         using var scope = manager.BeginRecordingScope(
             () => _root.Value,
             value => _root.Value = value,
             "Test Scope");
 
-        // Assert
         Assert.That(scope, Is.Not.Null);
     }
 
     [Test]
     public void BeginRecordingScope_ShouldThrowArgumentNullException_WhenCaptureStateIsNull()
     {
-        // Arrange
         using var manager = new HistoryManager(_root, _sequenceGenerator);
 
-        // Act & Assert
         Assert.Throws<ArgumentNullException>(() =>
             manager.BeginRecordingScope<int>(
                 null!,
@@ -2128,10 +1967,8 @@ public class HistoryManagerTests
     [Test]
     public void BeginRecordingScope_ShouldThrowArgumentNullException_WhenApplyStateIsNull()
     {
-        // Arrange
         using var manager = new HistoryManager(_root, _sequenceGenerator);
 
-        // Act & Assert
         Assert.Throws<ArgumentNullException>(() =>
             manager.BeginRecordingScope(
                 () => _root.Value,
@@ -2142,11 +1979,9 @@ public class HistoryManagerTests
     [Test]
     public void BeginRecordingScope_ShouldThrowObjectDisposedException_WhenManagerIsDisposed()
     {
-        // Arrange
         var manager = new HistoryManager(_root, _sequenceGenerator);
         manager.Dispose();
 
-        // Act & Assert
         Assert.Throws<ObjectDisposedException>(() =>
             manager.BeginRecordingScope(
                 () => _root.Value,
@@ -2157,11 +1992,9 @@ public class HistoryManagerTests
     [Test]
     public void RecordingScope_Complete_ShouldRecordOperation()
     {
-        // Arrange
         using var manager = new HistoryManager(_root, _sequenceGenerator);
         _root.Value = 10;
 
-        // Act
         using (var scope = manager.BeginRecordingScope(
             () => _root.Value,
             value => _root.Value = value,
@@ -2172,7 +2005,6 @@ public class HistoryManagerTests
         }
         manager.Commit("Test");
 
-        // Assert
         Assert.Multiple(() =>
         {
             Assert.That(manager.CanUndo, Is.True);
@@ -2183,11 +2015,9 @@ public class HistoryManagerTests
     [Test]
     public void RecordingScope_Complete_ShouldCaptureBeforeAndAfterState()
     {
-        // Arrange
         using var manager = new HistoryManager(_root, _sequenceGenerator);
         _root.Value = 10;
 
-        // Act
         using (var scope = manager.BeginRecordingScope(
             () => _root.Value,
             value => _root.Value = value,
@@ -2198,7 +2028,7 @@ public class HistoryManagerTests
         }
         manager.Commit("Test");
 
-        // Assert - Value should still be 50 after complete
+        // Value should still be 50 after complete
         Assert.That(_root.Value, Is.EqualTo(50));
 
         // Undo should restore to 10
@@ -2213,11 +2043,9 @@ public class HistoryManagerTests
     [Test]
     public void RecordingScope_Cancel_ShouldNotRecordOperation()
     {
-        // Arrange
         using var manager = new HistoryManager(_root, _sequenceGenerator);
         _root.Value = 10;
 
-        // Act
         using (var scope = manager.BeginRecordingScope(
             () => _root.Value,
             value => _root.Value = value,
@@ -2228,7 +2056,7 @@ public class HistoryManagerTests
         }
         manager.Commit("Test");
 
-        // Assert - No operation recorded since we cancelled
+        // No operation recorded since we cancelled
         Assert.That(manager.CanUndo, Is.False);
         Assert.That(_root.Value, Is.EqualTo(50)); // Value was still changed
     }
@@ -2236,11 +2064,10 @@ public class HistoryManagerTests
     [Test]
     public void RecordingScope_Dispose_ShouldAutoCompleteIfNotCancelled()
     {
-        // Arrange
         using var manager = new HistoryManager(_root, _sequenceGenerator);
         _root.Value = 10;
 
-        // Act - Using statement will auto-dispose and auto-complete
+        // Using statement will auto-dispose and auto-complete
         using (var scope = manager.BeginRecordingScope(
             () => _root.Value,
             value => _root.Value = value,
@@ -2251,7 +2078,7 @@ public class HistoryManagerTests
         }
         manager.Commit("Test");
 
-        // Assert - Should have auto-completed
+        // Should have auto-completed
         Assert.Multiple(() =>
         {
             Assert.That(manager.CanUndo, Is.True);
@@ -2266,11 +2093,9 @@ public class HistoryManagerTests
     [Test]
     public void RecordingScope_Dispose_ShouldNotRecordAfterCancel()
     {
-        // Arrange
         using var manager = new HistoryManager(_root, _sequenceGenerator);
         _root.Value = 10;
 
-        // Act
         using (var scope = manager.BeginRecordingScope(
             () => _root.Value,
             value => _root.Value = value,
@@ -2282,18 +2107,15 @@ public class HistoryManagerTests
         }
         manager.Commit("Test");
 
-        // Assert
         Assert.That(manager.CanUndo, Is.False);
     }
 
     [Test]
     public void RecordingScope_DoubleComplete_ShouldOnlyRecordOnce()
     {
-        // Arrange
         using var manager = new HistoryManager(_root, _sequenceGenerator);
         _root.Value = 10;
 
-        // Act
         using (var scope = manager.BeginRecordingScope(
             () => _root.Value,
             value => _root.Value = value,
@@ -2305,18 +2127,16 @@ public class HistoryManagerTests
         }
         manager.Commit("Test");
 
-        // Assert - Should only have one operation
+        // Should only have one operation
         Assert.That(manager.UndoCount, Is.EqualTo(1));
     }
 
     [Test]
     public void RecordingScope_CompleteAfterCancel_ShouldNotRecord()
     {
-        // Arrange
         using var manager = new HistoryManager(_root, _sequenceGenerator);
         _root.Value = 10;
 
-        // Act
         using (var scope = manager.BeginRecordingScope(
             () => _root.Value,
             value => _root.Value = value,
@@ -2328,18 +2148,15 @@ public class HistoryManagerTests
         }
         manager.Commit("Test");
 
-        // Assert
         Assert.That(manager.CanUndo, Is.False);
     }
 
     [Test]
     public void RecordingScope_WithComplexState_ShouldCaptureCorrectly()
     {
-        // Arrange
         using var manager = new HistoryManager(_root, _sequenceGenerator);
         var state = new TestState { Value1 = 1, Value2 = "A" };
 
-        // Act
         using (var scope = manager.BeginRecordingScope(
             () => new TestState { Value1 = state.Value1, Value2 = state.Value2 },
             s => { state.Value1 = s.Value1; state.Value2 = s.Value2; },
@@ -2351,7 +2168,6 @@ public class HistoryManagerTests
         }
         manager.Commit("Test");
 
-        // Assert
         Assert.Multiple(() =>
         {
             Assert.That(state.Value1, Is.EqualTo(100));
@@ -2378,11 +2194,9 @@ public class HistoryManagerTests
     [Test]
     public void RecordingScope_WithNullDescription_ShouldWork()
     {
-        // Arrange
         using var manager = new HistoryManager(_root, _sequenceGenerator);
         _root.Value = 10;
 
-        // Act
         using (var scope = manager.BeginRecordingScope(
             () => _root.Value,
             value => _root.Value = value))
@@ -2392,18 +2206,16 @@ public class HistoryManagerTests
         }
         manager.Commit("Test");
 
-        // Assert
         Assert.That(manager.CanUndo, Is.True);
     }
 
     [Test]
     public void RecordingScope_NoStateChange_ShouldStillRecord()
     {
-        // Arrange
         using var manager = new HistoryManager(_root, _sequenceGenerator);
         _root.Value = 10;
 
-        // Act - No actual state change
+        // No actual state change
         using (var scope = manager.BeginRecordingScope(
             () => _root.Value,
             value => _root.Value = value,
@@ -2414,20 +2226,19 @@ public class HistoryManagerTests
         }
         manager.Commit("Test");
 
-        // Assert - Operation is still recorded (even if state didn't change)
+        // Operation is still recorded (even if state didn't change)
         Assert.That(manager.CanUndo, Is.True);
     }
 
     [Test]
     public void RecordingScope_MultipleScopes_ShouldWorkIndependently()
     {
-        // Arrange
         using var manager = new HistoryManager(_root, _sequenceGenerator);
         _root.Value = 0;
         var state2 = new { Value = 0 };
         int value2 = 0;
 
-        // Act - First scope
+        // First scope
         using (var scope1 = manager.BeginRecordingScope(
             () => _root.Value,
             v => _root.Value = v,
@@ -2449,7 +2260,6 @@ public class HistoryManagerTests
 
         manager.Commit("Test");
 
-        // Assert
         Assert.That(manager.UndoCount, Is.EqualTo(1)); // Both in same transaction
 
         // Undo should revert both
@@ -2464,11 +2274,10 @@ public class HistoryManagerTests
     [Test]
     public void RecordingScope_IntegrationWithOtherOperations_ShouldWork()
     {
-        // Arrange
         using var manager = new HistoryManager(_root, _sequenceGenerator);
         _root.Value = 0;
 
-        // Act - Mix scope with regular operations
+        // Mix scope with regular operations
         using (var scope = manager.BeginRecordingScope(
             () => _root.Value,
             v => _root.Value = v,
@@ -2489,7 +2298,6 @@ public class HistoryManagerTests
 
         manager.Commit("Combined");
 
-        // Assert
         Assert.That(_root.Value, Is.EqualTo(100));
         Assert.That(manager.UndoCount, Is.EqualTo(1));
 
@@ -2501,11 +2309,9 @@ public class HistoryManagerTests
     [Test]
     public void RecordingScope_WithReferenceTypeState_ShouldCaptureSnapshot()
     {
-        // Arrange
         using var manager = new HistoryManager(_root, _sequenceGenerator);
         var data = new List<int> { 1, 2, 3 };
 
-        // Act
         using (var scope = manager.BeginRecordingScope(
             () => data.ToList(), // Capture a snapshot
             state => { data.Clear(); data.AddRange(state); },
@@ -2517,7 +2323,6 @@ public class HistoryManagerTests
         }
         manager.Commit("Test");
 
-        // Assert
         Assert.That(data, Is.EqualTo(new[] { 1, 2, 3, 4, 5 }));
 
         // Undo
@@ -2532,10 +2337,9 @@ public class HistoryManagerTests
     [Test]
     public void RecordingScope_CaptureStateThrows_ShouldPropagateException()
     {
-        // Arrange
         using var manager = new HistoryManager(_root, _sequenceGenerator);
 
-        // Act & Assert - Exception during initial state capture
+        // Exception during initial state capture
         Assert.Throws<InvalidOperationException>(() =>
             manager.BeginRecordingScope<int>(
                 () => throw new InvalidOperationException("Capture failed"),
@@ -2546,12 +2350,10 @@ public class HistoryManagerTests
     [Test]
     public void RecordingScope_ApplyStateInUndo_ShouldWork()
     {
-        // Arrange
         using var manager = new HistoryManager(_root, _sequenceGenerator);
         int applyCount = 0;
         _root.Value = 10;
 
-        // Act
         using (var scope = manager.BeginRecordingScope(
             () => _root.Value,
             value =>
@@ -2589,12 +2391,11 @@ public class HistoryManagerTests
     [Test]
     public void RecordingScope_WithNestedScopes_ShouldWorkCorrectly()
     {
-        // Arrange
         using var manager = new HistoryManager(_root, _sequenceGenerator);
         _root.Value = 0;
         int value2 = 0;
 
-        // Act - Nested scopes
+        // Nested scopes
         using (var outer = manager.BeginRecordingScope(
             () => _root.Value,
             v => _root.Value = v,
@@ -2616,7 +2417,6 @@ public class HistoryManagerTests
 
         manager.Commit("Test");
 
-        // Assert
         Assert.Multiple(() =>
         {
             Assert.That(_root.Value, Is.EqualTo(10));
@@ -2635,11 +2435,9 @@ public class HistoryManagerTests
     [Test]
     public void RecordingScope_WithNullableValueType_ShouldWork()
     {
-        // Arrange
         using var manager = new HistoryManager(_root, _sequenceGenerator);
         int? nullableValue = null;
 
-        // Act
         using (var scope = manager.BeginRecordingScope(
             () => nullableValue,
             v => nullableValue = v,
@@ -2650,7 +2448,6 @@ public class HistoryManagerTests
         }
         manager.Commit("Test");
 
-        // Assert
         Assert.That(nullableValue, Is.EqualTo(42));
 
         manager.Undo();
@@ -2663,11 +2460,9 @@ public class HistoryManagerTests
     [Test]
     public void RecordingScope_WithNullReferenceType_ShouldWork()
     {
-        // Arrange
         using var manager = new HistoryManager(_root, _sequenceGenerator);
         string? stringValue = null;
 
-        // Act
         using (var scope = manager.BeginRecordingScope(
             () => stringValue,
             v => stringValue = v,
@@ -2678,7 +2473,6 @@ public class HistoryManagerTests
         }
         manager.Commit("Test");
 
-        // Assert
         Assert.That(stringValue, Is.EqualTo("Hello"));
 
         manager.Undo();
@@ -2688,11 +2482,10 @@ public class HistoryManagerTests
     [Test]
     public void RecordingScope_SeparateTransactions_ShouldBeIndependent()
     {
-        // Arrange
         using var manager = new HistoryManager(_root, _sequenceGenerator);
         _root.Value = 0;
 
-        // Act - First transaction
+        // First transaction
         using (var scope = manager.BeginRecordingScope(
             () => _root.Value,
             v => _root.Value = v,
@@ -2714,7 +2507,6 @@ public class HistoryManagerTests
         }
         manager.Commit("Second Transaction");
 
-        // Assert
         Assert.Multiple(() =>
         {
             Assert.That(manager.UndoCount, Is.EqualTo(2));
@@ -2733,7 +2525,6 @@ public class HistoryManagerTests
     [Test]
     public void RecordingScope_UndoRedoMultipleTimes_ShouldMaintainCorrectState()
     {
-        // Arrange
         using var manager = new HistoryManager(_root, _sequenceGenerator);
         _root.Value = 0;
 
@@ -2747,7 +2538,7 @@ public class HistoryManagerTests
         }
         manager.Commit("Test");
 
-        // Act & Assert - Multiple undo/redo cycles
+        // Multiple undo/redo cycles
         for (int i = 0; i < 3; i++)
         {
             manager.Undo();
@@ -2992,15 +2783,6 @@ public class HistoryManagerTests
     }
 
     [Test]
-    public void WouldJumpToMove_ShouldThrowObjectDisposedException_WhenDisposed()
-    {
-        var manager = new HistoryManager(_root, _sequenceGenerator);
-        manager.Dispose();
-
-        Assert.Throws<ObjectDisposedException>(() => manager.WouldJumpToMove(0));
-    }
-
-    [Test]
     public void WouldJumpToMove_ShouldReturnTrue_ForCurrentIndexWithPendingTransaction()
     {
         using var manager = new HistoryManager(_root, _sequenceGenerator);
@@ -3013,7 +2795,6 @@ public class HistoryManagerTests
         Assert.Multiple(() =>
         {
             Assert.That(manager.WouldJumpToMove(manager.CurrentIndex), Is.True);
-            // Out-of-range stays false even with a pending transaction.
             Assert.That(manager.WouldJumpToMove(99), Is.False);
         });
     }
@@ -3033,15 +2814,6 @@ public class HistoryManagerTests
     }
 
     [Test]
-    public void HasPendingOperations_ShouldThrowObjectDisposedException_WhenDisposed()
-    {
-        var manager = new HistoryManager(_root, _sequenceGenerator);
-        manager.Dispose();
-
-        Assert.Throws<ObjectDisposedException>(() => _ = manager.HasPendingOperations);
-    }
-
-    [Test]
     public void FlushPendingMutations_ShouldFireBeforeMutation()
     {
         using var manager = new HistoryManager(_root, _sequenceGenerator);
@@ -3051,15 +2823,6 @@ public class HistoryManagerTests
         manager.FlushPendingMutations();
 
         Assert.That(fired, Is.EqualTo(1));
-    }
-
-    [Test]
-    public void FlushPendingMutations_ShouldThrowObjectDisposedException_WhenDisposed()
-    {
-        var manager = new HistoryManager(_root, _sequenceGenerator);
-        manager.Dispose();
-
-        Assert.Throws<ObjectDisposedException>(() => manager.FlushPendingMutations());
     }
 
     private sealed class EqualHistoryObserver : IObserver<HistoryState>

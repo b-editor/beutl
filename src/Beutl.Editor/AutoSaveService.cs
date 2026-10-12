@@ -23,7 +23,6 @@ public sealed class AutoSaveService : IDisposable
         HashSet<CoreObject> objectsToSave = [];
         HashSet<CoreObject> detachedCollectionItems = [];
 
-        // ChangeOperationから保存対象のオブジェクトを収集
         foreach (ChangeOperation operation in operations)
         {
             CollectObjectsToSave(operation, objectsToSave);
@@ -46,7 +45,6 @@ public sealed class AutoSaveService : IDisposable
     {
         ThrowIfDisposed();
 
-        // 各オブジェクトを保存
         foreach (CoreObject obj in objectsToSave)
         {
             try
@@ -99,7 +97,6 @@ public sealed class AutoSaveService : IDisposable
         {
             obj = collectionOp.Object;
 
-            // コレクション内のアイテムも保存対象に追加
             foreach (CoreObject? item in collectionOp.Items.OfType<CoreObject>())
             {
                 AddObjectWithAncestors(item, objectsToSave);
@@ -122,13 +119,11 @@ public sealed class AutoSaveService : IDisposable
 
     public static void AddObjectWithAncestors(CoreObject obj, HashSet<CoreObject> objectsToSave)
     {
-        // オブジェクト自体にUriがあれば追加
         if (obj.Uri != null)
         {
             objectsToSave.Add(obj);
         }
 
-        // 親要素を辿ってUriを持つオブジェクトを探す
         if (obj is IHierarchical hierarchical)
         {
             foreach (CoreObject ancestor in hierarchical.EnumerateAncestors<CoreObject>().Where(a => a.Uri != null))

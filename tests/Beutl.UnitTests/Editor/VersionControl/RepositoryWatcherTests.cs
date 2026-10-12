@@ -64,7 +64,7 @@ public class RepositoryWatcherTests
 
         string eventName = relativePath.Split('/')[0];
         Assert.That(
-            VersionControlPathComparison.TryAreSameChildPath(
+            FilePathComparison.TryAreSameChildPath(
                 _tempDirectory,
                 eventName,
                 reservedName,
@@ -263,7 +263,6 @@ public class RepositoryWatcherTests
         timeProvider.Advance(RepositoryWatcher.DebounceInterval);
 
         await changed.Task.WaitAsync(TimeSpan.FromSeconds(2));
-        Assert.That(changed.Task.IsCompletedSuccessfully, Is.True);
     }
 
     [Test]
@@ -419,7 +418,6 @@ public class RepositoryWatcherTests
         await File.WriteAllTextAsync(rulePath, "updated\n");
 
         await completion.Task.WaitAsync(TimeSpan.FromSeconds(3));
-        Assert.That(completion.Task.IsCompletedSuccessfully, Is.True);
     }
 
     [TestCase(".gitignore", ".gitignore.backup")]
@@ -442,7 +440,6 @@ public class RepositoryWatcherTests
         File.Move(oldPath, newPath);
 
         await completion.Task.WaitAsync(TimeSpan.FromSeconds(3));
-        Assert.That(completion.Task.IsCompletedSuccessfully, Is.True);
     }
 
     [Test]
@@ -639,7 +636,6 @@ public class RepositoryWatcherTests
         timeProvider.Advance(RepositoryWatcher.DebounceInterval);
 
         await completion.Task.WaitAsync(TimeSpan.FromSeconds(2));
-        Assert.That(completion.Task.IsCompletedSuccessfully, Is.True);
     }
 
     private sealed class TrackingFileSystemWatcher(string path) : FileSystemWatcher(path)

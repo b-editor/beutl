@@ -2,6 +2,7 @@
 using System.Reflection;
 using System.Text.Json.Nodes;
 using Beutl.Graphics;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Build;
 
@@ -30,7 +31,7 @@ public class DebugBuildOptimizationTests
     [Test]
     public async Task AProjectEvaluatedWithoutAConfigurationIsUnoptimizedDebug()
     {
-        string project = Path.Combine(FindRepositoryRoot(), "src", "Beutl.Utilities", "Beutl.Utilities.csproj");
+        string project = Path.Combine(RepositoryPaths.Root, "src", "Beutl.Utilities", "Beutl.Utilities.csproj");
         var startInfo = new ProcessStartInfo(Environment.GetEnvironmentVariable("DOTNET_HOST_PATH") ?? "dotnet")
         {
             RedirectStandardOutput = true,
@@ -64,18 +65,5 @@ public class DebugBuildOptimizationTests
             Assert.That(properties["Configuration"]!.GetValue<string>(), Is.EqualTo("Debug"));
             Assert.That(properties["Optimize"]!.GetValue<string>(), Is.EqualTo("false"));
         });
-    }
-
-    private static string FindRepositoryRoot()
-    {
-        for (DirectoryInfo? directory = new(TestContext.CurrentContext.TestDirectory);
-             directory is not null;
-             directory = directory.Parent)
-        {
-            if (File.Exists(Path.Combine(directory.FullName, "Beutl.slnx")))
-                return directory.FullName;
-        }
-
-        throw new DirectoryNotFoundException("Could not locate the Beutl repository root.");
     }
 }

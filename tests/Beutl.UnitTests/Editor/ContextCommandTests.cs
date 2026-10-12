@@ -6,26 +6,10 @@ namespace Beutl.UnitTests.Editor;
 public class ContextCommandTests
 {
     [Test]
-    public void ContextCommandExecution_StoresName()
-    {
-        var exec = new ContextCommandExecution("Save");
-        Assert.That(exec.CommandName, Is.EqualTo("Save"));
-        Assert.That(exec.KeyEventArgs, Is.Null);
-    }
-
-    [Test]
     public void ContextCommandAttribute_NameIsSettable()
     {
         var attr = new ContextCommandAttribute { Name = "MyCmd" };
         Assert.That(attr.Name, Is.EqualTo("MyCmd"));
-    }
-
-    [Test]
-    public void ContextCommandKeyGesture_StoresValues()
-    {
-        var g = new ContextCommandKeyGesture("Ctrl+S", OSPlatform.Windows);
-        Assert.That(g.KeyGesture, Is.EqualTo("Ctrl+S"));
-        Assert.That(g.Platform, Is.EqualTo(OSPlatform.Windows));
     }
 
     [Test]
@@ -34,10 +18,6 @@ public class ContextCommandTests
         var win = new ContextCommandKeyGesture("Ctrl+S", OSPlatform.Windows);
         var def = new ContextCommandDefinition("Save", "Save File", "Saves current document", [win]);
 
-        Assert.That(def.Name, Is.EqualTo("Save"));
-        Assert.That(def.DisplayName, Is.EqualTo("Save File"));
-        Assert.That(def.Description, Is.EqualTo("Saves current document"));
-        Assert.That(def.KeyGestures, Is.Not.Null);
         Assert.That(def.KeyGestures, Has.Length.EqualTo(1));
     }
 

@@ -1,6 +1,7 @@
 ﻿using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.Transformation;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Engine.Graphics.Transformation;
 
@@ -339,19 +340,6 @@ public class CanonicalTransformLayoutTests
             Assert.That(existing.HierarchicalParent, Is.SameAs(result.Group));
             Assert.That(((IHierarchical)existing).FindHierarchicalRoot(), Is.SameAs(root));
         });
-    }
-
-    private sealed class TestHierarchicalRoot : Hierarchical, IHierarchicalRoot
-    {
-        public event EventHandler<IHierarchical>? DescendantAttached;
-
-        public event EventHandler<IHierarchical>? DescendantDetached;
-
-        public void OnDescendantAttached(IHierarchical descendant)
-            => DescendantAttached?.Invoke(this, descendant);
-
-        public void OnDescendantDetached(IHierarchical descendant)
-            => DescendantDetached?.Invoke(this, descendant);
     }
 
     // ===== FindCanonicalTransforms (read-only) tests =====

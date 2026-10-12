@@ -1,5 +1,5 @@
 ﻿using System.Runtime.Versioning;
-using Beutl.Editor.VersionControl;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Core;
 
@@ -261,6 +261,19 @@ public class FilePathComparisonTests
                     out bool areSame),
                 Is.True);
             Assert.That(areSame, Is.EqualTo(volumeResolvesAlternateCasing));
+
+            if (!volumeResolvesAlternateCasing)
+            {
+                Directory.CreateDirectory(Path.Combine(temporaryRoot, alternateName));
+                Assert.That(
+                    FilePathComparison.TryAreSameChildPath(
+                        temporaryRoot,
+                        storedName,
+                        alternateName,
+                        out areSame),
+                    Is.True);
+                Assert.That(areSame, Is.False);
+            }
         }
         finally
         {
@@ -330,15 +343,7 @@ public class FilePathComparisonTests
         Directory.CreateDirectory(target);
         try
         {
-            try
-            {
-                Directory.CreateSymbolicLink(alias, target);
-            }
-            catch (Exception ex)
-                when (ex is IOException or UnauthorizedAccessException or PlatformNotSupportedException)
-            {
-                Assert.Ignore($"Symbolic links are unavailable here: {ex.Message}");
-            }
+            SymbolicLinks.CreateOrIgnore(alias, target, directory: true);
 
             Assert.That(FilePathComparison.AreSameCanonicalPath(target, alias), Is.True);
         }
@@ -357,15 +362,7 @@ public class FilePathComparisonTests
         Directory.CreateDirectory(target);
         try
         {
-            try
-            {
-                Directory.CreateSymbolicLink(alias, target);
-            }
-            catch (Exception ex)
-                when (ex is IOException or UnauthorizedAccessException or PlatformNotSupportedException)
-            {
-                Assert.Ignore($"Symbolic links are unavailable here: {ex.Message}");
-            }
+            SymbolicLinks.CreateOrIgnore(alias, target, directory: true);
 
             Assert.That(
                 FilePathComparison.TryAreSameChildPath(
@@ -394,15 +391,7 @@ public class FilePathComparisonTests
         Directory.CreateDirectory(targetLeaf);
         try
         {
-            try
-            {
-                Directory.CreateSymbolicLink(alias, targetLeaf);
-            }
-            catch (Exception ex)
-                when (ex is IOException or UnauthorizedAccessException or PlatformNotSupportedException)
-            {
-                Assert.Ignore($"Symbolic links are unavailable here: {ex.Message}");
-            }
+            SymbolicLinks.CreateOrIgnore(alias, targetLeaf, directory: true);
 
             Assert.That(
                 FilePathComparison.AreSameCanonicalPath(
@@ -412,12 +401,8 @@ public class FilePathComparisonTests
             Assert.Multiple(() =>
             {
                 Assert.That(
-                    VersionControlPathComparison.ResolveCanonicalPath(Path.Combine(alias, "..")),
+                    FilePathComparison.ResolveCanonicalPath(Path.Combine(alias, "..")),
                     Is.EqualTo(FilePathComparison.ResolveCanonicalPath(targetParent)));
-                Assert.That(
-                    VersionControlPathComparison.IsSameOrDescendant(
-                        lexicalParent, Path.Combine(alias, "..")),
-                    Is.False);
                 Assert.That(
                     FilePathComparison.IsSameOrDescendant(
                         targetParent,
@@ -545,7 +530,7 @@ public class FilePathComparisonTests
         UnixFileMode? originalMode = null;
         try
         {
-            CreateSymbolicLinkOrIgnore(alias, resource);
+            SymbolicLinks.CreateOrIgnore(alias, resource);
             originalMode = MakeTraverseOnly(locked);
             var context = FilePathComparison.CreateResolutionContext();
             string ownedRoot = context.ResolveCanonicalPath(owned);
@@ -582,7 +567,7 @@ public class FilePathComparisonTests
         UnixFileMode? originalMode = null;
         try
         {
-            CreateSymbolicLinkOrIgnore(alias, outside);
+            SymbolicLinks.CreateOrIgnore(alias, outside);
             string outsideIdentity = FilePathComparison.ResolveCanonicalPath(outside);
             originalMode = MakeTraverseOnly(locked);
             var context = FilePathComparison.CreateResolutionContext();
@@ -742,19 +727,6 @@ public class FilePathComparisonTests
     private static void RestoreMode(string directory, UnixFileMode? original)
     {
         if (original is { } mode) File.SetUnixFileMode(directory, mode);
-    }
-
-    private static void CreateSymbolicLinkOrIgnore(string path, string target)
-    {
-        try
-        {
-            File.CreateSymbolicLink(path, target);
-        }
-        catch (Exception ex)
-            when (ex is IOException or UnauthorizedAccessException or PlatformNotSupportedException)
-        {
-            Assert.Ignore($"Symbolic links are unavailable here: {ex.Message}");
-        }
     }
 
     private static string CreateTemporaryDirectory()

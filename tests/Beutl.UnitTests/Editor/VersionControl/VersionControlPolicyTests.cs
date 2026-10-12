@@ -60,7 +60,7 @@ public sealed class VersionControlPolicyTests : RealGitTestRepository
             LargeMediaWarningThresholdMb = 1,
         };
         var notices = new List<VersionControlPolicyNotice>();
-        var recordingRunner = new RecordingRunner(Runner);
+        var recordingRunner = new RecordingGitCliRunner(Runner);
         using var service = CreateService(
             config,
             lfsInstalled: false,
@@ -288,7 +288,7 @@ public sealed class VersionControlPolicyTests : RealGitTestRepository
         await WriteLargeMediaAsync(Root, "resources/01-covered.mp4");
         await WriteLargeMediaAsync(Root, "resources/02-uncovered.wav");
         var notices = new List<VersionControlPolicyNotice>();
-        var recordingRunner = new RecordingRunner(Runner);
+        var recordingRunner = new RecordingGitCliRunner(Runner);
         using var service = CreateService(
             CreateLargeMediaConfig(),
             lfsInstalled: true,
@@ -393,7 +393,7 @@ public sealed class VersionControlPolicyTests : RealGitTestRepository
         await WriteLargeMediaAsync(nestedRoot, mediaRelativePath);
         var repository = new RepositoryInfo(Root, nestedRoot);
         var notices = new List<VersionControlPolicyNotice>();
-        var recordingRunner = new RecordingRunner(Runner);
+        var recordingRunner = new RecordingGitCliRunner(Runner);
         using var service = CreateService(
             CreateLargeMediaConfig(),
             lfsInstalled: true,
@@ -905,30 +905,15 @@ public sealed class VersionControlPolicyTests : RealGitTestRepository
         Func<VersionControlPolicyNotice, Task> presentNotice,
         RepositoryInfo? repository = null,
         IGitCliRunner? runner = null,
-        string? projectFile = null,
         Func<Task<GitIdentity?>>? requestIdentity = null)
     {
-        Func<CancellationToken, Task<GitIdentity?>>? identityRequest =
-            requestIdentity is null ? null : _ => requestIdentity();
-        if (runner is not null)
-        {
-            return new GitCliVersionControlService(
-                CreateInstalledLocator(lfsInstalled, config),
-                repository ?? Repository,
-                watcher: null,
-                _ => runner,
-                policyNoticeSink: (notice, _) => presentNotice(notice),
-                projectFile: projectFile,
-                identityRequest: identityRequest);
-        }
-
         return new GitCliVersionControlService(
             CreateInstalledLocator(lfsInstalled, config),
             repository ?? Repository,
-            static () => true,
-            (notice, _) => presentNotice(notice),
-            projectFile,
-            identityRequest);
+            watcher: null,
+            _ => runner ?? CreateRunner(),
+            policyNoticeSink: (notice, _) => presentNotice(notice),
+            identityRequest: requestIdentity is null ? null : _ => requestIdentity());
     }
 
     private async Task WriteProjectFileAsync(string relativePath, string contents)
@@ -948,50 +933,12 @@ public sealed class VersionControlPolicyTests : RealGitTestRepository
         await File.WriteAllBytesAsync(path, new byte[(1024 * 1024) + 1]);
     }
 
-    private sealed record RecordedCommand(
-        RepositoryInfo Repository,
-        IReadOnlyList<string> Arguments,
-        GitCommandOptions Options);
-
-    private sealed class RecordingRunner(IGitCliRunner inner) : IGitCliRunner
-    {
-        public List<RecordedCommand> Commands { get; } = [];
-
-        public bool HasActiveProcess => inner.HasActiveProcess;
-
-        public Task<GitCommandResult> RunAsync(
-            RepositoryInfo repository,
-            IReadOnlyList<string> arguments,
-            GitCommandOptions options,
-            CancellationToken cancellationToken,
-            IProgress<string>? stderrProgress = null)
-        {
-            Commands.Add(new RecordedCommand(repository, [.. arguments], options));
-            return inner.RunAsync(
-                repository,
-                arguments,
-                options,
-                cancellationToken,
-                stderrProgress);
-        }
-
-        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
-            => inner.GetRecoverableRepositoryLock(repository);
-
-        public bool RemoveRecoverableRepositoryLock(
-            RepositoryInfo repository,
-            RepositoryLockInfo lockInfo)
-            => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
-    }
-
     private sealed class LargeMediaAcknowledgementFailingRunner(IGitCliRunner inner)
-        : IGitCliRunner
+        : DelegatingGitCliRunner(inner)
     {
         public int AcknowledgementWriteAttempts { get; private set; }
 
-        public bool HasActiveProcess => inner.HasActiveProcess;
-
-        public Task<GitCommandResult> RunAsync(
+        public override Task<GitCommandResult> RunAsync(
             RepositoryInfo repository,
             IReadOnlyList<string> arguments,
             GitCommandOptions options,
@@ -1011,28 +958,18 @@ public sealed class VersionControlPolicyTests : RealGitTestRepository
                     new IOException("simulated acknowledgement write failure"));
             }
 
-            return inner.RunAsync(
+            return base.RunAsync(
                 repository,
                 arguments,
                 options,
                 cancellationToken,
                 stderrProgress);
         }
-
-        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
-            => inner.GetRecoverableRepositoryLock(repository);
-
-        public bool RemoveRecoverableRepositoryLock(
-            RepositoryInfo repository,
-            RepositoryLockInfo lockInfo)
-            => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
     }
 
     private sealed class LfsAttributeEchoRunner : IGitCliRunner
     {
         public List<RecordedCommand> Commands { get; } = [];
-
-        public bool HasActiveProcess => false;
 
         public Task<GitCommandResult> RunAsync(
             RepositoryInfo repository,
@@ -1062,8 +999,6 @@ public sealed class VersionControlPolicyTests : RealGitTestRepository
     private sealed class TruncatingCustomAttributeRunner : IGitCliRunner
     {
         public List<RecordedCommand> Commands { get; } = [];
-
-        public bool HasActiveProcess => false;
 
         public Task<GitCommandResult> RunAsync(
             RepositoryInfo repository,
@@ -1111,11 +1046,9 @@ public sealed class VersionControlPolicyTests : RealGitTestRepository
 
     private sealed class DeleteDuringAttributeQueryRunner(
         IGitCliRunner inner,
-        string path) : IGitCliRunner
+        string path) : DelegatingGitCliRunner(inner)
     {
-        public bool HasActiveProcess => inner.HasActiveProcess;
-
-        public Task<GitCommandResult> RunAsync(
+        public override Task<GitCommandResult> RunAsync(
             RepositoryInfo repository,
             IReadOnlyList<string> arguments,
             GitCommandOptions options,
@@ -1127,30 +1060,20 @@ public sealed class VersionControlPolicyTests : RealGitTestRepository
                 File.Delete(path);
             }
 
-            return inner.RunAsync(
+            return base.RunAsync(
                 repository,
                 arguments,
                 options,
                 cancellationToken,
                 stderrProgress);
         }
-
-        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
-            => inner.GetRecoverableRepositoryLock(repository);
-
-        public bool RemoveRecoverableRepositoryLock(
-            RepositoryInfo repository,
-            RepositoryLockInfo lockInfo)
-            => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
     }
 
     private sealed class CheckAttributeFaultRunner(
         IGitCliRunner inner,
-        CheckAttributeFault fault) : IGitCliRunner
+        CheckAttributeFault fault) : DelegatingGitCliRunner(inner)
     {
-        public bool HasActiveProcess => inner.HasActiveProcess;
-
-        public async Task<GitCommandResult> RunAsync(
+        public override async Task<GitCommandResult> RunAsync(
             RepositoryInfo repository,
             IReadOnlyList<string> arguments,
             GitCommandOptions options,
@@ -1175,7 +1098,7 @@ public sealed class VersionControlPolicyTests : RealGitTestRepository
                 throw new IOException("attribute query failed during I/O");
             }
 
-            GitCommandResult result = await inner.RunAsync(
+            GitCommandResult result = await base.RunAsync(
                 repository,
                 arguments,
                 options,
@@ -1210,13 +1133,5 @@ public sealed class VersionControlPolicyTests : RealGitTestRepository
                 _ => throw new ArgumentOutOfRangeException(nameof(fault)),
             };
         }
-
-        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
-            => inner.GetRecoverableRepositoryLock(repository);
-
-        public bool RemoveRecoverableRepositoryLock(
-            RepositoryInfo repository,
-            RepositoryLockInfo lockInfo)
-            => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
     }
 }

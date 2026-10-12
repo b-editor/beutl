@@ -9,6 +9,7 @@ using Beutl.Editor.Models;
 using Beutl.Editor.Services;
 using Beutl.Extensibility;
 using Beutl.ProjectSystem;
+using Beutl.UnitTests.TestInfrastructure;
 
 using Moq;
 using Reactive.Bindings;
@@ -21,7 +22,8 @@ public class BrowserMediaDownloadTests
     [Test]
     public async Task PartialContentCannotBePublishedAsACompleteDownload()
     {
-        string directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        using var temporary = new TemporaryDirectory();
+        string directory = temporary.Path;
         using var client = new HttpClient(new PartialContentHandler());
         var downloader = new BrowserMediaDownload(client);
         await Assert.ThrowsAsync<IOException>(async () =>
@@ -32,47 +34,41 @@ public class BrowserMediaDownloadTests
     [Test]
     public async Task CompletedNativeFileMovesIntoCollisionSafeDestination()
     {
-        string directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        using var temporary = new TemporaryDirectory();
+        string directory = temporary.Path;
         string stagingDirectory = Path.Combine(directory, ".staging");
         Directory.CreateDirectory(stagingDirectory);
         string staged = Path.Combine(stagingDirectory, "response");
-        try
-        {
-            await File.WriteAllBytesAsync(staged, [1, 2, 3, 4]);
-            Directory.CreateDirectory(Path.Combine(directory, "Morning.mp3"));
-            await File.WriteAllBytesAsync(Path.Combine(directory, "Morning (1).mp3"), [9]);
+        await File.WriteAllBytesAsync(staged, [1, 2, 3, 4]);
+        Directory.CreateDirectory(Path.Combine(directory, "Morning.mp3"));
+        await File.WriteAllBytesAsync(Path.Combine(directory, "Morning (1).mp3"), [9]);
 
-            string saved = await BrowserMediaDownload.ValidateAndPublishAsync(staged, directory, "Morning.mp3", null, default);
-            Assert.That(Path.GetFileName(saved), Is.EqualTo("Morning (2).mp3"));
-            Assert.That(File.ReadAllBytes(saved), Is.EqualTo(new byte[] { 1, 2, 3, 4 }));
-            Assert.That(File.ReadAllBytes(Path.Combine(directory, "Morning (1).mp3")), Is.EqualTo(new byte[] { 9 }));
-            Assert.That(File.Exists(staged), Is.False);
-            Assert.That(Directory.GetFiles(directory, "*", SearchOption.AllDirectories), Has.Length.EqualTo(2));
-        }
-        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+        string saved = await BrowserMediaDownload.ValidateAndPublishAsync(staged, directory, "Morning.mp3", null, default);
+        Assert.That(Path.GetFileName(saved), Is.EqualTo("Morning (2).mp3"));
+        Assert.That(File.ReadAllBytes(saved), Is.EqualTo(new byte[] { 1, 2, 3, 4 }));
+        Assert.That(File.ReadAllBytes(Path.Combine(directory, "Morning (1).mp3")), Is.EqualTo(new byte[] { 9 }));
+        Assert.That(File.Exists(staged), Is.False);
+        Assert.That(Directory.GetFiles(directory, "*", SearchOption.AllDirectories), Has.Length.EqualTo(2));
     }
 
     [TestCase("<html><body>Not media</body></html>")]
     [TestCase("")]
     public async Task InvalidStagedPayloadsAreNotPublished(string payload)
     {
-        string directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        using var temporary = new TemporaryDirectory();
+        string directory = temporary.Path;
         string stagingDirectory = Path.Combine(directory, ".staging");
         Directory.CreateDirectory(stagingDirectory);
         string staged = Path.Combine(stagingDirectory, "response");
-        try
-        {
-            File.WriteAllText(staged, payload);
-            if (payload.Length == 0)
-                await Assert.ThrowsAsync<IOException>(async () =>
-                    await BrowserMediaDownload.ValidateAndPublishAsync(staged, directory, "Morning.mp3", null, default));
-            else
-                await Assert.ThrowsAsync<InvalidOperationException>(async () =>
-                    await BrowserMediaDownload.ValidateAndPublishAsync(staged, directory, "Morning.mp3", "utf-8", default));
-            Assert.That(File.Exists(staged), Is.True);
-            Assert.That(File.Exists(Path.Combine(directory, "Morning.mp3")), Is.False);
-        }
-        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+        File.WriteAllText(staged, payload);
+        if (payload.Length == 0)
+            await Assert.ThrowsAsync<IOException>(async () =>
+                await BrowserMediaDownload.ValidateAndPublishAsync(staged, directory, "Morning.mp3", null, default));
+        else
+            await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+                await BrowserMediaDownload.ValidateAndPublishAsync(staged, directory, "Morning.mp3", "utf-8", default));
+        Assert.That(File.Exists(staged), Is.True);
+        Assert.That(File.Exists(Path.Combine(directory, "Morning.mp3")), Is.False);
     }
 
     [TestCase("https://cdn.example.net/8e072?signature=short-lived", "Morning_2.mp3", "audio/mpeg", "Morning_2.mp3")]
@@ -91,66 +87,51 @@ public class BrowserMediaDownloadTests
     [Test]
     public async Task Downloads_PreserveExistingFilesAndPublishOnlyCompletedMedia()
     {
-        string directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        using var temporary = new TemporaryDirectory();
+        string directory = temporary.Path;
         using var client = new HttpClient(new MediaHandler());
         var downloader = new BrowserMediaDownload(client);
-        try
+        string first = await downloader.DownloadAsync(new Uri("https://example.com/clip.mp4"), directory, null, null, default);
+        string second = await downloader.DownloadAsync(new Uri("https://example.com/clip.mp4"), directory, null, null, default);
+        Assert.Multiple(() =>
         {
-            string first = await downloader.DownloadAsync(new Uri("https://example.com/clip.mp4"), directory, null, null, default);
-            string second = await downloader.DownloadAsync(new Uri("https://example.com/clip.mp4"), directory, null, null, default);
-            Assert.Multiple(() =>
-            {
-                Assert.That(first, Is.Not.EqualTo(second));
-                Assert.That(File.ReadAllBytes(first), Has.Length.EqualTo(200000));
-                Assert.That(File.ReadAllBytes(second), Has.Length.EqualTo(200000));
-                Assert.That(Directory.GetFiles(directory), Has.Length.EqualTo(2));
-            });
-        }
-        finally
-        {
-            if (Directory.Exists(directory)) Directory.Delete(directory, true);
-        }
+            Assert.That(first, Is.Not.EqualTo(second));
+            Assert.That(File.ReadAllBytes(first), Has.Length.EqualTo(200000));
+            Assert.That(File.ReadAllBytes(second), Has.Length.EqualTo(200000));
+            Assert.That(Directory.GetFiles(directory), Has.Length.EqualTo(2));
+        });
     }
 
     [Test]
     public async Task Downloads_SkipDirectoryAndFileNameCollisions()
     {
-        string directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        using var temporary = new TemporaryDirectory();
+        string directory = temporary.Path;
         using var client = new HttpClient(new MediaHandler());
-        try
-        {
-            string existingDirectory = Path.Combine(directory, "clip.mp4");
-            Directory.CreateDirectory(existingDirectory);
-            string existingFile = Path.Combine(directory, "clip (1).mp4");
-            await File.WriteAllTextAsync(existingFile, "existing media");
-            string downloaded = await new BrowserMediaDownload(client).DownloadAsync(
-                new Uri("https://example.com/clip.mp4"), directory, null, null, default);
-            Assert.That(Path.GetFileName(downloaded), Is.EqualTo("clip (2).mp4"));
-            Assert.That(File.ReadAllBytes(downloaded), Has.Length.EqualTo(200000));
-            Assert.That(Directory.Exists(existingDirectory), Is.True);
-            Assert.That(await File.ReadAllTextAsync(existingFile), Is.EqualTo("existing media"));
-            Assert.That(Directory.GetFiles(directory), Has.Length.EqualTo(2));
-        }
-        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+        string existingDirectory = Path.Combine(directory, "clip.mp4");
+        Directory.CreateDirectory(existingDirectory);
+        string existingFile = Path.Combine(directory, "clip (1).mp4");
+        await File.WriteAllTextAsync(existingFile, "existing media");
+        string downloaded = await new BrowserMediaDownload(client).DownloadAsync(
+            new Uri("https://example.com/clip.mp4"), directory, null, null, default);
+        Assert.That(Path.GetFileName(downloaded), Is.EqualTo("clip (2).mp4"));
+        Assert.That(File.ReadAllBytes(downloaded), Has.Length.EqualTo(200000));
+        Assert.That(Directory.Exists(existingDirectory), Is.True);
+        Assert.That(await File.ReadAllTextAsync(existingFile), Is.EqualTo("existing media"));
+        Assert.That(Directory.GetFiles(directory), Has.Length.EqualTo(2));
     }
 
     [Test]
     public async Task Cancellation_RemovesPartialFile()
     {
-        string directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        using var temporary = new TemporaryDirectory();
+        string directory = temporary.Path;
         using var client = new HttpClient(new MediaHandler());
         using var cancellation = new CancellationTokenSource();
-        try
-        {
-            await Assert.CatchAsync<OperationCanceledException>(async () =>
-                await new BrowserMediaDownload(client).DownloadAsync(new Uri("https://example.com/clip.mp4"), directory,
-                    null, new CancelProgress(cancellation), cancellation.Token));
-            Assert.That(Directory.GetFiles(directory), Is.Empty);
-        }
-        finally
-        {
-            if (Directory.Exists(directory)) Directory.Delete(directory, true);
-        }
+        await Assert.CatchAsync<OperationCanceledException>(async () =>
+            await new BrowserMediaDownload(client).DownloadAsync(new Uri("https://example.com/clip.mp4"), directory,
+                null, new CancelProgress(cancellation), cancellation.Token));
+        Assert.That(Directory.GetFiles(directory), Is.Empty);
     }
 
     [TestCase("https://example.com/sound.opus", "audio/opus", "sound.opus")]
@@ -158,18 +139,15 @@ public class BrowserMediaDownloadTests
     [TestCase("https://example.com/sound.opus", "audio/ogg", "sound.opus")]
     public async Task OpusDownloadsAcceptTheirContentTypeAndPreserveTheExtension(string address, string mediaType, string expectedName)
     {
-        string directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        using var temporary = new TemporaryDirectory();
+        string directory = temporary.Path;
         using var client = new HttpClient(new MediaHandler(mediaType));
         var uri = new Uri(address);
-        try
-        {
-            if (uri.AbsolutePath.EndsWith(".opus", StringComparison.Ordinal))
-                Assert.That(BrowserMediaDownload.IsMediaLink(uri), Is.True);
-            string file = await new BrowserMediaDownload(client).DownloadAsync(uri, directory, null, null, default);
-            Assert.That(Path.GetFileName(file), Is.EqualTo(expectedName));
-            Assert.That(File.ReadAllBytes(file), Has.Length.EqualTo(200000));
-        }
-        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+        if (uri.AbsolutePath.EndsWith(".opus", StringComparison.Ordinal))
+            Assert.That(BrowserMediaDownload.IsMediaLink(uri), Is.True);
+        string file = await new BrowserMediaDownload(client).DownloadAsync(uri, directory, null, null, default);
+        Assert.That(Path.GetFileName(file), Is.EqualTo(expectedName));
+        Assert.That(File.ReadAllBytes(file), Has.Length.EqualTo(200000));
     }
 
     [TestCase("../../clip.mp4", "video/mp4", "clip.mp4")]
@@ -230,23 +208,20 @@ public class BrowserMediaDownloadTests
     public async Task MultibyteNamesAndCollisionSuffixesStayWithinTheComponentLimit(bool useResponseHeader)
     {
         string name = new string('界', 100) + ".mp4";
-        string directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        using var temporary = new TemporaryDirectory();
+        string directory = temporary.Path;
         using var client = new HttpClient(new MediaHandler(fileName: useResponseHeader ? name : null));
         var downloader = new BrowserMediaDownload(client);
         var uri = new Uri("https://example.com/" + (useResponseHeader ? "media.mp4" : Uri.EscapeDataString(name)));
-        try
+        string first = await downloader.DownloadAsync(uri, directory, null, null, default);
+        string second = await downloader.DownloadAsync(uri, directory, null, null, default);
+        Assert.That(first, Is.Not.EqualTo(second));
+        foreach (string file in new[] { first, second })
         {
-            string first = await downloader.DownloadAsync(uri, directory, null, null, default);
-            string second = await downloader.DownloadAsync(uri, directory, null, null, default);
-            Assert.That(first, Is.Not.EqualTo(second));
-            foreach (string file in new[] { first, second })
-            {
-                Assert.That(Encoding.UTF8.GetByteCount(Path.GetFileName(file)), Is.LessThanOrEqualTo(255));
-                Assert.That(Path.GetExtension(file), Is.EqualTo(".mp4"));
-                Assert.That(File.ReadAllBytes(file), Has.Length.EqualTo(200000));
-            }
+            Assert.That(Encoding.UTF8.GetByteCount(Path.GetFileName(file)), Is.LessThanOrEqualTo(255));
+            Assert.That(Path.GetExtension(file), Is.EqualTo(".mp4"));
+            Assert.That(File.ReadAllBytes(file), Has.Length.EqualTo(200000));
         }
-        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
     }
 
     [Test]
@@ -261,21 +236,18 @@ public class BrowserMediaDownloadTests
     [TestCase(true)]
     public async Task ReservedNamesFromUrlsAndResponseHeadersPublishDistinctSafeFiles(bool useResponseHeader)
     {
-        string directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        using var temporary = new TemporaryDirectory();
+        string directory = temporary.Path;
         using var client = new HttpClient(new MediaHandler(fileName: useResponseHeader ? "CON.mp4" : null));
         var uri = new Uri(useResponseHeader ? "https://example.com/media.mp4" : "https://example.com/CON.mp4");
         var downloader = new BrowserMediaDownload(client);
-        try
-        {
-            string first = await downloader.DownloadAsync(uri, directory, null, null, default);
-            string second = await downloader.DownloadAsync(uri, directory, null, null, default);
-            Assert.That(Path.GetFileName(first), Is.EqualTo("_CON.mp4"));
-            Assert.That(Path.GetFileName(second), Is.EqualTo("_CON (1).mp4"));
-            Assert.That(File.ReadAllBytes(first), Has.Length.EqualTo(200000));
-            Assert.That(File.ReadAllBytes(second), Has.Length.EqualTo(200000));
-            Assert.That(Directory.GetFiles(directory), Has.Length.EqualTo(2));
-        }
-        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+        string first = await downloader.DownloadAsync(uri, directory, null, null, default);
+        string second = await downloader.DownloadAsync(uri, directory, null, null, default);
+        Assert.That(Path.GetFileName(first), Is.EqualTo("_CON.mp4"));
+        Assert.That(Path.GetFileName(second), Is.EqualTo("_CON (1).mp4"));
+        Assert.That(File.ReadAllBytes(first), Has.Length.EqualTo(200000));
+        Assert.That(File.ReadAllBytes(second), Has.Length.EqualTo(200000));
+        Assert.That(Directory.GetFiles(directory), Has.Length.EqualTo(2));
     }
 
     [TestCase("text/html")]
@@ -299,22 +271,20 @@ public class BrowserMediaDownloadTests
     [Test]
     public async Task EmptyContentDispositionUsesTheDownloadAttributeName()
     {
-        string directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
-        using var client = new HttpClient(new EmptyFileNameHandler());
-        try
-        {
-            string file = await new BrowserMediaDownload(client).DownloadAsync(new Uri("https://example.com/download"),
-                directory, "clip.mp4", null, default);
-            Assert.That(Path.GetFileName(file), Is.EqualTo("clip.mp4"));
-            Assert.That(File.ReadAllBytes(file), Is.EqualTo(new byte[] { 1, 2, 3 }));
-        }
-        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+        using var temporary = new TemporaryDirectory();
+        string directory = temporary.Path;
+        using var client = new HttpClient(new MediaHandler("application/octet-stream", "\"\""));
+        string file = await new BrowserMediaDownload(client).DownloadAsync(new Uri("https://example.com/download"),
+            directory, "clip.mp4", null, default);
+        Assert.That(Path.GetFileName(file), Is.EqualTo("clip.mp4"));
+        Assert.That(File.ReadAllBytes(file), Has.Length.EqualTo(200000));
     }
 
     [Test]
     public async Task ProjectDestinationAndImport_UseOwningProjectAndCurrentPlayhead()
     {
-        string directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        using var temporary = new TemporaryDirectory();
+        string directory = temporary.Path;
         var project = new Project { Uri = new Uri(Path.Combine(directory, "project.bep")) };
         var scene = new Scene { Uri = new Uri(Path.Combine(directory, "scene.scene")) };
         project.Items.Add(scene);
@@ -358,11 +328,6 @@ public class BrowserMediaDownloadTests
         Assert.That(error!.Message, Is.EqualTo("Decoder unavailable"));
     }
 
-    private sealed class CancelProgress(CancellationTokenSource cancellation) : IProgress<(long Received, long? Total)>
-    {
-        public void Report((long Received, long? Total) value) => cancellation.Cancel();
-    }
-
     private sealed class PartialContentHandler : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
@@ -386,17 +351,6 @@ public class BrowserMediaDownloadTests
             var content = new ByteArrayContent(new byte[200000]);
             content.Headers.ContentType = new MediaTypeHeaderValue(mediaType);
             if (fileName != null) content.Headers.ContentDisposition = new ContentDispositionHeaderValue("attachment") { FileName = fileName };
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = content, RequestMessage = request });
-        }
-    }
-
-    private sealed class EmptyFileNameHandler : HttpMessageHandler
-    {
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-        {
-            var content = new ByteArrayContent([1, 2, 3]);
-            content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
-            content.Headers.ContentDisposition = new ContentDispositionHeaderValue("attachment") { FileName = "\"\"" };
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = content, RequestMessage = request });
         }
     }

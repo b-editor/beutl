@@ -1,4 +1,6 @@
-﻿namespace Beutl.UnitTests.Build;
+﻿using Beutl.UnitTests.TestInfrastructure;
+
+namespace Beutl.UnitTests.Build;
 
 [TestFixture]
 public class ReleaseLicensePackagingTests
@@ -65,7 +67,7 @@ public class ReleaseLicensePackagingTests
         string destination = Path.Combine(Path.GetTempPath(), "beutl-license-output-" + Guid.NewGuid().ToString("N"));
         try
         {
-            ReleaseLegalFiles.CopyTo(FindRepositoryRoot(), destination);
+            ReleaseLegalFiles.CopyTo(RepositoryPaths.Root, destination);
             string thirdPartyNotices = File.ReadAllText(Path.Combine(destination, "THIRD_PARTY_NOTICES.md"));
 
             Assert.Multiple(() =>
@@ -95,7 +97,7 @@ public class ReleaseLicensePackagingTests
     [Test]
     public void ReleaseDefinitions_InstallAllLegalFilesInPlatformLocations()
     {
-        string repositoryRoot = FindRepositoryRoot();
+        string repositoryRoot = RepositoryPaths.Root;
         string build = File.ReadAllText(Path.Combine(repositoryRoot, "nukebuild", "Build.cs"));
         string installer = File.ReadAllText(Path.Combine(repositoryRoot, "nukebuild", "beutl-setup.iss"));
         string flatpak = File.ReadAllText(
@@ -168,20 +170,5 @@ public class ReleaseLicensePackagingTests
     {
         string[] lines = value.ReplaceLineEndings("\n").TrimEnd('\n').Split('\n');
         return string.Join('\n', lines.Select(line => line.Length == 0 ? " ." : $" {line}"));
-    }
-
-    private static string FindRepositoryRoot()
-    {
-        for (DirectoryInfo? directory = new(TestContext.CurrentContext.TestDirectory);
-             directory is not null;
-             directory = directory.Parent)
-        {
-            if (File.Exists(Path.Combine(directory.FullName, "Beutl.slnx")))
-            {
-                return directory.FullName;
-            }
-        }
-
-        throw new DirectoryNotFoundException("Could not locate the Beutl repository root.");
     }
 }

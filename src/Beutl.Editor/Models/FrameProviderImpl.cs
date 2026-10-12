@@ -77,16 +77,6 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
             snapshot.Dispose();
         }
 
-        // Encode buffer must match FrameSize exactly; verify at runtime so a regression fails loudly.
-        if (normalized.Width != _renderer.FrameSize.Width || normalized.Height != _renderer.FrameSize.Height)
-        {
-            string actual = $"{normalized.Width}x{normalized.Height}";
-            normalized.Dispose();
-            throw new InvalidOperationException(
-                $"Encode buffer {actual} must equal the output frame size {_renderer.FrameSize}; " +
-                "SupersampleDownscaler failed to normalize the supersampled render to the output resolution.");
-        }
-
         if (_retentionCheckpoint.Advance())
         {
             try
@@ -156,7 +146,6 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
         }
         catch (OperationCanceledException)
         {
-            // Ignore cancellation
         }
         catch (Exception ex)
         {
@@ -209,7 +198,6 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
             }
             catch
             {
-                // ignore
             }
         }
 

@@ -39,21 +39,11 @@ internal sealed record GitCommandOptions(
     int? MaxStdoutBytes = null,
     string? StandardInput = null,
     bool UseLiteralPathspecs = true,
-    byte[]? StandardInputBytes = null,
     bool CaptureStdoutBytes = false)
 {
     public static GitCommandOptions Local { get; } = new(GitCommandExecutionKind.Local);
 
     public static GitCommandOptions Network { get; } = new(GitCommandExecutionKind.Network);
-}
-
-internal sealed class GitRepositoryLockEventArgs(
-    RepositoryInfo repository,
-    GitOperationException exception) : EventArgs
-{
-    public RepositoryInfo Repository { get; } = repository;
-
-    public GitOperationException Exception { get; } = exception;
 }
 
 internal readonly record struct RepositoryLockFileIdentity(
@@ -66,8 +56,6 @@ internal readonly record struct RepositoryLockFileSnapshot(
 
 internal interface IGitCliRunner
 {
-    bool HasActiveProcess { get; }
-
     Task<GitCommandResult> RunAsync(
         RepositoryInfo repository,
         IReadOnlyList<string> arguments,
@@ -185,8 +173,6 @@ internal sealed partial class GitCliRunner : IGitCliRunner
                                           SearchOption.TopDirectoryOnly));
     }
 
-    public event EventHandler<GitRepositoryLockEventArgs>? RepositoryLockFailed;
-
     public bool HasActiveProcess => Volatile.Read(ref _activeProcesses) > 0;
 
     public async Task<GitCommandResult> RunAsync(
@@ -197,34 +183,26 @@ internal sealed partial class GitCliRunner : IGitCliRunner
         IProgress<string>? stderrProgress = null)
     {
         ValidateCommand(repository, arguments, options);
-        if (options.StandardInput is not null && options.StandardInputBytes is not null)
-        {
-            throw new ArgumentException(
-                "Only one standard-input representation can be supplied.",
-                nameof(options));
-        }
-
         (ProcessStartInfo startInfo, GitExecutionPolicy executionPolicy) = await PrepareStartAsync(
             repository,
             arguments,
             options,
             cancellationToken).ConfigureAwait(false);
         return await RunProcessAsync(
-            repository,
             startInfo,
             executionPolicy,
             cancellationToken,
             stderrProgress,
             options.MaxStdoutBytes,
             // Git reads its input as UTF-8.
-            options.StandardInputBytes
-            ?? (options.StandardInput is null ? null : s_utf8WithoutPreamble.GetBytes(options.StandardInput)),
+            options.StandardInput is null ? null : s_utf8WithoutPreamble.GetBytes(options.StandardInput),
             options.CaptureStdoutBytes,
             throwOnFailure: true,
             stopGracefully: options.ExecutionKind is GitCommandExecutionKind.LocalUnbounded
                 or GitCommandExecutionKind.LocalWithLfs).ConfigureAwait(false);
     }
 
+    // Lets tests inspect the start info (SSH batch mode, environment overrides) without starting Git.
     internal async Task<ProcessStartInfo> CreateStartInfoAsync(
         RepositoryInfo repository,
         IReadOnlyList<string> arguments,
@@ -275,7 +253,6 @@ internal sealed partial class GitCliRunner : IGitCliRunner
     }
 
     private async Task<GitCommandResult> RunProcessAsync(
-        RepositoryInfo repository,
         ProcessStartInfo startInfo,
         GitExecutionPolicy executionPolicy,
         CancellationToken cancellationToken,
@@ -328,15 +305,7 @@ internal sealed partial class GitCliRunner : IGitCliRunner
 
         if (throwOnFailure && exitCode != 0)
         {
-            var exception = new GitOperationException(exitCode, stderr);
-            if (exception.IsRepositoryLockFailure)
-            {
-                RepositoryLockFailed?.Invoke(
-                    this,
-                    new GitRepositoryLockEventArgs(repository, exception));
-            }
-
-            throw exception;
+            throw new GitOperationException(exitCode, stderr);
         }
 
         return new GitCommandResult(
@@ -437,7 +406,6 @@ internal sealed partial class GitCliRunner : IGitCliRunner
             options.EnvironmentOverrides,
             options.UseLiteralPathspecs);
         GitCommandResult configResult = await RunProcessAsync(
-            repository,
             configProbe,
             GitExecutionPolicy.LocalTimeout,
             cancellationToken,

@@ -21,7 +21,7 @@ internal sealed partial class GitCliVersionControlService
             : repositoryRelativePath;
         foreach (string segment in projectRelativePath.Split('/'))
         {
-            if (string.Equals(segment, ".beutl", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(segment, EditorConstants.BeutlFolder, StringComparison.OrdinalIgnoreCase))
             {
                 return true;
             }
@@ -46,14 +46,9 @@ internal sealed partial class GitCliVersionControlService
             .ToArray();
     }
 
-    // .gitignore never untracks what is already tracked, and snapshot status excludes these paths -
-    // so a project that is clean to Beutl still leaves the repository dirty for the pull
-    // precondition, with no way out from inside the app. Drop them from the index (the files stay on
-    // disk) and record that in its own commit: the initialization commit is pathspec-limited with
-    // the very excludes that hide these paths, so it would leave the deletion staged forever.
-    // git commit --only cannot record a removal of files that are still on disk, so the commit is
-    // built from HEAD in a temporary index, and update-ref moves the branch only while HEAD still
-    // names the commit it was built on.
+    // .gitignore never untracks what is already tracked, so the pull precondition would never be met.
+    // Build a commit removing these paths from HEAD in a temporary index (the files stay on disk), and
+    // move the branch with update-ref only while HEAD still names the commit it was built on.
     private async Task TryUntrackReservedPathsCoreAsync(
         RepositoryInfo repository,
         IGitCliRunner runner,

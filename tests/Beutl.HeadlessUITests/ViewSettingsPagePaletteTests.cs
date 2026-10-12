@@ -47,7 +47,6 @@ public class ViewSettingsPagePaletteTests
         var window = new Window { Content = page, Width = 900, Height = 700 };
 
         window.Show();
-        viewModel.UseCustomAccent.Value = true;
 
         // The palette lives inside the collapsed accent OptionsDisplayItem, so its containers are
         // not realized until it expands.

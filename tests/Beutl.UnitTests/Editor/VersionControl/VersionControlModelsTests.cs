@@ -1,5 +1,6 @@
 ﻿using Beutl.Editor;
 using Beutl.Editor.VersionControl;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Editor.VersionControl;
 
@@ -19,23 +20,6 @@ public class VersionControlModelsTests
         {
             Assert.That(clean.IsClean, Is.True);
             Assert.That(dirty.IsClean, Is.False);
-        });
-    }
-
-    [Test]
-    public void Commit_revision_requires_an_explicit_non_empty_known_sha()
-    {
-        var known = new CommitRevision.Known("0123456789abcdef");
-        var unavailable = new CommitRevision.Unavailable();
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(known.Sha, Is.EqualTo("0123456789abcdef"));
-            Assert.That(unavailable, Is.TypeOf<CommitRevision.Unavailable>());
-            Assert.Throws<ArgumentNullException>(() => new CommitRevision.Known(null!));
-            Assert.Throws<ArgumentException>(() => new CommitRevision.Known(string.Empty));
-            Assert.Throws<ArgumentException>(() => new CommitRevision.Known("   "));
-            Assert.Throws<ArgumentNullException>(() => new CommitResult.Committed(null!));
         });
     }
 
@@ -106,15 +90,7 @@ public class VersionControlModelsTests
         Directory.CreateDirectory(realRoot);
         try
         {
-            try
-            {
-                Directory.CreateSymbolicLink(linkRoot, realRoot);
-            }
-            catch (Exception ex)
-                when (ex is IOException or UnauthorizedAccessException or PlatformNotSupportedException)
-            {
-                Assert.Ignore($"Symbolic links are unavailable here: {ex.Message}");
-            }
+            SymbolicLinks.CreateOrIgnore(linkRoot, realRoot, directory: true);
 
             Assert.That(
                 new RepositoryInfo(linkRoot, linkRoot),
@@ -185,48 +161,6 @@ public class VersionControlModelsTests
                 Assert.That(repository.IsNestedInForeignRepo, Is.True);
                 Assert.That(repository.Pathspec, Is.EqualTo("project"));
             });
-        }
-        finally
-        {
-            Directory.Delete(temporaryRoot, recursive: true);
-        }
-    }
-
-    [Test]
-    public void Entry_identity_follows_the_actual_volume_casing_rules()
-    {
-        string temporaryRoot = Path.Combine(
-            Path.GetTempPath(),
-            $"beutl-entry-casing-{Guid.NewGuid():N}");
-        const string storedName = "ReservedMetadata";
-        const string alternateName = "rESERVEDmETADATA";
-        Directory.CreateDirectory(Path.Combine(temporaryRoot, storedName));
-        try
-        {
-            bool volumeResolvesAlternateCasing =
-                Directory.Exists(Path.Combine(temporaryRoot, alternateName));
-            Assert.That(
-                VersionControlPathComparison.TryAreSameChildPath(
-                    temporaryRoot,
-                    storedName,
-                    alternateName,
-                    out bool areSame),
-                Is.True);
-
-            Assert.That(areSame, Is.EqualTo(volumeResolvesAlternateCasing));
-
-            if (!volumeResolvesAlternateCasing)
-            {
-                Directory.CreateDirectory(Path.Combine(temporaryRoot, alternateName));
-                Assert.That(
-                    VersionControlPathComparison.TryAreSameChildPath(
-                        temporaryRoot,
-                        storedName,
-                        alternateName,
-                        out areSame),
-                    Is.True);
-                Assert.That(areSame, Is.False);
-            }
         }
         finally
         {

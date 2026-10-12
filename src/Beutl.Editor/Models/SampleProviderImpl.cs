@@ -132,7 +132,6 @@ public sealed class SampleProviderImpl : ISampleProvider, IDisposable
         }
         catch (OperationCanceledException)
         {
-            // Ignore cancellation
         }
         catch (Exception ex)
         {
@@ -190,7 +189,6 @@ public sealed class SampleProviderImpl : ISampleProvider, IDisposable
             }
             catch
             {
-                // ignore
             }
         }
 

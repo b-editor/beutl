@@ -10,6 +10,7 @@ using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Editor;
 
@@ -41,8 +42,8 @@ public class NodeGraphPackageTests
             string projectDirectory = Path.Combine(root, "project"); Directory.CreateDirectory(projectDirectory);
             string assetDirectory = external ? Path.Combine(root, "external") : projectDirectory;
             Directory.CreateDirectory(assetDirectory);
-            ImageSource first = WriteImage(Path.Combine(assetDirectory, "first.png"));
-            ImageSource second = WriteImage(Path.Combine(assetDirectory, "second.png"));
+            ImageSource first = TestImages.WriteImage(Path.Combine(assetDirectory, "first.png"));
+            ImageSource second = TestImages.WriteImage(Path.Combine(assetDirectory, "second.png"));
             var drawable = new NodeGraphDrawable();
             GraphModel graph = drawable.Model.CurrentValue!;
             var output = new OutputNode(); graph.Nodes.Add(output);
@@ -117,16 +118,5 @@ public class NodeGraphPackageTests
             }
         }
         finally { Directory.Delete(root, recursive: true); }
-    }
-
-    private static ImageSource WriteImage(string path)
-    {
-        using (var bitmap = new Bitmap(4, 4))
-        {
-            bitmap.GetPixelSpan().Fill(255);
-            Assert.That(bitmap.Save(path, EncodedImageFormat.Png), Is.True);
-        }
-        var source = new ImageSource(); source.ReadFrom(new Uri(path));
-        return source;
     }
 }

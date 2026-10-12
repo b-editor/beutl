@@ -64,16 +64,11 @@ public sealed record ElementDescription
     /// <summary>
     /// Initializes an immutable element-add request.
     /// </summary>
-    /// <param name="Start">The requested timeline start.</param>
     /// <param name="Length">
     /// The requested length. <see langword="null"/> lets the selected source handler preserve or
     /// choose the materialized length; handlers that require an explicit value reject it during
     /// preflight. Any value, including zero, explicitly requests that length.
     /// </param>
-    /// <param name="Layer">The requested timeline layer.</param>
-    /// <param name="Source">The single source from which the element is created.</param>
-    /// <param name="Name">An optional element name.</param>
-    /// <param name="Position">An optional drawable translation.</param>
     public ElementDescription(
         TimeSpan Start,
         TimeSpan? Length,
