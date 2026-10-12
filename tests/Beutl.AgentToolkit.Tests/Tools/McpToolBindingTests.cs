@@ -1,10 +1,8 @@
 ﻿using System.IO.Pipelines;
 using System.Text.Json;
 using Beutl.AgentToolkit.Common;
-using Beutl.AgentToolkit.Rendering;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tools;
-using Beutl.AgentToolkit.Workspace;
 using Beutl.Extensibility;
 using Beutl.Extensions.FFmpeg;
 using Microsoft.Extensions.DependencyInjection;
@@ -251,15 +249,8 @@ public sealed class McpToolBindingTests
 
             HostApplicationBuilder builder = Host.CreateApplicationBuilder();
             builder.Services
-                .AddSingleton<DestructiveGuard>()
-                .AddSingleton<StillRenderer>()
-                .AddSingleton<StoryboardRenderer>()
-                .AddSingleton<FrameDifferenceAnalyzer>()
-                .AddSingleton<AudioRhythmAnalyzer>()
-                .AddSingleton<EncoderRegistration>()
-                .AddSingleton<VideoExporter>()
                 .AddSingleton<IOutputOperationLeaseProvider>(StandaloneOutputOperationLeaseProvider.Instance)
-                .AddSingleton<RenderJobManager>()
+                .AddAgentToolkitRendering()
                 .AddSingleton<FileSessionSource>()
                 .AddSingleton<IProjectSessionGateway, FileProjectSessionGateway>()
                 .AddSingleton<AgentSessionManager>();
@@ -268,10 +259,7 @@ public sealed class McpToolBindingTests
                 .AddMcpServer()
                 .WithStreamServerTransport(serverInput, serverOutput)
                 .WithRequestFilters(filters => filters.AddToolkitCallToolErrorFilter())
-                .WithTools<SessionTools>()
-                .WithTools<QueryTools>()
-                .WithTools<EditTools>()
-                .WithTools<RenderTools>();
+                .WithSharedAgentToolkitTools();
 
             IHost host = builder.Build();
             await host.StartAsync().ConfigureAwait(false);

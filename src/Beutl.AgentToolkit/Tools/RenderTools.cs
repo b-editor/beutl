@@ -38,12 +38,6 @@ public sealed partial class RenderTools(
     RenderJobManager renderJobs,
     IOutputOperationLeaseProvider outputOperations) : ToolBase
 {
-    private static readonly RenderJobProgressReporter NullProgress = RenderJobProgressReporter.Ignored;
-
-    private static readonly JsonSerializerOptions s_jobResultOptions = new(JsonSerializerDefaults.Web);
-    private static readonly JsonSerializerOptions s_toolResultOptions = new(JsonSerializerDefaults.Web);
-    private static readonly string s_processOutputToken = CreateProcessOutputToken();
-    private const int DefaultSceneFrameRate = 30;
     private const int MaxStoryboardFrameCount = 48;
     private const int MaxStoryboardSubdivisionLevel = 3;
     private const string StoryboardFrameKindShot = "shot";
@@ -56,7 +50,7 @@ public sealed partial class RenderTools(
         "Required when outputPath already exists.";
 
     [McpServerTool(Name = "render_still")]
-    [Description("Renders a still PNG from the current scene to an absolute output path and returns image dimensions, active elements, and pixel measurements. By default the tool returns the same JSON text payload as before; pass returnImageContent:true to append a downscaled image/png content block for multimodal review.")]
+    [Description("Renders a still PNG from the current scene to an absolute output path and returns image dimensions, active elements, and pixel measurements. Pass returnImageContent:true to append a downscaled image/png content block for multimodal review.")]
     public ValueTask<CallToolResult> RenderStill(
         [Description("Absolute output path. Existing files require confirmOverwrite.")]
         string outputPath,
@@ -66,7 +60,7 @@ public sealed partial class RenderTools(
         float renderScale = 1,
         [Description(ConfirmOverwriteDescription)]
         bool confirmOverwrite = false,
-        [Description("When true, append a downscaled image/png MCP content block with a long edge of about 768 px. Default false preserves the path-only JSON response.")]
+        [Description("When true, append a downscaled image/png MCP content block with a long edge of about 768 px.")]
         bool returnImageContent = false,
         CancellationToken cancellationToken = default)
     {
@@ -93,7 +87,7 @@ public sealed partial class RenderTools(
     }
 
     [McpServerTool(Name = "render_storyboard")]
-    [Description("Renders a storyboard contact sheet from explicit sample times, explicit shots, or one auto-derived midpoint per timeline Element. Writes individual still PNGs and the contact sheet into outputDirectory. Pass timeSeconds for continuous single-shot pieces where Element-boundary shot detection would collapse the arc. Pass subdivisionLevel:1..3 to insert binary in-between frames between adjacent anchors for transition review. For scenes with many Elements this can exceed the MCP client request timeout; pass background:true to run it as a job and poll read_render_job(jobId) instead. By default the tool returns the same JSON text payload as before; pass returnImageContent:true on a synchronous call to append one downscaled image/png contact-sheet content block.")]
+    [Description("Renders a storyboard contact sheet from explicit sample times, explicit shots, or one auto-derived midpoint per timeline Element. Writes individual still PNGs and the contact sheet into outputDirectory. Pass timeSeconds for continuous single-shot pieces where Element-boundary shot detection would collapse the arc. Pass subdivisionLevel:1..3 to insert binary in-between frames between adjacent anchors for transition review. For scenes with many Elements this can exceed the MCP client request timeout; pass background:true to run it as a job and poll read_render_job(jobId) instead. Pass returnImageContent:true on a synchronous call to append one downscaled image/png contact-sheet content block.")]
     public ValueTask<CallToolResult> RenderStoryboard(
         [Description("Absolute output directory. Existing files require confirmOverwrite.")]
         string outputDirectory,
@@ -111,7 +105,7 @@ public sealed partial class RenderTools(
         bool background = false,
         [Description("When true on a synchronous call, append a downscaled image/png MCP content block of the storyboard contact sheet. Cannot be combined with background:true because the image is not available until the job completes.")]
         bool returnImageContent = false,
-        [Description("Binary subdivision depth for in-between frames between adjacent shots. 0 keeps the current one-frame-per-shot behavior; 1 adds midpoints, 2 adds quarter points, 3 adds eighth points. Values are clamped to 0..3.")]
+        [Description("Binary subdivision depth for in-between frames between adjacent shots. 0 renders one frame per shot; 1 adds midpoints, 2 adds quarter points, 3 adds eighth points. Values are clamped to 0..3.")]
         int subdivisionLevel = 0,
         CancellationToken cancellationToken = default)
     {
@@ -125,26 +119,21 @@ public sealed partial class RenderTools(
                     "returnImageContent cannot be combined with background:true; run render_storyboard synchronously when the contact-sheet image block is needed."));
             }
 
-            // Capture the session once so a concurrent swap cannot pair an old-session snapshot with a
-            // new-session frame rate. The rate comes from the live tree because the snapshot is a
-            // Project-detached clone whose own frame-rate lookup would always miss.
             IEditingSession session = sessions.RequireSession();
             Scene scene = CreateSceneSnapshot(session);
             renderScale = ValidateRenderScale(scene, renderScale, "render_storyboard");
-            int frameRate = ReadSessionFrameRate(session);
             int normalizedSubdivisionLevel = NormalizeStoryboardSubdivisionLevel(subdivisionLevel);
             IReadOnlyList<ResolvedStoryboardFrame> resolvedShots = ResolveStoryboardFrames(
                 scene,
                 shots,
                 timeSeconds,
-                normalizedSubdivisionLevel,
-                frameRate);
+                normalizedSubdivisionLevel);
             ValidateStoryboardFrameCount(
                 resolvedShots.Count,
                 normalizedSubdivisionLevel,
                 timeSeconds is null ? "subdivisionLevel" : "timeSeconds");
             string normalizedDirectory = ToolPaths.RequireAbsolute(outputDirectory, nameof(outputDirectory));
-            string safeBasename = NormalizeStoryboardBasename(basename ?? CreateDefaultOutputBasename("storyboard"));
+            string safeBasename = NormalizeStoryboardBasename(basename ?? $"storyboard-{session.SessionId}");
             StoryboardRenderPlan plan = PlanStoryboardOutputs(
                 scene,
                 renderScale,
@@ -159,12 +148,12 @@ public sealed partial class RenderTools(
                     "storyboard",
                     async (progress, token) => JsonSerializer.SerializeToNode(
                         await RenderStoryboardFramesAsync(plan, progress, token).ConfigureAwait(false),
-                        s_jobResultOptions)!,
+                        JsonSerializerOptions.Web)!,
                     lease));
                 return (new RenderStoryboardResult("running", jobId, null), (ImageContentBlock?)null);
             }
 
-            RenderStoryboardResponse response = await RenderStoryboardFramesAsync(plan, NullProgress, cancellationToken).ConfigureAwait(false);
+            RenderStoryboardResponse response = await RenderStoryboardFramesAsync(plan, RenderJobProgressReporter.Ignored, cancellationToken).ConfigureAwait(false);
             ImageContentBlock? image = returnImageContent
                 ? ImageContentBlock.FromBytes(
                     storyboardRenderer.RenderContactSheetPng(
@@ -314,12 +303,12 @@ public sealed partial class RenderTools(
                     "export",
                     async (progress, token) => JsonSerializer.SerializeToNode(
                         await RunExportAsync(progress, token).ConfigureAwait(false),
-                        s_jobResultOptions)!,
+                        JsonSerializerOptions.Web)!,
                     lease));
                 return new ExportVideoResult("running", jobId, null);
             }
 
-            ExportVideoResponse response = await RunExportAsync(NullProgress, cancellationToken).ConfigureAwait(false);
+            ExportVideoResponse response = await RunExportAsync(RenderJobProgressReporter.Ignored, cancellationToken).ConfigureAwait(false);
             return new ExportVideoResult("completed", null, response);
         });
     }
@@ -392,37 +381,12 @@ public sealed partial class RenderTools(
         try
         {
             (T value, ImageContentBlock? image) = await action().ConfigureAwait(false);
-            return ToCallToolResult(ToolResult<T>.Success(value), image);
+            return ToolResult<T>.Success(value).ToCallToolResult(image is null ? null : [image]);
         }
         catch (Exception ex)
         {
-            ToolError error = ToolErrorMapper.Map(ex);
-            return ToCallToolResult(ToolResult<T>.Failure(error.Code, error.Message, error.Target, error.Hint));
+            return new ToolResult<T>(default, ToolErrorMapper.Map(ex)).ToCallToolResult();
         }
-    }
-
-    private static CallToolResult ToCallToolResult<T>(ToolResult<T> result, ImageContentBlock? image = null)
-        => ToCallToolResult(result, image is null ? [] : [image]);
-
-    private static CallToolResult ToCallToolResult<T>(ToolResult<T> result, IReadOnlyList<ImageContentBlock> images)
-    {
-        var content = new List<ContentBlock>
-        {
-            new TextContentBlock
-            {
-                Text = JsonSerializer.Serialize(result, s_toolResultOptions)
-            }
-        };
-        if (result.IsSuccess)
-        {
-            content.AddRange(images);
-        }
-
-        return new CallToolResult
-        {
-            Content = content,
-            IsError = false
-        };
     }
 
     private static IReadOnlyList<TimeSpan>? NormalizeFrameSampleTimesOrNull(double[]? timeSeconds)
@@ -497,31 +461,6 @@ public sealed partial class RenderTools(
         IDisposable lease = outputOperations.TryBeginOutputOperation()
                             ?? throw new OutputOperationBusyException();
         return new OwnedOutputOperation(lease);
-    }
-
-    private string CreateDefaultOutputBasename(string stem)
-        => $"{stem}-{ResolveOutputToken()}";
-
-    private string ResolveOutputToken()
-    {
-        string? sessionId = sessions.CurrentSession?.SessionId;
-        return SanitizeFileToken(string.IsNullOrWhiteSpace(sessionId)
-            ? s_processOutputToken
-            : sessionId);
-    }
-
-    private static string CreateProcessOutputToken()
-        => $"process-{Environment.ProcessId}-{Guid.NewGuid().ToString("N")[..8]}";
-
-    private static string SanitizeFileToken(string token)
-    {
-        string trimmed = token.Trim();
-        foreach (char invalid in Path.GetInvalidFileNameChars())
-        {
-            trimmed = trimmed.Replace(invalid, '-');
-        }
-
-        return string.IsNullOrWhiteSpace(trimmed) ? s_processOutputToken : trimmed;
     }
 
     private sealed class OwnedOutputOperation(IDisposable lease) : IDisposable

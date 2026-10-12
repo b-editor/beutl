@@ -12,8 +12,7 @@ public abstract class ToolBase
         }
         catch (Exception ex)
         {
-            ToolError error = ToolErrorMapper.Map(ex);
-            return ToolResult<T>.Failure(error.Code, error.Message, error.Target, error.Hint);
+            return new ToolResult<T>(default, ToolErrorMapper.Map(ex));
         }
     }
 
@@ -25,8 +24,7 @@ public abstract class ToolBase
         }
         catch (Exception ex)
         {
-            ToolError error = ToolErrorMapper.Map(ex);
-            return ToolResult<T>.Failure(error.Code, error.Message, error.Target, error.Hint);
+            return new ToolResult<T>(default, ToolErrorMapper.Map(ex));
         }
     }
 }

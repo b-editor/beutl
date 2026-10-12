@@ -62,19 +62,9 @@ public sealed partial class QueryTools
         }
 
         if (Guid.TryParse(rootId, out Guid id)
-            && IdentityHelper.FindById(session.Root, id) is CoreObject subtree)
+            && session.Root.FindById(id) is CoreObject subtree)
         {
-            // Like Documents.Read, without the members Beutl does not know.
-            JsonObject document = CoreSerializer.SerializeToJsonObject(
-                subtree,
-                new CoreSerializerOptions
-                {
-                    BaseUri = subtree.Uri,
-                    Mode = CoreSerializationMode.EmbedReferencedObjects,
-                    KeepUnknownMembers = false
-                });
-            SchemaVersion.Stamp(document);
-            return document;
+            return session.Documents.Read(subtree);
         }
 
         throw new ReconcileException(new ToolError(
@@ -151,14 +141,6 @@ public sealed partial class QueryTools
                     foreach (string child in CreateNestedAnimatedPropertySummaries(propertyPath, property.CurrentValue, visited))
                     {
                         yield return child;
-                    }
-
-                    if (property is IListProperty listProperty)
-                    {
-                        foreach (string child in CreateNestedAnimatedPropertySummaries(propertyPath, listProperty, visited))
-                        {
-                            yield return child;
-                        }
                     }
                 }
 

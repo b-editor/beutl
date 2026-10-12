@@ -15,8 +15,6 @@ public sealed class AgentHostInstanceRegistry(string directory)
 {
     public const string DirectoryName = "agent-hosts";
 
-    private static readonly JsonSerializerOptions s_jsonOptions = new(JsonSerializerDefaults.Web);
-
     public static string GetDefaultDirectory(string profileDirectory)
         => Path.Combine(profileDirectory, DirectoryName);
 
@@ -38,7 +36,7 @@ public sealed class AgentHostInstanceRegistry(string directory)
         string temporary = path + ".tmp";
         try
         {
-            File.WriteAllText(temporary, JsonSerializer.Serialize(registration, s_jsonOptions));
+            File.WriteAllText(temporary, JsonSerializer.Serialize(registration, JsonSerializerOptions.Web));
             File.Move(temporary, path, overwrite: true);
         }
         finally
@@ -60,7 +58,7 @@ public sealed class AgentHostInstanceRegistry(string directory)
             try
             {
                 var registration = JsonSerializer.Deserialize<AgentHostInstanceRegistration>(
-                    File.ReadAllText(path), s_jsonOptions);
+                    File.ReadAllText(path), JsonSerializerOptions.Web);
                 if (registration is null
                     || !Guid.TryParseExact(registration.InstanceId, "N", out _)
                     || Path.GetFileNameWithoutExtension(path) != registration.InstanceId
@@ -115,7 +113,7 @@ public sealed class AgentHostInstanceRegistry(string directory)
             File.Move(path, claimedPath);
             restore = true;
             var current = JsonSerializer.Deserialize<AgentHostInstanceRegistration>(
-                File.ReadAllText(claimedPath), s_jsonOptions);
+                File.ReadAllText(claimedPath), JsonSerializerOptions.Web);
             if (current == expected)
             {
                 File.Delete(claimedPath);

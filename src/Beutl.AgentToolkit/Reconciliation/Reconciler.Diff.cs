@@ -37,7 +37,7 @@ public sealed partial class Reconciler
         // explicit check), so validate the applied sandbox element directly; otherwise a patch could
         // insert an element with a negative Start or non-positive Length.
         if (CollectionReconciler.TryGetId(node, out Guid nodeId)
-            && IdentityHelper.FindById(sandboxRoot, nodeId) is Element element)
+            && sandboxRoot.FindById(nodeId) is Element element)
         {
             ValidateElementTimeline(element, validation);
         }
@@ -85,7 +85,7 @@ public sealed partial class Reconciler
                     || change.Path.EndsWith("/Length", StringComparison.Ordinal))
                 && Guid.TryParse(id, out Guid guid)
                 && seen.Add(guid)
-                && IdentityHelper.FindById(sandboxRoot, guid) is Element element)
+                && sandboxRoot.FindById(guid) is Element element)
             {
                 ValidateElementTimeline(element, validation);
             }
@@ -294,7 +294,7 @@ public sealed partial class Reconciler
             return;
         }
 
-        if (IdentityHelper.FindById(root, ownerId) is not CoreObject target)
+        if (root.FindById(ownerId) is not CoreObject target)
         {
             return;
         }

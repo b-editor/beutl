@@ -14,6 +14,8 @@ namespace Beutl.AgentToolkit.Schema;
 
 public sealed partial class SchemaGenerator
 {
+    private static readonly TimeSpan s_exampleElementLength = TimeSpan.FromSeconds(8);
+
     private static DeclarativeExample CreateNewElementSkeletonExample()
     {
         string elementType = IdentityHelper.WriteDiscriminator(typeof(Element));
@@ -186,7 +188,7 @@ public sealed partial class SchemaGenerator
             Fill = { CurrentValue = new SolidColorBrush(Colors.White) }
         });
 
-        Element element = CreateElement("[role:camera-rig] Shot 1 rig", zIndex: 10, rig);
+        Element element = CreateElement("[role:camera-rig] Shot 1 rig", zIndex: 10, s_exampleElementLength, rig);
         JsonObject elementJson = SerializeWithoutIds(element);
         AddCameraRigPushInAnimations(GetFlowGroupJson(elementJson));
 
@@ -202,12 +204,13 @@ public sealed partial class SchemaGenerator
     private static DeclarativeExample CreateCameraRigPortalExample()
     {
         DrawableGroup rig = CreateCameraRigGroup("[role:camera-rig] Shot 2 camera");
-        Element rigElement = CreateElement("[role:camera-rig] Shot 2 rig", zIndex: 10, rig);
+        Element rigElement = CreateElement("[role:camera-rig] Shot 2 rig", zIndex: 10, s_exampleElementLength, rig);
         ((PortalObject)rigElement.Objects[0]).Count.CurrentValue = 2;
 
         Element plateElement = CreateElement(
             "[role:text-backing] Shot 2 title plate",
             zIndex: 11,
+            s_exampleElementLength,
             new RectShape
             {
                 Name = "[role:text-backing] Shot 2 title plate",
@@ -219,6 +222,7 @@ public sealed partial class SchemaGenerator
         Element titleElement = CreateElement(
             "Shot 2 hero title",
             zIndex: 12,
+            s_exampleElementLength,
             new TextBlock
             {
                 Name = "Shot 2 hero title",
@@ -247,6 +251,7 @@ public sealed partial class SchemaGenerator
         Element background = CreateElement(
             "Background plate",
             zIndex: 0,
+            s_exampleElementLength,
             new RectShape
             {
                 Name = "Midnight gradient",
@@ -258,6 +263,7 @@ public sealed partial class SchemaGenerator
         Element ribbon = CreateElement(
             "Animated ribbon",
             zIndex: 4,
+            s_exampleElementLength,
             new RectShape
             {
                 Name = "Diagonal gradient ribbon",
@@ -291,6 +297,7 @@ public sealed partial class SchemaGenerator
         Element title = CreateElement(
             "Visible title",
             zIndex: 20,
+            s_exampleElementLength,
             new TextBlock
             {
                 Name = "Hero title",
@@ -341,6 +348,7 @@ public sealed partial class SchemaGenerator
         Element background = CreateElement(
             "Orbital radar background",
             zIndex: 0,
+            s_exampleElementLength,
             new RectShape
             {
                 Name = "Deep teal field",
@@ -352,6 +360,7 @@ public sealed partial class SchemaGenerator
         Element outerRing = CreateElement(
             "Orbital radar outer ring",
             zIndex: 4,
+            s_exampleElementLength,
             new EllipseShape
             {
                 Name = "Cyan orbit ring",
@@ -386,6 +395,7 @@ public sealed partial class SchemaGenerator
         Element innerRing = CreateElement(
             "Orbital radar amber ring",
             zIndex: 5,
+            s_exampleElementLength,
             new EllipseShape
             {
                 Name = "Amber offset ring",
@@ -419,6 +429,7 @@ public sealed partial class SchemaGenerator
         Element signalNode = CreateElement(
             "Orbital radar signal node",
             zIndex: 9,
+            s_exampleElementLength,
             new EllipseShape
             {
                 Name = "Moving signal node",
@@ -451,6 +462,7 @@ public sealed partial class SchemaGenerator
         Element sweep = CreateElement(
             "Orbital radar sweep",
             zIndex: 7,
+            s_exampleElementLength,
             new RectShape
             {
                 Name = "Thin scanning sweep",
@@ -483,6 +495,7 @@ public sealed partial class SchemaGenerator
         Element title = CreateElement(
             "Orbital radar title",
             zIndex: 20,
+            s_exampleElementLength,
             new TextBlock
             {
                 Name = "Orbital title",
@@ -515,6 +528,7 @@ public sealed partial class SchemaGenerator
         Element subtitle = CreateElement(
             "Orbital radar caption",
             zIndex: 21,
+            s_exampleElementLength,
             new TextBlock
             {
                 Name = "Orbital caption",
@@ -590,6 +604,7 @@ public sealed partial class SchemaGenerator
         Element background = CreateElement(
             "Split typography background",
             zIndex: 0,
+            s_exampleElementLength,
             new RectShape
             {
                 Name = "Blue violet field",
@@ -612,6 +627,7 @@ public sealed partial class SchemaGenerator
         Element panel = CreateElement(
             "Split typography panel",
             zIndex: 3,
+            s_exampleElementLength,
             new RoundedRectShape
             {
                 Name = "Left editorial panel",
@@ -645,6 +661,7 @@ public sealed partial class SchemaGenerator
         Element headline = CreateElement(
             "Split typography headline",
             zIndex: 12,
+            s_exampleElementLength,
             new TextBlock
             {
                 Name = "Stacked headline",
@@ -667,6 +684,7 @@ public sealed partial class SchemaGenerator
         Element caption = CreateElement(
             "Split typography caption",
             zIndex: 13,
+            s_exampleElementLength,
             new TextBlock
             {
                 Name = "Panel caption",
@@ -689,6 +707,7 @@ public sealed partial class SchemaGenerator
         Element wideBlock = CreateElement(
             "Split typography wide block",
             zIndex: 7,
+            s_exampleElementLength,
             new RectShape
             {
                 Name = "Right cyan block",
@@ -721,6 +740,7 @@ public sealed partial class SchemaGenerator
         Element tallBlock = CreateElement(
             "Split typography vertical block",
             zIndex: 8,
+            s_exampleElementLength,
             new RectShape
             {
                 Name = "Magenta vertical block",
@@ -752,6 +772,7 @@ public sealed partial class SchemaGenerator
         Element label = CreateElement(
             "Split typography right label",
             zIndex: 18,
+            s_exampleElementLength,
             new TextBlock
             {
                 Name = "Right label",
@@ -838,16 +859,12 @@ public sealed partial class SchemaGenerator
             }
         };
 
-        var blur = new Blur();
-        blur.Sigma.CurrentValue = new Size(8, 8);
-        var brightness = new Brightness();
-        brightness.Amount.CurrentValue = 115;
         var effects = new FilterEffectGroup
         {
             Children =
             {
-                blur,
-                brightness
+                CreateBlur(8),
+                CreateBrightness(115)
             }
         };
 
@@ -867,18 +884,5 @@ public sealed partial class SchemaGenerator
                     })
                 })
             });
-    }
-
-    private static Element CreateElement(string name, int zIndex, EngineObject obj)
-    {
-        var element = new Element
-        {
-            Name = name,
-            Start = TimeSpan.Zero,
-            Length = TimeSpan.FromSeconds(8),
-            ZIndex = zIndex
-        };
-        element.AddObject(obj);
-        return element;
     }
 }

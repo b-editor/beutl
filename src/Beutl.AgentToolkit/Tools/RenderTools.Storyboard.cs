@@ -215,15 +215,8 @@ public sealed partial class RenderTools
     internal static IReadOnlyList<ResolvedStoryboardFrame> ResolveStoryboardFrames(
         Scene scene,
         StoryboardShotInput[]? shots,
-        int subdivisionLevel)
-        => ResolveStoryboardFrames(scene, shots, null, subdivisionLevel);
-
-    internal static IReadOnlyList<ResolvedStoryboardFrame> ResolveStoryboardFrames(
-        Scene scene,
-        StoryboardShotInput[]? shots,
         double[]? timeSeconds,
-        int subdivisionLevel,
-        int? frameRate = null)
+        int subdivisionLevel)
     {
         IReadOnlyList<ResolvedStoryboardShot> anchors = ResolveExplicitStoryboardTimes(scene, timeSeconds)
                                                         ?? ResolveStoryboardShots(scene, shots);
@@ -239,14 +232,10 @@ public sealed partial class RenderTools
                 .ToArray();
         }
 
-        TimeSpan dedupeTolerance = GetStoryboardDedupeTolerance(frameRate ?? GetSceneFrameRate(scene));
+        TimeSpan dedupeTolerance = GetStoryboardDedupeTolerance(GetSceneFrameRate(scene));
         ResolvedStoryboardShot[] dedupedAnchors = timeSeconds is null
             ? DeduplicateStoryboardAnchors(anchors, dedupeTolerance)
             : anchors.ToArray();
-        if (dedupedAnchors.Length == 0)
-        {
-            return [];
-        }
 
         int denominator = 1 << normalizedSubdivisionLevel;
         var frames = new List<ResolvedStoryboardFrame>(dedupedAnchors.Length * denominator);
@@ -361,9 +350,8 @@ public sealed partial class RenderTools
         return time;
     }
 
-    // Element.Range treats its end as exclusive, so a shot exactly at Duration renders past every
-    // element (a blank frame); pull it one tick inside the scene. Truly out-of-range values are
-    // rejected before this by the callers; this only nudges the Duration boundary itself.
+    // Element.Range treats its end as exclusive, so a time at or past Duration is pulled one tick
+    // inside the scene.
     private static TimeSpan ClampShotToRenderableRange(TimeSpan time, TimeSpan duration)
         => duration > TimeSpan.Zero && time >= duration
             ? TimeSpan.FromTicks(duration.Ticks - 1)

@@ -1,5 +1,4 @@
-﻿using System.Text.Json;
-using Beutl.AgentToolkit.Common;
+﻿using Beutl.AgentToolkit.Common;
 using ModelContextProtocol.Protocol;
 
 namespace Beutl.AgentToolkit.Live;
@@ -8,15 +7,13 @@ namespace Beutl.AgentToolkit.Live;
 // same ToolResult<T> shape toolkit tools return, so clients parse every outcome the same way.
 public static class LiveToolResults
 {
-    private static readonly JsonSerializerOptions s_jsonOptions = new(JsonSerializerDefaults.Web);
-
-    public static CallToolResult Success<T>(T value) => Text(ToolResult<T>.Success(value));
+    public static CallToolResult Success<T>(T value) => ToolResult<T>.Success(value).ToCallToolResult();
 
     public static CallToolResult Error(string code, string message, string? target = null, string? hint = null)
-        => Text(ToolResult<object?>.Failure(code, message, target, hint));
+        => ToolResult<object?>.Failure(code, message, target, hint).ToCallToolResult();
 
     public static CallToolResult Error(ToolError error)
-        => Text(new ToolResult<object?>(null, error));
+        => new ToolResult<object?>(null, error).ToCallToolResult();
 
     public static CallToolResult InstanceUnavailable(string instanceId)
         => Error(ErrorCode.InstanceUnavailable, "The requested Beutl instance is unavailable.", instanceId,
@@ -25,10 +22,4 @@ public static class LiveToolResults
     public static CallToolResult InvalidInstanceId()
         => Error(ErrorCode.ValidationRejected, "Pass an instanceId returned by list_instances.",
             "instanceId", "Call list_instances without arguments to discover running Beutl instances.");
-
-    private static CallToolResult Text<T>(ToolResult<T> result)
-        => new()
-        {
-            Content = [new TextContentBlock { Text = JsonSerializer.Serialize(result, s_jsonOptions) }]
-        };
 }

@@ -137,7 +137,7 @@ public sealed partial class Reconciler
         }
 
         if (CollectionReconciler.TryGetId(obj, out Guid id)
-            && IdentityHelper.FindById(liveRoot, id) is EngineObject live)
+            && liveRoot.FindById(id) is EngineObject live)
         {
             return ReferenceProperties.ForOwner(live.GetType());
         }

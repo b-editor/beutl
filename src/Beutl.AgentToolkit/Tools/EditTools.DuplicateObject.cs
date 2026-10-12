@@ -378,8 +378,6 @@ public sealed partial class EditTools
         return elements;
     }
 
-    // Both JSON finders skip non-object entries, elements outside the requested scope, and
-    // elements without an Objects array.
     private static bool TryGetScopedObjects(
         JsonNode? elementNode,
         string? elementId,

@@ -265,8 +265,8 @@ public sealed class SchemaGenerationTests
     public void Composition_templates_expose_remotion_style_contract()
     {
         var catalog = new CompositionTemplateCatalog();
-        CompositionTemplateList firstList = catalog.List(seed: "alpha");
-        CompositionTemplateList sameList = catalog.List(seed: "alpha");
+        CompositionTemplateList firstList = catalog.List(tag: null, seed: "alpha");
+        CompositionTemplateList sameList = catalog.List(tag: null, seed: "alpha");
         CompositionTemplateDetail detail = catalog.Get("orbital-radar-map");
         var inputProps = new JsonObject
         {
@@ -279,10 +279,10 @@ public sealed class SchemaGenerationTests
         CompositionRender firstRender = catalog.Render("orbital-radar-map", inputProps: inputProps, seed: "orbit-seed");
         CompositionRender sameRender = catalog.Render("orbital-radar-map", inputProps: inputProps, seed: "orbit-seed");
         CompositionRender differentRender = catalog.Render("orbital-radar-map", inputProps: inputProps, seed: "orbit-seed-2");
-        CompositionRender noiseRender = catalog.Render("kinetic-ribbon-title", seed: "noise-seed");
-        CompositionRender liquidRender = catalog.Render("liquid-gradient-system", seed: "liquid-seed");
-        CompositionRender dataRender = catalog.Render("data-bar-dashboard", seed: "data-seed");
-        CompositionRender glitchRender = catalog.Render("glitch-cutout-collage", seed: "glitch-seed");
+        CompositionRender noiseRender = catalog.Render("kinetic-ribbon-title", inputProps: null, seed: "noise-seed");
+        CompositionRender liquidRender = catalog.Render("liquid-gradient-system", inputProps: null, seed: "liquid-seed");
+        CompositionRender dataRender = catalog.Render("data-bar-dashboard", inputProps: null, seed: "data-seed");
+        CompositionRender glitchRender = catalog.Render("glitch-cutout-collage", inputProps: null, seed: "glitch-seed");
 
         Assert.Multiple(() =>
         {
@@ -310,7 +310,7 @@ public sealed class SchemaGenerationTests
             Assert.That(dataRender.Patch.ToJsonString(), Does.Contain("Seeded metric bar"));
             Assert.That(glitchRender.Patch.ToJsonString(), Does.Contain("Seeded glitch slice"));
             Assert.That(TransformGroupsUseCanonicalOrder(firstRender.Patch), Is.True);
-            Assert.That(TransformGroupsUseCanonicalOrder(catalog.Render("kinetic-ribbon-title", seed: "ribbon-seed").Patch), Is.True);
+            Assert.That(TransformGroupsUseCanonicalOrder(catalog.Render("kinetic-ribbon-title", inputProps: null, seed: "ribbon-seed").Patch), Is.True);
             Assert.That(TransformGroupsUseCanonicalOrder(liquidRender.Patch), Is.True);
             Assert.That(TransformGroupsUseCanonicalOrder(dataRender.Patch), Is.True);
             Assert.That(TransformGroupsUseCanonicalOrder(glitchRender.Patch), Is.True);
@@ -557,7 +557,7 @@ public sealed class SchemaGenerationTests
             .ToArray();
         var catalog = new CompositionTemplateCatalog();
         string[] defaultTitles = catalog
-            .List(seed: "quality-check")
+            .List(tag: null, seed: "quality-check")
             .Compositions
             .Select(composition => catalog.Get(composition.Name).DefaultProps["title"]!.GetValue<string>())
             .ToArray();
@@ -570,35 +570,16 @@ public sealed class SchemaGenerationTests
     }
 
     [Test]
-    public void Composition_templates_vary_seedless_session_order_and_orbital_layouts()
+    public void Composition_templates_vary_orbital_layouts()
     {
-        var sessionCatalog = new CompositionTemplateCatalog(defaultSeed: "session-a");
-        CompositionTemplateList firstList = sessionCatalog.List();
-        CompositionTemplateList sameList = sessionCatalog.List();
-        string[] firstOrder = firstList.Compositions.Select(composition => composition.Name).ToArray();
-        string[] sameOrder = sameList.Compositions.Select(composition => composition.Name).ToArray();
-
-        string[] firstChoices = Enumerable.Range(0, 24)
-            .Select(index => new CompositionTemplateCatalog(defaultSeed: $"session-{index}")
-                .List()
-                .Compositions
-                .First()
-                .Name)
-            .Distinct(StringComparer.Ordinal)
-            .ToArray();
         float[] titlePositions = Enumerable.Range(0, 36)
             .Select(index => FindObjectTranslateX(
-                new CompositionTemplateCatalog().Render("orbital-radar-map", seed: $"orbit-layout-{index}").Patch,
+                new CompositionTemplateCatalog().Render("orbital-radar-map", inputProps: null, seed: $"orbit-layout-{index}").Patch,
                 "Technical title"))
             .ToArray();
 
         Assert.Multiple(() =>
         {
-            Assert.That(firstList.Seed, Is.EqualTo("session-a"));
-            Assert.That(sameList.Seed, Is.EqualTo("session-a"));
-            Assert.That(firstOrder, Is.EqualTo(sameOrder));
-            Assert.That(firstChoices, Has.Length.GreaterThan(1));
-            Assert.That(firstChoices, Has.Length.GreaterThanOrEqualTo(4));
             Assert.That(titlePositions.Min(), Is.LessThan(-200));
             Assert.That(titlePositions.Min(), Is.GreaterThan(-650));
             Assert.That(titlePositions.Max(), Is.GreaterThan(200));

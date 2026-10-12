@@ -68,19 +68,6 @@ public sealed class ToolSurfaceTests
         });
     }
 
-    [Test]
-    public void Internal_element_wrappers_are_not_in_shared_public_surface()
-    {
-        string[] publicNames = ToolNames(s_sharedPublicToolTypes);
-        string[] internalElementNames = ToolNames([typeof(ElementTools)]);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(internalElementNames, Does.Contain("add_element"));
-            Assert.That(publicNames.Intersect(internalElementNames), Is.Empty);
-        });
-    }
-
     private static string[] ToolNames(params Type[] toolTypes)
     {
         return toolTypes

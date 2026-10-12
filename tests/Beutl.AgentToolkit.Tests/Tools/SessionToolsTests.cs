@@ -110,8 +110,10 @@ public sealed class SessionToolsTests
         {
             Assert.That(opened.IsSuccess, Is.True, opened.Error?.Message);
             Assert.That(
-                responseJson["Warnings"]?.AsArray().Select(static item => item!.GetValue<string>()),
-                Has.Some.Contains(elementRelativePath).And.Some.Contains("could not be converted"));
+                responseJson["RecoveryIncidents"]?.AsArray()
+                    .Where(item => item!["ElementFile"]?.GetValue<string>() == elementRelativePath)
+                    .Select(static item => item!["Message"]?.GetValue<string>()),
+                Has.Some.Contains("could not be converted"));
             Assert.That(rendered.IsError, Is.Not.True);
             Assert.That(File.Exists(outputPath), Is.True);
         });
@@ -247,12 +249,7 @@ public sealed class SessionToolsTests
         Assert.Multiple(() =>
         {
             Assert.That(opened.IsSuccess, Is.True, opened.Error?.Message);
-            Assert.That(
-                opened.Value!.Warnings,
-                Has.Some.Contains(elementRelativePath).And.Some.Contains(nameof(FallbackReason.TypeNotFound)));
-            Assert.That(opened.Value.Warnings,
-                Has.Some.Contains(elementRelativePath).And.Some.Contains("replaced during load"));
-            Assert.That(opened.Value.RecoveryIncidents, Has.Count.EqualTo(2));
+            Assert.That(opened.Value!.RecoveryIncidents, Has.Count.EqualTo(2));
             Assert.That(opened.Value.RecoveryIncidents.Select(static incident => incident.ElementFile),
                 Is.All.EqualTo(elementRelativePath));
             Assert.That(opened.Value.RecoveryIncidents,
@@ -320,10 +317,7 @@ public sealed class SessionToolsTests
         Assert.Multiple(() =>
         {
             Assert.That(opened.IsSuccess, Is.True, opened.Error?.Message);
-            Assert.That(
-                opened.Value!.Warnings,
-                Has.Some.Contains(elementRelativePath).And.Some.Contains("replaced during load"));
-            Assert.That(opened.Value.RecoveryIncidents, Has.Count.EqualTo(1));
+            Assert.That(opened.Value!.RecoveryIncidents, Has.Count.EqualTo(1));
             Assert.That(opened.Value.RecoveryIncidents[0].ElementFile, Is.EqualTo(elementRelativePath));
             Assert.That(opened.Value.RecoveryIncidents[0].Reason,
                 Is.EqualTo(nameof(FallbackReason.TypeNotFound)));
@@ -387,7 +381,6 @@ public sealed class SessionToolsTests
 
         ToolResult<OpenProjectResponse> opened = await sessionTools.OpenProject(projectPath);
         Assert.That(opened.IsSuccess, Is.True, opened.Error?.Message);
-        JsonObject responseJson = JsonSerializer.SerializeToNode(opened.Value)!.AsObject();
 
         var stillRenderer = new StillRenderer();
         var motionAnalyzer = new FrameDifferenceAnalyzer(stillRenderer);
@@ -412,11 +405,6 @@ public sealed class SessionToolsTests
         Assert.Multiple(() =>
         {
             Assert.That(opened.Value!.Summary.Scenes.Single().Elements, Is.EqualTo(2));
-            Assert.That(
-                responseJson["Warnings"]?.AsArray().Select(static item => item!.GetValue<string>()),
-                Has.Some.Contains(malformedRelativePath)
-                    .And.Some.Contains("JsonReaderException")
-                    .And.Some.Contains("invalid start"));
             Assert.That(opened.Value.RecoveryIncidents, Has.Count.EqualTo(1));
             Assert.That(opened.Value.RecoveryIncidents[0].ElementFile, Is.EqualTo(malformedRelativePath));
             Assert.That(opened.Value.RecoveryIncidents[0].Reason,
@@ -512,9 +500,7 @@ public sealed class SessionToolsTests
         Assert.Multiple(() =>
         {
             Assert.That(opened.IsSuccess, Is.True, opened.Error?.Message);
-            Assert.That(opened.Value!.Warnings, Has.Some.Contains("first/clip.belm"));
-            Assert.That(opened.Value.Warnings, Has.Some.Contains("second/clip.belm"));
-            Assert.That(opened.Value.RecoveryIncidents.Select(static item => item.ElementFile),
+            Assert.That(opened.Value!.RecoveryIncidents.Select(static item => item.ElementFile),
                 Is.EquivalentTo(new[] { "first/clip.belm", "second/clip.belm" }));
         });
     }

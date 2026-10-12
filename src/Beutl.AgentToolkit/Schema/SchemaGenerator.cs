@@ -47,6 +47,37 @@ public sealed partial class SchemaGenerator
         ["matrixtransform"] = [nameof(MatrixTransform)]
     };
 
+    // The category aliases get_schema accepts. get_started lists the Listed ones, and the text
+    // aliases name the TextBlock type instead of a category.
+    private static readonly (string Alias, string Target, bool Listed)[] s_categoryAliases =
+    [
+        ("visualEffect", "FilterEffect", true),
+        ("effect", "FilterEffect", true),
+        ("filter", "FilterEffect", true),
+        ("videoEffect", "FilterEffect", true),
+        ("text", nameof(TextBlock), true),
+        ("typography", nameof(TextBlock), true),
+        ("label", nameof(TextBlock), true),
+        ("fill", "Brush", true),
+        ("gradient", "Brush", true),
+        ("stroke", "Pen", true),
+        ("ease", "Easing", true),
+        ("audio", "AudioEffect", false),
+        ("soundEffect", "AudioEffect", false),
+        ("shape", "Drawable", false),
+        ("visual", "Drawable", false),
+        ("transformation", "Transform", false),
+        ("node", "GraphNode", false),
+        ("object", "EngineObject", false)
+    ];
+
+    private static readonly Dictionary<string, string> s_categoryTokens = s_categoryAliases
+        .Where(alias => alias.Target != nameof(TextBlock))
+        .ToDictionary(
+            alias => alias.Alias.ToLowerInvariant(),
+            alias => alias.Target.ToLowerInvariant(),
+            StringComparer.Ordinal);
+
     private static readonly string[] s_formats =
     [
         KnownLibraryItemFormats.Drawable,
@@ -317,10 +348,14 @@ public sealed partial class SchemaGenerator
         }
 
         string trimmed = categoryFilter.Trim();
-        return string.Equals(trimmed, "text", StringComparison.OrdinalIgnoreCase)
-               || string.Equals(trimmed, "typography", StringComparison.OrdinalIgnoreCase)
-               || string.Equals(trimmed, "label", StringComparison.OrdinalIgnoreCase);
+        return s_categoryAliases.Any(alias => alias.Target == nameof(TextBlock)
+                                              && string.Equals(trimmed, alias.Alias, StringComparison.OrdinalIgnoreCase));
     }
+
+    internal static IReadOnlyDictionary<string, string> CreateListedCategoryAliases()
+        => s_categoryAliases
+            .Where(alias => alias.Listed)
+            .ToDictionary(alias => alias.Alias, alias => alias.Target, StringComparer.OrdinalIgnoreCase);
 
     private static string SimplifyCategory(string category)
     {
@@ -330,21 +365,8 @@ public sealed partial class SchemaGenerator
 
     private static string NormalizeCategoryToken(string category)
     {
-        string simplified = SimplifyCategory(category).Replace(" ", string.Empty, StringComparison.Ordinal);
-        return simplified.ToLowerInvariant() switch
-        {
-            "effect" or "filter" or "filtereffect" or "visualeffect" or "videoeffect" => "filtereffect",
-            "audio" or "audioeffect" or "soundeffect" => "audioeffect",
-            "drawable" or "shape" or "visual" => "drawable",
-            "brush" or "fill" or "gradient" => "brush",
-            "transform" or "transformation" => "transform",
-            "geometry" => "geometry",
-            "pen" or "stroke" => "pen",
-            "easing" or "ease" => "easing",
-            "graphnode" or "node" => "graphnode",
-            "engineobject" or "object" => "engineobject",
-            _ => simplified.ToLowerInvariant()
-        };
+        string token = SimplifyCategory(category).Replace(" ", string.Empty, StringComparison.Ordinal).ToLowerInvariant();
+        return s_categoryTokens.GetValueOrDefault(token, token);
     }
 
     private static RangeDescriptor? TryCreateRange(RangeAttribute? range)

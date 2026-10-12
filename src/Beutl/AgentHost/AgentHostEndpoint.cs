@@ -3,11 +3,10 @@ using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
 using Avalonia.Threading;
+using Beutl.AgentToolkit;
 using Beutl.AgentToolkit.Live;
-using Beutl.AgentToolkit.Rendering;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tools;
-using Beutl.AgentToolkit.Workspace;
 using Beutl.Configuration;
 using Beutl.Extensibility;
 using Beutl.Logging;
@@ -421,14 +420,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             .AddSingleton<CompositionPlanStore>()
             .AddScoped<AgentSessionManager>()
             .AddSingleton<IOutputOperationLeaseProvider>(_ => _editorService)
-            .AddSingleton<DestructiveGuard>()
-            .AddSingleton<StillRenderer>()
-            .AddSingleton<StoryboardRenderer>()
-            .AddSingleton<FrameDifferenceAnalyzer>()
-            .AddSingleton<AudioRhythmAnalyzer>()
-            .AddSingleton<EncoderRegistration>()
-            .AddSingleton<VideoExporter>()
-            .AddSingleton<RenderJobManager>()
+            .AddAgentToolkitRendering()
             .AddSingleton<AgentAiJobManager>()
             .AddSingleton<IAgentAiBackend>(_ => AiBackend ?? UnavailableAgentAiBackend.Instance);
 
@@ -456,11 +448,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             })
             .WithTools<AgentHostInstanceTools>()
             .WithTools<AgentHostTools>()
-            .WithTools<SessionTools>()
-            .WithTools<QueryTools>()
-            .WithTools<EditTools>()
-            .WithTools<HistoryTools>()
-            .WithTools<RenderTools>()
+            .WithSharedAgentToolkitTools()
             .WithTools<AgentHostAiTools>();
 
         WebApplication app = builder.Build();

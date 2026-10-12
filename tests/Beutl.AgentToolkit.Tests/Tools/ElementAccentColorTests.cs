@@ -16,41 +16,20 @@ namespace Beutl.AgentToolkit.Tests.Tools;
 public sealed class ElementAccentColorTests
 {
     // These are the existing UI-generated colors for the corresponding content types.
-    [TestCase("shape", "rect", "#ffc9ba6f")]
-    [TestCase("shape", null, "#ff9857cc")]
-    [TestCase("shape", "ellipse", "#ffaac75a")]
-    [TestCase("text", null, "#ffd77071")]
-    [TestCase("group", null, "#ffa062d7")]
-    public void Add_element_generates_the_same_accent_color_as_the_ui(
-        string contentKind, string? shape, string expectedColor)
-    {
-        var scene = new Scene(1920, 1080, "Scene");
-        using var session = new AgentToolkitTestSession(scene);
-        var tools = new ElementTools(CreateManager(session));
-
-        var result = tools.AddElement(0, 1, 0, contentKind, text: "Title", shape: shape);
-
-        Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
-        Color color = Color.Parse(expectedColor);
-        Assert.Multiple(() =>
-        {
-            Assert.That(scene.Children.Single().AccentColor, Is.EqualTo(color));
-            Assert.That(result.Value!.Document["Elements"]![0]![nameof(Element.AccentColor)]!.GetValue<string>(),
-                Is.EqualTo(color.ToString()));
-        });
-    }
-
-    [TestCase(false, false, "#ffc9ba6f")]
-    [TestCase(true, false, "#ffc9ba6f")]
-    [TestCase(false, true, "#ffa062d7")]
-    [TestCase(true, true, "#ffa062d7")]
+    [TestCase(false, typeof(RectShape), "#ffc9ba6f")]
+    [TestCase(true, typeof(RectShape), "#ffc9ba6f")]
+    [TestCase(true, typeof(RoundedRectShape), "#ff9857cc")]
+    [TestCase(true, typeof(EllipseShape), "#ffaac75a")]
+    [TestCase(true, typeof(TextBlock), "#ffd77071")]
+    [TestCase(false, typeof(DrawableGroup), "#ffa062d7")]
+    [TestCase(true, typeof(DrawableGroup), "#ffa062d7")]
     public void Apply_edit_generates_an_accent_color_for_new_elements_when_omitted(
-        bool usePatch, bool useGroup, string expectedColor)
+        bool usePatch, Type contentType, string expectedColor)
     {
         var scene = new Scene(1920, 1080, "Scene");
         using var session = new AgentToolkitTestSession(scene);
         var tools = new EditTools(CreateManager(session));
-        JsonObject element = CreateElementJson(useGroup ? new DrawableGroup() : new RectShape());
+        JsonObject element = CreateElementJson((EngineObject)Activator.CreateInstance(contentType)!);
         element.Remove(nameof(Element.AccentColor));
         JsonObject document = usePatch ? new JsonObject() : session.Documents.Read(scene);
         document["Elements"] = new JsonArray(element);
@@ -88,10 +67,11 @@ public sealed class ElementAccentColorTests
     {
         var scene = new Scene(1920, 1080, "Scene");
         using var session = new AgentToolkitTestSession(scene);
-        var manager = CreateManager(session);
-        var elements = new ElementTools(manager);
-        Assert.That(elements.AddElement(0, 1, 0, "shape", shape: "rect").IsSuccess, Is.True);
-        var edits = new EditTools(manager);
+        var edits = new EditTools(CreateManager(session));
+        JsonObject added = CreateElementJson(new RectShape());
+        Assert.That(edits.ApplyEdit(
+            patch: new JsonObject { ["Elements"] = new JsonArray(added) },
+            schemaVersion: SchemaVersion.Current).IsSuccess, Is.True);
         Color color = Colors.Coral;
         JsonObject setColorPatch = new()
         {
@@ -117,22 +97,22 @@ public sealed class ElementAccentColorTests
     }
 
     [Test]
-    public void Generated_accent_color_survives_undo_redo_duplicate_and_split()
+    public void Generated_accent_color_survives_undo_redo()
     {
         var scene = new Scene(1920, 1080, "Scene");
         using var session = new AgentToolkitTestSession(scene);
-        var tools = new ElementTools(CreateManager(session));
-        Assert.That(tools.AddElement(0, 2, 0, "shape", shape: "rect").IsSuccess, Is.True);
+        var tools = new EditTools(CreateManager(session));
+        JsonObject element = CreateElementJson(new RectShape());
+        element.Remove(nameof(Element.AccentColor));
+        Assert.That(tools.ApplyEdit(
+            patch: new JsonObject { ["Elements"] = new JsonArray(element) },
+            schemaVersion: SchemaVersion.Current).IsSuccess, Is.True);
         Color color = Color.Parse("#ffc9ba6f");
-        string elementId = scene.Children.Single().Id.ToString();
 
         Assert.That(session.History.Undo(), Is.True);
         Assert.That(scene.Children, Is.Empty);
         Assert.That(session.History.Redo(), Is.True);
         Assert.That(scene.Children.Single().AccentColor, Is.EqualTo(color));
-        Assert.That(tools.DuplicateElement(elementId, startSeconds: 3).IsSuccess, Is.True);
-        Assert.That(tools.SplitElement(elementId, 1).IsSuccess, Is.True);
-        Assert.That(scene.Children.Select(element => element.AccentColor), Is.All.EqualTo(color));
     }
 
     private static AgentSessionManager CreateManager(IEditingSession session)

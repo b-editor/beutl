@@ -226,10 +226,7 @@ public sealed partial class SchemaGenerator
                 "Use this for visual rhymes, object-to-object associations, or conceptual continuity between shots.")
         ];
 
-        EffectRecipeSpec[] individual = EnumerateRegisteredTypes()
-            .Where(item => MatchesCategory(KnownLibraryItemFormats.FilterEffect, item.Category))
-            .Select(item => item.Type)
-            .Distinct()
+        EffectRecipeSpec[] individual = EnumerateFilterEffectTypes()
             .OrderBy(type => type.Name, StringComparer.Ordinal)
             .Select(CreateSingleEffectRecipe)
             .ToArray();
@@ -261,8 +258,8 @@ public sealed partial class SchemaGenerator
             .Select(effect => effect.GetType().Name)
             .ToArray();
         bool containsPrebuiltSkslScript = ContainsPrebuiltSkslScript(effects);
-        string[] notes = effectNames
-            .SelectMany(effectName => GetEffectMetadataByName(effectName).Notes)
+        string[] notes = effects.Children
+            .SelectMany(effect => GetEffectMetadata(effect.GetType()).Notes)
             .Where(note => !containsPrebuiltSkslScript || !IsShaderSourceRequirementNote(note))
             .Concat(extraNotes)
             .Distinct(StringComparer.Ordinal)
@@ -465,10 +462,8 @@ public sealed partial class SchemaGenerator
 
     private static FilterEffect CreateRecipeEffectInstance(Type type)
     {
-        FilterEffect effect = type == typeof(FilterEffectGroup)
-            ? new FilterEffectGroup()
-            : Activator.CreateInstance(type) as FilterEffect
-              ?? throw new InvalidOperationException($"Filter effect '{type.FullName}' does not have a usable parameterless constructor.");
+        FilterEffect effect = Activator.CreateInstance(type) as FilterEffect
+                              ?? throw new InvalidOperationException($"Filter effect '{type.FullName}' does not have a usable parameterless constructor.");
 
         TuneEffectDefaults(effect);
         return effect;
@@ -771,16 +766,6 @@ public sealed partial class SchemaGenerator
         colorGrading.Vibrance.CurrentValue = vibrance;
         colorGrading.Tint.CurrentValue = tint;
         return colorGrading;
-    }
-
-    private static ColorShift CreateColorShift(int redX, int redY, int blueX, int blueY)
-    {
-        var colorShift = new ColorShift();
-        colorShift.RedOffset.CurrentValue = new PixelPoint(redX, redY);
-        colorShift.GreenOffset.CurrentValue = new PixelPoint(0, 0);
-        colorShift.BlueOffset.CurrentValue = new PixelPoint(blueX, blueY);
-        colorShift.AlphaOffset.CurrentValue = new PixelPoint(0, 0);
-        return colorShift;
     }
 
     private static ShakeEffect CreateShake(float strengthX, float strengthY, float speed)

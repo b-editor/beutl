@@ -76,7 +76,7 @@ public sealed class RenderToolsStoryboardTests
         });
 
         RenderTools.ResolvedStoryboardFrame[] frames =
-            RenderTools.ResolveStoryboardFrames(scene, shots: null, subdivisionLevel: 0).ToArray();
+            RenderTools.ResolveStoryboardFrames(scene, shots: null, timeSeconds: null, subdivisionLevel: 0).ToArray();
 
         Assert.Multiple(() =>
         {
@@ -127,7 +127,7 @@ public sealed class RenderToolsStoryboardTests
         });
 
         RenderTools.ResolvedStoryboardFrame[] frames =
-            RenderTools.ResolveStoryboardFrames(scene, shots: null, subdivisionLevel: 0).ToArray();
+            RenderTools.ResolveStoryboardFrames(scene, shots: null, timeSeconds: null, subdivisionLevel: 0).ToArray();
 
         // Only the enabled, in-window, non-empty element contributes a derived shot; the others would
         // add blank frames and burn the subdivision cap.
@@ -140,7 +140,7 @@ public sealed class RenderToolsStoryboardTests
         var scene = new Scene(16, 9, "shot-end") { Duration = TimeSpan.FromSeconds(4) };
 
         RenderTools.ResolvedStoryboardFrame[] fromShots =
-            RenderTools.ResolveStoryboardFrames(scene, [new("end", 4.0)], subdivisionLevel: 0).ToArray();
+            RenderTools.ResolveStoryboardFrames(scene, [new("end", 4.0)], timeSeconds: null, subdivisionLevel: 0).ToArray();
         RenderTools.ResolvedStoryboardFrame[] fromTimes =
             RenderTools.ResolveStoryboardFrames(scene, shots: null, timeSeconds: [4.0], subdivisionLevel: 0).ToArray();
 
@@ -164,19 +164,19 @@ public sealed class RenderToolsStoryboardTests
         {
             Assert.That(
                 Assert.Throws<ReconcileException>(() =>
-                    RenderTools.ResolveStoryboardFrames(scene, [new("late", 30)], 0))!.Error.Code,
+                    RenderTools.ResolveStoryboardFrames(scene, [new("late", 30)], timeSeconds: null, 0))!.Error.Code,
                 Is.EqualTo(ErrorCode.ValidationRejected));
             Assert.That(
                 Assert.Throws<ReconcileException>(() =>
-                    RenderTools.ResolveStoryboardFrames(scene, [new("neg", -1)], 0))!.Error.Code,
+                    RenderTools.ResolveStoryboardFrames(scene, [new("neg", -1)], timeSeconds: null, 0))!.Error.Code,
                 Is.EqualTo(ErrorCode.ValidationRejected));
             Assert.That(
                 Assert.Throws<ReconcileException>(() =>
-                    RenderTools.ResolveStoryboardFrames(scene, [new("nan", double.NaN)], 0))!.Error.Code,
+                    RenderTools.ResolveStoryboardFrames(scene, [new("nan", double.NaN)], timeSeconds: null, 0))!.Error.Code,
                 Is.EqualTo(ErrorCode.ValidationRejected));
             Assert.That(
                 Assert.Throws<ReconcileException>(() =>
-                    RenderTools.ResolveStoryboardFrames(scene, [new("a", 2), new("b", 2)], 0))!.Error.Code,
+                    RenderTools.ResolveStoryboardFrames(scene, [new("a", 2), new("b", 2)], timeSeconds: null, 0))!.Error.Code,
                 Is.EqualTo(ErrorCode.ValidationRejected));
         });
     }
@@ -191,9 +191,9 @@ public sealed class RenderToolsStoryboardTests
             new("right", 1)
         ];
 
-        RenderTools.ResolvedStoryboardFrame[] level1 = RenderTools.ResolveStoryboardFrames(scene, shots, 1).ToArray();
-        RenderTools.ResolvedStoryboardFrame[] level2 = RenderTools.ResolveStoryboardFrames(scene, shots, 2).ToArray();
-        RenderTools.ResolvedStoryboardFrame[] level3 = RenderTools.ResolveStoryboardFrames(scene, shots, 3).ToArray();
+        RenderTools.ResolvedStoryboardFrame[] level1 = RenderTools.ResolveStoryboardFrames(scene, shots, timeSeconds: null, 1).ToArray();
+        RenderTools.ResolvedStoryboardFrame[] level2 = RenderTools.ResolveStoryboardFrames(scene, shots, timeSeconds: null, 2).ToArray();
+        RenderTools.ResolvedStoryboardFrame[] level3 = RenderTools.ResolveStoryboardFrames(scene, shots, timeSeconds: null, 3).ToArray();
 
         Assert.Multiple(() =>
         {
@@ -226,9 +226,9 @@ public sealed class RenderToolsStoryboardTests
             new("right", 1)
         ];
 
-        RenderTools.ResolvedStoryboardFrame[] levelMinus = RenderTools.ResolveStoryboardFrames(scene, nearDuplicateShots, -10).ToArray();
-        RenderTools.ResolvedStoryboardFrame[] levelOne = RenderTools.ResolveStoryboardFrames(scene, nearDuplicateShots, 1).ToArray();
-        RenderTools.ResolvedStoryboardFrame[] levelLarge = RenderTools.ResolveStoryboardFrames(scene, [new("left", 0), new("right", 1)], 99).ToArray();
+        RenderTools.ResolvedStoryboardFrame[] levelMinus = RenderTools.ResolveStoryboardFrames(scene, nearDuplicateShots, timeSeconds: null, -10).ToArray();
+        RenderTools.ResolvedStoryboardFrame[] levelOne = RenderTools.ResolveStoryboardFrames(scene, nearDuplicateShots, timeSeconds: null, 1).ToArray();
+        RenderTools.ResolvedStoryboardFrame[] levelLarge = RenderTools.ResolveStoryboardFrames(scene, [new("left", 0), new("right", 1)], timeSeconds: null, 99).ToArray();
 
         Assert.Multiple(() =>
         {
@@ -247,9 +247,8 @@ public sealed class RenderToolsStoryboardTests
     }
 
     [Test]
-    public void Resolve_storyboard_frames_uses_explicit_frame_rate_for_dedupe_tolerance()
+    public void Resolve_storyboard_frames_uses_the_project_frame_rate_for_dedupe_tolerance()
     {
-        var scene = new Scene(16, 9, "frame-rate") { Duration = TimeSpan.FromSeconds(1) };
         StoryboardShotInput[] nearDuplicateShots =
         [
             new("left", 0),
@@ -260,10 +259,10 @@ public sealed class RenderToolsStoryboardTests
         // At 30 fps the half-frame tolerance is ~16.7 ms, so the 10 ms-apart anchor is deduped away;
         // at 60 fps it halves to ~8.3 ms, so the same anchor survives.
         RenderTools.ResolvedStoryboardFrame[] at30 = RenderTools
-            .ResolveStoryboardFrames(scene, nearDuplicateShots, timeSeconds: null, subdivisionLevel: 1, frameRate: 30)
+            .ResolveStoryboardFrames(CreateScene(30), nearDuplicateShots, timeSeconds: null, subdivisionLevel: 1)
             .ToArray();
         RenderTools.ResolvedStoryboardFrame[] at60 = RenderTools
-            .ResolveStoryboardFrames(scene, nearDuplicateShots, timeSeconds: null, subdivisionLevel: 1, frameRate: 60)
+            .ResolveStoryboardFrames(CreateScene(60), nearDuplicateShots, timeSeconds: null, subdivisionLevel: 1)
             .ToArray();
 
         Assert.Multiple(() =>
@@ -271,6 +270,15 @@ public sealed class RenderToolsStoryboardTests
             Assert.That(at30.Select(frame => frame.Name), Does.Not.Contain("near-left"));
             Assert.That(at60.Select(frame => frame.Name), Does.Contain("near-left"));
         });
+
+        static Scene CreateScene(int frameRate)
+        {
+            var scene = new Scene(16, 9, "frame-rate") { Duration = TimeSpan.FromSeconds(1) };
+            var project = new Project();
+            project.Variables[ProjectVariableKeys.FrameRate] = frameRate.ToString(CultureInfo.InvariantCulture);
+            project.Items.Add(scene);
+            return scene;
+        }
     }
 
     [Test]
@@ -312,7 +320,7 @@ public sealed class RenderToolsStoryboardTests
         string workspace = CreateWorkspace();
         Scene scene = CreateStaticStoryboardScene(workspace);
 
-        RenderTools.ResolvedStoryboardFrame[] frames = RenderTools.ResolveStoryboardFrames(scene, null, 1).ToArray();
+        RenderTools.ResolvedStoryboardFrame[] frames = RenderTools.ResolveStoryboardFrames(scene, null, timeSeconds: null, 1).ToArray();
 
         Assert.Multiple(() =>
         {
