@@ -122,12 +122,13 @@ jobs:
       - name: Print
         run: ls artifacts
 
-      # Windows ships its installers and macOS the signed app (#2887), so the Windows and macOS zips from
-      # build-executable are not published. The Windows installer jobs unpack the zip's workflow artifact.
+      # Only self-contained builds ship (#2887). Windows ships its installers and macOS the signed app, so the
+      # Windows zips from build-executable are not published. The Windows installer jobs unpack the zip's
+      # workflow artifact.
       - uses: ncipollo/release-action@v1.21.0
         id: create_release
         with:
-          artifacts: "artifacts/**/Beutl-linux-*.zip,artifacts/**/Beutl.osx_*.app.zip,artifacts/**/*.deb,artifacts/**/*.flatpak,artifacts/Packages/*.nupkg,artifacts/beutl-setup/beutl-setup.exe,artifacts/beutl-standalone-setup/beutl-standalone-setup.exe,artifacts/beutl-arm64-setup/beutl-arm64-setup.exe,artifacts/beutl-standalone-arm64-setup/beutl-standalone-arm64-setup.exe"
+          artifacts: "artifacts/**/Beutl-linux-*-standalone-*.zip,artifacts/**/Beutl.osx_*.app.zip,artifacts/**/*.deb,artifacts/**/*.flatpak,artifacts/Packages/*.nupkg,artifacts/beutl-standalone-setup/beutl-standalone-setup.exe,artifacts/beutl-standalone-arm64-setup/beutl-standalone-arm64-setup.exe"
           draft: true
           makeLatest: true
           generateReleaseNotes: true

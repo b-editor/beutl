@@ -173,7 +173,7 @@ jobs:
               - `**Improvements & Refactoring**` → `**改善・リファクタリング**`
               - `**Bug Fixes**` → `**バグ修正**`
               - `**Other**` → `**その他**`
-              - `Installer` → `インストーラー`, `Installer (.NET Runtime required)` → `インストーラー (.NET Runtime 必須)`, `Debian package` → `Debian パッケージ`, `Zip (.NET Runtime required)` → `Zip (.NET Runtime 必須)`. Keep `Zip (arm64)`, `Zip (x64)`, `Zip`, `Flatpak` and the platform names as they are.
+              - `Installer` → `インストーラー`, `Debian package` → `Debian パッケージ`. Keep `Zip (arm64)`, `Zip (x64)`, `Zip`, `Flatpak` and the platform names as they are.
               - `(breaking change)` → `（破壊的変更）`
               - `## New Contributors` → `## 新しいコントリビューター`, and each `* @<user> made their first contribution in <URL>` → `* @<user> さんが <URL> で初めてコントリビュートしました`
               - `**Full Changelog**` → `**フルチェンジログ**`, keeping the URL.
