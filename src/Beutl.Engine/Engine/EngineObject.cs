@@ -195,15 +195,21 @@ public class EngineObject : Hierarchical, INotifyEdited
         }
     }
 
-    // Keeps the entries of the name member that belong to no property of this object. Like unknown members,
-    // entries read again replace the ones kept before, and a populate without the member keeps them.
+    // Keeps the entries of the name member that belong to no property of this object, under its name or a former
+    // one (the keys Deserialize looks them up by), so an entry read under a former name is not written back next to
+    // the current one. Like unknown members, entries read again replace the ones kept before, and a populate without
+    // the member keeps them.
     private void KeepUnknownEntries(JsonSerializationContext context, string name, ref JsonObject? kept)
     {
         if (context.GetNode(name) is not JsonObject entries) return;
 
         foreach ((string key, JsonNode? node) in entries)
         {
-            if (_properties.Exists(property => property.Name == key)) continue;
+            if (_properties.Exists(property =>
+                    FormerPersistedNames.IsMemberKey(key, property.Name, property.GetAttributes())))
+            {
+                continue;
+            }
 
             (kept ??= [])[key] = node?.DeepClone();
             RootFileVersions.RecordKeptUnknownData();

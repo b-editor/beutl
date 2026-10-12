@@ -105,6 +105,29 @@ internal static class FormerPersistedNames
         return false;
     }
 
+    // Whether key is one that TryGetMember looks the member up by: its name or one of its former names.
+    internal static bool IsMemberKey(string key, string name, Attribute[]? attributes)
+    {
+        if (key == name)
+        {
+            return true;
+        }
+
+        if (attributes is not null)
+        {
+            foreach (Attribute attribute in attributes)
+            {
+                if (attribute is FormerPersistedNameAttribute { Name: { Length: > 0 } formerName }
+                    && formerName == key)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     private static bool HasFormerName(Attribute[] attributes)
     {
         foreach (Attribute attribute in attributes)

@@ -1,6 +1,7 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.Animation;
 using Beutl.Engine;
+using Beutl.Engine.Expressions;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
@@ -75,6 +76,48 @@ public class UnknownMemberTests
             Assert.That(written["Animations"]![nameof(RectShape.Width)], Is.Not.Null);
             Assert.That(JsonNode.DeepEquals(written["Expressions"]!["FutureAmount"], json["Expressions"]!["FutureAmount"]),
                 Is.True);
+        });
+    }
+
+    // What a property reads under a former name (FormerPersistedNameAttribute) is not unknown: its value, animation
+    // and expression, and a CoreProperty value, are written under the current names only, and reading them keeps no
+    // data this build does not know.
+    [Test]
+    public void MembersReadUnderAFormerName_AreNotKeptAsUnknown()
+    {
+        var source = new RenamedHolder { Title = "title" };
+        source.Amount.CurrentValue = 3;
+        source.Amount.Animation = CreateAnimation(4f);
+        source.Amount.Expression = Expression.Create<float>("5");
+        JsonObject json = CoreSerializer.SerializeToJsonObject(source);
+        RenameKey(json, nameof(RenamedHolder.Amount), RenamedHolder.FormerAmount);
+        RenameKey(json["Animations"]!.AsObject(), nameof(RenamedHolder.Amount), RenamedHolder.FormerAmount);
+        RenameKey(json["Expressions"]!.AsObject(), nameof(RenamedHolder.Amount), RenamedHolder.FormerAmount);
+        RenameKey(json, nameof(RenamedHolder.Title), RenamedHolder.FormerTitle);
+        var project = new Project();
+
+        RenamedHolder restored;
+        using (RootFileVersions.BeginReading(project))
+        {
+            restored = (RenamedHolder)CoreSerializer.DeserializeFromJsonObject(json, typeof(RenamedHolder));
+        }
+
+        JsonObject written = CoreSerializer.SerializeToJsonObject(restored);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(restored.Amount.CurrentValue, Is.EqualTo(3));
+            Assert.That(restored.Amount.Animation, Is.Not.Null);
+            Assert.That(restored.Amount.Expression?.ExpressionString, Is.EqualTo("5"));
+            Assert.That(restored.Title, Is.EqualTo("title"));
+            Assert.That(written.ContainsKey(RenamedHolder.FormerAmount), Is.False);
+            Assert.That(written.ContainsKey(RenamedHolder.FormerTitle), Is.False);
+            Assert.That(written["Animations"]!.AsObject().Select(static pair => pair.Key),
+                Is.EqualTo(new[] { nameof(RenamedHolder.Amount) }));
+            Assert.That(written["Expressions"]!.AsObject().Select(static pair => pair.Key),
+                Is.EqualTo(new[] { nameof(RenamedHolder.Amount) }));
+            Assert.That(restored.UnknownMembers, Is.Null);
+            Assert.That(RootFileVersions.HasKeptUnknownData(project), Is.False);
         });
     }
 
@@ -227,6 +270,13 @@ public class UnknownMemberTests
         return animation;
     }
 
+    private static void RenameKey(JsonObject json, string from, string to)
+    {
+        JsonNode? node = json[from];
+        json.Remove(from);
+        json[to] = node;
+    }
+
     private sealed class PlainObject : CoreObject
     {
         public static readonly CoreProperty<int> ValueProperty;
@@ -240,6 +290,34 @@ public class UnknownMemberTests
         {
             get => GetValue(ValueProperty);
             set => SetValue(ValueProperty, value);
+        }
+    }
+
+    // An engine object whose properties were renamed: an IProperty and a CoreProperty, each with a former name.
+    [SuppressResourceClassGeneration]
+    private sealed class RenamedHolder : EngineObject
+    {
+        public const string FormerAmount = "FormerAmount";
+        public const string FormerTitle = "FormerTitle";
+
+        public static readonly CoreProperty<string?> TitleProperty;
+
+        static RenamedHolder()
+        {
+            TitleProperty = ConfigureProperty<string?, RenamedHolder>(nameof(Title))
+                .FormerPersistedName(FormerTitle)
+                .Register();
+        }
+
+        public RenamedHolder() => ScanProperties<RenamedHolder>();
+
+        [FormerPersistedName(FormerAmount)]
+        public IProperty<float> Amount { get; } = Property.CreateAnimatable(1f);
+
+        public string? Title
+        {
+            get => GetValue(TitleProperty);
+            set => SetValue(TitleProperty, value);
         }
     }
 
