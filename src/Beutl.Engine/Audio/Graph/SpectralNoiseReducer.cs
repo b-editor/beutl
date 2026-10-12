@@ -121,6 +121,7 @@ internal sealed class SpectralNoiseReducer
         Reset(0, 0);
     }
 
+    // Test-only (via InternalsVisibleTo); production code reads only HopSize.
     public int FrameSize => _frameSize;
 
     public int HopSize => _hopSize;
@@ -132,6 +133,7 @@ internal sealed class SpectralNoiseReducer
     public long OutputPosition => _outputPosition;
 
     /// <summary>The current noise power per bin, on the scale of a Hann-windowed periodogram.</summary>
+    // Test-only (via InternalsVisibleTo).
     internal ReadOnlySpan<float> NoiseEstimate => _noise;
 
     // At least 20 ms, rounded up to a power of two for the radix-2 FFT: 1024 at 44.1 and 48 kHz.
@@ -227,7 +229,7 @@ internal sealed class SpectralNoiseReducer
         // Every frame that starts before outputEnd contributes to it; the last of them ends a frame later.
         return outputEnd <= _outputPosition
             ? _inputBase
-            : FloorToHop(outputEnd - 1) + _frameSize;
+            : FloorToHop(outputEnd - 1, _hopSize) + _frameSize;
     }
 
     /// <summary>
@@ -298,7 +300,7 @@ internal sealed class SpectralNoiseReducer
 
         // Frames that start a full frame before the output position never reach it, and PrepareWrite
         // keeps a frame of input before the next frame for exactly this replay.
-        long replay = FloorToHop(_outputPosition) - (_frameSize - _hopSize);
+        long replay = FloorToHop(_outputPosition, _hopSize) - (_frameSize - _hopSize);
         if (replay < _inputBase)
             throw new InvalidOperationException("The input needed to recompute the output was discarded.");
 
@@ -626,7 +628,7 @@ internal sealed class SpectralNoiseReducer
         return (float)(bias[lower] + (bias[lower + 1] - bias[lower]) * fraction);
     }
 
-    private long FloorToHop(long position) => position - FloorMod(position, _hopSize);
+    internal static long FloorToHop(long position, int hop) => position - FloorMod(position, hop);
 
     private static long FloorMod(long value, int divisor)
     {

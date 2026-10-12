@@ -103,10 +103,7 @@ public class CompressorNodeTests
     [Test]
     public void Process_SilenceInput_ProducesExactSilenceOutput()
     {
-        // End-to-end "silence in → silence out" smoke test. It does NOT isolate the `peak > 0f`
-        // guard (RecoverEnvelopeIfNonFinite masks the Log10(0) = -∞ envelope state, and the gain
-        // calc yields 0 either way), but it catches any future bug injecting DC/noise/offset into
-        // a silent stream (a stray makeup application, a sanitizer that fails open, etc.).
+        // Smoke test: silent input must come out exactly silent.
         const int sampleCount = SampleRate / 4;
         using var input = new AudioBuffer(SampleRate, 2, sampleCount);
         // Default-constructed AudioBuffer is zeroed, so no fill needed.

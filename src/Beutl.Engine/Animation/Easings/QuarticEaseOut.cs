@@ -4,6 +4,8 @@ public sealed class QuarticEaseOut : UnitRangeEasing
 {
     public override float Ease(float progress)
     {
-        return Funcs.QuarticEaseOut(progress);
+        var f = progress - 1f;
+        var f2 = f * f;
+        return -f2 * f2 + 1f;
     }
 }

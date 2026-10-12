@@ -42,9 +42,6 @@ public sealed partial class EqualizerEffect : AudioEffect
         BandCountOption.ValueChanged += OnBandCountOptionOnValueChanged;
     }
 
-    /// <summary>
-    /// Band count preset.
-    /// </summary>
     [Display(Name = nameof(AudioStrings.Equalizer_BandCount), ResourceType = typeof(AudioStrings))]
     public IProperty<BandCountPreset> BandCountOption { get; } = Property.Create(BandCountPreset.Bands10);
 
@@ -61,9 +58,6 @@ public sealed partial class EqualizerEffect : AudioEffect
         InitializeBands(BandCountOption.CurrentValue);
     }
 
-    /// <summary>
-    /// Initializes bands based on the specified preset.
-    /// </summary>
     private void InitializeBands(BandCountPreset preset)
     {
         var frequencies = preset switch
@@ -128,13 +122,8 @@ public sealed partial class EqualizerEffect : AudioEffect
             return false;
         }
 
-        // Animated gain must stay live so keyframes can take effect later. Expressions are
-        // intentionally not checked here because EqualizerNode/AnimationSampler currently read
-        // CurrentValue for expression-backed properties too — treating them as live would leave
-        // the IsNeutral guard out of sync with how the audio is actually rendered.
-        // FIXME(expression): once AnimationSampler evaluates expressions per-sample, this guard must
-        // also treat HasExpression as live. Otherwise an expression that evaluates to 0 dB at graph
-        // build time but to non-zero later will be silently dropped from the signal path.
+        // Expressions render at CurrentValue, so only an animation keeps the gain live.
+        // FIXME(expression): also treat HasExpression as live once AnimationSampler evaluates expressions.
         if (band.Gain.Animation is not null) return false;
 
         return band.Gain.CurrentValue == 0f;

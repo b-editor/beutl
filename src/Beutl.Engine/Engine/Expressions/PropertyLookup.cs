@@ -13,7 +13,6 @@ public class PropertyLookup(ICoreObject root)
     {
         value = default;
 
-        // Parse the path: "GUID.PropertyName"
         int dotIndex = path.IndexOf('.');
         if (dotIndex < 0)
             return false;
@@ -21,7 +20,6 @@ public class PropertyLookup(ICoreObject root)
         string objectIdentifier = path[..dotIndex];
         string propertyName = path[(dotIndex + 1)..];
 
-        // The identifier must be a GUID
         if (!Guid.TryParse(objectIdentifier, out Guid objectId))
             return false;
 
@@ -37,7 +35,6 @@ public class PropertyLookup(ICoreObject root)
 
         if (coreObject is EngineObject engineObject)
         {
-            // Find the property
             IProperty? property = engineObject.Properties.FirstOrDefault(p =>
                 string.Equals(p.Name, propertyName, StringComparison.OrdinalIgnoreCase));
 

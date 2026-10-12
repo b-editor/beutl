@@ -8,7 +8,6 @@ public sealed class AudioBuffer : IDisposable
 {
     private readonly IMemoryOwner<float> _memoryOwner;
     private readonly Memory<float> _memory;
-    private readonly int _channelSampleCount;
     private bool _disposed;
 
     public AudioBuffer(int sampleRate, int channelCount, int sampleCount)
@@ -23,13 +22,10 @@ public sealed class AudioBuffer : IDisposable
         SampleRate = sampleRate;
         ChannelCount = channelCount;
         SampleCount = sampleCount;
-        _channelSampleCount = sampleCount;
 
         var totalSamples = channelCount * sampleCount;
         _memoryOwner = MemoryPool<float>.Shared.Rent(totalSamples);
         _memory = _memoryOwner.Memory.Slice(0, totalSamples);
-
-        // Clear the buffer
         _memory.Span.Clear();
     }
 
@@ -44,8 +40,8 @@ public sealed class AudioBuffer : IDisposable
         if (channel < 0 || channel >= ChannelCount)
             throw new ArgumentOutOfRangeException(nameof(channel), $"Channel must be between 0 and {ChannelCount - 1}.");
 
-        var start = channel * _channelSampleCount;
-        return _memory.Span.Slice(start, _channelSampleCount);
+        var start = channel * SampleCount;
+        return _memory.Span.Slice(start, SampleCount);
     }
 
     public Memory<float> GetChannelMemory(int channel)
@@ -55,8 +51,8 @@ public sealed class AudioBuffer : IDisposable
         if (channel < 0 || channel >= ChannelCount)
             throw new ArgumentOutOfRangeException(nameof(channel), $"Channel must be between 0 and {ChannelCount - 1}.");
 
-        var start = channel * _channelSampleCount;
-        return _memory.Slice(start, _channelSampleCount);
+        var start = channel * SampleCount;
+        return _memory.Slice(start, SampleCount);
     }
 
     /// <summary>

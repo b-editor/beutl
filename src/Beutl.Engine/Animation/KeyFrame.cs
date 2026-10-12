@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 
 using Beutl.Animation.Easings;
+using Beutl.Converters;
 using Beutl.Serialization;
 using Beutl.Utilities;
 using Beutl.Validation;
@@ -161,9 +162,7 @@ public class KeyFrame : Hierarchical
 
     private static bool IsInstantiableEasingType(Type type)
     {
-        return type.IsAssignableTo(typeof(Easing))
-            && !type.IsAbstract
-            && !type.ContainsGenericParameters
+        return EasingJsonConverter.IsConcreteEasingType(type)
             && type.GetConstructor(Type.EmptyTypes) is not null;
     }
 
@@ -192,8 +191,7 @@ public class KeyFrame : Hierarchical
             && TryReadSplinePoint(easingObject, "Y1", 0, out float y1)
             && TryReadSplinePoint(easingObject, "X2", 1, out float x2)
             && TryReadSplinePoint(easingObject, "Y2", 1, out float y2)
-            && float.IsFinite(x1) && float.IsFinite(y1)
-            && float.IsFinite(x2) && float.IsFinite(y2)
+            && float.IsFinite(y1) && float.IsFinite(y2)
             && x1 is >= 0 and <= 1 && x2 is >= 0 and <= 1)
         {
             easing = new SplineEasing(x1, y1, x2, y2);

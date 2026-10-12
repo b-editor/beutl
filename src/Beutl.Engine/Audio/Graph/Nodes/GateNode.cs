@@ -44,60 +44,15 @@ public sealed class GateNode : DynamicsNode
         {
             EffectiveParameters p = ReadStaticParameters();
 
-            float attackCoeff = ComputeCoeff(p.Attack, context.SampleRate);
-            float releaseCoeff = ComputeCoeff(p.Release, context.SampleRate);
-            int holdSamples = HoldSamples(p.Hold, context.SampleRate);
+            var gain = new StaticGain(
+                this,
+                ComputeCoeff(p.Attack, context.SampleRate),
+                ComputeCoeff(p.Release, context.SampleRate),
+                p,
+                HoldSamples(p.Hold, context.SampleRate));
 
-            int channels = input.ChannelCount;
-            int sampleCount = input.SampleCount;
             var (inputChannels, outputChannels) = MapChannels(input, output);
-
-            if (channels <= 2)
-            {
-                Span<float> in0 = inputChannels[0].Span;
-                Span<float> out0 = outputChannels[0].Span;
-                Span<float> in1 = channels == 2 ? inputChannels[1].Span : default;
-                Span<float> out1 = channels == 2 ? outputChannels[1].Span : default;
-
-                for (int i = 0; i < sampleCount; i++)
-                {
-                    float s0 = in0[i];
-                    float peak = AccumulatePeak(0f, s0);
-                    float s1 = 0f;
-                    if (channels == 2)
-                    {
-                        s1 = in1[i];
-                        peak = AccumulatePeak(peak, s1);
-                    }
-
-                    float gainLinear = NextGain(peak, attackCoeff, releaseCoeff, p, holdSamples);
-
-                    out0[i] = SanitizeOutput(s0 * gainLinear);
-                    if (channels == 2)
-                    {
-                        out1[i] = SanitizeOutput(s1 * gainLinear);
-                    }
-                }
-            }
-            else
-            {
-                for (int i = 0; i < sampleCount; i++)
-                {
-                    float peak = 0f;
-                    for (int ch = 0; ch < channels; ch++)
-                    {
-                        peak = AccumulatePeak(peak, inputChannels[ch].Span[i]);
-                    }
-
-                    float gainLinear = NextGain(peak, attackCoeff, releaseCoeff, p, holdSamples);
-
-                    for (int ch = 0; ch < channels; ch++)
-                    {
-                        float sample = inputChannels[ch].Span[i] * gainLinear;
-                        outputChannels[ch].Span[i] = SanitizeOutput(sample);
-                    }
-                }
-            }
+            ApplyLinkedGain(inputChannels, outputChannels, input.ChannelCount, 0, input.SampleCount, ref gain);
 
             return output;
         }
@@ -121,25 +76,25 @@ public sealed class GateNode : DynamicsNode
             Span<float> releases = stackalloc float[bufferSize];
             Span<float> ranges = stackalloc float[bufferSize];
 
-            EffectiveParameters fallback = ReadStaticParameters();
+            var gain = new AnimatedGain
+            {
+                Node = this,
+                Thresholds = thresholds,
+                Attacks = attacks,
+                Holds = holds,
+                Releases = releases,
+                Ranges = ranges,
+                Fallback = ReadStaticParameters(),
+                SampleRate = context.SampleRate,
+                // NaN forces coefficient calculation for sample zero.
+                LastAttackMs = float.NaN,
+                LastReleaseMs = float.NaN,
+            };
 
-            int channels = input.ChannelCount;
             int sampleCount = input.SampleCount;
             var (inputChannels, outputChannels) = MapChannels(input, output);
 
-            Span<float> in0 = channels <= 2 ? inputChannels[0].Span : default;
-            Span<float> out0 = channels <= 2 ? outputChannels[0].Span : default;
-            Span<float> in1 = channels == 2 ? inputChannels[1].Span : default;
-            Span<float> out1 = channels == 2 ? outputChannels[1].Span : default;
-
             int processed = 0;
-
-            // NaN forces coefficient calculation for sample zero.
-            float lastAttackMs = float.NaN;
-            float lastReleaseMs = float.NaN;
-            float attackCoeff = 0f;
-            float releaseCoeff = 0f;
-
             while (processed < sampleCount)
             {
                 int chunkSize = Math.Min(bufferSize, sampleCount - processed);
@@ -152,61 +107,8 @@ public sealed class GateNode : DynamicsNode
                 context.AnimationSampler.SampleBuffer(Release, chunkRange, context.SampleRate, releases[..chunkSize]);
                 context.AnimationSampler.SampleBuffer(Range, chunkRange, context.SampleRate, ranges[..chunkSize]);
 
-                for (int i = 0; i < chunkSize; i++)
-                {
-                    int idx = processed + i;
-
-                    EffectiveParameters p = SanitizeAnimated(
-                        thresholds[i], attacks[i], holds[i], releases[i], ranges[i], fallback);
-
-                    if (p.Attack != lastAttackMs)
-                    {
-                        attackCoeff = ComputeCoeff(p.Attack, context.SampleRate);
-                        lastAttackMs = p.Attack;
-                    }
-                    if (p.Release != lastReleaseMs)
-                    {
-                        releaseCoeff = ComputeCoeff(p.Release, context.SampleRate);
-                        lastReleaseMs = p.Release;
-                    }
-                    int holdSamples = HoldSamples(p.Hold, context.SampleRate);
-
-                    if (channels <= 2)
-                    {
-                        float s0 = in0[idx];
-                        float peak = AccumulatePeak(0f, s0);
-                        float s1 = 0f;
-                        if (channels == 2)
-                        {
-                            s1 = in1[idx];
-                            peak = AccumulatePeak(peak, s1);
-                        }
-
-                        float gainLinear = NextGain(peak, attackCoeff, releaseCoeff, p, holdSamples);
-
-                        out0[idx] = SanitizeOutput(s0 * gainLinear);
-                        if (channels == 2)
-                        {
-                            out1[idx] = SanitizeOutput(s1 * gainLinear);
-                        }
-                    }
-                    else
-                    {
-                        float peak = 0f;
-                        for (int ch = 0; ch < channels; ch++)
-                        {
-                            peak = AccumulatePeak(peak, inputChannels[ch].Span[idx]);
-                        }
-
-                        float gainLinear = NextGain(peak, attackCoeff, releaseCoeff, p, holdSamples);
-
-                        for (int ch = 0; ch < channels; ch++)
-                        {
-                            float sample = inputChannels[ch].Span[idx] * gainLinear;
-                            outputChannels[ch].Span[idx] = SanitizeOutput(sample);
-                        }
-                    }
-                }
+                gain.ChunkStart = processed;
+                ApplyLinkedGain(inputChannels, outputChannels, input.ChannelCount, processed, chunkSize, ref gain);
 
                 processed += chunkSize;
             }
@@ -296,6 +198,50 @@ public sealed class GateNode : DynamicsNode
         _gateGainDb = MinDb;
         _holdCounter = 0;
         _gatePrimed = false;
+    }
+
+    private readonly struct StaticGain(
+        GateNode node, float attackCoeff, float releaseCoeff, EffectiveParameters p, int holdSamples) : ILinkedGain
+    {
+        public float Next(int index, float peak) => node.NextGain(peak, attackCoeff, releaseCoeff, p, holdSamples);
+    }
+
+    private ref struct AnimatedGain : ILinkedGain
+    {
+        public GateNode Node;
+        public Span<float> Thresholds;
+        public Span<float> Attacks;
+        public Span<float> Holds;
+        public Span<float> Releases;
+        public Span<float> Ranges;
+        public EffectiveParameters Fallback;
+        public int SampleRate;
+        public int ChunkStart;
+        public float LastAttackMs;
+        public float LastReleaseMs;
+        public float AttackCoeff;
+        public float ReleaseCoeff;
+
+        public float Next(int index, float peak)
+        {
+            int i = index - ChunkStart;
+            EffectiveParameters p = Node.SanitizeAnimated(
+                Thresholds[i], Attacks[i], Holds[i], Releases[i], Ranges[i], Fallback);
+
+            if (p.Attack != LastAttackMs)
+            {
+                AttackCoeff = ComputeCoeff(p.Attack, SampleRate);
+                LastAttackMs = p.Attack;
+            }
+            if (p.Release != LastReleaseMs)
+            {
+                ReleaseCoeff = ComputeCoeff(p.Release, SampleRate);
+                LastReleaseMs = p.Release;
+            }
+            int holdSamples = HoldSamples(p.Hold, SampleRate);
+
+            return Node.NextGain(peak, AttackCoeff, ReleaseCoeff, p, holdSamples);
+        }
     }
 
     private readonly struct EffectiveParameters

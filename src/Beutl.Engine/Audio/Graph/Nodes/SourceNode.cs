@@ -51,13 +51,11 @@ public sealed class SourceNode : AudioNode
 
         try
         {
-            // Read PCM data from source
             if (resource.Read((int)start, (int)length, out var pcmRef))
             {
                 using (pcmRef)
                 {
                     var pcm = pcmRef.Value;
-                    // Convert to stereo float if needed
                     if (pcm is Pcm<Stereo32BitFloat> stereoPcm)
                     {
                         CopyPcmToBuffer(stereoPcm, buffer);
@@ -68,7 +66,6 @@ public sealed class SourceNode : AudioNode
                     }
                     else
                     {
-                        // Convert to stereo float
                         using var convertedPcm = pcm.Convert<Stereo32BitFloat>();
                         CopyPcmToBuffer(convertedPcm, buffer);
                     }
@@ -107,17 +104,12 @@ public sealed class SourceNode : AudioNode
 
         var copyLength = System.Math.Min(pcm.NumSamples, buffer.SampleCount);
 
-        // Copy mono to left channel
         for (int i = 0; i < copyLength; i++)
         {
             leftChannel[i] = srcPtr[i].Value;
         }
 
-        // Copy to right channel if stereo
-        if (buffer.ChannelCount > 1)
-        {
-            var rightChannel = buffer.GetChannelData(1);
-            leftChannel.CopyTo(rightChannel);
-        }
+        var rightChannel = buffer.GetChannelData(1);
+        leftChannel.CopyTo(rightChannel);
     }
 }

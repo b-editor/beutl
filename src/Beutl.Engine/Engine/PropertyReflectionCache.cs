@@ -53,11 +53,6 @@ public static class PropertyReflectionCache
 
     private static void Unregister(Type[] types)
     {
-        foreach (Type type in types)
-        {
-            Cache.Remove(type);
-        }
-
         foreach (KeyValuePair<Type, PropertyCacheEntry> kvp in Cache.ToArray())
         {
             foreach (Type t in types)
@@ -65,6 +60,7 @@ public static class PropertyReflectionCache
                 if (TypeUnloadNotifier.ContainsTypeRecursive(kvp.Key, t))
                 {
                     Cache.Remove(kvp.Key);
+                    break;
                 }
             }
         }

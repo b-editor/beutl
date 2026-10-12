@@ -11,6 +11,6 @@ public sealed class BounceEaseIn : Easing
 
     public override float Ease(float progress)
     {
-        return Funcs.BounceEaseIn(progress);
+        return 1 - BounceEaseOut.Evaluate(1 - progress);
     }
 }

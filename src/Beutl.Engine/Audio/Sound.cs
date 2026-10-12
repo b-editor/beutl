@@ -43,7 +43,6 @@ public abstract partial class Sound : EngineObject
     {
         if (!IsEnabled)
         {
-            context.Clear();
             return;
         }
 
@@ -52,11 +51,9 @@ public abstract partial class Sound : EngineObject
         // ResampleNode at zero rate would throw, so emit silence instead.
         if (soundSource == null || soundSource.SampleRate <= 0)
         {
-            context.Clear();
             return;
         }
 
-        // Create source node
         var sourceNode = context.CreateSourceNode(soundSource);
 
         var shiftNode = context.CreateShiftNode(OffsetPosition.CurrentValue);
@@ -68,13 +65,11 @@ public abstract partial class Sound : EngineObject
         var speedNode = context.CreateSpeedNode(Speed);
         context.Connect(resampleNode, speedNode);
 
-        // Create gain node with animation support
         var gainNode = context.CreateGainNode(Gain);
         context.Connect(speedNode, gainNode);
 
         AudioNode currentNode = gainNode;
 
-        // Add effect if present
         if (Effect.CurrentValue != null && Effect.CurrentValue.IsEnabled)
         {
             currentNode = Effect.CurrentValue.CreateNode(context, currentNode);

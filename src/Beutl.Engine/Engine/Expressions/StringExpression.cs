@@ -201,7 +201,6 @@ public sealed class StringExpression<T> : IExpression<T>
             return default!;
         }
 
-        // Direct assignment if types match
         if (value is T typedValue)
         {
             return typedValue;
@@ -210,13 +209,11 @@ public sealed class StringExpression<T> : IExpression<T>
         var targetType = typeof(T);
         var sourceType = value.GetType();
 
-        // Numeric conversions
         if (IsNumericType(targetType) && IsNumericType(sourceType))
         {
             return (T)Convert.ChangeType(value, targetType);
         }
 
-        // Special handling for bool
         if (targetType == typeof(bool) && IsNumericType(sourceType))
         {
             double numValue = Convert.ToDouble(value);

@@ -10,8 +10,6 @@ public class ClipNode : AudioNode
 
     internal bool InlineDrainAttempted { get; private set; }
 
-    internal int InlineDrainedSamples { get; private set; }
-
     internal int InlinePaddingSamples { get; private set; }
 
     public TimeSpan Start { get; set; } = TimeSpan.Zero;
@@ -35,7 +33,6 @@ public class ClipNode : AudioNode
     public override AudioBuffer Process(AudioProcessContext context)
     {
         InlineDrainAttempted = false;
-        InlineDrainedSamples = 0;
         InlinePaddingSamples = 0;
 
         var range = new TimeRange(Start, Duration);
@@ -77,7 +74,6 @@ public class ClipNode : AudioNode
             // so clamp the copy to newBuffer's capacity; the overflow is out-of-range padding.
             // padBefore is clip-relative and bounded by the clip duration, so it cannot overflow int.
             int offset = (int)(padBefore.TotalSeconds * context.SampleRate);
-            if (offset < 0) offset = 0;
             int copyCount = Math.Min(buffer.SampleCount, newBuffer.SampleCount - offset);
             if (copyCount > 0)
             {
@@ -132,8 +128,6 @@ public class ClipNode : AudioNode
         int drainCount = Math.Min(latency, capacity);
         if (drainCount <= 0)
             return;
-
-        InlineDrainedSamples = drainCount;
 
         var drainContext = new AudioProcessContext(
             new TimeRange(

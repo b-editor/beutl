@@ -35,8 +35,7 @@ public class ExpressionGlobals
     }
     public T GetProperty<T>(Guid objectId, string propertyName)
     {
-        string path = $"{objectId}.{propertyName}";
-        if (_context.TryGetPropertyValue<T>(path, out var value))
+        if (_context.TryGetPropertyValue<T>(objectId, propertyName, out var value))
         {
             return value!;
         }

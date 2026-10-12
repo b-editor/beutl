@@ -11,29 +11,16 @@ namespace Beutl.Audio.Graph;
 public sealed partial class AudioContext : IDisposable
 {
     private readonly List<AudioNode> _nodes = new();
-    private readonly Dictionary<AudioNode, List<AudioNode>> _connections =
-        new(ReferenceEqualityComparer.Instance);
     private readonly HashSet<AudioNode> _outputNodes = new(ReferenceEqualityComparer.Instance);
     private List<AudioNode>? _previousNodes;
     private AudioNode? _currentNode;
     private bool _disposed;
     private bool _topologyMutationInProgress;
 
-    /// <summary>
-    /// Gets the sample rate for the audio context.
-    /// </summary>
     public int SampleRate { get; }
 
-    /// <summary>
-    /// Gets the channel count for the audio context.
-    /// </summary>
     public int ChannelCount { get; }
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="AudioContext"/> class.
-    /// </summary>
-    /// <param name="sampleRate">The sample rate for the audio context.</param>
-    /// <param name="channelCount">The channel count for the audio context.</param>
     public AudioContext(int sampleRate, int channelCount)
     {
         if (sampleRate <= 0)
@@ -68,13 +55,6 @@ public sealed partial class AudioContext : IDisposable
         if (!ContainsReference(_nodes, node))
         {
             _nodes.Add(node);
-            _connections[node] = new List<AudioNode>();
-        }
-        else
-        {
-            // If reusing a node, ensure its connections list exists
-            if (!_connections.ContainsKey(node))
-                _connections[node] = new List<AudioNode>();
         }
 
         _currentNode = node;
@@ -104,7 +84,6 @@ public sealed partial class AudioContext : IDisposable
         ArgumentNullException.ThrowIfNull(updater, nameof(updater));
         ArgumentNullException.ThrowIfNull(comparer, nameof(comparer));
 
-        // Try to reuse from previous nodes
         if (_previousNodes?.OfType<TNode>().FirstOrDefault(n => comparer(parameters, n)) is { } existing)
         {
             updater(parameters, Reclaim(existing));
@@ -126,7 +105,6 @@ public sealed partial class AudioContext : IDisposable
         ThrowIfTopologyMutation();
         ArgumentNullException.ThrowIfNull(source);
 
-        // Try to reuse from previous nodes
         if (_previousNodes?.OfType<SourceNode>().FirstOrDefault(n => source.Compare(n.Source)) is { } existing)
         {
             return AddNode(Reclaim(existing));
@@ -140,8 +118,6 @@ public sealed partial class AudioContext : IDisposable
     /// Creates and adds a gain node to the context.
     /// </summary>
     /// <param name="gain">The gain value.</param>
-    /// <param name="target">The target object for animation binding (optional).</param>
-    /// <param name="gainProperty">The property to bind for animated gain (optional).</param>
     /// <returns>The created gain node.</returns>
     public GainNode CreateGainNode(IProperty<float> gain)
     {
@@ -149,11 +125,9 @@ public sealed partial class AudioContext : IDisposable
         ThrowIfTopologyMutation();
         ArgumentNullException.ThrowIfNull(gain);
 
-        // Try to reuse from previous nodes
         if (_previousNodes?.OfType<GainNode>().FirstOrDefault(n => n.Gain == gain) is { } existing)
         {
-            // Matched by Gain reference, so existing.Gain already == gain; no re-assignment needed
-            // (and Gain is now init-only).
+            // Matched by Gain reference, so no re-assignment is needed (Gain is init-only).
             return AddNode(Reclaim(existing));
         }
 
@@ -174,7 +148,6 @@ public sealed partial class AudioContext : IDisposable
         ThrowIfDisposed();
         ThrowIfTopologyMutation();
 
-        // Try to reuse from previous nodes
         if (_previousNodes?.OfType<ShiftNode>().FirstOrDefault(n => n.Shift == shift) is { } existing)
         {
             return AddNode(Reclaim(existing));
@@ -199,7 +172,6 @@ public sealed partial class AudioContext : IDisposable
         if (duration <= TimeSpan.Zero)
             throw new ArgumentOutOfRangeException(nameof(duration), "Duration must be positive.");
 
-        // Try to reuse from previous nodes
         if (_previousNodes?.OfType<ClipNode>().FirstOrDefault(n => n.Duration == duration && n.Start == start) is { } existing)
         {
             return AddNode(Reclaim(existing));
@@ -222,7 +194,6 @@ public sealed partial class AudioContext : IDisposable
         ThrowIfDisposed();
         ThrowIfTopologyMutation();
 
-        // Try to reuse from previous nodes
         if (_previousNodes?.OfType<MixerNode>().FirstOrDefault() is { } existing)
         {
             return AddNode(Reclaim(existing));
@@ -257,8 +228,6 @@ public sealed partial class AudioContext : IDisposable
     /// Creates and adds a speed node to the context.
     /// </summary>
     /// <param name="speed">The playback speed multiplier (100.0 = normal speed).</param>
-    /// <param name="target">The target object for animation binding (optional).</param>
-    /// <param name="speedProperty">The property to bind for animated speed (optional).</param>
     /// <returns>The created speed node.</returns>
     public SpeedNode CreateSpeedNode(IProperty<float> speed)
     {
@@ -266,11 +235,9 @@ public sealed partial class AudioContext : IDisposable
         ThrowIfTopologyMutation();
         ArgumentNullException.ThrowIfNull(speed);
 
-        // Try to reuse from previous nodes
         if (_previousNodes?.OfType<SpeedNode>().FirstOrDefault(n => n.Speed == speed) is { } existing)
         {
-            Reclaim(existing).Speed = speed;
-            return AddNode(existing);
+            return AddNode(Reclaim(existing));
         }
 
         var node = new SpeedNode
@@ -320,9 +287,6 @@ public sealed partial class AudioContext : IDisposable
             AddNode(destination);
 
         destination.AddInput(source);
-        _connections[source].Add(destination);
-
-        // Remove from output nodes if it now has a connection
         _outputNodes.Remove(source);
     }
 
@@ -384,7 +348,6 @@ public sealed partial class AudioContext : IDisposable
         }
 
         _nodes.Clear();
-        _connections.Clear();
         _outputNodes.Clear();
         _currentNode = null;
     }
@@ -407,12 +370,9 @@ public sealed partial class AudioContext : IDisposable
         ThrowIfDisposed();
         ThrowIfTopologyMutation();
 
-        // Save previous nodes for reuse
         _previousNodes = previousNodes.ToList();
 
-        // Clear current state
         _nodes.Clear();
-        _connections.Clear();
         _outputNodes.Clear();
         _currentNode = null;
     }
@@ -425,7 +385,6 @@ public sealed partial class AudioContext : IDisposable
         ThrowIfDisposed();
         ThrowIfTopologyMutation();
 
-        // Dispose unused nodes from previous state
         if (_previousNodes is { Count: > 0 })
         {
             foreach (var prevNode in _previousNodes)

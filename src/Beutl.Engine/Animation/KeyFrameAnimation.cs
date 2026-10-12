@@ -59,15 +59,7 @@ public abstract class KeyFrameAnimation : Hierarchical, IKeyFrameAnimation
                 }
             }
 
-            if (KeyFrames.Count > 1)
-            {
-                IKeyFrame last = KeyFrames[^1];
-                if (last.KeyTime < keyframe.KeyTime)
-                {
-                    KeyFrames.Move(index, KeyFrames.Count - 1);
-                    return;
-                }
-            }
+            KeyFrames.Move(index, KeyFrames.Count - 1);
         }
     }
 

@@ -12,10 +12,10 @@ internal static class TimeStretchParameters
     public static float Normalize(float speed)
         => float.IsNaN(speed) ? DefaultSpeed : Math.Clamp(speed, MinSpeed, MaxSpeed);
 
-    public static double GetMinimumSpeedFactor(IProperty<float>? speed)
+    public static double GetMinimumSpeedFactor(IProperty<float> speed)
     {
-        if (speed?.Animation is not { } animation)
-            return Normalize(speed?.CurrentValue ?? DefaultSpeed) / 100d;
+        if (speed.Animation is not { } animation)
+            return Normalize(speed.CurrentValue) / 100d;
 
         if (animation.TryGetOutputRange(out float minimum, out float maximum)
             && float.IsFinite(minimum) && float.IsFinite(maximum) && minimum <= maximum)

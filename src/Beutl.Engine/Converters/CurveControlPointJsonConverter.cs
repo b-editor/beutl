@@ -11,7 +11,6 @@ internal sealed class CurveControlPointJsonConverter : JsonConverter<CurveContro
     {
         if (reader.TokenType == JsonTokenType.String)
         {
-            // Simple format: "x,y" - no handles
             string? pointString = reader.GetString();
             if (pointString != null)
             {
@@ -27,7 +26,6 @@ internal sealed class CurveControlPointJsonConverter : JsonConverter<CurveContro
         throw new JsonException("Invalid CurveControlPoint format.");
     }
 
-    // Complex format with handles
     private static CurveControlPoint ReadObjectFormat(ref Utf8JsonReader reader)
     {
         Point point = default;
@@ -80,7 +78,6 @@ internal sealed class CurveControlPointJsonConverter : JsonConverter<CurveContro
     {
         if (value.HasHandles)
         {
-            // Write as object with handles
             writer.WriteStartObject();
             writer.WriteString("Point", value.Point.ToString());
             writer.WriteString("LeftHandle", value.LeftHandle.ToString());
@@ -89,7 +86,6 @@ internal sealed class CurveControlPointJsonConverter : JsonConverter<CurveContro
         }
         else
         {
-            // Simple format: just the point
             writer.WriteStringValue(value.Point.ToString());
         }
     }

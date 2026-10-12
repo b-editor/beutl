@@ -41,7 +41,6 @@ public sealed class ReferenceExpression<T> : IExpression<T>, IReferenceExpressio
             _cachedObject = null;
         }
 
-        // キャッシュがない場合は検索
         if (_cachedObject == null)
         {
             _cachedObject = context.PropertyLookup.FindById(ObjectId);
@@ -52,7 +51,7 @@ public sealed class ReferenceExpression<T> : IExpression<T>, IReferenceExpressio
 
         if (HasPropertyPath)
         {
-            // PropertyLookupでネストしたプロパティを解決
+            // PropertyLookup resolves only a direct property of the object.
             if (context.PropertyLookup.TryGetPropertyValue(ObjectId, PropertyPath, context, out T? value))
             {
                 return value!;
@@ -61,7 +60,6 @@ public sealed class ReferenceExpression<T> : IExpression<T>, IReferenceExpressio
         }
         else
         {
-            // オブジェクト全体を返す
             if (_cachedObject is T typedObject)
             {
                 return typedObject;

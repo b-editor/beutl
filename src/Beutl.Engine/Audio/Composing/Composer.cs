@@ -45,15 +45,6 @@ public partial class Composer : IComposer
         SampleRate = 44100;
     }
 
-    ~Composer()
-    {
-        if (!IsDisposed)
-        {
-            OnDispose(false);
-            IsDisposed = true;
-        }
-    }
-
     public int SampleRate { get; init; }
 
     public bool IsDisposed { get; private set; }
@@ -65,8 +56,6 @@ public partial class Composer : IComposer
         if (!IsDisposed)
         {
             OnDispose(true);
-            GC.SuppressFinalize(this);
-
             IsDisposed = true;
         }
     }
@@ -90,7 +79,6 @@ public partial class Composer : IComposer
                         ComposeSound(sound, timeRange);
                 }
 
-                // Build final audio graph
                 var result = BuildFinalOutput(timeRange, eligibility);
 
                 bool contiguous = _previousRange is { } previous
@@ -242,12 +230,10 @@ public partial class Composer : IComposer
 
     private AudioBuffer? BuildFinalOutput(TimeRange range, CompositionEligibility eligibility)
     {
-        // Multiple contexts - need to mix
         var buffers = new List<AudioBuffer>();
         AudioBuffer? mixedBuffer = null;
         try
         {
-            // Process each context
             foreach (var item in _currentEntry)
             {
                 if (item.OutputNodes is not { } outputNodes) continue;
@@ -262,7 +248,6 @@ public partial class Composer : IComposer
 
             AppendEndedSoundTails(range, eligibility, buffers);
 
-            // Mix all buffers
             mixedBuffer = MixBuffers(buffers);
 
             if (mixedBuffer == null)
@@ -270,10 +255,7 @@ public partial class Composer : IComposer
                 return new AudioBuffer(SampleRate, 2, AudioProcessContext.GetSampleCount(range, SampleRate));
             }
 
-            // Apply master effects
             ApplyMasterEffects(mixedBuffer);
-
-            // Convert to output format
             return mixedBuffer;
         }
         catch
@@ -414,7 +396,6 @@ public partial class Composer : IComposer
         // Dispose the mix buffer rather than leak it if a (possibly disposed) source read throws.
         try
         {
-            // Mix all buffers
             for (int ch = 0; ch < mixedBuffer.ChannelCount; ch++)
             {
                 var mixedChannel = mixedBuffer.GetChannelData(ch);
@@ -475,36 +456,27 @@ public partial class Composer : IComposer
     protected void ComposeSound(Sound.Resource resource, TimeRange timeRange)
     {
         Sound sound = resource.RequireOriginal();
-        // Get or create cache entry
         if (!_audioCache.TryGetValue(sound, out var entry))
         {
             entry = new AudioNodeEntry { Sound = sound };
             _audioCache.AddOrUpdate(sound, entry);
 
-            // Register invalidation handler
             var handler = new EventHandler((s, e) => OnSoundEdited(sound, e));
             sound.Edited += handler;
             entry.EditedHandler = handler;
         }
 
-        // 今までSoundGroupに子要素が追加されたらEditedが発生していたのでIsDirtyが自動的にtrueになっていたが、
-        // Resource側で子要素を追加するようになったので、Editedイベントが発生しなくなった。なので、Versionを比較して変更を検出するようにする
+        // Adding children on the Resource side raises no Edited, so compare the Version too.
         if (entry.IsDirty || entry.Version != resource.Version)
         {
             // AudioContextはDisposeしない。AudioNodeが解放されてしまうので
             var context = new AudioContext(SampleRate, 2);
 
-            // Begin differential update with previous nodes
             context.BeginUpdate(entry.Nodes);
-
-            // Compose the sound
             sound.Compose(context, resource);
             entry.OutputNodes = context.GetOutputNodes().ToArray();
-
-            // Complete differential update
             context.EndUpdate();
 
-            // Capture current nodes
             entry.Nodes.Clear();
             entry.Nodes.AddRange(context.Nodes);
 
@@ -548,7 +520,6 @@ public partial class Composer : IComposer
     {
         if (disposing)
         {
-            // Clean up all contexts and event handlers
             foreach (var kvp in _audioCache)
             {
                 if (kvp.Value.EditedHandler != null)

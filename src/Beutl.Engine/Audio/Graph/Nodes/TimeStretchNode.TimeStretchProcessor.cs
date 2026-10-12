@@ -4,7 +4,7 @@ namespace Beutl.Audio.Graph.Nodes;
 
 public sealed partial class TimeStretchNode
 {
-    private sealed class TimeStretchProcessor
+    private sealed class TimeStretchProcessor : ISpeedMappedProcessor
     {
         private const int BLOCK = 256;
         private const int TimeStretchFeedFrames = 1024;
@@ -44,12 +44,11 @@ public sealed partial class TimeStretchNode
             _staticSpeed = 1f;
         }
 
-        private bool BeginStream(double outputStartSeconds, double sourceStartSeconds, bool forceReanchor = false)
+        private void BeginStream(double outputStartSeconds, double sourceStartSeconds, bool forceReanchor)
         {
             bool seek = _stream.Begin(outputStartSeconds, sourceStartSeconds, forceReanchor);
             if (seek)
                 Reset();
-            return seek;
         }
 
         private int Read(Span<float> buffer, AudioProcessContext context, bool draining)

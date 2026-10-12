@@ -224,11 +224,6 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null)
             return value;
         }
 
-        if (_validator.Validate(new(this, null), value) == null)
-        {
-            return value;
-        }
-
         return DefaultValue;
     }
 
@@ -292,7 +287,6 @@ public static class SimplePropertyExtensions
         var animatableProperty = Property.CreateAnimatable(
             simpleProperty.DefaultValue);
 
-        // 現在値を引き継ぎ
         if (simpleProperty.HasLocalValue)
         {
             animatableProperty.CurrentValue = simpleProperty.CurrentValue;

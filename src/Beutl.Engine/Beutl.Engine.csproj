@@ -15,11 +15,6 @@
            Text="Packing Beutl.Engine requires all supported libSkiaSharp binaries from src/Beutl.Engine/runtimes. Restore the committed files, or set BeutlSkiaSharpNativeRoot to a complete native runtime directory." />
   </Target>
   <ItemGroup>
-    <InternalsVisibleTo Include="Beutl" />
-    <InternalsVisibleTo Include="Beutl.Graphics3DTests" />
-    <InternalsVisibleTo Include="Beutl.UnitTests" />
-  </ItemGroup>
-  <ItemGroup>
     <ProjectReference Include="..\Beutl.Core\Beutl.Core.csproj" />
     <ProjectReference Include="..\Beutl.Configuration\Beutl.Configuration.csproj" />
     <ProjectReference Include="..\Beutl.Language\Beutl.Language.csproj" />
@@ -27,9 +22,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Beutl.Engine.SourceGenerators\Beutl.Engine.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
-  </ItemGroup>
-  <ItemGroup>
-    <Service Include="{508349b6-6b84-4df5-91f0-309beebad82d}" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="HarfBuzzSharp" />
@@ -59,19 +51,9 @@
   </ItemGroup>
 
   <!--
-    Silk.NET.Shaderc.Native は runtimes/{rid}/native/ にしかネイティブライブラリを置かない。
-    Silk.NET 側のローダ (Microsoft.DotNet.PlatformAbstractions.RuntimeEnvironment.GetRuntimeIdentifier) は
-    Ubuntu などディストリ固有 RID (例: ubuntu.24.04-x64) を返し、リポジトリ内 fallback リストにも "ubuntu" が無いため
-    runtimes/linux-x64/native/libshaderc_shared.so を解決できず libshaderc が読めなくなる。
-    回避策として、ターゲット OS/アーキに合わせたネイティブを bin 直下にもコピーし、
-    Silk.NET の BaseDirectoryResolver で拾えるようにする。
-
-    Beutl.Engine 自体を RID 付きでビルドしたときは $(RuntimeIdentifier) を優先し、未指定時のみホスト OS/アーキを検出する。
-    ただし ProjectReference として参照されると、アプリを -r linux-arm64 で publish しても Beutl.Engine は RID なしで
-    評価されるため、ここで選ばれるのはビルドホストのネイティブになる。RID 付き publish では NuGet が対象 RID の
-    ネイティブを出力直下に展開するので、このコピーは publish しない (CopyToPublishDirectory=Never)。
-    publish に流すと、x64 ホストからの linux-arm64 publish で SDK の重複解決が x64 版を選び、arm64 版が出力から消える。
-    RID なしの publish では直下のコピーも無くなるが、配布物はすべて RID 付きで publish している。
+    Silk.NET's loader cannot resolve distro-specific RIDs (e.g. ubuntu.24.04-x64), so also copy the natives next to
+    the binaries. A RID-specific publish gets them from NuGet, so this copy is not published: publishing it from an
+    x64 host would let the SDK pick the x64 copy and drop the arm64 one from a linux-arm64 publish.
   -->
   <PropertyGroup>
     <_ShadercNativeRid Condition="'$(RuntimeIdentifier)' != ''">$(RuntimeIdentifier)</_ShadercNativeRid>

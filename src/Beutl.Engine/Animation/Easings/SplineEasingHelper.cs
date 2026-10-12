@@ -127,7 +127,6 @@ public static class SplineEasingHelper
         {
             var newPoint = ToEasingControlPoint(prevInfo.ControlPoint2Vector(), P1, 0);
 
-            // Update CP1
             Easing.X1 = newPoint.X;
             Easing.Y1 = newPoint.Y;
         }
@@ -136,7 +135,6 @@ public static class SplineEasingHelper
         {
             var newPoint = ToEasingControlPoint(nextInfo.ControlPoint1Vector(), P2, 1);
 
-            // Update CP2
             Easing.X2 = newPoint.X;
             Easing.Y2 = newPoint.Y;
         }
@@ -145,7 +143,6 @@ public static class SplineEasingHelper
         {
             var newPoint = ToEasingControlPoint((-vector.X, -vector.Y), P1, 0);
 
-            // Update CP1
             Easing.X1 = newPoint.X;
             Easing.Y1 = newPoint.Y;
         }
@@ -154,7 +151,6 @@ public static class SplineEasingHelper
         {
             var newPoint = ToEasingControlPoint((-vector.X, -vector.Y), P2, 1);
 
-            // Update CP2
             Easing.X2 = newPoint.X;
             Easing.Y2 = newPoint.Y;
         }
@@ -165,13 +161,7 @@ public static class SplineEasingHelper
         private (float X, float Y) ToEasingControlPoint(
             (float X, float Y) vector, (float X, float Y) anchor, float fallback)
         {
-            // ベクトルの角度を取得
-            float radians = MathF.Atan2(vector.Y, vector.X);
-
-            var length = Length(vector.X, vector.Y);
-            var newPoint = CalculatePoint(radians, length);
-            newPoint.X += anchor.X;
-            newPoint.Y += anchor.Y;
+            var newPoint = (X: vector.X + anchor.X, Y: vector.Y + anchor.Y);
 
             newPoint.X = Math.Clamp(newPoint.X / Width, 0, 1);
             if (Decrease)
@@ -212,19 +202,6 @@ public static class SplineEasingHelper
                 }
             }
         }
-    }
-
-    private static float Length(float x, float y)
-    {
-        return MathF.Sqrt((x * x) + (y * y));
-    }
-
-    private static (float X, float Y) CalculatePoint(float radians, float radius)
-    {
-        float x = MathF.Cos(radians) * radius;
-        float y = MathF.Sin(radians) * radius;
-        // Y座標は反転
-        return (x, y);
     }
 
     private static readonly ConcurrentDictionary<Type, Optional<MethodInfo>> s_cachedRemoveGenericMethods = new();
@@ -361,7 +338,7 @@ public static class SplineEasingHelper
             if (currentCPV1.HasValue) currentInfo?.UpdateControlPoint1(currentCPV1.Value);
             if (currentCPV2.HasValue) currentInfo?.UpdateControlPoint2(currentCPV2.Value);
         }
-        else if (0 <= newIndex && newIndex <= animation.KeyFrames.Count)
+        else
         {
             var newNextKeyFrame = newIndex < animation.KeyFrames.Count
                 ? (KeyFrame<T>)animation.KeyFrames[newIndex]

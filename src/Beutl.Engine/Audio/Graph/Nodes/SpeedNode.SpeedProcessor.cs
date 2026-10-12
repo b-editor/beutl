@@ -5,7 +5,7 @@ namespace Beutl.Audio.Graph.Nodes;
 
 public sealed partial class SpeedNode
 {
-    private sealed partial class SpeedProcessor
+    private sealed partial class SpeedProcessor : ISpeedMappedProcessor
     {
         private const int BLOCK = 256;
 
@@ -13,7 +13,7 @@ public sealed partial class SpeedNode
         private readonly int _channels;
         private readonly SpeedNode _speedNode;
         private readonly WdlResampler _rs;
-        private ResamplingMode _resamplingMode;
+        private bool _staticRateConfigured;
         private float _currentSpeed = 1.0f;
 
         private readonly AudioSourceStream _stream;
@@ -39,7 +39,7 @@ public sealed partial class SpeedNode
             _rs.Reset();
             _stream.TrackPassthrough(context, sampleCount);
             _currentSpeed = 1f;
-            _resamplingMode = ResamplingMode.Passthrough;
+            _staticRateConfigured = false;
         }
 
         private void ConfigureStaticResampling(float speed)
@@ -47,7 +47,7 @@ public sealed partial class SpeedNode
             _rs.SetRates(_sampleRate, _sampleRate / speed);
             _rs.SetFilterParms();
             _currentSpeed = speed;
-            _resamplingMode = ResamplingMode.Static;
+            _staticRateConfigured = true;
         }
 
         private void ConfigureVariableResampling(double speed)
@@ -56,14 +56,14 @@ public sealed partial class SpeedNode
             float cutoff = 0.97f / (float)speed;
             _rs.SetFilterParms(cutoff, 0.707f);
             _currentSpeed = (float)speed;
-            _resamplingMode = ResamplingMode.Variable;
+            _staticRateConfigured = false;
         }
 
         // Decides whether this chunk continues the stream or is a seek; on a seek the resampler is
         // reset and the read cursor re-anchored to the computed source start. forceReanchor lets the
         // caller declare a discontinuity the output-time comparison cannot see (e.g. a static-speed
         // change across contiguous chunks). Returns true on a seek.
-        private bool BeginStream(double outputStartSeconds, double sourceStartSeconds, bool forceReanchor = false)
+        private bool BeginStream(double outputStartSeconds, double sourceStartSeconds, bool forceReanchor)
         {
             bool seek = _stream.Begin(outputStartSeconds, sourceStartSeconds, forceReanchor);
             if (seek)
@@ -90,7 +90,7 @@ public sealed partial class SpeedNode
             // BeginStream's output-time comparison cannot see: output stays contiguous, but the source cursor
             // (tracking the old speed) no longer maps to outputStart. Force a re-anchor to outputStart *
             // speed. _stream.IsInitialized gates this so the first-chunk anchor still uses the normal seek path.
-            bool configurationChanged = _resamplingMode != ResamplingMode.Static
+            bool configurationChanged = !_staticRateConfigured
                 || Math.Abs(_currentSpeed - speed) > 1e-4f;
             bool seek = BeginStream(
                 outputStart,
@@ -100,8 +100,8 @@ public sealed partial class SpeedNode
                     && (configurationChanged || forceReanchor));
 
             // Re-set the rate after a seek (resampler just reset) or when the constant speed changes.
-            // Never Reset() outside a seek: that zero-fills filter history and silences a continuous
-            // Draining keeps the cursor at the upstream end while changing only the resampling rate.
+            // Reset() only on a seek, since it clears the filter history; draining keeps the cursor at
+            // the upstream end and changes only the resampling rate.
             if (seek || configurationChanged)
             {
                 ConfigureStaticResampling(speed);
@@ -207,14 +207,6 @@ public sealed partial class SpeedNode
                 output.Dispose();
                 throw;
             }
-        }
-
-        private enum ResamplingMode
-        {
-            Unconfigured,
-            Passthrough,
-            Static,
-            Variable,
         }
 
         // De-interleaves the produced frames into the output and pads any shortfall (source exhausted)

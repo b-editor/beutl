@@ -219,17 +219,9 @@ public class AudioNodeBufferDisposalTests
     }
 
     [Test]
-    public void EqualizerNode_NoBands_PassesInputThroughWithoutDisposing()
+    public void EqualizerNode_NoBands_IsRejected()
     {
-        var inputNode = new CapturingInputNode(SampleRate, 2, SampleCount, 0.5f);
-        using var node = new EqualizerNode { Bands = [] };
-        node.AddInput(inputNode);
-
-        AudioBuffer result = node.Process(CreateContext());
-
-        Assert.That(ReferenceEquals(result, inputNode.Last), Is.True, "no bands must pass the input through");
-        Assert.That(IsDisposed(result), Is.False, "pass-through must not dispose the buffer the caller now owns");
-        result.Dispose();
+        Assert.Throws<ArgumentException>(() => _ = new EqualizerNode { Bands = [] });
     }
 
     [Test]

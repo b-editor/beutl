@@ -14,6 +14,6 @@ public sealed class BackEaseIn : Easing
 
     public override float Ease(float progress)
     {
-        return Funcs.BackEaseIn(progress);
+        return progress * (progress * progress - MathF.Sin(progress * MathF.PI));
     }
 }

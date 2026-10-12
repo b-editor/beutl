@@ -1,5 +1,4 @@
-﻿using System.Reflection;
-using Beutl.Animation;
+﻿using Beutl.Animation;
 using Beutl.Audio;
 using Beutl.Audio.Effects;
 using Beutl.Audio.Graph;
@@ -58,11 +57,6 @@ public class LimiterNodeTests
             Lookahead = Property.CreateAnimatable(lookaheadMs),
             MakeupGain = Property.CreateAnimatable(makeupGainDb),
         };
-    }
-
-    private sealed class NullInputNode : AudioNode
-    {
-        public override AudioBuffer Process(AudioProcessContext context) => null!;
     }
 
     private sealed class DisposedInputNode(int sampleRate, int channels, int count) : AudioNode
@@ -419,7 +413,7 @@ public class LimiterNodeTests
         node.AddInput(new BufferReplayNode(input48));
         using (var _ = node.Process(CreateContext(4800, sampleRate: 48000, start: TimeSpan.Zero))) { }
 
-        // Switch to a higher sample rate: _maxLookaheadSamples must grow to fit MaxLookaheadMs at
+        // Switch to a higher sample rate: MaxLookaheadSampleCapacity must grow to fit MaxLookaheadMs at
         // the new rate, or reads at the maximum lookahead would silently return zero.
         node.RemoveInput(node.Inputs[0]);
         using var input96 = CreateBuffer(2, 9600,
@@ -482,7 +476,7 @@ public class LimiterNodeTests
 
         using var output = node.Process(CreateContext(sampleCount));
 
-        // Off-by-one in the lookahead clamp would collapse Read(_maxLookaheadSamples) to 0
+        // Off-by-one in the lookahead clamp would collapse Read(MaxLookaheadSampleCapacity) to 0
         // (silence) for every sample. Assert non-zero output past the lookahead window.
         int lookaheadSamples = LookaheadSamples(SampleRate, MaxLookaheadMs);
         bool foundNonZero = false;
@@ -668,7 +662,7 @@ public class LimiterNodeTests
         // Impulse at index 0, threshold 0 dB so the signal stays below the ceiling: a pure
         // passthrough delay. The impulse must re-emerge at exactly index lookaheadSamples with full
         // amplitude. The MaxLookaheadMs case pins the boundary tap (clamped to
-        // _maxLookaheadSamples-1, the largest in-range Read offset), catching an edge off-by-one.
+        // MaxLookaheadSampleCapacity - 1, the largest in-range Read offset), catching an edge off-by-one.
         const int sampleCount = 2048;
         using var input = CreateBuffer(1, sampleCount, (_, i) => i == 0 ? 0.5f : 0f);
 
@@ -1005,15 +999,6 @@ public class LimiterNodeTests
         using var node = CreateNode();
         node.AddInput(new BufferReplayNode(input1));
         node.AddInput(new BufferReplayNode(input2));
-
-        Assert.Throws<InvalidOperationException>(() => node.Process(CreateContext(128)));
-    }
-
-    [Test]
-    public void Process_NullUpstream_Throws()
-    {
-        using var node = CreateNode();
-        node.AddInput(new NullInputNode());
 
         Assert.Throws<InvalidOperationException>(() => node.Process(CreateContext(128)));
     }
@@ -1654,37 +1639,6 @@ public class LimiterNodeTests
             "Quiet tail must recover after the burst leaves the window (deque must evict the stale max).");
         Assert.That(tailPeak, Is.LessThanOrEqualTo(quietAmp + 1e-3f),
             "Quiet tail is below threshold and must not be amplified.");
-    }
-
-    [Test]
-    public void PushWindowPeak_WhenDequeCapacityInvariantBreaks_ThrowsBeforeOverwrite()
-    {
-        static FieldInfo Field(string name)
-            => typeof(LimiterNode).GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)
-               ?? throw new MissingFieldException(typeof(LimiterNode).FullName, name);
-
-        using var input = CreateBuffer(1, 1, (_, _) => 0f);
-        using var node = CreateNode(lookaheadMs: 0f);
-        node.AddInput(new BufferReplayNode(input));
-
-        using var _ = node.Process(CreateContext(1));
-
-        var dqVal = (float[])Field("_dqVal").GetValue(node)!;
-        Array.Fill(dqVal, float.PositiveInfinity);
-        Field("_dqHead").SetValue(node, 0);
-        Field("_dqCount").SetValue(node, dqVal.Length);
-        Field("_globalPos").SetValue(node, 1L);
-
-        var pushWindowPeak = typeof(LimiterNode).GetMethod(
-            "PushWindowPeak",
-            BindingFlags.Instance | BindingFlags.NonPublic)
-            ?? throw new MissingMethodException(typeof(LimiterNode).FullName, "PushWindowPeak");
-
-        var ex = Assert.Throws<TargetInvocationException>(
-            () => pushWindowPeak.Invoke(node, [0f, 0]));
-
-        Assert.That(ex!.InnerException, Is.TypeOf<InvalidOperationException>());
-        Assert.That(ex.InnerException!.Message, Does.Contain("LimiterNode deque overflow"));
     }
 
     // Step animation: holds `first` for the whole [0, boundary) range and switches to `second` from

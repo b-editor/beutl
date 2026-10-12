@@ -96,11 +96,7 @@ public sealed partial class SourceSound : IThumbnailsProvider
             long startSample = GetWaveformChunkSamplePosition(chunkIndex, totalSamples, chunkCount);
             long endSample = GetWaveformChunkSamplePosition(chunkIndex + 1, totalSamples, chunkCount);
             long fullSpan = endSample - startSample;
-            // samplesPerChunk caps the work per chunk. Compose ranges stay tick-contiguous — so a
-            // stateful effect like the limiter carries state across the strip — only when
-            // fullSpan <= samplesPerChunk (short or zoomed-in clips). For longer clips the waveform
-            // is a sparse approximation and the effect restarts per chunk: a deliberate quality
-            // trade-off for bounded per-chunk cost, not a correctness guarantee.
+            // Long clips are approximated: capping at samplesPerChunk resets the effect state per chunk.
             int sampleCount = (int)Math.Min(fullSpan, samplesPerChunk);
             var chunkTime = TimeSpan.FromSeconds((double)startSample / sampleRate);
             TimeSpan startTime = TimeRange.Start + chunkTime;

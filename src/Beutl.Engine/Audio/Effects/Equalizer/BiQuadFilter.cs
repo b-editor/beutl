@@ -57,7 +57,6 @@ public sealed class BiQuadFilter
         BiQuadFilterType type, float frequency, float q, float gainDb, int sampleRate,
         out float b0Out, out float b1Out, out float b2Out, out float a1Out, out float a2Out)
     {
-        // Clamp frequency to valid range
         frequency = Math.Clamp(frequency, 20f, sampleRate / 2f - 1f);
         q = Math.Max(q, 0.1f);
 
@@ -195,11 +194,6 @@ public sealed class BiQuadFilter
         return Math.Max(10.0 * Math.Log10(ratio), minDb);
     }
 
-    /// <summary>
-    /// Processes a single sample.
-    /// </summary>
-    /// <param name="input">Input sample.</param>
-    /// <returns>Filtered sample.</returns>
     public float Process(float input)
     {
         // Direct Form II Transposed
@@ -209,11 +203,6 @@ public sealed class BiQuadFilter
         return output;
     }
 
-    /// <summary>
-    /// Processes an entire buffer.
-    /// </summary>
-    /// <param name="input">Input buffer.</param>
-    /// <param name="output">Output buffer.</param>
     public void ProcessBuffer(ReadOnlySpan<float> input, Span<float> output)
     {
         if (input.Length != output.Length)
@@ -225,9 +214,6 @@ public sealed class BiQuadFilter
         }
     }
 
-    /// <summary>
-    /// Resets the filter state.
-    /// </summary>
     public void Reset()
     {
         _z1 = 0f;

@@ -29,11 +29,9 @@ public sealed class GainNode : AudioNode
     {
         using (input)
         {
-            // Create output buffer
             var output = new AudioBuffer(input.SampleRate, input.ChannelCount, input.SampleCount);
             try
             {
-                // Sample gain values for each sample
                 Span<float> gains = stackalloc float[System.Math.Min(input.SampleCount, 8192)];
 
                 // Process in chunks to avoid stack overflow for large buffers
@@ -45,7 +43,6 @@ public sealed class GainNode : AudioNode
 
                     var chunkRange = context.GetChunkRange(processed, chunkSize);
 
-                    // Sample animation values
                     context.AnimationSampler.SampleBuffer(
                         gain,
                         chunkRange,
@@ -58,7 +55,6 @@ public sealed class GainNode : AudioNode
                         chunkGains[i] /= 100f;
                     }
 
-                    // Apply gain to each channel
                     for (int ch = 0; ch < input.ChannelCount; ch++)
                     {
                         var inData = input.GetChannelData(ch).Slice(processed, chunkSize);
@@ -95,27 +91,18 @@ public sealed class GainNode : AudioNode
         using (input)
         {
             var output = new AudioBuffer(input.SampleRate, input.ChannelCount, input.SampleCount);
-            try
+            for (int ch = 0; ch < input.ChannelCount; ch++)
             {
-                for (int ch = 0; ch < input.ChannelCount; ch++)
+                var inData = input.GetChannelData(ch);
+                var outData = output.GetChannelData(ch);
+
+                for (int i = 0; i < input.SampleCount; i++)
                 {
-                    var inData = input.GetChannelData(ch);
-                    var outData = output.GetChannelData(ch);
-
-                    for (int i = 0; i < input.SampleCount; i++)
-                    {
-                        outData[i] = inData[i] * gain;
-                    }
+                    outData[i] = inData[i] * gain;
                 }
+            }
 
-                return output;
-            }
-            catch
-            {
-                // Dispose the output the caller never received rather than leak it.
-                output.Dispose();
-                throw;
-            }
+            return output;
         }
     }
 }

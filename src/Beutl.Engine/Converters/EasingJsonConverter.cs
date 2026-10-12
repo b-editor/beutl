@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using Beutl.Animation.Easings;
@@ -58,9 +59,15 @@ internal sealed class EasingJsonConverter : JsonConverter<Easing>
         obj.WriteTo(writer, options);
     }
 
+    // Shared with KeyFrame; each caller decides whether it also needs a parameterless constructor.
+    internal static bool IsConcreteEasingType([NotNullWhen(true)] Type? type)
+    {
+        return type is not null && typeof(Easing).IsAssignableFrom(type) && !type.IsAbstract && !type.ContainsGenericParameters;
+    }
+
     private static Type ResolveEasingType(Type? type)
     {
-        if (type is null || !typeof(Easing).IsAssignableFrom(type) || type.IsAbstract || type.ContainsGenericParameters)
+        if (!IsConcreteEasingType(type))
             throw new JsonException("The easing type could not be resolved to a concrete Easing.");
 
         return type;

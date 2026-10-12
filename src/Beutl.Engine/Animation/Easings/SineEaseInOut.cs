@@ -4,6 +4,6 @@ public sealed class SineEaseInOut : UnitRangeEasing
 {
     public override float Ease(float progress)
     {
-        return Funcs.SineEaseInOut(progress);
+        return 0.5f * (1f - MathF.Cos(progress * MathF.PI));
     }
 }

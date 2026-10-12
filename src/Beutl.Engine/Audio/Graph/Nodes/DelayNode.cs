@@ -71,7 +71,6 @@ public sealed class DelayNode : AudioNode
 
     private void InitializeDelayLines(int sampleRate, int channelCount)
     {
-        // Dispose existing delay lines
         if (_delayLines != null)
         {
             foreach (var line in _delayLines)
@@ -99,35 +98,22 @@ public sealed class DelayNode : AudioNode
         delaySamples = System.Math.Clamp(delaySamples, 0, _maxDelaySamples - 1);
 
         var output = new AudioBuffer(input.SampleRate, input.ChannelCount, input.SampleCount);
-        try
+        for (int ch = 0; ch < input.ChannelCount; ch++)
         {
-            for (int ch = 0; ch < System.Math.Min(input.ChannelCount, _delayLines!.Length); ch++)
+            var inData = input.GetChannelData(ch);
+            var outData = output.GetChannelData(ch);
+            var delayLine = _delayLines![ch];
+
+            for (int i = 0; i < input.SampleCount; i++)
             {
-                var inData = input.GetChannelData(ch);
-                var outData = output.GetChannelData(ch);
-                var delayLine = _delayLines[ch];
-
-                for (int i = 0; i < input.SampleCount; i++)
-                {
-                    float inputSample = inData[i];
-                    float delayedSample = delayLine.Read(delaySamples);
-
-                    // Write to delay line with feedback
-                    delayLine.Write(inputSample + delayedSample * feedback);
-
-                    // Mix dry and wet signals
-                    outData[i] = inputSample * dryMix + delayedSample * wetMix;
-                }
+                float inputSample = inData[i];
+                float delayedSample = delayLine.Read(delaySamples);
+                delayLine.Write(inputSample + delayedSample * feedback);
+                outData[i] = inputSample * dryMix + delayedSample * wetMix;
             }
+        }
 
-            return output;
-        }
-        catch
-        {
-            // Dispose the output the caller never received rather than leak it.
-            output.Dispose();
-            throw;
-        }
+        return output;
     }
 
     private AudioBuffer ProcessAnimated(AudioBuffer input, AudioProcessContext context)
@@ -135,7 +121,6 @@ public sealed class DelayNode : AudioNode
         var output = new AudioBuffer(input.SampleRate, input.ChannelCount, input.SampleCount);
         try
         {
-            // Sample animation values for each sample
             Span<float> delayTimes = stackalloc float[Math.Min(input.SampleCount, 1024)];
             Span<float> feedbacks = stackalloc float[Math.Min(input.SampleCount, 1024)];
             Span<float> dryMixes = stackalloc float[Math.Min(input.SampleCount, 1024)];
@@ -148,22 +133,19 @@ public sealed class DelayNode : AudioNode
 
                 var chunkRange = context.GetChunkRange(processed, chunkSize);
 
-                // Sample animation values for this chunk
                 context.AnimationSampler.SampleBuffer(DelayTime, chunkRange, context.SampleRate, delayTimes[..chunkSize]);
                 context.AnimationSampler.SampleBuffer(Feedback, chunkRange, context.SampleRate, feedbacks[..chunkSize]);
                 context.AnimationSampler.SampleBuffer(DryMix, chunkRange, context.SampleRate, dryMixes[..chunkSize]);
                 context.AnimationSampler.SampleBuffer(WetMix, chunkRange, context.SampleRate, wetMixes[..chunkSize]);
 
-                // Process each channel
-                for (int ch = 0; ch < Math.Min(input.ChannelCount, _delayLines!.Length); ch++)
+                for (int ch = 0; ch < input.ChannelCount; ch++)
                 {
                     var inData = input.GetChannelData(ch).Slice(processed, chunkSize);
                     var outData = output.GetChannelData(ch).Slice(processed, chunkSize);
-                    var delayLine = _delayLines[ch];
+                    var delayLine = _delayLines![ch];
 
                     for (int i = 0; i < chunkSize; i++)
                     {
-                        // Convert delay time from ms to samples
                         int delaySamples = (int)(delayTimes[i] / 1000f * context.SampleRate);
                         delaySamples = Math.Clamp(delaySamples, 0, _maxDelaySamples - 1);
 
@@ -174,10 +156,7 @@ public sealed class DelayNode : AudioNode
                         float dryMix = dryMixes[i] / 100f;
                         float wetMix = wetMixes[i] / 100f;
 
-                        // Write to delay line with feedback
                         delayLine.Write(inputSample + delayedSample * feedback);
-
-                        // Mix dry and wet signals
                         outData[i] = inputSample * dryMix + delayedSample * wetMix;
                     }
                 }

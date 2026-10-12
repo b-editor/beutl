@@ -238,8 +238,10 @@ public class TimeStretchEffectTests
         double expected = 0;
         for (int i = 0; i < SampleRate; i++)
             expected += animation.Interpolate(TimeSpan.FromSeconds(i / (double)SampleRate)) / 100d;
-        object processor = typeof(TimeStretchNode)
-            .GetField("_processor", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(node)!;
+        object processing = typeof(TimeStretchNode)
+            .GetField("_processing", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(node)!;
+        object processor = processing.GetType()
+            .GetField("_processor", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(processing)!;
         object stretcher = processor.GetType()
             .GetField("_stretcher", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(processor)!;
         double position = (double)stretcher.GetType()
@@ -295,8 +297,10 @@ public class TimeStretchEffectTests
         double expected = 0;
         for (int i = 0; i < frames; i++)
             expected += animation.GetAnimatedValue(effect.TimeRange.Start + TimeSpan.FromSeconds(i / (double)sampleRate)) / 100d;
-        object processor = typeof(TimeStretchNode)
-            .GetField("_processor", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(chunkedNode)!;
+        object processing = typeof(TimeStretchNode)
+            .GetField("_processing", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(chunkedNode)!;
+        object processor = processing.GetType()
+            .GetField("_processor", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(processing)!;
         object stretcher = processor.GetType()
             .GetField("_stretcher", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(processor)!;
         double position = (double)stretcher.GetType()

@@ -15,9 +15,6 @@ public sealed partial class EqualizerBand : EngineObject
         ScanProperties<EqualizerBand>();
     }
 
-    /// <summary>
-    /// Filter type.
-    /// </summary>
     [Display(Name = nameof(AudioStrings.Equalizer_FilterType), ResourceType = typeof(AudioStrings))]
     public IProperty<BiQuadFilterType> FilterType { get; } = Property.Create(BiQuadFilterType.Peak);
 
