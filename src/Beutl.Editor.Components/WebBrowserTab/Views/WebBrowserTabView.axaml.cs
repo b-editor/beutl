@@ -444,9 +444,8 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
 
     internal static bool IsAdapterAvailable(DetailedWebViewAdapterInfo info)
     {
-        // WebKitGTK 11.4 reports NativeDialog here even though NativeWebView's Linux factory
-        // creates a GtkX11WebViewAdapter for the embedded control. The platform-specific candidate
-        // list above already matches the factory, so installation/support is the reliable gate.
+        // The Linux adapter info can report NativeDialog even though NativeWebView embeds the view;
+        // installation and support are the reliable gate.
         return info.IsSupported && info.IsInstalled;
     }
 }

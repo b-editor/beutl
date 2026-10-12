@@ -14,13 +14,10 @@ internal sealed class MediaFileSearcher : IDisposable
     private CancellationTokenSource? _searchCts;
     private bool _disposed;
 
-    // 検索結果のメディアファイルアイテム
     public ObservableCollection<FileSystemItemViewModel> MediaFileItems { get; } = [];
 
-    // メディアファイル検索中かどうか
     public ReactivePropertySlim<bool> IsLoadingMediaFiles { get; } = new(false);
 
-    // メディアファイルが見つからなかったか
     public ReactivePropertySlim<bool> HasNoMediaFiles { get; } = new(false);
 
     // 指定ディレクトリ内のメディアファイルを非同期で検索する。
@@ -73,7 +70,6 @@ internal sealed class MediaFileSearcher : IDisposable
             }
             catch (OperationCanceledException)
             {
-                // cancelled, no action needed
             }
             catch (Exception ex)
             {
@@ -128,7 +124,6 @@ internal sealed class MediaFileSearcher : IDisposable
         }
         catch (UnauthorizedAccessException)
         {
-            // skip inaccessible directories
         }
     }
 

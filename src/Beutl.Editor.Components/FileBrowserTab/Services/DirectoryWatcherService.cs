@@ -15,8 +15,6 @@ internal sealed partial class DirectoryWatcherService : IDisposable
     private readonly TimeSpan _debounceInterval;
     private readonly Action<Action> _postDelivery;
     private readonly Action<FileSystemWatcher> _startWatcher;
-    private readonly ConcurrentDictionary<SpecialDirectoryMembershipKey, bool>
-        _templateOrMaterialDirectories = new();
     private readonly ConcurrentDictionary<string, string> _configuredSpecialDirectoryIdentities =
         new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, DirectoryIdentity> _directoryIdentities =
@@ -208,7 +206,6 @@ internal sealed partial class DirectoryWatcherService : IDisposable
     {
         CancelAndDispose(debounce);
         watcher?.Dispose();
-        _templateOrMaterialDirectories.Clear();
         _directoryIdentities.Clear();
     }
 
@@ -304,7 +301,6 @@ internal sealed partial class DirectoryWatcherService : IDisposable
 
         CancelAndDispose(debounce);
         watcher?.Dispose();
-        _templateOrMaterialDirectories.Clear();
         _configuredSpecialDirectoryIdentities.Clear();
         _directoryIdentities.Clear();
 
@@ -403,6 +399,7 @@ internal sealed partial class DirectoryWatcherService : IDisposable
         }
     }
 
+    // Test seam: tests raise events without a watcher, so the null sourceWatcher branches serve only them.
     internal void NotifyPathChanged(string path) => NotifyPathChanged(path, sourceWatcher: null);
 
     private void NotifyPathChanged(string path, object? sourceWatcher)

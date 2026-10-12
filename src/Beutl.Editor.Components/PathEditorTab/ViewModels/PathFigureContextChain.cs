@@ -17,7 +17,7 @@ internal sealed record PathFigureContextChain(
     public static PathFigureContextChain Create(
         IReactiveProperty<IPathFigureEditorContext?> figureContext, CompositeDisposable disposables)
     {
-        var context = figureContext.Select(v => v?.GetParentContext() ?? null)
+        var context = figureContext.Select(v => v?.GetParentContext())
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(disposables);
 

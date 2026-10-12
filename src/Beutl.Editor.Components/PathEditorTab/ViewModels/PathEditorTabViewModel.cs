@@ -83,7 +83,6 @@ public sealed class PathEditorTabViewModel : IDisposable, IPathEditorContext, IP
             .Subscribe(_ => UpdatePointProperties())
             .DisposeWith(_disposables);
 
-        // PathFigure の DetachedFromHierarchy を購読し、detach 時に FigureContext をクリア
         PathFigure.CombineWithPrevious()
             .Subscribe(v =>
             {
@@ -172,7 +171,7 @@ public sealed class PathEditorTabViewModel : IDisposable, IPathEditorContext, IP
         public void Visit(IPropertyEditorContext context) { }
     }
 
-    public ReadOnlyReactiveProperty<bool> IsClosed { get; }
+    public IReadOnlyReactiveProperty<bool> IsClosed { get; }
 
     public ReadOnlyReactiveProperty<bool> IsPlaying { get; }
 
@@ -209,7 +208,6 @@ public sealed class PathEditorTabViewModel : IDisposable, IPathEditorContext, IP
         return figure != null && FigureContext.Value != null && PathFigure.Value == figure;
     }
 
-    // FigureContextがcontext引数と同じ場合、編集を終了
     public void StartOrFinishEdit(IPathFigureEditorContext context)
     {
         PathFigureContextChain.ToggleEditing(FigureContext, context);

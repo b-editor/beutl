@@ -31,8 +31,7 @@ internal static class ControlPointVisibilityHelper
             foreach (Thumb anchor in anchors)
                 PathPointDragBehavior.SetIsSelected(anchor, ReferenceEquals(anchor.DataContext, selectedOperation));
         }
-        var selected = canvas.Children.OfType<Thumb>()
-            .Where(t => !t.Classes.Contains("control") && PathPointDragBehavior.GetIsSelected(t))
+        var selected = anchors.Where(PathPointDragBehavior.GetIsSelected)
             .Select(t => t.DataContext).OfType<PathSegment>().ToHashSet();
         if (selectedOperation != null) selected.Add(selectedOperation);
         foreach (var anchor in selected)

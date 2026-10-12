@@ -47,10 +47,8 @@ internal sealed class FavoritesManager : IDisposable
 
         FileSystemEnumerator.DisposeAndClear(FavoriteItems);
 
-        // テンプレートフォルダを常に先頭に表示（ローカライズ名で）
         AddFixedFolder(ObjectTemplateService.Instance.DirectoryPath, Strings.Templates);
 
-        // 素材フォルダも常に表示（ローカライズ名で）
         AddFixedFolder(BeutlEnvironment.GetMaterialsDirectoryPath(), Strings.Materials);
 
         foreach (string path in Favorites)
@@ -66,7 +64,7 @@ internal sealed class FavoritesManager : IDisposable
         }
     }
 
-    // お気に入りコレクション変更時のコールバック。ホームビュー表示中の場合にアイテムを更新する。
+    // 共有のお気に入りが変わったときに発火する。
     public event Action? Changed;
 
     // Isolate tab refresh failures so one tab cannot block the others.

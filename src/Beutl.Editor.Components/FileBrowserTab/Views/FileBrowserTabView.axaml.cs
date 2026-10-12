@@ -164,7 +164,6 @@ public partial class FileBrowserTabView : UserControl
         if (ViewModel == null)
             return;
 
-        // 複数選択されている場合は一括削除
         if (ViewModel.SelectedItems.Count > 1)
         {
             await ViewModel.DeleteItemsAsync(ViewModel.SelectedItems.ToList());
@@ -310,7 +309,6 @@ public partial class FileBrowserTabView : UserControl
         var files = GetDroppedFiles(e);
         bool isInternal = FileItemDragBehavior.IsInternalDragInProgress;
 
-        // お気に入りセクション上にドロップ → お気に入りに追加
         if (IsDropOverElement(favoritesSection, e))
         {
             ViewModel.AddPathsToFavorites(files.Select(f => f.LocalPath));
@@ -319,15 +317,12 @@ public partial class FileBrowserTabView : UserControl
 
         if (IsDropOverElement(projectDirectorySection, e))
         {
-            // その他（プロジェクトディレクトリセクション等）
+            // プロジェクトフォルダのセクションへのドロップ
             return TransferToDropTarget(e, files, isInternal, ViewModel.ProjectDirectory);
         }
 
-        // メディアファイルセクション上にドロップ → resources フォルダへ
-        var payload = files.Select(f => (f.LocalPath, f.IsDirectory));
-        return isInternal
-            ? ViewModel.MoveFilesToResourcesAsync(payload)
-            : ViewModel.CopyFilesToResourcesAsync(payload);
+        // お気に入りとプロジェクトフォルダ以外へのドロップ → resources フォルダへ
+        return ViewModel.TransferFilesToResourcesAsync(files, isInternal);
     }
 
     private Task HandleBrowseViewDrop(DragEventArgs e)
@@ -364,10 +359,7 @@ public partial class FileBrowserTabView : UserControl
         if (ViewModel == null)
             return Task.CompletedTask;
 
-        var payload = files.Select(f => (f.LocalPath, f.IsDirectory));
-        return isInternal
-            ? ViewModel.MoveFilesToDirectoryAsync(payload, targetDir)
-            : ViewModel.CopyFilesToDirectoryAsync(payload, targetDir);
+        return ViewModel.TransferFilesToDirectoryAsync(files, targetDir, isInternal);
     }
 
     private static bool IsStaleStorageDrag(DragEventArgs e)

@@ -8,7 +8,7 @@ using Beutl.Editor.Components.FileBrowserTab.ViewModels;
 namespace Beutl.Editor.Components.FileBrowserTab.Views;
 
 // ファイルブラウザアイテムのドラッグ開始を処理するBehavior。
-// ListBoxItemやTreeViewItemに適用して使用する。
+// 一覧やツリーの項目テンプレートのBorderに適用して使用する。
 public class FileItemDragBehavior : Behavior<Control>
 {
     private const double DragThreshold = 5;
@@ -17,9 +17,7 @@ public class FileItemDragBehavior : Behavior<Control>
     private FileSystemItemViewModel? _dragItem;
     private bool _isDragStarting;
 
-    // FileBrowserTab内部から開始されたドラッグ操作が進行中かどうかを示す。
-    // ドロップ時にコピーではなく移動として扱うべきかの判定に用いる。
-    // Keep this static so drags between file-browser tabs remain moves.
+    // Static so drags between file-browser tabs are also treated as moves.
     public static bool IsInternalDragInProgress { get; private set; }
 
     protected override void OnAttached()
@@ -119,7 +117,6 @@ public class FileItemDragBehavior : Behavior<Control>
     {
         var data = new DataTransfer();
 
-        // 選択中アイテムが複数あればすべて含める
         var vm = GetViewModel();
         var items = vm?.SelectedItems is { Count: > 1 } selectedItems
                     && selectedItems.Contains(dragItem)
@@ -143,7 +140,6 @@ public class FileItemDragBehavior : Behavior<Control>
 
     private FileBrowserTabViewModel? GetViewModel()
     {
-        // UserControl (FileBrowserTabView) の DataContext から ViewModel を取得
         var parent = AssociatedObject;
         while (parent != null)
         {

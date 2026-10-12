@@ -57,8 +57,8 @@ public sealed class FileBrowserWriteAdmissionTests
         Fixture fixture = Fixture.Create(ProjectRoot(editor));
         using var notifications = new NotificationCapture();
 
-        await browser.CopyFilesToDirectoryAsync([(fixture.CopySource, false)], fixture.TargetDir);
-        await browser.MoveFilesToDirectoryAsync([(fixture.MoveSource, false)], fixture.TargetDir);
+        await browser.TransferFilesToDirectoryAsync([(fixture.CopySource, false)], fixture.TargetDir, move: false);
+        await browser.TransferFilesToDirectoryAsync([(fixture.MoveSource, false)], fixture.TargetDir, move: true);
 
         Assert.Multiple(() =>
         {
@@ -85,7 +85,7 @@ public sealed class FileBrowserWriteAdmissionTests
         {
             Assert.That(mutation, Is.Not.Null);
             Assert.That(secondHost.TryBeginWorktreeMutation(), Is.Not.Null);
-            await browser.CopyFilesToDirectoryAsync([(fixture.CopySource, false)], fixture.TargetDir);
+            await browser.TransferFilesToDirectoryAsync([(fixture.CopySource, false)], fixture.TargetDir, move: false);
         }
 
         Assert.Multiple(() =>
@@ -186,7 +186,7 @@ public sealed class FileBrowserWriteAdmissionTests
             File.Copy(source, destination);
         };
 
-        Task copy = browser.CopyFilesToDirectoryAsync([(fixture.CopySource, false)], fixture.TargetDir);
+        Task copy = browser.TransferFilesToDirectoryAsync([(fixture.CopySource, false)], fixture.TargetDir, move: false);
         try
         {
             Assert.That(copyStarted.Wait(TimeSpan.FromSeconds(30)), Is.True, "the copy must start");
@@ -240,9 +240,9 @@ public sealed class FileBrowserWriteAdmissionTests
             File.Copy(source, destination);
         };
 
-        Task copy = browser.CopyFilesToDirectoryAsync(
+        Task copy = browser.TransferFilesToDirectoryAsync(
             [(fixture.CopySource, false), (fixture.MoveSource, false)],
-            fixture.TargetDir);
+            fixture.TargetDir, move: false);
         Notification? running = null;
         try
         {
@@ -309,7 +309,7 @@ public sealed class FileBrowserWriteAdmissionTests
             File.Copy(source, destination);
         };
 
-        Task copy = browser.CopyFilesToDirectoryAsync([(folder, true)], fixture.TargetDir);
+        Task copy = browser.TransferFilesToDirectoryAsync([(folder, true)], fixture.TargetDir, move: false);
         try
         {
             Assert.That(copyStarted.Wait(TimeSpan.FromSeconds(30)), Is.True, "the copy must start");
@@ -333,7 +333,7 @@ public sealed class FileBrowserWriteAdmissionTests
         string kept = Directory.GetFiles(copiedFolder).Single();
         browser.TransferNotificationDelay = Timeout.InfiniteTimeSpan;
         browser.CopyFile = static (source, destination) => File.Copy(source, destination);
-        await browser.CopyFilesToDirectoryAsync([(folder, true)], fixture.TargetDir)
+        await browser.TransferFilesToDirectoryAsync([(folder, true)], fixture.TargetDir, move: false)
             .WaitAsync(TimeSpan.FromSeconds(30));
 
         Assert.Multiple(() =>
@@ -369,7 +369,7 @@ public sealed class FileBrowserWriteAdmissionTests
             File.WriteAllBytes(destination, new byte[4096]);
         };
 
-        Task copy = browser.CopyFilesToDirectoryAsync([(source, false)], fixture.TargetDir);
+        Task copy = browser.TransferFilesToDirectoryAsync([(source, false)], fixture.TargetDir, move: false);
         FileSystemItemViewModel listed;
         try
         {
@@ -407,9 +407,9 @@ public sealed class FileBrowserWriteAdmissionTests
         browser.TransferNotificationDelay = Timeout.InfiniteTimeSpan;
         browser.CopyFile = static (_, _) => throw new UnauthorizedAccessException("Access denied.");
 
-        await browser.CopyFilesToDirectoryAsync(
+        await browser.TransferFilesToDirectoryAsync(
                 [(fixture.CopySource, false), (fixture.MoveSource, false)],
-                fixture.TargetDir)
+                fixture.TargetDir, move: false)
             .WaitAsync(TimeSpan.FromSeconds(30));
 
         Assert.Multiple(() =>
@@ -465,15 +465,15 @@ public sealed class FileBrowserWriteAdmissionTests
         int rejectedWrites;
         using (mutation)
         {
-            await browser.CopyFilesToDirectoryAsync([(fixture.CopySource, false)], fixture.TargetDir);
-            await browser.MoveFilesToDirectoryAsync([(fixture.MoveSource, false)], fixture.TargetDir);
+            await browser.TransferFilesToDirectoryAsync([(fixture.CopySource, false)], fixture.TargetDir, move: false);
+            await browser.TransferFilesToDirectoryAsync([(fixture.MoveSource, false)], fixture.TargetDir, move: true);
             browser.CreateNewFolder();
             await browser.RenameItemAsync(renameItem, "renamed.txt");
             rejectedWrites = 4;
             if (coversResources)
             {
-                await browser.CopyFilesToResourcesAsync([(fixture.CopySource, false)]);
-                await browser.MoveFilesToResourcesAsync([(fixture.MoveSource, false)]);
+                await browser.TransferFilesToResourcesAsync([(fixture.CopySource, false)], move: false);
+                await browser.TransferFilesToResourcesAsync([(fixture.MoveSource, false)], move: true);
                 rejectedWrites += 2;
             }
 
@@ -494,12 +494,12 @@ public sealed class FileBrowserWriteAdmissionTests
             });
         }
 
-        await browser.CopyFilesToDirectoryAsync([(fixture.CopySource, false)], fixture.TargetDir);
-        await browser.MoveFilesToDirectoryAsync([(fixture.MoveSource, false)], fixture.TargetDir);
+        await browser.TransferFilesToDirectoryAsync([(fixture.CopySource, false)], fixture.TargetDir, move: false);
+        await browser.TransferFilesToDirectoryAsync([(fixture.MoveSource, false)], fixture.TargetDir, move: true);
         browser.CreateNewFolder();
         await browser.RenameItemAsync(renameItem, "renamed.txt");
         if (coversResources)
-            await browser.CopyFilesToResourcesAsync([(Path.Combine(fixture.SourceDir, "renamed.txt"), false)]);
+            await browser.TransferFilesToResourcesAsync([(Path.Combine(fixture.SourceDir, "renamed.txt"), false)], move: false);
 
         Assert.Multiple(() =>
         {
