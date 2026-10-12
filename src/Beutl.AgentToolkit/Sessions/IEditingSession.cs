@@ -22,4 +22,6 @@ public interface IEditingSession
     DocumentAdapter Documents { get; }
 
     bool IsDirty { get; }
+
+    void Invoke(Action action);
 }

@@ -7,6 +7,7 @@ internal static class CodexMcpConfigWriter
 {
     private const UnixFileMode OwnerReadWrite = UnixFileMode.UserRead | UnixFileMode.UserWrite;
 
+    // writeContents is a test hook that replaces the write of the new contents.
     public static async Task WriteAsync(
         string path,
         AgentToolkitInstallOptions options,
@@ -29,7 +30,7 @@ internal static class CodexMcpConfigWriter
 
         TomlTable servers = CreateServers(options);
         string updated = CodexMcpConfigEditor.Update(
-            text, root, options.McpServersPropertyName, servers, AgentToolkitInstaller.ObsoleteServerNames(options));
+            text, root, options.McpServersPropertyName, servers, AgentToolkitInstaller.ObsoleteServerNames());
         cancellationToken.ThrowIfCancellationRequested();
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         await using FileStream? existingStream = File.Exists(path)

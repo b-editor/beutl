@@ -54,7 +54,7 @@ public sealed class AgentCatalogTests
     [Test]
     public void Claude_code_resolves_per_scope_with_subagents_and_mcp()
     {
-        AgentDefinition agent = AgentCatalog.Find("claude-code")!;
+        AgentDefinition agent = AgentCatalog.Agents.Single(a => a.Id == "claude-code");
 
         Assert.Multiple(() =>
         {
@@ -76,13 +76,13 @@ public sealed class AgentCatalogTests
     {
         Assert.Multiple(() =>
         {
-            Assert.That(AgentCatalog.Find("opencode")!.ProjectMcp, Is.Null);
-            Assert.That(AgentCatalog.Find("goose")!.GlobalMcp, Is.Null);
-            Assert.That(AgentCatalog.Find("continue")!.ProjectMcp, Is.Null);
-            Assert.That(AgentCatalog.Find("hermes-agent")!.GlobalMcp, Is.Null);
-            Assert.That(AgentCatalog.Find("trae")!.ProjectMcp, Is.Null);
-            Assert.That(AgentCatalog.Find("zed")!.GlobalMcp, Is.Null);
-            Assert.That(AgentCatalog.Find("cline")!.GlobalMcp, Is.Null);
+            Assert.That(AgentCatalog.Agents.Single(a => a.Id == "opencode").ProjectMcp, Is.Null);
+            Assert.That(AgentCatalog.Agents.Single(a => a.Id == "goose").GlobalMcp, Is.Null);
+            Assert.That(AgentCatalog.Agents.Single(a => a.Id == "continue").ProjectMcp, Is.Null);
+            Assert.That(AgentCatalog.Agents.Single(a => a.Id == "hermes-agent").GlobalMcp, Is.Null);
+            Assert.That(AgentCatalog.Agents.Single(a => a.Id == "trae").ProjectMcp, Is.Null);
+            Assert.That(AgentCatalog.Agents.Single(a => a.Id == "zed").GlobalMcp, Is.Null);
+            Assert.That(AgentCatalog.Agents.Single(a => a.Id == "cline").GlobalMcp, Is.Null);
         });
     }
 
@@ -91,31 +91,31 @@ public sealed class AgentCatalogTests
     {
         Assert.Multiple(() =>
         {
-            AgentMcpLocation warp = AgentCatalog.Find("warp")!.GlobalMcp!;
+            AgentMcpLocation warp = AgentCatalog.Agents.Single(a => a.Id == "warp").GlobalMcp!;
             Assert.That(warp.ConfigFileName, Is.EqualTo(Path.Combine(".warp", ".mcp.json")));
             Assert.That(warp.ServersPropertyName, Is.EqualTo("mcpServers"));
 
-            AgentMcpLocation junie = AgentCatalog.Find("junie")!.ProjectMcp!;
+            AgentMcpLocation junie = AgentCatalog.Agents.Single(a => a.Id == "junie").ProjectMcp!;
             Assert.That(junie.ConfigFileName, Is.EqualTo(Path.Combine(".junie", "mcp", "mcp.json")));
 
-            AgentMcpLocation droid = AgentCatalog.Find("droid")!.GlobalMcp!;
+            AgentMcpLocation droid = AgentCatalog.Agents.Single(a => a.Id == "droid").GlobalMcp!;
             Assert.That(droid.ConfigFileName, Is.EqualTo(Path.Combine(".factory", "mcp.json")));
 
-            AgentMcpLocation openHands = AgentCatalog.Find("openhands")!.GlobalMcp!;
+            AgentMcpLocation openHands = AgentCatalog.Agents.Single(a => a.Id == "openhands").GlobalMcp!;
             Assert.That(openHands.ConfigFileName, Is.EqualTo(Path.Combine(".openhands", "mcp.json")));
 
-            AgentMcpLocation crush = AgentCatalog.Find("crush")!.ProjectMcp!;
+            AgentMcpLocation crush = AgentCatalog.Agents.Single(a => a.Id == "crush").ProjectMcp!;
             Assert.That(crush.ServersPropertyName, Is.EqualTo("mcp"));
             Assert.That(crush.StdioTypeValue, Is.EqualTo("stdio"));
 
-            AgentMcpLocation gemini = AgentCatalog.Find("gemini-cli")!.ProjectMcp!;
+            AgentMcpLocation gemini = AgentCatalog.Agents.Single(a => a.Id == "gemini-cli").ProjectMcp!;
             Assert.That(gemini.ConfigFileName, Is.EqualTo(Path.Combine(".gemini", "settings.json")));
             Assert.That(gemini.StdioTypeValue, Is.Null);
 
-            AgentMcpLocation windsurf = AgentCatalog.Find("windsurf")!.GlobalMcp!;
+            AgentMcpLocation windsurf = AgentCatalog.Agents.Single(a => a.Id == "windsurf").GlobalMcp!;
             Assert.That(windsurf.ConfigFileName, Is.EqualTo(Path.Combine(".codeium", "windsurf", "mcp_config.json")));
 
-            AgentMcpLocation amp = AgentCatalog.Find("amp")!.ProjectMcp!;
+            AgentMcpLocation amp = AgentCatalog.Agents.Single(a => a.Id == "amp").ProjectMcp!;
             Assert.That(amp.ConfigFileName, Is.EqualTo(Path.Combine(".amp", "settings.json")));
             Assert.That(amp.ServersPropertyName, Is.EqualTo("amp.mcpServers"));
         });
@@ -124,7 +124,7 @@ public sealed class AgentCatalogTests
     [Test]
     public void Codex_uses_dot_agents_skills_and_toml_subagents()
     {
-        AgentDefinition agent = AgentCatalog.Find("codex")!;
+        AgentDefinition agent = AgentCatalog.Agents.Single(a => a.Id == "codex");
 
         Assert.Multiple(() =>
         {
@@ -145,23 +145,5 @@ public sealed class AgentCatalogTests
                 Assert.That(agent.Mcp(scope)!.Format, Is.EqualTo(McpConfigFormat.CodexToml));
             }
         });
-    }
-
-    [Test]
-    public void Named_agents_from_the_request_are_present()
-    {
-        Assert.Multiple(() =>
-        {
-            Assert.That(AgentCatalog.Find("claude-code"), Is.Not.Null);
-            Assert.That(AgentCatalog.Find("codex"), Is.Not.Null);
-            Assert.That(AgentCatalog.Find("opencode"), Is.Not.Null);
-            Assert.That(AgentCatalog.Find("hermes-agent"), Is.Not.Null);
-        });
-    }
-
-    [Test]
-    public void Find_returns_null_for_unknown_ids()
-    {
-        Assert.That(AgentCatalog.Find("no-such-agent"), Is.Null);
     }
 }

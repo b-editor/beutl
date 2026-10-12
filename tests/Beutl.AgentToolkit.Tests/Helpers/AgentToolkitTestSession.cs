@@ -35,6 +35,8 @@ internal sealed class AgentToolkitTestSession : IEditingSession, IDisposable
 
     public bool IsDirty { get; private set; }
 
+    public void Invoke(Action action) => action();
+
     public void Dispose()
     {
         _recording.Dispose();
@@ -43,7 +45,5 @@ internal sealed class AgentToolkitTestSession : IEditingSession, IDisposable
 
 internal sealed class AgentToolkitTestSessionSource(IEditingSession session) : ISessionSource
 {
-    public EditingSessionSource Source => session.Source;
-
     public IEditingSession? CurrentSession => session;
 }

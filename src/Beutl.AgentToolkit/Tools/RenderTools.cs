@@ -156,11 +156,7 @@ public sealed partial class RenderTools(
             RenderStoryboardResponse response = await RenderStoryboardFramesAsync(plan, RenderJobProgressReporter.Ignored, cancellationToken).ConfigureAwait(false);
             ImageContentBlock? image = returnImageContent
                 ? ImageContentBlock.FromBytes(
-                    storyboardRenderer.RenderContactSheetPng(
-                        response.Shots
-                            .Select(ToContactSheetFrame)
-                            .ToArray(),
-                        ImagePreviewEncoder.DefaultMaxLongEdge).Bytes,
+                    storyboardRenderer.RenderContactSheetPng(response.Shots, ImagePreviewEncoder.DefaultMaxLongEdge),
                     "image/png")
                 : null;
             return (new RenderStoryboardResult("completed", null, response), image);

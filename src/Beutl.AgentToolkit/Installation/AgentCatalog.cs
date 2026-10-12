@@ -176,9 +176,4 @@ public static class AgentCatalog
             GlobalSkillsDirectory: Path.Combine(".config", "agents", "skills"),
             ProjectMcp: s_repoRootMcpJson),
     ];
-
-    public static AgentDefinition? Find(string id)
-    {
-        return Agents.FirstOrDefault(a => a.Id == id);
-    }
 }

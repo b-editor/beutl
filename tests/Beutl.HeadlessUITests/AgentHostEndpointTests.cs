@@ -43,8 +43,7 @@ public sealed class AgentHostEndpointTests
             Beutl.Testing.Headless.HeadlessTestHelpers.Settle();
             var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
             var binding = new EditViewModelLiveBinding(editor);
-            var source = new LiveSessionSource();
-            LiveEditingSession session = source.Attach(binding);
+            LiveEditingSession session = LiveEditingSession.Create(binding);
             int invocations = 0;
 
             Assert.That(session.ProbeIsAlive(), Is.True);
@@ -55,7 +54,7 @@ public sealed class AgentHostEndpointTests
                 Assert.Multiple(() =>
                 {
                     Assert.That(binding.IsAlive, Is.False);
-                    Assert.That(source.CurrentSession, Is.Null);
+                    Assert.That(session.ProbeIsAlive(), Is.False);
                     Assert.Throws<SessionUnavailableException>(
                         () => session.Invoke(() => invocations++));
                     Assert.That(invocations, Is.Zero);
@@ -71,7 +70,7 @@ public sealed class AgentHostEndpointTests
             Assert.Multiple(() =>
             {
                 Assert.That(binding.IsAlive, Is.True);
-                Assert.That(source.CurrentSession, Is.SameAs(session));
+                Assert.That(session.ProbeIsAlive(), Is.True);
                 Assert.That(invocations, Is.EqualTo(1));
             });
         }
@@ -102,8 +101,7 @@ public sealed class AgentHostEndpointTests
             TestShell.Editor.ActivateTabItem(scene);
             Beutl.Testing.Headless.HeadlessTestHelpers.Settle();
             var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
-            var liveSessions = new LiveSessionSource();
-            LiveEditingSession session = liveSessions.Attach(new EditViewModelLiveBinding(editor));
+            LiveEditingSession session = LiveEditingSession.Create(new EditViewModelLiveBinding(editor));
             var gateway = new EditorProjectSessionGateway(TestShell.Project, TestShell.Editor);
             Dictionary<string, string> filesBefore = SnapshotFiles(location);
 
@@ -190,8 +188,7 @@ public sealed class AgentHostEndpointTests
             Beutl.Testing.Headless.HeadlessTestHelpers.Settle();
             var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
             var binding = new EditViewModelLiveBinding(editor);
-            var source = new LiveSessionSource();
-            LiveEditingSession session = source.Attach(binding);
+            LiveEditingSession session = LiveEditingSession.Create(binding);
 
             FieldInfo disposed = typeof(EditViewModel).GetField(
                 "_disposed",
@@ -202,7 +199,7 @@ public sealed class AgentHostEndpointTests
             {
                 Assert.That(editor.Scene, Is.Not.Null);
                 Assert.That(binding.IsAlive, Is.False);
-                Assert.That(source.CurrentSession, Is.Null);
+                Assert.That(session.ProbeIsAlive(), Is.False);
                 Assert.Throws<SessionUnavailableException>(() => session.Invoke(static () => { }));
             });
         }

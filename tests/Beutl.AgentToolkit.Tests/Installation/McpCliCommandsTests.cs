@@ -48,23 +48,6 @@ public sealed class McpCliCommandsTests
     }
 
     [Test]
-    public void Codex_global_stdio_builds_codex_mcp_add()
-    {
-        McpCliCommand? command = AgentMcpCliCommands.BuildStdio(
-            "codex", AgentInstallScope.Global, "beutl-agent", "beutl-mcp", [], s_environment);
-
-        Assert.That(command, Is.Not.Null);
-        Assert.Multiple(() =>
-        {
-            Assert.That(command!.Executable, Is.EqualTo("codex"));
-            Assert.That(command.Arguments, Is.EqualTo(new[]
-            {
-                "mcp", "add", "beutl-agent", "--env", "BEUTL_WORKSPACE=/videos", "--", "beutl-mcp",
-            }));
-        });
-    }
-
-    [Test]
     public void Remove_commands_exist_for_every_cli_supported_combination()
     {
         Assert.Multiple(() =>
@@ -72,9 +55,6 @@ public sealed class McpCliCommandsTests
             Assert.That(
                 AgentMcpCliCommands.BuildRemove("claude-code", AgentInstallScope.Global, "beutl-agent")!.Arguments,
                 Is.EqualTo(new[] { "mcp", "remove", "--scope", "user", "beutl-agent" }));
-            Assert.That(
-                AgentMcpCliCommands.BuildRemove("codex", AgentInstallScope.Global, "beutl-agent")!.Arguments,
-                Is.EqualTo(new[] { "mcp", "remove", "beutl-agent" }));
         });
     }
 

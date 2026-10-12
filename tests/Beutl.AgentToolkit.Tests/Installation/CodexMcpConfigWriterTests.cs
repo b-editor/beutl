@@ -508,7 +508,6 @@ public sealed class CodexMcpConfigWriterTests
         var other = (TomlTable)servers["other"];
         Assert.Multiple(() =>
         {
-            Assert.That(result.McpConfigPath, Is.EqualTo(ConfigPath));
             Assert.That(result.InstalledFiles, Is.EqualTo(new[] { ConfigPath }));
             Assert.That(result.InstalledMcp, Is.True);
             Assert.That(server["command"], Is.EqualTo(ServerCommand));
@@ -591,8 +590,9 @@ public sealed class CodexMcpConfigWriterTests
             McpConfigFileName = "config.toml",
         }, []);
 
-        Assert.That(result.McpConfigPath, Is.EqualTo(Path.Combine(codexRoot, "config.toml")));
-        Assert.That(File.Exists(result.McpConfigPath), Is.True);
+        string configPath = Path.Combine(codexRoot, "config.toml");
+        Assert.That(result.InstalledFiles, Is.EqualTo(new[] { configPath }));
+        Assert.That(File.Exists(configPath), Is.True);
         Assert.That(File.Exists(ConfigPath), Is.False);
     }
 }

@@ -14,11 +14,7 @@ public sealed class FileSessionSource : ISessionSource, IDisposable
     private volatile FileEditingSession? _currentSession;
     private bool _disposed;
 
-    public EditingSessionSource Source => EditingSessionSource.File;
-
     public IEditingSession? CurrentSession => _currentSession;
-
-    public FileEditingSession? CurrentFileSession => _currentSession;
 
     public FileEditingSession OpenProject(string projectPath)
     {
@@ -41,13 +37,6 @@ public sealed class FileSessionSource : ISessionSource, IDisposable
         return session;
     }
 
-    public FileEditingSession CreateProject(ProjectCreateOptions options)
-    {
-        FileEditingSession session = CreateProjectSession(options);
-        MakeCurrent(session);
-        return session;
-    }
-
     // Pure factory (no publish): lets the gateway persist the project first, so a failed initial
     // save does not swap out — and dispose — the previously active session.
     public FileEditingSession CreateProjectSession(ProjectCreateOptions options)
@@ -63,18 +52,6 @@ public sealed class FileSessionSource : ISessionSource, IDisposable
     {
         ArgumentNullException.ThrowIfNull(session);
         SetCurrent(session);
-    }
-
-    // Takes the caller's session instead of re-reading the current one: a concurrent
-    // open_project/create_project swap between the caller's session lookup and this call must not
-    // add the scene to the newly opened project.
-    public Scene AddScene(FileEditingSession session, SceneCreateOptions options)
-    {
-        ArgumentNullException.ThrowIfNull(session);
-
-        Scene scene = ProjectOperations.AddScene(session.Project, options);
-        session.MarkDirty();
-        return scene;
     }
 
     public void Dispose()

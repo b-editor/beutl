@@ -60,8 +60,6 @@ public sealed record AgentToolkitInstallOptions
     // MCP bearer token. Reinstalling removes it from the agent configuration.
     public const string LegacyLiveServerName = "beutl-live";
 
-    public IReadOnlyList<string> ObsoleteMcpServerNames { get; init; } = [LegacyLiveServerName];
-
     public string? McpCommand { get; init; }
 
     public IReadOnlyList<string> McpArguments { get; init; } = [];
@@ -79,7 +77,6 @@ public sealed record AgentToolkitInstallOptions
 
 public sealed record AgentToolkitInstallResult(
     IReadOnlyList<string> InstalledFiles,
-    string? McpConfigPath,
     bool InstalledMcp,
     IReadOnlyList<InstalledFileRecord> AssetFileRecords)
 {
@@ -99,5 +96,4 @@ public sealed record BackedUpFile(string Path, string BackupPath);
 
 public sealed record AgentToolkitMcpServerCommand(
     string Command,
-    IReadOnlyList<string> Arguments,
-    string Source);
+    IReadOnlyList<string> Arguments);

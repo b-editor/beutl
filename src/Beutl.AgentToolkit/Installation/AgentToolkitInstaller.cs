@@ -75,7 +75,6 @@ public static class AgentToolkitInstaller
 
         return new AgentToolkitInstallResult(
             installedFiles,
-            mcpConfigPath,
             options.InstallMcp && manualMcpEdit is null,
             assetFileRecords)
         {
@@ -84,12 +83,8 @@ public static class AgentToolkitInstaller
         };
     }
 
-    // Entries of earlier layouts are dropped unless the user pointed the installer at that very name.
-    internal static IEnumerable<string> ObsoleteServerNames(AgentToolkitInstallOptions options)
-    {
-        return options.ObsoleteMcpServerNames
-            .Where(name => !string.Equals(name, options.McpServerName, StringComparison.Ordinal));
-    }
+    // The entry of earlier layouts, removed from the agent configuration on reinstall.
+    internal static IEnumerable<string> ObsoleteServerNames() => [AgentToolkitInstallOptions.LegacyLiveServerName];
 
     // A file the user edited since an earlier install wrote it, or one no install recorded, is copied
     // aside before the bundled version replaces it. An unedited copy of an earlier install is not.
@@ -175,15 +170,10 @@ public static class AgentToolkitInstaller
 
         string fullRoot = PathBoundary.ResolveExistingPath(Path.GetFullPath(root));
         string fullPath = Path.GetFullPath(Path.Combine(fullRoot, relativePath));
-        string rootWithSeparator = fullRoot.EndsWith(Path.DirectorySeparatorChar)
-            ? fullRoot
-            : fullRoot + Path.DirectorySeparatorChar;
 
         // Resolve through symlinks: a purely textual check would let an existing symlink/junction
         // under the root redirect the write outside it.
-        string resolved = PathBoundary.ResolveDeepestExistingTarget(fullPath);
-        if (!resolved.Equals(fullRoot, PathComparison)
-            && !resolved.StartsWith(rootWithSeparator, PathComparison))
+        if (!FilePathComparison.IsSameOrDescendant(fullRoot, fullPath))
         {
             throw new ArgumentException($"Path escapes the agent root: {relativePath}", nameof(relativePath));
         }
@@ -197,7 +187,4 @@ public static class AgentToolkitInstaller
             .Split([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar], StringSplitOptions.RemoveEmptyEntries)
             .Any(segment => segment == "..");
     }
-
-    private static StringComparison PathComparison
-        => OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
 }

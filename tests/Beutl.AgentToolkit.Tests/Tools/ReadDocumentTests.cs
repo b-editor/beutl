@@ -905,6 +905,8 @@ public sealed class ReadDocumentTests
         public DocumentAdapter Documents => inner.Documents;
 
         public bool IsDirty => inner.IsDirty;
+
+        public void Invoke(Action action) => action();
     }
 
     private static KeyFrameAnimation<float> CreateFloatAnimation()

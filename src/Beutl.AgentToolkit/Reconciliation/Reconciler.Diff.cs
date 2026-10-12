@@ -10,10 +10,8 @@ namespace Beutl.AgentToolkit.Reconciliation;
 
 public sealed partial class Reconciler
 {
-    // Inserted subtrees never reach CompareObject (CompareArray records the InsertChild and continues),
-    // so their properties are otherwise unvalidated. Re-run per-property validation against the sandbox,
-    // where the insert has been applied and is findable by Id, so a new Element/Object with an invalid
-    // Start/Length (or any validator-constrained property) is rejected instead of saved.
+    // CompareArray records an insert without descending into it, so validate the inserted subtree
+    // against the sandbox, where it exists and is findable by Id.
     private static void ValidateInsertedSubtrees(
         CoreObject sandboxRoot,
         List<ChangeSetEntry> changes,
@@ -33,9 +31,7 @@ public sealed partial class Reconciler
         JsonObject node,
         List<ValidationOutcome> validation)
     {
-        // Element.Start/Length carry no property validator (the add/move tools reject bad values with an
-        // explicit check), so validate the applied sandbox element directly; otherwise a patch could
-        // insert an element with a negative Start or non-positive Length.
+        // Start/Length have no property validator (see ValidateChangedElementTimelines).
         if (CollectionReconciler.TryGetId(node, out Guid nodeId)
             && sandboxRoot.FindById(nodeId) is Element element)
         {

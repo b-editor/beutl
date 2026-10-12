@@ -170,15 +170,8 @@ public sealed partial class StillRenderer
             }
         }
 
-        // A referenced scene is not a hierarchical child and its ReferenceExpression resolves only
-        // at composition time, so its GPU requirement is invisible unless the expression target is
-        // followed here (visited-guarded because references are user-cyclable). Only a Drawable
-        // owner evaluates the referenced scene's graphics — an audio-only SceneSound must not. Follow
-        // only the known scene-reference properties: ReferenceExpression is a general binding form, so
-        // an arbitrary data-binding on some other property must not drag in unrelated GPU content. The
-        // PropertyPath form is rejected at apply time, so only a direct-ObjectId target is followed,
-        // and only when it is the referenced type — ReferenceExpression<Scene?> evaluates a non-Scene
-        // target to null, so a legacy/malformed Id resolving to another object must not be followed.
+        // A referenced scene is not a hierarchical child: follow a Drawable's known scene-reference properties
+        // (direct ObjectId of the referenced type only, guarded against cycles) to find its 3D content.
         if (node is Drawable drawable && drawable.FindHierarchicalRoot() is ICoreObject lookupRoot)
         {
             foreach (IProperty property in drawable.Properties)

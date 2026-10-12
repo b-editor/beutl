@@ -51,7 +51,6 @@ public sealed partial class RenderTools
         destructiveGuard.EnsureOverwriteAllowed(plan.ContactSheetPath, plan.ConfirmOverwrite);
 
         var renderedShots = new List<RenderStoryboardShot>(plan.Shots.Count);
-        var contactSheetFrames = new List<StoryboardContactSheetFrame>(plan.Shots.Count);
         var eyeTraceFrames = new List<StoryboardEyeTraceFrame>(plan.Shots.Count);
         progress.Report(0, plan.Shots.Count, "rendering shots");
         foreach ((ResolvedStoryboardFrame shot, string resolvedPath) in plan.Shots)
@@ -75,7 +74,6 @@ public sealed partial class RenderTools
                 shot.Kind,
                 shot.SubdivisionLevel);
             renderedShots.Add(renderedShot);
-            contactSheetFrames.Add(ToContactSheetFrame(renderedShot));
             if (focalPoint is not null)
             {
                 eyeTraceFrames.Add(new StoryboardEyeTraceFrame(
@@ -85,19 +83,9 @@ public sealed partial class RenderTools
         }
 
         progress.Report(plan.Shots.Count, plan.Shots.Count, "contact sheet");
-        storyboardRenderer.RenderContactSheet(contactSheetFrames, plan.ContactSheetPath);
+        storyboardRenderer.RenderContactSheet(renderedShots, plan.ContactSheetPath);
         CutEyeTrace[] cutEyeTrace = BuildCutEyeTrace(eyeTraceFrames);
         return new RenderStoryboardResponse(plan.ContactSheetPath, renderedShots, cutEyeTrace);
-    }
-
-    private static StoryboardContactSheetFrame ToContactSheetFrame(RenderStoryboardShot shot)
-    {
-        return new StoryboardContactSheetFrame(
-            shot.Name,
-            shot.TimeSeconds,
-            shot.StillPath,
-            shot.Kind,
-            shot.SubdivisionLevel);
     }
 
     private static void SaveStoryboardStill(Bitmap bitmap, string outputPath)

@@ -1,6 +1,5 @@
 ﻿using Beutl.AgentToolkit.Rendering;
 using Beutl.Media;
-using Beutl.Media.Pixel;
 
 namespace Beutl.AgentToolkit.Tests.Rendering;
 
@@ -10,7 +9,8 @@ public sealed class FrameLumaTests
     public void Near_black_frame_reports_near_black_luma()
     {
         // Regression: an opaque dark pixel used to report ~74 because alpha was averaged in.
-        using Bitmap bitmap = CreateUniform(new Bgra8888(15, 15, 15, 255));
+        float dark = SrgbToLinear(15f / 255f);
+        using Bitmap bitmap = CreateUniformHalf(dark, dark, dark, 1);
 
         StillFrameVisibilityAnalysis analysis = StillRenderer.AnalyzeFrameVisibility(bitmap);
 
@@ -24,8 +24,8 @@ public sealed class FrameLumaTests
     [Test]
     public void Luma_is_weighted_so_green_reads_brighter_than_blue()
     {
-        using Bitmap green = CreateUniform(new Bgra8888(0, 255, 0, 255));
-        using Bitmap blue = CreateUniform(new Bgra8888(0, 0, 255, 255));
+        using Bitmap green = CreateUniformHalf(0, 1, 0, 1);
+        using Bitmap blue = CreateUniformHalf(0, 0, 1, 1);
 
         double greenLuma = StillRenderer.AnalyzeFrameVisibility(green).MeanLuma;
         double blueLuma = StillRenderer.AnalyzeFrameVisibility(blue).MeanLuma;
@@ -40,8 +40,9 @@ public sealed class FrameLumaTests
     [Test]
     public void Transparent_pixels_do_not_raise_luma()
     {
-        using Bitmap opaque = CreateUniform(new Bgra8888(15, 15, 15, 255));
-        using Bitmap transparent = CreateUniform(new Bgra8888(15, 15, 15, 0));
+        float dark = SrgbToLinear(15f / 255f);
+        using Bitmap opaque = CreateUniformHalf(dark, dark, dark, 1);
+        using Bitmap transparent = CreateUniformHalf(dark, dark, dark, 0);
 
         Assert.That(
             StillRenderer.AnalyzeFrameVisibility(transparent).MeanLuma,
@@ -66,27 +67,75 @@ public sealed class FrameLumaTests
         });
     }
 
+    [Test]
+    public void Half_float_visibility_luma_is_monotonic()
+    {
+        float gray128 = SrgbToLinear(128f / 255f);
+        using Bitmap black = CreateUniformHalf(0, 0, 0, 1);
+        using Bitmap gray = CreateUniformHalf(gray128, gray128, gray128, 1);
+        using Bitmap white = CreateUniformHalf(1, 1, 1, 1);
+
+        StillFrameVisibilityAnalysis blackAnalysis = StillRenderer.AnalyzeFrameVisibility(black);
+        StillFrameVisibilityAnalysis grayAnalysis = StillRenderer.AnalyzeFrameVisibility(gray);
+        StillFrameVisibilityAnalysis whiteAnalysis = StillRenderer.AnalyzeFrameVisibility(white);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(whiteAnalysis.MaxLuma, Is.GreaterThanOrEqualTo(250));
+            Assert.That(whiteAnalysis.MaxLuma, Is.GreaterThan(grayAnalysis.MaxLuma));
+            Assert.That(grayAnalysis.MaxLuma, Is.GreaterThan(blackAnalysis.MaxLuma));
+        });
+    }
+
+    [Test]
+    public void Half_float_white_foreground_is_detected_against_srgb_188_background()
+    {
+        float gray188 = SrgbToLinear(188f / 255f);
+        using Bitmap bitmap = CreateHalfFloatBitmap(64, 64);
+        FillHalfFloatRect(bitmap, new PixelRect(0, 0, 64, 64), gray188, gray188, gray188, 1);
+        FillHalfFloatRect(bitmap, new PixelRect(24, 24, 16, 16), 1, 1, 1, 1);
+
+        StillFrameVisibilityAnalysis analysis = StillRenderer.AnalyzeFrameVisibility(bitmap);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(analysis.MaxLuma, Is.GreaterThanOrEqualTo(250));
+            Assert.That(analysis.ForegroundPixels, Is.EqualTo(16 * 16));
+            Assert.That(
+                analysis.Warnings,
+                Has.None.Contains("very low visual contrast"),
+                "A white foreground over sRGB 188 has substantial contrast.");
+        });
+    }
+
+    private static Bitmap CreateHalfFloatBitmap(int width, int height)
+        => new(width, height, BitmapColorType.RgbaF16, BitmapAlphaType.Premul, BitmapColorSpace.LinearSrgb);
+
     private static Bitmap CreateUniformHalf(float r, float g, float b, float a)
     {
-        var bitmap = new Bitmap(16, 16, BitmapColorType.RgbaF16, BitmapAlphaType.Premul);
-        Span<byte> data = bitmap.GetPixelSpan();
-        Span<byte> pixel = stackalloc byte[8];
-        BitConverter.TryWriteBytes(pixel[..2], (Half)r);
-        BitConverter.TryWriteBytes(pixel[2..4], (Half)g);
-        BitConverter.TryWriteBytes(pixel[4..6], (Half)b);
-        BitConverter.TryWriteBytes(pixel[6..8], (Half)a);
-        for (int offset = 0; offset + 8 <= data.Length; offset += 8)
-        {
-            pixel.CopyTo(data.Slice(offset, 8));
-        }
-
+        Bitmap bitmap = CreateHalfFloatBitmap(16, 16);
+        FillHalfFloatRect(bitmap, new PixelRect(0, 0, bitmap.Width, bitmap.Height), r, g, b, a);
         return bitmap;
     }
 
-    private static Bitmap CreateUniform(Bgra8888 pixel)
+    private static void FillHalfFloatRect(Bitmap bitmap, PixelRect rect, float r, float g, float b, float a)
     {
-        var bitmap = new Bitmap(16, 16);
-        bitmap.GetPixelSpan<Bgra8888>().Fill(pixel);
-        return bitmap;
+        for (int y = rect.Y; y < rect.Bottom; y++)
+        {
+            Span<Half> row = bitmap.GetRow<Half>(y);
+            for (int x = rect.X; x < rect.Right; x++)
+            {
+                int offset = x * 4;
+                row[offset] = (Half)r;
+                row[offset + 1] = (Half)g;
+                row[offset + 2] = (Half)b;
+                row[offset + 3] = (Half)a;
+            }
+        }
     }
+
+    private static float SrgbToLinear(float value)
+        => value <= 0.04045f
+            ? value / 12.92f
+            : MathF.Pow((value + 0.055f) / 1.055f, 2.4f);
 }

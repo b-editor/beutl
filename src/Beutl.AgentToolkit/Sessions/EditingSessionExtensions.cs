@@ -2,22 +2,16 @@
 
 public static class EditingSessionExtensions
 {
-    // A LiveEditor session binds Root/Documents/History to the editor's UI thread; run reads through
-    // the dispatcher so an MCP-request-thread read cannot observe the scene mid-mutation by the editor.
-    // File sessions dispatch synchronously, so this is a no-op there.
+    // Live sessions bind Root/Documents/History to the editor's UI thread; file sessions serialize
+    // through the session lock.
     public static T ReadOnSession<T>(this IEditingSession session, Func<T> read)
     {
         ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(read);
 
-        if (session is IEditingSessionDispatcher dispatcher)
-        {
-            T result = default!;
-            dispatcher.Invoke(() => result = read());
-            return result;
-        }
-
-        return read();
+        T result = default!;
+        session.Invoke(() => result = read());
+        return result;
     }
 
     // Run a mutation on the session's dispatcher, for tools that change scene state without the reconciler.
@@ -26,14 +20,7 @@ public static class EditingSessionExtensions
         ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(action);
 
-        if (session is IEditingSessionDispatcher dispatcher)
-        {
-            dispatcher.Invoke(action);
-        }
-        else
-        {
-            action();
-        }
+        session.Invoke(action);
     }
 
     internal static void MarkDirtyIfFileSession(this IEditingSession session)

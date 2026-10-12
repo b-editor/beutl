@@ -36,7 +36,7 @@ public sealed class FileEditingSessionTests
         Directory.CreateDirectory(root);
         string projectPath = Path.Combine(root, "demo.bep");
         using var source = new FileSessionSource();
-        FileEditingSession session = source.CreateProject(new ProjectCreateOptions(
+        FileEditingSession session = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
             projectPath, 640, 360, 30, TimeSpan.FromSeconds(2)));
         string elementPath = Path.Combine(Path.GetDirectoryName(session.Scene.Uri!.LocalPath)!, "clip.belm");
         var animation = new KeyFrameAnimation<float>();
@@ -85,12 +85,12 @@ public sealed class FileEditingSessionTests
     }
 
     [Test]
-    public void SetProjectPath_disambiguates_sidecars_for_scenes_sharing_a_name()
+    public void SaveAs_disambiguates_sidecars_for_scenes_sharing_a_name()
     {
         string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
         using var source = new FileSessionSource();
-        FileEditingSession session = source.CreateProject(new ProjectCreateOptions(
+        FileEditingSession session = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
             Path.Combine(root, "demo.bep"), 640, 360, 30, TimeSpan.FromSeconds(2), Name: "demo"));
 
         // A second scene sharing the seed scene's name ("demo") is what Save As must not collapse onto
@@ -98,7 +98,7 @@ public sealed class FileEditingSessionTests
         ProjectOperations.AddScene(session.Project, new SceneCreateOptions(
             640, 360, TimeSpan.Zero, TimeSpan.FromSeconds(2), Name: "demo"));
 
-        session.SetProjectPath(Path.Combine(root, "copy.bep"));
+        session.SaveAs(Path.Combine(root, "copy.bep"), skipConflictCheck: true);
 
         string[] sceneDirs = session.Project.Items.OfType<Scene>()
             .Select(s => Path.GetDirectoryName(s.Uri!.LocalPath)!)
@@ -108,7 +108,7 @@ public sealed class FileEditingSessionTests
     }
 
     [Test]
-    public void SetProjectPath_does_not_overwrite_existing_sidecar_file()
+    public void SaveAs_does_not_overwrite_existing_sidecar_file()
     {
         string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
@@ -117,11 +117,10 @@ public sealed class FileEditingSessionTests
         string existingSidecar = Path.Combine(existingDir, "demo.scene");
         File.WriteAllText(existingSidecar, "existing sidecar");
         using var source = new FileSessionSource();
-        FileEditingSession session = source.CreateProject(new ProjectCreateOptions(
+        FileEditingSession session = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
             Path.Combine(root, "demo.bep"), 640, 360, 30, TimeSpan.FromSeconds(2), Name: "demo"));
 
-        session.SetProjectPath(Path.Combine(root, "copy.bep"));
-        session.Save(skipConflictCheck: true);
+        session.SaveAs(Path.Combine(root, "copy.bep"), skipConflictCheck: true);
 
         Scene scene = session.Project.Items.OfType<Scene>().Single();
         Assert.Multiple(() =>
@@ -134,12 +133,12 @@ public sealed class FileEditingSessionTests
     }
 
     [Test]
-    public void SetProjectPath_keeps_element_sidecar_file_names()
+    public void SaveAs_keeps_element_sidecar_file_names()
     {
         string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
         using var source = new FileSessionSource();
-        FileEditingSession session = source.CreateProject(new ProjectCreateOptions(
+        FileEditingSession session = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
             Path.Combine(root, "demo.bep"), 640, 360, 30, TimeSpan.FromSeconds(2), Name: "demo"));
         Scene scene = session.Project.Items.OfType<Scene>().Single();
         var element = new Element
@@ -152,7 +151,7 @@ public sealed class FileEditingSessionTests
         session.Save(skipConflictCheck: true);
         string originalFileName = Path.GetFileName(element.Uri!.LocalPath);
 
-        session.SetProjectPath(Path.Combine(root, "copy.bep"));
+        session.SaveAs(Path.Combine(root, "copy.bep"), skipConflictCheck: true);
 
         // A recovered element's fallback identity is derived from the scene-relative sidecar path,
         // so Save As must not regenerate the file name.
@@ -166,12 +165,12 @@ public sealed class FileEditingSessionTests
     }
 
     [Test]
-    public void SetProjectPath_keeps_element_sidecar_relative_subpaths()
+    public void SaveAs_keeps_element_sidecar_relative_subpaths()
     {
         string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
         using var source = new FileSessionSource();
-        FileEditingSession session = source.CreateProject(new ProjectCreateOptions(
+        FileEditingSession session = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
             Path.Combine(root, "demo.bep"), 640, 360, 30, TimeSpan.FromSeconds(2), Name: "demo"));
         Scene scene = session.Project.Items.OfType<Scene>().Single();
         string relativePath = Path.Combine("sub", "clip.belm");
@@ -184,7 +183,7 @@ public sealed class FileEditingSessionTests
         scene.Children.Add(element);
         session.Save(skipConflictCheck: true);
 
-        session.SetProjectPath(Path.Combine(root, "copy.bep"));
+        session.SaveAs(Path.Combine(root, "copy.bep"), skipConflictCheck: true);
 
         string newSceneDirectory = Path.GetDirectoryName(scene.Uri!.LocalPath)!;
         Assert.That(
@@ -193,12 +192,12 @@ public sealed class FileEditingSessionTests
     }
 
     [Test]
-    public void SetProjectPath_keeps_element_sidecar_subpaths_starting_with_two_dots()
+    public void SaveAs_keeps_element_sidecar_subpaths_starting_with_two_dots()
     {
         string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
         using var source = new FileSessionSource();
-        FileEditingSession session = source.CreateProject(new ProjectCreateOptions(
+        FileEditingSession session = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
             Path.Combine(root, "demo.bep"), 640, 360, 30, TimeSpan.FromSeconds(2), Name: "demo"));
         Scene scene = session.Project.Items.OfType<Scene>().Single();
         string relativePath = Path.Combine("..assets", "clip.belm");
@@ -211,7 +210,7 @@ public sealed class FileEditingSessionTests
         scene.Children.Add(element);
         session.Save(skipConflictCheck: true);
 
-        session.SetProjectPath(Path.Combine(root, "copy.bep"));
+        session.SaveAs(Path.Combine(root, "copy.bep"), skipConflictCheck: true);
 
         string newSceneDirectory = Path.GetDirectoryName(scene.Uri!.LocalPath)!;
         Assert.That(
@@ -226,7 +225,7 @@ public sealed class FileEditingSessionTests
         Directory.CreateDirectory(root);
         string projectPath = Path.Combine(root, "demo.bep");
         using var source = new FileSessionSource();
-        FileEditingSession session = source.CreateProject(new ProjectCreateOptions(
+        FileEditingSession session = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
             projectPath, 640, 360, 30, TimeSpan.FromSeconds(2), Name: "demo"));
         Scene scene = session.Project.Items.OfType<Scene>().Single();
         string sceneDirectory = Path.GetDirectoryName(scene.Uri!.LocalPath)!;
@@ -282,7 +281,7 @@ public sealed class FileEditingSessionTests
         string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
         using var source = new FileSessionSource();
-        FileEditingSession session = source.CreateProject(new ProjectCreateOptions(
+        FileEditingSession session = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
             Path.Combine(root, "demo.bep"), 640, 360, 30, TimeSpan.FromSeconds(2)));
         session.Save(skipConflictCheck: true);
         string projectPath = session.Project.Uri!.LocalPath;
@@ -310,7 +309,7 @@ public sealed class FileEditingSessionTests
         Directory.CreateDirectory(root);
         string projectPath = Path.Combine(root, "demo.bep");
         using var source = new FileSessionSource();
-        FileEditingSession session = source.CreateProject(new ProjectCreateOptions(
+        FileEditingSession session = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
             projectPath, 640, 360, 30, TimeSpan.FromSeconds(2), Name: "demo"));
         Scene scene = session.Project.Items.OfType<Scene>().Single();
         string elementPath = Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, "clip.belm");
@@ -365,7 +364,7 @@ public sealed class FileEditingSessionTests
         string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
         using var source = new FileSessionSource();
-        FileEditingSession session = source.CreateProject(new ProjectCreateOptions(
+        FileEditingSession session = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
             Path.Combine(root, "demo.bep"), 640, 360, 30, TimeSpan.FromSeconds(2)));
 
         session.Dispose();
@@ -386,8 +385,8 @@ public sealed class FileEditingSessionTests
         string pathA = Path.Combine(root, "a.bep");
         string pathB = Path.Combine(root, "b.bep");
         using var source = new FileSessionSource();
-        source.CreateProject(new ProjectCreateOptions(pathA, 640, 360, 30, TimeSpan.FromSeconds(2))).Save(skipConflictCheck: true);
-        source.CreateProject(new ProjectCreateOptions(pathB, 640, 360, 30, TimeSpan.FromSeconds(2))).Save(skipConflictCheck: true);
+        TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(pathA, 640, 360, 30, TimeSpan.FromSeconds(2))).Save(skipConflictCheck: true);
+        TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(pathB, 640, 360, 30, TimeSpan.FromSeconds(2))).Save(skipConflictCheck: true);
 
         for (int i = 0; i < 20; i++)
         {
@@ -420,7 +419,7 @@ public sealed class FileEditingSessionTests
         string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
         using var source = new FileSessionSource();
-        FileEditingSession session = source.CreateProject(new ProjectCreateOptions(
+        FileEditingSession session = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
             Path.Combine(root, "demo.bep"), 640, 360, 30, TimeSpan.FromSeconds(2), Name: "demo"));
 
         const int threadCount = 8;
@@ -463,7 +462,7 @@ public sealed class FileEditingSessionTests
         Directory.CreateDirectory(root);
         // Not disposed via `using`: the test disposes the session itself and RecordingPipeline.Dispose is not idempotent.
         var source = new FileSessionSource();
-        FileEditingSession session = source.CreateProject(new ProjectCreateOptions(
+        FileEditingSession session = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
             Path.Combine(root, "demo.bep"), 640, 360, 30, TimeSpan.FromSeconds(2), Name: "demo"));
 
         using var inInvoke = new ManualResetEventSlim();
@@ -502,7 +501,7 @@ public sealed class FileEditingSessionTests
         string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
         using var source = new FileSessionSource();
-        FileEditingSession session = source.CreateProject(new ProjectCreateOptions(
+        FileEditingSession session = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
             Path.Combine(root, "demo.bep"), 640, 360, 30, TimeSpan.FromSeconds(2), Name: "demo"));
 
         using var inInvoke = new ManualResetEventSlim();
@@ -541,7 +540,7 @@ public sealed class FileEditingSessionTests
         string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
         var source = new FileSessionSource();
-        FileEditingSession session = source.CreateProject(new ProjectCreateOptions(
+        FileEditingSession session = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
             Path.Combine(root, "demo.bep"), 640, 360, 30, TimeSpan.FromSeconds(2), Name: "demo"));
 
         session.Dispose();
@@ -550,12 +549,12 @@ public sealed class FileEditingSessionTests
     }
 
     [Test]
-    public void SetProjectPath_waits_for_an_in_flight_Invoke()
+    public void SaveAs_waits_for_an_in_flight_Invoke()
     {
         string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
         using var source = new FileSessionSource();
-        FileEditingSession session = source.CreateProject(new ProjectCreateOptions(
+        FileEditingSession session = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
             Path.Combine(root, "demo.bep"), 640, 360, 30, TimeSpan.FromSeconds(2), Name: "demo"));
 
         using var inInvoke = new ManualResetEventSlim();
@@ -575,7 +574,7 @@ public sealed class FileEditingSessionTests
 
         var rehomeThread = new Thread(() =>
         {
-            session.SetProjectPath(Path.Combine(root, "copy.bep"));
+            session.SaveAs(Path.Combine(root, "copy.bep"), skipConflictCheck: true);
             rehomeSawCompletedInvoke = Volatile.Read(ref invokeCompleted);
         });
         rehomeThread.Start();
@@ -584,7 +583,7 @@ public sealed class FileEditingSessionTests
         invokeThread.Join();
         rehomeThread.Join();
 
-        // SetProjectPath rehomes under the dispatch lock, so it can only rewrite URIs after the in-flight Invoke released it.
+        // SaveAs rehomes under the dispatch lock, so it can only rewrite URIs after the in-flight Invoke released it.
         Assert.That(rehomeSawCompletedInvoke, Is.True);
     }
 

@@ -2,7 +2,6 @@
 using Beutl.Logging;
 using Beutl.Serialization;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Beutl.AgentToolkit.Reconciliation;
 
@@ -10,27 +9,7 @@ internal static class ValidationValueNode
 {
     private static ILogger? s_logger;
 
-    // Log.LoggerFactory is assign-once and hands out a NullLoggerFactory until the host configures it,
-    // so caching eagerly would let type-load order decide whether the warning below ever reaches a log.
-    // Log.IsLoggerFactoryConfigured is internal to Beutl.Core and not visible here; the public getter
-    // returns exactly NullLoggerFactory.Instance while unconfigured, which is the same signal.
-    private static ILogger Logger
-    {
-        get
-        {
-            if (s_logger is not null) return s_logger;
-            if (ReferenceEquals(Log.LoggerFactory, NullLoggerFactory.Instance)) return NullLogger.Instance;
-
-            try
-            {
-                return s_logger = Log.CreateLogger(typeof(ValidationValueNode));
-            }
-            catch (Exception)
-            {
-                return NullLogger.Instance;
-            }
-        }
-    }
+    private static ILogger Logger => Log.GetLoggerOnceConfigured(ref s_logger, typeof(ValidationValueNode));
 
     // System.Text.Json cannot write a live engine object: IProperty.ValueType is a System.Type, and
     // IFileSource needs a serialization context that is gone by the time the response is written.

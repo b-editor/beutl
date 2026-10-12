@@ -1,6 +1,7 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Sessions;
+using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.AgentToolkit.Tools;
 using Beutl.Audio;
 using Beutl.Graphics.AudioVisualizers;
@@ -20,7 +21,7 @@ public sealed class NestedSoundTimeRangeTests
         string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
         using var source = new FileSessionSource();
-        FileEditingSession session = source.CreateProject(new ProjectCreateOptions(
+        FileEditingSession session = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
             Path.Combine(root, "demo.bep"), 640, 360, 30, TimeSpan.FromSeconds(6)));
         var manager = new AgentSessionManager();
         manager.UseSource(source);
@@ -80,7 +81,7 @@ public sealed class NestedSoundTimeRangeTests
         string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
         using var source = new FileSessionSource();
-        FileEditingSession session = source.CreateProject(new ProjectCreateOptions(
+        FileEditingSession session = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
             Path.Combine(root, "demo.bep"), 640, 360, 30, TimeSpan.FromSeconds(6)));
         var manager = new AgentSessionManager();
         manager.UseSource(source);
@@ -120,7 +121,7 @@ public sealed class NestedSoundTimeRangeTests
         string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
         using var source = new FileSessionSource();
-        FileEditingSession session = source.CreateProject(new ProjectCreateOptions(
+        FileEditingSession session = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
             Path.Combine(root, "demo.bep"), 640, 360, 30, TimeSpan.FromSeconds(6)));
         var element = new Element
         {

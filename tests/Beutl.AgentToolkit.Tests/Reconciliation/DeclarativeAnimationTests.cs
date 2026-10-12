@@ -422,7 +422,7 @@ public sealed class DeclarativeAnimationTests
             schemaVersion: SchemaVersion.Current);
         Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
 
-        Element element = source.CurrentFileSession!.Scene.Children.Single();
+        Element element = ((FileEditingSession)source.CurrentSession!).Scene.Children.Single();
         var rect = (RectShape)element.Objects.Single();
         var animation = (KeyFrameAnimation<float>)rect.Opacity.Animation!;
         float actual = rect.Opacity.GetValue(new CompositionContext(TimeSpan.FromSeconds(5.5)));
@@ -482,7 +482,7 @@ public sealed class DeclarativeAnimationTests
             schemaVersion: SchemaVersion.Current);
         Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
 
-        Scene scene = source.CurrentFileSession!.Scene;
+        Scene scene = ((FileEditingSession)source.CurrentSession!).Scene;
         Element element = scene.Children.Single();
         var rect = (RectShape)element.Objects.Single();
         var transform = (TransformGroup)rect.Transform.CurrentValue!;

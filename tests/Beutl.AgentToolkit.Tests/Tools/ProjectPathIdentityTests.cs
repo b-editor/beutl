@@ -28,8 +28,9 @@ public sealed class ProjectPathIdentityTests
             if (File.Exists(destination))
                 Assert.Ignore("Requires a case-sensitive filesystem.");
             byte[] originalBytes = File.ReadAllBytes(original);
-            source.CurrentFileSession!.Project.Name = "Independent copy";
-            source.CurrentFileSession.MarkDirty();
+            var current = (FileEditingSession)source.CurrentSession!;
+            current.Project.Name = "Independent copy";
+            current.MarkDirty();
 
             if (destinationExists)
             {

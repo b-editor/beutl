@@ -41,12 +41,9 @@ public sealed partial class Reconciler
         }
     }
 
-    // The Expressions reference form carries its target in ObjectId and resolves only at composition
-    // time, so an unknown, all-zero, or wrong-typed Id would render the referencing object silently
-    // empty; it is validated against the live project here instead. A scene reference names its
-    // target directly by Id — the PropertyPath form (resolving the target from a property value on
-    // another object) is not a form the toolkit emits and cannot be attached to a project-detached
-    // render snapshot, so it is rejected rather than left to compose empty at render time.
+    // The reference resolves only at composition time, so an unknown, all-zero or wrong-typed ObjectId
+    // would render empty; validate it against the live project. PropertyPath references are rejected
+    // because the toolkit never emits them and detached render snapshots cannot resolve them.
     private static void ValidateReferenceExpression(
         CoreObject liveRoot, JsonObject obj, ReferencePropertyDescriptor property, string path)
     {
@@ -131,7 +128,7 @@ public sealed partial class Reconciler
 
     private static IReadOnlyList<ReferencePropertyDescriptor> ResolveReferenceProperties(CoreObject liveRoot, JsonObject obj)
     {
-        if (obj.TryGetDiscriminator(out Type? type) && type is not null)
+        if (obj.TryGetDiscriminator(out Type? type))
         {
             return ReferenceProperties.ForOwner(type);
         }

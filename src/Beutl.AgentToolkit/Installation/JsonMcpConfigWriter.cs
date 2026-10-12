@@ -17,7 +17,8 @@ internal static class JsonMcpConfigWriter
         WriteIndented = true,
     };
 
-    // Returns null when the file now holds the entry, or the edit to make by hand.
+    // Returns null when the file now holds the entry, or the edit to make by hand. writeContents is a
+    // test hook that replaces the write of the new contents.
     public static async Task<ManualMcpEdit?> WriteAsync(
         string path,
         AgentToolkitInstallOptions options,
@@ -33,7 +34,7 @@ internal static class JsonMcpConfigWriter
         var updated = (JsonObject)current.DeepClone();
         JsonObject servers = GetOrCreateObject(updated, options.McpServersPropertyName);
         servers[options.McpServerName] = CreateServer(options);
-        string[] obsolete = AgentToolkitInstaller.ObsoleteServerNames(options).Where(servers.Remove).ToArray();
+        string[] obsolete = AgentToolkitInstaller.ObsoleteServerNames().Where(servers.Remove).ToArray();
 
         string json = updated.ToJsonString(s_jsonOptions);
         if (JsonNode.DeepEquals(current, JsonNode.Parse(json)))

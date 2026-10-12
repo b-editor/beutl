@@ -175,7 +175,7 @@ public sealed class ApplyEditTests
             .OfType<JsonObject>().Single(obj => obj["Id"]!.GetValue<string>() == holder.Id.ToString());
         holderJson["Wrapped"] = holderJson["Animations"]!["Wrapped"]!["KeyFrames"]![0]!["Value"]!.DeepClone();
 
-        Assert.That(() => new Reconciler().Plan(session, desired), Throws.TypeOf<ReconcileException>());
+        Assert.That(() => new Reconciler().PlanFromCurrent(session, _ => (desired, null)), Throws.TypeOf<ReconcileException>());
         Assert.That(holder.Wrapped.CurrentValue, Is.Empty);
     }
 
@@ -192,7 +192,7 @@ public sealed class ApplyEditTests
             .OfType<JsonObject>().Single(obj => obj["Id"]!.GetValue<string>() == holder.Id.ToString());
         holderJson["Wrapped"]![0]!["Transform"]!["Easing"] = "[Missing.Plugin]Missing.Namespace:MissingEasing";
 
-        Assert.That(() => new Reconciler().Plan(session, desired), Throws.TypeOf<ReconcileException>());
+        Assert.That(() => new Reconciler().PlanFromCurrent(session, _ => (desired, null)), Throws.TypeOf<ReconcileException>());
         Assert.That(((KeyFrame<float>)holder.Wrapped.CurrentValue![0].Transform).Easing,
             Is.InstanceOf<Beutl.Animation.Easings.LinearEasing>());
     }

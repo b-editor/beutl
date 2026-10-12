@@ -2,6 +2,7 @@
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Sessions;
+using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.AgentToolkit.Workspace;
 using Beutl.Graphics.Shapes;
 using Beutl.ProjectSystem;
@@ -17,7 +18,7 @@ public sealed class AuthorFromBriefTests
         string root = CreateWorkspace();
         string projectPath = Path.Combine(root, "promo.bep");
         using var source = new FileSessionSource();
-        FileEditingSession session = source.CreateProject(new ProjectCreateOptions(
+        FileEditingSession session = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
             projectPath,
             1920,
             1080,
@@ -64,12 +65,12 @@ public sealed class AuthorFromBriefTests
     }
 
     [Test]
-    public void Add_scene_round_trips_through_project_save()
+    public async Task Add_scene_round_trips_through_project_save()
     {
         string root = CreateWorkspace();
         string projectPath = Path.Combine(root, "multi.bep");
         using var source = new FileSessionSource();
-        FileEditingSession session = source.CreateProject(new ProjectCreateOptions(
+        FileEditingSession session = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
             projectPath,
             1280,
             720,
@@ -77,7 +78,7 @@ public sealed class AuthorFromBriefTests
             TimeSpan.FromSeconds(5),
             Name: "multi"));
 
-        source.AddScene(session, new SceneCreateOptions(
+        await new FileProjectSessionGateway(source, new AgentSessionManager()).AddSceneAsync(session, new SceneCreateOptions(
             640,
             360,
             TimeSpan.FromSeconds(5),

@@ -379,7 +379,7 @@ public sealed partial class Reconciler
             object? value = valueNode is null
                 ? null
                 : EnumJsonValueNormalizer.Deserialize(valueNode, property.ValueType, options);
-            ValidationOutcome outcome = ValidationEvaluator.EvaluateAnimationValue(
+            ValidationOutcome outcome = ValidationEvaluator.Evaluate(
                 property,
                 value,
                 options);

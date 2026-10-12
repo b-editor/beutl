@@ -105,11 +105,8 @@ internal sealed partial class DeclarativeDocumentApplier
             && IdentityMatches(currentObject, animationJson)
             && TypeMatches(currentObject, animationJson))
         {
-            // A merge-patch produces a full desired document, so animations unrelated to the edit
-            // arrive here structurally equivalent to their current serialization. Do not replay
-            // their setters: attaching a validator does not retroactively change old keyframes, and
-            // reassigning those values here would silently coerce or reject pre-existing project data
-            // that the caller did not edit.
+            // A merge patch sends the whole document; do not replay unchanged animations, so pre-existing
+            // values are not re-validated or coerced.
             JsonObject currentJson = SerializeCurrent(currentObject);
             if (JsonNode.DeepEquals(currentJson, animationJson))
             {
@@ -185,7 +182,7 @@ internal sealed partial class DeclarativeDocumentApplier
             }
 
             object? value = keyFrame.Value;
-            ValidationOutcome outcome = ValidationEvaluator.EvaluateAnimationValue(
+            ValidationOutcome outcome = ValidationEvaluator.Evaluate(
                 property,
                 value,
                 options,

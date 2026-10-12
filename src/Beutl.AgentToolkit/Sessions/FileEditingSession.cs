@@ -5,7 +5,7 @@ using Beutl.ProjectSystem;
 
 namespace Beutl.AgentToolkit.Sessions;
 
-public sealed class FileEditingSession : IEditingSession, IEditingSessionDispatcher, IDisposable
+public sealed class FileEditingSession : IEditingSession, IDisposable
 {
     private RecordingPipeline _recording;
     // Attach-driven engine invariants (TimeRange/ZIndex mirroring, animation parent
@@ -61,11 +61,6 @@ public sealed class FileEditingSession : IEditingSession, IEditingSessionDispatc
         _recording = RecordingPipeline.Create(scene);
     }
 
-    public void Save()
-    {
-        Save(skipConflictCheck: false);
-    }
-
     public void Save(bool skipConflictCheck)
     {
         if (Project.Uri is null)
@@ -118,16 +113,6 @@ public sealed class FileEditingSession : IEditingSession, IEditingSessionDispatc
             : DateTime.MinValue;
     }
 
-    public void SetProjectPath(string projectPath)
-    {
-        // Rewriting the project/scene/element URIs is part of the same atomic critical section as Save;
-        // hold the dispatch lock so a concurrent apply_edit/add_scene cannot observe a half-rehomed graph.
-        lock (_dispatchLock)
-        {
-            SetProjectPathCore(projectPath);
-        }
-    }
-
     private void SetProjectPathCore(string projectPath)
     {
         string fullPath = Path.GetFullPath(projectPath);
@@ -165,9 +150,8 @@ public sealed class FileEditingSession : IEditingSession, IEditingSessionDispatc
                 // path would change the element's Id when the copy is reopened.
                 if (element.Uri is { IsFile: true } previousUri)
                 {
-                    string resolvedPath = ResolveRehomedElementPath(previousUri, previousSceneDirectory, sceneDirectory);
-                    resolvedPath = ReserveUniqueElementPath(resolvedPath, assignedElementPaths);
-                    element.Uri = new Uri(resolvedPath);
+                    element.Uri = new Uri(ProjectOperations.ReserveRehomedElementPath(
+                        previousUri, previousSceneDirectory, sceneDirectory, assignedElementPaths, checkDisk: false));
                 }
                 else
                 {
@@ -179,39 +163,6 @@ public sealed class FileEditingSession : IEditingSession, IEditingSessionDispatc
         }
 
         AcceptExternalStamp();
-    }
-
-    // A relative path that would climb out of the new scene directory falls back to the bare file
-    // name directly under it.
-    private static string ResolveRehomedElementPath(Uri previousUri, string? previousSceneDirectory, string sceneDirectory)
-    {
-        string relativePath = previousSceneDirectory != null
-            ? Path.GetRelativePath(previousSceneDirectory, previousUri.LocalPath)
-            : Path.GetFileName(previousUri.LocalPath);
-        string sceneRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(sceneDirectory));
-        string resolvedPath = Path.GetFullPath(Path.Combine(sceneRoot, relativePath));
-        if (!resolvedPath.StartsWith(
-                sceneRoot + Path.DirectorySeparatorChar,
-                PathBoundary.Comparison))
-        {
-            resolvedPath = Path.Combine(sceneRoot, Path.GetFileName(previousUri.LocalPath));
-        }
-
-        return resolvedPath;
-    }
-
-    private static string ReserveUniqueElementPath(string path, ISet<string> assignedPaths)
-    {
-        string candidate = path;
-        string directory = Path.GetDirectoryName(path)!;
-        string name = Path.GetFileNameWithoutExtension(path);
-        string extension = Path.GetExtension(path);
-        for (int suffix = 2; !assignedPaths.Add(candidate); suffix++)
-        {
-            candidate = Path.Combine(directory, $"{name}-{suffix}{extension}");
-        }
-
-        return candidate;
     }
 
     // Save As rehomes the project/scene/element URIs and then writes; run capture → rehome → save —

@@ -1333,7 +1333,7 @@ public sealed class RenderToolsStoryboardTests
         }
     }
 
-    private sealed class DispatchGuardedLiveSession : IEditingSession, IEditingSessionDispatcher, IDisposable
+    private sealed class DispatchGuardedLiveSession : IEditingSession, IDisposable
     {
         private readonly Scene _scene;
         private readonly RecordingPipeline _recording;

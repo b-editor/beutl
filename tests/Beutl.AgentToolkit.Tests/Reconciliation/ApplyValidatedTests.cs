@@ -66,7 +66,7 @@ public sealed class ApplyValidatedTests
         };
         RecordingPipeline recording = RecordingPipeline.Create(scene);
         var binding = new FakeLiveBinding(scene, recording.History);
-        LiveEditingSession session = new LiveSessionSource().Attach(binding);
+        LiveEditingSession session = LiveEditingSession.Create(binding);
         return (session, binding, scene);
     }
 

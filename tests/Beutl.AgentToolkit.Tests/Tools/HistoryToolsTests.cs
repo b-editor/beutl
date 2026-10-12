@@ -188,10 +188,7 @@ public sealed class HistoryToolsTests
         Scene scene = CreateSceneWithElement(out Element element);
         using RecordingPipeline recording = RecordingPipeline.Create(scene);
         var binding = new PlaybackSensitiveLiveBinding(scene, recording.History);
-        var source = new LiveSessionSource();
-        source.Attach(binding);
-        var manager = new AgentSessionManager();
-        manager.UseSource(source);
+        AgentSessionManager manager = CreateLiveManager(binding);
         var history = new HistoryTools(manager);
         recording.History.ExecuteInTransaction(
             () => element.Start = TimeSpan.FromSeconds(7),
@@ -217,10 +214,7 @@ public sealed class HistoryToolsTests
         Scene scene = CreateSceneWithElement(out Element element);
         using RecordingPipeline recording = RecordingPipeline.Create(scene);
         var binding = new PlaybackSensitiveLiveBinding(scene, recording.History) { IsPlaying = true };
-        var source = new LiveSessionSource();
-        source.Attach(binding);
-        var manager = new AgentSessionManager();
-        manager.UseSource(source);
+        AgentSessionManager manager = CreateLiveManager(binding);
         var history = new HistoryTools(manager);
         element.Start = TimeSpan.FromSeconds(7);
         Assert.That(recording.History.HasPendingOperations, Is.True);
@@ -243,10 +237,7 @@ public sealed class HistoryToolsTests
         Scene scene = CreateSceneWithElement(out _);
         using RecordingPipeline recording = RecordingPipeline.Create(scene);
         var binding = new PlaybackSensitiveLiveBinding(scene, recording.History) { IsPlaying = true };
-        var source = new LiveSessionSource();
-        source.Attach(binding);
-        var manager = new AgentSessionManager();
-        manager.UseSource(source);
+        AgentSessionManager manager = CreateLiveManager(binding);
 
         ToolResult<HistoryStateResponse> state = await new HistoryTools(manager).ReadHistory();
 
@@ -265,10 +256,7 @@ public sealed class HistoryToolsTests
         Scene scene = CreateSceneWithElement(out Element element);
         using RecordingPipeline recording = RecordingPipeline.Create(scene);
         var binding = new PlaybackSensitiveLiveBinding(scene, recording.History) { IsPlaying = true };
-        var source = new LiveSessionSource();
-        source.Attach(binding);
-        var manager = new AgentSessionManager();
-        manager.UseSource(source);
+        AgentSessionManager manager = CreateLiveManager(binding);
         recording.History.ExecuteInTransaction(() => element.Start = TimeSpan.FromSeconds(2), "first");
         recording.History.ExecuteInTransaction(() => element.Start = TimeSpan.FromSeconds(3), "second");
 
@@ -319,8 +307,15 @@ public sealed class HistoryToolsTests
         return scene;
     }
 
+    private static AgentSessionManager CreateLiveManager(ILiveSessionBinding binding)
+    {
+        var manager = new AgentSessionManager();
+        manager.UseSource(new AgentToolkitTestSessionSource(LiveEditingSession.Create(binding)));
+        return manager;
+    }
+
     private sealed class InterleavingLiveSession(AgentToolkitTestSession inner)
-        : IEditingSession, IEditingSessionDispatcher
+        : IEditingSession
     {
         public Action? AfterNextInvoke { get; set; }
 

@@ -12,7 +12,7 @@ public sealed class DocumentAdapter
     {
         ArgumentNullException.ThrowIfNull(root);
 
-        JsonObject document = CoreSerializer.SerializeToJsonObject(root, CreateOptions(root, CoreSerializationMode.EmbedReferencedObjects));
+        JsonObject document = CoreSerializer.SerializeToJsonObject(root, CreateOptions(root));
         SchemaVersion.Stamp(document);
         return document;
     }
@@ -46,12 +46,12 @@ public sealed class DocumentAdapter
     // A document leaves out the members Beutl does not know, which an object keeps from the file it was read
     // from: an agent edits only what Beutl knows, and applying a document keeps them (see
     // CoreSerializerOptions.KeepUnknownMembers).
-    private static CoreSerializerOptions CreateOptions(ICoreSerializable root, CoreSerializationMode mode)
+    private static CoreSerializerOptions CreateOptions(ICoreSerializable root)
     {
         return new CoreSerializerOptions
         {
             BaseUri = root is CoreObject coreObject ? coreObject.Uri : null,
-            Mode = mode,
+            Mode = CoreSerializationMode.EmbedReferencedObjects,
             KeepUnknownMembers = false
         };
     }

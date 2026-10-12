@@ -721,7 +721,7 @@ public sealed class SessionToolsTests
             frameRate: 30,
             duration: "00:00:04");
 
-        Scene scene = source.CurrentFileSession!.Project.Items.OfType<Scene>().Single();
+        Scene scene = ((FileEditingSession)source.CurrentSession!).Project.Items.OfType<Scene>().Single();
         Assert.Multiple(() =>
         {
             Assert.That(created.IsSuccess, Is.True, created.Error?.Message);
@@ -747,7 +747,7 @@ public sealed class SessionToolsTests
         ToolResult<AddSceneResponse> added = await sessionTools.AddScene(
             created.Value!.Session, width: 320, height: 240, start: "00:00:00", duration: "00:00:02", name: "second");
 
-        FileEditingSession session = source.CurrentFileSession!;
+        FileEditingSession session = ((FileEditingSession)source.CurrentSession!);
         Assert.Multiple(() =>
         {
             Assert.That(added.IsSuccess, Is.True, added.Error?.Message);
@@ -767,7 +767,7 @@ public sealed class SessionToolsTests
         ToolResult<CreateProjectResponse> first = await sessionTools.CreateProject(
             Path.Combine(root, "first.bep"), width: 640, height: 360, frameRate: 30, duration: "00:00:04");
         Assert.That(first.IsSuccess, Is.True, first.Error?.Message);
-        FileEditingSession firstSession = source.CurrentFileSession!;
+        FileEditingSession firstSession = ((FileEditingSession)source.CurrentSession!);
 
         // A directory occupying the target .bep path makes the initial save throw.
         Directory.CreateDirectory(Path.Combine(root, "broken.bep"));
@@ -777,7 +777,7 @@ public sealed class SessionToolsTests
         Assert.Multiple(() =>
         {
             Assert.That(failed.IsSuccess, Is.False);
-            Assert.That(source.CurrentFileSession, Is.SameAs(firstSession));
+            Assert.That(source.CurrentSession, Is.SameAs(firstSession));
             Assert.That(manager.CurrentSession, Is.SameAs(firstSession));
         });
     }
@@ -794,7 +794,7 @@ public sealed class SessionToolsTests
             Path.Combine(root, "orig.bep"), width: 640, height: 360, frameRate: 30, duration: "00:00:04");
         Assert.That(created.IsSuccess, Is.True, created.Error?.Message);
 
-        FileEditingSession session = source.CurrentFileSession!;
+        FileEditingSession session = ((FileEditingSession)source.CurrentSession!);
         string originalProjectUri = session.Project.Uri!.LocalPath;
         string[] originalSceneUris = session.Project.Items.OfType<Scene>().Select(s => s.Uri!.LocalPath).ToArray();
 
@@ -877,7 +877,7 @@ public sealed class SessionToolsTests
         ToolResult<AddSceneResponse> added = await sessionTools.AddScene(
             created.Value!.Session, width: 320, height: 240, start: start, duration: duration);
 
-        FileEditingSession session = source.CurrentFileSession!;
+        FileEditingSession session = ((FileEditingSession)source.CurrentSession!);
         Assert.Multiple(() =>
         {
             Assert.That(added.IsSuccess, Is.False);
@@ -1025,7 +1025,7 @@ public sealed class SessionToolsTests
         using var source = new FileSessionSource();
         var gateway = new FileProjectSessionGateway(source, manager);
 
-        FileEditingSession sessionB = source.CreateProject(new ProjectCreateOptions(
+        FileEditingSession sessionB = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
             Path.Combine(root, "b.bep"), 640, 360, 30, TimeSpan.FromSeconds(4)));
         sessionB.Save(skipConflictCheck: true);
 
@@ -1042,7 +1042,7 @@ public sealed class SessionToolsTests
 
         // A session swapped out of the source is disposed, so add_scene authorized for it is
         // rejected rather than silently retargeting the new current project.
-        FileEditingSession sessionC = source.CreateProject(new ProjectCreateOptions(
+        FileEditingSession sessionC = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
             Path.Combine(root, "c.bep"), 640, 360, 30, TimeSpan.FromSeconds(4)));
         sessionC.Save(skipConflictCheck: true);
 
@@ -1161,7 +1161,7 @@ public sealed class SessionToolsTests
         }
     }
 
-    private sealed class DispatchingLiveSession(CoreObject root) : IEditingSession, IEditingSessionDispatcher
+    private sealed class DispatchingLiveSession(CoreObject root) : IEditingSession
     {
         public int InvokeCount { get; private set; }
 

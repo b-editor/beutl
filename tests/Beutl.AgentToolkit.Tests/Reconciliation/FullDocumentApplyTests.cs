@@ -39,7 +39,7 @@ public sealed class FullDocumentApplyTests
 
         ((JsonArray)desired["Elements"]!).Add(elementJson);
 
-        ReconcilePlan plan = reconciler.Plan(session, desired);
+        ReconcilePlan plan = reconciler.PlanFromCurrent(session, _ => (desired, null));
 
         Assert.That(plan.Changes.Select(change => change.Operation), Does.Contain(ChangeOperations.SetProperty));
         Assert.That(plan.Changes.Select(change => change.Operation), Does.Contain(ChangeOperations.InsertChild));
@@ -283,7 +283,7 @@ public sealed class FullDocumentApplyTests
             [nameof(Element.Length)] = TimeSpan.FromSeconds(1).ToString("c")
         });
 
-        ReconcileException ex = Assert.Throws<ReconcileException>(() => reconciler.Plan(session, desired))!;
+        ReconcileException ex = Assert.Throws<ReconcileException>(() => reconciler.PlanFromCurrent(session, _ => (desired, null)))!;
 
         Assert.Multiple(() =>
         {
@@ -311,7 +311,7 @@ public sealed class FullDocumentApplyTests
             })
         });
 
-        ReconcileException ex = Assert.Throws<ReconcileException>(() => reconciler.Plan(session, desired))!;
+        ReconcileException ex = Assert.Throws<ReconcileException>(() => reconciler.PlanFromCurrent(session, _ => (desired, null)))!;
 
         Assert.Multiple(() =>
         {
@@ -334,7 +334,7 @@ public sealed class FullDocumentApplyTests
             [nameof(Element.Objects)] = new JsonArray()
         });
 
-        ReconcileException ex = Assert.Throws<ReconcileException>(() => reconciler.Plan(session, desired))!;
+        ReconcileException ex = Assert.Throws<ReconcileException>(() => reconciler.PlanFromCurrent(session, _ => (desired, null)))!;
 
         Assert.Multiple(() =>
         {
@@ -365,7 +365,7 @@ public sealed class FullDocumentApplyTests
             })
         });
 
-        ReconcileException ex = Assert.Throws<ReconcileException>(() => reconciler.Plan(session, desired))!;
+        ReconcileException ex = Assert.Throws<ReconcileException>(() => reconciler.PlanFromCurrent(session, _ => (desired, null)))!;
 
         Assert.Multiple(() =>
         {
@@ -384,7 +384,7 @@ public sealed class FullDocumentApplyTests
         JsonObject desired = session.Documents.Read(session.Scene);
         desired["Width"] = 0;
 
-        ReconcileException ex = Assert.Throws<ReconcileException>(() => reconciler.Plan(session, desired))!;
+        ReconcileException ex = Assert.Throws<ReconcileException>(() => reconciler.PlanFromCurrent(session, _ => (desired, null)))!;
 
         Assert.Multiple(() =>
         {
@@ -408,7 +408,7 @@ public sealed class FullDocumentApplyTests
             [nameof(Element.Length)] = TimeSpan.FromSeconds(1).ToString("c")
         });
 
-        ReconcileException ex = Assert.Throws<ReconcileException>(() => reconciler.Plan(session, desired))!;
+        ReconcileException ex = Assert.Throws<ReconcileException>(() => reconciler.PlanFromCurrent(session, _ => (desired, null)))!;
 
         Assert.Multiple(() =>
         {
@@ -426,7 +426,7 @@ public sealed class FullDocumentApplyTests
         JsonObject desired = session.Documents.Read(session.Scene);
         desired[nameof(Scene.Duration)] = TimeSpan.Zero.ToString("c");
 
-        ReconcileException ex = Assert.Throws<ReconcileException>(() => reconciler.Plan(session, desired))!;
+        ReconcileException ex = Assert.Throws<ReconcileException>(() => reconciler.PlanFromCurrent(session, _ => (desired, null)))!;
 
         Assert.Multiple(() =>
         {
@@ -455,7 +455,7 @@ public sealed class FullDocumentApplyTests
         JsonObject desired = session.Documents.Read(session.Scene);
         ((JsonArray)desired["Elements"]!)[0]!.AsObject()[nameof(Element.Start)] = TimeSpan.FromSeconds(-1).ToString("c");
 
-        ReconcileException ex = Assert.Throws<ReconcileException>(() => reconciler.Plan(session, desired))!;
+        ReconcileException ex = Assert.Throws<ReconcileException>(() => reconciler.PlanFromCurrent(session, _ => (desired, null)))!;
 
         Assert.Multiple(() =>
         {
@@ -485,7 +485,7 @@ public sealed class FullDocumentApplyTests
             [nameof(Element.Length)] = TimeSpan.FromSeconds(1).ToString("c")
         });
 
-        reconciler.Plan(session, desired);
+        reconciler.PlanFromCurrent(session, _ => (desired, null));
 
         Assert.That(Directory.Exists(sceneDir), Is.False, "Plan (dry-run) must not create sidecar directories.");
     }
@@ -525,6 +525,8 @@ public sealed class FullDocumentApplyTests
         public DocumentAdapter Documents { get; } = new();
 
         public bool IsDirty => false;
+
+        public void Invoke(Action action) => action();
 
         public void Dispose()
         {

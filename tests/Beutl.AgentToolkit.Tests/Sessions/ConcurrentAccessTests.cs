@@ -1,4 +1,5 @@
 ﻿using Beutl.AgentToolkit.Sessions;
+using Beutl.AgentToolkit.Tests.Helpers;
 
 namespace Beutl.AgentToolkit.Tests.Sessions;
 
@@ -10,7 +11,7 @@ public sealed class ConcurrentAccessTests
         string root = CreateWorkspace();
         string projectPath = Path.Combine(root, "conflict.bep");
         using var source = new FileSessionSource();
-        FileEditingSession session = source.CreateProject(new ProjectCreateOptions(
+        FileEditingSession session = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
             projectPath,
             320,
             180,
@@ -21,7 +22,7 @@ public sealed class ConcurrentAccessTests
 
         File.SetLastWriteTimeUtc(projectPath, DateTime.UtcNow.AddSeconds(10));
 
-        Assert.Throws<ProjectConflictException>(() => session.Save());
+        Assert.Throws<ProjectConflictException>(() => session.Save(skipConflictCheck: false));
     }
 
     private static string CreateWorkspace()
