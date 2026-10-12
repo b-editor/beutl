@@ -39,13 +39,13 @@ public class ContainerRenderNode : RenderNode
     public void SetChild(int index, RenderNode item)
     {
         ArgumentNullException.ThrowIfNull(item);
-        RenderNode? previous = _children[index];
+        RenderNode previous = _children[index];
         if (ReferenceEquals(previous, item))
             return;
 
         _children[index] = item;
         MarkChanged();
-        previous?.Dispose();
+        previous.Dispose();
     }
 
     public void BringFrom(ContainerRenderNode containerNode)

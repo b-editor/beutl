@@ -31,10 +31,7 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
     protected virtual RenderScaleContract? GetWorkingScaleContract() => null;
 
     /// <summary>Reads each input's recorded metadata hint into one array.</summary>
-    /// <remarks>
-    /// Written out rather than passed to <c>Select</c> because the hint reader is an instance method: a
-    /// method group over it builds a delegate on every recording, and this runs twice per recorded effect.
-    /// </remarks>
+    /// <remarks>A loop, since a method group over the instance hint reader builds a delegate per recording.</remarks>
     private static RenderFragmentMetadata[] RecordedMetadataHints(
         RenderNodeContext context,
         IReadOnlyList<RenderFragmentHandle> inputs)

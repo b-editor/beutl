@@ -708,14 +708,14 @@ internal sealed partial class RenderRequestExecutor
                 case RenderFragmentKind.BuiltInBackdropCapture:
                     {
                         IReadOnlyList<MaterializedRenderValue> values = Materialize(fragment, destination);
-                        if (values.Count != 1
-                            || ((BuiltInBackdropCaptureRenderFragmentPayload)fragment.Payload!).Identity
-                            is not IBuiltInBackdropCaptureSink sink)
+                        if (values.Count != 1)
                         {
                             throw new InvalidOperationException(
                                 "A built-in backdrop capture must produce one value for its publication sink.");
                         }
 
+                        IBuiltInBackdropCaptureSink sink =
+                            ((BuiltInBackdropCaptureRenderFragmentPayload)fragment.Payload!).Identity;
                         AddValueReferences(values);
                         (_backdropCaptures ??= []).Add((sink, values[0]));
                         return;

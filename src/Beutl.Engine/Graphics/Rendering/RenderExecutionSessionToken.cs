@@ -247,12 +247,7 @@ internal sealed class RenderExecutionSessionToken
             if (!ReferenceEquals(binding.SlotIdentity, slot))
                 continue;
 
-            if (binding.Resource is not RenderResource<T> resource)
-            {
-                throw new InvalidOperationException(
-                    "The resource bound to the requested slot does not match the slot's declared type.");
-            }
-
+            var resource = (RenderResource<T>)binding.Resource;
             UseResourceCore(resource, use);
             return;
         }

@@ -122,6 +122,7 @@ public class Renderer : IRenderer
     {
     }
 
+    // Test seam: only tests pass a surface or a dispatcher, so they can render on a CPU target.
     internal Renderer(
         int width,
         int height,
@@ -206,11 +207,8 @@ public class Renderer : IRenderer
 
     /// <summary>Allocates the root output surface, refusing an extent the device cannot attach.</summary>
     /// <remarks>
-    /// Nothing upstream bounds this one: an intermediate is clamped by the working-scale policy and then
-    /// leased through the pool, which measures the device before it allocates, while the root is
-    /// <c>ceil(FrameSize * s_out)</c> handed straight to the allocator. Asking the same budget here is what
-    /// stops an over-scaled export from reaching the driver as an attachment it may answer with undefined
-    /// behaviour rather than a failed allocation, and it names the limit the way a pooled refusal does.
+    /// Unlike a pooled intermediate, the root goes straight to the allocator, so it is measured here before an
+    /// over-scaled export reaches the driver as an attachment it may answer with undefined behaviour.
     /// </remarks>
     private static RenderTarget CreateRootSurface(PixelSize deviceSize)
     {
@@ -718,13 +716,7 @@ public class Renderer : IRenderer
         return point;
     }
 
-    public Rect[] GetBoundaries(int zIndex)
-    {
-        _dispatcher.VerifyAccess();
-        return [.. _allCurrentEntries
-            .Where(e => e.Node.Drawable?.Resource.RequireOriginal().ZIndex == zIndex)
-            .Select(e => e.GetBounds())];
-    }
+    public Rect[] GetBoundaries(int zIndex) => GetBoundariesCore(zIndex, recalculate: false);
 
     public Rect? GetBoundary(Drawable drawable)
     {
@@ -855,12 +847,14 @@ public class Renderer : IRenderer
     /// <summary>Recalculates and caches current-frame bounds for drawables at the specified z-index.</summary>
     /// <remarks>This method must be called on the render thread.</remarks>
     /// <exception cref="InvalidOperationException">The caller does not have render-thread access.</exception>
-    public Rect[] RecalculateBoundaries(int zIndex)
+    public Rect[] RecalculateBoundaries(int zIndex) => GetBoundariesCore(zIndex, recalculate: true);
+
+    private Rect[] GetBoundariesCore(int zIndex, bool recalculate)
     {
         _dispatcher.VerifyAccess();
         return [.. _allCurrentEntries
             .Where(e => e.Node.Drawable?.Resource.RequireOriginal().ZIndex == zIndex)
-            .Select(e => e.RecalculateBounds())];
+            .Select(e => recalculate ? e.RecalculateBounds() : e.GetBounds())];
     }
 
     public DrawableRenderNode? FindRenderNode(Drawable drawable)
@@ -870,7 +864,6 @@ public class Renderer : IRenderer
             return entry.Node;
         }
 
-        // Recursive search
         foreach (var item in _nodeCache)
         {
             if (item.Value.Node is not ContainerRenderNode container) continue;
@@ -1027,17 +1020,17 @@ public class Renderer : IRenderer
     private void ClearEntryCachesCore()
     {
         VerifyCleanupAccess(_dispatcher);
-        var entries = _nodeCache?.ToArray() ?? [];
-        _nodeCache?.Clear();
-        _allCurrentEntries?.Clear();
+        var entries = _nodeCache.ToArray();
+        _nodeCache.Clear();
+        _allCurrentEntries.Clear();
         DisposeEntries(entries, clearCache: true);
     }
 
     private void DisposeAllEntriesCore()
     {
         VerifyCleanupAccess(_dispatcher);
-        var entries = _nodeCache?.ToArray() ?? [];
-        _nodeCache?.Clear();
+        var entries = _nodeCache.ToArray();
+        _nodeCache.Clear();
         // Compositor側でDisposeされるのでResourceはDisposeせず、NodeだけがDisposeされるようにする
         DisposeEntries(entries, clearCache: false);
     }

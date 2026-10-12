@@ -338,18 +338,10 @@ public sealed class RawScopeNestingAndCaptureOffsetTests
 
         bool IBuiltInBackdropCaptureSink.TryCommitBackdropCapture(Bitmap bitmap, float density)
         {
-            Record(bitmap, density);
-            return true;
-        }
-
-        void IBuiltInBackdropCaptureSink.CommitBackdropCapture(Bitmap bitmap, float density)
-            => Record(bitmap, density);
-
-        private void Record(Bitmap bitmap, float density)
-        {
             CapturedDeviceSize = new PixelSize(bitmap.Width, bitmap.Height);
             CapturedDensity = density;
             bitmap.Dispose();
+            return true;
         }
     }
 

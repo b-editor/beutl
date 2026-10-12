@@ -4,7 +4,7 @@ using System.Runtime.InteropServices;
 
 namespace Beutl.Graphics.Rendering.Requests;
 
-internal sealed partial class NodeRecordingTransaction : IRenderFragmentHandleOwner, IRenderResourceRecordingScope
+internal sealed partial class NodeRecordingTransaction : IRenderResourceRecordingScope
 {
     private const int RecycledSetSizeLimit = 1024;
     private const int OwnedReferencePoolLimit = 32;
@@ -564,6 +564,8 @@ internal sealed partial class NodeRecordingTransaction : IRenderFragmentHandleOw
         }
     }
 
+    /// <summary>Records what a hit test answered during this recording.</summary>
+    /// <remarks>The fingerprint does not capture the answer, so reuse of the recording is matched on it too.</remarks>
     public void NoteHitTestRead(
         RenderFragmentReference reference,
         Point point,

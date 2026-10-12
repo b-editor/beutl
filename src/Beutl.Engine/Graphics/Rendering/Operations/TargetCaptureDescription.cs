@@ -70,18 +70,8 @@ public sealed class TargetCaptureDescription
             RenderDescriptionValidation.CopyResourceBindings(resources, nameof(resources)));
     }
 
-    /// <summary>
-    /// Checks the region and domain a capture resolved against once the surrounding graph is known.
-    /// </summary>
-    /// <remarks>
-    /// Both are decided by the scope the capture ends up in, not by the author, who has neither at the point
-    /// they call <see cref="Create"/>. Requiring <see cref="Bounds"/> to sit inside them would therefore be a
-    /// precondition nobody can satisfy: the same description fails or succeeds depending on where it is used.
-    /// A capture reaching past the pixels available to it reads transparent there instead - the value is
-    /// cleared before the copy - which is the same answer as capturing an area nothing has drawn into.
-    /// The author-observable half of this rule is still enforced at <see cref="Create"/>: an explicit finite
-    /// source region must contain the bounds asked of it.
-    /// </remarks>
+    /// <summary>Checks only that the resolved region and domain are finite and non-empty.</summary>
+    /// <remarks>A capture reaching past the pixels available to it reads transparent there.</remarks>
     internal void ValidateResolvedBounds(Rect resolvedSourceRegion, Rect targetDomain)
     {
         RenderDescriptionValidation.ThrowUnlessFiniteNonEmpty(resolvedSourceRegion, nameof(resolvedSourceRegion));

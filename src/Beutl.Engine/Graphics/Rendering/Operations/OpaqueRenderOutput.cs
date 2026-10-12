@@ -4,14 +4,14 @@ public sealed class OpaqueRenderOutput : IDisposable
 {
     private readonly OpaqueRenderSession _owner;
     private readonly RenderCallbackCanvas _canvas;
-    private readonly Action<OpaqueRenderOutput>? _release;
+    private readonly Action<OpaqueRenderOutput> _release;
     private Rect _bounds;
     private OpaqueRenderOutputState _state;
 
     internal OpaqueRenderOutput(
         OpaqueRenderSession owner,
         RenderCallbackCanvas canvas,
-        Action<OpaqueRenderOutput>? release = null)
+        Action<OpaqueRenderOutput> release)
     {
         _owner = owner;
         _bounds = canvas.LogicalBounds;
@@ -52,7 +52,7 @@ public sealed class OpaqueRenderOutput : IDisposable
     {
         ThrowIfUnavailable();
         _state = OpaqueRenderOutputState.Discarded;
-        _release?.Invoke(this);
+        _release(this);
     }
 
     public void Dispose()
@@ -62,7 +62,7 @@ public sealed class OpaqueRenderOutput : IDisposable
             return;
 
         _state = OpaqueRenderOutputState.Disposed;
-        _release?.Invoke(this);
+        _release(this);
     }
 
     internal void Publish(OpaqueRenderSession owner, Action<OpaqueRenderOutput> publish)

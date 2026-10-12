@@ -60,11 +60,8 @@ internal static class GpuResourceReclaimQueue
     /// and CPU-synchronized every recorded command has completed.
     /// </summary>
     /// <remarks>
-    /// Graphics teardown is the one caller that cannot make that guarantee, and it does not need to: a
-    /// queued resource destroys itself through the command pool of the context that still owns it, and a
-    /// live pool retires the destroy behind the submission that reads it. What that pool cannot survive is
-    /// being asked after its context is gone, when it runs every destroy immediately against a device that
-    /// no longer exists - so an unflushed discharge before the release beats a flushed one after it.
+    /// Graphics teardown drains unflushed but before the release, which is safer than flushed after it: a live pool
+    /// retires each destroy behind its submission, while one whose context is gone runs every destroy at once.
     /// </remarks>
     public static void DrainAfterContextSync()
     {

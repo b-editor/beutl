@@ -4,13 +4,8 @@
 /// Declares how a one-input operation carries a resolved output demand back to its input.
 /// </summary>
 /// <remarks>
-/// Demand travels the opposite way from supply: a consumer asks for a density, and every operation between
-/// it and a source decides what density that source has to produce. An operation that resamples its input —
-/// a shader that enlarges what it samples, for instance — needs its input at a different density than it is
-/// itself asked for, and only the operation knows the factor. Leaving demand unchanged is correct for an
-/// operation that consumes its input at the density its own consumer asked for; for one that enlarges, it
-/// lets an unbounded or vector input rasterize below the density the enlargement consumes, and the result is
-/// blurred by exactly the enlargement factor. <see langword="default"/> is <see cref="Unchanged"/>.
+/// An operation that resamples its input needs it at a different density than it is itself asked for; see
+/// <see cref="RenderScaleContract.MapInputSupply"/>. <see langword="default"/> is <see cref="Unchanged"/>.
 /// </remarks>
 public readonly struct RenderInputDemandContract
 {

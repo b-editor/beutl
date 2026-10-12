@@ -220,12 +220,6 @@ public sealed class DegradedPreviewCachePurityTests
             bitmap.Dispose();
             return true;
         }
-
-        void IBuiltInBackdropCaptureSink.CommitBackdropCapture(Bitmap bitmap, float density)
-        {
-            Commits++;
-            bitmap.Dispose();
-        }
     }
 
     private sealed class ThrowingBackdropSinkProbeNode(InvalidOperationException primaryFailure)
@@ -238,9 +232,6 @@ public sealed class DegradedPreviewCachePurityTests
             ReceivedBitmap = bitmap;
             throw primaryFailure;
         }
-
-        void IBuiltInBackdropCaptureSink.CommitBackdropCapture(Bitmap bitmap, float density)
-            => throw new AssertionException("The renderer must use the non-throwing publication contract.");
     }
 
     [Test]

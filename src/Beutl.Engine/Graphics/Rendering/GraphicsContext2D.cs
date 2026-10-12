@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics.Effects;
+﻿using Beutl.Engine;
+using Beutl.Graphics.Effects;
 using Beutl.Graphics.Transformation;
 using Beutl.Logging;
 using Beutl.Media;
@@ -33,25 +34,15 @@ public sealed class GraphicsContext2D(
     /// </summary>
     public float OutputScale { get; } = RenderScaleUtilities.SanitizeOutputScale(outputScale);
 
-    internal Action<RenderNode>? OnUntracked { get; set; }
-
-    private void Untracked(RenderNode? node)
-    {
-        if (node != null) OnUntracked?.Invoke(node);
-    }
-
     private void Add(RenderNode node)
     {
-        RenderNode? previous = null;
         bool replacementAttempted = false;
         try
         {
             if (_drawOperationindex < _container.Children.Count)
             {
-                previous = _container.Children[_drawOperationindex];
                 replacementAttempted = true;
                 _container.SetChild(_drawOperationindex, node);
-                Untracked(previous);
             }
             else
             {
@@ -194,16 +185,6 @@ public sealed class GraphicsContext2D(
                 // Continue discharging every detached node.
                 ReportCleanupFailure(cleanupFailure, "disposing a detached render node");
             }
-
-            try
-            {
-                Untracked(node);
-            }
-            catch (Exception cleanupFailure)
-            {
-                // Untracking notifications are cleanup and must not escape Dispose/Pop.
-                ReportCleanupFailure(cleanupFailure, "notifying a detached render node");
-            }
         }
     }
 
@@ -211,6 +192,23 @@ public sealed class GraphicsContext2D(
     {
         if (fill != null) ObjectDisposedException.ThrowIf(fill.IsDisposed, fill);
         if (pen != null) ObjectDisposedException.ThrowIf(pen.IsDisposed, pen);
+    }
+
+    // The node callbacks validate their arguments, so an invalid argument still faults the recording pass.
+    private static void ThrowIfUnusable(
+        EngineObject.Resource resource,
+        Brush.Resource? fill,
+        Pen.Resource? pen,
+        string paramName)
+    {
+        ThrowIfDisposed(fill, pen);
+        ThrowIfUnusable(resource, paramName);
+    }
+
+    private static void ThrowIfUnusable(EngineObject.Resource? resource, string paramName)
+    {
+        ArgumentNullException.ThrowIfNull(resource, paramName);
+        ObjectDisposedException.ThrowIf(resource.IsDisposed, resource);
     }
 
     private static void ReportCleanupFailure(Exception exception, string operation)
@@ -287,26 +285,18 @@ public sealed class GraphicsContext2D(
     }
 
     public void DrawImageSource(ImageSource.Resource source, Brush.Resource? fill, Pen.Resource? pen)
-    {
-        bool wasFaulted = BeginRecordingOperation();
-        ThrowIfDisposed(fill, pen);
-        ArgumentNullException.ThrowIfNull(source);
-        ObjectDisposedException.ThrowIf(source.IsDisposed, source);
-
-        ImageSourceRenderNode? next = Next<ImageSourceRenderNode>();
-
-        if (next == null)
-        {
-            Add(new ImageSourceRenderNode(source, fill, pen));
-        }
-        else
-        {
-            _hasChanges |= next.Update(source, fill, pen);
-        }
-
-        ++_drawOperationindex;
-        CompleteRecordingOperation(wasFaulted);
-    }
+        => DrawNode(
+            (Source: source, Fill: fill, Pen: pen),
+            static p =>
+            {
+                ThrowIfUnusable(p.Source, p.Fill, p.Pen, nameof(source));
+                return new ImageSourceRenderNode(p.Source, p.Fill, p.Pen);
+            },
+            static (node, p) =>
+            {
+                ThrowIfUnusable(p.Source, p.Fill, p.Pen, nameof(source));
+                return node.Update(p.Source, p.Fill, p.Pen);
+            });
 
     public void DrawVideoSource(VideoSource.Resource source, TimeSpan frame, Brush.Resource? fill, Pen.Resource? pen)
     {
@@ -322,109 +312,76 @@ public sealed class GraphicsContext2D(
     }
 
     public void DrawVideoSource(VideoSource.Resource source, int frame, Brush.Resource? fill, Pen.Resource? pen)
-    {
-        bool wasFaulted = BeginRecordingOperation();
-        ThrowIfDisposed(fill, pen);
-        ArgumentNullException.ThrowIfNull(source);
-        ObjectDisposedException.ThrowIf(source.IsDisposed, source);
-
-        VideoSourceRenderNode? next = Next<VideoSourceRenderNode>();
-
-        if (next == null)
-        {
-            Add(new VideoSourceRenderNode(source, frame, fill, pen));
-        }
-        else
-        {
-            _hasChanges |= next.Update(source, frame, fill, pen);
-        }
-
-        ++_drawOperationindex;
-        CompleteRecordingOperation(wasFaulted);
-    }
+        => DrawNode(
+            (Source: source, Frame: frame, Fill: fill, Pen: pen),
+            static p =>
+            {
+                ThrowIfUnusable(p.Source, p.Fill, p.Pen, nameof(source));
+                return new VideoSourceRenderNode(p.Source, p.Frame, p.Fill, p.Pen);
+            },
+            static (node, p) =>
+            {
+                ThrowIfUnusable(p.Source, p.Fill, p.Pen, nameof(source));
+                return node.Update(p.Source, p.Frame, p.Fill, p.Pen);
+            });
 
     public void DrawEllipse(Rect rect, Brush.Resource? fill, Pen.Resource? pen)
-    {
-        bool wasFaulted = BeginRecordingOperation();
-        ThrowIfDisposed(fill, pen);
-
-        EllipseRenderNode? next = Next<EllipseRenderNode>();
-
-        if (next == null)
-        {
-            Add(new EllipseRenderNode(rect, fill, pen));
-        }
-        else
-        {
-            _hasChanges |= next.Update(rect, fill, pen);
-        }
-
-        ++_drawOperationindex;
-        CompleteRecordingOperation(wasFaulted);
-    }
+        => DrawNode(
+            (Rect: rect, Fill: fill, Pen: pen),
+            static p =>
+            {
+                ThrowIfDisposed(p.Fill, p.Pen);
+                return new EllipseRenderNode(p.Rect, p.Fill, p.Pen);
+            },
+            static (node, p) =>
+            {
+                ThrowIfDisposed(p.Fill, p.Pen);
+                return node.Update(p.Rect, p.Fill, p.Pen);
+            });
 
     public void DrawGeometry(Geometry.Resource geometry, Brush.Resource? fill, Pen.Resource? pen)
-    {
-        bool wasFaulted = BeginRecordingOperation();
-        ThrowIfDisposed(fill, pen);
-        ArgumentNullException.ThrowIfNull(geometry);
-        ObjectDisposedException.ThrowIf(geometry.IsDisposed, geometry);
-
-        GeometryRenderNode? next = Next<GeometryRenderNode>();
-
-        if (next == null)
-        {
-            Add(new GeometryRenderNode(geometry, fill, pen));
-        }
-        else
-        {
-            _hasChanges |= next.Update(geometry, fill, pen);
-        }
-
-        ++_drawOperationindex;
-        CompleteRecordingOperation(wasFaulted);
-    }
+        => DrawNode(
+            (Geometry: geometry, Fill: fill, Pen: pen),
+            static p =>
+            {
+                ThrowIfUnusable(p.Geometry, p.Fill, p.Pen, nameof(geometry));
+                return new GeometryRenderNode(p.Geometry, p.Fill, p.Pen);
+            },
+            static (node, p) =>
+            {
+                ThrowIfUnusable(p.Geometry, p.Fill, p.Pen, nameof(geometry));
+                return node.Update(p.Geometry, p.Fill, p.Pen);
+            });
 
     public void DrawRectangle(Rect rect, Brush.Resource? fill, Pen.Resource? pen)
-    {
-        bool wasFaulted = BeginRecordingOperation();
-        ThrowIfDisposed(fill, pen);
-
-        RectangleRenderNode? next = Next<RectangleRenderNode>();
-
-        if (next == null)
-        {
-            Add(new RectangleRenderNode(rect, fill, pen));
-        }
-        else
-        {
-            _hasChanges |= next.Update(rect, fill, pen);
-        }
-
-        ++_drawOperationindex;
-        CompleteRecordingOperation(wasFaulted);
-    }
+        => DrawNode(
+            (Rect: rect, Fill: fill, Pen: pen),
+            static p =>
+            {
+                ThrowIfDisposed(p.Fill, p.Pen);
+                return new RectangleRenderNode(p.Rect, p.Fill, p.Pen);
+            },
+            static (node, p) =>
+            {
+                ThrowIfDisposed(p.Fill, p.Pen);
+                return node.Update(p.Rect, p.Fill, p.Pen);
+            });
 
     public void DrawText(FormattedText text, Brush.Resource? fill, Pen.Resource? pen)
-    {
-        bool wasFaulted = BeginRecordingOperation();
-        ThrowIfDisposed(fill, pen);
-        ArgumentNullException.ThrowIfNull(text);
-
-        TextRenderNode? next = Next<TextRenderNode>();
-
-        if (next == null)
-        {
-            Add(new TextRenderNode(text, fill, pen));
-        }
-        else
-        {
-            _hasChanges |= next.Update(text, fill, pen);
-        }
-
-        ++_drawOperationindex;
-        CompleteRecordingOperation(wasFaulted);
-    }
+        => DrawNode(
+            (Text: text, Fill: fill, Pen: pen),
+            static p =>
+            {
+                ThrowIfDisposed(p.Fill, p.Pen);
+                ArgumentNullException.ThrowIfNull(p.Text, nameof(text));
+                return new TextRenderNode(p.Text, p.Fill, p.Pen);
+            },
+            static (node, p) =>
+            {
+                ThrowIfDisposed(p.Fill, p.Pen);
+                ArgumentNullException.ThrowIfNull(p.Text, nameof(text));
+                return node.Update(p.Text, p.Fill, p.Pen);
+            });
 
     public void DrawDrawable(Drawable.Resource drawable)
     {
@@ -492,22 +449,14 @@ public sealed class GraphicsContext2D(
 
         TNode? next = Next<TNode>();
 
-        try
+        if (next == null)
         {
-            if (next == null)
-            {
-                TNode node = createNode(parameters);
-                Add(node);
-            }
-            else
-            {
-                _hasChanges |= updateNode(next, parameters);
-            }
+            TNode node = createNode(parameters);
+            Add(node);
         }
-        catch
+        else
         {
-            _faulted = true;
-            throw;
+            _hasChanges |= updateNode(next, parameters);
         }
 
         ++_drawOperationindex;
@@ -515,25 +464,18 @@ public sealed class GraphicsContext2D(
     }
 
     public void DrawBackdrop(IBackdrop backdrop)
-    {
-        bool wasFaulted = BeginRecordingOperation();
-        ArgumentNullException.ThrowIfNull(backdrop);
-
-        DrawBackdropRenderNode? next = Next<DrawBackdropRenderNode>();
-
-        var b = new Rect(canvasSize);
-        if (next == null)
-        {
-            Add(new DrawBackdropRenderNode(backdrop, b));
-        }
-        else
-        {
-            _hasChanges |= next.Update(backdrop, b);
-        }
-
-        ++_drawOperationindex;
-        CompleteRecordingOperation(wasFaulted);
-    }
+        => DrawNode(
+            (Backdrop: backdrop, Bounds: new Rect(canvasSize)),
+            static p =>
+            {
+                ArgumentNullException.ThrowIfNull(p.Backdrop, nameof(backdrop));
+                return new DrawBackdropRenderNode(p.Backdrop, p.Bounds);
+            },
+            static (node, p) =>
+            {
+                ArgumentNullException.ThrowIfNull(p.Backdrop, nameof(backdrop));
+                return node.Update(p.Backdrop, p.Bounds);
+            });
 
     public IBackdrop Snapshot()
     {
@@ -572,126 +514,42 @@ public sealed class GraphicsContext2D(
     }
 
     public PushedState Push()
-    {
-        bool wasFaulted = BeginRecordingOperation();
-        PushRenderNode? next = Next<PushRenderNode>();
-
-        if (next == null)
-        {
-            AddAndPush(new PushRenderNode());
-        }
-        else
-        {
-            Push(next);
-        }
-
-        var result = new PushedState(this, _nodes.Count);
-        CompleteRecordingOperation(wasFaulted);
-        return result;
-    }
+        => PushNode(0, static _ => new PushRenderNode(), static (_, _) => false);
 
     public PushedState PushLayer(Rect limit = default)
-    {
-        bool wasFaulted = BeginRecordingOperation();
-        LayerRenderNode? next = Next<LayerRenderNode>();
-
-        if (next == null)
-        {
-            AddAndPush(new LayerRenderNode(limit));
-        }
-        else
-        {
-            _hasChanges |= next.Update(limit);
-            Push(next);
-        }
-
-        var result = new PushedState(this, _nodes.Count);
-        CompleteRecordingOperation(wasFaulted);
-        return result;
-    }
+        => PushNode(limit, static limit => new LayerRenderNode(limit), static (node, limit) => node.Update(limit));
 
     public PushedState PushBlendMode(BlendMode blendMode)
-    {
-        bool wasFaulted = BeginRecordingOperation();
-        BlendModeRenderNode? next = Next<BlendModeRenderNode>();
-
-        if (next == null)
-        {
-            AddAndPush(new BlendModeRenderNode(blendMode));
-        }
-        else
-        {
-            _hasChanges |= next.Update(blendMode);
-            Push(next);
-        }
-
-        var result = new PushedState(this, _nodes.Count);
-        CompleteRecordingOperation(wasFaulted);
-        return result;
-    }
+        => PushNode(
+            blendMode,
+            static blendMode => new BlendModeRenderNode(blendMode),
+            static (node, blendMode) => node.Update(blendMode));
 
     public PushedState PushClip(Rect clip, ClipOperation operation = ClipOperation.Intersect)
-    {
-        bool wasFaulted = BeginRecordingOperation();
-        RectClipRenderNode? next = Next<RectClipRenderNode>();
-
-        if (next == null)
-        {
-            AddAndPush(new RectClipRenderNode(clip, operation));
-        }
-        else
-        {
-            _hasChanges |= next.Update(clip, operation);
-            Push(next);
-        }
-
-        var result = new PushedState(this, _nodes.Count);
-        CompleteRecordingOperation(wasFaulted);
-        return result;
-    }
+        => PushNode(
+            (Clip: clip, Operation: operation),
+            static p => new RectClipRenderNode(p.Clip, p.Operation),
+            static (node, p) => node.Update(p.Clip, p.Operation));
 
     public PushedState PushClip(Geometry.Resource geometry, ClipOperation operation = ClipOperation.Intersect)
-    {
-        bool wasFaulted = BeginRecordingOperation();
-        ArgumentNullException.ThrowIfNull(geometry);
-        ObjectDisposedException.ThrowIf(geometry.IsDisposed, geometry);
-
-        GeometryClipRenderNode? next = Next<GeometryClipRenderNode>();
-
-        if (next == null)
-        {
-            AddAndPush(new GeometryClipRenderNode(geometry, operation));
-        }
-        else
-        {
-            _hasChanges |= next.Update(geometry, operation);
-            Push(next);
-        }
-
-        var result = new PushedState(this, _nodes.Count);
-        CompleteRecordingOperation(wasFaulted);
-        return result;
-    }
+        => PushNode(
+            (Geometry: geometry, Operation: operation),
+            static p =>
+            {
+                ThrowIfUnusable(p.Geometry, nameof(geometry));
+                return new GeometryClipRenderNode(p.Geometry, p.Operation);
+            },
+            static (node, p) =>
+            {
+                ThrowIfUnusable(p.Geometry, nameof(geometry));
+                return node.Update(p.Geometry, p.Operation);
+            });
 
     public PushedState PushOpacity(float opacity)
-    {
-        bool wasFaulted = BeginRecordingOperation();
-        OpacityRenderNode? next = Next<OpacityRenderNode>();
-
-        if (next == null)
-        {
-            AddAndPush(new OpacityRenderNode(opacity));
-        }
-        else
-        {
-            _hasChanges |= next.Update(opacity);
-            Push(next);
-        }
-
-        var result = new PushedState(this, _nodes.Count);
-        CompleteRecordingOperation(wasFaulted);
-        return result;
-    }
+        => PushNode(
+            opacity,
+            static opacity => new OpacityRenderNode(opacity),
+            static (node, opacity) => node.Update(opacity));
 
     public PushedState PushFilterEffect(FilterEffect.Resource effect)
     {
@@ -721,71 +579,39 @@ public sealed class GraphicsContext2D(
     }
 
     public PushedState PushOpacityMask(Brush.Resource mask, Rect bounds, bool invert = false)
-    {
-        bool wasFaulted = BeginRecordingOperation();
-        ArgumentNullException.ThrowIfNull(mask);
-        ObjectDisposedException.ThrowIf(mask.IsDisposed, mask);
-
-        OpacityMaskRenderNode? next = Next<OpacityMaskRenderNode>();
-
-        if (next == null)
-        {
-            AddAndPush(new OpacityMaskRenderNode(mask, bounds, invert));
-        }
-        else
-        {
-            _hasChanges |= next.Update(mask, bounds, invert);
-            Push(next);
-        }
-
-        var result = new PushedState(this, _nodes.Count);
-        CompleteRecordingOperation(wasFaulted);
-        return result;
-    }
+        => PushNode(
+            (Mask: mask, Bounds: bounds, Invert: invert),
+            static p =>
+            {
+                ThrowIfUnusable(p.Mask, nameof(mask));
+                return new OpacityMaskRenderNode(p.Mask, p.Bounds, p.Invert);
+            },
+            static (node, p) =>
+            {
+                ThrowIfUnusable(p.Mask, nameof(mask));
+                return node.Update(p.Mask, p.Bounds, p.Invert);
+            });
 
     public PushedState PushTransform(Matrix matrix, TransformOperator transformOperator = TransformOperator.Prepend)
-    {
-        bool wasFaulted = BeginRecordingOperation();
-        TransformRenderNode? next = Next<TransformRenderNode>();
-
-        if (next == null)
-        {
-            AddAndPush(new TransformRenderNode(matrix, transformOperator));
-        }
-        else
-        {
-            _hasChanges |= next.Update(matrix, transformOperator);
-            Push(next);
-        }
-
-        var result = new PushedState(this, _nodes.Count);
-        CompleteRecordingOperation(wasFaulted);
-        return result;
-    }
+        => PushNode(
+            (Matrix: matrix, Operator: transformOperator),
+            static p => new TransformRenderNode(p.Matrix, p.Operator),
+            static (node, p) => node.Update(p.Matrix, p.Operator));
 
     public PushedState PushTransform(Transform.Resource transform,
         TransformOperator transformOperator = TransformOperator.Prepend)
-    {
-        bool wasFaulted = BeginRecordingOperation();
-        ArgumentNullException.ThrowIfNull(transform);
-        ObjectDisposedException.ThrowIf(transform.IsDisposed, transform);
-
-        TransformRenderNode? next = Next<TransformRenderNode>();
-        var matrix = transform.Matrix;
-        if (next == null)
-        {
-            AddAndPush(new TransformRenderNode(matrix, transformOperator));
-        }
-        else
-        {
-            _hasChanges |= next.Update(matrix, transformOperator);
-            Push(next);
-        }
-
-        var result = new PushedState(this, _nodes.Count);
-        CompleteRecordingOperation(wasFaulted);
-        return result;
-    }
+        => PushNode(
+            (Transform: transform, Operator: transformOperator),
+            static p =>
+            {
+                ThrowIfUnusable(p.Transform, nameof(transform));
+                return new TransformRenderNode(p.Transform.Matrix, p.Operator);
+            },
+            static (node, p) =>
+            {
+                ThrowIfUnusable(p.Transform, nameof(transform));
+                return node.Update(p.Transform.Matrix, p.Operator);
+            });
 
     public PushedState PushNode<TNode, TParams>(in TParams parameters, Func<TParams, TNode> createNode,
         Func<TNode, TParams, bool> updateNode)
