@@ -5,9 +5,10 @@
 
 version: 2
 updates:
+  # No target-branch here: main is the default branch, and with target-branch set the ignores below
+  # would not apply to security updates.
   - package-ecosystem: "nuget" # See documentation for possible values
     directory: "/" # Location of package manifests
-    target-branch: "main"
     schedule:
       interval: "daily"
     # Minor and patch updates arrive as one pull request; a major update still gets its own.
