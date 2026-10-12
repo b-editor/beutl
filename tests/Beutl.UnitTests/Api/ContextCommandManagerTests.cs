@@ -4,6 +4,7 @@ using System.Text.Json.Nodes;
 using Avalonia.Input;
 using Beutl.Api.Services;
 using Beutl.Extensibility;
+using Beutl.Serialization;
 using Microsoft.Extensions.Logging;
 using Moq;
 
@@ -257,5 +258,52 @@ public class ContextCommandManagerTests
 
         Assert.That(GesturesFor(entry, OSPlatform.Windows),
             Is.EqualTo(new[] { KeyGesture.Parse("V"), KeyGesture.Parse("Escape"), KeyGesture.Parse("F2") }));
+    }
+
+    // keymap.json keys a command by the namespace and name of its extension's type, so a renamed or moved extension
+    // reads the keys of its former name (FormerPersistedNameAttribute) for each platform that has none under the
+    // current one, and saves under the current one.
+    [Test]
+    public void Restore_GesturesUnderAFormerTypeName_ApplyWhereTheCurrentKeyHasNone()
+    {
+        string currentName = $"{typeof(RenamedViewExtension).Namespace}.{nameof(RenamedViewExtension)}.ExitTool";
+        var json = new JsonObject
+        {
+            ["Windows"] = new JsonObject { ["Former.Namespace.FormerViewExtension.ExitTool"] = new JsonArray("F1") },
+            ["OSX"] = new JsonObject
+            {
+                [currentName] = new JsonArray("F2"),
+                ["Former.Namespace.FormerViewExtension.ExitTool"] = new JsonArray("F3"),
+            },
+        };
+        var manager = CreateManager(json);
+
+        manager.Register(new RenamedViewExtension());
+        ContextCommandEntry entry = manager.GetDefinitions<RenamedViewExtension>().Single();
+        KeyGesture?[] windows = GesturesFor(entry, OSPlatform.Windows);
+        KeyGesture?[] macOS = GesturesFor(entry, OSPlatform.OSX);
+        manager.ChangeKeyGesture(entry, KeyGesture.Parse("F4"), OSPlatform.Windows, gestureIndex: 1);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(windows, Is.EqualTo(new[] { KeyGesture.Parse("F1"), KeyGesture.Parse("Escape") }));
+            Assert.That(macOS, Is.EqualTo(new[] { KeyGesture.Parse("F2"), KeyGesture.Parse("Escape") }),
+                "The current key wins.");
+            Assert.That(json[OSPlatform.Windows.ToString()]?[currentName]?.AsArray().Select(node => (string?)node),
+                Is.EqualTo(new[] { "F1", "F4" }), "Saving writes the current key.");
+        });
+    }
+
+    [FormerPersistedName("[Beutl.UnitTests]Former.Namespace:FormerViewExtension")]
+    private sealed class RenamedViewExtension : ViewExtension
+    {
+        public override IEnumerable<ContextCommandDefinition> ContextCommands =>
+        [
+            new ContextCommandDefinition("ExitTool", "Exit Tool", null,
+            [
+                new ContextCommandKeyGesture("V"),
+                new ContextCommandKeyGesture("Escape"),
+            ]),
+        ];
     }
 }

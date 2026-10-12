@@ -4,6 +4,7 @@ using System.Text.Json.Nodes;
 using Avalonia.Input;
 using Beutl.Collections;
 using Beutl.Extensibility;
+using Beutl.JsonDiscriminator;
 using Beutl.Language;
 using Beutl.Logging;
 using Beutl.Services;
@@ -65,9 +66,14 @@ public class ContextCommandHandlerRegistry : IBeutlApiResource
 
     internal static string GetFullName(Type extensionType, string name)
     {
-        return extensionType.Namespace == null
-            ? $"{extensionType.Name}.{name}"
-            : $"{extensionType.Namespace}.{extensionType.Name}.{name}";
+        return GetFullName(extensionType.Namespace, extensionType.Name, name);
+    }
+
+    internal static string GetFullName(string? typeNamespace, string typeName, string name)
+    {
+        return typeNamespace == null
+            ? $"{typeName}.{name}"
+            : $"{typeNamespace}.{typeName}.{name}";
     }
 
     public void Register(Type contextType, Type extensionType)
@@ -230,8 +236,7 @@ public class ContextCommandManager(
     {
         foreach (ContextCommandEntry entry in entries)
         {
-            foreach ((OSPlatform platform, IReadOnlyList<KeyGesture?> gestures) in
-                     settingsStore.Restore(GetFullName(entry)))
+            foreach ((OSPlatform platform, IReadOnlyList<KeyGesture?> gestures) in RestoreSaved(entry))
             {
                 // Overwrite the default gestures slot-by-slot with the persisted list; slots
                 // beyond a shorter persisted list keep their defaults.
@@ -251,6 +256,29 @@ public class ContextCommandManager(
                 }
             }
         }
+    }
+
+    // The gestures saved for entry, by platform. A platform with none under the command's key takes those saved
+    // under a key with a former name of the extension type (FormerPersistedNameAttribute), so a renamed or moved
+    // extension keeps its shortcuts. Saving writes the current key.
+    private List<(OSPlatform Platform, IReadOnlyList<KeyGesture?> Gestures)> RestoreSaved(ContextCommandEntry entry)
+    {
+        List<(OSPlatform Platform, IReadOnlyList<KeyGesture?> Gestures)> saved =
+            settingsStore.Restore(GetFullName(entry)).ToList();
+        foreach (FormerTypeName former in TypeFormat.GetFormerNames(entry.ExtensionType))
+        {
+            string formerKey = ContextCommandHandlerRegistry.GetFullName(
+                former.Namespace, former.Name, entry.Definition.Name);
+            foreach ((OSPlatform Platform, IReadOnlyList<KeyGesture?> Gestures) item in settingsStore.Restore(formerKey))
+            {
+                if (!saved.Exists(existing => existing.Platform == item.Platform))
+                {
+                    saved.Add(item);
+                }
+            }
+        }
+
+        return saved;
     }
 
     public void Attach(InputElement element, ViewExtension extension)

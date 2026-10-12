@@ -40,7 +40,6 @@ public class EasingProjectSerializationTests
 
     [TestCase(null)]
     [TestCase("$type")]
-    [TestCase("@type")]
     public void Restore_ProjectWithElementEasing_RetainsElementAndSplineControlPoints(string? discriminatorKey)
     {
         (Uri projectUri, string elementPath) = CreateProject();

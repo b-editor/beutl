@@ -254,7 +254,7 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null)
             return;
         }
 
-        var optional = context.GetValue<Optional<T>>(Name);
+        var optional = context.GetValue<Optional<T>>(FormerPersistedNames.ResolveMemberKey(context, Name, _attributes));
         if (optional.HasValue)
         {
             if (optional.Value is IReference { IsNull: false } reference)

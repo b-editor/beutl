@@ -123,7 +123,7 @@ public sealed class NewToolTabDockable : Tool
                     extension.Header!,
                     GetIcon(extension),
                     extension.CanMultiple || !factory.IsToolTabOpen(extension),
-                    pins.Contains(GetPinKey(extension))))
+                    IndexOfPin(pins, extension) >= 0))
                 .ToArray();
         }
 
@@ -135,9 +135,21 @@ public sealed class NewToolTabDockable : Tool
     public void TogglePin(ToolTabExtension extension)
     {
         CoreList<string> pins = GlobalConfiguration.Instance.ViewConfig.PinnedToolTabs;
-        string key = GetPinKey(extension);
-        if (!pins.Remove(key))
-            pins.Add(key);
+        if (IndexOfPin(pins, extension) < 0)
+        {
+            pins.Add(GetPinKey(extension));
+        }
+        else
+        {
+            // The current name and a former name can both pin the tool, so unpinning removes every pin of it.
+            string key = GetPinKey(extension);
+            Type type = extension.GetType();
+            for (int i = pins.Count - 1; i >= 0; i--)
+            {
+                if (IsPinOf(pins[i], key, type))
+                    pins.RemoveAt(i);
+            }
+        }
 
         Refresh();
     }
@@ -147,6 +159,27 @@ public sealed class NewToolTabDockable : Tool
     internal static string GetPinKey(ToolTabExtension extension)
     {
         return TypeFormat.ToString(extension.GetType());
+    }
+
+    // Where extension is first pinned, or -1. A new pin is saved under the current name.
+    internal static int IndexOfPin(IReadOnlyList<string> pins, ToolTabExtension extension)
+    {
+        string key = GetPinKey(extension);
+        Type type = extension.GetType();
+        for (int i = 0; i < pins.Count; i++)
+        {
+            if (IsPinOf(pins[i], key, type))
+                return i;
+        }
+
+        return -1;
+    }
+
+    // A pin is read like any other type name, so one saved under a former name of the type
+    // (FormerPersistedNameAttribute) pins it too.
+    private static bool IsPinOf(string pin, string key, Type type)
+    {
+        return pin == key || TypeFormat.ToType(pin) == type;
     }
 
     /// <summary>
@@ -202,7 +235,7 @@ public sealed class NewToolTabDockable : Tool
         CoreList<string> pins = GlobalConfiguration.Instance.ViewConfig.PinnedToolTabs;
         PinnedItems = matches
             .Where(item => item.IsEnabled && item.IsPinned)
-            .OrderBy(item => pins.IndexOf(GetPinKey(item.Extension)))
+            .OrderBy(item => IndexOfPin(pins, item.Extension))
             .ToArray();
         AvailableItems = matches.Where(item => item.IsEnabled && !item.IsPinned).ToArray();
         OpenItems = matches.Where(item => !item.IsEnabled).ToArray();

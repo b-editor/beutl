@@ -24,7 +24,7 @@ internal sealed class EasingJsonConverter : JsonConverter<Easing>
 
         // Older spline values contain only control points. An explicit discriminator must
         // resolve successfully so an unavailable plugin is not silently saved as a spline.
-        bool hasDiscriminator = obj.ContainsKey("$type") || obj.ContainsKey("@type");
+        bool hasDiscriminator = obj.ContainsKey("$type");
         Type actualType = ResolveEasingType(hasDiscriminator ? obj.GetDiscriminator() : typeof(SplineEasing));
         if (actualType == typeof(SplineEasing))
         {

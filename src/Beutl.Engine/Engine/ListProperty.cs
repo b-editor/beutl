@@ -148,8 +148,9 @@ public class ListProperty<T> : IListProperty<T>
 
     public void DeserializeValue(ICoreSerializationContext context)
     {
-        if (!context.Contains(Name)) return;
-        T[]? list = context.GetValue<T[]>(Name);
+        string name = FormerPersistedNames.ResolveMemberKey(context, Name, _attributes);
+        if (!context.Contains(name)) return;
+        T[]? list = context.GetValue<T[]>(name);
         if (list == null) return;
         CurrentValue.Replace(list);
     }

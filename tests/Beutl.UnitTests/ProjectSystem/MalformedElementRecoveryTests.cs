@@ -831,7 +831,6 @@ public sealed class MalformedElementRecoveryTests
     }
 
     [TestCase("$type")]
-    [TestCase("@type")]
     public void Restore_UnresolvableTopLevelType_UsesTypeNotFoundReason(string discriminatorKey)
     {
         const string MissingType = "[Missing.Assembly]Missing.Namespace:MissingElement";
@@ -849,23 +848,6 @@ public sealed class MalformedElementRecoveryTests
             Assert.That(fallback.ErrorMessage, Is.Null);
             Assert.That(fallback.Json!["$type"]!.GetValue<string>(), Is.EqualTo(MissingType));
         });
-    }
-
-    [Test]
-    public void Restore_TopLevelTypeScannerPrefersDollarType()
-    {
-        const string PreferredType = "[Missing.Assembly]Missing.Namespace:PreferredElement";
-        const string LegacyType = "[Missing.Assembly]Missing.Namespace:LegacyElement";
-        (Uri sceneUri, string elementPath) = CreatePersistedScene();
-        File.WriteAllText(
-            elementPath,
-            $$"""{"@type":"{{LegacyType}}","$type":"{{PreferredType}}","Id":"{{Guid.NewGuid()}}"}""");
-
-        var fallback = (IFallback)CoreSerializer.RestoreFromUri<Scene>(sceneUri)
-            .Children.Single()
-            .Objects.Single();
-
-        Assert.That(fallback.Json!["$type"]!.GetValue<string>(), Is.EqualTo(PreferredType));
     }
 
     [Test]
