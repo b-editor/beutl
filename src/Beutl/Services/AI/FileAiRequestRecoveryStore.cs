@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel;
 using System.Diagnostics;
+using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
@@ -2199,7 +2200,7 @@ internal sealed class AiRequestRecoveryContext : IDisposable
         if (!StringComparer.Ordinal.Equals(current.AccountId, issuedAccountId))
             throw new AuthenticationRequiredException();
         return current.User is null
-            ? EmptyDisposable.Instance
+            ? Disposable.Empty
             : AiAuthenticatedRequestScope.Enter(current.User);
     }
 }

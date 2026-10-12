@@ -2,6 +2,9 @@
 
 namespace Beutl.Api.Clients;
 
+// The production FormData parser requires quoted Content-Disposition names.
+// Refit passes AliasAs through to MultipartFormDataContent, which otherwise
+// emits name=file instead of name="file" for simple tokens.
 internal interface IAiClient
 {
     [Get("/api/v3/ai/capabilities")]
@@ -21,9 +24,6 @@ internal interface IAiClient
         [Body] CreateAiImageRequest request,
         CancellationToken cancellationToken);
 
-    // The production FormData parser requires quoted Content-Disposition names.
-    // Refit passes AliasAs through to MultipartFormDataContent, which otherwise
-    // emits name=file instead of name="file" for simple tokens.
     // Guiding a generation with existing pictures makes it an upload, so the
     // same endpoint is called as multipart. The JSON form above stays the path
     // for a request that carries no reference.
@@ -107,13 +107,6 @@ internal interface IAiClient
     Task<DeleteAiJobResponse> DeleteJob(
         [Header("Authorization")] string authorization,
         string id,
-        CancellationToken cancellationToken);
-
-    [Post("/api/v3/ai/translations")]
-    Task<AiCaptionTranslationResponseDto> Translate(
-        [Header("Authorization")] string authorization,
-        [Header("Idempotency-Key")] string idempotencyKey,
-        [Body] AiCaptionTranslationRequestDto request,
         CancellationToken cancellationToken);
 
     [Post("/api/v3/user/ai-availability")]

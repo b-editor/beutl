@@ -1,6 +1,6 @@
 ﻿namespace Beutl.Api.Services;
 
-public readonly struct AiJobOutcomeId : IEquatable<AiJobOutcomeId>
+public readonly record struct AiJobOutcomeId
 {
     private readonly string? _value;
 
@@ -8,17 +8,7 @@ public readonly struct AiJobOutcomeId : IEquatable<AiJobOutcomeId>
 
     public string Value => _value ?? string.Empty;
 
-    public bool Equals(AiJobOutcomeId other) => StringComparer.Ordinal.Equals(Value, other.Value);
-
-    public override bool Equals(object? obj) => obj is AiJobOutcomeId other && Equals(other);
-
-    public override int GetHashCode() => StringComparer.Ordinal.GetHashCode(Value);
-
     public override string ToString() => Value;
-
-    public static bool operator ==(AiJobOutcomeId left, AiJobOutcomeId right) => left.Equals(right);
-
-    public static bool operator !=(AiJobOutcomeId left, AiJobOutcomeId right) => !left.Equals(right);
 }
 
 public static class AiJobOutcomes

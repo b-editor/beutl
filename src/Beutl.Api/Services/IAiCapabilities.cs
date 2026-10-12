@@ -10,17 +10,14 @@ public interface IAiEntitlementService : IBeutlApiResource
 }
 
 /// <summary>
-/// The models each operation offers. Registered on the server at runtime, so
-/// unlike every other list this client holds it cannot be a set of literals and
-/// has to be asked for.
+/// The models each operation offers. They are registered on the server at runtime, so they are asked for.
 /// </summary>
 public interface IAiModelCatalogService : IBeutlApiResource
 {
     /// <summary>
     /// The catalog, fetched once and reused. An empty catalog is what a caller
     /// gets when the server cannot be reached or offers nothing to choose from:
-    /// a request then names no model and runs on the server's default, which is
-    /// how this client behaved before models could be chosen at all.
+    /// a request then names no model and runs on the server's default.
     /// </summary>
     Task<AiModelCatalog> GetAsync(CancellationToken cancellationToken);
 

@@ -50,14 +50,6 @@ internal static class AiModelMapper
     // choice.
     public static AiModelCatalog ToModel(
         AiCapabilitiesResponse response,
-        IAiOperationCapabilitySchemaProvider? capabilitySchemas = null)
-        => ToModel(
-            response,
-            (capabilitySchemas ?? BuiltInAiOperationCapabilitySchemaProvider.Instance)
-                .GetSnapshot());
-
-    public static AiModelCatalog ToModel(
-        AiCapabilitiesResponse response,
         AiOperationCapabilitySchemaSnapshot capabilitySchemas)
     {
         if (response.Operations is null || response.Operations.Count == 0)
@@ -376,7 +368,7 @@ internal static class AiModelMapper
             ? uri
             : throw new AiException("The AI response contains an invalid content URI.");
 
-    private static AiContentMetadata? ToContentMetadata(string? fileName, string? contentType)
+    internal static AiContentMetadata? ToContentMetadata(string? fileName, string? contentType)
         => string.IsNullOrWhiteSpace(fileName) && string.IsNullOrWhiteSpace(contentType)
             ? null
             : new AiContentMetadata(fileName, contentType);

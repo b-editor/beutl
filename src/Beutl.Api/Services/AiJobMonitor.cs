@@ -40,16 +40,6 @@ internal sealed class AiJobMonitor : IAiJobMonitor, IDisposable
     private readonly HashSet<long> _scheduledRetryVersions = [];
     private volatile bool _disposed;
 
-    public AiJobMonitor(BeutlApiApplication application)
-        : this(
-            application,
-            application.GetResource<IAiJobClient>(),
-            application.GetResource<IAiJobKindRegistry>(),
-            application.GetResource<AiJobChangeNotifier>().Changes,
-            TimeSpan.FromSeconds(5))
-    {
-    }
-
     internal AiJobMonitor(
         BeutlApiApplication application,
         IAiJobClient client,
@@ -623,18 +613,7 @@ internal sealed class AiJobMonitor : IAiJobMonitor, IDisposable
             ImmutableArray<AiJob> pollingJobs = snapshot.Jobs.Where(ShouldPoll).ToImmutableArray();
             foreach (AiJob job in pollingJobs)
             {
-                AiJobStatusSemantics status;
-                try
-                {
-                    status = _jobKinds.GetStatus(job);
-                }
-                catch
-                {
-                    continue;
-                }
-
-                if (!status.ShouldPoll
-                    || !_jobKinds.TryAcquireRefreshHandler(
+                if (!_jobKinds.TryAcquireRefreshHandler(
                         job.Kind,
                         out IAiJobRefreshHandlerLease? refreshLease))
                 {

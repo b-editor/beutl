@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
+using System.Reactive.Disposables;
 using System.Security.Cryptography;
 using System.Text;
 using Beutl.Api.Services;
@@ -443,7 +444,7 @@ internal sealed class AiRequestKey : IDisposable
     public IDisposable EnterAuthenticatedScope(AiRequestName name)
     {
         if (_recoveryContext is null)
-            return EmptyDisposable.Instance;
+            return Disposable.Empty;
         string account;
         lock (_gate)
         {

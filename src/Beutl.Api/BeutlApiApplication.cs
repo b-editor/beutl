@@ -127,7 +127,7 @@ public partial class BeutlApiApplication : IAsyncDisposable
 
     internal HttpClient HttpClient => _httpClient;
 
-    public MyAsyncLock Lock { get; } = new();
+    public AsyncLock Lock { get; } = new();
 
     public IReadOnlyReactiveProperty<AuthenticatedUser?> AuthenticatedUser => _readOnlyAuthenticatedUser;
 
@@ -357,7 +357,7 @@ public partial class BeutlApiApplication : IAsyncDisposable
             new AiOperationCapabilitySchemaRegistry(GetResource<IExtensionRegistry>()));
         Register(() => new AiModelCatalogService(
             this,
-            capabilitySchemas: GetResource<IAiOperationCapabilitySchemaProvider>()));
+            GetResource<IAiOperationCapabilitySchemaProvider>()));
         Register(() => new AiOperationAvailabilityService(this));
         Register(() => new AiImageGenerationService(
             this,

@@ -40,11 +40,8 @@ public static class AiRequestLimits
     // publishes nothing is read as.
     public const int MaxImageReferences = 4;
 
-    // What all the reference pictures of one request may come to together, for
-    // a server that publishes no figure of its own. The per-picture limit taken
-    // four times over is more than the server can hold: every picture is kept
-    // raw, again as base64 and again through JSON, so the fallback is what one
-    // picture was already allowed to be.
+    // The total for all reference pictures when the server publishes none. The server holds each picture several
+    // times over, so the fallback is the one-picture limit rather than four times it.
     public const long MaxImageReferencesTotalBytes = MaxImageUploadBytes;
 
     // The provider accepts a signed 32-bit seed. Bounding it here keeps the
@@ -53,10 +50,7 @@ public static class AiRequestLimits
 
     public const int MaxSeed = int.MaxValue;
 
-    // The span the server considers at all. Which whole seconds within it a
-    // given model takes is published per model: Veo 3.1 takes 4, 6 or 8 and
-    // Seedance 2.5 anything from 4 to 30, so a fixed three would offer lengths
-    // one model refuses and hide most of another's.
+    // The span the server considers at all; each model publishes the whole seconds it takes.
     public const int MinVideoDurationSeconds = 1;
 
     public const int MaxVideoDurationSeconds = 60;
@@ -113,7 +107,7 @@ public static class AiRequestLimits
     internal static int? ValidateOptionalSeed(int? seed, string parameterName)
     {
         if (seed is null) return null;
-        if (seed.Value is < MinSeed or > MaxSeed)
+        if (seed.Value < MinSeed)
             throw new ArgumentOutOfRangeException(parameterName);
         return seed;
     }
@@ -143,9 +137,6 @@ public static class AiRequestLimits
     // A default-constructed AiModelId carries no id, and sending an empty
     // string would be refused as an unknown model. It means "no choice made",
     // so it is normalized to null and the server picks its own default.
-    internal static AiModelId? ValidateOptionalModel(AiModelId? model, string parameterName)
-    {
-        _ = parameterName;
-        return model is { Value.Length: > 0 } ? model : null;
-    }
+    internal static AiModelId? ValidateOptionalModel(AiModelId? model)
+        => model is { Value.Length: > 0 } ? model : null;
 }

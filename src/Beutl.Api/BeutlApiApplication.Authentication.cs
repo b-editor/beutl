@@ -42,6 +42,7 @@ public partial class BeutlApiApplication
     private void CommitAuthenticatedUser(
         AuthenticatedUser user,
         long authenticationAttempt,
+        bool persist,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -51,8 +52,9 @@ public partial class BeutlApiApplication
             if (_authenticationAttemptVersion != authenticationAttempt)
                 throw new AuthenticationRequiredException();
 
+            if (persist)
+                _persistAuthenticatedUser(user);
             _authenticatedUser.Value = user;
-            SetBearerAuthorization(user.Token);
         }
     }
 
@@ -67,7 +69,6 @@ public partial class BeutlApiApplication
     {
         _authenticationAttemptVersion++;
         _authenticatedUser.Value = null;
-        ClearAuthorization();
     }
 
     private bool IsAuthenticationSessionCurrent(AuthenticatedUser user, long generation)

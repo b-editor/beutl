@@ -40,16 +40,12 @@ internal static class LoopbackAuthorizationListener
             }
             catch (Exception) when (ct.IsCancellationRequested)
             {
-                ct.ThrowIfCancellationRequested();
-                // Next line will never be reached because cancellation will always have been requested in this catch block.
-                // But it's required to satisfy compiler.
-                throw new InvalidOperationException();
+                throw new OperationCanceledException(ct);
             }
         }
 
         string? code = context.Request.QueryString.Get("code");
 
-        // Write a "close" response.
         using (Stream input = ReadClosePageResponse())
         {
             context.Response.ContentLength64 = input.Length;

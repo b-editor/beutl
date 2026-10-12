@@ -27,7 +27,7 @@ public class AiModelCatalogTests
         AiCapabilitiesResponse response = JsonSerializer.Deserialize<AiCapabilitiesResponse>(
             json,
             new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
-        AiImageModelCapabilities image = AiModelMapper.ToModel(response).ModelsFor(AiOperations.ImageGeneration)[0].Image!;
+        AiImageModelCapabilities image = ToModel(response).ModelsFor(AiOperations.ImageGeneration)[0].Image!;
         Assert.That(
             image.AspectRatios,
             Is.EqualTo(unsupported
@@ -45,7 +45,7 @@ public class AiModelCatalogTests
         AiCapabilitiesResponse response = JsonSerializer.Deserialize<AiCapabilitiesResponse>(
             json,
             new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
-        AiImageModelCapabilities image = AiModelMapper.ToModel(response).ModelsFor(AiOperations.ImageGeneration)[0].Image!;
+        AiImageModelCapabilities image = ToModel(response).ModelsFor(AiOperations.ImageGeneration)[0].Image!;
         Assert.That(
             image.AspectRatios,
             Is.EqualTo(unsupported
@@ -63,7 +63,7 @@ public class AiModelCatalogTests
         AiCapabilitiesResponse response = JsonSerializer.Deserialize<AiCapabilitiesResponse>(
             json,
             new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
-        AiVideoModelCapabilities video = AiModelMapper.ToModel(response).ModelsFor(AiOperations.VideoGeneration)[0].Video!;
+        AiVideoModelCapabilities video = ToModel(response).ModelsFor(AiOperations.VideoGeneration)[0].Video!;
         Assert.That(
             video.Resolutions,
             Is.EqualTo(unsupported
@@ -81,7 +81,7 @@ public class AiModelCatalogTests
         AiCapabilitiesResponse response = JsonSerializer.Deserialize<AiCapabilitiesResponse>(
             json,
             new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
-        AiVideoModelCapabilities video = AiModelMapper.ToModel(response).ModelsFor(AiOperations.VideoGeneration)[0].Video!;
+        AiVideoModelCapabilities video = ToModel(response).ModelsFor(AiOperations.VideoGeneration)[0].Video!;
         Assert.That(
             video.Resolutions,
             Is.EqualTo(unsupported
@@ -91,7 +91,7 @@ public class AiModelCatalogTests
     [Test]
     public void Catalog_ReadsTheModelsAndTheirRelativeCost()
     {
-        AiModelCatalog catalog = AiModelMapper.ToModel(Capabilities(
+        AiModelCatalog catalog = ToModel(Capabilities(
             ("image.generate", [
                 Model("cheap/model", null, "low", isDefault: true),
                 Model("dear/model", "Dear", "high", isDefault: false),
@@ -115,7 +115,7 @@ public class AiModelCatalogTests
     [Test]
     public void Catalog_ReportsAnUnknownTierAsNoneRatherThanGuessing()
     {
-        AiModelCatalog catalog = AiModelMapper.ToModel(Capabilities(
+        AiModelCatalog catalog = ToModel(Capabilities(
             ("video.generate", [Model("a/model", null, "cheapest", isDefault: true)])));
 
         // Guessing would send someone to the pricier model believing it is the
@@ -126,7 +126,7 @@ public class AiModelCatalogTests
     [Test]
     public void Catalog_IsEmptyForAnOperationTheServerDidNotDescribe()
     {
-        AiModelCatalog catalog = AiModelMapper.ToModel(Capabilities(
+        AiModelCatalog catalog = ToModel(Capabilities(
             ("image.generate", [])));
 
         using (Assert.EnterMultipleScope())
@@ -305,7 +305,7 @@ public class AiModelCatalogTests
     [Test]
     public void Catalog_TreatsAFullyFilteredModelListAsExplicitlyUnavailable()
     {
-        AiModelCatalog catalog = AiModelMapper.ToModel(Capabilities(
+        AiModelCatalog catalog = ToModel(Capabilities(
             ("image.generate",
             [
                 new AiModelDescriptionResponse { Id = string.Empty },
@@ -323,7 +323,7 @@ public class AiModelCatalogTests
     [Test]
     public void Catalog_KeepsAnOmittedModelListAsPermissiveLegacyFallback()
     {
-        AiModelCatalog catalog = AiModelMapper.ToModel(new AiCapabilitiesResponse
+        AiModelCatalog catalog = ToModel(new AiCapabilitiesResponse
         {
             Operations = new Dictionary<string, AiOperationCapabilityResponse>
             {
@@ -378,7 +378,7 @@ public class AiModelCatalogTests
             }.ToImmutableDictionary(),
         };
 
-        AiModelCatalog catalog = AiModelMapper.ToModel(response, schemas);
+        AiModelCatalog catalog = AiModelMapper.ToModel(response, schemas.GetSnapshot());
         AiModelOption model = catalog.ModelsFor(operation).Single();
 
         using (Assert.EnterMultipleScope())
@@ -409,16 +409,16 @@ public class AiModelCatalogTests
                 AiModelCapabilitySchema.Image));
 
         extensions.AddExtensions(10, [replacement]);
-        Assert.That(schemas.GetSchema(operation), Is.EqualTo(AiModelCapabilitySchema.Generic));
+        Assert.That(schemas.GetSnapshot().GetSchema(operation), Is.EqualTo(AiModelCapabilitySchema.Generic));
 
         extensions.AddExtensions(11, [@base]);
-        Assert.That(schemas.GetSchema(operation), Is.EqualTo(AiModelCapabilitySchema.Video));
+        Assert.That(schemas.GetSnapshot().GetSchema(operation), Is.EqualTo(AiModelCapabilitySchema.Video));
 
         extensions.RemoveExtensions(10);
-        Assert.That(schemas.GetSchema(operation), Is.EqualTo(AiModelCapabilitySchema.Image));
+        Assert.That(schemas.GetSnapshot().GetSchema(operation), Is.EqualTo(AiModelCapabilitySchema.Image));
 
         extensions.RemoveExtensions(11);
-        Assert.That(schemas.GetSchema(operation), Is.EqualTo(AiModelCapabilitySchema.Generic));
+        Assert.That(schemas.GetSnapshot().GetSchema(operation), Is.EqualTo(AiModelCapabilitySchema.Generic));
 
         var builtInReplacement = new TestCapabilitySchemaExtension(
             new AiOperationCapabilitySchemaRegistration(
@@ -427,12 +427,12 @@ public class AiModelCatalogTests
                 AiOperationCapabilitySchemaRegistrationMode.Replace));
         extensions.AddExtensions(12, [builtInReplacement]);
         Assert.That(
-            schemas.GetSchema(AiOperations.VideoGeneration),
+            schemas.GetSnapshot().GetSchema(AiOperations.VideoGeneration),
             Is.EqualTo(AiModelCapabilitySchema.Image));
 
         extensions.RemoveExtensions(12);
         Assert.That(
-            schemas.GetSchema(AiOperations.VideoGeneration),
+            schemas.GetSnapshot().GetSchema(AiOperations.VideoGeneration),
             Is.EqualTo(AiModelCapabilitySchema.Video));
     }
 
@@ -461,7 +461,7 @@ public class AiModelCatalogTests
         extensions.AddExtensions(13, [invalid]);
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(schemas.GetSchema(operation),
+            Assert.That(schemas.GetSnapshot().GetSchema(operation),
                 Is.EqualTo(AiModelCapabilitySchema.Generic));
             Assert.That(reportedFailures, Has.Count.EqualTo(1));
         }
@@ -471,7 +471,7 @@ public class AiModelCatalogTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(schemas.GetSchema(operation), Is.EqualTo(AiModelCapabilitySchema.Video));
+            Assert.That(schemas.GetSnapshot().GetSchema(operation), Is.EqualTo(AiModelCapabilitySchema.Video));
             Assert.That(reportedFailures, Has.Count.EqualTo(1));
         }
     }
@@ -516,7 +516,7 @@ public class AiModelCatalogTests
         await removal.WaitAsync(TimeSpan.FromSeconds(5));
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(schemas.GetSchema(operation),
+            Assert.That(schemas.GetSnapshot().GetSchema(operation),
                 Is.EqualTo(AiModelCapabilitySchema.Generic));
             Assert.That(extension.UnloadCount, Is.EqualTo(1));
         }
@@ -565,7 +565,7 @@ public class AiModelCatalogTests
             }.ToImmutableDictionary(),
         };
 
-        AiModelCatalog catalog = AiModelMapper.ToModel(response, schemas);
+        AiModelCatalog catalog = AiModelMapper.ToModel(response, schemas.GetSnapshot());
 
         using (Assert.EnterMultipleScope())
         {
@@ -618,7 +618,7 @@ public class AiModelCatalogTests
             }.ToImmutableDictionary(),
         };
 
-        AiModelCatalog catalog = AiModelMapper.ToModel(response, schemas);
+        AiModelCatalog catalog = AiModelMapper.ToModel(response, schemas.GetSnapshot());
 
         using (Assert.EnterMultipleScope())
         {
@@ -687,7 +687,7 @@ public class AiModelCatalogTests
         // options produces requests the server refuses after the usage is
         // reserved: MiniMax H3 renders only at 2K and takes nothing under five
         // seconds.
-        AiModelCatalog catalog = AiModelMapper.ToModel(VideoCapabilities(
+        AiModelCatalog catalog = ToModel(VideoCapabilities(
             resolutions: ["480p", "720p", "1080p", "2K"],
             aspectRatios: ["16:9", "9:16", "1:1"],
             minDurationSeconds: 1,
@@ -718,7 +718,7 @@ public class AiModelCatalogTests
     {
         // 4K is the model's; this client cannot ask the server for it, and a
         // resolution the server would refuse must never reach the dialog.
-        AiModelCatalog catalog = AiModelMapper.ToModel(VideoCapabilities(
+        AiModelCatalog catalog = ToModel(VideoCapabilities(
             resolutions: ["720p", "1080p"],
             aspectRatios: ["16:9"],
             minDurationSeconds: 4,
@@ -746,7 +746,7 @@ public class AiModelCatalogTests
     [Test]
     public void Catalog_LeavesAModelUnrestrictedWhenTheServerSaysNothing()
     {
-        AiModelCatalog catalog = AiModelMapper.ToModel(Capabilities(
+        AiModelCatalog catalog = ToModel(Capabilities(
             ("video.generate", [Model("a/model", null, "low", isDefault: true)])));
 
         // A server that publishes no shapes is one this client asked before they
@@ -805,7 +805,7 @@ public class AiModelCatalogTests
     [Test]
     public void Catalog_ReadsValidatedRequestLimitSnapshots()
     {
-        AiModelCatalog catalog = AiModelMapper.ToModel(new AiCapabilitiesResponse
+        AiModelCatalog catalog = ToModel(new AiCapabilitiesResponse
         {
             Operations = new Dictionary<string, AiOperationCapabilityResponse>
             {
@@ -848,7 +848,7 @@ public class AiModelCatalogTests
     [Test]
     public void Catalog_RulesOutAModelWithAnExplicitlyEmptyDurationList()
     {
-        AiModelCatalog catalog = AiModelMapper.ToModel(VideoCapabilities(
+        AiModelCatalog catalog = ToModel(VideoCapabilities(
             resolutions: ["720p"],
             aspectRatios: ["16:9"],
             minDurationSeconds: 4,
@@ -888,7 +888,7 @@ public class AiModelCatalogTests
         {
             DurationsSeconds = null,
         };
-        AiModelCatalog catalog = AiModelMapper.ToModel(Capabilities(
+        AiModelCatalog catalog = ToModel(Capabilities(
             ("video.generate",
             [
                 VideoModel(
@@ -938,7 +938,7 @@ public class AiModelCatalogTests
         {
             DurationsSeconds = null,
         };
-        AiModelCatalog catalog = AiModelMapper.ToModel(VideoCapabilities(
+        AiModelCatalog catalog = ToModel(VideoCapabilities(
             resolutions: ["720p"],
             aspectRatios: ["16:9"],
             minDurationSeconds: 4,
@@ -977,7 +977,7 @@ public class AiModelCatalogTests
             aspectRatios: [],
             audio: true,
             seed: true);
-        AiModelCatalog catalog = AiModelMapper.ToModel(VideoCapabilities(
+        AiModelCatalog catalog = ToModel(VideoCapabilities(
             resolutions: ["720p", "1080p"],
             aspectRatios: ["16:9", "9:16"],
             minDurationSeconds: 4,
@@ -1000,7 +1000,7 @@ public class AiModelCatalogTests
     [Test]
     public void Catalog_TreatsExplicitlyEmptyVideoOperationShapeAsUnsupported()
     {
-        AiModelCatalog catalog = AiModelMapper.ToModel(new AiCapabilitiesResponse
+        AiModelCatalog catalog = ToModel(new AiCapabilitiesResponse
         {
             Operations = new Dictionary<string, AiOperationCapabilityResponse>
             {
@@ -1033,7 +1033,7 @@ public class AiModelCatalogTests
     public void Catalog_AppliesVideoOperationDimensionsWhenModelFieldsAreAllNull()
     {
         AiModelDescriptionResponse model = Model("legacy/video", null, "low", true);
-        AiModelCatalog empty = AiModelMapper.ToModel(new AiCapabilitiesResponse
+        AiModelCatalog empty = ToModel(new AiCapabilitiesResponse
         {
             Operations = new Dictionary<string, AiOperationCapabilityResponse>
             {
@@ -1045,7 +1045,7 @@ public class AiModelCatalogTests
                 },
             }.ToImmutableDictionary(),
         });
-        AiModelCatalog offered = AiModelMapper.ToModel(new AiCapabilitiesResponse
+        AiModelCatalog offered = ToModel(new AiCapabilitiesResponse
         {
             Operations = new Dictionary<string, AiOperationCapabilityResponse>
             {
@@ -1057,7 +1057,7 @@ public class AiModelCatalogTests
                 },
             }.ToImmutableDictionary(),
         });
-        AiModelCatalog omitted = AiModelMapper.ToModel(Capabilities(
+        AiModelCatalog omitted = ToModel(Capabilities(
             (AiOperations.VideoGeneration.Value, [model])));
 
         using (Assert.EnterMultipleScope())
@@ -1080,7 +1080,7 @@ public class AiModelCatalogTests
         // GPT Image-1 renders 1:1, 3:2 and 2:3 and refuses everything else, so
         // a fixed set of shapes produces requests it rejects after the usage is
         // reserved. 21:9 is the model's; the operation does not offer it.
-        AiModelCatalog catalog = AiModelMapper.ToModel(ImageCapabilities(
+        AiModelCatalog catalog = ToModel(ImageCapabilities(
             aspectRatios: ["1:1", "16:9", "3:2", "2:3"],
             models: [
                 ImageModel(
@@ -1122,7 +1122,7 @@ public class AiModelCatalogTests
             AspectRatios = [],
             Backgrounds = [],
         };
-        AiModelCatalog catalog = AiModelMapper.ToModel(new AiCapabilitiesResponse
+        AiModelCatalog catalog = ToModel(new AiCapabilitiesResponse
         {
             Operations = new Dictionary<string, AiOperationCapabilityResponse>
             {
@@ -1157,7 +1157,7 @@ public class AiModelCatalogTests
     public void Catalog_AppliesImageOperationDimensionsWhenModelFieldsAreAllNull()
     {
         AiModelDescriptionResponse model = Model("legacy/image", null, "low", true);
-        AiModelCatalog empty = AiModelMapper.ToModel(new AiCapabilitiesResponse
+        AiModelCatalog empty = ToModel(new AiCapabilitiesResponse
         {
             Operations = new Dictionary<string, AiOperationCapabilityResponse>
             {
@@ -1169,7 +1169,7 @@ public class AiModelCatalogTests
                 },
             }.ToImmutableDictionary(),
         });
-        AiModelCatalog offered = AiModelMapper.ToModel(new AiCapabilitiesResponse
+        AiModelCatalog offered = ToModel(new AiCapabilitiesResponse
         {
             Operations = new Dictionary<string, AiOperationCapabilityResponse>
             {
@@ -1181,7 +1181,7 @@ public class AiModelCatalogTests
                 },
             }.ToImmutableDictionary(),
         });
-        AiModelCatalog omitted = AiModelMapper.ToModel(Capabilities(
+        AiModelCatalog omitted = ToModel(Capabilities(
             (AiOperations.ImageGeneration.Value, [model])));
 
         using (Assert.EnterMultipleScope())
@@ -1201,7 +1201,7 @@ public class AiModelCatalogTests
     [Test]
     public void Catalog_AppliesVideoOperationDurationBoundsWhenModelDurationsAreUnspecified()
     {
-        AiModelCatalog catalog = AiModelMapper.ToModel(new AiCapabilitiesResponse
+        AiModelCatalog catalog = ToModel(new AiCapabilitiesResponse
         {
             Operations = new Dictionary<string, AiOperationCapabilityResponse>
             {
@@ -1224,7 +1224,7 @@ public class AiModelCatalogTests
     [Test]
     public void Catalog_LeavesImageDimensionUnspecifiedWhenOperationIsOmitted()
     {
-        AiModelCatalog catalog = AiModelMapper.ToModel(new AiCapabilitiesResponse
+        AiModelCatalog catalog = ToModel(new AiCapabilitiesResponse
         {
             Operations = new Dictionary<string, AiOperationCapabilityResponse>
             {
@@ -1252,7 +1252,7 @@ public class AiModelCatalogTests
     [Test]
     public void Catalog_TreatsExplicitlyEmptyImageOperationDimensionsAsUnsupported()
     {
-        AiModelCatalog catalog = AiModelMapper.ToModel(new AiCapabilitiesResponse
+        AiModelCatalog catalog = ToModel(new AiCapabilitiesResponse
         {
             Operations = new Dictionary<string, AiOperationCapabilityResponse>
             {
@@ -1283,7 +1283,7 @@ public class AiModelCatalogTests
     [Test]
     public void Catalog_HidesImageModelWhenDimensionsDoNotOverlap()
     {
-        AiModelCatalog catalog = AiModelMapper.ToModel(new AiCapabilitiesResponse
+        AiModelCatalog catalog = ToModel(new AiCapabilitiesResponse
         {
             Operations = new Dictionary<string, AiOperationCapabilityResponse>
             {
@@ -1326,7 +1326,7 @@ public class AiModelCatalogTests
             IsDefault = false,
             Resolution = false,
         };
-        AiModelCatalog catalog = AiModelMapper.ToModel(new AiCapabilitiesResponse
+        AiModelCatalog catalog = ToModel(new AiCapabilitiesResponse
         {
             Operations = new Dictionary<string, AiOperationCapabilityResponse>
             {
@@ -1395,7 +1395,7 @@ public class AiModelCatalogTests
             .Callback<AiImageGenerationRequest, CancellationToken>((request, _) => sent = request)
             .ReturnsAsync(() => null!);
 
-        AiModelCatalog catalog = AiModelMapper.ToModel(Capabilities(
+        AiModelCatalog catalog = ToModel(Capabilities(
             ("image.generate", [
                 Model("cheap/model", null, "low", isDefault: true),
                 Model("dear/model", null, "high", isDefault: false),
@@ -1416,7 +1416,7 @@ public class AiModelCatalogTests
     public async Task Retry_RefusesAModelTheServerNoLongerOffers()
     {
         var images = new Mock<IAiImageGenerationService>();
-        AiModelCatalog catalog = AiModelMapper.ToModel(Capabilities(
+        AiModelCatalog catalog = ToModel(Capabilities(
             ("image.generate", [Model("cheap/model", null, "low", isDefault: true)])));
         var handler = new AiImageJobRetryHandler(
             images.Object,
@@ -1648,6 +1648,9 @@ public class AiModelCatalogTests
                 },
             }.ToImmutableDictionary(),
         };
+
+    private static AiModelCatalog ToModel(AiCapabilitiesResponse response)
+        => AiModelMapper.ToModel(response, AiOperationCapabilitySchemaSnapshot.Empty);
 
     private static AiCapabilitiesResponse Capabilities(
         params (string Operation, ImmutableArray<AiModelDescriptionResponse> Models)[] operations)

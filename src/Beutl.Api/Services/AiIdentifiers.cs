@@ -1,6 +1,6 @@
 ﻿namespace Beutl.Api.Services;
 
-public readonly struct AiOperationId : IEquatable<AiOperationId>
+public readonly record struct AiOperationId
 {
     private readonly string? _value;
 
@@ -8,24 +8,14 @@ public readonly struct AiOperationId : IEquatable<AiOperationId>
 
     public string Value => _value ?? string.Empty;
 
-    public bool Equals(AiOperationId other) => StringComparer.Ordinal.Equals(Value, other.Value);
-
-    public override bool Equals(object? obj) => obj is AiOperationId other && Equals(other);
-
-    public override int GetHashCode() => StringComparer.Ordinal.GetHashCode(Value);
-
     public override string ToString() => Value;
-
-    public static bool operator ==(AiOperationId left, AiOperationId right) => left.Equals(right);
-
-    public static bool operator !=(AiOperationId left, AiOperationId right) => !left.Equals(right);
 }
 
 /// <summary>
 /// One of the models an operation may run on, as registered on the server. The
 /// list is not known at build time, so it is never a fixed set here.
 /// </summary>
-public readonly struct AiModelId : IEquatable<AiModelId>
+public readonly record struct AiModelId
 {
     private readonly string? _value;
 
@@ -33,17 +23,7 @@ public readonly struct AiModelId : IEquatable<AiModelId>
 
     public string Value => _value ?? string.Empty;
 
-    public bool Equals(AiModelId other) => StringComparer.Ordinal.Equals(Value, other.Value);
-
-    public override bool Equals(object? obj) => obj is AiModelId other && Equals(other);
-
-    public override int GetHashCode() => StringComparer.Ordinal.GetHashCode(Value);
-
     public override string ToString() => Value;
-
-    public static bool operator ==(AiModelId left, AiModelId right) => left.Equals(right);
-
-    public static bool operator !=(AiModelId left, AiModelId right) => !left.Equals(right);
 }
 
 public static class AiOperations
@@ -65,7 +45,7 @@ public static class AiOperations
 
 // The server is asked for a shape, not a pixel count: "16:9" and "9:16" are the
 // ones a video editor needs and no fixed size could express them.
-public readonly struct AiImageAspectRatioId : IEquatable<AiImageAspectRatioId>
+public readonly record struct AiImageAspectRatioId
 {
     private readonly string? _value;
 
@@ -73,23 +53,13 @@ public readonly struct AiImageAspectRatioId : IEquatable<AiImageAspectRatioId>
 
     public string Value => _value ?? string.Empty;
 
-    public bool Equals(AiImageAspectRatioId other) => StringComparer.Ordinal.Equals(Value, other.Value);
-
-    public override bool Equals(object? obj) => obj is AiImageAspectRatioId other && Equals(other);
-
-    public override int GetHashCode() => StringComparer.Ordinal.GetHashCode(Value);
-
     public override string ToString() => Value;
-
-    public static bool operator ==(AiImageAspectRatioId left, AiImageAspectRatioId right) => left.Equals(right);
-
-    public static bool operator !=(AiImageAspectRatioId left, AiImageAspectRatioId right) => !left.Equals(right);
 }
 
 // Named rather than a flag: the server publishes which backgrounds each model
 // takes, and a model that fills a background in is not the same as one that
 // cuts it out.
-public readonly struct AiImageBackgroundId : IEquatable<AiImageBackgroundId>
+public readonly record struct AiImageBackgroundId
 {
     private readonly string? _value;
 
@@ -97,20 +67,10 @@ public readonly struct AiImageBackgroundId : IEquatable<AiImageBackgroundId>
 
     public string Value => _value ?? string.Empty;
 
-    public bool Equals(AiImageBackgroundId other) => StringComparer.Ordinal.Equals(Value, other.Value);
-
-    public override bool Equals(object? obj) => obj is AiImageBackgroundId other && Equals(other);
-
-    public override int GetHashCode() => StringComparer.Ordinal.GetHashCode(Value);
-
     public override string ToString() => Value;
-
-    public static bool operator ==(AiImageBackgroundId left, AiImageBackgroundId right) => left.Equals(right);
-
-    public static bool operator !=(AiImageBackgroundId left, AiImageBackgroundId right) => !left.Equals(right);
 }
 
-public readonly struct AiVideoAspectRatioId : IEquatable<AiVideoAspectRatioId>
+public readonly record struct AiVideoAspectRatioId
 {
     private readonly string? _value;
 
@@ -118,20 +78,10 @@ public readonly struct AiVideoAspectRatioId : IEquatable<AiVideoAspectRatioId>
 
     public string Value => _value ?? string.Empty;
 
-    public bool Equals(AiVideoAspectRatioId other) => StringComparer.Ordinal.Equals(Value, other.Value);
-
-    public override bool Equals(object? obj) => obj is AiVideoAspectRatioId other && Equals(other);
-
-    public override int GetHashCode() => StringComparer.Ordinal.GetHashCode(Value);
-
     public override string ToString() => Value;
-
-    public static bool operator ==(AiVideoAspectRatioId left, AiVideoAspectRatioId right) => left.Equals(right);
-
-    public static bool operator !=(AiVideoAspectRatioId left, AiVideoAspectRatioId right) => !left.Equals(right);
 }
 
-public readonly struct AiImageEditTaskId : IEquatable<AiImageEditTaskId>
+public readonly record struct AiImageEditTaskId
 {
     private readonly string? _value;
 
@@ -139,20 +89,10 @@ public readonly struct AiImageEditTaskId : IEquatable<AiImageEditTaskId>
 
     public string Value => _value ?? string.Empty;
 
-    public bool Equals(AiImageEditTaskId other) => StringComparer.Ordinal.Equals(Value, other.Value);
-
-    public override bool Equals(object? obj) => obj is AiImageEditTaskId other && Equals(other);
-
-    public override int GetHashCode() => StringComparer.Ordinal.GetHashCode(Value);
-
     public override string ToString() => Value;
-
-    public static bool operator ==(AiImageEditTaskId left, AiImageEditTaskId right) => left.Equals(right);
-
-    public static bool operator !=(AiImageEditTaskId left, AiImageEditTaskId right) => !left.Equals(right);
 }
 
-public readonly struct AiVideoResolutionId : IEquatable<AiVideoResolutionId>
+public readonly record struct AiVideoResolutionId
 {
     private readonly string? _value;
 
@@ -160,15 +100,5 @@ public readonly struct AiVideoResolutionId : IEquatable<AiVideoResolutionId>
 
     public string Value => _value ?? string.Empty;
 
-    public bool Equals(AiVideoResolutionId other) => StringComparer.Ordinal.Equals(Value, other.Value);
-
-    public override bool Equals(object? obj) => obj is AiVideoResolutionId other && Equals(other);
-
-    public override int GetHashCode() => StringComparer.Ordinal.GetHashCode(Value);
-
     public override string ToString() => Value;
-
-    public static bool operator ==(AiVideoResolutionId left, AiVideoResolutionId right) => left.Equals(right);
-
-    public static bool operator !=(AiVideoResolutionId left, AiVideoResolutionId right) => !left.Equals(right);
 }

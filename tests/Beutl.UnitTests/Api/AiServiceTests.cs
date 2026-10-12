@@ -1444,7 +1444,7 @@ public sealed partial class AiCapabilityServiceTests
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         SetAuthenticatedUser(app);
         var clock = new StepTimeProvider();
-        using var catalog = new AiModelCatalogService(app, clock);
+        using var catalog = CatalogService(app, clock);
 
         await catalog.GetAsync(CancellationToken.None);
         await catalog.GetAsync(CancellationToken.None);
@@ -1639,7 +1639,7 @@ public sealed partial class AiCapabilityServiceTests
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         SetAuthenticatedUser(app);
-        var catalog = new AiModelCatalogService(app, new StepTimeProvider());
+        var catalog = CatalogService(app, new StepTimeProvider());
 
         Task<AiModelCatalog> request = catalog.GetAsync(CancellationToken.None);
         await handler.RequestStarted.WaitAsync(TimeSpan.FromSeconds(5));
@@ -1664,7 +1664,7 @@ public sealed partial class AiCapabilityServiceTests
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         SetAuthenticatedUser(app);
-        using var catalog = new AiModelCatalogService(app, new StepTimeProvider());
+        using var catalog = CatalogService(app, new StepTimeProvider());
 
         await catalog.GetAsync(CancellationToken.None);
         // What one account may pay for is not what the next one may.
@@ -1686,7 +1686,7 @@ public sealed partial class AiCapabilityServiceTests
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         SetAuthenticatedUser(app);
-        using var catalog = new AiModelCatalogService(app, new StepTimeProvider());
+        using var catalog = CatalogService(app, new StepTimeProvider());
         catalog.BeforeCachePublication = () =>
         {
             catalog.BeforeCachePublication = null;
@@ -1745,7 +1745,7 @@ public sealed partial class AiCapabilityServiceTests
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         SetAuthenticatedUser(app);
-        using var service = new AiModelCatalogService(app, new StepTimeProvider());
+        using var service = CatalogService(app, new StepTimeProvider());
 
         AiModelCatalog catalog = await service.GetAsync(CancellationToken.None);
         AiVideoModelCapabilities video = catalog
@@ -2131,6 +2131,9 @@ public sealed partial class AiCapabilityServiceTests
         }
         """;
 
+    private static AiModelCatalogService CatalogService(BeutlApiApplication app, TimeProvider timeProvider)
+        => new(app, EmptyCapabilitySchemas.Instance, timeProvider);
+
     private static void SetAuthenticatedUser(BeutlApiApplication app)
     {
         AuthenticatedUser user = CreateAuthenticatedUser(app);
@@ -2292,6 +2295,19 @@ public sealed partial class AiCapabilityServiceTests
             lock (_reports)
                 _reports.Add(value);
         }
+    }
+
+    private sealed class EmptyCapabilitySchemas : IAiOperationCapabilitySchemaProvider
+    {
+        public static EmptyCapabilitySchemas Instance { get; } = new();
+
+        public event EventHandler? Changed
+        {
+            add { }
+            remove { }
+        }
+
+        public AiOperationCapabilitySchemaSnapshot GetSnapshot() => AiOperationCapabilitySchemaSnapshot.Empty;
     }
 
     // Freshness is measured, not waited for.

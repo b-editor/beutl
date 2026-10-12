@@ -301,7 +301,6 @@ internal sealed partial class FileAiRetryKeyStore
                 _path,
                 overwrite: true,
                 failureMessage: "Atomic retry-store replacement failed.");
-            PrivateDurableFile.RestrictFile(_path);
             PrivateDurableFile.EnsureDirectorySynced(_directory);
         }
         finally

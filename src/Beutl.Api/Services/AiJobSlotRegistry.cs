@@ -76,10 +76,8 @@ internal sealed class AiJobSlotRegistry<TCapability, TRegistration, TExtension>
     {
         ArgumentNullException.ThrowIfNull(registration);
         AiJobKindId kind = _getKind(registration);
-        TCapability capability = _getCapability(registration)
-            ?? throw new ArgumentException("A capability registration requires a capability.", nameof(registration));
+        TCapability capability = _getCapability(registration);
         AiJobSlotRegistrationMode mode = _getMode(registration);
-        Validate(kind, mode);
 
         lock (_gate)
         {
@@ -540,14 +538,6 @@ internal sealed class AiJobSlotRegistry<TCapability, TRegistration, TExtension>
 
     private static AiJobKindId Normalize(AiJobKindId kind)
         => new(kind.Value.ToLowerInvariant());
-
-    private static void Validate(AiJobKindId kind, AiJobSlotRegistrationMode mode)
-    {
-        if (string.IsNullOrWhiteSpace(kind.Value))
-            throw new ArgumentException("An AI job kind identifier is required.", nameof(kind));
-        if (!Enum.IsDefined(mode))
-            throw new ArgumentOutOfRangeException(nameof(mode));
-    }
 
     private sealed class RegistrationState(AiJobKindId kind, TCapability capability)
     {

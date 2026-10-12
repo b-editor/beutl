@@ -53,72 +53,11 @@ public partial class PackageInstaller
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var failedPackages = new List<string>();
-            long totalSize = 0;
-            foreach (PackageIdentity package in context.UnnecessaryPackages)
-            {
-                // A data package's payload lives outside the install directory, and it has to
-                // go even when the extracted package itself is already missing.
-                bool dataRemoved = TryRemovePackagePayload(context.UnnecessaryPackages, package);
-
-                string directory = Helper.ResolveInstalledDirectory(package);
-                if (!dataRemoved)
-                {
-                    failedPackages.Add(directory);
-                    continue;
-                }
-                if (!Directory.Exists(directory))
-                {
-                    // The files are already gone, so the repository entry would outlive them.
-                    _logger.LogWarning("Installed directory not found for package: {PackageId}", package.Id);
-                    _installedPackageRepository.RemovePackage(package);
-                    continue;
-                }
-
-                bool hasAnyFailures = false;
-                foreach (string file in Directory.GetFiles(directory, "*.*", SearchOption.AllDirectories))
-                {
-                    try
-                    {
-                        var fi = new FileInfo(file);
-                        totalSize += fi.Length;
-                        fi.Delete();
-                        _logger.LogInformation("Deleted file: {FileName}", file);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Failed to delete file: {FileName}", file);
-                        hasAnyFailures = true;
-                    }
-
-                    progress.Report(totalSize / (double)context.SizeToBeReleased);
-                }
-
-                try
-                {
-                    Directory.Delete(directory, true);
-                    _logger.LogInformation("Deleted directory: {Directory}", directory);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Failed to delete directory: {Directory}", directory);
-                    hasAnyFailures = true;
-                }
-
-                if (hasAnyFailures)
-                {
-                    failedPackages.Add(directory);
-                    _logger.LogWarning("Package uninstallation had failures: {PackageId}", package.Id);
-                }
-                else
-                {
-                    _logger.LogInformation("Successfully uninstalled package: {PackageId}", package.Id);
-                }
-
-                _installedPackageRepository.RemovePackage(package);
-            }
-
-            context.FailedPackages = failedPackages;
+            context.FailedPackages = RemovePackageDirectories(
+                context.UnnecessaryPackages,
+                context.SizeToBeReleased,
+                progress,
+                out _);
         });
     }
 }

@@ -2,7 +2,7 @@
 
 namespace Beutl.Api.Services;
 
-public readonly struct AiJobId : IEquatable<AiJobId>
+public readonly record struct AiJobId
 {
     private readonly string? _value;
 
@@ -10,20 +10,10 @@ public readonly struct AiJobId : IEquatable<AiJobId>
 
     public string Value => _value ?? string.Empty;
 
-    public bool Equals(AiJobId other) => StringComparer.Ordinal.Equals(Value, other.Value);
-
-    public override bool Equals(object? obj) => obj is AiJobId other && Equals(other);
-
-    public override int GetHashCode() => StringComparer.Ordinal.GetHashCode(Value);
-
     public override string ToString() => Value;
-
-    public static bool operator ==(AiJobId left, AiJobId right) => left.Equals(right);
-
-    public static bool operator !=(AiJobId left, AiJobId right) => !left.Equals(right);
 }
 
-public readonly struct AiContentId : IEquatable<AiContentId>
+public readonly record struct AiContentId
 {
     private readonly string? _value;
 
@@ -31,20 +21,10 @@ public readonly struct AiContentId : IEquatable<AiContentId>
 
     public string Value => _value ?? string.Empty;
 
-    public bool Equals(AiContentId other) => StringComparer.Ordinal.Equals(Value, other.Value);
-
-    public override bool Equals(object? obj) => obj is AiContentId other && Equals(other);
-
-    public override int GetHashCode() => StringComparer.Ordinal.GetHashCode(Value);
-
     public override string ToString() => Value;
-
-    public static bool operator ==(AiContentId left, AiContentId right) => left.Equals(right);
-
-    public static bool operator !=(AiContentId left, AiContentId right) => !left.Equals(right);
 }
 
-public readonly struct AiJobKindId : IEquatable<AiJobKindId>
+public readonly record struct AiJobKindId
 {
     private readonly string? _value;
 
@@ -52,17 +32,7 @@ public readonly struct AiJobKindId : IEquatable<AiJobKindId>
 
     public string Value => _value ?? string.Empty;
 
-    public bool Equals(AiJobKindId other) => StringComparer.Ordinal.Equals(Value, other.Value);
-
-    public override bool Equals(object? obj) => obj is AiJobKindId other && Equals(other);
-
-    public override int GetHashCode() => StringComparer.Ordinal.GetHashCode(Value);
-
     public override string ToString() => Value;
-
-    public static bool operator ==(AiJobKindId left, AiJobKindId right) => left.Equals(right);
-
-    public static bool operator !=(AiJobKindId left, AiJobKindId right) => !left.Equals(right);
 }
 
 public static class AiJobKinds
@@ -78,7 +48,7 @@ public static class AiJobKinds
     public static AiJobKindId Video { get; } = new("video");
 }
 
-public readonly struct AiJobStatusId : IEquatable<AiJobStatusId>
+public readonly record struct AiJobStatusId
 {
     private readonly string? _value;
 
@@ -86,17 +56,7 @@ public readonly struct AiJobStatusId : IEquatable<AiJobStatusId>
 
     public string Value => _value ?? string.Empty;
 
-    public bool Equals(AiJobStatusId other) => StringComparer.Ordinal.Equals(Value, other.Value);
-
-    public override bool Equals(object? obj) => obj is AiJobStatusId other && Equals(other);
-
-    public override int GetHashCode() => StringComparer.Ordinal.GetHashCode(Value);
-
     public override string ToString() => Value;
-
-    public static bool operator ==(AiJobStatusId left, AiJobStatusId right) => left.Equals(right);
-
-    public static bool operator !=(AiJobStatusId left, AiJobStatusId right) => !left.Equals(right);
 }
 
 public static class AiJobStatuses

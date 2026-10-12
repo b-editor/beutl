@@ -27,13 +27,12 @@ internal sealed class AiModelCatalogService : IAiModelCatalogService, IDisposabl
 
     public AiModelCatalogService(
         BeutlApiApplication application,
-        TimeProvider? timeProvider = null,
-        IAiOperationCapabilitySchemaProvider? capabilitySchemas = null)
+        IAiOperationCapabilitySchemaProvider capabilitySchemas,
+        TimeProvider? timeProvider = null)
     {
         _application = application;
         _timeProvider = timeProvider ?? TimeProvider.System;
-        _capabilitySchemas = capabilitySchemas
-            ?? BuiltInAiOperationCapabilitySchemaProvider.Instance;
+        _capabilitySchemas = capabilitySchemas;
         // The catalog is the list one account may pay for. Another account's is
         // a different list, so signing in as someone else drops it rather than
         // offering them models that were never theirs.
@@ -81,8 +80,7 @@ internal sealed class AiModelCatalogService : IAiModelCatalogService, IDisposabl
             catch (ApiException ex)
             {
                 // A dialog that cannot list the models still has to open. It
-                // then offers no choice and the server uses its default, which
-                // is exactly what this client did before it could choose.
+                // then offers no choice and the server uses its default.
                 activity?.SetStatus(ActivityStatusCode.Error);
                 activity?.SetTag("statusCode", (int)ex.StatusCode);
                 return AiModelCatalog.Empty;

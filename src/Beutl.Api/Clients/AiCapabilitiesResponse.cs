@@ -3,11 +3,8 @@ using System.Text.Json.Serialization;
 
 namespace Beutl.Api.Clients;
 
-// What each model offers, which this client cannot know without asking: an
-// administrator registers the models at runtime, and what a video request may
-// carry differs per model — one renders only at 2K, another takes any whole
-// second from 4 to 30. The operation-level shapes and limits published beside
-// them are the outer bounds, and this client keeps its own copies of those.
+// Per-model capabilities are registered on the server at runtime, so they are asked for. The operation-level
+// values published beside them are the outer bounds.
 internal sealed record AiModelDescriptionResponse
 {
     [JsonPropertyName("id")]
@@ -64,9 +61,7 @@ internal sealed record AiModelDescriptionResponse
     [JsonPropertyName("aspectRatios")]
     public ImmutableArray<string>? AspectRatios { get; init; }
 
-    // The backgrounds the model publishes rather than a single "can it cut one
-    // out": GPT Image-1 offers auto, opaque and transparent while GPT Image-2
-    // offers auto and opaque, and a boolean could not tell the two apart.
+    // A list rather than a flag, since a boolean could not tell apart the backgrounds models offer.
     [JsonPropertyName("backgrounds")]
     public ImmutableArray<string>? Backgrounds { get; init; }
 
@@ -106,24 +101,18 @@ internal sealed record AiOperationCapabilityResponse
     [JsonPropertyName("models")]
     public ImmutableArray<AiModelDescriptionResponse>? Models { get; init; }
 
-    // Video only, and the outer bounds rather than a menu: what the server will
-    // accept at all, whatever model a request names. A model's own list is
-    // narrowed to these, so a shape the server would refuse is never offered.
+    // Video only: the outer bounds for any model, to which a model's own list is narrowed.
     [JsonPropertyName("resolutions")]
     public ImmutableArray<string>? Resolutions { get; init; }
 
     [JsonPropertyName("aspectRatios")]
     public ImmutableArray<string>? AspectRatios { get; init; }
 
-    // Image only, and the outer bound in the same way: what the server takes at
-    // all, whatever model a request names.
+    // Image only, and the outer bound in the same way.
     [JsonPropertyName("backgrounds")]
     public ImmutableArray<string>? Backgrounds { get; init; }
 
-    // Image generation only. What all the reference pictures of one request may
-    // come to together, which is not the per-picture limit multiplied by the
-    // count: the server holds every picture raw, again as base64 and again
-    // through JSON. Absent from a server that publishes no figure of its own.
+    // Image generation only: the total for all reference pictures, not the per-picture limit times the count.
     [JsonPropertyName("maxReferenceImagesTotalBytes")]
     public long? MaxReferenceImagesTotalBytes { get; init; }
 

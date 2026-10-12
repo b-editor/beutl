@@ -166,9 +166,8 @@ public class SharedApiStateSubscriptionTests
         });
         var entitlement = new AiEntitlements("pro", "active", null, null, false, true,
             new AiBalance(new AiMonthlyUsage(0, 100, false), 1, false), new AiOperationAvailability([]));
-        long request = store.BeginSnapshotRequest();
         Task publication = Task.Factory.StartNew(
-            () => store.ApplyEntitlements(entitlement, owner, request),
+            () => store.ApplyEntitlements(entitlement, owner),
             CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
         Task signOut = Task.Factory.StartNew(() =>
         {
@@ -180,7 +179,7 @@ public class SharedApiStateSubscriptionTests
 
         await Task.WhenAll(publication, signOut).WaitAsync(timeout + timeout);
         // An old account's delayed response must not restore the cleared snapshot.
-        store.ApplyEntitlements(entitlement, owner, request);
+        store.ApplyEntitlements(entitlement, owner);
         Assert.Multiple(() =>
         {
             Assert.That(application.AuthenticatedUser.Value, Is.Null);

@@ -78,11 +78,7 @@ public enum ApiErrorCode
 
     AiRequestWasDeleted,
 
-    /// <summary>
-    /// The name this request was sent under belongs to a different request.
-    /// Not a malformed body: putting the request back as it was collects what
-    /// that name already paid for, and leaving it changed is a new request.
-    /// </summary>
+    /// <summary>The name this request was sent under belongs to a different request.</summary>
     AiRequestChanged,
 
     AiModelDoesNotSupportRequest,
