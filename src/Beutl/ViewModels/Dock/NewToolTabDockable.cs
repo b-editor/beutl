@@ -123,7 +123,7 @@ public sealed class NewToolTabDockable : Tool
                     extension.Header!,
                     GetIcon(extension),
                     extension.CanMultiple || !factory.IsToolTabOpen(extension),
-                    pins.Contains(GetPinKey(extension))))
+                    IndexOfPin(pins, extension) >= 0))
                 .ToArray();
         }
 
@@ -135,9 +135,11 @@ public sealed class NewToolTabDockable : Tool
     public void TogglePin(ToolTabExtension extension)
     {
         CoreList<string> pins = GlobalConfiguration.Instance.ViewConfig.PinnedToolTabs;
-        string key = GetPinKey(extension);
-        if (!pins.Remove(key))
-            pins.Add(key);
+        int index = IndexOfPin(pins, extension);
+        if (index >= 0)
+            pins.RemoveAt(index);
+        else
+            pins.Add(GetPinKey(extension));
 
         Refresh();
     }
@@ -147,6 +149,27 @@ public sealed class NewToolTabDockable : Tool
     internal static string GetPinKey(ToolTabExtension extension)
     {
         return TypeFormat.ToString(extension.GetType());
+    }
+
+    // Where extension is pinned, or -1. A pin is read like any other type name, so one saved under a former name
+    // of the type (FormerPersistedNameAttribute) still pins it; a new pin is saved under the current name.
+    internal static int IndexOfPin(IReadOnlyList<string> pins, ToolTabExtension extension)
+    {
+        string key = GetPinKey(extension);
+        for (int i = 0; i < pins.Count; i++)
+        {
+            if (pins[i] == key)
+                return i;
+        }
+
+        Type type = extension.GetType();
+        for (int i = 0; i < pins.Count; i++)
+        {
+            if (TypeFormat.ToType(pins[i]) == type)
+                return i;
+        }
+
+        return -1;
     }
 
     /// <summary>
@@ -202,7 +225,7 @@ public sealed class NewToolTabDockable : Tool
         CoreList<string> pins = GlobalConfiguration.Instance.ViewConfig.PinnedToolTabs;
         PinnedItems = matches
             .Where(item => item.IsEnabled && item.IsPinned)
-            .OrderBy(item => pins.IndexOf(GetPinKey(item.Extension)))
+            .OrderBy(item => IndexOfPin(pins, item.Extension))
             .ToArray();
         AvailableItems = matches.Where(item => item.IsEnabled && !item.IsPinned).ToArray();
         OpenItems = matches.Where(item => !item.IsEnabled).ToArray();

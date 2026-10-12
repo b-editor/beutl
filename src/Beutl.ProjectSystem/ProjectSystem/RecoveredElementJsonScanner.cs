@@ -15,9 +15,6 @@ internal static class RecoveredElementJsonScanner
     private static readonly Regex s_typePattern = new(
         "\"\\$type\"\\s*:\\s*(?<type>\"(?:\\\\.|[^\"\\\\])*\")",
         RegexOptions.CultureInvariant);
-    private static readonly Regex s_legacyTypePattern = new(
-        "\"@type\"\\s*:\\s*(?<type>\"(?:\\\\.|[^\"\\\\])*\")",
-        RegexOptions.CultureInvariant);
 
     public static bool TryGetSerializedId(JsonObject? json, out Guid id)
     {
@@ -93,13 +90,7 @@ internal static class RecoveredElementJsonScanner
             return scannedTypeName;
         }
 
-        if (TryGetTopLevelStringProperty(rawBytes, "@type", out string? scannedLegacyTypeName))
-        {
-            return scannedLegacyTypeName;
-        }
-
-        Match? match = FindTopLevelMatch(rawText, s_typePattern.Matches(rawText))
-                       ?? FindTopLevelMatch(rawText, s_legacyTypePattern.Matches(rawText));
+        Match? match = FindTopLevelMatch(rawText, s_typePattern.Matches(rawText));
         if (match is null)
         {
             return null;

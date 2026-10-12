@@ -17,6 +17,7 @@ using Beutl.Editor.Components.NodeGraphTab;
 using Beutl.Extensibility;
 using Beutl.Language;
 using Beutl.ProjectSystem;
+using Beutl.Serialization;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
@@ -891,6 +892,37 @@ public class DockTabAddButtonTests
         });
     }
 
+    // A pin is read like any other type name, so one saved before the tool's type was renamed or moved still pins
+    // it (FormerPersistedNameAttribute). Unpinning removes that pin, and pinning again saves the current name.
+    [AvaloniaTest]
+    public void A_pin_saved_under_a_former_name_pins_the_tool_until_it_is_unpinned()
+    {
+        CoreList<string> pins = GlobalConfiguration.Instance.ViewConfig.PinnedToolTabs;
+        string[] saved = [.. pins];
+        var extension = new RenamedToolTabExtension();
+        var newTab = new NewToolTabDockable();
+        try
+        {
+            pins.Replace([RenamedToolTabExtension.FormerName]);
+            int pinnedAt = NewToolTabDockable.IndexOfPin(pins, extension);
+
+            newTab.TogglePin(extension);
+            string[] afterUnpin = [.. pins];
+            newTab.TogglePin(extension);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(pinnedAt, Is.EqualTo(0));
+                Assert.That(afterUnpin, Is.Empty);
+                Assert.That(pins, Is.EqualTo(new[] { NewToolTabDockable.GetPinKey(extension) }));
+            });
+        }
+        finally
+        {
+            pins.Replace(saved);
+        }
+    }
+
     [AvaloniaTest]
     public async Task Extension_returning_success_with_a_null_context_is_rejected()
     {
@@ -995,6 +1027,30 @@ public class DockTabAddButtonTests
         {
             context = null!;
             return true;
+        }
+    }
+
+    [FormerPersistedName(FormerName)]
+    private sealed class RenamedToolTabExtension : ToolTabExtension
+    {
+        public const string FormerName = "[Beutl.HeadlessUITests]Former.Namespace:FormerToolTabExtension";
+
+        public override bool CanMultiple => false;
+
+        public override bool TryCreateContent(
+            IEditorContext editorContext,
+            [NotNullWhen(true)] out Control? control)
+        {
+            control = null;
+            return false;
+        }
+
+        public override bool TryCreateContext(
+            IEditorContext editorContext,
+            [NotNullWhen(true)] out IToolContext? context)
+        {
+            context = null;
+            return false;
         }
     }
 }

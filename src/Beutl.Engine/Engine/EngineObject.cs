@@ -166,13 +166,17 @@ public class EngineObject : Hierarchical, INotifyEdited
             if (!IsAutoSerialized(property))
                 continue;
 
+            // A property renamed with a FormerPersistedNameAttribute reads its value, animation and expression
+            // under the former name when the current one is not there.
             property.DeserializeValue(context);
-            if (property.IsAnimatable && animations?.TryGetValue(property.Name, out IAnimation? animation) == true)
+            Attribute[]? attributes = property.GetAttributes();
+            if (property.IsAnimatable
+                && FormerPersistedNames.TryGetMember(animations, property.Name, attributes, out IAnimation? animation))
             {
                 property.Animation = animation;
             }
 
-            if (expressions?.TryGetValue(property.Name, out JsonNode? expressionNode) == true)
+            if (FormerPersistedNames.TryGetMember(expressions, property.Name, attributes, out JsonNode? expressionNode))
             {
                 property.DeserializeExpression(expressionNode);
             }

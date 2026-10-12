@@ -115,7 +115,6 @@ public class EasingSerializationTests
     }
 
     [TestCase("$type")]
-    [TestCase("@type")]
     public void JsonSerializationContext_TypedEasingObject_RestoresConcreteType(string discriminatorKey)
     {
         var json = new JsonObject
@@ -206,7 +205,6 @@ public class EasingSerializationTests
     [TestCase("{\"$type\":\"[Beutl.ProjectSystem]Beutl.ProjectSystem:Element\"}")]
     [TestCase("{\"$type\":42}")]
     [TestCase("{\"$type\":null}")]
-    [TestCase("{\"$type\":42,\"@type\":\"[Beutl.Engine]Beutl.Animation.Easings:HoldEasing\"}")]
     [TestCase("{\"X1\":\"invalid\"}")]
     [TestCase("{\"X1\":-0.1}")]
     [TestCase("{\"X2\":1.1}")]

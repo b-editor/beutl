@@ -164,7 +164,7 @@ public static partial class CoreSerializer
         // while its declared type was sealed. Reading it as that type lets a type be unsealed without breaking
         // the files that hold it. A node that has a discriminator, even one that cannot be resolved, is not
         // read this way.
-        if (!json.ContainsKey("$type") && !json.ContainsKey("@type") && CanReadAsDeclaredType(baseType))
+        if (!json.ContainsKey("$type") && CanReadAsDeclaredType(baseType))
         {
             return baseType;
         }
@@ -320,7 +320,7 @@ public static partial class CoreSerializer
         // 期待される型に基づいてディスクリミネータを補完する。
         bool addedTypeDiscriminator = AddLegacyTypeDiscriminator(jsonObject, type);
 
-        bool hasDiscriminator = jsonObject.ContainsKey("$type") || jsonObject.ContainsKey("@type");
+        bool hasDiscriminator = jsonObject.ContainsKey("$type");
         Type? actualType = hasDiscriminator
             ? jsonObject.GetDiscriminator()
             : ResolveActualType(jsonObject, type);
@@ -430,7 +430,7 @@ public static partial class CoreSerializer
     private static bool AddLegacyTypeDiscriminator(JsonObject json, Type type)
     {
         // Preserve present but invalid discriminators for unknown-type recovery.
-        if (json.ContainsKey("$type") || json.ContainsKey("@type"))
+        if (json.ContainsKey("$type"))
         {
             return false;
         }

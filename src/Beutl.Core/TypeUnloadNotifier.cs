@@ -7,6 +7,9 @@ public static class TypeUnloadNotifier
     public static void NotifyUnloading(Type[] types)
     {
         ArgumentNullException.ThrowIfNull(types);
+        // Called directly rather than through the event, which TypeFormat would join only once first used: it
+        // reads former names from every loaded assembly when first asked, so it must hear of earlier unloads too.
+        TypeFormat.ForgetUnloadedTypes(types);
         TypesUnloading?.Invoke(types);
     }
 
