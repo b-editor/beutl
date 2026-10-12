@@ -334,7 +334,7 @@ public partial class PlayerViewPlaybackInputTests
 
     private static async Task<Scene3D> Add3DScene(EditViewModel editor)
     {
-        GpuTestGate.EnsureAvailable();
+        TestGpu.RequireAnyDevice();
         var scene = new Scene3D();
         scene.RenderWidth.CurrentValue = 640;
         scene.RenderHeight.CurrentValue = 480;

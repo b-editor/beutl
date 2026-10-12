@@ -377,6 +377,8 @@ jobs:
               --blame-hang --blame-hang-timeout 5m --blame-hang-dump-type mini \
               --blame-crash --blame-crash-dump-type mini || status=1
           done
+          # Counts the skips by reason. With the declaration below, a skip for want of a GPU fails the step.
+          python3 .github/scripts/ci_tests.py --check-results TestResults/linux-arm64 || status=1
           exit $status
         env:
           # Fail instead of skipping when the bundled ARM64 SwiftShader ICD does not load.

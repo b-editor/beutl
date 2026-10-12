@@ -26,7 +26,7 @@ public class PlaybackUIThreadTests
     [AvaloniaTest]
     public async Task Playback_NotifiesThePlayheadPreviewAndIsPlaying_OnTheUIThread()
     {
-        GpuTestGate.EnsureAvailable();
+        TestGpu.RequireAnyDevice();
         EditViewModel editor = await OpenEditor(TimeSpan.FromSeconds(0.5));
         IEditorClock clock = editor.GetRequiredService<IEditorClock>();
         var offThread = new ConcurrentQueue<string>();
@@ -70,7 +70,7 @@ public class PlaybackUIThreadTests
     [AvaloniaTest]
     public async Task LoopPlayback_RewindsToTheStart_AndKeepsPlaying()
     {
-        GpuTestGate.EnsureAvailable();
+        TestGpu.RequireAnyDevice();
         EditViewModel editor = await OpenEditor(TimeSpan.FromSeconds(0.3));
         IEditorClock clock = editor.GetRequiredService<IEditorClock>();
         var times = new ConcurrentQueue<TimeSpan>();
@@ -114,7 +114,7 @@ public class PlaybackUIThreadTests
     [AvaloniaTest]
     public async Task Pause_LeavesThePlayheadWhereItStopped()
     {
-        GpuTestGate.EnsureAvailable();
+        TestGpu.RequireAnyDevice();
         EditViewModel editor = await OpenEditor(TimeSpan.FromSeconds(30));
         IEditorClock clock = editor.GetRequiredService<IEditorClock>();
 
@@ -138,7 +138,7 @@ public class PlaybackUIThreadTests
     [AvaloniaTest]
     public async Task SubscriberThatThrows_StopsPlayback()
     {
-        GpuTestGate.EnsureAvailable();
+        TestGpu.RequireAnyDevice();
         EditViewModel editor = await OpenEditor(TimeSpan.FromSeconds(30));
         IEditorClock clock = editor.GetRequiredService<IEditorClock>();
         int thrown = 0;
@@ -159,7 +159,7 @@ public class PlaybackUIThreadTests
     [AvaloniaTest]
     public async Task LoopRestartWhoseSubscriberThrows_StopsPlayback_AndPlayStartsAgain()
     {
-        GpuTestGate.EnsureAvailable();
+        TestGpu.RequireAnyDevice();
         EditViewModel editor = await OpenEditor(TimeSpan.FromSeconds(0.3));
         int starts = 0;
         // The first start is Play() itself; the second is the restart at the end of the first pass.
@@ -191,7 +191,7 @@ public class PlaybackUIThreadTests
     [AvaloniaTest]
     public async Task LoopEndWhoseSubscriberThrows_StopsPlayback()
     {
-        GpuTestGate.EnsureAvailable();
+        TestGpu.RequireAnyDevice();
         EditViewModel editor = await OpenEditor(TimeSpan.FromSeconds(0.3));
         int starts = 0;
         int stops = 0;
@@ -228,7 +228,7 @@ public class PlaybackUIThreadTests
     [AvaloniaTest]
     public async Task EndWhoseSubscriberThrows_StillRestoresThePausedPreview()
     {
-        GpuTestGate.EnsureAvailable();
+        TestGpu.RequireAnyDevice();
         EditViewModel editor = await OpenEditor(TimeSpan.FromSeconds(0.3));
         IEditorClock clock = editor.GetRequiredService<IEditorClock>();
         int stops = 0;

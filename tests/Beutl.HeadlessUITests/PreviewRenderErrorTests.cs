@@ -83,7 +83,7 @@ public class PreviewRenderErrorTests
     [AvaloniaTest]
     public async Task QueuePreviewRender_WhenRenderingFails_ShowsPreviewErrorUntilRecoveryWithoutNotification()
     {
-        GpuTestGate.EnsureAvailable();
+        TestGpu.RequireAnyDevice();
         await ResetProjectAsync();
         EditViewModel editor = await OpenEditorForNewScene("preview-error");
         INotificationServiceHandler previousHandler = NotificationService.Handler;
@@ -130,7 +130,7 @@ public class PreviewRenderErrorTests
     [AvaloniaTest]
     public async Task BufferedPlayer_WhenRenderingFails_StoresFailureWithoutNotification()
     {
-        GpuTestGate.EnsureAvailable();
+        TestGpu.RequireAnyDevice();
         await ResetProjectAsync();
         EditViewModel editor = await OpenEditorForNewScene("buffered-preview-error");
         INotificationServiceHandler previousHandler = NotificationService.Handler;
@@ -162,7 +162,7 @@ public class PreviewRenderErrorTests
     [AvaloniaTest]
     public async Task BufferedPlayer_WhenDrawableThrowsObjectDisposed_StoresFailure()
     {
-        GpuTestGate.EnsureAvailable();
+        TestGpu.RequireAnyDevice();
         await ResetProjectAsync();
         EditViewModel editor = await OpenEditorForNewScene("buffered-object-disposed-error");
         var adder = (IElementAdder)editor.GetRequiredService<IElementAdder>();
@@ -212,7 +212,7 @@ public class PreviewRenderErrorTests
     [AvaloniaTest]
     public async Task BufferedPlayer_WhenPlaybackIsCanceledDuringRendering_DoesNotStoreFailure()
     {
-        GpuTestGate.EnsureAvailable();
+        TestGpu.RequireAnyDevice();
         await ResetProjectAsync();
         EditViewModel editor = await OpenEditorForNewScene("canceled-rendering-buffered-player");
         var drawable = new ArmablePreviewFaultDrawable();
@@ -256,7 +256,7 @@ public class PreviewRenderErrorTests
     [AvaloniaTest]
     public async Task BufferedPlayer_WhenDisposedDuringRendering_DoesNotStoreFailure()
     {
-        GpuTestGate.EnsureAvailable();
+        TestGpu.RequireAnyDevice();
         await ResetProjectAsync();
         EditViewModel editor = await OpenEditorForNewScene("disposed-rendering-buffered-player");
         var drawable = new ArmablePreviewFaultDrawable();
@@ -299,7 +299,7 @@ public class PreviewRenderErrorTests
     [AvaloniaTest]
     public async Task Play_WhenRenderingFails_ShowsPreviewErrorAndStopsWithoutRenderNotification()
     {
-        GpuTestGate.EnsureAvailable();
+        TestGpu.RequireAnyDevice();
         await ResetProjectAsync();
         EditViewModel editor = await OpenEditorForNewScene("playing-preview-error");
         INotificationServiceHandler previousHandler = NotificationService.Handler;
@@ -369,7 +369,7 @@ public class PreviewRenderErrorTests
     [AvaloniaTest]
     public async Task SupersededRenderFailure_DoesNotReplaceTheNewerSuccessfulPreview()
     {
-        GpuTestGate.EnsureAvailable();
+        TestGpu.RequireAnyDevice();
         await ResetProjectAsync();
         EditViewModel editor = await OpenEditorForNewScene("superseded-preview-error");
         var drawable = new SupersededPreviewFaultDrawable();

@@ -26,7 +26,7 @@ public class DrawableBrushThumbnailTests
     [AvaloniaTest]
     public async Task Update_publishes_initial_thumbnail_and_propagates_resource_changes()
     {
-        GpuTestGate.EnsureAvailable();
+        TestGpu.RequireAnyDevice();
         var drawableBrush = new DrawableBrush(CreateRectangle(40, 24, Colors.Red));
         drawableBrush.Stretch.CurrentValue = Stretch.Uniform;
         var resource = (DrawableBrush.Resource)drawableBrush.ToResource(new CompositionContext(TimeSpan.Zero));
@@ -108,7 +108,7 @@ public class DrawableBrushThumbnailTests
     [AvaloniaTest]
     public async Task Superseded_update_never_publishes_its_stale_thumbnail()
     {
-        GpuTestGate.EnsureAvailable();
+        TestGpu.RequireAnyDevice();
         var staleDrawable = new BlockingThumbnailDrawable(40, 24, Brushes.Resource.Red);
         var drawableBrush = new DrawableBrush(staleDrawable);
         var resource = (DrawableBrush.Resource)drawableBrush.ToResource(new CompositionContext(TimeSpan.Zero));
@@ -152,7 +152,7 @@ public class DrawableBrushThumbnailTests
     [AvaloniaTest]
     public async Task Superseded_queued_publication_is_discarded_before_ui_delivery()
     {
-        GpuTestGate.EnsureAvailable();
+        TestGpu.RequireAnyDevice();
         var drawableBrush = new DrawableBrush(CreateRectangle(40, 24, Colors.Red));
         var resource = (DrawableBrush.Resource)drawableBrush.ToResource(new CompositionContext(TimeSpan.Zero));
         var imageBrush = new AvaImageBrush();
@@ -199,7 +199,7 @@ public class DrawableBrushThumbnailTests
     [AvaloniaTest]
     public async Task Reentrant_source_callback_can_dispose_without_lock_inversion()
     {
-        GpuTestGate.EnsureAvailable();
+        TestGpu.RequireAnyDevice();
         var drawableBrush = new DrawableBrush(CreateRectangle(40, 24, Colors.Red));
         var resource = (DrawableBrush.Resource)drawableBrush.ToResource(new CompositionContext(TimeSpan.Zero));
         var imageBrush = new AvaImageBrush();
@@ -248,7 +248,7 @@ public class DrawableBrushThumbnailTests
     [AvaloniaTest]
     public async Task Superseding_update_during_stretch_notification_cancels_pending_source_publication()
     {
-        GpuTestGate.EnsureAvailable();
+        TestGpu.RequireAnyDevice();
         var drawableBrush = new DrawableBrush(CreateRectangle(40, 24, Colors.Red));
         drawableBrush.Stretch.CurrentValue = Stretch.Uniform;
         var resource = (DrawableBrush.Resource)drawableBrush.ToResource(new CompositionContext(TimeSpan.Zero));
@@ -328,7 +328,7 @@ public class DrawableBrushThumbnailTests
     [AvaloniaTest]
     public async Task Reentrant_source_callback_that_restores_previous_bitmap_prevents_commit()
     {
-        GpuTestGate.EnsureAvailable();
+        TestGpu.RequireAnyDevice();
         var drawableBrush = new DrawableBrush(CreateRectangle(40, 24, Colors.Red));
         drawableBrush.Stretch.CurrentValue = Stretch.Uniform;
         var resource = (DrawableBrush.Resource)drawableBrush.ToResource(new CompositionContext(TimeSpan.Zero));
@@ -394,7 +394,7 @@ public class DrawableBrushThumbnailTests
     [AvaloniaTest]
     public async Task Throwing_publication_callbacks_roll_back_bitmap_and_stretch_ownership()
     {
-        GpuTestGate.EnsureAvailable();
+        TestGpu.RequireAnyDevice();
         var drawableBrush = new DrawableBrush(CreateRectangle(40, 24, Colors.Red));
         drawableBrush.Stretch.CurrentValue = Stretch.Uniform;
         var resource = (DrawableBrush.Resource)drawableBrush.ToResource(new CompositionContext(TimeSpan.Zero));
@@ -748,7 +748,7 @@ public class DrawableBrushThumbnailTests
     [AvaloniaTest]
     public async Task Dispose_completes_its_cleanup_when_a_source_subscriber_throws()
     {
-        GpuTestGate.EnsureAvailable();
+        TestGpu.RequireAnyDevice();
         var drawableBrush = new DrawableBrush(CreateRectangle(40, 24, Colors.Red));
         drawableBrush.Stretch.CurrentValue = Stretch.Uniform;
         var resource = (DrawableBrush.Resource)drawableBrush.ToResource(new CompositionContext(TimeSpan.Zero));
@@ -838,7 +838,7 @@ public class DrawableBrushThumbnailTests
     [AvaloniaTest]
     public async Task Grouped_content_publishes_a_thumbnail()
     {
-        GpuTestGate.EnsureAvailable();
+        TestGpu.RequireAnyDevice();
         var group = new DrawableGroup();
         group.Children.Add(CreateRectangle(40, 24, Colors.Red));
         var drawableBrush = new DrawableBrush(group);
@@ -866,7 +866,7 @@ public class DrawableBrushThumbnailTests
     [AvaloniaTest]
     public async Task Disposal_during_stretch_notification_leaves_no_thumbnail_behind()
     {
-        GpuTestGate.EnsureAvailable();
+        TestGpu.RequireAnyDevice();
         var drawableBrush = new DrawableBrush(CreateRectangle(40, 24, Colors.Red));
         drawableBrush.Stretch.CurrentValue = Stretch.Uniform;
         var resource = (DrawableBrush.Resource)drawableBrush.ToResource(new CompositionContext(TimeSpan.Zero));

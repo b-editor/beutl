@@ -463,27 +463,18 @@ public class EffectScaleParityTests
     }
 
     /// <summary>
-    /// Skips a run-varying non-finite result as a software-Vulkan artifact, unless the job declared a real
-    /// GPU.
+    /// Skips a run-varying non-finite result as a software-Vulkan artifact, and fails it on a hardware GPU.
     /// </summary>
     /// <remarks>
     /// Non-finite pixels are exactly what the scratch-memory initialization in the Vulkan backend exists to
-    /// prevent, so on a job that set <c>BEUTL_REQUIRE_GPU</c> - where the SwiftShader explanation does not
-    /// apply - swallowing them would hide the regression this suite is here to catch.
+    /// prevent. Only a software device such as SwiftShader explains them away, so on a hardware GPU swallowing
+    /// them would hide the regression this suite is here to catch.
     /// </remarks>
     private static void InconclusiveOnSoftwareVulkan(string message)
     {
-        string? require = Environment.GetEnvironmentVariable("BEUTL_REQUIRE_GPU");
-        if (!string.IsNullOrEmpty(require)
-            && !string.Equals(require, "0", StringComparison.Ordinal)
-            && !string.Equals(require, "false", StringComparison.OrdinalIgnoreCase))
-        {
-            Assert.Fail(message
-                + " BEUTL_REQUIRE_GPU is set, so this is a hardware run: a non-finite pixel is a defect, not "
-                + "a software-Vulkan artifact.");
-        }
-
-        Assert.Ignore(message);
+        TestGpu.RequireHardwareGpu(message);
+        Assert.Fail(message
+            + " The device is a hardware GPU, so a non-finite pixel is a defect, not a software-Vulkan artifact.");
     }
 
     private static bool HasFiniteVisibleContent(Bitmap bitmap)

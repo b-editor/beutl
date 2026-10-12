@@ -58,7 +58,7 @@ public class SelectedDrawableRenderTests
     [AvaloniaTest]
     public async Task Shifted_selected_drawable_measure_matches_rasterization_and_caller_owns_result()
     {
-        GpuTestGate.EnsureAvailable();
+        TestGpu.RequireAnyDevice();
         await ResetProjectAsync();
         EditViewModel editor = await OpenEditor("selected-drawable-shifted");
         var drawable = new RectShape
@@ -131,7 +131,7 @@ public class SelectedDrawableRenderTests
     [AvaloniaTest]
     public async Task Selected_drawable_outside_the_frame_is_still_exported_whole()
     {
-        GpuTestGate.EnsureAvailable();
+        TestGpu.RequireAnyDevice();
         await ResetProjectAsync();
         EditViewModel editor = await OpenEditor("selected-drawable-off-frame");
         var drawable = new RectShape
@@ -166,7 +166,7 @@ public class SelectedDrawableRenderTests
     [AvaloniaTest]
     public async Task Selected_drawable_straddling_the_frame_edge_keeps_its_hidden_half()
     {
-        GpuTestGate.EnsureAvailable();
+        TestGpu.RequireAnyDevice();
         await ResetProjectAsync();
         EditViewModel editor = await OpenEditor("selected-drawable-straddling");
         var drawable = new RectShape
@@ -266,7 +266,7 @@ public class SelectedDrawableRenderTests
     [AvaloniaTest]
     public async Task Group_uses_its_content_extent_for_measurement_and_rasterization()
     {
-        GpuTestGate.EnsureAvailable();
+        TestGpu.RequireAnyDevice();
         await ResetProjectAsync();
         EditViewModel editor = await OpenEditor("selected-drawable-full-target-group");
         var group = new DrawableGroup();
@@ -301,7 +301,7 @@ public class SelectedDrawableRenderTests
     [AvaloniaTest]
     public async Task Full_target_only_drawable_renders_when_query_bounds_are_empty()
     {
-        GpuTestGate.EnsureAvailable();
+        TestGpu.RequireAnyDevice();
         await ResetProjectAsync();
         EditViewModel editor = await OpenEditor("selected-drawable-full-target-only");
         var drawable = new SelectedDrawableFullTargetDrawable();
@@ -327,7 +327,7 @@ public class SelectedDrawableRenderTests
     [AvaloniaTest]
     public async Task Full_target_drawable_grouped_with_off_frame_content_keeps_that_content()
     {
-        GpuTestGate.EnsureAvailable();
+        TestGpu.RequireAnyDevice();
         await ResetProjectAsync();
         EditViewModel editor = await OpenEditor("selected-drawable-full-target-off-frame");
         var group = new DrawableGroup();
@@ -356,7 +356,7 @@ public class SelectedDrawableRenderTests
     [AvaloniaTest]
     public async Task Nested_scene_selected_drawable_records_the_requested_output_scale()
     {
-        GpuTestGate.EnsureAvailable();
+        TestGpu.RequireAnyDevice();
         await ResetProjectAsync();
         EditViewModel editor = await OpenEditor("selected-drawable-nested-scale");
         string location = NewWorkspace("selected-drawable-nested-scale-source");
@@ -395,7 +395,7 @@ public class SelectedDrawableRenderTests
     [AvaloniaTest]
     public async Task Selected_drawable_records_the_sanitized_output_scale_for_an_invalid_request()
     {
-        GpuTestGate.EnsureAvailable();
+        TestGpu.RequireAnyDevice();
         await ResetProjectAsync();
         EditViewModel editor = await OpenEditor("selected-drawable-invalid-scale");
 

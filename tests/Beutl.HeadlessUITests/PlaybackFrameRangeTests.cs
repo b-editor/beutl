@@ -27,7 +27,7 @@ public class PlaybackFrameRangeTests
     [AvaloniaTest]
     public async Task Playback_RendersNoFrameBeforeThePlayhead()
     {
-        GpuTestGate.EnsureAvailable();
+        TestGpu.RequireAnyDevice();
         EditViewModel editor = await OpenEditor();
         IEditorClock clock = editor.GetRequiredService<IEditorClock>();
         // Where playback leaves the playhead at frame 10: 3,333,333 ticks, which truncates to frame 9.
@@ -59,7 +59,7 @@ public class PlaybackFrameRangeTests
     [AvaloniaTest]
     public async Task Producer_RendersEveryFrameOfTheRange_ToTheEndOfAMovedScene()
     {
-        GpuTestGate.EnsureAvailable();
+        TestGpu.RequireAnyDevice();
         EditViewModel editor = await OpenEditor();
         // As dragging the scene start leaves it: the start and the end snapped to frames 1 and 4. Truncating the
         // start and adding the length rounded up gave frames 0 to 3.

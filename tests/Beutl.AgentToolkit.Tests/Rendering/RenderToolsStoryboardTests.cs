@@ -677,7 +677,7 @@ public sealed class RenderToolsStoryboardTests
     [Test]
     public async Task Render_storyboard_background_returns_running_job_then_completes()
     {
-        AgentToolkitGpuTestEnvironment.EnsureAvailable();
+        TestGpu.RequireAnyDevice();
 
         string workspace = CreateWorkspace();
         Scene scene = CreateStaticStoryboardScene(workspace);

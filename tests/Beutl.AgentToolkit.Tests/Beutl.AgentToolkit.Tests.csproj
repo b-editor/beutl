@@ -20,6 +20,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The shared GPU gate: tests say whether they need any Vulkan device or a hardware GPU. -->
+    <Compile Include="..\TestGpu.cs" Link="TestGpu.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\Beutl.AgentToolkit\Beutl.AgentToolkit.csproj" />
   </ItemGroup>
 

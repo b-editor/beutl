@@ -42,7 +42,7 @@ public sealed class Scene3DCoordinateRenderTests
     [Test]
     public async Task UnmovedCards_MatchTheTwoDimensionalRender()
     {
-        AgentToolkitGpuTestEnvironment.EnsureAvailable();
+        TestGpu.RequireAnyDevice();
 
         float[] twoDimensional = await RenderAsync([CreateText(-300, -200), CreateRect(400, 150)]);
         float[] asCards = await RenderAsync(
@@ -67,7 +67,7 @@ public sealed class Scene3DCoordinateRenderTests
     [Test]
     public async Task OverlappingUnmovedCards_KeepTheTwoDimensionalOrder()
     {
-        AgentToolkitGpuTestEnvironment.EnsureAvailable();
+        TestGpu.RequireAnyDevice();
 
         var later = new Color(200, 240, 160, 20);
         float[] twoDimensional = await RenderAsync([CreateRect(0, 0), CreateRect(300, 100, later)]);
@@ -92,7 +92,7 @@ public sealed class Scene3DCoordinateRenderTests
     [Test]
     public async Task CubeFrontFaceOnTheZeroPlane_CoversItsTwoDimensionalFootprint()
     {
-        AgentToolkitGpuTestEnvironment.EnsureAvailable();
+        TestGpu.RequireAnyDevice();
         var cube = new Cube3D();
         cube.Position.CurrentValue = new Vector3(0, -200, 100);
 

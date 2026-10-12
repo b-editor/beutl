@@ -299,7 +299,7 @@ public class ExportTests
     public async Task OutputViewModel_translates_a_known_ffmpeg_error_when_encoding_fails()
     {
         await ResetProjectAsync();
-        GpuTestGate.EnsureAvailable();
+        TestGpu.RequireAnyDevice();
         EditViewModel editor = await OpenEditorWithRectangle("exportfailure");
 
         using var output = new OutputViewModel(editor);
@@ -428,7 +428,7 @@ public class ExportTests
     public async Task Built_in_output_cancellation_cancels_the_shared_execution_task()
     {
         await ResetProjectAsync();
-        GpuTestGate.EnsureAvailable();
+        TestGpu.RequireAnyDevice();
         EditViewModel editor = await OpenEditorWithRectangle("export-built-in-cancel");
         var extension = new CancellableMp4EncoderExtension();
         var output = new OutputViewModel(editor);

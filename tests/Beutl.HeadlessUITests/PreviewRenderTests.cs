@@ -57,7 +57,7 @@ public class PreviewRenderTests
     [AvaloniaTest]
     public async Task SceneRenderer_renders_a_non_empty_preview_frame()
     {
-        GpuTestGate.EnsureAvailable();
+        TestGpu.RequireAnyDevice();
         await ResetProjectAsync();
 
         Scene scene = await NewSceneWithRectangle("preview");
@@ -82,7 +82,7 @@ public class PreviewRenderTests
     [AvaloniaTest]
     public async Task SceneRenderer_renders_through_the_player_view_model()
     {
-        GpuTestGate.EnsureAvailable();
+        TestGpu.RequireAnyDevice();
         await ResetProjectAsync();
 
         Scene scene = await NewSceneWithRectangle("playerpreview");
