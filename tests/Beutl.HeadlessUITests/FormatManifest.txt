@@ -91,7 +91,7 @@ Beutl.Utilities
   abstract
 [Beutl.Core]Beutl:Project
   sealed
-  keys: Id, Name, appVersion, items, minAppVersion, variables
+  keys: Id, Name, items, variables
 [Beutl.Core]Beutl:ProjectItem
   abstract
 [Beutl.Editor].Services:ObjectRegenerator:ListWrapper<T>
