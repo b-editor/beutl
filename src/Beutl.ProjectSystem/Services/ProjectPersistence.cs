@@ -55,22 +55,8 @@ internal static class ProjectPersistence
             return;
         }
 
-        string appVersion = project.AppVersion;
-        string minAppVersion = project.MinAppVersion;
         project.Items.Add(item);
-        PersistOrRollback(
-            persist,
-            () =>
-            {
-                try
-                {
-                    project.Items.Remove(item);
-                }
-                finally
-                {
-                    project.RestoreVersionMetadata(appVersion, minAppVersion);
-                }
-            });
+        PersistOrRollback(persist, () => project.Items.Remove(item));
     }
 
     /// <summary>

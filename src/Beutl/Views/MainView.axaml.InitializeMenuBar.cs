@@ -15,6 +15,7 @@ using Beutl.Editor.Services;
 using Beutl.Editor.VersionControl;
 using Beutl.Models;
 using Beutl.ProjectSystem;
+using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels;
@@ -529,6 +530,12 @@ public partial class MainView
         catch (OperationCanceledException)
         {
             // User-initiated cancellation is not a failure.
+        }
+        catch (UnsupportedFileVersionException ex)
+        {
+            NotificationService.ShowError(
+                Strings.ImportProject,
+                string.Format(MessageStrings.ProjectVersionMismatch_Content, ex.RequiredVersion));
         }
         catch (Exception ex)
         {

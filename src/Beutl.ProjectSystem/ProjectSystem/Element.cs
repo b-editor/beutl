@@ -263,7 +263,6 @@ public class Element : Hierarchical, INotifyEdited
             if (isLegacy)
             {
                 Objects.Replace(migrated);
-                context.ReportPersistedContentMigration(Project.DefaultMinAppVersion);
             }
         }
 

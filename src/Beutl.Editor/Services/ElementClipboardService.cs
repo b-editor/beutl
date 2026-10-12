@@ -203,7 +203,7 @@ public sealed class ElementClipboardService : IElementClipboardService
         newElement.Start = clickedFrame;
         newElement.ZIndex = clickedLayer;
 
-        CoreSerializer.StoreToUri(newElement, ElementFileNaming.GetUri(scene.Uri, newElement.Id));
+        CoreSerializer.StoreToUri(newElement, ElementFileNaming.GetUri(scene.Uri, newElement.Id), owner: scene);
 
         scene.AddChild(newElement);
         _historyManager.Commit(CommandNames.PasteElement);
@@ -311,7 +311,7 @@ public sealed class ElementClipboardService : IElementClipboardService
         };
         newElement.AddObject(sourceImage);
 
-        CoreSerializer.StoreToUri(newElement, ElementFileNaming.GetUri(scene.Uri, newElement.Id));
+        CoreSerializer.StoreToUri(newElement, ElementFileNaming.GetUri(scene.Uri, newElement.Id), owner: scene);
 
         scene.AddChild(newElement);
         _historyManager.Commit(CommandNames.PasteElement);

@@ -33,7 +33,6 @@ public abstract class CoreObject : ICoreObject
     private Dictionary<int, IEntry>? _values;
     private Dictionary<int, string>? _errors;
     private CoreProperty? _forcedReplacementProperty;
-    private string? _requiredMinAppVersionAfterMigration;
 
     internal interface IEntry
     {
@@ -95,30 +94,6 @@ public abstract class CoreObject : ICoreObject
     // Called after SuppressedStorageSource changes between null and non-null.
     internal virtual void OnStorageSuppressionChanged()
     {
-    }
-
-    internal string? RequiredMinAppVersionAfterMigration
-        => Volatile.Read(ref _requiredMinAppVersionAfterMigration);
-
-    internal void MergePersistedContentMigration(string minAppVersion)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(minAppVersion);
-        while (true)
-        {
-            string? current = Volatile.Read(ref _requiredMinAppVersionAfterMigration);
-            string? required = Project.GetMaximumMigrationVersion(
-                current,
-                minAppVersion);
-            if (ReferenceEquals(
-                    Interlocked.CompareExchange(
-                        ref _requiredMinAppVersionAfterMigration,
-                        required,
-                        current),
-                    current))
-            {
-                return;
-            }
-        }
     }
 
     private Dictionary<int, IEntry> Values => _values ??= [];

@@ -1,5 +1,4 @@
 ﻿using System.Reactive.Linq;
-using System.Text.Json.Nodes;
 using Beutl.Configuration;
 using Beutl.Editor;
 using Beutl.Logging;
@@ -7,9 +6,9 @@ using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Services.Tutorials;
+using Beutl.Utilities;
 using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.Logging;
-using NuGet.Versioning;
 using Reactive.Bindings;
 
 namespace Beutl.Services;
@@ -49,20 +48,6 @@ public sealed partial class ProjectService
     public IReadOnlyReactiveProperty<Project?> CurrentProject { get; }
 
     public IReadOnlyReactiveProperty<bool> IsOpened => _isOpened;
-
-    private static async Task<(NuGetVersion AppVersion, NuGetVersion MinVersion)> GetProjectVersion(string file)
-    {
-        await using var stream = File.OpenRead(file);
-        var node = await JsonNode.ParseAsync(stream);
-        string? appVersion = (string?)node?["appVersion"];
-        string? minAppVersion = (string?)node?["minAppVersion"];
-        if (appVersion == null || minAppVersion == null)
-        {
-            throw new InvalidOperationException("The project file does not contain version information.");
-        }
-
-        return (NuGetVersion.Parse(appVersion), NuGetVersion.Parse(minAppVersion));
-    }
 
     public async Task OpenProject(string file)
     {
@@ -258,35 +243,23 @@ public sealed partial class ProjectService
                 return;
             }
 
-            (NuGetVersion appVersion, NuGetVersion minVersion) = await GetProjectVersion(file);
-            activity?.SetTag(nameof(appVersion), appVersion.ToString());
-            activity?.SetTag(nameof(minVersion), minVersion.ToString());
-            if (minVersion > NuGetVersion.Parse(BeutlApplication.Version) &&
-                !Preferences.Default.Get("ProjectService.SkipVersionCheck", false))
-            {
-                var dialog = new FAContentDialog
-                {
-                    Title = MessageStrings.ProjectVersionMismatch_Title,
-                    Content = string.Format(MessageStrings.ProjectVersionMismatch_Content, minVersion),
-                    PrimaryButtonText = Strings.Close
-                };
-                await dialog.ShowAsync();
-                usage?.Complete("skipped");
-                return;
-            }
-
             Uri projectUri = UriHelper.CreateFromPath(file);
             previousProject = _app.Project;
             if (previousProject is not null)
             {
-                // Validate before closing so an invalid project leaves the current one open.
-                // Closing can save scenes or sidecars shared with this project, so discard
-                // the preflight graph and load the committed files after the close completes.
+                // Validate before closing so an invalid project, or one that needs a newer Beutl,
+                // leaves the current one open. Closing can save scenes or sidecars shared with this
+                // project, so discard the preflight graph and load the committed files after the
+                // close completes.
                 _ = CoreSerializer.RestoreFromUri<Project>(projectUri);
                 await CloseProjectCoreAsync(transition, CancellationToken.None);
             }
 
             var project = CoreSerializer.RestoreFromUri<Project>(projectUri);
+            string appVersion = project.AppVersion;
+            string minVersion = project.MinAppVersion;
+            activity?.SetTag(nameof(appVersion), appVersion);
+            activity?.SetTag(nameof(minVersion), minVersion);
             await ActivateProjectAsync(project);
 
             TryAddToRecentProjects(file);
@@ -296,8 +269,18 @@ public sealed partial class ProjectService
         }
         catch (Exception ex)
         {
-            activity?.SetStatus(ActivityStatusCode.Error);
-            _logger.LogError(ex, "Unable to open the project. File: {File}", file);
+            // The project file, or a file it references, needs a newer Beutl.
+            UnsupportedFileVersionException? unsupported = ExceptionHelpers.Find<UnsupportedFileVersionException>(ex);
+            if (unsupported is null)
+            {
+                activity?.SetStatus(ActivityStatusCode.Error);
+                _logger.LogError(ex, "Unable to open the project. File: {File}", file);
+            }
+            else
+            {
+                _logger.LogInformation("Skipping project open: {Message}", unsupported.Message);
+            }
+
             if (previousProject is not null && _app.Project is null)
             {
                 try
@@ -314,7 +297,22 @@ public sealed partial class ProjectService
                     _logger.LogError(recoveryFailure, "Unable to restore the previous project after opening {File} failed.", file);
                 }
             }
-            NotificationService.ShowInformation(Strings.Project, MessageStrings.FailedToOpenProject);
+
+            if (unsupported is not null)
+            {
+                var dialog = new FAContentDialog
+                {
+                    Title = MessageStrings.ProjectVersionMismatch_Title,
+                    Content = string.Format(MessageStrings.ProjectVersionMismatch_Content, unsupported.RequiredVersion),
+                    PrimaryButtonText = Strings.Close
+                };
+                await dialog.ShowAsync();
+                usage?.Complete("skipped");
+            }
+            else
+            {
+                NotificationService.ShowInformation(Strings.Project, MessageStrings.FailedToOpenProject);
+            }
         }
     }
 
