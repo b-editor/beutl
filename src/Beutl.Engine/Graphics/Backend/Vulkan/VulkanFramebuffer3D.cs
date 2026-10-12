@@ -4,9 +4,6 @@ using Silk.NET.Vulkan;
 
 namespace Beutl.Graphics.Backend.Vulkan;
 
-/// <summary>
-/// Vulkan implementation of <see cref="IFramebuffer3D"/> with MRT support.
-/// </summary>
 internal sealed unsafe class VulkanFramebuffer3D : IFramebuffer3D, IVulkanContextResource
 {
     private readonly VulkanContext _context;
@@ -20,9 +17,6 @@ internal sealed unsafe class VulkanFramebuffer3D : IFramebuffer3D, IVulkanContex
 
     public VulkanContext OwnerContext => _context;
 
-    /// <summary>
-    /// Creates a framebuffer with the specified color textures and optional depth texture.
-    /// </summary>
     public VulkanFramebuffer3D(
         VulkanContext context,
         VulkanRenderPass3D renderPass,
@@ -41,7 +35,6 @@ internal sealed unsafe class VulkanFramebuffer3D : IFramebuffer3D, IVulkanContex
         var vk = context.Vk;
         var device = context.Device;
 
-        // Create framebuffer with all attachments
         int attachmentCount = colorTextures.Count + (depthTexture is not null ? 1 : 0);
         var attachments = stackalloc ImageView[attachmentCount];
 

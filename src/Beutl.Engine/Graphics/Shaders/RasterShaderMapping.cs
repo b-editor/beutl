@@ -47,44 +47,30 @@ internal static class RasterShaderMapping
     {
         ArgumentNullException.ThrowIfNull(image);
         var imageBounds = new PixelRect(new PixelSize(image.Width, image.Height));
-        PixelRect semanticSubset;
-        Rect semanticRasterBounds;
         Rect canonicalRasterBounds = sourceDeviceBounds.ToRect(sourceScale);
-        if (sourceRasterBounds == canonicalRasterBounds)
-        {
-            PixelRect semanticDeviceBounds = PixelRect.FromRect(sourceBounds, sourceScale);
-            if (!sourceDeviceBounds.Contains(semanticDeviceBounds))
-            {
-                throw new ArgumentException(
-                    "The source device bounds must contain the complete semantic source bounds.",
-                    nameof(sourceDeviceBounds));
-            }
 
-            semanticSubset = new PixelRect(
-                semanticDeviceBounds.X - sourceDeviceBounds.X,
-                semanticDeviceBounds.Y - sourceDeviceBounds.Y,
-                semanticDeviceBounds.Width,
-                semanticDeviceBounds.Height);
-            semanticRasterBounds = semanticDeviceBounds.ToRect(sourceScale);
-        }
-        else
+        // Round the semantic extent on the shared device grid. Subtracting raster-local
+        // floating-point origins first can move an exact edge across a pixel boundary and
+        // include a transparent apron in the subset that Clamp treats as the source edge.
+        Vector deviceGridOffset = canonicalRasterBounds.Position - sourceRasterBounds.Position;
+        PixelRect semanticDeviceBounds = PixelRect.FromRect(
+            sourceBounds.Translate(deviceGridOffset),
+            sourceScale);
+        if (sourceRasterBounds == canonicalRasterBounds && !sourceDeviceBounds.Contains(semanticDeviceBounds))
         {
-            // Round the semantic extent on the shared device grid. Subtracting raster-local
-            // floating-point origins first can move an exact edge across a pixel boundary and
-            // include a transparent apron in the subset that Clamp treats as the source edge.
-            Vector deviceGridOffset = canonicalRasterBounds.Position - sourceRasterBounds.Position;
-            PixelRect semanticDeviceBounds = PixelRect.FromRect(
-                sourceBounds.Translate(deviceGridOffset),
-                sourceScale);
-            semanticSubset = new PixelRect(
-                semanticDeviceBounds.X - sourceDeviceBounds.X,
-                semanticDeviceBounds.Y - sourceDeviceBounds.Y,
-                semanticDeviceBounds.Width,
-                semanticDeviceBounds.Height);
-            semanticRasterBounds = semanticDeviceBounds
-                .ToRect(sourceScale)
-                .Translate(-deviceGridOffset);
+            throw new ArgumentException(
+                "The source device bounds must contain the complete semantic source bounds.",
+                nameof(sourceDeviceBounds));
         }
+
+        var semanticSubset = new PixelRect(
+            semanticDeviceBounds.X - sourceDeviceBounds.X,
+            semanticDeviceBounds.Y - sourceDeviceBounds.Y,
+            semanticDeviceBounds.Width,
+            semanticDeviceBounds.Height);
+        Rect semanticRasterBounds = semanticDeviceBounds
+            .ToRect(sourceScale)
+            .Translate(-deviceGridOffset);
 
         if (!imageBounds.Contains(semanticSubset))
         {

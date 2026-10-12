@@ -23,7 +23,7 @@ public class VulkanDeviceLifetimeTests
 
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            var device = new VulkanDevice(shared.Vk, shared.Instance, shared.PhysicalDevice);
+            var device = new VulkanDevice(shared.Vk, shared.PhysicalDevice);
             var pool = new VulkanCommandPool(device);
 
             // Teardown order matches VulkanContext.Dispose: the pool first, then the device.
@@ -48,7 +48,7 @@ public class VulkanDeviceLifetimeTests
 
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            var device = new VulkanDevice(shared.Vk, shared.Instance, shared.PhysicalDevice);
+            var device = new VulkanDevice(shared.Vk, shared.PhysicalDevice);
             var pool = new VulkanCommandPool(device);
 
             pool.Dispose();

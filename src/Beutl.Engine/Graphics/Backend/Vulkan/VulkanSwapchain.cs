@@ -60,10 +60,10 @@ internal sealed unsafe class VulkanSwapchain : IDisposable
     public Extent2D Extent => _extent;
     public ImageView[] ImageViews => _imageViews;
 
+    /// <summary>Recreates the swapchain at the given size.</summary>
+    /// <remarks>The caller must have waited for the device to be idle.</remarks>
     public void Recreate(uint width, uint height)
     {
-        _vk.DeviceWaitIdle(_device);
-
         var oldSwapchain = _swapchain;
         DestroyImageViews();
 
@@ -119,23 +119,19 @@ internal sealed unsafe class VulkanSwapchain : IDisposable
 
     private void Create(uint width, uint height, SwapchainKHR oldSwapchain)
     {
-        // Query surface capabilities
         SurfaceCapabilitiesKHR capabilities;
         _khrSurface.GetPhysicalDeviceSurfaceCapabilities(_physicalDevice, _surface, &capabilities);
 
-        // Select format (prefer HDR)
         SelectFormat(out _format, out _colorSpace, out _isHdr);
         SrgbFormat = !RequiresShaderSrgbEncoding(_format, _colorSpace);
 
-        // Select extent
         _extent = SelectExtent(capabilities, width, height);
 
-        // Select image count (prefer double buffering, allow triple)
+        // One image more than the minimum, so acquiring one rarely waits on the presentation engine.
         uint imageCount = capabilities.MinImageCount + 1;
         if (capabilities.MaxImageCount > 0 && imageCount > capabilities.MaxImageCount)
             imageCount = capabilities.MaxImageCount;
 
-        // Select present mode (prefer Mailbox for low latency, fallback to FIFO)
         var presentMode = SelectPresentMode();
 
         var createInfo = new SwapchainCreateInfoKHR
@@ -163,7 +159,6 @@ internal sealed unsafe class VulkanSwapchain : IDisposable
 
         _swapchain = swapchain;
 
-        // Get swapchain images
         uint count = 0;
         _khrSwapchain.GetSwapchainImages(_device, _swapchain, &count, null);
         _images = new Image[count];
@@ -172,7 +167,6 @@ internal sealed unsafe class VulkanSwapchain : IDisposable
             _khrSwapchain.GetSwapchainImages(_device, _swapchain, &count, pImages);
         }
 
-        // Create image views
         _imageViews = new ImageView[_images.Length];
         for (int i = 0; i < _images.Length; i++)
         {
@@ -223,13 +217,11 @@ internal sealed unsafe class VulkanSwapchain : IDisposable
             _khrSurface.GetPhysicalDeviceSurfaceFormats(_physicalDevice, _surface, &formatCount, pFormats);
         }
 
-        // Log available formats
         foreach (var f in formats)
         {
             s_logger.LogDebug("Available surface format: {Format} / {ColorSpace}", f.Format, f.ColorSpace);
         }
 
-        // Prefer HDR: RGBA16Float + Extended sRGB Linear
         foreach (var f in formats)
         {
             if (f.Format == Format.R16G16B16A16Sfloat &&
@@ -243,7 +235,6 @@ internal sealed unsafe class VulkanSwapchain : IDisposable
             }
         }
 
-        // Fallback: B8G8R8A8_SRGB
         foreach (var f in formats)
         {
             if (f.Format == Format.B8G8R8A8Srgb &&
@@ -308,7 +299,6 @@ internal sealed unsafe class VulkanSwapchain : IDisposable
             _khrSurface.GetPhysicalDeviceSurfacePresentModes(_physicalDevice, _surface, &modeCount, pModes);
         }
 
-        // Prefer Mailbox (low-latency, no tearing)
         foreach (var mode in modes)
         {
             if (mode == PresentModeKHR.MailboxKhr)
@@ -350,7 +340,6 @@ internal sealed unsafe class VulkanSwapchain : IDisposable
 
         _disposed = true;
 
-        _vk.DeviceWaitIdle(_device);
         DestroyImageViews();
 
         if (_swapchain.Handle != 0)

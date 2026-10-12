@@ -14,16 +14,8 @@ public sealed class SKSLShader : IDisposable
     }
 
     public static SKSLShader Create(string sksl)
-    {
-        SKRuntimeEffect? effect = SKRuntimeEffect.CreateShader(sksl, out string? errorText);
-        if (effect == null || errorText != null)
-        {
-            effect?.Dispose();
-            throw new InvalidOperationException($"Failed to compile SKSL shader: {errorText}");
-        }
-
-        return new SKSLShader(effect);
-    }
+        => Compile(sksl, out string? errorText)
+           ?? throw new InvalidOperationException($"Failed to compile SKSL shader: {errorText}");
 
     public static bool TryCreate(string sksl, out SKSLShader? shader, out string? errorText)
     {
@@ -37,21 +29,26 @@ public sealed class SKSLShader : IDisposable
 
         try
         {
-            SKRuntimeEffect? effect = SKRuntimeEffect.CreateShader(sksl, out errorText);
-            if (effect == null || errorText != null)
-            {
-                effect?.Dispose();
-                return false;
-            }
-
-            shader = new SKSLShader(effect);
-            return true;
+            shader = Compile(sksl, out errorText);
+            return shader != null;
         }
         catch (Exception ex)
         {
             errorText = ex.Message;
             return false;
         }
+    }
+
+    private static SKSLShader? Compile(string sksl, out string? errorText)
+    {
+        SKRuntimeEffect? effect = SKRuntimeEffect.CreateShader(sksl, out errorText);
+        if (effect == null || errorText != null)
+        {
+            effect?.Dispose();
+            return null;
+        }
+
+        return new SKSLShader(effect);
     }
 
     public SKSLShaderBuilder CreateBuilder()

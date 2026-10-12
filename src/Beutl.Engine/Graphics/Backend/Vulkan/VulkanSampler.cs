@@ -3,9 +3,6 @@ using Silk.NET.Vulkan;
 
 namespace Beutl.Graphics.Backend.Vulkan;
 
-/// <summary>
-/// Vulkan implementation of <see cref="ISampler"/>.
-/// </summary>
 internal sealed unsafe class VulkanSampler : ISampler, IVulkanContextResource
 {
     private readonly VulkanContext _context;

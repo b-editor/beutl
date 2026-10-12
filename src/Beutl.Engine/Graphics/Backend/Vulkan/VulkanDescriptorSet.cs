@@ -3,18 +3,6 @@ using Silk.NET.Vulkan;
 
 namespace Beutl.Graphics.Backend.Vulkan;
 
-/// <summary>
-/// Vulkan implementation of <see cref="IDescriptorSet"/>.
-/// </summary>
-/// <remarks>
-/// Every operand is resolved through <see cref="VulkanContext.RequireOwned{TResource}"/> before its handle
-/// reaches <c>vkUpdateDescriptorSets</c>. A Vulkan handle carries no device provenance, so writing one from
-/// another context into this set is undefined behaviour the driver need not diagnose - not merely a
-/// validation message - and a plain cast would let it through. The binding a write names is checked the same
-/// way, against the <see cref="VulkanDescriptorBindingTable"/> of the layout the set was allocated from: the
-/// layout handle carries none of its own declarations, so nothing below this line can tell that a write names
-/// a binding the pipeline never declared.
-/// </remarks>
 internal sealed unsafe class VulkanDescriptorSet : IDescriptorSet, IVulkanContextResource
 {
     private readonly VulkanContext _context;
@@ -39,7 +27,6 @@ internal sealed unsafe class VulkanDescriptorSet : IDescriptorSet, IVulkanContex
         var vk = context.Vk;
         var device = context.Device;
 
-        // Create descriptor pool
         fixed (Silk.NET.Vulkan.DescriptorPoolSize* poolSizesPtr = poolSizes)
         {
             var poolInfo = new DescriptorPoolCreateInfo
@@ -59,7 +46,6 @@ internal sealed unsafe class VulkanDescriptorSet : IDescriptorSet, IVulkanContex
             _descriptorPool = pool;
         }
 
-        // Allocate descriptor set
         var layouts = stackalloc DescriptorSetLayout[] { layout };
         var allocInfo = new DescriptorSetAllocateInfo
         {

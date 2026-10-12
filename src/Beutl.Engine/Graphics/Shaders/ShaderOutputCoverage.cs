@@ -20,9 +20,8 @@ internal enum ShaderOutputCoverage : byte
     MayLeavePixelsUnwritten,
 
     /// <summary>
-    /// Every control-flow path is proven to write the fragment output and no path uses <c>discard</c>. Only an
-    /// audited engine-owned built-in shader may claim this; an incorrect claim exposes stale pooled-target pixels
-    /// from an unrelated frame and can remain hidden until a warm-pool reuse.
+    /// Every control-flow path is proven to write the fragment output and no path uses <c>discard</c>; see the
+    /// remarks on <see cref="ShaderOutputCoverage"/> before claiming this.
     /// </summary>
     ProvablyFull,
 }

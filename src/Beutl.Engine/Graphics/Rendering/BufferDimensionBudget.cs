@@ -61,15 +61,8 @@ public readonly record struct BufferDimensionBudget
     /// The context whose device limit applies, or <see langword="null"/> when there is no device, in which
     /// case the ceiling stands in for one.
     /// </param>
-    /// <remarks>
-    /// A device's limit does not change while its context lives, so it is read once per context - but the
-    /// shared context is replaceable (<see cref="GraphicsContextFactory.Shutdown"/> is public), and
-    /// answering for the next device out of the last one's memo asks a device that attaches less for an
-    /// attachment it cannot make. The memo therefore lives with the contexts it describes, keyed to the one
-    /// that answered; see <see cref="GraphicsContextFactory"/>.
-    /// </remarks>
     public static BufferDimensionBudget ForDevice(IGraphicsContext? context)
-        => GraphicsContextFactory.ResolveAttachmentDimension(context) is { } deviceLimit
+        => context?.MaxAttachmentDimension is int deviceLimit and > 0
             ? new BufferDimensionBudget(Math.Min(EngineCeilingDimension, deviceLimit))
             : EngineCeiling;
 

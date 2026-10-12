@@ -29,10 +29,8 @@ internal sealed unsafe class MetalVulkanTexture2D : VulkanTexture2D
         _metalContext = metalContext;
         _timeline = timeline;
 
-        // Export Metal texture from Vulkan image using VK_EXT_metal_objects
         _metalTexture = ExportMetalTexture();
 
-        // Transition to initial layout
         TransitionTo(SkiaInteropLayout);
     }
 
@@ -42,8 +40,7 @@ internal sealed unsafe class MetalVulkanTexture2D : VulkanTexture2D
         VulkanContext vulkanContext,
         int width,
         int height,
-        TextureFormat format,
-        ImageUsageFlags usage = VulkanTexture2D.ColorTextureUsage)
+        TextureFormat format)
     {
         // Only vkCreateImage reads the export request, inside the base constructor, so it lives on this frame
         // and nothing is left to free when construction throws.
@@ -53,7 +50,8 @@ internal sealed unsafe class MetalVulkanTexture2D : VulkanTexture2D
             ExportObjectType = ExportMetalObjectTypeFlagsEXT.TextureBitExt,
             PNext = null,
         };
-        return new MetalVulkanTexture2D(metalContext, timeline, vulkanContext, width, height, format, usage, &exportInfo);
+        return new MetalVulkanTexture2D(
+            metalContext, timeline, vulkanContext, width, height, format, ColorTextureUsage, &exportInfo);
     }
 
     public override SKSurface CreateSkiaSurface()
@@ -66,7 +64,6 @@ internal sealed unsafe class MetalVulkanTexture2D : VulkanTexture2D
             throw new InvalidOperationException("Metal texture handle is null");
         }
 
-        // Use the exported Metal texture for SkiaSharp rendering
         var textureInfo = new GRMtlTextureInfo(_metalTexture);
         var backendTexture = new GRBackendTexture(_width, _height, false, textureInfo);
 
@@ -106,7 +103,6 @@ internal sealed unsafe class MetalVulkanTexture2D : VulkanTexture2D
             return IntPtr.Zero;
         }
 
-        // Export Metal texture info
         var exportTextureInfo = new ExportMetalTextureInfoEXT
         {
             SType = StructureType.ExportMetalTextureInfoExt,

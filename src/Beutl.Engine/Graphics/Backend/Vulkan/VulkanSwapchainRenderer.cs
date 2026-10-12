@@ -21,18 +21,15 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
     private readonly Instance _instance;
     private readonly PhysicalDevice _physicalDevice;
 
-    // Dedicated presentation device (independent from existing VulkanContext)
     private Device _device;
     private Queue _graphicsQueue;
     private uint _queueFamilyIndex;
     private CommandPool _commandPool;
 
-    // Swapchain infrastructure
     private VulkanSwapchain? _swapchain;
     private VulkanPresentPipeline? _pipeline;
     private VulkanSurfaceInfo _surfaceInfo;
 
-    // Source texture
     private Image _sourceImage;
     private DeviceMemory _sourceMemory;
     private ImageView _sourceImageView;
@@ -42,21 +39,17 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
     private Format _sourceFormat;
     private ImageLayout _sourceImageLayout = ImageLayout.Undefined;
 
-    // Staging buffer
     private Silk.NET.Vulkan.Buffer _stagingBuffer;
     private DeviceMemory _stagingMemory;
     private ulong _stagingSize;
 
-    // Pre-allocated command buffers (reused each frame)
     private CommandBuffer _renderCommandBuffer;
     private CommandBuffer _uploadCommandBuffer;
 
-    // Synchronization
     private VkSemaphore _imageAvailableSemaphore;
     private VkSemaphore _renderFinishedSemaphore;
     private Fence _inFlightFence;
 
-    // Presentation thread
     private Thread? _presentThread;
     private readonly BlockingCollection<RenderCommand> _commandQueue = new(4);
     private volatile bool _running;
@@ -89,9 +82,9 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
 
     public bool IsHdrActive => _swapchain?.IsHdr ?? false;
 
-    public void Initialize(IntPtr nativeHandle, string handleDescriptor, uint width, uint height)
+    public void Initialize(IntPtr nativeHandle, uint width, uint height)
     {
-        _surfaceInfo = VulkanSurfaceHelper.CreateSurface(_vk, _instance, nativeHandle, handleDescriptor);
+        _surfaceInfo = VulkanSurfaceHelper.CreateSurface(_vk, _instance, nativeHandle);
         _swapchain = new VulkanSwapchain(_vk, _instance, _physicalDevice, _device, _surfaceInfo.Surface, width, height);
         _pipeline = new VulkanPresentPipeline(_vk, _device, _swapchain.Format, _swapchain.ImageViews, _swapchain.Extent);
         _renderCommandBuffer = AllocateCommandBuffer();
@@ -110,7 +103,6 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
         if (width == 0 || height == 0)
             return;
 
-        // Dispatch resize to presentation thread
         _commandQueue.TryAdd(new RenderCommand.ResizeCommand(width, height));
     }
 
@@ -249,10 +241,8 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
 
         Check(_vk.ResetFences(_device, 1, &fence), "vkResetFences");
 
-        // Record and submit command buffer
         RecordAndSubmit(imageIndex, renderParams);
 
-        // Present
         var presentResult = _swapchain.Present(_graphicsQueue, _renderFinishedSemaphore, imageIndex);
         if (presentResult is Result.ErrorOutOfDateKhr or Result.SuboptimalKhr)
         {
@@ -279,7 +269,6 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
         int height = bitmap.Height;
         var vkFormat = BitmapColorTypeToVkFormat(bitmap.ColorType);
 
-        // Recreate source image if dimensions/format changed
         if (width != _sourceWidth || height != _sourceHeight || vkFormat != _sourceFormat)
         {
             DestroySourceImage();
@@ -289,29 +278,25 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
             _sourceFormat = vkFormat;
         }
 
-        // Upload pixel data via staging buffer
         ulong dataSize = (ulong)(bitmap.RowBytes * height);
         EnsureStagingBuffer(dataSize);
 
-        // Map and copy
         void* mapped;
         Check(_vk.MapMemory(_device, _stagingMemory, 0, dataSize, 0, &mapped), "vkMapMemory");
         System.Buffer.MemoryCopy((void*)bitmap.Data, mapped, (long)dataSize, (long)dataSize);
         _vk.UnmapMemory(_device, _stagingMemory);
 
-        // Copy staging buffer to image
         var cmdBuf = _uploadCommandBuffer;
         Check(_vk.ResetCommandBuffer(cmdBuf, 0), "vkResetCommandBuffer");
         BeginCommandBuffer(cmdBuf);
 
-        // Transition to transfer dst
         TransitionImageLayout(cmdBuf, _sourceImage, _sourceImageLayout, ImageLayout.TransferDstOptimal);
         _sourceImageLayout = ImageLayout.TransferDstOptimal;
 
         var region = new BufferImageCopy
         {
             BufferOffset = 0,
-            BufferRowLength = (uint)(bitmap.RowBytes / BitmapColorTypeBytesPerPixel(bitmap.ColorType)),
+            BufferRowLength = (uint)(bitmap.RowBytes / bitmap.BytesPerPixel),
             BufferImageHeight = 0,
             ImageSubresource = new ImageSubresourceLayers
             {
@@ -326,13 +311,11 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
 
         _vk.CmdCopyBufferToImage(cmdBuf, _stagingBuffer, _sourceImage, ImageLayout.TransferDstOptimal, 1, &region);
 
-        // Transition to shader read
         TransitionImageLayout(cmdBuf, _sourceImage, ImageLayout.TransferDstOptimal, ImageLayout.ShaderReadOnlyOptimal);
         _sourceImageLayout = ImageLayout.ShaderReadOnlyOptimal;
 
         EndAndSubmitUploadCommands(cmdBuf);
 
-        // Update descriptor set
         _pipeline!.UpdateDescriptorSet(_descriptorSet, _sourceImageView);
     }
 
@@ -344,14 +327,12 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
 
         var extent = _swapchain!.Extent;
 
-        // Calculate viewport rects for stretch mode
         ComputeStretchRects(renderParams, extent, out var pushConstants);
 
         // Srgbフォーマットなら変換は不要。Unorm系は必要
         pushConstants.LinearToSrgb = !_swapchain.SrgbFormat ? 1 : 0;
         pushConstants.IsSourceLinear = renderParams.IsSourceLinear ? 1 : 0;
 
-        // Begin render pass
         var clearValue = new ClearValue { Color = new ClearColorValue(0f, 0f, 0f, 1f) };
         var renderPassInfo = new RenderPassBeginInfo
         {
@@ -366,28 +347,23 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
         _vk.CmdBeginRenderPass(cmdBuf, &renderPassInfo, SubpassContents.Inline);
         _vk.CmdBindPipeline(cmdBuf, PipelineBindPoint.Graphics, _pipeline.PipelineHandle);
 
-        // Dynamic viewport and scissor
         var viewport = new Viewport { X = 0, Y = 0, Width = extent.Width, Height = extent.Height, MinDepth = 0, MaxDepth = 1 };
         var scissor = new Rect2D { Offset = new Offset2D(0, 0), Extent = extent };
         _vk.CmdSetViewport(cmdBuf, 0, 1, &viewport);
         _vk.CmdSetScissor(cmdBuf, 0, 1, &scissor);
 
-        // Bind descriptor set
         fixed (DescriptorSet* pSet = &_descriptorSet)
         {
             _vk.CmdBindDescriptorSets(cmdBuf, PipelineBindPoint.Graphics, _pipeline.PipelineLayoutHandle, 0, 1, pSet, 0, null);
         }
 
-        // Push constants
         _vk.CmdPushConstants(cmdBuf, _pipeline.PipelineLayoutHandle, ShaderStageFlags.FragmentBit, 0, (uint)sizeof(PresentPushConstants), &pushConstants);
 
-        // Draw fullscreen triangle
         _vk.CmdDraw(cmdBuf, 3, 1, 0, 0);
 
         _vk.CmdEndRenderPass(cmdBuf);
         Check(_vk.EndCommandBuffer(cmdBuf), "vkEndCommandBuffer");
 
-        // Submit
         var waitSemaphore = _imageAvailableSemaphore;
         var signalSemaphore = _renderFinishedSemaphore;
         PipelineStageFlags waitStage = PipelineStageFlags.ColorAttachmentOutputBit;
@@ -413,10 +389,6 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
         pc.Exposure = p.Exposure;
         pc.TmOperator = (int)p.ToneMapping;
 
-        // Source rect in UV space (full texture)
-        pc.SrcX = 0; pc.SrcY = 0; pc.SrcW = 1; pc.SrcH = 1;
-
-        // Destination rect in UV space based on stretch mode
         float destW = extent.Width;
         float destH = extent.Height;
         float srcW = p.SourceWidth;
@@ -467,12 +439,10 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
 
         _disposed = true;
 
-        // Stop presentation thread
         _running = false;
         _commandQueue.CompleteAdding();
         _presentThread?.Join(2000);
 
-        // Drain remaining commands
         while (_commandQueue.TryTake(out var cmd))
         {
             if (cmd is RenderCommand.DrawCommand draw)
@@ -500,16 +470,6 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
                 _vk.DestroySemaphore(_device, _renderFinishedSemaphore, null);
             if (_inFlightFence.Handle != 0)
                 _vk.DestroyFence(_device, _inFlightFence, null);
-            if (_renderCommandBuffer.Handle != 0 || _uploadCommandBuffer.Handle != 0)
-            {
-                var cmdBufs = stackalloc CommandBuffer[2];
-                int count = 0;
-                if (_renderCommandBuffer.Handle != 0)
-                    cmdBufs[count++] = _renderCommandBuffer;
-                if (_uploadCommandBuffer.Handle != 0)
-                    cmdBufs[count++] = _uploadCommandBuffer;
-                _vk.FreeCommandBuffers(_device, _commandPool, (uint)count, cmdBufs);
-            }
 
             if (_commandPool.Handle != 0)
                 _vk.DestroyCommandPool(_device, _commandPool, null);

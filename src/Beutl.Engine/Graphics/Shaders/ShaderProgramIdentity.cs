@@ -17,13 +17,6 @@ internal sealed class ShaderProgramIdentity : IEquatable<ShaderProgramIdentity>
         ImmutableArray<SkslMergedBindingLayout> bindings,
         SkslBackendBudget budget)
     {
-        ArgumentNullException.ThrowIfNull(source);
-        ArgumentNullException.ThrowIfNull(budget);
-        if (bindings.IsDefault)
-            throw new ArgumentException("The binding identity array must be initialized.", nameof(bindings));
-        if (!Enum.IsDefined(backend))
-            throw new ArgumentOutOfRangeException(nameof(backend));
-
         Backend = backend;
         Source = source;
         _bindings = bindings;
@@ -73,15 +66,5 @@ internal sealed class ShaderProgramIdentity : IEquatable<ShaderProgramIdentity>
     public override int GetHashCode() => _hashCode;
 
     private static int ComputeStableHashCode(ShaderProgramBackend backend, string source)
-    {
-        const uint offset = 2166136261;
-        const uint prime = 16777619;
-        uint hash = (offset ^ (byte)backend) * prime;
-        foreach (char value in source)
-        {
-            hash ^= value;
-            hash *= prime;
-        }
-        return unchecked((int)hash);
-    }
+        => unchecked((int)Fnv1a.AppendChars(Fnv1a.Append(Fnv1a.Offset32, (byte)backend), source));
 }

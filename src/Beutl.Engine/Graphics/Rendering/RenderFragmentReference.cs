@@ -244,31 +244,31 @@ internal sealed class RenderFragmentReference
     {
         unchecked
         {
-            ulong hash = 14695981039346656037UL;
-            hash = Mix(hash, (ulong)(byte)Kind);
-            hash = Mix(hash, (ulong)(uint)BitConverter.SingleToInt32Bits(RecordedBounds.X));
-            hash = Mix(hash, (ulong)(uint)BitConverter.SingleToInt32Bits(RecordedBounds.Y));
-            hash = Mix(hash, (ulong)(uint)BitConverter.SingleToInt32Bits(RecordedBounds.Width));
-            hash = Mix(hash, (ulong)(uint)BitConverter.SingleToInt32Bits(RecordedBounds.Height));
-            hash = Mix(
+            ulong hash = Fnv1a.Offset64;
+            hash = Fnv1a.AppendBytes(hash, (ulong)(byte)Kind);
+            hash = Fnv1a.AppendBytes(hash, (ulong)(uint)BitConverter.SingleToInt32Bits(RecordedBounds.X));
+            hash = Fnv1a.AppendBytes(hash, (ulong)(uint)BitConverter.SingleToInt32Bits(RecordedBounds.Y));
+            hash = Fnv1a.AppendBytes(hash, (ulong)(uint)BitConverter.SingleToInt32Bits(RecordedBounds.Width));
+            hash = Fnv1a.AppendBytes(hash, (ulong)(uint)BitConverter.SingleToInt32Bits(RecordedBounds.Height));
+            hash = Fnv1a.AppendBytes(
                 hash,
                 RecordedEffectiveScale.IsUnbounded
                     ? ulong.MaxValue
                     : (ulong)(uint)BitConverter.SingleToInt32Bits(RecordedEffectiveScale.Value));
-            hash = Mix(hash, (ulong)(byte)BoundsRequirement);
-            hash = Mix(hash, (ulong)(uint)ValueCardinality.Minimum);
-            hash = Mix(
+            hash = Fnv1a.AppendBytes(hash, (ulong)(byte)BoundsRequirement);
+            hash = Fnv1a.AppendBytes(hash, (ulong)(uint)ValueCardinality.Minimum);
+            hash = Fnv1a.AppendBytes(
                 hash,
                 ValueCardinality.Maximum is { } maximum ? (ulong)(uint)maximum : ulong.MaxValue);
-            hash = Mix(hash, PackRecordingFlags());
-            hash = Mix(hash, _hitTest.IdentityDigest);
-            hash = Mix(
+            hash = Fnv1a.AppendBytes(hash, PackRecordingFlags());
+            hash = Fnv1a.AppendBytes(hash, _hitTest.IdentityDigest);
+            hash = Fnv1a.AppendBytes(
                 hash,
                 Payload is null ? 0UL : (ulong)Payload.GetType().TypeHandle.Value.ToInt64());
-            hash = Mix(hash, PackObservablePayloadIdentity());
-            hash = Mix(hash, (ulong)(uint)Inputs.Length);
+            hash = Fnv1a.AppendBytes(hash, PackObservablePayloadIdentity());
+            hash = Fnv1a.AppendBytes(hash, (ulong)(uint)Inputs.Length);
             foreach (RenderFragmentReference input in Inputs)
-                hash = Mix(hash, (ulong)input.RecordingFingerprint);
+                hash = Fnv1a.AppendBytes(hash, (ulong)input.RecordingFingerprint);
             return (long)hash;
         }
     }
@@ -333,21 +333,6 @@ internal sealed class RenderFragmentReference
         if (HasSymbolicTargetWrite) flags |= 1UL << 8;
         if (_hasDirectSymbolicBoundsDependency) flags |= 1UL << 9;
         return flags;
-    }
-
-    private static ulong Mix(ulong hash, ulong value)
-    {
-        unchecked
-        {
-            const ulong Prime = 1099511628211UL;
-            for (int shift = 0; shift < 64; shift += 8)
-            {
-                hash ^= (value >> shift) & 0xFF;
-                hash *= Prime;
-            }
-
-            return hash;
-        }
     }
 
     private bool ComputeHasSymbolicTargetWrite()

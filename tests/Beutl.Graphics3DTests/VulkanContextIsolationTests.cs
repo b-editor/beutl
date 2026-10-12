@@ -259,7 +259,7 @@ public sealed class VulkanContextIsolationTests
                     for (int face = 0; face < 6; face++)
                     {
                         Assert.That(
-                            cubes.GetFaceLayout(cube, face),
+                            cubes.GetLayerLayout(cube * 6 + (uint)face),
                             Is.EqualTo(ImageLayout.ShaderReadOnlyOptimal),
                             $"cube {cube} face {face}");
                     }

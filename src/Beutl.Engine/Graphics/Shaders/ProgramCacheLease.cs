@@ -31,8 +31,7 @@ internal sealed class ProgramCacheLease<TProgram> : IDisposable
         if (owner is null)
             return;
 
-        TProgram program = Interlocked.Exchange(ref _program, null)
-            ?? throw new InvalidOperationException("A program-cache lease lost its checked-out program.");
+        TProgram program = Interlocked.Exchange(ref _program, null)!;
         owner.Release(_entry, program);
     }
 }

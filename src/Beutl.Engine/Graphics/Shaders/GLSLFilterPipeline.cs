@@ -18,7 +18,7 @@ internal sealed class GLSLFilterPipeline : IDisposable
         => TryResolveVulkan(context) is { } vulkan ? vulkan.MaxFragmentShaderInputTextures : PortableInputLimit;
 
     /// <summary>Gets the Vulkan context that records this pipeline's passes, directly or behind a composite.</summary>
-    private static VulkanContext? TryResolveVulkan(IGraphicsContext context)
+    internal static VulkanContext? TryResolveVulkan(IGraphicsContext? context)
         => context switch
         {
             VulkanContext vulkan => vulkan,
@@ -102,25 +102,18 @@ internal sealed class GLSLFilterPipeline : IDisposable
     /// <param name="context">The graphics context that owns the pipeline.</param>
     /// <param name="fragmentShaderSource">The GLSL fragment shader source.</param>
     /// <param name="outputCoverage">
-    /// The proven fragment-output coverage contract. <see cref="ShaderOutputCoverage.MayLeavePixelsUnwritten"/>
-    /// transparently initializes the destination before the pass and clears the render-pass attachment.
-    /// <see cref="ShaderOutputCoverage.ProvablyFull"/> may be selected only for an engine-owned shader whose
-    /// every control-flow path writes the fragment output and which never uses <c>discard</c>; a false claim can
-    /// expose stale pixels from an unrelated frame when a pooled target is reused.
+    /// The proven fragment-output coverage contract; see <see cref="ShaderOutputCoverage"/>.
     /// </param>
     /// <param name="specializationConstants">Immutable values applied when the pipeline is created.</param>
-    /// <param name="hasMaskTexture">Whether the shader reads a second texture at binding 1.</param>
-    /// <param name="inputCount">Optional explicit number of consecutive sampler bindings in set 0.</param>
+    /// <param name="inputCount">The number of consecutive sampler bindings in set 0.</param>
     public static GLSLFilterPipeline? Create(
         IGraphicsContext context,
         string fragmentShaderSource,
         ShaderOutputCoverage outputCoverage,
         ImmutableArray<SpecializationConstant> specializationConstants = default,
-        bool hasMaskTexture = false,
-        int? inputCount = null)
+        int inputCount = 1)
     {
-        int textureCount = inputCount ?? (hasMaskTexture ? 2 : 1);
-        ValidateInputCount(context, textureCount);
+        ValidateInputCount(context, inputCount);
         if (!context.Supports3DRendering)
         {
             s_logger.LogWarning("3D rendering is not supported on this platform.");
@@ -143,21 +136,19 @@ internal sealed class GLSLFilterPipeline : IDisposable
                     ? AttachmentLoadOp.DontCare
                     : AttachmentLoadOp.Clear);
 
-            // Create sampler
             sampler = context.CreateSampler(
                 SamplerFilter.Linear,
                 SamplerFilter.Linear,
                 SamplerAddressMode.ClampToEdge,
                 SamplerAddressMode.ClampToEdge);
 
-            var descriptorBindings = new DescriptorBinding[textureCount];
-            for (int i = 0; i < textureCount; i++)
+            var descriptorBindings = new DescriptorBinding[inputCount];
+            for (int i = 0; i < inputCount; i++)
             {
                 descriptorBindings[i] = new(
                     (uint)i, DescriptorType.CombinedImageSampler, 1, ShaderStage.Fragment);
             }
 
-            // Create pipeline with fullscreen options
             PipelineOptions pipelineOptions = PipelineOptions.Fullscreen;
             pipelineOptions.SpecializationConstants = specializationConstants;
             pipeline = context.CreatePipeline3D(
@@ -176,7 +167,7 @@ internal sealed class GLSLFilterPipeline : IDisposable
                 vertexShaderSpirv,
                 fragmentShaderSpirv,
                 outputCoverage,
-                textureCount);
+                inputCount);
             renderPass = null;
             pipeline = null;
             sampler = null;
@@ -259,12 +250,10 @@ internal sealed class GLSLFilterPipeline : IDisposable
         if (inputTextures.Length != InputCount)
             throw new ArgumentException($"The shader requires {InputCount} input textures.", nameof(inputTextures));
 
-        // Prepare textures for their respective operations
         foreach (ITexture2D texture in inputTextures)
             texture.PrepareForSampling();
         PrepareDestination(destinationTexture);
 
-        // Create framebuffer
         using IFramebuffer3D framebuffer = _context.CreateFramebuffer3D(
             _renderPass,
             [destinationTexture],
@@ -292,7 +281,6 @@ internal sealed class GLSLFilterPipeline : IDisposable
             _renderPass.End();
         }
 
-        // Prepare destination for sampling (next stage)
         destinationTexture.PrepareForSampling();
     }
 

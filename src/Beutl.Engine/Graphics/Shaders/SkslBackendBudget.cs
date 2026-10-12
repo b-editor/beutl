@@ -9,7 +9,6 @@ internal sealed class SkslBackendBudget : IEquatable<SkslBackendBudget>
         int maxStages,
         int maxUniformVectors,
         int maxSamplers,
-        int maxChildren,
         int maxSourceBytes,
         int maxProgramTokens)
     {
@@ -17,7 +16,6 @@ internal sealed class SkslBackendBudget : IEquatable<SkslBackendBudget>
         ArgumentOutOfRangeException.ThrowIfLessThan(maxStages, 1);
         ArgumentOutOfRangeException.ThrowIfNegative(maxUniformVectors);
         ArgumentOutOfRangeException.ThrowIfNegative(maxSamplers);
-        ArgumentOutOfRangeException.ThrowIfLessThan(maxChildren, 1);
         ArgumentOutOfRangeException.ThrowIfLessThan(maxSourceBytes, 1);
         ArgumentOutOfRangeException.ThrowIfLessThan(maxProgramTokens, 1);
 
@@ -25,14 +23,12 @@ internal sealed class SkslBackendBudget : IEquatable<SkslBackendBudget>
         MaxStages = maxStages;
         MaxUniformVectors = maxUniformVectors;
         MaxSamplers = maxSamplers;
-        MaxChildren = maxChildren;
         MaxSourceBytes = maxSourceBytes;
         MaxProgramTokens = maxProgramTokens;
     }
 
     public static SkslBackendBudget Unlimited { get; } = new(
         s_unlimitedCapability,
-        int.MaxValue,
         int.MaxValue,
         int.MaxValue,
         int.MaxValue,
@@ -47,8 +43,6 @@ internal sealed class SkslBackendBudget : IEquatable<SkslBackendBudget>
 
     public int MaxSamplers { get; }
 
-    public int MaxChildren { get; }
-
     public int MaxSourceBytes { get; }
 
     public int MaxProgramTokens { get; }
@@ -59,7 +53,6 @@ internal sealed class SkslBackendBudget : IEquatable<SkslBackendBudget>
            && MaxStages == other.MaxStages
            && MaxUniformVectors == other.MaxUniformVectors
            && MaxSamplers == other.MaxSamplers
-           && MaxChildren == other.MaxChildren
            && MaxSourceBytes == other.MaxSourceBytes
            && MaxProgramTokens == other.MaxProgramTokens;
 
@@ -71,7 +64,6 @@ internal sealed class SkslBackendBudget : IEquatable<SkslBackendBudget>
             MaxStages,
             MaxUniformVectors,
             MaxSamplers,
-            MaxChildren,
             MaxSourceBytes,
             MaxProgramTokens);
 }

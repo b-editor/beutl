@@ -8,10 +8,6 @@ namespace Beutl.Graphics.Backend.Vulkan;
 [StructLayout(LayoutKind.Sequential)]
 internal struct PresentPushConstants
 {
-    public float SrcX;
-    public float SrcY;
-    public float SrcW;
-    public float SrcH;
     public float DstX;
     public float DstY;
     public float DstW;

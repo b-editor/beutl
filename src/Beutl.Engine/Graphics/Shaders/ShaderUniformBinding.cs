@@ -35,11 +35,6 @@ internal readonly struct ShaderUniformBinding
     /// <summary>
     /// Gets whether an author-supplied binder produces this uniform's value during execution.
     /// </summary>
-    /// <remarks>
-    /// Such a binder may derive the value from any <see cref="ShaderExecutionContext"/> property, including
-    /// request state the recorded graph does not otherwise carry, so a cache identity covering this stage has
-    /// to account for that state. A uniform whose value is fixed while recording reads nothing.
-    /// </remarks>
     internal bool ReadsExecutionContext => _bind is not null;
 
     internal object DefinitionFingerprint { get; }

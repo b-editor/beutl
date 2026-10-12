@@ -7,7 +7,7 @@ using Silk.NET.Vulkan.Extensions.EXT;
 
 namespace Beutl.Graphics.Backend.Vulkan;
 
-internal record VulkanMemoryInfo(ulong DeviceLocalMemory, ulong HostVisibleMemory);
+internal record VulkanMemoryInfo(ulong DeviceLocalMemory);
 
 internal sealed unsafe class VulkanInstance : IDisposable
 {
@@ -55,6 +55,7 @@ internal sealed unsafe class VulkanInstance : IDisposable
 
     public Instance Instance => _instance;
 
+    // Test seam: only the validation gate tests read this.
     public bool EnableValidation => _enableValidation;
 
     public string[] EnabledExtensions => _enabledExtensions;
@@ -172,7 +173,6 @@ internal sealed unsafe class VulkanInstance : IDisposable
         _vk.GetPhysicalDeviceMemoryProperties(device, &memProps);
 
         ulong deviceLocalMemory = 0;
-        ulong hostVisibleMemory = 0;
 
         for (uint i = 0; i < memProps.MemoryHeapCount; i++)
         {
@@ -181,13 +181,9 @@ internal sealed unsafe class VulkanInstance : IDisposable
             {
                 deviceLocalMemory += heap.Size;
             }
-            else
-            {
-                hostVisibleMemory += heap.Size;
-            }
         }
 
-        var memoryInfo = new VulkanMemoryInfo(deviceLocalMemory, hostVisibleMemory);
+        var memoryInfo = new VulkanMemoryInfo(deviceLocalMemory);
 
         return new VulkanPhysicalDeviceInfo(
             device, deviceName, deviceType, properties.ApiVersion, memoryInfo, GetDriverId(device, properties.ApiVersion));
@@ -274,24 +270,13 @@ internal sealed unsafe class VulkanInstance : IDisposable
         }
         var filteredExtensions = extensions.Where(e => availableExtensions.Contains(e)).ToArray();
 
+        using var extensionNames = new VulkanNameArray(filteredExtensions);
+        using var layerNames = new VulkanNameArray(validationLayers);
         var appNamePtr = Marshal.StringToHGlobalAnsi("Beutl");
         var engineNamePtr = Marshal.StringToHGlobalAnsi("Beutl.Engine");
 
-        var extensionPtrs = new byte*[filteredExtensions.Length];
-        var layerPtrs = new byte*[validationLayers.Length];
-
         try
         {
-            for (int i = 0; i < filteredExtensions.Length; i++)
-            {
-                extensionPtrs[i] = (byte*)Marshal.StringToHGlobalAnsi(filteredExtensions[i]);
-            }
-
-            for (int i = 0; i < validationLayers.Length; i++)
-            {
-                layerPtrs[i] = (byte*)Marshal.StringToHGlobalAnsi(validationLayers[i]);
-            }
-
             var appInfo = new ApplicationInfo
             {
                 SType = StructureType.ApplicationInfo,
@@ -308,12 +293,12 @@ internal sealed unsafe class VulkanInstance : IDisposable
                 PApplicationInfo = &appInfo
             };
 
-            fixed (byte** ppExtensions = extensionPtrs)
-            fixed (byte** ppLayers = layerPtrs)
+            fixed (byte** ppExtensions = extensionNames.Pointers)
+            fixed (byte** ppLayers = layerNames.Pointers)
             {
-                createInfo.EnabledExtensionCount = (uint)filteredExtensions.Length;
+                createInfo.EnabledExtensionCount = extensionNames.Count;
                 createInfo.PpEnabledExtensionNames = ppExtensions;
-                createInfo.EnabledLayerCount = (uint)validationLayers.Length;
+                createInfo.EnabledLayerCount = layerNames.Count;
                 createInfo.PpEnabledLayerNames = ppLayers;
 
                 if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
@@ -335,22 +320,6 @@ internal sealed unsafe class VulkanInstance : IDisposable
         {
             Marshal.FreeHGlobal(appNamePtr);
             Marshal.FreeHGlobal(engineNamePtr);
-
-            for (int i = 0; i < extensionPtrs.Length; i++)
-            {
-                if (extensionPtrs[i] != null)
-                {
-                    Marshal.FreeHGlobal((IntPtr)extensionPtrs[i]);
-                }
-            }
-
-            for (int i = 0; i < layerPtrs.Length; i++)
-            {
-                if (layerPtrs[i] != null)
-                {
-                    Marshal.FreeHGlobal((IntPtr)layerPtrs[i]);
-                }
-            }
         }
     }
 
@@ -443,28 +412,13 @@ internal sealed unsafe class VulkanInstance : IDisposable
             }
         }
 
-        switch (severity)
-        {
+        // The messenger subscribes to warnings and errors only.
 #pragma warning disable CA2254, CA1873
-            case DebugUtilsMessageSeverityFlagsEXT.None:
-                break;
-            case DebugUtilsMessageSeverityFlagsEXT.VerboseBitExt:
-                s_logger.LogDebug(message);
-                break;
-            case DebugUtilsMessageSeverityFlagsEXT.InfoBitExt:
-                s_logger.LogInformation(message);
-                break;
-            case DebugUtilsMessageSeverityFlagsEXT.WarningBitExt:
-                s_logger.LogWarning(message);
-                break;
-            case DebugUtilsMessageSeverityFlagsEXT.ErrorBitExt:
-                s_logger.LogError(message);
-                break;
-            default:
-                s_logger.LogInformation($"Unknown severity({severity}): {message}");
-                break;
+        if (severity == DebugUtilsMessageSeverityFlagsEXT.ErrorBitExt)
+            s_logger.LogError(message);
+        else
+            s_logger.LogWarning(message);
 #pragma warning restore CA2254, CA1873
-        }
 
         return Vk.False;
     }
@@ -476,9 +430,9 @@ internal sealed unsafe class VulkanInstance : IDisposable
 
         _disposed = true;
 
-        if (_enableValidation && _debugMessenger.Handle != 0 && _debugUtils != null)
+        if (_enableValidation)
         {
-            _debugUtils.DestroyDebugUtilsMessenger(_instance, _debugMessenger, null);
+            _debugUtils!.DestroyDebugUtilsMessenger(_instance, _debugMessenger, null);
         }
 
         _vk.DestroyInstance(_instance, null);

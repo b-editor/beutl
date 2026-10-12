@@ -13,7 +13,7 @@ internal static class VulkanSetup
 
     private delegate int PutenvDelegate(IntPtr name);
 
-    private static (PutenvDelegate Delegate, IntPtr Library) GetPutenvDelegate()
+    private static PutenvDelegate GetPutenvDelegate()
     {
         string libraryName;
         if (OperatingSystem.IsMacOS())
@@ -25,14 +25,13 @@ internal static class VulkanSetup
 
         var library = NativeLibrary.Load(libraryName);
         NativeLibrary.TryGetExport(library, "putenv", out IntPtr putenvPtr);
-        var putenv = Marshal.GetDelegateForFunctionPointer<PutenvDelegate>(putenvPtr);
-        return (putenv, library);
+        return Marshal.GetDelegateForFunctionPointer<PutenvDelegate>(putenvPtr);
     }
 
     private static string? FindFile(string fileName)
     {
         var baseDir = AppContext.BaseDirectory;
-        // 最初にruntimes/{arch}/native配下を探す
+        // 最初にruntimes/{os}-{arch}/native配下を探す
         var arch = RuntimeInformation.ProcessArchitecture switch
         {
             Architecture.X64 => "x64",
@@ -96,7 +95,7 @@ internal static class VulkanSetup
         }
         else
         {
-            var (putenv, library) = GetPutenvDelegate();
+            var putenv = GetPutenvDelegate();
             var envVar = $"{varName}={newValue}";
             var envPtr = Marshal.StringToHGlobalAnsi(envVar);
             putenv(envPtr);

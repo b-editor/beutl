@@ -2,7 +2,7 @@
 
 /// <summary>
 /// Observers of one diagnostic event, each installed for the async flow that called <see cref="Observe"/> until
-/// the returned scope is disposed.
+/// the returned scope is disposed. A test seam: only tests subscribe.
 /// </summary>
 internal sealed class ScopedObservers<T>
 {

@@ -145,5 +145,5 @@ public sealed class MoltenVKDeviceSelectionTests
     }
 
     private static VulkanPhysicalDeviceInfo CreateDevice(string name, PhysicalDeviceType type, DriverId driver)
-        => new(default, name, type, (uint)Vk.Version13, new VulkanMemoryInfo(0, 0), driver);
+        => new(default, name, type, (uint)Vk.Version13, new VulkanMemoryInfo(0), driver);
 }

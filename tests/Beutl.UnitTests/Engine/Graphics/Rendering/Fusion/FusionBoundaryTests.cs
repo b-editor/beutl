@@ -63,7 +63,6 @@ public sealed class FusionBoundaryTests
                 maxStages: int.MaxValue,
                 maxUniformVectors: 0,
                 maxSamplers: int.MaxValue,
-                maxChildren: int.MaxValue,
                 maxSourceBytes: int.MaxValue,
                 maxProgramTokens: int.MaxValue);
             using FusionBoundaryExecutionResult disabled = FusionBoundaryExecutionTestSupport.ExecuteWithBudget(
@@ -300,7 +299,6 @@ public sealed class FusionBoundaryTests
             maxStages: int.MaxValue,
             maxUniformVectors: 0,
             maxSamplers: int.MaxValue,
-            maxChildren: int.MaxValue,
             maxSourceBytes: int.MaxValue,
             maxProgramTokens: int.MaxValue);
         using CompiledRenderRequest compiled = Compile((requestId, cache) =>
@@ -358,7 +356,7 @@ public sealed class FusionBoundaryTests
             Assert.That(backendBoundaries, Has.Exactly(1).Items);
             Assert.That(
                 backendBoundaries[0].BackendLimits,
-                Is.EqualTo(new[] { SkslBackendLimit.Samplers, SkslBackendLimit.Children }));
+                Is.EqualTo(new[] { SkslBackendLimit.Samplers }));
         });
     }
 
@@ -639,7 +637,6 @@ public sealed class FusionBoundaryTests
             maxStages,
             maxUniformVectors: int.MaxValue,
             maxSamplers: int.MaxValue,
-            maxChildren: int.MaxValue,
             maxSourceBytes: int.MaxValue,
             maxProgramTokens: int.MaxValue);
 

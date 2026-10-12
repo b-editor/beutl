@@ -226,7 +226,7 @@ public sealed class PixelSortSpecializationTests
             _runtimeRankShader = GLSLShader.CreateBuiltIn(RuntimeRankShaderSource);
             _runtimeGatherShader = GLSLShader.CreateBuiltIn(
                 RuntimeGatherShaderSource,
-                hasMaskTexture: true);
+                inputCount: 2);
         });
     }
 

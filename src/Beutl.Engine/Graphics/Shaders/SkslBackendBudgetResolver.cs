@@ -7,14 +7,9 @@ namespace Beutl.Graphics.Shaders;
 /// Selects finite fusion budgets for the active Skia backend and the Vulkan-native lowering.
 /// </summary>
 /// <remarks>
-/// SkiaSharp exposes the Skia backend family but not its fragment-uniform, sampler, or runtime-effect child
-/// ceilings. These profiles are therefore conservative engine policies rather than exact driver limits.
-/// <see cref="Portable"/> is the common-denominator profile used when target-less rasterization has not
-/// allocated a backend surface yet. Backend-specific profiles may raise its limits but must not lower them.
-/// Their capability classes remain part of backend program identities even when individual limits coincide.
-/// Source and token limits bound fusion-generated program growth; a valid single stage remains eligible for
-/// the compatibility path when it exceeds one of those limits. <see cref="SpirvVulkan"/> records the smaller
-/// complete subset supported by the first native lowering in this same policy mechanism.
+/// SkiaSharp does not expose the backend's uniform, sampler, or child ceilings, so these are conservative engine
+/// policies rather than driver limits. Backend-specific profiles may raise the limits of <see cref="Portable"/>
+/// but must not lower them.
 /// </remarks>
 internal static class SkslBackendBudgetResolver
 {
@@ -48,15 +43,9 @@ internal static class SkslBackendBudgetResolver
     {
         // Supported GL, D3D, Vulkan, and Metal families guarantee at least 16 fragment samplers.
         // Reserve four for Skia's surrounding paint, blend, coverage, and clip program.
-        // ProgramMetrics counts a sampler and child together, so both limits must match.
-        (int maxSamplers, int maxChildren) = capabilityClass switch
-        {
-            SkslBackendCapabilityClass.Portable => (12, 12),
-            SkslBackendCapabilityClass.Vulkan => (12, 12),
-            SkslBackendCapabilityClass.Metal => (12, 12),
-            SkslBackendCapabilityClass.SpirvVulkan => (1, 1),
-            _ => throw new ArgumentOutOfRangeException(nameof(capabilityClass)),
-        };
+        int maxSamplers = capabilityClass == SkslBackendCapabilityClass.SpirvVulkan
+            ? 1
+            : 12;
 
         int maxStages = capabilityClass == SkslBackendCapabilityClass.SpirvVulkan
             ? 1
@@ -72,7 +61,6 @@ internal static class SkslBackendBudgetResolver
             maxStages,
             maxUniformVectors,
             maxSamplers,
-            maxChildren,
             MaxSourceBytes,
             MaxProgramTokens);
     }

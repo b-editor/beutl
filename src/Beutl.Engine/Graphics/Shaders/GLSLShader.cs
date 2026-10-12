@@ -181,7 +181,7 @@ public sealed class GLSLShader : IDisposable
             context,
             fragmentShaderSource,
             ShaderOutputCoverage.MayLeavePixelsUnwritten,
-            hasMaskTexture: true);
+            inputCount: 2);
         if (pipeline == null)
         {
             throw new InvalidOperationException("Failed to compile GLSL dual-texture shader.");
@@ -233,16 +233,14 @@ public sealed class GLSLShader : IDisposable
     /// Creates an engine-owned shader whose output is allowed to skip pooled-target initialization.
     /// </summary>
     /// <param name="fragmentShaderSource">
-    /// An audited built-in fragment shader. Every control-flow path must write the fragment output and the shader
-    /// must contain no <c>discard</c>. If this proof is false, unwritten pixels can expose stale data from a
-    /// previous unrelated frame when a pooled target is warm.
+    /// An audited built-in fragment shader that may claim <see cref="ShaderOutputCoverage.ProvablyFull"/>.
     /// </param>
     /// <param name="specializationConstants">Immutable values fixed for the lifetime of the created pipeline.</param>
-    /// <param name="hasMaskTexture">Whether the shader reads a second texture at binding 1.</param>
+    /// <param name="inputCount">The number of consecutive sampler bindings in set 0.</param>
     internal static GLSLShader CreateBuiltIn(
         string fragmentShaderSource,
         ImmutableArray<SpecializationConstant> specializationConstants = default,
-        bool hasMaskTexture = false)
+        int inputCount = 1)
     {
         IGraphicsContext context = RequireGraphicsContext();
 
@@ -251,7 +249,7 @@ public sealed class GLSLShader : IDisposable
             fragmentShaderSource,
             ShaderOutputCoverage.ProvablyFull,
             specializationConstants,
-            hasMaskTexture);
+            inputCount);
         if (pipeline == null)
         {
             throw new InvalidOperationException("Failed to compile built-in GLSL shader.");
