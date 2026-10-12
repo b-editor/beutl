@@ -22,10 +22,10 @@ public class AlignmentEditorTests
 
         Assert.That(editor.Value, Is.EqualTo(AlignmentX.Left));
 
-        host.Click(host.Require<RadioButton>("PART_CenterRadioButton"));
+        host.Click(host.Require<RadioButton>("PART_OptionB"));
         Assert.That(editor.Value, Is.EqualTo(AlignmentX.Center));
 
-        host.Click(host.Require<RadioButton>("PART_RightRadioButton"));
+        host.Click(host.Require<RadioButton>("PART_OptionC"));
         Assert.That(editor.Value, Is.EqualTo(AlignmentX.Right));
 
         Assert.That(changed, Is.EqualTo(new[] { AlignmentX.Center, AlignmentX.Right }));
@@ -40,10 +40,10 @@ public class AlignmentEditorTests
 
         Assert.That(editor.Value, Is.EqualTo(AlignmentY.Top));
 
-        host.Click(host.Require<RadioButton>("PART_BottomRadioButton"));
+        host.Click(host.Require<RadioButton>("PART_OptionC"));
         Assert.That(editor.Value, Is.EqualTo(AlignmentY.Bottom));
 
-        host.Click(host.Require<RadioButton>("PART_CenterRadioButton"));
+        host.Click(host.Require<RadioButton>("PART_OptionB"));
         Assert.That(editor.Value, Is.EqualTo(AlignmentY.Center));
     }
 
@@ -56,7 +56,7 @@ public class AlignmentEditorTests
         editor.Value = AlignmentX.Right;
         HeadlessTestHelpers.Settle();
 
-        Assert.That(host.Require<RadioButton>("PART_RightRadioButton").IsChecked, Is.True);
-        Assert.That(host.Require<RadioButton>("PART_LeftRadioButton").IsChecked, Is.False);
+        Assert.That(host.Require<RadioButton>("PART_OptionC").IsChecked, Is.True);
+        Assert.That(host.Require<RadioButton>("PART_OptionA").IsChecked, Is.False);
     }
 }

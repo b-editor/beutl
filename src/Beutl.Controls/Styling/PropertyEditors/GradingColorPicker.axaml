@@ -48,17 +48,14 @@
                                          ColorModel="Hsva"
                                          IsVisible="False" />
 
-                            <!--  RGBの時のRed  -->
+                            <!--  RGB: First/Second/Third/Fourth are R/G/B/all. HSV: Third is V.  -->
                             <local:GradingWheel Name="FirstComponentWheel"
                                                 Background="Red"
                                                 IsVisible="False" />
-                            <!--  RGBの時のBlue  -->
                             <local:GradingWheel Name="SecondComponentWheel"
                                                 Background="Green"
                                                 IsVisible="False" />
-                            <!--  HSVの時のValue, RGBの時のBlueを表すスライダー  -->
                             <local:GradingWheel Name="ThirdComponentWheel" />
-                            <!--  RGBの時の全体  -->
                             <local:GradingWheel Name="FourthComponentWheel" IsVisible="False" />
 
                         </StackPanel>
@@ -91,7 +88,7 @@
                                                                 Grid.Row="2"
                                                                 Grid.ColumnSpan="3"
                                                                 HorizontalAlignment="Stretch"
-                                                                Theme="{StaticResource GradingColorComponentsEditorStyle}" />
+                                                                Theme="{StaticResource ColorComponentsEditorStyle}" />
                         </Grid>
                     </Grid>
 
@@ -133,9 +130,6 @@
             </Style>
 
             <Style Selector="^[InputType=Rgb]">
-                <Style Selector="^ /template/ ColorSlider#HueSlider, ^ /template/ ColorSlider#SaturationSlider">
-                    <Setter Property="IsVisible" Value="False" />
-                </Style>
                 <Style Selector="^ /template/ local|GradingWheel#FirstComponentWheel, ^ /template/ local|GradingWheel#SecondComponentWheel, ^ /template/ local|GradingWheel#FourthComponentWheel">
                     <Setter Property="IsVisible" Value="True" />
                 </Style>
@@ -147,9 +141,6 @@
             <Style Selector="^[InputType=Hsv]">
                 <Style Selector="^ /template/ ColorSlider#HueSlider, ^ /template/ ColorSlider#SaturationSlider">
                     <Setter Property="IsVisible" Value="True" />
-                </Style>
-                <Style Selector="^ /template/ local|GradingWheel#FirstComponentWheel, ^ /template/ local|GradingWheel#SecondComponentWheel, ^ /template/ local|GradingWheel#FourthComponentWheel">
-                    <Setter Property="IsVisible" Value="False" />
                 </Style>
             </Style>
         </Style>

@@ -70,31 +70,4 @@
             </Animation>
         </Style.Animations>
     </Style>
-    <!--<Style Selector="Border.placeholder">
-        <Style.Animations>
-            <Animation IterationCount="Infinite" Duration="00:00:02">
-                <KeyFrame KeyTime="00:00:00">
-                    <Setter Property="Background">
-                        <LinearGradientBrush Transform="translateX(-50px) scaleX(2)" StartPoint="0%,50%" EndPoint="100%,50%">
-                            <GradientStop Offset="0.08" Color="{DynamicResource ControlFillColorDefault}" />
-                            <GradientStop Offset="0.18" Color="{DynamicResource ControlFillColorSecondary}" />
-                            <GradientStop Offset="0.33" Color="{DynamicResource ControlFillColorDefault}" />
-                        </LinearGradientBrush>
-                    </Setter>
-                </KeyFrame>
-                <KeyFrame KeyTime="00:00:01">
-                    <Setter Property="Background">
-                        <LinearGradientBrush Transform="translateX(50px) scaleX(2)" StartPoint="0%,50%" EndPoint="100%,50%">
-                            <GradientStop Offset="0.08" Color="{DynamicResource ControlFillColorDefault}" />
-                            <GradientStop Offset="0.18" Color="{DynamicResource ControlFillColorSecondary}" />
-                            <GradientStop Offset="0.33" Color="{DynamicResource ControlFillColorDefault}" />
-                        </LinearGradientBrush>
-                    </Setter>
-                </KeyFrame>
-                <KeyFrame KeyTime="00:00:02">
-                    <Setter Property="Background" Value="{DynamicResource ControlFillColorDefaultBrush}" />
-                </KeyFrame>
-            </Animation>
-        </Style.Animations>
-    </Style>-->
 </Styles>

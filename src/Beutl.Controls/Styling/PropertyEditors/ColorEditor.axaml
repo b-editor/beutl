@@ -12,7 +12,8 @@
         </Border>
     </Design.PreviewWith>
 
-    <ControlTheme x:Key="{x:Type local:ColorEditor}" TargetType="local:ColorEditor">
+    <!--  GradingColorEditor is based on this theme, so it targets PropertyEditor and binds to PreviewBrush.  -->
+    <ControlTheme x:Key="{x:Type local:ColorEditor}" TargetType="local:PropertyEditor">
         <Setter Property="Template">
             <ControlTemplate>
                 <Border Padding="{TemplateBinding Padding}"
@@ -31,8 +32,8 @@
 
                         <GridSplitter Grid.Column="1" Background="Transparent" />
 
-                        <Grid Grid.Column="2"
-                              MinWidth="{DynamicResource ColorEditorValueMinWidth}"
+                        <Grid Name="PART_ValueGrid"
+                              Grid.Column="2"
                               Margin="4,2"
                               ColumnDefinitions="*,Auto">
                             <Button Name="PART_ColorPickerButton"
@@ -47,7 +48,7 @@
                                             Margin="8,6,4,6"
                                             HorizontalAlignment="Left"
                                             VerticalAlignment="Center"
-                                            Background="{Binding Value, Mode=OneWay, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource ColorBrushConv}}"
+                                            Background="{Binding PreviewBrush, Mode=OneWay, RelativeSource={RelativeSource TemplatedParent}}"
                                             BorderBrush="{DynamicResource ColorPickerButtonOutline}"
                                             BorderThickness="1"
                                             CornerRadius="{DynamicResource ControlCornerRadius}" />
@@ -107,7 +108,7 @@
                                             Margin="8,6,4,6"
                                             HorizontalAlignment="Left"
                                             VerticalAlignment="Center"
-                                            Background="{Binding Value, Mode=OneWay, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource ColorBrushConv}}"
+                                            Background="{Binding PreviewBrush, Mode=OneWay, RelativeSource={RelativeSource TemplatedParent}}"
                                             BorderBrush="{DynamicResource ColorPickerButtonOutline}"
                                             BorderThickness="1"
                                             CornerRadius="{DynamicResource ControlCornerRadius}" />
@@ -162,7 +163,7 @@
                                             Margin="8,6,4,6"
                                             HorizontalAlignment="Left"
                                             VerticalAlignment="Center"
-                                            Background="{Binding Value, Mode=OneWay, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource ColorBrushConv}}"
+                                            Background="{Binding PreviewBrush, Mode=OneWay, RelativeSource={RelativeSource TemplatedParent}}"
                                             BorderBrush="{DynamicResource ColorPickerButtonOutline}"
                                             BorderThickness="1"
                                             CornerRadius="{DynamicResource ControlCornerRadius}" />
@@ -178,6 +179,10 @@
                     </OptionsDisplayItem>
                 </ControlTemplate>
             </Setter>
+        </Style>
+
+        <Style Selector="^ /template/ Grid#PART_ValueGrid">
+            <Setter Property="MinWidth" Value="{DynamicResource ColorEditorValueMinWidth}" />
         </Style>
 
         <Style Selector="^:not(:visible-left-button) /template/ Button#PART_LeftButton">

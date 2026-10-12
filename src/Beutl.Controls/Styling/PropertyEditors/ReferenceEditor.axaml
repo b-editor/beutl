@@ -14,7 +14,6 @@
     <ControlTheme x:Key="{x:Type local:ReferenceEditor}" TargetType="local:ReferenceEditor">
         <Setter Property="MinWidth" Value="{DynamicResource PropertyEditorMinWidth}" />
 
-        <!--  Normal Style Template  -->
         <Setter Property="Template">
             <ControlTemplate>
                 <Border Padding="{TemplateBinding Padding}"
@@ -55,7 +54,6 @@
             </ControlTemplate>
         </Setter>
 
-        <!--  ListItem Style Template  -->
         <Style Selector="^:list-item">
             <Setter Property="Template">
                 <ControlTemplate>

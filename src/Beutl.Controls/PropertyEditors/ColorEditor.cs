@@ -21,6 +21,9 @@ public class ColorEditor : PropertyEditor
     public static readonly StyledProperty<bool> IsLivePreviewEnabledProperty =
         AvaloniaProperty.Register<ColorEditor, bool>(nameof(IsLivePreviewEnabled));
 
+    public static readonly DirectProperty<ColorEditor, IBrush> PreviewBrushProperty =
+        AvaloniaProperty.RegisterDirect<ColorEditor, IBrush>(nameof(PreviewBrush), o => o.PreviewBrush);
+
     private SimpleColorPickerFlyout? _flyout;
 
     private bool _flyoutActive;
@@ -28,12 +31,22 @@ public class ColorEditor : PropertyEditor
 
     private Color _oldValue = Colors.White;
     private Color _value = Colors.White;
+    private IBrush _previewBrush = new SolidColorBrush(Colors.White);
 
     public Color Value
     {
         get => _value;
-        set => SetAndRaise(ValueProperty, ref _value, value);
+        set
+        {
+            if (SetAndRaise(ValueProperty, ref _value, value))
+            {
+                SetAndRaise(PreviewBrushProperty, ref _previewBrush, new SolidColorBrush(value));
+            }
+        }
     }
+
+    // The swatch the shared ColorEditor theme shows for the value.
+    public IBrush PreviewBrush => _previewBrush;
 
     public bool IsLivePreviewEnabled
     {
