@@ -1,10 +1,7 @@
-﻿#nullable enable
-
-using System.Globalization;
+﻿using System.Globalization;
 using Avalonia.Data.Converters;
 using Avalonia.Media;
 using Beutl.Media;
-using AColor = Avalonia.Media.Color;
 using ASolidColorBrush = Avalonia.Media.SolidColorBrush;
 
 namespace Beutl.Controls.PropertyEditors;
@@ -15,9 +12,7 @@ public class GradingColorBrushConverter : IValueConverter
     {
         if (value is GradingColor gradingColor)
         {
-            var beutlColor = gradingColor.ToColor();
-            var avaloniaColor = AColor.FromArgb(beutlColor.A, beutlColor.R, beutlColor.G, beutlColor.B);
-            return new ASolidColorBrush(avaloniaColor);
+            return new ASolidColorBrush(gradingColor.ToColor().ToAvaColor());
         }
 
         return null;

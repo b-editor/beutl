@@ -47,12 +47,6 @@ public class NavItemHelper : Behavior<FANavigationViewItem>
         _disposable?.Dispose();
     }
 
-    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
-    {
-        // The override stays because it is part of the public API.
-        base.OnPropertyChanged(change);
-    }
-
     private static void SetFontSize(FAIconSource? iconSource)
     {
         if (iconSource is FAFontIconSource fontIcon)

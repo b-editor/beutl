@@ -1,6 +1,4 @@
-﻿#nullable enable
-
-using System.Reactive.Disposables;
+﻿using System.Reactive.Disposables;
 
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;

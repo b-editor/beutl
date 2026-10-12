@@ -1,12 +1,10 @@
-﻿#nullable enable
-
-using Avalonia.Threading;
+﻿using Avalonia.Threading;
 
 using FluentAvalonia.UI.Media;
 
 namespace Beutl.Controls.PropertyEditors;
 
-public partial class ColorDropper : IDisposable
+public partial class ColorDropper
 {
     private readonly DispatcherTimer _timer = new(DispatcherPriority.Normal, Dispatcher.UIThread);
     private readonly TaskCompletionSource<(Color2, int X, int Y)> _tcs;
@@ -62,10 +60,6 @@ public partial class ColorDropper : IDisposable
     {
         _timer.Stop();
         _timer.Tick -= Timer_Tick;
-    }
-
-    public void Dispose()
-    {
     }
 
     private static bool IsClickDown()

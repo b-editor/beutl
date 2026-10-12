@@ -1,5 +1,4 @@
 ﻿#if WINDOWS
-#nullable enable
 
 using System.Drawing;
 using System.Drawing.Imaging;

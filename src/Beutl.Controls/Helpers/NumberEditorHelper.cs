@@ -49,13 +49,12 @@ public static class NumberEditorHelper
     {
         try
         {
-            // original のスケールに合わせて delta を調整
+            // The sum keeps the larger number of decimal places of the two values.
             var originalDecimal = decimal.CreateTruncating(original);
             var deltaDecimal = decimal.CreateTruncating(delta);
             int scale = Math.Max(GetScale(originalDecimal), GetScale(deltaDecimal));
             decimal result = originalDecimal + deltaDecimal;
 
-            // 同じスケールに正規化
             return TValue.CreateTruncating(decimal.Round(result, scale));
         }
         catch (OverflowException)
@@ -67,7 +66,6 @@ public static class NumberEditorHelper
 
     public static int GetScale(decimal value)
     {
-        // decimal のビット表現からスケールを取得
         int[] bits = decimal.GetBits(value);
         return (bits[3] >> 16) & 0xFF;
     }
@@ -83,16 +81,13 @@ public static class NumberEditorHelper
         if (TValue.TryParse(newText, CultureInfo.CurrentCulture, out newValue)
             && newValue is not null)
         {
-            bool invalidOldValue = !TValue.TryParse(oldText, CultureInfo.CurrentCulture, out oldValue)
-                || oldValue is null;
-            if (invalidOldValue)
+            if (!TValue.TryParse(oldText, CultureInfo.CurrentCulture, out oldValue) || oldValue is null)
             {
                 oldValue = newValue;
+                return true;
             }
 
-            oldValue ??= newValue;
-
-            return invalidOldValue || newValue != oldValue;
+            return newValue != oldValue;
         }
 
         oldValue = default;

@@ -6,8 +6,6 @@ using Avalonia.Interactivity;
 
 using Beutl.Media;
 
-#nullable enable
-
 namespace Beutl.Controls.PropertyEditors;
 
 public class GradingColorEditor : PropertyEditor
@@ -59,10 +57,7 @@ public class GradingColorEditor : PropertyEditor
         }
         base.OnApplyTemplate(e);
         _button = e.NameScope.Get<Button>("PART_ColorPickerButton");
-        if (_button != null)
-        {
-            _button.Click += OnButtonClick;
-        }
+        _button.Click += OnButtonClick;
     }
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
@@ -119,7 +114,7 @@ public class GradingColorEditor : PropertyEditor
         }
     }
 
-    private void OnFlyoutConfirmed(GradingColorPickerFlyout sender, EventArgs args)
+    private void OnFlyoutConfirmed(DraggablePickerFlyout<GradingColorPicker> sender, EventArgs args)
     {
         if (_flyoutActive && _flyout != null)
         {

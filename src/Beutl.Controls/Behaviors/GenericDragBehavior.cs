@@ -14,8 +14,6 @@ using Avalonia.Xaml.Interactivity;
 
 namespace Beutl.Controls.Behaviors;
 
-#nullable enable
-
 public class GenericDragBehavior : Behavior<Control>
 {
     private bool _enableDrag;
@@ -65,6 +63,20 @@ public class GenericDragBehavior : Behavior<Control>
         set => SetValue(DragControlProperty, value);
     }
 
+    // The options below keep how the reorder behaviors of the app handled the pointer before they derived from
+    // this one.
+
+    // Without the capture, moves and the release count while a press has armed the drag.
+    protected virtual bool CapturesPointer => true;
+
+    protected virtual DragEventHandling HandledEvents => DragEventHandling.Always;
+
+    // Whether the containers are counted through ItemsControl.Items instead of ItemsSource.
+    protected virtual bool CountsItems => false;
+
+    // Whether detaching, or switching DragControl, cancels a drag in progress.
+    protected virtual bool CancelsDragOnDetach => true;
+
     protected override void OnAttached()
     {
         base.OnAttached();
@@ -94,11 +106,14 @@ public class GenericDragBehavior : Behavior<Control>
         if (_subscribedDragControl is { } previous)
         {
             // A control switch cancels the current gesture before its capture-lost handler is removed.
-            _dragStarted = false;
-            if (_activePointer is { } pointer && ReferenceEquals(pointer.Captured, previous))
-                pointer.Capture(null);
-            Released();
-            _activePointer = null;
+            if (CancelsDragOnDetach)
+            {
+                _dragStarted = false;
+                if (_activePointer is { } pointer && ReferenceEquals(pointer.Captured, previous))
+                    pointer.Capture(null);
+                Released();
+                _activePointer = null;
+            }
 
             previous.RemoveHandler(InputElement.PointerReleasedEvent, Released);
             previous.RemoveHandler(InputElement.PointerPressedEvent, Pressed);
@@ -116,7 +131,7 @@ public class GenericDragBehavior : Behavior<Control>
         control.AddHandler(InputElement.PointerCaptureLostEvent, CaptureLost, RoutingStrategies.Tunnel);
     }
 
-    protected virtual ContentPresenter? OnFindDraggedContainer()
+    protected virtual Control? OnFindDraggedContainer()
     {
         return AssociatedObject?.FindAncestorOfType<ContentPresenter>();
     }
@@ -150,30 +165,57 @@ public class GenericDragBehavior : Behavior<Control>
 
             ResetTransforms(_itemsControl);
 
-            e.Pointer.Capture(DragControl);
-            _activePointer = e.Pointer;
-            e.Handled = true;
+            if (CapturesPointer)
+            {
+                e.Pointer.Capture(DragControl);
+                _activePointer = e.Pointer;
+            }
+
+            if (ShouldMarkHandled())
+                e.Handled = true;
         }
+    }
+
+    private bool IsDragPointer(IPointer pointer)
+    {
+        return CapturesPointer ? Equals(pointer.Captured, DragControl) : _enableDrag;
+    }
+
+    // Read before Released() resets the drag.
+    private bool ShouldMarkHandled()
+    {
+        return HandledEvents switch
+        {
+            DragEventHandling.Always => true,
+            DragEventHandling.WhileDragging => _dragStarted,
+            _ => false
+        };
     }
 
     private void Released(object? sender, PointerReleasedEventArgs e)
     {
-        if (Equals(e.Pointer.Captured, DragControl))
+        if (IsDragPointer(e.Pointer))
         {
+            bool handled = ShouldMarkHandled();
             if (e.InitialPressMouseButton == MouseButton.Left)
             {
                 Released();
             }
 
-            e.Pointer.Capture(null);
-            e.Handled = true;
+            if (CapturesPointer)
+                e.Pointer.Capture(null);
+
+            if (handled)
+                e.Handled = true;
         }
     }
 
     private void CaptureLost(object? sender, PointerCaptureLostEventArgs e)
     {
+        bool handled = ShouldMarkHandled();
         Released();
-        e.Handled = true;
+        if (handled)
+            e.Handled = true;
     }
 
     private void Released()
@@ -210,16 +252,21 @@ public class GenericDragBehavior : Behavior<Control>
         _activePointer = null;
     }
 
-    private static void ResetTransforms(ItemsControl? itemsControl)
+    private IEnumerable? GetItems(ItemsControl? itemsControl)
     {
-        if (itemsControl?.ItemsSource is null)
+        return CountsItems ? itemsControl?.Items : itemsControl?.ItemsSource;
+    }
+
+    private void ResetTransforms(ItemsControl? itemsControl)
+    {
+        if (itemsControl is null || GetItems(itemsControl) is not { } items)
         {
             return;
         }
 
         int i = 0;
 
-        foreach (object? _ in itemsControl.ItemsSource)
+        foreach (object? _ in items)
         {
             Control? container = itemsControl.ContainerFromIndex(i);
             if (container is not null)
@@ -251,10 +298,13 @@ public class GenericDragBehavior : Behavior<Control>
     private void Moved(object? sender, PointerEventArgs e)
     {
         PointerPointProperties? properties = e.GetCurrentPoint(AssociatedObject).Properties;
-        if (Equals(e.Pointer.Captured, DragControl)
+        if (IsDragPointer(e.Pointer)
             && properties?.IsLeftButtonPressed == true)
         {
-            if (_itemsControl?.ItemsSource is null || _draggedContainer?.RenderTransform is null || !_enableDrag)
+            if (_itemsControl is null
+                || GetItems(_itemsControl) is not { } items
+                || _draggedContainer?.RenderTransform is null
+                || !_enableDrag)
             {
                 return;
             }
@@ -321,7 +371,7 @@ public class GenericDragBehavior : Behavior<Control>
 
             int i = 0;
 
-            foreach (object? _ in _itemsControl.ItemsSource)
+            foreach (object? _ in items)
             {
                 Control? targetContainer = _itemsControl.ContainerFromIndex(i);
                 if (targetContainer?.RenderTransform is null || ReferenceEquals(targetContainer, _draggedContainer))
@@ -383,14 +433,7 @@ public class GenericDragBehavior : Behavior<Control>
         }
         else
         {
-            if (orientation == Orientation.Horizontal)
-            {
-                SetTranslateTransform(targetContainer, 0, 0);
-            }
-            else
-            {
-                SetTranslateTransform(targetContainer, 0, 0);
-            }
+            SetTranslateTransform(targetContainer, 0, 0);
         }
     }
 
@@ -423,4 +466,16 @@ public class GenericDragBehavior : Behavior<Control>
         transformBuilder.AppendTranslate(x, y);
         control.RenderTransform = transformBuilder.Build();
     }
+}
+
+// Which pointer events of a drag GenericDragBehavior marks handled.
+public enum DragEventHandling
+{
+    // The press, the release and the capture loss.
+    Always,
+
+    // The release and the capture loss that end a drag past its threshold.
+    WhileDragging,
+
+    Never,
 }

@@ -11,8 +11,6 @@ using Avalonia.LogicalTree;
 using Beutl.Extensibility;
 using Beutl.Reactive;
 
-#nullable enable annotations
-
 namespace Beutl.Controls.PropertyEditors;
 
 public enum PropertyEditorStyle

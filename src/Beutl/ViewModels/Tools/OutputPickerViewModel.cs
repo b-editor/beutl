@@ -48,13 +48,13 @@ public sealed class OutputPickerViewModel : IDisposable
         RebuildPresets();
     }
 
-    public ReactiveCollection<PinnableOutputItem> ProfileItems { get; } = [];
+    public ReactiveCollection<PinnableLibraryItem> ProfileItems { get; } = [];
 
-    public ReactiveCollection<PinnableOutputItem> PresetItems { get; } = [];
+    public ReactiveCollection<PinnableLibraryItem> PresetItems { get; } = [];
 
-    public ReactiveProperty<PinnableOutputItem?> SelectedProfile { get; } = new();
+    public ReactiveProperty<PinnableLibraryItem?> SelectedProfile { get; } = new();
 
-    public ReactiveProperty<PinnableOutputItem?> SelectedPreset { get; } = new();
+    public ReactiveProperty<PinnableLibraryItem?> SelectedPreset { get; } = new();
 
     public ReactiveProperty<bool> ShowPresets { get; } = new(true);
 
@@ -66,11 +66,11 @@ public sealed class OutputPickerViewModel : IDisposable
         SelectedProfile.Value = ProfileItems.FirstOrDefault(i => ReferenceEquals(i.UserData, currentProfile));
     }
 
-    public void Pin(PinnableOutputItem item) => SetPinned(item, true);
+    public void Pin(PinnableLibraryItem item) => SetPinned(item, true);
 
-    public void Unpin(PinnableOutputItem item) => SetPinned(item, false);
+    public void Unpin(PinnableLibraryItem item) => SetPinned(item, false);
 
-    private void SetPinned(PinnableOutputItem item, bool pinned)
+    private void SetPinned(PinnableLibraryItem item, bool pinned)
     {
         switch (item.UserData)
         {
@@ -109,7 +109,7 @@ public sealed class OutputPickerViewModel : IDisposable
             ProfileItems,
             SelectedProfile,
             _profileSource
-                .Select(p => new PinnableOutputItem(
+                .Select(p => new PinnableLibraryItem(
                     p.Context.Name.Value,
                     _pinnedProfiles.Contains(p.Context.Name.Value),
                     p)));
@@ -119,7 +119,7 @@ public sealed class OutputPickerViewModel : IDisposable
             PresetItems,
             SelectedPreset,
             _presetSource
-                .Select(p => new PinnableOutputItem(
+                .Select(p => new PinnableLibraryItem(
                     p.Name.Value,
                     _pinnedPresets.Contains(p.Name.Value),
                     p)));
@@ -127,9 +127,9 @@ public sealed class OutputPickerViewModel : IDisposable
     // Refills target, filtered and sorted, keeping the selection on the item it held. The items
     // are only enumerated after the selection has been read and target cleared.
     private void Rebuild(
-        ReactiveCollection<PinnableOutputItem> target,
-        ReactiveProperty<PinnableOutputItem?> selection,
-        IEnumerable<PinnableOutputItem> items)
+        ReactiveCollection<PinnableLibraryItem> target,
+        ReactiveProperty<PinnableLibraryItem?> selection,
+        IEnumerable<PinnableLibraryItem> items)
     {
         var selected = selection.Value?.UserData;
         target.ClearOnScheduler();
@@ -146,7 +146,7 @@ public sealed class OutputPickerViewModel : IDisposable
         }
     }
 
-    private IEnumerable<PinnableOutputItem> ApplyFilterAndSort(IEnumerable<PinnableOutputItem> items)
+    private IEnumerable<PinnableLibraryItem> ApplyFilterAndSort(IEnumerable<PinnableLibraryItem> items)
     {
         if (!string.IsNullOrWhiteSpace(SearchText.Value))
         {

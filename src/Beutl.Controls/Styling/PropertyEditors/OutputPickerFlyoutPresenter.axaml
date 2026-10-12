@@ -1,7 +1,5 @@
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-                    xmlns:behaviors="using:Beutl.Controls.Behaviors"
-                    xmlns:int="using:Avalonia.Xaml.Interactivity"
                     xmlns:lang="using:Beutl.Language"
                     xmlns:local="using:Beutl.Controls.PropertyEditors"
                     xmlns:icons="using:FluentIcons.Avalonia.Fluent"
@@ -52,12 +50,9 @@
                         <ToggleButton Name="PinButton"
                                       Grid.Column="2"
                                       Margin="0,0,2,0"
-                                      IsChecked="{Binding $self.((local:PinnableOutputItem)DataContext).IsPinned, FallbackValue=False}"
+                                      IsChecked="{Binding $self.((local:PinnableLibraryItem)DataContext).IsPinned, FallbackValue=False}"
                                       IsVisible="False"
                                       Theme="{StaticResource OutputPicker_ToggleButton}">
-                            <int:Interaction.Behaviors>
-                                <behaviors:OutputPickerItemBehavior />
-                            </int:Interaction.Behaviors>
                             <icons:FluentIcon Icon="Pin" />
                         </ToggleButton>
 
@@ -66,9 +61,6 @@
                                 Margin="0,0,4,0"
                                 IsVisible="False"
                                 Theme="{StaticResource OutputPicker_MoreButton}">
-                            <int:Interaction.Behaviors>
-                                <behaviors:OutputPickerItemMoreButtonBehavior />
-                            </int:Interaction.Behaviors>
                             <icons:FluentIcon Icon="MoreVertical" />
                         </Button>
 
@@ -276,7 +268,7 @@
                                      ItemsSource="{TemplateBinding ProfileItems}"
                                      SelectedItem="{Binding $parent[local:OutputPickerFlyoutPresenter].SelectedProfile, Mode=TwoWay}">
                                 <ListBox.ItemTemplate>
-                                    <DataTemplate x:DataType="local:PinnableOutputItem">
+                                    <DataTemplate x:DataType="local:PinnableLibraryItem">
                                         <TextBlock VerticalAlignment="Center"
                                                    Text="{Binding DisplayName}"
                                                    ToolTip.Tip="{Binding Description}" />
@@ -292,7 +284,7 @@
                                      ItemsSource="{TemplateBinding PresetItems}"
                                      SelectedItem="{Binding $parent[local:OutputPickerFlyoutPresenter].SelectedPreset, Mode=TwoWay}">
                                 <ListBox.ItemTemplate>
-                                    <DataTemplate x:DataType="local:PinnableOutputItem">
+                                    <DataTemplate x:DataType="local:PinnableLibraryItem">
                                         <TextBlock VerticalAlignment="Center"
                                                    Text="{Binding DisplayName}"
                                                    ToolTip.Tip="{Binding Description}" />

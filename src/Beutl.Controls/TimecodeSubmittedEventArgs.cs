@@ -10,7 +10,7 @@ public sealed class TimecodeSubmittedEventArgs : EventArgs
 {
     public TimecodeSubmittedEventArgs(string input)
     {
-        Input = input ?? string.Empty;
+        Input = input;
     }
 
     public string Input { get; }
@@ -28,6 +28,6 @@ public sealed class TimecodeSubmittedEventArgs : EventArgs
     public void Reject(string error)
     {
         Handled = false;
-        Error = error ?? string.Empty;
+        Error = error;
     }
 }

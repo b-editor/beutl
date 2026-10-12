@@ -63,7 +63,7 @@ public class EnumEditor : PropertyEditor
 
     protected virtual void OnComboBoxSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
-        // 必ず選択されている
+        // A change that only clears the selection is ignored.
         if (e.AddedItems.Count > 0)
         {
             RaiseEvent(new PropertyEditorValueChangedEventArgs<int>(InnerComboBox.SelectedIndex, PrevSelectedIndex, ValueConfirmedEvent));

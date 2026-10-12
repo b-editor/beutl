@@ -1,7 +1,5 @@
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-                    xmlns:behaviors="using:Beutl.Controls.Behaviors"
-                    xmlns:int="using:Avalonia.Xaml.Interactivity"
                     xmlns:lang="using:Beutl.Language"
                     xmlns:local="using:Beutl.Controls.PropertyEditors"
                     xmlns:icons="using:FluentIcons.Avalonia.Fluent"
@@ -48,9 +46,6 @@
                                       IsChecked="{Binding $self.((local:PinnableLibraryItem)DataContext).IsPinned, FallbackValue=False}"
                                       IsVisible="False"
                                       Theme="{StaticResource LibraryItemPicker_ToggleButton}">
-                            <int:Interaction.Behaviors>
-                                <behaviors:LibraryItemPickerItemBehavior />
-                            </int:Interaction.Behaviors>
                             <icons:FluentIcon Icon="Pin" />
                         </ToggleButton>
 

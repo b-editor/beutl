@@ -6,8 +6,6 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Data;
 using Avalonia.Interactivity;
 
-using Microsoft.Extensions.Logging;
-
 namespace Beutl.Controls;
 
 public partial class Player : RangeBase
@@ -66,8 +64,6 @@ public partial class Player : RangeBase
 
     public static readonly StyledProperty<IReadOnlyList<PlayerMarkerEntry>?> MarkersProperty =
         AvaloniaProperty.Register<Player, IReadOnlyList<PlayerMarkerEntry>?>(nameof(Markers));
-
-    private static readonly ILogger s_logger = Beutl.Logging.Log.CreateLogger<Player>();
 
     private string _currentTime = string.Empty;
     private string _editStartText = string.Empty;

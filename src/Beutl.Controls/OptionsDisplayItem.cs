@@ -206,7 +206,7 @@ public class OptionsDisplayItem : TemplatedControl
 
     protected virtual async void OnIsExpandedChanged(AvaloniaPropertyChangedEventArgs e)
     {
-        if (Content != null && ContentTransition != null && Content is Visual visualContent)
+        if (ContentTransition != null && Content is Visual visualContent)
         {
             _lastTransitionCts?.Cancel();
             _lastTransitionCts = new CancellationTokenSource();

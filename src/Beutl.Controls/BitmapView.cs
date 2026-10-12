@@ -1,6 +1,4 @@
-﻿#nullable enable
-
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
@@ -295,7 +293,6 @@ public class BitmapView : Avalonia.Controls.Control
 
             if (needsToneMapping)
             {
-                // トーンマッピングシェーダーを使用
                 float scaleX = sourceRect.Width / destRect.Width;
                 float scaleY = sourceRect.Height / destRect.Height;
                 float transX = sourceRect.Left - destRect.Left * scaleX;
@@ -317,7 +314,6 @@ public class BitmapView : Avalonia.Controls.Control
             }
             else
             {
-                // 既存パス: Linear→sRGB or そのまま
                 canvas.DrawImage(image, sourceRect, destRect, sampling,
                     isLinear ? s_linearPaint : s_gammaPaint);
             }

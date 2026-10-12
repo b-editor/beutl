@@ -29,9 +29,6 @@
     <x:Double x:Key="ColorPickerColorRampSize">20</x:Double>
     <x:Double x:Key="ColorRampBorderThickness">1</x:Double>
     <Thickness x:Key="ColorPaletteItemMargin">2</Thickness>
-    <DataTemplate x:Key="ColorSpectrumTabContent">
-        <ui:ColorSpectrum />
-    </DataTemplate>
     <!--  Icons used in TabControl of ColorPicker  -->
     <!--  Icon Credit: materialdesignicons.com, Austin Andrews (palette-advanced)  -->
     <StreamGeometry x:Key="ColorSpectrumGeometry">M22,22H10V20H22V22M2,22V20H9V22H2M18,18V10H22V18H18M18,3H22V9H18V3M2,18V3H16V18H2M9,14.56A3,3 0 0,0 12,11.56C12,9.56 9,6.19 9,6.19C9,6.19 6,9.56 6,11.56A3,3 0 0,0 9,14.56Z</StreamGeometry>
@@ -268,7 +265,6 @@
 
     <ControlTheme x:Key="ColorPickerTabItem" TargetType="TabItem">
         <Setter Property="Foreground" Value="{DynamicResource ColorPickerTabItemForeground}" />
-        <!--<Setter Property="Padding" Value="0" />-->
         <Setter Property="HorizontalContentAlignment" Value="Center" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
         <Setter Property="Height" Value="{DynamicResource ColorPickerTabItemHeight}" />
@@ -370,11 +366,6 @@
                                            VerticalAlignment="Center"
                                            Text="{x:Static lang:Strings.Current}" />
 
-                                <Border Name="PreviousColorPreviewBackground"
-                                        Grid.Row="1"
-                                        Height="40"
-                                        Background="{x:Static ui:ColorRamp.CheckeredBrush}"
-                                        CornerRadius="{DynamicResource ControlCornerRadius}" />
                                 <Border Name="PreviousColorPreviewBorder"
                                         Grid.Row="1"
                                         Height="40"
@@ -383,13 +374,6 @@
                                         CornerRadius="{DynamicResource ControlCornerRadius}" />
 
                                 <!--  Current Color & +2 Light/Dark variants  -->
-                                <Border Name="DarkVariantBackground"
-                                        Grid.Row="1"
-                                        Grid.Column="2"
-                                        Grid.ColumnSpan="2"
-                                        Height="40"
-                                        Background="{x:Static ui:ColorRamp.CheckeredBrush}"
-                                        CornerRadius="{Binding Source={StaticResource ControlCornerRadius}, Converter={StaticResource LeftCornerRadiusFilterConverter}}" />
                                 <Border Name="Dark2PreviewBorder"
                                         Grid.Row="1"
                                         Grid.Column="2"
@@ -407,13 +391,6 @@
                                                                      ConverterParameter=-0.33}" />
 
 
-                                <Border Name="LightVariantBackground"
-                                        Grid.Row="1"
-                                        Grid.Column="5"
-                                        Grid.ColumnSpan="2"
-                                        Height="40"
-                                        Background="{x:Static ui:ColorRamp.CheckeredBrush}"
-                                        CornerRadius="{Binding Source={StaticResource ControlCornerRadius}, Converter={StaticResource RightCornerRadiusFilterConverter}}" />
                                 <Border Name="Light2PreviewBorder"
                                         Grid.Row="1"
                                         Grid.Column="6"
@@ -432,15 +409,10 @@
                                                                      ConverterParameter=0.33}" />
 
 
-                                <Border Name="CurrentBackground"
-                                        Grid.Row="1"
-                                        Grid.Column="4"
-                                        Height="48"
-                                        Background="{x:Static ui:ColorRamp.CheckeredBrush}"
-                                        CornerRadius="{DynamicResource ControlCornerRadius}" />
                                 <Border Name="CurrentColorPreviewBorder"
                                         Grid.Row="1"
                                         Grid.Column="4"
+                                        Height="48"
                                         Background="{TemplateBinding Color,
                                                                      Converter={StaticResource ColorBrushConv}}"
                                         CornerRadius="{DynamicResource ControlCornerRadius}" />
@@ -448,10 +420,6 @@
 
                             </Grid>
 
-                            <!--
-                                Background for tabheader
-                                Background="{DynamicResource SolidBackgroundFillColorSecondaryBrush}"
-                            -->
                             <Panel>
                                 <Border Name="TabHost">
                                     <TabControl Name="DisplayItemTabControl"

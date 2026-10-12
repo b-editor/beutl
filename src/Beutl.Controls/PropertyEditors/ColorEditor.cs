@@ -49,10 +49,7 @@ public class ColorEditor : PropertyEditor
         }
         base.OnApplyTemplate(e);
         _button = e.NameScope.Get<Button>("PART_ColorPickerButton");
-        if (_button != null)
-        {
-            _button.Click += OnButtonClick;
-        }
+        _button.Click += OnButtonClick;
     }
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
@@ -107,7 +104,7 @@ public class ColorEditor : PropertyEditor
         }
     }
 
-    private void OnFlyoutConfirmed(SimpleColorPickerFlyout sender, object args)
+    private void OnFlyoutConfirmed(DraggablePickerFlyout<SimpleColorPicker> sender, object args)
     {
         if (_flyoutActive)
         {

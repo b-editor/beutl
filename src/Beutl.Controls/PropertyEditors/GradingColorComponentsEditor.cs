@@ -3,8 +3,6 @@ using Beutl.Media;
 using FluentAvalonia.UI.Media;
 using UnboundedHsv = (float H, float S, float V);
 
-#nullable enable
-
 namespace Beutl.Controls.PropertyEditors;
 
 public class GradingColorComponentsEditor : Vector3Editor<float>
@@ -87,25 +85,8 @@ public class GradingColorComponentsEditor : Vector3Editor<float>
 
     public GradingColor ToGradingColorFromTuple((float, float, float) t)
     {
-        if (Rgb)
-        {
-            return new GradingColor(
-                t.Item1 / 100f,
-                t.Item2 / 100f,
-                t.Item3 / 100f);
-        }
-        else
-        {
-            (float h, float s, float v) = t;
-            h %= 360;
-            if (h < 0)
-            {
-                h += 360;
-            }
-
-            var hsv = (h, s / 100f, v / 100f);
-            return GradingColorHelper.GetColor(hsv);
-        }
+        (GradingColor? color, UnboundedHsv? hsv) = GetGradingColorOrUnboundedHsv(t);
+        return color ?? GradingColorHelper.GetColor(hsv!.Value);
     }
 
     public (GradingColor?, UnboundedHsv?) GetGradingColorOrUnboundedHsv((float, float, float) t)

@@ -1,6 +1,4 @@
-﻿#nullable enable
-
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
@@ -122,7 +120,6 @@ public class CurveEditor : Control
 
                     if (!isHandleDefault)
                     {
-                        // ハンドルをリセット
                         DragStarted?.Invoke(this, EventArgs.Empty);
                         Points[index] = target == DragTarget.LeftHandle
                             ? point.WithLeftHandle(default)
@@ -233,7 +230,6 @@ public class CurveEditor : Control
         {
             var selectedPoint = Points[_selectedIndex];
 
-            // 左ハンドル
             var leftHandlePos = Denormalize(selectedPoint.AbsoluteLeftHandle);
             if (IsWithin(leftHandlePos, screenPos, handleRadius) &&
                 _selectedIndex != 0)
@@ -241,7 +237,6 @@ public class CurveEditor : Control
                 return (_selectedIndex, DragTarget.LeftHandle);
             }
 
-            // 右ハンドル
             var rightHandlePos = Denormalize(selectedPoint.AbsoluteRightHandle);
             if (IsWithin(rightHandlePos, screenPos, handleRadius) &&
                 _selectedIndex != Points.Count - 1)
@@ -250,7 +245,6 @@ public class CurveEditor : Control
             }
         }
 
-        // メインポイントをチェック
         for (int i = 0; i < Points.Count; i++)
         {
             var pos = Denormalize(Points[i].Point);
@@ -292,7 +286,6 @@ public class CurveEditor : Control
             float leftDist = (norm.X - prevPoint.X) * 0.25f;
             float rightDist = (nextPoint.X - norm.X) * 0.25f;
 
-            // 傾きを計算
             float slope = (nextPoint.Y - prevPoint.Y) / (nextPoint.X - prevPoint.X);
 
             leftHandle = new BtlPoint(-leftDist, -leftDist * slope);
@@ -300,14 +293,12 @@ public class CurveEditor : Control
         }
         else if (index > 0)
         {
-            // 前のポイントのみある場合
             var prevPoint = Points[index - 1].Point;
             float dist = (norm.X - prevPoint.X) * 0.25f;
             leftHandle = new BtlPoint(-dist, 0);
         }
         else if (index < Points.Count)
         {
-            // 次のポイントのみある場合
             var nextPoint = Points[index].Point;
             float dist = (nextPoint.X - norm.X) * 0.25f;
             rightHandle = new BtlPoint(dist, 0);
@@ -388,7 +379,6 @@ public class CurveEditor : Control
 
                     if (prev.HasHandles || curr.HasHandles)
                     {
-                        // Draw cubic Bezier
                         var cp1 = Denormalize(prev.AbsoluteRightHandle);
                         var cp2 = Denormalize(curr.AbsoluteLeftHandle);
                         var endPoint = Denormalize(curr.Point);
@@ -396,7 +386,6 @@ public class CurveEditor : Control
                     }
                     else
                     {
-                        // Draw line
                         gctx.LineTo(Denormalize(curr.Point));
                     }
                 }
@@ -415,12 +404,10 @@ public class CurveEditor : Control
             var selectedPoint = points[_selectedIndex];
             var mainPos = Denormalize(selectedPoint.Point);
 
-            // Draw left handle
             var leftHandlePos = Denormalize(selectedPoint.AbsoluteLeftHandle);
             context.DrawLine(s_handleLinePen, mainPos, leftHandlePos);
             context.DrawEllipse(s_handleBrush, s_handleLinePen, leftHandlePos, 4, 4);
 
-            // Draw right handle
             var rightHandlePos = Denormalize(selectedPoint.AbsoluteRightHandle);
             context.DrawLine(s_handleLinePen, mainPos, rightHandlePos);
             context.DrawEllipse(s_handleBrush, s_handleLinePen, rightHandlePos, 4, 4);

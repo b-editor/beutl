@@ -5,8 +5,6 @@ using Avalonia.Data;
 using Avalonia.Layout;
 using Avalonia.VisualTree;
 
-#nullable enable
-
 namespace Beutl.Controls;
 
 // Layout for the icon, text, action and chevron in the OptionsDisplayItem template.

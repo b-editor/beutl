@@ -94,4 +94,4 @@ public sealed class OutputPickerFlyout(OutputPickerViewModel viewModel) : FAPick
     protected override bool ShouldShowConfirmationButtons() => true;
 }
 
-public sealed record MoreMenuRequestedArgs(PinnableOutputItem Item, Control Anchor);
+public sealed record MoreMenuRequestedArgs(PinnableLibraryItem Item, Control Anchor);
