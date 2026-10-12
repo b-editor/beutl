@@ -3,17 +3,12 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
-using Avalonia.Media.Imaging;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
-using Beutl.Editor.Components.TimelineTab.Views;
 using Beutl.Editor.Components.Views;
 using Beutl.Editor.Models;
-using Beutl.Editor.Services;
 using Beutl.Graphics.Shapes;
-using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
-using Beutl.ViewModels;
 
 namespace Beutl.HeadlessUITests;
 
@@ -38,8 +33,7 @@ public class TimelineRangeSelectionTests
             new Point(TimeSpan.FromSeconds(1.5).TimeToPixel(1), session.Model.CalculateLayerTop(3) - 10),
             session.Window)!.Value;
 
-        session.Drag(reverse ? contentPoint : rulerPoint, reverse ? rulerPoint : contentPoint,
-            $"ruler-{reverse}-{scrolled}", [0, 2]);
+        session.Drag(reverse ? contentPoint : rulerPoint, reverse ? rulerPoint : contentPoint, [0, 2]);
     }
 
     [AvaloniaTest]
@@ -52,8 +46,7 @@ public class TimelineRangeSelectionTests
         Point rulerPoint = session.Ruler.TranslatePoint(new Point(15, 5), session.Window)!.Value;
         Point contentPoint = session.ToWindow(new Point(225, session.Model.CalculateLayerTop(7) - 10));
 
-        session.Drag(reverse ? contentPoint : rulerPoint, reverse ? rulerPoint : contentPoint,
-            $"deep-ruler-{reverse}", [6]);
+        session.Drag(reverse ? contentPoint : rulerPoint, reverse ? rulerPoint : contentPoint, [6]);
     }
 
     [AvaloniaTest]
@@ -61,7 +54,7 @@ public class TimelineRangeSelectionTests
     {
         using TimelineSession session = await TimelineSession.CreateAsync();
         session.Drag(session.ToWindow(new Point(225, session.Model.CalculateLayerTop(3) - 10)),
-            session.ToWindow(new Point(-30, 5)), "left", [0, 2]);
+            session.ToWindow(new Point(-30, 5)), [0, 2]);
     }
 
     [AvaloniaTest]
@@ -70,7 +63,7 @@ public class TimelineRangeSelectionTests
         using TimelineSession session = await TimelineSession.CreateAsync();
         int layerCount = session.Model.LayerHeaders.Count;
         session.Drag(session.ToWindow(new Point(15, 5)),
-            session.ToWindow(new Point(225, session.Timeline.Bounds.Height + 40)), "bottom", [0, 2, 3, 6]);
+            session.ToWindow(new Point(225, session.Timeline.Bounds.Height + 40)), [0, 2, 3, 6]);
         Assert.That(session.Model.LayerHeaders, Has.Count.EqualTo(layerCount));
     }
 
@@ -83,53 +76,35 @@ public class TimelineRangeSelectionTests
         if (scrollY > 0) session.Scroll(scrollY);
         session.Model.SelectElement(session.Model.Elements.First());
         session.Drag(session.Ruler.TranslatePoint(new Point(15, 5), session.Window)!.Value,
-            session.Ruler.TranslatePoint(new Point(225, 25), session.Window)!.Value, $"outside-{scrollY}", []);
+            session.Ruler.TranslatePoint(new Point(225, 25), session.Window)!.Value, []);
     }
 
     private sealed class TimelineSession : IDisposable
     {
-        private readonly TimelineTabView _view;
+        private readonly TimelineTestHost _host;
         private readonly TimelineOverlay _overlay;
-        private static readonly RawInputModifiers CommandModifier = KeyGestureHelper.GetCommandModifier() == KeyModifiers.Meta
-            ? RawInputModifiers.Meta : RawInputModifiers.Control;
 
-        private TimelineSession(TimelineTabViewModel model)
+        private TimelineSession(TimelineTestHost host)
         {
-            Model = model;
-            _view = new TimelineTabView { DataContext = model };
-            Window = new Window { Content = _view, Width = 960, Height = 420 };
-            Window.Show();
-            HeadlessTestHelpers.Render();
-            Content = _view.FindControl<ScrollViewer>("ContentScroll")!;
-            Timeline = _view.FindControl<Panel>("TimelinePanel")!;
-            Ruler = _view.FindControl<TimelineScale>("Scale")!;
-            _overlay = _view.FindControl<TimelineOverlay>("overlay")!;
+            _host = host;
+            _overlay = host.View.FindControl<TimelineOverlay>("overlay")!;
         }
 
-        public TimelineTabViewModel Model { get; }
-        public Window Window { get; }
-        public ScrollViewer Content { get; }
-        public Panel Timeline { get; }
-        public TimelineScale Ruler { get; }
+        public TimelineTabViewModel Model => _host.Model;
+        public Window Window => _host.Window;
+        public ScrollViewer Content => _host.Content;
+        public Panel Timeline => _host.Timeline;
+        public TimelineScale Ruler => _host.Ruler;
 
         public static async Task<TimelineSession> CreateAsync()
         {
-            await TestReset.ResetShellAsync();
-            string root = Path.Combine(BeutlHomeIsolation.CurrentHome!, $"timeline-selection-{Guid.NewGuid():N}");
-            Directory.CreateDirectory(root);
-            Project project = (await TestShell.Project.CreateProject(640, 480, 30, 44100, "timeline-selection", root))!;
-            Scene scene = project.Items.OfType<Scene>().Single();
-            scene.Duration = TimeSpan.FromSeconds(5);
-            TestShell.Editor.ActivateTabItem(scene);
-            HeadlessTestHelpers.Settle();
-            var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
-            var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
-            await adder.AddAsync([
-                Clip(0.2, 0), Clip(0.2, 2), Clip(0.2, 3), Clip(0.2, 6), Clip(2, 0)
-            ], CancellationToken.None);
-            TimelineTabViewModel model = editor.FindToolTab<TimelineTabViewModel>()!;
-            model.Options.Value = model.Options.Value with { Scale = 1, Offset = System.Numerics.Vector2.Zero, MaxLayerCount = 20 };
-            return new TimelineSession(model);
+            TimelineTestHost host = await TimelineTestHost.CreateAsync(
+                "timeline-selection",
+                TimeSpan.FromSeconds(5),
+                [Clip(0.2, 0), Clip(0.2, 2), Clip(0.2, 3), Clip(0.2, 6), Clip(2, 0)]);
+            host.Model.Options.Value = host.Model.Options.Value with { MaxLayerCount = 20 };
+            HeadlessTestHelpers.Render();
+            return new TimelineSession(host);
 
             static ElementDescription Clip(double start, int layer) => new(TimeSpan.FromSeconds(start),
                 TimeSpan.FromSeconds(1.2), layer, new ElementSource.EngineObject(() => new RectShape()));
@@ -144,46 +119,33 @@ public class TimelineRangeSelectionTests
             Assert.That(Content.Offset, Is.EqualTo(new Vector(75, y)));
         }
 
-        public void Drag(Point from, Point to, string name, int[] expectedLayers)
+        public void Drag(Point from, Point to, int[] expectedLayers)
         {
-            Window.MouseMove(from, CommandModifier);
-            Window.MouseDown(from, MouseButton.Left, CommandModifier);
-            Assert.That(_view._mouseFlag, Is.EqualTo(TimelineHelper.MouseFlags.RangeSelectionPressed));
+            RawInputModifiers modifier = TimelineTestHost.CommandModifier;
+            Window.MouseMove(from, modifier);
+            Window.MouseDown(from, MouseButton.Left, modifier);
+            Assert.That(_host.View._mouseFlag, Is.EqualTo(TimelineHelper.MouseFlags.RangeSelectionPressed));
             try
             {
-                Window.MouseMove(to, CommandModifier | RawInputModifiers.LeftMouseButton);
+                Window.MouseMove(to, modifier | RawInputModifiers.LeftMouseButton);
                 HeadlessTestHelpers.Render();
-                Capture(name);
                 Assert.That(Model.SelectedElements.Select(e => e.Model.ZIndex), Is.EquivalentTo(expectedLayers));
                 Assert.That(Model.SelectedElements.All(e => e.IsSelected.Value), Is.True);
             }
             finally
             {
-                Window.MouseUp(to, MouseButton.Left, CommandModifier);
+                Window.MouseUp(to, MouseButton.Left, modifier);
                 HeadlessTestHelpers.Render();
             }
 
             Assert.Multiple(() =>
             {
-                Assert.That(_view._mouseFlag, Is.EqualTo(TimelineHelper.MouseFlags.Free));
+                Assert.That(_host.View._mouseFlag, Is.EqualTo(TimelineHelper.MouseFlags.Free));
                 Assert.That(_overlay.SelectionRange, Is.EqualTo(default(Rect)));
                 Assert.That(Model.SelectedElements.Select(e => e.Model.ZIndex), Is.EquivalentTo(expectedLayers));
             });
         }
 
-        private void Capture(string name)
-        {
-            if (Environment.GetEnvironmentVariable("BEUTL_TIMELINE_SELECTION_CAPTURE") is not { Length: > 0 } directory) return;
-            Directory.CreateDirectory(directory);
-            using var image = Window.CaptureRenderedFrame();
-            Assert.That(image, Is.Not.Null);
-            image!.Save(Path.Combine(directory, $"{name}.png"), PngBitmapEncoderOptions.Default);
-        }
-
-        public void Dispose()
-        {
-            _view.DataContext = null;
-            Window.Close();
-        }
+        public void Dispose() => _host.Dispose();
     }
 }

@@ -1,5 +1,4 @@
-﻿using System.ComponentModel;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -28,6 +27,7 @@ using Beutl.Testing.Headless;
 using Beutl.Views;
 using FluentAvalonia.UI.Controls;
 using FluentIcons.Avalonia.Fluent;
+using static Beutl.HeadlessUITests.GitTestSupport;
 
 namespace Beutl.HeadlessUITests;
 
@@ -1038,67 +1038,6 @@ public class VersionControlTabViewTests
         Assert.That(condition(), Is.True, "The expected UI state was not reached.");
     }
 
-    private static string ProbeGitOrIgnore()
-    {
-        var startInfo = new ProcessStartInfo("git")
-        {
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-        };
-        startInfo.ArgumentList.Add("--version");
-        startInfo.Environment["GIT_CONFIG_GLOBAL"] = "/dev/null";
-        startInfo.Environment["GIT_CONFIG_NOSYSTEM"] = "1";
-        try
-        {
-            using var process = Process.Start(startInfo);
-            if (process is null)
-            {
-                Assert.Ignore("git is not available on this machine.");
-                return "git";
-            }
-
-            process.WaitForExit();
-            if (process.ExitCode != 0)
-            {
-                Assert.Ignore("git is not available on this machine.");
-            }
-
-            return FindGitOnPath();
-        }
-        catch (Win32Exception)
-        {
-            Assert.Ignore("git is not available on this machine.");
-            return "git";
-        }
-    }
-
-    private static string FindGitOnPath()
-    {
-        string executable = OperatingSystem.IsWindows() ? "where.exe" : "which";
-        var startInfo = new ProcessStartInfo(executable)
-        {
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-        };
-        startInfo.ArgumentList.Add("git");
-        using var process = Process.Start(startInfo)!;
-        string output = process.StandardOutput.ReadToEnd();
-        process.WaitForExit();
-        if (process.ExitCode != 0
-            || output.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
-                .FirstOrDefault() is not { } path)
-        {
-            Assert.Ignore("git is not available on this machine.");
-            return "git";
-        }
-
-        return path;
-    }
-
     private static void RunGit(
         string executable,
         string workingDirectory,
@@ -1157,26 +1096,6 @@ public class VersionControlTabViewTests
         public void Show(Notification notification)
         {
             Notifications.Add(notification);
-        }
-    }
-
-    private sealed class IsolatedGitEnvironment : IDisposable
-    {
-        private readonly string? _previousGlobal
-            = Environment.GetEnvironmentVariable("GIT_CONFIG_GLOBAL");
-        private readonly string? _previousNoSystem
-            = Environment.GetEnvironmentVariable("GIT_CONFIG_NOSYSTEM");
-
-        public IsolatedGitEnvironment()
-        {
-            Environment.SetEnvironmentVariable("GIT_CONFIG_GLOBAL", "/dev/null");
-            Environment.SetEnvironmentVariable("GIT_CONFIG_NOSYSTEM", "1");
-        }
-
-        public void Dispose()
-        {
-            Environment.SetEnvironmentVariable("GIT_CONFIG_GLOBAL", _previousGlobal);
-            Environment.SetEnvironmentVariable("GIT_CONFIG_NOSYSTEM", _previousNoSystem);
         }
     }
 }

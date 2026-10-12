@@ -1,10 +1,8 @@
-﻿using System.Runtime.InteropServices;
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Media;
-using Avalonia.Platform;
 using Beutl.Controls;
 using Beutl.Testing.Headless;
 
@@ -50,25 +48,14 @@ public class TreeLineDecoratorRenderingTests
             window.Show();
             window.SetRenderScaling(scale);
             HeadlessTestHelpers.Render(3);
-            using var frame = window.CaptureRenderedFrame();
-            Assert.That(frame, Is.Not.Null);
-            Assert.That(frame!.Format, Is.EqualTo(PixelFormat.Bgra8888).Or.EqualTo(PixelFormat.Rgba8888));
-            int stride = frame.PixelSize.Width * 4;
-            var pixels = new byte[stride * frame.PixelSize.Height];
-            IntPtr buffer = Marshal.AllocHGlobal(pixels.Length);
-            try
-            {
-                frame.CopyPixels(new PixelRect(frame.PixelSize), buffer, pixels.Length, stride);
-                Marshal.Copy(buffer, pixels, 0, pixels.Length);
-            }
-            finally { Marshal.FreeHGlobal(buffer); }
+            (byte[] pixels, int stride, PixelSize size) = HeadlessTestHelpers.CaptureFramePixels(window);
 
             // White on black makes both partially covered and solid pixels measurable,
             // independently of whether the frame uses RGBA or BGRA ordering.
             byte Red(int x, int y) => pixels[y * stride + x * 4];
             byte[] vertical = Enumerable.Range(0, (int)(16 * scale))
                 .Select(x => Red(x, (int)(16 * scale))).Where(value => value > 0).ToArray();
-            byte[] horizontal = Enumerable.Range(0, frame.PixelSize.Height)
+            byte[] horizontal = Enumerable.Range(0, size.Height)
                 .Select(y => Red((int)(36 * scale), y)).Where(value => value > 0).ToArray();
             Assert.That(horizontal, Has.Length.EqualTo((int)Math.Ceiling(scale)));
             Assert.That(vertical, Has.Length.EqualTo(horizontal.Length));

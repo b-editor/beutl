@@ -1,6 +1,4 @@
-﻿using System.ComponentModel;
-using System.Diagnostics;
-using System.Reactive.Linq;
+﻿using System.Reactive.Linq;
 using Avalonia.Headless.NUnit;
 using Beutl.Configuration;
 using Beutl.Editor.Models;
@@ -19,6 +17,7 @@ using Beutl.ViewModels.Dialogs;
 using Beutl.ViewModels.ExtensionsPages;
 using FluentAvalonia.UI.Controls;
 using Reactive.Bindings;
+using static Beutl.HeadlessUITests.GitTestSupport;
 
 namespace Beutl.HeadlessUITests;
 
@@ -1164,34 +1163,6 @@ public class VersionControlSaveTests
         return count;
     }
 
-    private static async Task<string> RunGitAsync(
-        string gitPath,
-        string repositoryRoot,
-        params string[] arguments)
-    {
-        var startInfo = new ProcessStartInfo(gitPath)
-        {
-            WorkingDirectory = repositoryRoot,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-        };
-        foreach (string argument in arguments)
-        {
-            startInfo.ArgumentList.Add(argument);
-        }
-
-        startInfo.Environment["GIT_CONFIG_GLOBAL"] = "/dev/null";
-        startInfo.Environment["GIT_CONFIG_NOSYSTEM"] = "1";
-        using var process = Process.Start(startInfo)!;
-        string stdout = await process.StandardOutput.ReadToEndAsync();
-        string stderr = await process.StandardError.ReadToEndAsync();
-        await process.WaitForExitAsync();
-        Assert.That(process.ExitCode, Is.Zero, stderr);
-        return stdout;
-    }
-
     [AvaloniaTest]
     public async Task Initial_revision_records_editor_state_that_autosave_has_not_written()
     {
@@ -1873,68 +1844,6 @@ public class VersionControlSaveTests
         Assert.That(result.IsSuccess, Is.True, result.Failure?.Message);
     }
 
-    private static string ProbeGitOrIgnore()
-    {
-        var startInfo = new ProcessStartInfo("git")
-        {
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-        };
-        startInfo.ArgumentList.Add("--version");
-        startInfo.Environment["GIT_CONFIG_GLOBAL"] = "/dev/null";
-        startInfo.Environment["GIT_CONFIG_NOSYSTEM"] = "1";
-        try
-        {
-            using var process = Process.Start(startInfo);
-            if (process is null)
-            {
-                Assert.Ignore("git is not available on this machine.");
-                return "git";
-            }
-
-            process.WaitForExit();
-            if (process.ExitCode != 0)
-            {
-                Assert.Ignore("git is not available on this machine.");
-            }
-
-            return process.StartInfo.FileName == "git"
-                ? FindGitOnPath()
-                : process.StartInfo.FileName;
-        }
-        catch (Win32Exception)
-        {
-            Assert.Ignore("git is not available on this machine.");
-            return "git";
-        }
-    }
-
-    private static string FindGitOnPath()
-    {
-        string executable = OperatingSystem.IsWindows() ? "where.exe" : "which";
-        var startInfo = new ProcessStartInfo(executable)
-        {
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-        };
-        startInfo.ArgumentList.Add("git");
-        using var process = Process.Start(startInfo)!;
-        string output = process.StandardOutput.ReadToEnd();
-        process.WaitForExit();
-        if (process.ExitCode != 0
-            || output.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() is not { } path)
-        {
-            Assert.Ignore("git is not available on this machine.");
-            return "git";
-        }
-
-        return path;
-    }
-
     private sealed class FailedSaveEditorContext(
         CoreObject obj,
         Func<ValueTask<bool>> saveAsync) : ISavableEditorContext
@@ -2005,24 +1914,6 @@ public class VersionControlSaveTests
         public void Show(Notification notification)
         {
             All.Enqueue(notification);
-        }
-    }
-
-    private sealed class IsolatedGitEnvironment : IDisposable
-    {
-        private readonly string? _oldGlobal = Environment.GetEnvironmentVariable("GIT_CONFIG_GLOBAL");
-        private readonly string? _oldNoSystem = Environment.GetEnvironmentVariable("GIT_CONFIG_NOSYSTEM");
-
-        public IsolatedGitEnvironment()
-        {
-            Environment.SetEnvironmentVariable("GIT_CONFIG_GLOBAL", "/dev/null");
-            Environment.SetEnvironmentVariable("GIT_CONFIG_NOSYSTEM", "1");
-        }
-
-        public void Dispose()
-        {
-            Environment.SetEnvironmentVariable("GIT_CONFIG_GLOBAL", _oldGlobal);
-            Environment.SetEnvironmentVariable("GIT_CONFIG_NOSYSTEM", _oldNoSystem);
         }
     }
 

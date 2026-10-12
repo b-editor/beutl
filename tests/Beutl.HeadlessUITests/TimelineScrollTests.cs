@@ -3,14 +3,10 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
-using Avalonia.Media.Imaging;
 using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
-using Beutl.Editor.Components.TimelineTab.Views;
-using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
-using Beutl.ViewModels;
 using Vector2 = System.Numerics.Vector2;
 
 namespace Beutl.HeadlessUITests;
@@ -26,7 +22,6 @@ public class TimelineScrollTests
     public async Task Touchpad_preserves_gesture_axes_and_direction(bool swap, bool ruler)
     {
         using TimelineSession session = await TimelineSession.CreateAsync(_ => true, swap);
-        session.Capture($"before-{swap}-{ruler}");
         foreach (RawInputModifiers modifiers in new[] { RawInputModifiers.None, RawInputModifiers.Shift })
         {
             foreach (Vector delta in new[] { new Vector(0, -1), new Vector(-1, 0), new Vector(-0.4, -0.7), new Vector(0.25, 0.5) })
@@ -42,7 +37,6 @@ public class TimelineScrollTests
                 });
             }
         }
-        session.Capture($"after-{swap}-{ruler}");
     }
 
     [AvaloniaTest]
@@ -76,7 +70,6 @@ public class TimelineScrollTests
         nint nativeEvent = 0;
         using TimelineSession session = await TimelineSession.CreateAsync(
             _ => NativeScrollInput.MacOS.IsGestureScrollEvent(nativeEvent, 5000), swap);
-        session.Capture($"mouse-before-{swap}-{ruler}");
         NativeScrollInputTests.WithMacScrollEvent(0, 0, 0, currentEvent =>
         {
             nativeEvent = currentEvent;
@@ -88,7 +81,6 @@ public class TimelineScrollTests
                 Assert.That(session.Pane.Offset.Y, Is.EqualTo(session.Content.Offset.Y).Within(0.001));
             });
         });
-        session.Capture($"mouse-after-{swap}-{ruler}");
     }
 
     [AvaloniaTest]
@@ -113,9 +105,7 @@ public class TimelineScrollTests
     {
         using TimelineSession session = await TimelineSession.CreateAsync(
             _ => throw new AssertionException("Zoom must not depend on the scroll device."), false);
-        RawInputModifiers modifier = KeyGestureHelper.GetCommandModifier() == KeyModifiers.Meta
-            ? RawInputModifiers.Meta : RawInputModifiers.Control;
-        session.Scroll(new Vector(0, 1), ruler, modifier);
+        session.Scroll(new Vector(0, 1), ruler, TimelineTestHost.CommandModifier);
         Assert.Multiple(() =>
         {
             Assert.That(session.Model.Options.Value.Scale, Is.EqualTo(1.2f).Within(0.0001));
@@ -128,39 +118,25 @@ public class TimelineScrollTests
     private sealed class TimelineSession : IDisposable
     {
         private readonly bool _originalSwap = GlobalConfiguration.Instance.EditorConfig.SwapTimelineScrollDirection;
-        private readonly TimelineTabView _view;
-        private readonly Window _window;
+        private readonly TimelineTestHost _host;
 
-        private TimelineSession(TimelineTabViewModel model, Func<PointerWheelEventArgs, bool>? detector, bool swap)
+        private TimelineSession(TimelineTestHost host, bool swap)
         {
-            Model = model;
-            _view = detector is null ? new TimelineTabView() : new TimelineTabView(detector);
-            _view.DataContext = model;
-            _window = new Window { Content = _view, Width = 960, Height = 420 };
+            _host = host;
             GlobalConfiguration.Instance.EditorConfig.SwapTimelineScrollDirection = swap;
-            _window.Show();
-            HeadlessTestHelpers.Render();
-            Content = _view.FindControl<ScrollViewer>("ContentScroll")!;
-            Pane = _view.FindControl<ScrollViewer>("PaneScroll")!;
+            Pane = host.View.FindControl<ScrollViewer>("PaneScroll")!;
             ResetOffset();
         }
 
-        public TimelineTabViewModel Model { get; }
-        public ScrollViewer Content { get; }
+        public TimelineTabViewModel Model => _host.Model;
+        public ScrollViewer Content => _host.Content;
         public ScrollViewer Pane { get; }
 
         public static async Task<TimelineSession> CreateAsync(Func<PointerWheelEventArgs, bool>? detector, bool swap)
         {
-            await TestReset.ResetShellAsync();
-            string root = Path.Combine(BeutlHomeIsolation.CurrentHome!, $"timeline-scroll-{Guid.NewGuid():N}");
-            Directory.CreateDirectory(root);
-            Project project = (await TestShell.Project.CreateProject(640, 480, 30, 44100, "timeline-scroll", root))!;
-            Scene scene = project.Items.OfType<Scene>().Single();
-            scene.Duration = TimeSpan.FromSeconds(30);
-            TestShell.Editor.ActivateTabItem(scene);
-            HeadlessTestHelpers.Settle();
-            var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
-            return new TimelineSession(editor.FindToolTab<TimelineTabViewModel>()!, detector, swap);
+            TimelineTestHost host = await TimelineTestHost.CreateAsync(
+                "timeline-scroll", TimeSpan.FromSeconds(30), scrollDetector: detector);
+            return new TimelineSession(host, swap);
         }
 
         public void ResetOffset()
@@ -172,24 +148,15 @@ public class TimelineScrollTests
 
         public void Scroll(Vector delta, bool ruler, RawInputModifiers modifiers = RawInputModifiers.None)
         {
-            Control target = ruler ? _view.FindControl<Border>("RulerBar")! : Content;
-            Point point = target.TranslatePoint(new Point(100, ruler ? 4 : 80), _window)!.Value;
-            _window.MouseWheel(point, delta, modifiers);
+            Control target = ruler ? _host.RulerBar : Content;
+            Point point = target.TranslatePoint(new Point(100, ruler ? 4 : 80), _host.Window)!.Value;
+            _host.Window.MouseWheel(point, delta, modifiers);
             HeadlessTestHelpers.Render();
-        }
-
-        public void Capture(string name)
-        {
-            if (Environment.GetEnvironmentVariable("BEUTL_TIMELINE_SCROLL_CAPTURE") is not { Length: > 0 } directory) return;
-            Directory.CreateDirectory(directory);
-            using var image = _window.CaptureRenderedFrame();
-            image?.Save(Path.Combine(directory, $"{name}.png"), PngBitmapEncoderOptions.Default);
         }
 
         public void Dispose()
         {
-            _view.DataContext = null;
-            _window.Close();
+            _host.Dispose();
             GlobalConfiguration.Instance.EditorConfig.SwapTimelineScrollDirection = _originalSwap;
         }
     }

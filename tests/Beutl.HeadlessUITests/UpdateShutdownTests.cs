@@ -19,11 +19,7 @@ public class UpdateShutdownTests
         var (main, scene) = await CreateShellAsync();
         if (openProject)
         {
-            var project = new Project { Uri = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, "project.bep")) };
-            project.Items.Add(scene);
-            CoreSerializer.StoreToUri(project, project.Uri);
-            await main.ProjectService.OpenProject(project.Uri.LocalPath).WaitAsync(TimeSpan.FromSeconds(20));
-            scene = main.ProjectService.CurrentProject.Value!.Items.OfType<Scene>().Single();
+            scene = await OpenProjectAroundAsync(main, scene);
         }
         EditorTabItem tab = main.EditorService.SelectedTabItem.Value!;
         bool launched = false;
@@ -128,12 +124,8 @@ public class UpdateShutdownTests
     public async Task Failed_updater_handoff_restores_the_open_project_and_selected_scene(bool throws)
     {
         var (main, scene) = await CreateShellAsync();
-        var project = new Project { Uri = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, "project.bep")) };
-        project.Items.Add(scene);
-        CoreSerializer.StoreToUri(project, project.Uri);
-        await main.ProjectService.OpenProject(project.Uri.LocalPath).WaitAsync(TimeSpan.FromSeconds(20));
+        Scene activeScene = await OpenProjectAroundAsync(main, scene);
         Project opened = main.ProjectService.CurrentProject.Value!;
-        Scene activeScene = opened.Items.OfType<Scene>().Single();
         activeScene.Duration = TimeSpan.FromSeconds(73);
         try
         {
@@ -175,6 +167,16 @@ public class UpdateShutdownTests
         main.EditorService.ActivateTabItem(scene);
         HeadlessTestHelpers.Settle();
         return (main, scene);
+    }
+
+    // Saves a project holding the scene beside it, opens it, and returns the opened scene.
+    private static async Task<Scene> OpenProjectAroundAsync(MainViewModel main, Scene scene)
+    {
+        var project = new Project { Uri = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, "project.bep")) };
+        project.Items.Add(scene);
+        CoreSerializer.StoreToUri(project, project.Uri);
+        await main.ProjectService.OpenProject(project.Uri.LocalPath).WaitAsync(TimeSpan.FromSeconds(20));
+        return main.ProjectService.CurrentProject.Value!.Items.OfType<Scene>().Single();
     }
 
     private static async Task DisposeShellAsync(MainViewModel main)

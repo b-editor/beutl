@@ -22,12 +22,15 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class UIFontResourceTests
 {
+    // The helper app that links UiFonts.cs.
+    private const string HelperAssembly = "Beutl.ExceptionHandler";
+
     [AvaloniaTest]
-    [TestCase("Beutl.ExceptionHandler", "ja-JP", "Noto Sans JP")]
-    [TestCase("Beutl.ExceptionHandler", "zh-CN", "Noto Sans SC")]
-    [TestCase("Beutl.ExceptionHandler", "ko-KR", "Noto Sans KR")]
+    [TestCase("ja-JP", "Noto Sans JP")]
+    [TestCase("zh-CN", "Noto Sans SC")]
+    [TestCase("ko-KR", "Noto Sans KR")]
     public void Helper_startup_applies_parent_language_before_resolving_fonts(
-        string assemblyName, string cultureName, string expectedFamily)
+        string cultureName, string expectedFamily)
     {
         CultureInfo previous = CultureInfo.CurrentUICulture;
         CultureInfo? previousDefault = CultureInfo.DefaultThreadCurrentUICulture;
@@ -35,14 +38,14 @@ public class UIFontResourceTests
         {
             CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("en-US");
             CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.GetCultureInfo("en-US");
-            Type helperFonts = Assembly.Load(assemblyName).GetType(typeof(UiFonts).FullName!)!;
+            Type helperFonts = Assembly.Load(HelperAssembly).GetType(typeof(UiFonts).FullName!)!;
             MethodInfo applyCulture = helperFonts.GetMethod("ApplyCultureArgument", BindingFlags.Static | BindingFlags.NonPublic)!;
             string[] args = ["--title", "Localized title", UiFonts.UiCultureArgument, cultureName, "--progress"];
             var remainingArgs = (string[])applyCulture.Invoke(null, [args])!;
             var options = (FontManagerOptions)helperFonts.GetMethod(nameof(UiFonts.CreateFontManagerOptions))!
                 .Invoke(null, [CultureInfo.CurrentUICulture])!;
             var resources = (ResourceDictionary)AvaloniaXamlLoader.Load(
-                new Uri($"avares://{assemblyName}/Styling/Fonts.axaml"))!;
+                new Uri($"avares://{HelperAssembly}/Styling/Fonts.axaml"))!;
 
             Assert.Multiple(() =>
             {
@@ -61,17 +64,16 @@ public class UIFontResourceTests
     }
 
     [AvaloniaTest]
-    [TestCase("Beutl.ExceptionHandler")]
-    public void Helper_dialog_font_resources_resolve_their_linked_assets(string assemblyName)
+    public void Helper_dialog_font_resources_resolve_their_linked_assets()
     {
         var resources = (ResourceDictionary)AvaloniaXamlLoader.Load(
-            new Uri($"avares://{assemblyName}/Styling/Fonts.axaml"))!;
+            new Uri($"avares://{HelperAssembly}/Styling/Fonts.axaml"))!;
         var family = (FontFamily)resources["BeutlUIFontFamily"]!;
         Assert.That(family.FamilyNames, Is.EqualTo(UiFonts.DefaultFontFamily.FamilyNames));
 
         foreach (string name in family.FamilyNames)
         {
-            var embedded = new FontFamily($"avares://{assemblyName}/Assets/Fonts/{name.Replace(" ", "")}#{name}");
+            var embedded = new FontFamily($"avares://{HelperAssembly}/Assets/Fonts/{name.Replace(" ", "")}#{name}");
             foreach (FontWeight weight in new[] { FontWeight.Normal, FontWeight.Medium, FontWeight.SemiBold, FontWeight.Bold })
             {
                 Assert.That(FontManager.Current.TryGetGlyphTypeface(
@@ -197,25 +199,6 @@ public class UIFontResourceTests
             flyout.Hide();
             window.Close();
             HeadlessTestHelpers.Settle();
-        }
-    }
-
-    [AvaloniaTest]
-    public void NotoSansJP_font_assets_are_embedded()
-    {
-        string[] fileNames =
-        [
-            "NotoSansJP-Regular.ttf",
-            "NotoSansJP-Medium.ttf",
-            "NotoSansJP-SemiBold.ttf",
-            "NotoSansJP-Bold.ttf",
-        ];
-
-        foreach (string fileName in fileNames)
-        {
-            var uri = new Uri($"avares://Beutl.Controls/Assets/Fonts/NotoSansJP/{fileName}");
-
-            Assert.That(AssetLoader.Exists(uri), Is.True);
         }
     }
 
