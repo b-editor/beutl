@@ -7,8 +7,9 @@ cannot load, passes the build and fails only when a user's machine starts the he
 
 - Beutl.FFmpegWorker, with an empty BEUTL_HOME, must exit with 2 (FFmpeg not found), which the app
   answers by offering to install FFmpeg. Exit code 4 means the worker started but could not initialize.
-- Beutl.AgentToolkit.Mcp must answer a JSON-RPC initialize request on stdio with a result, and exit
-  with 0 when its stdin closes, as it does when an agent stops it.
+- Beutl.AgentToolkit.Mcp must answer a JSON-RPC initialize request on stdio with a result, write
+  nothing but JSON-RPC messages to stdout, and exit with 0 when its stdin closes, as it does when an
+  agent stops it.
 """
 
 import argparse
@@ -117,6 +118,18 @@ def is_json_rpc(message):
     return "id" in message and ("result" in message) != ("error" in message)
 
 
+def parse_message(line):
+    try:
+        message = json.loads(line)
+    except ValueError:
+        message = None
+    if not is_json_rpc(message):
+        # Anything but JSON-RPC on stdout, a JSON log line included, breaks every MCP client.
+        text = line.decode("utf-8", "replace").rstrip()
+        raise Failure(f"{MCP_HOST} wrote a line that is not JSON-RPC to stdout: {text[:200]}")
+    return message
+
+
 def read_response(process, lines, timeout, grace):
     """Returns the message that answers INITIALIZE. Notifications and requests of the server are skipped."""
     deadline = time.monotonic() + timeout
@@ -134,14 +147,7 @@ def read_response(process, lines, timeout, grace):
             except subprocess.TimeoutExpired:
                 raise Failure(f"{MCP_HOST} closed its stdout before it answered initialize.")
             raise Failure(f"{MCP_HOST} {describe_exit(code)} before it answered initialize.")
-        try:
-            message = json.loads(line)
-        except ValueError:
-            message = None
-        if not is_json_rpc(message):
-            # Anything but JSON-RPC on stdout, a JSON log line included, breaks every MCP client.
-            text = line.decode("utf-8", "replace").rstrip()
-            raise Failure(f"{MCP_HOST} wrote a line that is not JSON-RPC to stdout: {text[:200]}")
+        message = parse_message(line)
         if message.get("id") == INITIALIZE["id"] and "method" not in message:
             return message
 
@@ -194,6 +200,16 @@ def check_mcp_host(path, home, timeout):
                               "after its stdin closed.")
             if code != 0:
                 raise Failure(f"{MCP_HOST} answered initialize but {describe_exit(code)} after its stdin closed.")
+            # What it wrote after the answer, up to its exit, reaches the client as well.
+            reader.join(grace)
+            while True:
+                try:
+                    line = lines.get_nowait()
+                except queue.Empty:
+                    break
+                if line is None:
+                    break
+                parse_message(line)
             return summary
         except Failure as failure:
             close_stdin(process)

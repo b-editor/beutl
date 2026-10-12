@@ -126,6 +126,15 @@ class SmokeTestOutputTests(unittest.TestCase):
             self.assertIn(f"::error::Beutl.AgentToolkit.Mcp wrote a line that is not JSON-RPC to stdout: {line}\n",
                           stdout)
 
+    def test_log_line_after_the_answer_fails(self):
+        response = ('print(json.dumps({"jsonrpc": "2.0", "id": request["id"], "result": {'
+                    '"protocolVersion": "2025-06-18", "serverInfo": {"name": "Fake"}}}), flush=True)')
+        code, stdout, _ = self.run_main(mcp=answering(
+            response, after='sys.stdin.read(); print("info: Application is shutting down...", flush=True)'))
+        self.assertEqual(code, 1)
+        self.assertIn("::error::Beutl.AgentToolkit.Mcp wrote a line that is not JSON-RPC to stdout: "
+                      "info: Application is shutting down...\n", stdout)
+
     def test_answer_without_the_json_rpc_version_fails(self):
         code, stdout, _ = self.run_main(mcp=answering(
             'print(json.dumps({"id": request["id"], "result": {"protocolVersion": "2025-06-18", '
