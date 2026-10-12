@@ -10,8 +10,8 @@ namespace Beutl.Graphics;
 public partial class ImmediateCanvas : IDisposable, IPopable
 {
     private static readonly AsyncLocal<FlushObserverScope?> s_flushObserver = new();
-    private static readonly AsyncLocal<DrawableBrushMaterializerScope?> s_drawableBrushMaterializer = new();
-    private static readonly AsyncLocal<RenderTargetLeaseSessionScope?> s_renderTargetLeaseSession = new();
+    private static readonly AsyncLocal<AmbientCanvasScope<DrawableBrushMaterializer>?> s_drawableBrushMaterializer = new();
+    private static readonly AsyncLocal<AmbientCanvasScope<RenderTargetLeaseSession>?> s_renderTargetLeaseSession = new();
     private static readonly Lazy<SKRuntimeEffect> s_rectCoverageEffect = new(CreateRectCoverageEffect);
     private static readonly Lazy<SKRuntimeEffect> s_opacityScaleEffect = new(CreateOpacityScaleEffect);
     private static readonly SKSamplingOptions s_bitmapSampling = new(SKCubicResampler.Mitchell);
@@ -52,16 +52,12 @@ public partial class ImmediateCanvas : IDisposable, IPopable
     private bool _submitOnDispose;
 
     /// <param name="intent">
-    /// The classification of the render this canvas paints for. It precedes the optional parameters because a
-    /// trailing default would let a delivery host silently inherit <see cref="RenderIntent.Preview"/>, whose
-    /// policy is to drop an unallocatable brush intermediate: the export would ship a frame with a hole in it
-    /// and report success.
+    /// The classification of the render this canvas paints for (see <see cref="Intent"/>). It precedes the optional
+    /// parameters so a delivery host cannot silently inherit <see cref="RenderIntent.Preview"/>.
     /// </param>
     /// <param name="drawableBrushMaterializer">
     /// The hook that rasterizes a <see cref="DrawableBrush.Resource"/>'s nested content, or
-    /// <see langword="null"/> to inherit the ambient one. A canvas left without either paints a
-    /// <see cref="DrawableBrush"/> transparent under <see cref="RenderIntent.Preview"/> and throws under
-    /// <see cref="RenderIntent.Delivery"/>.
+    /// <see langword="null"/> to inherit the ambient one (see <see cref="DrawableBrushMaterializer"/>).
     /// </param>
     public ImmediateCanvas(RenderTarget renderTarget, RenderIntent intent, float density = 1f,
         float maxWorkingScale = float.PositiveInfinity, Size logicalSize = default,
@@ -99,8 +95,8 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         _currentDensity = density;
         MaxWorkingScale = RenderScaleUtilities.SanitizeMaxWorkingScale(maxWorkingScale);
         Intent = intent;
-        DrawableBrushMaterializer = drawableBrushMaterializer ?? s_drawableBrushMaterializer.Value?.Materializer;
-        RenderTargetLeaseSession = s_renderTargetLeaseSession.Value?.LeaseSession;
+        DrawableBrushMaterializer = drawableBrushMaterializer ?? s_drawableBrushMaterializer.Value?.Value;
+        RenderTargetLeaseSession = s_renderTargetLeaseSession.Value?.Value;
         if (density == 1f)
         {
             _baseTransform = Matrix.Identity;
@@ -183,7 +179,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
 
     /// <summary>
     /// The immutable density the backing surface is rasterized at (device px per logical unit), fixed at
-    /// construction. On the root canvas this is <c>s_out</c>; on a nested buffer it is <c>w</c>.
+    /// construction: the output scale on the root canvas, the buffer's working scale on a nested one.
     /// </summary>
     public float SurfaceDensity { get; }
 
@@ -201,8 +197,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
     /// Runtime hook that materializes a <see cref="DrawableBrush.Resource"/>'s nested content into an
     /// <see cref="SKImage"/> covering <paramref name="bounds"/> at <paramref name="scale"/> device px per
     /// logical unit. The executor sets it while a canvas is open and clears it when the canvas closes;
-    /// a null hook leaves DrawableBrush materialization unavailable, which degrades the fill to transparent
-    /// under <see cref="RenderIntent.Preview"/> and fails the render under <see cref="RenderIntent.Delivery"/>.
+    /// without it a DrawableBrush fill degrades or fails as <see cref="Intent"/> describes.
     /// </summary>
     public DrawableBrushMaterializer? DrawableBrushMaterializer { get; internal set; }
 
@@ -261,19 +256,6 @@ public partial class ImmediateCanvas : IDisposable, IPopable
             flushOnDispose: false,
             deviceOrigin);
 
-    internal void ConfigureCustomEffectExecution()
-    {
-        VerifyAccess();
-        if (_flushOnDispose)
-        {
-            throw new InvalidOperationException(
-                "Custom-effect execution requires an executor-managed canvas.");
-        }
-
-        _allowDeferredSameContextSampling = true;
-        _submitOnDispose = true;
-    }
-
     /// <summary>
     /// Opens the canvas a custom effect paints into: an executor-managed canvas set up for custom-effect execution
     /// when the executor owns the target, a standalone one otherwise, either way carrying the effect's materializer.
@@ -296,7 +278,8 @@ public partial class ImmediateCanvas : IDisposable, IPopable
                 maxWorkingScale,
                 logicalSize,
                 intent);
-            canvas.ConfigureCustomEffectExecution();
+            canvas._allowDeferredSameContextSampling = true;
+            canvas._submitOnDispose = true;
         }
         else
         {
@@ -360,12 +343,8 @@ public partial class ImmediateCanvas : IDisposable, IPopable
     /// Intersects the clip with every device pixel <paramref name="clip"/> touches.
     /// </summary>
     /// <remarks>
-    /// A non-antialiased Skia clip snaps to the nearest device pixel, so a rect that falls between
-    /// pixel centres cuts into the content it is meant to bound: an edge column loses its partial
-    /// coverage, and a footprint narrower than a pixel rounds away entirely. Widening the rect to whole
-    /// pixels first keeps a conservative bound conservative, which is the only direction it may err in.
-    /// Antialiasing the clip instead would be wrong, because the bound's own edge coverage would then
-    /// multiply the content's.
+    /// A non-antialiased clip snaps to the nearest pixel and would cut partial edge coverage, so the rect is widened
+    /// to whole pixels; antialiasing the clip instead would multiply the bound's own edge coverage into the content's.
     /// </remarks>
     internal void ClipRectCoveringDevicePixels(Rect clip)
     {
@@ -501,33 +480,29 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         }
     }
 
-    private void ConfigureStrokePaint(Rect bounds, Pen.Resource? pen, BlendMode blendMode = BlendMode.SrcOver, float? scale = null)
+    private void ConfigureStrokePaint(Rect bounds, Pen.Resource? pen, float? scale = null)
     {
         _sharedStrokePaint.Reset();
 
         if (pen != null && pen.Thickness != 0)
         {
-            _sharedStrokePaint.IsStroke = false;
             CreateCanvasBrushConstructor(
                 bounds,
                 pen.Brush,
-                ResolvePaintBlendMode(blendMode),
+                _directBlendMode ?? BlendMode.SrcOver,
                 scale ?? _currentDensity).ConfigurePaint(_sharedStrokePaint);
         }
     }
 
-    private void ConfigureFillPaint(Rect bounds, Brush.Resource? brush, BlendMode blendMode = BlendMode.SrcOver, float? scale = null)
+    private void ConfigureFillPaint(Rect bounds, Brush.Resource? brush, float? scale = null)
     {
         _sharedFillPaint.Reset();
         CreateCanvasBrushConstructor(
             bounds,
             brush,
-            ResolvePaintBlendMode(blendMode),
+            _directBlendMode ?? BlendMode.SrcOver,
             scale ?? _currentDensity).ConfigurePaint(_sharedFillPaint);
     }
-
-    private BlendMode ResolvePaintBlendMode(BlendMode fallback)
-        => _directBlendMode ?? fallback;
 
     private void ApplyDirectBlendMode(SKPaint paint)
     {

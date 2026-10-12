@@ -21,7 +21,7 @@ public sealed class ProgramCacheTests
         {
             var graphics = GraphicsContextFactory.SharedContext!;
             using var cache = SpirvShaderProgramCache.Create();
-            var context = new ProgramCacheContextKey(graphics, graphics, "test", "linear", graphics);
+            var context = new ProgramCacheContextKey(graphics, graphics, "test", graphics);
             var description = ShaderDescription.CurrentPixel(
                 new SkslSource("half4 apply(half4 color) { return color; }", ShaderDescriptionKind.CurrentPixel),
                 new SpirvShaderLowering("#version 450\ninvalid shader", []), null);
@@ -90,7 +90,8 @@ public sealed class ProgramCacheTests
         using (ProgramCacheLease<FakeProgram> first = cache.GetOrCreate(
                    firstIdentity,
                    context,
-                   () => new FakeProgram(++nextId, 16)))
+                   () => new FakeProgram(++nextId, 16),
+                   static factory => factory()))
         {
             firstProgram = first.Program;
             Assert.That(first.IsCacheHit, Is.False);
@@ -99,7 +100,8 @@ public sealed class ProgramCacheTests
         using (ProgramCacheLease<FakeProgram> warmed = cache.GetOrCreate(
                    equivalentIdentity,
                    context,
-                   () => new FakeProgram(++nextId, 16)))
+                   () => new FakeProgram(++nextId, 16),
+                   static factory => factory()))
         {
             Assert.Multiple(() =>
             {
@@ -127,7 +129,7 @@ public sealed class ProgramCacheTests
         using var cache = CreateCache(maxRetainedBytes: 64);
         ShaderProgramIdentity identity = Identity(SourceA);
         ProgramCacheContextKey context = Context("device-a", "context-a");
-        using (cache.GetOrCreate(identity, context, () => new FakeProgram(1, 16)))
+        using (cache.GetOrCreate(identity, context, () => new FakeProgram(1, 16), static factory => factory()))
         {
         }
 
@@ -136,7 +138,8 @@ public sealed class ProgramCacheTests
             using ProgramCacheLease<FakeProgram> lease = cache.GetOrCreate(
                 identity,
                 context,
-                static () => throw new AssertionException("A warmed hit must not invoke its factory."));
+                "A warmed hit must not invoke its factory.",
+                static message => throw new AssertionException(message));
         }
 
         long before = GC.GetAllocatedBytesForCurrentThread();
@@ -145,7 +148,8 @@ public sealed class ProgramCacheTests
             using ProgramCacheLease<FakeProgram> lease = cache.GetOrCreate(
                 identity,
                 context,
-                static () => throw new AssertionException("A warmed hit must not invoke its factory."));
+                "A warmed hit must not invoke its factory.",
+                static message => throw new AssertionException(message));
         }
         long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
         long perLookup = allocated / iterations;
@@ -211,7 +215,8 @@ public sealed class ProgramCacheTests
         using (ProgramCacheLease<FakeProgram> sksl = cache.GetOrCreate(
                    skslIdentity,
                    context,
-                   () => new FakeProgram(++nextId, 8)))
+                   () => new FakeProgram(++nextId, 8),
+                   static factory => factory()))
         {
             skslProgram = sksl.Program;
         }
@@ -219,7 +224,8 @@ public sealed class ProgramCacheTests
         using ProgramCacheLease<FakeProgram> spirv = cache.GetOrCreate(
             spirvIdentity,
             context,
-            () => new FakeProgram(++nextId, 8));
+            () => new FakeProgram(++nextId, 8),
+            static factory => factory());
 
         Assert.Multiple(() =>
         {
@@ -246,7 +252,6 @@ public sealed class ProgramCacheTests
                 maxStages: 1,
                 maxUniformVectors: 1,
                 maxSamplers: 1,
-                maxChildren: 1,
                 maxSourceBytes: 1,
                 maxProgramTokens: 1));
 
@@ -275,7 +280,8 @@ public sealed class ProgramCacheTests
         using (ProgramCacheLease<FakeProgram> lease = cache.GetOrCreate(
                    sourceA,
                    context,
-                   () => new FakeProgram(++nextId, 8)))
+                   () => new FakeProgram(++nextId, 8),
+                   static factory => factory()))
         {
             first = lease.Program;
         }
@@ -283,7 +289,8 @@ public sealed class ProgramCacheTests
         using (ProgramCacheLease<FakeProgram> lease = cache.GetOrCreate(
                    sourceB,
                    context,
-                   () => new FakeProgram(++nextId, 8)))
+                   () => new FakeProgram(++nextId, 8),
+                   static factory => factory()))
         {
             Assert.That(lease.Program, Is.Not.SameAs(first));
         }
@@ -291,7 +298,8 @@ public sealed class ProgramCacheTests
         using (ProgramCacheLease<FakeProgram> lease = cache.GetOrCreate(
                    differentSignature,
                    context,
-                   () => new FakeProgram(++nextId, 8)))
+                   () => new FakeProgram(++nextId, 8),
+                   static factory => factory()))
         {
             Assert.That(lease.Program, Is.Not.SameAs(first));
         }
@@ -299,7 +307,8 @@ public sealed class ProgramCacheTests
         using (ProgramCacheLease<FakeProgram> lease = cache.GetOrCreate(
                    Identity(collisionSourceA),
                    context,
-                   () => new FakeProgram(++nextId, 8)))
+                   () => new FakeProgram(++nextId, 8),
+                   static factory => factory()))
         {
             Assert.That(lease.Program, Is.SameAs(first));
         }
@@ -326,11 +335,13 @@ public sealed class ProgramCacheTests
         ProgramCacheLease<FakeProgram> outer = cache.GetOrCreate(
             identity,
             context,
-            () => new FakeProgram(++creations, 16));
+            () => new FakeProgram(++creations, 16),
+            static factory => factory());
         ProgramCacheLease<FakeProgram> inner = cache.GetOrCreate(
             identity,
             context,
-            () => new FakeProgram(++creations, 16));
+            () => new FakeProgram(++creations, 16),
+            static factory => factory());
         FakeProgram program = outer.Program;
 
         Assert.Multiple(() =>
@@ -363,7 +374,8 @@ public sealed class ProgramCacheTests
         using (ProgramCacheLease<FakeProgram> lease = cache.GetOrCreate(
                    identity,
                    firstContext,
-                   () => new FakeProgram(1, 16)))
+                   () => new FakeProgram(1, 16),
+                   static factory => factory()))
         {
             program = lease.Program;
         }
@@ -384,12 +396,11 @@ public sealed class ProgramCacheTests
         ShaderProgramIdentity identity = Identity(SourceA);
         ProgramCacheContextKey[] contexts =
         [
-            Context("device-a", "context-a", capability: "skia-v1", format: "rgba16f", options: "default"),
-            Context("device-b", "context-a", capability: "skia-v1", format: "rgba16f", options: "default"),
-            Context("device-a", "context-b", capability: "skia-v1", format: "rgba16f", options: "default"),
-            Context("device-a", "context-a", capability: "skia-v2", format: "rgba16f", options: "default"),
-            Context("device-a", "context-a", capability: "skia-v1", format: "rgba8", options: "default"),
-            Context("device-a", "context-a", capability: "skia-v1", format: "rgba16f", options: "optimized"),
+            Context("device-a", "context-a", capability: "skia-v1", options: "default"),
+            Context("device-b", "context-a", capability: "skia-v1", options: "default"),
+            Context("device-a", "context-b", capability: "skia-v1", options: "default"),
+            Context("device-a", "context-a", capability: "skia-v2", options: "default"),
+            Context("device-a", "context-a", capability: "skia-v1", options: "optimized"),
         ];
         int nextId = 0;
 
@@ -398,14 +409,16 @@ public sealed class ProgramCacheTests
             using ProgramCacheLease<FakeProgram> lease = cache.GetOrCreate(
                 identity,
                 context,
-                () => new FakeProgram(++nextId, 8));
+                () => new FakeProgram(++nextId, 8),
+                static factory => factory());
             Assert.That(lease.IsCacheHit, Is.False);
         }
 
         using ProgramCacheLease<FakeProgram> warmed = cache.GetOrCreate(
             identity,
-            Context("device-a", "context-a", capability: "skia-v1", format: "rgba16f", options: "default"),
-            () => new FakeProgram(++nextId, 8));
+            Context("device-a", "context-a", capability: "skia-v1", options: "default"),
+            () => new FakeProgram(++nextId, 8),
+            static factory => factory());
         Assert.Multiple(() =>
         {
             Assert.That(warmed.IsCacheHit, Is.True);
@@ -441,7 +454,8 @@ public sealed class ProgramCacheTests
         using ProgramCacheLease<FakeProgram> recreatedB = cache.GetOrCreate(
             b,
             context,
-            () => new FakeProgram(++nextId, 10));
+            () => new FakeProgram(++nextId, 10),
+            static factory => factory());
         Assert.Multiple(() =>
         {
             Assert.That(recreatedB.IsCacheHit, Is.False);
@@ -453,7 +467,8 @@ public sealed class ProgramCacheTests
             using ProgramCacheLease<FakeProgram> lease = cache.GetOrCreate(
                 identity,
                 context,
-                () => new FakeProgram(++nextId, 10));
+                () => new FakeProgram(++nextId, 10),
+                static factory => factory());
             return lease.Program;
         }
     }
@@ -466,11 +481,13 @@ public sealed class ProgramCacheTests
         ProgramCacheLease<FakeProgram> first = cache.GetOrCreate(
             Identity(SourceA),
             context,
-            () => new FakeProgram(1, 16));
+            () => new FakeProgram(1, 16),
+            static factory => factory());
         ProgramCacheLease<FakeProgram> second = cache.GetOrCreate(
             Identity(SourceB),
             context,
-            () => new FakeProgram(2, 16));
+            () => new FakeProgram(2, 16),
+            static factory => factory());
         FakeProgram firstProgram = first.Program;
         FakeProgram secondProgram = second.Program;
 
@@ -495,7 +512,7 @@ public sealed class ProgramCacheTests
         ProgramCacheContextKey context = Context("device-a", "context-a");
         var evicted = new FakeProgram(1, 8, failure);
         var retained = new FakeProgram(2, 8);
-        using (cache.GetOrCreate(Identity(SourceA), context, () => evicted))
+        using (cache.GetOrCreate(Identity(SourceA), context, () => evicted, static factory => factory()))
         {
         }
 
@@ -504,7 +521,8 @@ public sealed class ProgramCacheTests
             using ProgramCacheLease<FakeProgram> lease = cache.GetOrCreate(
                 Identity(SourceB),
                 context,
-                () => retained);
+                () => retained,
+                static factory => factory());
         });
 
         InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(cache.Dispose);
@@ -528,7 +546,7 @@ public sealed class ProgramCacheTests
 
         for (int i = 0; i < 2; i++)
         {
-            using ProgramCacheLease<FakeProgram> lease = cache.GetOrCreate(identity, context, Create);
+            using ProgramCacheLease<FakeProgram> lease = cache.GetOrCreate(identity, context, Create, static factory => factory());
             Assert.That(lease.IsCacheHit, Is.False);
         }
 
@@ -582,7 +600,8 @@ public sealed class ProgramCacheTests
         using ProgramCacheLease<FakeProgram> warmB = cache.GetOrCreate(
             identity,
             b1,
-            () => new FakeProgram(++nextId, 8));
+            () => new FakeProgram(++nextId, 8),
+            static factory => factory());
         Assert.That(warmB.Program, Is.SameAs(programB1));
 
         FakeProgram AcquireAndReturn(ProgramCacheContextKey context)
@@ -590,7 +609,8 @@ public sealed class ProgramCacheTests
             using ProgramCacheLease<FakeProgram> lease = cache.GetOrCreate(
                 identity,
                 context,
-                () => new FakeProgram(++nextId, 8));
+                () => new FakeProgram(++nextId, 8),
+                static factory => factory());
             return lease.Program;
         }
     }
@@ -605,7 +625,8 @@ public sealed class ProgramCacheTests
         ProgramCacheLease<FakeProgram> outer = cache.GetOrCreate(
             identity,
             context,
-            () => new FakeProgram(++nextId, 16));
+            () => new FakeProgram(++nextId, 16),
+            static factory => factory());
         FakeProgram invalidated = outer.Program;
 
         Assert.That(cache.EvictContext("device-a", "context-a"), Is.EqualTo(1));
@@ -620,7 +641,8 @@ public sealed class ProgramCacheTests
         using (ProgramCacheLease<FakeProgram> replacement = cache.GetOrCreate(
                    identity,
                    context,
-                   () => new FakeProgram(++nextId, 16)))
+                   () => new FakeProgram(++nextId, 16),
+                   static factory => factory()))
         {
             replacementProgram = replacement.Program;
             Assert.Multiple(() =>
@@ -640,7 +662,8 @@ public sealed class ProgramCacheTests
         using ProgramCacheLease<FakeProgram> warmed = cache.GetOrCreate(
             identity,
             context,
-            () => new FakeProgram(++nextId, 16));
+            () => new FakeProgram(++nextId, 16),
+            static factory => factory());
         Assert.That(warmed.Program, Is.SameAs(replacementProgram));
     }
 
@@ -657,7 +680,8 @@ public sealed class ProgramCacheTests
             cache.GetOrCreate(
                 Identity(SourceA),
                 Context("device-a", "context-a"),
-                () => program));
+                () => program,
+                static factory => factory()));
 
         Assert.Multiple(() =>
         {
@@ -677,7 +701,8 @@ public sealed class ProgramCacheTests
         ProgramCacheLease<FakeProgram> lease = cache.GetOrCreate(
             identity,
             context,
-            () => new FakeProgram(1, 16));
+            () => new FakeProgram(1, 16),
+            static factory => factory());
         FakeProgram program = lease.Program;
 
         cache.Dispose();
@@ -688,7 +713,8 @@ public sealed class ProgramCacheTests
             Assert.Throws<ObjectDisposedException>(() => cache.GetOrCreate(
                 identity,
                 context,
-                () => new FakeProgram(2, 16)));
+                () => new FakeProgram(2, 16),
+                static factory => factory()));
         });
 
         lease.Dispose();
@@ -705,13 +731,11 @@ public sealed class ProgramCacheTests
         object device,
         object context,
         object? capability = null,
-        string format = "linear-premul-rgba16f",
         object? options = null)
         => new(
             device,
             context,
             capability ?? "skia-default",
-            format,
             options ?? "default");
 
     private static ShaderProgramIdentity Identity(

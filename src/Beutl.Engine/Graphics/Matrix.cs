@@ -12,16 +12,13 @@ namespace Beutl.Graphics;
 /// <summary>
 /// A 3x3 matrix.
 /// </summary>
-/// <remakrs>Matrix layout:
+/// <remarks>Matrix layout:
 ///         | 1st col | 2nd col | 3r col |
 /// 1st row | scaleX  | skewY   | persX  |
 /// 2nd row | skewX   | scaleY  | persY  |
 /// 3rd row | transX  | transY  | persZ  |
 /// 
 /// Note: Skia.SkMatrix uses a transposed layout (where for example skewX/skewY and perspp0/tranX are swapped).
-/// </remakrs>
-/// <remarks>
-/// Initializes a new instance of the <see cref="Matrix"/> struct.
 /// </remarks>
 /// <param name="scaleX">The first element of the first row.</param>
 /// <param name="skewY">The second element of the first row.</param>
@@ -151,10 +148,10 @@ public readonly struct Matrix(
     }
 
     /// <summary>
-    /// Negates the given matrix by multiplying all values by -1.
+    /// Inverts the given matrix.
     /// </summary>
     /// <param name="value">The source matrix.</param>
-    /// <returns>The negated matrix.</returns>
+    /// <returns>The inverted matrix.</returns>
     public static Matrix operator -(Matrix value)
     {
         return value.Invert();
@@ -199,7 +196,7 @@ public readonly struct Matrix(
     /// </summary>
     /// <param name="xAngle">The amount of skew along the X-axis, in radians.</param>
     /// <param name="yAngle">The amount of skew along the Y-axis, in radians.</param>
-    /// <returns>A rotation matrix.</returns>
+    /// <returns>A skew matrix.</returns>
     public static Matrix CreateSkew(float xAngle, float yAngle)
     {
         float tanX = MathF.Tan(xAngle);
@@ -407,7 +404,7 @@ public readonly struct Matrix(
     /// <summary>
     /// Attempts to invert the Matrix.
     /// </summary>
-    /// <returns>The inverted matrix or <see langword="null"/> when matrix is not invertible.</returns>
+    /// <returns><see langword="false"/> when the matrix is not invertible.</returns>
     public bool TryInvert(out Matrix inverted)
     {
         float d = GetDeterminant();
@@ -525,8 +522,6 @@ public readonly struct Matrix(
     /// <summary>
     /// Decomposes given matrix into transform operations.
     /// </summary>
-    /// <param name="matrix">Matrix to decompose.</param>
-    /// <param name="decomposed">Decomposed matrix.</param>
     /// <returns>The status of the operation.</returns>        
     public bool TryDecomposeTransform(out Vector translate, out Vector scale, out Vector skew, out float angle)
     {

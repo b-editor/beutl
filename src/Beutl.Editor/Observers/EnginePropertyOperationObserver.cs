@@ -118,7 +118,7 @@ public sealed class EnginePropertyOperationObserver<T> : IOperationObserver
 
     private void OnExpressionChanged(IExpression<T>? obj)
     {
-        // Suppress publishing during remote operation application to prevent echo-back
+        // KeyFrameAnimation re-sorts its key frames under PublishingSuppression; that is not an edit.
         if (PublishingSuppression.IsSuppressed)
         {
             return;
@@ -135,7 +135,7 @@ public sealed class EnginePropertyOperationObserver<T> : IOperationObserver
 
     private void OnAnimationChanged(IAnimation<T>? newAnimation)
     {
-        // Suppress publishing during remote operation application to prevent echo-back
+        // KeyFrameAnimation re-sorts its key frames under PublishingSuppression; that is not an edit.
         if (PublishingSuppression.IsSuppressed)
         {
             return;
@@ -167,7 +167,7 @@ public sealed class EnginePropertyOperationObserver<T> : IOperationObserver
 
     private void OnValueChanged(object? sender, PropertyValueChangedEventArgs<T> e)
     {
-        // Suppress publishing during remote operation application to prevent echo-back
+        // KeyFrameAnimation re-sorts its key frames under PublishingSuppression; that is not an edit.
         if (PublishingSuppression.IsSuppressed)
         {
             return;

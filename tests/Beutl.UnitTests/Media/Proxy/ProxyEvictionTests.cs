@@ -1,8 +1,7 @@
 ﻿using Beutl.Editor;
-using Beutl.Engine;
-using Beutl.IO;
 using Beutl.Media;
 using Beutl.Media.Proxy;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Media.Proxy;
 
@@ -564,90 +563,18 @@ public class ProxyEvictionTests
         public IDisposable Pin(ProxyResolution resolution) => throw new NotSupportedException();
     }
 
-    // Delegates to a real store but keeps the proxy file on disk after Delete, simulating a sharing
-    // violation where the index entry is removed yet File.Delete could not remove the file.
-    private sealed class RestoreFileOnDeleteStore(ProxyStore inner) : IProxyStore
-    {
-        public string StoreRootPath => inner.StoreRootPath;
-
-        public ProxyEntry? TryGet(ProxyFingerprint source, ProxyPreset preset) => inner.TryGet(source, preset);
-
-        public IReadOnlyList<ProxyEntry> Enumerate() => inner.Enumerate();
-
-        public void Register(ProxyEntry entry) => inner.Register(entry);
-
-        public bool TryTransition(ProxyFingerprint source, ProxyPreset preset, ProxyState newState, string? failureReason = null)
-            => inner.TryTransition(source, preset, newState, failureReason);
-
-        public bool Delete(ProxyFingerprint source, ProxyPreset preset)
-        {
-            ProxyEntry? entry = inner.TryGet(source, preset);
-            string? path = entry is null
-                ? null
-                : Path.Combine(inner.StoreRootPath, entry.ProxyFileRelative.Replace('/', Path.DirectorySeparatorChar));
-            byte[]? bytes = path is not null && File.Exists(path) ? File.ReadAllBytes(path) : null;
-
-            bool result = inner.Delete(source, preset);
-
-            if (bytes is not null && path is not null)
-                File.WriteAllBytes(path, bytes);
-            return result;
-        }
-
-        public void Touch(ProxyFingerprint source, ProxyPreset preset, DateTime nowUtc) => inner.Touch(source, preset, nowUtc);
-
-        public long GetTotalBytes() => inner.GetTotalBytes();
-
-        public long GetTotalBytes(IReadOnlySet<string> sourceAbsolutePaths) => inner.GetTotalBytes(sourceAbsolutePaths);
-
-        public Task FlushAsync(CancellationToken cancellationToken) => inner.FlushAsync(cancellationToken);
-
-        public Task ReconcileAsync(CancellationToken cancellationToken) => inner.ReconcileAsync(cancellationToken);
-
-        public event EventHandler<ProxyStoreChangedEventArgs>? Changed
-        {
-            add => inner.Changed += value;
-            remove => inner.Changed -= value;
-        }
-    }
-
     // Enumerates the original entry (so it is collected as a candidate) but reports a different current
     // entry from TryGet, simulating a regenerate that replaced the same-key entry after collection.
-    private sealed class RegeneratedEntryStore(ProxyStore inner, ProxyEntry regenerated) : IProxyStore
+    private sealed class RegeneratedEntryStore(ProxyStore inner, ProxyEntry regenerated) : DelegatingProxyStore(inner)
     {
         public int DeleteCalls { get; private set; }
 
-        public string StoreRootPath => inner.StoreRootPath;
+        public override ProxyEntry? TryGet(ProxyFingerprint source, ProxyPreset preset) => regenerated;
 
-        public ProxyEntry? TryGet(ProxyFingerprint source, ProxyPreset preset) => regenerated;
-
-        public IReadOnlyList<ProxyEntry> Enumerate() => inner.Enumerate();
-
-        public void Register(ProxyEntry entry) => inner.Register(entry);
-
-        public bool TryTransition(ProxyFingerprint source, ProxyPreset preset, ProxyState newState, string? failureReason = null)
-            => inner.TryTransition(source, preset, newState, failureReason);
-
-        public bool Delete(ProxyFingerprint source, ProxyPreset preset)
+        public override bool Delete(ProxyFingerprint source, ProxyPreset preset)
         {
             DeleteCalls++;
-            return inner.Delete(source, preset);
-        }
-
-        public void Touch(ProxyFingerprint source, ProxyPreset preset, DateTime nowUtc) => inner.Touch(source, preset, nowUtc);
-
-        public long GetTotalBytes() => inner.GetTotalBytes();
-
-        public long GetTotalBytes(IReadOnlySet<string> sourceAbsolutePaths) => inner.GetTotalBytes(sourceAbsolutePaths);
-
-        public Task FlushAsync(CancellationToken cancellationToken) => inner.FlushAsync(cancellationToken);
-
-        public Task ReconcileAsync(CancellationToken cancellationToken) => inner.ReconcileAsync(cancellationToken);
-
-        public event EventHandler<ProxyStoreChangedEventArgs>? Changed
-        {
-            add => inner.Changed += value;
-            remove => inner.Changed -= value;
+            return base.Delete(source, preset);
         }
     }
 
@@ -657,27 +584,5 @@ public class ProxyEvictionTests
         {
             HierarchicalChildren.Add(child);
         }
-    }
-
-    private sealed class TestFileSource(Uri? uri) : IFileSource
-    {
-        public Uri Uri { get; private set; } = uri!;
-
-        public void ReadFrom(Uri uri)
-        {
-            Uri = uri;
-        }
-    }
-
-    [SuppressResourceClassGeneration]
-    private sealed class TestEngineObjectWithFileSource : EngineObject
-    {
-        public TestEngineObjectWithFileSource(IFileSource? fileSource)
-        {
-            ScanProperties<TestEngineObjectWithFileSource>();
-            FileSource.CurrentValue = fileSource;
-        }
-
-        public IProperty<IFileSource?> FileSource { get; } = Property.Create<IFileSource?>();
     }
 }

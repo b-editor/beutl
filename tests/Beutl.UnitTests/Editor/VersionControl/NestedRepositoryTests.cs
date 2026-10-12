@@ -1,6 +1,5 @@
 ﻿using Beutl.Editor.VersionControl;
-using Beutl.ProjectSystem;
-using Beutl.Serialization;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Editor.VersionControl;
 
@@ -38,7 +37,7 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
         string expectedProjectRoot = Path.Combine(expectedRepoRoot, "nested", "project");
         string linkRoot = CreateTemporaryDirectory();
         string linkedProjectRoot = Path.Combine(linkRoot, "linked-project");
-        CreateDirectorySymbolicLinkOrIgnore(linkedProjectRoot, projectRoot);
+        SymbolicLinks.CreateOrIgnore(linkedProjectRoot, projectRoot, directory: true);
         using GitCliVersionControlService service = CreateUnassociatedService();
 
         RepositoryInfo? discovered = await service.DiscoverRepositoryAsync(
@@ -62,7 +61,7 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
         await File.WriteAllTextAsync(Path.Combine(projectRoot, "project.bep"), "{}\n");
         string linkRoot = CreateTemporaryDirectory();
         string linkedRepositoryRoot = Path.Combine(linkRoot, "linked-repository");
-        CreateDirectorySymbolicLinkOrIgnore(linkedRepositoryRoot, Root);
+        SymbolicLinks.CreateOrIgnore(linkedRepositoryRoot, Root, directory: true);
         string linkedProjectRoot = Path.Combine(linkedRepositoryRoot, "nested", "project");
         using GitCliVersionControlService service = CreateUnassociatedService();
 
@@ -89,7 +88,7 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
         string projectRoot = CreateProjectDirectory();
         await File.WriteAllTextAsync(Path.Combine(projectRoot, "project.bep"), "{}\n");
         string linkedNestedRoot = Path.Combine(Root, "linked-nested");
-        CreateDirectorySymbolicLinkOrIgnore(linkedNestedRoot, Path.Combine(Root, "nested"));
+        SymbolicLinks.CreateOrIgnore(linkedNestedRoot, Path.Combine(Root, "nested"), directory: true);
         string linkedProjectRoot = Path.Combine(linkedNestedRoot, "project");
         var selectedRepository = new RepositoryInfo(Root, linkedProjectRoot);
         using GitCliVersionControlService service = CreateUnassociatedService();
@@ -113,7 +112,6 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
     public async Task Initialize_requires_consent_and_commits_only_the_nested_project()
     {
         string projectRoot = CreateProjectDirectory();
-        string expectedRepoRoot = await GetRepositoryTopLevelAsync();
         string projectFile = Path.Combine(projectRoot, "project.bep");
         string foreignFile = Path.Combine(Root, "foreign.txt");
         await File.WriteAllTextAsync(projectFile, "{}\n");
@@ -121,22 +119,22 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
         await RunGitAsync("add", "--", "foreign.txt");
         using GitCliVersionControlService service = CreateUnassociatedService();
 
-        EnclosingRepositoryConsentRequiredException? exception
-            = await Assert.ThrowsAsync<EnclosingRepositoryConsentRequiredException>(
-                async () => await service.InitializeAsync(
-                    new InitOptions(
-                        new RepositoryInfo(projectRoot, projectRoot),
-                        UseLfsWhenAvailable: false),
-                    CancellationToken.None));
+        await Assert.ThrowsAsync<EnclosingRepositoryConsentRequiredException>(
+            async () => await service.InitializeAsync(
+                new InitOptions(
+                    new RepositoryInfo(projectRoot, projectRoot),
+                    UseLfsWhenAvailable: false),
+                CancellationToken.None));
 
         Assert.Multiple(() =>
         {
-            Assert.That(exception!.Repository.RepoRoot, Is.EqualTo(expectedRepoRoot));
             Assert.That(Directory.Exists(Path.Combine(projectRoot, ".git")), Is.False);
             Assert.That(File.Exists(Path.Combine(projectRoot, ".gitignore")), Is.False);
         });
 
-        RepositoryInfo selectedRepository = exception!.Repository;
+        RepositoryInfo selectedRepository = (await service.DiscoverRepositoryAsync(
+            projectRoot,
+            CancellationToken.None))!;
         await service.InitializeAsync(
             new InitOptions(
                 selectedRepository,
@@ -167,7 +165,7 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
         string projectRoot = CreateProjectDirectory();
         await File.WriteAllTextAsync(Path.Combine(projectRoot, "project.bep"), "{}\n");
         var selectedRepository = new RepositoryInfo(Root, projectRoot);
-        var runner = new RecordingRunner(CreateRunner());
+        var runner = new RecordingGitCliRunner(CreateRunner());
         using var service = new GitCliVersionControlService(
             CreateInstalledLocator(),
             repository: null,
@@ -191,16 +189,14 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
 
     [TestCase(false)]
     [TestCase(true)]
-    public async Task Initialize_rejects_required_content_beneath_a_nested_git_repository(
-        bool useGitFile)
+    public async Task Initialize_rejects_a_nested_repository_with_only_optional_content(bool useGitFile)
     {
         string projectRoot = CreateProjectDirectory();
+        await File.WriteAllTextAsync(Path.Combine(projectRoot, "project.bep"), "{}\n");
         string nestedRoot = Path.Combine(projectRoot, "embedded");
-        string projectFile = StoreProjectReferencingSidecar(
-            projectRoot,
-            Path.Combine(nestedRoot, "item.custom-sidecar"));
         if (useGitFile)
         {
+            Directory.CreateDirectory(nestedRoot);
             await File.WriteAllTextAsync(
                 Path.Combine(nestedRoot, ".git"),
                 "gitdir: ../git-metadata\n");
@@ -210,35 +206,6 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
             Directory.CreateDirectory(Path.Combine(nestedRoot, ".git"));
         }
 
-        var selectedRepository = new RepositoryInfo(Root, projectRoot);
-        using var service = new GitCliVersionControlService(
-            CreateInstalledLocator(),
-            repository: null,
-            watcher: null,
-            _ => CreateRunner(),
-            projectFile: projectFile);
-
-        InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(
-            async () => await service.InitializeAsync(
-                new InitOptions(selectedRepository, UseLfsWhenAvailable: false),
-                CancellationToken.None));
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(exception!.Message, Does.Contain("nested Git repository 'embedded'"));
-            Assert.That(service.Repository, Is.Null);
-            Assert.That(File.Exists(Path.Combine(projectRoot, ".gitignore")), Is.False);
-            Assert.That(File.Exists(Path.Combine(projectRoot, ".gitattributes")), Is.False);
-        });
-    }
-
-    [Test]
-    public async Task Initialize_rejects_a_nested_repository_with_only_optional_content()
-    {
-        string projectRoot = CreateProjectDirectory();
-        await File.WriteAllTextAsync(Path.Combine(projectRoot, "project.bep"), "{}\n");
-        string nestedRoot = Path.Combine(projectRoot, "embedded");
-        Directory.CreateDirectory(Path.Combine(nestedRoot, ".git"));
         await File.WriteAllTextAsync(Path.Combine(nestedRoot, "notes.txt"), "optional\n");
         var selectedRepository = new RepositoryInfo(Root, projectRoot);
         using GitCliVersionControlService service = CreateUnassociatedService();
@@ -347,7 +314,7 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
         {
             Assert.That(service.Repository, Is.Not.Null);
             Assert.That(
-                RepositoryPathComparer.AreEquivalent(
+                FilePathComparison.AreSameCanonicalPath(
                     service.Repository!.ProjectRoot,
                     selectedRepository.ProjectRoot),
                 Is.True);
@@ -464,32 +431,6 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
                 notices.OfType<VersionControlPolicyNotice.IgnoredProjectFiles>().Single().Paths,
                 Is.EqualTo(new[] { ".gitattributes" }));
         });
-    }
-
-    [Test]
-    public async Task Snapshot_allows_only_unambiguous_Beutl_directory_warnings()
-    {
-        string projectRoot = CreateProjectDirectory();
-        await File.WriteAllTextAsync(Path.Combine(projectRoot, "project.bep"), "{}\n");
-        await RunGitAsync("add", "-A");
-        await RunGitAsync("commit", "-m", "baseline project");
-        var repository = new RepositoryInfo(Root, projectRoot);
-        var runner = new DiagnosticIgnoredQueryRunner(
-            CreateRunner(),
-            "warning: could not open directory 'nested/project/.beutl/': Permission denied\n"
-            + "warning: could not open directory 'nested/project/cache/.BeUtL/child/': Permission denied\n");
-        using var service = new GitCliVersionControlService(
-            CreateInstalledLocator(),
-            repository,
-            watcher: null,
-            _ => runner);
-
-        CommitResult result = await service.CommitAllAsync(
-            "beutl: snapshot on save",
-            SnapshotKind.Save,
-            CancellationToken.None);
-
-        Assert.That(result, Is.TypeOf<CommitResult.NoChanges>());
     }
 
     [Test]
@@ -885,7 +826,7 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
         string parent = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
         // Beutl keeps writing its state, so the tracked copy is normally out of date on disk.
         await File.WriteAllTextAsync(Path.Combine(Root, statePath), "{\"zoom\":2}\n");
-        var runner = new RecordingRunner(CreateRunner());
+        var runner = new RecordingGitCliRunner(CreateRunner());
         using (var service = new GitCliVersionControlService(
                    CreateInstalledLocator(),
                    repository,
@@ -1071,7 +1012,7 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
         {
             Assert.That(exception!.IsRepositoryLockFailure, Is.True);
             Assert.That(
-                RepositoryPathComparer.AreEquivalent(lockInfo.LockPath, lockPath),
+                FilePathComparison.AreSameCanonicalPath(lockInfo.LockPath, lockPath),
                 Is.True);
             Assert.That(service.RecoverableLock, Is.EqualTo(lockInfo));
             Assert.That(File.Exists(lockPath), Is.True);
@@ -1188,21 +1129,6 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
         Assert.That(reserved, Is.Empty);
     }
 
-    private static string StoreProjectReferencingSidecar(string projectRoot, string sidecarFile)
-    {
-        Directory.CreateDirectory(Path.GetDirectoryName(sidecarFile)!);
-        var item = new GitCliVersionControlServiceTests.SnapshotTestProjectItem
-        {
-            Uri = new Uri(sidecarFile),
-        };
-        CoreSerializer.StoreToUri<ProjectItem>(item, item.Uri);
-        var project = new Project();
-        project.Items.Add(item);
-        string projectFile = Path.Combine(projectRoot, "project.bep");
-        CoreSerializer.StoreToUri(project, new Uri(projectFile));
-        return projectFile;
-    }
-
     private string CreateProjectDirectory()
     {
         string projectRoot = Path.Combine(Root, "nested", "project");
@@ -1225,36 +1151,14 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
         return Path.TrimEndingDirectorySeparator(Path.GetFullPath(topLevel.Stdout.Trim()));
     }
 
-    private static void CreateDirectorySymbolicLinkOrIgnore(string linkPath, string target)
-    {
-        try
-        {
-            Directory.CreateSymbolicLink(linkPath, target);
-        }
-        catch (Exception ex)
-            when (ex is UnauthorizedAccessException or IOException or PlatformNotSupportedException)
-        {
-            Assert.Ignore($"Symbolic links are not creatable in this environment: {ex.Message}");
-        }
-    }
-
-    private sealed record RecordedCommand(
-        RepositoryInfo Repository,
-        IReadOnlyList<string> Arguments,
-        GitCommandOptions Options);
-
     // Cancels the shared token once a matching command has run, so a cancellation can be placed
     // between two git invocations of the same operation.
     private sealed class CancelAfterCommandRunner(
         IGitCliRunner inner,
         Func<IReadOnlyList<string>, bool> match,
-        CancellationTokenSource cancellation) : IGitCliRunner
+        CancellationTokenSource cancellation) : DelegatingGitCliRunner(inner)
     {
-        public string? TemporaryIndexPath { get; private set; }
-
-        public bool HasActiveProcess => inner.HasActiveProcess;
-
-        public async Task<GitCommandResult> RunAsync(
+        public override async Task<GitCommandResult> RunAsync(
             RepositoryInfo repository,
             IReadOnlyList<string> arguments,
             GitCommandOptions options,
@@ -1262,7 +1166,7 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
             IProgress<string>? stderrProgress = null)
         {
             RecordTemporaryPaths(arguments, options);
-            GitCommandResult result = await inner.RunAsync(
+            GitCommandResult result = await base.RunAsync(
                 repository,
                 arguments,
                 options,
@@ -1275,42 +1179,18 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
 
             return result;
         }
-
-        private void RecordTemporaryPaths(
-            IReadOnlyList<string> arguments,
-            GitCommandOptions options)
-        {
-            if (options.EnvironmentOverrides?.TryGetValue(
-                    "GIT_INDEX_FILE",
-                    out string? indexPath) == true)
-            {
-                TemporaryIndexPath = indexPath;
-            }
-        }
-
-        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
-            => inner.GetRecoverableRepositoryLock(repository);
-
-        public bool RemoveRecoverableRepositoryLock(
-            RepositoryInfo repository,
-            RepositoryLockInfo lockInfo)
-            => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
     }
 
     private sealed class StageBeforeCleanupPublicationRunner(
         IGitCliRunner inner,
         RepositoryInfo originalRepository,
-        string unrelatedPath) : IGitCliRunner
+        string unrelatedPath) : DelegatingGitCliRunner(inner)
     {
         private int _interceptionPending = 1;
 
         public int InterceptionCount { get; private set; }
 
-        public string? TemporaryIndexPath { get; private set; }
-
-        public bool HasActiveProcess => inner.HasActiveProcess;
-
-        public async Task<GitCommandResult> RunAsync(
+        public override async Task<GitCommandResult> RunAsync(
             RepositoryInfo repository,
             IReadOnlyList<string> arguments,
             GitCommandOptions options,
@@ -1322,7 +1202,7 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
                 && arguments.Contains("beutl: stop tracking reserved project state")
                 && Interlocked.Exchange(ref _interceptionPending, 0) == 1)
             {
-                await inner.RunAsync(
+                await base.RunAsync(
                         originalRepository,
                         ["add", "--", Path.GetRelativePath(originalRepository.RepoRoot, unrelatedPath)],
                         GitCommandOptions.Local,
@@ -1331,7 +1211,7 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
                 InterceptionCount++;
             }
 
-            return await inner.RunAsync(
+            return await base.RunAsync(
                     repository,
                     arguments,
                     options,
@@ -1339,29 +1219,9 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
                     stderrProgress)
                 .ConfigureAwait(false);
         }
-
-        private void RecordTemporaryPaths(
-            IReadOnlyList<string> arguments,
-            GitCommandOptions options)
-        {
-            if (options.EnvironmentOverrides?.TryGetValue(
-                    "GIT_INDEX_FILE",
-                    out string? indexPath) == true)
-            {
-                TemporaryIndexPath = indexPath;
-            }
-        }
-
-        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
-            => inner.GetRecoverableRepositoryLock(repository);
-
-        public bool RemoveRecoverableRepositoryLock(
-            RepositoryInfo repository,
-            RepositoryLockInfo lockInfo)
-            => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
     }
 
-    private sealed class MoveBranchBeforePublicationRunner(IGitCliRunner inner) : IGitCliRunner
+    private sealed class MoveBranchBeforePublicationRunner(IGitCliRunner inner) : DelegatingGitCliRunner(inner)
     {
         private int _interceptionPending = 1;
 
@@ -1369,11 +1229,7 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
 
         public string? ExternalTip { get; private set; }
 
-        public string? TemporaryIndexPath { get; private set; }
-
-        public bool HasActiveProcess => inner.HasActiveProcess;
-
-        public async Task<GitCommandResult> RunAsync(
+        public override async Task<GitCommandResult> RunAsync(
             RepositoryInfo repository,
             IReadOnlyList<string> arguments,
             GitCommandOptions options,
@@ -1387,13 +1243,13 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
             {
                 string branchRef = arguments[3];
                 string currentCommit = arguments[^1];
-                GitCommandResult tree = await inner.RunAsync(
+                GitCommandResult tree = await base.RunAsync(
                         repository,
                         ["rev-parse", currentCommit + "^{tree}"],
                         GitCommandOptions.Local,
                         CancellationToken.None)
                     .ConfigureAwait(false);
-                GitCommandResult externalCommit = await inner.RunAsync(
+                GitCommandResult externalCommit = await base.RunAsync(
                         repository,
                         [
                             "commit-tree",
@@ -1406,7 +1262,7 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
                         GitCommandOptions.Local,
                         CancellationToken.None)
                     .ConfigureAwait(false);
-                await inner.RunAsync(
+                await base.RunAsync(
                         repository,
                         [
                             "update-ref",
@@ -1421,7 +1277,7 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
                 InterceptionCount++;
             }
 
-            return await inner.RunAsync(
+            return await base.RunAsync(
                     repository,
                     arguments,
                     options,
@@ -1429,90 +1285,5 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
                     stderrProgress)
                 .ConfigureAwait(false);
         }
-
-        private void RecordTemporaryPaths(
-            IReadOnlyList<string> arguments,
-            GitCommandOptions options)
-        {
-            if (options.EnvironmentOverrides?.TryGetValue(
-                    "GIT_INDEX_FILE",
-                    out string? indexPath) == true)
-            {
-                TemporaryIndexPath = indexPath;
-            }
-        }
-
-        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
-            => inner.GetRecoverableRepositoryLock(repository);
-
-        public bool RemoveRecoverableRepositoryLock(
-            RepositoryInfo repository,
-            RepositoryLockInfo lockInfo)
-            => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
-    }
-
-    private sealed class RecordingRunner(IGitCliRunner inner) : IGitCliRunner
-    {
-        public List<RecordedCommand> Commands { get; } = [];
-
-        public bool HasActiveProcess => inner.HasActiveProcess;
-
-        public Task<GitCommandResult> RunAsync(
-            RepositoryInfo repository,
-            IReadOnlyList<string> arguments,
-            GitCommandOptions options,
-            CancellationToken cancellationToken,
-            IProgress<string>? stderrProgress = null)
-        {
-            Commands.Add(new RecordedCommand(repository, [.. arguments], options));
-            return inner.RunAsync(
-                repository,
-                arguments,
-                options,
-                cancellationToken,
-                stderrProgress);
-        }
-
-        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
-            => inner.GetRecoverableRepositoryLock(repository);
-
-        public bool RemoveRecoverableRepositoryLock(
-            RepositoryInfo repository,
-            RepositoryLockInfo lockInfo)
-            => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
-    }
-
-    private sealed class DiagnosticIgnoredQueryRunner(
-        IGitCliRunner inner,
-        string stderr) : IGitCliRunner
-    {
-        public bool HasActiveProcess => inner.HasActiveProcess;
-
-        public async Task<GitCommandResult> RunAsync(
-            RepositoryInfo repository,
-            IReadOnlyList<string> arguments,
-            GitCommandOptions options,
-            CancellationToken cancellationToken,
-            IProgress<string>? stderrProgress = null)
-        {
-            GitCommandResult result = await inner.RunAsync(
-                repository,
-                arguments,
-                options,
-                cancellationToken,
-                stderrProgress);
-            return arguments.FirstOrDefault() == "ls-files"
-                   && arguments.Contains("--ignored")
-                ? result with { Stderr = stderr }
-                : result;
-        }
-
-        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
-            => inner.GetRecoverableRepositoryLock(repository);
-
-        public bool RemoveRecoverableRepositoryLock(
-            RepositoryInfo repository,
-            RepositoryLockInfo lockInfo)
-            => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
     }
 }

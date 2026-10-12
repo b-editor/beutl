@@ -1,4 +1,5 @@
 ﻿using Beutl.Graphics.Backend;
+using Beutl.UnitTests.TestInfrastructure;
 using Moq;
 
 namespace Beutl.UnitTests.Engine.Graphics.Backend;
@@ -60,16 +61,9 @@ public class GraphicsContextFactoryTests
             installed = context.Object;
         }
 
-        InstalledGraphics previous = GraphicsContextFactory.ExchangeInstalledGraphics(
+        using var scope = InstalledGraphicsScope.Install(
             new InstalledGraphics(installed, null, null, failedToInitialize));
-        try
-        {
-            Assert.That(GraphicsContextFactory.Predict3DRenderingSupport(), Is.EqualTo(expected));
-        }
-        finally
-        {
-            GraphicsContextFactory.ExchangeInstalledGraphics(previous);
-        }
+        Assert.That(GraphicsContextFactory.Predict3DRenderingSupport(), Is.EqualTo(expected));
     }
 
     // The extent budget is settled the same way: only a context that exists and can render 3D reports
@@ -95,18 +89,10 @@ public class GraphicsContextFactoryTests
             installed = context.Object;
         }
 
-        InstalledGraphics previous = GraphicsContextFactory.ExchangeInstalledGraphics(
-            new InstalledGraphics(installed, null, null, FailedToInitialize: false));
-        try
-        {
-            Assert.That(
-                GraphicsContextFactory.Predict3DExtentBudget(),
-                Is.EqualTo(new Device3DExtentBudget(expectedAttachment, expectedCube)));
-        }
-        finally
-        {
-            GraphicsContextFactory.ExchangeInstalledGraphics(previous);
-        }
+        using var scope = InstalledGraphicsScope.Install(installed);
+        Assert.That(
+            GraphicsContextFactory.Predict3DExtentBudget(),
+            Is.EqualTo(new Device3DExtentBudget(expectedAttachment, expectedCube)));
     }
 
     [Test]
@@ -116,7 +102,6 @@ public class GraphicsContextFactoryTests
 
         var devices = GraphicsContextFactory.GetAvailableDevices();
 
-        Assert.That(devices, Is.Not.Null);
         Assert.That(devices.Length, Is.GreaterThan(0),
             "Vulkanインスタンスは作成できているのにデバイスが0件なのは想定外です。");
 
@@ -167,15 +152,12 @@ public class GraphicsContextFactoryTests
 
         var extensions = GraphicsContextFactory.GetEnabledExtensions().ToArray();
 
-        Assert.That(extensions, Is.Not.Null);
         Assert.That(extensions.Length, Is.GreaterThan(0));
     }
 
     [Test]
     public void SelectGpuByName_RejectsNullOrEmpty()
     {
-        VulkanTestEnvironment.EnsureAvailable();
-
         Assert.That(GraphicsContextFactory.SelectGpuByName(null), Is.False);
         Assert.That(GraphicsContextFactory.SelectGpuByName(string.Empty), Is.False);
     }

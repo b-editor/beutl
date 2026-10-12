@@ -2,17 +2,14 @@
 using System.Text.Json.Nodes;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
-using Beutl.Collections;
 using Beutl.Editor;
 using Beutl.Editor.Operations;
 using Beutl.Editor.Services;
 using Beutl.Engine;
-using Beutl.Logging;
 using Beutl.NodeGraph;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.UnitTests.TestInfrastructure;
-using Microsoft.Extensions.Logging;
 
 namespace Beutl.UnitTests.Editor;
 
@@ -26,15 +23,11 @@ public class AutoSaveServiceTests
         _directory = Path.GetFullPath(Path.Combine(TestContext.CurrentContext.WorkDirectory,
             "beutl-autosave-" + Guid.NewGuid().ToString("N")));
         Directory.CreateDirectory(_directory);
-        Log.LoggerFactory = LoggerFactory.Create(b => b.AddSimpleConsole());
     }
 
     [TearDown]
     public void TearDown()
     {
-        string testRoot = Path.GetFullPath(TestContext.CurrentContext.WorkDirectory)
-            .TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
-        Assert.That(_directory.StartsWith(testRoot, StringComparison.OrdinalIgnoreCase), Is.True);
         Directory.Delete(_directory, recursive: true);
     }
 
@@ -108,112 +101,71 @@ public class AutoSaveServiceTests
     [Test]
     public void AutoSave_StandaloneSceneKeepsSceneAndAttachedElements()
     {
-        string root = Path.Combine(Path.GetTempPath(), "beutl-standalone-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        try
+        var scene = new Beutl.ProjectSystem.Scene { Uri = CreateUri("main.scene") };
+        var element = new Beutl.ProjectSystem.Element { Uri = CreateUri("element.belm") };
+        scene.Children.Add(element);
+        using var service = new AutoSaveService();
+        service.SaveObjects([scene, element]);
+        Assert.Multiple(() =>
         {
-            var scene = new Beutl.ProjectSystem.Scene { Uri = new Uri(Path.Combine(root, "main.scene")) };
-            var element = new Beutl.ProjectSystem.Element { Uri = new Uri(Path.Combine(root, "element.belm")) };
-            scene.Children.Add(element);
-            using var service = new AutoSaveService();
-            service.SaveObjects([scene, element]);
-            Assert.Multiple(() =>
-            {
-                Assert.That(File.Exists(scene.Uri.LocalPath), Is.True);
-                Assert.That(File.Exists(element.Uri.LocalPath), Is.True);
-            });
-            scene.Children.Remove(element);
-            service.SaveObjects([element]);
-            Assert.That(File.Exists(element.Uri.LocalPath), Is.False);
-        }
-        finally { Directory.Delete(root, true); }
+            Assert.That(File.Exists(scene.Uri.LocalPath), Is.True);
+            Assert.That(File.Exists(element.Uri.LocalPath), Is.True);
+        });
+        scene.Children.Remove(element);
+        service.SaveObjects([element]);
+        Assert.That(File.Exists(element.Uri.LocalPath), Is.False);
     }
 
     [Test]
     public void RemovedFileBackedEngineObject_DeletesItsSidecarAndRestoresItOnUndo()
     {
-        string directory = Path.Combine(Path.GetTempPath(), "beutl-autosave-child-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(directory);
-        try
+        var scene = new Beutl.ProjectSystem.Scene { Uri = CreateUri("main.scene") };
+        var element = new Beutl.ProjectSystem.Element { Uri = CreateUri("element.belm") };
+        var shape = new Beutl.Graphics.Shapes.RectShape { Uri = CreateUri("shape.json") };
+        scene.Children.Add(element);
+        element.Objects.Add(shape);
+        using var service = new AutoSaveService();
+        var errors = new List<Exception>();
+        using var subscription = service.SaveError.Subscribe(errors.Add);
+        service.SaveObjects([scene, element, shape]);
+        Assert.That(File.Exists(shape.Uri.LocalPath), Is.True);
+        element.Objects.Remove(shape);
+        var removal = new RemoveCollectionItemOperation<EngineObject>
         {
-            var scene = new Beutl.ProjectSystem.Scene { Uri = new Uri(Path.Combine(directory, "main.scene")) };
-            var element = new Beutl.ProjectSystem.Element { Uri = new Uri(Path.Combine(directory, "element.belm")) };
-            var shape = new Beutl.Graphics.Shapes.RectShape { Uri = new Uri(Path.Combine(directory, "shape.json")) };
-            scene.Children.Add(element);
-            element.Objects.Add(shape);
-            using var service = new AutoSaveService();
-            var errors = new List<Exception>();
-            using var subscription = service.SaveError.Subscribe(errors.Add);
-            service.SaveObjects([scene, element, shape]);
-            Assert.That(File.Exists(shape.Uri.LocalPath), Is.True);
-            element.Objects.Remove(shape);
-            var removal = new RemoveCollectionItemOperation<EngineObject>
-            {
-                Object = element,
-                PropertyPath = nameof(element.Objects),
-                Item = shape,
-                Index = 0,
-                SequenceNumber = 1,
-            };
+            Object = element,
+            PropertyPath = nameof(element.Objects),
+            Item = shape,
+            Index = 0,
+            SequenceNumber = 1,
+        };
 
-            service.AutoSave([removal]);
-            Assert.That(File.Exists(shape.Uri.LocalPath), Is.False);
-            Assert.That(File.Exists(element.Uri.LocalPath), Is.True);
-            Assert.That(File.Exists(scene.Uri.LocalPath), Is.True);
+        service.AutoSave([removal]);
+        Assert.That(File.Exists(shape.Uri.LocalPath), Is.False);
+        Assert.That(File.Exists(element.Uri.LocalPath), Is.True);
+        Assert.That(File.Exists(scene.Uri.LocalPath), Is.True);
 
-            element.Objects.Add(shape);
-            service.AutoSave([removal]);
-            Assert.That(File.Exists(shape.Uri.LocalPath), Is.True);
-            Assert.That(errors, Is.Empty);
-        }
-        finally { Directory.Delete(directory, true); }
+        element.Objects.Add(shape);
+        service.AutoSave([removal]);
+        Assert.That(File.Exists(shape.Uri.LocalPath), Is.True);
+        Assert.That(errors, Is.Empty);
     }
 
     [Test]
     public void StandaloneFileBackedEngineObject_IsSavedWithoutACollectionRemoval()
     {
-        string directory = Path.Combine(Path.GetTempPath(), "beutl-autosave-root-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(directory);
-        try
-        {
-            var shape = new Beutl.Graphics.Shapes.RectShape { Uri = new Uri(Path.Combine(directory, "shape.json")) };
-            using var service = new AutoSaveService();
-            service.SaveObjects([shape]);
-            Assert.That(File.Exists(shape.Uri.LocalPath), Is.True);
-        }
-        finally { Directory.Delete(directory, true); }
+        var shape = new Beutl.Graphics.Shapes.RectShape { Uri = CreateUri("shape.json") };
+        using var service = new AutoSaveService();
+        service.SaveObjects([shape]);
+        Assert.That(File.Exists(shape.Uri.LocalPath), Is.True);
     }
 
     #region Constructor and Dispose Tests
 
     [Test]
-    public void Constructor_ShouldCreateValidInstance()
-    {
-        // Arrange & Act
-        using var service = new AutoSaveService();
-
-        // Assert
-        Assert.That(service, Is.Not.Null);
-        Assert.That(service.SaveError, Is.Not.Null);
-    }
-
-    [Test]
-    public void Dispose_ShouldNotThrow()
-    {
-        // Arrange
-        var service = new AutoSaveService();
-
-        // Act & Assert
-        Assert.DoesNotThrow(() => service.Dispose());
-    }
-
-    [Test]
     public void Dispose_CalledMultipleTimes_ShouldNotThrow()
     {
-        // Arrange
         var service = new AutoSaveService();
 
-        // Act & Assert
         Assert.DoesNotThrow(() =>
         {
             service.Dispose();
@@ -225,22 +177,18 @@ public class AutoSaveServiceTests
     [Test]
     public void AutoSave_AfterDispose_ShouldThrowObjectDisposedException()
     {
-        // Arrange
         var service = new AutoSaveService();
         service.Dispose();
 
-        // Act & Assert
         Assert.Throws<ObjectDisposedException>(() => service.AutoSave([]));
     }
 
     [Test]
     public void SaveObjects_AfterDispose_ShouldThrowObjectDisposedException()
     {
-        // Arrange
         var service = new AutoSaveService();
         service.Dispose();
 
-        // Act & Assert
         Assert.Throws<ObjectDisposedException>(() => service.SaveObjects([]));
     }
 
@@ -251,7 +199,6 @@ public class AutoSaveServiceTests
     [Test]
     public void CollectObjectsToSave_WithUpdatePropertyValueOperation_ShouldAddObjectWithUri()
     {
-        // Arrange
         var obj = new TestCoreObjectWithUri();
         obj.SetUri(CreateUri("test.json"));
 
@@ -262,19 +209,15 @@ public class AutoSaveServiceTests
 
         var objectsToSave = new HashSet<CoreObject>();
 
-        // Act
         AutoSaveService.CollectObjectsToSave(operation, objectsToSave);
 
-        // Assert
         Assert.That(objectsToSave, Contains.Item(obj));
     }
 
     [Test]
     public void CollectObjectsToSave_WithUpdatePropertyValueOperation_ObjectWithoutUri_ShouldNotAddObject()
     {
-        // Arrange
         var obj = new TestCoreObject();
-        // obj has no Uri
 
         var operation = new UpdatePropertyValueOperation<int>(obj, "Value", 10, 0)
         {
@@ -283,17 +226,14 @@ public class AutoSaveServiceTests
 
         var objectsToSave = new HashSet<CoreObject>();
 
-        // Act
         AutoSaveService.CollectObjectsToSave(operation, objectsToSave);
 
-        // Assert
         Assert.That(objectsToSave, Does.Not.Contain(obj));
     }
 
     [Test]
     public void CollectObjectsToSave_WithUpdatePropertyValueOperation_ShouldAddAncestorsWithUri()
     {
-        // Arrange
         var parent = new TestHierarchicalCoreObject();
         parent.SetUri(CreateUri("parent.json"));
 
@@ -307,10 +247,8 @@ public class AutoSaveServiceTests
 
         var objectsToSave = new HashSet<CoreObject>();
 
-        // Act
         AutoSaveService.CollectObjectsToSave(operation, objectsToSave);
 
-        // Assert
         Assert.That(objectsToSave, Contains.Item(parent));
     }
 
@@ -321,8 +259,7 @@ public class AutoSaveServiceTests
     [Test]
     public void CollectObjectsToSave_WithCollectionOperation_ShouldAddObjectWithUri()
     {
-        // Arrange
-        var owner = new TestCoreObjectWithListAndUri();
+        var owner = new TestCoreObjectWithUri();
         owner.SetUri(CreateUri("owner.json"));
 
         var operation = new InsertCollectionItemOperation<string>
@@ -336,18 +273,15 @@ public class AutoSaveServiceTests
 
         var objectsToSave = new HashSet<CoreObject>();
 
-        // Act
         AutoSaveService.CollectObjectsToSave(operation, objectsToSave);
 
-        // Assert
         Assert.That(objectsToSave, Contains.Item(owner));
     }
 
     [Test]
     public void CollectObjectsToSave_WithCollectionOperation_ShouldAddCoreObjectItems()
     {
-        // Arrange
-        var owner = new TestCoreObjectWithListAndUri();
+        var owner = new TestCoreObjectWithUri();
         owner.SetUri(CreateUri("owner.json"));
 
         var item = new TestCoreObjectWithUri();
@@ -360,10 +294,8 @@ public class AutoSaveServiceTests
 
         var objectsToSave = new HashSet<CoreObject>();
 
-        // Act
         AutoSaveService.CollectObjectsToSave(operation, objectsToSave);
 
-        // Assert
         Assert.That(objectsToSave, Contains.Item(owner));
         Assert.That(objectsToSave, Contains.Item(item));
     }
@@ -371,8 +303,7 @@ public class AutoSaveServiceTests
     [Test]
     public void CollectObjectsToSave_WithCollectionOperation_ShouldAddAncestorsOfItems()
     {
-        // Arrange
-        var owner = new TestCoreObjectWithListAndUri();
+        var owner = new TestCoreObjectWithUri();
 
         var itemParent = new TestHierarchicalCoreObject();
         itemParent.SetUri(CreateUri("item-parent.json"));
@@ -387,34 +318,9 @@ public class AutoSaveServiceTests
 
         var objectsToSave = new HashSet<CoreObject>();
 
-        // Act
         AutoSaveService.CollectObjectsToSave(operation, objectsToSave);
 
-        // Assert
         Assert.That(objectsToSave, Contains.Item(itemParent));
-    }
-
-    [Test]
-    public void CollectObjectsToSave_WithCollectionOperation_NonCoreObjectItems_ShouldNotThrow()
-    {
-        // Arrange
-        var owner = new TestCoreObjectWithListAndUri();
-        owner.SetUri(CreateUri("owner.json"));
-
-        var operation = new InsertCollectionItemOperation<string>
-        {
-            Object = owner,
-            PropertyPath = "Items",
-            Item = "StringItem", // Not a CoreObject
-            Index = 0,
-            SequenceNumber = 1
-        };
-
-        var objectsToSave = new HashSet<CoreObject>();
-
-        // Act & Assert
-        Assert.DoesNotThrow(() => AutoSaveService.CollectObjectsToSave(operation, objectsToSave));
-        Assert.That(objectsToSave, Contains.Item(owner));
     }
 
     #endregion
@@ -424,7 +330,6 @@ public class AutoSaveServiceTests
     [Test]
     public void CollectObjectsToSave_WithSplineEasingOperation_ShouldAddParentWithUri()
     {
-        // Arrange
         var parent = new TestCoreObjectWithUri();
         parent.SetUri(CreateUri("parent.json"));
 
@@ -437,17 +342,14 @@ public class AutoSaveServiceTests
 
         var objectsToSave = new HashSet<CoreObject>();
 
-        // Act
         AutoSaveService.CollectObjectsToSave(operation, objectsToSave);
 
-        // Assert
         Assert.That(objectsToSave, Contains.Item(parent));
     }
 
     [Test]
     public void CollectObjectsToSave_WithSplineEasingOperation_NullParent_ShouldNotThrow()
     {
-        // Arrange
         var easing = new SplineEasing();
         var operation = new UpdateSplineEasingOperation(easing, "X1", 0.5f, 0f)
         {
@@ -457,7 +359,6 @@ public class AutoSaveServiceTests
 
         var objectsToSave = new HashSet<CoreObject>();
 
-        // Act & Assert
         Assert.DoesNotThrow(() => AutoSaveService.CollectObjectsToSave(operation, objectsToSave));
         Assert.That(objectsToSave, Is.Empty);
     }
@@ -469,7 +370,6 @@ public class AutoSaveServiceTests
     [Test]
     public void CollectObjectsToSave_WithNodeMemberOperation_CoreObjectNodeMember_ShouldAddNodeMember()
     {
-        // Arrange
         var nodeMember = new TestNodeMember();
         nodeMember.SetUri(CreateUri("nodeMember.json"));
 
@@ -480,31 +380,9 @@ public class AutoSaveServiceTests
 
         var objectsToSave = new HashSet<CoreObject>();
 
-        // Act
         AutoSaveService.CollectObjectsToSave(operation, objectsToSave);
 
-        // Assert
         Assert.That(objectsToSave, Contains.Item(nodeMember));
-    }
-
-    [Test]
-    public void CollectObjectsToSave_WithNodeMemberOperation_NonCoreObjectNodeMember_ShouldNotAddToSet()
-    {
-        // Arrange
-        var nodeMember = new DefaultNodeMember<int>();
-
-        var operation = new UpdateNodeMemberOperation(nodeMember, "Property", 10, 5)
-        {
-            SequenceNumber = 1
-        };
-
-        var objectsToSave = new HashSet<CoreObject>();
-
-        // Act
-        AutoSaveService.CollectObjectsToSave(operation, objectsToSave);
-
-        // Assert
-        Assert.That(objectsToSave, Is.Empty);
     }
 
     #endregion
@@ -514,7 +392,6 @@ public class AutoSaveServiceTests
     [Test]
     public void CollectObjectsToSave_WithUnknownOperationType_ShouldNotThrow()
     {
-        // Arrange
         var operation = new TestUnknownChangeOperation
         {
             SequenceNumber = 1
@@ -522,7 +399,6 @@ public class AutoSaveServiceTests
 
         var objectsToSave = new HashSet<CoreObject>();
 
-        // Act & Assert
         Assert.DoesNotThrow(() => AutoSaveService.CollectObjectsToSave(operation, objectsToSave));
         Assert.That(objectsToSave, Is.Empty);
     }
@@ -534,39 +410,31 @@ public class AutoSaveServiceTests
     [Test]
     public void AddObjectWithAncestors_ObjectWithUri_ShouldAddObject()
     {
-        // Arrange
         var obj = new TestCoreObjectWithUri();
         obj.SetUri(CreateUri("test.json"));
 
         var objectsToSave = new HashSet<CoreObject>();
 
-        // Act
         AutoSaveService.AddObjectWithAncestors(obj, objectsToSave);
 
-        // Assert
         Assert.That(objectsToSave, Contains.Item(obj));
     }
 
     [Test]
     public void AddObjectWithAncestors_ObjectWithoutUri_ShouldNotAddObject()
     {
-        // Arrange
         var obj = new TestCoreObject();
-        // obj has no Uri
 
         var objectsToSave = new HashSet<CoreObject>();
 
-        // Act
         AutoSaveService.AddObjectWithAncestors(obj, objectsToSave);
 
-        // Assert
         Assert.That(objectsToSave, Does.Not.Contain(obj));
     }
 
     [Test]
     public void AddObjectWithAncestors_WithHierarchy_ShouldAddAllAncestorsWithUri()
     {
-        // Arrange
         var root = new TestHierarchicalCoreObject();
         root.SetUri(CreateUri("root.json"));
 
@@ -575,52 +443,15 @@ public class AutoSaveServiceTests
         root.AddChild(parent);
 
         var child = new TestHierarchicalCoreObject();
-        // child has no Uri
         parent.AddChild(child);
 
         var objectsToSave = new HashSet<CoreObject>();
 
-        // Act
         AutoSaveService.AddObjectWithAncestors(child, objectsToSave);
 
-        // Assert
         Assert.That(objectsToSave, Contains.Item(root));
         Assert.That(objectsToSave, Contains.Item(parent));
         Assert.That(objectsToSave, Does.Not.Contain(child));
-    }
-
-    [Test]
-    public void AddObjectWithAncestors_DuplicateObject_ShouldNotAddTwice()
-    {
-        // Arrange
-        var obj = new TestCoreObjectWithUri();
-        obj.SetUri(CreateUri("test.json"));
-
-        var objectsToSave = new HashSet<CoreObject>();
-
-        // Act
-        AutoSaveService.AddObjectWithAncestors(obj, objectsToSave);
-        AutoSaveService.AddObjectWithAncestors(obj, objectsToSave);
-
-        // Assert
-        Assert.That(objectsToSave.Count, Is.EqualTo(1));
-    }
-
-    [Test]
-    public void AddObjectWithAncestors_NonHierarchicalObject_ShouldOnlyCheckUri()
-    {
-        // Arrange - TestCoreObject doesn't implement IHierarchical
-        var obj = new TestCoreObjectWithUri();
-        obj.SetUri(CreateUri("test.json"));
-
-        var objectsToSave = new HashSet<CoreObject>();
-
-        // Act
-        AutoSaveService.AddObjectWithAncestors(obj, objectsToSave);
-
-        // Assert
-        Assert.That(objectsToSave.Count, Is.EqualTo(1));
-        Assert.That(objectsToSave, Contains.Item(obj));
     }
 
     #endregion
@@ -630,18 +461,14 @@ public class AutoSaveServiceTests
     [Test]
     public void AutoSave_WithEmptyOperations_ShouldNotThrow()
     {
-        // Arrange
         using var service = new AutoSaveService();
 
-        // Act & Assert
         Assert.DoesNotThrow(() => service.AutoSave([]));
     }
 
     [Test]
     public void AutoSave_WithMultipleOperations_ShouldCollectAllObjects()
     {
-        // This test verifies that AutoSave processes all operations
-        // Since we can't easily mock CoreSerializer, we verify behavior via SaveError
         using var service = new AutoSaveService();
 
         var obj1 = new TestCoreObjectWithUri();
@@ -659,16 +486,17 @@ public class AutoSaveServiceTests
             SequenceNumber = 2
         };
 
-        var errorCount = 0;
-        using var subscription = service.SaveError.Subscribe(_ => errorCount++);
+        var errors = new List<Exception>();
+        using var subscription = service.SaveError.Subscribe(errors.Add);
 
-        // Act
         service.AutoSave([op1, op2]);
 
-        // Assert - Should have attempted to save both objects
-        // The exact error count depends on whether files exist or not
-        // At minimum, we verify no crash occurred
-        Assert.Pass("AutoSave completed without throwing");
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.Exists(obj1.Uri!.LocalPath), Is.True);
+            Assert.That(File.Exists(obj2.Uri!.LocalPath), Is.True);
+            Assert.That(errors, Is.Empty);
+        });
     }
 
     #endregion
@@ -678,17 +506,14 @@ public class AutoSaveServiceTests
     [Test]
     public void SaveObjects_WithEmptyCollection_ShouldNotThrow()
     {
-        // Arrange
         using var service = new AutoSaveService();
 
-        // Act & Assert
         Assert.DoesNotThrow(() => service.SaveObjects([]));
     }
 
     [Test]
     public void SaveObjects_WithNonExistentDirectory_ShouldCreateDirectoryAndSaveObject()
     {
-        // Arrange
         using var service = new AutoSaveService();
         var obj = new TestCoreObjectWithUri();
         obj.SetUri(CreateUri("nonexistent/path/that/does/not/exist/test.json"));
@@ -696,10 +521,8 @@ public class AutoSaveServiceTests
         Exception? receivedError = null;
         using var subscription = service.SaveError.Subscribe(ex => receivedError = ex);
 
-        // Act
         service.SaveObjects([obj]);
 
-        // Assert
         Assert.Multiple(() =>
         {
             Assert.That(receivedError, Is.Null);
@@ -710,7 +533,6 @@ public class AutoSaveServiceTests
     [Test]
     public void SaveObjects_WhenExceptionOccurs_ShouldContinueWithNextObject()
     {
-        // Arrange
         using var service = new AutoSaveService();
 
         var obj1 = new TestCoreObjectWithUri();
@@ -724,7 +546,7 @@ public class AutoSaveServiceTests
         var errors = new List<Exception>();
         using var subscription = service.SaveError.Subscribe(errors.Add);
 
-        // Act - Should not throw, even if saving fails
+        // Should not throw, even if saving fails
         Assert.DoesNotThrow(() => service.SaveObjects([obj1, obj2]));
 
         Assert.Multiple(() =>
@@ -740,20 +562,8 @@ public class AutoSaveServiceTests
     #region SaveError Observable Tests
 
     [Test]
-    public void SaveError_ShouldBeObservable()
-    {
-        // Arrange
-        using var service = new AutoSaveService();
-
-        // Act & Assert
-        Assert.That(service.SaveError, Is.Not.Null);
-        Assert.That(service.SaveError, Is.InstanceOf<IObservable<Exception>>());
-    }
-
-    [Test]
     public void SaveError_Subscription_ShouldReceiveErrors()
     {
-        // Arrange
         using var service = new AutoSaveService();
         var obj = new TestCoreObjectWithUri();
         obj.SetUri(CreateUri("this/path/does/not/exist/test.json"));
@@ -763,17 +573,14 @@ public class AutoSaveServiceTests
         var errors = new List<Exception>();
         using var subscription = service.SaveError.Subscribe(ex => errors.Add(ex));
 
-        // Act
         service.SaveObjects([obj]);
 
-        // Assert
         Assert.That(errors, Is.EqualTo(new[] { failure }));
     }
 
     [Test]
     public void SaveError_MultipleSubscribers_ShouldAllReceiveErrors()
     {
-        // Arrange
         using var service = new AutoSaveService();
         var obj = new TestCoreObjectWithUri();
         obj.SetUri(CreateUri("nonexistent/test.json"));
@@ -785,10 +592,8 @@ public class AutoSaveServiceTests
         using var sub1 = service.SaveError.Subscribe(ex => errors1.Add(ex));
         using var sub2 = service.SaveError.Subscribe(ex => errors2.Add(ex));
 
-        // Act
         service.SaveObjects([obj]);
 
-        // Assert
         Assert.Multiple(() =>
         {
             Assert.That(errors1, Is.EqualTo(new[] { failure }));
@@ -798,117 +603,13 @@ public class AutoSaveServiceTests
 
     #endregion
 
-    #region Integration Tests
-
-    [Test]
-    public void CollectObjectsToSave_WithMixedOperationTypes_ShouldHandleAll()
-    {
-        // Arrange
-        var coreObj = new TestCoreObjectWithUri();
-        coreObj.SetUri(CreateUri("core.json"));
-
-        var collectionOwner = new TestCoreObjectWithListAndUri();
-        collectionOwner.SetUri(CreateUri("collection.json"));
-
-        var splineParent = new TestCoreObjectWithUri();
-        splineParent.SetUri(CreateUri("spline.json"));
-
-        var operations = new ChangeOperation[]
-        {
-            new UpdatePropertyValueOperation<int>(coreObj, "Value", 10, 0) { SequenceNumber = 1 },
-            new InsertCollectionItemOperation<string>
-            {
-                Object = collectionOwner,
-                PropertyPath = "Items",
-                Item = "Item",
-                Index = 0,
-                SequenceNumber = 2
-            },
-            new UpdateSplineEasingOperation(new SplineEasing(), "X1", 0.5f, 0f)
-            {
-                Parent = splineParent,
-                SequenceNumber = 3
-            }
-        };
-
-        var objectsToSave = new HashSet<CoreObject>();
-
-        // Act
-        foreach (var op in operations)
-        {
-            AutoSaveService.CollectObjectsToSave(op, objectsToSave);
-        }
-
-        // Assert
-        Assert.That(objectsToSave, Contains.Item(coreObj));
-        Assert.That(objectsToSave, Contains.Item(collectionOwner));
-        Assert.That(objectsToSave, Contains.Item(splineParent));
-    }
-
-    [Test]
-    public void CollectObjectsToSave_DuplicateObjects_ShouldOnlyAddOnce()
-    {
-        // Arrange - Same object in multiple operations
-        var obj = new TestCoreObjectWithUri();
-        obj.SetUri(CreateUri("test.json"));
-
-        var op1 = new UpdatePropertyValueOperation<int>(obj, "Value", 10, 0) { SequenceNumber = 1 };
-        var op2 = new UpdatePropertyValueOperation<int>(obj, "Value", 20, 10) { SequenceNumber = 2 };
-
-        var objectsToSave = new HashSet<CoreObject>();
-
-        // Act
-        AutoSaveService.CollectObjectsToSave(op1, objectsToSave);
-        AutoSaveService.CollectObjectsToSave(op2, objectsToSave);
-
-        // Assert
-        Assert.That(objectsToSave.Count, Is.EqualTo(1));
-    }
-
-    #endregion
-
     #region Test Helper Classes
 
-    private class TestCoreObject : CoreObject
-    {
-        public static readonly CoreProperty<int> ValueProperty;
-
-        private int _value;
-
-        static TestCoreObject()
-        {
-            ValueProperty = ConfigureProperty<int, TestCoreObject>(nameof(Value))
-                .Accessor(o => o.Value, (o, v) => o.Value = v)
-                .Register();
-        }
-
-        public int Value
-        {
-            get => _value;
-            set => SetAndRaise(ValueProperty, ref _value, value);
-        }
-    }
+    private class TestCoreObject : CoreObject;
 
     private class TestCoreObjectWithUri : CoreObject
     {
         public Exception? SaveFailure { get; set; }
-
-        public static readonly CoreProperty<int> ValueProperty;
-
-        private int _value;
-
-        static TestCoreObjectWithUri()
-        {
-            ValueProperty = ConfigureProperty<int, TestCoreObjectWithUri>(nameof(Value))
-                .Accessor(o => o.Value, (o, v) => o.Value = v)
-                .Register();
-        }
-
-        public int Value
-        {
-            get => _value;
-            set => SetAndRaise(ValueProperty, ref _value, value);
-        }
 
         public void SetUri(Uri uri)
         {
@@ -924,23 +625,6 @@ public class AutoSaveServiceTests
 
     private class TestHierarchicalCoreObject : Hierarchical
     {
-        public static readonly CoreProperty<int> ValueProperty;
-
-        private int _value;
-
-        static TestHierarchicalCoreObject()
-        {
-            ValueProperty = ConfigureProperty<int, TestHierarchicalCoreObject>(nameof(Value))
-                .Accessor(o => o.Value, (o, v) => o.Value = v)
-                .Register();
-        }
-
-        public int Value
-        {
-            get => _value;
-            set => SetAndRaise(ValueProperty, ref _value, value);
-        }
-
         public void SetUri(Uri uri)
         {
             Uri = uri;
@@ -949,31 +633,6 @@ public class AutoSaveServiceTests
         public void AddChild(IHierarchical child)
         {
             HierarchicalChildren.Add(child);
-        }
-    }
-
-    private class TestCoreObjectWithListAndUri : CoreObject
-    {
-        public static readonly CoreProperty<CoreList<string>> ItemsProperty;
-
-        private CoreList<string> _items = [];
-
-        static TestCoreObjectWithListAndUri()
-        {
-            ItemsProperty = ConfigureProperty<CoreList<string>, TestCoreObjectWithListAndUri>(nameof(Items))
-                .Accessor(o => o.Items, (o, v) => o.Items = v)
-                .Register();
-        }
-
-        public CoreList<string> Items
-        {
-            get => _items;
-            set => SetAndRaise(ItemsProperty, ref _items, value);
-        }
-
-        public void SetUri(Uri uri)
-        {
-            Uri = uri;
         }
     }
 

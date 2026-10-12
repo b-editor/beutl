@@ -2,7 +2,6 @@
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shaders;
-using Beutl.Media;
 using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.FilterEffects;
@@ -22,17 +21,13 @@ public sealed class ShaderDescriptionResourceStateTests
         var probe = new TintProbe();
         RenderResource<TintProbe> token = registry.RegisterBorrowed(probe);
         registry.Commit(token);
-        var request = new TintRequest { Alpha = 0.25f };
 
-        ShaderDescription first = Tint(token, request.Alpha);
-        request.Alpha = 0.75f;
-        ShaderDescription second = Tint(token, request.Alpha);
+        ShaderDescription first = Tint(token, 0.25f);
+        ShaderDescription second = Tint(token, 0.75f);
 
-        // Both descriptions are built before either binder runs, so a binder reading the live state here
-        // would see the last value twice instead of the value its own description declared.
-        request.Alpha = 1f;
-        BindResource(first);
-        BindResource(second);
+        // Two descriptions of the same structure are each bound with the value they declared.
+        FilterEffectTestHarness.BindResource(first, new Rect(0, 0, 8, 8));
+        FilterEffectTestHarness.BindResource(second, new Rect(0, 0, 8, 8));
 
         Assert.Multiple(() =>
         {
@@ -59,32 +54,6 @@ public sealed class ShaderDescriptionResourceStateTests
                     writer.Set(SKShader.CreateColor(new SKColor(255, 255, 255, (byte)(value * 255))));
                 }),
             hitTestResources: [s_tintSlot.Bind(token)]);
-
-    private static void BindResource(ShaderDescription description)
-    {
-        var token = new RenderExecutionSessionToken();
-        var execution = new ShaderExecutionContext(
-            token,
-            new Rect(0, 0, 8, 8),
-            new Rect(0, 0, 8, 8),
-            new Rect(0, 0, 8, 8),
-            new PixelRect(0, 0, 8, 8),
-            default,
-            EffectiveScale.At(1),
-            outputScale: 1,
-            workingScale: 1,
-            maxWorkingScale: 2,
-            intent: RenderIntent.Preview,
-            purpose: RenderRequestPurpose.Frame);
-
-        description.Resources.Single().Bind(execution).Dispose();
-        token.Complete();
-    }
-
-    private sealed class TintRequest
-    {
-        public float Alpha { get; set; }
-    }
 
     private sealed class TintProbe
     {

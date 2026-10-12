@@ -1,5 +1,4 @@
-﻿using System.Runtime.InteropServices;
-using Beutl.Graphics.Backend.Metal;
+﻿using Beutl.Graphics.Backend.Metal;
 using Beutl.Graphics.Backend.Vulkan;
 using Beutl.Graphics3D;
 using Silk.NET.Vulkan;
@@ -13,11 +12,6 @@ internal sealed class CompositeContext : IGraphicsContext
 
     public CompositeContext(VulkanInstance vulkanInstance, VulkanPhysicalDeviceInfo physicalDevice)
     {
-        if (!RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-        {
-            throw new PlatformNotSupportedException("CompositeContext is only available on macOS");
-        }
-
         // Skia renders through Metal here, because the macOS libSkiaSharp is built without Vulkan, and only a device
         // MoltenVK drives has a Metal device behind it. A context on any other driver, SwiftShader for one, would have
         // no Skia GPU context, so the device is refused before anything is created on it and GraphicsContextFactory

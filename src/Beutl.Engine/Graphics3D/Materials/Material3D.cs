@@ -55,7 +55,7 @@ public abstract partial class Material3D : EngineObject
 
         /// <summary>
         /// Ensures the pipeline is created for this material.
-        /// This method is called once before rendering.
+        /// This method is called before each draw that uses the material.
         /// </summary>
         /// <param name="context">The 3D rendering context.</param>
         public abstract void EnsurePipeline(RenderContext3D context);

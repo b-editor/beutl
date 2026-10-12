@@ -22,22 +22,9 @@ internal sealed class MaterialDrawBindings(IBuffer buffer, IDescriptorSet descri
 /// Supplies a material's per-draw bindings, reusing the ones whose recorded draws the device has completed.
 /// </summary>
 /// <remarks>
-/// <para>
-/// A draw reads its uniform buffer and descriptor set when the device executes the command buffer, not when
-/// <see cref="Material3D.Resource.Bind"/> records it, so bindings cannot be written for another draw while a command
-/// buffer that recorded them is pending. Rather than creating a buffer, a device memory allocation and a descriptor
-/// pool for every draw, the pool retires replaced bindings into the backend's deferred-release queue, which runs once
-/// the submission holding the current recording completes, and hands them out again from there.
-/// </para>
-/// <para>
-/// Bindings are retired only after their replacement is bound. Until then the render pass still counts them as bound
-/// and replays them onto a fresh command buffer when a flush splits the pass, so retiring them at
-/// <see cref="Acquire"/> would free them while that later command buffer references them.
-/// </para>
-/// <para>
-/// The pool keeps as many bindings as the most draws that were pending at once, and releases them when the material
-/// rebuilds its pipeline or is disposed. It is used from the render thread only.
-/// </para>
+/// A draw reads its bindings when the device executes it, not when it is recorded, so replaced bindings are reused only
+/// once the submission that recorded them completes. They retire only after their replacement is bound, since a pass
+/// split by a flush binds them again on a fresh command buffer. The pool is used from the render thread only.
 /// </remarks>
 internal sealed class MaterialDrawBindingPool : IDisposable
 {
@@ -61,7 +48,7 @@ internal sealed class MaterialDrawBindingPool : IDisposable
         _deferUntilRecordedWorkCompletes = deferUntilRecordedWorkCompletes;
     }
 
-    /// <summary>Gets the number of bindings this pool has created.</summary>
+    /// <summary>Gets the number of bindings this pool has created. Test seam: only the reuse tests read this.</summary>
     public int CreatedCount { get; private set; }
 
     public static MaterialDrawBindingPool Create<TUbo>(IGraphicsContext context, IPipeline3D pipeline, uint textureCount)

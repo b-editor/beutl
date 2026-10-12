@@ -7,10 +7,8 @@ namespace Beutl.Models;
 /// including <see cref="EndFrame"/>, the frame at the end of the scene.
 /// </summary>
 /// <remarks>
-/// Both are rounded to the nearest frame, as the paused preview rounds the playhead. Frame-aligned times are whole
-/// ticks just short of the frame boundary at 24, 30 and 60 fps, so truncating them would start playback a frame
-/// before the one the preview shows, behind the audio, which starts at the playhead itself. The end frame comes from
-/// the end of the scene, not from its start and length rounded separately, which can miss the last frame.
+/// Both are rounded to the nearest frame: frame-aligned times fall a tick short of the boundary, so truncating them
+/// would start playback a frame early. The end frame comes from the end of the scene.
 /// </remarks>
 internal readonly record struct PlaybackRange(int StartFrame, int EndFrame)
 {

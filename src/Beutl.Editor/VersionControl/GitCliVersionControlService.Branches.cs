@@ -26,8 +26,9 @@ internal sealed partial class GitCliVersionControlService
                 return false;
             }
 
-            IReadOnlyList<BranchInfo> branches = await GetLocalBranchesCoreAsync(cancellationToken)
-                .ConfigureAwait(false);
+            IEnumerable<BranchInfo> branches = (await GetBranchesCoreAsync(cancellationToken)
+                    .ConfigureAwait(false))
+                .Where(static branch => !branch.IsRemote);
             StringComparison branchNameComparison = await UsesCaseInsensitiveFilesRefStorageAsync(
                     repository,
                     runner,

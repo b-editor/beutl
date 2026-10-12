@@ -77,18 +77,18 @@ internal readonly struct RenderFragmentHitTest
         {
             unchecked
             {
-                ulong hash = Combine(14695981039346656037UL, (byte)Kind);
+                ulong hash = Fnv1a.Append(Fnv1a.Offset64, (byte)Kind);
                 switch (Kind)
                 {
                     case RenderFragmentHitTestKind.Region:
                     case RenderFragmentHitTestKind.RegionAndInputs:
-                        hash = Combine(hash, (uint)BitConverter.SingleToInt32Bits(_region.X));
-                        hash = Combine(hash, (uint)BitConverter.SingleToInt32Bits(_region.Y));
-                        hash = Combine(hash, (uint)BitConverter.SingleToInt32Bits(_region.Width));
-                        hash = Combine(hash, (uint)BitConverter.SingleToInt32Bits(_region.Height));
+                        hash = Fnv1a.Append(hash, (uint)BitConverter.SingleToInt32Bits(_region.X));
+                        hash = Fnv1a.Append(hash, (uint)BitConverter.SingleToInt32Bits(_region.Y));
+                        hash = Fnv1a.Append(hash, (uint)BitConverter.SingleToInt32Bits(_region.Width));
+                        hash = Fnv1a.Append(hash, (uint)BitConverter.SingleToInt32Bits(_region.Height));
                         break;
                     case RenderFragmentHitTestKind.Contract:
-                        hash = Combine(hash, (uint)ContractIdentityHash());
+                        hash = Fnv1a.Append(hash, (uint)ContractIdentityHash());
                         break;
                 }
 
@@ -117,14 +117,6 @@ internal readonly struct RenderFragmentHitTest
         return identity is ValueType
             ? identity.GetHashCode()
             : RuntimeHelpers.GetHashCode(identity);
-    }
-
-    private static ulong Combine(ulong hash, ulong value)
-    {
-        unchecked
-        {
-            return (hash ^ value) * 1099511628211UL;
-        }
     }
 
     private static bool AnyInput(ImmutableArray<RenderFragmentReference> inputs, Point point)

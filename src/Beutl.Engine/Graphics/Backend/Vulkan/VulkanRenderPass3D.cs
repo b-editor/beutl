@@ -5,9 +5,6 @@ using Silk.NET.Vulkan;
 
 namespace Beutl.Graphics.Backend.Vulkan;
 
-/// <summary>
-/// Vulkan implementation of <see cref="IRenderPass3D"/> with MRT support.
-/// </summary>
 internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextResource, IVulkanRenderPassSuspension
 {
     private readonly VulkanContext _context;
@@ -35,11 +32,6 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
     /// <summary>
     /// Creates a render pass with the specified color formats and optional depth format.
     /// </summary>
-    /// <param name="context">The Vulkan context.</param>
-    /// <param name="colorFormats">Formats for each color attachment.</param>
-    /// <param name="depthFormat">Format for the depth attachment, or null for a color-only pass.</param>
-    /// <param name="colorLoadOp">The load operation for color attachments.</param>
-    /// <param name="depthLoadOp">The load operation for the depth attachment.</param>
     public VulkanRenderPass3D(
         VulkanContext context,
         IReadOnlyList<Format> colorFormats,
@@ -225,14 +217,12 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
         // runs before there is an instance to suspend.
         _context.ThrowIfRenderPassActive();
 
-        // Prepare textures for rendering
         vulkanFramebuffer.PrepareForRendering();
 
         // Barriers, copies, and consecutive render passes share one command buffer until an
         // external consumer requires submission.
         _currentCommandBuffer = _context.GetRecordingCommandBuffer();
 
-        // Create clear values for all attachments
         int totalClearValues = _colorAttachmentCount + (HasDepthAttachment ? 1 : 0);
         var clearValues = stackalloc ClearValue[totalClearValues];
 
@@ -296,18 +286,9 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
             Extent = new Extent2D((uint)framebuffer.Width, (uint)framebuffer.Height)
         };
 
-    /// <remarks>
-    /// Vulkan forbids a transfer or a barrier inside a render pass instance, and appending one to the batch
-    /// the pass is still recording is not an option either. Ending the instance, recording the work, and
-    /// beginning it again keeps everything on one command buffer in the order it was recorded, which is what
-    /// a draw already recorded in this pass needs: it must not end up running after work requested later.
-    /// </remarks>
     bool IVulkanRenderPassSuspension.TrySuspend()
     {
-        // Dispose already gives up the scope, so a disposed pass should never be reached as its owner. The
-        // check stays because the cost of being wrong is recording an end and a begin against render pass
-        // handles that have been destroyed, which no layer below this one can diagnose.
-        if (_disposed || !_inRenderPass || _suspended || _currentFramebuffer is null)
+        if (!_inRenderPass || _suspended)
             return false;
 
         _context.Vk.CmdEndRenderPass(_currentCommandBuffer);
@@ -317,8 +298,7 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
 
     void IVulkanRenderPassSuspension.Resume()
     {
-        VulkanFramebuffer3D framebuffer = _currentFramebuffer
-            ?? throw new InvalidOperationException("A suspended render pass lost the framebuffer it was recording into.");
+        VulkanFramebuffer3D framebuffer = _currentFramebuffer!;
 
         // The batch this pass was recording into may have been submitted while it was suspended - that is
         // what a synchronous flush does - so the instance resumes on whatever batch is recording now.
@@ -344,16 +324,8 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
     /// Puts back everything a draw reads that lives on the command buffer rather than in an object.
     /// </summary>
     /// <remarks>
-    /// A synchronous flush during a suspension submits the batch, so the instance resumes on a freshly
-    /// allocated command buffer that holds none of the bindings the caller made before the split: the
-    /// pipeline, the vertex and index buffers, the descriptor set, and the push constants are all command
-    /// buffer state and would otherwise be absent from the next <c>Draw</c>. Every one of them is recorded
-    /// as the caller makes it and replayed here; the viewport and scissor, the only other state this pass
-    /// records, are re-issued by the caller of this method.
-    ///
-    /// The order is what the spec requires, not a preference: binding a pipeline can disturb descriptor
-    /// bindings made under an incompatible layout, and binding a descriptor set can leave push constant
-    /// values undefined, so the pipeline goes first and the push constants last.
+    /// A synchronous flush during a suspension resumes the instance on a new command buffer, so this replays the
+    /// bindings recorded since Begin, pipeline first and push constants last, as the spec requires.
     /// </remarks>
     private void RebindRecordedState()
     {
@@ -480,16 +452,8 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
     }
 
     /// <remarks>
-    /// <c>vkCmdBindDescriptorSets</c> takes the set and the pipeline layout as unrelated handles, and neither
-    /// carries the declarations it was built from, so a set allocated from a layout the pipeline does not
-    /// declare is undefined behaviour the driver need not diagnose - on MoltenVK it takes the process down.
-    /// This rejects it on layout handle identity, which is stricter than Vulkan's own rule that two
-    /// identically defined layouts are interchangeable: a set is allocated from exactly one pipeline's
-    /// layout here, and admitting a cross-pipeline bind would mean comparing declarations the managed layer
-    /// does not fully hold - <see cref="VulkanDescriptorBindingTable"/> keeps the binding numbers, types, and
-    /// counts a write has to be checked against, but not the stage flags that also decide whether two
-    /// layouts are identically defined. Being over-strict costs a legal bind an argument error the caller
-    /// can act on; being under-strict costs the process.
+    /// Rejects on layout handle identity, stricter than Vulkan's rule that identically defined layouts are
+    /// interchangeable, because the managed layer does not hold the stage flags that rule also compares.
     /// </remarks>
     /// <exception cref="ArgumentException">
     /// <paramref name="descriptorSet"/> was allocated from a different pipeline's descriptor set layout.
@@ -524,19 +488,9 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
     }
 
     /// <remarks>
-    /// A draw reads a descriptor set through the layout of the pipeline it uses, but the binding was
-    /// programmed against whatever layout reached <c>vkCmdBindDescriptorSets</c>, and neither handle carries
-    /// the declarations it was built from. Drawing with a pipeline whose layout is not compatible for that
-    /// set violates <c>VUID-vkCmdDraw-None-08600</c>: the shader reads through declarations the binding was
-    /// never programmed against, which is undefined behaviour the driver need not diagnose - on MoltenVK it
-    /// takes the process down. Only this layer knows which pipeline programmed the binding, so only it can
-    /// reject the pair.
-    ///
-    /// The pair is checked here rather than in <see cref="BindDescriptorSet"/> because a bind is not what
-    /// makes it wrong: the spec lets a set be bound without having bound a particular pipeline first, or
-    /// with a different one bound, so the mismatch only exists once a draw makes some pipeline the one that
-    /// reads the set. A set that was never bound is left alone - a pipeline that declares no descriptor
-    /// bindings draws correctly without one.
+    /// Drawing through a layout the set was not bound against violates <c>VUID-vkCmdDraw-None-08600</c>. It is
+    /// checked here rather than in <see cref="BindDescriptorSet"/> because the spec lets a set be bound with any
+    /// pipeline bound; a set that was never bound is left alone.
     /// </remarks>
     private void ValidateDrawState()
     {
@@ -593,8 +547,6 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
         _pushConstantLayout = _currentPipeline.PipelineLayoutHandle;
         _pushConstantSize = size;
 
-        // The bound layout's range is what decides these, not the caller: an update has to name every stage
-        // of every range it overlaps, so naming fewer is undefined behaviour the driver need not report.
         _context.Vk.CmdPushConstants(
             _currentCommandBuffer,
             _currentPipeline.PipelineLayoutHandle,
@@ -609,11 +561,8 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
         if (_disposed) return;
         _disposed = true;
 
-        // A caller can own its pass - IRenderPass3D is IDisposable and the context hands one out - so dispose
-        // is reachable from a path that never ran End: an early return or a throw under a `using`. The scope
-        // Begin claimed belongs to the context rather than to this object, so a disposed pass that keeps it
-        // rejects every later Begin on that context and sends every later transfer through a suspend on this
-        // object, whose render pass handles are being destroyed just below.
+        // Dispose can run without End, under a throwing `using`. The scope Begin claimed belongs to the context, so
+        // keeping it would reject every later Begin there and suspend this pass after its handles are destroyed.
         if (_inRenderPass)
         {
             if (!_suspended)

@@ -5,9 +5,6 @@ using Silk.NET.Shaderc;
 
 namespace Beutl.Graphics.Backend.Vulkan;
 
-/// <summary>
-/// Vulkan implementation of <see cref="IShaderCompiler"/> using shaderc.
-/// </summary>
 internal sealed unsafe class VulkanShaderCompiler : IShaderCompiler, IDisposable
 {
     // libshaderc registers process-wide exit callbacks that outlive dlclose on Linux. Keep one API context

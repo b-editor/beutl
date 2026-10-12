@@ -75,7 +75,7 @@ internal sealed partial class GitCliRunner
                 current,
                 out RepositoryLockFileIdentityBox? currentIdentity)
             || currentIdentity is null
-            || !VersionControlPathComparison.AreSameCanonicalPath(
+            || !FilePathComparison.AreSameCanonicalPath(
                 current.LockPath,
                 Path.GetFullPath(lockInfo.LockPath))
             || current.LastWriteTimeUtc != lockInfo.LastWriteTimeUtc
@@ -145,7 +145,7 @@ internal sealed partial class GitCliRunner
         }
 
         string canonicalRefsDirectory = Path.TrimEndingDirectorySeparator(
-            VersionControlPathComparison.ResolveCanonicalPath(refsDirectory));
+            FilePathComparison.ResolveCanonicalPath(refsDirectory));
         var visitedDirectories = new HashSet<string>(StringComparer.Ordinal);
         var pendingDirectories = new Stack<string>();
         var lockPaths = new List<string>();
@@ -201,7 +201,7 @@ internal sealed partial class GitCliRunner
         }
 
         string canonicalDirectory = Path.TrimEndingDirectorySeparator(
-            VersionControlPathComparison.ResolveCanonicalPath(fullDirectory));
+            FilePathComparison.ResolveCanonicalPath(fullDirectory));
         FileAttributes verifiedDirectoryAttributes = File.GetAttributes(fullDirectory);
         if (!IsCanonicalSameOrDescendant(
                 canonicalRefsDirectory,
@@ -234,7 +234,7 @@ internal sealed partial class GitCliRunner
             }
 
             string canonicalPath = Path.TrimEndingDirectorySeparator(
-                VersionControlPathComparison.ResolveCanonicalPath(fullPath));
+                FilePathComparison.ResolveCanonicalPath(fullPath));
             FileAttributes verifiedAttributes = File.GetAttributes(fullPath);
             if (!IsCanonicalSameOrDescendant(
                     canonicalRefsDirectory,
@@ -292,7 +292,7 @@ internal sealed partial class GitCliRunner
 
         string lowercaseSuffixPath = path[..^LockSuffix.Length] + LockSuffix;
         return Path.Exists(lowercaseSuffixPath)
-               && VersionControlPathComparison.AreSameCanonicalPath(path, lowercaseSuffixPath);
+               && FilePathComparison.AreSameCanonicalPath(path, lowercaseSuffixPath);
     }
 
     private static bool IsFileInspectionFailure(Exception exception)
@@ -328,7 +328,7 @@ internal sealed partial class GitCliRunner
         string refPath = Path.GetFullPath(Path.Combine(
             headsDirectory,
             branchPath.Replace('/', Path.DirectorySeparatorChar)));
-        if (!VersionControlPathComparison.IsSameOrDescendant(headsDirectory, refPath))
+        if (!FilePathComparison.IsSameOrDescendant(headsDirectory, refPath))
         {
             return null;
         }
@@ -355,13 +355,13 @@ internal sealed partial class GitCliRunner
                 return true;
             }
 
-            if (VersionControlPathComparison.AreSameCanonicalPath(current, boundary))
+            if (FilePathComparison.AreSameCanonicalPath(current, boundary))
             {
                 return false;
             }
 
             string? parent = Path.GetDirectoryName(current);
-            if (parent is null || VersionControlPathComparison.AreSameCanonicalPath(parent, current))
+            if (parent is null || FilePathComparison.AreSameCanonicalPath(parent, current))
             {
                 return true;
             }

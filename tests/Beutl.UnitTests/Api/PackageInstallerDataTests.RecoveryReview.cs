@@ -2,6 +2,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Beutl.Api.Services;
+using Beutl.UnitTests.TestInfrastructure;
 using NuGet.Packaging.Core;
 using NuGet.Versioning;
 
@@ -150,11 +151,7 @@ public partial class PackageInstallerDataTests
         try
         {
             if (!dangling) File.WriteAllText(target, "unowned");
-            try { File.CreateSymbolicLink(path, target); }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or PlatformNotSupportedException)
-            {
-                Assert.Ignore($"Symbolic links are unavailable here: {ex.Message}");
-            }
+            SymbolicLinks.CreateOrIgnore(path, target);
             Assert.Throws<IOException>(() => PackageInstaller.RecoverDataPackageInstalls(_repository));
             Assert.That(new FileInfo(path).LinkTarget, Is.EqualTo(target));
             if (dangling) Assert.That(File.Exists(target), Is.False);
@@ -195,15 +192,8 @@ public partial class PackageInstallerDataTests
                     Payloads = Array.Empty<object>(),
                 }));
             }
-            try
-            {
-                Directory.CreateSymbolicLink(staging, target);
-                linkCreated = true;
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or PlatformNotSupportedException)
-            {
-                Assert.Ignore($"Symbolic links are unavailable here: {ex.Message}");
-            }
+            SymbolicLinks.CreateOrIgnore(staging, target, directory: true);
+            linkCreated = true;
             PackageInstaller.RecoverDataPackageInstalls(_repository);
             Assert.That(new DirectoryInfo(staging).LinkTarget, Is.EqualTo(target));
             if (dangling) Assert.That(Directory.Exists(target), Is.False);

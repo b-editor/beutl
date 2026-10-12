@@ -1,7 +1,6 @@
 ﻿using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
-using Beutl.Media;
 using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.FilterEffects;
@@ -14,7 +13,7 @@ public sealed class FilterEffectExecutorReentrancyTests
     [Test]
     public void ASkiaItemThatReentersActivate_LeavesTheChainUsable()
     {
-        using EffectTargets targets = CreateSolidTargets(s_bounds);
+        using var targets = new EffectTargets { FilterEffectTestHarness.CreateSolidTarget(s_bounds) };
         using var reentrant = new FilterEffectContext(s_bounds);
         using var context = new FilterEffectContext(s_bounds);
         context._items.Add(new ReentrantSkiaItem(reentrant));
@@ -57,25 +56,5 @@ public sealed class FilterEffectExecutorReentrancyTests
 
         public void AcceptsDirect(SKImageFilterBuilder builder)
             => throw new InvalidOperationException("The reentrancy fixture has no direct-replay factory.");
-    }
-
-    private static EffectTargets CreateSolidTargets(Rect bounds)
-    {
-        using RenderTarget renderTarget = RenderTarget.Create((int)bounds.Width, (int)bounds.Height)
-            ?? throw new InvalidOperationException("A CPU render target is required for this test.");
-        using (var canvas = new ImmediateCanvas(
-                   renderTarget,
-                   RenderIntent.Preview,
-                   density: 1,
-                   maxWorkingScale: 1,
-                   logicalSize: bounds.Size))
-        {
-            canvas.Clear(Colors.Red);
-        }
-
-        return new EffectTargets
-        {
-            new EffectTarget(renderTarget, bounds, EffectiveScale.At(1)),
-        };
     }
 }

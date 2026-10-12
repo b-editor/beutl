@@ -259,7 +259,7 @@ internal sealed partial class GitCliVersionControlService
                     .Split('/', StringSplitOptions.RemoveEmptyEntries)
                     .Any(static segment => string.Equals(
                         segment,
-                        ".beutl",
+                        EditorConstants.BeutlFolder,
                         StringComparison.OrdinalIgnoreCase)))
             {
                 continue;

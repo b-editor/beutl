@@ -13,12 +13,8 @@ using NAudio.Wave;
 
 namespace Beutl.Extensions.MediaFoundation.Tests;
 
-// End-to-end coverage for the probe / fallback behavior that this branch hardened:
-//   * an audio-only file has no video stream, so MFDecoder throws NoVideoStreamException and
-//     MFReader transparently falls back to the NAudio audio path;
-//   * requesting video-only from an audio-only file surfaces as a failed open (null reader);
-//   * a real H.264 + AAC file decodes both a video frame and audio samples.
-// All of this requires the Windows-only Media Foundation runtime.
+// Checks, on the Windows-only Media Foundation runtime, how audio-only files are handled and that real media files
+// decode.
 [TestFixture]
 [Platform("Win")]
 [SupportedOSPlatform("windows")]
@@ -30,15 +26,6 @@ public class MFReaderIntegrationTests
         => Path.Combine(AppContext.BaseDirectory, "Fixtures", "sample.mp4");
 
     private static IDecoderInfo CreateDecoderInfo() => new MFDecoderInfo(new MFDecodingExtension());
-
-    [OneTimeSetUp]
-    public void OneTimeSetUp()
-    {
-        if (!OperatingSystem.IsWindows())
-        {
-            Assert.Ignore("Media Foundation is only available on Windows.");
-        }
-    }
 
     [SetUp]
     public void SetUp()
@@ -63,7 +50,7 @@ public class MFReaderIntegrationTests
     [Test]
     public void Open_AudioOnlyWav_AudioVideoMode_FallsBackToAudioOnly()
     {
-        string wav = WriteSineWav();
+        string wav = SineWav.Write(_workDir);
 
         using MediaReader? reader = CreateDecoderInfo().Open(wav, new MediaOptions(MediaMode.AudioVideo));
 
@@ -80,10 +67,8 @@ public class MFReaderIntegrationTests
         Assert.That(read, Is.True);
         using (pcm)
         {
-            // Under the ReadAudio contract, ReadAudioCore always returns true with a buffer once the
-            // reader is initialized — end-of-stream is signalled by a short/empty NumSamples, not by
-            // false. The fixture is a 440Hz sine at 0.3 amplitude longer than 4410 frames, so an in-range
-            // read yields the requested length and carries the signal rather than silence.
+            // ReadAudio signals end of stream with a short buffer, not false. The 440Hz fixture is longer than
+            // 4410 frames, so this read is full length and carries the signal rather than silence.
             var samples = ((Pcm<Stereo32BitFloat>)pcm!.Value).DataSpan;
             Assert.That(samples.Length, Is.EqualTo(4410));
 
@@ -104,7 +89,7 @@ public class MFReaderIntegrationTests
     [Test]
     public void Open_AudioOnlyWav_VideoOnlyMode_ReturnsNull()
     {
-        string wav = WriteSineWav();
+        string wav = SineWav.Write(_workDir);
 
         // No audio flag means NoVideoStreamException is not caught: the open fails and MFDecoderInfo
         // returns null so another decoder can try.
@@ -117,7 +102,7 @@ public class MFReaderIntegrationTests
     [TestCase(true)]
     public void AudioOnlyOpen_WhenOptionalVideoProbeFails_KeepsUsableAudio(bool nativeFailure)
     {
-        string wav = WriteSineWav();
+        string wav = SineWav.Write(_workDir);
         using var reader = MFThread.Dispatcher.Invoke(() => new MFReader(
             wav,
             new MediaOptions(MediaMode.Audio),
@@ -143,7 +128,7 @@ public class MFReaderIntegrationTests
     [Test]
     public void AudioOnlyOpen_WhenOptionalVideoProbeHasProgrammingError_Propagates()
     {
-        string wav = WriteSineWav();
+        string wav = SineWav.Write(_workDir);
         MFThread.Dispatcher.Invoke(() => Assert.Throws<InvalidOperationException>(() => new MFReader(
             wav,
             new MediaOptions(MediaMode.Audio),
@@ -161,7 +146,7 @@ public class MFReaderIntegrationTests
     public void ReadAudio_AtOrPastEndOfStream_ReturnsEmptyBuffer(int channels, int start)
     {
         // The 0.2s fixture has 8820 frames, independently of its channel count.
-        string wav = WriteSineWav(channels: channels);
+        string wav = SineWav.Write(_workDir, channels: channels);
         using MediaReader? reader = CreateDecoderInfo().Open(wav, new MediaOptions(MediaMode.Audio));
         Assert.That(reader, Is.Not.Null);
 
@@ -187,7 +172,7 @@ public class MFReaderIntegrationTests
     [TestCase(2)]
     public void ReadAudio_CrossingEndOfStream_PreservesRemainingSamples(int channels)
     {
-        string wav = WriteSineWav(channels: channels);
+        string wav = SineWav.Write(_workDir, channels: channels);
         using MediaReader? reader = CreateDecoderInfo().Open(wav, new MediaOptions(MediaMode.Audio));
         Assert.That(reader, Is.Not.Null);
 
@@ -208,7 +193,7 @@ public class MFReaderIntegrationTests
     public async Task GetWaveformChunks_SourceRangePastEnd_ProducesAllChunksWithSilentTail(
         double duration, double offset, float speed)
     {
-        string wav = WriteSineWav(seconds: 2);
+        string wav = SineWav.Write(_workDir, seconds: 2);
         IDecoderInfo decoder = CreateDecoderInfo();
         DecoderRegistry.Register(decoder);
         try
@@ -294,49 +279,5 @@ public class MFReaderIntegrationTests
         // audio content is unknown, so non-silence is not asserted (unlike the sine-WAV test above).
         Assert.That(pcm!.Value.NumSamples, Is.EqualTo(1000));
         pcm.Dispose();
-    }
-
-    // Writes a short 16-bit PCM sine-wave WAV. Media Foundation's WAV byte-stream handler decodes
-    // this through the NAudio MediaFoundationReader path used by MFReader, with no external tooling.
-    private string WriteSineWav(int sampleRate = 44100, int channels = 2, double seconds = 0.2)
-    {
-        string path = Path.Combine(_workDir, "audio.wav");
-
-        const short bitsPerSample = 16;
-        int totalFrames = (int)(sampleRate * seconds);
-        short blockAlign = (short)(channels * bitsPerSample / 8);
-        int byteRate = sampleRate * blockAlign;
-        int dataSize = totalFrames * blockAlign;
-
-        using var stream = new FileStream(path, FileMode.Create, FileAccess.Write);
-        using var writer = new BinaryWriter(stream);
-
-        writer.Write("RIFF"u8.ToArray());
-        writer.Write(36 + dataSize);
-        writer.Write("WAVE"u8.ToArray());
-
-        writer.Write("fmt "u8.ToArray());
-        writer.Write(16);                   // PCM format chunk size
-        writer.Write((short)1);             // PCM
-        writer.Write((short)channels);
-        writer.Write(sampleRate);
-        writer.Write(byteRate);
-        writer.Write(blockAlign);
-        writer.Write(bitsPerSample);
-
-        writer.Write("data"u8.ToArray());
-        writer.Write(dataSize);
-
-        for (int i = 0; i < totalFrames; i++)
-        {
-            double t = (double)i / sampleRate;
-            var sample = (short)(Math.Sin(2 * Math.PI * 440 * t) * short.MaxValue * 0.3);
-            for (int ch = 0; ch < channels; ch++)
-            {
-                writer.Write(sample);
-            }
-        }
-
-        return path;
     }
 }

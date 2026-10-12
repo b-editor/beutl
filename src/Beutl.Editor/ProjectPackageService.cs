@@ -15,12 +15,9 @@ namespace Beutl.Editor;
 /// Result of a project export operation.
 /// </summary>
 /// <param name="Success">Whether the ZIP was written. Cancellation does not set this to <c>false</c> — it propagates as <see cref="OperationCanceledException"/>.</param>
-/// <param name="FailedResources">Identifiers of resources that could not be fully relocated. Non-empty while <see cref="Success"/> is <c>true</c> means partial failure: the ZIP exists, but some referenced files/fonts are either missing from it or still pointing at the original path inside the saved project. When <see cref="Success"/> is <c>false</c>, this preserves any failures that were already collected before the export was aborted.</param>
+/// <param name="FailedResources">Resources that could not be relocated. Non-empty with <see cref="Success"/> means a partial export.</param>
 public sealed record ExportResult(bool Success, IReadOnlyList<string> FailedResources);
 
-/// <summary>
-/// Service for exporting and importing projects.
-/// </summary>
 public sealed class ProjectPackageService
 {
     public static ProjectPackageService Current { get; } = new();
@@ -41,11 +38,6 @@ public sealed class ProjectPackageService
     /// <summary>
     /// Exports a project as a ZIP package.
     /// </summary>
-    /// <param name="project">The project to export.</param>
-    /// <param name="outputPath">The output ZIP file path.</param>
-    /// <param name="progress">Progress reporter.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>An <see cref="ExportResult"/> describing whether the export completed and any resources that failed to copy.</returns>
     public async Task<ExportResult> ExportAsync(
         Project project,
         string outputPath,
@@ -66,19 +58,17 @@ public sealed class ProjectPackageService
 
         try
         {
-            // Step 1: Create a temporary directory
             progress?.Report((Strings.ExportingProject, 0.0));
             // The copy can contain private files even when the final package is shared.
             tempDir = Directory.CreateTempSubdirectory("beutl_export_").FullName;
 
-            // Step 2: Copy the project directory
             string projectDir = Path.GetDirectoryName(project.Uri.LocalPath)!;
             string tempProjectDir = Path.Combine(tempDir, Path.GetFileName(projectDir));
             progress?.Report((Strings.ExportingProject, 0.1));
             string excludedOutputPath = FilePathComparison.ResolveCanonicalPath(outputPath);
             await CopyDirectoryAsync(projectDir, tempProjectDir, excludedOutputPath, cancellationToken);
 
-            // Step 3: Read with the original base URI. Eager file sources (models in
+            // Read with the original base URI. Eager file sources (models in
             // particular) must resolve their external references before rebasing the copy.
             string tempProjectFile = Path.Combine(tempProjectDir, Path.GetFileName(project.Uri.LocalPath));
             Uri tempProjectUri = new(tempProjectFile);
@@ -86,12 +76,10 @@ public sealed class ProjectPackageService
             Project tempProject = CoreSerializer.RestoreFromUri<Project>(project.Uri);
             ResourceRelocationService.RebaseProjectDirectory(tempProject, projectDir, tempProjectDir);
 
-            // Step 4: Attach to the virtual root
             progress?.Report((Strings.ExportingProject, 0.3));
             VirtualProjectRoot virtualRoot = new();
             virtualRoot.AttachProject(tempProject);
 
-            // Step 5: Collect and copy external files
             progress?.Report((Strings.ExportingProject, 0.4));
             ExternalResourceCollector collector = ExternalResourceCollector.Collect(project, projectDir);
 
@@ -109,7 +97,6 @@ public sealed class ProjectPackageService
                     string.Join(", ", fileResult.FailedResources));
             }
 
-            // Step 6: Copy fonts
             progress?.Report((Strings.ExportingProject, 0.6));
             fontResult = await _relocationService.RelocateFontsAsync(
                 collector.FontFamilies,
@@ -124,7 +111,6 @@ public sealed class ProjectPackageService
                     string.Join(", ", fontResult.FailedResources));
             }
 
-            // Step 7: Save the project
             progress?.Report((Strings.ExportingProject, 0.8));
             // Rebase and relocation are complete. Persist hashes for the packaged
             // URIs, including internal assets, instead of the original machine's paths.
@@ -139,10 +125,8 @@ public sealed class ProjectPackageService
             }
             CoreSerializer.StoreToUri(tempProject, tempProjectUri);
 
-            // Detach from the virtual root
             virtualRoot.DetachProject();
 
-            // Step 8: Create the ZIP file
             progress?.Report((Strings.ExportingProject, 0.9));
             using (var output = new StagedOutputFile(outputPath))
             {
@@ -158,7 +142,7 @@ public sealed class ProjectPackageService
         }
         catch (OperationCanceledException)
         {
-            LogExportCancelled();
+            _logger.LogInformation("Export operation was cancelled");
             throw;
         }
         catch (Exception ex)
@@ -169,12 +153,6 @@ public sealed class ProjectPackageService
         {
             CleanupTempDirectory(tempDir);
         }
-    }
-
-    [ExcludeFromCodeCoverage]
-    private void LogExportCancelled()
-    {
-        _logger.LogInformation("Export operation was cancelled");
     }
 
     private ExportResult LogExportError(Exception ex, RelocationResult fileResult, RelocationResult fontResult)
@@ -203,10 +181,6 @@ public sealed class ProjectPackageService
     /// <summary>
     /// Imports a project from a ZIP package.
     /// </summary>
-    /// <param name="packagePath">The path of the ZIP file to import.</param>
-    /// <param name="destinationDirectory">The directory to extract to.</param>
-    /// <param name="progress">Progress reporter.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The imported project, or <c>null</c> if import failed.</returns>
     /// <exception cref="UnsupportedFileVersionException">
     /// The packaged project, or a file it references, needs a newer version of Beutl. Nothing is imported.
@@ -246,7 +220,7 @@ public sealed class ProjectPackageService
             await Task.Run(() => RemoveGitMetadata(projectDir, cancellationToken), cancellationToken);
 
             progress?.Report((Strings.ImportingProject, 0.6));
-            string? projectFile = Directory.GetFiles(projectDir, "*.bep", SearchOption.TopDirectoryOnly)
+            string? projectFile = Directory.GetFiles(projectDir, $"*.{EditorConstants.ProjectFileExtension}", SearchOption.TopDirectoryOnly)
                 .FirstOrDefault();
 
             if (projectFile == null)
@@ -271,7 +245,7 @@ public sealed class ProjectPackageService
         }
         catch (OperationCanceledException)
         {
-            LogImportCancelled();
+            _logger.LogInformation("Import operation was cancelled");
             throw;
         }
         catch (Exception ex) when (ExceptionHelpers.Find<UnsupportedFileVersionException>(ex) is { } unsupported)
@@ -284,7 +258,8 @@ public sealed class ProjectPackageService
         }
         catch (Exception ex)
         {
-            return LogImportError(ex);
+            _logger.LogError(ex, "Failed to import project");
+            return null;
         }
         finally
         {
@@ -292,19 +267,6 @@ public sealed class ProjectPackageService
             CleanupTempDirectory(publishedDirectory);
             CleanupTempDirectory(stagingDirectory);
         }
-    }
-
-    [ExcludeFromCodeCoverage]
-    private void LogImportCancelled()
-    {
-        _logger.LogInformation("Import operation was cancelled");
-    }
-
-    [ExcludeFromCodeCoverage]
-    private Project? LogImportError(Exception ex)
-    {
-        _logger.LogError(ex, "Failed to import project");
-        return null;
     }
 
     private static string PublishImportedDirectory(
@@ -354,9 +316,6 @@ public sealed class ProjectPackageService
         }
     }
 
-    /// <summary>
-    /// Copies a directory asynchronously.
-    /// </summary>
     private static async Task CopyDirectoryAsync(
         string sourceDir, string destDir, string excludedOutputPath, CancellationToken cancellationToken)
     {
@@ -382,7 +341,7 @@ public sealed class ProjectPackageService
             string dirName = Path.GetFileName(subDir);
 
             // Share the current project, not local view state or recoverable repository history.
-            if (dirName == ".beutl" || string.Equals(dirName, ".git", StringComparison.OrdinalIgnoreCase))
+            if (dirName == EditorConstants.BeutlFolder || string.Equals(dirName, ".git", StringComparison.OrdinalIgnoreCase))
                 continue;
 
             string destSubDir = Path.Combine(destDir, dirName);

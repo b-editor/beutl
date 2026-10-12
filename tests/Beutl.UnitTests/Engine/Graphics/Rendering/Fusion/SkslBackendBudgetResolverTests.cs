@@ -20,7 +20,6 @@ public sealed class SkslBackendBudgetResolverTests
             Assert.That(budget.MaxStages, Is.EqualTo(16));
             Assert.That(budget.MaxUniformVectors, Is.EqualTo(128));
             Assert.That(budget.MaxSamplers, Is.EqualTo(12));
-            Assert.That(budget.MaxChildren, Is.EqualTo(12));
             Assert.That(budget.MaxSourceBytes, Is.EqualTo(64 * 1024));
             Assert.That(budget.MaxProgramTokens, Is.EqualTo(16 * 1024));
         });
@@ -64,13 +63,12 @@ public sealed class SkslBackendBudgetResolverTests
         });
     }
 
-    [TestCase("Portable", 12, 12)]
-    [TestCase("Vulkan", 12, 12)]
-    [TestCase("Metal", 12, 12)]
+    [TestCase("Portable", 12)]
+    [TestCase("Vulkan", 12)]
+    [TestCase("Metal", 12)]
     public void CapabilityProfiles_UseSupportedBackendFloorWithHeadroom(
         string capabilityClass,
-        int expectedSamplers,
-        int expectedChildren)
+        int expectedSamplers)
     {
         SkslBackendBudget budget = capabilityClass switch
         {
@@ -86,7 +84,6 @@ public sealed class SkslBackendBudgetResolverTests
             Assert.That(budget.MaxStages, Is.EqualTo(16));
             Assert.That(budget.MaxUniformVectors, Is.EqualTo(128));
             Assert.That(budget.MaxSamplers, Is.EqualTo(expectedSamplers));
-            Assert.That(budget.MaxChildren, Is.EqualTo(expectedChildren));
             Assert.That(budget.MaxSourceBytes, Is.EqualTo(64 * 1024));
             Assert.That(budget.MaxProgramTokens, Is.EqualTo(16 * 1024));
         });
@@ -156,7 +153,6 @@ public sealed class SkslBackendBudgetResolverTests
             maxStages: 16,
             maxUniformVectors: 128,
             maxSamplers: 16,
-            maxChildren: 16,
             maxSourceBytes: 64 * 1024,
             maxProgramTokens: 16 * 1024);
 }

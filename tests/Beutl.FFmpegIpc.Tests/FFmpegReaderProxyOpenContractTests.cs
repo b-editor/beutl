@@ -1,5 +1,4 @@
-﻿using Beutl.Extensions.FFmpeg;
-using Beutl.Extensions.FFmpeg.Decoding;
+﻿using Beutl.Extensions.FFmpeg.Decoding;
 using Beutl.FFmpegIpc;
 using Beutl.FFmpegIpc.Protocol;
 using Beutl.FFmpegIpc.Protocol.Messages;
@@ -46,19 +45,7 @@ public class FFmpegReaderProxyOpenContractTests
     [Test]
     public void Open_Mp4WithoutMoovAtom_ReturnsNullAndWorkerReportsInvalidData()
     {
-        if (!WorkerProbe.WorkerBinaryPresent())
-        {
-            Assert.Ignore("FFmpeg worker binary not present in the test output; skipping.");
-        }
-
-        try
-        {
-            FFmpegWorkerProcess.DecodingInstance.EnsureStarted();
-        }
-        catch (FFmpegLibrariesNotFoundException ex)
-        {
-            Assert.Ignore($"FFmpeg natives unavailable ({ex.Message}); skipping.");
-        }
+        DecodingWorkerTestHelpers.RequireDecodingWorker();
 
         var decoderInfo = new FFmpegDecoderInfo(new FFmpegDecodingSettings());
 
@@ -76,12 +63,7 @@ public class FFmpegReaderProxyOpenContractTests
     [Test]
     public void OpenFile_Mp4WithoutMoovAtom_WorkerReportsInvalidDataErrorCode()
     {
-        if (!WorkerProbe.WorkerBinaryPresent())
-        {
-            Assert.Ignore("FFmpeg worker binary not present in the test output; skipping.");
-        }
-
-        IpcConnection connection = GetConnectionOrIgnore();
+        IpcConnection connection = DecodingWorkerTestHelpers.RequireDecodingWorker();
 
         var request = new OpenFileRequest
         {
@@ -97,28 +79,5 @@ public class FFmpegReaderProxyOpenContractTests
 
         Assert.That(thrown!.FFmpegErrorCode, Is.EqualTo(FFmpegErrorMessageMapper.InvalidDataCode),
             "The worker must surface AVERROR_INVALIDDATA as a structured error code, not just text.");
-    }
-
-    private static class WorkerProbe
-    {
-        public static bool WorkerBinaryPresent()
-        {
-            string baseDir = AppContext.BaseDirectory;
-            return File.Exists(Path.Combine(baseDir, "Beutl.FFmpegWorker.dll"))
-                || File.Exists(Path.Combine(baseDir, "FFmpegWorker", "Beutl.FFmpegWorker.dll"));
-        }
-    }
-
-    private static IpcConnection GetConnectionOrIgnore()
-    {
-        try
-        {
-            return FFmpegWorkerProcess.DecodingInstance.EnsureStarted();
-        }
-        catch (FFmpegLibrariesNotFoundException ex)
-        {
-            Assert.Ignore($"FFmpeg natives unavailable ({ex.Message}); skipping.");
-            throw; // Assert.Ignore always throws.
-        }
     }
 }

@@ -18,12 +18,12 @@ public abstract partial class Mesh : EngineObject
         private BoundingBox? _cachedBoundingBox;
 
         /// <summary>
-        /// Gets or sets the vertex buffer. Set by Renderer3D.
+        /// Gets or sets the vertex buffer. Set by <see cref="Nodes.MeshBufferUploadHelper"/>.
         /// </summary>
         internal IBuffer? VertexBuffer { get; set; }
 
         /// <summary>
-        /// Gets or sets the index buffer. Set by Renderer3D.
+        /// Gets or sets the index buffer. Set by <see cref="Nodes.MeshBufferUploadHelper"/>.
         /// </summary>
         internal IBuffer? IndexBuffer { get; set; }
 

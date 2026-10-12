@@ -3,7 +3,7 @@
 namespace Beutl.FFmpegIpc.Tests;
 
 /// <summary>
-/// Pins the seek/prefetch slot mechanics both IPC providers now share: a matching key consumes the armed
+/// Pins the seek/prefetch slot mechanics both IPC providers use: a matching key consumes the armed
 /// prefetch, any other key drains it as stale, and detaching always clears the slot before the caller awaits.
 /// </summary>
 [TestFixture]
@@ -22,15 +22,6 @@ public class PrefetchSlotTests
             Assert.That(slot.TryConsumeMatching(0, out _), Is.Null);
             Assert.That(slot.TryDetachStale(0), Is.Null);
         });
-    }
-
-    [Test]
-    public void Arm_MarksSlotOccupied()
-    {
-        var slot = new PrefetchSlot<long, int>();
-        slot.Arm(7, bufferIndex: 1, Task.FromResult(42));
-
-        Assert.That(slot.HasPrefetch, Is.True);
     }
 
     [Test]

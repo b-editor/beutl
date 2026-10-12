@@ -81,37 +81,9 @@ public sealed class ShaderDescriptionOffsetMetadataTests
                 static (value, context, point) => context.Inputs[0].HitTest(point - value)));
 
     private static Vector BoundOffset(ShaderDescription description)
-    {
-        var token = new RenderExecutionSessionToken();
-        var execution = new ShaderExecutionContext(
-            token,
-            s_bounds,
-            s_bounds,
-            s_bounds,
-            new PixelRect(0, 0, 8, 6),
-            default,
-            EffectiveScale.At(1),
-            outputScale: 1,
-            workingScale: 1,
-            maxWorkingScale: 2,
-            intent: RenderIntent.Preview,
-            purpose: RenderRequestPurpose.Frame);
-
-        var offset = new Vector(
-            ReadFloatUniform(description, "dx", execution),
-            ReadFloatUniform(description, "dy", execution));
-        token.Complete();
-        return offset;
-    }
-
-    private static float ReadFloatUniform(
-        ShaderDescription description,
-        string name,
-        ShaderExecutionContext execution)
-    {
-        ShaderUniformBinding binding = description.Uniforms.Single(item => item.Name == name);
-        return binding.Bind(description.Source.Uniforms[name], execution).Floats![0];
-    }
+        => new(
+            FilterEffectTestHarness.BindUniform(description, "dx", s_bounds).Floats![0],
+            FilterEffectTestHarness.BindUniform(description, "dy", s_bounds).Floats![0]);
 
     private static OpaqueRenderDescription SourceDescription()
         => OpaqueRenderDescription.Create(

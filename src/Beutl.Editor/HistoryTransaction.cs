@@ -9,10 +9,9 @@ public sealed class HistoryTransaction
     // execution per operation so retrying a partial undo/redo does not repeat it.
     private readonly List<bool> _applied = new();
 
-    internal HistoryTransaction(long id, string? name = null)
+    internal HistoryTransaction(long id)
     {
         Id = id;
-        Name = name;
     }
 
     public long Id { get; }

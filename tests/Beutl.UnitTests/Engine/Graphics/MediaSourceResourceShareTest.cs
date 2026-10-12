@@ -1,4 +1,5 @@
 ﻿using Beutl.Composition;
+using Beutl.Engine;
 using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.UnitTests.Engine.Graphics.Rendering;
@@ -14,222 +15,113 @@ public class MediaSourceResourceShareTest
         TestMediaHelper.RegisterTestDecoder();
     }
 
-    [Test]
-    public void VideoSource_SharedByDefault_ReusesMediaReader()
+    // How to make a source of one media kind that has read a file, the object its resources share (a MediaReader,
+    // or a Bitmap for images), and a second file it can read.
+    public sealed record SharedMedia(
+        Func<MediaSource> CreateSource,
+        Func<EngineObject.Resource, object?> Shared,
+        Func<Uri> CreateOtherFile,
+        Func<EngineObject.Resource, PixelSize>? FrameSize = null,
+        PixelSize OtherFrameSize = default);
+
+    private static IEnumerable<TestCaseData> MediaKinds()
     {
-        var videoPath = TestMediaHelper.CreateTestVideoFile(80, 80, new Rational(30, 1), 60);
-        var videoSource = new VideoSource();
-        videoSource.ReadFrom(new Uri(videoPath));
+        yield return new TestCaseData(new SharedMedia(
+                static () => ReadFrom(new VideoSource(), CreateVideoFile(80)),
+                static resource => ((VideoSource.Resource)resource).MediaReader,
+                static () => CreateVideoFile(120),
+                static resource => ((VideoSource.Resource)resource).MediaReader!.VideoInfo.FrameSize,
+                new PixelSize(120, 120)))
+            .SetArgDisplayNames(nameof(VideoSource));
+        yield return new TestCaseData(new SharedMedia(
+                static () => ReadFrom(new SoundSource(), new Uri(TestMediaHelper.CreateTestAudioFile(durationSeconds: 2.0))),
+                static resource => ((SoundSource.Resource)resource).MediaReader,
+                static () => new Uri(TestMediaHelper.CreateTestAudioFile(sampleRate: 48000, durationSeconds: 3.0))))
+            .SetArgDisplayNames(nameof(SoundSource));
+        yield return new TestCaseData(new SharedMedia(
+                static () => ReadFrom(new ImageSource(), TestMediaHelper.CreateTestImageUri(16, 16, Colors.Red)),
+                static resource => ((ImageSource.Resource)resource).Bitmap,
+                static () => TestMediaHelper.CreateTestImageUri(32, 32, Colors.Blue),
+                static resource => ((ImageSource.Resource)resource).FrameSize,
+                new PixelSize(32, 32)))
+            .SetArgDisplayNames(nameof(ImageSource));
 
-        using var a = videoSource.ToResource(CompositionContext.Default);
-        using var b = videoSource.ToResource(CompositionContext.Default);
+        static Uri CreateVideoFile(int size)
+            => new(TestMediaHelper.CreateTestVideoFile(size, size, new Rational(30, 1), 60));
 
-        Assert.That(a.MediaReader, Is.Not.Null);
-        Assert.That(b.MediaReader, Is.Not.Null);
-        Assert.That(b.MediaReader, Is.SameAs(a.MediaReader),
-            "DisableResourceShare=false では同じ MediaReader を共有するはず");
+        static MediaSource ReadFrom(MediaSource source, Uri uri)
+        {
+            source.ReadFrom(uri);
+            return source;
+        }
     }
 
-    [Test]
-    public void VideoSource_DisableResourceShare_YieldsIndependentMediaReader()
+    private static CompositionContext EncodeContext() => new(TimeSpan.Zero) { DisableResourceShare = true };
+
+    [TestCaseSource(nameof(MediaKinds))]
+    public void SharedByDefault_ReusesTheSharedObject(SharedMedia media)
     {
-        var videoPath = TestMediaHelper.CreateTestVideoFile(80, 80, new Rational(30, 1), 60);
-        var videoSource = new VideoSource();
-        videoSource.ReadFrom(new Uri(videoPath));
+        MediaSource source = media.CreateSource();
 
-        var ctxPreview = CompositionContext.Default;
-        var ctxEncode = new CompositionContext(TimeSpan.Zero) { DisableResourceShare = true };
+        using EngineObject.Resource a = source.ToResource(CompositionContext.Default);
+        using EngineObject.Resource b = source.ToResource(CompositionContext.Default);
 
-        using var preview = videoSource.ToResource(ctxPreview);
-        using var encode = videoSource.ToResource(ctxEncode);
-
-        Assert.That(preview.MediaReader, Is.Not.Null);
-        Assert.That(encode.MediaReader, Is.Not.Null);
-        Assert.That(encode.MediaReader, Is.Not.SameAs(preview.MediaReader),
-            "DisableResourceShare=true では専用の MediaReader が割り当てられるはず");
+        Assert.That(media.Shared(a), Is.Not.Null);
+        Assert.That(media.Shared(b), Is.Not.Null);
+        Assert.That(media.Shared(b), Is.SameAs(media.Shared(a)),
+            "DisableResourceShare=false では同じものを共有するはず");
     }
 
-    [Test]
-    public void VideoSource_DisableResourceShare_DoesNotContaminateSharedCache()
+    [TestCaseSource(nameof(MediaKinds))]
+    public void DisableResourceShare_YieldsAnIndependentObject(SharedMedia media)
     {
-        var videoPath = TestMediaHelper.CreateTestVideoFile(80, 80, new Rational(30, 1), 60);
-        var videoSource = new VideoSource();
-        videoSource.ReadFrom(new Uri(videoPath));
+        MediaSource source = media.CreateSource();
+
+        using EngineObject.Resource preview = source.ToResource(CompositionContext.Default);
+        using EngineObject.Resource encode = source.ToResource(EncodeContext());
+
+        Assert.That(media.Shared(preview), Is.Not.Null);
+        Assert.That(media.Shared(encode), Is.Not.Null);
+        Assert.That(media.Shared(encode), Is.Not.SameAs(media.Shared(preview)),
+            "DisableResourceShare=true では専用のものが割り当てられるはず");
+    }
+
+    [TestCaseSource(nameof(MediaKinds))]
+    public void DisableResourceShare_DoesNotContaminateSharedCache(SharedMedia media)
+    {
+        MediaSource source = media.CreateSource();
 
         // エンコード側が先に Resource を生成しても、プレビュー側 (共有モード) は
-        // エンコード専用 MediaReader を掴まない
-        using var encode = videoSource.ToResource(
-            new CompositionContext(TimeSpan.Zero) { DisableResourceShare = true });
-        using var preview = videoSource.ToResource(CompositionContext.Default);
+        // エンコード専用のものを掴まない
+        using EngineObject.Resource encode = source.ToResource(EncodeContext());
+        using EngineObject.Resource preview = source.ToResource(CompositionContext.Default);
 
-        Assert.That(preview.MediaReader, Is.Not.SameAs(encode.MediaReader),
-            "エンコード専用 MediaReader がプレビュー側に漏れてはならない");
+        Assert.That(media.Shared(preview), Is.Not.SameAs(media.Shared(encode)),
+            "エンコード専用のものがプレビュー側に漏れてはならない");
     }
 
-    [Test]
-    public void SoundSource_SharedByDefault_ReusesMediaReader()
-    {
-        var audioPath = TestMediaHelper.CreateTestAudioFile(durationSeconds: 2.0);
-        var soundSource = new SoundSource();
-        soundSource.ReadFrom(new Uri(audioPath));
-
-        using var a = soundSource.ToResource(CompositionContext.Default);
-        using var b = soundSource.ToResource(CompositionContext.Default);
-
-        Assert.That(a.MediaReader, Is.Not.Null);
-        Assert.That(b.MediaReader, Is.Not.Null);
-        Assert.That(b.MediaReader, Is.SameAs(a.MediaReader),
-            "DisableResourceShare=false では同じ MediaReader を共有するはず");
-    }
-
-    [Test]
-    public void SoundSource_DisableResourceShare_YieldsIndependentMediaReader()
-    {
-        var audioPath = TestMediaHelper.CreateTestAudioFile(durationSeconds: 2.0);
-        var soundSource = new SoundSource();
-        soundSource.ReadFrom(new Uri(audioPath));
-
-        using var preview = soundSource.ToResource(CompositionContext.Default);
-        using var encode = soundSource.ToResource(
-            new CompositionContext(TimeSpan.Zero) { DisableResourceShare = true });
-
-        Assert.That(preview.MediaReader, Is.Not.Null);
-        Assert.That(encode.MediaReader, Is.Not.Null);
-        Assert.That(encode.MediaReader, Is.Not.SameAs(preview.MediaReader),
-            "DisableResourceShare=true では専用の MediaReader が割り当てられるはず");
-    }
-
-    [Test]
-    public void ImageSource_SharedByDefault_ReusesBitmap()
-    {
-        var uri = TestMediaHelper.CreateTestImageUri(16, 16, Colors.Red);
-        var imageSource = new ImageSource();
-        imageSource.ReadFrom(uri);
-
-        using var a = imageSource.ToResource(CompositionContext.Default);
-        using var b = imageSource.ToResource(CompositionContext.Default);
-
-        Assert.That(a.Bitmap, Is.Not.Null);
-        Assert.That(b.Bitmap, Is.Not.Null);
-        Assert.That(b.Bitmap, Is.SameAs(a.Bitmap),
-            "DisableResourceShare=false では同じ Bitmap を共有するはず");
-    }
-
-    [Test]
-    public void ImageSource_DisableResourceShare_YieldsIndependentBitmap()
-    {
-        var uri = TestMediaHelper.CreateTestImageUri(16, 16, Colors.Red);
-        var imageSource = new ImageSource();
-        imageSource.ReadFrom(uri);
-
-        using var preview = imageSource.ToResource(CompositionContext.Default);
-        using var encode = imageSource.ToResource(
-            new CompositionContext(TimeSpan.Zero) { DisableResourceShare = true });
-
-        Assert.That(preview.Bitmap, Is.Not.Null);
-        Assert.That(encode.Bitmap, Is.Not.Null);
-        Assert.That(encode.Bitmap, Is.Not.SameAs(preview.Bitmap),
-            "DisableResourceShare=true では専用の Bitmap が割り当てられるはず");
-    }
-
-    [Test]
-    public void ImageSource_DisableResourceShare_DoesNotContaminateSharedCache()
-    {
-        var uri = TestMediaHelper.CreateTestImageUri(16, 16, Colors.Red);
-        var imageSource = new ImageSource();
-        imageSource.ReadFrom(uri);
-
-        // エンコード側が先に Resource を生成しても、プレビュー側 (共有モード) は
-        // エンコード専用 Bitmap を掴まない
-        using var encode = imageSource.ToResource(
-            new CompositionContext(TimeSpan.Zero) { DisableResourceShare = true });
-        using var preview = imageSource.ToResource(CompositionContext.Default);
-
-        Assert.That(preview.Bitmap, Is.Not.SameAs(encode.Bitmap),
-            "エンコード専用 Bitmap がプレビュー側に漏れてはならない");
-    }
-
-    [Test]
-    public void SoundSource_DisableResourceShare_DoesNotContaminateSharedCache()
-    {
-        var audioPath = TestMediaHelper.CreateTestAudioFile(durationSeconds: 2.0);
-        var soundSource = new SoundSource();
-        soundSource.ReadFrom(new Uri(audioPath));
-
-        // エンコード側が先に Resource を生成しても、プレビュー側 (共有モード) は
-        // エンコード専用 MediaReader を掴まない
-        using var encode = soundSource.ToResource(
-            new CompositionContext(TimeSpan.Zero) { DisableResourceShare = true });
-        using var preview = soundSource.ToResource(CompositionContext.Default);
-
-        Assert.That(preview.MediaReader, Is.Not.SameAs(encode.MediaReader),
-            "エンコード専用 MediaReader がプレビュー側に漏れてはならない");
-    }
-
-    [Test]
-    public void ImageSource_ReadFromDifferentUri_DoesNotShareStaleCounter()
+    [TestCaseSource(nameof(MediaKinds))]
+    public void ReadFromDifferentUri_DoesNotShareStaleCounter(SharedMedia media)
     {
         // 別 Resource が古い URI の Counter を握ったまま ReadFrom(newUri) → ToResource すると、
-        // _bitmapRef を破棄しないと TryAddRef が成功し新 URI でも古い Bitmap が返ってしまう。
-        var uriOld = TestMediaHelper.CreateTestImageUri(16, 16, Colors.Red);
-        var uriNew = TestMediaHelper.CreateTestImageUri(32, 32, Colors.Blue);
+        // 共有の参照を破棄しないと TryAddRef が成功し新 URI でも古いものが返ってしまう。
+        MediaSource source = media.CreateSource();
+        Uri newUri = media.CreateOtherFile();
 
-        var imageSource = new ImageSource();
-        imageSource.ReadFrom(uriOld);
+        using EngineObject.Resource oldResource = source.ToResource(CompositionContext.Default);
+        Assert.That(media.Shared(oldResource), Is.Not.Null);
 
-        using var oldResource = imageSource.ToResource(CompositionContext.Default);
-        Assert.That(oldResource.Bitmap, Is.Not.Null);
+        source.ReadFrom(newUri);
+        using EngineObject.Resource newResource = source.ToResource(CompositionContext.Default);
 
-        imageSource.ReadFrom(uriNew);
-        using var newResource = imageSource.ToResource(CompositionContext.Default);
-
-        Assert.That(newResource.Bitmap, Is.Not.Null);
-        Assert.That(newResource.Bitmap, Is.Not.SameAs(oldResource.Bitmap),
-            "URI 切替後の Resource が旧 URI の Bitmap を共有してはならない");
-        Assert.That(newResource.FrameSize, Is.EqualTo(new PixelSize(32, 32)),
-            "新 URI に対応する Bitmap がロードされるはず");
-    }
-
-    [Test]
-    public void VideoSource_ReadFromDifferentUri_DoesNotShareStaleCounter()
-    {
-        var pathOld = TestMediaHelper.CreateTestVideoFile(80, 80, new Rational(30, 1), 60);
-        var pathNew = TestMediaHelper.CreateTestVideoFile(120, 120, new Rational(30, 1), 60);
-
-        var videoSource = new VideoSource();
-        videoSource.ReadFrom(new Uri(pathOld));
-
-        using var oldResource = videoSource.ToResource(CompositionContext.Default);
-        Assert.That(oldResource.MediaReader, Is.Not.Null);
-
-        videoSource.ReadFrom(new Uri(pathNew));
-        using var newResource = videoSource.ToResource(CompositionContext.Default);
-
-        Assert.That(newResource.MediaReader, Is.Not.Null);
-        Assert.That(newResource.MediaReader, Is.Not.SameAs(oldResource.MediaReader),
-            "URI 切替後の Resource が旧 URI の MediaReader を共有してはならない");
-        Assert.That(newResource.MediaReader!.VideoInfo.FrameSize, Is.EqualTo(new PixelSize(120, 120)),
-            "新 URI に対応する MediaReader がロードされるはず");
-    }
-
-    [Test]
-    public void SoundSource_ReadFromDifferentUri_DoesNotShareStaleCounter()
-    {
-        var pathOld = TestMediaHelper.CreateTestAudioFile(sampleRate: 44100, durationSeconds: 2.0);
-        var pathNew = TestMediaHelper.CreateTestAudioFile(sampleRate: 48000, durationSeconds: 3.0);
-
-        var soundSource = new SoundSource();
-        soundSource.ReadFrom(new Uri(pathOld));
-
-        using var oldResource = soundSource.ToResource(CompositionContext.Default);
-        Assert.That(oldResource.MediaReader, Is.Not.Null);
-
-        soundSource.ReadFrom(new Uri(pathNew));
-        using var newResource = soundSource.ToResource(CompositionContext.Default);
-
-        Assert.That(newResource.MediaReader, Is.Not.Null);
-        Assert.That(newResource.MediaReader, Is.Not.SameAs(oldResource.MediaReader),
-            "URI 切替後の Resource が旧 URI の MediaReader を共有してはならない");
+        Assert.That(media.Shared(newResource), Is.Not.Null);
+        Assert.That(media.Shared(newResource), Is.Not.SameAs(media.Shared(oldResource)),
+            "URI 切替後の Resource が旧 URI のものを共有してはならない");
+        if (media.FrameSize is { } frameSize)
+        {
+            Assert.That(frameSize(newResource), Is.EqualTo(media.OtherFrameSize),
+                "新 URI に対応するものがロードされるはず");
+        }
     }
 
     // Regression for #2183: a video-only file (no audio track) must not crash SoundSource.Resource.

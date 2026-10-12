@@ -1,7 +1,6 @@
 ﻿using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
-using Beutl.Media;
 using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.FilterEffects;
@@ -23,11 +22,11 @@ public sealed class FilterEffectExecutorFlushPlanTests
     {
         using var targets = new EffectTargets
         {
-            CreateSolidTarget(s_leadingBounds),
+            FilterEffectTestHarness.CreateSolidTarget(s_leadingBounds),
             // A target with no bounds and no backing surface: renderable-but-empty, which the flush drops
             // in every render intent rather than reporting as an allocation failure.
             new EffectTarget(),
-            CreateSolidTarget(s_trailingBounds),
+            FilterEffectTestHarness.CreateSolidTarget(s_trailingBounds),
         };
         using var builder = new SKImageFilterBuilder();
         using var executor = new FilterEffectExecutor(
@@ -54,22 +53,5 @@ public sealed class FilterEffectExecutorFlushPlanTests
             Assert.That(targets[0].RenderTarget, Is.Not.Null);
             Assert.That(targets[1].RenderTarget, Is.Not.Null);
         });
-    }
-
-    private static EffectTarget CreateSolidTarget(Rect bounds)
-    {
-        using RenderTarget renderTarget = RenderTarget.Create((int)bounds.Width, (int)bounds.Height)
-            ?? throw new InvalidOperationException("A CPU render target is required for this test.");
-        using (var canvas = new ImmediateCanvas(
-                   renderTarget,
-                   RenderIntent.Preview,
-                   density: 1,
-                   maxWorkingScale: 1,
-                   logicalSize: bounds.Size))
-        {
-            canvas.Clear(Colors.Red);
-        }
-
-        return new EffectTarget(renderTarget, bounds, EffectiveScale.At(1));
     }
 }

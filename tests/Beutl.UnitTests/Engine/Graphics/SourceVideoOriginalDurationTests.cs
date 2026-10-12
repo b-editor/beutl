@@ -6,11 +6,8 @@ using Beutl.UnitTests.Engine.Graphics.Rendering;
 
 namespace Beutl.UnitTests.Engine.Graphics;
 
-// Telemetry regression: SourceVideo.TryGetOriginalDuration used to return true with a
-// non-positive duration when OffsetPosition had reached or passed the media end, and "change to
-// original duration" then fed that value into the resize pipeline, crashing Scene.MoveChild with
-// ArgumentOutOfRangeException('length'). The provider contract is a positive duration or false,
-// matching the SourceSound guard.
+// TryGetOriginalDuration returns false when OffsetPosition is at or past the media end. It used to return true
+// with a non-positive length there, which crashed Scene.MoveChild.
 [TestFixture]
 public class SourceVideoOriginalDurationTests
 {
@@ -40,21 +37,12 @@ public class SourceVideoOriginalDurationTests
         Assert.That(duration, Is.EqualTo(MediaDuration - TimeSpan.FromSeconds(0.5)));
     }
 
-    [Test]
-    public void TryGetOriginalDuration_OffsetAtMediaEnd_ReturnsFalse()
+    [TestCase(0.0, TestName = "TryGetOriginalDuration_OffsetAtMediaEnd_ReturnsFalse")]
+    [TestCase(1.0, TestName = "TryGetOriginalDuration_OffsetPastMediaEnd_ReturnsFalse")]
+    public void TryGetOriginalDuration_OffsetAtOrPastMediaEnd_ReturnsFalse(double secondsPastEnd)
     {
         SourceVideo video = CreateSourceVideo();
-        video.OffsetPosition.CurrentValue = MediaDuration;
-
-        Assert.That(video.TryGetOriginalDuration(out TimeSpan duration), Is.False);
-        Assert.That(duration, Is.EqualTo(TimeSpan.Zero));
-    }
-
-    [Test]
-    public void TryGetOriginalDuration_OffsetPastMediaEnd_ReturnsFalse()
-    {
-        SourceVideo video = CreateSourceVideo();
-        video.OffsetPosition.CurrentValue = MediaDuration + TimeSpan.FromSeconds(1);
+        video.OffsetPosition.CurrentValue = MediaDuration + TimeSpan.FromSeconds(secondsPastEnd);
 
         Assert.That(video.TryGetOriginalDuration(out TimeSpan duration), Is.False);
         Assert.That(duration, Is.EqualTo(TimeSpan.Zero));

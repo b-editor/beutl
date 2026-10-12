@@ -1,5 +1,4 @@
 ﻿using Avalonia.Headless.NUnit;
-using Beutl.Editor.VersionControl;
 using Beutl.ProjectSystem;
 
 namespace Beutl.HeadlessUITests;
@@ -51,7 +50,7 @@ public class VersionControlConflictTests
             {
                 Assert.That(warnedFile, Is.Not.Null);
                 Assert.That(
-                    VersionControlPathComparison.AreSameCanonicalPath(warnedFile!, markerFile),
+                    FilePathComparison.AreSameCanonicalPath(warnedFile!, markerFile),
                     Is.True);
                 Assert.That(
                     projectWasClosedAtWarning,

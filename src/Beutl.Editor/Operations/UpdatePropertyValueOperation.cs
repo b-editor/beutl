@@ -29,12 +29,12 @@ public sealed class UpdatePropertyValueOperation<T>(CoreObject obj, string prope
         {
             var parts = PropertyPath.Split('.');
 
-            if (parts[^1] == "Animation" && parts.Length >= 2)
+            if (parts[^1] == "Animation")
             {
                 name = parts[^2];
                 updateAnimation = true;
             }
-            else if (parts[^1] == "Expression" && parts.Length >= 2)
+            else if (parts[^1] == "Expression")
             {
                 name = parts[^2];
                 updateExpression = true;

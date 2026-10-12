@@ -51,40 +51,9 @@ public sealed partial class Model3D : Group3D
         if (_deserializing || RecordingSuppression.IsSuppressed)
             return;
 
-        var source = Source.CurrentValue;
-
-        // Clear existing children
         Children.Clear();
-
-        if (source is not { HasUri: true })
-            return;
-
-        // Create MeshObject3D for each mesh in the model
-        for (int i = 0; i < source.MeshCount; i++)
-        {
-            var meshData = source.GetMeshData(i);
-
-            // Create ModelMesh with vertices and indices
-            var modelMesh = new ModelMesh();
-            modelMesh.Vertices.CurrentValue = meshData.Vertices;
-            modelMesh.Indices.CurrentValue = meshData.Indices;
-
-            // Create MeshObject3D wrapper
-            var meshObject = new MeshObject3D();
-            meshObject.Mesh.CurrentValue = modelMesh;
-            modelMesh.SourceChildId = meshObject.Id;
-            modelMesh.SourceMeshIndex = i;
-
-            // Set material if available
-            if (meshData.MaterialIndex >= 0 && meshData.MaterialIndex < source.MaterialCount)
-            {
-                var materialData = source.GetMaterialData(meshData.MaterialIndex);
-                var material = CreateMaterial(materialData);
-                meshObject.Material.CurrentValue = material;
-            }
-
-            Children.Add(meshObject);
-        }
+        if (Source.CurrentValue is { HasUri: true })
+            SynchronizeSourceGeometry();
     }
 
     internal void SynchronizeSourceGeometry()
@@ -99,17 +68,10 @@ public sealed partial class Model3D : Group3D
         for (int i = 0; i < source.MeshCount; i++)
         {
             var data = source.GetMeshData(i);
-            MeshObject3D child;
-            MeshObject3D? imported = previous.FirstOrDefault(child => Origin(child) == i);
-            if (imported != null) child = imported;
-            else if (!hasOrigins && i < previous.Length) child = previous[i];
-            else
-            {
-                child = new MeshObject3D();
-                if (data.MaterialIndex >= 0 && data.MaterialIndex < source.MaterialCount)
-                    child.Material.CurrentValue = CreateMaterial(source.GetMaterialData(data.MaterialIndex));
-                Children.Add(child);
-            }
+            MeshObject3D? child = previous.FirstOrDefault(child => Origin(child) == i);
+            if (child == null && !hasOrigins && i < previous.Length) child = previous[i];
+            bool created = child == null;
+            child ??= new MeshObject3D();
             if (child.Mesh.CurrentValue is not ModelMesh mesh)
             {
                 mesh = new ModelMesh();
@@ -119,6 +81,13 @@ public sealed partial class Model3D : Group3D
             mesh.Indices.CurrentValue = data.Indices;
             mesh.SourceChildId = child.Id;
             mesh.SourceMeshIndex = i;
+            // A new child is filled in before it is added, so history records only the addition.
+            if (created)
+            {
+                if (data.MaterialIndex >= 0 && data.MaterialIndex < source.MaterialCount)
+                    child.Material.CurrentValue = CreateMaterial(source.GetMaterialData(data.MaterialIndex));
+                Children.Add(child);
+            }
         }
         foreach (var child in previous.Where(child => Origin(child) >= source.MeshCount))
         {
@@ -156,18 +125,11 @@ public sealed partial class Model3D : Group3D
     private static PBRMaterial CreateMaterial(MaterialData materialData)
     {
         var material = new PBRMaterial();
-
-        // Set albedo color
         material.Albedo.CurrentValue = materialData.Albedo;
-
-        // Set emissive color
         material.Emissive.CurrentValue = materialData.Emissive;
-
-        // Set metallic and roughness
         material.Metallic.CurrentValue = materialData.Metallic;
         material.Roughness.CurrentValue = materialData.Roughness;
 
-        // Set texture maps
         TrySetTextureMap(material.AlbedoMap, materialData.AlbedoMapPath);
         TrySetTextureMap(material.NormalMap, materialData.NormalMapPath);
         TrySetTextureMap(material.MetallicRoughnessMap, materialData.MetallicRoughnessMapPath);

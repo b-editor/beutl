@@ -30,7 +30,6 @@ public class ImmediateCanvasDensityTests
             using var target = RenderTarget.Create(64, 48)!;
             using var canvas = new ImmediateCanvas(target, RenderIntent.Preview, 1f);
 
-            // density 1: matrix untouched, logical == device.
             Assert.That(canvas.Transform, Is.EqualTo(Matrix.Identity));
             Assert.That(canvas.Density, Is.EqualTo(1f));
             Assert.That(canvas.SurfaceDensity, Is.EqualTo(1f));
@@ -316,7 +315,6 @@ public class ImmediateCanvasDensityTests
             target.Dispose();
             Assert.That(target.IsDisposed, Is.True);
 
-            // Verify the precondition: disposing the surface must have zeroed the cached Handle.
             Assert.That(canvas.Canvas.Handle, Is.EqualTo(IntPtr.Zero),
                 "precondition: disposing the backing surface must zero the cached SKCanvas wrapper's Handle");
 

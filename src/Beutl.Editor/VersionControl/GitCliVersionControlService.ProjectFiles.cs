@@ -12,16 +12,16 @@ internal sealed partial class GitCliVersionControlService
         RepositoryInfo repository,
         string projectFile)
     {
-        string canonicalProjectRoot = RepositoryPathComparer.ResolveCanonicalPath(repository.ProjectRoot);
+        string canonicalProjectRoot = FilePathComparison.ResolveCanonicalPath(repository.ProjectRoot);
         string fullPath = Path.GetFullPath(projectFile);
-        string canonicalParent = RepositoryPathComparer.ResolveCanonicalPath(
+        string canonicalParent = FilePathComparison.ResolveCanonicalPath(
             Path.GetDirectoryName(fullPath) ?? fullPath);
         // Containment is decided on canonical paths compared ordinally, like every other repository
         // check; a relative path could compare the two parents by platform case rules instead. An
         // entry whose parent sits outside the project root can only be tracked as its resolved target.
-        string trackedProjectFile = RepositoryPathComparer.IsContainedWithin(canonicalProjectRoot, canonicalParent)
+        string trackedProjectFile = FilePathComparison.IsSameOrDescendant(canonicalProjectRoot, canonicalParent)
             ? ResolveTrackedProjectEntry(canonicalParent, Path.GetFileName(fullPath))
-            : RepositoryPathComparer.ResolveCanonicalPath(projectFile);
+            : FilePathComparison.ResolveCanonicalPath(projectFile);
         string projectRelativePath = NormalizeGitPath(
             Path.GetRelativePath(canonicalProjectRoot, trackedProjectFile));
         return repository.Pathspec == "."
@@ -43,7 +43,7 @@ internal sealed partial class GitCliVersionControlService
 
         try
         {
-            return VersionControlPathComparison.SelectCanonicalExistingEntry(
+            return FilePathComparison.SelectCanonicalExistingEntry(
                 name,
                 candidate,
                 Directory.EnumerateFileSystemEntries(canonicalParent));
@@ -57,8 +57,7 @@ internal sealed partial class GitCliVersionControlService
         }
     }
 
-    // An unignored nested repository would become a gitlink, which the snapshot tree check refuses.
-    // Checking before anything is written keeps a failed check from leaving work half done.
+    // An unignored nested repository would become a gitlink; refuse it before anything is written.
     private static async Task EnsureNoNestedRepositoryWouldBeStagedAsync(
         RepositoryInfo repository,
         IGitCliRunner runner,
@@ -193,7 +192,7 @@ internal sealed partial class GitCliVersionControlService
             foreach (string child in children)
             {
                 string name = Path.GetFileName(Path.TrimEndingDirectorySeparator(child));
-                if (string.Equals(name, ".beutl", StringComparison.OrdinalIgnoreCase)
+                if (string.Equals(name, EditorConstants.BeutlFolder, StringComparison.OrdinalIgnoreCase)
                     || string.Equals(name, ".git", StringComparison.OrdinalIgnoreCase))
                 {
                     continue;

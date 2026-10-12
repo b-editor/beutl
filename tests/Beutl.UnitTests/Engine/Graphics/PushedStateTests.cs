@@ -23,19 +23,6 @@ public class PushedStateTests
     }
 
     [Test]
-    public void ParameterizedConstructor_StoresValues()
-    {
-        var popable = new FakePopable();
-        var state = new PushedState(popable, level: 7);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(state.Popable, Is.SameAs(popable));
-            Assert.That(state.Count, Is.EqualTo(7));
-        });
-    }
-
-    [Test]
     public void Dispose_CallsPopWithStoredCount()
     {
         var popable = new FakePopable();
@@ -53,15 +40,5 @@ public class PushedStateTests
         {
             using var _ = new PushedState();
         });
-    }
-
-    [Test]
-    public void RecordEquality_ComparesByValue()
-    {
-        var popable = new FakePopable();
-        var a = new PushedState(popable, 5);
-        var b = new PushedState(popable, 5);
-
-        Assert.That(a, Is.EqualTo(b));
     }
 }

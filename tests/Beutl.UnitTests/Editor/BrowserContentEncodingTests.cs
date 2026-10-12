@@ -1,9 +1,9 @@
 ﻿using System.IO.Compression;
-using System.Net;
 using System.Net.Sockets;
 using System.Text;
 
 using Beutl.Editor.Components.WebBrowserTab;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Editor;
 
@@ -74,34 +74,22 @@ public class BrowserContentEncodingTests
 
     private static async Task WithResponseAsync(string encoding, byte[] body, Func<Uri, string, CancellationToken, Task> check)
     {
-        var listener = new TcpListener(IPAddress.Loopback, 0);
-        listener.Start();
-        var uri = new Uri($"http://127.0.0.1:{((IPEndPoint)listener.LocalEndpoint).Port}/media.mp4");
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
-        string directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
-        Task server = ServeAsync();
-        try
-        {
-            await check(uri, directory, timeout.Token);
-            await server;
-        }
-        finally
-        {
-            timeout.Cancel();
-            listener.Stop();
-            try { await server; } catch (Exception) when (timeout.IsCancellationRequested) { }
-            if (Directory.Exists(directory)) Directory.Delete(directory, true);
-        }
+        using var temporary = new TemporaryDirectory();
+        await using var server = new LoopbackServer();
+        var uri = new Uri($"http://127.0.0.1:{server.Port}/media.mp4");
+        Task serving = server.Serve(ServeAsync);
+        await check(uri, temporary.Path, server.Token);
+        await serving;
 
-        async Task ServeAsync()
+        async Task ServeAsync(TcpListener listener, CancellationToken token)
         {
-            using TcpClient connection = await listener.AcceptTcpClientAsync(timeout.Token);
+            using TcpClient connection = await listener.AcceptTcpClientAsync(token);
             await using NetworkStream stream = connection.GetStream();
             using var reader = new StreamReader(stream, Encoding.ASCII, leaveOpen: true);
-            while (await reader.ReadLineAsync(timeout.Token) is { Length: > 0 }) { }
+            while (await reader.ReadLineAsync(token) is { Length: > 0 }) { }
             string headers = $"HTTP/1.1 200 OK\r\nContent-Type: video/mp4\r\nContent-Encoding: {encoding}\r\nContent-Length: {body.Length}\r\nConnection: close\r\n\r\n";
-            await stream.WriteAsync(Encoding.ASCII.GetBytes(headers), timeout.Token);
-            await stream.WriteAsync(body, timeout.Token);
+            await stream.WriteAsync(Encoding.ASCII.GetBytes(headers), token);
+            await stream.WriteAsync(body, token);
         }
     }
 

@@ -3,26 +3,8 @@ using Silk.NET.Vulkan;
 
 namespace Beutl.Graphics.Backend.Vulkan;
 
-/// <summary>
-/// Vulkan implementation of <see cref="ITextureArray"/>.
-/// Used for efficiently storing multiple shadow maps.
-/// </summary>
-internal sealed unsafe class VulkanTextureArray : ITextureArray, IVulkanContextResource
+internal sealed class VulkanTextureArray : VulkanLayeredTexture, ITextureArray
 {
-    private readonly VulkanContext _context;
-    private readonly Silk.NET.Vulkan.Image _image;
-    private readonly DeviceMemory _memory;
-
-    public VulkanContext OwnerContext => _context;
-    private readonly ImageView _imageView;           // Array view for sampling all layers
-    private readonly ImageView[] _layerViews;        // Individual layer views for framebuffer attachment
-    private readonly int _width;
-    private readonly int _height;
-    private readonly uint _arraySize;
-    private readonly TextureFormat _format;
-    private readonly ImageLayout[] _layerLayouts;    // Track layout per layer
-    private bool _disposed;
-
     public VulkanTextureArray(
         VulkanContext context,
         int width,
@@ -30,113 +12,33 @@ internal sealed unsafe class VulkanTextureArray : ITextureArray, IVulkanContextR
         uint arraySize,
         TextureFormat format,
         ImageUsageFlags usage)
-    {
-        if (arraySize == 0)
-            throw new ArgumentException("Array size must be greater than 0", nameof(arraySize));
-
-        _context = context;
-        _width = width;
-        _height = height;
-        _arraySize = arraySize;
-        _format = format;
-        _layerViews = new ImageView[arraySize];
-        _layerLayouts = new ImageLayout[arraySize];
-
-        var vk = context.Vk;
-        var device = context.Device;
-
-        // Create texture array image
-        _image = context.CreateTextureImage(
-            format,
+        : base(
+            context,
             width,
             height,
-            arraySize,
+            ThrowIfEmpty(arraySize),
+            format,
             usage,
             flags: 0,
-            pNext: null,
-            "texture array image");
-
-        _memory = context.AllocateAndBindImageMemory(_image, "texture array image", out _);
-
-        // Create array image view (for sampling all layers at once as sampler2DArray)
-        Result result = context.TryCreateImageView(
-            _image, format, ImageViewType.Type2DArray, baseArrayLayer: 0, layerCount: arraySize, out ImageView arrayView);
-        if (result != Result.Success)
-        {
-            vk.DestroyImage(device, _image, null);
-            vk.FreeMemory(device, _memory, null);
-            throw new InvalidOperationException($"Failed to create Vulkan texture array image view: {result}");
-        }
-        _imageView = arrayView;
-
-        // Create individual layer views (for framebuffer attachment)
-        for (uint i = 0; i < arraySize; i++)
-        {
-            result = context.TryCreateSingleLayerView(_image, format, i, out ImageView layerView);
-            if (result != Result.Success)
-            {
-                // Clean up previously created views
-                ReleaseConstructedHandles(vk, device, createdLayerViews: i);
-                throw new InvalidOperationException($"Failed to create Vulkan texture array layer image view {i}: {result}");
-            }
-            _layerViews[i] = layerView;
-            _layerLayouts[i] = ImageLayout.Undefined;
-        }
-
-        // The full array view may sample unwritten slots, so every slot must start shader-readable.
-        // Transition recording can fail, and this type has no finalizer; release partial construction here.
-        try
-        {
-            _context.TransitionImageLayout(
-                _image,
-                ImageLayout.Undefined,
-                ImageLayout.ShaderReadOnlyOptimal,
-                _format.GetAspectMask(),
-                baseArrayLayer: 0,
-                layerCount: _arraySize);
-        }
-        catch
-        {
-            ReleaseConstructedHandles(vk, device, createdLayerViews: _arraySize);
-            throw;
-        }
-
-        for (uint i = 0; i < _arraySize; i++)
-            _layerLayouts[i] = ImageLayout.ShaderReadOnlyOptimal;
-    }
-
-    // Releases what the constructor created before a later step failed: the first createdLayerViews layer views,
-    // then the array view, the image and, last, its memory.
-    private void ReleaseConstructedHandles(Vk vk, Device device, uint createdLayerViews)
+            ImageViewType.Type2DArray,
+            "texture array image",
+            static layer => $"texture array layer image view {layer}")
     {
-        for (uint j = 0; j < createdLayerViews; j++)
-            vk.DestroyImageView(device, _layerViews[j], null);
-        vk.DestroyImageView(device, _imageView, null);
-        vk.DestroyImage(device, _image, null);
-        vk.FreeMemory(device, _memory, null);
     }
 
-    public int Width => _width;
+    public int Width => LayerWidth;
 
-    public int Height => _height;
+    public int Height => LayerHeight;
 
-    public uint ArraySize => _arraySize;
-
-    public TextureFormat Format => _format;
-
-    public IntPtr NativeHandle => (IntPtr)_image.Handle;
-
-    public Silk.NET.Vulkan.Image ImageHandle => _image;
-
-    public ImageView ImageViewHandle => _imageView;
+    public uint ArraySize => LayerCount;
 
     public void TransitionLayerToAttachment(uint layerIndex)
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
+        ThrowIfDisposed();
 
         ValidateLayer(layerIndex);
 
-        var targetLayout = _format.IsDepthFormat()
+        var targetLayout = Format.IsDepthFormat()
             ? ImageLayout.DepthStencilAttachmentOptimal
             : ImageLayout.ColorAttachmentOptimal;
 
@@ -145,7 +47,7 @@ internal sealed unsafe class VulkanTextureArray : ITextureArray, IVulkanContextR
 
     public void TransitionLayerToSampled(uint layerIndex)
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
+        ThrowIfDisposed();
 
         ValidateLayer(layerIndex);
 
@@ -154,123 +56,33 @@ internal sealed unsafe class VulkanTextureArray : ITextureArray, IVulkanContextR
 
     internal void TransitionLayerToTransferDestination(uint layerIndex)
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-        ValidateLayer(layerIndex);
+        ThrowIfDisposed();
 
         TransitionLayer(layerIndex, ImageLayout.TransferDstOptimal);
     }
 
     public void TransitionAllToSampled()
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
+        ThrowIfDisposed();
 
-        for (uint i = 0; i < _arraySize; i++)
-        {
-            TransitionLayer(i, ImageLayout.ShaderReadOnlyOptimal);
-        }
+        TransitionAllLayers(ImageLayout.ShaderReadOnlyOptimal);
     }
 
     public void UploadLayer(uint layerIndex, ReadOnlySpan<byte> data)
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
+        ThrowIfDisposed();
 
         ValidateLayer(layerIndex);
 
-        // Transition layer to transfer destination
-        TransitionLayer(layerIndex, ImageLayout.TransferDstOptimal);
-
-        _context.UploadToImageLayer(
-            data,
-            _image,
-            _format.GetAspectMask(),
-            layerIndex,
-            (uint)_width,
-            (uint)_height);
-
-        // Transition to shader read
-        TransitionLayer(layerIndex, ImageLayout.ShaderReadOnlyOptimal);
-    }
-
-    private void TransitionLayer(uint layerIndex, ImageLayout newLayout)
-    {
-        ImageLayout oldLayout = _layerLayouts[layerIndex];
-        if (oldLayout == newLayout)
-            return;
-
-        _context.TransitionImageLayout(
-            _image,
-            oldLayout,
-            newLayout,
-            _format.GetAspectMask(),
-            baseArrayLayer: layerIndex,
-            layerCount: 1);
-        _layerLayouts[layerIndex] = newLayout;
-    }
-
-    /// <summary>The layout the given slot is tracked as being in.</summary>
-    /// <remarks>
-    /// Every allocated slot must be readable by a sampler even before anything writes to it, because the
-    /// array view a shader binds covers all of them.
-    /// </remarks>
-    internal ImageLayout GetLayerLayout(uint layerIndex)
-    {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-        ValidateLayer(layerIndex);
-
-        return _layerLayouts[layerIndex];
-    }
-
-    private void ValidateLayer(uint layerIndex)
-    {
-        if (layerIndex >= _arraySize)
-            throw new ArgumentOutOfRangeException(nameof(layerIndex));
+        UploadToLayer(layerIndex, data);
     }
 
     public IntPtr GetLayerView(uint layerIndex)
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
+        ThrowIfDisposed();
 
         ValidateLayer(layerIndex);
 
-        return (IntPtr)_layerViews[layerIndex].Handle;
-    }
-
-    public void Dispose()
-    {
-        if (_disposed) return;
-        _disposed = true;
-
-        ImageView[] layerViews = _layerViews;
-        ImageView imageView = _imageView;
-        Silk.NET.Vulkan.Image image = _image;
-        DeviceMemory memory = _memory;
-        _context.DeferRelease(() =>
-        {
-            var vk = _context.Vk;
-            var device = _context.Device;
-
-            foreach (ImageView layerView in layerViews)
-            {
-                if (layerView.Handle != 0)
-                {
-                    vk.DestroyImageView(device, layerView, null);
-                }
-            }
-
-            if (imageView.Handle != 0)
-            {
-                vk.DestroyImageView(device, imageView, null);
-            }
-
-            if (image.Handle != 0)
-            {
-                vk.DestroyImage(device, image, null);
-            }
-
-            if (memory.Handle != 0)
-            {
-                vk.FreeMemory(device, memory, null);
-            }
-        });
+        return GetLayerViewHandle(layerIndex);
     }
 }

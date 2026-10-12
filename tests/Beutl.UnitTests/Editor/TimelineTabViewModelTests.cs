@@ -193,7 +193,11 @@ public class TimelineTabViewModelTests
         });
     }
 
-    private static TimelineTabViewModel CreateViewModel(Scene? scene = null, ILayerMoveService? layerMoveService = null)
+    internal static TimelineTabViewModel CreateViewModel(
+        Scene? scene = null,
+        ILayerMoveService? layerMoveService = null,
+        IElementNudgeService? nudgeService = null,
+        IElementGapService? gapService = null)
     {
         scene ??= new Scene();
         var editorContext = new TestEditorContext(scene);
@@ -202,50 +206,11 @@ public class TimelineTabViewModelTests
         editorContext.AddService<IBufferStatus>(new TestBufferStatus());
         if (layerMoveService is not null)
             editorContext.AddService(layerMoveService);
+        if (nudgeService is not null)
+            editorContext.AddService(nudgeService);
+        if (gapService is not null)
+            editorContext.AddService(gapService);
         return new TimelineTabViewModel(editorContext);
-    }
-
-    private sealed class TestEditorContext(CoreObject obj) : IEditorContext
-    {
-        private readonly Dictionary<Type, object> _services = [];
-
-        public CoreObject Object { get; } = obj;
-
-        public EditorExtension Extension => null!;
-
-        public IReactiveProperty<bool> IsEnabled { get; } = new ReactivePropertySlim<bool>(true);
-
-        public void AddService<T>(T service)
-            where T : notnull
-        {
-            _services[typeof(T)] = service;
-        }
-
-        public object? GetService(Type serviceType)
-        {
-            return _services.GetValueOrDefault(serviceType);
-        }
-
-        public T? FindToolTab<T>(Func<T, bool> condition)
-            where T : IToolContext
-        {
-            return default;
-        }
-
-        public T? FindToolTab<T>()
-            where T : IToolContext
-        {
-            return default;
-        }
-
-        public bool OpenToolTab(IToolContext item)
-        {
-            return false;
-        }
-
-        public void CloseToolTab(IToolContext item)
-        {
-        }
     }
 
     private sealed class TestTimelineOptionsProvider(Scene scene) : ITimelineOptionsProvider

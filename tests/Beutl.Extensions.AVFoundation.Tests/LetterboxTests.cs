@@ -1,5 +1,4 @@
-﻿using Beutl.Extensibility;
-using Beutl.Extensions.AVFoundation.Decoding;
+﻿using Beutl.Extensions.AVFoundation.Decoding;
 using Beutl.Extensions.AVFoundation.Encoding;
 using Beutl.Media;
 using Beutl.Media.Decoding;
@@ -72,7 +71,7 @@ public sealed class LetterboxTests
         controller.AudioSettings.SampleRate = 44100;
         controller.AudioSettings.Channels = 2;
 
-        using var frames = new SolidFrameProvider();
+        using var frames = new SolidFrameProvider(new PixelSize(SourceWidth, SourceHeight), frameCount: 3);
         using var samples = new SineSampleProvider(44100 / 10, 44100);
         await controller.Encode(frames, samples, CancellationToken.None);
 
@@ -116,33 +115,4 @@ public sealed class LetterboxTests
     }
 
     private delegate bool PixelCheck(ReadOnlySpan<byte> pixel);
-
-    private sealed class SolidFrameProvider : IFrameProvider
-    {
-        public long FrameCount => 3;
-
-        public Rational FrameRate => new(30, 1);
-
-        public ValueTask<Bitmap> RenderFrame(long frame)
-        {
-            var bitmap = new Bitmap(SourceWidth, SourceHeight);
-            for (int y = 0; y < SourceHeight; y++)
-            {
-                Span<byte> row = bitmap.GetRow(y);
-                for (int x = 0; x < SourceWidth; x++)
-                {
-                    row[x * 4] = 40;
-                    row[x * 4 + 1] = 160;
-                    row[x * 4 + 2] = 200;
-                    row[x * 4 + 3] = 255;
-                }
-            }
-
-            return ValueTask.FromResult(bitmap);
-        }
-
-        public void Dispose()
-        {
-        }
-    }
 }

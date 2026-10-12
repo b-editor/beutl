@@ -4,6 +4,7 @@
 `tests/Beutl.Extensions.MediaFoundation.Tests/Fixtures/sample.mp4`, remuxed into FLV
 without audio. Tests copy it to Media Foundation file extensions to reproduce an
 unsupported byte stream while keeping the content decodable by FFmpeg.
+`FFmpegReaderProxySuspendContractTests` and `DecodingHandlerCloseRaceTests` in `Beutl.FFmpegWorker.Tests`, which links it, also use it as a small video that FFmpeg can read.
 
 The fixture is checked in so tests do not need an FFmpeg CLI installation.
 Regenerate it from the repository root with:

@@ -1,9 +1,8 @@
-﻿using System.Net;
-using System.Net.Http;
-using System.Net.Http.Headers;
+﻿using System.Net.Http;
 using System.Text;
 
 using Beutl.Editor.Components.WebBrowserTab;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Editor;
 
@@ -111,60 +110,47 @@ public class BrowserMediaPreambleTests
             "declaration" => "<?xml version='1.0' " + new string(' ', 9000) + "?>",
             _ => new string(' ', 9000)
         };
-        string directory = NewDirectory();
-        using var client = new HttpClient(new BodyHandler(Encoding.UTF8.GetBytes(preamble + "<!doctype html><html>Login</html>")));
-        try
-        {
-            await Assert.ThrowsAsync<InvalidOperationException>(() => new BrowserMediaDownload(client).DownloadAsync(
-                new Uri("https://example.com/image.svg"), directory, null, null, default));
-            Assert.That(Directory.Exists(directory) ? Directory.GetFiles(directory) : [], Is.Empty);
-        }
-        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+        using var temporary = new TemporaryDirectory();
+        string directory = temporary.Path;
+        using var client = new HttpClient(new BodyHandler(Encoding.UTF8.GetBytes(preamble + "<!doctype html><html>Login</html>"), "image/svg+xml"));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => new BrowserMediaDownload(client).DownloadAsync(
+            new Uri("https://example.com/image.svg"), directory, null, null, default));
+        Assert.That(Directory.Exists(directory) ? Directory.GetFiles(directory) : [], Is.Empty);
     }
 
     [Test]
     public async Task CancellationWhileReadingThePreambleRemovesThePartialFile()
     {
-        string directory = NewDirectory();
+        using var temporary = new TemporaryDirectory();
+        string directory = temporary.Path;
         using var cancellation = new CancellationTokenSource();
         using var client = new HttpClient(new BodyHandler(Encoding.UTF8.GetBytes("<!--" + new string('x', 9000)
-            + "--><svg xmlns='http://www.w3.org/2000/svg'/>")));
-        try
-        {
-            await Assert.CatchAsync<OperationCanceledException>(() => new BrowserMediaDownload(client).DownloadAsync(
-                new Uri("https://example.com/image.svg"), directory, null, new CancelProgress(cancellation), cancellation.Token));
-            Assert.That(Directory.Exists(directory) ? Directory.GetFiles(directory) : [], Is.Empty);
-        }
-        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+            + "--><svg xmlns='http://www.w3.org/2000/svg'/>"), "image/svg+xml"));
+        await Assert.CatchAsync<OperationCanceledException>(() => new BrowserMediaDownload(client).DownloadAsync(
+            new Uri("https://example.com/image.svg"), directory, null, new CancelProgress(cancellation), cancellation.Token));
+        Assert.That(Directory.Exists(directory) ? Directory.GetFiles(directory) : [], Is.Empty);
     }
 
     private static async Task AssertHtmlIsRejected(byte[] body, string charset, string mediaType)
     {
-        string directory = NewDirectory();
-        using var client = new HttpClient(new BodyHandler(body, charset, mediaType));
-        try
-        {
-            await Assert.ThrowsAsync<InvalidOperationException>(() => new BrowserMediaDownload(client).DownloadAsync(
-                new Uri("https://example.com/image.svg"), directory, null, null, default));
-            Assert.That(Directory.Exists(directory) ? Directory.GetFiles(directory) : [], Is.Empty);
-        }
-        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+        using var temporary = new TemporaryDirectory();
+        string directory = temporary.Path;
+        using var client = new HttpClient(new BodyHandler(body, mediaType, charset));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => new BrowserMediaDownload(client).DownloadAsync(
+            new Uri("https://example.com/image.svg"), directory, null, null, default));
+        Assert.That(Directory.Exists(directory) ? Directory.GetFiles(directory) : [], Is.Empty);
     }
 
     private static async Task AssertSvgIsPreserved(byte[] body, string? charset = null)
     {
-        string directory = NewDirectory();
-        using var client = new HttpClient(new BodyHandler(body, charset));
-        try
-        {
-            string file = await new BrowserMediaDownload(client).DownloadAsync(new Uri("https://example.com/image.svg"),
-                directory, null, null, default);
-            Assert.That(await File.ReadAllBytesAsync(file), Is.EqualTo(body));
-        }
-        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+        using var temporary = new TemporaryDirectory();
+        string directory = temporary.Path;
+        using var client = new HttpClient(new BodyHandler(body, "image/svg+xml", charset));
+        string file = await new BrowserMediaDownload(client).DownloadAsync(new Uri("https://example.com/image.svg"),
+            directory, null, null, default);
+        Assert.That(await File.ReadAllBytesAsync(file), Is.EqualTo(body));
     }
 
-    private static string NewDirectory() => Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
     private static Encoding GetEncoding(string name) => name switch
     {
         "utf8" => new UTF8Encoding(true),
@@ -174,26 +160,4 @@ public class BrowserMediaPreambleTests
         "utf32be" => new UTF32Encoding(true, true),
         _ => new UTF8Encoding(false)
     };
-
-    private sealed class BodyHandler(byte[] body, string? charset = null, string mediaType = "image/svg+xml") : HttpMessageHandler
-    {
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
-            Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                RequestMessage = request,
-                Content = new StreamContent(new SmallReadStream(body))
-                { Headers = { ContentType = new MediaTypeHeaderValue(mediaType) { CharSet = charset } } }
-            });
-    }
-
-    private sealed class SmallReadStream(byte[] body) : MemoryStream(body)
-    {
-        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default) =>
-            base.ReadAsync(buffer[..Math.Min(buffer.Length, 7)], cancellationToken);
-    }
-
-    private sealed class CancelProgress(CancellationTokenSource cancellation) : IProgress<(long Received, long? Total)>
-    {
-        public void Report((long Received, long? Total) value) => cancellation.Cancel();
-    }
 }

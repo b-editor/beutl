@@ -30,7 +30,7 @@ public abstract partial class Object3D : EngineObject
     public IProperty<Vector3> Position { get; } = Property.CreateAnimatable(Vector3.Zero);
 
     /// <summary>
-    /// Gets the rotation of the object as Euler angles in radians (X=Pitch, Y=Yaw, Z=Roll).
+    /// Gets the rotation of the object as Euler angles in degrees (X=Pitch, Y=Yaw, Z=Roll).
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.Rotation), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Vector3> Rotation { get; } = Property.CreateAnimatable(Vector3.Zero);

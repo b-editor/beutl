@@ -2,7 +2,6 @@
 using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.Backend;
-using Beutl.Graphics.Backend.Composite;
 using Beutl.Graphics.Backend.Vulkan;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
@@ -10,6 +9,7 @@ using Beutl.Graphics.Rendering.Requests;
 using Beutl.Graphics.Shaders;
 using Beutl.Media;
 using Beutl.Media.Pixel;
+using Beutl.UnitTests.TestInfrastructure;
 using Moq;
 
 namespace Beutl.UnitTests.Engine.Graphics.Backend;
@@ -95,7 +95,7 @@ public class GLSLShaderTests
             using var input = new EffectTarget(red, new Rect(0, 0, 4, 4));
             EffectTarget[] inputs = Enumerable.Repeat(input, inputCount).ToArray();
             using var targets = new EffectTargets();
-            using var pool = new RenderTargetPool(new DecliningTargetFactory());
+            using var pool = new RenderTargetPool(new DecliningRenderTargetFactory());
             using RenderTargetLeaseSession session = pool.BeginSession(RenderIntent.Preview, red);
             var context = new CustomFilterEffectContext(
                 targets, RenderIntent.Preview, RenderRequestPurpose.Auxiliary, renderTargetLeaseSession: session);
@@ -139,24 +139,16 @@ public class GLSLShaderTests
         // An unknown context has a representable portable limit, so rejection always runs.
         var graphics = new Mock<IGraphicsContext>(MockBehavior.Strict);
         graphics.SetupGet(x => x.Supports3DRendering).Returns(true);
-        InstalledGraphics previous = GraphicsContextFactory.ExchangeInstalledGraphics(
-            new InstalledGraphics(graphics.Object, null, null, FailedToInitialize: false));
-        try
+        using var scope = InstalledGraphicsScope.Install(graphics.Object);
+        using var cache = new ScriptGlslProgramCache();
+        Assert.Throws<ArgumentOutOfRangeException>(() => cache.Create(ConstantBlueFragment, inputCount));
+        Assert.Multiple(() =>
         {
-            using var cache = new ScriptGlslProgramCache();
-            Assert.Throws<ArgumentOutOfRangeException>(() => cache.Create(ConstantBlueFragment, inputCount));
-            Assert.Multiple(() =>
-            {
-                Assert.That(cache.Statistics.Misses, Is.Zero);
-                Assert.That(cache.Statistics.Creations, Is.Zero);
-            });
-            graphics.VerifyGet(x => x.Supports3DRendering, Times.Once);
-            graphics.VerifyNoOtherCalls();
-        }
-        finally
-        {
-            GraphicsContextFactory.ExchangeInstalledGraphics(previous);
-        }
+            Assert.That(cache.Statistics.Misses, Is.Zero);
+            Assert.That(cache.Statistics.Creations, Is.Zero);
+        });
+        graphics.VerifyGet(x => x.Supports3DRendering, Times.Once);
+        graphics.VerifyNoOtherCalls();
     }
 
     [Test]
@@ -166,12 +158,7 @@ public class GLSLShaderTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             IGraphicsContext graphics = GraphicsContextFactory.SharedContext!;
-            VulkanContext vulkan = graphics switch
-            {
-                VulkanContext context => context,
-                CompositeContext composite => composite.Vulkan,
-                _ => throw new AssertionException("The Vulkan test environment must install a device context.")
-            };
+            VulkanContext vulkan = VulkanTestEnvironment.ResolveVulkan(graphics);
             int limit = vulkan.MaxFragmentShaderInputTextures;
             Assert.That(GLSLFilterPipeline.GetMaximumInputCount(graphics), Is.EqualTo(limit));
             Assert.DoesNotThrow(() => GLSLFilterPipeline.ValidateInputCount(graphics, limit));
@@ -549,47 +536,29 @@ public class GLSLShaderTests
     [Test]
     public void Apply_OverwritesTargetWithShaderOutput()
     {
-        var ctx = VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.EnsureAvailable();
 
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             using var targets = new EffectTargets();
-
-            // Set up a 4x4 red EffectTarget so we can detect the shader's blue overwrite.
-            using var sourceRenderTarget = RenderTarget.Create(4, 4);
-            Assume.That(sourceRenderTarget, Is.Not.Null);
-            using (var canvas = new ImmediateCanvas(sourceRenderTarget!, RenderIntent.Preview))
-            {
-                canvas.Clear(Colors.Red);
-            }
-
-            targets.Add(new EffectTarget(sourceRenderTarget!, new Rect(0, 0, 4, 4)));
+            using RenderTarget source = CreateSolidTarget(4, 4, Colors.Red);
+            targets.Add(new EffectTarget(source, new Rect(0, 0, 4, 4)));
 
             var customCtx = CreateCustomContext(targets);
 
             using var shader = GLSLShader.Create(ConstantBlueFragment);
             shader.Apply<DummyPush>(customCtx, new DummyPush());
 
-            // After Apply, the EffectTarget at index 0 should be replaced with the shader output.
             var resultTarget = targets[0];
             Assert.That(resultTarget.RenderTarget, Is.Not.Null);
             Assert.That(resultTarget.RenderTarget!.Texture, Is.Not.Null);
             Assert.That(resultTarget.RenderTarget.Width, Is.EqualTo(4));
 
-            ctx.WaitIdle();
-
-            // Sample the resulting texture pixels.
-            byte[] pixels = resultTarget.RenderTarget.Texture!.DownloadPixels();
-            // RGBA16Float: 8 bytes per pixel
-            Assert.That(pixels.Length, Is.EqualTo(4 * 4 * 8));
-
-            // First pixel should be (0, 0, 1, 1).
-            float r = (float)BitConverter.UInt16BitsToHalf(BitConverter.ToUInt16(pixels, 0));
-            float g = (float)BitConverter.UInt16BitsToHalf(BitConverter.ToUInt16(pixels, 2));
-            float b = (float)BitConverter.UInt16BitsToHalf(BitConverter.ToUInt16(pixels, 4));
-            Assert.That(r, Is.EqualTo(0f).Within(0.01f));
-            Assert.That(g, Is.EqualTo(0f).Within(0.01f));
-            Assert.That(b, Is.EqualTo(1f).Within(0.01f));
+            RgbaF16[] pixels = ReadNativePixels(resultTarget.RenderTarget);
+            Assert.That(pixels, Has.Length.EqualTo(4 * 4));
+            Assert.That((float)pixels[0].R, Is.EqualTo(0f).Within(0.01f));
+            Assert.That((float)pixels[0].G, Is.EqualTo(0f).Within(0.01f));
+            Assert.That((float)pixels[0].B, Is.EqualTo(1f).Within(0.01f));
         });
     }
 
@@ -602,13 +571,7 @@ public class GLSLShaderTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             using var targets = new EffectTargets();
-            using RenderTarget source = RenderTarget.Create(4, 4)
-                ?? throw new InvalidOperationException("Could not create the GLSL source target.");
-            using (var canvas = new ImmediateCanvas(source, RenderIntent.Preview))
-            {
-                canvas.Clear(Colors.Red);
-            }
-
+            using RenderTarget source = CreateSolidTarget(4, 4, Colors.Red);
             targets.Add(new EffectTarget(source, new Rect(0, 0, 4, 4)));
             var customContext = CreateCustomContext(targets);
             using var shader = GLSLShader.Create(ConstantBlueFragment);
@@ -847,11 +810,6 @@ public class GLSLShaderTests
         }
 
         return target;
-    }
-
-    private sealed class DecliningTargetFactory : IRenderTargetFactory
-    {
-        public RenderTarget? Create(RenderTargetAllocationDescriptor allocation) => null;
     }
 
     private sealed class FailAtTargetFactory(int failAt) : IRenderTargetFactory

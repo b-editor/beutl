@@ -9,7 +9,6 @@ internal sealed unsafe class VulkanDevice : IDisposable
 {
     private static readonly ILogger s_logger = Log.CreateLogger<VulkanDevice>();
     private readonly Vk _vk;
-    private readonly Instance _instance;
     private readonly PhysicalDevice _physicalDevice;
     private readonly Device _device;
     private readonly Queue _graphicsQueue;
@@ -19,10 +18,9 @@ internal sealed unsafe class VulkanDevice : IDisposable
     private readonly bool _timelineSemaphores;
     private bool _disposed;
 
-    public VulkanDevice(Vk vk, Instance instance, PhysicalDevice physicalDevice)
+    public VulkanDevice(Vk vk, PhysicalDevice physicalDevice)
     {
         _vk = vk;
-        _instance = instance;
         _physicalDevice = physicalDevice;
 
         _graphicsQueueFamilyIndex = VulkanPhysicalDeviceQueries.FindGraphicsQueueFamily(_vk, _physicalDevice);
@@ -88,8 +86,6 @@ internal sealed unsafe class VulkanDevice : IDisposable
     public int MaxCubeFaceDimension { get; }
 
     public Vk Vk => _vk;
-
-    public Instance Instance => _instance;
 
     public PhysicalDevice PhysicalDevice => _physicalDevice;
 
@@ -202,35 +198,20 @@ internal sealed unsafe class VulkanDevice : IDisposable
             }
         }
 
-        var extensionPtrs = new byte*[extensions.Length];
-        for (int i = 0; i < extensions.Length; i++)
+        using var extensionNames = new VulkanNameArray(extensions);
+        fixed (byte** ppExtensions = extensionNames.Pointers)
         {
-            extensionPtrs[i] = (byte*)Marshal.StringToHGlobalAnsi(extensions[i]);
-        }
+            createInfo.EnabledExtensionCount = extensionNames.Count;
+            createInfo.PpEnabledExtensionNames = ppExtensions;
 
-        try
-        {
-            fixed (byte** ppExtensions = extensionPtrs)
+            Device device;
+            var result = _vk.CreateDevice(_physicalDevice, &createInfo, null, &device);
+            if (result != Result.Success)
             {
-                createInfo.EnabledExtensionCount = (uint)extensions.Length;
-                createInfo.PpEnabledExtensionNames = ppExtensions;
-
-                Device device;
-                var result = _vk.CreateDevice(_physicalDevice, &createInfo, null, &device);
-                if (result != Result.Success)
-                {
-                    throw new InvalidOperationException($"Failed to create Vulkan device: {result}");
-                }
-
-                return device;
+                throw new InvalidOperationException($"Failed to create Vulkan device: {result}");
             }
-        }
-        finally
-        {
-            for (int i = 0; i < extensions.Length; i++)
-            {
-                Marshal.FreeHGlobal((IntPtr)extensionPtrs[i]);
-            }
+
+            return device;
         }
     }
 

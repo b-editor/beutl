@@ -24,8 +24,7 @@ public sealed class DeviceExtentLimitTests
     public void ATexture2DPastWhatCanBeAttached_IsRefusedBeforeTheDriver()
     {
         // Every texture is created with attachment usage, which Vulkan bounds by the framebuffer limits at
-        // creation (VUID-VkImageCreateInfo-usage-00964). SwiftShader would otherwise build it and answer
-        // success; MoltenVK would abort the process.
+        // creation (VUID-VkImageCreateInfo-usage-00964).
         IGraphicsContext context = GpuTestEnvironment.EnsureAvailable();
         GpuTestEnvironment.InvokeOnRenderThread(() =>
         {

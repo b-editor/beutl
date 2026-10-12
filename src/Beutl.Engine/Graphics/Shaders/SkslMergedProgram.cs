@@ -12,7 +12,6 @@ internal sealed class SkslMergedProgram
         SkslBackendBudget budget,
         int uniformVectorCount,
         int samplerCount,
-        int childCount,
         int sourceByteCount,
         int programTokenCount,
         ImmutableArray<SkslBackendLimit> overflowReasons)
@@ -30,7 +29,6 @@ internal sealed class SkslMergedProgram
         StageCount = stageCount;
         UniformVectorCount = uniformVectorCount;
         SamplerCount = samplerCount;
-        ChildCount = childCount;
         SourceByteCount = sourceByteCount;
         ProgramTokenCount = programTokenCount;
         OverflowReasons = overflowReasons;
@@ -52,8 +50,6 @@ internal sealed class SkslMergedProgram
     public int UniformVectorCount { get; }
 
     public int SamplerCount { get; }
-
-    public int ChildCount { get; }
 
     public int SourceByteCount { get; }
 

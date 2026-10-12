@@ -6,9 +6,6 @@ using Silk.NET.Vulkan;
 
 namespace Beutl.Graphics.Backend.Vulkan;
 
-/// <summary>
-/// Vulkan implementation of <see cref="IPipeline3D"/>.
-/// </summary>
 internal sealed unsafe class VulkanPipeline3D : IPipeline3D, IVulkanContextResource
 {
     private readonly VulkanContext _context;
@@ -41,10 +38,7 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D, IVulkanContextResou
         var vk = context.Vk;
         var device = context.Device;
 
-        // A constructor that throws leaves no instance for anyone to dispose, so every device object made
-        // before the failure has to go back here or it survives until the context does. The whole sequence
-        // is inside the try because any step of it can fail: a rejected pipeline is the last one, but the
-        // shader modules and the two layouts are already on the device by then.
+        // A constructor that throws leaves no instance to dispose, so what it already created goes back here.
         try
         {
             _vertexShader = CreateShaderModule(vk, device, vertexShaderSpirv);
@@ -68,9 +62,6 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D, IVulkanContextResou
                 _descriptorSetLayout = descriptorLayout;
             }
 
-            // One range covering both stages over the 128 bytes Vulkan guarantees. Because the range spans
-            // both stages, every vkCmdPushConstants against this layout must name both: the spec requires
-            // the update to cover all stages of every range it overlaps.
             var pushConstantRange = new PushConstantRange
             {
                 StageFlags = PushConstantStages,
@@ -134,10 +125,6 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D, IVulkanContextResou
     public VulkanDescriptorBindingTable DescriptorBindings => _descriptorBindings;
 
     /// <summary>Whether this pipeline was created for <paramref name="renderPass"/>.</summary>
-    /// <remarks>
-    /// The owning context is compared before the handle: two contexts allocate handles independently, so an
-    /// equal handle value from a foreign device says nothing about compatibility.
-    /// </remarks>
     public bool IsCompatibleWith(VulkanRenderPass3D renderPass)
     {
         ArgumentNullException.ThrowIfNull(renderPass);
@@ -156,8 +143,7 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D, IVulkanContextResou
         VulkanSpecializationData fragmentSpecialization = CreateSpecializationData(
             specializationConstants,
             ShaderStage.Fragment);
-        var mainBytes = System.Text.Encoding.UTF8.GetBytes("main\0");
-        fixed (byte* mainPtr = mainBytes)
+        fixed (byte* mainPtr = "main\0"u8)
         fixed (SpecializationMapEntry* vertexEntriesPtr = vertexSpecialization.MapEntries)
         fixed (byte* vertexDataPtr = vertexSpecialization.Data)
         fixed (SpecializationMapEntry* fragmentEntriesPtr = fragmentSpecialization.MapEntries)
@@ -178,7 +164,6 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D, IVulkanContextResou
                 mainPtr,
                 fragmentSpecialization.MapEntries.Length == 0 ? null : &fragmentSpecializationInfo);
 
-            // Vertex input state
             fixed (VertexInputBindingDescription* bindingsPtr = vertexInput.Bindings)
             fixed (VertexInputAttributeDescription* attributesPtr = vertexInput.Attributes)
             {
@@ -216,7 +201,6 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D, IVulkanContextResou
 
                 var depthStencil = DescribeDepthStencil(in state);
 
-                // Create color blend attachments for each color attachment
                 var colorBlendAttachments = stackalloc PipelineColorBlendAttachmentState[colorAttachmentCount];
                 for (int i = 0; i < colorAttachmentCount; i++)
                 {
@@ -395,10 +379,7 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D, IVulkanContextResou
         // This method is kept for interface compatibility
     }
 
-    /// <remarks>
-    /// Also the release path for a constructor that threw, so every handle is checked before it is
-    /// destroyed: a partially built pipeline leaves the later ones at their default, unset value.
-    /// </remarks>
+    /// <remarks>Also releases a partially built pipeline, whose later handles are still unset.</remarks>
     public void Dispose()
     {
         if (_disposed) return;

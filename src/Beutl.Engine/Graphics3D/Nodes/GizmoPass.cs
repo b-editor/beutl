@@ -56,7 +56,6 @@ public sealed class GizmoPass : GraphicsNode3D
 
         _colorTexture = colorTexture;
 
-        // Recreate framebuffer with new color texture
         if (RenderPass != null && _colorTexture != null)
         {
             Framebuffer?.Dispose();
@@ -98,22 +97,16 @@ public sealed class GizmoPass : GraphicsNode3D
             AttachmentLoadOp.Load,
             AttachmentLoadOp.Clear);
 
-        // Framebuffer will be created when SetColorTexture is called
-
-        // Create uniform buffer
         _uniformBuffer = MaterialGpuResources.CreateUniformBuffer<GizmoUBO>(Context);
 
-        // Compile shaders
         var vertexSpirv = ShaderCompiler.CompileToSpirv(GizmoVertexShader, ShaderStage.Vertex);
         var fragmentSpirv = ShaderCompiler.CompileToSpirv(GizmoFragmentShader, ShaderStage.Fragment);
 
-        // Descriptor bindings
         var descriptorBindings = new DescriptorBinding[]
         {
             new(0, DescriptorType.UniformBuffer, 1, ShaderStage.Vertex)
         };
 
-        // Create pipeline with GizmoVertex input
         _pipeline = Context.CreatePipeline3D(
             RenderPass!,
             vertexSpirv,
@@ -121,7 +114,6 @@ public sealed class GizmoPass : GraphicsNode3D
             descriptorBindings,
             GizmoVertex.GetVertexInputDescription());
 
-        // Create descriptor set
         var poolSizes = new DescriptorPoolSize[]
         {
             new(DescriptorType.UniformBuffer, 1)
@@ -136,19 +128,16 @@ public sealed class GizmoPass : GraphicsNode3D
         if (_geometryInitialized)
             return;
 
-        // Create translate gizmo
         GizmoMesh.CreateTranslateGizmo(out var translateVertices, out var translateIndices);
         _translateVertexBuffer = CreateVertexBuffer(translateVertices);
         _translateIndexBuffer = CreateIndexBuffer(translateIndices);
         _translateIndexCount = translateIndices.Length;
 
-        // Create rotate gizmo
         GizmoMesh.CreateRotateGizmo(out var rotateVertices, out var rotateIndices);
         _rotateVertexBuffer = CreateVertexBuffer(rotateVertices);
         _rotateIndexBuffer = CreateIndexBuffer(rotateIndices);
         _rotateIndexCount = rotateIndices.Length;
 
-        // Create scale gizmo
         GizmoMesh.CreateScaleGizmo(out var scaleVertices, out var scaleIndices);
         _scaleVertexBuffer = CreateVertexBuffer(scaleVertices);
         _scaleIndexBuffer = CreateIndexBuffer(scaleIndices);
@@ -190,7 +179,6 @@ public sealed class GizmoPass : GraphicsNode3D
         if (gizmoTarget == null || gizmoMode == GizmoMode.None)
             return;
 
-        // Get gizmo geometry buffers
         IBuffer? vertexBuffer = null;
         IBuffer? indexBuffer = null;
         int indexCount = 0;
@@ -217,23 +205,18 @@ public sealed class GizmoPass : GraphicsNode3D
         if (vertexBuffer == null || indexBuffer == null || indexCount == 0)
             return;
 
-        // Create model matrix
-        // For Rotate and Scale modes, apply object's rotation so the gizmo aligns with the object
         var scaleMatrix = Matrix4x4.CreateScale(GizmoHitTester.GetWorldScale(camera, position, aspectRatio));
         Matrix4x4 modelMatrix;
         if (gizmoMode is GizmoMode.Rotate or GizmoMode.Scale)
         {
-            // Apply rotation then translation
             var rotationMatrix = Matrix4x4.CreateFromQuaternion(orientation);
             modelMatrix = scaleMatrix * rotationMatrix * Matrix4x4.CreateTranslation(position);
         }
         else
         {
-            // Translate mode uses world-aligned gizmo
             modelMatrix = scaleMatrix * Matrix4x4.CreateTranslation(position);
         }
 
-        // Update uniform buffer
         var ubo = new GizmoUBO
         {
             Model = modelMatrix,
@@ -262,8 +245,6 @@ public sealed class GizmoPass : GraphicsNode3D
             _translateIndexBuffer, _rotateVertexBuffer, _rotateIndexBuffer, _scaleVertexBuffer,
             _scaleIndexBuffer, Framebuffer, RenderPass]);
     }
-
-    // === Gizmo Shaders ===
 
     private static string GizmoVertexShader => """
         #version 450
@@ -295,8 +276,6 @@ public sealed class GizmoPass : GraphicsNode3D
             outColor = vec4(fragColor, 1.0);
         }
         """;
-
-    // === UBO Struct ===
 
     [StructLayout(LayoutKind.Sequential)]
     private struct GizmoUBO

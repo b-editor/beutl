@@ -93,7 +93,8 @@ public sealed partial class PlaneMesh : Mesh
             }
         }
 
-        // Generate indices (CCW winding when viewed from Y+)
+        // Generate indices, wound so each triangle's winding normal points to -Y, against the surface normal, as
+        // HitTester3D expects of a front face
         int ii = 0;
         for (int iz = 0; iz < zSegs; iz++)
         {
@@ -104,12 +105,12 @@ public sealed partial class PlaneMesh : Mesh
                 uint bottomLeft = (uint)((iz + 1) * vertCountX + ix);
                 uint bottomRight = bottomLeft + 1;
 
-                // First triangle (CCW)
+                // First triangle
                 indices[ii++] = topLeft;
                 indices[ii++] = topRight;
                 indices[ii++] = bottomRight;
 
-                // Second triangle (CCW)
+                // Second triangle
                 indices[ii++] = topLeft;
                 indices[ii++] = bottomRight;
                 indices[ii++] = bottomLeft;

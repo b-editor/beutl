@@ -6,7 +6,7 @@ internal partial class VersionControlCoordinator
 {
     private static bool PathsEqual(string left, string right)
     {
-        return VersionControlPathComparison.AreSameCanonicalPath(left, right);
+        return FilePathComparison.AreSameCanonicalPath(left, right);
     }
 
     private static bool NullablePathsEqual(string? left, string? right)
@@ -36,7 +36,7 @@ internal partial class VersionControlCoordinator
         {
             try
             {
-                if (VersionControlPathComparison.AreSameCanonicalPath(ancestor, root))
+                if (FilePathComparison.AreSameCanonicalPath(ancestor, root))
                 {
                     relativePath = Path.GetRelativePath(ancestor, fullPath);
                     return relativePath != ".."
@@ -81,7 +81,7 @@ internal partial class VersionControlCoordinator
     {
         try
         {
-            return VersionControlPathComparison.IsSameOrDescendant(projectRoot, projectFile);
+            return FilePathComparison.IsSameOrDescendant(projectRoot, projectFile);
         }
         catch (Exception ex) when (IsPathResolutionFailure(ex))
         {

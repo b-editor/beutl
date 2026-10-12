@@ -18,57 +18,57 @@ public struct PipelineOptions
     public ImmutableArray<SpecializationConstant> SpecializationConstants { get; set; }
 
     /// <summary>
-    /// Gets or sets whether depth testing is enabled. Default is true.
+    /// Gets or sets whether depth testing is enabled (<see cref="Default"/>: true).
     /// </summary>
     public bool DepthTestEnabled { get; set; }
 
     /// <summary>
-    /// Gets or sets whether depth writing is enabled. Default is true.
+    /// Gets or sets whether depth writing is enabled (<see cref="Default"/>: true).
     /// </summary>
     public bool DepthWriteEnabled { get; set; }
 
     /// <summary>
-    /// Gets or sets the cull mode. Default is Back.
+    /// Gets or sets the cull mode (<see cref="Default"/>: Back).
     /// </summary>
     public CullMode CullMode { get; set; }
 
     /// <summary>
-    /// Gets or sets the front face winding order. Default is CounterClockwise.
+    /// Gets or sets the front face winding order (<see cref="Default"/>: CounterClockwise).
     /// </summary>
     public FrontFace FrontFace { get; set; }
 
     /// <summary>
-    /// Gets or sets whether blending is enabled. Default is false.
+    /// Gets or sets whether blending is enabled (<see cref="Default"/>: false).
     /// </summary>
     public bool BlendEnabled { get; set; }
 
     /// <summary>
-    /// Gets or sets the source color blend factor. Default is One.
+    /// Gets or sets the source color blend factor (<see cref="Default"/>: One).
     /// </summary>
     public BlendFactor SrcColorBlendFactor { get; set; }
 
     /// <summary>
-    /// Gets or sets the destination color blend factor. Default is Zero.
+    /// Gets or sets the destination color blend factor (<see cref="Default"/>: Zero).
     /// </summary>
     public BlendFactor DstColorBlendFactor { get; set; }
 
     /// <summary>
-    /// Gets or sets the source alpha blend factor. Default is One.
+    /// Gets or sets the source alpha blend factor (<see cref="Default"/>: One).
     /// </summary>
     public BlendFactor SrcAlphaBlendFactor { get; set; }
 
     /// <summary>
-    /// Gets or sets the destination alpha blend factor. Default is Zero.
+    /// Gets or sets the destination alpha blend factor (<see cref="Default"/>: Zero).
     /// </summary>
     public BlendFactor DstAlphaBlendFactor { get; set; }
 
     /// <summary>
-    /// Gets or sets the color blend operation. Default is Add.
+    /// Gets or sets the color blend operation (<see cref="Default"/>: Add).
     /// </summary>
     public BlendOp ColorBlendOp { get; set; }
 
     /// <summary>
-    /// Gets or sets the alpha blend operation. Default is Add.
+    /// Gets or sets the alpha blend operation (<see cref="Default"/>: Add).
     /// </summary>
     public BlendOp AlphaBlendOp { get; set; }
 

@@ -9,13 +9,6 @@ namespace Beutl.Graphics.Backend.Vulkan;
 /// The descriptor bindings a pipeline layout declares, kept so a write against a set allocated from that
 /// layout can be checked before it reaches <c>vkUpdateDescriptorSets</c>.
 /// </summary>
-/// <remarks>
-/// A <see cref="DescriptorSetLayout"/> handle carries none of the declarations it was built from, and the
-/// write struct names a binding and a descriptor type with nothing tying either back to the layout. So a
-/// write to a binding the layout never declared, or one whose type disagrees with the declaration, is
-/// undefined behaviour the driver need not diagnose - on MoltenVK it takes the process down. The managed
-/// layer has to hold what the native layer cannot check.
-/// </remarks>
 internal sealed class VulkanDescriptorBindingTable
 {
     /// <summary>

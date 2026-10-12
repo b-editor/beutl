@@ -1,9 +1,8 @@
-﻿using Beutl.FFmpegIpc;
-using Beutl.FFmpegIpc.Protocol;
+﻿using Beutl.FFmpegIpc.Protocol;
 using Beutl.FFmpegIpc.Protocol.Messages;
 using Beutl.FFmpegWorker.Handlers;
-using Beutl.Logging;
 using Beutl.Media.Decoding;
+using static Beutl.FFmpegIpc.Tests.TestWav;
 
 namespace Beutl.FFmpegWorker.Tests;
 
@@ -24,19 +23,7 @@ public sealed class DecodingHandlerCloseRaceTests
     [OneTimeSetUp]
     public void OneTimeSetUp()
     {
-        Log.LoggerFactory = Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance;
-        try
-        {
-            FFmpegLoaderWorker.Initialize();
-        }
-        catch (FFmpegLibrariesNotFoundException)
-        {
-            Assert.Ignore("FFmpeg native libraries are not available.");
-        }
-        catch (DllNotFoundException)
-        {
-            Assert.Ignore("FFmpeg native library dependencies are not available.");
-        }
+        FFmpegTestHelpers.RequireFFmpeg();
     }
 
     [Test]
@@ -187,29 +174,6 @@ public sealed class DecodingHandlerCloseRaceTests
         IpcMessage response = handler.HandleOpen(IpcMessage.Create(
             1, MessageType.OpenFile, new OpenFileRequest { FilePath = path, StreamsToLoad = (int)mode }));
         return response.GetPayload<OpenFileResponse>()!.ReaderId;
-    }
-
-    // 0.1 s of 8 kHz mono 16-bit silence.
-    private static void WriteSilentPcmWav(string path)
-    {
-        const int sampleRate = 8000;
-        const int dataSize = 1600;
-
-        using var writer = new BinaryWriter(new FileStream(path, FileMode.Create, FileAccess.Write));
-        writer.Write("RIFF"u8);
-        writer.Write(36 + dataSize);
-        writer.Write("WAVE"u8);
-        writer.Write("fmt "u8);
-        writer.Write(16);
-        writer.Write((short)1); // PCM
-        writer.Write((short)1); // mono
-        writer.Write(sampleRate);
-        writer.Write(sampleRate * 2);
-        writer.Write((short)2);
-        writer.Write((short)16);
-        writer.Write("data"u8);
-        writer.Write(dataSize);
-        writer.Write(new byte[dataSize]);
     }
 
     // Closes the reader on the test thread right after the next operation looked it up, as a CloseReader that the

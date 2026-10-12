@@ -4,7 +4,6 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
-using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Beutl.Editor.Components.ElementPropertyTab;
@@ -41,18 +40,6 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class ToolTabPinTests
 {
-    private static async Task<EditViewModel> OpenEditor(string name)
-    {
-        await TestReset.ResetShellAsync();
-        string root = System.IO.Path.Combine(BeutlHomeIsolation.CurrentHome!, $"{name}-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(root);
-        Project project = (await TestShell.Project.CreateProject(640, 480, 30, 44100, name, root))!;
-        Scene scene = project.Items.OfType<Scene>().Single();
-        TestShell.Editor.ActivateTabItem(scene);
-        HeadlessTestHelpers.Settle();
-        return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
-    }
-
     private static async Task<Element> AddElement(EditViewModel editor, int layer, Func<EngineObject> create)
     {
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
@@ -76,7 +63,7 @@ public class ToolTabPinTests
     [AvaloniaTest]
     public async Task Pinned_element_property_tab_keeps_its_element()
     {
-        EditViewModel editor = await OpenEditor("pin-element-property");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("pin-element-property");
         Element first = await AddElement(editor, 0, () => new RectShape());
         Element second = await AddElement(editor, 1, () => new EllipseShape());
         IEditorSelection selection = SelectionOf(editor);
@@ -109,7 +96,7 @@ public class ToolTabPinTests
     [AvaloniaTest]
     public async Task Removing_the_pinned_element_empties_and_unpins_the_tab()
     {
-        EditViewModel editor = await OpenEditor("pin-element-removed");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("pin-element-removed");
         Element first = await AddElement(editor, 0, () => new RectShape());
         Element second = await AddElement(editor, 1, () => new EllipseShape());
         IEditorSelection selection = SelectionOf(editor);
@@ -131,7 +118,7 @@ public class ToolTabPinTests
     [AvaloniaTest]
     public async Task Pinned_element_property_tab_comes_back_pinned_from_the_layout()
     {
-        EditViewModel editor = await OpenEditor("pin-element-layout");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("pin-element-layout");
         Element first = await AddElement(editor, 0, () => new RectShape());
         var json = new JsonObject();
         using (var tab = new ElementPropertyTabViewModel(editor))
@@ -163,7 +150,7 @@ public class ToolTabPinTests
     [AvaloniaTest]
     public async Task Pinned_object_property_tab_ignores_the_selection_and_is_not_reused()
     {
-        EditViewModel editor = await OpenEditor("pin-object-property");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("pin-object-property");
         Element first = await AddElement(editor, 0, () => new RectShape());
         Element second = await AddElement(editor, 1, () => new EllipseShape());
         EngineObject firstShape = first.Objects[0];
@@ -203,7 +190,7 @@ public class ToolTabPinTests
     [AvaloniaTest]
     public async Task Another_tab_of_an_open_tool_opens_beside_it()
     {
-        EditViewModel editor = await OpenEditor("pin-tab-placement");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("pin-tab-placement");
         IToolDock bottom = editor.DockHost.Factory.GetAnchoredDock(DockAnchor.Bottom)!;
         var first = new ObjectPropertyTabViewModel(editor);
         Assert.That(editor.DockHost.OpenToolTab(first, bottom), Is.True);
@@ -221,7 +208,7 @@ public class ToolTabPinTests
     [AvaloniaTest]
     public async Task Selecting_another_element_with_every_property_tab_pinned_opens_a_following_tab()
     {
-        EditViewModel editor = await OpenEditor("pin-opens-follower");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("pin-opens-follower");
         Element ellipse = await AddElement(editor, 0, () => new EllipseShape());
         IEditorSelection selection = SelectionOf(editor);
         selection.SelectedObject.Value = ellipse;
@@ -244,7 +231,6 @@ public class ToolTabPinTests
             HeadlessTestHelpers.Render();
             selection.SelectedObject.Value = rect;
             HeadlessTestHelpers.Settle();
-            Capture(window, "follower");
 
             BeutlToolDockable[] tabs = PropertyTabs(editor);
             BeutlToolDockable? follower = tabs.SingleOrDefault(tool => !ReferenceEquals(tool, pinned));
@@ -260,7 +246,6 @@ public class ToolTabPinTests
 
             selection.SelectedObject.Value = ellipse;
             HeadlessTestHelpers.Settle();
-            Capture(window, "pinned-forward");
             Assert.Multiple(() =>
             {
                 Assert.That(dock.ActiveDockable, Is.SameAs(pinned), "selecting the pinned element brings its tab forward");
@@ -317,7 +302,7 @@ public class ToolTabPinTests
     [AvaloniaTest]
     public async Task Selecting_an_element_with_every_element_property_tab_closed_opens_one()
     {
-        EditViewModel editor = await OpenEditor("property-tab-reopens");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("property-tab-reopens");
         Element element = await AddElement(editor, 0, () => new RectShape());
         IEditorSelection selection = SelectionOf(editor);
         selection.SelectedObject.Value = null;
@@ -344,7 +329,7 @@ public class ToolTabPinTests
     [AvaloniaTest]
     public async Task Selecting_an_element_leaves_its_element_property_tab_in_front_of_the_property_tab()
     {
-        EditViewModel editor = await OpenEditor("property-tabs-order");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("property-tabs-order");
         Element element = await AddElement(editor, 0, () => new RectShape());
         IEditorSelection selection = SelectionOf(editor);
         selection.SelectedObject.Value = null;
@@ -363,7 +348,7 @@ public class ToolTabPinTests
     [AvaloniaTest]
     public async Task Clicking_the_selected_element_reopens_a_closed_element_property_tab()
     {
-        EditViewModel editor = await OpenEditor("property-tab-reclick");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("property-tab-reclick");
         Element element = await AddElement(editor, 0, () => new RectShape());
         SelectionOf(editor).SelectedObject.Value = element;
         var window = new Window { Content = new EditView { DataContext = editor }, Width = 1200, Height = 700 };
@@ -396,7 +381,7 @@ public class ToolTabPinTests
     [AvaloniaTest]
     public async Task Changing_the_layout_shows_the_selection_in_the_new_property_tab()
     {
-        EditViewModel editor = await OpenEditor("property-tab-layout-change");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("property-tab-layout-change");
         Element element = await AddElement(editor, 0, () => new RectShape());
         SelectionOf(editor).SelectedObject.Value = element;
 
@@ -421,7 +406,7 @@ public class ToolTabPinTests
     [AvaloniaTest]
     public async Task A_property_tab_a_layout_lacks_opens_behind_the_tab_it_put_in_front()
     {
-        EditViewModel editor = await OpenEditor("property-tab-layout-new-tab");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("property-tab-layout-new-tab");
         Element element = await AddElement(editor, 0, () => new RectShape());
         SelectionOf(editor).SelectedObject.Value = element;
         editor.CloseToolTab(editor.FindToolTab<ElementPropertyTabViewModel>()!);
@@ -441,7 +426,7 @@ public class ToolTabPinTests
     [AvaloniaTest]
     public async Task Pinned_transition_tabs_name_their_edge()
     {
-        EditViewModel editor = await OpenEditor("pin-transition-edge");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("pin-transition-edge");
         Element element = await AddElement(editor, 0, () => new RectShape());
         using var start = new TransitionTabViewModel(editor);
         using var end = new TransitionTabViewModel(editor);
@@ -462,7 +447,7 @@ public class ToolTabPinTests
     [AvaloniaTest]
     public async Task A_pinned_object_property_tab_takes_its_editors_services_from_itself()
     {
-        EditViewModel editor = await OpenEditor("pin-object-property-services");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("pin-object-property-services");
         Element element = await AddElement(editor, 0, () => new RectShape());
         using var tab = new ObjectPropertyTabViewModel(editor);
         tab.NavigateCore(element.Objects[0], false, new DisposedSourceEditor());
@@ -478,7 +463,7 @@ public class ToolTabPinTests
     [AvaloniaTest]
     public async Task Removing_the_pinned_graph_empties_and_unpins_the_node_graph_tab()
     {
-        EditViewModel editor = await OpenEditor("pin-node-graph-removed");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("pin-node-graph-removed");
         var graph = new GraphModel();
         Element element = await AddElement(editor, 0, () => new NodeGraphDrawable { Model = { CurrentValue = graph } });
         using var tab = new NodeGraphTabViewModel(editor);
@@ -504,7 +489,7 @@ public class ToolTabPinTests
     [AvaloniaTest]
     public async Task Pinned_path_editor_keeps_its_figure_when_the_property_tab_moves_on()
     {
-        EditViewModel editor = await OpenEditor("pin-path-editor");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("pin-path-editor");
         var figure = new PathFigure();
         figure.Segments.Add(new LineSegment(80, 100));
         figure.Segments.Add(new LineSegment(180, 100));
@@ -556,7 +541,7 @@ public class ToolTabPinTests
     [AvaloniaTest]
     public async Task Pinned_path_editor_comes_back_pinned_from_the_layout()
     {
-        EditViewModel editor = await OpenEditor("pin-path-editor-layout");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("pin-path-editor-layout");
         var figure = new PathFigure();
         figure.Segments.Add(new LineSegment(80, 100));
         Element shaped = await AddElement(editor, 0,
@@ -607,7 +592,7 @@ public class ToolTabPinTests
     [TestCase(true)]
     public async Task Tab_menu_pins_the_tab_and_its_header_button_unpins_it(bool light)
     {
-        EditViewModel editor = await OpenEditor("pin-tab-header");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("pin-tab-header");
         Element element = await AddElement(editor, 0, () => new RectShape());
         SelectionOf(editor).SelectedObject.Value = element;
         BeutlToolDockable dockable = editor.DockHost.Factory.EnumerateTools()
@@ -644,7 +629,6 @@ public class ToolTabPinTests
                 Assert.That(pinItem.IsEffectivelyEnabled, Is.True);
                 Assert.That(pinItem.IsChecked, Is.False);
             });
-            Capture(TopLevel.GetTopLevel(pinItem)!, $"menu-{(light ? "light" : "dark")}");
 
             // The menu toggles a check item only on a real click, not on a raised Click event.
             TopLevel popupRoot = TopLevel.GetTopLevel(pinItem)!;
@@ -663,7 +647,6 @@ public class ToolTabPinTests
                 Assert.That(dockable.Title, Is.EqualTo(PinnedHeader(Strings.ElementProperty, element)));
                 Assert.That(ToolTip.GetTip(unpin), Is.EqualTo(Strings.UnpinTab));
             });
-            Capture(window, $"pinned-{(light ? "light" : "dark")}");
 
             Point center = unpin.TranslatePoint(new Point(unpin.Bounds.Width / 2, unpin.Bounds.Height / 2), window)!.Value;
             window.MouseMove(center);
@@ -690,7 +673,7 @@ public class ToolTabPinTests
     [AvaloniaTest]
     public async Task Tools_that_cannot_be_pinned_hide_the_menu_item()
     {
-        EditViewModel editor = await OpenEditor("pin-tab-unpinnable");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("pin-tab-unpinnable");
         BeutlToolDockable timeline = editor.DockHost.Factory.EnumerateTools()
             .Single(tool => tool.ToolContext.Extension == Beutl.Services.PrimitiveImpls.TimelineTabExtension.Instance);
 
@@ -721,16 +704,5 @@ public class ToolTabPinTests
             window.Close();
             HeadlessTestHelpers.Settle();
         }
-    }
-
-    private static void Capture(TopLevel topLevel, string name)
-    {
-        string? directory = Environment.GetEnvironmentVariable("BEUTL_TOOL_TAB_PIN_CAPTURE_DIR");
-        if (directory is null) return;
-        Directory.CreateDirectory(directory);
-        HeadlessTestHelpers.Render();
-        using var frame = topLevel.CaptureRenderedFrame();
-        Assert.That(frame, Is.Not.Null);
-        frame!.Save(System.IO.Path.Combine(directory, name + ".png"), PngBitmapEncoderOptions.Default);
     }
 }

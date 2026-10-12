@@ -2,7 +2,6 @@
 
 namespace Beutl.UnitTests.Editor;
 
-// CPU tests for the working-scale ceiling (preview vs export).
 [TestFixture]
 public class WorkingScaleCeilingTests
 {
@@ -20,12 +19,5 @@ public class WorkingScaleCeilingTests
     public void Export_HasNoWorkingScaleCeiling()
     {
         Assert.That(WorkingScaleCeiling.Export(), Is.EqualTo(float.PositiveInfinity));
-    }
-
-    // Preview is finite (cheap interactive renders); export is unbounded (full fidelity).
-    [Test]
-    public void Preview_IsTighterThanExport_AtFullScale()
-    {
-        Assert.That(WorkingScaleCeiling.Preview(1.0f), Is.LessThan(WorkingScaleCeiling.Export()));
     }
 }

@@ -28,7 +28,6 @@ public partial class ImmediateCanvas
     {
         VerifyAccess();
         VerifyNativeTargetOperation();
-        // NOTE: renderTargetを保持しておいて次回Flushされたときに開放すると効率的
         renderTarget.VerifyAccess();
         renderTarget.PrepareBackendForSkiaSampling();
         PrepareBlitPaint(antialias: true);
@@ -107,23 +106,7 @@ public partial class ImmediateCanvas
         PixelSize sourceSize,
         float destinationDensity,
         Matrix destinationTransform)
-        => TryGetPixelAlignedDeviceOrigin(
-            dest,
-            sourceDensity,
-            sourceSize,
-            destinationDensity,
-            destinationTransform,
-            out _);
-
-    private static bool TryGetPixelAlignedDeviceOrigin(
-        Rect dest,
-        float sourceDensity,
-        PixelSize sourceSize,
-        float destinationDensity,
-        Matrix destinationTransform,
-        out PixelPoint deviceOrigin)
     {
-        deviceOrigin = default;
         if (destinationDensity != sourceDensity
             || destinationTransform.M11 != sourceDensity
             || destinationTransform.M22 != sourceDensity
@@ -148,7 +131,6 @@ public partial class ImmediateCanvas
             return false;
         }
 
-        deviceOrigin = new PixelPoint(x, y);
         return true;
     }
 

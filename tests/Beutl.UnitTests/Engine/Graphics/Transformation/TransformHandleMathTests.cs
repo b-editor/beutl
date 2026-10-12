@@ -14,16 +14,6 @@ public class TransformHandleMathTests
     //   With T_new = T_old + ΔT, the screen_anchor stays identical between old and new.
 
     [Test]
-    public void DeliveredPerspectiveBounds_DoNotIntroduceAnOverlayTranslation()
-    {
-        Matrix matrix = ComposeCenteredRotation(1200, 54, 89.5f, 500);
-        var local = new Size(1200, 54);
-        var frame = new Rect(0, 0, 256, 144);
-        Rect rendered = new Rect(local).TransformToDeliveredAABB(matrix, frame);
-        Assert.That(TransformHandleMath.AlignUserMatrixToRenderedBounds(matrix, local, rendered, frame), Is.EqualTo(matrix));
-    }
-
-    [Test]
     public void ComputePivotTranslationDelta_AnchorAtOrigin_ReturnsZero()
     {
         // When the anchor coincides with the pivot, effD = 0, so ΔT = 0 even if the scale changes.
@@ -252,24 +242,12 @@ public class TransformHandleMathTests
 
     // ===== NormalizeAngleDelta =====
 
-    [Test]
-    public void NormalizeAngleDelta_Zero_ReturnsZero()
+    [TestCase(0.0, TestName = "NormalizeAngleDelta_Zero_ReturnsZero")]
+    [TestCase(0.1, TestName = "NormalizeAngleDelta_SmallValue_PassThrough")]
+    [TestCase(-0.1, TestName = "NormalizeAngleDelta_NegativeSmallValue_PassThrough")]
+    public void NormalizeAngleDelta_WithinPi_PassesThrough(double delta)
     {
-        Assert.That(TransformHandleMath.NormalizeAngleDelta(0), Is.EqualTo(0.0).Within(1e-12));
-    }
-
-    [Test]
-    public void NormalizeAngleDelta_SmallValue_PassThrough()
-    {
-        double d = 0.1;
-        Assert.That(TransformHandleMath.NormalizeAngleDelta(d), Is.EqualTo(d).Within(1e-12));
-    }
-
-    [Test]
-    public void NormalizeAngleDelta_NegativeSmallValue_PassThrough()
-    {
-        double d = -0.1;
-        Assert.That(TransformHandleMath.NormalizeAngleDelta(d), Is.EqualTo(d).Within(1e-12));
+        Assert.That(TransformHandleMath.NormalizeAngleDelta(delta), Is.EqualTo(delta).Within(1e-12));
     }
 
     [Test]
@@ -298,18 +276,15 @@ public class TransformHandleMathTests
         Assert.That(normalized, Is.EqualTo(expected).Within(1e-6));
     }
 
-    [Test]
-    public void NormalizeAngleDelta_MultipleRevolutions_WrapsToShortestRotation()
+    // Mathematical invariant: |result| <= π. An odd multiple of π lands on the boundary, where the
+    // IEEERemainder-based implementation returns either +π or -π; |result| = π should hold even if it changes.
+    [TestCase(3 * Math.PI, 1e-9, TestName = "NormalizeAngleDelta_ThreePi_WrapsToAbsPi")]
+    [TestCase(-3 * Math.PI, 1e-9, TestName = "NormalizeAngleDelta_NegativeThreePi_WrapsToAbsPi")]
+    [TestCase(Math.PI, 1e-12, TestName = "NormalizeAngleDelta_ExactPi_ReturnsPi")]
+    [TestCase(-Math.PI, 1e-12, TestName = "NormalizeAngleDelta_ExactNegativePi_ReturnsAbsPi")]
+    public void NormalizeAngleDelta_OddMultipleOfPi_ReturnsAbsPi(double delta, double tolerance)
     {
-        // Mathematical invariant: |result| <= π. 3π → -π or +π (boundary); -3π → same boundary.
-        double result3pi = TransformHandleMath.NormalizeAngleDelta(3 * Math.PI);
-        double resultNeg3pi = TransformHandleMath.NormalizeAngleDelta(-3 * Math.PI);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(Math.Abs(result3pi), Is.EqualTo(Math.PI).Within(1e-9));
-            Assert.That(Math.Abs(resultNeg3pi), Is.EqualTo(Math.PI).Within(1e-9));
-        });
+        Assert.That(Math.Abs(TransformHandleMath.NormalizeAngleDelta(delta)), Is.EqualTo(Math.PI).Within(tolerance));
     }
 
     [Test]
@@ -322,22 +297,6 @@ public class TransformHandleMathTests
             Assert.That(Math.Abs(r), Is.LessThanOrEqualTo(Math.PI + 1e-9),
                 $"NormalizeAngleDelta({d}) = {r} should be within [-π, π]");
         }
-    }
-
-    [Test]
-    public void NormalizeAngleDelta_ExactPi_ReturnsPi()
-    {
-        // Exact π input. The IEEERemainder-based implementation returns either +π or -π, but |result| = π holds.
-        // The |result| == π invariant should be preserved even if the implementation changes in the future.
-        double result = TransformHandleMath.NormalizeAngleDelta(Math.PI);
-        Assert.That(Math.Abs(result), Is.EqualTo(Math.PI).Within(1e-12));
-    }
-
-    [Test]
-    public void NormalizeAngleDelta_ExactNegativePi_ReturnsAbsPi()
-    {
-        double result = TransformHandleMath.NormalizeAngleDelta(-Math.PI);
-        Assert.That(Math.Abs(result), Is.EqualTo(Math.PI).Within(1e-12));
     }
 
     [Test]
@@ -363,17 +322,30 @@ public class TransformHandleMathTests
 
     // ===== AlignUserMatrixToRenderedBounds =====
 
-    [Test]
-    public void AlignUserMatrixToRenderedBounds_IdentityAndMatchingBounds_ReturnsUserMatrix()
+    // userMatrix=I over a 100x50 rect: rendered bounds whose centre stays within the 0.5px threshold get no
+    // correction - the matching rect, a symmetric 10px blur, and a 0.4px offset treated as numerical noise.
+    [TestCase(0f, 0f, 100f, 50f, TestName = "AlignUserMatrixToRenderedBounds_IdentityAndMatchingBounds_ReturnsUserMatrix")]
+    [TestCase(-10f, -10f, 120f, 70f, TestName = "AlignUserMatrixToRenderedBounds_SymmetricBlur_NoChange")]
+    [TestCase(0.4f, 0.4f, 100f, 50f, TestName = "AlignUserMatrixToRenderedBounds_BelowThreshold_ReturnsUserMatrix")]
+    public void AlignUserMatrixToRenderedBounds_CenteredBounds_ReturnsUserMatrix(
+        float x, float y, float width, float height)
     {
-        // userMatrix=I, rendered bounds == local rect → centers match, no correction.
         var userMatrix = Matrix.Identity;
-        var localSize = new Size(100, 50);
-        var bounds = new Rect(0, 0, 100, 50);
+        var bounds = new Rect(x, y, width, height);
 
-        Matrix result = TransformHandleMath.AlignUserMatrixToRenderedBounds(userMatrix, localSize, bounds, null);
+        Matrix result = TransformHandleMath.AlignUserMatrixToRenderedBounds(userMatrix, new Size(100, 50), bounds, null);
 
         Assert.That(result, Is.EqualTo(userMatrix));
+    }
+
+    [Test]
+    public void DeliveredPerspectiveBounds_DoNotIntroduceAnOverlayTranslation()
+    {
+        Matrix matrix = PerspectiveTestMatrices.ComposeCenteredRotation(1200, 54, 89.5f, 500);
+        var local = new Size(1200, 54);
+        var frame = new Rect(0, 0, 256, 144);
+        Rect rendered = new Rect(local).TransformToDeliveredAABB(matrix, frame);
+        Assert.That(TransformHandleMath.AlignUserMatrixToRenderedBounds(matrix, local, rendered, frame), Is.EqualTo(matrix));
     }
 
     [Test]
@@ -397,33 +369,6 @@ public class TransformHandleMathTests
     }
 
     [Test]
-    public void AlignUserMatrixToRenderedBounds_SymmetricBlur_NoChange()
-    {
-        // userMatrix=I, transform AABB = (0,0)-(100,50), center=(50,25).
-        // The bounds expand by 10px on each side to (-10,-10)-(110,60), but center=(50, 25) is unchanged. dx=dy=0 → no correction.
-        var userMatrix = Matrix.Identity;
-        var localSize = new Size(100, 50);
-        var bounds = new Rect(-10, -10, 120, 70);
-
-        Matrix result = TransformHandleMath.AlignUserMatrixToRenderedBounds(userMatrix, localSize, bounds, null);
-
-        Assert.That(result, Is.EqualTo(userMatrix));
-    }
-
-    [Test]
-    public void AlignUserMatrixToRenderedBounds_BelowThreshold_ReturnsUserMatrix()
-    {
-        // When the center difference is below 0.5px (e.g. 0.4px), treat it as numerical noise and do not apply a correction.
-        var userMatrix = Matrix.Identity;
-        var localSize = new Size(100, 50);
-        var bounds = new Rect(0.4f, 0.4f, 100, 50);
-
-        Matrix result = TransformHandleMath.AlignUserMatrixToRenderedBounds(userMatrix, localSize, bounds, null);
-
-        Assert.That(result, Is.EqualTo(userMatrix));
-    }
-
-    [Test]
     public void AlignUserMatrixToRenderedBounds_AtThreshold_AppliesPostTranslate()
     {
         // At dx=0.51px (just over the 0.5 threshold), the correction is applied.
@@ -444,10 +389,7 @@ public class TransformHandleMathTests
         Matrix userMatrix = Matrix.CreateRotation(System.MathF.PI / 4);
         var localSize = new Size(100, 100);
 
-        // Compute the rotated AABB by rotating the 4 corners (0,0), (100,0), (100,100), (0,100).
-        // The center stays at (50, 50), and the AABB is roughly (-35.36, 35.36)-(35.36, 106.07). In practice
-        // the center is (35.36, 70.71)... here we assert that "no correction is applied when rendered bounds
-        // match the transform AABB".
+        // Rendered bounds equal to the AABB of the 4 rotated corners need no correction.
         System.Span<Point> corners = stackalloc Point[]
         {
             userMatrix.Transform(new Point(0, 0)),
@@ -470,27 +412,13 @@ public class TransformHandleMathTests
         Assert.That(result, Is.EqualTo(userMatrix));
     }
 
-    // The shape of transforms.rot3d.depth-0050 at editor scale: a layer centred in a 256x144 frame whose
-    // Y rotation carries a perspective divisor, so part of it sits behind the camera plane.
-    private static Matrix ComposeCenteredRotation(float width, float height, float rotationY, float depth)
-    {
-        float radians = MathF.PI * rotationY / 180f;
-        var rotation = new Matrix(
-            MathF.Cos(radians), 0, MathF.Sin(radians) / depth,
-            0, 1, 0,
-            0, 0, 1);
-        return Matrix.CreateTranslation(-width / 2, -height / 2)
-               * rotation
-               * Matrix.CreateTranslation(128, 72);
-    }
-
     [TestCase(1200f, 54f, 60.0f, 500f)]
     [TestCase(1200f, 54f, 89.5f, 500f)]
     [TestCase(124f, 58f, 60.0f, 10f)]
     public void AlignUserMatrixToRenderedBounds_PerspectiveCrossingTheCameraPlane_NeedsNoCorrection(
         float width, float height, float rotationY, float depth)
     {
-        Matrix userMatrix = ComposeCenteredRotation(width, height, rotationY, depth);
+        Matrix userMatrix = PerspectiveTestMatrices.ComposeCenteredRotation(width, height, rotationY, depth);
         var localSize = new Size(width, height);
         var local = new Rect(localSize);
         Rect renderedBounds = local.TransformToAABB(userMatrix);
@@ -499,7 +427,6 @@ public class TransformHandleMathTests
         // difference this alignment would otherwise read as an effect offset.
         float mirroredGap = MathF.Abs(
             local.TransformToMappedCornerAABB(userMatrix).Center.X - renderedBounds.Center.X);
-        TestContext.WriteLine($"unclipped reference centre is off by {mirroredGap}px");
         Assert.That(mirroredGap, Is.GreaterThan(0.5f), "the fixture must move the centre past the alignment epsilon");
 
         Matrix result = TransformHandleMath.AlignUserMatrixToRenderedBounds(userMatrix, localSize, renderedBounds, null);
@@ -510,7 +437,7 @@ public class TransformHandleMathTests
     [Test]
     public void AlignUserMatrixToRenderedBounds_PerspectiveWithAnEffectOffset_AppliesOnlyThatOffset()
     {
-        Matrix userMatrix = ComposeCenteredRotation(1200, 54, 60f, 500f);
+        Matrix userMatrix = PerspectiveTestMatrices.ComposeCenteredRotation(1200, 54, 60f, 500f);
         var localSize = new Size(1200, 54);
         var local = new Rect(localSize);
         Rect renderedBounds = local.TransformToAABB(userMatrix).Translate(new Vector(10, 5));
@@ -547,49 +474,19 @@ public class TransformHandleMathTests
 
     // ===== LockAspect =====
 
-    [Test]
-    public void LockAspect_BothPositive_TakesMinMagnitude()
+    // The smaller magnitude wins on both axes, each axis keeps its own sign, and a zero side zeroes both.
+    [TestCase(2.0, 3.0, 2.0, 2.0, TestName = "LockAspect_BothPositive_TakesMinMagnitude")]
+    [TestCase(-1.5, 2.0, -1.5, 1.5, TestName = "LockAspect_NegativeX_PreservesSignAndMinMagnitude")]
+    [TestCase(-2.0, -3.0, -2.0, -2.0, TestName = "LockAspect_BothNegative_PreservesBothFlips")]
+    [TestCase(0.0, 5.0, 0.0, 0.0, TestName = "LockAspect_ZeroInput_ReturnsZeroMagnitudeForBoth")]
+    public void LockAspect_TakesTheSmallerMagnitudeAndKeepsEachSign(
+        double x, double y, double expectedX, double expectedY)
     {
-        var (rx, ry) = TransformHandleMath.LockAspect(2.0, 3.0);
+        var (rx, ry) = TransformHandleMath.LockAspect(x, y);
         Assert.Multiple(() =>
         {
-            Assert.That(rx, Is.EqualTo(2.0));
-            Assert.That(ry, Is.EqualTo(2.0));
-        });
-    }
-
-    [Test]
-    public void LockAspect_NegativeX_PreservesSignAndMinMagnitude()
-    {
-        // |-1.5| < |2.0|, so magnitude = 1.5 with each axis' sign preserved.
-        var (rx, ry) = TransformHandleMath.LockAspect(-1.5, 2.0);
-        Assert.Multiple(() =>
-        {
-            Assert.That(rx, Is.EqualTo(-1.5));
-            Assert.That(ry, Is.EqualTo(1.5));
-        });
-    }
-
-    [Test]
-    public void LockAspect_BothNegative_PreservesBothFlips()
-    {
-        var (rx, ry) = TransformHandleMath.LockAspect(-2.0, -3.0);
-        Assert.Multiple(() =>
-        {
-            Assert.That(rx, Is.EqualTo(-2.0));
-            Assert.That(ry, Is.EqualTo(-2.0));
-        });
-    }
-
-    [Test]
-    public void LockAspect_ZeroInput_ReturnsZeroMagnitudeForBoth()
-    {
-        // If one side is 0, magnitude = 0 and the other side also becomes 0 (sign preserved = +).
-        var (rx, ry) = TransformHandleMath.LockAspect(0.0, 5.0);
-        Assert.Multiple(() =>
-        {
-            Assert.That(rx, Is.EqualTo(0.0));
-            Assert.That(ry, Is.EqualTo(0.0));
+            Assert.That(rx, Is.EqualTo(expectedX));
+            Assert.That(ry, Is.EqualTo(expectedY));
         });
     }
 

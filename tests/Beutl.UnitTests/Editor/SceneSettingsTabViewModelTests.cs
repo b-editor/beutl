@@ -1,16 +1,14 @@
-﻿using System.Collections.Concurrent;
-using System.Numerics;
+﻿using System.Numerics;
 using System.Reactive;
 using System.Reactive.Linq;
 
 using Beutl.Editor.Components.SceneSettingsTab.ViewModels;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services;
-using Beutl.Extensibility;
 using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
-using Beutl.Services;
+using Beutl.UnitTests.TestInfrastructure;
 
 using Reactive.Bindings;
 
@@ -19,64 +17,12 @@ namespace Beutl.UnitTests.Editor;
 [TestFixture]
 public class SceneSettingsTabViewModelTests
 {
-    // NotificationService.Handler is a process-global, write-once facade (set by the app at startup,
-    // which does not run under test). Install a capturing handler so the Apply path's ShowWarning is
-    // observable; Beutl.Core grants InternalsVisibleTo to reach the internal setter.
-    private static readonly CaptureNotificationHandler s_notificationHandler = new();
-
-    [OneTimeSetUp]
-    public void InstallNotificationHandler()
-    {
-        NotificationService.Handler = s_notificationHandler;
-        // The setter is write-once (??=); if another fixture installed a handler first this no-ops
-        // and the queue stays empty. Fail loudly instead of as a confusing false-negative in a test.
-        Assert.That(NotificationService.Handler, Is.SameAs(s_notificationHandler),
-            "Another fixture already installed a NotificationService handler; "
-            + "SceneSettings notifications will not be captured.");
-    }
-
-    [SetUp]
-    public void ClearCapturedNotifications()
-    {
-        s_notificationHandler.Clear();
-    }
-
     [Test]
     public async Task Apply_WhenInputsChangeWhilePausing_CommitsLatestInputs()
     {
-        var scene = new Scene(640, 480, string.Empty)
-        {
-            Start = TimeSpan.FromSeconds(1),
-            Duration = TimeSpan.FromSeconds(5),
-        };
-        var sceneSettingsService = new CaptureSceneSettingsService();
-        var timelineOptionsProvider = new TestTimelineOptionsProvider(scene);
-        var previewPlayer = new BlockingPreviewPlayer();
-        var editorContext = new TestEditorContext(scene);
-        editorContext.AddService(scene);
-        editorContext.AddService<ISceneSettingsService>(sceneSettingsService);
-        editorContext.AddService<ITimelineOptionsProvider>(timelineOptionsProvider);
-        editorContext.AddService<IPreviewPlayer>(previewPlayer);
-
-        using var viewModel = new SceneSettingsTabViewModel(editorContext)
-        {
-            Width =
-            {
-                Value = 800
-            },
-            Height =
-            {
-                Value = 600
-            },
-            StartInput =
-            {
-                Value = TimeSpan.FromSeconds(2).ToString()
-            },
-            DurationInput =
-            {
-                Value = TimeSpan.FromSeconds(10).ToString()
-            },
-        };
+        using SceneSettingsTabViewModel viewModel = CreateViewModel(
+            out CaptureSceneSettingsService sceneSettingsService,
+            out BlockingPreviewPlayer previewPlayer);
 
         Task applyTask = viewModel.Apply.ExecuteAsync();
         await previewPlayer.PauseStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
@@ -105,24 +51,54 @@ public class SceneSettingsTabViewModelTests
     [TestCase(800, 0, "00:00:03", "00:00:12", TestName = "Apply_DoesNotCommitAndNotifies_WhenHeightBecomesZeroWhilePausing")]
     [TestCase(800, 600, "-00:00:01", "00:00:12", TestName = "Apply_DoesNotCommitAndNotifies_WhenStartBecomesNegativeWhilePausing")]
     [TestCase(800, 600, "00:00:03", "00:00:00", TestName = "Apply_DoesNotCommitAndNotifies_WhenDurationBecomesZeroWhilePausing")]
+    [NonParallelizable]
     public async Task Apply_WhenInputsBecomeInvalidWhilePausing_DoesNotCommitAndNotifies(
         int width, int height, string start, string duration)
+    {
+        using SceneSettingsTabViewModel viewModel = CreateViewModel(
+            out CaptureSceneSettingsService sceneSettingsService,
+            out BlockingPreviewPlayer previewPlayer);
+        using var notifications = NotificationCapture.Install();
+
+        Task applyTask = viewModel.Apply.ExecuteAsync();
+        await previewPlayer.PauseStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        viewModel.Width.Value = width;
+        viewModel.Height.Value = height;
+        viewModel.StartInput.Value = start;
+        viewModel.DurationInput.Value = duration;
+
+        previewPlayer.CompletePause();
+        await applyTask.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(sceneSettingsService.CallCount, Is.EqualTo(0));
+            Assert.That(
+                notifications.All.Any(n => n.Message == Beutl.Language.MessageStrings.SceneSettings_ApplyCanceledInputsInvalid),
+                Is.True,
+                "Apply must warn the user instead of cancelling silently when inputs become invalid during the pause");
+        });
+    }
+
+    private static SceneSettingsTabViewModel CreateViewModel(
+        out CaptureSceneSettingsService sceneSettingsService,
+        out BlockingPreviewPlayer previewPlayer)
     {
         var scene = new Scene(640, 480, string.Empty)
         {
             Start = TimeSpan.FromSeconds(1),
             Duration = TimeSpan.FromSeconds(5),
         };
-        var sceneSettingsService = new CaptureSceneSettingsService();
-        var timelineOptionsProvider = new TestTimelineOptionsProvider(scene);
-        var previewPlayer = new BlockingPreviewPlayer();
+        sceneSettingsService = new CaptureSceneSettingsService();
+        previewPlayer = new BlockingPreviewPlayer();
         var editorContext = new TestEditorContext(scene);
         editorContext.AddService(scene);
         editorContext.AddService<ISceneSettingsService>(sceneSettingsService);
-        editorContext.AddService<ITimelineOptionsProvider>(timelineOptionsProvider);
+        editorContext.AddService<ITimelineOptionsProvider>(new TestTimelineOptionsProvider(scene));
         editorContext.AddService<IPreviewPlayer>(previewPlayer);
 
-        using var viewModel = new SceneSettingsTabViewModel(editorContext)
+        return new SceneSettingsTabViewModel(editorContext)
         {
             Width =
             {
@@ -141,90 +117,6 @@ public class SceneSettingsTabViewModelTests
                 Value = TimeSpan.FromSeconds(10).ToString()
             },
         };
-
-        Task applyTask = viewModel.Apply.ExecuteAsync();
-        await previewPlayer.PauseStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
-
-        viewModel.Width.Value = width;
-        viewModel.Height.Value = height;
-        viewModel.StartInput.Value = start;
-        viewModel.DurationInput.Value = duration;
-
-        previewPlayer.CompletePause();
-        await applyTask.WaitAsync(TimeSpan.FromSeconds(5));
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(sceneSettingsService.CallCount, Is.EqualTo(0));
-            Assert.That(
-                s_notificationHandler.Contains(Beutl.Language.MessageStrings.SceneSettings_ApplyCanceledInputsInvalid),
-                Is.True,
-                "Apply must warn the user instead of cancelling silently when inputs become invalid during the pause");
-        });
-    }
-
-    private sealed class CaptureNotificationHandler : INotificationServiceHandler
-    {
-        // Fully qualified: System.Reactive also defines a Notification type, so the bare name is ambiguous.
-        private readonly ConcurrentQueue<Beutl.Services.Notification> _notifications = new();
-
-        public void Show(Beutl.Services.Notification notification)
-        {
-            _notifications.Enqueue(notification);
-        }
-
-        public bool Contains(string message)
-        {
-            return _notifications.Any(n => n.Message == message);
-        }
-
-        public void Clear()
-        {
-            _notifications.Clear();
-        }
-    }
-
-    private sealed class TestEditorContext(CoreObject obj) : IEditorContext
-    {
-        private readonly Dictionary<Type, object> _services = [];
-
-        public CoreObject Object { get; } = obj;
-
-        public EditorExtension Extension => null!;
-
-        public IReactiveProperty<bool> IsEnabled { get; } = new ReactivePropertySlim<bool>(true);
-
-        public void AddService<T>(T service)
-            where T : notnull
-        {
-            _services[typeof(T)] = service;
-        }
-
-        public object? GetService(Type serviceType)
-        {
-            return _services.GetValueOrDefault(serviceType);
-        }
-
-        public T? FindToolTab<T>(Func<T, bool> condition)
-            where T : IToolContext
-        {
-            return default;
-        }
-
-        public T? FindToolTab<T>()
-            where T : IToolContext
-        {
-            return default;
-        }
-
-        public bool OpenToolTab(IToolContext item)
-        {
-            return false;
-        }
-
-        public void CloseToolTab(IToolContext item)
-        {
-        }
     }
 
     private sealed class TestTimelineOptionsProvider(Scene scene) : ITimelineOptionsProvider

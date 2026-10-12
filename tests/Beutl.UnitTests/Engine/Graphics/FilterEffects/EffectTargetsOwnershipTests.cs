@@ -1,7 +1,7 @@
 ﻿using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
-using SkiaSharp;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Engine.Graphics.FilterEffects;
 
@@ -419,22 +419,5 @@ public sealed class EffectTargetsOwnershipTests
     }
 
     private static EffectTarget CreateTarget()
-        => new(new CpuRenderTarget(4, 4), s_bounds, EffectiveScale.At(1));
-
-    private sealed class CpuRenderTarget : RenderTarget
-    {
-        public CpuRenderTarget(int width, int height)
-            : base(CreateSurface(width, height), width, height)
-        {
-        }
-
-        private static SKSurface CreateSurface(int width, int height)
-            => SKSurface.Create(new SKImageInfo(
-                   width,
-                   height,
-                   SKColorType.RgbaF16,
-                   SKAlphaType.Premul,
-                   SKColorSpace.CreateSrgbLinear()))
-               ?? throw new InvalidOperationException("Failed to create a CPU surface.");
-    }
+        => new(CpuRenderTargets.Create(4, 4), s_bounds, EffectiveScale.At(1));
 }

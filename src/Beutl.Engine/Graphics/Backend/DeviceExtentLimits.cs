@@ -4,12 +4,8 @@
 /// Refuses an extent the device cannot make before its allocator is asked.
 /// </summary>
 /// <remarks>
-/// Neither shipped driver reports an over-limit image as a failed allocation: SwiftShader builds a
-/// framebuffer past its own limit and answers success, and MoltenVK aborts the process on a Metal
-/// assertion. Neither reaches a <c>catch</c>, so the extent has to be refused on the way in. Each resource
-/// kind answers to its own device limit, so the question is asked per kind rather than through one number.
-/// A limit of zero or less means the device did not answer, and the allocator is left to decide, as
-/// <see cref="Rendering.BufferDimensionBudget.ForDevice(IGraphicsContext?)"/> does for 2D.
+/// Drivers do not reject over-limit extents (SwiftShader succeeds, MoltenVK aborts), so each kind is refused
+/// here against its own limit.
 /// </remarks>
 internal static class DeviceExtentLimits
 {
@@ -73,12 +69,6 @@ internal static class DeviceExtentLimits
 
     /// <summary>Whether an extent is one a device with <paramref name="budget"/> can attach.</summary>
     /// <param name="budget">The device's attachment limit, or zero or less when it reported none.</param>
-    /// <remarks>
-    /// The question <see cref="ThrowIfCannotAttach"/> asks, separated from the context that answers it, so a
-    /// caller holding only the limit asks the same one. A recording is such a caller: it may not reach the
-    /// process for a device, but it is given the limit as request state and has to decide whether the
-    /// allocation it is describing is one the execution will refuse. An unreported limit refuses nothing.
-    /// </remarks>
     /// <exception cref="ArgumentOutOfRangeException">A dimension is zero or negative.</exception>
     public static bool CanAttach(int budget, int width, int height)
     {

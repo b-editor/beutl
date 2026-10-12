@@ -1,5 +1,4 @@
-﻿using System.ComponentModel;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Reactive.Linq;
 using Avalonia.Headless.NUnit;
 using Beutl.Api.Services;
@@ -19,6 +18,8 @@ using Beutl.Services.PrimitiveImpls;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Reactive.Bindings;
+using static Beutl.HeadlessUITests.GitTestSupport;
+using static Beutl.Testing.Headless.HeadlessTestHelpers;
 
 namespace Beutl.HeadlessUITests;
 
@@ -26,6 +27,10 @@ namespace Beutl.HeadlessUITests;
 public class VersionControlRestoreTests
 {
     private const string RestoreStateKey = "version-control-restore-state";
+
+    private static readonly CheckedOutBranchTip MainTip = new(
+        "refs/heads/main",
+        "1111111111111111111111111111111111111111");
 
     [AvaloniaTest]
     public async Task Project_open_ignores_optional_Git_discovery_for_a_control_character_path()
@@ -35,113 +40,75 @@ public class VersionControlRestoreTests
             Assert.Ignore("Windows paths cannot contain the control character used by this regression.");
         }
 
-        await TestReset.ResetShellAsync();
-        using var environment = new IsolatedGitEnvironment();
-        string gitPath = ProbeGitOrIgnore();
-        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
-        string? oldGitPath = config.GitExecutablePath;
-        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
+        await using RealGitScope git = await RealGitScope.StartAsync(autoCommitOnClose: false);
 
-        try
+        string location = Path.Combine(
+            BeutlHomeIsolation.CurrentHome!,
+            "version-control-control\npath");
+        Directory.CreateDirectory(location);
+        Project project = (await TestShell.Project.CreateProject(
+            640,
+            480,
+            30,
+            44100,
+            "control-path",
+            location))!;
+        string projectFile = project.Uri!.LocalPath;
+        await TestShell.Project.CloseProjectAsync();
+
+        await TestShell.Project.OpenProject(projectFile);
+        HeadlessTestHelpers.Settle();
+
+        Assert.Multiple(() =>
         {
-            config.GitExecutablePath = gitPath;
-            config.AutoCommitOnClose = false;
-            string location = Path.Combine(
-                BeutlHomeIsolation.CurrentHome!,
-                "version-control-control\npath");
-            Directory.CreateDirectory(location);
-            Project project = (await TestShell.Project.CreateProject(
-                640,
-                480,
-                30,
-                44100,
-                "control-path",
-                location))!;
-            string projectFile = project.Uri!.LocalPath;
-            await TestShell.Project.CloseProjectAsync();
-
-            await TestShell.Project.OpenProject(projectFile);
-            HeadlessTestHelpers.Settle();
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(TestShell.Project.CurrentProject.Value, Is.Not.Null);
-                Assert.That(
-                    TestShell.Project.CurrentProject.Value!.Uri!.LocalPath,
-                    Is.EqualTo(projectFile));
-                Assert.That(TestShell.VersionControl.IsTracked.Value, Is.False);
-            });
-        }
-        finally
-        {
-            await TestReset.ResetShellAsync();
-            config.GitExecutablePath = oldGitPath;
-            config.AutoCommitOnClose = oldAutoCommitOnClose;
-        }
+            Assert.That(TestShell.Project.CurrentProject.Value, Is.Not.Null);
+            Assert.That(
+                TestShell.Project.CurrentProject.Value!.Uri!.LocalPath,
+                Is.EqualTo(projectFile));
+            Assert.That(TestShell.VersionControl.IsTracked.Value, Is.False);
+        });
     }
 
     [AvaloniaTest]
     public async Task Manual_commit_requests_repository_identity_and_skips_a_clean_second_commit()
     {
-        await TestReset.ResetShellAsync();
-        using var environment = new IsolatedGitEnvironment();
-        string gitPath = ProbeGitOrIgnore();
-        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
-        string? oldGitPath = config.GitExecutablePath;
-        bool oldAutoCommitOnSave = config.AutoCommitOnSave;
-        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
-        bool oldUseLfs = config.UseLfsWhenAvailable;
-        var oldRequestIdentityAsync = TestShell.VersionControl.RequestIdentityAsync;
+        await using RealGitScope git = await RealGitScope.StartAsync(
+            autoCommitOnSave: true,
+            autoCommitOnClose: true,
+            useLfsWhenAvailable: false);
 
-        try
+        (Project project, _) = await CreateTrackedProjectAsync("version-control-manual");
+        string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+        await RunGitAsync(git.GitPath, projectRoot, "config", "--unset", "user.name");
+        await RunGitAsync(git.GitPath, projectRoot, "config", "--unset", "user.email");
+        await File.WriteAllTextAsync(
+            Path.Combine(projectRoot, "manual-marker.txt"),
+            "manual version\n");
+
+        int identityRequests = 0;
+        TestShell.VersionControl.RequestIdentityAsync = _ =>
         {
-            config.GitExecutablePath = gitPath;
-            config.AutoCommitOnSave = true;
-            config.AutoCommitOnClose = true;
-            config.UseLfsWhenAvailable = false;
+            identityRequests++;
+            return Task.FromResult<GitIdentity?>(
+                new GitIdentity("Manual Commit Test", "manual@example.invalid"));
+        };
 
-            (Project project, _) = await CreateTrackedProjectAsync("version-control-manual");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            await RunGitAsync(gitPath, projectRoot, "config", "--unset", "user.name");
-            await RunGitAsync(gitPath, projectRoot, "config", "--unset", "user.email");
-            await File.WriteAllTextAsync(
-                Path.Combine(projectRoot, "manual-marker.txt"),
-                "manual version\n");
+        CommitResult first = await TestShell.VersionControl.CommitManualAsync("rough cut");
+        CommitResult second = await TestShell.VersionControl.CommitManualAsync("clean retry");
+        CommitInfo manual = (await TestShell.VersionControl.CurrentService!.GetHistoryAsync(
+                0,
+                1,
+                CancellationToken.None))
+            .Single();
 
-            int identityRequests = 0;
-            TestShell.VersionControl.RequestIdentityAsync = _ =>
-            {
-                identityRequests++;
-                return Task.FromResult<GitIdentity?>(
-                    new GitIdentity("Manual Commit Test", "manual@example.invalid"));
-            };
-
-            CommitResult first = await TestShell.VersionControl.CommitManualAsync("rough cut");
-            CommitResult second = await TestShell.VersionControl.CommitManualAsync("clean retry");
-            CommitInfo manual = (await TestShell.VersionControl.CurrentService!.GetHistoryAsync(
-                    0,
-                    1,
-                    CancellationToken.None))
-                .Single();
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(identityRequests, Is.EqualTo(1));
-                Assert.That(first, Is.TypeOf<CommitResult.Committed>());
-                Assert.That(second, Is.TypeOf<CommitResult.NoChanges>());
-                Assert.That(manual.Subject, Is.EqualTo("rough cut"));
-                Assert.That(manual.Kind, Is.EqualTo(SnapshotKind.Manual));
-            });
-        }
-        finally
+        Assert.Multiple(() =>
         {
-            TestShell.VersionControl.RequestIdentityAsync = oldRequestIdentityAsync;
-            await TestReset.ResetShellAsync();
-            config.GitExecutablePath = oldGitPath;
-            config.AutoCommitOnSave = oldAutoCommitOnSave;
-            config.AutoCommitOnClose = oldAutoCommitOnClose;
-            config.UseLfsWhenAvailable = oldUseLfs;
-        }
+            Assert.That(identityRequests, Is.EqualTo(1));
+            Assert.That(first, Is.TypeOf<CommitResult.Committed>());
+            Assert.That(second, Is.TypeOf<CommitResult.NoChanges>());
+            Assert.That(manual.Subject, Is.EqualTo("rough cut"));
+            Assert.That(manual.Kind, Is.EqualTo(SnapshotKind.Manual));
+        });
     }
 
     [Test]
@@ -171,86 +138,49 @@ public class VersionControlRestoreTests
     [AvaloniaTest]
     public async Task Restore_to_a_new_branch_branches_from_the_current_tip_and_applies_the_project_tree()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
-        bool oldAutoCommitOnSave = config.AutoCommitOnSave;
-        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
-        VersionControlCoordinator? coordinator = null;
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-restore-branch-scope");
+        const string SelectedCommit = "2222222222222222222222222222222222222222";
+        const string BranchName = "restored-version";
+        var discovery = new PullCycleTestBackend(repository: null, session.Repository, MainTip);
+        var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip);
+        VersionControlCoordinator coordinator = session.Start(
+            new VersionControlConfig { AutoCommitOnSave = false, AutoCommitOnClose = false },
+            candidate => candidate is null ? discovery : backend);
+        coordinator.ConfirmRestoreAsync = _ => Task.FromResult(true);
+        await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
 
-        try
+        bool restored = await coordinator.RestoreToNewBranchAsync(
+            SelectedCommit,
+            BranchName);
+        HeadlessTestHelpers.Settle();
+
+        Assert.Multiple(() =>
         {
-            config.AutoCommitOnSave = false;
-            config.AutoCommitOnClose = false;
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-restore-branch-scope");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var originalTip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            const string SelectedCommit = "2222222222222222222222222222222222222222";
-            const string BranchName = "restored-version";
-            var discovery = new PullCycleTestBackend(repository: null, repository, originalTip);
-            var backend = new PullCycleTestBackend(repository, repository, originalTip);
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                new EditorService(new ExtensionProvider()),
-                config,
-                installationLocator: null,
-                serviceFactory: candidate => candidate is null ? discovery : backend);
-            coordinator.ConfirmRestoreAsync = _ => Task.FromResult(true);
-            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
-
-            bool restored = await coordinator.RestoreToNewBranchAsync(
-                SelectedCommit,
-                BranchName);
-            HeadlessTestHelpers.Settle();
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(restored, Is.True);
-                // Branching at the selected commit would check its whole tree out, rolling back
-                // files outside the project in an enclosing repository.
-                Assert.That(backend.LastBranchStartPoint, Is.EqualTo(originalTip.Commit));
-                Assert.That(
-                    backend.RestoreProjectTreeCalls,
-                    Is.EqualTo(new[] { (SelectedCommit, SnapshotKind.Restore) }));
-            });
-        }
-        finally
-        {
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync();
-            }
-
-            await TestReset.ResetShellAsync();
-            config.AutoCommitOnSave = oldAutoCommitOnSave;
-            config.AutoCommitOnClose = oldAutoCommitOnClose;
-        }
+            Assert.That(restored, Is.True);
+            // Branching at the selected commit would check its whole tree out, rolling back
+            // files outside the project in an enclosing repository.
+            Assert.That(backend.LastBranchStartPoint, Is.EqualTo(MainTip.Commit));
+            Assert.That(
+                backend.RestoreProjectTreeCalls,
+                Is.EqualTo(new[] { (SelectedCommit, SnapshotKind.Restore) }));
+        });
     }
 
     [AvaloniaTest]
     public async Task Background_restore_waits_for_editor_context_disposal_before_mutating_the_worktree()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
         var disposeStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseDispose = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-restore-editor-disposal-barrier");
 
         try
         {
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-restore-editor-disposal-barrier");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var originalTip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var discovery = new PullCycleTestBackend(null, repository, originalTip);
-            var backend = new PullCycleTestBackend(repository, repository, originalTip)
+            var discovery = new PullCycleTestBackend(null, session.Repository, MainTip);
+            var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip)
             {
                 Status = new WorkspaceStatus(
                     "main",
@@ -259,24 +189,20 @@ public class VersionControlRestoreTests
                     Changes: [],
                     HasConflicts: false),
             };
-            backend.EnqueueObservedTip(originalTip);
-            var coordinatorEditorService = new EditorService(new ExtensionProvider());
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                coordinatorEditorService,
+            backend.EnqueueObservedTip(MainTip);
+            VersionControlCoordinator coordinator = session.Start(
                 new VersionControlConfig
                 {
                     AutoCommitOnSave = false,
                     AutoCommitOnClose = false,
                 },
-                installationLocator: null,
-                serviceFactory: candidate => candidate is null ? discovery : backend);
+                candidate => candidate is null ? discovery : backend);
             coordinator.ConfirmRestoreAsync = _ => Task.FromResult(true);
             await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
 
             TestShell.Editor.TabItems.Add(new EditorTabItem(
                 new BlockingDisposeEditorContext(
-                    new Scene { Uri = new Uri(Path.Combine(projectRoot, "blocking.scene")) },
+                    new Scene { Uri = new Uri(Path.Combine(session.Root, "blocking.scene")) },
                     disposeStarted,
                     releaseDispose.Task)));
 
@@ -301,12 +227,6 @@ public class VersionControlRestoreTests
         finally
         {
             releaseDispose.TrySetResult();
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync();
-            }
-
-            await TestReset.ResetShellAsync();
         }
     }
 
@@ -321,28 +241,18 @@ public class VersionControlRestoreTests
     private static async Task AssertRestoreBranchRetentionAsync(
         RestoreBranchRetentionScenario scenario)
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
         Func<Project, Task>? openedHandler = null;
-        INotificationServiceHandler previousNotificationHandler = NotificationService.Handler;
-        var notifications = new CaptureNotificationHandler();
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            $"version-control-restore-branch-retention-{scenario}");
 
         try
         {
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                $"version-control-restore-branch-retention-{scenario}");
-            project.Variables[RestoreStateKey] = "original-state";
-            string projectFile = project.Uri!.LocalPath;
-            string projectRoot = Path.GetDirectoryName(projectFile)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var originalTip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
+            session.Project.Variables[RestoreStateKey] = "original-state";
             var createdTip = new CheckedOutBranchTip(
                 "refs/heads/restored-version",
                 "3333333333333333333333333333333333333333");
-            var discovery = new PullCycleTestBackend(null, repository, originalTip);
-            var backend = new PullCycleTestBackend(repository, repository, originalTip)
+            var discovery = new PullCycleTestBackend(null, session.Repository, MainTip);
+            var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip)
             {
                 Status = new WorkspaceStatus(
                     "main",
@@ -350,25 +260,21 @@ public class VersionControlRestoreTests
                     Behind: 0,
                     Changes: [],
                     HasConflicts: false),
-                RestoreProjectTreeResult = new CommitResult.Committed(
-                    new CommitRevision.Known(createdTip.Commit)),
+                RestoreProjectTreeResult = new CommitResult.Committed(createdTip.Commit),
             };
-            backend.EnqueueObservedTip(originalTip);
+            backend.EnqueueObservedTip(MainTip);
             backend.EnqueueObservedTip(createdTip);
 
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                new EditorService(new ExtensionProvider()),
+            VersionControlCoordinator coordinator = session.Start(
                 new VersionControlConfig
                 {
                     AutoCommitOnSave = false,
                     AutoCommitOnClose = false,
                 },
-                installationLocator: null,
-                serviceFactory: candidate => candidate is null ? discovery : backend);
+                candidate => candidate is null ? discovery : backend);
             coordinator.ConfirmRestoreAsync = _ => Task.FromResult(true);
             await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
-            NotificationService.Handler = notifications;
+            using var notifications = new NotificationCapture();
 
             int reopenAttempts = 0;
             openedHandler = _ =>
@@ -429,18 +335,10 @@ public class VersionControlRestoreTests
         }
         finally
         {
-            NotificationService.Handler = previousNotificationHandler;
             if (openedHandler is not null)
             {
                 TestShell.Project.Opened -= openedHandler;
             }
-
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync();
-            }
-
-            await TestReset.ResetShellAsync();
         }
     }
 
@@ -453,74 +351,49 @@ public class VersionControlRestoreTests
     [AvaloniaTest]
     public async Task Manual_commit_records_edits_made_while_the_identity_prompt_is_open()
     {
-        await TestReset.ResetShellAsync();
-        using var environment = new IsolatedGitEnvironment();
-        string gitPath = ProbeGitOrIgnore();
-        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
-        string? oldGitPath = config.GitExecutablePath;
-        bool oldAutoCommitOnSave = config.AutoCommitOnSave;
-        bool oldUseLfs = config.UseLfsWhenAvailable;
-        var oldRequestIdentityAsync = TestShell.VersionControl.RequestIdentityAsync;
+        await using RealGitScope git = await RealGitScope.StartAsync(
+            autoCommitOnSave: false,
+            useLfsWhenAvailable: false);
 
-        try
+        (Project project, _) = await CreateTrackedProjectAsync(
+            "version-control-manual-identity-edit");
+        string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+        string projectFileName = Path.GetFileName(project.Uri.LocalPath);
+        await RunGitAsync(git.GitPath, projectRoot, "config", "--unset", "user.name");
+        await RunGitAsync(git.GitPath, projectRoot, "config", "--unset", "user.email");
+
+        // The prompt is where the user can keep editing: the manual version has to record what
+        // they see, not the state saved before the identity was asked for.
+        TestShell.VersionControl.RequestIdentityAsync = _ =>
         {
-            config.GitExecutablePath = gitPath;
-            config.AutoCommitOnSave = false;
-            config.UseLfsWhenAvailable = false;
+            project.Variables["identity-prompt-edit"] = "typed while prompting";
+            return Task.FromResult<GitIdentity?>(
+                new GitIdentity("Manual Commit Test", "manual@example.invalid"));
+        };
 
-            (Project project, _) = await CreateTrackedProjectAsync(
-                "version-control-manual-identity-edit");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            string projectFileName = Path.GetFileName(project.Uri.LocalPath);
-            await RunGitAsync(gitPath, projectRoot, "config", "--unset", "user.name");
-            await RunGitAsync(gitPath, projectRoot, "config", "--unset", "user.email");
+        // Something has to be pending before the commit, or the clean tree short-circuits the
+        // whole attempt and the identity is never requested.
+        project.Variables["pre-prompt-edit"] = "typed before prompting";
 
-            // The prompt is where the user can keep editing: the manual version has to record what
-            // they see, not the state saved before the identity was asked for.
-            TestShell.VersionControl.RequestIdentityAsync = _ =>
-            {
-                project.Variables["identity-prompt-edit"] = "typed while prompting";
-                return Task.FromResult<GitIdentity?>(
-                    new GitIdentity("Manual Commit Test", "manual@example.invalid"));
-            };
+        CommitResult result = await TestShell.VersionControl.CommitManualAsync("prompted cut");
+        string committedProjectFile = await RunGitAsync(
+            git.GitPath,
+            projectRoot,
+            "show",
+            $"HEAD:{projectFileName}");
 
-            // Something has to be pending before the commit, or the clean tree short-circuits the
-            // whole attempt and the identity is never requested.
-            project.Variables["pre-prompt-edit"] = "typed before prompting";
-
-            CommitResult result = await TestShell.VersionControl.CommitManualAsync("prompted cut");
-            string committedProjectFile = await RunGitAsync(
-                gitPath,
-                projectRoot,
-                "show",
-                $"HEAD:{projectFileName}");
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(result, Is.TypeOf<CommitResult.Committed>());
-                Assert.That(committedProjectFile, Does.Contain("pre-prompt-edit"));
-                Assert.That(committedProjectFile, Does.Contain("identity-prompt-edit"));
-            });
-        }
-        finally
+        Assert.Multiple(() =>
         {
-            TestShell.VersionControl.RequestIdentityAsync = oldRequestIdentityAsync;
-            await TestReset.ResetShellAsync();
-            config.GitExecutablePath = oldGitPath;
-            config.AutoCommitOnSave = oldAutoCommitOnSave;
-            config.UseLfsWhenAvailable = oldUseLfs;
-        }
+            Assert.That(result, Is.TypeOf<CommitResult.Committed>());
+            Assert.That(committedProjectFile, Does.Contain("pre-prompt-edit"));
+            Assert.That(committedProjectFile, Does.Contain("identity-prompt-edit"));
+        });
     }
 
     [AvaloniaTest]
     public async Task Disposal_during_a_lifecycle_operation_cleans_up_the_service_after_completion()
     {
-        await TestReset.ResetShellAsync();
-        using var environment = new IsolatedGitEnvironment();
-        string gitPath = ProbeGitOrIgnore();
-        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
-        string? oldGitPath = config.GitExecutablePath;
-        bool oldUseLfs = config.UseLfsWhenAvailable;
+        await using RealGitScope git = await RealGitScope.StartAsync(useLfsWhenAvailable: false);
         var confirmationStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseConfirmation = new TaskCompletionSource<bool>(
@@ -529,12 +402,10 @@ public class VersionControlRestoreTests
 
         try
         {
-            config.GitExecutablePath = gitPath;
-            config.UseLfsWhenAvailable = false;
             (Project project, _) = await CreateTrackedProjectAsync(
                 "version-control-coordinator-disposal");
             await RunGitAsync(
-                gitPath,
+                git.GitPath,
                 Path.GetDirectoryName(project.Uri!.LocalPath)!,
                 "branch",
                 "blocked-branch");
@@ -572,209 +443,137 @@ public class VersionControlRestoreTests
             {
                 await coordinator.DisposeAsync();
             }
-
-            await TestReset.ResetShellAsync();
-            config.GitExecutablePath = oldGitPath;
-            config.UseLfsWhenAvailable = oldUseLfs;
         }
     }
 
     [AvaloniaTest]
     public async Task Save_snapshot_is_skipped_while_an_output_operation_is_active()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
-
-        try
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-save-during-output");
+        var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip);
+        var config = new VersionControlConfig
         {
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-save-during-output");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var backend = new PullCycleTestBackend(repository, repository, tip);
-            var editorService = new EditorService(new ExtensionProvider());
-            var config = new VersionControlConfig
-            {
-                AutoCommitOnSave = true,
-                AutoCommitOnClose = false,
-            };
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
-                config,
-                installationLocator: null,
-                serviceFactory: _ => backend);
-            await WaitUntilAsync(() =>
-                ReferenceEquals(coordinator.CurrentService, backend)
-                && coordinator.IsTracked.Value);
+            AutoCommitOnSave = true,
+            AutoCommitOnClose = false,
+        };
+        VersionControlCoordinator coordinator = session.Start(config, _ => backend);
+        await WaitUntilAsync(() =>
+            ReferenceEquals(coordinator.CurrentService, backend)
+            && coordinator.IsTracked.Value);
 
-            using (IDisposable outputOperation = editorService.BeginObservedOutputOperation())
-            {
-                await coordinator.NotifySavedAsync();
-                Assert.That(
-                    backend.CommitAllCalls,
-                    Is.Zero,
-                    "A save must not snapshot files while output may still be writing them.");
-            }
-
+        using (IDisposable outputOperation = session.EditorService.BeginObservedOutputOperation())
+        {
             await coordinator.NotifySavedAsync();
             Assert.That(
                 backend.CommitAllCalls,
-                Is.EqualTo(1),
-                "The next save after output completes must recover the skipped snapshot.");
+                Is.Zero,
+                "A save must not snapshot files while output may still be writing them.");
         }
-        finally
-        {
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
-            }
 
-            await TestReset.ResetShellAsync();
-        }
+        await coordinator.NotifySavedAsync();
+        Assert.That(
+            backend.CommitAllCalls,
+            Is.EqualTo(1),
+            "The next save after output completes must recover the skipped snapshot.");
     }
 
     [AvaloniaTest]
     public async Task Save_snapshot_failure_publishes_only_the_history_warning()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
-        INotificationServiceHandler previousNotificationHandler = NotificationService.Handler;
-        var notifications = new CaptureNotificationHandler();
-
-        try
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-save-snapshot-failure");
+        var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip)
         {
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-save-snapshot-failure");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var backend = new PullCycleTestBackend(repository, repository, tip)
-            {
-                CommitAllFailure = new GitOperationException(
-                    128,
-                    "fatal: simulated snapshot failure"),
-            };
-            var editorService = new EditorService(new ExtensionProvider());
-            var config = new VersionControlConfig
-            {
-                AutoCommitOnSave = true,
-                AutoCommitOnClose = false,
-            };
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
-                config,
-                installationLocator: null,
-                serviceFactory: _ => backend);
-            await WaitUntilAsync(() =>
-                ReferenceEquals(coordinator.CurrentService, backend)
-                && coordinator.IsTracked.Value);
-            NotificationService.Handler = notifications;
+            CommitAllFailure = new GitOperationException(
+                128,
+                "fatal: simulated snapshot failure"),
+        };
+        var config = new VersionControlConfig
+        {
+            AutoCommitOnSave = true,
+            AutoCommitOnClose = false,
+        };
+        VersionControlCoordinator coordinator = session.Start(config, _ => backend);
+        await WaitUntilAsync(() =>
+            ReferenceEquals(coordinator.CurrentService, backend)
+            && coordinator.IsTracked.Value);
+        using var notifications = new NotificationCapture();
 
-            await coordinator.NotifySavedAsync();
-            HeadlessTestHelpers.Settle();
+        await coordinator.NotifySavedAsync();
+        HeadlessTestHelpers.Settle();
 
-            Notification warning = notifications.All.Single();
-            Assert.Multiple(() =>
-            {
-                Assert.That(backend.CommitAllCalls, Is.EqualTo(1));
-                Assert.That(warning.Type, Is.EqualTo(NotificationType.Warning));
-                Assert.That(warning.Title, Is.EqualTo(Strings.VersionControl));
-                Assert.That(
-                    warning.Message,
-                    Is.EqualTo(string.Format(
-                        Strings.VersionControl_SaveSnapshotFailedFormat,
-                        "fatal: simulated snapshot failure")),
-                    "The warning must say what stopped the snapshot.");
-            });
-
-            backend.CommitAllFailure = null;
-            backend.CommitAllResult = new CommitResult.NoChanges();
-            await coordinator.NotifySavedAsync();
-            backend.CommitAllResult = new CommitResult.SkippedNoIdentity();
-            await coordinator.NotifySavedAsync();
-            HeadlessTestHelpers.Settle();
-
+        Notification warning = notifications.All.Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(backend.CommitAllCalls, Is.EqualTo(1));
+            Assert.That(warning.Type, Is.EqualTo(NotificationType.Warning));
+            Assert.That(warning.Title, Is.EqualTo(Strings.VersionControl));
             Assert.That(
-                notifications.All,
-                Has.Count.EqualTo(1),
-                "Clean and missing-identity results must not reuse the failure warning.");
-        }
-        finally
-        {
-            NotificationService.Handler = previousNotificationHandler;
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
-            }
+                warning.Message,
+                Is.EqualTo(string.Format(
+                    Strings.VersionControl_SaveSnapshotFailedFormat,
+                    "fatal: simulated snapshot failure")),
+                "The warning must say what stopped the snapshot.");
+        });
 
-            await TestReset.ResetShellAsync();
-        }
+        backend.CommitAllFailure = null;
+        backend.CommitAllResult = new CommitResult.NoChanges();
+        await coordinator.NotifySavedAsync();
+        backend.CommitAllResult = new CommitResult.SkippedNoIdentity();
+        await coordinator.NotifySavedAsync();
+        HeadlessTestHelpers.Settle();
+
+        Assert.That(
+            notifications.All,
+            Has.Count.EqualTo(1),
+            "Clean and missing-identity results must not reuse the failure warning.");
     }
 
-    // A push holds the operation gate until it ends, which with Git LFS media can take minutes. A save
-    // made meanwhile must not keep the project files reserved that long, or auto-save, the next save,
-    // imports and file operations wait or are refused. Its snapshot runs after the push instead, and
-    // one snapshot covers every save made meanwhile.
+    // A save during a push must not hold the project files until the push ends; one snapshot after the push
+    // covers every save made meanwhile.
     [AvaloniaTest]
     public async Task Save_during_a_push_frees_the_project_files_and_snapshots_after_the_push()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
         var pushStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var releasePush = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-save-during-push");
 
         try
         {
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-save-during-push");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
             bool? committedOnUiThread = null;
-            var backend = new PullCycleTestBackend(repository, repository, tip)
+            var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip)
             {
                 PushStarted = pushStarted,
                 PushRelease = releasePush.Task,
                 CommitAllObserver = _ =>
                     committedOnUiThread = Avalonia.Threading.Dispatcher.UIThread.CheckAccess(),
             };
-            var commands = new PassiveSaveOperation();
-            var item = new EditorTabItem(new PassiveEditorContext(project, commands));
-            var editorService = new EditorService(new ExtensionProvider());
-            editorService.TabItems.Add(item);
-            editorService.SelectedTabItem.Value = item;
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
+            var commands = new SaveOperation(true);
+            var item = new EditorTabItem(new SavableEditorContext(session.Project, commands));
+            session.EditorService.TabItems.Add(item);
+            session.EditorService.SelectedTabItem.Value = item;
+            VersionControlCoordinator coordinator = session.Start(
                 new VersionControlConfig
                 {
                     AutoCommitOnSave = true,
                     AutoCommitOnClose = false,
                 },
-                installationLocator: null,
-                serviceFactory: _ => backend);
+                _ => backend);
             await WaitUntilAsync(() =>
                 ReferenceEquals(coordinator.CurrentService, backend)
                 && coordinator.IsTracked.Value);
-            var menu = new MenuBarViewModel(TestShell.Project, editorService, coordinator);
+            var menu = new MenuBarViewModel(TestShell.Project, session.EditorService, coordinator);
 
             Task<RemoteOpResult> push = coordinator.PushAsync(progress: null);
             await pushStarted.Task.WaitAsync(TimeSpan.FromSeconds(10));
             await menu.Save.ExecuteAsync().WaitAsync(TimeSpan.FromSeconds(10));
             await menu.Save.ExecuteAsync().WaitAsync(TimeSpan.FromSeconds(10));
 
-            using (IProjectFileWriteLease? fileOperation = editorService.TryBeginProjectFileWrite())
+            using (IProjectFileWriteLease? fileOperation = session.EditorService.TryBeginProjectFileWrite())
             {
                 Assert.That(
                     fileOperation,
@@ -783,7 +582,7 @@ public class VersionControlRestoreTests
             }
 
             // Auto-save waits for the same reservation.
-            using (await editorService.BeginProjectFileWriteAsync(CancellationToken.None)
+            using (await session.EditorService.BeginProjectFileWriteAsync(CancellationToken.None)
                        .AsTask()
                        .WaitAsync(TimeSpan.FromSeconds(10)))
             {
@@ -797,7 +596,7 @@ public class VersionControlRestoreTests
             });
 
             // A save still writing when the push ends finishes before the snapshot reads the files.
-            IProjectFileWriteLease stillWriting = await editorService
+            IProjectFileWriteLease stillWriting = await session.EditorService
                 .BeginProjectFileWriteAsync(CancellationToken.None)
                 .AsTask()
                 .WaitAsync(TimeSpan.FromSeconds(10));
@@ -832,58 +631,41 @@ public class VersionControlRestoreTests
         finally
         {
             releasePush.TrySetResult();
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
-            }
-
-            await TestReset.ResetShellAsync();
         }
     }
 
     [AvaloniaTest]
     public async Task Save_with_automatic_snapshots_off_does_not_wait_for_a_push()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
         IProjectFileWriteLease? write = null;
         var pushStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var releasePush = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-save-during-push-without-snapshots");
 
         try
         {
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-save-during-push-without-snapshots");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var backend = new PullCycleTestBackend(repository, repository, tip)
+            var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip)
             {
                 PushStarted = pushStarted,
                 PushRelease = releasePush.Task,
             };
-            var editorService = new EditorService(new ExtensionProvider());
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
+            VersionControlCoordinator coordinator = session.Start(
                 new VersionControlConfig
                 {
                     AutoCommitOnSave = false,
                     AutoCommitOnClose = false,
                 },
-                installationLocator: null,
-                serviceFactory: _ => backend);
+                _ => backend);
             await WaitUntilAsync(() =>
                 ReferenceEquals(coordinator.CurrentService, backend)
                 && coordinator.IsTracked.Value);
 
             Task<RemoteOpResult> push = coordinator.PushAsync(progress: null);
             await pushStarted.Task.WaitAsync(TimeSpan.FromSeconds(10));
-            write = await editorService.BeginProjectFileWriteAsync(CancellationToken.None);
+            write = await session.EditorService.BeginProjectFileWriteAsync(CancellationToken.None);
             await coordinator.NotifySavedAsync(write).WaitAsync(TimeSpan.FromSeconds(10));
 
             releasePush.TrySetResult();
@@ -896,239 +678,145 @@ public class VersionControlRestoreTests
         {
             releasePush.TrySetResult();
             write?.Dispose();
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
-            }
-
-            await TestReset.ResetShellAsync();
         }
     }
 
     [AvaloniaTest]
     public async Task Manual_commit_is_blocked_while_an_output_operation_is_active()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-manual-during-output");
+        var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip);
+        VersionControlCoordinator coordinator = session.Start(
+            new VersionControlConfig(),
+            _ => backend);
+        await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
 
-        try
-        {
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-manual-during-output");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var backend = new PullCycleTestBackend(repository, repository, tip);
-            var editorService = new EditorService(new ExtensionProvider());
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
-                new VersionControlConfig(),
-                installationLocator: null,
-                serviceFactory: _ => backend);
-            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
-
-            using IDisposable outputOperation = editorService.BeginObservedOutputOperation();
-            await Assert.ThrowsAsync<InvalidOperationException>(async () =>
-                await coordinator.CommitManualAsync("blocked commit"));
-            Assert.That(backend.CommitAllCalls, Is.Zero);
-        }
-        finally
-        {
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
-            }
-
-            await TestReset.ResetShellAsync();
-        }
+        using IDisposable outputOperation = session.EditorService.BeginObservedOutputOperation();
+        await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            await coordinator.CommitManualAsync("blocked commit"));
+        Assert.That(backend.CommitAllCalls, Is.Zero);
     }
 
     [AvaloniaTest]
     public async Task Close_snapshot_is_skipped_while_an_output_operation_is_active()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
-
-        try
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-close-during-output");
+        var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip);
+        var config = new VersionControlConfig
         {
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-close-during-output");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var backend = new PullCycleTestBackend(repository, repository, tip);
-            var editorService = new EditorService(new ExtensionProvider());
-            var config = new VersionControlConfig
-            {
-                AutoCommitOnClose = true,
-            };
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
-                config,
-                installationLocator: null,
-                serviceFactory: _ => backend);
-            await WaitUntilAsync(() =>
-                ReferenceEquals(coordinator.CurrentService, backend)
-                && coordinator.IsTracked.Value);
+            AutoCommitOnClose = true,
+        };
+        VersionControlCoordinator coordinator = session.Start(config, _ => backend);
+        await WaitUntilAsync(() =>
+            ReferenceEquals(coordinator.CurrentService, backend)
+            && coordinator.IsTracked.Value);
 
-            using (IDisposable outputOperation = editorService.BeginObservedOutputOperation())
-            {
-                await TestShell.Project.CloseProjectAsync().WaitAsync(TimeSpan.FromSeconds(5));
-            }
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(TestShell.Project.CurrentProject.Value, Is.Null);
-                Assert.That(backend.RetirementCalls, Is.EqualTo(1));
-                Assert.That(
-                    backend.RetirementSnapshots,
-                    Is.EqualTo(new ProjectVersionControlFinalSnapshot?[] { null }),
-                    "Closing may continue, but retirement must not snapshot a partial output file.");
-            });
-        }
-        finally
+        using (IDisposable outputOperation = session.EditorService.BeginObservedOutputOperation())
         {
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
-            }
-
-            await TestReset.ResetShellAsync();
+            await TestShell.Project.CloseProjectAsync().WaitAsync(TimeSpan.FromSeconds(5));
         }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(TestShell.Project.CurrentProject.Value, Is.Null);
+            Assert.That(backend.RetirementCalls, Is.EqualTo(1));
+            Assert.That(
+                backend.RetirementSnapshots,
+                Is.EqualTo(new ProjectVersionControlFinalSnapshot?[] { null }),
+                "Closing may continue, but retirement must not snapshot a partial output file.");
+        });
     }
 
     [AvaloniaTest]
     public async Task Close_after_a_failed_save_can_continue_without_the_close_snapshot()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
-
-        try
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-close-after-failed-save");
+        var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip);
+        var failedCommands = new SaveOperation(false);
+        var failedContext = new SavableEditorContext(session.Project, failedCommands);
+        session.EditorService.TabItems.Add(new EditorTabItem(failedContext));
+        VersionControlCoordinator coordinator = session.Start(
+            new VersionControlConfig
+            {
+                AutoCommitOnClose = true,
+            },
+            _ => backend);
+        await WaitUntilAsync(() =>
+            ReferenceEquals(coordinator.CurrentService, backend)
+            && coordinator.IsTracked.Value);
+        var answers = new Queue<bool>(new[] { false, true });
+        var activitiesWhileConfirming = new List<ProjectLifecycleActivity>();
+        coordinator.ConfirmCloseWithoutSnapshotAsync = _ =>
         {
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-close-after-failed-save");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var backend = new PullCycleTestBackend(repository, repository, tip);
-            var editorService = new EditorService(new ExtensionProvider());
-            var failedCommands = new FailedSaveOperation();
-            var failedContext = new FailedSaveEditorContext(project, failedCommands);
-            editorService.TabItems.Add(new EditorTabItem(failedContext));
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
-                new VersionControlConfig
+            activitiesWhileConfirming.Add(session.EditorService.LifecycleActivity.Value);
+            return Task.FromResult(answers.Dequeue());
+        };
+
+        bool closedAfterDecline = await TestShell.Project.TryCloseProjectAsync(
+            session.Project,
+            ProjectService.ProjectCloseIntent.SaveChanges);
+        HeadlessTestHelpers.Settle();
+        Project? openAfterDecline = TestShell.Project.CurrentProject.Value;
+        // The aborted close gives the editor back instead of leaving it behind the progress view.
+        ProjectLifecycleActivity activityAfterDecline = session.EditorService.LifecycleActivity.Value;
+        bool editorEnabledAfterDecline = failedContext.IsEnabled.Value;
+        bool closedAfterAccept = await TestShell.Project.TryCloseProjectAsync(
+            session.Project,
+            ProjectService.ProjectCloseIntent.SaveChanges);
+        HeadlessTestHelpers.Settle();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(closedAfterDecline, Is.False);
+            Assert.That(openAfterDecline, Is.SameAs(session.Project));
+            Assert.That(activityAfterDecline, Is.EqualTo(ProjectLifecycleActivity.None));
+            Assert.That(editorEnabledAfterDecline, Is.True);
+            Assert.That(
+                activitiesWhileConfirming,
+                Is.EqualTo(new[]
                 {
-                    AutoCommitOnClose = true,
-                },
-                installationLocator: null,
-                serviceFactory: _ => backend);
-            await WaitUntilAsync(() =>
-                ReferenceEquals(coordinator.CurrentService, backend)
-                && coordinator.IsTracked.Value);
-            var answers = new Queue<bool>(new[] { false, true });
-            var activitiesWhileConfirming = new List<ProjectLifecycleActivity>();
-            coordinator.ConfirmCloseWithoutSnapshotAsync = _ =>
-            {
-                activitiesWhileConfirming.Add(editorService.LifecycleActivity.Value);
-                return Task.FromResult(answers.Dequeue());
-            };
-
-            bool closedAfterDecline = await TestShell.Project.TryCloseProjectAsync(
-                project,
-                ProjectService.ProjectCloseIntent.SaveChanges);
-            HeadlessTestHelpers.Settle();
-            Project? openAfterDecline = TestShell.Project.CurrentProject.Value;
-            // The aborted close gives the editor back instead of leaving it behind the progress view.
-            ProjectLifecycleActivity activityAfterDecline = editorService.LifecycleActivity.Value;
-            bool editorEnabledAfterDecline = failedContext.IsEnabled.Value;
-            bool closedAfterAccept = await TestShell.Project.TryCloseProjectAsync(
-                project,
-                ProjectService.ProjectCloseIntent.SaveChanges);
-            HeadlessTestHelpers.Settle();
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(closedAfterDecline, Is.False);
-                Assert.That(openAfterDecline, Is.SameAs(project));
-                Assert.That(activityAfterDecline, Is.EqualTo(ProjectLifecycleActivity.None));
-                Assert.That(editorEnabledAfterDecline, Is.True);
-                Assert.That(
-                    activitiesWhileConfirming,
-                    Is.EqualTo(new[]
-                    {
-                        ProjectLifecycleActivity.ClosingProject,
-                        ProjectLifecycleActivity.ClosingProject,
-                    }));
-                Assert.That(
-                    editorService.LifecycleActivity.Value,
-                    Is.EqualTo(ProjectLifecycleActivity.None));
-                Assert.That(closedAfterAccept, Is.True);
-                Assert.That(answers, Is.Empty);
-                Assert.That(failedCommands.SaveCalls, Is.EqualTo(2));
-                Assert.That(TestShell.Project.CurrentProject.Value, Is.Null);
-                // What is on disk may be half-saved, so it must not become the version to return to.
-                Assert.That(
-                    backend.RetirementSnapshots,
-                    Is.EqualTo(new ProjectVersionControlFinalSnapshot?[] { null }));
-            });
-        }
-        finally
-        {
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
-            }
-
-            await TestReset.ResetShellAsync();
-        }
+                    ProjectLifecycleActivity.ClosingProject,
+                    ProjectLifecycleActivity.ClosingProject,
+                }));
+            Assert.That(
+                session.EditorService.LifecycleActivity.Value,
+                Is.EqualTo(ProjectLifecycleActivity.None));
+            Assert.That(closedAfterAccept, Is.True);
+            Assert.That(answers, Is.Empty);
+            Assert.That(failedCommands.SaveCalls, Is.EqualTo(2));
+            Assert.That(TestShell.Project.CurrentProject.Value, Is.Null);
+            // What is on disk may be half-saved, so it must not become the version to return to.
+            Assert.That(
+                backend.RetirementSnapshots,
+                Is.EqualTo(new ProjectVersionControlFinalSnapshot?[] { null }));
+        });
     }
 
     [AvaloniaTest]
     public async Task Project_close_waits_for_activation_and_retires_the_tracked_backend_with_a_final_snapshot()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
-        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
-        VersionControlCoordinator? coordinator = null;
         var hygieneStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseHygiene = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-close-during-activation");
 
         try
         {
-            config.AutoCommitOnClose = true;
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-close-during-activation");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var discovery = new PullCycleTestBackend(repository: null, repository, tip);
-            var tracked = new PullCycleTestBackend(repository, repository, tip)
+            var discovery = new PullCycleTestBackend(repository: null, session.Repository, MainTip);
+            var tracked = new PullCycleTestBackend(session.Repository, session.Repository, MainTip)
             {
                 EnsureHygieneStarted = hygieneStarted,
                 EnsureHygieneRelease = releaseHygiene.Task,
             };
 
-            var editorService = new EditorService(new ExtensionProvider());
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
-                config,
-                installationLocator: null,
-                serviceFactory: candidate => candidate is null ? discovery : tracked);
+            VersionControlCoordinator coordinator = session.Start(
+                new VersionControlConfig { AutoCommitOnClose = true },
+                candidate => candidate is null ? discovery : tracked);
             await hygieneStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
             IProjectVersionControlService? coordinatorServiceAtDiscoveryRetirement = discovery;
@@ -1138,7 +826,7 @@ public class VersionControlRestoreTests
             {
                 coordinatorServiceAtDiscoveryRetirement = coordinator.CurrentService;
                 editorServiceAtDiscoveryRetirement =
-                    editorService.ProjectVersionControlService.Value;
+                    session.EditorService.ProjectVersionControlService.Value;
                 trackedAtDiscoveryRetirement = coordinator.IsTracked.Value;
             };
 
@@ -1170,45 +858,31 @@ public class VersionControlRestoreTests
         finally
         {
             releaseHygiene.TrySetResult();
-            coordinator?.Dispose();
-            await TestReset.ResetShellAsync();
-            config.AutoCommitOnClose = oldAutoCommitOnClose;
         }
     }
 
     [AvaloniaTest]
     public async Task Background_project_close_waits_for_every_editor_context_before_retiring_the_backend()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
         var disposeStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseDispose = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-close-editor-disposal-barrier");
 
         try
         {
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-close-editor-disposal-barrier");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var discovery = new PullCycleTestBackend(repository: null, repository, tip);
-            var tracked = new PullCycleTestBackend(repository, repository, tip);
-            var coordinatorEditorService = new EditorService(new ExtensionProvider());
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                coordinatorEditorService,
+            var discovery = new PullCycleTestBackend(repository: null, session.Repository, MainTip);
+            var tracked = new PullCycleTestBackend(session.Repository, session.Repository, MainTip);
+            VersionControlCoordinator coordinator = session.Start(
                 new VersionControlConfig { AutoCommitOnClose = true },
-                installationLocator: null,
-                serviceFactory: candidate => candidate is null ? discovery : tracked);
+                candidate => candidate is null ? discovery : tracked);
             await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, tracked));
 
             TestShell.Editor.TabItems.Add(new EditorTabItem(
                 new BlockingDisposeEditorContext(
-                    new Scene { Uri = new Uri(Path.Combine(projectRoot, "blocking.scene")) },
+                    new Scene { Uri = new Uri(Path.Combine(session.Root, "blocking.scene")) },
                     disposeStarted,
                     releaseDispose.Task)));
 
@@ -1235,219 +909,131 @@ public class VersionControlRestoreTests
         finally
         {
             releaseDispose.TrySetResult();
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync();
-            }
-
-            await TestReset.ResetShellAsync();
         }
     }
 
     [AvaloniaTest]
     public async Task Close_snapshot_without_identity_warns_once_and_still_closes_the_project()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
-        INotificationServiceHandler previousHandler = NotificationService.Handler;
-        var notifications = new CaptureNotificationHandler();
-
-        try
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-close-missing-identity-warning");
+        var discovery = new PullCycleTestBackend(null, session.Repository, MainTip);
+        var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip)
         {
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-close-missing-identity-warning");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var discovery = new PullCycleTestBackend(null, repository, tip);
-            var backend = new PullCycleTestBackend(repository, repository, tip)
-            {
-                Identity = null,
-                RetirementResult = new CommitResult.SkippedNoIdentity(),
-            };
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                new EditorService(new ExtensionProvider()),
-                new VersionControlConfig { AutoCommitOnClose = true },
-                installationLocator: null,
-                serviceFactory: candidate => candidate is null ? discovery : backend);
-            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
-            NotificationService.Handler = notifications;
+            Identity = null,
+            RetirementResult = new CommitResult.SkippedNoIdentity(),
+        };
+        VersionControlCoordinator coordinator = session.Start(
+            new VersionControlConfig { AutoCommitOnClose = true },
+            candidate => candidate is null ? discovery : backend);
+        await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
+        using var notifications = new NotificationCapture();
 
-            await TestShell.Project.CloseProjectAsync();
-            HeadlessTestHelpers.Settle();
+        await TestShell.Project.CloseProjectAsync();
+        HeadlessTestHelpers.Settle();
 
-            Assert.Multiple(() =>
-            {
-                Assert.That(TestShell.Project.CurrentProject.Value, Is.Null);
-                Assert.That(backend.RetirementCalls, Is.EqualTo(1));
-                Assert.That(backend.RetirementSnapshots.Single(), Is.Not.Null);
-                Assert.That(
-                    notifications.All.Count(item =>
-                        item.Type == NotificationType.Warning
-                        && item.Message == Strings.VersionControl_MissingIdentityNotice),
-                    Is.EqualTo(1));
-                Assert.That(
-                    notifications.All.Count(item => item.Type == NotificationType.Warning),
-                    Is.EqualTo(1),
-                    "A skipped close snapshot must not also report a failed one.");
-            });
-        }
-        finally
+        Assert.Multiple(() =>
         {
-            NotificationService.Handler = previousHandler;
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync();
-            }
-
-            await TestReset.ResetShellAsync();
-        }
+            Assert.That(TestShell.Project.CurrentProject.Value, Is.Null);
+            Assert.That(backend.RetirementCalls, Is.EqualTo(1));
+            Assert.That(backend.RetirementSnapshots.Single(), Is.Not.Null);
+            Assert.That(
+                notifications.All.Count(item =>
+                    item.Type == NotificationType.Warning
+                    && item.Message == Strings.VersionControl_MissingIdentityNotice),
+                Is.EqualTo(1));
+            Assert.That(
+                notifications.All.Count(item => item.Type == NotificationType.Warning),
+                Is.EqualTo(1),
+                "A skipped close snapshot must not also report a failed one.");
+        });
     }
 
     [AvaloniaTest]
     public async Task Close_snapshot_retirement_failure_warns_once_and_still_closes_the_project()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
-        INotificationServiceHandler previousHandler = NotificationService.Handler;
-        var notifications = new CaptureNotificationHandler();
-
-        try
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-close-retirement-failure-warning");
+        var discovery = new PullCycleTestBackend(null, session.Repository, MainTip);
+        var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip)
         {
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-close-retirement-failure-warning");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var discovery = new PullCycleTestBackend(null, repository, tip);
-            var backend = new PullCycleTestBackend(repository, repository, tip)
-            {
-                RetirementStarting = () =>
-                    throw new InvalidOperationException("simulated retirement failure"),
-            };
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                new EditorService(new ExtensionProvider()),
-                new VersionControlConfig { AutoCommitOnClose = true },
-                installationLocator: null,
-                serviceFactory: candidate => candidate is null ? discovery : backend);
-            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
-            NotificationService.Handler = notifications;
+            RetirementStarting = () =>
+                throw new InvalidOperationException("simulated retirement failure"),
+        };
+        VersionControlCoordinator coordinator = session.Start(
+            new VersionControlConfig { AutoCommitOnClose = true },
+            candidate => candidate is null ? discovery : backend);
+        await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
+        using var notifications = new NotificationCapture();
 
-            await TestShell.Project.CloseProjectAsync();
-            HeadlessTestHelpers.Settle();
+        await TestShell.Project.CloseProjectAsync();
+        HeadlessTestHelpers.Settle();
 
-            Assert.Multiple(() =>
-            {
-                Assert.That(TestShell.Project.CurrentProject.Value, Is.Null);
-                Assert.That(backend.RetirementCalls, Is.EqualTo(1));
-                Assert.That(
-                    notifications.All.Count(item =>
-                        item.Type == NotificationType.Warning
-                        && item.Message == string.Format(
-                            Strings.VersionControl_SaveSnapshotFailedFormat,
-                            "simulated retirement failure")),
-                    Is.EqualTo(1),
-                    "The close warning must say what stopped the final snapshot.");
-                Assert.That(
-                    notifications.All.Any(item =>
-                        item.Message == Strings.VersionControl_MissingIdentityNotice),
-                    Is.False);
-            });
-        }
-        finally
+        Assert.Multiple(() =>
         {
-            NotificationService.Handler = previousHandler;
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync();
-            }
-
-            await TestReset.ResetShellAsync();
-        }
+            Assert.That(TestShell.Project.CurrentProject.Value, Is.Null);
+            Assert.That(backend.RetirementCalls, Is.EqualTo(1));
+            Assert.That(
+                notifications.All.Count(item =>
+                    item.Type == NotificationType.Warning
+                    && item.Message == string.Format(
+                        Strings.VersionControl_SaveSnapshotFailedFormat,
+                        "simulated retirement failure")),
+                Is.EqualTo(1),
+                "The close warning must say what stopped the final snapshot.");
+            Assert.That(
+                notifications.All.Any(item =>
+                    item.Message == Strings.VersionControl_MissingIdentityNotice),
+                Is.False);
+        });
     }
 
     [AvaloniaTest]
     public async Task Project_close_passes_a_final_snapshot_to_an_untracked_owned_backend()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
-        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
-        VersionControlCoordinator? coordinator = null;
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-close-untracked-backend");
+        var backend = new PullCycleTestBackend(
+            repository: null,
+            discoveredRepository: null,
+            MainTip);
 
-        try
+        VersionControlCoordinator coordinator = session.Start(
+            new VersionControlConfig { AutoCommitOnClose = true },
+            _ => backend);
+        await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
+
+        await TestShell.Project.CloseProjectAsync();
+
+        ProjectVersionControlFinalSnapshot? finalSnapshot =
+            backend.RetirementSnapshots.Single();
+        Assert.Multiple(() =>
         {
-            config.AutoCommitOnClose = true;
-            await CreateProjectForFakeVersionControlAsync(
-                "version-control-close-untracked-backend");
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var backend = new PullCycleTestBackend(
-                repository: null,
-                discoveredRepository: null,
-                tip);
-
-            var editorService = new EditorService(new ExtensionProvider());
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
-                config,
-                installationLocator: null,
-                serviceFactory: _ => backend);
-            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
-
-            await TestShell.Project.CloseProjectAsync();
-
-            ProjectVersionControlFinalSnapshot? finalSnapshot =
-                backend.RetirementSnapshots.Single();
-            Assert.Multiple(() =>
-            {
-                Assert.That(backend.Repository, Is.Null);
-                Assert.That(TestShell.Project.CurrentProject.Value, Is.Null);
-                Assert.That(backend.RetirementCalls, Is.EqualTo(1));
-                Assert.That(finalSnapshot, Is.Not.Null);
-                Assert.That(finalSnapshot!.Message, Is.EqualTo("beutl: snapshot on close"));
-                Assert.That(finalSnapshot.Kind, Is.EqualTo(SnapshotKind.Close));
-            });
-        }
-        finally
-        {
-            coordinator?.Dispose();
-            await TestReset.ResetShellAsync();
-            config.AutoCommitOnClose = oldAutoCommitOnClose;
-        }
+            Assert.That(backend.Repository, Is.Null);
+            Assert.That(TestShell.Project.CurrentProject.Value, Is.Null);
+            Assert.That(backend.RetirementCalls, Is.EqualTo(1));
+            Assert.That(finalSnapshot, Is.Not.Null);
+            Assert.That(finalSnapshot!.Message, Is.EqualTo("beutl: snapshot on close"));
+            Assert.That(finalSnapshot.Kind, Is.EqualTo(SnapshotKind.Close));
+        });
     }
 
     [AvaloniaTest]
     public async Task Caller_cancellation_after_the_close_commit_point_does_not_skip_retirement()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
         Func<ProjectService.ProjectCloseContext, CancellationToken, Task>?
             cancelAfterCommitPoint = null;
         using var closeCancellation = new CancellationTokenSource();
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-close-post-commit-cancellation");
 
         try
         {
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-close-post-commit-cancellation");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var backend = new PullCycleTestBackend(repository, repository, tip);
+            var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip);
             var config = new VersionControlConfig
             {
                 AutoCommitOnClose = true,
             };
-            var editorService = new EditorService(new ExtensionProvider());
 
             cancelAfterCommitPoint = (_, finalizerCancellation) =>
             {
@@ -1456,12 +1042,7 @@ public class VersionControlRestoreTests
                 return Task.CompletedTask;
             };
             TestShell.Project.ClosingFinalizing += cancelAfterCommitPoint;
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
-                config,
-                installationLocator: null,
-                serviceFactory: _ => backend);
+            VersionControlCoordinator coordinator = session.Start(config, _ => backend);
             await WaitUntilAsync(() =>
                 ReferenceEquals(coordinator.CurrentService, backend)
                 && coordinator.IsTracked.Value);
@@ -1491,13 +1072,6 @@ public class VersionControlRestoreTests
             {
                 TestShell.Project.ClosingFinalizing -= cancelAfterCommitPoint;
             }
-
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
-            }
-
-            await TestReset.ResetShellAsync();
         }
     }
 
@@ -1511,41 +1085,30 @@ public class VersionControlRestoreTests
 
     private static async Task AssertManualCommitEditorSuspensionAsync(bool requireIdentity)
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
         var commitStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseCommit = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            requireIdentity
+                ? "version-control-manual-identity-suspension"
+                : "version-control-manual-suspension");
 
         try
         {
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                requireIdentity
-                    ? "version-control-manual-identity-suspension"
-                    : "version-control-manual-suspension");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var backend = new PullCycleTestBackend(repository, repository, tip)
+            var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip)
             {
                 CommitAllResult = new CommitResult.NoChanges(),
                 CommitAllStarted = commitStarted,
                 CommitAllRelease = releaseCommit.Task,
                 RequireIdentityForCommit = requireIdentity,
             };
-            var commands = new PassiveSaveOperation();
-            var context = new PassiveEditorContext(project, commands);
-            var editorService = new EditorService(new ExtensionProvider());
-            editorService.TabItems.Add(new EditorTabItem(context));
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
+            var commands = new SaveOperation(true);
+            var context = new SavableEditorContext(session.Project, commands);
+            session.EditorService.TabItems.Add(new EditorTabItem(context));
+            VersionControlCoordinator coordinator = session.Start(
                 new VersionControlConfig(),
-                installationLocator: null,
-                serviceFactory: _ => backend);
+                _ => backend);
             await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
 
             bool? identityCallbackSawEditorEnabled = null;
@@ -1579,55 +1142,43 @@ public class VersionControlRestoreTests
         finally
         {
             releaseCommit.TrySetResult();
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
-            }
-
-            await TestReset.ResetShellAsync();
         }
     }
 
     [AvaloniaTest]
-    public async Task InitializeCurrentProject_keeps_editors_suspended_through_the_initial_commit()
+    public async Task InitializeCurrentProject_shows_its_progress_in_place_of_the_editors_while_they_are_suspended()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
         var initializeStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseInitialize = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-initialize-progress");
 
         try
         {
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-initialize-editor-suspension");
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
             var backend = new PullCycleTestBackend(
                 repository: null,
                 discoveredRepository: null,
-                tip)
+                MainTip)
             {
                 InitializeStarted = initializeStarted,
                 InitializeRelease = releaseInitialize.Task,
             };
-            var commands = new PassiveSaveOperation();
-            var context = new PassiveEditorContext(project, commands);
-            var editorService = new EditorService(new ExtensionProvider());
-            editorService.TabItems.Add(new EditorTabItem(context));
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
+            var commands = new SaveOperation(true);
+            var context = new SavableEditorContext(session.Project, commands);
+            session.EditorService.TabItems.Add(new EditorTabItem(context));
+            using var presentation = new EditorPresentationRecorder(session.EditorService, context);
+            ProjectLifecycleActivity activityWhileSaving = ProjectLifecycleActivity.None;
+            commands.Saving = () => activityWhileSaving = session.EditorService.LifecycleActivity.Value;
+            VersionControlCoordinator coordinator = session.Start(
                 GlobalConfiguration.Instance.VersionControlConfig,
-                installationLocator: null,
-                serviceFactory: _ => backend);
+                _ => backend);
             await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
 
             int identityRequests = 0;
             Task<bool> initialization = coordinator.InitializeCurrentProjectAsync(
-                project,
+                session.Project,
                 _ =>
                 {
                     identityRequests++;
@@ -1639,82 +1190,13 @@ public class VersionControlRestoreTests
             {
                 Assert.That(initialization.IsCompleted, Is.False);
                 Assert.That(identityRequests, Is.Zero);
-                Assert.That(context.IsEnabled.Value, Is.False);
                 Assert.That(commands.SaveCalls, Is.EqualTo(1));
                 Assert.That(backend.InitializeCalls, Is.EqualTo(1));
-            });
-
-            releaseInitialize.TrySetResult();
-            Assert.That(
-                await initialization.WaitAsync(TimeSpan.FromSeconds(5)),
-                Is.True);
-            Assert.That(context.IsEnabled.Value, Is.True);
-        }
-        finally
-        {
-            releaseInitialize.TrySetResult();
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
-            }
-
-            await TestReset.ResetShellAsync();
-        }
-    }
-
-    [AvaloniaTest]
-    public async Task InitializeCurrentProject_shows_its_progress_in_place_of_the_editors_while_they_are_suspended()
-    {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
-        var initializeStarted = new TaskCompletionSource(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        var releaseInitialize = new TaskCompletionSource(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-
-        try
-        {
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-initialize-progress");
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var backend = new PullCycleTestBackend(
-                repository: null,
-                discoveredRepository: null,
-                tip)
-            {
-                InitializeStarted = initializeStarted,
-                InitializeRelease = releaseInitialize.Task,
-            };
-            var commands = new PassiveSaveOperation();
-            var context = new PassiveEditorContext(project, commands);
-            var editorService = new EditorService(new ExtensionProvider());
-            editorService.TabItems.Add(new EditorTabItem(context));
-            using var presentation = new EditorPresentationRecorder(editorService, context);
-            ProjectLifecycleActivity activityWhileSaving = ProjectLifecycleActivity.None;
-            commands.Saving = () => activityWhileSaving = editorService.LifecycleActivity.Value;
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
-                GlobalConfiguration.Instance.VersionControlConfig,
-                installationLocator: null,
-                serviceFactory: _ => backend);
-            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
-
-            Task<bool> initialization = coordinator.InitializeCurrentProjectAsync(
-                project,
-                _ => Task.FromResult<GitIdentity?>(null));
-            await initializeStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(initialization.IsCompleted, Is.False);
                 Assert.That(
                     activityWhileSaving,
                     Is.EqualTo(ProjectLifecycleActivity.EnablingVersionControl));
                 Assert.That(
-                    editorService.LifecycleActivity.Value,
+                    session.EditorService.LifecycleActivity.Value,
                     Is.EqualTo(ProjectLifecycleActivity.EnablingVersionControl));
                 Assert.That(context.IsEnabled.Value, Is.False);
             });
@@ -1748,60 +1230,48 @@ public class VersionControlRestoreTests
         finally
         {
             releaseInitialize.TrySetResult();
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
-            }
-
-            await TestReset.ResetShellAsync();
         }
     }
 
     [AvaloniaTest]
     public async Task InitializeCurrentProject_hides_its_progress_while_asking_for_an_identity()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
         var retryStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseRetry = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-initialize-identity-progress");
 
         try
         {
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-initialize-identity-progress");
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
             var backend = new PullCycleTestBackend(
                 repository: null,
                 discoveredRepository: null,
-                tip)
+                MainTip)
             {
                 RequireIdentityForInitialization = true,
                 InitializeStarted = retryStarted,
                 InitializeRelease = releaseRetry.Task,
             };
-            var context = new PassiveEditorContext(project, new PassiveSaveOperation());
-            var editorService = new EditorService(new ExtensionProvider());
-            editorService.TabItems.Add(new EditorTabItem(context));
-            using var presentation = new EditorPresentationRecorder(editorService, context);
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
+            var commands = new SaveOperation(true);
+            var context = new SavableEditorContext(session.Project, commands);
+            session.EditorService.TabItems.Add(new EditorTabItem(context));
+            using var presentation = new EditorPresentationRecorder(session.EditorService, context);
+            VersionControlCoordinator coordinator = session.Start(
                 GlobalConfiguration.Instance.VersionControlConfig,
-                installationLocator: null,
-                serviceFactory: _ => backend);
+                _ => backend);
             await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
 
+            int identityRequests = 0;
             ProjectLifecycleActivity? activityWhileAsking = null;
             bool? editorEnabledWhileAsking = null;
             Task<bool> initialization = coordinator.InitializeCurrentProjectAsync(
-                project,
+                session.Project,
                 _ =>
                 {
-                    activityWhileAsking = editorService.LifecycleActivity.Value;
+                    identityRequests++;
+                    activityWhileAsking = session.EditorService.LifecycleActivity.Value;
                     editorEnabledWhileAsking = context.IsEnabled.Value;
                     return Task.FromResult<GitIdentity?>(
                         new GitIdentity("Identity Retry", "identity-retry@example.invalid"));
@@ -1810,13 +1280,17 @@ public class VersionControlRestoreTests
 
             Assert.Multiple(() =>
             {
+                Assert.That(initialization.IsCompleted, Is.False);
+                Assert.That(identityRequests, Is.EqualTo(1));
                 // The user can keep editing, in a visible editor, while entering an identity.
                 Assert.That(activityWhileAsking, Is.EqualTo(ProjectLifecycleActivity.None));
                 Assert.That(editorEnabledWhileAsking, Is.True);
                 Assert.That(
-                    editorService.LifecycleActivity.Value,
+                    session.EditorService.LifecycleActivity.Value,
                     Is.EqualTo(ProjectLifecycleActivity.EnablingVersionControl));
                 Assert.That(context.IsEnabled.Value, Is.False);
+                Assert.That(commands.SaveCalls, Is.EqualTo(2));
+                Assert.That(backend.InitializeCalls, Is.EqualTo(2));
             });
 
             releaseRetry.TrySetResult();
@@ -1826,6 +1300,7 @@ public class VersionControlRestoreTests
 
             Assert.Multiple(() =>
             {
+                Assert.That(context.IsEnabled.Value, Is.True);
                 Assert.That(
                     presentation.Activities,
                     Is.EqualTo(new[]
@@ -1850,288 +1325,191 @@ public class VersionControlRestoreTests
         finally
         {
             releaseRetry.TrySetResult();
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
-            }
-
-            await TestReset.ResetShellAsync();
         }
     }
 
     [AvaloniaTest]
     public async Task InitializeCurrentProject_hides_its_progress_when_the_project_cannot_be_saved()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-initialize-progress-save-failure");
+        var backend = new PullCycleTestBackend(
+            repository: null,
+            discoveredRepository: null,
+            MainTip);
+        var commands = new SaveOperation(false);
+        var context = new SavableEditorContext(session.Project, commands);
+        session.EditorService.TabItems.Add(new EditorTabItem(context));
+        using var presentation = new EditorPresentationRecorder(session.EditorService, context);
+        VersionControlCoordinator coordinator = session.Start(
+            GlobalConfiguration.Instance.VersionControlConfig,
+            _ => backend);
+        await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
 
-        try
+        bool initialized = await coordinator.InitializeCurrentProjectAsync(
+            session.Project,
+            _ => Task.FromResult<GitIdentity?>(null));
+
+        Assert.Multiple(() =>
         {
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-initialize-progress-save-failure");
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var backend = new PullCycleTestBackend(
-                repository: null,
-                discoveredRepository: null,
-                tip);
-            var commands = new FailedSaveOperation();
-            var context = new FailedSaveEditorContext(project, commands);
-            var editorService = new EditorService(new ExtensionProvider());
-            editorService.TabItems.Add(new EditorTabItem(context));
-            using var presentation = new EditorPresentationRecorder(editorService, context);
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
-                GlobalConfiguration.Instance.VersionControlConfig,
-                installationLocator: null,
-                serviceFactory: _ => backend);
-            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
-
-            bool initialized = await coordinator.InitializeCurrentProjectAsync(
-                project,
-                _ => Task.FromResult<GitIdentity?>(null));
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(initialized, Is.False);
-                Assert.That(commands.SaveCalls, Is.EqualTo(1));
-                Assert.That(backend.InitializeCalls, Is.Zero);
-                Assert.That(context.IsEnabled.Value, Is.True);
-                Assert.That(
-                    presentation.Activities,
-                    Is.EqualTo(new[]
-                    {
-                        ProjectLifecycleActivity.None,
-                        ProjectLifecycleActivity.EnablingVersionControl,
-                        ProjectLifecycleActivity.None,
-                    }));
-                Assert.That(
-                    presentation.EditorStates,
-                    Is.EqualTo(new[]
-                    {
-                        (false, ProjectLifecycleActivity.EnablingVersionControl),
-                        (true, ProjectLifecycleActivity.EnablingVersionControl),
-                    }));
-            });
-        }
-        finally
-        {
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
-            }
-
-            await TestReset.ResetShellAsync();
-        }
+            Assert.That(initialized, Is.False);
+            Assert.That(commands.SaveCalls, Is.EqualTo(1));
+            Assert.That(backend.InitializeCalls, Is.Zero);
+            Assert.That(context.IsEnabled.Value, Is.True);
+            Assert.That(
+                presentation.Activities,
+                Is.EqualTo(new[]
+                {
+                    ProjectLifecycleActivity.None,
+                    ProjectLifecycleActivity.EnablingVersionControl,
+                    ProjectLifecycleActivity.None,
+                }));
+            Assert.That(
+                presentation.EditorStates,
+                Is.EqualTo(new[]
+                {
+                    (false, ProjectLifecycleActivity.EnablingVersionControl),
+                    (true, ProjectLifecycleActivity.EnablingVersionControl),
+                }));
+        });
     }
 
     [AvaloniaTest]
     public async Task InitializeCurrentProject_hides_its_progress_when_the_initial_commit_fails()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
-
-        try
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-initialize-progress-commit-failure");
+        var backend = new PullCycleTestBackend(
+            repository: null,
+            discoveredRepository: null,
+            MainTip)
         {
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-initialize-progress-commit-failure");
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var backend = new PullCycleTestBackend(
-                repository: null,
-                discoveredRepository: null,
-                tip)
-            {
-                InitializeFailureAfterAttach = new InvalidOperationException("The initial commit failed."),
-            };
-            var context = new PassiveEditorContext(project, new PassiveSaveOperation());
-            var editorService = new EditorService(new ExtensionProvider());
-            editorService.TabItems.Add(new EditorTabItem(context));
-            using var presentation = new EditorPresentationRecorder(editorService, context);
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
-                GlobalConfiguration.Instance.VersionControlConfig,
-                installationLocator: null,
-                serviceFactory: _ => backend);
-            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
+            InitializeFailureAfterAttach = new InvalidOperationException("The initial commit failed."),
+        };
+        var context = new SavableEditorContext(session.Project, new SaveOperation(true));
+        session.EditorService.TabItems.Add(new EditorTabItem(context));
+        using var presentation = new EditorPresentationRecorder(session.EditorService, context);
+        VersionControlCoordinator coordinator = session.Start(
+            GlobalConfiguration.Instance.VersionControlConfig,
+            _ => backend);
+        await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
 
-            // Awaited rather than asserted through a blocking Throws constraint: initialization saves the
-            // open project first, and that save resumes on the dispatcher.
-            InvalidOperationException? failure = null;
-            try
-            {
-                await coordinator.InitializeCurrentProjectAsync(
-                    project,
-                    _ => Task.FromResult<GitIdentity?>(null));
-            }
-            catch (InvalidOperationException ex)
-            {
-                failure = ex;
-            }
+        InvalidOperationException? failure = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            await coordinator.InitializeCurrentProjectAsync(
+                session.Project,
+                _ => Task.FromResult<GitIdentity?>(null)));
 
-            Assert.Multiple(() =>
-            {
-                Assert.That(failure?.Message, Is.EqualTo("The initial commit failed."));
-                Assert.That(backend.InitializeCalls, Is.EqualTo(1));
-                Assert.That(context.IsEnabled.Value, Is.True);
-                Assert.That(
-                    presentation.Activities,
-                    Is.EqualTo(new[]
-                    {
-                        ProjectLifecycleActivity.None,
-                        ProjectLifecycleActivity.EnablingVersionControl,
-                        ProjectLifecycleActivity.None,
-                    }));
-                Assert.That(
-                    presentation.EditorStates,
-                    Is.EqualTo(new[]
-                    {
-                        (false, ProjectLifecycleActivity.EnablingVersionControl),
-                        (true, ProjectLifecycleActivity.EnablingVersionControl),
-                    }));
-            });
-        }
-        finally
+        Assert.Multiple(() =>
         {
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
-            }
-
-            await TestReset.ResetShellAsync();
-        }
+            Assert.That(failure?.Message, Is.EqualTo("The initial commit failed."));
+            Assert.That(backend.InitializeCalls, Is.EqualTo(1));
+            Assert.That(context.IsEnabled.Value, Is.True);
+            Assert.That(
+                presentation.Activities,
+                Is.EqualTo(new[]
+                {
+                    ProjectLifecycleActivity.None,
+                    ProjectLifecycleActivity.EnablingVersionControl,
+                    ProjectLifecycleActivity.None,
+                }));
+            Assert.That(
+                presentation.EditorStates,
+                Is.EqualTo(new[]
+                {
+                    (false, ProjectLifecycleActivity.EnablingVersionControl),
+                    (true, ProjectLifecycleActivity.EnablingVersionControl),
+                }));
+        });
     }
 
     [AvaloniaTest]
     public async Task InitializeCurrentProject_hides_its_progress_when_the_editors_cannot_be_suspended()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
-
-        try
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-initialize-progress-suspension-failure");
+        var backend = new PullCycleTestBackend(
+            repository: null,
+            discoveredRepository: null,
+            MainTip);
+        var commands = new SaveOperation(true);
+        var context = new SavableEditorContext(session.Project, commands);
+        session.EditorService.TabItems.Add(new EditorTabItem(context));
+        using var presentation = new EditorPresentationRecorder(session.EditorService, context);
+        // An editor that cannot be disabled makes the suspension itself fail.
+        using IDisposable refusal = context.IsEnabled.Subscribe(enabled =>
         {
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-initialize-progress-suspension-failure");
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var backend = new PullCycleTestBackend(
-                repository: null,
-                discoveredRepository: null,
-                tip);
-            var commands = new PassiveSaveOperation();
-            var context = new PassiveEditorContext(project, commands);
-            var editorService = new EditorService(new ExtensionProvider());
-            editorService.TabItems.Add(new EditorTabItem(context));
-            using var presentation = new EditorPresentationRecorder(editorService, context);
-            // An editor that cannot be disabled makes the suspension itself fail.
-            using IDisposable refusal = context.IsEnabled.Subscribe(enabled =>
+            if (!enabled)
             {
-                if (!enabled)
+                throw new InvalidOperationException("The editor cannot be disabled.");
+            }
+        });
+        VersionControlCoordinator coordinator = session.Start(
+            GlobalConfiguration.Instance.VersionControlConfig,
+            _ => backend);
+        await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
+
+        AggregateException? failure = await Assert.ThrowsAsync<AggregateException>(async () =>
+            await coordinator.InitializeCurrentProjectAsync(
+                session.Project,
+                _ => Task.FromResult<GitIdentity?>(null)));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                failure?.InnerExceptions.Select(ex => ex.Message),
+                Is.EqualTo(new[] { "The editor cannot be disabled." }));
+            Assert.That(commands.SaveCalls, Is.Zero);
+            Assert.That(backend.InitializeCalls, Is.Zero);
+            Assert.That(context.IsEnabled.Value, Is.True);
+            // The progress view does not outlive the failed suspension, or it would cover the editor for good.
+            Assert.That(
+                presentation.Activities,
+                Is.EqualTo(new[]
                 {
-                    throw new InvalidOperationException("The editor cannot be disabled.");
-                }
-            });
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
-                GlobalConfiguration.Instance.VersionControlConfig,
-                installationLocator: null,
-                serviceFactory: _ => backend);
-            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
-
-            AggregateException? failure = null;
-            try
-            {
-                await coordinator.InitializeCurrentProjectAsync(
-                    project,
-                    _ => Task.FromResult<GitIdentity?>(null));
-            }
-            catch (AggregateException ex)
-            {
-                failure = ex;
-            }
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(
-                    failure?.InnerExceptions.Select(ex => ex.Message),
-                    Is.EqualTo(new[] { "The editor cannot be disabled." }));
-                Assert.That(commands.SaveCalls, Is.Zero);
-                Assert.That(backend.InitializeCalls, Is.Zero);
-                Assert.That(context.IsEnabled.Value, Is.True);
-                // The progress view does not outlive the failed suspension, or it would cover the editor for good.
-                Assert.That(
-                    presentation.Activities,
-                    Is.EqualTo(new[]
-                    {
-                        ProjectLifecycleActivity.None,
-                        ProjectLifecycleActivity.EnablingVersionControl,
-                        ProjectLifecycleActivity.None,
-                    }));
-            });
-        }
-        finally
-        {
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
-            }
-
-            await TestReset.ResetShellAsync();
-        }
+                    ProjectLifecycleActivity.None,
+                    ProjectLifecycleActivity.EnablingVersionControl,
+                    ProjectLifecycleActivity.None,
+                }));
+        });
     }
 
     [AvaloniaTest]
     public async Task InitializeCurrentProject_from_a_worker_thread_shows_its_progress_before_suspending_the_editors()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
         var initializeStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseInitialize = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-initialize-progress-worker");
 
         try
         {
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-initialize-progress-worker");
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
             var backend = new PullCycleTestBackend(
                 repository: null,
                 discoveredRepository: null,
-                tip)
+                MainTip)
             {
                 InitializeStarted = initializeStarted,
                 InitializeRelease = releaseInitialize.Task,
             };
-            var context = new PassiveEditorContext(project, new PassiveSaveOperation());
-            var editorService = new EditorService(new ExtensionProvider());
-            editorService.TabItems.Add(new EditorTabItem(context));
-            using var presentation = new EditorPresentationRecorder(editorService, context);
+            var context = new SavableEditorContext(session.Project, new SaveOperation(true));
+            session.EditorService.TabItems.Add(new EditorTabItem(context));
+            using var presentation = new EditorPresentationRecorder(session.EditorService, context);
             var editorChangesOnUiThread = new List<bool>();
             using IDisposable editorThreads = context.IsEnabled
                 .Skip(1)
                 .Subscribe(_ => editorChangesOnUiThread.Add(
                     Avalonia.Threading.Dispatcher.UIThread.CheckAccess()));
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
+            VersionControlCoordinator coordinator = session.Start(
                 GlobalConfiguration.Instance.VersionControlConfig,
-                installationLocator: null,
-                serviceFactory: _ => backend);
+                _ => backend);
             await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
 
             // The call moves to the UI thread before it touches the editors, so the progress and the
             // suspension still appear together.
             Task<bool> initialization = Task.Run(() => coordinator.InitializeCurrentProjectAsync(
-                project,
+                session.Project,
                 _ => Task.FromResult<GitIdentity?>(null)));
             await initializeStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
@@ -2169,20 +1547,12 @@ public class VersionControlRestoreTests
         finally
         {
             releaseInitialize.TrySetResult();
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
-            }
-
-            await TestReset.ResetShellAsync();
         }
     }
 
     [AvaloniaTest]
     public async Task Closing_during_the_initial_commit_replaces_its_progress_with_the_close()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
         var initializeStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         // Never released: the close has to cancel the initial commit.
@@ -2190,58 +1560,43 @@ public class VersionControlRestoreTests
             TaskCreationOptions.RunContinuationsAsynchronously);
         Task<bool>? initialization = null;
         Task<bool>? close = null;
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-initialize-progress-close");
 
         try
         {
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-initialize-progress-close");
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
             var backend = new PullCycleTestBackend(
                 repository: null,
                 discoveredRepository: null,
-                tip)
+                MainTip)
             {
                 InitializeStarted = initializeStarted,
                 InitializeRelease = releaseInitialize.Task,
             };
-            var context = new PassiveEditorContext(project, new PassiveSaveOperation());
-            var editorService = new EditorService(new ExtensionProvider());
-            editorService.TabItems.Add(new EditorTabItem(context));
-            using var presentation = new EditorPresentationRecorder(editorService, context);
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
+            var context = new SavableEditorContext(session.Project, new SaveOperation(true));
+            session.EditorService.TabItems.Add(new EditorTabItem(context));
+            using var presentation = new EditorPresentationRecorder(session.EditorService, context);
+            VersionControlCoordinator coordinator = session.Start(
                 new VersionControlConfig { AutoCommitOnClose = true },
-                installationLocator: null,
-                serviceFactory: _ => backend);
+                _ => backend);
             await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
 
             initialization = coordinator.InitializeCurrentProjectAsync(
-                project,
+                session.Project,
                 _ => Task.FromResult<GitIdentity?>(null));
             await initializeStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
             close = TestShell.Project.TryCloseProjectAsync(
-                project,
+                session.Project,
                 ProjectService.ProjectCloseIntent.SaveChanges);
             Assert.That(await close.WaitAsync(TimeSpan.FromSeconds(5)), Is.True);
             HeadlessTestHelpers.Settle();
 
-            OperationCanceledException? cancellation = null;
-            try
-            {
-                await initialization.WaitAsync(TimeSpan.FromSeconds(5));
-            }
-            catch (OperationCanceledException ex)
-            {
-                cancellation = ex;
-            }
+            await Assert.CatchAsync<OperationCanceledException>(async () =>
+                await initialization.WaitAsync(TimeSpan.FromSeconds(5)));
 
             Assert.Multiple(() =>
             {
-                Assert.That(cancellation, Is.Not.Null);
                 Assert.That(TestShell.Project.CurrentProject.Value, Is.Null);
                 Assert.That(
                     presentation.Activities,
@@ -2279,382 +1634,176 @@ public class VersionControlRestoreTests
             {
                 await close.WaitAsync(TimeSpan.FromSeconds(5));
             }
-
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
-            }
-
-            await TestReset.ResetShellAsync();
-        }
-    }
-
-    [AvaloniaTest]
-    public async Task InitializeCurrentProject_releases_editors_for_identity_and_resuspends_the_retry()
-    {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
-        var retryStarted = new TaskCompletionSource(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        var releaseRetry = new TaskCompletionSource(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-
-        try
-        {
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-initialize-identity-editor-suspension");
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var backend = new PullCycleTestBackend(
-                repository: null,
-                discoveredRepository: null,
-                tip)
-            {
-                RequireIdentityForInitialization = true,
-                InitializeStarted = retryStarted,
-                InitializeRelease = releaseRetry.Task,
-            };
-            var commands = new PassiveSaveOperation();
-            var context = new PassiveEditorContext(project, commands);
-            var editorService = new EditorService(new ExtensionProvider());
-            editorService.TabItems.Add(new EditorTabItem(context));
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
-                GlobalConfiguration.Instance.VersionControlConfig,
-                installationLocator: null,
-                serviceFactory: _ => backend);
-            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
-
-            int identityRequests = 0;
-            bool? identityCallbackSawEditorEnabled = null;
-            Task<bool> initialization = coordinator.InitializeCurrentProjectAsync(
-                project,
-                _ =>
-                {
-                    identityRequests++;
-                    identityCallbackSawEditorEnabled = context.IsEnabled.Value;
-                    return Task.FromResult<GitIdentity?>(
-                        new GitIdentity("Identity Retry", "identity-retry@example.invalid"));
-                });
-            await retryStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(initialization.IsCompleted, Is.False);
-                Assert.That(identityRequests, Is.EqualTo(1));
-                Assert.That(identityCallbackSawEditorEnabled, Is.True);
-                Assert.That(context.IsEnabled.Value, Is.False);
-                Assert.That(commands.SaveCalls, Is.EqualTo(2));
-                Assert.That(backend.InitializeCalls, Is.EqualTo(2));
-            });
-
-            releaseRetry.TrySetResult();
-            Assert.That(
-                await initialization.WaitAsync(TimeSpan.FromSeconds(5)),
-                Is.True);
-            Assert.That(context.IsEnabled.Value, Is.True);
-        }
-        finally
-        {
-            releaseRetry.TrySetResult();
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
-            }
-
-            await TestReset.ResetShellAsync();
         }
     }
 
     [AvaloniaTest]
     public async Task InitializeCurrentProject_propagates_cancellation_to_the_identity_request()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
-
-        try
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-initialize-identity-cancellation");
+        var backend = new PullCycleTestBackend(
+            repository: null,
+            discoveredRepository: null,
+            MainTip)
         {
-            await CreateProjectForFakeVersionControlAsync(
-                "version-control-initialize-identity-cancellation");
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var backend = new PullCycleTestBackend(
-                repository: null,
-                discoveredRepository: null,
-                tip)
+            RequireIdentityForInitialization = true,
+        };
+
+        VersionControlCoordinator coordinator = session.Start(
+            GlobalConfiguration.Instance.VersionControlConfig,
+            _ => backend);
+        await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
+
+        using var cancellation = new CancellationTokenSource();
+        CancellationToken observedToken = default;
+        int identityRequests = 0;
+
+        Task<bool> initialization = coordinator.InitializeCurrentProjectAsync(
+            TestShell.Project.CurrentProject.Value!,
+            token =>
             {
-                RequireIdentityForInitialization = true,
-            };
+                identityRequests++;
+                observedToken = token;
+                cancellation.Cancel();
+                return Task.FromCanceled<GitIdentity?>(token);
+            },
+            cancellation.Token);
 
-            var editorService = new EditorService(new ExtensionProvider());
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
-                GlobalConfiguration.Instance.VersionControlConfig,
-                installationLocator: null,
-                serviceFactory: _ => backend);
-            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
+        await Assert.CatchAsync<OperationCanceledException>(async () => await initialization);
 
-            using var cancellation = new CancellationTokenSource();
-            CancellationToken observedToken = default;
-            int identityRequests = 0;
-
-            Task<bool> initialization = coordinator.InitializeCurrentProjectAsync(
-                TestShell.Project.CurrentProject.Value!,
-                token =>
-                {
-                    identityRequests++;
-                    observedToken = token;
-                    cancellation.Cancel();
-                    return Task.FromCanceled<GitIdentity?>(token);
-                },
-                cancellation.Token);
-
-            // Awaited rather than asserted through a blocking Throws constraint: initialization
-            // persists the open project first, and that save resumes on the dispatcher.
-            OperationCanceledException? cancelled = null;
-            try
-            {
-                await initialization;
-            }
-            catch (OperationCanceledException ex)
-            {
-                cancelled = ex;
-            }
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(cancelled, Is.Not.Null);
-                Assert.That(identityRequests, Is.EqualTo(1));
-                Assert.That(observedToken.CanBeCanceled, Is.True);
-                Assert.That(observedToken.IsCancellationRequested, Is.True);
-                Assert.That(cancellation.Token.IsCancellationRequested, Is.True);
-                Assert.That(backend.InitializeCalls, Is.EqualTo(1));
-                Assert.That(backend.SetLocalIdentityCalls, Is.Zero);
-                Assert.That(backend.Repository, Is.Null);
-            });
-        }
-        finally
+        Assert.Multiple(() =>
         {
-            coordinator?.Dispose();
-            await TestReset.ResetShellAsync();
-        }
+            Assert.That(identityRequests, Is.EqualTo(1));
+            Assert.That(observedToken.CanBeCanceled, Is.True);
+            Assert.That(observedToken.IsCancellationRequested, Is.True);
+            Assert.That(cancellation.Token.IsCancellationRequested, Is.True);
+            Assert.That(backend.InitializeCalls, Is.EqualTo(1));
+            Assert.That(backend.SetLocalIdentityCalls, Is.Zero);
+            Assert.That(backend.Repository, Is.Null);
+        });
     }
 
     [AvaloniaTest]
     public async Task InitializeCurrentProject_passes_the_requested_identity_to_the_retry()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
-
-        try
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-initialize-identity-retry");
+        var backend = new PullCycleTestBackend(
+            repository: null,
+            discoveredRepository: null,
+            MainTip)
         {
-            await CreateProjectForFakeVersionControlAsync(
-                "version-control-initialize-identity-retry");
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var backend = new PullCycleTestBackend(
-                repository: null,
-                discoveredRepository: null,
-                tip)
-            {
-                RequireIdentityForInitialization = true,
-            };
-            var identity = new GitIdentity("Identity Retry", "identity-retry@example.invalid");
-            var editorService = new EditorService(new ExtensionProvider());
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
-                GlobalConfiguration.Instance.VersionControlConfig,
-                installationLocator: null,
-                serviceFactory: _ => backend);
-            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
+            RequireIdentityForInitialization = true,
+        };
+        var identity = new GitIdentity("Identity Retry", "identity-retry@example.invalid");
+        VersionControlCoordinator coordinator = session.Start(
+            GlobalConfiguration.Instance.VersionControlConfig,
+            _ => backend);
+        await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
 
-            bool initialized = await coordinator.InitializeCurrentProjectAsync(
-                TestShell.Project.CurrentProject.Value!,
-                _ => Task.FromResult<GitIdentity?>(identity));
+        bool initialized = await coordinator.InitializeCurrentProjectAsync(
+            TestShell.Project.CurrentProject.Value!,
+            _ => Task.FromResult<GitIdentity?>(identity));
 
-            Assert.Multiple(() =>
-            {
-                Assert.That(initialized, Is.True);
-                Assert.That(backend.InitializeCalls, Is.EqualTo(2));
-                Assert.That(backend.InitializationOptions[0].Identity, Is.Null);
-                Assert.That(backend.InitializationOptions[1].Identity, Is.EqualTo(identity));
-                Assert.That(backend.SetLocalIdentityCalls, Is.Zero);
-                Assert.That(backend.Repository, Is.Not.Null);
-            });
-        }
-        finally
+        Assert.Multiple(() =>
         {
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
-            }
-
-            await TestReset.ResetShellAsync();
-        }
+            Assert.That(initialized, Is.True);
+            Assert.That(backend.InitializeCalls, Is.EqualTo(2));
+            Assert.That(backend.InitializationOptions[0].Identity, Is.Null);
+            Assert.That(backend.InitializationOptions[1].Identity, Is.EqualTo(identity));
+            Assert.That(backend.SetLocalIdentityCalls, Is.Zero);
+            Assert.That(backend.Repository, Is.Not.Null);
+        });
     }
 
     [AvaloniaTest]
     public async Task InitializeCurrentProject_rejects_a_project_that_is_no_longer_open()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-stale-initialization-target");
+        Project currentProject = await CreateProjectForFakeVersionControlAsync(
+            "version-control-current-initialization-target");
+        var backend = new PullCycleTestBackend(
+            repository: null,
+            discoveredRepository: null,
+            MainTip);
+        VersionControlCoordinator coordinator = session.Start(
+            GlobalConfiguration.Instance.VersionControlConfig,
+            _ => backend);
+        await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
 
-        try
+        InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(
+            async () => await coordinator.InitializeCurrentProjectAsync(
+                session.Project,
+                _ => Task.FromResult<GitIdentity?>(null)));
+
+        Assert.Multiple(() =>
         {
-            Project staleProject = await CreateProjectForFakeVersionControlAsync(
-                "version-control-stale-initialization-target");
-            Project currentProject = await CreateProjectForFakeVersionControlAsync(
-                "version-control-current-initialization-target");
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var backend = new PullCycleTestBackend(
-                repository: null,
-                discoveredRepository: null,
-                tip);
-            var editorService = new EditorService(new ExtensionProvider());
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
-                GlobalConfiguration.Instance.VersionControlConfig,
-                installationLocator: null,
-                serviceFactory: _ => backend);
-            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
-
-            InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(
-                async () => await coordinator.InitializeCurrentProjectAsync(
-                    staleProject,
-                    _ => Task.FromResult<GitIdentity?>(null)));
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(exception!.Message, Does.Contain("no longer the open project"));
-                Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(currentProject));
-                Assert.That(backend.InitializeCalls, Is.Zero);
-            });
-        }
-        finally
-        {
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
-            }
-
-            await TestReset.ResetShellAsync();
-        }
+            Assert.That(exception!.Message, Does.Contain("no longer the open project"));
+            Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(currentProject));
+            Assert.That(backend.InitializeCalls, Is.Zero);
+        });
     }
 
     [AvaloniaTest]
     public async Task Async_disposal_cancels_and_joins_an_initialization_identity_request()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
-        var identityStarted = new TaskCompletionSource(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        var cancellationObserved = new TaskCompletionSource(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        var releaseIdentity = new TaskCompletionSource(
-            TaskCreationOptions.RunContinuationsAsynchronously);
+        var identity = new BlockingPrompt<GitIdentity?>();
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-initialize-disposal");
 
         try
         {
-            await CreateProjectForFakeVersionControlAsync(
-                "version-control-initialize-disposal");
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
             var backend = new PullCycleTestBackend(
                 repository: null,
                 discoveredRepository: null,
-                tip)
+                MainTip)
             {
                 RequireIdentityForInitialization = true,
             };
-            var editorService = new EditorService(new ExtensionProvider());
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
+            VersionControlCoordinator coordinator = session.Start(
                 GlobalConfiguration.Instance.VersionControlConfig,
-                installationLocator: null,
-                serviceFactory: _ => backend);
+                _ => backend);
             await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
 
             Task<bool> initialization = coordinator.InitializeCurrentProjectAsync(
                 TestShell.Project.CurrentProject.Value!,
-                async cancellationToken =>
-                {
-                    identityStarted.TrySetResult();
-                    try
-                    {
-                        await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
-                    }
-                    catch (OperationCanceledException)
-                        when (cancellationToken.IsCancellationRequested)
-                    {
-                        cancellationObserved.TrySetResult();
-                    }
-
-                    await releaseIdentity.Task.WaitAsync(TimeSpan.FromSeconds(5));
-                    return new GitIdentity(
-                        "Disposal Test",
-                        "disposal@example.invalid");
-                });
-            await identityStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+                identity.AnswerLateAsync);
+            await identity.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
             Task disposal = coordinator.DisposeAsync().AsTask();
-            await cancellationObserved.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await identity.Cancelled.Task.WaitAsync(TimeSpan.FromSeconds(5));
             Assert.Multiple(() =>
             {
                 Assert.That(disposal.IsCompleted, Is.False);
                 Assert.That(backend.RetirementCalls, Is.Zero);
             });
 
-            releaseIdentity.TrySetResult();
-            OperationCanceledException? initializationCancellation = null;
-            try
-            {
-                await initialization.WaitAsync(TimeSpan.FromSeconds(5));
-            }
-            catch (OperationCanceledException ex)
-            {
-                initializationCancellation = ex;
-            }
+            identity.Release(new GitIdentity("Disposal Test", "disposal@example.invalid"));
+            await Assert.CatchAsync<OperationCanceledException>(async () =>
+                await initialization.WaitAsync(TimeSpan.FromSeconds(5)));
 
             await disposal.WaitAsync(TimeSpan.FromSeconds(5));
 
             Assert.Multiple(() =>
             {
-                Assert.That(initializationCancellation, Is.Not.Null);
                 Assert.That(backend.RetirementCalls, Is.EqualTo(1));
                 Assert.That(backend.SetLocalIdentityCalls, Is.Zero);
                 Assert.That(backend.CallsAfterRetirement, Is.Zero);
                 Assert.That(coordinator.CurrentService, Is.Null);
-                Assert.That(editorService.ProjectVersionControlService.Value, Is.Null);
+                Assert.That(session.EditorService.ProjectVersionControlService.Value, Is.Null);
             });
         }
         finally
         {
-            releaseIdentity.TrySetResult();
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
-            }
-
-            await TestReset.ResetShellAsync();
+            identity.Release(new GitIdentity("Disposal Test", "disposal@example.invalid"));
         }
     }
 
     [AvaloniaTest]
     public async Task Async_disposal_continues_when_activation_cancellation_callback_throws()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
         Task? disposal = null;
         var hygieneStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
@@ -2664,21 +1813,16 @@ public class VersionControlRestoreTests
             TaskCreationOptions.RunContinuationsAsynchronously);
         CancellationTokenRegistration throwingRegistration = default;
         int activationCancellationCallbackCalls = 0;
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-throwing-activation-cancellation");
 
         try
         {
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-throwing-activation-cancellation");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
             var discovery = new PullCycleTestBackend(
                 repository: null,
-                repository,
-                tip);
-            var tracked = new PullCycleTestBackend(repository, repository, tip)
+                session.Repository,
+                MainTip);
+            var tracked = new PullCycleTestBackend(session.Repository, session.Repository, MainTip)
             {
                 EnsureHygieneStarted = hygieneStarted,
                 EnsureHygieneRelease = releaseHygiene.Task,
@@ -2693,19 +1837,15 @@ public class VersionControlRestoreTests
                     activationTokenObserved.TrySetResult();
                 },
             };
-            var editorService = new EditorService(new ExtensionProvider());
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
+            VersionControlCoordinator coordinator = session.Start(
                 GlobalConfiguration.Instance.VersionControlConfig,
-                installationLocator: null,
-                serviceFactory: candidate => candidate is null ? discovery : tracked);
+                candidate => candidate is null ? discovery : tracked);
             await hygieneStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
             await activationTokenObserved.Task.WaitAsync(TimeSpan.FromSeconds(5));
             await WaitUntilAsync(() =>
                 ReferenceEquals(coordinator.CurrentService, discovery)
                 && ReferenceEquals(
-                    editorService.ProjectVersionControlService.Value,
+                    session.EditorService.ProjectVersionControlService.Value,
                     discovery));
 
             Exception? synchronousDisposalFailure = null;
@@ -2726,7 +1866,7 @@ public class VersionControlRestoreTests
             {
                 Assert.That(synchronousDisposalFailure, Is.Null);
                 Assert.That(coordinator.CurrentService, Is.Null);
-                Assert.That(editorService.ProjectVersionControlService.Value, Is.Null);
+                Assert.That(session.EditorService.ProjectVersionControlService.Value, Is.Null);
                 Assert.That(coordinator.IsTracked.Value, Is.False);
                 Assert.That(
                     Volatile.Read(ref activationCancellationCallbackCalls),
@@ -2740,37 +1880,24 @@ public class VersionControlRestoreTests
         {
             releaseHygiene.TrySetResult();
             throwingRegistration.Dispose();
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
-            }
-
-            await TestReset.ResetShellAsync();
         }
     }
 
     [AvaloniaTest]
     public async Task Superseded_activation_never_publishes_its_tracked_backend()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
         var staleHygieneStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseStaleHygiene = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-superseded-activation");
 
         try
         {
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-superseded-activation");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var staleDiscovery = new PullCycleTestBackend(null, repository, tip);
+            var staleDiscovery = new PullCycleTestBackend(null, session.Repository, MainTip);
             // Finishes its hygiene once released, whether or not its activation was canceled meanwhile.
-            var staleTracked = new PullCycleTestBackend(repository, repository, tip)
+            var staleTracked = new PullCycleTestBackend(session.Repository, session.Repository, MainTip)
             {
                 EnsureHygieneOverride = async _ =>
                 {
@@ -2778,25 +1905,21 @@ public class VersionControlRestoreTests
                     await releaseStaleHygiene.Task;
                 },
             };
-            var currentDiscovery = new PullCycleTestBackend(null, repository, tip);
-            var currentTracked = new PullCycleTestBackend(repository, repository, tip);
+            var currentDiscovery = new PullCycleTestBackend(null, session.Repository, MainTip);
+            var currentTracked = new PullCycleTestBackend(session.Repository, session.Repository, MainTip);
             var discoveries = new Queue<PullCycleTestBackend>([staleDiscovery, currentDiscovery]);
             var trackedBackends = new Queue<PullCycleTestBackend>([staleTracked, currentTracked]);
-            var editorService = new EditorService(new ExtensionProvider());
             var publishedServices = new List<IProjectVersionControlService?>();
-            using IDisposable subscription = editorService.ProjectVersionControlService.Subscribe(
+            using IDisposable subscription = session.EditorService.ProjectVersionControlService.Subscribe(
                 publishedServices.Add);
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
+            VersionControlCoordinator coordinator = session.Start(
                 new VersionControlConfig(),
-                installationLocator: null,
-                serviceFactory: candidate => candidate is null
+                candidate => candidate is null
                     ? discoveries.Dequeue()
                     : trackedBackends.Dequeue());
             await staleHygieneStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
-            coordinator.OnProjectChanged(project);
+            coordinator.OnProjectChanged(session.Project);
             await WaitUntilAsync(() =>
                 ReferenceEquals(coordinator.CurrentService, currentTracked)
                 && coordinator.IsTracked.Value);
@@ -2806,7 +1929,7 @@ public class VersionControlRestoreTests
             Assert.Multiple(() =>
             {
                 Assert.That(coordinator.CurrentService, Is.SameAs(currentTracked));
-                Assert.That(editorService.ProjectVersionControlService.Value, Is.SameAs(currentTracked));
+                Assert.That(session.EditorService.ProjectVersionControlService.Value, Is.SameAs(currentTracked));
                 Assert.That(publishedServices, Does.Not.Contain(staleTracked));
                 Assert.That(staleTracked.RetirementCalls, Is.EqualTo(1));
                 Assert.That(staleDiscovery.RetirementCalls, Is.EqualTo(1));
@@ -2816,171 +1939,90 @@ public class VersionControlRestoreTests
         finally
         {
             releaseStaleHygiene.TrySetResult();
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
-            }
-
-            await TestReset.ResetShellAsync();
         }
     }
 
     [AvaloniaTest]
     public async Task Failed_activation_warns_with_its_reason_and_leaves_the_project_untracked()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
-        INotificationServiceHandler previousNotificationHandler = NotificationService.Handler;
-        var notifications = new CaptureNotificationHandler();
         const string reason = "fatal: simulated repository refusal";
-
-        try
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-activation-failure-reason");
+        var discovery = new PullCycleTestBackend(null, session.Repository, MainTip);
+        var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip)
         {
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-activation-failure-reason");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var discovery = new PullCycleTestBackend(null, repository, tip);
-            var backend = new PullCycleTestBackend(repository, repository, tip)
-            {
-                EnsureHygieneOverride = _ =>
-                    Task.FromException(new GitOperationException(128, reason)),
-            };
-            var editorService = new EditorService(new ExtensionProvider());
-            NotificationService.Handler = notifications;
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
-                new VersionControlConfig(),
-                installationLocator: null,
-                serviceFactory: candidate => candidate is null ? discovery : backend);
-            await WaitUntilAsync(() => !notifications.All.IsEmpty);
+            EnsureHygieneOverride = _ =>
+                Task.FromException(new GitOperationException(128, reason)),
+        };
+        using var notifications = new NotificationCapture();
+        VersionControlCoordinator coordinator = session.Start(
+            new VersionControlConfig(),
+            candidate => candidate is null ? discovery : backend);
+        await WaitUntilAsync(() => !notifications.All.IsEmpty);
 
-            Notification warning = notifications.All.Single();
-            Assert.Multiple(() =>
-            {
-                Assert.That(warning.Type, Is.EqualTo(NotificationType.Warning));
-                Assert.That(warning.Title, Is.EqualTo(Strings.VersionControl));
-                Assert.That(
-                    warning.Message,
-                    Is.EqualTo(string.Format(Strings.VersionControl_ActivationFailedFormat, reason)),
-                    "The warning must say why version control could not be enabled.");
-                Assert.That(coordinator.IsTracked.Value, Is.False);
-                Assert.That(coordinator.CurrentService, Is.Not.SameAs(backend));
-                Assert.That(editorService.ProjectVersionControlService.Value, Is.Not.SameAs(backend));
-                Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(project));
-            });
-        }
-        finally
+        Notification warning = notifications.All.Single();
+        Assert.Multiple(() =>
         {
-            NotificationService.Handler = previousNotificationHandler;
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
-            }
-
-            await TestReset.ResetShellAsync();
-        }
+            Assert.That(warning.Type, Is.EqualTo(NotificationType.Warning));
+            Assert.That(warning.Title, Is.EqualTo(Strings.VersionControl));
+            Assert.That(
+                warning.Message,
+                Is.EqualTo(string.Format(Strings.VersionControl_ActivationFailedFormat, reason)),
+                "The warning must say why version control could not be enabled.");
+            Assert.That(coordinator.IsTracked.Value, Is.False);
+            Assert.That(coordinator.CurrentService, Is.Not.SameAs(backend));
+            Assert.That(session.EditorService.ProjectVersionControlService.Value, Is.Not.SameAs(backend));
+            Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(session.Project));
+        });
     }
 
     [AvaloniaTest]
     public async Task Closing_cancels_and_joins_an_initialization_before_retiring_the_backend()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
         Task? initialization = null;
         Task? closing = null;
-        var identityStarted = new TaskCompletionSource(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        var cancellationObserved = new TaskCompletionSource(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        var releaseIdentity = new TaskCompletionSource(
-            TaskCreationOptions.RunContinuationsAsynchronously);
+        var identity = new BlockingPrompt<GitIdentity?>();
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-initialize-close");
 
         try
         {
-            await CreateProjectForFakeVersionControlAsync(
-                "version-control-initialize-close");
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
             var backend = new PullCycleTestBackend(
                 repository: null,
                 discoveredRepository: null,
-                tip)
+                MainTip)
             {
                 RequireIdentityForInitialization = true,
             };
-            var editorService = new EditorService(new ExtensionProvider());
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
+            VersionControlCoordinator coordinator = session.Start(
                 GlobalConfiguration.Instance.VersionControlConfig,
-                installationLocator: null,
-                serviceFactory: _ => backend);
+                _ => backend);
             await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
 
             initialization = coordinator.InitializeCurrentProjectAsync(
                 TestShell.Project.CurrentProject.Value!,
-                async cancellationToken =>
-                {
-                    identityStarted.TrySetResult();
-                    try
-                    {
-                        await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
-                    }
-                    catch (OperationCanceledException)
-                        when (cancellationToken.IsCancellationRequested)
-                    {
-                        cancellationObserved.TrySetResult();
-                    }
-
-                    await releaseIdentity.Task.WaitAsync(TimeSpan.FromSeconds(5));
-                    return new GitIdentity(
-                        "Close Barrier Test",
-                        "close-barrier@example.invalid");
-                });
-            await identityStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+                identity.AnswerLateAsync);
+            await identity.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
             closing = TestShell.Project.CloseProjectAsync();
-            await cancellationObserved.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await identity.Cancelled.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
-            Exception? rejectedOperation = null;
-            try
-            {
-                await coordinator.NotifySavedAsync();
-            }
-            catch (Exception ex)
-            {
-                rejectedOperation = ex;
-            }
+            await Assert.ThrowsAsync<InvalidOperationException>(async () => await coordinator.NotifySavedAsync());
 
             Assert.Multiple(() =>
             {
                 Assert.That(closing.IsCompleted, Is.False);
-                Assert.That(rejectedOperation, Is.TypeOf<InvalidOperationException>());
                 Assert.That(backend.RetirementCalls, Is.Zero);
             });
 
-            releaseIdentity.TrySetResult();
-            OperationCanceledException? initializationCancellation = null;
-            try
-            {
-                await initialization.WaitAsync(TimeSpan.FromSeconds(5));
-            }
-            catch (OperationCanceledException ex)
-            {
-                initializationCancellation = ex;
-            }
+            identity.Release(new GitIdentity("Close Barrier Test", "close-barrier@example.invalid"));
+            await Assert.CatchAsync<OperationCanceledException>(async () =>
+                await initialization.WaitAsync(TimeSpan.FromSeconds(5)));
 
             await closing.WaitAsync(TimeSpan.FromSeconds(5));
 
             Assert.Multiple(() =>
             {
-                Assert.That(initializationCancellation, Is.Not.Null);
                 Assert.That(TestShell.Project.CurrentProject.Value, Is.Null);
                 Assert.That(backend.RetirementCalls, Is.GreaterThanOrEqualTo(1));
                 Assert.That(backend.SetLocalIdentityCalls, Is.Zero);
@@ -2989,7 +2031,7 @@ public class VersionControlRestoreTests
         }
         finally
         {
-            releaseIdentity.TrySetResult();
+            identity.Release(new GitIdentity("Close Barrier Test", "close-barrier@example.invalid"));
             if (initialization is not null)
             {
                 try
@@ -3013,21 +2055,12 @@ public class VersionControlRestoreTests
                     TestContext.Progress.WriteLine(ex);
                 }
             }
-
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
-            }
-
-            await TestReset.ResetShellAsync();
         }
     }
 
     [AvaloniaTest]
     public async Task Closing_rejects_operations_until_the_project_change_is_committed()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
         Func<ProjectService.ProjectCloseContext, CancellationToken, Task>?
             subsequentClosingFinalizer = null;
         Task? closing = null;
@@ -3035,24 +2068,15 @@ public class VersionControlRestoreTests
             TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseSubsequentHandler = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-close-commit-gap");
 
         try
         {
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-close-commit-gap");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var backend = new PullCycleTestBackend(repository, repository, tip);
-            var editorService = new EditorService(new ExtensionProvider());
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
+            var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip);
+            VersionControlCoordinator coordinator = session.Start(
                 GlobalConfiguration.Instance.VersionControlConfig,
-                installationLocator: null,
-                serviceFactory: _ => backend);
+                _ => backend);
             await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
 
             subsequentClosingFinalizer = async (_, _) =>
@@ -3068,27 +2092,9 @@ public class VersionControlRestoreTests
             IProjectVersionControlService? coordinatorServiceDuringClose =
                 coordinator.CurrentService;
             IProjectVersionControlService? editorServiceDuringClose =
-                editorService.ProjectVersionControlService.Value;
-            if (coordinatorServiceDuringClose is not null)
-            {
-                await coordinatorServiceDuringClose.GetStatusAsync(CancellationToken.None);
-            }
-
-            if (editorServiceDuringClose is not null
-                && !ReferenceEquals(editorServiceDuringClose, coordinatorServiceDuringClose))
-            {
-                await editorServiceDuringClose.GetStatusAsync(CancellationToken.None);
-            }
-
-            Exception? rejectedOperation = null;
-            try
-            {
-                await coordinator.SetRemoteAsync("https://example.invalid/rejected-close.git");
-            }
-            catch (Exception ex)
-            {
-                rejectedOperation = ex;
-            }
+                session.EditorService.ProjectVersionControlService.Value;
+            await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+                await coordinator.SetRemoteAsync("https://example.invalid/rejected-close.git"));
 
             RemoteOpResult rejectedPull = await coordinator.PullAsync()
                 .WaitAsync(TimeSpan.FromSeconds(5));
@@ -3099,7 +2105,6 @@ public class VersionControlRestoreTests
                 Assert.That(coordinatorServiceDuringClose, Is.Null);
                 Assert.That(editorServiceDuringClose, Is.Null);
                 Assert.That(coordinator.IsTracked.Value, Is.False);
-                Assert.That(rejectedOperation, Is.TypeOf<InvalidOperationException>());
                 Assert.That(rejectedPull, Is.EqualTo(new RemoteOpResult.Failed(
                     "The open project changed while the pull was being prepared.")));
                 Assert.That(backend.PreflightCalls, Is.Zero);
@@ -3128,52 +2133,32 @@ public class VersionControlRestoreTests
             {
                 TestShell.Project.ClosingFinalizing -= subsequentClosingFinalizer;
             }
-
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
-            }
-
-            await TestReset.ResetShellAsync();
         }
     }
 
     [AvaloniaTest]
     public async Task Closing_from_a_state_publication_hides_the_service_before_retirement()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
         Task? closing = null;
         var releaseRetirement = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-reentrant-close-publication");
 
         try
         {
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-reentrant-close-publication");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var backend = new PullCycleTestBackend(repository, repository, tip)
+            var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip)
             {
                 RetirementRelease = releaseRetirement.Task,
             };
             var probe = new MutableGitInstallationProbe();
             var config = new VersionControlConfig();
             var locator = new GitInstallationLocator(config, probe, GitHostPlatform.Linux);
-            var editorService = new EditorService(new ExtensionProvider());
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
-                config,
-                locator,
-                serviceFactory: _ => backend);
+            VersionControlCoordinator coordinator = session.Start(config, _ => backend, locator);
             await WaitUntilAsync(() =>
                 ReferenceEquals(coordinator.CurrentService, backend)
                 && ReferenceEquals(
-                    editorService.ProjectVersionControlService.Value,
+                    session.EditorService.ProjectVersionControlService.Value,
                     backend)
                 && coordinator.IsTracked.Value);
 
@@ -3186,7 +2171,7 @@ public class VersionControlRestoreTests
                 retirementObserved = true;
                 coordinatorServiceAtRetirement = coordinator.CurrentService;
                 editorServiceAtRetirement =
-                    editorService.ProjectVersionControlService.Value;
+                    session.EditorService.ProjectVersionControlService.Value;
                 trackedAtRetirement = coordinator.IsTracked.Value;
             };
 
@@ -3223,51 +2208,31 @@ public class VersionControlRestoreTests
             {
                 await closing.WaitAsync(TimeSpan.FromSeconds(5));
             }
-
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
-            }
-
-            await TestReset.ResetShellAsync();
         }
     }
 
     [AvaloniaTest]
     public async Task Close_aborted_before_retirement_keeps_the_backend_visible()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
         Task? closing = null;
         Func<ProjectService.ProjectCloseContext, CancellationToken, Task>? blockingClosing = null;
         var closingStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         using var closeCancellation = new CancellationTokenSource();
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-pre-retirement-close-abort");
 
         try
         {
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-pre-retirement-close-abort");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var backend = new PullCycleTestBackend(repository, repository, tip);
+            var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip);
             var probe = new MutableGitInstallationProbe();
             var config = new VersionControlConfig();
             var locator = new GitInstallationLocator(config, probe, GitHostPlatform.Linux);
-            var editorService = new EditorService(new ExtensionProvider());
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
-                config,
-                locator,
-                serviceFactory: _ => backend);
+            VersionControlCoordinator coordinator = session.Start(config, _ => backend, locator);
             await WaitUntilAsync(() =>
                 ReferenceEquals(coordinator.CurrentService, backend)
                 && ReferenceEquals(
-                    editorService.ProjectVersionControlService.Value,
+                    session.EditorService.ProjectVersionControlService.Value,
                     backend)
                 && coordinator.IsTracked.Value);
 
@@ -3281,23 +2246,15 @@ public class VersionControlRestoreTests
             await closingStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
             closeCancellation.Cancel();
 
-            OperationCanceledException? closeFailure = null;
-            try
-            {
-                await closing!.WaitAsync(TimeSpan.FromSeconds(5));
-            }
-            catch (OperationCanceledException ex)
-            {
-                closeFailure = ex;
-            }
+            await Assert.CatchAsync<OperationCanceledException>(async () =>
+                await closing!.WaitAsync(TimeSpan.FromSeconds(5)));
 
             Assert.Multiple(() =>
             {
-                Assert.That(closeFailure, Is.Not.Null);
-                Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(project));
+                Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(session.Project));
                 Assert.That(coordinator.CurrentService, Is.SameAs(backend));
                 Assert.That(
-                    editorService.ProjectVersionControlService.Value,
+                    session.EditorService.ProjectVersionControlService.Value,
                     Is.SameAs(backend));
                 Assert.That(coordinator.IsTracked.Value, Is.True);
                 Assert.That(backend.RetirementCalls, Is.Zero);
@@ -3332,44 +2289,26 @@ public class VersionControlRestoreTests
                 {
                 }
             }
-
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
-            }
-
-            await TestReset.ResetShellAsync();
         }
     }
 
     [AvaloniaTest]
     public async Task Closing_finalizer_failure_does_not_abort_the_committed_close()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
         Func<ProjectService.ProjectCloseContext, CancellationToken, Task>?
             throwingClosingFinalizer = null;
         Func<ProjectService.ProjectCloseContext, CancellationToken, Task>?
             observingClosingFinalizer = null;
         bool observingFinalizerCalled = false;
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-aborted-close-lifecycle");
 
         try
         {
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-aborted-close-lifecycle");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var backend = new PullCycleTestBackend(repository, repository, tip);
-            var editorService = new EditorService(new ExtensionProvider());
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
+            var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip);
+            VersionControlCoordinator coordinator = session.Start(
                 GlobalConfiguration.Instance.VersionControlConfig,
-                installationLocator: null,
-                serviceFactory: _ => backend);
+                _ => backend);
             await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
 
             throwingClosingFinalizer = (_, _) =>
@@ -3392,7 +2331,7 @@ public class VersionControlRestoreTests
                 Assert.That(observingFinalizerCalled, Is.True);
                 Assert.That(TestShell.Project.CurrentProject.Value, Is.Null);
                 Assert.That(coordinator.CurrentService, Is.Null);
-                Assert.That(editorService.ProjectVersionControlService.Value, Is.Null);
+                Assert.That(session.EditorService.ProjectVersionControlService.Value, Is.Null);
                 Assert.That(backend.RetirementCalls, Is.EqualTo(1));
                 Assert.That(backend.DisposeCalls, Is.EqualTo(1));
                 Assert.That(backend.CallsAfterRetirement, Is.Zero);
@@ -3409,119 +2348,72 @@ public class VersionControlRestoreTests
             {
                 TestShell.Project.ClosingFinalizing -= observingClosingFinalizer;
             }
-
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
-            }
-
-            await TestReset.ResetShellAsync();
         }
     }
 
     [AvaloniaTest]
     public async Task Backend_retirement_failure_does_not_abort_committed_close_or_hold_operation_barrier()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
-
-        try
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-failed-close-retirement");
+        var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip)
         {
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-failed-close-retirement");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var backend = new PullCycleTestBackend(repository, repository, tip)
-            {
-                RetirementStarting = () =>
-                    throw new InvalidOperationException("Expected retirement failure."),
-            };
-            var editorService = new EditorService(new ExtensionProvider());
-            var config = new VersionControlConfig
-            {
-                AutoCommitOnClose = true,
-            };
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
-                config,
-                installationLocator: null,
-                serviceFactory: _ => backend);
-            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
-
-            await TestShell.Project.CloseProjectAsync();
-            await coordinator.NotifySavedAsync();
-            HeadlessTestHelpers.Settle();
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(TestShell.Project.CurrentProject.Value, Is.Null);
-                Assert.That(coordinator.CurrentService, Is.Null);
-                Assert.That(editorService.ProjectVersionControlService.Value, Is.Null);
-                Assert.That(coordinator.IsTracked.Value, Is.False);
-                Assert.That(backend.RetirementCalls, Is.EqualTo(1));
-                Assert.That(backend.DisposeCalls, Is.EqualTo(1));
-                Assert.That(backend.RetirementSnapshots, Has.Count.EqualTo(1));
-                Assert.That(backend.RetirementSnapshots[0]?.Message,
-                    Is.EqualTo("beutl: snapshot on close"));
-                Assert.That(backend.RetirementSnapshots[0]?.Kind, Is.EqualTo(SnapshotKind.Close));
-            });
-
-            await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
-            Assert.Multiple(() =>
-            {
-                Assert.That(backend.RetirementCalls, Is.EqualTo(1));
-                Assert.That(backend.DisposeCalls, Is.EqualTo(1));
-            });
-        }
-        finally
+            RetirementStarting = () =>
+                throw new InvalidOperationException("Expected retirement failure."),
+        };
+        var config = new VersionControlConfig
         {
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
-            }
+            AutoCommitOnClose = true,
+        };
+        VersionControlCoordinator coordinator = session.Start(config, _ => backend);
+        await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
 
-            await TestReset.ResetShellAsync();
-        }
+        await TestShell.Project.CloseProjectAsync();
+        await coordinator.NotifySavedAsync();
+        HeadlessTestHelpers.Settle();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(TestShell.Project.CurrentProject.Value, Is.Null);
+            Assert.That(coordinator.CurrentService, Is.Null);
+            Assert.That(session.EditorService.ProjectVersionControlService.Value, Is.Null);
+            Assert.That(coordinator.IsTracked.Value, Is.False);
+            Assert.That(backend.RetirementCalls, Is.EqualTo(1));
+            Assert.That(backend.DisposeCalls, Is.EqualTo(1));
+            Assert.That(backend.RetirementSnapshots, Has.Count.EqualTo(1));
+            Assert.That(backend.RetirementSnapshots[0]?.Message,
+                Is.EqualTo("beutl: snapshot on close"));
+            Assert.That(backend.RetirementSnapshots[0]?.Kind, Is.EqualTo(SnapshotKind.Close));
+        });
+
+        await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Multiple(() =>
+        {
+            Assert.That(backend.RetirementCalls, Is.EqualTo(1));
+            Assert.That(backend.DisposeCalls, Is.EqualTo(1));
+        });
     }
 
     [AvaloniaTest]
     public async Task Async_disposal_continues_when_an_operation_cancellation_callback_throws()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
         Task<bool>? initialization = null;
-        var identityStarted = new TaskCompletionSource(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        var cancellationObserved = new TaskCompletionSource(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        var releaseIdentity = new TaskCompletionSource(
-            TaskCreationOptions.RunContinuationsAsynchronously);
+        var identity = new BlockingPrompt<GitIdentity?>();
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-throwing-cancellation-disposal");
 
         try
         {
-            await CreateProjectForFakeVersionControlAsync(
-                "version-control-throwing-cancellation-disposal");
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
             var backend = new PullCycleTestBackend(
                 repository: null,
                 discoveredRepository: null,
-                tip)
+                MainTip)
             {
                 RequireIdentityForInitialization = true,
             };
-            var editorService = new EditorService(new ExtensionProvider());
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
+            VersionControlCoordinator coordinator = session.Start(
                 GlobalConfiguration.Instance.VersionControlConfig,
-                installationLocator: null,
-                serviceFactory: _ => backend);
+                _ => backend);
             await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
 
             initialization = coordinator.InitializeCurrentProjectAsync(
@@ -3531,21 +2423,9 @@ public class VersionControlRestoreTests
                     using CancellationTokenRegistration registration = cancellationToken.Register(
                         static () => throw new InvalidOperationException(
                             "Cancellation callback failure."));
-                    identityStarted.TrySetResult();
-                    try
-                    {
-                        await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
-                    }
-                    catch (OperationCanceledException)
-                        when (cancellationToken.IsCancellationRequested)
-                    {
-                        cancellationObserved.TrySetResult();
-                    }
-
-                    await releaseIdentity.Task.WaitAsync(TimeSpan.FromSeconds(5));
-                    return null;
+                    return await identity.AnswerLateAsync(cancellationToken);
                 });
-            await identityStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await identity.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
             Exception? synchronousDisposalFailure = null;
             Task? disposal = null;
@@ -3558,7 +2438,7 @@ public class VersionControlRestoreTests
                 synchronousDisposalFailure = ex;
             }
 
-            await cancellationObserved.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await identity.Cancelled.Task.WaitAsync(TimeSpan.FromSeconds(5));
             Assert.Multiple(() =>
             {
                 Assert.That(synchronousDisposalFailure, Is.Null);
@@ -3566,7 +2446,7 @@ public class VersionControlRestoreTests
                 Assert.That(disposal?.IsCompleted, Is.False);
             });
 
-            releaseIdentity.TrySetResult();
+            identity.Release(null);
             Assert.That(await initialization.WaitAsync(TimeSpan.FromSeconds(5)), Is.False);
             await disposal!.WaitAsync(TimeSpan.FromSeconds(5));
 
@@ -3575,61 +2455,45 @@ public class VersionControlRestoreTests
                 Assert.That(backend.SetLocalIdentityCalls, Is.Zero);
                 Assert.That(backend.CallsAfterRetirement, Is.Zero);
                 Assert.That(coordinator.CurrentService, Is.Null);
-                Assert.That(editorService.ProjectVersionControlService.Value, Is.Null);
+                Assert.That(session.EditorService.ProjectVersionControlService.Value, Is.Null);
             });
         }
         finally
         {
-            releaseIdentity.TrySetResult();
+            identity.Release(null);
             if (initialization is not null)
             {
                 await initialization.WaitAsync(TimeSpan.FromSeconds(5));
             }
-
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
-            }
-
-            await TestReset.ResetShellAsync();
         }
     }
 
     [AvaloniaTest]
     public async Task Async_disposal_joins_an_active_conflict_marker_warning()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
         Task? opening = null;
         var warningStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseWarning = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-opening-warning-disposal");
 
         try
         {
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-opening-warning-disposal");
             // An element file in the scene's folder is one the project loads.
             string sceneDirectory = Path.GetDirectoryName(
-                project.Items.OfType<Scene>().First().Uri!.LocalPath)!;
+                session.Project.Items.OfType<Scene>().First().Uri!.LocalPath)!;
             await File.WriteAllTextAsync(
                 Path.Combine(sceneDirectory, "blocked-warning.belm"),
                 "<<<<<<< ours\n{}\n=======\n{}\n>>>>>>> theirs\n");
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
             var backend = new PullCycleTestBackend(
                 repository: null,
                 discoveredRepository: null,
-                tip);
-            var editorService = new EditorService(new ExtensionProvider());
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
+                MainTip);
+            VersionControlCoordinator coordinator = session.Start(
                 GlobalConfiguration.Instance.VersionControlConfig,
-                installationLocator: null,
-                serviceFactory: _ => backend);
+                _ => backend);
             await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
             coordinator.WarnConflictMarkersAsync = async _ =>
             {
@@ -3637,7 +2501,7 @@ public class VersionControlRestoreTests
                 await releaseWarning.Task.WaitAsync(TimeSpan.FromSeconds(5));
             };
 
-            opening = TestShell.Project.OpenProject(project.Uri!.LocalPath);
+            opening = TestShell.Project.OpenProject(session.Project.Uri!.LocalPath);
             await warningStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
             Task disposal = coordinator.DisposeAsync().AsTask();
@@ -3655,7 +2519,7 @@ public class VersionControlRestoreTests
             Assert.Multiple(() =>
             {
                 Assert.That(coordinator.CurrentService, Is.Null);
-                Assert.That(editorService.ProjectVersionControlService.Value, Is.Null);
+                Assert.That(session.EditorService.ProjectVersionControlService.Value, Is.Null);
             });
         }
         finally
@@ -3665,52 +2529,34 @@ public class VersionControlRestoreTests
             {
                 await opening.WaitAsync(TimeSpan.FromSeconds(5));
             }
-
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
-            }
-
-            await TestReset.ResetShellAsync();
         }
     }
 
     [AvaloniaTest]
     public async Task Async_disposal_joins_an_active_close_barrier_before_clearing_state()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
         Task? closing = null;
         var retirementStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseRetirement = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-close-barrier-disposal");
 
         try
         {
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-close-barrier-disposal");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var backend = new PullCycleTestBackend(repository, repository, tip)
+            var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip)
             {
                 RetirementStarted = retirementStarted,
                 RetirementRelease = releaseRetirement.Task,
             };
-            var editorService = new EditorService(new ExtensionProvider());
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
+            VersionControlCoordinator coordinator = session.Start(
                 GlobalConfiguration.Instance.VersionControlConfig,
-                installationLocator: null,
-                serviceFactory: _ => backend);
+                _ => backend);
             await WaitUntilAsync(() =>
                 ReferenceEquals(coordinator.CurrentService, backend)
                 && ReferenceEquals(
-                    editorService.ProjectVersionControlService.Value,
+                    session.EditorService.ProjectVersionControlService.Value,
                     backend)
                 && coordinator.IsTracked.Value);
 
@@ -3734,7 +2580,7 @@ public class VersionControlRestoreTests
             {
                 Assert.That(TestShell.Project.CurrentProject.Value, Is.Null);
                 Assert.That(coordinator.CurrentService, Is.Null);
-                Assert.That(editorService.ProjectVersionControlService.Value, Is.Null);
+                Assert.That(session.EditorService.ProjectVersionControlService.Value, Is.Null);
                 Assert.That(backend.CallsAfterRetirement, Is.Zero);
             });
         }
@@ -3745,201 +2591,143 @@ public class VersionControlRestoreTests
             {
                 await closing.WaitAsync(TimeSpan.FromSeconds(5));
             }
-
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
-            }
-
-            await TestReset.ResetShellAsync();
         }
     }
 
     [AvaloniaTest]
     public async Task Git_executable_override_rediscoveries_only_an_unassociated_backend()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
-
-        try
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-git-override-reactivation");
+        string validGitPath = Path.Combine(Path.GetTempPath(), "beutl-valid-git");
+        string invalidGitPath = Path.Combine(Path.GetTempPath(), "beutl-invalid-git");
+        var probe = new ConfigurableGitInstallationProbe(validGitPath);
+        var config = new VersionControlConfig
         {
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-git-override-reactivation");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            string validGitPath = Path.Combine(Path.GetTempPath(), "beutl-valid-git");
-            string invalidGitPath = Path.Combine(Path.GetTempPath(), "beutl-invalid-git");
-            var probe = new ConfigurableGitInstallationProbe(validGitPath);
-            var config = new VersionControlConfig
+            GitExecutablePath = invalidGitPath,
+        };
+        var locator = new GitInstallationLocator(config, probe, GitHostPlatform.Linux);
+        var createdBackends = new List<PullCycleTestBackend>();
+        VersionControlCoordinator coordinator = session.Start(
+            config,
+            candidate =>
             {
-                GitExecutablePath = invalidGitPath,
-            };
-            var locator = new GitInstallationLocator(config, probe, GitHostPlatform.Linux);
-            var createdBackends = new List<PullCycleTestBackend>();
-            var editorService = new EditorService(new ExtensionProvider());
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
-                config,
-                locator,
-                serviceFactory: candidate =>
+                var backend = new PullCycleTestBackend(candidate, session.Repository, MainTip)
                 {
-                    var backend = new PullCycleTestBackend(candidate, repository, tip)
-                    {
-                        AvailabilityOverride = locator.LocateAsync,
-                    };
-                    createdBackends.Add(backend);
-                    return backend;
-                });
-            await WaitUntilAsync(() =>
-                coordinator.CurrentService is { Repository: null }
-                && !coordinator.IsGitAvailable.Value
-                && !coordinator.IsTracked.Value);
-            IProjectVersionControlService unavailableService = coordinator.CurrentService!;
+                    AvailabilityOverride = locator.LocateAsync,
+                };
+                createdBackends.Add(backend);
+                return backend;
+            },
+            locator);
+        await WaitUntilAsync(() =>
+            coordinator.CurrentService is { Repository: null }
+            && !coordinator.IsGitAvailable.Value
+            && !coordinator.IsTracked.Value);
+        IProjectVersionControlService unavailableService = coordinator.CurrentService!;
 
-            config.AutoCommitOnSave = !config.AutoCommitOnSave;
-            HeadlessTestHelpers.Settle();
-            Assert.That(coordinator.CurrentService, Is.SameAs(unavailableService));
+        config.AutoCommitOnSave = !config.AutoCommitOnSave;
+        HeadlessTestHelpers.Settle();
+        Assert.That(coordinator.CurrentService, Is.SameAs(unavailableService));
 
-            config.GitExecutablePath = validGitPath;
-            await WaitUntilAsync(() =>
-                coordinator.CurrentService?.Repository is not null
-                && coordinator.IsGitAvailable.Value
-                && coordinator.IsTracked.Value
-                && ReferenceEquals(
-                    editorService.ProjectVersionControlService.Value,
-                    coordinator.CurrentService));
-            IProjectVersionControlService trackedService = coordinator.CurrentService!;
+        config.GitExecutablePath = validGitPath;
+        await WaitUntilAsync(() =>
+            coordinator.CurrentService?.Repository is not null
+            && coordinator.IsGitAvailable.Value
+            && coordinator.IsTracked.Value
+            && ReferenceEquals(
+                session.EditorService.ProjectVersionControlService.Value,
+                coordinator.CurrentService));
+        IProjectVersionControlService trackedService = coordinator.CurrentService!;
 
-            int backendCountAfterTracking = createdBackends.Count;
-            config.GitExecutablePath = invalidGitPath;
-            await WaitUntilAsync(() => !coordinator.IsGitAvailable.Value);
+        int backendCountAfterTracking = createdBackends.Count;
+        config.GitExecutablePath = invalidGitPath;
+        await WaitUntilAsync(() => !coordinator.IsGitAvailable.Value);
 
-            Assert.Multiple(() =>
-            {
-                Assert.That(trackedService.Repository, Is.Not.Null);
-                Assert.That(coordinator.CurrentService, Is.SameAs(trackedService));
-                Assert.That(editorService.ProjectVersionControlService.Value,
-                    Is.SameAs(trackedService));
-                Assert.That(coordinator.IsGitAvailable.Value, Is.False);
-                Assert.That(coordinator.IsTracked.Value, Is.True);
-                Assert.That(createdBackends, Has.Count.EqualTo(backendCountAfterTracking));
-                Assert.That(
-                    createdBackends.Single(backend => ReferenceEquals(backend, trackedService))
-                        .RetirementCalls,
-                    Is.Zero);
-            });
-        }
-        finally
+        Assert.Multiple(() =>
         {
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
-            }
-
-            await TestReset.ResetShellAsync();
-        }
+            Assert.That(trackedService.Repository, Is.Not.Null);
+            Assert.That(coordinator.CurrentService, Is.SameAs(trackedService));
+            Assert.That(session.EditorService.ProjectVersionControlService.Value,
+                Is.SameAs(trackedService));
+            Assert.That(coordinator.IsGitAvailable.Value, Is.False);
+            Assert.That(coordinator.IsTracked.Value, Is.True);
+            Assert.That(createdBackends, Has.Count.EqualTo(backendCountAfterTracking));
+            Assert.That(
+                createdBackends.Single(backend => ReferenceEquals(backend, trackedService))
+                    .RetirementCalls,
+                Is.Zero);
+        });
     }
 
     [AvaloniaTest]
     public async Task Lfs_configuration_reapplies_hygiene_to_the_open_tracked_backend()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
         var appliedValues = new List<bool>();
-
-        try
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-lfs-config-hygiene");
+        var config = new VersionControlConfig
         {
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-lfs-config-hygiene");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var config = new VersionControlConfig
-            {
-                UseLfsWhenAvailable = false,
-            };
-            var backend = new PullCycleTestBackend(repository, repository, tip)
-            {
-                EnsureHygieneOverride = _ =>
-                {
-                    lock (appliedValues)
-                    {
-                        appliedValues.Add(config.UseLfsWhenAvailable);
-                    }
-
-                    return Task.CompletedTask;
-                },
-            };
-            var editorService = new EditorService(new ExtensionProvider());
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
-                config,
-                installationLocator: null,
-                serviceFactory: _ => backend);
-            await WaitUntilAsync(() =>
-                ReferenceEquals(coordinator.CurrentService, backend)
-                && coordinator.IsTracked.Value);
-            lock (appliedValues)
-            {
-                appliedValues.Clear();
-            }
-
-            config.UseLfsWhenAvailable = true;
-            await WaitUntilAsync(() =>
+            UseLfsWhenAvailable = false,
+        };
+        var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip)
+        {
+            EnsureHygieneOverride = _ =>
             {
                 lock (appliedValues)
                 {
-                    return appliedValues.Count >= 1;
+                    appliedValues.Add(config.UseLfsWhenAvailable);
                 }
-            });
 
-            config.UseLfsWhenAvailable = false;
-            await WaitUntilAsync(() =>
-            {
-                lock (appliedValues)
-                {
-                    return appliedValues.Count >= 2;
-                }
-            });
+                return Task.CompletedTask;
+            },
+        };
+        VersionControlCoordinator coordinator = session.Start(config, _ => backend);
+        await WaitUntilAsync(() =>
+            ReferenceEquals(coordinator.CurrentService, backend)
+            && coordinator.IsTracked.Value);
+        lock (appliedValues)
+        {
+            appliedValues.Clear();
+        }
 
-            bool[] snapshot;
+        config.UseLfsWhenAvailable = true;
+        await WaitUntilAsync(() =>
+        {
             lock (appliedValues)
             {
-                snapshot = appliedValues.ToArray();
+                return appliedValues.Count >= 1;
             }
+        });
 
-            Assert.Multiple(() =>
-            {
-                Assert.That(snapshot, Is.EqualTo(new[] { true, false }));
-                Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(project));
-                Assert.That(coordinator.CurrentService, Is.SameAs(backend));
-                Assert.That(editorService.ProjectVersionControlService.Value, Is.SameAs(backend));
-                Assert.That(backend.RetirementCalls, Is.Zero);
-            });
-        }
-        finally
+        config.UseLfsWhenAvailable = false;
+        await WaitUntilAsync(() =>
         {
-            if (coordinator is not null)
+            lock (appliedValues)
             {
-                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+                return appliedValues.Count >= 2;
             }
+        });
 
-            await TestReset.ResetShellAsync();
+        bool[] snapshot;
+        lock (appliedValues)
+        {
+            snapshot = appliedValues.ToArray();
         }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(snapshot, Is.EqualTo(new[] { true, false }));
+            Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(session.Project));
+            Assert.That(coordinator.CurrentService, Is.SameAs(backend));
+            Assert.That(session.EditorService.ProjectVersionControlService.Value, Is.SameAs(backend));
+            Assert.That(backend.RetirementCalls, Is.Zero);
+        });
     }
 
     [AvaloniaTest]
     public async Task Newer_git_configuration_cancels_a_stale_unassociated_rediscovery()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
         var hygieneStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var hygieneCompleted = new TaskCompletionSource(
@@ -3948,16 +2736,11 @@ public class VersionControlRestoreTests
             TaskCreationOptions.RunContinuationsAsynchronously);
         var latestInvalidProbeCompleted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-stale-git-configuration");
 
         try
         {
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-stale-git-configuration");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
             string validGitPath = Path.Combine(Path.GetTempPath(), "beutl-stale-valid-git");
             string invalidGitPath = Path.Combine(Path.GetTempPath(), "beutl-stale-invalid-git");
             var probe = new ConfigurableGitInstallationProbe(validGitPath);
@@ -3967,19 +2750,15 @@ public class VersionControlRestoreTests
             };
             var locator = new GitInstallationLocator(config, probe, GitHostPlatform.Linux);
             PullCycleTestBackend? staleTrackedBackend = null;
-            var editorService = new EditorService(new ExtensionProvider());
             var publishedServices = new List<IProjectVersionControlService?>();
-            using IDisposable subscription = editorService.ProjectVersionControlService.Subscribe(
+            using IDisposable subscription = session.EditorService.ProjectVersionControlService.Subscribe(
                 publishedServices.Add);
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
+            VersionControlCoordinator coordinator = session.Start(
                 config,
-                locator,
-                serviceFactory: candidate =>
+                candidate =>
                 {
                     bool blockHygiene = candidate is not null && staleTrackedBackend is null;
-                    var backend = new PullCycleTestBackend(candidate, repository, tip)
+                    var backend = new PullCycleTestBackend(candidate, session.Repository, MainTip)
                     {
                         AvailabilityOverride = async cancellationToken =>
                         {
@@ -4003,7 +2782,8 @@ public class VersionControlRestoreTests
                     }
 
                     return backend;
-                });
+                },
+                locator);
             await WaitUntilAsync(() =>
                 coordinator.CurrentService is { Repository: null }
                 && !coordinator.IsGitAvailable.Value);
@@ -4021,7 +2801,7 @@ public class VersionControlRestoreTests
                 && !coordinator.IsGitAvailable.Value
                 && !coordinator.IsTracked.Value
                 && ReferenceEquals(
-                    editorService.ProjectVersionControlService.Value,
+                    session.EditorService.ProjectVersionControlService.Value,
                     coordinator.CurrentService));
 
             Assert.Multiple(() =>
@@ -4029,7 +2809,7 @@ public class VersionControlRestoreTests
                 Assert.That(staleTrackedBackend, Is.Not.Null);
                 Assert.That(publishedServices, Does.Not.Contain(staleTrackedBackend));
                 Assert.That(coordinator.CurrentService, Is.Not.SameAs(staleTrackedBackend));
-                Assert.That(editorService.ProjectVersionControlService.Value,
+                Assert.That(session.EditorService.ProjectVersionControlService.Value,
                     Is.SameAs(coordinator.CurrentService));
                 Assert.That(staleTrackedBackend!.RetirementCalls, Is.EqualTo(1));
                 Assert.That(staleTrackedBackend.DisposeCalls, Is.EqualTo(1));
@@ -4038,20 +2818,12 @@ public class VersionControlRestoreTests
         finally
         {
             releaseHygiene.TrySetResult();
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
-            }
-
-            await TestReset.ResetShellAsync();
         }
     }
 
     [AvaloniaTest]
     public async Task Waiting_operation_does_not_interleave_between_coalesced_git_configurations()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
         var staleHygieneStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseStaleHygiene = new TaskCompletionSource(
@@ -4066,16 +2838,11 @@ public class VersionControlRestoreTests
             TaskCreationOptions.RunContinuationsAsynchronously);
         var latestInitializationStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-coalesced-git-config-waiter");
 
         try
         {
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-coalesced-git-config-waiter");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
             string validGitPath = Path.Combine(Path.GetTempPath(), "beutl-coalesced-valid-git");
             string invalidGitPath = Path.Combine(
                 Path.GetTempPath(),
@@ -4087,18 +2854,14 @@ public class VersionControlRestoreTests
             };
             var locator = new GitInstallationLocator(config, probe, GitHostPlatform.Linux);
             int untrackedBackends = 0;
-            var editorService = new EditorService(new ExtensionProvider());
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
+            VersionControlCoordinator coordinator = session.Start(
                 config,
-                locator,
-                serviceFactory: candidate =>
+                candidate =>
                 {
                     int untrackedIndex = candidate is null
                         ? Interlocked.Increment(ref untrackedBackends)
                         : 0;
-                    return new PullCycleTestBackend(candidate, repository, tip)
+                    return new PullCycleTestBackend(candidate, session.Repository, MainTip)
                     {
                         AvailabilityOverride = untrackedIndex == 3
                             ? async cancellationToken =>
@@ -4124,7 +2887,8 @@ public class VersionControlRestoreTests
                             ? releaseStaleInitialization.Task
                             : null,
                     };
-                });
+                },
+                locator);
             await WaitUntilAsync(() =>
                 coordinator.CurrentService is { Repository: null }
                 && !coordinator.IsGitAvailable.Value);
@@ -4168,35 +2932,22 @@ public class VersionControlRestoreTests
             releaseStaleHygiene.TrySetResult();
             releaseLatestActivation.TrySetResult();
             releaseStaleInitialization.TrySetResult();
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
-            }
-
-            await TestReset.ResetShellAsync();
         }
     }
 
     [AvaloniaTest]
     public async Task Git_configuration_change_during_disposal_does_not_start_a_new_activation()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
         Task? disposal = null;
         var retirementStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseRetirement = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-git-config-disposal");
 
         try
         {
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-git-config-disposal");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
             string validGitPath = Path.Combine(Path.GetTempPath(), "beutl-disposal-valid-git");
             string invalidGitPath = Path.Combine(Path.GetTempPath(), "beutl-disposal-invalid-git");
             var probe = new ConfigurableGitInstallationProbe(validGitPath);
@@ -4206,22 +2957,19 @@ public class VersionControlRestoreTests
             };
             var locator = new GitInstallationLocator(config, probe, GitHostPlatform.Linux);
             int factoryCalls = 0;
-            var editorService = new EditorService(new ExtensionProvider());
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
+            VersionControlCoordinator coordinator = session.Start(
                 config,
-                locator,
-                serviceFactory: candidate =>
+                candidate =>
                 {
                     Interlocked.Increment(ref factoryCalls);
-                    return new PullCycleTestBackend(candidate, repository, tip)
+                    return new PullCycleTestBackend(candidate, session.Repository, MainTip)
                     {
                         AvailabilityOverride = locator.LocateAsync,
                         RetirementStarted = retirementStarted,
                         RetirementRelease = releaseRetirement.Task,
                     };
-                });
+                },
+                locator);
             await WaitUntilAsync(() =>
                 coordinator.CurrentService is { Repository: null }
                 && !coordinator.IsGitAvailable.Value);
@@ -4236,7 +2984,7 @@ public class VersionControlRestoreTests
                 Assert.That(disposal.IsCompleted, Is.False);
                 Assert.That(Volatile.Read(ref factoryCalls), Is.EqualTo(callsBeforeDisposal));
                 Assert.That(coordinator.CurrentService, Is.Null);
-                Assert.That(editorService.ProjectVersionControlService.Value, Is.Null);
+                Assert.That(session.EditorService.ProjectVersionControlService.Value, Is.Null);
             });
 
             releaseRetirement.TrySetResult();
@@ -4249,35 +2997,21 @@ public class VersionControlRestoreTests
             {
                 await disposal.WaitAsync(TimeSpan.FromSeconds(5));
             }
-
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
-            }
-
-            await TestReset.ResetShellAsync();
         }
     }
 
     [AvaloniaTest]
     public async Task Git_configuration_rediscovery_waits_for_inflight_initialization()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
         var initializeStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseInitialize = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-git-config-initialize");
 
         try
         {
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-git-config-initialize");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
             string validGitPath = Path.Combine(Path.GetTempPath(), "beutl-init-valid-git");
             string invalidGitPath = Path.Combine(Path.GetTempPath(), "beutl-init-invalid-git");
             var probe = new ConfigurableGitInstallationProbe(validGitPath);
@@ -4287,16 +3021,12 @@ public class VersionControlRestoreTests
             };
             var locator = new GitInstallationLocator(config, probe, GitHostPlatform.Linux);
             var createdBackends = new List<PullCycleTestBackend>();
-            var editorService = new EditorService(new ExtensionProvider());
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
+            VersionControlCoordinator coordinator = session.Start(
                 config,
-                locator,
-                serviceFactory: candidate =>
+                candidate =>
                 {
                     bool initialBackend = createdBackends.Count == 0;
-                    var backend = new PullCycleTestBackend(candidate, repository, tip)
+                    var backend = new PullCycleTestBackend(candidate, session.Repository, MainTip)
                     {
                         AvailabilityOverride = locator.LocateAsync,
                         InitializeStarted = initialBackend ? initializeStarted : null,
@@ -4304,7 +3034,8 @@ public class VersionControlRestoreTests
                     };
                     createdBackends.Add(backend);
                     return backend;
-                });
+                },
+                locator);
             await WaitUntilAsync(() =>
                 coordinator.CurrentService is { Repository: null }
                 && !coordinator.IsGitAvailable.Value);
@@ -4343,34 +3074,21 @@ public class VersionControlRestoreTests
         finally
         {
             releaseInitialize.TrySetResult();
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
-            }
-
-            await TestReset.ResetShellAsync();
         }
     }
 
     [AvaloniaTest]
     public async Task Initialization_started_during_git_rediscovery_waits_for_activation()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
         var hygieneStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseHygiene = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-git-config-wait-initialize");
 
         try
         {
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-git-config-wait-initialize");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
             string validGitPath = Path.Combine(Path.GetTempPath(), "beutl-wait-init-valid-git");
             string invalidGitPath = Path.Combine(Path.GetTempPath(), "beutl-wait-init-invalid-git");
             var probe = new ConfigurableGitInstallationProbe(validGitPath);
@@ -4380,28 +3098,20 @@ public class VersionControlRestoreTests
             };
             var locator = new GitInstallationLocator(config, probe, GitHostPlatform.Linux);
             var createdBackends = new List<PullCycleTestBackend>();
-            var editorService = new EditorService(new ExtensionProvider());
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
+            VersionControlCoordinator coordinator = session.Start(
                 config,
-                locator,
-                serviceFactory: candidate =>
+                candidate =>
                 {
-                    var backend = new PullCycleTestBackend(candidate, repository, tip)
+                    var backend = new PullCycleTestBackend(candidate, session.Repository, MainTip)
                     {
                         AvailabilityOverride = locator.LocateAsync,
-                        Branches =
-                        [
-                            new BranchInfo("main", true, null),
-                            new BranchInfo("configuration-ready", false, null),
-                        ],
                         EnsureHygieneStarted = candidate is not null ? hygieneStarted : null,
                         EnsureHygieneRelease = candidate is not null ? releaseHygiene.Task : null,
                     };
                     createdBackends.Add(backend);
                     return backend;
-                });
+                },
+                locator);
             await WaitUntilAsync(() =>
                 coordinator.CurrentService is { Repository: null }
                 && !coordinator.IsGitAvailable.Value
@@ -4424,7 +3134,7 @@ public class VersionControlRestoreTests
 
             Assert.Multiple(() =>
             {
-                Assert.That(trackedBackend.Repository, Is.EqualTo(repository));
+                Assert.That(trackedBackend.Repository, Is.EqualTo(session.Repository));
                 Assert.That(trackedBackend.InitializeCalls, Is.EqualTo(1));
                 Assert.That(coordinator.IsGitAvailable.Value, Is.True);
                 Assert.That(coordinator.IsTracked.Value, Is.True);
@@ -4434,36 +3144,23 @@ public class VersionControlRestoreTests
         finally
         {
             releaseHygiene.TrySetResult();
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
-            }
-
-            await TestReset.ResetShellAsync();
         }
     }
 
     [AvaloniaTest]
     public async Task Branch_started_during_git_rediscovery_waits_for_activation()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
         var hygieneStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseHygiene = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var branchStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-git-config-wait-branch");
 
         try
         {
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-git-config-wait-branch");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
             string validGitPath = Path.Combine(Path.GetTempPath(), "beutl-wait-branch-valid-git");
             string invalidGitPath = Path.Combine(Path.GetTempPath(), "beutl-wait-branch-invalid-git");
             var probe = new ConfigurableGitInstallationProbe(validGitPath);
@@ -4473,15 +3170,11 @@ public class VersionControlRestoreTests
             };
             var locator = new GitInstallationLocator(config, probe, GitHostPlatform.Linux);
             var createdBackends = new List<PullCycleTestBackend>();
-            var editorService = new EditorService(new ExtensionProvider());
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
+            VersionControlCoordinator coordinator = session.Start(
                 config,
-                locator,
-                serviceFactory: candidate =>
+                candidate =>
                 {
-                    var backend = new PullCycleTestBackend(candidate, repository, tip)
+                    var backend = new PullCycleTestBackend(candidate, session.Repository, MainTip)
                     {
                         AvailabilityOverride = locator.LocateAsync,
                         Branches =
@@ -4495,7 +3188,8 @@ public class VersionControlRestoreTests
                     };
                     createdBackends.Add(backend);
                     return backend;
-                });
+                },
+                locator);
             coordinator.ConfirmSwitchBranchAsync = (_, _) => Task.FromResult(true);
             await WaitUntilAsync(() =>
                 coordinator.CurrentService is { Repository: null }
@@ -4520,7 +3214,7 @@ public class VersionControlRestoreTests
 
             Assert.Multiple(() =>
             {
-                Assert.That(trackedBackend.Repository, Is.EqualTo(repository));
+                Assert.That(trackedBackend.Repository, Is.EqualTo(session.Repository));
                 Assert.That(trackedBackend.RetirementCalls, Is.Zero);
                 Assert.That(coordinator.IsGitAvailable.Value, Is.True);
                 Assert.That(coordinator.IsTracked.Value, Is.True);
@@ -4530,34 +3224,21 @@ public class VersionControlRestoreTests
         finally
         {
             releaseHygiene.TrySetResult();
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
-            }
-
-            await TestReset.ResetShellAsync();
         }
     }
 
     [AvaloniaTest]
     public async Task Git_configuration_change_during_branch_cycle_preserves_backend_identity()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
         var branchStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseBranch = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-git-config-branch");
 
         try
         {
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-git-config-branch");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
             string validGitPath = Path.Combine(Path.GetTempPath(), "beutl-branch-valid-git");
             string invalidGitPath = Path.Combine(Path.GetTempPath(), "beutl-branch-invalid-git");
             var probe = new ConfigurableGitInstallationProbe(validGitPath);
@@ -4569,7 +3250,7 @@ public class VersionControlRestoreTests
             var locator = new GitInstallationLocator(config, probe, GitHostPlatform.Linux);
             int hygieneCalls = 0;
             bool appliedUseLfsWhenAvailable = false;
-            var backend = new PullCycleTestBackend(repository, repository, tip)
+            var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip)
             {
                 AvailabilityOverride = locator.LocateAsync,
                 Branches =
@@ -4589,17 +3270,14 @@ public class VersionControlRestoreTests
                 },
             };
             int factoryCalls = 0;
-            var editorService = new EditorService(new ExtensionProvider());
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
+            VersionControlCoordinator coordinator = session.Start(
                 config,
-                locator,
-                serviceFactory: _ =>
+                _ =>
                 {
                     Interlocked.Increment(ref factoryCalls);
                     return backend;
-                });
+                },
+                locator);
             coordinator.ConfirmSwitchBranchAsync = (_, _) => Task.FromResult(true);
             await WaitUntilAsync(() =>
                 ReferenceEquals(coordinator.CurrentService, backend)
@@ -4638,8 +3316,8 @@ public class VersionControlRestoreTests
             {
                 Assert.That(
                     TestShell.Project.CurrentProject.Value?.Uri?.LocalPath,
-                    Is.EqualTo(project.Uri!.LocalPath));
-                Assert.That(editorService.ProjectVersionControlService.Value, Is.SameAs(backend));
+                    Is.EqualTo(session.Project.Uri!.LocalPath));
+                Assert.That(session.EditorService.ProjectVersionControlService.Value, Is.SameAs(backend));
                 Assert.That(Volatile.Read(ref factoryCalls), Is.EqualTo(callsBeforeBranch));
                 Assert.That(
                     Volatile.Read(ref hygieneCalls),
@@ -4651,20 +3329,12 @@ public class VersionControlRestoreTests
         finally
         {
             releaseBranch.TrySetResult();
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
-            }
-
-            await TestReset.ResetShellAsync();
         }
     }
 
     [AvaloniaTest]
     public async Task Close_barrier_defers_git_rediscovery_and_retires_the_tracked_backend_once()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
         Func<ProjectService.ProjectCloseContext, CancellationToken, Task>? blockingClosing = null;
         Task? abortedClose = null;
         var closingStarted = new TaskCompletionSource(
@@ -4676,16 +3346,11 @@ public class VersionControlRestoreTests
         var releaseTrackedRetirement = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         using var closeCancellation = new CancellationTokenSource();
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-git-config-close");
 
         try
         {
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-git-config-close");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
             string validGitPath = Path.Combine(Path.GetTempPath(), "beutl-close-valid-git");
             string invalidGitPath = Path.Combine(Path.GetTempPath(), "beutl-close-invalid-git");
             var probe = new ConfigurableGitInstallationProbe(validGitPath);
@@ -4696,15 +3361,11 @@ public class VersionControlRestoreTests
             };
             var locator = new GitInstallationLocator(config, probe, GitHostPlatform.Linux);
             var createdBackends = new List<PullCycleTestBackend>();
-            var editorService = new EditorService(new ExtensionProvider());
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
+            VersionControlCoordinator coordinator = session.Start(
                 config,
-                locator,
-                serviceFactory: candidate =>
+                candidate =>
                 {
-                    var backend = new PullCycleTestBackend(candidate, repository, tip)
+                    var backend = new PullCycleTestBackend(candidate, session.Repository, MainTip)
                     {
                         AvailabilityOverride = locator.LocateAsync,
                         EnsureHygieneStarted = candidate is not null
@@ -4719,7 +3380,8 @@ public class VersionControlRestoreTests
                     };
                     createdBackends.Add(backend);
                     return backend;
-                });
+                },
+                locator);
             await WaitUntilAsync(() =>
                 coordinator.CurrentService is { Repository: null }
                 && !coordinator.IsGitAvailable.Value);
@@ -4744,16 +3406,8 @@ public class VersionControlRestoreTests
             });
 
             closeCancellation.Cancel();
-            OperationCanceledException? closeFailure = null;
-            try
-            {
-                await abortedClose.WaitAsync(TimeSpan.FromSeconds(5));
-            }
-            catch (OperationCanceledException ex)
-            {
-                closeFailure = ex;
-            }
-            Assert.That(closeFailure, Is.Not.Null);
+            await Assert.CatchAsync<OperationCanceledException>(async () =>
+                await abortedClose.WaitAsync(TimeSpan.FromSeconds(5)));
             await trackedHygieneStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
             await WaitUntilAsync(() =>
                 coordinator.CurrentService is { Repository: not null }
@@ -4811,13 +3465,6 @@ public class VersionControlRestoreTests
                 {
                 }
             }
-
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
-            }
-
-            await TestReset.ResetShellAsync();
         }
     }
 
@@ -4850,22 +3497,13 @@ public class VersionControlRestoreTests
             probe.ReleaseCancelledProbe.TrySetResult();
             await disposal.WaitAsync(TimeSpan.FromSeconds(5));
 
-            OperationCanceledException? cancellation = null;
-            try
-            {
-                await explicitProbe;
-            }
-            catch (OperationCanceledException ex)
-            {
-                cancellation = ex;
-            }
+            await Assert.CatchAsync<OperationCanceledException>(async () => await explicitProbe);
 
             int publicationsAfterDisposal = servicePublications;
             config.GitExecutablePath = "/git-after-disposal";
             HeadlessTestHelpers.Settle();
             Assert.Multiple(() =>
             {
-                Assert.That(cancellation, Is.Not.Null);
                 Assert.That(probe.CancellationCount, Is.EqualTo(1));
                 Assert.That(probe.CompletionCount, Is.EqualTo(1));
                 Assert.That(servicePublications, Is.EqualTo(publicationsAfterDisposal));
@@ -4882,232 +3520,144 @@ public class VersionControlRestoreTests
     [AvaloniaTest]
     public async Task Failed_stale_lock_removal_keeps_the_lock_visible_and_warns_with_its_path()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
-        INotificationServiceHandler previousNotificationHandler = NotificationService.Handler;
-        var notifications = new CaptureNotificationHandler();
-
-        try
+        using var notifications = new NotificationCapture();
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-lock-manual-removal");
+        var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip)
         {
-            NotificationService.Handler = notifications;
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-lock-manual-removal");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var backend = new PullCycleTestBackend(repository, repository, tip)
-            {
-                RemoveRecoverableLockResult = false,
-            };
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                new EditorService(new ExtensionProvider()),
-                GlobalConfiguration.Instance.VersionControlConfig,
-                installationLocator: null,
-                serviceFactory: _ => backend);
-            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
-            coordinator.ConfirmRemoveStaleLockAsync = (_, _) => Task.FromResult(true);
-            var lockInfo = new RepositoryLockInfo(
-                Path.Combine(projectRoot, ".git", "index.lock"),
-                DateTimeOffset.UtcNow);
+            RemoveRecoverableLockResult = false,
+        };
+        VersionControlCoordinator coordinator = session.Start(
+            GlobalConfiguration.Instance.VersionControlConfig,
+            _ => backend);
+        await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
+        coordinator.ConfirmRemoveStaleLockAsync = (_, _) => Task.FromResult(true);
+        var lockInfo = new RepositoryLockInfo(
+            Path.Combine(session.Root, ".git", "index.lock"),
+            DateTimeOffset.UtcNow);
 
-            backend.RaiseRecoverableLock(lockInfo);
-            await WaitUntilAsync(() =>
-                backend.RemoveRecoverableLockCalls == 1
-                && notifications.All.Any(notification =>
-                    notification.Type == NotificationType.Warning));
+        backend.RaiseRecoverableLock(lockInfo);
+        await WaitUntilAsync(() =>
+            backend.RemoveRecoverableLockCalls == 1
+            && notifications.All.Any(notification =>
+                notification.Type == NotificationType.Warning));
 
-            Notification warning = notifications.All.Single(notification =>
-                notification.Type == NotificationType.Warning);
-            Assert.Multiple(() =>
-            {
-                Assert.That(backend.RecoverableLock, Is.EqualTo(lockInfo));
-                Assert.That(warning.Message, Does.Contain(lockInfo.LockPath));
-            });
-        }
-        finally
+        Notification warning = notifications.All.Single(notification =>
+            notification.Type == NotificationType.Warning);
+        Assert.Multiple(() =>
         {
-            NotificationService.Handler = previousNotificationHandler;
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync();
-            }
-
-            await TestReset.ResetShellAsync();
-        }
+            Assert.That(backend.RecoverableLock, Is.EqualTo(lockInfo));
+            Assert.That(warning.Message, Does.Contain(lockInfo.LockPath));
+        });
     }
 
     [AvaloniaTest]
     public async Task Removable_stale_lock_is_removed_only_after_consent()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
-        INotificationServiceHandler previousNotificationHandler = NotificationService.Handler;
-        var notifications = new CaptureNotificationHandler();
-
-        try
+        using var notifications = new NotificationCapture();
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-lock-removal-consent");
+        var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip)
         {
-            NotificationService.Handler = notifications;
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-lock-removal-consent");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var backend = new PullCycleTestBackend(repository, repository, tip)
-            {
-                RemoveRecoverableLockResult = true,
-            };
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                new EditorService(new ExtensionProvider()),
-                GlobalConfiguration.Instance.VersionControlConfig,
-                installationLocator: null,
-                serviceFactory: _ => backend);
-            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
-            int confirmationCount = 0;
-            coordinator.ConfirmRemoveStaleLockAsync = (_, _) =>
-            {
-                Interlocked.Increment(ref confirmationCount);
-                return Task.FromResult(true);
-            };
-            var lockInfo = new RepositoryLockInfo(
-                Path.Combine(projectRoot, ".git", "index.lock"),
-                DateTimeOffset.UtcNow,
-                requiresManualRemoval: false);
+            RemoveRecoverableLockResult = true,
+        };
+        VersionControlCoordinator coordinator = session.Start(
+            GlobalConfiguration.Instance.VersionControlConfig,
+            _ => backend);
+        await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
+        int confirmationCount = 0;
+        coordinator.ConfirmRemoveStaleLockAsync = (_, _) =>
+        {
+            Interlocked.Increment(ref confirmationCount);
+            return Task.FromResult(true);
+        };
+        var lockInfo = new RepositoryLockInfo(
+            Path.Combine(session.Root, ".git", "index.lock"),
+            DateTimeOffset.UtcNow,
+            requiresManualRemoval: false);
 
-            backend.RaiseRecoverableLock(lockInfo);
-            await WaitUntilAsync(() =>
+        backend.RaiseRecoverableLock(lockInfo);
+        await WaitUntilAsync(() =>
+            notifications.All.Any(notification =>
+                notification.Message == Strings.VersionControl_StaleLockRemoved));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(Volatile.Read(ref confirmationCount), Is.EqualTo(1));
+            Assert.That(backend.RemoveRecoverableLockCalls, Is.EqualTo(1));
+            Assert.That(backend.RecoverableLock, Is.Null);
+            Assert.That(
                 notifications.All.Any(notification =>
-                    notification.Message == Strings.VersionControl_StaleLockRemoved));
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(Volatile.Read(ref confirmationCount), Is.EqualTo(1));
-                Assert.That(backend.RemoveRecoverableLockCalls, Is.EqualTo(1));
-                Assert.That(backend.RecoverableLock, Is.Null);
-                Assert.That(
-                    notifications.All.Any(notification =>
-                        notification.Type == NotificationType.Warning),
-                    Is.False);
-            });
-        }
-        finally
-        {
-            NotificationService.Handler = previousNotificationHandler;
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync();
-            }
-
-            await TestReset.ResetShellAsync();
-        }
+                    notification.Type == NotificationType.Warning),
+                Is.False);
+        });
     }
 
     [AvaloniaTest]
     public async Task Stale_lock_requiring_manual_removal_warns_without_asking_for_consent()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
-        INotificationServiceHandler previousNotificationHandler = NotificationService.Handler;
-        var notifications = new CaptureNotificationHandler();
-
-        try
+        using var notifications = new NotificationCapture();
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-lock-manual-removal-only");
+        var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip)
         {
-            NotificationService.Handler = notifications;
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-lock-manual-removal-only");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var backend = new PullCycleTestBackend(repository, repository, tip)
-            {
-                RemoveRecoverableLockResult = true,
-            };
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                new EditorService(new ExtensionProvider()),
-                GlobalConfiguration.Instance.VersionControlConfig,
-                installationLocator: null,
-                serviceFactory: _ => backend);
-            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
-            int confirmationCount = 0;
-            coordinator.ConfirmRemoveStaleLockAsync = (_, _) =>
-            {
-                Interlocked.Increment(ref confirmationCount);
-                return Task.FromResult(true);
-            };
-            var lockInfo = new RepositoryLockInfo(
-                Path.Combine(projectRoot, ".git", "index.lock"),
-                DateTimeOffset.UtcNow,
-                requiresManualRemoval: true);
-
-            backend.RaiseRecoverableLock(lockInfo);
-            await WaitUntilAsync(() =>
-                notifications.All.Any(notification =>
-                    notification.Type == NotificationType.Warning));
-
-            Notification warning = notifications.All.Single(notification =>
-                notification.Type == NotificationType.Warning);
-            Assert.Multiple(() =>
-            {
-                Assert.That(Volatile.Read(ref confirmationCount), Is.Zero);
-                Assert.That(backend.RemoveRecoverableLockCalls, Is.Zero);
-                Assert.That(backend.RecoverableLock, Is.SameAs(lockInfo));
-                Assert.That(
-                    warning.Message,
-                    Is.EqualTo(string.Format(
-                        System.Globalization.CultureInfo.CurrentCulture,
-                        Strings.VersionControl_StaleLockManualRemovalRequiredFormat,
-                        lockInfo.LockPath)));
-            });
-        }
-        finally
+            RemoveRecoverableLockResult = true,
+        };
+        VersionControlCoordinator coordinator = session.Start(
+            GlobalConfiguration.Instance.VersionControlConfig,
+            _ => backend);
+        await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
+        int confirmationCount = 0;
+        coordinator.ConfirmRemoveStaleLockAsync = (_, _) =>
         {
-            NotificationService.Handler = previousNotificationHandler;
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync();
-            }
+            Interlocked.Increment(ref confirmationCount);
+            return Task.FromResult(true);
+        };
+        var lockInfo = new RepositoryLockInfo(
+            Path.Combine(session.Root, ".git", "index.lock"),
+            DateTimeOffset.UtcNow,
+            requiresManualRemoval: true);
 
-            await TestReset.ResetShellAsync();
-        }
+        backend.RaiseRecoverableLock(lockInfo);
+        await WaitUntilAsync(() =>
+            notifications.All.Any(notification =>
+                notification.Type == NotificationType.Warning));
+
+        Notification warning = notifications.All.Single(notification =>
+            notification.Type == NotificationType.Warning);
+        Assert.Multiple(() =>
+        {
+            Assert.That(Volatile.Read(ref confirmationCount), Is.Zero);
+            Assert.That(backend.RemoveRecoverableLockCalls, Is.Zero);
+            Assert.That(backend.RecoverableLock, Is.SameAs(lockInfo));
+            Assert.That(
+                warning.Message,
+                Is.EqualTo(string.Format(
+                    System.Globalization.CultureInfo.CurrentCulture,
+                    Strings.VersionControl_StaleLockManualRemovalRequiredFormat,
+                    lockInfo.LockPath)));
+        });
     }
 
     [AvaloniaTest]
     public async Task Stale_lock_confirmation_is_not_reused_for_an_equal_replacement_offer()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
         var confirmationStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseConfirmation = new TaskCompletionSource<bool>(
             TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-lock-offer-generation");
 
         try
         {
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-lock-offer-generation");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var backend = new PullCycleTestBackend(repository, repository, tip)
+            var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip)
             {
                 RemoveRecoverableLockResult = true,
             };
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                new EditorService(new ExtensionProvider()),
+            VersionControlCoordinator coordinator = session.Start(
                 GlobalConfiguration.Instance.VersionControlConfig,
-                installationLocator: null,
-                serviceFactory: _ => backend);
+                _ => backend);
             await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
             int confirmationCount = 0;
             coordinator.ConfirmRemoveStaleLockAsync = async (_, _) =>
@@ -5120,7 +3670,7 @@ public class VersionControlRestoreTests
 
                 return false;
             };
-            string lockPath = Path.Combine(projectRoot, ".git", "index.lock");
+            string lockPath = Path.Combine(session.Root, ".git", "index.lock");
             DateTimeOffset timestamp = DateTimeOffset.UtcNow;
             var firstOffer = new RepositoryLockInfo(lockPath, timestamp);
             var replacementOffer = new RepositoryLockInfo(lockPath, timestamp);
@@ -5145,120 +3695,64 @@ public class VersionControlRestoreTests
         finally
         {
             releaseConfirmation.TrySetResult(false);
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync();
-            }
-
-            await TestReset.ResetShellAsync();
         }
     }
 
     [AvaloniaTest]
     public async Task Async_disposal_cancels_and_joins_an_active_lock_recovery_prompt()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
-        var confirmationStarted = new TaskCompletionSource(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        var confirmationCancelled = new TaskCompletionSource(
-            TaskCreationOptions.RunContinuationsAsynchronously);
+        var confirmation = new BlockingPrompt<bool>();
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-lock-recovery-disposal");
+        var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip);
+        VersionControlCoordinator coordinator = session.Start(
+            GlobalConfiguration.Instance.VersionControlConfig,
+            _ => backend);
+        await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
+        coordinator.ConfirmRemoveStaleLockAsync = (_, cancellationToken) =>
+            confirmation.AnswerAsync(cancellationToken);
 
-        try
+        backend.RaiseRecoverableLock(new RepositoryLockInfo(
+            Path.Combine(session.Root, ".git", "index.lock"),
+            DateTimeOffset.UtcNow));
+        await confirmation.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Task disposal = coordinator.DisposeAsync().AsTask();
+        await disposal.WaitAsync(TimeSpan.FromSeconds(5));
+        await confirmation.Cancelled.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
         {
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-lock-recovery-disposal");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var backend = new PullCycleTestBackend(repository, repository, tip);
-            var editorService = new EditorService(new ExtensionProvider());
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
-                GlobalConfiguration.Instance.VersionControlConfig,
-                installationLocator: null,
-                serviceFactory: _ => backend);
-            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
-            coordinator.ConfirmRemoveStaleLockAsync = async (_, cancellationToken) =>
-            {
-                confirmationStarted.TrySetResult();
-                try
-                {
-                    await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
-                    return true;
-                }
-                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-                {
-                    confirmationCancelled.TrySetResult();
-                    throw;
-                }
-            };
-
-            backend.RaiseRecoverableLock(new RepositoryLockInfo(
-                Path.Combine(projectRoot, ".git", "index.lock"),
-                DateTimeOffset.UtcNow));
-            await confirmationStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
-
-            Task disposal = coordinator.DisposeAsync().AsTask();
-            await disposal.WaitAsync(TimeSpan.FromSeconds(5));
-            await confirmationCancelled.Task.WaitAsync(TimeSpan.FromSeconds(5));
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(backend.RemoveRecoverableLockCalls, Is.Zero);
-                Assert.That(coordinator.CurrentService, Is.Null);
-                Assert.That(editorService.ProjectVersionControlService.Value, Is.Null);
-            });
-        }
-        finally
-        {
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync();
-            }
-
-            await TestReset.ResetShellAsync();
-        }
+            Assert.That(backend.RemoveRecoverableLockCalls, Is.Zero);
+            Assert.That(coordinator.CurrentService, Is.Null);
+            Assert.That(session.EditorService.ProjectVersionControlService.Value, Is.Null);
+        });
     }
 
     [AvaloniaTest]
     public async Task Async_disposal_waits_for_backend_retirement()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
         var retirementStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseRetirement = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-retirement-disposal");
 
         try
         {
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-retirement-disposal");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var backend = new PullCycleTestBackend(repository, repository, tip)
+            var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip)
             {
                 RetirementStarted = retirementStarted,
                 RetirementRelease = releaseRetirement.Task,
             };
-            var editorService = new EditorService(new ExtensionProvider());
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
+            VersionControlCoordinator coordinator = session.Start(
                 GlobalConfiguration.Instance.VersionControlConfig,
-                installationLocator: null,
-                serviceFactory: _ => backend);
+                _ => backend);
             await WaitUntilAsync(() =>
                 ReferenceEquals(coordinator.CurrentService, backend)
                 && ReferenceEquals(
-                    editorService.ProjectVersionControlService.Value,
+                    session.EditorService.ProjectVersionControlService.Value,
                     backend)
                 && coordinator.IsTracked.Value);
 
@@ -5269,7 +3763,7 @@ public class VersionControlRestoreTests
             {
                 coordinatorServiceAtRetirement = coordinator.CurrentService;
                 editorServiceAtRetirement =
-                    editorService.ProjectVersionControlService.Value;
+                    session.EditorService.ProjectVersionControlService.Value;
                 trackedAtRetirement = coordinator.IsTracked.Value;
             };
 
@@ -5286,36 +3780,23 @@ public class VersionControlRestoreTests
                 Assert.That(editorServiceAtRetirement, Is.Null);
                 Assert.That(trackedAtRetirement, Is.False);
                 Assert.That(coordinator.CurrentService, Is.Null);
-                Assert.That(editorService.ProjectVersionControlService.Value, Is.Null);
+                Assert.That(session.EditorService.ProjectVersionControlService.Value, Is.Null);
             });
         }
         finally
         {
             releaseRetirement.TrySetResult();
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync();
-            }
-
-            await TestReset.ResetShellAsync();
         }
     }
 
     [AvaloniaTest]
     public async Task Disposal_from_a_service_publication_callback_finishes_with_a_hidden_service()
     {
-        await TestReset.ResetShellAsync();
-        using var environment = new IsolatedGitEnvironment();
-        string gitPath = ProbeGitOrIgnore();
-        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
-        string? oldGitPath = config.GitExecutablePath;
-        bool oldUseLfs = config.UseLfsWhenAvailable;
+        await using RealGitScope git = await RealGitScope.StartAsync(useLfsWhenAvailable: false);
         VersionControlCoordinator? coordinator = null;
 
         try
         {
-            config.GitExecutablePath = gitPath;
-            config.UseLfsWhenAvailable = false;
             await CreateTrackedProjectAsync("version-control-reentrant-disposal");
 
             var editorService = new EditorService(new ExtensionProvider());
@@ -5344,27 +3825,17 @@ public class VersionControlRestoreTests
         finally
         {
             coordinator?.Dispose();
-            await TestReset.ResetShellAsync();
-            config.GitExecutablePath = oldGitPath;
-            config.UseLfsWhenAvailable = oldUseLfs;
         }
     }
 
     [AvaloniaTest]
     public async Task Throwing_service_publication_subscriber_does_not_stop_later_state_publication()
     {
-        await TestReset.ResetShellAsync();
-        using var environment = new IsolatedGitEnvironment();
-        string gitPath = ProbeGitOrIgnore();
-        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
-        string? oldGitPath = config.GitExecutablePath;
-        bool oldUseLfs = config.UseLfsWhenAvailable;
+        await using RealGitScope git = await RealGitScope.StartAsync(useLfsWhenAvailable: false);
         VersionControlCoordinator? coordinator = null;
 
         try
         {
-            config.GitExecutablePath = gitPath;
-            config.UseLfsWhenAvailable = false;
             await CreateTrackedProjectAsync("version-control-publication-exception");
 
             var editorService = new EditorService(new ExtensionProvider());
@@ -5396,33 +3867,21 @@ public class VersionControlRestoreTests
         finally
         {
             coordinator?.Dispose();
-            await TestReset.ResetShellAsync();
-            config.GitExecutablePath = oldGitPath;
-            config.UseLfsWhenAvailable = oldUseLfs;
         }
     }
 
     [AvaloniaTest]
     public async Task Branch_creation_keeps_the_open_project_and_its_unsaved_edits()
     {
-        await TestReset.ResetShellAsync();
-        using var environment = new IsolatedGitEnvironment();
-        string gitPath = ProbeGitOrIgnore();
-        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
-        string? oldGitPath = config.GitExecutablePath;
-        bool oldAutoCommitOnSave = config.AutoCommitOnSave;
-        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
-        bool oldUseLfs = config.UseLfsWhenAvailable;
         bool oldAutoSave = EditViewModel.IsAutoSaveSuppressedForTesting;
-        var oldConfirmSwitchBranchAsync =
-            TestShell.VersionControl.ConfirmSwitchBranchAsync;
 
         try
         {
-            config.GitExecutablePath = gitPath;
-            config.AutoCommitOnSave = false;
-            config.AutoCommitOnClose = false;
-            config.UseLfsWhenAvailable = false;
+            // Inside the try, so the shell resets before auto-save is back on.
+            await using RealGitScope git = await RealGitScope.StartAsync(
+                autoCommitOnSave: false,
+                autoCommitOnClose: false,
+                useLfsWhenAvailable: false);
             EditViewModel.IsAutoSaveSuppressedForTesting = true;
 
             (Project project, EditViewModel editor) = await CreateTrackedProjectAsync(
@@ -5467,13 +3926,6 @@ public class VersionControlRestoreTests
         }
         finally
         {
-            TestShell.VersionControl.ConfirmSwitchBranchAsync =
-                oldConfirmSwitchBranchAsync;
-            await TestReset.ResetShellAsync();
-            config.GitExecutablePath = oldGitPath;
-            config.AutoCommitOnSave = oldAutoCommitOnSave;
-            config.AutoCommitOnClose = oldAutoCommitOnClose;
-            config.UseLfsWhenAvailable = oldUseLfs;
             EditViewModel.IsAutoSaveSuppressedForTesting = oldAutoSave;
         }
     }
@@ -5481,23 +3933,15 @@ public class VersionControlRestoreTests
     [AvaloniaTest]
     public async Task Restore_saves_in_memory_project_edits_into_the_safety_snapshot()
     {
-        await TestReset.ResetShellAsync();
-        using var environment = new IsolatedGitEnvironment();
-        string gitPath = ProbeGitOrIgnore();
-        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
-        string? oldGitPath = config.GitExecutablePath;
-        bool oldAutoCommitOnSave = config.AutoCommitOnSave;
-        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
-        bool oldUseLfs = config.UseLfsWhenAvailable;
         bool oldAutoSave = EditViewModel.IsAutoSaveSuppressedForTesting;
-        var oldConfirmRestoreAsync = TestShell.VersionControl.ConfirmRestoreAsync;
 
         try
         {
-            config.GitExecutablePath = gitPath;
-            config.AutoCommitOnSave = true;
-            config.AutoCommitOnClose = false;
-            config.UseLfsWhenAvailable = false;
+            // Inside the try, so the shell resets before auto-save is back on.
+            await using RealGitScope git = await RealGitScope.StartAsync(
+                autoCommitOnSave: true,
+                autoCommitOnClose: false,
+                useLfsWhenAvailable: false);
             EditViewModel.IsAutoSaveSuppressedForTesting = true;
 
             (Project project, _) = await CreateTrackedProjectAsync(
@@ -5540,12 +3984,6 @@ public class VersionControlRestoreTests
         }
         finally
         {
-            TestShell.VersionControl.ConfirmRestoreAsync = oldConfirmRestoreAsync;
-            await TestReset.ResetShellAsync();
-            config.GitExecutablePath = oldGitPath;
-            config.AutoCommitOnSave = oldAutoCommitOnSave;
-            config.AutoCommitOnClose = oldAutoCommitOnClose;
-            config.UseLfsWhenAvailable = oldUseLfs;
             EditViewModel.IsAutoSaveSuppressedForTesting = oldAutoSave;
         }
     }
@@ -5553,60 +3991,37 @@ public class VersionControlRestoreTests
     [AvaloniaTest]
     public async Task Branch_creation_neither_saves_nor_snapshots_open_work()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
-        try
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-branch-open-work");
+        // The backend reports a pending change, which a branch switch would snapshot first.
+        var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip);
+        var failedCommands = new SaveOperation(false);
+        session.EditorService.TabItems.Add(new EditorTabItem(
+            new SavableEditorContext(session.Project, failedCommands)));
+        VersionControlCoordinator coordinator = session.Start(
+            new VersionControlConfig(),
+            _ => backend);
+        int confirmations = 0;
+        coordinator.ConfirmSwitchBranchAsync = (_, _) =>
         {
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-branch-open-work");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            // The backend reports a pending change, which a branch switch would snapshot first.
-            var backend = new PullCycleTestBackend(repository, repository, tip);
-            var editorService = new EditorService(new ExtensionProvider());
-            var failedCommands = new FailedSaveOperation();
-            editorService.TabItems.Add(new EditorTabItem(
-                new FailedSaveEditorContext(project, failedCommands)));
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
-                new VersionControlConfig(),
-                installationLocator: null,
-                serviceFactory: _ => backend);
-            int confirmations = 0;
-            coordinator.ConfirmSwitchBranchAsync = (_, _) =>
-            {
-                confirmations++;
-                return Task.FromResult(true);
-            };
-            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
+            confirmations++;
+            return Task.FromResult(true);
+        };
+        await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
 
-            bool created = await coordinator.CreateBranchAsync("open-work");
-            HeadlessTestHelpers.Settle();
+        bool created = await coordinator.CreateBranchAsync("open-work");
+        HeadlessTestHelpers.Settle();
 
-            Assert.Multiple(() =>
-            {
-                Assert.That(created, Is.True);
-                Assert.That(confirmations, Is.Zero);
-                Assert.That(failedCommands.SaveCalls, Is.Zero);
-                Assert.That(backend.CommitAllCalls, Is.Zero);
-                Assert.That(backend.CreateBranchCalls, Is.EqualTo(1));
-                Assert.That(backend.LastBranchStartPoint, Is.EqualTo(tip.Commit));
-                Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(project));
-            });
-        }
-        finally
+        Assert.Multiple(() =>
         {
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync();
-            }
-
-            await TestReset.ResetShellAsync();
-        }
+            Assert.That(created, Is.True);
+            Assert.That(confirmations, Is.Zero);
+            Assert.That(failedCommands.SaveCalls, Is.Zero);
+            Assert.That(backend.CommitAllCalls, Is.Zero);
+            Assert.That(backend.CreateBranchCalls, Is.EqualTo(1));
+            Assert.That(backend.LastBranchStartPoint, Is.EqualTo(MainTip.Commit));
+            Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(session.Project));
+        });
     }
 
     [AvaloniaTest]
@@ -5616,19 +4031,13 @@ public class VersionControlRestoreTests
     public async Task Exclusive_operation_started_on_the_thread_pool_suspends_editors_and_reopens_on_the_UI_thread(
         string operation)
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
         Action<Project?>? recordTransition = null;
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            $"version-control-thread-pool-{operation}");
+
         try
         {
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                $"version-control-thread-pool-{operation}");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var backend = new PullCycleTestBackend(repository, repository, tip)
+            var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip)
             {
                 RunsExclusiveOperationsOnThreadPool = true,
                 Branches =
@@ -5638,9 +4047,8 @@ public class VersionControlRestoreTests
                 ],
                 PullResult = new RemoteOpResult.Success(),
             };
-            var editorService = new EditorService(new ExtensionProvider());
-            var context = new PassiveEditorContext(project, new PassiveSaveOperation());
-            editorService.TabItems.Add(new EditorTabItem(context));
+            var context = new SavableEditorContext(session.Project, new SaveOperation(true));
+            session.EditorService.TabItems.Add(new EditorTabItem(context));
             var editorChanges = new List<(bool Enabled, bool OnUiThread)>();
             using IDisposable editorSubscription = context.IsEnabled
                 .Skip(1)
@@ -5650,12 +4058,9 @@ public class VersionControlRestoreTests
             recordTransition = _ => transitionsOnUiThread.Add(
                 Avalonia.Threading.Dispatcher.UIThread.CheckAccess());
             TestShell.Project.TransitionCommitted += recordTransition;
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
+            VersionControlCoordinator coordinator = session.Start(
                 new VersionControlConfig { AutoCommitOnClose = false },
-                installationLocator: null,
-                serviceFactory: _ => backend);
+                _ => backend);
             coordinator.ConfirmRestoreAsync = _ => Task.FromResult(true);
             coordinator.ConfirmSwitchBranchAsync = (_, _) => Task.FromResult(true);
             coordinator.ConfirmPullAsync = _ => Task.FromResult(true);
@@ -5691,46 +4096,26 @@ public class VersionControlRestoreTests
             {
                 TestShell.Project.TransitionCommitted -= recordTransition;
             }
-
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync();
-            }
-
-            await TestReset.ResetShellAsync();
         }
     }
 
     [AvaloniaTest]
     public async Task Title_bar_branch_creation_warns_why_a_rejected_name_created_nothing()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
         TitleBarBranchViewModel? titleBar = null;
         using var gitAvailable = new ReactivePropertySlim<bool>(true);
-        INotificationServiceHandler previousNotificationHandler = NotificationService.Handler;
-        var notifications = new CaptureNotificationHandler();
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-branch-name-rejected");
 
         try
         {
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-branch-name-rejected");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var backend = new PullCycleTestBackend(repository, repository, tip);
-            var editorService = new EditorService(new ExtensionProvider());
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
+            var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip);
+            VersionControlCoordinator coordinator = session.Start(
                 new VersionControlConfig(),
-                installationLocator: null,
-                serviceFactory: _ => backend);
+                _ => backend);
             await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
             titleBar = new TitleBarBranchViewModel(
-                editorService.ProjectVersionControlService,
+                session.EditorService.ProjectVersionControlService,
                 gitAvailable,
                 coordinator);
             await WaitUntilAsync(() => titleBar.IsVisible.Value);
@@ -5738,7 +4123,7 @@ public class VersionControlRestoreTests
             // The backend refuses an invalid name and an existing branch with the same answer.
             backend.EnqueueCanCreateBranchResult(false);
             int canCreateCallsBefore = backend.CanCreateBranchCalls;
-            NotificationService.Handler = notifications;
+            using var notifications = new NotificationCapture();
 
             await titleBar.CreateBranchAsync();
             HeadlessTestHelpers.Settle();
@@ -5757,728 +4142,471 @@ public class VersionControlRestoreTests
                         "existing")),
                     "Clicking Create must not end silently when the name is refused.");
                 Assert.That(titleBar.IsBusy.Value, Is.False);
-                Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(project));
+                Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(session.Project));
             });
         }
         finally
         {
-            NotificationService.Handler = previousNotificationHandler;
             titleBar?.Dispose();
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync();
-            }
-
-            await TestReset.ResetShellAsync();
         }
     }
 
     [AvaloniaTest]
     public async Task Restore_prefetches_lfs_objects_while_the_project_is_still_open()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
-        try
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-restore-lfs-prefetch");
+        const string TargetSha = "2222222222222222222222222222222222222222";
+        var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip)
         {
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-restore-lfs-prefetch");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            const string TargetSha = "2222222222222222222222222222222222222222";
-            var backend = new PullCycleTestBackend(repository, repository, tip)
-            {
-                Status = new WorkspaceStatus(
-                    "main",
-                    Ahead: 0,
-                    Behind: 0,
-                    Changes: [],
-                    HasConflicts: false),
-            };
-            bool? projectWasOpenDuringPrefetch = null;
-            backend.PrefetchCommitLfsObserver = () =>
-                projectWasOpenDuringPrefetch = TestShell.Project.CurrentProject.Value is not null;
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                new EditorService(new ExtensionProvider()),
-                new VersionControlConfig(),
-                installationLocator: null,
-                serviceFactory: _ => backend);
-            coordinator.ConfirmRestoreAsync = _ => Task.FromResult(true);
-            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
+            Status = new WorkspaceStatus(
+                "main",
+                Ahead: 0,
+                Behind: 0,
+                Changes: [],
+                HasConflicts: false),
+        };
+        bool? projectWasOpenDuringPrefetch = null;
+        backend.PrefetchCommitLfsObserver = () =>
+            projectWasOpenDuringPrefetch = TestShell.Project.CurrentProject.Value is not null;
+        VersionControlCoordinator coordinator = session.Start(
+            new VersionControlConfig(),
+            _ => backend);
+        coordinator.ConfirmRestoreAsync = _ => Task.FromResult(true);
+        await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
 
-            await coordinator.RestoreAsync(TargetSha);
-            HeadlessTestHelpers.Settle();
+        await coordinator.RestoreAsync(TargetSha);
+        HeadlessTestHelpers.Settle();
 
-            Assert.Multiple(() =>
-            {
-                Assert.That(backend.PrefetchCommitLfsCalls, Is.EqualTo(1));
-                Assert.That(
-                    backend.LastPrefetchCommitLfsScope,
-                    Is.EqualTo(LfsPrefetchScope.ProjectPathspec));
-                // The restore checkout runs uncancellable with the project closed, so the download
-                // has to have happened before the close.
-                Assert.That(projectWasOpenDuringPrefetch, Is.True);
-            });
-        }
-        finally
+        Assert.Multiple(() =>
         {
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync();
-            }
-
-            await TestReset.ResetShellAsync();
-        }
+            Assert.That(backend.PrefetchCommitLfsCalls, Is.EqualTo(1));
+            Assert.That(
+                backend.LastPrefetchCommitLfsScope,
+                Is.EqualTo(LfsPrefetchScope.ProjectPathspec));
+            // The restore checkout runs uncancellable with the project closed, so the download
+            // has to have happened before the close.
+            Assert.That(projectWasOpenDuringPrefetch, Is.True);
+        });
     }
 
     [AvaloniaTest]
     public async Task Branch_switch_prefetches_lfs_objects_while_the_project_is_still_open()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
-        try
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-branch-lfs-prefetch");
+        var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip)
         {
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-branch-lfs-prefetch");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var backend = new PullCycleTestBackend(repository, repository, tip)
-            {
-                Status = new WorkspaceStatus(
-                    "main",
-                    Ahead: 0,
-                    Behind: 0,
-                    Changes: [],
-                    HasConflicts: false),
-                Branches =
-                [
-                    new BranchInfo("main", true, null),
-                    new BranchInfo("feature", false, null),
-                ],
-            };
-            bool? projectWasOpenDuringPrefetch = null;
-            backend.PrefetchBranchLfsObserver = () =>
-                projectWasOpenDuringPrefetch = TestShell.Project.CurrentProject.Value is not null;
-            var editorService = new EditorService(new ExtensionProvider());
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
-                new VersionControlConfig(),
-                installationLocator: null,
-                serviceFactory: _ => backend);
-            coordinator.ConfirmSwitchBranchAsync = (_, _) => Task.FromResult(true);
-            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
+            Status = new WorkspaceStatus(
+                "main",
+                Ahead: 0,
+                Behind: 0,
+                Changes: [],
+                HasConflicts: false),
+            Branches =
+            [
+                new BranchInfo("main", true, null),
+                new BranchInfo("feature", false, null),
+            ],
+        };
+        bool? projectWasOpenDuringPrefetch = null;
+        backend.PrefetchBranchLfsObserver = () =>
+            projectWasOpenDuringPrefetch = TestShell.Project.CurrentProject.Value is not null;
+        VersionControlCoordinator coordinator = session.Start(
+            new VersionControlConfig(),
+            _ => backend);
+        coordinator.ConfirmSwitchBranchAsync = (_, _) => Task.FromResult(true);
+        await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
 
-            await coordinator.SwitchBranchAsync("feature");
-            HeadlessTestHelpers.Settle();
+        await coordinator.SwitchBranchAsync("feature");
+        HeadlessTestHelpers.Settle();
 
-            Assert.Multiple(() =>
-            {
-                Assert.That(backend.PrefetchBranchLfsCalls, Is.EqualTo(1));
-                // The switch itself runs uncancellable with the project closed, so the download has
-                // to have happened before the close.
-                Assert.That(projectWasOpenDuringPrefetch, Is.True);
-            });
-        }
-        finally
+        Assert.Multiple(() =>
         {
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync();
-            }
-
-            await TestReset.ResetShellAsync();
-        }
+            Assert.That(backend.PrefetchBranchLfsCalls, Is.EqualTo(1));
+            // The switch itself runs uncancellable with the project closed, so the download has
+            // to have happened before the close.
+            Assert.That(projectWasOpenDuringPrefetch, Is.True);
+        });
     }
 
     [AvaloniaTest]
     public async Task Restore_stops_when_an_open_editor_cannot_save()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
-        try
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-restore-save-failure");
+        var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip);
+        var failedCommands = new SaveOperation(false);
+        session.EditorService.TabItems.Add(new EditorTabItem(
+            new SavableEditorContext(session.Project, failedCommands)));
+        VersionControlCoordinator coordinator = session.Start(
+            new VersionControlConfig(),
+            _ => backend);
+        coordinator.ConfirmRestoreAsync = _ => Task.FromResult(true);
+        await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
+
+        bool restored = await coordinator.RestoreAsync(
+            "2222222222222222222222222222222222222222");
+        HeadlessTestHelpers.Settle();
+
+        Assert.Multiple(() =>
         {
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-restore-save-failure");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var backend = new PullCycleTestBackend(repository, repository, tip);
-            var editorService = new EditorService(new ExtensionProvider());
-            var failedCommands = new FailedSaveOperation();
-            editorService.TabItems.Add(new EditorTabItem(
-                new FailedSaveEditorContext(project, failedCommands)));
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
-                new VersionControlConfig(),
-                installationLocator: null,
-                serviceFactory: _ => backend);
-            coordinator.ConfirmRestoreAsync = _ => Task.FromResult(true);
-            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
-
-            bool restored = await coordinator.RestoreAsync(
-                "2222222222222222222222222222222222222222");
-            HeadlessTestHelpers.Settle();
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(restored, Is.False);
-                Assert.That(failedCommands.SaveCalls, Is.EqualTo(1));
-                Assert.That(backend.CommitAllCalls, Is.Zero);
-                Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(project));
-            });
-        }
-        finally
-        {
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync();
-            }
-
-            await TestReset.ResetShellAsync();
-        }
+            Assert.That(restored, Is.False);
+            Assert.That(failedCommands.SaveCalls, Is.EqualTo(1));
+            Assert.That(backend.CommitAllCalls, Is.Zero);
+            Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(session.Project));
+        });
     }
 
     [AvaloniaTest]
     public async Task Restore_stops_without_throwing_when_the_repository_has_no_commit_identity()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
-        try
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-restore-no-identity");
+        var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip)
         {
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-restore-no-identity");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var backend = new PullCycleTestBackend(repository, repository, tip)
-            {
-                CommitAllResult = new CommitResult.SkippedNoIdentity(),
-            };
-            var editorService = new EditorService(new ExtensionProvider());
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
-                new VersionControlConfig(),
-                installationLocator: null,
-                serviceFactory: _ => backend);
-            coordinator.ConfirmRestoreAsync = _ => Task.FromResult(true);
-            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
+            CommitAllResult = new CommitResult.SkippedNoIdentity(),
+        };
+        VersionControlCoordinator coordinator = session.Start(
+            new VersionControlConfig(),
+            _ => backend);
+        coordinator.ConfirmRestoreAsync = _ => Task.FromResult(true);
+        await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
 
-            bool restored = await coordinator.RestoreAsync(
-                "2222222222222222222222222222222222222222");
-            HeadlessTestHelpers.Settle();
+        bool restored = await coordinator.RestoreAsync(
+            "2222222222222222222222222222222222222222");
+        HeadlessTestHelpers.Settle();
 
-            Assert.Multiple(() =>
-            {
-                Assert.That(restored, Is.False);
-                Assert.That(backend.CommitAllCalls, Is.EqualTo(1));
-                Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(project));
-            });
-        }
-        finally
+        Assert.Multiple(() =>
         {
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync();
-            }
-
-            await TestReset.ResetShellAsync();
-        }
+            Assert.That(restored, Is.False);
+            Assert.That(backend.CommitAllCalls, Is.EqualTo(1));
+            Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(session.Project));
+        });
     }
 
     [AvaloniaTest]
     public async Task Branch_cycle_saves_dirty_state_reopens_the_selected_branch_and_recovers_from_failure()
     {
-        await TestReset.ResetShellAsync();
-        using var environment = new IsolatedGitEnvironment();
-        string gitPath = ProbeGitOrIgnore();
-        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
-        string? oldGitPath = config.GitExecutablePath;
-        bool oldAutoCommitOnSave = config.AutoCommitOnSave;
-        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
-        bool oldUseLfs = config.UseLfsWhenAvailable;
-        var oldConfirmSwitchBranchAsync =
-            TestShell.VersionControl.ConfirmSwitchBranchAsync;
+        await using RealGitScope git = await RealGitScope.StartAsync(
+            autoCommitOnSave: true,
+            autoCommitOnClose: true,
+            useLfsWhenAvailable: false);
 
-        try
+        (Project project, _) = await CreateTrackedProjectAsync("version-control-branch");
+        string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+        await RunGitAsync(git.GitPath, projectRoot, "branch", "experiment");
+        project.Variables[RestoreStateKey] = "before-switch";
+        CoreSerializer.StoreToUri(project, project.Uri!);
+        Assert.That(
+            (await TestShell.VersionControl.CurrentService!.GetStatusAsync(
+                CancellationToken.None)).IsClean,
+            Is.False);
+
+        int confirmations = 0;
+        TestShell.VersionControl.ConfirmSwitchBranchAsync = (_, _) =>
         {
-            config.GitExecutablePath = gitPath;
-            config.AutoCommitOnSave = true;
-            config.AutoCommitOnClose = true;
-            config.UseLfsWhenAvailable = false;
+            confirmations++;
+            return Task.FromResult(true);
+        };
 
-            (Project project, _) = await CreateTrackedProjectAsync("version-control-branch");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            await RunGitAsync(gitPath, projectRoot, "branch", "experiment");
-            project.Variables[RestoreStateKey] = "before-switch";
-            CoreSerializer.StoreToUri(project, project.Uri!);
-            Assert.That(
-                (await TestShell.VersionControl.CurrentService!.GetStatusAsync(
-                    CancellationToken.None)).IsClean,
-                Is.False);
+        Assert.That(
+            await TestShell.VersionControl.SwitchBranchAsync("experiment"),
+            Is.True);
+        HeadlessTestHelpers.Settle();
 
-            int confirmations = 0;
-            TestShell.VersionControl.ConfirmSwitchBranchAsync = (_, _) =>
-            {
-                confirmations++;
-                return Task.FromResult(true);
-            };
-
-            Assert.That(
-                await TestShell.VersionControl.SwitchBranchAsync("experiment"),
-                Is.True);
-            HeadlessTestHelpers.Settle();
-
-            Project experimentProject = TestShell.Project.CurrentProject.Value!;
-            WorkspaceStatus experimentStatus =
-                await TestShell.VersionControl.CurrentService!.GetStatusAsync(
-                    CancellationToken.None);
-            string mainSubject = (await RunGitAsync(
-                gitPath,
-                projectRoot,
-                "log",
-                "-1",
-                "--format=%s",
-                "refs/heads/main")).Trim();
-            Assert.Multiple(() =>
-            {
-                Assert.That(experimentProject, Is.Not.SameAs(project));
-                Assert.That(experimentStatus.Branch, Is.EqualTo("experiment"));
-                Assert.That(mainSubject, Is.EqualTo("beutl: safety snapshot before switch"));
-            });
-
-            experimentProject.Variables[RestoreStateKey] = "experiment-only";
-            await TestShell.MainViewModel.MenuBar.SaveAll.ExecuteAsync();
-            Assert.That(
-                await TestShell.VersionControl.SwitchBranchAsync("main"),
-                Is.True);
-            HeadlessTestHelpers.Settle();
-
-            Project mainProject = TestShell.Project.CurrentProject.Value!;
-            WorkspaceStatus mainStatus =
-                await TestShell.VersionControl.CurrentService!.GetStatusAsync(
-                    CancellationToken.None);
-            Assert.Multiple(() =>
-            {
-                Assert.That(mainStatus.Branch, Is.EqualTo("main"));
-                Assert.That(
-                    mainProject.Variables[RestoreStateKey],
-                    Is.EqualTo("before-switch"));
-                Assert.That(confirmations, Is.EqualTo(2));
-            });
-
-            Assert.That(
-                await TestShell.VersionControl.SwitchBranchAsync("missing-branch"),
-                Is.False);
-            HeadlessTestHelpers.Settle();
-            WorkspaceStatus recoveredStatus =
-                await TestShell.VersionControl.CurrentService!.GetStatusAsync(
-                    CancellationToken.None);
-            Assert.Multiple(() =>
-            {
-                Assert.That(TestShell.Project.CurrentProject.Value, Is.Not.Null);
-                Assert.That(recoveredStatus.Branch, Is.EqualTo("main"));
-                Assert.That(
-                    TestShell.Project.CurrentProject.Value!.Variables[RestoreStateKey],
-                    Is.EqualTo("before-switch"));
-            });
-        }
-        finally
+        Project experimentProject = TestShell.Project.CurrentProject.Value!;
+        WorkspaceStatus experimentStatus =
+            await TestShell.VersionControl.CurrentService!.GetStatusAsync(
+                CancellationToken.None);
+        string mainSubject = (await RunGitAsync(
+            git.GitPath,
+            projectRoot,
+            "log",
+            "-1",
+            "--format=%s",
+            "refs/heads/main")).Trim();
+        Assert.Multiple(() =>
         {
-            TestShell.VersionControl.ConfirmSwitchBranchAsync =
-                oldConfirmSwitchBranchAsync;
-            await TestReset.ResetShellAsync();
-            config.GitExecutablePath = oldGitPath;
-            config.AutoCommitOnSave = oldAutoCommitOnSave;
-            config.AutoCommitOnClose = oldAutoCommitOnClose;
-            config.UseLfsWhenAvailable = oldUseLfs;
-        }
+            Assert.That(experimentProject, Is.Not.SameAs(project));
+            Assert.That(experimentStatus.Branch, Is.EqualTo("experiment"));
+            Assert.That(mainSubject, Is.EqualTo("beutl: safety snapshot before switch"));
+        });
+
+        experimentProject.Variables[RestoreStateKey] = "experiment-only";
+        await TestShell.MainViewModel.MenuBar.SaveAll.ExecuteAsync();
+        Assert.That(
+            await TestShell.VersionControl.SwitchBranchAsync("main"),
+            Is.True);
+        HeadlessTestHelpers.Settle();
+
+        Project mainProject = TestShell.Project.CurrentProject.Value!;
+        WorkspaceStatus mainStatus =
+            await TestShell.VersionControl.CurrentService!.GetStatusAsync(
+                CancellationToken.None);
+        Assert.Multiple(() =>
+        {
+            Assert.That(mainStatus.Branch, Is.EqualTo("main"));
+            Assert.That(
+                mainProject.Variables[RestoreStateKey],
+                Is.EqualTo("before-switch"));
+            Assert.That(confirmations, Is.EqualTo(2));
+        });
+
+        Assert.That(
+            await TestShell.VersionControl.SwitchBranchAsync("missing-branch"),
+            Is.False);
+        HeadlessTestHelpers.Settle();
+        WorkspaceStatus recoveredStatus =
+            await TestShell.VersionControl.CurrentService!.GetStatusAsync(
+                CancellationToken.None);
+        Assert.Multiple(() =>
+        {
+            Assert.That(TestShell.Project.CurrentProject.Value, Is.Not.Null);
+            Assert.That(recoveredStatus.Branch, Is.EqualTo("main"));
+            Assert.That(
+                TestShell.Project.CurrentProject.Value!.Variables[RestoreStateKey],
+                Is.EqualTo("before-switch"));
+        });
     }
 
     [AvaloniaTest]
     public async Task Branch_creation_rejects_invalid_existing_and_shorthand_names_before_confirmation_or_close()
     {
-        await TestReset.ResetShellAsync();
-        using var environment = new IsolatedGitEnvironment();
-        string gitPath = ProbeGitOrIgnore();
-        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
-        string? oldGitPath = config.GitExecutablePath;
-        bool oldAutoCommitOnSave = config.AutoCommitOnSave;
-        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
-        bool oldUseLfs = config.UseLfsWhenAvailable;
-        var oldConfirmSwitchBranchAsync =
-            TestShell.VersionControl.ConfirmSwitchBranchAsync;
-        INotificationServiceHandler previousNotificationHandler = NotificationService.Handler;
-        var notifications = new CaptureNotificationHandler();
+        await using RealGitScope git = await RealGitScope.StartAsync(
+            autoCommitOnSave: true,
+            autoCommitOnClose: true,
+            useLfsWhenAvailable: false);
 
-        try
+        (Project project, EditViewModel editor) = await CreateTrackedProjectAsync(
+            "version-control-create-branch-validation");
+        string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+        await RunGitAsync(git.GitPath, projectRoot, "branch", "existing");
+        await RunGitAsync(git.GitPath, projectRoot, "switch", "existing");
+        await RunGitAsync(git.GitPath, projectRoot, "switch", "main");
+        var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
+        await AddRectangleAsync(adder, layer: 0);
+        project.Variables[RestoreStateKey] = "unsaved-state";
+        CoreSerializer.StoreToUri(project, project.Uri!);
+        Assert.That(
+            (await TestShell.VersionControl.CurrentService!.GetStatusAsync(
+                CancellationToken.None)).IsClean,
+            Is.False);
+        int confirmations = 0;
+        TestShell.VersionControl.ConfirmSwitchBranchAsync = (_, _) =>
         {
-            config.GitExecutablePath = gitPath;
-            config.AutoCommitOnSave = true;
-            config.AutoCommitOnClose = true;
-            config.UseLfsWhenAvailable = false;
+            confirmations++;
+            return Task.FromResult(true);
+        };
 
-            (Project project, EditViewModel editor) = await CreateTrackedProjectAsync(
-                "version-control-create-branch-validation");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            await RunGitAsync(gitPath, projectRoot, "branch", "existing");
-            await RunGitAsync(gitPath, projectRoot, "switch", "existing");
-            await RunGitAsync(gitPath, projectRoot, "switch", "main");
-            var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
-            await AddRectangleAsync(adder, layer: 0);
-            project.Variables[RestoreStateKey] = "unsaved-state";
-            CoreSerializer.StoreToUri(project, project.Uri!);
+        using var notifications = new NotificationCapture();
+        bool invalid = await TestShell.VersionControl.CreateBranchAsync("invalid..branch");
+        bool existing = await TestShell.VersionControl.CreateBranchAsync("existing");
+        bool shorthand = await TestShell.VersionControl.CreateBranchAsync("@{-1}");
+        HeadlessTestHelpers.Settle();
+        string[] warnings = notifications.All
+            .Where(item => item.Type == NotificationType.Warning)
+            .Select(item => item.Message)
+            .ToArray();
+
+        WorkspaceStatus status = await TestShell.VersionControl.CurrentService!
+            .GetStatusAsync(CancellationToken.None);
+        IReadOnlyList<CommitInfo> history =
+            await TestShell.VersionControl.CurrentService.GetHistoryAsync(
+                0,
+                20,
+                CancellationToken.None);
+        Assert.Multiple(() =>
+        {
+            Assert.That(invalid, Is.False);
+            Assert.That(existing, Is.False);
+            Assert.That(shorthand, Is.False);
             Assert.That(
-                (await TestShell.VersionControl.CurrentService!.GetStatusAsync(
-                    CancellationToken.None)).IsClean,
+                warnings,
+                Is.EqualTo(new[] { "invalid..branch", "existing", "@{-1}" }
+                    .Select(name => string.Format(
+                        Strings.VersionControl_BranchNameUnavailableFormat,
+                        name))),
+                "Each refused name must tell the user why no branch was created.");
+            Assert.That(confirmations, Is.Zero);
+            Assert.That(status.Branch, Is.EqualTo("main"));
+            Assert.That(status.IsClean, Is.False);
+            Assert.That(
+                history.Any(commit => commit.Kind == SnapshotKind.Safety),
                 Is.False);
-            int confirmations = 0;
-            TestShell.VersionControl.ConfirmSwitchBranchAsync = (_, _) =>
-            {
-                confirmations++;
-                return Task.FromResult(true);
-            };
-
-            NotificationService.Handler = notifications;
-            bool invalid = await TestShell.VersionControl.CreateBranchAsync("invalid..branch");
-            bool existing = await TestShell.VersionControl.CreateBranchAsync("existing");
-            bool shorthand = await TestShell.VersionControl.CreateBranchAsync("@{-1}");
-            HeadlessTestHelpers.Settle();
-            string[] warnings = notifications.All
-                .Where(item => item.Type == NotificationType.Warning)
-                .Select(item => item.Message)
-                .ToArray();
-
-            WorkspaceStatus status = await TestShell.VersionControl.CurrentService!
-                .GetStatusAsync(CancellationToken.None);
-            IReadOnlyList<CommitInfo> history =
-                await TestShell.VersionControl.CurrentService.GetHistoryAsync(
-                    0,
-                    20,
-                    CancellationToken.None);
-            Assert.Multiple(() =>
-            {
-                Assert.That(invalid, Is.False);
-                Assert.That(existing, Is.False);
-                Assert.That(shorthand, Is.False);
-                Assert.That(
-                    warnings,
-                    Is.EqualTo(new[] { "invalid..branch", "existing", "@{-1}" }
-                        .Select(name => string.Format(
-                            Strings.VersionControl_BranchNameUnavailableFormat,
-                            name))),
-                    "Each refused name must tell the user why no branch was created.");
-                Assert.That(confirmations, Is.Zero);
-                Assert.That(status.Branch, Is.EqualTo("main"));
-                Assert.That(status.IsClean, Is.False);
-                Assert.That(
-                    history.Any(commit => commit.Kind == SnapshotKind.Safety),
-                    Is.False);
-                Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(project));
-                Assert.That(editor.HistoryManager.CanUndo, Is.True);
-            });
-        }
-        finally
-        {
-            NotificationService.Handler = previousNotificationHandler;
-            TestShell.VersionControl.ConfirmSwitchBranchAsync =
-                oldConfirmSwitchBranchAsync;
-            await TestReset.ResetShellAsync();
-            config.GitExecutablePath = oldGitPath;
-            config.AutoCommitOnSave = oldAutoCommitOnSave;
-            config.AutoCommitOnClose = oldAutoCommitOnClose;
-            config.UseLfsWhenAvailable = oldUseLfs;
-        }
+            Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(project));
+            Assert.That(editor.HistoryManager.CanUndo, Is.True);
+        });
     }
 
     [AvaloniaTest]
     public async Task Branch_switch_rejects_Git_previous_branch_shorthand_before_confirmation_or_close()
     {
-        await TestReset.ResetShellAsync();
-        using var environment = new IsolatedGitEnvironment();
-        string gitPath = ProbeGitOrIgnore();
-        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
-        string? oldGitPath = config.GitExecutablePath;
-        bool oldAutoCommitOnSave = config.AutoCommitOnSave;
-        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
-        bool oldUseLfs = config.UseLfsWhenAvailable;
-        var oldConfirmSwitchBranchAsync =
-            TestShell.VersionControl.ConfirmSwitchBranchAsync;
+        await using RealGitScope git = await RealGitScope.StartAsync(
+            autoCommitOnSave: true,
+            autoCommitOnClose: true,
+            useLfsWhenAvailable: false);
 
-        try
+        (Project project, _) = await CreateTrackedProjectAsync(
+            "version-control-branch-shorthand");
+        string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+        await RunGitAsync(git.GitPath, projectRoot, "branch", "alternate");
+        await RunGitAsync(git.GitPath, projectRoot, "switch", "alternate");
+        await RunGitAsync(git.GitPath, projectRoot, "switch", "main");
+        int confirmations = 0;
+        TestShell.VersionControl.ConfirmSwitchBranchAsync = (_, _) =>
         {
-            config.GitExecutablePath = gitPath;
-            config.AutoCommitOnSave = true;
-            config.AutoCommitOnClose = true;
-            config.UseLfsWhenAvailable = false;
+            confirmations++;
+            return Task.FromResult(true);
+        };
 
-            (Project project, _) = await CreateTrackedProjectAsync(
-                "version-control-branch-shorthand");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            await RunGitAsync(gitPath, projectRoot, "branch", "alternate");
-            await RunGitAsync(gitPath, projectRoot, "switch", "alternate");
-            await RunGitAsync(gitPath, projectRoot, "switch", "main");
-            int confirmations = 0;
-            TestShell.VersionControl.ConfirmSwitchBranchAsync = (_, _) =>
-            {
-                confirmations++;
-                return Task.FromResult(true);
-            };
+        bool switched = await TestShell.VersionControl.SwitchBranchAsync("-");
+        HeadlessTestHelpers.Settle();
+        WorkspaceStatus status = await TestShell.VersionControl.CurrentService!
+            .GetStatusAsync(CancellationToken.None);
 
-            bool switched = await TestShell.VersionControl.SwitchBranchAsync("-");
-            HeadlessTestHelpers.Settle();
-            WorkspaceStatus status = await TestShell.VersionControl.CurrentService!
-                .GetStatusAsync(CancellationToken.None);
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(switched, Is.False);
-                Assert.That(confirmations, Is.Zero);
-                Assert.That(status.Branch, Is.EqualTo("main"));
-                Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(project));
-            });
-        }
-        finally
+        Assert.Multiple(() =>
         {
-            TestShell.VersionControl.ConfirmSwitchBranchAsync =
-                oldConfirmSwitchBranchAsync;
-            await TestReset.ResetShellAsync();
-            config.GitExecutablePath = oldGitPath;
-            config.AutoCommitOnSave = oldAutoCommitOnSave;
-            config.AutoCommitOnClose = oldAutoCommitOnClose;
-            config.UseLfsWhenAvailable = oldUseLfs;
-        }
+            Assert.That(switched, Is.False);
+            Assert.That(confirmations, Is.Zero);
+            Assert.That(status.Branch, Is.EqualTo("main"));
+            Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(project));
+        });
     }
 
     [AvaloniaTest]
     public async Task Branch_switch_revalidates_the_local_branch_before_closing_the_project()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
-        try
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-branch-revalidation");
+        var discovery = new PullCycleTestBackend(repository: null, session.Repository, MainTip);
+        var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip)
         {
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-branch-revalidation");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var discovery = new PullCycleTestBackend(repository: null, repository, tip);
-            var backend = new PullCycleTestBackend(repository, repository, tip)
-            {
-                SwitchBranchStarted = new TaskCompletionSource(
-                    TaskCreationOptions.RunContinuationsAsynchronously),
-            };
-            backend.EnqueueBranchSnapshot(
-                [
-                    new BranchInfo("main", true, null),
-                    new BranchInfo("target", false, null),
-                ]);
-            backend.EnqueueBranchSnapshot([new BranchInfo("main", true, null)]);
-            var editorService = new EditorService(new ExtensionProvider());
-            var config = new VersionControlConfig();
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
-                config,
-                installationLocator: null,
-                serviceFactory: candidate => candidate is null ? discovery : backend);
-            int confirmations = 0;
-            coordinator.ConfirmSwitchBranchAsync = (_, _) =>
-            {
-                confirmations++;
-                return Task.FromResult(true);
-            };
-            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
-
-            bool switched = await coordinator.SwitchBranchAsync("target");
-            HeadlessTestHelpers.Settle();
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(switched, Is.False);
-                Assert.That(confirmations, Is.EqualTo(1));
-                Assert.That(backend.GetBranchesCalls, Is.EqualTo(2));
-                Assert.That(backend.SwitchBranchStarted!.Task.IsCompleted, Is.False);
-                Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(project));
-            });
-        }
-        finally
+            SwitchBranchStarted = new TaskCompletionSource(
+                TaskCreationOptions.RunContinuationsAsynchronously),
+        };
+        backend.EnqueueBranchSnapshot(
+            [
+                new BranchInfo("main", true, null),
+                new BranchInfo("target", false, null),
+            ]);
+        backend.EnqueueBranchSnapshot([new BranchInfo("main", true, null)]);
+        var config = new VersionControlConfig();
+        VersionControlCoordinator coordinator = session.Start(
+            config,
+            candidate => candidate is null ? discovery : backend);
+        int confirmations = 0;
+        coordinator.ConfirmSwitchBranchAsync = (_, _) =>
         {
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync();
-            }
+            confirmations++;
+            return Task.FromResult(true);
+        };
+        await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
 
-            await TestReset.ResetShellAsync();
-        }
+        bool switched = await coordinator.SwitchBranchAsync("target");
+        HeadlessTestHelpers.Settle();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(switched, Is.False);
+            Assert.That(confirmations, Is.EqualTo(1));
+            Assert.That(backend.GetBranchesCalls, Is.EqualTo(2));
+            Assert.That(backend.SwitchBranchStarted!.Task.IsCompleted, Is.False);
+            Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(session.Project));
+        });
     }
 
     [AvaloniaTest]
     public async Task Branch_switch_checks_out_a_branch_that_exists_only_on_origin()
     {
-        await TestReset.ResetShellAsync();
-        using var environment = new IsolatedGitEnvironment();
-        string gitPath = ProbeGitOrIgnore();
-        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
-        string? oldGitPath = config.GitExecutablePath;
-        bool oldAutoCommitOnSave = config.AutoCommitOnSave;
-        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
-        bool oldUseLfs = config.UseLfsWhenAvailable;
-        var oldConfirmSwitchBranchAsync =
-            TestShell.VersionControl.ConfirmSwitchBranchAsync;
+        await using RealGitScope git = await RealGitScope.StartAsync(
+            autoCommitOnSave: false,
+            autoCommitOnClose: false,
+            useLfsWhenAvailable: false);
 
-        try
+        (Project project, _) = await CreateTrackedProjectAsync(
+            "version-control-origin-only-branch");
+        string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+        await CreateOriginAsync(git.GitPath, projectRoot, "version-control-origin-only-branch");
+        // Only origin has the branch, as after a teammate pushed it and this clone fetched.
+        await RunGitAsync(git.GitPath, projectRoot, "push", "origin", "HEAD:refs/heads/teammate");
+        await RunGitAsync(git.GitPath, projectRoot, "fetch", "origin");
+        int confirmations = 0;
+        TestShell.VersionControl.ConfirmSwitchBranchAsync = (_, _) =>
         {
-            config.GitExecutablePath = gitPath;
-            config.AutoCommitOnSave = false;
-            config.AutoCommitOnClose = false;
-            config.UseLfsWhenAvailable = false;
+            confirmations++;
+            return Task.FromResult(true);
+        };
 
-            (Project project, _) = await CreateTrackedProjectAsync(
-                "version-control-origin-only-branch");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            string remoteRoot = Path.Combine(
-                BeutlHomeIsolation.CurrentHome!,
-                "version-control-origin-only-branch-remote.git");
-            await RunGitAsync(
-                gitPath,
-                projectRoot,
-                "init",
-                "--bare",
-                "-b",
-                "main",
-                remoteRoot);
-            await TestShell.VersionControl.SetRemoteAsync(remoteRoot);
-            Assert.That(
-                await TestShell.VersionControl.PushAsync(progress: null),
-                Is.TypeOf<RemoteOpResult.Success>());
-            // Only origin has the branch, as after a teammate pushed it and this clone fetched.
-            await RunGitAsync(gitPath, projectRoot, "push", "origin", "HEAD:refs/heads/teammate");
-            await RunGitAsync(gitPath, projectRoot, "fetch", "origin");
-            int confirmations = 0;
-            TestShell.VersionControl.ConfirmSwitchBranchAsync = (_, _) =>
-            {
-                confirmations++;
-                return Task.FromResult(true);
-            };
+        Assert.That(
+            await TestShell.VersionControl.SwitchBranchAsync("teammate"),
+            Is.True);
+        HeadlessTestHelpers.Settle();
 
-            Assert.That(
-                await TestShell.VersionControl.SwitchBranchAsync("teammate"),
-                Is.True);
-            HeadlessTestHelpers.Settle();
-
-            WorkspaceStatus status = await TestShell.VersionControl.CurrentService!
-                .GetStatusAsync(CancellationToken.None);
-            string upstream = (await RunGitAsync(
-                gitPath,
-                projectRoot,
-                "for-each-ref",
-                "--format=%(upstream:short)",
-                "refs/heads/teammate")).Trim();
-            Assert.Multiple(() =>
-            {
-                Assert.That(status.Branch, Is.EqualTo("teammate"));
-                Assert.That(upstream, Is.EqualTo("origin/teammate"));
-                Assert.That(confirmations, Is.EqualTo(1));
-                Assert.That(TestShell.Project.CurrentProject.Value, Is.Not.Null);
-            });
-        }
-        finally
+        WorkspaceStatus status = await TestShell.VersionControl.CurrentService!
+            .GetStatusAsync(CancellationToken.None);
+        string upstream = (await RunGitAsync(
+            git.GitPath,
+            projectRoot,
+            "for-each-ref",
+            "--format=%(upstream:short)",
+            "refs/heads/teammate")).Trim();
+        Assert.Multiple(() =>
         {
-            TestShell.VersionControl.ConfirmSwitchBranchAsync =
-                oldConfirmSwitchBranchAsync;
-            await TestReset.ResetShellAsync();
-            config.GitExecutablePath = oldGitPath;
-            config.AutoCommitOnSave = oldAutoCommitOnSave;
-            config.AutoCommitOnClose = oldAutoCommitOnClose;
-            config.UseLfsWhenAvailable = oldUseLfs;
-        }
+            Assert.That(status.Branch, Is.EqualTo("teammate"));
+            Assert.That(upstream, Is.EqualTo("origin/teammate"));
+            Assert.That(confirmations, Is.EqualTo(1));
+            Assert.That(TestShell.Project.CurrentProject.Value, Is.Not.Null);
+        });
     }
 
     [AvaloniaTest]
     public async Task Branch_cycle_publishes_hidden_and_reopened_service_with_matching_tracked_state()
     {
-        await TestReset.ResetShellAsync();
-        using var environment = new IsolatedGitEnvironment();
-        string gitPath = ProbeGitOrIgnore();
-        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
-        string? oldGitPath = config.GitExecutablePath;
-        bool oldUseLfs = config.UseLfsWhenAvailable;
-        var oldConfirmSwitchBranchAsync = TestShell.VersionControl.ConfirmSwitchBranchAsync;
+        await using RealGitScope git = await RealGitScope.StartAsync(useLfsWhenAvailable: false);
 
-        try
+        (Project project, _) = await CreateTrackedProjectAsync("version-control-publication");
+        await RunGitAsync(
+            git.GitPath,
+            Path.GetDirectoryName(project.Uri!.LocalPath)!,
+            "branch",
+            "publication-branch");
+        IProjectVersionControlService original = TestShell.VersionControl.CurrentService!;
+        var publications = new List<(IProjectVersionControlService? Service, bool IsTracked)>();
+        using IDisposable subscription = TestShell.Editor.ProjectVersionControlService.Subscribe(
+            service => publications.Add((service, TestShell.VersionControl.IsTracked.Value)));
+        TestShell.VersionControl.ConfirmSwitchBranchAsync = (_, _) => Task.FromResult(true);
+
+        Assert.That(
+            await TestShell.VersionControl.SwitchBranchAsync("publication-branch"),
+            Is.True);
+        HeadlessTestHelpers.Settle();
+
+        int hidden = publications.FindIndex(item => item.Service is null);
+        int republished = hidden < 0
+            ? -1
+            : publications.FindIndex(
+                hidden + 1,
+                item => ReferenceEquals(item.Service, original));
+        Assert.Multiple(() =>
         {
-            config.GitExecutablePath = gitPath;
-            config.UseLfsWhenAvailable = false;
-            (Project project, _) = await CreateTrackedProjectAsync("version-control-publication");
-            await RunGitAsync(
-                gitPath,
-                Path.GetDirectoryName(project.Uri!.LocalPath)!,
-                "branch",
-                "publication-branch");
-            IProjectVersionControlService original = TestShell.VersionControl.CurrentService!;
-            var publications = new List<(IProjectVersionControlService? Service, bool IsTracked)>();
-            using IDisposable subscription = TestShell.Editor.ProjectVersionControlService.Subscribe(
-                service => publications.Add((service, TestShell.VersionControl.IsTracked.Value)));
-            TestShell.VersionControl.ConfirmSwitchBranchAsync = (_, _) => Task.FromResult(true);
-
+            Assert.That(hidden, Is.GreaterThanOrEqualTo(0));
+            Assert.That(republished, Is.GreaterThan(hidden));
             Assert.That(
-                await TestShell.VersionControl.SwitchBranchAsync("publication-branch"),
+                publications.All(item =>
+                    item.IsTracked == (item.Service?.Repository is not null)),
                 Is.True);
-            HeadlessTestHelpers.Settle();
-
-            int hidden = publications.FindIndex(item => item.Service is null);
-            int republished = hidden < 0
-                ? -1
-                : publications.FindIndex(
-                    hidden + 1,
-                    item => ReferenceEquals(item.Service, original));
-            Assert.Multiple(() =>
-            {
-                Assert.That(hidden, Is.GreaterThanOrEqualTo(0));
-                Assert.That(republished, Is.GreaterThan(hidden));
-                Assert.That(
-                    publications.All(item =>
-                        item.IsTracked == (item.Service?.Repository is not null)),
-                    Is.True);
-                Assert.That(TestShell.VersionControl.CurrentService, Is.SameAs(original));
-                Assert.That(TestShell.Editor.ProjectVersionControlService.Value, Is.SameAs(original));
-            });
-        }
-        finally
-        {
-            TestShell.VersionControl.ConfirmSwitchBranchAsync = oldConfirmSwitchBranchAsync;
-            await TestReset.ResetShellAsync();
-            config.GitExecutablePath = oldGitPath;
-            config.UseLfsWhenAvailable = oldUseLfs;
-        }
+            Assert.That(TestShell.VersionControl.CurrentService, Is.SameAs(original));
+            Assert.That(TestShell.Editor.ProjectVersionControlService.Value, Is.SameAs(original));
+        });
     }
 
     [AvaloniaTest]
     public async Task External_close_waits_for_branch_cycle_then_retires_the_reopened_service()
     {
-        await TestReset.ResetShellAsync();
-        using var environment = new IsolatedGitEnvironment();
-        string gitPath = ProbeGitOrIgnore();
-        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
-        string? oldGitPath = config.GitExecutablePath;
-        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
-        bool oldUseLfs = config.UseLfsWhenAvailable;
-        var oldConfirmation = TestShell.VersionControl.ConfirmSwitchBranchAsync;
+        await using RealGitScope git = await RealGitScope.StartAsync(
+            autoCommitOnClose: true,
+            useLfsWhenAvailable: false);
         var confirmationEntered = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseConfirmation = new TaskCompletionSource<bool>(
@@ -6486,13 +4614,10 @@ public class VersionControlRestoreTests
 
         try
         {
-            config.GitExecutablePath = gitPath;
-            config.AutoCommitOnClose = true;
-            config.UseLfsWhenAvailable = false;
             (Project project, _) = await CreateTrackedProjectAsync(
                 "version-control-close-during-branch");
             await RunGitAsync(
-                gitPath,
+                git.GitPath,
                 Path.GetDirectoryName(project.Uri!.LocalPath)!,
                 "branch",
                 "close-race");
@@ -6530,265 +4655,123 @@ public class VersionControlRestoreTests
         finally
         {
             releaseConfirmation.TrySetResult(false);
-            TestShell.VersionControl.ConfirmSwitchBranchAsync = oldConfirmation;
-            await TestReset.ResetShellAsync();
-            config.GitExecutablePath = oldGitPath;
-            config.AutoCommitOnClose = oldAutoCommitOnClose;
-            config.UseLfsWhenAvailable = oldUseLfs;
         }
     }
 
     [AvaloniaTest]
     public async Task Pull_cycle_preserves_dirty_state_while_fast_forwarding_a_remote_ahead_branch()
     {
-        await TestReset.ResetShellAsync();
-        using var environment = new IsolatedGitEnvironment();
-        string gitPath = ProbeGitOrIgnore();
-        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
-        string? oldGitPath = config.GitExecutablePath;
-        bool oldAutoCommitOnSave = config.AutoCommitOnSave;
-        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
-        bool oldUseLfs = config.UseLfsWhenAvailable;
-        var oldConfirmPullAsync = TestShell.VersionControl.ConfirmPullAsync;
+        await using RealGitScope git = await RealGitScope.StartAsync(
+            autoCommitOnSave: true,
+            autoCommitOnClose: true,
+            useLfsWhenAvailable: false);
 
-        try
+        (Project project, _) = await CreateTrackedProjectAsync("version-control-pull");
+        string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+        string remoteCommit = await CreatePeerAheadOfOriginAsync(
+            git.GitPath,
+            projectRoot,
+            "version-control-pull",
+            "remote-marker.txt",
+            "remote state\n",
+            "remote update");
+
+        await File.WriteAllTextAsync(
+            Path.Combine(projectRoot, "local-marker.txt"),
+            "local safety state\n");
+        project.Variables["unsavedPullState"] = "persisted before pull";
+        Project beforePull = TestShell.Project.CurrentProject.Value!;
+        TestShell.VersionControl.ConfirmPullAsync = _ => Task.FromResult(true);
+        RemoteOpResult pullResult = await TestShell.VersionControl.PullAsync();
+        Assert.That(
+            pullResult,
+            Is.TypeOf<RemoteOpResult.Success>(),
+            () => pullResult is RemoteOpResult.Failed failed
+                ? failed.Stderr
+                : pullResult.ToString());
+        HeadlessTestHelpers.Settle();
+
+        string head = (await RunGitAsync(git.GitPath, projectRoot, "rev-parse", "HEAD")).Trim();
+        string stashes = await RunGitAsync(git.GitPath, projectRoot, "stash", "list");
+        WorkspaceStatus status = await TestShell.VersionControl.CurrentService!.GetStatusAsync(
+            CancellationToken.None);
+        Assert.Multiple(() =>
         {
-            config.GitExecutablePath = gitPath;
-            config.AutoCommitOnSave = true;
-            config.AutoCommitOnClose = true;
-            config.UseLfsWhenAvailable = false;
-
-            (Project project, _) = await CreateTrackedProjectAsync("version-control-pull");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            string remoteRoot = Path.Combine(
-                BeutlHomeIsolation.CurrentHome!,
-                "version-control-pull-remote.git");
-            await RunGitAsync(
-                gitPath,
-                projectRoot,
-                "init",
-                "--bare",
-                "-b",
-                "main",
-                remoteRoot);
-            await TestShell.VersionControl.SetRemoteAsync(remoteRoot);
+            Assert.That(TestShell.Project.CurrentProject.Value, Is.Not.SameAs(beforePull));
+            // The branch moves to exactly the fetched commit, and the local changes come back
+            // from the stash as local changes.
+            Assert.That(head, Is.EqualTo(remoteCommit));
+            Assert.That(stashes, Is.Empty);
             Assert.That(
-                await TestShell.VersionControl.PushAsync(progress: null),
-                Is.TypeOf<RemoteOpResult.Success>());
-
-            string peerRoot = Path.Combine(
-                BeutlHomeIsolation.CurrentHome!,
-                "version-control-pull-peer");
-            await RunGitAsync(
-                gitPath,
-                projectRoot,
-                "clone",
-                "--branch",
-                "main",
-                remoteRoot,
-                peerRoot);
-            await RunGitAsync(
-                gitPath,
-                peerRoot,
-                "config",
-                "user.name",
-                "Beutl Headless Peer");
-            await RunGitAsync(
-                gitPath,
-                peerRoot,
-                "config",
-                "user.email",
-                "headless-peer@example.invalid");
-            await File.WriteAllTextAsync(
-                Path.Combine(peerRoot, "remote-marker.txt"),
-                "remote state\n");
-            await RunGitAsync(gitPath, peerRoot, "add", "--", "remote-marker.txt");
-            await RunGitAsync(gitPath, peerRoot, "commit", "-m", "remote update");
-            await RunGitAsync(gitPath, peerRoot, "push");
-            string remoteCommit = (await RunGitAsync(
-                gitPath,
-                peerRoot,
-                "rev-parse",
-                "HEAD")).Trim();
-
-            await File.WriteAllTextAsync(
-                Path.Combine(projectRoot, "local-marker.txt"),
-                "local safety state\n");
-            project.Variables["unsavedPullState"] = "persisted before pull";
-            Project beforePull = TestShell.Project.CurrentProject.Value!;
-            TestShell.VersionControl.ConfirmPullAsync = _ => Task.FromResult(true);
-            RemoteOpResult pullResult = await TestShell.VersionControl.PullAsync();
+                File.ReadAllText(Path.Combine(projectRoot, "remote-marker.txt")),
+                Is.EqualTo("remote state\n"));
             Assert.That(
-                pullResult,
-                Is.TypeOf<RemoteOpResult.Success>(),
-                () => pullResult is RemoteOpResult.Failed failed
-                    ? failed.Stderr
-                    : pullResult.ToString());
-            HeadlessTestHelpers.Settle();
-
-            string head = (await RunGitAsync(gitPath, projectRoot, "rev-parse", "HEAD")).Trim();
-            string stashes = await RunGitAsync(gitPath, projectRoot, "stash", "list");
-            WorkspaceStatus status = await TestShell.VersionControl.CurrentService!.GetStatusAsync(
-                CancellationToken.None);
-            Assert.Multiple(() =>
-            {
-                Assert.That(TestShell.Project.CurrentProject.Value, Is.Not.SameAs(beforePull));
-                // The branch moves to exactly the fetched commit, and the local changes come back
-                // from the stash as local changes.
-                Assert.That(head, Is.EqualTo(remoteCommit));
-                Assert.That(stashes, Is.Empty);
-                Assert.That(
-                    File.ReadAllText(Path.Combine(projectRoot, "remote-marker.txt")),
-                    Is.EqualTo("remote state\n"));
-                Assert.That(
-                    File.ReadAllText(Path.Combine(projectRoot, "local-marker.txt")),
-                    Is.EqualTo("local safety state\n"));
-                Assert.That(
-                    TestShell.Project.CurrentProject.Value!.Variables["unsavedPullState"],
-                    Is.EqualTo("persisted before pull"));
-                Assert.That(
-                    status.Changes.Select(static change => change.Path),
-                    Does.Contain("local-marker.txt"));
-            });
-        }
-        finally
-        {
-            TestShell.VersionControl.ConfirmPullAsync = oldConfirmPullAsync;
-            await TestReset.ResetShellAsync();
-            config.GitExecutablePath = oldGitPath;
-            config.AutoCommitOnSave = oldAutoCommitOnSave;
-            config.AutoCommitOnClose = oldAutoCommitOnClose;
-            config.UseLfsWhenAvailable = oldUseLfs;
-        }
+                File.ReadAllText(Path.Combine(projectRoot, "local-marker.txt")),
+                Is.EqualTo("local safety state\n"));
+            Assert.That(
+                TestShell.Project.CurrentProject.Value!.Variables["unsavedPullState"],
+                Is.EqualTo("persisted before pull"));
+            Assert.That(
+                status.Changes.Select(static change => change.Path),
+                Does.Contain("local-marker.txt"));
+        });
     }
 
     [AvaloniaTest]
     public async Task Pull_reopen_failure_reports_the_error_and_keeps_the_pulled_files()
     {
-        await TestReset.ResetShellAsync();
-        using var environment = new IsolatedGitEnvironment();
-        string gitPath = ProbeGitOrIgnore();
-        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
-        string? oldGitPath = config.GitExecutablePath;
-        bool oldAutoCommitOnSave = config.AutoCommitOnSave;
-        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
-        bool oldUseLfs = config.UseLfsWhenAvailable;
-        var oldConfirmPullAsync = TestShell.VersionControl.ConfirmPullAsync;
+        await using RealGitScope git = await RealGitScope.StartAsync(
+            autoCommitOnSave: true,
+            autoCommitOnClose: true,
+            useLfsWhenAvailable: false);
 
-        try
+        (Project project, _) = await CreateTrackedProjectAsync(
+            "version-control-pull-recovery");
+        project.Variables[RestoreStateKey] = "valid-local-state";
+        await TestShell.MainViewModel.MenuBar.SaveAll.ExecuteAsync();
+        string projectFile = project.Uri!.LocalPath;
+        string projectRoot = Path.GetDirectoryName(projectFile)!;
+
+        string remoteCommit = await CreatePeerAheadOfOriginAsync(
+            git.GitPath,
+            projectRoot,
+            "version-control-pull-recovery",
+            Path.GetFileName(projectFile),
+            "{ invalid remote project json",
+            "invalid remote project");
+
+        string localMarker = Path.Combine(projectRoot, "local-recovery-marker.txt");
+        await File.WriteAllTextAsync(localMarker, "keep local state\n");
+        TestShell.VersionControl.ConfirmPullAsync = _ => Task.FromResult(true);
+
+        RemoteOpResult result = await TestShell.VersionControl.PullAsync();
+        HeadlessTestHelpers.Settle();
+
+        string head = (await RunGitAsync(git.GitPath, projectRoot, "rev-parse", "HEAD")).Trim();
+        string stashes = await RunGitAsync(git.GitPath, projectRoot, "stash", "list");
+        Assert.Multiple(() =>
         {
-            config.GitExecutablePath = gitPath;
-            config.AutoCommitOnSave = true;
-            config.AutoCommitOnClose = true;
-            config.UseLfsWhenAvailable = false;
-
-            (Project project, _) = await CreateTrackedProjectAsync(
-                "version-control-pull-recovery");
-            project.Variables[RestoreStateKey] = "valid-local-state";
-            await TestShell.MainViewModel.MenuBar.SaveAll.ExecuteAsync();
-            string projectFile = project.Uri!.LocalPath;
-            string projectRoot = Path.GetDirectoryName(projectFile)!;
-
-            string remoteRoot = Path.Combine(
-                BeutlHomeIsolation.CurrentHome!,
-                "version-control-pull-recovery-remote.git");
-            await RunGitAsync(
-                gitPath,
-                projectRoot,
-                "init",
-                "--bare",
-                "-b",
-                "main",
-                remoteRoot);
-            await TestShell.VersionControl.SetRemoteAsync(remoteRoot);
-            Assert.That(
-                await TestShell.VersionControl.PushAsync(progress: null),
-                Is.TypeOf<RemoteOpResult.Success>());
-
-            string peerRoot = Path.Combine(
-                BeutlHomeIsolation.CurrentHome!,
-                "version-control-pull-recovery-peer");
-            await RunGitAsync(
-                gitPath,
-                projectRoot,
-                "clone",
-                "--branch",
-                "main",
-                remoteRoot,
-                peerRoot);
-            await RunGitAsync(gitPath, peerRoot, "config", "user.name", "Beutl Headless Peer");
-            await RunGitAsync(
-                gitPath,
-                peerRoot,
-                "config",
-                "user.email",
-                "headless-peer@example.invalid");
-            string peerProjectFile = Path.Combine(peerRoot, Path.GetFileName(projectFile));
-            await File.WriteAllTextAsync(peerProjectFile, "{ invalid remote project json");
-            await RunGitAsync(
-                gitPath,
-                peerRoot,
-                "add",
-                "--",
-                Path.GetFileName(projectFile));
-            await RunGitAsync(gitPath, peerRoot, "commit", "-m", "invalid remote project");
-            await RunGitAsync(gitPath, peerRoot, "push");
-            string remoteCommit = (await RunGitAsync(gitPath, peerRoot, "rev-parse", "HEAD")).Trim();
-
-            string localMarker = Path.Combine(projectRoot, "local-recovery-marker.txt");
-            await File.WriteAllTextAsync(localMarker, "keep local state\n");
-            TestShell.VersionControl.ConfirmPullAsync = _ => Task.FromResult(true);
-
-            RemoteOpResult result = await TestShell.VersionControl.PullAsync();
-            HeadlessTestHelpers.Settle();
-
-            string head = (await RunGitAsync(gitPath, projectRoot, "rev-parse", "HEAD")).Trim();
-            string stashes = await RunGitAsync(gitPath, projectRoot, "stash", "list");
-            Assert.Multiple(() =>
-            {
-                // Like git pull, the fast-forward stands; the project the pull brought cannot be
-                // opened, and that is what is reported.
-                Assert.That(result, Is.TypeOf<RemoteOpResult.Failed>());
-                Assert.That(head, Is.EqualTo(remoteCommit));
-                Assert.That(TestShell.Project.CurrentProject.Value, Is.Null);
-                Assert.That(File.ReadAllText(localMarker), Is.EqualTo("keep local state\n"));
-                Assert.That(stashes, Is.Empty);
-            });
-        }
-        finally
-        {
-            TestShell.VersionControl.ConfirmPullAsync = oldConfirmPullAsync;
-            await TestReset.ResetShellAsync();
-            config.GitExecutablePath = oldGitPath;
-            config.AutoCommitOnSave = oldAutoCommitOnSave;
-            config.AutoCommitOnClose = oldAutoCommitOnClose;
-            config.UseLfsWhenAvailable = oldUseLfs;
-        }
+            // Like git pull, the fast-forward stands; the project the pull brought cannot be
+            // opened, and that is what is reported.
+            Assert.That(result, Is.TypeOf<RemoteOpResult.Failed>());
+            Assert.That(head, Is.EqualTo(remoteCommit));
+            Assert.That(TestShell.Project.CurrentProject.Value, Is.Null);
+            Assert.That(File.ReadAllText(localMarker), Is.EqualTo("keep local state\n"));
+            Assert.That(stashes, Is.Empty);
+        });
     }
 
     [AvaloniaTest]
     public async Task Pull_up_to_date_clean_project_preserves_the_open_editor_session()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
-        bool oldAutoCommitOnSave = config.AutoCommitOnSave;
-        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
-        VersionControlCoordinator? coordinator = null;
         Func<string, Task>? openingObserver = null;
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-pull-up-to-date");
 
         try
         {
-            config.AutoCommitOnSave = false;
-            config.AutoCommitOnClose = false;
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-pull-up-to-date");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var originalTip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var discovery = new PullCycleTestBackend(repository: null, repository, originalTip);
-            var backend = new PullCycleTestBackend(repository, repository, originalTip)
+            var discovery = new PullCycleTestBackend(repository: null, session.Repository, MainTip);
+            var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip)
             {
                 Status = new WorkspaceStatus(
                     "main",
@@ -6803,13 +4786,9 @@ public class VersionControlRestoreTests
                 PullResult = new RemoteOpResult.Success(),
             };
 
-            var editorService = new EditorService(new ExtensionProvider());
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
-                config,
-                installationLocator: null,
-                serviceFactory: candidate => candidate is null ? discovery : backend);
+            VersionControlCoordinator coordinator = session.Start(
+                new VersionControlConfig { AutoCommitOnSave = false, AutoCommitOnClose = false },
+                candidate => candidate is null ? discovery : backend);
             coordinator.ConfirmPullAsync = _ => Task.FromResult(true);
             await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
 
@@ -6827,7 +4806,7 @@ public class VersionControlRestoreTests
             Assert.Multiple(() =>
             {
                 Assert.That(result, Is.TypeOf<RemoteOpResult.Success>());
-                Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(project));
+                Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(session.Project));
                 Assert.That(backend.PullCalls, Is.Zero);
                 Assert.That(reopenAttempts, Is.Zero);
             });
@@ -6838,66 +4817,30 @@ public class VersionControlRestoreTests
             {
                 TestShell.Project.Opening -= openingObserver;
             }
-
-            coordinator?.Dispose();
-            await TestReset.ResetShellAsync();
-            config.AutoCommitOnSave = oldAutoCommitOnSave;
-            config.AutoCommitOnClose = oldAutoCommitOnClose;
         }
     }
 
     [AvaloniaTest]
     public async Task Normal_close_completes_while_pull_confirmation_is_pending()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
-        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
-        VersionControlCoordinator? coordinator = null;
-        var confirmationStarted = new TaskCompletionSource(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        var confirmationCancelled = new TaskCompletionSource(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        var releaseConfirmation = new TaskCompletionSource<bool>(
-            TaskCreationOptions.RunContinuationsAsynchronously);
+        var confirmation = new BlockingPrompt<bool>();
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-pull-close-lock-order");
 
         try
         {
-            config.AutoCommitOnClose = false;
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-pull-close-lock-order");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var originalTip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var discovery = new PullCycleTestBackend(null, repository, originalTip);
-            var tracked = new PullCycleTestBackend(repository, repository, originalTip);
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                new EditorService(new ExtensionProvider()),
-                config,
-                installationLocator: null,
-                serviceFactory: candidate => candidate is null ? discovery : tracked);
+            var discovery = new PullCycleTestBackend(null, session.Repository, MainTip);
+            var tracked = new PullCycleTestBackend(session.Repository, session.Repository, MainTip);
+            VersionControlCoordinator coordinator = session.Start(
+                new VersionControlConfig { AutoCommitOnClose = false },
+                candidate => candidate is null ? discovery : tracked);
             await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, tracked));
-            coordinator.ConfirmPullAsync = async cancellationToken =>
-            {
-                confirmationStarted.TrySetResult();
-                try
-                {
-                    return await releaseConfirmation.Task.WaitAsync(cancellationToken);
-                }
-                catch (OperationCanceledException)
-                    when (cancellationToken.IsCancellationRequested)
-                {
-                    confirmationCancelled.TrySetResult();
-                    throw;
-                }
-            };
+            coordinator.ConfirmPullAsync = confirmation.AnswerAsync;
 
             Task<RemoteOpResult> pull = coordinator.PullAsync();
-            await confirmationStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await confirmation.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
             await TestShell.Project.CloseProjectAsync().WaitAsync(TimeSpan.FromSeconds(5));
-            await confirmationCancelled.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await confirmation.Cancelled.Task.WaitAsync(TimeSpan.FromSeconds(5));
             RemoteOpResult result = await pull.WaitAsync(TimeSpan.FromSeconds(5));
 
             Assert.Multiple(() =>
@@ -6909,51 +4852,31 @@ public class VersionControlRestoreTests
         }
         finally
         {
-            releaseConfirmation.TrySetResult(false);
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync();
-            }
-
-            await TestReset.ResetShellAsync();
-            config.AutoCommitOnClose = oldAutoCommitOnClose;
+            confirmation.Release(false);
         }
     }
 
     [AvaloniaTest]
     public async Task Project_close_during_pull_preflight_cancels_the_captured_epoch()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
-        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
-        VersionControlCoordinator? coordinator = null;
         var preflightStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var releasePreflight = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-pull-preflight-epoch");
 
         try
         {
-            config.AutoCommitOnClose = false;
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-pull-preflight-epoch");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var originalTip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var discovery = new PullCycleTestBackend(null, repository, originalTip);
-            var tracked = new PullCycleTestBackend(repository, repository, originalTip)
+            var discovery = new PullCycleTestBackend(null, session.Repository, MainTip);
+            var tracked = new PullCycleTestBackend(session.Repository, session.Repository, MainTip)
             {
                 PreflightStarted = preflightStarted,
                 PreflightRelease = releasePreflight.Task,
             };
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                new EditorService(new ExtensionProvider()),
-                config,
-                installationLocator: null,
-                serviceFactory: candidate => candidate is null ? discovery : tracked);
+            VersionControlCoordinator coordinator = session.Start(
+                new VersionControlConfig { AutoCommitOnClose = false },
+                candidate => candidate is null ? discovery : tracked);
             await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, tracked));
             int confirmations = 0;
             coordinator.ConfirmPullAsync = _ =>
@@ -6978,72 +4901,34 @@ public class VersionControlRestoreTests
         finally
         {
             releasePreflight.TrySetResult();
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync();
-            }
-
-            await TestReset.ResetShellAsync();
-            config.AutoCommitOnClose = oldAutoCommitOnClose;
         }
     }
 
     [AvaloniaTest]
     public async Task Branch_transition_cancels_a_pending_pull_confirmation()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
-        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
-        VersionControlCoordinator? coordinator = null;
-        var confirmationStarted = new TaskCompletionSource(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        var confirmationCancelled = new TaskCompletionSource(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        var releaseConfirmation = new TaskCompletionSource<bool>(
-            TaskCreationOptions.RunContinuationsAsynchronously);
+        var confirmation = new BlockingPrompt<bool>();
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-pull-branch-epoch");
 
         try
         {
-            config.AutoCommitOnClose = false;
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-pull-branch-epoch");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var originalTip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var discovery = new PullCycleTestBackend(null, repository, originalTip);
-            var tracked = new PullCycleTestBackend(repository, repository, originalTip);
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                new EditorService(new ExtensionProvider()),
-                config,
-                installationLocator: null,
-                serviceFactory: candidate => candidate is null ? discovery : tracked);
+            var discovery = new PullCycleTestBackend(null, session.Repository, MainTip);
+            var tracked = new PullCycleTestBackend(session.Repository, session.Repository, MainTip);
+            VersionControlCoordinator coordinator = session.Start(
+                new VersionControlConfig { AutoCommitOnClose = false },
+                candidate => candidate is null ? discovery : tracked);
             await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, tracked));
-            coordinator.ConfirmPullAsync = async cancellationToken =>
-            {
-                confirmationStarted.TrySetResult();
-                try
-                {
-                    return await releaseConfirmation.Task.WaitAsync(cancellationToken);
-                }
-                catch (OperationCanceledException)
-                    when (cancellationToken.IsCancellationRequested)
-                {
-                    confirmationCancelled.TrySetResult();
-                    throw;
-                }
-            };
+            coordinator.ConfirmPullAsync = confirmation.AnswerAsync;
             coordinator.ConfirmSwitchBranchAsync = (_, _) => Task.FromResult(true);
 
             Task<RemoteOpResult> pull = coordinator.PullAsync();
-            await confirmationStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await confirmation.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
             bool branchCreated = await coordinator.CreateBranchAsync(
                     "cancel-pull-confirmation",
                     CancellationToken.None)
                 .WaitAsync(TimeSpan.FromSeconds(5));
-            await confirmationCancelled.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await confirmation.Cancelled.Task.WaitAsync(TimeSpan.FromSeconds(5));
             RemoteOpResult pullResult = await pull.WaitAsync(TimeSpan.FromSeconds(5));
 
             Assert.Multiple(() =>
@@ -7056,82 +4941,46 @@ public class VersionControlRestoreTests
         }
         finally
         {
-            releaseConfirmation.TrySetResult(false);
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync();
-            }
-
-            await TestReset.ResetShellAsync();
-            config.AutoCommitOnClose = oldAutoCommitOnClose;
+            confirmation.Release(false);
         }
     }
 
     [AvaloniaTest]
     public async Task Explicit_open_asks_for_enclosing_repository_consent_once()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
-        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
-        VersionControlCoordinator? coordinator = null;
-
-        try
+        await using var session = await FakeVersionControlSession.CreateForReopenAsync(
+            "version-control-enclosing-consent-once");
+        string repositoryRoot = Path.GetDirectoryName(session.Root)!;
+        var repository = new RepositoryInfo(repositoryRoot, session.Root);
+        var discovery = new PullCycleTestBackend(null, repository, MainTip)
         {
-            config.AutoCommitOnClose = false;
-            Project target = await CreateProjectForFakeVersionControlAsync(
-                "version-control-enclosing-consent-once");
-            string projectFile = target.Uri!.LocalPath;
-            string projectRoot = Path.GetDirectoryName(projectFile)!;
-            string repositoryRoot = Path.GetDirectoryName(projectRoot)!;
-            await TestShell.Project.CloseProjectAsync();
-            var projectService = new ProjectService();
-            var repository = new RepositoryInfo(repositoryRoot, projectRoot);
-            var originalTip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var discovery = new PullCycleTestBackend(null, repository, originalTip)
-            {
-                HasVersionTrackingOptIn = false,
-            };
-            var tracked = new PullCycleTestBackend(repository, repository, originalTip)
-            {
-                HasVersionTrackingOptIn = false,
-            };
-            coordinator = new VersionControlCoordinator(
-                projectService,
-                new EditorService(new ExtensionProvider()),
-                config,
-                installationLocator: null,
-                serviceFactory: candidate => candidate is null ? discovery : tracked);
-            int confirmations = 0;
-            coordinator.ConfirmUseEnclosingRepositoryAsync = (candidate, _) =>
-            {
-                Assert.That(candidate, Is.EqualTo(repository));
-                Interlocked.Increment(ref confirmations);
-                return Task.FromResult(true);
-            };
-
-            await projectService.OpenProject(projectFile);
-            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, tracked));
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(confirmations, Is.EqualTo(1));
-                Assert.That(projectService.CurrentProject.Value, Is.Not.Null);
-                Assert.That(projectService.CurrentProject.Value!.Uri!.LocalPath,
-                    Is.EqualTo(projectFile));
-            });
-        }
-        finally
+            HasVersionTrackingOptIn = false,
+        };
+        var tracked = new PullCycleTestBackend(repository, repository, MainTip)
         {
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync();
-            }
+            HasVersionTrackingOptIn = false,
+        };
+        VersionControlCoordinator coordinator = session.Start(
+            new VersionControlConfig { AutoCommitOnClose = false },
+            candidate => candidate is null ? discovery : tracked);
+        int confirmations = 0;
+        coordinator.ConfirmUseEnclosingRepositoryAsync = (candidate, _) =>
+        {
+            Assert.That(candidate, Is.EqualTo(repository));
+            Interlocked.Increment(ref confirmations);
+            return Task.FromResult(true);
+        };
 
-            await TestReset.ResetShellAsync();
-            config.AutoCommitOnClose = oldAutoCommitOnClose;
-        }
+        await session.ProjectService.OpenProject(session.ProjectFile);
+        await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, tracked));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(confirmations, Is.EqualTo(1));
+            Assert.That(session.ProjectService.CurrentProject.Value, Is.Not.Null);
+            Assert.That(session.ProjectService.CurrentProject.Value!.Uri!.LocalPath,
+                Is.EqualTo(session.ProjectFile));
+        });
     }
 
     [AvaloniaTest]
@@ -7148,14 +4997,11 @@ public class VersionControlRestoreTests
             Directory.CreateDirectory(location);
             // The location lies inside a repository that has never tracked the project being created.
             var repository = new RepositoryInfo(location, Path.Combine(location, "untracked"));
-            var originalTip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var discovery = new PullCycleTestBackend(null, repository, originalTip)
+            var discovery = new PullCycleTestBackend(null, repository, MainTip)
             {
                 HasVersionTrackingOptIn = false,
             };
-            var tracked = new PullCycleTestBackend(repository, repository, originalTip)
+            var tracked = new PullCycleTestBackend(repository, repository, MainTip)
             {
                 HasVersionTrackingOptIn = false,
             };
@@ -7187,8 +5033,7 @@ public class VersionControlRestoreTests
                 location);
             Assert.That(project, Is.Not.Null);
             await WaitUntilAsync(() => coordinator.CurrentService is not null);
-            // A save snapshot waits for the activation that is still deciding about the repository.
-            await coordinator.NotifySavedAsync();
+            await WaitForActivationDecisionAsync(coordinator);
 
             Assert.Multiple(() =>
             {
@@ -7221,11 +5066,8 @@ public class VersionControlRestoreTests
                 "version-control-new-project-declined");
             Directory.CreateDirectory(location);
             var repository = new RepositoryInfo(location, Path.Combine(location, "declined"));
-            var originalTip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
             var untrackedBackends = new List<PullCycleTestBackend>();
-            var tracked = new PullCycleTestBackend(repository, repository, originalTip)
+            var tracked = new PullCycleTestBackend(repository, repository, MainTip)
             {
                 HasVersionTrackingOptIn = false,
             };
@@ -7242,7 +5084,7 @@ public class VersionControlRestoreTests
                         return tracked;
                     }
 
-                    var untracked = new PullCycleTestBackend(null, repository, originalTip)
+                    var untracked = new PullCycleTestBackend(null, repository, MainTip)
                     {
                         HasVersionTrackingOptIn = false,
                     };
@@ -7314,9 +5156,6 @@ public class VersionControlRestoreTests
                 BeutlHomeIsolation.CurrentHome!,
                 "version-control-new-project-prepared");
             Directory.CreateDirectory(location);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
             var backends = new List<PullCycleTestBackend>();
             var projectService = new ProjectService();
             var editorService = new EditorService(new ExtensionProvider());
@@ -7327,7 +5166,7 @@ public class VersionControlRestoreTests
                 installationLocator: null,
                 serviceFactory: candidate =>
                 {
-                    var backend = new PullCycleTestBackend(candidate, discoveredRepository: null, tip)
+                    var backend = new PullCycleTestBackend(candidate, discoveredRepository: null, MainTip)
                     {
                         RequireIdentityForInitialization = true,
                     };
@@ -7441,9 +5280,6 @@ public class VersionControlRestoreTests
                 $"version-control-new-project-interrupted-{hasFirstVersion}");
             Directory.CreateDirectory(location);
             string projectRoot = Path.Combine(location, "interrupted");
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
             var backends = new List<PullCycleTestBackend>();
             var projectService = new ProjectService();
             coordinator = new VersionControlCoordinator(
@@ -7455,14 +5291,14 @@ public class VersionControlRestoreTests
                 {
                     PullCycleTestBackend backend = backends.Count == 0
                         // Initialization attaches the repository it creates and then fails.
-                        ? new PullCycleTestBackend(null, discoveredRepository: null, tip)
+                        ? new PullCycleTestBackend(null, discoveredRepository: null, MainTip)
                         {
                             InitializeFailureAfterAttach = new IOException("simulated initial commit failure"),
                         }
                         : new PullCycleTestBackend(
                             candidate,
                             new RepositoryInfo(projectRoot, projectRoot),
-                            tip)
+                            MainTip)
                         {
                             HasCheckedOutCommit = hasFirstVersion,
                             HasVersionTrackingOptIn = false,
@@ -7512,8 +5348,7 @@ public class VersionControlRestoreTests
                                        && backends[0].DisposeCalls == 1
                                        && coordinator.CurrentService is not null
                                        && coordinator.IsTracked.Value == hasFirstVersion);
-            // A save snapshot waits for the activation to finish deciding how the project is tracked.
-            await coordinator.NotifySavedAsync();
+            await WaitForActivationDecisionAsync(coordinator);
             HeadlessTestHelpers.Settle();
 
             Assert.Multiple(() =>
@@ -7562,9 +5397,6 @@ public class VersionControlRestoreTests
                 BeutlHomeIsolation.CurrentHome!,
                 "version-control-new-project-reserved-path-failure");
             Directory.CreateDirectory(location);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
             var backends = new List<PullCycleTestBackend>();
             var projectService = new ProjectService();
             coordinator = new VersionControlCoordinator(
@@ -7574,7 +5406,7 @@ public class VersionControlRestoreTests
                 installationLocator: null,
                 serviceFactory: candidate =>
                 {
-                    var backend = new PullCycleTestBackend(candidate, discoveredRepository: null, tip)
+                    var backend = new PullCycleTestBackend(candidate, discoveredRepository: null, MainTip)
                     {
                         TrackedReservedPaths = [".beutl/state.tmp"],
                     };
@@ -7645,9 +5477,6 @@ public class VersionControlRestoreTests
                 BeutlHomeIsolation.CurrentHome!,
                 "version-control-new-project-not-opened");
             Directory.CreateDirectory(location);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
             var backends = new List<PullCycleTestBackend>();
             var editorService = new EditorService(new ExtensionProvider());
             coordinator = new VersionControlCoordinator(
@@ -7657,7 +5486,7 @@ public class VersionControlRestoreTests
                 installationLocator: null,
                 serviceFactory: candidate =>
                 {
-                    var backend = new PullCycleTestBackend(candidate, discoveredRepository: null, tip);
+                    var backend = new PullCycleTestBackend(candidate, discoveredRepository: null, MainTip);
                     backends.Add(backend);
                     return backend;
                 });
@@ -7724,9 +5553,6 @@ public class VersionControlRestoreTests
                 BeutlHomeIsolation.CurrentHome!,
                 "version-control-new-project-close-during-identity");
             Directory.CreateDirectory(location);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
             var backends = new List<PullCycleTestBackend>();
             coordinator = new VersionControlCoordinator(
                 projectService,
@@ -7735,7 +5561,7 @@ public class VersionControlRestoreTests
                 installationLocator: null,
                 serviceFactory: candidate =>
                 {
-                    var backend = new PullCycleTestBackend(candidate, discoveredRepository: null, tip)
+                    var backend = new PullCycleTestBackend(candidate, discoveredRepository: null, MainTip)
                     {
                         RequireIdentityForInitialization = true,
                     };
@@ -7839,9 +5665,6 @@ public class VersionControlRestoreTests
                 BeutlHomeIsolation.CurrentHome!,
                 "version-control-new-project-disposed");
             Directory.CreateDirectory(location);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
             var backends = new List<PullCycleTestBackend>();
             coordinator = new VersionControlCoordinator(
                 projectService,
@@ -7850,7 +5673,7 @@ public class VersionControlRestoreTests
                 installationLocator: null,
                 serviceFactory: candidate =>
                 {
-                    var backend = new PullCycleTestBackend(candidate, discoveredRepository: null, tip);
+                    var backend = new PullCycleTestBackend(candidate, discoveredRepository: null, MainTip);
                     backends.Add(backend);
                     return backend;
                 });
@@ -7909,38 +5732,27 @@ public class VersionControlRestoreTests
     [AvaloniaTest]
     public async Task Closing_a_tracked_project_shows_the_close_in_place_of_the_editor_until_it_completes()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
         var retirementStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseRetirement = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         Task<bool>? close = null;
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-close-presentation");
 
         try
         {
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-close-presentation");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var backend = new PullCycleTestBackend(repository, repository, tip)
+            var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip)
             {
                 RetirementStarted = retirementStarted,
                 RetirementRelease = releaseRetirement.Task,
             };
-            var editorService = new EditorService(new ExtensionProvider());
-            var commands = new PassiveSaveOperation();
-            var context = new PassiveEditorContext(project, commands);
-            editorService.TabItems.Add(new EditorTabItem(context));
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
+            var commands = new SaveOperation(true);
+            var context = new SavableEditorContext(session.Project, commands);
+            session.EditorService.TabItems.Add(new EditorTabItem(context));
+            VersionControlCoordinator coordinator = session.Start(
                 new VersionControlConfig { AutoCommitOnClose = true },
-                installationLocator: null,
-                serviceFactory: _ => backend);
+                _ => backend);
             await WaitUntilAsync(() =>
                 ReferenceEquals(coordinator.CurrentService, backend)
                 && coordinator.IsTracked.Value);
@@ -7948,15 +5760,15 @@ public class VersionControlRestoreTests
             bool editorEnabledWhileSaving = true;
             commands.Saving = () =>
             {
-                activityWhileSaving = editorService.LifecycleActivity.Value;
+                activityWhileSaving = session.EditorService.LifecycleActivity.Value;
                 editorEnabledWhileSaving = context.IsEnabled.Value;
             };
             Assert.That(
-                editorService.LifecycleActivity.Value,
+                session.EditorService.LifecycleActivity.Value,
                 Is.EqualTo(ProjectLifecycleActivity.None));
 
             close = TestShell.Project.TryCloseProjectAsync(
-                project,
+                session.Project,
                 ProjectService.ProjectCloseIntent.SaveChanges);
             await retirementStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
             HeadlessTestHelpers.Settle();
@@ -7967,7 +5779,7 @@ public class VersionControlRestoreTests
                 Assert.That(activityWhileSaving, Is.EqualTo(ProjectLifecycleActivity.ClosingProject));
                 Assert.That(editorEnabledWhileSaving, Is.False);
                 Assert.That(
-                    editorService.LifecycleActivity.Value,
+                    session.EditorService.LifecycleActivity.Value,
                     Is.EqualTo(ProjectLifecycleActivity.ClosingProject));
                 Assert.That(close.IsCompleted, Is.False);
             });
@@ -7980,7 +5792,7 @@ public class VersionControlRestoreTests
             {
                 Assert.That(TestShell.Project.CurrentProject.Value, Is.Null);
                 Assert.That(
-                    editorService.LifecycleActivity.Value,
+                    session.EditorService.LifecycleActivity.Value,
                     Is.EqualTo(ProjectLifecycleActivity.None));
             });
         }
@@ -7991,21 +5803,12 @@ public class VersionControlRestoreTests
             {
                 await close.WaitAsync(TimeSpan.FromSeconds(5));
             }
-
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
-            }
-
-            await TestReset.ResetShellAsync();
         }
     }
 
     [AvaloniaTest]
     public async Task Closing_while_version_control_work_runs_shows_the_close_until_that_work_ends()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
         var identityRequested = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         // Ignores cancellation, so the close has to wait for the operation to finish.
@@ -8013,41 +5816,33 @@ public class VersionControlRestoreTests
             TaskCreationOptions.RunContinuationsAsynchronously);
         Task<bool>? initialization = null;
         Task<bool>? close = null;
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-close-waits-for-operation");
 
         try
         {
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-close-waits-for-operation");
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var backend = new PullCycleTestBackend(null, discoveredRepository: null, tip)
+            var backend = new PullCycleTestBackend(null, discoveredRepository: null, MainTip)
             {
                 RequireIdentityForInitialization = true,
             };
-            var editorService = new EditorService(new ExtensionProvider());
-            editorService.TabItems.Add(new EditorTabItem(
-                new PassiveEditorContext(project, new PassiveSaveOperation())));
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
+            session.EditorService.TabItems.Add(new EditorTabItem(
+                new SavableEditorContext(session.Project, new SaveOperation(true))));
+            VersionControlCoordinator coordinator = session.Start(
                 new VersionControlConfig
                 {
                     AutoCommitOnSave = true,
                     AutoCommitOnClose = true,
                 },
-                installationLocator: null,
-                serviceFactory: _ => backend);
+                _ => backend);
             await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
-            // A save snapshot waits for the activation to finish deciding that nothing is tracked.
-            await coordinator.NotifySavedAsync();
+            await WaitForActivationDecisionAsync(coordinator);
             HeadlessTestHelpers.Settle();
             Assert.That(
-                editorService.LifecycleActivity.Value,
+                session.EditorService.LifecycleActivity.Value,
                 Is.EqualTo(ProjectLifecycleActivity.None));
 
             initialization = coordinator.InitializeCurrentProjectAsync(
-                project,
+                session.Project,
                 _ =>
                 {
                     identityRequested.TrySetResult();
@@ -8056,10 +5851,10 @@ public class VersionControlRestoreTests
             await identityRequested.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
             close = TestShell.Project.TryCloseProjectAsync(
-                project,
+                session.Project,
                 ProjectService.ProjectCloseIntent.SaveChanges);
             await WaitUntilAsync(() =>
-                editorService.LifecycleActivity.Value == ProjectLifecycleActivity.ClosingProject);
+                session.EditorService.LifecycleActivity.Value == ProjectLifecycleActivity.ClosingProject);
             Assert.That(close.IsCompleted, Is.False);
 
             identity.TrySetResult(null);
@@ -8071,7 +5866,7 @@ public class VersionControlRestoreTests
             {
                 Assert.That(TestShell.Project.CurrentProject.Value, Is.Null);
                 Assert.That(
-                    editorService.LifecycleActivity.Value,
+                    session.EditorService.LifecycleActivity.Value,
                     Is.EqualTo(ProjectLifecycleActivity.None));
             });
         }
@@ -8087,67 +5882,37 @@ public class VersionControlRestoreTests
             {
                 await close.WaitAsync(TimeSpan.FromSeconds(5));
             }
-
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
-            }
-
-            await TestReset.ResetShellAsync();
         }
     }
 
     [AvaloniaTest]
     public async Task Closing_an_untracked_project_keeps_the_editor_area_as_is()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
-
-        try
-        {
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-close-untracked-presentation");
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var backend = new PullCycleTestBackend(null, discoveredRepository: null, tip);
-            var editorService = new EditorService(new ExtensionProvider());
-            var activities = new List<ProjectLifecycleActivity>();
-            using IDisposable subscription = editorService.LifecycleActivity.Subscribe(activities.Add);
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
-                new VersionControlConfig
-                {
-                    AutoCommitOnSave = true,
-                    AutoCommitOnClose = true,
-                },
-                installationLocator: null,
-                serviceFactory: _ => backend);
-            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
-            // A save snapshot waits for the activation to finish deciding that nothing is tracked.
-            await coordinator.NotifySavedAsync();
-            HeadlessTestHelpers.Settle();
-            Assert.That(coordinator.IsTracked.Value, Is.False);
-
-            Assert.That(
-                await TestShell.Project.TryCloseProjectAsync(
-                    project,
-                    ProjectService.ProjectCloseIntent.SaveChanges),
-                Is.True);
-            HeadlessTestHelpers.Settle();
-
-            Assert.That(activities, Is.EqualTo(new[] { ProjectLifecycleActivity.None }));
-        }
-        finally
-        {
-            if (coordinator is not null)
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-close-untracked-presentation");
+        var backend = new PullCycleTestBackend(null, discoveredRepository: null, MainTip);
+        var activities = new List<ProjectLifecycleActivity>();
+        using IDisposable subscription = session.EditorService.LifecycleActivity.Subscribe(activities.Add);
+        VersionControlCoordinator coordinator = session.Start(
+            new VersionControlConfig
             {
-                await coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
-            }
+                AutoCommitOnSave = true,
+                AutoCommitOnClose = true,
+            },
+            _ => backend);
+        await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
+        await WaitForActivationDecisionAsync(coordinator);
+        HeadlessTestHelpers.Settle();
+        Assert.That(coordinator.IsTracked.Value, Is.False);
 
-            await TestReset.ResetShellAsync();
-        }
+        Assert.That(
+            await TestShell.Project.TryCloseProjectAsync(
+                session.Project,
+                ProjectService.ProjectCloseIntent.SaveChanges),
+            Is.True);
+        HeadlessTestHelpers.Settle();
+
+        Assert.That(activities, Is.EqualTo(new[] { ProjectLifecycleActivity.None }));
     }
 
     [AvaloniaTest]
@@ -8169,140 +5934,81 @@ public class VersionControlRestoreTests
     [AvaloniaTest]
     public async Task Adopted_enclosing_repository_resumes_tracking_without_asking_again()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
-        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
-        VersionControlCoordinator? coordinator = null;
-
-        try
+        await using var session = await FakeVersionControlSession.CreateForReopenAsync(
+            "version-control-enclosing-consent-opt-in");
+        string repositoryRoot = Path.GetDirectoryName(session.Root)!;
+        var repository = new RepositoryInfo(repositoryRoot, session.Root);
+        // The repository already records an earlier opt-in for this project.
+        var discovery = new PullCycleTestBackend(null, repository, MainTip)
         {
-            config.AutoCommitOnClose = false;
-            Project target = await CreateProjectForFakeVersionControlAsync(
-                "version-control-enclosing-consent-opt-in");
-            string projectFile = target.Uri!.LocalPath;
-            string projectRoot = Path.GetDirectoryName(projectFile)!;
-            string repositoryRoot = Path.GetDirectoryName(projectRoot)!;
-            await TestShell.Project.CloseProjectAsync();
-            var projectService = new ProjectService();
-            var repository = new RepositoryInfo(repositoryRoot, projectRoot);
-            var originalTip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            // The repository already records an earlier opt-in for this project.
-            var discovery = new PullCycleTestBackend(null, repository, originalTip)
-            {
-                HasVersionTrackingOptIn = true,
-            };
-            var tracked = new PullCycleTestBackend(repository, repository, originalTip)
-            {
-                HasVersionTrackingOptIn = true,
-            };
-            coordinator = new VersionControlCoordinator(
-                projectService,
-                new EditorService(new ExtensionProvider()),
-                config,
-                installationLocator: null,
-                serviceFactory: candidate => candidate is null ? discovery : tracked);
-            int confirmations = 0;
-            coordinator.ConfirmUseEnclosingRepositoryAsync = (_, _) =>
-            {
-                Interlocked.Increment(ref confirmations);
-                return Task.FromResult(true);
-            };
-
-            await projectService.OpenProject(projectFile);
-            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, tracked));
-
-            Assert.Multiple(() =>
-            {
-                // Re-asking would turn a dismissed prompt into a session with no snapshots at all,
-                // even though the project is already tracked.
-                Assert.That(confirmations, Is.Zero);
-                Assert.That(projectService.CurrentProject.Value, Is.Not.Null);
-            });
-        }
-        finally
+            HasVersionTrackingOptIn = true,
+        };
+        var tracked = new PullCycleTestBackend(repository, repository, MainTip)
         {
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync();
-            }
+            HasVersionTrackingOptIn = true,
+        };
+        VersionControlCoordinator coordinator = session.Start(
+            new VersionControlConfig { AutoCommitOnClose = false },
+            candidate => candidate is null ? discovery : tracked);
+        int confirmations = 0;
+        coordinator.ConfirmUseEnclosingRepositoryAsync = (_, _) =>
+        {
+            Interlocked.Increment(ref confirmations);
+            return Task.FromResult(true);
+        };
 
-            await TestReset.ResetShellAsync();
-            config.AutoCommitOnClose = oldAutoCommitOnClose;
-        }
+        await session.ProjectService.OpenProject(session.ProjectFile);
+        await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, tracked));
+
+        Assert.Multiple(() =>
+        {
+            // Re-asking would turn a dismissed prompt into a session with no snapshots at all,
+            // even though the project is already tracked.
+            Assert.That(confirmations, Is.Zero);
+            Assert.That(session.ProjectService.CurrentProject.Value, Is.Not.Null);
+        });
     }
 
     [AvaloniaTest]
     public async Task Pull_prefetches_lfs_objects_at_the_fetched_upstream_commit()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
-        bool oldAutoCommitOnSave = config.AutoCommitOnSave;
-        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
-        VersionControlCoordinator? coordinator = null;
-
-        try
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-pull-lfs-prefetch");
+        const string UpstreamCommit = "2222222222222222222222222222222222222222";
+        var discovery = new PullCycleTestBackend(repository: null, session.Repository, MainTip);
+        var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip)
         {
-            config.AutoCommitOnSave = false;
-            config.AutoCommitOnClose = false;
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-pull-lfs-prefetch");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var originalTip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            const string UpstreamCommit = "2222222222222222222222222222222222222222";
-            var discovery = new PullCycleTestBackend(repository: null, repository, originalTip);
-            var backend = new PullCycleTestBackend(repository, repository, originalTip)
-            {
-                PreflightResult = new PullPreflightResult(
-                    new RemoteOpResult.Success(),
-                    RequiresTransition: true,
-                    UpstreamCommit),
-                PullResult = new RemoteOpResult.Success(),
-            };
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                new EditorService(new ExtensionProvider()),
-                config,
-                installationLocator: null,
-                serviceFactory: candidate => candidate is null ? discovery : backend);
-            coordinator.ConfirmPullAsync = _ => Task.FromResult(true);
-            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
-            bool? projectWasOpenDuringPrefetch = null;
-            backend.PrefetchCommitLfsObserver = () =>
-                projectWasOpenDuringPrefetch = TestShell.Project.CurrentProject.Value is not null;
+            PreflightResult = new PullPreflightResult(
+                new RemoteOpResult.Success(),
+                RequiresTransition: true,
+                UpstreamCommit),
+            PullResult = new RemoteOpResult.Success(),
+        };
+        VersionControlCoordinator coordinator = session.Start(
+            new VersionControlConfig { AutoCommitOnSave = false, AutoCommitOnClose = false },
+            candidate => candidate is null ? discovery : backend);
+        coordinator.ConfirmPullAsync = _ => Task.FromResult(true);
+        await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
+        bool? projectWasOpenDuringPrefetch = null;
+        backend.PrefetchCommitLfsObserver = () =>
+            projectWasOpenDuringPrefetch = TestShell.Project.CurrentProject.Value is not null;
 
-            await coordinator.PullAsync();
-            HeadlessTestHelpers.Settle();
+        await coordinator.PullAsync();
+        HeadlessTestHelpers.Settle();
 
-            Assert.Multiple(() =>
-            {
-                // The fetch moved the remote-tracking ref only, so the local branch still points at
-                // the pre-pull tip: prefetching by branch name would download nothing.
-                Assert.That(backend.PrefetchBranchLfsCalls, Is.Zero);
-                Assert.That(backend.LastPrefetchedCommit, Is.EqualTo(UpstreamCommit));
-                Assert.That(
-                    backend.LastPrefetchCommitLfsScope,
-                    Is.EqualTo(LfsPrefetchScope.RepositoryWide));
-                // The merge itself runs uncancellable with the project closed.
-                Assert.That(projectWasOpenDuringPrefetch, Is.True);
-                Assert.That(backend.LastPulledCommit, Is.EqualTo(UpstreamCommit));
-            });
-        }
-        finally
+        Assert.Multiple(() =>
         {
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync();
-            }
-
-            await TestReset.ResetShellAsync();
-            config.AutoCommitOnSave = oldAutoCommitOnSave;
-            config.AutoCommitOnClose = oldAutoCommitOnClose;
-        }
+            // The fetch moved the remote-tracking ref only, so the local branch still points at
+            // the pre-pull tip: prefetching by branch name would download nothing.
+            Assert.That(backend.PrefetchBranchLfsCalls, Is.Zero);
+            Assert.That(backend.LastPrefetchedCommit, Is.EqualTo(UpstreamCommit));
+            Assert.That(
+                backend.LastPrefetchCommitLfsScope,
+                Is.EqualTo(LfsPrefetchScope.RepositoryWide));
+            // The merge itself runs uncancellable with the project closed.
+            Assert.That(projectWasOpenDuringPrefetch, Is.True);
+            Assert.That(backend.LastPulledCommit, Is.EqualTo(UpstreamCommit));
+        });
     }
 
     [AvaloniaTest]
@@ -8421,1256 +6127,871 @@ public class VersionControlRestoreTests
             Action<PullCycleTestBackend>? configure,
             Func<Task>? duringConfirmation = null)
     {
-        await TestReset.ResetShellAsync();
-        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
-        bool oldAutoCommitOnSave = config.AutoCommitOnSave;
-        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
-        VersionControlCoordinator? coordinator = null;
+        await using var session = await FakeVersionControlSession.CreateAsync(projectName);
+        var discovery = new PullCycleTestBackend(repository: null, session.Repository, MainTip);
+        var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip)
+        {
+            PreflightResult = new PullPreflightResult(
+                new RemoteOpResult.Success(),
+                RequiresTransition: true,
+                "2222222222222222222222222222222222222222"),
+        };
+        configure?.Invoke(backend);
+        VersionControlCoordinator coordinator = session.Start(
+            new VersionControlConfig { AutoCommitOnSave = false, AutoCommitOnClose = false },
+            candidate => candidate is null ? discovery : backend);
+        int confirmations = 0;
+        coordinator.ConfirmPullAsync = async _ =>
+        {
+            confirmations++;
+            if (duringConfirmation is not null)
+            {
+                await duringConfirmation();
+            }
 
+            return true;
+        };
+        await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
+
+        RemoteOpResult? result = null;
+        InvalidOperationException? thrown = null;
         try
         {
-            config.AutoCommitOnSave = false;
-            config.AutoCommitOnClose = false;
-            Project project = await CreateProjectForFakeVersionControlAsync(projectName);
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var originalTip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var discovery = new PullCycleTestBackend(repository: null, repository, originalTip);
-            var backend = new PullCycleTestBackend(repository, repository, originalTip)
-            {
-                PreflightResult = new PullPreflightResult(
-                    new RemoteOpResult.Success(),
-                    RequiresTransition: true,
-                    "2222222222222222222222222222222222222222"),
-            };
-            configure?.Invoke(backend);
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                new EditorService(new ExtensionProvider()),
-                config,
-                installationLocator: null,
-                serviceFactory: candidate => candidate is null ? discovery : backend);
-            int confirmations = 0;
-            coordinator.ConfirmPullAsync = async _ =>
-            {
-                confirmations++;
-                if (duringConfirmation is not null)
-                {
-                    await duringConfirmation();
-                }
-
-                return true;
-            };
-            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
-
-            RemoteOpResult? result = null;
-            InvalidOperationException? thrown = null;
-            try
-            {
-                result = await coordinator.PullAsync()
-                    .WaitAsync(TimeSpan.FromSeconds(5));
-            }
-            catch (InvalidOperationException ex)
-            {
-                thrown = ex;
-            }
-
-            HeadlessTestHelpers.Settle();
-
-            return (
-                result,
-                thrown,
-                ReferenceEquals(TestShell.Project.CurrentProject.Value, project),
-                confirmations,
-                backend.PullCalls);
+            result = await coordinator.PullAsync()
+                .WaitAsync(TimeSpan.FromSeconds(5));
         }
-        finally
+        catch (InvalidOperationException ex)
         {
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync();
-            }
-
-            await TestReset.ResetShellAsync();
-            config.AutoCommitOnSave = oldAutoCommitOnSave;
-            config.AutoCommitOnClose = oldAutoCommitOnClose;
+            thrown = ex;
         }
+
+        HeadlessTestHelpers.Settle();
+
+        return (
+            result,
+            thrown,
+            ReferenceEquals(TestShell.Project.CurrentProject.Value, session.Project),
+            confirmations,
+            backend.PullCalls);
     }
 
     [AvaloniaTest]
     public async Task Missing_recent_project_keeps_the_current_project_open()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
-        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
-        VersionControlCoordinator? coordinator = null;
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-missing-recent-current");
+        string missingProject = Path.Combine(
+            BeutlHomeIsolation.CurrentHome!,
+            "missing-recent",
+            "missing.bep");
+        var discovery = new PullCycleTestBackend(
+            repository: null,
+            discoveredRepository: null,
+            MainTip);
+        VersionControlCoordinator coordinator = session.Start(
+            new VersionControlConfig { AutoCommitOnClose = false },
+            _ => discovery);
+        var menu = new MenuBarViewModel(TestShell.Project, session.EditorService, coordinator);
 
-        try
-        {
-            config.AutoCommitOnClose = false;
-            Project current = await CreateProjectForFakeVersionControlAsync(
-                "version-control-missing-recent-current");
-            string missingProject = Path.Combine(
-                BeutlHomeIsolation.CurrentHome!,
-                "missing-recent",
-                "missing.bep");
-            string projectRoot = Path.GetDirectoryName(current.Uri!.LocalPath)!;
-            var originalTip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var discovery = new PullCycleTestBackend(
-                repository: null,
-                discoveredRepository: null,
-                originalTip);
-            var editorService = new EditorService(new ExtensionProvider());
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
-                config,
-                installationLocator: null,
-                serviceFactory: _ => discovery);
-            var menu = new MenuBarViewModel(TestShell.Project, editorService, coordinator);
+        await menu.OpenRecentProject.ExecuteAsync(missingProject);
 
-            await menu.OpenRecentProject.ExecuteAsync(missingProject);
-
-            Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(current));
-            Assert.That(Path.GetDirectoryName(current.Uri.LocalPath), Is.EqualTo(projectRoot));
-        }
-        finally
-        {
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync();
-            }
-
-            await TestReset.ResetShellAsync();
-            config.AutoCommitOnClose = oldAutoCommitOnClose;
-        }
+        Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(session.Project));
+        Assert.That(Path.GetDirectoryName(session.Project.Uri!.LocalPath), Is.EqualTo(session.Root));
     }
 
     [AvaloniaTest]
     public async Task Restore_reopen_failure_appends_a_recovery_commit_and_reopens_original_state()
     {
-        await TestReset.ResetShellAsync();
-        using var environment = new IsolatedGitEnvironment();
-        string gitPath = ProbeGitOrIgnore();
-        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
-        string? oldGitPath = config.GitExecutablePath;
-        bool oldAutoCommitOnSave = config.AutoCommitOnSave;
-        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
-        bool oldUseLfs = config.UseLfsWhenAvailable;
-        var oldConfirmRestoreAsync = TestShell.VersionControl.ConfirmRestoreAsync;
+        await using RealGitScope git = await RealGitScope.StartAsync(
+            autoCommitOnSave: true,
+            autoCommitOnClose: true,
+            useLfsWhenAvailable: false);
 
-        try
+        (Project project, _) = await CreateTrackedProjectAsync(
+            "version-control-restore-recovery");
+        project.Variables[RestoreStateKey] = "original-state";
+        await TestShell.MainViewModel.MenuBar.SaveAll.ExecuteAsync();
+
+        string projectFile = project.Uri!.LocalPath;
+        string invalidTarget = await CommitInvalidProjectAsync(git.GitPath, project, "invalid restore target");
+        TestShell.VersionControl.ConfirmRestoreAsync = _ => Task.FromResult(true);
+
+        Assert.That(
+            await TestShell.VersionControl.RestoreAsync(invalidTarget),
+            Is.False);
+        HeadlessTestHelpers.Settle();
+
+        Project reopened = TestShell.Project.CurrentProject.Value!;
+        IProjectVersionControlService service = TestShell.VersionControl.CurrentService!;
+        IReadOnlyList<CommitInfo> history = await service.GetHistoryAsync(
+            0,
+            10,
+            CancellationToken.None);
+        WorkspaceStatus status = await service.GetStatusAsync(CancellationToken.None);
+        Assert.Multiple(() =>
         {
-            config.GitExecutablePath = gitPath;
-            config.AutoCommitOnSave = true;
-            config.AutoCommitOnClose = true;
-            config.UseLfsWhenAvailable = false;
-
-            (Project project, _) = await CreateTrackedProjectAsync(
-                "version-control-restore-recovery");
-            project.Variables[RestoreStateKey] = "original-state";
-            await TestShell.MainViewModel.MenuBar.SaveAll.ExecuteAsync();
-
-            string projectFile = project.Uri!.LocalPath;
-            string projectRoot = Path.GetDirectoryName(projectFile)!;
-            string validProject = await File.ReadAllTextAsync(projectFile);
-            await File.WriteAllTextAsync(projectFile, "{ invalid project json");
-            string projectPathspec = Path.GetRelativePath(projectRoot, projectFile)
-                .Replace('\\', '/');
-            await RunGitAsync(gitPath, projectRoot, "add", "--", projectPathspec);
-            await RunGitAsync(gitPath, projectRoot, "commit", "-m", "invalid restore target");
-            string invalidTarget = (await RunGitAsync(
-                gitPath,
-                projectRoot,
-                "rev-parse",
-                "HEAD")).Trim();
-
-            await File.WriteAllTextAsync(projectFile, validProject);
-            TestShell.VersionControl.ConfirmRestoreAsync = _ => Task.FromResult(true);
-
+            Assert.That(reopened, Is.Not.Null);
+            Assert.That(reopened.Variables[RestoreStateKey], Is.EqualTo("original-state"));
+            Assert.That(history[0].Kind, Is.EqualTo(SnapshotKind.Recovery));
             Assert.That(
-                await TestShell.VersionControl.RestoreAsync(invalidTarget),
-                Is.False);
-            HeadlessTestHelpers.Settle();
-
-            Project reopened = TestShell.Project.CurrentProject.Value!;
-            IProjectVersionControlService service = TestShell.VersionControl.CurrentService!;
-            IReadOnlyList<CommitInfo> history = await service.GetHistoryAsync(
-                0,
-                10,
-                CancellationToken.None);
-            WorkspaceStatus status = await service.GetStatusAsync(CancellationToken.None);
-            Assert.Multiple(() =>
-            {
-                Assert.That(reopened, Is.Not.Null);
-                Assert.That(reopened.Variables[RestoreStateKey], Is.EqualTo("original-state"));
-                Assert.That(history[0].Kind, Is.EqualTo(SnapshotKind.Recovery));
-                Assert.That(
-                    history[0].Subject,
-                    Is.EqualTo("beutl: recover original project state after failed restore"));
-                Assert.That(history[1].Kind, Is.EqualTo(SnapshotKind.Restore));
-                Assert.That(history.Any(commit => commit.Sha == invalidTarget), Is.True);
-                Assert.That(status.IsClean, Is.True);
-            });
-        }
-        finally
-        {
-            TestShell.VersionControl.ConfirmRestoreAsync = oldConfirmRestoreAsync;
-            await TestReset.ResetShellAsync();
-            config.GitExecutablePath = oldGitPath;
-            config.AutoCommitOnSave = oldAutoCommitOnSave;
-            config.AutoCommitOnClose = oldAutoCommitOnClose;
-            config.UseLfsWhenAvailable = oldUseLfs;
-        }
+                history[0].Subject,
+                Is.EqualTo("beutl: recover original project state after failed restore"));
+            Assert.That(history[1].Kind, Is.EqualTo(SnapshotKind.Restore));
+            Assert.That(history.Any(commit => commit.Sha == invalidTarget), Is.True);
+            Assert.That(status.IsClean, Is.True);
+        });
     }
 
     [AvaloniaTest]
     public async Task Restore_to_new_branch_reopen_failure_retains_the_created_ref_and_warns_after_recovery()
     {
-        await TestReset.ResetShellAsync();
-        using var environment = new IsolatedGitEnvironment();
-        string gitPath = ProbeGitOrIgnore();
-        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
-        string? oldGitPath = config.GitExecutablePath;
-        bool oldAutoCommitOnSave = config.AutoCommitOnSave;
-        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
-        bool oldUseLfs = config.UseLfsWhenAvailable;
-        var oldConfirmRestoreAsync = TestShell.VersionControl.ConfirmRestoreAsync;
-        INotificationServiceHandler previousNotificationHandler = NotificationService.Handler;
-        var notifications = new CaptureNotificationHandler();
+        await using RealGitScope git = await RealGitScope.StartAsync(
+            autoCommitOnSave: true,
+            autoCommitOnClose: true,
+            useLfsWhenAvailable: false);
 
-        try
+        (Project project, _) = await CreateTrackedProjectAsync(
+            "version-control-restore-branch-recovery-cleanup");
+        project.Variables[RestoreStateKey] = "original-state";
+        await TestShell.MainViewModel.MenuBar.SaveAll.ExecuteAsync();
+
+        string projectFile = project.Uri!.LocalPath;
+        string projectRoot = Path.GetDirectoryName(projectFile)!;
+        string invalidTarget = await CommitInvalidProjectAsync(git.GitPath, project, "invalid branch restore target");
+        TestShell.VersionControl.ConfirmRestoreAsync = _ => Task.FromResult(true);
+        using var notifications = new NotificationCapture();
+
+        const string FailedBranch = "failed-restore";
+        Assert.That(
+            await TestShell.VersionControl.RestoreToNewBranchAsync(
+                invalidTarget,
+                FailedBranch),
+            Is.False);
+        HeadlessTestHelpers.Settle();
+
+        string currentBranch = (await RunGitAsync(
+            git.GitPath,
+            projectRoot,
+            "branch",
+            "--show-current")).Trim();
+        string failedBranch = await RunGitAsync(
+            git.GitPath,
+            projectRoot,
+            "branch",
+            "--list",
+            FailedBranch);
+        string retainedBranchMessage = string.Format(
+            System.Globalization.CultureInfo.CurrentCulture,
+            Strings.VersionControl_RestoreBranchRetainedFormat,
+            FailedBranch);
+        Assert.Multiple(() =>
         {
-            config.GitExecutablePath = gitPath;
-            config.AutoCommitOnSave = true;
-            config.AutoCommitOnClose = true;
-            config.UseLfsWhenAvailable = false;
-
-            (Project project, _) = await CreateTrackedProjectAsync(
-                "version-control-restore-branch-recovery-cleanup");
-            project.Variables[RestoreStateKey] = "original-state";
-            await TestShell.MainViewModel.MenuBar.SaveAll.ExecuteAsync();
-
-            string projectFile = project.Uri!.LocalPath;
-            string projectRoot = Path.GetDirectoryName(projectFile)!;
-            string validProject = await File.ReadAllTextAsync(projectFile);
-            await File.WriteAllTextAsync(projectFile, "{ invalid project json");
-            string projectPathspec = Path.GetRelativePath(projectRoot, projectFile)
-                .Replace('\\', '/');
-            await RunGitAsync(gitPath, projectRoot, "add", "--", projectPathspec);
-            await RunGitAsync(gitPath, projectRoot, "commit", "-m", "invalid branch restore target");
-            string invalidTarget = (await RunGitAsync(
-                gitPath,
-                projectRoot,
-                "rev-parse",
-                "HEAD")).Trim();
-
-            await File.WriteAllTextAsync(projectFile, validProject);
-            TestShell.VersionControl.ConfirmRestoreAsync = _ => Task.FromResult(true);
-            NotificationService.Handler = notifications;
-
-            const string FailedBranch = "failed-restore";
+            Assert.That(currentBranch, Is.EqualTo("main"));
+            Assert.That(failedBranch, Does.Contain(FailedBranch));
+            Assert.That(TestShell.Project.CurrentProject.Value, Is.Not.Null);
             Assert.That(
-                await TestShell.VersionControl.RestoreToNewBranchAsync(
-                    invalidTarget,
-                    FailedBranch),
-                Is.False);
-            HeadlessTestHelpers.Settle();
-
-            string currentBranch = (await RunGitAsync(
-                gitPath,
-                projectRoot,
-                "branch",
-                "--show-current")).Trim();
-            string failedBranch = await RunGitAsync(
-                gitPath,
-                projectRoot,
-                "branch",
-                "--list",
-                FailedBranch);
-            string retainedBranchMessage = string.Format(
-                System.Globalization.CultureInfo.CurrentCulture,
-                Strings.VersionControl_RestoreBranchRetainedFormat,
-                FailedBranch);
-            Assert.Multiple(() =>
-            {
-                Assert.That(currentBranch, Is.EqualTo("main"));
-                Assert.That(failedBranch, Does.Contain(FailedBranch));
-                Assert.That(TestShell.Project.CurrentProject.Value, Is.Not.Null);
-                Assert.That(
-                    TestShell.Project.CurrentProject.Value!.Variables[RestoreStateKey],
-                    Is.EqualTo("original-state"));
-                Assert.That(
-                    notifications.All.Count(item =>
-                        item.Type == NotificationType.Warning
-                        && item.Message == retainedBranchMessage),
-                    Is.EqualTo(1));
-            });
-        }
-        finally
-        {
-            NotificationService.Handler = previousNotificationHandler;
-            TestShell.VersionControl.ConfirmRestoreAsync = oldConfirmRestoreAsync;
-            await TestReset.ResetShellAsync();
-            config.GitExecutablePath = oldGitPath;
-            config.AutoCommitOnSave = oldAutoCommitOnSave;
-            config.AutoCommitOnClose = oldAutoCommitOnClose;
-            config.UseLfsWhenAvailable = oldUseLfs;
-        }
+                TestShell.Project.CurrentProject.Value!.Variables[RestoreStateKey],
+                Is.EqualTo("original-state"));
+            Assert.That(
+                notifications.All.Count(item =>
+                    item.Type == NotificationType.Warning
+                    && item.Message == retainedBranchMessage),
+                Is.EqualTo(1));
+        });
     }
 
     [AvaloniaTest]
     public async Task Branch_switch_that_cannot_reopen_the_project_returns_to_the_original_branch()
     {
-        await TestReset.ResetShellAsync();
-        using var environment = new IsolatedGitEnvironment();
-        string gitPath = ProbeGitOrIgnore();
-        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
-        string? oldGitPath = config.GitExecutablePath;
-        bool oldAutoCommitOnSave = config.AutoCommitOnSave;
-        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
-        bool oldUseLfs = config.UseLfsWhenAvailable;
-        var oldConfirmSwitchBranchAsync = TestShell.VersionControl.ConfirmSwitchBranchAsync;
+        await using RealGitScope git = await RealGitScope.StartAsync(
+            autoCommitOnSave: true,
+            autoCommitOnClose: true,
+            useLfsWhenAvailable: false);
 
-        try
+        (Project project, _) = await CreateTrackedProjectAsync(
+            "version-control-switch-reopen-failure");
+        project.Variables[RestoreStateKey] = "original-state";
+        await TestShell.MainViewModel.MenuBar.SaveAll.ExecuteAsync();
+
+        string projectFile = project.Uri!.LocalPath;
+        string projectRoot = Path.GetDirectoryName(projectFile)!;
+        string projectPathspec = Path.GetRelativePath(projectRoot, projectFile)
+            .Replace('\\', '/');
+        string validProject = await File.ReadAllTextAsync(projectFile);
+        await RunGitAsync(git.GitPath, projectRoot, "branch", "broken");
+        string brokenTree = (await RunGitAsync(
+            git.GitPath,
+            projectRoot,
+            "rev-parse",
+            "broken^{tree}")).Trim();
+        await File.WriteAllTextAsync(projectFile, "{ invalid project json");
+        await RunGitAsync(git.GitPath, projectRoot, "add", "--", projectPathspec);
+        string invalidTree = (await RunGitAsync(git.GitPath, projectRoot, "write-tree")).Trim();
+        string invalidCommit = (await RunGitAsync(
+            git.GitPath,
+            projectRoot,
+            "commit-tree",
+            invalidTree,
+            "-p",
+            "broken",
+            "-m",
+            "invalid project on the branch")).Trim();
+        await RunGitAsync(git.GitPath, projectRoot, "update-ref", "refs/heads/broken", invalidCommit);
+        await RunGitAsync(git.GitPath, projectRoot, "reset", "-q", "--", projectPathspec);
+        await File.WriteAllTextAsync(projectFile, validProject);
+        Assert.That(brokenTree, Is.Not.EqualTo(invalidTree));
+        TestShell.VersionControl.ConfirmSwitchBranchAsync = (_, _) => Task.FromResult(true);
+
+        Assert.That(
+            await TestShell.VersionControl.SwitchBranchAsync("broken"),
+            Is.False);
+        HeadlessTestHelpers.Settle();
+
+        string currentBranch = (await RunGitAsync(
+            git.GitPath,
+            projectRoot,
+            "branch",
+            "--show-current")).Trim();
+        Assert.Multiple(() =>
         {
-            config.GitExecutablePath = gitPath;
-            config.AutoCommitOnSave = true;
-            config.AutoCommitOnClose = true;
-            config.UseLfsWhenAvailable = false;
-
-            (Project project, _) = await CreateTrackedProjectAsync(
-                "version-control-switch-reopen-failure");
-            project.Variables[RestoreStateKey] = "original-state";
-            await TestShell.MainViewModel.MenuBar.SaveAll.ExecuteAsync();
-
-            string projectFile = project.Uri!.LocalPath;
-            string projectRoot = Path.GetDirectoryName(projectFile)!;
-            string projectPathspec = Path.GetRelativePath(projectRoot, projectFile)
-                .Replace('\\', '/');
-            string validProject = await File.ReadAllTextAsync(projectFile);
-            await RunGitAsync(gitPath, projectRoot, "branch", "broken");
-            string brokenTree = (await RunGitAsync(
-                gitPath,
-                projectRoot,
-                "rev-parse",
-                "broken^{tree}")).Trim();
-            await File.WriteAllTextAsync(projectFile, "{ invalid project json");
-            await RunGitAsync(gitPath, projectRoot, "add", "--", projectPathspec);
-            string invalidTree = (await RunGitAsync(gitPath, projectRoot, "write-tree")).Trim();
-            string invalidCommit = (await RunGitAsync(
-                gitPath,
-                projectRoot,
-                "commit-tree",
-                invalidTree,
-                "-p",
-                "broken",
-                "-m",
-                "invalid project on the branch")).Trim();
-            await RunGitAsync(gitPath, projectRoot, "update-ref", "refs/heads/broken", invalidCommit);
-            await RunGitAsync(gitPath, projectRoot, "reset", "-q", "--", projectPathspec);
-            await File.WriteAllTextAsync(projectFile, validProject);
-            Assert.That(brokenTree, Is.Not.EqualTo(invalidTree));
-            TestShell.VersionControl.ConfirmSwitchBranchAsync = (_, _) => Task.FromResult(true);
-
+            Assert.That(currentBranch, Is.EqualTo("main"));
+            Assert.That(TestShell.Project.CurrentProject.Value, Is.Not.Null);
             Assert.That(
-                await TestShell.VersionControl.SwitchBranchAsync("broken"),
-                Is.False);
-            HeadlessTestHelpers.Settle();
-
-            string currentBranch = (await RunGitAsync(
-                gitPath,
-                projectRoot,
-                "branch",
-                "--show-current")).Trim();
-            Assert.Multiple(() =>
-            {
-                Assert.That(currentBranch, Is.EqualTo("main"));
-                Assert.That(TestShell.Project.CurrentProject.Value, Is.Not.Null);
-                Assert.That(
-                    TestShell.Project.CurrentProject.Value!.Variables[RestoreStateKey],
-                    Is.EqualTo("original-state"));
-            });
-        }
-        finally
-        {
-            TestShell.VersionControl.ConfirmSwitchBranchAsync = oldConfirmSwitchBranchAsync;
-            await TestReset.ResetShellAsync();
-            config.GitExecutablePath = oldGitPath;
-            config.AutoCommitOnSave = oldAutoCommitOnSave;
-            config.AutoCommitOnClose = oldAutoCommitOnClose;
-            config.UseLfsWhenAvailable = oldUseLfs;
-        }
+                TestShell.Project.CurrentProject.Value!.Variables[RestoreStateKey],
+                Is.EqualTo("original-state"));
+        });
     }
 
     [AvaloniaTest]
     public async Task Restore_to_new_branch_validates_revision_before_confirmation_or_close()
     {
-        await TestReset.ResetShellAsync();
-        using var environment = new IsolatedGitEnvironment();
-        string gitPath = ProbeGitOrIgnore();
-        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
-        string? oldGitPath = config.GitExecutablePath;
-        bool oldAutoCommitOnSave = config.AutoCommitOnSave;
-        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
-        bool oldUseLfs = config.UseLfsWhenAvailable;
-        var oldConfirmRestoreAsync = TestShell.VersionControl.ConfirmRestoreAsync;
+        await using RealGitScope git = await RealGitScope.StartAsync(
+            autoCommitOnSave: false,
+            autoCommitOnClose: false,
+            useLfsWhenAvailable: false);
 
-        try
+        (Project project, _) = await CreateTrackedProjectAsync(
+            "version-control-reject-restore-option");
+        string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+        string validSha = (await RunGitAsync(
+            git.GitPath,
+            projectRoot,
+            "rev-parse",
+            "HEAD")).Trim();
+        int confirmationCalls = 0;
+        TestShell.VersionControl.ConfirmRestoreAsync = _ =>
         {
-            config.GitExecutablePath = gitPath;
-            config.AutoCommitOnSave = false;
-            config.AutoCommitOnClose = false;
-            config.UseLfsWhenAvailable = false;
+            confirmationCalls++;
+            return Task.FromResult(true);
+        };
 
-            (Project project, _) = await CreateTrackedProjectAsync(
-                "version-control-reject-restore-option");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            string validSha = (await RunGitAsync(
-                gitPath,
-                projectRoot,
-                "rev-parse",
-                "HEAD")).Trim();
-            int confirmationCalls = 0;
-            TestShell.VersionControl.ConfirmRestoreAsync = _ =>
-            {
-                confirmationCalls++;
-                return Task.FromResult(true);
-            };
+        await Assert.ThrowsAsync<ArgumentException>(async () =>
+            await TestShell.VersionControl.RestoreToNewBranchAsync(
+                "--discard-changes",
+                "injected-option"));
 
-            await Assert.ThrowsAsync<ArgumentException>(async () =>
-                await TestShell.VersionControl.RestoreToNewBranchAsync(
-                    "--discard-changes",
-                    "injected-option"));
-
-            string currentBranch = await RunGitAsync(
-                gitPath,
-                projectRoot,
-                "branch",
-                "--show-current");
-            string injectedBranch = await RunGitAsync(
-                gitPath,
-                projectRoot,
-                "branch",
-                "--list",
-                "injected-option");
-            Assert.Multiple(() =>
-            {
-                Assert.That(confirmationCalls, Is.Zero);
-                Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(project));
-                Assert.That(currentBranch.Trim(), Is.EqualTo("main"));
-                Assert.That(injectedBranch, Is.Empty);
-            });
-
-            Assert.That(
-                await TestShell.VersionControl.RestoreToNewBranchAsync(
-                    validSha,
-                    "valid-revision"),
-                Is.True);
-            HeadlessTestHelpers.Settle();
-
-            string validBranch = await RunGitAsync(
-                gitPath,
-                projectRoot,
-                "branch",
-                "--show-current");
-            Assert.Multiple(() =>
-            {
-                Assert.That(confirmationCalls, Is.EqualTo(1));
-                Assert.That(TestShell.Project.CurrentProject.Value, Is.Not.Null);
-                Assert.That(validBranch.Trim(), Is.EqualTo("valid-revision"));
-            });
-        }
-        finally
+        string currentBranch = await RunGitAsync(
+            git.GitPath,
+            projectRoot,
+            "branch",
+            "--show-current");
+        string injectedBranch = await RunGitAsync(
+            git.GitPath,
+            projectRoot,
+            "branch",
+            "--list",
+            "injected-option");
+        Assert.Multiple(() =>
         {
-            TestShell.VersionControl.ConfirmRestoreAsync = oldConfirmRestoreAsync;
-            await TestReset.ResetShellAsync();
-            config.GitExecutablePath = oldGitPath;
-            config.AutoCommitOnSave = oldAutoCommitOnSave;
-            config.AutoCommitOnClose = oldAutoCommitOnClose;
-            config.UseLfsWhenAvailable = oldUseLfs;
-        }
+            Assert.That(confirmationCalls, Is.Zero);
+            Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(project));
+            Assert.That(currentBranch.Trim(), Is.EqualTo("main"));
+            Assert.That(injectedBranch, Is.Empty);
+        });
+
+        Assert.That(
+            await TestShell.VersionControl.RestoreToNewBranchAsync(
+                validSha,
+                "valid-revision"),
+            Is.True);
+        HeadlessTestHelpers.Settle();
+
+        string validBranch = await RunGitAsync(
+            git.GitPath,
+            projectRoot,
+            "branch",
+            "--show-current");
+        Assert.Multiple(() =>
+        {
+            Assert.That(confirmationCalls, Is.EqualTo(1));
+            Assert.That(TestShell.Project.CurrentProject.Value, Is.Not.Null);
+            Assert.That(validBranch.Trim(), Is.EqualTo("valid-revision"));
+        });
     }
 
     [AvaloniaTest]
     public async Task Restore_rejects_revision_without_project_file_before_confirmation_or_close()
     {
-        await TestReset.ResetShellAsync();
-        using var environment = new IsolatedGitEnvironment();
-        string gitPath = ProbeGitOrIgnore();
-        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
-        string? oldGitPath = config.GitExecutablePath;
-        bool oldAutoCommitOnSave = config.AutoCommitOnSave;
-        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
-        bool oldUseLfs = config.UseLfsWhenAvailable;
-        var oldConfirmRestoreAsync = TestShell.VersionControl.ConfirmRestoreAsync;
+        await using RealGitScope git = await RealGitScope.StartAsync(
+            autoCommitOnSave: false,
+            autoCommitOnClose: false,
+            useLfsWhenAvailable: false);
 
-        try
+        (Project project, _) = await CreateTrackedProjectAsync(
+            "version-control-reject-missing-project");
+        string projectFile = project.Uri!.LocalPath;
+        string projectRoot = Path.GetDirectoryName(projectFile)!;
+        string projectPathspec = Path.GetRelativePath(projectRoot, projectFile)
+            .Replace('\\', '/');
+        string originalTip = (await RunGitAsync(
+            git.GitPath,
+            projectRoot,
+            "rev-parse",
+            "HEAD")).Trim();
+        await RunGitAsync(git.GitPath, projectRoot, "rm", "--", projectPathspec);
+        await RunGitAsync(git.GitPath, projectRoot, "commit", "-m", "remove project file");
+        string missingProjectRevision = (await RunGitAsync(
+            git.GitPath,
+            projectRoot,
+            "rev-parse",
+            "HEAD")).Trim();
+        await RunGitAsync(git.GitPath, projectRoot, "reset", "--hard", originalTip);
+        HeadlessTestHelpers.Settle();
+
+        int confirmationCalls = 0;
+        TestShell.VersionControl.ConfirmRestoreAsync = _ =>
         {
-            config.GitExecutablePath = gitPath;
-            config.AutoCommitOnSave = false;
-            config.AutoCommitOnClose = false;
-            config.UseLfsWhenAvailable = false;
+            confirmationCalls++;
+            return Task.FromResult(true);
+        };
 
-            (Project project, _) = await CreateTrackedProjectAsync(
-                "version-control-reject-missing-project");
-            string projectFile = project.Uri!.LocalPath;
-            string projectRoot = Path.GetDirectoryName(projectFile)!;
-            string projectPathspec = Path.GetRelativePath(projectRoot, projectFile)
-                .Replace('\\', '/');
-            string originalTip = (await RunGitAsync(
-                gitPath,
-                projectRoot,
-                "rev-parse",
-                "HEAD")).Trim();
-            await RunGitAsync(gitPath, projectRoot, "rm", "--", projectPathspec);
-            await RunGitAsync(gitPath, projectRoot, "commit", "-m", "remove project file");
-            string missingProjectRevision = (await RunGitAsync(
-                gitPath,
-                projectRoot,
-                "rev-parse",
-                "HEAD")).Trim();
-            await RunGitAsync(gitPath, projectRoot, "reset", "--hard", originalTip);
-            HeadlessTestHelpers.Settle();
+        Assert.That(
+            await TestShell.VersionControl.RestoreAsync(missingProjectRevision),
+            Is.False);
+        HeadlessTestHelpers.Settle();
 
-            int confirmationCalls = 0;
-            TestShell.VersionControl.ConfirmRestoreAsync = _ =>
-            {
-                confirmationCalls++;
-                return Task.FromResult(true);
-            };
-
-            Assert.That(
-                await TestShell.VersionControl.RestoreAsync(missingProjectRevision),
-                Is.False);
-            HeadlessTestHelpers.Settle();
-
-            string currentBranch = await RunGitAsync(
-                gitPath,
-                projectRoot,
-                "branch",
-                "--show-current");
-            Assert.Multiple(() =>
-            {
-                Assert.That(confirmationCalls, Is.Zero);
-                Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(project));
-                Assert.That(currentBranch.Trim(), Is.EqualTo("main"));
-                Assert.That(File.Exists(projectFile), Is.True);
-            });
-        }
-        finally
+        string currentBranch = await RunGitAsync(
+            git.GitPath,
+            projectRoot,
+            "branch",
+            "--show-current");
+        Assert.Multiple(() =>
         {
-            TestShell.VersionControl.ConfirmRestoreAsync = oldConfirmRestoreAsync;
-            await TestReset.ResetShellAsync();
-            config.GitExecutablePath = oldGitPath;
-            config.AutoCommitOnSave = oldAutoCommitOnSave;
-            config.AutoCommitOnClose = oldAutoCommitOnClose;
-            config.UseLfsWhenAvailable = oldUseLfs;
-        }
+            Assert.That(confirmationCalls, Is.Zero);
+            Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(project));
+            Assert.That(currentBranch.Trim(), Is.EqualTo("main"));
+            Assert.That(File.Exists(projectFile), Is.True);
+        });
     }
 
     [AvaloniaTest]
     public async Task Restore_to_new_branch_rejects_invalid_existing_and_shorthand_names_before_confirmation_or_close()
     {
-        await TestReset.ResetShellAsync();
-        using var environment = new IsolatedGitEnvironment();
-        string gitPath = ProbeGitOrIgnore();
-        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
-        string? oldGitPath = config.GitExecutablePath;
-        bool oldAutoCommitOnSave = config.AutoCommitOnSave;
-        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
-        bool oldUseLfs = config.UseLfsWhenAvailable;
-        var oldConfirmRestoreAsync = TestShell.VersionControl.ConfirmRestoreAsync;
+        await using RealGitScope git = await RealGitScope.StartAsync(
+            autoCommitOnSave: true,
+            autoCommitOnClose: true,
+            useLfsWhenAvailable: false);
 
-        try
+        (Project project, EditViewModel editor) = await CreateTrackedProjectAsync(
+            "version-control-restore-branch-validation");
+        string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+        string targetSha = (await RunGitAsync(
+            git.GitPath,
+            projectRoot,
+            "rev-parse",
+            "HEAD")).Trim();
+        await RunGitAsync(git.GitPath, projectRoot, "branch", "existing");
+        await RunGitAsync(git.GitPath, projectRoot, "switch", "existing");
+        await RunGitAsync(git.GitPath, projectRoot, "switch", "main");
+        var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
+        await AddRectangleAsync(adder, layer: 0);
+        project.Variables[RestoreStateKey] = "unsaved-state";
+        CoreSerializer.StoreToUri(project, project.Uri!);
+        Assert.That(
+            (await TestShell.VersionControl.CurrentService!.GetStatusAsync(
+                CancellationToken.None)).IsClean,
+            Is.False);
+        int confirmations = 0;
+        TestShell.VersionControl.ConfirmRestoreAsync = _ =>
         {
-            config.GitExecutablePath = gitPath;
-            config.AutoCommitOnSave = true;
-            config.AutoCommitOnClose = true;
-            config.UseLfsWhenAvailable = false;
+            confirmations++;
+            return Task.FromResult(true);
+        };
 
-            (Project project, EditViewModel editor) = await CreateTrackedProjectAsync(
-                "version-control-restore-branch-validation");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            string targetSha = (await RunGitAsync(
-                gitPath,
-                projectRoot,
-                "rev-parse",
-                "HEAD")).Trim();
-            await RunGitAsync(gitPath, projectRoot, "branch", "existing");
-            await RunGitAsync(gitPath, projectRoot, "switch", "existing");
-            await RunGitAsync(gitPath, projectRoot, "switch", "main");
-            var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
-            await AddRectangleAsync(adder, layer: 0);
-            project.Variables[RestoreStateKey] = "unsaved-state";
-            CoreSerializer.StoreToUri(project, project.Uri!);
+        bool invalid = await TestShell.VersionControl.RestoreToNewBranchAsync(
+            targetSha,
+            "invalid..branch");
+        bool existing = await TestShell.VersionControl.RestoreToNewBranchAsync(
+            targetSha,
+            "existing");
+        bool shorthand = await TestShell.VersionControl.RestoreToNewBranchAsync(
+            targetSha,
+            "@{-1}");
+        HeadlessTestHelpers.Settle();
+
+        WorkspaceStatus status = await TestShell.VersionControl.CurrentService!
+            .GetStatusAsync(CancellationToken.None);
+        IReadOnlyList<CommitInfo> history =
+            await TestShell.VersionControl.CurrentService.GetHistoryAsync(
+                0,
+                20,
+                CancellationToken.None);
+        Assert.Multiple(() =>
+        {
+            Assert.That(invalid, Is.False);
+            Assert.That(existing, Is.False);
+            Assert.That(shorthand, Is.False);
+            Assert.That(confirmations, Is.Zero);
+            Assert.That(status.Branch, Is.EqualTo("main"));
+            Assert.That(status.IsClean, Is.False);
             Assert.That(
-                (await TestShell.VersionControl.CurrentService!.GetStatusAsync(
-                    CancellationToken.None)).IsClean,
+                history.Any(commit => commit.Kind == SnapshotKind.Safety),
                 Is.False);
-            int confirmations = 0;
-            TestShell.VersionControl.ConfirmRestoreAsync = _ =>
-            {
-                confirmations++;
-                return Task.FromResult(true);
-            };
-
-            bool invalid = await TestShell.VersionControl.RestoreToNewBranchAsync(
-                targetSha,
-                "invalid..branch");
-            bool existing = await TestShell.VersionControl.RestoreToNewBranchAsync(
-                targetSha,
-                "existing");
-            bool shorthand = await TestShell.VersionControl.RestoreToNewBranchAsync(
-                targetSha,
-                "@{-1}");
-            HeadlessTestHelpers.Settle();
-
-            WorkspaceStatus status = await TestShell.VersionControl.CurrentService!
-                .GetStatusAsync(CancellationToken.None);
-            IReadOnlyList<CommitInfo> history =
-                await TestShell.VersionControl.CurrentService.GetHistoryAsync(
-                    0,
-                    20,
-                    CancellationToken.None);
-            Assert.Multiple(() =>
-            {
-                Assert.That(invalid, Is.False);
-                Assert.That(existing, Is.False);
-                Assert.That(shorthand, Is.False);
-                Assert.That(confirmations, Is.Zero);
-                Assert.That(status.Branch, Is.EqualTo("main"));
-                Assert.That(status.IsClean, Is.False);
-                Assert.That(
-                    history.Any(commit => commit.Kind == SnapshotKind.Safety),
-                    Is.False);
-                Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(project));
-                Assert.That(editor.HistoryManager.CanUndo, Is.True);
-            });
-        }
-        finally
-        {
-            TestShell.VersionControl.ConfirmRestoreAsync = oldConfirmRestoreAsync;
-            await TestReset.ResetShellAsync();
-            config.GitExecutablePath = oldGitPath;
-            config.AutoCommitOnSave = oldAutoCommitOnSave;
-            config.AutoCommitOnClose = oldAutoCommitOnClose;
-            config.UseLfsWhenAvailable = oldUseLfs;
-        }
+            Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(project));
+            Assert.That(editor.HistoryManager.CanUndo, Is.True);
+        });
     }
 
     [AvaloniaTest]
     public async Task Restore_to_new_branch_revalidates_the_name_before_closing_the_project()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
-        INotificationServiceHandler previousNotificationHandler = NotificationService.Handler;
-        var notifications = new CaptureNotificationHandler();
-        try
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-restore-branch-revalidation");
+        var discovery = new PullCycleTestBackend(repository: null, session.Repository, MainTip);
+        var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip)
         {
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-restore-branch-revalidation");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var discovery = new PullCycleTestBackend(repository: null, repository, tip);
-            var backend = new PullCycleTestBackend(repository, repository, tip)
-            {
-                Status = new WorkspaceStatus(
-                    "main",
-                    Ahead: 0,
-                    Behind: 0,
-                    Changes: [],
-                    HasConflicts: false),
-            };
-            backend.EnqueueCanCreateBranchResult(true);
-            backend.EnqueueCanCreateBranchResult(false);
-            var editorService = new EditorService(new ExtensionProvider());
-            var config = new VersionControlConfig();
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
-                config,
-                installationLocator: null,
-                serviceFactory: candidate => candidate is null ? discovery : backend);
-            int confirmations = 0;
-            coordinator.ConfirmRestoreAsync = _ =>
-            {
-                confirmations++;
-                return Task.FromResult(true);
-            };
-            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
-            NotificationService.Handler = notifications;
-
-            bool restored = await coordinator.RestoreToNewBranchAsync(
-                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-                "target");
-            HeadlessTestHelpers.Settle();
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(restored, Is.False);
-                Assert.That(confirmations, Is.EqualTo(1));
-                Assert.That(backend.CanCreateBranchCalls, Is.EqualTo(2));
-                Assert.That(backend.CreateBranchCalls, Is.Zero);
-                Assert.That(backend.CommitAllCalls, Is.Zero);
-                Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(project));
-                Assert.That(
-                    notifications.All.Any(item => item.Message == string.Format(
-                        System.Globalization.CultureInfo.CurrentCulture,
-                        Strings.VersionControl_RestoreBranchRetainedFormat,
-                        "target")),
-                    Is.False);
-            });
-        }
-        finally
+            Status = new WorkspaceStatus(
+                "main",
+                Ahead: 0,
+                Behind: 0,
+                Changes: [],
+                HasConflicts: false),
+        };
+        backend.EnqueueCanCreateBranchResult(true);
+        backend.EnqueueCanCreateBranchResult(false);
+        var config = new VersionControlConfig();
+        VersionControlCoordinator coordinator = session.Start(
+            config,
+            candidate => candidate is null ? discovery : backend);
+        int confirmations = 0;
+        coordinator.ConfirmRestoreAsync = _ =>
         {
-            NotificationService.Handler = previousNotificationHandler;
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync();
-            }
+            confirmations++;
+            return Task.FromResult(true);
+        };
+        await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
+        using var notifications = new NotificationCapture();
 
-            await TestReset.ResetShellAsync();
-        }
+        bool restored = await coordinator.RestoreToNewBranchAsync(
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "target");
+        HeadlessTestHelpers.Settle();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(restored, Is.False);
+            Assert.That(confirmations, Is.EqualTo(1));
+            Assert.That(backend.CanCreateBranchCalls, Is.EqualTo(2));
+            Assert.That(backend.CreateBranchCalls, Is.Zero);
+            Assert.That(backend.CommitAllCalls, Is.Zero);
+            Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(session.Project));
+            Assert.That(
+                notifications.All.Any(item => item.Message == string.Format(
+                    System.Globalization.CultureInfo.CurrentCulture,
+                    Strings.VersionControl_RestoreBranchRetainedFormat,
+                    "target")),
+                Is.False);
+        });
     }
 
     [AvaloniaTest]
     public async Task Restore_to_new_branch_revalidates_after_the_safety_snapshot_before_closing_the_project()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
-        try
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-restore-branch-post-snapshot-revalidation");
+        var discovery = new PullCycleTestBackend(repository: null, session.Repository, MainTip);
+        var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip)
         {
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-restore-branch-post-snapshot-revalidation");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var discovery = new PullCycleTestBackend(repository: null, repository, tip);
-            var backend = new PullCycleTestBackend(repository, repository, tip)
-            {
-                Status = new WorkspaceStatus(
-                    "main",
-                    Ahead: 0,
-                    Behind: 0,
-                    Changes: [],
-                    HasConflicts: false),
-            };
-            backend.EnqueueCanCreateBranchResult(true);
-            backend.EnqueueCanCreateBranchResult(true);
-            backend.EnqueueCanCreateBranchResult(false);
-            var editorService = new EditorService(new ExtensionProvider());
-            var config = new VersionControlConfig();
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
-                config,
-                installationLocator: null,
-                serviceFactory: candidate => candidate is null ? discovery : backend);
-            int confirmations = 0;
-            coordinator.ConfirmRestoreAsync = _ =>
-            {
-                confirmations++;
-                backend.Status = new WorkspaceStatus(
-                    "main",
-                    Ahead: 0,
-                    Behind: 0,
-                    Changes: [new FileChange("late.scene", FileChangeStatus.Modified)],
-                    HasConflicts: false);
-                return Task.FromResult(true);
-            };
-            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
-
-            bool restored = await coordinator.RestoreToNewBranchAsync(
-                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-                "target");
-            HeadlessTestHelpers.Settle();
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(restored, Is.False);
-                Assert.That(confirmations, Is.EqualTo(1));
-                Assert.That(backend.CanCreateBranchCalls, Is.EqualTo(3));
-                Assert.That(backend.CreateBranchCalls, Is.Zero);
-                Assert.That(backend.CommitAllCalls, Is.EqualTo(1));
-                Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(project));
-            });
-        }
-        finally
+            Status = new WorkspaceStatus(
+                "main",
+                Ahead: 0,
+                Behind: 0,
+                Changes: [],
+                HasConflicts: false),
+        };
+        backend.EnqueueCanCreateBranchResult(true);
+        backend.EnqueueCanCreateBranchResult(true);
+        backend.EnqueueCanCreateBranchResult(false);
+        var config = new VersionControlConfig();
+        VersionControlCoordinator coordinator = session.Start(
+            config,
+            candidate => candidate is null ? discovery : backend);
+        int confirmations = 0;
+        coordinator.ConfirmRestoreAsync = _ =>
         {
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync();
-            }
+            confirmations++;
+            backend.Status = new WorkspaceStatus(
+                "main",
+                Ahead: 0,
+                Behind: 0,
+                Changes: [new FileChange("late.scene", FileChangeStatus.Modified)],
+                HasConflicts: false);
+            return Task.FromResult(true);
+        };
+        await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
 
-            await TestReset.ResetShellAsync();
-        }
+        bool restored = await coordinator.RestoreToNewBranchAsync(
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "target");
+        HeadlessTestHelpers.Settle();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(restored, Is.False);
+            Assert.That(confirmations, Is.EqualTo(1));
+            Assert.That(backend.CanCreateBranchCalls, Is.EqualTo(3));
+            Assert.That(backend.CreateBranchCalls, Is.Zero);
+            Assert.That(backend.CommitAllCalls, Is.EqualTo(1));
+            Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(session.Project));
+        });
     }
 
     [AvaloniaTest]
     public async Task Restore_reopens_exact_state_preserves_safety_snapshot_and_supports_a_new_branch()
     {
-        await TestReset.ResetShellAsync();
-        using var environment = new IsolatedGitEnvironment();
-        string gitPath = ProbeGitOrIgnore();
-        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
-        string? oldGitPath = config.GitExecutablePath;
-        bool oldAutoCommitOnSave = config.AutoCommitOnSave;
-        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
-        bool oldUseLfs = config.UseLfsWhenAvailable;
-        var oldConfirmRestoreAsync =
-            TestShell.VersionControl.ConfirmRestoreAsync;
+        await using RealGitScope git = await RealGitScope.StartAsync(
+            autoCommitOnSave: true,
+            autoCommitOnClose: true,
+            useLfsWhenAvailable: false);
 
-        try
+        (Project project, EditViewModel editor) = await CreateTrackedProjectAsync();
+        string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
+        IProjectVersionControlService service = TestShell.VersionControl.CurrentService!;
+
+        project.Variables[RestoreStateKey] = "version-one";
+        await TestShell.MainViewModel.MenuBar.SaveAll.ExecuteAsync();
+        CommitInfo target = (await service.GetHistoryAsync(0, 10, CancellationToken.None))
+            .First(commit => commit.Kind == SnapshotKind.Save);
+
+        var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
+        await AddRectangleAsync(adder, layer: 0);
+        project.Variables[RestoreStateKey] = "version-two";
+        await TestShell.MainViewModel.MenuBar.SaveAll.ExecuteAsync();
+
+        await AddRectangleAsync(adder, layer: 1);
+        project.Variables[RestoreStateKey] = "pre-restore";
+        CoreSerializer.StoreToUri(project, project.Uri!);
+        Scene preRestoreScene = project.Items.OfType<Scene>().Single();
+        CoreSerializer.StoreToUri(preRestoreScene, preRestoreScene.Uri!);
+        HeadlessTestHelpers.Settle();
+
+        Assert.Multiple(() =>
         {
-            config.GitExecutablePath = gitPath;
-            config.AutoCommitOnSave = true;
-            config.AutoCommitOnClose = true;
-            config.UseLfsWhenAvailable = false;
+            Assert.That(editor.HistoryManager.CanUndo, Is.True);
+            Assert.That(preRestoreScene.Children, Has.Count.EqualTo(2));
+        });
+        Assert.That((await service.GetStatusAsync(CancellationToken.None)).IsClean, Is.False);
 
-            (Project project, EditViewModel editor) = await CreateTrackedProjectAsync();
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            IProjectVersionControlService service = TestShell.VersionControl.CurrentService!;
-
-            project.Variables[RestoreStateKey] = "version-one";
-            await TestShell.MainViewModel.MenuBar.SaveAll.ExecuteAsync();
-            CommitInfo target = (await service.GetHistoryAsync(0, 10, CancellationToken.None))
-                .First(commit => commit.Kind == SnapshotKind.Save);
-
-            var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
-            await AddRectangleAsync(adder, layer: 0);
-            project.Variables[RestoreStateKey] = "version-two";
-            await TestShell.MainViewModel.MenuBar.SaveAll.ExecuteAsync();
-
-            await AddRectangleAsync(adder, layer: 1);
-            project.Variables[RestoreStateKey] = "pre-restore";
-            CoreSerializer.StoreToUri(project, project.Uri!);
-            Scene preRestoreScene = project.Items.OfType<Scene>().Single();
-            CoreSerializer.StoreToUri(preRestoreScene, preRestoreScene.Uri!);
-            HeadlessTestHelpers.Settle();
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(editor.HistoryManager.CanUndo, Is.True);
-                Assert.That(preRestoreScene.Children, Has.Count.EqualTo(2));
-            });
-            Assert.That((await service.GetStatusAsync(CancellationToken.None)).IsClean, Is.False);
-
-            int confirmationCount = 0;
-            TestShell.VersionControl.ConfirmRestoreAsync = _ =>
-            {
-                confirmationCount++;
-                return Task.FromResult(true);
-            };
-
-            using (IDisposable outputOperation = TestShell.Editor.BeginObservedOutputOperation())
-            {
-                Assert.That(
-                    await TestShell.VersionControl.RestoreAsync(target.Sha),
-                    Is.False,
-                    "A restore must not start while output is reading project files.");
-                Assert.That(confirmationCount, Is.Zero);
-                Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(project));
-            }
-
-            var confirmationStarted = new TaskCompletionSource(
-                TaskCreationOptions.RunContinuationsAsynchronously);
-            var releaseConfirmation = new TaskCompletionSource<bool>(
-                TaskCreationOptions.RunContinuationsAsynchronously);
-            TestShell.VersionControl.ConfirmRestoreAsync = _ =>
-            {
-                confirmationCount++;
-                confirmationStarted.TrySetResult();
-                return releaseConfirmation.Task;
-            };
-            Task<bool> pendingRestore = TestShell.VersionControl.RestoreAsync(target.Sha);
-            await confirmationStarted.Task.WaitAsync(TimeSpan.FromSeconds(10));
-            releaseConfirmation.SetResult(false);
-            Assert.That(await pendingRestore, Is.False);
-
-            TestShell.VersionControl.ConfirmRestoreAsync = _ =>
-            {
-                confirmationCount++;
-                return Task.FromResult(true);
-            };
-
-            Assert.That(await TestShell.VersionControl.RestoreAsync(target.Sha), Is.True);
-            HeadlessTestHelpers.Settle();
-
-            Project restoredProject = TestShell.Project.CurrentProject.Value!;
-            Scene restoredScene = restoredProject.Items.OfType<Scene>().Single();
-            var restoredEditor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
-            Assert.Multiple(() =>
-            {
-                Assert.That(confirmationCount, Is.EqualTo(2));
-                Assert.That(restoredProject, Is.Not.SameAs(project));
-                Assert.That(restoredProject.Variables[RestoreStateKey], Is.EqualTo("version-one"));
-                Assert.That(restoredScene.Children, Is.Empty);
-                Assert.That(restoredEditor.HistoryManager.CanUndo, Is.False);
-            });
-
-            service = TestShell.VersionControl.CurrentService!;
-            IReadOnlyList<CommitInfo> history =
-                await service.GetHistoryAsync(0, 20, CancellationToken.None);
-            CommitInfo safety = history.Single(commit => commit.Kind == SnapshotKind.Safety);
-            IReadOnlyList<FileChange> safetyFiles =
-                await service.GetCommitFilesAsync(safety.Sha, CancellationToken.None);
-            Assert.Multiple(() =>
-            {
-                Assert.That(history.Any(commit => commit.Kind == SnapshotKind.Restore), Is.True);
-                Assert.That(history.Any(commit => commit.Sha == target.Sha), Is.True);
-                Assert.That(
-                    safety.Subject,
-                    Is.EqualTo("beutl: safety snapshot before restore"));
-                Assert.That(
-                    history.Single(commit => commit.Kind == SnapshotKind.Restore).Subject,
-                    Is.EqualTo($"beutl: restore project state from {target.ShortSha}"));
-                Assert.That(
-                    safetyFiles.Count(file => file.Path.EndsWith(".belm", StringComparison.Ordinal)),
-                    Is.EqualTo(1));
-            });
-
-            Assert.That(await TestShell.VersionControl.RestoreAsync(safety.Sha), Is.True);
-            HeadlessTestHelpers.Settle();
-
-            Project recoveredProject = TestShell.Project.CurrentProject.Value!;
-            Scene recoveredScene = recoveredProject.Items.OfType<Scene>().Single();
-            string[] restoredElementFiles =
-                Directory.GetFiles(projectRoot, "*.belm", SearchOption.AllDirectories);
-            Assert.Multiple(() =>
-            {
-                Assert.That(
-                    recoveredProject.Variables[RestoreStateKey],
-                    Is.EqualTo("pre-restore"),
-                    "The safety snapshot must remain reachable after a restore.");
-                Assert.That(restoredElementFiles, Has.Length.EqualTo(2));
-                Assert.That(
-                    recoveredScene.Children,
-                    Has.Count.EqualTo(2),
-                    string.Join(Environment.NewLine, restoredElementFiles));
-            });
-
-            Assert.That(
-                await TestShell.VersionControl.RestoreAsync("0000000000000000000000000000000000000000"),
-                Is.False);
-            HeadlessTestHelpers.Settle();
-            Assert.Multiple(() =>
-            {
-                Assert.That(TestShell.Project.CurrentProject.Value, Is.Not.Null);
-                Assert.That(
-                    TestShell.Project.CurrentProject.Value!.Variables[RestoreStateKey],
-                    Is.EqualTo("pre-restore"),
-                    "A failed restore must reopen the original project state.");
-            });
-
-            const string branchName = "restored-version";
-            Assert.That(
-                await TestShell.VersionControl.RestoreToNewBranchAsync(
-                    target.Sha,
-                    branchName),
-                Is.True);
-            HeadlessTestHelpers.Settle();
-
-            Project branchedProject = TestShell.Project.CurrentProject.Value!;
-            WorkspaceStatus branchStatus =
-                await TestShell.VersionControl.CurrentService!.GetStatusAsync(CancellationToken.None);
-            Assert.Multiple(() =>
-            {
-                Assert.That(branchStatus.Branch, Is.EqualTo(branchName));
-                Assert.That(branchedProject.Variables[RestoreStateKey], Is.EqualTo("version-one"));
-                Assert.That(branchedProject.Items.OfType<Scene>().Single().Children, Is.Empty);
-            });
-        }
-        finally
+        int confirmationCount = 0;
+        TestShell.VersionControl.ConfirmRestoreAsync = _ =>
         {
-            TestShell.VersionControl.ConfirmRestoreAsync = oldConfirmRestoreAsync;
-            await TestReset.ResetShellAsync();
-            config.GitExecutablePath = oldGitPath;
-            config.AutoCommitOnSave = oldAutoCommitOnSave;
-            config.AutoCommitOnClose = oldAutoCommitOnClose;
-            config.UseLfsWhenAvailable = oldUseLfs;
+            confirmationCount++;
+            return Task.FromResult(true);
+        };
+
+        using (IDisposable outputOperation = TestShell.Editor.BeginObservedOutputOperation())
+        {
+            Assert.That(
+                await TestShell.VersionControl.RestoreAsync(target.Sha),
+                Is.False,
+                "A restore must not start while output is reading project files.");
+            Assert.That(confirmationCount, Is.Zero);
+            Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(project));
         }
+
+        var confirmationStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseConfirmation = new TaskCompletionSource<bool>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        TestShell.VersionControl.ConfirmRestoreAsync = _ =>
+        {
+            confirmationCount++;
+            confirmationStarted.TrySetResult();
+            return releaseConfirmation.Task;
+        };
+        Task<bool> pendingRestore = TestShell.VersionControl.RestoreAsync(target.Sha);
+        await confirmationStarted.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        releaseConfirmation.SetResult(false);
+        Assert.That(await pendingRestore, Is.False);
+
+        TestShell.VersionControl.ConfirmRestoreAsync = _ =>
+        {
+            confirmationCount++;
+            return Task.FromResult(true);
+        };
+
+        Assert.That(await TestShell.VersionControl.RestoreAsync(target.Sha), Is.True);
+        HeadlessTestHelpers.Settle();
+
+        Project restoredProject = TestShell.Project.CurrentProject.Value!;
+        Scene restoredScene = restoredProject.Items.OfType<Scene>().Single();
+        var restoredEditor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+        Assert.Multiple(() =>
+        {
+            Assert.That(confirmationCount, Is.EqualTo(2));
+            Assert.That(restoredProject, Is.Not.SameAs(project));
+            Assert.That(restoredProject.Variables[RestoreStateKey], Is.EqualTo("version-one"));
+            Assert.That(restoredScene.Children, Is.Empty);
+            Assert.That(restoredEditor.HistoryManager.CanUndo, Is.False);
+        });
+
+        service = TestShell.VersionControl.CurrentService!;
+        IReadOnlyList<CommitInfo> history =
+            await service.GetHistoryAsync(0, 20, CancellationToken.None);
+        CommitInfo safety = history.Single(commit => commit.Kind == SnapshotKind.Safety);
+        IReadOnlyList<FileChange> safetyFiles =
+            await service.GetCommitFilesAsync(safety.Sha, CancellationToken.None);
+        Assert.Multiple(() =>
+        {
+            Assert.That(history.Any(commit => commit.Kind == SnapshotKind.Restore), Is.True);
+            Assert.That(history.Any(commit => commit.Sha == target.Sha), Is.True);
+            Assert.That(
+                safety.Subject,
+                Is.EqualTo("beutl: safety snapshot before restore"));
+            Assert.That(
+                history.Single(commit => commit.Kind == SnapshotKind.Restore).Subject,
+                Is.EqualTo($"beutl: restore project state from {target.ShortSha}"));
+            Assert.That(
+                safetyFiles.Count(file => file.Path.EndsWith(".belm", StringComparison.Ordinal)),
+                Is.EqualTo(1));
+        });
+
+        Assert.That(await TestShell.VersionControl.RestoreAsync(safety.Sha), Is.True);
+        HeadlessTestHelpers.Settle();
+
+        Project recoveredProject = TestShell.Project.CurrentProject.Value!;
+        Scene recoveredScene = recoveredProject.Items.OfType<Scene>().Single();
+        string[] restoredElementFiles =
+            Directory.GetFiles(projectRoot, "*.belm", SearchOption.AllDirectories);
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                recoveredProject.Variables[RestoreStateKey],
+                Is.EqualTo("pre-restore"),
+                "The safety snapshot must remain reachable after a restore.");
+            Assert.That(restoredElementFiles, Has.Length.EqualTo(2));
+            Assert.That(
+                recoveredScene.Children,
+                Has.Count.EqualTo(2),
+                string.Join(Environment.NewLine, restoredElementFiles));
+        });
+
+        Assert.That(
+            await TestShell.VersionControl.RestoreAsync("0000000000000000000000000000000000000000"),
+            Is.False);
+        HeadlessTestHelpers.Settle();
+        Assert.Multiple(() =>
+        {
+            Assert.That(TestShell.Project.CurrentProject.Value, Is.Not.Null);
+            Assert.That(
+                TestShell.Project.CurrentProject.Value!.Variables[RestoreStateKey],
+                Is.EqualTo("pre-restore"),
+                "A failed restore must reopen the original project state.");
+        });
+
+        const string branchName = "restored-version";
+        Assert.That(
+            await TestShell.VersionControl.RestoreToNewBranchAsync(
+                target.Sha,
+                branchName),
+            Is.True);
+        HeadlessTestHelpers.Settle();
+
+        Project branchedProject = TestShell.Project.CurrentProject.Value!;
+        WorkspaceStatus branchStatus =
+            await TestShell.VersionControl.CurrentService!.GetStatusAsync(CancellationToken.None);
+        Assert.Multiple(() =>
+        {
+            Assert.That(branchStatus.Branch, Is.EqualTo(branchName));
+            Assert.That(branchedProject.Variables[RestoreStateKey], Is.EqualTo("version-one"));
+            Assert.That(branchedProject.Items.OfType<Scene>().Single().Children, Is.Empty);
+        });
     }
 
     [AvaloniaTest]
     public async Task Pull_cancelled_once_the_project_is_closed_still_finishes_and_reopens_the_project()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
-        bool oldAutoCommitOnSave = config.AutoCommitOnSave;
-        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
-        VersionControlCoordinator? coordinator = null;
         var pullStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var releasePull = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
-
-        try
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-pull-final-fetch-cancellation");
+        var discovery = new PullCycleTestBackend(repository: null, session.Repository, MainTip);
+        var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip)
         {
-            config.AutoCommitOnSave = false;
-            config.AutoCommitOnClose = false;
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-pull-final-fetch-cancellation");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var originalTip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var discovery = new PullCycleTestBackend(repository: null, repository, originalTip);
-            var backend = new PullCycleTestBackend(repository, repository, originalTip)
+            Status = new WorkspaceStatus(
+                "main",
+                Ahead: 0,
+                Behind: 0,
+                Changes: [],
+                HasConflicts: false),
+            PullOverride = async cancellationToken =>
             {
-                Status = new WorkspaceStatus(
-                    "main",
-                    Ahead: 0,
-                    Behind: 0,
-                    Changes: [],
-                    HasConflicts: false),
-                PullOverride = async cancellationToken =>
-                {
-                    pullStarted.TrySetResult();
-                    await releasePull.Task;
-                    return cancellationToken.CanBeCanceled
-                        ? new RemoteOpResult.Failed("The merge was given a cancellable token.")
-                        : new RemoteOpResult.Success();
-                },
-            };
-            var editorService = new EditorService(new ExtensionProvider());
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
-                config,
-                installationLocator: null,
-                serviceFactory: candidate => candidate is null ? discovery : backend);
-            coordinator.ConfirmPullAsync = _ => Task.FromResult(true);
-            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
+                pullStarted.TrySetResult();
+                await releasePull.Task;
+                return cancellationToken.CanBeCanceled
+                    ? new RemoteOpResult.Failed("The merge was given a cancellable token.")
+                    : new RemoteOpResult.Success();
+            },
+        };
+        VersionControlCoordinator coordinator = session.Start(
+            new VersionControlConfig { AutoCommitOnSave = false, AutoCommitOnClose = false },
+            candidate => candidate is null ? discovery : backend);
+        coordinator.ConfirmPullAsync = _ => Task.FromResult(true);
+        await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
 
-            using var cancellation = new CancellationTokenSource();
-            Task<RemoteOpResult> pull = coordinator.PullAsync(cancellation.Token);
-            await pullStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
-            Assert.That(TestShell.Project.CurrentProject.Value, Is.Null);
+        using var cancellation = new CancellationTokenSource();
+        Task<RemoteOpResult> pull = coordinator.PullAsync(cancellation.Token);
+        await pullStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(TestShell.Project.CurrentProject.Value, Is.Null);
 
-            // Git runs uncancellable once the project is closed, so the project always reopens on
-            // files Git finished writing.
-            cancellation.Cancel();
-            releasePull.TrySetResult();
-            RemoteOpResult result = await pull.WaitAsync(TimeSpan.FromSeconds(5));
-            HeadlessTestHelpers.Settle();
+        // Git runs uncancellable once the project is closed, so the project always reopens on
+        // files Git finished writing.
+        cancellation.Cancel();
+        releasePull.TrySetResult();
+        RemoteOpResult result = await pull.WaitAsync(TimeSpan.FromSeconds(5));
+        HeadlessTestHelpers.Settle();
 
-            Assert.Multiple(() =>
-            {
-                Assert.That(result, Is.TypeOf<RemoteOpResult.Success>());
-                Assert.That(backend.PullCalls, Is.EqualTo(1));
-                Assert.That(TestShell.Project.CurrentProject.Value, Is.Not.Null);
-                Assert.That(
-                    TestShell.Project.CurrentProject.Value!.Uri!.LocalPath,
-                    Is.EqualTo(project.Uri!.LocalPath));
-            });
-        }
-        finally
+        Assert.Multiple(() =>
         {
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync();
-            }
-
-            await TestReset.ResetShellAsync();
-            config.AutoCommitOnSave = oldAutoCommitOnSave;
-            config.AutoCommitOnClose = oldAutoCommitOnClose;
-        }
+            Assert.That(result, Is.TypeOf<RemoteOpResult.Success>());
+            Assert.That(backend.PullCalls, Is.EqualTo(1));
+            Assert.That(TestShell.Project.CurrentProject.Value, Is.Not.Null);
+            Assert.That(
+                TestShell.Project.CurrentProject.Value!.Uri!.LocalPath,
+                Is.EqualTo(session.Project.Uri!.LocalPath));
+        });
     }
 
     [AvaloniaTest]
     public async Task Pull_failure_after_the_close_reopens_the_project_and_reports_the_Git_error()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
-
-        try
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-pull-merge-failure");
+        var gitError = new RemoteOpResult.Failed(
+            "error: Your local changes to the following files would be overwritten by merge");
+        var discovery = new PullCycleTestBackend(repository: null, session.Repository, MainTip);
+        var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip)
         {
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-pull-merge-failure");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var originalTip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var gitError = new RemoteOpResult.Failed(
-                "error: Your local changes to the following files would be overwritten by merge");
-            var discovery = new PullCycleTestBackend(repository: null, repository, originalTip);
-            var backend = new PullCycleTestBackend(repository, repository, originalTip)
+            PullResult = gitError,
+        };
+        VersionControlCoordinator coordinator = session.Start(
+            new VersionControlConfig
             {
-                PullResult = gitError,
-            };
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                new EditorService(new ExtensionProvider()),
-                new VersionControlConfig
-                {
-                    AutoCommitOnSave = false,
-                    AutoCommitOnClose = false,
-                },
-                installationLocator: null,
-                serviceFactory: candidate => candidate is null ? discovery : backend);
-            coordinator.ConfirmPullAsync = _ => Task.FromResult(true);
-            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
+                AutoCommitOnSave = false,
+                AutoCommitOnClose = false,
+            },
+            candidate => candidate is null ? discovery : backend);
+        coordinator.ConfirmPullAsync = _ => Task.FromResult(true);
+        await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
 
-            RemoteOpResult result = await coordinator.PullAsync();
-            HeadlessTestHelpers.Settle();
+        RemoteOpResult result = await coordinator.PullAsync();
+        HeadlessTestHelpers.Settle();
 
-            Assert.Multiple(() =>
-            {
-                Assert.That(result, Is.EqualTo(gitError));
-                Assert.That(backend.PullCalls, Is.EqualTo(1));
-                Assert.That(TestShell.Project.CurrentProject.Value, Is.Not.Null);
-                Assert.That(TestShell.Project.CurrentProject.Value, Is.Not.SameAs(project));
-                Assert.That(
-                    TestShell.Project.CurrentProject.Value!.Uri!.LocalPath,
-                    Is.EqualTo(project.Uri!.LocalPath));
-            });
-        }
-        finally
+        Assert.Multiple(() =>
         {
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync();
-            }
-
-            await TestReset.ResetShellAsync();
-        }
+            Assert.That(result, Is.EqualTo(gitError));
+            Assert.That(backend.PullCalls, Is.EqualTo(1));
+            Assert.That(TestShell.Project.CurrentProject.Value, Is.Not.Null);
+            Assert.That(TestShell.Project.CurrentProject.Value, Is.Not.SameAs(session.Project));
+            Assert.That(
+                TestShell.Project.CurrentProject.Value!.Uri!.LocalPath,
+                Is.EqualTo(session.Project.Uri!.LocalPath));
+        });
     }
 
     [AvaloniaTest]
     public async Task Restore_failure_before_its_commit_reopens_without_a_recovery_commit()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
-        INotificationServiceHandler previousNotificationHandler = NotificationService.Handler;
-        var notifications = new CaptureNotificationHandler();
-
-        try
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-restore-before-commit-failure");
+        const string Target = "2222222222222222222222222222222222222222";
+        var discovery = new PullCycleTestBackend(repository: null, session.Repository, MainTip);
+        var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip)
         {
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-restore-before-commit-failure");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var originalTip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            const string Target = "2222222222222222222222222222222222222222";
-            var discovery = new PullCycleTestBackend(repository: null, repository, originalTip);
-            var backend = new PullCycleTestBackend(repository, repository, originalTip)
+            Status = new WorkspaceStatus(
+                "main",
+                Ahead: 0,
+                Behind: 0,
+                Changes: [],
+                HasConflicts: false),
+            // The service has already put the project back to HEAD when it reports this.
+            RestoreProjectTreeFailure = new GitOperationException(1, "pre-commit hook rejected"),
+        };
+        VersionControlCoordinator coordinator = session.Start(
+            new VersionControlConfig
             {
-                Status = new WorkspaceStatus(
-                    "main",
-                    Ahead: 0,
-                    Behind: 0,
-                    Changes: [],
-                    HasConflicts: false),
-                // The service has already put the project back to HEAD when it reports this.
-                RestoreProjectTreeFailure = new GitOperationException(1, "pre-commit hook rejected"),
-            };
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                new EditorService(new ExtensionProvider()),
-                new VersionControlConfig
-                {
-                    AutoCommitOnSave = false,
-                    AutoCommitOnClose = false,
-                },
-                installationLocator: null,
-                serviceFactory: candidate => candidate is null ? discovery : backend);
-            coordinator.ConfirmRestoreAsync = _ => Task.FromResult(true);
-            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
-            NotificationService.Handler = notifications;
+                AutoCommitOnSave = false,
+                AutoCommitOnClose = false,
+            },
+            candidate => candidate is null ? discovery : backend);
+        coordinator.ConfirmRestoreAsync = _ => Task.FromResult(true);
+        await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
+        using var notifications = new NotificationCapture();
 
-            bool restored = await coordinator.RestoreAsync(Target);
-            HeadlessTestHelpers.Settle();
+        bool restored = await coordinator.RestoreAsync(Target);
+        HeadlessTestHelpers.Settle();
 
-            Assert.Multiple(() =>
-            {
-                Assert.That(restored, Is.False);
-                Assert.That(
-                    backend.RestoreProjectTreeCalls,
-                    Is.EqualTo(new[] { (Target, SnapshotKind.Restore) }));
-                Assert.That(TestShell.Project.CurrentProject.Value, Is.Not.Null);
-                Assert.That(
-                    notifications.All.Any(item =>
-                        item.Type == NotificationType.Error
-                        && item.Message.Contains("pre-commit hook rejected", StringComparison.Ordinal)),
-                    Is.True);
-            });
-        }
-        finally
+        Assert.Multiple(() =>
         {
-            NotificationService.Handler = previousNotificationHandler;
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync();
-            }
-
-            await TestReset.ResetShellAsync();
-        }
+            Assert.That(restored, Is.False);
+            Assert.That(
+                backend.RestoreProjectTreeCalls,
+                Is.EqualTo(new[] { (Target, SnapshotKind.Restore) }));
+            Assert.That(TestShell.Project.CurrentProject.Value, Is.Not.Null);
+            Assert.That(
+                notifications.All.Any(item =>
+                    item.Type == NotificationType.Error
+                    && item.Message.Contains("pre-commit hook rejected", StringComparison.Ordinal)),
+                Is.True);
+        });
     }
 
     [AvaloniaTest]
     public async Task Explicit_saves_wait_for_activation_and_preserve_each_save_point()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
-        bool oldAutoCommitOnSave = config.AutoCommitOnSave;
-        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
-        VersionControlCoordinator? coordinator = null;
         IProjectFileWriteLease? firstWrite = null;
         IProjectFileWriteLease? secondWrite = null;
         var hygieneStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseHygiene = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var session = await FakeVersionControlSession.CreateAsync(
+            "version-control-save-during-activation");
 
         try
         {
-            config.AutoCommitOnSave = true;
-            config.AutoCommitOnClose = false;
-            Project project = await CreateProjectForFakeVersionControlAsync(
-                "version-control-save-during-activation");
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            string statePath = Path.Combine(projectRoot, "save-state.txt");
+            string statePath = Path.Combine(session.Root, "save-state.txt");
             var committedStates = new List<string>();
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var discovery = new PullCycleTestBackend(null, repository, tip);
-            var tracked = new PullCycleTestBackend(repository, repository, tip)
+            var discovery = new PullCycleTestBackend(null, session.Repository, MainTip);
+            var tracked = new PullCycleTestBackend(session.Repository, session.Repository, MainTip)
             {
                 EnsureHygieneStarted = hygieneStarted,
                 EnsureHygieneRelease = releaseHygiene.Task,
                 CommitAllObserver = _ => committedStates.Add(File.ReadAllText(statePath)),
             };
-            var editorService = new EditorService(new ExtensionProvider());
 
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                editorService,
-                config,
-                installationLocator: null,
-                serviceFactory: candidate => candidate is null ? discovery : tracked);
+            VersionControlCoordinator coordinator = session.Start(
+                new VersionControlConfig { AutoCommitOnSave = true, AutoCommitOnClose = false },
+                candidate => candidate is null ? discovery : tracked);
             await hygieneStarted.Task.WaitAsync(TimeSpan.FromSeconds(10));
 
-            firstWrite = await editorService.BeginProjectFileWriteAsync(CancellationToken.None);
+            firstWrite = await session.EditorService.BeginProjectFileWriteAsync(CancellationToken.None);
             await File.WriteAllTextAsync(statePath, "one");
             Task firstSnapshot = coordinator.NotifySavedAsync(firstWrite);
-            await WaitUntilAsync(() => editorService.IsWorktreeMutationActive);
-            Task<IProjectFileWriteLease> secondWriteTask = editorService
+            await WaitUntilAsync(() => session.EditorService.IsWorktreeMutationActive);
+            Task<IProjectFileWriteLease> secondWriteTask = session.EditorService
                 .BeginProjectFileWriteAsync(CancellationToken.None)
                 .AsTask();
 
@@ -9701,338 +7022,178 @@ public class VersionControlRestoreTests
             releaseHygiene.TrySetResult();
             firstWrite?.Dispose();
             secondWrite?.Dispose();
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync();
-            }
-
-            await TestReset.ResetShellAsync();
-            config.AutoCommitOnSave = oldAutoCommitOnSave;
-            config.AutoCommitOnClose = oldAutoCommitOnClose;
         }
     }
 
     [AvaloniaTest]
     public async Task Opening_a_project_Git_cannot_inspect_opens_it_without_version_control()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
-        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
-        VersionControlCoordinator? coordinator = null;
-        INotificationServiceHandler previousNotificationHandler = NotificationService.Handler;
-        var notifications = new CaptureNotificationHandler();
-
-        try
+        await using var session = await FakeVersionControlSession.CreateForReopenAsync(
+            "version-control-discovery-refused");
+        var discovery = new PullCycleTestBackend(null, session.Repository, MainTip)
         {
-            config.AutoCommitOnClose = false;
-            Project target = await CreateProjectForFakeVersionControlAsync(
-                "version-control-discovery-refused");
-            string projectFile = target.Uri!.LocalPath;
-            string projectRoot = Path.GetDirectoryName(projectFile)!;
-            await TestShell.Project.CloseProjectAsync();
-            var projectService = new ProjectService();
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var discovery = new PullCycleTestBackend(null, repository, tip)
-            {
-                DiscoverRepositoryOverride = _ => throw new GitOperationException(
-                    128,
-                    "fatal: detected dubious ownership in repository at '/shared/project'"),
-            };
-            var tracked = new PullCycleTestBackend(repository, repository, tip);
-            coordinator = new VersionControlCoordinator(
-                projectService,
-                new EditorService(new ExtensionProvider()),
-                config,
-                installationLocator: null,
-                serviceFactory: candidate => candidate is null ? discovery : tracked);
-            NotificationService.Handler = notifications;
+            DiscoverRepositoryOverride = _ => throw new GitOperationException(
+                128,
+                "fatal: detected dubious ownership in repository at '/shared/project'"),
+        };
+        var tracked = new PullCycleTestBackend(session.Repository, session.Repository, MainTip);
+        VersionControlCoordinator coordinator = session.Start(
+            new VersionControlConfig { AutoCommitOnClose = false },
+            candidate => candidate is null ? discovery : tracked);
+        using var notifications = new NotificationCapture();
 
-            await projectService.OpenProject(projectFile);
-            HeadlessTestHelpers.Settle();
+        await session.ProjectService.OpenProject(session.ProjectFile);
+        HeadlessTestHelpers.Settle();
 
-            Assert.Multiple(() =>
-            {
-                Assert.That(projectService.CurrentProject.Value, Is.Not.Null);
-                Assert.That(coordinator.IsTracked.Value, Is.False);
-                Assert.That(
-                    notifications.All.Any(static item =>
-                        item.Type == NotificationType.Warning
-                        && item.Message.Contains("dubious ownership", StringComparison.Ordinal)),
-                    Is.True);
-            });
-        }
-        finally
+        Assert.Multiple(() =>
         {
-            NotificationService.Handler = previousNotificationHandler;
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync();
-            }
-
-            await TestReset.ResetShellAsync();
-            config.AutoCommitOnClose = oldAutoCommitOnClose;
-        }
+            Assert.That(session.ProjectService.CurrentProject.Value, Is.Not.Null);
+            Assert.That(coordinator.IsTracked.Value, Is.False);
+            Assert.That(
+                notifications.All.Any(static item =>
+                    item.Type == NotificationType.Warning
+                    && item.Message.Contains("dubious ownership", StringComparison.Ordinal)),
+                Is.True);
+        });
     }
 
     [AvaloniaTest]
     public async Task Opening_a_project_in_an_unmanaged_root_repository_asks_before_tracking()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
-        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
-        VersionControlCoordinator? coordinator = null;
-
-        try
+        await using var session = await FakeVersionControlSession.CreateForReopenAsync(
+            "version-control-unmanaged-root-repository");
+        var discovery = new PullCycleTestBackend(null, session.Repository, MainTip)
         {
-            config.AutoCommitOnClose = false;
-            Project target = await CreateProjectForFakeVersionControlAsync(
-                "version-control-unmanaged-root-repository");
-            string projectFile = target.Uri!.LocalPath;
-            string projectRoot = Path.GetDirectoryName(projectFile)!;
-            await TestShell.Project.CloseProjectAsync();
-            var projectService = new ProjectService();
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var discovery = new PullCycleTestBackend(null, repository, tip)
-            {
-                HasVersionTrackingOptIn = false,
-            };
-            var tracked = new PullCycleTestBackend(repository, repository, tip);
-            coordinator = new VersionControlCoordinator(
-                projectService,
-                new EditorService(new ExtensionProvider()),
-                config,
-                installationLocator: null,
-                serviceFactory: candidate => candidate is null ? discovery : tracked);
-            int adoptionPrompts = 0;
-            coordinator.ConfirmAdoptExistingRepositoryAsync = (candidate, _) =>
-            {
-                Assert.That(candidate, Is.EqualTo(repository));
-                Interlocked.Increment(ref adoptionPrompts);
-                return Task.FromResult(false);
-            };
-
-            await projectService.OpenProject(projectFile);
-            await WaitUntilAsync(() => adoptionPrompts == 1);
-            HeadlessTestHelpers.Settle();
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(adoptionPrompts, Is.EqualTo(1));
-                Assert.That(coordinator.IsTracked.Value, Is.False);
-                Assert.That(coordinator.CurrentService, Is.Not.SameAs(tracked));
-                Assert.That(tracked.EnsureHygieneCalls, Is.Zero);
-                Assert.That(tracked.CommitAllCalls, Is.Zero);
-            });
-        }
-        finally
+            HasVersionTrackingOptIn = false,
+        };
+        var tracked = new PullCycleTestBackend(session.Repository, session.Repository, MainTip);
+        VersionControlCoordinator coordinator = session.Start(
+            new VersionControlConfig { AutoCommitOnClose = false },
+            candidate => candidate is null ? discovery : tracked);
+        int adoptionPrompts = 0;
+        coordinator.ConfirmAdoptExistingRepositoryAsync = (candidate, _) =>
         {
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync();
-            }
+            Assert.That(candidate, Is.EqualTo(session.Repository));
+            Interlocked.Increment(ref adoptionPrompts);
+            return Task.FromResult(false);
+        };
 
-            await TestReset.ResetShellAsync();
-            config.AutoCommitOnClose = oldAutoCommitOnClose;
-        }
+        await session.ProjectService.OpenProject(session.ProjectFile);
+        await WaitUntilAsync(() => adoptionPrompts == 1);
+        HeadlessTestHelpers.Settle();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(adoptionPrompts, Is.EqualTo(1));
+            Assert.That(coordinator.IsTracked.Value, Is.False);
+            Assert.That(coordinator.CurrentService, Is.Not.SameAs(tracked));
+            Assert.That(tracked.EnsureHygieneCalls, Is.Zero);
+            Assert.That(tracked.CommitAllCalls, Is.Zero);
+        });
     }
 
     [AvaloniaTest]
     public async Task Opening_a_project_in_a_root_repository_without_commits_leaves_it_for_initialization()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
-        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
-        VersionControlCoordinator? coordinator = null;
-
-        try
+        await using var session = await FakeVersionControlSession.CreateForReopenAsync(
+            "version-control-unborn-root-repository");
+        var discovery = new PullCycleTestBackend(null, session.Repository, MainTip)
         {
-            config.AutoCommitOnClose = false;
-            Project target = await CreateProjectForFakeVersionControlAsync(
-                "version-control-unborn-root-repository");
-            string projectFile = target.Uri!.LocalPath;
-            string projectRoot = Path.GetDirectoryName(projectFile)!;
-            await TestShell.Project.CloseProjectAsync();
-            var projectService = new ProjectService();
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var discovery = new PullCycleTestBackend(null, repository, tip)
-            {
-                HasVersionTrackingOptIn = false,
-                HasCheckedOutCommit = false,
-            };
-            var tracked = new PullCycleTestBackend(repository, repository, tip);
-            coordinator = new VersionControlCoordinator(
-                projectService,
-                new EditorService(new ExtensionProvider()),
-                config,
-                installationLocator: null,
-                serviceFactory: candidate => candidate is null ? discovery : tracked);
-            int adoptionPrompts = 0;
-            coordinator.ConfirmAdoptExistingRepositoryAsync = (_, _) =>
-            {
-                Interlocked.Increment(ref adoptionPrompts);
-                return Task.FromResult(true);
-            };
-
-            await projectService.OpenProject(projectFile);
-            await WaitUntilAsync(() => adoptionPrompts > 0 || discovery.HasCheckedOutCommitCalls > 0);
-            HeadlessTestHelpers.Settle();
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(discovery.HasCheckedOutCommitCalls, Is.EqualTo(1));
-                Assert.That(adoptionPrompts, Is.Zero);
-                Assert.That(coordinator.IsTracked.Value, Is.False);
-                Assert.That(coordinator.CurrentService, Is.Not.SameAs(tracked));
-                Assert.That(tracked.EnsureHygieneCalls, Is.Zero);
-            });
-        }
-        finally
+            HasVersionTrackingOptIn = false,
+            HasCheckedOutCommit = false,
+        };
+        var tracked = new PullCycleTestBackend(session.Repository, session.Repository, MainTip);
+        VersionControlCoordinator coordinator = session.Start(
+            new VersionControlConfig { AutoCommitOnClose = false },
+            candidate => candidate is null ? discovery : tracked);
+        int adoptionPrompts = 0;
+        coordinator.ConfirmAdoptExistingRepositoryAsync = (_, _) =>
         {
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync();
-            }
+            Interlocked.Increment(ref adoptionPrompts);
+            return Task.FromResult(true);
+        };
 
-            await TestReset.ResetShellAsync();
-            config.AutoCommitOnClose = oldAutoCommitOnClose;
-        }
+        await session.ProjectService.OpenProject(session.ProjectFile);
+        await WaitUntilAsync(() => adoptionPrompts > 0 || discovery.HasCheckedOutCommitCalls > 0);
+        HeadlessTestHelpers.Settle();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(discovery.HasCheckedOutCommitCalls, Is.EqualTo(1));
+            Assert.That(adoptionPrompts, Is.Zero);
+            Assert.That(coordinator.IsTracked.Value, Is.False);
+            Assert.That(coordinator.CurrentService, Is.Not.SameAs(tracked));
+            Assert.That(tracked.EnsureHygieneCalls, Is.Zero);
+        });
     }
 
     [AvaloniaTest]
     public async Task Opening_a_project_in_an_enclosing_repository_without_commits_does_not_ask_to_share_it()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
-        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
-        VersionControlCoordinator? coordinator = null;
-
-        try
+        await using var session = await FakeVersionControlSession.CreateForReopenAsync(
+            "version-control-unborn-enclosing-repository");
+        string repositoryRoot = Path.GetDirectoryName(session.Root)!;
+        var repository = new RepositoryInfo(repositoryRoot, session.Root);
+        var discovery = new PullCycleTestBackend(null, repository, MainTip)
         {
-            config.AutoCommitOnClose = false;
-            Project target = await CreateProjectForFakeVersionControlAsync(
-                "version-control-unborn-enclosing-repository");
-            string projectFile = target.Uri!.LocalPath;
-            string projectRoot = Path.GetDirectoryName(projectFile)!;
-            string repositoryRoot = Path.GetDirectoryName(projectRoot)!;
-            await TestShell.Project.CloseProjectAsync();
-            var projectService = new ProjectService();
-            var repository = new RepositoryInfo(repositoryRoot, projectRoot);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var discovery = new PullCycleTestBackend(null, repository, tip)
-            {
-                HasVersionTrackingOptIn = false,
-                HasCheckedOutCommit = false,
-            };
-            var tracked = new PullCycleTestBackend(repository, repository, tip);
-            coordinator = new VersionControlCoordinator(
-                projectService,
-                new EditorService(new ExtensionProvider()),
-                config,
-                installationLocator: null,
-                serviceFactory: candidate => candidate is null ? discovery : tracked);
-            int confirmations = 0;
-            coordinator.ConfirmUseEnclosingRepositoryAsync = (_, _) =>
-            {
-                Interlocked.Increment(ref confirmations);
-                return Task.FromResult(true);
-            };
-
-            await projectService.OpenProject(projectFile);
-            await WaitUntilAsync(() => projectService.CurrentProject.Value is not null
-                                       && discovery.HasCheckedOutCommitCalls > 0);
-            HeadlessTestHelpers.Settle();
-
-            Assert.Multiple(() =>
-            {
-                // Activation leaves a branch with no commit for initialization, so agreeing to
-                // share the enclosing repository would lead nowhere.
-                Assert.That(confirmations, Is.Zero);
-                Assert.That(coordinator.IsTracked.Value, Is.False);
-                Assert.That(tracked.EnsureHygieneCalls, Is.Zero);
-            });
-        }
-        finally
+            HasVersionTrackingOptIn = false,
+            HasCheckedOutCommit = false,
+        };
+        var tracked = new PullCycleTestBackend(repository, repository, MainTip);
+        VersionControlCoordinator coordinator = session.Start(
+            new VersionControlConfig { AutoCommitOnClose = false },
+            candidate => candidate is null ? discovery : tracked);
+        int confirmations = 0;
+        coordinator.ConfirmUseEnclosingRepositoryAsync = (_, _) =>
         {
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync();
-            }
+            Interlocked.Increment(ref confirmations);
+            return Task.FromResult(true);
+        };
 
-            await TestReset.ResetShellAsync();
-            config.AutoCommitOnClose = oldAutoCommitOnClose;
-        }
+        await session.ProjectService.OpenProject(session.ProjectFile);
+        await WaitUntilAsync(() => session.ProjectService.CurrentProject.Value is not null
+                                   && discovery.HasCheckedOutCommitCalls > 0);
+        HeadlessTestHelpers.Settle();
+
+        Assert.Multiple(() =>
+        {
+            // Activation leaves a branch with no commit for initialization, so agreeing to
+            // share the enclosing repository would lead nowhere.
+            Assert.That(confirmations, Is.Zero);
+            Assert.That(coordinator.IsTracked.Value, Is.False);
+            Assert.That(tracked.EnsureHygieneCalls, Is.Zero);
+        });
     }
 
     [AvaloniaTest]
     public async Task Accepted_root_repository_adoption_tracks_the_project()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
-        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
-        VersionControlCoordinator? coordinator = null;
-
-        try
+        await using var session = await FakeVersionControlSession.CreateForReopenAsync(
+            "version-control-root-repository-accepted");
+        var discovery = new PullCycleTestBackend(null, session.Repository, MainTip)
         {
-            config.AutoCommitOnClose = false;
-            Project target = await CreateProjectForFakeVersionControlAsync(
-                "version-control-root-repository-accepted");
-            string projectFile = target.Uri!.LocalPath;
-            string projectRoot = Path.GetDirectoryName(projectFile)!;
-            await TestShell.Project.CloseProjectAsync();
-            var projectService = new ProjectService();
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var discovery = new PullCycleTestBackend(null, repository, tip)
-            {
-                HasVersionTrackingOptIn = false,
-            };
-            var tracked = new PullCycleTestBackend(repository, repository, tip);
-            coordinator = new VersionControlCoordinator(
-                projectService,
-                new EditorService(new ExtensionProvider()),
-                config,
-                installationLocator: null,
-                serviceFactory: candidate => candidate is null ? discovery : tracked);
-            int adoptionPrompts = 0;
-            coordinator.ConfirmAdoptExistingRepositoryAsync = (_, _) =>
-            {
-                Interlocked.Increment(ref adoptionPrompts);
-                return Task.FromResult(true);
-            };
-
-            await projectService.OpenProject(projectFile);
-            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, tracked));
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(adoptionPrompts, Is.EqualTo(1));
-                Assert.That(coordinator.IsTracked.Value, Is.True);
-                Assert.That(tracked.EnsureHygieneCalls, Is.EqualTo(1));
-            });
-        }
-        finally
+            HasVersionTrackingOptIn = false,
+        };
+        var tracked = new PullCycleTestBackend(session.Repository, session.Repository, MainTip);
+        VersionControlCoordinator coordinator = session.Start(
+            new VersionControlConfig { AutoCommitOnClose = false },
+            candidate => candidate is null ? discovery : tracked);
+        int adoptionPrompts = 0;
+        coordinator.ConfirmAdoptExistingRepositoryAsync = (_, _) =>
         {
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync();
-            }
+            Interlocked.Increment(ref adoptionPrompts);
+            return Task.FromResult(true);
+        };
 
-            await TestReset.ResetShellAsync();
-            config.AutoCommitOnClose = oldAutoCommitOnClose;
-        }
+        await session.ProjectService.OpenProject(session.ProjectFile);
+        await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, tracked));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(adoptionPrompts, Is.EqualTo(1));
+            Assert.That(coordinator.IsTracked.Value, Is.True);
+            Assert.That(tracked.EnsureHygieneCalls, Is.EqualTo(1));
+        });
     }
 
     [AvaloniaTest]
@@ -10041,30 +7202,21 @@ public class VersionControlRestoreTests
     [TestCase("close")]
     public async Task Inline_repository_adoption_waits_for_a_decision_and_does_not_block_project_close(string response)
     {
-        await TestReset.ResetShellAsync();
-        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
-        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
+        await using var session = await FakeVersionControlSession.CreateForReopenAsync(
+            $"inline-adoption-{response}");
         VersionControlCoordinator? coordinator = null;
         var editors = new EditorService(TestShell.MainViewModel.ExtensionProvider);
         try
         {
-            config.AutoCommitOnClose = false;
-            Project target = await CreateProjectForFakeVersionControlAsync($"inline-adoption-{response}");
-            string projectFile = target.Uri!.LocalPath;
-            string projectRoot = Path.GetDirectoryName(projectFile)!;
-            await TestShell.Project.CloseProjectAsync();
-            var projectService = new ProjectService();
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var tip = new CheckedOutBranchTip("refs/heads/main", "1111111111111111111111111111111111111111");
-            var discovery = new PullCycleTestBackend(null, repository, tip) { HasVersionTrackingOptIn = false };
-            var tracked = new PullCycleTestBackend(repository, repository, tip);
-            await projectService.OpenProject(projectFile);
-            editors.ActivateTabItem(projectService.CurrentProject.Value!.Items.OfType<Scene>().Single());
+            var discovery = new PullCycleTestBackend(null, session.Repository, MainTip) { HasVersionTrackingOptIn = false };
+            var tracked = new PullCycleTestBackend(session.Repository, session.Repository, MainTip);
+            await session.ProjectService.OpenProject(session.ProjectFile);
+            editors.ActivateTabItem(session.ProjectService.CurrentProject.Value!.Items.OfType<Scene>().Single());
             var editor = (EditViewModel)editors.SelectedTabItem.Value!.Context.Value;
             if (editor.FindToolTab<Beutl.Editor.Components.VersionControlTab.ViewModels.VersionControlTabViewModel>() is { } previousTab)
                 editor.CloseToolTab(previousTab);
-            coordinator = new VersionControlCoordinator(projectService,
-                editors, config, installationLocator: null,
+            coordinator = new VersionControlCoordinator(session.ProjectService,
+                editors, new VersionControlConfig { AutoCommitOnClose = false }, installationLocator: null,
                 serviceFactory: candidate => candidate is null ? discovery : tracked);
             using var service = new ReactivePropertySlim<IProjectVersionControlService?>();
             var tab = new Beutl.Editor.Components.VersionControlTab.ViewModels.VersionControlTabViewModel(
@@ -10072,14 +7224,14 @@ public class VersionControlRestoreTests
             Assert.That(editor.OpenToolTab(tab), Is.True);
             await WaitUntilAsync(() => coordinator.PendingRepositoryAdoption is not null);
             RepositoryAdoptionRequest request = coordinator.PendingRepositoryAdoption!;
-            Assert.That(request.Repository, Is.EqualTo(repository));
+            Assert.That(request.Repository, Is.EqualTo(session.Repository));
             Assert.That(tracked.EnsureHygieneCalls, Is.Zero);
             Assert.That(coordinator.IsTracked.Value, Is.False);
 
             if (response == "close")
             {
-                await projectService.CloseProjectAsync().WaitAsync(TimeSpan.FromSeconds(5));
-                Assert.That(projectService.CurrentProject.Value, Is.Null);
+                await session.ProjectService.CloseProjectAsync().WaitAsync(TimeSpan.FromSeconds(5));
+                Assert.That(session.ProjectService.CurrentProject.Value, Is.Null);
             }
             else
             {
@@ -10097,69 +7249,37 @@ public class VersionControlRestoreTests
             if (coordinator is not null) await coordinator.DisposeAsync();
             foreach (EditorTabItem item in editors.TabItems.ToArray())
                 await editors.CloseTabItem(item);
-            await TestReset.ResetShellAsync();
-            config.AutoCommitOnClose = oldAutoCommitOnClose;
         }
     }
 
     [AvaloniaTest]
     public async Task Root_repository_carrying_beutl_hygiene_is_tracked_without_asking()
     {
-        await TestReset.ResetShellAsync();
-        VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
-        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
-        VersionControlCoordinator? coordinator = null;
-
-        try
+        await using var session = await FakeVersionControlSession.CreateForReopenAsync(
+            "version-control-root-repository-managed");
+        var discovery = new PullCycleTestBackend(null, session.Repository, MainTip)
         {
-            config.AutoCommitOnClose = false;
-            Project target = await CreateProjectForFakeVersionControlAsync(
-                "version-control-root-repository-managed");
-            string projectFile = target.Uri!.LocalPath;
-            string projectRoot = Path.GetDirectoryName(projectFile)!;
-            await TestShell.Project.CloseProjectAsync();
-            var projectService = new ProjectService();
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var discovery = new PullCycleTestBackend(null, repository, tip)
-            {
-                HasVersionTrackingOptIn = true,
-            };
-            var tracked = new PullCycleTestBackend(repository, repository, tip);
-            coordinator = new VersionControlCoordinator(
-                projectService,
-                new EditorService(new ExtensionProvider()),
-                config,
-                installationLocator: null,
-                serviceFactory: candidate => candidate is null ? discovery : tracked);
-            int adoptionPrompts = 0;
-            coordinator.ConfirmAdoptExistingRepositoryAsync = (_, _) =>
-            {
-                Interlocked.Increment(ref adoptionPrompts);
-                return Task.FromResult(true);
-            };
-
-            await projectService.OpenProject(projectFile);
-            await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, tracked));
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(adoptionPrompts, Is.Zero);
-                Assert.That(coordinator.IsTracked.Value, Is.True);
-            });
-        }
-        finally
+            HasVersionTrackingOptIn = true,
+        };
+        var tracked = new PullCycleTestBackend(session.Repository, session.Repository, MainTip);
+        VersionControlCoordinator coordinator = session.Start(
+            new VersionControlConfig { AutoCommitOnClose = false },
+            candidate => candidate is null ? discovery : tracked);
+        int adoptionPrompts = 0;
+        coordinator.ConfirmAdoptExistingRepositoryAsync = (_, _) =>
         {
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync();
-            }
+            Interlocked.Increment(ref adoptionPrompts);
+            return Task.FromResult(true);
+        };
 
-            await TestReset.ResetShellAsync();
-            config.AutoCommitOnClose = oldAutoCommitOnClose;
-        }
+        await session.ProjectService.OpenProject(session.ProjectFile);
+        await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, tracked));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(adoptionPrompts, Is.Zero);
+            Assert.That(coordinator.IsTracked.Value, Is.True);
+        });
     }
 
     // Git keeps working in these states, so opening must not silently stop tracking the project. The
@@ -10168,48 +7288,25 @@ public class VersionControlRestoreTests
         string directoryName,
         Exception blockingState)
     {
-        await TestReset.ResetShellAsync();
-        VersionControlCoordinator? coordinator = null;
-
-        try
+        await using var session = await FakeVersionControlSession.CreateAsync(directoryName);
+        var discovery = new PullCycleTestBackend(null, session.Repository, MainTip);
+        var tracked = new PullCycleTestBackend(session.Repository, session.Repository, MainTip)
         {
-            Project project = await CreateProjectForFakeVersionControlAsync(directoryName);
-            string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
-            var repository = new RepositoryInfo(projectRoot, projectRoot);
-            var tip = new CheckedOutBranchTip(
-                "refs/heads/main",
-                "1111111111111111111111111111111111111111");
-            var discovery = new PullCycleTestBackend(null, repository, tip);
-            var tracked = new PullCycleTestBackend(repository, repository, tip)
-            {
-                EnsureHygieneOverride = _ => Task.FromException(blockingState),
-            };
-            coordinator = new VersionControlCoordinator(
-                TestShell.Project,
-                new EditorService(new ExtensionProvider()),
-                new VersionControlConfig(),
-                installationLocator: null,
-                serviceFactory: candidate => candidate is null ? discovery : tracked);
+            EnsureHygieneOverride = _ => Task.FromException(blockingState),
+        };
+        VersionControlCoordinator coordinator = session.Start(
+            new VersionControlConfig(),
+            candidate => candidate is null ? discovery : tracked);
 
-            await WaitUntilAsync(() =>
-                ReferenceEquals(coordinator.CurrentService, tracked)
-                && coordinator.IsTracked.Value);
+        await WaitUntilAsync(() =>
+            ReferenceEquals(coordinator.CurrentService, tracked)
+            && coordinator.IsTracked.Value);
 
-            Assert.Multiple(() =>
-            {
-                Assert.That(tracked.EnsureHygieneCalls, Is.EqualTo(1));
-                Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(project));
-            });
-        }
-        finally
+        Assert.Multiple(() =>
         {
-            if (coordinator is not null)
-            {
-                await coordinator.DisposeAsync();
-            }
-
-            await TestReset.ResetShellAsync();
-        }
+            Assert.That(tracked.EnsureHygieneCalls, Is.EqualTo(1));
+            Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(session.Project));
+        });
     }
 
     private static async Task<Project> CreateProjectForFakeVersionControlAsync(string directoryName)
@@ -10231,16 +7328,7 @@ public class VersionControlRestoreTests
     private static async Task<(Project Project, EditViewModel Editor)> CreateTrackedProjectAsync(
         string directoryName = "version-control-restore")
     {
-        string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, directoryName);
-        Directory.CreateDirectory(location);
-        Project project = (await TestShell.Project.CreateProject(
-            640,
-            480,
-            30,
-            44100,
-            "tracked",
-            location))!;
-        HeadlessTestHelpers.Settle();
+        Project project = await CreateProjectForFakeVersionControlAsync(directoryName);
 
         bool initialized = await TestShell.VersionControl.InitializeCurrentProjectAsync(
             TestShell.Project.CurrentProject.Value!,
@@ -10255,17 +7343,57 @@ public class VersionControlRestoreTests
         return (project, editor);
     }
 
-    private static async Task WaitUntilAsync(Func<bool> condition)
+    // Points the project at a new bare origin and pushes to it.
+    private static async Task<string> CreateOriginAsync(string gitPath, string projectRoot, string name)
     {
-        var timeout = Stopwatch.StartNew();
-        while (!condition() && timeout.Elapsed < TimeSpan.FromSeconds(5))
-        {
-            HeadlessTestHelpers.Settle();
-            await Task.Delay(25);
-        }
-
-        Assert.That(condition(), Is.True, "The expected state was not reached.");
+        string remoteRoot = Path.Combine(BeutlHomeIsolation.CurrentHome!, $"{name}-remote.git");
+        await RunGitAsync(gitPath, projectRoot, "init", "--bare", "-b", "main", remoteRoot);
+        await TestShell.VersionControl.SetRemoteAsync(remoteRoot);
+        Assert.That(
+            await TestShell.VersionControl.PushAsync(progress: null),
+            Is.TypeOf<RemoteOpResult.Success>());
+        return remoteRoot;
     }
+
+    // Puts the origin one commit ahead, a commit from another clone that writes the file, and returns it.
+    private static async Task<string> CreatePeerAheadOfOriginAsync(
+        string gitPath,
+        string projectRoot,
+        string name,
+        string file,
+        string contents,
+        string message)
+    {
+        string remoteRoot = await CreateOriginAsync(gitPath, projectRoot, name);
+        string peerRoot = Path.Combine(BeutlHomeIsolation.CurrentHome!, $"{name}-peer");
+        await RunGitAsync(gitPath, projectRoot, "clone", "--branch", "main", remoteRoot, peerRoot);
+        await RunGitAsync(gitPath, peerRoot, "config", "user.name", "Beutl Headless Peer");
+        await RunGitAsync(gitPath, peerRoot, "config", "user.email", "headless-peer@example.invalid");
+        await File.WriteAllTextAsync(Path.Combine(peerRoot, file), contents);
+        await RunGitAsync(gitPath, peerRoot, "add", "--", file);
+        await RunGitAsync(gitPath, peerRoot, "commit", "-m", message);
+        await RunGitAsync(gitPath, peerRoot, "push");
+        return (await RunGitAsync(gitPath, peerRoot, "rev-parse", "HEAD")).Trim();
+    }
+
+    // Commits a project file that cannot be read, puts the readable file back and returns the commit.
+    private static async Task<string> CommitInvalidProjectAsync(string gitPath, Project project, string message)
+    {
+        string projectFile = project.Uri!.LocalPath;
+        string projectRoot = Path.GetDirectoryName(projectFile)!;
+        string validProject = await File.ReadAllTextAsync(projectFile);
+        await File.WriteAllTextAsync(projectFile, "{ invalid project json");
+        string projectPathspec = Path.GetRelativePath(projectRoot, projectFile).Replace('\\', '/');
+        await RunGitAsync(gitPath, projectRoot, "add", "--", projectPathspec);
+        await RunGitAsync(gitPath, projectRoot, "commit", "-m", message);
+        string commit = (await RunGitAsync(gitPath, projectRoot, "rev-parse", "HEAD")).Trim();
+        await File.WriteAllTextAsync(projectFile, validProject);
+        return commit;
+    }
+
+    // A save snapshot waits for the activation to finish deciding how the project is tracked.
+    private static Task WaitForActivationDecisionAsync(VersionControlCoordinator coordinator)
+        => coordinator.NotifySavedAsync();
 
     private static async Task AddRectangleAsync(IElementAdder adder, int layer)
     {
@@ -10279,94 +7407,74 @@ public class VersionControlRestoreTests
         HeadlessTestHelpers.Settle();
     }
 
-    private static string ProbeGitOrIgnore()
+    // A new project for a test that runs its own coordinator over fake backends. Dispose puts the
+    // coordinator away and then resets the shell.
+    private sealed class FakeVersionControlSession : IAsyncDisposable
     {
-        var startInfo = new ProcessStartInfo("git")
+        private VersionControlCoordinator? _coordinator;
+
+        private FakeVersionControlSession(Project project, ProjectService projectService)
         {
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-        };
-        startInfo.ArgumentList.Add("--version");
-        startInfo.Environment["GIT_CONFIG_GLOBAL"] = "/dev/null";
-        startInfo.Environment["GIT_CONFIG_NOSYSTEM"] = "1";
-        try
+            Project = project;
+            ProjectService = projectService;
+            ProjectFile = project.Uri!.LocalPath;
+            Root = Path.GetDirectoryName(ProjectFile)!;
+            Repository = new RepositoryInfo(Root, Root);
+        }
+
+        public Project Project { get; }
+
+        public ProjectService ProjectService { get; }
+
+        public string ProjectFile { get; }
+
+        public string Root { get; }
+
+        // The project root as a repository of its own.
+        public RepositoryInfo Repository { get; }
+
+        public EditorService EditorService { get; } = new(new ExtensionProvider());
+
+        // The project stays open in the shell.
+        public static async Task<FakeVersionControlSession> CreateAsync(string directoryName)
         {
-            using var process = Process.Start(startInfo);
-            if (process is null)
+            await TestReset.ResetShellAsync();
+            Project project = await CreateProjectForFakeVersionControlAsync(directoryName);
+            return new FakeVersionControlSession(project, TestShell.Project);
+        }
+
+        // The shell closes the project again, for the test to open it with a ProjectService of its own.
+        public static async Task<FakeVersionControlSession> CreateForReopenAsync(string directoryName)
+        {
+            await TestReset.ResetShellAsync();
+            Project project = await CreateProjectForFakeVersionControlAsync(directoryName);
+            await TestShell.Project.CloseProjectAsync();
+            return new FakeVersionControlSession(project, new ProjectService());
+        }
+
+        public VersionControlCoordinator Start(
+            VersionControlConfig config,
+            Func<RepositoryInfo?, IProjectVersionControlBackend> serviceFactory,
+            GitInstallationLocator? installationLocator = null)
+        {
+            _coordinator = new VersionControlCoordinator(
+                ProjectService,
+                EditorService,
+                config,
+                installationLocator,
+                serviceFactory);
+            return _coordinator;
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            if (_coordinator is not null)
             {
-                Assert.Ignore("git is not available on this machine.");
-                return "git";
+                await _coordinator.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
             }
 
-            process.WaitForExit();
-            if (process.ExitCode != 0)
-            {
-                Assert.Ignore("git is not available on this machine.");
-            }
-
-            return process.StartInfo.FileName == "git"
-                ? FindGitOnPath()
-                : process.StartInfo.FileName;
+            await TestReset.ResetShellAsync();
         }
-        catch (Win32Exception)
-        {
-            Assert.Ignore("git is not available on this machine.");
-            return "git";
-        }
-    }
-
-    private static string FindGitOnPath()
-    {
-        string executable = OperatingSystem.IsWindows() ? "where.exe" : "which";
-        var startInfo = new ProcessStartInfo(executable)
-        {
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-        };
-        startInfo.ArgumentList.Add("git");
-        using var process = Process.Start(startInfo)!;
-        string output = process.StandardOutput.ReadToEnd();
-        process.WaitForExit();
-        if (process.ExitCode != 0
-            || output.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() is not { } path)
-        {
-            Assert.Ignore("git is not available on this machine.");
-            return "git";
-        }
-
-        return path;
-    }
-
-    private static async Task<string> RunGitAsync(
-        string gitPath,
-        string repositoryRoot,
-        params string[] arguments)
-    {
-        var startInfo = new ProcessStartInfo(gitPath)
-        {
-            WorkingDirectory = repositoryRoot,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-        };
-        foreach (string argument in arguments)
-        {
-            startInfo.ArgumentList.Add(argument);
-        }
-
-        startInfo.Environment["GIT_CONFIG_GLOBAL"] = "/dev/null";
-        startInfo.Environment["GIT_CONFIG_NOSYSTEM"] = "1";
-        using var process = Process.Start(startInfo)!;
-        string stdout = await process.StandardOutput.ReadToEndAsync();
-        string stderr = await process.StandardError.ReadToEndAsync();
-        await process.WaitForExitAsync();
-        Assert.That(process.ExitCode, Is.Zero, stderr);
-        return stdout;
     }
 
     private sealed class BlockingGitInstallationProbe : IGitInstallationProbe
@@ -10486,7 +7594,7 @@ public class VersionControlRestoreTests
             IReadOnlyList<string> arguments,
             CancellationToken cancellationToken)
         {
-            bool installed = RepositoryPathComparer.AreEquivalent(
+            bool installed = FilePathComparison.AreSameCanonicalPath(
                 _installedExecutablePath,
                 executablePath);
             if (installed && arguments.SequenceEqual(["--version"]))
@@ -10529,9 +7637,56 @@ public class VersionControlRestoreTests
         }
     }
 
-    private sealed class PassiveEditorContext(
-        CoreObject obj,
-        PassiveSaveOperation commands) : ISavableEditorContext
+    // A prompt that waits until it is released or cancelled, reporting when it started and when it saw
+    // its cancellation.
+    private sealed class BlockingPrompt<T>
+    {
+        private readonly TaskCompletionSource<T> _release =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource Started { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource Cancelled { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public void Release(T answer) => _release.TrySetResult(answer);
+
+        // Answers once released, or throws when cancelled, as a dismissed confirmation does.
+        public async Task<T> AnswerAsync(CancellationToken cancellationToken)
+        {
+            Started.TrySetResult();
+            try
+            {
+                return await _release.Task.WaitAsync(cancellationToken);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                Cancelled.TrySetResult();
+                throw;
+            }
+        }
+
+        // Waits for the cancellation, then still answers once released, as a prompt that outlives its
+        // request does.
+        public async Task<T> AnswerLateAsync(CancellationToken cancellationToken)
+        {
+            Started.TrySetResult();
+            try
+            {
+                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                Cancelled.TrySetResult();
+            }
+
+            return await _release.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+    }
+
+    // An editor context whose members do nothing.
+    private class FakeEditorContext(CoreObject obj) : IEditorContext
     {
         public CoreObject Object { get; } = obj;
 
@@ -10539,8 +7694,6 @@ public class VersionControlRestoreTests
 
         public IReactiveProperty<bool> IsEnabled { get; } =
             new ReactivePropertySlim<bool>(true);
-
-        public ValueTask<bool> SaveAsync() => commands.SaveAsync();
 
         public object? GetService(Type serviceType) => null;
 
@@ -10559,34 +7712,19 @@ public class VersionControlRestoreTests
         }
     }
 
+    private sealed class SavableEditorContext(
+        CoreObject obj,
+        SaveOperation commands) : FakeEditorContext(obj), ISavableEditorContext
+    {
+        public ValueTask<bool> SaveAsync() => commands.SaveAsync();
+    }
+
+    // Re-implements IAsyncDisposable so that this DisposeAsync replaces the interface default.
     private sealed class BlockingDisposeEditorContext(
         CoreObject obj,
         TaskCompletionSource disposeStarted,
-        Task releaseDispose) : IEditorContext
+        Task releaseDispose) : FakeEditorContext(obj), IAsyncDisposable
     {
-        public CoreObject Object { get; } = obj;
-
-        public EditorExtension Extension => SceneEditorExtension.Instance;
-
-        public IReactiveProperty<bool> IsEnabled { get; } =
-            new ReactivePropertySlim<bool>(true);
-
-        public object? GetService(Type serviceType) => null;
-
-        public T? FindToolTab<T>(Func<T, bool> condition)
-            where T : IToolContext
-            => default;
-
-        public T? FindToolTab<T>()
-            where T : IToolContext
-            => default;
-
-        public bool OpenToolTab(IToolContext item) => false;
-
-        public void CloseToolTab(IToolContext item)
-        {
-        }
-
         public async ValueTask DisposeAsync()
         {
             disposeStarted.TrySetResult();
@@ -10594,7 +7732,7 @@ public class VersionControlRestoreTests
         }
     }
 
-    private sealed class PassiveSaveOperation
+    private sealed class SaveOperation(bool result)
     {
         public int SaveCalls { get; private set; }
 
@@ -10604,48 +7742,7 @@ public class VersionControlRestoreTests
         {
             SaveCalls++;
             Saving?.Invoke();
-            return ValueTask.FromResult(true);
-        }
-    }
-
-    private sealed class FailedSaveEditorContext(
-        CoreObject obj,
-        FailedSaveOperation commands) : ISavableEditorContext
-    {
-        public CoreObject Object { get; } = obj;
-
-        public EditorExtension Extension => SceneEditorExtension.Instance;
-
-        public IReactiveProperty<bool> IsEnabled { get; } =
-            new ReactivePropertySlim<bool>(true);
-
-        public ValueTask<bool> SaveAsync() => commands.SaveAsync();
-
-        public object? GetService(Type serviceType) => null;
-
-        public T? FindToolTab<T>(Func<T, bool> condition)
-            where T : IToolContext
-            => default;
-
-        public T? FindToolTab<T>()
-            where T : IToolContext
-            => default;
-
-        public bool OpenToolTab(IToolContext item) => false;
-
-        public void CloseToolTab(IToolContext item)
-        {
-        }
-    }
-
-    private sealed class FailedSaveOperation
-    {
-        public int SaveCalls { get; private set; }
-
-        public ValueTask<bool> SaveAsync()
-        {
-            SaveCalls++;
-            return ValueTask.FromResult(false);
+            return ValueTask.FromResult(result);
         }
     }
 
@@ -10667,7 +7764,6 @@ public class VersionControlRestoreTests
         private readonly List<SnapshotKind> _commitKinds = [];
         private readonly CheckedOutBranchTip _originalTip;
         private readonly SemaphoreSlim _exclusiveGate = new(1, 1);
-        private readonly object _retirementSync = new();
         private bool _hasIdentity;
         private bool _retired;
         private int _disposeCalls;
@@ -10675,7 +7771,6 @@ public class VersionControlRestoreTests
         private int _ensureHygieneCalls;
         private int _hasCheckedOutCommitCalls;
         private int _retirementCalls;
-        private Task<CommitResult?>? _retirementTask;
 
         public PullCycleTestBackend(
             RepositoryInfo? repository,
@@ -10685,6 +7780,8 @@ public class VersionControlRestoreTests
             Repository = repository;
             _discoveredRepository = discoveredRepository;
             _originalTip = originalTip;
+            // The fake's tip does not move, so a snapshot reports the commit the tip already names.
+            CommitAllResult = new CommitResult.Committed(originalTip.Commit);
         }
 
         public RepositoryInfo? Repository { get; private set; }
@@ -10708,8 +7805,7 @@ public class VersionControlRestoreTests
 
         public WorkspaceStatus Status { get; set; } = DirtyStatus;
 
-        public CommitResult CommitAllResult { get; set; } =
-            new CommitResult.Committed(new CommitRevision.Unavailable());
+        public CommitResult CommitAllResult { get; set; }
 
         public CommitResult? RetirementResult { get; set; } = new CommitResult.NoChanges();
 
@@ -10749,12 +7845,6 @@ public class VersionControlRestoreTests
         public TaskCompletionSource? RetirementStarted { get; init; }
 
         public Task? RetirementRelease { get; init; }
-
-        public TaskCompletionSource? DisposeCompleted { get; init; }
-
-        public bool DisposeStartsRetirement { get; init; }
-
-        public bool IdempotentRetirement { get; init; }
 
         public Action? RetirementStarting { get; set; }
 
@@ -10817,8 +7907,6 @@ public class VersionControlRestoreTests
         public int PrefetchBranchLfsCalls { get; private set; }
 
         public Action? PrefetchBranchLfsObserver { get; set; }
-
-        public string? LastPrefetchedBranch { get; private set; }
 
         public int PrefetchCommitLfsCalls { get; private set; }
 
@@ -11119,20 +8207,7 @@ public class VersionControlRestoreTests
             return Task.CompletedTask;
         }
 
-        public Task<CommitResult?> RetireAsync(ProjectVersionControlFinalSnapshot? finalSnapshot)
-        {
-            if (!IdempotentRetirement)
-            {
-                return RetireCoreAsync(finalSnapshot);
-            }
-
-            lock (_retirementSync)
-            {
-                return _retirementTask ??= RetireCoreAsync(finalSnapshot);
-            }
-        }
-
-        private async Task<CommitResult?> RetireCoreAsync(
+        public async Task<CommitResult?> RetireAsync(
             ProjectVersionControlFinalSnapshot? finalSnapshot)
         {
             await _exclusiveGate.WaitAsync();
@@ -11240,8 +8315,6 @@ public class VersionControlRestoreTests
 
         public IReadOnlyList<string> TrackedReservedPaths { get; init; } = [];
 
-        public int UntrackReservedPathsCalls { get; private set; }
-
         public Task<IReadOnlyList<string>> GetTrackedReservedPathsAsync(
             CancellationToken cancellationToken)
         {
@@ -11252,14 +8325,12 @@ public class VersionControlRestoreTests
             IReadOnlyList<string> reservedPaths,
             CancellationToken cancellationToken)
         {
-            UntrackReservedPathsCalls++;
             return Task.CompletedTask;
         }
 
         public Task PrefetchBranchLfsObjectsAsync(string name, CancellationToken cancellationToken)
         {
             PrefetchBranchLfsCalls++;
-            LastPrefetchedBranch = name;
             PrefetchBranchLfsObserver?.Invoke();
             return Task.CompletedTask;
         }
@@ -11288,12 +8359,6 @@ public class VersionControlRestoreTests
         public void Dispose()
         {
             Interlocked.Increment(ref _disposeCalls);
-            if (DisposeStartsRetirement && RetirementCalls == 0)
-            {
-                _ = RetireAsync(finalSnapshot: null);
-            }
-
-            DisposeCompleted?.TrySetResult();
         }
 
         private void RecordBackendCall()
@@ -11302,36 +8367,6 @@ public class VersionControlRestoreTests
             {
                 CallsAfterRetirement++;
             }
-        }
-    }
-
-    private sealed class IsolatedGitEnvironment : IDisposable
-    {
-        private readonly string? _oldGlobal =
-            Environment.GetEnvironmentVariable("GIT_CONFIG_GLOBAL");
-        private readonly string? _oldNoSystem =
-            Environment.GetEnvironmentVariable("GIT_CONFIG_NOSYSTEM");
-
-        public IsolatedGitEnvironment()
-        {
-            Environment.SetEnvironmentVariable("GIT_CONFIG_GLOBAL", "/dev/null");
-            Environment.SetEnvironmentVariable("GIT_CONFIG_NOSYSTEM", "1");
-        }
-
-        public void Dispose()
-        {
-            Environment.SetEnvironmentVariable("GIT_CONFIG_GLOBAL", _oldGlobal);
-            Environment.SetEnvironmentVariable("GIT_CONFIG_NOSYSTEM", _oldNoSystem);
-        }
-    }
-
-    private sealed class CaptureNotificationHandler : INotificationServiceHandler
-    {
-        public System.Collections.Concurrent.ConcurrentQueue<Notification> All { get; } = new();
-
-        public void Show(Notification notification)
-        {
-            All.Enqueue(notification);
         }
     }
 }

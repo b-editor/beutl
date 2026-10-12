@@ -130,6 +130,25 @@ public abstract class RealGitTestRepository
             GitHostPlatform.Linux);
     }
 
+    // Commands can carry `-c` overrides (LFS path filters, hooks, the upload agent) before the
+    // subcommand, so tests match past that prefix instead of pinning its exact shape.
+    protected static string? GetGitSubcommand(IReadOnlyList<string> arguments)
+    {
+        int index = SkipConfigOverrides(arguments);
+        return index < arguments.Count ? arguments[index] : null;
+    }
+
+    private static int SkipConfigOverrides(IReadOnlyList<string> arguments)
+    {
+        int index = 0;
+        while (index + 1 < arguments.Count && arguments[index] == "-c")
+        {
+            index += 2;
+        }
+
+        return index;
+    }
+
     private static string ProbeGitOrIgnore()
     {
         var startInfo = new ProcessStartInfo("git")
@@ -164,6 +183,16 @@ public abstract class RealGitTestRepository
         {
             Assert.Ignore("git is not available on this machine.");
             return "git";
+        }
+    }
+
+    protected sealed class RecordingProgress : IProgress<string>
+    {
+        public List<string> Messages { get; } = [];
+
+        public void Report(string value)
+        {
+            Messages.Add(value);
         }
     }
 

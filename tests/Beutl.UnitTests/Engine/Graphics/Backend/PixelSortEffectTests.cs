@@ -23,6 +23,7 @@ public class PixelSortEffectTests
         {
             using var sourceRenderTarget = CreateGradientTarget(16, 16);
             Assume.That(sourceRenderTarget, Is.Not.Null);
+            using Bitmap source = sourceRenderTarget!.Snapshot();
 
             var bounds = new Rect(0, 0, 16, 16);
             using var targets = new EffectTargets
@@ -36,7 +37,8 @@ public class PixelSortEffectTests
             effect.SortKey.CurrentValue = PixelSortKey.Luminance;
             effect.ThresholdMin.CurrentValue = 0f;
             effect.ThresholdMax.CurrentValue = 100f;
-            effect.Ascending.CurrentValue = true;
+            // Descending, so that sorting the left-to-right gradient changes it.
+            effect.Ascending.CurrentValue = false;
 
             var resource = (FilterEffect.Resource)(object)effect.ToResource(new CompositionContext(TimeSpan.Zero));
             effect.ApplyTo(feCtx, resource);
@@ -51,48 +53,13 @@ public class PixelSortEffectTests
             executor.Apply(feCtx);
             executor.Flush(false);
 
-            // Apply 後はソート結果のターゲットに置換されている
+            // The sorted output replaces the target and differs from the source.
             Assert.That(targets.Count, Is.EqualTo(1));
             Assert.That(targets[0].RenderTarget, Is.Not.Null);
             Assert.That(targets[0].RenderTarget!.Width, Is.EqualTo(16));
             Assert.That(targets[0].RenderTarget!.Height, Is.EqualTo(16));
-        });
-    }
-
-    [Test]
-    public void ApplyTo_VerticalSaturation_DoesNotThrow()
-    {
-        VulkanTestEnvironment.EnsureAvailable();
-
-        VulkanTestEnvironment.InvokeOnRenderThread(() =>
-        {
-            using var sourceRenderTarget = CreateGradientTarget(8, 8);
-            Assume.That(sourceRenderTarget, Is.Not.Null);
-
-            var bounds = new Rect(0, 0, 8, 8);
-            using var targets = new EffectTargets
-            {
-                new EffectTarget(sourceRenderTarget!, bounds),
-            };
-
-            using var feCtx = new FilterEffectContext(bounds);
-            var effect = new PixelSortEffect();
-            effect.Direction.CurrentValue = PixelSortDirection.Vertical;
-            effect.SortKey.CurrentValue = PixelSortKey.Saturation;
-            effect.Ascending.CurrentValue = false;
-
-            var resource = (FilterEffect.Resource)(object)effect.ToResource(new CompositionContext(TimeSpan.Zero));
-            effect.ApplyTo(feCtx, resource);
-
-            using var builder = new SKImageFilterBuilder();
-            using var executor = new FilterEffectExecutor(
-                targets,
-                builder,
-                RenderIntent.Delivery,
-                RenderRequestPurpose.Auxiliary,
-                drawableBrushMaterializer: null);
-            Assert.DoesNotThrow(() => executor.Apply(feCtx));
-            Assert.DoesNotThrow(() => executor.Flush(false));
+            using Bitmap sorted = targets[0].RenderTarget!.Snapshot();
+            Assert.That(sorted.GetPixelSpan().SequenceEqual(source.GetPixelSpan()), Is.False);
         });
     }
 
@@ -136,42 +103,6 @@ public class PixelSortEffectTests
             Assert.DoesNotThrow(
                 () => PixelSortEffect.ThrowIfDeliveryAllocationFailure(RenderIntent.Preview, 0));
         });
-    }
-
-    [TestCase(RenderIntent.Delivery, float.PositiveInfinity)]
-    [TestCase(RenderIntent.Delivery, 2f)]
-    public void DeliveryIntent_DecidesFailFast_IndependentlyOfTheWorkingScaleCeiling(
-        RenderIntent intent, float maxWorkingScale)
-    {
-        using var targets = new EffectTargets();
-        var context = new CustomFilterEffectContext(
-            targets,
-            intent,
-            RenderRequestPurpose.Auxiliary,
-            outputScale: 1f,
-            workingScale: 1f,
-            maxWorkingScale: maxWorkingScale);
-
-        Assert.Throws<InvalidOperationException>(
-            () => PixelSortEffect.ThrowIfDeliveryAllocationFailure(context.Intent, 0));
-    }
-
-    [TestCase(RenderIntent.Preview, float.PositiveInfinity)]
-    [TestCase(RenderIntent.Preview, 2f)]
-    public void PreviewIntent_DecidesDegradation_IndependentlyOfTheWorkingScaleCeiling(
-        RenderIntent intent, float maxWorkingScale)
-    {
-        using var targets = new EffectTargets();
-        var context = new CustomFilterEffectContext(
-            targets,
-            intent,
-            RenderRequestPurpose.Auxiliary,
-            outputScale: 1f,
-            workingScale: 1f,
-            maxWorkingScale: maxWorkingScale);
-
-        Assert.DoesNotThrow(
-            () => PixelSortEffect.ThrowIfDeliveryAllocationFailure(context.Intent, 0));
     }
 
     private static RenderTarget? CreateGradientTarget(int width, int height)

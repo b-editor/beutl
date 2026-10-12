@@ -208,8 +208,7 @@ public class TransformHandlesOverlayTests
         }
     }
 
-    // The first drag wraps a lone transform in a group inside the document. The drag scales the drawable, and
-    // undo puts the lone transform back as the drawable's own.
+    // The wrapping group goes into the document, so undo restores the lone transform.
     [AvaloniaTest]
     public async Task Dragging_a_corner_of_a_drawable_with_a_lone_transform_wraps_it_and_undo_restores_it()
     {
@@ -252,8 +251,6 @@ public class TransformHandlesOverlayTests
         }
     }
 
-    // Dragging a drawable by its body, away from every handle, moves it with the pointer however it is scaled or
-    // turned.
     [AvaloniaTest]
     public async Task Dragging_the_body_of_a_scaled_and_turned_drawable_moves_it_with_the_pointer()
     {
@@ -463,14 +460,7 @@ public class TransformHandlesOverlayTests
     private static async Task<(EditViewModel Editor, PlayerView View, Window Window, Drawable Drawable)> OpenPreview(
         Content content)
     {
-        await TestReset.ResetShellAsync();
-        string name = $"transform-handles-{Guid.NewGuid():N}";
-        string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, name);
-        Directory.CreateDirectory(location);
-        Project project = (await TestShell.Project.CreateProject(640, 480, 30, 44100, name, location))!;
-        TestShell.Editor.ActivateTabItem(project.Items.OfType<Scene>().First());
-        HeadlessTestHelpers.Settle();
-        var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("transform-handles");
 
         Drawable drawable = Create(content);
         await editor.GetRequiredService<IElementAdder>().AddAsync([new ElementDescription(

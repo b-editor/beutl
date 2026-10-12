@@ -24,7 +24,6 @@ internal sealed unsafe partial class VulkanContext
         var vulkanSource = RequireOwned<VulkanTexture2D>(source, nameof(source));
         var vulkanDest = RequireOwned<VulkanTexture2D>(destination, nameof(destination));
 
-        // Transition source to transfer source layout
         vulkanSource.TransitionTo(ImageLayout.TransferSrcOptimal);
 
         // Track both layouts through the deferred recording batch.
@@ -73,7 +72,6 @@ internal sealed unsafe partial class VulkanContext
         // layout that wrap declares.
         vulkanDest.TransitionTo(VulkanTexture2D.SkiaInteropLayout);
 
-        // Transition source back to shader read optimal
         vulkanSource.TransitionTo(ImageLayout.ShaderReadOnlyOptimal);
     }
 
@@ -84,7 +82,6 @@ internal sealed unsafe partial class VulkanContext
         var vulkanSource = RequireOwned<VulkanTexture2D>(source, nameof(source));
         var vulkanDest = RequireOwned<VulkanTextureCube>(destination, nameof(destination));
 
-        // Transition source to transfer source layout
         vulkanSource.TransitionTo(ImageLayout.TransferSrcOptimal);
         vulkanDest.TransitionFaceToTransferDestination(faceIndex);
 
@@ -98,7 +95,6 @@ internal sealed unsafe partial class VulkanContext
 
         vulkanDest.TransitionFaceToSampled(faceIndex);
 
-        // Transition source back to shader read optimal
         vulkanSource.TransitionTo(ImageLayout.ShaderReadOnlyOptimal);
     }
 
@@ -110,10 +106,8 @@ internal sealed unsafe partial class VulkanContext
         var vulkanSource = RequireOwned<VulkanTexture2D>(source, nameof(source));
         var vulkanDest = RequireOwned<VulkanTextureArray>(destination, nameof(destination));
 
-        // Determine aspect mask based on format
         var aspectMask = GetCopyAspectMask(source.Format);
 
-        // Transition source to transfer source layout
         vulkanSource.TransitionTo(ImageLayout.TransferSrcOptimal);
         vulkanDest.TransitionLayerToTransferDestination((uint)layerIndex);
 
@@ -127,7 +121,6 @@ internal sealed unsafe partial class VulkanContext
 
         vulkanDest.TransitionLayerToSampled((uint)layerIndex);
 
-        // Transition source back to shader read optimal
         vulkanSource.TransitionTo(ImageLayout.ShaderReadOnlyOptimal);
     }
 
@@ -140,13 +133,10 @@ internal sealed unsafe partial class VulkanContext
         var vulkanSource = RequireOwned<VulkanTexture2D>(source, nameof(source));
         var vulkanDest = RequireOwned<VulkanTextureCubeArray>(destination, nameof(destination));
 
-        // Determine aspect mask based on format
         var aspectMask = GetCopyAspectMask(source.Format);
 
-        // Calculate the layer index in the cube array (arrayIndex * 6 + faceIndex)
         uint layerIndex = (uint)(arrayIndex * 6 + faceIndex);
 
-        // Transition source to transfer source layout
         vulkanSource.TransitionTo(ImageLayout.TransferSrcOptimal);
         vulkanDest.TransitionFaceToTransferDestination((uint)arrayIndex, faceIndex);
 
@@ -160,7 +150,6 @@ internal sealed unsafe partial class VulkanContext
 
         vulkanDest.TransitionFaceToSampled((uint)arrayIndex, faceIndex);
 
-        // Transition source back to shader read optimal
         vulkanSource.TransitionTo(ImageLayout.ShaderReadOnlyOptimal);
     }
 

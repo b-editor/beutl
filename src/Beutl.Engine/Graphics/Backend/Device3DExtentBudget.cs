@@ -8,11 +8,8 @@
 /// The device's <see cref="IGraphicsContext.MaxCubeFaceDimension"/>, or zero or less when it reported none.
 /// </param>
 /// <remarks>
-/// A recording may not reach the process for a device, so a request carries the device's limits instead and
-/// a node asks them the same questions the allocation asks. Both are kept rather than one number because a
-/// device may set them differently and a cube face answers to both. A limit of zero or less means the device
-/// did not answer and nothing is refused on it, which is also what <see cref="Unreported"/> means: refusing
-/// on a guess about a device that has not been chosen yet would drop content the device could draw.
+/// Both limits are kept because a device may set them differently and a cube face answers to both. A limit of
+/// zero or less means the device reported none, and nothing is refused on it.
 /// </remarks>
 public readonly record struct Device3DExtentBudget(int MaxAttachmentDimension, int MaxCubeFaceDimension)
 {

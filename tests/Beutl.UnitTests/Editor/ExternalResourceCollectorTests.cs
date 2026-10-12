@@ -1,7 +1,7 @@
 ﻿using Beutl.Editor;
 using Beutl.Engine;
-using Beutl.IO;
 using Beutl.Media;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Editor;
 
@@ -33,7 +33,6 @@ public class ExternalResourceCollectorTests
     [Test]
     public void Collect_WithNullRoot_ThrowsArgumentNullException()
     {
-        // Arrange & Act & Assert
         Assert.Throws<ArgumentNullException>(() =>
             ExternalResourceCollector.Collect(null!, _testProjectDir));
     }
@@ -41,10 +40,8 @@ public class ExternalResourceCollectorTests
     [Test]
     public void Collect_WithNullProjectDirectory_ThrowsArgumentNullException()
     {
-        // Arrange
         var root = new TestHierarchical();
 
-        // Act & Assert
         Assert.Throws<ArgumentNullException>(() =>
             ExternalResourceCollector.Collect(root, null!));
     }
@@ -52,13 +49,10 @@ public class ExternalResourceCollectorTests
     [Test]
     public void Collect_WithEmptyHierarchy_ReturnsEmptyCollections()
     {
-        // Arrange
         var root = new TestHierarchical();
 
-        // Act
         ExternalResourceCollector collector = ExternalResourceCollector.Collect(root, _testProjectDir);
 
-        // Assert
         Assert.Multiple(() =>
         {
             Assert.That(collector.FileSources, Is.Empty);
@@ -69,7 +63,6 @@ public class ExternalResourceCollectorTests
     [Test]
     public void Collect_WithEngineObjectContainingExternalFileSource_CollectsFileSource()
     {
-        // Arrange
         string externalFile = Path.Combine(_externalDir, "test.png");
         File.WriteAllText(externalFile, "dummy content");
 
@@ -78,10 +71,8 @@ public class ExternalResourceCollectorTests
         var root = new TestHierarchical();
         root.AddChild(engineObj);
 
-        // Act
         ExternalResourceCollector collector = ExternalResourceCollector.Collect(root, _testProjectDir);
 
-        // Assert
         Assert.That(collector.FileSources, Has.Count.EqualTo(1));
         Assert.That(collector.FileSources.First().Object, Is.EqualTo(engineObj.Id));
         Assert.That(collector.FileSources.First().OriginalUri.LocalPath, Is.EqualTo(externalFile));
@@ -90,7 +81,6 @@ public class ExternalResourceCollectorTests
     [Test]
     public void Collect_WithEngineObjectContainingInternalFileSource_DoesNotCollect()
     {
-        // Arrange
         string internalFile = Path.Combine(_testProjectDir, "test.png");
         File.WriteAllText(internalFile, "dummy content");
 
@@ -99,26 +89,21 @@ public class ExternalResourceCollectorTests
         var root = new TestHierarchical();
         root.AddChild(engineObj);
 
-        // Act
         ExternalResourceCollector collector = ExternalResourceCollector.Collect(root, _testProjectDir);
 
-        // Assert
         Assert.That(collector.FileSources, Is.Empty);
     }
 
     [Test]
     public void Collect_WithEngineObjectContainingFontFamily_CollectsFontFamily()
     {
-        // Arrange
         var fontFamily = new FontFamily("TestFont");
         var engineObj = new TestEngineObjectWithFontFamily(fontFamily);
         var root = new TestHierarchical();
         root.AddChild(engineObj);
 
-        // Act
         ExternalResourceCollector collector = ExternalResourceCollector.Collect(root, _testProjectDir);
 
-        // Assert
         Assert.That(collector.FontFamilies, Has.Count.EqualTo(1));
         Assert.That(collector.FontFamilies.First().Name, Is.EqualTo("TestFont"));
     }
@@ -126,22 +111,18 @@ public class ExternalResourceCollectorTests
     [Test]
     public void Collect_WithEngineObjectContainingNullFontFamily_DoesNotCollect()
     {
-        // Arrange
-        var engineObj = new TestEngineObjectWithNullableFontFamily(null);
+        var engineObj = new TestEngineObjectWithFontFamily(null);
         var root = new TestHierarchical();
         root.AddChild(engineObj);
 
-        // Act
         ExternalResourceCollector collector = ExternalResourceCollector.Collect(root, _testProjectDir);
 
-        // Assert
         Assert.That(collector.FontFamilies, Is.Empty);
     }
 
     [Test]
     public void Collect_WithDuplicateFileSources_CollectsOnlyOnce()
     {
-        // Arrange
         string externalFile = Path.Combine(_externalDir, "test.png");
         File.WriteAllText(externalFile, "dummy content");
         Uri fileUri = new(externalFile);
@@ -154,17 +135,14 @@ public class ExternalResourceCollectorTests
         root.AddChild(engineObj1);
         root.AddChild(engineObj2);
 
-        // Act
         ExternalResourceCollector collector = ExternalResourceCollector.Collect(root, _testProjectDir);
 
-        // Assert
         Assert.That(collector.FileSources, Has.Count.EqualTo(2));
     }
 
     [Test]
     public void Collect_WithDuplicateFontFamilies_CollectsOnlyOnce()
     {
-        // Arrange
         var fontFamily1 = new FontFamily("TestFont");
         var fontFamily2 = new FontFamily("TestFont");
         var engineObj1 = new TestEngineObjectWithFontFamily(fontFamily1);
@@ -173,34 +151,28 @@ public class ExternalResourceCollectorTests
         root.AddChild(engineObj1);
         root.AddChild(engineObj2);
 
-        // Act
         ExternalResourceCollector collector = ExternalResourceCollector.Collect(root, _testProjectDir);
 
-        // Assert
         Assert.That(collector.FontFamilies, Has.Count.EqualTo(1));
     }
 
     [Test]
     public void Collect_WithRootAsEngineObject_CollectsFromRoot()
     {
-        // Arrange
         string externalFile = Path.Combine(_externalDir, "test.png");
         File.WriteAllText(externalFile, "dummy content");
 
         var fileSource = new TestFileSource(new Uri(externalFile));
         var root = new TestEngineObjectWithFileSource(fileSource);
 
-        // Act
         ExternalResourceCollector collector = ExternalResourceCollector.Collect(root, _testProjectDir);
 
-        // Assert
         Assert.That(collector.FileSources, Has.Count.EqualTo(1));
     }
 
     [Test]
     public void Collect_WithNestedHierarchy_CollectsFromAllLevels()
     {
-        // Arrange
         string externalFile1 = Path.Combine(_externalDir, "test1.png");
         string externalFile2 = Path.Combine(_externalDir, "test2.png");
         File.WriteAllText(externalFile1, "dummy content 1");
@@ -214,65 +186,27 @@ public class ExternalResourceCollectorTests
         var root = new TestHierarchical();
         root.AddChild(parent);
 
-        // Act
         ExternalResourceCollector collector = ExternalResourceCollector.Collect(root, _testProjectDir);
 
-        // Assert
         Assert.That(collector.FileSources, Has.Count.EqualTo(2));
     }
 
     [Test]
     public void Collect_WithNonFileUri_DoesNotCollect()
     {
-        // Arrange
         var fileSource = new TestFileSource(new Uri("http://example.com/test.png"));
         var engineObj = new TestEngineObjectWithFileSource(fileSource);
         var root = new TestHierarchical();
         root.AddChild(engineObj);
 
-        // Act
         ExternalResourceCollector collector = ExternalResourceCollector.Collect(root, _testProjectDir);
 
-        // Assert
         Assert.That(collector.FileSources, Is.Empty);
-    }
-
-    [Test]
-    public void Collect_WithFileSourceHavingNullUri_DoesNotCollect()
-    {
-        // Arrange
-        var fileSource = new TestFileSource(null);
-        var engineObj = new TestEngineObjectWithFileSource(fileSource);
-        var root = new TestHierarchical();
-        root.AddChild(engineObj);
-
-        // Act
-        ExternalResourceCollector collector = ExternalResourceCollector.Collect(root, _testProjectDir);
-
-        // Assert
-        Assert.That(collector.FileSources, Is.Empty);
-    }
-
-    [Test]
-    public void Collect_WithNullablePropertyContainingValue_CollectsFontFamily()
-    {
-        // Arrange
-        var fontFamily = new FontFamily("TestFont");
-        var engineObj = new TestEngineObjectWithNullableFontFamily(fontFamily);
-        var root = new TestHierarchical();
-        root.AddChild(engineObj);
-
-        // Act
-        ExternalResourceCollector collector = ExternalResourceCollector.Collect(root, _testProjectDir);
-
-        // Assert
-        Assert.That(collector.FontFamilies, Has.Count.EqualTo(1));
     }
 
     [Test]
     public void Collect_WithNestedIHierarchicalInProperty_CollectsFromNestedObjects()
     {
-        // Arrange
         string externalFile = Path.Combine(_externalDir, "nested.png");
         File.WriteAllText(externalFile, "dummy content");
 
@@ -282,52 +216,43 @@ public class ExternalResourceCollectorTests
         var root = new TestHierarchical();
         root.AddChild(engineObjWithNested);
 
-        // Act
         ExternalResourceCollector collector = ExternalResourceCollector.Collect(root, _testProjectDir);
 
-        // Assert
         Assert.That(collector.FileSources, Has.Count.EqualTo(1));
     }
 
     [Test]
     public void Collect_WithNestedHierarchicalContainingEngineObjectChildren_CollectsFromChildren()
     {
-        // Arrange - This tests the inner loop in CollectFromObject that processes
-        // child EngineObjects within an IHierarchical property
+        // The nested hierarchical's children are reached by the hierarchy walk.
         string externalFile = Path.Combine(_externalDir, "child_in_nested.png");
         File.WriteAllText(externalFile, "dummy content");
 
         var fileSource = new TestFileSource(new Uri(externalFile));
         var childEngineObj = new TestEngineObjectWithFileSource(fileSource);
 
-        // Create a nested hierarchical that contains the child as a hierarchical child
-        var nestedHierarchical = new TestNestedHierarchicalWithChildren();
+        var nestedHierarchical = new TestHierarchical();
         nestedHierarchical.AddChild(childEngineObj);
 
-        // Create an engine object with the nested hierarchical as a property value
         var engineObjWithNested = new TestEngineObjectWithNestedHierarchical(nestedHierarchical);
         var root = new TestHierarchical();
         root.AddChild(engineObjWithNested);
 
-        // Act
         ExternalResourceCollector collector = ExternalResourceCollector.Collect(root, _testProjectDir);
 
-        // Assert
         Assert.That(collector.FileSources, Has.Count.EqualTo(1));
     }
 
     [Test]
     public void Collect_WithPropertyHavingNonIFileSourceNonFontNonHierarchical_SkipsProperty()
     {
-        // Arrange - EngineObject with just a string property should not cause issues
+        // EngineObject with just a string property should not cause issues
         var engineObj = new TestEngineObjectWithStringProperty("test value");
         var root = new TestHierarchical();
         root.AddChild(engineObj);
 
-        // Act
         ExternalResourceCollector collector = ExternalResourceCollector.Collect(root, _testProjectDir);
 
-        // Assert
         Assert.Multiple(() =>
         {
             Assert.That(collector.FileSources, Is.Empty);
@@ -338,7 +263,6 @@ public class ExternalResourceCollectorTests
     [Test]
     public void Collect_WithMultipleFileSources_CollectsAllUnique()
     {
-        // Arrange
         string externalFile1 = Path.Combine(_externalDir, "test1.png");
         string externalFile2 = Path.Combine(_externalDir, "test2.png");
         string externalFile3 = Path.Combine(_externalDir, "test3.png");
@@ -354,17 +278,14 @@ public class ExternalResourceCollectorTests
         root.AddChild(engineObj2);
         root.AddChild(engineObj3);
 
-        // Act
         ExternalResourceCollector collector = ExternalResourceCollector.Collect(root, _testProjectDir);
 
-        // Assert
         Assert.That(collector.FileSources, Has.Count.EqualTo(3));
     }
 
     [Test]
     public void Collect_WithMultipleDifferentFontFamilies_CollectsAll()
     {
-        // Arrange
         var engineObj1 = new TestEngineObjectWithFontFamily(new FontFamily("Font1"));
         var engineObj2 = new TestEngineObjectWithFontFamily(new FontFamily("Font2"));
         var engineObj3 = new TestEngineObjectWithFontFamily(new FontFamily("Font3"));
@@ -373,45 +294,31 @@ public class ExternalResourceCollectorTests
         root.AddChild(engineObj2);
         root.AddChild(engineObj3);
 
-        // Act
         ExternalResourceCollector collector = ExternalResourceCollector.Collect(root, _testProjectDir);
 
-        // Assert
         Assert.That(collector.FontFamilies, Has.Count.EqualTo(3));
     }
 
     [Test]
     public void Collect_WithSiblingDirectoryHavingSamePrefix_TreatsAsSiblingAsExternal()
     {
-        // Arrange
-        // Create /tmp/proj and /tmp/projbar to test path boundary detection
-        string baseDir = Path.Combine(Path.GetTempPath(), $"beutl_boundary_test_{Guid.NewGuid():N}");
-        string projectDir = Path.Combine(baseDir, "proj");
-        string siblingDir = Path.Combine(baseDir, "projbar");
+        // Create proj and projbar to test path boundary detection
+        string projectDir = Path.Combine(_testProjectDir, "proj");
+        string siblingDir = Path.Combine(_testProjectDir, "projbar");
         Directory.CreateDirectory(projectDir);
         Directory.CreateDirectory(siblingDir);
 
-        try
-        {
-            string siblingFile = Path.Combine(siblingDir, "test.png");
-            File.WriteAllText(siblingFile, "dummy content");
+        string siblingFile = Path.Combine(siblingDir, "test.png");
+        File.WriteAllText(siblingFile, "dummy content");
 
-            var fileSource = new TestFileSource(new Uri(siblingFile));
-            var engineObj = new TestEngineObjectWithFileSource(fileSource);
-            var root = new TestHierarchical();
-            root.AddChild(engineObj);
+        var fileSource = new TestFileSource(new Uri(siblingFile));
+        var engineObj = new TestEngineObjectWithFileSource(fileSource);
+        var root = new TestHierarchical();
+        root.AddChild(engineObj);
 
-            // Act
-            ExternalResourceCollector collector = ExternalResourceCollector.Collect(root, projectDir);
+        ExternalResourceCollector collector = ExternalResourceCollector.Collect(root, projectDir);
 
-            // Assert - file in /tmp/projbar should be external relative to /tmp/proj
-            Assert.That(collector.FileSources, Has.Count.EqualTo(1));
-        }
-        finally
-        {
-            if (Directory.Exists(baseDir))
-                Directory.Delete(baseDir, recursive: true);
-        }
+        Assert.That(collector.FileSources, Has.Count.EqualTo(1));
     }
 
     [Test]
@@ -432,41 +339,8 @@ public class ExternalResourceCollectorTests
         Assert.That(collector.FileSources.Select(source => source.OriginalUri), Is.EqualTo(new[] { new Uri(asset) }));
     }
 
-    // Test helper classes
     private class TestHierarchical : Hierarchical
     {
-        public void AddChild(IHierarchical child)
-        {
-            HierarchicalChildren.Add(child);
-        }
-    }
-
-    private class TestFileSource : IFileSource
-    {
-        public TestFileSource(Uri? uri)
-        {
-            Uri = uri!;
-        }
-
-        public Uri Uri { get; private set; }
-
-        public void ReadFrom(Uri uri)
-        {
-            Uri = uri;
-        }
-    }
-
-    [SuppressResourceClassGeneration]
-    private class TestEngineObjectWithFileSource : EngineObject
-    {
-        public TestEngineObjectWithFileSource(IFileSource? fileSource)
-        {
-            ScanProperties<TestEngineObjectWithFileSource>();
-            FileSource.CurrentValue = fileSource;
-        }
-
-        public IProperty<IFileSource?> FileSource { get; } = Property.Create<IFileSource?>();
-
         public void AddChild(IHierarchical child)
         {
             HierarchicalChildren.Add(child);
@@ -476,21 +350,9 @@ public class ExternalResourceCollectorTests
     [SuppressResourceClassGeneration]
     private class TestEngineObjectWithFontFamily : EngineObject
     {
-        public TestEngineObjectWithFontFamily(FontFamily fontFamily)
+        public TestEngineObjectWithFontFamily(FontFamily? fontFamily)
         {
             ScanProperties<TestEngineObjectWithFontFamily>();
-            FontFamily.CurrentValue = fontFamily;
-        }
-
-        public IProperty<FontFamily> FontFamily { get; } = Property.Create<FontFamily>();
-    }
-
-    [SuppressResourceClassGeneration]
-    private class TestEngineObjectWithNullableFontFamily : EngineObject
-    {
-        public TestEngineObjectWithNullableFontFamily(FontFamily? fontFamily)
-        {
-            ScanProperties<TestEngineObjectWithNullableFontFamily>();
             FontFamily.CurrentValue = fontFamily;
         }
 
@@ -519,13 +381,5 @@ public class ExternalResourceCollectorTests
         }
 
         public IProperty<string?> StringValue { get; } = Property.Create<string?>();
-    }
-
-    private class TestNestedHierarchicalWithChildren : Hierarchical
-    {
-        public void AddChild(IHierarchical child)
-        {
-            HierarchicalChildren.Add(child);
-        }
     }
 }

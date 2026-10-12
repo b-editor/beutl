@@ -44,7 +44,6 @@ public sealed class CoreObjectOperationObserver : IOperationObserver
         _propertiesToTrack = OperationObserverHelpers.GetTrackedChildNames(_propertyPathsToTrack, _propertyPath);
         InitializeChildPublishers();
 
-        // Easingの変更を監視
         if (obj is KeyFrame)
         {
             obj.PropertyChanged += OnPropertyChanged;
@@ -95,7 +94,6 @@ public sealed class CoreObjectOperationObserver : IOperationObserver
                 continue;
             }
 
-            // Check if property is excluded from tracking
             if (property.TryGetMetadata<CorePropertyMetadata>(objectType, out var metadata)
                 && !metadata.Tracked)
             {

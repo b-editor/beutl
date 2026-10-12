@@ -5,6 +5,7 @@ using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shaders;
 using Beutl.Media;
+using Beutl.UnitTests.TestInfrastructure;
 using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.FilterEffects;
@@ -12,8 +13,6 @@ namespace Beutl.UnitTests.Engine.Graphics.FilterEffects;
 [TestFixture]
 public sealed class WholeSourceFilterEffectTests
 {
-    private const float UnallocatableScale = 2_000_000f;
-
     private static readonly Rect s_bounds = new(10, 20, 100, 60);
 
     [TestCaseSource(nameof(MigratedEffects))]
@@ -23,27 +22,14 @@ public sealed class WholeSourceFilterEffectTests
         bool expectedFullInput,
         int expectedResourceCount)
     {
-        FilterEffect effect = factory();
-        using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
-        using var context = new FilterEffectContext(s_bounds);
-
-        context.ApplyTransactional(effect, resource);
-
-        IReadOnlyList<IFEItem> items = context.GetOrderedItems();
+        (ShaderDescription description, Rect bounds) = FilterEffectTestHarness.RecordShader(factory(), s_bounds);
         Assert.Multiple(() =>
         {
-            Assert.That(items, Has.Count.EqualTo(1));
-            Assert.That(items.OfType<IFEItem_Custom>(), Is.Empty);
-            Assert.That(context.Bounds, Is.EqualTo(s_bounds));
-        });
-
-        var item = (FEItem_Shader)items.Single();
-        Assert.Multiple(() =>
-        {
-            Assert.That(item.Description.Kind, Is.EqualTo(ShaderDescriptionKind.WholeSource));
-            Assert.That(item.Description.SourceTileMode, Is.EqualTo(expectedTileMode));
-            Assert.That(item.Description.Bounds.RequiresFullInput, Is.EqualTo(expectedFullInput));
-            Assert.That(item.Description.Resources, Has.Count.EqualTo(expectedResourceCount));
+            Assert.That(bounds, Is.EqualTo(s_bounds));
+            Assert.That(description.Kind, Is.EqualTo(ShaderDescriptionKind.WholeSource));
+            Assert.That(description.SourceTileMode, Is.EqualTo(expectedTileMode));
+            Assert.That(description.Bounds.RequiresFullInput, Is.EqualTo(expectedFullInput));
+            Assert.That(description.Resources, Has.Count.EqualTo(expectedResourceCount));
         });
     }
 
@@ -51,38 +37,8 @@ public sealed class WholeSourceFilterEffectTests
     public void MigratedEffects_PreservePremultipliedSolidColorOutput(Func<FilterEffect> factory)
     {
         FilterEffect effect = factory();
-        using var backing = new CpuRenderTarget(3, 2);
-        backing.Value.Canvas.Clear(new SKColor(230, 40, 20, 180));
-        backing.Value.Canvas.Flush();
-        using Bitmap beforeBitmap = backing.Snapshot();
-        float[] before = ReadPixels(beforeBitmap);
-        using var targets = new EffectTargets
-        {
-            new EffectTarget(
-                backing,
-                new Rect(0, 0, 3, 2),
-                EffectiveScale.At(1),
-                new PixelRect(0, 0, 3, 2)),
-        };
-        using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
-        using var context = new FilterEffectContext(new Rect(0, 0, 3, 2));
-        context.ApplyTransactional(effect, resource);
-        using var builder = new SKImageFilterBuilder();
-        using var executor = new FilterEffectExecutor(
-            targets,
-            builder,
-            RenderIntent.Preview,
-            RenderRequestPurpose.Auxiliary,
-            drawableBrushMaterializer: null,
-            outputScale: 1,
-            workingScale: 1,
-            maxWorkingScale: 1);
-
-        executor.Apply(context);
-        executor.Flush(false);
-
-        using Bitmap afterBitmap = targets.Single().RenderTarget!.Snapshot();
-        float[] after = ReadPixels(afterBitmap);
+        (float[] before, float[] after) = FilterEffectTestHarness.RunOnSolidTarget(
+            effect, new SKColor(230, 40, 20, 180), new PixelSize(3, 2));
         Assert.That(after, Has.Length.EqualTo(before.Length));
         for (int index = 0; index < before.Length; index++)
         {
@@ -101,17 +57,12 @@ public sealed class WholeSourceFilterEffectTests
             RedOffset = { CurrentValue = new PixelPoint(4, 2) },
             GreenOffset = { CurrentValue = new PixelPoint(1, 0) },
         };
-        using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
-        using var context = new FilterEffectContext(s_bounds);
-
-        context.ApplyTransactional(effect, resource);
-
-        var item = (FEItem_Shader)context.GetOrderedItems().Single();
+        (ShaderDescription description, Rect bounds) = FilterEffectTestHarness.RecordShader(effect, s_bounds);
         Assert.Multiple(() =>
         {
-            Assert.That(context.Bounds, Is.EqualTo(new Rect(10, 20, 104, 62)));
+            Assert.That(bounds, Is.EqualTo(new Rect(10, 20, 104, 62)));
             Assert.That(
-                item.Description.Bounds.GetRequiredInputBounds(s_bounds),
+                description.Bounds.GetRequiredInputBounds(s_bounds),
                 Is.EqualTo(new Rect(6, 18, 104, 62)));
         });
     }
@@ -130,8 +81,8 @@ public sealed class WholeSourceFilterEffectTests
             GreenOffset = { CurrentValue = new PixelPoint(0, -2) },
         };
 
-        ShaderDescription firstDescription = Record(first);
-        ShaderDescription secondDescription = Record(second);
+        ShaderDescription firstDescription = FilterEffectTestHarness.RecordShader(first, s_bounds).Description;
+        ShaderDescription secondDescription = FilterEffectTestHarness.RecordShader(second, s_bounds).Description;
 
         Assert.Multiple(() =>
         {
@@ -144,14 +95,6 @@ public sealed class WholeSourceFilterEffectTests
                 Is.EqualTo(firstDescription.StructuralIdentity),
                 "animated offset values must reuse the same shader structure");
         });
-
-        static ShaderDescription Record(ColorShift effect)
-        {
-            using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
-            using var context = new FilterEffectContext(s_bounds);
-            context.ApplyTransactional(effect, resource);
-            return ((FEItem_Shader)context.GetOrderedItems().Single()).Description;
-        }
     }
 
     [Test]
@@ -207,13 +150,9 @@ public sealed class WholeSourceFilterEffectTests
         {
             SpreadMethod = { CurrentValue = spreadMethod },
         };
-        using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
-        using var context = new FilterEffectContext(s_bounds);
 
-        context.ApplyTransactional(effect, resource);
-
-        var item = (FEItem_Shader)context.GetOrderedItems().Single();
-        Assert.That(item.Description.SourceTileMode, Is.EqualTo(expected));
+        ShaderDescription description = FilterEffectTestHarness.RecordShader(effect, s_bounds).Description;
+        Assert.That(description.SourceTileMode, Is.EqualTo(expected));
     }
 
     [Test]
@@ -243,7 +182,7 @@ public sealed class WholeSourceFilterEffectTests
         var effect = new DisplacementMapEffect();
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
         Brush.Resource displacementMap = ((DisplacementMapEffect.Resource)resource).DisplacementMap!;
-        using var backing = new CpuRenderTarget(3, 2);
+        using var backing = CpuRenderTargets.Create(3, 2);
         backing.Value.Canvas.Clear(SKColors.Red);
         backing.Value.Canvas.Flush();
         using var targets = new EffectTargets
@@ -302,8 +241,8 @@ public sealed class WholeSourceFilterEffectTests
     [Test]
     public void DisplacementMapTargetTransaction_DrawFailureDisposesReplacementAndPreservesOriginalSlot()
     {
-        using var originalBacking = new CpuRenderTarget(3, 2);
-        using var replacementBacking = new CpuRenderTarget(3, 2);
+        using var originalBacking = CpuRenderTargets.Create(3, 2);
+        using var replacementBacking = CpuRenderTargets.Create(3, 2);
         var original = new EffectTarget(
             originalBacking,
             new Rect(0, 0, 3, 2),
@@ -342,8 +281,8 @@ public sealed class WholeSourceFilterEffectTests
     [Test]
     public void DisplacementMapTargetTransaction_DrawSuccessCommitsReplacementAndDisposesOriginal()
     {
-        using var originalBacking = new CpuRenderTarget(3, 2);
-        using var replacementBacking = new CpuRenderTarget(3, 2);
+        using var originalBacking = CpuRenderTargets.Create(3, 2);
+        using var replacementBacking = CpuRenderTargets.Create(3, 2);
         var original = new EffectTarget(
             originalBacking,
             new Rect(0, 0, 3, 2),
@@ -433,23 +372,4 @@ public sealed class WholeSourceFilterEffectTests
         {
             Transform = { CurrentValue = new T() },
         };
-
-    private static float[] ReadPixels(Bitmap bitmap)
-        => bitmap.GetPixelSpan<ushort>()
-            .ToArray()
-            .Select(static bits => (float)BitConverter.UInt16BitsToHalf(bits))
-            .ToArray();
-
-    private sealed class CpuRenderTarget(int width, int height)
-        : RenderTarget(CreateSurface(width, height), width, height)
-    {
-        private static SKSurface CreateSurface(int width, int height)
-            => SKSurface.Create(new SKImageInfo(
-                   width,
-                   height,
-                   SKColorType.RgbaF16,
-                   SKAlphaType.Premul,
-                   SKColorSpace.CreateSrgbLinear()))
-               ?? throw new InvalidOperationException("A CPU effect-test surface could not be created.");
-    }
 }

@@ -1,5 +1,4 @@
 ﻿using System.Text;
-using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Media.Source;
@@ -56,13 +55,7 @@ public sealed class FiniteCurrentPixelEffectTests
     }
 
     private static string RecordSource(FilterEffect effect)
-    {
-        using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
-        using var context = new FilterEffectContext(new Rect(0, 0, 1, 1));
-        context.ApplyTransactional(effect, resource);
-        var item = (FEItem_Shader)context.GetOrderedItems().Single();
-        return item.Description.Source.Text;
-    }
+        => FilterEffectTestHarness.RecordShader(effect, new Rect(0, 0, 1, 1)).Description.Source.Text;
 
     private static CubeSource CreateLutSource(CubeFileDimension dimension)
     {

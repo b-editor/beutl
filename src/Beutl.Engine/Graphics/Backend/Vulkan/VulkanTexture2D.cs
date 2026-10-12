@@ -5,9 +5,6 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Backend.Vulkan;
 
-/// <summary>
-/// Vulkan implementation of <see cref="ITexture2D"/>.
-/// </summary>
 internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture, IVulkanContextResource
 {
     protected readonly VulkanContext _context;
@@ -31,7 +28,7 @@ internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
         int width,
         int height,
         TextureFormat format,
-        ImageUsageFlags usage = ImageUsageFlags.SampledBit | ImageUsageFlags.TransferDstBit)
+        ImageUsageFlags usage)
         : this(context, width, height, format, usage, null)
     {
     }
@@ -52,7 +49,6 @@ internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
         var vk = context.Vk;
         var device = context.Device;
 
-        // Create image
         _image = context.CreateTextureImage(format, width, height, arrayLayers: 1, usage, flags: 0, pNext, "image");
 
         _memory = context.AllocateAndBindImageMemory(_image, "image", out ulong allocationSize);
@@ -87,7 +83,6 @@ internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        // Transition to transfer destination
         TransitionTo(ImageLayout.TransferDstOptimal);
 
         _context.UploadToImageLayer(
@@ -98,7 +93,6 @@ internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
             (uint)_width,
             (uint)_height);
 
-        // Transition to shader read
         TransitionTo(ImageLayout.ShaderReadOnlyOptimal);
         _hasTransparentContents = false;
     }
@@ -107,7 +101,6 @@ internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        // Transition to transfer source
         TransitionTo(ImageLayout.TransferSrcOptimal);
 
         int bytesPerPixel = _format switch
@@ -124,14 +117,12 @@ internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
         ulong bufferSize = (ulong)(_width * _height * bytesPerPixel);
         var pixelData = new byte[bufferSize];
 
-        // Create staging buffer
         using var stagingBuffer = new VulkanBuffer(
             _context,
             bufferSize,
             BufferUsage.TransferDestination,
             MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
 
-        // Copy image to buffer
         _context.RecordCommands(cmd =>
         {
             var region = new BufferImageCopy
@@ -159,7 +150,6 @@ internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
         TransitionTo(ImageLayout.ShaderReadOnlyOptimal);
         _context.FlushCommands(waitForCompletion: true);
 
-        // Read data from staging buffer
         var srcPtr = stagingBuffer.Map();
         Marshal.Copy(srcPtr, pixelData, 0, (int)bufferSize);
         stagingBuffer.Unmap();
@@ -205,14 +195,6 @@ internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
     public virtual SKSurface CreateSkiaSurface()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-
-        // On macOS, use raster surface (Metal interop handles rendering separately)
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-        {
-            var info = new SKImageInfo(_width, _height, _format.ToSkiaColorType(), SKAlphaType.Premul, SKColorSpace.CreateSrgbLinear());
-            MarkSkiaAccess();
-            return SKSurface.Create(info);
-        }
 
         // Copies made by Skia share this handle's mutable Vulkan state. Retain one handle for the
         // texture's lifetime, including when Renderer3D creates a new surface for each frame.
@@ -391,20 +373,9 @@ internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
             var vk = _context.Vk;
             var device = _context.Device;
 
-            if (imageView.Handle != 0)
-            {
-                vk.DestroyImageView(device, imageView, null);
-            }
-
-            if (image.Handle != 0)
-            {
-                vk.DestroyImage(device, image, null);
-            }
-
-            if (memory.Handle != 0)
-            {
-                vk.FreeMemory(device, memory, null);
-            }
+            vk.DestroyImageView(device, imageView, null);
+            vk.DestroyImage(device, image, null);
+            vk.FreeMemory(device, memory, null);
         });
     }
 }

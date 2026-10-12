@@ -20,22 +20,13 @@ public sealed class ExternalResourceCollector
     {
     }
 
-    /// <summary>
-    /// The list of collected file sources.
-    /// </summary>
     public IEnumerable<(Guid Object, string PropertyName, Uri OriginalUri)> FileSources => _fileSources;
 
-    /// <summary>
-    /// The list of collected font families.
-    /// </summary>
     public IEnumerable<FontFamily> FontFamilies => _fontFamilies;
 
     /// <summary>
     /// Collects all resource references within the hierarchy.
     /// </summary>
-    /// <param name="root">The root hierarchy to start collecting from.</param>
-    /// <param name="projectDirectory">The path of the project directory.</param>
-    /// <returns>The collected resource information.</returns>
     public static ExternalResourceCollector Collect(IHierarchical root, string projectDirectory)
     {
         ArgumentNullException.ThrowIfNull(root);
@@ -109,7 +100,7 @@ public sealed class ExternalResourceCollector
             switch (value)
             {
                 case IFileSource fileSource:
-                    if (fileSource.Uri != null && RequiresRelocation(fileSource, projectDirectory))
+                    if (RequiresRelocation(fileSource, projectDirectory))
                     {
                         _fileSources.Add((obj.Id, prop.Name, fileSource.Uri));
                     }
@@ -128,15 +119,13 @@ public sealed class ExternalResourceCollector
         {
             switch (property.CurrentValue)
             {
-                // Collect IFileSource
-                case IFileSource fileSource when fileSource.Uri != null:
+                case IFileSource fileSource:
                     if (RequiresRelocation(fileSource, projectDirectory))
                     {
                         _fileSources.Add((obj.Id, property.Name, fileSource.Uri));
                     }
 
                     break;
-                // Collect FontFamily
                 case FontFamily fontFamily:
                     _fontFamilies.Add(fontFamily);
                     break;

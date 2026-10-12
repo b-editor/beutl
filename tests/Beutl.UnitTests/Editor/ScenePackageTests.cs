@@ -6,6 +6,7 @@ using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Editor;
 
@@ -34,13 +35,7 @@ public class ScenePackageTests
                 string elementsDirectory = nestedElements ? Path.Combine(directory, "clips") : directory;
                 Directory.CreateDirectory(elementsDirectory);
                 string imagePath = Path.Combine(directory, "image.png");
-                using (var bitmap = new Bitmap(4, 4))
-                {
-                    bitmap.GetPixelSpan().Fill(255);
-                    Assert.That(bitmap.Save(imagePath, EncodedImageFormat.Png), Is.True);
-                }
-                var image = new ImageSource();
-                image.ReadFrom(new Uri(imagePath));
+                ImageSource image = TestImages.WriteImage(imagePath);
                 var element = new Element { Name = "Clip-" + name, Uri = new Uri(Path.Combine(elementsDirectory, "shared.belm")), Length = TimeSpan.FromSeconds(1) };
                 element.Objects.Add(new SourceImage { Source = { CurrentValue = image } });
                 expected.Add(name, element.Id);

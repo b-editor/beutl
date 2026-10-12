@@ -420,7 +420,6 @@ public sealed class HostedGitLfsTransferAgentTests
         private readonly TaskCompletionSource _firstReleased = new(TaskCreationOptions.RunContinuationsAsynchronously);
         /// <summary>The offset of every parallel PATCH, in order of arrival.</summary>
         public List<long> Attempts { get; } = [];
-        /// <summary>The number of HEAD requests answered after the last parallel PATCH arrived.</summary>
         public int HeadsSinceLastPatch { get; private set; }
         /// <summary>How many responses to the part at <see cref="LoseResponseAt"/> are lost after it is stored.</summary>
         public int LostResponses { get; set; } = 1;
@@ -684,7 +683,6 @@ public sealed class HostedGitLfsTransferAgentTests
         public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
     }
 
-    /// <summary>A response body that never ends.</summary>
     private sealed class EndlessStream : Stream
     {
         public override bool CanRead => true;

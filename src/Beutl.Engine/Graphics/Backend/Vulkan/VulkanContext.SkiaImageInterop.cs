@@ -191,7 +191,7 @@ internal sealed unsafe partial class VulkanContext
     // a zeroed backing allocation - no recycled allocation's bytes - not defined pixels at the Vulkan level.
     private unsafe void ClearSkiaImage(Image image, ImageCreateInfo createInfo)
     {
-        _vulkanCommandPool.SubmitIsolatedCommands(commandBuffer =>
+        SubmitIsolatedCommands(commandBuffer =>
         {
             ImageSubresourceRange range = CreateInitializationRange(createInfo);
             var barrier = new ImageMemoryBarrier

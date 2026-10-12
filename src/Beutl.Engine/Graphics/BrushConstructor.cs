@@ -11,12 +11,8 @@ using SkiaSharp;
 namespace Beutl.Graphics;
 
 /// <remarks>
-/// <paramref name="intent"/> and <paramref name="drawableBrushMaterializer"/> are stated rather than
-/// defaulted because either one left implicit turns a failure into missing pixels: a delivery render that
-/// defaulted to <see cref="RenderIntent.Preview"/> would ship a frame whose fill could not be allocated, and
-/// a <see cref="DrawableBrush"/> without a materializer degrades to transparent.
-/// <see cref="ImmediateCanvas.CreateBrushConstructor"/> passes the canvas's own intent and materializer; a
-/// directly constructed instance names both, passing <see langword="null"/> when it paints no drawable brush.
+/// <paramref name="intent"/> and <paramref name="drawableBrushMaterializer"/> are stated rather than defaulted,
+/// because either one left implicit turns a failure into transparent missing pixels.
 /// </remarks>
 public readonly struct BrushConstructor(
     Rect bounds, Brush.Resource? brush, BlendMode blendMode, RenderIntent intent,
@@ -61,9 +57,7 @@ public readonly struct BrushConstructor(
     public float MaxWorkingScale { get; } = RenderScaleUtilities.SanitizeMaxWorkingScale(maxWorkingScale);
 
     /// <summary>
-    /// Preview or delivery classification of the render this brush paints into.
-    /// <see cref="RenderIntent.Preview"/> degrades when a brush-owned intermediate cannot be allocated;
-    /// <see cref="RenderIntent.Delivery"/> fails the render instead of shipping the brush without content.
+    /// Preview or delivery classification of the render this brush paints into (see <see cref="RenderIntent"/>).
     /// </summary>
     public RenderIntent Intent { get; } = Enum.IsDefined(intent)
         ? intent
@@ -372,12 +366,10 @@ public readonly struct BrushConstructor(
         }
     }
 
-    /// <summary>Resolves the image a tile brush tiles and the logical size and density of its content.</summary>
-    /// <param name="tileBrush">The brush to resolve.</param>
-    /// <param name="s">The density the brush fills at.</param>
-    /// <param name="skImage">The image to tile, which the caller disposes.</param>
-    /// <param name="contentSize">The logical content size, which drives <see cref="TileBrushCalculator"/>.</param>
-    /// <param name="contentDensity">The image's device pixels per logical content unit.</param>
+    /// <summary>
+    /// Resolves the image a tile brush tiles at density <paramref name="s"/>, which the caller disposes, with the
+    /// logical size and the device pixels per logical unit of its content.
+    /// </summary>
     /// <returns><see langword="false"/> when a drawable brush produced no image; the fill degrades to transparent.</returns>
     private bool TryResolveTileSource(
         TileBrush.Resource tileBrush,
@@ -443,7 +435,6 @@ public readonly struct BrushConstructor(
         return RenderTarget.Create(width, height);
     }
 
-    /// <summary>Draws the tile content into <paramref name="intermediate"/> at density <paramref name="s"/>.</summary>
     private void RasterizeTileContent(
         RenderTarget intermediate,
         TileBrush.Resource tileBrush,
@@ -474,7 +465,6 @@ public readonly struct BrushConstructor(
         }
     }
 
-    /// <summary>Maps a tile mode onto one axis: no tiling decals, a flip on this axis mirrors, anything else repeats.</summary>
     private static SKShaderTileMode ToShaderTileMode(TileMode mode, TileMode flipAxis)
         => mode == TileMode.None
             ? SKShaderTileMode.Decal
@@ -482,10 +472,7 @@ public readonly struct BrushConstructor(
                 ? SKShaderTileMode.Mirror
                 : SKShaderTileMode.Repeat;
 
-    /// <summary>
-    /// Fails a delivery render that would otherwise paint a hole where content belongs. Preview returns so the
-    /// caller can degrade the fill to transparent.
-    /// </summary>
+    /// <summary>Fails the render when <see cref="Intent"/> is <see cref="RenderIntent.Delivery"/>.</summary>
     private void ThrowIfDeliveryContentLoss(string message)
     {
         if (Intent == RenderIntent.Delivery)

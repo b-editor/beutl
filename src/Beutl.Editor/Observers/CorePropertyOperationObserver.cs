@@ -89,7 +89,6 @@ public sealed class CorePropertyOperationObserver<T> : IOperationObserver
         if (e is not CorePropertyChangedEventArgs<T> args) return;
         if (sender is not ICoreObject source) return;
 
-        // プロパティが同じか
         if (args.Property.Id != _property.Id) return;
 
         RecreateChildPublisher();

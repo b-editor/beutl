@@ -10,6 +10,7 @@ using Beutl.Media.Source;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes;
 using Beutl.ProjectSystem;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Editor;
 
@@ -18,21 +19,34 @@ public sealed class ExportSourceValidatorTests
 {
     private static readonly TimeRange s_wholeScene = new(TimeSpan.Zero, TimeSpan.FromSeconds(10));
 
+    private string _root = null!;
+
+    [SetUp]
+    public void SetUp()
+    {
+        _root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(_root);
+    }
+
+    [TearDown]
+    public void TearDown()
+    {
+        Directory.Delete(_root, recursive: true);
+    }
+
     [Test]
     public void GetMissingPaths_ReturnsMissingSourcesReferencedByScene()
     {
-        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        string existingPath = Path.Combine(root, "existing.mov");
-        string missingPath = Path.Combine(root, "missing.mov");
+        string existingPath = Path.Combine(_root, "existing.mov");
+        string missingPath = Path.Combine(_root, "missing.mov");
         File.WriteAllBytes(existingPath, [1]);
 
         var scene = new Scene(1920, 1080, string.Empty)
         {
-            Uri = new Uri(Path.Combine(root, "test.scene")),
+            Uri = new Uri(Path.Combine(_root, "test.scene")),
         };
-        scene.Children.Add(CreateVideoElement(root, existingPath));
-        scene.Children.Add(CreateVideoElement(root, missingPath));
+        scene.Children.Add(CreateVideoElement(_root, existingPath));
+        scene.Children.Add(CreateVideoElement(_root, missingPath));
 
         IReadOnlySet<string> referenced = ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene);
         IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(referenced);
@@ -46,25 +60,23 @@ public sealed class ExportSourceValidatorTests
     [Test]
     public void GetMissingPaths_GraphicallyEmbeddedScene_ReportsImageButNotAudioOnlySound()
     {
-        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        string missingImage = Path.Combine(root, "missing.png");
-        string missingSound = Path.Combine(root, "missing.mp3");
+        string missingImage = Path.Combine(_root, "missing.png");
+        string missingSound = Path.Combine(_root, "missing.mp3");
 
         var childScene = new Scene(1920, 1080, string.Empty)
         {
-            Uri = new Uri(Path.Combine(root, "child.scene")),
+            Uri = new Uri(Path.Combine(_root, "child.scene")),
         };
-        childScene.Children.Add(CreateImageElement(root, missingImage));
-        childScene.Children.Add(CreateSoundElement(root, missingSound));
+        childScene.Children.Add(CreateImageElement(_root, missingImage));
+        childScene.Children.Add(CreateSoundElement(_root, missingSound));
 
         var sceneDrawable = new SceneDrawable();
         sceneDrawable.ReferencedScene.CurrentValue = childScene;
         var scene = new Scene(1920, 1080, string.Empty)
         {
-            Uri = new Uri(Path.Combine(root, "root.scene")),
+            Uri = new Uri(Path.Combine(_root, "root.scene")),
         };
-        scene.Children.Add(ElementWith(root, sceneDrawable));
+        scene.Children.Add(ElementWith(_root, sceneDrawable));
 
         IReadOnlySet<string> referenced = ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene);
         IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(referenced);
@@ -77,25 +89,23 @@ public sealed class ExportSourceValidatorTests
     [Test]
     public void GetMissingPaths_AudiallyEmbeddedScene_ReportsSoundButNotGraphicsOnlyImage()
     {
-        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        string missingImage = Path.Combine(root, "missing.png");
-        string missingSound = Path.Combine(root, "missing.mp3");
+        string missingImage = Path.Combine(_root, "missing.png");
+        string missingSound = Path.Combine(_root, "missing.mp3");
 
         var childScene = new Scene(1920, 1080, string.Empty)
         {
-            Uri = new Uri(Path.Combine(root, "child.scene")),
+            Uri = new Uri(Path.Combine(_root, "child.scene")),
         };
-        childScene.Children.Add(CreateImageElement(root, missingImage));
-        childScene.Children.Add(CreateSoundElement(root, missingSound));
+        childScene.Children.Add(CreateImageElement(_root, missingImage));
+        childScene.Children.Add(CreateSoundElement(_root, missingSound));
 
         var sceneSound = new SceneSound();
         sceneSound.ReferencedScene.CurrentValue = childScene;
         var scene = new Scene(1920, 1080, string.Empty)
         {
-            Uri = new Uri(Path.Combine(root, "root.scene")),
+            Uri = new Uri(Path.Combine(_root, "root.scene")),
         };
-        scene.Children.Add(ElementWith(root, sceneSound));
+        scene.Children.Add(ElementWith(_root, sceneSound));
 
         IReadOnlySet<string> referenced = ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene);
         IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(referenced);
@@ -108,15 +118,13 @@ public sealed class ExportSourceValidatorTests
     [Test]
     public void CollectRenderableSources_SkipsDisabledElement()
     {
-        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        string missingPath = Path.Combine(root, "missing.mov");
+        string missingPath = Path.Combine(_root, "missing.mov");
 
         var scene = new Scene(1920, 1080, string.Empty)
         {
-            Uri = new Uri(Path.Combine(root, "test.scene")),
+            Uri = new Uri(Path.Combine(_root, "test.scene")),
         };
-        Element disabled = CreateVideoElement(root, missingPath);
+        Element disabled = CreateVideoElement(_root, missingPath);
         disabled.IsEnabled = false;
         scene.Children.Add(disabled);
 
@@ -131,15 +139,13 @@ public sealed class ExportSourceValidatorTests
     [Test]
     public void CollectRenderableSources_SkipsOutOfRangeElement()
     {
-        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        string missingPath = Path.Combine(root, "missing.mov");
+        string missingPath = Path.Combine(_root, "missing.mov");
 
         var scene = new Scene(1920, 1080, string.Empty)
         {
-            Uri = new Uri(Path.Combine(root, "test.scene")),
+            Uri = new Uri(Path.Combine(_root, "test.scene")),
         };
-        Element outOfRange = CreateVideoElement(root, missingPath);
+        Element outOfRange = CreateVideoElement(_root, missingPath);
         outOfRange.Start = TimeSpan.FromSeconds(20);
         scene.Children.Add(outOfRange);
 
@@ -154,21 +160,19 @@ public sealed class ExportSourceValidatorTests
     [Test]
     public void CollectRenderableSources_SingleFrame_OnlyIncludesElementsAtThatTime()
     {
-        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        string atFrame = Path.Combine(root, "at-frame.mov");
-        string laterOnly = Path.Combine(root, "later-only.mov");
+        string atFrame = Path.Combine(_root, "at-frame.mov");
+        string laterOnly = Path.Combine(_root, "later-only.mov");
 
         var scene = new Scene(1920, 1080, string.Empty)
         {
-            Uri = new Uri(Path.Combine(root, "test.scene")),
+            Uri = new Uri(Path.Combine(_root, "test.scene")),
         };
-        Element visible = CreateVideoElement(root, atFrame);
+        Element visible = CreateVideoElement(_root, atFrame);
         visible.Start = TimeSpan.Zero;
         visible.Length = TimeSpan.FromSeconds(2);
         scene.Children.Add(visible);
 
-        Element later = CreateVideoElement(root, laterOnly);
+        Element later = CreateVideoElement(_root, laterOnly);
         later.Start = TimeSpan.FromSeconds(5);
         later.Length = TimeSpan.FromSeconds(2);
         scene.Children.Add(later);
@@ -179,23 +183,21 @@ public sealed class ExportSourceValidatorTests
         Assert.That(referenced, Is.EquivalentTo(new[] { atFrame }));
     }
 
-    // Fix #2: a disabled clip inside a referenced scene never renders (SceneCompositor.SortLayers gates
+    // A disabled clip inside a referenced scene never renders (SceneCompositor.SortLayers gates
     // on IsEnabled within the referenced scene too), so its missing original must not block export while
     // an enabled sibling's missing original still does.
     [Test]
     public void CollectRenderableSources_SkipsDisabledElementInReferencedScene()
     {
-        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        string missingEnabled = Path.Combine(root, "enabled.png");
-        string missingDisabled = Path.Combine(root, "disabled.png");
+        string missingEnabled = Path.Combine(_root, "enabled.png");
+        string missingDisabled = Path.Combine(_root, "disabled.png");
 
         var childScene = new Scene(1920, 1080, string.Empty)
         {
-            Uri = new Uri(Path.Combine(root, "child.scene")),
+            Uri = new Uri(Path.Combine(_root, "child.scene")),
         };
-        childScene.Children.Add(CreateImageElement(root, missingEnabled));
-        Element disabled = CreateImageElement(root, missingDisabled);
+        childScene.Children.Add(CreateImageElement(_root, missingEnabled));
+        Element disabled = CreateImageElement(_root, missingDisabled);
         disabled.IsEnabled = false;
         childScene.Children.Add(disabled);
 
@@ -203,9 +205,9 @@ public sealed class ExportSourceValidatorTests
         sceneDrawable.ReferencedScene.CurrentValue = childScene;
         var scene = new Scene(1920, 1080, string.Empty)
         {
-            Uri = new Uri(Path.Combine(root, "root.scene")),
+            Uri = new Uri(Path.Combine(_root, "root.scene")),
         };
-        scene.Children.Add(ElementWith(root, sceneDrawable));
+        scene.Children.Add(ElementWith(_root, sceneDrawable));
 
         IReadOnlySet<string> referenced = ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene);
         IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(referenced);
@@ -213,30 +215,21 @@ public sealed class ExportSourceValidatorTests
         Assert.That(missing, Is.EqualTo(new[] { missingEnabled }));
     }
 
-    // Fix #3: an enabled element can hold a disabled object; the render path (Element.CollectObjects)
+    // An enabled element can hold a disabled object; the render path (Element.CollectObjects)
     // skips disabled objects before opening media, so a missing file on a disabled object must not
     // block export even though its owning element renders.
     [Test]
     public void CollectRenderableSources_SkipsDisabledObjectInEnabledElement()
     {
-        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        string enabledMissing = Path.Combine(root, "enabled.mov");
-        string disabledMissing = Path.Combine(root, "disabled.mov");
+        string enabledMissing = Path.Combine(_root, "enabled.mov");
+        string disabledMissing = Path.Combine(_root, "disabled.mov");
 
         SourceVideo enabled = VideoDrawable(enabledMissing);
         SourceVideo disabled = VideoDrawable(disabledMissing);
         disabled.IsEnabled = false;
-        var element = new Element
-        {
-            Start = TimeSpan.Zero,
-            Length = TimeSpan.FromSeconds(1),
-            IsEnabled = true,
-            Uri = new Uri(Path.Combine(root, $"{Guid.NewGuid():N}.layer")),
-        };
-        element.AddObject(enabled);
+        Element element = ElementWith(_root, enabled);
         element.AddObject(disabled);
-        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "test.scene")) };
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "test.scene")) };
         scene.Children.Add(element);
 
         IReadOnlySet<string> referenced = ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene);
@@ -245,20 +238,18 @@ public sealed class ExportSourceValidatorTests
         Assert.That(missing, Is.EqualTo(new[] { enabledMissing }));
     }
 
-    // Fix #4: save-frame renders graphics only (EvaluateGraphics filters CompositionTarget.Audio via
+    // Save-frame renders graphics only (EvaluateGraphics filters CompositionTarget.Audio via
     // Element.CollectObjects), so a missing audio original must not block a still image; a full export
     // (which composes audio) still requires it.
     [Test]
     public void CollectRenderableSources_SingleFrame_ExcludesAudioSourcesButExportIncludesThem()
     {
-        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        string missingVideo = Path.Combine(root, "missing.mov");
-        string missingSound = Path.Combine(root, "missing.mp3");
+        string missingVideo = Path.Combine(_root, "missing.mov");
+        string missingSound = Path.Combine(_root, "missing.mp3");
 
-        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "test.scene")) };
-        scene.Children.Add(CreateVideoElement(root, missingVideo));
-        scene.Children.Add(CreateSoundElement(root, missingSound));
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "test.scene")) };
+        scene.Children.Add(CreateVideoElement(_root, missingVideo));
+        scene.Children.Add(CreateSoundElement(_root, missingSound));
 
         IReadOnlyList<string> frame = ExportSourceValidator.GetMissingPaths(
             ExportSourceValidator.CollectRenderableSources(scene, TimeSpan.Zero));
@@ -272,22 +263,20 @@ public sealed class ExportSourceValidatorTests
         });
     }
 
-    // Fix #5: export renders [Scene.Start, Scene.Start + Duration); a preflight range that starts at
+    // Export renders [Scene.Start, Scene.Start + Duration); a preflight range that starts at
     // Scene.Start includes clips in the exported segment and excludes ones entirely before it.
     [Test]
     public void CollectRenderableSources_RangeStartingAtSceneStart_TracksExportedSegment()
     {
-        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        string beforeStart = Path.Combine(root, "before.mov");
-        string inSegment = Path.Combine(root, "in-segment.mov");
+        string beforeStart = Path.Combine(_root, "before.mov");
+        string inSegment = Path.Combine(_root, "in-segment.mov");
 
-        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "test.scene")) };
-        Element before = CreateVideoElement(root, beforeStart);
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "test.scene")) };
+        Element before = CreateVideoElement(_root, beforeStart);
         before.Start = TimeSpan.Zero;
         before.Length = TimeSpan.FromSeconds(2);
         scene.Children.Add(before);
-        Element inside = CreateVideoElement(root, inSegment);
+        Element inside = CreateVideoElement(_root, inSegment);
         inside.Start = TimeSpan.FromSeconds(5);
         inside.Length = TimeSpan.FromSeconds(2);
         scene.Children.Add(inside);
@@ -300,16 +289,14 @@ public sealed class ExportSourceValidatorTests
     }
 
     // An animated Source keyframe is filtered to the render window. For an object value the animator
-    // samples the NEXT keyframe's value, so the middle key (missing) governs [0s, 5s): a window inside
+    // samples the NEXT keyframe's value, so the middle key (missing) governs (0s, 5s]: a window inside
     // that span requires it, while a window entirely after it (sampling the later key) must not.
     [Test]
     public void CollectRenderableSources_FiltersAnimatedSourceKeyframesToRenderWindow()
     {
-        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        string startExisting = Path.Combine(root, "start.mov");
-        string midMissing = Path.Combine(root, "mid.mov");
-        string endExisting = Path.Combine(root, "end.mov");
+        string startExisting = Path.Combine(_root, "start.mov");
+        string midMissing = Path.Combine(_root, "mid.mov");
+        string endExisting = Path.Combine(_root, "end.mov");
         File.WriteAllBytes(startExisting, [1]);
         File.WriteAllBytes(endExisting, [1]);
 
@@ -320,15 +307,8 @@ public sealed class ExportSourceValidatorTests
         animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.FromSeconds(10), Value = MakeVideoSource(endExisting) });
         drawable.Source.Animation = animation;
 
-        var element = new Element
-        {
-            Start = TimeSpan.Zero,
-            Length = TimeSpan.FromSeconds(15),
-            IsEnabled = true,
-            Uri = new Uri(Path.Combine(root, $"{Guid.NewGuid():N}.layer")),
-        };
-        element.AddObject(drawable);
-        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "test.scene")) };
+        Element element = ElementWith(_root, drawable, length: TimeSpan.FromSeconds(15));
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "test.scene")) };
         scene.Children.Add(element);
 
         // [0s, 3s) is inside the mid key's [0s, 5s) span → the missing mid file is required.
@@ -351,22 +331,20 @@ public sealed class ExportSourceValidatorTests
     [Test]
     public void GetMissingPaths_SameSceneAsDrawableAndSound_ReportsBothFacets()
     {
-        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        string missingImage = Path.Combine(root, "missing.png");
-        string missingSound = Path.Combine(root, "missing.mp3");
+        string missingImage = Path.Combine(_root, "missing.png");
+        string missingSound = Path.Combine(_root, "missing.mp3");
 
-        var childScene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "child.scene")) };
-        childScene.Children.Add(CreateImageElement(root, missingImage));
-        childScene.Children.Add(CreateSoundElement(root, missingSound));
+        var childScene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "child.scene")) };
+        childScene.Children.Add(CreateImageElement(_root, missingImage));
+        childScene.Children.Add(CreateSoundElement(_root, missingSound));
 
         var sceneDrawable = new SceneDrawable();
         sceneDrawable.ReferencedScene.CurrentValue = childScene;
         var sceneSound = new SceneSound();
         sceneSound.ReferencedScene.CurrentValue = childScene;
-        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "root.scene")) };
-        scene.Children.Add(ElementWith(root, sceneDrawable));
-        scene.Children.Add(ElementWith(root, sceneSound));
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "root.scene")) };
+        scene.Children.Add(ElementWith(_root, sceneDrawable));
+        scene.Children.Add(ElementWith(_root, sceneSound));
 
         IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
             ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene));
@@ -379,14 +357,12 @@ public sealed class ExportSourceValidatorTests
     [Test]
     public void GetMissingPaths_ReportsMissingSoundNestedInSoundGroup()
     {
-        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        string missingSound = Path.Combine(root, "missing.mp3");
+        string missingSound = Path.Combine(_root, "missing.mp3");
 
         var group = new SoundGroup();
         group.Children.Add(SoundDrawable(missingSound));
-        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "test.scene")) };
-        scene.Children.Add(ElementWith(root, group));
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "test.scene")) };
+        scene.Children.Add(ElementWith(_root, group));
 
         IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
             ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene));
@@ -399,10 +375,8 @@ public sealed class ExportSourceValidatorTests
     [Test]
     public void CollectRenderableSources_GlobalClockAnimatedSource_NotDroppedByLocalWindow()
     {
-        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        string existing = Path.Combine(root, "existing.mov");
-        string missingAtGlobal12 = Path.Combine(root, "missing.mov");
+        string existing = Path.Combine(_root, "existing.mov");
+        string missingAtGlobal12 = Path.Combine(_root, "missing.mov");
         File.WriteAllBytes(existing, [1]);
 
         var drawable = new SourceVideo();
@@ -412,19 +386,10 @@ public sealed class ExportSourceValidatorTests
         animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.FromSeconds(13), Value = MakeVideoSource(existing) });
         drawable.Source.Animation = animation;
 
-        var element = new Element
-        {
-            Start = TimeSpan.FromSeconds(10),
-            Length = TimeSpan.FromSeconds(10),
-            IsEnabled = true,
-            Uri = new Uri(Path.Combine(root, $"{Guid.NewGuid():N}.layer")),
-        };
-        element.AddObject(drawable);
-        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "test.scene")) };
+        Element element = ElementWith(_root, drawable, TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(10));
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "test.scene")) };
         scene.Children.Add(element);
 
-        // Export [10s, 20s] samples the global key at 12s; subtracting the 10s element start would map
-        // the local window to [0,10] and wrongly drop the 12s key.
         IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
             ExportSourceValidator.CollectRenderableSources(scene, new TimeRange(TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(10))));
 
@@ -436,10 +401,8 @@ public sealed class ExportSourceValidatorTests
     [Test]
     public void CollectRenderableSources_AnimatedProperty_DoesNotReportOverriddenBaseValue()
     {
-        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        string missingBase = Path.Combine(root, "old-base.mov");
-        string keyframed = Path.Combine(root, "keyframed.mov");
+        string missingBase = Path.Combine(_root, "old-base.mov");
+        string keyframed = Path.Combine(_root, "keyframed.mov");
         File.WriteAllBytes(keyframed, [1]);
 
         var drawable = new SourceVideo();
@@ -447,9 +410,9 @@ public sealed class ExportSourceValidatorTests
         var animation = new KeyFrameAnimation<VideoSource?>();
         animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.Zero, Value = MakeVideoSource(keyframed) });
         drawable.Source.Animation = animation;
-        Element element = ElementWith(root, drawable);
+        Element element = ElementWith(_root, drawable);
         element.Length = TimeSpan.FromSeconds(10);
-        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "test.scene")) };
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "test.scene")) };
         scene.Children.Add(element);
 
         IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
@@ -463,10 +426,8 @@ public sealed class ExportSourceValidatorTests
     [Test]
     public void CollectRenderableSources_SourceSwitchExactlyAtWindowStart_DropsOutgoingKeyframe()
     {
-        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        string outgoingMissing = Path.Combine(root, "outgoing.mov");
-        string incoming = Path.Combine(root, "incoming.mov");
+        string outgoingMissing = Path.Combine(_root, "outgoing.mov");
+        string incoming = Path.Combine(_root, "incoming.mov");
         File.WriteAllBytes(incoming, [1]);
 
         var drawable = new SourceVideo();
@@ -474,12 +435,12 @@ public sealed class ExportSourceValidatorTests
         animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.Zero, Value = MakeVideoSource(outgoingMissing) });
         animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.FromSeconds(5), Value = MakeVideoSource(incoming) });
         drawable.Source.Animation = animation;
-        Element element = ElementWith(root, drawable);
+        Element element = ElementWith(_root, drawable);
         element.Length = TimeSpan.FromSeconds(10);
-        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "test.scene")) };
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "test.scene")) };
         scene.Children.Add(element);
 
-        // Export [5s, 10s): the outgoing key governs [.., 5s) and is not sampled, so it must be dropped.
+        // Export [5s, 10s): the outgoing key governs (-inf, 0s] and is not sampled, so it must be dropped.
         IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
             ExportSourceValidator.CollectRenderableSources(scene, new TimeRange(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5))));
 
@@ -491,10 +452,8 @@ public sealed class ExportSourceValidatorTests
     [Test]
     public void CollectRenderableSources_AnimatedSourceInDecorator_FiltersToRenderWindow()
     {
-        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        string oldMissing = Path.Combine(root, "old.mov");
-        string newExisting = Path.Combine(root, "new.mov");
+        string oldMissing = Path.Combine(_root, "old.mov");
+        string newExisting = Path.Combine(_root, "new.mov");
         File.WriteAllBytes(newExisting, [1]);
 
         var child = new SourceVideo();
@@ -504,9 +463,9 @@ public sealed class ExportSourceValidatorTests
         child.Source.Animation = animation;
         var decorator = new DrawableDecorator();
         decorator.Children.Add(child);
-        Element element = ElementWith(root, decorator);
+        Element element = ElementWith(_root, decorator);
         element.Length = TimeSpan.FromSeconds(10);
-        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "test.scene")) };
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "test.scene")) };
         scene.Children.Add(element);
 
         IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
@@ -520,10 +479,8 @@ public sealed class ExportSourceValidatorTests
     [Test]
     public void CollectRenderableSources_AnimatedNodeGraphInput_FiltersToRenderWindow()
     {
-        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        string oldMissing = Path.Combine(root, "old.mov");
-        string newExisting = Path.Combine(root, "new.mov");
+        string oldMissing = Path.Combine(_root, "old.mov");
+        string newExisting = Path.Combine(_root, "new.mov");
         File.WriteAllBytes(newExisting, [1]);
 
         var node = new VideoSourceNode();
@@ -533,9 +490,9 @@ public sealed class ExportSourceValidatorTests
         ((IAnimatablePropertyAdapter<VideoSource?>)node.Source.Property!).Animation = animation;
         var drawable = new NodeGraphDrawable();
         drawable.Model.CurrentValue!.Nodes.Add(node);
-        Element element = ElementWith(root, drawable);
+        Element element = ElementWith(_root, drawable);
         element.Length = TimeSpan.FromSeconds(10);
-        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "test.scene")) };
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "test.scene")) };
         scene.Children.Add(element);
 
         IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
@@ -549,9 +506,7 @@ public sealed class ExportSourceValidatorTests
     [Test]
     public void CollectRenderableSources_ReportsMissingSourceInsideBrushProperty()
     {
-        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        string missingImage = Path.Combine(root, "brush.png");
+        string missingImage = Path.Combine(_root, "brush.png");
 
         var brush = new ImageBrush();
         var imageSource = new ImageSource();
@@ -559,8 +514,8 @@ public sealed class ExportSourceValidatorTests
         brush.Source.CurrentValue = imageSource;
         var shape = new RectShape();
         shape.Fill.CurrentValue = brush;
-        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "test.scene")) };
-        scene.Children.Add(ElementWith(root, shape));
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "test.scene")) };
+        scene.Children.Add(ElementWith(_root, shape));
 
         IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
             ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene));
@@ -574,11 +529,9 @@ public sealed class ExportSourceValidatorTests
     [Test]
     public void CollectRenderableSources_SingleFrameAtKeyframeTime_KeepsActiveKeyframe()
     {
-        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        string a = Path.Combine(root, "a.mov");
-        string missingB = Path.Combine(root, "b.mov");
-        string c = Path.Combine(root, "c.mov");
+        string a = Path.Combine(_root, "a.mov");
+        string missingB = Path.Combine(_root, "b.mov");
+        string c = Path.Combine(_root, "c.mov");
         File.WriteAllBytes(a, [1]);
         File.WriteAllBytes(c, [1]);
 
@@ -588,19 +541,10 @@ public sealed class ExportSourceValidatorTests
         animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.FromSeconds(5), Value = MakeVideoSource(missingB) });
         animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.FromSeconds(10), Value = MakeVideoSource(c) });
         drawable.Source.Animation = animation;
-        var element = new Element
-        {
-            Start = TimeSpan.Zero,
-            Length = TimeSpan.FromSeconds(15),
-            IsEnabled = true,
-            Uri = new Uri(Path.Combine(root, $"{Guid.NewGuid():N}.layer")),
-        };
-        element.AddObject(drawable);
-        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "test.scene")) };
+        Element element = ElementWith(_root, drawable, length: TimeSpan.FromSeconds(15));
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "test.scene")) };
         scene.Children.Add(element);
 
-        // At the exact frame t=5s the animator samples key b (its span (0s, 5s] contains the point); a
-        // half-open window would drop it as an empty range, and the wrong boundary would sample c instead.
         IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
             ExportSourceValidator.CollectRenderableSources(scene, TimeSpan.FromSeconds(5)));
 
@@ -612,18 +556,16 @@ public sealed class ExportSourceValidatorTests
     [Test]
     public void CollectRenderableSources_AnimationWithNullKeyframe_KeepsBaseSource()
     {
-        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        string missingBase = Path.Combine(root, "base.mov");
+        string missingBase = Path.Combine(_root, "base.mov");
 
         var drawable = new SourceVideo();
         drawable.Source.CurrentValue = MakeVideoSource(missingBase);
         var animation = new KeyFrameAnimation<VideoSource?>();
         animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.Zero, Value = null });
         drawable.Source.Animation = animation;
-        Element element = ElementWith(root, drawable);
+        Element element = ElementWith(_root, drawable);
         element.Length = TimeSpan.FromSeconds(10);
-        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "test.scene")) };
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "test.scene")) };
         scene.Children.Add(element);
 
         IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
@@ -639,10 +581,8 @@ public sealed class ExportSourceValidatorTests
     [Test]
     public void CollectRenderableSources_NonZeroStartElement_ReferencedSceneWindowNotDoubleShifted()
     {
-        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        string existing = Path.Combine(root, "existing.mov");
-        string missingAt2s = Path.Combine(root, "at-2s.mov");
+        string existing = Path.Combine(_root, "existing.mov");
+        string missingAt2s = Path.Combine(_root, "at-2s.mov");
         File.WriteAllBytes(existing, [1]);
 
         var childDrawable = new SourceVideo();
@@ -651,33 +591,16 @@ public sealed class ExportSourceValidatorTests
         animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.FromSeconds(2), Value = MakeVideoSource(missingAt2s) });
         animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.FromSeconds(8), Value = MakeVideoSource(existing) });
         childDrawable.Source.Animation = animation;
-        var childElement = new Element
-        {
-            Start = TimeSpan.Zero,
-            Length = TimeSpan.FromSeconds(10),
-            IsEnabled = true,
-            Uri = new Uri(Path.Combine(root, $"{Guid.NewGuid():N}.layer")),
-        };
-        childElement.AddObject(childDrawable);
-        var childScene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "child.scene")) };
+        Element childElement = ElementWith(_root, childDrawable, length: TimeSpan.FromSeconds(10));
+        var childScene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "child.scene")) };
         childScene.Children.Add(childElement);
 
         var sceneDrawable = new SceneDrawable();
         sceneDrawable.ReferencedScene.CurrentValue = childScene;
-        var outerElement = new Element
-        {
-            Start = TimeSpan.FromSeconds(10),
-            Length = TimeSpan.FromSeconds(10),
-            IsEnabled = true,
-            Uri = new Uri(Path.Combine(root, $"{Guid.NewGuid():N}.layer")),
-        };
-        outerElement.AddObject(sceneDrawable);
-        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "root.scene")) };
+        Element outerElement = ElementWith(_root, sceneDrawable, TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(10));
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "root.scene")) };
         scene.Children.Add(outerElement);
 
-        // Export [10s, 20s]: the outer element's local window [0,10] is also the referenced scene's
-        // window, so the inner key at 2s stays in window. Subtracting the 10s element start again would
-        // shift it to [-10,0] and drop the missing key.
         IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
             ExportSourceValidator.CollectRenderableSources(scene, new TimeRange(TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(10))));
 
@@ -685,15 +608,13 @@ public sealed class ExportSourceValidatorTests
     }
 
     // A global-clock keyframe is sampled at scene time. For an object value the animator returns the
-    // NEXT key's value, so a key governs [previous key time, this key time); the last one holds to +inf.
+    // NEXT key's value, so a key governs (previous key time, this key time]; the last one holds to +inf.
     // A key whose span is entirely outside the exported scene-time window must be dropped.
     [Test]
     public void CollectRenderableSources_GlobalClockKeyframeOutsideSceneWindow_IsDropped()
     {
-        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        string existing = Path.Combine(root, "existing.mov");
-        string missingAtGlobal30 = Path.Combine(root, "missing.mov");
+        string existing = Path.Combine(_root, "existing.mov");
+        string missingAtGlobal30 = Path.Combine(_root, "missing.mov");
         File.WriteAllBytes(existing, [1]);
 
         var drawable = new SourceVideo();
@@ -703,19 +624,12 @@ public sealed class ExportSourceValidatorTests
         animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.FromSeconds(30), Value = MakeVideoSource(missingAtGlobal30) });
         drawable.Source.Animation = animation;
 
-        var element = new Element
-        {
-            Start = TimeSpan.FromSeconds(5),
-            Length = TimeSpan.FromSeconds(30),
-            IsEnabled = true,
-            Uri = new Uri(Path.Combine(root, $"{Guid.NewGuid():N}.layer")),
-        };
-        element.AddObject(drawable);
-        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "test.scene")) };
+        Element element = ElementWith(_root, drawable, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(30));
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "test.scene")) };
         scene.Children.Add(element);
 
-        // Export [10s,12s]: the 30s global key governs [20s, +inf) — no exported frame samples it, so its
-        // missing file must not block export. Previously global-clock keyframes were never windowed.
+        // Export [10s,12s]: the 30s global key governs (20s, +inf) — no exported frame samples it, so its
+        // missing file must not block export.
         IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
             ExportSourceValidator.CollectRenderableSources(scene, new TimeRange(TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(2))));
 
@@ -729,10 +643,8 @@ public sealed class ExportSourceValidatorTests
     [Test]
     public void CollectRenderableSources_LateStartingElement_WindowClampedToActiveInterval()
     {
-        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        string existing = Path.Combine(root, "existing.mov");
-        string missingEarly = Path.Combine(root, "early.mov");
+        string existing = Path.Combine(_root, "existing.mov");
+        string missingEarly = Path.Combine(_root, "early.mov");
         File.WriteAllBytes(existing, [1]);
 
         // Element starts at scene 10s. Local-0s key governs (-inf, 0s]; local-3s key holds from (0s, 3s];
@@ -743,19 +655,10 @@ public sealed class ExportSourceValidatorTests
         animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.FromSeconds(3), Value = MakeVideoSource(existing) });
         animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.FromSeconds(12), Value = MakeVideoSource(existing) });
         drawable.Source.Animation = animation;
-        var element = new Element
-        {
-            Start = TimeSpan.FromSeconds(10),
-            Length = TimeSpan.FromSeconds(15),
-            IsEnabled = true,
-            Uri = new Uri(Path.Combine(root, $"{Guid.NewGuid():N}.layer")),
-        };
-        element.AddObject(drawable);
-        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "test.scene")) };
+        Element element = ElementWith(_root, drawable, TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(15));
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "test.scene")) };
         scene.Children.Add(element);
 
-        // Export [15s, 20s]: element-local window [5s, 10s]. The early key governs local (-inf, 0s], never
-        // sampled there, so its missing file must not block export.
         IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
             ExportSourceValidator.CollectRenderableSources(scene, new TimeRange(TimeSpan.FromSeconds(15), TimeSpan.FromSeconds(5))));
 
@@ -768,11 +671,9 @@ public sealed class ExportSourceValidatorTests
     [Test]
     public void CollectRenderableSources_ExpressionOverridesBaseAndAnimation()
     {
-        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        string missingBase = Path.Combine(root, "base.mov");
-        string missingKey = Path.Combine(root, "key.mov");
-        string exprTarget = Path.Combine(root, "expr.mov");
+        string missingBase = Path.Combine(_root, "base.mov");
+        string missingKey = Path.Combine(_root, "key.mov");
+        string exprTarget = Path.Combine(_root, "expr.mov");
         File.WriteAllBytes(exprTarget, [1]);
 
         var referenced = new SourceVideo();
@@ -785,10 +686,10 @@ public sealed class ExportSourceValidatorTests
         drawable.Source.Animation = animation;
         drawable.Source.Expression = Beutl.Engine.Expressions.Expression.CreateReference<VideoSource>(referenced.Id, "Source");
 
-        Element referencedElement = ElementWith(root, referenced);
-        Element element = ElementWith(root, drawable);
+        Element referencedElement = ElementWith(_root, referenced);
+        Element element = ElementWith(_root, drawable);
         element.Length = TimeSpan.FromSeconds(10);
-        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "test.scene")) };
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "test.scene")) };
         scene.Children.Add(referencedElement);
         scene.Children.Add(element);
 
@@ -805,10 +706,8 @@ public sealed class ExportSourceValidatorTests
     [Test]
     public void CollectRenderableSources_GlobalClockNodeInput_FilteredBySceneWindow()
     {
-        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        string existing = Path.Combine(root, "existing.mov");
-        string missingLate = Path.Combine(root, "late.mov");
+        string existing = Path.Combine(_root, "existing.mov");
+        string missingLate = Path.Combine(_root, "late.mov");
         File.WriteAllBytes(existing, [1]);
 
         var node = new VideoSourceNode();
@@ -819,19 +718,12 @@ public sealed class ExportSourceValidatorTests
         ((IAnimatablePropertyAdapter<VideoSource?>)node.Source.Property!).Animation = animation;
         var drawable = new NodeGraphDrawable();
         drawable.Model.CurrentValue!.Nodes.Add(node);
-        var element = new Element
-        {
-            Start = TimeSpan.FromSeconds(5),
-            Length = TimeSpan.FromSeconds(30),
-            IsEnabled = true,
-            Uri = new Uri(Path.Combine(root, $"{Guid.NewGuid():N}.layer")),
-        };
-        element.AddObject(drawable);
-        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "test.scene")) };
+        Element element = ElementWith(_root, drawable, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(30));
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "test.scene")) };
         scene.Children.Add(element);
 
         // Export [10s, 12s]: the 30s global key governs scene (20s, +inf), never sampled, so its missing
-        // file must not block export — previously node inputs ignored the scene window.
+        // file must not block export.
         IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
             ExportSourceValidator.CollectRenderableSources(scene, new TimeRange(TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(2))));
 
@@ -843,20 +735,18 @@ public sealed class ExportSourceValidatorTests
     [Test]
     public void CollectRenderableSources_ReferencedSceneChildOutsideWindow_IsSkipped()
     {
-        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        string missingImage = Path.Combine(root, "out-of-window.png");
+        string missingImage = Path.Combine(_root, "out-of-window.png");
 
-        var childScene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "child.scene")) };
-        Element outOfWindow = CreateImageElement(root, missingImage);
+        var childScene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "child.scene")) };
+        Element outOfWindow = CreateImageElement(_root, missingImage);
         outOfWindow.Start = TimeSpan.FromSeconds(30);
         outOfWindow.Length = TimeSpan.FromSeconds(5);
         childScene.Children.Add(outOfWindow);
 
         var sceneDrawable = new SceneDrawable();
         sceneDrawable.ReferencedScene.CurrentValue = childScene;
-        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "root.scene")) };
-        Element outer = ElementWith(root, sceneDrawable);
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "root.scene")) };
+        Element outer = ElementWith(_root, sceneDrawable);
         outer.Length = TimeSpan.FromSeconds(10);
         scene.Children.Add(outer);
 
@@ -873,14 +763,12 @@ public sealed class ExportSourceValidatorTests
     [Test]
     public void CollectRenderableSources_IdentitySceneSound_WindowsReferencedAudio()
     {
-        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        string missingLate = Path.Combine(root, "late.mp3");
+        string missingLate = Path.Combine(_root, "late.mp3");
 
         Scene BuildRoot(bool animateSpeed)
         {
-            var childScene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, $"child-{Guid.NewGuid():N}.scene")) };
-            Element lateChild = CreateSoundElement(root, missingLate);
+            var childScene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, $"child-{Guid.NewGuid():N}.scene")) };
+            Element lateChild = CreateSoundElement(_root, missingLate);
             lateChild.Start = TimeSpan.FromSeconds(30);
             lateChild.Length = TimeSpan.FromSeconds(5);
             childScene.Children.Add(lateChild);
@@ -895,8 +783,8 @@ public sealed class ExportSourceValidatorTests
                 sceneSound.Speed.Animation = speed;
             }
 
-            var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, $"root-{Guid.NewGuid():N}.scene")) };
-            Element outer = ElementWith(root, sceneSound);
+            var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, $"root-{Guid.NewGuid():N}.scene")) };
+            Element outer = ElementWith(_root, sceneSound);
             outer.Length = TimeSpan.FromSeconds(40);
             scene.Children.Add(outer);
             return scene;
@@ -921,17 +809,15 @@ public sealed class ExportSourceValidatorTests
     [Test]
     public void CollectRenderableSources_ExpressionSuppliedPresenterTarget_IsWalked()
     {
-        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        string missingVideo = Path.Combine(root, "presented.mov");
+        string missingVideo = Path.Combine(_root, "presented.mov");
 
         var presented = VideoDrawable(missingVideo);
         var presenter = new DrawablePresenter();
         presenter.Target.Expression = Beutl.Engine.Expressions.Expression.CreateReference<Drawable>(presented.Id);
 
-        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "test.scene")) };
-        scene.Children.Add(ElementWith(root, presented));
-        scene.Children.Add(ElementWith(root, presenter));
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "test.scene")) };
+        scene.Children.Add(ElementWith(_root, presented));
+        scene.Children.Add(ElementWith(_root, presenter));
 
         IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
             ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene));
@@ -939,7 +825,7 @@ public sealed class ExportSourceValidatorTests
         Assert.That(missing, Does.Contain(missingVideo));
     }
 
-    // Finding B: one walk reaches the same target first via a window-preserving DrawablePresenter and
+    // One walk reaches the same target first via a window-preserving DrawablePresenter and
     // then via a time-remapping DrawableTimeController. The controller's rangeless full walk is a superset
     // of the windowed one, so an identity-only visited check that lets the presenter suppress the
     // controller would omit media reachable only at the remapped time. A [6s,10s] export windows out the
@@ -948,10 +834,8 @@ public sealed class ExportSourceValidatorTests
     [Test]
     public void CollectRenderableSources_TargetViaPresenterThenTimeController_KeepsRemappedMedia()
     {
-        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        string existing = Path.Combine(root, "existing.mov");
-        string remappedMissing = Path.Combine(root, "remapped.mov");
+        string existing = Path.Combine(_root, "existing.mov");
+        string remappedMissing = Path.Combine(_root, "remapped.mov");
         File.WriteAllBytes(existing, [1]);
 
         var target = new SourceVideo();
@@ -972,8 +856,8 @@ public sealed class ExportSourceValidatorTests
         group.Children.Add(presenter);
         group.Children.Add(controller);
 
-        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "test.scene")) };
-        Element groupElement = ElementWith(root, group);
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "test.scene")) };
+        Element groupElement = ElementWith(_root, group);
         groupElement.Length = TimeSpan.FromSeconds(15);
         scene.Children.Add(groupElement);
 
@@ -988,10 +872,8 @@ public sealed class ExportSourceValidatorTests
     [Test]
     public void CollectRenderableSources_PresenterTargetExpression_TakesPrecedenceOverCurrentValue()
     {
-        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        string currentVideo = Path.Combine(root, "current.mov");
-        string expressionVideo = Path.Combine(root, "expression.mov");
+        string currentVideo = Path.Combine(_root, "current.mov");
+        string expressionVideo = Path.Combine(_root, "expression.mov");
         File.WriteAllBytes(currentVideo, [1]);
 
         // CurrentValue points at an existing file; the expression points at a missing one. The render
@@ -1002,28 +884,14 @@ public sealed class ExportSourceValidatorTests
         presenter.Target.CurrentValue = currentTarget;
         presenter.Target.Expression = Beutl.Engine.Expressions.Expression.CreateReference<Drawable>(expressionTarget.Id);
 
-        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "test.scene")) };
-        scene.Children.Add(ElementWith(root, expressionTarget));
-        scene.Children.Add(ElementWith(root, presenter));
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "test.scene")) };
+        scene.Children.Add(ElementWith(_root, expressionTarget));
+        scene.Children.Add(ElementWith(_root, presenter));
 
         IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
             ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene));
 
         Assert.That(missing, Does.Contain(expressionVideo));
-    }
-
-    // Reference-expression resolution needs owner.FindHierarchicalRoot() to succeed; a detached scene has
-    // no root, so tests that exercise resolution must attach the scene under one of these.
-    private sealed class TestHierarchicalRoot : Hierarchical, IHierarchicalRoot
-    {
-        public new Beutl.Collections.ICoreList<IHierarchical> HierarchicalChildren => base.HierarchicalChildren;
-
-        public event EventHandler<IHierarchical>? DescendantAttached;
-        public event EventHandler<IHierarchical>? DescendantDetached;
-
-        public void OnDescendantAttached(IHierarchical descendant) => DescendantAttached?.Invoke(this, descendant);
-
-        public void OnDescendantDetached(IHierarchical descendant) => DescendantDetached?.Invoke(this, descendant);
     }
 
     // A cyclic reference-expression chain (a presenter Target whose expression resolves back to its own
@@ -1033,9 +901,7 @@ public sealed class ExportSourceValidatorTests
     [Test]
     public void CollectRenderableSources_CyclicTargetExpression_DoesNotReportCurrentValueFile()
     {
-        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        string missingCurrent = Path.Combine(root, "current.mov");
+        string missingCurrent = Path.Combine(_root, "current.mov");
 
         var presenter = new DrawablePresenter();
         // CurrentValue holds a missing file; the expression self-cycles back to the Target property. The
@@ -1043,8 +909,8 @@ public sealed class ExportSourceValidatorTests
         presenter.Target.CurrentValue = VideoDrawable(missingCurrent);
         presenter.Target.Expression = Beutl.Engine.Expressions.Expression.CreateReference<Drawable>(presenter.Id, "Target");
 
-        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "test.scene")) };
-        scene.Children.Add(ElementWith(root, presenter));
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "test.scene")) };
+        scene.Children.Add(ElementWith(_root, presenter));
         // Without a root the self-reference is unresolvable and never reaches the cycle branch under test.
         var hierarchyRoot = new TestHierarchicalRoot();
         hierarchyRoot.HierarchicalChildren.Add(scene);
@@ -1063,16 +929,14 @@ public sealed class ExportSourceValidatorTests
     [Test]
     public void CollectRenderableSources_UnresolvablePresenterTargetExpression_DoesNotReportCurrentValueFile()
     {
-        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        string missingCurrent = Path.Combine(root, "current.mov");
+        string missingCurrent = Path.Combine(_root, "current.mov");
 
         var presenter = new DrawablePresenter();
         presenter.Target.CurrentValue = VideoDrawable(missingCurrent);
         presenter.Target.Expression = Beutl.Engine.Expressions.Expression.CreateReference<Drawable>(Guid.NewGuid());
 
-        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "test.scene")) };
-        scene.Children.Add(ElementWith(root, presenter));
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "test.scene")) };
+        scene.Children.Add(ElementWith(_root, presenter));
         var hierarchyRoot = new TestHierarchicalRoot();
         hierarchyRoot.HierarchicalChildren.Add(scene);
 
@@ -1087,16 +951,14 @@ public sealed class ExportSourceValidatorTests
     [Test]
     public void CollectRenderableSources_UnresolvableTimeControllerTargetExpression_DoesNotReportCurrentValueFile()
     {
-        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        string missingCurrent = Path.Combine(root, "current.mov");
+        string missingCurrent = Path.Combine(_root, "current.mov");
 
         var controller = new DrawableTimeController();
         controller.Target.CurrentValue = VideoDrawable(missingCurrent);
         controller.Target.Expression = Beutl.Engine.Expressions.Expression.CreateReference<Drawable>(Guid.NewGuid());
 
-        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "test.scene")) };
-        scene.Children.Add(ElementWith(root, controller));
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "test.scene")) };
+        scene.Children.Add(ElementWith(_root, controller));
         var hierarchyRoot = new TestHierarchicalRoot();
         hierarchyRoot.HierarchicalChildren.Add(scene);
 
@@ -1112,10 +974,8 @@ public sealed class ExportSourceValidatorTests
     [Test]
     public void CollectRenderableSources_UnresolvableFilterTargetExpression_DoesNotReportCurrentValueFile()
     {
-        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        string presenterMissing = Path.Combine(root, "presenter-fx.mov");
-        string delayMissing = Path.Combine(root, "delay-fx.mov");
+        string presenterMissing = Path.Combine(_root, "presenter-fx.mov");
+        string delayMissing = Path.Combine(_root, "delay-fx.mov");
 
         var presenter = new Beutl.Graphics.Effects.FilterEffectPresenter();
         presenter.Target.CurrentValue = FilterWithMissingSource(presenterMissing);
@@ -1130,8 +990,8 @@ public sealed class ExportSourceValidatorTests
         group.Children.Add(presenter);
         group.Children.Add(delay);
 
-        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "test.scene")) };
-        scene.Children.Add(ElementWith(root, drawable));
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "test.scene")) };
+        scene.Children.Add(ElementWith(_root, drawable));
         var hierarchyRoot = new TestHierarchicalRoot();
         hierarchyRoot.HierarchicalChildren.Add(scene);
 
@@ -1146,14 +1006,12 @@ public sealed class ExportSourceValidatorTests
     [Test]
     public void CollectRenderableSources_UnresolvableReferencedSceneExpression_DoesNotReportCurrentValueMedia()
     {
-        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        string missingImage = Path.Combine(root, "child.png");
-        string missingSound = Path.Combine(root, "child.mp3");
+        string missingImage = Path.Combine(_root, "child.png");
+        string missingSound = Path.Combine(_root, "child.mp3");
 
-        var childScene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "child.scene")) };
-        childScene.Children.Add(CreateImageElement(root, missingImage));
-        childScene.Children.Add(CreateSoundElement(root, missingSound));
+        var childScene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "child.scene")) };
+        childScene.Children.Add(CreateImageElement(_root, missingImage));
+        childScene.Children.Add(CreateSoundElement(_root, missingSound));
 
         var sceneDrawable = new SceneDrawable();
         sceneDrawable.ReferencedScene.CurrentValue = childScene;
@@ -1163,9 +1021,9 @@ public sealed class ExportSourceValidatorTests
         sceneSound.ReferencedScene.CurrentValue = childScene;
         sceneSound.ReferencedScene.Expression = Beutl.Engine.Expressions.Expression.CreateReference<Scene>(Guid.NewGuid());
 
-        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "root.scene")) };
-        scene.Children.Add(ElementWith(root, sceneDrawable));
-        scene.Children.Add(ElementWith(root, sceneSound));
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "root.scene")) };
+        scene.Children.Add(ElementWith(_root, sceneDrawable));
+        scene.Children.Add(ElementWith(_root, sceneSound));
         var hierarchyRoot = new TestHierarchicalRoot();
         hierarchyRoot.HierarchicalChildren.Add(scene);
 
@@ -1190,20 +1048,18 @@ public sealed class ExportSourceValidatorTests
     [Test]
     public void CollectRenderableSources_SaveFrame_ReferencedSceneChildAtSampleTime_IsReported()
     {
-        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        string missingImage = Path.Combine(root, "child.png");
+        string missingImage = Path.Combine(_root, "child.png");
 
-        var childScene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "child.scene")) };
-        Element child = CreateImageElement(root, missingImage);
+        var childScene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "child.scene")) };
+        Element child = CreateImageElement(_root, missingImage);
         child.Start = TimeSpan.Zero;
         child.Length = TimeSpan.FromSeconds(5);
         childScene.Children.Add(child);
 
         var sceneDrawable = new SceneDrawable();
         sceneDrawable.ReferencedScene.CurrentValue = childScene;
-        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "root.scene")) };
-        Element outer = ElementWith(root, sceneDrawable);
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "root.scene")) };
+        Element outer = ElementWith(_root, sceneDrawable);
         outer.Start = TimeSpan.Zero;
         outer.Length = TimeSpan.FromSeconds(10);
         scene.Children.Add(outer);
@@ -1220,20 +1076,18 @@ public sealed class ExportSourceValidatorTests
     [Test]
     public void CollectRenderableSources_VisualizerSceneSoundSource_ReportsReferencedAudio()
     {
-        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        string missingSound = Path.Combine(root, "vis.mp3");
+        string missingSound = Path.Combine(_root, "vis.mp3");
 
-        var childScene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "child.scene")) };
-        childScene.Children.Add(CreateSoundElement(root, missingSound));
+        var childScene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "child.scene")) };
+        childScene.Children.Add(CreateSoundElement(_root, missingSound));
 
         var sceneSound = new SceneSound();
         sceneSound.ReferencedScene.CurrentValue = childScene;
         var visualizer = new Beutl.Graphics.AudioVisualizers.AudioWaveformDrawable();
         visualizer.Source.CurrentValue = sceneSound;
 
-        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "root.scene")) };
-        scene.Children.Add(ElementWith(root, visualizer));
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "root.scene")) };
+        scene.Children.Add(ElementWith(_root, visualizer));
 
         IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
             ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene));
@@ -1246,17 +1100,15 @@ public sealed class ExportSourceValidatorTests
     [Test]
     public void CollectRenderableSources_DrawableBrushDrawable_ReportsNestedSource()
     {
-        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        string missingVideo = Path.Combine(root, "brush.mov");
+        string missingVideo = Path.Combine(_root, "brush.mov");
 
         var brush = new DrawableBrush();
         brush.Drawable.CurrentValue = VideoDrawable(missingVideo);
         var shape = new RectShape();
         shape.Fill.CurrentValue = brush;
 
-        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "root.scene")) };
-        scene.Children.Add(ElementWith(root, shape));
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "root.scene")) };
+        scene.Children.Add(ElementWith(_root, shape));
 
         IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
             ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene));
@@ -1269,9 +1121,7 @@ public sealed class ExportSourceValidatorTests
     [Test]
     public void CollectRenderableSources_NodeInputDrawableBrush_ReportsNestedSource()
     {
-        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        string missingVideo = Path.Combine(root, "node-brush.mov");
+        string missingVideo = Path.Combine(_root, "node-brush.mov");
 
         var brush = new DrawableBrush();
         brush.Drawable.CurrentValue = VideoDrawable(missingVideo);
@@ -1280,8 +1130,8 @@ public sealed class ExportSourceValidatorTests
         var drawable = new NodeGraphDrawable();
         drawable.Model.CurrentValue!.Nodes.Add(node);
 
-        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "root.scene")) };
-        scene.Children.Add(ElementWith(root, drawable));
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "root.scene")) };
+        scene.Children.Add(ElementWith(_root, drawable));
 
         IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
             ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene));
@@ -1295,9 +1145,7 @@ public sealed class ExportSourceValidatorTests
     [Test]
     public void CollectRenderableSources_DisabledDrawableInNodeInput_IsNotReported()
     {
-        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        string missingVideo = Path.Combine(root, "disabled-node-brush.mov");
+        string missingVideo = Path.Combine(_root, "disabled-node-brush.mov");
 
         SourceVideo disabledInner = VideoDrawable(missingVideo);
         disabledInner.IsEnabled = false;
@@ -1308,8 +1156,8 @@ public sealed class ExportSourceValidatorTests
         var drawable = new NodeGraphDrawable();
         drawable.Model.CurrentValue!.Nodes.Add(node);
 
-        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "root.scene")) };
-        scene.Children.Add(ElementWith(root, drawable));
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "root.scene")) };
+        scene.Children.Add(ElementWith(_root, drawable));
 
         IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
             ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene));
@@ -1323,9 +1171,7 @@ public sealed class ExportSourceValidatorTests
     [Test]
     public void CollectRenderableSources_ExpressionResolvedDrawableBrush_ReportsNestedSource()
     {
-        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        string missingVideo = Path.Combine(root, "expr-brush.mov");
+        string missingVideo = Path.Combine(_root, "expr-brush.mov");
 
         var holderBrush = new DrawableBrush();
         holderBrush.Drawable.CurrentValue = VideoDrawable(missingVideo);
@@ -1335,8 +1181,8 @@ public sealed class ExportSourceValidatorTests
         var refShape = new RectShape();
         refShape.Fill.Expression = Beutl.Engine.Expressions.Expression.CreateReference<Brush>(holder.Id, "Fill");
 
-        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "root.scene")) };
-        scene.Children.Add(ElementWith(root, refShape));
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "root.scene")) };
+        scene.Children.Add(ElementWith(_root, refShape));
         var hierarchyRoot = new TestHierarchicalRoot();
         hierarchyRoot.HierarchicalChildren.Add(scene);
         hierarchyRoot.HierarchicalChildren.Add(holder);
@@ -1352,12 +1198,10 @@ public sealed class ExportSourceValidatorTests
     [Test]
     public void CollectRenderableSources_VideoMutedLayer_SkipsVideoSource()
     {
-        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        string missingVideo = Path.Combine(root, "muted.mov");
+        string missingVideo = Path.Combine(_root, "muted.mov");
 
-        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "test.scene")) };
-        Element element = CreateVideoElement(root, missingVideo);
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "test.scene")) };
+        Element element = CreateVideoElement(_root, missingVideo);
         element.ZIndex = 3;
         scene.Children.Add(element);
         scene.Layers.Add(new TimelineLayer { ZIndex = 3, IsVideoMuted = true });
@@ -1379,12 +1223,10 @@ public sealed class ExportSourceValidatorTests
     [Test]
     public void CollectRenderableSources_VideoMutedLayer_StillChecksAudioSource()
     {
-        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        string missingSound = Path.Combine(root, "muted-video.mp3");
+        string missingSound = Path.Combine(_root, "muted-video.mp3");
 
-        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "test.scene")) };
-        Element element = CreateSoundElement(root, missingSound);
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "test.scene")) };
+        Element element = CreateSoundElement(_root, missingSound);
         element.ZIndex = 2;
         scene.Children.Add(element);
         scene.Layers.Add(new TimelineLayer { ZIndex = 2, IsVideoMuted = true });
@@ -1399,12 +1241,10 @@ public sealed class ExportSourceValidatorTests
     [Test]
     public void CollectRenderableSources_AudioMutedLayer_SkipsAudioSource()
     {
-        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        string missingSound = Path.Combine(root, "muted.mp3");
+        string missingSound = Path.Combine(_root, "muted.mp3");
 
-        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "test.scene")) };
-        Element element = CreateSoundElement(root, missingSound);
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "test.scene")) };
+        Element element = CreateSoundElement(_root, missingSound);
         element.ZIndex = 1;
         scene.Children.Add(element);
         scene.Layers.Add(new TimelineLayer { ZIndex = 1, IsAudioMuted = true });
@@ -1420,15 +1260,13 @@ public sealed class ExportSourceValidatorTests
     [Test]
     public void CollectRenderableSources_SoloLayer_SkipsNonSoloElements()
     {
-        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        string soloMissing = Path.Combine(root, "solo.mov");
-        string otherMissing = Path.Combine(root, "other.mov");
+        string soloMissing = Path.Combine(_root, "solo.mov");
+        string otherMissing = Path.Combine(_root, "other.mov");
 
-        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "test.scene")) };
-        Element soloed = CreateVideoElement(root, soloMissing);
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "test.scene")) };
+        Element soloed = CreateVideoElement(_root, soloMissing);
         soloed.ZIndex = 0;
-        Element other = CreateVideoElement(root, otherMissing);
+        Element other = CreateVideoElement(_root, otherMissing);
         other.ZIndex = 1;
         scene.Children.Add(soloed);
         scene.Children.Add(other);
@@ -1447,20 +1285,18 @@ public sealed class ExportSourceValidatorTests
     [Test]
     public void CollectRenderableSources_VideoMutedLayerInReferencedScene_SkipsVideoSource()
     {
-        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        string missingImage = Path.Combine(root, "muted-nested.png");
+        string missingImage = Path.Combine(_root, "muted-nested.png");
 
-        var childScene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "child.scene")) };
-        Element child = CreateImageElement(root, missingImage);
+        var childScene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "child.scene")) };
+        Element child = CreateImageElement(_root, missingImage);
         child.ZIndex = 4;
         childScene.Children.Add(child);
         childScene.Layers.Add(new TimelineLayer { ZIndex = 4, IsVideoMuted = true });
 
         var sceneDrawable = new SceneDrawable();
         sceneDrawable.ReferencedScene.CurrentValue = childScene;
-        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "root.scene")) };
-        scene.Children.Add(ElementWith(root, sceneDrawable));
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "root.scene")) };
+        scene.Children.Add(ElementWith(_root, sceneDrawable));
 
         IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
             ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene));
@@ -1473,15 +1309,13 @@ public sealed class ExportSourceValidatorTests
     [Test]
     public void CollectRenderableSources_SoloLayerInReferencedScene_SkipsNonSoloNestedElements()
     {
-        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        string soloMissing = Path.Combine(root, "nested-solo.png");
-        string otherMissing = Path.Combine(root, "nested-other.png");
+        string soloMissing = Path.Combine(_root, "nested-solo.png");
+        string otherMissing = Path.Combine(_root, "nested-other.png");
 
-        var childScene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "child.scene")) };
-        Element soloed = CreateImageElement(root, soloMissing);
+        var childScene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "child.scene")) };
+        Element soloed = CreateImageElement(_root, soloMissing);
         soloed.ZIndex = 0;
-        Element other = CreateImageElement(root, otherMissing);
+        Element other = CreateImageElement(_root, otherMissing);
         other.ZIndex = 1;
         childScene.Children.Add(soloed);
         childScene.Children.Add(other);
@@ -1490,8 +1324,8 @@ public sealed class ExportSourceValidatorTests
 
         var sceneDrawable = new SceneDrawable();
         sceneDrawable.ReferencedScene.CurrentValue = childScene;
-        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "root.scene")) };
-        scene.Children.Add(ElementWith(root, sceneDrawable));
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "root.scene")) };
+        scene.Children.Add(ElementWith(_root, sceneDrawable));
 
         IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
             ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene));
@@ -1505,12 +1339,10 @@ public sealed class ExportSourceValidatorTests
     [Test]
     public void CollectRenderableSources_AudioMutedLayerInReferencedScene_SkipsAudioSource()
     {
-        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        string missingSound = Path.Combine(root, "muted-nested.mp3");
+        string missingSound = Path.Combine(_root, "muted-nested.mp3");
 
-        var childScene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "child.scene")) };
-        Element child = CreateSoundElement(root, missingSound);
+        var childScene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "child.scene")) };
+        Element child = CreateSoundElement(_root, missingSound);
         child.ZIndex = 5;
         childScene.Children.Add(child);
         childScene.Layers.Add(new TimelineLayer { ZIndex = 5, IsAudioMuted = true });
@@ -1518,8 +1350,8 @@ public sealed class ExportSourceValidatorTests
         // A default SceneSound has the identity audio map, so it windows the referenced scene per-target.
         var sceneSound = new SceneSound();
         sceneSound.ReferencedScene.CurrentValue = childScene;
-        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(root, "root.scene")) };
-        scene.Children.Add(ElementWith(root, sceneSound));
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "root.scene")) };
+        scene.Children.Add(ElementWith(_root, sceneSound));
 
         IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
             ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene));
@@ -1563,20 +1395,15 @@ public sealed class ExportSourceValidatorTests
     }
 
     private static Element CreateSoundElement(string root, string sourcePath)
-    {
-        var source = new SoundSource();
-        source.ReadFrom(new Uri(sourcePath));
-        var sound = new SourceSound();
-        sound.Source.CurrentValue = source;
-        return ElementWith(root, sound);
-    }
+        => ElementWith(root, SoundDrawable(sourcePath));
 
-    private static Element ElementWith(string root, Beutl.Engine.EngineObject obj)
+    private static Element ElementWith(
+        string root, Beutl.Engine.EngineObject obj, TimeSpan? start = null, TimeSpan? length = null)
     {
         var element = new Element
         {
-            Start = TimeSpan.Zero,
-            Length = TimeSpan.FromSeconds(1),
+            Start = start ?? TimeSpan.Zero,
+            Length = length ?? TimeSpan.FromSeconds(1),
             IsEnabled = true,
             Uri = new Uri(Path.Combine(root, $"{Guid.NewGuid():N}.layer")),
         };

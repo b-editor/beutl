@@ -1,9 +1,9 @@
 ﻿using System.Numerics;
 using Beutl.Editor;
-using Beutl.Editor.Observers;
 using Beutl.Graphics3D.Materials;
 using Beutl.Graphics3D.Models;
 using Beutl.ProjectSystem;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Editor;
 
@@ -27,10 +27,8 @@ public class ModelHistoryTests
         if (initialMeshes > 0) model.Children[0].Position.CurrentValue = new Vector3(7, 0, 0);
         var originalChildren = model.Children.ToArray();
         var element = new Element(); element.Objects.Add(model);
-        var sequence = new OperationSequenceGenerator();
-        using var history = new HistoryManager(element, sequence);
-        using var observer = new CoreObjectOperationObserver(null, element, sequence);
-        using var subscription = history.Subscribe(observer);
+        using var harness = new HistoryHarness(element);
+        HistoryManager history = harness.History;
         ModelSource replacement = Load("replacement.obj", replacementMeshes);
 
         model.Source.CurrentValue = replacement;
@@ -74,10 +72,8 @@ public class ModelHistoryTests
     public void Uncommitted_source_selection_can_be_rolled_back()
     {
         var model = new Model3D();
-        var sequence = new OperationSequenceGenerator();
-        using var history = new HistoryManager(model, sequence);
-        using var observer = new CoreObjectOperationObserver(null, model, sequence);
-        using var subscription = history.Subscribe(observer);
+        using var harness = new HistoryHarness(model);
+        HistoryManager history = harness.History;
         model.Source.CurrentValue = Load("model.obj", 2);
 
         history.Rollback();

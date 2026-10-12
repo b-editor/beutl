@@ -168,9 +168,5 @@ public class ToolTabReuseTests
         public void CloseToolTab(IToolContext item)
         {
         }
-
-        public void Dispose()
-        {
-        }
     }
 }

@@ -7,13 +7,17 @@ namespace Beutl.UnitTests.Engine.Graphics.Backend;
 [TestFixture]
 public sealed class SpecializationConstantTests
 {
-    [TestCase(true, false, TestName = "SixtyFourBitClassification_Int64NeedsTheIntegerFeature")]
-    [TestCase(false, true, TestName = "SixtyFourBitClassification_Float64NeedsTheFloatFeature")]
-    public void SixtyFourBitConstants_NameTheFeatureTheyNeed(bool integer, bool floating)
+    [TestCase(TypeCode.Int64, true, false, TestName = "SixtyFourBitClassification_Int64NeedsTheIntegerFeature")]
+    [TestCase(TypeCode.Double, false, true, TestName = "SixtyFourBitClassification_Float64NeedsTheFloatFeature")]
+    [TestCase(TypeCode.UInt64, true, false, TestName = "AnUnsignedSixtyFourBitConstant_NeedsTheIntegerFeature")]
+    public void SixtyFourBitConstants_NameTheFeatureTheyNeed(TypeCode type, bool integer, bool floating)
     {
-        SpecializationConstant constant = integer
-            ? SpecializationConstant.Create(0, 1L, ShaderStage.Fragment)
-            : SpecializationConstant.Create(0, 1d, ShaderStage.Fragment);
+        SpecializationConstant constant = type switch
+        {
+            TypeCode.Int64 => SpecializationConstant.Create(0, 1L, ShaderStage.Fragment),
+            TypeCode.Double => SpecializationConstant.Create(0, 1d, ShaderStage.Fragment),
+            _ => SpecializationConstant.Create(0, ulong.MaxValue, ShaderStage.Vertex),
+        };
 
         Assert.Multiple(() =>
         {
@@ -35,18 +39,6 @@ public sealed class SpecializationConstantTests
         ];
 
         Assert.That(constants.Any(static item => item.RequiresShaderInt64 || item.RequiresShaderFloat64), Is.False);
-    }
-
-    [Test]
-    public void AnUnsignedSixtyFourBitConstant_NeedsTheIntegerFeature()
-    {
-        SpecializationConstant constant = SpecializationConstant.Create(0, ulong.MaxValue, ShaderStage.Vertex);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(constant.RequiresShaderInt64, Is.True);
-            Assert.That(constant.RequiresShaderFloat64, Is.False);
-        });
     }
 
     [Test]

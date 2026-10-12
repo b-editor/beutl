@@ -173,7 +173,7 @@ public partial class ImmediateCanvas
             {
                 builder.AddOval(rect.ToSKRect());
                 using SKPath path = builder.Detach();
-                DrawSKPath(path, true, fill, pen);
+                DrawSKPath(path, pen);
             }
         }
     }
@@ -192,7 +192,7 @@ public partial class ImmediateCanvas
             {
                 builder.AddRect(rect.ToSKRect());
                 using SKPath path = builder.Detach();
-                DrawSKPath(path, true, fill, pen);
+                DrawSKPath(path, pen);
             }
         }
     }
@@ -211,43 +211,31 @@ public partial class ImmediateCanvas
             return;
         }
 
-        if (density == 1f)
+        // At density 1 the canvas already draws in content space, so only a scaled draw changes its state.
+        bool scaled = density != 1f;
+        int count = scaled ? Canvas.Save() : 0;
+        try
         {
-            ConfigureFillPaint(text.Bounds, fill);
+            if (scaled)
+                Canvas.SetMatrix((SKMatrix44)CreateDensityScaledContentTransform(density).ToSKMatrix());
+
+            // The blob is shaped at device density, so its glyphs already span Bounds * density
+            // under this CTM. Pass scale 1 so the density isn't applied twice to brush patterns.
+            ConfigureFillPaint(text.Bounds * density, fill, scale: 1f);
             Canvas.DrawText(textBlob, 0, 0, _sharedFillPaint);
 
             if (pen != null
                 && pen.Thickness > 0
-                && text.GetStrokePath() is { } stroke)
+                && text.GetStrokePath(density) is { } stroke)
             {
-                ConfigureStrokePaint(new(text.Bounds.Size), pen);
+                ConfigureStrokePaint(new(text.Bounds.Size * density), pen, scale: 1f);
                 Canvas.DrawPath(stroke, _sharedStrokePaint);
             }
         }
-        else
+        finally
         {
-            int count = Canvas.Save();
-            try
-            {
-                Canvas.SetMatrix((SKMatrix44)CreateDensityScaledContentTransform(density).ToSKMatrix());
-
-                // The blob is shaped at device density, so its glyphs already span Bounds * density
-                // under this CTM. Pass scale 1 so the density isn't applied twice to brush patterns.
-                ConfigureFillPaint(text.Bounds * density, fill, scale: 1f);
-                Canvas.DrawText(textBlob, 0, 0, _sharedFillPaint);
-
-                if (pen != null
-                    && pen.Thickness > 0
-                    && text.GetStrokePath(density) is { } stroke)
-                {
-                    ConfigureStrokePaint(new(text.Bounds.Size * density), pen, scale: 1f);
-                    Canvas.DrawPath(stroke, _sharedStrokePaint);
-                }
-            }
-            finally
-            {
+            if (scaled)
                 Canvas.RestoreToCount(count);
-            }
         }
     }
 
@@ -269,15 +257,9 @@ public partial class ImmediateCanvas
             .Append(_currentBaseTransform);
     }
 
-    internal void DrawSKPath(SKPath skPath, bool strokeOnly, Brush.Resource? fill, Pen.Resource? pen)
+    internal void DrawSKPath(SKPath skPath, Pen.Resource? pen)
     {
         Rect rect = skPath.Bounds.ToGraphicsRect();
-
-        if (!strokeOnly)
-        {
-            ConfigureFillPaint(rect, fill);
-            Canvas.DrawPath(skPath, _sharedFillPaint);
-        }
 
         if (pen != null && pen.Thickness > 0)
         {

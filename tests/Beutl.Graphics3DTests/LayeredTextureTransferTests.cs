@@ -1,6 +1,5 @@
 ﻿using System.Runtime.InteropServices;
 using Beutl.Graphics.Backend;
-using Beutl.Graphics.Backend.Composite;
 using Beutl.Graphics.Backend.Vulkan;
 using Silk.NET.Vulkan;
 
@@ -21,10 +20,9 @@ public sealed class LayeredTextureTransferTests
 
     [TestCase(TextureKind.Cube)]
     [TestCase(TextureKind.Array)]
-    [Category("GpuPassFusionGpu")]
     public void UploadColorLayer_PreservesPixels(TextureKind kind)
     {
-        VulkanContext context = RequireVulkanContext();
+        VulkanContext context = GpuTestEnvironment.EnsureVulkanAvailable();
         GpuTestEnvironment.InvokeOnRenderThread(() =>
         {
             byte[] expected = CreatePixels();
@@ -46,10 +44,9 @@ public sealed class LayeredTextureTransferTests
     [TestCase(TextureKind.Cube)]
     [TestCase(TextureKind.Array)]
     [TestCase(TextureKind.CubeArray)]
-    [Category("GpuPassFusionGpu")]
     public void CopyToColorLayer_PreservesPixels(TextureKind kind)
     {
-        VulkanContext context = RequireVulkanContext();
+        VulkanContext context = GpuTestEnvironment.EnsureVulkanAvailable();
         GpuTestEnvironment.InvokeOnRenderThread(() =>
         {
             byte[] expected = CreatePixels();
@@ -142,12 +139,4 @@ public sealed class LayeredTextureTransferTests
         }
         return pixels;
     }
-
-    private static VulkanContext RequireVulkanContext()
-        => GpuTestEnvironment.EnsureAvailable() switch
-        {
-            VulkanContext vulkan => vulkan,
-            CompositeContext composite => composite.Vulkan,
-            _ => throw new InvalidOperationException("The graphics context has no Vulkan backend."),
-        };
 }

@@ -13,11 +13,6 @@ namespace Beutl.Graphics;
 /// <summary>
 /// Defines a point that may be defined relative to a containing element.
 /// </summary>
-/// <remarks>
-/// Initializes a new instance of the <see cref="RelativePoint"/> struct.
-/// </remarks>
-/// <param name="point">The point.</param>
-/// <param name="unit">The unit.</param>
 [JsonConverter(typeof(RelativePointJsonConverter))]
 [TypeConverter(typeof(RelativePointConverter))]
 public readonly struct RelativePoint(Point point, RelativeUnit unit)
@@ -44,70 +39,32 @@ public readonly struct RelativePoint(Point point, RelativeUnit unit)
     /// </summary>
     public static readonly RelativePoint BottomRight = new(1, 1, RelativeUnit.Relative);
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="RelativePoint"/> struct.
-    /// </summary>
-    /// <param name="x">The X point.</param>
-    /// <param name="y">The Y point</param>
-    /// <param name="unit">The unit.</param>
     public RelativePoint(float x, float y, RelativeUnit unit)
         : this(new Point(x, y), unit)
     {
     }
 
-    /// <summary>
-    /// Gets the point.
-    /// </summary>
     public Point Point { get; } = point;
 
-    /// <summary>
-    /// Gets the unit.
-    /// </summary>
     public RelativeUnit Unit { get; } = unit;
 
-    /// <summary>
-    /// Checks for equality between two <see cref="RelativePoint"/>s.
-    /// </summary>
-    /// <param name="left">The first point.</param>
-    /// <param name="right">The second point.</param>
-    /// <returns>True if the points are equal; otherwise false.</returns>
     public static bool operator ==(RelativePoint left, RelativePoint right)
     {
         return left.Equals(right);
     }
 
-    /// <summary>
-    /// Checks for inequality between two <see cref="RelativePoint"/>s.
-    /// </summary>
-    /// <param name="left">The first point.</param>
-    /// <param name="right">The second point.</param>
-    /// <returns>True if the points are unequal; otherwise false.</returns>
     public static bool operator !=(RelativePoint left, RelativePoint right)
     {
         return !left.Equals(right);
     }
 
-    /// <summary>
-    /// Checks if the <see cref="RelativePoint"/> equals another object.
-    /// </summary>
-    /// <param name="obj">The other object.</param>
-    /// <returns>True if the objects are equal, otherwise false.</returns>
     public override bool Equals(object? obj) => obj is RelativePoint other && Equals(other);
 
-    /// <summary>
-    /// Checks if the <see cref="RelativePoint"/> equals another point.
-    /// </summary>
-    /// <param name="p">The other point.</param>
-    /// <returns>True if the objects are equal, otherwise false.</returns>
     public bool Equals(RelativePoint p)
     {
         return Unit == p.Unit && Point == p.Point;
     }
 
-    /// <summary>
-    /// Gets a hashcode for a <see cref="RelativePoint"/>.
-    /// </summary>
-    /// <returns>A hash code.</returns>
     public override int GetHashCode()
     {
         unchecked
@@ -128,52 +85,26 @@ public readonly struct RelativePoint(Point point, RelativeUnit unit)
             new Point(Point.X * size.Width, Point.Y * size.Height);
     }
 
-    /// <summary>
-    /// Parses a <see cref="RelativePoint"/> string.
-    /// </summary>
-    /// <param name="s">The string.</param>
-    /// <param name="point">The <see cref="RelativePoint"/>.</param>
-    /// <returns>The status of the operation.</returns>
     public static bool TryParse(string s, out RelativePoint point)
     {
         return TryParse(s.AsSpan(), null, out point);
     }
 
-    /// <summary>
-    /// Parses a <see cref="RelativePoint"/> string.
-    /// </summary>
-    /// <param name="s">The string.</param>
-    /// <param name="point">The <see cref="RelativePoint"/>.</param>
-    /// <returns>The status of the operation.</returns>
     public static bool TryParse(ReadOnlySpan<char> s, out RelativePoint point)
     {
         return TryParse(s, null, out point);
     }
 
-    /// <summary>
-    /// Parses a <see cref="RelativePoint"/> string.
-    /// </summary>
-    /// <param name="s">The string.</param>
-    /// <returns>The parsed <see cref="RelativePoint"/>.</returns>
     public static RelativePoint Parse(string s)
     {
         return Parse(s.AsSpan());
     }
 
-    /// <summary>
-    /// Parses a <see cref="RelativePoint"/> string.
-    /// </summary>
-    /// <param name="s">The string.</param>
-    /// <returns>The parsed <see cref="RelativePoint"/>.</returns>
     public static RelativePoint Parse(ReadOnlySpan<char> s)
     {
         return Parse(s, null);
     }
 
-    /// <summary>
-    /// Returns a String representing this RelativePoint instance.
-    /// </summary>
-    /// <returns>The string representation.</returns>
     public override string ToString()
     {
         return Unit == RelativeUnit.Absolute ?

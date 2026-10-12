@@ -1,6 +1,4 @@
-﻿using Beutl.Graphics.Backend;
-using Beutl.Graphics.Backend.Composite;
-using Beutl.Graphics.Backend.Vulkan;
+﻿using Beutl.Graphics.Backend.Vulkan;
 
 namespace Beutl.UnitTests.Engine.Graphics.Backend;
 
@@ -19,11 +17,11 @@ public class VulkanDeviceLifetimeTests
     [Category("GpuPassFusionGpu")]
     public void DeferRelease_AfterDeviceDestroyed_DropsTheRelease()
     {
-        VulkanContext shared = RequireVulkanContext();
+        VulkanContext shared = VulkanTestEnvironment.EnsureVulkanContext();
 
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            var device = new VulkanDevice(shared.Vk, shared.Instance, shared.PhysicalDevice);
+            var device = new VulkanDevice(shared.Vk, shared.PhysicalDevice);
             var pool = new VulkanCommandPool(device);
 
             // Teardown order matches VulkanContext.Dispose: the pool first, then the device.
@@ -44,11 +42,11 @@ public class VulkanDeviceLifetimeTests
     [Category("GpuPassFusionGpu")]
     public void DeferRelease_AfterPoolDisposedWhileDeviceAlive_StillRunsTheRelease()
     {
-        VulkanContext shared = RequireVulkanContext();
+        VulkanContext shared = VulkanTestEnvironment.EnsureVulkanContext();
 
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            var device = new VulkanDevice(shared.Vk, shared.Instance, shared.PhysicalDevice);
+            var device = new VulkanDevice(shared.Vk, shared.PhysicalDevice);
             var pool = new VulkanCommandPool(device);
 
             pool.Dispose();
@@ -67,16 +65,5 @@ public class VulkanDeviceLifetimeTests
                 device.Dispose();
             }
         });
-    }
-
-    private static VulkanContext RequireVulkanContext()
-    {
-        IGraphicsContext context = VulkanTestEnvironment.EnsureAvailable();
-        return context switch
-        {
-            VulkanContext vulkan => vulkan,
-            CompositeContext composite => composite.Vulkan,
-            _ => throw new InvalidOperationException("The shared graphics context has no Vulkan backend."),
-        };
     }
 }

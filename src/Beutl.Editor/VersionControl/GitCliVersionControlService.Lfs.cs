@@ -47,13 +47,9 @@ internal sealed partial class GitCliVersionControlService
         CancellationToken cancellationToken)
     {
         RepositoryInfo repository = GetRepository();
-        (GitAvailability availability, IGitCliRunner? runner) = await GetGitRuntimeCoreAsync(
+        (GitAvailability availability, IGitCliRunner runner) = await GetInstalledRuntimeCoreAsync(
                 cancellationToken)
             .ConfigureAwait(false);
-        if (availability.State != GitAvailabilityState.Installed || runner is null)
-        {
-            throw new InvalidOperationException("Git is not available.");
-        }
 
         if (!availability.LfsInstalled)
         {
@@ -207,10 +203,7 @@ internal sealed partial class GitCliVersionControlService
         string candidateOutput;
         try
         {
-            candidateOutput = new UTF8Encoding(false, true).GetString(
-                candidates.StdoutBytes
-                ?? throw new InvalidOperationException(
-                    "Git did not return the Git LFS pointer candidate paths."));
+            candidateOutput = s_strictUtf8.GetString(candidates.StdoutBytes!);
         }
         catch (DecoderFallbackException ex)
         {
@@ -247,9 +240,7 @@ internal sealed partial class GitCliVersionControlService
                     },
                     cancellationToken)
                 .ConfigureAwait(false);
-            if (GitLfsFormat.IsLfsPointer(blob.StdoutBytes
-                                                   ?? throw new InvalidOperationException(
-                                                       "Git did not return the Git LFS pointer candidate bytes.")))
+            if (GitLfsFormat.IsLfsPointer(blob.StdoutBytes!))
             {
                 return true;
             }
@@ -517,10 +508,6 @@ internal sealed partial class GitCliVersionControlService
                 cancellationToken).ConfigureAwait(false);
             return true;
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            throw;
-        }
         catch (GitOperationException ex)
         {
             LogWarningBestEffort(
@@ -713,7 +700,7 @@ internal sealed partial class GitCliVersionControlService
             return new([], false);
         }
 
-        if (result.ExitCode != 0 || result.Stderr.Length != 0)
+        if (result.Stderr.Length != 0)
         {
             return new([], false);
         }

@@ -11,9 +11,7 @@ using Beutl.Media;
 namespace Beutl.Graphics3DTests;
 
 /// <summary>
-/// Renders the PBR material grid and the four shadow scenes and asserts pixel invariants on the
-/// downloaded framebuffer. The whole fixture skips (<see cref="Assert.Ignore"/>) when no
-/// Vulkan/3D-capable GPU is present.
+/// Asserts properties of the pixels <see cref="Renderer3D"/> draws. Skips when no 3D-capable GPU is present.
 /// </summary>
 [TestFixture]
 [NonParallelizable]
@@ -81,10 +79,7 @@ public class Renderer3DTests
             using var renderer = new Renderer3D(_context);
             renderer.Initialize(64, 64);
             var composition = new CompositionContext(TimeSpan.Zero);
-            var camera = new PerspectiveCamera();
-            camera.Position.CurrentValue = new Vector3(0, 0, 4);
-            camera.Target.CurrentValue = Vector3.Zero;
-            using var cameraResource = (PerspectiveCamera.Resource)camera.ToResource(composition);
+            using PerspectiveCamera.Resource cameraResource = CreateCamera(composition);
             var objects = new List<Object3D.Resource>();
             try
             {
@@ -123,6 +118,15 @@ public class Renderer3DTests
         });
     }
 
+    // Looks at the origin from z = 4.
+    private static PerspectiveCamera.Resource CreateCamera(CompositionContext composition)
+    {
+        var camera = new PerspectiveCamera();
+        camera.Position.CurrentValue = new Vector3(0, 0, 4);
+        camera.Target.CurrentValue = Vector3.Zero;
+        return (PerspectiveCamera.Resource)camera.ToResource(composition);
+    }
+
     private static bool IsLit(byte[] pixels)
     {
         var values = System.Runtime.InteropServices.MemoryMarshal.Cast<byte, Half>(pixels);
@@ -159,10 +163,7 @@ public class Renderer3DTests
             using var renderer = new Renderer3D(_context);
             renderer.Initialize(64, 64);
             var composition = new CompositionContext(TimeSpan.Zero);
-            var camera = new PerspectiveCamera();
-            camera.Position.CurrentValue = new Vector3(0, 0, 4);
-            camera.Target.CurrentValue = Vector3.Zero;
-            using var cameraResource = (PerspectiveCamera.Resource)camera.ToResource(composition);
+            using PerspectiveCamera.Resource cameraResource = CreateCamera(composition);
             Material3D material = CreateMaterial(kind);
             var objects = new List<Object3D.Resource>();
             var group = new Group3D();
@@ -183,11 +184,7 @@ public class Renderer3DTests
                 renderer.Resize(96, 96);
                 renderer.Render(composition, cameraResource, objects, [], Colors.Black, Colors.White, 1f);
                 byte[] pixels = renderer.DownloadPixels();
-                var values = System.Runtime.InteropServices.MemoryMarshal.Cast<byte, Half>(pixels);
-                bool lit = false;
-                for (int i = 0; i < values.Length; i += 4)
-                    lit |= (float)values[i] > 0.001f || (float)values[i + 1] > 0.001f || (float)values[i + 2] > 0.001f;
-                Assert.That(lit, Is.True);
+                Assert.That(IsLit(pixels), Is.True);
                 return pixels;
             }
             finally
@@ -630,7 +627,6 @@ public class Renderer3DTests
         const int bytesPerPixel = 8; // 4 × Half (RGBA16Float)
         int pixelCount = Width * Height;
 
-        Assert.That(pixels, Is.Not.Null);
         Assert.That(pixels.Length, Is.EqualTo(pixelCount * bytesPerPixel),
             "Framebuffer must be the full RGBA16Float surface.");
 
@@ -672,11 +668,8 @@ public class Renderer3DTests
     }
 
     /// <summary>
-    /// Asserts that enabling shadow casting darkens a meaningful region of the receiver: the
-    /// shadow-enabled frame must be visibly darker than the same scene rendered with
-    /// <see cref="Light3D.CastsShadow"/> forced off. Without this, a regression that ignores
-    /// CastsShadow or never samples the shadow map would still produce a lit, non-uniform frame and
-    /// pass <see cref="AssertLitFramebuffer"/>.
+    /// Asserts that casting shadows visibly darkens the receiver against the same scene with
+    /// <see cref="Light3D.CastsShadow"/> off, which a lit, non-uniform frame alone would not show.
     /// </summary>
     private static void AssertShadowsDarkenReceiver(byte[] shadowed, byte[] unshadowed)
     {

@@ -10,9 +10,7 @@ public class TileBrushCalculatorTests
     [Test]
     public void Constructor_TileNone_AddsDestinationTranslation()
     {
-        // 宛先矩形を targetSize に対する非ゼロ位置に置き、TileMode.None で
-        // IntermediateTransform に destinationRect.Position への translate が
-        // 実際に積まれていることを translation 成分で直接検証する。
+        // TileMode.None では宛先の位置への平行移動が積まれる
         var destinationRel = new RelativeRect(0.25f, 0.5f, 0.5f, 0.5f, RelativeUnit.Relative);
         var calc = new TileBrushCalculator(
             TileMode.None,
@@ -57,43 +55,19 @@ public class TileBrushCalculatorTests
         });
     }
 
-    [Test]
-    public void CalculateTranslate_LeftTop_ReturnsZero()
+    [TestCase(AlignmentX.Left, AlignmentY.Top, 0f, TestName = "CalculateTranslate_LeftTop_ReturnsZero")]
+    [TestCase(AlignmentX.Center, AlignmentY.Center, 50f, TestName = "CalculateTranslate_CenterCenter_CentersInDestination")]
+    [TestCase(AlignmentX.Right, AlignmentY.Bottom, 100f, TestName = "CalculateTranslate_RightBottom_AlignsToFarEdges")]
+    public void CalculateTranslate_AlignsTheSourceInTheDestination(AlignmentX x, AlignmentY y, float expected)
     {
         Vector v = TileBrushCalculator.CalculateTranslate(
-            AlignmentX.Left,
-            AlignmentY.Top,
+            x,
+            y,
             sourceRect: new Rect(0, 0, 100, 100),
             destinationRect: new Rect(0, 0, 200, 200),
             scale: new Vector(1f, 1f));
 
-        Assert.That(v, Is.EqualTo(new Vector(0f, 0f)));
-    }
-
-    [Test]
-    public void CalculateTranslate_CenterCenter_CentersInDestination()
-    {
-        Vector v = TileBrushCalculator.CalculateTranslate(
-            AlignmentX.Center,
-            AlignmentY.Center,
-            sourceRect: new Rect(0, 0, 100, 100),
-            destinationRect: new Rect(0, 0, 200, 200),
-            scale: new Vector(1f, 1f));
-
-        Assert.That(v, Is.EqualTo(new Vector(50f, 50f)));
-    }
-
-    [Test]
-    public void CalculateTranslate_RightBottom_AlignsToFarEdges()
-    {
-        Vector v = TileBrushCalculator.CalculateTranslate(
-            AlignmentX.Right,
-            AlignmentY.Bottom,
-            sourceRect: new Rect(0, 0, 100, 100),
-            destinationRect: new Rect(0, 0, 200, 200),
-            scale: new Vector(1f, 1f));
-
-        Assert.That(v, Is.EqualTo(new Vector(100f, 100f)));
+        Assert.That(v, Is.EqualTo(new Vector(expected, expected)));
     }
 
     [Test]

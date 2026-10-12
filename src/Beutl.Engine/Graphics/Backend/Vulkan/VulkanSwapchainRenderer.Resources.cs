@@ -1,5 +1,4 @@
-﻿using System.Runtime.InteropServices;
-using Beutl.Media;
+﻿using Beutl.Media;
 using Microsoft.Extensions.Logging;
 using Silk.NET.Vulkan;
 using VkSemaphore = Silk.NET.Vulkan.Semaphore;
@@ -12,10 +11,8 @@ internal sealed unsafe partial class VulkanSwapchainRenderer
 {
     private void CreateDedicatedDevice()
     {
-        // Find graphics queue family
         _queueFamilyIndex = VulkanPhysicalDeviceQueries.FindGraphicsQueueFamily(_vk, _physicalDevice);
 
-        // Create device
         float queuePriority = 1.0f;
         var queueCreateInfo = new DeviceQueueCreateInfo
         {
@@ -25,11 +22,9 @@ internal sealed unsafe partial class VulkanSwapchainRenderer
             PQueuePriorities = &queuePriority
         };
 
-        // Required extensions
         var extensions = new List<string> { "VK_KHR_swapchain" };
         if (OperatingSystem.IsMacOS())
         {
-            // Check for portability subset
             if (VulkanPhysicalDeviceQueries.GetDeviceExtensionNames(_vk, _physicalDevice)
                 .Contains("VK_KHR_portability_subset"))
             {
@@ -37,21 +32,17 @@ internal sealed unsafe partial class VulkanSwapchainRenderer
             }
         }
 
-        var extensionPtrs = new byte*[extensions.Count];
-        for (int i = 0; i < extensions.Count; i++)
-            extensionPtrs[i] = (byte*)Marshal.StringToHGlobalAnsi(extensions[i]);
-
-        try
+        using (var extensionNames = new VulkanNameArray(extensions))
         {
             var features = new PhysicalDeviceFeatures();
-            fixed (byte** ppExtensions = extensionPtrs)
+            fixed (byte** ppExtensions = extensionNames.Pointers)
             {
                 var createInfo = new DeviceCreateInfo
                 {
                     SType = StructureType.DeviceCreateInfo,
                     QueueCreateInfoCount = 1,
                     PQueueCreateInfos = &queueCreateInfo,
-                    EnabledExtensionCount = (uint)extensions.Count,
+                    EnabledExtensionCount = extensionNames.Count,
                     PpEnabledExtensionNames = ppExtensions,
                     PEnabledFeatures = &features
                 };
@@ -64,15 +55,9 @@ internal sealed unsafe partial class VulkanSwapchainRenderer
                 _device = device;
             }
         }
-        finally
-        {
-            foreach (var ptr in extensionPtrs)
-                Marshal.FreeHGlobal((IntPtr)ptr);
-        }
 
         _vk.GetDeviceQueue(_device, _queueFamilyIndex, 0, out _graphicsQueue);
 
-        // Create command pool
         var poolInfo = new CommandPoolCreateInfo
         {
             SType = StructureType.CommandPoolCreateInfo,
@@ -143,7 +128,6 @@ internal sealed unsafe partial class VulkanSwapchainRenderer
         _vk.CreateImage(_device, &imageInfo, null, &image);
         _sourceImage = image;
 
-        // Allocate memory
         MemoryRequirements memReqs;
         _vk.GetImageMemoryRequirements(_device, _sourceImage, &memReqs);
 
@@ -159,7 +143,6 @@ internal sealed unsafe partial class VulkanSwapchainRenderer
         _sourceMemory = memory;
         _vk.BindImageMemory(_device, _sourceImage, _sourceMemory, 0);
 
-        // Create image view
         var viewInfo = new ImageViewCreateInfo
         {
             SType = StructureType.ImageViewCreateInfo,
@@ -181,17 +164,13 @@ internal sealed unsafe partial class VulkanSwapchainRenderer
         _sourceImageView = view;
         _sourceImageLayout = ImageLayout.Undefined;
 
-        // Allocate descriptor set
         _descriptorSet = _pipeline!.AllocateDescriptorSet();
     }
 
     private void DestroySourceImage()
     {
-        if (_descriptorSet.Handle != 0)
-        {
-            _pipeline?.FreeDescriptorSet(_descriptorSet);
-            _descriptorSet = default;
-        }
+        _pipeline?.FreeDescriptorSet(_descriptorSet);
+        _descriptorSet = default;
 
         if (_sourceImageView.Handle != 0)
         {
@@ -382,20 +361,6 @@ internal sealed unsafe partial class VulkanSwapchainRenderer
             BitmapColorType.Rgba16161616 => Format.R16G16B16A16Unorm,
             BitmapColorType.Srgba8888 => Format.R8G8B8A8Srgb,
             _ => Format.R8G8B8A8Unorm
-        };
-    }
-
-    private static int BitmapColorTypeBytesPerPixel(BitmapColorType colorType)
-    {
-        return colorType switch
-        {
-            BitmapColorType.RgbaF16 => 8,
-            BitmapColorType.RgbaF32 => 16,
-            BitmapColorType.Rgba8888 => 4,
-            BitmapColorType.Bgra8888 => 4,
-            BitmapColorType.Rgba16161616 => 8,
-            BitmapColorType.Srgba8888 => 4,
-            _ => 4
         };
     }
 }

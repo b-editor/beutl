@@ -17,21 +17,13 @@ public class MFSampleCacheTests
     [OneTimeSetUp]
     public void OneTimeSetUp()
     {
-        if (!OperatingSystem.IsWindows())
-        {
-            Assert.Ignore("Media Foundation is only available on Windows.");
-        }
-
         MediaFactory.MFStartup();
     }
 
     [OneTimeTearDown]
     public void OneTimeTearDown()
     {
-        if (OperatingSystem.IsWindows())
-        {
-            MediaFactory.MFShutdown();
-        }
+        MediaFactory.MFShutdown();
     }
 
     private static IMFSample CreateSample() => MediaFactory.MFCreateSample();

@@ -10,7 +10,6 @@ public sealed class AttachmentContentRecordTests
     private const int Height = 8;
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void TheBufferBudget_DoesNotExceedWhatTheDeviceCanAttach()
     {
         IGraphicsContext context = GpuTestEnvironment.EnsureAvailable();
@@ -40,7 +39,6 @@ public sealed class AttachmentContentRecordTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void UsingAClearedTextureAsAnAttachment_StopsItReportingTransparentContents()
     {
         IGraphicsContext context = GpuTestEnvironment.EnsureAvailable();

@@ -9,8 +9,6 @@ namespace Beutl.Graphics.Backend.Vulkan;
 internal readonly record struct RenderParams(
     float SourceWidth,
     float SourceHeight,
-    float DestWidth,
-    float DestHeight,
     Stretch Stretch,
     UIToneMappingOperator ToneMapping,
     float Exposure,

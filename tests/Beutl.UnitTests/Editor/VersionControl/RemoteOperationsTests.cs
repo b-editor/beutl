@@ -40,14 +40,16 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
     {
         await CommitFileAsync("project.bep", "initial\n", "initial");
         string remoteRoot = await CreateBareRemoteAsync();
-        var runner = new InterceptingRunner(CreateRunner(), static (_, _, _) => false, before: null, after: null);
+        var runner = new RecordingGitCliRunner(CreateRunner());
         using var service = CreateService(runner: runner);
         await service.SetRemoteAsync(remoteRoot, CancellationToken.None);
 
         RemoteOpResult result = await service.PushAsync(progress: null, CancellationToken.None);
         IReadOnlyList<string> expected = HostedGitLfsTransferAgent.GitConfigArguments(
             Environment.ProcessPath, Assembly.GetEntryAssembly()?.Location);
-        IReadOnlyList<string> push = runner.Commands.Single(arguments => GetGitSubcommand(arguments) == "push");
+        IReadOnlyList<string> push = runner.Commands
+            .Select(static command => command.Arguments)
+            .Single(static arguments => GetGitSubcommand(arguments) == "push");
         Assert.Multiple(() =>
         {
             Assert.That(result, Is.TypeOf<RemoteOpResult.Success>());
@@ -80,15 +82,12 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         await CommitFileAsync("project.bep", "initial\n", "initial");
         string remoteRoot = await CreateBareRemoteAsync();
         using var service = CreateService();
-        await service.SetRemoteAsync(remoteRoot, CancellationToken.None);
-        Assert.That(
-            await service.PushAsync(progress: null, CancellationToken.None),
-            Is.TypeOf<RemoteOpResult.Success>());
+        await PublishAsync(service, remoteRoot);
         await PublishOriginOnlyBranchAsync("feature", "feature\n");
         await RunGitAsync("remote", "set-head", "origin", "main");
 
         IReadOnlyList<BranchInfo> branches = await service.GetBranchesAsync(CancellationToken.None);
-        bool canCreateSameName = await ((IProjectVersionControlBackend)service).ExecuteExclusiveAsync(
+        bool canCreateSameName = await service.ExecuteExclusiveAsync(
             transaction => transaction.CanCreateBranchAsync("feature", CancellationToken.None),
             CancellationToken.None);
 
@@ -120,21 +119,17 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         await CommitFileAsync("project.bep", "initial\n", "initial");
         string remoteRoot = await CreateBareRemoteAsync();
         using var service = CreateService();
-        await service.SetRemoteAsync(remoteRoot, CancellationToken.None);
-        Assert.That(
-            await service.PushAsync(progress: null, CancellationToken.None),
-            Is.TypeOf<RemoteOpResult.Success>());
+        await PublishAsync(service, remoteRoot);
         await PublishOriginOnlyBranchAsync("feature", "feature\n");
         string originTip = (await RunGitAsync("rev-parse", "refs/remotes/origin/feature"))
             .Stdout.Trim();
 
         // A branch switch prefetches the LFS content of the target before it checks it out.
-        await ((IProjectVersionControlBackend)service).ExecuteExclusiveAsync(
+        await service.ExecuteExclusiveAsync(
             async transaction =>
             {
                 await transaction.PrefetchBranchLfsObjectsAsync("feature", CancellationToken.None);
                 await transaction.SwitchBranchAsync("feature", CancellationToken.None);
-                return true;
             },
             CancellationToken.None);
 
@@ -165,13 +160,9 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
             CreateRunner(),
             static (_, arguments, _) => GetGitSubcommand(arguments) == "push",
             async (_, _, _) => await RunGitAsync("switch", "main"),
-            after: null,
             interceptOnMatch: 2);
         using var service = CreateService(runner: interceptingRunner);
-        await service.SetRemoteAsync(originRoot, CancellationToken.None);
-        Assert.That(
-            await service.PushAsync(progress: null, CancellationToken.None),
-            Is.TypeOf<RemoteOpResult.Success>());
+        await PublishAsync(service, originRoot);
         await RunGitAsync("switch", "-c", "release");
         await RunGitAsync("branch", "--set-upstream-to=origin/main", "release");
         await RunGitAsync("update-ref", "-d", "refs/remotes/origin/main");
@@ -209,10 +200,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         string originRoot = await CreateBareRemoteAsync();
         string upstreamRoot = await CreateBareRemoteAsync();
         using var service = CreateService();
-        await service.SetRemoteAsync(originRoot, CancellationToken.None);
-        Assert.That(
-            await service.PushAsync(progress: null, CancellationToken.None),
-            Is.TypeOf<RemoteOpResult.Success>());
+        await PublishAsync(service, originRoot);
         string originMainBefore = await ReadRemoteRefAsync(originRoot, "refs/heads/main");
         await RunGitAsync("remote", "add", "upstream", upstreamRoot);
         await RunGitAsync("switch", "-c", "release");
@@ -298,10 +286,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         await CommitFileAsync("project.bep", "initial\n", "initial");
         string remoteRoot = await CreateBareRemoteAsync();
         using var service = CreateService();
-        await service.SetRemoteAsync(remoteRoot, CancellationToken.None);
-        Assert.That(
-            await service.PushAsync(progress: null, CancellationToken.None),
-            Is.TypeOf<RemoteOpResult.Success>());
+        await PublishAsync(service, remoteRoot);
         RepositoryInfo peer = await CloneRemoteAsync(remoteRoot);
         await CommitInRepositoryAsync(peer, "project.bep", "from peer\n", "peer update");
 
@@ -323,10 +308,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         string originRoot = await CreateBareRemoteAsync();
         string upstreamRoot = await CreateBareRemoteAsync();
         using var service = CreateService();
-        await service.SetRemoteAsync(originRoot, CancellationToken.None);
-        Assert.That(
-            await service.PushAsync(progress: null, CancellationToken.None),
-            Is.TypeOf<RemoteOpResult.Success>());
+        await PublishAsync(service, originRoot);
 
         await RunGitAsync("remote", "add", "upstream", upstreamRoot);
         await RunGitAsync("push", "upstream", "main");
@@ -392,10 +374,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         await CommitFileAsync("project.bep", "initial\n", "initial");
         string originRoot = await CreateBareRemoteAsync();
         using var service = CreateService();
-        await service.SetRemoteAsync(originRoot, CancellationToken.None);
-        Assert.That(
-            await service.PushAsync(progress: null, CancellationToken.None),
-            Is.TypeOf<RemoteOpResult.Success>());
+        await PublishAsync(service, originRoot);
 
         // Local `release` tracking `origin/main`: a ref synthesized from the local name asks about
         // the non-existent origin/release and reports an up-to-date branch.
@@ -420,10 +399,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         await CommitFileAsync("project.bep", "initial\n", "initial");
         string originRoot = await CreateBareRemoteAsync();
         using var service = CreateService();
-        await service.SetRemoteAsync(originRoot, CancellationToken.None);
-        Assert.That(
-            await service.PushAsync(progress: null, CancellationToken.None),
-            Is.TypeOf<RemoteOpResult.Success>());
+        await PublishAsync(service, originRoot);
         await RunGitAsync("switch", "-c", "release");
         await RunGitAsync("branch", "--set-upstream-to=origin/main", "release");
 
@@ -466,10 +442,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         await RunGitAsync("commit", "-m", "initial");
         string originRoot = await CreateBareRemoteAsync();
         using var service = CreateService(new RepositoryInfo(Root, projectRoot));
-        await service.SetRemoteAsync(originRoot, CancellationToken.None);
-        Assert.That(
-            await service.PushAsync(progress: null, CancellationToken.None),
-            Is.TypeOf<RemoteOpResult.Success>());
+        await PublishAsync(service, originRoot);
         RepositoryInfo peer = await CloneRemoteAsync(originRoot);
         await CommitInRepositoryAsync(peer, "project/project.bep", "from peer\n", "peer update");
         await File.WriteAllTextAsync(Path.Combine(Root, "notes.txt"), "scratch outside the project\n");
@@ -497,10 +470,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         string originRoot = await CreateBareRemoteAsync();
         string upstreamRoot = await CreateBareRemoteAsync();
         using var service = CreateService();
-        await service.SetRemoteAsync(originRoot, CancellationToken.None);
-        Assert.That(
-            await service.PushAsync(progress: null, CancellationToken.None),
-            Is.TypeOf<RemoteOpResult.Success>());
+        await PublishAsync(service, originRoot);
         await RunGitAsync("remote", "add", "upstream", upstreamRoot);
         await RunGitAsync("push", "upstream", "main");
         await RunGitAsync("branch", "--set-upstream-to=upstream/main", "main");
@@ -523,10 +493,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         await CommitFileAsync("project.bep", "initial\n", "initial");
         string remoteRoot = await CreateBareRemoteAsync();
         using var service = CreateService();
-        await service.SetRemoteAsync(remoteRoot, CancellationToken.None);
-        Assert.That(
-            await service.PushAsync(progress: null, CancellationToken.None),
-            Is.TypeOf<RemoteOpResult.Success>());
+        await PublishAsync(service, remoteRoot);
         await RunGitAsync("push", "origin", "main:other");
         await RunGitAsync(
             "config",
@@ -567,10 +534,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         await RunGitAsync("commit", "-m", "initial");
         string remoteRoot = await CreateBareRemoteAsync();
         using var service = CreateService();
-        await service.SetRemoteAsync(remoteRoot, CancellationToken.None);
-        Assert.That(
-            await service.PushAsync(progress: null, CancellationToken.None),
-            Is.TypeOf<RemoteOpResult.Success>());
+        await PublishAsync(service, remoteRoot);
         RepositoryInfo peer = await CloneRemoteAsync(remoteRoot);
         await File.WriteAllTextAsync(Path.Combine(peer.ProjectRoot, "ignored.txt"), "from peer\n");
         GitCliRunner runner = CreateRunner();
@@ -618,10 +582,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         await RunGitAsync("commit", "-m", "initial");
         string remoteRoot = await CreateBareRemoteAsync();
         using var service = CreateService();
-        await service.SetRemoteAsync(remoteRoot, CancellationToken.None);
-        Assert.That(
-            await service.PushAsync(progress: null, CancellationToken.None),
-            Is.TypeOf<RemoteOpResult.Success>());
+        await PublishAsync(service, remoteRoot);
         RepositoryInfo peer = await CloneRemoteAsync(remoteRoot);
         await CommitInRepositoryAsync(peer, "tracked.txt", "from peer\n", "peer update");
 
@@ -644,10 +605,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         await RunGitAsync("commit", "-m", "initial");
         string remoteRoot = await CreateBareRemoteAsync();
         using var service = CreateService();
-        await service.SetRemoteAsync(remoteRoot, CancellationToken.None);
-        Assert.That(
-            await service.PushAsync(progress: null, CancellationToken.None),
-            Is.TypeOf<RemoteOpResult.Success>());
+        await PublishAsync(service, remoteRoot);
         RepositoryInfo peer = await CloneRemoteAsync(remoteRoot);
         await File.WriteAllTextAsync(Path.Combine(peer.ProjectRoot, "ignored.txt"), "from peer\n");
         GitCliRunner runner = CreateRunner();
@@ -683,10 +641,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         await CommitFileAsync("project.bep", "initial\n", "initial");
         string remoteRoot = await CreateBareRemoteAsync();
         using var service = CreateService();
-        await service.SetRemoteAsync(remoteRoot, CancellationToken.None);
-        Assert.That(
-            await service.PushAsync(progress: null, CancellationToken.None),
-            Is.TypeOf<RemoteOpResult.Success>());
+        await PublishAsync(service, remoteRoot);
         RepositoryInfo peer = await CloneRemoteAsync(remoteRoot);
         await CommitInRepositoryAsync(peer, "project.bep", "remote\n", "remote update");
         await CommitFileAsync("project.bep", "local\n", "local update");
@@ -716,10 +671,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         await CommitFileAsync("project.bep", "initial\n", "initial");
         string remoteRoot = await CreateBareRemoteAsync();
         using var service = CreateService();
-        await service.SetRemoteAsync(remoteRoot, CancellationToken.None);
-        Assert.That(
-            await service.PushAsync(progress: null, CancellationToken.None),
-            Is.TypeOf<RemoteOpResult.Success>());
+        await PublishAsync(service, remoteRoot);
         RepositoryInfo peer = await CloneRemoteAsync(remoteRoot);
         await CommitInRepositoryAsync(peer, "project.bep", "from peer\n", "peer update");
         await CommitInRepositoryAsync(
@@ -774,10 +726,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         await CommitFileAsync("project.bep", "initial\n", "initial");
         string remoteRoot = await CreateBareRemoteAsync();
         using var service = CreateService();
-        await service.SetRemoteAsync(remoteRoot, CancellationToken.None);
-        Assert.That(
-            await service.PushAsync(progress: null, CancellationToken.None),
-            Is.TypeOf<RemoteOpResult.Success>());
+        await PublishAsync(service, remoteRoot);
         RepositoryInfo peer = await CloneRemoteAsync(remoteRoot);
         await CommitInRepositoryAsync(peer, "remote.belm", "remote\n", "remote update");
         await CommitFileAsync("local.belm", "local\n", "local update");
@@ -810,10 +759,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         await CommitFileAsync("project.bep", "initial\n", "initial");
         string remoteRoot = await CreateBareRemoteAsync();
         using var service = CreateService();
-        await service.SetRemoteAsync(remoteRoot, CancellationToken.None);
-        Assert.That(
-            await service.PushAsync(progress: null, CancellationToken.None),
-            Is.TypeOf<RemoteOpResult.Success>());
+        await PublishAsync(service, remoteRoot);
         RepositoryInfo peer = await CloneRemoteAsync(remoteRoot);
         await CommitInRepositoryAsync(peer, "project.bep", "from peer\n", "peer update");
         await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "local edit\n");
@@ -885,6 +831,14 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
             repository ?? Repository,
             watcher: null,
             _ => runner ?? CreateRunner());
+    }
+
+    private static async Task PublishAsync(GitCliVersionControlService service, string remoteRoot)
+    {
+        await service.SetRemoteAsync(remoteRoot, CancellationToken.None);
+        Assert.That(
+            await service.PushAsync(progress: null, CancellationToken.None),
+            Is.TypeOf<RemoteOpResult.Success>());
     }
 
     // Pulls the way the coordinator does: the preflight fetches and checks for a fast-forward, and
@@ -1009,64 +963,25 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         return result.Stdout.Trim();
     }
 
-    // Commands can carry `-c` overrides (LFS path filters, the upload agent) before the
-    // subcommand, so tests match past that prefix instead of pinning its exact shape.
-    private static string? GetGitSubcommand(IReadOnlyList<string> arguments)
-    {
-        int index = SkipConfigOverrides(arguments);
-        return index < arguments.Count ? arguments[index] : null;
-    }
-
-    private static int SkipConfigOverrides(IReadOnlyList<string> arguments)
-    {
-        int index = 0;
-        while (index + 1 < arguments.Count && arguments[index] == "-c")
-        {
-            index += 2;
-        }
-
-        return index;
-    }
-
-    private sealed class RecordingProgress : IProgress<string>
-    {
-        public List<string> Messages { get; } = [];
-
-        public void Report(string value)
-        {
-            Messages.Add(value);
-        }
-    }
-
     private sealed class InterceptingRunner(
         IGitCliRunner inner,
         Func<RepositoryInfo, IReadOnlyList<string>, GitCommandOptions, bool> predicate,
         Func<RepositoryInfo, IReadOnlyList<string>, GitCommandOptions, Task>? before,
-        Func<RepositoryInfo, IReadOnlyList<string>, GitCommandOptions, Task>? after,
         int interceptOnMatch = 1)
-        : IGitCliRunner
+        : DelegatingGitCliRunner(inner)
     {
         private int _interceptionCount;
         private int _matchingCount;
 
-        public bool HasActiveProcess => inner.HasActiveProcess;
-
         public int InterceptionCount => Volatile.Read(ref _interceptionCount);
 
-        public List<IReadOnlyList<string>> Commands { get; } = [];
-
-        public async Task<GitCommandResult> RunAsync(
+        public override async Task<GitCommandResult> RunAsync(
             RepositoryInfo repository,
             IReadOnlyList<string> arguments,
             GitCommandOptions options,
             CancellationToken cancellationToken,
             IProgress<string>? stderrProgress = null)
         {
-            lock (Commands)
-            {
-                Commands.Add(arguments.ToArray());
-            }
-
             bool intercept = predicate(repository, arguments, options)
                              && Interlocked.Increment(ref _matchingCount) == interceptOnMatch;
             if (intercept)
@@ -1078,26 +993,12 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
                 await before(repository, arguments, options);
             }
 
-            GitCommandResult result = await inner.RunAsync(
+            return await base.RunAsync(
                 repository,
                 arguments,
                 options,
                 cancellationToken,
                 stderrProgress);
-            if (intercept && after is not null)
-            {
-                await after(repository, arguments, options);
-            }
-
-            return result;
         }
-
-        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
-            => inner.GetRecoverableRepositoryLock(repository);
-
-        public bool RemoveRecoverableRepositoryLock(
-            RepositoryInfo repository,
-            RepositoryLockInfo lockInfo)
-            => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
     }
 }

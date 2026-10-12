@@ -113,8 +113,7 @@ internal partial class VersionControlCoordinator
                     _installationLocator,
                     repository: null,
                     () => _projectService.CurrentProject.Value is null,
-                    PresentPolicyNoticeAsync,
-                    projectFile);
+                    PresentPolicyNoticeAsync);
             preparedService = null;
             var activation = new ActivationContext(
                 projectRoot,
@@ -169,7 +168,6 @@ internal partial class VersionControlCoordinator
                     repository,
                     () => _projectService.CurrentProject.Value is null,
                     PresentPolicyNoticeAsync,
-                    activation.ProjectFile,
                     RequestIdentityForSnapshotAsync);
             activation.Candidate = trackedService;
             try

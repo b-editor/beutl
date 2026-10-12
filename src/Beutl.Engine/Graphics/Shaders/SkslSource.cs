@@ -1,6 +1,4 @@
-﻿using System.Buffers;
-using System.Collections.ObjectModel;
-using System.Text;
+﻿using System.Collections.ObjectModel;
 using System.Text.RegularExpressions;
 
 namespace Beutl.Graphics.Shaders;
@@ -269,31 +267,5 @@ public sealed partial class SkslSource
         => name.StartsWith("fe", StringComparison.Ordinal) && name.Contains('_', StringComparison.Ordinal);
 
     private static string ComputeHash(string source)
-    {
-        const ulong offset = 14695981039346656037UL;
-        const ulong prime = 1099511628211UL;
-        const int stackBufferSize = 512;
-        int byteCount = Encoding.UTF8.GetByteCount(source);
-        byte[]? rented = null;
-        Span<byte> bytes = byteCount <= stackBufferSize
-            ? stackalloc byte[byteCount]
-            : (rented = ArrayPool<byte>.Shared.Rent(byteCount));
-        ulong hash = offset;
-        try
-        {
-            int written = Encoding.UTF8.GetBytes(source, bytes);
-            foreach (byte value in bytes[..written])
-            {
-                hash ^= value;
-                hash *= prime;
-            }
-        }
-        finally
-        {
-            if (rented is not null)
-                ArrayPool<byte>.Shared.Return(rented);
-        }
-
-        return hash.ToString("x16");
-    }
+        => Fnv1a.HashUtf8(source).ToString("x16");
 }

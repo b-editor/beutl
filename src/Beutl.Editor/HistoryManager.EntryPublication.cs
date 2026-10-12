@@ -22,16 +22,7 @@ public sealed partial class HistoryManager
         _entryPublicationDepth++;
         try
         {
-            try
-            {
-                _entries.Add(entry);
-            }
-            catch (Exception ex) when (_entries.Count == index + 1
-                && ReferenceEquals(_entries[index], entry))
-            {
-                _logger.LogError(ex, "A direct history entry observer failed while adding entry {EntryIndex}.", index);
-            }
-
+            _entries.Add(entry);
             NotifyEntrySubscribersSafely(
                 new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, entry, index),
                 subscribers);
@@ -49,15 +40,7 @@ public sealed partial class HistoryManager
         _entryPublicationDepth++;
         try
         {
-            try
-            {
-                _entries[index] = entry;
-            }
-            catch (Exception ex) when (ReferenceEquals(_entries[index], entry))
-            {
-                _logger.LogError(ex, "A direct history entry observer failed while replacing entry {EntryIndex}.", index);
-            }
-
+            _entries[index] = entry;
             NotifyEntrySubscribersSafely(
                 new NotifyCollectionChangedEventArgs(
                     NotifyCollectionChangedAction.Replace,
@@ -75,20 +58,11 @@ public sealed partial class HistoryManager
     private void RemoveEntryAt(int index)
     {
         HistoryEntry removed = _entries[index];
-        int previousCount = _entries.Count;
         EntrySubscriber[] subscribers = _entrySubscribers.ToArray();
         _entryPublicationDepth++;
         try
         {
-            try
-            {
-                _entries.RemoveAt(index);
-            }
-            catch (Exception ex) when (_entries.Count == previousCount - 1)
-            {
-                _logger.LogError(ex, "A direct history entry observer failed while removing entry {EntryIndex}.", index);
-            }
-
+            _entries.RemoveAt(index);
             NotifyEntrySubscribersSafely(
                 new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, removed, index),
                 subscribers);
@@ -148,8 +122,7 @@ public sealed partial class HistoryManager
 
         protected override void OnCollectionChanged(NotifyCollectionChangedEventArgs args)
         {
-            try { base.OnCollectionChanged(args); }
-            catch (Exception ex) { Report(ex); }
+            base.OnCollectionChanged(args);
             foreach (NotifyCollectionChangedEventHandler handler in
                      CollectionHandlers?.GetInvocationList() ?? [])
             {
@@ -160,8 +133,7 @@ public sealed partial class HistoryManager
 
         protected override void OnPropertyChanged(PropertyChangedEventArgs args)
         {
-            try { base.OnPropertyChanged(args); }
-            catch (Exception ex) { Report(ex); }
+            base.OnPropertyChanged(args);
             foreach (PropertyChangedEventHandler handler in PropertyHandlers?.GetInvocationList() ?? [])
             {
                 try { handler(this, args); }

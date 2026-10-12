@@ -15,10 +15,6 @@ public class VersionControlSnapshotScopeTests : RealGitTestRepository
         const string unchangedElement = "elements/22222222222222222222222222222222.belm";
         await WriteProjectFileAsync("project.bep", """{"name":"Snapshot scope fixture"}""" + "\n");
         await WriteProjectFileAsync(
-            "main.scene",
-            """{"elements":["11111111111111111111111111111111.belm","22222222222222222222222222222222.belm"]}"""
-            + "\n");
-        await WriteProjectFileAsync(
             changedElement,
             """{"id":"11111111-1111-1111-1111-111111111111","opacity":1.0}""" + "\n");
         await WriteProjectFileAsync(
@@ -35,10 +31,10 @@ public class VersionControlSnapshotScopeTests : RealGitTestRepository
         await WriteProjectFileAsync("render-cache.tmp", "ignored\n");
         using var service = CreateService();
 
-        var commit = (CommitRevision.Known)((CommitResult.Committed)await service.CommitAllAsync(
+        var commit = (CommitResult.Committed)await service.CommitAllAsync(
             "beutl: snapshot on save",
             SnapshotKind.Save,
-            CancellationToken.None)).Revision;
+            CancellationToken.None);
         IReadOnlyList<FileChange> changedFiles = await service.GetCommitFilesAsync(
             commit.Sha,
             CancellationToken.None);
@@ -73,10 +69,10 @@ public class VersionControlSnapshotScopeTests : RealGitTestRepository
         await WriteProjectFileAsync("render-cache.tmp", "machine-local\n");
         using var service = CreateService();
 
-        var revision = (CommitRevision.Known)((CommitResult.Committed)await service.CommitAllAsync(
+        var revision = (CommitResult.Committed)await service.CommitAllAsync(
             "beutl: snapshot on save",
             SnapshotKind.Save,
-            CancellationToken.None)).Revision;
+            CancellationToken.None);
         IReadOnlyList<FileChange> changedFiles = await service.GetCommitFilesAsync(
             revision.Sha,
             CancellationToken.None);
@@ -129,14 +125,13 @@ public class VersionControlSnapshotScopeTests : RealGitTestRepository
         });
     }
 
-    private GitCliVersionControlService CreateService(string? projectFile = null)
+    private GitCliVersionControlService CreateService()
     {
         return new GitCliVersionControlService(
             CreateInstalledLocator(),
             Repository,
             watcher: null,
-            _ => CreateRunner(TimeSpan.FromSeconds(30)),
-            projectFile: projectFile);
+            _ => CreateRunner(TimeSpan.FromSeconds(30)));
     }
 
     private async Task WriteProjectFileAsync(string relativePath, string contents)

@@ -698,24 +698,9 @@ internal sealed class ExecutionIslandPlanner
         IReadOnlyList<StageCandidate> previous,
         IReadOnlyList<StageCandidate> current,
         SkslBackendBudget budget)
-    {
-        SkslMergedProgram combined = SkslSnippetMerger.Merge(
-            previous.Concat(current.Take(1)).Select(static item => item.Description).ToArray());
-        var result = ImmutableArray.CreateBuilder<SkslBackendLimit>();
-        if (combined.StageCount > budget.MaxStages)
-            result.Add(SkslBackendLimit.StageCount);
-        if (combined.UniformVectorCount > budget.MaxUniformVectors)
-            result.Add(SkslBackendLimit.UniformVectors);
-        if (combined.SamplerCount > budget.MaxSamplers)
-            result.Add(SkslBackendLimit.Samplers);
-        if (combined.ChildCount > budget.MaxChildren)
-            result.Add(SkslBackendLimit.Children);
-        if (combined.SourceByteCount > budget.MaxSourceBytes)
-            result.Add(SkslBackendLimit.SourceBytes);
-        if (combined.ProgramTokenCount > budget.MaxProgramTokens)
-            result.Add(SkslBackendLimit.ProgramTokens);
-        return result.ToImmutable();
-    }
+        => SkslSnippetMerger.Merge(
+            previous.Concat(current.Take(1)).Select(static item => item.Description).ToArray(),
+            budget).OverflowReasons;
 
     private static RenderFragmentId GetId(RenderFragmentReference reference)
         => reference.Id

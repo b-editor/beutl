@@ -370,9 +370,7 @@ public class EditorCloseSaveTests
     }
 
     [AvaloniaTest]
-    [TestCase(false)]
-    [TestCase(true)]
-    public async Task Window_close_is_refused_when_a_standalone_scene_cannot_save(bool asynchronous)
+    public async Task Window_close_is_refused_when_a_standalone_scene_cannot_save()
     {
         await TestReset.ResetShellAsync();
         string directory = Path.Combine(BeutlHomeIsolation.CurrentHome!, "standalone-close-" + Guid.NewGuid().ToString("N"));
@@ -390,10 +388,7 @@ public class EditorCloseSaveTests
                        throw new IOException("Injected standalone close failure.");
                }))
         {
-            bool closed = asynchronous
-                ? await TestShell.MainViewModel.TryDisposeForWindowCloseAsync()
-                : TestShell.MainViewModel.TryDisposeForWindowClose();
-            Assert.That(closed, Is.False);
+            Assert.That(await TestShell.MainViewModel.TryDisposeForWindowCloseAsync(), Is.False);
         }
 
         Assert.That(TestShell.Editor.TabItems, Does.Contain(tab));

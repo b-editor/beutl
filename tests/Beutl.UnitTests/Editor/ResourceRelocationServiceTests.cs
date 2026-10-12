@@ -32,7 +32,6 @@ public class ResourceRelocationServiceTests
             }
             catch
             {
-                // Ignore cleanup errors
             }
         }
     }
@@ -40,17 +39,14 @@ public class ResourceRelocationServiceTests
     [Test]
     public async Task RelocateFileSourcesAsync_WithMissingSourceFile_ReportsFailedItem()
     {
-        // Arrange
         var service = new ResourceRelocationService();
         var project = new Project();
         string missingPath = Path.Combine(_testDir, "does_not_exist.png");
         Uri missingUri = new(missingPath);
         var sources = new[] { (Guid.NewGuid(), "Source", missingUri) };
 
-        // Act
         RelocationResult result = await service.RelocateFileSourcesAsync(sources, project, _projectDir);
 
-        // Assert
         Assert.Multiple(() =>
         {
             Assert.That(result.SuccessCount, Is.EqualTo(0));
@@ -71,7 +67,6 @@ public class ResourceRelocationServiceTests
         Guid id = Guid.NewGuid();
         var sources = new[] { (id, "NonExistentProperty", sourceUri) };
 
-        // Act
         RelocationResult result = await service.RelocateFileSourcesAsync(sources, project, _projectDir);
 
         // Assert: the per-property failure path tags the entry with the GUID and property,
@@ -85,67 +80,31 @@ public class ResourceRelocationServiceTests
         });
     }
 
-    [Test]
-    public async Task RelocateFontsAsync_WithFailingFontFinder_ReportsFailedItem()
+    // The finder has no file for the family (the font is not installed), or a file that does not
+    // exist, so CopyFileAsync throws.
+    private static IEnumerable<TestCaseData> FontFindersWithoutACopyableFile()
     {
-        // Arrange: font finder throws for a specific family name.
-        var service = new ResourceRelocationService(name =>
-        {
-            if (name == "BrokenFont")
-                throw new InvalidOperationException("simulated finder failure");
-            return [];
-        });
-        var fonts = new[] { new FontFamily("BrokenFont") };
-
-        // Act
-        RelocationResult result = await service.RelocateFontsAsync(fonts, _projectDir);
-
-        // Assert
-        Assert.Multiple(() =>
-        {
-            Assert.That(result.SuccessCount, Is.EqualTo(0));
-            Assert.That(result.FailedResources, Has.Count.EqualTo(1));
-            Assert.That(result.FailedResources[0], Is.EqualTo("BrokenFont"));
-        });
+        yield return new TestCaseData((Func<string, IEnumerable<string>>)(_ => []))
+            .SetArgDisplayNames("no files");
+        string missingFontPath = Path.Combine(Path.GetTempPath(), $"beutl_missing_{Guid.NewGuid():N}.ttf");
+        yield return new TestCaseData((Func<string, IEnumerable<string>>)(_ => [missingFontPath]))
+            .SetArgDisplayNames("missing file");
     }
 
-    [Test]
-    public async Task RelocateFontsAsync_WithNoMatchingFontFiles_ReportsFailedItem()
+    [TestCaseSource(nameof(FontFindersWithoutACopyableFile))]
+    public async Task RelocateFontsAsync_WithoutACopyableFontFile_ReportsFailedItem(
+        Func<string, IEnumerable<string>> fontFileFinder)
     {
-        // Arrange: font finder returns an empty enumerable for the family (font not installed).
-        var service = new ResourceRelocationService(_ => []);
+        var service = new ResourceRelocationService(fontFileFinder);
         var fonts = new[] { new FontFamily("UnknownFamily") };
 
-        // Act
         RelocationResult result = await service.RelocateFontsAsync(fonts, _projectDir);
 
-        // Assert
         Assert.Multiple(() =>
         {
             Assert.That(result.SuccessCount, Is.EqualTo(0));
             Assert.That(result.FailedResources, Has.Count.EqualTo(1));
             Assert.That(result.FailedResources[0], Is.EqualTo("UnknownFamily"));
-        });
-    }
-
-    [Test]
-    public async Task RelocateFontsAsync_WithMissingFontFile_ReportsFailedItem()
-    {
-        // Arrange: font finder returns a path that does not exist; CopyFileAsync throws.
-        string missingFontPath = Path.Combine(_testDir, "missing.ttf");
-        var service = new ResourceRelocationService(name =>
-            name == "FamilyWithMissingFile" ? new[] { missingFontPath } : []);
-        var fonts = new[] { new FontFamily("FamilyWithMissingFile") };
-
-        // Act
-        RelocationResult result = await service.RelocateFontsAsync(fonts, _projectDir);
-
-        // Assert
-        Assert.Multiple(() =>
-        {
-            Assert.That(result.SuccessCount, Is.EqualTo(0));
-            Assert.That(result.FailedResources, Has.Count.EqualTo(1));
-            Assert.That(result.FailedResources[0], Is.EqualTo("FamilyWithMissingFile"));
         });
     }
 
@@ -163,10 +122,8 @@ public class ResourceRelocationServiceTests
         });
         var fonts = new[] { new FontFamily("GoodFamily"), new FontFamily("BadFamily") };
 
-        // Act
         RelocationResult result = await service.RelocateFontsAsync(fonts, _projectDir);
 
-        // Assert
         Assert.Multiple(() =>
         {
             Assert.That(result.SuccessCount, Is.EqualTo(1));
@@ -185,10 +142,8 @@ public class ResourceRelocationServiceTests
         var service = new ResourceRelocationService(_ => new[] { sharedPath });
         var fonts = new[] { new FontFamily("Family1"), new FontFamily("Family2") };
 
-        // Act
         RelocationResult result = await service.RelocateFontsAsync(fonts, _projectDir);
 
-        // Assert
         Assert.Multiple(() =>
         {
             Assert.That(result.SuccessCount, Is.EqualTo(1));
@@ -212,10 +167,8 @@ public class ResourceRelocationServiceTests
             (Guid.NewGuid(), "Prop2", missingUri),
         };
 
-        // Act
         RelocationResult result = await service.RelocateFileSourcesAsync(sources, project, _projectDir);
 
-        // Assert
         Assert.Multiple(() =>
         {
             Assert.That(result.SuccessCount, Is.EqualTo(0));
@@ -226,14 +179,11 @@ public class ResourceRelocationServiceTests
     [Test]
     public async Task RelocateFileSourcesAsync_WithNoSources_ReturnsEmptyResult()
     {
-        // Arrange
         var service = new ResourceRelocationService();
         var project = new Project();
 
-        // Act
         RelocationResult result = await service.RelocateFileSourcesAsync([], project, _projectDir);
 
-        // Assert
         Assert.Multiple(() =>
         {
             Assert.That(result.SuccessCount, Is.EqualTo(0));
@@ -254,7 +204,6 @@ public class ResourceRelocationServiceTests
         using CancellationTokenSource cts = new();
         cts.Cancel();
 
-        // Act & Assert
         await Assert.ThrowsAsync<OperationCanceledException>(async () =>
             await service.RelocateFileSourcesAsync(sources, project, _projectDir, cts.Token));
     }
@@ -262,7 +211,6 @@ public class ResourceRelocationServiceTests
     [Test]
     public async Task RelocateFontsAsync_WithCancelledCopy_PropagatesCancellation()
     {
-        // Arrange
         string fontPath = Path.Combine(_testDir, "font.ttf");
         File.WriteAllBytes(fontPath, [1, 2, 3]);
         var service = new ResourceRelocationService(_ => new[] { fontPath });
@@ -270,7 +218,6 @@ public class ResourceRelocationServiceTests
         using CancellationTokenSource cts = new();
         cts.Cancel();
 
-        // Act & Assert
         await Assert.ThrowsAsync<OperationCanceledException>(async () =>
             await service.RelocateFontsAsync(fonts, _projectDir, cts.Token));
     }
@@ -278,13 +225,10 @@ public class ResourceRelocationServiceTests
     [Test]
     public async Task RelocateFontsAsync_WithNoFamilies_ReturnsEmptyResult()
     {
-        // Arrange
         var service = new ResourceRelocationService(_ => []);
 
-        // Act
         RelocationResult result = await service.RelocateFontsAsync([], _projectDir);
 
-        // Assert
         Assert.Multiple(() =>
         {
             Assert.That(result.SuccessCount, Is.EqualTo(0));

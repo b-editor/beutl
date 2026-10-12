@@ -256,16 +256,12 @@ public sealed class UsageTelemetryTests
     public void History_counts_commits_but_not_undo_redo_or_untrusted_names()
     {
         var scene = new Scene(640, 480, "usage-test");
-        var sequence = new OperationSequenceGenerator();
-        using var observer = new CoreObjectOperationObserver(null, scene, sequence);
-        using var history = new HistoryManager(scene, sequence);
-        using var observation = history.Subscribe(observer);
-        using var tracker = new EditorUsageTracker(scene, history);
+        using var tracked = new TrackedHistory(scene);
         scene.Name = "secret project title";
-        history.Commit("secret command", "secret expression");
-        history.Undo();
-        history.Redo();
-        history.Commit(); // no-op
+        tracked.History.Commit("secret command", "secret expression");
+        tracked.History.Undo();
+        tracked.History.Redo();
+        tracked.History.Commit(); // no-op
         _usage.Flush();
         UsageSummary edit = _summaries.Single(s => s.Key.Event == "editor.edit");
         Assert.That(edit.Count, Is.EqualTo(1));
@@ -289,16 +285,12 @@ public sealed class UsageTelemetryTests
         var application = new BeutlApplication();
         application.Items.Add(scene);
         TimeRange originalRange = element.Range;
-        var sequence = new OperationSequenceGenerator();
-        using var observer = new CoreObjectOperationObserver(null, scene, sequence);
-        using var history = new HistoryManager(scene, sequence);
-        using var subscription = history.Subscribe(observer);
-        using var tracker = new EditorUsageTracker(scene, history);
-        tracker.ActivateTool(new object(), "Timeline");
+        using var tracked = new TrackedHistory(scene);
+        tracked.Tracker.ActivateTool(new object(), "Timeline");
 
         if (property == nameof(Element.Start)) element.Start = TimeSpan.FromSeconds(1);
         else element.Length = TimeSpan.FromSeconds(10);
-        history.Commit();
+        tracked.History.Commit();
         _usage.Flush();
 
         Assert.That(_summaries.Where(s => s.Key.Event == "editor.property").Select(s => s.Key.Feature),
@@ -309,10 +301,10 @@ public sealed class UsageTelemetryTests
         Assert.That(scene.EnumerateAllChildren<EngineObject>().Select(o => o.TimeRange),
             Is.All.EqualTo(element.Range));
 
-        history.Undo();
+        tracked.History.Undo();
         Assert.That(scene.EnumerateAllChildren<EngineObject>().Select(o => o.TimeRange),
             Is.All.EqualTo(originalRange));
-        history.Redo();
+        tracked.History.Redo();
         Assert.That(scene.EnumerateAllChildren<EngineObject>().Select(o => o.TimeRange),
             Is.All.EqualTo(element.Range));
         _usage.Flush();
@@ -323,25 +315,17 @@ public sealed class UsageTelemetryTests
     [TestCase(true)]
     public void Animation_and_expression_assignments_and_removal_report_the_owning_property(bool expression)
     {
-        var scene = new Scene(640, 480, "usage-test");
-        var shape = new Beutl.Graphics.Shapes.RectShape();
-        var element = new Element();
-        element.Objects.Add(shape);
-        scene.Children.Add(element);
-        var sequence = new OperationSequenceGenerator();
-        using var observer = new CoreObjectOperationObserver(null, scene, sequence);
-        using var history = new HistoryManager(scene, sequence);
-        using var subscription = history.Subscribe(observer);
-        using var tracker = new EditorUsageTracker(scene, history);
+        (Scene scene, var shape, _) = CreateShapeScene();
+        using var tracked = new TrackedHistory(scene);
         shape.Opacity.CurrentValue = 90;
-        history.Commit();
+        tracked.History.Commit();
         _usage.Flush();
         Assert.That(_summaries.Single(s => s.Key.Event == "editor.property").Key.Feature, Is.EqualTo("RectShape.Opacity"));
         _summaries.Clear();
 
         if (expression) shape.Opacity.Expression = new StringExpression<float>("42 + 8");
         else shape.Opacity.Animation = new KeyFrameAnimation<float>();
-        history.Commit();
+        tracked.History.Commit();
         _usage.Flush();
         UsageSummary assignment = _summaries.Single(s => s.Key.Event == "editor.property");
         Assert.That(assignment.Key.Feature, Is.EqualTo("RectShape.Opacity"));
@@ -350,7 +334,7 @@ public sealed class UsageTelemetryTests
 
         if (expression) shape.Opacity.Expression = null;
         else shape.Opacity.Animation = null;
-        history.Commit();
+        tracked.History.Commit();
         _usage.Flush();
         UsageSummary removal = _summaries.Single(s => s.Key.Event == "editor.property");
         Assert.That(removal.Key.Feature, Is.EqualTo("RectShape.Opacity"));
@@ -360,20 +344,12 @@ public sealed class UsageTelemetryTests
     [Test]
     public void Direct_animation_and_expression_changes_count_one_property_per_transaction()
     {
-        var scene = new Scene(640, 480, "usage-test");
-        var shape = new Beutl.Graphics.Shapes.RectShape();
-        var element = new Element();
-        element.Objects.Add(shape);
-        scene.Children.Add(element);
-        var sequence = new OperationSequenceGenerator();
-        using var observer = new CoreObjectOperationObserver(null, scene, sequence);
-        using var history = new HistoryManager(scene, sequence);
-        using var subscription = history.Subscribe(observer);
-        using var tracker = new EditorUsageTracker(scene, history);
+        (Scene scene, var shape, _) = CreateShapeScene();
+        using var tracked = new TrackedHistory(scene);
         shape.Opacity.CurrentValue = 90;
         shape.Opacity.Animation = new KeyFrameAnimation<float>();
         shape.Opacity.Expression = new StringExpression<float>("42");
-        history.Commit();
+        tracked.History.Commit();
         _usage.Flush();
         UsageSummary property = _summaries.Single(s => s.Key.Event == "editor.property");
         Assert.That(property.Key.Feature, Is.EqualTo("RectShape.Opacity"));
@@ -384,23 +360,14 @@ public sealed class UsageTelemetryTests
     [Test]
     public void Effects_are_counted_once_per_type_and_disabled_effects_are_excluded()
     {
-        var scene = new Scene(640, 480, "usage-test");
-        var shape = new Beutl.Graphics.Shapes.RectShape();
         var group = new FilterEffectGroup();
         group.Children.Add(new Blur());
         group.Children.Add(new Blur());
         group.Children.Add(new DropShadow { IsEnabled = false });
-        shape.FilterEffect.CurrentValue = group;
-        var element = new Element();
-        element.Objects.Add(shape);
-        scene.Children.Add(element);
-        var sequence = new OperationSequenceGenerator();
-        using var observer = new CoreObjectOperationObserver(null, scene, sequence);
-        using var history = new HistoryManager(scene, sequence);
-        using var observation = history.Subscribe(observer);
-        using var tracker = new EditorUsageTracker(scene, history);
+        (Scene scene, _, _) = CreateShapeScene(group);
+        using var tracked = new TrackedHistory(scene);
         scene.Name = "changed";
-        history.Commit();
+        tracked.History.Commit();
         _usage.Flush();
         Assert.That(_summaries.Where(s => s.Key.Event == "effect.used").Select(s => (s.Key.Feature, s.Count)),
             Is.EquivalentTo(new[] { ("Blur", 1L) }));
@@ -410,23 +377,15 @@ public sealed class UsageTelemetryTests
     public void Unrelated_boolean_commits_do_not_traverse_the_effect_inventory()
     {
         var scene = new CountingScene();
-        var shape = new Beutl.Graphics.Shapes.RectShape();
-        shape.FilterEffect.CurrentValue = new Blur();
-        var element = new Element();
-        element.Objects.Add(shape);
-        scene.Children.Add(element);
-        var sequence = new OperationSequenceGenerator();
-        using var observer = new CoreObjectOperationObserver(null, scene, sequence);
-        using var history = new HistoryManager(scene, sequence);
-        using var subscription = history.Subscribe(observer);
-        using var tracker = new EditorUsageTracker(scene, history);
+        (_, var shape, var element) = CreateShapeScene(new Blur(), scene);
+        using var tracked = new TrackedHistory(scene);
         Assert.That(scene.HierarchyReads, Is.GreaterThan(0), "The initial inventory must still be scanned.");
         scene.HierarchyReads = 0;
         for (int i = 0; i < 4; i++)
         {
             element.IsLocked = !element.IsLocked;
             shape.IsTimeAnchor = !shape.IsTimeAnchor;
-            history.Commit();
+            tracked.History.Commit();
         }
         _usage.Flush();
         Assert.Multiple(() =>
@@ -444,14 +403,10 @@ public sealed class UsageTelemetryTests
     public void Enabling_effects_and_their_ancestors_rescans_nested_property_paths(string target)
     {
         var scene = new CountingScene();
-        var shape = new Beutl.Graphics.Shapes.RectShape();
         var blur = new Blur();
         var group = new FilterEffectGroup();
         group.Children.Add(blur);
-        shape.FilterEffect.CurrentValue = group;
-        var element = new Element();
-        element.Objects.Add(shape);
-        scene.Children.Add(element);
+        (_, var shape, var element) = CreateShapeScene(group, scene);
         Action<bool> setEnabled = target switch
         {
             "effect" => enabled => blur.IsEnabled = enabled,
@@ -460,25 +415,21 @@ public sealed class UsageTelemetryTests
             _ => enabled => element.IsEnabled = enabled
         };
         setEnabled(false);
-        var sequence = new OperationSequenceGenerator();
-        using var observer = new CoreObjectOperationObserver(null, scene, sequence);
-        using var history = new HistoryManager(scene, sequence);
-        using var subscription = history.Subscribe(observer);
-        using var tracker = new EditorUsageTracker(scene, history);
+        using var tracked = new TrackedHistory(scene);
         _usage.Flush();
         Assert.That(_summaries.Any(s => s.Key.Event == "effect.used"), Is.False);
         scene.HierarchyReads = 0;
 
         setEnabled(true);
-        history.Commit();
+        tracked.History.Commit();
         Assert.That(scene.HierarchyReads, Is.EqualTo(1));
         _usage.Flush();
         scene.HierarchyReads = 0;
         setEnabled(false);
-        history.Commit();
+        tracked.History.Commit();
         Assert.That(scene.HierarchyReads, Is.Zero, "Disabling cannot introduce an unobserved enabled effect.");
         setEnabled(true);
-        history.Commit();
+        tracked.History.Commit();
         _usage.Flush();
         Assert.That(_summaries.Single(s => s.Key.Event == "effect.used").Key.Feature, Is.EqualTo("Blur"));
         Assert.That(_summaries.Single(s => s.Key.Event == "effect.used").Count, Is.EqualTo(1));
@@ -489,22 +440,13 @@ public sealed class UsageTelemetryTests
     [TestCase(true)]
     public void Revocation_retries_only_effects_not_yet_emitted(bool fromBackground)
     {
-        var scene = new Scene(640, 480, "usage-test");
-        var shape = new Beutl.Graphics.Shapes.RectShape();
         var group = new FilterEffectGroup();
         group.Children.Add(new Blur());
-        shape.FilterEffect.CurrentValue = group;
-        var element = new Element();
-        element.Objects.Add(shape);
-        scene.Children.Add(element);
-        var sequence = new OperationSequenceGenerator();
-        using var observer = new CoreObjectOperationObserver(null, scene, sequence);
-        using var history = new HistoryManager(scene, sequence);
-        using var subscription = history.Subscribe(observer);
-        using var tracker = new EditorUsageTracker(scene, history);
+        (Scene scene, _, _) = CreateShapeScene(group);
+        using var tracked = new TrackedHistory(scene);
         _usage.Flush(); // Blur is already emitted and must never be counted twice.
         group.Children.Add(new DropShadow());
-        history.Commit(); // DropShadow is still pending when collection is revoked.
+        tracked.History.Commit(); // DropShadow is still pending when collection is revoked.
         _config.Beutl_Application = false;
         if (fromBackground) Task.Run(() => _config.Beutl_Application = true).GetAwaiter().GetResult();
         else _config.Beutl_Application = true;
@@ -520,12 +462,7 @@ public sealed class UsageTelemetryTests
     [AvaloniaTest]
     public void Batched_effect_observations_remain_once_per_editor_after_reentrant_opt_in()
     {
-        var scene = new Scene(640, 480, "usage-test");
-        var shape = new Beutl.Graphics.Shapes.RectShape();
-        shape.FilterEffect.CurrentValue = new Blur();
-        var element = new Element();
-        element.Objects.Add(shape);
-        scene.Children.Add(element);
+        (Scene scene, _, _) = CreateShapeScene(new Blur());
         using var usage = new UsageTelemetry(_config, _time, summary =>
         {
             _summaries.Add(summary);
@@ -672,12 +609,7 @@ public sealed class UsageTelemetryTests
     public void Opting_in_records_existing_effects_without_an_edit_and_does_not_double_count(bool fromBackground)
     {
         _config.Beutl_Application = false;
-        var scene = new Scene(640, 480, "usage-test");
-        var shape = new Beutl.Graphics.Shapes.RectShape();
-        shape.FilterEffect.CurrentValue = new Blur();
-        var element = new Element();
-        element.Objects.Add(shape);
-        scene.Children.Add(element);
+        (Scene scene, _, _) = CreateShapeScene(new Blur());
         using var history = new HistoryManager(scene, new OperationSequenceGenerator());
         using var tracker = new EditorUsageTracker(scene, history);
         _usage.Flush();
@@ -700,12 +632,7 @@ public sealed class UsageTelemetryTests
     public void Closing_an_editor_before_queued_opt_in_does_not_scan_it()
     {
         _config.Beutl_Application = false;
-        var scene = new Scene(640, 480, "usage-test");
-        var shape = new Beutl.Graphics.Shapes.RectShape();
-        shape.FilterEffect.CurrentValue = new Blur();
-        var element = new Element();
-        element.Objects.Add(shape);
-        scene.Children.Add(element);
+        (Scene scene, _, _) = CreateShapeScene(new Blur());
         using var history = new HistoryManager(scene, new OperationSequenceGenerator());
         var tracker = new EditorUsageTracker(scene, history);
         Task.Run(() => _config.Beutl_Application = true).GetAwaiter().GetResult();
@@ -881,12 +808,8 @@ public sealed class UsageTelemetryTests
         try
         {
             LibraryService.Current.Register<LateLibraryItem>("Beutl.HeadlessUITests.LateLibraryItem", "Xyzzy");
-            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-            while (!library.SearchResult.Any(item => item.Value.DisplayName == "Xyzzy"))
-            {
-                HeadlessTestHelpers.Settle();
-                await Task.Delay(10, timeout.Token);
-            }
+            await HeadlessTestHelpers.WaitUntilAsync(
+                () => library.SearchResult.Any(item => item.Value.DisplayName == "Xyzzy"));
 
             _usage.Flush();
             Assert.That(_summaries.Count(s => s.Key.Event == "tool.command"), Is.EqualTo(1),
@@ -899,6 +822,52 @@ public sealed class UsageTelemetryTests
         }
     }
 
+    // A scene with one element holding a rectangle, with the effect on the rectangle.
+    private static (Scene Scene, Beutl.Graphics.Shapes.RectShape Shape, Element Element) CreateShapeScene(
+        FilterEffect? effect = null,
+        Scene? scene = null)
+    {
+        scene ??= new Scene(640, 480, "usage-test");
+        var shape = new Beutl.Graphics.Shapes.RectShape();
+        if (effect is not null)
+        {
+            shape.FilterEffect.CurrentValue = effect;
+        }
+
+        var element = new Element();
+        element.Objects.Add(shape);
+        scene.Children.Add(element);
+        return (scene, shape, element);
+    }
+
+    // History over the scene with an observer, and a usage tracker on it.
+    private sealed class TrackedHistory : IDisposable
+    {
+        private readonly CoreObjectOperationObserver _observer;
+        private readonly IDisposable _subscription;
+
+        public TrackedHistory(Scene scene)
+        {
+            var sequence = new OperationSequenceGenerator();
+            _observer = new CoreObjectOperationObserver(null, scene, sequence);
+            History = new HistoryManager(scene, sequence);
+            _subscription = History.Subscribe(_observer);
+            Tracker = new EditorUsageTracker(scene, History);
+        }
+
+        public HistoryManager History { get; }
+
+        public EditorUsageTracker Tracker { get; }
+
+        public void Dispose()
+        {
+            Tracker.Dispose();
+            _subscription.Dispose();
+            History.Dispose();
+            _observer.Dispose();
+        }
+    }
+
     private sealed class LateLibraryItem;
 
     [AvaloniaTest]
@@ -906,15 +875,9 @@ public sealed class UsageTelemetryTests
     [TestCase(true)]
     public async Task History_actions_do_not_cross_consent_periods_while_waiting(bool initiallyEnabled)
     {
-        await TestReset.ResetShellAsync();
         try
         {
-            string directory = Path.Combine(BeutlHomeIsolation.CurrentHome!, "usage-history");
-            Directory.CreateDirectory(directory);
-            Project project = (await TestShell.Project.CreateProject(640, 480, 30, 44100, "history", directory))!;
-            Scene scene = project.Items.OfType<Scene>().Single();
-            TestShell.Editor.ActivateTabItem(scene);
-            var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+            (_, Scene scene, EditViewModel editor) = await TestShell.OpenNewSceneAsync("usage-history");
             scene.Name = "changed";
             editor.HistoryManager.Commit();
             var guard = (HistoryMutationPlaybackGuard)typeof(EditViewModel)
@@ -941,15 +904,9 @@ public sealed class UsageTelemetryTests
     [AvaloniaTest]
     public async Task Real_tool_commands_are_observed_across_reactive_command_variants()
     {
-        await TestReset.ResetShellAsync();
         try
         {
-            string directory = Path.Combine(BeutlHomeIsolation.CurrentHome!, "usage-commands");
-            Directory.CreateDirectory(directory);
-            Project project = (await TestShell.Project.CreateProject(640, 480, 30, 44100, "commands", directory))!;
-            Scene scene = project.Items.OfType<Scene>().Single();
-            TestShell.Editor.ActivateTabItem(scene);
-            var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+            (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("usage-commands");
             TimelineTabViewModel timeline = editor.FindToolTab<TimelineTabViewModel>()!;
             timeline.Duplicate.Execute();
             timeline.SetStartTimeToCurrentTime.Execute();

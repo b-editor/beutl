@@ -4,7 +4,6 @@ using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.LogicalTree;
-using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Beutl.Controls;
 using Beutl.Editor.Components.FileBrowserTab.ViewModels;
@@ -32,14 +31,9 @@ public class ToolTabBarViewTests
     [TestCase(640, true)]
     public async Task BarsStayAlignedAndActionsWorkAcrossViewStates(int width, bool light)
     {
-        await TestReset.ResetShellAsync();
-        string root = Path.Combine(BeutlHomeIsolation.CurrentHome!, $"tool-tab-bars-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(root);
-        Project project = (await TestShell.Project.CreateProject(640, 480, 30, 44100, "tool-tab-bars", root))!;
-        Scene scene = project.Items.OfType<Scene>().First();
-        TestShell.Editor.ActivateTabItem(scene);
-        HeadlessTestHelpers.Settle();
-        var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+        (Project project, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("tool-tab-bars");
+        // The folder the project was created in, beside the project's own folder.
+        string root = Path.GetDirectoryName(Path.GetDirectoryName(project.Uri!.LocalPath))!;
 
         using var files = new FileBrowserTabViewModel(editor);
         using var layouts = new DockLayoutViewModel(editor, new DockLayoutPresetService(Path.Combine(root, "layouts.json")));
@@ -130,13 +124,6 @@ public class ToolTabBarViewTests
             }
             Assert.That(bar.Bounds.Width - rightmostButtonEdge, Is.EqualTo(bar.Padding.Right),
                 $"{name}: actions should align to the shared right padding");
-
-            if (Environment.GetEnvironmentVariable("BEUTL_TOOL_TAB_BAR_CAPTURE") is { Length: > 0 } directory)
-            {
-                Directory.CreateDirectory(directory);
-                using var image = window.CaptureRenderedFrame();
-                image?.Save(Path.Combine(directory, $"{name}-{width}-{light}.png"), PngBitmapEncoderOptions.Default);
-            }
         }
     }
 }

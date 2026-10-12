@@ -8,9 +8,7 @@ using Beutl.Editor.Observers;
 using Beutl.Editor.Operations;
 using Beutl.Engine;
 using Beutl.Extensibility;
-using Beutl.Logging;
 using Beutl.NodeGraph;
-using Microsoft.Extensions.Logging;
 
 namespace Beutl.UnitTests.Editor;
 
@@ -21,86 +19,21 @@ public class CoreObjectOperationObserverTests
     [SetUp]
     public void Setup()
     {
-        Log.LoggerFactory = LoggerFactory.Create(b => b.AddSimpleConsole());
         _sequenceGenerator = new OperationSequenceGenerator();
-    }
-
-    [TearDown]
-    public void TearDown()
-    {
     }
 
     #region Constructor Tests
 
     [Test]
-    public void Constructor_ShouldInitializeOperationsProperty()
-    {
-        // Arrange
-        var obj = new TestCoreObject();
-
-        // Act
-        using var observer = new CoreObjectOperationObserver(null, obj, _sequenceGenerator);
-
-        // Assert
-        Assert.That(observer.Operations, Is.Not.Null);
-    }
-
-    [Test]
-    public void Constructor_WithObserver_ShouldSubscribeToOperations()
-    {
-        // Arrange
-        var obj = new TestCoreObject();
-        var receivedOperations = new List<ChangeOperation>();
-        var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
-
-        // Act
-        using var operationObserver = new CoreObjectOperationObserver(testObserver, obj, _sequenceGenerator);
-        obj.StringValue = "changed";
-
-        // Assert
-        Assert.That(receivedOperations, Has.Count.EqualTo(1));
-        Assert.That(receivedOperations[0], Is.TypeOf<UpdatePropertyValueOperation<string>>());
-    }
-
-    [Test]
-    public void Constructor_WithNullObserver_ShouldNotThrow()
-    {
-        // Arrange
-        var obj = new TestCoreObject();
-
-        // Act & Assert
-        Assert.DoesNotThrow(() =>
-        {
-            using var observer = new CoreObjectOperationObserver(null, obj, _sequenceGenerator);
-        });
-    }
-
-    [Test]
-    public void Constructor_WithEmptyPropertyPath_ShouldWorkCorrectly()
-    {
-        // Arrange
-        var obj = new TestCoreObject();
-
-        // Act
-        using var observer = new CoreObjectOperationObserver(null, obj, _sequenceGenerator, "");
-
-        // Assert
-        Assert.That(observer.Operations, Is.Not.Null);
-    }
-
-    [Test]
     public void Constructor_WithPropertyPath_ShouldBuildCorrectPath()
     {
-        // Arrange
         var obj = new TestCoreObject();
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
-        // Act
         using var operationObserver = new CoreObjectOperationObserver(testObserver, obj, _sequenceGenerator, "Parent");
         obj.StringValue = "changed";
 
-        // Assert
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
         var operation = (UpdatePropertyValueOperation<string>)receivedOperations[0];
         Assert.That(operation.PropertyPath, Is.EqualTo("Parent.StringValue"));
@@ -109,48 +42,25 @@ public class CoreObjectOperationObserverTests
     [Test]
     public void Constructor_WithPropertyPathsToTrack_ShouldOnlyTrackSpecifiedProperties()
     {
-        // Arrange
         var obj = new TestCoreObject();
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
         var propertyPathsToTrack = new HashSet<string> { "StringValue" };
 
-        // Act
         using var operationObserver = new CoreObjectOperationObserver(
             testObserver, obj, _sequenceGenerator, "", propertyPathsToTrack);
 
         obj.StringValue = "changed";
         obj.IntValue = 100;
 
-        // Assert
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
         var operation = (UpdatePropertyValueOperation<string>)receivedOperations[0];
         Assert.That(operation.PropertyPath, Is.EqualTo("StringValue"));
     }
 
     [Test]
-    public void Constructor_WithChildCoreObject_ShouldInitializeChildPublisher()
-    {
-        // Arrange
-        var childObj = new TestCoreObject { StringValue = "child" };
-        var parentObj = new TestParentCoreObject { Child = childObj };
-        var receivedOperations = new List<ChangeOperation>();
-        var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
-
-        // Act
-        using var operationObserver = new CoreObjectOperationObserver(testObserver, parentObj, _sequenceGenerator);
-        childObj.StringValue = "modified";
-
-        // Assert
-        Assert.That(receivedOperations, Has.Count.EqualTo(1));
-        var operation = (UpdatePropertyValueOperation<string>)receivedOperations[0];
-        Assert.That(operation.PropertyPath, Is.EqualTo("Child.StringValue"));
-    }
-
-    [Test]
     public void Constructor_WithCollection_ShouldInitializeCollectionPublisher()
     {
-        // Arrange
         var parentObj = new TestCollectionCoreObject();
         var childItem = new TestCoreObject { StringValue = "item1" };
         parentObj.Items.Add(childItem);
@@ -158,11 +68,9 @@ public class CoreObjectOperationObserverTests
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
-        // Act
         using var operationObserver = new CoreObjectOperationObserver(testObserver, parentObj, _sequenceGenerator);
         childItem.StringValue = "modified";
 
-        // Assert
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
     }
 
@@ -173,62 +81,35 @@ public class CoreObjectOperationObserverTests
     [Test]
     public void Dispose_ShouldUnsubscribeFromPropertyChanged()
     {
-        // Arrange
         var obj = new TestCoreObject();
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         var operationObserver = new CoreObjectOperationObserver(testObserver, obj, _sequenceGenerator);
 
-        // Act
         operationObserver.Dispose();
         obj.StringValue = "changed";
 
-        // Assert
         Assert.That(receivedOperations, Is.Empty);
     }
 
     [Test]
     public void Dispose_ShouldCompleteOperationsObservable()
     {
-        // Arrange
         var obj = new TestCoreObject();
         bool completed = false;
 
         var operationObserver = new CoreObjectOperationObserver(null, obj, _sequenceGenerator);
-        // Subscribe to Operations after creation
         using var subscription = operationObserver.Operations.Subscribe(_ => { }, () => completed = true);
 
-        // Act
         operationObserver.Dispose();
 
-        // Assert
         Assert.That(completed, Is.True);
-    }
-
-    [Test]
-    public void Dispose_ShouldDisposeChildPublishers()
-    {
-        // Arrange
-        var childObj = new TestCoreObject { StringValue = "child" };
-        var parentObj = new TestParentCoreObject { Child = childObj };
-        var receivedOperations = new List<ChangeOperation>();
-        var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
-
-        var operationObserver = new CoreObjectOperationObserver(testObserver, parentObj, _sequenceGenerator);
-
-        // Act
-        operationObserver.Dispose();
-        childObj.StringValue = "modified";
-
-        // Assert
-        Assert.That(receivedOperations, Is.Empty);
     }
 
     [Test]
     public void Dispose_ShouldDisposeCollectionPublishers()
     {
-        // Arrange
         var parentObj = new TestCollectionCoreObject();
         var childItem = new TestCoreObject { StringValue = "item1" };
         parentObj.Items.Add(childItem);
@@ -238,11 +119,9 @@ public class CoreObjectOperationObserverTests
 
         var operationObserver = new CoreObjectOperationObserver(testObserver, parentObj, _sequenceGenerator);
 
-        // Act
         operationObserver.Dispose();
         childItem.StringValue = "modified";
 
-        // Assert
         Assert.That(receivedOperations, Is.Empty);
     }
 
@@ -253,17 +132,14 @@ public class CoreObjectOperationObserverTests
     [Test]
     public void OnPropertyChanged_ShouldPublishUpdatePropertyValueOperation()
     {
-        // Arrange
         var obj = new TestCoreObject();
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var operationObserver = new CoreObjectOperationObserver(testObserver, obj, _sequenceGenerator);
 
-        // Act
         obj.StringValue = "new value";
 
-        // Assert
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
         var operation = (UpdatePropertyValueOperation<string>)receivedOperations[0];
         Assert.Multiple(() =>
@@ -276,43 +152,20 @@ public class CoreObjectOperationObserverTests
     }
 
     [Test]
-    public void OnPropertyChanged_WithPublishingSuppressed_ShouldNotPublish()
-    {
-        // Arrange
-        var obj = new TestCoreObject();
-        var receivedOperations = new List<ChangeOperation>();
-        var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
-
-        using var operationObserver = new CoreObjectOperationObserver(testObserver, obj, _sequenceGenerator);
-
-        // Act
-        using (PublishingSuppression.Enter())
-        {
-            obj.StringValue = "suppressed";
-        }
-
-        // Assert
-        Assert.That(receivedOperations, Is.Empty);
-    }
-
-    [Test]
     public void OnPropertyChanged_AfterSuppressionEnds_ShouldPublish()
     {
-        // Arrange
         var obj = new TestCoreObject();
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var operationObserver = new CoreObjectOperationObserver(testObserver, obj, _sequenceGenerator);
 
-        // Act
         using (PublishingSuppression.Enter())
         {
             obj.StringValue = "suppressed";
         }
         obj.StringValue = "not suppressed";
 
-        // Assert
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
         var operation = (UpdatePropertyValueOperation<string>)receivedOperations[0];
         Assert.That(operation.NewValue, Is.EqualTo("not suppressed"));
@@ -321,60 +174,34 @@ public class CoreObjectOperationObserverTests
     [Test]
     public void OnPropertyChanged_WithNotTrackedProperty_ShouldNotPublish()
     {
-        // Arrange
         var obj = new TestCoreObjectWithNotTrackedProperty();
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var operationObserver = new CoreObjectOperationObserver(testObserver, obj, _sequenceGenerator);
 
-        // Act
         obj.NotTrackedValue = "changed";
 
-        // Assert
         Assert.That(receivedOperations, Is.Empty);
     }
 
     [Test]
     public void OnPropertyChanged_WithTrackedProperty_ShouldPublish()
     {
-        // Arrange
         var obj = new TestCoreObjectWithNotTrackedProperty();
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var operationObserver = new CoreObjectOperationObserver(testObserver, obj, _sequenceGenerator);
 
-        // Act
         obj.TrackedValue = "changed";
 
-        // Assert
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
-    }
-
-    [Test]
-    public void OnPropertyChanged_WhenPropertyNotInPropertyPathsToTrack_ShouldNotPublish()
-    {
-        // Arrange
-        var obj = new TestCoreObject();
-        var receivedOperations = new List<ChangeOperation>();
-        var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
-        var propertyPathsToTrack = new HashSet<string> { "StringValue" };
-
-        using var operationObserver = new CoreObjectOperationObserver(
-            testObserver, obj, _sequenceGenerator, "", propertyPathsToTrack);
-
-        // Act
-        obj.IntValue = 42;
-
-        // Assert
-        Assert.That(receivedOperations, Is.Empty);
     }
 
     [Test]
     public void OnPropertyChanged_WithNewChildObject_ShouldCreateNewChildPublisher()
     {
-        // Arrange
         var parentObj = new TestParentCoreObject();
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
@@ -382,7 +209,6 @@ public class CoreObjectOperationObserverTests
         using var operationObserver = new CoreObjectOperationObserver(testObserver, parentObj, _sequenceGenerator);
         receivedOperations.Clear();
 
-        // Act
         var newChild = new TestCoreObject { StringValue = "new child" };
         parentObj.Child = newChild;
 
@@ -392,7 +218,6 @@ public class CoreObjectOperationObserverTests
         // Modify new child
         newChild.StringValue = "modified";
 
-        // Assert
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
         var operation = (UpdatePropertyValueOperation<string>)receivedOperations[0];
         Assert.That(operation.PropertyPath, Is.EqualTo("Child.StringValue"));
@@ -401,7 +226,6 @@ public class CoreObjectOperationObserverTests
     [Test]
     public void OnPropertyChanged_WithReplacedChildObject_ShouldDisposeOldPublisher()
     {
-        // Arrange
         var oldChild = new TestCoreObject { StringValue = "old" };
         var parentObj = new TestParentCoreObject { Child = oldChild };
         var receivedOperations = new List<ChangeOperation>();
@@ -409,22 +233,18 @@ public class CoreObjectOperationObserverTests
 
         using var operationObserver = new CoreObjectOperationObserver(testObserver, parentObj, _sequenceGenerator);
 
-        // Replace child
         var newChild = new TestCoreObject { StringValue = "new" };
         parentObj.Child = newChild;
         receivedOperations.Clear();
 
-        // Act
         oldChild.StringValue = "should not be tracked";
 
-        // Assert
         Assert.That(receivedOperations, Is.Empty);
     }
 
     [Test]
     public void OnPropertyChanged_WithNewList_ShouldCreateNewCollectionPublisher()
     {
-        // Arrange
         var parentObj = new TestCollectionCoreObject();
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
@@ -432,39 +252,32 @@ public class CoreObjectOperationObserverTests
         using var operationObserver = new CoreObjectOperationObserver(testObserver, parentObj, _sequenceGenerator);
         receivedOperations.Clear();
 
-        // Act
         var newList = new CoreList<TestCoreObject>();
         var item = new TestCoreObject { StringValue = "new item" };
         newList.Add(item);
         parentObj.Items = newList;
 
-        // Clear operations from property change
         receivedOperations.Clear();
 
-        // Add item to new list
         var anotherItem = new TestCoreObject { StringValue = "another" };
         parentObj.Items.Add(anotherItem);
 
-        // Assert
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
     }
 
     [Test]
     public void OnPropertyChanged_MultipleSequentialChanges_ShouldPublishAllOperations()
     {
-        // Arrange
         var obj = new TestCoreObject();
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var operationObserver = new CoreObjectOperationObserver(testObserver, obj, _sequenceGenerator);
 
-        // Act
         obj.StringValue = "first";
         obj.StringValue = "second";
         obj.StringValue = "third";
 
-        // Assert
         Assert.That(receivedOperations, Has.Count.EqualTo(3));
         var operations = receivedOperations.Cast<UpdatePropertyValueOperation<string>>().ToList();
         Assert.Multiple(() =>
@@ -472,26 +285,9 @@ public class CoreObjectOperationObserverTests
             Assert.That(operations[0].NewValue, Is.EqualTo("first"));
             Assert.That(operations[1].NewValue, Is.EqualTo("second"));
             Assert.That(operations[2].NewValue, Is.EqualTo("third"));
+            Assert.That(operations[1].SequenceNumber, Is.GreaterThan(operations[0].SequenceNumber));
+            Assert.That(operations[2].SequenceNumber, Is.GreaterThan(operations[1].SequenceNumber));
         });
-    }
-
-    [Test]
-    public void OnPropertyChanged_ShouldIncrementSequenceNumber()
-    {
-        // Arrange
-        var obj = new TestCoreObject();
-        var receivedOperations = new List<ChangeOperation>();
-        var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
-
-        using var operationObserver = new CoreObjectOperationObserver(testObserver, obj, _sequenceGenerator);
-
-        // Act
-        obj.StringValue = "first";
-        obj.StringValue = "second";
-
-        // Assert
-        Assert.That(receivedOperations, Has.Count.EqualTo(2));
-        Assert.That(receivedOperations[1].SequenceNumber, Is.GreaterThan(receivedOperations[0].SequenceNumber));
     }
 
     #endregion
@@ -501,7 +297,6 @@ public class CoreObjectOperationObserverTests
     [Test]
     public void Constructor_WithKeyFrameAndSplineEasing_ShouldInitializeSplineEasingPublisher()
     {
-        // Arrange
         var keyFrame = new KeyFrame<float>
         {
             Value = 1.0f,
@@ -512,20 +307,17 @@ public class CoreObjectOperationObserverTests
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
-        // Act
         using var operationObserver = new CoreObjectOperationObserver(testObserver, keyFrame, _sequenceGenerator);
 
         var splineEasing = (SplineEasing)keyFrame.Easing;
         splineEasing.X1 = 0.5f;
 
-        // Assert
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
     }
 
     [Test]
     public void OnPropertyChanged_WhenEasingChangedToSplineEasing_ShouldCreateNewSplinePublisher()
     {
-        // Arrange
         var keyFrame = new KeyFrame<float>
         {
             Value = 1.0f,
@@ -539,23 +331,19 @@ public class CoreObjectOperationObserverTests
         using var operationObserver = new CoreObjectOperationObserver(testObserver, keyFrame, _sequenceGenerator);
         receivedOperations.Clear();
 
-        // Act
         var newSplineEasing = new SplineEasing(0.25f, 0.1f, 0.25f, 1.0f);
         keyFrame.Easing = newSplineEasing;
 
-        // Clear operation from Easing property change
         receivedOperations.Clear();
 
         newSplineEasing.X1 = 0.5f;
 
-        // Assert
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
     }
 
     [Test]
     public void OnPropertyChanged_WhenEasingChangedFromSplineEasing_ShouldDisposeOldSplinePublisher()
     {
-        // Arrange
         var oldSplineEasing = new SplineEasing(0.25f, 0.1f, 0.25f, 1.0f);
         var keyFrame = new KeyFrame<float>
         {
@@ -569,77 +357,12 @@ public class CoreObjectOperationObserverTests
 
         using var operationObserver = new CoreObjectOperationObserver(testObserver, keyFrame, _sequenceGenerator);
 
-        // Act
         keyFrame.Easing = new LinearEasing();
         receivedOperations.Clear();
 
         oldSplineEasing.X1 = 0.5f;
 
-        // Assert
         Assert.That(receivedOperations, Is.Empty);
-    }
-
-    #endregion
-
-    #region Operations Property Tests
-
-    [Test]
-    public void Operations_ShouldReturnObservable()
-    {
-        // Arrange
-        var obj = new TestCoreObject();
-
-        // Act
-        using var observer = new CoreObjectOperationObserver(null, obj, _sequenceGenerator);
-
-        // Assert
-        Assert.That(observer.Operations, Is.InstanceOf<IObservable<ChangeOperation>>());
-    }
-
-    [Test]
-    public void Operations_ShouldAllowMultipleSubscribers()
-    {
-        // Arrange
-        var obj = new TestCoreObject();
-        var receivedOperations1 = new List<ChangeOperation>();
-        var receivedOperations2 = new List<ChangeOperation>();
-
-        using var operationObserver = new CoreObjectOperationObserver(null, obj, _sequenceGenerator);
-
-        // Act
-        using var sub1 = operationObserver.Operations.Subscribe(op => receivedOperations1.Add(op));
-        using var sub2 = operationObserver.Operations.Subscribe(op => receivedOperations2.Add(op));
-
-        obj.StringValue = "changed";
-
-        // Assert
-        Assert.Multiple(() =>
-        {
-            Assert.That(receivedOperations1, Has.Count.EqualTo(1));
-            Assert.That(receivedOperations2, Has.Count.EqualTo(1));
-        });
-    }
-
-    #endregion
-
-    #region BuildPropertyPath Tests
-
-    [Test]
-    public void BuildPropertyPath_WithEmptyPath_ShouldReturnPropertyName()
-    {
-        // Arrange
-        var obj = new TestCoreObject();
-        var receivedOperations = new List<ChangeOperation>();
-        var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
-
-        // Act
-        using var operationObserver = new CoreObjectOperationObserver(testObserver, obj, _sequenceGenerator, "");
-        obj.StringValue = "test";
-
-        // Assert
-        Assert.That(receivedOperations, Has.Count.EqualTo(1));
-        var operation = (UpdatePropertyValueOperation<string>)receivedOperations[0];
-        Assert.That(operation.PropertyPath, Is.EqualTo("StringValue"));
     }
 
     #endregion
@@ -649,7 +372,6 @@ public class CoreObjectOperationObserverTests
     [Test]
     public void Constructor_WithDeepNestedObjects_ShouldTrackAllLevels()
     {
-        // Arrange
         var innerChild = new TestCoreObject { StringValue = "inner" };
         var middleChild = new TestParentCoreObject { Child = innerChild };
         var parentObj = new TestGrandParentCoreObject { MiddleChild = middleChild };
@@ -657,11 +379,9 @@ public class CoreObjectOperationObserverTests
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
-        // Act
         using var operationObserver = new CoreObjectOperationObserver(testObserver, parentObj, _sequenceGenerator);
         innerChild.StringValue = "modified";
 
-        // Assert
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
         var operation = (UpdatePropertyValueOperation<string>)receivedOperations[0];
         Assert.That(operation.PropertyPath, Is.EqualTo("MiddleChild.Child.StringValue"));
@@ -670,7 +390,6 @@ public class CoreObjectOperationObserverTests
     [Test]
     public void Dispose_WithDeepNestedObjects_ShouldStopAllTracking()
     {
-        // Arrange
         var innerChild = new TestCoreObject { StringValue = "inner" };
         var middleChild = new TestParentCoreObject { Child = innerChild };
         var parentObj = new TestGrandParentCoreObject { MiddleChild = middleChild };
@@ -680,11 +399,9 @@ public class CoreObjectOperationObserverTests
 
         var operationObserver = new CoreObjectOperationObserver(testObserver, parentObj, _sequenceGenerator);
 
-        // Act
         operationObserver.Dispose();
         innerChild.StringValue = "should not track";
 
-        // Assert
         Assert.That(receivedOperations, Is.Empty);
     }
 
@@ -695,7 +412,6 @@ public class CoreObjectOperationObserverTests
     [Test]
     public void Constructor_WithNestedPropertyPathsToTrack_ShouldOnlyTrackSpecified()
     {
-        // Arrange
         var child = new TestCoreObject();
         var parent = new TestParentCoreObject { Child = child };
 
@@ -703,14 +419,12 @@ public class CoreObjectOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
         var propertyPathsToTrack = new HashSet<string> { "Child.StringValue" };
 
-        // Act
         using var operationObserver = new CoreObjectOperationObserver(
             testObserver, parent, _sequenceGenerator, "", propertyPathsToTrack);
 
         child.StringValue = "tracked";
         child.IntValue = 100;
 
-        // Assert
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
         var operation = (UpdatePropertyValueOperation<string>)receivedOperations[0];
         Assert.That(operation.PropertyPath, Is.EqualTo("Child.StringValue"));
@@ -723,20 +437,18 @@ public class CoreObjectOperationObserverTests
     [Test]
     public void OnPropertyChanged_WithHierarchicalObject_ShouldNotTrackHierarchicalParent()
     {
-        // Arrange
         var parent = new TestHierarchicalObject();
         var child = new TestHierarchicalObject();
 
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
-        // Create observer for child
         using var operationObserver = new CoreObjectOperationObserver(testObserver, child, _sequenceGenerator);
 
-        // Act - simulate hierarchy attachment (internally sets HierarchicalParent)
+        // Simulate hierarchy attachment (internally sets HierarchicalParent)
         parent.AddTestChild(child);
 
-        // Assert - HierarchicalParent changes should not be published
+        // HierarchicalParent changes should not be published
         var hierarchicalParentOps = receivedOperations
             .Where(op => op is IPropertyPathProvider ppp && ppp.PropertyPath == "HierarchicalParent")
             .ToList();
@@ -746,17 +458,14 @@ public class CoreObjectOperationObserverTests
     [Test]
     public void OnPropertyChanged_WithHierarchicalObject_ShouldTrackOtherProperties()
     {
-        // Arrange
         var obj = new TestHierarchicalObject();
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var operationObserver = new CoreObjectOperationObserver(testObserver, obj, _sequenceGenerator);
 
-        // Act
         obj.Title = "changed";
 
-        // Assert
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
         var operation = (UpdatePropertyValueOperation<string>)receivedOperations[0];
         Assert.That(operation.PropertyPath, Is.EqualTo("Title"));
@@ -767,81 +476,55 @@ public class CoreObjectOperationObserverTests
     #region EngineObject Tests
 
     [Test]
-    public void Constructor_WithEngineObject_ShouldInitializeEnginePropertyPublishers()
-    {
-        // Arrange
-        var engineObj = new TestEngineObject();
-        var receivedOperations = new List<ChangeOperation>();
-        var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
-
-        // Act
-        using var operationObserver = new CoreObjectOperationObserver(testObserver, engineObj, _sequenceGenerator);
-        engineObj.FloatValue.CurrentValue = 50f;
-
-        // Assert
-        Assert.That(receivedOperations, Has.Count.EqualTo(1));
-    }
-
-    [Test]
     public void Dispose_WithEngineObject_ShouldDisposeEnginePropertyPublishers()
     {
-        // Arrange
         var engineObj = new TestEngineObject();
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         var operationObserver = new CoreObjectOperationObserver(testObserver, engineObj, _sequenceGenerator);
 
-        // Act
         operationObserver.Dispose();
         engineObj.FloatValue.CurrentValue = 50f;
 
-        // Assert
         Assert.That(receivedOperations, Is.Empty);
     }
 
     [Test]
     public void OnPropertyChanged_WithEngineObject_ShouldPublishEnginePropertyChanges()
     {
-        // Arrange
         var engineObj = new TestEngineObject();
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var operationObserver = new CoreObjectOperationObserver(testObserver, engineObj, _sequenceGenerator);
 
-        // Act
         engineObj.FloatValue.CurrentValue = 25f;
         engineObj.FloatValue.CurrentValue = 75f;
 
-        // Assert
         Assert.That(receivedOperations, Has.Count.EqualTo(2));
     }
 
     [Test]
     public void OnPropertyChanged_WithEngineObjectAndPublishingSuppressed_ShouldNotPublish()
     {
-        // Arrange
         var engineObj = new TestEngineObject();
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var operationObserver = new CoreObjectOperationObserver(testObserver, engineObj, _sequenceGenerator);
 
-        // Act
         using (PublishingSuppression.Enter())
         {
             engineObj.FloatValue.CurrentValue = 50f;
         }
 
-        // Assert
         Assert.That(receivedOperations, Is.Empty);
     }
 
     [Test]
     public void Constructor_WithEngineObjectAndPropertyPathsToTrack_ShouldOnlyTrackSpecified()
     {
-        // Arrange
         var engineObj = new TestEngineObject();
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
@@ -849,13 +532,11 @@ public class CoreObjectOperationObserverTests
         // because the filter logic checks for sub-path containment
         var propertyPathsToTrack = new HashSet<string> { "FloatValue.CurrentValue" };
 
-        // Act
         using var operationObserver = new CoreObjectOperationObserver(
             testObserver, engineObj, _sequenceGenerator, "", propertyPathsToTrack);
 
         engineObj.FloatValue.CurrentValue = 50f;
 
-        // Assert
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
     }
 
@@ -864,28 +545,8 @@ public class CoreObjectOperationObserverTests
     #region NodeMember Tests
 
     [Test]
-    public void Constructor_WithNodeMember_ShouldInitializeNodeMemberPublisher()
-    {
-        // Arrange
-        var nodeMember = new DefaultNodeMember<float>();
-        var adapter = new NodePropertyAdapter<float>("TestProperty", 0f, null);
-        nodeMember.SetProperty(adapter);
-
-        var receivedOperations = new List<ChangeOperation>();
-        var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
-
-        // Act
-        using var operationObserver = new CoreObjectOperationObserver(testObserver, nodeMember, _sequenceGenerator);
-        adapter.SetValue(50f);
-
-        // Assert
-        Assert.That(receivedOperations, Has.Count.EqualTo(1));
-    }
-
-    [Test]
     public void Dispose_WithNodeMember_ShouldDisposeNodeMemberPublisher()
     {
-        // Arrange
         var nodeMember = new DefaultNodeMember<float>();
         var adapter = new NodePropertyAdapter<float>("TestProperty", 0f, null);
         nodeMember.SetProperty(adapter);
@@ -895,18 +556,15 @@ public class CoreObjectOperationObserverTests
 
         var operationObserver = new CoreObjectOperationObserver(testObserver, nodeMember, _sequenceGenerator);
 
-        // Act
         operationObserver.Dispose();
         adapter.SetValue(50f);
 
-        // Assert
         Assert.That(receivedOperations, Is.Empty);
     }
 
     [Test]
     public void OnPropertyChanged_WithNodeMember_ShouldPublishPropertyValueChanges()
     {
-        // Arrange
         var nodeMember = new DefaultNodeMember<float>();
         var adapter = new NodePropertyAdapter<float>("TestProperty", 0f, null);
         nodeMember.SetProperty(adapter);
@@ -916,41 +574,15 @@ public class CoreObjectOperationObserverTests
 
         using var operationObserver = new CoreObjectOperationObserver(testObserver, nodeMember, _sequenceGenerator);
 
-        // Act
         adapter.SetValue(25f);
         adapter.SetValue(75f);
 
-        // Assert
         Assert.That(receivedOperations, Has.Count.EqualTo(2));
-    }
-
-    [Test]
-    public void OnPropertyChanged_WithNodeMemberAndPublishingSuppressed_ShouldNotPublish()
-    {
-        // Arrange
-        var nodeMember = new DefaultNodeMember<float>();
-        var adapter = new NodePropertyAdapter<float>("TestProperty", 0f, null);
-        nodeMember.SetProperty(adapter);
-
-        var receivedOperations = new List<ChangeOperation>();
-        var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
-
-        using var operationObserver = new CoreObjectOperationObserver(testObserver, nodeMember, _sequenceGenerator);
-
-        // Act
-        using (PublishingSuppression.Enter())
-        {
-            adapter.SetValue(50f);
-        }
-
-        // Assert
-        Assert.That(receivedOperations, Is.Empty);
     }
 
     [Test]
     public void OnPropertyChanged_WithNodeMemberAfterSuppressionEnds_ShouldPublish()
     {
-        // Arrange
         var nodeMember = new DefaultNodeMember<float>();
         var adapter = new NodePropertyAdapter<float>("TestProperty", 0f, null);
         nodeMember.SetProperty(adapter);
@@ -960,21 +592,18 @@ public class CoreObjectOperationObserverTests
 
         using var operationObserver = new CoreObjectOperationObserver(testObserver, nodeMember, _sequenceGenerator);
 
-        // Act
         using (PublishingSuppression.Enter())
         {
             adapter.SetValue(25f);
         }
         adapter.SetValue(75f);
 
-        // Assert
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
     }
 
     [Test]
     public void Constructor_WithNodeMemberAndAnimation_ShouldTrackAnimationChanges()
     {
-        // Arrange
         var animation = new KeyFrameAnimation<float>();
         var nodeMember = new DefaultNodeMember<float>();
         var adapter = new NodePropertyAdapter<float>("TestProperty", 0f, animation);
@@ -985,18 +614,15 @@ public class CoreObjectOperationObserverTests
 
         using var operationObserver = new CoreObjectOperationObserver(testObserver, nodeMember, _sequenceGenerator);
 
-        // Act - Change the animation
         var newAnimation = new KeyFrameAnimation<float>();
         adapter.Animation = newAnimation;
 
-        // Assert
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
     }
 
     [Test]
     public void OnPropertyChanged_WithNodeMemberAnimationChange_ShouldPublishAnimationChange()
     {
-        // Arrange
         var nodeMember = new DefaultNodeMember<float>();
         var adapter = new NodePropertyAdapter<float>("TestProperty", 0f, null);
         nodeMember.SetProperty(adapter);
@@ -1006,17 +632,14 @@ public class CoreObjectOperationObserverTests
 
         using var operationObserver = new CoreObjectOperationObserver(testObserver, nodeMember, _sequenceGenerator);
 
-        // Act
         adapter.Animation = new KeyFrameAnimation<float>();
 
-        // Assert
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
     }
 
     [Test]
     public void Constructor_WithNodeMemberAndPropertyPathsToTrack_ShouldOnlyTrackSpecified()
     {
-        // Arrange
         var nodeMember = new DefaultNodeMember<float>();
         var adapter = new NodePropertyAdapter<float>("TestProperty", 0f, null);
         nodeMember.SetProperty(adapter);
@@ -1025,36 +648,30 @@ public class CoreObjectOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
         var propertyPathsToTrack = new HashSet<string> { "Property" };
 
-        // Act
         using var operationObserver = new CoreObjectOperationObserver(
             testObserver, nodeMember, _sequenceGenerator, "", propertyPathsToTrack);
 
         adapter.SetValue(50f);
 
-        // Assert
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
     }
 
     [Test]
     public void Constructor_WithNodeMemberAndPropertyPathsToTrackExcludingProperty_ShouldNotTrack()
     {
-        // Arrange
         var nodeMember = new DefaultNodeMember<float>();
         var adapter = new NodePropertyAdapter<float>("TestProperty", 0f, null);
         nodeMember.SetProperty(adapter);
 
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
-        // Only track Animation, not Property
         var propertyPathsToTrack = new HashSet<string> { "Animation" };
 
-        // Act
         using var operationObserver = new CoreObjectOperationObserver(
             testObserver, nodeMember, _sequenceGenerator, "", propertyPathsToTrack);
 
         adapter.SetValue(50f);
 
-        // Assert - Property changes should not be tracked
         var propertyOps = receivedOperations.Where(op =>
             op is IPropertyPathProvider ppp && ppp.PropertyPath == "Property").ToList();
         Assert.That(propertyOps, Is.Empty);

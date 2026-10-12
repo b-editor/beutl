@@ -1,0 +1,64 @@
+﻿using System.Buffers;
+using System.Text;
+
+namespace Beutl.Graphics;
+
+/// <summary>The FNV-1a hash behind the engine's stable digests, which must not vary between processes.</summary>
+internal static class Fnv1a
+{
+    public const ulong Offset64 = 14695981039346656037UL;
+    public const uint Offset32 = 2166136261;
+    private const ulong Prime64 = 1099511628211UL;
+    private const uint Prime32 = 16777619;
+
+    /// <summary>Folds <paramref name="value"/> in as one unit rather than byte by byte.</summary>
+    public static ulong Append(ulong hash, ulong value)
+        => unchecked((hash ^ value) * Prime64);
+
+    /// <inheritdoc cref="Append(ulong, ulong)"/>
+    public static uint Append(uint hash, uint value)
+        => unchecked((hash ^ value) * Prime32);
+
+    /// <summary>Folds the eight bytes of <paramref name="value"/> in, least significant first.</summary>
+    public static ulong AppendBytes(ulong hash, ulong value)
+    {
+        for (int shift = 0; shift < 64; shift += 8)
+            hash = Append(hash, (value >> shift) & 0xFF);
+
+        return hash;
+    }
+
+    /// <summary>Folds each UTF-16 code unit of <paramref name="text"/> in as one unit.</summary>
+    public static uint AppendChars(uint hash, string text)
+    {
+        foreach (char value in text)
+            hash = Append(hash, value);
+
+        return hash;
+    }
+
+    /// <summary>Hashes the UTF-8 encoding of <paramref name="text"/>.</summary>
+    public static ulong HashUtf8(string text)
+    {
+        const int stackBufferSize = 512;
+        int byteCount = Encoding.UTF8.GetByteCount(text);
+        byte[]? rented = null;
+        Span<byte> bytes = byteCount <= stackBufferSize
+            ? stackalloc byte[byteCount]
+            : (rented = ArrayPool<byte>.Shared.Rent(byteCount));
+        ulong hash = Offset64;
+        try
+        {
+            int written = Encoding.UTF8.GetBytes(text, bytes);
+            foreach (byte value in bytes[..written])
+                hash = Append(hash, value);
+        }
+        finally
+        {
+            if (rented is not null)
+                ArrayPool<byte>.Shared.Return(rented);
+        }
+
+        return hash;
+    }
+}

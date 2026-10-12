@@ -5,12 +5,9 @@ using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
-using Avalonia.Media.Imaging;
-using Avalonia.Platform;
 using Avalonia.VisualTree;
 using Beutl.Editor.Components.LibraryTab;
 using Beutl.Extensibility;
-using Beutl.ProjectSystem;
 using Beutl.Services.StartupTasks;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
@@ -25,40 +22,17 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class ToolTabHeaderTests
 {
-    private static string NewWorkspace(string name)
-    {
-        string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, name);
-        Directory.CreateDirectory(location);
-        return location;
-    }
-
-    private static async Task<EditViewModel> OpenEditorForNewScene(string name)
-    {
-        Project project = (await TestShell.Project.CreateProject(
-            640, 480, 30, 44100, name, NewWorkspace(name)))!;
-        HeadlessTestHelpers.Settle();
-        Scene scene = project.Items.OfType<Scene>().First();
-
-        TestShell.Editor.ActivateTabItem(scene);
-        HeadlessTestHelpers.Settle();
-        return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
-    }
-
     [AvaloniaTest]
-    public async Task Dockable_title_follows_the_context_header()
+    public void Dockable_title_follows_the_context_header()
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditorForNewScene("tooltab-header-follows");
-
         var context = new FakeToolContext("first");
-        var dockable = new BeutlToolDockable(context, editor);
+        var dockable = new BeutlToolDockable(context, null!);
 
         Assert.That(dockable.Title, Is.EqualTo("first"));
 
         context.HeaderSource.Value = "second";
         Assert.That(dockable.Title, Is.EqualTo("second"));
 
-        // Keep the source alive so this verifies the dockable's unsubscribe.
         dockable.Dispose();
         context.HeaderSource.Value = "after-dispose";
         Assert.Multiple(() =>
@@ -71,13 +45,10 @@ public class ToolTabHeaderTests
     }
 
     [AvaloniaTest]
-    public async Task Blank_header_falls_back_to_the_extension_metadata()
+    public void Blank_header_falls_back_to_the_extension_metadata()
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditorForNewScene("tooltab-header-blank");
-
         var context = new FakeToolContext(string.Empty);
-        using var dockable = new BeutlToolDockable(context, editor);
+        using var dockable = new BeutlToolDockable(context, null!);
 
         Assert.That(dockable.Title, Is.EqualTo(FakeToolExtension.Instance.Header));
 
@@ -89,13 +60,10 @@ public class ToolTabHeaderTests
     }
 
     [AvaloniaTest]
-    public async Task A_blank_extension_header_falls_back_to_the_display_name()
+    public void A_blank_extension_header_falls_back_to_the_display_name()
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditorForNewScene("tooltab-header-blank-extension");
-
         var context = new FakeToolContext(string.Empty, BlankHeaderToolExtension.Instance);
-        using var dockable = new BeutlToolDockable(context, editor);
+        using var dockable = new BeutlToolDockable(context, null!);
 
         Assert.Multiple(() =>
         {
@@ -140,8 +108,7 @@ public class ToolTabHeaderTests
     [AvaloniaTest]
     public async Task The_tab_strip_draws_the_extension_icon_left_of_the_title()
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditorForNewScene("tooltab-header-icon");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("tooltab-header-icon");
 
         var view = new EditView { DataContext = editor };
         var window = new Window { Content = view, Width = 900, Height = 700 };
@@ -160,8 +127,7 @@ public class ToolTabHeaderTests
                 .Single(text => text.Name == "PART_TabTitle");
 
             var size = (double)slot.FindResource("DockToolTabIconSize")!;
-            // A glyph source draws at its own font size, so measure what reaches the tab rather than
-            // the element's own bounds: an unscaled icon overflows the slot instead of shrinking.
+            // Measure through the transform: an unscaled glyph would overflow the slot.
             Rect drawn = new Rect(icon.Bounds.Size).TransformToAABB(icon.TransformToVisual(libraryTab)!.Value);
 
             Assert.Multiple(() =>
@@ -198,8 +164,7 @@ public class ToolTabHeaderTests
     [AvaloniaTest]
     public async Task The_tab_icon_is_drawn_no_larger_than_its_slot()
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditorForNewScene("tooltab-icon-extent");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("tooltab-icon-extent");
 
         var view = new EditView { DataContext = editor };
         var window = new Window { Content = view, Width = 900, Height = 700 };
@@ -268,36 +233,28 @@ public class ToolTabHeaderTests
     // so only the rendered pixels show whether the slot really sizes the icon.
     private static Rect MeasureInk(Window window, Rect region)
     {
-        using WriteableBitmap frame = window.CaptureRenderedFrame()
-            ?? throw new InvalidOperationException("CaptureRenderedFrame returned null; the window never rendered.");
-        using ILockedFramebuffer buffer = frame.Lock();
-        Assert.That(buffer.Format, Is.EqualTo(PixelFormat.Rgba8888).Or.EqualTo(PixelFormat.Bgra8888),
-            $"MeasureInk assumes a 32bpp RGBA or BGRA framebuffer but the frame is {buffer.Format}.");
+        (byte[] pixels, int rowBytes, PixelSize size) = HeadlessTestHelpers.CaptureFramePixels(window);
 
         double scale = window.RenderScaling;
         int left = Math.Max(0, (int)Math.Floor(region.X * scale));
         int top = Math.Max(0, (int)Math.Floor(region.Y * scale));
-        int right = Math.Min(buffer.Size.Width, (int)Math.Ceiling(region.Right * scale));
-        int bottom = Math.Min(buffer.Size.Height, (int)Math.Ceiling(region.Bottom * scale));
+        int right = Math.Min(size.Width, (int)Math.Ceiling(region.Right * scale));
+        int bottom = Math.Min(size.Height, (int)Math.Ceiling(region.Bottom * scale));
 
         int minX = int.MaxValue, minY = int.MaxValue, maxX = int.MinValue, maxY = int.MinValue;
-        unsafe
+        for (int y = top; y < bottom; y++)
         {
-            for (int y = top; y < bottom; y++)
+            for (int x = left; x < right; x++)
             {
-                uint* row = (uint*)((byte*)buffer.Address + (y * buffer.RowBytes));
-                for (int x = left; x < right; x++)
-                {
-                    uint pixel = row[x];
-                    // A mean over the three colour channels is the same whichever order they came in.
-                    int mean = (int)(((pixel & 0xFF) + ((pixel >> 8) & 0xFF) + ((pixel >> 16) & 0xFF)) / 3);
-                    if (mean >= InkThreshold) continue;
+                int offset = (y * rowBytes) + (x * 4);
+                // A mean over the three colour channels is the same whichever order they came in.
+                int mean = (pixels[offset] + pixels[offset + 1] + pixels[offset + 2]) / 3;
+                if (mean >= InkThreshold) continue;
 
-                    minX = Math.Min(minX, x);
-                    maxX = Math.Max(maxX, x);
-                    minY = Math.Min(minY, y);
-                    maxY = Math.Max(maxY, y);
-                }
+                minX = Math.Min(minX, x);
+                maxX = Math.Max(maxX, x);
+                minY = Math.Min(minY, y);
+                maxY = Math.Max(maxY, y);
             }
         }
 

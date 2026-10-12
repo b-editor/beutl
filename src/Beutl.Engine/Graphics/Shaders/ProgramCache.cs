@@ -67,17 +67,6 @@ internal sealed class ProgramCache<TProgram> : IDisposable
         return GetOrCreate(program.Identity, context, program, create);
     }
 
-    public ProgramCacheLease<TProgram> GetOrCreate(
-        ShaderProgramIdentity identity,
-        ProgramCacheContextKey context,
-        Func<TProgram> create)
-    {
-        ArgumentNullException.ThrowIfNull(identity);
-        ArgumentNullException.ThrowIfNull(context);
-        ArgumentNullException.ThrowIfNull(create);
-        return GetOrCreateCore(identity, context, create, static factory => factory());
-    }
-
     /// <summary>
     /// Finds or creates a program using an explicit factory state. A static factory keeps warmed lookups from
     /// allocating a capturing closure.
@@ -231,10 +220,8 @@ internal sealed class ProgramCache<TProgram> : IDisposable
                 }
 
                 entry.LeaseCount--;
-                if (!entry.IsLeased && (entry.IsEvicted || _disposed))
+                if (!entry.IsLeased && entry.IsEvicted)
                 {
-                    if (!entry.IsEvicted)
-                        RemoveEntry(entry, countEviction: true);
                     disposable = [program];
                 }
                 else if (!entry.IsLeased)
@@ -267,10 +254,9 @@ internal sealed class ProgramCache<TProgram> : IDisposable
 
             return program;
         }
-        catch (Exception ex)
+        catch
         {
             RecordCleanupFailure(DisposeProgramsBestEffort([program]));
-            ExceptionDispatchInfo.Capture(ex).Throw();
             throw;
         }
     }
@@ -280,15 +266,14 @@ internal sealed class ProgramCache<TProgram> : IDisposable
         ProgramCacheContextKey context)
     {
         return _entries.TryGetValue(new CacheKey(identity, context), out Entry? entry)
-               && !entry.IsEvicted
             ? entry
             : null;
     }
 
     private void Touch(Entry entry)
     {
-        LinkedListNode<Entry>? node = entry.LruNode;
-        if (node is null || ReferenceEquals(_lru.First, node))
+        LinkedListNode<Entry> node = entry.LruNode!;
+        if (ReferenceEquals(_lru.First, node))
             return;
 
         _lru.Remove(node);
@@ -307,7 +292,7 @@ internal sealed class ProgramCache<TProgram> : IDisposable
                 break;
 
             Entry entry = candidate.Value;
-            RemoveEntry(entry, countEviction: true);
+            RemoveEntry(entry);
             (disposable ??= []).Add(entry.Program);
         }
 
@@ -339,7 +324,7 @@ internal sealed class ProgramCache<TProgram> : IDisposable
         var disposable = new List<TProgram>(entries.Length);
         foreach (Entry entry in entries)
         {
-            RemoveEntry(entry, countEviction: true);
+            RemoveEntry(entry);
             if (!entry.IsLeased)
                 disposable.Add(entry.Program);
         }
@@ -347,23 +332,19 @@ internal sealed class ProgramCache<TProgram> : IDisposable
         return disposable;
     }
 
-    private void RemoveEntry(Entry entry, bool countEviction)
+    private void RemoveEntry(Entry entry)
     {
         if (entry.IsEvicted)
             return;
 
         entry.IsEvicted = true;
-        if (entry.LruNode is not null)
-        {
-            _lru.Remove(entry.LruNode);
-            entry.LruNode = null;
-        }
+        _lru.Remove(entry.LruNode!);
+        entry.LruNode = null;
 
         _entries.Remove(new CacheKey(entry.Identity, entry.Context));
 
         _retainedBytes -= entry.RetainedBytes;
-        if (countEviction)
-            _evictions++;
+        _evictions++;
     }
 
     private void RecordCleanupFailure(ExceptionDispatchInfo? failure)

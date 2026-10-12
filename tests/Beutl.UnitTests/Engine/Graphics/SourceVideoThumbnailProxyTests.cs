@@ -9,7 +9,7 @@ using Beutl.UnitTests.Engine.Graphics.Rendering;
 
 namespace Beutl.UnitTests.Engine.Graphics;
 
-// F-TL-1: the timeline filmstrip must honor the scene's PreferProxy intent. Passing preferProxy:true
+// The timeline filmstrip must honor the scene's PreferProxy intent. Passing preferProxy:true
 // to GetThumbnailStripAsync must route the decode through the proxy resolver (so a 4K/8K clip decodes
 // its filmstrip from the smaller proxy), while preferProxy:false must never consult the resolver.
 [TestFixture]
@@ -86,9 +86,8 @@ public class SourceVideoThumbnailProxyTests
         });
     }
 
-    // F-TL-3: a proxy register/delete must drop the filmstrip cache for BOTH preview-source modes,
-    // since the strip is stored under baseKey + "|proxy" / "|original" and Invalidate(baseKey) hits
-    // neither (nothing is stored under the unsuffixed key).
+    // A proxy register/delete must drop the filmstrip cache under every preset key and the original key: the strip
+    // is stored under a suffixed key, and nothing is stored under the unsuffixed base key.
     [Test]
     public void InvalidateThumbnailCacheKeys_DropsBothModePartitions()
     {

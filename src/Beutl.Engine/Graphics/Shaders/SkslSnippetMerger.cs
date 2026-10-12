@@ -42,12 +42,14 @@ internal static class SkslSnippetMerger
         SkslLexer.Tokenize(HeadMainHeader).Count
         + SkslLexer.Tokenize(MainFooter).Count;
 
-    public static SkslMergedProgram Merge(IReadOnlyList<ShaderDescription> stages)
+    public static SkslMergedProgram Merge(
+        IReadOnlyList<ShaderDescription> stages,
+        SkslBackendBudget? budget = null)
     {
         PreparedStage[] prepared = ValidateAndPrepare(stages);
         return CreateProgram(
             prepared,
-            SkslBackendBudget.Unlimited,
+            budget ?? SkslBackendBudget.Unlimited,
             CalculateMetrics(prepared));
     }
 
@@ -202,7 +204,6 @@ internal static class SkslSnippetMerger
             budget,
             metrics.UniformVectorCount,
             metrics.SamplerCount,
-            metrics.ChildCount,
             metrics.SourceByteCount,
             metrics.ProgramTokenCount,
             overflow);
@@ -314,7 +315,6 @@ internal static class SkslSnippetMerger
 
         int separator = type.IndexOf('x', StringComparison.Ordinal);
         if (separator > 0
-            && separator + 1 < type.Length
             && type.AsSpan(separator + 1).Length == 1
             && char.IsAsciiDigit(type[separator + 1]))
         {
@@ -328,7 +328,7 @@ internal static class SkslSnippetMerger
         ProgramMetrics metrics,
         SkslBackendBudget budget)
     {
-        Span<SkslBackendLimit> result = stackalloc SkslBackendLimit[6];
+        Span<SkslBackendLimit> result = stackalloc SkslBackendLimit[5];
         int count = 0;
         if (metrics.StageCount > budget.MaxStages)
             result[count++] = SkslBackendLimit.StageCount;
@@ -336,8 +336,6 @@ internal static class SkslSnippetMerger
             result[count++] = SkslBackendLimit.UniformVectors;
         if (metrics.SamplerCount > budget.MaxSamplers)
             result[count++] = SkslBackendLimit.Samplers;
-        if (metrics.ChildCount > budget.MaxChildren)
-            result[count++] = SkslBackendLimit.Children;
         if (metrics.SourceByteCount > budget.MaxSourceBytes)
             result[count++] = SkslBackendLimit.SourceBytes;
         if (metrics.ProgramTokenCount > budget.MaxProgramTokens)
@@ -349,7 +347,6 @@ internal static class SkslSnippetMerger
         => metrics.StageCount <= budget.MaxStages
            && metrics.UniformVectorCount <= budget.MaxUniformVectors
            && metrics.SamplerCount <= budget.MaxSamplers
-           && metrics.ChildCount <= budget.MaxChildren
            && metrics.SourceByteCount <= budget.MaxSourceBytes
            && metrics.ProgramTokenCount <= budget.MaxProgramTokens;
 
@@ -380,11 +377,11 @@ internal static class SkslSnippetMerger
 
     private readonly record struct RenameResult(string Source, int TokenCount);
 
+    // Every runtime-effect child, the implicit source included, binds one sampler, so one count covers both.
     private readonly record struct ProgramMetrics(
         int StageCount,
         int UniformVectorCount,
         int SamplerCount,
-        int ChildCount,
         int SourceByteCount,
         int ProgramTokenCount)
     {
@@ -392,7 +389,6 @@ internal static class SkslSnippetMerger
             => new(
                 0,
                 0,
-                1,
                 1,
                 hasWholeSourceHead
                     ? s_headFixedSourceByteCount
@@ -406,7 +402,6 @@ internal static class SkslSnippetMerger
                 SaturatingAdd(StageCount, 1),
                 SaturatingAdd(UniformVectorCount, stage.UniformVectorCount),
                 SaturatingAdd(SamplerCount, stage.ResourceCount),
-                SaturatingAdd(ChildCount, stage.ResourceCount),
                 SaturatingAdd(SourceByteCount, stage.SourceByteCount),
                 SaturatingAdd(ProgramTokenCount, stage.ProgramTokenCount));
     }

@@ -49,7 +49,6 @@ public sealed class RecordingScope<TState> : IDisposable
     {
         if (!_disposed && !_completed)
         {
-            // Auto-complete on dispose if not cancelled
             Complete();
         }
 

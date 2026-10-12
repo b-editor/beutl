@@ -446,15 +446,17 @@ public sealed class MainViewModelShutdownTests
             Assert.That(closeCalls, Is.EqualTo(1));
             Dispatcher.UIThread.Post(() => releaseClose.TrySetResult(), DispatcherPriority.Background);
 
-            bool disposed = viewModel.TryDisposeForWindowClose();
+            viewModel.Dispose();
             await windowClose;
 
             Assert.Multiple(() =>
             {
-                Assert.That(disposed, Is.False, "A refused in-flight close must refuse the forced exit too.");
                 Assert.That(windowClose.Result, Is.False);
                 Assert.That(closeCalls, Is.EqualTo(1), "The forced exit must join the in-flight close instead of prompting again.");
-                Assert.That(viewModel.ProjectService.CurrentProject.Value, Is.Not.Null);
+                Assert.That(
+                    viewModel.ProjectService.CurrentProject.Value,
+                    Is.Not.Null,
+                    "A refused in-flight close must refuse the forced exit too.");
                 Assert.That(viewModel.WaitForDisposalAsync().IsCompleted, Is.True);
             });
         }
