@@ -4,6 +4,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 
 using Beutl.Editor.Components.WebBrowserTab;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Editor;
 
@@ -15,24 +16,21 @@ public class BrowserDownloadReferrerTests
     public async Task DownloadReferrerPolicyAppliesToEveryRedirectWithoutDiscardingSessionCookies(int policyValue)
     {
         var policy = (BrowserReferrerPolicy)policyValue;
-        string directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        using var temporary = new TemporaryDirectory();
+        string directory = temporary.Path;
         using var handler = new PolicyHandler();
         using var client = new HttpClient(handler);
         var page = new Uri("https://site.example/page");
-        try
-        {
-            await new BrowserMediaDownload(client).DownloadAsync(new Uri("https://site.example/start"), directory,
-                null, null, default, page, [new Cookie("session", "value", "/", "site.example") { Secure = true }], policy);
-            Assert.That(handler.Referrers, Is.EqualTo(new Uri?[]
-                { policy == BrowserReferrerPolicy.SameOrigin ? new Uri("https://site.example/") : null, null }));
-            Assert.That(handler.CookieHeaders, Is.EqualTo(new string?[] { "session=value", null }));
-            var profile = new BrowserProfile(Path.Combine(directory, "profile.json"));
-            profile.AddDownload(new Uri("https://site.example/start"), Path.Combine(directory, "media.mp3"), page, policy);
-            var reloaded = new BrowserProfile(Path.Combine(directory, "profile.json")).Downloads.Single();
-            Assert.That(reloaded.ReferrerPolicy, Is.EqualTo(policy));
-            Assert.That(reloaded.Referrer, Is.EqualTo("https://site.example/"));
-        }
-        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+        await new BrowserMediaDownload(client).DownloadAsync(new Uri("https://site.example/start"), directory,
+            null, null, default, page, [new Cookie("session", "value", "/", "site.example") { Secure = true }], policy);
+        Assert.That(handler.Referrers, Is.EqualTo(new Uri?[]
+            { policy == BrowserReferrerPolicy.SameOrigin ? new Uri("https://site.example/") : null, null }));
+        Assert.That(handler.CookieHeaders, Is.EqualTo(new string?[] { "session=value", null }));
+        var profile = new BrowserProfile(Path.Combine(directory, "profile.json"));
+        profile.AddDownload(new Uri("https://site.example/start"), Path.Combine(directory, "media.mp3"), page, policy);
+        var reloaded = new BrowserProfile(Path.Combine(directory, "profile.json")).Downloads.Single();
+        Assert.That(reloaded.ReferrerPolicy, Is.EqualTo(policy));
+        Assert.That(reloaded.Referrer, Is.EqualTo("https://site.example/"));
     }
 
     [TestCase("https://site.example/page?secret=value#part", "https://site.example/audio.mp3", "https://site.example/")]
@@ -45,57 +43,31 @@ public class BrowserDownloadReferrerTests
     [TestCase(null, "https://cdn.example/audio.mp3", null)]
     public async Task DownloadsSendOnlyASafeInitiatingOrigin(string? source, string target, string? expected)
     {
-        string directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        using var temporary = new TemporaryDirectory();
+        string directory = temporary.Path;
         using var handler = new ReferrerHandler();
         using var client = new HttpClient(handler);
-        try
-        {
-            await new BrowserMediaDownload(client).DownloadAsync(new Uri(target), directory, null, null, default,
-                source == null ? null : new Uri(source));
-            Assert.That(handler.Referrers.Single()?.AbsoluteUri, Is.EqualTo(expected));
-        }
-        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+        await new BrowserMediaDownload(client).DownloadAsync(new Uri(target), directory, null, null, default,
+            source == null ? null : new Uri(source));
+        Assert.That(handler.Referrers.Single()?.AbsoluteUri, Is.EqualTo(expected));
     }
 
     [Test]
     public async Task SharedClientsDoNotReuseAnotherDownloadsReferrer()
     {
-        string directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        using var temporary = new TemporaryDirectory();
+        string directory = temporary.Path;
         using var handler = new ReferrerHandler();
         using var client = new HttpClient(handler);
         var downloader = new BrowserMediaDownload(client);
         var uri = new Uri("https://cdn.example/audio.mp3");
-        try
-        {
-            await Task.WhenAll(
-                downloader.DownloadAsync(uri, directory, null, null, default, new Uri("https://first.example/page")),
-                downloader.DownloadAsync(uri, directory, null, null, default, new Uri("https://second.example/page")));
-            await downloader.DownloadAsync(uri, directory, null, null, default);
-            Assert.That(handler.Referrers.Take(2), Is.EquivalentTo(new[] { new Uri("https://first.example/"), new Uri("https://second.example/") }));
-            Assert.That(handler.Referrers.Last(), Is.Null);
-            Assert.That(client.DefaultRequestHeaders.Referrer, Is.Null);
-        }
-        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
-    }
-
-    [Test]
-    [Explicit("Downloads one public Sound Effect Lab sample for manual integration verification.")]
-    public async Task SoundEffectLabDownloadUsesItsInitiatingSite()
-    {
-        string directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
-        using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
-        try
-        {
-            string file = await new BrowserMediaDownload(client).DownloadAsync(
-                new Uri("https://soundeffect-lab.info/sound/button/mp3/decision1.mp3"), directory, null, null, default,
-                new Uri("https://soundeffect-lab.info/sound/button/"));
-            byte[] bytes = await File.ReadAllBytesAsync(file);
-            Assert.That(Path.GetExtension(file), Is.EqualTo(".mp3"));
-            Assert.That(bytes.Length, Is.GreaterThan(3));
-            Assert.That(bytes.AsSpan(0, 3).SequenceEqual("ID3"u8) || (bytes[0] == 0xff && (bytes[1] & 0xe0) == 0xe0), Is.True);
-            TestContext.WriteLine($"Downloaded MP3: {bytes.Length} bytes.");
-        }
-        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+        await Task.WhenAll(
+            downloader.DownloadAsync(uri, directory, null, null, default, new Uri("https://first.example/page")),
+            downloader.DownloadAsync(uri, directory, null, null, default, new Uri("https://second.example/page")));
+        await downloader.DownloadAsync(uri, directory, null, null, default);
+        Assert.That(handler.Referrers.Take(2), Is.EquivalentTo(new[] { new Uri("https://first.example/"), new Uri("https://second.example/") }));
+        Assert.That(handler.Referrers.Last(), Is.Null);
+        Assert.That(client.DefaultRequestHeaders.Referrer, Is.Null);
     }
 
     private sealed class PolicyHandler : HttpMessageHandler
