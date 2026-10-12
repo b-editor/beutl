@@ -11,12 +11,18 @@ namespace Beutl.UnitTests.NodeGraph;
 public class NodePortUnknownMemberTests
 {
     [Test]
-    public void DefaultPortsAndMembers_KeepNothingUnknown()
+    public void DefaultPortsAndMembers_WriteOnlyTheirValue_AndKeepNothingUnknown()
     {
-        (GraphModel restored, bool keptUnknownData) = Restore(Serialize(new RelativePointNode()));
+        JsonObject json = Serialize(new RelativePointNode());
+        JsonObject[] withValue = Items(json).Where(static item => item.ContainsKey("Setter")).ToArray();
+
+        (GraphModel restored, bool keptUnknownData) = Restore(json);
 
         Assert.Multiple(() =>
         {
+            Assert.That(withValue, Has.Length.EqualTo(3));
+            Assert.That(withValue.Select(static item => item.ContainsKey("Property") || item.ContainsKey("Target")),
+                Is.All.False);
             Assert.That(UnknownMembersOf(restored), Is.All.Null);
             Assert.That(keptUnknownData, Is.False);
         });
@@ -44,7 +50,7 @@ public class NodePortUnknownMemberTests
     }
 
     [Test]
-    public void LayerInputPort_RestoresItsProperty_AndDropsTheTypeEarlierBuildsWrote()
+    public void LayerInputPort_WritesAndRestoresItsProperty_AndDropsTheTypeEarlierBuildsWrote()
     {
         var node = new LayerInputNode();
         var port = new LayerInputNode.LayerInputPort<float>();
@@ -52,7 +58,10 @@ public class NodePortUnknownMemberTests
         port.Property!.SetValue(0.5f);
         node.Items.Add(port);
         JsonObject json = Serialize(node);
-        Items(json).Last()["Target"] = TypeFormat.ToString(typeof(NodePropertyAdapter<float>));
+        JsonObject saved = Items(json).Last();
+        string? savedProperty = saved["Property"]?.GetValue<string>();
+        bool savedTarget = saved.ContainsKey("Target");
+        saved["Target"] = TypeFormat.ToString(typeof(NodePropertyAdapter<float>));
 
         (GraphModel restored, bool keptUnknownData) = Restore(json);
         LayerInputNode.LayerInputPort<float> restoredPort =
@@ -60,6 +69,8 @@ public class NodePortUnknownMemberTests
 
         Assert.Multiple(() =>
         {
+            Assert.That(savedProperty, Is.EqualTo("Opacity"));
+            Assert.That(savedTarget, Is.False);
             Assert.That((restoredPort.Property as NodePropertyAdapter<float>)?.Name, Is.EqualTo("Opacity"));
             Assert.That(restoredPort.Property?.GetValue(), Is.EqualTo(0.5f));
             Assert.That(UnknownMembersOf(restored), Is.All.Null);
