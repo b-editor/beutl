@@ -17,6 +17,13 @@
      Write "None" if there are none. Breaking PRs use a `feat!:` / `refactor!:`
      title and a `BREAKING CHANGE:` commit footer. -->
 
+## Raises the format floor?
+<!-- Does this PR change the meaning of a persisted member, change the structure of persisted data,
+     or write a type or member under a new name? Then older versions would misread what this build
+     saves: raise `FileFormat.Floor` (`src/Beutl.Core/Serialization/FileFormat.cs`) in this PR,
+     together with the migration that reads the old form, and give the new value here.
+     New members and new types do not raise it. Write "No" otherwise. -->
+
 ## Test plan
 <!-- - Unit/integration tests added or updated (path + brief intent)
      - Manual repro steps for behavior changes

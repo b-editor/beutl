@@ -123,7 +123,7 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
             .Select(element => element.Uri!.LocalPath)
             .ToArray();
 
-        ElementAddResult? persistenceFailure = PersistStagedElements(preparedElements, stagedFiles, cancellationToken);
+        ElementAddResult? persistenceFailure = PersistStagedElements(scene, preparedElements, stagedFiles, cancellationToken);
         if (persistenceFailure is not null)
             return persistenceFailure;
 
@@ -330,14 +330,14 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
     }
 
     private ElementAddResult? PersistStagedElements(
-        List<Element> preparedElements, string[] stagedFiles, CancellationToken cancellationToken)
+        Scene scene, List<Element> preparedElements, string[] stagedFiles, CancellationToken cancellationToken)
     {
         try
         {
             foreach (Element element in preparedElements)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                CoreSerializer.StoreToUri(element, element.Uri!);
+                CoreSerializer.StoreToUri(element, element.Uri!, owner: scene);
             }
             cancellationToken.ThrowIfCancellationRequested();
         }

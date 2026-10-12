@@ -1,5 +1,4 @@
-﻿using System.Text.Json.Nodes;
-using Beutl.Serialization;
+﻿using Beutl.Serialization;
 
 namespace Beutl.UnitTests.Core;
 
@@ -90,7 +89,7 @@ public sealed class StoreToUriLifetimeTests
 
     [TestCase(false)]
     [TestCase(true)]
-    public void Failed_project_save_preserves_its_uri_without_undoing_the_migration_gate(bool previouslySaved)
+    public void Failed_project_save_preserves_its_uri(bool previouslySaved)
     {
         Uri? previousUri = previouslySaved ? CreateUri("previous.beutl") : null;
         Uri destination = CreateUri("next.beutl");
@@ -103,22 +102,18 @@ public sealed class StoreToUriLifetimeTests
         }
 
         var failure = new InvalidOperationException("Injected project item failure.");
-        var item = new FailingProjectItem { Failure = failure };
-        item.MergePersistedContentMigration("99.0.0");
-        project.Items.Add(item);
+        project.Items.Add(new FailingProjectItem { Failure = failure });
 
         InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(() =>
             CoreSerializer.StoreToUri(project, destination));
 
-        var gate = JsonNode.Parse(File.ReadAllText(destination.LocalPath))!.AsObject();
         Assert.Multiple(() =>
         {
             Assert.That(actual, Is.SameAs(failure));
             Assert.That(project.Uri, Is.EqualTo(previousUri));
-            Assert.That(project.MinAppVersion, Is.EqualTo("99.0.0"));
-            Assert.That(gate["minAppVersion"]!.GetValue<string>(), Is.EqualTo("99.0.0"));
-            Assert.That(gate.ContainsKey("items"), Is.False,
-                "A failed save retains the compatibility gate without publishing the item graph.");
+            // A project file is written whole and after the files it references, so a failed save
+            // leaves none at a new destination.
+            Assert.That(File.Exists(destination.LocalPath), Is.False);
             Assert.That(Directory.GetFiles(_directory, "*.tmp"), Is.Empty);
             if (previousUri is not null)
                 Assert.That(File.ReadAllText(previousUri.LocalPath), Is.EqualTo(previousBytes));

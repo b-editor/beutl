@@ -1,10 +1,12 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.IO.Compression;
+using System.Runtime.ExceptionServices;
 using Beutl.IO;
 using Beutl.Language;
 using Beutl.Logging;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
+using Beutl.Utilities;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Editor;
@@ -206,6 +208,9 @@ public sealed class ProjectPackageService
     /// <param name="progress">Progress reporter.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The imported project, or <c>null</c> if import failed.</returns>
+    /// <exception cref="UnsupportedFileVersionException">
+    /// The packaged project, or a file it references, needs a newer version of Beutl. Nothing is imported.
+    /// </exception>
     public async Task<Project?> ImportAsync(
         string packagePath,
         string destinationDirectory,
@@ -268,6 +273,14 @@ public sealed class ProjectPackageService
         {
             LogImportCancelled();
             throw;
+        }
+        catch (Exception ex) when (ExceptionHelpers.Find<UnsupportedFileVersionException>(ex) is { } unsupported)
+        {
+            // Reported to the caller, which can name the version the project needs. A file read in
+            // parallel arrives wrapped.
+            _logger.LogWarning(ex, "The packaged project needs a newer version of Beutl");
+            ExceptionDispatchInfo.Capture(unsupported).Throw();
+            throw; // Not reached: the line above throws.
         }
         catch (Exception ex)
         {

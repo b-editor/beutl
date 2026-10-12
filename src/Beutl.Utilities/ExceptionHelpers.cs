@@ -26,7 +26,19 @@ public static class ExceptionHelpers
         => Contains(exception, static current => current is UnauthorizedAccessException
             or IOException and not FileNotFoundException);
 
+    /// <summary>
+    /// Returns the first <typeparamref name="T"/> in the exception chain, looking through the same
+    /// reflection and aggregation wrappers as the checks above, or <see langword="null"/> when the
+    /// chain holds none.
+    /// </summary>
+    public static T? Find<T>(Exception exception)
+        where T : Exception
+        => (T?)Find(exception, static current => current is T);
+
     private static bool Contains(Exception exception, Func<Exception, bool> predicate)
+        => Find(exception, predicate) is not null;
+
+    private static Exception? Find(Exception exception, Func<Exception, bool> predicate)
     {
         var pending = new Stack<Exception>();
         var visited = new HashSet<Exception>(ReferenceEqualityComparer.Instance);
@@ -41,7 +53,7 @@ public static class ExceptionHelpers
 
             if (predicate(current))
             {
-                return true;
+                return current;
             }
 
             if (current is AggregateException aggregate)
@@ -67,6 +79,6 @@ public static class ExceptionHelpers
             }
         }
 
-        return false;
+        return null;
     }
 }

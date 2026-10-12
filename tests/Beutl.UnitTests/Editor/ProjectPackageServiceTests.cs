@@ -1,5 +1,6 @@
 ﻿using System.Collections.Concurrent;
 using System.IO.Compression;
+using System.Text.Json.Nodes;
 using Beutl.Editor;
 using Beutl.Graphics;
 using Beutl.Logging;
@@ -8,6 +9,7 @@ using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Microsoft.Extensions.Logging;
+using NuGet.Versioning;
 
 namespace Beutl.UnitTests.Editor;
 
@@ -468,6 +470,39 @@ public class ProjectPackageServiceTests
 
         // Assert
         Assert.That(importedProject, Is.Null);
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task ImportAsync_WithProjectNeedingNewerVersion_ThrowsAndImportsNothing(bool elementNeedsIt)
+    {
+        // Arrange: the project file, or an element file its scene reads in parallel, needs a newer Beutl
+        string packageDir = Path.Combine(_testDir, "newer");
+        var project = new Project { Uri = new Uri(Path.Combine(packageDir, "newer.bep")) };
+        var scene = new Scene { Uri = new Uri(Path.Combine(packageDir, "scene", "scene.scene")) };
+        var element = new Element { Uri = new Uri(Path.Combine(packageDir, "scene", "element.belm")) };
+        scene.AddChild(element);
+        project.Items.Add(scene);
+        CoreSerializer.StoreToUri(project, project.Uri);
+        string newerFile = elementNeedsIt ? element.Uri.LocalPath : project.Uri.LocalPath;
+        string required = $"{NuGetVersion.Parse(BeutlApplication.Version).Major + 1}.0.0";
+        JsonObject json = JsonNode.Parse(File.ReadAllText(newerFile))!.AsObject();
+        json["minAppVersion"] = required;
+        json.JsonSave(newerFile);
+        string packagePath = Path.Combine(_exportDir, "newer.zip");
+        ZipFile.CreateFromDirectory(packageDir, packagePath);
+
+        // Act
+        UnsupportedFileVersionException? refused = await Assert.ThrowsAsync<UnsupportedFileVersionException>(
+            async () => await ProjectPackageService.Current.ImportAsync(packagePath, _importDir));
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(refused!.RequiredVersion, Is.EqualTo(required));
+            Assert.That(Path.GetFileName(refused.Uri.LocalPath), Is.EqualTo(Path.GetFileName(newerFile)));
+            Assert.That(Directory.EnumerateFileSystemEntries(_importDir), Is.Empty);
+        });
     }
 
     #endregion

@@ -20,7 +20,10 @@ public class BeutlApplication : Hierarchical, IHierarchicalRoot
             .Accessor(o => o.Project, (o, v) => o.Project = v)
             .Register();
 
-        var asm = Assembly.GetEntryAssembly()!;
+        // Read from this assembly rather than the entry assembly. Every assembly built from the repository
+        // carries the version it was built as (root Directory.Build.targets), so this one matches the
+        // application's, and a host that is not the application, such as a test runner, gets it too.
+        var asm = typeof(BeutlApplication).Assembly;
         var att = asm.GetCustomAttributes<AssemblyMetadataAttribute>()
             .FirstOrDefault(i => i.Key == "NuGetVersion");
         s_version = att?.Value ?? "1.0.0";

@@ -10,6 +10,9 @@ internal static class FallbackDeserializationHelper
         Type baseType, Type? actualType, JsonObject json, Exception? exception = null)
     {
         if (exception != null && ExceptionHelpers.ContainsFatalFailure(exception)) return null;
+        // A referenced file that needs a newer Beutl refuses the whole read rather than leaving a
+        // fallback that a save would write over it.
+        if (exception != null && ExceptionHelpers.Find<UnsupportedFileVersionException>(exception) is not null) return null;
 
         if (Attribute.GetCustomAttribute(baseType, typeof(FallbackTypeAttribute))
             is not FallbackTypeAttribute attr)

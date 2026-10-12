@@ -1,5 +1,4 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-using Beutl.Configuration;
 using Beutl.Services;
 using Beutl.Services.AI;
 using Beutl.Testing.Headless;
@@ -18,11 +17,6 @@ internal static class TestReset
         // test fires into a disposed view model when a later test writes under BEUTL_HOME. Dispose
         // the tabs so those watchers are torn down.
         await DisposeOpenEditorTabsAsync();
-
-        // The test build reports BeutlApplication.Version "1.0.0" (no NuGetVersion metadata), so a
-        // persisted minAppVersion looks newer and OpenProject would pop the version-mismatch dialog,
-        // which needs a window the headless host lacks. SkipVersionCheck removes that branch.
-        Preferences.Default.Set("ProjectService.SkipVersionCheck", true);
 
         await TestShell.Project.CloseProjectAsync();
         BeutlApplication.Current.Items.Clear();
