@@ -29,9 +29,9 @@ public class EngineObject : Hierarchical, INotifyEdited
     private IDisposable? _timeAnchorSubscription;
     private readonly List<IProperty> _properties = new();
     private List<IProperty>? _displayProperties;
-    // The entries of Animations and Expressions for properties this type does not have, kept as unknown members
-    // are (see CoreObject.UnknownMembers), so the animation or expression a newer version gave a new property
-    // survives an older version too.
+    // The entries of Animations and Expressions that Deserialize does not read, usually for properties this type
+    // does not have, kept as unknown members are (see CoreObject.UnknownMembers), so the animation or expression a
+    // newer version gave a property survives an older version too.
     private JsonObject? _unknownAnimations;
     private JsonObject? _unknownExpressions;
 
@@ -190,23 +190,28 @@ public class EngineObject : Hierarchical, INotifyEdited
         // A fallback keeps its whole JSON already.
         if (this is not IFallback && context is JsonSerializationContext { KeepsUnknownMembers: true } jsonContext)
         {
-            KeepUnknownEntries(jsonContext, "Animations", ref _unknownAnimations);
-            KeepUnknownEntries(jsonContext, "Expressions", ref _unknownExpressions);
+            KeepUnknownEntries(
+                jsonContext, "Animations", static property => property.IsAnimatable, ref _unknownAnimations);
+            KeepUnknownEntries(jsonContext, "Expressions", static _ => true, ref _unknownExpressions);
         }
     }
 
-    // Keeps the entries of the name member that belong to no property of this object, under its name or a former
-    // one (the keys Deserialize looks them up by), so an entry read under a former name is not written back next to
-    // the current one. Like unknown members, entries read again replace the ones kept before, and a populate without
-    // the member keeps them.
-    private void KeepUnknownEntries(JsonSerializationContext context, string name, ref JsonObject? kept)
+    // Keeps the entries of the name member that Deserialize does not read: it reads an entry for an auto-serialized
+    // property that takes one (takes), under the property's name or a former one. Any other entry is kept and
+    // written back, such as the animation of a property that a newer version made animatable, but not one read under
+    // a former name, which would be written back next to the current one. Like unknown members, entries read again
+    // replace the ones kept before, and a populate without the member keeps them.
+    private void KeepUnknownEntries(
+        JsonSerializationContext context, string name, Func<IProperty, bool> takes, ref JsonObject? kept)
     {
         if (context.GetNode(name) is not JsonObject entries) return;
 
         foreach ((string key, JsonNode? node) in entries)
         {
-            if (_properties.Exists(property =>
-                    FormerPersistedNames.IsMemberKey(key, property.Name, property.GetAttributes())))
+            if (_properties.Exists(property => IsAutoSerialized(property)
+                                               && takes(property)
+                                               && FormerPersistedNames.IsMemberKey(
+                                                   key, property.Name, property.GetAttributes())))
             {
                 continue;
             }

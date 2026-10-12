@@ -69,6 +69,27 @@ public class GlobalConfigurationKeepTests
         });
     }
 
+    // A section it knows also writes back the settings in it that this build does not know.
+    [Test]
+    public void Settings_a_known_section_does_not_know_are_written_back_when_a_setting_changes()
+    {
+        var future = new JsonObject { ["Mode"] = "Fast", ["Levels"] = new JsonArray(1, 2) };
+        GlobalConfiguration config = Restore(new JsonObject
+        {
+            ["Graphics"] = new JsonObject { ["SelectedGpuName"] = "before", ["FutureSetting"] = future.DeepClone() },
+        }.ToJsonString());
+
+        config.GraphicsConfig.SelectedGpuName = "after";
+
+        JsonObject saved = ReadSaved();
+        Assert.Multiple(() =>
+        {
+            Assert.That(saved["Graphics"]?["SelectedGpuName"]?.GetValue<string>(), Is.EqualTo("after"));
+            Assert.That(JsonNode.DeepEquals(saved["Graphics"]?["FutureSetting"], future), Is.True,
+                saved.ToJsonString());
+        });
+    }
+
     [Test]
     public void Kept_sections_follow_the_known_ones_in_the_order_the_file_had_them()
     {

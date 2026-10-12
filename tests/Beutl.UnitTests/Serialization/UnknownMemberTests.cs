@@ -79,6 +79,30 @@ public class UnknownMemberTests
         });
     }
 
+    // An entry Deserialize does not read is kept even when it names a property this type has, as when a newer
+    // version made a property animatable that is not animatable here.
+    [Test]
+    public void EngineObject_KeepsTheAnimationOfAPropertyThatIsNotAnimatableHere()
+    {
+        var shape = new RectShape();
+        shape.Width.Animation = CreateAnimation(10f);
+        JsonNode animation = CoreSerializer.SerializeToJsonObject(shape)["Animations"]![nameof(RectShape.Width)]!
+            .DeepClone();
+        JsonObject json = CoreSerializer.SerializeToJsonObject(new SimpleHolder());
+        if (json["Animations"] is not JsonObject animations)
+        {
+            json["Animations"] = animations = new JsonObject();
+        }
+
+        animations[nameof(SimpleHolder.Size)] = animation.DeepClone();
+
+        var restored = (SimpleHolder)CoreSerializer.DeserializeFromJsonObject(json, typeof(SimpleHolder));
+        JsonObject written = CoreSerializer.SerializeToJsonObject(restored);
+
+        Assert.That(JsonNode.DeepEquals(written["Animations"]?[nameof(SimpleHolder.Size)], animation), Is.True,
+            written.ToJsonString());
+    }
+
     // What a property reads under a former name (FormerPersistedNameAttribute) is not unknown: its value, animation
     // and expression, and a CoreProperty value, are written under the current names only, and reading them keeps no
     // data this build does not know.
@@ -291,6 +315,15 @@ public class UnknownMemberTests
             get => GetValue(ValueProperty);
             set => SetValue(ValueProperty, value);
         }
+    }
+
+    // An engine object with a property that is not animatable.
+    [SuppressResourceClassGeneration]
+    private sealed class SimpleHolder : EngineObject
+    {
+        public SimpleHolder() => ScanProperties<SimpleHolder>();
+
+        public IProperty<float> Size { get; } = Property.Create(1f);
     }
 
     // An engine object whose properties were renamed: an IProperty and a CoreProperty, each with a former name.

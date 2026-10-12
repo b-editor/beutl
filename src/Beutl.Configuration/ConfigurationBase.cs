@@ -1,7 +1,6 @@
 ﻿using System.Reactive;
 using System.Reflection;
 using System.Text.Json;
-using System.Text.Json.Nodes;
 using Beutl.Logging;
 using Beutl.Serialization;
 using Microsoft.Extensions.Logging;
@@ -80,10 +79,12 @@ public abstract class ConfigurationBase : CoreObject
         }
     }
 
+    // Asks for this key alone: taking the whole JSON object would count every key as read, so the section would not
+    // keep the settings a newer build added, and saving it would drop them.
     private static bool IsJsonNull(ICoreSerializationContext context, string name)
         => context is IJsonSerializationContext json
-           && json.GetJsonObject().TryGetPropertyValue(name, out JsonNode? node)
-           && node is null;
+           && json.Contains(name)
+           && json.GetNode(name) is null;
 
     private bool AcceptsNull(CoreProperty property)
     {

@@ -5,6 +5,9 @@ using Beutl.Serialization;
 
 namespace Beutl.Configuration;
 
+// #2852 removed the agent workspace root (agent tools take absolute paths), so a stored WorkspaceRoot is dropped
+// rather than kept as an unknown member.
+[DroppedMembers("WorkspaceRoot")]
 public sealed class AiAgentConfig : ConfigurationBase
 {
     public static readonly CoreProperty<string> AgentIdProperty;
