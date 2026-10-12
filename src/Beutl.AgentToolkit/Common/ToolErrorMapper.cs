@@ -17,14 +17,17 @@ internal static class ToolErrorMapper
     public static ToolError Map(Exception exception)
     {
         // A project, or a file it references, that needs a newer Beutl is refused when it is read,
-        // possibly from inside a parallel read that wraps the refusal.
+        // possibly from inside a parallel read that wraps the refusal. The version comes from the file, so
+        // only its display form reaches the agent, never the text the file recorded.
         if (ExceptionHelpers.Find<UnsupportedFileVersionException>(exception) is { } unsupported)
         {
             return new ToolError(
                 ErrorCode.UnsupportedFileVersion,
                 unsupported.Message,
                 unsupported.Uri.IsFile ? unsupported.Uri.LocalPath : unsupported.Uri.ToString(),
-                $"Open it with Beutl {unsupported.RequiredVersion} or later.");
+                unsupported.DisplayVersion is { } version
+                    ? $"Open it with Beutl {version} or later."
+                    : "The file's minAppVersion is not a version string. Restore the file from a backup.");
         }
 
         return exception switch
