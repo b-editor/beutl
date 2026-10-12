@@ -1,10 +1,9 @@
-﻿using Beutl.Animation;
-using Beutl.Animation.Easings;
-using Beutl.Audio;
+﻿using Beutl.Audio;
 using Beutl.Audio.Graph;
 using Beutl.Audio.Graph.Nodes;
 using Beutl.Engine;
-using Beutl.Media;
+
+using static Beutl.UnitTests.Engine.Audio.AudioTestProperties;
 
 namespace Beutl.UnitTests.Engine.Audio;
 
@@ -13,33 +12,11 @@ public class GainNodeTests
 {
     private const int SampleRate = 100;
 
-    private static IProperty<float> AnimatedGain(float fromPercent, float toPercent, double durationSeconds)
-    {
-        var property = Property.CreateAnimatable(fromPercent);
-        property.SetAttributes("Gain", []);
-
-        var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float>
-        {
-            KeyTime = TimeSpan.Zero,
-            Value = fromPercent,
-            Easing = new LinearEasing()
-        });
-        animation.KeyFrames.Add(new KeyFrame<float>
-        {
-            KeyTime = TimeSpan.FromSeconds(durationSeconds),
-            Value = toPercent,
-            Easing = new LinearEasing()
-        });
-        property.Animation = animation;
-        return property;
-    }
-
     private static AudioProcessContext CreateContext() =>
-        new(new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)), SampleRate, new AnimationSampler(), null);
+        AudioTestContexts.CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(1), SampleRate);
 
     // Animatable Gain with no animation assigned must use the static CurrentValue, not the
-    // per-sample path. Characterizes the behavior-preserving IsAnimatable -> Animation != null change.
+    // per-sample path.
     [Test]
     public void Process_AnimatableGainWithoutAnimation_AppliesCurrentValue()
     {
@@ -68,7 +45,7 @@ public class GainNodeTests
     [Test]
     public void Process_GainWithAnimation_AppliesAnimatedValues()
     {
-        using var node = new GainNode { Gain = AnimatedGain(0f, 100f, 1.0) };
+        using var node = new GainNode { Gain = Ramp("Gain", 0f, 100f, 1.0) };
         node.AddInput(new ConstantInputNode(SampleRate, 1, SampleRate, 1.0f));
 
         using AudioBuffer result = node.Process(CreateContext());
@@ -82,10 +59,7 @@ public class GainNodeTests
         }
     }
 
-    // CreateGainNode reuses a matching GainNode from the previous frame (so streaming/resampler state
-    // survives a graph rebuild). The reuse path matches by Gain reference, so the node it returns already
-    // carries that exact Gain — this guards the removal of the redundant `existing.Gain = gain` write that
-    // the `required init` Gain makes impossible.
+    // CreateGainNode reuses the previous frame's GainNode by matching its Gain reference.
     [Test]
     public void CreateGainNode_ReusesPreviousNodeMatchingByGain()
     {

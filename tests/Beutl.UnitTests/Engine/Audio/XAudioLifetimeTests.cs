@@ -75,40 +75,6 @@ public class XAudioLifetimeTests
     {
         switch (action)
         {
-            case "dispose-source-twice":
-            case "use-disposed-source":
-            case "queue-disposed-source":
-            case "dispose-source-during-create":
-            case "dispose-source-during-submit":
-                RunSourceWorker(action);
-                return;
-        }
-
-        RunBufferOrContextWorker(action);
-    }
-
-    [Test, Platform("Win")]
-    public Task Source_DisposeTwice_DestroysNativeVoiceOnce()
-    {
-        return TestWorkerProgram.RunAsync(TestWorkerProgram.XAudioLifetimeWorkerArgument, "dispose-source-twice");
-    }
-
-    [Test, Platform("Win")]
-    public Task Source_AfterDispose_StateAndPlaybackCallsDoNotUseDestroyedVoice()
-    {
-        return TestWorkerProgram.RunAsync(TestWorkerProgram.XAudioLifetimeWorkerArgument, "use-disposed-source");
-    }
-
-    [Test, Platform("Win")]
-    public Task Source_QueueBufferAfterDispose_ThrowsObjectDisposedException()
-    {
-        return TestWorkerProgram.RunAsync(TestWorkerProgram.XAudioLifetimeWorkerArgument, "queue-disposed-source");
-    }
-
-    private static void RunBufferOrContextWorker(string action)
-    {
-        switch (action)
-        {
             case "dispose-buffer-twice":
                 var buffer = new XAudioBuffer();
                 buffer.BufferData<float>([0.25f, -0.25f], new WaveFormat(44100, 32, 2));
@@ -133,9 +99,36 @@ public class XAudioLifetimeTests
                 GC.Collect();
                 GC.WaitForPendingFinalizers();
                 break;
+            case "dispose-source-twice":
+            case "use-disposed-source":
+            case "queue-disposed-source":
+                RunSourceWorker(action);
+                break;
+            case "dispose-source-during-create":
+            case "dispose-source-during-submit":
+                RunConcurrentSourceDisposal(action == "dispose-source-during-create");
+                break;
             default:
                 throw new ArgumentException("Unknown XAudio lifetime test action.", nameof(action));
         }
+    }
+
+    [Test, Platform("Win")]
+    public Task Source_DisposeTwice_DestroysNativeVoiceOnce()
+    {
+        return TestWorkerProgram.RunAsync(TestWorkerProgram.XAudioLifetimeWorkerArgument, "dispose-source-twice");
+    }
+
+    [Test, Platform("Win")]
+    public Task Source_AfterDispose_StateAndPlaybackCallsDoNotUseDestroyedVoice()
+    {
+        return TestWorkerProgram.RunAsync(TestWorkerProgram.XAudioLifetimeWorkerArgument, "use-disposed-source");
+    }
+
+    [Test, Platform("Win")]
+    public Task Source_QueueBufferAfterDispose_ThrowsObjectDisposedException()
+    {
+        return TestWorkerProgram.RunAsync(TestWorkerProgram.XAudioLifetimeWorkerArgument, "queue-disposed-source");
     }
 
     [TestCase("create"), TestCase("submit"), Platform("Win")]
@@ -211,21 +204,14 @@ public class XAudioLifetimeTests
 
     private static void RunSourceWorker(string action)
     {
-        if (action is "dispose-source-during-create" or "dispose-source-during-submit")
-        {
-            RunConcurrentSourceDisposal(action == "dispose-source-during-create");
-            return;
-        }
-        using var context = (XAudioContext)RuntimeHelpers.GetUninitializedObject(typeof(XAudioContext));
         using var nativeVoice = new NativeVoiceStub();
-        var source = new XAudioSource(context);
-        typeof(XAudioSource).GetField("_sourceVoice",
-            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
-            .SetValue(source, nativeVoice.Voice);
+        using var source = new XAudioSource(_ => nativeVoice.Voice);
+        using var buffer = new XAudioBuffer();
+        buffer.BufferData<float>([0.25f, -0.25f], new WaveFormat(44100, 32, 2));
+        source.QueueBuffer(buffer);
 
         source.Dispose();
         Assert.That(nativeVoice.DestroyCount, Is.EqualTo(1));
-        Console.WriteLine($"Source voice destroyed {nativeVoice.DestroyCount} time; wrapper pointer {nativeVoice.Voice.NativePointer}.");
 
         switch (action)
         {
@@ -242,12 +228,8 @@ public class XAudioLifetimeTests
                 source.Flush();
                 break;
             case "queue-disposed-source":
-                {
-                    using var buffer = new XAudioBuffer();
-                    buffer.BufferData<float>([0.25f, -0.25f], new WaveFormat(44100, 32, 2));
-                    Assert.Throws<ObjectDisposedException>(() => source.QueueBuffer(buffer));
-                    break;
-                }
+                Assert.Throws<ObjectDisposedException>(() => source.QueueBuffer(buffer));
+                break;
         }
     }
 

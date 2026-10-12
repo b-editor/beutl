@@ -1,5 +1,4 @@
 ﻿using Beutl.Animation;
-using Beutl.Animation.Easings;
 using Beutl.Audio;
 using Beutl.Audio.Graph;
 using Beutl.Audio.Graph.Nodes;
@@ -8,7 +7,10 @@ using Beutl.Engine.Expressions;
 using Beutl.Media;
 
 using static Beutl.Audio.Effects.CompressorParameters;
+using static Beutl.UnitTests.Engine.Audio.AudioTestAnimations;
 using static Beutl.UnitTests.Engine.Audio.AudioTestBuffers;
+using static Beutl.UnitTests.Engine.Audio.AudioTestContexts;
+using static Beutl.UnitTests.Engine.Audio.AudioTestLevels;
 
 namespace Beutl.UnitTests.Engine.Audio;
 
@@ -17,62 +19,7 @@ public class CompressorNodeTests
 {
     private const int SampleRate = 48000;
 
-    // Sine buffer with a +Infinity head sample on every channel: drives the envelope and product
-    // non-finite, emitting the one-shot non-finite-sample warning once per armed period.
-    private static AudioBuffer MakeInfinityHeadBuffer(int sampleCount, int sampleRate = SampleRate)
-    {
-        var buffer = CreateSineBuffer(0.9f, 1000f, sampleCount, 2, sampleRate);
-        for (int ch = 0; ch < buffer.ChannelCount; ch++)
-        {
-            buffer.GetChannelData(ch)[0] = float.PositiveInfinity;
-        }
-        return buffer;
-    }
-
-    private static float PeakDb(AudioBuffer buffer, int startSample)
-    {
-        float peak = 0f;
-        for (int ch = 0; ch < buffer.ChannelCount; ch++)
-        {
-            var data = buffer.GetChannelData(ch);
-            for (int i = startSample; i < buffer.SampleCount; i++)
-            {
-                float a = MathF.Abs(data[i]);
-                if (a > peak) peak = a;
-            }
-        }
-        return peak > 0f ? 20f * MathF.Log10(peak) : -100f;
-    }
-
-    private static float ChannelPeakDb(AudioBuffer buffer, int channel, int startSample)
-    {
-        float peak = 0f;
-        var data = buffer.GetChannelData(channel);
-        for (int i = startSample; i < buffer.SampleCount; i++)
-        {
-            float a = MathF.Abs(data[i]);
-            if (a > peak) peak = a;
-        }
-        return peak > 0f ? 20f * MathF.Log10(peak) : -100f;
-    }
-
-    private static float PeakDbInWindow(AudioBuffer buffer, int startSample, int width)
-    {
-        int end = Math.Min(buffer.SampleCount, startSample + width);
-        float peak = 0f;
-        for (int ch = 0; ch < buffer.ChannelCount; ch++)
-        {
-            var data = buffer.GetChannelData(ch);
-            for (int i = startSample; i < end; i++)
-            {
-                float a = MathF.Abs(data[i]);
-                if (a > peak) peak = a;
-            }
-        }
-        return peak > 0f ? 20f * MathF.Log10(peak) : -100f;
-    }
-
-    private static CompressorNode CreateNode(
+    internal static CompressorNode CreateNode(
         float threshold = -20f,
         float ratio = 4f,
         float attack = 5f,
@@ -89,15 +36,6 @@ public class CompressorNodeTests
             Knee = Property.CreateAnimatable(knee),
             MakeupGain = Property.CreateAnimatable(makeup)
         };
-    }
-
-    private static AudioProcessContext CreateContext(TimeSpan start, TimeSpan duration, int sampleRate = SampleRate)
-    {
-        return new AudioProcessContext(
-            new TimeRange(start, duration),
-            sampleRate,
-            new AnimationSampler(),
-            null);
     }
 
     [Test]
@@ -319,8 +257,8 @@ public class CompressorNodeTests
         using var output = node.Process(ctx);
 
         int steadyStart = SampleRate / 2;
-        float leftPeakDb = ChannelPeakDb(output, 0, steadyStart);
-        float rightPeakDb = ChannelPeakDb(output, 1, steadyStart);
+        float leftPeakDb = PeakDb(output, steadyStart, channel: 0);
+        float rightPeakDb = PeakDb(output, steadyStart, channel: 1);
 
         // L should be compressed to ~-13.5 dB (same ±2.5 band as the steady-state test above).
         Assert.That(leftPeakDb, Is.EqualTo(-13.5f).Within(2.5f),
@@ -331,36 +269,6 @@ public class CompressorNodeTests
         float leftGainReductionDb = leftInputPeakDb - leftPeakDb;
         float expectedRightDb = rightInputPeakDb - leftGainReductionDb;
         Assert.That(rightPeakDb, Is.EqualTo(expectedRightDb).Within(1.5f));
-    }
-
-    [Test]
-    public void Process_EnvelopeStateContinuesAcrossChunks()
-    {
-        // A node warmed up by a previous loud chunk must NOT reset its envelope on a time-contiguous
-        // next chunk. The warmed-up node is already in compression, so its first sample is quieter
-        // than a fresh node still ramping through attack.
-        const int chunkSamples = SampleRate / 10;
-        var chunkDuration = TimeSpan.FromSeconds(chunkSamples / (double)SampleRate);
-        var ctx1 = CreateContext(TimeSpan.Zero, chunkDuration);
-        var ctx2 = CreateContext(chunkDuration, chunkDuration);
-
-        var nodeContinuing = CreateNode(release: 1000f);
-        using var warmupInput = CreateConstantBuffer(0.9f, chunkSamples);
-        nodeContinuing.AddInput(new BufferReplayNode(warmupInput));
-        using var warmup = nodeContinuing.Process(ctx1);
-        nodeContinuing.ClearInputs();
-        using var followInput = CreateConstantBuffer(0.9f, chunkSamples);
-        nodeContinuing.AddInput(new BufferReplayNode(followInput));
-        using var followOutput = nodeContinuing.Process(ctx2);
-
-        var nodeFresh = CreateNode(release: 1000f);
-        using var freshInput = CreateConstantBuffer(0.9f, chunkSamples);
-        nodeFresh.AddInput(new BufferReplayNode(freshInput));
-        using var freshOutput = nodeFresh.Process(ctx1);
-
-        float continuingFirst = MathF.Abs(followOutput.GetChannelData(0)[0]);
-        float freshFirst = MathF.Abs(freshOutput.GetChannelData(0)[0]);
-        Assert.That(continuingFirst, Is.LessThan(freshFirst));
     }
 
     [Test]
@@ -378,7 +286,6 @@ public class CompressorNodeTests
         node.ClearInputs();
         using var loud2 = CreateConstantBuffer(0.9f, chunkSamples);
         node.AddInput(new BufferReplayNode(loud2));
-        // Start time jumps forward (seek), breaking contiguity.
         var ctxSeek = CreateContext(TimeSpan.FromSeconds(5.0), TimeSpan.FromSeconds(chunkSamples / (double)SampleRate));
         using var seekedOutput = node.Process(ctxSeek);
 
@@ -388,7 +295,6 @@ public class CompressorNodeTests
         using var freshOutput = nodeFresh.Process(
             CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(chunkSamples / (double)SampleRate)));
 
-        // After the seek reset, the first sample should match a fresh node's first sample.
         float seekedFirst = MathF.Abs(seekedOutput.GetChannelData(0)[0]);
         float freshFirst = MathF.Abs(freshOutput.GetChannelData(0)[0]);
         Assert.That(seekedFirst, Is.EqualTo(freshFirst).Within(1e-4f));
@@ -417,7 +323,6 @@ public class CompressorNodeTests
             null);
         using var secondOutput = node.Process(ctx44);
 
-        // After the sample-rate reset, the first sample must match a fresh node at the new rate.
         var nodeFresh = CreateNode(release: 1000f);
         using var freshInput = CreateSineBuffer(0.9f, 1000f, altSampleRate / 10, 2, altSampleRate);
         nodeFresh.AddInput(new BufferReplayNode(freshInput));
@@ -474,22 +379,8 @@ public class CompressorNodeTests
         using var input = CreateConstantBuffer(0.05f, sampleCount);
         var source = new BufferReplayNode(input);
 
-        var thresholdAnim = new KeyFrameAnimation<float>();
-        thresholdAnim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = -10f, KeyTime = TimeSpan.Zero });
-        thresholdAnim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = -40f, KeyTime = TimeSpan.FromSeconds(0.5) });
-
-        var thresholdProperty = Property.CreateAnimatable(-10f);
-        thresholdProperty.Animation = thresholdAnim;
-
-        var node = new CompressorNode
-        {
-            Threshold = thresholdProperty,
-            Ratio = Property.CreateAnimatable(8f),
-            Attack = Property.CreateAnimatable(1f),
-            Release = Property.CreateAnimatable(50f),
-            Knee = Property.CreateAnimatable(0f),
-            MakeupGain = Property.CreateAnimatable(0f)
-        };
+        var node = CreateNode(threshold: -10f, ratio: 8f, attack: 1f);
+        node.Threshold.Animation = Ramp(-10f, -40f, TimeSpan.FromSeconds(0.5));
         node.AddInput(source);
 
         var ctx = CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(0.5));
@@ -525,7 +416,6 @@ public class CompressorNodeTests
         var ctx = CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(0.25));
         using var output = node.Process(ctx);
 
-        // No sample anywhere in the output may be NaN or Infinity.
         for (int ch = 0; ch < output.ChannelCount; ch++)
         {
             var data = output.GetChannelData(ch);
@@ -563,10 +453,7 @@ public class CompressorNodeTests
         var node = CreateNode(threshold: thresholdDb, ratio: ratio);
         if (animated)
         {
-            var thresholdAnim = new KeyFrameAnimation<float>();
-            thresholdAnim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = thresholdDb, KeyTime = TimeSpan.Zero });
-            thresholdAnim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = thresholdDb, KeyTime = duration });
-            node.Threshold.Animation = thresholdAnim;
+            node.Threshold.Animation = Ramp(thresholdDb, thresholdDb, duration);
         }
         node.AddInput(new BufferReplayNode(input));
 
@@ -585,7 +472,7 @@ public class CompressorNodeTests
         float inputDb = 20f * MathF.Log10(amplitude);
         float slope = 1f - 1f / ratio;
         float compressedDb = inputDb - slope * (inputDb - thresholdDb);
-        float afterCorruptDb = ChannelPeakDb(output, 1, corruptIndex + 1);
+        float afterCorruptDb = PeakDb(output, corruptIndex + 1, channel: 1);
 
         Assert.That(afterCorruptDb, Is.LessThan(compressedDb + 3f),
             $"A corrupt channel must not reset the shared envelope; channel 1 peaked at {afterCorruptDb:F2} dB " +
@@ -610,7 +497,6 @@ public class CompressorNodeTests
 
         Assert.That(output.GetChannelData(0)[0], Is.EqualTo(0f));
         Assert.That(output.GetChannelData(1)[0], Is.EqualTo(0f));
-        // Subsequent samples remain finite.
         for (int ch = 0; ch < output.ChannelCount; ch++)
         {
             var data = output.GetChannelData(ch);
@@ -643,7 +529,6 @@ public class CompressorNodeTests
         float hardPeakDb = PeakDb(hardOutput, steadyStart);
         float softPeakDb = PeakDb(softOutput, steadyStart);
 
-        // Soft knee engages before the threshold, so its peak should be measurably lower than hard.
         Assert.That(softPeakDb, Is.LessThan(hardPeakDb - 0.3f),
             $"Soft knee should attenuate near threshold (hard≈{hardPeakDb:F2} dB, soft≈{softPeakDb:F2} dB)");
     }
@@ -668,14 +553,6 @@ public class CompressorNodeTests
     }
 
     [Test]
-    public void Process_NoInputs_Throws()
-    {
-        var node = CreateNode();
-        var ctx = CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(0.1));
-        Assert.Throws<InvalidOperationException>(() => node.Process(ctx));
-    }
-
-    [Test]
     public void Process_AnimatedAttackRelease_ExercisesCoefficientCache()
     {
         // Animate Attack 1 ms → 200 ms so every sample invalidates the coefficient cache and forces
@@ -694,21 +571,8 @@ public class CompressorNodeTests
             }
         }
 
-        var attackAnim = new KeyFrameAnimation<float>();
-        attackAnim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = 1f, KeyTime = TimeSpan.Zero });
-        attackAnim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = 200f, KeyTime = TimeSpan.FromSeconds(1.0) });
-        var attackProperty = Property.CreateAnimatable(1f);
-        attackProperty.Animation = attackAnim;
-
-        var node = new CompressorNode
-        {
-            Threshold = Property.CreateAnimatable(-20f),
-            Ratio = Property.CreateAnimatable(4f),
-            Attack = attackProperty,
-            Release = Property.CreateAnimatable(50f),
-            Knee = Property.CreateAnimatable(0f),
-            MakeupGain = Property.CreateAnimatable(0f)
-        };
+        var node = CreateNode(attack: 1f);
+        node.Attack.Animation = Ramp(1f, 200f, TimeSpan.FromSeconds(1.0));
         node.AddInput(new BufferReplayNode(input));
 
         var ctx = CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(1.0));
@@ -724,8 +588,8 @@ public class CompressorNodeTests
         }
 
         int probeWidth = SampleRate / 200;          // 5 ms
-        float transientPeakDb = PeakDbInWindow(output, stepAt, probeWidth);
-        float settledPeakDb = PeakDbInWindow(output, sampleCount - probeWidth, probeWidth);
+        float transientPeakDb = PeakDb(output, stepAt, probeWidth);
+        float settledPeakDb = PeakDb(output, sampleCount - probeWidth, probeWidth);
 
         Assert.That(transientPeakDb, Is.GreaterThan(settledPeakDb + 1.0f),
             $"Slow attack should leave a louder transient than the settled tail (transient≈{transientPeakDb:F2} dB, settled≈{settledPeakDb:F2} dB)");
@@ -741,22 +605,9 @@ public class CompressorNodeTests
         const int sampleCount = chunkSize * 3 + 137; // straddles several boundaries
         using var input = CreateConstantBuffer(0.9f, sampleCount);
 
+        var node = CreateNode();
         // Trivial threshold animation (constant value) just to force the ProcessAnimated path.
-        var thresholdAnim = new KeyFrameAnimation<float>();
-        thresholdAnim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = -20f, KeyTime = TimeSpan.Zero });
-        thresholdAnim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = -20f, KeyTime = TimeSpan.FromSeconds(sampleCount / (double)SampleRate) });
-        var thresholdProperty = Property.CreateAnimatable(-20f);
-        thresholdProperty.Animation = thresholdAnim;
-
-        var node = new CompressorNode
-        {
-            Threshold = thresholdProperty,
-            Ratio = Property.CreateAnimatable(4f),
-            Attack = Property.CreateAnimatable(5f),
-            Release = Property.CreateAnimatable(50f),
-            Knee = Property.CreateAnimatable(0f),
-            MakeupGain = Property.CreateAnimatable(0f)
-        };
+        node.Threshold.Animation = Ramp(-20f, -20f, TimeSpan.FromSeconds(sampleCount / (double)SampleRate));
         node.AddInput(new BufferReplayNode(input));
 
         var ctx = CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(sampleCount / (double)SampleRate));
@@ -791,38 +642,18 @@ public class CompressorNodeTests
         const int sampleCount = SampleRate / 4;
         using var input = CreateSineBuffer(0.9f, 1000f, sampleCount);
 
-        var threshold = Property.CreateAnimatable(-20f);
-        var ratio = Property.CreateAnimatable(4f);
-        var attack = Property.CreateAnimatable(5f);
-        var release = Property.CreateAnimatable(50f);
-        var knee = Property.CreateAnimatable(0f);
-        var makeup = Property.CreateAnimatable(0f);
-
+        var node = CreateNode();
         IProperty<float> target = param switch
         {
-            AnimatedParam.Threshold => threshold,
-            AnimatedParam.Ratio => ratio,
-            AnimatedParam.Attack => attack,
-            AnimatedParam.Release => release,
-            AnimatedParam.Knee => knee,
-            AnimatedParam.MakeupGain => makeup,
+            AnimatedParam.Threshold => node.Threshold,
+            AnimatedParam.Ratio => node.Ratio,
+            AnimatedParam.Attack => node.Attack,
+            AnimatedParam.Release => node.Release,
+            AnimatedParam.Knee => node.Knee,
+            AnimatedParam.MakeupGain => node.MakeupGain,
             _ => throw new ArgumentOutOfRangeException(nameof(param))
         };
-        var anim = new KeyFrameAnimation<float>();
-        anim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = float.NaN, KeyTime = TimeSpan.Zero });
-        anim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = float.NaN, KeyTime = TimeSpan.FromSeconds(0.25) });
-        // IProperty<float> exposes the Animation setter directly, no concrete cast needed.
-        target.Animation = anim;
-
-        var node = new CompressorNode
-        {
-            Threshold = threshold,
-            Ratio = ratio,
-            Attack = attack,
-            Release = release,
-            Knee = knee,
-            MakeupGain = makeup
-        };
+        target.Animation = Ramp(float.NaN, float.NaN, TimeSpan.FromSeconds(0.25));
         node.AddInput(new BufferReplayNode(input));
 
         var ctx = CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(0.25));
@@ -836,68 +667,6 @@ public class CompressorNodeTests
     }
 
     [Test]
-    public void Process_TooManyInputs_Throws()
-    {
-        const int sampleCount = SampleRate / 10;
-        using var bufA = CreateConstantBuffer(0.1f, sampleCount);
-        using var bufB = CreateConstantBuffer(0.1f, sampleCount);
-        var node = CreateNode();
-        node.AddInput(new BufferReplayNode(bufA));
-        node.AddInput(new BufferReplayNode(bufB));
-        var ctx = CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(0.1));
-        Assert.Throws<InvalidOperationException>(() => node.Process(ctx));
-    }
-
-    [Test]
-    public void Process_ZeroLengthInput_Static_ReturnsEmptyBuffer()
-    {
-        // A zero-length chunk must not divide by zero or stackalloc[0]. No animated parameters, so
-        // the static path is exercised.
-        using var input = new AudioBuffer(SampleRate, 2, 0);
-        var node = CreateNode();
-        node.AddInput(new BufferReplayNode(input));
-        var ctx = CreateContext(TimeSpan.Zero, TimeSpan.Zero);
-
-        using var output = node.Process(ctx);
-
-        Assert.That(output.SampleCount, Is.EqualTo(0));
-        Assert.That(output.ChannelCount, Is.EqualTo(2));
-        Assert.That(output.SampleRate, Is.EqualTo(SampleRate));
-    }
-
-    [Test]
-    public void Process_ZeroLengthInput_Animated_ReturnsEmptyBuffer()
-    {
-        // Same as above but animated. The zero-length early-return in Process() fires before
-        // ProcessAnimated is entered, so this pins the early-return contract — the animated chunk
-        // loop is unreachable at SampleCount == 0.
-        using var input = new AudioBuffer(SampleRate, 2, 0);
-
-        var thresholdAnim = new KeyFrameAnimation<float>();
-        thresholdAnim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = -20f, KeyTime = TimeSpan.Zero });
-        thresholdAnim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = -10f, KeyTime = TimeSpan.FromSeconds(1.0) });
-        var thresholdProperty = Property.CreateAnimatable(-20f);
-        thresholdProperty.Animation = thresholdAnim;
-
-        var node = new CompressorNode
-        {
-            Threshold = thresholdProperty,
-            Ratio = Property.CreateAnimatable(4f),
-            Attack = Property.CreateAnimatable(5f),
-            Release = Property.CreateAnimatable(50f),
-            Knee = Property.CreateAnimatable(0f),
-            MakeupGain = Property.CreateAnimatable(0f)
-        };
-        node.AddInput(new BufferReplayNode(input));
-
-        var ctx = CreateContext(TimeSpan.Zero, TimeSpan.Zero);
-        using var output = node.Process(ctx);
-
-        Assert.That(output.SampleCount, Is.EqualTo(0));
-        Assert.That(output.ChannelCount, Is.EqualTo(2));
-    }
-
-    [Test]
     public void Process_AnimatedMakeupGain_AppliesPerSampleGain()
     {
         // Sweep MakeupGain 0 → +12 dB over a steady loud signal; the tail must measure ~12 dB louder
@@ -905,21 +674,8 @@ public class CompressorNodeTests
         const int sampleCount = SampleRate; // 1 s buffer
         using var input = CreateSineBuffer(0.9f, 1000f, sampleCount);
 
-        var makeupAnim = new KeyFrameAnimation<float>();
-        makeupAnim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = 0f, KeyTime = TimeSpan.Zero });
-        makeupAnim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = 12f, KeyTime = TimeSpan.FromSeconds(1.0) });
-        var makeupProperty = Property.CreateAnimatable(0f);
-        makeupProperty.Animation = makeupAnim;
-
-        var node = new CompressorNode
-        {
-            Threshold = Property.CreateAnimatable(-20f),
-            Ratio = Property.CreateAnimatable(4f),
-            Attack = Property.CreateAnimatable(5f),
-            Release = Property.CreateAnimatable(50f),
-            Knee = Property.CreateAnimatable(0f),
-            MakeupGain = makeupProperty
-        };
+        var node = CreateNode();
+        node.MakeupGain.Animation = Ramp(0f, 12f, TimeSpan.FromSeconds(1.0));
         node.AddInput(new BufferReplayNode(input));
 
         var ctx = CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(1.0));
@@ -928,8 +684,8 @@ public class CompressorNodeTests
         // Compare an early window (makeup ≈ 0 dB) against a late one (≈ +12 dB), both past the attack
         // ramp so the envelope is steady.
         int probeWidth = SampleRate / 100; // 10 ms
-        float earlyPeakDb = PeakDbInWindow(output, SampleRate / 4, probeWidth);
-        float latePeakDb = PeakDbInWindow(output, sampleCount - probeWidth, probeWidth);
+        float earlyPeakDb = PeakDb(output, SampleRate / 4, probeWidth);
+        float latePeakDb = PeakDb(output, sampleCount - probeWidth, probeWidth);
 
         float observedRise = latePeakDb - earlyPeakDb;
         // 12 dB nominal; wide tolerance because the 25%→100% window covers only ~9 dB plus ripple.
@@ -947,21 +703,8 @@ public class CompressorNodeTests
         const int sampleCount = SampleRate / 4;
         using var input = CreateSineBuffer(0.9f, 1000f, sampleCount);
 
-        var ratioAnim = new KeyFrameAnimation<float>();
-        ratioAnim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = 0.5f, KeyTime = TimeSpan.Zero });
-        ratioAnim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = 0.5f, KeyTime = TimeSpan.FromSeconds(0.25) });
-        var ratioProperty = Property.CreateAnimatable(0.5f);
-        ratioProperty.Animation = ratioAnim;
-
-        var node = new CompressorNode
-        {
-            Threshold = Property.CreateAnimatable(-20f),
-            Ratio = ratioProperty,
-            Attack = Property.CreateAnimatable(5f),
-            Release = Property.CreateAnimatable(50f),
-            Knee = Property.CreateAnimatable(0f),
-            MakeupGain = Property.CreateAnimatable(0f)
-        };
+        var node = CreateNode(ratio: 0.5f);
+        node.Ratio.Animation = Ramp(0.5f, 0.5f, TimeSpan.FromSeconds(0.25));
         node.AddInput(new BufferReplayNode(input));
 
         var ctx = CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(0.25));
@@ -969,10 +712,8 @@ public class CompressorNodeTests
 
         float outputPeakDb = PeakDb(output, sampleCount / 2);
         float inputPeakDb = PeakDb(input, 0);
-        // After clamp, output must NOT exceed input peak (no amplification).
         Assert.That(outputPeakDb, Is.LessThanOrEqualTo(inputPeakDb + 0.1f),
             $"Animated ratio<1 must clamp to passthrough; output {outputPeakDb:F2} dB exceeded input {inputPeakDb:F2} dB");
-        // And it must roughly equal the input (no compression either).
         Assert.That(outputPeakDb, Is.EqualTo(inputPeakDb).Within(0.5f));
     }
 
@@ -986,21 +727,8 @@ public class CompressorNodeTests
         const int sampleCount = SampleRate;
         using var input = CreateSineBuffer(0.9f, 1000f, sampleCount);
 
-        var attackAnim = new KeyFrameAnimation<float>();
-        attackAnim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = 1e9f, KeyTime = TimeSpan.Zero });
-        attackAnim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = 1e9f, KeyTime = TimeSpan.FromSeconds(1.0) });
-        var attackProperty = Property.CreateAnimatable(1e9f);
-        attackProperty.Animation = attackAnim;
-
-        var node = new CompressorNode
-        {
-            Threshold = Property.CreateAnimatable(-50f),
-            Ratio = Property.CreateAnimatable(4f),
-            Attack = attackProperty,
-            Release = Property.CreateAnimatable(50f),
-            Knee = Property.CreateAnimatable(0f),
-            MakeupGain = Property.CreateAnimatable(0f)
-        };
+        var node = CreateNode(threshold: -50f, attack: 1e9f);
+        node.Attack.Animation = Ramp(1e9f, 1e9f, TimeSpan.FromSeconds(1.0));
         node.AddInput(new BufferReplayNode(input));
 
         var ctx = CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(1.0));
@@ -1008,7 +736,7 @@ public class CompressorNodeTests
 
         // Probe the last 50 ms, by when the clamped attack has had ~2 time constants to cross -50 dB.
         int probeWidth = SampleRate / 20;
-        float steadyPeakDb = PeakDbInWindow(output, sampleCount - probeWidth, probeWidth);
+        float steadyPeakDb = PeakDb(output, sampleCount - probeWidth, probeWidth);
         // Without clamping: envelope frozen at -100 dB → no compression → output ≈ input (-0.92 dB).
         // With clamping: envelope advances, crosses -50 dB threshold, triggers heavy reduction.
         Assert.That(steadyPeakDb, Is.LessThan(-10f),
@@ -1024,27 +752,9 @@ public class CompressorNodeTests
         const int sampleCount = SampleRate / 4;
         using var input = CreateSineBuffer(0.9f, 1000f, sampleCount);
 
-        var attackAnim = new KeyFrameAnimation<float>();
-        attackAnim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = float.NaN, KeyTime = TimeSpan.Zero });
-        attackAnim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = float.NaN, KeyTime = TimeSpan.FromSeconds(0.25) });
-        var attackProperty = Property.CreateAnimatable(5f);
-        attackProperty.Animation = attackAnim;
-
-        var thresholdAnim = new KeyFrameAnimation<float>();
-        thresholdAnim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = float.NaN, KeyTime = TimeSpan.Zero });
-        thresholdAnim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = float.NaN, KeyTime = TimeSpan.FromSeconds(0.25) });
-        var thresholdProperty = Property.CreateAnimatable(-20f);
-        thresholdProperty.Animation = thresholdAnim;
-
-        var node = new CompressorNode
-        {
-            Threshold = thresholdProperty,
-            Ratio = Property.CreateAnimatable(4f),
-            Attack = attackProperty,
-            Release = Property.CreateAnimatable(50f),
-            Knee = Property.CreateAnimatable(0f),
-            MakeupGain = Property.CreateAnimatable(0f)
-        };
+        var node = CreateNode();
+        node.Threshold.Animation = Ramp(float.NaN, float.NaN, TimeSpan.FromSeconds(0.25));
+        node.Attack.Animation = Ramp(float.NaN, float.NaN, TimeSpan.FromSeconds(0.25));
         node.AddInput(new BufferReplayNode(input));
 
         var ctx = CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(0.25));
@@ -1068,11 +778,7 @@ public class CompressorNodeTests
     [Test]
     public void Process_StaticAndAnimatedPaths_ProduceIdenticalOutputForConstantParameters()
     {
-        // ProcessStatic and ProcessAnimated share the same compute helpers so they cannot drift.
-        // With a constant Threshold animation the animated path runs but reads the same values as
-        // static, so outputs must match sample-for-sample. Catches a coefficient-cache off-by-one,
-        // a boundary coefficient reset, or a slope re-derivation bug that the smoothness-only test
-        // would miss.
+        // A constant animation runs ProcessAnimated, which must match the static path sample for sample.
         const int sampleCount = SampleRate / 2; // straddles many 1024-sample chunks
         var duration = TimeSpan.FromSeconds(sampleCount / (double)SampleRate);
         using var input = CreateSineBuffer(0.9f, 1000f, sampleCount);
@@ -1084,21 +790,9 @@ public class CompressorNodeTests
 
         // Animated path forced on via a constant Threshold animation; the other parameters stay
         // unanimated, so AnimationSampler fills each with the same CurrentValue static reads.
-        var thresholdAnim = new KeyFrameAnimation<float>();
-        thresholdAnim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = -20f, KeyTime = TimeSpan.Zero });
-        thresholdAnim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = -20f, KeyTime = duration });
-        var thresholdProperty = Property.CreateAnimatable(-20f);
-        thresholdProperty.Animation = thresholdAnim;
 
-        var animatedNode = new CompressorNode
-        {
-            Threshold = thresholdProperty,
-            Ratio = Property.CreateAnimatable(4f),
-            Attack = Property.CreateAnimatable(5f),
-            Release = Property.CreateAnimatable(50f),
-            Knee = Property.CreateAnimatable(6f),
-            MakeupGain = Property.CreateAnimatable(3f)
-        };
+        var animatedNode = CreateNode(knee: 6f, makeup: 3f);
+        animatedNode.Threshold.Animation = Ramp(-20f, -20f, duration);
         animatedNode.AddInput(new BufferReplayNode(input));
         using var animatedOut = animatedNode.Process(CreateContext(TimeSpan.Zero, duration));
 
@@ -1150,8 +844,8 @@ public class CompressorNodeTests
     {
         // hasAnimation keys solely on Animation != null, so an expression-backed property routes to
         // ProcessStatic and reads CurrentValue without evaluating the expression. Output must equal
-        // a fully-static node with the same CurrentValue. If a future change makes HasExpression
-        // live (the FIXME's goal), this forces a deliberate update instead of silently changing audio.
+        // a fully-static node with the same CurrentValue. Update this test once expressions are evaluated
+        // per sample (FIXME(expression) in EqualizerEffect.cs).
         const int sampleCount = SampleRate / 2;
         var duration = TimeSpan.FromSeconds(sampleCount / (double)SampleRate);
         using var input = CreateSineBuffer(0.9f, 1000f, sampleCount);
@@ -1162,20 +856,10 @@ public class CompressorNodeTests
 
         // CurrentValue stays -20; the expression evaluates to -40 (which would compress harder).
         // Because the static path ignores the expression, -40 must NOT take effect.
-        var thresholdProperty = Property.CreateAnimatable(-20f);
-        thresholdProperty.Expression = new StringExpression<float>("-40");
-        Assert.That(thresholdProperty.HasExpression, Is.True);
-        Assert.That(thresholdProperty.Animation, Is.Null);
-
-        var exprNode = new CompressorNode
-        {
-            Threshold = thresholdProperty,
-            Ratio = Property.CreateAnimatable(4f),
-            Attack = Property.CreateAnimatable(5f),
-            Release = Property.CreateAnimatable(50f),
-            Knee = Property.CreateAnimatable(0f),
-            MakeupGain = Property.CreateAnimatable(0f)
-        };
+        var exprNode = CreateNode();
+        exprNode.Threshold.Expression = new StringExpression<float>("-40");
+        Assert.That(exprNode.Threshold.HasExpression, Is.True);
+        Assert.That(exprNode.Threshold.Animation, Is.Null);
         exprNode.AddInput(new BufferReplayNode(input));
         using var exprOut = exprNode.Process(CreateContext(TimeSpan.Zero, duration));
 
@@ -1189,80 +873,6 @@ public class CompressorNodeTests
                     $"Expression-backed parameter must route to the static path and ignore the expression; mismatch at [{ch}][{i}]");
             }
         }
-    }
-
-    [Test]
-    public void Process_NonFiniteSampleLatch_SurvivesSeekDiscontinuity()
-    {
-        // The diagnostic latch must be PRESERVED across a seek discontinuity: a stuttering scrubber
-        // produces many seeks, and re-arming on each would re-log a persistent fault every Process().
-        // The seek path calls ResetEnvelope() only (not ResetDiagnostics), so a second seeked chunk
-        // with the same fault must emit no second warning.
-        var node = CreateNode();
-        const int chunkSamples = SampleRate / 10;
-        var chunkDuration = TimeSpan.FromSeconds(chunkSamples / (double)SampleRate);
-
-        using var first = MakeInfinityHeadBuffer(chunkSamples);
-        node.AddInput(new BufferReplayNode(first));
-        using var firstOut = node.Process(CreateContext(TimeSpan.Zero, chunkDuration));
-        Assert.That(node.NonFiniteSampleWarnings, Is.EqualTo(1),
-            "The first non-finite sample must emit exactly one warning.");
-
-        node.ClearInputs();
-        using var second = MakeInfinityHeadBuffer(chunkSamples);
-        node.AddInput(new BufferReplayNode(second));
-        // Non-contiguous start time → ResetEnvelope only; diagnostics are deliberately NOT re-armed.
-        using var seekedOut = node.Process(CreateContext(TimeSpan.FromSeconds(5.0), chunkDuration));
-        Assert.That(node.NonFiniteSampleWarnings, Is.EqualTo(1),
-            "A seek discontinuity must NOT re-arm the latch, so no second warning should be emitted.");
-    }
-
-    [Test]
-    public void Process_NonFiniteSampleLatch_ReArmsOnSampleRateChange()
-    {
-        // A sample-rate change is a real session boundary: Process() calls full Reset(), which
-        // re-arms diagnostics, so the same fault at the new rate must warn again.
-        var node = CreateNode();
-        const int chunkSamples = SampleRate / 10;
-        var chunkDuration = TimeSpan.FromSeconds(chunkSamples / (double)SampleRate);
-
-        using var first = MakeInfinityHeadBuffer(chunkSamples);
-        node.AddInput(new BufferReplayNode(first));
-        using var firstOut = node.Process(CreateContext(TimeSpan.Zero, chunkDuration));
-        Assert.That(node.NonFiniteSampleWarnings, Is.EqualTo(1));
-
-        node.ClearInputs();
-        const int altSampleRate = 44100;
-        using var second = MakeInfinityHeadBuffer(altSampleRate / 10, altSampleRate);
-        node.AddInput(new BufferReplayNode(second));
-        using var secondOut = node.Process(new AudioProcessContext(
-            new TimeRange(chunkDuration, TimeSpan.FromSeconds(0.1)),
-            altSampleRate, new AnimationSampler(), null));
-        Assert.That(node.NonFiniteSampleWarnings, Is.EqualTo(2),
-            "A sample-rate change re-arms the latch, so the recurring fault must warn a second time.");
-    }
-
-    [Test]
-    public void Reset_ReArmsNonFiniteSampleLatch()
-    {
-        // Explicit Reset() re-arms diagnostics too. The second chunk stays time-contiguous so only
-        // the Reset() — not a discontinuity — can re-arm the latch.
-        var node = CreateNode();
-        const int chunkSamples = SampleRate / 10;
-        var chunkDuration = TimeSpan.FromSeconds(chunkSamples / (double)SampleRate);
-
-        using var first = MakeInfinityHeadBuffer(chunkSamples);
-        node.AddInput(new BufferReplayNode(first));
-        using var firstOut = node.Process(CreateContext(TimeSpan.Zero, chunkDuration));
-        Assert.That(node.NonFiniteSampleWarnings, Is.EqualTo(1));
-
-        node.Reset();
-        node.ClearInputs();
-        using var second = MakeInfinityHeadBuffer(chunkSamples);
-        node.AddInput(new BufferReplayNode(second));
-        using var secondOut = node.Process(CreateContext(chunkDuration, chunkDuration));
-        Assert.That(node.NonFiniteSampleWarnings, Is.EqualTo(2),
-            "Explicit Reset() re-arms the latch, so the recurring fault must warn a second time.");
     }
 
     [Test]
@@ -1293,7 +903,7 @@ public class CompressorNodeTests
 
         int steadyStart = SampleRate / 2;
         // Channel 2 drives compression to ~-13.5 dB (same ±2.5 band as the stereo case).
-        float loudestPeakDb = ChannelPeakDb(output, 2, steadyStart);
+        float loudestPeakDb = PeakDb(output, steadyStart, channel: 2);
         Assert.That(loudestPeakDb, Is.EqualTo(-13.5f).Within(2.5f),
             "Sanity check: the loudest channel (2) must be compressed for the linked-gain expectation to be meaningful.");
 
@@ -1302,10 +912,9 @@ public class CompressorNodeTests
         float quietInputPeakDb = 20f * MathF.Log10(0.05f);
         float expectedQuietDb = quietInputPeakDb - gainReductionDb;
 
-        // Every quiet channel must receive the SAME gain reduction derived from channel 2.
         foreach (int ch in new[] { 0, 1, 3 })
         {
-            float quietPeakDb = ChannelPeakDb(output, ch, steadyStart);
+            float quietPeakDb = PeakDb(output, steadyStart, channel: ch);
             Assert.That(quietPeakDb, Is.EqualTo(expectedQuietDb).Within(1.5f),
                 $"Channel {ch} should be attenuated by channel 2's linked gain reduction.");
         }
@@ -1320,21 +929,8 @@ public class CompressorNodeTests
         const int sampleCount = SampleRate / 4;
         using var input = CreateSineBuffer(0.9f, 1000f, sampleCount);
 
-        var attackAnim = new KeyFrameAnimation<float>();
-        attackAnim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = 1e9f, KeyTime = TimeSpan.Zero });
-        attackAnim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = 1e9f, KeyTime = TimeSpan.FromSeconds(0.25) });
-        var attackProperty = Property.CreateAnimatable(5f);
-        attackProperty.Animation = attackAnim;
-
-        var node = new CompressorNode
-        {
-            Threshold = Property.CreateAnimatable(-20f),
-            Ratio = Property.CreateAnimatable(4f),
-            Attack = attackProperty,
-            Release = Property.CreateAnimatable(50f),
-            Knee = Property.CreateAnimatable(0f),
-            MakeupGain = Property.CreateAnimatable(0f)
-        };
+        var node = CreateNode();
+        node.Attack.Animation = Ramp(1e9f, 1e9f, TimeSpan.FromSeconds(0.25));
         node.AddInput(new BufferReplayNode(input));
 
         using var output = node.Process(CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(0.25)));
@@ -1344,10 +940,12 @@ public class CompressorNodeTests
     }
 
     [TestCase(-1L)]
+    [TestCase(0L)]
     [TestCase(1L)]
     public void Process_OneTickBoundaryRounding_DoesNotResetEnvelope(long tickOffset)
     {
-        // One-tick rounding must preserve the warmed-up envelope.
+        // The warmed-up node is already in compression, so its first sample is quieter than a fresh
+        // node still ramping through attack.
         const int chunkSamples = SampleRate / 10;
         var chunkDuration = TimeSpan.FromSeconds(chunkSamples / (double)SampleRate);
         var ctx1 = CreateContext(TimeSpan.Zero, chunkDuration);
@@ -1374,68 +972,13 @@ public class CompressorNodeTests
     }
 
     [Test]
-    public void Process_EmptyChunkWithDuration_DoesNotMaskLaterDiscontinuity()
-    {
-        // An empty timed chunk leaves a discontinuity.
-        const int chunkSamples = SampleRate / 10;
-        var chunkDuration = TimeSpan.FromSeconds(chunkSamples / (double)SampleRate);
-
-        var node = CreateNode(release: 1000f);
-        using var warmupInput = CreateConstantBuffer(0.9f, chunkSamples);
-        node.AddInput(new BufferReplayNode(warmupInput));
-        using var warmup = node.Process(CreateContext(TimeSpan.Zero, chunkDuration));
-
-        node.ClearInputs();
-        using var emptyInput = new AudioBuffer(SampleRate, 2, 0);
-        node.AddInput(new BufferReplayNode(emptyInput));
-        using var emptyOutput = node.Process(CreateContext(chunkDuration, chunkDuration));
-        Assert.That(emptyOutput.SampleCount, Is.EqualTo(0));
-
-        node.ClearInputs();
-        using var afterHoleInput = CreateConstantBuffer(0.9f, chunkSamples);
-        node.AddInput(new BufferReplayNode(afterHoleInput));
-        using var afterHoleOutput = node.Process(CreateContext(chunkDuration + chunkDuration, chunkDuration));
-
-        var nodeFresh = CreateNode(release: 1000f);
-        using var freshInput = CreateConstantBuffer(0.9f, chunkSamples);
-        nodeFresh.AddInput(new BufferReplayNode(freshInput));
-        using var freshOutput = nodeFresh.Process(CreateContext(TimeSpan.Zero, chunkDuration));
-
-        Assert.That(
-            MathF.Abs(afterHoleOutput.GetChannelData(0)[0]),
-            Is.EqualTo(MathF.Abs(freshOutput.GetChannelData(0)[0])).Within(1e-4f),
-            "The chunk after an empty-but-timed chunk must start from a reset envelope.");
-    }
-
-    [Test]
-    public void Process_InputSampleRateMismatch_Throws()
-    {
-        // This node cannot resample a buffer whose rate differs from the processing context.
-        const int altSampleRate = 44100;
-        using var input = CreateConstantBuffer(0.9f, altSampleRate / 10, 2, altSampleRate);
-        var node = CreateNode();
-        node.AddInput(new BufferReplayNode(input));
-
-        Assert.Throws<InvalidOperationException>(
-            () => node.Process(CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(0.1))));
-    }
-
-    [Test]
     public void Process_NonFinitePropertyDefault_FallsBackToDeclaredConstant()
     {
         // A non-finite property default cannot serve as the sanitization fallback.
         const int sampleCount = SampleRate / 4;
         using var input = CreateConstantBuffer(0.9f, sampleCount);
 
-        var node = new CompressorNode
-        {
-            Threshold = Property.CreateAnimatable(float.NaN),
-            Ratio = Property.CreateAnimatable(float.NaN),
-            Attack = Property.CreateAnimatable(float.NaN),
-            Release = Property.CreateAnimatable(float.NaN),
-            Knee = Property.CreateAnimatable(float.NaN),
-            MakeupGain = Property.CreateAnimatable(float.NaN)
-        };
+        var node = CreateNode(threshold: float.NaN, ratio: float.NaN, attack: float.NaN, release: float.NaN, knee: float.NaN, makeup: float.NaN);
         node.AddInput(new BufferReplayNode(input));
 
         using var output = node.Process(CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(0.25)));

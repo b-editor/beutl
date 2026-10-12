@@ -1,5 +1,7 @@
 ﻿using Beutl.Audio.Effects;
 
+using static Beutl.UnitTests.Engine.Audio.AudioEffectAssertions;
+
 namespace Beutl.UnitTests.Engine.Audio;
 
 [TestFixture]
@@ -16,11 +18,7 @@ public class DelayParametersTests
 
     [TestCaseSource(nameof(s_parameterCases))]
     public void Default_is_within_min_and_max(string name, float min, float @default, float max)
-    {
-        Assert.That(min, Is.LessThanOrEqualTo(@default), $"{name}: Min must be <= Default");
-        Assert.That(@default, Is.LessThanOrEqualTo(max), $"{name}: Default must be <= Max");
-        Assert.That(min, Is.LessThan(max), $"{name}: Min must be < Max");
-    }
+        => AssertRangeIsConsistent(min, @default, max);
 
     // Characterization: lock the consolidated constants to the literals DelayEffect/DelayNode
     // declared before the single-source refactor, keeping it behavior-preserving.

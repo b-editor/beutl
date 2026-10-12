@@ -35,7 +35,7 @@ public class FiniteSourceEndTests
     {
         using var first = new FiniteSource(1);
         using var last = new FiniteSource(2);
-        using var unknown = new UnknownSource();
+        using var unknown = new FixedLatencyNode(0);
         using var mixer = new MixerNode();
         mixer.AddInput(first);
         mixer.AddInput(last);
@@ -162,12 +162,6 @@ public class FiniteSourceEndTests
     {
         internal override double? GetFiniteSourceEndSample(int sampleRate) => seconds * sampleRate;
 
-        public override AudioBuffer Process(AudioProcessContext context)
-            => new(context.SampleRate, 2, context.GetSampleCount());
-    }
-
-    private sealed class UnknownSource : AudioNode
-    {
         public override AudioBuffer Process(AudioProcessContext context)
             => new(context.SampleRate, 2, context.GetSampleCount());
     }

@@ -1236,7 +1236,11 @@ public class SceneCompositorTests
         try
         {
             Scene childScene = CreateScene(basePath);
-            var childSound = new TrimmedSceneTailSound();
+            var childSound = new LimiterDelayTailSound
+            {
+                LookaheadMs = 20f,
+                LookaheadRampEnd = TimeSpan.FromMilliseconds(500),
+            };
             Element childElement = CreateElement(basePath, isEnabled: true, childSound);
             childElement.Length = childDuration;
             childScene.Children.Add(childElement);

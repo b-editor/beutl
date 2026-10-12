@@ -6,6 +6,8 @@ using Beutl.Audio.Graph.Nodes;
 using Beutl.Engine;
 using Beutl.Media;
 
+using static Beutl.UnitTests.Engine.Audio.AudioTestProperties;
+
 namespace Beutl.UnitTests.Engine.Audio;
 
 [TestFixture]
@@ -13,40 +15,15 @@ public class SpeedNodeTests
 {
     private const int SampleRate = 100;
 
-    private static IProperty<float> AnimatedSpeed(float fromPercent, float toPercent, double durationSeconds)
-    {
-        var property = Property.CreateAnimatable(fromPercent);
-        property.SetAttributes("Speed", []);
-
-        var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float>
-        {
-            KeyTime = TimeSpan.Zero,
-            Value = fromPercent,
-            Easing = new LinearEasing()
-        });
-        animation.KeyFrames.Add(new KeyFrame<float>
-        {
-            KeyTime = TimeSpan.FromSeconds(durationSeconds),
-            Value = toPercent,
-            Easing = new LinearEasing()
-        });
-        property.Animation = animation;
-        return property;
-    }
-
     private static SpeedNode CreateAnimatedSpeedNode()
     {
-        var node = new SpeedNode { Speed = AnimatedSpeed(50f, 200f, 1.0) };
+        var node = new SpeedNode { Speed = Ramp("Speed", 50f, 200f, 1.0) };
         node.AddInput(new RampInputNode(SampleRate));
         return node;
     }
 
     private static AudioProcessContext CreateContext()
-    {
-        var range = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1));
-        return new AudioProcessContext(range, SampleRate, new AnimationSampler(), null);
-    }
+        => AudioTestContexts.CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(1), SampleRate);
 
     private static IProperty<float> StaticSpeed(float percent)
     {
@@ -141,14 +118,13 @@ public class SpeedNodeTests
         Assert.That(left[500], Is.EqualTo((10000 + 500) * 0.005f).Within(0.05f));
     }
 
-    // The animated path shares the same streaming loop. A constant 50% keyframed speed must stay as
-    // continuous across seams as the constant-speed path — guards the removal of the hand-rolled cursor.
+    // A constant 50% keyframed speed must stay as continuous across seams as the static path.
     [Test]
     public void ProcessAnimatedSpeed_ConstantHalfSpeed_IsContinuousAndCorrectAcrossChunks()
     {
         const int sr = 1000;
         const float expectedSlope = 0.005f;
-        using var node = new SpeedNode { Speed = AnimatedSpeed(50f, 50f, 100.0) };
+        using var node = new SpeedNode { Speed = Ramp("Speed", 50f, 50f, 100.0) };
         node.AddInput(new RampInputNode(sr));
 
         List<float> left = RenderChunks(node, sr, channel: 0, 0.0, 1.0, 2.0);
@@ -162,12 +138,13 @@ public class SpeedNodeTests
         }
     }
 
-    [Test]
-    public void ProcessAnimatedSpeed_At44100Hz_RequestsEverySourceSampleExactlyOnce()
+    // 44.1 kHz must cross the fractional-tick drift boundary; 48 kHz hits exact source boundaries.
+    [TestCase(44100, 128)]
+    [TestCase(48000, 1)]
+    public void ProcessAnimatedSpeed_RequestsEverySourceSampleExactlyOnce(int sampleRate, int minRequests)
     {
-        const int sampleRate = 44100;
         var input = new SourceRequestRecordingNode(sampleRate);
-        using var node = new SpeedNode { Speed = AnimatedSpeed(100f, 100f, 10.0) };
+        using var node = new SpeedNode { Speed = Ramp("Speed", 100f, 100f, 10.0) };
         node.AddInput(input);
 
         using AudioBuffer _ = node.Process(
@@ -177,8 +154,7 @@ public class SpeedNodeTests
                 new AnimationSampler(),
                 null));
 
-        Assert.That(input.Requests.Count, Is.GreaterThan(128),
-            "The render must cross the fractional-tick drift boundary.");
+        Assert.That(input.Requests.Count, Is.GreaterThan(minRequests));
 
         long expectedStart = 0;
         for (int i = 0; i < input.Requests.Count; i++)
@@ -186,32 +162,6 @@ public class SpeedNodeTests
             (long start, int count) = input.Requests[i];
             Assert.That(start, Is.EqualTo(expectedStart),
                 $"Source request {i} repeated or skipped a sample.");
-            expectedStart += count;
-        }
-    }
-
-    [Test]
-    public void ProcessStaticSpeed_At48000Hz_BiasesExactSourceBoundariesForward()
-    {
-        const int sampleRate = 48000;
-        var input = new SourceRequestRecordingNode(sampleRate);
-        using var node = new SpeedNode { Speed = AnimatedSpeed(100f, 100f, 10.0) };
-        node.AddInput(input);
-
-        using AudioBuffer _ = node.Process(
-            new AudioProcessContext(
-                new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
-                sampleRate,
-                new AnimationSampler(),
-                null));
-
-        Assert.That(input.Requests.Count, Is.GreaterThan(1));
-        long expectedStart = 0;
-        for (int i = 0; i < input.Requests.Count; i++)
-        {
-            (long start, int count) = input.Requests[i];
-            Assert.That(start, Is.EqualTo(expectedStart),
-                $"Source request {i} repeated or skipped a sample at the exact 48 kHz boundary.");
             expectedStart += count;
         }
     }
@@ -389,16 +339,6 @@ public class SpeedNodeTests
             Assert.That(Math.Abs(left[i]), Is.LessThan(0.05f), $"residual at {i} after end-of-source ({left[i]})");
     }
 
-    private sealed class SilentInputNode : AudioNode
-    {
-        private readonly int _sampleRate;
-
-        public SilentInputNode(int sampleRate) => _sampleRate = sampleRate;
-
-        public override AudioBuffer Process(AudioProcessContext context)
-            => new(_sampleRate, 2, context.GetSampleCount());
-    }
-
     // Forwards Process unchanged. Stands in for the ResampleNode the graph keeps between SpeedNode and
     // the source, reused by sample rate so its instance survives a source/offset change.
     private sealed class PassthroughNode : AudioNode
@@ -463,7 +403,7 @@ public class SpeedNodeTests
 
         // Swap the source two levels up while keeping the immediate input (reused) unchanged.
         reused.ClearInputs();
-        reused.AddInput(new SilentInputNode(sr));
+        reused.AddInput(new FixedLatencyNode(0));
 
         using AudioBuffer after = node.Process(
             new AudioProcessContext(new TimeRange(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1)), sr, sampler, null));
@@ -492,7 +432,7 @@ public class SpeedNodeTests
 
         // Swap the upstream (as AudioContext.CreateSpeedNode does via ClearInputs) to a silent source.
         node.ClearInputs();
-        node.AddInput(new SilentInputNode(sr));
+        node.AddInput(new FixedLatencyNode(0));
 
         using AudioBuffer after = node.Process(
             new AudioProcessContext(new TimeRange(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1)), sr, sampler, null));

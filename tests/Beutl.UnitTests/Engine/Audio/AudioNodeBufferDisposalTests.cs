@@ -1,13 +1,12 @@
-﻿using Beutl.Animation;
-using Beutl.Animation.Easings;
-using Beutl.Audio;
+﻿using Beutl.Audio;
 using Beutl.Audio.Effects.Equalizer;
 using Beutl.Audio.Graph;
 using Beutl.Audio.Graph.Nodes;
 using Beutl.Engine;
 using Beutl.Logging;
-using Beutl.Media;
 using Microsoft.Extensions.Logging;
+
+using static Beutl.UnitTests.Engine.Audio.AudioTestProperties;
 
 namespace Beutl.UnitTests.Engine.Audio;
 
@@ -39,7 +38,7 @@ public class AudioNodeBufferDisposalTests
     }
 
     private static AudioProcessContext CreateContext(int sampleRate = SampleRate) =>
-        new(new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)), sampleRate, new AnimationSampler(), null);
+        AudioTestContexts.CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(1), sampleRate);
 
     private static bool IsDisposed(AudioBuffer buffer)
     {
@@ -55,30 +54,6 @@ public class AudioNodeBufferDisposalTests
     }
 
     private static IProperty<float> Static(float value) => Property.Create(value);
-
-    private static IProperty<float> AnimatedGain(float fromPercent, float toPercent, double durationSeconds)
-    {
-        var property = Property.CreateAnimatable(fromPercent);
-        property.SetAttributes("Gain", []);
-
-        var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = fromPercent, Easing = new LinearEasing() });
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(durationSeconds), Value = toPercent, Easing = new LinearEasing() });
-        property.Animation = animation;
-        return property;
-    }
-
-    private static IProperty<float> AnimatedSpeed(float fromPercent, float toPercent, double durationSeconds)
-    {
-        var property = Property.CreateAnimatable(fromPercent);
-        property.SetAttributes("Speed", []);
-
-        var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = fromPercent, Easing = new LinearEasing() });
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(durationSeconds), Value = toPercent, Easing = new LinearEasing() });
-        property.Animation = animation;
-        return property;
-    }
 
     // A derived hook that returns the input transfers ownership to the caller.
     private sealed class PassThroughDynamicsNode : DynamicsNode
@@ -178,7 +153,7 @@ public class AudioNodeBufferDisposalTests
     public void GainNode_AnimatedGain_DisposesConsumedInput()
     {
         var inputNode = new CapturingInputNode(SampleRate, 1, SampleCount, 1.0f);
-        using var node = new GainNode { Gain = AnimatedGain(0f, 100f, 1.0) };
+        using var node = new GainNode { Gain = Ramp("Gain", 0f, 100f, 1.0) };
         node.AddInput(inputNode);
 
         using (AudioBuffer result = node.Process(CreateContext()))
@@ -323,7 +298,7 @@ public class AudioNodeBufferDisposalTests
     public void SpeedNode_AnimatedSpeed_DisposesConsumedInputs()
     {
         var inputNode = new CapturingInputNode(SampleRate, 2, SampleCount, 0.5f);
-        using var node = new SpeedNode { Speed = AnimatedSpeed(50f, 200f, 1.0) };
+        using var node = new SpeedNode { Speed = Ramp("Speed", 50f, 200f, 1.0) };
         node.AddInput(inputNode);
 
         using (AudioBuffer result = node.Process(CreateContext()))

@@ -32,11 +32,7 @@ public class ComposerTests
     [Test]
     public void Compose_EmptyFrame_ReturnsSilentBufferWithCeilingSampleCount()
     {
-        // Composer.BuildFinalOutput の silence fallback (mixedBuffer == null) が
-        // 他経路 (AudioProcessContext.GetSampleCount) と同じ Ceiling サンプル数で
-        // バッファを確保することを担保する回帰テスト。
-        // 226 ticks は 1 サンプル境界 (~226.7575 ticks @ 44100Hz) を下回るが、+1 した
-        // 227 ticks は境界をわずかに越えるため、truncation だと 1 サンプル / Ceiling だと 2 サンプル。
+        // Regression test: the silence fallback allocates the same rounded-up sample count as GetSampleCount.
         const int sampleRate = 44100;
         var oneSampleTicksFloor = TimeSpan.TicksPerSecond / sampleRate;
         var range = new TimeRange(TimeSpan.Zero, TimeSpan.FromTicks(oneSampleTicksFloor + 1));

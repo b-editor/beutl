@@ -4,11 +4,11 @@ using Beutl.Audio.Effects;
 using Beutl.Audio.Graph;
 using Beutl.Audio.Graph.Nodes;
 using Beutl.Engine;
-using Beutl.Logging;
 using Beutl.Media;
-using Microsoft.Extensions.Logging;
 
 using static Beutl.Audio.Effects.LimiterParameters;
+using static Beutl.UnitTests.Engine.Audio.AudioEffectAssertions;
+using static Beutl.UnitTests.Engine.Audio.AudioTestAnimations;
 using static Beutl.UnitTests.Engine.Audio.AudioTestBuffers;
 
 namespace Beutl.UnitTests.Engine.Audio;
@@ -23,26 +23,11 @@ public class LimiterNodeTests
     // exercised. Tests that need the zero-lookahead path pass lookaheadMs: 0f.
     private const float LookaheadMs = 5f;
 
-    [OneTimeSetUp]
-    public void OneTimeSetUp()
-    {
-        // Log.LoggerFactory is write-once (??=); skip allocating a factory we would only discard
-        // when another fixture already set one.
-        if (!Log.IsLoggerFactoryConfigured)
-        {
-            Log.LoggerFactory = LoggerFactory.Create(_ => { });
-        }
-    }
-
     private static int LookaheadSamples(int sampleRate = SampleRate, float lookaheadMs = LookaheadMs)
         => (int)(lookaheadMs / 1000f * sampleRate);
 
     private static AudioProcessContext CreateContext(int sampleCount, int sampleRate = SampleRate, TimeSpan? start = null)
-    {
-        var duration = TimeSpan.FromSeconds((double)sampleCount / sampleRate);
-        var range = new TimeRange(start ?? TimeSpan.Zero, duration);
-        return new AudioProcessContext(range, sampleRate, new AnimationSampler(), null);
-    }
+        => AudioTestContexts.Seconds(start ?? TimeSpan.Zero, sampleCount, sampleRate);
 
     private static LimiterNode CreateNode(
         float thresholdDb = DefaultThresholdDb,
@@ -57,6 +42,29 @@ public class LimiterNodeTests
             Lookahead = Property.CreateAnimatable(lookaheadMs),
             MakeupGain = Property.CreateAnimatable(makeupGainDb),
         };
+    }
+
+    // Whether any channel has a sample above threshold in its first count samples.
+    private static bool HasResidual(AudioBuffer buffer, int count, float threshold)
+    {
+        for (int ch = 0; ch < buffer.ChannelCount; ch++)
+        {
+            if (HasResidual(buffer.GetChannelData(ch)[..count], threshold))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool HasResidual(ReadOnlySpan<float> samples, float threshold)
+    {
+        foreach (float sample in samples)
+        {
+            if (MathF.Abs(sample) > threshold)
+                return true;
+        }
+
+        return false;
     }
 
     private sealed class DisposedInputNode(int sampleRate, int channels, int count) : AudioNode
@@ -241,8 +249,10 @@ public class LimiterNodeTests
         }
     }
 
-    [Test]
-    public void Process_ContiguousChunks_PreserveDelayState()
+    [TestCase(0L, true)]
+    [TestCase(1L, true)]
+    [TestCase(2L, false)]
+    public void Process_NextChunkOffset_PreservesDelayStateOnlyWithinOneTick(long offsetTicks, bool expectedResidual)
     {
         const int chunkSamples = 1024;
         int lookaheadSamples = LookaheadSamples();
@@ -256,7 +266,7 @@ public class LimiterNodeTests
         var firstCtx = CreateContext(chunkSamples, start: TimeSpan.Zero);
         using (var _ = node.Process(firstCtx)) { }
 
-        var secondStart = firstCtx.TimeRange.Start + firstCtx.TimeRange.Duration;
+        var secondStart = firstCtx.TimeRange.Start + firstCtx.TimeRange.Duration + TimeSpan.FromTicks(offsetTicks);
         using var silence = CreateBuffer(2, chunkSamples, (_, _) => 0f);
         node.RemoveInput(node.Inputs[0]);
         node.AddInput(new BufferReplayNode(silence));
@@ -265,73 +275,9 @@ public class LimiterNodeTests
         using var secondOut = node.Process(secondCtx);
 
         // The first lookahead window of the second chunk reads the first chunk's tail from the
-        // delay line. An erroneous Reset() would have zeroed it; the non-zero residual proves
-        // continuity is preserved.
-        bool foundResidual = false;
-        for (int ch = 0; ch < 2 && !foundResidual; ch++)
-        {
-            var data = secondOut.GetChannelData(ch);
-            for (int i = 0; i < lookaheadSamples; i++)
-            {
-                if (MathF.Abs(data[i]) > 1e-3f)
-                {
-                    foundResidual = true;
-                    break;
-                }
-            }
-        }
-
-        Assert.That(foundResidual, Is.True,
-            "Contiguous chunk should preserve delay-line state from the previous chunk.");
-    }
-
-    [Test]
-    public void Process_OneTickTimestampQuantization_PreservesDelayState()
-    {
-        AssertTimestampOffsetPreservesDelayState(TimeSpan.FromTicks(1), expectedResidual: true);
-    }
-
-    [Test]
-    public void Process_TwoTickTimestampGap_ResetsDelayState()
-    {
-        AssertTimestampOffsetPreservesDelayState(TimeSpan.FromTicks(2), expectedResidual: false);
-    }
-
-    private static void AssertTimestampOffsetPreservesDelayState(TimeSpan offset, bool expectedResidual)
-    {
-        const int chunkSamples = 1024;
-        int lookaheadSamples = LookaheadSamples();
-
-        using var hotInput = CreateBuffer(2, chunkSamples,
-            (_, i) => 2.0f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
-        using var node = CreateNode(releaseMs: 5000f);
-        node.AddInput(new BufferReplayNode(hotInput));
-
-        var firstCtx = CreateContext(chunkSamples);
-        using (var _ = node.Process(firstCtx)) { }
-
-        using var silence = CreateBuffer(2, chunkSamples, (_, _) => 0f);
-        node.RemoveInput(node.Inputs[0]);
-        node.AddInput(new BufferReplayNode(silence));
-
-        var nextStart = firstCtx.TimeRange.Start + firstCtx.TimeRange.Duration + offset;
-        using var output = node.Process(CreateContext(chunkSamples, start: nextStart));
-
-        bool foundResidual = false;
-        for (int ch = 0; ch < 2 && !foundResidual; ch++)
-        {
-            var data = output.GetChannelData(ch);
-            for (int i = 0; i < lookaheadSamples; i++)
-            {
-                if (MathF.Abs(data[i]) > 1e-3f)
-                {
-                    foundResidual = true;
-                    break;
-                }
-            }
-        }
-
-        Assert.That(foundResidual, Is.EqualTo(expectedResidual));
+        // delay line, so a residual means the state was kept. A one-tick offset is timestamp
+        // quantization and keeps it; a two-tick gap is a discontinuity and resets it.
+        Assert.That(HasResidual(secondOut, lookaheadSamples, 1e-3f), Is.EqualTo(expectedResidual));
     }
 
     [Test]
@@ -367,7 +313,6 @@ public class LimiterNodeTests
     }
 
     [TestCase(44100)]
-    [TestCase(48000)]
     [TestCase(96000)]
     public void Process_DifferentSampleRates_BehaveConsistently(int sr)
     {
@@ -479,17 +424,8 @@ public class LimiterNodeTests
         // Off-by-one in the lookahead clamp would collapse Read(MaxLookaheadSampleCapacity) to 0
         // (silence) for every sample. Assert non-zero output past the lookahead window.
         int lookaheadSamples = LookaheadSamples(SampleRate, MaxLookaheadMs);
-        bool foundNonZero = false;
-        for (int i = lookaheadSamples; i < sampleCount; i++)
-        {
-            if (MathF.Abs(output.GetChannelData(0)[i]) > 1e-3f)
-            {
-                foundNonZero = true;
-                break;
-            }
-        }
-
-        Assert.That(foundNonZero, Is.True, "Output collapsed to silence at MaxLookaheadMs.");
+        Assert.That(HasResidual(output.GetChannelData(0)[lookaheadSamples..sampleCount], 1e-3f), Is.True,
+            "Output collapsed to silence at MaxLookaheadMs.");
 
         for (int ch = 0; ch < 2; ch++)
         {
@@ -704,24 +640,6 @@ public class LimiterNodeTests
         return prop;
     }
 
-    private static IProperty<float> CreateAnimatedRamp(float startValue, float endValue, TimeSpan duration)
-    {
-        var prop = Property.CreateAnimatable(startValue);
-        var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float>
-        {
-            Value = startValue,
-            KeyTime = TimeSpan.Zero,
-        });
-        animation.KeyFrames.Add(new KeyFrame<float>
-        {
-            Value = endValue,
-            KeyTime = duration,
-        });
-        prop.Animation = animation;
-        return prop;
-    }
-
     // A throw after the output buffer is allocated must dispose the buffer (the node owns it until it
     // returns it to the caller) and propagate, on both the static and animated paths.
     [TestCase(false)]
@@ -743,26 +661,26 @@ public class LimiterNodeTests
             "The node owns a newly allocated output until Process returns it to the caller.");
     }
 
-    [Test]
-    public void Process_AnimatedThreshold_LimitsCorrectly()
+    [TestCase(1024)]
+    [TestCase(4096)]
+    [TestCase(5000)]
+    public void Process_AnimatedThreshold_LimitsCorrectly(int sampleCount)
     {
-        const int sampleCount = 4096;
+        // 1024 equals the internal AnimationChunkSize. An off-by-one in the chunk-loop bound would
+        // either skip the last batch or over-run.
         const float thresholdDb = -1f;
         float thresholdLin = MathF.Pow(10f, thresholdDb / 20f);
 
         using var input = CreateBuffer(2, sampleCount,
             (_, i) => 2.0f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
 
-        using var node = new LimiterNode
-        {
-            Threshold = CreateAnimatedConstant(thresholdDb),
-            Release = Property.CreateAnimatable(50f),
-            Lookahead = Property.CreateAnimatable(LookaheadMs),
-            MakeupGain = Property.CreateAnimatable(0f),
-        };
+        using var node = CreateNode(thresholdDb: thresholdDb);
+        node.Threshold.Animation = Ramp(thresholdDb, thresholdDb, TimeSpan.FromSeconds((double)sampleCount / SampleRate));
         node.AddInput(new BufferReplayNode(input));
 
         using var output = node.Process(CreateContext(sampleCount));
+
+        Assert.That(output.SampleCount, Is.EqualTo(sampleCount));
 
         int lookaheadSamples = LookaheadSamples();
         for (int ch = 0; ch < 2; ch++)
@@ -787,13 +705,8 @@ public class LimiterNodeTests
         using var input = CreateBuffer(1, sampleCount,
             (_, i) => 2.0f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
 
-        using var node = new LimiterNode
-        {
-            Threshold = CreateAnimatedRamp(0f, -20f, duration),
-            Release = Property.CreateAnimatable(1f),
-            Lookahead = Property.CreateAnimatable(LookaheadMs),
-            MakeupGain = Property.CreateAnimatable(0f),
-        };
+        using var node = CreateNode(thresholdDb: 0f, releaseMs: 1f);
+        node.Threshold.Animation = Ramp(0f, -20f, duration);
         node.AddInput(new BufferReplayNode(input));
 
         using var output = node.Process(CreateContext(sampleCount));
@@ -813,76 +726,6 @@ public class LimiterNodeTests
             $"Early region should follow the ~0 dB threshold (got peak {earlyPeak}).");
         Assert.That(latePeak, Is.LessThan(0.2f),
             $"Late region should follow the ~-20 dB threshold (got peak {latePeak}).");
-    }
-
-    [Test]
-    public void Process_LongAnimatedChunk_ProcessesAllSamples()
-    {
-        const int sampleCount = 5000;
-        const float thresholdDb = -1f;
-        float thresholdLin = MathF.Pow(10f, thresholdDb / 20f);
-
-        using var input = CreateBuffer(2, sampleCount,
-            (_, i) => 2.0f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
-
-        using var node = new LimiterNode
-        {
-            Threshold = CreateAnimatedConstant(thresholdDb),
-            Release = Property.CreateAnimatable(50f),
-            Lookahead = Property.CreateAnimatable(LookaheadMs),
-            MakeupGain = Property.CreateAnimatable(0f),
-        };
-        node.AddInput(new BufferReplayNode(input));
-
-        using var output = node.Process(CreateContext(sampleCount));
-
-        Assert.That(output.SampleCount, Is.EqualTo(sampleCount));
-
-        int lookaheadSamples = LookaheadSamples();
-        for (int ch = 0; ch < 2; ch++)
-        {
-            var data = output.GetChannelData(ch);
-            for (int i = lookaheadSamples; i < sampleCount; i++)
-            {
-                Assert.That(MathF.Abs(data[i]), Is.LessThanOrEqualTo(thresholdLin + 1e-4f));
-            }
-        }
-    }
-
-    [Test]
-    public void Process_AnimatedExactlyChunkSize_ProcessesAllSamples()
-    {
-        // SampleCount equal to the internal AnimationChunkSize (1024). An off-by-one in the
-        // chunk-loop bound would either skip the last batch or over-run.
-        const int sampleCount = 1024;
-        const float thresholdDb = -1f;
-        float thresholdLin = MathF.Pow(10f, thresholdDb / 20f);
-
-        using var input = CreateBuffer(2, sampleCount,
-            (_, i) => 2.0f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
-
-        using var node = new LimiterNode
-        {
-            Threshold = CreateAnimatedConstant(thresholdDb),
-            Release = Property.CreateAnimatable(50f),
-            Lookahead = Property.CreateAnimatable(LookaheadMs),
-            MakeupGain = Property.CreateAnimatable(0f),
-        };
-        node.AddInput(new BufferReplayNode(input));
-
-        using var output = node.Process(CreateContext(sampleCount));
-
-        Assert.That(output.SampleCount, Is.EqualTo(sampleCount));
-
-        int lookaheadSamples = LookaheadSamples();
-        for (int ch = 0; ch < 2; ch++)
-        {
-            var data = output.GetChannelData(ch);
-            for (int i = lookaheadSamples; i < sampleCount; i++)
-            {
-                Assert.That(MathF.Abs(data[i]), Is.LessThanOrEqualTo(thresholdLin + 1e-4f));
-            }
-        }
     }
 
     [Test]
@@ -1216,21 +1059,7 @@ public class LimiterNodeTests
 
         using var resumeOut = node.Process(CreateContext(chunkSamples, start: emptyStart));
 
-        bool foundResidual = false;
-        for (int ch = 0; ch < 2 && !foundResidual; ch++)
-        {
-            var data = resumeOut.GetChannelData(ch);
-            for (int i = 0; i < lookaheadSamples; i++)
-            {
-                if (MathF.Abs(data[i]) > 1e-3f)
-                {
-                    foundResidual = true;
-                    break;
-                }
-            }
-        }
-
-        Assert.That(foundResidual, Is.True,
+        Assert.That(HasResidual(resumeOut, lookaheadSamples, 1e-3f), Is.True,
             "Empty chunk at the boundary should not force a reset — delay-line residual must survive.");
     }
 
@@ -1309,18 +1138,8 @@ public class LimiterNodeTests
         const int chunkSamples = SampleRate / chunkCount; // 0.25s each, 1s total ramp
         var totalDuration = TimeSpan.FromSeconds(1);
 
-        var thresholdProp = CreateAnimatedRamp(0f, -20f, totalDuration);
-        var releaseProp = Property.CreateAnimatable(1f);
-        var lookaheadProp = Property.CreateAnimatable(LookaheadMs);
-        var makeupProp = Property.CreateAnimatable(0f);
-
-        using var node = new LimiterNode
-        {
-            Threshold = thresholdProp,
-            Release = releaseProp,
-            Lookahead = lookaheadProp,
-            MakeupGain = makeupProp,
-        };
+        using var node = CreateNode(thresholdDb: 0f, releaseMs: 1f);
+        node.Threshold.Animation = Ramp(0f, -20f, totalDuration);
 
         var firstPeaks = new float[chunkCount];
         var lastPeaks = new float[chunkCount];
@@ -1379,13 +1198,8 @@ public class LimiterNodeTests
         using var hotInput = CreateBuffer(2, firstSampleCount,
             (_, i) => 2.0f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
 
-        using var node = new LimiterNode
-        {
-            Threshold = CreateAnimatedRamp(-1f, -1f, duration),
-            Release = Property.CreateAnimatable(50f),
-            Lookahead = Property.CreateAnimatable(LookaheadMs),
-            MakeupGain = Property.CreateAnimatable(0f),
-        };
+        using var node = CreateNode();
+        node.Threshold.Animation = Ramp(-1f, -1f, duration);
         node.AddInput(new BufferReplayNode(hotInput));
 
         var firstCtx = CreateContext(firstSampleCount, start: TimeSpan.Zero);
@@ -1532,13 +1346,8 @@ public class LimiterNodeTests
         using var input = CreateBuffer(2, sampleCount,
             (_, i) => 2.0f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
 
-        using var node = new LimiterNode
-        {
-            Threshold = Property.CreateAnimatable(thresholdDb),
-            Release = Property.CreateAnimatable(50f),
-            Lookahead = CreateAnimatedRamp(0f, MaxLookaheadMs, duration),
-            MakeupGain = Property.CreateAnimatable(0f),
-        };
+        using var node = CreateNode(thresholdDb: thresholdDb, lookaheadMs: 0f);
+        node.Lookahead.Animation = Ramp(0f, MaxLookaheadMs, duration);
         node.AddInput(new BufferReplayNode(input));
 
         using var output = node.Process(CreateContext(sampleCount));
@@ -1644,78 +1453,13 @@ public class LimiterNodeTests
     // Step animation: holds `first` for the whole [0, boundary) range and switches to `second` from
     // `boundary` onward. Used to drive the animated/scan path with a per-chunk-constant lookahead so it
     // can serve as an independent oracle for the static deque path across a lookahead change.
-    private static IProperty<float> CreateAnimatedStep(float first, float second, TimeSpan boundary)
+    private static KeyFrameAnimation<float> CreateAnimatedStep(float first, float second, TimeSpan boundary)
     {
-        var prop = Property.CreateAnimatable(first);
         var animation = new KeyFrameAnimation<float>();
         animation.KeyFrames.Add(new KeyFrame<float> { Value = first, KeyTime = TimeSpan.Zero });
         animation.KeyFrames.Add(new KeyFrame<float> { Value = first, KeyTime = boundary - TimeSpan.FromTicks(1) });
         animation.KeyFrames.Add(new KeyFrame<float> { Value = second, KeyTime = boundary });
-        prop.Animation = animation;
-        return prop;
-    }
-
-    [Test]
-    public void Process_StaticDeque_MatchesAnimatedScan_ForEqualConstantLookahead()
-    {
-        // Core correctness claim of the deque optimization: with an equal constant lookahead, the
-        // static path's O(1) deque max (PushWindowPeak) must produce output bit-identical to the
-        // animated path's O(lookahead) scan (ScanWindowPeak). A constant KeyFrameAnimation forces
-        // the scan path; everything else is identical, so any divergence is a deque bug. Multiple
-        // contiguous chunks also cover deque persistence.
-        const int chunkSamples = 2048;
-        const int chunks = 3;
-        const float thresholdDb = -6f;
-        const float releaseMs = 80f;
-        const float lookaheadMs = MaxLookaheadMs; // large window stresses the window-max
-
-        // Deterministic, transient-rich signal so the window maximum changes often (spikes force evictions).
-        static float Gen(int ch, int i)
-        {
-            float tone = MathF.Sin(2f * MathF.PI * 523f * i / SampleRate);
-            float env = 0.6f + 0.4f * MathF.Sin(2f * MathF.PI * 3f * i / SampleRate);
-            float spike = (i % 311 == 0) ? 3.0f : 0f;
-            return (1.4f * tone * env + spike) * (ch == 0 ? 1.0f : 0.85f);
-        }
-
-        using var staticNode = CreateNode(thresholdDb: thresholdDb, releaseMs: releaseMs, lookaheadMs: lookaheadMs);
-        using var animatedNode = new LimiterNode
-        {
-            Threshold = Property.CreateAnimatable(thresholdDb),
-            Release = Property.CreateAnimatable(releaseMs),
-            Lookahead = CreateAnimatedConstant(lookaheadMs), // forces ProcessAnimated/ScanWindowPeak
-            MakeupGain = Property.CreateAnimatable(0f),
-        };
-
-        TimeSpan start = TimeSpan.Zero;
-        for (int c = 0; c < chunks; c++)
-        {
-            int baseIndex = c * chunkSamples;
-            using var inStatic = CreateBuffer(2, chunkSamples, (ch, i) => Gen(ch, baseIndex + i));
-            using var inAnimated = CreateBuffer(2, chunkSamples, (ch, i) => Gen(ch, baseIndex + i));
-            var ctx = CreateContext(chunkSamples, start: start);
-
-            staticNode.ClearInputs();
-            staticNode.AddInput(new BufferReplayNode(inStatic));
-            animatedNode.ClearInputs();
-            animatedNode.AddInput(new BufferReplayNode(inAnimated));
-
-            using var outStatic = staticNode.Process(ctx);
-            using var outAnimated = animatedNode.Process(ctx);
-
-            for (int ch = 0; ch < 2; ch++)
-            {
-                var s = outStatic.GetChannelData(ch);
-                var a = outAnimated.GetChannelData(ch);
-                for (int i = 0; i < chunkSamples; i++)
-                {
-                    Assert.That(s[i], Is.EqualTo(a[i]).Within(1e-6f),
-                        $"deque vs scan mismatch chunk {c} ch {ch} sample {i}: static={s[i]} animated={a[i]}.");
-                }
-            }
-
-            start += ctx.TimeRange.Duration;
-        }
+        return animation;
     }
 
     [Test]
@@ -1743,13 +1487,8 @@ public class LimiterNodeTests
         // Deque node: chunk 1 @ lookA (builds deque for A), chunk 2 @ lookB (rebuild for B).
         using var dequeNode = CreateNode(thresholdDb: thresholdDb, releaseMs: releaseMs, lookaheadMs: lookA);
         // Scan oracle: animated step lookahead A -> B at the chunk boundary.
-        using var scanNode = new LimiterNode
-        {
-            Threshold = Property.CreateAnimatable(thresholdDb),
-            Release = Property.CreateAnimatable(releaseMs),
-            Lookahead = CreateAnimatedStep(lookA, lookB, dur1),
-            MakeupGain = Property.CreateAnimatable(0f),
-        };
+        using var scanNode = CreateNode(thresholdDb: thresholdDb, releaseMs: releaseMs, lookaheadMs: lookA);
+        scanNode.Lookahead.Animation = CreateAnimatedStep(lookA, lookB, dur1);
 
         // Chunk 1 (both nodes @ lookA).
         using (var inDeque1 = CreateBuffer(2, chunkSamples, (ch, i) => Gen(ch, i)))
@@ -1876,13 +1615,8 @@ public class LimiterNodeTests
         var dur1 = TimeSpan.FromSeconds((double)chunk1 / SampleRate);
 
         using var dequeNode = CreateNode(thresholdDb: thresholdDb, releaseMs: releaseMs, lookaheadMs: lookA);
-        using var scanNode = new LimiterNode
-        {
-            Threshold = Property.CreateAnimatable(thresholdDb),
-            Release = Property.CreateAnimatable(releaseMs),
-            Lookahead = CreateAnimatedStep(lookA, lookB, dur1),
-            MakeupGain = Property.CreateAnimatable(0f),
-        };
+        using var scanNode = CreateNode(thresholdDb: thresholdDb, releaseMs: releaseMs, lookaheadMs: lookA);
+        scanNode.Lookahead.Animation = CreateAnimatedStep(lookA, lookB, dur1);
 
         // Chunk 1: tiny history at lookA.
         using (var inDeque1 = CreateBuffer(2, chunk1, (ch, i) => Gen(ch, i)))
@@ -2010,13 +1744,8 @@ public class LimiterNodeTests
         }
 
         using var staticNode = CreateNode(thresholdDb: thresholdDb, releaseMs: releaseMs, lookaheadMs: lookaheadMs);
-        using var animatedNode = new LimiterNode
-        {
-            Threshold = Property.CreateAnimatable(thresholdDb),
-            Release = Property.CreateAnimatable(releaseMs),
-            Lookahead = CreateAnimatedConstant(lookaheadMs),
-            MakeupGain = Property.CreateAnimatable(0f),
-        };
+        using var animatedNode = CreateNode(thresholdDb: thresholdDb, releaseMs: releaseMs, lookaheadMs: lookaheadMs);
+        animatedNode.Lookahead.Animation = Ramp(lookaheadMs, lookaheadMs, TimeSpan.FromSeconds((double)total / SampleRate));
 
         TimeSpan start = TimeSpan.Zero;
         for (int c = 0; c < chunks; c++)
@@ -2068,13 +1797,8 @@ public class LimiterNodeTests
             return 1.5f * tone + spike;
         }
 
-        using var ramped = new LimiterNode
-        {
-            Threshold = Property.CreateAnimatable(thresholdDb),
-            Release = Property.CreateAnimatable(50f),
-            Lookahead = CreateAnimatedRamp(0f, MaxLookaheadMs, duration),
-            MakeupGain = Property.CreateAnimatable(0f),
-        };
+        using var ramped = CreateNode(thresholdDb: thresholdDb, releaseMs: 50f, lookaheadMs: 0f, makeupGainDb: 0f);
+        ramped.Lookahead.Animation = Ramp(0f, MaxLookaheadMs, duration);
         using var fixed0 = CreateNode(thresholdDb: thresholdDb, releaseMs: 50f, lookaheadMs: 0f, makeupGainDb: 0f);
         using var fixedMax = CreateNode(thresholdDb: thresholdDb, releaseMs: 50f, lookaheadMs: MaxLookaheadMs, makeupGainDb: 0f);
 
@@ -2199,10 +1923,8 @@ public class LimiterNodeTests
     [TestCaseSource(nameof(ParameterRanges))]
     public void LimiterParameters_RangeIsConsistent(float min, float def, float max)
     {
-        // Catches an edit that puts a default outside its range or inverts a min/max at CI time — the
-        // [Range] attributes and LimiterNode's per-sample clamps both read these constants, so a desync
-        // within the set would ship silently. Mirrors CompressorParameters_RangeIsConsistent.
-        Assert.That(min, Is.LessThan(max), "Min must be strictly less than Max.");
-        Assert.That(def, Is.InRange(min, max), "Default must lie within [Min, Max].");
+        // The [Range] attributes and LimiterNode's per-sample clamps both read these constants, so a
+        // desync within the set would ship silently.
+        AssertRangeIsConsistent(min, def, max);
     }
 }

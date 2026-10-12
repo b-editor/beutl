@@ -24,17 +24,6 @@ public sealed partial class ResampledInlineTailSound : Sound
         context.MarkAsOutput(resample);
     }
 
-    private sealed class FixedLatencyNode(int latencySamples) : AudioNode
-    {
-        public override AudioBuffer Process(AudioProcessContext context)
-            => new(context.SampleRate, 2, context.GetSampleCount());
-
-        public override AudioBuffer Flush(AudioProcessContext context)
-            => new(context.SampleRate, 2, context.GetSampleCount());
-
-        public override int GetLatencySamples(int sampleRate) => latencySamples;
-    }
-
     public partial class Resource
     {
         public override SoundSource.Resource? GetSoundSource() => null;
