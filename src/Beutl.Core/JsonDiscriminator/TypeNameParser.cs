@@ -7,15 +7,26 @@ internal class TypeNameParser
 {
     private readonly List<Token> _tokens;
     private readonly Func<string, Assembly?> _assemblyResolver;
+    private readonly Func<string, string, Type?> _aliasResolver;
     private string? _assemblyName;
     private Assembly? _assembly;
     private string? _namespace;
 
-    public TypeNameParser(List<Token> tokens, Func<string, Assembly?>? assemblyResolver = null)
+    // aliasResolver takes the assembly name and the full name (in Type.FullName form) of a type definition that
+    // does not resolve, and returns the type that gives it as a former name.
+    public TypeNameParser(
+        List<Token> tokens,
+        Func<string, Assembly?>? assemblyResolver = null,
+        Func<string, string, Type?>? aliasResolver = null)
     {
         _tokens = tokens;
         _assemblyResolver = assemblyResolver ?? DefaultAssemblyResolver;
+        _aliasResolver = aliasResolver ?? TypeFormat.FindAlias;
     }
+
+    // Whether Parse resolved part of the name, such as a type argument, through a former name. Such a result changes
+    // once a type with that name loads, which then takes its place.
+    public bool UsedFormerName { get; private set; }
 
     private static Assembly? DefaultAssemblyResolver(string s)
     {
@@ -35,7 +46,7 @@ internal class TypeNameParser
         _namespace = ParseNamespace(nsTokens);
 
         Token[] typeTokens = _tokens.Skip(asmTokens.Length + nsTokens.Length).ToArray();
-        return ParseNestedType(typeTokens);
+        return ParseNestedType(typeTokens, out _);
     }
 
     private static string ConcatTokens(ReadOnlySpan<Token> tokens)
@@ -164,7 +175,7 @@ internal class TypeNameParser
         }
     }
 
-    private static Type[] ParseGenericTypes(Span<Token> tokens)
+    private Type[] ParseGenericTypes(Span<Token> tokens)
     {
         if (tokens.Length == 0)
             return [];
@@ -193,6 +204,7 @@ internal class TypeNameParser
                     Span<Token> genericType = generics[start..i];
                     var parser = new TypeNameParser([.. genericType]);
                     list.Add(parser.Parse());
+                    UsedFormerName |= parser.UsedFormerName;
                 }
             }
         }
@@ -221,7 +233,8 @@ internal class TypeNameParser
         }
     }
 
-    private Type? ParseNestedType(Span<Token> tokens)
+    // definitionName is the written type definition in Type.FullName form, by which the alias table is keyed.
+    private Type? ParseNestedType(Span<Token> tokens, out string definitionName)
     {
         string typeName = TakeTypeNameTokens(tokens, out Span<Token> genericTokens, out Span<Token> parents);
         Type[] genericArgs = ParseGenericTypes(genericTokens);
@@ -230,13 +243,22 @@ internal class TypeNameParser
         Type? type;
         if (parents.Length != 0)
         {
-            Type? parent = ParseNestedType(parents);
+            Type? parent = ParseNestedType(parents, out string parentName);
+            definitionName = $"{parentName}+{typeName}{suffix}";
             const BindingFlags flags = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
             type = parent?.GetNestedType($"{typeName}{suffix}", flags)!;
         }
         else
         {
+            definitionName = _namespace == null ? $"{typeName}{suffix}" : $"{_namespace}.{typeName}{suffix}";
             type = _assembly?.GetType($"{_namespace ?? ""}.{typeName}{suffix}")!;
+        }
+
+        // A former name (FormerPersistedNameAttribute) is read only when no type has the name now.
+        if (type == null)
+        {
+            type = _aliasResolver(_assemblyName ?? "", definitionName);
+            UsedFormerName |= type != null;
         }
 
         if (type == null)
@@ -251,4 +273,80 @@ internal class TypeNameParser
 
         return type;
     }
+
+    // Reads a FormerPersistedNameAttribute name of a type: "[Assembly]Namespace:Type", with a nested type after its
+    // declaring type, and without type arguments. aritySuffix is the "`n" a generic type's name ends with. Returns
+    // null for a name that is not written that way.
+    internal static FormerTypeName? ParseFormerName(string name, string aritySuffix)
+    {
+        try
+        {
+            List<Token> tokens = new TypeNameTokenizer(name).Tokenize();
+            var parser = new TypeNameParser(tokens, static _ => null, static (_, _) => null);
+            return parser.ParseFormerName(aritySuffix);
+        }
+        catch (Exception ex) when (ex is IndexOutOfRangeException
+                                       or ArgumentOutOfRangeException
+                                       or ArgumentException
+                                       or InvalidOperationException)
+        {
+            return null;
+        }
+    }
+
+    private FormerTypeName? ParseFormerName(string aritySuffix)
+    {
+        // The assembly comes first, and only names and periods follow: no type arguments.
+        int endAssembly = _tokens.FindIndex(token => token.Type == TokenType.EndAssembly);
+        if (_tokens is not [{ Type: TokenType.BeginAssembly }, ..]
+            || endAssembly < 2
+            || _tokens.Take(endAssembly).Skip(1).Any(token => token.Type is not (TokenType.Part or TokenType.Period))
+            || _tokens.Skip(endAssembly + 1)
+                .Any(token => token.Type is not (TokenType.Part or TokenType.Period or TokenType.Colon)))
+        {
+            return null;
+        }
+
+        _assemblyName = string.Concat(_tokens.Take(endAssembly).Skip(1).Select(token => token.Text));
+        Token[] nsTokens = TakeNamespaceTokens(_tokens.Skip(endAssembly + 1)).ToArray();
+        _namespace = ParseNamespace(nsTokens);
+
+        var names = new List<string>();
+        if (!TakeNestedNames(_tokens.Skip(endAssembly + 1 + nsTokens.Length).ToArray(), names))
+        {
+            return null;
+        }
+
+        names[^1] += aritySuffix;
+        string path = string.Join('+', names);
+        return new FormerTypeName(
+            _assemblyName,
+            _namespace,
+            names[^1],
+            _namespace == null ? path : $"{_namespace}.{path}");
+    }
+
+    // ":Outer:Inner" -> [Outer, Inner]
+    private static bool TakeNestedNames(Span<Token> tokens, List<string> names)
+    {
+        if (tokens is not [.. var parents, { Type: TokenType.Colon }, { Type: TokenType.Part, Text: string name }])
+        {
+            return false;
+        }
+
+        if (parents.Length != 0 && !TakeNestedNames(parents, names))
+        {
+            return false;
+        }
+
+        names.Add(name);
+        return true;
+    }
 }
+
+/// <summary>A former name of a type, as <see cref="Serialization.FormerPersistedNameAttribute"/> gives it.</summary>
+/// <param name="AssemblyName">The assembly the name gives.</param>
+/// <param name="Namespace">The namespace, or <see langword="null"/> for the global namespace.</param>
+/// <param name="Name">The name of the type itself, as <see cref="System.Reflection.MemberInfo.Name"/> gives it.</param>
+/// <param name="FullName">The namespace, the declaring types and the name, as <see cref="Type.FullName"/> gives them.</param>
+internal sealed record FormerTypeName(string AssemblyName, string? Namespace, string Name, string FullName);

@@ -166,7 +166,7 @@ public class JsonHelperTests
     [Test]
     public void TryGetDiscriminator_String_ReturnsRawValue()
     {
-        var node = new JsonObject { ["@type"] = "[Some.Asm]:Some.Type" };
+        var node = new JsonObject { ["$type"] = "[Some.Asm]:Some.Type" };
 
         bool ok = node.TryGetDiscriminator(out string? text);
 

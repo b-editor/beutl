@@ -1,4 +1,7 @@
-﻿namespace Beutl.UnitTests.Core;
+﻿using Beutl.Extensions.FFmpeg.Decoding;
+using Beutl.Extensions.FFmpeg.Encoding;
+
+namespace Beutl.UnitTests.Core;
 
 public class TypeFormatTests
 {
@@ -52,18 +55,24 @@ public class TypeFormatTests
         Assert.That(result, Is.Null);
     }
 
+    // Beutl 1.x built FFmpeg in as Beutl.Embedding.FFmpeg, so its settings and output profiles name the decoder and
+    // the encoder that way. The two types give those names as their former names.
     [Test]
-    public void ToType_EffectItemFFmpegEmbeddingNamespaceIsRemapped()
+    public void ToType_FFmpegNamesOfVersion1_ResolveThroughTheirFormerNames()
     {
-        // The TypeFormat.ToType replaces "Beutl.Embedding.FFmpeg" with
-        // "Beutl.Extensions.FFmpeg" before parsing. We can verify the rewrite
-        // path is taken by passing a synthetic assembly name and confirming
-        // the logic doesn't throw and falls through to a null result.
-        string effectItem = "[Beutl.Embedding.FFmpeg]:NotARealType";
+        // Loads the FFmpeg extension's assembly, as the app does before it reads these names.
+        Type decoder = typeof(FFmpegDecoderInfo);
+        Type encoder = typeof(FFmpegControlledEncodingExtension);
 
-        Type? result = TypeFormat.ToType(effectItem);
-
-        Assert.That(result, Is.Null);
+        Assert.Multiple(() =>
+        {
+            Assert.That(TypeFormat.ToType("[Beutl.Embedding.FFmpeg].Decoding:FFmpegDecoderInfo"), Is.EqualTo(decoder));
+            Assert.That(
+                TypeFormat.ToType("[Beutl.Embedding.FFmpeg].Encoding:FFmpegControlledEncodingExtension"),
+                Is.EqualTo(encoder));
+            // A name in that assembly that no type gives as a former name does not resolve.
+            Assert.That(TypeFormat.ToType("[Beutl.Embedding.FFmpeg]:NotARealType"), Is.Null);
+        });
     }
 
     private static void AssertRoundTrip(Type type)

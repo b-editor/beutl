@@ -64,6 +64,14 @@ public abstract class CoreProperty : ICoreProperty
 
     internal abstract Optional<object?> RouteDeserialize(ICoreSerializationContext context);
 
+    // The key RouteDeserialize reads: the property's name, or else a former name (FormerPersistedNameAttribute)
+    // that the context holds.
+    internal string GetReadName(ICoreSerializationContext context)
+    {
+        return FormerPersistedNames.ResolveMemberKey(
+            context, Name, GetMetadata<CorePropertyMetadata>(context.OwnerType).Attributes);
+    }
+
     protected abstract IObservable<CorePropertyChangedEventArgs> GetChanged();
 
     public TMetadata GetMetadata<T, TMetadata>()
@@ -299,19 +307,20 @@ public class CoreProperty<T>(
                 return default;
             }
 
+            string name = FormerPersistedNames.ResolveMemberKey(context, Name, metadata.Attributes);
             if (context is IJsonSerializationContext jsonCtxt
                 && metadata.JsonConverter is { })
             {
                 Type type = PropertyType;
-                JsonNode? node = jsonCtxt.GetNode(Name);
+                JsonNode? node = jsonCtxt.GetNode(name);
 
                 JsonSerializerOptions options = metadata.GetSerializerOptions();
                 return JsonSerializer.Deserialize(node, type, options);
             }
 
-            if (context.Contains(Name))
+            if (context.Contains(name))
             {
-                return new Optional<object?>(context.GetValue<T>(Name));
+                return new Optional<object?>(context.GetValue<T>(name));
             }
             else
             {

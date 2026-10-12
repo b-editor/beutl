@@ -65,7 +65,6 @@ internal static class ElementMigration
         }
 
         JsonObject json = tree.DeepClone().AsObject();
-        json.Remove("@type");
         json["$type"] = LegacyNodeTreeTypeName;
         nodeTree = new FallbackEngineObject { Json = json, Reason = FallbackReason.TypeNotFound };
         return true;

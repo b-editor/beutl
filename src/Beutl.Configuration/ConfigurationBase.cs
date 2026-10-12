@@ -68,7 +68,7 @@ public abstract class ConfigurationBase : CoreObject
                     continue;
 
                 // A JSON null reads as default(T) without an error, which would leave, say, UICulture null.
-                if (IsJsonNull(context, property.Name) && !AcceptsNull(property))
+                if (IsJsonNull(context, property.GetReadName(context)) && !AcceptsNull(property))
                     throw new JsonException($"{property.Name} cannot be null.");
 
                 SetValue(property, value.Value);

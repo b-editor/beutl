@@ -4,10 +4,14 @@ using Beutl.FFmpegIpc.Protocol.Messages;
 using Beutl.FFmpegIpc.Transport;
 using Beutl.Logging;
 using Beutl.Media.Decoding;
+using Beutl.Serialization;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Extensions.FFmpeg.Decoding;
 
+// Beutl 1.x built this extension into the app as Beutl.Embedding.FFmpeg (FFmpegBuildIn, on by default up to
+// v1.1.0), so a decoder priority it saved in settings.json names this type that way.
+[FormerPersistedName("[Beutl.Embedding.FFmpeg].Decoding:FFmpegDecoderInfo")]
 public sealed class FFmpegDecoderInfo : IDecoderInfo
 {
     private readonly ILogger _logger = Log.CreateLogger<FFmpegDecoderInfo>();

@@ -353,7 +353,7 @@ internal sealed partial class SceneRecovery
         }
 
         JsonObject json = fallback.Json ?? new JsonObject();
-        if (!json.ContainsKey("$type") && !json.ContainsKey("@type"))
+        if (!json.ContainsKey("$type"))
         {
             json.WriteDiscriminator(coreObject.GetType());
         }

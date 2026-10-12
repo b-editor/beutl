@@ -185,9 +185,7 @@ public static class JsonHelper
         result = null;
         if (node is JsonObject obj)
         {
-            JsonNode? typeNode = obj.TryGetPropertyValue("$type", out JsonNode? typeNode1) ? typeNode1
-                               : obj.TryGetPropertyValue("@type", out JsonNode? typeNode2) ? typeNode2
-                               : null;
+            obj.TryGetPropertyValue("$type", out JsonNode? typeNode);
 
             if (typeNode is JsonValue typeValue
                 && typeValue.TryGetValue(out string? typeStr)

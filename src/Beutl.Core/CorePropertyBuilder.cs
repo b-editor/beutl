@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Linq.Expressions;
 using System.Reflection;
+using Beutl.Serialization;
 
 namespace Beutl;
 
@@ -12,6 +13,7 @@ public sealed class CorePropertyBuilder<[DynamicallyAccessedMembers(DynamicallyA
     private Optional<T> _defaultValue;
     private readonly PropertyInfo? _propertyInfo;
     private Attribute[] _attributes;
+    private List<string>? _formerNames;
 
     public CorePropertyBuilder(string name, bool isAttached = false)
     {
@@ -57,7 +59,11 @@ public sealed class CorePropertyBuilder<[DynamicallyAccessedMembers(DynamicallyA
     {
         CoreProperty<T>? property = null;
 
-        var metadata = new CorePropertyMetadata<T>(_defaultValue, _getter == null || _setter != null, _attributes);
+        // Kept apart until now so that SetAttribute, which replaces the attributes, does not drop them.
+        Attribute[] attributes = _formerNames == null
+            ? _attributes
+            : [.. _attributes, .. _formerNames.Select(name => new FormerPersistedNameAttribute(name))];
+        var metadata = new CorePropertyMetadata<T>(_defaultValue, _getter == null || _setter != null, attributes);
         if (_getter != null)
         {
             property = new StaticProperty<TOwner, T>(_name, _getter, _setter, metadata);
@@ -92,6 +98,23 @@ public sealed class CorePropertyBuilder<[DynamicallyAccessedMembers(DynamicallyA
     public CorePropertyBuilder<T, TOwner> SetAttribute(params Attribute[] attributes)
     {
         _attributes = attributes;
+        return this;
+    }
+
+    /// <summary>
+    /// Adds a member key the property was saved under before it was renamed. A value found only under that key
+    /// loads into the property; the property is always written under its current name.
+    /// </summary>
+    /// <remarks>
+    /// This has the effect of a <see cref="FormerPersistedNameAttribute"/> on the property, and can be called once
+    /// for each former name. Writing a renamed member is a breaking change of the format, because a build older
+    /// than the rename does not load it.
+    /// </remarks>
+    /// <param name="name">The former member key.</param>
+    public CorePropertyBuilder<T, TOwner> FormerPersistedName(string name)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        (_formerNames ??= []).Add(name);
         return this;
     }
 }
