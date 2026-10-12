@@ -22,50 +22,43 @@ public sealed class ToolSurfaceTests
     {
         string[] names = ToolNames(s_sharedPublicToolTypes);
 
-        Assert.Multiple(() =>
+        Assert.That(names, Is.EquivalentTo(new[]
         {
-            Assert.That(names, Is.EquivalentTo(new[]
-            {
-                "get_started",
-                "get_schema",
-                "list_fonts",
-                "list_effects",
-                "list_effect_recipes",
-                "get_effect_recipe",
-                "validate_shader",
-                "list_compositions",
-                "get_composition",
-                "render_composition_patch",
-                "list_examples",
-                "get_examples",
-                "open_project",
-                "create_project",
-                "add_scene",
-                "save_project",
-                "read_operation_status",
-                "undo",
-                "redo",
-                "read_history",
-                "read_document_summary",
-                "measure_object_bounds",
-                "read_document",
-                "apply_edit",
-                "duplicate_object",
-                "plan_composition",
-                "apply_composition",
-                "render_still",
-                "render_storyboard",
-                "measure_frame_differences",
-                "analyze_audio_rhythm",
-                "export_video",
-                "read_render_job",
-                "cancel_render_job"
-            }));
-            Assert.That(names, Does.Not.Contain("add_keyframe"));
-            Assert.That(names, Does.Not.Contain("update_keyframe"));
-            Assert.That(names, Does.Not.Contain("remove_keyframe"));
-            Assert.That(names, Does.Not.Contain("set_property"));
-        });
+            "get_started",
+            "get_schema",
+            "list_fonts",
+            "list_effects",
+            "list_effect_recipes",
+            "get_effect_recipe",
+            "validate_shader",
+            "list_compositions",
+            "get_composition",
+            "render_composition_patch",
+            "list_examples",
+            "get_examples",
+            "open_project",
+            "create_project",
+            "add_scene",
+            "save_project",
+            "read_operation_status",
+            "undo",
+            "redo",
+            "read_history",
+            "read_document_summary",
+            "measure_object_bounds",
+            "read_document",
+            "apply_edit",
+            "duplicate_object",
+            "plan_composition",
+            "apply_composition",
+            "render_still",
+            "render_storyboard",
+            "measure_frame_differences",
+            "analyze_audio_rhythm",
+            "export_video",
+            "read_render_job",
+            "cancel_render_job"
+        }));
     }
 
     private static string[] ToolNames(params Type[] toolTypes)

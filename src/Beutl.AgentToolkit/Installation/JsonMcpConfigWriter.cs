@@ -33,7 +33,7 @@ internal static class JsonMcpConfigWriter
         JsonObject current = Parse(text, target);
         var updated = (JsonObject)current.DeepClone();
         JsonObject servers = GetOrCreateObject(updated, options.McpServersPropertyName);
-        servers[options.McpServerName] = CreateServer(options);
+        servers[AgentToolkitInstallOptions.DefaultServerName] = CreateServer(options);
         string[] obsolete = AgentToolkitInstaller.ObsoleteServerNames().Where(servers.Remove).ToArray();
 
         string json = updated.ToJsonString(s_jsonOptions);
@@ -45,7 +45,8 @@ internal static class JsonMcpConfigWriter
         if (HasComments(text))
         {
             var entry = new JsonObject();
-            GetOrCreateObject(entry, options.McpServersPropertyName)[options.McpServerName] = CreateServer(options);
+            GetOrCreateObject(entry, options.McpServersPropertyName)[AgentToolkitInstallOptions.DefaultServerName] =
+                CreateServer(options);
             return new ManualMcpEdit(path, entry.ToJsonString(s_jsonOptions), obsolete);
         }
 

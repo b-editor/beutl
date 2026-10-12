@@ -214,8 +214,9 @@ public sealed class AgentToolkitInstallerTests
         });
     }
 
-    [Test]
-    public void InstallAsync_RequiresTheServerCommand()
+    [TestCase(McpConfigFormat.Json, ".mcp.json")]
+    [TestCase(McpConfigFormat.CodexToml, "config.toml")]
+    public void InstallAsync_RequiresTheServerCommand(McpConfigFormat format, string configFileName)
     {
         Assert.ThrowsAsync<InvalidOperationException>(() => AgentToolkitInstaller.InstallAsync(
             new AgentToolkitInstallOptions
@@ -223,9 +224,11 @@ public sealed class AgentToolkitInstallerTests
                 AgentRoot = _tempRoot,
                 InstallSkills = false,
                 InstallSubagents = false,
+                McpConfigFileName = configFileName,
+                McpConfigFormat = format,
             },
             []));
-        Assert.That(File.Exists(Path.Combine(_tempRoot, ".mcp.json")), Is.False);
+        Assert.That(File.Exists(Path.Combine(_tempRoot, configFileName)), Is.False);
     }
 
     [Test]

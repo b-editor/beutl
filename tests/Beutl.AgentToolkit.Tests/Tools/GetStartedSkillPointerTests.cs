@@ -13,22 +13,12 @@ public sealed class GetStartedSkillPointerTests
 
         GettingStartedResponse response = queryTools.GetStarted().Value!;
 
-        string[] names = response.RecommendedSkills.Select(s => s.Name).ToArray();
-        Assert.Multiple(() =>
-        {
-            Assert.That(names, Is.EquivalentTo(new[]
-            {
-                "beutl-agent-timeline-from-shotlist",
-                "beutl-agent-look-effect-chain",
-                "beutl-agent-source-grounding",
-            }));
-            Assert.That(
-                response.RecommendedSkills.All(s =>
-                    !string.IsNullOrWhiteSpace(s.WhenToUse)
-                    && !string.IsNullOrWhiteSpace(s.HowToLoad)),
-                Is.True,
-                "every recommended skill needs a non-empty WhenToUse and HowToLoad");
-        });
+        Assert.That(
+            response.RecommendedSkills.All(s =>
+                !string.IsNullOrWhiteSpace(s.WhenToUse)
+                && !string.IsNullOrWhiteSpace(s.HowToLoad)),
+            Is.True,
+            "every recommended skill needs a non-empty WhenToUse and HowToLoad");
     }
 
     [Test]

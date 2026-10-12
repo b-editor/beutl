@@ -59,7 +59,6 @@ public sealed class FontToolsTests
         if (family is null)
         {
             Assert.Ignore("No registered font family exposes a selectable typeface in this environment.");
-            return;
         }
 
         FontTypefaceSummary typeface = family.Typefaces[0];
@@ -146,7 +145,7 @@ public sealed class FontToolsTests
         (EditTools tools, Scene scene, Element element) = CreateSceneWithText();
 
         ToolResult<ApplyEditResponse> apply = tools.ApplyEdit(
-            patch: FontFamilyPatch(element, UnregisteredFamilyName),
+            patch: FontPatch(element, UnregisteredFamilyName),
             schemaVersion: SchemaVersion.Current);
 
         Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
@@ -173,7 +172,7 @@ public sealed class FontToolsTests
         (EditTools tools, _, Element element) = CreateSceneWithText();
 
         ToolResult<ApplyEditResponse> apply = tools.ApplyEdit(
-            patch: FontFamilyPatch(element, registered[0].Name),
+            patch: FontPatch(element, registered[0].Name),
             schemaVersion: SchemaVersion.Current);
 
         Assert.Multiple(() =>
@@ -198,9 +197,6 @@ public sealed class FontToolsTests
 
     private static TextBlock RequireTextBlock(Scene scene)
         => (TextBlock)scene.Children.Single().Objects.Single();
-
-    private static JsonObject FontFamilyPatch(Element element, string familyName)
-        => FontPatch(element, familyName);
 
     private static JsonObject FontPatch(
         Element element,
@@ -239,8 +235,7 @@ public sealed class FontToolsTests
 
     private static (EditTools Tools, Scene Scene, Element Element) CreateSceneWithText()
     {
-        string dir = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        string dir = TestWorkspace.CreateDirectory();
         var scene = new Scene(1920, 1080, "Scene") { Uri = new Uri(Path.Combine(dir, "Scene.scene")) };
         var element = new Element
         {
@@ -252,8 +247,6 @@ public sealed class FontToolsTests
         scene.Children.Add(element);
 
         var session = new AgentToolkitTestSession(scene);
-        var manager = new AgentSessionManager();
-        manager.UseSource(new AgentToolkitTestSessionSource(session));
-        return (new EditTools(manager), scene, element);
+        return (session.CreateEditTools(), scene, element);
     }
 }

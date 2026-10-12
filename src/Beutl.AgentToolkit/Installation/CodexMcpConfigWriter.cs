@@ -97,7 +97,7 @@ internal static class CodexMcpConfigWriter
             server["env"] = environment;
         }
 
-        return new TomlTable { [options.McpServerName] = server };
+        return new TomlTable { [AgentToolkitInstallOptions.DefaultServerName] = server };
     }
 
     private static async Task WriteContentsAsync(Stream stream, string text, CancellationToken cancellationToken)

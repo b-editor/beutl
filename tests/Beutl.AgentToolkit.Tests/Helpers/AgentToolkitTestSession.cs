@@ -36,12 +36,7 @@ internal sealed class AgentToolkitTestSession : IEditingSession, IDisposable
 
     public void Invoke(Action action) => action();
 
-    public AgentSessionManager CreateManager()
-    {
-        var manager = new AgentSessionManager();
-        manager.UseSource(new AgentToolkitTestSessionSource(this));
-        return manager;
-    }
+    public AgentSessionManager CreateManager() => TestSessions.CreateManager(this);
 
     public EditTools CreateEditTools() => new(CreateManager());
 

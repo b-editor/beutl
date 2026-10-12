@@ -1,5 +1,6 @@
 ﻿using System.Text.Json;
 using Beutl.AgentToolkit.Common;
+using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.AgentToolkit.Tools;
 using ModelContextProtocol.Protocol;
 
@@ -26,7 +27,7 @@ public sealed class McpToolErrorFiltersTests
             "render_still",
             ["outputPath", "time"],
             schema.RootElement);
-        ToolResult<object?> toolResult = ReadToolResult(result!);
+        ToolResult<object?> toolResult = ToolResultReader.Read<object?>(result!);
 
         Assert.Multiple(() =>
         {
@@ -95,7 +96,7 @@ public sealed class McpToolErrorFiltersTests
             ["a", "b"],
             schema.RootElement);
 
-        Assert.That(ReadToolResult(result!).Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+        Assert.That(ToolResultReader.Read<object?>(result!).Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
     }
 
     [TestCase("""{ "type": "object", "properties": { "a": {} }, "patternProperties": { "^x-": {} } }""")]
@@ -108,7 +109,7 @@ public sealed class McpToolErrorFiltersTests
             "extension_tool",
             ["a", "x-extra", "y"],
             schema.RootElement);
-        ToolResult<object?> toolResult = ReadToolResult(result!);
+        ToolResult<object?> toolResult = ToolResultReader.Read<object?>(result!);
 
         Assert.Multiple(() =>
         {
@@ -117,12 +118,5 @@ public sealed class McpToolErrorFiltersTests
             Assert.That(toolResult.Error.Message, Does.Not.Contain("x-extra"));
             Assert.That(toolResult.Error.Message, Does.Contain("names matching ^x-"));
         });
-    }
-
-    private static ToolResult<object?> ReadToolResult(CallToolResult result)
-    {
-        string text = string.Join("\n", result.Content.OfType<TextContentBlock>().Select(block => block.Text));
-        return JsonSerializer.Deserialize<ToolResult<object?>>(text, new JsonSerializerOptions(JsonSerializerDefaults.Web))
-            ?? throw new InvalidOperationException("Tool result JSON was empty.");
     }
 }

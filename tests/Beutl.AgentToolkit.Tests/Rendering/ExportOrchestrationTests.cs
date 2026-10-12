@@ -1,9 +1,9 @@
 ﻿using Beutl.AgentToolkit.Rendering;
+using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.Extensibility;
 using Beutl.Extensions.FFmpeg;
 using Beutl.Extensions.FFmpeg.Encoding;
 using Beutl.Media;
-using Beutl.Media.Encoding;
 using Beutl.ProjectSystem;
 
 namespace Beutl.AgentToolkit.Tests.Rendering;
@@ -46,7 +46,7 @@ public sealed class ExportOrchestrationTests
         await Assert.ThrowsAsync<CodecUnavailableException>(async () =>
             await exporter.ExportAsync(
                 scene,
-                Path.Combine(CreateWorkspace(), "movie.unknown"),
+                Path.Combine(TestWorkspace.CreateDirectory(), "movie.unknown"),
                 new Rational(30, 1),
                 44100,
                 1,
@@ -67,7 +67,7 @@ public sealed class ExportOrchestrationTests
             await Assert.ThrowsAsync<CodecUnavailableException>(async () =>
                 await exporter.ExportAsync(
                     scene,
-                    Path.Combine(CreateWorkspace(), "movie.mkv"),
+                    Path.Combine(TestWorkspace.CreateDirectory(), "movie.mkv"),
                     new Rational(30, 1),
                     44100,
                     1,
@@ -83,13 +83,23 @@ public sealed class ExportOrchestrationTests
     public async Task Frame_progress_reaches_total_only_after_encode_returns()
     {
         var progress = new List<(long Completed, long Total)>();
-        var encoder = new RecordingEncodingExtension(progress);
+        bool completedWasReportedBeforeReturn = false;
+        var encoder = new DelegateEncoder(".progress-test", async (controller, frames, _, token) =>
+        {
+            for (long frame = 0; frame < frames.FrameCount; frame++)
+            {
+                token.ThrowIfCancellationRequested();
+                using Bitmap bitmap = await frames.RenderFrame(frame);
+                completedWasReportedBeforeReturn |= progress.Any(item => item.Total > 0 && item.Completed == item.Total);
+            }
+            await File.WriteAllTextAsync(controller.OutputFile, "encoded output", token);
+        });
         var exporter = new VideoExporter(new EncoderRegistration(encoder));
         var scene = new Scene(64, 64, "progress") { Duration = TimeSpan.FromSeconds(0.1) };
 
         ExportVideoResponse response = await exporter.ExportAsync(
             scene,
-            Path.Combine(CreateWorkspace(), "movie.progress-test"),
+            Path.Combine(TestWorkspace.CreateDirectory(), "movie.progress-test"),
             new Rational(30, 1),
             44100,
             1,
@@ -99,7 +109,7 @@ public sealed class ExportOrchestrationTests
         Assert.Multiple(() =>
         {
             Assert.That(response.Frames, Is.EqualTo(3));
-            Assert.That(encoder.Controller.CompletedWasReportedBeforeReturn, Is.False);
+            Assert.That(completedWasReportedBeforeReturn, Is.False);
             Assert.That(progress.Select(item => item.Completed), Is.EqualTo(new long[] { 0, 1, 2, 3 }));
             Assert.That(progress, Has.All.Matches<(long Completed, long Total)>(item => item.Total == 3));
             Assert.That(progress[^1], Is.EqualTo((3L, 3L)));
@@ -142,7 +152,7 @@ public sealed class ExportOrchestrationTests
 
         var exporter = new VideoExporter(new EncoderRegistration());
         var scene = new Scene(64, 64, "export") { Duration = TimeSpan.FromSeconds(1) };
-        string output = Path.Combine(CreateWorkspace(), "movie.mov");
+        string output = Path.Combine(TestWorkspace.CreateDirectory(), "movie.mov");
 
         // Only the export call may ignore environment failures: assertions run outside the try so
         // a wrong Encoder/Warnings value fails instead of being converted into Assert.Ignore.
@@ -179,50 +189,5 @@ public sealed class ExportOrchestrationTests
                 response.Warnings,
                 Has.Some.Contains("AVFoundation").And.Some.Contains("crf").And.Some.Contains("ignored"));
         });
-    }
-
-    private static string CreateWorkspace()
-    {
-        string path = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(path);
-        return path;
-    }
-
-    private sealed class RecordingEncodingExtension(IReadOnlyList<(long Completed, long Total)> progress)
-        : ControllableEncodingExtension
-    {
-        public RecordingEncodingController Controller { get; private set; } = null!;
-
-        public override IEnumerable<string> SupportExtensions()
-        {
-            yield return ".progress-test";
-        }
-
-        public override EncodingController CreateController(string file) => Controller = new(file, progress);
-    }
-
-    private sealed class RecordingEncodingController(
-        string outputFile,
-        IReadOnlyList<(long Completed, long Total)> progress) : EncodingController(outputFile)
-    {
-        public override VideoEncoderSettings VideoSettings { get; } = new();
-
-        public override AudioEncoderSettings AudioSettings { get; } = new();
-
-        public bool CompletedWasReportedBeforeReturn { get; private set; }
-
-        public override async ValueTask Encode(
-            IFrameProvider frameProvider,
-            ISampleProvider sampleProvider,
-            CancellationToken cancellationToken)
-        {
-            for (long frame = 0; frame < frameProvider.FrameCount; frame++)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                using Bitmap bitmap = await frameProvider.RenderFrame(frame);
-                CompletedWasReportedBeforeReturn |= progress.Any(item => item.Total > 0 && item.Completed == item.Total);
-            }
-            await File.WriteAllTextAsync(OutputFile, "encoded output", cancellationToken);
-        }
     }
 }

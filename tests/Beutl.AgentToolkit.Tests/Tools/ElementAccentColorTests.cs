@@ -1,7 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
-using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.AgentToolkit.Tools;
 using Beutl.Engine;
@@ -28,7 +27,7 @@ public sealed class ElementAccentColorTests
     {
         var scene = new Scene(1920, 1080, "Scene");
         using var session = new AgentToolkitTestSession(scene);
-        var tools = new EditTools(CreateManager(session));
+        EditTools tools = session.CreateEditTools();
         JsonObject element = CreateElementJson((EngineObject)Activator.CreateInstance(contentType)!);
         element.Remove(nameof(Element.AccentColor));
         JsonObject document = usePatch ? new JsonObject() : session.Documents.Read(scene);
@@ -49,7 +48,7 @@ public sealed class ElementAccentColorTests
     {
         var scene = new Scene(1920, 1080, "Scene");
         using var session = new AgentToolkitTestSession(scene);
-        var tools = new EditTools(CreateManager(session));
+        EditTools tools = session.CreateEditTools();
         JsonObject element = CreateElementJson(new RectShape());
         Color color = Color.Parse(colorText);
         element[nameof(Element.AccentColor)] = CoreSerializer.SerializeToJsonNode(color);
@@ -67,7 +66,7 @@ public sealed class ElementAccentColorTests
     {
         var scene = new Scene(1920, 1080, "Scene");
         using var session = new AgentToolkitTestSession(scene);
-        var edits = new EditTools(CreateManager(session));
+        EditTools edits = session.CreateEditTools();
         JsonObject added = CreateElementJson(new RectShape());
         Assert.That(edits.ApplyEdit(
             patch: new JsonObject { ["Elements"] = new JsonArray(added) },
@@ -101,7 +100,7 @@ public sealed class ElementAccentColorTests
     {
         var scene = new Scene(1920, 1080, "Scene");
         using var session = new AgentToolkitTestSession(scene);
-        var tools = new EditTools(CreateManager(session));
+        EditTools tools = session.CreateEditTools();
         JsonObject element = CreateElementJson(new RectShape());
         element.Remove(nameof(Element.AccentColor));
         Assert.That(tools.ApplyEdit(
@@ -113,13 +112,6 @@ public sealed class ElementAccentColorTests
         Assert.That(scene.Children, Is.Empty);
         Assert.That(session.History.Redo(), Is.True);
         Assert.That(scene.Children.Single().AccentColor, Is.EqualTo(color));
-    }
-
-    private static AgentSessionManager CreateManager(IEditingSession session)
-    {
-        var manager = new AgentSessionManager();
-        manager.UseSource(new AgentToolkitTestSessionSource(session));
-        return manager;
     }
 
     private static JsonObject CreateElementJson(EngineObject content)

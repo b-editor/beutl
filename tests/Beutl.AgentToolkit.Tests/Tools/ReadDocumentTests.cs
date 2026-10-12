@@ -66,8 +66,7 @@ public sealed class ReadDocumentTests
     [Test]
     public void Measure_object_bounds_reports_an_off_frame_drawable_where_it_actually_is()
     {
-        string dir = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        string dir = TestWorkspace.CreateDirectory();
         var scene = new Scene(320, 180, "off-frame-measure")
         {
             Duration = TimeSpan.FromSeconds(2),
@@ -91,8 +90,7 @@ public sealed class ReadDocumentTests
         element.AddObject(plate);
         scene.Children.Add(element);
         using var session = new AgentToolkitTestSession(scene);
-        var manager = new AgentSessionManager();
-        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        AgentSessionManager manager = session.CreateManager();
         var tools = new QueryTools(manager);
 
         ToolResult<ObjectBoundsMeasurementResponse> result = tools.MeasureObjectBounds(
@@ -113,8 +111,7 @@ public sealed class ReadDocumentTests
     [Test]
     public void Measure_object_bounds_reports_a_nested_drawable_as_unsupported_even_with_a_time_filter()
     {
-        string dir = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        string dir = TestWorkspace.CreateDirectory();
         var scene = new Scene(320, 180, "nested-measure")
         {
             Duration = TimeSpan.FromSeconds(2),
@@ -131,8 +128,7 @@ public sealed class ReadDocumentTests
         element.AddObject(group);
         scene.Children.Add(element);
         using var session = new AgentToolkitTestSession(scene);
-        var manager = new AgentSessionManager();
-        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        AgentSessionManager manager = session.CreateManager();
         var tools = new QueryTools(manager);
 
         // A time filter must not turn "found but nested (unsupported)" into an empty, successful result.
@@ -300,8 +296,7 @@ public sealed class ReadDocumentTests
     {
         var scene = new Scene(1920, 1080, "Scene");
         using var session = new AgentToolkitTestSession(scene);
-        var manager = new AgentSessionManager();
-        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        AgentSessionManager manager = session.CreateManager();
         var queryTools = new QueryTools(manager);
         var editTools = new EditTools(manager);
 
@@ -395,8 +390,7 @@ public sealed class ReadDocumentTests
     {
         var scene = new Scene(1920, 1080, "Scene");
         using var session = new AgentToolkitTestSession(scene);
-        var manager = new AgentSessionManager();
-        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        AgentSessionManager manager = session.CreateManager();
         var queryTools = new QueryTools(manager);
         var editTools = new EditTools(manager);
 
@@ -454,8 +448,7 @@ public sealed class ReadDocumentTests
     public void Read_document_returns_full_document_and_scoped_subtree()
     {
         var scene = new Scene(1920, 1080, "Scene");
-        string dir = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        string dir = TestWorkspace.CreateDirectory();
         scene.Uri = new Uri(Path.Combine(dir, "Scene.scene"));
         var element = new Element
         {
@@ -473,8 +466,7 @@ public sealed class ReadDocumentTests
         });
 
         using var session = new AgentToolkitTestSession(scene);
-        var manager = new AgentSessionManager();
-        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        AgentSessionManager manager = session.CreateManager();
         var tools = new QueryTools(manager);
 
         var full = tools.ReadDocument();
@@ -495,8 +487,7 @@ public sealed class ReadDocumentTests
     public void Read_document_unknown_root_id_returns_stale_handle()
     {
         using var session = new AgentToolkitTestSession(new Scene());
-        var manager = new AgentSessionManager();
-        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        AgentSessionManager manager = session.CreateManager();
         var tools = new QueryTools(manager);
 
         var result = tools.ReadDocument(Guid.NewGuid().ToString());
@@ -549,8 +540,7 @@ public sealed class ReadDocumentTests
         scene.Children.Add(element);
 
         using var session = new AgentToolkitTestSession(scene);
-        var manager = new AgentSessionManager();
-        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        AgentSessionManager manager = session.CreateManager();
         var tools = new QueryTools(manager);
 
         ToolResult<DocumentSummaryResponse> result = tools.ReadDocumentSummary();
@@ -602,8 +592,7 @@ public sealed class ReadDocumentTests
         scene.Children.Add(element);
 
         using var session = new AgentToolkitTestSession(scene);
-        var manager = new AgentSessionManager();
-        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        AgentSessionManager manager = session.CreateManager();
         var tools = new QueryTools(manager);
 
         // Scene-relative 3s = absolute 33s (inside the element); relative 1s = absolute 31s (before it).
@@ -661,8 +650,7 @@ public sealed class ReadDocumentTests
         scene.Children.Add(plateElement);
 
         using var session = new AgentToolkitTestSession(scene);
-        var manager = new AgentSessionManager();
-        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        AgentSessionManager manager = session.CreateManager();
         var tools = new QueryTools(manager);
 
         ToolResult<ObjectBoundsMeasurementResponse> all = tools.MeasureObjectBounds(timeSeconds: 0);
@@ -734,8 +722,7 @@ public sealed class ReadDocumentTests
         scene.Children.Add(element);
 
         using var session = new AgentToolkitTestSession(scene);
-        var manager = new AgentSessionManager();
-        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        AgentSessionManager manager = session.CreateManager();
         var tools = new QueryTools(manager);
 
         ToolResult<ObjectBoundsMeasurementResponse> result = tools.MeasureObjectBounds(plate.Id.ToString(), timeSeconds: 0);
@@ -774,8 +761,7 @@ public sealed class ReadDocumentTests
         scene.Children.Add(element);
 
         using var session = new AgentToolkitTestSession(scene);
-        var manager = new AgentSessionManager();
-        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        AgentSessionManager manager = session.CreateManager();
         var tools = new QueryTools(manager);
 
         ToolResult<ObjectBoundsMeasurementResponse> result = tools.MeasureObjectBounds(
@@ -788,9 +774,8 @@ public sealed class ReadDocumentTests
         {
             Assert.That(measured.MeasurementKind, Is.EqualTo("render-node-query-bounds"));
 
-            // The effect's own extent is symbolic, so it resolves to the owning target domain: the frame.
-            // The reported bounds are the frame rather than the 40x20 source, and that is the answer, not
-            // a degraded one - the effect really can write anywhere in the domain it was given.
+            // The effect extent is symbolic, so it resolves to the owning target domain (the whole frame);
+            // that is the correct result, not a fallback.
             Assert.That(measured.TransformedBounds.Left, Is.EqualTo(0).Within(0.5));
             Assert.That(measured.TransformedBounds.Top, Is.EqualTo(0).Within(0.5));
             Assert.That(measured.TransformedBounds.Width, Is.EqualTo(320).Within(0.5));
@@ -863,8 +848,7 @@ public sealed class ReadDocumentTests
         scene.Children.Add(element);
 
         using var session = new AgentToolkitTestSession(scene);
-        var manager = new AgentSessionManager();
-        manager.UseSource(new AgentToolkitTestSessionSource(session));
+        AgentSessionManager manager = session.CreateManager();
         var tools = new QueryTools(manager);
 
         ToolResult<DocumentSummaryResponse> result = tools.ReadDocumentSummary();

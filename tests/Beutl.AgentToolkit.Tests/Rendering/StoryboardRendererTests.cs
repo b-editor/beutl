@@ -1,4 +1,5 @@
 ﻿using Beutl.AgentToolkit.Rendering;
+using Beutl.AgentToolkit.Tests.Helpers;
 using SkiaSharp;
 
 namespace Beutl.AgentToolkit.Tests.Rendering;
@@ -72,7 +73,7 @@ public sealed class StoryboardRendererTests
     [Test]
     public void Render_contact_sheet_png_downscales_to_requested_long_edge()
     {
-        string workspace = CreateWorkspace();
+        string workspace = TestWorkspace.CreateDirectory();
         RenderStoryboardShot[] frames = Enumerable.Range(0, 5)
             .Select(index => new RenderStoryboardShot(
                 $"shot-{index}",
@@ -96,38 +97,21 @@ public sealed class StoryboardRendererTests
         });
     }
 
-    [Test]
-    public void Render_contact_sheet_png_burns_timecode_label()
+    [TestCase("intro", 1.25, "shot", 0, "00:00:01.250  intro",
+        TestName = "Render_contact_sheet_png_burns_timecode_label")]
+    [TestCase("between:intro~detail@L2:1/4", 0.75, "inbetween", 2, "00:00:00.750  inbetween L2  between:intro~detail@L2:1/4",
+        TestName = "Render_contact_sheet_png_labels_inbetween_frames_with_subdivision_marker")]
+    public void Render_contact_sheet_png_burns_the_frame_label(
+        string name, double timeSeconds, string kind, int subdivisionLevel, string expectedLabel)
     {
-        string workspace = CreateWorkspace();
+        string workspace = TestWorkspace.CreateDirectory();
         var frame = new RenderStoryboardShot(
-            "intro",
-            1.25,
-            WriteFrame(workspace, "intro.png", 200, 100, SKColors.CornflowerBlue),
-            VisibilityAnalysis: null);
-
-        byte[] result = new StoryboardRenderer().RenderContactSheetPng([frame]);
-        using SKBitmap bitmap = Decode(result);
-        int captionTop = StoryboardRenderer.Padding + StoryboardRenderer.CalculateLayout(1, 200, 100).ImageHeight;
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(StoryboardRenderer.CreateLabel(frame), Is.EqualTo("00:00:01.250  intro"));
-            Assert.That(ContainsDarkPixel(bitmap, captionTop, captionTop + StoryboardRenderer.LabelHeight), Is.True);
-        });
-    }
-
-    [Test]
-    public void Render_contact_sheet_png_labels_inbetween_frames_with_subdivision_marker()
-    {
-        string workspace = CreateWorkspace();
-        var frame = new RenderStoryboardShot(
-            "between:intro~detail@L2:1/4",
-            0.75,
-            WriteFrame(workspace, "between.png", 200, 100, SKColors.MediumPurple),
+            name,
+            timeSeconds,
+            WriteFrame(workspace, "frame.png", 200, 100, SKColors.CornflowerBlue),
             VisibilityAnalysis: null,
-            "inbetween",
-            2);
+            kind,
+            subdivisionLevel);
 
         byte[] result = new StoryboardRenderer().RenderContactSheetPng([frame]);
         using SKBitmap bitmap = Decode(result);
@@ -135,9 +119,7 @@ public sealed class StoryboardRendererTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(
-                StoryboardRenderer.CreateLabel(frame),
-                Is.EqualTo("00:00:00.750  inbetween L2  between:intro~detail@L2:1/4"));
+            Assert.That(StoryboardRenderer.CreateLabel(frame), Is.EqualTo(expectedLabel));
             Assert.That(ContainsDarkPixel(bitmap, captionTop, captionTop + StoryboardRenderer.LabelHeight), Is.True);
         });
     }
@@ -145,7 +127,7 @@ public sealed class StoryboardRendererTests
     [Test]
     public void Render_contact_sheet_png_is_deterministic_for_same_inputs()
     {
-        string workspace = CreateWorkspace();
+        string workspace = TestWorkspace.CreateDirectory();
         RenderStoryboardShot[] frames =
         [
             new("first", 0.5, WriteFrame(workspace, "first.png", 240, 135, SKColors.OrangeRed), VisibilityAnalysis: null),
@@ -157,13 +139,6 @@ public sealed class StoryboardRendererTests
         byte[] second = renderer.RenderContactSheetPng(frames, ImagePreviewEncoder.DefaultMaxLongEdge);
 
         Assert.That(second, Is.EqualTo(first));
-    }
-
-    private static string CreateWorkspace()
-    {
-        string path = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(path);
-        return path;
     }
 
     private static string WriteFrame(string directory, string fileName, int width, int height, SKColor color)

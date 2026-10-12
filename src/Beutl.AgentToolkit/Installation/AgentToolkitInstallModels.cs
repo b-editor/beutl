@@ -54,8 +54,6 @@ public sealed record AgentToolkitInstallOptions
 
     public const string DefaultServerName = "beutl-agent";
 
-    public string McpServerName { get; init; } = DefaultServerName;
-
     // Earlier versions installed a second, URL-based entry under this name that carried the live
     // MCP bearer token. Reinstalling removes it from the agent configuration.
     public const string LegacyLiveServerName = "beutl-live";

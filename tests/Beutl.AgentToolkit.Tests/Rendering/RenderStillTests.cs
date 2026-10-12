@@ -29,7 +29,7 @@ public sealed class RenderStillTests
     [TestCase(CpuSafeDrawable.Particle)]
     public async Task Cpu_safe_content_renders_png_without_gpu_requirement(CpuSafeDrawable drawable)
     {
-        string dir = CreateWorkspace();
+        string dir = TestWorkspace.CreateDirectory();
         string output = Path.Combine(dir, "still.png");
         Scene scene = CreateScene(dir, CreateDrawable(drawable, dir));
 
@@ -54,9 +54,9 @@ public sealed class RenderStillTests
     }
 
     [Test]
-    public async Task Empty_scene_render_still_returns_near_black_warning()
+    public async Task Empty_scene_render_still_returns_no_warnings_and_low_visibility()
     {
-        string dir = CreateWorkspace();
+        string dir = TestWorkspace.CreateDirectory();
         string output = Path.Combine(dir, "empty.png");
         var scene = new Scene(160, 90, "empty")
         {
@@ -71,7 +71,6 @@ public sealed class RenderStillTests
         {
             Assert.That(File.Exists(output), Is.True);
             Assert.That(result.Warnings, Is.Empty);
-            Assert.That(result.Warnings, Is.Empty);
             Assert.That(result.VisibilityAnalysis!.VisiblePixelRatio, Is.LessThan(0.005));
             Assert.That(result.ActiveElements, Is.Empty);
         });
@@ -80,7 +79,7 @@ public sealed class RenderStillTests
     [Test]
     public async Task Render_still_measures_foreground_confined_to_one_quadrant_without_aesthetic_warnings()
     {
-        string dir = CreateWorkspace();
+        string dir = TestWorkspace.CreateDirectory();
         string output = Path.Combine(dir, "confined.png");
         Scene scene = CreateConfinedChangingScene(dir);
 
@@ -101,7 +100,7 @@ public sealed class RenderStillTests
     [Test]
     public async Task Gpu_required_3d_scene_renders_when_available_or_reports_rendering_unavailable()
     {
-        string dir = CreateWorkspace();
+        string dir = TestWorkspace.CreateDirectory();
         string output = Path.Combine(dir, "still-3d.png");
         Scene scene = CreateScene(dir, new Scene3D());
 
@@ -128,11 +127,11 @@ public sealed class RenderStillTests
     [Test]
     public async Task Frame_measurement_reports_static_and_changing_pixels()
     {
-        string staticDir = CreateWorkspace();
+        string staticDir = TestWorkspace.CreateDirectory();
         Scene staticScene = CreateScene(staticDir, new RectShape());
         staticScene.Duration = TimeSpan.FromSeconds(3);
 
-        string changingDir = CreateWorkspace();
+        string changingDir = TestWorkspace.CreateDirectory();
         Scene changingScene = CreateChangingScene(changingDir);
 
         var analyzer = new FrameDifferenceAnalyzer(new StillRenderer());
@@ -161,7 +160,7 @@ public sealed class RenderStillTests
     [Test]
     public async Task Frame_measurement_reports_one_quadrant_coverage()
     {
-        string dir = CreateWorkspace();
+        string dir = TestWorkspace.CreateDirectory();
         Scene confinedScene = CreateConfinedChangingScene(dir);
 
         var analyzer = new FrameDifferenceAnalyzer(new StillRenderer());
@@ -183,7 +182,7 @@ public sealed class RenderStillTests
     [Test]
     public async Task Empty_scene_motion_graphics_example_renders_visible_text()
     {
-        string dir = CreateWorkspace();
+        string dir = TestWorkspace.CreateDirectory();
         string withTextPath = Path.Combine(dir, "with-text.png");
         string withoutTextPath = Path.Combine(dir, "without-text.png");
         var scene = new Scene(640, 360, "example")
@@ -223,7 +222,7 @@ public sealed class RenderStillTests
     [Test]
     public async Task Rendered_text_bound_is_attributed_to_its_owning_element()
     {
-        string dir = CreateWorkspace();
+        string dir = TestWorkspace.CreateDirectory();
         var scene = new Scene(160, 90, "text-owner")
         {
             Duration = TimeSpan.FromSeconds(1),
@@ -263,7 +262,7 @@ public sealed class RenderStillTests
     [Test]
     public void Contains_gpu_only_content_ignores_a_disabled_scene3d_object()
     {
-        string dir = CreateWorkspace();
+        string dir = TestWorkspace.CreateDirectory();
         Scene enabled = CreateScene(dir, new Scene3D());
         Scene disabled = CreateScene(dir, new Scene3D { IsEnabled = false });
 
@@ -385,13 +384,6 @@ public sealed class RenderStillTests
         var source = new ImageSource();
         source.ReadFrom(new Uri(path));
         return new SourceImage { Source = { CurrentValue = source } };
-    }
-
-    private static string CreateWorkspace()
-    {
-        string path = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(path);
-        return path;
     }
 
     private static int CountDifferingPixels(string firstPath, string secondPath)

@@ -1,6 +1,7 @@
 ﻿using System.Collections.Concurrent;
 using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Rendering;
+using Beutl.AgentToolkit.Tests.Helpers;
 
 namespace Beutl.AgentToolkit.Tests.Rendering;
 
@@ -126,7 +127,7 @@ public sealed class RenderJobManagerLifetimeTests
         using var manager = new RenderJobManager();
         var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var lease = new CompletingLease();
+        var lease = new CountingLease();
         string jobId = manager.Enqueue("test", async (_, _) =>
         {
             started.TrySetResult();
@@ -139,7 +140,7 @@ public sealed class RenderJobManagerLifetimeTests
             await started.Task.WaitAsync(TimeSpan.FromSeconds(5));
             Assert.That(manager.Cancel(jobId), Is.True);
             release.TrySetResult();
-            await lease.Released.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await lease.Released.WaitAsync(TimeSpan.FromSeconds(5));
 
             RenderJobSnapshot? snapshot = manager.Get(jobId);
             Assert.Multiple(() =>
@@ -172,26 +173,6 @@ public sealed class RenderJobManagerLifetimeTests
             {
                 continuation.Callback(continuation.State);
             }
-        }
-    }
-
-    private sealed class CountingLease : IDisposable
-    {
-        public int DisposeCount { get; private set; }
-
-        public void Dispose()
-        {
-            DisposeCount++;
-        }
-    }
-
-    private sealed class CompletingLease : IDisposable
-    {
-        public TaskCompletionSource Released { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
-
-        public void Dispose()
-        {
-            Released.TrySetResult();
         }
     }
 }
