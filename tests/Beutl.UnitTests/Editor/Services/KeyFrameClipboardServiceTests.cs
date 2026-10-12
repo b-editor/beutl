@@ -11,7 +11,6 @@ namespace Beutl.UnitTests.Editor.Services;
 [TestFixture]
 public class KeyFrameClipboardServiceTests
 {
-    private TestRoot _root = null!;
     private HistoryHarness _harness = null!;
     private OperationSequenceGenerator _sequence = null!;
     private HistoryManager _history = null!;
@@ -20,8 +19,7 @@ public class KeyFrameClipboardServiceTests
     [SetUp]
     public void Setup()
     {
-        _root = new TestRoot();
-        _harness = new HistoryHarness(_root);
+        _harness = new HistoryHarness(new TestRoot());
         _sequence = _harness.Sequence;
         _history = _harness.History;
         _service = new KeyFrameClipboardService(_history);
@@ -35,9 +33,6 @@ public class KeyFrameClipboardServiceTests
 
     private sealed class TestRoot : CoreObject;
 
-    private static KeyFrameAnimation<double> MakeDoubleAnimation()
-        => new KeyFrameAnimation<double>();
-
     [Test]
     public void Constructor_NullHistoryManager_Throws()
     {
@@ -49,7 +44,7 @@ public class KeyFrameClipboardServiceTests
     [Test]
     public void PasteAnimation_InvalidJson_ReturnsInvalidJson_NoCommit()
     {
-        KeyFrameAnimation<double> animation = MakeDoubleAnimation();
+        var animation = new KeyFrameAnimation<double>();
         int before = _history.UndoCount;
 
         KeyFrameAnimationPasteOutcome outcome = _service.PasteAnimation(animation, "not json");
@@ -64,7 +59,7 @@ public class KeyFrameClipboardServiceTests
     [Test]
     public void PasteAnimation_MissingType_ReturnsMissingType()
     {
-        KeyFrameAnimation<double> animation = MakeDoubleAnimation();
+        var animation = new KeyFrameAnimation<double>();
         int before = _history.UndoCount;
 
         KeyFrameAnimationPasteOutcome outcome = _service.PasteAnimation(animation, "{}");
@@ -80,7 +75,7 @@ public class KeyFrameClipboardServiceTests
     public void PasteAnimation_GenericTypeMismatch_NoCommit()
     {
         // Target is double; clipboard payload is a float-typed animation.
-        KeyFrameAnimation<double> animation = MakeDoubleAnimation();
+        var animation = new KeyFrameAnimation<double>();
         var sourceFloat = new KeyFrameAnimation<float>();
         string json = CoreSerializer.SerializeToJsonString(sourceFloat);
         int before = _history.UndoCount;
@@ -97,7 +92,7 @@ public class KeyFrameClipboardServiceTests
     [Test]
     public void PasteAnimation_Matching_Pasted_AndCommits()
     {
-        KeyFrameAnimation<double> animation = MakeDoubleAnimation();
+        var animation = new KeyFrameAnimation<double>();
         // Observer makes the service's KeyFrames mutations visible to the HistoryManager.
         using var observer = new CoreObjectOperationObserver(null, animation, _sequence);
         _history.Subscribe(observer);
@@ -122,7 +117,7 @@ public class KeyFrameClipboardServiceTests
     [Test]
     public void PasteKeyFrame_InvalidJson_ReturnsInvalidJson()
     {
-        KeyFrameAnimation<double> animation = MakeDoubleAnimation();
+        var animation = new KeyFrameAnimation<double>();
 
         KeyFramePasteResult result = _service.PasteKeyFrame(animation, "not json", TimeSpan.FromSeconds(1));
 
@@ -132,7 +127,7 @@ public class KeyFrameClipboardServiceTests
     [Test]
     public void PasteKeyFrame_GenericTypeMismatch_ReturnsEasingForFallback_NoCommit()
     {
-        KeyFrameAnimation<double> animation = MakeDoubleAnimation();
+        var animation = new KeyFrameAnimation<double>();
         var sourceKey = new KeyFrame<float>
         {
             KeyTime = TimeSpan.FromSeconds(1),
@@ -156,7 +151,7 @@ public class KeyFrameClipboardServiceTests
     [Test]
     public void PasteKeyFrame_NewTime_Inserts_AndCommits()
     {
-        KeyFrameAnimation<double> animation = MakeDoubleAnimation();
+        var animation = new KeyFrameAnimation<double>();
         using var observer = new CoreObjectOperationObserver(null, animation, _sequence);
         _history.Subscribe(observer);
 
@@ -183,7 +178,7 @@ public class KeyFrameClipboardServiceTests
     [Test]
     public void PasteKeyFrame_ExistingTime_ReplacesExisting_AndCommits()
     {
-        KeyFrameAnimation<double> animation = MakeDoubleAnimation();
+        var animation = new KeyFrameAnimation<double>();
         using var observer = new CoreObjectOperationObserver(null, animation, _sequence);
         _history.Subscribe(observer);
 
@@ -212,7 +207,6 @@ public class KeyFrameClipboardServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(result.Outcome, Is.EqualTo(KeyFramePasteOutcome.ReplacedExisting));
-            // Existing keyframe updated in place, no new one added.
             Assert.That(animation.KeyFrames.Count, Is.EqualTo(1));
             Assert.That(((KeyFrame<double>)animation.KeyFrames[0]).Value, Is.EqualTo(0.5));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));

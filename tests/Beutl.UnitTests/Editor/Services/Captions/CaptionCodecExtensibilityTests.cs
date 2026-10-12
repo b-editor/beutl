@@ -373,15 +373,6 @@ public class CaptionCodecExtensibilityTests
             Is.EqualTo(new[] { ".pipe" }));
     }
 
-    [Test]
-    public void DiagnosticKind_AllowsThirdPartyIdentifiers()
-    {
-        var customKind = new CaptionDiagnosticKind("example.pipe.invalid-token");
-        var error = new CaptionDiagnostic(customKind, 4, "Invalid token.");
-
-        Assert.That(error.Kind, Is.EqualTo(customKind));
-    }
-
     private class PipeCaptionCodec : ICaptionDecoder, ICaptionEncoder
     {
         public virtual CaptionImportResult Decode(string content)

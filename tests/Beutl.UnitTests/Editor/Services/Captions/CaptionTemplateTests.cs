@@ -14,8 +14,6 @@ namespace Beutl.UnitTests.Editor.Services.Captions;
 [TestFixture]
 public class CaptionTemplateTests
 {
-    private static readonly CaptionTemplateProviderId s_testProvider = new("beutl.tests");
-
     [Test]
     public async Task DefaultCatalogDisposesItsOwnedRegistries()
     {
@@ -148,9 +146,8 @@ public class CaptionTemplateTests
     public void CustomFactory_ReceivesCueAndCanReturnMultipleElementRequests()
     {
         var factory = new MultiElementFactory();
-        CaptionTemplateRegistrationSet template = CreateTemplate(
+        CaptionTemplateRegistrationSet template = CaptionTemplateRegistryTests.CreateTemplate(
             new CaptionTemplateId("beutl.tests.bilingual"),
-            s_testProvider,
             "Bilingual",
             factory,
             DefaultCaptionPlacementPolicy.Instance);
@@ -175,9 +172,8 @@ public class CaptionTemplateTests
     [Test]
     public void DefaultPlacement_PreservesAnExplicitOrigin()
     {
-        CaptionTemplateRegistrationSet template = CreateTemplate(
+        CaptionTemplateRegistrationSet template = CaptionTemplateRegistryTests.CreateTemplate(
             new CaptionTemplateId("beutl.tests.origin"),
-            s_testProvider,
             "Origin",
             new ExplicitOriginFactory(),
             DefaultCaptionPlacementPolicy.Instance);
@@ -195,15 +191,13 @@ public class CaptionTemplateTests
     {
         var cue = new CaptionCue(TimeSpan.Zero, TimeSpan.FromSeconds(1), "Text");
         var context = new CaptionElementContext(0, "Caption");
-        CaptionTemplateRegistrationSet nullFactoryTemplate = CreateTemplate(
+        CaptionTemplateRegistrationSet nullFactoryTemplate = CaptionTemplateRegistryTests.CreateTemplate(
             new CaptionTemplateId("beutl.tests.null-factory"),
-            s_testProvider,
             "Null factory item",
             new NullItemFactory(),
             PreserveCaptionPlacementPolicy.Instance);
-        CaptionTemplateRegistrationSet nullPlacementTemplate = CreateTemplate(
+        CaptionTemplateRegistrationSet nullPlacementTemplate = CaptionTemplateRegistryTests.CreateTemplate(
             new CaptionTemplateId("beutl.tests.null-placement"),
-            s_testProvider,
             "Null placement item",
             DefaultTextCaptionElementFactory.Instance,
             new NullPlacementPolicy());
@@ -217,21 +211,6 @@ public class CaptionTemplateTests
                 () => CreateElements(nullPlacementTemplate, cue, context),
                 Throws.InvalidOperationException.With.Message.Contains("placement returned null"));
         });
-    }
-
-    private static CaptionTemplateRegistrationSet CreateTemplate(
-        CaptionTemplateId id,
-        CaptionTemplateProviderId providerId,
-        string name,
-        ICaptionElementFactory factory,
-        ICaptionPlacementPolicy placement,
-        int order = 0)
-    {
-        var descriptor = new CaptionTemplateDescriptor(id, providerId, name, order);
-        return new CaptionTemplateRegistrationSet(
-            new CaptionTemplateDescriptorRegistration(descriptor),
-            new CaptionElementFactoryRegistration(id, factory),
-            new CaptionPlacementPolicyRegistration(id, placement));
     }
 
     private static IReadOnlyList<ElementDescription> CreateElements(

@@ -151,8 +151,14 @@ public class KeyFrameNavigationHelperTests
 
     #region FindAdjacentKeyFrame
 
-    [Test]
-    public void FindAdjacentKeyFrame_Forward_ReturnsNearestAfterCurrent()
+    [TestCase(2.0, true, 3.0)]
+    [TestCase(4.0, false, 3.0)]
+    [TestCase(3.0, true, 5.0)]
+    [TestCase(3.0, false, 1.0)]
+    public void FindAdjacentKeyFrame_ReturnsNearestOtherKeyFrameInDirection(
+        double currentSeconds,
+        bool forward,
+        double expectedSeconds)
     {
         var element = new Element { Start = TimeSpan.Zero, Length = TimeSpan.FromSeconds(10) };
         var obj = new TestAnimatableObject();
@@ -163,26 +169,9 @@ public class KeyFrameNavigationHelperTests
         obj.FloatValue.Animation = animation;
 
         TimeSpan? result = KeyFrameNavigationHelper.FindAdjacentKeyFrame(
-            [element], TimeSpan.FromSeconds(2), forward: true);
+            [element], TimeSpan.FromSeconds(currentSeconds), forward);
 
-        Assert.That(result, Is.EqualTo(TimeSpan.FromSeconds(3)));
-    }
-
-    [Test]
-    public void FindAdjacentKeyFrame_Backward_ReturnsNearestBeforeCurrent()
-    {
-        var element = new Element { Start = TimeSpan.Zero, Length = TimeSpan.FromSeconds(10) };
-        var obj = new TestAnimatableObject();
-        element.AddObject(obj);
-
-        var animation = CreateAnimation(useGlobalClock: true,
-            TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(5));
-        obj.FloatValue.Animation = animation;
-
-        TimeSpan? result = KeyFrameNavigationHelper.FindAdjacentKeyFrame(
-            [element], TimeSpan.FromSeconds(4), forward: false);
-
-        Assert.That(result, Is.EqualTo(TimeSpan.FromSeconds(3)));
+        Assert.That(result, Is.EqualTo(TimeSpan.FromSeconds(expectedSeconds)));
     }
 
     [Test]
@@ -200,40 +189,6 @@ public class KeyFrameNavigationHelperTests
             [element], TimeSpan.FromSeconds(5), forward: true);
 
         Assert.That(result, Is.Null);
-    }
-
-    [Test]
-    public void FindAdjacentKeyFrame_AtExactKeyFrame_Forward_SkipsExactMatch()
-    {
-        var element = new Element { Start = TimeSpan.Zero, Length = TimeSpan.FromSeconds(10) };
-        var obj = new TestAnimatableObject();
-        element.AddObject(obj);
-
-        var animation = CreateAnimation(useGlobalClock: true,
-            TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(5));
-        obj.FloatValue.Animation = animation;
-
-        TimeSpan? result = KeyFrameNavigationHelper.FindAdjacentKeyFrame(
-            [element], TimeSpan.FromSeconds(3), forward: true);
-
-        Assert.That(result, Is.EqualTo(TimeSpan.FromSeconds(5)));
-    }
-
-    [Test]
-    public void FindAdjacentKeyFrame_AtExactKeyFrame_Backward_SkipsExactMatch()
-    {
-        var element = new Element { Start = TimeSpan.Zero, Length = TimeSpan.FromSeconds(10) };
-        var obj = new TestAnimatableObject();
-        element.AddObject(obj);
-
-        var animation = CreateAnimation(useGlobalClock: true,
-            TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(5));
-        obj.FloatValue.Animation = animation;
-
-        TimeSpan? result = KeyFrameNavigationHelper.FindAdjacentKeyFrame(
-            [element], TimeSpan.FromSeconds(3), forward: false);
-
-        Assert.That(result, Is.EqualTo(TimeSpan.FromSeconds(1)));
     }
 
     [Test]
@@ -345,7 +300,7 @@ public class KeyFrameNavigationHelperTests
 
     private sealed class TestNodeMember<T> : NodeMember<T>
     {
-        public TestNodeMember(string name, IAnimation<T>? animation = null)
+        public TestNodeMember(string name, IAnimation<T>? animation)
         {
             Property = new NodePropertyAdapter<T>(name, default, animation);
         }

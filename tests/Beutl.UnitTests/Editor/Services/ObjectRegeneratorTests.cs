@@ -15,24 +15,6 @@ namespace Beutl.UnitTests.Editor.Services;
 public class ObjectRegeneratorTests
 {
     [Test]
-    public void Regenerate_AssignsNewId_OnTopLevelElement()
-    {
-        var src = new Element
-        {
-            Start = TimeSpan.FromSeconds(0),
-            Length = TimeSpan.FromSeconds(1),
-            ZIndex = 0,
-            Uri = new Uri(Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.belm")),
-        };
-        Guid srcId = src.Id;
-
-        ObjectRegenerator.Regenerate(src, out Element regenerated);
-
-        Assert.That(regenerated.Id, Is.Not.EqualTo(Guid.Empty));
-        Assert.That(regenerated.Id, Is.Not.EqualTo(srcId));
-    }
-
-    [Test]
     public void Regenerate_AssignsNewIdsToEmbeddedChildren()
     {
         // Element has a Uri, so the default ReadWrite mode would emit only a file
@@ -87,12 +69,10 @@ public class ObjectRegeneratorTests
 
         Assert.That(regenerated.Length, Is.EqualTo(3));
 
-        // Order preserved (identified by Start).
         Assert.That(regenerated[0].Start, Is.EqualTo(a.Start));
         Assert.That(regenerated[1].Start, Is.EqualTo(b.Start));
         Assert.That(regenerated[2].Start, Is.EqualTo(c.Start));
 
-        // All Ids regenerated, no duplicates.
         for (int i = 0; i < regenerated.Length; i++)
         {
             Assert.That(regenerated[i].Id, Is.Not.EqualTo(originalIds[i]));
