@@ -1,4 +1,5 @@
 ﻿using System.Text.Json.Nodes;
+using Beutl.Graphics;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes;
 using Beutl.NodeGraph.Nodes.Utilities.Struct;
@@ -33,7 +34,11 @@ public class NodePortUnknownMemberTests
     [Test]
     public void TheNameAndTypeEarlierBuildsWrote_AreDropped()
     {
-        JsonObject json = Serialize(new RelativePointNode());
+        var node = new RelativePointNode();
+        node.Unit.Property!.SetValue(RelativeUnit.Absolute);
+        node.X.Property!.SetValue(12f);
+        node.Y.Property!.SetValue(34f);
+        JsonObject json = Serialize(node);
         foreach (JsonObject item in Items(json).Where(static item => item.ContainsKey("Setter")))
         {
             item["Property"] = item["Name"]!.DeepClone();
@@ -41,9 +46,13 @@ public class NodePortUnknownMemberTests
         }
 
         (GraphModel restored, bool keptUnknownData) = Restore(json);
+        var restoredNode = (RelativePointNode)restored.Nodes[0];
 
         Assert.Multiple(() =>
         {
+            Assert.That(restoredNode.Unit.Property?.GetValue(), Is.EqualTo(RelativeUnit.Absolute));
+            Assert.That(restoredNode.X.Property?.GetValue(), Is.EqualTo(12f));
+            Assert.That(restoredNode.Y.Property?.GetValue(), Is.EqualTo(34f));
             Assert.That(UnknownMembersOf(restored), Is.All.Null);
             Assert.That(keptUnknownData, Is.False);
         });
