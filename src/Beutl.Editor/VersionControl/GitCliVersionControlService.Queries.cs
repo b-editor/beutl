@@ -81,18 +81,15 @@ internal sealed partial class GitCliVersionControlService
                 string statusCode = GetField(record, 1);
                 string path = GetTailAfterSpaces(record, 8);
                 changes.Add(new FileChange(path, MapStatus(statusCode)));
-                hasConflicts |= statusCode.Contains('U');
             }
             else if (record.StartsWith("2 ", StringComparison.Ordinal))
             {
-                string statusCode = GetField(record, 1);
                 string renameOrCopy = GetField(record, 8);
                 string path = GetTailAfterSpaces(record, 9);
                 string? oldPath = ++index < records.Count ? records[index] : null;
                 changes.Add(renameOrCopy.StartsWith('C')
                     ? new FileChange(path, FileChangeStatus.Added)
                     : new FileChange(path, FileChangeStatus.Renamed, oldPath));
-                hasConflicts |= statusCode.Contains('U');
             }
             else if (record.StartsWith("u ", StringComparison.Ordinal))
             {
@@ -181,29 +178,6 @@ internal sealed partial class GitCliVersionControlService
         return changes;
     }
 
-    internal static IReadOnlyList<BranchInfo> ParseBranches(string output)
-    {
-        var branches = new List<BranchInfo>();
-        foreach (string record in output
-                     .Replace("\r\n", "\n", StringComparison.Ordinal)
-                     .Split('\n', StringSplitOptions.RemoveEmptyEntries))
-        {
-            string[] fields = record.Split('\0');
-            if (fields.Length < 3 || string.IsNullOrWhiteSpace(fields[0]))
-            {
-                continue;
-            }
-
-            string upstream = fields[2].Trim();
-            branches.Add(new BranchInfo(
-                fields[0],
-                fields[1].Trim() == "*",
-                string.IsNullOrEmpty(upstream) ? null : upstream));
-        }
-
-        return branches;
-    }
-
     private static string GetField(string record, int fieldIndex)
     {
         string[] fields = record.Split(' ', fieldIndex + 2, StringSplitOptions.None);
@@ -227,22 +201,12 @@ internal sealed partial class GitCliVersionControlService
 
     private static FileChangeStatus MapStatus(string statusCode)
     {
-        if (statusCode.Contains('R'))
-        {
-            return FileChangeStatus.Renamed;
-        }
-
-        if (statusCode.Contains('C'))
-        {
-            return FileChangeStatus.Added;
-        }
-
         if (statusCode.Contains('D'))
         {
             return FileChangeStatus.Deleted;
         }
 
-        if (statusCode.Contains('A') || statusCode == "??")
+        if (statusCode.Contains('A'))
         {
             return FileChangeStatus.Added;
         }
@@ -518,23 +482,6 @@ internal sealed partial class GitCliVersionControlService
         var localNames = locals.Select(static branch => branch.Name).ToHashSet(StringComparer.Ordinal);
         return [.. locals, .. remotes.Where(name => name.Length > 0 && !localNames.Contains(name))
             .Select(static name => new BranchInfo(name, false, null, IsRemote: true))];
-    }
-
-    private async Task<IReadOnlyList<BranchInfo>> GetLocalBranchesCoreAsync(
-        CancellationToken cancellationToken)
-    {
-        RepositoryInfo repository = GetRepository();
-        IGitCliRunner runner = await GetInstalledRunnerCoreAsync(cancellationToken).ConfigureAwait(false);
-        GitCommandResult result = await runner.RunAsync(
-            repository,
-            [
-                "for-each-ref",
-                "--format=%(refname:lstrip=2)%00%(HEAD)%00%(upstream:lstrip=2)",
-                "refs/heads",
-            ],
-            GitCommandOptions.Local,
-            cancellationToken).ConfigureAwait(false);
-        return ParseBranches(result.Stdout);
     }
 
     private async Task<IReadOnlyList<RemoteInfo>> GetRemotesCoreAsync(

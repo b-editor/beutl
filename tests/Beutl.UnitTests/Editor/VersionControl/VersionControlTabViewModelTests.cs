@@ -2342,7 +2342,7 @@ public class VersionControlTabViewModelTests
         await submissionStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
         viewModel.CommitMessage.Value = "next draft";
         submissionCompletion.SetResult(
-            new CommitResult.Committed(new CommitRevision.Unavailable()));
+            new CommitResult.Committed(CreateCommit(1, SnapshotKind.Manual).Sha));
         await submission;
 
         Assert.Multiple(() =>
@@ -2377,30 +2377,6 @@ public class VersionControlTabViewModelTests
     }
 
     [Test]
-    public async Task Manual_commit_treats_an_unresolved_committed_sha_as_success()
-    {
-        Mock<IProjectVersionControlService> service = CreateServiceMock();
-        var coordinator = new Mock<IProjectVersionControlCoordinator>();
-        coordinator.Setup(x => x.CommitManualAsync(
-                "milestone",
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new CommitResult.Committed(new CommitRevision.Unavailable()));
-        using var viewModel = CreateViewModel(service.Object, coordinator.Object);
-        await viewModel.Initialization;
-        viewModel.CommitMessage.Value = "milestone";
-
-        await viewModel.CommitManualAsync();
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(viewModel.CommitMessage.Value, Is.Empty);
-            Assert.That(
-                viewModel.StatusMessage.Value,
-                Is.EqualTo(Strings.VersionControl_CommitCreated));
-        });
-    }
-
-    [Test]
     public async Task Manual_commit_clears_the_message_and_manual_history_has_a_distinct_badge_state()
     {
         CommitInfo manual = CreateCommit(1, SnapshotKind.Manual);
@@ -2415,7 +2391,7 @@ public class VersionControlTabViewModelTests
         coordinator.Setup(x => x.CommitManualAsync(
                 "milestone",
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new CommitResult.Committed(new CommitRevision.Known(manual.Sha)));
+            .ReturnsAsync(new CommitResult.Committed(manual.Sha));
         using var viewModel = CreateViewModel(service.Object, coordinator.Object);
         await viewModel.Initialization;
         viewModel.CommitMessage.Value = "milestone";

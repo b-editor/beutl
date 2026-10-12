@@ -256,7 +256,6 @@ public class VersionControlPerformanceTests : RealGitTestRepository
 
         public ConcurrentQueue<string[]> Commands { get; } = new();
         public int StatusCount => Volatile.Read(ref _statusCount);
-        public bool HasActiveProcess => inner.HasActiveProcess;
         public TaskCompletionSource FirstStatusStarted { get; } =
             new(TaskCreationOptions.RunContinuationsAsynchronously);
         public TaskCompletionSource ReleaseFirstStatus { get; } =

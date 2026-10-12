@@ -113,7 +113,6 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
     public async Task Initialize_requires_consent_and_commits_only_the_nested_project()
     {
         string projectRoot = CreateProjectDirectory();
-        string expectedRepoRoot = await GetRepositoryTopLevelAsync();
         string projectFile = Path.Combine(projectRoot, "project.bep");
         string foreignFile = Path.Combine(Root, "foreign.txt");
         await File.WriteAllTextAsync(projectFile, "{}\n");
@@ -121,22 +120,22 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
         await RunGitAsync("add", "--", "foreign.txt");
         using GitCliVersionControlService service = CreateUnassociatedService();
 
-        EnclosingRepositoryConsentRequiredException? exception
-            = await Assert.ThrowsAsync<EnclosingRepositoryConsentRequiredException>(
-                async () => await service.InitializeAsync(
-                    new InitOptions(
-                        new RepositoryInfo(projectRoot, projectRoot),
-                        UseLfsWhenAvailable: false),
-                    CancellationToken.None));
+        await Assert.ThrowsAsync<EnclosingRepositoryConsentRequiredException>(
+            async () => await service.InitializeAsync(
+                new InitOptions(
+                    new RepositoryInfo(projectRoot, projectRoot),
+                    UseLfsWhenAvailable: false),
+                CancellationToken.None));
 
         Assert.Multiple(() =>
         {
-            Assert.That(exception!.Repository.RepoRoot, Is.EqualTo(expectedRepoRoot));
             Assert.That(Directory.Exists(Path.Combine(projectRoot, ".git")), Is.False);
             Assert.That(File.Exists(Path.Combine(projectRoot, ".gitignore")), Is.False);
         });
 
-        RepositoryInfo selectedRepository = exception!.Repository;
+        RepositoryInfo selectedRepository = (await service.DiscoverRepositoryAsync(
+            projectRoot,
+            CancellationToken.None))!;
         await service.InitializeAsync(
             new InitOptions(
                 selectedRepository,
@@ -347,7 +346,7 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
         {
             Assert.That(service.Repository, Is.Not.Null);
             Assert.That(
-                RepositoryPathComparer.AreEquivalent(
+                FilePathComparison.AreSameCanonicalPath(
                     service.Repository!.ProjectRoot,
                     selectedRepository.ProjectRoot),
                 Is.True);
@@ -1071,7 +1070,7 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
         {
             Assert.That(exception!.IsRepositoryLockFailure, Is.True);
             Assert.That(
-                RepositoryPathComparer.AreEquivalent(lockInfo.LockPath, lockPath),
+                FilePathComparison.AreSameCanonicalPath(lockInfo.LockPath, lockPath),
                 Is.True);
             Assert.That(service.RecoverableLock, Is.EqualTo(lockInfo));
             Assert.That(File.Exists(lockPath), Is.True);
@@ -1252,8 +1251,6 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
     {
         public string? TemporaryIndexPath { get; private set; }
 
-        public bool HasActiveProcess => inner.HasActiveProcess;
-
         public async Task<GitCommandResult> RunAsync(
             RepositoryInfo repository,
             IReadOnlyList<string> arguments,
@@ -1307,8 +1304,6 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
         public int InterceptionCount { get; private set; }
 
         public string? TemporaryIndexPath { get; private set; }
-
-        public bool HasActiveProcess => inner.HasActiveProcess;
 
         public async Task<GitCommandResult> RunAsync(
             RepositoryInfo repository,
@@ -1370,8 +1365,6 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
         public string? ExternalTip { get; private set; }
 
         public string? TemporaryIndexPath { get; private set; }
-
-        public bool HasActiveProcess => inner.HasActiveProcess;
 
         public async Task<GitCommandResult> RunAsync(
             RepositoryInfo repository,
@@ -1455,8 +1448,6 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
     {
         public List<RecordedCommand> Commands { get; } = [];
 
-        public bool HasActiveProcess => inner.HasActiveProcess;
-
         public Task<GitCommandResult> RunAsync(
             RepositoryInfo repository,
             IReadOnlyList<string> arguments,
@@ -1486,8 +1477,6 @@ public sealed class NestedRepositoryTests : RealGitTestRepository
         IGitCliRunner inner,
         string stderr) : IGitCliRunner
     {
-        public bool HasActiveProcess => inner.HasActiveProcess;
-
         public async Task<GitCommandResult> RunAsync(
             RepositoryInfo repository,
             IReadOnlyList<string> arguments,

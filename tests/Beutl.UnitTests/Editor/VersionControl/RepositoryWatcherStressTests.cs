@@ -238,8 +238,6 @@ public class RepositoryWatcherStressTests : RealGitTestRepository
         public bool AllStatusCallsDisabledOptionalLocks
             => Volatile.Read(ref _statusCallsWithoutOptionalLocks) == 0;
 
-        public bool HasActiveProcess => inner.HasActiveProcess;
-
         public Task<GitCommandResult> RunAsync(
             RepositoryInfo repository,
             IReadOnlyList<string> arguments,

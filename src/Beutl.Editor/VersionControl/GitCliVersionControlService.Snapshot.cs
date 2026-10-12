@@ -87,7 +87,7 @@ internal sealed partial class GitCliVersionControlService
             status,
             cancellationToken).ConfigureAwait(false);
 
-        CommitRevision? revision = await CommitProjectSnapshotAsync(
+        string? revision = await CommitProjectSnapshotAsync(
                 repository,
                 runner,
                 message,
@@ -106,7 +106,7 @@ internal sealed partial class GitCliVersionControlService
     // Stages the project and commits it with git commit --only, which records the project scope alone
     // and leaves anything else the user has staged in place. Git runs the hooks, signs the commit and
     // updates the branch under its own locks; returns null when staging found nothing to record.
-    private async Task<CommitRevision?> CommitProjectSnapshotAsync(
+    private async Task<string?> CommitProjectSnapshotAsync(
         RepositoryInfo repository,
         IGitCliRunner runner,
         string message,
@@ -195,7 +195,7 @@ internal sealed partial class GitCliVersionControlService
             .ConfigureAwait(false);
         string commit = head.Stdout.Trim();
         GitRevisionValidator.ValidateCommitId(commit, nameof(commit));
-        return new CommitRevision.Known(commit);
+        return commit;
     }
 
     // Restores the project scope from the source commit and records it as a snapshot. git restore runs
@@ -237,7 +237,7 @@ internal sealed partial class GitCliVersionControlService
             return new CommitResult.SkippedNoIdentity();
         }
 
-        CommitRevision? revision;
+        string? revision;
         try
         {
             await RestoreProjectScopeAsync(repository, runner, source, cancellationToken)

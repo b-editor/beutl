@@ -75,13 +75,8 @@ public static partial class ProxySourceEnumerator
            && (expression is not INodePortExpression
                || context?.ConnectedNodeInputs?.Contains(property) != false);
 
-    // A property value that is itself an IFileSource is the direct case; a value that is an EngineObject
-    // (an ImageBrush holding ImageBrush.Source, a LutEffect holding LutEffect.Source, an
-    // AudioVisualizerDrawable holding a SourceSound, …) holds rendered file sources on its own properties,
-    // so recurse. Only the structural navigators with dedicated guarded walks are NOT recursed here —
-    // drawables, referenced-scene sounds (SceneSound), scenes, elements, graph nodes — since re-walking
-    // them through the property graph would bypass their disabled/target/window guards. A plain value
-    // Sound (a visualizer's Source) has no such walk, so it must be recursed.
+    // An EngineObject value holds nested file sources, so recurse, except for the types that have their own
+    // guarded walks (Drawable, SceneSound, Scene, Element, GraphNode).
     private static IEnumerable<IFileSource> EnumeratePropertyValueFileSources(
         object? value, TimeRange? localRange, bool skipDisabledElements, HashSet<EngineObject> visitedValues,
         ObjectWalkContext? walkContext = null)
@@ -258,21 +253,14 @@ public static partial class ProxySourceEnumerator
         }
     }
 
-    // Conservative: treat the base CurrentValue as in-play unless every keyframe is non-null.
-    // KeyFrameAnimation.Interpolate returns the non-null neighbour when only one side of a pair is
-    // null, so a lone null keyframe does not always make GetAnimatedValue return null — but it CAN
-    // (a trailing/sole null keyframe, or a span of consecutive nulls), and pinpointing exactly when
-    // would risk dropping a base the render falls back to (GetAnimatedValue(...) ?? CurrentValue).
-    // Over-reporting the base is the safe direction: it never omits a file the render opens.
+    // The base value goes unused only when every keyframe is non-null. When in doubt it is counted, so a
+    // file the render falls back to is never omitted.
     private static bool AnimationSuppliesValue(IAnimation? animation)
         => animation is KeyFrameAnimation { KeyFrames.Count: > 0 } keyFrameAnimation
            && keyFrameAnimation.KeyFrames.All(k => k.Value is not null);
 
-    // GetValue evaluates a reference-expression ahead of the base value and never samples CurrentValue
-    // while an expression is set, so resolve the reference (id/path lookup, no evaluation) and mirror the
-    // evaluator: an unresolvable reference yields DefaultValue, never the stale base. Only a non-reference
-    // expression (a StringExpression, arbitrary C#) — which this walk cannot evaluate — best-efforts to
-    // CurrentValue.
+    // An expression replaces the base value, so resolve a reference expression as the evaluator does (an
+    // unresolvable one yields DefaultValue); only an expression this walk cannot evaluate uses CurrentValue.
     private static T? ResolveExpressionValue<T>(EngineObject owner, IProperty property, HashSet<IProperty>? visited = null,
         ObjectWalkContext? walkContext = null)
         where T : class
@@ -343,14 +331,8 @@ public static partial class ProxySourceEnumerator
             if (keyFrames[i].Value is not { } value)
                 continue;
 
-            // With no render window every keyframe value counts (proxy scan / badge enumeration). With
-            // one, keep a keyframe only if a sample inside the window could resolve to it. For an object
-            // value (IFileSource) KeyFrameAnimation.Interpolate returns the NEXT keyframe's value, and
-            // GetPreviousAndNextKeyFrame picks a key as `next` when `prev.KeyTime < t <= this.KeyTime`, so
-            // keyframe i is the sampled value on the left-open span (previous key time, this key time] —
-            // the last one holds forward to +inf. A zero-duration window is a point sample {Start} (kept
-            // iff the point lies in the span), NOT an empty half-open range; a non-empty window [Start,End)
-            // keeps the span iff (spanStart, spanEnd] and [Start, End) overlap.
+            // Keyframe i is the sampled value on (previous key time, this key time]. A zero-length window is
+            // checked as a point.
             if (window is { } range)
             {
                 TimeSpan spanStart = i > 0 ? keyFrames[i - 1].KeyTime : TimeSpan.MinValue;

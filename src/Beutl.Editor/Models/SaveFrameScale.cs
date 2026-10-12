@@ -27,12 +27,8 @@ public static class SaveFrameScale
     /// <paramref name="budget"/> is <see langword="default"/> and names nothing to fit.
     /// </exception>
     /// <remarks>
-    /// A caller passes <see cref="BufferBudgetScope.Prediction"/> rather than
-    /// <see cref="BufferDimensionBudget.EngineCeiling"/>: a dialog that validates against the ceiling enables
-    /// a save the device then refuses mid-render. It is <see cref="BufferBudgetScope.Prediction"/> rather
-    /// than <see cref="BufferBudgetScope.Allocation"/> because this is pre-validation: the dialog asks from
-    /// the UI thread, where an allocation would be CPU-rastered and the device therefore bounds nothing, so
-    /// an allocation resolved there is the engine ceiling that admits the refused save.
+    /// Pass <see cref="BufferBudgetScope.Prediction"/>, not the engine ceiling or a UI-thread
+    /// <see cref="BufferBudgetScope.Allocation"/>, which is CPU-rastered: both admit saves the device refuses.
     /// </remarks>
     public static bool FitsBufferLimit(PixelSize frameSize, float scale, BufferDimensionBudget budget)
     {

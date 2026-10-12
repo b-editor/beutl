@@ -35,10 +35,10 @@ public class VersionControlSnapshotScopeTests : RealGitTestRepository
         await WriteProjectFileAsync("render-cache.tmp", "ignored\n");
         using var service = CreateService();
 
-        var commit = (CommitRevision.Known)((CommitResult.Committed)await service.CommitAllAsync(
+        var commit = (CommitResult.Committed)await service.CommitAllAsync(
             "beutl: snapshot on save",
             SnapshotKind.Save,
-            CancellationToken.None)).Revision;
+            CancellationToken.None);
         IReadOnlyList<FileChange> changedFiles = await service.GetCommitFilesAsync(
             commit.Sha,
             CancellationToken.None);
@@ -73,10 +73,10 @@ public class VersionControlSnapshotScopeTests : RealGitTestRepository
         await WriteProjectFileAsync("render-cache.tmp", "machine-local\n");
         using var service = CreateService();
 
-        var revision = (CommitRevision.Known)((CommitResult.Committed)await service.CommitAllAsync(
+        var revision = (CommitResult.Committed)await service.CommitAllAsync(
             "beutl: snapshot on save",
             SnapshotKind.Save,
-            CancellationToken.None)).Revision;
+            CancellationToken.None);
         IReadOnlyList<FileChange> changedFiles = await service.GetCommitFilesAsync(
             revision.Sha,
             CancellationToken.None);

@@ -350,8 +350,7 @@ public class VersionControlRestoreTests
                     Behind: 0,
                     Changes: [],
                     HasConflicts: false),
-                RestoreProjectTreeResult = new CommitResult.Committed(
-                    new CommitRevision.Known(createdTip.Commit)),
+                RestoreProjectTreeResult = new CommitResult.Committed(createdTip.Commit),
             };
             backend.EnqueueObservedTip(originalTip);
             backend.EnqueueObservedTip(createdTip);
@@ -10486,7 +10485,7 @@ public class VersionControlRestoreTests
             IReadOnlyList<string> arguments,
             CancellationToken cancellationToken)
         {
-            bool installed = RepositoryPathComparer.AreEquivalent(
+            bool installed = FilePathComparison.AreSameCanonicalPath(
                 _installedExecutablePath,
                 executablePath);
             if (installed && arguments.SequenceEqual(["--version"]))
@@ -10685,6 +10684,8 @@ public class VersionControlRestoreTests
             Repository = repository;
             _discoveredRepository = discoveredRepository;
             _originalTip = originalTip;
+            // The fake's tip does not move, so a snapshot reports the commit the tip already names.
+            CommitAllResult = new CommitResult.Committed(originalTip.Commit);
         }
 
         public RepositoryInfo? Repository { get; private set; }
@@ -10708,8 +10709,7 @@ public class VersionControlRestoreTests
 
         public WorkspaceStatus Status { get; set; } = DirtyStatus;
 
-        public CommitResult CommitAllResult { get; set; } =
-            new CommitResult.Committed(new CommitRevision.Unavailable());
+        public CommitResult CommitAllResult { get; set; }
 
         public CommitResult? RetirementResult { get; set; } = new CommitResult.NoChanges();
 

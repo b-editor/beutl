@@ -1049,8 +1049,6 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         private int _interceptionCount;
         private int _matchingCount;
 
-        public bool HasActiveProcess => inner.HasActiveProcess;
-
         public int InterceptionCount => Volatile.Read(ref _interceptionCount);
 
         public List<IReadOnlyList<string>> Commands { get; } = [];

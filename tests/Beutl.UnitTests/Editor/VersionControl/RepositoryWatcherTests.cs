@@ -64,7 +64,7 @@ public class RepositoryWatcherTests
 
         string eventName = relativePath.Split('/')[0];
         Assert.That(
-            VersionControlPathComparison.TryAreSameChildPath(
+            FilePathComparison.TryAreSameChildPath(
                 _tempDirectory,
                 eventName,
                 reservedName,

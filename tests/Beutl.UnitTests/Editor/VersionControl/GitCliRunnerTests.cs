@@ -1529,13 +1529,14 @@ public class GitCliRunnerTests : RealGitTestRepository
     }
 
     [Test]
-    public async Task Raw_standard_io_round_trips_non_utf8_and_null_bytes()
+    public async Task Raw_standard_output_round_trips_non_utf8_and_null_bytes()
     {
         byte[] contents = [0x00, 0xe9, 0xff, (byte)'\n'];
+        await File.WriteAllBytesAsync(Path.Combine(Root, "binary.dat"), contents);
         GitCommandResult hash = await Runner.RunAsync(
             Repository,
-            ["hash-object", "-w", "--stdin"],
-            GitCommandOptions.Local with { StandardInputBytes = contents },
+            ["hash-object", "-w", "--no-filters", "--stdin-paths"],
+            GitCommandOptions.Local with { StandardInput = "binary.dat\n" },
             CancellationToken.None);
         GitCommandResult blob = await Runner.RunAsync(
             Repository,
@@ -1595,8 +1596,6 @@ public class GitCliRunnerTests : RealGitTestRepository
             lockPath,
             (now - GitCliRunner.StaleLockAge - TimeSpan.FromMinutes(1)).UtcDateTime);
         GitCliRunner runner = CreateLockRecoveryRunner(timeProvider);
-        GitRepositoryLockEventArgs? eventArgs = null;
-        runner.RepositoryLockFailed += (_, e) => eventArgs = e;
 
         GitOperationException? exception = await Assert.ThrowsAsync<GitOperationException>(
             async () => await runner.RunAsync(
@@ -1609,8 +1608,6 @@ public class GitCliRunnerTests : RealGitTestRepository
         Assert.Multiple(() =>
         {
             Assert.That(exception!.IsRepositoryLockFailure, Is.True);
-            Assert.That(eventArgs, Is.Not.Null);
-            Assert.That(eventArgs!.Repository, Is.EqualTo(Repository));
             Assert.That(recoverable, Is.Not.Null);
             Assert.That(File.Exists(lockPath), Is.True);
         });
@@ -1632,8 +1629,6 @@ public class GitCliRunnerTests : RealGitTestRepository
             lockPath,
             (now - GitCliRunner.StaleLockAge - TimeSpan.FromMinutes(1)).UtcDateTime);
         GitCliRunner runner = CreateLockRecoveryRunner(timeProvider);
-        GitRepositoryLockEventArgs? eventArgs = null;
-        runner.RepositoryLockFailed += (_, e) => eventArgs = e;
 
         GitOperationException? exception = await Assert.ThrowsAsync<GitOperationException>(
             async () => await runner.RunAsync(
@@ -1646,10 +1641,9 @@ public class GitCliRunnerTests : RealGitTestRepository
         Assert.Multiple(() =>
         {
             Assert.That(exception!.IsRepositoryLockFailure, Is.True);
-            Assert.That(eventArgs, Is.Not.Null);
             Assert.That(recoverable, Is.Not.Null);
             Assert.That(
-                RepositoryPathComparer.AreEquivalent(recoverable!.LockPath, lockPath),
+                FilePathComparison.AreSameCanonicalPath(recoverable!.LockPath, lockPath),
                 Is.True);
             Assert.That(File.Exists(lockPath), Is.True);
         });
@@ -1692,7 +1686,7 @@ public class GitCliRunnerTests : RealGitTestRepository
 
         Assert.That(recoverable, Is.Not.Null);
         Assert.That(
-            RepositoryPathComparer.AreEquivalent(recoverable!.LockPath, lockPath),
+            FilePathComparison.AreSameCanonicalPath(recoverable!.LockPath, lockPath),
             Is.True);
         Assert.That(
             runner.RemoveRecoverableRepositoryLock(repository, recoverable),
@@ -1722,7 +1716,7 @@ public class GitCliRunnerTests : RealGitTestRepository
 
         Assert.That(recoverable, Is.Not.Null);
         Assert.That(
-            RepositoryPathComparer.AreEquivalent(recoverable!.LockPath, lockPath),
+            FilePathComparison.AreSameCanonicalPath(recoverable!.LockPath, lockPath),
             Is.True);
         Assert.That(
             runner.RemoveRecoverableRepositoryLock(Repository, recoverable),
@@ -1779,7 +1773,7 @@ public class GitCliRunnerTests : RealGitTestRepository
         {
             Assert.That(recoverable, Is.Not.Null);
             Assert.That(
-                RepositoryPathComparer.AreEquivalent(recoverable!.LockPath, safeLockPath),
+                FilePathComparison.AreSameCanonicalPath(recoverable!.LockPath, safeLockPath),
                 Is.True);
             Assert.That(
                 enumeratedDirectories,
@@ -1845,7 +1839,7 @@ public class GitCliRunnerTests : RealGitTestRepository
         if (recoverable is not null)
         {
             Assert.That(
-                VersionControlPathComparison.AreSameCanonicalPath(recoverable.LockPath, storedPath),
+                FilePathComparison.AreSameCanonicalPath(recoverable.LockPath, storedPath),
                 Is.True);
         }
     }
@@ -2012,7 +2006,7 @@ public class GitCliRunnerTests : RealGitTestRepository
 
         Assert.That(lockInfo, Is.Not.Null);
         Assert.That(
-            RepositoryPathComparer.AreEquivalent(lockInfo!.LockPath, lockPath),
+            FilePathComparison.AreSameCanonicalPath(lockInfo!.LockPath, lockPath),
             Is.True);
     }
 

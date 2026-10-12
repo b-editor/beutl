@@ -18,12 +18,8 @@ internal interface IProjectFileWriteAdmissionHost
 /// Resolves the workspace admission that governs writes made on behalf of an editor context.
 /// </summary>
 /// <remarks>
-/// <see cref="IProjectFileWriteAdmission"/> is internal, so only the host's own editor context can serve it
-/// through <see cref="IServiceProvider"/>; a tool tab attached to an out-of-tree editor context finds nothing
-/// there, and treating that absence as permission is exactly the write during a branch switch, pull, or
-/// restore that the admission exists to prevent. Hosts therefore register themselves here and answer for the
-/// contexts they own at the moment of the write, so a second host in the same process cannot stand in for the
-/// first, and a context no host owns is refused rather than admitted.
+/// <see cref="IProjectFileWriteAdmission"/> is internal, so an editor context outside the host cannot resolve it.
+/// A context that no host owns is therefore refused rather than admitted.
 /// </remarks>
 internal static class HostProjectFileWriteAdmission
 {

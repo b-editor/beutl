@@ -1,4 +1,5 @@
 ﻿using Beutl.Animation.Easings;
+using Beutl.Editor.Infrastructure;
 
 namespace Beutl.Editor.Operations;
 
@@ -31,9 +32,7 @@ public sealed class UpdateSplineEasingOperation(
 
     private static void SetValue(SplineEasing easing, string propertyPath, float value)
     {
-        string propertyName = propertyPath.Contains('.')
-            ? propertyPath.Split('.')[^1]
-            : propertyPath;
+        string propertyName = PropertyPathHelper.GetPropertyNameFromPath(propertyPath);
 
         switch (propertyName)
         {

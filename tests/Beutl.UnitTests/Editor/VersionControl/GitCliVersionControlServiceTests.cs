@@ -2451,7 +2451,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         {
             Assert.That(exception!.IsRepositoryLockFailure, Is.True);
             Assert.That(
-                RepositoryPathComparer.AreEquivalent(lockInfo.LockPath, lockPath),
+                FilePathComparison.AreSameCanonicalPath(lockInfo.LockPath, lockPath),
                 Is.True);
             Assert.That(service.RecoverableLock, Is.EqualTo(lockInfo));
             Assert.That(File.Exists(lockPath), Is.True);
@@ -2651,7 +2651,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             "beutl: snapshot on save",
             SnapshotKind.Save,
             CancellationToken.None);
-        string sha = ((CommitRevision.Known)((CommitResult.Committed)result).Revision).Sha;
+        string sha = ((CommitResult.Committed)result).Sha;
         runner.Commands.Clear();
 
         await service.GetHistoryAsync(0, 10, CancellationToken.None);
@@ -2814,7 +2814,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             CancellationToken.None);
 
         string head = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
-        Assert.That(result.Revision, Is.EqualTo(new CommitRevision.Known(head)));
+        Assert.That(result.Sha, Is.EqualTo(head));
     }
 
     [Test]
@@ -2864,7 +2864,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             "manual snapshot  \n#input-comment",
             SnapshotKind.Manual,
             CancellationToken.None);
-        string sha = ((CommitRevision.Known)result.Revision).Sha;
+        string sha = result.Sha;
         string message = (await RunGitAsync("show", "-s", "--format=%B", sha)).Stdout;
         string prepareSeen = await File.ReadAllTextAsync(Path.Combine(Root, "prepare-seen.txt"));
         string commitMsgSeen = await File.ReadAllTextAsync(
@@ -3017,7 +3017,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             SnapshotKind.Manual,
             CancellationToken.None);
 
-        string sha = ((CommitRevision.Known)result.Revision).Sha;
+        string sha = result.Sha;
         string message = (await RunGitAsync("show", "-s", "--format=%B", sha)).Stdout;
         Assert.Multiple(() =>
         {
@@ -3077,7 +3077,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         {
             Assert.That(result, Is.TypeOf<CommitResult.Committed>());
             Assert.That(
-                ((CommitRevision.Known)((CommitResult.Committed)result).Revision).Sha,
+                ((CommitResult.Committed)result).Sha,
                 Is.EqualTo(head));
             Assert.That(FindOwnedCommitMessageFiles(), Is.Empty);
         });
@@ -3166,10 +3166,10 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         File.Move(Path.Combine(Root, "old.scene"), Path.Combine(Root, "new.scene"));
         await File.WriteAllTextAsync(Path.Combine(Root, "added.belm"), "added\n");
         using var service = CreateService();
-        var commit = (CommitRevision.Known)((CommitResult.Committed)await service.CommitAllAsync(
+        var commit = (CommitResult.Committed)await service.CommitAllAsync(
             "beutl: snapshot on save",
             SnapshotKind.Save,
-            CancellationToken.None)).Revision;
+            CancellationToken.None);
 
         IReadOnlyList<FileChange> files = await service.GetCommitFilesAsync(
             commit.Sha,
@@ -3283,10 +3283,10 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         await CommitFileAsync("project.bep", "old value\n", "baseline");
         await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "new value\n");
         using var service = CreateService();
-        var commit = (CommitRevision.Known)((CommitResult.Committed)await service.CommitAllAsync(
+        var commit = (CommitResult.Committed)await service.CommitAllAsync(
             "beutl: snapshot on save",
             SnapshotKind.Save,
-            CancellationToken.None)).Revision;
+            CancellationToken.None);
 
         string diff = await service.GetDiffAsync(
             commit.Sha,
@@ -3310,10 +3310,10 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         await CommitFileAsync("project.bep", "old value\n", "baseline");
         await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "new value\n");
         using var service = CreateService();
-        var commit = (CommitRevision.Known)((CommitResult.Committed)await service.CommitAllAsync(
+        var commit = (CommitResult.Committed)await service.CommitAllAsync(
             "beutl: snapshot on save",
             SnapshotKind.Save,
-            CancellationToken.None)).Revision;
+            CancellationToken.None);
 
         string diff = await service.GetDiffAsync(
             commit.Sha,
@@ -3376,10 +3376,10 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         await File.WriteAllTextAsync(Path.Combine(Root, ":(top)"), "new literal\n");
         await File.WriteAllTextAsync(Path.Combine(Root, "other.bep"), "new other\n");
         using var service = CreateService();
-        var commit = (CommitRevision.Known)((CommitResult.Committed)await service.CommitAllAsync(
+        var commit = (CommitResult.Committed)await service.CommitAllAsync(
             "literal path update",
             SnapshotKind.Save,
-            CancellationToken.None)).Revision;
+            CancellationToken.None);
 
         string diff = await service.GetDiffAsync(
             commit.Sha,
@@ -3401,10 +3401,10 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             Enumerable.Repeat("a changed line that remains text\n", 40000));
         await File.WriteAllTextAsync(Path.Combine(Root, "large.belm"), largeContents);
         using var service = CreateService();
-        var commit = (CommitRevision.Known)((CommitResult.Committed)await service.CommitAllAsync(
+        var commit = (CommitResult.Committed)await service.CommitAllAsync(
             "beutl: snapshot on save",
             SnapshotKind.Save,
-            CancellationToken.None)).Revision;
+            CancellationToken.None);
 
         string diff = await service.GetDiffAsync(
             commit.Sha,
@@ -3474,7 +3474,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             Assert.That(safety, Is.TypeOf<CommitResult.Committed>());
             Assert.That(
                 targetRestore,
-                Is.EqualTo(new CommitResult.Committed(new CommitRevision.Known(restoreSha))));
+                Is.EqualTo(new CommitResult.Committed(restoreSha)));
             // The restore commit records exactly the target's tree, including the removal of the
             // file the target does not have, on top of the safety snapshot of the unsaved edit.
             Assert.That(restoreTree, Is.EqualTo(targetTree));
@@ -3899,21 +3899,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             Assert.That(onMain.Single(branch => branch.Name == "alternate").IsCurrent, Is.False);
             Assert.That(File.ReadAllText(Path.Combine(Root, "project.bep")), Is.EqualTo("alternate\n"));
         });
-    }
-
-    [Test]
-    public void Branch_parser_reads_current_and_upstream_fields()
-    {
-        IReadOnlyList<BranchInfo> branches = GitCliVersionControlService.ParseBranches(
-            "alternate\0 \0\0\nmain\0*\0origin/main\n");
-
-        Assert.That(
-            branches,
-            Is.EqualTo(new[]
-            {
-                new BranchInfo("alternate", false, null),
-                new BranchInfo("main", true, "origin/main"),
-            }));
     }
 
     [Test]
@@ -5224,8 +5209,8 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         {
             Assert.That(result, Is.TypeOf<CommitResult.Committed>());
             Assert.That(
-                ((CommitResult.Committed)result).Revision,
-                Is.EqualTo(new CommitRevision.Known(head)));
+                ((CommitResult.Committed)result).Sha,
+                Is.EqualTo(head));
             Assert.That(commitCount.Stdout.Trim(), Is.EqualTo("1"));
             Assert.That(runner.RevisionFailureCount, Is.Zero);
         });
@@ -5303,7 +5288,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         {
             Assert.That(service.Repository, Is.Not.Null);
             Assert.That(
-                RepositoryPathComparer.AreEquivalent(
+                FilePathComparison.AreSameCanonicalPath(
                     service.Repository!.ProjectRoot,
                     projectRepository.ProjectRoot),
                 Is.True);
@@ -7082,8 +7067,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
 
         public string? ApprovedCredentials { get; private set; }
 
-        public bool HasActiveProcess => inner.HasActiveProcess;
-
         public Task<GitCommandResult> RunAsync(
             RepositoryInfo repository,
             IReadOnlyList<string> arguments,
@@ -7286,8 +7269,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         bool lsFilesOutputTruncated = false,
         bool jsonUnsupported = false) : IGitCliRunner
     {
-        public bool HasActiveProcess => inner.HasActiveProcess;
-
         public Task<GitCommandResult> RunAsync(
             RepositoryInfo repository,
             IReadOnlyList<string> arguments,
@@ -7338,8 +7319,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
 
         public List<GitCommandOptions> Options { get; } = [];
 
-        public bool HasActiveProcess => inner.HasActiveProcess;
-
         public Task<GitCommandResult> RunAsync(
             RepositoryInfo repository,
             IReadOnlyList<string> arguments,
@@ -7369,8 +7348,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     private sealed class ConcurrencyTrackingRunner : IGitCliRunner
     {
         private int _concurrency;
-
-        public bool HasActiveProcess => _concurrency > 0;
 
         public int MaxConcurrency { get; private set; }
 
@@ -7410,8 +7387,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         private readonly TaskCompletionSource<bool> _completion =
             new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        public bool HasActiveProcess => !_completion.Task.IsCompleted;
-
         public Task Started => _started.Task;
 
         public void Complete()
@@ -7450,8 +7425,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly TaskCompletionSource _releaseRepositoryInitialization = new(
             TaskCreationOptions.RunContinuationsAsynchronously);
-
-        public bool HasActiveProcess => inner.HasActiveProcess;
 
         public Task InitialCommitCompleted => _initialCommitCompleted.Task;
 
@@ -7511,8 +7484,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             TaskCreationOptions.RunContinuationsAsynchronously);
         private int _blocked;
 
-        public bool HasActiveProcess => inner.HasActiveProcess;
-
         public Task Started => _started.Task;
 
         public void Complete()
@@ -7554,8 +7525,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
 
     private sealed class ThrowingStatusRunner(Exception exception) : IGitCliRunner
     {
-        public bool HasActiveProcess => false;
-
         public Task<GitCommandResult> RunAsync(
             RepositoryInfo repository,
             IReadOnlyList<string> arguments,
@@ -7583,8 +7552,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         public IOException StatusFailure { get; } = new("post-mutation status failed");
 
         public int StatusFailureCount => Volatile.Read(ref _statusFailureCount);
-
-        public bool HasActiveProcess => inner.HasActiveProcess;
 
         public async Task<GitCommandResult> RunAsync(
             RepositoryInfo repository,
@@ -7642,8 +7609,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
 
         public int RevisionFailureCount => Volatile.Read(ref _revisionFailureCount);
 
-        public bool HasActiveProcess => inner.HasActiveProcess;
-
         public async Task<GitCommandResult> RunAsync(
             RepositoryInfo repository,
             IReadOnlyList<string> arguments,
@@ -7690,8 +7655,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         public IOException AuxiliaryFailure { get; } = new("post-remote auxiliary check failed");
 
         public int AuxiliaryFailureCount => Volatile.Read(ref _auxiliaryFailureCount);
-
-        public bool HasActiveProcess => inner.HasActiveProcess;
 
         public async Task<GitCommandResult> RunAsync(
             RepositoryInfo repository,
@@ -7742,8 +7705,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
 
         public int StagedFailureCount => Volatile.Read(ref _stagedFailureCount);
 
-        public bool HasActiveProcess => inner.HasActiveProcess;
-
         public Task<GitCommandResult> RunAsync(
             RepositoryInfo repository,
             IReadOnlyList<string> arguments,
@@ -7779,8 +7740,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
 
     private sealed class StaticStatusRunner : IGitCliRunner
     {
-        public bool HasActiveProcess => false;
-
         public Task<GitCommandResult> RunAsync(
             RepositoryInfo repository,
             IReadOnlyList<string> arguments,
@@ -7805,8 +7764,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         RepositoryLockInfo lockInfo) : IGitCliRunner
     {
         public RepositoryLockInfo LockInfo { get; set; } = lockInfo;
-
-        public bool HasActiveProcess => inner.HasActiveProcess;
 
         public int PushCalls { get; private set; }
 
@@ -7856,8 +7813,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         private int _initialCommitAttempts;
 
         public int InitialCommitAttempts => Volatile.Read(ref _initialCommitAttempts);
-
-        public bool HasActiveProcess => inner.HasActiveProcess;
 
         public Task<GitCommandResult> RunAsync(
             RepositoryInfo repository,
@@ -7925,8 +7880,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     {
         private int _failurePending = 1;
 
-        public bool HasActiveProcess => inner.HasActiveProcess;
-
         public Task<GitCommandResult> RunAsync(
             RepositoryInfo repository,
             IReadOnlyList<string> arguments,
@@ -7968,8 +7921,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
 
         public int HeadMoves => Volatile.Read(ref _headMoves);
 
-        public bool HasActiveProcess => inner.HasActiveProcess;
-
         public async Task<GitCommandResult> RunAsync(
             RepositoryInfo repository,
             IReadOnlyList<string> arguments,
@@ -8009,8 +7960,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
 
         public int LfsInstallCalls => Volatile.Read(ref _lfsInstallCalls);
 
-        public bool HasActiveProcess => inner.HasActiveProcess;
-
         public Task<GitCommandResult> RunAsync(
             RepositoryInfo repository,
             IReadOnlyList<string> arguments,
@@ -8047,8 +7996,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
 
         public List<(IReadOnlyList<string> Arguments, GitCommandOptions Options)> Invocations { get; } = [];
 
-        public bool HasActiveProcess => inner.HasActiveProcess;
-
         public Task<GitCommandResult> RunAsync(
             RepositoryInfo repository,
             IReadOnlyList<string> arguments,
@@ -8084,8 +8031,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         private int _lfsInstallCalls;
 
         public int LfsInstallCalls => Volatile.Read(ref _lfsInstallCalls);
-
-        public bool HasActiveProcess => inner.HasActiveProcess;
 
         public Task<GitCommandResult> RunAsync(
             RepositoryInfo repository,
@@ -8134,8 +8079,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     {
         public List<string> Commands { get; } = [];
 
-        public bool HasActiveProcess => inner.HasActiveProcess;
-
         public Task<GitCommandResult> RunAsync(
             RepositoryInfo repository,
             IReadOnlyList<string> arguments,
@@ -8171,8 +8114,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         string discoveredPrefix = "") : IGitCliRunner
     {
         public List<string> Commands { get; } = [];
-
-        public bool HasActiveProcess => false;
 
         public Task<GitCommandResult> RunAsync(
             RepositoryInfo repository,
@@ -8211,8 +8152,6 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         private int _interceptionCount;
 
         public int InterceptionCount => Volatile.Read(ref _interceptionCount);
-
-        public bool HasActiveProcess => inner.HasActiveProcess;
 
         public async Task<GitCommandResult> RunAsync(
             RepositoryInfo repository,

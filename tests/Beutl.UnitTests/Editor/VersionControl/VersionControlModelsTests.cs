@@ -23,23 +23,6 @@ public class VersionControlModelsTests
     }
 
     [Test]
-    public void Commit_revision_requires_an_explicit_non_empty_known_sha()
-    {
-        var known = new CommitRevision.Known("0123456789abcdef");
-        var unavailable = new CommitRevision.Unavailable();
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(known.Sha, Is.EqualTo("0123456789abcdef"));
-            Assert.That(unavailable, Is.TypeOf<CommitRevision.Unavailable>());
-            Assert.Throws<ArgumentNullException>(() => new CommitRevision.Known(null!));
-            Assert.Throws<ArgumentException>(() => new CommitRevision.Known(string.Empty));
-            Assert.Throws<ArgumentException>(() => new CommitRevision.Known("   "));
-            Assert.Throws<ArgumentNullException>(() => new CommitResult.Committed(null!));
-        });
-    }
-
-    [Test]
     public void RepositoryInfo_normalizes_nested_pathspec_and_enforces_containment()
     {
         string root = Path.Combine(Path.GetTempPath(), "repo");
@@ -206,7 +189,7 @@ public class VersionControlModelsTests
             bool volumeResolvesAlternateCasing =
                 Directory.Exists(Path.Combine(temporaryRoot, alternateName));
             Assert.That(
-                VersionControlPathComparison.TryAreSameChildPath(
+                FilePathComparison.TryAreSameChildPath(
                     temporaryRoot,
                     storedName,
                     alternateName,
@@ -219,7 +202,7 @@ public class VersionControlModelsTests
             {
                 Directory.CreateDirectory(Path.Combine(temporaryRoot, alternateName));
                 Assert.That(
-                    VersionControlPathComparison.TryAreSameChildPath(
+                    FilePathComparison.TryAreSameChildPath(
                         temporaryRoot,
                         storedName,
                         alternateName,

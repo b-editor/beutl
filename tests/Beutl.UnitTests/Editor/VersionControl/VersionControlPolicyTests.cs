@@ -957,8 +957,6 @@ public sealed class VersionControlPolicyTests : RealGitTestRepository
     {
         public List<RecordedCommand> Commands { get; } = [];
 
-        public bool HasActiveProcess => inner.HasActiveProcess;
-
         public Task<GitCommandResult> RunAsync(
             RepositoryInfo repository,
             IReadOnlyList<string> arguments,
@@ -988,8 +986,6 @@ public sealed class VersionControlPolicyTests : RealGitTestRepository
         : IGitCliRunner
     {
         public int AcknowledgementWriteAttempts { get; private set; }
-
-        public bool HasActiveProcess => inner.HasActiveProcess;
 
         public Task<GitCommandResult> RunAsync(
             RepositoryInfo repository,
@@ -1032,8 +1028,6 @@ public sealed class VersionControlPolicyTests : RealGitTestRepository
     {
         public List<RecordedCommand> Commands { get; } = [];
 
-        public bool HasActiveProcess => false;
-
         public Task<GitCommandResult> RunAsync(
             RepositoryInfo repository,
             IReadOnlyList<string> arguments,
@@ -1062,8 +1056,6 @@ public sealed class VersionControlPolicyTests : RealGitTestRepository
     private sealed class TruncatingCustomAttributeRunner : IGitCliRunner
     {
         public List<RecordedCommand> Commands { get; } = [];
-
-        public bool HasActiveProcess => false;
 
         public Task<GitCommandResult> RunAsync(
             RepositoryInfo repository,
@@ -1113,8 +1105,6 @@ public sealed class VersionControlPolicyTests : RealGitTestRepository
         IGitCliRunner inner,
         string path) : IGitCliRunner
     {
-        public bool HasActiveProcess => inner.HasActiveProcess;
-
         public Task<GitCommandResult> RunAsync(
             RepositoryInfo repository,
             IReadOnlyList<string> arguments,
@@ -1148,8 +1138,6 @@ public sealed class VersionControlPolicyTests : RealGitTestRepository
         IGitCliRunner inner,
         CheckAttributeFault fault) : IGitCliRunner
     {
-        public bool HasActiveProcess => inner.HasActiveProcess;
-
         public async Task<GitCommandResult> RunAsync(
             RepositoryInfo repository,
             IReadOnlyList<string> arguments,

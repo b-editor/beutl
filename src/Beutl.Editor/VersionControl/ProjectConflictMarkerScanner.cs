@@ -15,11 +15,15 @@ internal static class ProjectConflictMarkerScanner
 
     private static readonly byte[] s_utf8Bom = [0xef, 0xbb, 0xbf];
     private static readonly HashSet<string> s_projectExtensions = new(
-        [".bep", ".scene", ".belm"],
+        [
+            $".{EditorConstants.ProjectFileExtension}",
+            $".{EditorConstants.SceneFileExtension}",
+            $".{EditorConstants.ElementFileExtension}",
+        ],
         StringComparer.OrdinalIgnoreCase);
     private static readonly string[] s_prunedDirectories =
     [
-        ".beutl",
+        EditorConstants.BeutlFolder,
         ".git",
         ".idea",
         ".vs",
@@ -60,7 +64,7 @@ internal static class ProjectConflictMarkerScanner
         var budget = new ScanBudget(maxBytesPerFile, maxBytesPerInvocation);
         var scannedFiles = new HashSet<string>(StringComparer.Ordinal);
         string fullProjectFile = Path.GetFullPath(projectFile);
-        string canonicalProjectFile = VersionControlPathComparison.ResolveCanonicalPath(fullProjectFile);
+        string canonicalProjectFile = FilePathComparison.ResolveCanonicalPath(fullProjectFile);
         switch (await ScanOnceAsync(
                         projectRoot,
                         canonicalProjectFile,
@@ -75,16 +79,15 @@ internal static class ProjectConflictMarkerScanner
                 return null;
         }
 
-        (_, string? conflict) = await WalkProjectFilesAsync(
+        return await WalkProjectFilesAsync(
                 projectRoot,
                 scannedFiles,
                 budget,
                 cancellationToken)
             .ConfigureAwait(false);
-        return conflict;
     }
 
-    private static async Task<(FileScan Scan, string? Conflict)> WalkProjectFilesAsync(
+    private static async Task<string?> WalkProjectFilesAsync(
         string projectRoot,
         HashSet<string> scannedFiles,
         ScanBudget budget,
@@ -135,7 +138,7 @@ internal static class ProjectConflictMarkerScanner
                 string canonicalFile;
                 try
                 {
-                    canonicalFile = VersionControlPathComparison.ResolveCanonicalPath(file);
+                    canonicalFile = FilePathComparison.ResolveCanonicalPath(file);
                 }
                 catch (Exception ex) when (ex is IOException
                                            or UnauthorizedAccessException
@@ -149,14 +152,14 @@ internal static class ProjectConflictMarkerScanner
                             .ConfigureAwait(false))
                 {
                     case FileScan.ConflictFound:
-                        return (FileScan.ConflictFound, file);
+                        return file;
                     case FileScan.BudgetExhausted:
-                        return (FileScan.BudgetExhausted, null);
+                        return null;
                 }
             }
         }
 
-        return (FileScan.Continue, null);
+        return null;
     }
 
     // The project file is reached again by the walk; it is read once.
@@ -232,7 +235,7 @@ internal static class ProjectConflictMarkerScanner
             info.Refresh();
             if (info.LinkTarget is not null
                 || info.Length <= 0
-                || !RepositoryPathComparer.IsContainedWithin(projectRoot, info.FullName))
+                || !FilePathComparison.IsSameOrDescendant(projectRoot, info.FullName))
             {
                 return false;
             }
@@ -477,7 +480,7 @@ internal static class ProjectConflictMarkerScanner
         string name = Path.GetFileName(file);
         const string fingerprints = Beutl.ProjectSystem.MediaFingerprintFile.FileName;
         return string.Equals(name, fingerprints, StringComparison.OrdinalIgnoreCase)
-               && VersionControlPathComparison.TryAreSameChildPath(
+               && FilePathComparison.TryAreSameChildPath(
                    Path.GetDirectoryName(file) ?? file,
                    name,
                    fingerprints,
@@ -491,7 +494,7 @@ internal static class ProjectConflictMarkerScanner
         string parent = Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(directory))
                         ?? directory;
         if (s_prunedDirectories.Any(pruned =>
-                VersionControlPathComparison.TryAreSameChildPath(
+                FilePathComparison.TryAreSameChildPath(
                     parent,
                     name,
                     pruned,

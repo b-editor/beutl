@@ -169,7 +169,7 @@ public class ProjectConflictMarkerScannerTests
 
         Assert.That(
             result,
-            Is.EqualTo(VersionControlPathComparison.ResolveCanonicalPath(conflictFile)));
+            Is.EqualTo(FilePathComparison.ResolveCanonicalPath(conflictFile)));
     }
 
     [Test]

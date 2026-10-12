@@ -49,7 +49,6 @@ internal sealed partial class GitCliVersionControlService :
     private const int MaxLfsFetchOutputBytes = 64 * 1024;
     private const int MaxLfsObjectListOutputBytes = 4 * 1024 * 1024;
     private const int MaxLfsPointerCandidates = 256;
-    private const int MaxSnapshotTreeInspectionBytes = 4 * 1024 * 1024;
 
     private static readonly string[] s_gitIgnoreLines =
     [
@@ -211,30 +210,6 @@ internal sealed partial class GitCliVersionControlService :
     private long _statusNotificationSequence;
     private int _watcherRefreshInvalidated;
 
-    public GitCliVersionControlService(
-        GitInstallationLocator installationLocator,
-        RepositoryInfo? repository = null)
-        : this(
-            installationLocator,
-            repository,
-            repository is null ? null : new RepositoryWatcher(repository),
-            static gitPath => new GitCliRunner(gitPath),
-            createWatcherWhenRepositoryAvailable: true,
-            isWorktreeMutationAllowed: static () => true,
-            projectFile: null,
-            policyNoticeSink: null,
-            identityRequest: null,
-            beforeHygieneFileReplace: null,
-            beforeFileCommit: null,
-            afterFileExchange: null,
-            deleteVerifiedHygieneFile: null,
-            deleteOwnedLocalConfigFile: null,
-            statusNotificationScheduler: null,
-            lockNotificationScheduler: null,
-            logger: null)
-    {
-    }
-
     internal GitCliVersionControlService(
         GitInstallationLocator installationLocator,
         RepositoryInfo? repository,
@@ -345,8 +320,8 @@ internal sealed partial class GitCliVersionControlService :
                                      ?? TryDeleteVerifiedHygieneFile;
         _deleteOwnedLocalConfigFile = deleteOwnedLocalConfigFile
                                       ?? DeleteOwnedLocalConfigFile;
-        _statusNotificationScheduler = statusNotificationScheduler ?? ScheduleStatusNotificationDrain;
-        _lockNotificationScheduler = lockNotificationScheduler ?? ScheduleLockNotification;
+        _statusNotificationScheduler = statusNotificationScheduler ?? QueueOnThreadPool;
+        _lockNotificationScheduler = lockNotificationScheduler ?? QueueOnThreadPool;
         _logger = logger ?? Log.CreateLogger<GitCliVersionControlService>();
         _createWatcherWhenRepositoryAvailable = createWatcherWhenRepositoryAvailable;
         if (_watcher is not null)
@@ -609,7 +584,10 @@ internal sealed partial class GitCliVersionControlService :
     {
         ArgumentNullException.ThrowIfNull(operation);
         ThrowIfDisposed();
-        return ExecuteExclusiveCoreAsync(operation, cancellationToken);
+        return RunSerializedAsync(
+            () => operation(new Transaction(this)),
+            cancellationToken,
+            runOnThreadPool: false);
     }
 
     public Task<CommitResult?> RetireAsync(ProjectVersionControlFinalSnapshot? finalSnapshot)
@@ -629,27 +607,6 @@ internal sealed partial class GitCliVersionControlService :
             _lifetimeState = (int)ServiceLifetimeState.Retiring;
             _retirementTask = RetireCoreAsync(finalSnapshot);
             return _retirementTask;
-        }
-    }
-
-    private async Task<TResult> ExecuteExclusiveCoreAsync<TResult>(
-        Func<IProjectVersionControlTransaction, Task<TResult>> operation,
-        CancellationToken cancellationToken)
-    {
-        await _operationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
-        try
-        {
-            ThrowIfDisposed();
-            return await operation(new Transaction(this)).ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            CaptureRecoverableLock(ex);
-            throw;
-        }
-        finally
-        {
-            _operationGate.Release();
         }
     }
 
@@ -777,6 +734,10 @@ internal sealed partial class GitCliVersionControlService :
     }
 
     private async Task<IGitCliRunner> GetInstalledRunnerCoreAsync(CancellationToken cancellationToken)
+        => (await GetInstalledRuntimeCoreAsync(cancellationToken).ConfigureAwait(false)).Runner;
+
+    private async Task<(GitAvailability Availability, IGitCliRunner Runner)> GetInstalledRuntimeCoreAsync(
+        CancellationToken cancellationToken)
     {
         (GitAvailability availability, IGitCliRunner? runner)
             = await GetGitRuntimeCoreAsync(cancellationToken).ConfigureAwait(false);
@@ -785,7 +746,7 @@ internal sealed partial class GitCliVersionControlService :
             throw new InvalidOperationException("Git is not available.");
         }
 
-        return runner;
+        return (availability, runner);
     }
 
     private RepositoryInfo GetRepository()
@@ -835,13 +796,15 @@ internal sealed partial class GitCliVersionControlService :
 
     private async Task<T> RunSerializedAsync<T>(
         Func<Task<T>> operation,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool runOnThreadPool = true)
     {
         await _operationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             ThrowIfDisposed();
-            return await Task.Run(operation, cancellationToken).ConfigureAwait(false);
+            return await (runOnThreadPool ? Task.Run(operation, cancellationToken) : operation())
+                .ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -854,25 +817,17 @@ internal sealed partial class GitCliVersionControlService :
         }
     }
 
-    private async Task RunSerializedAsync(
+    private Task RunSerializedAsync(
         Func<Task> operation,
         CancellationToken cancellationToken)
     {
-        await _operationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
-        try
-        {
-            ThrowIfDisposed();
-            await Task.Run(operation, cancellationToken).ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            CaptureRecoverableLock(ex);
-            throw;
-        }
-        finally
-        {
-            _operationGate.Release();
-        }
+        return RunSerializedAsync(
+            async () =>
+            {
+                await operation().ConfigureAwait(false);
+                return true;
+            },
+            cancellationToken);
     }
 
     private void LogWarningBestEffort(Exception exception, string message)

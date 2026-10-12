@@ -238,22 +238,6 @@ public class ExternalResourceCollectorTests
     }
 
     [Test]
-    public void Collect_WithFileSourceHavingNullUri_DoesNotCollect()
-    {
-        // Arrange
-        var fileSource = new TestFileSource(null);
-        var engineObj = new TestEngineObjectWithFileSource(fileSource);
-        var root = new TestHierarchical();
-        root.AddChild(engineObj);
-
-        // Act
-        ExternalResourceCollector collector = ExternalResourceCollector.Collect(root, _testProjectDir);
-
-        // Assert
-        Assert.That(collector.FileSources, Is.Empty);
-    }
-
-    [Test]
     public void Collect_WithNullablePropertyContainingValue_CollectsFontFamily()
     {
         // Arrange
@@ -443,9 +427,9 @@ public class ExternalResourceCollectorTests
 
     private class TestFileSource : IFileSource
     {
-        public TestFileSource(Uri? uri)
+        public TestFileSource(Uri uri)
         {
-            Uri = uri!;
+            Uri = uri;
         }
 
         public Uri Uri { get; private set; }

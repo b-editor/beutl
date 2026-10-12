@@ -634,24 +634,6 @@ public class GitInstallationLocatorTests
             static _ => throw new AggregateException("A descendant could not be terminated.")));
     }
 
-    // On Unix nothing reserves the id of a reaped process, so it may already belong to another one.
-    [Test]
-    public async Task Cancellation_cleanup_leaves_an_exited_process_alone_on_unix()
-    {
-        if (OperatingSystem.IsWindows())
-        {
-            Assert.Ignore("On Windows the handle Process holds keeps the id reserved after the exit.");
-        }
-
-        using Process process = Process.Start("/bin/sh", ["-c", "exit 0"]);
-        await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(5));
-        bool killed = false;
-
-        GitProcess.KillProcessTree(process, _ => killed = true);
-
-        Assert.That(killed, Is.False);
-    }
-
     [Test]
     public async Task Process_probe_times_out_internally()
     {

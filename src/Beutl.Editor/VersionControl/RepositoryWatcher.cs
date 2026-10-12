@@ -85,13 +85,13 @@ internal sealed class RepositoryWatcher : IDisposable
             return true;
         }
 
-        string parent = VersionControlPathComparison.ResolveCanonicalPath(projectRoot);
+        string parent = FilePathComparison.ResolveCanonicalPath(projectRoot);
         foreach (string segment in relativePath.Split(
                      [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
                      StringSplitOptions.RemoveEmptyEntries))
         {
             if (AreSameChildPath(parent, segment, ".git")
-                || AreSameChildPath(parent, segment, ".beutl"))
+                || AreSameChildPath(parent, segment, EditorConstants.BeutlFolder))
             {
                 return true;
             }
@@ -138,7 +138,7 @@ internal sealed class RepositoryWatcher : IDisposable
 
     private static bool AreSameChildPath(string parent, string leftName, string rightName)
     {
-        return VersionControlPathComparison.TryAreSameChildPath(
+        return FilePathComparison.TryAreSameChildPath(
                    parent,
                    leftName,
                    rightName,
@@ -154,10 +154,10 @@ internal sealed class RepositoryWatcher : IDisposable
         try
         {
             string canonicalRoot = Path.TrimEndingDirectorySeparator(
-                VersionControlPathComparison.ResolveCanonicalPath(root));
+                FilePathComparison.ResolveCanonicalPath(root));
             string canonicalPath = Path.TrimEndingDirectorySeparator(
-                VersionControlPathComparison.ResolveCanonicalPath(path));
-            if (!VersionControlPathComparison.IsSameOrDescendant(canonicalRoot, canonicalPath))
+                FilePathComparison.ResolveCanonicalPath(path));
+            if (!FilePathComparison.IsSameOrDescendant(canonicalRoot, canonicalPath))
             {
                 relativePath = string.Empty;
                 return false;
@@ -376,7 +376,7 @@ internal sealed class RepositoryWatcher : IDisposable
         if (metadataDirectories is { } directories)
         {
             AddGitMetadataWatchers(directories.GitDirectory);
-            if (!VersionControlPathComparison.AreSameCanonicalPath(
+            if (!FilePathComparison.AreSameCanonicalPath(
                     directories.GitDirectory,
                     directories.CommonDirectory))
             {
@@ -650,7 +650,7 @@ internal sealed class RepositoryWatcher : IDisposable
 
     private static bool PathsEqual(string left, string right)
     {
-        return VersionControlPathComparison.AreSameCanonicalPath(left, right);
+        return FilePathComparison.AreSameCanonicalPath(left, right);
     }
 
     private void ScheduleChanged(RepositoryChangeKind kind = RepositoryChangeKind.All)

@@ -18,16 +18,9 @@ internal static partial class GitProcess
     private const int SigTerm = 15;
     private static readonly TimeSpan s_drainGracePeriod = TimeSpan.FromSeconds(2);
 
-    // The readers get a token that stops them; a stopped reader returns what it has read. Throws
-    // Win32Exception when the command cannot start, TimeoutException when the timeout elapses first,
-    // and OperationCanceledException when the caller cancels.
-    //
-    // A kill leaves the lock files Git holds, such as .git/index.lock, behind. Given a stop grace
-    // period, a command that is canceled or times out on Unix is first sent SIGTERM, on which Git
-    // removes its lock files and signals the filters and hooks it runs, and its process tree is
-    // killed only if it is still running when the grace period ends. A descendant that Git does not
-    // stop then outlives it, as a descendant of an exited command does. Windows has no such request
-    // for a process without a console, so there the command is killed at once.
+    // Throws Win32Exception when the command cannot start, TimeoutException when the timeout elapses
+    // first, and OperationCanceledException when the caller cancels. Given a stop grace period, Unix
+    // first sends SIGTERM so that Git removes its lock files before its process tree is killed.
     public static async Task<(int ExitCode, TOutput Output, string Error)> RunAsync<TOutput>(
         ProcessStartInfo startInfo,
         byte[]? standardInput,
@@ -121,18 +114,11 @@ internal static partial class GitProcess
 
     // On Windows this also ends the descendants of a command that has already exited, because the
     // handle Process holds keeps its id reserved. On Unix nothing reserves the id once the command has
-    // been reaped, so an exited command is left alone. Process.Kill already skips a child whose exit
-    // it has recorded, and it records the exit when it reaps the child; this guard keeps the rule
-    // explicit instead of relying on that.
+    // been reaped, so an exited command is left alone.
     internal static void KillProcessTree(Process process, Action<Process>? killProcessTree = null)
     {
         try
         {
-            if (!OperatingSystem.IsWindows() && process.HasExited)
-            {
-                return;
-            }
-
             killProcessTree ??= static target => target.Kill(entireProcessTree: true);
             killProcessTree(process);
         }

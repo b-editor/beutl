@@ -5,12 +5,8 @@ internal sealed partial class GitCliVersionControlService
     private async Task EnsureRepositoryHygieneSerializedCoreAsync(CancellationToken cancellationToken)
     {
         RepositoryInfo repository = GetRepository();
-        (GitAvailability availability, IGitCliRunner? runner)
-            = await GetGitRuntimeCoreAsync(cancellationToken).ConfigureAwait(false);
-        if (availability.State != GitAvailabilityState.Installed || runner is null)
-        {
-            throw new InvalidOperationException("Git is not available.");
-        }
+        (GitAvailability availability, IGitCliRunner runner)
+            = await GetInstalledRuntimeCoreAsync(cancellationToken).ConfigureAwait(false);
 
         try
         {
@@ -50,14 +46,8 @@ internal sealed partial class GitCliVersionControlService
         ArgumentNullException.ThrowIfNull(options.TargetRepository);
         string projectRoot = options.TargetRepository.ProjectRoot;
 
-        (GitAvailability availability, IGitCliRunner? nullableRunner)
-            = await GetGitRuntimeCoreAsync(cancellationToken).ConfigureAwait(false);
-        if (availability.State != GitAvailabilityState.Installed || nullableRunner is null)
-        {
-            throw new InvalidOperationException("Git is not available.");
-        }
-
-        IGitCliRunner runner = nullableRunner;
+        (GitAvailability availability, IGitCliRunner runner)
+            = await GetInstalledRuntimeCoreAsync(cancellationToken).ConfigureAwait(false);
         (RepositoryInfo repository, RepositoryInfo? discoveredRepository) = await ResolveInitializationRepositoryAsync(
                 options,
                 projectRoot,
@@ -66,8 +56,8 @@ internal sealed partial class GitCliVersionControlService
             .ConfigureAwait(false);
 
         if (Repository is not null
-            && !VersionControlPathComparison.AreSameCanonicalPath(Repository.ProjectRoot, projectRoot)
-            && !MatchesRepositorySelection(Repository, repository))
+            && !FilePathComparison.AreSameCanonicalPath(Repository.ProjectRoot, projectRoot)
+            && Repository != repository)
         {
             throw new InvalidOperationException(
                 "This service is already associated with a different project.");
@@ -88,6 +78,7 @@ internal sealed partial class GitCliVersionControlService
                     runner,
                     cancellationToken)
                 .ConfigureAwait(false);
+            Repository = repository;
         }
         else
         {
@@ -96,10 +87,6 @@ internal sealed partial class GitCliVersionControlService
                     runner,
                     cancellationToken)
                 .ConfigureAwait(false);
-        }
-
-        if (discoveredRepository is null)
-        {
             repository = await CreateRepositoryAsync(
                     repository,
                     projectRoot,
@@ -107,10 +94,6 @@ internal sealed partial class GitCliVersionControlService
                     runner,
                     cancellationToken)
                 .ConfigureAwait(false);
-        }
-        else
-        {
-            Repository = repository;
         }
 
         if (options.Identity is not null)
@@ -182,7 +165,7 @@ internal sealed partial class GitCliVersionControlService
             : null;
         if (discoveredRepository is { IsNestedInForeignRepo: true })
         {
-            if (!MatchesRepositorySelection(discoveredRepository, options.TargetRepository))
+            if (discoveredRepository != options.TargetRepository)
             {
                 throw new EnclosingRepositoryConsentRequiredException(discoveredRepository);
             }
@@ -192,7 +175,7 @@ internal sealed partial class GitCliVersionControlService
 
         if (discoveredRepository is not null)
         {
-            if (!MatchesRepositorySelection(discoveredRepository, options.TargetRepository))
+            if (discoveredRepository != options.TargetRepository)
             {
                 throw new InvalidOperationException(
                     "The selected repository does not match the repository containing the project.");
@@ -280,9 +263,7 @@ internal sealed partial class GitCliVersionControlService
                 cancellationToken)
             .ConfigureAwait(false);
         if (initializedRepository is not null
-            && !MatchesRepositorySelection(
-                initializedRepository,
-                options.TargetRepository))
+            && initializedRepository != options.TargetRepository)
         {
             throw new InvalidOperationException(
                 "The initialized repository could not be resolved safely.");
@@ -353,7 +334,6 @@ internal sealed partial class GitCliVersionControlService
         IGitCliRunner runner,
         CancellationToken cancellationToken)
     {
-        EnsureHygienePathsAreSafe(repository);
         await GetAttachedBranchRefCoreAsync(repository, runner, cancellationToken)
             .ConfigureAwait(false);
         await EnsureRepositoryStatusPreflightCoreAsync(
@@ -403,7 +383,6 @@ internal sealed partial class GitCliVersionControlService
         bool removeManagedLfs,
         CancellationToken cancellationToken)
     {
-        EnsureHygienePathsAreSafe(repository);
         string ignorePath = Path.Combine(repository.ProjectRoot, ".gitignore");
         string attributesPath = Path.Combine(repository.ProjectRoot, ".gitattributes");
         await ReadHygieneFileSnapshotAsync(ignorePath, cancellationToken).ConfigureAwait(false);
@@ -512,7 +491,7 @@ internal sealed partial class GitCliVersionControlService
             string resolvedProjectRoot = GetDiscoveredProjectRoot(
                 repoRoot,
                 prefix);
-            if (!RepositoryPathComparer.AreEquivalent(
+            if (!FilePathComparison.AreSameCanonicalPath(
                     resolvedProjectRoot,
                     normalizedProjectRoot))
             {
@@ -580,19 +559,6 @@ internal sealed partial class GitCliVersionControlService
         string platformPrefix = normalizedPrefix.Replace('/', Path.DirectorySeparatorChar);
         return Path.TrimEndingDirectorySeparator(Path.GetFullPath(
             Path.Combine(repoRoot, platformPrefix)));
-    }
-
-    private static bool MatchesRepositorySelection(
-        RepositoryInfo discovered,
-        RepositoryInfo selected)
-    {
-        return discovered.IsNestedInForeignRepo == selected.IsNestedInForeignRepo
-               && RepositoryPathComparer.AreEquivalent(
-                   discovered.RepoRoot,
-                   selected.RepoRoot)
-               && RepositoryPathComparer.AreEquivalent(
-                   discovered.ProjectRoot,
-                   selected.ProjectRoot);
     }
 
     private async Task<bool> HasVersionTrackingOptInCoreAsync(

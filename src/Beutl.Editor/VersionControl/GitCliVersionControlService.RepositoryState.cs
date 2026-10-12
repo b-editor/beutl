@@ -274,18 +274,15 @@ internal sealed partial class GitCliVersionControlService
             $"{prefix}-{Guid.NewGuid():N}");
     }
 
-    private static GitCommandOptions CreateTemporaryIndexOptions(
-        string indexPath,
-        GitCommandExecutionKind executionKind = GitCommandExecutionKind.Local,
-        bool useLiteralPathspecs = true)
+    private static GitCommandOptions CreateTemporaryIndexOptions(string indexPath)
     {
         return new GitCommandOptions(
-            executionKind,
+            GitCommandExecutionKind.Local,
             new Dictionary<string, string?>
             {
                 ["GIT_INDEX_FILE"] = indexPath,
             },
-            UseLiteralPathspecs: useLiteralPathspecs);
+            UseLiteralPathspecs: true);
     }
 
     private static void TryDeleteTemporaryIndex(string path)

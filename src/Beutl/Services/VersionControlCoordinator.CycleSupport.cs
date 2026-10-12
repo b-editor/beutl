@@ -49,35 +49,13 @@ internal partial class VersionControlCoordinator
     {
         return result switch
         {
-            CommitResult.Committed { Revision: CommitRevision.Known revision }
+            CommitResult.Committed committed
                 => new CheckedOutBranchTip(
                     previousTip.RefName,
-                    revision.Sha),
+                    committed.Sha),
             CommitResult.NoChanges or CommitResult.SkippedNoIdentity => previousTip,
             _ => throw new ArgumentOutOfRangeException(nameof(result)),
         };
-    }
-
-    private static CheckedOutBranchTip GetExpectedTipAfterCommitAll(
-        CheckedOutBranchTip previousTip,
-        CommitResult result,
-        CheckedOutBranchTip observedTip)
-    {
-        if (result is CommitResult.Committed { Revision: CommitRevision.Unavailable })
-        {
-            if (!string.Equals(
-                    observedTip.RefName,
-                    previousTip.RefName,
-                    StringComparison.Ordinal))
-            {
-                throw new InvalidOperationException(
-                    "The checked-out branch changed while the snapshot commit revision was resolved.");
-            }
-
-            return observedTip;
-        }
-
-        return GetExpectedTipAfterCommit(previousTip, result);
     }
 
     private void EnsureProjectReopened(string projectFile)
@@ -229,10 +207,7 @@ internal partial class VersionControlCoordinator
 
             CheckedOutBranchTip committedTip = await service.GetCheckedOutBranchTipAsync(
                 CancellationToken.None);
-            originalTip = GetExpectedTipAfterCommitAll(
-                originalTip,
-                result,
-                committedTip);
+            originalTip = GetExpectedTipAfterCommit(originalTip, result);
             if (!BranchTipsEqual(committedTip, originalTip))
             {
                 throw new InvalidOperationException(tipChangedMessage);
