@@ -46,8 +46,7 @@ public static partial class CoreSerializer
     private static void RecordRead(ICoreSerializable obj, StoredVersion version, Uri uri)
     {
         RootFileVersions.RecordRead(obj, version.MinAppVersion);
-        // Only a project file records the version that last saved it. Another file read with an appVersion,
-        // which earlier development builds wrote, loses it on its next save.
+        // Another file read with an appVersion, which earlier development builds wrote, loses it on its next save.
         if (obj is Project project)
         {
             RootFileVersions.RecordAppVersion(project, version.AppVersion);
@@ -129,12 +128,10 @@ public static partial class CoreSerializer
     /// before another file of the project, which this build writes, reaches the disk.
     /// </summary>
     /// <remarks>
-    /// Released builds check only the project file's version fields before they open a project, so it
-    /// has to be raised before any other file of the project reaches the disk. Only those two fields are
-    /// rewritten: the save that follows can still fail, and the project file must not then point at files
-    /// that were never written. A project without a file yet is left alone, because the save that writes
-    /// it records the version; so is a file no build can open. A file that cannot be read stops the write,
-    /// because a save must not walk past a gate it could not establish.
+    /// Only the two version fields are rewritten: the save that follows can still fail, and the project file
+    /// must not then point at files that were never written. A project without a file yet is left alone,
+    /// because the save that writes it records the version; so is a file no build can open. A file that cannot
+    /// be read stops the write, because a save must not walk past a gate it could not establish.
     /// </remarks>
     private static void RaiseProjectFile(Project project, string minAppVersion)
     {

@@ -39,8 +39,7 @@ public static partial class CoreSerializer
     internal static void StoreToUri<T>(T obj, Uri uri, ICoreSerializable owner)
         where T : ICoreSerializable
     {
-        ArgumentNullException.ThrowIfNull(owner);
-        if ((owner as Project ?? FindProject(owner)) is { } project)
+        if (FindProject(owner) is { } project)
         {
             RaiseProjectFile(project, GetMinAppVersionToWrite(obj));
         }
@@ -153,7 +152,7 @@ public static partial class CoreSerializer
                 });
             if (minAppVersion is not null)
             {
-                RootFileVersions.RecordWrite(obj, minAppVersion);
+                RootFileVersions.RaiseMinAppVersion(obj, minAppVersion);
                 if (obj is Project savedProject)
                 {
                     RootFileVersions.RecordAppVersion(savedProject, BeutlApplication.Version);

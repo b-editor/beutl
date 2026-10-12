@@ -173,9 +173,7 @@ public class SaveRoundTripTests
     {
         MigratedProject migrated = await OpenMigratedProjectAsync($"migrated-save-blocked-{blockedStep}");
         SavedFiles before = migrated.ReadFiles();
-        Project project = TestShell.Project.CurrentProject.Value!;
         Scene scene = migrated.Editor.Scene;
-        Uri projectUri = project.Uri!;
         Uri sceneUri = scene.Uri!;
         // The project file has to be raised before anything else is written, and one held open
         // without sharing cannot be. An existing file cannot serve as the scene's parent directory.
@@ -193,7 +191,6 @@ public class SaveRoundTripTests
         finally
         {
             lockedProject?.Dispose();
-            project.Uri = projectUri;
             scene.Uri = sceneUri;
         }
 
@@ -247,7 +244,8 @@ public class SaveRoundTripTests
         Assert.That(ReadJson(migrated.ElementFile)["$type"], Is.Not.Null);
     }
 
-    // Opens a project whose element predates discriminators, so saving its scene raises minAppVersion.
+    // Opens a project as a 1.x build saved it (the project file records 1.0.0 and the element has no $type), so
+    // saving its scene raises minAppVersion to the floor.
     // A second scene has an unsaved rename that a save of the first must not write.
     private static async Task<MigratedProject> OpenMigratedProjectAsync(string name)
     {
