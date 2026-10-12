@@ -19,7 +19,7 @@ public class CompressorEffectTests
         // the value. Also catches a swap of any two properties (Threshold↔Ratio, etc.).
         var effect = new CompressorEffect();
         using var context = new AudioContext(48000, 2);
-        var inputNode = context.AddNode(new BufferReplayNode(new AudioBuffer(48000, 2, 0)));
+        var inputNode = context.AddNode(new ConstantInputNode(48000, 2, 0, 0f));
 
         var node = effect.CreateNode(context, inputNode);
 
@@ -41,7 +41,7 @@ public class CompressorEffectTests
         // The reverse would route the compressor's output into the input (silence or an infinite loop).
         var effect = new CompressorEffect();
         using var context = new AudioContext(48000, 2);
-        var inputNode = context.AddNode(new BufferReplayNode(new AudioBuffer(48000, 2, 0)));
+        var inputNode = context.AddNode(new ConstantInputNode(48000, 2, 0, 0f));
 
         var node = effect.CreateNode(context, inputNode);
 

@@ -16,7 +16,7 @@ public class GateEffectTests
     {
         var effect = new GateEffect();
         using var context = new AudioContext(48000, 2);
-        var inputNode = context.AddNode(new BufferReplayNode(new AudioBuffer(48000, 2, 0)));
+        var inputNode = context.AddNode(new ConstantInputNode(48000, 2, 0, 0f));
 
         var node = effect.CreateNode(context, inputNode);
 
@@ -35,7 +35,7 @@ public class GateEffectTests
     {
         var effect = new GateEffect();
         using var context = new AudioContext(48000, 2);
-        var inputNode = context.AddNode(new BufferReplayNode(new AudioBuffer(48000, 2, 0)));
+        var inputNode = context.AddNode(new ConstantInputNode(48000, 2, 0, 0f));
 
         var node = effect.CreateNode(context, inputNode);
 
