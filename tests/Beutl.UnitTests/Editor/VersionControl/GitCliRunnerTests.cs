@@ -641,7 +641,6 @@ public class GitCliRunnerTests : RealGitTestRepository
 
         Assert.Multiple(() =>
         {
-            Assert.That(exception, Is.Not.Null);
             Assert.That(
                 exception!.Stderr,
                 Has.Length.LessThanOrEqualTo(GitCliRunner.MaxRetainedStandardErrorLength));
@@ -849,7 +848,6 @@ public class GitCliRunnerTests : RealGitTestRepository
 
         Assert.Multiple(() =>
         {
-            Assert.That(exception, Is.Not.Null);
             Assert.That(exception!.ExitCode, Is.Not.Zero);
             Assert.That(exception.Stderr, Is.Not.Empty.And.EndsWith("\n"));
         });
@@ -2236,16 +2234,6 @@ public class GitCliRunnerTests : RealGitTestRepository
         });
     }
 
-    private sealed class RecordingProgress : IProgress<string>
-    {
-        public List<string> Messages { get; } = [];
-
-        public void Report(string value)
-        {
-            Messages.Add(value);
-        }
-    }
-
     private GitCliRunner CreateLockRecoveryRunner(
         TimeProvider timeProvider,
         Func<string, RepositoryLockFileSnapshot, bool>? deleteLockFileConditionally = null)
@@ -2511,36 +2499,6 @@ public class GitCliRunnerTests : RealGitTestRepository
             GitPath,
             TimeSpan.FromSeconds(10),
             CreateSshIsolatedEnvironment());
-
-    private static void CreateDirectorySymbolicLinkOrIgnore(
-        string linkPath,
-        string targetPath)
-    {
-        try
-        {
-            Directory.CreateSymbolicLink(linkPath, targetPath);
-        }
-        catch (Exception ex)
-            when (ex is UnauthorizedAccessException or IOException or PlatformNotSupportedException)
-        {
-            Assert.Ignore($"Symbolic links are not creatable in this environment: {ex.Message}");
-        }
-    }
-
-    private static void CreateFileSymbolicLinkOrIgnore(
-        string linkPath,
-        string targetPath)
-    {
-        try
-        {
-            File.CreateSymbolicLink(linkPath, targetPath);
-        }
-        catch (Exception ex)
-            when (ex is UnauthorizedAccessException or IOException or PlatformNotSupportedException)
-        {
-            Assert.Ignore($"Symbolic links are not creatable in this environment: {ex.Message}");
-        }
-    }
 
     private static Dictionary<string, string?> CreateSshIsolatedEnvironment()
     {

@@ -175,48 +175,6 @@ public class VersionControlModelsTests
         }
     }
 
-    [Test]
-    public void Entry_identity_follows_the_actual_volume_casing_rules()
-    {
-        string temporaryRoot = Path.Combine(
-            Path.GetTempPath(),
-            $"beutl-entry-casing-{Guid.NewGuid():N}");
-        const string storedName = "ReservedMetadata";
-        const string alternateName = "rESERVEDmETADATA";
-        Directory.CreateDirectory(Path.Combine(temporaryRoot, storedName));
-        try
-        {
-            bool volumeResolvesAlternateCasing =
-                Directory.Exists(Path.Combine(temporaryRoot, alternateName));
-            Assert.That(
-                FilePathComparison.TryAreSameChildPath(
-                    temporaryRoot,
-                    storedName,
-                    alternateName,
-                    out bool areSame),
-                Is.True);
-
-            Assert.That(areSame, Is.EqualTo(volumeResolvesAlternateCasing));
-
-            if (!volumeResolvesAlternateCasing)
-            {
-                Directory.CreateDirectory(Path.Combine(temporaryRoot, alternateName));
-                Assert.That(
-                    FilePathComparison.TryAreSameChildPath(
-                        temporaryRoot,
-                        storedName,
-                        alternateName,
-                        out areSame),
-                    Is.True);
-                Assert.That(areSame, Is.False);
-            }
-        }
-        finally
-        {
-            Directory.Delete(temporaryRoot, recursive: true);
-        }
-    }
-
     [TestCase("fatal: Unable to create '.git/index.lock': File exists.")]
     [TestCase("fatal: Unable to acquire '/repo/.git/HEAD.lock': File exists.")]
     [TestCase("fatal: Unable to acquire '/repo/.git/config.lock': File exists.")]

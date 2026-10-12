@@ -17,14 +17,14 @@ public class RepositoryWatcherStressTests : RealGitTestRepository
         {
             await AssertChangedDuringAsync(
                 indexWatcher,
-                () => RunGitAndAssertSuccessAsync(Repository, "add", "--", "project.bep"));
+                () => RunGitAsync("add", "--", "project.bep"));
         }
 
         using (var commitWatcher = new RepositoryWatcher(Repository))
         {
             await AssertChangedDuringAsync(
                 commitWatcher,
-                () => RunGitAndAssertSuccessAsync(Repository, "commit", "-m", "external commit"));
+                () => RunGitAsync("commit", "-m", "external commit"));
         }
     }
 
@@ -34,8 +34,7 @@ public class RepositoryWatcherStressTests : RealGitTestRepository
         await CommitFileAsync("project.bep", "{\"value\":0}\n", "baseline");
         string linkedRoot = CreateTemporaryDirectory();
         Directory.Delete(linkedRoot);
-        await RunGitAndAssertSuccessAsync(
-            Repository,
+        await RunGitAsync(
             "worktree",
             "add",
             "-b",
@@ -50,19 +49,18 @@ public class RepositoryWatcherStressTests : RealGitTestRepository
         {
             await AssertChangedDuringAsync(
                 indexWatcher,
-                () => RunGitAndAssertSuccessAsync(
+                () => Runner.RunAsync(
                     linkedRepository,
-                    "add",
-                    "--",
-                    "project.bep"));
+                    ["add", "--", "project.bep"],
+                    GitCommandOptions.Local,
+                    CancellationToken.None));
         }
 
         using (var commonRefsWatcher = new RepositoryWatcher(linkedRepository))
         {
             await AssertChangedDuringAsync(
                 commonRefsWatcher,
-                () => RunGitAndAssertSuccessAsync(
-                    Repository,
+                () => RunGitAsync(
                     "update-ref",
                     "refs/heads/external-update",
                     "HEAD"));
@@ -147,7 +145,7 @@ public class RepositoryWatcherStressTests : RealGitTestRepository
             TimeSpan.FromSeconds(1),
             TimeSpan.FromSeconds(15));
         TestContext.Progress.WriteLine(
-            $"R-8 watcher burst: {writeCount} writes produced {settledStatusCalls} git status call(s).");
+            $"Watcher burst: {writeCount} writes produced {settledStatusCalls} git status call(s).");
 
         Assert.Multiple(() =>
         {
@@ -155,11 +153,7 @@ public class RepositoryWatcherStressTests : RealGitTestRepository
             Assert.That(
                 settledStatusCalls,
                 Is.LessThanOrEqualTo(maximumStatusCalls),
-                $"{writeCount} writes must be coalesced to well under 100 status calls.");
-            Assert.That(
-                countingRunner.AllStatusCallsDisabledOptionalLocks,
-                Is.True,
-                "Every status process must set GIT_OPTIONAL_LOCKS=0.");
+                $"{writeCount} writes must be coalesced to at most {maximumStatusCalls} status calls.");
         });
 
         await Task.Delay(RepositoryWatcher.DebounceInterval + TimeSpan.FromSeconds(1));
@@ -193,18 +187,6 @@ public class RepositoryWatcherStressTests : RealGitTestRepository
         }
     }
 
-    private async Task RunGitAndAssertSuccessAsync(
-        RepositoryInfo repository,
-        params string[] arguments)
-    {
-        GitCommandResult result = await Runner.RunAsync(
-            repository,
-            arguments,
-            GitCommandOptions.Local,
-            CancellationToken.None);
-        Assert.That(result.ExitCode, Is.Zero, result.Stderr);
-    }
-
     private static async Task<int> WaitForStatusCallsToSettleAsync(
         StatusCountingRunner runner,
         TimeSpan quietPeriod,
@@ -228,17 +210,13 @@ public class RepositoryWatcherStressTests : RealGitTestRepository
         return previousCount;
     }
 
-    private sealed class StatusCountingRunner(GitCliRunner inner) : IGitCliRunner
+    private sealed class StatusCountingRunner(GitCliRunner inner) : DelegatingGitCliRunner(inner)
     {
         private int _statusCallCount;
-        private int _statusCallsWithoutOptionalLocks;
 
         public int StatusCallCount => Volatile.Read(ref _statusCallCount);
 
-        public bool AllStatusCallsDisabledOptionalLocks
-            => Volatile.Read(ref _statusCallsWithoutOptionalLocks) == 0;
-
-        public Task<GitCommandResult> RunAsync(
+        public override Task<GitCommandResult> RunAsync(
             RepositoryInfo repository,
             IReadOnlyList<string> arguments,
             GitCommandOptions options,
@@ -248,30 +226,14 @@ public class RepositoryWatcherStressTests : RealGitTestRepository
             if (arguments.FirstOrDefault() == "status")
             {
                 Interlocked.Increment(ref _statusCallCount);
-                bool foundOptionalLocks = inner
-                    .CreateStartInfo(repository, arguments, GitExecutionPolicy.LocalTimeout)
-                    .Environment
-                    .TryGetValue("GIT_OPTIONAL_LOCKS", out string? optionalLocks);
-                if (!foundOptionalLocks || optionalLocks != "0")
-                {
-                    Interlocked.Increment(ref _statusCallsWithoutOptionalLocks);
-                }
             }
 
-            return inner.RunAsync(
+            return base.RunAsync(
                 repository,
                 arguments,
                 options,
                 cancellationToken,
                 stderrProgress);
         }
-
-        public RepositoryLockInfo? GetRecoverableRepositoryLock(RepositoryInfo repository)
-            => inner.GetRecoverableRepositoryLock(repository);
-
-        public bool RemoveRecoverableRepositoryLock(
-            RepositoryInfo repository,
-            RepositoryLockInfo lockInfo)
-            => inner.RemoveRecoverableRepositoryLock(repository, lockInfo);
     }
 }

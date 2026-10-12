@@ -260,6 +260,19 @@ public class FilePathComparisonTests
                     out bool areSame),
                 Is.True);
             Assert.That(areSame, Is.EqualTo(volumeResolvesAlternateCasing));
+
+            if (!volumeResolvesAlternateCasing)
+            {
+                Directory.CreateDirectory(Path.Combine(temporaryRoot, alternateName));
+                Assert.That(
+                    FilePathComparison.TryAreSameChildPath(
+                        temporaryRoot,
+                        storedName,
+                        alternateName,
+                        out areSame),
+                    Is.True);
+                Assert.That(areSame, Is.False);
+            }
         }
         finally
         {

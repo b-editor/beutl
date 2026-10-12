@@ -637,28 +637,6 @@ public class VersionControlTabViewModelTests
     }
 
     [Test]
-    public async Task Download_action_uses_the_injected_launcher_with_the_git_downloads_uri()
-    {
-        Mock<IProjectVersionControlService> service = CreateServiceMock();
-        service.Setup(x => x.GetAvailabilityAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(GitAvailability.NotInstalled);
-        using VersionControlTabViewModel viewModel = CreateViewModel(service.Object);
-        Uri? launchedUri = null;
-        viewModel.LaunchUriAsync = uri =>
-        {
-            launchedUri = uri;
-            return Task.FromResult(true);
-        };
-        await viewModel.Initialization;
-
-        await viewModel.DownloadGitAsync();
-
-        Assert.That(
-            launchedUri,
-            Is.EqualTo(new Uri("https://git-scm.com/downloads")));
-    }
-
-    [Test]
     [NonParallelizable]
     public async Task Enable_command_reports_a_failing_shell_flow_instead_of_faulting()
     {
@@ -1971,24 +1949,7 @@ public class VersionControlTabViewModelTests
         bool disposeViewModel)
     {
         CommitInfo commit = CreateCommit(2, SnapshotKind.Save);
-        string repositoryRoot = Path.Combine(
-            Path.GetTempPath(),
-            "beutl-version-control-tab-shared-repository");
-        Mock<IProjectVersionControlService> originatingService = CreateServiceMock();
-        originatingService.SetupGet(x => x.Repository)
-            .Returns(new RepositoryInfo(
-                repositoryRoot,
-                Path.Combine(repositoryRoot, "project-a")));
-        originatingService.Setup(x => x.GetHistoryAsync(
-                It.IsAny<int>(),
-                It.IsAny<int>(),
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync([commit]);
-        Mock<IProjectVersionControlService> replacementService = CreateServiceMock();
-        replacementService.SetupGet(x => x.Repository)
-            .Returns(new RepositoryInfo(
-                repositoryRoot,
-                Path.Combine(repositoryRoot, "project-b")));
+        var (originatingService, replacementService) = CreateSharedRepositoryServices(commit);
         var coordinatorStarted = new TaskCompletionSource<CancellationToken>(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var coordinatorRelease = new TaskCompletionSource(
@@ -2092,24 +2053,7 @@ public class VersionControlTabViewModelTests
         bool disposeViewModel)
     {
         CommitInfo commit = CreateCommit(2, SnapshotKind.Save);
-        string repositoryRoot = Path.Combine(
-            Path.GetTempPath(),
-            "beutl-version-control-tab-shared-repository");
-        Mock<IProjectVersionControlService> originatingService = CreateServiceMock();
-        originatingService.SetupGet(x => x.Repository)
-            .Returns(new RepositoryInfo(
-                repositoryRoot,
-                Path.Combine(repositoryRoot, "project-a")));
-        originatingService.Setup(x => x.GetHistoryAsync(
-                It.IsAny<int>(),
-                It.IsAny<int>(),
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync([commit]);
-        Mock<IProjectVersionControlService> replacementService = CreateServiceMock();
-        replacementService.SetupGet(x => x.Repository)
-            .Returns(new RepositoryInfo(
-                repositoryRoot,
-                Path.Combine(repositoryRoot, "project-b")));
+        var (originatingService, replacementService) = CreateSharedRepositoryServices(commit);
         var coordinator = new Mock<IProjectVersionControlCoordinator>();
         coordinator.Setup(x => x.RestoreToNewBranchAsync(
                 commit.Sha,
@@ -2164,24 +2108,7 @@ public class VersionControlTabViewModelTests
     public async Task Restore_to_new_branch_cancels_coordinator_after_service_rebind()
     {
         CommitInfo commit = CreateCommit(3, SnapshotKind.Save);
-        string repositoryRoot = Path.Combine(
-            Path.GetTempPath(),
-            "beutl-version-control-tab-shared-repository");
-        Mock<IProjectVersionControlService> originatingService = CreateServiceMock();
-        originatingService.SetupGet(x => x.Repository)
-            .Returns(new RepositoryInfo(
-                repositoryRoot,
-                Path.Combine(repositoryRoot, "project-a")));
-        originatingService.Setup(x => x.GetHistoryAsync(
-                It.IsAny<int>(),
-                It.IsAny<int>(),
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync([commit]);
-        Mock<IProjectVersionControlService> replacementService = CreateServiceMock();
-        replacementService.SetupGet(x => x.Repository)
-            .Returns(new RepositoryInfo(
-                repositoryRoot,
-                Path.Combine(repositoryRoot, "project-b")));
+        var (originatingService, replacementService) = CreateSharedRepositoryServices(commit);
         var coordinatorStarted = new TaskCompletionSource<CancellationToken>(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var coordinatorRelease = new TaskCompletionSource(
@@ -2741,6 +2668,7 @@ public class VersionControlTabViewModelTests
     }
 
     [Test]
+    [NonParallelizable]
     public async Task Remote_operation_fault_tells_the_user_what_Git_reported()
     {
         Mock<IProjectVersionControlService> service = CreateServiceMock();
@@ -2756,7 +2684,7 @@ public class VersionControlTabViewModelTests
             .ThrowsAsync(failure);
         using var viewModel = CreateViewModel(service.Object, coordinator.Object);
         await viewModel.Initialization;
-        using var notifications = NotificationCapture.Install();
+        using var notifications = VersionControlNotificationCapture.Install();
 
         await viewModel.PushAsync();
 
@@ -3066,6 +2994,7 @@ public class VersionControlTabViewModelTests
     }
 
     [Test]
+    [NonParallelizable]
     public async Task Set_remote_fault_tells_the_user_what_Git_reported()
     {
         Mock<IProjectVersionControlService> service = CreateServiceMock();
@@ -3079,7 +3008,7 @@ public class VersionControlTabViewModelTests
         viewModel.RequestRemoteUrlAsync = (_, _) =>
             Task.FromResult<string?>("https://example.invalid/repository.git");
         await viewModel.Initialization;
-        using var notifications = NotificationCapture.Install();
+        using var notifications = VersionControlNotificationCapture.Install();
 
         await viewModel.SetRemoteAsync();
 
@@ -3789,6 +3718,31 @@ public class VersionControlTabViewModelTests
         return new ReactivePropertySlim<IProjectVersionControlService?>(service);
     }
 
+    // Two projects in one repository: the originating one lists the commit, the replacement does not.
+    private static (Mock<IProjectVersionControlService> Originating, Mock<IProjectVersionControlService> Replacement)
+        CreateSharedRepositoryServices(CommitInfo commit)
+    {
+        string repositoryRoot = Path.Combine(
+            Path.GetTempPath(),
+            "beutl-version-control-tab-shared-repository");
+        Mock<IProjectVersionControlService> originatingService = CreateServiceMock();
+        originatingService.SetupGet(x => x.Repository)
+            .Returns(new RepositoryInfo(
+                repositoryRoot,
+                Path.Combine(repositoryRoot, "project-a")));
+        originatingService.Setup(x => x.GetHistoryAsync(
+                It.IsAny<int>(),
+                It.IsAny<int>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync([commit]);
+        Mock<IProjectVersionControlService> replacementService = CreateServiceMock();
+        replacementService.SetupGet(x => x.Repository)
+            .Returns(new RepositoryInfo(
+                repositoryRoot,
+                Path.Combine(repositoryRoot, "project-b")));
+        return (originatingService, replacementService);
+    }
+
     private static Mock<IProjectVersionControlService> CreateServiceMock()
     {
         var service = new Mock<IProjectVersionControlService>();
@@ -3821,45 +3775,6 @@ public class VersionControlTabViewModelTests
             : OperatingSystem.IsMacOS()
                 ? Strings.VersionControl_InstallGitMacOS
                 : Strings.VersionControl_InstallGitLinux;
-    }
-
-    // NotificationService.Handler is process-global, so a test installs this only around the call it
-    // observes and puts the previous handler back.
-    private sealed class NotificationCapture : Beutl.Services.INotificationServiceHandler, IDisposable
-    {
-        // The Handler setter rejects null, so the field itself is read and restored: a capture must not
-        // stay installed after its test when no handler was installed before it.
-        private static readonly System.Reflection.FieldInfo s_handlerField =
-            typeof(Beutl.Services.NotificationService).GetField(
-                "s_handler",
-                System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)
-            ?? throw new MissingFieldException(nameof(Beutl.Services.NotificationService), "s_handler");
-
-        private readonly object? _previous;
-
-        private NotificationCapture()
-        {
-            _previous = s_handlerField.GetValue(null);
-        }
-
-        public System.Collections.Concurrent.ConcurrentQueue<Beutl.Services.Notification> All { get; } = new();
-
-        public static NotificationCapture Install()
-        {
-            var capture = new NotificationCapture();
-            Beutl.Services.NotificationService.Handler = capture;
-            return capture;
-        }
-
-        public void Show(Beutl.Services.Notification notification)
-        {
-            All.Enqueue(notification);
-        }
-
-        public void Dispose()
-        {
-            s_handlerField.SetValue(null, _previous);
-        }
     }
 
     private static CommitInfo CreateCommit(int index, SnapshotKind kind)

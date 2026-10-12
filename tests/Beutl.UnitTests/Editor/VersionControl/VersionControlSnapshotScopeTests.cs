@@ -15,10 +15,6 @@ public class VersionControlSnapshotScopeTests : RealGitTestRepository
         const string unchangedElement = "elements/22222222222222222222222222222222.belm";
         await WriteProjectFileAsync("project.bep", """{"name":"Snapshot scope fixture"}""" + "\n");
         await WriteProjectFileAsync(
-            "main.scene",
-            """{"elements":["11111111111111111111111111111111.belm","22222222222222222222222222222222.belm"]}"""
-            + "\n");
-        await WriteProjectFileAsync(
             changedElement,
             """{"id":"11111111-1111-1111-1111-111111111111","opacity":1.0}""" + "\n");
         await WriteProjectFileAsync(
@@ -129,14 +125,13 @@ public class VersionControlSnapshotScopeTests : RealGitTestRepository
         });
     }
 
-    private GitCliVersionControlService CreateService(string? projectFile = null)
+    private GitCliVersionControlService CreateService()
     {
         return new GitCliVersionControlService(
             CreateInstalledLocator(),
             Repository,
             watcher: null,
-            _ => CreateRunner(TimeSpan.FromSeconds(30)),
-            projectFile: projectFile);
+            _ => CreateRunner(TimeSpan.FromSeconds(30)));
     }
 
     private async Task WriteProjectFileAsync(string relativePath, string contents)

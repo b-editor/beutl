@@ -5,7 +5,7 @@ using Beutl.Services;
 namespace Beutl.UnitTests.Editor.VersionControl;
 
 // NotificationService.Handler is a process-global facade, so tests that install this capture are
-// [NonParallelizable] and look for their own message instead of counting notifications.
+// [NonParallelizable] and install it just before the call they observe.
 internal sealed class VersionControlNotificationCapture : INotificationServiceHandler, IDisposable
 {
     // The Handler setter rejects null, so the backing field is read and restored directly. Without
@@ -27,6 +27,8 @@ internal sealed class VersionControlNotificationCapture : INotificationServiceHa
     {
         return new VersionControlNotificationCapture();
     }
+
+    internal IReadOnlyCollection<Notification> All => _notifications;
 
     internal bool HasError(string title, string message)
     {

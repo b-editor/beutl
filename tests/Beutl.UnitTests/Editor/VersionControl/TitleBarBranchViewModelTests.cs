@@ -15,9 +15,7 @@ public class TitleBarBranchViewModelTests
     public async Task Open_flyout_refreshes_external_branch_changes_after_preparation(RepositoryChangeKind kind)
     {
         Mock<IProjectVersionControlService> service = CreateServiceMock();
-        using var source = new ReactivePropertySlim<IProjectVersionControlService?>(service.Object);
-        using var viewModel = new TitleBarBranchViewModel(source, CreateGitAvailabilitySource(),
-            Mock.Of<IProjectVersionControlCoordinator>(), action => action());
+        using var viewModel = CreateViewModel(service.Object);
         await viewModel.Initialization;
         await viewModel.PrepareFlyoutAsync();
         var current = new WorkspaceStatus("main", 0, 0, [], false)
@@ -46,9 +44,7 @@ public class TitleBarBranchViewModelTests
     public async Task Closed_flyout_and_worktree_events_do_not_reread_branches(bool closeFlyout)
     {
         Mock<IProjectVersionControlService> service = CreateServiceMock();
-        using var source = new ReactivePropertySlim<IProjectVersionControlService?>(service.Object);
-        using var viewModel = new TitleBarBranchViewModel(source, CreateGitAvailabilitySource(),
-            Mock.Of<IProjectVersionControlCoordinator>(), action => action());
+        using var viewModel = CreateViewModel(service.Object);
         await viewModel.Initialization;
         await viewModel.PrepareFlyoutAsync();
         if (closeFlyout) viewModel.CloseFlyout();
@@ -67,9 +63,7 @@ public class TitleBarBranchViewModelTests
     {
         Mock<IProjectVersionControlService> service = CreateServiceMock();
         var posted = new List<Action>();
-        using var source = new ReactivePropertySlim<IProjectVersionControlService?>(service.Object);
-        using var viewModel = new TitleBarBranchViewModel(source, CreateGitAvailabilitySource(),
-            Mock.Of<IProjectVersionControlCoordinator>(), posted.Add);
+        using var viewModel = CreateViewModel(service.Object, dispatch: posted.Add);
         await viewModel.Initialization;
         foreach (Action action in posted.ToArray()) action();
         posted.Clear();
@@ -89,9 +83,7 @@ public class TitleBarBranchViewModelTests
     public async Task Flyout_retries_when_a_sequenced_event_supersedes_its_status_or_branches(bool blockBranches)
     {
         Mock<IProjectVersionControlService> service = CreateServiceMock();
-        using var source = new ReactivePropertySlim<IProjectVersionControlService?>(service.Object);
-        using var viewModel = new TitleBarBranchViewModel(source, CreateGitAvailabilitySource(),
-            Mock.Of<IProjectVersionControlCoordinator>(), action => action());
+        using var viewModel = CreateViewModel(service.Object);
         await viewModel.Initialization;
         var statusRead = new TaskCompletionSource<WorkspaceStatus>(TaskCreationOptions.RunContinuationsAsynchronously);
         var branchRead = new TaskCompletionSource<IReadOnlyList<BranchInfo>>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -131,13 +123,7 @@ public class TitleBarBranchViewModelTests
     public async Task Visibility_tracks_project_repository_and_git_availability()
     {
         var coordinator = new Mock<IProjectVersionControlCoordinator>();
-        using var serviceSource =
-            new ReactivePropertySlim<IProjectVersionControlService?>(null);
-        using var viewModel = new TitleBarBranchViewModel(
-            serviceSource,
-            CreateGitAvailabilitySource(),
-            coordinator.Object,
-            action => action());
+        using var viewModel = CreateViewModel(null, out var serviceSource, coordinator: coordinator.Object);
         await viewModel.Initialization;
         Assert.That(viewModel.IsVisible.Value, Is.False, "No project is open.");
 
@@ -181,13 +167,7 @@ public class TitleBarBranchViewModelTests
         Mock<IProjectVersionControlService> service = CreateServiceMock();
         service.SetupGet(item => item.Repository)
             .Returns(() => repository);
-        using var serviceSource =
-            new ReactivePropertySlim<IProjectVersionControlService?>(service.Object);
-        using var viewModel = new TitleBarBranchViewModel(
-            serviceSource,
-            CreateGitAvailabilitySource(),
-            Mock.Of<IProjectVersionControlCoordinator>(),
-            action => action());
+        using var viewModel = CreateViewModel(service.Object);
         await viewModel.Initialization;
         Assert.That(viewModel.IsVisible.Value, Is.False);
 
@@ -269,14 +249,11 @@ public class TitleBarBranchViewModelTests
     public async Task Service_publication_is_marshaled_before_rebinding_ui_state()
     {
         Mock<IProjectVersionControlService> service = CreateServiceMock();
-        using var serviceSource =
-            new ReactivePropertySlim<IProjectVersionControlService?>(null);
         Action? pendingUiAction = null;
-        using var viewModel = new TitleBarBranchViewModel(
-            serviceSource,
-            CreateGitAvailabilitySource(),
-            Mock.Of<IProjectVersionControlCoordinator>(),
-            action => pendingUiAction = action);
+        using var viewModel = CreateViewModel(
+            null,
+            out var serviceSource,
+            dispatch: action => pendingUiAction = action);
         await viewModel.Initialization;
 
         await Task.Run(() => serviceSource.Value = service.Object);
@@ -334,9 +311,7 @@ public class TitleBarBranchViewModelTests
         Mock<IProjectVersionControlService> service = CreateServiceMock();
         service.Setup(x => x.GetStatusAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(new WorkspaceStatus("current", 0, 0, [], false) { NotificationSequence = 5 });
-        using var source = new ReactivePropertySlim<IProjectVersionControlService?>(service.Object);
-        using var viewModel = new TitleBarBranchViewModel(
-            source, CreateGitAvailabilitySource(), Mock.Of<IProjectVersionControlCoordinator>(), action => action());
+        using var viewModel = CreateViewModel(service.Object);
         await viewModel.Initialization;
         service.Raise(x => x.StatusChanged += null, service.Object,
             new WorkspaceStatus("stale", 0, 0, [], false) { NotificationSequence = 4 });
@@ -352,9 +327,7 @@ public class TitleBarBranchViewModelTests
     public async Task Status_burst_coalesces_reads_and_defers_branch_list_until_flyout_opens()
     {
         Mock<IProjectVersionControlService> service = CreateServiceMock();
-        using var source = new ReactivePropertySlim<IProjectVersionControlService?>(service.Object);
-        using var viewModel = new TitleBarBranchViewModel(
-            source, CreateGitAvailabilitySource(), Mock.Of<IProjectVersionControlCoordinator>(), action => action());
+        using var viewModel = CreateViewModel(service.Object);
         await viewModel.Initialization;
         var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var release = new TaskCompletionSource<WorkspaceStatus>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -396,13 +369,7 @@ public class TitleBarBranchViewModelTests
                 new BranchInfo("main", true, null),
                 new BranchInfo("feature", false, null),
             ]);
-        using var serviceSource =
-            new ReactivePropertySlim<IProjectVersionControlService?>(service.Object);
-        using var viewModel = new TitleBarBranchViewModel(
-            serviceSource,
-            CreateGitAvailabilitySource(),
-            Mock.Of<IProjectVersionControlCoordinator>(),
-            action => action());
+        using var viewModel = CreateViewModel(service.Object);
         await viewModel.Initialization;
 
         await viewModel.RefreshAsync();
@@ -426,13 +393,7 @@ public class TitleBarBranchViewModelTests
                 new BranchInfo("main", true, "origin/main"),
                 new BranchInfo("feature", false, null, IsRemote: true),
             ]);
-        using var serviceSource =
-            new ReactivePropertySlim<IProjectVersionControlService?>(service.Object);
-        using var viewModel = new TitleBarBranchViewModel(
-            serviceSource,
-            CreateGitAvailabilitySource(),
-            Mock.Of<IProjectVersionControlCoordinator>(),
-            action => action());
+        using var viewModel = CreateViewModel(service.Object);
         await viewModel.Initialization;
 
         Assert.Multiple(() =>
@@ -464,13 +425,7 @@ public class TitleBarBranchViewModelTests
                 branchReadStarted.TrySetResult();
                 return releaseBranchRead.Task;
             });
-        using var serviceSource =
-            new ReactivePropertySlim<IProjectVersionControlService?>(service.Object);
-        using var viewModel = new TitleBarBranchViewModel(
-            serviceSource,
-            CreateGitAvailabilitySource(),
-            Mock.Of<IProjectVersionControlCoordinator>(),
-            action => action());
+        using var viewModel = CreateViewModel(service.Object);
         await viewModel.Initialization;
 
         Task refresh = viewModel.RefreshAsync();
@@ -489,13 +444,7 @@ public class TitleBarBranchViewModelTests
     public async Task Preparing_the_flyout_refreshes_branches()
     {
         Mock<IProjectVersionControlService> service = CreateServiceMock();
-        using var serviceSource =
-            new ReactivePropertySlim<IProjectVersionControlService?>(service.Object);
-        using var viewModel = new TitleBarBranchViewModel(
-            serviceSource,
-            CreateGitAvailabilitySource(),
-            Mock.Of<IProjectVersionControlCoordinator>(),
-            action => action());
+        using var viewModel = CreateViewModel(service.Object);
         await viewModel.Initialization;
 
         await viewModel.PrepareFlyoutAsync();
@@ -517,13 +466,7 @@ public class TitleBarBranchViewModelTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(new WorkspaceStatus("project-b", 0, 0, [], false))
             .ReturnsAsync(new WorkspaceStatus("project-b", 2, 1, [], false));
-        using var serviceSource =
-            new ReactivePropertySlim<IProjectVersionControlService?>(serviceA.Object);
-        using var viewModel = new TitleBarBranchViewModel(
-            serviceSource,
-            CreateGitAvailabilitySource(),
-            Mock.Of<IProjectVersionControlCoordinator>(),
-            action => action());
+        using var viewModel = CreateViewModel(serviceA.Object, out var serviceSource);
         await viewModel.Initialization;
 
         serviceSource.Value = serviceB.Object;
@@ -571,13 +514,7 @@ public class TitleBarBranchViewModelTests
                 "feature",
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
-        using var serviceSource =
-            new ReactivePropertySlim<IProjectVersionControlService?>(service.Object);
-        using var viewModel = new TitleBarBranchViewModel(
-            serviceSource,
-            CreateGitAvailabilitySource(),
-            coordinator.Object,
-            action => action());
+        using var viewModel = CreateViewModel(service.Object, coordinator: coordinator.Object);
         await viewModel.Initialization;
 
         await viewModel.SwitchBranchAsync("feature");
@@ -614,13 +551,7 @@ public class TitleBarBranchViewModelTests
                 await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
                 return false;
             });
-        using var serviceSource =
-            new ReactivePropertySlim<IProjectVersionControlService?>(service.Object);
-        var viewModel = new TitleBarBranchViewModel(
-            serviceSource,
-            CreateGitAvailabilitySource(),
-            coordinator.Object,
-            action => action());
+        var viewModel = CreateViewModel(service.Object, coordinator: coordinator.Object);
         await viewModel.Initialization;
 
         Task operation = viewModel.SwitchBranchAsync("feature");
@@ -639,14 +570,11 @@ public class TitleBarBranchViewModelTests
     public async Task Disposal_ignores_queued_service_publication_and_refresh()
     {
         Mock<IProjectVersionControlService> service = CreateServiceMock();
-        using var serviceSource =
-            new ReactivePropertySlim<IProjectVersionControlService?>(null);
         Action? pendingUiAction = null;
-        var viewModel = new TitleBarBranchViewModel(
-            serviceSource,
-            CreateGitAvailabilitySource(),
-            Mock.Of<IProjectVersionControlCoordinator>(),
-            action => pendingUiAction = action);
+        var viewModel = CreateViewModel(
+            null,
+            out var serviceSource,
+            dispatch: action => pendingUiAction = action);
         await viewModel.Initialization;
 
         serviceSource.Value = service.Object;
@@ -669,17 +597,8 @@ public class TitleBarBranchViewModelTests
                 "experiment",
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
-        using var serviceSource =
-            new ReactivePropertySlim<IProjectVersionControlService?>(service.Object);
-        using var viewModel = new TitleBarBranchViewModel(
-            serviceSource,
-            CreateGitAvailabilitySource(),
-            coordinator.Object,
-            action => action())
-        {
-            RequestNewBranchNameAsync =
-                () => Task.FromResult<string?>(" experiment "),
-        };
+        using var viewModel = CreateViewModel(service.Object, coordinator: coordinator.Object);
+        viewModel.RequestNewBranchNameAsync = () => Task.FromResult<string?>(" experiment ");
         await viewModel.Initialization;
 
         await viewModel.CreateBranchAsync();
@@ -704,17 +623,8 @@ public class TitleBarBranchViewModelTests
                 "experiment",
                 It.IsAny<CancellationToken>()))
             .ThrowsAsync(failure);
-        using var serviceSource =
-            new ReactivePropertySlim<IProjectVersionControlService?>(service.Object);
-        using var viewModel = new TitleBarBranchViewModel(
-            serviceSource,
-            CreateGitAvailabilitySource(),
-            coordinator.Object,
-            action => action())
-        {
-            RequestNewBranchNameAsync =
-                () => Task.FromResult<string?>("experiment"),
-        };
+        using var viewModel = CreateViewModel(service.Object, coordinator: coordinator.Object);
+        viewModel.RequestNewBranchNameAsync = () => Task.FromResult<string?>("experiment");
         await viewModel.Initialization;
         using var notifications = VersionControlNotificationCapture.Install();
 
@@ -737,16 +647,8 @@ public class TitleBarBranchViewModelTests
         var branchName = new TaskCompletionSource<string?>(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var coordinator = new Mock<IProjectVersionControlCoordinator>();
-        using var serviceSource =
-            new ReactivePropertySlim<IProjectVersionControlService?>(service.Object);
-        var viewModel = new TitleBarBranchViewModel(
-            serviceSource,
-            CreateGitAvailabilitySource(),
-            coordinator.Object,
-            action => action())
-        {
-            RequestNewBranchNameAsync = () => branchName.Task,
-        };
+        var viewModel = CreateViewModel(service.Object, coordinator: coordinator.Object);
+        viewModel.RequestNewBranchNameAsync = () => branchName.Task;
         await viewModel.Initialization;
 
         Task operation = viewModel.CreateBranchAsync();
@@ -771,19 +673,14 @@ public class TitleBarBranchViewModelTests
         var promptStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var coordinator = new Mock<IProjectVersionControlCoordinator>();
-        using var serviceSource =
-            new ReactivePropertySlim<IProjectVersionControlService?>(originatingService.Object);
-        using var viewModel = new TitleBarBranchViewModel(
-            serviceSource,
-            CreateGitAvailabilitySource(),
-            coordinator.Object,
-            action => action())
+        using var viewModel = CreateViewModel(
+            originatingService.Object,
+            out var serviceSource,
+            coordinator: coordinator.Object);
+        viewModel.RequestNewBranchNameAsync = () =>
         {
-            RequestNewBranchNameAsync = () =>
-            {
-                promptStarted.TrySetResult();
-                return branchName.Task;
-            },
+            promptStarted.TrySetResult();
+            return branchName.Task;
         };
         await viewModel.Initialization;
 
@@ -826,14 +723,8 @@ public class TitleBarBranchViewModelTests
         Mock<IProjectVersionControlService> service = CreateServiceMock();
         service.Setup(item => item.GetStatusAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(new WorkspaceStatus("feature", 0, 0, [], false));
-        using var serviceSource =
-            new ReactivePropertySlim<IProjectVersionControlService?>(service.Object);
         var coordinator = new Mock<IProjectVersionControlCoordinator>();
-        using var viewModel = new TitleBarBranchViewModel(
-            serviceSource,
-            CreateGitAvailabilitySource(),
-            coordinator.Object,
-            action => action());
+        using var viewModel = CreateViewModel(service.Object, coordinator: coordinator.Object);
         await viewModel.Initialization;
         Assert.That(viewModel.DisplayText.Value, Is.EqualTo("feature"));
 
@@ -890,5 +781,25 @@ public class TitleBarBranchViewModelTests
         bool value = true)
     {
         return new ReactivePropertySlim<bool>(value);
+    }
+
+    private static TitleBarBranchViewModel CreateViewModel(
+        IProjectVersionControlService? service,
+        IProjectVersionControlCoordinator? coordinator = null,
+        Action<Action>? dispatch = null)
+        => CreateViewModel(service, out _, coordinator, dispatch);
+
+    private static TitleBarBranchViewModel CreateViewModel(
+        IProjectVersionControlService? service,
+        out ReactivePropertySlim<IProjectVersionControlService?> serviceSource,
+        IProjectVersionControlCoordinator? coordinator = null,
+        Action<Action>? dispatch = null)
+    {
+        serviceSource = new ReactivePropertySlim<IProjectVersionControlService?>(service);
+        return new TitleBarBranchViewModel(
+            serviceSource,
+            CreateGitAvailabilitySource(),
+            coordinator ?? Mock.Of<IProjectVersionControlCoordinator>(),
+            dispatch ?? (static action => action()));
     }
 }

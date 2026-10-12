@@ -5,7 +5,8 @@ namespace Beutl.UnitTests.Editor.VersionControl;
 /// <summary>
 /// Git tracks a symbolic link as the link entry itself, so the tracked path of a project file is its own
 /// entry name inside its canonical parent directory. These tests pin that rule for the path
-/// <see cref="GitCliVersionControlService"/> hands to <c>ls-tree</c> and hook-tree mode lookups.
+/// <see cref="GitCliVersionControlService"/> hands to <c>ls-tree</c> when it checks that a revision
+/// contains the project file.
 /// </summary>
 [TestFixture]
 public sealed class TrackedProjectFilePathTests

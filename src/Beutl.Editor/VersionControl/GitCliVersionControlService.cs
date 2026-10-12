@@ -177,7 +177,6 @@ internal sealed partial class GitCliVersionControlService :
     private readonly GitInstallationLocator _installationLocator;
     private readonly Func<string, IGitCliRunner> _runnerFactory;
     private readonly Func<bool> _isWorktreeMutationAllowed;
-    private readonly string? _projectFile;
     // The LFS setting the last hygiene run applied, which tells a change made while the project is
     // open apart from a machine where LFS was never on.
     private bool? _lastLfsRequested;
@@ -215,7 +214,6 @@ internal sealed partial class GitCliVersionControlService :
         RepositoryInfo? repository,
         Func<bool> isWorktreeMutationAllowed,
         Func<VersionControlPolicyNotice, CancellationToken, Task>? policyNoticeSink = null,
-        string? projectFile = null,
         Func<CancellationToken, Task<GitIdentity?>>? identityRequest = null)
         : this(
             installationLocator,
@@ -224,7 +222,6 @@ internal sealed partial class GitCliVersionControlService :
             static gitPath => new GitCliRunner(gitPath),
             createWatcherWhenRepositoryAvailable: true,
             isWorktreeMutationAllowed: isWorktreeMutationAllowed,
-            projectFile: projectFile,
             policyNoticeSink: policyNoticeSink,
             identityRequest: identityRequest,
             beforeHygieneFileReplace: null,
@@ -252,7 +249,6 @@ internal sealed partial class GitCliVersionControlService :
         Func<VersionControlPolicyNotice, CancellationToken, Task>? policyNoticeSink = null,
         Action<Action>? statusNotificationScheduler = null,
         Action<Action>? lockNotificationScheduler = null,
-        string? projectFile = null,
         Func<CancellationToken, Task<GitIdentity?>>? identityRequest = null,
         Func<bool>? isWorktreeMutationAllowed = null)
         : this(
@@ -262,7 +258,6 @@ internal sealed partial class GitCliVersionControlService :
             runnerFactory,
             createWatcherWhenRepositoryAvailable: false,
             isWorktreeMutationAllowed: isWorktreeMutationAllowed ?? (static () => true),
-            projectFile: projectFile,
             policyNoticeSink,
             identityRequest: identityRequest,
             beforeHygieneFileReplace: beforeHygieneFileReplace,
@@ -283,7 +278,6 @@ internal sealed partial class GitCliVersionControlService :
         Func<string, IGitCliRunner> runnerFactory,
         bool createWatcherWhenRepositoryAvailable,
         Func<bool> isWorktreeMutationAllowed,
-        string? projectFile,
         Func<VersionControlPolicyNotice, CancellationToken, Task>? policyNoticeSink,
         Func<CancellationToken, Task<GitIdentity?>>? identityRequest,
         Func<string, CancellationToken, Task>? beforeHygieneFileReplace,
@@ -310,7 +304,6 @@ internal sealed partial class GitCliVersionControlService :
         _isWorktreeMutationAllowed = isWorktreeMutationAllowed
                                      ?? throw new ArgumentNullException(
                                          nameof(isWorktreeMutationAllowed));
-        _projectFile = projectFile is null ? null : Path.GetFullPath(projectFile);
         _policyNoticeSink = policyNoticeSink;
         _identityRequest = identityRequest;
         _beforeHygieneFileReplace = beforeHygieneFileReplace;

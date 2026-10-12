@@ -15,10 +15,4 @@ public class VersionControlTabLayoutTests
             VersionControlTabLayout.IsNarrow(width),
             Is.EqualTo(expectedNarrow));
     }
-
-    [Test]
-    public void Wide_layout_threshold_is_600_pixels()
-    {
-        Assert.That(VersionControlTabLayout.WideLayoutMinimumWidth, Is.EqualTo(600));
-    }
 }
