@@ -8,7 +8,6 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:vm="using:Beutl.ViewModels.Editors"
-             x:Name="root"
              d:DesignHeight="70"
              d:DesignWidth="300"
              mc:Ignorable="d">

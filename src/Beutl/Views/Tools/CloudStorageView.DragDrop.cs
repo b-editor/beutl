@@ -22,6 +22,7 @@ public sealed partial class CloudStorageView
     private bool _releasedToApplication;
     private ListBoxItem? _dropHighlight;
     private FileBrowserStorageBreadcrumb? _breadcrumbDrop;
+    // Replaced by tests to stand in for the platform drag.
     internal Func<PointerPressedEventArgs, IDataTransfer, Task<DragDropEffects>>? DragStarter { get; set; }
 
     private void InitializeStorageDragDrop()

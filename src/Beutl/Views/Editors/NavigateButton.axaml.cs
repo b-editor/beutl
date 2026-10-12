@@ -56,12 +56,7 @@ public sealed class NavigateButton<T> : NavigateButton
         if (this.FindLogicalAncestorOfType<EditView>()?.DataContext is EditViewModel editViewModel
             && DataContext is NavigationButtonViewModel<T> { IsDisposed: false } viewModel)
         {
-            ObjectPropertyTabViewModel objViewModel
-                = ObjectPropertyTabViewModel.FindReusable(editViewModel, viewModel.Value.Value)
-                  ?? new ObjectPropertyTabViewModel(editViewModel);
-
-            objViewModel.NavigateCore(viewModel.Value.Value, false, viewModel);
-            editViewModel.OpenToolTab(objViewModel);
+            ObjectPropertyTabViewModel.Open(editViewModel, viewModel.Value.Value, viewModel);
         }
     }
 

@@ -82,7 +82,7 @@ public static class TemplateMenuHelper
             foreach (ObjectTemplateItem t in templates)
             {
                 applySubMenu.Items.Add(CreateApplyMenuItem(t, vm));
-                addSubMenu.Items.Add(CreateAddMenuItem(t, vm, useApplyTemplate: false));
+                addSubMenu.Items.Add(CreateAddMenuItem(t, vm));
             }
         }
         else if (isGroup)
@@ -93,12 +93,11 @@ public static class TemplateMenuHelper
 
             foreach (ObjectTemplateItem t in templates)
             {
-                addSubMenu.Items.Add(CreateAddMenuItem(t, vm, useApplyTemplate: true));
+                addSubMenu.Items.Add(CreateApplyMenuItem(t, vm));
             }
         }
         else
         {
-            // 通常: 「テンプレートを適用」のみ
             applySubMenu.IsVisible = true;
             addSubMenu.IsVisible = false;
 
@@ -115,25 +114,14 @@ public static class TemplateMenuHelper
     private static FAMenuFlyoutItem CreateApplyMenuItem(ObjectTemplateItem template, BaseEditorViewModel vm)
     {
         var mi = new FAMenuFlyoutItem { Text = template.Name.Value, Tag = template };
-        mi.Click += (s, _) =>
-        {
-            if (s is FAMenuFlyoutItem { Tag: ObjectTemplateItem item })
-                vm.ApplyTemplate(item);
-        };
+        mi.Click += (_, _) => vm.ApplyTemplate(template);
         return mi;
     }
 
-    private static FAMenuFlyoutItem CreateAddMenuItem(ObjectTemplateItem template, BaseEditorViewModel vm, bool useApplyTemplate)
+    private static FAMenuFlyoutItem CreateAddMenuItem(ObjectTemplateItem template, BaseEditorViewModel vm)
     {
         var mi = new FAMenuFlyoutItem { Text = template.Name.Value, Tag = template };
-        mi.Click += (s, _) =>
-        {
-            if (s is not FAMenuFlyoutItem { Tag: ObjectTemplateItem item }) return;
-            if (useApplyTemplate)
-                vm.ApplyTemplate(item);
-            else
-                vm.AddTemplateAsListItem(item);
-        };
+        mi.Click += (_, _) => vm.AddTemplateAsListItem(template);
         return mi;
     }
 }

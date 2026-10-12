@@ -8,6 +8,7 @@ using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.Input.Raw;
 using Avalonia.Interactivity;
+using Avalonia.Markup.Xaml.Styling;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
 using Avalonia.Styling;
@@ -975,6 +976,8 @@ public sealed partial class AiDialogWorkflowTests
     private static Window ShowFileDropView(Control view, int width = 640)
     {
         var window = new Window { Content = view, Width = width, Height = 1500 };
+        // In the app the views get these styles from AiWorkspaceView.
+        window.Styles.Add(new StyleInclude((Uri?)null) { Source = new Uri("avares://Beutl/Views/Tools/AiFileDropStyles.axaml") });
         window.Show();
         HeadlessTestHelpers.Render(3);
         foreach (var expander in view.GetVisualDescendants().OfType<Expander>()) expander.IsExpanded = true;

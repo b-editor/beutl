@@ -1,8 +1,6 @@
 ﻿using Avalonia;
-using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
-using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
@@ -28,24 +26,9 @@ public sealed class ListEditorDragBehavior : Behavior<Control>
     private ItemsControl? _itemsControl;
     private Control? _draggedContainer;
 
-    public static readonly StyledProperty<double> DragThresholdProperty =
-        AvaloniaProperty.Register<ListEditorDragBehavior, double>(nameof(DragThreshold), 3);
+    private const double DragThreshold = 3;
 
-    public static readonly StyledProperty<Control> DragControlProperty =
-        AvaloniaProperty.Register<ListEditorDragBehavior, Control>(nameof(DragControl));
-
-    public double DragThreshold
-    {
-        get => GetValue(DragThresholdProperty);
-        set => SetValue(DragThresholdProperty, value);
-    }
-
-    [ResolveByName]
-    public Control DragControl
-    {
-        get => GetValue(DragControlProperty);
-        set => SetValue(DragControlProperty, value);
-    }
+    public Control? DragControl { get; set; }
 
     protected override void OnAttached()
     {
@@ -186,11 +169,10 @@ public sealed class ListEditorDragBehavior : Behavior<Control>
 
     private void Moved(object? sender, PointerEventArgs e)
     {
-        PointerPointProperties? properties = e.GetCurrentPoint(AssociatedObject).Properties;
-        if (_enableDrag
-            && properties?.IsLeftButtonPressed == true)
+        PointerPointProperties properties = e.GetCurrentPoint(AssociatedObject).Properties;
+        if (_enableDrag && properties.IsLeftButtonPressed)
         {
-            if (_itemsControl?.Items is null || _draggedContainer?.RenderTransform is null || !_enableDrag)
+            if (_itemsControl?.Items is null || _draggedContainer?.RenderTransform is null)
             {
                 return;
             }
@@ -201,9 +183,8 @@ public sealed class ListEditorDragBehavior : Behavior<Control>
             if (!_dragStarted)
             {
                 Point diff = _start - position;
-                double dragThreshold = DragThreshold;
 
-                if (Math.Abs(diff.Y) > dragThreshold)
+                if (Math.Abs(diff.Y) > DragThreshold)
                 {
                     _dragStarted = true;
                 }
@@ -237,7 +218,7 @@ public sealed class ListEditorDragBehavior : Behavior<Control>
                 Rect targetBounds = targetContainer.Bounds;
                 double targetStart = targetBounds.Y;
                 double targetMid = targetBounds.Y + targetBounds.Height / 2;
-                int targetIndex = _itemsControl.IndexFromContainer(targetContainer);
+                int targetIndex = i;
 
                 if (targetStart > draggedStart && draggedDeltaEnd >= targetMid)
                 {
@@ -266,30 +247,10 @@ public sealed class ListEditorDragBehavior : Behavior<Control>
 
 public partial class ListEditor : UserControl
 {
-    private static readonly Lazy<CrossFade> s_crossFade = new(() => new(TimeSpan.FromSeconds(0.25)));
-    private CancellationTokenSource? _lastTransitionCts;
-    private bool _flyoutOpen;
-
     public ListEditor()
     {
         InitializeComponent();
-        expandToggle.GetObservable(ToggleButton.IsCheckedProperty)
-            .Subscribe(async value =>
-            {
-                _lastTransitionCts?.Cancel();
-                _lastTransitionCts = new CancellationTokenSource();
-
-                if (value == true)
-                {
-                    await s_crossFade.Value.Start(null, expandItem, _lastTransitionCts.Token);
-                }
-                else
-                {
-                    await s_crossFade.Value.Start(expandItem, null, _lastTransitionCts.Token);
-                }
-
-                expandItem.IsVisible = value == true;
-            });
+        ExpandTransitionHelper.Attach(expandToggle, expandItem);
     }
 
     private void InitializeClick(object? sender, RoutedEventArgs e)
@@ -322,24 +283,18 @@ public partial class ListEditor : UserControl
         }
     }
 
-    private async Task<object?> SelectTypeOrReference()
+    private Task<object?> SelectTypeOrReference()
     {
-        if (_flyoutOpen) return null;
-        if (DataContext is not IListEditorViewModel { IsDisposed: false } viewModel) return null;
+        if (DataContext is not IListEditorViewModel { IsDisposed: false } viewModel) return Task.FromResult<object?>(null);
 
-        try
+        return PickerGuard.RunAsync(this, () =>
         {
-            _flyoutOpen = true;
             Type propertyType = viewModel.ItemType;
             string format = propertyType.FullName!;
             var selectVm = new SelectLibraryItemDialogViewModel(format, propertyType);
 
-            return await LibraryItemPickerHelper.ShowAsync(this, selectVm, format);
-        }
-        finally
-        {
-            _flyoutOpen = false;
-        }
+            return LibraryItemPickerHelper.ShowAsync(this, selectVm, format);
+        });
     }
 
     private async void Add_Click(object? sender, RoutedEventArgs e)

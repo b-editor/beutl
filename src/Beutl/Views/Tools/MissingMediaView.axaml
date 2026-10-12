@@ -208,7 +208,7 @@
                 <TextBlock Name="SummaryText" Classes="secondary" Text="{Binding Summary.Value}"
                            TextWrapping="Wrap" ToolTip.Tip="{Binding Summary.Value}" />
                 <Button Name="UseAllCandidatesButton" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                        IsVisible="{Binding CanUseCandidates.Value}" IsEnabled="{Binding CanUseCandidates.Value}" Click="UseAllCandidatesClick">
+                        IsVisible="{Binding CanUseCandidates.Value}" Click="UseAllCandidatesClick">
                     <TextBlock Text="{x:Static lang:MissingMediaStrings.UseAllCandidates}" TextWrapping="Wrap" />
                 </Button>
                 <Button Name="ApplyButton" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Classes="accent"

@@ -12,19 +12,6 @@
              x:DataType="vm:AiPromptLibraryViewModel"
              mc:Ignorable="d">
     <UserControl.Styles>
-        <!--  Opacity rather than IsVisible: the row must not change height when actions appear.  -->
-        <Style Selector="ListBoxItem :is(Button).row-action">
-            <Setter Property="Opacity" Value="0" />
-            <Setter Property="IsHitTestVisible" Value="False" />
-        </Style>
-        <Style Selector="ListBoxItem:pointerover :is(Button).row-action">
-            <Setter Property="Opacity" Value="1" />
-            <Setter Property="IsHitTestVisible" Value="True" />
-        </Style>
-        <Style Selector="ListBoxItem:selected :is(Button).row-action">
-            <Setter Property="Opacity" Value="1" />
-            <Setter Property="IsHitTestVisible" Value="True" />
-        </Style>
         <!--  A pin is state as well as an action, so a pinned row says so unasked.  -->
         <Style Selector="ListBoxItem ToggleButton.row-action:checked">
             <Setter Property="Opacity" Value="1" />
@@ -34,8 +21,7 @@
 
     <!--  Applying is a button rather than the row's selection: it is an action,
           and re-picking the same prompt has to work a second time.  -->
-    <ListBox x:Name="ChoiceList"
-             Background="Transparent"
+    <ListBox Background="Transparent"
              ItemsSource="{Binding #Root.Choices}"
              SelectionMode="Single">
         <ListBox.ItemTemplate>

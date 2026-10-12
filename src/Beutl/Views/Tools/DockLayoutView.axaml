@@ -9,28 +9,11 @@
              xmlns:services="using:Beutl.Services"
              xmlns:usage="using:Beutl.Editor.Components.Helpers"
              xmlns:viewModels="using:Beutl.ViewModels.Tools"
-             Name="Root"
              d:DesignHeight="450"
              d:DesignWidth="280"
              x:CompileBindings="True"
              x:DataType="viewModels:DockLayoutViewModel"
              mc:Ignorable="d">
-    <UserControl.Styles>
-        <!--  Opacity rather than IsVisible: the row must not change height when actions appear.  -->
-        <Style Selector="ListBoxItem Button.row-action">
-            <Setter Property="Opacity" Value="0" />
-            <Setter Property="IsHitTestVisible" Value="False" />
-        </Style>
-        <Style Selector="ListBoxItem:pointerover Button.row-action">
-            <Setter Property="Opacity" Value="1" />
-            <Setter Property="IsHitTestVisible" Value="True" />
-        </Style>
-        <Style Selector="ListBoxItem:selected Button.row-action">
-            <Setter Property="Opacity" Value="1" />
-            <Setter Property="IsHitTestVisible" Value="True" />
-        </Style>
-    </UserControl.Styles>
-
     <Grid RowDefinitions="Auto,*">
         <controls:ToolTabBar x:Name="ToolBar" Grid.Row="0">
             <Grid ColumnDefinitions="*,Auto">
@@ -62,8 +45,7 @@
                           Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
                           HorizontalScrollBarVisibility="Disabled"
                           IsVisible="{CompiledBinding !Items.Count}">
-                <Border x:Name="DockLayoutEmptyState"
-                        Margin="24"
+                <Border Margin="24"
                         Padding="8,24"
                         VerticalAlignment="Center">
                     <StackPanel MaxWidth="320"
@@ -93,8 +75,7 @@
                                        TextAlignment="Center"
                                        TextWrapping="Wrap" />
                         </StackPanel>
-                        <Button x:Name="SaveFirstDockLayoutButton"
-                                HorizontalAlignment="Center"
+                        <Button HorizontalAlignment="Center"
                                 usage:UsageTracking.Feature="DockLayout.Save"
                                 AutomationProperties.Name="{x:Static lang:Strings.SaveCurrentDockLayout}"
                                 Click="OnSaveClick">
@@ -113,8 +94,7 @@
                 </Border>
             </ScrollViewer>
 
-            <ListBox x:Name="LayoutList"
-                     Background="Transparent"
+            <ListBox Background="Transparent"
                      DoubleTapped="OnItemDoubleTapped"
                      IsVisible="{CompiledBinding Items.Count}"
                      ItemsSource="{CompiledBinding Items}"

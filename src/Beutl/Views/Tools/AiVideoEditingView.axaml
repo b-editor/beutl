@@ -10,9 +10,6 @@
              xmlns:vm="using:Beutl.ViewModels.Dialogs"
              x:CompileBindings="True"
              x:DataType="vm:AiVideoEditingViewModel">
-    <UserControl.Styles>
-        <StyleInclude Source="/Views/Tools/AiFileDropStyles.axaml" />
-    </UserControl.Styles>
     <UserControl.Resources>
         <DataTemplate x:Key="SourceTemplate" x:DataType="vm:AiVideoGenerationDialogViewModel">
             <StackPanel Spacing="8">
@@ -91,7 +88,7 @@
                             AutomationProperties.Name="{CompiledBinding DurationLabel}" />
                 </StackPanel>
                 <StackPanel Spacing="8" IsVisible="{CompiledBinding IsMotionControl}" IsEnabled="{CompiledBinding !IsGenerating.Value}">
-                    <StackPanel x:Name="CharacterImageInput" tools:AiFileDrop.Target="CharacterImage" Spacing="4">
+                    <StackPanel tools:AiFileDrop.Target="CharacterImage" Spacing="4">
                         <TextBlock Text="{x:Static lang:Strings.AiCharacterImage}" />
                         <Grid ColumnDefinitions="*,Auto">
                             <TextBox IsReadOnly="True" Text="{CompiledBinding CharacterImagePath.Value}"

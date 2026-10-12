@@ -2,7 +2,6 @@
 using Avalonia.Interactivity;
 
 using Beutl.Controls;
-using Beutl.Controls.Converters;
 using Beutl.ViewModels.Editors;
 
 namespace Beutl.Views.Editors;
@@ -11,7 +10,6 @@ public partial class GraphModelNodeMemberView : UserControl
 {
     public GraphModelNodeMemberView()
     {
-        Resources["ViewModelToViewConverter"] = PropertyEditorContextToViewConverter.Instance;
         InitializeComponent();
         ExpandTransitionHelper.Attach(expandToggle, content, ExpandTransitionHelper.ListItemDuration);
     }

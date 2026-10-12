@@ -9,10 +9,9 @@ public static class TargetSelectionHelper
 {
     public static async Task<T?> ShowTargetPickerAsync<T>(
         Control host,
-        Func<IReadOnlyList<TargetObjectInfo>> getAvailableTargets)
+        IReadOnlyList<TargetObjectInfo> targets)
         where T : CoreObject
     {
-        var targets = getAvailableTargets();
         var pickerVm = new TargetPickerFlyoutViewModel();
         pickerVm.Initialize(targets);
 
@@ -29,17 +28,13 @@ public static class TargetSelectionHelper
 
     public static async Task HandleSelectTargetRequestAsync<TViewModel, TTarget>(
         Control host,
-        TViewModel? viewModel,
+        TViewModel viewModel,
         Func<TViewModel, IReadOnlyList<TargetObjectInfo>> getAvailableTargets,
         Action<TViewModel, TTarget?> setTarget)
         where TViewModel : class
         where TTarget : CoreObject
     {
-        if (viewModel == null) return;
-
-        var result = await ShowTargetPickerAsync<TTarget>(
-            host,
-            () => getAvailableTargets(viewModel));
+        var result = await ShowTargetPickerAsync<TTarget>(host, getAvailableTargets(viewModel));
 
         if (result != null)
         {

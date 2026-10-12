@@ -1,7 +1,6 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using Beutl.Controls.Converters;
 using Beutl.Media;
 using Beutl.Services;
 using Beutl.ViewModels.Editors;
@@ -13,7 +12,6 @@ public sealed partial class PenEditor : UserControl
 {
     public PenEditor()
     {
-        Resources["ViewModelToViewConverter"] = PropertyEditorContextToViewConverter.Instance;
         InitializeComponent();
         ExpandTransitionHelper.Attach(expandToggle, content);
         ExpandTransitionHelper.Attach(expandMinorProps, minorProps);

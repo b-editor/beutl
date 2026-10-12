@@ -72,9 +72,7 @@
                IsVisible="{Binding !IsPresenter.Value}">
             <local:PropertiesEditor Margin="16,0,0,0"
                                     Padding="0"
-                                    DataContext="{Binding Properties.Value}"
-                                    IsVisible="{ReflectionBinding #root.DataContext.Properties.Value,
-                                                                  Converter={x:Static ObjectConverters.IsNotNull}}" />
+                                    DataContext="{Binding Properties.Value}" />
 
             <ItemsControl DataContext="{Binding Group.Value}" ItemsSource="{Binding Items}">
                 <ItemsControl.ItemTemplate>

@@ -9,7 +9,6 @@ namespace Beutl.Views.Editors;
 
 internal static class MediaSourceEditorHelper
 {
-    // 動画の長さに要素の長さを合わせる
     public static void MatchElementToOriginalDuration(BaseEditorViewModel vm)
     {
         if (vm.GetService<Element>() is not { } element) return;

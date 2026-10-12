@@ -16,7 +16,6 @@ public partial class TransformEditor : UserControl
 {
     private static FAMenuFlyout? s_flyout;
     private static EventHandler<RoutedEventArgs>? s_handler;
-    private bool _flyoutOpen;
 
     public TransformEditor()
     {
@@ -86,7 +85,7 @@ public partial class TransformEditor : UserControl
         EditorDragDropHelper.HandleEditorDragOver(e, BeutlDataFormats.Transform);
     }
 
-    private static FAMenuFlyoutItem[] CreateMenuItems(EventHandler<RoutedEventArgs>? handler)
+    private static FAMenuFlyoutItem[] CreateMenuItems(EventHandler<RoutedEventArgs> handler)
     {
         var items = new (KnownTransformType Tag, string Name, string? Icon)[]
         {
@@ -101,10 +100,7 @@ public partial class TransformEditor : UserControl
         return items.Select(x =>
             {
                 var obj = new FAMenuFlyoutItem() { Tag = x.Tag, Text = x.Name };
-                if (handler != null)
-                {
-                    obj.Click += handler;
-                }
+                obj.Click += handler;
 
                 if (x.Icon != null)
                 {
@@ -185,20 +181,12 @@ public partial class TransformEditor : UserControl
     private async void SelectTarget_Requested(object? sender, RoutedEventArgs e)
     {
         if (DataContext is not TransformEditorViewModel { IsDisposed: false } vm) return;
-        if (_flyoutOpen) return;
 
-        try
-        {
-            _flyoutOpen = true;
-            await TargetSelectionHelper.HandleSelectTargetRequestAsync<TransformEditorViewModel, Transform>(
+        await PickerGuard.RunAsync(this, () =>
+            TargetSelectionHelper.HandleSelectTargetRequestAsync<TransformEditorViewModel, Transform>(
                 this,
                 vm,
                 vm => vm.GetAvailableTargets(),
-                (vm, target) => vm.SetTarget(target));
-        }
-        finally
-        {
-            _flyoutOpen = false;
-        }
+                (vm, target) => vm.SetTarget(target)));
     }
 }

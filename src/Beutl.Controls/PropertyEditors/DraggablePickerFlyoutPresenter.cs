@@ -52,6 +52,11 @@ public class DraggablePickerFlyoutPresenter : ContentControl
         set => SetValue(ShowHideButtonsProperty, value);
     }
 
+    // Moves the focus into the presenter once its flyout has opened.
+    public virtual void FocusInitialElement()
+    {
+    }
+
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
         _dragPointer?.Capture(null);

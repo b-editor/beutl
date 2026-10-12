@@ -1,6 +1,7 @@
 <UserControl x:Class="Beutl.Views.Editors.GraphModelNodeMemberView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:editorConverters="using:Beutl.Controls.Converters"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
@@ -52,7 +53,7 @@
             <ItemsControl ItemsSource="{Binding Properties}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                        <ContentControl Content="{Binding Converter={StaticResource ViewModelToViewConverter}}" />
+                        <ContentControl Content="{Binding Converter={x:Static editorConverters:PropertyEditorContextToViewConverter.Instance}}" />
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>

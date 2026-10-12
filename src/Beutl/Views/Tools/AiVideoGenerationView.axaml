@@ -16,9 +16,6 @@
              x:CompileBindings="True"
              x:DataType="vm:AiVideoGenerationDialogViewModel"
              mc:Ignorable="d">
-    <UserControl.Styles>
-        <StyleInclude Source="/Views/Tools/AiFileDropStyles.axaml" />
-    </UserControl.Styles>
     <ScrollViewer HorizontalScrollBarVisibility="Disabled">
         <StackPanel Margin="12,10" Spacing="8">
             <Border Padding="8"
@@ -53,8 +50,8 @@
             </Expander>
 
             <StackPanel Spacing="4">
-                <!--  The history button sits over the box it fills in, so reaching for an
-                      earlier prompt does not mean opening the templates panel below.  -->
+                <!--  The history button sits by the box it fills in, so an earlier prompt can be
+                      recalled without opening the templates.  -->
                 <Grid ColumnDefinitions="*,Auto">
                     <TextBlock VerticalAlignment="Center" Text="{x:Static lang:Strings.AiPrompt}" />
                     <tools:AiPromptHistoryButton Grid.Column="1"
@@ -87,9 +84,7 @@
                           IsEnabled="{CompiledBinding ModelPicker.IsSelectionEnabled.Value}" />
             </StackPanel>
 
-            <!--  A length is one number on a short scale, so it is dragged rather
-                  than picked out of a list: the slider stops on the lengths the
-                  model takes and shows which one it landed on.  -->
+            <!--  A length is one value on a short scale, so it is picked with a slider.  -->
             <StackPanel x:Name="DurationField" Spacing="4" IsVisible="{CompiledBinding CanChooseDuration}">
                 <Grid ColumnDefinitions="*,Auto">
                     <TextBlock VerticalAlignment="Center"
@@ -108,7 +103,7 @@
                         TickFrequency="1"
                         TickPlacement="BottomRight"
                         Value="{CompiledBinding DurationIndex.Value}" />
-                <ItemsControl x:Name="DurationScale" ItemsSource="{CompiledBinding DurationOptions}">
+                <ItemsControl ItemsSource="{CompiledBinding DurationOptions}">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
                             <UniformGrid Rows="1" />
@@ -204,7 +199,7 @@
                             Content="{x:Static lang:Strings.AiVideoUseCurrentFrame}"
                             ToolTip.Tip="{x:Static lang:Strings.AiVideoUseCurrentFrame}" />
                     <Grid ColumnDefinitions="*,*" ColumnSpacing="8" IsVisible="{CompiledBinding IsGeneration}">
-                        <StackPanel x:Name="FirstFrameInput" tools:AiFileDrop.Target="FirstFrame"
+                        <StackPanel tools:AiFileDrop.Target="FirstFrame"
                                     IsVisible="{CompiledBinding SupportsFirstFrame.Value}" Spacing="4">
                             <TextBlock Text="{x:Static lang:Strings.AiVideoFirstFrame}" />
                             <Border Height="96"
@@ -232,7 +227,7 @@
                                         IsVisible="{CompiledBinding FirstFramePath.Value, Converter={x:Static ObjectConverters.IsNotNull}}" />
                             </WrapPanel>
                         </StackPanel>
-                        <StackPanel x:Name="LastFrameInput" tools:AiFileDrop.Target="LastFrame"
+                        <StackPanel tools:AiFileDrop.Target="LastFrame"
                                     Grid.Column="1"
                                     IsVisible="{CompiledBinding SupportsLastFrame.Value}"
                                     Spacing="4">

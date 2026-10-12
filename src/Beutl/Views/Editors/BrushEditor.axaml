@@ -55,40 +55,7 @@
                             Click="Menu_Click"
                             Theme="{StaticResource TransparentButton}">
                         <Button.ContextFlyout>
-                            <ui:FAMenuFlyout Placement="Pointer">
-                                <ui:FARadioMenuFlyoutItem Click="ChangeBrushType"
-                                                        IsChecked="{Binding IsSolid.Value, Mode=OneWay}"
-                                                        Tag="Solid"
-                                                        Text="{x:Static lang:GraphicsStrings.SolidColorBrush}" />
-                                <ui:FARadioMenuFlyoutItem Click="ChangeBrushType"
-                                                        IsChecked="{Binding IsLinearGradient.Value, Mode=OneWay}"
-                                                        Tag="LinearGradient"
-                                                        Text="{x:Static lang:GraphicsStrings.LinearGradientBrush}" />
-                                <ui:FARadioMenuFlyoutItem Click="ChangeBrushType"
-                                                        IsChecked="{Binding IsConicGradient.Value, Mode=OneWay}"
-                                                        Tag="ConicGradient"
-                                                        Text="{x:Static lang:GraphicsStrings.ConicGradientBrush}" />
-                                <ui:FARadioMenuFlyoutItem Click="ChangeBrushType"
-                                                        IsChecked="{Binding IsRadialGradient.Value, Mode=OneWay}"
-                                                        Tag="RadialGradient"
-                                                        Text="{x:Static lang:GraphicsStrings.RadialGradientBrush}" />
-                                <ui:FARadioMenuFlyoutItem Click="ChangeBrushType"
-                                                        IsChecked="{Binding IsPerlinNoise.Value, Mode=OneWay}"
-                                                        Tag="PerlinNoise"
-                                                        Text="{x:Static lang:GraphicsStrings.PerlinNoiseBrush}" />
-                                <ui:FARadioMenuFlyoutItem Click="ChangeBrushType"
-                                                        IsChecked="{Binding IsDrawable.Value, Mode=OneWay}"
-                                                        Tag="Drawable"
-                                                        Text="{x:Static lang:GraphicsStrings.Drawable}" />
-                                <ui:FARadioMenuFlyoutItem Click="ChangeBrushType"
-                                                        IsChecked="{Binding IsPresenter.Value, Mode=OneWay}"
-                                                        Tag="Presenter"
-                                                        Text="{x:Static lang:GraphicsStrings.Presenter}" />
-                                <ui:FARadioMenuFlyoutItem Click="ChangeBrushType"
-                                                        IsChecked="{Binding !Value.Value, Mode=OneWay}"
-                                                        Tag="Null"
-                                                        Text="{x:Static lang:Strings.Null}" />
-                            </ui:FAMenuFlyout>
+                            <ui:FAMenuFlyout Placement="Pointer" />
                         </Button.ContextFlyout>
                         <icons:FluentIcon Icon="Compose" />
                     </Button>
@@ -108,40 +75,7 @@
                         Classes="size-24x24"
                         Theme="{StaticResource TransparentButton}">
                     <Button.Flyout>
-                        <ui:FAMenuFlyout Placement="Pointer">
-                            <ui:FARadioMenuFlyoutItem Click="ChangeBrushType"
-                                                    IsChecked="{Binding IsSolid.Value, Mode=OneWay}"
-                                                    Tag="Solid"
-                                                    Text="{x:Static lang:GraphicsStrings.SolidColorBrush}" />
-                            <ui:FARadioMenuFlyoutItem Click="ChangeBrushType"
-                                                    IsChecked="{Binding IsLinearGradient.Value, Mode=OneWay}"
-                                                    Tag="LinearGradient"
-                                                    Text="{x:Static lang:GraphicsStrings.LinearGradientBrush}" />
-                            <ui:FARadioMenuFlyoutItem Click="ChangeBrushType"
-                                                    IsChecked="{Binding IsConicGradient.Value, Mode=OneWay}"
-                                                    Tag="ConicGradient"
-                                                    Text="{x:Static lang:GraphicsStrings.ConicGradientBrush}" />
-                            <ui:FARadioMenuFlyoutItem Click="ChangeBrushType"
-                                                    IsChecked="{Binding IsRadialGradient.Value, Mode=OneWay}"
-                                                    Tag="RadialGradient"
-                                                    Text="{x:Static lang:GraphicsStrings.RadialGradientBrush}" />
-                            <ui:FARadioMenuFlyoutItem Click="ChangeBrushType"
-                                                    IsChecked="{Binding IsPerlinNoise.Value, Mode=OneWay}"
-                                                    Tag="PerlinNoise"
-                                                    Text="{x:Static lang:GraphicsStrings.PerlinNoiseBrush}" />
-                            <ui:FARadioMenuFlyoutItem Click="ChangeBrushType"
-                                                    IsChecked="{Binding IsDrawable.Value, Mode=OneWay}"
-                                                    Tag="Drawable"
-                                                    Text="{x:Static lang:GraphicsStrings.Drawable}" />
-                            <ui:FARadioMenuFlyoutItem Click="ChangeBrushType"
-                                                    IsChecked="{Binding IsPresenter.Value, Mode=OneWay}"
-                                                    Tag="Presenter"
-                                                    Text="{x:Static lang:GraphicsStrings.Presenter}" />
-                            <ui:FARadioMenuFlyoutItem Click="ChangeBrushType"
-                                                    IsChecked="{Binding !Value.Value, Mode=OneWay}"
-                                                    Tag="Null"
-                                                    Text="{x:Static lang:Strings.Null}" />
-                        </ui:FAMenuFlyout>
+                        <ui:FAMenuFlyout Placement="Pointer" />
                     </Button.Flyout>
                     <icons:FluentIcon Icon="MoreVertical" />
                 </Button>
