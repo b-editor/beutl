@@ -108,6 +108,15 @@ def forward_lines(stream, lines):
     lines.put(None)
 
 
+def is_json_rpc(message):
+    """Whether a parsed stdout line is a JSON-RPC 2.0 request, notification or response."""
+    if not isinstance(message, dict) or message.get("jsonrpc") != "2.0":
+        return False
+    if "method" in message:
+        return isinstance(message["method"], str)
+    return "id" in message and ("result" in message) != ("error" in message)
+
+
 def read_response(process, lines, timeout, grace):
     """Returns the message that answers INITIALIZE. Notifications and requests of the server are skipped."""
     deadline = time.monotonic() + timeout
@@ -128,10 +137,12 @@ def read_response(process, lines, timeout, grace):
         try:
             message = json.loads(line)
         except ValueError:
-            # Anything but JSON-RPC on stdout breaks every MCP client, so logs must go to stderr.
+            message = None
+        if not is_json_rpc(message):
+            # Anything but JSON-RPC on stdout, a JSON log line included, breaks every MCP client.
             text = line.decode("utf-8", "replace").rstrip()
             raise Failure(f"{MCP_HOST} wrote a line that is not JSON-RPC to stdout: {text[:200]}")
-        if isinstance(message, dict) and message.get("id") == INITIALIZE["id"] and "method" not in message:
+        if message.get("id") == INITIALIZE["id"] and "method" not in message:
             return message
 
 

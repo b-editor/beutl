@@ -116,10 +116,23 @@ class SmokeTestOutputTests(unittest.TestCase):
         self.assertIn("answered initialize without a protocolVersion and serverInfo result", stdout)
 
     def test_log_line_on_stdout_fails(self):
-        code, stdout, _ = self.run_main(mcp=answering('print("info: Microsoft.Hosting.Lifetime[0]", flush=True)'))
+        for line in ("info: Microsoft.Hosting.Lifetime[0]", '{"Level": "Information", "Message": "Started"}'):
+            # The log line comes before a valid answer, which must not hide it.
+            code, stdout, _ = self.run_main(mcp=answering(f"print({line!r}, flush=True)", after=f"""
+    print(json.dumps({{"jsonrpc": "2.0", "id": request["id"], "result": {{
+        "protocolVersion": "2025-06-18", "serverInfo": {{"name": "Fake"}}}}}}), flush=True)
+    sys.stdin.read()"""))
+            self.assertEqual(code, 1)
+            self.assertIn(f"::error::Beutl.AgentToolkit.Mcp wrote a line that is not JSON-RPC to stdout: {line}\n",
+                          stdout)
+
+    def test_answer_without_the_json_rpc_version_fails(self):
+        code, stdout, _ = self.run_main(mcp=answering(
+            'print(json.dumps({"id": request["id"], "result": {"protocolVersion": "2025-06-18", '
+            '"serverInfo": {"name": "Fake"}}}), flush=True)'))
         self.assertEqual(code, 1)
         self.assertIn("::error::Beutl.AgentToolkit.Mcp wrote a line that is not JSON-RPC to stdout: "
-                      "info: Microsoft.Hosting.Lifetime[0]", stdout)
+                      '{"id": 1, "result":', stdout)
 
     def test_host_that_crashes_before_answering_fails_with_its_stderr(self):
         code, stdout, _ = self.run_main(mcp="""
