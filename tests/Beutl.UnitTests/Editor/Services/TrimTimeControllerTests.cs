@@ -11,8 +11,8 @@ using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.UnitTests.Engine.Graphics.Rendering;
 using Beutl.UnitTests.TestInfrastructure;
-using static Beutl.UnitTests.TestInfrastructure.TrimTestMedia;
 using Beutl.Validation;
+using static Beutl.UnitTests.TestInfrastructure.TrimTestMedia;
 
 namespace Beutl.UnitTests.Editor.Services;
 
