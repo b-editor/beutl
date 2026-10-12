@@ -1,6 +1,4 @@
-﻿using System.Text.Json.Nodes;
-using Beutl.AgentToolkit.Common;
-using Beutl.ProjectSystem;
+﻿using Beutl.ProjectSystem;
 using Beutl.Serialization;
 
 namespace Beutl.AgentToolkit.Sessions;
@@ -19,11 +17,6 @@ public sealed class FileSessionSource : ISessionSource, IDisposable
     public FileEditingSession OpenProject(string projectPath)
     {
         string fullPath = Path.GetFullPath(projectPath);
-        if (ReadSchemaVersion(fullPath) is { } schemaVersion)
-        {
-            SchemaVersion.EnsureKnown(schemaVersion);
-        }
-
         var project = CoreSerializer.RestoreFromUri<Project>(CreateFileUri(fullPath));
         Scene scene = project.Items.OfType<Scene>().FirstOrDefault()
                       ?? throw new InvalidOperationException("The project does not contain a scene.");
@@ -94,15 +87,6 @@ public sealed class FileSessionSource : ISessionSource, IDisposable
         }
 
         previous?.Dispose();
-    }
-
-    private static string? ReadSchemaVersion(string path)
-    {
-        using FileStream stream = File.OpenRead(path);
-        JsonNode? node = JsonNode.Parse(stream);
-        return node is JsonObject obj && obj.TryGetPropertyValue(SchemaVersion.PropertyName, out JsonNode? version)
-            ? version?.GetValue<string>()
-            : null;
     }
 
     private static Uri CreateFileUri(string path)
