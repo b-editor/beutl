@@ -510,4 +510,13 @@
   <data name="UnmigratedNodeTreeMessage" xml:space="preserve">
     <value>以下元素的节点树是在 Beutl 1.x 中创建的，未被迁移，因此不会绘制：{0}。在移除保存节点树的对象之前，这些元素的文件将保持不变。保存会转换项目的其余部分，之后 Beutl 1.x 将无法打开该项目。编辑和关闭项目时也会保存，因此如果仍需在 Beutl 1.x 中使用，请现在保留一份项目副本。</value>
   </data>
+  <data name="KeptUnknownDataTitle" xml:space="preserve">
+    <value>部分数据已保留但不显示</value>
+  </data>
+  <data name="KeptUnknownDataMessage" xml:space="preserve">
+    <value>此项目包含来自较新版本的 Beutl 或未安装的扩展的数据。Beutl 在保存项目时会保留这些数据，但不会显示或使用它们。</value>
+  </data>
+  <data name="KeptUnknownDataSavedByMessage" xml:space="preserve">
+    <value>此项目最后由 Beutl {0} 保存，包含来自较新版本的 Beutl 或未安装的扩展的数据。Beutl 在保存项目时会保留这些数据，但不会显示或使用它们。</value>
+  </data>
 </root>

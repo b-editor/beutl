@@ -510,4 +510,13 @@ Se capturaron {1} fotogramas (se descartaron {2}).</value>
   <data name="UnmigratedNodeTreeMessage" xml:space="preserve">
     <value>Los árboles de nodos de estos elementos se crearon en Beutl 1.x y no se migraron, por lo que no se dibujan: {0}. Sus archivos se conservan sin cambios hasta que quites el objeto que contiene el árbol de nodos. Al guardar se convierte el resto del proyecto y Beutl 1.x ya no podrá abrirlo. Las ediciones y el cierre del proyecto también lo guardan, así que conserva ahora una copia del proyecto si aún lo necesitas en Beutl 1.x.</value>
   </data>
+  <data name="KeptUnknownDataTitle" xml:space="preserve">
+    <value>Algunos datos se conservan pero no se muestran</value>
+  </data>
+  <data name="KeptUnknownDataMessage" xml:space="preserve">
+    <value>Este proyecto contiene datos de una versión más reciente de Beutl o de una extensión que no está instalada. Beutl conserva esos datos al guardar el proyecto, pero no los muestra ni los usa.</value>
+  </data>
+  <data name="KeptUnknownDataSavedByMessage" xml:space="preserve">
+    <value>Este proyecto se guardó por última vez con Beutl {0} y contiene datos de una versión más reciente de Beutl o de una extensión que no está instalada. Beutl conserva esos datos al guardar el proyecto, pero no los muestra ni los usa.</value>
+  </data>
 </root>

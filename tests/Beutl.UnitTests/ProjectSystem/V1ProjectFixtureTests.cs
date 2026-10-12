@@ -130,6 +130,8 @@ public class V1ProjectFixtureTests
         Line();
         Line("Notices on open:");
         DescribeNotice(Line, "project", UnmigratedNodeTreeNotice.Create(project));
+        // 2.x drops what 1.1.0 kept for itself, so the project keeps no data this build does not know.
+        DescribeNotice(Line, "project's kept data", KeptUnknownDataNotice.Create(project));
         foreach (Scene scene in project.Items.OfType<Scene>())
         {
             DescribeNotice(Line, $"scene \"{scene.Name}\"", RecoveryProtectionNotice.Create(scene));

@@ -47,6 +47,7 @@ public partial class JsonSerializationContext(
 
     internal bool TryGetPreservedValue(string name, Type type, out object? value, bool allowCollections = false)
     {
+        MarkRead(name);
         // Property readers can skip assigning an unchanged collection. Ordinary GetValue calls
         // must not return it: custom readers may clear and refill their destination collection.
         if (_preservedValues is not null && _preservedValues.TryGetValue(name, out CapturedValue? captured)
@@ -103,6 +104,8 @@ public partial class JsonSerializationContext(
 
     public JsonObject GetJsonObject()
     {
+        // The caller can read any key, so none of them is an unknown member.
+        _readsAllKeys = true;
         return _json;
     }
 
@@ -115,6 +118,7 @@ public partial class JsonSerializationContext(
 
     public JsonNode? GetNode(string name)
     {
+        MarkRead(name);
         return _json[name];
     }
 
@@ -127,6 +131,7 @@ public partial class JsonSerializationContext(
 
     public void Populate(string name, ICoreSerializable obj)
     {
+        MarkRead(name);
         if (_json[name] is JsonObject jobj)
         {
             var context = new JsonSerializationContext(
@@ -137,6 +142,7 @@ public partial class JsonSerializationContext(
             using (ThreadLocalSerializationContext.Enter(context))
             {
                 obj.Deserialize(context);
+                context.KeepUnknownMembers(obj);
                 context.AfterDeserialized(obj);
             }
         }
@@ -214,6 +220,8 @@ public partial class JsonSerializationContext(
 
     public bool Contains(string name)
     {
+        // A type that asks for a key knows it, even when it then leaves the value alone.
+        MarkRead(name);
         return _json.ContainsKey(name);
     }
 }

@@ -20,6 +20,11 @@ internal static class DeserializationIncidents
     internal static void RecordFallback(IFallback? fallback = null)
     {
         Record(new DeserializationIncident(fallback, null, null, null));
+        // A fallback keeps the JSON it stands in for, so a project read that made one kept data it cannot show.
+        if (fallback is not null)
+        {
+            RootFileVersions.RecordKeptUnknownData();
+        }
     }
 
     internal static void RecordFallback(

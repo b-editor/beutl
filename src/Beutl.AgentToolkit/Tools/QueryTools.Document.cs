@@ -64,12 +64,14 @@ public sealed partial class QueryTools
         if (Guid.TryParse(rootId, out Guid id)
             && IdentityHelper.FindById(session.Root, id) is CoreObject subtree)
         {
+            // Like Documents.Read, without the members Beutl does not know.
             JsonObject document = CoreSerializer.SerializeToJsonObject(
                 subtree,
                 new CoreSerializerOptions
                 {
                     BaseUri = subtree.Uri,
-                    Mode = CoreSerializationMode.EmbedReferencedObjects
+                    Mode = CoreSerializationMode.EmbedReferencedObjects,
+                    KeepUnknownMembers = false
                 });
             SchemaVersion.Stamp(document);
             return document;

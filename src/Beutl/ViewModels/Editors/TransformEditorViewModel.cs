@@ -133,7 +133,8 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>,
             {
                 if (Value.Value is Transform transform && transform.IsEnabled != v)
                 {
-                    if (!IsElementEditable)
+                    // A fallback saves the JSON it was read from, so the change would be lost.
+                    if (!IsElementEditable || transform is IFallback)
                     {
                         IsEnabled.Value = transform.IsEnabled;
                         return;

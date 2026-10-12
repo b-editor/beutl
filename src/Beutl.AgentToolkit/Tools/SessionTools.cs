@@ -32,6 +32,12 @@ public sealed record OpenProjectResponse(string Session, string Source, SessionS
     public IReadOnlyList<string> Warnings { get; init; } = [];
 
     public IReadOnlyList<RecoveryIncident> RecoveryIncidents { get; init; } = [];
+
+    /// <summary>
+    /// The Beutl version that last saved the project, as its project file records it, or <see langword="null"/>
+    /// when the file records none or the value is not a version.
+    /// </summary>
+    public string? LastSavedWith { get; init; }
 }
 
 public sealed record CreateProjectResponse(string Session, string SavedPath, SessionSummary Summary);
@@ -91,6 +97,7 @@ public sealed class SessionTools(
             {
                 Warnings = recovery.Warnings,
                 RecoveryIncidents = recovery.RecoveryIncidents,
+                LastSavedWith = result.Session.ReadOnSession(() => RootFileVersions.GetLastSavedVersion(result.Project)),
             };
         });
     }
@@ -99,6 +106,17 @@ public sealed class SessionTools(
     {
         var warnings = new List<string>();
         var incidents = new List<RecoveryIncident>();
+        // The notice the editor shows when it opens the project. The version it names comes from the file, so it
+        // is returned in LastSavedWith rather than in this text.
+        if (RootFileVersions.HasKeptUnknownData(project))
+        {
+            warnings.Add(
+                "This project contains data from a newer version of Beutl or from an extension that is not installed. "
+                + "Beutl keeps that data when it saves the project, but does not show or use it, and documents leave out "
+                + "the members it does not know. The lastSavedWith field names the version that last saved the "
+                + "project, when the project file records one.");
+        }
+
         foreach (Scene scene in project.Items.OfType<Scene>())
         {
             foreach (Element element in scene.Children)

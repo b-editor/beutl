@@ -58,7 +58,7 @@
 
                 <ToggleButton x:Name="VisibilityButton"
                               Grid.Column="1"
-                              IsEnabled="{Binding CanEdit.Value}"
+                              IsEnabled="{Binding CanToggleEnabled.Value}"
                               IsChecked="{Binding IsEnabled.Value}"
                               Theme="{StaticResource ToolTabVisibilityToggleButtonTheme}" />
 

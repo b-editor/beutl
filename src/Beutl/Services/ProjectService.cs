@@ -501,11 +501,21 @@ public sealed partial class ProjectService
 
     private void ShowProjectNotices(Project project)
     {
-        if (Beutl.Editor.Services.UnmigratedNodeTreeNotice.Create(project) is not { } notice) return;
+        Notification[] notices = new[]
+            {
+                Beutl.Editor.Services.UnmigratedNodeTreeNotice.Create(project),
+                Beutl.Editor.Services.KeptUnknownDataNotice.Create(project),
+            }
+            .OfType<Notification>()
+            .ToArray();
+        if (notices.Length == 0) return;
 
         var dismissal = new CancellationTokenSource();
         Interlocked.Exchange(ref _projectNoticeDismissal, dismissal)?.Cancel();
-        NotificationService.Show(notice with { CancellationToken = dismissal.Token });
+        foreach (Notification notice in notices)
+        {
+            NotificationService.Show(notice with { CancellationToken = dismissal.Token });
+        }
     }
 
     private async Task RollBackFailedActivationAsync(Project project)

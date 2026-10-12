@@ -2,7 +2,6 @@
 using Beutl.Editor;
 using Beutl.Editor.Services;
 using Beutl.Engine;
-using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
@@ -11,15 +10,15 @@ using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Editor.Services;
 
-// When part of an element's file cannot be loaded (usually a type from a plugin that is not installed),
-// recovery keeps the file as it is until the element is repaired, so saving never writes the element's
-// edits. The editor must therefore refuse those edits, the way it refuses edits to a locked clip,
-// instead of accepting them and losing them on save. Removing the element, and removing or replacing
-// what could not be loaded, stay allowed.
+// When saving an element would lose part of what it was read with (for example a keyframe easing from a
+// plugin that is not installed), recovery keeps the file as it is until the element is repaired, so saving
+// never writes the element's edits. The editor must therefore refuse those edits, the way it refuses edits
+// to a locked clip, instead of accepting them and losing them on save. Removing the element, and removing or
+// replacing what could not be loaded, stay allowed. An object whose type is missing does not protect its
+// element (see UnknownTypeElementTests).
 [TestFixture]
 public class RecoveryProtectedElementTests
 {
-    private const string MissingShapeType = "[Missing.Plugin]Missing.Namespace:MissingShape";
 
     private string _root = null!;
 
@@ -39,7 +38,7 @@ public class RecoveryProtectedElementTests
     [Test]
     public void MovingAProtectedElement_IsRefusedInsteadOfBeingLostOnSave()
     {
-        (Uri sceneUri, string elementPath) = CreateSceneWithMissingType();
+        (Uri sceneUri, string elementPath) = CreateProtectedScene();
         byte[] original = File.ReadAllBytes(elementPath);
         Scene scene = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
         Element element = scene.Children.Single();
@@ -55,7 +54,7 @@ public class RecoveryProtectedElementTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(element.SuppressedStorageSource, Is.Not.Null, "The missing type must keep the file protected.");
+            Assert.That(element.SuppressedStorageSource, Is.Not.Null, "The unreadable easing must keep the file protected.");
             Assert.That(scene.IsElementLocked(element), Is.True);
             Assert.That(ElementEditability.IsEditable(element), Is.False);
             Assert.That(element.Start, Is.EqualTo(start), "The move must be refused, not accepted and then dropped.");
@@ -68,14 +67,14 @@ public class RecoveryProtectedElementTests
     [Test]
     public void RemovingTheUnavailableObject_RepairsTheElementAndLaterEditsAreSaved()
     {
-        (Uri sceneUri, string elementPath) = CreateSceneWithMissingType();
+        (Uri sceneUri, string elementPath) = CreateProtectedScene();
         Scene scene = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
         Element element = scene.Children.Single();
         using var harness = new HistoryHarness(scene);
         var objects = new ElementObjectService(harness.History);
         var resize = new ElementResizeService(harness.History);
         EngineObject unavailable = element.Objects.Single();
-        Assert.That(unavailable, Is.InstanceOf<IFallback>());
+        Assert.That(Scene.HoldsRecoveryBlocker(unavailable), Is.True);
 
         bool removed = objects.Remove(element, unavailable);
         TimeSpan moved = element.Start + TimeSpan.FromSeconds(1);
@@ -96,7 +95,7 @@ public class RecoveryProtectedElementTests
     [Test]
     public void ReplacingTheUnavailableObject_RepairsTheElement()
     {
-        (Uri sceneUri, _) = CreateSceneWithMissingType();
+        (Uri sceneUri, _) = CreateProtectedScene();
         Scene scene = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
         Element element = scene.Children.Single();
         using var harness = new HistoryHarness(scene);
@@ -115,15 +114,14 @@ public class RecoveryProtectedElementTests
     [Test]
     public void ReplacingTheUnavailableObject_WithContentThatCannotBeLoadedEither_IsRefused()
     {
-        (Uri sceneUri, _) = CreateSceneWithMissingType();
+        (Uri sceneUri, _) = CreateProtectedScene();
         Scene scene = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
         Element element = scene.Children.Single();
         EngineObject unavailable = element.Objects.Single();
         using var harness = new HistoryHarness(scene);
         var objects = new ElementObjectService(harness.History);
-        // A known top-level type whose effect comes from a plugin that is not installed.
-        JsonObject json = CoreSerializer.SerializeToJsonObject(new RectShape { FilterEffect = { CurrentValue = new Blur() } });
-        json[nameof(RectShape.FilterEffect)]!.AsObject()["$type"] = "[Missing.Plugin]Missing.Namespace:MissingEffect";
+        // A shape whose easing comes from a plugin that is not installed.
+        JsonObject json = RecoveryBlockers.CreateShapeWithUnreadableEasing();
 
         ObjectPasteOutcome outcome = objects.PasteOver(element, 0, json.ToJsonString());
 
@@ -139,12 +137,12 @@ public class RecoveryProtectedElementTests
     [Test]
     public void ProtectedElement_RefusesOrdinaryObjectEdits()
     {
-        (Uri sceneUri, _) = CreateSceneWithMissingType(addHealthyObject: true);
+        (Uri sceneUri, _) = CreateProtectedScene(addHealthyObject: true);
         Scene scene = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
         Element element = scene.Children.Single();
         EngineObject unavailable = element.Objects[0];
         EngineObject healthy = element.Objects[1];
-        Assert.That(unavailable, Is.InstanceOf<IFallback>());
+        Assert.That(Scene.HoldsRecoveryBlocker(unavailable), Is.True);
         using var harness = new HistoryHarness(scene);
         var objects = new ElementObjectService(harness.History);
         var attributes = new ElementAttributeService(harness.History);
@@ -176,7 +174,7 @@ public class RecoveryProtectedElementTests
     [Test]
     public void DeletingOrExcludingAProtectedElement_IsAllowedAndKeepsItsFile()
     {
-        (Uri sceneUri, string[] elementPaths) = CreateSceneWithMissingTypes(2);
+        (Uri sceneUri, string[] elementPaths) = CreateProtectedScenes(2);
         byte[][] originals = elementPaths.Select(File.ReadAllBytes).ToArray();
         Scene scene = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
         Element deleted = scene.Children.Single(e => e.Uri!.LocalPath == elementPaths[0]);
@@ -200,7 +198,7 @@ public class RecoveryProtectedElementTests
     [Test]
     public void LockingAProtectedElement_IsRefused_ButUnlockingStaysAllowed()
     {
-        (Uri sceneUri, _) = CreateSceneWithMissingType();
+        (Uri sceneUri, _) = CreateProtectedScene();
         Scene scene = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
         Element element = scene.Children.Single();
         using var harness = new HistoryHarness(scene);
@@ -225,7 +223,7 @@ public class RecoveryProtectedElementTests
     [Test]
     public void UserLock_StillStopsRemovingAProtectedElement()
     {
-        (Uri sceneUri, _) = CreateSceneWithMissingType();
+        (Uri sceneUri, _) = CreateProtectedScene();
         Scene scene = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
         Element element = scene.Children.Single();
         element.IsLocked = true;
@@ -249,7 +247,7 @@ public class RecoveryProtectedElementTests
     {
         using var harness = new SceneHistoryHarness("beutl_recovery_observe");
         Element element = harness.AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
-        var fallback = new FallbackEngineObject();
+        FallbackEngineObject fallback = RecoveryBlockers.CreateUnmigratedObject();
         element.AddObject(fallback);
         element.SuppressedStorageSource = new SuppressedStorageSource([], element.Uri!);
         harness.History.Commit("Setup");
@@ -272,7 +270,7 @@ public class RecoveryProtectedElementTests
         using var harness = new SceneHistoryHarness("beutl_recovery_repair");
         Element element = harness.AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
         var holder = new RectShape();
-        var unavailable = new FallbackEngineObject();
+        FallbackEngineObject unavailable = RecoveryBlockers.CreateUnmigratedObject();
         element.AddObject(unavailable);
         element.AddObject(holder);
         element.SuppressedStorageSource = new SuppressedStorageSource([], element.Uri!);
@@ -348,7 +346,7 @@ public class RecoveryProtectedElementTests
     [Test]
     public void Notice_NamesTheProtectedElementsOfTheScene()
     {
-        (Uri sceneUri, string[] elementPaths) = CreateSceneWithMissingTypes(2);
+        (Uri sceneUri, string[] elementPaths) = CreateProtectedScenes(2);
         Scene scene = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
         Element unnamed = scene.Children.Single(e => e.Uri!.LocalPath == elementPaths[1]);
         unnamed.Name = string.Empty;
@@ -398,16 +396,16 @@ public class RecoveryProtectedElementTests
         });
     }
 
-    private (Uri SceneUri, string ElementPath) CreateSceneWithMissingType(bool addHealthyObject = false)
+    private (Uri SceneUri, string ElementPath) CreateProtectedScene(bool addHealthyObject = false)
     {
-        (Uri sceneUri, string[] elementPaths) = CreateSceneWithMissingTypes(1, addHealthyObject);
+        (Uri sceneUri, string[] elementPaths) = CreateProtectedScenes(1, addHealthyObject);
         return (sceneUri, elementPaths[0]);
     }
 
-    // Saves a scene whose elements each hold a rectangle, then rewrites the rectangle's type in every
-    // element file to one from an assembly that is not loaded, as when the plugin that provides it is
-    // not installed.
-    private (Uri SceneUri, string[] ElementPaths) CreateSceneWithMissingTypes(int count, bool addHealthyObject = false)
+    // Saves a scene whose elements each hold a rectangle, then gives the rectangle in every element file a
+    // keyframe whose easing type is from an assembly that is not loaded, as when the plugin that provides it
+    // is not installed.
+    private (Uri SceneUri, string[] ElementPaths) CreateProtectedScenes(int count, bool addHealthyObject = false)
     {
         var sceneUri = new Uri(Path.Combine(_root, "scene.scene"));
         var scene = new Scene(64, 64, "Scene") { Uri = sceneUri };
@@ -431,7 +429,7 @@ public class RecoveryProtectedElementTests
         foreach (string elementPath in elementPaths)
         {
             JsonObject json = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
-            json[nameof(Element.Objects)]!.AsArray()[0]!.AsObject()["$type"] = MissingShapeType;
+            RecoveryBlockers.AddUnreadableEasing(json[nameof(Element.Objects)]!.AsArray()[0]!.AsObject());
             File.WriteAllText(elementPath, json.ToJsonString());
         }
 

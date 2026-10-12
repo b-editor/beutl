@@ -17,6 +17,17 @@ public record CoreSerializerOptions
     /// Preserved objects remain available for reference resolution.
     /// </summary>
     public bool PreserveUnchangedValues { get; init; }
+
+    /// <summary>
+    /// Whether reading keeps the members a type does not read and writing writes them back. Unset, a read or
+    /// write does what the one around it does, which keeps them at the top.
+    /// </summary>
+    /// <remarks>
+    /// The Beutl 1.x element migration drops them, since 2.x does not read what 1.x kept for itself. Agent
+    /// documents leave them out and applying one keeps none of its own, since an agent edits only members Beutl
+    /// knows. Populating with this off leaves the members an object kept before alone.
+    /// </remarks>
+    internal bool? KeepUnknownMembers { get; init; }
 }
 
 public static partial class CoreSerializer
@@ -100,8 +111,15 @@ public static partial class CoreSerializer
         using (ThreadLocalSerializationContext.Enter(context))
         {
             obj.Serialize(context);
+            context.WriteUnknownMembers(obj);
             var jsonObject = context.GetJsonObject();
-            jsonObject.WriteDiscriminator(type);
+            // A fallback writes the JSON it was read from, whose discriminator names the type that could not be
+            // loaded; replacing it with the fallback's own type would lose that type for good.
+            if (obj is not IFallback)
+            {
+                jsonObject.WriteDiscriminator(type);
+            }
+
             return jsonObject;
         }
     }
@@ -209,6 +227,7 @@ public static partial class CoreSerializer
         using (ThreadLocalSerializationContext.Enter(context))
         {
             obj.Deserialize(context);
+            context.KeepUnknownMembers(obj);
             context.AfterDeserialized(obj);
         }
 
@@ -276,13 +295,17 @@ public static partial class CoreSerializer
             JsonObject current = SerializeToJsonObject(obj, new CoreSerializerOptions
             {
                 BaseUri = context.BaseUri,
-                Mode = context.Mode & ~CoreSerializationMode.SaveReferencedObjects
+                Mode = context.Mode & ~CoreSerializationMode.SaveReferencedObjects,
+                // Like json: JSON without the unknown members, such as an agent document, must find a value
+                // that differs only in them unchanged, or the value is replaced by one without them.
+                KeepUnknownMembers = context.KeepsUnknownMembers
             }, capturedValues);
             context.PreserveUnchangedValues(current, capturedValues);
         }
         using (ThreadLocalSerializationContext.Enter(context))
         {
             obj.Deserialize(context);
+            context.KeepUnknownMembers(obj);
             context.AfterDeserialized(obj);
         }
     }

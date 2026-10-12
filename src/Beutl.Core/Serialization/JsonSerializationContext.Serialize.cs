@@ -60,6 +60,7 @@ public partial class JsonSerializationContext
         using (ThreadLocalSerializationContext.Enter(innerContext))
         {
             coreSerializable.Serialize(innerContext);
+            innerContext.WriteUnknownMembers(coreSerializable);
         }
 
         JsonObject obj = innerContext.GetJsonObject();

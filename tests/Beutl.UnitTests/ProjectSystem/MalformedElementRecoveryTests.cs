@@ -17,6 +17,7 @@ using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.ProjectSystem;
 
@@ -73,9 +74,10 @@ public sealed class MalformedElementRecoveryTests
         Assert.That(DeserializationIncidents.FallbackCount, Is.EqualTo(before));
     }
 
-    [TestCase(false)]
-    [TestCase(true)]
-    public void HiddenUriFallbackStaysProtectedUntilRepairedOrRemoved(bool remove)
+    // A fallback hidden in a record, in a file the element references, saves the JSON it was read from like any
+    // other, so it does not protect the element: an unrelated edit is saved, and so is the fallback's JSON.
+    [Test]
+    public void HiddenUriFallback_IsWrittenBackWithoutProtectingTheElement()
     {
         (Uri sceneUri, string elementPath) = CreatePersistedScene();
         Element source = CoreSerializer.RestoreFromUri<Element>(new Uri(elementPath));
@@ -89,17 +91,20 @@ public sealed class MalformedElementRecoveryTests
         JsonObject json = JsonNode.Parse(File.ReadAllText(sidecarPath))!.AsObject();
         json["Children"]![0]!["$type"] = "[Missing.Plugin]Missing:Transform";
         File.WriteAllText(sidecarPath, json.ToJsonString());
-        byte[] original = File.ReadAllBytes(elementPath);
-        byte[] nested = File.ReadAllBytes(sidecarPath);
         Element recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single();
         recovered.Name = "Unrelated edit";
-        Assert.That(Scene.TryResumeElementPersistence(recovered), Is.Null);
         CoreSerializer.StoreToUri(recovered, recovered.Uri!);
-        Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(original));
-        Assert.That(File.ReadAllBytes(sidecarPath), Is.EqualTo(nested));
-        var recoveredHolder = recovered.Objects.OfType<WrappedStorageHolder>().Single();
-        recoveredHolder.Wrapped.CurrentValue = remove ? [] : [new StorageWrapper(new RotationTransform())];
-        Assert.That(Scene.TryResumeElementPersistence(recovered), Is.Not.Null);
+        Element reopened = CoreSerializer.RestoreFromUri<Element>(new Uri(elementPath));
+        JsonObject savedSidecar = JsonNode.Parse(File.ReadAllText(sidecarPath))!.AsObject();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(recovered.SuppressedStorageSource, Is.Null);
+            Assert.That(reopened.Name, Is.EqualTo("Unrelated edit"));
+            Assert.That(JsonNode.DeepEquals(savedSidecar["Children"]![0], json["Children"]![0]), Is.True);
+            Assert.That(reopened.Objects.OfType<WrappedStorageHolder>().Single().Wrapped.CurrentValue!.Single().Value,
+                Is.InstanceOf<TransformGroup>());
+        });
     }
 
     [SuppressResourceClassGeneration]
@@ -118,6 +123,7 @@ public sealed class MalformedElementRecoveryTests
         Element source = CoreSerializer.RestoreFromUri<Element>(new Uri(elementPath));
         ((RectShape)source.Objects.Single()).Transform.CurrentValue = new RotationTransform { Uri = new Uri(referencedPath) };
         CoreSerializer.StoreToUri(source, source.Uri!);
+        AddUnreadableEasing(elementPath);
         JsonObject json = JsonNode.Parse(File.ReadAllText(referencedPath))!.AsObject();
         json["$type"] = TypeFormat.ToString(failedType);
         File.WriteAllText(referencedPath, json.ToJsonString());
@@ -147,9 +153,7 @@ public sealed class MalformedElementRecoveryTests
         holder.Wrapped.CurrentValue = [new StorageWrapper(new RotationTransform { Uri = new Uri(referencedPath) })];
         source.AddObject(holder);
         CoreSerializer.StoreToUri(source, source.Uri!);
-        JsonObject json = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
-        json["Objects"]![0]!["$type"] = "[Missing.Plugin]Missing.Namespace:MissingShape";
-        File.WriteAllText(elementPath, json.ToJsonString());
+        AddUnreadableEasing(elementPath);
         byte[] retainedBytes = File.ReadAllBytes(referencedPath);
         Element recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single();
         Assert.That(recovered.Objects.OfType<WrappedStorageHolder>(), Has.Exactly(1).Items,
@@ -1123,15 +1127,24 @@ public sealed class MalformedElementRecoveryTests
             },
         });
         File.WriteAllText(elementPath, elementJson.ToJsonString());
-        byte[] originalBytes = File.ReadAllBytes(elementPath);
 
         Scene recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        var fallback = (CoreObject)recovered.Children.Single().Objects.Single();
         CoreSerializer.StoreToUri(recovered, sceneUri);
+        JsonObject saved = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
+        Scene reopened = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        // The fallback saves the object as it was read, except that an object read without an Id keeps the one it
+        // was given, so the element is not protected and the next read recovers it the same way.
+        JsonObject expected = elementJson[nameof(Element.Objects)]!.AsArray()[0]!.DeepClone().AsObject();
+        expected[nameof(CoreObject.Id)] = fallback.Id.ToString();
 
         Assert.Multiple(() =>
         {
-            Assert.That(recovered.Children.Single().Objects.Single(), Is.InstanceOf<IFallback>());
-            Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(originalBytes));
+            Assert.That(fallback, Is.InstanceOf<IFallback>());
+            Assert.That(recovered.Children.Single().SuppressedStorageSource, Is.Null);
+            Assert.That(JsonNode.DeepEquals(saved[nameof(Element.Objects)]!.AsArray()[0], expected), Is.True);
+            Assert.That(reopened.Children.Single().Objects.Single(), Is.InstanceOf<IFallback>());
+            Assert.That(reopened.Children.Single().Objects.Single().Id, Is.EqualTo(fallback.Id));
         });
     }
 
@@ -1302,6 +1315,7 @@ public sealed class MalformedElementRecoveryTests
         JsonObject transformJson = FindObjectByDiscriminator(json, "Transformation")!;
         transformJson["$type"] = "[Beutl.Engine]Beutl.Graphics.Transformation:DoesNotExist";
         transformJson.Remove(nameof(CoreObject.Id));
+        AddUnreadableEasing(json[nameof(Element.Objects)]!.AsArray()[0]!.AsObject());
         File.WriteAllText(elementPath, json.ToJsonString());
         byte[] originalBytes = File.ReadAllBytes(elementPath);
 
@@ -1377,6 +1391,7 @@ public sealed class MalformedElementRecoveryTests
         JsonObject transformJson = FindObjectByDiscriminator(json, nameof(RotationTransform))!;
         transformJson["$type"] = "[Beutl.Engine]Beutl.Graphics.Transformation:DoesNotExist";
         transformJson[nameof(CoreObject.Id)] = contestedId.ToString();
+        AddUnreadableEasing(json[nameof(Element.Objects)]!.AsArray()[0]!.AsObject());
         File.WriteAllText(elementPaths[0], json.ToJsonString());
 
         Scene firstLoad = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
@@ -1733,6 +1748,7 @@ public sealed class MalformedElementRecoveryTests
         JsonObject json = JsonNode.Parse(File.ReadAllText(elementPaths[1]))!.AsObject();
         JsonObject transformJson = FindObjectByDiscriminator(json, "RotationTransform")!;
         transformJson["$type"] = "[Beutl.Engine]Beutl.Graphics.Transformation:DoesNotExist";
+        AddUnreadableEasing(json[nameof(Element.Objects)]!.AsArray()[0]!.AsObject());
         File.WriteAllText(elementPaths[1], json.ToJsonString());
 
         Scene recoveredScene = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
@@ -1801,6 +1817,7 @@ public sealed class MalformedElementRecoveryTests
         JsonObject json = JsonNode.Parse(File.ReadAllText(elementPaths[0]))!.AsObject();
         JsonObject transformJson = FindObjectByDiscriminator(json, "RotationTransform")!;
         transformJson["$type"] = "[Beutl.Engine]Beutl.Graphics.Transformation:DoesNotExist";
+        AddUnreadableEasing(json[nameof(Element.Objects)]!.AsArray()[0]!.AsObject());
         File.WriteAllText(elementPaths[0], json.ToJsonString());
 
         Scene recoveredScene = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
@@ -1870,6 +1887,7 @@ public sealed class MalformedElementRecoveryTests
             transformJson["$type"] = "[Beutl.Engine]Beutl.Graphics.Transformation:DoesNotExist";
         }
 
+        AddUnreadableEasing(json[nameof(Element.Objects)]!.AsArray()[0]!.AsObject());
         File.WriteAllText(elementPaths[0], json.ToJsonString());
 
         Scene recoveredScene = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
@@ -1934,6 +1952,7 @@ public sealed class MalformedElementRecoveryTests
         JsonObject json = JsonNode.Parse(File.ReadAllText(elementPaths[0]))!.AsObject();
         JsonObject fallbackJson = json[nameof(Element.Objects)]!.AsArray()[1]!.AsObject();
         fallbackJson["$type"] = "[Beutl.Engine]Beutl.Graphics.Shapes:MissingShape";
+        AddUnreadableEasing(json[nameof(Element.Objects)]!.AsArray()[0]!.AsObject());
         File.WriteAllText(elementPaths[0], json.ToJsonString());
 
         Scene recoveredScene = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
@@ -1999,6 +2018,7 @@ public sealed class MalformedElementRecoveryTests
             transformJson["$type"] = "[Beutl.Engine]Beutl.Graphics.Transformation:DoesNotExist";
         }
 
+        AddUnreadableEasing(json[nameof(Element.Objects)]!.AsArray()[0]!.AsObject());
         File.WriteAllText(elementPaths[0], json.ToJsonString());
 
         Scene recoveredScene = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
@@ -2586,6 +2606,7 @@ public sealed class MalformedElementRecoveryTests
         JsonObject json = JsonNode.Parse(File.ReadAllText(recoveredPath))!.AsObject();
         JsonObject transformJson = FindObjectByDiscriminator(json, nameof(RotationTransform))!;
         transformJson["$type"] = "[Beutl.Engine]Beutl.Graphics.Transformation:DoesNotExist";
+        json[nameof(Element.Objects)]!.AsArray().Add(CreateShapeWithUnreadableEasing());
         File.WriteAllText(recoveredPath, json.ToJsonString());
 
         Scene first = CoreSerializer.RestoreFromUri<Scene>(scene.Uri);
@@ -2636,6 +2657,7 @@ public sealed class MalformedElementRecoveryTests
         JsonObject transformJson = FindObjectByDiscriminator(json, nameof(RotationTransform))!;
         string transformType = transformJson["$type"]!.GetValue<string>();
         transformJson["$type"] = "[Beutl.Engine]Beutl.Graphics.Transformation:DoesNotExist";
+        json[nameof(Element.Objects)]!.AsArray().Add(CreateShapeWithUnreadableEasing());
         File.WriteAllText(recoveredPath, json.ToJsonString());
 
         Scene first = CoreSerializer.RestoreFromUri<Scene>(scene.Uri);
@@ -2645,6 +2667,7 @@ public sealed class MalformedElementRecoveryTests
         transformJson = FindObjectByDiscriminator(json, "DoesNotExist")!;
         transformJson["$type"] = transformType;
         transformJson[nameof(CoreObject.Id)] = repairedId.ToString();
+        json[nameof(Element.Objects)]!.AsArray().Clear();
         File.WriteAllText(recoveredPath, json.ToJsonString());
 
         Scene second = CoreSerializer.RestoreFromUri<Scene>(scene.Uri);
@@ -2747,6 +2770,7 @@ public sealed class MalformedElementRecoveryTests
         JsonObject transformJson = FindObjectByDiscriminator(json, "RotationTransform")!;
         transformJson["$type"] = "[Beutl.Engine]Beutl.Graphics.Transformation:DoesNotExist";
         transformJson[nameof(CoreObject.Id)] = claimantId.ToString();
+        AddUnreadableEasing(json[nameof(Element.Objects)]!.AsArray()[0]!.AsObject());
         File.WriteAllText(elementPaths[1], json.ToJsonString());
 
         Scene recoveredScene = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
@@ -2794,6 +2818,7 @@ public sealed class MalformedElementRecoveryTests
         objects[1]!.AsObject()["$type"] = "[Beutl.Engine]Beutl.Graphics.Shapes:DoesNotExist";
         objects[0]!.AsObject()[nameof(CoreObject.Name)] = "Healthy sibling";
         objects[1]!.AsObject()[nameof(CoreObject.Name)] = "Fallback sibling";
+        AddUnreadableEasing(objects[0]!.AsObject());
         File.WriteAllText(elementPaths[1], json.ToJsonString());
         byte[] retainedBytes = File.ReadAllBytes(elementPaths[1]);
 
@@ -2895,6 +2920,7 @@ public sealed class MalformedElementRecoveryTests
         JsonObject transformJson = FindObjectByDiscriminator(json, "RotationTransform")!;
         transformJson["$type"] = "[Beutl.Engine]Beutl.Graphics.Transformation:DoesNotExist";
         transformJson[nameof(CoreObject.Id)] = healthyId.ToString();
+        AddUnreadableEasing(json[nameof(Element.Objects)]!.AsArray()[0]!.AsObject());
         File.WriteAllText(elementPaths[1], json.ToJsonString());
         byte[] originalBytes = File.ReadAllBytes(elementPaths[1]);
 
@@ -3093,6 +3119,7 @@ public sealed class MalformedElementRecoveryTests
         JsonObject transformJson = FindObjectByDiscriminator(json, "RotationTransform")!;
         transformJson["$type"] = "[Beutl.Engine]Beutl.Graphics.Transformation:DoesNotExist";
         transformJson.Remove(nameof(CoreObject.Id));
+        AddUnreadableEasing(json[nameof(Element.Objects)]!.AsArray()[0]!.AsObject());
         File.WriteAllText(elementPaths[0], json.ToJsonString());
 
         Scene firstLoad = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
@@ -3122,6 +3149,7 @@ public sealed class MalformedElementRecoveryTests
         JsonObject transformJson = FindObjectByDiscriminator(json, "RotationTransform")!;
         transformJson["$type"] = "[Beutl.Engine]Beutl.Graphics.Transformation:DoesNotExist";
         transformJson.Remove(nameof(CoreObject.Id));
+        AddUnreadableEasing(json[nameof(Element.Objects)]!.AsArray()[0]!.AsObject());
         File.WriteAllText(elementPath, json.ToJsonString());
 
         Scene scene = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
@@ -3131,8 +3159,9 @@ public sealed class MalformedElementRecoveryTests
         return (scene, weakReference);
     }
 
+    // A fallback saves the JSON it was read from wherever it is held, so it is no reason to keep the file.
     [Test]
-    public void TryResumeElementPersistence_DictionaryValuedFallback_StaysBlocked()
+    public void TryResumeElementPersistence_DictionaryValuedFallback_DoesNotBlock()
     {
         (Uri sceneUri, string elementPath) = CreatePersistedScene();
         Element element = CoreSerializer.RestoreFromUri<Element>(new Uri(elementPath));
@@ -3148,11 +3177,13 @@ public sealed class MalformedElementRecoveryTests
 
         SuppressedStorageSource? suppression = Scene.TryResumeElementPersistence(element);
 
-        Assert.That(suppression, Is.Null);
+        Assert.That(suppression, Is.Not.Null);
     }
 
+    // A fallback that a type serializes by hand, where the serialized graph does not reach, still saves the JSON
+    // it was read from, so it does not protect the element.
     [Test]
-    public void TryResumeElementPersistence_ManuallySerializedFallbackStaysBlockedUntilRepair()
+    public void ManuallySerializedFallback_IsWrittenBackWithoutProtectingTheElement()
     {
         (Uri sceneUri, string elementPath) = CreatePersistedScene();
         Element source = CoreSerializer.RestoreFromUri<Element>(new Uri(elementPath));
@@ -3172,17 +3203,14 @@ public sealed class MalformedElementRecoveryTests
         var recoveredHolder = recovered.Objects.OfType<ManuallySerializedTransformHolder>().Single();
         Assert.That(recoveredHolder.HiddenTransform, Is.InstanceOf<IFallback>());
         recovered.Name = "Unrelated edit";
-
-        SuppressedStorageSource? blocked = Scene.TryResumeElementPersistence(recovered);
-        recoveredHolder.HiddenTransform = new RotationTransform();
-        SuppressedStorageSource? resumed = Scene.TryResumeElementPersistence(recovered);
+        CoreSerializer.StoreToUri(recovered, recovered.Uri!);
+        JsonObject saved = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
 
         Assert.Multiple(() =>
         {
-            Assert.That(recoveredHolder.HiddenTransform, Is.Not.InstanceOf<IFallback>());
-            Assert.That(blocked, Is.Null);
-            Assert.That(resumed, Is.Not.Null);
             Assert.That(recovered.SuppressedStorageSource, Is.Null);
+            Assert.That(saved[nameof(CoreObject.Name)]!.GetValue<string>(), Is.EqualTo("Unrelated edit"));
+            Assert.That(JsonNode.DeepEquals(FindObjectByDiscriminator(saved, "DoesNotExist"), transformJson), Is.True);
         });
     }
 
@@ -3209,6 +3237,7 @@ public sealed class MalformedElementRecoveryTests
         JsonObject transformJson = FindObjectByDiscriminator(json, "RotationTransform")!;
         transformJson["$type"] = "[Beutl.Engine]Beutl.Graphics.Transformation:DoesNotExist";
         transformJson[nameof(CoreObject.Id)] = claimantId.ToString();
+        AddUnreadableEasing(json[nameof(Element.Objects)]!.AsArray()[0]!.AsObject());
         File.WriteAllText(elementPaths[1], json.ToJsonString());
 
         Scene recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
@@ -3320,6 +3349,7 @@ public sealed class MalformedElementRecoveryTests
         JsonObject transformJson = JsonNode.Parse(File.ReadAllText(referencedPath))!.AsObject();
         transformJson["$type"] = "[Missing.Plugin]Missing.Namespace:MissingTransform";
         File.WriteAllText(referencedPath, transformJson.ToJsonString());
+        AddUnreadableEasing(elementPath);
         byte[] elementBytes = File.ReadAllBytes(elementPath);
         byte[] referencedBytes = File.ReadAllBytes(referencedPath);
 
@@ -3368,6 +3398,7 @@ public sealed class MalformedElementRecoveryTests
         JsonObject transformJson = JsonNode.Parse(File.ReadAllText(actualPath))!.AsObject();
         transformJson["$type"] = "[Missing.Plugin]Missing.Namespace:MissingTransform";
         File.WriteAllText(actualPath, transformJson.ToJsonString());
+        AddUnreadableEasing(elementPath);
         byte[] retainedBytes = File.ReadAllBytes(actualPath);
         byte[] elementBytes = File.ReadAllBytes(elementPath);
 
@@ -3408,6 +3439,7 @@ public sealed class MalformedElementRecoveryTests
         JsonObject aliasJson = JsonNode.Parse(File.ReadAllText(aliasPath))!.AsObject();
         aliasJson["$type"] = "[Missing.Plugin]Missing.Namespace:MissingTransform";
         File.WriteAllText(aliasPath, aliasJson.ToJsonString());
+        AddUnreadableEasing(elementPath);
         byte[] aliasBytes = File.ReadAllBytes(aliasPath);
         byte[] retainedBytes = File.ReadAllBytes(actualPath);
         byte[] elementBytes = File.ReadAllBytes(elementPath);
@@ -3443,6 +3475,7 @@ public sealed class MalformedElementRecoveryTests
         JsonObject transformJson = JsonNode.Parse(File.ReadAllText(innerPath))!.AsObject();
         transformJson["$type"] = "[Missing.Plugin]Missing.Namespace:MissingTransform";
         File.WriteAllText(innerPath, transformJson.ToJsonString());
+        AddUnreadableEasing(elementPath);
         byte[] elementBytes = File.ReadAllBytes(elementPath);
         byte[] outerBytes = File.ReadAllBytes(outerPath);
         byte[] innerBytes = File.ReadAllBytes(innerPath);
@@ -3494,6 +3527,7 @@ public sealed class MalformedElementRecoveryTests
         JsonObject transformJson = JsonNode.Parse(File.ReadAllText(outsideTransformPath))!.AsObject();
         transformJson["$type"] = "[Missing.Plugin]Missing.Namespace:MissingTransform";
         File.WriteAllText(outsideTransformPath, transformJson.ToJsonString());
+        AddUnreadableEasing(elementPath);
         Element recovered = CoreSerializer.RestoreFromUri<Scene>(scene.Uri).Children.Single();
         string rehomedPath = Path.Combine(destinationRoot, "element.belm");
         string escapedDestination = Path.Combine(_root, "destination", "outside", "transform.json");
@@ -3524,6 +3558,7 @@ public sealed class MalformedElementRecoveryTests
         JsonObject transformJson = JsonNode.Parse(File.ReadAllText(referencedPath))!.AsObject();
         transformJson["$type"] = "[Missing.Plugin]Missing.Namespace:MissingTransform";
         File.WriteAllText(referencedPath, transformJson.ToJsonString());
+        AddUnreadableEasing(elementPath);
         Element recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single();
 
         string destinationRoot = Path.Combine(_root, "destination");
@@ -3544,22 +3579,29 @@ public sealed class MalformedElementRecoveryTests
         });
     }
 
+    // A value the shape cannot read makes the shape a fallback, which saves the JSON it was read from. That does
+    // not protect the element, so an edit to the element is saved around it.
     [Test]
-    public void Save_PreservesDeserializationFallbackSidecarBytes()
+    public void Save_WritesADeserializationFallbackBackWithTheEditsAroundIt()
     {
         (Uri sceneUri, string elementPath) = CreatePersistedScene();
         JsonObject json = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
-        json[nameof(CoreObject.Name)] = "Hand-formatted element";
         json[nameof(Element.Objects)]!.AsArray()[0]!.AsObject()[nameof(RectShape.Width)] = "invalid-width";
-        string fallbackSource = json.ToJsonString();
-        File.WriteAllText(elementPath, fallbackSource);
-        byte[] originalBytes = File.ReadAllBytes(elementPath);
+        File.WriteAllText(elementPath, json.ToJsonString());
 
         Scene recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
-        Assert.That(recovered.Children.Single().Objects.Single(), Is.InstanceOf<IFallback>());
+        Element element = recovered.Children.Single();
+        Assert.That(element.Objects.Single(), Is.InstanceOf<IFallback>());
+        element.Name = "Renamed";
         CoreSerializer.StoreToUri(recovered, sceneUri);
+        JsonObject saved = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
 
-        Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(originalBytes));
+        Assert.Multiple(() =>
+        {
+            Assert.That(element.SuppressedStorageSource, Is.Null);
+            Assert.That(saved[nameof(CoreObject.Name)]!.GetValue<string>(), Is.EqualTo("Renamed"));
+            Assert.That(JsonNode.DeepEquals(saved[nameof(Element.Objects)], json[nameof(Element.Objects)]), Is.True);
+        });
     }
 
     [Test]
@@ -3732,6 +3774,21 @@ public sealed class MalformedElementRecoveryTests
         }
 
         return null;
+    }
+
+    // An object whose type is missing no longer protects its element by itself, since its fallback saves the JSON
+    // it was read from, so the tests of protected elements that hold one give the element a keyframe whose easing
+    // type is missing as well (see RecoveryBlockers).
+    private static void AddUnreadableEasing(JsonObject shapeJson) => RecoveryBlockers.AddUnreadableEasing(shapeJson);
+
+    private static JsonObject CreateShapeWithUnreadableEasing() => RecoveryBlockers.CreateShapeWithUnreadableEasing();
+
+    // AddUnreadableEasing for the first object of an element file, a shape in the scenes these tests create.
+    private static void AddUnreadableEasing(string elementPath)
+    {
+        JsonObject json = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
+        AddUnreadableEasing(json[nameof(Element.Objects)]!.AsArray()[0]!.AsObject());
+        File.WriteAllText(elementPath, json.ToJsonString());
     }
 
     private static bool ContainsException<TException>(Exception exception)

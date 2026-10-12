@@ -81,7 +81,8 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
             {
                 if (Value.Value is { } filter && filter.IsEnabled != v)
                 {
-                    if (!IsElementEditable)
+                    // A fallback saves the JSON it was read from, so the change would be lost.
+                    if (!IsElementEditable || filter is IFallback)
                     {
                         IsEnabled.Value = filter.IsEnabled;
                         return;

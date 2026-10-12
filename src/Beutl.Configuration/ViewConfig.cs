@@ -6,6 +6,9 @@ using Beutl.Serialization;
 
 namespace Beutl.Configuration;
 
+// ShowStorageServices is a setting this section no longer has: the file browser always shows the registered storage
+// services, so a stored value is dropped rather than kept as an unknown member.
+[DroppedMembers("ShowStorageServices")]
 public sealed class ViewConfig : ConfigurationBase
 {
     public static readonly CoreProperty<string> ThemeProperty;

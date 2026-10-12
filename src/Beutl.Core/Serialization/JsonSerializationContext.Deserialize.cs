@@ -193,6 +193,7 @@ public partial class JsonSerializationContext
 
     private object? GetValueCore(string name, Type type, bool useOptionalDefault)
     {
+        MarkRead(name);
         // TにはOptional型が入る場合があるので、Jsonプロパティがnullの場合と存在しない場合で分ける
         if (!_json.TryGetPropertyValue(name, out JsonNode? node))
         {

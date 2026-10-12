@@ -510,4 +510,13 @@
   <data name="UnmigratedNodeTreeMessage" xml:space="preserve">
     <value>다음 요소의 노드 트리는 Beutl 1.x에서 만들어졌으며 마이그레이션되지 않아 그려지지 않습니다: {0}. 노드 트리를 담고 있는 개체를 제거할 때까지 이 요소들의 파일은 변경되지 않습니다. 저장하면 프로젝트의 나머지 부분이 변환되어 이후 Beutl 1.x에서 열 수 없습니다. 편집하거나 프로젝트를 닫을 때도 저장되므로, Beutl 1.x에서 계속 사용하려면 지금 프로젝트의 복사본을 보관하세요.</value>
   </data>
+  <data name="KeptUnknownDataTitle" xml:space="preserve">
+    <value>일부 데이터는 보존되지만 표시되지 않습니다</value>
+  </data>
+  <data name="KeptUnknownDataMessage" xml:space="preserve">
+    <value>이 프로젝트에는 최신 버전의 Beutl 또는 설치되지 않은 확장 프로그램의 데이터가 포함되어 있습니다. Beutl은 프로젝트를 저장할 때 이 데이터를 보존하지만 표시하거나 사용하지는 않습니다.</value>
+  </data>
+  <data name="KeptUnknownDataSavedByMessage" xml:space="preserve">
+    <value>이 프로젝트는 Beutl {0}에서 마지막으로 저장되었으며 최신 버전의 Beutl 또는 설치되지 않은 확장 프로그램의 데이터가 포함되어 있습니다. Beutl은 프로젝트를 저장할 때 이 데이터를 보존하지만 표시하거나 사용하지는 않습니다.</value>
+  </data>
 </root>
