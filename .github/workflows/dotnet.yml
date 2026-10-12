@@ -391,11 +391,16 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-  macos-font-tests:
+  macos-tests:
     permissions:
       contents: read
     runs-on: macos-15
     timeout-minutes: 20
+    env:
+      # MSBuild reads this as a property, so no build in this job compiles the Swift package over the
+      # committed libBeutlAVF.dylib copies. The AVFoundation tests load those copies, whatever the
+      # checkout timestamps are, and the working tree stays clean.
+      SkipSwiftBuild: "true"
 
     steps:
       - name: Checkout
@@ -422,12 +427,23 @@ jobs:
           --configuration Release -f net10.0 --filter FullyQualifiedName~Controls.UiFontsTests
           --logger trx --results-directory TestResults/macos-fonts
 
-      - name: Save font test diagnostics
+      # The AVFoundation fixtures are [Platform("MacOSX")], so the Linux shards skip them.
+      - name: Test AVFoundation on macOS
+        run: >-
+          dotnet test tests/Beutl.Extensions.AVFoundation.Tests/Beutl.Extensions.AVFoundation.Tests.csproj
+          --configuration Release -f net10.0
+          --logger trx --results-directory TestResults/macos-avfoundation
+          --blame-hang --blame-hang-timeout 2m --blame-hang-dump-type mini
+          --blame-crash --blame-crash-dump-type mini
+
+      - name: Save macOS test diagnostics
         if: always()
         uses: actions/upload-artifact@v7.0.2
         with:
-          name: MacOSFontTestDiagnostics
-          path: TestResults/macos-fonts/
+          name: MacOSTestDiagnostics
+          path: |
+            TestResults/macos-fonts/
+            TestResults/macos-avfoundation/
           if-no-files-found: ignore
           retention-days: 7
 
