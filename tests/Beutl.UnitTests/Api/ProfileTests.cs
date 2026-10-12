@@ -1,11 +1,10 @@
 ﻿using System.Net;
 using System.Reactive.Linq;
-using System.Reflection;
-using System.Text;
 using Beutl.Api;
 using Beutl.Api.Clients;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
+using Beutl.UnitTests.TestInfrastructure;
 using Reactive.Bindings;
 
 namespace Beutl.UnitTests.Api;
@@ -17,10 +16,10 @@ public sealed class ProfileTests
     public async Task RefreshSelf_UsesCapturedBearerAndCommitsOnlyCompletedResponse()
     {
         string? authorization = null;
-        using var handler = new StubHandler((request, _) =>
+        using var handler = new DelegateHttpHandler((request, _) =>
         {
             authorization = request.Headers.Authorization?.ToString();
-            return Task.FromResult(JsonResponse(HttpStatusCode.OK, """
+            return Task.FromResult(TestHttp.Json(HttpStatusCode.OK, """
                 {
                   "id": "test-user",
                   "name": "updated-name",
@@ -33,7 +32,7 @@ public sealed class ProfileTests
         });
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        Profile profile = SetAuthenticatedUser(app);
+        Profile profile = ApiTestAuthentication.SignIn(app).Profile;
         string? nameObservedWithResponse = null;
         using IDisposable subscription = profile.Response.Skip(1).Subscribe(_ =>
             nameObservedWithResponse = profile.Name);
@@ -53,15 +52,15 @@ public sealed class ProfileTests
     public async Task RefreshSelf_CancellationDoesNotMutateProfile()
     {
         var requestStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        using var handler = new StubHandler(async (_, cancellationToken) =>
+        using var handler = new DelegateHttpHandler(async (_, cancellationToken) =>
         {
             requestStarted.TrySetResult();
             await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
-            return JsonResponse(HttpStatusCode.OK, "{}");
+            return TestHttp.Json(HttpStatusCode.OK, "{}");
         });
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        Profile profile = SetAuthenticatedUser(app);
+        Profile profile = ApiTestAuthentication.SignIn(app).Profile;
         using var cancellationTokenSource = new CancellationTokenSource();
 
         Task refresh = profile.RefreshAsync(cancellationTokenSource.Token, self: true);
@@ -84,7 +83,7 @@ public sealed class ProfileTests
         var secondRequestStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var firstResponse = new TaskCompletionSource<HttpResponseMessage>(TaskCreationOptions.RunContinuationsAsynchronously);
         var secondResponse = new TaskCompletionSource<HttpResponseMessage>(TaskCreationOptions.RunContinuationsAsynchronously);
-        using var handler = new StubHandler(async (_, cancellationToken) =>
+        using var handler = new DelegateHttpHandler(async (_, cancellationToken) =>
         {
             int request = Interlocked.Increment(ref requestCount);
             if (request == 1)
@@ -105,9 +104,9 @@ public sealed class ProfileTests
         Task newerRefresh = profile.RefreshAsync(CancellationToken.None);
         await secondRequestStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
-        secondResponse.TrySetResult(JsonResponse(HttpStatusCode.OK, ProfileJson("newest", "Newest")));
+        secondResponse.TrySetResult(TestHttp.Json(HttpStatusCode.OK, ProfileJson("newest", "Newest")));
         await newerRefresh;
-        firstResponse.TrySetResult(JsonResponse(HttpStatusCode.OK, ProfileJson("older", "Older")));
+        firstResponse.TrySetResult(TestHttp.Json(HttpStatusCode.OK, ProfileJson("older", "Older")));
         await olderRefresh;
 
         Assert.Multiple(() =>
@@ -122,11 +121,11 @@ public sealed class ProfileTests
     {
         var detailRequestStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var detailCancellationObserved = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        using var handler = new StubHandler(async (request, cancellationToken) =>
+        using var handler = new DelegateHttpHandler(async (request, cancellationToken) =>
         {
             if (request.RequestUri?.AbsolutePath == "/api/v3/users/test/packages")
             {
-                return JsonResponse(HttpStatusCode.OK, $$"""
+                return TestHttp.Json(HttpStatusCode.OK, $$"""
                     [
                       {
                         "id": "package-id",
@@ -159,7 +158,7 @@ public sealed class ProfileTests
                 }
             }
 
-            return JsonResponse(HttpStatusCode.OK, "{}");
+            return TestHttp.Json(HttpStatusCode.OK, "{}");
         });
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
@@ -172,22 +171,6 @@ public sealed class ProfileTests
 
         await Assert.CatchAsync<OperationCanceledException>(async () => await operation);
         await detailCancellationObserved.Task.WaitAsync(TimeSpan.FromSeconds(5));
-    }
-
-    private static Profile SetAuthenticatedUser(BeutlApiApplication app)
-    {
-        var profile = new Profile(CreateProfileResponse("test", "Test User"), app);
-        var user = new AuthenticatedUser(profile, new AuthResponse
-        {
-            Token = "token",
-            RefreshToken = "refresh-token",
-            Expiration = DateTime.UtcNow.AddHours(1),
-        }, app, DateTime.UtcNow);
-        FieldInfo field = typeof(BeutlApiApplication).GetField(
-            "_authenticatedUser",
-            BindingFlags.NonPublic | BindingFlags.Instance)!;
-        ((ReactivePropertySlim<AuthenticatedUser?>)field.GetValue(app)!).Value = user;
-        return profile;
     }
 
     private static ProfileResponse CreateProfileResponse(string name, string displayName)
@@ -212,20 +195,4 @@ public sealed class ProfileTests
               "iconUrl": null
             }
             """;
-
-    private static HttpResponseMessage JsonResponse(HttpStatusCode status, string json)
-        => new(status) { Content = new StringContent(json, Encoding.UTF8, "application/json") };
-
-    private sealed class StubHandler(
-        Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> responder) : HttpMessageHandler
-    {
-        protected override async Task<HttpResponseMessage> SendAsync(
-            HttpRequestMessage request,
-            CancellationToken cancellationToken)
-        {
-            HttpResponseMessage response = await responder(request, cancellationToken);
-            response.RequestMessage = request;
-            return response;
-        }
-    }
 }

@@ -15,6 +15,7 @@ internal sealed class AiRetryAttemptContext(
     public IAiRetryKeyStore Store { get; } = store
         ?? throw new ArgumentNullException(nameof(store));
 
+    // Test seam: tests retry without a signed-in user; production always passes false.
     private bool AllowSyntheticIdentity { get; } = allowSyntheticIdentity;
 
     public AiAuthenticatedRequestIdentity GetRequiredIdentity()

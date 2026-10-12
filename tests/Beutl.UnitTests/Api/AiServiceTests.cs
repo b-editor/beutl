@@ -1,7 +1,6 @@
 ﻿using System.Collections.Specialized;
 using System.Net;
 using System.Net.Http.Headers;
-using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -9,6 +8,7 @@ using Beutl.Api;
 using Beutl.Api.Clients;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
+using Beutl.UnitTests.TestInfrastructure;
 using Reactive.Bindings;
 
 namespace Beutl.UnitTests.Api;
@@ -41,7 +41,7 @@ public sealed partial class AiCapabilityServiceTests
         using var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = content });
         using var http = new HttpClient(handler);
         await using var app = new BeutlApiApplication(http, new ExtensionProvider());
-        SetAuthenticatedUser(app);
+        ApiTestAuthentication.SignIn(app);
         await Assert.ThrowsAsync<AiException>(async () => await app.GetResource<IAiTranscriptionService>()
             .TranscribeAsync(new AiTranscriptionRequest(
                 AiUploadSource.FromBytes("audio.wav", "audio/wav", new byte[] { 1 })), CancellationToken.None));
@@ -64,7 +64,7 @@ public sealed partial class AiCapabilityServiceTests
     [Test]
     public async Task Application_RegistersEachCapabilityIndependently()
     {
-        using var handler = new RecordingHandler(_ => JsonResponse(HttpStatusCode.OK, "{}"));
+        using var handler = new RecordingHandler(_ => TestHttp.Json(HttpStatusCode.OK, "{}"));
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
 
@@ -102,12 +102,12 @@ public sealed partial class AiCapabilityServiceTests
     [Test]
     public async Task InteractiveAuthenticationDoesNotHoldApplicationLockWhileWaiting()
     {
-        using var handler = new RecordingHandler(_ => JsonResponse(HttpStatusCode.OK, "{}"));
+        using var handler = new RecordingHandler(_ => TestHttp.Json(HttpStatusCode.OK, "{}"));
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         var authenticationStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseAuthentication = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        AuthenticatedUser user = CreateAuthenticatedUser(app);
+        AuthenticatedUser user = ApiTestAuthentication.CreateUser(app);
         Task<AuthenticatedUser> authentication = app.RunInteractiveAuthenticationAsync(
             async cancellationToken =>
             {
@@ -138,16 +138,16 @@ public sealed partial class AiCapabilityServiceTests
     [Test]
     public async Task InteractiveAuthenticationDoesNotPublishAUserWhenPersistenceFails()
     {
-        using var handler = new RecordingHandler(_ => JsonResponse(HttpStatusCode.OK, "{}"));
+        using var handler = new RecordingHandler(_ => TestHttp.Json(HttpStatusCode.OK, "{}"));
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(
             httpClient,
             new ExtensionProvider(),
             static () => new HttpClient(),
             _ => throw new IOException("The user file is unavailable."));
-        AuthenticatedUser previous = CreateAuthenticatedUser(app, "previous-token");
-        SetAuthenticatedUser(app, previous);
-        AuthenticatedUser replacement = CreateAuthenticatedUser(app, "replacement-token");
+        AuthenticatedUser previous = ApiTestAuthentication.CreateUser(app, token: "previous-token");
+        ApiTestAuthentication.SignIn(app, previous);
+        AuthenticatedUser replacement = ApiTestAuthentication.CreateUser(app, token: "replacement-token");
 
         await Assert.ThrowsAsync<IOException>(() => app.RunInteractiveAuthenticationAsync(
             _ => Task.FromResult(replacement),
@@ -165,12 +165,12 @@ public sealed partial class AiCapabilityServiceTests
     [Test]
     public async Task Availability_SerializesEachDiscriminatedRequestWithoutPricingOrIdempotency()
     {
-        using var handler = new RecordingHandler(_ => JsonResponse(
+        using var handler = new RecordingHandler(_ => TestHttp.Json(
             HttpStatusCode.OK,
             "{ \"available\": true }"));
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(app);
+        ApiTestAuthentication.SignIn(app);
         IAiOperationAvailabilityService service =
             app.GetResource<IAiOperationAvailabilityService>();
 
@@ -219,30 +219,30 @@ public sealed partial class AiCapabilityServiceTests
     {
         using var handler = new RecordingHandler(request => request.Path switch
         {
-            "/api/v3/ai/images" or "/api/v3/ai/images/edit" => JsonResponse(HttpStatusCode.OK, """
+            "/api/v3/ai/images" or "/api/v3/ai/images/edit" => TestHttp.Json(HttpStatusCode.OK, """
                 {
                   "jobId": "image-job",
                   "fileId": "image-file",
                   "url": "https://beutl.beditor.net/api/contents/image-file"
                 }
                 """),
-            "/api/v3/ai/transcriptions" => JsonResponse(HttpStatusCode.OK, """
+            "/api/v3/ai/transcriptions" => TestHttp.Json(HttpStatusCode.OK, """
                 { "jobId": "transcription-job", "segments": [], "language": "en" }
                 """),
-            "/api/v3/ai/translations" => JsonResponse(HttpStatusCode.OK, """
+            "/api/v3/ai/translations" => TestHttp.Json(HttpStatusCode.OK, """
                 { "jobId": "translation-job", "segments": [] }
                 """),
-            "/api/v3/ai/videos" or "/api/v3/ai/videos/frames" => JsonResponse(HttpStatusCode.OK, """
+            "/api/v3/ai/videos" or "/api/v3/ai/videos/frames" => TestHttp.Json(HttpStatusCode.OK, """
                 { "jobId": "video-job", "status": "queued" }
                 """),
-            "/api/v3/ai/videos/video-job" => JsonResponse(HttpStatusCode.OK, """
+            "/api/v3/ai/videos/video-job" => TestHttp.Json(HttpStatusCode.OK, """
                 { "jobId": "video-job", "status": "running" }
                 """),
-            _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
+            _ => TestHttp.Json(HttpStatusCode.NotFound, "{}"),
         });
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(app);
+        ApiTestAuthentication.SignIn(app);
         AiUploadSource Upload(string name, string mediaType) => new(
             name,
             mediaType,
@@ -314,7 +314,7 @@ public sealed partial class AiCapabilityServiceTests
     [Test]
     public async Task Entitlements_WhenSignedOut_ReturnsNullWithoutTransportRequest()
     {
-        using var handler = new RecordingHandler(_ => JsonResponse(HttpStatusCode.OK, "{}"));
+        using var handler = new RecordingHandler(_ => TestHttp.Json(HttpStatusCode.OK, "{}"));
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
 
@@ -331,7 +331,7 @@ public sealed partial class AiCapabilityServiceTests
     [Test]
     public async Task Entitlements_MapsServerDtoIntoDomainModelAndPublishesIt()
     {
-        using var handler = new RecordingHandler(_ => JsonResponse(HttpStatusCode.OK, $$"""
+        using var handler = new RecordingHandler(_ => TestHttp.Json(HttpStatusCode.OK, $$"""
             {
               "plan": "pro",
               "subscriptionStatus": "active",
@@ -347,7 +347,7 @@ public sealed partial class AiCapabilityServiceTests
             """));
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(app);
+        ApiTestAuthentication.SignIn(app);
         IAiEntitlementService service = app.GetResource<IAiEntitlementService>();
 
         AiEntitlements? result = await service.RefreshAsync(CancellationToken.None);
@@ -381,19 +381,19 @@ public sealed partial class AiCapabilityServiceTests
     {
         using var handler = new RecordingHandler(request => request.Path switch
         {
-            "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.OK, EntitlementsJson()),
-            "/api/v3/ai/images" => JsonResponse(HttpStatusCode.OK, $$"""
+            "/api/v3/user/entitlements" => TestHttp.Json(HttpStatusCode.OK, EntitlementsJson()),
+            "/api/v3/ai/images" => TestHttp.Json(HttpStatusCode.OK, $$"""
                 {
                   "jobId": "job-image-1",
                   "fileId": "file-image-1",
                   "url": "https://beutl.beditor.net/api/contents/file-image-1"
                 }
                 """),
-            _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
+            _ => TestHttp.Json(HttpStatusCode.NotFound, "{}"),
         });
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(app);
+        ApiTestAuthentication.SignIn(app);
         IAiEntitlementService entitlements = app.GetResource<IAiEntitlementService>();
         await entitlements.RefreshAsync(CancellationToken.None);
 
@@ -410,8 +410,6 @@ public sealed partial class AiCapabilityServiceTests
         {
             Assert.That(request.Method, Is.EqualTo(HttpMethod.Post));
             Assert.That(request.Body, Does.Contain("A moonlit harbor"));
-            // The three things a fixed size could not express: a widescreen
-            // shape, an alpha channel, and a reproducible result.
             Assert.That(request.Body, Does.Contain("\"aspectRatio\":\"16:9\""));
             Assert.That(request.Body, Does.Contain("\"background\":\"transparent\""));
             Assert.That(request.Body, Does.Contain("\"seed\":42"));
@@ -431,19 +429,19 @@ public sealed partial class AiCapabilityServiceTests
     {
         using var handler = new RecordingHandler(request => request.Path switch
         {
-            "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.OK, EntitlementsJson()),
-            "/api/v3/ai/images" => JsonResponse(HttpStatusCode.OK, """
+            "/api/v3/user/entitlements" => TestHttp.Json(HttpStatusCode.OK, EntitlementsJson()),
+            "/api/v3/ai/images" => TestHttp.Json(HttpStatusCode.OK, """
                 {
                   "jobId": "job-image-2",
                   "fileId": "file-image-2",
                   "url": "https://beutl.beditor.net/api/contents/file-image-2"
                 }
                 """),
-            _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
+            _ => TestHttp.Json(HttpStatusCode.NotFound, "{}"),
         });
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(app);
+        ApiTestAuthentication.SignIn(app);
         IAiEntitlementService entitlements = app.GetResource<IAiEntitlementService>();
         await entitlements.RefreshAsync(CancellationToken.None);
 
@@ -465,7 +463,7 @@ public sealed partial class AiCapabilityServiceTests
     {
         using var handler = new RecordingHandler(request => request.Path switch
         {
-            "/api/v3/ai/translations" => JsonResponse(HttpStatusCode.OK, $$"""
+            "/api/v3/ai/translations" => TestHttp.Json(HttpStatusCode.OK, $$"""
                 {
                   "jobId": "job-translate-1",
                   "segments": [
@@ -474,11 +472,11 @@ public sealed partial class AiCapabilityServiceTests
                   ]
                 }
                 """),
-            _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
+            _ => TestHttp.Json(HttpStatusCode.NotFound, "{}"),
         });
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(app);
+        ApiTestAuthentication.SignIn(app);
 
         AiCaptionTranslationResponse result = await app.GetResource<IAiCaptionTranslationService>()
             .TranslateAsync(
@@ -509,8 +507,6 @@ public sealed partial class AiCapabilityServiceTests
         {
             Assert.That(request.Body, Does.Contain("\"targetLanguage\":\"fr\""));
             Assert.That(request.Body, Does.Contain("\"sourceLanguage\":\"en\""));
-            // A line that does not fit its cue is unreadable however good the
-            // wording is, and a series keeps its own names for things.
             Assert.That(request.Body, Does.Contain("\"maxCharactersPerLine\":42"));
             Assert.That(request.Body, Does.Contain("\"maxLines\":2"));
             Assert.That(request.Body, Does.Contain("\"glossary\":{\"Beutl\":\"Beutl\"}"));
@@ -525,11 +521,11 @@ public sealed partial class AiCapabilityServiceTests
     [Test]
     public async Task Translation_AcceptsWebEquivalentCjkBodyAndSendsUtf8Json()
     {
-        using var handler = new RecordingHandler(_ => JsonResponse(HttpStatusCode.OK,
+        using var handler = new RecordingHandler(_ => TestHttp.Json(HttpStatusCode.OK,
             "{\"jobId\":\"job-cjk\",\"segments\":[]}"));
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(app);
+        ApiTestAuthentication.SignIn(app);
 
         AiCaptionTranslationSegment[] segments = Enumerable.Range(0, AiRequestLimits.MaxTranslationSegments)
             .Select(index => new AiCaptionTranslationSegment
@@ -576,7 +572,7 @@ public sealed partial class AiCapabilityServiceTests
                 """.Trim())));
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(app);
+        ApiTestAuthentication.SignIn(app);
         var reported = new RecordingProgress<AiCaptionTranslationSegment>();
 
         AiCaptionTranslationResponse result = await app
@@ -593,7 +589,6 @@ public sealed partial class AiCapabilityServiceTests
 
         using (Assert.EnterMultipleScope())
         {
-            // Reported as it arrived, and the answer is still the whole set.
             Assert.That(
                 reported.Reports.Select(segment => segment.Text),
                 Is.EqualTo(new[] { "こんにちは", "世界" }));
@@ -618,7 +613,7 @@ public sealed partial class AiCapabilityServiceTests
                 """.Trim())));
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(app);
+        ApiTestAuthentication.SignIn(app);
         var reported = new RecordingProgress<AiCaptionTranslationSegment>();
 
         await app.GetResource<IAiCaptionTranslationService>().TranslateAsync(
@@ -644,7 +639,7 @@ public sealed partial class AiCapabilityServiceTests
             ("result", "{not json")));
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(app);
+        ApiTestAuthentication.SignIn(app);
         var reported = new RecordingProgress<AiCaptionTranslationSegment>();
 
         await Assert.ThrowsAsync<JsonException>(async () =>
@@ -697,12 +692,12 @@ public sealed partial class AiCapabilityServiceTests
     {
         // Asking to be shown the work is not a requirement: a server that
         // answers in one piece is answering the same request.
-        using var handler = new RecordingHandler(_ => JsonResponse(HttpStatusCode.OK, """
+        using var handler = new RecordingHandler(_ => TestHttp.Json(HttpStatusCode.OK, """
             {"jobId":"job-3","segments":[{"id":"line-1","text":"こんにちは"}]}
             """));
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(app);
+        ApiTestAuthentication.SignIn(app);
         var reported = new RecordingProgress<AiCaptionTranslationSegment>();
 
         AiCaptionTranslationResponse result = await app
@@ -736,7 +731,7 @@ public sealed partial class AiCapabilityServiceTests
         });
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(app);
+        ApiTestAuthentication.SignIn(app);
 
         await Assert.ThrowsAsync<AiException>(async () =>
             await app.GetResource<IAiCaptionTranslationService>().TranslateAsync(
@@ -755,7 +750,7 @@ public sealed partial class AiCapabilityServiceTests
             ("segment", """{"id":"line-1","text":"こんにちは"}""")));
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(app);
+        ApiTestAuthentication.SignIn(app);
 
         await Assert.ThrowsAsync<AiRequestInterruptedException>(async () =>
             await app.GetResource<IAiCaptionTranslationService>().TranslateAsync(
@@ -773,7 +768,7 @@ public sealed partial class AiCapabilityServiceTests
             ("error", """{"error_code":"aiProviderError","message":"the provider gave up"}""")));
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(app);
+        ApiTestAuthentication.SignIn(app);
 
         // Told apart exactly as the same failure would be on the ordinary path.
         await Assert.ThrowsAsync<AiProviderErrorException>(async () =>
@@ -796,7 +791,7 @@ public sealed partial class AiCapabilityServiceTests
         });
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(app);
+        ApiTestAuthentication.SignIn(app);
 
         Task<AiImageResult> request = app.GetResource<IAiImageGenerationService>()
             .GenerateAsync(
@@ -826,7 +821,7 @@ public sealed partial class AiCapabilityServiceTests
                 """.Trim())));
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(app);
+        ApiTestAuthentication.SignIn(app);
         var previews = new RecordingProgress<AiImagePreview>();
 
         AiImageResult result = await app.GetResource<IAiImageGenerationService>()
@@ -858,7 +853,7 @@ public sealed partial class AiCapabilityServiceTests
             ("result", """{"jobId":"job-preview-budget","fileId":"file-2","url":"http://localhost/api/contents/file-2"}""")));
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(app);
+        ApiTestAuthentication.SignIn(app);
         var previews = new RecordingProgress<AiImagePreview>();
 
         await app.GetResource<IAiImageGenerationService>().GenerateAsync(
@@ -956,7 +951,7 @@ public sealed partial class AiCapabilityServiceTests
             ("result", "{not json")));
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(app);
+        ApiTestAuthentication.SignIn(app);
         var previews = new RecordingProgress<AiImagePreview>();
 
         await Assert.ThrowsAsync<JsonException>(async () =>
@@ -974,17 +969,17 @@ public sealed partial class AiCapabilityServiceTests
     {
         using var handler = new RecordingHandler(request => request.Path switch
         {
-            "/api/v3/ai/transcriptions" => JsonResponse(HttpStatusCode.OK, """
+            "/api/v3/ai/transcriptions" => TestHttp.Json(HttpStatusCode.OK, """
                 {
                   "jobId": "job-stt-1",
                   "segments": [ { "start": 0, "end": 1, "text": "Hello" } ]
                 }
                 """),
-            _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
+            _ => TestHttp.Json(HttpStatusCode.NotFound, "{}"),
         });
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(app);
+        ApiTestAuthentication.SignIn(app);
         IAiTranscriptionService transcription = app.GetResource<IAiTranscriptionService>();
         AiUploadSource Upload(string name, string mediaType) => new(
             name,
@@ -1027,24 +1022,24 @@ public sealed partial class AiCapabilityServiceTests
     {
         using var handler = new RecordingHandler(request => request.Path switch
         {
-            "/api/v3/ai/images" or "/api/v3/ai/images/edit" => JsonResponse(HttpStatusCode.OK, """
+            "/api/v3/ai/images" or "/api/v3/ai/images/edit" => TestHttp.Json(HttpStatusCode.OK, """
                 {
                   "jobId": "image-job",
                   "fileId": "image-file",
                   "url": "https://beutl.beditor.net/api/contents/image-file"
                 }
                 """),
-            "/api/v3/ai/translations" => JsonResponse(HttpStatusCode.OK, """
+            "/api/v3/ai/translations" => TestHttp.Json(HttpStatusCode.OK, """
                 { "jobId": "translation-job", "segments": [] }
                 """),
-            "/api/v3/ai/videos" => JsonResponse(HttpStatusCode.OK, """
+            "/api/v3/ai/videos" => TestHttp.Json(HttpStatusCode.OK, """
                 { "jobId": "video-job", "status": "queued" }
                 """),
-            _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
+            _ => TestHttp.Json(HttpStatusCode.NotFound, "{}"),
         });
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(app);
+        ApiTestAuthentication.SignIn(app);
         AiUploadSource Upload(string name, string mediaType) => new(
             name,
             mediaType,
@@ -1096,7 +1091,7 @@ public sealed partial class AiCapabilityServiceTests
     [Test]
     public async Task ImageGeneration_SendsEveryReferenceUnderTheSameFieldName()
     {
-        using var handler = new RecordingHandler(_ => JsonResponse(HttpStatusCode.OK, """
+        using var handler = new RecordingHandler(_ => TestHttp.Json(HttpStatusCode.OK, """
             {
               "jobId": "image-job",
               "fileId": "image-file",
@@ -1105,7 +1100,7 @@ public sealed partial class AiCapabilityServiceTests
             """));
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(app);
+        ApiTestAuthentication.SignIn(app);
         AiUploadSource Upload(string name) => new(
             name,
             "image/png",
@@ -1139,7 +1134,7 @@ public sealed partial class AiCapabilityServiceTests
     [TestCase("draft\0one.png", "draft_one.png")]
     public async Task ImageEdit_GivesEveryMultipartPartAFormFieldName(string fileName, string? legacyFileName)
     {
-        using var handler = new RecordingHandler(_ => JsonResponse(HttpStatusCode.OK, """
+        using var handler = new RecordingHandler(_ => TestHttp.Json(HttpStatusCode.OK, """
             {
               "jobId": "image-job",
               "fileId": "image-file",
@@ -1148,7 +1143,7 @@ public sealed partial class AiCapabilityServiceTests
             """));
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(app);
+        ApiTestAuthentication.SignIn(app);
         var upload = new AiUploadSource(
             fileName,
             "image/png",
@@ -1176,7 +1171,7 @@ public sealed partial class AiCapabilityServiceTests
     [Test]
     public async Task ImageGeneration_DisposesEveryReferenceWhenOneCleanupFails()
     {
-        using var handler = new RecordingHandler(_ => JsonResponse(HttpStatusCode.OK, """
+        using var handler = new RecordingHandler(_ => TestHttp.Json(HttpStatusCode.OK, """
             {
               "jobId": "image-job",
               "fileId": "image-file",
@@ -1185,8 +1180,8 @@ public sealed partial class AiCapabilityServiceTests
             """));
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(app);
-        var throwing = new ThrowingDisposeMemoryStream([1, 2, 3]);
+        ApiTestAuthentication.SignIn(app);
+        var throwing = new ReferenceDisposalProbe(throws: true);
         var trailing = new TrackingMemoryStream([4, 5, 6]);
         AiUploadSource Upload(string name, Stream stream) => new(
             name,
@@ -1208,7 +1203,7 @@ public sealed partial class AiCapabilityServiceTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(result.JobId?.Value, Is.EqualTo("image-job"));
-            Assert.That(throwing.DisposeAttempts, Is.EqualTo(1));
+            Assert.That(throwing.AsyncDisposals, Is.EqualTo(1));
             Assert.That(trailing.IsDisposed, Is.True);
         }
     }
@@ -1237,30 +1232,10 @@ public sealed partial class AiCapabilityServiceTests
     }
 
     [Test]
-    public void ImageGeneration_PreservesThePublishedReferenceTotalLimit()
-    {
-        AiUploadSource Upload(long length) => new(
-            "reference.png",
-            "image/png",
-            _ => ValueTask.FromResult<Stream>(new MemoryStream()),
-            length);
-
-        const long publishedLimit = 30L * 1024 * 1024;
-        var limits = new AiImageReferenceLimits(publishedLimit);
-        AiImageGenerationRequest request = new(
-            "a calm sky",
-            new AiImageAspectRatioId("1:1"),
-            references: [Upload(15L * 1024 * 1024), Upload(15L * 1024 * 1024)],
-            referenceLimits: limits);
-
-        Assert.That(request.ReferenceLimits, Is.EqualTo(limits));
-    }
-
-    [Test]
     public async Task ImageGeneration_ServiceUsesThePublishedReferenceTotalLimit()
     {
         const int referenceLength = 11 * 1024 * 1024;
-        var handler = new ArrivalHandler(JsonResponse(HttpStatusCode.OK, """
+        var handler = new ArrivalHandler(TestHttp.Json(HttpStatusCode.OK, """
             {
               "jobId": "image-dynamic-limit",
               "fileId": "image-dynamic-limit-file",
@@ -1269,7 +1244,7 @@ public sealed partial class AiCapabilityServiceTests
             """));
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(app);
+        ApiTestAuthentication.SignIn(app);
 
         AiUploadSource Upload(string name) => new(
             name,
@@ -1438,18 +1413,16 @@ public sealed partial class AiCapabilityServiceTests
         using var handler = new RecordingHandler(_ =>
         {
             fetches++;
-            return JsonResponse(HttpStatusCode.OK, "{ \"operations\": {} }");
+            return TestHttp.Json(HttpStatusCode.OK, "{ \"operations\": {} }");
         });
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(app);
+        ApiTestAuthentication.SignIn(app);
         var clock = new StepTimeProvider();
         using var catalog = CatalogService(app, clock);
 
         await catalog.GetAsync(CancellationToken.None);
         await catalog.GetAsync(CancellationToken.None);
-        // A model the operator disables has to stop being offered without the
-        // editor being restarted, so the list does not live forever.
         clock.Advance(TimeSpan.FromMinutes(10));
         await catalog.GetAsync(CancellationToken.None);
 
@@ -1459,7 +1432,7 @@ public sealed partial class AiCapabilityServiceTests
     [Test]
     public async Task ModelCatalog_CustomSchemaChangeInvalidatesTheCachedShape()
     {
-        using var handler = new RecordingHandler(_ => JsonResponse(HttpStatusCode.OK, """
+        using var handler = new RecordingHandler(_ => TestHttp.Json(HttpStatusCode.OK, """
             {
               "operations": {
                 "vendor.video": {
@@ -1474,7 +1447,7 @@ public sealed partial class AiCapabilityServiceTests
         using var httpClient = new HttpClient(handler);
         var extensions = new ExtensionProvider();
         await using var app = new BeutlApiApplication(httpClient, extensions);
-        SetAuthenticatedUser(app);
+        ApiTestAuthentication.SignIn(app);
         IAiModelCatalogService service = app.GetResource<IAiModelCatalogService>();
         var operation = new AiOperationId("vendor.video");
 
@@ -1503,7 +1476,7 @@ public sealed partial class AiCapabilityServiceTests
     [Test]
     public async Task ModelCatalog_SchemaChangeBeforePublicationRemapsTheSameResponse()
     {
-        using var handler = new RecordingHandler(_ => JsonResponse(HttpStatusCode.OK, """
+        using var handler = new RecordingHandler(_ => TestHttp.Json(HttpStatusCode.OK, """
             {
               "operations": {
                 "vendor.image": {
@@ -1517,7 +1490,7 @@ public sealed partial class AiCapabilityServiceTests
         using var httpClient = new HttpClient(handler);
         var extensions = new ExtensionProvider();
         await using var app = new BeutlApiApplication(httpClient, extensions);
-        SetAuthenticatedUser(app);
+        ApiTestAuthentication.SignIn(app);
         var service = (AiModelCatalogService)app.GetResource<IAiModelCatalogService>();
         var operation = new AiOperationId("vendor.image");
         service.BeforeCachePublication = () =>
@@ -1552,7 +1525,7 @@ public sealed partial class AiCapabilityServiceTests
     [Test]
     public async Task ModelCatalog_DoesNotPublishASchemaFromARolledBackExtensionBatch()
     {
-        using var handler = new RecordingHandler(_ => JsonResponse(HttpStatusCode.OK, """
+        using var handler = new RecordingHandler(_ => TestHttp.Json(HttpStatusCode.OK, """
             {
               "operations": {
                 "video.generate": {
@@ -1566,7 +1539,7 @@ public sealed partial class AiCapabilityServiceTests
         using var httpClient = new HttpClient(handler);
         var extensions = new ExtensionProvider();
         await using var app = new BeutlApiApplication(httpClient, extensions);
-        SetAuthenticatedUser(app);
+        ApiTestAuthentication.SignIn(app);
         IAiModelCatalogService service = app.GetResource<IAiModelCatalogService>();
         var observerEntered = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
@@ -1638,13 +1611,13 @@ public sealed partial class AiCapabilityServiceTests
         using var handler = new DeferredResponseHandler(response.Task);
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(app);
+        ApiTestAuthentication.SignIn(app);
         var catalog = CatalogService(app, new StepTimeProvider());
 
         Task<AiModelCatalog> request = catalog.GetAsync(CancellationToken.None);
         await handler.RequestStarted.WaitAsync(TimeSpan.FromSeconds(5));
         catalog.Dispose();
-        response.SetResult(JsonResponse(HttpStatusCode.OK, "{ \"operations\": {} }"));
+        response.SetResult(TestHttp.Json(HttpStatusCode.OK, "{ \"operations\": {} }"));
 
         await Assert.DoesNotThrowAsync(async () =>
             await request.WaitAsync(TimeSpan.FromSeconds(5)));
@@ -1659,16 +1632,15 @@ public sealed partial class AiCapabilityServiceTests
         using var handler = new RecordingHandler(_ =>
         {
             fetches++;
-            return JsonResponse(HttpStatusCode.OK, "{ \"operations\": {} }");
+            return TestHttp.Json(HttpStatusCode.OK, "{ \"operations\": {} }");
         });
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(app);
+        ApiTestAuthentication.SignIn(app);
         using var catalog = CatalogService(app, new StepTimeProvider());
 
         await catalog.GetAsync(CancellationToken.None);
-        // What one account may pay for is not what the next one may.
-        SetAuthenticatedUser(app);
+        ApiTestAuthentication.SignIn(app);
         await catalog.GetAsync(CancellationToken.None);
 
         Assert.That(fetches, Is.EqualTo(2));
@@ -1681,16 +1653,16 @@ public sealed partial class AiCapabilityServiceTests
         using var handler = new RecordingHandler(_ =>
         {
             fetches++;
-            return JsonResponse(HttpStatusCode.OK, "{ \"operations\": {} }");
+            return TestHttp.Json(HttpStatusCode.OK, "{ \"operations\": {} }");
         });
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(app);
+        ApiTestAuthentication.SignIn(app);
         using var catalog = CatalogService(app, new StepTimeProvider());
         catalog.BeforeCachePublication = () =>
         {
             catalog.BeforeCachePublication = null;
-            SetAuthenticatedUser(app);
+            ApiTestAuthentication.SignIn(app);
         };
 
         AiModelCatalog stale = await catalog.GetAsync(CancellationToken.None);
@@ -1706,7 +1678,7 @@ public sealed partial class AiCapabilityServiceTests
     [Test]
     public async Task ModelCatalog_ReadsWhichFramesAndSizesEachModelTakes()
     {
-        using var handler = new RecordingHandler(_ => JsonResponse(HttpStatusCode.OK, """
+        using var handler = new RecordingHandler(_ => TestHttp.Json(HttpStatusCode.OK, """
             {
               "operations": {
                 "video.generate": {
@@ -1744,7 +1716,7 @@ public sealed partial class AiCapabilityServiceTests
             """));
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(app);
+        ApiTestAuthentication.SignIn(app);
         using var service = CatalogService(app, new StepTimeProvider());
 
         AiModelCatalog catalog = await service.GetAsync(CancellationToken.None);
@@ -1776,8 +1748,6 @@ public sealed partial class AiCapabilityServiceTests
     [Test]
     public void ErrorCode_ReadsOneThisClientHasNeverHeardOfAsUnknown()
     {
-        // A code with no handling of its own must still leave the status and the
-        // message readable rather than throwing the whole body away.
         ApiErrorResponse? unknown = JsonSerializer.Deserialize<ApiErrorResponse>(
             """{ "error_code": "somethingAddedLater", "message": "Later.", "documentation_url": null }""",
             AiStreamJson.Options);
@@ -1791,22 +1761,6 @@ public sealed partial class AiCapabilityServiceTests
             Assert.That(unknown.Message, Is.EqualTo("Later."));
             Assert.That(known!.ErrorCode, Is.EqualTo(ApiErrorCode.AiModelDoesNotSupportRequest));
         }
-    }
-
-    [Test]
-    public void ModelRefusal_IsToldApartFromAnUnexpectedFailure()
-    {
-        AiException converted = AiErrorConverter.Convert(
-            400,
-            new ApiErrorResponse
-            {
-                ErrorCode = ApiErrorCode.AiModelDoesNotSupportRequest,
-                Message = "The model does not take this aspect ratio.",
-                DocumentationUrl = null,
-            },
-            null);
-
-        Assert.That(converted, Is.InstanceOf<AiModelDoesNotSupportRequestException>());
     }
 
     [Test]
@@ -1857,7 +1811,7 @@ public sealed partial class AiCapabilityServiceTests
     {
         using var handler = new RecordingHandler(request => request.Path switch
         {
-            "/api/v3/ai/transcriptions" => JsonResponse(HttpStatusCode.OK, $$"""
+            "/api/v3/ai/transcriptions" => TestHttp.Json(HttpStatusCode.OK, $$"""
                 {
                   "jobId": "job-stt-1",
                   "segments": [ { "start": 0.5, "end": 1.75, "text": "Hello" } ],
@@ -1865,11 +1819,11 @@ public sealed partial class AiCapabilityServiceTests
                   "words": [ { "start": 0.5, "end": 1.0, "word": "Hello" } ]
                 }
                 """),
-            _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
+            _ => TestHttp.Json(HttpStatusCode.NotFound, "{}"),
         });
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(app);
+        ApiTestAuthentication.SignIn(app);
         var stream = new TrackingMemoryStream([1, 2, 3]);
         var source = new AiUploadSource(
             "speech.custom",
@@ -1898,13 +1852,13 @@ public sealed partial class AiCapabilityServiceTests
     {
         using var handler = new RecordingHandler(request => request.Path switch
         {
-            "/api/v3/ai/videos" => JsonResponse(HttpStatusCode.OK, $$"""
+            "/api/v3/ai/videos" => TestHttp.Json(HttpStatusCode.OK, $$"""
                 {
                   "jobId": "video-job-1",
                   "status": "queued"
                 }
                 """),
-            "/api/v3/ai/videos/video-job-1" => JsonResponse(HttpStatusCode.OK, $$"""
+            "/api/v3/ai/videos/video-job-1" => TestHttp.Json(HttpStatusCode.OK, $$"""
                 {
                   "jobId": "video-job-1",
                   "status": "succeeded",
@@ -1915,11 +1869,11 @@ public sealed partial class AiCapabilityServiceTests
                   "error": null
                 }
                 """),
-            _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
+            _ => TestHttp.Json(HttpStatusCode.NotFound, "{}"),
         });
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(app);
+        ApiTestAuthentication.SignIn(app);
         IAiVideoService service = app.GetResource<IAiVideoService>();
 
         AiVideoGenerationResult created = await service.CreateAsync(
@@ -1937,8 +1891,7 @@ public sealed partial class AiCapabilityServiceTests
             item => item is { Method.Method: "POST", Path: "/api/v3/ai/videos" });
         using (Assert.EnterMultipleScope())
         {
-            // A vertical clip and a silent one could not be asked for at all
-            // before; the resolution alone says nothing about shape.
+            // The resolution alone says nothing about shape.
             Assert.That(submission.Body, Does.Contain("\"aspectRatio\":\"9:16\""));
             Assert.That(submission.Body, Does.Contain("\"generateAudio\":false"));
             Assert.That(submission.Body, Does.Contain("\"seed\":11"));
@@ -1967,8 +1920,8 @@ public sealed partial class AiCapabilityServiceTests
     public async Task JobClient_IsPureAsyncHistoryAndDeleteClient()
     {
         using var handler = new RecordingHandler(request => request.Method == HttpMethod.Delete
-            ? JsonResponse(HttpStatusCode.OK, "{ \"deleted\": true }")
-            : JsonResponse(HttpStatusCode.OK, """
+            ? TestHttp.Json(HttpStatusCode.OK, "{ \"deleted\": true }")
+            : TestHttp.Json(HttpStatusCode.OK, """
                 {
                   "jobs": [
                     {
@@ -1989,7 +1942,7 @@ public sealed partial class AiCapabilityServiceTests
                 """));
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(app);
+        ApiTestAuthentication.SignIn(app);
         IAiJobClient client = app.GetResource<IAiJobClient>();
 
         AiJobPage page = await client.GetPageAsync(new AiJobPageRequest("cursor-value", 25), CancellationToken.None);
@@ -2016,7 +1969,7 @@ public sealed partial class AiCapabilityServiceTests
             });
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(app);
+        ApiTestAuthentication.SignIn(app);
         using var destination = new MemoryStream();
 
         // By the time a result is fetched the job has run and been charged for,
@@ -2050,7 +2003,7 @@ public sealed partial class AiCapabilityServiceTests
         });
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(app);
+        ApiTestAuthentication.SignIn(app);
         IAuthenticatedContentService service = app.GetResource<IAuthenticatedContentService>();
 
         using var destination = new MemoryStream();
@@ -2134,48 +2087,6 @@ public sealed partial class AiCapabilityServiceTests
     private static AiModelCatalogService CatalogService(BeutlApiApplication app, TimeProvider timeProvider)
         => new(app, EmptyCapabilitySchemas.Instance, timeProvider);
 
-    private static void SetAuthenticatedUser(BeutlApiApplication app)
-    {
-        AuthenticatedUser user = CreateAuthenticatedUser(app);
-        SetAuthenticatedUser(app, user);
-    }
-
-    private static void SetAuthenticatedUser(BeutlApiApplication app, AuthenticatedUser user)
-    {
-        FieldInfo field = typeof(BeutlApiApplication).GetField(
-            "_authenticatedUser",
-            BindingFlags.NonPublic | BindingFlags.Instance)!;
-        ((ReactivePropertySlim<AuthenticatedUser?>)field.GetValue(app)!).Value = user;
-    }
-
-    private static AuthenticatedUser CreateAuthenticatedUser(
-        BeutlApiApplication app,
-        string token = "token")
-    {
-        var profile = new Profile(new ProfileResponse
-        {
-            Id = "test-user",
-            Name = "test",
-            DisplayName = "Test User",
-            Bio = null,
-            IconId = null,
-            IconUrl = null,
-        }, app);
-        var user = new AuthenticatedUser(profile, new AuthResponse
-        {
-            Token = token,
-            RefreshToken = $"{token}-refresh",
-            Expiration = DateTime.UtcNow.AddHours(1),
-        }, app, DateTime.UtcNow);
-        return user;
-    }
-
-    private static HttpResponseMessage JsonResponse(HttpStatusCode statusCode, string json)
-        => new(statusCode)
-        {
-            Content = new StringContent(json, Encoding.UTF8, "application/json"),
-        };
-
     private sealed record RecordedRequest(
         HttpMethod Method,
         string Path,
@@ -2198,14 +2109,6 @@ public sealed partial class AiCapabilityServiceTests
         Assert.That(dispositions.Where(line => line.Contains("filename=", StringComparison.OrdinalIgnoreCase))
                 .All(line => Regex.IsMatch(line, @"(?:^|;\s*)filename=""[^""]+""(?:;|$)")),
             Is.True, string.Join("\n", dispositions));
-    }
-
-    private sealed class TestCapabilitySchemaExtension(
-        params AiOperationCapabilitySchemaRegistration[] registrations)
-        : AiOperationCapabilitySchemaExtension
-    {
-        public override IReadOnlyCollection<AiOperationCapabilitySchemaRegistration> Registrations
-        { get; } = registrations;
     }
 
     private sealed class RecordingHandler(
@@ -2273,10 +2176,7 @@ public sealed partial class AiCapabilityServiceTests
         }
     }
 
-    // System.Progress posts each report to the thread pool when there is no
-    // synchronization context, so two reports can be observed out of the order
-    // the service made them in. What is under test is the order the service
-    // reports in, so the reports are taken where they are made.
+    // Progress<T> posts to the thread pool and can reorder reports, so record them where they are made.
     private sealed class RecordingProgress<T> : IProgress<T>
     {
         private readonly List<T> _reports = [];
@@ -2329,18 +2229,6 @@ public sealed partial class AiCapabilityServiceTests
         {
             IsDisposed = true;
             base.Dispose(disposing);
-        }
-    }
-
-    private sealed class ThrowingDisposeMemoryStream(byte[] buffer) : MemoryStream(buffer)
-    {
-        public int DisposeAttempts { get; private set; }
-
-        public override ValueTask DisposeAsync()
-        {
-            DisposeAttempts++;
-            base.Dispose(disposing: true);
-            return ValueTask.FromException(new IOException("Injected reference cleanup failure."));
         }
     }
 

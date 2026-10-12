@@ -1,5 +1,4 @@
 ﻿using Beutl.Api.Services;
-using Beutl.Testing.Headless;
 using NuGet.Packaging.Core;
 using NuGet.Versioning;
 
@@ -7,47 +6,17 @@ namespace Beutl.UnitTests.Api;
 
 [TestFixture]
 [NonParallelizable]
-public class PackageInstallerCleanupTests
+public class PackageInstallerCleanupTests : PackageInstallerFixture
 {
-    private static string InstalledPackagesFile => Path.Combine(Helper.AppRoot, "installedPackages.json");
-
-    private HttpClient _httpClient = null!;
-    private InstalledPackageRepository _repository = null!;
-    private PackageInstaller _installer = null!;
-    private readonly List<string> _createdDirectories = [];
-
-    [SetUp]
-    public void SetUp()
-    {
-        Assert.That(Helper.AppRoot, Is.EqualTo(BeutlHomeIsolation.CurrentHome));
-
-        File.Delete(InstalledPackagesFile);
-        _httpClient = new HttpClient();
-        _repository = new InstalledPackageRepository();
-        _installer = new PackageInstaller(_httpClient, _repository, apiApplication: null!);
-    }
-
-    [TearDown]
-    public void TearDown()
-    {
-        _httpClient.Dispose();
-        foreach (string directory in _createdDirectories.Where(Directory.Exists))
-        {
-            Directory.Delete(directory, recursive: true);
-        }
-
-        _createdDirectories.Clear();
-        File.Delete(InstalledPackagesFile);
-    }
-
-    [Test]
-    public void Clean_DeletesTheExtractedFiles_WhenTheNupkgIsMissing()
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Removal_DeletesTheExtractedFiles_WhenTheNupkgIsMissing(bool clean)
     {
         var package = new PackageIdentity("Beutl.Package.CleanTest.NoNupkg", NuGetVersion.Parse("1.0.0"));
         (string directory, long size) = CreateInstalledDirectory(package);
         _repository.UpgradePackages(package);
 
-        _installer.Clean(new PackageCleanContext([package], size), new Progress<double>());
+        RemovePackage(clean, package, directory, size);
 
         Assert.Multiple(() =>
         {
@@ -56,59 +25,21 @@ public class PackageInstallerCleanupTests
         });
     }
 
-    [Test]
-    public void Clean_DropsTheRepositoryEntry_WhenTheInstallDirectoryIsGone()
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Removal_DropsTheRepositoryEntry_WhenTheInstallDirectoryIsGone(bool clean)
     {
         var package = new PackageIdentity("Beutl.Package.CleanTest.Missing", NuGetVersion.Parse("1.0.0"));
         _repository.UpgradePackages(package);
-
-        Assert.DoesNotThrow(() =>
-            _installer.Clean(new PackageCleanContext([package], 0), new Progress<double>()));
-
-        Assert.That(_repository.ExistsPackage(package), Is.False);
-    }
-
-    [Test]
-    public void Uninstall_DeletesTheExtractedFiles_WhenTheNupkgIsMissing()
-    {
-        var package = new PackageIdentity("Beutl.Package.UninstallTest.NoNupkg", NuGetVersion.Parse("1.0.0"));
-        (string directory, long size) = CreateInstalledDirectory(package);
-        _repository.UpgradePackages(package);
-
-        _installer.Uninstall(
-            new PackageUninstallContext(package, directory)
-            {
-                UnnecessaryPackages = [package],
-                SizeToBeReleased = size
-            },
-            new Progress<double>());
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(Directory.Exists(directory), Is.False, "the extracted files must be deleted");
-            Assert.That(_repository.ExistsPackage(package), Is.False);
-        });
-    }
-
-    [Test]
-    public void Uninstall_DropsTheRepositoryEntry_WhenTheInstallDirectoryIsGone()
-    {
-        var package = new PackageIdentity("Beutl.Package.UninstallTest.Missing", NuGetVersion.Parse("1.0.0"));
-        _repository.UpgradePackages(package);
         string missing = Helper.ResolveInstalledDirectory(package);
 
-        Assert.DoesNotThrow(() =>
-            _installer.Uninstall(
-                new PackageUninstallContext(package, missing) { UnnecessaryPackages = [package] },
-                new Progress<double>()));
+        Assert.DoesNotThrow(() => RemovePackage(clean, package, missing, 0));
 
         Assert.That(_repository.ExistsPackage(package), Is.False);
     }
 
-    // Both the dependency scan (UnnecessaryPackages / Helper.GetPackageDependencies) and the deletion
-    // pass go through this, so the two agree on which directories exist. The scan itself cannot be
-    // unit-tested: it reaches CoreLibraries, which loads Beutl.dll from AppContext.BaseDirectory, and
-    // this assembly must not reference the app project.
+    // Both the dependency scan and the deletion use this. The scan loads Beutl.dll, so it is not
+    // unit-tested here.
     [Test]
     public void ResolveInstalledDirectory_FallsBackToTheInstallPath_WhenTheNupkgIsMissing()
     {
@@ -144,7 +75,7 @@ public class PackageInstallerCleanupTests
         string directory = Path.Combine(Helper.InstallPath, $"{package.Id}.{package.Version}");
         string libDirectory = Path.Combine(directory, "lib", "net10.0");
         Directory.CreateDirectory(libDirectory);
-        _createdDirectories.Add(directory);
+        Track(directory);
 
         string file = Path.Combine(libDirectory, $"{package.Id}.dll");
         File.WriteAllText(file, "not a real assembly");

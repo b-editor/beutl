@@ -14,35 +14,23 @@ namespace Beutl.UnitTests.Api;
 [NonParallelizable]
 public class NupkgFormatCompatibilityTests
 {
-    private static string InstalledPackagesFile => Path.Combine(Helper.AppRoot, "installedPackages.json");
-
-    private HttpClient _httpClient = null!;
-    private InstalledPackageRepository _repository = null!;
-    private PackageInstaller _installer = null!;
     private readonly List<string> _createdDirectories = [];
 
     [SetUp]
     public void SetUp()
     {
         Assert.That(Helper.AppRoot, Is.EqualTo(BeutlHomeIsolation.CurrentHome));
-
-        File.Delete(InstalledPackagesFile);
-        _httpClient = new HttpClient();
-        _repository = new InstalledPackageRepository();
-        _installer = new PackageInstaller(_httpClient, _repository, apiApplication: null!);
     }
 
     [TearDown]
     public void TearDown()
     {
-        _httpClient.Dispose();
         foreach (string directory in _createdDirectories.Where(Directory.Exists))
         {
             Directory.Delete(directory, recursive: true);
         }
 
         _createdDirectories.Clear();
-        File.Delete(InstalledPackagesFile);
     }
 
     [Test]

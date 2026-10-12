@@ -133,6 +133,7 @@ public partial class BeutlApiApplication : IAsyncDisposable
 
     public bool IsDisposed => _disposed;
 
+    // Test seam: tests shorten the deadline; production keeps 30 seconds.
     internal TimeSpan DisposalDeadline { get; set; } = TimeSpan.FromSeconds(30);
 
     // Check for updates. Return AppUpdateResponse when this application has asset metadata;

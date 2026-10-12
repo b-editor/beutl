@@ -20,6 +20,10 @@ public sealed class AiErrorConverterTests
     [TestCase("aiJobLimitReached", typeof(AiJobLimitReachedException))]
     [TestCase("aiRequestInProgress", typeof(AiRequestInProgressException))]
     [TestCase("aiRequestWasDeleted", typeof(AiRequestWasDeletedException))]
+    [TestCase("aiRequestChanged", typeof(AiRequestChangedException))]
+    [TestCase("aiModelDoesNotSupportRequest", typeof(AiModelDoesNotSupportRequestException))]
+    [TestCase("aiModelUnavailable", typeof(AiModelUnavailableException))]
+    [TestCase("aiResultUnavailable", typeof(AiResultUnavailableException))]
     public async Task ConvertAsync_MapsEveryKnownAiError(
         string errorCode,
         Type expectedType)
@@ -51,6 +55,7 @@ public sealed class AiErrorConverterTests
 
     [TestCase("unknown")]
     [TestCase("doNotHavePermissions")]
+    [TestCase("futureAiError")]
     public async Task ConvertAsync_UsesServerMessageForUnmappedCodes(string errorCode)
     {
         ApiException source = await CreateApiException($$"""
@@ -72,7 +77,6 @@ public sealed class AiErrorConverterTests
     }
 
     [TestCase("{not-json")]
-    [TestCase("{\"error_code\":\"futureAiError\",\"message\":\"Future\"}")]
     public async Task ConvertAsync_MalformedOrUnknownPayloadPreservesApiException(
         string content)
     {

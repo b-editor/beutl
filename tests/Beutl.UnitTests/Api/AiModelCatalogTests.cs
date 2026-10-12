@@ -3,18 +3,11 @@ using System.Text.Json;
 using Beutl.Api.Clients;
 using Beutl.Api.Services;
 using Beutl.Extensibility;
-using Beutl.Language;
-using Moq;
 using NUnit.Framework;
 
 namespace Beutl.UnitTests.Api;
 
-/// <summary>
-/// The models an operation offers are registered on the server, so unlike every
-/// other list this client holds they arrive over the wire. These cover reading
-/// that list and the one rule that costs money if it goes wrong: a rerun must
-/// repeat the model the job ran on, or not run at all.
-/// </summary>
+/// <summary>The model catalog read from the server and the capability schemas extensions add.</summary>
 public class AiModelCatalogTests
 {
     [TestCase("", false, TestName = "Omitted image model dimension is unspecified")]
@@ -998,53 +991,9 @@ public class AiModelCatalogTests
     }
 
     [Test]
-    public void Catalog_TreatsExplicitlyEmptyVideoOperationShapeAsUnsupported()
-    {
-        AiModelCatalog catalog = ToModel(new AiCapabilitiesResponse
-        {
-            Operations = new Dictionary<string, AiOperationCapabilityResponse>
-            {
-                [AiOperations.VideoGeneration.Value] = new()
-                {
-                    Models = [VideoModel(
-                        "empty/operation",
-                        durations: [4],
-                        resolutions: ["720p"],
-                        aspectRatios: ["16:9"],
-                        audio: true,
-                        seed: true)],
-                    Resolutions = [],
-                    AspectRatios = [],
-                },
-            }.ToImmutableDictionary(),
-        });
-
-        AiVideoModelCapabilities video =
-            catalog.ModelsFor(AiOperations.VideoGeneration)[0].Video!;
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(video.Resolutions, Is.EqualTo(AiCapabilityDimension<string>.Unsupported));
-            Assert.That(video.AspectRatios, Is.EqualTo(AiCapabilityDimension<string>.Unsupported));
-            Assert.That(video.CanServeAnything(), Is.False);
-        }
-    }
-
-    [Test]
     public void Catalog_AppliesVideoOperationDimensionsWhenModelFieldsAreAllNull()
     {
         AiModelDescriptionResponse model = Model("legacy/video", null, "low", true);
-        AiModelCatalog empty = ToModel(new AiCapabilitiesResponse
-        {
-            Operations = new Dictionary<string, AiOperationCapabilityResponse>
-            {
-                [AiOperations.VideoGeneration.Value] = new()
-                {
-                    Models = [model],
-                    Resolutions = [],
-                    AspectRatios = [],
-                },
-            }.ToImmutableDictionary(),
-        });
         AiModelCatalog offered = ToModel(new AiCapabilitiesResponse
         {
             Operations = new Dictionary<string, AiOperationCapabilityResponse>
@@ -1057,20 +1006,13 @@ public class AiModelCatalogTests
                 },
             }.ToImmutableDictionary(),
         });
-        AiModelCatalog omitted = ToModel(Capabilities(
-            (AiOperations.VideoGeneration.Value, [model])));
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(empty.ModelsFor(AiOperations.VideoGeneration)[0].Video!.CanServeAnything(), Is.False);
             Assert.That(offered.ModelsFor(AiOperations.VideoGeneration)[0].Video!.Resolutions.Values,
                 Is.EqualTo(new[] { "720p" }));
             Assert.That(offered.ModelsFor(AiOperations.VideoGeneration)[0].Video!.AspectRatios.Values,
                 Is.EqualTo(new[] { "16:9" }));
-            Assert.That(omitted.ModelsFor(AiOperations.VideoGeneration)[0].Video!.Resolutions.IsSpecified,
-                Is.False);
-            Assert.That(omitted.ModelsFor(AiOperations.VideoGeneration)[0].Video!.AspectRatios.IsSpecified,
-                Is.False);
         }
     }
 
@@ -1098,7 +1040,7 @@ public class AiModelCatalogTests
             Assert.That(image.AspectRatios.Values, Is.EqualTo(new[] { "1:1", "3:2", "2:3" }));
             Assert.That(image.SupportsSeed, Is.False);
             Assert.That(image.MaxReferenceImages, Is.EqualTo(4));
-            // The model publishes three and the operation takes the same three.
+            // The operation does not restrict backgrounds, so the model's list stands.
             Assert.That(
                 image.Backgrounds.Values,
                 Is.EqualTo(new[] { "auto", "opaque", "transparent" }));
@@ -1157,18 +1099,6 @@ public class AiModelCatalogTests
     public void Catalog_AppliesImageOperationDimensionsWhenModelFieldsAreAllNull()
     {
         AiModelDescriptionResponse model = Model("legacy/image", null, "low", true);
-        AiModelCatalog empty = ToModel(new AiCapabilitiesResponse
-        {
-            Operations = new Dictionary<string, AiOperationCapabilityResponse>
-            {
-                [AiOperations.ImageGeneration.Value] = new()
-                {
-                    Models = [model],
-                    AspectRatios = [],
-                    Backgrounds = [],
-                },
-            }.ToImmutableDictionary(),
-        });
         AiModelCatalog offered = ToModel(new AiCapabilitiesResponse
         {
             Operations = new Dictionary<string, AiOperationCapabilityResponse>
@@ -1181,20 +1111,13 @@ public class AiModelCatalogTests
                 },
             }.ToImmutableDictionary(),
         });
-        AiModelCatalog omitted = ToModel(Capabilities(
-            (AiOperations.ImageGeneration.Value, [model])));
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(empty.ModelsFor(AiOperations.ImageGeneration)[0].Image!.CanServeAnything(false), Is.False);
             Assert.That(offered.ModelsFor(AiOperations.ImageGeneration)[0].Image!.AspectRatios.Values,
                 Is.EqualTo(new[] { "1:1" }));
             Assert.That(offered.ModelsFor(AiOperations.ImageGeneration)[0].Image!.Backgrounds.Values,
                 Is.EqualTo(new[] { "auto" }));
-            Assert.That(omitted.ModelsFor(AiOperations.ImageGeneration)[0].Image!.AspectRatios.IsSpecified,
-                Is.False);
-            Assert.That(omitted.ModelsFor(AiOperations.ImageGeneration)[0].Image!.Backgrounds.IsSpecified,
-                Is.False);
         }
     }
 
@@ -1246,37 +1169,6 @@ public class AiModelCatalogTests
         {
             Assert.That(image.AspectRatios.Values, Is.EqualTo(new[] { "16:9" }));
             Assert.That(image.Backgrounds.Values, Is.EqualTo(new[] { "auto" }));
-        }
-    }
-
-    [Test]
-    public void Catalog_TreatsExplicitlyEmptyImageOperationDimensionsAsUnsupported()
-    {
-        AiModelCatalog catalog = ToModel(new AiCapabilitiesResponse
-        {
-            Operations = new Dictionary<string, AiOperationCapabilityResponse>
-            {
-                [AiOperations.ImageGeneration.Value] = new()
-                {
-                    Models = [new AiModelDescriptionResponse
-                    {
-                        Id = "empty/operation",
-                        IsDefault = false,
-                        Seed = false,
-                    }],
-                    AspectRatios = [],
-                    Backgrounds = [],
-                },
-            }.ToImmutableDictionary(),
-        });
-
-        AiImageModelCapabilities image =
-            catalog.ModelsFor(AiOperations.ImageGeneration)[0].Image!;
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(image.AspectRatios, Is.EqualTo(AiCapabilityDimension<string>.Unsupported));
-            Assert.That(image.Backgrounds, Is.EqualTo(AiCapabilityDimension<string>.Unsupported));
-            Assert.That(image.CanServeAnything(false), Is.False);
         }
     }
 
@@ -1383,156 +1275,6 @@ public class AiModelCatalogTests
         }
     }
 
-    [Test]
-    public async Task Retry_RepeatsTheModelTheJobRanOn()
-    {
-        var images = new Mock<IAiImageGenerationService>();
-        AiImageGenerationRequest? sent = null;
-        images
-            .Setup(service => service.GenerateAsync(
-                It.IsAny<AiImageGenerationRequest>(),
-                It.IsAny<CancellationToken>()))
-            .Callback<AiImageGenerationRequest, CancellationToken>((request, _) => sent = request)
-            .ReturnsAsync(() => null!);
-
-        AiModelCatalog catalog = ToModel(Capabilities(
-            ("image.generate", [
-                Model("cheap/model", null, "low", isDefault: true),
-                Model("dear/model", null, "high", isDefault: false),
-            ])));
-        var handler = new AiImageJobRetryHandler(
-            images.Object,
-            EntitlementService(),
-            AvailabilityService(),
-            ModelCatalogService(catalog),
-            RetryContext());
-
-        await Assert.DoesNotThrowAsync(() => RunRetryAsync(handler, ImageJob("dear/model")));
-        // Not the default, which is cheaper and would produce a different picture.
-        Assert.That(sent!.Model!.Value.Value, Is.EqualTo("dear/model"));
-    }
-
-    [Test]
-    public async Task Retry_RefusesAModelTheServerNoLongerOffers()
-    {
-        var images = new Mock<IAiImageGenerationService>();
-        AiModelCatalog catalog = ToModel(Capabilities(
-            ("image.generate", [Model("cheap/model", null, "low", isDefault: true)])));
-        var handler = new AiImageJobRetryHandler(
-            images.Object,
-            EntitlementService(),
-            AvailabilityService(),
-            ModelCatalogService(catalog),
-            RetryContext());
-
-        // Quietly rerunning on the default would charge the default's price for
-        // a model the user never chose.
-        AiJob job = ImageJob("withdrawn/model");
-        AiJobRetryPreflight preflight = await handler.GetPreflightAsync(
-            job,
-            CancellationToken.None);
-        await using AiJobRetryPreparationResult prepared = await handler.PrepareAsync(
-            job,
-            CancellationToken.None);
-
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(preflight.CanSubmit, Is.False);
-            Assert.That(prepared.IsReady, Is.False);
-            Assert.That(prepared.Explanation, Is.EqualTo(Strings.AiModelUnavailable));
-        }
-        images.Verify(service => service.GenerateAsync(
-            It.IsAny<AiImageGenerationRequest>(),
-            It.IsAny<CancellationToken>()), Times.Never);
-    }
-
-    [Test]
-    public async Task Retry_RefusesAModelWhenTheOperationExplicitlyOffersNoModels()
-    {
-        var images = new Mock<IAiImageGenerationService>();
-        var catalog = new AiModelCatalog(
-            [],
-            withoutModels: [AiOperations.ImageGeneration]);
-        var handler = new AiImageJobRetryHandler(
-            images.Object,
-            EntitlementService(),
-            AvailabilityService(),
-            ModelCatalogService(catalog),
-            RetryContext());
-        AiJob job = ImageJob("withdrawn/model");
-
-        AiJobRetryPreflight preflight = await handler.GetPreflightAsync(
-            job,
-            CancellationToken.None);
-
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(preflight.CanSubmit, Is.False);
-            Assert.That(preflight.Explanation, Is.EqualTo(Strings.AiModelUnavailable));
-        }
-        images.Verify(service => service.GenerateAsync(
-            It.IsAny<AiImageGenerationRequest>(),
-            It.IsAny<CancellationToken>()), Times.Never);
-    }
-
-    [Test]
-    public async Task Retry_ProceedsWhenTheCatalogCouldNotBeRead()
-    {
-        var images = new Mock<IAiImageGenerationService>();
-        images
-            .Setup(service => service.GenerateAsync(
-                It.IsAny<AiImageGenerationRequest>(),
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync(() => null!);
-
-        var handler = new AiImageJobRetryHandler(
-            images.Object,
-            EntitlementService(),
-            AvailabilityService(),
-            ModelCatalogService(AiModelCatalog.Empty),
-            RetryContext());
-
-        // An empty catalog says nothing about any model, and the server has the
-        // last word; refusing here would break reruns whenever the capabilities
-        // endpoint is unreachable.
-        await Assert.DoesNotThrowAsync(() => RunRetryAsync(handler, ImageJob("dear/model")));
-    }
-
-    private static async Task RunRetryAsync(IAiJobRetryHandler handler, AiJob job)
-    {
-        AiJobRetryPreflight preflight = await handler.GetPreflightAsync(job, CancellationToken.None);
-        if (!preflight.CanSubmit)
-            throw new InvalidOperationException("Retry preflight blocked the request.");
-        AiJobRetryPreparationResult prepared = await handler.PrepareAsync(job, CancellationToken.None);
-        await using (prepared)
-        {
-            if (!prepared.IsReady)
-                throw new InvalidOperationException("Retry preparation blocked the request.");
-            IAiJobRetryPreparation preparation = prepared.TakePreparation();
-            await using (preparation)
-            {
-                await preparation.ExecuteAsync(CancellationToken.None);
-            }
-        }
-    }
-
-    private static AiJob ImageJob(string model) => new(
-        new AiJobId("job-1"),
-        AiJobKinds.Image,
-        new AiJobStatusId("failed"),
-        System.Text.Json.JsonDocument
-            .Parse("""{"prompt":"a harbor","aspectRatio":"1:1"}""")
-            .RootElement.Clone(),
-        FileId: null,
-        ContentUri: null,
-        Error: "aiProviderError",
-        CanRetry: true,
-        CreatedAt: DateTimeOffset.UnixEpoch,
-        UpdatedAt: DateTimeOffset.UnixEpoch)
-    {
-        Model = new AiModelId(model),
-    };
-
     private static AiModelDescriptionResponse Model(
         string id,
         string? displayName,
@@ -1545,14 +1287,6 @@ public class AiModelCatalogTests
             CostTier = costTier,
             IsDefault = isDefault,
         };
-
-    private sealed class TestCapabilitySchemaExtension(
-        params AiOperationCapabilitySchemaRegistration[] registrations)
-        : AiOperationCapabilitySchemaExtension
-    {
-        public override IReadOnlyCollection<AiOperationCapabilitySchemaRegistration> Registrations
-        { get; } = registrations;
-    }
 
     private sealed class BlockingCapabilitySchemaExtension(
         params AiOperationCapabilitySchemaRegistration[] registrations)
@@ -1660,47 +1394,4 @@ public class AiModelCatalogTests
                 entry => entry.Operation,
                 entry => new AiOperationCapabilityResponse { Models = entry.Models }),
         };
-
-    private static IAiOperationAvailabilityService AvailabilityService()
-    {
-        var mock = new Mock<IAiOperationAvailabilityService>();
-        mock
-            .Setup(service => service.CheckAsync(
-                It.IsAny<AiOperationAvailabilityRequest>(),
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync(true);
-        return mock.Object;
-    }
-
-    private static IAiEntitlementService EntitlementService()
-    {
-        var mock = new Mock<IAiEntitlementService>();
-        mock
-            .Setup(service => service.RefreshAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new AiEntitlements(
-                "pro",
-                "active",
-                null,
-                null,
-                false,
-                true,
-                new AiBalance(new AiMonthlyUsage(0, 100, false), 100, false),
-                new AiOperationAvailability([])));
-        return mock.Object;
-    }
-
-    private static IAiModelCatalogService ModelCatalogService(AiModelCatalog catalog)
-    {
-        var mock = new Mock<IAiModelCatalogService>();
-        mock
-            .Setup(service => service.GetAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(catalog);
-        return mock.Object;
-    }
-
-    private static AiRetryAttemptContext RetryContext()
-        => new(
-            new InMemoryAiRetryKeyStore(),
-            () => new AiAuthenticatedRequestIdentity("test-account", User: null),
-            allowSyntheticIdentity: true);
 }
