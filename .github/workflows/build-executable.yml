@@ -70,6 +70,12 @@ jobs:
       - name: Verify native architecture
         run: python3 build/verify_native_architecture.py --rid ${{ matrix.rid }} output/Beutl
 
+      # Only the linux_x64 output runs on this runner. Starting the FFmpeg worker and the MCP host from it
+      # catches a file that the merge into output/Beutl left out, which the build does not notice (#2887).
+      - name: Smoke-test the FFmpeg worker and the MCP host
+        if: matrix.rid == 'linux_x64'
+        run: python3 build/smoke_test_output.py output/Beutl
+
       - name: Store Metadata
         run: |
           cd output/Beutl
