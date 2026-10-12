@@ -4,18 +4,14 @@ using System.Text.Json.Nodes;
 using Beutl.Audio;
 using Beutl.Engine;
 using Beutl.Graphics;
-using Beutl.Graphics.Particles;
 using Beutl.Graphics.Shapes;
-using Beutl.Graphics3D;
-using Beutl.Graphics3D.Lighting;
-using Beutl.Graphics3D.Models;
-using Beutl.Graphics3D.Primitives;
 using Beutl.Serialization;
 
 namespace Beutl.ProjectSystem;
 
 internal static class ElementMigration
 {
+    // The operators that Beutl 1.x releases wrote. Operators that only unreleased builds wrote are not migrated.
     private static readonly FrozenDictionary<string, Type> s_typeMap = FrozenDictionary.Create(
         new KeyValuePair<string, Type>("[Beutl.Operators].Source:EllipseOperator", typeof(EllipseShape)),
         new KeyValuePair<string, Type>("[Beutl.Operators].Source:RectOperator", typeof(RectShape)),
@@ -26,19 +22,8 @@ internal static class ElementMigration
         new KeyValuePair<string, Type>("[Beutl.Operators].Source:SourceImageOperator", typeof(SourceImage)),
         new KeyValuePair<string, Type>("[Beutl.Operators].Source:SourceBackdropOperator", typeof(SourceBackdrop)),
         new KeyValuePair<string, Type>("[Beutl.Operators].Source:SourceSoundOperator", typeof(SourceSound)),
-        new KeyValuePair<string, Type>("[Beutl.Operators].Source:ParticleEmitterOperator", typeof(ParticleEmitter)),
         new KeyValuePair<string, Type>("[Beutl.ProjectSystem]Beutl.Operation:DecorateOperator", typeof(DrawableDecorator)),
-        new KeyValuePair<string, Type>("[Beutl.ProjectSystem]Beutl.Operation:GroupOperator", typeof(DrawableGroup)),
-        new KeyValuePair<string, Type>("[Beutl.ProjectSystem]Beutl.Operation:SoundGroupOperator", typeof(SoundGroup)),
-        new KeyValuePair<string, Type>("[Beutl.Operators].Source:DrawableTimeControllerOperator", typeof(DrawableTimeController)),
-        new KeyValuePair<string, Type>("[Beutl.Operators].Source:Scene3DOperator", typeof(Scene3D)),
-        new KeyValuePair<string, Type>("[Beutl.Operators].Source:Cube3DOperator", typeof(Cube3D)),
-        new KeyValuePair<string, Type>("[Beutl.Operators].Source:Sphere3DOperator", typeof(Sphere3D)),
-        new KeyValuePair<string, Type>("[Beutl.Operators].Source:Plane3DOperator", typeof(Plane3D)),
-        new KeyValuePair<string, Type>("[Beutl.Operators].Source:Model3DOperator", typeof(Model3D)),
-        new KeyValuePair<string, Type>("[Beutl.Operators].Source:DirectionalLight3DOperator", typeof(DirectionalLight3D)),
-        new KeyValuePair<string, Type>("[Beutl.Operators].Source:PointLight3DOperator", typeof(PointLight3D)),
-        new KeyValuePair<string, Type>("[Beutl.Operators].Source:SpotLight3DOperator", typeof(SpotLight3D)));
+        new KeyValuePair<string, Type>("[Beutl.ProjectSystem]Beutl.Operation:GroupOperator", typeof(DrawableGroup)));
 
     // The type Beutl 1.x wrote for an element's node tree. Nothing in 2.x provides it.
     internal const string LegacyNodeTreeTypeName = "[Beutl.ProjectSystem]Beutl.NodeTree:ElementNodeTreeModel";
