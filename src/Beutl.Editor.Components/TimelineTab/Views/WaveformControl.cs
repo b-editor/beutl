@@ -15,7 +15,6 @@ public sealed class WaveformControl : Control
         AvaloniaProperty.Register<WaveformControl, IBrush?>(nameof(WaveformBrush), Brushes.White);
 
     private readonly Dictionary<int, WaveformChunk> _chunks = new();
-    private readonly Lock _lock = new();
     private ScrollViewer? _scrollViewer;
 
     static WaveformControl()
@@ -37,20 +36,14 @@ public sealed class WaveformControl : Control
 
     public void SetChunk(WaveformChunk chunk)
     {
-        lock (_lock)
-        {
-            _chunks[chunk.Index] = chunk;
-        }
+        _chunks[chunk.Index] = chunk;
 
-        Avalonia.Threading.Dispatcher.UIThread.Post(InvalidateVisual);
+        InvalidateVisual();
     }
 
     public void ClearChunks()
     {
-        lock (_lock)
-        {
-            _chunks.Clear();
-        }
+        _chunks.Clear();
 
         InvalidateVisual();
     }
@@ -87,49 +80,27 @@ public sealed class WaveformControl : Control
         double slotWidth = width / count;
         double centerY = height / 2;
 
-        lock (_lock)
+        var (startIndex, endIndex) = TimelineSlotRange.Compute(this, _scrollViewer, count, buffer: 1);
+
+        foreach (var kvp in _chunks)
         {
-            // 可視範囲を計算
-            int startIndex = 0;
-            int endIndex = count - 1;
+            int i = kvp.Key;
+            var chunk = kvp.Value;
 
-            if (_scrollViewer != null)
-            {
-                var topLeft = this.TranslatePoint(Bounds.TopLeft, _scrollViewer);
-                var bottomRight = this.TranslatePoint(Bounds.BottomRight, _scrollViewer);
-                if (topLeft.HasValue && bottomRight.HasValue)
-                {
-                    var translatedBounds = new Rect(topLeft.Value, bottomRight.Value);
-                    double minX = Math.Max(0, -translatedBounds.Left);
-                    double maxX = _scrollViewer.Viewport.Width - translatedBounds.Left;
+            if (i < startIndex || i > endIndex)
+                continue;
 
-                    // 少し余裕を持たせる(1スロット分)
-                    startIndex = Math.Max(0, (int)(minX / slotWidth) - 1);
-                    endIndex = Math.Min(count - 1, (int)Math.Ceiling(maxX / slotWidth) + 1);
-                }
-            }
+            double slotX = i * slotWidth;
 
-            foreach (var kvp in _chunks)
-            {
-                int i = kvp.Key;
-                var chunk = kvp.Value;
+            float minVal = Math.Clamp(chunk.MinValue, -1f, 1f);
+            float maxVal = Math.Clamp(chunk.MaxValue, -1f, 1f);
 
-                // 範囲外はスキップ
-                if (i < startIndex || i > endIndex)
-                    continue;
+            double topY = centerY - (maxVal * centerY);
+            double bottomY = centerY - (minVal * centerY);
+            double barHeight = Math.Max(1, bottomY - topY);
 
-                double slotX = i * slotWidth;
-
-                float minVal = Math.Clamp(chunk.MinValue, -1f, 1f);
-                float maxVal = Math.Clamp(chunk.MaxValue, -1f, 1f);
-
-                double topY = centerY - (maxVal * centerY);
-                double bottomY = centerY - (minVal * centerY);
-                double barHeight = Math.Max(1, bottomY - topY);
-
-                var rect = new Rect(slotX, topY, Math.Max(1, slotWidth - 0.5), barHeight);
-                context.FillRectangle(brush, rect);
-            }
+            var rect = new Rect(slotX, topY, Math.Max(1, slotWidth - 0.5), barHeight);
+            context.FillRectangle(brush, rect);
         }
     }
 

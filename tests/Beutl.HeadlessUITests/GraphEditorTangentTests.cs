@@ -208,7 +208,7 @@ public class GraphEditorTangentTests
             if (speed ? hit is GraphEditorSpeedGraph : hit is AvaloniaPath) break;
             HeadlessTestHelpers.Render();
         }
-        double initialVelocity = GraphEditorView.GetKeyVelocity(left, !incoming);
+        double initialVelocity = GraphEditorCurveMath.KeyVelocity(left, !incoming);
         double initialScaleY = graph.Model.ScaleY.Value;
         double keyX = Position(graph, graph.Second).X;
         int direction = incoming ? 1 : -1;
@@ -260,7 +260,7 @@ public class GraphEditorTangentTests
             // A changing speed range can round the ScrollViewer offset to a physical pixel.
             Assert.That(actual.Y, Is.EqualTo(pointer.Y).Within(speed ? 1 : 0.003), message);
             if (speed)
-                Assert.That(GraphEditorView.GetKeyVelocity(left, !activeIncoming),
+                Assert.That(GraphEditorCurveMath.KeyVelocity(left, !activeIncoming),
                     Is.EqualTo(initialVelocity + (from.Y - pointer.Y) / initialScaleY).Within(0.001),
                     "Switching sides must preserve the velocity under the pointer.");
         }

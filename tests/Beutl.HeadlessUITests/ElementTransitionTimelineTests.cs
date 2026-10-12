@@ -105,7 +105,7 @@ public class ElementTransitionTimelineTests
 
             Assert.Multiple(() =>
             {
-                Assert.That(typeName, Is.EqualTo(ElementViewModel.GetTransitionName(typeof(WipeTransition))));
+                Assert.That(typeName, Is.EqualTo(TypeDisplayHelpers.GetLocalizedName(typeof(WipeTransition))));
                 Assert.That(showsDirection, Is.True, "a wipe shows its direction beneath the type");
                 Assert.That(exitAfterChange, Is.EqualTo(typeof(WipeTransition)));
                 Assert.That(undoAfterChange, Is.EqualTo(undoCount + 1));

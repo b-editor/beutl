@@ -12,7 +12,6 @@ using Beutl.Editor.Components.GraphEditorTab.ViewModels;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Services;
 using FluentAvalonia.UI.Controls;
-using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings.Extensions;
 using Path = Avalonia.Controls.Shapes.Path;
 using Shape = Avalonia.Controls.Shapes.Shape;
@@ -24,8 +23,7 @@ public partial class GraphEditorView : UserControl
 {
     private readonly CompositeDisposable _disposables = [];
     private TimelineHelper.MouseFlags _mouseFlag = TimelineHelper.MouseFlags.Free;
-    private TimeSpan _initialStart;
-    private TimeSpan _initialDuration;
+    private readonly TimelineRulerDrag _rulerDrag = new();
     private TimeSpan _pointerFrame;
     private int _contextVersion;
 
@@ -149,21 +147,7 @@ public partial class GraphEditorView : UserControl
 
     private void OnCurrentTimeChangedForAutoScroll(GraphEditorViewModel viewModel, TimeSpan currentTime)
     {
-        var mode = GlobalConfiguration.Instance.EditorConfig.TimelineAutoScrollMode;
-        if (mode == TimelineAutoScrollMode.None) return;
-
-        var previewPlayer = viewModel.EditorContext.GetService<IPreviewPlayer>();
-        if (previewPlayer == null || !previewPlayer.IsPlaying.Value) return;
-
-        float scale = viewModel.Options.Value.Scale;
-        double seekBarPixel = currentTime.TimeToPixel(scale);
-
-        double? newOffsetX = TimelineHelper.CalculateAutoScrollOffset(
-            seekBarPixel, scroll.Viewport.Width, scroll.Offset.X, mode);
-
-        if (newOffsetX is not { } offsetX) return;
-
-        scroll.Offset = new Vector(offsetX, scroll.Offset.Y);
+        TimelineHelper.AutoScrollToPlayhead(scroll, viewModel.EditorContext, viewModel.Options, currentTime);
     }
 
     private void OnContentPointerMoved(object? sender, PointerEventArgs e)
@@ -172,7 +156,7 @@ public partial class GraphEditorView : UserControl
         {
             PointerPoint pointerPt = e.GetCurrentPoint(graphPanel);
             viewModel.UpdatePointerPosition(pointerPt.Position.X);
-            int rate = viewModel.Scene.FindHierarchicalParent<Project>().GetFrameRate();
+            int rate = SceneTimeRangeService.GetFrameRate(viewModel.Scene);
             _pointerFrame = pointerPt.Position.X.PixelToTimeSpan(viewModel.Options.Value.Scale).RoundToRate(rate);
 
             if (_pointerFrame < TimeSpan.Zero)
@@ -191,19 +175,8 @@ public partial class GraphEditorView : UserControl
                 viewModel.CurrentTime.Value = _pointerFrame;
                 e.Handled = true;
             }
-            else if (_mouseFlag == TimelineHelper.MouseFlags.EndingBarMarkerPressed)
+            else if (_rulerDrag.Move(_mouseFlag, viewModel.EditorContext, viewModel.Scene, _pointerFrame))
             {
-                // タイムラインと同じく、シーンの長さを1フレーム以上に保つ（コマンドは離したときに記録）
-                viewModel.EditorContext
-                    .GetRequiredService<ISceneTimeRangeService>()
-                    .UpdateEndDrag(viewModel.Scene, _pointerFrame);
-                e.Handled = true;
-            }
-            else if (_mouseFlag == TimelineHelper.MouseFlags.StartingBarMarkerPressed)
-            {
-                viewModel.EditorContext
-                    .GetRequiredService<ISceneTimeRangeService>()
-                    .UpdateStartDrag(viewModel.Scene, _pointerFrame, _initialStart, _initialDuration);
                 e.Handled = true;
             }
             else
@@ -219,7 +192,6 @@ public partial class GraphEditorView : UserControl
         double startingBarX = viewModel.StartingBarMargin.Value.Left;
         double endingBarX = viewModel.EndingBarMargin.Value.Left;
 
-        // EndingBarマーカーの当たり判定チェック
         if (TimelineHelper.IsPointInTimelineScaleMarker(pointerPt.Position.X, posScale.Y, startingBarX,
                 endingBarX))
         {
@@ -238,18 +210,7 @@ public partial class GraphEditorView : UserControl
 
         if (pointerPt.Properties.PointerUpdateKind == PointerUpdateKind.LeftButtonReleased)
         {
-            if (_mouseFlag == TimelineHelper.MouseFlags.EndingBarMarkerPressed)
-            {
-                viewModel.EditorContext
-                    .GetRequiredService<ISceneTimeRangeService>()
-                    .CommitEndChange();
-            }
-            else if (_mouseFlag == TimelineHelper.MouseFlags.StartingBarMarkerPressed)
-            {
-                viewModel.EditorContext
-                    .GetRequiredService<ISceneTimeRangeService>()
-                    .CommitStartChange();
-            }
+            TimelineRulerDrag.Release(_mouseFlag, viewModel.EditorContext);
 
             _mouseFlag = TimelineHelper.MouseFlags.Free;
             e.Pointer.Capture(null);
@@ -268,25 +229,13 @@ public partial class GraphEditorView : UserControl
                 double startingBarX = viewModel.StartingBarMargin.Value.Left;
                 Point scalePoint = e.GetPosition(scale);
 
-                // マーカーの当たり判定チェック - TimelineScaleのマーカーのみ
-                if (TimelineHelper.IsPointInTimelineScaleEndingMarker(pointerPt.Position.X, scalePoint.Y, endingBarX))
+                _mouseFlag = _rulerDrag.Press(
+                    viewModel.Scene, pointerPt.Position.X, scalePoint.Y, startingBarX, endingBarX);
+                if (_mouseFlag == TimelineHelper.MouseFlags.SeekBarPressed)
                 {
-                    _mouseFlag = TimelineHelper.MouseFlags.EndingBarMarkerPressed;
-                    _initialDuration = viewModel.Scene.Duration; // 初期値を保存
-                }
-                else if (TimelineHelper.IsPointInTimelineScaleStartingMarker(pointerPt.Position.X, scalePoint.Y,
-                             startingBarX))
-                {
-                    _mouseFlag = TimelineHelper.MouseFlags.StartingBarMarkerPressed;
-                    _initialStart = viewModel.Scene.Start; // 初期値を保存
-                    _initialDuration = viewModel.Scene.Duration;
-                }
-                else
-                {
-                    _mouseFlag = TimelineHelper.MouseFlags.SeekBarPressed;
                     viewModel.CurrentTime.Value = pointerPt.Position.X
                         .PixelToTimeSpan(viewModel.Options.Value.Scale)
-                        .RoundToRate(viewModel.Scene.FindHierarchicalParent<Project>().GetFrameRate());
+                        .RoundToRate(SceneTimeRangeService.GetFrameRate(viewModel.Scene));
                 }
 
                 e.Pointer.Capture(RulerBar);
@@ -298,28 +247,9 @@ public partial class GraphEditorView : UserControl
     private void ZoomClick(object? sender, RoutedEventArgs e)
     {
         if (e.Source is FAMenuFlyoutItem menuItem
-            && DataContext is GraphEditorViewModel viewModel)
+            && DataContext is GraphEditorViewModel viewModel
+            && TimelineHelper.TryParseZoom(menuItem.CommandParameter, out float zoom))
         {
-            float zoom;
-            switch (menuItem.CommandParameter)
-            {
-                case string str:
-                    if (!float.TryParse(str, out zoom))
-                    {
-                        return;
-                    }
-
-                    break;
-                case double zoom1:
-                    zoom = (float)zoom1;
-                    break;
-                case float zoom2:
-                    zoom = zoom2;
-                    break;
-                default:
-                    return;
-            }
-
             viewModel.ScaleY.Value = zoom;
         }
     }
@@ -337,19 +267,6 @@ public partial class GraphEditorView : UserControl
     {
         if (DataContext is not GraphEditorViewModel viewModel) return;
 
-        var bpmGrid = viewModel.Options.Value.BpmGrid;
-        var flyout = new Editor.Components.Views.BpmGridFlyout
-        {
-            IsEnabledChecked = bpmGrid.IsEnabled,
-            Bpm = (decimal)bpmGrid.Bpm,
-            Subdivisions = bpmGrid.Subdivisions,
-            OffsetSeconds = (decimal)bpmGrid.Offset.TotalSeconds,
-        };
-        flyout.OptionsChanged += (_, options) =>
-        {
-            viewModel.Options.Value = viewModel.Options.Value with { BpmGrid = options };
-        };
-
-        flyout.ShowAt(graphPanel, true);
+        TimelineHelper.ShowBpmGridFlyout(viewModel.Options, graphPanel);
     }
 }

@@ -1,7 +1,5 @@
-﻿using System.Diagnostics.CodeAnalysis;
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Input;
-using Avalonia.VisualTree;
 using Avalonia.Xaml.Interactivity;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
@@ -26,25 +24,14 @@ public class KeyTimeMoveState
     public required IKeyFrame KeyFrame;
 }
 
-public class KeyTimeBehavior : Behavior<Path>
+public class KeyTimeBehavior : GraphEditorPathBehavior
 {
-    private GraphEditorView? _view;
-
     public static void SetAttached(Path obj, bool value)
     {
         if (value)
         {
             var behavior = new KeyTimeBehavior();
             Interaction.GetBehaviors(obj).Add(behavior);
-        }
-        else
-        {
-            var behaviors = Interaction.GetBehaviors(obj);
-            var behavior = behaviors.OfType<KeyTimeBehavior>().FirstOrDefault();
-            if (behavior != null)
-            {
-                behaviors.Remove(behavior);
-            }
         }
     }
 
@@ -64,18 +51,6 @@ public class KeyTimeBehavior : Behavior<Path>
         if (AssociatedObject == null) return;
         AssociatedObject.PointerPressed -= OnControlPointPointerPressed;
         AssociatedObject.ContextRequested -= OnContextRequested;
-    }
-
-    // GraphEditorView, GraphEditorViewModel, GraphEditorKeyFrameViewModelを取得
-    private bool TryGetValues(
-        [NotNullWhen(true)] out GraphEditorView? view,
-        [NotNullWhen(true)] out GraphEditorViewModel? viewModel,
-        [NotNullWhen(true)] out GraphEditorKeyFrameViewModel? keyFrameViewModel)
-    {
-        view = _view ??= AssociatedObject.FindAncestorOfType<GraphEditorView>();
-        viewModel = view?.DataContext as GraphEditorViewModel;
-        keyFrameViewModel = AssociatedObject?.DataContext as GraphEditorKeyFrameViewModel;
-        return view != null && viewModel != null && keyFrameViewModel != null;
     }
 
     private void OnContextRequested(object? sender, ContextRequestedEventArgs e)

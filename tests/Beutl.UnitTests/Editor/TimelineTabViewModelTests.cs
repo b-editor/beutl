@@ -178,7 +178,7 @@ public class TimelineTabViewModelTests
             for (int row = 0; row < viewModel.LayerHeaders.Count; row++)
             {
                 LayerHeaderViewModel header = viewModel.LayerHeaders[row];
-                Assert.That(header.Number.Value, Is.EqualTo(row), $"the number of the header on row {row}");
+                Assert.That(header.Number, Is.EqualTo(row), $"the number of the header on row {row}");
                 Assert.That(header.Name.Value, Is.EqualTo(row == namedRow ? "Named" : $"{row}"),
                     $"the name on row {row}");
                 Assert.That(header.IsAudioMuted.Value, Is.EqualTo(row == namedRow), $"the audio mute on row {row}");

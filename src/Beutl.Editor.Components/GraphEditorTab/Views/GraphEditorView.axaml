@@ -257,7 +257,6 @@
                                         <Setter Property="Opacity" Value="0.5" />
                                     </Style>
                                 </Panel.Styles>
-                                <!--  イージングの線  -->
                                 <ItemsControl HorizontalAlignment="Left"
                                               VerticalAlignment="Stretch"
                                               ClipToBounds="False"
@@ -270,7 +269,6 @@
                                     </ItemsControl.ItemsPanel>
                                 </ItemsControl>
 
-                                <!--  SplineEasingの編集ポイント、キーフレームの移動ポイント  -->
                                 <ItemsControl HorizontalAlignment="Left"
                                               VerticalAlignment="Stretch"
                                               ClipToBounds="False"
@@ -309,7 +307,7 @@
 
             </Panel>
         </ScrollViewer>
-        <controls:ToolTabBar x:Name="GraphToolBarHost" Grid.Row="2" Grid.ColumnSpan="2"
+        <controls:ToolTabBar Grid.Row="2" Grid.ColumnSpan="2"
                              BorderThickness="0,1,0,0">
             <WrapPanel x:Name="GraphToolbar" ItemSpacing="4" LineSpacing="4">
                 <WrapPanel.Styles>

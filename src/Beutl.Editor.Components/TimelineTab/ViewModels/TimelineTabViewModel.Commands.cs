@@ -69,8 +69,7 @@ public sealed partial class TimelineTabViewModel
     // Ending the scene at a frame keeps that frame inside it, so the end lands one frame later.
     private void SetSceneEndAfterFrame(TimeSpan frame)
     {
-        int rate = Scene.FindHierarchicalParent<Project>().GetFrameRate();
-        TimeSpan time = frame + TimeSpan.FromSeconds(1d / rate);
+        TimeSpan time = frame + SceneTimeRangeService.GetFrameDuration(Scene);
         EditorContext.GetRequiredService<ISceneTimeRangeService>().SetEnd(Scene, time);
     }
 
@@ -261,14 +260,9 @@ public sealed partial class TimelineTabViewModel
         }
     }
 
-    private void ToggleToolMode(ReactivePropertySlim<bool> mode)
+    private static void ToggleToolMode(ReactivePropertySlim<bool> mode)
     {
-        bool next = !mode.Value;
-        IsRazorMode.Value = false;
-        IsSlipMode.Value = false;
-        IsRollMode.Value = false;
-        IsSlideMode.Value = false;
-        mode.Value = next;
+        mode.Value = !mode.Value;
     }
 
     // An exit shortcut consumes its key only when the mode was on.
@@ -297,7 +291,7 @@ public sealed partial class TimelineTabViewModel
             .ToArray();
         if (targets.Length == 0) return;
 
-        int rate = Scene.FindHierarchicalParent<Project>().GetFrameRate();
+        int rate = SceneTimeRangeService.GetFrameRate(Scene);
         int frames = unit switch
         {
             NudgeUnit.Frame => direction,
@@ -323,17 +317,15 @@ public sealed partial class TimelineTabViewModel
         }
     }
 
-    public void RazorSplitAt(TimeSpan time, bool acrossAllLayers)
+    public void RazorSplitAt(TimeSpan time)
     {
-        IReadOnlyList<ElementViewModel> targets = acrossAllLayers
-            ? Elements.Where(e => e.Model.Range.Contains(time)).ToArray()
-            : Elements.Where(e => e.Model.Range.Contains(time) && e.Model.ZIndex == CalculateClickedLayer()).ToArray();
+        Element[] models = Elements
+            .Where(e => e.Model.Range.Contains(time) && e.IsEditable.Value)
+            .Select(e => e.Model)
+            .ToArray();
+        if (models.Length == 0) return;
 
-        if (targets.Count == 0)
-        {
-            return;
-        }
-
-        targets[0].SplitAt(targets, time);
+        EditorContext.GetRequiredService<IElementStructureService>()
+            .Split(Scene, models, time.RoundToRate(SceneTimeRangeService.GetFrameRate(Scene)));
     }
 }

@@ -5,6 +5,7 @@ using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Editor.Components.GraphEditorTab.ViewModels;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Services;
 using Beutl.Logging;
 using Beutl.Serialization;
 using Beutl.Services;
@@ -56,9 +57,9 @@ public sealed class InlineKeyFrameViewModel : IDisposable
 
     public ReactiveProperty<double> Left { get; }
 
-    public AsyncReactiveCommand CopyCommand { get; set; }
+    public AsyncReactiveCommand CopyCommand { get; }
 
-    public AsyncReactiveCommand PasteCommand { get; set; }
+    public AsyncReactiveCommand PasteCommand { get; }
 
     public ReactiveCommand RemoveCommand { get; }
 
@@ -126,7 +127,6 @@ public sealed class InlineKeyFrameViewModel : IDisposable
 
         if (type.GenericTypeArguments[0] != Parent.Property.PropertyType)
         {
-            // イージングのみ変更
             Model.Easing = newKeyFrame.Easing;
             history.Commit(CommandNames.ChangeEasing);
             NotificationService.ShowWarning(Strings.GraphEditor,
@@ -157,8 +157,7 @@ public sealed class InlineKeyFrameViewModel : IDisposable
     {
         if (!Parent.IsEditable) return;
         float scale = Timeline.Options.Value.Scale;
-        Project? proj = Timeline.Scene.FindHierarchicalParent<Project>();
-        int rate = proj?.GetFrameRate() ?? 30;
+        int rate = SceneTimeRangeService.GetFrameRate(Timeline.Scene);
         HistoryManager history = Timeline.EditorContext.GetRequiredService<HistoryManager>();
 
         TimeSpan time = Left.Value.PixelToTimeSpan(scale).RoundToRate(rate);
@@ -168,9 +167,7 @@ public sealed class InlineKeyFrameViewModel : IDisposable
         Left.Value = time.TimeToPixel(scale);
     }
 
-    // Visual-only rollback: unlike ReflectModelKeyTime (which commits the dragged
-    // Left into Model.KeyTime), this never touches the model — required when a
-    // drag is cancelled because the clip is locked.
+    // For a drag cancelled because the clip got locked: restores only the view and leaves the model as it is.
     public void RestoreVisualFromModel()
     {
         float scale = Timeline.Options.Value.Scale;
@@ -180,8 +177,7 @@ public sealed class InlineKeyFrameViewModel : IDisposable
     public void ReflectModelKeyTime()
     {
         float scale = Timeline.Options.Value.Scale;
-        Project? proj = Timeline.Scene.FindHierarchicalParent<Project>();
-        int rate = proj?.GetFrameRate() ?? 30;
+        int rate = SceneTimeRangeService.GetFrameRate(Timeline.Scene);
 
         TimeSpan time = Left.Value.PixelToTimeSpan(scale).RoundToRate(rate);
 

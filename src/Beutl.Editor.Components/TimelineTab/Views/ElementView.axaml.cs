@@ -25,13 +25,6 @@ using Setter = Avalonia.Styling.Setter;
 
 namespace Beutl.Editor.Components.TimelineTab.Views;
 
-/*
- * 移動アニメーション中にUndoを行うと、
- * 表示される位置がUndo前になる。
- * 解決するには、オブジェクトがUndo/Redoしたかを追跡するAPIを追加して、
- * Undo/Redoがされた場合アニメーションをキャンセルする必要がある。
- */
-
 public sealed partial class ElementView : UserControl
 {
     private static readonly ILogger s_logger = Log.CreateLogger<ElementView>();
@@ -50,6 +43,7 @@ public sealed partial class ElementView : UserControl
     public ElementView()
     {
         InitializeComponent();
+        TimelineEditingModeMenu.Populate(editingModeMenu, "Timeline.");
 
         var cm = AppHelper.GetContextCommandManager?.Invoke();
         cm?.Attach(this, TimelineTabExtension.Instance);
@@ -66,9 +60,6 @@ public sealed partial class ElementView : UserControl
     }
 
     private ElementViewModel ViewModel => (ElementViewModel)DataContext!;
-
-    private static int FrameRateOf(ElementViewModel viewModel)
-        => viewModel.Scene.FindHierarchicalParent<Project>().GetFrameRate();
 
     protected override void OnKeyDown(KeyEventArgs e)
     {
@@ -94,8 +85,8 @@ public sealed partial class ElementView : UserControl
         split.IsEnabled = editable;
         cut.IsEnabled = editable;
         // Recovery protection makes a clip read-only but still lets it be removed.
-        delete.IsEnabled = viewModel.CanRemove.Value;
-        exclude.IsEnabled = viewModel.CanRemove.Value;
+        delete.IsEnabled = !viewModel.IsLockedByUser.Value;
+        exclude.IsEnabled = !viewModel.IsLockedByUser.Value;
         finishEditingAnimation.IsEnabled = editable;
         rename.IsEnabled = editable;
         enableElement.IsEnabled = editable;
@@ -183,7 +174,7 @@ public sealed partial class ElementView : UserControl
         if (delta == 0) return _transitionDragStartDuration;
 
         float scale = viewModel.Timeline.Options.Value.Scale;
-        int rate = FrameRateOf(viewModel);
+        int rate = SceneTimeRangeService.GetFrameRate(viewModel.Scene);
         if (edge == ElementEdge.End) delta = -delta;
 
         TimeSpan duration = (_transitionDragStartDuration + delta.PixelToTimeSpan(scale)).RoundToRate(rate);
@@ -373,25 +364,12 @@ public sealed partial class ElementView : UserControl
     {
         if (DataContext is not ElementViewModel viewModel) return;
 
-        string defaultName = !string.IsNullOrWhiteSpace(viewModel.Model.Name)
-            ? viewModel.Model.Name
-            : TypeDisplayHelpers.GetLocalizedName(viewModel.Model.GetType());
-        string uniqueName = ObjectTemplateService.Instance.GetUniqueName(defaultName);
-
-        var flyout = new SaveAsTemplateFlyout { Text = uniqueName };
+        var flyout = new SaveAsTemplateFlyout { Text = TimelineTabExtension.GetDefaultTemplateName(viewModel.Model) };
         flyout.Confirmed += async (_, name) =>
         {
             if (!string.IsNullOrWhiteSpace(name))
             {
-                try
-                {
-                    if (await ObjectTemplateService.Instance.AddFromInstanceAsync(viewModel.Model, name) is null)
-                        Beutl.Services.NotificationService.ShowError(Beutl.Language.Strings.SaveAsTemplate, Beutl.Language.MessageStrings.OperationFailed);
-                }
-                catch (Exception)
-                {
-                    Beutl.Services.NotificationService.ShowError(Beutl.Language.Strings.SaveAsTemplate, Beutl.Language.MessageStrings.OperationFailed);
-                }
+                await TimelineTabExtension.SaveAsTemplateAsync(viewModel.Model, name);
             }
         };
         flyout.ShowAt(this, true);
@@ -401,7 +379,6 @@ public sealed partial class ElementView : UserControl
     {
         if (DataContext is not ElementViewModel { IsEditable.Value: true } viewModel) return;
 
-        // ContextMenuから開いているので、閉じるのを待つ
         s_colorPickerFlyout ??= new ColorPickerFlyout();
         s_colorPickerFlyout.ColorPicker.Color = viewModel.Color.Value;
         s_colorPickerFlyout.ColorPicker.IsAlphaEnabled = false;
@@ -459,12 +436,8 @@ public sealed partial class ElementView : UserControl
         return result.Time;
     }
 
-    // The model-level member set a Slip/Roll/Slide gesture acts on: the pressed clip's
-    // group or multi-selection, always including the pressed clip itself
-    // (GetGroupOrSelectedElements returns empty when it is neither grouped nor selected).
-    // Locked members are deliberately NOT filtered here: TrimGroupCollector needs to see
-    // them to apply its all-or-nothing locked-participant rule for Roll/Slide, and the
-    // slip service drops them itself at the mutation boundary.
+    // The pressed clip's group or selection and the clip itself. Locked members stay: the Roll/Slide check needs
+    // them, and the slip service drops them itself.
     private static Element[] CollectTrimMembers(ElementViewModel viewModel)
     {
         var members = viewModel.GetGroupOrSelectedElements()

@@ -76,7 +76,7 @@ public class GraphEditorEditingTests
         using var graph = await GraphScope.CreateAsync(separateHandles: true);
         var otherAnimation = new KeyFrameAnimation<float>();
         otherAnimation.KeyFrames.Add(new KeyFrame<float> { Value = 50 });
-        using var otherModel = new GraphEditorViewModel<float>(graph.Model.EditorContext, otherAnimation, graph.Model.Element);
+        using var otherModel = new GraphEditorViewModel(graph.Model.EditorContext, otherAnimation, graph.Model.Element);
         var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var clipboard = new Mock<IClipboard>();
         IAsyncDataTransfer? data = null;
@@ -152,7 +152,7 @@ public class GraphEditorEditingTests
         brush.Color.Animation = animation;
         shape.Fill.CurrentValue = brush;
         graph.Model.HistoryManager.Commit();
-        using var model = new GraphEditorViewModel<Beutl.Media.Color>(graph.Model.EditorContext, animation, graph.Model.Element);
+        using var model = new GraphEditorViewModel(graph.Model.EditorContext, animation, graph.Model.Element);
         graph.View.DataContext = model;
         var firstChannel = model.Views[0];
         firstChannel.SetSelection(animation.KeyFrames);
@@ -188,7 +188,7 @@ public class GraphEditorEditingTests
         using var graph = await GraphScope.CreateAsync(separateHandles: true);
         var otherAnimation = new KeyFrameAnimation<float>();
         otherAnimation.KeyFrames.Add(new KeyFrame<float> { Value = 50 });
-        using var other = new GraphEditorViewModel<float>(graph.Model.EditorContext, otherAnimation, graph.Model.Element);
+        using var other = new GraphEditorViewModel(graph.Model.EditorContext, otherAnimation, graph.Model.Element);
         var clipboard = new Mock<IClipboard>();
         var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         clipboard.Setup(x => x.TryGetDataAsync()).Returns(Read);
@@ -310,7 +310,7 @@ public class GraphEditorEditingTests
         graph.Model.HistoryManager.Commit();
         var timeline = ((EditViewModel)graph.Model.EditorContext).FindToolTab<TimelineTabViewModel>()!;
         var property = new AnimatablePropertyAdapter<float>((AnimatableProperty<float>)shape.Height, shape);
-        using var inline = new InlineAnimationLayerViewModel<float>(property, timeline, timeline.Elements.Single());
+        using var inline = new InlineAnimationLayerViewModel(property, timeline, timeline.Elements.Single());
         string before = CoreSerializer.SerializeToJsonObject(target).ToJsonString();
         int undo = graph.Model.HistoryManager.UndoCount;
         if (keyMenu) await inline.Items.Single(item => item.Model.KeyTime.TotalSeconds == start).PasteAsync(graph.Window.Clipboard);
@@ -351,7 +351,7 @@ public class GraphEditorEditingTests
         graph.Model.HistoryManager.Commit();
         var timeline = ((EditViewModel)graph.Model.EditorContext).FindToolTab<TimelineTabViewModel>()!;
         var property = new AnimatablePropertyAdapter<float>((AnimatableProperty<float>)shape.Height, shape);
-        using var inline = new InlineAnimationLayerViewModel<float>(property, timeline, timeline.Elements.Single());
+        using var inline = new InlineAnimationLayerViewModel(property, timeline, timeline.Elements.Single());
         var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var clipboard = new Mock<IClipboard>();
         clipboard.Setup(x => x.TryGetDataAsync()).Returns(Read);

@@ -31,9 +31,7 @@ public class GraphEditorDragDropBehavior : Behavior<GraphEditorView>
         if (AssociatedObject?.DataContext is not GraphEditorViewModel { Options.Value.Scale: var scale } viewModel)
             return;
 
-        if (e.DataTransfer.TryGetValue(BeutlDataFormats.Easing) is not { } typeName) return;
-        if (TypeFormat.ToType(typeName) is not { } type) return;
-        if (Activator.CreateInstance(type) is not Easing easing) return;
+        if (!KeyFrameClipboardCommands.TryCreateDroppedEasing(e.DataTransfer, out Easing? easing)) return;
 
         TimeSpan time = e.GetPosition(AssociatedObject.graphPanel).X.PixelToTimeSpan(scale);
         viewModel.DropEasing(easing, time);

@@ -28,13 +28,12 @@ public partial class InlineAnimationLayerHeader : UserControl
             && viewModel.Property is IAnimatablePropertyAdapter { Animation: KeyFrameAnimation kfAnimation })
         {
             var editorContext = viewModel.Timeline.EditorContext;
-            // タイムラインのタブを開く
-            GraphEditorTabViewModel anmTimelineViewModel =
+            GraphEditorTabViewModel graphEditorViewModel =
                 GraphEditorTabViewModel.FindReusable(editorContext, viewModel.Element.Model, kfAnimation)
                 ?? new GraphEditorTabViewModel(editorContext);
-            anmTimelineViewModel.Element.Value = viewModel.Element.Model;
-            anmTimelineViewModel.Select(kfAnimation);
-            editorContext.OpenToolTab(anmTimelineViewModel);
+            graphEditorViewModel.Element.Value = viewModel.Element.Model;
+            graphEditorViewModel.Select(kfAnimation);
+            editorContext.OpenToolTab(graphEditorViewModel);
         }
     }
 

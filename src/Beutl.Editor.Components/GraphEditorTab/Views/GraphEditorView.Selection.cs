@@ -2,6 +2,7 @@
 using Beutl.Editor.Components.GraphEditorTab.ViewModels;
 using Beutl.Language;
 using Beutl.Services;
+using FluentAvalonia.UI.Controls.Primitives;
 
 namespace Beutl.Editor.Components.GraphEditorTab.Views;
 
@@ -69,16 +70,7 @@ public partial class GraphEditorView
             if (flyout.IsConfirmed && ReferenceEquals(DataContext, model) && ReferenceEquals(model.SelectedView.Value, channel))
                 ScaleSelectionValues(flyout.Factor);
         };
-        model.HistoryManager.BeforeMutation.Subscribe(_ => flyout.Hide()).DisposeWith(subscriptions);
-        model.SelectedView.Skip(1).Subscribe(_ => flyout.Hide()).DisposeWith(subscriptions);
-        EventHandler changed = (_, _) => flyout.Hide();
-        channel.SelectionChanged += changed;
-        model.Animation.Edited += changed;
-        Disposable.Create(() => channel.SelectionChanged -= changed).DisposeWith(subscriptions);
-        Disposable.Create(() => model.Animation.Edited -= changed).DisposeWith(subscriptions);
-        NotifyCollectionChangedEventHandler keysChanged = (_, _) => flyout.Hide();
-        model.Animation.KeyFrames.CollectionChanged += keysChanged;
-        Disposable.Create(() => model.Animation.KeyFrames.CollectionChanged -= keysChanged).DisposeWith(subscriptions);
+        HideOnGraphChange(flyout, model, channel, includeEdits: true).DisposeWith(subscriptions);
         try { flyout.ShowAt(GraphTypePicker); }
         catch
         {
@@ -86,5 +78,27 @@ public partial class GraphEditorView
             ValueScaleFlyout = null;
             throw;
         }
+    }
+
+    // Closes the flyout when the graph changes under it: a history change, another channel or selection, keys
+    // added or removed and, with includeEdits, any edit of the animation.
+    private static IDisposable HideOnGraphChange(
+        FAPickerFlyoutBase flyout, GraphEditorViewModel model, GraphEditorViewViewModel channel, bool includeEdits)
+    {
+        var subscriptions = new CompositeDisposable();
+        model.HistoryManager.BeforeMutation.Subscribe(_ => flyout.Hide()).DisposeWith(subscriptions);
+        model.SelectedView.Skip(1).Subscribe(_ => flyout.Hide()).DisposeWith(subscriptions);
+        EventHandler changed = (_, _) => flyout.Hide();
+        channel.SelectionChanged += changed;
+        Disposable.Create(() => channel.SelectionChanged -= changed).DisposeWith(subscriptions);
+        if (includeEdits)
+        {
+            model.Animation.Edited += changed;
+            Disposable.Create(() => model.Animation.Edited -= changed).DisposeWith(subscriptions);
+        }
+        NotifyCollectionChangedEventHandler keysChanged = (_, _) => flyout.Hide();
+        model.Animation.KeyFrames.CollectionChanged += keysChanged;
+        Disposable.Create(() => model.Animation.KeyFrames.CollectionChanged -= keysChanged).DisposeWith(subscriptions);
+        return subscriptions;
     }
 }

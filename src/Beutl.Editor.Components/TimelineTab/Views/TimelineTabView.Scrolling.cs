@@ -8,22 +8,18 @@ using Avalonia.Styling;
 using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
-using Beutl.Editor.Services;
 using Beutl.Media;
 using FluentAvalonia.UI.Controls;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Editor.Components.TimelineTab.Views;
 
 public sealed partial class TimelineTabView
 {
-    // PaneScrollがスクロールされた
     private void PaneScroll_ScrollChanged(object? sender, ScrollChangedEventArgs e)
     {
         ContentScroll.Offset = ContentScroll.Offset.WithY(PaneScroll.Offset.Y);
     }
 
-    // PaneScrollがスクロールされた
     private void ContentScroll_ScrollChanged(object? sender, ScrollChangedEventArgs e)
     {
         if (ViewModel == null) return;
@@ -41,9 +37,8 @@ public sealed partial class TimelineTabView
 
         const float ZoomSpeed = 1.2f;
         float delta = (float)e.Delta.Y;
-        float realDelta = MathF.Sign(delta) * MathF.Abs(delta);
 
-        scale = MathF.Pow(ZoomSpeed, realDelta) * scale;
+        scale = MathF.Pow(ZoomSpeed, delta) * scale;
         scale = Math.Min(scale, 2);
 
         offset.X = ZoomOffsetX(pointerPos.X, offset.X, oldScale, scale);
@@ -56,7 +51,6 @@ public sealed partial class TimelineTabView
         return (float)((pointerX / oldScale * newScale) - deltaLeft);
     }
 
-    // マウスホイールが動いた
     private void ContentScroll_PointerWheelChanged(object? sender, PointerWheelEventArgs e)
     {
         if (ViewModel == null) return;
@@ -68,7 +62,6 @@ public sealed partial class TimelineTabView
 
         if (e.KeyModifiers == KeyGestureHelper.GetCommandModifier())
         {
-            // 目盛りのスケールを変更
             UpdateZoom(e, ref scale, ref offset);
         }
         else
@@ -87,7 +80,6 @@ public sealed partial class TimelineTabView
             }
             else
             {
-                // オフセット(X) をスクロール
                 offset.X -= (float)(delta.Y * 50);
                 offset.Y -= (float)(delta.X * 50);
             }
@@ -100,28 +92,9 @@ public sealed partial class TimelineTabView
 
     private void ZoomClick(object? sender, RoutedEventArgs e)
     {
-        if (e.Source is FAMenuFlyoutItem menuItem && ViewModel != null)
+        if (e.Source is FAMenuFlyoutItem menuItem && ViewModel != null
+            && TimelineHelper.TryParseZoom(menuItem.CommandParameter, out float zoom))
         {
-            float zoom;
-            switch (menuItem.CommandParameter)
-            {
-                case string str:
-                    if (!float.TryParse(str, out zoom))
-                    {
-                        return;
-                    }
-
-                    break;
-                case double zoom1:
-                    zoom = (float)zoom1;
-                    break;
-                case float zoom2:
-                    zoom = zoom2;
-                    break;
-                default:
-                    return;
-            }
-
             float oldScale = ViewModel.Options.Value.Scale;
             var offset = ViewModel.Options.Value.Offset;
             double pointerPos = _pointerFrame.TimeToPixel(ViewModel.Options.Value.Scale);
@@ -134,21 +107,7 @@ public sealed partial class TimelineTabView
     {
         if (ViewModel == null) return;
 
-        var mode = GlobalConfiguration.Instance.EditorConfig.TimelineAutoScrollMode;
-        if (mode == TimelineAutoScrollMode.None) return;
-
-        var previewPlayer = ViewModel.EditorContext.GetService<IPreviewPlayer>();
-        if (previewPlayer == null || !previewPlayer.IsPlaying.Value) return;
-
-        float scale = ViewModel.Options.Value.Scale;
-        double seekBarPixel = currentTime.TimeToPixel(scale);
-
-        double? newOffsetX = TimelineHelper.CalculateAutoScrollOffset(
-            seekBarPixel, ContentScroll.Viewport.Width, ContentScroll.Offset.X, mode);
-
-        if (newOffsetX is not { } offsetX) return;
-
-        ContentScroll.Offset = new Avalonia.Vector(offsetX, ContentScroll.Offset.Y);
+        TimelineHelper.AutoScrollToPlayhead(ContentScroll, ViewModel.EditorContext, ViewModel.Options, currentTime);
     }
 
     private async void ScrollTimelinePosition(TimeRange range, int zindex)

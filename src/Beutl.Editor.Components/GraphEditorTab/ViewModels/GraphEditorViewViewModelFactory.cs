@@ -75,9 +75,9 @@ public abstract class GraphEditorViewViewModelFactory
 
     public virtual IReadOnlyList<string> ChannelNames => ["Self"];
 
-    public static IEnumerable<GraphEditorViewViewModelFactory> GetFactory(GraphEditorViewModel parent) => GetFactory(parent.Animation.ValueType);
+    public static GraphEditorViewViewModelFactory? GetFactory(GraphEditorViewModel parent) => GetFactory(parent.Animation.ValueType);
 
-    internal static IEnumerable<GraphEditorViewViewModelFactory> GetFactory(Type type)
+    internal static GraphEditorViewViewModelFactory? GetFactory(Type type)
     {
         static bool IsAssignableToGenericType(Type givenType, Type genericType)
         {
@@ -99,7 +99,7 @@ public abstract class GraphEditorViewViewModelFactory
 
         if (s_registry.TryGetValue(type, out GraphEditorViewViewModelFactory? factory))
         {
-            yield return factory;
+            return factory;
         }
         else
         {
@@ -108,9 +108,11 @@ public abstract class GraphEditorViewViewModelFactory
             {
                 factory = (GraphEditorViewViewModelFactory)Activator.CreateInstance(typeof(NumberFactory<>).MakeGenericType(type))!;
                 s_registry[type] = factory;
-                yield return factory;
+                return factory;
             }
         }
+
+        return null;
     }
 
     public static GraphEditorViewViewModel[] CreateViews(GraphEditorViewModel parent, GraphEditorViewViewModelFactory? factory)
@@ -237,29 +239,25 @@ public abstract class GraphEditorViewViewModelFactory
                     parent,
                     "Alpha",
                     obj => ConvertTo(0, obj),
-                    (object? old, double value, Type _, out object? obj) => TryConvertFrom(0, old, value, out obj),
-                    Avalonia.Media.Colors.White),
+                    (object? old, double value, Type _, out object? obj) => TryConvertFrom(0, old, value, out obj)),
 
                 new GraphEditorViewViewModel(
                     parent,
                     "Red",
                     obj => ConvertTo(1, obj),
-                    (object? old, double value, Type _, out object? obj) => TryConvertFrom(1, old, value, out obj),
-                    Avalonia.Media.Colors.Red),
+                    (object? old, double value, Type _, out object? obj) => TryConvertFrom(1, old, value, out obj)),
 
                 new GraphEditorViewViewModel(
                     parent,
                     "Green",
                     obj => ConvertTo(2, obj),
-                    (object? old, double value, Type _, out object? obj) => TryConvertFrom(2, old, value, out obj),
-                    Avalonia.Media.Colors.Green),
+                    (object? old, double value, Type _, out object? obj) => TryConvertFrom(2, old, value, out obj)),
 
                 new GraphEditorViewViewModel(
                     parent,
                     "Blue",
                     obj => ConvertTo(3, obj),
-                    (object? old, double value, Type _, out object? obj) => TryConvertFrom(3, old, value, out obj),
-                    Avalonia.Media.Colors.Blue)
+                    (object? old, double value, Type _, out object? obj) => TryConvertFrom(3, old, value, out obj))
             ];
         }
 

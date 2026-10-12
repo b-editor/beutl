@@ -8,7 +8,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Beutl.Editor.Components.GraphEditorTab.ViewModels;
 
-public abstract partial class GraphEditorViewModel
+public sealed partial class GraphEditorViewModel
 {
     private int _clipboardContextVersion;
     private bool _clipboardContextActive = true;

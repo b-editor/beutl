@@ -23,7 +23,7 @@
         </Grid.ColumnDefinitions>
 
         <Grid RowDefinitions="Auto,*">
-            <controls:ToolTabBar x:Name="PropertiesBar">
+            <controls:ToolTabBar>
                 <Grid ColumnDefinitions="*,Auto">
                     <TextBlock Text="{x:Static lang:Strings.Properties}"
                                Theme="{StaticResource ToolTabBarTitleTextBlockTheme}" />
@@ -115,8 +115,7 @@
             </TreeView>
         </Grid>
 
-        <GridSplitter x:Name="gridSplitter"
-                      Grid.RowSpan="2"
+        <GridSplitter Grid.RowSpan="2"
                       Grid.Column="1" />
 
         <view:GraphEditorView Grid.Column="2"

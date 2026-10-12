@@ -13,9 +13,6 @@ public partial class GraphEditorView
         Point Origin, Point Handle, double Velocity, double ScaleY, Point OppositeVector);
     private SpeedHandleDrag? _speedHandle;
 
-    internal static double GetKeyVelocity(GraphEditorKeyFrameViewModel item, bool outgoing = false)
-        => GraphEditorCurveMath.KeyVelocity(item, outgoing);
-
     internal static Point GetSpeedHandlePoint(GraphEditorKeyFrameViewModel item, bool incoming)
     {
         var channel = item.Parent;
@@ -25,7 +22,8 @@ public partial class GraphEditorView
         var previous = channel.KeyFrames[index - 1];
         double left = previous.Model.KeyTime.TimeToPixel(model.Options.Value.Scale);
         double right = item.Model.KeyTime.TimeToPixel(model.Options.Value.Scale);
-        double velocity = incoming ? GetKeyVelocity(item) : GetKeyVelocity(previous, true);
+        double velocity = incoming
+            ? GraphEditorCurveMath.KeyVelocity(item) : GraphEditorCurveMath.KeyVelocity(previous, true);
         return new Point(left + (right - left) * (incoming ? spline.X2 : spline.X1) + model.Margin.Value.Left,
             model.Baseline.Value - velocity * model.ScaleY.Value);
     }

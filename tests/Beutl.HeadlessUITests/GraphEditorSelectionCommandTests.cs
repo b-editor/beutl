@@ -222,7 +222,7 @@ public class GraphEditorSelectionCommandTests
         var shape = graph.Model.Element!.Objects.OfType<RectShape>().Single();
         ((FilterEffectGroup)shape.FilterEffect.CurrentValue!).Children.Add(effect);
         graph.Model.HistoryManager.Commit();
-        using var model = new GraphEditorViewModel<GraphicsPoint>(graph.Model.EditorContext, animation, graph.Model.Element);
+        using var model = new GraphEditorViewModel(graph.Model.EditorContext, animation, graph.Model.Element);
         graph.View.DataContext = model;
         model.SelectedView.Value!.SetSelection(selectAll ? animation.KeyFrames : [first]);
         var sampleTimes = Enumerable.Range(0, 31).Select(index => TimeSpan.FromSeconds(index / 30d)).ToArray();

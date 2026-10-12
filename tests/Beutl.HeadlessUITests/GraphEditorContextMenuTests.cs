@@ -241,7 +241,7 @@ public class GraphEditorContextMenuTests
             await ((IElementAdder)editor.GetService(typeof(IElementAdder))!).AddAsync(
                 [new ElementDescription(TimeSpan.Zero, TimeSpan.FromSeconds(2), 0,
                     new ElementSource.EngineObject(() => shape))], CancellationToken.None);
-            var model = new GraphEditorViewModel<float>(editor, animation, scene.Children.Single());
+            var model = new GraphEditorViewModel(editor, animation, scene.Children.Single());
             model.Options.Value = model.Options.Value with { Scale = 1, Offset = System.Numerics.Vector2.Zero };
             if (selectAll) model.SelectedView.Value!.SetSelection(animation.KeyFrames);
             var view = new GraphEditorView { DataContext = model };

@@ -74,10 +74,8 @@ public sealed partial class TimelineTabViewModel
         if (FindGapNavigationTarget(Scene, CurrentTime.Value, forward) is { } target)
         {
             CurrentTime.Value = target.Target;
-            // The playhead move alone does not scroll while stopped, so bring the target into view like
-            // the other seek commands. Scroll around the target, not the whole gap: a gap wider than the
-            // viewport always intersects it and the view would skip the scroll. The 1-tick width keeps
-            // the range non-empty so the view's "already visible" check reads it as the target point.
+            // Moving the playhead does not scroll while stopped, so scroll to a 1-tick range around the target:
+            // a gap wider than the viewport would always intersect it and skip the scroll.
             ScrollTo.Execute((new TimeRange(target.Target, TimeSpan.FromTicks(1)), target.ZIndex));
             // A null anchor (start-clipped gap) has no element to select; clear any prior selection so
             // the selection-based Close Gap cannot act on a stale, unrelated gap after the jump.
@@ -104,7 +102,7 @@ public sealed partial class TimelineTabViewModel
     // tabs follow the gap anchor instead of the previously selected element.
     private void SelectGapAnchor(Element anchor)
     {
-        ElementViewModel? vm = Elements.FirstOrDefault(e => ReferenceEquals(e.Model, anchor));
+        ElementViewModel? vm = GetViewModelFor(anchor);
         if (vm is null) return;
 
         ClearSelected();
@@ -112,13 +110,9 @@ public sealed partial class TimelineTabViewModel
         EditorContext.GetRequiredService<IEditorSelection>().SelectedObject.Value = anchor;
     }
 
-    // The search is bounded to the active scene range by searchRange, so a playhead parked outside the
-    // scene still navigates within it. currentTime is passed through unclamped: clamping the origin to
-    // the boundary would make the >= / <= searches skip an in-range gap that touches Scene.Start or
-    // Scene.Start + Duration exactly. Returns the target playhead time — the centre of the gap's visible
-    // (scene-clamped) portion — together with the gap's anchor. The anchor is null unless the raw gap is
-    // wholly inside the scene: a clipped gap's anchor sits off-scene, so selecting it would make Close
-    // Gap collapse the raw gap and move a clip the user cannot see.
+    // The search is bounded to the scene by searchRange, and currentTime is not clamped, so a gap touching the
+    // scene's ends is not skipped. The anchor is null unless the gap is wholly inside the scene: Close Gap on a
+    // clipped gap would move a clip the user cannot see.
     internal static (TimeSpan Target, int ZIndex, Element? Anchor)? FindGapNavigationTarget(
         Scene scene, TimeSpan currentTime, bool forward)
     {

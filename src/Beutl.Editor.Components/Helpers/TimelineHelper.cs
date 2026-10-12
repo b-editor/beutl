@@ -1,11 +1,100 @@
 ﻿using Avalonia;
-
+using Avalonia.Controls;
 using Beutl.Configuration;
+using Beutl.Editor.Components.Views;
+using Beutl.Editor.Services;
+using Beutl.ProjectSystem;
+using Microsoft.Extensions.DependencyInjection;
+using Reactive.Bindings;
 
 namespace Beutl.Editor.Components.Helpers;
 
 public static class TimelineHelper
 {
+    // The timeline and the graph editor place the scene's start and end bars and size the panel the same way.
+    internal static (ReadOnlyReactivePropertySlim<Thickness> StartingBarMargin,
+        ReadOnlyReactivePropertySlim<Thickness> EndingBarMargin,
+        ReadOnlyReactivePropertySlim<double> PanelWidth) CreateSceneBarMargins(
+            Scene scene, IEditorClock clock, IObservable<float> scale, CompositeDisposable disposables)
+    {
+        ReadOnlyReactivePropertySlim<Thickness> startingBarMargin = scene.GetObservable(Scene.StartProperty)
+            .CombineLatest(scale)
+            .Select(item => item.First.TimeToPixel(item.Second))
+            .Select(p => new Thickness(p, 0, 0, 0))
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(disposables);
+
+        ReadOnlyReactivePropertySlim<Thickness> endingBarMargin = scene.GetObservable(Scene.DurationProperty)
+            .CombineLatest(scale, startingBarMargin)
+            .Select(item => item.First.TimeToPixel(item.Second) + item.Third.Left)
+            .Select(p => new Thickness(p, 0, 0, 0))
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(disposables);
+
+        ReadOnlyReactivePropertySlim<double> panelWidth = clock.MaximumTime
+            .CombineLatest(
+                scene.GetObservable(Scene.DurationProperty),
+                scene.GetObservable(Scene.StartProperty),
+                clock.CurrentTime)
+            .Select(i => TimeSpan.FromTicks(
+                Math.Max(
+                    Math.Max(i.First.Ticks, i.Second.Ticks + i.Third.Ticks),
+                    i.Fourth.Ticks)))
+            .CombineLatest(scale)
+            .Select(i => i.First.TimeToPixel(i.Second) + 500)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(disposables);
+
+        return (startingBarMargin, endingBarMargin, panelWidth);
+    }
+
+    // Keeps the playhead in view while the preview plays, as the auto-scroll setting asks.
+    internal static void AutoScrollToPlayhead(
+        ScrollViewer scrollViewer, IEditorContext editorContext, IReactiveProperty<TimelineOptions> options,
+        TimeSpan currentTime)
+    {
+        var mode = GlobalConfiguration.Instance.EditorConfig.TimelineAutoScrollMode;
+        if (mode == TimelineAutoScrollMode.None) return;
+
+        var previewPlayer = editorContext.GetService<IPreviewPlayer>();
+        if (previewPlayer == null || !previewPlayer.IsPlaying.Value) return;
+
+        float scale = options.Value.Scale;
+        double seekBarPixel = currentTime.TimeToPixel(scale);
+
+        double? newOffsetX = CalculateAutoScrollOffset(
+            seekBarPixel, scrollViewer.Viewport.Width, scrollViewer.Offset.X, mode);
+
+        if (newOffsetX is not { } offsetX) return;
+
+        scrollViewer.Offset = new Vector(offsetX, scrollViewer.Offset.Y);
+    }
+
+    // The zoom menus pass their levels as string literals.
+    internal static bool TryParseZoom(object? commandParameter, out float zoom)
+    {
+        zoom = 0;
+        return commandParameter is string str && float.TryParse(str, out zoom);
+    }
+
+    internal static void ShowBpmGridFlyout(IReactiveProperty<TimelineOptions> options, Control target)
+    {
+        var bpmGrid = options.Value.BpmGrid;
+        var flyout = new BpmGridFlyout
+        {
+            IsEnabledChecked = bpmGrid.IsEnabled,
+            Bpm = (decimal)bpmGrid.Bpm,
+            Subdivisions = bpmGrid.Subdivisions,
+            OffsetSeconds = (decimal)bpmGrid.Offset.TotalSeconds,
+        };
+        flyout.OptionsChanged += (_, bpmGridOptions) =>
+        {
+            options.Value = options.Value with { BpmGrid = bpmGridOptions };
+        };
+
+        flyout.ShowAt(target, true);
+    }
+
     public static double? CalculateAutoScrollOffset(
         double seekBarPixel,
         double viewportWidth,

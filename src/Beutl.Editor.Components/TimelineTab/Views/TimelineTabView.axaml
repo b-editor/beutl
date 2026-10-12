@@ -113,129 +113,57 @@
                 Grid.RowSpan="2"
                 Grid.Column="2"
                 BorderBrush="{DynamicResource SystemFillColorCriticalBrush}"
-                BorderThickness="4"
-                IsHitTestVisible="False"
                 IsVisible="{CompiledBinding IsRazorMode.Value}"
-                ZIndex="100" />
+                Theme="{StaticResource TimelineToolModeFrameTheme}" />
 
-        <Border Grid.Row="0"
-                Grid.Column="2"
-                Margin="8,4"
-                Padding="8,2"
-                HorizontalAlignment="Left"
-                VerticalAlignment="Center"
-                Background="{DynamicResource SystemFillColorCriticalBrush}"
-                CornerRadius="{DynamicResource ControlCornerRadius}"
-                IsHitTestVisible="False"
-                IsVisible="{CompiledBinding IsRazorMode.Value}"
-                ZIndex="100">
-            <StackPanel Orientation="Horizontal" Spacing="4">
-                <icons:FluentIcon FontSize="14"
-                                  Foreground="White"
-                                  Icon="Cut" />
-                <TextBlock VerticalAlignment="Center"
-                           FontSize="12"
-                           FontWeight="SemiBold"
-                           Foreground="White"
-                           Text="{x:Static lang:Strings.RazorTool}" />
-            </StackPanel>
-        </Border>
+        <local:TimelineToolModeBadge Grid.Row="0"
+                                     Grid.Column="2"
+                                     Background="{DynamicResource SystemFillColorCriticalBrush}"
+                                     Icon="Cut"
+                                     IsVisible="{CompiledBinding IsRazorMode.Value}"
+                                     Text="{x:Static lang:Strings.RazorTool}" />
 
         <Border Grid.Row="0"
                 Grid.RowSpan="2"
                 Grid.Column="2"
                 BorderBrush="{DynamicResource SystemFillColorSuccessBrush}"
-                BorderThickness="4"
-                IsHitTestVisible="False"
                 IsVisible="{CompiledBinding IsSlipMode.Value}"
-                ZIndex="100" />
+                Theme="{StaticResource TimelineToolModeFrameTheme}" />
 
-        <Border Grid.Row="0"
-                Grid.Column="2"
-                Margin="8,4"
-                Padding="8,2"
-                HorizontalAlignment="Left"
-                VerticalAlignment="Center"
-                Background="{DynamicResource SystemFillColorSuccessBrush}"
-                CornerRadius="{DynamicResource ControlCornerRadius}"
-                IsHitTestVisible="False"
-                IsVisible="{CompiledBinding IsSlipMode.Value}"
-                ZIndex="100">
-            <StackPanel Orientation="Horizontal" Spacing="4">
-                <icons:FluentIcon FontSize="14"
-                                  Foreground="White"
-                                  Icon="ArrowSwap" />
-                <TextBlock VerticalAlignment="Center"
-                           FontSize="12"
-                           FontWeight="SemiBold"
-                           Foreground="White"
-                           Text="{x:Static lang:Strings.SlipTool}" />
-            </StackPanel>
-        </Border>
+        <local:TimelineToolModeBadge Grid.Row="0"
+                                     Grid.Column="2"
+                                     Background="{DynamicResource SystemFillColorSuccessBrush}"
+                                     Icon="ArrowSwap"
+                                     IsVisible="{CompiledBinding IsSlipMode.Value}"
+                                     Text="{x:Static lang:Strings.SlipTool}" />
 
         <Border Grid.Row="0"
                 Grid.RowSpan="2"
                 Grid.Column="2"
                 BorderBrush="{DynamicResource SystemFillColorCautionBrush}"
-                BorderThickness="4"
-                IsHitTestVisible="False"
                 IsVisible="{CompiledBinding IsRollMode.Value}"
-                ZIndex="100" />
+                Theme="{StaticResource TimelineToolModeFrameTheme}" />
 
-        <Border Grid.Row="0"
-                Grid.Column="2"
-                Margin="8,4"
-                Padding="8,2"
-                HorizontalAlignment="Left"
-                VerticalAlignment="Center"
-                Background="{DynamicResource SystemFillColorCautionBrush}"
-                CornerRadius="{DynamicResource ControlCornerRadius}"
-                IsHitTestVisible="False"
-                IsVisible="{CompiledBinding IsRollMode.Value}"
-                ZIndex="100">
-            <StackPanel Orientation="Horizontal" Spacing="4">
-                <icons:FluentIcon FontSize="14"
-                                  Foreground="White"
-                                  Icon="ArrowAutofitWidth" />
-                <TextBlock VerticalAlignment="Center"
-                           FontSize="12"
-                           FontWeight="SemiBold"
-                           Foreground="White"
-                           Text="{x:Static lang:Strings.RollTool}" />
-            </StackPanel>
-        </Border>
+        <local:TimelineToolModeBadge Grid.Row="0"
+                                     Grid.Column="2"
+                                     Background="{DynamicResource SystemFillColorCautionBrush}"
+                                     Icon="ArrowAutofitWidth"
+                                     IsVisible="{CompiledBinding IsRollMode.Value}"
+                                     Text="{x:Static lang:Strings.RollTool}" />
 
         <Border Grid.Row="0"
                 Grid.RowSpan="2"
                 Grid.Column="2"
                 BorderBrush="{DynamicResource SystemFillColorAttentionBrush}"
-                BorderThickness="4"
-                IsHitTestVisible="False"
                 IsVisible="{CompiledBinding IsSlideMode.Value}"
-                ZIndex="100" />
+                Theme="{StaticResource TimelineToolModeFrameTheme}" />
 
-        <Border Grid.Row="0"
-                Grid.Column="2"
-                Margin="8,4"
-                Padding="8,2"
-                HorizontalAlignment="Left"
-                VerticalAlignment="Center"
-                Background="{DynamicResource SystemFillColorAttentionBrush}"
-                CornerRadius="{DynamicResource ControlCornerRadius}"
-                IsHitTestVisible="False"
-                IsVisible="{CompiledBinding IsSlideMode.Value}"
-                ZIndex="100">
-            <StackPanel Orientation="Horizontal" Spacing="4">
-                <icons:FluentIcon FontSize="14"
-                                  Foreground="White"
-                                  Icon="ArrowMove" />
-                <TextBlock VerticalAlignment="Center"
-                           FontSize="12"
-                           FontWeight="SemiBold"
-                           Foreground="White"
-                           Text="{x:Static lang:Strings.SlideTool}" />
-            </StackPanel>
-        </Border>
+        <local:TimelineToolModeBadge Grid.Row="0"
+                                     Grid.Column="2"
+                                     Background="{DynamicResource SystemFillColorAttentionBrush}"
+                                     Icon="ArrowMove"
+                                     IsVisible="{CompiledBinding IsSlideMode.Value}"
+                                     Text="{x:Static lang:Strings.SlideTool}" />
 
         <ScrollViewer x:Name="ContentScroll"
                       Grid.Row="1"
@@ -255,40 +183,10 @@
                    PointerReleased="TimelinePanel_PointerReleased">
                 <Panel.ContextFlyout>
                     <ui:FAMenuFlyout>
-                        <ui:FAMenuFlyoutSubItem Text="{x:Static lang:Strings.EditingMode}">
+                        <ui:FAMenuFlyoutSubItem x:Name="EditingModeMenu" Text="{x:Static lang:Strings.EditingMode}">
                             <ui:FAMenuFlyoutSubItem.IconSource>
                                 <icons:FluentIconSource Icon="Edit" />
                             </ui:FAMenuFlyoutSubItem.IconSource>
-                            <ui:FAToggleMenuFlyoutItem InputGesture="{h:GetCommandGesture ToggleRazorMode,
-                                                                                        ExtensionType={x:Type p:TimelineTabExtension}}"
-                                                     IsChecked="{CompiledBinding IsRazorMode.Value,
-                                                                                 Mode=TwoWay}"
-                                                     Text="{x:Static lang:Strings.RazorTool}">
-                                <ui:FAToggleMenuFlyoutItem.IconSource>
-                                    <icons:FluentIconSource Icon="Cut" />
-                                </ui:FAToggleMenuFlyoutItem.IconSource>
-                            </ui:FAToggleMenuFlyoutItem>
-                            <ui:FAToggleMenuFlyoutItem InputGesture="{h:GetCommandGesture ToggleSlipMode,
-                                                                                        ExtensionType={x:Type p:TimelineTabExtension}}"
-                                                     IsChecked="{CompiledBinding IsSlipMode.Value,
-                                                                                 Mode=TwoWay}"
-                                                     Text="{x:Static lang:Strings.SlipTool}" />
-                            <ui:FAToggleMenuFlyoutItem InputGesture="{h:GetCommandGesture ToggleRollMode,
-                                                                                        ExtensionType={x:Type p:TimelineTabExtension}}"
-                                                     IsChecked="{CompiledBinding IsRollMode.Value,
-                                                                                 Mode=TwoWay}"
-                                                     Text="{x:Static lang:Strings.RollTool}" />
-                            <ui:FAToggleMenuFlyoutItem InputGesture="{h:GetCommandGesture ToggleSlideMode,
-                                                                                        ExtensionType={x:Type p:TimelineTabExtension}}"
-                                                     IsChecked="{CompiledBinding IsSlideMode.Value,
-                                                                                 Mode=TwoWay}"
-                                                     Text="{x:Static lang:Strings.SlideTool}" />
-                            <ui:FAMenuFlyoutSeparator />
-                            <ui:FAToggleMenuFlyoutItem InputGesture="{h:GetCommandGesture ToggleRippleMode,
-                                                                                        ExtensionType={x:Type p:TimelineTabExtension}}"
-                                                     IsChecked="{CompiledBinding IsRippleEnabled.Value,
-                                                                                 Mode=TwoWay}"
-                                                     Text="{x:Static lang:Strings.RippleEdit}" />
                         </ui:FAMenuFlyoutSubItem>
                         <ui:FAMenuFlyoutSeparator />
                         <ui:FAMenuFlyoutSubItem x:Name="AddElementSubMenu" Text="{x:Static lang:Strings.AddElement}" />
@@ -351,8 +249,7 @@
                                 <icons:FluentIconSource Icon="Settings" />
                             </ui:FAMenuFlyoutItem.IconSource>
                         </ui:FAMenuFlyoutItem>
-                        <ui:FAMenuFlyoutItem x:Name="BpmGridMenuItem"
-                                             usage:UsageTracking.Feature="Timeline.ShowBpmGridFlyout"
+                        <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="Timeline.ShowBpmGridFlyout"
                                              Click="ShowBpmGridFlyout"
                                              Text="{x:Static lang:Strings.BpmGrid}">
                             <ui:FAMenuFlyoutItem.IconSource>

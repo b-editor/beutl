@@ -1,5 +1,4 @@
-﻿using System.Collections.Specialized;
-using Beutl.Animation;
+﻿using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Editor.Components.GraphEditorTab.ViewModels;
 using Beutl.Editor.Components.Helpers;
@@ -27,7 +26,8 @@ public partial class GraphEditorView
         double outInfluence = hasOutgoing && channel.KeyFrames[index + 1].Model.Easing is SplineEasing outgoing
             ? outgoing.X1 : 1d / 3;
         var flyout = new KeyFrameVelocityFlyout(
-            new KeyFrameVelocityValues(GetKeyVelocity(first), inInfluence, GetKeyVelocity(first, true), outInfluence),
+            new KeyFrameVelocityValues(GraphEditorCurveMath.KeyVelocity(first), inInfluence,
+                GraphEditorCurveMath.KeyVelocity(first, true), outInfluence),
             selection.Length > 1 || hasIncoming, selection.Length > 1 || hasOutgoing);
         var originals = new Dictionary<IKeyFrame, Easing>();
         foreach (var key in selection)
@@ -60,14 +60,7 @@ public partial class GraphEditorView
             UpdateSelectionAdorner();
         };
         flyout.Closed += (_, _) => Finish();
-        model.HistoryManager.BeforeMutation.Subscribe(_ => flyout.Hide()).DisposeWith(subscriptions);
-        model.SelectedView.Skip(1).Subscribe(_ => flyout.Hide()).DisposeWith(subscriptions);
-        EventHandler selectionChanged = (_, _) => flyout.Hide();
-        channel.SelectionChanged += selectionChanged;
-        Disposable.Create(() => channel.SelectionChanged -= selectionChanged).DisposeWith(subscriptions);
-        NotifyCollectionChangedEventHandler keysChanged = (_, _) => flyout.Hide();
-        model.Animation.KeyFrames.CollectionChanged += keysChanged;
-        Disposable.Create(() => model.Animation.KeyFrames.CollectionChanged -= keysChanged).DisposeWith(subscriptions);
+        HideOnGraphChange(flyout, model, channel, includeEdits: false).DisposeWith(subscriptions);
         try { flyout.ShowAt(VelocityButton); }
         catch { Finish(); throw; }
 
@@ -124,7 +117,7 @@ public partial class GraphEditorView
     private static void InvalidateVelocityPreview(GraphEditorViewModel model)
     {
         if (model.EditorContext.GetService<IBufferStatus>() is not { } buffer) return;
-        int rate = model.Scene.FindHierarchicalParent<Project>().GetFrameRate();
+        int rate = SceneTimeRangeService.GetFrameRate(model.Scene);
         TimeSpan start = model.Element?.Start ?? model.Scene.Start;
         TimeSpan end = model.Element?.Range.End ?? model.Scene.Start + model.Scene.Duration;
         buffer.DeleteCache((int)Math.Floor(start.ToFrameNumber(rate)), (int)Math.Ceiling(end.ToFrameNumber(rate)));

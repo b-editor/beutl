@@ -20,53 +20,17 @@ using Reactive.Bindings;
 
 namespace Beutl.Editor.Components.GraphEditorTab.ViewModels;
 
-public sealed class GraphEditorViewModel<T>(
-    IEditorContext editorContext,
-    KeyFrameAnimation<T> animation,
-    Element? element)
-    : GraphEditorViewModel(editorContext, animation, element)
-{
-    public override void DropEasing(Easing easing, TimeSpan keyTime)
-    {
-        _logger.LogInformation("Dropping easing at key time {KeyTime}", keyTime);
-        TimeSpan originalKeyTime = keyTime;
-        keyTime = ConvertKeyTime(keyTime);
-        IKeyFrame? keyFrame = KeyFrameClipboardCommands.FindEasingDropTarget(Animation, keyTime, Scene);
-        if (keyFrame != null)
-        {
-            _logger.LogInformation("Editing existing key frame at {KeyTime}", keyTime);
-            keyFrame.Easing = easing;
-            HistoryManager.Commit(CommandNames.ChangeEasing);
-        }
-        else
-        {
-            InsertKeyFrame(easing, originalKeyTime);
-        }
-    }
-
-    public override void InsertKeyFrame(Easing easing, TimeSpan keyTime)
-    {
-        AnimationOperations.InsertKeyFrame(
-            animation: (KeyFrameAnimation<T>)Animation,
-            easing: easing,
-            keyTime: keyTime,
-            logger: _logger);
-        HistoryManager.Commit(CommandNames.InsertKeyFrame);
-    }
-}
-
-public abstract partial class GraphEditorViewModel : IDisposable
+public sealed partial class GraphEditorViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = [];
-    private readonly GraphEditorViewViewModelFactory[] _factories;
     private readonly IEditorClock _editorClock;
-    protected readonly ILogger _logger = Log.CreateLogger<GraphEditorViewModel>();
+    private readonly ILogger _logger = Log.CreateLogger<GraphEditorViewModel>();
     private bool _editting;
     private bool _rangeUpdatePending;
     private bool _disposed;
     private TimeSpan _pointerPosition;
 
-    protected GraphEditorViewModel(IEditorContext editorContext, IKeyFrameAnimation animation, Element? element)
+    public GraphEditorViewModel(IEditorContext editorContext, IKeyFrameAnimation animation, Element? element)
     {
         _logger.LogInformation("Initializing GraphEditorViewModel");
         EditorContext = editorContext;
@@ -117,36 +81,10 @@ public abstract partial class GraphEditorViewModel : IDisposable
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        StartingBarMargin = Scene.GetObservable(Scene.StartProperty)
-            .CombineLatest(timelineOptions.Scale)
-            .Select(item => item.First.TimeToPixel(item.Second))
-            .Select(p => new Thickness(p, 0, 0, 0))
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables);
+        (StartingBarMargin, EndingBarMargin, PanelWidth) = TimelineHelper.CreateSceneBarMargins(
+            Scene, _editorClock, timelineOptions.Scale, _disposables);
 
-        EndingBarMargin = Scene.GetObservable(Scene.DurationProperty)
-            .CombineLatest(timelineOptions.Scale, StartingBarMargin)
-            .Select(item => item.First.TimeToPixel(item.Second) + item.Third.Left)
-            .Select(p => new Thickness(p, 0, 0, 0))
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables);
-
-        PanelWidth = _editorClock.MaximumTime
-            .CombineLatest(
-                Scene.GetObservable(Scene.DurationProperty),
-                Scene.GetObservable(Scene.StartProperty),
-                _editorClock.CurrentTime)
-            .Select(i => TimeSpan.FromTicks(
-                Math.Max(
-                    Math.Max(i.First.Ticks, i.Second.Ticks + i.Third.Ticks),
-                    i.Fourth.Ticks)))
-            .CombineLatest(timelineOptions.Scale)
-            .Select(i => i.First.TimeToPixel(i.Second) + 500)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables);
-
-        _factories = GraphEditorViewViewModelFactory.GetFactory(this).ToArray();
-        Factory = _factories.FirstOrDefault();
+        Factory = GraphEditorViewViewModelFactory.GetFactory(this);
         Views = GraphEditorViewViewModelFactory.CreateViews(this, Factory);
         foreach (GraphEditorViewViewModel item in Views)
         {
@@ -189,7 +127,7 @@ public abstract partial class GraphEditorViewModel : IDisposable
 
     public ReactivePropertySlim<double> MinHeight { get; } = new();
 
-    // Zeroの位置
+    // The vertical position of the value 0, in pixels.
     public ReactivePropertySlim<double> Baseline { get; } = new();
 
     public ReadOnlyReactivePropertySlim<bool> UseGlobalClock { get; }
@@ -349,18 +287,25 @@ public abstract partial class GraphEditorViewModel : IDisposable
     public TimeSpan ConvertKeyTime(TimeSpan globalkeyTime)
     {
         _logger.LogInformation("Converting key time {GlobalKeyTime}", globalkeyTime);
-        TimeSpan localKeyTime = Element != null ? globalkeyTime - Element.Start : globalkeyTime;
-        TimeSpan keyTime = Animation.UseGlobalClock ? globalkeyTime : localKeyTime;
-
-        Project? proj = Scene.FindHierarchicalParent<Project>();
-        int rate = proj?.GetFrameRate() ?? 30;
-
-        return keyTime.RoundToRate(rate);
+        return AnimationOperations.ConvertKeyTime(Animation, globalkeyTime, Element, Scene);
     }
 
-    public abstract void DropEasing(Easing easing, TimeSpan time);
+    public void DropEasing(Easing easing, TimeSpan keyTime)
+    {
+        _logger.LogInformation("Dropping easing at key time {KeyTime}", keyTime);
+        KeyFrameClipboardCommands.DropEasing(
+            Animation, Scene, HistoryManager, easing, keyTime, ConvertKeyTime(keyTime), InsertKeyFrame, _logger);
+    }
 
-    public abstract void InsertKeyFrame(Easing easing, TimeSpan keyTime);
+    public void InsertKeyFrame(Easing easing, TimeSpan keyTime)
+    {
+        AnimationOperations.InsertKeyFrame(
+            animation: Animation,
+            easing: easing,
+            keyTime: keyTime,
+            logger: _logger);
+        HistoryManager.Commit(CommandNames.InsertKeyFrame);
+    }
 
     public void Dispose()
     {
@@ -376,17 +321,9 @@ public abstract partial class GraphEditorViewModel : IDisposable
         }
 
         Element = null;
-        GC.SuppressFinalize(this);
     }
 
-    private async Task CopyAllKeyFramesAsync()
-    {
-        await KeyFrameClipboardCommands.CopyAsync(Animation, BeutlDataFormats.KeyFrameAnimation, ex =>
-        {
-            _logger.LogError(ex, "Failed to copy all keyframes");
-            NotificationService.ShowError(Strings.Copy, MessageStrings.FailedToCopyAnimation);
-        });
-    }
+    private Task CopyAllKeyFramesAsync() => KeyFrameClipboardCommands.CopyAnimationAsync(Animation, _logger);
 
     internal async Task PasteKeyFrameAtPositionAsync(TimeSpan pointerPosition, IClipboard? clipboard = null)
     {
@@ -394,54 +331,25 @@ public abstract partial class GraphEditorViewModel : IDisposable
         if (!IsClipboardContextActive || clipboard == null || SelectedView.Value == null) return;
         var canPaste = CapturePasteContext();
 
-        try
-        {
-            if (await clipboard.TryGetValueAsync(BeutlDataFormats.KeyFrame) is { } keyFrameJson)
-            {
-                if (!canPaste()) return;
-                PasteKeyFrame(keyFrameJson, pointerPosition);
-                return;
-            }
-            else if (await clipboard.TryGetValueAsync(BeutlDataFormats.KeyFrameSelection) is { } selectionJson)
-            {
-                if (!canPaste()) return;
-                PasteSelection(selectionJson, ConvertKeyTime(pointerPosition));
-                return;
-            }
-            else if (await clipboard.TryGetValueAsync(BeutlDataFormats.KeyFrameAnimation) is { } keyFrameAnimationJson)
-            {
-                if (!canPaste()) return;
-                PasteAnimation(keyFrameAnimationJson);
-                return;
-            }
-
-            if (canPaste()) NotificationService.ShowWarning(Strings.Paste, MessageStrings.InvalidKeyframeDataFormat);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to paste keyframe at position");
-            if (canPaste()) NotificationService.ShowError(Strings.Paste, MessageStrings.FailedToPasteKeyframe);
-        }
+        await KeyFrameClipboardCommands.PasteAtPositionAsync(
+            clipboard,
+            canPaste,
+            canPaste,
+            json => PasteKeyFrame(json, pointerPosition),
+            json => PasteSelection(json, ConvertKeyTime(pointerPosition)),
+            PasteAnimation,
+            _logger);
     }
 
     private void PasteAnimation(string json)
     {
-        _logger.LogInformation("Pasting JSON");
-        KeyFrameAnimation animation = (KeyFrameAnimation)Animation;
-        IKeyFrameClipboardService service = EditorContext.GetRequiredService<IKeyFrameClipboardService>();
-        KeyFrameAnimationPasteOutcome outcome = service.PasteAnimation(animation, json);
-
-        KeyFrameClipboardCommands.ReportAnimationPaste(outcome, animation, _logger);
+        KeyFrameClipboardCommands.PasteAnimation(EditorContext, Animation, json, _logger);
     }
 
     private void PasteKeyFrame(string json, TimeSpan pointerPosition)
     {
-        _logger.LogInformation("Pasting JSON");
-        KeyFrameAnimation animation = (KeyFrameAnimation)Animation;
-        TimeSpan keyTime = ConvertKeyTime(pointerPosition);
-        IKeyFrameClipboardService service = EditorContext.GetRequiredService<IKeyFrameClipboardService>();
-        KeyFramePasteResult result = service.PasteKeyFrame(animation, json, keyTime);
-
-        KeyFrameClipboardCommands.ReportKeyFramePaste(result, _logger, easing => InsertKeyFrame(easing, pointerPosition));
+        KeyFrameClipboardCommands.PasteKeyFrame(
+            EditorContext, Animation, json, _ => ConvertKeyTime(pointerPosition),
+            easing => InsertKeyFrame(easing, pointerPosition), _logger);
     }
 }

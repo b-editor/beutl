@@ -116,24 +116,36 @@ public sealed partial class TimelineTabExtension : IContextCommandHandler, ICont
 
     private static async Task SaveAsTemplateAsync(Element element, IContextCommandInteraction interaction)
     {
-        string defaultName = !string.IsNullOrWhiteSpace(element.Name)
-            ? element.Name
-            : TypeDisplayHelpers.GetLocalizedName(element.GetType());
         string? name = await interaction.ShowInputAsync(new ContextCommandInputOptions
         {
-            Value = ObjectTemplateService.Instance.GetUniqueName(defaultName),
+            Value = GetDefaultTemplateName(element),
             Validate = ValidateTemplateName
         });
         if (name is null) return;
 
+        // Switching editors cancels the command, which stops rendering the preview and saving.
+        await SaveAsTemplateAsync(element, name.Trim(), interaction.CancellationToken);
+    }
+
+    // The element's name, or its type's when it has none, made unique among the templates.
+    internal static string GetDefaultTemplateName(Element element)
+    {
+        string defaultName = !string.IsNullOrWhiteSpace(element.Name)
+            ? element.Name
+            : TypeDisplayHelpers.GetLocalizedName(element.GetType());
+        return ObjectTemplateService.Instance.GetUniqueName(defaultName);
+    }
+
+    // A cancelled save is not reported as a failure.
+    internal static async Task SaveAsTemplateAsync(
+        Element element, string name, CancellationToken cancellationToken = default)
+    {
         try
         {
-            // Switching editors cancels the command, which stops rendering the preview and saving.
-            if (await ObjectTemplateService.Instance.AddFromInstanceAsync(
-                    element, name.Trim(), interaction.CancellationToken) is not null)
+            if (await ObjectTemplateService.Instance.AddFromInstanceAsync(element, name, cancellationToken) is not null)
                 return;
         }
-        catch (OperationCanceledException) when (interaction.CancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             return;
         }
@@ -149,11 +161,7 @@ public sealed partial class TimelineTabExtension : IContextCommandHandler, ICont
     {
         if (CommandPaletteInput.Required(value) is { } error) return error;
 
-        string name = value.Trim();
-        return name is "." or ".." || name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0
-            || name.Contains('/') || name.Contains('\\')
-            ? MessageStrings.InvalidString
-            : null;
+        return ObjectTemplateService.IsValidTemplateName(value.Trim()) ? null : MessageStrings.InvalidString;
     }
 
     private static bool TryGetSelectedElement(
@@ -169,6 +177,6 @@ public sealed partial class TimelineTabExtension : IContextCommandHandler, ICont
     private static TimeSpan GetSplitTime(IEditorContext editorContext, Scene scene)
     {
         TimeSpan time = editorContext.GetService<IEditorClock>()?.CurrentTime.Value ?? TimeSpan.Zero;
-        return time.RoundToRate(scene.FindHierarchicalParent<Project>().GetFrameRate());
+        return time.RoundToRate(SceneTimeRangeService.GetFrameRate(scene));
     }
 }
