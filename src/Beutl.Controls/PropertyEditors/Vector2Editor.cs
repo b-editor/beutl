@@ -31,6 +31,7 @@ public class Vector2Editor<TElement> : Vector2Editor
         Vector4Editor<TElement>.SmallChangeProperty.AddOwner<Vector2Editor<TElement>>();
 
     private readonly CompositeDisposable _disposables = [];
+    private Control? _editSource;
     private TElement _firstValue = TElement.Zero;
     private TElement _oldFirstValue = TElement.Zero;
     private TElement _secondValue = TElement.Zero;
@@ -49,7 +50,8 @@ public class Vector2Editor<TElement> : Vector2Editor
         get => _firstValue;
         set
         {
-            if (SetAndRaise(FirstValueProperty, ref _firstValue, value))
+            if (SetAndRaise(FirstValueProperty, ref _firstValue, value)
+                && (_editSource == null || _editSource != InnerFirstTextBox))
             {
                 FirstText = NumberEditorHelper.Format(value, NumberFormat);
             }
@@ -61,7 +63,8 @@ public class Vector2Editor<TElement> : Vector2Editor
         get => _secondValue;
         set
         {
-            if (SetAndRaise(SecondValueProperty, ref _secondValue, value))
+            if (SetAndRaise(SecondValueProperty, ref _secondValue, value)
+                && (_editSource == null || _editSource != InnerSecondTextBox))
             {
                 SecondText = NumberEditorHelper.Format(value, NumberFormat);
             }
@@ -80,12 +83,17 @@ public class Vector2Editor<TElement> : Vector2Editor
         set => SetValue(SmallChangeProperty, value);
     }
 
+    private void UpdateText()
+    {
+        FirstText = NumberEditorHelper.Format(FirstValue, NumberFormat);
+        SecondText = NumberEditorHelper.Format(SecondValue, NumberFormat);
+    }
+
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
         _disposables.Clear();
         base.OnApplyTemplate(e);
-        FirstText = NumberEditorHelper.Format(_firstValue, NumberFormat);
-        SecondText = NumberEditorHelper.Format(_secondValue, NumberFormat);
+        UpdateText();
 
         var valueHandlers = new ComponentValueHandlers(
             OnInnerTextBoxGotFocus, OnInnerTextBoxLostFocus, OnInnerTextBoxTextChanged, OnInnerTextBoxPointerWheelChanged);
@@ -197,6 +205,7 @@ public class Vector2Editor<TElement> : Vector2Editor
     {
         if (!DataValidationErrors.GetHasErrors(this))
         {
+            UpdateText();
             RaiseConfirmedIfChanged();
         }
     }
@@ -221,39 +230,28 @@ public class Vector2Editor<TElement> : Vector2Editor
 
     private void OnInnerTextBoxTextChanged(TextBox sender, string? newValue, string? oldValue)
     {
-        if (sender.IsKeyboardFocusWithin
+        if (_editSource == null
+            && sender.IsKeyboardFocusWithin
             && NumberEditorHelper.TryParseEdit(newValue, oldValue, out TElement? newValue2, out TElement? oldValue2))
         {
-            var newValues = (FirstValue, SecondValue);
-            var oldValues = (FirstValue, SecondValue);
-            if (IsUniform)
-            {
-                FirstValue = SecondValue = newValue2;
-                newValues = (newValue2, newValue2);
-                oldValues = (oldValue2, oldValue2);
-            }
-            else
-            {
-                switch (sender.Name)
-                {
-                    case "PART_InnerFirstTextBox":
-                        FirstValue = newValue2;
-                        newValues.FirstValue = newValue2;
-                        oldValues.FirstValue = oldValue2;
-                        break;
-                    case "PART_InnerSecondTextBox":
-                        SecondValue = newValue2;
-                        newValues.SecondValue = newValue2;
-                        oldValues.SecondValue = oldValue2;
-                        break;
-                }
-            }
-
-            RaiseEvent(new PropertyEditorValueChangedEventArgs<(TElement, TElement)>(
-                newValues, oldValues, ValueChangedEvent));
+            using var edit = new PropertyEditorEditScope(ref _editSource, sender);
+            ApplyValueChange(sender, newValue2, oldValue2);
         }
 
         UpdateErrors();
+    }
+
+    private void ApplyValueChange(TextBox sender, TElement value, TElement oldValue)
+    {
+        bool first = IsUniform || sender == InnerFirstTextBox;
+        bool second = IsUniform || sender == InnerSecondTextBox;
+        var newValues = (first ? value : FirstValue, second ? value : SecondValue);
+        var oldValues = _editSource == sender
+            ? (first ? oldValue : FirstValue, second ? oldValue : SecondValue)
+            : (FirstValue, SecondValue);
+        (FirstValue, SecondValue) = newValues;
+        RaiseEvent(new PropertyEditorValueChangedEventArgs<(TElement, TElement)>(
+            newValues, oldValues, ValueChangedEvent));
     }
 
     private void UpdateErrors()
@@ -273,27 +271,17 @@ public class Vector2Editor<TElement> : Vector2Editor
             && TElement.TryParse(textBox.Text, CultureInfo.CurrentCulture, out TElement? value)
             && value is not null)
         {
-            value = NumberEditorHelper.StepByWheel(value, e, LargeChange, SmallChange);
-
-            if (IsUniform)
+            using var edit = new PropertyEditorEditScope(ref _editSource, this);
+            TElement oldValue = textBox.Name switch
             {
-                FirstValue = SecondValue = value;
-            }
-            else
-            {
-                switch (textBox.Name)
-                {
-                    case "PART_InnerFirstTextBox":
-                        FirstValue = value;
-                        break;
-                    case "PART_InnerSecondTextBox":
-                        SecondValue = value;
-                        break;
-                    default:
-                        break;
-                }
-            }
-
+                "PART_InnerFirstTextBox" => FirstValue,
+                "PART_InnerSecondTextBox" => SecondValue,
+                _ => value,
+            };
+            value = NumberEditorHelper.StepByWheel(oldValue, e, LargeChange, SmallChange);
+            if (value != oldValue)
+                ApplyValueChange(textBox, value, oldValue);
+            UpdateText();
             e.Handled = true;
         }
     }

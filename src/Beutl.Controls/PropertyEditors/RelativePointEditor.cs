@@ -28,6 +28,7 @@ public class RelativePointEditor : Vector2Editor
             defaultBindingMode: BindingMode.TwoWay);
 
     private readonly CompositeDisposable _disposables = [];
+    private Control? _editSource;
     private float _firstValue;
     private float _oldFirstValue;
     private float _secondValue;
@@ -73,15 +74,15 @@ public class RelativePointEditor : Vector2Editor
 
     private void UpdateText()
     {
-        if (Unit == Graphics.RelativeUnit.Relative)
+        string Format(float value) => Unit == Graphics.RelativeUnit.Relative ? $"{value * 100:f}%" : $"{value}";
+
+        if (_editSource == null || _editSource != InnerFirstTextBox)
         {
-            FirstText = $"{_firstValue * 100:f}%";
-            SecondText = $"{_secondValue * 100:f}%";
+            FirstText = Format(FirstValue);
         }
-        else
+        if (_editSource == null || _editSource != InnerSecondTextBox)
         {
-            FirstText = $"{_firstValue}";
-            SecondText = $"{_secondValue}";
+            SecondText = Format(SecondValue);
         }
     }
 
@@ -113,6 +114,7 @@ public class RelativePointEditor : Vector2Editor
     {
         if (!DataValidationErrors.GetHasErrors(this))
         {
+            UpdateText();
             if (FirstValue != _oldFirstValue
                 || SecondValue != _oldSecondValue
                 || Unit != _oldUnit)
@@ -130,45 +132,33 @@ public class RelativePointEditor : Vector2Editor
 
     private void OnInnerTextBoxTextChanged(TextBox sender, string? newValue, string? oldValue)
     {
-        if (sender.IsKeyboardFocusWithin
+        if (_editSource == null
+            && sender.IsKeyboardFocusWithin
             && RelativeUnitParser.TryParseEdit(
-                newValue, oldValue,
-                out float newValue2, out Graphics.RelativeUnit newUnit,
+                newValue, oldValue, out float newValue2, out Graphics.RelativeUnit newUnit,
                 out float oldValue2, out Graphics.RelativeUnit oldUnit))
         {
-            var newValues = (FirstValue, SecondValue);
-            var oldValues = (FirstValue, SecondValue);
-            Unit = newUnit;
-            if (IsUniform)
-            {
-                FirstValue = SecondValue = newValue2;
-                newValues = (newValue2, newValue2);
-                oldValues = (oldValue2, oldValue2);
-            }
-            else
-            {
-                switch (sender.Name)
-                {
-                    case "PART_InnerFirstTextBox":
-                        FirstValue = newValue2;
-                        newValues.FirstValue = newValue2;
-                        oldValues.FirstValue = oldValue2;
-                        break;
-                    case "PART_InnerSecondTextBox":
-                        SecondValue = newValue2;
-                        newValues.SecondValue = newValue2;
-                        oldValues.SecondValue = oldValue2;
-                        break;
-                }
-            }
-
-            RaiseEvent(new PropertyEditorValueChangedEventArgs<Graphics.RelativePoint>(
-                new Graphics.RelativePoint(newValues.FirstValue, newValues.SecondValue, newUnit),
-                new Graphics.RelativePoint(oldValues.FirstValue, oldValues.SecondValue, oldUnit),
-                ValueChangedEvent));
+            using var edit = new PropertyEditorEditScope(ref _editSource, sender);
+            ApplyValueChange(sender, newValue2, oldValue2, newUnit, oldUnit);
         }
 
         UpdateErrors();
+    }
+
+    private void ApplyValueChange(TextBox sender, float value, float oldValue,
+        Graphics.RelativeUnit unit, Graphics.RelativeUnit oldUnit)
+    {
+        bool first = IsUniform || sender == InnerFirstTextBox;
+        bool second = IsUniform || sender == InnerSecondTextBox;
+        var newValues = (first ? value : FirstValue, second ? value : SecondValue);
+        var oldValues = _editSource == sender
+            ? (first ? oldValue : FirstValue, second ? oldValue : SecondValue)
+            : (FirstValue, SecondValue);
+        Unit = unit;
+        (FirstValue, SecondValue) = newValues;
+        RaiseEvent(new PropertyEditorValueChangedEventArgs<Graphics.RelativePoint>(
+            new Graphics.RelativePoint(newValues.Item1, newValues.Item2, unit),
+            new Graphics.RelativePoint(oldValues.Item1, oldValues.Item2, oldUnit), ValueChangedEvent));
     }
 
     private void UpdateErrors()
@@ -184,29 +174,19 @@ public class RelativePointEditor : Vector2Editor
         if (!DataValidationErrors.GetHasErrors(this)
             && sender is TextBox textBox
             && textBox.IsKeyboardFocusWithin
-            && TryParse(textBox.Text, out float value, out Graphics.RelativeUnit unit))
+            && TryParse(textBox.Text, out float value, out _))
         {
-            value = RelativeUnitParser.StepByWheel(value, unit, e);
-
-            if (IsUniform)
+            using var edit = new PropertyEditorEditScope(ref _editSource, this);
+            float oldValue = textBox.Name switch
             {
-                FirstValue = SecondValue = value;
-            }
-            else
-            {
-                switch (textBox.Name)
-                {
-                    case "PART_InnerFirstTextBox":
-                        FirstValue = value;
-                        break;
-                    case "PART_InnerSecondTextBox":
-                        SecondValue = value;
-                        break;
-                    default:
-                        break;
-                }
-            }
-
+                "PART_InnerFirstTextBox" => FirstValue,
+                "PART_InnerSecondTextBox" => SecondValue,
+                _ => value,
+            };
+            value = RelativeUnitParser.StepByWheel(oldValue, Unit, e);
+            if (value != oldValue)
+                ApplyValueChange(textBox, value, oldValue, Unit, Unit);
+            UpdateText();
             e.Handled = true;
         }
     }

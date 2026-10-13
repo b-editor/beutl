@@ -39,6 +39,7 @@ public class NumberEditor<TValue> : StringEditor
 
     private TValue _value = TValue.Zero;
     private TValue _oldValue = TValue.Zero;
+    private Control? _editSource;
     private readonly CompositeDisposable _disposables = [];
     private HeaderScrubGesture _scrub;
     private TextBlock? _headerText;
@@ -53,7 +54,7 @@ public class NumberEditor<TValue> : StringEditor
         get => _value;
         set
         {
-            if (SetAndRaise(ValueProperty, ref _value, value))
+            if (SetAndRaise(ValueProperty, ref _value, value) && (_editSource == null || _editSource != InnerTextBox))
             {
                 Text = NumberEditorHelper.Format(value, NumberFormat);
             }
@@ -174,18 +175,23 @@ public class NumberEditor<TValue> : StringEditor
     protected override void OnTextBoxLostFocus(RoutedEventArgs e)
     {
         if (InnerTextBox == null) return;
-        if (!DataValidationErrors.GetHasErrors(InnerTextBox)
-            && Value != _oldValue)
+        if (!DataValidationErrors.GetHasErrors(InnerTextBox))
         {
-            RaiseEvent(new PropertyEditorValueChangedEventArgs<TValue>(Value, _oldValue, ValueConfirmedEvent));
+            Text = NumberEditorHelper.Format(Value, NumberFormat);
+            if (Value != _oldValue)
+            {
+                RaiseEvent(new PropertyEditorValueChangedEventArgs<TValue>(Value, _oldValue, ValueConfirmedEvent));
+            }
         }
     }
 
     protected override void OnTextBoxTextChanged(string newValue, string oldValue)
     {
-        if (InnerTextBox?.IsKeyboardFocusWithin == true
+        if (_editSource == null
+            && InnerTextBox?.IsKeyboardFocusWithin == true
             && NumberEditorHelper.TryParseEdit(newValue, oldValue, out TValue? newValue2, out TValue? oldValue2))
         {
+            using var edit = new PropertyEditorEditScope(ref _editSource, InnerTextBox);
             Value = newValue2;
             RaiseEvent(new PropertyEditorValueChangedEventArgs<TValue>(newValue2, oldValue2, ValueChangedEvent));
         }
@@ -204,13 +210,15 @@ public class NumberEditor<TValue> : StringEditor
         if (InnerTextBox == null) return;
         if (!DataValidationErrors.GetHasErrors(InnerTextBox)
             && InnerTextBox.IsKeyboardFocusWithin
-            && TValue.TryParse(InnerTextBox.Text, CultureInfo.CurrentCulture, out TValue? value)
-            && value is not null)
+            && TValue.TryParse(InnerTextBox.Text, CultureInfo.CurrentCulture, out _))
         {
-            value = NumberEditorHelper.StepByWheel(value, e, LargeChange, SmallChange);
-
-            Value = value;
-
+            using var edit = new PropertyEditorEditScope(ref _editSource, this);
+            TValue oldValue = Value;
+            TValue newValue = NumberEditorHelper.StepByWheel(oldValue, e, LargeChange, SmallChange);
+            Value = newValue;
+            if (newValue != oldValue)
+                RaiseEvent(new PropertyEditorValueChangedEventArgs<TValue>(newValue, oldValue, ValueChangedEvent));
+            Text = NumberEditorHelper.Format(Value, NumberFormat);
             e.Handled = true;
         }
     }

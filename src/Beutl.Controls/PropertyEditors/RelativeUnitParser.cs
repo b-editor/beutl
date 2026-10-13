@@ -41,7 +41,7 @@ internal static class RelativeUnitParser
         }
     }
 
-    // An edit applies when the new text parses and either the old text did not parse or the value changed.
+    // An edit applies when the new text parses and the old text was invalid or the value or unit changed.
     public static bool TryParseEdit(
         string? newText,
         string? oldText,
@@ -59,7 +59,7 @@ internal static class RelativeUnitParser
                 oldUnit = newUnit;
             }
 
-            return invalidOldValue || newValue != oldValue;
+            return invalidOldValue || newValue != oldValue || newUnit != oldUnit;
         }
 
         oldValue = default;

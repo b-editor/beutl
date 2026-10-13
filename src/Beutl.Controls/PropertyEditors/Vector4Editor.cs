@@ -54,6 +54,7 @@ public class Vector4Editor<TElement> : Vector4Editor
             defaultValue: TElement.One);
 
     private readonly CompositeDisposable _disposables = [];
+    private Control? _editSource;
     private TElement _firstValue = TElement.Zero;
     private TElement _oldFirstValue = TElement.Zero;
     private TElement _secondValue = TElement.Zero;
@@ -78,7 +79,8 @@ public class Vector4Editor<TElement> : Vector4Editor
         get => _firstValue;
         set
         {
-            if (SetAndRaise(FirstValueProperty, ref _firstValue, value))
+            if (SetAndRaise(FirstValueProperty, ref _firstValue, value)
+                && (_editSource == null || _editSource != InnerFirstTextBox))
             {
                 FirstText = NumberEditorHelper.Format(value, NumberFormat);
             }
@@ -90,7 +92,8 @@ public class Vector4Editor<TElement> : Vector4Editor
         get => _secondValue;
         set
         {
-            if (SetAndRaise(SecondValueProperty, ref _secondValue, value))
+            if (SetAndRaise(SecondValueProperty, ref _secondValue, value)
+                && (_editSource == null || _editSource != InnerSecondTextBox))
             {
                 SecondText = NumberEditorHelper.Format(value, NumberFormat);
             }
@@ -102,7 +105,8 @@ public class Vector4Editor<TElement> : Vector4Editor
         get => _thirdValue;
         set
         {
-            if (SetAndRaise(ThirdValueProperty, ref _thirdValue, value))
+            if (SetAndRaise(ThirdValueProperty, ref _thirdValue, value)
+                && (_editSource == null || _editSource != InnerThirdTextBox))
             {
                 ThirdText = NumberEditorHelper.Format(value, NumberFormat);
             }
@@ -114,7 +118,8 @@ public class Vector4Editor<TElement> : Vector4Editor
         get => _fourthValue;
         set
         {
-            if (SetAndRaise(FourthValueProperty, ref _fourthValue, value))
+            if (SetAndRaise(FourthValueProperty, ref _fourthValue, value)
+                && (_editSource == null || _editSource != InnerFourthTextBox))
             {
                 FourthText = NumberEditorHelper.Format(value, NumberFormat);
             }
@@ -133,14 +138,19 @@ public class Vector4Editor<TElement> : Vector4Editor
         set => SetValue(SmallChangeProperty, value);
     }
 
+    private void UpdateText()
+    {
+        FirstText = NumberEditorHelper.Format(FirstValue, NumberFormat);
+        SecondText = NumberEditorHelper.Format(SecondValue, NumberFormat);
+        ThirdText = NumberEditorHelper.Format(ThirdValue, NumberFormat);
+        FourthText = NumberEditorHelper.Format(FourthValue, NumberFormat);
+    }
+
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
         _disposables.Clear();
         base.OnApplyTemplate(e);
-        FirstText = NumberEditorHelper.Format(_firstValue, NumberFormat);
-        SecondText = NumberEditorHelper.Format(_secondValue, NumberFormat);
-        ThirdText = NumberEditorHelper.Format(_thirdValue, NumberFormat);
-        FourthText = NumberEditorHelper.Format(_fourthValue, NumberFormat);
+        UpdateText();
 
         var valueHandlers = new ComponentValueHandlers(
             OnInnerTextBoxGotFocus, OnInnerTextBoxLostFocus, OnInnerTextBoxTextChanged, OnInnerTextBoxPointerWheelChanged);
@@ -257,6 +267,7 @@ public class Vector4Editor<TElement> : Vector4Editor
     {
         if (!DataValidationErrors.GetHasErrors(this))
         {
+            UpdateText();
             if (FirstValue != _oldFirstValue
                 || SecondValue != _oldSecondValue
                 || ThirdValue != _oldThirdValue
@@ -272,51 +283,32 @@ public class Vector4Editor<TElement> : Vector4Editor
 
     private void OnInnerTextBoxTextChanged(TextBox sender, string? newValue, string? oldValue)
     {
-        if (sender.IsKeyboardFocusWithin
+        if (_editSource == null
+            && sender.IsKeyboardFocusWithin
             && NumberEditorHelper.TryParseEdit(newValue, oldValue, out TElement? newValue2, out TElement? oldValue2))
         {
-            var newValues = (FirstValue, SecondValue, ThirdValue, FourthValue);
-            var oldValues = (FirstValue, SecondValue, ThirdValue, FourthValue);
-            if (IsUniform)
-            {
-                FirstValue = SecondValue = ThirdValue = FourthValue = newValue2;
-                newValues = (newValue2, newValue2, newValue2, newValue2);
-                oldValues = (oldValue2, oldValue2, oldValue2, oldValue2);
-            }
-            else
-            {
-                switch (sender.Name)
-                {
-                    case "PART_InnerFirstTextBox":
-                        FirstValue = newValue2;
-                        newValues.FirstValue = newValue2;
-                        oldValues.FirstValue = oldValue2;
-                        break;
-                    case "PART_InnerSecondTextBox":
-                        SecondValue = newValue2;
-                        newValues.SecondValue = newValue2;
-                        oldValues.SecondValue = oldValue2;
-                        break;
-                    case "PART_InnerThirdTextBox":
-                        ThirdValue = newValue2;
-                        newValues.ThirdValue = newValue2;
-                        oldValues.ThirdValue = oldValue2;
-                        break;
-                    case "PART_InnerFourthTextBox":
-                        FourthValue = newValue2;
-                        newValues.FourthValue = newValue2;
-                        oldValues.FourthValue = oldValue2;
-                        break;
-                    default:
-                        break;
-                }
-            }
-
-            RaiseEvent(new PropertyEditorValueChangedEventArgs<(TElement, TElement, TElement, TElement)>(
-                newValues, oldValues, ValueChangedEvent));
+            using var edit = new PropertyEditorEditScope(ref _editSource, sender);
+            ApplyValueChange(sender, newValue2, oldValue2);
         }
 
         UpdateErrors();
+    }
+
+    private void ApplyValueChange(TextBox sender, TElement value, TElement oldValue)
+    {
+        bool first = IsUniform || sender == InnerFirstTextBox;
+        bool second = IsUniform || sender == InnerSecondTextBox;
+        bool third = IsUniform || sender == InnerThirdTextBox;
+        bool fourth = IsUniform || sender == InnerFourthTextBox;
+        var newValues = (first ? value : FirstValue, second ? value : SecondValue,
+            third ? value : ThirdValue, fourth ? value : FourthValue);
+        var oldValues = _editSource == sender
+            ? (first ? oldValue : FirstValue, second ? oldValue : SecondValue,
+                third ? oldValue : ThirdValue, fourth ? oldValue : FourthValue)
+            : (FirstValue, SecondValue, ThirdValue, FourthValue);
+        (FirstValue, SecondValue, ThirdValue, FourthValue) = newValues;
+        RaiseEvent(new PropertyEditorValueChangedEventArgs<(TElement, TElement, TElement, TElement)>(
+            newValues, oldValues, ValueChangedEvent));
     }
 
     private void UpdateErrors()
@@ -338,33 +330,19 @@ public class Vector4Editor<TElement> : Vector4Editor
             && TElement.TryParse(textBox.Text, CultureInfo.CurrentCulture, out TElement? value)
             && value is not null)
         {
-            value = NumberEditorHelper.StepByWheel(value, e, LargeChange, SmallChange);
-
-            if (IsUniform)
+            using var edit = new PropertyEditorEditScope(ref _editSource, this);
+            TElement oldValue = textBox.Name switch
             {
-                FirstValue = SecondValue = ThirdValue = FourthValue = value;
-            }
-            else
-            {
-                switch (textBox.Name)
-                {
-                    case "PART_InnerFirstTextBox":
-                        FirstValue = value;
-                        break;
-                    case "PART_InnerSecondTextBox":
-                        SecondValue = value;
-                        break;
-                    case "PART_InnerThirdTextBox":
-                        ThirdValue = value;
-                        break;
-                    case "PART_InnerFourthTextBox":
-                        FourthValue = value;
-                        break;
-                    default:
-                        break;
-                }
-            }
-
+                "PART_InnerFirstTextBox" => FirstValue,
+                "PART_InnerSecondTextBox" => SecondValue,
+                "PART_InnerThirdTextBox" => ThirdValue,
+                "PART_InnerFourthTextBox" => FourthValue,
+                _ => value,
+            };
+            value = NumberEditorHelper.StepByWheel(oldValue, e, LargeChange, SmallChange);
+            if (value != oldValue)
+                ApplyValueChange(textBox, value, oldValue);
+            UpdateText();
             e.Handled = true;
         }
     }

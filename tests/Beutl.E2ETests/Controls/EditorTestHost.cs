@@ -70,14 +70,15 @@ internal sealed class EditorTestHost<TEditor> : IDisposable
         HeadlessTestHelpers.Settle();
     }
 
-    public void WheelOver(Control control, double deltaY)
+    public void WheelOver(Control control, double deltaY, double deltaX = 0,
+        RawInputModifiers modifiers = RawInputModifiers.None)
     {
         control.Focus();
         HeadlessTestHelpers.Settle();
         Point center = Center(control);
         Window.MouseMove(center);
         HeadlessTestHelpers.Settle();
-        Window.MouseWheel(center, new Vector(0, deltaY));
+        Window.MouseWheel(center, new Vector(deltaX, deltaY), modifiers);
         HeadlessTestHelpers.Settle();
     }
 
