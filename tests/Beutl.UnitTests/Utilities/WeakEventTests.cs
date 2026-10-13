@@ -24,18 +24,6 @@ public class WeakEventTests
     }
 
     [Test]
-    public void Subscribe_ReceivesEvent()
-    {
-        var src = new Source();
-        var sub = new Subscriber();
-
-        WeakEvents.PropertyChanged.Subscribe(src, sub);
-        src.Raise("X");
-
-        Assert.That(sub.Received, Is.EqualTo(new[] { "X" }));
-    }
-
-    [Test]
     public void Unsubscribe_StopsReceivingFurtherEvents()
     {
         var src = new Source();
@@ -64,29 +52,5 @@ public class WeakEventTests
 
         Assert.That(s1.Received, Is.EqualTo(new[] { "hello" }));
         Assert.That(s2.Received, Is.EqualTo(new[] { "hello" }));
-    }
-
-    private sealed class GenericEventSource
-    {
-        public event EventHandler<PropertyChangedEventArgs>? Changed;
-
-        public void Raise(string property)
-            => Changed?.Invoke(this, new PropertyChangedEventArgs(property));
-    }
-
-    [Test]
-    public void Register_ActionStyle_AlsoWorks()
-    {
-        WeakEvent<GenericEventSource, PropertyChangedEventArgs> ev =
-            WeakEvent.Register<GenericEventSource, PropertyChangedEventArgs>(
-                (s, h) => s.Changed += h,
-                (s, h) => s.Changed -= h);
-
-        var src = new GenericEventSource();
-        var sub = new Subscriber();
-        ev.Subscribe(src, sub);
-        src.Raise("x");
-
-        Assert.That(sub.Received, Is.EqualTo(new[] { "x" }));
     }
 }

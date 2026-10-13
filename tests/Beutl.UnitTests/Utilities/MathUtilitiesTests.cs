@@ -92,6 +92,9 @@ public class MathUtilitiesTests
     [TestCase(1.0, 1.0, true)]
     [TestCase(1.0, 1.0 - MathUtilities.DoubleEpsilon, true)]
     [TestCase(1.0, 1.0 + MathUtilities.DoubleEpsilon, true)]
+    [TestCase(1.0, 1.05, false)]
+    [TestCase(double.PositiveInfinity, double.PositiveInfinity, true)]
+    [TestCase(double.NegativeInfinity, double.NegativeInfinity, true)]
     public void AreCloseDouble_ShouldReturnExpectedResult(double value1, double value2, bool expected)
     {
         bool result = MathUtilities.AreClose(value1, value2);
@@ -99,9 +102,19 @@ public class MathUtilitiesTests
     }
 
     [Test]
+    public void AreClose_DoubleWithCustomEps_TrueWhenInsideEpsilon()
+    {
+        Assert.That(MathUtilities.AreClose(1.0, 1.001, 0.01), Is.True);
+        Assert.That(MathUtilities.AreClose(1.0, 1.05, 0.01), Is.False);
+        Assert.That(MathUtilities.AreClose(double.PositiveInfinity, double.PositiveInfinity, 1e-9), Is.True);
+    }
+
+    [Test]
     [TestCase(1.0f, 1.0f, true)]
     [TestCase(1.0f, 1.0f - MathUtilities.FloatEpsilon, true)]
     [TestCase(1.0f, 1.0f + MathUtilities.FloatEpsilon, true)]
+    [TestCase(float.PositiveInfinity, float.PositiveInfinity, true)]
+    [TestCase(float.NegativeInfinity, float.NegativeInfinity, true)]
     public void AreCloseFloat_ShouldReturnExpectedResult(float value1, float value2, bool expected)
     {
         bool result = MathUtilities.AreClose(value1, value2);

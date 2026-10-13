@@ -9,7 +9,6 @@ public static class TypefaceProvider
     static TypefaceProvider()
     {
         GlobalConfiguration.Instance.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), "settings.json"));
-        GlobalConfiguration.Instance.FontConfig.FontDirectories.Clear();
         Assembly asm = typeof(TypefaceProvider).Assembly;
         string[] array =
         [
@@ -17,12 +16,8 @@ public static class TypefaceProvider
             "BeutlTestColorEmoji.ttf",
             "BeutlTestSeparateEmoji.ttf",
             "BeutlTestComposedText.otf",
-            "NotoSansJP-Black.otf",
             "NotoSansJP-Bold.otf",
-            "NotoSansJP-Light.otf",
-            "NotoSansJP-Medium.otf",
             "NotoSansJP-Regular.otf",
-            "NotoSansJP-Thin.otf",
             "Roboto-Medium.ttf",
             "Roboto-Regular.ttf",
         ];

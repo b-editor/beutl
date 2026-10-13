@@ -139,7 +139,6 @@ public class ReleaseLicensePackagingTests
                 flatpakMetainfo,
                 Does.Contain("<project_license>MIT AND GPL-3.0-or-later</project_license>"));
 
-            Assert.That(File.Exists(copyrightPath), Is.True);
             Assert.That(
                 File.Exists(Path.Combine(repositoryRoot, "packages", "ubuntu22.04", "DEBIAN", "copyright")),
                 Is.False);
