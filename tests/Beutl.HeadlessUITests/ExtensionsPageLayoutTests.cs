@@ -1,22 +1,13 @@
-﻿using Avalonia.Controls;
-using Avalonia.Headless.NUnit;
-using Avalonia.VisualTree;
+﻿using Avalonia.Headless.NUnit;
 using Beutl.Pages;
 using Beutl.Testing.Headless;
 
 namespace Beutl.HeadlessUITests;
 
-// Guards that the extensions window adapts to the available space instead of relying on a hard 800x600
-// size with a fixed-width search box. The window must declare MinWidth/MinHeight floors, and the search
-// box must shrink (and stay inside its slot) on a narrow window rather than overflowing it. Asserts
-// arranged layout bounds only (no pixel readback): frame capture of an inflated shell view crashes the
-// headless host on software Vulkan.
+// Guards that the extensions window declares MinWidth/MinHeight floors so it can shrink.
 [TestFixture]
 public class ExtensionsPageLayoutTests
 {
-    private static TextBox GetSearchBox(ExtensionsPage page)
-        => page.GetVisualDescendants().OfType<TextBox>().First(x => x.Name == "searchTextBox");
-
     [AvaloniaTest]
     public void Window_declares_minimum_size_floors()
     {

@@ -7,7 +7,6 @@ using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Media;
-using Avalonia.Media.Imaging;
 using Avalonia.VisualTree;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
@@ -120,7 +119,7 @@ public class GraphEditorEditingTests
                     graph.Model.SelectedView.Value.SetSelection([graph.First, graph.Second]);
                     break;
             }
-            string beforeCompletion = CoreSerializer.SerializeToJsonObject(graph.Animation).ToJsonString();
+            string beforeCompletion = GraphScope.Snapshot(graph.Animation);
             if (change == "failure") completed.SetException(new IOException("Clipboard write failed."));
             else completed.SetResult();
             await cut;
@@ -128,7 +127,7 @@ public class GraphEditorEditingTests
             Assert.That(graph.Animation.KeyFrames.Count, Is.EqualTo(change == "active" ? 0 : 2));
             Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo + (change == "active" ? 1 : 0)));
             if (change != "active")
-                Assert.That(CoreSerializer.SerializeToJsonObject(graph.Animation).ToJsonString(), Is.EqualTo(beforeCompletion));
+                Assert.That(GraphScope.Snapshot(graph.Animation), Is.EqualTo(beforeCompletion));
             if (change == "active")
             {
                 graph.Model.HistoryManager.Undo();
@@ -193,7 +192,7 @@ public class GraphEditorEditingTests
         var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         clipboard.Setup(x => x.TryGetDataAsync()).Returns(Read);
         graph.Model.CurrentTime.Value = TimeSpan.FromSeconds(3);
-        string before = CoreSerializer.SerializeToJsonObject(graph.Animation).ToJsonString();
+        string before = GraphScope.Snapshot(graph.Animation);
         int undo = graph.Model.HistoryManager.UndoCount;
         Task paste = entry switch
         {
@@ -226,7 +225,7 @@ public class GraphEditorEditingTests
         Assert.That(otherAnimation.KeyFrames[0].Value, Is.EqualTo(50));
         Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo + (change == "active" ? 1 : 0)));
         if (change == "active") graph.Model.HistoryManager.Undo();
-        Assert.That(CoreSerializer.SerializeToJsonObject(graph.Animation).ToJsonString(), Is.EqualTo(before));
+        Assert.That(GraphScope.Snapshot(graph.Animation), Is.EqualTo(before));
 
         async Task<IAsyncDataTransfer?> Read()
         {
@@ -241,7 +240,7 @@ public class GraphEditorEditingTests
         var animation = new KeyFrameAnimation<float>();
         animation.KeyFrames.Add(key);
         ICoreSerializable value = format == "key" ? key : animation;
-        string json = CoreSerializer.SerializeToJsonObject(value).ToJsonString();
+        string json = GraphScope.Snapshot(value);
         var data = new DataTransfer();
         data.Add(DataTransferItem.Create(format switch
         {
@@ -258,28 +257,18 @@ public class GraphEditorEditingTests
     public async Task Cut_keyboard_shortcut_copies_and_deletes_with_one_undo(KeyModifiers command)
     {
         using var graph = await GraphScope.CreateAsync(separateHandles: true);
-        var hotkeys = Application.Current!.PlatformSettings!.HotkeyConfiguration;
-        KeyModifiers previous = hotkeys.CommandModifiers;
-        hotkeys.CommandModifiers = command;
-        try
-        {
-            graph.View.Focus();
-            int undo = graph.Model.HistoryManager.UndoCount;
-            var modifier = command == KeyModifiers.Meta ? RawInputModifiers.Meta : RawInputModifiers.Control;
-            graph.Window.KeyPress(Key.X, modifier, PhysicalKey.X, null);
-            graph.Window.KeyRelease(Key.X, modifier, PhysicalKey.X, null);
-            for (int i = 0; i < 20 && graph.Animation.KeyFrames.Count != 0; i++)
-            {
-                await Task.Yield();
-                HeadlessTestHelpers.Render();
-            }
-            Assert.That(await graph.Window.Clipboard!.TryGetValueAsync(BeutlDataFormats.KeyFrameSelection), Is.Not.Null);
-            Assert.That(graph.Animation.KeyFrames, Is.Empty);
-            Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo + 1));
-            graph.Model.HistoryManager.Undo();
-            Assert.That(graph.Animation.KeyFrames, Has.Count.EqualTo(2));
-        }
-        finally { hotkeys.CommandModifiers = previous; }
+        using var commandModifier = CommandModifierScope.Use(command);
+        graph.View.Focus();
+        int undo = graph.Model.HistoryManager.UndoCount;
+        var modifier = command == KeyModifiers.Meta ? RawInputModifiers.Meta : RawInputModifiers.Control;
+        graph.Window.KeyPress(Key.X, modifier, PhysicalKey.X, null);
+        graph.Window.KeyRelease(Key.X, modifier, PhysicalKey.X, null);
+        await HeadlessTestHelpers.WaitUntilAsync(() => graph.Animation.KeyFrames.Count == 0);
+        Assert.That(await graph.Window.Clipboard!.TryGetValueAsync(BeutlDataFormats.KeyFrameSelection), Is.Not.Null);
+        Assert.That(graph.Animation.KeyFrames, Is.Empty);
+        Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo + 1));
+        graph.Model.HistoryManager.Undo();
+        Assert.That(graph.Animation.KeyFrames, Has.Count.EqualTo(2));
     }
 
     [AvaloniaTest]
@@ -311,13 +300,13 @@ public class GraphEditorEditingTests
         var timeline = ((EditViewModel)graph.Model.EditorContext).FindToolTab<TimelineTabViewModel>()!;
         var property = new AnimatablePropertyAdapter<float>((AnimatableProperty<float>)shape.Height, shape);
         using var inline = new InlineAnimationLayerViewModel(property, timeline, timeline.Elements.Single());
-        string before = CoreSerializer.SerializeToJsonObject(target).ToJsonString();
+        string before = GraphScope.Snapshot(target);
         int undo = graph.Model.HistoryManager.UndoCount;
         if (keyMenu) await inline.Items.Single(item => item.Model.KeyTime.TotalSeconds == start).PasteAsync(graph.Window.Clipboard);
         else await inline.PasteKeyFrameAtPositionAsync(TimeSpan.FromSeconds(5), graph.Window.Clipboard);
         if (locked)
         {
-            Assert.That(CoreSerializer.SerializeToJsonObject(target).ToJsonString(), Is.EqualTo(before));
+            Assert.That(GraphScope.Snapshot(target), Is.EqualTo(before));
             Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo));
             return;
         }
@@ -329,7 +318,7 @@ public class GraphEditorEditingTests
         Assert.That(inline.Width.Value, Is.EqualTo(target.Duration.TimeToPixel(timeline.Options.Value.Scale)));
         Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo + 1));
         graph.Model.HistoryManager.Undo();
-        Assert.That(CoreSerializer.SerializeToJsonObject(target).ToJsonString(), Is.EqualTo(before));
+        Assert.That(GraphScope.Snapshot(target), Is.EqualTo(before));
         Assert.That(inline.Width.Value, Is.EqualTo(target.Duration.TimeToPixel(timeline.Options.Value.Scale)));
         graph.Model.HistoryManager.Redo();
         Assert.That(target.KeyFrames, Has.Count.EqualTo(3));
@@ -404,7 +393,6 @@ public class GraphEditorEditingTests
             Assert.That(keys, Has.Length.EqualTo(3));
             foreach (var key in keys)
                 Assert.That(key.TranslatePoint(default, graph.Window)!.Value.X, Is.InRange(0, graph.Window.Bounds.Width));
-            graph.Capture($"timeline-pasted-selection-{light}");
         }
         finally { view.DataContext = null; timeline.DetachInline(inline); }
     }
@@ -520,7 +508,7 @@ public class GraphEditorEditingTests
         }
         graph.Model.HistoryManager.Commit();
         graph.Model.SelectedView.Value!.SetSelection(multiple ? [graph.First, third] : [graph.First]);
-        string before = CoreSerializer.SerializeToJsonObject(graph.Animation).ToJsonString();
+        string before = GraphScope.Snapshot(graph.Animation);
         Assert.That(await graph.Model.CopySelectionAsync(graph.Window.Clipboard), Is.True);
         graph.Model.CurrentTime.Value = TimeSpan.Zero;
         int undo = graph.Model.HistoryManager.UndoCount;
@@ -537,7 +525,7 @@ public class GraphEditorEditingTests
         Assert.That(await graph.Window.Clipboard!.TryGetValueAsync(BeutlDataFormats.KeyFrameAnimation), Is.Null,
             "A key selection must not advertise itself as a whole-animation replacement.");
         graph.Model.HistoryManager.Undo();
-        Assert.That(CoreSerializer.SerializeToJsonObject(graph.Animation).ToJsonString(), Is.EqualTo(before));
+        Assert.That(GraphScope.Snapshot(graph.Animation), Is.EqualTo(before));
     }
 
     [AvaloniaTest]
@@ -608,7 +596,6 @@ public class GraphEditorEditingTests
             graph.Window.MouseDown(oldHandle, MouseButton.Left);
             graph.Window.MouseUp(oldHandle, MouseButton.Left);
         });
-        graph.Capture("deleted-selection-no-transform-box");
     }
 
     [AvaloniaTest]
@@ -660,7 +647,6 @@ public class GraphEditorEditingTests
             Assert.That(speed.GetCurveGeometry(first, second), Is.SameAs(updated));
             geometry = updated;
         }
-        graph.Capture("speed-cached-after-value-edit");
     }
 
     [AvaloniaTest]
@@ -740,7 +726,6 @@ public class GraphEditorEditingTests
             Assert.That(bounds.Bottom, Is.LessThanOrEqualTo(graph.Window.Bounds.Height + 1));
             Assert.That(button.Bounds.Width, Is.GreaterThan(15));
         }
-        graph.Capture($"toolbar-{width}-{light}");
     }
     [AvaloniaTest]
     [TestCase(640, false, "Button")]
@@ -772,7 +757,6 @@ public class GraphEditorEditingTests
         numbers["OutgoingSpeed"].Value = 0;
         numbers["OutgoingInfluence"].Value = 45;
         HeadlessTestHelpers.Render(3);
-        CaptureVelocityFlyout(graph, presenter, $"velocity-flyout-{width}-{light}-{source}");
         var preview = (SplineEasing)graph.Second.Easing;
         Assert.That(preview.X1, Is.EqualTo(0.45f).Within(0.001), "Editing the picker must update the curve immediately.");
         Assert.That(preview.X2, Is.EqualTo(0.55f).Within(0.001));
@@ -867,7 +851,6 @@ public class GraphEditorEditingTests
         graph.Window.MouseMove(header.TranslatePoint(new Point(130, 20), graph.Window)!.Value);
         Assert.That(flyout.Popup.HorizontalOffset, Is.EqualTo(x + 30).Within(0.01));
         Assert.That(flyout.Popup.VerticalOffset, Is.EqualTo(y - 55).Within(0.01));
-        CaptureVelocityFlyout(graph, flyout.Popup.Child!, $"velocity-flyout-dragged-{light}");
         flyout.Hide();
     }
 
@@ -984,10 +967,8 @@ public class GraphEditorEditingTests
         if (source == "Keyboard")
         {
             graph.View.Focus();
-            RawInputModifiers command = KeyGestureHelper.GetCommandModifier() == KeyModifiers.Meta
-                ? RawInputModifiers.Meta : RawInputModifiers.Control;
-            graph.Window.KeyPress(Key.K, command | RawInputModifiers.Shift, PhysicalKey.None, "k");
-            graph.Window.KeyRelease(Key.K, command | RawInputModifiers.Shift, PhysicalKey.None, "k");
+            graph.Window.KeyPress(Key.K, GraphScope.CommandModifier | RawInputModifiers.Shift, PhysicalKey.None, "k");
+            graph.Window.KeyRelease(Key.K, GraphScope.CommandModifier | RawInputModifiers.Shift, PhysicalKey.None, "k");
         }
         else if (source == "ContextMenu")
         {
@@ -1009,14 +990,6 @@ public class GraphEditorEditingTests
     private static Button PickerButton(KeyFrameVelocityFlyout flyout, string name) => flyout.Popup.Child!
         .GetVisualDescendants().OfType<Button>().Single(x => x.Name == name);
 
-    private static void CaptureVelocityFlyout(GraphScope graph, Control presenter, string name)
-    {
-        graph.Capture(name + "-host");
-        if (Environment.GetEnvironmentVariable("BEUTL_GRAPH_CONTEXT_CAPTURE") is not { Length: > 0 } directory) return;
-        using var frame = TopLevel.GetTopLevel(presenter)!.CaptureRenderedFrame();
-        frame?.Save(Path.Combine(directory, name + ".png"), PngBitmapEncoderOptions.Default);
-    }
-
     [AvaloniaTest]
     [TestCase(typeof(CustomQuadraticEasing))]
     [TestCase(typeof(CustomSplineEasing))]
@@ -1036,11 +1009,11 @@ public class GraphEditorEditingTests
         graph.Model.SelectedView.Value!.SetSelection(graph.Animation.KeyFrames);
         graph.Model.HistoryManager.Commit();
         var snapshot = new GraphEditorDragSnapshot(graph.Model.SelectedView.Value);
-        string before = CoreSerializer.SerializeToJsonObject(graph.Animation).ToJsonString();
+        string before = GraphScope.Snapshot(graph.Animation);
         int undo = graph.Model.HistoryManager.UndoCount;
         graph.Model.HistoryManager.ExecuteInTransaction(() => snapshot.Apply(
             entry => (3 - entry.Time.TotalSeconds, entry.Number * 2), -1, 2, transformHandles: true));
-        Assert.That(CoreSerializer.SerializeToJsonObject(graph.Animation).ToJsonString(), Is.EqualTo(before));
+        Assert.That(GraphScope.Snapshot(graph.Animation), Is.EqualTo(before));
         Assert.That(graph.Second.Easing, Is.SameAs(original));
         Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo));
         Assert.That(graph.Model.HistoryManager.HasPendingOperations, Is.False);
@@ -1049,13 +1022,13 @@ public class GraphEditorEditingTests
         graph.Model.HistoryManager.ExecuteInTransaction(() => snapshot.Apply(entry => (entry.Time.TotalSeconds + 0.2, entry.Number + 10)));
         Assert.That(graph.First.KeyTime.TotalSeconds, Is.EqualTo(0.7).Within(0.00001));
         Assert.That(graph.First.Value, Is.EqualTo(110));
-        string moved = CoreSerializer.SerializeToJsonObject(graph.Animation).ToJsonString();
+        string moved = GraphScope.Snapshot(graph.Animation);
         graph.Model.HistoryManager.ExecuteInTransaction(() => snapshot.Apply(
             entry => (3 - entry.Time.TotalSeconds, entry.Number * 2), -1, 2, transformHandles: true));
-        Assert.That(CoreSerializer.SerializeToJsonObject(graph.Animation).ToJsonString(), Is.EqualTo(moved));
+        Assert.That(GraphScope.Snapshot(graph.Animation), Is.EqualTo(moved));
         Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo + 1));
         graph.Model.HistoryManager.Undo();
-        Assert.That(CoreSerializer.SerializeToJsonObject(graph.Animation).ToJsonString(), Is.EqualTo(before));
+        Assert.That(GraphScope.Snapshot(graph.Animation), Is.EqualTo(before));
     }
 
     [AvaloniaTest]
@@ -1067,7 +1040,7 @@ public class GraphEditorEditingTests
         graph.Second.Easing = new CustomQuadraticEasing();
         graph.Model.HistoryManager.Commit();
         HeadlessTestHelpers.Render();
-        string before = CoreSerializer.SerializeToJsonObject(graph.Animation).ToJsonString();
+        string before = GraphScope.Snapshot(graph.Animation);
         Point first = graph.KeyFrame(graph.First).TranslatePoint(default, graph.Window)!.Value;
         Point second = graph.KeyFrame(graph.Second).TranslatePoint(default, graph.Window)!.Value;
         Point start = new(second.X, (first.Y + second.Y) / 2);
@@ -1076,7 +1049,7 @@ public class GraphEditorEditingTests
         graph.HitTest(start);
         graph.Window.MouseDown(start, MouseButton.Left);
         graph.Window.MouseMove(end, RawInputModifiers.LeftMouseButton);
-        Assert.That(CoreSerializer.SerializeToJsonObject(graph.Animation).ToJsonString(), Is.EqualTo(before));
+        Assert.That(GraphScope.Snapshot(graph.Animation), Is.EqualTo(before));
         if (cancel)
         {
             graph.Window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.None, null);
@@ -1085,8 +1058,7 @@ public class GraphEditorEditingTests
         graph.Window.MouseUp(end, MouseButton.Left);
         HeadlessTestHelpers.Render(3);
         Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo));
-        Assert.That(CoreSerializer.SerializeToJsonObject(graph.Animation).ToJsonString(), Is.EqualTo(before));
-        graph.Capture($"unsupported-reversal-{cancel}");
+        Assert.That(GraphScope.Snapshot(graph.Animation), Is.EqualTo(before));
     }
 
     [AvaloniaTest]
@@ -1161,11 +1133,7 @@ public class GraphEditorEditingTests
         Point start = new(second.X, (first.Y + second.Y) / 2);
         Point end = new(first.X - (second.X - first.X) / 2, start.Y);
         int undo = graph.Model.HistoryManager.UndoCount;
-        graph.HitTest(start);
-        graph.Window.MouseDown(start, MouseButton.Left);
-        graph.Window.MouseMove(end, RawInputModifiers.LeftMouseButton);
-        graph.Window.MouseUp(end, MouseButton.Left);
-        HeadlessTestHelpers.Render(3);
+        graph.Drag(start, end);
         Assert.That(graph.Animation.KeyFrames[0], Is.SameAs(graph.Second));
         Assert.That(graph.First.Easing.GetType(), Is.EqualTo(reversedType));
         for (int i = 0; i <= 100; i++)
@@ -1174,7 +1142,6 @@ public class GraphEditorEditingTests
         // The reversed result must remain an ordinary, serializable built-in easing.
         ObjectRegenerator.Regenerate(graph.Animation, out KeyFrameAnimation<float> restored);
         Assert.That(restored.KeyFrames[1].Easing.GetType(), Is.EqualTo(reversedType));
-        graph.Capture($"reverse-{sourceType.Name}");
         graph.Model.HistoryManager.Undo();
         Assert.That(graph.Second.Easing, Is.SameAs(original));
         Assert.That(graph.First.Easing, Is.SameAs(firstEasing));
@@ -1196,10 +1163,7 @@ public class GraphEditorEditingTests
         Point second = graph.KeyFrame(graph.Second).TranslatePoint(default, graph.Window)!.Value;
         Point start = new(second.X, (first.Y + second.Y) / 2);
         Point end = new(first.X - (second.X - first.X) / 2, start.Y);
-        graph.HitTest(start);
-        graph.Window.MouseDown(start, MouseButton.Left);
-        graph.Window.MouseMove(end, RawInputModifiers.LeftMouseButton);
-        graph.Window.MouseUp(end, MouseButton.Left);
+        graph.Drag(start, end);
         Assert.That(graph.Animation.KeyFrames[0], Is.SameAs(graph.Second));
         Assert.That(graph.Animation.KeyFrames[1], Is.SameAs(graph.First));
         Assert.That(graph.First.Easing, Is.TypeOf<SplineEasing>());
@@ -1216,8 +1180,7 @@ public class GraphEditorEditingTests
         graph.Model.IsSpeedGraph.Value = true;
         HeadlessTestHelpers.Render(3);
         graph.View.Focus();
-        graph.Window.KeyPress(Key.F, RawInputModifiers.Shift, PhysicalKey.None, "f");
-        graph.Window.KeyRelease(Key.F, RawInputModifiers.Shift, PhysicalKey.None, "f");
+        graph.PressKey(Key.F, RawInputModifiers.Shift);
         HeadlessTestHelpers.Render(3);
         var scroll = graph.View.FindControl<ScrollViewer>("scroll")!;
         double peakY = graph.Model.Baseline.Value - 600 * graph.Model.ScaleY.Value - scroll.Offset.Y;

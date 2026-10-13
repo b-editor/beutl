@@ -70,9 +70,14 @@ internal static class PropertyEditorTestHost
         }
     }
 
-    public sealed record HistoryServices(HistoryManager History, Element? Element = null) : IServiceProvider, IPropertyEditorContextVisitor
+    // A visitor whose GetService answers with the services it was given, by type.
+    public sealed class ServiceVisitor(params (Type Type, object? Service)[] services) : IServiceProvider, IPropertyEditorContextVisitor
     {
-        public object? GetService(Type type) => type == typeof(HistoryManager) ? History : type == typeof(Element) ? Element : null;
+        // The history and, when given, the element that the property editors ask for.
+        public static ServiceVisitor For(HistoryManager history, Element? element = null)
+            => new((typeof(HistoryManager), history), (typeof(Element), element));
+
+        public object? GetService(Type type) => Array.Find(services, service => service.Type == type).Service;
 
         public void Visit(IPropertyEditorContext context) { }
     }

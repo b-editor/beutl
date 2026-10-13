@@ -3,7 +3,6 @@ using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using Avalonia.Media.Imaging;
 using Avalonia.VisualTree;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
@@ -11,7 +10,6 @@ using Beutl.Editor.Components.GraphEditorTab.ViewModels;
 using Beutl.Editor.Components.GraphEditorTab.Views;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
-using Beutl.Serialization;
 using Beutl.Testing.Headless;
 using FluentAvalonia.UI.Controls;
 using GraphicsPoint = Beutl.Graphics.Point;
@@ -36,7 +34,7 @@ public class GraphEditorSelectionCommandTests
         graph.Animation.KeyFrames.Add(unselected, out _);
         graph.Model.SelectedView.Value!.SetSelection([graph.First, third, fourth, graph.Second]);
         graph.Model.HistoryManager.Commit();
-        string before = Serialize(graph.Animation);
+        string before = GraphScope.Snapshot(graph.Animation);
         int undo = graph.Model.HistoryManager.UndoCount;
 
         Invoke(graph, "DistributeEvenly", keyboard ? Key.D : null);
@@ -46,11 +44,11 @@ public class GraphEditorSelectionCommandTests
         Assert.That(graph.Animation.KeyFrames.Select(key => key.Value), Is.EqualTo(new[] { 100f, 200, 300, 500, 900 }));
         Assert.That(graph.Model.SelectedView.Value!.SelectionCount.Value, Is.EqualTo(4));
         Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo + 1));
-        string after = Serialize(graph.Animation);
+        string after = GraphScope.Snapshot(graph.Animation);
         graph.Model.HistoryManager.Undo();
-        Assert.That(Serialize(graph.Animation), Is.EqualTo(before));
+        Assert.That(GraphScope.Snapshot(graph.Animation), Is.EqualTo(before));
         graph.Model.HistoryManager.Redo();
-        Assert.That(Serialize(graph.Animation), Is.EqualTo(after));
+        Assert.That(GraphScope.Snapshot(graph.Animation), Is.EqualTo(after));
     }
 
     [AvaloniaTest]
@@ -61,7 +59,7 @@ public class GraphEditorSelectionCommandTests
         using var graph = await GraphScope.CreateAsync(separateHandles: true);
         graph.Second.Easing = new QuadraticEaseIn();
         graph.Model.HistoryManager.Commit();
-        string before = Serialize(graph.Animation);
+        string before = GraphScope.Snapshot(graph.Animation);
         int undo = graph.Model.HistoryManager.UndoCount;
 
         Invoke(graph, "Reverse", keyboard ? Key.R : null);
@@ -74,11 +72,11 @@ public class GraphEditorSelectionCommandTests
         Assert.That(graph.First.Easing, Is.TypeOf<QuadraticEaseOut>());
         Assert.That(graph.Model.SelectedView.Value!.SelectionCount.Value, Is.EqualTo(2));
         Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo + 1));
-        string after = Serialize(graph.Animation);
+        string after = GraphScope.Snapshot(graph.Animation);
         graph.Model.HistoryManager.Undo();
-        Assert.That(Serialize(graph.Animation), Is.EqualTo(before));
+        Assert.That(GraphScope.Snapshot(graph.Animation), Is.EqualTo(before));
         graph.Model.HistoryManager.Redo();
-        Assert.That(Serialize(graph.Animation), Is.EqualTo(after));
+        Assert.That(GraphScope.Snapshot(graph.Animation), Is.EqualTo(after));
     }
 
     [AvaloniaTest]
@@ -103,7 +101,7 @@ public class GraphEditorSelectionCommandTests
         graph.Model.HistoryManager.Commit();
         var sampleTimes = Enumerable.Range(0, 31).Select(index => TimeSpan.FromSeconds(0.5 + index / 30d)).ToArray();
         var originalValues = sampleTimes.Select(graph.Animation.Interpolate).ToArray();
-        string before = Serialize(graph.Animation);
+        string before = GraphScope.Snapshot(graph.Animation);
         int undo = graph.Model.HistoryManager.UndoCount;
 
         Invoke(graph, "Reverse", keyboard ? Key.R : null);
@@ -116,15 +114,15 @@ public class GraphEditorSelectionCommandTests
             Assert.That(graph.Model.SelectedView.Value!.SelectionCount.Value, Is.EqualTo(count));
             Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo + 1));
         });
-        string after = Serialize(graph.Animation);
+        string after = GraphScope.Snapshot(graph.Animation);
         for (int replay = 0; replay < 2; replay++)
         {
             graph.Model.HistoryManager.Undo();
-            Assert.That(Serialize(graph.Animation), Is.EqualTo(before));
+            Assert.That(GraphScope.Snapshot(graph.Animation), Is.EqualTo(before));
             Assert.That(graph.Animation.KeyFrames, Is.EqualTo(keys));
             Assert.That(sampleTimes.Select(graph.Animation.Interpolate), Is.EqualTo(originalValues).Within(0.01));
             graph.Model.HistoryManager.Redo();
-            Assert.That(Serialize(graph.Animation), Is.EqualTo(after));
+            Assert.That(GraphScope.Snapshot(graph.Animation), Is.EqualTo(after));
             Assert.That(graph.Animation.KeyFrames, Is.EqualTo(keys.Reverse()));
             Assert.That(sampleTimes.Select(graph.Animation.Interpolate), Is.EqualTo(originalValues.Reverse()).Within(0.01));
         }
@@ -157,12 +155,12 @@ public class GraphEditorSelectionCommandTests
             }, out _);
         }
         graph.Model.HistoryManager.Commit();
-        string before = Serialize(graph.Animation);
+        string before = GraphScope.Snapshot(graph.Animation);
         int undo = graph.Model.HistoryManager.UndoCount;
 
         Invoke(graph, action);
 
-        Assert.That(Serialize(graph.Animation), Is.EqualTo(before));
+        Assert.That(GraphScope.Snapshot(graph.Animation), Is.EqualTo(before));
         Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo));
         Assert.That(graph.Model.HistoryManager.HasPendingOperations, Is.False);
     }
@@ -179,7 +177,7 @@ public class GraphEditorSelectionCommandTests
         var unselected = new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(2), Value = 999 };
         graph.Animation.KeyFrames.Add(unselected);
         graph.Model.HistoryManager.Commit();
-        string before = Serialize(graph.Animation);
+        string before = GraphScope.Snapshot(graph.Animation);
         int undo = graph.Model.HistoryManager.UndoCount;
 
         graph.View.ScaleSelectionValues(factor);
@@ -192,11 +190,11 @@ public class GraphEditorSelectionCommandTests
         Assert.That(unselected.Value, Is.EqualTo(999));
         Assert.That(unselected.KeyTime.TotalSeconds, Is.EqualTo(2));
         Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo + 1));
-        string after = Serialize(graph.Animation);
+        string after = GraphScope.Snapshot(graph.Animation);
         graph.Model.HistoryManager.Undo();
-        Assert.That(Serialize(graph.Animation), Is.EqualTo(before));
+        Assert.That(GraphScope.Snapshot(graph.Animation), Is.EqualTo(before));
         graph.Model.HistoryManager.Redo();
-        Assert.That(Serialize(graph.Animation), Is.EqualTo(after));
+        Assert.That(GraphScope.Snapshot(graph.Animation), Is.EqualTo(after));
     }
 
     [AvaloniaTest]
@@ -227,7 +225,7 @@ public class GraphEditorSelectionCommandTests
         model.SelectedView.Value!.SetSelection(selectAll ? animation.KeyFrames : [first]);
         var sampleTimes = Enumerable.Range(0, 31).Select(index => TimeSpan.FromSeconds(index / 30d)).ToArray();
         var originalValues = sampleTimes.Select(animation.Interpolate).ToArray();
-        string before = Serialize(animation);
+        string before = GraphScope.Snapshot(animation);
         int undo = model.HistoryManager.UndoCount;
 
         graph.View.ScaleSelectionValues(factor);
@@ -243,12 +241,12 @@ public class GraphEditorSelectionCommandTests
             Assert.That(scaledValues[index].X, Is.EqualTo(10 * factor + (endX - 10 * factor) * progress).Within(0.0001));
         }
         Assert.That(model.HistoryManager.UndoCount, Is.EqualTo(undo + 1));
-        string after = Serialize(animation);
+        string after = GraphScope.Snapshot(animation);
         model.HistoryManager.Undo();
-        Assert.That(Serialize(animation), Is.EqualTo(before));
+        Assert.That(GraphScope.Snapshot(animation), Is.EqualTo(before));
         Assert.That(sampleTimes.Select(animation.Interpolate), Is.EqualTo(originalValues));
         model.HistoryManager.Redo();
-        Assert.That(Serialize(animation), Is.EqualTo(after));
+        Assert.That(GraphScope.Snapshot(animation), Is.EqualTo(after));
         Assert.That(sampleTimes.Select(animation.Interpolate), Is.EqualTo(scaledValues));
         graph.View.DataContext = graph.Model;
     }
@@ -265,14 +263,14 @@ public class GraphEditorSelectionCommandTests
         graph.View.FindControl<Panel>("graphPanel")!.Children.Add(textBox);
         HeadlessTestHelpers.Render();
         textBox.Focus();
-        string before = Serialize(graph.Animation);
+        string before = GraphScope.Snapshot(graph.Animation);
         int undo = graph.Model.HistoryManager.UndoCount;
         foreach (Key key in new[] { Key.D, Key.R })
         {
             graph.Window.KeyPress(key, RawInputModifiers.Alt, PhysicalKey.None, null);
             graph.Window.KeyRelease(key, RawInputModifiers.Alt, PhysicalKey.None, null);
         }
-        Assert.That(Serialize(graph.Animation), Is.EqualTo(before));
+        Assert.That(GraphScope.Snapshot(graph.Animation), Is.EqualTo(before));
         Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo));
     }
 
@@ -291,12 +289,6 @@ public class GraphEditorSelectionCommandTests
         HeadlessTestHelpers.Render(3);
         Assert.That(graph.First.Value, Is.EqualTo(100));
         Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo));
-        if (Environment.GetEnvironmentVariable("BEUTL_GRAPH_CONTEXT_CAPTURE") is { Length: > 0 } directory)
-        {
-            Directory.CreateDirectory(directory);
-            using var frame = TopLevel.GetTopLevel(presenter)!.CaptureRenderedFrame();
-            frame?.Save(Path.Combine(directory, $"value-scale-{confirm}.png"), PngBitmapEncoderOptions.Default);
-        }
         presenter.GetVisualDescendants().OfType<Button>()
             .Single(button => button.Name == (confirm ? "AcceptButton" : "DismissButton"))
             .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
@@ -348,8 +340,6 @@ public class GraphEditorSelectionCommandTests
         Assert.That(menu["Reverse"].IsEnabled, Is.True);
         Assert.That(menu["DistributeEvenly"].IsEnabled, Is.False);
     }
-
-    private static string Serialize(IKeyFrameAnimation animation) => CoreSerializer.SerializeToJsonObject((KeyFrameAnimation)animation).ToJsonString();
 
     private static void Invoke(GraphScope graph, string action, Key? shortcut = null)
     {

@@ -6,7 +6,6 @@ using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
-using Avalonia.Media.Imaging;
 using Avalonia.VisualTree;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
@@ -21,7 +20,6 @@ using Beutl.Language;
 using Beutl.Media;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes;
-using Beutl.Serialization;
 using Beutl.Testing.Headless;
 using Beutl.Validation;
 using FluentAvalonia.UI.Controls;
@@ -83,7 +81,6 @@ public class GraphEditorTreeTests
             Assert.That(positions.Max() - positions.Min(), Is.LessThan(0.01),
                 "Sibling labels must align whether or not they have an expand/collapse arrow.");
         }
-        scope.Capture($"property-tree-{width}-{light}");
         var previous = color.Children.ToArray();
         scope.Model.Refresh();
         Assert.That(scope.Find(scope.Brush.Color), Is.SameAs(color));
@@ -104,7 +101,6 @@ public class GraphEditorTreeTests
             scope.Model.EnableAnimation(item);
             Assert.That(property.Animation, Is.Null, property.Name);
         }
-        scope.Capture("property-tree-supported-animation-controls");
     }
 
     [AvaloniaTest]
@@ -130,14 +126,8 @@ public class GraphEditorTreeTests
         Assert.That(menu.IsOpen, Is.True);
         Assert.That(animation.KeyFrames, Has.Count.EqualTo(1));
         Assert.That(scope.Base.Model.HistoryManager.UndoCount, Is.EqualTo(undo));
-        scope.Capture($"unsupported-animation-menu-{light}");
         var remove = menu.Items.OfType<FAMenuFlyoutItem>().Single();
         Assert.That(remove.IsEnabled, Is.True);
-        if (Environment.GetEnvironmentVariable("BEUTL_GRAPH_CONTEXT_CAPTURE") is { Length: > 0 } directory)
-        {
-            using var frame = TopLevel.GetTopLevel(remove)?.CaptureRenderedFrame();
-            frame?.Save(Path.Combine(directory, $"unsupported-animation-popup-{light}.png"), PngBitmapEncoderOptions.Default);
-        }
         remove.Focus();
         scope.Base.Window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.None, null);
         scope.Base.Window.KeyRelease(Key.Enter, RawInputModifiers.None, PhysicalKey.None, null);
@@ -190,7 +180,6 @@ public class GraphEditorTreeTests
         var menu = (FAMenuFlyout)button.ContextFlyout!;
         Assert.That(menu.IsOpen, Is.True);
         Assert.That(scope.Shape.Width.Animation, Is.SameAs(provider));
-        scope.Capture($"custom-animation-removal-{refreshFirst}-{light}");
         var remove = menu.Items.OfType<FAMenuFlyoutItem>().Single();
         remove.Focus();
         scope.Base.Window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.None, null);
@@ -243,8 +232,8 @@ public class GraphEditorTreeTests
         scope.Base.Window.Content = view;
         view.DataContext = old;
         HeadlessTestHelpers.Render(3);
-        string before = CoreSerializer.SerializeToJsonObject(old.Animation).ToJsonString();
-        string otherBefore = CoreSerializer.SerializeToJsonObject(scope.Shape.Height.Animation!).ToJsonString();
+        string before = GraphScope.Snapshot(old.Animation);
+        string otherBefore = GraphScope.Snapshot(scope.Shape.Height.Animation!);
         int undo = old.HistoryManager.UndoCount;
         var clipboard = new Mock<IClipboard>();
         bool switched = false;
@@ -273,8 +262,8 @@ public class GraphEditorTreeTests
             await operation;
             Assert.That(switched, Is.True);
             Assert.That(old.IsDisposed, Is.False, "Disposal alone cannot protect this destination.");
-            Assert.That(CoreSerializer.SerializeToJsonObject(old.Animation).ToJsonString(), Is.EqualTo(before));
-            Assert.That(CoreSerializer.SerializeToJsonObject(scope.Shape.Height.Animation!).ToJsonString(), Is.EqualTo(otherBefore));
+            Assert.That(GraphScope.Snapshot(old.Animation), Is.EqualTo(before));
+            Assert.That(GraphScope.Snapshot(scope.Shape.Height.Animation!), Is.EqualTo(otherBefore));
             Assert.That(old.HistoryManager.UndoCount, Is.EqualTo(undo));
         }
         finally { copied?.Dispose(); view.DataContext = null; }
@@ -366,12 +355,10 @@ public class GraphEditorTreeTests
         Assert.That(icon.IconVariant, Is.EqualTo(IconVariant.Filled));
         Assert.That((string)ToolTip.GetTip(button)!, Does.StartWith(CommandNames.RemoveKeyFrame));
         Assert.That(scope.Base.Model.HistoryManager.UndoCount, Is.EqualTo(undo + 1));
-        scope.Capture($"property-tree-keyframe-filled-{globalClock}-{light}");
 
         scope.Base.Model.CurrentTime.Value = TimeSpan.FromSeconds(3.08);
         HeadlessTestHelpers.Render();
         Assert.That(icon.IconVariant, Is.EqualTo(IconVariant.Regular));
-        scope.Capture($"property-tree-keyframe-outline-{globalClock}-{light}");
         scope.Base.Model.CurrentTime.Value = TimeSpan.FromSeconds(3.015);
         HeadlessTestHelpers.Render();
         Assert.That(icon.IconVariant, Is.EqualTo(IconVariant.Filled), "The indicator must use the same frame rounding as key insertion.");
@@ -411,7 +398,6 @@ public class GraphEditorTreeTests
         Assert.That(remove.Text, Is.EqualTo(Strings.RemoveAnimation));
         Assert.That(remove.IsEnabled, Is.True);
         Assert.That(scope.Shape.Width.Animation, Is.SameAs(animation));
-        scope.Capture($"property-tree-animation-menu-{light}");
         remove.Focus();
         scope.Base.Window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.None, null);
         scope.Base.Window.KeyRelease(Key.Enter, RawInputModifiers.None, PhysicalKey.None, null);
@@ -482,7 +468,6 @@ public class GraphEditorTreeTests
         scope.Model.Refresh();
         Assert.That(scope.Model.SelectedAnimation.Value, Is.SameAs(graph));
         Assert.That(graph.SelectedView.Value!.Name, Is.EqualTo("Alpha"));
-        scope.Capture("property-tree-color-animation");
     }
 
     [AvaloniaTest]
@@ -571,7 +556,6 @@ public class GraphEditorTreeTests
         scaleRow.Parent.IsExpanded.Value = true;
         nestedBlurRow.Parent.IsExpanded.Value = true;
         HeadlessTestHelpers.Render(3);
-        scope.Capture($"property-tree-direct-groups-{light}");
     }
 
     [AvaloniaTest]
@@ -696,8 +680,6 @@ public class GraphEditorTreeTests
 
         public Button AnimationButton(GraphEditorTreeItemViewModel item) => View.GetVisualDescendants().OfType<Button>()
             .Single(x => ReferenceEquals(x.DataContext, item) && x.Classes.Contains("graph-animation"));
-
-        public void Capture(string name) => Base.Capture(name);
 
         public void Dispose()
         {

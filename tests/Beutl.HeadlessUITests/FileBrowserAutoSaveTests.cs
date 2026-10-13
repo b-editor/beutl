@@ -1,9 +1,6 @@
 ﻿using System.Collections.Specialized;
-using System.Diagnostics;
 using Avalonia.Controls;
-using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
-using Avalonia.Media.Imaging;
 using Beutl.Editor;
 using Beutl.Editor.Components.FileBrowserTab.ViewModels;
 using Beutl.Editor.Components.FileBrowserTab.Views;
@@ -32,12 +29,12 @@ public class FileBrowserAutoSaveTests
         var context = new Mock<IEditorContext>();
         context.Setup(x => x.GetService(typeof(Scene)))
             .Returns(new Scene { Uri = new Uri(Path.Combine(root, "main.scene")) });
-        using var browser = new FileBrowserTabViewModel(context.Object);
+        var browser = new FileBrowserTabViewModel(context.Object);
         try
         {
-            await WaitUntilAsync(() => browser.MediaFileItems.Any(item => item.FullPath == image));
+            await HeadlessTestHelpers.WaitUntilAsync(() => browser.MediaFileItems.Any(item => item.FullPath == image));
             Directory.Move(directory, Path.Combine(scratch, "moved"));
-            await WaitUntilAsync(() => !browser.IsLoadingMediaFiles.Value && browser.MediaFileItems.Count == 0);
+            await HeadlessTestHelpers.WaitUntilAsync(() => !browser.IsLoadingMediaFiles.Value && browser.MediaFileItems.Count == 0);
         }
         finally
         {
@@ -56,20 +53,20 @@ public class FileBrowserAutoSaveTests
         // Seed an existing directory too: its deletion cannot be classified with Directory.Exists.
         Directory.CreateDirectory(original);
         File.WriteAllText(Path.Combine(original, "nested.belm"), "{}");
-        using var browser = new FileBrowserTabViewModel(new Mock<IEditorContext>().Object);
+        var browser = new FileBrowserTabViewModel(new Mock<IEditorContext>().Object);
         try
         {
             browser.RootPath.Value = root;
             Assert.That(browser.Items.Single().IsDirectory, Is.True);
             Directory.Delete(original, recursive: true);
-            await WaitUntilAsync(() => browser.Items.Count == 0);
+            await HeadlessTestHelpers.WaitUntilAsync(() => browser.Items.Count == 0);
 
             Directory.CreateDirectory(original);
-            await WaitUntilAsync(() => browser.Items.Any(x => x.FullPath == original && x.IsDirectory));
+            await HeadlessTestHelpers.WaitUntilAsync(() => browser.Items.Any(x => x.FullPath == original && x.IsDirectory));
             Directory.Move(original, renamed);
-            await WaitUntilAsync(() => browser.Items.Count == 1 && browser.Items[0].FullPath == renamed);
+            await HeadlessTestHelpers.WaitUntilAsync(() => browser.Items.Count == 1 && browser.Items[0].FullPath == renamed);
             Directory.Delete(renamed);
-            await WaitUntilAsync(() => browser.Items.Count == 0);
+            await HeadlessTestHelpers.WaitUntilAsync(() => browser.Items.Count == 0);
         }
         finally
         {
@@ -87,7 +84,7 @@ public class FileBrowserAutoSaveTests
         string document = Path.Combine(folderPath, "first.belm");
         string temporary = $"{document}.{Guid.NewGuid():N}.tmp";
         File.WriteAllText(temporary, "{}");
-        using var browser = new FileBrowserTabViewModel(new Mock<IEditorContext>().Object);
+        var browser = new FileBrowserTabViewModel(new Mock<IEditorContext>().Object);
         var window = new Window
         {
             Content = new FileBrowserTabView { DataContext = browser },
@@ -103,22 +100,15 @@ public class FileBrowserAutoSaveTests
             FileSystemItemViewModel folder = browser.TreeRootItems.Single();
             Assert.That(folder.Children, Is.Empty);
             File.Move(temporary, document);
-            await WaitUntilAsync(() => folder.Children!.Count > 0);
+            await HeadlessTestHelpers.WaitUntilAsync(() => folder.Children!.Count > 0);
             Assert.That(browser.TreeRootItems.Single(), Is.SameAs(folder));
             folder.IsExpanded.Value = true;
             HeadlessTestHelpers.Render();
             Assert.That(folder.Children!.Single().FullPath, Is.EqualTo(document));
 
-            if (Environment.GetEnvironmentVariable("BEUTL_FILE_BROWSER_AUTOSAVE_CAPTURE") is { Length: > 0 } capture)
-            {
-                using var frame = window.CaptureRenderedFrame();
-                Assert.That(frame, Is.Not.Null);
-                frame!.Save(Path.ChangeExtension(capture, "first-save.png"), PngBitmapEncoderOptions.Default);
-            }
-
             folder.IsExpanded.Value = false;
             File.Delete(document);
-            await WaitUntilAsync(() => folder.Children!.Count == 0);
+            await HeadlessTestHelpers.WaitUntilAsync(() => folder.Children!.Count == 0);
             Assert.That(browser.TreeRootItems.Single(), Is.SameAs(folder));
         }
         finally
@@ -143,7 +133,7 @@ public class FileBrowserAutoSaveTests
         File.WriteAllText(Path.Combine(saving, temporaryName), "{}");
         File.WriteAllText(Path.Combine(ordinary, "notes.tmp"), "{}");
         Directory.CreateDirectory(Path.Combine(directory, temporaryName));
-        using var browser = new FileBrowserTabViewModel(new Mock<IEditorContext>().Object);
+        var browser = new FileBrowserTabViewModel(new Mock<IEditorContext>().Object);
         var window = new Window
         {
             Content = new FileBrowserTabView { DataContext = browser },
@@ -172,14 +162,6 @@ public class FileBrowserAutoSaveTests
             folder.LoadChildren();
             Assert.That(file.Children!.Single().Name.Value, Is.EqualTo("notes.tmp"));
             Assert.That(folder.Children!.Single().IsDirectory, Is.True);
-
-            if (Environment.GetEnvironmentVariable("BEUTL_FILE_BROWSER_AUTOSAVE_CAPTURE") is { Length: > 0 } capture)
-            {
-                HeadlessTestHelpers.Render();
-                using var frame = window.CaptureRenderedFrame();
-                Assert.That(frame, Is.Not.Null);
-                frame!.Save(Path.ChangeExtension(capture, "expanders.png"), PngBitmapEncoderOptions.Default);
-            }
         }
         finally
         {
@@ -217,7 +199,7 @@ public class FileBrowserAutoSaveTests
         var scene = new Scene { Uri = new Uri(Path.Combine(root, "main.scene")) };
         var context = new Mock<IEditorContext>();
         context.Setup(x => x.GetService(typeof(Scene))).Returns(scene);
-        using var browser = new FileBrowserTabViewModel(context.Object);
+        var browser = new FileBrowserTabViewModel(context.Object);
         var window = new Window
         {
             Content = new FileBrowserTabView { DataContext = browser },
@@ -247,13 +229,6 @@ public class FileBrowserAutoSaveTests
                 File.Move(temporaryPaths[i], Path.Combine(root, documents[i]), overwrite: true);
             await SettleWatcherAsync();
             Assert.That(items, Is.EqualTo(beforeMove), "Completing autosaves must not require a cleanup refresh.");
-
-            if (home && Environment.GetEnvironmentVariable("BEUTL_FILE_BROWSER_AUTOSAVE_CAPTURE") is { Length: > 0 } capture)
-            {
-                using var frame = window.CaptureRenderedFrame();
-                Assert.That(frame, Is.Not.Null);
-                frame!.Save(Path.ChangeExtension(capture, "enumeration.png"), PngBitmapEncoderOptions.Default);
-            }
         }
         finally
         {
@@ -283,7 +258,7 @@ public class FileBrowserAutoSaveTests
 
         var context = new Mock<IEditorContext>();
         context.Setup(x => x.GetService(typeof(Scene))).Returns(scene);
-        using var browser = new FileBrowserTabViewModel(context.Object);
+        var browser = new FileBrowserTabViewModel(context.Object);
         var view = new FileBrowserTabView { DataContext = browser };
         var window = new Window { Content = view, Width = 480, Height = 600 };
         bool favoriteAdded = false;
@@ -301,14 +276,12 @@ public class FileBrowserAutoSaveTests
                 if (e.Action == NotifyCollectionChangedAction.Reset) resets++;
             };
 
-            var stopwatch = Stopwatch.StartNew();
             for (int i = 0; i < 3; i++)
             {
                 element.ZIndex++;
                 autoSave.SaveObjects([element, scene]);
                 await SettleWatcherAsync();
             }
-            TestContext.Out.WriteLine($"Three auto-saves: {resets} browser resets ({stopwatch.ElapsedMilliseconds} ms including watcher waits).");
 
             Assert.Multiple(() =>
             {
@@ -320,9 +293,9 @@ public class FileBrowserAutoSaveTests
             // Real file operations still refresh the listing.
             string added = Path.Combine(root, "imported.txt");
             File.WriteAllText(added, "imported");
-            await WaitUntilAsync(() => browser.Items.Any(x => x.FullPath == added));
+            await HeadlessTestHelpers.WaitUntilAsync(() => browser.Items.Any(x => x.FullPath == added));
             File.Delete(added);
-            await WaitUntilAsync(() => browser.Items.All(x => x.FullPath != added));
+            await HeadlessTestHelpers.WaitUntilAsync(() => browser.Items.All(x => x.FullPath != added));
 
             // The default home view must also retain its project listing across edits.
             browser.ToggleFavorite(element.Uri!.LocalPath);
@@ -336,14 +309,6 @@ public class FileBrowserAutoSaveTests
             await SettleWatcherAsync();
             Assert.That(browser.ProjectDirectoryItems, Is.EqualTo(homeItems));
             Assert.That(browser.FavoriteItems, Is.EqualTo(favoriteItems));
-
-            if (Environment.GetEnvironmentVariable("BEUTL_FILE_BROWSER_AUTOSAVE_CAPTURE") is { Length: > 0 } capture)
-            {
-                HeadlessTestHelpers.Render();
-                using var frame = window.CaptureRenderedFrame();
-                Assert.That(frame, Is.Not.Null);
-                frame!.Save(capture, PngBitmapEncoderOptions.Default);
-            }
         }
         finally
         {
@@ -359,16 +324,5 @@ public class FileBrowserAutoSaveTests
         // Allows native event delivery and the browser's 300 ms debounce to complete.
         await Task.Delay(1000);
         HeadlessTestHelpers.Render();
-    }
-
-    private static async Task WaitUntilAsync(Func<bool> condition)
-    {
-        var timeout = Stopwatch.StartNew();
-        while (!condition() && timeout.Elapsed < TimeSpan.FromSeconds(5))
-        {
-            await Task.Delay(50);
-            HeadlessTestHelpers.Render();
-        }
-        Assert.That(condition(), Is.True, "The file browser did not receive the filesystem change.");
     }
 }

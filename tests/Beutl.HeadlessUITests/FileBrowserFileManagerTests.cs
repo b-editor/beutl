@@ -6,7 +6,6 @@ using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using Avalonia.Media.Imaging;
 using Avalonia.VisualTree;
 using Beutl.Editor.Components.FileBrowserTab.Services;
 using Beutl.Editor.Components.FileBrowserTab.ViewModels;
@@ -154,25 +153,17 @@ public sealed class FileBrowserFileManagerTests
                         .Any(x => x.Text == FileManagerLauncher.MenuHeader), Is.True);
                 });
 
-                if (Environment.GetEnvironmentVariable("BEUTL_FILE_MANAGER_MENU_CAPTURE") is { Length: > 0 } capture)
-                {
-                    Directory.CreateDirectory(capture);
-                    using var image = TopLevel.GetTopLevel(menu.Popup.Child!)?.CaptureRenderedFrame();
-                    image?.Save(Path.Combine(capture, item.IsDirectory ? "folder-menu.png" : "file-menu.png"),
-                        PngBitmapEncoderOptions.Default);
-                }
-
                 action.RaiseEvent(new RoutedEventArgs(FAMenuFlyoutItem.ClickEvent));
                 HeadlessTestHelpers.Settle();
                 ProcessStartInfo expected = FileManagerLauncher.CreateStartInfo(path, item.IsDirectory);
                 Assert.Multiple(() =>
                 {
-                    Assert.That(launches, Has.Count.EqualTo(notifications.Notifications.Count));
+                    Assert.That(launches, Has.Count.EqualTo(notifications.All.Count));
                     Assert.That(launches[^1].FileName, Is.EqualTo(expected.FileName));
                     Assert.That(launches[^1].Arguments, Is.EqualTo(expected.Arguments));
                     Assert.That(launches[^1].ArgumentList, Is.EqualTo(expected.ArgumentList));
-                    Assert.That(notifications.Notifications[^1].Type, Is.EqualTo(NotificationType.Error));
-                    Assert.That(notifications.Notifications[^1].Message, Is.EqualTo(MessageStrings.OperationFailed));
+                    Assert.That(notifications.All.Last().Type, Is.EqualTo(NotificationType.Error));
+                    Assert.That(notifications.All.Last().Message, Is.EqualTo(MessageStrings.OperationFailed));
                 });
 
                 menu.Hide();
@@ -212,9 +203,9 @@ public sealed class FileBrowserFileManagerTests
             Assert.Multiple(() =>
             {
                 Assert.That(launches, Is.EqualTo(1));
-                Assert.That(notifications.Notifications.Select(x => x.Type),
+                Assert.That(notifications.All.Select(x => x.Type),
                     Is.EqualTo(new[] { NotificationType.Error, NotificationType.Error }));
-                Assert.That(notifications.Notifications.Select(x => x.Message),
+                Assert.That(notifications.All.Select(x => x.Message),
                     Is.EqualTo(new[] { MessageStrings.OperationFailed, MessageStrings.FileDoesNotExist }));
             });
         }
@@ -246,24 +237,11 @@ public sealed class FileBrowserFileManagerTests
             await vm.OpenInFileManagerAsync(item);
 
             Assert.That(launches, Is.EqualTo(1));
-            Assert.That(notifications.Notifications, Is.Empty);
+            Assert.That(notifications.All, Is.Empty);
         }
         finally
         {
             Directory.Delete(root, recursive: true);
         }
-    }
-
-    private sealed class NotificationCapture : INotificationServiceHandler, IDisposable
-    {
-        private readonly INotificationServiceHandler _previous = NotificationService.Handler;
-
-        public NotificationCapture() => NotificationService.Handler = this;
-
-        public List<Notification> Notifications { get; } = [];
-
-        public void Show(Notification notification) => Notifications.Add(notification);
-
-        public void Dispose() => NotificationService.Handler = _previous;
     }
 }

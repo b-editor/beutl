@@ -1,9 +1,6 @@
 ﻿using System.Collections.Concurrent;
-using System.Diagnostics;
 using Avalonia.Controls;
-using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
-using Avalonia.Media.Imaging;
 using Beutl.Editor.Components.FileBrowserTab.ViewModels;
 using Beutl.Editor.Components.FileBrowserTab.Views;
 using Beutl.Extensibility;
@@ -43,7 +40,7 @@ public class FileBrowserMediaSearchTests
         var context = new Mock<IEditorContext>();
         context.Setup(x => x.GetService(typeof(Scene)))
             .Returns(new Scene { Uri = new Uri(Path.Combine(root, "main.scene")) });
-        using var browser = new FileBrowserTabViewModel(context.Object);
+        var browser = new FileBrowserTabViewModel(context.Object);
         var window = new Window
         {
             Content = new FileBrowserTabView { DataContext = browser },
@@ -52,7 +49,7 @@ public class FileBrowserMediaSearchTests
         };
         try
         {
-            await WaitUntilAsync(() => !browser.IsLoadingMediaFiles.Value && decoder.OpenedPaths.Contains(source));
+            await HeadlessTestHelpers.WaitUntilAsync(() => !browser.IsLoadingMediaFiles.Value && decoder.OpenedPaths.Contains(source));
             Assert.Multiple(() =>
             {
                 Assert.That(browser.MediaFileItems.Select(item => item.FullPath), Is.EqualTo(new[] { source }));
@@ -63,7 +60,7 @@ public class FileBrowserMediaSearchTests
             File.WriteAllText(staged, "complete");
             File.Move(staged, published);
             browser.Refresh();
-            await WaitUntilAsync(() => !browser.IsLoadingMediaFiles.Value && decoder.OpenedPaths.Contains(published));
+            await HeadlessTestHelpers.WaitUntilAsync(() => !browser.IsLoadingMediaFiles.Value && decoder.OpenedPaths.Contains(published));
             Assert.Multiple(() =>
             {
                 Assert.That(browser.MediaFileItems.Select(item => item.FullPath), Is.EquivalentTo(new[] { source, published }));
@@ -73,12 +70,6 @@ public class FileBrowserMediaSearchTests
 
             window.Show();
             HeadlessTestHelpers.Render();
-            if (Environment.GetEnvironmentVariable("BEUTL_FILE_BROWSER_MEDIA_CAPTURE") is { Length: > 0 } capture)
-            {
-                using var frame = window.CaptureRenderedFrame();
-                Assert.That(frame, Is.Not.Null);
-                frame!.Save(Path.ChangeExtension(capture, nested ? "nested.png" : "root.png"), PngBitmapEncoderOptions.Default);
-            }
         }
         finally
         {
@@ -87,19 +78,6 @@ public class FileBrowserMediaSearchTests
             DecoderRegistry.Unregister(decoder);
             Directory.Delete(root, recursive: true);
         }
-    }
-
-    private static async Task WaitUntilAsync(Func<bool> condition)
-    {
-        var timeout = Stopwatch.StartNew();
-        while (!condition())
-        {
-            if (timeout.Elapsed > TimeSpan.FromSeconds(5))
-                Assert.Fail("Timed out waiting for media search.");
-            await Task.Delay(10);
-            HeadlessTestHelpers.Settle();
-        }
-        HeadlessTestHelpers.Settle();
     }
 
     private sealed class RecordingDecoderInfo : IDecoderInfo

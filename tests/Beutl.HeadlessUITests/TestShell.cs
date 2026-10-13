@@ -1,5 +1,8 @@
 ﻿using Avalonia;
 using Beutl.Api.Services;
+using Beutl.Editor.Models;
+using Beutl.Editor.Services;
+using Beutl.Engine;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.Testing.Headless;
@@ -46,16 +49,32 @@ internal static class TestShell
         return (EditViewModel)Editor.SelectedTabItem.Value!.Context.Value;
     }
 
-    // Resets the shell, creates a 640x480 project in a new folder under BEUTL_HOME and opens its scene.
-    public static async Task<(Project Project, Scene Scene, EditViewModel Editor)> OpenNewSceneAsync(string name)
+    // Resets the shell, creates a project in a new folder under BEUTL_HOME and opens its scene.
+    public static async Task<(Project Project, Scene Scene, EditViewModel Editor)> OpenNewSceneAsync(
+        string name, int width = 640, int height = 480)
     {
         await TestReset.ResetShellAsync();
         string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, $"{name}-{Guid.NewGuid():N}");
         Directory.CreateDirectory(location);
-        Project project = (await Project.CreateProject(640, 480, 30, 44100, name, location))!;
+        Project project = (await Project.CreateProject(width, height, 30, 44100, name, location))!;
         Scene scene = project.Items.OfType<Scene>().Single();
         Editor.ActivateTabItem(scene);
         HeadlessTestHelpers.Settle();
         return (project, scene, (EditViewModel)Editor.SelectedTabItem.Value!.Context.Value);
+    }
+
+    // The folder that holds the editor's scene file.
+    public static string ProjectRoot(EditViewModel editor) => Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!;
+
+    // Adds an element that holds what create returns to the editor's scene.
+    public static async Task<ElementAddResult> AddElementAsync(
+        EditViewModel editor, Func<EngineObject> create, TimeSpan start, TimeSpan length, int layer = 0)
+    {
+        var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
+        ElementAddResult result = await adder.AddAsync(
+            [new ElementDescription(start, length, layer, new ElementSource.EngineObject(create))],
+            CancellationToken.None);
+        HeadlessTestHelpers.Settle();
+        return result;
     }
 }

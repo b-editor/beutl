@@ -9,10 +9,7 @@ using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.Views;
-using Beutl.Editor.Models;
-using Beutl.Editor.Services;
 using Beutl.Graphics.Shapes;
-using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.Views;
@@ -25,179 +22,142 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class ElementViewLayoutTests
 {
-    private static string NewWorkspace(string name)
+    // A window showing a new scene's editor with one rectangle clip, in the dark theme.
+    private sealed class ElementScope : IDisposable
     {
-        string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, name);
-        Directory.CreateDirectory(location);
-        return location;
-    }
+        private readonly ThemeVariantScope _theme;
 
-    private static async Task<EditViewModel> OpenEditorForNewScene(string name)
-    {
-        Project project = (await TestShell.Project.CreateProject(
-            640, 480, 30, 44100, name, NewWorkspace(name)))!;
-        HeadlessTestHelpers.Settle();
-        Scene scene = project.Items.OfType<Scene>().First();
+        private ElementScope(ThemeVariantScope theme, Window window, ElementView element)
+        {
+            _theme = theme;
+            Window = window;
+            Element = element;
+        }
 
-        TestShell.Editor.ActivateTabItem(scene);
-        HeadlessTestHelpers.Settle();
-        return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
-    }
+        public Window Window { get; }
 
-    private static async Task AddRectangle(EditViewModel editor)
-    {
-        var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
-        await adder.AddAsync([new ElementDescription(
-            Start: TimeSpan.Zero,
-            Length: TimeSpan.FromSeconds(2),
-            Layer: 0,
-            Source: new ElementSource.EngineObject(() => new RectShape()))],
-            CancellationToken.None);
-        HeadlessTestHelpers.Settle();
-    }
+        public ElementView Element { get; }
 
-    private static async Task<(Window Window, ElementView Element)> InflateFirstElementView(string name)
-    {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditorForNewScene(name);
-        await AddRectangle(editor);
+        public static async Task<ElementScope> CreateAsync(string name)
+        {
+            ThemeVariantScope theme = ThemeVariantScope.Use(ThemeVariant.Dark);
+            try
+            {
+                (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync(name);
+                await TestShell.AddElementAsync(editor, () => new RectShape(), TimeSpan.Zero, TimeSpan.FromSeconds(2));
 
-        var window = new Window { Content = new EditView { DataContext = editor }, Width = 1200, Height = 800 };
-        window.Show();
-        HeadlessTestHelpers.Render(5);
+                var window = new Window { Content = new EditView { DataContext = editor }, Width = 1200, Height = 800 };
+                window.Show();
+                HeadlessTestHelpers.Render(5);
 
-        ElementView? element = window.GetVisualDescendants().OfType<ElementView>().FirstOrDefault();
-        Assert.That(element, Is.Not.Null, "The timeline should inflate an ElementView for the added clip.");
-        return (window, element!);
+                ElementView? element = window.GetVisualDescendants().OfType<ElementView>().FirstOrDefault();
+                Assert.That(element, Is.Not.Null, "The timeline should inflate an ElementView for the added clip.");
+                return new ElementScope(theme, window, element!);
+            }
+            catch
+            {
+                theme.Dispose();
+                throw;
+            }
+        }
+
+        public Control Part(string name) => Element.GetVisualDescendants().OfType<Control>().First(c => c.Name == name);
+
+        public void Dispose()
+        {
+            Window.Close();
+            HeadlessTestHelpers.Settle();
+            _theme.Dispose();
+        }
     }
 
     [AvaloniaTest]
     public async Task Label_is_inset_clear_of_the_rounded_corner()
     {
-        using ThemeVariantScope themeScope = ThemeVariantScope.Use(ThemeVariant.Dark);
-        (Window window, ElementView element) = await InflateFirstElementView("elementview-inset");
-        try
-        {
-            Control border = element.GetVisualDescendants().OfType<Control>().First(c => c.Name == "border");
-            Control label = element.GetVisualDescendants().OfType<Control>().First(c => c.Name == "textBlock");
-            double labelLeftInset = label.TranslatePoint(new Point(0, 0), border)!.Value.X;
+        using ElementScope scope = await ElementScope.CreateAsync("elementview-inset");
+        double labelLeftInset = scope.Part("textBlock").TranslatePoint(new Point(0, 0), scope.Part("border"))!.Value.X;
 
-            // The 4px corner arc eats a flush-left label, which is where it sat before (1px, the border
-            // stroke alone). A 6px margin on top of that stroke clears the arc.
-            Assert.That(labelLeftInset, Is.EqualTo(7).Within(0.5),
-                $"Label left inset was {labelLeftInset}; expected 7 (1px border stroke + 6px margin).");
-        }
-        finally
-        {
-            window.Close();
-            HeadlessTestHelpers.Settle();
-        }
+        // A 6px margin on top of the 1px border stroke clears the 4px corner arc.
+        Assert.That(labelLeftInset, Is.EqualTo(7).Within(0.5),
+            $"Label left inset was {labelLeftInset}; expected 7 (1px border stroke + 6px margin).");
     }
 
     [AvaloniaTest]
     public async Task Locked_clip_keeps_the_label_clear_of_the_lock_glyph()
     {
-        using ThemeVariantScope themeScope = ThemeVariantScope.Use(ThemeVariant.Dark);
-        (Window window, ElementView element) = await InflateFirstElementView("elementview-locked");
-        try
-        {
-            var viewModel = (ElementViewModel)element.DataContext!;
-            viewModel.Model.IsLocked = true;
-            HeadlessTestHelpers.Render(5);
-            Assert.That(viewModel.IsEditable.Value, Is.False, "Locking the element must make it non-editable.");
+        using ElementScope scope = await ElementScope.CreateAsync("elementview-locked");
+        var viewModel = (ElementViewModel)scope.Element.DataContext!;
+        viewModel.Model.IsLocked = true;
+        HeadlessTestHelpers.Render(5);
+        Assert.That(viewModel.IsEditable.Value, Is.False, "Locking the element must make it non-editable.");
 
-            Control lockIcon = element.GetVisualDescendants().OfType<Control>().First(c => c.Name == "lockIcon");
-            Control label = element.GetVisualDescendants().OfType<Control>().First(c => c.Name == "textBlock");
-            Assert.That(lockIcon.IsVisible, Is.True, "A locked clip must show the lock glyph.");
+        Control lockIcon = scope.Part("lockIcon");
+        Control label = scope.Part("textBlock");
+        Assert.That(lockIcon.IsVisible, Is.True, "A locked clip must show the lock glyph.");
 
-            double glyphRight = lockIcon.TranslatePoint(new Point(lockIcon.Bounds.Width, 0), element)!.Value.X;
-            double labelLeft = label.TranslatePoint(new Point(0, 0), element)!.Value.X;
+        double glyphRight = lockIcon.TranslatePoint(new Point(lockIcon.Bounds.Width, 0), scope.Element)!.Value.X;
+        double labelLeft = label.TranslatePoint(new Point(0, 0), scope.Element)!.Value.X;
 
-            // Asserted against the glyph's measured width rather than a reserved constant, so growing
-            // the glyph's FontSize fails here instead of silently overlapping the name.
-            Assert.That(labelLeft, Is.GreaterThanOrEqualTo(glyphRight),
-                $"The name overlaps the lock glyph: glyph ends at {glyphRight}, label starts at {labelLeft}.");
-        }
-        finally
-        {
-            window.Close();
-            HeadlessTestHelpers.Settle();
-        }
+        // Asserted against the glyph's measured width rather than a reserved constant, so growing
+        // the glyph's FontSize fails here instead of silently overlapping the name.
+        Assert.That(labelLeft, Is.GreaterThanOrEqualTo(glyphRight),
+            $"The name overlaps the lock glyph: glyph ends at {glyphRight}, label starts at {labelLeft}.");
     }
 
     [AvaloniaTest]
     public async Task Rename_textbox_text_starts_where_the_label_does()
     {
-        using ThemeVariantScope themeScope = ThemeVariantScope.Use(ThemeVariant.Dark);
-        (Window window, ElementView element) = await InflateFirstElementView("elementview-rename");
-        try
-        {
-            Control border = element.GetVisualDescendants().OfType<Control>().First(c => c.Name == "border");
-            Control label = element.GetVisualDescendants().OfType<Control>().First(c => c.Name == "textBlock");
-            var textBox = (TextBox)element.GetVisualDescendants().OfType<Control>().First(c => c.Name == "textBox");
+        using ElementScope scope = await ElementScope.CreateAsync("elementview-rename");
+        Control border = scope.Part("border");
+        var textBox = (TextBox)scope.Part("textBox");
 
-            // Read the label first: entering rename hides it, and an unarranged control has no
-            // position to compare against.
-            double labelInset = label.TranslatePoint(new Point(0, 0), border)!.Value.X;
+        // Read the label first: entering rename hides it, and an unarranged control has no
+        // position to compare against.
+        double labelInset = scope.Part("textBlock").TranslatePoint(new Point(0, 0), border)!.Value.X;
 
-            // Focus-time styling changes the editor's border, so an unfocused probe would miss a
-            // shift that renaming actually shows.
-            ((ElementViewModel)element.DataContext!).RenameRequested();
-            HeadlessTestHelpers.Render(5);
-            Assert.That(textBox.IsVisible && textBox.IsFocused, Is.True,
-                "Rename did not put the focused editor on screen, so this comparison would prove nothing.");
+        // Focus-time styling changes the editor's border, so an unfocused probe would miss a
+        // shift that renaming actually shows.
+        ((ElementViewModel)scope.Element.DataContext!).RenameRequested();
+        HeadlessTestHelpers.Render(5);
+        Assert.That(textBox.IsVisible && textBox.IsFocused, Is.True,
+            "Rename did not put the focused editor on screen, so this comparison would prove nothing.");
 
-            TextPresenter presenter = textBox.GetVisualDescendants().OfType<TextPresenter>().First();
-            double editInset = presenter.TranslatePoint(new Point(0, 0), border)!.Value.X;
+        TextPresenter presenter = textBox.GetVisualDescendants().OfType<TextPresenter>().First();
+        double editInset = presenter.TranslatePoint(new Point(0, 0), border)!.Value.X;
 
-            Assert.That(editInset, Is.EqualTo(labelInset).Within(0.5),
-                $"Renaming must not shift the name horizontally: label at {labelInset}px, edit text at "
-                + $"{editInset}px (off by {editInset - labelInset}px). Check ElementNameTextBoxTheme's "
-                + "Padding against the label's Margin.");
-        }
-        finally
-        {
-            window.Close();
-            HeadlessTestHelpers.Settle();
-        }
+        Assert.That(editInset, Is.EqualTo(labelInset).Within(0.5),
+            $"Renaming must not shift the name horizontally: label at {labelInset}px, edit text at "
+            + $"{editInset}px (off by {editInset - labelInset}px). Check ElementNameTextBoxTheme's "
+            + "Padding against the label's Margin.");
     }
 
     [AvaloniaTest]
     public async Task Renaming_does_not_paint_into_the_rounded_corner()
     {
-        using ThemeVariantScope themeScope = ThemeVariantScope.Use(ThemeVariant.Dark);
-        (Window window, ElementView element) = await InflateFirstElementView("elementview-corner");
-        try
-        {
-            Control border = element.GetVisualDescendants().OfType<Control>().First(c => c.Name == "border");
-            var textBox = (TextBox)element.GetVisualDescendants().OfType<Control>().First(c => c.Name == "textBox");
-            Point origin = border.TranslatePoint(new Point(0, 0), window)!.Value;
+        using ElementScope scope = await ElementScope.CreateAsync("elementview-corner");
+        Window window = scope.Window;
+        var textBox = (TextBox)scope.Part("textBox");
+        Point origin = scope.Part("border").TranslatePoint(new Point(0, 0), window)!.Value;
 
-            // The probe pixel straddles the clip's corner arc, so a correctly clipped repaint still
-            // shifts it by antialiasing alone. An unclipped one fills it with the editor's focus
-            // accent instead. Measured drift: 39 clipped, 133 unclipped.
-            PixelPoint probe = ToPixel(window, origin + new Point(1, 0));
-            uint atRest = SamplePixel(window, probe);
+        // The probe pixel straddles the clip's corner arc, so a correctly clipped repaint still
+        // shifts it by antialiasing alone. An unclipped one fills it with the editor's focus
+        // accent instead. Measured drift: 39 clipped, 133 unclipped.
+        PixelPoint probe = ToPixel(window, origin + new Point(1, 0));
+        uint atRest = SamplePixel(window, probe);
 
-            // Drive the real rename entry point: a probe taken without focus would sample the
-            // unfocused editor and pass even with the clip removed.
-            ((ElementViewModel)element.DataContext!).RenameRequested();
-            HeadlessTestHelpers.Render(5);
-            Assert.That(textBox.IsVisible && textBox.IsFocused, Is.True,
-                "Rename did not put the focused editor on screen, so this probe would prove nothing.");
+        // Drive the real rename entry point: a probe taken without focus would sample the
+        // unfocused editor and pass even with the clip removed.
+        ((ElementViewModel)scope.Element.DataContext!).RenameRequested();
+        HeadlessTestHelpers.Render(5);
+        Assert.That(textBox.IsVisible && textBox.IsFocused, Is.True,
+            "Rename did not put the focused editor on screen, so this probe would prove nothing.");
 
-            uint whileRenaming = SamplePixel(window, probe);
+        uint whileRenaming = SamplePixel(window, probe);
 
-            int drift = MaxChannelDelta(atRest, whileRenaming);
-            Assert.That(drift, Is.LessThan(64),
-                $"Renaming repainted the rounded corner: {Rgba(atRest)} became {Rgba(whileRenaming)} "
-                + $"(max channel drift {drift}). The clip's Border needs ClipToBounds to round its children.");
-        }
-        finally
-        {
-            window.Close();
-            HeadlessTestHelpers.Settle();
-        }
+        int drift = MaxChannelDelta(atRest, whileRenaming);
+        Assert.That(drift, Is.LessThan(64),
+            $"Renaming repainted the rounded corner: {Rgba(atRest)} became {Rgba(whileRenaming)} "
+            + $"(max channel drift {drift}). The clip's Border needs ClipToBounds to round its children.");
     }
 
     private static PixelPoint ToPixel(Window window, Point dip)
@@ -252,42 +212,30 @@ public class ElementViewLayoutTests
     [AvaloniaTest]
     public async Task Media_host_rounds_and_clips_the_thumbnail_and_waveform()
     {
-        using ThemeVariantScope themeScope = ThemeVariantScope.Use(ThemeVariant.Dark);
-        (Window window, ElementView element) = await InflateFirstElementView("elementview-rounded");
-        try
-        {
-            // A real filmstrip/waveform never renders in this headless layout pass (both need async
-            // media decode), so the rounding is asserted structurally. An element is only LayerHeight
-            // tall, so its outer Border deliberately rounds less (TimelineElementCornerRadius, 4px)
-            // than the shell's ControlCornerRadius (8px) — pin that, or the exception drifts back.
-            // The mediaClip wrapper sits inside the element's 1px stroke, so it rounds to 3px and
-            // clips its children.
-            var outer = (Border)element.GetVisualDescendants().OfType<Control>().First(c => c.Name == "border");
-            var mediaClip = (Border)element.GetVisualDescendants().OfType<Control>().First(c => c.Name == "mediaClip");
-            Assert.Multiple(() =>
-            {
-                Assert.That(outer.CornerRadius, Is.EqualTo(new CornerRadius(4)),
-                    "Elements must keep the timeline's tighter rounding.");
-                Assert.That(mediaClip.CornerRadius, Is.EqualTo(new CornerRadius(3)),
-                    "Media host must round to the clip's inner radius.");
-                Assert.That(mediaClip.ClipToBounds, Is.True,
-                    "Media host must clip its children to the rounded rect.");
-            });
+        using ElementScope scope = await ElementScope.CreateAsync("elementview-rounded");
 
-            Control thumbnailStrip = element.GetVisualDescendants().OfType<Control>().First(c => c.Name == "thumbnailStrip");
-            Control waveform = element.GetVisualDescendants().OfType<Control>().First(c => c.Name == "waveformControl");
-            Assert.Multiple(() =>
-            {
-                Assert.That(thumbnailStrip.GetVisualAncestors(), Does.Contain(mediaClip),
-                    "The thumbnail strip must sit inside the rounded media host.");
-                Assert.That(waveform.GetVisualAncestors(), Does.Contain(mediaClip),
-                    "The waveform must sit inside the rounded media host.");
-            });
-        }
-        finally
+        // Filmstrips and waveforms need async decode, so the rounding is asserted structurally: the element
+        // keeps the 4px timeline radius, and its media host rounds to 3px and clips.
+        var outer = (Border)scope.Part("border");
+        var mediaClip = (Border)scope.Part("mediaClip");
+        Assert.Multiple(() =>
         {
-            window.Close();
-            HeadlessTestHelpers.Settle();
-        }
+            Assert.That(outer.CornerRadius, Is.EqualTo(new CornerRadius(4)),
+                "Elements must keep the timeline's tighter rounding.");
+            Assert.That(mediaClip.CornerRadius, Is.EqualTo(new CornerRadius(3)),
+                "Media host must round to the clip's inner radius.");
+            Assert.That(mediaClip.ClipToBounds, Is.True,
+                "Media host must clip its children to the rounded rect.");
+        });
+
+        Control thumbnailStrip = scope.Part("thumbnailStrip");
+        Control waveform = scope.Part("waveformControl");
+        Assert.Multiple(() =>
+        {
+            Assert.That(thumbnailStrip.GetVisualAncestors(), Does.Contain(mediaClip),
+                "The thumbnail strip must sit inside the rounded media host.");
+            Assert.That(waveform.GetVisualAncestors(), Does.Contain(mediaClip),
+                "The waveform must sit inside the rounded media host.");
+        });
     }
 }

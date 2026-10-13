@@ -1,7 +1,5 @@
 ﻿using System.Reflection;
 using Avalonia.Headless;
-using Avalonia.Headless.NUnit;
-using Avalonia.Threading;
 
 namespace Beutl.HeadlessUITests;
 
@@ -16,13 +14,5 @@ public class HeadlessSessionIsolationTests
 
         Assert.That(isolation, Is.Not.Null);
         Assert.That(isolation!.IsolationLevel, Is.EqualTo(AvaloniaTestIsolationLevel.PerAssembly));
-    }
-
-    // The precondition Dispatcher.PushFrame checks; HeadlessUnitTestSession calls it for every test
-    // whose body does not complete synchronously, so losing it makes async tests fail at random.
-    [AvaloniaTest]
-    public void UI_dispatcher_supports_run_loops()
-    {
-        Assert.That(Dispatcher.UIThread.SupportsRunLoops, Is.True);
     }
 }

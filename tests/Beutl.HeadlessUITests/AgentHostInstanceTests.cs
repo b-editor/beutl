@@ -2,22 +2,20 @@
 using System.IO.Pipes;
 using System.Net;
 using System.Net.Http.Headers;
-using System.Net.Sockets;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Avalonia.Headless.NUnit;
 using Beutl.AgentHost;
 using Beutl.AgentToolkit;
 using Beutl.AgentToolkit.Live;
-using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Services;
-using Beutl.Testing.Headless;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
+using static Beutl.HeadlessUITests.AgentHostTestHelpers;
 
 namespace Beutl.HeadlessUITests;
 
@@ -28,14 +26,14 @@ public sealed class AgentHostInstanceTests
     public async Task A_single_connection_controls_separate_processes_and_detects_a_crashed_target()
     {
         await TestReset.ResetShellAsync();
-        string directory = CreateDirectory();
+        string directory = CreateDirectory("beutl-instance-tests-");
         try
         {
             int preferredPort = AvailablePort();
             await using Worker first = await Worker.StartAsync(directory, "process-first", preferredPort);
             await using Worker second = await Worker.StartAsync(directory, "process-second", preferredPort);
             Assert.That(first.Process.Id, Is.Not.EqualTo(second.Process.Id));
-            await using McpClient client = await ConnectAsync(first.EndpointUri);
+            await using McpClient client = await ConnectAsync(first.EndpointUri, AgentHostInstanceTestWorker.Token);
             JsonArray instances = Payload(await client.CallToolAsync("list_instances"))["value"]!["instances"]!.AsArray();
             Assert.Multiple(() =>
             {
@@ -74,7 +72,7 @@ public sealed class AgentHostInstanceTests
     public async Task Agent_server_routes_explicit_instances_and_keeps_headless_calls_local(bool crash)
     {
         await TestReset.ResetShellAsync();
-        string directory = CreateDirectory();
+        string directory = CreateDirectory("beutl-instance-tests-");
         try
         {
             int preferredPort = AvailablePort();
@@ -153,7 +151,7 @@ public sealed class AgentHostInstanceTests
     public async Task Agent_server_announces_live_tools_as_editors_start_and_exit()
     {
         await TestReset.ResetShellAsync();
-        string directory = CreateDirectory();
+        string directory = CreateDirectory("beutl-instance-tests-");
         try
         {
             await using AgentServerHarness server = await AgentServerHarness.StartAsync(directory, TimeSpan.FromMilliseconds(100));
@@ -192,14 +190,14 @@ public sealed class AgentHostInstanceTests
     public async Task One_connection_discovers_and_edits_two_hosts_without_shared_selection()
     {
         await TestReset.ResetShellAsync();
-        string directory = CreateDirectory();
+        string directory = CreateDirectory("beutl-instance-tests-");
         var firstEditor = new EditorService(TestShell.Extensions);
         var secondEditor = new EditorService(TestShell.Extensions);
         Scene firstScene = OpenScene(firstEditor, directory, "first");
         Scene secondScene = OpenScene(secondEditor, directory, "second");
         int preferredPort = AvailablePort();
-        await using var first = CreateHost(firstEditor, directory, preferredPort);
-        await using var second = CreateHost(secondEditor, directory, preferredPort);
+        await using var first = CreateHost(firstEditor, directory, AgentHostInstanceTestWorker.Token, preferredPort);
+        await using var second = CreateHost(secondEditor, directory, AgentHostInstanceTestWorker.Token, preferredPort);
         try
         {
             await first.StartAsync();
@@ -269,11 +267,11 @@ public sealed class AgentHostInstanceTests
     public async Task Stopped_instance_and_reused_port_never_redirect_an_edit_to_a_replacement()
     {
         await TestReset.ResetShellAsync();
-        string directory = CreateDirectory();
+        string directory = CreateDirectory("beutl-instance-tests-");
         var editor = new EditorService(TestShell.Extensions);
         Scene scene = OpenScene(editor, directory, "replacement");
-        await using var first = CreateHost(new EditorService(TestShell.Extensions), directory);
-        await using var second = CreateHost(new EditorService(TestShell.Extensions), directory);
+        await using var first = CreateHost(new EditorService(TestShell.Extensions), directory, AgentHostInstanceTestWorker.Token);
+        await using var second = CreateHost(new EditorService(TestShell.Extensions), directory, AgentHostInstanceTestWorker.Token);
         try
         {
             await first.StartAsync();
@@ -286,7 +284,7 @@ public sealed class AgentHostInstanceTests
             Assert.That(File.Exists(registrationPath), Is.False);
             AssertError(await client.CallToolAsync("list_scenes", Target(second)), "instance_unavailable");
 
-            await using var replacement = CreateHost(editor, directory, port);
+            await using var replacement = CreateHost(editor, directory, AgentHostInstanceTestWorker.Token, port);
             await replacement.StartAsync();
             Assert.That(replacement.EndpointUri!.Port, Is.EqualTo(port));
             File.WriteAllText(registrationPath, staleRegistration); // Simulate a crashed host's leftover entry.
@@ -315,9 +313,9 @@ public sealed class AgentHostInstanceTests
     public async Task Routing_validates_arguments_and_authenticates_instance_discovery()
     {
         await TestReset.ResetShellAsync();
-        string directory = CreateDirectory();
-        await using var first = CreateHost(new EditorService(TestShell.Extensions), directory);
-        await using var second = CreateHost(new EditorService(TestShell.Extensions), directory);
+        string directory = CreateDirectory("beutl-instance-tests-");
+        await using var first = CreateHost(new EditorService(TestShell.Extensions), directory, AgentHostInstanceTestWorker.Token);
+        await using var second = CreateHost(new EditorService(TestShell.Extensions), directory, AgentHostInstanceTestWorker.Token);
         try
         {
             await first.StartAsync();
@@ -351,7 +349,7 @@ public sealed class AgentHostInstanceTests
     [Test]
     public void Registry_ignores_malformed_remote_and_reused_process_registrations()
     {
-        string directory = CreateDirectory();
+        string directory = CreateDirectory("beutl-instance-tests-");
         var registry = new AgentHostInstanceRegistry(directory);
         string instanceId = Guid.NewGuid().ToString("N");
         try
@@ -377,7 +375,7 @@ public sealed class AgentHostInstanceTests
     [Test]
     public void Registry_republishes_the_tools_version_and_removes_the_updated_registration_on_dispose()
     {
-        string directory = CreateDirectory();
+        string directory = CreateDirectory("beutl-instance-tests-");
         var registry = new AgentHostInstanceRegistry(directory);
         string instanceId = Guid.NewGuid().ToString("N");
         try
@@ -396,7 +394,7 @@ public sealed class AgentHostInstanceTests
     [Test]
     public void Pruning_and_old_leases_preserve_a_replaced_registration()
     {
-        string directory = CreateDirectory();
+        string directory = CreateDirectory("beutl-instance-tests-");
         var registry = new AgentHostInstanceRegistry(directory);
         string instanceId = Guid.NewGuid().ToString("N");
         try
@@ -423,7 +421,7 @@ public sealed class AgentHostInstanceTests
             Assert.Ignore("Unix directory permissions are unavailable on Windows.");
             return;
         }
-        string directory = CreateDirectory();
+        string directory = CreateDirectory("beutl-instance-tests-");
         var registry = new AgentHostInstanceRegistry(directory);
         UnixFileMode permissions = File.GetUnixFileMode(directory);
         try
@@ -443,49 +441,6 @@ public sealed class AgentHostInstanceTests
             Directory.Delete(directory, true);
         }
     }
-
-    private static AgentHostEndpoint CreateHost(EditorService editor, string directory, int? firstPort = null)
-        => new(new ProjectService(), editor, firstPort ?? AvailablePort(), "instance-test-token", registryDirectory: directory);
-
-    private static int AvailablePort()
-    {
-        using var listener = new TcpListener(IPAddress.Loopback, 0);
-        listener.Start();
-        return ((IPEndPoint)listener.LocalEndpoint).Port;
-    }
-
-    private static string CreateDirectory()
-    {
-        string directory = Path.Combine(Path.GetTempPath(), "beutl-instance-tests-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(directory);
-        return directory;
-    }
-
-    private static Scene OpenScene(EditorService editor, string directory, string name)
-    {
-        var scene = new Scene
-        {
-            Name = name,
-            Uri = new Uri(Path.Combine(directory, name + ".scene")),
-            Duration = TimeSpan.FromSeconds(1),
-            FrameSize = new PixelSize(640, 480)
-        };
-        editor.ActivateTabItem(scene);
-        Assert.That(editor.SelectedTabItem.Value, Is.Not.Null);
-        HeadlessTestHelpers.Settle();
-        return scene;
-    }
-
-    private static async Task<McpClient> ConnectAsync(AgentHostEndpoint endpoint)
-        => await ConnectAsync(endpoint.EndpointUri!);
-
-    private static async Task<McpClient> ConnectAsync(Uri endpointUri)
-        => await McpClient.CreateAsync(new HttpClientTransport(new HttpClientTransportOptions
-        {
-            Endpoint = endpointUri,
-            TransportMode = HttpTransportMode.StreamableHttp,
-            AdditionalHeaders = new Dictionary<string, string> { ["Authorization"] = "Bearer " + AgentHostInstanceTestWorker.Token }
-        }));
 
     private static Dictionary<string, object?> Target(AgentHostEndpoint endpoint, Scene? scene = null)
     {

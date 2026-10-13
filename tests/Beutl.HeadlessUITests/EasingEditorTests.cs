@@ -696,7 +696,7 @@ public sealed class EasingEditorTests
         {
             (_vm, Control control) = CreateControl(new EnginePropertyAdapter<Easing>(property, holder));
             _history = new HistoryScope(holder);
-            _vm.Accept(new HistoryServices(_history.History));
+            _vm.Accept(ServiceVisitor.For(_history.History));
             Editor = (EasingEditor)control;
             Window = new Window { Content = Editor, Width = 480, Height = height };
         }
