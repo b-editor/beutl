@@ -26,10 +26,7 @@ public class ColorSpectrumTests
             window.Show();
             HeadlessTestHelpers.Render();
 
-            object? bitmap = typeof(ColorSpectrum)
-                .GetField("_tempBitmap", BindingFlags.Instance | BindingFlags.NonPublic)!
-                .GetValue(spectrum);
-            Assert.That(bitmap, Is.Not.Null);
+            Assert.That(TempBitmap(spectrum), Is.Not.Null);
         }
         finally
         {
@@ -57,10 +54,7 @@ public class ColorSpectrumTests
             Assert.That(spectrum.Bounds.Width, Is.GreaterThan(4));
             Assert.That(spectrum.Bounds.Width, Is.LessThan(5));
 
-            object? bitmap = typeof(ColorSpectrum)
-                .GetField("_tempBitmap", BindingFlags.Instance | BindingFlags.NonPublic)!
-                .GetValue(spectrum);
-            Assert.That(bitmap, Is.Null);
+            Assert.That(TempBitmap(spectrum), Is.Null);
         }
         finally
         {
@@ -77,8 +71,6 @@ public class ColorSpectrumTests
         {
             window.Show();
             HeadlessTestHelpers.Render();
-            var bitmapField = typeof(ColorSpectrum)
-                .GetField("_tempBitmap", BindingFlags.Instance | BindingFlags.NonPublic)!;
 
             foreach (PickerColorComponent component in new[]
             {
@@ -92,7 +84,7 @@ public class ColorSpectrumTests
             {
                 spectrum.Component = component;
                 HeadlessTestHelpers.Render();
-                Assert.That(bitmapField.GetValue(spectrum), Is.Not.Null, $"Missing {component} bitmap.");
+                Assert.That(TempBitmap(spectrum), Is.Not.Null, $"Missing {component} bitmap.");
             }
         }
         finally
@@ -160,7 +152,7 @@ public class ColorSpectrumTests
             HeadlessTestHelpers.Settle();
             HeadlessTestHelpers.Render();
             Assert.That(spectrum.Bounds.Width, Is.EqualTo(360));
-            Assert.That(TriangleBitmap(spectrum).PixelSize, Is.EqualTo(new PixelSize(356, 356)));
+            Assert.That(TempBitmap(spectrum)!.PixelSize, Is.EqualTo(new PixelSize(356, 356)));
             AssertDrawsPickedColors(window, spectrum, TrianglePoints(spectrum, 250));
         }
         finally
@@ -178,13 +170,13 @@ public class ColorSpectrumTests
         {
             window.Show();
             HeadlessTestHelpers.Render();
-            Assert.That(TriangleBitmap(spectrum).PixelSize, Is.EqualTo(new PixelSize(256, 256)));
+            Assert.That(TempBitmap(spectrum)!.PixelSize, Is.EqualTo(new PixelSize(256, 256)));
 
             window.SetRenderScaling(2);
             HeadlessTestHelpers.Settle();
             HeadlessTestHelpers.Render();
             Assert.That(spectrum.Bounds.Width, Is.EqualTo(260));
-            Assert.That(TriangleBitmap(spectrum).PixelSize, Is.EqualTo(new PixelSize(512, 512)));
+            Assert.That(TempBitmap(spectrum)!.PixelSize, Is.EqualTo(new PixelSize(512, 512)));
         }
         finally
         {
@@ -192,10 +184,10 @@ public class ColorSpectrumTests
         }
     }
 
-    private static WriteableBitmap TriangleBitmap(ColorSpectrum spectrum)
-        => (WriteableBitmap)typeof(ColorSpectrum)
+    private static WriteableBitmap? TempBitmap(ColorSpectrum spectrum)
+        => (WriteableBitmap?)typeof(ColorSpectrum)
             .GetField("_tempBitmap", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .GetValue(spectrum)!;
+            .GetValue(spectrum);
 
     private static Rect WheelRect(ColorSpectrum spectrum)
     {

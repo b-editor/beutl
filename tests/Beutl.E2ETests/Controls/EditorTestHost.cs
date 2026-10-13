@@ -42,8 +42,6 @@ internal sealed class EditorTestHost<TEditor> : IDisposable
 
     public Button Sink { get; }
 
-    public TextBox FirstTextBox => RequireDescendant<TextBox>();
-
     public T Require<T>(string name)
         where T : Control
     {

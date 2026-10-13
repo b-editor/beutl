@@ -61,12 +61,7 @@ public class FileBrowserTemplateThumbnailTests
     [AvaloniaTest]
     public async Task GetThumbnailAsync_ReadsTheEmbeddedPreviewOfATemplate()
     {
-        var shape = new RectShape
-        {
-            Width = { CurrentValue = 100 },
-            Height = { CurrentValue = 100 },
-            Fill = { CurrentValue = new SolidColorBrush(Colors.Red) }
-        };
+        RectShape shape = CreateRedRect();
 
         ObjectTemplateItem? item = await ObjectTemplateService.Instance
             .AddFromInstanceAsync(shape, $"thumb-{Guid.NewGuid():N}");

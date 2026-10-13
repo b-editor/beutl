@@ -101,11 +101,8 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
     private readonly IReadOnlyList<IDisposable> _sceneResources;
     private int _nextFrame;
     private RenderPipelineObservedFrame? _lastSetupFrame;
-    private RenderNodeRasterization? _lastSetupRasterization;
-    private int _lastSetupFrameIndex = -1;
     private RenderNodeRasterization? _lastMeasuredRasterization;
     private int _lastMeasuredFrameIndex = -1;
-    private ulong _lastMeasuredToken;
     private bool _disposed;
 
     public RenderPipelineBenchmarkSession(string caseName)
@@ -129,13 +126,11 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
         ThrowIfDisposed();
         RenderThread.Dispatcher.VerifyAccess();
 
-        (int Frame, bool RetainRasterization)[] plan = GetSetupRenderPlan(_scene);
-        var observed = new List<RenderPipelineObservedFrame>(plan.Length);
-        foreach ((int frame, bool retainRasterization) in plan)
+        int[] frames = GetSetupFrames(_scene);
+        var observed = new List<RenderPipelineObservedFrame>(frames.Length);
+        foreach (int frame in frames)
         {
-            observed.Add(RenderAndObserve(
-                frame,
-                retainRasterization));
+            observed.Add(RenderAndObserve(frame));
         }
 
         RenderPipelineObservedFrame first = observed[0];
@@ -164,7 +159,7 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
         }
 
         _lastSetupFrame = observed[^1];
-        _nextFrame = checked(plan[^1].Frame + 1);
+        _nextFrame = checked(frames[^1] + 1);
     }
 
     public ulong RenderMeasuredFrame()
@@ -178,8 +173,7 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
         _lastMeasuredRasterization = rasterization;
         Bitmap? bitmap = rasterization.Bitmap;
         _lastMeasuredFrameIndex = frameIndex;
-        _lastMeasuredToken = bitmap is null ? 0 : SampleToken(bitmap.GetPixelSpan<ushort>());
-        return _lastMeasuredToken;
+        return bitmap is null ? 0 : SampleToken(bitmap.GetPixelSpan<ushort>());
     }
 
     public RenderPipelineBenchmarkCounterRecord CreateCounterRecord()
@@ -252,8 +246,6 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
         RenderThread.Dispatcher.VerifyAccess();
         _lastMeasuredRasterization?.Dispose();
         _lastMeasuredRasterization = null;
-        _lastSetupRasterization?.Dispose();
-        _lastSetupRasterization = null;
         _renderer.Dispose();
         _root.Dispose();
         for (int index = _sceneResources.Count - 1; index >= 0; index--)
@@ -261,26 +253,11 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
         _disposed = true;
     }
 
-    private RenderPipelineObservedFrame RenderAndObserve(int frameIndex, bool retainRasterization)
+    private RenderPipelineObservedFrame RenderAndObserve(int frameIndex)
     {
         ApplyFrameState(frameIndex);
-        RenderNodeRasterization? rasterization = _renderer.Rasterize();
-        try
-        {
-            RenderPipelineObservedFrame observed = Observe(rasterization);
-            if (retainRasterization)
-            {
-                _lastSetupRasterization?.Dispose();
-                _lastSetupRasterization = rasterization;
-                _lastSetupFrameIndex = frameIndex;
-                rasterization = null;
-            }
-            return observed;
-        }
-        finally
-        {
-            rasterization?.Dispose();
-        }
+        using RenderNodeRasterization rasterization = _renderer.Rasterize();
+        return Observe(rasterization);
     }
 
     private static RenderPipelineObservedFrame Observe(RenderNodeRasterization rasterization)
@@ -427,19 +404,6 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
         => scene.Animation == RenderPipelineBenchmarkAnimation.StructuralToggle
             ? [0, 1, 7, 8, 9]
             : Enumerable.Range(0, RenderPipelineBenchmarkConfig.SetupWarmupFrameCount).ToArray();
-
-    private static (int Frame, bool RetainRasterization)[] GetSetupRenderPlan(
-        RenderPipelineBenchmarkSceneDefinition scene)
-    {
-        int[] frames = GetSetupFrames(scene);
-        return frames
-            .Select((frame, index) => (frame, index == frames.Length - 1))
-            .ToArray();
-    }
-
-    internal static IReadOnlyList<(int Frame, bool RetainRasterization)> GetSetupRenderPlanForTest(
-        string caseName)
-        => GetSetupRenderPlan(RenderPipelineBenchmarkScenes.Get(caseName));
 
     private static RenderNodeRenderRequest CreateRendererRequest(RenderPipelineBenchmarkSceneDefinition scene)
         => new()
@@ -672,9 +636,6 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
         return blur;
     }
 
-    internal static FilterEffect CreateMixedSpatialEffectForTest()
-        => CreateMixedSpatialEffect();
-
     private static RenderNode CreateSmallObject(RenderPipelineBenchmarkSceneDefinition scene)
     {
         Rect bounds = RenderPipelineBenchmarkScenes.GetDrawableBounds(scene, 0);
@@ -719,8 +680,8 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
                     scene.Name + "-source-" + variant,
                     scene.Seed + variant * 101,
                     scene.SemanticStageCount);
-            RenderPipelineBenchmarkScenes.CreateLinearPremultipliedRgba16F(sourceScene, size)
-                .CopyTo(bitmap.GetPixelSpan<Half>());
+            RenderPipelineBenchmarkScenes.FillLinearPremultipliedRgba16F(
+                bitmap.GetPixelSpan<Half>(), sourceScene, size);
             using var canvas = new ImmediateCanvas(target, RenderIntent.Preview, 1, 1, new Size(size.Width, size.Height));
             canvas.Clear();
             canvas.DrawBitmap(bitmap, Brushes.Resource.White, null);

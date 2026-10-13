@@ -189,6 +189,8 @@ internal sealed unsafe partial class VulkanContext
     // shared textures cannot synchronize these internal allocations.
     // A first use transitioning out of Undefined may therefore discard the clear, so what this guarantees is
     // a zeroed backing allocation - no recycled allocation's bytes - not defined pixels at the Vulkan level.
+    // GRContextOptions has no clear-on-allocate switch that would hand the clear back to Skia, and the
+    // validation layer stays silent because a transition out of Undefined is always legal.
     private unsafe void ClearSkiaImage(Image image, ImageCreateInfo createInfo)
     {
         SubmitIsolatedCommands(commandBuffer =>
