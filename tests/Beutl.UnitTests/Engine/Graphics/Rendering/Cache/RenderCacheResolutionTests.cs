@@ -287,7 +287,6 @@ public sealed class RenderCacheResolutionTests
         {
             Assert.That(parentDecision.Kind, Is.EqualTo(RenderCacheResolutionKind.Hit));
             Assert.That(childDecision.Kind, Is.EqualTo(RenderCacheResolutionKind.Superseded));
-            Assert.That(childDecision.SupersededBy, Is.EqualTo(parentDecision.Candidate.Id));
             Assert.That(lookup.RequestedKeys, Is.EqualTo(new object[] { "parent" }));
             Assert.That(parent.Inputs.Single(), Is.SameAs(child));
             Assert.That(scenario.Graph.Fragments.Count, Is.EqualTo(2));
@@ -350,7 +349,6 @@ public sealed class RenderCacheResolutionTests
             new RenderCacheDecision(
                 producer,
                 RenderCacheResolutionKind.Hit,
-                RenderCacheBypassReason.None,
                 null,
                 hitEntry),
             cold.Decisions[1] with { Candidate = secondCandidate },
@@ -376,15 +374,13 @@ public sealed class RenderCacheResolutionTests
         });
     }
 
-    [TestCase("TargetCommand", "TargetTokenDependency")]
-    [TestCase("RawTargetScope", "RawTargetWork")]
-    [TestCase("TargetCapture", "TargetTokenDependency")]
+    [TestCase("TargetCommand")]
+    [TestCase("RawTargetScope")]
+    [TestCase("TargetCapture")]
     public void TargetAndRawCandidates_BypassWhilePureChildrenRemainSelectable(
-        string boundaryKindName,
-        string expectedReasonName)
+        string boundaryKindName)
     {
         RenderFragmentKind boundaryKind = Enum.Parse<RenderFragmentKind>(boundaryKindName);
-        RenderCacheBypassReason expectedReason = Enum.Parse<RenderCacheBypassReason>(expectedReasonName);
         RenderFragmentReference child = Pure();
         RenderFragmentReference boundary = Boundary(boundaryKind, child);
         RenderFragmentReference[] roots = boundaryKind == RenderFragmentKind.TargetCapture
@@ -407,7 +403,6 @@ public sealed class RenderCacheResolutionTests
         Assert.Multiple(() =>
         {
             Assert.That(boundaryDecision.Kind, Is.EqualTo(RenderCacheResolutionKind.Bypass));
-            Assert.That(boundaryDecision.BypassReason, Is.EqualTo(expectedReason));
             if (coldChildDecision.Kind == RenderCacheResolutionKind.MissCapture)
                 Assert.That(childDecision.Kind, Is.EqualTo(RenderCacheResolutionKind.Hit));
         });
@@ -578,7 +573,8 @@ public sealed class RenderCacheResolutionTests
             RenderMaterializationDemandResolver.Resolve(
                 [opacityMask],
                 outputScale: 1,
-                maxWorkingScale: float.PositiveInfinity).Demands;
+                maxWorkingScale: float.PositiveInfinity,
+                cacheBoundaries: ImmutableHashSet<RenderFragmentReference>.Empty).Demands;
 
         Assert.Multiple(() =>
         {
@@ -642,12 +638,14 @@ public sealed class RenderCacheResolutionTests
             RenderMaterializationDemandResolver.Resolve(
                 unitRoots,
                 outputScale: 1,
-                maxWorkingScale: float.PositiveInfinity).Demands;
+                maxWorkingScale: float.PositiveInfinity,
+                cacheBoundaries: ImmutableHashSet<RenderFragmentReference>.Empty).Demands;
         IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> doubleDemands =
             RenderMaterializationDemandResolver.Resolve(
                 doubleRoots,
                 outputScale: 2,
-                maxWorkingScale: float.PositiveInfinity).Demands;
+                maxWorkingScale: float.PositiveInfinity,
+                cacheBoundaries: ImmutableHashSet<RenderFragmentReference>.Empty).Demands;
 
         RenderFragmentOutputIdentity unitIdentity = RenderFragmentOutputIdentity.Create(
             unitRoots.Single(),
@@ -776,8 +774,8 @@ public sealed class RenderCacheResolutionTests
         {
             Assert.That(
                 result.Resolution.Decisions,
-                Has.All.Property(nameof(RenderCacheDecision.BypassReason))
-                    .EqualTo(RenderCacheBypassReason.UnstableBoundaryPlan));
+                Has.All.Property(nameof(RenderCacheDecision.Kind))
+                    .EqualTo(RenderCacheResolutionKind.Bypass));
             Assert.That(
                 result.MaterializationDemands[scenario.Named("source")],
                 Is.EqualTo(EffectiveScale.At(1)));
@@ -831,8 +829,8 @@ public sealed class RenderCacheResolutionTests
             Assert.That(GetHits(result.Resolution), Is.Empty);
             Assert.That(result.Resolution.MissCaptureCount, Is.Zero);
             Assert.That(
-                result.Resolution.Decisions.Single().BypassReason,
-                Is.EqualTo(RenderCacheBypassReason.UnstableBoundaryPlan));
+                result.Resolution.Decisions.Single().Kind,
+                Is.EqualTo(RenderCacheResolutionKind.Bypass));
             Assert.That(
                 result.MaterializationDemands[scenario.Named("dependency")],
                 Is.EqualTo(EffectiveScale.At(1)));
@@ -918,8 +916,8 @@ public sealed class RenderCacheResolutionTests
                 GetDecision(result.Resolution, scenario.Candidate("parent")).Kind,
                 Is.EqualTo(RenderCacheResolutionKind.MissCapture));
             Assert.That(
-                GetDecision(result.Resolution, scenario.Candidate("child")).BypassReason,
-                Is.EqualTo(RenderCacheBypassReason.OutsideCacheRules));
+                GetDecision(result.Resolution, scenario.Candidate("child")).Kind,
+                Is.EqualTo(RenderCacheResolutionKind.Bypass));
             Assert.That(
                 result.MaterializationDemands[scenario.Named("dependency")],
                 Is.EqualTo(EffectiveScale.At(2)));
@@ -959,7 +957,8 @@ public sealed class RenderCacheResolutionTests
             RenderMaterializationDemandResolver.Resolve(
                 [command],
                 outputScale: 1,
-                maxWorkingScale: float.PositiveInfinity).Demands;
+                maxWorkingScale: float.PositiveInfinity,
+                cacheBoundaries: ImmutableHashSet<RenderFragmentReference>.Empty).Demands;
 
         Assert.Multiple(() =>
         {
@@ -981,7 +980,8 @@ public sealed class RenderCacheResolutionTests
             RenderMaterializationDemandResolver.Resolve(
                 [scope],
                 outputScale: 1,
-                maxWorkingScale: float.PositiveInfinity).Demands;
+                maxWorkingScale: float.PositiveInfinity,
+                cacheBoundaries: ImmutableHashSet<RenderFragmentReference>.Empty).Demands;
 
         Assert.That(demands[leaf], Is.EqualTo(EffectiveScale.At(4)));
     }
@@ -999,7 +999,8 @@ public sealed class RenderCacheResolutionTests
             RenderMaterializationDemandResolver.Resolve(
                 [scope],
                 outputScale: 1,
-                maxWorkingScale: float.PositiveInfinity).Demands;
+                maxWorkingScale: float.PositiveInfinity,
+                cacheBoundaries: ImmutableHashSet<RenderFragmentReference>.Empty).Demands;
 
         Assert.That(demands[leaf], Is.EqualTo(EffectiveScale.At(1)));
     }
@@ -1016,7 +1017,8 @@ public sealed class RenderCacheResolutionTests
             RenderMaterializationDemandResolver.Resolve(
                 [scope],
                 outputScale: 1,
-                maxWorkingScale: float.PositiveInfinity).Demands;
+                maxWorkingScale: float.PositiveInfinity,
+                cacheBoundaries: ImmutableHashSet<RenderFragmentReference>.Empty).Demands;
 
         Assert.That(demands[leaf], Is.EqualTo(EffectiveScale.At(4)));
     }
@@ -1033,7 +1035,8 @@ public sealed class RenderCacheResolutionTests
             RenderMaterializationDemandResolver.Resolve(
                 [scope],
                 outputScale: 1,
-                maxWorkingScale: float.PositiveInfinity).Demands;
+                maxWorkingScale: float.PositiveInfinity,
+                cacheBoundaries: ImmutableHashSet<RenderFragmentReference>.Empty).Demands;
 
         Assert.That(demands[leaf], Is.EqualTo(EffectiveScale.At(1)));
     }
@@ -1069,7 +1072,8 @@ public sealed class RenderCacheResolutionTests
             RenderMaterializationDemandResolver.Resolve(
                 [transform],
                 outputScale: 1,
-                maxWorkingScale: maxWorkingScale).Demands;
+                maxWorkingScale: maxWorkingScale,
+                cacheBoundaries: ImmutableHashSet<RenderFragmentReference>.Empty).Demands;
 
         float expected = BufferDimensionBudget.EngineCeiling.ClampWorkingScale(
             bounds, MathF.Min(1_000_000, maxWorkingScale));
@@ -1139,7 +1143,6 @@ public sealed class RenderCacheResolutionTests
                 (long)PixelRect.FromRect(layerDomain, expectedDensity).Width,
                 Is.GreaterThan(1_000));
             Assert.That(decision.Kind, Is.EqualTo(RenderCacheResolutionKind.Bypass));
-            Assert.That(decision.BypassReason, Is.EqualTo(RenderCacheBypassReason.OutsideCacheRules));
         });
     }
 
@@ -1196,10 +1199,10 @@ public sealed class RenderCacheResolutionTests
             [source, command],
             [command],
             [(source, "source")]);
-        TargetDependencyPlan before = TargetDependencyLowerer.Lower([command]);
+        TargetDependencyPlan before = TargetDependencyLowerer.Lower([command], rootDomain: null);
 
         RenderCacheResolution resolution = Resolve(scenario);
-        TargetDependencyPlan after = TargetDependencyLowerer.Lower([command]);
+        TargetDependencyPlan after = TargetDependencyLowerer.Lower([command], rootDomain: null);
         RenderCacheDecision capture = GetMissCaptures(resolution).Single();
 
         Assert.Multiple(() =>
@@ -1229,27 +1232,9 @@ public sealed class RenderCacheResolutionTests
                 scenario.Graph,
                 scenario.Regions,
                 RenderRequestCompiler.ResolveRoots(scenario.Graph),
-                s_context),
+                s_context,
+                lookup: null),
             Throws.InvalidOperationException);
-    }
-
-    [Test]
-    public void Resolve_DefaultContextWithoutCandidates_IsRejected()
-    {
-        RenderFragmentReference source = Pure();
-        using Scenario scenario = Build(
-            [source],
-            [source],
-            []);
-
-        Assert.That(
-            () => new RenderCacheResolver().Resolve(
-                scenario.Request,
-                scenario.Graph,
-                scenario.Regions,
-                RenderRequestCompiler.ResolveRoots(scenario.Graph),
-                default),
-            Throws.ArgumentException);
     }
 
     private static Scenario PrefixAndTail(int frame)

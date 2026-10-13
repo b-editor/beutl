@@ -17,7 +17,8 @@ public sealed class ResourcePlanUseTrackerTests
         hitProducer.AssignId(new RenderFragmentId(requestId, 2));
 
         ResourcePlanUseTracker unpruned = ResourcePlanUseTracker.Create(
-            [hitProducer, sharedSource]);
+            [hitProducer, sharedSource],
+            new RenderCacheResolution([]));
         ResourcePlanUseTracker pruned = ResourcePlanUseTracker.Create(
             [hitProducer, sharedSource],
             CreateHitResolution(requestId, hitProducer));
@@ -64,7 +65,7 @@ public sealed class ResourcePlanUseTrackerTests
         RenderFragmentReference left = Fragment(RenderFragmentKind.Opacity, [source]);
         RenderFragmentReference right = Fragment(RenderFragmentKind.Opacity, [source]);
         RenderFragmentReference root = Fragment(RenderFragmentKind.OpaqueCombine, [left, right]);
-        ResourcePlanUseTracker tracker = ResourcePlanUseTracker.Create([root]);
+        ResourcePlanUseTracker tracker = ResourcePlanUseTracker.Create([root], new RenderCacheResolution([]));
 
         Assert.Multiple(() =>
         {
@@ -79,7 +80,7 @@ public sealed class ResourcePlanUseTrackerTests
     public void DuplicateRoots_CountAsSeparateAuthoredUses()
     {
         RenderFragmentReference root = Fragment(RenderFragmentKind.OpaqueSource, []);
-        ResourcePlanUseTracker tracker = ResourcePlanUseTracker.Create([root, root]);
+        ResourcePlanUseTracker tracker = ResourcePlanUseTracker.Create([root, root], new RenderCacheResolution([]));
 
         Assert.Multiple(() =>
         {
@@ -100,7 +101,7 @@ public sealed class ResourcePlanUseTrackerTests
             new RenderCacheCandidateId(requestId, 1),
             fragmentId,
             cacheKey,
-            Cache: null,
+            Cache: new ContainerRenderNode().Cache,
             AuthoredOrder: 0);
         var identity = new RenderOutputCacheIdentity(
             cacheKey,
@@ -118,7 +119,6 @@ public sealed class ResourcePlanUseTrackerTests
             new RenderCacheDecision(
                 candidate,
                 RenderCacheResolutionKind.Hit,
-                RenderCacheBypassReason.None,
                 null,
                 new RenderCacheEntry(identity, new object())),
         ]);

@@ -1,6 +1,4 @@
-﻿using System.Runtime.ExceptionServices;
-
-namespace Beutl.Graphics.Rendering.Requests;
+﻿namespace Beutl.Graphics.Rendering.Requests;
 
 internal sealed partial class RenderRequestExecutor
 {
@@ -59,19 +57,13 @@ internal sealed partial class RenderRequestExecutor
                 (failures ??= []).Add(ex);
             }
 
-            if (failures is null)
-                return;
-            if (failures.Count == 1)
-                ExceptionDispatchInfo.Capture(failures[0]).Throw();
-            if (failures.Count > 1)
-                throw new AggregateException("One or more execution-state resources failed to dispose.", failures);
+            CleanupFailures.ThrowIfAny(failures, "One or more execution-state resources failed to dispose.");
         }
 
         private void DisposeValues(Func<MaterializedRenderValue, bool, bool> predicate)
         {
             List<Exception>? failures = null;
-            // The loop removes from _ownedValues, so it needs a snapshot; Reverse() already buffers the set
-            // into an array that ToArray() then copies a second time, and a set has no order to preserve.
+            // The loop removes from _ownedValues, so iterate a snapshot.
             var snapshot = new MaterializedRenderValue[_ownedValues.Count];
             _ownedValues.CopyTo(snapshot);
             foreach (MaterializedRenderValue value in snapshot)
@@ -84,7 +76,7 @@ internal sealed partial class RenderRequestExecutor
                 RemoveCacheCaptureValue(value);
                 try
                 {
-                    DisposeOwnedValue(value);
+                    value.Dispose();
                 }
                 catch (Exception ex)
                 {
@@ -92,11 +84,7 @@ internal sealed partial class RenderRequestExecutor
                 }
             }
 
-            if (failures is null)
-                return;
-            if (failures.Count == 1)
-                ExceptionDispatchInfo.Capture(failures[0]).Throw();
-            throw new AggregateException("One or more render values failed to dispose.", failures);
+            CleanupFailures.ThrowIfAny(failures, "One or more render values failed to dispose.");
         }
 
         public RenderExecutionStatistics CreateStatistics()

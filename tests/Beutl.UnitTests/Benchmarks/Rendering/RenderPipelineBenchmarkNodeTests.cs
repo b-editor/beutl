@@ -91,8 +91,8 @@ public sealed class RenderPipelineBenchmarkNodeTests
                 typeof(LayerEffect),
                 typeof(Blur),
             }));
-            Assert.That(CompileBoundaryReasons(customEffect), Does.Contain(ExecutionIslandBoundaryReason.CustomEffectItem));
-            Assert.That(CompileBoundaryReasons(mixedEffect), Does.Contain(ExecutionIslandBoundaryReason.CustomEffectItem));
+            Assert.That(CompilesCustomEffectSegmentIsland(customEffect), Is.True);
+            Assert.That(CompilesCustomEffectSegmentIsland(mixedEffect), Is.True);
         });
     }
 
@@ -215,7 +215,7 @@ public sealed class RenderPipelineBenchmarkNodeTests
             Purpose = RenderRequestPurpose.Frame,
         }, new CpuTargetFactory());
 
-    private static IEnumerable<ExecutionIslandBoundaryReason> CompileBoundaryReasons(FilterEffect effect)
+    private static bool CompilesCustomEffectSegmentIsland(FilterEffect effect)
     {
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
         using var node = new FilterEffectRenderNode(resource);
@@ -232,9 +232,10 @@ public sealed class RenderPipelineBenchmarkNodeTests
         {
             RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(node);
             using CompiledRenderRequest compiled = new RenderRequestCompiler().Compile(request, graph);
-            return compiled.ExecutionPlan.Boundaries
-                .Select(static boundary => boundary.Reason)
-                .ToArray();
+            return compiled.ExecutionPlan.Islands.Any(island =>
+                island.ShaderRun is null
+                && compiled.Graph.Fragments[island.FragmentIndices[0]].Payload
+                    is FilterEffectSegmentRenderFragmentPayload { HasImperativeItem: true });
         }
         catch
         {

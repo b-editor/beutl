@@ -312,8 +312,8 @@ public sealed class RenderRequestModelTests
         RenderFragmentReference invalid = Fragment(foreign);
         var commit = new NodeRecordingCommit(
             [
-                new RecordedRenderFragmentEntry(first, "first", "test"),
-                new RecordedRenderFragmentEntry(invalid, "invalid", "test"),
+                new RecordedRenderFragmentEntry(first, "first"),
+                new RecordedRenderFragmentEntry(invalid, "invalid"),
             ],
             [],
             [],

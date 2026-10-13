@@ -305,11 +305,10 @@ public sealed class RecordingBufferPoolingTests
             hitTestReads: [],
             fragments:
             [
-                new ReplayedRenderFragment(first, new object(), RenderNodeRecordingCache.ProcessRole, []),
+                new ReplayedRenderFragment(first, new object(), []),
                 new ReplayedRenderFragment(
                     second,
                     new object(),
-                    RenderNodeRecordingCache.ProcessRole,
                     [inputSlotOfSecondFragment]),
             ],
             publicationSlots: [],

@@ -16,7 +16,7 @@ internal sealed partial class RegionAnalyzer
     public RenderNodeMeasurement ResolveMeasurement(
         RenderRequestOptions options,
         IReadOnlyList<RenderFragmentReference> roots,
-        TargetDependencyPlan? targetDependencies = null)
+        TargetDependencyPlan targetDependencies)
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(roots);
@@ -27,13 +27,12 @@ internal sealed partial class RegionAnalyzer
     public RegionAnalysis Analyze(
         RenderRequestOptions options,
         IReadOnlyList<RenderFragmentReference> roots,
-        TargetDependencyPlan? targetDependencies = null)
+        TargetDependencyPlan targetDependencies)
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(roots);
 
         MetadataPass pass = ResolveMetadataPass(options, roots, targetDependencies);
-        targetDependencies = pass.TargetDependencies;
         ImmutableArray<RenderFragmentReference> topologicalOrder = pass.TopologicalOrder;
         ImmutableHashSet<RenderFragmentId> backingTargetBackdropCaptures = pass.BackingTargetBackdropCaptures;
         IReadOnlyDictionary<RenderFragmentReference, Rect?> targetDomains = pass.TargetDomains;
@@ -61,15 +60,13 @@ internal sealed partial class RegionAnalyzer
 
         var targetRequirements = new Dictionary<RenderFragmentReference, RequiredRegion>(
             ReferenceEqualityComparer.Instance);
-        IReadOnlyDictionary<RenderFragmentId, RenderFragmentReference> referencesById =
-            topologicalOrder.ToDictionary(GetId);
+        IReadOnlyDictionary<RenderFragmentId, RenderFragmentReference> referencesById = pass.ReferencesById;
 
         // Both maps are derived from the immutable dependency plan, so they are invariant across the
         // propagation passes below.
         IReadOnlyDictionary<TargetTokenId, TargetDependencyStep> tokenProducers = targetDependencies.Steps
             .ToDictionary(static step => step.OutputToken);
-        IReadOnlyDictionary<TargetScopeId, TargetScopePlan> targetScopes = targetDependencies.Scopes
-            .ToDictionary(static scope => scope.Id);
+        IReadOnlyDictionary<TargetScopeId, TargetScopePlan> targetScopes = pass.Scopes;
         int remainingPasses = checked(topologicalOrder.Length + targetDependencies.Steps.Length + 1);
         bool changed;
         do
@@ -119,26 +116,30 @@ internal sealed partial class RegionAnalyzer
     private static MetadataPass ResolveMetadataPass(
         RenderRequestOptions options,
         IReadOnlyList<RenderFragmentReference> roots,
-        TargetDependencyPlan? targetDependencies)
+        TargetDependencyPlan targetDependencies)
     {
-        targetDependencies ??= TargetDependencyLowerer.Lower(
-            roots.ToImmutableArray(),
-            options.TargetDomain);
-
         ImmutableArray<RenderFragmentReference> topologicalOrder = GetTopologicalOrder(roots);
-        ImmutableHashSet<RenderFragmentId> backingTargetBackdropCaptures =
-            FindBackingTargetBackdropCaptures(topologicalOrder, targetDependencies);
+        IReadOnlyDictionary<RenderFragmentId, RenderFragmentReference> referencesById =
+            topologicalOrder.ToDictionary(GetId);
+        IReadOnlyDictionary<TargetScopeId, TargetScopePlan> scopes = targetDependencies.Scopes
+            .ToDictionary(static scope => scope.Id);
+        List<(RenderFragmentId FragmentId, TargetScopePlan Scope)> captureScopes = ResolveCaptureScopes(
+            targetDependencies,
+            referencesById,
+            scopes,
+            out ImmutableHashSet<RenderFragmentId> backingTargetBackdropCaptures);
         IReadOnlyDictionary<RenderFragmentReference, Rect?> targetDomains =
             ResolveTargetDomains(
                 roots,
                 options.TargetDomain,
-                targetDependencies,
-                backingTargetBackdropCaptures);
+                referencesById,
+                captureScopes);
         ImmutableDictionary<RenderFragmentId, ResolvedFragmentMetadata> metadata =
             ResolveForwardMetadata(topologicalOrder, targetDomains, options);
         return new MetadataPass(
-            targetDependencies,
             topologicalOrder,
+            referencesById,
+            scopes,
             backingTargetBackdropCaptures,
             targetDomains,
             metadata,
@@ -146,8 +147,9 @@ internal sealed partial class RegionAnalyzer
     }
 
     private readonly record struct MetadataPass(
-        TargetDependencyPlan TargetDependencies,
         ImmutableArray<RenderFragmentReference> TopologicalOrder,
+        IReadOnlyDictionary<RenderFragmentId, RenderFragmentReference> ReferencesById,
+        IReadOnlyDictionary<TargetScopeId, TargetScopePlan> Scopes,
         ImmutableHashSet<RenderFragmentId> BackingTargetBackdropCaptures,
         IReadOnlyDictionary<RenderFragmentReference, Rect?> TargetDomains,
         ImmutableDictionary<RenderFragmentId, ResolvedFragmentMetadata> Metadata,
@@ -350,32 +352,26 @@ internal sealed partial class RegionAnalyzer
         IReadOnlyList<RenderFragmentReference> roots)
     {
         var result = ImmutableArray.CreateBuilder<RenderFragmentReference>();
-        var visiting = new HashSet<RenderFragmentReference>(ReferenceEqualityComparer.Instance);
         var visited = new HashSet<RenderFragmentReference>(ReferenceEqualityComparer.Instance);
         foreach (RenderFragmentReference root in roots)
         {
             ArgumentNullException.ThrowIfNull(root);
-            Visit(root, visiting, visited, result);
+            Visit(root, visited, result);
         }
 
         return result.ToImmutable();
 
         static void Visit(
             RenderFragmentReference reference,
-            HashSet<RenderFragmentReference> visiting,
             HashSet<RenderFragmentReference> visited,
             ImmutableArray<RenderFragmentReference>.Builder result)
         {
-            if (visited.Contains(reference))
+            if (!visited.Add(reference))
                 return;
-            if (!visiting.Add(reference))
-                throw new InvalidOperationException("The recorded render graph contains a fragment cycle.");
 
             foreach (RenderFragmentReference input in reference.Inputs)
-                Visit(input, visiting, visited, result);
+                Visit(input, visited, result);
 
-            visiting.Remove(reference);
-            visited.Add(reference);
             result.Add(reference);
         }
     }

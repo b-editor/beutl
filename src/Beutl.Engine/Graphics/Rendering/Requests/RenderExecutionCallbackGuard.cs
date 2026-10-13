@@ -4,11 +4,7 @@
 /// Prevents a deferred execution callback from launching an unplanned renderer recursively.
 /// Planned nested requests execute through <see cref="RenderRequestExecutor"/> and do not use this guard.
 /// </summary>
-/// <remarks>
-/// The depth is thread-local rather than flowed through <see cref="ExecutionContext"/>: every guarded region
-/// is entered and left on one thread, and an <see cref="AsyncLocal{T}"/> cloned the context map on each write.
-/// A guard entered on one thread must therefore be released on that same thread.
-/// </remarks>
+/// <remarks>The depth is thread-local: a guard must be entered and released on the same thread.</remarks>
 internal static class RenderExecutionCallbackGuard
 {
     [ThreadStatic]

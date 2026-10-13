@@ -133,7 +133,7 @@ internal sealed partial class NodeRecordingTransaction : IRenderResourceRecordin
             hasDirectSymbolicBoundsDependency);
         OwnedReferences.Add(reference);
         _fragments.Add(
-            new RecordedRenderFragmentEntry(reference, _origin, RenderNodeRecordingCache.ProcessRole));
+            new RecordedRenderFragmentEntry(reference, _origin));
         _hasOwnTargetEffectFragment |= IsTargetEffect(kind);
         return new RenderFragmentHandle(this, reference);
     }
@@ -468,8 +468,9 @@ internal sealed partial class NodeRecordingTransaction : IRenderResourceRecordin
         }
     }
 
-    /// <summary>The fragments this transaction has recorded so far, in creation order.</summary>
-    /// <remarks>Read by the recording cross-check; the list is this transaction's own and must not be edited.</remarks>
+    /// <summary>
+    /// The fragments recorded so far, in creation order. Read by the recording cache and the cross-check; do not edit.
+    /// </summary>
     internal IReadOnlyList<RecordedRenderFragmentEntry> RecordedFragments => _fragments;
 
     /// <summary>The fragments this transaction has published so far, in publication order.</summary>
@@ -536,7 +537,6 @@ internal sealed partial class NodeRecordingTransaction : IRenderResourceRecordin
         Request.Options.Owner.ThrowIfFailed();
     }
 
-    // A resource still pending registration is rolled back; one already registered is released.
     private void RollbackOrRelease(RenderResource resource)
     {
         if (resource.RegistrationState == RenderResourceRegistrationState.Pending)

@@ -84,16 +84,22 @@ public sealed class GpuPassFusion3DBoundaryTests
             {
                 RenderFragmentReference sceneBoundary = compiled.Graph.Fragments
                     .Single(static fragment => fragment.Kind == RenderFragmentKind.OpaqueSource);
-                CompiledShaderRun[] shaderRuns = compiled.ExecutionPlan.ShaderRuns.ToArray();
+                CompiledShaderRun[] shaderRuns = compiled.ExecutionPlan.Islands
+                    .Where(static island => island.ShaderRun is not null)
+                    .Select(static island => island.ShaderRun!)
+                    .ToArray();
                 Assert.Multiple(() =>
                 {
                     Assert.That(
                         sceneBoundary.ValueCardinality,
                         Is.EqualTo(RenderValueCardinality.ZeroOrOne));
-                    Assert.That(compiled.ExecutionPlan.Boundaries.Count(static item =>
-                        item.Reason == ExecutionIslandBoundaryReason.ThreeD), Is.EqualTo(1));
-                    Assert.That(compiled.ExecutionPlan.Boundaries.Count(static item =>
-                        item.Reason == ExecutionIslandBoundaryReason.BackendTransition), Is.EqualTo(1));
+                    Assert.That(
+                        ((OpaqueRenderFragmentPayload)sceneBoundary.Payload!).Description.BackendBoundary,
+                        Is.EqualTo(RenderBackendBoundary.Graphics3D));
+                    Assert.That(compiled.ExecutionPlan.Islands.Count(island =>
+                        island.ShaderRun is null
+                        && ReferenceEquals(compiled.Graph.Fragments[island.FragmentIndices[0]], sceneBoundary)),
+                        Is.EqualTo(1));
                     Assert.That(shaderRuns, Has.Length.EqualTo(1));
                 });
                 Assert.That(shaderRuns.Single().StageFragmentIndices, Has.Length.EqualTo(1));
@@ -231,7 +237,7 @@ public sealed class GpuPassFusion3DBoundaryTests
                 Assert.That(nested.Request.Options.TargetDomain, Is.EqualTo(new Rect(0, 0, 12, 8)));
                 Assert.That(nested.Request.Options.OutputScale, Is.EqualTo(0.75f));
                 Assert.That(nested.Request.Options.MaxWorkingScale, Is.EqualTo(0.75f));
-                Assert.That(binding.IsReady, Is.False);
+                Assert.That(binding.GetTexture(new Rect(0, 0, 12, 8), 0.75f), Is.Null);
             });
 
             using var registry = new RenderTargetPool(factory: null);
@@ -246,7 +252,9 @@ public sealed class GpuPassFusion3DBoundaryTests
                     "The textured scene must differ from the no-texture control in RGB content.");
                 Assert.That(binding.Density, Is.EqualTo(0.75f),
                     "The planned drawable target must match the 3D surface density passed to GetTexture.");
-                Assert.That(binding.DeviceBounds, Is.EqualTo(new PixelRect(0, 0, 9, 6)));
+                Assert.That(
+                    PixelRect.FromRect(binding.LogicalBounds, binding.Density),
+                    Is.EqualTo(new PixelRect(0, 0, 9, 6)));
                 Assert.That(binding.IsDisposed, Is.True);
                 Assert.That(registry.Statistics.LeasedTargets, Is.Zero);
             });

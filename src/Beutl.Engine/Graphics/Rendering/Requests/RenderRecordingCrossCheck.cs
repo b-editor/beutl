@@ -1,32 +1,10 @@
 ﻿namespace Beutl.Graphics.Rendering.Requests;
 
 /// <summary>
-/// Records a node a second way for one request and fails the request when the two recordings disagree.
+/// Records a node a second time and fails the request when the recordings differ, enforcing that a node reporting
+/// no changes records the same graph. Off unless <see cref="Enable"/> is called (today only by tests); the call
+/// sites exist in Debug builds only.
 /// </summary>
-/// <remarks>
-/// <para>
-/// The contract this enforces is the one a recording cache needs: a node whose <see cref="RenderNode.HasChanges"/>
-/// is <see langword="false"/> must record the same fragments it recorded before. When a skip path exists, a
-/// node that breaks that contract is never re-recorded and renders stale, and because
-/// <see cref="RenderNode.HasChanges"/> is public an out-of-tree node can break it with no compile error.
-/// <see cref="Beutl.Engine.SourceGenerators"/>'s BESG005 catches the assignment authors usually write; this
-/// catches what static analysis cannot follow, at the cost of running the node twice.
-/// </para>
-/// <para>
-/// The baseline - what a skip path would have reused - is the shape the recording cache retained for the node,
-/// so what is verified is the artifact that would actually have been replayed rather than a second opinion
-/// about it. While this is on, a node the cache would have skipped is recorded anyway: there has to be a fresh
-/// recording for the retained one to be compared against. A node with no retained shape - its first request,
-/// or one the cache refuses - falls back to a probe re-record, which needs no history.
-/// </para>
-/// <para>
-/// This costs a second <see cref="RenderNode.Process(RenderNodeContext)"/> call per node per request, so it is
-/// off by default and reachable from the render path only in a Debug build - the call sites in
-/// <c>RenderRequestRecorder</c> are compiled out of Release entirely. The type stays compiled either way so
-/// that tests bind against it in both configurations; <see cref="IsAvailable"/> says whether the render path
-/// can actually reach it.
-/// </para>
-/// </remarks>
 internal static class RenderRecordingCrossCheck
 {
     private static int s_enabled;

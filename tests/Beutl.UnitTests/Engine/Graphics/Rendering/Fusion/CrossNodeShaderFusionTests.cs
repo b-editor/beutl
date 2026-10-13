@@ -37,8 +37,7 @@ public sealed class CrossNodeShaderFusionTests
             Assert.That(run.IsFused, Is.True);
             Assert.That(run.GetOutput(compiled.Graph).CanBeUsedAsValueInput, Is.True,
                 "The typed opacity descriptor must preserve value-input eligibility.");
-            Assert.That(compiled.ExecutionPlan.Boundaries, Has.Some.Matches<ExecutionIslandBoundary>(
-                static boundary => boundary.Reason == ExecutionIslandBoundaryReason.MaterializedInput));
+            Assert.That(run.GetInput(compiled.Graph).Kind, Is.EqualTo(RenderFragmentKind.MaterializedInput));
         });
 
         string source = run.Program.Source;
@@ -83,9 +82,6 @@ public sealed class CrossNodeShaderFusionTests
                 Is.EqualTo(enabledStages.Select(static stage => stage.Kind)));
             Assert.That(disabledDescriptions.Select(static stage => stage.Source.Text),
                 Is.EqualTo(enabledDescriptions.Select(static stage => stage.Source.Text)));
-            Assert.That(disabled.ExecutionPlan.Boundaries.Count(static boundary =>
-                    boundary.Reason == ExecutionIslandBoundaryReason.FusionDisabled),
-                Is.EqualTo(2));
         });
     }
 
@@ -312,8 +308,7 @@ public sealed class CrossNodeShaderFusionTests
                 Is.EqualTo(new[] { RenderFragmentKind.Shader }));
             Assert.That(runs[1].StageFragmentIndices.Select(index => compiled.Graph.Fragments[index].Kind),
                 Is.EqualTo(new[] { RenderFragmentKind.Opacity, RenderFragmentKind.Shader }));
-            Assert.That(compiled.ExecutionPlan.Boundaries, Has.Some.Matches<ExecutionIslandBoundary>(
-                static boundary => boundary.Reason == ExecutionIslandBoundaryReason.Branching));
+            Assert.That(runs[1].GetInput(compiled.Graph), Is.SameAs(runs[0].GetOutput(compiled.Graph)));
         });
     }
 
@@ -345,7 +340,6 @@ public sealed class CrossNodeShaderFusionTests
         {
             Assert.That(graph.Fragments, Has.Length.EqualTo(2));
             Assert.That(plan.Islands, Is.Empty);
-            Assert.That(plan.Boundaries, Is.Empty);
         });
     }
 

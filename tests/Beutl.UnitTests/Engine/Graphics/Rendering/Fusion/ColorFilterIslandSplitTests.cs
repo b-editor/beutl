@@ -30,11 +30,10 @@ public sealed class ColorFilterIslandSplitTests
             Assert.That(
                 compiled.ExecutionPlan.Islands.Select(static island => island.ShaderRun is not null),
                 Is.EqualTo(new[] { false, false, true }));
-            Assert.That(Reasons(compiled), Is.EqualTo(new[]
+            Assert.That(SemanticKinds(compiled), Is.EqualTo(new[]
             {
-                ExecutionIslandBoundaryReason.Opaque,
-                ExecutionIslandBoundaryReason.FilterEffectSegment,
-                ExecutionIslandBoundaryReason.CoverageResolution,
+                RenderFragmentKind.OpaqueSource,
+                RenderFragmentKind.FilterEffectSegment,
             }));
             Assert.That(compiled.ExecutionPlan.ShaderRuns.Single().StageFragmentIndices, Has.Length.EqualTo(1));
         }
@@ -55,15 +54,20 @@ public sealed class ColorFilterIslandSplitTests
             Assert.That(
                 compiled.ExecutionPlan.Islands.Select(static island => island.ShaderRun is not null),
                 Is.EqualTo(new[] { false, false, true }));
-            Assert.That(Reasons(compiled), Is.EqualTo(new[]
+            Assert.That(SemanticKinds(compiled), Is.EqualTo(new[]
             {
-                ExecutionIslandBoundaryReason.Opaque,
-                ExecutionIslandBoundaryReason.FilterEffectSegment,
-                ExecutionIslandBoundaryReason.CoverageResolution,
+                RenderFragmentKind.OpaqueSource,
+                RenderFragmentKind.FilterEffectSegment,
             }));
 
-            // The blur segment is what forces the split, so no custom effect is blamed for it.
-            Assert.That(Reasons(compiled), Does.Not.Contain(ExecutionIslandBoundaryReason.CustomEffectItem));
+            // The blur segment is what forces the split; it runs no custom effect item.
+            Assert.That(
+                compiled.Graph.Fragments
+                    .Select(static fragment => fragment.Payload)
+                    .OfType<FilterEffectSegmentRenderFragmentPayload>()
+                    .Single()
+                    .HasImperativeItem,
+                Is.False);
 
             Assert.That(compiled.ExecutionPlan.ShaderRuns.Single().StageFragmentIndices, Has.Length.EqualTo(1));
         }
@@ -102,12 +106,8 @@ public sealed class ColorFilterIslandSplitTests
                 compiled.ExecutionPlan.Islands.Select(static island => island.ShaderRun is not null),
                 Is.EqualTo(new[] { false, true }));
 
-            // Only the source-materialization boundaries; nothing separates the two color stages.
-            Assert.That(Reasons(compiled), Is.EqualTo(new[]
-            {
-                ExecutionIslandBoundaryReason.Opaque,
-                ExecutionIslandBoundaryReason.CoverageResolution,
-            }));
+            // Only the source is materialized; nothing separates the two color stages.
+            Assert.That(SemanticKinds(compiled), Is.EqualTo(new[] { RenderFragmentKind.OpaqueSource }));
             Assert.That(compiled.ExecutionPlan.ShaderRuns.Single().StageFragmentIndices, Has.Length.EqualTo(2));
         }
     }
@@ -130,15 +130,8 @@ public sealed class ColorFilterIslandSplitTests
                 compiled.ExecutionPlan.Islands.Select(static island => island.ShaderRun is not null),
                 Is.EqualTo(new[] { false, true }));
 
-            // Only source materialization remains; no backend limit separates the three shader stages.
-            Assert.That(Reasons(compiled), Is.EqualTo(new[]
-            {
-                ExecutionIslandBoundaryReason.Opaque,
-                ExecutionIslandBoundaryReason.CoverageResolution,
-            }));
-            Assert.That(Reasons(compiled), Does.Not.Contain(ExecutionIslandBoundaryReason.FilterEffectSegment));
-            Assert.That(Reasons(compiled), Does.Not.Contain(ExecutionIslandBoundaryReason.BackendLimit));
-
+            // Only the source is materialized; no backend limit splits the three shader stages.
+            Assert.That(SemanticKinds(compiled), Is.EqualTo(new[] { RenderFragmentKind.OpaqueSource }));
             Assert.That(compiled.ExecutionPlan.ShaderRuns, Has.Exactly(1).Items);
             Assert.That(compiled.ExecutionPlan.ShaderRuns.Single().StageFragmentIndices, Has.Length.EqualTo(3));
         }
@@ -156,12 +149,7 @@ public sealed class ColorFilterIslandSplitTests
         {
             Assert.That(compiled.ExecutionPlan.Islands.Select(static island => island.ShaderRun is not null),
                 Is.EqualTo(new[] { false, true }));
-            Assert.That(Reasons(compiled), Is.EqualTo(new[]
-            {
-                ExecutionIslandBoundaryReason.Opaque,
-                ExecutionIslandBoundaryReason.CoverageResolution,
-            }));
-            Assert.That(Reasons(compiled), Does.Not.Contain(ExecutionIslandBoundaryReason.WholeSourceShader));
+            Assert.That(SemanticKinds(compiled), Is.EqualTo(new[] { RenderFragmentKind.OpaqueSource }));
             Assert.That(run.StageFragmentIndices.Select(index => compiled.Graph.Fragments[index].Kind),
                 Is.EqualTo(new[]
                 {
@@ -226,13 +214,15 @@ public sealed class ColorFilterIslandSplitTests
         TestContext.WriteLine(
             $"{label}: {compiled.ExecutionPlan.Islands.Length} islands "
             + $"[{string.Join(", ", compiled.ExecutionPlan.Islands.Select(static island => island.ShaderRun is null ? "semantic" : "shader"))}], "
-            + $"boundary reasons [{string.Join(", ", Reasons(compiled))}], "
+            + $"semantic islands [{string.Join(", ", SemanticKinds(compiled))}], "
             + $"shader runs {compiled.ExecutionPlan.ShaderRuns.Count()} "
             + $"[{string.Join(", ", compiled.ExecutionPlan.ShaderRuns.Select(static run => run.StageFragmentIndices.Length))}]");
     }
 
-    private static ExecutionIslandBoundaryReason[] Reasons(CompiledRenderRequest compiled)
-        => [.. compiled.ExecutionPlan.Boundaries.Select(static boundary => boundary.Reason)];
+    private static RenderFragmentKind[] SemanticKinds(CompiledRenderRequest compiled)
+        => [.. compiled.ExecutionPlan.Islands
+            .Where(static island => island.ShaderRun is null)
+            .Select(island => compiled.Graph.Fragments[island.FragmentIndices[0]].Kind)];
 
     private static Bitmap RenderBlurThenBrightness(
         FusionMode fusionMode,

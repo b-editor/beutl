@@ -19,7 +19,7 @@ internal sealed class RenderRequest : IDisposable
         {
             throw new ArgumentException(
                 "A nested request must be created from its parent options and inherit intent, purpose, cache, "
-                + "fusion, owner, and diagnostic policy.",
+                + "fusion, and owner policy.",
                 nameof(options));
         }
 
@@ -186,15 +186,9 @@ internal sealed class RenderRequest : IDisposable
         (_children ??= []).Add(child);
     }
 
+    // Only CreateNestedAtScale sets NestedPolicyParent, and it copies the parent's policy into immutable options.
     private static bool HasInheritedRequestPolicy(
         RenderRequestOptions nested,
         RenderRequestOptions parent)
-    {
-        return ReferenceEquals(nested.NestedPolicyParent, parent)
-               && ReferenceEquals(nested.Owner, parent.Owner)
-               && nested.Intent == parent.Intent
-               && nested.Purpose == parent.Purpose
-               && nested.CachePolicy == parent.CachePolicy
-               && nested.FusionMode == parent.FusionMode;
-    }
+        => ReferenceEquals(nested.NestedPolicyParent, parent);
 }

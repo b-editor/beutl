@@ -33,12 +33,7 @@ internal sealed class RenderFragmentOutputIdentity : IEquatable<RenderFragmentOu
         _hash = ComputeHash();
     }
 
-    /// <remarks>
-    /// Identities form a DAG - Create memoizes, so a shared input is one instance reached by several parents -
-    /// and hashing an input by recursion would walk every path through it rather than every edge. Each input's
-    /// hash is already final by the time this runs, because an identity is built after its inputs, so folding
-    /// it in once here makes the whole graph linear in its edges instead of exponential in its fan-out.
-    /// </remarks>
+    // Inputs are built and hashed first, so folding in their final hash keeps hashing linear in edges.
     private int ComputeHash()
     {
         var hash = new HashCode();
@@ -55,34 +50,13 @@ internal sealed class RenderFragmentOutputIdentity : IEquatable<RenderFragmentOu
         return hash.ToHashCode();
     }
 
-    public static RenderFragmentOutputIdentity Create(
-        RenderFragmentReference reference,
-        RenderRequestId graphRequestId,
-        IReadOnlyDictionary<RenderFragmentReference, EffectiveScale>? materializationDemands = null,
-        float outputScale = 1,
-        float maxWorkingScale = float.PositiveInfinity,
-        RegionAnalysis? regions = null)
-    {
-        ArgumentNullException.ThrowIfNull(reference);
-        var memo = new Dictionary<RenderFragmentOutputIdentityMemoKey, RenderFragmentOutputIdentity>();
-        return CreateCore(
-            reference,
-            graphRequestId,
-            materializationDemands,
-            memo,
-            outputScale,
-            maxWorkingScale,
-            regions);
-    }
-
     internal static RenderFragmentOutputIdentity Create(
         RenderFragmentReference reference,
         RenderRequestId graphRequestId,
         IReadOnlyDictionary<RenderFragmentReference, EffectiveScale>? materializationDemands,
-        IDictionary<RenderFragmentOutputIdentityMemoKey, RenderFragmentOutputIdentity> memo,
+        IDictionary<RenderFragmentReference, RenderFragmentOutputIdentity> memo,
         float outputScale,
-        float maxWorkingScale,
-        RegionAnalysis regions)
+        float maxWorkingScale)
     {
         ArgumentNullException.ThrowIfNull(reference);
         ArgumentNullException.ThrowIfNull(memo);
@@ -92,25 +66,17 @@ internal sealed class RenderFragmentOutputIdentity : IEquatable<RenderFragmentOu
             materializationDemands,
             memo,
             outputScale,
-            maxWorkingScale,
-            regions);
+            maxWorkingScale);
     }
 
     public bool Equals(RenderFragmentOutputIdentity? other)
         => other is not null && EqualsCore(other, null);
 
-    /// <remarks>
-    /// The two graphs are separate objects, so nothing is shared between them and a plain recursion compares
-    /// one pair of nodes once per path that reaches it - exponential in the fan-out. Recording the pairs
-    /// already being proven equal makes it one comparison per pair instead. Re-reaching a pair can only mean
-    /// the same subgraph arrived by another route, because these graphs are acyclic and a failure returns
-    /// immediately rather than leaving a half-proven pair behind.
-    /// </remarks>
+    // Records pairs being proven so a shared subgraph is compared once, not once per path.
     private bool EqualsCore(
         RenderFragmentOutputIdentity other,
         HashSet<(RenderFragmentOutputIdentity Left, RenderFragmentOutputIdentity Right)>? proven)
     {
-        // Create memoizes, so the same input reached from two parents inside one graph is one instance.
         if (ReferenceEquals(this, other))
             return true;
 
@@ -158,13 +124,11 @@ internal sealed class RenderFragmentOutputIdentity : IEquatable<RenderFragmentOu
         RenderFragmentReference reference,
         RenderRequestId requestId,
         IReadOnlyDictionary<RenderFragmentReference, EffectiveScale>? materializationDemands,
-        IDictionary<RenderFragmentOutputIdentityMemoKey, RenderFragmentOutputIdentity> memo,
+        IDictionary<RenderFragmentReference, RenderFragmentOutputIdentity> memo,
         float outputScale,
-        float maxWorkingScale,
-        RegionAnalysis? regions)
+        float maxWorkingScale)
     {
-        var memoKey = new RenderFragmentOutputIdentityMemoKey(reference);
-        if (memo.TryGetValue(memoKey, out RenderFragmentOutputIdentity? cached))
+        if (memo.TryGetValue(reference, out RenderFragmentOutputIdentity? cached))
             return cached;
 
         RenderFragmentOutputIdentity[] inputs = reference.Inputs
@@ -174,8 +138,7 @@ internal sealed class RenderFragmentOutputIdentity : IEquatable<RenderFragmentOu
                 materializationDemands,
                 memo,
                 outputScale,
-                maxWorkingScale,
-                regions))
+                maxWorkingScale))
             .ToArray();
         var components = new List<object>();
         AddRequestScopedComponents(
@@ -194,7 +157,7 @@ internal sealed class RenderFragmentOutputIdentity : IEquatable<RenderFragmentOu
             demand,
             components.ToArray(),
             inputs);
-        memo.Add(memoKey, identity);
+        memo.Add(reference, identity);
         return identity;
     }
 

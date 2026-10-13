@@ -912,8 +912,8 @@ public sealed class DeviceBufferBudgetTests
                 "the fixture must reach the cache candidate whose key the clamped density would break");
             Assert.That(
                 segmentDecisions,
-                Has.All.Property(nameof(RenderCacheDecision.BypassReason))
-                    .EqualTo(RenderCacheBypassReason.RawTargetWork));
+                Has.All.Property(nameof(RenderCacheDecision.Kind))
+                    .EqualTo(RenderCacheResolutionKind.Bypass));
             Assert.That(first.IsEmpty, Is.False);
             Assert.That(second.IsEmpty, Is.False);
             Assert.That(effectNode.Cache.IsCached, Is.False,

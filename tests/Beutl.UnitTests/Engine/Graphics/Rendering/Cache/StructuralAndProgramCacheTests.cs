@@ -395,11 +395,13 @@ public sealed class StructuralAndProgramCacheTests
         StructuralPlanIdentity eligibleIdentity = StructuralPlanIdentity.Create(
             eligibleRequest.Options.PlanIdentity,
             eligibleGraph,
-            SkslBackendBudget.Unlimited);
+            SkslBackendBudget.Unlimited,
+            new RenderCacheResolution([]));
         StructuralPlanIdentity changedIdentity = StructuralPlanIdentity.Create(
             changedRequest.Options.PlanIdentity,
             changedGraph,
-            SkslBackendBudget.Unlimited);
+            SkslBackendBudget.Unlimited,
+            new RenderCacheResolution([]));
         _ = GetOrCompile(cache, eligibleIdentity, eligibleGraph);
         _ = GetOrCompile(cache, changedIdentity, changedGraph);
 

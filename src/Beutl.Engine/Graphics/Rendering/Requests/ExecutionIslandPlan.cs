@@ -1,5 +1,4 @@
 ﻿using System.Collections.Immutable;
-using Beutl.Graphics.Shaders;
 
 namespace Beutl.Graphics.Rendering.Requests;
 
@@ -10,18 +9,14 @@ internal sealed class ExecutionIslandPlan
 
     public ExecutionIslandPlan(
         int fragmentCount,
-        ImmutableArray<ExecutionIsland> islands,
-        ImmutableArray<ExecutionIslandBoundary> boundaries)
+        ImmutableArray<ExecutionIsland> islands)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(fragmentCount);
         if (islands.IsDefault)
             throw new ArgumentException("Execution islands must be initialized.", nameof(islands));
-        if (boundaries.IsDefault)
-            throw new ArgumentException("Execution-island boundaries must be initialized.", nameof(boundaries));
 
         FragmentCount = fragmentCount;
         Islands = islands;
-        Boundaries = boundaries;
         _islandByFragment = new int[fragmentCount];
         for (int index = 0; index < islands.Length; index++)
         {
@@ -51,24 +46,11 @@ internal sealed class ExecutionIslandPlan
                 _islandByFragment[fragmentIndex] = island.Index + 1;
             }
         }
-
-        foreach (ExecutionIslandBoundary boundary in boundaries)
-        {
-            ValidateBoundaryIndex(boundary.BeforeFragmentIndex, fragmentCount, nameof(boundaries));
-            ValidateBoundaryIndex(boundary.AfterFragmentIndex, fragmentCount, nameof(boundaries));
-        }
     }
 
     public int FragmentCount { get; }
 
     public ImmutableArray<ExecutionIsland> Islands { get; }
-
-    public ImmutableArray<ExecutionIslandBoundary> Boundaries { get; }
-
-    public IEnumerable<CompiledShaderRun> ShaderRuns
-        => Islands
-            .Where(static island => island.ShaderRun is not null)
-            .Select(static island => island.ShaderRun!);
 
     public bool TryGetMembership(
         RecordedRenderGraph graph,
@@ -109,10 +91,4 @@ internal sealed class ExecutionIslandPlan
     }
 
     public ExecutionIslandExecutionLedger CreateExecutionLedger(RecordedRenderGraph graph) => new(this, graph);
-
-    private static void ValidateBoundaryIndex(int? index, int fragmentCount, string parameterName)
-    {
-        if (index is < 0 || index >= fragmentCount)
-            throw new ArgumentException("An execution-island boundary is outside the recorded graph.", parameterName);
-    }
 }

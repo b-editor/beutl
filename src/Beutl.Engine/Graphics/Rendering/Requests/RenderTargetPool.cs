@@ -1,5 +1,4 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-using System.Runtime.ExceptionServices;
 
 using Beutl.Graphics.Backend;
 using Beutl.Media;
@@ -16,11 +15,7 @@ internal sealed partial class RenderTargetPool : IDisposable
     private static readonly object s_cpuContextIdentity = new();
 
     /// <summary>Every constructed, undisposed pool, so context teardown can reach what they retain.</summary>
-    /// <remarks>
-    /// A pool belongs to one renderer and nothing enumerates the live renderers, so a single teardown hook on
-    /// <see cref="GraphicsContextFactory"/> would have nothing to call. Only the constructor adds and only
-    /// <see cref="Dispose"/> removes, so a pool is listed for exactly as long as it can be holding a target.
-    /// </remarks>
+    /// <remarks>Nothing enumerates the live renderers, so a pool is listed from construction to disposal.</remarks>
     private static readonly HashSet<RenderTargetPool> s_livePools = new(ReferenceEqualityComparer.Instance);
 
     /// <summary>
@@ -28,11 +23,8 @@ internal sealed partial class RenderTargetPool : IDisposable
     /// minted for.
     /// </summary>
     /// <remarks>
-    /// The two live in one object so a request can never take an identity minted for one context while another
-    /// is live. <see cref="GraphicsContextFactory.Shutdown"/> is public, so the shared context is replaceable
-    /// while the pool still holds the previous one's surfaces; minting a new identity for the new context is
-    /// what makes <see cref="BeginSessionCore"/> evict them, rather than validating them against the handle the
-    /// replaced context reported and then clearing and drawing through a device that is gone.
+    /// Kept together so a replaced shared context gets a new identity, which makes <see cref="BeginSessionCore"/>
+    /// evict the previous context's surfaces instead of drawing through a device that is gone.
     /// </remarks>
     private sealed class ImplicitContextBinding(IGraphicsContext? context)
     {
@@ -76,14 +68,7 @@ internal sealed partial class RenderTargetPool : IDisposable
         BufferDimensionBudget.ThrowIfUninitialized(options.Budget, nameof(options));
 
         _factory = factory;
-        _options = new RenderTargetPoolOptions
-        {
-            MaximumRetainedBytes = options.MaximumRetainedBytes,
-            MaximumIdleRequests = options.MaximumIdleRequests,
-            Budget = options.Budget,
-            AfterTargetRegistrationStep = options.AfterTargetRegistrationStep,
-            BeforeLeaseRegistration = options.BeforeLeaseRegistration,
-        };
+        _options = options;
 
         lock (s_livePools)
             s_livePools.Add(this);
@@ -175,13 +160,13 @@ internal sealed partial class RenderTargetPool : IDisposable
         }
         catch (Exception ex)
         {
-            AppendFailure(failures, ex);
+            CleanupFailures.Append(failures, ex);
         }
 
         if (activeSession is not null)
         {
             foreach (Exception failure in activeSession.CleanupFailures)
-                AppendFailure(failures, failure);
+                CleanupFailures.Append(failures, failure);
         }
         _activeSession = null;
 
@@ -195,16 +180,10 @@ internal sealed partial class RenderTargetPool : IDisposable
         ThrowCleanupFailures(failures);
     }
 
-    /// <summary>Evicts every live pool's retained targets, for a caller about to destroy the context.</summary>
-    /// <remarks>
-    /// A pool learns a context is gone only from the next request naming a different one, which after a
-    /// shutdown is never. By then the eviction's backend releases cannot even be deferred - with no shared
-    /// context installed <see cref="GpuResourceReclaimQueue.TryDefer"/> declines - so each one reaches a
-    /// device <c>vkDestroyDevice</c> has already taken, and the backend drops it rather than destroy against
-    /// a dangling handle. Calling this while the context is still installed is what keeps those releases on
-    /// the live device. Leased targets stay: their holder releases them, and a release that lands after
-    /// teardown is the backend's own guard to refuse.
-    /// </remarks>
+    /// <summary>
+    /// Evicts every live pool's retained targets while the context is still installed, so their backend releases
+    /// reach the live device. Leased targets are left to their holders.
+    /// </summary>
     internal static void RetireRetainedTargetsBeforeContextTeardown()
     {
         RenderTargetPool[] pools;
@@ -224,7 +203,7 @@ internal sealed partial class RenderTargetPool : IDisposable
             }
             catch (Exception ex)
             {
-                AppendFailure(failures, ex);
+                CleanupFailures.Append(failures, ex);
             }
         }
 
@@ -297,12 +276,8 @@ internal sealed partial class RenderTargetPool : IDisposable
 
     /// <summary>The largest extent <paramref name="request"/>'s allocator may be asked for.</summary>
     /// <remarks>
-    /// A device's attachment limit bounds the allocations that reach that device and no others. Only the
-    /// pool's own allocator attaches through a shared context, and only from a dispatcher, so only then is
-    /// it measured against one; anything else is bounded by the engine ceiling planning already clamped the
-    /// density to, and its own allocator declines what it cannot make - <see cref="TryAcquire"/> reports
-    /// that as the same decline. A named <see cref="RenderTargetPoolOptions.Budget"/> overrides both,
-    /// because it states what this pool may attach regardless of which allocator makes the allocation.
+    /// Only the pool's own allocator attaching through a shared context is measured against a device; anything
+    /// else gets the engine ceiling. A named <see cref="RenderTargetPoolOptions.Budget"/> overrides both.
     /// </remarks>
     private BufferDimensionBudget ResolveBufferBudget(RenderTargetLeaseSession request)
         => _options.Budget
@@ -316,24 +291,17 @@ internal sealed partial class RenderTargetPool : IDisposable
     /// </summary>
     private IGraphicsContext? ResolveAttachmentContext(RenderTargetLeaseSession request)
     {
-        // A caller-supplied factory allocates on whatever context it chose - a CPU allocator on none at all -
-        // and a CPU-bound request takes this pool's own raster path. Neither attaches through the shared
-        // context.
+        // A caller-supplied factory and a CPU-bound request never attach through the shared context.
         if (_factory is not null || IsCpuBound(request))
             return null;
 
-        // Everything else lands in RenderTarget.Create, so it attaches wherever that would - and off the
-        // render thread that is nowhere, because Create rasters there whatever context this request names.
-        // Asking Create itself is what keeps the budget and the allocation from answering differently.
-        // BeginImplicitSession names a context in place of the live one, and a request bound to it has to be
-        // measured against the device it named rather than against whichever context is live now.
+        // Everything else attaches wherever RenderTarget.Create would, and a request of BeginImplicitSession is
+        // measured against the context it named rather than the live one.
         IGraphicsContext? named = request.ContextIdentity is ImplicitContextBinding binding
             ? binding.Context
             : GraphicsContextFactory.SharedContext;
 
-        // A request opened before any GPU work has happened names nothing, because nothing was installed to
-        // name - but Create still builds a device there, and one that attaches less than the engine ceiling
-        // would then be asked for a buffer it cannot make. Building it here is what Create does anyway.
+        // Before any GPU work nothing is named, yet Create still builds a device, so resolve that one.
         return named is not null
             ? RenderTarget.ResolveCreationContext(named)
             : RenderTarget.ResolveCreationContextForAllocation();
@@ -351,11 +319,8 @@ internal sealed partial class RenderTargetPool : IDisposable
     /// <summary>Leases an exact-size target, reporting <see langword="false"/> only when the allocator declines.</summary>
     /// <remarks>Every other failure — a stale slot, a contract-violating factory return — still throws.</remarks>
     /// <param name="clearContents">
-    /// Whether the lease must arrive transparent. A caller that defines every pixel of the target before
-    /// reading any of it - a full-frame pass whose load op clears, or a shader that provably writes
-    /// everywhere - passes <see langword="false"/> and saves the clear and the two layout transitions
-    /// around it. The slot's recorded contents stay unknown either way, so the next caller that does want a
-    /// blank target still gets one.
+    /// Whether the lease must arrive transparent. A caller that writes every pixel before reading any passes
+    /// <see langword="false"/> to skip the clear; the slot's contents stay unknown either way.
     /// </param>
     internal bool TryAcquire(
         RenderTargetLeaseSession request,
@@ -417,10 +382,9 @@ internal sealed partial class RenderTargetPool : IDisposable
             if (clearContents)
                 reusable.Target.ClearToTransparent();
         }
-        catch (Exception ex)
+        catch
         {
             Evict(reusable, request, failures: null);
-            ExceptionDispatchInfo.Capture(ex).Throw();
             throw;
         }
 
@@ -448,11 +412,8 @@ internal sealed partial class RenderTargetPool : IDisposable
             try
             {
                 _ownedSlots.Add(slot);
-                _options.AfterTargetRegistrationStep?.Invoke(RenderTargetPoolRegistrationStage.OwnedSlot);
                 _knownTargets.Add(target);
-                _options.AfterTargetRegistrationStep?.Invoke(RenderTargetPoolRegistrationStage.KnownTarget);
                 _knownSurfaces.Add(surface);
-                _options.AfterTargetRegistrationStep?.Invoke(RenderTargetPoolRegistrationStage.KnownSurface);
             }
             catch
             {
@@ -467,7 +428,7 @@ internal sealed partial class RenderTargetPool : IDisposable
             accepted = true;
             return Lease(request, slot);
         }
-        catch (Exception primary)
+        catch
         {
             if (!accepted)
             {
@@ -477,7 +438,6 @@ internal sealed partial class RenderTargetPool : IDisposable
                     DisposeRejectedTarget(target, request);
             }
 
-            ExceptionDispatchInfo.Capture(primary).Throw();
             throw;
         }
     }
@@ -624,7 +584,6 @@ internal sealed partial class RenderTargetPool : IDisposable
             slot.ActiveLease = lease;
             _leasedTargets++;
             _peakLiveTargets = Math.Max(_peakLiveTargets, _leasedTargets);
-            _options.BeforeLeaseRegistration?.Invoke();
             request.Register(lease);
             return lease;
         }
@@ -636,18 +595,9 @@ internal sealed partial class RenderTargetPool : IDisposable
     }
 
     /// <summary>
-    /// Settles a rejected wrapper's own hold on the surface it shares with a live pool slot or with the
-    /// caller's destination, so nothing it does later can release that surface out from under them.
+    /// Settles a rejected wrapper that shares a live surface: a <see cref="RenderTarget.ShallowCopy"/> is disposed
+    /// to drop its count; a fresh wrapper must not free the surface, so only its finalizer is suppressed.
     /// </summary>
-    /// <remarks>
-    /// The two shapes a factory can hand back here need opposite treatment. A reference-counted copy
-    /// (<see cref="RenderTarget.ShallowCopy"/>) has to be disposed: that only drops this wrapper's count, and
-    /// nothing else ever will, so leaving it strands the surface for the life of the process. A fresh wrapper
-    /// holding the sole count on a surface it did not allocate must be neither disposed nor finalized - either
-    /// frees memory the live holder is still drawing to - so its finalizer is suppressed instead. Suppression
-    /// cannot hide a leak of resources the wrapper does own: the surface belongs to the live holder, and a
-    /// target reaching this branch shares that holder's surface rather than a texture it allocated itself.
-    /// </remarks>
     private static void ReleaseRejectedWrapper(RenderTarget target, RenderTargetLeaseSession request)
     {
         if (target.SharesSurfaceOwnership)
@@ -672,35 +622,20 @@ internal sealed partial class RenderTargetPool : IDisposable
     }
 
     private static long GetByteSize(PixelSize size)
-    {
-        try
-        {
-            return checked((long)size.Width * size.Height * 8);
-        }
-        catch (OverflowException)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(size),
-                size,
-                "The RGBA16F render-target byte size overflowed.");
-        }
-    }
+        => checked((long)size.Width * size.Height * 8);
 
     private RenderTarget? CreateTarget(PixelSize deviceSize, RenderTargetLeaseSession request)
         => _factory is null
             ? CreateDefaultTarget(deviceSize, ResolveAllocationContextHandle(request))
             : _factory.Create(GetAllocationDescriptor(deviceSize, request));
 
-    internal RenderTargetAllocationDescriptor GetAllocationDescriptor(
+    private RenderTargetAllocationDescriptor GetAllocationDescriptor(
         PixelSize deviceSize,
         RenderTargetLeaseSession request)
-    {
-        VerifyActive(request);
-        return new RenderTargetAllocationDescriptor(
+        => new(
             deviceSize,
             _graphicsContext,
             ResolveAllocationContextHandle(request));
-    }
 
     // Only a request rendering into a caller-owned destination carries a handle of its own. A
     // target-less request on a pool that already bound a context still has to allocate on that
@@ -729,26 +664,7 @@ internal sealed partial class RenderTargetPool : IDisposable
     }
 
     private static void ThrowCleanupFailures(List<Exception> failures)
-    {
-        if (failures.Count == 0)
-            return;
-        if (failures.Count == 1)
-            ExceptionDispatchInfo.Capture(failures[0]).Throw();
-        throw new AggregateException("One or more pooled render targets failed to dispose.", failures);
-    }
-
-    private static void AppendFailure(List<Exception> failures, Exception failure)
-    {
-        if (failure is AggregateException aggregate)
-        {
-            foreach (Exception inner in aggregate.Flatten().InnerExceptions)
-                AppendFailure(failures, inner);
-        }
-        else if (!failures.Contains(failure))
-        {
-            failures.Add(failure);
-        }
-    }
+        => CleanupFailures.ThrowIfAny(failures, "One or more pooled render targets failed to dispose.");
 
     private sealed class CpuRenderTarget(SKSurface surface, PixelSize size)
         : RenderTarget(surface, size.Width, size.Height);
