@@ -230,6 +230,11 @@ public class LinuxDefaultFontTests
         {
             return false;
         }
+        catch (IOException ex) when (ex.HResult == 3) // ESRCH: no such process.
+        {
+            // The process can disappear after opening its stat file but before reading it.
+            return false;
+        }
 
         // Compare start time as well as PID; an exited PID may already have been reused.
         int currentStart = current.LastIndexOf(')') + 2;
