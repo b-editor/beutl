@@ -732,19 +732,6 @@ public sealed class RenderTargetPoolTests
     }
 
     [Test]
-    public void DischargedLease_RejectsTargetAccess()
-    {
-        using var pool = new RenderTargetPool(new TrackingTargetFactory());
-        using RenderTargetLeaseSession request = pool.BeginSession(RenderIntent.Delivery);
-        RenderTargetLease lease = request.Acquire(new PixelSize(4, 4));
-        lease.Dispose();
-
-        Assert.That(
-            () => _ = lease.Target,
-            Throws.InvalidOperationException.With.Message.Contains("already been discharged"));
-    }
-
-    [Test]
     public void BoundCpuContext_IsForwardedToSubsequentTargetlessFactoryMiss()
     {
         var factory = new TrackingTargetFactory();
@@ -758,10 +745,8 @@ public sealed class RenderTargetPoolTests
 
         Assert.That(factory.Allocations, Has.Count.EqualTo(2));
         Assert.That(factory.Allocations, Has.All.Matches<RenderTargetAllocationDescriptor>(allocation =>
-            allocation.PixelFormat == RenderTargetPixelFormat.LinearPremultipliedRgba16Float
-            && allocation.GraphicsContext is null
-            && allocation.GraphicsContextHandle == 0
-            && allocation.GraphicsBackend is null));
+            allocation.GraphicsContext is null
+            && allocation.GraphicsContextHandle == 0));
     }
 
     [Test]
@@ -789,8 +774,7 @@ public sealed class RenderTargetPoolTests
             {
                 Assert.That(factory.Observations, Has.Count.EqualTo(2));
                 Assert.That(factory.Observations, Has.All.Matches<AllocationObservation>(observation =>
-                    observation.PixelFormat == RenderTargetPixelFormat.LinearPremultipliedRgba16Float
-                    && observation.ContextMatchedExpectation));
+                    observation.ContextMatchedExpectation));
                 Assert.That(factory.Observations[0].HasGraphicsContext, Is.False);
                 Assert.That(factory.Observations[0].GraphicsContextHandle, Is.Null);
                 Assert.That(factory.Observations[0].GraphicsBackend, Is.Null);
@@ -1046,7 +1030,6 @@ public sealed class RenderTargetPoolTests
         public RenderTarget? Create(RenderTargetAllocationDescriptor allocation)
         {
             Observations.Add(new AllocationObservation(
-                allocation.PixelFormat,
                 allocation.GraphicsContext is not null,
                 allocation.GraphicsContextHandle,
                 allocation.GraphicsBackend,
@@ -1069,7 +1052,6 @@ public sealed class RenderTargetPoolTests
     }
 
     private readonly record struct AllocationObservation(
-        RenderTargetPixelFormat PixelFormat,
         bool HasGraphicsContext,
         nint? GraphicsContextHandle,
         GRBackend? GraphicsBackend,

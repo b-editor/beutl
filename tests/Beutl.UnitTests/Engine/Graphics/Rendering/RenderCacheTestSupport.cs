@@ -44,6 +44,28 @@ internal static class RenderCacheTestSupport
             new RenderCacheDeviceContextIdentity(device, context));
     }
 
+    /// <summary>
+    /// A hit or miss-capture decision for <paramref name="candidate"/>, with an identity over <paramref name="bounds"/>.
+    /// </summary>
+    public static RenderCacheDecision CreateDecision(
+        RenderCacheCandidate candidate,
+        RenderCacheResolutionKind kind,
+        Rect bounds)
+        => kind switch
+        {
+            RenderCacheResolutionKind.Hit => new RenderCacheDecision(
+                candidate,
+                kind,
+                null,
+                new RenderCacheEntry(CreateCacheIdentity(bounds), new object())),
+            RenderCacheResolutionKind.MissCapture => new RenderCacheDecision(
+                candidate,
+                kind,
+                CreateCacheIdentity(bounds),
+                null),
+            _ => throw new ArgumentOutOfRangeException(nameof(kind)),
+        };
+
     public static RenderNodeCachePublication CreatePublication(
         RenderNodeCache cache,
         RenderTarget target,

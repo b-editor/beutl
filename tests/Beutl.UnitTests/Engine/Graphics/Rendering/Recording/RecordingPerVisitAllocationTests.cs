@@ -1,7 +1,7 @@
 ﻿using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
-using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Rendering.Requests;
+using static Beutl.UnitTests.Engine.Graphics.Rendering.Recording.RenderNodeRecordingCacheTests;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Recording;
 
@@ -12,9 +12,7 @@ public sealed class RecordingPerVisitAllocationTests
     private const int Frames = 200;
     private static readonly Rect s_bounds = new(0, 0, 100, 100);
 
-    // Measured at 5,192 bytes for a three-node subtree of four fragments, against 5,632 before request-owner
-    // rare state and the recording-family scope stopped allocating on every visit. The figure is deterministic
-    // on one machine, so the margin covers a platform that sizes its collections differently rather than noise.
+    // Measured at 5,192 bytes on one machine; the margin covers platforms that size collections differently.
     private const long ReplayedSubtreeBytesPerRecordCeiling = 5_700;
 
     [Test]
@@ -70,36 +68,4 @@ public sealed class RecordingPerVisitAllocationTests
             Assert.That(() => family.Enter(node).Dispose(), Throws.Nothing);
         });
     }
-
-    private static RecordedRenderGraph Record(RenderNode node)
-    {
-        RenderNodeCacheLifecycle lifecycle = RenderNodeCacheHelper.BeginLifecycle(node);
-        using var owner = new RenderRequestOwner();
-        using var request = new RenderRequest(new RenderRequestOptions(
-            RenderIntent.Preview,
-            RenderRequestPurpose.Auxiliary,
-            null,
-            null,
-            1f,
-            1f,
-            RenderCacheOptions.Disabled,
-            FusionMode.Enabled,
-            owner));
-        RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(node);
-        lifecycle.CompleteSuccessfully(false);
-        return graph;
-    }
-
-    private sealed class ChainedSourceNode(Rect bounds) : RenderNode
-    {
-        public override void Process(RenderNodeContext context)
-        {
-            RenderFragmentHandle source = context.OpaqueSource(
-                RenderNodeRecordingCacheTests.CreateSource(bounds));
-            RenderFragmentHandle opacity = context.Opacity(source, 0.5f);
-            context.Publish(context.Opacity(opacity, 0.25f));
-        }
-    }
-
-    private sealed class PassThroughContainerNode : ContainerRenderNode;
 }

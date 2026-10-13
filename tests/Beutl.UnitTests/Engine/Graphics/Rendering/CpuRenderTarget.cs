@@ -23,11 +23,16 @@ internal sealed class CpuRenderTarget(PixelSize size)
     }
 }
 
-/// <summary>Allocates every target a renderer requests as a <see cref="CpuRenderTarget"/>.</summary>
+/// <summary>Allocates every target a renderer requests as a <see cref="CpuRenderTarget"/>, counting them.</summary>
 internal sealed class CpuRenderTargetFactory : IRenderTargetFactory
 {
+    public int AllocationCount { get; private set; }
+
     public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
-        => new CpuRenderTarget(allocation.DeviceSize);
+    {
+        AllocationCount++;
+        return new CpuRenderTarget(allocation.DeviceSize);
+    }
 }
 
 /// <summary>

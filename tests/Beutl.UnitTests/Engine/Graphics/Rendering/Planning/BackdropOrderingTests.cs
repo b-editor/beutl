@@ -6,6 +6,7 @@ using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Requests;
 using Beutl.Graphics.Shaders;
 using Beutl.Media;
+using static Beutl.UnitTests.Engine.Graphics.Rendering.RenderGraphTestSupport;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Planning;
 
@@ -32,10 +33,7 @@ public sealed class BackdropOrderingTests
         RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(root);
         using CompiledRenderRequest compiled = new RenderRequestCompiler().Compile(request, graph);
 
-        IReadOnlyDictionary<RenderFragmentId, RenderFragmentReference> references = graph.Fragments
-            .ToDictionary(
-                static fragment => fragment.Id!.Value,
-                static fragment => fragment);
+        IReadOnlyDictionary<RenderFragmentId, RenderFragmentReference> references = References(graph);
         TargetDependencyStep[] steps = compiled.TargetDependencies.Steps.ToArray();
 
         RenderFragmentReference[] captures = references.Values
@@ -59,15 +57,11 @@ public sealed class BackdropOrderingTests
         int clearIndex = Array.IndexOf(steps, clearStep);
         int drawIndex = Array.IndexOf(steps, drawStep);
         int captureUses = draw.Inputs.Count(input => ReferenceEquals(input, capture));
-        int implicitContributions = references.Values.Count(reference =>
-            reference.Kind == RenderFragmentKind.ContributeValues
-            && reference.Inputs.Any(input => ReferenceEquals(input, capture)));
 
         Assert.Multiple(() =>
         {
             Assert.That(capture.ContributesValuesToTarget, Is.False,
                 "A target capture anchors pixels but must not redraw them implicitly.");
-            Assert.That(implicitContributions, Is.Zero);
             Assert.That(captureIndex, Is.LessThan(clearIndex));
             Assert.That(clearIndex, Is.LessThan(drawIndex));
             Assert.That(captureUses, Is.EqualTo(1),

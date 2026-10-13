@@ -1,11 +1,11 @@
-﻿using Beutl.Composition;
-using Beutl.Graphics;
+﻿using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Rendering.Requests;
-using Beutl.Graphics.Shapes;
 using Beutl.Media;
 using SkiaSharp;
+using static Beutl.UnitTests.Engine.Graphics.Rendering.Golden.ImageMetrics;
+using static Beutl.UnitTests.Engine.Graphics.Rendering.RenderGraphTestSupport;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Planning;
 
@@ -92,7 +92,7 @@ public sealed class TargetScopeLoweringTests
             Intent = RenderIntent.Preview,
             TargetDomain = s_rootDomain,
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
 
         using RenderNodeRasterization raster = renderer.Rasterize();
 
@@ -135,7 +135,7 @@ public sealed class TargetScopeLoweringTests
                 Is.EqualTo(s_rootDomain));
         });
 
-        var factory = new CpuTargetFactory();
+        var factory = new CpuRenderTargetFactory();
         using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
         {
             Intent = RenderIntent.Preview,
@@ -200,7 +200,7 @@ public sealed class TargetScopeLoweringTests
             Intent = RenderIntent.Preview,
             TargetDomain = s_rootDomain,
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
         using RenderNodeRasterization raster = renderer.Rasterize();
 
         Assert.Multiple(() =>
@@ -280,7 +280,7 @@ public sealed class TargetScopeLoweringTests
             Intent = RenderIntent.Preview,
             TargetDomain = s_rootDomain,
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
 
         using RenderNodeRasterization raster = renderer.Rasterize();
 
@@ -384,7 +384,7 @@ public sealed class TargetScopeLoweringTests
             Intent = RenderIntent.Preview,
             TargetDomain = s_rootDomain,
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
 
         using RenderNodeRasterization raster = renderer.Rasterize();
 
@@ -438,7 +438,7 @@ public sealed class TargetScopeLoweringTests
             Intent = RenderIntent.Preview,
             TargetDomain = s_rootDomain,
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
 
         using RenderNodeRasterization raster = renderer.Rasterize();
 
@@ -510,7 +510,7 @@ public sealed class TargetScopeLoweringTests
             Intent = RenderIntent.Preview,
             TargetDomain = domain,
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
 
         RenderNodeMeasurement measurement = renderer.Measure();
 
@@ -534,7 +534,7 @@ public sealed class TargetScopeLoweringTests
             Intent = RenderIntent.Preview,
             TargetDomain = s_rootDomain,
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
 
         using RenderNodeRasterization raster = renderer.Rasterize();
 
@@ -550,7 +550,7 @@ public sealed class TargetScopeLoweringTests
     [Test]
     public void Rasterize_ReportsTheDeviceCoverOfAShiftedSelection_AndEmptySelectionDoesNotAllocate()
     {
-        var factory = new CpuTargetFactory();
+        var factory = new CpuRenderTargetFactory();
         var shifted = new Rect(10.25f, 20.25f, 3.5f, 2.5f);
         using var root = new SourceNode(shifted, "shifted-raster", execute: true);
         using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
@@ -621,30 +621,6 @@ public sealed class TargetScopeLoweringTests
             scope.OwnerFragmentId is { } owner && references[owner].Kind == kind);
     }
 
-    private static IReadOnlyDictionary<RenderFragmentId, RenderFragmentReference> References(
-        RecordedRenderGraph graph)
-        => graph.Fragments.ToDictionary(
-            static fragment => fragment.Id!.Value,
-            static fragment => fragment);
-
-    private static float AlphaAt(Bitmap bitmap, int x, int y)
-    {
-        Span<ushort> row = bitmap.GetRow<ushort>(y);
-        return (float)BitConverter.UInt16BitsToHalf(row[(x * 4) + 3]);
-    }
-
-    private static Brush.Resource CreateRemoteDrawableBrush()
-    {
-        var content = new RectShape();
-        content.Width.CurrentValue = 10;
-        content.Height.CurrentValue = 8;
-        content.AlignmentX.CurrentValue = AlignmentX.Right;
-        content.AlignmentY.CurrentValue = AlignmentY.Bottom;
-        content.Fill.CurrentValue = Brushes.White;
-        var brush = new DrawableBrush(content);
-        return (Brush.Resource)brush.ToResource(CompositionContext.Default);
-    }
-
     private sealed class FullCommandNode(Color? color = null) : RenderNode
     {
         private readonly Color _color = color ?? Colors.Transparent;
@@ -709,20 +685,6 @@ public sealed class TargetScopeLoweringTests
                     static _ => { },
                     TargetRegion.Empty,
                     Rect.Empty,
-                    RenderHitTestContract.None)));
-        }
-    }
-
-    private sealed class FiniteCommandNode(Rect bounds) : RenderNode
-    {
-        public override void Process(RenderNodeContext context)
-        {
-            context.Publish(context.TargetCommand(
-                [],
-                TargetCommandDescription.CreateRequestLocal(
-                    static _ => { },
-                    TargetRegion.Region(bounds),
-                    bounds,
                     RenderHitTestContract.None)));
         }
     }
@@ -807,27 +769,4 @@ public sealed class TargetScopeLoweringTests
             context.Publish(context.OpaqueSource(description));
         }
     }
-
-    private sealed class CpuTargetFactory : IRenderTargetFactory
-    {
-        public int AllocationCount { get; private set; }
-
-        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
-        {
-            PixelSize deviceSize = allocation.DeviceSize;
-            AllocationCount++;
-            return new CpuRenderTarget(deviceSize.Width, deviceSize.Height);
-        }
-    }
-
-    private sealed class CpuRenderTarget(int width, int height)
-        : RenderTarget(
-            SKSurface.Create(new SKImageInfo(
-                width,
-                height,
-                SKColorType.RgbaF16,
-                SKAlphaType.Premul,
-                SKColorSpace.CreateSrgbLinear())),
-            width,
-            height);
 }

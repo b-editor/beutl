@@ -797,15 +797,4 @@ public sealed class RasterFootprintMetadataTests
 
         return new PixelRect(left, top, right - left, bottom - top);
     }
-
-    private sealed class CpuRenderTarget(int width, int height)
-        : RenderTarget(
-            SKSurface.Create(new SKImageInfo(
-                width,
-                height,
-                SKColorType.RgbaF16,
-                SKAlphaType.Premul,
-                SKColorSpace.CreateSrgbLinear())),
-            width,
-            height);
 }

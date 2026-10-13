@@ -12,6 +12,9 @@ public sealed class RenderNodeRecordingCacheTests
 {
     private static readonly Rect s_bounds = new(0, 0, 100, 100);
 
+    // Shared so that recording with the defaults allocates no setup, which the per-visit allocation budget would count.
+    private static readonly RequestSetup s_defaultSetup = new();
+
     [Test]
     public void AStaticNode_IsProcessedOnceAndReusedAfter()
     {
@@ -340,11 +343,11 @@ public sealed class RenderNodeRecordingCacheTests
     /// The lifecycle is what clears <see cref="RenderNode.HasChanges"/> after a successful request. Without
     /// it a node that ever reported a change reports it forever and nothing here could ever be reused.
     /// </remarks>
-    private static RecordedRenderGraph Record(RenderNode node, RequestSetup? setup = null)
+    internal static RecordedRenderGraph Record(RenderNode node, RequestSetup? setup = null)
     {
         RenderNodeCacheLifecycle lifecycle = RenderNodeCacheHelper.BeginLifecycle(node);
         using var owner = new RenderRequestOwner();
-        using var request = new RenderRequest((setup ?? new RequestSetup()).CreateOptions(owner));
+        using var request = new RenderRequest((setup ?? s_defaultSetup).CreateOptions(owner));
         RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(node);
         lifecycle.CompleteSuccessfully(false);
         return graph;
@@ -483,6 +486,19 @@ public sealed class RenderNodeRecordingCacheTests
             context.PublishRange(context.RecordNode(inner, []));
         }
     }
+
+    /// <summary>A node whose fragments form a chain, so a replay has real slots to resolve.</summary>
+    internal sealed class ChainedSourceNode(Rect bounds) : RenderNode
+    {
+        public override void Process(RenderNodeContext context)
+        {
+            RenderFragmentHandle source = context.OpaqueSource(CreateSource(bounds));
+            RenderFragmentHandle opacity = context.Opacity(source, 0.5f);
+            context.Publish(context.Opacity(opacity, 0.25f));
+        }
+    }
+
+    internal sealed class PassThroughContainerNode : ContainerRenderNode;
 
     internal sealed class SilentNode : RenderNode
     {

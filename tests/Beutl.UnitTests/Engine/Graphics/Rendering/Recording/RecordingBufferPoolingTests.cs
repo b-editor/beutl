@@ -1,15 +1,11 @@
 ﻿using System.Buffers;
 using System.Collections.Immutable;
-using Beutl.Composition;
 using Beutl.Graphics;
-using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Rendering.Requests;
-using Beutl.Graphics.Shapes;
-using Beutl.Graphics.Transformation;
 using Beutl.Media;
-using SkiaSharp;
+using static Beutl.UnitTests.Engine.Graphics.Rendering.Recording.RenderNodeRecordingCacheTests;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Recording;
 
@@ -181,7 +177,7 @@ public sealed class RecordingBufferPoolingTests
     /// <summary>Renders the scene the allocation budgets are measured on, with the render cache warm.</summary>
     private static void RenderRepresentativeScene(int frames)
     {
-        Drawable.Resource[] resources = CreateSceneResources();
+        Drawable.Resource[] resources = RenderCacheTestSupport.CreateRepresentativeScene();
         try
         {
             using var root = new DrawableRenderNode(resources[0]);
@@ -198,12 +194,11 @@ public sealed class RecordingBufferPoolingTests
                 TargetDomain = new Rect(default, s_frameSize.ToSize(1)),
                 CacheOptions = RenderCacheOptions.Enabled,
                 Purpose = RenderRequestPurpose.Frame,
-            }, new CpuTargetFactory());
+            }, new CpuRenderTargetFactory());
 
-            var revalidated = new HashSet<RenderNode>(ReferenceEqualityComparer.Instance);
             for (int frame = 0; frame < frames; frame++)
             {
-                ClearChanges(root, revalidated);
+                root.SettleConstruction();
                 renderer.Rasterize().Dispose();
             }
         }
@@ -212,61 +207,6 @@ public sealed class RecordingBufferPoolingTests
             foreach (Drawable.Resource resource in resources)
                 resource.Dispose();
         }
-    }
-
-    private static void ClearChanges(RenderNode root, HashSet<RenderNode> revalidated)
-    {
-        revalidated.Clear();
-        Visit(root);
-        return;
-
-        void Visit(RenderNode current)
-        {
-            if (current.IsDisposed || !revalidated.Add(current))
-                return;
-
-            ReadOnlySpan<RenderNode> children = current.ChildNodes;
-            for (int index = 0; index < children.Length; index++)
-                Visit(children[index]);
-
-            current.ClearChanges(current.ChangeVersion);
-        }
-    }
-
-    private static Drawable.Resource[] CreateSceneResources()
-    {
-        var background = new RectShape
-        {
-            Width = { CurrentValue = s_frameSize.Width },
-            Height = { CurrentValue = s_frameSize.Height },
-            Fill = { CurrentValue = Brushes.CornflowerBlue },
-        };
-
-        var accent = new EllipseShape
-        {
-            Width = { CurrentValue = 76 },
-            Height = { CurrentValue = 76 },
-            Fill = { CurrentValue = Brushes.OrangeRed },
-            FilterEffect = { CurrentValue = new Brightness { Amount = { CurrentValue = 78 } } },
-            Transform = { CurrentValue = new TranslateTransform(44, -18) },
-        };
-
-        var label = new TextBlock
-        {
-            FontFamily = { CurrentValue = FontFamily.Default },
-            Size = { CurrentValue = 28 },
-            Fill = { CurrentValue = Brushes.White },
-            Text = { CurrentValue = "CACHE" },
-            Transform = { CurrentValue = new TranslateTransform(-28, 30) },
-        };
-
-        CompositionContext context = CompositionContext.Default;
-        return
-        [
-            background.ToResource(context),
-            accent.ToResource(context),
-            label.ToResource(context),
-        ];
     }
 
     private static void AssertInputsResolveWithinTheirOwnGraph(RecordedRenderGraph graph)
@@ -341,28 +281,6 @@ public sealed class RecordingBufferPoolingTests
             FusionMode.Enabled,
             owner);
 
-    private static RecordedRenderGraph Record(RenderNode node)
-    {
-        RenderNodeCacheLifecycle lifecycle = RenderNodeCacheHelper.BeginLifecycle(node);
-        using var owner = new RenderRequestOwner();
-        using var request = new RenderRequest(CreateOptions(owner));
-        RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(node);
-        lifecycle.CompleteSuccessfully(false);
-        return graph;
-    }
-
-    /// <summary>A node whose fragments form a chain, so a replay has real slots to resolve.</summary>
-    private sealed class ChainedSourceNode(Rect bounds) : RenderNode
-    {
-        public override void Process(RenderNodeContext context)
-        {
-            RenderFragmentHandle source = context.OpaqueSource(
-                RenderNodeRecordingCacheTests.CreateSource(bounds));
-            RenderFragmentHandle opacity = context.Opacity(source, 0.5f);
-            context.Publish(context.Opacity(opacity, 0.25f));
-        }
-    }
-
     /// <summary>Records another node from inside its own Process, so the child's commit is absorbed here.</summary>
     private sealed class DrivingNode(RenderNode inner, Rect bounds) : RenderNode
     {
@@ -375,25 +293,6 @@ public sealed class RecordingBufferPoolingTests
             context.Publish(context.Layer([.. outputs, own], bounds));
         }
     }
-
-    private sealed class PassThroughContainerNode : ContainerRenderNode;
-
-    private sealed class CpuTargetFactory : IRenderTargetFactory
-    {
-        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
-            => new CpuRenderTarget(allocation.DeviceSize.Width, allocation.DeviceSize.Height);
-    }
-
-    private sealed class CpuRenderTarget(int width, int height)
-        : RenderTarget(
-            SKSurface.Create(new SKImageInfo(
-                width,
-                height,
-                SKColorType.RgbaF16,
-                SKAlphaType.Premul,
-                SKColorSpace.CreateSrgbLinear())),
-            width,
-            height);
 
     /// <summary>Hands out one buffer for every rent and poisons it when it comes back.</summary>
     private sealed class SingleBufferPool : ArrayPool<RenderFragmentReference>

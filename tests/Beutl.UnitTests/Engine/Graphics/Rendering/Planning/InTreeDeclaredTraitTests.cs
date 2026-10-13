@@ -7,6 +7,7 @@ using Beutl.Graphics.Rendering.Requests;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.Media.TextFormatting;
+using static Beutl.UnitTests.Engine.Graphics.Rendering.RenderGraphTestSupport;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Planning;
 
@@ -220,10 +221,4 @@ public sealed class InTreeDeclaredTraitTests
             outputScale: 1,
             maxWorkingScale: 1,
             cachePolicy: cacheEnabled ? RenderCacheOptions.Enabled : RenderCacheOptions.Disabled));
-
-    private static RenderFragmentReference GetSingleRoot(RecordedRenderGraph graph)
-    {
-        RenderFragmentId rootId = graph.PublicationRoots.Single();
-        return graph.GetFragment(rootId);
-    }
 }

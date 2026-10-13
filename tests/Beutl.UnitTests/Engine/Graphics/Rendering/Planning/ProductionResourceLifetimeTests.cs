@@ -1,7 +1,6 @@
 ﻿using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
-using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Planning;
 
@@ -37,18 +36,7 @@ public sealed class ProductionResourceLifetimeTests
             OutputScale = 1,
             MaxWorkingScale = 1,
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-        }, new CpuTargetFactory());
-
-    private sealed class LinearOpaqueChainNode(int stageCount) : RenderNode
-    {
-        public override void Process(RenderNodeContext context)
-        {
-            RenderFragmentHandle current = context.OpaqueSource(CreateSourceDescription("linear-source"));
-            for (int index = 0; index < stageCount; index++)
-                current = context.OpaqueMap(current, CreateMapDescription(("linear-map", index)));
-            context.Publish(current);
-        }
-    }
+        }, new CpuRenderTargetFactory());
 
     private sealed class FanOutOpaqueNode : RenderNode
     {
@@ -56,24 +44,16 @@ public sealed class ProductionResourceLifetimeTests
 
         public override void Process(RenderNodeContext context)
         {
-            RenderFragmentHandle source = context.OpaqueSource(CreateSourceDescription(
-                "fan-out-source",
-                () => ExecutionCount++));
-            RenderFragmentHandle left = context.OpaqueMap(
-                source,
-                CreateMapDescription("fan-out-left", () => ExecutionCount++));
-            RenderFragmentHandle right = context.OpaqueMap(
-                source,
-                CreateMapDescription("fan-out-right", () => ExecutionCount++));
+            RenderFragmentHandle source = context.OpaqueSource(CreateSourceDescription(() => ExecutionCount++));
+            RenderFragmentHandle left = context.OpaqueMap(source, CreateMapDescription(() => ExecutionCount++));
+            RenderFragmentHandle right = context.OpaqueMap(source, CreateMapDescription(() => ExecutionCount++));
             context.Publish(context.OpaqueCombine(
                 [left, right],
-                CreateCombineDescription("fan-out-combine", () => ExecutionCount++)));
+                CreateCombineDescription(() => ExecutionCount++)));
         }
     }
 
-    private static OpaqueRenderDescription CreateSourceDescription(
-        object key,
-        Action? onExecute = null)
+    private static OpaqueRenderDescription CreateSourceDescription(Action? onExecute = null)
         => OpaqueRenderDescription.CreateRequestLocal(
             session =>
             {
@@ -87,9 +67,7 @@ public sealed class ProductionResourceLifetimeTests
             RenderValueCardinality.Single,
             RenderScaleContract.MaterializeAtWorkingScale);
 
-    private static OpaqueRenderDescription CreateMapDescription(
-        object key,
-        Action? onExecute = null)
+    private static OpaqueRenderDescription CreateMapDescription(Action? onExecute = null)
         => OpaqueRenderDescription.CreateRequestLocal(
             session =>
             {
@@ -103,9 +81,7 @@ public sealed class ProductionResourceLifetimeTests
             RenderValueCardinality.Single,
             RenderScaleContract.PreserveInputSupply);
 
-    private static OpaqueRenderDescription CreateCombineDescription(
-        object key,
-        Action? onExecute = null)
+    private static OpaqueRenderDescription CreateCombineDescription(Action? onExecute = null)
         => OpaqueRenderDescription.CreateRequestLocal(
             session =>
             {
@@ -123,21 +99,4 @@ public sealed class ProductionResourceLifetimeTests
             RenderHitTestContract.AnyInput,
             RenderValueCardinality.Single,
             RenderScaleContract.MaterializeAtWorkingScale);
-
-    private sealed class CpuTargetFactory : IRenderTargetFactory
-    {
-        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
-            => new CpuRenderTarget(allocation.DeviceSize.Width, allocation.DeviceSize.Height);
-    }
-
-    private sealed class CpuRenderTarget(int width, int height)
-        : RenderTarget(
-            SKSurface.Create(new SKImageInfo(
-                width,
-                height,
-                SKColorType.RgbaF16,
-                SKAlphaType.Premul,
-                SKColorSpace.CreateSrgbLinear())),
-            width,
-            height);
 }

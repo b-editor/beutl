@@ -171,39 +171,9 @@ public sealed class ExecutionIslandPlannerCacheBoundaryTests
         GraphFixture fixture,
         RenderCacheCandidate candidate,
         RenderCacheResolutionKind kind)
-    {
-        var identity = new RenderOutputCacheIdentity(
-            candidate.CacheKey,
-            RenderFragmentOutputIdentity.Create(fixture.CachedProducer, fixture.Graph.RequestId),
-            fixture.CachedProducer.Bounds,
-            RequiredRegion.Full,
-            density: 1,
-            RenderCacheFormatIdentity.LinearPremultipliedRgba16Float,
-            RenderIntent.Preview,
-            RenderRequestPurpose.Frame,
-            FusionMode.Enabled,
-            new RenderCacheDeviceContextIdentity("planner-test-device", "planner-test-context"));
-
-        return kind switch
-        {
-            RenderCacheResolutionKind.Bypass => new RenderCacheDecision(
-                candidate,
-                kind,
-                null,
-                null),
-            RenderCacheResolutionKind.Hit => new RenderCacheDecision(
-                candidate,
-                kind,
-                null,
-                new RenderCacheEntry(identity, new object())),
-            RenderCacheResolutionKind.MissCapture => new RenderCacheDecision(
-                candidate,
-                kind,
-                identity,
-                null),
-            _ => throw new ArgumentOutOfRangeException(nameof(kind)),
-        };
-    }
+        => kind == RenderCacheResolutionKind.Bypass
+            ? new RenderCacheDecision(candidate, kind, null, null)
+            : RenderCacheTestSupport.CreateDecision(candidate, kind, fixture.CachedProducer.Bounds);
 
     private static GraphFixture CreateShaderGraph(
         bool includeGeometryPrefix,

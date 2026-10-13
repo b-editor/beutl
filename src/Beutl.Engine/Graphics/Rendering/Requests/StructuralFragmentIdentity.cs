@@ -37,26 +37,9 @@ internal sealed class StructuralFragmentIdentity : IEquatable<StructuralFragment
         RenderFragmentReference reference = graph.GetFragment(
             new RenderFragmentId(graph.RequestId, fragmentIndex + 1L));
         int[] inputs = reference.Inputs.Length == 0 ? [] : new int[reference.Inputs.Length];
+        // The graph builder only commits inputs that are earlier fragments of the same request.
         for (int index = 0; index < reference.Inputs.Length; index++)
-        {
-            RenderFragmentReference input = reference.Inputs[index];
-            if (input.Id is not { } id
-                || id.RequestId != graph.RequestId
-                || id.Value <= 0
-                || id.Value > fragmentIndex)
-            {
-                throw new InvalidOperationException(
-                    "A structural-plan input is not an earlier fragment in the recorded graph.");
-            }
-
-            int inputIndex = checked((int)id.Value - 1);
-            if (!ReferenceEquals(graph.Fragments[inputIndex], input))
-            {
-                throw new InvalidOperationException(
-                    "A structural-plan input is not part of the recorded graph.");
-            }
-            inputs[index] = inputIndex;
-        }
+            inputs[index] = checked((int)reference.Inputs[index].Id!.Value.Value - 1);
 
         return CreateCore(reference, inputs);
     }

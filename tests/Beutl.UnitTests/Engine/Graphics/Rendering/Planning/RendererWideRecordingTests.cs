@@ -22,32 +22,6 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering.Planning;
 public sealed class RendererWideRecordingTests
 {
     [Test]
-    public void ProductionFrameRenderer_PreservesPlanLifetimeAcrossFrames()
-    {
-        VulkanTestEnvironment.EnsureAvailable();
-        VulkanTestEnvironment.InvokeOnRenderThread(() =>
-        {
-            using var renderer = new Renderer(8, 8, RenderIntent.Preview);
-            var frame = new CompositionFrame(
-                ImmutableArray<EngineObject.Resource>.Empty,
-                new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
-                new PixelSize(8, 8),
-                null);
-
-            renderer.Render(frame);
-            renderer.Render(frame);
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(renderer.FrameStructuralPlanCacheStatistics.Compilations, Is.EqualTo(1));
-                Assert.That(renderer.FrameStructuralPlanCacheStatistics.Misses, Is.EqualTo(1));
-                Assert.That(renderer.FrameStructuralPlanCacheStatistics.Hits, Is.EqualTo(1));
-            });
-        });
-    }
-
-
-    [Test]
     public void ProductionFrameRenderer_CompilesItsPlanOnceOnTheFirstFrame()
     {
         RenderThread.Dispatcher.Invoke(() =>
@@ -66,12 +40,13 @@ public sealed class RendererWideRecordingTests
                 null);
 
             renderer.Render(frame);
+            renderer.Render(frame);
 
             Assert.Multiple(() =>
             {
                 Assert.That(renderer.FrameStructuralPlanCacheStatistics.Compilations, Is.EqualTo(1));
                 Assert.That(renderer.FrameStructuralPlanCacheStatistics.Misses, Is.EqualTo(1));
-                Assert.That(renderer.FrameStructuralPlanCacheStatistics.Hits, Is.Zero);
+                Assert.That(renderer.FrameStructuralPlanCacheStatistics.Hits, Is.EqualTo(1));
             });
         });
     }
@@ -626,7 +601,7 @@ public sealed class RendererWideRecordingTests
             Intent = RenderIntent.Preview,
             TargetDomain = new Rect(0, 0, 8, 8),
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
 
         renderer.Render(canvas);
 
@@ -654,7 +629,7 @@ public sealed class RendererWideRecordingTests
             Intent = RenderIntent.Preview,
             TargetDomain = new Rect(0, 0, 8, 8),
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
 
         renderer.Render(canvas);
 
@@ -1042,12 +1017,6 @@ public sealed class RendererWideRecordingTests
         }
     }
 
-    private sealed class CpuTargetFactory : IRenderTargetFactory
-    {
-        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
-            => new CpuRenderTarget(allocation.DeviceSize.Width, allocation.DeviceSize.Height);
-    }
-
     private sealed class CacheMutationHierarchyRoot : Hierarchical, IHierarchicalRoot
     {
         public event EventHandler<IHierarchical>? DescendantAttached;
@@ -1074,17 +1043,6 @@ public sealed class RendererWideRecordingTests
             DescendantDetached?.Invoke(this, descendant);
         }
     }
-
-    private sealed class CpuRenderTarget(int width, int height)
-        : RenderTarget(
-            SKSurface.Create(new SKImageInfo(
-                width,
-                height,
-                SKColorType.RgbaF16,
-                SKAlphaType.Premul,
-                SKColorSpace.CreateSrgbLinear())),
-            width,
-            height);
 
     private sealed class DispatcherDisposalProbeRenderTarget(DispatcherDisposalState state)
         : RenderTarget(SKSurface.CreateNull(8, 8), 8, 8)
@@ -1245,8 +1203,6 @@ internal sealed class RendererWideTreeState(int count)
 
     public List<int> ExecutionOrder { get; } = [];
 
-    public ProductionTreeProbeNode?[] Nodes { get; } = new ProductionTreeProbeNode[count];
-
     public bool UseShaderProgram { get; init; }
 }
 
@@ -1267,7 +1223,6 @@ internal sealed partial class RendererWideProbeDrawable : Drawable
         _state.BuildCalls[_index]++;
         var node = new ProductionTreeProbeNode(_index, _state);
         node.Cache.RecordStableRequests(RenderNodeCache.StableRequestCount - 1);
-        _state.Nodes[_index] = node;
         context.DrawNode(node);
     }
 

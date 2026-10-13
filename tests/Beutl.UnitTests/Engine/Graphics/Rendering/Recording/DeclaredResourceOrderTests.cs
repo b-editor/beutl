@@ -2,7 +2,7 @@
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Rendering.Requests;
-using SkiaSharp;
+using static Beutl.UnitTests.Engine.Graphics.Rendering.RenderGraphTestSupport;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Recording;
 
@@ -44,7 +44,7 @@ public sealed class DeclaredResourceOrderTests
             TargetDomain = s_domain,
             CacheOptions = RenderCacheOptions.Disabled,
             Purpose = RenderRequestPurpose.Frame,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
 
         long afterAuthoredOrder = CompilationsAfterFrame(renderer);
         long afterUnchangedFrame = CompilationsAfterFrame(renderer);
@@ -76,20 +76,6 @@ public sealed class DeclaredResourceOrderTests
         using var request = CreateRequest(owner);
         RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(node);
         assert((OpaqueRenderFragmentPayload)GetSingleRoot(graph).Payload!);
-    }
-
-    private static RenderRequest CreateRequest(RenderRequestOwner owner)
-        => new(new RenderRequestOptions(
-            RenderIntent.Preview,
-            RenderRequestPurpose.Auxiliary,
-            outputScale: 1,
-            maxWorkingScale: 1,
-            owner: owner));
-
-    private static RenderFragmentReference GetSingleRoot(RecordedRenderGraph graph)
-    {
-        RenderFragmentId rootId = graph.PublicationRoots.Single();
-        return graph.GetFragment(rootId);
     }
 
     private sealed class TwoResourceNode(bool reversed) : RenderNode
@@ -134,21 +120,4 @@ public sealed class DeclaredResourceOrderTests
 
         internal sealed class SecondPayload;
     }
-
-    private sealed class CpuTargetFactory : IRenderTargetFactory
-    {
-        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
-            => new CpuRenderTarget(allocation.DeviceSize.Width, allocation.DeviceSize.Height);
-    }
-
-    private sealed class CpuRenderTarget(int width, int height)
-        : RenderTarget(
-            SKSurface.Create(new SKImageInfo(
-                width,
-                height,
-                SKColorType.RgbaF16,
-                SKAlphaType.Premul,
-                SKColorSpace.CreateSrgbLinear())),
-            width,
-            height);
 }

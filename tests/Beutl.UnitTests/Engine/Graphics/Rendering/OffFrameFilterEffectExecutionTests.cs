@@ -5,7 +5,6 @@ using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
-using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
@@ -14,33 +13,19 @@ public sealed class OffFrameFilterEffectExecutionTests
 {
     private static readonly Rect s_frame = new(0, 0, 320, 180);
 
-    [Test]
-    public void FullyOffFrameBlur_IsEquivalentToOmittingTheElement()
+    [TestCase(1, TestName = "FullyOffFrameBlur_IsEquivalentToOmittingTheElement")]
+    [TestCase(5, TestName = "FullyOffFrameBlur_DoesNotSuppressFiveVisibleElements")]
+    public void FullyOffFrameBlur_IsEquivalentToOmittingTheElement(int visibleCount)
     {
-        using SceneGraph control = CreateScene(visibleCount: 1, includeOffFrameEffect: false);
-        using SceneGraph actual = CreateScene(visibleCount: 1, includeOffFrameEffect: true);
+        using SceneGraph control = CreateScene(visibleCount, includeOffFrameEffect: false);
+        using SceneGraph actual = CreateScene(visibleCount, includeOffFrameEffect: true);
 
         byte[] expected = Render(control.Root);
         byte[] rendered = Render(actual.Root);
         Assert.Multiple(() =>
         {
             Assert.That(expected, Has.Some.Not.Zero,
-                "The single visible control drawable must contribute pixels before off-frame parity is compared.");
-            Assert.That(rendered, Is.EqualTo(expected));
-        });
-    }
-
-    [Test]
-    public void FullyOffFrameBlur_DoesNotSuppressFiveVisibleElements()
-    {
-        using SceneGraph control = CreateScene(visibleCount: 5, includeOffFrameEffect: false);
-        using SceneGraph actual = CreateScene(visibleCount: 5, includeOffFrameEffect: true);
-
-        byte[] expected = Render(control.Root);
-        byte[] rendered = Render(actual.Root);
-        Assert.Multiple(() =>
-        {
-            Assert.That(rendered, Has.Some.Not.Zero);
+                "The visible control drawables must contribute pixels before off-frame parity is compared.");
             Assert.That(rendered, Is.EqualTo(expected));
         });
     }
@@ -122,9 +107,6 @@ public sealed class OffFrameFilterEffectExecutionTests
             drawables.Add(offFrame.ToResource(CompositionContext.Default));
         }
 
-        if (drawables.Count == 0)
-            throw new InvalidOperationException("The scene fixture must contain at least one drawable.");
-
         var root = new DrawableRenderNode(drawables[0]);
         using (var context = new GraphicsContext2D(root, s_frame.Size))
         {
@@ -150,7 +132,7 @@ public sealed class OffFrameFilterEffectExecutionTests
             OutputScale = 1,
             MaxWorkingScale = 1,
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
         renderer.Render(destination);
         using Bitmap result = target.Snapshot();
         return result.GetPixelSpan().ToArray();
@@ -221,21 +203,4 @@ public sealed class OffFrameFilterEffectExecutionTests
             }
         }
     }
-
-    private sealed class CpuTargetFactory : IRenderTargetFactory
-    {
-        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
-            => new CpuRenderTarget(allocation.DeviceSize.Width, allocation.DeviceSize.Height);
-    }
-
-    private sealed class CpuRenderTarget(int width, int height)
-        : RenderTarget(
-            SKSurface.Create(new SKImageInfo(
-                width,
-                height,
-                SKColorType.RgbaF16,
-                SKAlphaType.Premul,
-                SKColorSpace.CreateSrgbLinear())),
-            width,
-            height);
 }
