@@ -39,8 +39,7 @@ public class NumberEditor<TValue> : StringEditor
 
     private TValue _value = TValue.Zero;
     private TValue _oldValue = TValue.Zero;
-    private bool _updatingValueFromText;
-    private bool _updatingValueFromWheel;
+    private Control? _editSource;
     private readonly CompositeDisposable _disposables = [];
     private HeaderScrubGesture _scrub;
     private TextBlock? _headerText;
@@ -55,7 +54,7 @@ public class NumberEditor<TValue> : StringEditor
         get => _value;
         set
         {
-            if (SetAndRaise(ValueProperty, ref _value, value) && !_updatingValueFromText)
+            if (SetAndRaise(ValueProperty, ref _value, value) && (_editSource == null || _editSource != InnerTextBox))
             {
                 Text = NumberEditorHelper.Format(value, NumberFormat);
             }
@@ -188,21 +187,13 @@ public class NumberEditor<TValue> : StringEditor
 
     protected override void OnTextBoxTextChanged(string newValue, string oldValue)
     {
-        if (!_updatingValueFromWheel
+        if (_editSource == null
             && InnerTextBox?.IsKeyboardFocusWithin == true
             && NumberEditorHelper.TryParseEdit(newValue, oldValue, out TValue? newValue2, out TValue? oldValue2))
         {
-            // Keep the typed text and caret even when a binding or handler coerces Value.
-            _updatingValueFromText = true;
-            try
-            {
-                Value = newValue2;
-                RaiseEvent(new PropertyEditorValueChangedEventArgs<TValue>(newValue2, oldValue2, ValueChangedEvent));
-            }
-            finally
-            {
-                _updatingValueFromText = false;
-            }
+            using var edit = new PropertyEditorEditScope(ref _editSource, InnerTextBox);
+            Value = newValue2;
+            RaiseEvent(new PropertyEditorValueChangedEventArgs<TValue>(newValue2, oldValue2, ValueChangedEvent));
         }
 
         UpdateErrors();
@@ -219,29 +210,15 @@ public class NumberEditor<TValue> : StringEditor
         if (InnerTextBox == null) return;
         if (!DataValidationErrors.GetHasErrors(InnerTextBox)
             && InnerTextBox.IsKeyboardFocusWithin
-            && TValue.TryParse(InnerTextBox.Text, CultureInfo.CurrentCulture, out TValue? value)
-            && value is not null)
+            && TValue.TryParse(InnerTextBox.Text, CultureInfo.CurrentCulture, out _))
         {
-            // Notify explicitly; equal draft text may not produce a text-change event.
-            _updatingValueFromWheel = true;
-            try
-            {
-                TValue oldValue = Value;
-                // The text can still be an out-of-range draft; step from the coerced value.
-                value = NumberEditorHelper.StepByWheel(Value, e, LargeChange, SmallChange);
-
-                Value = value;
-                if (value != oldValue)
-                {
-                    RaiseEvent(new PropertyEditorValueChangedEventArgs<TValue>(value, oldValue, ValueChangedEvent));
-                }
-                Text = NumberEditorHelper.Format(Value, NumberFormat);
-            }
-            finally
-            {
-                _updatingValueFromWheel = false;
-            }
-
+            using var edit = new PropertyEditorEditScope(ref _editSource, this);
+            TValue oldValue = Value;
+            TValue newValue = NumberEditorHelper.StepByWheel(oldValue, e, LargeChange, SmallChange);
+            Value = newValue;
+            if (newValue != oldValue)
+                RaiseEvent(new PropertyEditorValueChangedEventArgs<TValue>(newValue, oldValue, ValueChangedEvent));
+            Text = NumberEditorHelper.Format(Value, NumberFormat);
             e.Handled = true;
         }
     }

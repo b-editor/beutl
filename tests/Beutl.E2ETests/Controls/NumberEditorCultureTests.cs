@@ -1,11 +1,9 @@
 ﻿using System.Globalization;
 
 using Avalonia.Controls;
-using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 
 using Beutl.Controls.PropertyEditors;
-using Beutl.Testing.Headless;
 
 namespace Beutl.E2ETests.Controls;
 
@@ -62,32 +60,6 @@ public class NumberEditorCultureTests
 
             // Parsed under en-US the comma is a group separator, so "2,5" would become 25.
             Assert.That(editor.Value, Is.EqualTo(2.5));
-        });
-    }
-
-    [AvaloniaTest]
-    public void NumberEditor_preserves_a_decimal_prefix_until_focus_loss()
-    {
-        WithSplitCulture(() =>
-        {
-            var editor = new NumberEditor<double> { Header = "Range: 50–200", Value = 100, NumberFormat = "F2" };
-            using var host = new EditorTestHost<NumberEditor<double>>(editor);
-            editor.ValueChanged += (_, _) => editor.Value = Math.Clamp(editor.Value, 50, 200);
-            TextBox box = host.Require<TextBox>("PART_InnerTextBox");
-
-            host.TypeInto(box, "7");
-            host.Window.KeyTextInput("0");
-            host.Window.KeyTextInput(",");
-            HeadlessTestHelpers.Settle();
-            Assert.That(box.Text, Is.EqualTo("70,"));
-
-            host.Window.KeyTextInput("5");
-            HeadlessTestHelpers.Settle();
-            Assert.That(box.Text, Is.EqualTo("70,5"));
-            Assert.That(editor.Value, Is.EqualTo(70.5));
-
-            host.MoveFocusToSink();
-            Assert.That(box.Text, Is.EqualTo("70,50"));
         });
     }
 

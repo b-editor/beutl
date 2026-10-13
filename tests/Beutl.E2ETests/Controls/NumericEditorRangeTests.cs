@@ -5,7 +5,6 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
-using Avalonia.Media.Imaging;
 using Beutl.Configuration;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Testing.Headless;
@@ -33,8 +32,7 @@ public class NumericEditorRangeTests
         new("RelativeRect"), new("RelativeRect", true),
     ];
 
-    private static IEnumerable<EditorCase> DragEditors => s_editors.Where(x => !x.Kind.StartsWith("Relative"));
-    private static IEnumerable<EditorCase> VectorEditors => s_editors.Where(x => x.Kind.StartsWith("Vector"));
+    private static IEnumerable<EditorCase> NumberAndVectorEditors => s_editors.Where(x => !x.Kind.StartsWith("Relative"));
     private static IEnumerable<EditorCase> RelativeEditors => s_editors.Where(x => x.Kind.StartsWith("Relative"));
     private static IEnumerable<EditorCase> SeparateComponents => s_editors.Where(x => x.Kind != "Number" && !x.Uniform);
 
@@ -43,6 +41,8 @@ public class NumericEditorRangeTests
     public void Each_component_preserves_partial_input_and_confirms_the_composed_value(EditorCase editorCase)
     {
         using var editor = new BoundedEditor(editorCase);
+        object? oldValue = null;
+        editor.Host.Editor.ValueConfirmed += (_, e) => oldValue = e.GetType().GetProperty("OldValue")!.GetValue(e);
         for (int index = 0; index < editor.VisibleComponentCount; index++)
         {
             float[] initial = editor.Reset(100);
@@ -53,7 +53,6 @@ public class NumericEditorRangeTests
             Assert.That(box.CaretIndex, Is.EqualTo(1));
             Assert.That(editor.Values, Is.EqualTo(editor.WithEditedValue(initial, index, 50)));
             Assert.That(editor.Confirmed, Is.Empty);
-            editor.Capture($"component-{index}-typing-7");
 
             editor.Host.Window.KeyTextInput("0");
             HeadlessTestHelpers.Settle();
@@ -64,28 +63,30 @@ public class NumericEditorRangeTests
             editor.Host.MoveFocusToSink();
             editor.AssertTextMatchesValues();
             Assert.That(editor.Confirmed, Is.EqualTo(new[] { editor.Compose(expected) }));
-            editor.Capture($"component-{index}-confirmed-70");
+            Assert.That(oldValue, Is.EqualTo(editor.Compose(initial)));
         }
     }
 
     [AvaloniaTest]
     [TestCaseSource(nameof(s_editors))]
-    public void Unchanged_clamped_values_are_formatted_on_focus_loss(EditorCase editorCase)
+    public void Focus_loss_displays_bounded_values_even_when_the_value_is_unchanged(EditorCase editorCase)
     {
         using var editor = new BoundedEditor(editorCase);
-        foreach ((string input, float boundary) in new[] { ("7", 50f), ("300", 200f) })
+        foreach ((float start, string input, float boundary) in new[]
+                 { (100f, "7", 50f), (50f, "7", 50f), (100f, "300", 200f), (200f, "300", 200f) })
         {
             for (int index = 0; index < editor.VisibleComponentCount; index++)
             {
-                float[] initial = editor.Reset(boundary);
+                float[] initial = editor.Reset(start);
                 TextBox box = editor.TextBox(index);
                 editor.Host.TypeInto(box, input);
                 Assert.That(box.Text, Is.EqualTo(input));
-                Assert.That(editor.Values, Is.EqualTo(initial));
+                float[] expected = editor.WithEditedValue(initial, index, boundary);
+                Assert.That(editor.Values, Is.EqualTo(expected));
 
                 editor.Host.MoveFocusToSink();
                 editor.AssertTextMatchesValues();
-                Assert.That(editor.Confirmed, Is.Empty);
+                Assert.That(editor.Confirmed, Is.EqualTo(start == boundary ? [] : new[] { editor.Compose(expected) }));
             }
         }
     }
@@ -125,7 +126,7 @@ public class NumericEditorRangeTests
     }
 
     [AvaloniaTest]
-    [TestCaseSource(nameof(DragEditors))]
+    [TestCaseSource(nameof(NumberAndVectorEditors))]
     public void Header_drag_clamps_live_values_and_confirms_once_on_release(EditorCase editorCase)
     {
         EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
@@ -161,34 +162,16 @@ public class NumericEditorRangeTests
 
     [AvaloniaTest]
     [TestCaseSource(nameof(s_editors))]
-    public void Wheel_after_partial_input_steps_from_the_current_bounded_value(EditorCase editorCase)
-    {
-        using var editor = new BoundedEditor(editorCase);
-        foreach ((string input, int delta, float result) in new[] { ("7", 1, 60f), ("300", -1, 190f) })
-        {
-            float[] initial = editor.Reset(100);
-            int index = editor.VisibleComponentCount - 1;
-            TextBox box = editor.TextBox(index);
-            editor.Host.TypeInto(box, input);
-            editor.Host.WheelOver(box, delta);
-
-            float[] expected = editor.WithEditedValue(initial, index, result);
-            Assert.That(editor.Values, Is.EqualTo(expected));
-            editor.AssertTextMatchesValues();
-            editor.Host.MoveFocusToSink();
-            Assert.That(editor.Confirmed, Is.EqualTo(new[] { editor.Compose(expected) }));
-        }
-    }
-
-    [AvaloniaTest]
-    [TestCaseSource(nameof(s_editors))]
     public void Wheel_notifies_once_even_when_the_result_matches_the_draft(EditorCase editorCase)
     {
         using var editor = new BoundedEditor(editorCase);
         var changes = new List<object?>();
         editor.Host.Editor.ValueChanged += (_, e) => changes.Add(e.NewValue);
         foreach ((string input, int delta, float proposed, float bounded) in new[]
-                 { ("40", -1, 40f, 50f), ("210", 1, 210f, 200f), ("70", 1, 80f, 80f) })
+                 {
+                     ("40", -1, 40f, 50f), ("210", 1, 210f, 200f), ("70", 1, 80f, 80f),
+                     ("7", 1, 60f, 60f), ("300", -1, 190f, 190f)
+                 })
         {
             for (int index = 0; index < editor.VisibleComponentCount; index++)
             {
@@ -209,7 +192,6 @@ public class NumericEditorRangeTests
                     editor.Compose(editor.WithEditedValue(beforeWheel, index, proposed))
                 }));
                 Assert.That(editor.Confirmed, Is.Empty);
-                if (index == 0) editor.Capture($"wheel-from-{input}");
 
                 editor.Host.MoveFocusToSink();
                 Assert.That(editor.Confirmed, Is.EqualTo(new[] { editor.Compose(expected) }));
@@ -291,7 +273,7 @@ public class NumericEditorRangeTests
     }
 
     [AvaloniaTest]
-    [TestCaseSource(nameof(VectorEditors))]
+    [TestCaseSource(nameof(NumberAndVectorEditors))]
     public void Decimal_input_is_formatted_only_after_focus_loss(EditorCase editorCase)
     {
         CultureInfo previous = CultureInfo.CurrentCulture;
@@ -453,18 +435,6 @@ public class NumericEditorRangeTests
             float[] values = Values;
             for (int i = 0; i < VisibleComponentCount; i++)
                 Assert.That(TextBox(i).Text, Is.EqualTo(values[i].ToString(CultureInfo.CurrentCulture)));
-        }
-
-        public void Capture(string name)
-        {
-            if (_case is { Kind: "Vector3", Uniform: false } or { Kind: "Vector4", Uniform: true }
-                && Environment.GetEnvironmentVariable("BEUTL_NUMBER_EDITOR_CAPTURE_DIR") is { Length: > 0 } directory)
-            {
-                Directory.CreateDirectory(directory);
-                using var frame = Host.Window.CaptureRenderedFrame();
-                Assert.That(frame, Is.Not.Null);
-                frame!.Save(Path.Combine(directory, $"{_case}-{name}.png"), PngBitmapEncoderOptions.Default);
-            }
         }
 
         public void Dispose() => Host.Dispose();
