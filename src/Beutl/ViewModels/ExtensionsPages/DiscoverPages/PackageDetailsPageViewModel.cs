@@ -9,6 +9,7 @@ using Microsoft.Extensions.Logging;
 using NuGet.Packaging.Core;
 using NuGet.Versioning;
 using Reactive.Bindings;
+using Reactive.Bindings.Extensions;
 using LibraryService = Beutl.Api.Services.LibraryService;
 
 namespace Beutl.ViewModels.ExtensionsPages.DiscoverPages;
@@ -57,7 +58,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
             .Subscribe(_ => _unavailableVersion.Value = null)
             .DisposeWith(_disposables);
 
-        Refresh = new AsyncReactiveCommand(IsBusy.Not())
+        Refresh = new AsyncReactiveCommand(IsBusy.Inverse())
             .WithSubscribe(async () =>
             {
                 using Activity? activity = Telemetry.StartActivity("PackageDetailsPage.Refresh");
@@ -139,9 +140,9 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
             .DisposeWith(_disposables);
 
         IObservable<bool> installed = _handler.InstalledPackageRepository.GetObservable(package.Name);
-        IObservable<bool> notBusy = IsBusy.Not();
-        IsInstallButtonVisible = installed.Not()
-            .AreTrue(CanCancel.Not(), CanInstallOrUpdate, notBusy)
+        IObservable<bool> notBusy = IsBusy.Inverse();
+        IsInstallButtonVisible = new[] { installed.Inverse(), CanCancel.Inverse(), CanInstallOrUpdate, notBusy }
+            .CombineLatestValuesAreAllTrue()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
@@ -161,14 +162,20 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
             .Subscribe(release => CurrentRelease.Value = release)
             .DisposeWith(_disposables);
 
-        IsUpdateButtonVisible = CurrentRelease.CombineLatest(SelectedRelease)
-            .Select(x => x.First != null && x.First.Version.Value != x.Second?.Version.Value)
-            .AreTrue(CanCancel.Not(), CanInstallOrUpdate, notBusy)
+        IsUpdateButtonVisible = new[]
+            {
+                CurrentRelease.CombineLatest(SelectedRelease)
+                    .Select(x => x.First != null && x.First.Version.Value != x.Second?.Version.Value),
+                CanCancel.Inverse(),
+                CanInstallOrUpdate,
+                notBusy
+            }
+            .CombineLatestValuesAreAllTrue()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        IsUninstallButtonVisible = installed
-            .AreTrue(CanCancel.Not(), notBusy)
+        IsUninstallButtonVisible = new[] { installed, CanCancel.Inverse(), notBusy }
+            .CombineLatestValuesAreAllTrue()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
@@ -198,15 +205,15 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
             .ToReadOnlyReactivePropertySlim(ExtensionsStrings.Install)
             .DisposeWith(_disposables);
 
-        Install = new AsyncReactiveCommand(IsBusy.Not())
+        Install = new AsyncReactiveCommand(IsBusy.Inverse())
             .WithSubscribe(InstallAsync)
             .DisposeWith(_disposables);
 
-        Update = new AsyncReactiveCommand(IsBusy.Not())
+        Update = new AsyncReactiveCommand(IsBusy.Inverse())
             .WithSubscribe(UpdateAsync)
             .DisposeWith(_disposables);
 
-        Uninstall = new AsyncReactiveCommand(IsBusy.Not())
+        Uninstall = new AsyncReactiveCommand(IsBusy.Inverse())
             .WithSubscribe(UninstallAsync)
             .DisposeWith(_disposables);
 

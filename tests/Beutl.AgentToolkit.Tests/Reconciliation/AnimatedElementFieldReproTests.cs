@@ -1,6 +1,5 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
-using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.AgentToolkit.Tools;
 using Beutl.Animation;
@@ -17,20 +16,19 @@ public sealed class AnimatedElementFieldReproTests
     [Test]
     public void Rename_element_succeeds_after_wrap_in_group_duplicate_of_animated_drawable()
     {
-        Scene scene = CreateSceneWithElement(out Element element);
+        Scene scene = TestWorkspace.CreateScene();
+        Element element = TestWorkspace.AddElement(scene, TimeSpan.Zero, TimeSpan.FromSeconds(4));
         var rect = new RectShape
         {
             Name = "hero mark",
             Width = { CurrentValue = 200 },
             Height = { CurrentValue = 120 },
-            Opacity = { Animation = CreateLinearFloatAnimation(0, 100) }
+            Opacity = { Animation = TestWorkspace.CreateLinearFloatAnimation(0, 100) }
         };
         element.AddObject(rect);
 
         using var session = new AgentToolkitTestSession(scene);
-        var manager = new AgentSessionManager();
-        manager.UseSource(new AgentToolkitTestSessionSource(session));
-        var tools = new EditTools(manager);
+        EditTools tools = session.CreateEditTools();
 
         ToolResult<DuplicateObjectResponse> duplicated =
             tools.DuplicateObject(rect.Id.ToString(), wrapInGroup: true);
@@ -59,20 +57,19 @@ public sealed class AnimatedElementFieldReproTests
     [Test]
     public void Replace_sentinel_rebuilds_nested_keyframe_array()
     {
-        Scene scene = CreateSceneWithElement(out Element element);
+        Scene scene = TestWorkspace.CreateScene();
+        Element element = TestWorkspace.AddElement(scene, TimeSpan.Zero, TimeSpan.FromSeconds(4));
         var rect = new RectShape
         {
             Name = "fading rect",
             Width = { CurrentValue = 200 },
             Height = { CurrentValue = 120 },
-            Opacity = { Animation = CreateLinearFloatAnimation(0, 100) }
+            Opacity = { Animation = TestWorkspace.CreateLinearFloatAnimation(0, 100) }
         };
         element.AddObject(rect);
 
         using var session = new AgentToolkitTestSession(scene);
-        var manager = new AgentSessionManager();
-        manager.UseSource(new AgentToolkitTestSessionSource(session));
-        var tools = new EditTools(manager);
+        EditTools tools = session.CreateEditTools();
 
         JsonObject replacePatch = new()
         {
@@ -128,35 +125,5 @@ public sealed class AnimatedElementFieldReproTests
         });
         json.Remove(nameof(CoreObject.Id));
         return json;
-    }
-
-    private static KeyFrameAnimation<float> CreateLinearFloatAnimation(float firstValue, float secondValue)
-    {
-        var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(
-            new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = firstValue, Easing = new LinearEasing() },
-            out _);
-        animation.KeyFrames.Add(
-            new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = secondValue, Easing = new LinearEasing() },
-            out _);
-        return animation;
-    }
-
-    private static Scene CreateSceneWithElement(out Element element)
-    {
-        string dir = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
-        var scene = new Scene(1920, 1080, "Scene")
-        {
-            Uri = new Uri(Path.Combine(dir, "Scene.scene"))
-        };
-        element = new Element
-        {
-            Start = TimeSpan.Zero,
-            Length = TimeSpan.FromSeconds(4),
-            Uri = new Uri(Path.Combine(dir, "element.belm"))
-        };
-        scene.Children.Add(element);
-        return scene;
     }
 }

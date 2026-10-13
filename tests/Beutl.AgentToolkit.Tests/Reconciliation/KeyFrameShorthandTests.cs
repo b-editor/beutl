@@ -118,8 +118,7 @@ public sealed class KeyFrameShorthandTests
         Assert.Multiple(() =>
         {
             Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
-            // Four keyframes plus their animation would previously appear here with full paths,
-            // none of which can be used as a follow-up handle.
+            // Keyframes and their animation are not usable follow-up handles.
             Assert.That(apply.Value!.CreatedIds.Select(item => item.Path), Has.None.Contains("KeyFrames"));
             Assert.That(apply.Value.CreatedIds.Select(item => item.Path), Has.None.Contains("Animations"));
         });
@@ -367,8 +366,7 @@ public sealed class KeyFrameShorthandTests
     [TestCase(false)]
     public void Unrelated_edit_skips_ambiguous_animation_validation_for_duplicate_ids(bool invalidFirst)
     {
-        string dir = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        string dir = TestWorkspace.CreateDirectory();
         var scene = new Scene(1920, 1080, "Scene") { Uri = new Uri(Path.Combine(dir, "Scene.scene")) };
         float firstOpacity = invalidFirst ? -25 : 50;
         float secondOpacity = invalidFirst ? 50 : -25;
@@ -379,9 +377,7 @@ public sealed class KeyFrameShorthandTests
         secondRect.Id = firstRect.Id;
 
         var session = new AgentToolkitTestSession(scene);
-        var manager = new AgentSessionManager();
-        manager.UseSource(new AgentToolkitTestSessionSource(session));
-        var tools = new EditTools(manager);
+        EditTools tools = session.CreateEditTools();
 
         ToolResult<ApplyEditResponse> apply = tools.ApplyEdit(
             patch: new JsonObject { [nameof(CoreObject.Name)] = "renamed" },
@@ -404,8 +400,7 @@ public sealed class KeyFrameShorthandTests
     [TestCase(false)]
     public void Animation_edit_rejects_ambiguous_owner_id_before_coercion(bool targetFirst)
     {
-        string dir = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        string dir = TestWorkspace.CreateDirectory();
         var scene = new Scene(1920, 1080, "Scene") { Uri = new Uri(Path.Combine(dir, "Scene.scene")) };
         (Element firstElement, RectShape firstRect, KeyFrame<float> firstKeyFrame) =
             AddAnimatedRect(scene, dir, "first", 25);
@@ -414,9 +409,7 @@ public sealed class KeyFrameShorthandTests
         secondRect.Id = firstRect.Id;
 
         var session = new AgentToolkitTestSession(scene);
-        var manager = new AgentSessionManager();
-        manager.UseSource(new AgentToolkitTestSessionSource(session));
-        var tools = new EditTools(manager);
+        EditTools tools = session.CreateEditTools();
 
         ToolResult<ApplyEditResponse> apply = tools.ApplyEdit(
             patch: OpacityPatch(
@@ -439,8 +432,7 @@ public sealed class KeyFrameShorthandTests
     [Test]
     public void Reordering_duplicate_ids_does_not_look_like_an_animation_edit()
     {
-        string dir = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        string dir = TestWorkspace.CreateDirectory();
         var scene = new Scene(1920, 1080, "Scene") { Uri = new Uri(Path.Combine(dir, "Scene.scene")) };
         (Element firstElement, RectShape firstRect, _) = AddAnimatedRect(scene, dir, "first", 25);
         (Element secondElement, RectShape secondRect, _) = AddAnimatedRect(scene, dir, "second", 75);
@@ -449,9 +441,7 @@ public sealed class KeyFrameShorthandTests
         scene.Children.Remove(secondElement);
         firstElement.AddObject(secondRect);
         using var session = new AgentToolkitTestSession(scene);
-        var manager = new AgentSessionManager();
-        manager.UseSource(new AgentToolkitTestSessionSource(session));
-        var tools = new EditTools(manager);
+        EditTools tools = session.CreateEditTools();
         JsonObject desired = session.Documents.Read(scene);
         JsonArray objects = (JsonArray)((JsonObject)((JsonArray)desired["Elements"]!)[0]!)["Objects"]!;
         JsonNode first = objects[0]!.DeepClone();
@@ -501,7 +491,9 @@ public sealed class KeyFrameShorthandTests
             Assert.That(apply.Value!.Validation, Has.One.Matches<ValidationOutcome>(outcome =>
                 outcome.Status == ValidationStatus.Warning
                 && outcome.Message!.Contains("00:00:03", StringComparison.Ordinal)
-                && outcome.Message.Contains("outside Element", StringComparison.Ordinal)));
+                && outcome.Message.Contains("outside Element", StringComparison.Ordinal)
+                && outcome.Message.Contains("UseGlobalClock=false", StringComparison.Ordinal)
+                && outcome.Hint!.Contains("UseGlobalClock=true", StringComparison.Ordinal)));
         });
     }
 
@@ -596,21 +588,11 @@ public sealed class KeyFrameShorthandTests
 
     private static (EditTools Tools, Scene Scene, Element Element) CreateSceneWithRect()
     {
-        string dir = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
-        var scene = new Scene(1920, 1080, "Scene") { Uri = new Uri(Path.Combine(dir, "Scene.scene")) };
-        var element = new Element
-        {
-            Start = TimeSpan.Zero,
-            Length = TimeSpan.FromSeconds(2),
-            Uri = new Uri(Path.Combine(dir, "element.belm"))
-        };
+        Scene scene = TestWorkspace.CreateScene();
+        Element element = TestWorkspace.AddElement(scene, TimeSpan.Zero, TimeSpan.FromSeconds(2));
         element.AddObject(new RectShape { Name = "plate" });
-        scene.Children.Add(element);
 
         var session = new AgentToolkitTestSession(scene);
-        var manager = new AgentSessionManager();
-        manager.UseSource(new AgentToolkitTestSessionSource(session));
-        return (new EditTools(manager), scene, element);
+        return (session.CreateEditTools(), scene, element);
     }
 }

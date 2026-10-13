@@ -1,5 +1,4 @@
 ﻿using System.Collections.Specialized;
-using Avalonia;
 using Beutl.Composition;
 using Beutl.Controls;
 using Beutl.Editor.Components.Helpers;
@@ -71,19 +70,6 @@ public static partial class AvaloniaTypeConverter
             });
 
         return (reactiveProperty, d);
-    }
-
-    public static Matrix ToAvaMatrix(this in Graphics.Matrix matrix)
-    {
-        return new Matrix(
-            matrix.M11, matrix.M12, matrix.M13,
-            matrix.M21, matrix.M22, matrix.M23,
-            matrix.M31, matrix.M32, matrix.M33);
-    }
-
-    public static Graphics.Point ToBtlPoint(this in Point point)
-    {
-        return new Graphics.Point((float)point.X, (float)point.Y);
     }
 
     public static (Avalonia.Media.GradientStops, IDisposable) ToAvaGradientStopsSync(
@@ -275,8 +261,7 @@ public static partial class AvaloniaTypeConverter
                         (o, rc) => o.ToResource(rc),
                         r =>
                         {
-                            handler ??= new DrawableImageBrushHandler(
-                                r, imageBrush, RenderThread.Dispatcher, ownsResource: false);
+                            handler ??= new DrawableImageBrushHandler(r, imageBrush, RenderThread.Dispatcher);
                             handler.Update();
                         });
 

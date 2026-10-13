@@ -44,13 +44,11 @@ public partial class FrameCacheManager
                 else
                 {
                     list.Add(new(blockStart, count, isLocked));
-                    blockStart = -1;
-                    count = 0;
 
                     blockStart = key;
                     isLocked = item.IsLocked;
                     expect = key + 1;
-                    count++;
+                    count = 1;
                 }
             }
 
@@ -67,8 +65,7 @@ public partial class FrameCacheManager
     {
         lock (_lock)
         {
-            Blocks = CalculateBlocks();
-            BlocksUpdated?.Invoke(Blocks);
+            BlocksUpdated?.Invoke(CalculateBlocks());
         }
     }
 

@@ -5,6 +5,7 @@ using Beutl.Logging;
 using Beutl.Services;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
+using Reactive.Bindings.Extensions;
 
 namespace Beutl.ViewModels.ExtensionsPages.DiscoverPages;
 
@@ -20,7 +21,7 @@ public sealed class SearchPageViewModel : BasePageViewModel, ISupportRefreshView
         _discoverService = discoverService;
         Keyword = keyword;
 
-        Refresh = new AsyncReactiveCommand(IsBusy.Not())
+        Refresh = new AsyncReactiveCommand(IsBusy.Inverse())
             .WithSubscribe(async () =>
             {
                 using Activity? activity = Telemetry.StartActivity("SearchPage.Refresh");
@@ -46,7 +47,7 @@ public sealed class SearchPageViewModel : BasePageViewModel, ISupportRefreshView
             })
             .DisposeWith(_disposables);
 
-        More = new AsyncReactiveCommand(IsBusy.Not())
+        More = new AsyncReactiveCommand(IsBusy.Inverse())
             .WithSubscribe(async () =>
             {
                 using Activity? activity = Services.Telemetry.StartActivity("SearchPage.More");

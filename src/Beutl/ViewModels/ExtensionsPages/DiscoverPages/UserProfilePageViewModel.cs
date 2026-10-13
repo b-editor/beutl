@@ -5,6 +5,7 @@ using Beutl.Logging;
 using Beutl.Services;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
+using Reactive.Bindings.Extensions;
 
 namespace Beutl.ViewModels.ExtensionsPages.DiscoverPages;
 
@@ -16,7 +17,7 @@ public sealed class UserProfilePageViewModel : BasePageViewModel, ISupportRefres
     public UserProfilePageViewModel(Profile profile)
     {
         Profile = profile;
-        Refresh = new AsyncReactiveCommand(IsBusy.Not())
+        Refresh = new AsyncReactiveCommand(IsBusy.Inverse())
             .WithSubscribe(async () =>
             {
                 using Activity? activity = Telemetry.StartActivity("UserProfilePage.Refresh");
@@ -49,7 +50,7 @@ public sealed class UserProfilePageViewModel : BasePageViewModel, ISupportRefres
 
         Refresh.Execute();
 
-        More = new AsyncReactiveCommand(IsBusy.Not())
+        More = new AsyncReactiveCommand(IsBusy.Inverse())
             .WithSubscribe(async () =>
             {
                 try

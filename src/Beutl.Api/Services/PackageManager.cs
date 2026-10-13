@@ -23,7 +23,6 @@ public sealed partial class PackageManager : PackageLoader
     private readonly ILogger _logger = Log.CreateLogger<PackageManager>();
     private readonly ConcurrentDictionary<int, LoadedPackageInfo> _loadedPackages = new();
     private readonly Dictionary<int, Task<bool>> _unloadOperations = [];
-    private readonly Dictionary<int, PendingRollbackInfo> _pendingRollbacks = [];
     private readonly HashSet<int> _quarantinedPackages = [];
     private readonly HashSet<int> _loadingPackages = [];
     private readonly object _packageLifecycleGate = new();

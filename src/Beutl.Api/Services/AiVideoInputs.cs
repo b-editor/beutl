@@ -29,7 +29,7 @@ public sealed record AiSourceVideoRequest
         CharacterImage = characterImage;
         Orientation = orientation;
         Quality = quality;
-        Model = AiRequestLimits.ValidateOptionalModel(model, nameof(model));
+        Model = AiRequestLimits.ValidateOptionalModel(model);
         IdempotencyKey = AiRequestLimits.ValidateOptionalIdempotencyKey(idempotencyKey, nameof(idempotencyKey));
     }
 

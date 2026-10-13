@@ -52,14 +52,7 @@ public sealed class Scene3DCoordinateRenderTests
             new Scene3D()
         ]);
 
-        Assert.That(asCards, Has.Length.EqualTo(twoDimensional.Length));
-        float maximum = 0;
-        for (int i = 0; i < asCards.Length; i++)
-        {
-            maximum = Math.Max(maximum, Math.Abs(asCards[i] - twoDimensional[i]));
-        }
-
-        Assert.That(maximum, Is.LessThanOrEqualTo(2f / 255f));
+        Assert.That(MaxDifference(asCards, twoDimensional), Is.LessThanOrEqualTo(2f / 255f));
     }
 
     // Overlapping unmoved cards keep the 2D painter order even when the later one's center is farther from
@@ -78,13 +71,7 @@ public sealed class Scene3DCoordinateRenderTests
             new Scene3D()
         ]);
 
-        float maximum = 0;
-        for (int i = 0; i < asCards.Length; i++)
-        {
-            maximum = Math.Max(maximum, Math.Abs(asCards[i] - twoDimensional[i]));
-        }
-
-        Assert.That(maximum, Is.LessThanOrEqualTo(2f / 255f));
+        Assert.That(MaxDifference(asCards, twoDimensional), Is.LessThanOrEqualTo(2f / 255f));
     }
 
     // A 200 px cube whose front face sits on z = 0 covers the same pixels as a 200 px 2D square, and a
@@ -103,6 +90,18 @@ public sealed class Scene3DCoordinateRenderTests
         // under the front face, so only the bottom edge may reach further.
         Assert.That(new[] { left, top, right }, Is.EqualTo(new[] { 430, 120, 530 }));
         Assert.That(bottom, Is.GreaterThanOrEqualTo(220));
+    }
+
+    private static float MaxDifference(float[] actual, float[] expected)
+    {
+        Assert.That(actual, Has.Length.EqualTo(expected.Length));
+        float maximum = 0;
+        for (int i = 0; i < actual.Length; i++)
+        {
+            maximum = Math.Max(maximum, Math.Abs(actual[i] - expected[i]));
+        }
+
+        return maximum;
     }
 
     private static (int Left, int Top, int Right, int Bottom) OpaqueBounds(float[] pixels, float width)

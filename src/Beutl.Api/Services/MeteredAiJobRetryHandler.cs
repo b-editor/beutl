@@ -74,7 +74,7 @@ internal abstract class MeteredAiJobRetryHandler(
     {
         string key;
         bool isRepeat;
-        long generation = 0;
+        long generation;
         if (!retryContext.Store.TryConsumeAttempt(
                 attempt,
                 job,
@@ -85,7 +85,7 @@ internal abstract class MeteredAiJobRetryHandler(
             throw new AiRetryAttemptRejectedException();
         }
 
-        if (attempt.Kind == AiRetryAttemptKind.Recovery || isRepeat)
+        if (attempt.Kind == AiRetryAttemptKind.Recovery)
             generation = attempt.Generation;
         else
             generation = attempt.Generation + 1;
@@ -358,12 +358,8 @@ internal abstract class MeteredAiJobRetryHandler(
             }
             finally
             {
-                // The pending confirmation token is consumed by the store
-                // before dispatch. Dispose is therefore a no-op after consume,
-                // while a pre-consume cancellation still abandons it.
-                // Keep the attempt alive for another same-key confirmation
-                // after an ambiguous response; the store's release path clears
-                // the in-flight owner while retaining the exact key.
+                // Dispose does nothing once the store consumed the confirmation; a pre-consume cancellation abandons
+                // it. After an ambiguous response the store, not this attempt, keeps the exact key.
                 attempt.Dispose();
                 Volatile.Write(ref _state, 2);
             }

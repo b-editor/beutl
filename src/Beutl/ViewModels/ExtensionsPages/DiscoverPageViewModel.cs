@@ -7,6 +7,7 @@ using Beutl.Services;
 using Beutl.ViewModels.ExtensionsPages.DiscoverPages;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
+using Reactive.Bindings.Extensions;
 
 namespace Beutl.ViewModels.ExtensionsPages;
 
@@ -24,7 +25,7 @@ public sealed class DiscoverPageViewModel : BasePageViewModel, ISupportRefreshVi
         _discover = apiApp.GetResource<DiscoverService>();
         DataContextFactory = new DataContextFactory(_discover, apiApp, editorService, projectService);
 
-        Refresh = new AsyncReactiveCommand(IsBusy.Not())
+        Refresh = new AsyncReactiveCommand(IsBusy.Inverse())
             .WithSubscribe(async () =>
             {
                 using Activity? activity = Telemetry.StartActivity("DiscoverPage.Refresh");
@@ -54,7 +55,7 @@ public sealed class DiscoverPageViewModel : BasePageViewModel, ISupportRefreshVi
             })
             .DisposeWith(_disposables);
 
-        More = new AsyncReactiveCommand(IsBusy.Not())
+        More = new AsyncReactiveCommand(IsBusy.Inverse())
             .WithSubscribe(async () =>
             {
                 using Activity? activity = Telemetry.StartActivity("DiscoverPage.More");

@@ -226,9 +226,6 @@ internal static class PromptLibraryProvider
                 throw new IOException("Prompt migration marker cannot be read.", ex);
             }
         }
-        public string StoragePath => Library?.StoragePath ?? string.Empty;
-        public bool RetainRecentPromptText => Library?.RetainRecentPromptText ?? false;
-        public string? RecoveredCorruptFilePath => Library?.RecoveredCorruptFilePath;
         public IReadOnlyList<PromptHistoryEntry> History => Library?.History ?? Array.Empty<PromptHistoryEntry>();
         public IReadOnlyList<PromptTemplate> Templates => Library?.Templates ?? Array.Empty<PromptTemplate>();
         public PromptHistoryEntry Record(PromptTaskKind k, string p) => Require().Record(k, p);
@@ -238,8 +235,6 @@ internal static class PromptLibraryProvider
         public bool DeleteHistory(Guid id) => Library?.DeleteHistory(id) ?? false;
         public bool DeleteTemplate(Guid id) => Library?.DeleteTemplate(id) ?? false;
         public void ClearHistory() => Library?.ClearHistory();
-        public void ClearTemplates() => Library?.ClearTemplates();
-        public void ClearAll() => Library?.ClearAll();
         public IDisposable SubscribeChanged(Action callback)
         {
             ArgumentNullException.ThrowIfNull(callback);

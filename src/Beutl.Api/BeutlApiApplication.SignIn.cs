@@ -2,7 +2,6 @@
 using System.Net;
 using Beutl.Api.Clients;
 using Beutl.Api.Objects;
-using Beutl.Api.Services;
 using Activity = System.Diagnostics.Activity;
 
 namespace Beutl.Api;
@@ -92,27 +91,9 @@ public partial class BeutlApiApplication
         ArgumentNullException.ThrowIfNull(user);
         using (await Lock.LockAsync(cancellationToken))
         {
-            PersistAndCommitAuthenticatedUser(user, authenticationAttempt, cancellationToken);
+            CommitAuthenticatedUser(user, authenticationAttempt, persist: true, cancellationToken);
         }
         return user;
-    }
-
-    private void PersistAndCommitAuthenticatedUser(
-        AuthenticatedUser user,
-        long authenticationAttempt,
-        CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        lock (_authenticationGate)
-        {
-            ObjectDisposedException.ThrowIf(_disposed, this);
-            if (_authenticationAttemptVersion != authenticationAttempt)
-                throw new AuthenticationRequiredException();
-
-            _persistAuthenticatedUser(user);
-            _authenticatedUser.Value = user;
-            SetBearerAuthorization(user.Token);
-        }
     }
 
     public static void OpenAccountSettings()

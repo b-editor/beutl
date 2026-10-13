@@ -86,7 +86,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
             .ToReadOnlyReactivePropertySlim()
             .AddTo(Disposables);
 
-        IsReadOnly = CanEdit.Not()
+        IsReadOnly = CanEdit.Inverse()
             .ToReadOnlyReactivePropertySlim()
             .AddTo(Disposables);
 

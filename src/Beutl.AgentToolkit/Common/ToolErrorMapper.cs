@@ -37,7 +37,7 @@ internal static class ToolErrorMapper
                 ex.Code,
                 ex.Message,
                 ex.Target,
-                "Pass confirmOverwrite or confirmDelete when the destructive operation is intentional."),
+                "Pass confirmOverwrite when the overwrite is intentional."),
             SchemaVersionMismatchException ex => new ToolError(ex.Code, ex.Message, ex.Version),
             ProjectConflictException ex => new ToolError(
                 ex.Code,

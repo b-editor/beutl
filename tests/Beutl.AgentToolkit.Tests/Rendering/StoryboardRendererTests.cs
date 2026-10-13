@@ -1,4 +1,5 @@
 ﻿using Beutl.AgentToolkit.Rendering;
+using Beutl.AgentToolkit.Tests.Helpers;
 using SkiaSharp;
 
 namespace Beutl.AgentToolkit.Tests.Rendering;
@@ -13,7 +14,7 @@ public sealed class StoryboardRendererTests
         {
             string output = WriteFrame(directory, "existing.png", 8, 8, SKColors.Red);
             byte[] previous = File.ReadAllBytes(output);
-            var frame = new StoryboardContactSheetFrame("frame", 0, output);
+            var frame = new RenderStoryboardShot("frame", 0, output, VisibilityAnalysis: null);
             var renderer = new StoryboardRenderer((path, bytes) =>
             {
                 File.WriteAllBytes(path, bytes[..16]);
@@ -38,7 +39,7 @@ public sealed class StoryboardRendererTests
             if (!OperatingSystem.IsWindows())
                 File.SetUnixFileMode(output, UnixFileMode.UserRead | UnixFileMode.UserWrite);
 
-            new StoryboardRenderer().RenderContactSheet([new("frame", 0, output)], output);
+            new StoryboardRenderer().RenderContactSheet([new("frame", 0, output, VisibilityAnalysis: null)], output);
 
             using SKBitmap bitmap = SKBitmap.Decode(output);
             Assert.That(bitmap, Is.Not.Null);
@@ -72,67 +73,53 @@ public sealed class StoryboardRendererTests
     [Test]
     public void Render_contact_sheet_png_downscales_to_requested_long_edge()
     {
-        string workspace = CreateWorkspace();
-        StoryboardContactSheetFrame[] frames = Enumerable.Range(0, 5)
-            .Select(index => new StoryboardContactSheetFrame(
+        string workspace = TestWorkspace.CreateDirectory();
+        RenderStoryboardShot[] frames = Enumerable.Range(0, 5)
+            .Select(index => new RenderStoryboardShot(
                 $"shot-{index}",
                 index + 0.25,
-                WriteFrame(workspace, $"shot-{index}.png", 1920, 1080, new SKColor((byte)(30 + index * 20), 90, 180))))
+                WriteFrame(workspace, $"shot-{index}.png", 1920, 1080, new SKColor((byte)(30 + index * 20), 90, 180)),
+                VisibilityAnalysis: null))
             .ToArray();
 
-        StoryboardContactSheetPng result = new StoryboardRenderer()
+        byte[] result = new StoryboardRenderer()
             .RenderContactSheetPng(frames, ImagePreviewEncoder.DefaultMaxLongEdge);
-        using SKBitmap bitmap = Decode(result.Bytes);
+        using SKBitmap bitmap = Decode(result);
+        StoryboardContactSheetLayout layout = StoryboardRenderer.CalculateLayout(
+            frames.Length, 1920, 1080, ImagePreviewEncoder.DefaultMaxLongEdge);
 
         Assert.Multiple(() =>
         {
-            Assert.That(result.Layout.Width, Is.LessThanOrEqualTo(ImagePreviewEncoder.DefaultMaxLongEdge));
-            Assert.That(result.Layout.Height, Is.LessThanOrEqualTo(ImagePreviewEncoder.DefaultMaxLongEdge));
-            Assert.That(bitmap.Width, Is.EqualTo(result.Layout.Width));
-            Assert.That(bitmap.Height, Is.EqualTo(result.Layout.Height));
+            Assert.That(layout.Width, Is.LessThanOrEqualTo(ImagePreviewEncoder.DefaultMaxLongEdge));
+            Assert.That(layout.Height, Is.LessThanOrEqualTo(ImagePreviewEncoder.DefaultMaxLongEdge));
+            Assert.That(bitmap.Width, Is.EqualTo(layout.Width));
+            Assert.That(bitmap.Height, Is.EqualTo(layout.Height));
         });
     }
 
-    [Test]
-    public void Render_contact_sheet_png_burns_timecode_label()
+    [TestCase("intro", 1.25, "shot", 0, "00:00:01.250  intro",
+        TestName = "Render_contact_sheet_png_burns_timecode_label")]
+    [TestCase("between:intro~detail@L2:1/4", 0.75, "inbetween", 2, "00:00:00.750  inbetween L2  between:intro~detail@L2:1/4",
+        TestName = "Render_contact_sheet_png_labels_inbetween_frames_with_subdivision_marker")]
+    public void Render_contact_sheet_png_burns_the_frame_label(
+        string name, double timeSeconds, string kind, int subdivisionLevel, string expectedLabel)
     {
-        string workspace = CreateWorkspace();
-        var frame = new StoryboardContactSheetFrame(
-            "intro",
-            1.25,
-            WriteFrame(workspace, "intro.png", 200, 100, SKColors.CornflowerBlue));
+        string workspace = TestWorkspace.CreateDirectory();
+        var frame = new RenderStoryboardShot(
+            name,
+            timeSeconds,
+            WriteFrame(workspace, "frame.png", 200, 100, SKColors.CornflowerBlue),
+            VisibilityAnalysis: null,
+            kind,
+            subdivisionLevel);
 
-        StoryboardContactSheetPng result = new StoryboardRenderer().RenderContactSheetPng([frame]);
-        using SKBitmap bitmap = Decode(result.Bytes);
-        int captionTop = StoryboardRenderer.Padding + result.Layout.ImageHeight;
+        byte[] result = new StoryboardRenderer().RenderContactSheetPng([frame]);
+        using SKBitmap bitmap = Decode(result);
+        int captionTop = StoryboardRenderer.Padding + StoryboardRenderer.CalculateLayout(1, 200, 100).ImageHeight;
 
         Assert.Multiple(() =>
         {
-            Assert.That(StoryboardRenderer.CreateLabel(frame), Is.EqualTo("00:00:01.250  intro"));
-            Assert.That(ContainsDarkPixel(bitmap, captionTop, captionTop + StoryboardRenderer.LabelHeight), Is.True);
-        });
-    }
-
-    [Test]
-    public void Render_contact_sheet_png_labels_inbetween_frames_with_subdivision_marker()
-    {
-        string workspace = CreateWorkspace();
-        var frame = new StoryboardContactSheetFrame(
-            "between:intro~detail@L2:1/4",
-            0.75,
-            WriteFrame(workspace, "between.png", 200, 100, SKColors.MediumPurple),
-            "inbetween",
-            2);
-
-        StoryboardContactSheetPng result = new StoryboardRenderer().RenderContactSheetPng([frame]);
-        using SKBitmap bitmap = Decode(result.Bytes);
-        int captionTop = StoryboardRenderer.Padding + result.Layout.ImageHeight;
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(
-                StoryboardRenderer.CreateLabel(frame),
-                Is.EqualTo("00:00:00.750  inbetween L2  between:intro~detail@L2:1/4"));
+            Assert.That(StoryboardRenderer.CreateLabel(frame), Is.EqualTo(expectedLabel));
             Assert.That(ContainsDarkPixel(bitmap, captionTop, captionTop + StoryboardRenderer.LabelHeight), Is.True);
         });
     }
@@ -140,25 +127,18 @@ public sealed class StoryboardRendererTests
     [Test]
     public void Render_contact_sheet_png_is_deterministic_for_same_inputs()
     {
-        string workspace = CreateWorkspace();
-        StoryboardContactSheetFrame[] frames =
+        string workspace = TestWorkspace.CreateDirectory();
+        RenderStoryboardShot[] frames =
         [
-            new("first", 0.5, WriteFrame(workspace, "first.png", 240, 135, SKColors.OrangeRed)),
-            new("second", 1.5, WriteFrame(workspace, "second.png", 240, 135, SKColors.MediumSeaGreen))
+            new("first", 0.5, WriteFrame(workspace, "first.png", 240, 135, SKColors.OrangeRed), VisibilityAnalysis: null),
+            new("second", 1.5, WriteFrame(workspace, "second.png", 240, 135, SKColors.MediumSeaGreen), VisibilityAnalysis: null)
         ];
         var renderer = new StoryboardRenderer();
 
-        byte[] first = renderer.RenderContactSheetPng(frames, ImagePreviewEncoder.DefaultMaxLongEdge).Bytes;
-        byte[] second = renderer.RenderContactSheetPng(frames, ImagePreviewEncoder.DefaultMaxLongEdge).Bytes;
+        byte[] first = renderer.RenderContactSheetPng(frames, ImagePreviewEncoder.DefaultMaxLongEdge);
+        byte[] second = renderer.RenderContactSheetPng(frames, ImagePreviewEncoder.DefaultMaxLongEdge);
 
         Assert.That(second, Is.EqualTo(first));
-    }
-
-    private static string CreateWorkspace()
-    {
-        string path = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(path);
-        return path;
     }
 
     private static string WriteFrame(string directory, string fileName, int width, int height, SKColor color)

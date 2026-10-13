@@ -303,9 +303,7 @@ internal partial class PersistentPromptLibrary
     // second library instance does not commit a stale in-memory snapshot over a newer change.
     private bool ReloadForWrite()
     {
-        PromptHistoryEntry[] localTransientHistory = _options.RetainRecentPromptText
-            ? []
-            : _history.Where(item => !item.IsPinned).ToArray();
+        PromptHistoryEntry[] localTransientHistory = _history.Where(item => !item.IsPinned).ToArray();
         if (!File.Exists(StoragePath))
         {
             _history = localTransientHistory.ToList();
@@ -335,7 +333,7 @@ internal partial class PersistentPromptLibrary
             ?? throw new InvalidDataException("The prompt library document is empty.");
 
     // Publishes a validated document as the in-memory library, keeping this process's own
-    // transient entries when recent prompts are not retained on disk. True when the file
+    // transient entries, as unpinned prompts are never written to disk. True when the file
     // needs rewriting: a legacy version, entries normalized on load, or history dropped by
     // retention or trimming.
     private bool MaterializeDocument(
@@ -356,15 +354,11 @@ internal partial class PersistentPromptLibrary
             ids,
             migrateLegacyPrompts,
             out bool templatesChanged);
-        bool retentionChanged = false;
-        if (!_options.RetainRecentPromptText)
-        {
-            retentionChanged = history.RemoveAll(item => !item.IsPinned) > 0;
-            var persistedIds = history.Select(item => item.Id).ToHashSet();
-            history.InsertRange(
-                0,
-                localTransientHistory.Where(item => !persistedIds.Contains(item.Id)));
-        }
+        bool retentionChanged = history.RemoveAll(item => !item.IsPinned) > 0;
+        var persistedIds = history.Select(item => item.Id).ToHashSet();
+        history.InsertRange(
+            0,
+            localTransientHistory.Where(item => !persistedIds.Contains(item.Id)));
         int historyCount = history.Count;
         TrimRecentHistory(history);
         bool trimChanged = history.Count != historyCount;
@@ -397,7 +391,7 @@ internal partial class PersistentPromptLibrary
         {
             Version = CurrentStorageVersion,
             History = history
-                .Where(item => _options.RetainRecentPromptText || item.IsPinned)
+                .Where(item => item.IsPinned)
                 .Select(StoredHistoryEntry.FromModel)
                 .ToList(),
             Templates = templates.Select(StoredTemplate.FromModel).ToList(),
@@ -477,7 +471,6 @@ internal partial class PersistentPromptLibrary
         while (File.Exists(recoveryPath));
 
         File.Move(StoragePath, recoveryPath);
-        RecoveredCorruptFilePath = recoveryPath;
         _history = [];
         _templates = [];
         WriteDocument(_history, _templates, writeLock);

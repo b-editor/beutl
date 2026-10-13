@@ -20,17 +20,15 @@ public sealed record McpCliCommand(string Executable, IReadOnlyList<string> Argu
 public sealed record McpCliResult(bool Success, int ExitCode, string Output);
 
 /// <summary>
-/// Builds `&lt;agent&gt; mcp add` command lines for agents whose MCP registry
-/// cannot be edited as a JSON file (Codex's TOML config) or should not be
-/// (Claude Code's app-managed ~/.claude.json). The Beutl entry is a stdio
+/// Builds `claude mcp add`/`remove` command lines for Claude Code's user scope, whose
+/// ~/.claude.json is app-managed and is not edited as a file. The Beutl entry is a stdio
 /// launcher that also forwards to running editors.
 /// </summary>
 public static class AgentMcpCliCommands
 {
     public static bool SupportsStdio(string agentId, AgentInstallScope scope)
     {
-        return (agentId, scope) is ("claude-code", AgentInstallScope.Global)
-            or ("codex", AgentInstallScope.Global);
+        return (agentId, scope) is ("claude-code", AgentInstallScope.Global);
     }
 
     // `--env` is variadic in the Claude CLI and swallows every following
@@ -49,9 +47,6 @@ public static class AgentMcpCliCommands
             ("claude-code", AgentInstallScope.Global) => new McpCliCommand(
                 "claude",
                 ["mcp", "add", "--scope", "user", serverName, .. EnvFlags(environment), "--", command, .. arguments]),
-            ("codex", AgentInstallScope.Global) => new McpCliCommand(
-                "codex",
-                ["mcp", "add", serverName, .. EnvFlags(environment), "--", command, .. arguments]),
             _ => null,
         };
     }
@@ -64,8 +59,6 @@ public static class AgentMcpCliCommands
         {
             ("claude-code", AgentInstallScope.Global) => new McpCliCommand(
                 "claude", ["mcp", "remove", "--scope", "user", serverName]),
-            ("codex", AgentInstallScope.Global) => new McpCliCommand(
-                "codex", ["mcp", "remove", serverName]),
             _ => null,
         };
     }

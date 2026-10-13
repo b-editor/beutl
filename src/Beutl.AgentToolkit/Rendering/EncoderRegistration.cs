@@ -12,6 +12,7 @@ public sealed class EncoderRegistration
         _encoders = new(Register);
     }
 
+    // Test hook: uses the given encoders instead of the registered extensions.
     internal EncoderRegistration(params ControllableEncodingExtension[] encoders)
     {
         ArgumentNullException.ThrowIfNull(encoders);

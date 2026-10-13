@@ -67,7 +67,11 @@ public sealed class FileProjectSessionGateway(
         // cannot observe Project.Items mid-mutation or race SetActiveScene's recording-pipeline swap.
         session.Invoke(() =>
         {
-            scene = fileSessions.AddScene(session, options);
+            // Add to the caller's session instead of re-reading the current one: a concurrent
+            // open_project/create_project swap between the caller's session lookup and this call must
+            // not add the scene to the newly opened project.
+            scene = ProjectOperations.AddScene(session.Project, options);
+            session.MarkDirty();
             session.SetActiveScene(scene);
         });
         return ValueTask.FromResult(new ProjectSceneResult(scene, session.Project, session));

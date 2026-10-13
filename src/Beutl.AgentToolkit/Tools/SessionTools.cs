@@ -84,7 +84,7 @@ public sealed class SessionTools(
             ValidateProjectFileExtension(fullPath, nameof(path));
             if (!File.Exists(fullPath))
             {
-                return Throw<OpenProjectResponse>(ErrorCode.MediaNotFound, $"Project file not found: {fullPath}", fullPath);
+                throw new ReconcileException(new ToolError(ErrorCode.MediaNotFound, $"Project file not found: {fullPath}", fullPath));
             }
 
             ProjectSessionResult result = await projects.OpenProjectAsync(fullPath, cancellationToken).ConfigureAwait(false);
@@ -126,8 +126,8 @@ public sealed class SessionTools(
                     .ToArray();
 
                 string elementFile = DescribeElementFile(scene, element);
-                AddFallbackIncidents(scene, elementFile, fallbacks, warnings, incidents);
-                AddSuppressedRecoveryIncidents(scene, elementFile, element, warnings, incidents);
+                AddFallbackIncidents(scene, elementFile, fallbacks, incidents);
+                AddSuppressedRecoveryIncidents(scene, elementFile, element, incidents);
             }
         }
 
@@ -148,7 +148,6 @@ public sealed class SessionTools(
         Scene scene,
         string elementFile,
         IFallback[] fallbacks,
-        List<string> warnings,
         List<RecoveryIncident> incidents)
     {
         foreach (IFallback fallback in fallbacks)
@@ -169,11 +168,6 @@ public sealed class SessionTools(
                 fallback.Reason.ToString(),
                 typeName,
                 fallback.ErrorMessage));
-            string error = string.IsNullOrWhiteSpace(fallback.ErrorMessage)
-                ? fallback.Reason.ToString()
-                : fallback.ErrorMessage;
-            warnings.Add(
-                $"Element file '{elementFile}' contains content that could not be deserialized: {error}");
         }
     }
 
@@ -181,19 +175,11 @@ public sealed class SessionTools(
         Scene scene,
         string elementFile,
         Element element,
-        List<string> warnings,
         List<RecoveryIncident> incidents)
     {
         if (element.SuppressedStorageSource is { HasNonFallbackIncidents: true } source)
         {
-            SuppressedRecoveryIncident[] recoveryIncidents
-                = source.RecoveryIncidents is { Length: > 0 } details
-                    ? details
-                    : [new SuppressedRecoveryIncident(
-                        nameof(FallbackReason.DeserializationFailed),
-                        null,
-                        "A value was replaced during load, and the original element file is preserved.")];
-            foreach (SuppressedRecoveryIncident recoveryIncident in recoveryIncidents)
+            foreach (SuppressedRecoveryIncident recoveryIncident in source.RecoveryIncidents!)
             {
                 incidents.Add(new RecoveryIncident(
                     scene.Id.ToString(),
@@ -202,9 +188,6 @@ public sealed class SessionTools(
                     recoveryIncident.Reason,
                     recoveryIncident.TypeName,
                     recoveryIncident.Message));
-                string message = recoveryIncident.Message ?? recoveryIncident.Reason;
-                warnings.Add(
-                    $"Element file '{elementFile}' had a value replaced during load: {message}");
             }
         }
     }
@@ -292,7 +275,7 @@ public sealed class SessionTools(
                 ? activeSession.SessionId
                 : session;
 
-            if (sessions.CurrentSession is { Source: EditingSessionSource.LiveEditor } liveSession)
+            if (activeSession is { Source: EditingSessionSource.LiveEditor } liveSession)
             {
                 if (!string.Equals(liveSession.SessionId, sessionId, StringComparison.Ordinal))
                 {
@@ -341,7 +324,7 @@ public sealed class SessionTools(
     }
 
     [McpServerTool(Name = "read_operation_status")]
-    [Description("Reports the targeted scene context and whether save_project is supported. Live MCP accepts optional sceneId; omitting it reports no scene context and never inherits an earlier call. Stdio reports its current file session. Toolkit edit/render calls are synchronous; use this when a workflow needs a quick status response before continuing or stopping.")]
+    [Description("Reports the targeted scene context and whether save_project is supported. Live MCP accepts optional sceneId; omitting it reports no scene context and never inherits an earlier call. Stdio reports its current file session. Use this when a workflow needs a quick status response before continuing or stopping.")]
     public ToolResult<OperationStatusResponse> ReadOperationStatus()
     {
         return Execute(() =>
@@ -368,8 +351,8 @@ public sealed class SessionTools(
                 SaveProjectSupported: fileBacked,
                 HasLongRunningOperation: renderJobs.HasRunningJobs,
                 Message: fileBacked
-                    ? "Active file-backed session. MCP tool calls are synchronous; call save_project after major successful apply_edit stages."
-                    : "Active LiveEditor session. MCP tool calls are synchronous; edits are already applied to the open editor and save_project is not required or supported.");
+                    ? "Active file-backed session. Call save_project after major successful apply_edit stages."
+                    : "Active LiveEditor session. Edits are already applied to the open editor and save_project is not required or supported.");
         });
     }
 
@@ -504,10 +487,5 @@ public sealed class SessionTools(
             $"File-backed Beutl projects must use the '{expected}' extension. The '.{EditorConstants.ProjectPackageExtension}' extension is reserved for exported project packages.",
             target,
             $"Use a path ending in '{expected}', for example 'example{expected}'."));
-    }
-
-    private static T Throw<T>(string code, string message, string? target = null)
-    {
-        throw new ReconcileException(new ToolError(code, message, target));
     }
 }

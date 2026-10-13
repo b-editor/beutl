@@ -1,12 +1,13 @@
 ﻿using System.Diagnostics;
 using Beutl.Api.Clients;
 using Beutl.Api.Objects;
+using Nito.AsyncEx;
 
 namespace Beutl.Api.Services;
 
 public class DiscoverService(BeutlApiApplication clients) : IBeutlApiResource
 {
-    public MyAsyncLock Lock => clients.Lock;
+    public AsyncLock Lock => clients.Lock;
 
     public async Task<Package> GetPackage(string name, CancellationToken cancellationToken)
     {

@@ -8,27 +8,42 @@ using NUnit.Framework;
 
 namespace Beutl.UnitTests.Api;
 
-/// <summary>
-/// A retry has to reproduce the job it repeats. The server records the shape it
-/// was asked for, and these cover the two ways that can go wrong: reading a key
-/// that is no longer written, and repeating a request whose upload was never
-/// retained.
-/// </summary>
+/// <summary>Retry handlers for image and video jobs.</summary>
 public class AiJobRetryHandlerTests
 {
-    [Test]
-    public async Task ImageRetry_ReusesIdempotencyKeyAcrossAmbiguousResponse()
+    private string _directory = null!;
+
+    [SetUp]
+    public void SetUp()
     {
+        _directory = Path.Combine(Path.GetTempPath(), "Beutl.UnitTests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(_directory);
+    }
+
+    [TearDown]
+    public void TearDown()
+    {
+        if (Directory.Exists(_directory))
+            Directory.Delete(_directory, recursive: true);
+    }
+
+    [TestCase(typeof(IOException), TestName = "ImageRetry_ReusesIdempotencyKeyAcrossAmbiguousResponse")]
+    [TestCase(typeof(AuthenticationRequiredException), TestName = "AuthenticationSessionChangeRetainsTheIssuedRetryKey")]
+    public async Task ImageRetry_ReusesTheIssuedKeyAfterAFailure(Type failureType)
+    {
+        Exception failure = failureType == typeof(AuthenticationRequiredException)
+            ? new AuthenticationRequiredException()
+            : new IOException("response lost");
         var images = new Mock<IAiImageGenerationService>();
         var keys = new List<string?>();
         images.Setup(s => s.GenerateAsync(It.IsAny<AiImageGenerationRequest>(), It.IsAny<CancellationToken>()))
             .Callback<AiImageGenerationRequest, CancellationToken>((request, _) => keys.Add(request.IdempotencyKey))
-            .ThrowsAsync(new IOException("response lost"));
+            .ThrowsAsync(failure);
         var handler = new AiImageJobRetryHandler(images.Object, EntitlementService(), AvailabilityService(true), ModelCatalogService(), RetryContext());
         AiJob job = Job("image", "{\"prompt\":\"a harbor\",\"aspectRatio\":\"1:1\"}");
 
-        await Assert.ThrowsAsync<IOException>(() => RunRetryAsync(handler, job));
-        await Assert.ThrowsAsync<IOException>(() => RunRetryAsync(handler, job));
+        await Assert.ThrowsAsync(failureType, () => RunRetryAsync(handler, job));
+        await Assert.ThrowsAsync(failureType, () => RunRetryAsync(handler, job));
 
         Assert.That(keys, Has.Count.EqualTo(2));
         Assert.That(keys[1], Is.EqualTo(keys[0]));
@@ -63,32 +78,6 @@ public class AiJobRetryHandlerTests
 
         Assert.That(keys, Has.Count.EqualTo(2));
         Assert.That(keys[1], Is.Not.EqualTo(keys[0]));
-    }
-
-    [Test]
-    public async Task AuthenticationSessionChangeRetainsTheIssuedRetryKey()
-    {
-        var images = new Mock<IAiImageGenerationService>();
-        var keys = new List<string?>();
-        images.Setup(service => service.GenerateAsync(
-                It.IsAny<AiImageGenerationRequest>(),
-                It.IsAny<CancellationToken>()))
-            .Callback<AiImageGenerationRequest, CancellationToken>((request, _) =>
-                keys.Add(request.IdempotencyKey))
-            .ThrowsAsync(new AuthenticationRequiredException());
-        var handler = new AiImageJobRetryHandler(
-            images.Object,
-            EntitlementService(),
-            AvailabilityService(true),
-            ModelCatalogService(),
-            RetryContext());
-        AiJob job = Job("image", "{\"prompt\":\"a harbor\",\"aspectRatio\":\"1:1\"}");
-
-        await Assert.ThrowsAsync<AuthenticationRequiredException>(() => RunRetryAsync(handler, job));
-        await Assert.ThrowsAsync<AuthenticationRequiredException>(() => RunRetryAsync(handler, job));
-
-        Assert.That(keys, Has.Count.EqualTo(2));
-        Assert.That(keys[1], Is.EqualTo(keys[0]));
     }
 
     [Test]
@@ -251,13 +240,13 @@ public class AiJobRetryHandlerTests
     [Test]
     public async Task PersistedRetryBypassesCurrentBalanceModelAndAvailabilityPreflight()
     {
-        var store = new InMemoryAiRetryKeyStore();
+        var store = new FileAiRetryKeyStore(_directory);
         AiRetryAttemptContext context = RetryContext(store);
         AiJob job = Job("image", "{\"prompt\":\"a harbor\",\"aspectRatio\":\"1:1\"}") with
         {
             Model = new AiModelId("removed/model"),
         };
-        SeedRetryKey(store, job, "test-account");
+        AiRetryKeyStoreTests.Seed(store, job, "test-account");
         var handler = new AiImageJobRetryHandler(
             Mock.Of<IAiImageGenerationService>(),
             EntitlementService(),
@@ -281,9 +270,9 @@ public class AiJobRetryHandlerTests
     public async Task RetiredRecoveryConfirmationDoesNotIssueAnotherPaidRequest()
     {
         var images = new Mock<IAiImageGenerationService>();
-        var store = new InMemoryAiRetryKeyStore();
+        var store = new FileAiRetryKeyStore(_directory);
         AiJob job = Job("image", "{\"prompt\":\"a harbor\",\"aspectRatio\":\"1:1\"}");
-        string key = SeedRetryKey(store, job, "test-account");
+        string key = AiRetryKeyStoreTests.Seed(store, job, "test-account");
         var handler = new AiImageJobRetryHandler(
             images.Object,
             EntitlementService(),
@@ -315,10 +304,10 @@ public class AiJobRetryHandlerTests
     public async Task RecoveryConfirmationRejectsAnAuthenticatedAccountSwitch()
     {
         var images = new Mock<IAiImageGenerationService>();
-        var store = new InMemoryAiRetryKeyStore();
+        var store = new FileAiRetryKeyStore(_directory);
         string account = "account-a";
         AiJob job = Job("image", "{\"prompt\":\"a harbor\",\"aspectRatio\":\"1:1\"}");
-        string original = SeedRetryKey(store, job, account);
+        string original = AiRetryKeyStoreTests.Seed(store, job, account);
         var context = new AiRetryAttemptContext(
             store,
             () => new AiAuthenticatedRequestIdentity(account, User: null),
@@ -351,7 +340,7 @@ public class AiJobRetryHandlerTests
     public void ProductionRetryContextRejectsSyntheticIdentity()
     {
         var context = new AiRetryAttemptContext(
-            new InMemoryAiRetryKeyStore(),
+            new FileAiRetryKeyStore(_directory),
             () => new AiAuthenticatedRequestIdentity("account-a", User: null));
 
         Assert.Throws<AuthenticationRequiredException>(() => context.GetRequiredIdentity());
@@ -679,6 +668,126 @@ public class AiJobRetryHandlerTests
                 """)));
     }
 
+    [Test]
+    public async Task Retry_RepeatsTheModelTheJobRanOn()
+    {
+        var images = new Mock<IAiImageGenerationService>();
+        AiImageGenerationRequest? sent = null;
+        images
+            .Setup(service => service.GenerateAsync(
+                It.IsAny<AiImageGenerationRequest>(),
+                It.IsAny<CancellationToken>()))
+            .Callback<AiImageGenerationRequest, CancellationToken>((request, _) => sent = request)
+            .ReturnsAsync(() => null!);
+
+        var catalog = new AiModelCatalog([
+            KeyValuePair.Create(AiOperations.ImageGeneration, ImmutableArray.Create(
+                new AiModelOption(new AiModelId("cheap/model"), "cheap/model", AiModelCostTier.Low, true,
+                    Image: AiImageModelCapabilities.Unrestricted),
+                new AiModelOption(new AiModelId("dear/model"), "dear/model", AiModelCostTier.High, false,
+                    Image: AiImageModelCapabilities.Unrestricted)))]);
+        var handler = new AiImageJobRetryHandler(
+            images.Object,
+            EntitlementService(),
+            AvailabilityService(true),
+            ModelCatalogService(catalog),
+            RetryContext());
+
+        AiJob job = Job("image", "{\"prompt\":\"a harbor\",\"aspectRatio\":\"1:1\"}") with { Model = new AiModelId("dear/model") };
+        await Assert.DoesNotThrowAsync(() => RunRetryAsync(handler, job));
+        // Not the default, which is cheaper and would produce a different picture.
+        Assert.That(sent!.Model!.Value.Value, Is.EqualTo("dear/model"));
+    }
+
+    [Test]
+    public async Task Retry_RefusesAModelTheServerNoLongerOffers()
+    {
+        var images = new Mock<IAiImageGenerationService>();
+        var catalog = new AiModelCatalog([
+            KeyValuePair.Create(AiOperations.ImageGeneration, ImmutableArray.Create(
+                new AiModelOption(new AiModelId("cheap/model"), "cheap/model", AiModelCostTier.Low, true,
+                    Image: AiImageModelCapabilities.Unrestricted)))]);
+        var handler = new AiImageJobRetryHandler(
+            images.Object,
+            EntitlementService(),
+            AvailabilityService(true),
+            ModelCatalogService(catalog),
+            RetryContext());
+
+        // Quietly rerunning on the default would charge the default's price for
+        // a model the user never chose.
+        AiJob job = Job("image", "{\"prompt\":\"a harbor\",\"aspectRatio\":\"1:1\"}") with { Model = new AiModelId("withdrawn/model") };
+        AiJobRetryPreflight preflight = await handler.GetPreflightAsync(
+            job,
+            CancellationToken.None);
+        await using AiJobRetryPreparationResult prepared = await handler.PrepareAsync(
+            job,
+            CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(preflight.CanSubmit, Is.False);
+            Assert.That(prepared.IsReady, Is.False);
+            Assert.That(prepared.Explanation, Is.EqualTo(Strings.AiModelUnavailable));
+        }
+        images.Verify(service => service.GenerateAsync(
+            It.IsAny<AiImageGenerationRequest>(),
+            It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Test]
+    public async Task Retry_RefusesAModelWhenTheOperationExplicitlyOffersNoModels()
+    {
+        var images = new Mock<IAiImageGenerationService>();
+        var catalog = new AiModelCatalog(
+            [],
+            withoutModels: [AiOperations.ImageGeneration]);
+        var handler = new AiImageJobRetryHandler(
+            images.Object,
+            EntitlementService(),
+            AvailabilityService(true),
+            ModelCatalogService(catalog),
+            RetryContext());
+        AiJob job = Job("image", "{\"prompt\":\"a harbor\",\"aspectRatio\":\"1:1\"}") with { Model = new AiModelId("withdrawn/model") };
+
+        AiJobRetryPreflight preflight = await handler.GetPreflightAsync(
+            job,
+            CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(preflight.CanSubmit, Is.False);
+            Assert.That(preflight.Explanation, Is.EqualTo(Strings.AiModelUnavailable));
+        }
+        images.Verify(service => service.GenerateAsync(
+            It.IsAny<AiImageGenerationRequest>(),
+            It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Test]
+    public async Task Retry_ProceedsWhenTheCatalogCouldNotBeRead()
+    {
+        var images = new Mock<IAiImageGenerationService>();
+        images
+            .Setup(service => service.GenerateAsync(
+                It.IsAny<AiImageGenerationRequest>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => null!);
+
+        var handler = new AiImageJobRetryHandler(
+            images.Object,
+            EntitlementService(),
+            AvailabilityService(true),
+            ModelCatalogService(AiModelCatalog.Empty),
+            RetryContext());
+        AiJob job = Job("image", "{\"prompt\":\"a harbor\",\"aspectRatio\":\"1:1\"}") with { Model = new AiModelId("dear/model") };
+
+        // An empty catalog says nothing about any model, and the server has the
+        // last word; refusing here would break reruns whenever the capabilities
+        // endpoint is unreachable.
+        await Assert.DoesNotThrowAsync(() => RunRetryAsync(handler, job));
+    }
+
     private static AiJob Job(string kind, string inputParameters) => new(
         new AiJobId("job-1"),
         new AiJobKindId(kind),
@@ -755,19 +864,11 @@ public class AiJobRetryHandlerTests
         return mock.Object;
     }
 
-    private static string SeedRetryKey(IAiRetryKeyStore store, AiJob job, string accountId)
-    {
-        AiRetryAttempt attempt = store.PrepareAttempt(job, accountId);
-        Assert.That(store.TryConsumeAttempt(attempt, job, accountId, out string key, out _), Is.True);
-        Assert.That(store.TryRelease(job, accountId, key, attempt.Generation + 1, attempt.Token), Is.True);
-        return key;
-    }
-
-    private static AiRetryAttemptContext RetryContext(
+    private AiRetryAttemptContext RetryContext(
         IAiRetryKeyStore? store = null,
         string? accountId = "test-account")
         => new(
-            store ?? new InMemoryAiRetryKeyStore(),
+            store ?? new FileAiRetryKeyStore(_directory),
             () => accountId is null
                 ? null
                 : new AiAuthenticatedRequestIdentity(accountId, User: null),

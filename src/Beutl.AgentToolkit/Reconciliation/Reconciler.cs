@@ -36,15 +36,6 @@ public sealed partial class Reconciler
         "Uri"
     };
 
-    public ReconcilePlan Plan(IEditingSession session, JsonObject desired, IReadOnlySet<Guid>? knownNewIds = null)
-    {
-        ArgumentNullException.ThrowIfNull(session);
-        ArgumentNullException.ThrowIfNull(desired);
-
-        JsonObject desiredDocument = PrepareDesired(session, desired);
-        return PlanPrepared(session, desiredDocument, knownNewIds);
-    }
-
     private static ReconcilePlan PlanPrepared(IEditingSession session, JsonObject desiredDocument, IReadOnlySet<Guid>? knownNewIds)
     {
         JsonObject currentDocument = session.Documents.Read(session.Root);
@@ -132,12 +123,10 @@ public sealed partial class Reconciler
         ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(desired);
 
-        return Dispatch(session, () => ApplyCore(session, desired, knownNewIds));
+        return session.ReadOnSession(() => ApplyCore(session, desired, knownNewIds));
     }
 
-    // Resolve the desired document from the current one INSIDE the mutation dispatch, so a patch's
-    // read + merge + plan + mutate is one atomic operation on the editor thread — no torn read of the
-    // live scene, and a single dispatch (not one for the read and another for the write).
+    // Read, merge, plan and mutate in one dispatch, so the live scene cannot change in between.
     public ReconcileResult ApplyFromCurrent(
         IEditingSession session,
         Func<JsonObject, (JsonObject Desired, IReadOnlySet<Guid>? KnownNewIds)> resolve)
@@ -145,16 +134,15 @@ public sealed partial class Reconciler
         ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(resolve);
 
-        return Dispatch(session, () =>
+        return session.ReadOnSession(() =>
         {
             (JsonObject desired, IReadOnlySet<Guid>? knownNewIds) = resolve(session.Documents.Read(session.Root));
             return ApplyCore(session, desired, knownNewIds);
         });
     }
 
-    // Resolve, change-set-validate, and mutate in ONE dispatch, so a concurrent UI edit cannot change
-    // the live scene between the check and the write — the validated plan is built from the read Apply
-    // then consumes.
+    // Resolve, validate the change set and mutate in one dispatch, so a UI edit cannot slip between
+    // the check and the write.
     public ReconcileResult ApplyValidated(
         IEditingSession session,
         Func<JsonObject, (JsonObject Desired, IReadOnlySet<Guid>? KnownNewIds)> resolve,
@@ -164,23 +152,26 @@ public sealed partial class Reconciler
         ArgumentNullException.ThrowIfNull(resolve);
         ArgumentNullException.ThrowIfNull(validate);
 
-        return Dispatch(session, () =>
+        return session.ReadOnSession(() =>
         {
             (JsonObject desired, IReadOnlySet<Guid>? knownNewIds) = resolve(session.Documents.Read(session.Root));
-            ReconcilePlan plan = PlanPrepared(session, PrepareDesired(session, desired), knownNewIds);
-            if (validate(plan) is { } error)
-            {
-                throw new ReconcileException(error);
-            }
-
-            return ApplyCore(session, desired, knownNewIds);
+            return ApplyCore(session, desired, knownNewIds, validate);
         });
     }
 
-    private ReconcileResult ApplyCore(IEditingSession session, JsonObject desired, IReadOnlySet<Guid>? knownNewIds)
+    private ReconcileResult ApplyCore(
+        IEditingSession session,
+        JsonObject desired,
+        IReadOnlySet<Guid>? knownNewIds,
+        Func<ReconcilePlan, ToolError?>? validate = null)
     {
         JsonObject desiredDocument = PrepareDesired(session, desired);
         ReconcilePlan plan = PlanPrepared(session, desiredDocument, knownNewIds);
+        if (validate?.Invoke(plan) is { } error)
+        {
+            throw new ReconcileException(error);
+        }
+
         Element[] affectedSuppressedElements = GetAffectedSuppressedElements(session.Root, plan);
         session.History.ExecuteInTransaction(
             () =>
@@ -208,11 +199,6 @@ public sealed partial class Reconciler
         if (plan.Changes.Count == 0)
         {
             return [];
-        }
-
-        if (root is Element { SuppressedStorageSource: not null } element)
-        {
-            return [element];
         }
 
         if (root is not Scene scene)
@@ -246,8 +232,6 @@ public sealed partial class Reconciler
             .ToArray();
     }
 
-    // Build the plan on the editor's dispatcher: PlanPrepared reads session.Documents/Root, so off
-    // the MCP request thread it would race the live scene the editor mutates on the UI thread.
     public ReconcilePlan PlanFromCurrent(
         IEditingSession session,
         Func<JsonObject, (JsonObject Desired, IReadOnlySet<Guid>? KnownNewIds)> resolve)
@@ -255,25 +239,11 @@ public sealed partial class Reconciler
         ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(resolve);
 
-        return Dispatch(session, () =>
+        return session.ReadOnSession(() =>
         {
             (JsonObject desired, IReadOnlySet<Guid>? knownNewIds) = resolve(session.Documents.Read(session.Root));
             return PlanPrepared(session, PrepareDesired(session, desired), knownNewIds);
         });
-    }
-
-    // Plan and mutate on the editor's dispatcher: reading session.Root/Documents off the MCP request
-    // thread would race the live scene the editor mutates on the UI thread. File sessions run inline.
-    private static T Dispatch<T>(IEditingSession session, Func<T> core)
-    {
-        if (session is IEditingSessionDispatcher dispatcher)
-        {
-            T result = default!;
-            dispatcher.Invoke(() => result = core());
-            return result;
-        }
-
-        return core();
     }
 
     private static ToolError? ValidateNewTypedObjectDiscriminators(JsonNode? node, string path)
@@ -331,7 +301,7 @@ public sealed partial class Reconciler
     {
         if (node is JsonObject obj)
         {
-            if (obj.TryGetDiscriminator(out Type? type) && type is not null && typeof(EngineObject).IsAssignableFrom(type))
+            if (obj.TryGetDiscriminator(out Type? type) && typeof(EngineObject).IsAssignableFrom(type))
             {
                 HashSet<string> allowed = CreateAllowedEngineObjectPropertyNames(type);
                 foreach (KeyValuePair<string, JsonNode?> pair in obj.ToArray())

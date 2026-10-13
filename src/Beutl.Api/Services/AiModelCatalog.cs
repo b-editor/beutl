@@ -20,12 +20,8 @@ public enum AiModelCostTier
 /// and Supported carries the accepted values.
 /// </summary>
 /// <remarks>
-/// <see langword="default"/> is identical to <see cref="Unspecified"/>.
-/// Both unspecified and unsupported dimensions expose an empty <see cref="Values"/>
-/// array; use <see cref="IsSpecified"/> to distinguish them. Calling
-/// <see cref="Supported(IEnumerable{T})"/> with an empty sequence produces the
-/// same value as <see cref="Unsupported"/>. Equality compares the specified
-/// state and, for a specified dimension, the values in order.
+/// Both unspecified and unsupported dimensions have no <see cref="Values"/>; <see cref="IsSpecified"/> tells them
+/// apart. Equality compares the specified state and, for a specified dimension, the values in order.
 /// </remarks>
 public readonly struct AiCapabilityDimension<T> : IEquatable<AiCapabilityDimension<T>>
     where T : notnull
@@ -61,7 +57,6 @@ public readonly struct AiCapabilityDimension<T> : IEquatable<AiCapabilityDimensi
     public static AiCapabilityDimension<T> Unsupported { get; } =
         new([], true);
 
-    /// <summary>Compares two dimensions by specified state and, when specified, ordered values.</summary>
     public bool Equals(AiCapabilityDimension<T> other)
     {
         if (IsSpecified != other.IsSpecified)
@@ -69,11 +64,9 @@ public readonly struct AiCapabilityDimension<T> : IEquatable<AiCapabilityDimensi
         return !IsSpecified || Values.SequenceEqual(other.Values);
     }
 
-    /// <summary>Determines whether this dimension equals another object.</summary>
     public override bool Equals(object? obj)
         => obj is AiCapabilityDimension<T> other && Equals(other);
 
-    /// <summary>Returns a hash code based on specified state and ordered values.</summary>
     public override int GetHashCode()
     {
         var hash = new HashCode();
@@ -86,13 +79,11 @@ public readonly struct AiCapabilityDimension<T> : IEquatable<AiCapabilityDimensi
         return hash.ToHashCode();
     }
 
-    /// <summary>Determines whether two dimensions are equal.</summary>
     public static bool operator ==(
         AiCapabilityDimension<T> left,
         AiCapabilityDimension<T> right)
         => left.Equals(right);
 
-    /// <summary>Determines whether two dimensions differ.</summary>
     public static bool operator !=(
         AiCapabilityDimension<T> left,
         AiCapabilityDimension<T> right)
@@ -241,11 +232,9 @@ public sealed record AiVideoModelCapabilities(
 }
 
 /// <summary>
-/// What one image model will take. GPT Image-1 renders 1:1, 3:2 and 2:3 and
-/// refuses everything else; the backgrounds differ per model as well, and only
-/// some take a seed or accept a picture to work from — which every edit
-/// depends on. Aspect ratios and backgrounds use <see cref="AiCapabilityDimension{T}"/>
-/// so omitted, explicitly empty and narrowed lists remain distinct.
+/// What one image model will take. Aspect ratios and backgrounds differ per model, and only some take a seed or
+/// accept a picture to work from, which every edit depends on. Aspect ratios and backgrounds use
+/// <see cref="AiCapabilityDimension{T}"/> so omitted, explicitly empty and narrowed lists remain distinct.
 /// </summary>
 public sealed record AiImageModelCapabilities(
     AiCapabilityDimension<string> AspectRatios,

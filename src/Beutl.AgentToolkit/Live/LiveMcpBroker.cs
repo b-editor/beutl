@@ -154,9 +154,8 @@ public sealed class LiveMcpBroker
         AgentHostInstanceInfo?[] infos = await Task.WhenAll(
             registrations.Select(entry => peers.ReadInfoAsync(entry, cancellationToken))).ConfigureAwait(false);
         // No connected instance: this server never picks a process on the agent's behalf.
-        return ToolResult<ListAgentHostInstancesResponse>.Success(new ListAgentHostInstancesResponse(null,
-            infos.OfType<AgentHostInstanceInfo>()
-                .OrderBy(info => info.ProcessId).ThenBy(info => info.InstanceId, StringComparer.Ordinal).ToArray()));
+        return ToolResult<ListAgentHostInstancesResponse>.Success(
+            new ListAgentHostInstancesResponse(null, LiveToolRouting.OrderByProcess(infos)));
     }
 
     internal async ValueTask<ListToolsResult> DescribeToolsAsync(
@@ -233,12 +232,11 @@ public sealed class LiveMcpBroker
                 return SceneWithoutInstance();
             if (!IsLocalTool(context.Server, request.Name))
                 return LiveOnly(request.Name);
-            // Headless: the server's own file-backed tools, exactly like the former stdio server.
+            // Headless: the server's own file-backed tools.
             return await next(context, cancellationToken).ConfigureAwait(false);
         }
 
-        if (request.Name == ListInstancesToolName || id.ValueKind != JsonValueKind.String
-            || !Guid.TryParseExact(id.GetString(), "N", out _))
+        if (!LiveToolRouting.TryGetInstanceId(request.Name, id, out string? instanceId))
             return LiveToolResults.InvalidInstanceId();
 
         if (!TryGetPeers(out AgentHostPeerClient? peers, out ToolError? unavailable))
@@ -246,8 +244,9 @@ public sealed class LiveMcpBroker
 
         // An explicit target never moves: an exited process fails here even if a replacement is
         // registered, so an edit cannot land in another project or fall back to the headless editor.
-        string instanceId = id.GetString()!;
-        return await peers.ForwardAsync(instanceId, WithoutInstanceId(request, arguments!), context.Server, cancellationToken)
+        return await peers.ForwardAsync(
+                instanceId, LiveToolRouting.WithoutArgument(request, arguments!, InstanceIdArgument), context.Server,
+                cancellationToken)
             .ConfigureAwait(false);
     }
 
@@ -304,79 +303,51 @@ public sealed class LiveMcpBroker
     // The headless schema plus the live target: instanceId selects a running editor, sceneId its
     // scene, and the file session stops being required because live calls never carry one.
     private static Tool WithLiveTarget(Tool tool)
-    {
-        JsonObject node = JsonSerializer.SerializeToNode(tool)!.AsObject();
-        JsonObject schema = node["inputSchema"]!.AsObject();
-        var properties = schema["properties"] as JsonObject;
-        if (properties is null)
-            schema["properties"] = properties = new JsonObject();
-        properties[InstanceIdArgument] = new JsonObject
+        => LiveToolRouting.EditSchema(tool, (schema, properties) =>
         {
-            ["type"] = "string",
-            ["description"] = "ID of the running Beutl instance (from list_instances) to run this call in; the edit then appears live in its editor. Omit to work headlessly on project files."
-        };
-        // Only the tools the editor scene-routes take a scene; on any other tool the editor would
-        // reject sceneId as an unknown argument.
-        if (AgentHostSceneRouting.AcceptsScene(tool.Name))
-        {
-            properties[SceneIdArgument] = new JsonObject
+            properties[InstanceIdArgument] = new JsonObject
             {
                 ["type"] = "string",
-                ["description"] = "Live only: ID of the target scene in that instance (from list_scenes there). Pass it together with instanceId; omit it for headless file sessions."
+                ["description"] = "ID of the running Beutl instance (from list_instances) to run this call in; the edit then appears live in its editor. Omit to work headlessly on project files."
             };
-        }
+            // Only the tools the editor scene-routes take a scene; on any other tool the editor would
+            // reject sceneId as an unknown argument.
+            if (AgentHostSceneRouting.AcceptsScene(tool.Name))
+            {
+                properties[SceneIdArgument] = new JsonObject
+                {
+                    ["type"] = "string",
+                    ["description"] = "Live only: ID of the target scene in that instance (from list_scenes there). Pass it together with instanceId; omit it for headless file sessions."
+                };
+            }
 
-        if (properties[SessionArgument] is JsonObject session)
-        {
-            string description = session["description"]?.GetValue<string>() ?? "";
-            session["description"] = (description.Length == 0 ? "" : description.TrimEnd() + " ")
-                                     + "Headless only; omit when instanceId is given.";
-        }
+            if (properties[SessionArgument] is JsonObject session)
+            {
+                string description = session["description"]?.GetValue<string>() ?? "";
+                session["description"] = (description.Length == 0 ? "" : description.TrimEnd() + " ")
+                                         + "Headless only; omit when instanceId is given.";
+            }
 
-        if (schema["required"] is JsonArray required)
-        {
-            JsonNode? sessionRequirement = required.FirstOrDefault(item => item?.GetValue<string>() == SessionArgument);
-            if (sessionRequirement is not null)
-                required.Remove(sessionRequirement);
-        }
-
-        return node.Deserialize<Tool>()!;
-    }
+            LiveToolRouting.RemoveRequired(schema, SessionArgument);
+        });
 
     private static Tool RequireInstance(Tool tool)
     {
-        JsonObject node = JsonSerializer.SerializeToNode(tool)!.AsObject();
-        JsonObject schema = node["inputSchema"]!.AsObject();
-        var properties = schema["properties"] as JsonObject;
-        if (properties is null)
-            schema["properties"] = properties = new JsonObject();
-        properties[InstanceIdArgument] ??= new JsonObject
+        Tool live = LiveToolRouting.EditSchema(tool, (schema, properties) =>
         {
-            ["type"] = "string",
-            ["description"] = "ID of the running Beutl instance (from list_instances) that runs this tool."
-        };
-        var required = schema["required"] as JsonArray;
-        if (required is null)
-            schema["required"] = required = new JsonArray();
-        if (!required.Any(item => item?.GetValue<string>() == InstanceIdArgument))
-            required.Add(InstanceIdArgument);
-        node["description"] = "Live only (requires instanceId). " + (tool.Description ?? "");
-        return node.Deserialize<Tool>()!;
-    }
-
-    private static CallToolRequestParams WithoutInstanceId(
-        CallToolRequestParams request, IDictionary<string, JsonElement> arguments)
-    {
-        var forwarded = new Dictionary<string, JsonElement>(arguments, StringComparer.Ordinal);
-        forwarded.Remove(InstanceIdArgument);
-        return new CallToolRequestParams
-        {
-            Name = request.Name,
-            Arguments = forwarded,
-            Meta = request.Meta,
-            InputResponses = request.InputResponses,
-            RequestState = request.RequestState
-        };
+            properties[InstanceIdArgument] ??= new JsonObject
+            {
+                ["type"] = "string",
+                ["description"] = "ID of the running Beutl instance (from list_instances) that runs this tool."
+            };
+            var required = schema["required"] as JsonArray;
+            if (required is null)
+                schema["required"] = required = new JsonArray();
+            if (!required.Any(item => item?.GetValue<string>() == InstanceIdArgument))
+                required.Add(InstanceIdArgument);
+        });
+        live.Description = "Live only (requires instanceId). " + (tool.Description ?? "");
+        return live;
     }
 
     private static CallToolResult SceneWithoutInstance()

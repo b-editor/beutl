@@ -36,7 +36,6 @@ internal static class PrivateDurableFile
         using FileStream stream = new(path, options);
         stream.Write(bytes);
         stream.Flush(flushToDisk: true);
-        RestrictFile(path);
     }
 
     public static void AtomicReplace(string temporary, string destination, bool overwrite, string failureMessage)

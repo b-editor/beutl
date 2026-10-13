@@ -145,12 +145,7 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
     }
 
     private static void CreateLocalSourceDirectory()
-    {
-        if (!Directory.Exists(Helper.LocalSourcePath))
-        {
-            Directory.CreateDirectory(Helper.LocalSourcePath);
-        }
-    }
+        => Directory.CreateDirectory(Helper.LocalSourcePath);
 
     public Task<PackageInstallContext> PrepareForInstall(
         Release release,
@@ -293,84 +288,38 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
             return;
 
         using FileStream stream = File.OpenRead(context.NuGetPackageFile);
-        using var sha256 = SHA256.Create();
-        (HashAlgorithm, string?)[] items =
-        [
-            (sha256, asset.Sha256)
-        ];
-
-        long totalLength = items.Count(x => !string.IsNullOrWhiteSpace(x.Item2)) * stream.Length;
-        if (items.All(item => string.IsNullOrWhiteSpace(item.Item2)))
+        if (string.IsNullOrWhiteSpace(asset.Sha256))
         {
             context.HashVerified = false;
             return;
         }
 
-        foreach ((HashAlgorithm algorithm, string? hash) in items)
-        {
-            if (!string.IsNullOrWhiteSpace(hash))
-            {
-                stream.Position = 0;
-                if (!await VerifyHashAsync(algorithm, stream, totalLength, hash, progress, cancellationToken))
-                    throw RejectDownloadedPackage(context, context.NuGetPackageFile, stream);
-            }
-        }
+        if (!await VerifySha256Async(stream, asset.Sha256, progress, cancellationToken))
+            throw RejectDownloadedPackage(context, context.NuGetPackageFile, stream);
 
         context.HashVerified = true;
         context.Phase = PackageInstallPhase.Verified;
     }
 
-    private static async Task<bool> VerifyHashAsync(
-        HashAlgorithm algorithm,
+    private static async Task<bool> VerifySha256Async(
         Stream stream,
-        long totalLength,
         string hashValue,
         IProgress<double>? progress,
         CancellationToken cancellationToken)
     {
         long length = stream.Length;
-        int bufferSize = 81920;
-        byte[] buffer = new byte[bufferSize];
+        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        byte[] buffer = new byte[81920];
         long totalBytesRead = 0;
         int bytesRead;
         while ((bytesRead = await stream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false)) != 0)
         {
+            hash.AppendData(buffer, 0, bytesRead);
             totalBytesRead += bytesRead;
-            if (totalBytesRead < length)
-            {
-                algorithm.TransformBlock(buffer, 0, bytesRead, null, 0);
-            }
-            else
-            {
-                algorithm.TransformFinalBlock(buffer, 0, bytesRead);
-            }
-
-            progress?.Report(totalBytesRead / (double)totalLength);
+            progress?.Report(totalBytesRead / (double)length);
         }
 
-        if (totalBytesRead == 0)
-            algorithm.TransformFinalBlock([], 0, 0);
-
-        if (algorithm.Hash == null)
-        {
-            return false;
-        }
-        else
-        {
-            string computedHash = ByteArrayToString(algorithm.Hash);
-            return StringComparer.OrdinalIgnoreCase.Equals(computedHash, hashValue);
-        }
-    }
-
-    private static string ByteArrayToString(byte[] bytes)
-    {
-        var sb = new StringBuilder(bytes.Length * 2);
-        foreach (byte item in bytes.AsSpan())
-        {
-            sb.Append($"{item:X2}");
-        }
-
-        return sb.ToString();
+        return StringComparer.OrdinalIgnoreCase.Equals(Convert.ToHexString(hash.GetHashAndReset()), hashValue);
     }
 
     private InvalidDataException RejectDownloadedPackage(
@@ -473,7 +422,6 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
                 var installedPaths = new List<string>(packagesToInstall.Length);
                 foreach (SourcePackageDependencyInfo packageToInstall in packagesToInstall)
                 {
-                    // Beutl.Sdkに含まれるライブラリの場合、飛ばす。
                     if (CoreLibraries.IncludedInPackageDependencies(packageToInstall.Id, packageToInstall.Version))
                     {
                         continue;
@@ -555,8 +503,6 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
             var reader = new PackageFolderReader(installedPath);
             NuspecReader nuspec = reader.NuspecReader;
 
-            // GetLicenseMetadataの戻り値はNullの可能性があるので、
-            // https://github.com/NuGet/NuGet.Client/blob/e873b496daa6839a86f4b820d15945a9aad98e3d/src/NuGet.Core/NuGet.Packaging/NuspecReader.cs#L434
             if (nuspec.GetRequireLicenseAcceptance()
                 && nuspec.GetLicenseMetadata() is { } license)
             {

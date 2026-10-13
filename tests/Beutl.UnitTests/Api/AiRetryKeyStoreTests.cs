@@ -405,7 +405,6 @@ public sealed class AiRetryKeyStoreTests
         if (OperatingSystem.IsWindows())
         {
             Assert.Ignore("Unix modes are not available on Windows.");
-            return;
         }
         var store = new FileAiRetryKeyStore(_directory);
         store.PrepareAttempt(Job("job", "prompt"), "account");
@@ -454,7 +453,8 @@ public sealed class AiRetryKeyStoreTests
         Assert.That(File.Exists(path), Is.True);
     }
 
-    private static string Seed(FileAiRetryKeyStore store, AiJob job, string accountId)
+    // Leaves a released key for the job, as a retry whose response was lost does.
+    internal static string Seed(IAiRetryKeyStore store, AiJob job, string accountId)
     {
         AiRetryAttempt attempt = store.PrepareAttempt(job, accountId);
         Assert.That(store.TryConsumeAttempt(attempt, job, accountId, out string key, out bool isRepeat), Is.True);
@@ -463,17 +463,8 @@ public sealed class AiRetryKeyStoreTests
         return key;
     }
 
-    private static AiJob Job(string id, string prompt) => new(
-        new AiJobId(id),
-        AiJobKinds.Image,
-        AiJobStatuses.Failed,
-        JsonDocument.Parse($$"""{"prompt":"{{prompt}}","aspectRatio":"1:1"}""").RootElement.Clone(),
-        FileId: null,
-        ContentUri: null,
-        Error: "aiProviderError",
-        CanRetry: true,
-        CreatedAt: DateTimeOffset.UnixEpoch,
-        UpdatedAt: DateTimeOffset.UnixEpoch);
+    private static AiJob Job(string id, string prompt)
+        => JobWithInput(id, $$"""{"prompt":"{{prompt}}","aspectRatio":"1:1"}""");
 
     private static AiJob JobWithInput(string id, string input) => new(
         new AiJobId(id),

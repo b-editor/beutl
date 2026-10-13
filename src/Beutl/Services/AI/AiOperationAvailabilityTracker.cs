@@ -67,16 +67,6 @@ internal sealed class AiOperationAvailabilityTracker : IDisposable
             : CheckCoreAsync(request!, revision, current);
     }
 
-    public void Refresh(AiOperationAvailabilityRequest? request) => Check(request);
-
-    public async Task<bool> CheckNowAsync(
-        AiOperationAvailabilityRequest request,
-        CancellationToken cancellationToken)
-    {
-        ArgumentNullException.ThrowIfNull(request);
-        return await _service.CheckAsync(request, cancellationToken);
-    }
-
     private async Task CheckCoreAsync(
         AiOperationAvailabilityRequest request,
         long revision,

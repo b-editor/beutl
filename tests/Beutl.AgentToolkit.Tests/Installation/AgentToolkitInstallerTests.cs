@@ -95,7 +95,7 @@ public sealed class AgentToolkitInstallerTests
 
         Assert.That(File.ReadAllText(Path.Combine(_tempRoot, "skills", "demo", "SKILL.md")), Is.EqualTo("skill"));
         Assert.That(File.ReadAllText(Path.Combine(_tempRoot, "agents", "demo.md")), Is.EqualTo("agent"));
-        Assert.That(result.McpConfigPath, Is.EqualTo(configPath));
+        Assert.That(result.InstalledFiles, Does.Contain(configPath));
         Assert.That(result.InstalledMcp, Is.True);
 
         JsonObject root = ReadJson(configPath);
@@ -151,7 +151,7 @@ public sealed class AgentToolkitInstallerTests
     [Test]
     public async Task InstallAsync_WritesCatalogDirectoriesAndOneProfileBoundServer()
     {
-        AgentDefinition claudeCode = AgentCatalog.Find("claude-code")!;
+        AgentDefinition claudeCode = AgentCatalog.Agents.Single(a => a.Id == "claude-code");
 
         await AgentToolkitInstaller.InstallAsync(
             new AgentToolkitInstallOptions
@@ -214,8 +214,9 @@ public sealed class AgentToolkitInstallerTests
         });
     }
 
-    [Test]
-    public void InstallAsync_RequiresTheServerCommand()
+    [TestCase(McpConfigFormat.Json, ".mcp.json")]
+    [TestCase(McpConfigFormat.CodexToml, "config.toml")]
+    public void InstallAsync_RequiresTheServerCommand(McpConfigFormat format, string configFileName)
     {
         Assert.ThrowsAsync<InvalidOperationException>(() => AgentToolkitInstaller.InstallAsync(
             new AgentToolkitInstallOptions
@@ -223,9 +224,11 @@ public sealed class AgentToolkitInstallerTests
                 AgentRoot = _tempRoot,
                 InstallSkills = false,
                 InstallSubagents = false,
+                McpConfigFileName = configFileName,
+                McpConfigFormat = format,
             },
             []));
-        Assert.That(File.Exists(Path.Combine(_tempRoot, ".mcp.json")), Is.False);
+        Assert.That(File.Exists(Path.Combine(_tempRoot, configFileName)), Is.False);
     }
 
     [Test]
@@ -385,7 +388,7 @@ public sealed class AgentToolkitInstallerTests
             Assert.That(result.InstalledMcp, Is.False);
             Assert.That(result.InstalledFiles, Is.Empty);
             Assert.That(result.ManualMcpEdit, Is.Not.Null);
-            Assert.That(result.ManualMcpEdit!.ConfigPath, Is.EqualTo(result.McpConfigPath));
+            Assert.That(result.ManualMcpEdit!.ConfigPath, Is.EqualTo(configPath));
             Assert.That(result.ManualMcpEdit.ObsoleteEntries, Is.EqualTo(new[] { "beutl-live" }));
             JsonObject entry = JsonNode.Parse(result.ManualMcpEdit.Snippet)!["mcpServers"]!["beutl-agent"]!.AsObject();
             Assert.That(entry["command"]!.GetValue<string>(), Is.EqualTo("beutl-mcp"));

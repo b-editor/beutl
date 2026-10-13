@@ -41,15 +41,7 @@ public sealed partial class SchemaGenerator
 
     private static IReadOnlyList<DeclarativeExample> CreateExamples(string? typeFilter, string? categoryFilter, string? nameFilter = null)
     {
-        ExampleSpec[] examples = s_exampleSpecs.Value;
-        if (string.IsNullOrWhiteSpace(typeFilter)
-            && string.IsNullOrWhiteSpace(categoryFilter)
-            && string.IsNullOrWhiteSpace(nameFilter))
-        {
-            return examples.Select(CloneExample).ToArray();
-        }
-
-        return examples
+        return s_exampleSpecs.Value
             .Where(spec => ExampleMatches(spec, typeFilter, categoryFilter, nameFilter))
             .Select(CloneExample)
             .ToArray();
@@ -67,11 +59,13 @@ public sealed partial class SchemaGenerator
         string keyFrameType = IdentityHelper.WriteDiscriminator(typeof(KeyFrame<float>));
         string linearEasingType = IdentityHelper.WriteDiscriminator(typeof(LinearEasing));
         string sineEaseOutType = IdentityHelper.WriteDiscriminator(typeof(SineEaseOut));
-        string[] cameraRigCategories = ExampleCategories(
+        string[] cameraRigCategories =
+        [
             KnownLibraryItemFormats.Drawable,
             KnownLibraryItemFormats.EngineObject,
             KnownLibraryItemFormats.Transform,
-            KnownLibraryItemFormats.Easing);
+            KnownLibraryItemFormats.Easing
+        ];
         string[] cameraRigTypes = ExampleTypes(
             typeof(Element),
             typeof(DrawableGroup),
@@ -87,13 +81,14 @@ public sealed partial class SchemaGenerator
         [
             new ExampleSpec(
                 CreateEmptySceneMotionExample(),
-                ExampleCategories(
+                [
                     KnownLibraryItemFormats.Drawable,
                     KnownLibraryItemFormats.EngineObject,
                     KnownLibraryItemFormats.Brush,
                     KnownLibraryItemFormats.FilterEffect,
                     KnownLibraryItemFormats.Transform,
-                    KnownLibraryItemFormats.Easing),
+                    KnownLibraryItemFormats.Easing
+                ],
                 ExampleTypes(
                     typeof(Element),
                     typeof(RectShape),
@@ -110,17 +105,18 @@ public sealed partial class SchemaGenerator
                     typeof(KeyFrame<float>),
                     typeof(CubicEaseOut),
                     typeof(SineEaseInOut)),
-                ExampleTags("starter", "empty-scene", "motion", "ribbon", "typography", "gradient", "effect")),
+                ["starter", "empty-scene", "motion", "ribbon", "typography", "gradient", "effect"]),
             new ExampleSpec(
                 CreateOrbitalRadarExample(),
-                ExampleCategories(
+                [
                     KnownLibraryItemFormats.Drawable,
                     KnownLibraryItemFormats.EngineObject,
                     KnownLibraryItemFormats.Brush,
                     KnownLibraryItemFormats.FilterEffect,
                     KnownLibraryItemFormats.Transform,
                     KnownLibraryItemFormats.Pen,
-                    KnownLibraryItemFormats.Easing),
+                    KnownLibraryItemFormats.Easing
+                ],
                 ExampleTypes(
                     typeof(Element),
                     typeof(RectShape),
@@ -139,16 +135,17 @@ public sealed partial class SchemaGenerator
                     typeof(KeyFrame<float>),
                     typeof(CubicEaseOut),
                     typeof(SineEaseInOut)),
-                ExampleTags("starter", "empty-scene", "motion", "orbital", "radar", "rings", "pen", "glow")),
+                ["starter", "empty-scene", "motion", "orbital", "radar", "rings", "pen", "glow"]),
             new ExampleSpec(
                 CreateSplitScreenTypographyExample(),
-                ExampleCategories(
+                [
                     KnownLibraryItemFormats.Drawable,
                     KnownLibraryItemFormats.EngineObject,
                     KnownLibraryItemFormats.Brush,
                     KnownLibraryItemFormats.FilterEffect,
                     KnownLibraryItemFormats.Transform,
-                    KnownLibraryItemFormats.Easing),
+                    KnownLibraryItemFormats.Easing
+                ],
                 ExampleTypes(
                     typeof(Element),
                     typeof(RectShape),
@@ -167,12 +164,12 @@ public sealed partial class SchemaGenerator
                     typeof(KeyFrame<float>),
                     typeof(CubicEaseOut),
                     typeof(SineEaseInOut)),
-                ExampleTags("starter", "empty-scene", "motion", "split-screen", "editorial", "blocks", "typography")),
+                ["starter", "empty-scene", "motion", "split-screen", "editorial", "blocks", "typography"]),
             new ExampleSpec(
                 CreateNewElementSkeletonExample(),
-                ExampleCategories(KnownLibraryItemFormats.EngineObject, KnownLibraryItemFormats.Drawable),
+                [KnownLibraryItemFormats.EngineObject, KnownLibraryItemFormats.Drawable],
                 ExampleTypes(typeof(Element), typeof(TextBlock)),
-                ExampleTags("targeted", "skeleton", "structure", "element", "discriminator")),
+                ["targeted", "skeleton", "structure", "element", "discriminator"]),
             new ExampleSpec(
                 new DeclarativeExample(
                     "animate-float-property-keyframes",
@@ -211,34 +208,34 @@ public sealed partial class SchemaGenerator
                             })
                         })
                     }),
-                ExampleCategories(KnownLibraryItemFormats.Drawable, KnownLibraryItemFormats.EngineObject, KnownLibraryItemFormats.Easing),
+                [KnownLibraryItemFormats.Drawable, KnownLibraryItemFormats.EngineObject, KnownLibraryItemFormats.Easing],
                 ExampleTypes(typeof(KeyFrameAnimation<float>), typeof(KeyFrame<float>), typeof(LinearEasing), typeof(SineEaseOut)),
-                ExampleTags("targeted", "keyframes", "animation")),
+                ["targeted", "keyframes", "animation"]),
             new ExampleSpec(
                 CreateNewAnimatedTextElementExample(),
-                ExampleCategories(KnownLibraryItemFormats.Drawable, KnownLibraryItemFormats.EngineObject, KnownLibraryItemFormats.Easing),
+                [KnownLibraryItemFormats.Drawable, KnownLibraryItemFormats.EngineObject, KnownLibraryItemFormats.Easing],
                 ExampleTypes(typeof(Element), typeof(TextBlock), typeof(KeyFrameAnimation<float>), typeof(KeyFrame<float>), typeof(LinearEasing), typeof(SineEaseOut)),
-                ExampleTags("targeted", "keyframes", "animation", "new-object", "minimal")),
+                ["targeted", "keyframes", "animation", "new-object", "minimal"]),
             new ExampleSpec(
                 CreateCameraRigPushInExample(),
                 cameraRigCategories,
                 cameraRigTypes,
-                ExampleTags("targeted", "camera", "camera-rig", "push-in", "keyframes", "animation", "group")),
+                ["targeted", "camera", "camera-rig", "push-in", "keyframes", "animation", "group"]),
             new ExampleSpec(
                 CreateCameraRigPortalExample(),
                 cameraRigCategories,
                 cameraRigTypes,
-                ExampleTags("targeted", "camera", "camera-rig", "portal", "flow", "timeline", "keyframes", "animation", "group")),
+                ["targeted", "camera", "camera-rig", "portal", "flow", "timeline", "keyframes", "animation", "group"]),
             new ExampleSpec(
                 CreateBrushAndEffectExample(),
-                ExampleCategories(KnownLibraryItemFormats.Drawable, KnownLibraryItemFormats.EngineObject, KnownLibraryItemFormats.Brush, KnownLibraryItemFormats.FilterEffect),
+                [KnownLibraryItemFormats.Drawable, KnownLibraryItemFormats.EngineObject, KnownLibraryItemFormats.Brush, KnownLibraryItemFormats.FilterEffect],
                 ExampleTypes(typeof(LinearGradientBrush), typeof(GradientStop), typeof(FilterEffectGroup), typeof(Blur), typeof(Brightness)),
-                ExampleTags("targeted", "gradient", "effect")),
+                ["targeted", "gradient", "effect"]),
             new ExampleSpec(
                 CreateGeometryShapePathExample(),
-                ExampleCategories(KnownLibraryItemFormats.Drawable, KnownLibraryItemFormats.EngineObject, KnownLibraryItemFormats.Brush),
+                [KnownLibraryItemFormats.Drawable, KnownLibraryItemFormats.EngineObject, KnownLibraryItemFormats.Brush],
                 ExampleTypes(typeof(GeometryShape), typeof(PathGeometry), typeof(PathFigure), typeof(LineSegment), typeof(SolidColorBrush)),
-                ExampleTags("targeted", "geometry", "path", "vector", "shape"))
+                ["targeted", "geometry", "path", "vector", "shape"])
         ];
         specs.AddRange(CreateCompositionTemplateExampleSpecs());
         return specs
@@ -248,7 +245,7 @@ public sealed partial class SchemaGenerator
 
     private static IEnumerable<ExampleSpec> CreateCompositionTemplateExampleSpecs()
     {
-        var catalog = new CompositionTemplateCatalog(defaultSeed: "schema-examples");
+        var catalog = new CompositionTemplateCatalog();
         foreach (string name in new[]
                  {
                      "kinetic-ribbon-title",
@@ -260,20 +257,21 @@ public sealed partial class SchemaGenerator
                  })
         {
             CompositionTemplateDetail detail = catalog.Get(name);
-            CompositionRender render = catalog.Render(name, seed: $"schema-example:{name}");
+            CompositionRender render = catalog.Render(name, inputProps: null, seed: $"schema-example:{name}");
             yield return new ExampleSpec(
                 new DeclarativeExample(
                     $"create-empty-scene-{name}",
                     $"Composition starter generated from the {name} reusable template. Use only when the user explicitly asks for this template/starter style; otherwise treat it as a structure reference and author a custom patch.",
                     (JsonObject)render.Patch.DeepClone()),
-                ExampleCategories(
+                [
                     KnownLibraryItemFormats.Drawable,
                     KnownLibraryItemFormats.EngineObject,
                     KnownLibraryItemFormats.Brush,
                     KnownLibraryItemFormats.FilterEffect,
                     KnownLibraryItemFormats.Transform,
                     KnownLibraryItemFormats.Easing,
-                    KnownLibraryItemFormats.Pen),
+                    KnownLibraryItemFormats.Pen
+                ],
                 ExampleTypes(
                     typeof(Element),
                     typeof(RectShape),
@@ -300,13 +298,8 @@ public sealed partial class SchemaGenerator
                     typeof(KeyFrame<float>),
                     typeof(CubicEaseOut),
                     typeof(SineEaseInOut)),
-                ExampleTags(detail.Tags.Concat(detail.StyleAxes.Values).Concat(new[] { "motion", "composition", "remotion" }).ToArray()));
+                detail.Tags.Concat(detail.StyleAxes.Values).Concat(new[] { "motion", "composition", "remotion" }).ToArray());
         }
-    }
-
-    private static string[] ExampleCategories(params string[] categories)
-    {
-        return categories;
     }
 
     private static string[] ExampleTypes(params Type[] types)
@@ -320,11 +313,6 @@ public sealed partial class SchemaGenerator
             })
             .Distinct(StringComparer.Ordinal)
             .ToArray();
-    }
-
-    private static string[] ExampleTags(params string[] tags)
-    {
-        return tags;
     }
 
     private static bool ExampleMatches(ExampleSpec spec, string? typeFilter, string? categoryFilter, string? nameFilter)

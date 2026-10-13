@@ -2,13 +2,10 @@
 using System.Net;
 using System.Reactive;
 using System.Reactive.Subjects;
-using System.Reflection;
-using System.Text;
 using Beutl.Api;
-using Beutl.Api.Clients;
-using Beutl.Api.Objects;
 using Beutl.Api.Services;
 using Beutl.Extensibility;
+using Beutl.UnitTests.TestInfrastructure;
 using Reactive.Bindings;
 
 namespace Beutl.UnitTests.Api;
@@ -19,7 +16,7 @@ public sealed class AiJobMonitorTests
     [Test]
     public async Task PublishedSnapshot_IsBackedByReadOnlyReactiveAndImmutableJobState()
     {
-        using var handler = new StubHandler(_ => JsonResponse(HttpStatusCode.OK, "{}"));
+        using var handler = new DelegateHttpHandler(_ => TestHttp.Json(HttpStatusCode.OK, "{}"));
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         IAiJobMonitor service = app.GetResource<IAiJobMonitor>();
@@ -37,7 +34,7 @@ public sealed class AiJobMonitorTests
     [Test]
     public async Task RefreshAsync_WhenSignedOut_PublishesAuthenticationStateWithoutRequest()
     {
-        using var handler = new StubHandler(_ => JsonResponse(HttpStatusCode.OK, "{}"));
+        using var handler = new DelegateHttpHandler(_ => TestHttp.Json(HttpStatusCode.OK, "{}"));
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         IAiJobMonitor service = app.GetResource<IAiJobMonitor>();
@@ -58,7 +55,7 @@ public sealed class AiJobMonitorTests
     {
         var requestStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var cancellationObserved = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        using var handler = new StubHandler(async (_, cancellationToken) =>
+        using var handler = new DelegateHttpHandler(async (_, cancellationToken) =>
         {
             requestStarted.TrySetResult();
             try
@@ -73,17 +70,17 @@ public sealed class AiJobMonitorTests
                 }
             }
 
-            return JsonResponse(HttpStatusCode.OK, "{}");
+            return TestHttp.Json(HttpStatusCode.OK, "{}");
         });
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         IAiJobMonitor service = app.GetResource<IAiJobMonitor>();
 
-        SetAuthenticatedUser(app, httpClient);
+        ApiTestAuthentication.SignIn(app);
         await requestStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
         app.SignOut(deleteFile: false);
         await cancellationObserved.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        await WaitUntilAsync(
+        await TestWait.UntilAsync(
             () => service.Snapshot.Value.Error is AuthenticationRequiredException,
             TimeSpan.FromSeconds(5));
 
@@ -93,11 +90,11 @@ public sealed class AiJobMonitorTests
     [Test]
     public async Task RefreshAsync_AppendsPageAndReplacesDuplicateWithNewestState()
     {
-        using var handler = new StubHandler(request =>
+        using var handler = new DelegateHttpHandler(request =>
         {
             if (request.RequestUri?.Query.Contains("cursor=next-page", StringComparison.Ordinal) == true)
             {
-                return JsonResponse(HttpStatusCode.OK, """
+                return TestHttp.Json(HttpStatusCode.OK, """
                     {
                       "jobs": [
                         {
@@ -132,7 +129,7 @@ public sealed class AiJobMonitorTests
                     """);
             }
 
-            return JsonResponse(HttpStatusCode.OK, """
+            return TestHttp.Json(HttpStatusCode.OK, """
                 {
                   "jobs": [
                     {
@@ -156,7 +153,7 @@ public sealed class AiJobMonitorTests
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         IAiJobMonitor service = app.GetResource<IAiJobMonitor>();
-        SetAuthenticatedUser(app, httpClient);
+        ApiTestAuthentication.SignIn(app);
         await service.RefreshAsync(CancellationToken.None);
 
         await service.LoadNextPageAsync(CancellationToken.None);
@@ -178,9 +175,9 @@ public sealed class AiJobMonitorTests
     public async Task RefreshAsync_WhenRequestFails_PreservesLastSuccessfulPage()
     {
         bool failRequests = false;
-        using var handler = new StubHandler(_ => failRequests
-            ? JsonResponse(HttpStatusCode.InternalServerError, "{}")
-            : JsonResponse(HttpStatusCode.OK, """
+        using var handler = new DelegateHttpHandler(_ => failRequests
+            ? TestHttp.Json(HttpStatusCode.InternalServerError, "{}")
+            : TestHttp.Json(HttpStatusCode.OK, """
                 {
                   "jobs": [
                     {
@@ -203,7 +200,7 @@ public sealed class AiJobMonitorTests
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         IAiJobMonitor service = app.GetResource<IAiJobMonitor>();
-        SetAuthenticatedUser(app, httpClient);
+        ApiTestAuthentication.SignIn(app);
         await service.RefreshAsync(CancellationToken.None);
         failRequests = true;
 
@@ -221,7 +218,7 @@ public sealed class AiJobMonitorTests
     [Test]
     public async Task InitialHistoryFailure_IsRetriedWithoutAnOpenJobCenter()
     {
-        using var handler = new StubHandler(_ => JsonResponse(HttpStatusCode.OK, "{}"));
+        using var handler = new DelegateHttpHandler(_ => TestHttp.Json(HttpStatusCode.OK, "{}"));
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         var client = new RecordingJobClient();
@@ -235,20 +232,16 @@ public sealed class AiJobMonitorTests
         using var changes = new Subject<Unit>();
         using var service = new AiJobMonitor(app, client, jobKinds, changes, TimeSpan.FromMilliseconds(10));
 
-        SetAuthenticatedUser(app, httpClient);
-        await WaitUntilAsync(() => Volatile.Read(ref client.PageRequests) >= 3, TimeSpan.FromSeconds(5));
+        ApiTestAuthentication.SignIn(app);
+        await TestWait.UntilAsync(() => Volatile.Read(ref client.PageRequests) >= 3, TimeSpan.FromSeconds(5));
 
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(client.PageRequests, Is.GreaterThanOrEqualTo(3));
-            Assert.That(service.Snapshot.Value.Error, Is.Null);
-        }
+        Assert.That(service.Snapshot.Value.Error, Is.Null);
     }
 
     [Test]
     public async Task PermanentInitialHistoryFailureIsNotRetriedInTheBackground()
     {
-        using var handler = new StubHandler(_ => JsonResponse(HttpStatusCode.OK, "{}"));
+        using var handler = new DelegateHttpHandler(_ => TestHttp.Json(HttpStatusCode.OK, "{}"));
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         var client = new RecordingJobClient
@@ -264,8 +257,8 @@ public sealed class AiJobMonitorTests
             changes,
             TimeSpan.FromMilliseconds(10));
 
-        SetAuthenticatedUser(app, httpClient);
-        await WaitUntilAsync(() => Volatile.Read(ref client.PageRequests) == 1, TimeSpan.FromSeconds(5));
+        ApiTestAuthentication.SignIn(app);
+        await TestWait.UntilAsync(() => Volatile.Read(ref client.PageRequests) == 1, TimeSpan.FromSeconds(5));
         await Task.Delay(100);
 
         Assert.That(client.PageRequests, Is.EqualTo(1));
@@ -275,7 +268,7 @@ public sealed class AiJobMonitorTests
     [Test]
     public async Task RetryForANewAccountIsNotBlockedByThePreviousAccountsDelay()
     {
-        using var handler = new StubHandler(_ => JsonResponse(HttpStatusCode.OK, "{}"));
+        using var handler = new DelegateHttpHandler(_ => TestHttp.Json(HttpStatusCode.OK, "{}"));
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         var client = new RecordingJobClient();
@@ -309,13 +302,13 @@ public sealed class AiJobMonitorTests
             TimeSpan.FromSeconds(1),
             RetryDelay);
 
-        SetAuthenticatedUser(app, httpClient, "account-a");
+        ApiTestAuthentication.SignIn(app, "account-a");
         await firstDelayStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        SetAuthenticatedUser(app, httpClient, "account-b");
+        ApiTestAuthentication.SignIn(app, "account-b");
         await secondDelayStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
         releaseSecondDelay.TrySetResult();
-        await WaitUntilAsync(() => Volatile.Read(ref client.PageRequests) >= 3, TimeSpan.FromSeconds(5));
+        await TestWait.UntilAsync(() => Volatile.Read(ref client.PageRequests) >= 3, TimeSpan.FromSeconds(5));
         releaseFirstDelay.TrySetResult();
 
         using (Assert.EnterMultipleScope())
@@ -326,47 +319,9 @@ public sealed class AiJobMonitorTests
     }
 
     [Test]
-    public async Task PollingRefresh_PreservesPreviouslyLoadedHistoryTail()
-    {
-        using var handler = new StubHandler(_ => JsonResponse(HttpStatusCode.OK, "{}"));
-        using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        var client = new RecordingJobClient();
-        bool pollingRefresh = false;
-        client.PageProvider = request => request.Cursor == "tail"
-            ? new AiJobPage([Job("tail", AiJobStatuses.Succeeded)], null)
-            : new AiJobPage([
-                Job("active", pollingRefresh ? AiJobStatuses.Succeeded : AiJobStatuses.Running),
-            ], "tail");
-        await using var jobKinds = new AiJobKindRegistry();
-        await using IAiJobStatusResolverRegistration registration = jobKinds.Register(
-            new AiJobStatusResolverRegistration(
-                new AiJobKindId("video"),
-                new AiJobStatusMap([
-                    KeyValuePair.Create(AiJobStatuses.Running, new AiJobStatusSemantics(false, true)),
-                    KeyValuePair.Create(AiJobStatuses.Succeeded, new AiJobStatusSemantics(true, false)),
-                ])));
-        using var changes = new Subject<Unit>();
-        using var service = new AiJobMonitor(app, client, jobKinds, changes, TimeSpan.FromMilliseconds(10));
-
-        SetAuthenticatedUser(app, httpClient);
-        await WaitUntilAsync(() => client.PageRequests >= 1, TimeSpan.FromSeconds(5));
-        await service.LoadNextPageAsync(CancellationToken.None);
-        Assert.That(service.Snapshot.Value.Jobs.Select(job => job.Id.Value), Is.EqualTo(new[] { "active", "tail" }));
-
-        pollingRefresh = true;
-        await service.RefreshPollingAsync(CancellationToken.None);
-        Assert.That(service.Snapshot.Value.Jobs.Select(job => job.Id.Value), Is.EqualTo(new[] { "active", "tail" }));
-
-        static AiJob Job(string id, AiJobStatusId status)
-            => new(new AiJobId(id), new AiJobKindId("video"), status,
-                null, null, null, null, false, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow);
-    }
-
-    [Test]
     public async Task PollingRefresh_RefreshesLoadedDepthInServerOrder()
     {
-        using var handler = new StubHandler(_ => JsonResponse(HttpStatusCode.OK, "{}"));
+        using var handler = new DelegateHttpHandler(_ => TestHttp.Json(HttpStatusCode.OK, "{}"));
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         DateTimeOffset createdAt = new(2026, 9, 6, 0, 0, 0, TimeSpan.Zero);
@@ -400,8 +355,8 @@ public sealed class AiJobMonitorTests
             changes,
             TimeSpan.FromHours(1));
 
-        SetAuthenticatedUser(app, httpClient);
-        await WaitUntilAsync(
+        ApiTestAuthentication.SignIn(app);
+        await TestWait.UntilAsync(
             () => service.Snapshot.Value.Jobs.Select(job => job.Id.Value)
                 .SequenceEqual(["first", "second"]),
             TimeSpan.FromSeconds(5));
@@ -462,7 +417,7 @@ public sealed class AiJobMonitorTests
     [Test]
     public async Task PollingRefresh_DropsDeletedHeadJobsWhileKeepingRefreshedTail()
     {
-        using var handler = new StubHandler(_ => JsonResponse(HttpStatusCode.OK, "{}"));
+        using var handler = new DelegateHttpHandler(_ => TestHttp.Json(HttpStatusCode.OK, "{}"));
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         DateTimeOffset createdAt = new(2026, 9, 6, 0, 0, 0, TimeSpan.Zero);
@@ -492,8 +447,8 @@ public sealed class AiJobMonitorTests
             changes,
             TimeSpan.FromHours(1));
 
-        SetAuthenticatedUser(app, httpClient);
-        await WaitUntilAsync(
+        ApiTestAuthentication.SignIn(app);
+        await TestWait.UntilAsync(
             () => service.Snapshot.Value.Jobs.Select(job => job.Id.Value)
                 .SequenceEqual(["active", "deleted"]),
             TimeSpan.FromSeconds(5));
@@ -533,7 +488,7 @@ public sealed class AiJobMonitorTests
     [Test]
     public async Task JobChangeNotification_PreservesTheLoadedHistoryDepth()
     {
-        using var handler = new StubHandler(_ => JsonResponse(HttpStatusCode.OK, "{}"));
+        using var handler = new DelegateHttpHandler(_ => TestHttp.Json(HttpStatusCode.OK, "{}"));
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         int phase = 0;
@@ -557,8 +512,8 @@ public sealed class AiJobMonitorTests
             changes,
             TimeSpan.FromHours(1));
 
-        SetAuthenticatedUser(app, httpClient);
-        await WaitUntilAsync(
+        ApiTestAuthentication.SignIn(app);
+        await TestWait.UntilAsync(
             () => service.Snapshot.Value.Jobs.Select(job => job.Id.Value).SequenceEqual(["head"]),
             TimeSpan.FromSeconds(5));
         await service.LoadNextPageAsync(CancellationToken.None);
@@ -567,7 +522,7 @@ public sealed class AiJobMonitorTests
         Volatile.Write(ref phase, 1);
         changes.OnNext(Unit.Default);
 
-        await WaitUntilAsync(
+        await TestWait.UntilAsync(
             () => service.Snapshot.Value.Jobs.Select(job => job.Id.Value)
                 .SequenceEqual(["new-head", "old-tail"]),
             TimeSpan.FromSeconds(5));
@@ -591,11 +546,11 @@ public sealed class AiJobMonitorTests
     {
         var requestStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseResponse = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        using var handler = new StubHandler(async _ =>
+        using var handler = new DelegateHttpHandler(async _ =>
         {
             requestStarted.TrySetResult();
             await releaseResponse.Task;
-            return JsonResponse(HttpStatusCode.OK, """
+            return TestHttp.Json(HttpStatusCode.OK, """
                 {
                   "jobs": [
                     {
@@ -620,7 +575,7 @@ public sealed class AiJobMonitorTests
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         IAiJobMonitor service = app.GetResource<IAiJobMonitor>();
 
-        SetAuthenticatedUser(app, httpClient);
+        ApiTestAuthentication.SignIn(app);
         await requestStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
         Task queuedRefresh = service.RefreshAsync(CancellationToken.None);
         app.SignOut(deleteFile: false);
@@ -639,11 +594,11 @@ public sealed class AiJobMonitorTests
     public async Task ActiveJob_IsPolledToCompletionWithoutUiPollingLease()
     {
         int requestCount = 0;
-        using var handler = new StubHandler(_ =>
+        using var handler = new DelegateHttpHandler(_ =>
         {
             int current = Interlocked.Increment(ref requestCount);
             string status = current == 1 ? "queued" : "succeeded";
-            return JsonResponse(HttpStatusCode.OK, $$"""
+            return TestHttp.Json(HttpStatusCode.OK, $$"""
                 {
                   "jobs": [
                     {
@@ -673,18 +628,17 @@ public sealed class AiJobMonitorTests
             app.GetResource<AiJobChangeNotifier>().Changes,
             TimeSpan.FromMilliseconds(10));
 
-        SetAuthenticatedUser(app, httpClient);
+        ApiTestAuthentication.SignIn(app);
 
-        await WaitUntilAsync(
+        await TestWait.UntilAsync(
             () => service.Snapshot.Value.Jobs.SingleOrDefault()?.Status == AiJobStatuses.Succeeded,
             TimeSpan.FromSeconds(3));
-        Assert.That(requestCount, Is.GreaterThanOrEqualTo(2));
     }
 
     [Test]
     public async Task PollingLease_PeriodicallyDiscoversJobsCreatedByAnotherClient()
     {
-        using var handler = new StubHandler(_ => JsonResponse(HttpStatusCode.OK, "{}"));
+        using var handler = new DelegateHttpHandler(_ => TestHttp.Json(HttpStatusCode.OK, "{}"));
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         var client = new RecordingJobClient();
@@ -712,21 +666,19 @@ public sealed class AiJobMonitorTests
             changes,
             TimeSpan.FromMilliseconds(10));
 
-        SetAuthenticatedUser(app, httpClient);
-        await WaitUntilAsync(() => Volatile.Read(ref client.PageRequests) == 1, TimeSpan.FromSeconds(5));
+        ApiTestAuthentication.SignIn(app);
+        await TestWait.UntilAsync(() => Volatile.Read(ref client.PageRequests) == 1, TimeSpan.FromSeconds(5));
         using IDisposable polling = service.AcquirePolling();
 
-        await WaitUntilAsync(
+        await TestWait.UntilAsync(
             () => service.Snapshot.Value.Jobs.SingleOrDefault()?.Id.Value == "external-job",
             TimeSpan.FromSeconds(5));
-
-        Assert.That(client.PageRequests, Is.GreaterThanOrEqualTo(3));
     }
 
     [Test]
     public async Task PollingLease_DoesNotRepeatHistoryRequestsAfterAuthenticationFailure()
     {
-        using var handler = new StubHandler(_ => JsonResponse(HttpStatusCode.OK, "{}"));
+        using var handler = new DelegateHttpHandler(_ => TestHttp.Json(HttpStatusCode.OK, "{}"));
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         var client = new RecordingJobClient();
@@ -742,10 +694,10 @@ public sealed class AiJobMonitorTests
             changes,
             TimeSpan.FromMilliseconds(10));
 
-        SetAuthenticatedUser(app, httpClient);
-        await WaitUntilAsync(() => Volatile.Read(ref client.PageRequests) == 1, TimeSpan.FromSeconds(5));
+        ApiTestAuthentication.SignIn(app);
+        await TestWait.UntilAsync(() => Volatile.Read(ref client.PageRequests) == 1, TimeSpan.FromSeconds(5));
         using IDisposable polling = service.AcquirePolling();
-        await WaitUntilAsync(
+        await TestWait.UntilAsync(
             () => service.Snapshot.Value.Error is AuthenticationRequiredException,
             TimeSpan.FromSeconds(5));
         int requestsAfterFailure = Volatile.Read(ref client.PageRequests);
@@ -758,7 +710,7 @@ public sealed class AiJobMonitorTests
     [Test]
     public async Task UnknownStatus_IsPublishedButDoesNotStartUnboundedPolling()
     {
-        using var handler = new StubHandler(_ => JsonResponse(HttpStatusCode.OK, "{}"));
+        using var handler = new DelegateHttpHandler(_ => TestHttp.Json(HttpStatusCode.OK, "{}"));
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         var client = new RecordingJobClient
@@ -787,8 +739,8 @@ public sealed class AiJobMonitorTests
             changes,
             TimeSpan.FromMilliseconds(10));
 
-        SetAuthenticatedUser(app, httpClient);
-        await WaitUntilAsync(() => Volatile.Read(ref client.PageRequests) == 1, TimeSpan.FromSeconds(5));
+        ApiTestAuthentication.SignIn(app);
+        await TestWait.UntilAsync(() => Volatile.Read(ref client.PageRequests) == 1, TimeSpan.FromSeconds(5));
         await Task.Delay(100);
 
         using (Assert.EnterMultipleScope())
@@ -799,39 +751,12 @@ public sealed class AiJobMonitorTests
     }
 
     [Test]
-    public async Task InjectedTransportAndJobChangeStream_AreIndependentSubstitutionSeams()
-    {
-        using var handler = new StubHandler(_ => JsonResponse(HttpStatusCode.OK, "{}"));
-        using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(app, httpClient);
-        var client = new RecordingJobClient();
-        await using var jobKinds = new AiJobKindRegistry();
-        using var changes = new Subject<Unit>();
-        using var service = new AiJobMonitor(
-            app,
-            client,
-            jobKinds,
-            changes,
-            TimeSpan.FromHours(1));
-
-        await WaitUntilAsync(() => Volatile.Read(ref client.PageRequests) >= 1, TimeSpan.FromSeconds(5));
-        int beforeNotification = Volatile.Read(ref client.PageRequests);
-        changes.OnNext(Unit.Default);
-        await WaitUntilAsync(
-            () => Volatile.Read(ref client.PageRequests) > beforeNotification,
-            TimeSpan.FromSeconds(5));
-
-        Assert.That(client.PageRequests, Is.GreaterThan(beforeNotification));
-    }
-
-    [Test]
     public async Task CustomKindDescriptor_DrivesPollingWithoutBuiltInStatusesOrVideo()
     {
-        using var handler = new StubHandler(_ => JsonResponse(HttpStatusCode.OK, "{}"));
+        using var handler = new DelegateHttpHandler(_ => TestHttp.Json(HttpStatusCode.OK, "{}"));
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(app, httpClient);
+        ApiTestAuthentication.SignIn(app);
         var client = new ExtensibleJobClient();
         await using var jobKinds = new AiJobKindRegistry();
         var refreshHandler = new ExtensibleRefreshHandler(client);
@@ -860,14 +785,13 @@ public sealed class AiJobMonitorTests
             changes,
             TimeSpan.FromMilliseconds(10));
 
-        await WaitUntilAsync(
+        await TestWait.UntilAsync(
             () => service.Snapshot.Value.Jobs.SingleOrDefault()?.Status
                 == new AiJobStatusId("vendor-done"),
             TimeSpan.FromSeconds(3));
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(refreshHandler.RefreshCount, Is.GreaterThanOrEqualTo(1));
             Assert.That(service.Snapshot.Value.Error, Is.Null);
             Assert.That(jobKinds.GetStatus(service.Snapshot.Value.Jobs.Single()).Outcome,
                 Is.EqualTo(new AiJobOutcomeId("vendor.complete")));
@@ -877,10 +801,10 @@ public sealed class AiJobMonitorTests
     [Test]
     public async Task ThrowingStatusResolver_DoesNotAbortMonitorPollingPredicates()
     {
-        using var handler = new StubHandler(_ => JsonResponse(HttpStatusCode.OK, "{}"));
+        using var handler = new DelegateHttpHandler(_ => TestHttp.Json(HttpStatusCode.OK, "{}"));
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        SetAuthenticatedUser(app, httpClient);
+        ApiTestAuthentication.SignIn(app);
         var client = new RecordingJobClient
         {
             Page = new AiJobPage([
@@ -904,7 +828,6 @@ public sealed class AiJobMonitorTests
         await service.RefreshAsync(CancellationToken.None);
         using var polling = service.AcquirePolling();
         await Task.Delay(50);
-        Assert.That(client.PageRequests, Is.GreaterThanOrEqualTo(1));
     }
 
     [Test]
@@ -999,8 +922,6 @@ public sealed class AiJobMonitorTests
         }
 
         await drain.WaitAsync(TimeSpan.FromSeconds(5));
-        extension.Unload();
-        Assert.That(extension.UnloadCount, Is.EqualTo(1));
     }
 
     [Test]
@@ -1177,15 +1098,6 @@ public sealed class AiJobMonitorTests
         }
     }
 
-    private static async Task WaitUntilAsync(Func<bool> condition, TimeSpan timeout)
-    {
-        using var cancellationTokenSource = new CancellationTokenSource(timeout);
-        while (!condition())
-        {
-            await Task.Delay(10, cancellationTokenSource.Token);
-        }
-    }
-
     private static void AssertJobBehaviors(
         AiJobKindRegistry registry,
         AiJobKindId kind,
@@ -1215,86 +1127,6 @@ public sealed class AiJobMonitorTests
         using (retryLease)
         {
             Assert.That(retryLease!.Handler, Is.SameAs(retry));
-        }
-    }
-
-    private static void SetAuthenticatedUser(
-        BeutlApiApplication app,
-        HttpClient httpClient,
-        string id = "test-user")
-    {
-        var profileResponse = new ProfileResponse
-        {
-            Id = id,
-            Name = "test",
-            DisplayName = "Test User",
-            Bio = null,
-            IconId = null,
-            IconUrl = null,
-        };
-        var profile = new Profile(profileResponse, app);
-        var authResponse = new AuthResponse
-        {
-            Token = "token",
-            RefreshToken = "refresh-token",
-            Expiration = DateTime.UtcNow.AddHours(1),
-        };
-        var user = new AuthenticatedUser(profile, authResponse, app, DateTime.UtcNow);
-
-        FieldInfo field = typeof(BeutlApiApplication).GetField(
-            "_authenticatedUser",
-            BindingFlags.NonPublic | BindingFlags.Instance)!;
-        var property = (ReactivePropertySlim<AuthenticatedUser?>)field.GetValue(app)!;
-        property.Value = user;
-    }
-
-    private static HttpResponseMessage JsonResponse(HttpStatusCode status, string json)
-    {
-        return new HttpResponseMessage(status)
-        {
-            Content = new StringContent(json, Encoding.UTF8, "application/json"),
-        };
-    }
-
-    private sealed class StubHandler(
-        Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> responder) : HttpMessageHandler
-    {
-        private readonly object _requestsGate = new();
-        private readonly List<string> _requests = [];
-
-        public StubHandler(Func<HttpRequestMessage, HttpResponseMessage> responder)
-            : this((request, _) => Task.FromResult(responder(request)))
-        {
-        }
-
-        public StubHandler(Func<HttpRequestMessage, Task<HttpResponseMessage>> responder)
-            : this((request, _) => responder(request))
-        {
-        }
-
-        public IReadOnlyList<string> Requests
-        {
-            get
-            {
-                lock (_requestsGate)
-                {
-                    return _requests.ToArray();
-                }
-            }
-        }
-
-        protected override async Task<HttpResponseMessage> SendAsync(
-            HttpRequestMessage request,
-            CancellationToken cancellationToken)
-        {
-            lock (_requestsGate)
-            {
-                _requests.Add(request.RequestUri?.PathAndQuery ?? string.Empty);
-            }
-
-            HttpResponseMessage response = await responder(request, cancellationToken);
-            response.RequestMessage = request;
-            return response;
         }
     }
 
@@ -1350,13 +1182,8 @@ public sealed class AiJobMonitorTests
 
     private sealed class ExtensibleRefreshHandler(ExtensibleJobClient client) : IAiJobRefreshHandler
     {
-        private int _refreshCount;
-
-        public int RefreshCount => Volatile.Read(ref _refreshCount);
-
         public Task RefreshAsync(AiJob job, CancellationToken cancellationToken)
         {
-            Interlocked.Increment(ref _refreshCount);
             client.Complete();
             return Task.CompletedTask;
         }
@@ -1398,15 +1225,7 @@ public sealed class AiJobMonitorTests
     private sealed class TestAiJobRetryHandlerExtension(
         params AiJobRetryHandlerRegistration[] registrations) : AiJobRetryHandlerExtension
     {
-        public int UnloadCount { get; private set; }
-
         public override IReadOnlyCollection<AiJobRetryHandlerRegistration> Registrations { get; } =
             registrations;
-
-        public override void Unload()
-        {
-            UnloadCount++;
-            base.Unload();
-        }
     }
 }

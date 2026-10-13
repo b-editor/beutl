@@ -3,11 +3,10 @@ using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
 using Avalonia.Threading;
+using Beutl.AgentToolkit;
 using Beutl.AgentToolkit.Live;
-using Beutl.AgentToolkit.Rendering;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tools;
-using Beutl.AgentToolkit.Workspace;
 using Beutl.Configuration;
 using Beutl.Extensibility;
 using Beutl.Logging;
@@ -32,6 +31,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
     private static readonly ILogger s_logger = Log.CreateLogger<AgentHostEndpoint>();
     private readonly ProjectService _projectService;
     private readonly EditorService _editorService;
+    private readonly IAgentAiBackend _aiBackend;
     private readonly AiAgentConfig _config;
     private readonly int _preferredPort;
     private readonly Func<CancellationToken, Task>? _beforeStart;
@@ -51,14 +51,14 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
     private AgentHostInstanceLease? _instanceRegistration;
     private long _toolsVersion;
 
-    public AgentHostEndpoint(ProjectService projectService, EditorService editorService)
-        : this(projectService, editorService, GlobalConfiguration.Instance.AiAgentConfig)
+    internal AgentHostEndpoint(ProjectService projectService, EditorService editorService, IAgentAiBackend aiBackend)
+        : this(projectService, editorService, aiBackend, GlobalConfiguration.Instance.AiAgentConfig)
     {
     }
 
-    internal AgentHostEndpoint(ProjectService projectService, EditorService editorService, AiAgentConfig config,
-        string? tokenStoreDirectory = null)
-        : this(projectService, editorService, DefaultPort, "", config,
+    internal AgentHostEndpoint(ProjectService projectService, EditorService editorService, IAgentAiBackend aiBackend,
+        AiAgentConfig config, string? tokenStoreDirectory = null)
+        : this(projectService, editorService, aiBackend, DefaultPort, "", config,
             tokenFactory: () => ResolveToken(config, tokenStoreDirectory))
     {
     }
@@ -74,6 +74,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
     internal AgentHostEndpoint(
         ProjectService projectService,
         EditorService editorService,
+        IAgentAiBackend aiBackend,
         int preferredPort,
         string token,
         Func<CancellationToken, Task>? beforeStart = null,
@@ -81,6 +82,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
         : this(
             projectService,
             editorService,
+            aiBackend,
             preferredPort,
             token,
             GlobalConfiguration.Instance.AiAgentConfig,
@@ -92,6 +94,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
     private AgentHostEndpoint(
         ProjectService projectService,
         EditorService editorService,
+        IAgentAiBackend aiBackend,
         int preferredPort,
         string token,
         AiAgentConfig config,
@@ -113,6 +116,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
 
         _projectService = projectService;
         _editorService = editorService;
+        _aiBackend = aiBackend;
         _config = config;
         _preferredPort = preferredPort;
         _beforeStart = beforeStart;
@@ -138,12 +142,6 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
 
     private AgentHostInstanceRouter CreateInstanceRouter(string token)
         => new(_instanceRegistry, _projectService, _editorService, token, _instanceId);
-
-    /// <summary>
-    /// The application's AI services for the AI tools. Set once the API clients exist; until then,
-    /// and in hosts without them, the AI tools report that generation is unavailable.
-    /// </summary>
-    internal IAgentAiBackend? AiBackend { get; set; }
 
     public Uri? EndpointUri
     {
@@ -421,16 +419,9 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             .AddSingleton<CompositionPlanStore>()
             .AddScoped<AgentSessionManager>()
             .AddSingleton<IOutputOperationLeaseProvider>(_ => _editorService)
-            .AddSingleton<DestructiveGuard>()
-            .AddSingleton<StillRenderer>()
-            .AddSingleton<StoryboardRenderer>()
-            .AddSingleton<FrameDifferenceAnalyzer>()
-            .AddSingleton<AudioRhythmAnalyzer>()
-            .AddSingleton<EncoderRegistration>()
-            .AddSingleton<VideoExporter>()
-            .AddSingleton<RenderJobManager>()
+            .AddAgentToolkitRendering()
             .AddSingleton<AgentAiJobManager>()
-            .AddSingleton<IAgentAiBackend>(_ => AiBackend ?? UnavailableAgentAiBackend.Instance);
+            .AddSingleton(_aiBackend);
 
         builder.Services
             .AddMcpServer()
@@ -456,11 +447,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             })
             .WithTools<AgentHostInstanceTools>()
             .WithTools<AgentHostTools>()
-            .WithTools<SessionTools>()
-            .WithTools<QueryTools>()
-            .WithTools<EditTools>()
-            .WithTools<HistoryTools>()
-            .WithTools<RenderTools>()
+            .WithSharedAgentToolkitTools()
             .WithTools<AgentHostAiTools>();
 
         WebApplication app = builder.Build();

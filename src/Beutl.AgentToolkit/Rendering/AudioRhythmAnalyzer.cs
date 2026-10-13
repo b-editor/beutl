@@ -33,18 +33,10 @@ public sealed class AudioRhythmAnalyzer
     private static readonly double[] s_hannWindow = CreateHannWindow();
     private static readonly int[] s_bitReversal = CreateBitReversal();
 
-    public AudioRhythmAnalysis AnalyzePcm(ReadOnlySpan<float> monoSamples, int sampleRate)
+    // Test hook: analyzes PCM samples without decoding a file.
+    internal AudioRhythmAnalysis AnalyzePcm(ReadOnlySpan<float> monoSamples, int sampleRate)
     {
-        return AnalyzePcm(monoSamples, sampleRate, DefaultMinBpm, DefaultMaxBpm);
-    }
-
-    public AudioRhythmAnalysis AnalyzePcm(
-        ReadOnlySpan<float> monoSamples,
-        int sampleRate,
-        double expectedBpmMin,
-        double expectedBpmMax)
-    {
-        return AnalyzePcm(monoSamples, sampleRate, expectedBpmMin, expectedBpmMax, 0);
+        return AnalyzePcm(monoSamples, sampleRate, DefaultMinBpm, DefaultMaxBpm, 0);
     }
 
     public ValueTask<AudioRhythmAnalysis> AnalyzeFileAsync(
@@ -105,13 +97,7 @@ public sealed class AudioRhythmAnalyzer
 
         if (sampleLength <= 0)
         {
-            return ValueTask.FromResult(new AudioRhythmAnalysis(
-                sampleRate,
-                new AudioRhythmWindow(RoundSeconds(normalizedStartSeconds), 0),
-                0,
-                0,
-                [],
-                []));
+            return ValueTask.FromResult(Empty(sampleRate, normalizedStartSeconds, 0));
         }
 
         cancellationToken.ThrowIfCancellationRequested();

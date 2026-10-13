@@ -2,6 +2,7 @@
 using System.Text.Json;
 using Beutl.Api;
 using Beutl.Api.Services;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Api;
 
@@ -15,10 +16,10 @@ public sealed partial class AiCapabilityServiceTests
     [TestCase(1, true)]
     public async Task ProviderVideo_DisposesEveryOpenedReferenceWhenCleanupFails(int failures, bool failLastOpen)
     {
-        using var handler = new RecordingHandler(_ => JsonResponse(HttpStatusCode.OK, """{"jobId":"job","status":"queued"}"""));
+        using var handler = new RecordingHandler(_ => TestHttp.Json(HttpStatusCode.OK, """{"jobId":"job","status":"queued"}"""));
         using var http = new HttpClient(handler);
         await using var app = new BeutlApiApplication(http, new ExtensionProvider());
-        SetAuthenticatedUser(app);
+        ApiTestAuthentication.SignIn(app);
         using var first = new ReferenceDisposalProbe(throws: true);
         using var second = new ReferenceDisposalProbe(throws: failures == 2);
         using var last = new ReferenceDisposalProbe(throws: false);
@@ -64,11 +65,11 @@ public sealed partial class AiCapabilityServiceTests
                 cancellation.Cancel();
                 throw new OperationCanceledException(cancellation.Token);
             }
-            return JsonResponse(HttpStatusCode.BadRequest, """{"error_code":"aiModelUnavailable","message":"Withdrawn model","documentation_url":null}""");
+            return TestHttp.Json(HttpStatusCode.BadRequest, """{"error_code":"aiModelUnavailable","message":"Withdrawn model","documentation_url":null}""");
         });
         using var http = new HttpClient(handler);
         await using var app = new BeutlApiApplication(http, new ExtensionProvider());
-        SetAuthenticatedUser(app);
+        ApiTestAuthentication.SignIn(app);
         using var first = new ReferenceDisposalProbe(throws: true);
         using var trailing = new ReferenceDisposalProbe(throws: false);
         AiUploadSource Upload(string name, Stream stream) => new(name, "image/png", _ => ValueTask.FromResult(stream), 3);
@@ -105,10 +106,10 @@ public sealed partial class AiCapabilityServiceTests
     [TestCase(AiSourceVideoMode.Motion)]
     public async Task SourceVideoCleanup_PreservesCreatedJob(AiSourceVideoMode mode)
     {
-        using var handler = new RecordingHandler(_ => JsonResponse(HttpStatusCode.OK, """{"jobId":"job","status":"queued"}"""));
+        using var handler = new RecordingHandler(_ => TestHttp.Json(HttpStatusCode.OK, """{"jobId":"job","status":"queued"}"""));
         using var http = new HttpClient(handler);
         await using var app = new BeutlApiApplication(http, new ExtensionProvider());
-        SetAuthenticatedUser(app);
+        ApiTestAuthentication.SignIn(app);
         using var video = new ReferenceDisposalProbe(throws: true);
         using var character = new ReferenceDisposalProbe(throws: true);
         var request = new AiSourceVideoRequest(mode, "edit the scene",
@@ -137,11 +138,11 @@ public sealed partial class AiCapabilityServiceTests
                 cancellation.Cancel();
                 throw new OperationCanceledException(cancellation.Token);
             }
-            return JsonResponse(HttpStatusCode.BadRequest, """{"error_code":"aiModelUnavailable","message":"Withdrawn model","documentation_url":null}""");
+            return TestHttp.Json(HttpStatusCode.BadRequest, """{"error_code":"aiModelUnavailable","message":"Withdrawn model","documentation_url":null}""");
         });
         using var http = new HttpClient(handler);
         await using var app = new BeutlApiApplication(http, new ExtensionProvider());
-        SetAuthenticatedUser(app);
+        ApiTestAuthentication.SignIn(app);
         using var video = new ReferenceDisposalProbe(throws: true);
         using var character = new ReferenceDisposalProbe(throws: true);
         var request = new AiSourceVideoRequest(AiSourceVideoMode.Motion, "move the character",
@@ -163,7 +164,7 @@ public sealed partial class AiCapabilityServiceTests
         using var handler = new RecordingHandler(_ => throw new AssertionException("No request should be sent."));
         using var http = new HttpClient(handler);
         await using var app = new BeutlApiApplication(http, new ExtensionProvider());
-        SetAuthenticatedUser(app);
+        ApiTestAuthentication.SignIn(app);
         using var video = new ReferenceDisposalProbe(throws: true);
         var openFailure = new IOException("Injected character open failure.");
         var request = new AiSourceVideoRequest(AiSourceVideoMode.Motion, "move the character",
@@ -183,10 +184,10 @@ public sealed partial class AiCapabilityServiceTests
     [TestCase(AiSourceVideoMode.Motion)]
     public async Task ProviderVideo_SourceUsesTheWebContractAndTheSameRetryKey(AiSourceVideoMode mode)
     {
-        using var handler = new RecordingHandler(_ => JsonResponse(HttpStatusCode.OK, """{"jobId":"job","status":"queued"}"""));
+        using var handler = new RecordingHandler(_ => TestHttp.Json(HttpStatusCode.OK, """{"jobId":"job","status":"queued"}"""));
         using var http = new HttpClient(handler);
         await using var app = new BeutlApiApplication(http, new ExtensionProvider());
-        SetAuthenticatedUser(app);
+        ApiTestAuthentication.SignIn(app);
         string key = Guid.NewGuid().ToString();
         var request = new AiSourceVideoRequest(mode, "change the sky",
             sourceVideo: VideoInput("source.webm", "video/webm"),
@@ -208,10 +209,10 @@ public sealed partial class AiCapabilityServiceTests
     [Test]
     public async Task ProviderVideo_ReferencesUseTypedMultipartWithoutAFirstFrame()
     {
-        using var handler = new RecordingHandler(_ => JsonResponse(HttpStatusCode.OK, """{"jobId":"job","status":"queued"}"""));
+        using var handler = new RecordingHandler(_ => TestHttp.Json(HttpStatusCode.OK, """{"jobId":"job","status":"queued"}"""));
         using var http = new HttpClient(handler);
         await using var app = new BeutlApiApplication(http, new ExtensionProvider());
-        SetAuthenticatedUser(app);
+        ApiTestAuthentication.SignIn(app);
         await app.GetResource<IAiVideoService>().CreateAsync(new("scene", 5, new("720p"), new("16:9"),
             inputReferences: [VideoInput("a.png", "image/png"), VideoInput("b.mp4", "video/mp4"), VideoInput("c.wav", "audio/wav")]), CancellationToken.None);
         var sent = handler.Requests.Single();
@@ -236,12 +237,12 @@ public sealed partial class AiCapabilityServiceTests
     [Test]
     public async Task ProviderVideo_MapsNewCapabilitiesAndKeepsOldModelDefaults()
     {
-        using var handler = new RecordingHandler(_ => JsonResponse(HttpStatusCode.OK, """
+        using var handler = new RecordingHandler(_ => TestHttp.Json(HttpStatusCode.OK, """
             {"operations":{"video.generate":{"models":[{"id":"gateway/model","promptToVideo":false,"inputReferences":true,"maxInputReferences":9,"maxInputReferenceBytes":5242880,"maxVideoReferences":3,"maxVideoReferenceBytes":33554432,"maxAudioReferences":0,"maxAudioReferenceBytes":0,"maxPromptLength":80},{"id":"old/model"}]},"video.edit":{"models":[{"id":"gateway/editor","maxSourceVideoBytes":1024,"minSourceVideoSeconds":2,"maxSourceVideoSeconds":10}]}}}
             """));
         using var http = new HttpClient(handler);
         await using var app = new BeutlApiApplication(http, new ExtensionProvider());
-        SetAuthenticatedUser(app);
+        ApiTestAuthentication.SignIn(app);
         var catalog = await app.GetResource<IAiModelCatalogService>().GetAsync(CancellationToken.None);
         var model = catalog.ModelsFor(AiOperations.VideoGeneration).Single(item => item.Id.Value == "gateway/model").Video!;
         Assert.That(model.SupportsPromptToVideo, Is.False);

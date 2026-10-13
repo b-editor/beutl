@@ -119,7 +119,7 @@ public sealed partial class QueryTools
             return null;
         }
 
-        var entity = IdentityHelper.FindById(scene, objectGuidValue);
+        var entity = scene.FindById(objectGuidValue);
         if (entity is null)
         {
             throw new ReconcileException(new ToolError(

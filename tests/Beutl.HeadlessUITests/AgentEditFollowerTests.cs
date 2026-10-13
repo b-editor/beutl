@@ -295,7 +295,8 @@ public sealed class AgentEditFollowerTests
 
         public TimelineTabViewModel Timeline => Editor.FindToolTab<TimelineTabViewModel>()!;
 
-        public AgentHostEndpoint CreateHost() => new(TestShell.Project, TestShell.Editor, Config);
+        public AgentHostEndpoint CreateHost()
+            => new(TestShell.Project, TestShell.Editor, UnavailableAgentAiBackend.Instance, Config);
     }
 
     private static async Task<Fixture> CreateFixtureAsync(bool follow)

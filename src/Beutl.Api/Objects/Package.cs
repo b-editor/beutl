@@ -1,7 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Reactive.Linq;
 using Beutl.Api.Clients;
-
+using Nito.AsyncEx;
 using Reactive.Bindings;
 
 namespace Beutl.Api.Objects;
@@ -69,7 +69,7 @@ public class Package
 
     public IReadOnlyReactiveProperty<string?> FormattedPrice { get; }
 
-    public MyAsyncLock Lock => _clients.Lock;
+    public AsyncLock Lock => _clients.Lock;
 
     internal static string? FormatPrice(int? price, string? currency)
     {

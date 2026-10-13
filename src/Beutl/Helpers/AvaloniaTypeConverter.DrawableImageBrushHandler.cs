@@ -20,50 +20,20 @@ public static partial class AvaloniaTypeConverter
         private readonly ImageBrush _imageBrush;
         private readonly DrawableBrush.Resource _drawableBrush;
         private readonly Beutl.Threading.Dispatcher _renderDispatcher;
-        private readonly bool _ownsResource;
-        private readonly EventHandler _shutdownHandler;
-        private readonly DispatcherCleanup _release;
         private readonly object _gate = new();
         private WriteableBitmap? _bitmap;
         private CancellationTokenSource? _cts;
-        private int _queuedUpdates;
-        private int _runningUpdates;
         private bool _disposeRequested;
-        private bool _resourceReleased;
 
-        public DrawableImageBrushHandler(DrawableBrush.Resource drawableBrush, ImageBrush imageBrush)
-            : this(drawableBrush, imageBrush, RenderThread.Dispatcher)
-        {
-        }
-
+        // The caller's subscription owns drawableBrush and disposes it.
         public DrawableImageBrushHandler(
             DrawableBrush.Resource drawableBrush,
             ImageBrush imageBrush,
             Beutl.Threading.Dispatcher renderDispatcher)
-            : this(drawableBrush, imageBrush, renderDispatcher, ownsResource: true)
-        {
-        }
-
-        /// <summary>Creates a handler with an explicit resource owner.</summary>
-        /// <param name="ownsResource">
-        /// <see langword="false"/> when the caller's subscription already owns <paramref name="drawableBrush"/>
-        /// and disposes it; a second owner would dispose the same resource twice.
-        /// </param>
-        internal DrawableImageBrushHandler(
-            DrawableBrush.Resource drawableBrush,
-            ImageBrush imageBrush,
-            Beutl.Threading.Dispatcher renderDispatcher,
-            bool ownsResource)
         {
             _imageBrush = imageBrush;
             _drawableBrush = drawableBrush;
             _renderDispatcher = renderDispatcher;
-            _ownsResource = ownsResource;
-            // A shutdown drops queued work without running it, so the settle decision has to be retaken
-            // from here: work this handler is still waiting on will now never run.
-            _shutdownHandler = (_, _) => ReleaseResourceIfSettled();
-            _renderDispatcher.ShutdownStarted += _shutdownHandler;
-            _release = new DispatcherCleanup(_renderDispatcher, ReleaseResource);
         }
 
         public void Dispose()
@@ -75,18 +45,11 @@ public static partial class AvaloniaTypeConverter
 
                 _disposeRequested = true;
                 _cts?.Cancel();
+                _cts?.Dispose();
+                _cts = null;
             }
 
-            try
-            {
-                ClearPublishedBitmap();
-            }
-            finally
-            {
-                // _disposeRequested is already latched, so every later Dispose returns at the guard above:
-                // an exception escaping the clear leaves this the last chance to release the resource.
-                ReleaseResourceIfSettled();
-            }
+            ClearPublishedBitmap();
         }
 
         public void Update()
@@ -101,31 +64,9 @@ public static partial class AvaloniaTypeConverter
                 _cts?.Dispose();
                 _cts = new CancellationTokenSource();
                 token = _cts.Token;
-                _queuedUpdates++;
             }
 
-            _renderDispatcher.Dispatch(async () =>
-            {
-                lock (_gate)
-                {
-                    _queuedUpdates--;
-                    _runningUpdates++;
-                }
-
-                try
-                {
-                    await RenderAndPublishAsync(token);
-                }
-                finally
-                {
-                    lock (_gate)
-                    {
-                        _runningUpdates--;
-                    }
-
-                    ReleaseResourceIfSettled();
-                }
-            }, DispatchPriority.Low);
+            _renderDispatcher.Dispatch(() => RenderAndPublishAsync(token), DispatchPriority.Low);
         }
 
         private void ClearPublishedBitmap()
@@ -155,43 +96,6 @@ public static partial class AvaloniaTypeConverter
                 Clear();
             else
                 Dispatcher.UIThread.Post(Clear, DispatcherPriority.Background);
-        }
-
-        private void ReleaseResourceIfSettled()
-        {
-            lock (_gate)
-            {
-                if (_resourceReleased || !_disposeRequested)
-                    return;
-                // An in-flight update still reads the resource and must settle before release.
-                // RenderThread.Dispatcher stops only during process exit; a reusable dispatcher would need
-                // ShutdownFinished cleanup for an update stranded on the UI hop.
-                if (_runningUpdates > 0)
-                    return;
-                // The ShutdownStarted event is one-shot, so a dispatcher that stopped before this handler
-                // subscribed never delivers it. Its own state is the signal that queued work is dead.
-                if (!_renderDispatcher.HasShutdownStarted && _queuedUpdates > 0)
-                    return;
-
-                _resourceReleased = true;
-                _cts?.Dispose();
-                _cts = null;
-            }
-
-            if (!_ownsResource)
-            {
-                _renderDispatcher.ShutdownStarted -= _shutdownHandler;
-                _release.Abandon();
-                return;
-            }
-
-            _release.Request();
-        }
-
-        private void ReleaseResource()
-        {
-            _renderDispatcher.ShutdownStarted -= _shutdownHandler;
-            _drawableBrush.Dispose();
         }
 
         private async Task RenderAndPublishAsync(CancellationToken token)

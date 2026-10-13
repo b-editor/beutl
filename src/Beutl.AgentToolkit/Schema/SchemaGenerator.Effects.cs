@@ -11,10 +11,7 @@ public sealed partial class SchemaGenerator
     public IReadOnlyList<EffectSummary> ListEffects(string? intent = null, bool includePropertyNames = true)
     {
         TypeRegistration.EnsureRegistered();
-        return EnumerateRegisteredTypes()
-            .Where(item => MatchesCategory(KnownLibraryItemFormats.FilterEffect, item.Category))
-            .Select(item => item.Type)
-            .Distinct()
+        return EnumerateFilterEffectTypes()
             .Select(type => CreateEffectSummary(type, includePropertyNames))
             .Select(summary => new { Summary = summary, Score = ScoreEffect(summary, intent) })
             .Where(item => item.Score > 0)
@@ -56,15 +53,18 @@ public sealed partial class SchemaGenerator
         }
 
         string trimmed = token.Trim();
-        return EnumerateRegisteredTypes()
-            .Where(item => MatchesCategory(KnownLibraryItemFormats.FilterEffect, item.Category))
-            .Select(item => item.Type)
-            .Distinct()
+        return EnumerateFilterEffectTypes()
             .FirstOrDefault(type =>
                 string.Equals(type.Name, trimmed, StringComparison.OrdinalIgnoreCase)
                 || string.Equals(type.FullName, trimmed, StringComparison.Ordinal)
                 || string.Equals(IdentityHelper.WriteDiscriminator(type), trimmed, StringComparison.Ordinal));
     }
+
+    private static IEnumerable<Type> EnumerateFilterEffectTypes()
+        => EnumerateRegisteredTypes()
+            .Where(item => MatchesCategory(KnownLibraryItemFormats.FilterEffect, item.Category))
+            .Select(item => item.Type)
+            .Distinct();
 
     private static EffectSummary CreateEffectSummary(Type type, bool includePropertyNames)
     {
@@ -163,13 +163,6 @@ public sealed partial class SchemaGenerator
         }
 
         return score;
-    }
-
-    private static EffectMetadata GetEffectMetadataByName(string typeName)
-    {
-        KeyValuePair<Type, EffectMetadata> pair = s_effectMetadata
-            .FirstOrDefault(item => string.Equals(item.Key.Name, typeName, StringComparison.Ordinal));
-        return pair.Value ?? new EffectMetadata(InferEffectTags(typeName), []);
     }
 
     private static Dictionary<Type, EffectMetadata> CreateEffectMetadata()

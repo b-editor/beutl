@@ -46,7 +46,6 @@ public sealed class AgentToolkitMcpServerLocatorTests
             {
                 Path.Combine(_tempRoot, "Beutl.AgentToolkit.Mcp.dll"),
             }));
-            Assert.That(command.Source, Is.EqualTo("published dll"));
         });
     }
 
@@ -81,7 +80,6 @@ public sealed class AgentToolkitMcpServerLocatorTests
         {
             Assert.That(command!.Command, Is.EqualTo("dotnet"));
             Assert.That(command.Arguments[0], Is.EqualTo("run"));
-            Assert.That(command.Source, Is.EqualTo("source project"));
         });
     }
 }

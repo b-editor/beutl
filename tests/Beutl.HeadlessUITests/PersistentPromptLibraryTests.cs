@@ -39,7 +39,6 @@ public sealed class PersistentPromptLibraryTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(library.RetainRecentPromptText, Is.False);
             Assert.That(library.History, Is.EqualTo(new[] { entry }));
             Assert.That(File.ReadAllText(_storagePath), Does.Not.Contain(SensitivePrompt));
         });
@@ -49,14 +48,10 @@ public sealed class PersistentPromptLibraryTests
     }
 
     [Test]
-    public void RetainedHistory_IsBoundedAndCoalescesNormalizedDuplicates()
+    public void RecentHistory_IsBoundedAndCoalescesNormalizedDuplicates()
     {
         var timeProvider = new ManualTimeProvider(new DateTimeOffset(2026, 8, 9, 0, 0, 0, TimeSpan.Zero));
-        var options = new PromptLibraryOptions
-        {
-            MaxRecentItems = 2,
-            RetainRecentPromptText = true,
-        };
+        var options = new PromptLibraryOptions { MaxRecentItems = 2 };
         var library = new PersistentPromptLibrary(_storagePath, options, timeProvider);
 
         PromptHistoryEntry first = library.Record(PromptTaskKind.Image, "  first\r\nprompt  ");
@@ -73,17 +68,12 @@ public sealed class PersistentPromptLibraryTests
             Assert.That(duplicate.UseCount, Is.EqualTo(2));
             Assert.That(library.History.Select(item => item.Id), Is.EqualTo(new[] { third.Id, second.Id }));
         });
-
-        var reloaded = new PersistentPromptLibrary(_storagePath, options);
-        Assert.That(reloaded.History.Select(item => item.Prompt), Is.EqualTo(new[] { "third", "second" }));
     }
 
     [Test]
     public void SamePrompt_ForDifferentTaskKinds_RemainsDistinct()
     {
-        var library = new PersistentPromptLibrary(
-            _storagePath,
-            new PromptLibraryOptions { RetainRecentPromptText = true });
+        var library = new PersistentPromptLibrary(_storagePath);
 
         library.Record(PromptTaskKind.Image, "shared prompt");
         library.Record(PromptTaskKind.Video, "shared prompt");
@@ -147,14 +137,13 @@ public sealed class PersistentPromptLibraryTests
     [Test]
     public void SeparateInstancesReloadBeforeWritingSoMutationsAreMerged()
     {
-        var options = new PromptLibraryOptions { RetainRecentPromptText = true };
-        var first = new PersistentPromptLibrary(_storagePath, options);
-        var second = new PersistentPromptLibrary(_storagePath, options);
+        var first = new PersistentPromptLibrary(_storagePath);
+        var second = new PersistentPromptLibrary(_storagePath);
 
-        first.Record(PromptTaskKind.Image, "first process");
-        second.Record(PromptTaskKind.Video, "second process");
+        first.SetHistoryPinned(first.Record(PromptTaskKind.Image, "first process").Id, true);
+        second.SetHistoryPinned(second.Record(PromptTaskKind.Video, "second process").Id, true);
 
-        var reloaded = new PersistentPromptLibrary(_storagePath, options);
+        var reloaded = new PersistentPromptLibrary(_storagePath);
         Assert.That(
             reloaded.History.Select(item => item.Prompt),
             Is.EquivalentTo(new[] { "first process", "second process" }));
@@ -163,8 +152,7 @@ public sealed class PersistentPromptLibraryTests
     [Test]
     public async Task SeparateInstanceWaitsForTheCrossProcessWriteLock()
     {
-        var options = new PromptLibraryOptions { RetainRecentPromptText = true };
-        var library = new PersistentPromptLibrary(_storagePath, options);
+        var library = new PersistentPromptLibrary(_storagePath);
         Directory.CreateDirectory(Path.GetDirectoryName(_storagePath)!);
         using var heldLock = new FileStream(
             _storagePath + ".lock",
@@ -186,10 +174,10 @@ public sealed class PersistentPromptLibraryTests
     [Test]
     public void DeleteAndClearOperationsPersistTheResult()
     {
-        var options = new PromptLibraryOptions { RetainRecentPromptText = true };
-        var library = new PersistentPromptLibrary(_storagePath, options);
+        var library = new PersistentPromptLibrary(_storagePath);
         PromptHistoryEntry firstHistory = library.Record(PromptTaskKind.Image, "first history");
-        library.Record(PromptTaskKind.Video, "second history");
+        library.SetHistoryPinned(firstHistory.Id, true);
+        library.SetHistoryPinned(library.Record(PromptTaskKind.Video, "second history").Id, true);
         PromptTemplate firstTemplate = library.SaveTemplate("First", PromptTaskKind.Image, "first template");
         library.SaveTemplate("Second", PromptTaskKind.Video, "second template");
 
@@ -209,7 +197,7 @@ public sealed class PersistentPromptLibraryTests
         });
 
         library.ClearAll();
-        var reloaded = new PersistentPromptLibrary(_storagePath, options);
+        var reloaded = new PersistentPromptLibrary(_storagePath);
         Assert.Multiple(() =>
         {
             Assert.That(reloaded.History, Is.Empty);
@@ -224,14 +212,14 @@ public sealed class PersistentPromptLibraryTests
         File.WriteAllText(_storagePath, CorruptContents);
 
         var library = new PersistentPromptLibrary(_storagePath);
+        string[] recoveryFiles = Directory.GetFiles(_tempDirectory, "*.corrupt-*");
 
         Assert.Multiple(() =>
         {
             Assert.That(library.History, Is.Empty);
             Assert.That(library.Templates, Is.Empty);
-            Assert.That(library.RecoveredCorruptFilePath, Is.Not.Null);
-            Assert.That(File.Exists(library.RecoveredCorruptFilePath), Is.True);
-            Assert.That(File.ReadAllText(library.RecoveredCorruptFilePath!), Is.EqualTo(CorruptContents));
+            Assert.That(recoveryFiles, Has.Length.EqualTo(1));
+            Assert.That(File.ReadAllText(recoveryFiles[0]), Is.EqualTo(CorruptContents));
         });
 
         using JsonDocument replacement = JsonDocument.Parse(File.ReadAllText(_storagePath));
@@ -273,7 +261,6 @@ public sealed class PersistentPromptLibraryTests
 
             using (Assert.EnterMultipleScope())
             {
-                Assert.That(loaded.RecoveredCorruptFilePath, Is.Null);
                 Assert.That(loaded.Templates.Select(item => item.Name), Is.EqualTo(new[] { "Concurrent" }));
                 Assert.That(reloaded.Templates.Select(item => item.Name), Is.EqualTo(new[] { "Concurrent" }));
                 Assert.That(recoveryFiles, Has.Length.EqualTo(1));
@@ -414,7 +401,7 @@ public sealed class PersistentPromptLibraryTests
         using JsonDocument migrated = JsonDocument.Parse(File.ReadAllText(_storagePath));
         Assert.Multiple(() =>
         {
-            Assert.That(library.RecoveredCorruptFilePath, Is.Null);
+            Assert.That(Directory.EnumerateFiles(_tempDirectory, "*.corrupt-*"), Is.Empty);
             Assert.That(library.History.Select(item => item.Id), Is.EqualTo(new[] { validHistoryId }));
             Assert.That(library.Templates.Select(item => item.Id), Is.EqualTo(new[] { validTemplateId }));
             Assert.That(
@@ -427,8 +414,7 @@ public sealed class PersistentPromptLibraryTests
     [Test]
     public async Task LoadMigrationReloadsAfterTakingTheCrossProcessWriteLock()
     {
-        var options = new PromptLibraryOptions { RetainRecentPromptText = true };
-        var seed = new PersistentPromptLibrary(_storagePath, options);
+        var seed = new PersistentPromptLibrary(_storagePath);
         seed.SaveTemplate("Original", PromptTaskKind.Image, "original prompt");
         string versionOne = File.ReadAllText(_storagePath).Replace(
             $"\"version\": {PersistentPromptLibrary.CurrentStorageVersion}",
@@ -441,7 +427,6 @@ public sealed class PersistentPromptLibraryTests
         Task<PersistentPromptLibrary> delayedLoad = Task.Run(() =>
             new PersistentPromptLibrary(
                 _storagePath,
-                options,
                 beforeNormalizationWriteLock: () =>
                 {
                     initialReadCompleted.Set();
@@ -452,7 +437,7 @@ public sealed class PersistentPromptLibraryTests
         try
         {
             Assert.That(initialReadCompleted.Wait(TimeSpan.FromSeconds(5)), Is.True);
-            var concurrent = new PersistentPromptLibrary(_storagePath, options);
+            var concurrent = new PersistentPromptLibrary(_storagePath);
             concurrent.SaveTemplate(
                 "Concurrent",
                 PromptTaskKind.Video,
@@ -460,7 +445,7 @@ public sealed class PersistentPromptLibraryTests
 
             releaseMigration.Set();
             PersistentPromptLibrary loaded = await delayedLoad.WaitAsync(TimeSpan.FromSeconds(5));
-            var reloaded = new PersistentPromptLibrary(_storagePath, options);
+            var reloaded = new PersistentPromptLibrary(_storagePath);
 
             string[] expected = ["Concurrent", "Original"];
             using (Assert.EnterMultipleScope())
@@ -479,9 +464,7 @@ public sealed class PersistentPromptLibraryTests
     [Test]
     public void JsonSchema_ContainsNoAuthenticationOrGeneratedAssetFieldsAndLeavesNoTempFiles()
     {
-        var library = new PersistentPromptLibrary(
-            _storagePath,
-            new PromptLibraryOptions { RetainRecentPromptText = true });
+        var library = new PersistentPromptLibrary(_storagePath);
         library.Record(PromptTaskKind.Image, "safe prompt");
         library.SaveTemplate("Safe", PromptTaskKind.Video, "safe template");
 
@@ -526,9 +509,8 @@ public sealed class PersistentPromptLibraryTests
     [Test]
     public void ReplacementFailure_PreservesDiskAndMemoryStateAndDeletesTemporaryFile()
     {
-        var options = new PromptLibraryOptions { RetainRecentPromptText = true };
-        var seedLibrary = new PersistentPromptLibrary(_storagePath, options);
-        seedLibrary.Record(PromptTaskKind.Image, "existing history");
+        var seedLibrary = new PersistentPromptLibrary(_storagePath);
+        seedLibrary.SetHistoryPinned(seedLibrary.Record(PromptTaskKind.Image, "existing history").Id, true);
         seedLibrary.SaveTemplate("Existing", PromptTaskKind.Video, "existing template");
         byte[] diskBefore = File.ReadAllBytes(_storagePath);
 
@@ -537,7 +519,6 @@ public sealed class PersistentPromptLibraryTests
         bool tempExistedDuringReplacement = false;
         var library = new PersistentPromptLibrary(
             _storagePath,
-            options,
             replaceFile: (tempPath, destinationPath) =>
             {
                 observedTempPath = tempPath;
@@ -550,7 +531,7 @@ public sealed class PersistentPromptLibraryTests
 
         Assert.Throws<IOException>(() => library.Record(PromptTaskKind.ImageEdit, "must not commit"));
 
-        var reloaded = new PersistentPromptLibrary(_storagePath, options);
+        var reloaded = new PersistentPromptLibrary(_storagePath);
         Assert.Multiple(() =>
         {
             Assert.That(observedDestinationPath, Is.EqualTo(_storagePath));

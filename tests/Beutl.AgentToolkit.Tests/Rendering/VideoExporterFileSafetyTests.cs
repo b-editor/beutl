@@ -1,4 +1,5 @@
 ﻿using Beutl.AgentToolkit.Rendering;
+using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.Extensibility;
 using Beutl.Extensions.AVFoundation.Encoding;
 using Beutl.FFmpegIpc;
@@ -29,7 +30,7 @@ public class VideoExporterFileSafetyTests
     {
         using var cancellation = new CancellationTokenSource();
         var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var exporter = CreateExporter(async (controller, token) =>
+        var exporter = CreateExporter(async (controller, _, _, token) =>
         {
             File.WriteAllText(controller.OutputFile, "partial");
             started.SetResult();
@@ -52,7 +53,7 @@ public class VideoExporterFileSafetyTests
     [Test]
     public async Task Encoder_failure_preserves_the_previous_output()
     {
-        var exporter = CreateExporter((controller, _) =>
+        var exporter = CreateExporter((controller, _, _, _) =>
         {
             File.WriteAllText(controller.OutputFile, "partial");
             throw new IOException("encode failed");
@@ -66,7 +67,7 @@ public class VideoExporterFileSafetyTests
     public async Task Cancellation_before_publication_preserves_the_previous_output()
     {
         using var cancellation = new CancellationTokenSource();
-        var exporter = CreateExporter((controller, _) =>
+        var exporter = CreateExporter((controller, _, _, _) =>
         {
             File.WriteAllText(controller.OutputFile, "complete but cancelled");
             cancellation.Cancel();
@@ -83,7 +84,7 @@ public class VideoExporterFileSafetyTests
         const UnixFileMode mode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
         if (!OperatingSystem.IsWindows())
             File.SetUnixFileMode(_destination, mode);
-        var exporter = CreateExporter((controller, _) =>
+        var exporter = CreateExporter((controller, _, _, _) =>
         {
             Assert.That(File.ReadAllText(_destination), Is.EqualTo("previous complete output"));
             Assert.That(controller.OutputFile, Is.Not.EqualTo(_destination));
@@ -114,13 +115,13 @@ public class VideoExporterFileSafetyTests
     public async Task Fallback_encoder_uses_fresh_staging_and_preserves_the_destination_until_success()
     {
         string? failedOutput = null;
-        var first = new ProbeEncoder((controller, _) =>
+        var first = new DelegateEncoder(".mp4", (controller, _, _, _) =>
         {
             failedOutput = controller.OutputFile;
             File.WriteAllText(controller.OutputFile, "partial first attempt");
             throw new FFmpegWorkerException("worker failed");
         });
-        var second = new ProbeEncoder((controller, _) =>
+        var second = new DelegateEncoder(".mp4", (controller, _, _, _) =>
         {
             Assert.That(File.ReadAllText(_destination), Is.EqualTo("previous complete output"));
             Assert.That(File.Exists(failedOutput), Is.False);
@@ -142,7 +143,7 @@ public class VideoExporterFileSafetyTests
         Directory.CreateDirectory(_destination);
         File.WriteAllText(Path.Combine(_destination, "keep.txt"), "existing data");
         bool completed = false;
-        var exporter = CreateExporter((controller, _) =>
+        var exporter = CreateExporter((controller, _, _, _) =>
         {
             File.WriteAllText(controller.OutputFile, "complete");
             return Task.CompletedTask;
@@ -182,25 +183,13 @@ public class VideoExporterFileSafetyTests
     private ValueTask<ExportVideoResponse> ExportAsync(VideoExporter exporter, CancellationToken token = default)
         => exporter.ExportAsync(CreateScene(), _destination, new Rational(30, 1), 44100, 1, token);
 
-    private static VideoExporter CreateExporter(Func<EncodingController, CancellationToken, Task> encode)
-        => new(new EncoderRegistration(new ProbeEncoder(encode)));
+    private static VideoExporter CreateExporter(
+        Func<EncodingController, IFrameProvider, ISampleProvider, CancellationToken, Task> encode)
+        => new(new EncoderRegistration(new DelegateEncoder(".mp4", encode)));
 
     private void AssertPreviousOutputAndNoStaging()
     {
         Assert.That(File.ReadAllText(_destination), Is.EqualTo("previous complete output"));
         Assert.That(Directory.GetDirectories(_directory), Is.Empty);
-    }
-
-    private sealed class ProbeEncoder(Func<EncodingController, CancellationToken, Task> encode) : ControllableEncodingExtension
-    {
-        public override IEnumerable<string> SupportExtensions() => [".mp4"];
-        public override EncodingController CreateController(string file) => new ProbeController(file, encode);
-    }
-
-    private sealed class ProbeController(string file, Func<EncodingController, CancellationToken, Task> encode) : EncodingController(file)
-    {
-        public override VideoEncoderSettings VideoSettings { get; } = new();
-        public override AudioEncoderSettings AudioSettings { get; } = new();
-        public override ValueTask Encode(IFrameProvider frames, ISampleProvider samples, CancellationToken token) => new(encode(this, token));
     }
 }

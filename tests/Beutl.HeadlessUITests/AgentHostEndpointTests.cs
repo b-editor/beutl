@@ -43,8 +43,7 @@ public sealed class AgentHostEndpointTests
             Beutl.Testing.Headless.HeadlessTestHelpers.Settle();
             var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
             var binding = new EditViewModelLiveBinding(editor);
-            var source = new LiveSessionSource();
-            LiveEditingSession session = source.Attach(binding);
+            LiveEditingSession session = LiveEditingSession.Create(binding);
             int invocations = 0;
 
             Assert.That(session.ProbeIsAlive(), Is.True);
@@ -55,7 +54,7 @@ public sealed class AgentHostEndpointTests
                 Assert.Multiple(() =>
                 {
                     Assert.That(binding.IsAlive, Is.False);
-                    Assert.That(source.CurrentSession, Is.Null);
+                    Assert.That(session.ProbeIsAlive(), Is.False);
                     Assert.Throws<SessionUnavailableException>(
                         () => session.Invoke(() => invocations++));
                     Assert.That(invocations, Is.Zero);
@@ -71,7 +70,7 @@ public sealed class AgentHostEndpointTests
             Assert.Multiple(() =>
             {
                 Assert.That(binding.IsAlive, Is.True);
-                Assert.That(source.CurrentSession, Is.SameAs(session));
+                Assert.That(session.ProbeIsAlive(), Is.True);
                 Assert.That(invocations, Is.EqualTo(1));
             });
         }
@@ -102,8 +101,7 @@ public sealed class AgentHostEndpointTests
             TestShell.Editor.ActivateTabItem(scene);
             Beutl.Testing.Headless.HeadlessTestHelpers.Settle();
             var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
-            var liveSessions = new LiveSessionSource();
-            LiveEditingSession session = liveSessions.Attach(new EditViewModelLiveBinding(editor));
+            LiveEditingSession session = LiveEditingSession.Create(new EditViewModelLiveBinding(editor));
             var gateway = new EditorProjectSessionGateway(TestShell.Project, TestShell.Editor);
             Dictionary<string, string> filesBefore = SnapshotFiles(location);
 
@@ -190,8 +188,7 @@ public sealed class AgentHostEndpointTests
             Beutl.Testing.Headless.HeadlessTestHelpers.Settle();
             var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
             var binding = new EditViewModelLiveBinding(editor);
-            var source = new LiveSessionSource();
-            LiveEditingSession session = source.Attach(binding);
+            LiveEditingSession session = LiveEditingSession.Create(binding);
 
             FieldInfo disposed = typeof(EditViewModel).GetField(
                 "_disposed",
@@ -202,7 +199,7 @@ public sealed class AgentHostEndpointTests
             {
                 Assert.That(editor.Scene, Is.Not.Null);
                 Assert.That(binding.IsAlive, Is.False);
-                Assert.That(source.CurrentSession, Is.Null);
+                Assert.That(session.ProbeIsAlive(), Is.False);
                 Assert.Throws<SessionUnavailableException>(() => session.Invoke(static () => { }));
             });
         }
@@ -260,6 +257,7 @@ public sealed class AgentHostEndpointTests
         await TestReset.ResetShellAsync();
         await using var endpoint = new AgentHostEndpoint(
             new ProjectService(), new EditorService(new ExtensionProvider()),
+            UnavailableAgentAiBackend.Instance,
             GetAvailableLoopbackPort(), "test-token");
         await endpoint.StartAsync();
         var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -287,6 +285,7 @@ public sealed class AgentHostEndpointTests
         using var release = new ManualResetEventSlim();
         await using var endpoint = new AgentHostEndpoint(
             new ProjectService(), new EditorService(new ExtensionProvider()),
+            UnavailableAgentAiBackend.Instance,
             GetAvailableLoopbackPort(), "test-token", _ =>
             {
                 entered.TrySetResult();
@@ -317,7 +316,7 @@ public sealed class AgentHostEndpointTests
             Assert.Inconclusive($"Default port {AgentHostEndpoint.DefaultPort} is already in use.");
         }
 
-        var endpoint = new AgentHostEndpoint(new ProjectService(), new EditorService(new ExtensionProvider()));
+        var endpoint = new AgentHostEndpoint(new ProjectService(), new EditorService(new ExtensionProvider()), UnavailableAgentAiBackend.Instance);
 
         try
         {
@@ -368,8 +367,8 @@ public sealed class AgentHostEndpointTests
         var secondConfig = new AiAgentConfig { LiveMcpToken = "old-snapshot-token" };
         try
         {
-            await using var first = new AgentHostEndpoint(new ProjectService(), new EditorService(new ExtensionProvider()), firstConfig, directory);
-            await using var second = new AgentHostEndpoint(new ProjectService(), new EditorService(new ExtensionProvider()), secondConfig, directory);
+            await using var first = new AgentHostEndpoint(new ProjectService(), new EditorService(new ExtensionProvider()), UnavailableAgentAiBackend.Instance, firstConfig, directory);
+            await using var second = new AgentHostEndpoint(new ProjectService(), new EditorService(new ExtensionProvider()), UnavailableAgentAiBackend.Instance, secondConfig, directory);
             string firstInstanceId = first.InstanceId;
             await first.StartAsync();
             await second.StartAsync();
@@ -407,7 +406,7 @@ public sealed class AgentHostEndpointTests
         var config = new AiAgentConfig { LiveMcpToken = "pending-migration-token" };
         try
         {
-            await using var endpoint = new AgentHostEndpoint(new ProjectService(), new EditorService(new ExtensionProvider()), config, directory);
+            await using var endpoint = new AgentHostEndpoint(new ProjectService(), new EditorService(new ExtensionProvider()), UnavailableAgentAiBackend.Instance, config, directory);
             Assert.That(File.Exists(Path.Combine(directory, "live-mcp-token.lock")), Is.False,
                 "Editor construction must not acquire the token store or wait for its lock.");
             endpoint.StartInBackground();
@@ -435,6 +434,7 @@ public sealed class AgentHostEndpointTests
         var endpoint = new AgentHostEndpoint(
             new ProjectService(),
             new EditorService(new ExtensionProvider()),
+            UnavailableAgentAiBackend.Instance,
             preferredPort,
             "test-token");
 
@@ -466,6 +466,7 @@ public sealed class AgentHostEndpointTests
         var endpoint = new AgentHostEndpoint(
             new ProjectService(),
             new EditorService(new ExtensionProvider()),
+            UnavailableAgentAiBackend.Instance,
             GetAvailableLoopbackPort(),
             "test-token",
             async token =>
@@ -503,7 +504,7 @@ public sealed class AgentHostEndpointTests
     public async Task StopAsync_before_start_keeps_the_endpoint_stopped()
     {
         await TestReset.ResetShellAsync();
-        var endpoint = new AgentHostEndpoint(new ProjectService(), new EditorService(new ExtensionProvider()));
+        var endpoint = new AgentHostEndpoint(new ProjectService(), new EditorService(new ExtensionProvider()), UnavailableAgentAiBackend.Instance);
 
         // A stop requested before startup must win: StartAsync must not bring the host up afterward.
         _ = endpoint.StopAsync();
@@ -522,7 +523,7 @@ public sealed class AgentHostEndpointTests
     public async Task StopAsync_marks_endpoint_stopped_without_awaiting_host_shutdown()
     {
         await TestReset.ResetShellAsync();
-        var endpoint = new AgentHostEndpoint(new ProjectService(), new EditorService(new ExtensionProvider()));
+        var endpoint = new AgentHostEndpoint(new ProjectService(), new EditorService(new ExtensionProvider()), UnavailableAgentAiBackend.Instance);
 
         await endpoint.StartAsync();
         _ = endpoint.StopAsync();
@@ -547,6 +548,7 @@ public sealed class AgentHostEndpointTests
         var endpoint = new AgentHostEndpoint(
             new ProjectService(),
             new EditorService(new ExtensionProvider()),
+            UnavailableAgentAiBackend.Instance,
             GetAvailableLoopbackPort(),
             "test-token",
             async _ =>
@@ -580,6 +582,7 @@ public sealed class AgentHostEndpointTests
         var endpoint = new AgentHostEndpoint(
             new ProjectService(),
             new EditorService(new ExtensionProvider()),
+            UnavailableAgentAiBackend.Instance,
             GetAvailableLoopbackPort(),
             "test-token",
             async _ =>
@@ -609,6 +612,7 @@ public sealed class AgentHostEndpointTests
         var endpoint = new AgentHostEndpoint(
             new ProjectService(),
             new EditorService(new ExtensionProvider()),
+            UnavailableAgentAiBackend.Instance,
             GetAvailableLoopbackPort(),
             "test-token");
 
@@ -652,6 +656,7 @@ public sealed class AgentHostEndpointTests
         var endpoint = new AgentHostEndpoint(
             new ProjectService(),
             new EditorService(new ExtensionProvider()),
+            UnavailableAgentAiBackend.Instance,
             GetAvailableLoopbackPort(),
             "test-token");
 

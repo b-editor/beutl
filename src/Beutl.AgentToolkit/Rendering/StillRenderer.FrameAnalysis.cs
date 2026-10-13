@@ -16,14 +16,7 @@ public sealed partial class StillRenderer
             return EmptyAnalysis("Rendered frame has no pixels.", nearBlackThreshold, maxForegroundDeltaThreshold);
         }
 
-        if (GetLumaPixelReader(bitmap) is not { } reader)
-        {
-            return EmptyAnalysis(
-                $"Rendered frame uses pixel format {bitmap.ColorType}, which the visibility analyzer cannot decode.",
-                nearBlackThreshold,
-                maxForegroundDeltaThreshold);
-        }
-
+        LumaPixelReader reader = GetLumaPixelReader(bitmap);
         int visiblePixels = 0;
         int minLuma = byte.MaxValue;
         int maxLuma = byte.MinValue;
@@ -211,11 +204,7 @@ public sealed partial class StillRenderer
             return new NormalizedFocalPoint(0.5, 0.5);
         }
 
-        if (GetLumaPixelReader(bitmap) is not { } reader)
-        {
-            return FocalFromVisibilityBounds(bitmap, visibility);
-        }
-
+        LumaPixelReader reader = GetLumaPixelReader(bitmap);
         int totalPixels = bitmap.Width * bitmap.Height;
         var state = new byte[totalPixels];
         var lumaByPixel = new byte[totalPixels];
@@ -355,61 +344,17 @@ public sealed partial class StillRenderer
                || y >= height - borderWidth;
     }
 
-    private enum LumaPixelLayout
-    {
-        None,
-        Rgb8,
-        Bgr8,
-        Gray8,
-        RgbaHalf
-    }
-
     // The renderer hands back RgbaF16 — linear, premultiplied half-floats — so reading bytes
-    // positionally yields a number that looks like a luma and is not one. Every layout decodes to
+    // positionally yields a number that looks like a luma and is not one. The reader decodes to
     // sRGB-encoded 0..255 so reported values match the PNG a human looks at.
-    private readonly record struct LumaPixelReader(LumaPixelLayout Layout, bool Premultiplied)
+    private readonly struct LumaPixelReader
     {
         public void Read(Span<byte> row, int pixelOffset, out byte r, out byte g, out byte b)
         {
-            switch (Layout)
-            {
-                case LumaPixelLayout.Rgb8:
-                    r = row[pixelOffset];
-                    g = row[pixelOffset + 1];
-                    b = row[pixelOffset + 2];
-                    return;
-                case LumaPixelLayout.Bgr8:
-                    r = row[pixelOffset + 2];
-                    g = row[pixelOffset + 1];
-                    b = row[pixelOffset];
-                    return;
-                case LumaPixelLayout.Gray8:
-                    r = g = b = row[pixelOffset];
-                    return;
-                default:
-                    ushort redBits = BitConverter.ToUInt16(row.Slice(pixelOffset, 2));
-                    ushort greenBits = BitConverter.ToUInt16(row.Slice(pixelOffset + 2, 2));
-                    ushort blueBits = BitConverter.ToUInt16(row.Slice(pixelOffset + 4, 2));
-                    if (Premultiplied)
-                    {
-                        byte[] table = LinearHalfEncodeTable;
-                        r = table[redBits];
-                        g = table[greenBits];
-                        b = table[blueBits];
-                    }
-                    else
-                    {
-                        // Straight alpha: weight by coverage so a barely-visible pixel does not
-                        // register as fully lit. Premultiplied values already carry that weight,
-                        // which is what compositing the frame over black produces.
-                        float alpha = (float)BitConverter.ToHalf(row.Slice(pixelOffset + 6, 2));
-                        r = LinearToSrgbByte((float)BitConverter.UInt16BitsToHalf(redBits) * alpha);
-                        g = LinearToSrgbByte((float)BitConverter.UInt16BitsToHalf(greenBits) * alpha);
-                        b = LinearToSrgbByte((float)BitConverter.UInt16BitsToHalf(blueBits) * alpha);
-                    }
-
-                    return;
-            }
+            byte[] table = LinearHalfEncodeTable;
+            r = table[BitConverter.ToUInt16(row.Slice(pixelOffset, 2))];
+            g = table[BitConverter.ToUInt16(row.Slice(pixelOffset + 2, 2))];
+            b = table[BitConverter.ToUInt16(row.Slice(pixelOffset + 4, 2))];
         }
     }
 
@@ -447,21 +392,17 @@ public sealed partial class StillRenderer
         return (int)Math.Round((0.2126 * r) + (0.7152 * g) + (0.0722 * b));
     }
 
-    private static LumaPixelReader? GetLumaPixelReader(Bitmap bitmap)
+    // Render snapshots are always premultiplied RgbaF16.
+    private static LumaPixelReader GetLumaPixelReader(Bitmap bitmap)
     {
-        LumaPixelLayout layout = bitmap.ColorType switch
+        if (bitmap.ColorType is not (BitmapColorType.RgbaF16 or BitmapColorType.RgbaF16Clamped)
+            || bitmap.BytesPerPixel < 8
+            || bitmap.AlphaType != BitmapAlphaType.Premul)
         {
-            BitmapColorType.Rgba8888 or BitmapColorType.Rgb888x or BitmapColorType.Srgba8888
-                when bitmap.BytesPerPixel >= 3 => LumaPixelLayout.Rgb8,
-            BitmapColorType.Bgra8888 when bitmap.BytesPerPixel >= 3 => LumaPixelLayout.Bgr8,
-            BitmapColorType.Gray8 or BitmapColorType.R8Unorm when bitmap.BytesPerPixel >= 1 => LumaPixelLayout.Gray8,
-            BitmapColorType.RgbaF16 or BitmapColorType.RgbaF16Clamped
-                when bitmap.BytesPerPixel >= 8 => LumaPixelLayout.RgbaHalf,
-            _ => LumaPixelLayout.None
-        };
+            throw new NotSupportedException(
+                $"Frame analysis reads premultiplied RgbaF16 render snapshots, not {bitmap.ColorType} with {bitmap.AlphaType} alpha.");
+        }
 
-        return layout == LumaPixelLayout.None
-            ? null
-            : new LumaPixelReader(layout, bitmap.AlphaType == BitmapAlphaType.Premul);
+        return default;
     }
 }

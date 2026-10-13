@@ -19,31 +19,15 @@ public sealed class AgentSessionManagerConcurrencyTests
         manager.UseSource(new AgentToolkitTestSessionSource(sessionA));
 
         string keyA = manager.GetSessionKey(sessionA);
-        Assert.That(keyA, Is.EqualTo(manager.CurrentSessionKey));
+        Assert.That(keyA, Is.EqualTo(manager.GetSessionKey(manager.RequireSession())));
 
         manager.UseSource(new AgentToolkitTestSessionSource(sessionB));
 
         Assert.Multiple(() =>
         {
             Assert.That(manager.GetSessionKey(sessionA), Is.EqualTo(keyA));
-            Assert.That(manager.CurrentSessionKey, Is.Not.EqualTo(keyA));
+            Assert.That(manager.GetSessionKey(manager.RequireSession()), Is.Not.EqualTo(keyA));
         });
-    }
-
-    [Test]
-    public void Composition_plans_are_stored_under_the_supplied_session_key()
-    {
-        var manager = new AgentSessionManager();
-
-        // The plan is keyed by the session it was BUILT against; a different current session must
-        // see it as moved, not as its own plan.
-        CompositionPlanState state = manager.StoreCompositionPlan(
-            "File:11111111-1111-1111-1111-111111111111",
-            "comp", "seed", new JsonObject(), new JsonObject(), new JsonArray(), new HashSet<Guid>());
-
-        var ex = Assert.Throws<AgentToolkit.Reconciliation.ReconcileException>(
-            () => manager.GetCompositionPlan(state.Id, manager.CurrentSessionKey))!;
-        Assert.That(ex.Error.Message, Does.Contain("session"));
     }
 
     [Test]
@@ -57,8 +41,7 @@ public sealed class AgentSessionManagerConcurrencyTests
 
         Assert.Multiple(() =>
         {
-            // The captured (planned) key sees its own plan; a swapped-in key is rejected even though
-            // the plan is the current one under the manager's live key would-be lookup.
+            // The planned key finds the plan; any other session's key is rejected.
             Assert.That(manager.GetCompositionPlan(state.Id, plannedKey).Id, Is.EqualTo(state.Id));
             Assert.That(
                 Assert.Throws<AgentToolkit.Reconciliation.ReconcileException>(
@@ -71,20 +54,21 @@ public sealed class AgentSessionManagerConcurrencyTests
     public async Task Composition_plans_evict_the_oldest_beyond_the_retention_cap()
     {
         var manager = new AgentSessionManager();
+        const string sessionKey = "host";
 
         CompositionPlanState first = manager.StoreCompositionPlan(
-            manager.CurrentSessionKey,
+            sessionKey,
             "comp", "seed", new JsonObject(), new JsonObject(), new JsonArray(), new HashSet<Guid>());
         await Task.Delay(10);
         for (int i = 0; i < 32; i++)
         {
             manager.StoreCompositionPlan(
-                manager.CurrentSessionKey,
+                sessionKey,
                 "comp", "seed", new JsonObject(), new JsonObject(), new JsonArray(), new HashSet<Guid>());
         }
 
         Assert.Throws<AgentToolkit.Reconciliation.ReconcileException>(
-            () => manager.GetCompositionPlan(first.Id, manager.CurrentSessionKey));
+            () => manager.GetCompositionPlan(first.Id, sessionKey));
     }
 
     [Test]
@@ -93,6 +77,7 @@ public sealed class AgentSessionManagerConcurrencyTests
         var manager = new AgentSessionManager();
         using var source = new FileSessionSource();
         manager.UseSource(source);
+        const string sessionKey = "host";
 
         const int threads = 8;
         const int perThread = 100;
@@ -106,7 +91,7 @@ public sealed class AgentSessionManagerConcurrencyTests
                 try
                 {
                     CompositionPlanState state = manager.StoreCompositionPlan(
-                        manager.CurrentSessionKey,
+                        sessionKey,
                         "comp",
                         "seed",
                         new JsonObject(),
@@ -114,7 +99,7 @@ public sealed class AgentSessionManagerConcurrencyTests
                         new JsonArray(),
                         new HashSet<Guid>());
                     plans.Add(state.Id);
-                    manager.GetCompositionPlan(state.Id, manager.CurrentSessionKey);
+                    manager.GetCompositionPlan(state.Id, sessionKey);
                     manager.RemoveCompositionPlan(state.Id);
                 }
                 catch (Exception ex)

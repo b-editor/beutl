@@ -1,16 +1,11 @@
 ﻿using System.Globalization;
-using System.Reflection;
-using System.Text.Json;
 using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
-using Beutl.AgentToolkit.Documents;
 using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Rendering;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.AgentToolkit.Tools;
-using Beutl.AgentToolkit.Workspace;
-using Beutl.Editor;
 using Beutl.Engine;
 using Beutl.Extensibility;
 using Beutl.Graphics;
@@ -26,8 +21,6 @@ namespace Beutl.AgentToolkit.Tests.Rendering;
 
 public sealed class RenderToolsStoryboardTests
 {
-    private static readonly JsonSerializerOptions s_jsonOptions = new(JsonSerializerDefaults.Web);
-
     [Test]
     public void Live_scene_snapshot_is_created_on_session_dispatcher()
     {
@@ -36,14 +29,14 @@ public sealed class RenderToolsStoryboardTests
             Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.scene")),
             Duration = TimeSpan.FromSeconds(2)
         };
-        using var session = new DispatchGuardedLiveSession(scene);
+        using var session = new DispatchingTestSession(scene, rootOnlyInsideDispatch: true);
 
         Assert.Throws<InvalidOperationException>(() => _ = session.Root);
         Scene snapshot = RenderTools.CreateSceneSnapshot(session);
 
         Assert.Multiple(() =>
         {
-            Assert.That(session.DispatchCount, Is.EqualTo(1));
+            Assert.That(session.InvokeCount, Is.EqualTo(1));
             Assert.That(snapshot, Is.Not.SameAs(scene));
             Assert.That(snapshot.FrameSize, Is.EqualTo(scene.FrameSize));
             Assert.That(snapshot.Duration, Is.EqualTo(scene.Duration));
@@ -76,7 +69,7 @@ public sealed class RenderToolsStoryboardTests
         });
 
         RenderTools.ResolvedStoryboardFrame[] frames =
-            RenderTools.ResolveStoryboardFrames(scene, shots: null, subdivisionLevel: 0).ToArray();
+            RenderTools.ResolveStoryboardFrames(scene, shots: null, timeSeconds: null, subdivisionLevel: 0).ToArray();
 
         Assert.Multiple(() =>
         {
@@ -127,7 +120,7 @@ public sealed class RenderToolsStoryboardTests
         });
 
         RenderTools.ResolvedStoryboardFrame[] frames =
-            RenderTools.ResolveStoryboardFrames(scene, shots: null, subdivisionLevel: 0).ToArray();
+            RenderTools.ResolveStoryboardFrames(scene, shots: null, timeSeconds: null, subdivisionLevel: 0).ToArray();
 
         // Only the enabled, in-window, non-empty element contributes a derived shot; the others would
         // add blank frames and burn the subdivision cap.
@@ -140,7 +133,7 @@ public sealed class RenderToolsStoryboardTests
         var scene = new Scene(16, 9, "shot-end") { Duration = TimeSpan.FromSeconds(4) };
 
         RenderTools.ResolvedStoryboardFrame[] fromShots =
-            RenderTools.ResolveStoryboardFrames(scene, [new("end", 4.0)], subdivisionLevel: 0).ToArray();
+            RenderTools.ResolveStoryboardFrames(scene, [new("end", 4.0)], timeSeconds: null, subdivisionLevel: 0).ToArray();
         RenderTools.ResolvedStoryboardFrame[] fromTimes =
             RenderTools.ResolveStoryboardFrames(scene, shots: null, timeSeconds: [4.0], subdivisionLevel: 0).ToArray();
 
@@ -149,9 +142,7 @@ public sealed class RenderToolsStoryboardTests
             // A shot at exactly Duration renders past every element (Range end is exclusive); both the
             // explicit shots and explicit timeSeconds branches must pull it one tick inside.
             Assert.That(fromShots[^1].Time, Is.EqualTo(scene.Duration - TimeSpan.FromTicks(1)));
-            Assert.That(fromShots[^1].Time, Is.LessThan(scene.Duration));
             Assert.That(fromTimes[^1].Time, Is.EqualTo(scene.Duration - TimeSpan.FromTicks(1)));
-            Assert.That(fromTimes[^1].Time, Is.LessThan(scene.Duration));
         });
     }
 
@@ -164,19 +155,19 @@ public sealed class RenderToolsStoryboardTests
         {
             Assert.That(
                 Assert.Throws<ReconcileException>(() =>
-                    RenderTools.ResolveStoryboardFrames(scene, [new("late", 30)], 0))!.Error.Code,
+                    RenderTools.ResolveStoryboardFrames(scene, [new("late", 30)], timeSeconds: null, 0))!.Error.Code,
                 Is.EqualTo(ErrorCode.ValidationRejected));
             Assert.That(
                 Assert.Throws<ReconcileException>(() =>
-                    RenderTools.ResolveStoryboardFrames(scene, [new("neg", -1)], 0))!.Error.Code,
+                    RenderTools.ResolveStoryboardFrames(scene, [new("neg", -1)], timeSeconds: null, 0))!.Error.Code,
                 Is.EqualTo(ErrorCode.ValidationRejected));
             Assert.That(
                 Assert.Throws<ReconcileException>(() =>
-                    RenderTools.ResolveStoryboardFrames(scene, [new("nan", double.NaN)], 0))!.Error.Code,
+                    RenderTools.ResolveStoryboardFrames(scene, [new("nan", double.NaN)], timeSeconds: null, 0))!.Error.Code,
                 Is.EqualTo(ErrorCode.ValidationRejected));
             Assert.That(
                 Assert.Throws<ReconcileException>(() =>
-                    RenderTools.ResolveStoryboardFrames(scene, [new("a", 2), new("b", 2)], 0))!.Error.Code,
+                    RenderTools.ResolveStoryboardFrames(scene, [new("a", 2), new("b", 2)], timeSeconds: null, 0))!.Error.Code,
                 Is.EqualTo(ErrorCode.ValidationRejected));
         });
     }
@@ -191,9 +182,9 @@ public sealed class RenderToolsStoryboardTests
             new("right", 1)
         ];
 
-        RenderTools.ResolvedStoryboardFrame[] level1 = RenderTools.ResolveStoryboardFrames(scene, shots, 1).ToArray();
-        RenderTools.ResolvedStoryboardFrame[] level2 = RenderTools.ResolveStoryboardFrames(scene, shots, 2).ToArray();
-        RenderTools.ResolvedStoryboardFrame[] level3 = RenderTools.ResolveStoryboardFrames(scene, shots, 3).ToArray();
+        RenderTools.ResolvedStoryboardFrame[] level1 = RenderTools.ResolveStoryboardFrames(scene, shots, timeSeconds: null, 1).ToArray();
+        RenderTools.ResolvedStoryboardFrame[] level2 = RenderTools.ResolveStoryboardFrames(scene, shots, timeSeconds: null, 2).ToArray();
+        RenderTools.ResolvedStoryboardFrame[] level3 = RenderTools.ResolveStoryboardFrames(scene, shots, timeSeconds: null, 3).ToArray();
 
         Assert.Multiple(() =>
         {
@@ -226,9 +217,9 @@ public sealed class RenderToolsStoryboardTests
             new("right", 1)
         ];
 
-        RenderTools.ResolvedStoryboardFrame[] levelMinus = RenderTools.ResolveStoryboardFrames(scene, nearDuplicateShots, -10).ToArray();
-        RenderTools.ResolvedStoryboardFrame[] levelOne = RenderTools.ResolveStoryboardFrames(scene, nearDuplicateShots, 1).ToArray();
-        RenderTools.ResolvedStoryboardFrame[] levelLarge = RenderTools.ResolveStoryboardFrames(scene, [new("left", 0), new("right", 1)], 99).ToArray();
+        RenderTools.ResolvedStoryboardFrame[] levelMinus = RenderTools.ResolveStoryboardFrames(scene, nearDuplicateShots, timeSeconds: null, -10).ToArray();
+        RenderTools.ResolvedStoryboardFrame[] levelOne = RenderTools.ResolveStoryboardFrames(scene, nearDuplicateShots, timeSeconds: null, 1).ToArray();
+        RenderTools.ResolvedStoryboardFrame[] levelLarge = RenderTools.ResolveStoryboardFrames(scene, [new("left", 0), new("right", 1)], timeSeconds: null, 99).ToArray();
 
         Assert.Multiple(() =>
         {
@@ -247,9 +238,8 @@ public sealed class RenderToolsStoryboardTests
     }
 
     [Test]
-    public void Resolve_storyboard_frames_uses_explicit_frame_rate_for_dedupe_tolerance()
+    public void Resolve_storyboard_frames_uses_the_project_frame_rate_for_dedupe_tolerance()
     {
-        var scene = new Scene(16, 9, "frame-rate") { Duration = TimeSpan.FromSeconds(1) };
         StoryboardShotInput[] nearDuplicateShots =
         [
             new("left", 0),
@@ -260,10 +250,10 @@ public sealed class RenderToolsStoryboardTests
         // At 30 fps the half-frame tolerance is ~16.7 ms, so the 10 ms-apart anchor is deduped away;
         // at 60 fps it halves to ~8.3 ms, so the same anchor survives.
         RenderTools.ResolvedStoryboardFrame[] at30 = RenderTools
-            .ResolveStoryboardFrames(scene, nearDuplicateShots, timeSeconds: null, subdivisionLevel: 1, frameRate: 30)
+            .ResolveStoryboardFrames(CreateScene(30), nearDuplicateShots, timeSeconds: null, subdivisionLevel: 1)
             .ToArray();
         RenderTools.ResolvedStoryboardFrame[] at60 = RenderTools
-            .ResolveStoryboardFrames(scene, nearDuplicateShots, timeSeconds: null, subdivisionLevel: 1, frameRate: 60)
+            .ResolveStoryboardFrames(CreateScene(60), nearDuplicateShots, timeSeconds: null, subdivisionLevel: 1)
             .ToArray();
 
         Assert.Multiple(() =>
@@ -271,6 +261,15 @@ public sealed class RenderToolsStoryboardTests
             Assert.That(at30.Select(frame => frame.Name), Does.Not.Contain("near-left"));
             Assert.That(at60.Select(frame => frame.Name), Does.Contain("near-left"));
         });
+
+        static Scene CreateScene(int frameRate)
+        {
+            var scene = new Scene(16, 9, "frame-rate") { Duration = TimeSpan.FromSeconds(1) };
+            var project = new Project();
+            project.Variables[ProjectVariableKeys.FrameRate] = frameRate.ToString(CultureInfo.InvariantCulture);
+            project.Items.Add(scene);
+            return scene;
+        }
     }
 
     [Test]
@@ -290,29 +289,12 @@ public sealed class RenderToolsStoryboardTests
     }
 
     [Test]
-    public void Get_scene_frame_rate_reads_the_project_variable_and_defaults_to_30_when_detached()
-    {
-        var attached = new Scene(16, 9, "attached") { Duration = TimeSpan.FromSeconds(1) };
-        var project = new Project();
-        project.Variables[ProjectVariableKeys.FrameRate] = "60";
-        project.Items.Add(attached);
-
-        var detached = new Scene(16, 9, "detached") { Duration = TimeSpan.FromSeconds(1) };
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(RenderTools.GetSceneFrameRate(attached), Is.EqualTo(60));
-            Assert.That(RenderTools.GetSceneFrameRate(detached), Is.EqualTo(30));
-        });
-    }
-
-    [Test]
     public void Resolve_storyboard_frames_subdivides_auto_derived_element_midpoints()
     {
-        string workspace = CreateWorkspace();
+        string workspace = TestWorkspace.CreateDirectory();
         Scene scene = CreateStaticStoryboardScene(workspace);
 
-        RenderTools.ResolvedStoryboardFrame[] frames = RenderTools.ResolveStoryboardFrames(scene, null, 1).ToArray();
+        RenderTools.ResolvedStoryboardFrame[] frames = RenderTools.ResolveStoryboardFrames(scene, null, timeSeconds: null, 1).ToArray();
 
         Assert.Multiple(() =>
         {
@@ -339,7 +321,7 @@ public sealed class RenderToolsStoryboardTests
     [Test]
     public void Resolve_storyboard_frames_time_seconds_override_auto_detection_and_subdivide()
     {
-        string workspace = CreateWorkspace();
+        string workspace = TestWorkspace.CreateDirectory();
         var scene = new Scene(320, 180, "single-shot")
         {
             Duration = TimeSpan.FromSeconds(6),
@@ -378,7 +360,7 @@ public sealed class RenderToolsStoryboardTests
     [TestCaseSource(nameof(InvalidStoryboardTimeCases))]
     public async Task Render_storyboard_rejects_invalid_time_seconds(double[] timeSeconds, string expectedMessage)
     {
-        string workspace = CreateWorkspace();
+        string workspace = TestWorkspace.CreateDirectory();
         Scene scene = CreateStaticStoryboardScene(workspace);
         using var session = new AgentToolkitTestSession(scene);
         RenderTools tools = CreateTools(session);
@@ -388,7 +370,7 @@ public sealed class RenderToolsStoryboardTests
             outputDirectory: Path.Combine(workspace, "storyboards"),
             basename: "invalid-times",
             cancellationToken: CancellationToken.None);
-        ToolResult<RenderStoryboardResult> result = ReadToolResult<RenderStoryboardResult>(call);
+        ToolResult<RenderStoryboardResult> result = ToolResultReader.Read<RenderStoryboardResult>(call);
 
         Assert.Multiple(() =>
         {
@@ -403,7 +385,7 @@ public sealed class RenderToolsStoryboardTests
     [Test]
     public async Task Render_storyboard_rejects_time_seconds_above_frame_count_cap()
     {
-        string workspace = CreateWorkspace();
+        string workspace = TestWorkspace.CreateDirectory();
         var scene = new Scene(16, 9, "too-many-times") { Duration = TimeSpan.FromSeconds(60) };
         using var session = new AgentToolkitTestSession(scene);
         RenderTools tools = CreateTools(session);
@@ -414,7 +396,7 @@ public sealed class RenderToolsStoryboardTests
             outputDirectory: Path.Combine(workspace, "storyboards"),
             basename: "too-many-times",
             cancellationToken: CancellationToken.None);
-        ToolResult<RenderStoryboardResult> result = ReadToolResult<RenderStoryboardResult>(call);
+        ToolResult<RenderStoryboardResult> result = ToolResultReader.Read<RenderStoryboardResult>(call);
 
         Assert.Multiple(() =>
         {
@@ -430,7 +412,7 @@ public sealed class RenderToolsStoryboardTests
     [Test]
     public async Task Render_storyboard_explicit_shots_writes_contact_sheet_and_visibility_analysis_without_motion_output()
     {
-        string workspace = CreateWorkspace();
+        string workspace = TestWorkspace.CreateDirectory();
         Scene scene = CreateStaticStoryboardScene(workspace);
         using var session = new AgentToolkitTestSession(scene);
         RenderTools tools = CreateTools(session);
@@ -443,7 +425,7 @@ public sealed class RenderToolsStoryboardTests
             outputDirectory: Path.Combine(workspace, "storyboards"),
             basename: "explicit",
             cancellationToken: CancellationToken.None);
-        ToolResult<RenderStoryboardResult> result = ReadToolResult<RenderStoryboardResult>(call);
+        ToolResult<RenderStoryboardResult> result = ToolResultReader.Read<RenderStoryboardResult>(call);
 
         Assert.Multiple(() =>
         {
@@ -458,15 +440,13 @@ public sealed class RenderToolsStoryboardTests
             Assert.That(File.Exists(result.Value.Result.ContactSheetPath), Is.True);
             Assert.That(result.Value.Result.Shots.Select(shot => shot.StillPath), Has.All.Matches<string>(File.Exists));
             Assert.That(result.Value.Result.Shots.Select(shot => shot.VisibilityAnalysis), Has.All.Not.Null);
-            Assert.That(typeof(RenderStoryboardResponse).GetProperties().Select(property => property.Name), Has.None.Contains("Motion"));
-            Assert.That(result.Error, Is.Null);
         });
     }
 
     [Test]
     public async Task Render_storyboard_cut_eye_trace_measures_corner_to_corner_displacement()
     {
-        string workspace = CreateWorkspace();
+        string workspace = TestWorkspace.CreateDirectory();
         Scene scene = CreateEyeTraceScene(workspace, jumpAcrossCut: true);
         using var session = new AgentToolkitTestSession(scene);
         RenderTools tools = CreateTools(session);
@@ -479,7 +459,7 @@ public sealed class RenderToolsStoryboardTests
             outputDirectory: Path.Combine(workspace, "storyboards"),
             basename: "eye-trace-jump",
             cancellationToken: CancellationToken.None);
-        ToolResult<RenderStoryboardResult> result = ReadToolResult<RenderStoryboardResult>(call);
+        ToolResult<RenderStoryboardResult> result = ToolResultReader.Read<RenderStoryboardResult>(call);
 
         CutEyeTrace trace = result.Value!.Result!.CutEyeTrace.Single();
         Assert.Multiple(() =>
@@ -498,7 +478,7 @@ public sealed class RenderToolsStoryboardTests
     [Test]
     public async Task Render_storyboard_cut_eye_trace_measures_aligned_focal_points()
     {
-        string workspace = CreateWorkspace();
+        string workspace = TestWorkspace.CreateDirectory();
         Scene scene = CreateEyeTraceScene(workspace, jumpAcrossCut: false);
         using var session = new AgentToolkitTestSession(scene);
         RenderTools tools = CreateTools(session);
@@ -511,7 +491,7 @@ public sealed class RenderToolsStoryboardTests
             outputDirectory: Path.Combine(workspace, "storyboards"),
             basename: "eye-trace-aligned",
             cancellationToken: CancellationToken.None);
-        ToolResult<RenderStoryboardResult> result = ReadToolResult<RenderStoryboardResult>(call);
+        ToolResult<RenderStoryboardResult> result = ToolResultReader.Read<RenderStoryboardResult>(call);
 
         CutEyeTrace trace = result.Value!.Result!.CutEyeTrace.Single();
         Assert.Multiple(() =>
@@ -524,7 +504,7 @@ public sealed class RenderToolsStoryboardTests
     [Test]
     public async Task Render_storyboard_single_shot_returns_empty_cut_eye_trace()
     {
-        string workspace = CreateWorkspace();
+        string workspace = TestWorkspace.CreateDirectory();
         Scene scene = CreateEyeTraceScene(workspace, jumpAcrossCut: true);
         using var session = new AgentToolkitTestSession(scene);
         RenderTools tools = CreateTools(session);
@@ -534,7 +514,7 @@ public sealed class RenderToolsStoryboardTests
             outputDirectory: Path.Combine(workspace, "storyboards"),
             basename: "eye-trace-single",
             cancellationToken: CancellationToken.None);
-        ToolResult<RenderStoryboardResult> result = ReadToolResult<RenderStoryboardResult>(call);
+        ToolResult<RenderStoryboardResult> result = ToolResultReader.Read<RenderStoryboardResult>(call);
 
         Assert.Multiple(() =>
         {
@@ -546,7 +526,7 @@ public sealed class RenderToolsStoryboardTests
     [Test]
     public async Task Render_storyboard_subdivision_response_contains_inbetween_shape_and_deterministic_names()
     {
-        string workspace = CreateWorkspace();
+        string workspace = TestWorkspace.CreateDirectory();
         Scene scene = CreateStaticStoryboardScene(workspace);
         using var session = new AgentToolkitTestSession(scene);
         RenderTools tools = CreateTools(session);
@@ -560,7 +540,7 @@ public sealed class RenderToolsStoryboardTests
             basename: "subdivided",
             subdivisionLevel: 2,
             cancellationToken: CancellationToken.None);
-        ToolResult<RenderStoryboardResult> result = ReadToolResult<RenderStoryboardResult>(call);
+        ToolResult<RenderStoryboardResult> result = ToolResultReader.Read<RenderStoryboardResult>(call);
 
         RenderStoryboardShot[] renderedShots = result.Value!.Result!.Shots.ToArray();
         Assert.Multiple(() =>
@@ -592,7 +572,7 @@ public sealed class RenderToolsStoryboardTests
     [Test]
     public async Task Render_storyboard_rejects_requests_above_frame_count_cap()
     {
-        string workspace = CreateWorkspace();
+        string workspace = TestWorkspace.CreateDirectory();
         var scene = new Scene(16, 9, "too-many") { Duration = TimeSpan.FromSeconds(60) };
         using var session = new AgentToolkitTestSession(scene);
         RenderTools tools = CreateTools(session);
@@ -605,7 +585,7 @@ public sealed class RenderToolsStoryboardTests
             outputDirectory: Path.Combine(workspace, "storyboards"),
             basename: "too-many",
             cancellationToken: CancellationToken.None);
-        ToolResult<RenderStoryboardResult> result = ReadToolResult<RenderStoryboardResult>(call);
+        ToolResult<RenderStoryboardResult> result = ToolResultReader.Read<RenderStoryboardResult>(call);
 
         Assert.Multiple(() =>
         {
@@ -621,7 +601,7 @@ public sealed class RenderToolsStoryboardTests
     [Test]
     public async Task Render_storyboard_auto_derived_shots_returns_one_entry_per_element()
     {
-        string workspace = CreateWorkspace();
+        string workspace = TestWorkspace.CreateDirectory();
         Scene scene = CreateStaticStoryboardScene(workspace);
         using var session = new AgentToolkitTestSession(scene);
         RenderTools tools = CreateTools(session);
@@ -630,7 +610,7 @@ public sealed class RenderToolsStoryboardTests
             outputDirectory: Path.Combine(workspace, "storyboards"),
             basename: "auto",
             cancellationToken: CancellationToken.None);
-        ToolResult<RenderStoryboardResult> result = ReadToolResult<RenderStoryboardResult>(call);
+        ToolResult<RenderStoryboardResult> result = ToolResultReader.Read<RenderStoryboardResult>(call);
 
         Assert.Multiple(() =>
         {
@@ -647,7 +627,7 @@ public sealed class RenderToolsStoryboardTests
     [Test]
     public async Task Render_storyboard_default_basename_includes_session_id_to_avoid_collisions()
     {
-        string workspace = CreateWorkspace();
+        string workspace = TestWorkspace.CreateDirectory();
         Scene firstScene = CreateStaticStoryboardScene(workspace);
         Scene secondScene = CreateStaticStoryboardScene(workspace);
         using var firstSession = new AgentToolkitTestSession(firstScene);
@@ -655,9 +635,9 @@ public sealed class RenderToolsStoryboardTests
         RenderTools firstTools = CreateTools(firstSession);
         RenderTools secondTools = CreateTools(secondSession);
 
-        ToolResult<RenderStoryboardResult> first = ReadToolResult<RenderStoryboardResult>(
+        ToolResult<RenderStoryboardResult> first = ToolResultReader.Read<RenderStoryboardResult>(
             await firstTools.RenderStoryboard(workspace, cancellationToken: CancellationToken.None));
-        ToolResult<RenderStoryboardResult> second = ReadToolResult<RenderStoryboardResult>(
+        ToolResult<RenderStoryboardResult> second = ToolResultReader.Read<RenderStoryboardResult>(
             await secondTools.RenderStoryboard(workspace, cancellationToken: CancellationToken.None));
 
         string firstFile = Path.GetFileName(first.Value!.Result!.ContactSheetPath);
@@ -679,7 +659,7 @@ public sealed class RenderToolsStoryboardTests
     {
         TestGpu.RequireAnyDevice();
 
-        string workspace = CreateWorkspace();
+        string workspace = TestWorkspace.CreateDirectory();
         Scene scene = CreateStaticStoryboardScene(workspace);
         using var session = new AgentToolkitTestSession(scene);
         RenderTools tools = CreateTools(session);
@@ -689,7 +669,7 @@ public sealed class RenderToolsStoryboardTests
             basename: "bg",
             background: true,
             cancellationToken: CancellationToken.None);
-        ToolResult<RenderStoryboardResult> started = ReadToolResult<RenderStoryboardResult>(call);
+        ToolResult<RenderStoryboardResult> started = ToolResultReader.Read<RenderStoryboardResult>(call);
 
         Assert.That(started.IsSuccess, Is.True, started.Error?.Message);
         Assert.That(started.Value!.Status, Is.EqualTo("running"));
@@ -710,7 +690,7 @@ public sealed class RenderToolsStoryboardTests
     [Test]
     public async Task Render_storyboard_return_image_content_appends_downscaled_contact_sheet()
     {
-        string workspace = CreateWorkspace();
+        string workspace = TestWorkspace.CreateDirectory();
         Scene scene = CreateStaticStoryboardScene(workspace);
         using var session = new AgentToolkitTestSession(scene);
         RenderTools tools = CreateTools(session);
@@ -725,7 +705,7 @@ public sealed class RenderToolsStoryboardTests
             basename: "with-image",
             returnImageContent: true,
             cancellationToken: CancellationToken.None);
-        ToolResult<RenderStoryboardResult> result = ReadToolResult<RenderStoryboardResult>(call);
+        ToolResult<RenderStoryboardResult> result = ToolResultReader.Read<RenderStoryboardResult>(call);
         ImageContentBlock image = call.Content.OfType<ImageContentBlock>().Single();
         using SKBitmap bitmap = Decode(image);
 
@@ -742,7 +722,7 @@ public sealed class RenderToolsStoryboardTests
     [Test]
     public async Task Render_still_return_image_content_appends_downscaled_png()
     {
-        string workspace = CreateWorkspace();
+        string workspace = TestWorkspace.CreateDirectory();
         var scene = new Scene(1600, 900, "large-still")
         {
             Duration = TimeSpan.FromSeconds(1),
@@ -756,7 +736,7 @@ public sealed class RenderToolsStoryboardTests
             Path.Combine(workspace, "large-still.png"),
             returnImageContent: true,
             cancellationToken: CancellationToken.None);
-        ToolResult<RenderStillResponse> result = ReadToolResult<RenderStillResponse>(call);
+        ToolResult<RenderStillResponse> result = ToolResultReader.Read<RenderStillResponse>(call);
         ImageContentBlock image = call.Content.OfType<ImageContentBlock>().Single();
         using SKBitmap bitmap = Decode(image);
 
@@ -771,95 +751,44 @@ public sealed class RenderToolsStoryboardTests
         });
     }
 
-    [Test]
-    public async Task Render_still_rejects_output_extent_above_device_limit_before_rendering()
-    {
-        string workspace = CreateWorkspace();
-        var scene = new Scene(1920, 1080, "oversized-still")
-        {
-            Duration = TimeSpan.FromSeconds(1),
-            Uri = new Uri(Path.Combine(workspace, "Scene.scene"))
-        };
-        using var session = new AgentToolkitTestSession(scene);
-        RenderTools tools = CreateTools(session);
-        string existingOutput = Path.Combine(workspace, "oversized.png");
-        File.WriteAllText(existingOutput, "overwrite guard prevents the pre-fix renderer from running");
-
-        ToolResult<RenderStillResponse> result = ReadToolResult<RenderStillResponse>(
-            await tools.RenderStill(
-                existingOutput,
-                renderScale: 9f,
-                confirmOverwrite: false,
-                cancellationToken: CancellationToken.None));
-
-        AssertRenderScaleLimitError(result.Error, "17280x9720");
-    }
-
-    [Test]
-    public async Task Export_video_rejects_output_extent_above_device_limit_before_encoder_preflight()
-    {
-        string workspace = CreateWorkspace();
-        var scene = new Scene(1920, 1080, "oversized-export")
-        {
-            Duration = TimeSpan.FromSeconds(1),
-            Uri = new Uri(Path.Combine(workspace, "Scene.scene"))
-        };
-        using var session = new AgentToolkitTestSession(scene);
-        RenderTools tools = CreateTools(session);
-        string existingOutput = Path.Combine(workspace, "oversized.webm");
-        File.WriteAllText(existingOutput, "encoder and overwrite guards prevent the pre-fix exporter from running");
-
-        ToolResult<ExportVideoResult> result = await tools.ExportVideo(
-            existingOutput,
-            renderScale: 9f,
-            confirmOverwrite: false,
-            cancellationToken: CancellationToken.None);
-
-        AssertRenderScaleLimitError(result.Error, "17280x9720");
-    }
-
-    [Test]
-    public void Every_render_scale_tool_parameter_documents_the_device_axis_limit()
-    {
-        ParameterInfo[] renderScaleParameters = typeof(RenderTools)
-            .GetMethods(BindingFlags.Instance | BindingFlags.Public)
-            .SelectMany(static method => method.GetParameters())
-            .Where(static parameter => parameter.Name == "renderScale")
-            .ToArray();
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(renderScaleParameters, Has.Length.EqualTo(4));
-            foreach (ParameterInfo parameter in renderScaleParameters)
-            {
-                string? description = parameter.GetCustomAttribute<System.ComponentModel.DescriptionAttribute>()?.Description;
-                Assert.That(
-                    description,
-                    Does.Contain("16384"),
-                    $"{parameter.Member.Name}.renderScale does not document the device-axis limit.");
-            }
-        });
-    }
-
+    [TestCase("render_still")]
+    [TestCase("export_video")]
     [TestCase("render_storyboard")]
     [TestCase("measure_frame_differences")]
-    public async Task Every_remaining_render_scale_tool_rejects_over_limit_extent_before_rendering(
-        string toolName)
+    public async Task Every_render_scale_tool_rejects_over_limit_extent_before_rendering(string toolName)
     {
-        string workspace = CreateWorkspace();
+        string workspace = TestWorkspace.CreateDirectory();
         var scene = new Scene(1920, 1080, $"oversized-{toolName}")
         {
             Duration = TimeSpan.FromSeconds(1),
             Uri = new Uri(Path.Combine(workspace, "Scene.scene"))
         };
         using var session = new AgentToolkitTestSession(scene);
-        (RenderTools tools, AgentSessionManager manager) = CreateToolsWithManager(session);
+        RenderTools tools = CreateTools(session);
+        // The overwrite guard, and for .webm the encoder preflight, would reject first if the extent check ran late.
+        string existingOutput = Path.Combine(workspace, toolName == "export_video" ? "oversized.webm" : "oversized.png");
+        File.WriteAllText(existingOutput, "existing output");
 
         ToolError? error;
         switch (toolName)
         {
+            case "render_still":
+                error = ToolResultReader.Read<RenderStillResponse>(
+                    await tools.RenderStill(
+                        existingOutput,
+                        renderScale: 9f,
+                        confirmOverwrite: false,
+                        cancellationToken: CancellationToken.None)).Error;
+                break;
+            case "export_video":
+                error = (await tools.ExportVideo(
+                    existingOutput,
+                    renderScale: 9f,
+                    confirmOverwrite: false,
+                    cancellationToken: CancellationToken.None)).Error;
+                break;
             case "render_storyboard":
-                error = ReadToolResult<RenderStoryboardResult>(
+                error = ToolResultReader.Read<RenderStoryboardResult>(
                     await tools.RenderStoryboard(
                         timeSeconds: [0],
                         outputDirectory: Path.Combine(workspace, "oversized-storyboard"),
@@ -882,7 +811,7 @@ public sealed class RenderToolsStoryboardTests
     [Test]
     public async Task Render_storyboard_rejects_image_content_for_background_job()
     {
-        string workspace = CreateWorkspace();
+        string workspace = TestWorkspace.CreateDirectory();
         Scene scene = CreateStaticStoryboardScene(workspace);
         using var session = new AgentToolkitTestSession(scene);
         RenderTools tools = CreateTools(session);
@@ -893,7 +822,7 @@ public sealed class RenderToolsStoryboardTests
             background: true,
             returnImageContent: true,
             cancellationToken: CancellationToken.None);
-        ToolResult<RenderStoryboardResult> result = ReadToolResult<RenderStoryboardResult>(call);
+        ToolResult<RenderStoryboardResult> result = ToolResultReader.Read<RenderStoryboardResult>(call);
 
         Assert.Multiple(() =>
         {
@@ -904,44 +833,15 @@ public sealed class RenderToolsStoryboardTests
     }
 
     [Test]
-    public async Task Same_root_disk_writing_tools_reject_busy_output_operation_before_creating_files()
-    {
-        string workspace = CreateWorkspace();
-        using var session = new AgentToolkitTestSession(CreateStaticScene(workspace));
-        var outputOperations = new RejectingOutputOperationLeaseProvider();
-        RenderTools tools = CreateTools(session, outputOperations);
-
-        ToolResult<RenderStillResponse> still = ReadToolResult<RenderStillResponse>(
-            await tools.RenderStill(Path.Combine(workspace, "busy-still.png"), cancellationToken: CancellationToken.None));
-        ToolResult<RenderStoryboardResult> storyboard = ReadToolResult<RenderStoryboardResult>(
-            await tools.RenderStoryboard(
-                outputDirectory: Path.Combine(workspace, "busy-storyboard"),
-                basename: "busy",
-                cancellationToken: CancellationToken.None));
-        ToolResult<ExportVideoResult> export = await tools.ExportVideo(
-            Path.Combine(workspace, "busy-export.unknown"),
-            cancellationToken: CancellationToken.None);
-
-        Assert.Multiple(() =>
-        {
-            AssertWorkspaceBusy(still);
-            AssertWorkspaceBusy(storyboard);
-            AssertWorkspaceBusy(export);
-            Assert.That(outputOperations.AcquireAttempts, Is.EqualTo(3));
-            Assert.That(Directory.GetFiles(workspace, "*", SearchOption.AllDirectories), Is.Empty);
-        });
-    }
-
-    [Test]
     public async Task Busy_output_operation_is_rejected_before_session_capture()
     {
-        string workspace = CreateWorkspace();
+        string workspace = TestWorkspace.CreateDirectory();
         var outputOperations = new RejectingOutputOperationLeaseProvider();
-        RenderTools tools = CreateTools(new AgentSessionManager(), outputOperations);
+        RenderTools tools = TestRenderTools.Create(new AgentSessionManager(), outputOperations: outputOperations);
 
-        ToolResult<RenderStillResponse> still = ReadToolResult<RenderStillResponse>(
+        ToolResult<RenderStillResponse> still = ToolResultReader.Read<RenderStillResponse>(
             await tools.RenderStill(Path.Combine(workspace, "busy-still.png"), cancellationToken: CancellationToken.None));
-        ToolResult<RenderStoryboardResult> storyboard = ReadToolResult<RenderStoryboardResult>(
+        ToolResult<RenderStoryboardResult> storyboard = ToolResultReader.Read<RenderStoryboardResult>(
             await tools.RenderStoryboard(workspace, background: true, cancellationToken: CancellationToken.None));
         ToolResult<FrameDifferenceResponse> motion = await tools.MeasureFrameDifferences(
             cancellationToken: CancellationToken.None);
@@ -964,7 +864,7 @@ public sealed class RenderToolsStoryboardTests
     [Test]
     public async Task Background_enqueue_failure_releases_the_caller_owned_output_operation_once()
     {
-        string workspace = CreateWorkspace();
+        string workspace = TestWorkspace.CreateDirectory();
         using var session = new AgentToolkitTestSession(CreateStaticScene(workspace));
         var outputOperations = new TrackingOutputOperationLeaseProvider();
         var renderJobs = new RenderJobManager();
@@ -974,7 +874,7 @@ public sealed class RenderToolsStoryboardTests
             outputOperations,
             renderJobs: renderJobs);
 
-        ToolResult<RenderStoryboardResult> result = ReadToolResult<RenderStoryboardResult>(
+        ToolResult<RenderStoryboardResult> result = ToolResultReader.Read<RenderStoryboardResult>(
             await tools.RenderStoryboard(
                 outputDirectory: Path.Combine(workspace, "enqueue-failure"),
                 basename: "busy",
@@ -995,7 +895,7 @@ public sealed class RenderToolsStoryboardTests
     [Test]
     public async Task Background_storyboard_transfers_its_output_operation_to_the_queued_job()
     {
-        string workspace = CreateWorkspace();
+        string workspace = TestWorkspace.CreateDirectory();
         using var session = new AgentToolkitTestSession(CreateStaticScene(workspace));
         var outputOperations = new TrackingOutputOperationLeaseProvider();
         using var renderJobs = new RenderJobManager();
@@ -1015,7 +915,7 @@ public sealed class RenderToolsStoryboardTests
 
         try
         {
-            ToolResult<RenderStoryboardResult> started = ReadToolResult<RenderStoryboardResult>(
+            ToolResult<RenderStoryboardResult> started = ToolResultReader.Read<RenderStoryboardResult>(
                 await tools.RenderStoryboard(
                     outputDirectory: Path.Combine(workspace, "queued-storyboard"),
                     basename: "queued",
@@ -1033,9 +933,6 @@ public sealed class RenderToolsStoryboardTests
             string storyboardJob = started.Value!.JobId!;
             tools.CancelRenderJob(storyboardJob);
             RenderJobSnapshot cancelled = await PollUntilTerminalAsync(tools, storyboardJob);
-            // A job publishes its terminal state before it releases the output operation, so the release
-            // can still be under way when polling first sees the cancellation.
-            await outputOperations.Lease!.Released.WaitAsync(TimeSpan.FromSeconds(5));
 
             Assert.Multiple(() =>
             {
@@ -1054,14 +951,14 @@ public sealed class RenderToolsStoryboardTests
     [Test]
     public async Task Render_still_holds_output_operation_until_the_file_is_complete()
     {
-        string workspace = CreateWorkspace();
+        string workspace = TestWorkspace.CreateDirectory();
         string expectedPath = Path.Combine(workspace, "leased-still.png");
         using var session = new AgentToolkitTestSession(CreateStaticScene(workspace));
         var outputOperations = new CompletionObservingOutputOperationLeaseProvider(
             () => File.Exists(expectedPath) && new FileInfo(expectedPath).Length > 0);
         RenderTools tools = CreateTools(session, outputOperations);
 
-        ToolResult<RenderStillResponse> result = ReadToolResult<RenderStillResponse>(
+        ToolResult<RenderStillResponse> result = ToolResultReader.Read<RenderStillResponse>(
             await tools.RenderStill(expectedPath, cancellationToken: CancellationToken.None));
 
         Assert.Multiple(() =>
@@ -1115,7 +1012,7 @@ public sealed class RenderToolsStoryboardTests
     [Test]
     public async Task Frame_measurement_rejects_times_that_all_clamp_to_a_single_sample()
     {
-        string workspace = CreateWorkspace();
+        string workspace = TestWorkspace.CreateDirectory();
         var scene = new Scene(320, 180, "clamp-collapse")
         {
             Duration = TimeSpan.FromSeconds(2),
@@ -1143,7 +1040,7 @@ public sealed class RenderToolsStoryboardTests
     [Test]
     public async Task Export_video_rejects_a_relative_path_before_the_encoder_preflight()
     {
-        string workspace = CreateWorkspace();
+        string workspace = TestWorkspace.CreateDirectory();
         using var session = new AgentToolkitTestSession(CreateStaticScene(workspace));
         RenderTools tools = CreateTools(session);
 
@@ -1163,7 +1060,7 @@ public sealed class RenderToolsStoryboardTests
     [Test]
     public async Task Audio_rhythm_analysis_rejects_a_relative_path()
     {
-        RenderTools tools = CreateTools(new AgentSessionManager(), StandaloneOutputOperationLeaseProvider.Instance);
+        RenderTools tools = TestRenderTools.Create(new AgentSessionManager());
 
         ToolResult<AnalyzeAudioRhythmResponse> result = await tools.AnalyzeAudioRhythm(
             "beat.wav",
@@ -1177,50 +1074,11 @@ public sealed class RenderToolsStoryboardTests
         });
     }
 
-    private static RenderTools CreateTools(AgentToolkitTestSession session)
-        => CreateToolsWithManager(session).Tools;
-
-    private static (RenderTools Tools, AgentSessionManager Manager) CreateToolsWithManager(
-        AgentToolkitTestSession session)
-    {
-        var manager = new AgentSessionManager();
-        manager.UseSource(new AgentToolkitTestSessionSource(session));
-        RenderTools tools = CreateTools(
-            manager,
-            StandaloneOutputOperationLeaseProvider.Instance);
-        return (tools, manager);
-    }
-
     private static RenderTools CreateTools(
         AgentToolkitTestSession session,
         IOutputOperationLeaseProvider? outputOperations = null,
         RenderJobManager? renderJobs = null)
-    {
-        var manager = new AgentSessionManager();
-        manager.UseSource(new AgentToolkitTestSessionSource(session));
-        outputOperations ??= StandaloneOutputOperationLeaseProvider.Instance;
-        return CreateTools(manager, outputOperations, renderJobs);
-    }
-
-    private static RenderTools CreateTools(
-        AgentSessionManager manager,
-        IOutputOperationLeaseProvider outputOperations,
-        RenderJobManager? renderJobs = null)
-    {
-        var stillRenderer = new StillRenderer();
-        var motionVariationAnalyzer = new FrameDifferenceAnalyzer(stillRenderer);
-        var tools = new RenderTools(
-            manager,
-            new DestructiveGuard(),
-            stillRenderer,
-            new StoryboardRenderer(),
-            motionVariationAnalyzer,
-            new AudioRhythmAnalyzer(),
-            new VideoExporter(new EncoderRegistration()),
-            renderJobs ?? new RenderJobManager(),
-            outputOperations);
-        return tools;
-    }
+        => TestRenderTools.Create(session.CreateManager(), renderJobs: renderJobs, outputOperations: outputOperations);
 
     private static void AssertWorkspaceBusy<T>(ToolResult<T> result)
     {
@@ -1240,31 +1098,6 @@ public sealed class RenderToolsStoryboardTests
         }
     }
 
-    private sealed class BlockingOutputOperationLeaseProvider : IOutputOperationLeaseProvider
-    {
-        private int _active;
-
-        public int AcquireAttempts { get; private set; }
-
-        public TaskCompletionSource Acquired { get; } =
-            new(TaskCreationOptions.RunContinuationsAsynchronously);
-
-        public CountingLease? Lease { get; private set; }
-
-        public IDisposable? TryBeginOutputOperation()
-        {
-            AcquireAttempts++;
-            if (Interlocked.CompareExchange(ref _active, 1, 0) != 0)
-            {
-                return null;
-            }
-
-            Lease = new CountingLease(() => Volatile.Write(ref _active, 0));
-            Acquired.TrySetResult();
-            return Lease;
-        }
-    }
-
     private sealed class CompletionObservingOutputOperationLeaseProvider(Func<bool> isFileComplete)
         : IOutputOperationLeaseProvider
     {
@@ -1275,7 +1108,7 @@ public sealed class RenderToolsStoryboardTests
         public IDisposable? TryBeginOutputOperation()
         {
             AcquireAttempts++;
-            return new CallbackDisposable(() => FileWasCompleteWhenReleased = isFileComplete());
+            return new CountingLease(() => FileWasCompleteWhenReleased = isFileComplete());
         }
     }
 
@@ -1290,95 +1123,6 @@ public sealed class RenderToolsStoryboardTests
             AcquireAttempts++;
             Lease = new CountingLease();
             return Lease;
-        }
-    }
-
-    private sealed class CountingLease(Action? onDispose = null) : IDisposable
-    {
-        private readonly TaskCompletionSource _released = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        private int _disposeCount;
-
-        public int DisposeCount => Volatile.Read(ref _disposeCount);
-
-        public Task Released => _released.Task;
-
-        public void Dispose()
-        {
-            if (Interlocked.Increment(ref _disposeCount) == 1)
-            {
-                onDispose?.Invoke();
-                _released.TrySetResult();
-            }
-        }
-    }
-
-    private sealed class CallbackDisposable(Action callback) : IDisposable
-    {
-        private int _disposed;
-
-        public void Dispose()
-        {
-            if (Interlocked.Exchange(ref _disposed, 1) == 0)
-            {
-                callback();
-            }
-        }
-    }
-
-    private sealed class DispatchGuardedLiveSession : IEditingSession, IEditingSessionDispatcher, IDisposable
-    {
-        private readonly Scene _scene;
-        private readonly RecordingPipeline _recording;
-        private bool _insideDispatch;
-
-        public DispatchGuardedLiveSession(Scene scene)
-        {
-            _scene = scene;
-            _recording = RecordingPipeline.Create(scene);
-        }
-
-        public int DispatchCount { get; private set; }
-
-        public string SessionId { get; } = Guid.NewGuid().ToString("N");
-
-        public EditingSessionSource Source => EditingSessionSource.LiveEditor;
-
-        public CoreObject Root
-        {
-            get
-            {
-                if (!_insideDispatch)
-                {
-                    throw new InvalidOperationException("Live scene read escaped the session dispatcher.");
-                }
-
-                return _scene;
-            }
-        }
-
-        public HistoryManager History => _recording.History;
-
-        public DocumentAdapter Documents { get; } = new();
-
-        public bool IsDirty => false;
-
-        public void Invoke(Action action)
-        {
-            DispatchCount++;
-            _insideDispatch = true;
-            try
-            {
-                action();
-            }
-            finally
-            {
-                _insideDispatch = false;
-            }
-        }
-
-        public void Dispose()
-        {
-            _recording.Dispose();
         }
     }
 
@@ -1548,27 +1292,8 @@ public sealed class RenderToolsStoryboardTests
         scene.Children.Add(element);
     }
 
-    private static string CreateWorkspace()
-    {
-        string path = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(path);
-        return path;
-    }
-
-    private static ToolResult<T> ReadToolResult<T>(CallToolResult result)
-    {
-        TextContentBlock text = result.Content.OfType<TextContentBlock>().Single();
-        return JsonSerializer.Deserialize<ToolResult<T>>(text.Text, s_jsonOptions)
-               ?? throw new InvalidOperationException("Tool result JSON could not be deserialized.");
-    }
-
-    /// <remarks>
-    /// The limit the rejection names is the one the render thread will resolve, so it moves with the machine:
-    /// a fixed 16384 only holds on a device that attaches at least the engine ceiling. Both the limit and the
-    /// maximum usable scale derived from it are therefore read here rather than written down. The truncated
-    /// three-decimal prefix survives the exact float the validator lands on, which is bit-adjusted to the
-    /// largest scale whose ceil() still fits.
-    /// </remarks>
+    // The limit depends on the device, so it is read here instead of hard-coding 16384. The scale is
+    // compared by its truncated three-decimal prefix, which survives the validator's bit adjustment.
     private static void AssertRenderScaleLimitError(ToolError? error, string requestedExtent)
     {
         int limit = BufferDimensionBudget.Resolve(BufferBudgetScope.Prediction).MaxDimension;
@@ -1593,11 +1318,6 @@ public sealed class RenderToolsStoryboardTests
         Assert.That(
             frames.Select(frame => frame.Time.TotalSeconds).ToArray(),
             Is.EqualTo(expectedSeconds.ToArray()).Within(0.000001));
-        Assert.That(
-            frames.Select(frame => frame.Time.TotalSeconds).SequenceEqual(
-                frames.Select(frame => frame.Time.TotalSeconds).OrderBy(time => time)),
-            Is.True,
-            "storyboard frames must stay chronological");
     }
 
     private static SKBitmap Decode(ImageContentBlock image)

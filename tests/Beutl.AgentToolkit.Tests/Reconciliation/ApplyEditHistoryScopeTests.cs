@@ -3,7 +3,6 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using Beutl.AgentToolkit.Common;
-using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.AgentToolkit.Tools;
 using Beutl.Collections;
@@ -36,7 +35,7 @@ public sealed class ApplyEditHistoryScopeTests
         int changed = 0;
         pen.DashArray.ValueChanged += (_, _) => changed++;
         using var session = new AgentToolkitTestSession(pen);
-        EditTools tools = CreateTools(session);
+        EditTools tools = session.CreateEditTools();
 
         ToolResult<ApplyEditResponse> result = tools.ApplyEdit(
             patch: rename ? new JsonObject { [nameof(CoreObject.Name)] = "updated" } : new JsonObject(),
@@ -80,7 +79,7 @@ public sealed class ApplyEditHistoryScopeTests
         mesh.Vertices.ValueChanged += (_, _) => changed++;
         mesh.Indices.ValueChanged += (_, _) => changed++;
         using var session = new AgentToolkitTestSession(mesh);
-        EditTools tools = CreateTools(session);
+        EditTools tools = session.CreateEditTools();
 
         ToolResult<ApplyEditResponse> result = tools.ApplyEdit(
             patch: rename ? new JsonObject { [nameof(CoreObject.Name)] = "updated" } : new JsonObject(),
@@ -116,7 +115,7 @@ public sealed class ApplyEditHistoryScopeTests
         var pen = new Pen { DashArray = { CurrentValue = [2, 3] } };
         CoreList<float>? original = pen.DashArray.CurrentValue;
         using var session = new AgentToolkitTestSession(pen);
-        EditTools tools = CreateTools(session);
+        EditTools tools = session.CreateEditTools();
 
         ToolResult<ApplyEditResponse> result = tools.ApplyEdit(
             patch: new JsonObject { [nameof(Pen.DashArray)] = new JsonArray(4, 5) },
@@ -139,55 +138,30 @@ public sealed class ApplyEditHistoryScopeTests
     }
 
     [Test]
-    public void Apply_edit_records_only_the_patched_property()
+    public void Apply_edit_records_only_the_patched_property_and_undo_redo_keep_unpatched_instances()
     {
-        Scene scene = CreateScene();
+        Scene scene = TestWorkspace.CreateScene();
         RectShape firstRect = AddRectElement(scene, "first", TimeSpan.Zero, zIndex: 0);
         RectShape secondRect = AddRectElement(scene, "second", TimeSpan.FromSeconds(2), zIndex: 1);
         Element second = scene.Children[1];
         object?[] firstNested = CaptureNested(firstRect);
         object?[] secondNested = CaptureNested(secondRect);
         using var session = new AgentToolkitTestSession(scene);
-        EditTools tools = CreateTools(session);
+        EditTools tools = session.CreateEditTools();
 
         ToolResult<ApplyEditResponse> result = tools.ApplyEdit(
             patch: CreateObjectPatch(second, secondRect, new JsonObject { [nameof(RectShape.Width)] = 200 }),
             schemaVersion: SchemaVersion.Current);
 
-        HistoryTransaction? transaction = session.History.PeekUndo();
-        string[] operations = DescribeOperations(transaction);
-        Assert.Multiple(() =>
-        {
-            Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
-            Assert.That(secondRect.Width.CurrentValue, Is.EqualTo(200f));
-            Assert.That(operations, Is.EqualTo(new[] { $"{secondRect.Id}:Width 100 -> 200" }));
-            AssertSameNested(firstRect, firstNested);
-            AssertSameNested(secondRect, secondNested);
-        });
-    }
+        Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+        Assert.That(DescribeOperations(session.History.PeekUndo()), Is.EqualTo(new[] { $"{secondRect.Id}:Width 100 -> 200" }));
 
-    [Test]
-    public void Undo_and_redo_of_an_apply_edit_keep_unpatched_instances()
-    {
-        Scene scene = CreateScene();
-        RectShape firstRect = AddRectElement(scene, "first", TimeSpan.Zero, zIndex: 0);
-        RectShape secondRect = AddRectElement(scene, "second", TimeSpan.FromSeconds(2), zIndex: 1);
-        Element second = scene.Children[1];
-        object?[] firstNested = CaptureNested(firstRect);
-        object?[] secondNested = CaptureNested(secondRect);
-        using var session = new AgentToolkitTestSession(scene);
-        EditTools tools = CreateTools(session);
-
-        ToolResult<ApplyEditResponse> result = tools.ApplyEdit(
-            patch: CreateObjectPatch(second, secondRect, new JsonObject { [nameof(RectShape.Width)] = 200 }),
-            schemaVersion: SchemaVersion.Current);
         bool undone = session.History.Undo();
         float undoneWidth = secondRect.Width.CurrentValue;
         bool redone = session.History.Redo();
 
         Assert.Multiple(() =>
         {
-            Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
             Assert.That(undone, Is.True);
             Assert.That(undoneWidth, Is.EqualTo(100f));
             Assert.That(redone, Is.True);
@@ -200,7 +174,7 @@ public sealed class ApplyEditHistoryScopeTests
     [Test]
     public void Apply_edit_replaces_only_the_nested_value_whose_json_changed()
     {
-        Scene scene = CreateScene();
+        Scene scene = TestWorkspace.CreateScene();
         RectShape firstRect = AddRectElement(scene, "first", TimeSpan.Zero, zIndex: 0);
         RectShape secondRect = AddRectElement(scene, "second", TimeSpan.FromSeconds(2), zIndex: 1);
         Element second = scene.Children[1];
@@ -208,7 +182,7 @@ public sealed class ApplyEditHistoryScopeTests
         Transform? secondTransform = secondRect.Transform.CurrentValue;
         FilterEffect? secondFilterEffect = secondRect.FilterEffect.CurrentValue;
         using var session = new AgentToolkitTestSession(scene);
-        EditTools tools = CreateTools(session);
+        EditTools tools = session.CreateEditTools();
 
         ToolResult<ApplyEditResponse> result = tools.ApplyEdit(
             patch: CreateObjectPatch(second, secondRect, new JsonObject
@@ -274,7 +248,7 @@ public sealed class ApplyEditHistoryScopeTests
     [TestCase(true)]
     public void Apply_edit_keeps_unchanged_members_that_deserialize_assigns_unconditionally(bool editAnotherElement)
     {
-        Scene scene = CreateScene();
+        Scene scene = TestWorkspace.CreateScene();
         CustomSerializedTransformElement element = AddCustomElement(scene);
         RectShape otherRect = AddRectElement(scene, "other", TimeSpan.FromSeconds(2), zIndex: 1);
         Element otherElement = scene.Children[1];
@@ -284,7 +258,7 @@ public sealed class ApplyEditHistoryScopeTests
         int edited = 0;
         element.Edited += (_, _) => edited++;
         using var session = new AgentToolkitTestSession(scene);
-        EditTools tools = CreateTools(session);
+        EditTools tools = session.CreateEditTools();
 
         ToolResult<ApplyEditResponse> result = tools.ApplyEdit(
             patch: editAnotherElement
@@ -330,7 +304,7 @@ public sealed class ApplyEditHistoryScopeTests
     [TestCase(nameof(CustomSerializedTransformElement.CustomTransform), true)]
     public void Apply_edit_changes_or_removes_only_the_requested_custom_member(string propertyName, bool remove)
     {
-        Scene scene = CreateScene();
+        Scene scene = TestWorkspace.CreateScene();
         CustomSerializedTransformElement element = AddCustomElement(scene);
         CoreProperty[] properties =
         [
@@ -355,7 +329,7 @@ public sealed class ApplyEditHistoryScopeTests
         }
 
         using var session = new AgentToolkitTestSession(scene);
-        EditTools tools = CreateTools(session);
+        EditTools tools = session.CreateEditTools();
         ToolResult<ApplyEditResponse> result = tools.ApplyEdit(
             patch: new JsonObject
             {
@@ -456,7 +430,7 @@ public sealed class ApplyEditHistoryScopeTests
     [Test]
     public void Apply_edit_keeps_unchanged_converter_backed_registered_properties()
     {
-        Scene scene = CreateScene();
+        Scene scene = TestWorkspace.CreateScene();
         var element = new ConvertedPropertyElement
         {
             Length = TimeSpan.FromSeconds(2),
@@ -468,7 +442,7 @@ public sealed class ApplyEditHistoryScopeTests
         scene.Children.Add(element);
         Dimensions? dimensions = element.Dimensions;
         using var session = new AgentToolkitTestSession(scene);
-        EditTools tools = CreateTools(session);
+        EditTools tools = session.CreateEditTools();
 
         ToolResult<ApplyEditResponse> result = tools.ApplyEdit(
             patch: CreateObjectPatch(element, rect, new JsonObject { [nameof(RectShape.Width)] = 200 }),
@@ -489,7 +463,7 @@ public sealed class ApplyEditHistoryScopeTests
     [Test]
     public void Apply_edit_keeps_the_full_json_of_an_untouched_fallback()
     {
-        Scene scene = CreateScene();
+        Scene scene = TestWorkspace.CreateScene();
         RectShape rect = AddRectElement(scene, "edited", TimeSpan.Zero, zIndex: 0);
         Element edited = scene.Children[0];
         var transform = new TranslateTransform(10, 20);
@@ -511,7 +485,7 @@ public sealed class ApplyEditHistoryScopeTests
         holder.AddObject(fallback);
         scene.Children.Add(holder);
         using var session = new AgentToolkitTestSession(scene);
-        EditTools tools = CreateTools(session);
+        EditTools tools = session.CreateEditTools();
 
         ToolResult<ApplyEditResponse> result = tools.ApplyEdit(
             patch: CreateObjectPatch(edited, rect, new JsonObject { [nameof(RectShape.Width)] = 200 }),
@@ -523,13 +497,6 @@ public sealed class ApplyEditHistoryScopeTests
             Assert.That(holder.Objects.Single(), Is.SameAs(fallback));
             Assert.That(((IFallback)fallback).Json?.ContainsKey(nameof(Drawable.Transform)), Is.True);
         });
-    }
-
-    private static EditTools CreateTools(AgentToolkitTestSession session)
-    {
-        var manager = new AgentSessionManager();
-        manager.UseSource(new AgentToolkitTestSessionSource(session));
-        return new EditTools(manager);
     }
 
     private static JsonObject CreateObjectPatch(Element element, RectShape rect, JsonObject properties)
@@ -612,15 +579,5 @@ public sealed class ApplyEditHistoryScopeTests
         element.AddObject(rect);
         scene.Children.Add(element);
         return rect;
-    }
-
-    private static Scene CreateScene()
-    {
-        string dir = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
-        return new Scene(1920, 1080, "Scene")
-        {
-            Uri = new Uri(Path.Combine(dir, "Scene.scene"))
-        };
     }
 }

@@ -4,39 +4,7 @@ using Beutl.ProjectSystem;
 
 namespace Beutl.AgentToolkit.Sessions;
 
-public sealed class LiveSessionSource : ISessionSource
-{
-    private LiveEditingSession? _currentSession;
-
-    public EditingSessionSource Source => EditingSessionSource.LiveEditor;
-
-    // IsAlive dereferences editor-owned Scene/History on the UI thread; an MCP request thread probing
-    // liveness here would race a tab switch/close. Dispatch the check through the binding so editor
-    // state is only touched on the editor's own thread.
-    public IEditingSession? CurrentSession
-    {
-        get
-        {
-            LiveEditingSession? session = _currentSession;
-            return session is not null && session.ProbeIsAlive() ? session : null;
-        }
-    }
-
-    public LiveEditingSession Attach(ILiveSessionBinding binding)
-    {
-        ArgumentNullException.ThrowIfNull(binding);
-
-        if (!binding.IsAlive || binding.ActiveScene is null || binding.ActiveHistory is null)
-        {
-            throw new SessionUnavailableException();
-        }
-
-        _currentSession = new LiveEditingSession(Guid.NewGuid().ToString("N"), binding);
-        return _currentSession;
-    }
-}
-
-public sealed class LiveEditingSession : IEditingSession, IEditingSessionDispatcher
+public sealed class LiveEditingSession : IEditingSession
 {
     private readonly ILiveSessionBinding _binding;
 

@@ -41,7 +41,6 @@ internal static class Program
         args = launch.Arguments;
         ActivationBroker = broker;
 
-        // Restore config
         GlobalConfiguration config = GlobalConfiguration.Instance;
         config.Restore(GlobalConfiguration.DefaultFilePath);
         ViewConfig view = config.ViewConfig;
@@ -50,10 +49,8 @@ internal static class Program
         using IDisposable _ = Telemetry.GetDisposable();
         config.LogRestoreFailures();
 
-        // ProfileOptimizationを有効化
         string jitProfiles = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "jitProfiles");
-        if (!Directory.Exists(jitProfiles))
-            Directory.CreateDirectory(jitProfiles);
+        Directory.CreateDirectory(jitProfiles);
 
         ProfileOptimization.SetProfileRoot(jitProfiles);
         ProfileOptimization.StartProfile("beutl.jitprofile");
@@ -64,7 +61,6 @@ internal static class Program
         BuildAvaloniaApp()
             .StartWithClassicDesktopLifetime(args);
 
-        // 正常に終了した
         UnhandledExceptionHandler.Exit();
     }
 

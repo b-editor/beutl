@@ -40,7 +40,7 @@ public static class WindowsClipboard
         byte[] bm32bData;
         int width = image.Width;
         int height = image.Height;
-        // Ensure image is 32bppARGB by painting it on a new 32bppARGB image.
+        // Convert to unpremultiplied BGRA for the DIB.
         using Bitmap bm32b = image.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Unpremul);
         bm32b.Flip(FlipMode.XY);
         bm32bData = MemoryMarshal.AsBytes(bm32b.GetPixelSpan<Bgra8888>()).ToArray();

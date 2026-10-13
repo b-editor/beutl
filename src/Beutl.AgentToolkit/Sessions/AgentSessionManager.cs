@@ -34,8 +34,6 @@ public sealed class AgentSessionManager(CompositionPlanStore? plans = null)
         _requestSession = null;
     }
 
-    public string CurrentSessionKey => GetCompositionSessionKey();
-
     // Key a SPECIFIC session rather than re-reading the current one, so callers holding a session
     // reference are immune to a concurrent session switch between two reads.
     public string GetSessionKey(IEditingSession session)
@@ -44,10 +42,8 @@ public sealed class AgentSessionManager(CompositionPlanStore? plans = null)
         return BuildSessionKey(session);
     }
 
-    // Discriminate by the project URI, not just Root.Id: save-as/copy preserves the persisted
-    // Scene.Id, so two distinct file sessions can share Source:Root.Id and cross-contaminate cached
-    // plans. The URI is stable across a live session's volatile SessionId for
-    // the same document; it falls back to Root.Id for an in-memory scene that has no URI yet.
+    // Key by source and project URI, not Root.Id: Save As keeps Scene.Id, so two file sessions could
+    // share it. Falls back to Root.Id when there is no URI yet.
     private static string BuildSessionKey(IEditingSession session)
     {
         return session.ReadOnSession(() =>
@@ -164,14 +160,6 @@ public sealed class AgentSessionManager(CompositionPlanStore? plans = null)
         {
             _plans.Plans.Remove(planId);
         }
-    }
-
-    private string GetCompositionSessionKey()
-    {
-        IEditingSession? session = CurrentSession;
-        return session is null
-            ? "host"
-            : BuildSessionKey(session);
     }
 }
 

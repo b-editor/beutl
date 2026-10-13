@@ -12,6 +12,7 @@ public sealed class StoryboardRenderer
     {
     }
 
+    // Test hook: replaces the contact sheet file write.
     internal StoryboardRenderer(Action<string, byte[]> writeFile) => _writeFile = writeFile;
 
     internal const int CellGap = 16;
@@ -20,7 +21,7 @@ public sealed class StoryboardRenderer
     internal const int MaxColumns = 3;
 
     public string RenderContactSheet(
-        IReadOnlyList<StoryboardContactSheetFrame> frames,
+        IReadOnlyList<RenderStoryboardShot> frames,
         string outputPath)
     {
         ArgumentNullException.ThrowIfNull(frames);
@@ -32,15 +33,15 @@ public sealed class StoryboardRenderer
             Directory.CreateDirectory(directory);
         }
 
-        byte[] png = RenderContactSheetPng(frames).Bytes;
+        byte[] png = RenderContactSheetPng(frames);
         using var output = new StagedOutputFile(outputPath);
         _writeFile(output.TemporaryPath, png);
         output.Commit(CancellationToken.None);
         return outputPath;
     }
 
-    internal StoryboardContactSheetPng RenderContactSheetPng(
-        IReadOnlyList<StoryboardContactSheetFrame> frames,
+    internal byte[] RenderContactSheetPng(
+        IReadOnlyList<RenderStoryboardShot> frames,
         int? maxLongEdge = null)
     {
         ArgumentNullException.ThrowIfNull(frames);
@@ -80,7 +81,7 @@ public sealed class StoryboardRenderer
 
         for (int i = 0; i < frames.Count; i++)
         {
-            StoryboardContactSheetFrame frame = frames[i];
+            RenderStoryboardShot frame = frames[i];
             int column = i % layout.ColumnCount;
             int row = i / layout.ColumnCount;
             int x = Padding + column * (layout.CellWidth + CellGap);
@@ -98,7 +99,7 @@ public sealed class StoryboardRenderer
             canvas.DrawText(TrimToWidth(label, layout.CellWidth - 16, font), x + 8, y + layout.ImageHeight + 22, SKTextAlign.Left, font, textPaint);
         }
 
-        return new StoryboardContactSheetPng(ImagePreviewEncoder.EncodeSurfaceToPng(surface), layout);
+        return ImagePreviewEncoder.EncodeSurfaceToPng(surface);
     }
 
     internal static StoryboardContactSheetLayout CalculateLayout(
@@ -161,7 +162,7 @@ public sealed class StoryboardRenderer
         return new SKRect(left, top, left + width, top + height);
     }
 
-    internal static string CreateLabel(StoryboardContactSheetFrame frame)
+    internal static string CreateLabel(RenderStoryboardShot frame)
     {
         string prefix = string.Equals(frame.Kind, "inbetween", StringComparison.Ordinal)
             ? $"inbetween L{frame.SubdivisionLevel}  "
@@ -192,17 +193,6 @@ public sealed class StoryboardRenderer
         return trimmed.Length == 0 ? ellipsis : trimmed + ellipsis;
     }
 }
-
-public sealed record StoryboardContactSheetFrame(
-    string Name,
-    double TimeSeconds,
-    string StillPath,
-    string Kind = "shot",
-    int SubdivisionLevel = 0);
-
-internal sealed record StoryboardContactSheetPng(
-    byte[] Bytes,
-    StoryboardContactSheetLayout Layout);
 
 internal sealed record StoryboardContactSheetLayout(
     int ColumnCount,

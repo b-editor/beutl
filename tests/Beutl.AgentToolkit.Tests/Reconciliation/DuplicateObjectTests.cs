@@ -1,5 +1,4 @@
 ﻿using Beutl.AgentToolkit.Common;
-using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.AgentToolkit.Tools;
 using Beutl.Graphics;
@@ -14,7 +13,8 @@ public sealed class DuplicateObjectTests
     [Test]
     public void Duplicate_object_appends_copy_with_fresh_ids()
     {
-        Scene scene = CreateSceneWithElement(out Element element);
+        Scene scene = TestWorkspace.CreateScene();
+        Element element = TestWorkspace.AddElement(scene, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
         var blur = new Blur();
         var group = new FilterEffectGroup { Children = { blur } };
         var rect = new RectShape
@@ -30,9 +30,7 @@ public sealed class DuplicateObjectTests
         Guid originalBlurId = blur.Id;
 
         using var session = new AgentToolkitTestSession(scene);
-        var manager = new AgentSessionManager();
-        manager.UseSource(new AgentToolkitTestSessionSource(session));
-        var tools = new EditTools(manager);
+        EditTools tools = session.CreateEditTools();
 
         ToolResult<DuplicateObjectResponse> result = tools.DuplicateObject(originalRectId.ToString());
 
@@ -59,14 +57,13 @@ public sealed class DuplicateObjectTests
     [Test]
     public void Duplicate_object_is_undoable()
     {
-        Scene scene = CreateSceneWithElement(out Element element);
+        Scene scene = TestWorkspace.CreateScene();
+        Element element = TestWorkspace.AddElement(scene, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
         var rect = new RectShape { Name = "Original rect", Width = { CurrentValue = 120 } };
         element.AddObject(rect);
 
         using var session = new AgentToolkitTestSession(scene);
-        var manager = new AgentSessionManager();
-        manager.UseSource(new AgentToolkitTestSessionSource(session));
-        var tools = new EditTools(manager);
+        EditTools tools = session.CreateEditTools();
 
         ToolResult<DuplicateObjectResponse> result = tools.DuplicateObject(rect.Id.ToString());
         int afterDuplicate = element.Objects.Count;
@@ -86,16 +83,15 @@ public sealed class DuplicateObjectTests
     [Test]
     public void Duplicate_object_wrap_in_group_rejects_a_direct_flow_operator()
     {
-        Scene scene = CreateSceneWithElement(out Element element);
+        Scene scene = TestWorkspace.CreateScene();
+        Element element = TestWorkspace.AddElement(scene, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
         var group = new DrawableGroup { Name = "Direct group" };
         group.Children.Add(new RectShape { Name = "inner" });
         element.AddObject(group);
         int objectCountBefore = element.Objects.Count;
 
         using var session = new AgentToolkitTestSession(scene);
-        var manager = new AgentSessionManager();
-        manager.UseSource(new AgentToolkitTestSessionSource(session));
-        var tools = new EditTools(manager);
+        EditTools tools = session.CreateEditTools();
 
         ToolResult<DuplicateObjectResponse> result = tools.DuplicateObject(group.Id.ToString(), wrapInGroup: true);
 
@@ -113,15 +109,14 @@ public sealed class DuplicateObjectTests
     [Test]
     public void Duplicate_object_wrap_in_group_moves_original_and_copy_into_drawable_group()
     {
-        Scene scene = CreateSceneWithElement(out Element element);
+        Scene scene = TestWorkspace.CreateScene();
+        Element element = TestWorkspace.AddElement(scene, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
         var rect = new RectShape { Name = "Original rect", Width = { CurrentValue = 120 } };
         element.AddObject(rect);
         Guid originalId = rect.Id;
 
         using var session = new AgentToolkitTestSession(scene);
-        var manager = new AgentSessionManager();
-        manager.UseSource(new AgentToolkitTestSessionSource(session));
-        var tools = new EditTools(manager);
+        EditTools tools = session.CreateEditTools();
 
         ToolResult<DuplicateObjectResponse> result = tools.DuplicateObject(rect.Id.ToString(), wrapInGroup: true);
 
@@ -152,7 +147,8 @@ public sealed class DuplicateObjectTests
     [Test]
     public void Duplicate_object_wrap_in_group_appends_copy_to_existing_group_child()
     {
-        Scene scene = CreateSceneWithElement(out Element element);
+        Scene scene = TestWorkspace.CreateScene();
+        Element element = TestWorkspace.AddElement(scene, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
         var rect = new RectShape { Name = "Original rect", Width = { CurrentValue = 120 } };
         var group = new DrawableGroup { Name = "Existing group" };
         group.Children.Add(rect);
@@ -161,9 +157,7 @@ public sealed class DuplicateObjectTests
         Guid originalGroupId = group.Id;
 
         using var session = new AgentToolkitTestSession(scene);
-        var manager = new AgentSessionManager();
-        manager.UseSource(new AgentToolkitTestSessionSource(session));
-        var tools = new EditTools(manager);
+        EditTools tools = session.CreateEditTools();
 
         ToolResult<DuplicateObjectResponse> result = tools.DuplicateObject(rect.Id.ToString(), wrapInGroup: true);
 
@@ -188,15 +182,14 @@ public sealed class DuplicateObjectTests
     [Test]
     public void Duplicate_object_wrap_in_group_is_undoable()
     {
-        Scene scene = CreateSceneWithElement(out Element element);
+        Scene scene = TestWorkspace.CreateScene();
+        Element element = TestWorkspace.AddElement(scene, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
         var rect = new RectShape { Name = "Original rect", Width = { CurrentValue = 120 } };
         element.AddObject(rect);
         Guid originalId = rect.Id;
 
         using var session = new AgentToolkitTestSession(scene);
-        var manager = new AgentSessionManager();
-        manager.UseSource(new AgentToolkitTestSessionSource(session));
-        var tools = new EditTools(manager);
+        EditTools tools = session.CreateEditTools();
 
         ToolResult<DuplicateObjectResponse> result = tools.DuplicateObject(rect.Id.ToString(), wrapInGroup: true);
         int objectCountAfterDuplicate = element.Objects.Count;
@@ -218,7 +211,8 @@ public sealed class DuplicateObjectTests
     [Test]
     public void Duplicate_object_wrap_in_group_mints_fresh_ids_on_nested_nodes()
     {
-        Scene scene = CreateSceneWithElement(out Element element);
+        Scene scene = TestWorkspace.CreateScene();
+        Element element = TestWorkspace.AddElement(scene, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
         var blur = new Blur();
         var effect = new FilterEffectGroup { Children = { blur } };
         var rect = new RectShape
@@ -232,9 +226,7 @@ public sealed class DuplicateObjectTests
         Guid originalBlurId = blur.Id;
 
         using var session = new AgentToolkitTestSession(scene);
-        var manager = new AgentSessionManager();
-        manager.UseSource(new AgentToolkitTestSessionSource(session));
-        var tools = new EditTools(manager);
+        EditTools tools = session.CreateEditTools();
 
         ToolResult<DuplicateObjectResponse> result = tools.DuplicateObject(rect.Id.ToString(), wrapInGroup: true);
 
@@ -257,13 +249,12 @@ public sealed class DuplicateObjectTests
     [Test]
     public void Duplicate_object_unknown_id_is_stale_handle()
     {
-        Scene scene = CreateSceneWithElement(out Element element);
+        Scene scene = TestWorkspace.CreateScene();
+        Element element = TestWorkspace.AddElement(scene, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
         element.AddObject(new RectShape { Name = "Original rect" });
 
         using var session = new AgentToolkitTestSession(scene);
-        var manager = new AgentSessionManager();
-        manager.UseSource(new AgentToolkitTestSessionSource(session));
-        var tools = new EditTools(manager);
+        EditTools tools = session.CreateEditTools();
 
         ToolResult<DuplicateObjectResponse> result = tools.DuplicateObject(Guid.NewGuid().ToString());
 
@@ -277,14 +268,13 @@ public sealed class DuplicateObjectTests
     [Test]
     public void Duplicate_object_wrong_element_scope_is_stale_handle()
     {
-        Scene scene = CreateSceneWithElement(out Element element);
+        Scene scene = TestWorkspace.CreateScene();
+        Element element = TestWorkspace.AddElement(scene, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
         var rect = new RectShape { Name = "Original rect" };
         element.AddObject(rect);
 
         using var session = new AgentToolkitTestSession(scene);
-        var manager = new AgentSessionManager();
-        manager.UseSource(new AgentToolkitTestSessionSource(session));
-        var tools = new EditTools(manager);
+        EditTools tools = session.CreateEditTools();
 
         ToolResult<DuplicateObjectResponse> result =
             tools.DuplicateObject(rect.Id.ToString(), elementId: Guid.NewGuid().ToString());
@@ -294,24 +284,6 @@ public sealed class DuplicateObjectTests
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.Error!.Code, Is.EqualTo(ErrorCode.StaleHandle));
         });
-    }
-
-    private static Scene CreateSceneWithElement(out Element element)
-    {
-        string dir = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
-        Scene scene = new(1920, 1080, "Scene")
-        {
-            Uri = new Uri(Path.Combine(dir, "Scene.scene"))
-        };
-        element = new Element
-        {
-            Start = TimeSpan.FromSeconds(1),
-            Length = TimeSpan.FromSeconds(2),
-            Uri = new Uri(Path.Combine(dir, "element.belm"))
-        };
-        scene.Children.Add(element);
-        return scene;
     }
 
 }

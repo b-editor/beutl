@@ -4,15 +4,9 @@ using System.Text.Json.Serialization;
 namespace Beutl.Api.Clients;
 
 /// <summary>
-/// Reads an error code the server names in camelCase, and reads one this
-/// client has never heard of as <see cref="ApiErrorCode.Unknown"/>.
+/// Reads a camelCase error code, and an unknown one as <see cref="ApiErrorCode.Unknown"/>, so that an unknown
+/// code does not throw away the whole error body.
 /// </summary>
-/// <remarks>
-/// A server is free to add codes; refusing to parse one would throw away the
-/// whole error body, turning a failure the client could still report — and its
-/// status, and its message — into an unexplained one. Unknown is what the enum
-/// already means by "a code with no handling of its own".
-/// </remarks>
 internal sealed class ApiErrorCodeConverter : JsonConverter<ApiErrorCode>
 {
     public override ApiErrorCode Read(

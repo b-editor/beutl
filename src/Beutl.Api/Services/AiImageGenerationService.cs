@@ -26,8 +26,6 @@ internal sealed class AiImageGenerationService(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
-        // The caller's key when it has one: that is what lets a retry recover a
-        // picture already paid for instead of buying it again.
         string idempotencyKey = request.IdempotencyKey ?? CreateIdempotencyKey();
         // The endpoint reads "auto" and an absent background the same way, so
         // leaving it to the model is sent as nothing at all.

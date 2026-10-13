@@ -40,8 +40,6 @@ internal sealed class SizeLimitedMemoryStream(int maximumBytes) : MemoryStream
 
     private void EnsureWithinLimit(int additionalBytes)
     {
-        if (maximumBytes <= 0)
-            throw new ArgumentOutOfRangeException(nameof(maximumBytes));
         if (additionalBytes < 0 || Position > maximumBytes - additionalBytes)
             throw new InvalidDataException("The AI result exceeds the supported size.");
     }

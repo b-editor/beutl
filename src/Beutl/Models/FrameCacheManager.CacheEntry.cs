@@ -58,7 +58,6 @@ public partial class FrameCacheManager
 
             try
             {
-                // Resize if needed
                 // Alpha type is part of the stored representation: the branch below draws into a
                 // Premul surface, so unpremultiplied input that skipped it would be read as premultiplied.
                 if (newSize.Width < size.Width ||

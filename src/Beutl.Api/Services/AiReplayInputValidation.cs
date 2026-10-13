@@ -48,8 +48,7 @@ internal static class AiReplayInputValidation
         {
             if (seedElement.ValueKind != JsonValueKind.Number
                 || !seedElement.TryGetInt32(out int seedValue)
-                || seedValue < AiRequestLimits.MinSeed
-                || seedValue > AiRequestLimits.MaxSeed)
+                || seedValue < AiRequestLimits.MinSeed)
                 return false;
             seed = seedValue;
         }

@@ -57,7 +57,7 @@ internal sealed partial class DeclarativeDocumentApplier
                 CreateIdentityListItemPath(fieldName, desiredIndex),
                 owner);
             desiredIds.Add(item.Id);
-            PlaceListItem(list, item, desiredIndex, owner);
+            PlaceListItem(list, item, desiredIndex);
         }
 
         for (int index = list.Count - 1; index >= 0; index--)
@@ -129,16 +129,11 @@ internal sealed partial class DeclarativeDocumentApplier
         return item;
     }
 
-    private static void PlaceListItem(IList list, CoreObject item, int desiredIndex, CoreObject? owner)
+    private static void PlaceListItem(IList list, CoreObject item, int desiredIndex)
     {
         int currentIndex = IndexOfReference(list, item);
         if (currentIndex < 0)
         {
-            if (owner is Scene scene && item is Element { Uri: null } element)
-            {
-                AssignNewElementUri(scene, element);
-            }
-
             list.Insert(Math.Min(desiredIndex, list.Count), item);
         }
         else if (currentIndex != desiredIndex)

@@ -57,6 +57,7 @@ public sealed class AgentHostAiToolsTests
         var endpoint = new AgentHostEndpoint(
             new ProjectService(),
             new EditorService(new ExtensionProvider()),
+            UnavailableAgentAiBackend.Instance,
             GetAvailableLoopbackPort(),
             "test-token",
             registryDirectory: _directory);
@@ -536,12 +537,10 @@ public sealed class AgentHostAiToolsTests
         var endpoint = new AgentHostEndpoint(
             TestShell.Project,
             TestShell.Editor,
+            backend,
             GetAvailableLoopbackPort(),
             "test-token",
-            registryDirectory: _directory)
-        {
-            AiBackend = backend,
-        };
+            registryDirectory: _directory);
         try
         {
             await endpoint.StartAsync();

@@ -11,17 +11,10 @@ public sealed partial class Reconciler
 {
     private const string LockHint = "Agents can lock elements and layers but cannot unlock them.";
 
-    // The timeline and property editors refuse to change an element that is locked or sits on a locked
-    // layer (Scene.IsElementLockedByUser), and to place an element on a locked layer. Agent edits follow
-    // the same rule. Locking is allowed; unlocking stays a user action.
-    //
-    // An element that could not be fully loaded (Scene.IsElementLocked is also true for it) is left out
-    // here: an agent edit may repair it, which ApplyCore completes with ElementRecoveryService, and
-    // deleting it stays allowed, as in the editor.
-    //
-    // The decision compares the current scene with the applied sandbox, matching elements and layers by
-    // their Ids. It never reads change paths: the diff names them after the desired document's own keys,
-    // and MCP binds JSON case-insensitively, so an edit spelled "elements" or "islocked" still applies.
+    // Agent edits follow the editor's locks (Scene.IsElementLockedByUser): a locked element, or one on a
+    // locked layer, cannot change, and nothing may be placed on a locked layer; locking is allowed, unlocking
+    // is not. Elements that could not be fully loaded are exempt so an edit may repair or delete them.
+    // Elements and layers are matched by Id, not by change path, because the diff keeps the caller's key spelling.
     private static void ThrowIfLockedChanges(IEditingSession session, CoreObject sandboxRoot, JsonObject currentDocument)
     {
         if (session.Root is not Scene scene || sandboxRoot is not Scene sandbox)

@@ -1,11 +1,11 @@
 ﻿using System.Net;
 using System.Reflection;
-using System.Text;
 using Beutl.Api;
 using Beutl.Api.Clients;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
 using Beutl.Editor.Services;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Api;
 
@@ -186,7 +186,7 @@ public sealed class PublicApiCancellationTests
     {
         using var handler = new BlockingHandler(request =>
             request.RequestUri?.AbsolutePath == "/api/v3/discover/featured"
-                ? JsonResponse(HttpStatusCode.OK, $"[{SimplePackageJson}]")
+                ? TestHttp.Json(HttpStatusCode.OK, $"[{SimplePackageJson}]")
                 : null);
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
@@ -203,7 +203,7 @@ public sealed class PublicApiCancellationTests
     {
         using var handler = new BlockingHandler(request =>
             request.RequestUri?.AbsolutePath == "/api/v3/account/library"
-                ? JsonResponse(HttpStatusCode.OK, $"[{{\"package\":{SimplePackageJson},\"latestRelease\":null}}]")
+                ? TestHttp.Json(HttpStatusCode.OK, $"[{{\"package\":{SimplePackageJson},\"latestRelease\":null}}]")
                 : null);
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
@@ -320,9 +320,6 @@ public sealed class PublicApiCancellationTests
             FileUrl = "https://example.com/asset",
         }, app);
     }
-
-    private static HttpResponseMessage JsonResponse(HttpStatusCode statusCode, string json)
-        => new(statusCode) { Content = new StringContent(json, Encoding.UTF8, "application/json") };
 
     private sealed class BlockingHandler(
         Func<HttpRequestMessage, HttpResponseMessage?>? immediateResponse = null) : HttpMessageHandler

@@ -419,7 +419,8 @@ public sealed class ExtensionMcpToolTests
         => JsonNode.Parse(Text(result))?["error"]?["code"]?.GetValue<string>();
 
     private static AgentHostEndpoint CreateHost(EditorService editor, string directory)
-        => new(new ProjectService(), editor, AvailablePort(), Token, registryDirectory: directory);
+        => new(new ProjectService(), editor, UnavailableAgentAiBackend.Instance, AvailablePort(), Token,
+            registryDirectory: directory);
 
     private static async Task<McpClient> ConnectAsync(AgentHostEndpoint endpoint)
         => await McpClient.CreateAsync(new HttpClientTransport(new HttpClientTransportOptions

@@ -37,10 +37,7 @@ internal sealed class AuthenticatedContentService(BeutlApiApplication applicatio
                 string? fileName = NormalizeContentDispositionFileName(
                     response.Content.Headers.ContentDisposition);
                 string? contentType = response.Content.Headers.ContentType?.MediaType;
-                AiContentMetadata? metadata = string.IsNullOrWhiteSpace(fileName)
-                    && string.IsNullOrWhiteSpace(contentType)
-                        ? null
-                        : new AiContentMetadata(fileName, contentType);
+                AiContentMetadata? metadata = AiModelMapper.ToContentMetadata(fileName, contentType);
                 await using Stream source = await response.Content.ReadAsStreamAsync(requestToken);
                 await source.CopyToAsync(destination, requestToken);
                 return new AiContentDownload(metadata);

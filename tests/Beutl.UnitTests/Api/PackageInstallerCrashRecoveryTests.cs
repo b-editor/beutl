@@ -248,42 +248,25 @@ public class PackageInstallerCrashRecoveryTests
     {
         string checkpoint = Path.Combine(home, "stopped-at.txt");
         File.Delete(checkpoint);
-        var start = new ProcessStartInfo("dotnet")
+        string output = await TestWorkerProgram.RunAsync(
+            start =>
+            {
+                start.Environment[BeutlEnvironment.HomeVariable] = home;
+                start.Environment[WorkerHomeVariable] = home;
+                start.Environment[WorkerActionVariable] = action;
+                // Put runtime temporary files under the directory this parent owns, including
+                // anything a terminated worker cannot clean up itself.
+                start.Environment["TMPDIR"] = home;
+                start.Environment["TMP"] = home;
+                start.Environment["TEMP"] = home;
+                if (step is null) start.Environment.Remove(WorkerStepVariable);
+                else start.Environment[WorkerStepVariable] = step;
+            },
+            expectSuccess: step is null,
+            TimeSpan.FromSeconds(60),
+            TestWorkerProgram.PackageInstallWorkerArgument);
+        if (step is not null)
         {
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-        };
-        start.ArgumentList.Add("exec");
-        start.ArgumentList.Add(typeof(PackageInstallerCrashRecoveryTests).Assembly.Location);
-        start.ArgumentList.Add(TestWorkerProgram.PackageInstallWorkerArgument);
-        start.Environment[BeutlEnvironment.HomeVariable] = home;
-        start.Environment[WorkerHomeVariable] = home;
-        start.Environment[WorkerActionVariable] = action;
-        // Put runtime temporary files under the directory this parent owns, including
-        // anything a terminated worker cannot clean up itself.
-        start.Environment["TMPDIR"] = home;
-        start.Environment["TMP"] = home;
-        start.Environment["TEMP"] = home;
-        if (step is null) start.Environment.Remove(WorkerStepVariable);
-        else start.Environment[WorkerStepVariable] = step;
-        using Process worker = Process.Start(start)!;
-        Task<string> stdout = worker.StandardOutput.ReadToEndAsync();
-        Task<string> stderr = worker.StandardError.ReadToEndAsync();
-        bool timedOut = false;
-        try { await worker.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(60)); }
-        catch (TimeoutException)
-        {
-            timedOut = true;
-            if (!worker.HasExited) worker.Kill(entireProcessTree: true);
-            await worker.WaitForExitAsync();
-        }
-        string output = await stdout + await stderr;
-        Assert.That(timedOut, Is.False, "The worker timed out. " + output);
-        if (step is null) Assert.That(worker.ExitCode, Is.Zero, output);
-        else
-        {
-            Assert.That(worker.ExitCode, Is.Not.Zero, "Worker should have been killed. " + output);
             Assert.That(File.Exists(checkpoint), Is.True, output);
             Assert.That(File.ReadAllText(checkpoint), Is.EqualTo(step), output);
         }

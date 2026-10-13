@@ -14,7 +14,8 @@ public sealed class McpCliCommandsTests
     public void Claude_code_global_stdio_uses_user_scope()
     {
         McpCliCommand? command = AgentMcpCliCommands.BuildStdio(
-            "claude-code", AgentInstallScope.Global, "beutl-agent", "beutl-mcp", ["--stdio"], s_environment);
+            "claude-code", AgentInstallScope.Global, "beutl-agent", "beutl-mcp", ["--stdio"],
+            new Dictionary<string, string> { ["BEUTL_WORKSPACE"] = "/videos", ["BEUTL_HOME"] = "/home/user/.beutl" });
 
         Assert.That(command, Is.Not.Null);
         Assert.Multiple(() =>
@@ -24,42 +25,8 @@ public sealed class McpCliCommandsTests
             {
                 "mcp", "add", "--scope", "user", "beutl-agent",
                 "--env", "BEUTL_WORKSPACE=/videos",
+                "--env", "BEUTL_HOME=/home/user/.beutl",
                 "--", "beutl-mcp", "--stdio",
-            }));
-        });
-    }
-
-    [Test]
-    public void Claude_code_global_registration_passes_the_profile_home_without_credentials()
-    {
-        McpCliCommand? command = AgentMcpCliCommands.BuildStdio(
-            "claude-code", AgentInstallScope.Global, "beutl-agent", "beutl-mcp", [],
-            new Dictionary<string, string> { ["BEUTL_WORKSPACE"] = "/videos", ["BEUTL_HOME"] = "/home/user/.beutl" });
-
-        Assert.That(command, Is.Not.Null);
-        // No URL and no Authorization header: the server authenticates to the running editors itself.
-        Assert.That(command!.Arguments, Is.EqualTo(new[]
-        {
-            "mcp", "add", "--scope", "user", "beutl-agent",
-            "--env", "BEUTL_WORKSPACE=/videos",
-            "--env", "BEUTL_HOME=/home/user/.beutl",
-            "--", "beutl-mcp",
-        }));
-    }
-
-    [Test]
-    public void Codex_global_stdio_builds_codex_mcp_add()
-    {
-        McpCliCommand? command = AgentMcpCliCommands.BuildStdio(
-            "codex", AgentInstallScope.Global, "beutl-agent", "beutl-mcp", [], s_environment);
-
-        Assert.That(command, Is.Not.Null);
-        Assert.Multiple(() =>
-        {
-            Assert.That(command!.Executable, Is.EqualTo("codex"));
-            Assert.That(command.Arguments, Is.EqualTo(new[]
-            {
-                "mcp", "add", "beutl-agent", "--env", "BEUTL_WORKSPACE=/videos", "--", "beutl-mcp",
             }));
         });
     }
@@ -72,9 +39,6 @@ public sealed class McpCliCommandsTests
             Assert.That(
                 AgentMcpCliCommands.BuildRemove("claude-code", AgentInstallScope.Global, "beutl-agent")!.Arguments,
                 Is.EqualTo(new[] { "mcp", "remove", "--scope", "user", "beutl-agent" }));
-            Assert.That(
-                AgentMcpCliCommands.BuildRemove("codex", AgentInstallScope.Global, "beutl-agent")!.Arguments,
-                Is.EqualTo(new[] { "mcp", "remove", "beutl-agent" }));
         });
     }
 

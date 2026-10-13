@@ -1,5 +1,5 @@
-﻿using System.Globalization;
-using System.Security.Cryptography;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -107,26 +107,14 @@ public sealed partial class CompositionTemplateCatalog
         return offsetPatch;
     }
 
-    private readonly string _defaultSeed;
-
-    public CompositionTemplateCatalog(string? defaultSeed = null)
+    public CompositionTemplateList List(string? tag, string seed)
     {
-        _defaultSeed = string.IsNullOrWhiteSpace(defaultSeed)
-            ? CreateSeed("catalog")
-            : defaultSeed.Trim();
-    }
-
-    public CompositionTemplateList List(
-        string? tag = null,
-        string? seed = null)
-    {
-        string resolvedSeed = ResolveSeed(seed);
         CompositionTemplateSummary[] summaries = s_templates.Value
             .Where(spec => MatchesTag(spec, tag))
             .Select(CreateSummary)
             .ToArray();
 
-        return new CompositionTemplateList(resolvedSeed, Shuffle(summaries, resolvedSeed));
+        return new CompositionTemplateList(seed, Shuffle(summaries, seed));
     }
 
     public CompositionTemplateDetail Get(string name)
@@ -145,22 +133,15 @@ public sealed partial class CompositionTemplateCatalog
             spec.CreateTransitions(metadata));
     }
 
-    public CompositionRender Render(
-        string? name = null,
-        string? tag = null,
-        JsonObject? inputProps = null,
-        string? seed = null)
+    public CompositionRender Render(string name, JsonObject? inputProps, string seed)
     {
-        string resolvedSeed = ResolveSeed(seed);
-        CompositionTemplateSpec spec = string.IsNullOrWhiteSpace(name)
-            ? PickFirst(tag, resolvedSeed)
-            : Find(name);
+        CompositionTemplateSpec spec = Find(name);
         JsonObject input = inputProps is null ? [] : CloneObject(inputProps);
         JsonObject resolvedProps = MergeProps(spec.DefaultProps, input);
         CompositionMetadata metadata = CalculateMetadata(spec.Name, resolvedProps);
         CompositionContext context = new(
             spec,
-            resolvedSeed,
+            seed,
             input,
             resolvedProps,
             metadata,
@@ -170,21 +151,20 @@ public sealed partial class CompositionTemplateCatalog
         return spec.Render(context);
     }
 
-    private static CompositionTemplateSpec PickFirst(string? tag, string seed)
+    // The hint ends with advice that each tool words for its own next step.
+    internal static void RequireCompositionName([NotNull] string? name, string customPatchAdvice)
     {
-        CompositionTemplateSpec[] candidates = s_templates.Value
-            .Where(spec => MatchesTag(spec, tag))
-            .ToArray();
-
-        if (candidates.Length == 0)
+        if (!string.IsNullOrWhiteSpace(name))
         {
-            throw new ReconcileException(new ToolError(
-                ErrorCode.UnknownType,
-                $"No composition templates matched tag='{tag}'.",
-                tag));
+            return;
         }
 
-        return Shuffle(candidates, seed)[0];
+        throw new ReconcileException(new ToolError(
+            ErrorCode.ValidationRejected,
+            "Composition templates require an explicit template name.",
+            null,
+            "Call list_compositions to inspect options, then pass a returned name only when the user explicitly asked for a reusable template/starter. "
+            + customPatchAdvice));
     }
 
     private static CompositionTemplateSpec Find(string name)
@@ -467,18 +447,6 @@ public sealed partial class CompositionTemplateCatalog
         }
 
         return result;
-    }
-
-    private string ResolveSeed(string? seed)
-    {
-        return string.IsNullOrWhiteSpace(seed)
-            ? _defaultSeed
-            : seed.Trim();
-    }
-
-    private static string CreateSeed(string scope)
-    {
-        return $"{scope}:{Convert.ToHexString(RandomNumberGenerator.GetBytes(8)).ToLowerInvariant()}";
     }
 
     private static T[] Shuffle<T>(IReadOnlyList<T> source, string seed)

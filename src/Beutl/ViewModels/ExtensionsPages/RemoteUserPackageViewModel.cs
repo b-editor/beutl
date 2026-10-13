@@ -9,6 +9,7 @@ using Microsoft.Extensions.Logging;
 using NuGet.Packaging.Core;
 using NuGet.Versioning;
 using Reactive.Bindings;
+using Reactive.Bindings.Extensions;
 using LibraryService = Beutl.Api.Services.LibraryService;
 
 namespace Beutl.ViewModels.ExtensionsPages;
@@ -31,15 +32,15 @@ public sealed class RemoteUserPackageViewModel : BaseViewModel, IUserPackageView
         (CanCancel, IsInstallButtonVisible, IsUpdateButtonVisible, IsUninstallButtonVisible) = PackageButtonStates.Create(
             _handler, package.Name, IsBusy, LatestRelease, _disposables);
 
-        Install = new AsyncReactiveCommand(IsBusy.Not())
+        Install = new AsyncReactiveCommand(IsBusy.Inverse())
             .WithSubscribe(InstallAsync)
             .DisposeWith(_disposables);
 
-        Update = new AsyncReactiveCommand(IsBusy.Not())
+        Update = new AsyncReactiveCommand(IsBusy.Inverse())
             .WithSubscribe(UpdateAsync)
             .DisposeWith(_disposables);
 
-        Uninstall = new AsyncReactiveCommand(IsBusy.Not())
+        Uninstall = new AsyncReactiveCommand(IsBusy.Inverse())
             .WithSubscribe(UninstallAsync)
             .DisposeWith(_disposables);
 
@@ -47,7 +48,8 @@ public sealed class RemoteUserPackageViewModel : BaseViewModel, IUserPackageView
             .WithSubscribe(CancelAsync)
             .DisposeWith(_disposables);
 
-        RemoveFromLibrary = new AsyncReactiveCommand(IsBusy.Not().AreTrue(_app.AuthenticatedUser.Select(i => i != null)))
+        RemoveFromLibrary = new AsyncReactiveCommand(
+                new[] { IsBusy.Inverse(), _app.AuthenticatedUser.Select(i => i != null) }.CombineLatestValuesAreAllTrue())
             .WithSubscribe(RemoveFromLibraryAsync)
             .DisposeWith(_disposables);
     }

@@ -1,4 +1,5 @@
-﻿using Beutl.Extensions.FFmpeg;
+﻿using Beutl.AgentToolkit.Tests.Helpers;
+using Beutl.Extensions.FFmpeg;
 
 namespace Beutl.AgentToolkit.Tests.Rendering;
 
@@ -7,15 +8,14 @@ public sealed class FFmpegWorkerProbeTests
     [Test]
     public void IsWorkerAvailable_returns_false_for_empty_directory()
     {
-        string dir = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        string dir = TestWorkspace.CreateDirectory();
         Assert.That(FFmpegWorkerProcess.IsWorkerAvailable(dir), Is.False);
     }
 
     [Test]
     public void IsWorkerAvailable_returns_true_when_worker_in_subdir()
     {
-        string dir = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        string dir = TestWorkspace.CreateDirectory();
         string workerDir = Path.Combine(dir, "FFmpegWorker");
         Directory.CreateDirectory(workerDir);
         WriteCompleteDeployment(workerDir);
@@ -25,8 +25,7 @@ public sealed class FFmpegWorkerProbeTests
     [Test]
     public void IsWorkerAvailable_returns_true_when_worker_flat()
     {
-        string dir = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        string dir = TestWorkspace.CreateDirectory();
         WriteCompleteDeployment(dir);
         Assert.That(FFmpegWorkerProcess.IsWorkerAvailable(dir), Is.True);
     }
@@ -36,8 +35,7 @@ public sealed class FFmpegWorkerProbeTests
     [TestCase(".deps.json")]
     public void IsWorkerAvailable_returns_false_for_incomplete_deployment(string missingExtension)
     {
-        string dir = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        string dir = TestWorkspace.CreateDirectory();
         try
         {
             WriteCompleteDeployment(dir);

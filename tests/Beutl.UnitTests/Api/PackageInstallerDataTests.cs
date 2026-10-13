@@ -1,6 +1,5 @@
 ﻿using System.Runtime.Versioning;
 using Beutl.Api.Services;
-using Beutl.Testing.Headless;
 using NuGet.Packaging.Core;
 using NuGet.Versioning;
 
@@ -8,7 +7,7 @@ namespace Beutl.UnitTests.Api;
 
 [TestFixture]
 [NonParallelizable]
-public partial class PackageInstallerDataTests
+public partial class PackageInstallerDataTests : PackageInstallerFixture
 {
     [Test]
     public void FailedCommitRecord_PreservesPublishedPayloadAndRecoversRegistration()
@@ -115,8 +114,7 @@ public partial class PackageInstallerDataTests
     {
         const string name = "Beutl.Package.DataTest.InvalidOwner";
         LocalPackage package = CreateDataPackage(name, PackageKinds.MaterialTag, ("materials/new.txt", "package"));
-        File.WriteAllText(Path.Combine(package.InstalledPath!, name + ".nuspec"),
-            $"<package><metadata><id>{name}</id><version>1.0.0</version><authors>tests</authors><description>tests</description><tags>{PackageKinds.MaterialTag}</tags></metadata></package>");
+        WriteNuspec(package, PackageKinds.MaterialTag);
         _repository.AddPackage(new PackageIdentity(name, NuGetVersion.Parse("1.0.0")));
         string directory = MaterialsDirectoryOf(name);
         Directory.CreateDirectory(directory);
@@ -147,8 +145,7 @@ public partial class PackageInstallerDataTests
         var newId = new PackageIdentity(name, NuGetVersion.Parse("2.0.0"));
         LocalPackage old = CreateDataPackage(name, PackageKinds.MaterialTag, "1.0.0", [("materials/item.txt", "old")]);
         LocalPackage current = CreateDataPackage(name, PackageKinds.MaterialTag, "2.0.0", [("materials/item.txt", "new")]);
-        File.WriteAllText(Path.Combine(old.InstalledPath!, name + ".nuspec"),
-            $"<package><metadata><id>{name}</id><version>1.0.0</version><authors>tests</authors><description>tests</description><tags>{PackageKinds.MaterialTag}</tags></metadata></package>");
+        WriteNuspec(old, PackageKinds.MaterialTag);
         LocalPackage other = CreateDataPackage(name + ".Other", PackageKinds.MaterialTag, ("materials/other.txt", "other"));
         var otherId = new PackageIdentity(other.Name, NuGetVersion.Parse(other.Version));
         foreach (var id in new[] { oldId, newId, otherId }) _repository.AddPackage(id);
@@ -278,8 +275,7 @@ public partial class PackageInstallerDataTests
         var newId = new PackageIdentity(name, NuGetVersion.Parse("2.0.0"));
         LocalPackage old = CreateDataPackage(name, [PackageKinds.MaterialTag], "1.0.0", [("materials/a.png", "old")]);
         LocalPackage current = CreateDataPackage(name, [PackageKinds.MaterialTag], "2.0.0", [("materials/a.png", "new")]);
-        File.WriteAllText(Path.Combine(old.InstalledPath!, name + ".nuspec"),
-            $"<package><metadata><id>{name}</id><version>1.0.0</version><authors>tests</authors><description>tests</description><tags>{PackageKinds.MaterialTag}</tags></metadata></package>");
+        WriteNuspec(old, PackageKinds.MaterialTag);
         _repository.AddPackage(oldId);
         _repository.AddPackage(newId);
         _installer.InstallDataPackage(current);
@@ -293,65 +289,19 @@ public partial class PackageInstallerDataTests
             Assert.That(File.ReadAllText(Path.Combine(MaterialsDirectoryOf(name), "a.png")), Is.EqualTo("old"));
     }
 
-    private static string InstalledPackagesFile => Path.Combine(Helper.AppRoot, "installedPackages.json");
-
-    private HttpClient _httpClient = null!;
-    private InstalledPackageRepository _repository = null!;
-    private PackageInstaller _installer = null!;
-    private readonly List<string> _createdDirectories = [];
-
-    [SetUp]
-    public void SetUp()
+    [TestCase(new[] { PackageKinds.MaterialTag }, PackageKind.Material)]
+    [TestCase(new[] { "fonts", PackageKinds.TemplateTag }, PackageKind.Template)]
+    [TestCase(new[] { "blur", "effect" }, PackageKind.Extension)]
+    // LocalPackage yields [""] for a nuspec with no <tags> element.
+    [TestCase(new[] { "" }, PackageKind.Extension)]
+    [TestCase(null, PackageKind.Extension)]
+    // "material" is an ordinary tag plenty of unrelated packages carry (e.g. Material
+    // Design themes), so only the prefixed marker classifies a package.
+    [TestCase(new[] { "material", "design", "theme" }, PackageKind.Extension)]
+    [TestCase(new[] { PackageKinds.TemplateTag, PackageKinds.MaterialTag }, PackageKind.Both)]
+    public void GetPackageKind_ReadsTheReservedTags(string[]? tags, PackageKind expected)
     {
-        Assert.That(Helper.AppRoot, Is.EqualTo(BeutlHomeIsolation.CurrentHome));
-
-        File.Delete(InstalledPackagesFile);
-        _httpClient = new HttpClient();
-        _repository = new InstalledPackageRepository();
-        _installer = new PackageInstaller(_httpClient, _repository, apiApplication: null!);
-    }
-
-    [TearDown]
-    public void TearDown()
-    {
-        _httpClient.Dispose();
-        foreach (string directory in _createdDirectories.Where(Directory.Exists))
-        {
-            Directory.Delete(directory, recursive: true);
-        }
-
-        _createdDirectories.Clear();
-        File.Delete(InstalledPackagesFile);
-    }
-
-    [Test]
-    public void GetPackageKind_ReadsTheReservedTag()
-    {
-        Assert.Multiple(() =>
-        {
-            Assert.That(new[] { PackageKinds.MaterialTag }.GetPackageKind(), Is.EqualTo(PackageKind.Material));
-            Assert.That(new[] { "fonts", PackageKinds.TemplateTag }.GetPackageKind(), Is.EqualTo(PackageKind.Template));
-            Assert.That(new[] { "blur", "effect" }.GetPackageKind(), Is.EqualTo(PackageKind.Extension));
-            // LocalPackage yields [""] for a nuspec with no <tags> element.
-            Assert.That(new[] { "" }.GetPackageKind(), Is.EqualTo(PackageKind.Extension));
-            Assert.That(((IEnumerable<string>?)null).GetPackageKind(), Is.EqualTo(PackageKind.Extension));
-        });
-    }
-
-    [Test]
-    public void GetPackageKind_DoesNotTreatABareMaterialTagAsTheKindMarker()
-    {
-        // "material" is an ordinary tag plenty of unrelated packages carry (e.g. Material
-        // Design themes), so only the prefixed marker classifies a package.
-        Assert.That(new[] { "material", "design", "theme" }.GetPackageKind(), Is.EqualTo(PackageKind.Extension));
-    }
-
-    [Test]
-    public void GetPackageKind_ReturnsBoth_WhenBothReservedTagsArePresent()
-    {
-        Assert.That(
-            new[] { PackageKinds.TemplateTag, PackageKinds.MaterialTag }.GetPackageKind(),
-            Is.EqualTo(PackageKind.Both));
+        Assert.That(tags.GetPackageKind(), Is.EqualTo(expected));
     }
 
     [Test]
@@ -601,34 +551,34 @@ public partial class PackageInstallerDataTests
         });
     }
 
-    [Test]
-    public void Clean_KeepsTheExtractedPackage_WhenThePayloadCannotBeRemoved()
+    [TestCase(false)]
+    [TestCase(true)]
+    public void PayloadDeletionFailure_KeepsTheExtractedPackageForARetry(bool clean)
     {
-        // PrepareForClean rediscovers candidates from extracted package directories, so
-        // dropping the directory or the repository entry on a failed payload deletion
-        // would leave nothing to retry from.
-        const string Name = "Beutl.Package.DataTest.CleanRetry";
+        // PrepareForClean rediscovers candidates from extracted package directories, and
+        // UninstallViewModel keys its failure state off FailedPackages, so a payload that
+        // could not be deleted has to be reported and leave everything needed to retry.
+        const string Name = "Beutl.Package.DataTest.RemovalRetry";
         var identity = new PackageIdentity(Name, NuGetVersion.Parse("1.0.0"));
         LocalPackage package = CreateDataPackage(Name, [PackageKinds.MaterialTag], "1.0.0", [("materials/a.png", "x")]);
         _installer.InstallDataPackage(package);
         _repository.AddPackage(identity);
 
-        var context = new PackageCleanContext([identity], 0);
+        IReadOnlyList<string> failures;
         using (BlockDeletion(MaterialsDirectoryOf(Name)))
         {
-            _installer.Clean(context, new Progress<double>());
+            failures = RemovePackage(clean, identity, package.InstalledPath!, 0);
         }
 
         Assert.Multiple(() =>
         {
-            Assert.That(context.FailedPackages, Is.Not.Empty);
+            Assert.That(failures, Is.Not.Empty);
             Assert.That(Directory.Exists(package.InstalledPath), Is.True);
             Assert.That(_repository.ExistsPackage(identity), Is.True);
             Assert.That(Directory.Exists(MaterialsDirectoryOf(Name)), Is.True);
         });
 
-        // The retry now succeeds and takes everything with it.
-        _installer.Clean(new PackageCleanContext([identity], 0), new Progress<double>());
+        RemovePackage(clean, identity, package.InstalledPath!, 0);
 
         Assert.Multiple(() =>
         {
@@ -638,71 +588,23 @@ public partial class PackageInstallerDataTests
         });
     }
 
-    [Test]
-    public void Clean_RemovesThePayload_WhenTheLastIdentityGoes()
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Removal_RemovesThePayloadDirectory_WhenTheLastIdentityGoes(bool clean)
     {
-        const string Name = "Beutl.Package.DataTest.CleanLast";
-        LocalPackage package = CreateDataPackage(Name, [PackageKinds.MaterialTag], "1.0.0", [("materials/a.png", "x")]);
-        _installer.InstallDataPackage(package);
-        _repository.AddPackage(new PackageIdentity(Name, new NuGetVersion("1.0.0")));
-
-        _installer.Clean(
-            new PackageCleanContext([new PackageIdentity(Name, new NuGetVersion("1.0.0"))], 0),
-            new Progress<double>());
-
-        Assert.That(Directory.Exists(MaterialsDirectoryOf(Name)), Is.False);
-    }
-
-    [Test]
-    public void Uninstall_AlsoRemovesThePayloadDirectory()
-    {
-        var identity = new PackageIdentity("Beutl.Package.DataTest.FullUninstall", NuGetVersion.Parse("1.0.0"));
+        var identity = new PackageIdentity("Beutl.Package.DataTest.FullRemoval", NuGetVersion.Parse("1.0.0"));
         LocalPackage package = CreateDataPackage(
             identity.Id, PackageKinds.MaterialTag, ("materials/logo.png", "png"));
         _installer.InstallDataPackage(package);
         _repository.UpgradePackages(identity);
 
-        _installer.Uninstall(
-            new PackageUninstallContext(identity, package.InstalledPath)
-            {
-                UnnecessaryPackages = [identity],
-                SizeToBeReleased = 1
-            },
-            new Progress<double>());
+        RemovePackage(clean, identity, package.InstalledPath!, 1);
 
         Assert.Multiple(() =>
         {
             Assert.That(Directory.Exists(MaterialsDirectoryOf(identity.Id)), Is.False);
             Assert.That(Directory.Exists(package.InstalledPath), Is.False);
             Assert.That(_repository.ExistsPackage(identity), Is.False);
-        });
-    }
-
-    [Test]
-    public void Uninstall_ReportsAFailedPackage_WhenThePayloadCannotBeRemoved()
-    {
-        // UninstallViewModel keys its failure state off FailedPackages, so a payload that
-        // survived has to appear there or the queued uninstall is dropped as successful.
-        var identity = new PackageIdentity("Beutl.Package.DataTest.UninstallLocked", NuGetVersion.Parse("1.0.0"));
-        LocalPackage package = CreateDataPackage(
-            identity.Id, PackageKinds.MaterialTag, ("materials/logo.png", "png"));
-        _installer.InstallDataPackage(package);
-        _repository.UpgradePackages(identity);
-
-        var context = new PackageUninstallContext(identity, package.InstalledPath)
-        {
-            UnnecessaryPackages = [identity],
-            SizeToBeReleased = 1
-        };
-        using (BlockDeletion(MaterialsDirectoryOf(identity.Id)))
-        {
-            _installer.Uninstall(context, new Progress<double>());
-        }
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(context.FailedPackages, Is.Not.Empty);
-            Assert.That(Directory.Exists(MaterialsDirectoryOf(identity.Id)), Is.True);
         });
     }
 
@@ -761,8 +663,7 @@ public partial class PackageInstallerDataTests
 
         // Restoring the installed metadata supplies proof of ownership for the legacy directories.
         Directory.CreateDirectory(installedPath);
-        File.WriteAllText(Path.Combine(installedPath, name + ".nuspec"),
-            $"<package><metadata><id>{name}</id><version>1.0.0</version><authors>tests</authors><description>tests</description><tags>{PackageKinds.MaterialTag} {PackageKinds.TemplateTag}</tags></metadata></package>");
+        WriteNuspec(package, $"{PackageKinds.MaterialTag} {PackageKinds.TemplateTag}");
         File.WriteAllText(Path.Combine(installedPath, name + ".1.0.0.nupkg"), "");
         Assert.That(Remove([identity]), Is.Empty);
         Assert.Multiple(() =>
@@ -826,6 +727,11 @@ public partial class PackageInstallerDataTests
         return Path.Combine(BeutlEnvironment.GetMaterialsDirectoryPath(), packageName);
     }
 
+    private static void WriteNuspec(LocalPackage package, string tags)
+        => File.WriteAllText(
+            Path.Combine(package.InstalledPath!, package.Name + ".nuspec"),
+            $"<package><metadata><id>{package.Name}</id><version>{package.Version}</version><authors>tests</authors><description>tests</description><tags>{tags}</tags></metadata></package>");
+
     private LocalPackage CreateDataPackage(
         string name,
         string tag,
@@ -873,13 +779,5 @@ public partial class PackageInstallerDataTests
             Tags = [.. tags],
             InstalledPath = directory
         };
-    }
-
-    private void Track(string directory)
-    {
-        if (!_createdDirectories.Contains(directory))
-        {
-            _createdDirectories.Add(directory);
-        }
     }
 }

@@ -20,6 +20,8 @@ internal abstract class AiMeteredCapabilityService(
 
     protected BeutlApiApplication Application { get; } = application;
 
+    // For a request without a key of its own. The caller's key is what lets a retry recover a result already paid
+    // for instead of buying it again.
     protected static string CreateIdempotencyKey() => Guid.NewGuid().ToString("D");
 
     // Each stream joins `opened` as soon as it opens, so the caller's finally also closes the ones opened before
@@ -91,12 +93,8 @@ internal abstract class AiMeteredCapabilityService(
     /// caller and returning what the closing event carries.
     /// </summary>
     /// <remarks>
-    /// Everything the server can refuse before it starts working still comes
-    /// back as an ordinary status code, and is converted here exactly as a
-    /// Refit reply would be. Once the stream is open the answer is one of two
-    /// events; a stream that carries neither was cut off, and whatever it was
-    /// carrying may well have finished and been charged for, which is why that
-    /// is said in its own way rather than as a plain failure.
+    /// A refusal before the work starts comes back as an ordinary status code. A stream that ends with neither
+    /// a result nor an error may already have been charged for, so it is reported as interrupted.
     /// </remarks>
     protected async Task<TResult> ExecuteStreamingAsync<TResult>(
         string activityName,
@@ -105,7 +103,6 @@ internal abstract class AiMeteredCapabilityService(
         Func<string, TResult> readResult,
         CancellationToken cancellationToken,
         Action<Activity?>? configureActivity = null,
-        bool notifyJobsChanged = true,
         bool requestEventStream = true)
     {
         using CancellationTokenSource operationCts =
@@ -138,10 +135,7 @@ internal abstract class AiMeteredCapabilityService(
 
                 if (!AiEventStream.IsEventStream(message))
                 {
-                    // A server that does not stream answers the same request in
-                    // one piece, and that answer is the same shape the closing
-                    // event would have carried. There is simply nothing to show
-                    // on the way.
+                    // A server that does not stream answers in one piece, shaped like the closing event.
                     return readResult(await ReadResponseBodyAsync(
                         message.Content,
                         requestToken));
@@ -172,11 +166,7 @@ internal abstract class AiMeteredCapabilityService(
             },
             token);
 
-        if (notifyJobsChanged)
-        {
-            jobChangeNotifier.Notify();
-        }
-
+        jobChangeNotifier.Notify();
         return response.Value;
     }
 

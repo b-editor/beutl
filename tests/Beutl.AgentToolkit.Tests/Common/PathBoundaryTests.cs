@@ -1,4 +1,5 @@
 ﻿using Beutl.AgentToolkit.Common;
+using Beutl.AgentToolkit.Tests.Helpers;
 
 namespace Beutl.AgentToolkit.Tests.Common;
 
@@ -29,7 +30,7 @@ public sealed class PathBoundaryTests
     {
         string linkPath = Path.Combine(_tempRoot, "escape");
         string missingTarget = Path.Combine(Path.GetTempPath(), "pb-target-" + Guid.NewGuid().ToString("N"));
-        CreateSymbolicLinkOrIgnore(linkPath, missingTarget);
+        TestWorkspace.CreateSymbolicLinkOrIgnore(linkPath, missingTarget, directory: false);
 
         string resolved = PathBoundary.ResolveDeepestExistingTarget(linkPath);
 
@@ -46,10 +47,9 @@ public sealed class PathBoundaryTests
         string linkDir = Path.Combine(_tempRoot, "sub");
         Directory.CreateDirectory(linkDir);
         string linkPath = Path.Combine(linkDir, "escape");
-        // A broken symlink whose stored target is relative: the fallback must resolve it against the
-        // link's own directory (not the process CWD) without ever propagating the resolve failure.
+        // A broken link's relative target resolves against the link's own directory, not the process CWD.
         string relativeTarget = Path.Combine("..", "pb-rel-missing-" + Guid.NewGuid().ToString("N"));
-        CreateSymbolicLinkOrIgnore(linkPath, relativeTarget);
+        TestWorkspace.CreateSymbolicLinkOrIgnore(linkPath, relativeTarget, directory: false);
 
         string resolved = PathBoundary.ResolveDeepestExistingTarget(linkPath);
 
@@ -78,7 +78,7 @@ public sealed class PathBoundaryTests
             File.WriteAllText(outsideLeaf, "x");
 
             string link = Path.Combine(_tempRoot, "link");
-            CreateDirectorySymlinkOrIgnore(link, outsideRoot);
+            TestWorkspace.CreateSymbolicLinkOrIgnore(link, outsideRoot, directory: true);
 
             string resolved = PathBoundary.ResolveExistingPath(Path.Combine(link, "leaf.txt"));
 
@@ -108,7 +108,7 @@ public sealed class PathBoundaryTests
             string linkDir = Path.Combine(_tempRoot, "links");
             Directory.CreateDirectory(linkDir);
             string link = Path.Combine(linkDir, "link");
-            CreateSymbolicLinkOrIgnore(link, outsideLeaf);
+            TestWorkspace.CreateSymbolicLinkOrIgnore(link, Path.GetRelativePath(linkDir, outsideLeaf), directory: false);
 
             string resolved = PathBoundary.ResolveExistingPath(link);
 
@@ -129,29 +129,5 @@ public sealed class PathBoundaryTests
         string resolved = PathBoundary.ResolveExistingPath(leaf);
 
         Assert.That(resolved, Is.EqualTo(Path.GetFullPath(leaf)));
-    }
-
-    private static void CreateSymbolicLinkOrIgnore(string linkPath, string target)
-    {
-        try
-        {
-            File.CreateSymbolicLink(linkPath, target);
-        }
-        catch (Exception ex) when (ex is UnauthorizedAccessException or IOException or PlatformNotSupportedException)
-        {
-            Assert.Ignore($"Symbolic links are not creatable in this environment: {ex.Message}");
-        }
-    }
-
-    private static void CreateDirectorySymlinkOrIgnore(string linkPath, string target)
-    {
-        try
-        {
-            Directory.CreateSymbolicLink(linkPath, target);
-        }
-        catch (Exception ex) when (ex is UnauthorizedAccessException or IOException or PlatformNotSupportedException)
-        {
-            Assert.Ignore($"Symbolic links are not creatable in this environment: {ex.Message}");
-        }
     }
 }

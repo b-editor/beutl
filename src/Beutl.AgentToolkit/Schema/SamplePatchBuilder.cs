@@ -2,6 +2,7 @@
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
 using Beutl.Animation;
+using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Transformation;
@@ -34,6 +35,19 @@ internal static class SamplePatchBuilder
             Brush = { CurrentValue = new SolidColorBrush(Color.Parse(color)) },
             Thickness = { CurrentValue = thickness }
         };
+    }
+
+    public static Element CreateElement(string name, int zIndex, TimeSpan length, EngineObject obj)
+    {
+        var element = new Element
+        {
+            Name = name,
+            Start = TimeSpan.Zero,
+            Length = length,
+            ZIndex = zIndex
+        };
+        element.AddObject(obj);
+        return element;
     }
 
     public static Blur CreateBlur(float sigma)
@@ -85,6 +99,18 @@ internal static class SamplePatchBuilder
         var mosaic = new MosaicEffect();
         mosaic.TileSize.CurrentValue = new Size(tileSize, tileSize);
         return mosaic;
+    }
+
+    public static ColorShift CreateColorShift(int offset) => CreateColorShift(offset, 0, -offset, 0);
+
+    public static ColorShift CreateColorShift(int redX, int redY, int blueX, int blueY)
+    {
+        var colorShift = new ColorShift();
+        colorShift.RedOffset.CurrentValue = new PixelPoint(redX, redY);
+        colorShift.GreenOffset.CurrentValue = new PixelPoint(0, 0);
+        colorShift.BlueOffset.CurrentValue = new PixelPoint(blueX, blueY);
+        colorShift.AlphaOffset.CurrentValue = new PixelPoint(0, 0);
+        return colorShift;
     }
 
     public static JsonObject SerializeWithoutIds(ICoreSerializable value)
@@ -143,7 +169,6 @@ internal static class SamplePatchBuilder
 
         return query
             .Split([' ', '-', '_', '/', ',', ';', ':', '\t', '\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Where(token => token.Length > 0)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
     }

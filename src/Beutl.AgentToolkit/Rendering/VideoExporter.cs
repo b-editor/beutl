@@ -165,11 +165,8 @@ public sealed class VideoExporter(EncoderRegistration encoders)
             ApplyQualitySettings(controller.VideoSettings, crf, bitrate));
     }
 
-    // A final export forces original media (no proxy fallback), so a missing original would encode
-    // a blank/silent segment instead of failing. Preflight the exported range's renderable sources
-    // (graphics + audio) and fail fast, matching the save-frame/export guard. CollectRenderableSources
-    // walks the mutable scene graph, so run it on the render thread like StillRenderer does rather
-    // than racing UI/render-thread mutations from this (possibly off-thread) caller.
+    // Final export forces original media, so fail fast on missing sources (as StillRenderer does).
+    // CollectRenderableSources walks the mutable scene graph, so run it on the render thread.
     private static async ValueTask ThrowIfExportSourcesMissingAsync(Scene scene, CancellationToken cancellationToken)
     {
         IReadOnlySet<string> renderableSources = await RenderThread.Dispatcher.InvokeAsync(
