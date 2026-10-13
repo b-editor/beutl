@@ -1,4 +1,7 @@
-﻿using System.Text;
+﻿using System.Runtime.InteropServices;
+using System.Security.AccessControl;
+using System.Security.Principal;
+using System.Text;
 using System.Xml.Linq;
 using Beutl.Api.Services;
 using Beutl.Testing.Headless;
@@ -11,7 +14,7 @@ namespace Beutl.HeadlessUITests;
 // Dependency resolution reads Beutl.dll's dependency context, so these tests need the app assembly.
 [TestFixture]
 [NonParallelizable]
-public sealed class PackageInstallerNuGetConfigTests
+public sealed partial class PackageInstallerNuGetConfigTests
 {
     private const string ConfigWithStaleSource = """
         <configuration>
@@ -23,6 +26,8 @@ public sealed class PackageInstallerNuGetConfigTests
         """;
 
     private AppRootFileBackup _config = null!;
+    private UnixFileMode? _originalUnixMode;
+    private FileSecurity? _originalSecurity;
     private readonly List<string> _cleanup = [];
 
     private static string ConfigPath => Path.Combine(Helper.AppRoot, "nuget.config");
@@ -32,6 +37,12 @@ public sealed class PackageInstallerNuGetConfigTests
     {
         Assert.That(Helper.AppRoot, Is.EqualTo(BeutlHomeIsolation.CurrentHome));
         _config = new AppRootFileBackup("nuget.config");
+        _originalUnixMode = _config.Existed && !OperatingSystem.IsWindows()
+            ? File.GetUnixFileMode(ConfigPath)
+            : null;
+        _originalSecurity = _config.Existed && OperatingSystem.IsWindows()
+            ? new FileInfo(ConfigPath).GetAccessControl(AccessControlSections.Access)
+            : null;
         Directory.CreateDirectory(Helper.LocalSourcePath);
     }
 
@@ -40,6 +51,10 @@ public sealed class PackageInstallerNuGetConfigTests
     {
         TestPackages.Delete(_cleanup);
         _config.Dispose();
+        if (!OperatingSystem.IsWindows() && _originalUnixMode is { } mode)
+            File.SetUnixFileMode(ConfigPath, mode);
+        if (OperatingSystem.IsWindows() && _originalSecurity is { } security)
+            new FileInfo(ConfigPath).SetAccessControl(security);
     }
 
     [Test]
@@ -215,6 +230,53 @@ public sealed class PackageInstallerNuGetConfigTests
             "Non-ASCII comments, paths and credentials must survive with the original encoding.");
     }
 
+    [TestCase(UnixFileMode.UserRead | UnixFileMode.UserWrite)]
+    [TestCase(UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead)]
+    [TestCase(UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead | UnixFileMode.GroupWrite)]
+    public async Task ExistingConfig_PreservesUnixPermissions(UnixFileMode mode)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("Unix file permissions are not supported on Windows.");
+            return;
+        }
+
+        File.WriteAllText(ConfigPath, ConfigWithStaleSource);
+        File.SetUnixFileMode(ConfigPath, mode);
+        using var client = new HttpClient();
+        await using var installer = new PackageInstaller(client, new InstalledPackageRepository(), null!);
+
+        await AssertLocalPackageResolves(installer);
+
+        Assert.That(File.GetUnixFileMode(ConfigPath), Is.EqualTo(mode));
+    }
+
+    [Test]
+    public async Task ExistingConfig_PreservesExplicitWindowsAccessRules()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("Windows access rules are not supported on this platform.");
+            return;
+        }
+
+        File.WriteAllText(ConfigPath, ConfigWithStaleSource);
+        var security = new FileSecurity();
+        security.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
+        using WindowsIdentity identity = WindowsIdentity.GetCurrent();
+        security.AddAccessRule(new FileSystemAccessRule(identity.User!, FileSystemRights.FullControl, AccessControlType.Allow));
+        var configFile = new FileInfo(ConfigPath);
+        configFile.SetAccessControl(security);
+        string expected = configFile.GetAccessControl(AccessControlSections.Access).GetSecurityDescriptorSddlForm(AccessControlSections.Access);
+        using var client = new HttpClient();
+        await using var installer = new PackageInstaller(client, new InstalledPackageRepository(), null!);
+
+        await AssertLocalPackageResolves(installer);
+
+        Assert.That(configFile.GetAccessControl(AccessControlSections.Access).GetSecurityDescriptorSddlForm(AccessControlSections.Access),
+            Is.EqualTo(expected));
+    }
+
     [TestCase(false)]
     [TestCase(true)]
     public async Task ExistingConfig_PreservesTheSymbolicLinkAndTarget(bool relativeTarget)
@@ -235,6 +297,37 @@ public sealed class PackageInstallerNuGetConfigTests
 
         Assert.That(new FileInfo(ConfigPath).LinkTarget, Is.EqualTo(linkTarget));
         Assert.That(File.ReadAllText(targetPath), Is.EqualTo(ConfigWithStaleSource));
+    }
+
+    [Test]
+    public async Task ExistingConfig_PreservesExtendedUnixAccessRules()
+    {
+        if (!OperatingSystem.IsLinux() || !NativeLibrary.TryLoad("libacl.so.1", out nint library))
+        {
+            Assert.Ignore("This regression requires Linux POSIX ACL support.");
+            return;
+        }
+        NativeLibrary.Free(library);
+
+        File.WriteAllText(ConfigPath, ConfigWithStaleSource);
+        string originalAcl = ReadUnixAcl();
+        try
+        {
+            // The ACL mask makes the mode appear as 0640, but the owning group has no access.
+            // Replacing this with a plain mode-0640 file would broaden access to credentials.
+            SetUnixAcl("u::rw-,u:65534:r--,g::---,m::r--,o::---");
+            string expected = ReadUnixAcl();
+            using var client = new HttpClient();
+            await using var installer = new PackageInstaller(client, new InstalledPackageRepository(), null!);
+
+            await AssertLocalPackageResolves(installer);
+
+            Assert.That(ReadUnixAcl(), Is.EqualTo(expected));
+        }
+        finally
+        {
+            SetUnixAcl(originalAcl);
+        }
     }
 
     [Test]
@@ -285,6 +378,61 @@ public sealed class PackageInstallerNuGetConfigTests
             Assert.Ignore("Symlink creation is not available.");
         }
     }
+
+    private static void SetUnixAcl(string text)
+    {
+        nint acl = AclFromText(text);
+        Assert.That(acl, Is.Not.EqualTo(nint.Zero));
+        try
+        {
+            Assert.That(AclSetFile(ConfigPath, 0x8000, acl), Is.Zero, $"acl_set_file failed: {Marshal.GetLastPInvokeError()}");
+        }
+        finally
+        {
+            AclFree(acl);
+        }
+    }
+
+    private static string ReadUnixAcl()
+    {
+        nint acl = AclGetFile(ConfigPath, 0x8000);
+        int error = Marshal.GetLastPInvokeError();
+        if (acl == nint.Zero && error == 95) // EOPNOTSUPP
+            Assert.Ignore("The test filesystem does not support POSIX ACLs.");
+        Assert.That(acl, Is.Not.EqualTo(nint.Zero), $"acl_get_file failed: {error}");
+        try
+        {
+            nint text = AclToText(acl, out _);
+            Assert.That(text, Is.Not.EqualTo(nint.Zero));
+            try
+            {
+                return Marshal.PtrToStringUTF8(text)!;
+            }
+            finally
+            {
+                AclFree(text);
+            }
+        }
+        finally
+        {
+            AclFree(acl);
+        }
+    }
+
+    [LibraryImport("libacl.so.1", EntryPoint = "acl_from_text", StringMarshalling = StringMarshalling.Utf8)]
+    private static partial nint AclFromText(string text);
+
+    [LibraryImport("libacl.so.1", EntryPoint = "acl_set_file", StringMarshalling = StringMarshalling.Utf8, SetLastError = true)]
+    private static partial int AclSetFile(string path, int type, nint acl);
+
+    [LibraryImport("libacl.so.1", EntryPoint = "acl_get_file", StringMarshalling = StringMarshalling.Utf8, SetLastError = true)]
+    private static partial nint AclGetFile(string path, int type);
+
+    [LibraryImport("libacl.so.1", EntryPoint = "acl_to_text")]
+    private static partial nint AclToText(nint acl, out nint length);
+
+    [LibraryImport("libacl.so.1", EntryPoint = "acl_free")]
+    private static partial int AclFree(nint value);
 
     private PackageIdentity CreateLocalPackage() => TestPackages.CreateNupkg("Beutl.RelocatedHomeTest", "1.0.0", _cleanup);
 }
