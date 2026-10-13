@@ -122,11 +122,8 @@ public partial class PackageInstaller
         }
     }
 
-    // Waits until every admitted operation has actually stopped, without the drain
-    // deadline: when Disposal ended at its deadline with operations still running,
-    // their fallback queueing must be observable before the shutdown snapshot of
-    // PackageChangesQueue is taken. The timeout keeps the wait bounded even when a
-    // tracked operation never completes, so shutdown cannot hang behind it.
+    // Waits for admitted operations that outlived the drain deadline, so their fallbacks are queued before the
+    // PackageChangesQueue shutdown snapshot. The timeout keeps shutdown from hanging behind one that never completes.
     internal async Task WaitUntilIdleAsync(TimeSpan timeout)
     {
         _shutdownFallbackPublicationEnabled = true;
@@ -210,10 +207,20 @@ public partial class PackageInstaller
     protected virtual long DrainDeadlineMilliseconds => 30_000;
 
     private Task TrackAsync(Func<Task> operation)
-        => TrackAsyncCore(operation);
+    {
+        TaskCompletionSource proxy = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        AdmitTrackedPhase(proxy.Task);
+        _ = RunTrackedAsync(operation, proxy);
+        return proxy.Task;
+    }
 
     private Task<T> TrackAsync<T>(Func<Task<T>> operation)
-        => TrackAsyncCore(operation);
+    {
+        TaskCompletionSource<T> proxy = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        AdmitTrackedPhase(proxy.Task);
+        _ = RunTrackedAsync(operation, proxy);
+        return proxy.Task;
+    }
 
     public Task TrackInstallOperationAsync(Func<Task> operation)
         => TrackInstallOperationWithShutdownFallbackAsync(operation, null);
@@ -227,7 +234,7 @@ public partial class PackageInstaller
         Task task = proxy.Task;
         ShutdownFallback? shutdownFallback = ensureShutdownFallback is null
             ? null
-            : CreateOneShotFallback(ensureShutdownFallback);
+            : new ShutdownFallback(ensureShutdownFallback, _logger);
         lock (_gate)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
@@ -245,9 +252,6 @@ public partial class PackageInstaller
         _ = RunTransactionAsync(operation, proxy, shutdownFallback);
         return task;
     }
-
-    private ShutdownFallback CreateOneShotFallback(Action fallback)
-        => new(fallback, _logger);
 
     internal void TrackSyncOperation(Action operation)
         => TrackSyncOperation<object?>(() =>
@@ -350,26 +354,8 @@ public partial class PackageInstaller
         }
     }
 
-    private Task TrackAsyncCore(Func<Task> operation)
-    {
-        TaskCompletionSource proxy = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        AdmitTrackedPhase(proxy.Task);
-
-        // Invoke outside the lock so a re-entrant delegate cannot deadlock on _gate.
-        _ = RunTrackedAsync(operation, proxy);
-        return proxy.Task;
-    }
-
-    private Task<T> TrackAsyncCore<T>(Func<Task<T>> operation)
-    {
-        TaskCompletionSource<T> proxy = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        AdmitTrackedPhase(proxy.Task);
-
-        // Invoke outside the lock so a re-entrant delegate cannot deadlock on _gate.
-        _ = RunTrackedAsync(operation, proxy);
-        return proxy.Task;
-    }
-
+    // Callers start the operation after this returns, outside the lock, so a re-entrant delegate cannot
+    // deadlock on _gate.
     private void AdmitTrackedPhase(Task proxyTask)
     {
         lock (_gate)
@@ -402,23 +388,20 @@ public partial class PackageInstaller
         }
     }
 
-    private async Task<T> RunTrackedAsync<T>(Func<Task<T>> operation, TaskCompletionSource<T> proxy)
+    private async Task RunTrackedAsync<T>(Func<Task<T>> operation, TaskCompletionSource<T> proxy)
     {
         try
         {
             T result = await operation().ConfigureAwait(false);
             proxy.TrySetResult(result);
-            return result;
         }
         catch (OperationCanceledException ex)
         {
             proxy.TrySetCanceled(ex.CancellationToken);
-            return default!;
         }
         catch (Exception ex)
         {
             proxy.TrySetException(ex);
-            return default!;
         }
     }
 }

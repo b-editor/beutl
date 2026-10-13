@@ -1,6 +1,5 @@
 ﻿namespace Beutl.Extensibility;
 
-// 拡張機能の基本クラス
 public abstract class Extension
 {
     public virtual string Name => GetType().Name;

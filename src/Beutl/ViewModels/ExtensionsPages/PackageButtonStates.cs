@@ -2,6 +2,7 @@
 using Beutl.Api.Services;
 using NuGet.Packaging.Core;
 using Reactive.Bindings;
+using Reactive.Bindings.Extensions;
 
 namespace Beutl.ViewModels.ExtensionsPages;
 
@@ -25,23 +26,36 @@ internal static class PackageButtonStates
             .DisposeWith(disposables);
 
         IObservable<bool> installed = handler.InstalledPackageRepository.GetObservable(packageName);
-        IObservable<bool> notBusy = isBusy.Not();
-        ReadOnlyReactivePropertySlim<bool> isInstallButtonVisible = installed
-            .AnyTrue(canCancel)
-            .Not()
-            .AreTrue(notBusy)
+        IObservable<bool> notBusy = isBusy.Inverse();
+        ReadOnlyReactivePropertySlim<bool> isInstallButtonVisible = new[]
+            {
+                new[] { installed, canCancel }.CombineLatestValuesAreAllFalse(),
+                notBusy
+            }
+            .CombineLatestValuesAreAllTrue()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(disposables);
 
         IObservable<PackageIdentity?> installedPackage = handler.InstalledPackageRepository.GetPackageObservable(packageName);
-        ReadOnlyReactivePropertySlim<bool> isUpdateButtonVisible = latestRelease.CombineLatest(installedPackage)
-            .Select(x => PackageUpdateAvailability.IsAvailable(x.First?.Version.Value, x.Second))
-            .AreTrue(canCancel.Not(), notBusy)
+        ReadOnlyReactivePropertySlim<bool> isUpdateButtonVisible = new[]
+            {
+                latestRelease.CombineLatest(installedPackage)
+                    .Select(x => PackageUpdateAvailability.IsAvailable(x.First?.Version.Value, x.Second)),
+                canCancel.Inverse(),
+                notBusy
+            }
+            .CombineLatestValuesAreAllTrue()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(disposables);
 
-        ReadOnlyReactivePropertySlim<bool> isUninstallButtonVisible = installed
-            .AreTrue(canCancel.Not(), isUpdateButtonVisible.Not(), notBusy)
+        ReadOnlyReactivePropertySlim<bool> isUninstallButtonVisible = new[]
+            {
+                installed,
+                canCancel.Inverse(),
+                isUpdateButtonVisible.Inverse(),
+                notBusy
+            }
+            .CombineLatestValuesAreAllTrue()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(disposables);
 

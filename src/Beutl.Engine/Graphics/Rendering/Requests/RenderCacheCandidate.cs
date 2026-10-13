@@ -6,5 +6,5 @@ internal sealed record RenderCacheCandidate(
     RenderCacheCandidateId Id,
     RenderFragmentId FragmentId,
     object CacheKey,
-    RenderNodeCache? Cache,
+    RenderNodeCache Cache,
     int AuthoredOrder);

@@ -18,6 +18,8 @@ public interface IPathEditorContext
 
     IReadOnlyReactiveProperty<PathFigure?> PathFigure { get; }
 
+    IReadOnlyReactiveProperty<bool> IsClosed { get; }
+
     IReactiveProperty<IPathFigureEditorContext?> FigureContext { get; }
 
     IReactiveProperty<bool> Symmetry { get; }

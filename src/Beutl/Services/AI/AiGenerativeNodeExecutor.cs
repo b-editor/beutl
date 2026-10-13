@@ -22,10 +22,10 @@ internal sealed class AiGenerativeNodeExecutor(
     IAiImageGenerationService images,
     IAiOperationAvailabilityService availability,
     IAuthenticatedContentService content,
-    IGenerativePromptLibrary? promptLibrary = null,
-    IAiImageEditingService? editing = null,
-    IAiVideoService? videos = null,
-    IAiJobKindRegistry? jobKinds = null) : IGenerativeNodeExecutor
+    IGenerativePromptLibrary promptLibrary,
+    IAiImageEditingService editing,
+    IAiVideoService videos,
+    IAiJobKindRegistry jobKinds) : IGenerativeNodeExecutor
 {
     private static readonly ILogger s_logger = Log.CreateLogger<AiGenerativeNodeExecutor>();
 
@@ -117,7 +117,7 @@ internal sealed class AiGenerativeNodeExecutor(
             progress,
             cancellationToken);
         // As the dialog does once a picture is in hand.
-        promptLibrary?.Record(request.Operation, prompt);
+        promptLibrary.Record(request.Operation, prompt);
         return new GenerativeExecutionResult(new Uri(path), model?.Value, seed);
     }
 
@@ -126,9 +126,6 @@ internal sealed class AiGenerativeNodeExecutor(
         IProgress<GenerativeProgress> progress,
         CancellationToken cancellationToken)
     {
-        if (editing is null)
-            throw new GenerativeExecutionException(Beutl.Language.NodeGraphStrings.Generative_ExecutorUnavailable);
-
         string task = request.Task.ToId();
         (_, IReadOnlyList<GenerativeModelInfo> offered) =
             await models.LoadAsync(request.CatalogOperationId, cancellationToken);
@@ -171,7 +168,7 @@ internal sealed class AiGenerativeNodeExecutor(
             progress,
             cancellationToken);
         if (request.Prompt is { } typed)
-            promptLibrary?.Record(request.Operation, typed);
+            promptLibrary.Record(request.Operation, typed);
         return new GenerativeExecutionResult(new Uri(path), model?.Value, null);
     }
 
@@ -185,9 +182,6 @@ internal sealed class AiGenerativeNodeExecutor(
         IProgress<GenerativeProgress> progress,
         CancellationToken cancellationToken)
     {
-        if (videos is null || jobKinds is null)
-            throw new GenerativeExecutionException(Beutl.Language.NodeGraphStrings.Generative_ExecutorUnavailable);
-
         (_, IReadOnlyList<GenerativeModelInfo> offered) =
             await models.LoadAsync(request.CatalogOperationId, cancellationToken);
         GenerativeModelInfo? chosen = ResolveModel(request.ModelId, offered);
@@ -236,7 +230,7 @@ internal sealed class AiGenerativeNodeExecutor(
             {
                 // Past here the clip has been reserved and paid for; the key is the way back.
                 string path = await WaitAndSaveVideoAsync(response.JobId, requestKey, name, progress, cancellationToken);
-                promptLibrary?.Record(request.Operation, prompt);
+                promptLibrary.Record(request.Operation, prompt);
                 return new GenerativeExecutionResult(new Uri(path), model?.Value, seed, IsVideo: true);
             },
             progress,
@@ -365,9 +359,6 @@ internal sealed class AiGenerativeNodeExecutor(
         IProgress<GenerativeProgress> progress,
         CancellationToken cancellationToken)
     {
-        if (videos is null || jobKinds is null)
-            throw new GenerativeExecutionException(Beutl.Language.NodeGraphStrings.Generative_ExecutorUnavailable);
-
         (_, IReadOnlyList<GenerativeModelInfo> offered) =
             await models.LoadAsync(request.CatalogOperationId, cancellationToken);
         GenerativeModelInfo? chosen = ResolveModel(request.ModelId, offered);
@@ -457,7 +448,7 @@ internal sealed class AiGenerativeNodeExecutor(
             async (response, requestKey, name) =>
             {
                 string path = await WaitAndSaveVideoAsync(response.JobId, requestKey, name, progress, cancellationToken);
-                promptLibrary?.Record(request.Operation, prompt);
+                promptLibrary.Record(request.Operation, prompt);
                 return new GenerativeExecutionResult(new Uri(path), model?.Value, null, IsVideo: true);
             },
             progress,
@@ -540,8 +531,8 @@ internal sealed class AiGenerativeNodeExecutor(
         CancellationToken cancellationToken)
     {
         (AiVideoJob job, AiJobStatusSemantics status) = await AiVideoJobWaiter.WaitAsync(
-            videos!,
-            jobKinds!,
+            videos,
+            jobKinds,
             jobId,
             () => progress.Report(new GenerativeProgress(Strings.AiVideoProcessing)),
             PollInterval,

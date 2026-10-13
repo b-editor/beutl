@@ -98,12 +98,6 @@ public sealed partial class PackageManager
         string[] assemblyNames = [];
         activity?.SetTag("PackageName", package.Name);
 
-        if (package.LocalId == LocalPackage.Reserved0)
-        {
-            _logger.LogWarning("Cannot unload built-in extensions.");
-            return null;
-        }
-
         if (!_loadedPackages.TryGetValue(package.LocalId, out LoadedPackageInfo? info))
         {
             _logger.LogWarning("Package {PackageName} is not loaded.", package.Name);

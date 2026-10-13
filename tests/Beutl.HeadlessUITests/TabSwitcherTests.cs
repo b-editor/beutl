@@ -311,29 +311,19 @@ public sealed class TabSwitcherTests
     public async Task Remapped_shortcuts_replace_the_defaults()
     {
         await using var session = await Session.CreateAsync("remap");
-        var manager = TestShell.MainViewModel.ContextCommandManager!;
-        var entry = manager.GetDefinitions<MainViewExtension>().Single(command => command.Definition.Name == MainViewExtension.NextTabCommandName);
-        OSPlatform platform = OperatingSystem.IsMacOS() ? OSPlatform.OSX : OperatingSystem.IsWindows() ? OSPlatform.Windows : OSPlatform.Linux;
-        KeyGesture? original = entry.KeyGestures.First(gesture => gesture.Platform == platform).KeyGesture;
-        try
-        {
-            manager.ChangeKeyGesture(entry, new(Key.J, KeyModifiers.Control), platform);
-            session.Press(Key.Tab, RawInputModifiers.Control);
-            Assert.That(session.Switcher.IsOpen.Value, Is.False);
-            session.Input.Focus();
-            session.Press(Key.J, RawInputModifiers.Control);
-            Assert.That(session.Switcher.IsOpen.Value, Is.True);
-            session.Press(Key.J, RawInputModifiers.Control);
-            IDockable selected = session.Switcher.SelectedItem!.Tool!;
-            Assert.That(session.Switcher.SelectedGroup.Value, Is.EqualTo(TabSwitcherGroup.Tools));
-            session.Release(Key.LeftCtrl);
-            Assert.That(((IDock)selected.Owner!).ActiveDockable, Is.SameAs(selected));
-            Assert.That(TestShell.Editor.SelectedTabItem.Value, Is.SameAs(session.Documents[^1]));
-        }
-        finally
-        {
-            manager.ChangeKeyGesture(entry, original, platform);
-        }
+        using var gestures = new NavigationGestures();
+        gestures.Set(MainViewExtension.NextTabCommandName, new(Key.J, KeyModifiers.Control));
+        session.Press(Key.Tab, RawInputModifiers.Control);
+        Assert.That(session.Switcher.IsOpen.Value, Is.False);
+        session.Input.Focus();
+        session.Press(Key.J, RawInputModifiers.Control);
+        Assert.That(session.Switcher.IsOpen.Value, Is.True);
+        session.Press(Key.J, RawInputModifiers.Control);
+        IDockable selected = session.Switcher.SelectedItem!.Tool!;
+        Assert.That(session.Switcher.SelectedGroup.Value, Is.EqualTo(TabSwitcherGroup.Tools));
+        session.Release(Key.LeftCtrl);
+        Assert.That(((IDock)selected.Owner!).ActiveDockable, Is.SameAs(selected));
+        Assert.That(TestShell.Editor.SelectedTabItem.Value, Is.SameAs(session.Documents[^1]));
     }
 
     [AvaloniaTest]

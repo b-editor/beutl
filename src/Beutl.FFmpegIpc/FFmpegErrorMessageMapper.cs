@@ -3,19 +3,10 @@
 /// <summary>Known categories for FFmpeg failures.</summary>
 public enum FFmpegErrorKind
 {
-    /// <summary>Input data is invalid.</summary>
     InvalidData,
-
-    /// <summary>No decoder is available.</summary>
     DecoderNotFound,
-
-    /// <summary>The container format is unsupported.</summary>
     DemuxerNotFound,
-
-    /// <summary>The stream protocol is unsupported.</summary>
     ProtocolNotFound,
-
-    /// <summary>No suitable stream was found.</summary>
     StreamNotFound,
 }
 

@@ -3,7 +3,6 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Beutl.Logging;
-using Beutl.Media.Decoding;
 using Microsoft.Extensions.Logging;
 using SharpGen.Runtime;
 using Vortice;
@@ -38,7 +37,7 @@ internal sealed class MFDecoder : IMediaFoundationVideoDecoder
     // 現在のフレームからどれくらいの範囲ならシーケンシャル読み込みさせるかの閾値
     private readonly int _thresholdFrameCount = 30;
 
-    public MFDecoder(string file, MediaOptions options, MFDecodingExtension extension, ILogger? logger = null)
+    public MFDecoder(string file, MFDecodingExtension extension, ILogger? logger = null)
     {
         _logger = logger ?? Log.CreateLogger<MFDecoder>();
         _thresholdFrameCount = extension.Settings.ThresholdFrameCount;
@@ -51,10 +50,8 @@ internal sealed class MFDecoder : IMediaFoundationVideoDecoder
 
             using (var sourceReader = MediaFactory.MFCreateSourceReaderFromURL(file, _attributes))
             {
-                // Probe for a video stream before configuring it. ConfigureDecoder on the first
-                // video stream throws a generic Media Foundation error for files with no video
-                // (e.g. audio-only .mp3), which would mask the catchable NoVideoStreamException
-                // and keep MFReader from falling back to the NAudio audio path.
+                // Probe first: configuring a missing video stream throws a generic MF error, which would hide
+                // the NoVideoStreamException that lets MFReader fall back to NAudio for audio-only files.
                 if (MFStreamProbe.FindVideoStreamIndex(sourceReader) == -1)
                 {
                     const string message = "File contains no video stream.";
@@ -67,27 +64,23 @@ internal sealed class MFDecoder : IMediaFoundationVideoDecoder
                 CheckMediaInfo(sourceReader);
             }
 
-            if (_mediaInfo.VideoStreamIndex != -1 && options.StreamsToLoad.HasFlag(MediaMode.Video))
-            {
-                _videoSourceReader = MediaFactory.MFCreateSourceReaderFromURL(file, _attributes);
-                SelectStream(_videoSourceReader, MediaTypeGuids.Video);
+            _videoSourceReader = MediaFactory.MFCreateSourceReaderFromURL(file, _attributes);
+            SelectStream(_videoSourceReader, MediaTypeGuids.Video);
 
-                try
-                {
-                    ConfigureDecoder(_videoSourceReader, (SourceReaderIndex)_mediaInfo.VideoStreamIndex);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "ConfigureDecoder(_videoSourceReader, _mediaInfo.VideoStreamIndex) failed");
-                    _mediaInfo.VideoStreamIndex = -1;
-                }
+            try
+            {
+                ConfigureDecoder(_videoSourceReader, (SourceReaderIndex)_mediaInfo.VideoStreamIndex);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "ConfigureDecoder(_videoSourceReader, _mediaInfo.VideoStreamIndex) failed");
+                _mediaInfo.VideoStreamIndex = -1;
             }
 
             if (_mediaInfo.VideoStreamIndex == -1)
             {
-                // CheckMediaInfo already throws NoVideoStreamException for files with no video
-                // stream, so reaching here means the video stream existed but failed to
-                // initialize. Surface it as a real error so other decoders (e.g. FFmpeg) retry.
+                // The video stream exists but failed to initialize. Surface it as a real error so other
+                // decoders (e.g. FFmpeg) retry.
                 const string message = "Failed to initialize the video stream.";
                 _logger.LogError(message);
                 throw new Exception(message);
@@ -117,11 +110,6 @@ internal sealed class MFDecoder : IMediaFoundationVideoDecoder
 
     public int ReadFrame(int frame, nint buf)
     {
-        if (_mediaInfo.VideoStreamIndex == -1)
-        {
-            return 0;
-        }
-
         int funcCopyBuffer(IMFSample sample)
         {
             return SampleUtilities.SampleCopyToBuffer(sample, buf, _mediaInfo.OutImageBufferSize);
@@ -185,16 +173,7 @@ internal sealed class MFDecoder : IMediaFoundationVideoDecoder
 
     private IMFSample? ReadSample(int streamIndex)
     {
-        IMFSourceReader? reader;
-        if (streamIndex == _mediaInfo.VideoStreamIndex && _videoSourceReader != null)
-        {
-            reader = _videoSourceReader;
-        }
-        else
-        {
-            _logger.LogWarning("MFDecoder.ReadSample: streamIndex is invalid");
-            return null;
-        }
+        IMFSourceReader reader = _videoSourceReader!;
 
         IMFSample sample = reader.ReadSample(
             streamIndex,
@@ -222,12 +201,6 @@ internal sealed class MFDecoder : IMediaFoundationVideoDecoder
         if (flags.HasFlag(SourceReaderFlag.CurrentMediaTypeChanged))
         {
             _logger.LogTrace("Current type changed");
-            if (actualStreamIndex != _mediaInfo.VideoStreamIndex)
-            {
-                _logger.LogError(
-                    "unexpected CurrentMediaTypeChanged on stream {streamIndex} (expected video stream {videoStreamIndex})",
-                    actualStreamIndex, _mediaInfo.VideoStreamIndex);
-            }
         }
 
         if (flags.HasFlag(SourceReaderFlag.StreamTick))
@@ -254,12 +227,9 @@ internal sealed class MFDecoder : IMediaFoundationVideoDecoder
         // success!
         // add cache
         timestamp -= _firstGapTimeStamp;
-        if (actualStreamIndex == _mediaInfo.VideoStreamIndex)
-        {
-            int frame = TimestampUtilities.ConvertFrameFromTimeStamp(timestamp, _mediaInfo.Fps);
-            _sampleCache.AddFrameSample(frame, sample);
-            _currentVideoTimeStamp = timestamp;
-        }
+        int frame = TimestampUtilities.ConvertFrameFromTimeStamp(timestamp, _mediaInfo.Fps);
+        _sampleCache.AddFrameSample(frame, sample);
+        _currentVideoTimeStamp = timestamp;
 
         return sample;
     }
@@ -283,12 +253,6 @@ internal sealed class MFDecoder : IMediaFoundationVideoDecoder
         using IMFMediaType nativeType = sourceReader.GetNativeMediaType(readerIndex, 0);
 
         Guid majorType = nativeType.GetGUID(MediaTypeAttributeKeys.MajorType);
-
-        // ConfigureDecoder is only invoked for video streams; audio is decoded separately via NAudio.
-        if (majorType != MediaTypeGuids.Video)
-        {
-            return;
-        }
 
         using var type = MediaFactory.MFCreateMediaType();
         type.Set(MediaTypeAttributeKeys.MajorType, majorType);
@@ -317,83 +281,63 @@ internal sealed class MFDecoder : IMediaFoundationVideoDecoder
         }
 
         // 再生時間取得
-        if (_mediaInfo.VideoStreamIndex != -1)
+        _mediaInfo.HnsDuration = (long)(ulong)sourceReader.GetPresentationAttribute(SourceReaderIndex.MediaSource,
+            PresentationDescriptionAttributeKeys.Duration).Value;
+
+        BitmapInfoHeader bih = default;
+
+        using IMFMediaType mediaType = sourceReader.GetCurrentMediaType(_mediaInfo.VideoStreamIndex);
+
+        IntPtr pMFVF = IntPtr.Zero;
+        try
         {
-            _mediaInfo.HnsDuration = (long)(ulong)sourceReader.GetPresentationAttribute(SourceReaderIndex.MediaSource,
-                PresentationDescriptionAttributeKeys.Duration).Value;
+            MediaFactory.MFCreateMFVideoFormatFromMFMediaType(mediaType, out pMFVF, out var pcbSize);
+            var ppMFVF = (MFVIDEOFORMAT*)pMFVF;
+
+            bih.Width = (int)ppMFVF->videoInfo.dwWidth;
+            bih.Height = (int)ppMFVF->videoInfo.dwHeight;
+
+            RECT rcSrc = RECT.FromXYWH(0, 0, bih.Width, bih.Height);
+            RECT destRect = AspectRatioUtilities.CorrectAspectRatio(
+                rcSrc,
+                ppMFVF->videoInfo.PixelAspectRatio,
+                new MFRatio { Denominator = 1, Numerator = 1 });
+            bih.Width = destRect.right;
+            bih.Height = destRect.bottom;
+
+            _mediaInfo.Fps = ppMFVF->videoInfo.FramesPerSecond;
         }
-        else
+        finally
         {
-            // Unreachable in the normal flow: the ctor's FindVideoStreamIndex probe already throws
-            // NoVideoStreamException before CheckMediaInfo runs. Kept as a defensive guard in case the
-            // independent re-scan here ever diverges (e.g. in a Release build with no Debug.Assert).
-            const string message = "File contains no video stream.";
-            _logger.LogInformation(message);
-            throw new NoVideoStreamException(message);
+            Marshal.FreeCoTaskMem(pMFVF);
         }
 
-        if (_mediaInfo.VideoStreamIndex != -1)
-        {
-            BitmapInfoHeader bih = default;
+        Guid subType = mediaType.GetGUID(MediaTypeAttributeKeys.Subtype);
+        // YUY2
+        bih.Compression = new FourCC("YUY2");
+        bih.BitCount = 16;
 
-            using IMFMediaType mediaType = sourceReader.GetCurrentMediaType(_mediaInfo.VideoStreamIndex);
-
-            IntPtr pMFVF = IntPtr.Zero;
-            try
-            {
-                MediaFactory.MFCreateMFVideoFormatFromMFMediaType(mediaType, out pMFVF, out var pcbSize);
-                var ppMFVF = (MFVIDEOFORMAT*)pMFVF;
-
-                bih.Width = (int)ppMFVF->videoInfo.dwWidth;
-                bih.Height = (int)ppMFVF->videoInfo.dwHeight;
-
-                RECT rcSrc = RECT.FromXYWH(0, 0, bih.Width, bih.Height);
-                RECT destRect = AspectRatioUtilities.CorrectAspectRatio(
-                    rcSrc,
-                    ppMFVF->videoInfo.PixelAspectRatio,
-                    new MFRatio { Denominator = 1, Numerator = 1 });
-                bih.Width = destRect.right;
-                bih.Height = destRect.bottom;
-
-                _mediaInfo.Fps = ppMFVF->videoInfo.FramesPerSecond;
-            }
-            finally
-            {
-                Marshal.FreeCoTaskMem(pMFVF);
-            }
-
-            Guid subType = mediaType.GetGUID(MediaTypeAttributeKeys.Subtype);
-            // YUY2
-            bih.Compression = new FourCC("YUY2");
-            bih.BitCount = 16;
-
-            _mediaInfo.ImageFormat = bih;
-            _mediaInfo.TotalFrameCount =
-                TimestampUtilities.ConvertFrameFromTimeStamp(_mediaInfo.HnsDuration, _mediaInfo.Fps);
-            _mediaInfo.OutImageBufferSize = MFFrameBufferSize.Calculate(
-                bih.Width,
-                bih.Height,
-                bih.BitCount / 8);
-            _mediaInfo.VideoFormatName = VideoFormatName.GetName(subType) ?? subType.ToString();
-        }
+        _mediaInfo.ImageFormat = bih;
+        _mediaInfo.TotalFrameCount =
+            TimestampUtilities.ConvertFrameFromTimeStamp(_mediaInfo.HnsDuration, _mediaInfo.Fps);
+        _mediaInfo.OutImageBufferSize = MFFrameBufferSize.Calculate(
+            bih.Width,
+            bih.Height,
+            bih.BitCount / 8);
+        _mediaInfo.VideoFormatName = VideoFormatName.GetName(subType) ?? subType.ToString();
 
         _logger.LogInformation("ChechMediaInfo: \n{MediaInfo}", _mediaInfo.GetMediaInfoText());
     }
 
     private void TestFirstReadSample()
     {
-        long firstVideoTimeStamp = 0;
-
-        if (_mediaInfo.VideoStreamIndex != -1)
-        {
-            _ = ReadSample(_mediaInfo.VideoStreamIndex) ?? throw new Exception("TestFirstReadSample() failed");
-            _logger.LogInformation(
-                "TestFirstReadSample firstVideoTimeStamp: {currentVideoTimeStamp} ({seconds})",
-                _currentVideoTimeStamp, TimestampUtilities.ConvertSecFrom100ns(_currentVideoTimeStamp));
-            firstVideoTimeStamp = _currentVideoTimeStamp;
-            SeekVideo(0);
-            _currentVideoTimeStamp = 0;
-        }
+        _ = ReadSample(_mediaInfo.VideoStreamIndex) ?? throw new Exception("TestFirstReadSample() failed");
+        _logger.LogInformation(
+            "TestFirstReadSample firstVideoTimeStamp: {currentVideoTimeStamp} ({seconds})",
+            _currentVideoTimeStamp, TimestampUtilities.ConvertSecFrom100ns(_currentVideoTimeStamp));
+        long firstVideoTimeStamp = _currentVideoTimeStamp;
+        SeekVideo(0);
+        _currentVideoTimeStamp = 0;
 
         _firstGapTimeStamp = firstVideoTimeStamp;
         _logger.LogInformation("TestFirstReadSample - firstGapTimeStamp: {firstGapTimeStamp}", _firstGapTimeStamp);

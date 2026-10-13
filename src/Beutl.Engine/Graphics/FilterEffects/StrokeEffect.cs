@@ -96,7 +96,6 @@ public partial class StrokeEffect : FilterEffect
                     }
                 }
 
-                target.Dispose();
                 context.Targets[i] = newTarget;
             }
         }

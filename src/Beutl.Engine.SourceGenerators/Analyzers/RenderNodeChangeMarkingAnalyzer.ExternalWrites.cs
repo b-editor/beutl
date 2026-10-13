@@ -27,7 +27,7 @@ public sealed partial class RenderNodeChangeMarkingAnalyzer
         {
             if (IsDeclaredInCompilation(context.Compilation, declaring))
             {
-                foreach (ISymbol state in analysis.ReadStateOfProcessFor(declaring, renderNodeType))
+                foreach (ISymbol state in analysis.ReadStateOfProcessFor(declaring))
                     unreportedDeclarations.Remove(state.OriginalDefinition);
             }
         }

@@ -1,4 +1,6 @@
-﻿namespace Beutl.Graphics.Rendering;
+﻿using Beutl.Graphics.Rendering.Requests;
+
+namespace Beutl.Graphics.Rendering;
 
 /// <summary>
 /// Identifies a fragment recorded by the active <see cref="RenderNodeContext"/> transaction.
@@ -11,11 +13,11 @@
 /// </remarks>
 public sealed class RenderFragmentHandle
 {
-    private readonly IRenderFragmentHandleOwner _owner;
+    private readonly NodeRecordingTransaction _owner;
     private readonly RenderFragmentReference _reference;
 
     internal RenderFragmentHandle(
-        IRenderFragmentHandleOwner owner,
+        NodeRecordingTransaction owner,
         RenderFragmentReference reference)
     {
         _owner = owner;
@@ -99,7 +101,7 @@ public sealed class RenderFragmentHandle
         return concrete;
     }
 
-    internal RenderFragmentReference GetReference(IRenderFragmentHandleOwner owner)
+    internal RenderFragmentReference GetReference(NodeRecordingTransaction owner)
     {
         VerifyActive();
         if (!ReferenceEquals(_owner, owner))

@@ -333,13 +333,13 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
                     }
                     else
                     {
-                        BtlPoint d2 = anchorpoint - c.GetSampleValue(clock.CurrentTime.Value);
+                        BtlPoint d2 = anchorpoint - c.GetInterpolatedValue(clock.CurrentTime.Value);
                         length = Length(d2);
                     }
 
                     BtlPoint newValue = PathEditorHelper.Round(anchorpoint + CalculatePoint(angle, length));
 
-                    c.SetValue(newValue);
+                    c.Property.CurrentValue = newValue;
                     UpdateThumbPosition(c.Thumb, newValue);
                 }
             }

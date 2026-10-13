@@ -30,7 +30,7 @@ internal static class AiTemporaryFileStore
         string extension)
     {
         string categoryRoot = GetCategoryRootDirectory(category);
-        string directory = Path.Combine(categoryRoot, s_sessionId);
+        string directory = GetCategoryDirectory(category);
         string normalizedPrefix = NormalizeComponent(prefix, nameof(prefix));
         string normalizedExtension = NormalizeExtension(extension);
         EnsurePrivateDirectory(categoryRoot);

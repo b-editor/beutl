@@ -19,11 +19,6 @@ public class RuntimeIdentifier : Enumeration
         Value = "linux-x64"
     };
 
-    public static RuntimeIdentifier linux_arm = new()
-    {
-        Value = "linux-arm"
-    };
-
     public static RuntimeIdentifier linux_arm64 = new()
     {
         Value = "linux-arm64"
@@ -44,7 +39,4 @@ public class RuntimeIdentifier : Enumeration
     /// net*-windows TFM rather than the cross-platform one.
     /// </summary>
     public bool IsWindows => Value.StartsWith("win", StringComparison.Ordinal);
-
-    /// <summary>The architecture segment of the RID (e.g. "x64", "arm64").</summary>
-    public string Architecture => Value[(Value.IndexOf('-') + 1)..];
 }

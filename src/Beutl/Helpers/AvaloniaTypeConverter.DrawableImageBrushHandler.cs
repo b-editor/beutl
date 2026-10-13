@@ -25,8 +25,8 @@ public static partial class AvaloniaTypeConverter
         private CancellationTokenSource? _cts;
         private bool _disposeRequested;
 
-        // The caller's subscription owns drawableBrush and disposes it; the handler only renders from it.
-        internal DrawableImageBrushHandler(
+        // The caller's subscription owns drawableBrush and disposes it.
+        public DrawableImageBrushHandler(
             DrawableBrush.Resource drawableBrush,
             ImageBrush imageBrush,
             Beutl.Threading.Dispatcher renderDispatcher)

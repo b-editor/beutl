@@ -23,7 +23,7 @@ public sealed class OrphanedTargetEffectContractTests
     {
         using var node = new DelegateNode(context =>
         {
-            RenderFragmentHandle source = context.OpaqueSource(ExecutingSource("orphan-source"));
+            RenderFragmentHandle source = context.OpaqueSource(ExecutingSource());
             _ = RecordTargetEffect(context, kind, source);
             context.Publish(source);
         });
@@ -46,7 +46,7 @@ public sealed class OrphanedTargetEffectContractTests
         int executions = 0;
         using var node = new DelegateNode(context =>
         {
-            RenderFragmentHandle source = context.OpaqueSource(ExecutingSource("consumed-source"));
+            RenderFragmentHandle source = context.OpaqueSource(ExecutingSource());
             RenderFragmentHandle effect = RecordTargetEffect(
                 context,
                 kind,
@@ -69,7 +69,7 @@ public sealed class OrphanedTargetEffectContractTests
     {
         using var node = new DelegateNode(context =>
         {
-            RenderFragmentHandle source = context.OpaqueSource(ExecutingSource("wrapper-source"));
+            RenderFragmentHandle source = context.OpaqueSource(ExecutingSource());
             _ = context.Blend(source, Beutl.Graphics.BlendMode.Multiply);
             _ = context.Opacity(source, 0.5f);
             context.Publish(source);
@@ -87,7 +87,7 @@ public sealed class OrphanedTargetEffectContractTests
         bool metadataIsConcrete = false;
         using var node = new DelegateNode(context =>
         {
-            RenderFragmentHandle source = context.OpaqueSource(ExecutingSource("dropped-source"));
+            RenderFragmentHandle source = context.OpaqueSource(ExecutingSource());
             RenderFragmentHandle command = RecordTargetEffect(
                 context,
                 TargetEffectKind.TargetCommand,
@@ -113,7 +113,7 @@ public sealed class OrphanedTargetEffectContractTests
     {
         using var inner = new DelegateNode(context =>
         {
-            RenderFragmentHandle source = context.OpaqueSource(ExecutingSource("nested-source"));
+            RenderFragmentHandle source = context.OpaqueSource(ExecutingSource());
             context.Drop(RecordTargetEffect(context, TargetEffectKind.TargetCommand, source));
             context.Publish(source);
         });
@@ -134,7 +134,7 @@ public sealed class OrphanedTargetEffectContractTests
     {
         using var inner = new OrphaningChildNode(context =>
         {
-            RenderFragmentHandle source = context.OpaqueSource(ExecutingSource("nested-orphan-source"));
+            RenderFragmentHandle source = context.OpaqueSource(ExecutingSource());
             _ = RecordTargetEffect(context, kind, source);
             context.Publish(source);
         });
@@ -159,7 +159,7 @@ public sealed class OrphanedTargetEffectContractTests
         int executions = 0;
         using var inner = new DelegateNode(context =>
         {
-            RenderFragmentHandle source = context.OpaqueSource(ExecutingSource("nested-abandoned-source"));
+            RenderFragmentHandle source = context.OpaqueSource(ExecutingSource());
             RenderFragmentHandle command = RecordTargetEffect(
                 context,
                 TargetEffectKind.TargetCommand,
@@ -187,7 +187,7 @@ public sealed class OrphanedTargetEffectContractTests
     {
         using var inner = new DelegateNode(context =>
         {
-            RenderFragmentHandle source = context.OpaqueSource(ExecutingSource("discarded-source"));
+            RenderFragmentHandle source = context.OpaqueSource(ExecutingSource());
             context.Publish(RecordTargetEffect(context, TargetEffectKind.TargetScope, source));
         });
         using var outer = new DelegateNode(context =>
@@ -206,13 +206,13 @@ public sealed class OrphanedTargetEffectContractTests
         using var inner = new DelegateNode(context => context.Drop(context.Inputs[0]));
         using var outer = new DelegateNode(context =>
         {
-            RenderFragmentHandle source = context.OpaqueSource(ExecutingSource("handed-over-source"));
+            RenderFragmentHandle source = context.OpaqueSource(ExecutingSource());
             RenderFragmentHandle command = RecordTargetEffect(
                 context,
                 TargetEffectKind.TargetCommand,
                 source);
             context.RecordNode(inner, [command]);
-            context.Publish(context.OpaqueSource(ExecutingSource("surviving-source")));
+            context.Publish(context.OpaqueSource(ExecutingSource()));
         });
 
         using RenderNodeRasterization rasterization = Rasterize(outer);
@@ -227,7 +227,7 @@ public sealed class OrphanedTargetEffectContractTests
         using var inner = new DelegateNode(context => context.Drop(foreign!));
         using var outer = new DelegateNode(context =>
         {
-            foreign = context.OpaqueSource(ExecutingSource("foreign-source"));
+            foreign = context.OpaqueSource(ExecutingSource());
             context.RecordNode(inner, []);
             context.Publish(foreign);
         });
@@ -244,7 +244,7 @@ public sealed class OrphanedTargetEffectContractTests
     {
         using var node = new DelegateNode(context =>
         {
-            RenderFragmentHandle source = context.OpaqueSource(ExecutingSource("published-source"));
+            RenderFragmentHandle source = context.OpaqueSource(ExecutingSource());
             context.Publish(source);
             context.Drop(source);
         });
@@ -261,7 +261,7 @@ public sealed class OrphanedTargetEffectContractTests
     {
         using var node = new DelegateNode(context =>
         {
-            RenderFragmentHandle source = context.OpaqueSource(ExecutingSource("redeemed-source"));
+            RenderFragmentHandle source = context.OpaqueSource(ExecutingSource());
             context.Drop(source);
             context.Publish(source);
         });
@@ -310,7 +310,7 @@ public sealed class OrphanedTargetEffectContractTests
         };
     }
 
-    private static OpaqueRenderDescription ExecutingSource(object _)
+    private static OpaqueRenderDescription ExecutingSource()
     {
         return RenderDescriptionFactory.Opaque(
             static session =>
@@ -335,11 +335,6 @@ public sealed class OrphanedTargetEffectContractTests
                 CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             });
         return renderer.Rasterize();
-    }
-
-    private sealed class DelegateNode(Action<RenderNodeContext> process) : RenderNode
-    {
-        public override void Process(RenderNodeContext context) => process(context);
     }
 
     private sealed class OrphaningChildNode(Action<RenderNodeContext> process) : RenderNode

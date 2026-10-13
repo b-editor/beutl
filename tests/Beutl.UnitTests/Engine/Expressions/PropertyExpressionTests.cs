@@ -1,5 +1,4 @@
-﻿using System.Collections.Concurrent;
-using Beutl.Animation;
+﻿using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Composition;
 using Beutl.Engine;
@@ -7,6 +6,7 @@ using Beutl.Engine.Expressions;
 using Beutl.Graphics.Shapes;
 using Beutl.Logging;
 using Beutl.ProjectSystem;
+using Beutl.UnitTests.TestInfrastructure;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.UnitTests.Engine.Expressions;
@@ -49,7 +49,7 @@ public class PropertyExpressionTests
     {
         if (!Log.IsLoggerFactoryConfigured)
             Log.LoggerFactory = LoggerFactory.Create(builder => builder.SetMinimumLevel(LogLevel.Warning));
-        using var logs = new CaptureLoggerProvider();
+        using var logs = new CapturingLoggerProvider(category => category == "PropertyExpression");
         Log.LoggerFactory.AddProvider(logs);
         IProperty<float> property = animated ? new AnimatableProperty<float>(7) : new SimpleProperty<float>(7);
         property.SetAttributes("Value", []);
@@ -61,12 +61,12 @@ public class PropertyExpressionTests
         Assert.That(property.GetValue(new CompositionContext(TimeSpan.FromSeconds(2))), Is.EqualTo(5));
         Assert.That(property.ExpressionError, Is.Null);
         Assert.That(property.GetValue(failingContext), Is.EqualTo(7));
-        Assert.That(logs.Errors, Has.Count.EqualTo(1));
+        Assert.That(logs.Entries, Has.Count.EqualTo(1));
 
         property.Expression = new StringExpression<float>("20 / (int)Time");
         Assert.That(property.ExpressionError, Is.Null);
         Assert.That(property.GetValue(failingContext), Is.EqualTo(7));
-        Assert.That(logs.Errors, Has.Count.EqualTo(2));
+        Assert.That(logs.Entries, Has.Count.EqualTo(2));
     }
 
     [TestCase(false, false)]
@@ -77,7 +77,7 @@ public class PropertyExpressionTests
     {
         if (!Log.IsLoggerFactoryConfigured)
             Log.LoggerFactory = LoggerFactory.Create(builder => builder.SetMinimumLevel(LogLevel.Warning));
-        using var logs = new CaptureLoggerProvider();
+        using var logs = new CapturingLoggerProvider(category => category == "PropertyExpression");
         Log.LoggerFactory.AddProvider(logs);
         IProperty<float> property = animated ? new AnimatableProperty<float>(7) : new SimpleProperty<float>(7);
         property.SetAttributes("Value", []);
@@ -106,7 +106,7 @@ public class PropertyExpressionTests
             Assert.That(property.ExpressionError, Is.EqualTo(oldFailure ? null : "New failure"));
             Assert.That(property.GetValue(new CompositionContext(TimeSpan.Zero)), Is.EqualTo(7));
             Assert.That(property.ExpressionError, Is.EqualTo("New failure"));
-            Assert.That(logs.Errors.Count(error => error?.Message == "New failure"), Is.EqualTo(1));
+            Assert.That(logs.Entries.Count(entry => entry.Exception?.Message == "New failure"), Is.EqualTo(1));
         }
         finally
         {
@@ -121,7 +121,7 @@ public class PropertyExpressionTests
     {
         if (!Log.IsLoggerFactoryConfigured)
             Log.LoggerFactory = LoggerFactory.Create(builder => builder.SetMinimumLevel(LogLevel.Warning));
-        using var logs = new CaptureLoggerProvider(throwOnLog: true);
+        using var logs = new CapturingLoggerProvider(category => category == "PropertyExpression", throwOnLog: true);
         Log.LoggerFactory.AddProvider(logs);
         IProperty<float> property = animated ? new AnimatableProperty<float>(7) : new SimpleProperty<float>(7);
         property.Expression = new TestExpression(() => throw new ExpressionException("Evaluation failed"));
@@ -132,7 +132,7 @@ public class PropertyExpressionTests
         {
             Assert.That(property.ExpressionError, Is.EqualTo("Evaluation failed"));
             Assert.That(context.IsEvaluating(property), Is.False);
-            Assert.That(logs.Errors, Has.Count.EqualTo(1));
+            Assert.That(logs.Entries, Has.Count.EqualTo(1));
         });
     }
 
@@ -178,34 +178,6 @@ public class PropertyExpressionTests
         {
             error = null;
             return true;
-        }
-    }
-
-    private sealed class CaptureLoggerProvider(bool throwOnLog = false) : ILoggerProvider
-    {
-        private bool _disposed;
-        private readonly bool _throwOnLog = throwOnLog;
-        public ConcurrentQueue<Exception?> Errors { get; } = new();
-
-        public ILogger CreateLogger(string categoryName) => new CaptureLogger(this, categoryName);
-
-        public void Dispose() => _disposed = true;
-
-        private sealed class CaptureLogger(CaptureLoggerProvider provider, string category) : ILogger
-        {
-            public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
-
-            public bool IsEnabled(LogLevel logLevel) => !provider._disposed && category == "PropertyExpression";
-
-            public void Log<TState>(LogLevel level, EventId id, TState state, Exception? exception,
-                Func<TState, Exception?, string> formatter)
-            {
-                if (IsEnabled(level))
-                {
-                    provider.Errors.Enqueue(exception);
-                    if (provider._throwOnLog) throw new InvalidOperationException("Logging failed");
-                }
-            }
         }
     }
 }

@@ -1,7 +1,4 @@
-﻿using Avalonia;
-using Avalonia.Animation;
-using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
+﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Threading;
@@ -45,30 +42,10 @@ public sealed class ListEditorDragBehavior : GenericDragBehavior
 
 public partial class ListEditor : UserControl
 {
-    private static readonly Lazy<CrossFade> s_crossFade = new(() => new(TimeSpan.FromSeconds(0.25)));
-    private CancellationTokenSource? _lastTransitionCts;
-    private bool _flyoutOpen;
-
     public ListEditor()
     {
         InitializeComponent();
-        expandToggle.GetObservable(ToggleButton.IsCheckedProperty)
-            .Subscribe(async value =>
-            {
-                _lastTransitionCts?.Cancel();
-                _lastTransitionCts = new CancellationTokenSource();
-
-                if (value == true)
-                {
-                    await s_crossFade.Value.Start(null, expandItem, _lastTransitionCts.Token);
-                }
-                else
-                {
-                    await s_crossFade.Value.Start(expandItem, null, _lastTransitionCts.Token);
-                }
-
-                expandItem.IsVisible = value == true;
-            });
+        ExpandTransitionHelper.Attach(expandToggle, expandItem);
     }
 
     private void InitializeClick(object? sender, RoutedEventArgs e)
@@ -101,24 +78,18 @@ public partial class ListEditor : UserControl
         }
     }
 
-    private async Task<object?> SelectTypeOrReference()
+    private Task<object?> SelectTypeOrReference()
     {
-        if (_flyoutOpen) return null;
-        if (DataContext is not IListEditorViewModel { IsDisposed: false } viewModel) return null;
+        if (DataContext is not IListEditorViewModel { IsDisposed: false } viewModel) return Task.FromResult<object?>(null);
 
-        try
+        return PickerGuard.RunAsync(this, () =>
         {
-            _flyoutOpen = true;
             Type propertyType = viewModel.ItemType;
             string format = propertyType.FullName!;
             var selectVm = new SelectLibraryItemDialogViewModel(format, propertyType);
 
-            return await LibraryItemPickerHelper.ShowAsync(this, selectVm, format);
-        }
-        finally
-        {
-            _flyoutOpen = false;
-        }
+            return LibraryItemPickerHelper.ShowAsync(this, selectVm, format);
+        });
     }
 
     private async void Add_Click(object? sender, RoutedEventArgs e)

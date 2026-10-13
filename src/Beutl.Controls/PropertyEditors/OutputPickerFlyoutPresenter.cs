@@ -182,7 +182,7 @@ public class OutputPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
         }
     }
 
-    public void FocusInitialElement()
+    public override void FocusInitialElement()
     {
         Dispatcher.UIThread.Post(FocusListBox, DispatcherPriority.Input);
     }

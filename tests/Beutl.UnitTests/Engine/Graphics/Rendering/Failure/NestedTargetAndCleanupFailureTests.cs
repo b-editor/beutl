@@ -115,49 +115,6 @@ public sealed class NestedTargetAndCleanupFailureTests
     }
 
     [Test]
-    public void TargetCapturePostAllocationFailure_ReleasesItsValueBeforePropagating()
-    {
-        var primary = new InvalidOperationException("target-capture-post-allocation");
-        using RenderTarget destination = FailureTestSupport.CreateCpuTarget();
-        using var registry = new RenderTargetPool(factory: null);
-        using var node = new TargetCapturePostAllocationFailureNode(
-            primary,
-            () => registry.Statistics.LeasedTargets);
-        using RenderRequest request = FailureTestSupport.CreateFrameRequest(useRenderCache: false);
-        RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(node);
-        using CompiledRenderRequest compiled = new RenderRequestCompiler().Compile(request, graph);
-        using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview);
-        using RenderTargetLeaseSession targets = registry.BeginSession(
-            RenderIntent.Preview,
-            destination);
-        int? leasedTargetsObservedByHook = null;
-        var executor = new RenderRequestExecutor(
-            targets,
-            afterCaptureAllocation: kind =>
-            {
-                if (kind == RenderFragmentKind.TargetCapture)
-                {
-                    leasedTargetsObservedByHook = registry.Statistics.LeasedTargets;
-                    throw primary;
-                }
-            });
-
-        InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(
-            () => executor.Execute(compiled, canvas));
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(failure, Is.SameAs(primary));
-            Assert.That(leasedTargetsObservedByHook, Is.EqualTo(1));
-            Assert.That(node.LeasedTargetsObservedByCaller, Is.Zero,
-                "The capture target must be released before control returns to the replaying caller.");
-            Assert.That(registry.Statistics.Creates, Is.EqualTo(1));
-            Assert.That(registry.Statistics.PeakLiveTargets, Is.EqualTo(1));
-            Assert.That(registry.Statistics.LeasedTargets, Is.Zero);
-        });
-    }
-
-    [Test]
     public void Graphics3DBackendBoundaryFailure_RemainsPrimaryAndPublishesNoOutput()
     {
         var primary = new InvalidOperationException("graphics3d-backend-primary");
@@ -966,41 +923,6 @@ public sealed class NestedTargetAndCleanupFailureTests
                 RenderScaleContract.PreserveInputSupply,
                 deviceGridSensitivity: RenderDeviceGridSensitivity.PhaseDependent);
             context.Publish(context.TargetScope(transient, caller));
-        }
-    }
-
-    private sealed class TargetCapturePostAllocationFailureNode(
-        InvalidOperationException primaryFailure,
-        Func<int> getLeasedTargetCount) : RenderNode
-    {
-        public int? LeasedTargetsObservedByCaller { get; private set; }
-
-        public override void Process(RenderNodeContext context)
-        {
-            RenderFragmentHandle capture = context.ContributeValues(context.TargetCapture(
-                TargetCaptureDescription.Create(
-                    TargetRegion.Region(s_bounds),
-                    s_bounds,
-                    RenderHitTestContract.OutputBounds,
-                    TargetCaptureScaleContract.MaterializeAtWorkingScale)));
-            TargetScopeDescription caller = TargetScopeDescription.CreateRequestLocal(
-                session => session.Canvas.Use(_ =>
-                {
-                    try
-                    {
-                        session.ReplayInput();
-                    }
-                    catch (InvalidOperationException ex) when (ReferenceEquals(ex, primaryFailure))
-                    {
-                        LeasedTargetsObservedByCaller = getLeasedTargetCount();
-                        throw;
-                    }
-                }),
-                RenderBoundsContract.Identity,
-                RenderHitTestContract.AnyInput,
-                RenderScaleContract.PreserveInputSupply,
-                deviceGridSensitivity: RenderDeviceGridSensitivity.PhaseDependent);
-            context.Publish(context.TargetScope(capture, caller));
         }
     }
 

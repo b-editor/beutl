@@ -96,7 +96,8 @@ public sealed partial class Reconciler
 
     private readonly record struct IncidentIdentity(string? TypeName, string Reason, string? Json);
 
-    private static void ValidateNoNewFallbackObjects(IEditingSession session, CoreObject sandboxRoot)
+    // Internal so tests can call it with a hand-built sandbox.
+    internal static void ValidateNoNewFallbackObjects(IEditingSession session, CoreObject sandboxRoot)
     {
         Dictionary<FallbackIdentity, int> existingFallbacks = CollectFallbackIdentities(session.Root);
         if (FindFirstNewFallback(sandboxRoot, "$", existingFallbacks) is { } occurrence)

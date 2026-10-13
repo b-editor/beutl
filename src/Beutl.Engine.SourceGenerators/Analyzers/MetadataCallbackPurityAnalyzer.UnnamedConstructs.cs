@@ -136,11 +136,7 @@ public sealed partial class MetadataCallbackPurityAnalyzer
             return;
         }
 
-        // A query spells no method at all: every clause is rewritten into a call on what the clause before
-        // it produced, and the compiler picks each call off that value's own type by the query pattern.
-        // The whole query is read at once rather than clause by clause because only its first call runs on
-        // a receiver the source names - the from expression - and which clause carries that call depends on
-        // the clauses before it.
+        // The whole query is read at once because only its first call runs on a receiver the source names.
         if (node is QueryExpressionSyntax query)
         {
             FollowQuery(context, model, body, query, depth, walked, report);
@@ -268,19 +264,8 @@ public sealed partial class MetadataCallbackPurityAnalyzer
             report(node, DescribeMemberKind(member), member, string.Format(NotFollowedWithoutAName, construct));
     }
 
-    /// <summary>
-    /// Reports a member a construct runs without naming it, where an override the rule cannot see past
-    /// may replace the body it followed.
-    /// </summary>
-    /// <remarks>
-    /// Only a receiver whose making is readable carries an instance of one known type; anywhere else the
-    /// declaration the binder picked is only one of the bodies that can run. The declaration is still
-    /// followed, since it is the likeliest body, and the report says that it may not be the one.
-    /// </remarks>
-    /// <param name="throughInterface">
-    /// Whether the construct calls the member through an interface, where a derived class can reimplement
-    /// the interface and run its own body even for a member that is not virtual.
-    /// </param>
+    /// <summary>Reports a member run without being named when an override may replace the body followed.</summary>
+    /// <param name="throughInterface">Whether it is called through an interface a derived class can reimplement.</param>
     private static void ReportOverridable(
         SyntaxNode node,
         ITypeSymbol? receiver,

@@ -30,7 +30,6 @@ public sealed partial class TimelineTabView
 
         var flyout = new MarkerEditFlyout
         {
-            Time = marker.Time,
             MarkerName = marker.Name,
             Note = marker.Note,
             Color = marker.Color.ToAvaColor(),

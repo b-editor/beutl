@@ -38,20 +38,20 @@ public sealed class PreviewSettingsTabViewModel : IToolContext, IPropertyEditorC
 
         // Each group's "enabled" ToggleSwitch (bound two-way below) gates its dependent rows,
         // which reuse the standard property editors. EditorConfig stays the single source of truth.
-        IsOnionSkinEnabled = BindToggle(config, EditorConfig.IsOnionSkinEnabledProperty, v => config.IsOnionSkinEnabled = v);
+        IsOnionSkinEnabled = BindToggle(config, EditorConfig.IsOnionSkinEnabledProperty);
         AddEditors(factory, OnionSkinProperties,
             new CorePropertyAdapter<int>(EditorConfig.OnionSkinPrevCountProperty, config),
             new CorePropertyAdapter<int>(EditorConfig.OnionSkinNextCountProperty, config),
             new CorePropertyAdapter<float>(EditorConfig.OnionSkinPrevOpacityProperty, config),
             new CorePropertyAdapter<float>(EditorConfig.OnionSkinNextOpacityProperty, config));
 
-        IsFrameCacheEnabled = BindToggle(config, EditorConfig.IsFrameCacheEnabledProperty, v => config.IsFrameCacheEnabled = v);
+        IsFrameCacheEnabled = BindToggle(config, EditorConfig.IsFrameCacheEnabledProperty);
         AddEditors(factory, FrameCacheProperties,
             new CorePropertyAdapter<double>(EditorConfig.FrameCacheMaxSizeProperty, config),
             new CorePropertyAdapter<FrameCacheConfigScale>(EditorConfig.FrameCacheScaleProperty, config),
             new CorePropertyAdapter<FrameCacheConfigColorType>(EditorConfig.FrameCacheColorTypeProperty, config));
 
-        IsNodeCacheEnabled = BindToggle(config, EditorConfig.IsNodeCacheEnabledProperty, v => config.IsNodeCacheEnabled = v);
+        IsNodeCacheEnabled = BindToggle(config, EditorConfig.IsNodeCacheEnabledProperty);
         AddEditors(factory, NodeCacheProperties,
             new CorePropertyAdapter<int>(EditorConfig.NodeCacheMaxPixelsProperty, config),
             new CorePropertyAdapter<int>(EditorConfig.NodeCacheMinPixelsProperty, config));
@@ -94,12 +94,12 @@ public sealed class PreviewSettingsTabViewModel : IToolContext, IPropertyEditorC
 
     public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>(Strings.PreviewSettings);
 
-    private ReactiveProperty<bool> BindToggle(EditorConfig config, CoreProperty<bool> property, Action<bool> setter)
+    private ReactiveProperty<bool> BindToggle(EditorConfig config, CoreProperty<bool> property)
     {
         ReactiveProperty<bool> reactive = config.GetObservable(property)
             .ToReactiveProperty()
             .DisposeWith(_disposables);
-        reactive.Subscribe(setter).DisposeWith(_disposables);
+        reactive.Subscribe(v => config.SetValue(property, v)).DisposeWith(_disposables);
         return reactive;
     }
 

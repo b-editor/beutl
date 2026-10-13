@@ -9,7 +9,7 @@ public sealed class DeserializationIncidentsTests
     [Test]
     public void TryCreateFallback_RecordsAnIncident()
     {
-        int before = DeserializationIncidents.FallbackCount;
+        using DeserializationIncidents.Capture incidents = DeserializationIncidents.BeginCapture();
 
         ICoreSerializable? fallback = FallbackDeserializationHelper.TryCreateFallback(
             typeof(Transform), null, new JsonObject());
@@ -17,14 +17,14 @@ public sealed class DeserializationIncidentsTests
         Assert.Multiple(() =>
         {
             Assert.That(fallback, Is.InstanceOf<IFallback>());
-            Assert.That(DeserializationIncidents.FallbackCount, Is.EqualTo(before + 1));
+            Assert.That(incidents.Count, Is.EqualTo(1));
         });
     }
 
     [Test]
     public void TryCreateFallback_WithoutFallbackType_RecordsNothing()
     {
-        int before = DeserializationIncidents.FallbackCount;
+        using DeserializationIncidents.Capture incidents = DeserializationIncidents.BeginCapture();
 
         ICoreSerializable? fallback = FallbackDeserializationHelper.TryCreateFallback(
             typeof(CoreObject), null, new JsonObject());
@@ -32,7 +32,7 @@ public sealed class DeserializationIncidentsTests
         Assert.Multiple(() =>
         {
             Assert.That(fallback, Is.Null);
-            Assert.That(DeserializationIncidents.FallbackCount, Is.EqualTo(before));
+            Assert.That(incidents.Count, Is.Zero);
         });
     }
 }

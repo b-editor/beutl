@@ -18,7 +18,7 @@ internal static partial class SystemMemoryCapacity
         return OperatingSystem.IsWindows() ? GetWindowsMemoryCapacity()
             : OperatingSystem.IsLinux() ? GetLinuxMemoryCapacity()
             : OperatingSystem.IsMacOS() ? GetMacMemoryCapacity()
-            : 1024 * 1024 * 1024;
+            : FallbackBytes;
     }
 
     [SupportedOSPlatform("windows")]

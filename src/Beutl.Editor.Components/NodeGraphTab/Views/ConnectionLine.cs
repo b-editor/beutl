@@ -145,17 +145,7 @@ public sealed class ConnectionLine : Line
 
         context.BeginFigure(StartPoint, false);
 
-        double delta = 0;
-        if (StartPoint.X < EndPoint.X)
-        {
-            delta = (EndPoint.X - StartPoint.X) / 2;
-        }
-        else
-        {
-            delta = (StartPoint.X - EndPoint.X) / 2;
-        }
-
-        delta = Math.Clamp(delta, 10, 50);
+        double delta = Math.Clamp(Math.Abs(EndPoint.X - StartPoint.X) / 2, 10, 50);
 
         context.CubicBezierTo(StartPoint.WithX(StartPoint.X - delta), EndPoint.WithX(EndPoint.X + delta), EndPoint);
 

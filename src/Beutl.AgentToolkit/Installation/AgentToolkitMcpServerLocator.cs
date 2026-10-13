@@ -5,6 +5,7 @@ public static class AgentToolkitMcpServerLocator
     // Returns null when neither a shipped binary nor a source checkout is
     // found — installs must then surface "stdio unavailable" instead of
     // writing a `dotnet run` command that cannot work on the user's machine.
+    // baseDirectory is a test hook; production uses AppContext.BaseDirectory.
     public static AgentToolkitMcpServerCommand? ResolveDefault(string? baseDirectory = null)
     {
         string startDirectory = Path.GetFullPath(baseDirectory ?? AppContext.BaseDirectory);
@@ -21,8 +22,7 @@ public static class AgentToolkitMcpServerLocator
         {
             return new AgentToolkitMcpServerCommand(
                 "dotnet",
-                ["run", "--project", project],
-                "source project");
+                ["run", "--project", project]);
         }
 
         return null;
@@ -36,13 +36,13 @@ public static class AgentToolkitMcpServerLocator
 
         if (File.Exists(executable))
         {
-            return new AgentToolkitMcpServerCommand(executable, [], "published executable");
+            return new AgentToolkitMcpServerCommand(executable, []);
         }
 
         string dll = Path.Combine(directory, "Beutl.AgentToolkit.Mcp.dll");
         if (File.Exists(dll))
         {
-            return new AgentToolkitMcpServerCommand("dotnet", [dll], "published dll");
+            return new AgentToolkitMcpServerCommand("dotnet", [dll]);
         }
 
         return null;

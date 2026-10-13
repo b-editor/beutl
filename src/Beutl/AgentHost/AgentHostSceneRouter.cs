@@ -28,31 +28,23 @@ internal static class AgentHostSceneRouter
                     return tool;
 
                 // The SDK caches local schemas. Publish a clone with the host-specific target.
-                JsonObject node = JsonSerializer.SerializeToNode(tool)!.AsObject();
-                JsonObject schema = node["inputSchema"]!.AsObject();
-                var properties = schema["properties"] as JsonObject;
-                if (properties is null)
-                    schema["properties"] = properties = new JsonObject();
-                properties.Remove("session");
-                properties["sceneId"] = new JsonObject
+                return LiveToolRouting.EditSchema(tool, (schema, properties) =>
                 {
-                    ["type"] = "string",
-                    ["description"] = "Target scene ID from list_scenes or open_project/create_project/add_scene. Pass it on every scene call. The visible editor selection stays unchanged. Closed scenes receive an unselected background tab for normal history and save lifecycle; no attach or shared selected scene is used."
-                };
-                var required = schema["required"] as JsonArray;
-                if (required is not null)
-                {
-                    JsonNode? session = required.FirstOrDefault(item => item?.GetValue<string>() == "session");
-                    if (session is not null)
-                        required.Remove(session);
-                }
-                if (s_required.Contains(tool.Name))
-                {
-                    if (required is null)
-                        schema["required"] = required = new JsonArray();
-                    required.Add("sceneId");
-                }
-                return node.Deserialize<Tool>()!;
+                    properties.Remove("session");
+                    properties["sceneId"] = new JsonObject
+                    {
+                        ["type"] = "string",
+                        ["description"] = "Target scene ID from list_scenes or open_project/create_project/add_scene. Pass it on every scene call. The visible editor selection stays unchanged. Closed scenes receive an unselected background tab for normal history and save lifecycle; no attach or shared selected scene is used."
+                    };
+                    LiveToolRouting.RemoveRequired(schema, "session");
+                    if (s_required.Contains(tool.Name))
+                    {
+                        var required = schema["required"] as JsonArray;
+                        if (required is null)
+                            schema["required"] = required = new JsonArray();
+                        required.Add("sceneId");
+                    }
+                });
             }).ToArray();
             return result;
         });
@@ -83,14 +75,7 @@ internal static class AgentHostSceneRouter
             var sessions = services.GetRequiredService<AgentSessionManager>();
             var gateway = services.GetRequiredService<EditorProjectSessionGateway>();
             sessions.UseRequestTarget(() => gateway.ResolveScene(sceneId));
-            context.Params = new CallToolRequestParams
-            {
-                Name = original.Name,
-                Arguments = localArguments,
-                Meta = original.Meta,
-                InputResponses = original.InputResponses,
-                RequestState = original.RequestState
-            };
+            context.Params = LiveToolRouting.WithArguments(original, localArguments);
             try { return await next(context, cancellationToken).ConfigureAwait(false); }
             finally { context.Params = original; }
         });

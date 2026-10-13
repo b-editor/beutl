@@ -1,5 +1,6 @@
 ﻿using Avalonia.Input;
 using Avalonia.Platform.Storage;
+using Beutl.Controls;
 using Beutl.Editor.Components.FileBrowserTab;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Models;
@@ -150,30 +151,25 @@ public partial class PlayerView
             return elements.Length == 0 ? 0 : elements.Max(v => v.ZIndex) + 1;
         }
 
+        ElementSource? source = null;
         if (e.DataTransfer.TryGetValue(BeutlDataFormats.EngineObject) is { } typeName
             && TypeFormat.ToType(typeName) is { } type)
         {
-            e.Handled = true;
-
-            int zindex = CalculateZIndex(scene);
-
-            await AddElement(editViewModel, new ElementDescription(
-                frame, TimeSpan.FromSeconds(5), zindex,
-                new ElementSource.EngineObject(() => (EngineObject)Activator.CreateInstance(type)!),
-                Position: centeredPosition));
+            source = new ElementSource.EngineObject(() => (EngineObject)Activator.CreateInstance(type)!);
         }
         else if (e.DataTransfer.TryGetFile()?.TryGetLocalPath() is { } fileName)
         {
+            source = new ElementSource.File(fileName);
+        }
+
+        if (source != null)
+        {
+            e.Handled = true;
+
             int zindex = CalculateZIndex(scene);
 
             await AddElement(editViewModel, new ElementDescription(
-                frame,
-                TimeSpan.FromSeconds(5),
-                zindex,
-                new ElementSource.File(fileName),
-                Position: centeredPosition));
-
-            e.Handled = true;
+                frame, TimeSpan.FromSeconds(5), zindex, source, Position: centeredPosition));
         }
     }
 

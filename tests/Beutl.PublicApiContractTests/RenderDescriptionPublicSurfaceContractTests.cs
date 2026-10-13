@@ -356,10 +356,8 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
         });
     }
 
-    // MarkChanged stays the only way to invalidate a cached node, and it only raises: HasChanges has no
-    // setter and nothing public lowers it, so a node cannot withdraw a change it already reported.
-    // DisableRenderCache is not a second invalidation signal: it opts a recording out of caching altogether,
-    // which a node recording a child it does not list in ChildNodes has to be able to do for itself.
+    // MarkChanged is the only public invalidation signal; HasChanges cannot be lowered from outside.
+    // DisableRenderCache opts a recording out of caching and is not a second signal.
     [Test]
     public void MarkChanged_IsTheOnlyPublicNodeInvalidationSignal()
     {
@@ -392,11 +390,8 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
         });
     }
 
-    // The other half of that contract, asked of the nodes rather than of the base: a holder cannot move
-    // state a node's Process reads. Each of these was a public auto-property, so an assignment from outside
-    // left the node reporting no changes and its recording replayable over the new value. Update is now
-    // their only writer, and it marks. BESG005 reports the shape but only as a warning, so this is the
-    // check that fails a build which reopens one.
+    // Process reads these, so only Update (which marks) may write them. BESG005 only warns, so this test is
+    // what fails the build.
     [Test]
     public void BuiltInNodeStateThatProcessReads_IsNotAssignableFromOutsideTheNode()
     {
@@ -625,9 +620,4 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
     }
 
     private sealed class SlotSubject;
-
-    private sealed class DelegateNode(Action<RenderNodeContext> process) : RenderNode
-    {
-        public override void Process(RenderNodeContext context) => process(context);
-    }
 }

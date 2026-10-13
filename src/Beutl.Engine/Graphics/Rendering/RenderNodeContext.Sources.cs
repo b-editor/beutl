@@ -39,8 +39,7 @@ public sealed partial class RenderNodeContext
     /// </param>
     /// <returns>A new transaction-scoped source fragment. The result is not published automatically.</returns>
     /// <remarks>
-    /// Valid only during <see cref="RenderNode.Process(RenderNodeContext)"/>, on the recording context passed to that
-    /// call. This is the engine-side overload, and it keeps two things the public one beside it withholds:
+    /// This is the engine-side overload, and it keeps two things the public one beside it withholds:
     /// <paramref name="directReplayAtExactIntegerReduction"/>, which names a planner fast path an out-of-tree node
     /// has no model of and cannot decide for itself, and a bare <paramref name="resources"/> list converted to
     /// engine-only bindings that no declared hit test can address.
@@ -59,15 +58,11 @@ public sealed partial class RenderNodeContext
         IReadOnlyList<RenderResource>? resources = null,
         Thickness rasterOutset = default)
     {
-        ArgumentNullException.ThrowIfNull(draw);
-        hitTest.ThrowIfUninitialized(nameof(hitTest));
-        scale.ThrowIfUninitialized(nameof(scale));
-        RenderDescriptionValidation.ThrowUnlessFiniteNonEmpty(outputBounds, nameof(outputBounds));
+        ThrowIfPaintedSourceInvalid(draw, hitTest, scale, outputBounds);
 
         // The result is sized from the declaration rather than grown into by a projection. Declaring none is
         // what every painted primitive that only fills and strokes does, so that case shares the empty array.
         IReadOnlyList<RenderResource> declared = resources ?? Array.Empty<RenderResource>();
-        RenderDescriptionValidation.ThrowIfResourcesUndeclarable(declared, nameof(resources));
         RenderResourceBinding[] engineBindings = declared.Count == 0
             ? []
             : new RenderResourceBinding[declared.Count];
@@ -79,7 +74,8 @@ public sealed partial class RenderNodeContext
             draw,
             fill,
             pen,
-            OpaqueRenderBoundsContract.Source(outputBounds, rasterOutset),
+            outputBounds,
+            rasterOutset,
             hitTest,
             scale,
             directReplayAtExactIntegerReduction,
@@ -137,7 +133,6 @@ public sealed partial class RenderNodeContext
     /// Local buffer-only padding for filtering or anti-aliasing outside <paramref name="outputBounds"/>.
     /// </param>
     /// <returns>A new transaction-scoped source fragment. The result is not published automatically.</returns>
-    /// <remarks>Valid only during the active <see cref="RenderNode.Process(RenderNodeContext)"/> call.</remarks>
     public RenderFragmentHandle PaintedSource<TState>(
         TState state,
         PaintedSourceDraw<TState> draw,
@@ -152,10 +147,7 @@ public sealed partial class RenderNodeContext
         Thickness rasterOutset = default)
         where TState : notnull
     {
-        ArgumentNullException.ThrowIfNull(draw);
-        hitTest.ThrowIfUninitialized(nameof(hitTest));
-        scale.ThrowIfUninitialized(nameof(scale));
-        RenderDescriptionValidation.ThrowUnlessFiniteNonEmpty(outputBounds, nameof(outputBounds));
+        ThrowIfPaintedSourceInvalid(draw, hitTest, scale, outputBounds);
         IReadOnlyList<RenderResourceBinding> declaredBindings = bindings ?? Array.Empty<RenderResourceBinding>();
         RenderDescriptionValidation.ThrowIfBindingsUndeclarable(declaredBindings, nameof(bindings));
 
@@ -164,7 +156,8 @@ public sealed partial class RenderNodeContext
             draw,
             fill,
             pen,
-            OpaqueRenderBoundsContract.Source(outputBounds, rasterOutset),
+            outputBounds,
+            rasterOutset,
             hitTest,
             scale,
             directReplayAtExactIntegerReduction: false,
@@ -173,12 +166,26 @@ public sealed partial class RenderNodeContext
             declaredBindings);
     }
 
+    // Both overloads check these first, so a bad declaration is reported before their own resource checks.
+    private static void ThrowIfPaintedSourceInvalid<TState>(
+        PaintedSourceDraw<TState> draw,
+        RenderHitTestContract hitTest,
+        RenderScaleContract scale,
+        Rect outputBounds)
+    {
+        ArgumentNullException.ThrowIfNull(draw);
+        hitTest.ThrowIfUninitialized(nameof(hitTest));
+        scale.ThrowIfUninitialized(nameof(scale));
+        RenderDescriptionValidation.ThrowUnlessFiniteNonEmpty(outputBounds, nameof(outputBounds));
+    }
+
     private RenderFragmentHandle PaintedSourceCore<TState>(
         TState state,
         PaintedSourceDraw<TState> draw,
         Brush.Resource? fill,
         Pen.Resource? pen,
-        OpaqueRenderBoundsContract bounds,
+        Rect outputBounds,
+        Thickness rasterOutset,
         RenderHitTestContract hitTest,
         RenderScaleContract scale,
         bool directReplayAtExactIntegerReduction,
@@ -186,6 +193,7 @@ public sealed partial class RenderNodeContext
         bool supportsDirectDstOut,
         IReadOnlyList<RenderResourceBinding> declaredBindings)
     {
+        OpaqueRenderBoundsContract bounds = OpaqueRenderBoundsContract.Source(outputBounds, rasterOutset);
         GetTransaction();
 
         // Sized for what goes in it: the declared bindings, then the fill and the pen where present. A
@@ -228,11 +236,7 @@ public sealed partial class RenderNodeContext
     }
 
     /// <summary>Lists a painted source's declared resources once each, in declaration order.</summary>
-    /// <remarks>
-    /// The list this de-duplicates carries a drawable's declared bindings plus its fill and pen, so it is at
-    /// most a handful of entries and a scan settles membership for less than a set costs to build. This runs
-    /// once per painted primitive per recording.
-    /// </remarks>
+    /// <remarks>The list holds a handful of entries, so a scan costs less than building a set.</remarks>
     private static RenderResource[] DistinctResources(RenderResourceBinding[] bindings)
     {
         var distinct = new RenderResource[bindings.Length];
@@ -380,9 +384,9 @@ public sealed partial class RenderNodeContext
         IReadOnlyList<RenderFragmentHandle> inputs,
         RenderResource<FilterEffectContext> effectContext,
         Rect outputBounds,
-        bool requiresOwningTargetDomain = false,
-        IReadOnlyList<IFEItem>? boundsItems = null,
-        FilterEffectWorkingScalePolicy? workingScalePolicy = null)
+        bool requiresOwningTargetDomain,
+        IReadOnlyList<IFEItem> boundsItems,
+        FilterEffectWorkingScalePolicy? workingScalePolicy)
     {
         ArgumentNullException.ThrowIfNull(effectContext);
         NodeRecordingTransaction transaction = GetTransaction();
@@ -393,10 +397,9 @@ public sealed partial class RenderNodeContext
         ValidateDescriptionResources([effectContext], nameof(effectContext));
 
         RenderRectValidation.ThrowIfInvalidInput(outputBounds, nameof(effectContext));
-        IReadOnlyList<IFEItem> recordedBoundsItems = boundsItems ?? [];
         Rect[] bufferBounds = FilterEffectWorkingScalePolicy.CalculateEffectItemBufferBounds(
             references.SelectToArray(static item => item.Bounds),
-            recordedBoundsItems,
+            boundsItems,
             outputBounds);
         EffectiveScale scale;
         if (workingScalePolicy is { } policy)
@@ -419,7 +422,7 @@ public sealed partial class RenderNodeContext
 
         RenderValueCardinality cardinality = ResolveFilterEffectSegmentCardinality(
             references,
-            recordedBoundsItems,
+            boundsItems,
             outputBounds,
             requiresOwningTargetDomain);
 
@@ -435,7 +438,7 @@ public sealed partial class RenderNodeContext
             references,
             new FilterEffectSegmentRenderFragmentPayload(
                 effectContext,
-                [.. recordedBoundsItems],
+                [.. boundsItems],
                 workingScalePolicy,
                 references.Length),
             RenderFragmentHitTest.Bounds,
@@ -524,8 +527,7 @@ public sealed partial class RenderNodeContext
             bool outputMayBeEmpty = requiresOwningTargetDomain
                                     || outputBounds.Width == 0
                                     || outputBounds.Height == 0
-                                    || items.Any(static item =>
-                                        item is IFEItem_Skia { ResolveBoundsAtExecutionTime: true });
+                                    || items.Any(static item => item is IFEItem_DeferredBounds);
             return outputMayBeEmpty
                 ? RenderValueCardinality.ZeroOrOne
                 : RenderValueCardinality.Single;

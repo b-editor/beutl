@@ -217,12 +217,9 @@ internal sealed class RenderFragmentReference
 
     /// <summary>Recreates this fragment for another request, over <paramref name="inputs"/>.</summary>
     /// <remarks>
-    /// The clone carries the values this fragment was recorded with, not the ones metadata resolution later
-    /// wrote into it: a fragment is rebased before any request resolves it, and reproducing a resolved value
-    /// would hand the new request a bound the previous one settled. Everything the constructor derives from
-    /// the inputs is derived again from the ones given here - the hit-test rule included, which is why a
-    /// clone answers over the fragments it is replayed onto rather than the ones it was recorded over. A
-    /// clone made over no inputs at all is therefore a faithful template for one made over real ones.
+    /// The clone carries the recorded values, not the resolved ones, because a fragment is rebased before any
+    /// request resolves it. What the constructor derives from inputs, the hit-test rule included, is derived again
+    /// from <paramref name="inputs"/>, so a clone over no inputs is a faithful template.
     /// </remarks>
     internal RenderFragmentReference CloneForReplay(ImmutableArray<RenderFragmentReference> inputs)
         => new(

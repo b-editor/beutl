@@ -11,10 +11,6 @@ on:
       nugetVer:
         required: true
         type: string
-    outputs:
-      artifact-run-id:
-        description: Run ID that published the artifacts
-        value: ${{ jobs.build-flatpak-package.outputs.artifact-run-id }}
 
 defaults:
   run:
@@ -24,8 +20,6 @@ jobs:
   build-flatpak-package:
     # flatpak-builder builds for the runner's own architecture.
     runs-on: ${{ matrix.runner }}
-    outputs:
-      artifact-run-id: ${{ steps.run-id.outputs.run-id }}
     strategy:
       matrix:
         include:
@@ -39,10 +33,6 @@ jobs:
             bundle: Beutl-arm64-${{ inputs.semVer }}.flatpak
 
     steps:
-      - name: Set artifact run id
-        id: run-id
-        run: echo "run-id=${{ github.run_id }}" >> $GITHUB_OUTPUT
-
       - name: Checkout
         uses: actions/checkout@v7.0.1
         with:

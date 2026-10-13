@@ -1,12 +1,6 @@
 ﻿using System.Text.Json.Nodes;
-using Beutl.Graphics;
-using Beutl.Graphics.Shapes;
-using Beutl.Logging;
-using Beutl.NodeGraph;
-using Beutl.NodeGraph.Nodes;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
-using Microsoft.Extensions.Logging;
 
 namespace Beutl.UnitTests.Core;
 
@@ -147,58 +141,13 @@ public class JsonSerializationTest
         }
     }
 
-    [SetUp]
-    public void Setup()
-    {
-        Log.LoggerFactory = LoggerFactory.Create(b => b.AddSimpleConsole());
-    }
-
-    [Test]
-    public void Serialize()
-    {
-        BeutlApplication app = BeutlApplication.Current;
-        var proj = new Project();
-        var basePath = Path.GetFullPath(ArtifactProvider.GetArtifactDirectory());
-
-        CoreSerializer.StoreToUri(proj, UriHelper.CreateFromPath(Path.Combine(basePath, $"0.bproj")));
-        app.Project = proj;
-
-        var scene = new Scene();
-        CoreSerializer.StoreToUri(scene, UriHelper.CreateFromPath(Path.Combine(basePath, $"0.scene")));
-        proj.Items.Add(scene);
-        var elm1 = new Element();
-        CoreSerializer.StoreToUri(elm1, UriHelper.CreateFromPath(Path.Combine(basePath, $"0.layer")));
-        scene.AddChild(elm1);
-        elm1.Objects.Add(new EllipseShape());
-        elm1.Objects.Add(new DrawableDecorator());
-
-        var elm2 = new Element { ZIndex = 2 };
-        CoreSerializer.StoreToUri(elm2, UriHelper.CreateFromPath(Path.Combine(basePath, $"1.layer")));
-        scene.AddChild(elm2);
-        var nodeGraphDrawable = new NodeGraphDrawable();
-        elm2.Objects.Add(nodeGraphDrawable);
-        var graphModel = nodeGraphDrawable.Model.CurrentValue!;
-        var rectNode = new RectGeometryNode();
-        var shapeNode = new GeometryShapeNode();
-        var outNode = new OutputNode();
-        graphModel.Nodes.Add(rectNode);
-        graphModel.Nodes.Add(shapeNode);
-        graphModel.Nodes.Add(outNode);
-
-        graphModel.Connect((IInputPort)shapeNode.Items[1], rectNode.OutputPort);
-        graphModel.Connect((IInputPort)outNode.Items[0], (IOutputPort)shapeNode.Items[0]);
-    }
-
-    // SaveReferencedObjectsのテスト
-    [Test]
-    public void SerializeWithSaveReferencedObjects()
+    private string SerializeWithSaveReferencedObjects()
     {
         var basePath = Path.GetFullPath(ArtifactProvider.GetArtifactDirectory());
         var projPath = Path.Combine(basePath, "0.bproj");
         var scenePath = Path.Combine(basePath, "0", "0.scene");
         var layerPath = Path.Combine(basePath, "0", "1", "0.layer");
 
-        // 既存のファイルを削除
         if (File.Exists(projPath)) File.Delete(projPath);
         if (File.Exists(scenePath)) File.Delete(scenePath);
         if (File.Exists(layerPath)) File.Delete(layerPath);
@@ -213,19 +162,16 @@ public class JsonSerializationTest
 
         CoreSerializer.StoreToUri(proj, proj.Uri, CoreSerializationMode.Write | CoreSerializationMode.SaveReferencedObjects);
 
-        // ファイルが存在することを確認
         Assert.That(File.Exists(projPath), Is.True);
         Assert.That(File.Exists(scenePath), Is.True);
         Assert.That(File.Exists(layerPath), Is.True);
+        return projPath;
     }
 
     [Test]
     public void DeserializeWithSaveReferencedObjects()
     {
-        SerializeWithSaveReferencedObjects();
-
-        var basePath = Path.GetFullPath(Path.Combine(ArtifactProvider.GetArtifactDirectory(), "../SerializeWithSaveReferencedObjects"));
-        var projPath = Path.Combine(basePath, "0.bproj");
+        string projPath = SerializeWithSaveReferencedObjects();
 
         BeutlApplication app = BeutlApplication.Current;
 
@@ -272,15 +218,12 @@ public class JsonSerializationTest
         }
     }
 
-    // EmbedReferencedObjectsのテスト
-    [Test]
-    public void SerializeWithEmbedReferencedObjects()
+    private string SerializeWithEmbedReferencedObjects()
     {
         var basePath = Path.GetFullPath(ArtifactProvider.GetArtifactDirectory());
         var projPath = Path.Combine(basePath, "0.bproj");
         var scenePath = Path.Combine(basePath, "0", "0.scene");
         var layerPath = Path.Combine(basePath, "0", "1", "0.layer");
-        // 既存のファイルを削除
         if (File.Exists(projPath)) File.Delete(projPath);
         if (File.Exists(scenePath)) File.Delete(scenePath);
         if (File.Exists(layerPath)) File.Delete(layerPath);
@@ -295,19 +238,16 @@ public class JsonSerializationTest
 
         CoreSerializer.StoreToUri(proj, proj.Uri, CoreSerializationMode.Write | CoreSerializationMode.EmbedReferencedObjects);
 
-        // ファイルが存在することを確認
         Assert.That(File.Exists(projPath), Is.True);
         Assert.That(File.Exists(scenePath), Is.False);
         Assert.That(File.Exists(layerPath), Is.False);
+        return projPath;
     }
 
     [Test]
     public void DeserializeWithEmbedReferencedObjects()
     {
-        SerializeWithEmbedReferencedObjects();
-
-        var basePath = Path.GetFullPath(Path.Combine(ArtifactProvider.GetArtifactDirectory(), "../SerializeWithEmbedReferencedObjects"));
-        var projPath = Path.Combine(basePath, "0.bproj");
+        string projPath = SerializeWithEmbedReferencedObjects();
 
         BeutlApplication app = BeutlApplication.Current;
 

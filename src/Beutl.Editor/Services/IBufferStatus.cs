@@ -17,7 +17,6 @@ public interface IBufferStatus
 
     void UpdateBlocks();
 
-    // キャッシュ操作
     void ClearCache();
 
     void LockCache(int startFrame, int endFrame);

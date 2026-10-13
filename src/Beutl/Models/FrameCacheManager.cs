@@ -26,8 +26,6 @@ public sealed partial class FrameCacheManager : IDisposable
         _maxSize = maxSize.ToReadOnlyReactivePropertySlim();
     }
 
-    public ImmutableArray<CacheBlock> Blocks { get; private set; } = [];
-
     /// <summary>
     /// Cache-entry format. Assigning options that change the stored representation drops every entry;
     /// mixing the two makes playback alternate between resolutions.
@@ -215,8 +213,7 @@ public sealed partial class FrameCacheManager : IDisposable
 
             _size = 0;
             _entries.Clear();
-            Blocks = [];
-            BlocksUpdated?.Invoke(Blocks);
+            BlocksUpdated?.Invoke([]);
         }
     }
 
@@ -308,25 +305,14 @@ public sealed partial class FrameCacheManager : IDisposable
     private void DeleteBackwardBlocks(int currentFrame)
     {
         ImmutableArray<CacheBlock> blocks = CalculateBlocks(int.MinValue, currentFrame);
-        CacheBlock? skip = null;
 
         foreach (CacheBlock? item in blocks.Where(v => !v.IsLocked)
             .OrderByDescending(b => b.Length)
             .ToArray())
         {
-            if (item.Start + item.Length < currentFrame)
-            {
-                skip = item;
-            }
-
             DeleteRange(item.Start, item.Start + item.Length);
             if (_size <= _maxSize.Value)
                 return;
-        }
-
-        if (skip != null)
-        {
-            DeleteRange(skip.Start, skip.Start + skip.Length - 1);
         }
     }
 

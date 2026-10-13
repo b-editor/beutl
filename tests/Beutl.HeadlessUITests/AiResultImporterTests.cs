@@ -222,7 +222,7 @@ public sealed class AiResultImporterTests
         scene.Uri = null;
         var adder = new CapturingElementAdder(producedElementCount: 1);
         var importer = new AiResultImporter(scene, adder, AcceptVideoAsync);
-        string unrelatedDirectory = AiResultImporter.GetUnsavedSceneDirectory(Guid.NewGuid());
+        string unrelatedDirectory = UnsavedSceneStorage.GetDirectory(Guid.NewGuid());
         string unrelatedFile = Path.Combine(unrelatedDirectory, "keep.txt");
         Directory.CreateDirectory(unrelatedDirectory);
         await File.WriteAllTextAsync(unrelatedFile, "unrelated");
@@ -237,7 +237,7 @@ public sealed class AiResultImporterTests
                     TimeSpan.FromSeconds(4),
                     0,
                     "AI video"));
-            string ownedDirectory = AiResultImporter.GetUnsavedSceneDirectory(scene.Id);
+            string ownedDirectory = UnsavedSceneStorage.GetDirectory(scene.Id);
             Assert.That(File.Exists(adder.StagedPath), Is.True);
 
             await TestShell.Editor.CloseTabItem(tab);
@@ -266,7 +266,7 @@ public sealed class AiResultImporterTests
         scene.Uri = null;
         var adder = new CapturingElementAdder(producedElementCount: 1);
         var importer = new AiResultImporter(scene, adder, AcceptVideoAsync);
-        string ownedDirectory = AiResultImporter.GetUnsavedSceneDirectory(scene.Id);
+        string ownedDirectory = UnsavedSceneStorage.GetDirectory(scene.Id);
 
         try
         {
@@ -458,7 +458,7 @@ public sealed class AiResultImporterTests
         Scene scene = editor.Scene;
         Uri savedSceneUri = scene.Uri!;
         scene.Uri = null;
-        string ownedDirectory = AiResultImporter.GetUnsavedSceneDirectory(scene.Id);
+        string ownedDirectory = UnsavedSceneStorage.GetDirectory(scene.Id);
         using var bitmap = new Bitmap(2, 2);
         var importer = new AiResultImporter(
             scene,
@@ -568,7 +568,7 @@ public sealed class AiResultImporterTests
         Scene scene = editor.Scene;
         Uri eventualSceneUri = scene.Uri!;
         scene.Uri = null;
-        string ownedDirectory = AiResultImporter.GetUnsavedSceneDirectory(scene.Id);
+        string ownedDirectory = UnsavedSceneStorage.GetDirectory(scene.Id);
         string failureRoot = Path.Combine(
             BeutlHomeIsolation.CurrentHome!,
             $"blocked-save-{Guid.NewGuid():N}");
@@ -642,7 +642,7 @@ public sealed class AiResultImporterTests
         string resourceDirectory = Path.Combine(sceneDirectory, "resources", "ai");
         byte[] sceneBefore = File.ReadAllBytes(sceneFile);
         scene.Uri = null;
-        string ownedDirectory = AiResultImporter.GetUnsavedSceneDirectory(scene.Id);
+        string ownedDirectory = UnsavedSceneStorage.GetDirectory(scene.Id);
         using var bitmap = new Bitmap(2, 2);
         var importer = new AiResultImporter(
             scene,

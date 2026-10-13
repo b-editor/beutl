@@ -47,8 +47,7 @@ public class NodePortViewModel : NodeMemberViewModel
 
     private void SetViewModel(ConnectionViewModel viewModel)
     {
-        // 終わってるコード❤
-        // 派生クラスで実装すべき
+        // ノード VM の構築中はグラフ側の検索がこのポートを見つけられないので、ここで接続 VM に自分を設定する。
         if (Model is IInputPort)
         {
             viewModel.InputPortVM.Value = this as InputPortViewModel;
@@ -72,7 +71,6 @@ public class NodePortViewModel : NodeMemberViewModel
     private ConnectionViewModel? AttachConnection(Reference<Connection> connection)
     {
         var graph = GraphNodeViewModel.NodeGraphViewModel;
-        // すでに存在する場合はスキップする
         var connVM = graph.AllConnections.FirstOrDefault(i => i.Connection.Id == connection.Id);
         if (connVM == null)
         {

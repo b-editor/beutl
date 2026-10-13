@@ -164,8 +164,7 @@ public sealed class UnknownDataApplyTests
     // installed, with animations, expressions and a value of its own.
     private static (Scene Scene, string ElementPath, JsonObject Written) CreateScene()
     {
-        string dir = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        string dir = TestWorkspace.CreateDirectory();
         var sceneUri = new Uri(Path.Combine(dir, "Scene.scene"));
         string elementPath = Path.Combine(dir, "element.belm");
         var scene = new Scene(1920, 1080, "Scene") { Uri = sceneUri, Duration = TimeSpan.FromSeconds(10) };
@@ -200,8 +199,7 @@ public sealed class UnknownDataApplyTests
     // store an object, then gives the second one a type from a plugin that is not installed.
     private static (Scene Scene, string ElementPath, string SidecarPath) CreateSceneWithAFallbackInItsOwnFile()
     {
-        string dir = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        string dir = TestWorkspace.CreateDirectory();
         var sceneUri = new Uri(Path.Combine(dir, "Scene.scene"));
         string elementPath = Path.Combine(dir, "element.belm");
         string sidecarPath = Path.Combine(dir, "parts", "plugin.json");

@@ -1,5 +1,4 @@
 ﻿using System.Collections.ObjectModel;
-using System.Diagnostics.CodeAnalysis;
 using System.Windows.Input;
 using Avalonia;
 using Avalonia.Collections;
@@ -8,13 +7,11 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Platform.Storage;
 using Avalonia.VisualTree;
 using Beutl.Api.Services;
-using Beutl.Configuration;
 using Beutl.Editor;
 using Beutl.Editor.Components.VersionControl.Views;
 using Beutl.Editor.Services;
 using Beutl.Editor.VersionControl;
 using Beutl.Models;
-using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
@@ -65,7 +62,7 @@ public partial class MainView
             await dialog.ShowAsync();
         }).AddTo(_disposables);
 
-        viewModel.MenuBar.DeleteLayer.Subscribe(OnDeleteElement).AddTo(_disposables);
+        viewModel.MenuBar.ConfirmDeleteElementAsync = ConfirmDeleteElementAsync;
 
         viewModel.MenuBar.Exit.Subscribe(() =>
         {
@@ -261,43 +258,17 @@ public partial class MainView
             .AddTo(_disposables);
     }
 
-    private bool TryGetSelectedEditViewModel([NotNullWhen(true)] out EditViewModel? viewModel)
+    private static async Task<bool> ConfirmDeleteElementAsync(string name)
     {
-        if (DataContext is not MainViewModel mv) { viewModel = null; return false; }
-        if (mv.EditorService.SelectedTabItem.Value?.Context.Value is EditViewModel editViewModel)
+        var dialog = new FAContentDialog
         {
-            viewModel = editViewModel;
-            return true;
-        }
-        else
-        {
-            viewModel = null;
-            return false;
-        }
-    }
+            CloseButtonText = Strings.Cancel,
+            PrimaryButtonText = Strings.OK,
+            DefaultButton = FAContentDialogButton.Primary,
+            Content = MessageStrings.ConfirmDeleteFile + "\n" + name
+        };
 
-    private async Task OnDeleteElement()
-    {
-        if (TryGetSelectedEditViewModel(out EditViewModel? viewModel)
-            && viewModel.Scene is Scene scene
-            && viewModel.GetService<IEditorSelection>()?.SelectedObject.Value is Element element)
-        {
-            string path = element.Uri!.LocalPath;
-            string name = Path.GetFileName(path);
-            var dialog = new FAContentDialog
-            {
-                CloseButtonText = Strings.Cancel,
-                PrimaryButtonText = Strings.OK,
-                DefaultButton = FAContentDialogButton.Primary,
-                Content = MessageStrings.ConfirmDeleteFile + "\n" + name
-            };
-
-            if (await dialog.ShowAsync() == FAContentDialogResult.Primary)
-            {
-                viewModel.GetRequiredService<IElementStructureService>()
-                    .Delete(scene, [element], GlobalConfiguration.Instance.EditorConfig.IsRippleEnabled);
-            }
-        }
+        return await dialog.ShowAsync() == FAContentDialogResult.Primary;
     }
 
     private async void OnRemoveFromProject(EditorTabItem? item)
@@ -344,22 +315,19 @@ public partial class MainView
             return;
         }
 
-        var filters = new List<FilePickerFileType>();
-
-        filters.AddRange(viewModel.ExtensionProvider.GetExtensions<EditorExtension>()
-            .Select(e => e.GetFilePickerFileType())
-            .ToArray());
-        var options = new FilePickerOpenOptions { AllowMultiple = true, FileTypeFilter = filters };
+        var options = new FilePickerOpenOptions
+        {
+            AllowMultiple = true,
+            FileTypeFilter = [.. viewModel.ExtensionProvider.GetExtensions<EditorExtension>()
+                .Select(e => e.GetFilePickerFileType())]
+        };
 
         IReadOnlyList<IStorageFile> files = await window.StorageProvider.OpenFilePickerAsync(options);
-        if (files.Count > 0)
+        foreach (IStorageFile file in files)
         {
-            foreach (IStorageFile file in files)
+            if (file.TryGetLocalPath() is { } path)
             {
-                if (file.TryGetLocalPath() is { } path)
-                {
-                    viewModel.MenuBar.OpenFileCore(path);
-                }
+                viewModel.MenuBar.OpenFileCore(path);
             }
         }
     }
@@ -418,13 +386,7 @@ public partial class MainView
         {
             try
             {
-                ExportResult result = await exportVm.ExportProjectAsync(
-                    project,
-                    outputPath,
-                    new Progress<(string Message, double Progress)>(p =>
-                    {
-                        // 進捗表示（将来的にはプログレスダイアログを表示）
-                    }));
+                ExportResult result = await exportVm.ExportProjectAsync(project, outputPath);
 
                 ReportExportResult(result);
             }
@@ -480,7 +442,6 @@ public partial class MainView
             return;
         }
 
-        // パッケージファイルを選択
         var openOptions = new FilePickerOpenOptions
         {
             FileTypeFilter =
@@ -495,7 +456,6 @@ public partial class MainView
             return;
         }
 
-        // 展開先フォルダを選択
         var folderOptions = new FolderPickerOpenOptions
         {
             Title = Strings.SelectDestinationFolder
@@ -509,13 +469,7 @@ public partial class MainView
 
         try
         {
-            Project? project = await ProjectPackageService.Current.ImportAsync(
-                packagePath,
-                destinationDir,
-                new Progress<(string Message, double Progress)>(p =>
-                {
-                    // 進捗表示（将来的にはプログレスダイアログを表示）
-                }));
+            Project? project = await ProjectPackageService.Current.ImportAsync(packagePath, destinationDir);
 
             if (project?.Uri != null)
             {

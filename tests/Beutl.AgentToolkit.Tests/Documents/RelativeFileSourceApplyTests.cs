@@ -1,5 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Documents;
+using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.Media.Source;
@@ -19,7 +20,7 @@ public class RelativeFileSourceApplyTests
     [Test]
     public void Write_resolves_a_relative_file_source_uri_nested_under_an_element()
     {
-        string dir = CreateWorkspace();
+        string dir = TestWorkspace.CreateDirectory();
         string subDir = CreateSubDirectory(dir);
         string imagePath = CreateImage(subDir);
         var scene = new Scene(1920, 1080, "Scene") { Uri = new Uri(Path.Combine(dir, "Scene.scene")) };
@@ -36,7 +37,7 @@ public class RelativeFileSourceApplyTests
     [Test]
     public void Write_resolves_a_relative_file_source_uri_on_an_element_subtree()
     {
-        string dir = CreateWorkspace();
+        string dir = TestWorkspace.CreateDirectory();
         string subDir = CreateSubDirectory(dir);
         string imagePath = CreateImage(subDir);
         Element element = CreateElement(Path.Combine(subDir, "media.belm"), imagePath);
@@ -51,7 +52,7 @@ public class RelativeFileSourceApplyTests
     [Test]
     public void Write_resolves_a_relative_file_source_uri_on_a_newly_inserted_element()
     {
-        string dir = CreateWorkspace();
+        string dir = TestWorkspace.CreateDirectory();
         string subDir = CreateSubDirectory(dir);
         string imagePath = CreateImage(subDir);
         JsonObject document = ReadSceneDocument(dir, subDir, imagePath);
@@ -68,7 +69,7 @@ public class RelativeFileSourceApplyTests
     [Test]
     public void Write_resolves_a_relative_file_source_uri_on_an_object_added_to_an_existing_element()
     {
-        string dir = CreateWorkspace();
+        string dir = TestWorkspace.CreateDirectory();
         string subDir = CreateSubDirectory(dir);
         string imagePath = CreateImage(subDir);
         var scene = new Scene(1920, 1080, "Scene") { Uri = new Uri(Path.Combine(dir, "Scene.scene")) };
@@ -89,7 +90,7 @@ public class RelativeFileSourceApplyTests
     [Test]
     public void Write_resolves_a_relative_file_source_uri_on_a_wholesale_replaced_element_list()
     {
-        string dir = CreateWorkspace();
+        string dir = TestWorkspace.CreateDirectory();
         string subDir = CreateSubDirectory(dir);
         string imagePath = CreateImage(subDir);
         var sceneUri = new Uri(Path.Combine(dir, "Scene.scene"));
@@ -113,7 +114,7 @@ public class RelativeFileSourceApplyTests
     [Test]
     public void Write_resolves_a_relative_file_source_uri_on_a_wholesale_replaced_object_list()
     {
-        string dir = CreateWorkspace();
+        string dir = TestWorkspace.CreateDirectory();
         string subDir = CreateSubDirectory(dir);
         string imagePath = CreateImage(subDir);
         Element element = CreateElement(Path.Combine(subDir, "media.belm"), imagePath);
@@ -164,11 +165,4 @@ public class RelativeFileSourceApplyTests
 
     private static string CreateSubDirectory(string dir)
         => Directory.CreateDirectory(Path.Combine(dir, "sub")).FullName;
-
-    private static string CreateWorkspace()
-    {
-        string path = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(path);
-        return path;
-    }
 }

@@ -9,36 +9,31 @@ namespace Beutl.Views.Tools;
 
 public partial class TransitionTabView : UserControl
 {
-    private bool _flyoutOpen;
-
     public TransitionTabView()
     {
         InitializeComponent();
     }
 
-    // Picks the new type from the library in the same list a font family is picked from.
     private async void OnTypeDropDownClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not TransitionTabViewModel viewModel || _flyoutOpen) return;
+        if (DataContext is not TransitionTabViewModel viewModel) return;
 
-        try
+        await PickerGuard.RunAsync(this, async () =>
         {
-            _flyoutOpen = true;
-            Type? type = await LibraryItemPickerHelper.ShowTypeOnlyAsync(
-                typeEditor, new SelectClipTransitionTypeViewModel(), KnownLibraryItemFormats.ClipTransition);
-            if (type != null)
+            try
             {
-                viewModel.ChangeType(type);
+                Type? type = await LibraryItemPickerHelper.ShowAsync(
+                    typeEditor, new SelectClipTransitionTypeViewModel(), KnownLibraryItemFormats.ClipTransition) as Type;
+                if (type != null)
+                {
+                    viewModel.ChangeType(type);
+                }
             }
-        }
-        catch (Exception ex)
-        {
-            NotificationService.ShowError(Strings.Error, ex.Message);
-        }
-        finally
-        {
-            _flyoutOpen = false;
-        }
+            catch (Exception ex)
+            {
+                NotificationService.ShowError(Strings.Error, ex.Message);
+            }
+        });
     }
 
     private void OnDeleteClick(object? sender, RoutedEventArgs e)

@@ -9,7 +9,7 @@ public abstract record AiOperationAvailabilityRequest
         if (operation.Value.Length == 0)
             throw new ArgumentException("An AI operation is required.", nameof(operation));
         Operation = operation;
-        Model = model is { Value.Length: > 0 } ? model : null;
+        Model = AiRequestLimits.ValidateOptionalModel(model);
     }
 
     public AiOperationId Operation { get; }
@@ -139,7 +139,7 @@ public sealed record AiImageGenerationRequest
             ? []
             : Array.AsReadOnly(references.ToArray());
         ReferenceLimits = effectiveLimits;
-        Model = AiRequestLimits.ValidateOptionalModel(model, nameof(model));
+        Model = AiRequestLimits.ValidateOptionalModel(model);
         IdempotencyKey = AiRequestLimits.ValidateOptionalIdempotencyKey(
             idempotencyKey,
             nameof(idempotencyKey));
@@ -216,7 +216,7 @@ public sealed record AiImageEditRequest
         Image = image;
         Task = task;
         Prompt = AiRequestLimits.ValidateOptionalPrompt(prompt, nameof(prompt));
-        Model = AiRequestLimits.ValidateOptionalModel(model, nameof(model));
+        Model = AiRequestLimits.ValidateOptionalModel(model);
         IdempotencyKey = AiRequestLimits.ValidateOptionalIdempotencyKey(
             idempotencyKey,
             nameof(idempotencyKey));
@@ -230,19 +230,7 @@ public sealed record AiImageEditRequest
 
     public AiModelId? Model { get; }
 
-    /// <summary>
-    /// Names this request, so that sending it again asks the server for the
-    /// same one rather than for another.
-    /// </summary>
-    /// <remarks>
-    /// The operation is charged when it is accepted, and the server answers a
-    /// repeat of a key it has already seen with the result that key produced —
-    /// free, and with a refusal while the first attempt is still running. A
-    /// caller retrying after a lost response must send the key it used the
-    /// first time or it pays twice for one piece of work; a caller asking for
-    /// something new must not, or it is handed the earlier result. Left unset,
-    /// each attempt is a new request.
-    /// </remarks>
+    /// <inheritdoc cref="AiImageGenerationRequest.IdempotencyKey"/>
     public string? IdempotencyKey { get; }
 }
 
@@ -260,7 +248,7 @@ public sealed record AiTranscriptionRequest
 
         Audio = audio;
         Language = string.IsNullOrWhiteSpace(language) ? null : language.Trim();
-        Model = AiRequestLimits.ValidateOptionalModel(model, nameof(model));
+        Model = AiRequestLimits.ValidateOptionalModel(model);
         IdempotencyKey = AiRequestLimits.ValidateOptionalIdempotencyKey(
             idempotencyKey,
             nameof(idempotencyKey));
@@ -395,12 +383,12 @@ public sealed record AiCaptionTranslationRequest
             throw new ArgumentException(
                 $"Translation text cannot exceed {effectiveLimits.MaxCharacters} characters.",
                 nameof(segments));
-        Model = AiRequestLimits.ValidateOptionalModel(model, nameof(model));
+        Model = AiRequestLimits.ValidateOptionalModel(model);
         IdempotencyKey = AiRequestLimits.ValidateOptionalIdempotencyKey(
             idempotencyKey,
             nameof(idempotencyKey));
         Limits = effectiveLimits;
-        _ = AiCaptionTranslationRequestTransport.CreatePayload(this);
+        Payload = AiCaptionTranslationRequestTransport.CreatePayload(this);
     }
 
     // Validates every segment and returns their combined text length. The parameter keeps the constructor's name:
@@ -426,11 +414,6 @@ public sealed record AiCaptionTranslationRequest
             }
 
             characterCount = checked(characterCount + segment.Text.Length);
-            if (segment.Context is { } context
-                && !AiRequestLimits.IsSafeTranslationIdentifier(context.GroupId))
-            {
-                throw new ArgumentException("Translation context group IDs must be 1 to 64 safe ASCII characters.", nameof(segments));
-            }
             if (segment.Context is { PartIndex: var partIndex }
                 && partIndex >= effectiveLimits.MaxSegments)
             {
@@ -455,19 +438,10 @@ public sealed record AiCaptionTranslationRequest
 
     public AiCaptionTranslationLimits Limits { get; }
 
-    /// <summary>
-    /// Names this request, so that sending it again asks the server for the
-    /// same one rather than for another.
-    /// </summary>
-    /// <remarks>
-    /// The operation is charged when it is accepted, and the server answers a
-    /// repeat of a key it has already seen with the result that key produced —
-    /// free, and with a refusal while the first attempt is still running. A
-    /// caller retrying after a lost response must send the key it used the
-    /// first time or it pays twice for one piece of work; a caller asking for
-    /// something new must not, or it is handed the earlier result. Left unset,
-    /// each attempt is a new request.
-    /// </remarks>
+    // The serialized body, built once by the constructor's size check and sent as is.
+    internal byte[] Payload { get; }
+
+    /// <inheritdoc cref="AiImageGenerationRequest.IdempotencyKey"/>
     public string? IdempotencyKey { get; }
 }
 
@@ -510,7 +484,7 @@ public sealed record AiVideoGenerationRequest
         Seed = AiRequestLimits.ValidateOptionalSeed(seed, nameof(seed));
         FirstFrame = firstFrame;
         LastFrame = lastFrame;
-        Model = AiRequestLimits.ValidateOptionalModel(model, nameof(model));
+        Model = AiRequestLimits.ValidateOptionalModel(model);
         IdempotencyKey = AiRequestLimits.ValidateOptionalIdempotencyKey(
             idempotencyKey,
             nameof(idempotencyKey));
@@ -541,19 +515,7 @@ public sealed record AiVideoGenerationRequest
 
     public AiModelId? Model { get; }
 
-    /// <summary>
-    /// Names this request, so that sending it again asks the server for the
-    /// same one rather than for another.
-    /// </summary>
-    /// <remarks>
-    /// The operation is charged when it is accepted, and the server answers a
-    /// repeat of a key it has already seen with the result that key produced —
-    /// free, and with a refusal while the first attempt is still running. A
-    /// caller retrying after a lost response must send the key it used the
-    /// first time or it pays twice for one piece of work; a caller asking for
-    /// something new must not, or it is handed the earlier result. Left unset,
-    /// each attempt is a new request.
-    /// </remarks>
+    /// <inheritdoc cref="AiImageGenerationRequest.IdempotencyKey"/>
     public string? IdempotencyKey { get; }
 }
 

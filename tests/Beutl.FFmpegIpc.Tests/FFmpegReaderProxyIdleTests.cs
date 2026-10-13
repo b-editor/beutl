@@ -329,16 +329,6 @@ public class FFmpegReaderProxyIdleTests
     }
 
     [Test]
-    public void ReadAudio_FollowsTheSharedMemoryTheWorkerRecreated()
-    {
-        OpenFileResponse response = _worker.OpenAudio(sampleRate: 8000, capacitySamples: 100);
-        using var reader = new FFmpegReaderProxy(_worker.Connection, response.ReaderId, response);
-
-        Assert.That(ReadSamples(reader, 1000), Is.EqualTo(1000));
-        Assert.That(ReadSamples(reader, 500), Is.EqualTo(500));
-    }
-
-    [Test]
     public void DecoderInfo_Open_SendsTheDecodingSettings_AndTracksTheReader()
     {
         var settings = new FFmpegDecodingSettings
@@ -812,11 +802,11 @@ public class FFmpegReaderProxyIdleTests
             };
         }
 
-        public OpenFileResponse OpenAudio(int sampleRate, int capacitySamples = -1)
+        public OpenFileResponse OpenAudio(int sampleRate)
         {
             int id = Interlocked.Increment(ref _nextReaderId);
             string name = $"beutl-fake-audio-{Guid.NewGuid():N}";
-            _buffers[id] = SharedMemoryBuffer.Create(name, (capacitySamples < 0 ? sampleRate : capacitySamples) * 8L + 64);
+            _buffers[id] = SharedMemoryBuffer.Create(name, sampleRate * 8L + 64);
             return new OpenFileResponse
             {
                 ReaderId = id,
@@ -962,7 +952,6 @@ public class FFmpegReaderProxyIdleTests
                 Height = height,
                 BytesPerPixel = BytesPerPixel,
                 DataLength = length,
-                SlotIndex = 0,
                 SlotDataOffset = 0,
                 SharedMemoryName = newName,
                 RingBufferSlotSize = newSlotSize,
@@ -976,14 +965,11 @@ public class FFmpegReaderProxyIdleTests
             if (!_buffers.TryGetValue(payload.ReaderId, out SharedMemoryBuffer? buffer))
                 return IpcMessage.CreateError(request.Id, $"Unknown reader ID: {payload.ReaderId}");
 
-            // Like the worker, grow the buffer under a new name when the request does not fit.
-            string? newName = null;
-            long required = payload.Length * 8L + 64;
-            if (buffer.Capacity < required)
+            // Like the worker, fail a request that does not fit the buffer created at open.
+            if (buffer.Capacity < payload.Length * 8L + 64)
             {
-                newName = $"beutl-fake-audio-{Guid.NewGuid():N}";
-                _retiredBuffers.Add(buffer);
-                _buffers[payload.ReaderId] = SharedMemoryBuffer.Create(newName, required);
+                return IpcMessage.Create(
+                    request.Id, MessageType.ReadAudioResult, new ReadAudioResponse { Success = false });
             }
 
             // Fresh buffers are zero-filled, which is silence for stereo float samples.
@@ -993,7 +979,6 @@ public class FFmpegReaderProxyIdleTests
                 SampleRate = 8000,
                 NumSamples = payload.Length,
                 DataLength = payload.Length * 8,
-                SharedMemoryName = newName,
             });
         }
 

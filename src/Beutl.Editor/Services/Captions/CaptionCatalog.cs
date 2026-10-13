@@ -113,7 +113,7 @@ public sealed class CaptionCatalog : IAsyncDisposable
                 extensionProvider.ExtensionsChanged += OnExtensionsCommitted;
                 try
                 {
-                    RebuildCore();
+                    RebuildCore(extensionProvider);
                 }
                 catch
                 {
@@ -146,18 +146,6 @@ public sealed class CaptionCatalog : IAsyncDisposable
             templates,
             ownsRegistries: true);
     }
-
-    internal static CaptionCatalog Compose(
-        string defaultTemplateName,
-        IEnumerable<ObjectTemplateItem> objectTemplates,
-        IExtensionRegistry extensionProvider,
-        Action<CaptionCatalogExtensionFailure>? reportFailure = null)
-        => ComposeWithDefaultElementFactory(
-            defaultTemplateName,
-            objectTemplates,
-            extensionProvider,
-            DefaultTextCaptionElementFactory.Instance,
-            reportFailure);
 
     /// <summary>
     /// Creates a dynamically composed catalog using a host-supplied factory for its default template.
@@ -211,15 +199,9 @@ public sealed class CaptionCatalog : IAsyncDisposable
             lock (_gate)
             {
                 ObjectDisposedException.ThrowIf(_disposed, this);
-                if (_defaultTemplateRegistrations is null)
-                {
-                    throw new InvalidOperationException(
-                        "Only a dynamically composed caption catalog can refresh object templates.");
-                }
-
                 (_hostTemplateDescriptors, _hostTemplateFactories, _hostTemplatePlacements) =
-                    PrependDefaultTemplate(_defaultTemplateRegistrations, registrations);
-                RebuildCore();
+                    PrependDefaultTemplate(_defaultTemplateRegistrations!, registrations);
+                RebuildCore(extensionProvider);
             }
         });
     }
@@ -261,13 +243,13 @@ public sealed class CaptionCatalog : IAsyncDisposable
                 Extension[] codecExtensions = SnapshotCodecExtensions();
                 Extension[] templateExtensions = SnapshotTemplateExtensions();
                 ClearActiveExtensions();
-                CaptionRegistryDrain<Extension> retiredCodecs = _codecs.ReplaceOwned(
+                CaptionRegistryDrain retiredCodecs = _codecs.ReplaceOwned(
                     _hostCodecDescriptors,
                     _hostCodecDecoders,
                     _hostCodecEncoders,
                     new Dictionary<CaptionFormatId, Extension>(),
                     new Dictionary<CaptionFormatId, Extension>());
-                CaptionRegistryDrain<Extension> retiredTemplates = _templates.ReplaceOwned(
+                CaptionRegistryDrain retiredTemplates = _templates.ReplaceOwned(
                     _hostTemplateDescriptors,
                     _hostTemplateFactories,
                     _hostTemplatePlacements,
@@ -304,14 +286,12 @@ public sealed class CaptionCatalog : IAsyncDisposable
             if (_disposed || _extensionProvider is null)
                 return;
 
-            RebuildCore();
+            RebuildCore(_extensionProvider);
         }
     }
 
-    private ValueTask RebuildCore()
+    private void RebuildCore(IExtensionRegistry extensionProvider)
     {
-        IExtensionRegistry extensionProvider = _extensionProvider
-            ?? throw new InvalidOperationException("The caption catalog is not dynamically composed.");
         Extension[] previousCodecExtensions = SnapshotCodecExtensions();
         Extension[] previousTemplateExtensions = SnapshotTemplateExtensions();
         List<CaptionCodecDescriptorRegistration> codecDescriptors =
@@ -354,14 +334,14 @@ public sealed class CaptionCatalog : IAsyncDisposable
 
         // Each replacement synchronously publishes a state that excludes removed packages. The
         // returned tasks drain calls that still hold the retired package-owned state.
-        CaptionRegistryDrain<Extension> retiredCodecs =
+        CaptionRegistryDrain retiredCodecs =
             _codecs.ReplaceOwned(
                 codecDescriptors,
                 captionDecoders,
                 captionEncoders,
                 decoderOwners,
                 encoderOwners);
-        CaptionRegistryDrain<Extension> retiredTemplates =
+        CaptionRegistryDrain retiredTemplates =
             _templates.ReplaceOwned(
                 descriptorRegistrations,
                 factoryRegistrations,
@@ -369,15 +349,11 @@ public sealed class CaptionCatalog : IAsyncDisposable
                 descriptorOwners,
                 factoryOwners,
                 placementOwners);
-        ValueTask codecDrain = retiredCodecs.All;
-        ValueTask templateDrain = retiredTemplates.All;
         // Track every replaced category state against the extensions that could be retained by
         // that state. This also covers an older state retired by a host-template refresh long
         // before its package is removed.
         RetireExtensions(previousCodecExtensions, retiredCodecs);
         RetireExtensions(previousTemplateExtensions, retiredTemplates);
-
-        return Combine(codecDrain, templateDrain);
     }
 
     private static readonly ContributionCategory<
@@ -488,7 +464,7 @@ public sealed class CaptionCatalog : IAsyncDisposable
         set.UnionWith(items);
     }
 
-    private static void RetireExtensions(IEnumerable<Extension> extensions, CaptionRegistryDrain<Extension> drain)
+    private static void RetireExtensions(IEnumerable<Extension> extensions, CaptionRegistryDrain drain)
     {
         foreach (Extension extension in extensions)
         {
@@ -602,48 +578,28 @@ public sealed class CaptionCatalog : IAsyncDisposable
     {
         var failures = new Dictionary<TExtension, Exception>(ReferenceEqualityComparer.Instance);
         TRegistration[] hostRegistrations = accepted.ToArray();
-        while (true)
+        List<TRegistration> composed = TwoPhaseComposition.Compose(
+            candidates,
+            static candidate => candidate.Extension,
+            failures,
+            () => new List<TRegistration>(hostRegistrations),
+            (working, candidate, phaseIndex) =>
+            {
+                TRegistration[] phase = candidate.Registrations
+                    .Where(registration => IsInPhase(registration, phaseIndex, isAdd))
+                    .ToArray();
+                if (phase.Length == 0)
+                    return working;
+
+                _ = validate(working.Concat(phase));
+                working.AddRange(phase);
+                return working;
+            });
+
+        accepted.Clear();
+        accepted.AddRange(composed);
+        if (owners is not null)
         {
-            var working = new List<TRegistration>(hostRegistrations);
-            var newFailures = new Dictionary<TExtension, (Exception Exception, int Phase)>(
-                ReferenceEqualityComparer.Instance);
-            for (int phaseIndex = 0; phaseIndex < 2; phaseIndex++)
-            {
-                foreach ((TExtension extension, TRegistration[] registrations) in candidates)
-                {
-                    if (failures.ContainsKey(extension) || newFailures.ContainsKey(extension))
-                        continue;
-                    TRegistration[] phase = registrations
-                        .Where(registration => IsInPhase(registration, phaseIndex, isAdd))
-                        .ToArray();
-                    if (phase.Length == 0)
-                        continue;
-                    try
-                    {
-                        _ = validate(working.Concat(phase));
-                        working.AddRange(phase);
-                    }
-                    catch (Exception ex)
-                    {
-                        newFailures.Add(extension, (ex, phaseIndex));
-                    }
-                }
-            }
-
-            if (newFailures.Count > 0)
-            {
-                int latestFailedPhase = newFailures.Values.Max(failure => failure.Phase);
-                KeyValuePair<TExtension, (Exception Exception, int Phase)> rejected =
-                    newFailures.First(failure => failure.Value.Phase == latestFailedPhase);
-                failures.TryAdd(rejected.Key, rejected.Value.Exception);
-                continue;
-            }
-
-            accepted.Clear();
-            accepted.AddRange(working);
-            if (owners is null)
-                break;
-
             owners.Clear();
             for (int phaseIndex = 0; phaseIndex < 2; phaseIndex++)
             {
@@ -657,7 +613,6 @@ public sealed class CaptionCatalog : IAsyncDisposable
                     }
                 }
             }
-            break;
         }
 
         foreach ((TExtension extension, Exception failure) in failures)

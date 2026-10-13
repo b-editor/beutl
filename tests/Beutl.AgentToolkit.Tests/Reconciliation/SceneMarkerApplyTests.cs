@@ -2,6 +2,7 @@
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Sessions;
+using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.AgentToolkit.Tools;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
@@ -211,9 +212,8 @@ public sealed class SceneMarkerApplyTests
 
     private static FileEditingSession CreateSession(FileSessionSource source)
     {
-        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        return source.CreateProject(new ProjectCreateOptions(
+        string root = TestWorkspace.CreateDirectory();
+        return TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
             Path.Combine(root, "demo.bep"), 640, 360, 30, TimeSpan.FromSeconds(6)));
     }
 }

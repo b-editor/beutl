@@ -127,12 +127,13 @@ public partial class BeutlApiApplication : IAsyncDisposable
 
     internal HttpClient HttpClient => _httpClient;
 
-    public MyAsyncLock Lock { get; } = new();
+    public AsyncLock Lock { get; } = new();
 
     public IReadOnlyReactiveProperty<AuthenticatedUser?> AuthenticatedUser => _readOnlyAuthenticatedUser;
 
     public bool IsDisposed => _disposed;
 
+    // Test seam: tests shorten the deadline; production keeps 30 seconds.
     internal TimeSpan DisposalDeadline { get; set; } = TimeSpan.FromSeconds(30);
 
     // Check for updates. Return AppUpdateResponse when this application has asset metadata;
@@ -357,7 +358,7 @@ public partial class BeutlApiApplication : IAsyncDisposable
             new AiOperationCapabilitySchemaRegistry(GetResource<IExtensionRegistry>()));
         Register(() => new AiModelCatalogService(
             this,
-            capabilitySchemas: GetResource<IAiOperationCapabilitySchemaProvider>()));
+            GetResource<IAiOperationCapabilitySchemaProvider>()));
         Register(() => new AiOperationAvailabilityService(this));
         Register(() => new AiImageGenerationService(
             this,

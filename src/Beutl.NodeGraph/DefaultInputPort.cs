@@ -9,8 +9,7 @@ public sealed class DefaultInputPort<T> : InputPort<T>, IDefaultInputPort
 {
     public void SetPropertyAdapter(NodePropertyAdapter<T> property)
     {
-        Property = property;
-        property.Edited += OnAdapterEdited;
+        SetPropertyAdapterCore(property);
     }
 
     void IDefaultInputPort.SetPropertyAdapter(object property)
@@ -18,25 +17,20 @@ public sealed class DefaultInputPort<T> : InputPort<T>, IDefaultInputPort
         SetPropertyAdapter((NodePropertyAdapter<T>)property);
     }
 
-    private void OnAdapterEdited(object? sender, EventArgs e)
-    {
-        RaiseEdited();
-    }
-
     public NodePropertyAdapter<T>? GetProperty()
     {
-        return Property as NodePropertyAdapter<T>;
+        return PropertyAdapter;
     }
 
     public override void Serialize(ICoreSerializationContext context)
     {
         base.Serialize(context);
-        GetProperty()?.SerializeValue(context);
+        PropertyAdapter?.SerializeValue(context);
     }
 
     public override void Deserialize(ICoreSerializationContext context)
     {
         base.Deserialize(context);
-        GetProperty()?.Deserialize(context);
+        PropertyAdapter?.Deserialize(context);
     }
 }

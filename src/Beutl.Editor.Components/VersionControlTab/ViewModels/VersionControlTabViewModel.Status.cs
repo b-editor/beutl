@@ -267,16 +267,7 @@ internal partial class VersionControlTabViewModel
             return false;
         }
 
-        try
-        {
-            cancellationToken =
-                _serviceBindingCancellation?.Token ?? CancellationToken.None;
-        }
-        catch (ObjectDisposedException)
-        {
-            return false;
-        }
-
+        cancellationToken = _serviceBindingCancellation!.Token;
         return IsCurrentService(service, revision, cancellationToken);
     }
 
@@ -293,7 +284,6 @@ internal partial class VersionControlTabViewModel
 
     internal static string GetAvailabilityMessage(GitAvailability availability)
     {
-        ArgumentNullException.ThrowIfNull(availability);
         string stateMessage = availability.State switch
         {
             GitAvailabilityState.VersionTooOld => string.Format(
@@ -362,7 +352,7 @@ internal partial class VersionControlTabViewModel
     private async Task RunLatestStatusRefreshAsync(Func<CancellationToken, Task> refresh)
     {
         var cancellation = CancellationTokenSource.CreateLinkedTokenSource(
-            _serviceBindingCancellation?.Token ?? CancellationToken.None);
+            _serviceBindingCancellation!.Token);
         CancellationTokenSource? previous = _statusRefreshCancellation;
         _statusRefreshCancellation = cancellation;
         previous?.Cancel();

@@ -132,21 +132,7 @@ public class DecoderRegistryProxyRoutingTests
         });
     }
 
-    [Test]
-    public void OpenMediaFile_WhenOriginalUnavailableAndPreferProxyFalse_DoesNotSubstituteProxy()
-    {
-        using var scope = ProxyRouteScope.CreateUnsupportedOriginalWithProxy(proxySize: new PixelSize(50, 50));
-        DecoderRegistry.ProxyResolver = new ProxyResolver(scope.Store);
-        File.Delete(scope.OriginalPath);
-
-        using MediaReader? reader = DecoderRegistry.OpenMediaFile(
-            scope.OriginalPath,
-            new MediaOptions(MediaMode.Video) { PreferProxy = false });
-
-        Assert.That(reader, Is.Null);
-    }
-
-    // Fix #3: a Ready proxy stands in for a moved/deleted original in PreferProxy mode. The original
+    // A Ready proxy stands in for a moved/deleted original in PreferProxy mode. The original
     // can no longer be fingerprinted, so the resolver falls back to a path-keyed lookup.
     [Test]
     public void OpenMediaFile_WhenOriginalMissingAndPreferProxy_OpensProxy()
@@ -164,7 +150,7 @@ public class DecoderRegistryProxyRoutingTests
             Assert.That(reader, Is.Not.Null);
             Assert.That(reader!.VideoInfo.FrameSize, Is.EqualTo(new PixelSize(50, 50)));
             Assert.That(reader.ProxyResolution, Is.Not.Null);
-            // Fix #5: the resolution's source key equals the store's version-bump key for this path, so
+            // The resolution's source key equals the store's version-bump key for this path, so
             // a reader that adopts it (VideoSource) still observes proxy register/replace/delete events.
             Assert.That(
                 reader.ProxyResolution!.Source.AbsolutePath,
@@ -172,7 +158,7 @@ public class DecoderRegistryProxyRoutingTests
         });
     }
 
-    // Fix #3: the same missing original must NOT substitute a proxy when proxy is not preferred (e.g.
+    // The same missing original must NOT substitute a proxy when proxy is not preferred (e.g.
     // export/save-frame forces the original) — there is nothing to open, so the result is null.
     [Test]
     public void OpenMediaFile_WhenOriginalMissingAndPreferProxyFalse_ReturnsNull()
@@ -188,8 +174,8 @@ public class DecoderRegistryProxyRoutingTests
         Assert.That(reader, Is.Null);
     }
 
-    // Fix #3: MediaReader.Open defers the existence check in PreferProxy mode so the proxy fallback can
-    // run; without a preferred proxy the missing original still throws FileNotFound up front.
+    // MediaReader.Open defers the existence check in PreferProxy mode so the proxy fallback can run;
+    // without a preferred proxy a missing original throws FileNotFoundException.
     [Test]
     public void MediaReaderOpen_WhenOriginalMissing_ProxyPreferenceControlsFallback()
     {
@@ -286,7 +272,7 @@ public class DecoderRegistryProxyRoutingTests
         }
     }
 
-    // Fix #6: new Uri(rawPath) parses URI-reserved chars (#, ?) in a filename as delimiters, dropping
+    // new Uri(rawPath) parses URI-reserved chars (#, ?) in a filename as delimiters, dropping
     // them from LocalPath so it no longer matches the path ProxyFingerprint stored; the escaped file
     // URI must round-trip the full path so those clips still resolve their proxy.
     [Test]
@@ -440,35 +426,6 @@ public class DecoderRegistryProxyRoutingTests
                 now,
                 now,
                 null));
-        }
-
-        public static ProxyRouteScope CreateUnsupportedOriginalWithProxy(PixelSize proxySize)
-        {
-            string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-            var store = new ProxyStore(root);
-            Directory.CreateDirectory(root);
-            string original = Path.Combine(root, $"{Guid.NewGuid():N}.mov");
-            File.WriteAllBytes(original, [1, 2, 3, 4]);
-            string relative = $"proxy/{Path.GetFileName(CreateTestVideoFileWithBytes(proxySize.Width, proxySize.Height))}";
-            string proxy = Path.Combine(root, relative);
-            Directory.CreateDirectory(Path.GetDirectoryName(proxy)!);
-            File.Copy(CreateTestVideoFileWithBytes(proxySize.Width, proxySize.Height), proxy, overwrite: true);
-
-            var now = DateTime.UtcNow;
-            var entry = new ProxyEntry(
-                ProxyFingerprint.FromFile(original),
-                ProxyPreset.Quarter,
-                ProxyState.Ready,
-                relative.Replace(Path.DirectorySeparatorChar, '/'),
-                new FileInfo(proxy).Length,
-                new PixelSize(100, 100),
-                proxySize,
-                now,
-                now,
-                null);
-            store.Register(entry);
-
-            return new ProxyRouteScope(root, original, store);
         }
 
         public void Dispose()

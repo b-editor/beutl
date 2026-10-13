@@ -10,25 +10,9 @@ namespace Beutl.UnitTests.Configuration;
 // merging two copies, or a build that typed the setting differently. Restoring it must not stop Beutl
 // from starting, and must not throw away the settings that are fine.
 [TestFixture]
-public class GlobalConfigurationRestoreTests
+public class GlobalConfigurationRestoreTests() : GlobalConfigurationFileFixture("global-config-restore-")
 {
-    private string _directory = null!;
-
-    [SetUp]
-    public void SetUp() => _directory = Directory.CreateTempSubdirectory("global-config-restore-").FullName;
-
-    [TearDown]
-    public void TearDown() => Directory.Delete(_directory, recursive: true);
-
-    private string SettingsPath => Path.Combine(_directory, "settings.json");
-
-    private GlobalConfiguration Restore(JsonObject json)
-    {
-        File.WriteAllText(SettingsPath, json.ToJsonString());
-        var config = (GlobalConfiguration)Activator.CreateInstance(typeof(GlobalConfiguration), nonPublic: true)!;
-        config.Restore(SettingsPath);
-        return config;
-    }
+    private GlobalConfiguration Restore(JsonObject json) => Restore(json.ToJsonString());
 
     [Test]
     public void A_string_where_a_number_belongs_keeps_the_default_and_the_rest_of_the_file()

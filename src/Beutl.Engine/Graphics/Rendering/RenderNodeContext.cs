@@ -115,11 +115,8 @@ public sealed partial class RenderNodeContext
 
     /// <summary>Gets whether the current request may expect a 3D-capable backend at execution.</summary>
     /// <remarks>
-    /// A node whose output exists only on a 3D backend records nothing when this is <see langword="false"/>,
-    /// so that its bounds, hit test, and cardinality describe what the request can actually produce. The
-    /// value is request state settled before any node records - never a live probe of the process - and it
-    /// turns <see langword="false"/> only once the process has established that no 3D backend exists; before
-    /// a backend is built it is <see langword="true"/>, because the first allocation builds one.
+    /// A node whose output exists only on a 3D backend records nothing when this is <see langword="false"/>, which
+    /// it becomes only once the process has found no 3D backend. It is settled before any node records.
     /// </remarks>
     public bool Supports3DRendering
     {
@@ -128,12 +125,8 @@ public sealed partial class RenderNodeContext
 
     /// <summary>Gets the 3D extents the current request may expect to allocate.</summary>
     /// <remarks>
-    /// A node whose output exists only as a 3D attachment asks this while recording, because an extent past
-    /// a limit is refused rather than drawn: recording it anyway would publish bounds and a hit test for a
-    /// value the request goes on to drop, and a scene that is never drawn must not answer clicks. Like
-    /// <see cref="Supports3DRendering"/> this is request state settled before any node records, never a live
-    /// probe of the device, and <see cref="Device3DExtentBudget.Unreported"/> refuses nothing - the
-    /// allocation still decides.
+    /// A node whose output exists only as a 3D attachment asks this while recording, so a scene that is never drawn
+    /// does not answer clicks. <see cref="Device3DExtentBudget.Unreported"/> refuses nothing; the allocation decides.
     /// </remarks>
     public Device3DExtentBudget Device3DExtentBudget
     {
@@ -181,8 +174,7 @@ public sealed partial class RenderNodeContext
     /// symbolic.
     /// </returns>
     /// <remarks>
-    /// Valid only during <see cref="RenderNode.Process(RenderNodeContext)"/>, on the recording context passed to
-    /// that call. A node that isolates its inputs into an off-screen layer uses this to choose between the finite
+    /// A node that isolates its inputs into an off-screen layer uses this to choose between the finite
     /// <see cref="Layer(IReadOnlyList{RenderFragmentHandle}, Rect, bool)"/> and
     /// <see cref="OwningTargetLayer(IReadOnlyList{RenderFragmentHandle})"/>, whose domain is instead resolved from
     /// the enclosing target after recording. Unlike <see cref="TryCalculateInputBounds"/>, this accounts for target
@@ -388,8 +380,7 @@ public sealed partial class RenderNodeContext
     /// <param name="fragment">A non-null handle borrowed from the active transaction.</param>
     /// <returns>The fragment's recorded bounds paired with the density at which it can supply values.</returns>
     /// <remarks>
-    /// Valid only during <see cref="RenderNode.Process(RenderNodeContext)"/>, on the recording context passed to
-    /// that call. This is a hint, not a guarantee: it reports what recording knows so far and never forces
+    /// This is a hint, not a guarantee: it reports what recording knows so far and never forces
     /// resolution, so a fragment whose metadata is still symbolic reports the conservative values recorded up to
     /// this point rather than its final ones. Use it to size or order work while recording; use
     /// <see cref="TryCalculateInputBounds"/> when the node must instead know whether concrete metadata exists at
@@ -419,8 +410,7 @@ public sealed partial class RenderNodeContext
     /// write resolves to a finite region; <see langword="false"/> when any of them is still symbolic.
     /// </returns>
     /// <remarks>
-    /// Valid only during <see cref="RenderNode.Process(RenderNodeContext)"/>, on the recording context passed to
-    /// that call. A node that has recorded a sub-graph and now has to size something around it — a clip, a layer, a
+    /// A node that has recorded a sub-graph and now has to size something around it — a clip, a layer, a
     /// backdrop read — uses this to learn whether that sub-graph's footprint is knowable at recording time. A
     /// returned extent of zero width or height means the fragments cover nothing. A <see langword="false"/> result
     /// is not an error: it says the footprint is only known once the enclosing target is resolved, so the node must
@@ -453,8 +443,7 @@ public sealed partial class RenderNodeContext
     /// The union of each input's recorded bounds, or <see cref="Rect.Empty"/> when the node has no inputs.
     /// </returns>
     /// <remarks>
-    /// Valid only during <see cref="RenderNode.Process(RenderNodeContext)"/>, on the recording context passed to
-    /// that call. This always returns a rectangle, where <see cref="TryCalculateInputBounds"/> reports failure for a
+    /// This always returns a rectangle, where <see cref="TryCalculateInputBounds"/> reports failure for a
     /// symbolic input, so the result is a best-effort hint: it describes only recorded <em>value</em> bounds and
     /// therefore does not cover a full-target write. A node scoping its inputs by this rectangle must first ask
     /// <see cref="HasSymbolicInputTargetWrite"/> whether such a write exists.
@@ -479,8 +468,7 @@ public sealed partial class RenderNodeContext
     /// <see langword="true"/> when at least one input performs a target write with no recording-time extent.
     /// </returns>
     /// <remarks>
-    /// Valid only during <see cref="RenderNode.Process(RenderNodeContext)"/>, on the recording context passed to
-    /// that call. This is the predicate that picks the region for
+    /// This is the predicate that picks the region for
     /// <see cref="TargetLayerScope(IReadOnlyList{RenderFragmentHandle}, TargetRegion)"/>. A node that scopes its
     /// inputs by their recorded value bounds has to ask this first: a full-target write contributes no value
     /// bounds, so scoping by them alone turns the whole scope empty and drops the write. Answer
@@ -552,12 +540,7 @@ public sealed partial class RenderNodeContext
         string parameterName)
         => ValidateDeclaredResources(resources, static binding => binding.Resource, parameterName);
 
-    /// <remarks>
-    /// A description declares its resources either as bare tokens or as slot bindings, so the resource is
-    /// read through a selector rather than by projecting one list into the other. Every recording path below
-    /// reaches this once per operation per frame, and the projection was an array allocated per call to be
-    /// read once and dropped.
-    /// </remarks>
+    /// <remarks>Resources are declared as tokens or as slot bindings, so they are read through a selector.</remarks>
     private void ValidateDeclaredResources<TDeclared>(
         IReadOnlyList<TDeclared> declared,
         Func<TDeclared, RenderResource> selectResource,

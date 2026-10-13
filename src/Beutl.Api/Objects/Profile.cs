@@ -2,6 +2,7 @@
 using System.Reactive.Linq;
 using Beutl.Api.Clients;
 using Beutl.Api.Services;
+using Nito.AsyncEx;
 using Reactive.Bindings;
 
 namespace Beutl.Api.Objects;
@@ -47,7 +48,7 @@ public class Profile
 
     public IReadOnlyReactiveProperty<string?> AvatarUrl { get; }
 
-    public MyAsyncLock Lock => _clients.Lock;
+    public AsyncLock Lock => _clients.Lock;
 
     public async Task RefreshAsync(CancellationToken cancellationToken, bool self = false)
     {

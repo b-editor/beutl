@@ -17,31 +17,24 @@ public sealed class ElementStructureService : IElementStructureService
     }
 
     public void Exclude(Scene scene, IReadOnlyList<Element> elements, bool ripple = false)
-    {
-        ArgumentNullException.ThrowIfNull(scene);
-        ArgumentNullException.ThrowIfNull(elements);
-        Element[] editable = RemovableElements(scene, elements);
-        if (editable.Length == 0) return;
-
-        RippleHelper.RemoveAndShiftAfter(scene, editable, ripple, scene.RemoveChild);
-
-        RemoveIdsFromGroups(scene, editable.Select(e => e.Id).ToArray());
-
-        _historyManager.Commit(CommandNames.RemoveElement);
-    }
+        => RemoveElements(scene, elements, ripple, delete: false);
 
     public void Delete(Scene scene, IReadOnlyList<Element> elements, bool ripple = false)
+        => RemoveElements(scene, elements, ripple, delete: true);
+
+    // Delete also removes the element files; Exclude keeps them.
+    private void RemoveElements(Scene scene, IReadOnlyList<Element> elements, bool ripple, bool delete)
     {
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentNullException.ThrowIfNull(elements);
         Element[] editable = RemovableElements(scene, elements);
         if (editable.Length == 0) return;
 
-        RippleHelper.RemoveAndShiftAfter(scene, editable, ripple, scene.DeleteChild);
+        RippleHelper.RemoveAndShiftAfter(scene, editable, ripple, delete ? scene.DeleteChild : scene.RemoveChild);
 
-        RemoveIdsFromGroups(scene, editable.Select(e => e.Id).ToArray());
+        scene.RemoveElementsFromGroups(editable.Select(e => e.Id).ToArray());
 
-        _historyManager.Commit(CommandNames.DeleteElement);
+        _historyManager.Commit(delete ? CommandNames.DeleteElement : CommandNames.RemoveElement);
     }
 
     public SplitOutcome Split(Scene scene, IReadOnlyList<Element> targets, TimeSpan at)
@@ -105,8 +98,6 @@ public sealed class ElementStructureService : IElementStructureService
                     }
                 }
 
-                if (newElements.Count == 0) return;
-
                 InsertSplitGroups(scene, groupUpdates);
             }, CommandNames.SplitElement);
         }
@@ -116,7 +107,7 @@ public sealed class ElementStructureService : IElementStructureService
             if (failures.Count > 1) throw new AggregateException("Split failed and new sidecars could not all be removed.", failures);
             throw;
         }
-        return newElements.Count == 0 ? SplitOutcome.Empty : new SplitOutcome(newElements);
+        return new SplitOutcome(newElements);
     }
 
     private static int FindGroupIndex(Scene scene, Guid id)
@@ -172,8 +163,8 @@ public sealed class ElementStructureService : IElementStructureService
         if (ids.Count == 0) return GroupOutcome.NotCreated;
 
         // Remove ids from existing groups first — with a single id this acts as
-        // "ungroup this element", matching the previous in-VM behavior.
-        bool removed = RemoveIdsFromGroups(scene, ids);
+        // "ungroup this element".
+        bool removed = scene.RemoveElementsFromGroups(ids);
 
         bool created = false;
         if (ids.Count >= 2)
@@ -203,14 +194,11 @@ public sealed class ElementStructureService : IElementStructureService
         ids = FilterStrandingIds(scene, FilterUnlockedIds(scene, ids));
         if (ids.Count == 0) return;
 
-        if (RemoveIdsFromGroups(scene, ids))
+        if (scene.RemoveElementsFromGroups(ids))
         {
             _historyManager.Commit(CommandNames.UngroupElements);
         }
     }
-
-    private static bool RemoveIdsFromGroups(Scene scene, IReadOnlyCollection<Guid> ids)
-        => scene.RemoveElementsFromGroups(ids);
 
     // Refuses to pull an editable member out of a group when that would leave the group with only a
     // locked survivor: disbanding it would silently change the locked member's grouping. Such ids are

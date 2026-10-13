@@ -56,7 +56,6 @@ public partial class SplitEffect : FilterEffect
 
             if ((int)divWidth <= 0 || (int)divHeight <= 0)
             {
-                t.Dispose();
                 effectContext.Targets.RemoveAt(i);
                 i--;
             }
@@ -110,7 +109,6 @@ public partial class SplitEffect : FilterEffect
                     continue;
                 }
 
-                t.Dispose();
                 effectContext.Targets.RemoveAt(i);
                 int inserted = newTargets.Count;
                 effectContext.Targets.InsertRange(i, newTargets);

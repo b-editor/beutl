@@ -6,88 +6,24 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering.Cache;
 [TestFixture]
 public class RenderCacheRulesTest
 {
-    [Test]
-    public void Match_ShouldReturnTrue_WhenPixelsWithinRange()
+    [TestCase(50, 50, true)]
+    [TestCase(5, 5, false)]
+    [TestCase(200, 200, false)]
+    public void Match_PixelSize_ShouldReturnWhetherPixelsAreWithinRange(int width, int height, bool expected)
     {
-        // Arrange
         var rules = new RenderCacheRules(10000, 100);
-        var size = new PixelSize(50, 50); // 2500 pixels
 
-        // Act
-        bool result = rules.Match(size);
-
-        // Assert
-        Assert.That(result, Is.True);
+        Assert.That(rules.Match(new PixelSize(width, height)), Is.EqualTo(expected));
     }
 
-    [Test]
-    public void Match_ShouldReturnFalse_WhenPixelsBelowMin()
+    [TestCase(2500, true)]
+    [TestCase(25, false)]
+    [TestCase(40000, false)]
+    public void Match_Pixels_ShouldReturnWhetherPixelsAreWithinRange(int pixels, bool expected)
     {
-        // Arrange
         var rules = new RenderCacheRules(10000, 100);
-        var size = new PixelSize(5, 5); // 25 pixels
 
-        // Act
-        bool result = rules.Match(size);
-
-        // Assert
-        Assert.That(result, Is.False);
-    }
-
-    [Test]
-    public void Match_ShouldReturnFalse_WhenPixelsAboveMax()
-    {
-        // Arrange
-        var rules = new RenderCacheRules(10000, 100);
-        var size = new PixelSize(200, 200); // 40000 pixels
-
-        // Act
-        bool result = rules.Match(size);
-
-        // Assert
-        Assert.That(result, Is.False);
-    }
-
-    [Test]
-    public void Match_ShouldReturnTrue_WhenPixelsWithinRange_Int()
-    {
-        // Arrange
-        var rules = new RenderCacheRules(10000, 100);
-        int pixels = 2500;
-
-        // Act
-        bool result = rules.Match(pixels);
-
-        // Assert
-        Assert.That(result, Is.True);
-    }
-
-    [Test]
-    public void Match_ShouldReturnFalse_WhenPixelsBelowMin_Int()
-    {
-        // Arrange
-        var rules = new RenderCacheRules(10000, 100);
-        int pixels = 25;
-
-        // Act
-        bool result = rules.Match(pixels);
-
-        // Assert
-        Assert.That(result, Is.False);
-    }
-
-    [Test]
-    public void Match_ShouldReturnFalse_WhenPixelsAboveMax_Int()
-    {
-        // Arrange
-        var rules = new RenderCacheRules(10000, 100);
-        int pixels = 40000;
-
-        // Act
-        bool result = rules.Match(pixels);
-
-        // Assert
-        Assert.That(result, Is.False);
+        Assert.That(rules.Match(pixels), Is.EqualTo(expected));
     }
 
     [Test]

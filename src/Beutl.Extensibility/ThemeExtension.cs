@@ -33,7 +33,7 @@ public abstract class ThemeExtension : Extension
         }
     }
 
-    // Called by the host when this theme becomes the active theme. Default is a no-op.
+    // Called by the host when this theme becomes the active theme.
     public virtual void OnApplied(ThemeApplyContext context)
     {
     }
@@ -43,7 +43,7 @@ public abstract class ThemeExtension : Extension
     {
     }
 
-    // Called by the host when this theme is no longer the active theme. Default is a no-op.
+    // Called by the host when this theme is no longer the active theme.
     public virtual void OnReverted()
     {
     }

@@ -154,33 +154,28 @@ public abstract class CoreProperty : ICoreProperty
     private TMetadata? GetMetadataWithOverrides<TMetadata>(Type type)
         where TMetadata : ICorePropertyMetadata
     {
-        lock (_metadataLock)
+        if (_metadataCache.TryGetValue(type, out ICorePropertyMetadata? result) && result is TMetadata resultT)
         {
-            ArgumentNullException.ThrowIfNull(type);
-
-            if (_metadataCache.TryGetValue(type, out ICorePropertyMetadata? result) && result is TMetadata resultT)
-            {
-                return resultT;
-            }
-
-            Type? currentType = type;
-
-            while (currentType != null)
-            {
-                if (_metadata.TryGetValue(currentType, out result) && result is TMetadata resultT1)
-                {
-                    _metadataCache[type] = result;
-
-                    return resultT1;
-                }
-
-                currentType = currentType.BaseType;
-            }
-
-            _metadataCache[type] = _defaultMetadata;
-
-            return _defaultMetadata is TMetadata metadata ? metadata : default;
+            return resultT;
         }
+
+        Type? currentType = type;
+
+        while (currentType != null)
+        {
+            if (_metadata.TryGetValue(currentType, out result) && result is TMetadata resultT1)
+            {
+                _metadataCache[type] = result;
+
+                return resultT1;
+            }
+
+            currentType = currentType.BaseType;
+        }
+
+        _metadataCache[type] = _defaultMetadata;
+
+        return _defaultMetadata is TMetadata metadata ? metadata : default;
     }
 
     internal void RemoveMetadataOverride(Type type)

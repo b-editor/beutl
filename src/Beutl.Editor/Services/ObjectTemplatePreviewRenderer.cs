@@ -114,11 +114,11 @@ public static class ObjectTemplatePreviewRenderer
 
     private static byte[]? RenderElement(Element element)
     {
-        // The element belongs to the edited scene, so the throwaway scene gets a clone. Start is
-        // rebased because SceneCompositor only collects elements whose Range contains the time.
         return RenderElements([element], default, new PixelSize(PreviewWidth, PreviewHeight));
     }
 
+    // The elements belong to the edited scene, so the throwaway scene gets clones. Start is
+    // rebased because SceneCompositor only collects elements whose Range contains the time.
     private static byte[]? RenderElements(
         IReadOnlyList<Element> elements,
         PixelSize requestedFrameSize,
@@ -134,7 +134,6 @@ public static class ObjectTemplatePreviewRenderer
             copy.Start = TimeSpan.Zero;
             copies.Add(copy);
         }
-        if (copies.Count == 0) return null;
         cancellationToken.ThrowIfCancellationRequested();
 
         TimeSpan duration = copies.Select(item => item.Length)
@@ -432,9 +431,6 @@ public static class ObjectTemplatePreviewRenderer
             return true;
 
         int bytesPerPixel = bitmap.BytesPerPixel;
-        if (bytesPerPixel < 4)
-            return false;
-
         for (int y = 0; y < bitmap.Height; y++)
         {
             ReadOnlySpan<byte> row = bitmap.GetRow(y);

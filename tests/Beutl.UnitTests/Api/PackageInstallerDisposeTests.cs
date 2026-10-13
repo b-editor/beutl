@@ -5,6 +5,7 @@ using Beutl.Api.Clients;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
 using Beutl.Testing.Headless;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Api;
 
@@ -12,19 +13,31 @@ namespace Beutl.UnitTests.Api;
 [NonParallelizable]
 public sealed class PackageInstallerDisposeTests
 {
+    private readonly List<(BeutlApiApplication App, HttpClient HttpClient)> _applications = [];
+
+    [SetUp]
+    public void SetUp()
+    {
+        Assert.That(Helper.AppRoot, Is.EqualTo(BeutlHomeIsolation.CurrentHome));
+    }
+
+    [TearDown]
+    public async Task TearDown()
+    {
+        foreach ((BeutlApiApplication app, HttpClient httpClient) in _applications)
+        {
+            await app.DisposeAsync();
+            httpClient.Dispose();
+        }
+
+        _applications.Clear();
+    }
+
     [Test]
     public async Task DisposeAsync_DrainsInFlightOperations_BeforeDisposingResources()
     {
-        Assert.That(Helper.AppRoot, Is.EqualTo(BeutlHomeIsolation.CurrentHome));
-
         var handler = new BlockingHandler();
-        using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        var installer = new PackageInstaller(
-            httpClient,
-            ownsHttpClient: true,
-            new InstalledPackageRepository(),
-            app);
+        var installer = CreateInstaller(handler);
 
         var context = new PackageInstallContext(
             "Beutl.Package.DisposeTest", "1.0.0", "https://example.com/package.nupkg");
@@ -53,17 +66,9 @@ public sealed class PackageInstallerDisposeTests
     [Test]
     public async Task DisposeAsync_DrainsCompositeInstallOperations()
     {
-        Assert.That(Helper.AppRoot, Is.EqualTo(BeutlHomeIsolation.CurrentHome));
-
         using var handler = new BlockingHandler();
         handler.Release();
-        using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        var installer = new PackageInstaller(
-            httpClient,
-            ownsHttpClient: true,
-            new InstalledPackageRepository(),
-            app);
+        var installer = CreateInstaller(handler);
 
         var operationStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseOperation = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -89,17 +94,9 @@ public sealed class PackageInstallerDisposeTests
     [Test]
     public async Task DisposeAsync_AllowsNestedPhases_OfAnAdmittedTransaction()
     {
-        Assert.That(Helper.AppRoot, Is.EqualTo(BeutlHomeIsolation.CurrentHome));
-
         using var handler = new BlockingHandler();
         handler.Release();
-        using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        var installer = new PackageInstaller(
-            httpClient,
-            ownsHttpClient: true,
-            new InstalledPackageRepository(),
-            app);
+        var installer = CreateInstaller(handler);
 
         var phaseStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var releasePhase = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -127,15 +124,7 @@ public sealed class PackageInstallerDisposeTests
     [Test]
     public async Task DisposeAsync_ReentrantFromCallback_DrainsTheTransaction()
     {
-        Assert.That(Helper.AppRoot, Is.EqualTo(BeutlHomeIsolation.CurrentHome));
-
-        using var httpClient = new HttpClient();
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        var installer = new PackageInstaller(
-            httpClient,
-            ownsHttpClient: true,
-            new InstalledPackageRepository(),
-            app);
+        var installer = CreateInstaller();
 
         Task? dispose = null;
         Task operation = installer.TrackInstallOperationAsync(async () =>
@@ -152,15 +141,7 @@ public sealed class PackageInstallerDisposeTests
     [Test]
     public async Task TrackInstallOperationAsync_PropagatesFaultedTransaction()
     {
-        Assert.That(Helper.AppRoot, Is.EqualTo(BeutlHomeIsolation.CurrentHome));
-
-        using var httpClient = new HttpClient();
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        var installer = new PackageInstaller(
-            httpClient,
-            ownsHttpClient: true,
-            new InstalledPackageRepository(),
-            app);
+        var installer = CreateInstaller();
 
         Task operation = installer.TrackInstallOperationAsync(async () =>
         {
@@ -175,16 +156,8 @@ public sealed class PackageInstallerDisposeTests
     [Test]
     public async Task DisposeAsync_DrainsPhaseRegisteredWhileDisposalIsRunning()
     {
-        Assert.That(Helper.AppRoot, Is.EqualTo(BeutlHomeIsolation.CurrentHome));
-
         var handler = new BlockingHandler();
-        using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        var installer = new PackageInstaller(
-            httpClient,
-            ownsHttpClient: true,
-            new InstalledPackageRepository(),
-            app);
+        var installer = CreateInstaller(handler);
 
         var phaseStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var releasePhase = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -204,19 +177,11 @@ public sealed class PackageInstallerDisposeTests
     [Test]
     public async Task TrackedGenericPhase_PreservesCancellationState()
     {
-        Assert.That(Helper.AppRoot, Is.EqualTo(BeutlHomeIsolation.CurrentHome));
-
         using var handler = new BlockingHandler();
         handler.Release();
-        using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        var installer = new PackageInstaller(
-            httpClient,
-            ownsHttpClient: true,
-            new InstalledPackageRepository(),
-            app);
+        var installer = CreateInstaller(out BeutlApiApplication app, handler);
 
-        var owner = new Profile(CreateProfileResponse(), app);
+        var owner = new Profile(ApiTestAuthentication.CreateProfileResponse(), app);
         var package = new Package(owner, CreatePackageResponse(), app);
         var release = new Release(
             package,
@@ -243,15 +208,7 @@ public sealed class PackageInstallerDisposeTests
     [Test]
     public async Task DisposeAsync_StopsWaitingAtTheDrainDeadline_WhenAnOperationNeverCompletes()
     {
-        Assert.That(Helper.AppRoot, Is.EqualTo(BeutlHomeIsolation.CurrentHome));
-
-        using var httpClient = new HttpClient();
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        var installer = new ShortDeadlinePackageInstaller(
-            httpClient,
-            ownsHttpClient: true,
-            new InstalledPackageRepository(),
-            app);
+        var installer = CreateInstaller(shortDeadline: true);
 
         // Keep the operation pending through the deadline, then release it during cleanup.
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -281,15 +238,7 @@ public sealed class PackageInstallerDisposeTests
     [Test]
     public async Task DisposeAsync_DrainsSynchronousOperations_UntilCompletion()
     {
-        Assert.That(Helper.AppRoot, Is.EqualTo(BeutlHomeIsolation.CurrentHome));
-
-        using var httpClient = new HttpClient();
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        var installer = new PackageInstaller(
-            httpClient,
-            ownsHttpClient: true,
-            new InstalledPackageRepository(),
-            app);
+        var installer = CreateInstaller();
 
         var operationStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseOperation = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -322,15 +271,7 @@ public sealed class PackageInstallerDisposeTests
     [Test]
     public async Task DisposeAsync_AdmitsNestedSynchronousPhases_OfAnAdmittedTransaction()
     {
-        Assert.That(Helper.AppRoot, Is.EqualTo(BeutlHomeIsolation.CurrentHome));
-
-        using var httpClient = new HttpClient();
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        var installer = new PackageInstaller(
-            httpClient,
-            ownsHttpClient: true,
-            new InstalledPackageRepository(),
-            app);
+        var installer = CreateInstaller();
 
         var phaseStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var releasePhase = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -355,15 +296,7 @@ public sealed class PackageInstallerDisposeTests
     [Test]
     public async Task DisposeAsync_CompletesNormally_WhenASynchronousOperationThrows()
     {
-        Assert.That(Helper.AppRoot, Is.EqualTo(BeutlHomeIsolation.CurrentHome));
-
-        using var httpClient = new HttpClient();
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        var installer = new PackageInstaller(
-            httpClient,
-            ownsHttpClient: true,
-            new InstalledPackageRepository(),
-            app);
+        var installer = CreateInstaller();
 
         // The lifetime proxy must not fault when the operation throws: the caller observes
         // the exception directly, and a faulted proxy would surface later as an unobserved
@@ -377,15 +310,7 @@ public sealed class PackageInstallerDisposeTests
     [Test]
     public async Task PrepareForInstall_StringOverload_RejectsAdmissionAfterDisposal()
     {
-        Assert.That(Helper.AppRoot, Is.EqualTo(BeutlHomeIsolation.CurrentHome));
-
-        using var httpClient = new HttpClient();
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        var installer = new PackageInstaller(
-            httpClient,
-            ownsHttpClient: true,
-            new InstalledPackageRepository(),
-            app);
+        var installer = CreateInstaller();
         await installer.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
 
         // The string-based overload must be admitted like every other synchronous entry
@@ -397,15 +322,7 @@ public sealed class PackageInstallerDisposeTests
     [Test]
     public async Task DisposeAsync_StartsDraining_WhenTheTransactionBlocksBeforeItsFirstAwait()
     {
-        Assert.That(Helper.AppRoot, Is.EqualTo(BeutlHomeIsolation.CurrentHome));
-
-        using var httpClient = new HttpClient();
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        var installer = new ShortDeadlinePackageInstaller(
-            httpClient,
-            ownsHttpClient: true,
-            new InstalledPackageRepository(),
-            app);
+        var installer = CreateInstaller(shortDeadline: true);
 
         var operationStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseOperation = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -414,16 +331,12 @@ public sealed class PackageInstallerDisposeTests
         Task operation = Task.Run(() =>
             installer.TrackInstallOperationAsync(async () =>
             {
-                // Block synchronously before the first incomplete await: the transaction
-                // runner must not hold the gate, or disposal could not even start draining.
                 operationStarted.TrySetResult();
                 releaseOperation.Task.Wait();
                 await Task.CompletedTask;
             }));
         await operationStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
-        // Disposal must be able to acquire the gate and start its drain deadline even
-        // though the transaction is still blocked in its synchronous prefix.
         Task dispose = installer.DisposeAsync().AsTask();
         try
         {
@@ -440,16 +353,8 @@ public sealed class PackageInstallerDisposeTests
     [Test]
     public async Task DisposeAsync_KeepsInstallerResourcesAlive_UntilTrackedWorkStops()
     {
-        Assert.That(Helper.AppRoot, Is.EqualTo(BeutlHomeIsolation.CurrentHome));
-
         using var handler = new BlockingHandler();
-        using var httpClient = new HttpClient(handler);
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        var installer = new ShortDeadlinePackageInstaller(
-            httpClient,
-            ownsHttpClient: true,
-            new InstalledPackageRepository(),
-            app);
+        var installer = CreateInstaller(handler, shortDeadline: true);
 
         Task operation = installer.DownloadPackageFile(
             new PackageInstallContext(
@@ -469,23 +374,13 @@ public sealed class PackageInstallerDisposeTests
         handler.Release();
         await operation.WaitAsync(TimeSpan.FromSeconds(5));
 
-        await WaitUntilAsync(() => handler.Disposed, TimeSpan.FromSeconds(10));
-        Assert.That(handler.Disposed, Is.True,
-            "the installer must dispose its HttpClient after the tracked operation stopped");
+        await TestWait.UntilAsync(() => handler.Disposed, TimeSpan.FromSeconds(10));
     }
 
     [Test]
     public async Task WaitUntilIdleAsync_WaitsForOperationsThatOutlivedTheDrainDeadline()
     {
-        Assert.That(Helper.AppRoot, Is.EqualTo(BeutlHomeIsolation.CurrentHome));
-
-        using var httpClient = new HttpClient();
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        var installer = new ShortDeadlinePackageInstaller(
-            httpClient,
-            ownsHttpClient: true,
-            new InstalledPackageRepository(),
-            app);
+        var installer = CreateInstaller(shortDeadline: true);
 
         // An operation that never completes, so disposal ends at its deadline.
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -493,8 +388,6 @@ public sealed class PackageInstallerDisposeTests
 
         await installer.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(10));
 
-        // WaitUntilIdleAsync must keep waiting for the operation that outlived the
-        // drain deadline; it must not return while the operation is still running.
         Task idle = installer.WaitUntilIdleAsync(TimeSpan.FromSeconds(10));
         try
         {
@@ -511,15 +404,7 @@ public sealed class PackageInstallerDisposeTests
     [Test]
     public async Task WaitUntilIdleAsync_StopsAtTheTimeout_WhenAnOperationNeverCompletes()
     {
-        Assert.That(Helper.AppRoot, Is.EqualTo(BeutlHomeIsolation.CurrentHome));
-
-        using var httpClient = new HttpClient();
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        var installer = new PackageInstaller(
-            httpClient,
-            ownsHttpClient: true,
-            new InstalledPackageRepository(),
-            app);
+        var installer = CreateInstaller();
 
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         Task operation = installer.TrackInstallOperationAsync(() => release.Task);
@@ -548,15 +433,7 @@ public sealed class PackageInstallerDisposeTests
     [Test]
     public async Task WaitUntilIdleAsync_PublishesFallbackBeforeReturningAtTheDeadline()
     {
-        Assert.That(Helper.AppRoot, Is.EqualTo(BeutlHomeIsolation.CurrentHome));
-
-        using var httpClient = new HttpClient();
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        var installer = new PackageInstaller(
-            httpClient,
-            ownsHttpClient: false,
-            new InstalledPackageRepository(),
-            app);
+        var installer = CreateInstaller(ownsHttpClient: false);
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         int fallbackCount = 0;
         Task operation = installer.TrackInstallOperationWithShutdownFallbackAsync(
@@ -576,15 +453,7 @@ public sealed class PackageInstallerDisposeTests
     [Test]
     public async Task SuccessfulInstallDisarmsFallbackBeforeShutdownSnapshot()
     {
-        Assert.That(Helper.AppRoot, Is.EqualTo(BeutlHomeIsolation.CurrentHome));
-
-        using var httpClient = new HttpClient();
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        var installer = new PackageInstaller(
-            httpClient,
-            ownsHttpClient: false,
-            new InstalledPackageRepository(),
-            app);
+        var installer = CreateInstaller(ownsHttpClient: false);
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using var fallbackDisarmed = new ManualResetEventSlim();
         int fallbackCount = 0;
@@ -610,15 +479,7 @@ public sealed class PackageInstallerDisposeTests
     [Test]
     public async Task FaultedInstallPublishesFallbackBeforeItsTaskCompletes()
     {
-        Assert.That(Helper.AppRoot, Is.EqualTo(BeutlHomeIsolation.CurrentHome));
-
-        using var httpClient = new HttpClient();
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        var installer = new PackageInstaller(
-            httpClient,
-            ownsHttpClient: false,
-            new InstalledPackageRepository(),
-            app);
+        var installer = CreateInstaller(ownsHttpClient: false);
         int fallbackCount = 0;
 
         Task operation = installer.TrackInstallOperationWithShutdownFallbackAsync(
@@ -633,15 +494,7 @@ public sealed class PackageInstallerDisposeTests
     [Test]
     public async Task NormalInstallCancellationDoesNotPublishShutdownFallback()
     {
-        Assert.That(Helper.AppRoot, Is.EqualTo(BeutlHomeIsolation.CurrentHome));
-
-        using var httpClient = new HttpClient();
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        var installer = new PackageInstaller(
-            httpClient,
-            ownsHttpClient: false,
-            new InstalledPackageRepository(),
-            app);
+        var installer = CreateInstaller(ownsHttpClient: false);
         int fallbackCount = 0;
 
         Task operation = installer.TrackInstallOperationWithShutdownFallbackAsync(
@@ -656,15 +509,7 @@ public sealed class PackageInstallerDisposeTests
     [Test]
     public async Task InstallCancellationAfterShutdownStartsButBeforeIdleWaitPublishesFallback()
     {
-        Assert.That(Helper.AppRoot, Is.EqualTo(BeutlHomeIsolation.CurrentHome));
-
-        using var httpClient = new HttpClient();
-        await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        var installer = new PackageInstaller(
-            httpClient,
-            ownsHttpClient: false,
-            new InstalledPackageRepository(),
-            app);
+        var installer = CreateInstaller(ownsHttpClient: false);
         var cancellation = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         int fallbackCount = 0;
         Task operation = installer.TrackInstallOperationWithShutdownFallbackAsync(
@@ -680,17 +525,6 @@ public sealed class PackageInstallerDisposeTests
         await installer.DisposeAsync();
     }
 
-    private static async Task WaitUntilAsync(Func<bool> condition, TimeSpan timeout)
-    {
-        long deadline = Environment.TickCount64 + (long)timeout.TotalMilliseconds;
-        while (!condition() && Environment.TickCount64 < deadline)
-        {
-            await Task.Delay(10);
-        }
-
-        Assert.That(condition(), Is.True, "condition did not become true within the timeout");
-    }
-
     // Observe completion before the awaiting test continuation can be delayed. The assertions use
     // a conservative 100 ms minimum, well below both deadlines, so timer rounding cannot fail them.
     // A second Task.Delay would race the real deadline when a busy timer queue drains both at once.
@@ -701,6 +535,27 @@ public sealed class PackageInstallerDisposeTests
             completed.GetAwaiter().GetResult();
             return elapsed;
         }, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+
+    private PackageInstaller CreateInstaller(
+        HttpMessageHandler? handler = null,
+        bool ownsHttpClient = true,
+        bool shortDeadline = false)
+        => CreateInstaller(out _, handler, ownsHttpClient, shortDeadline);
+
+    private PackageInstaller CreateInstaller(
+        out BeutlApiApplication app,
+        HttpMessageHandler? handler = null,
+        bool ownsHttpClient = true,
+        bool shortDeadline = false)
+    {
+        HttpClient httpClient = handler is null ? new HttpClient() : new HttpClient(handler);
+        app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        _applications.Add((app, httpClient));
+        var repository = new InstalledPackageRepository();
+        return shortDeadline
+            ? new ShortDeadlinePackageInstaller(httpClient, ownsHttpClient, repository, app)
+            : new PackageInstaller(httpClient, ownsHttpClient, repository, app);
+    }
 
     private sealed class ShortDeadlinePackageInstaller : PackageInstaller
     {
@@ -745,25 +600,12 @@ public sealed class PackageInstallerDisposeTests
         }
     }
 
-    private static ProfileResponse CreateProfileResponse()
-    {
-        return new ProfileResponse
-        {
-            Id = "profile-id",
-            Name = "profile-name",
-            DisplayName = "Profile Name",
-            Bio = null,
-            IconId = null,
-            IconUrl = null,
-        };
-    }
-
     private static PackageResponse CreatePackageResponse()
     {
         return new PackageResponse
         {
             Id = "package-id",
-            Owner = CreateProfileResponse(),
+            Owner = ApiTestAuthentication.CreateProfileResponse(),
             Name = "package-name",
             DisplayName = "Package Name",
             Description = "Description",

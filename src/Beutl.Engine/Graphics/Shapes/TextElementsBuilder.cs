@@ -137,7 +137,6 @@ public class TextElementsBuilder(FormattedTextInfo initialOptions)
             if (!noParse && token.Type == TokenType.TagStart &&
                 TryParseTag(token.Text, out TagInfo tag))
             {
-                // 開始タグ
                 if (tag.TryGetFont(out FontFamily? font1))
                     PushFontFamily(font1);
                 else if (tag.TryGetSize(out float size1))

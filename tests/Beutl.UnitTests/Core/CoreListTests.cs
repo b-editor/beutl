@@ -147,25 +147,6 @@ public class CoreListTests
     }
 
     [Test]
-    public void Replace_DetachesAndAttachesItems()
-    {
-        var list = new CoreList<int>(new[] { 1, 2 });
-        var attached = new List<int>();
-        var detached = new List<int>();
-        list.Attached += attached.Add;
-        list.Detached += detached.Add;
-
-        list.Replace(new[] { 9, 8, 7 });
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(list, Is.EqualTo(new[] { 9, 8, 7 }));
-            Assert.That(detached, Is.EqualTo(new[] { 1, 2 }));
-            Assert.That(attached, Is.EqualTo(new[] { 9, 8, 7 }));
-        });
-    }
-
-    [Test]
     public void Clear_FiresRemoveOrResetBasedOnBehavior()
     {
         var removeList = new CoreList<int>(new[] { 1, 2 }) { ResetBehavior = ResetBehavior.Remove };

@@ -74,25 +74,7 @@ public sealed class AiAvailabilityContractTests
     [Test]
     public void AProportionOutsideZeroToOneHundred_FailsClosed()
     {
-        var response = new EntitlementsResponse
-        {
-            Plan = "pro",
-            SubscriptionStatus = "active",
-            CurrentPeriodStart = null,
-            CurrentPeriodEnd = null,
-            CanUseAi = true,
-            Balance = new AiBalanceResponse
-            {
-                MonthlyUsage = new AiMonthlyUsageResponse
-                {
-                    UsedPercent = 120,
-                    RemainingPercent = 0,
-                    IsExhausted = true,
-                },
-                AdditionalCredits = 0,
-            },
-            Availability = ImmutableDictionary<string, bool>.Empty,
-        };
+        EntitlementsResponse response = Entitlements(usedPercent: 120, remainingPercent: 0, additionalCredits: 0);
 
         Assert.That(response.TryNormalize(out _), Is.False);
     }
@@ -100,25 +82,7 @@ public sealed class AiAvailabilityContractTests
     [Test]
     public void ANegativeCreditBalance_FailsClosed()
     {
-        var response = new EntitlementsResponse
-        {
-            Plan = "pro",
-            SubscriptionStatus = "active",
-            CurrentPeriodStart = null,
-            CurrentPeriodEnd = null,
-            CanUseAi = true,
-            Balance = new AiBalanceResponse
-            {
-                MonthlyUsage = new AiMonthlyUsageResponse
-                {
-                    UsedPercent = 0,
-                    RemainingPercent = 100,
-                    IsExhausted = false,
-                },
-                AdditionalCredits = -1,
-            },
-            Availability = ImmutableDictionary<string, bool>.Empty,
-        };
+        EntitlementsResponse response = Entitlements(usedPercent: 0, remainingPercent: 100, additionalCredits: -1);
 
         Assert.That(response.TryNormalize(out _), Is.False);
     }
@@ -126,26 +90,10 @@ public sealed class AiAvailabilityContractTests
     [Test]
     public void AValidResponse_NormalizesSuccessfully()
     {
-        var response = new EntitlementsResponse
+        EntitlementsResponse response = Entitlements(usedPercent: 40, remainingPercent: 60, additionalCredits: 25) with
         {
-            Plan = "pro",
-            SubscriptionStatus = "active",
-            CurrentPeriodStart = null,
-            CurrentPeriodEnd = null,
             CancelAtPeriodEnd = true,
-            CanUseAi = true,
-            Balance = new AiBalanceResponse
-            {
-                MonthlyUsage = new AiMonthlyUsageResponse
-                {
-                    UsedPercent = 40,
-                    RemainingPercent = 60,
-                    IsExhausted = false,
-                },
-                AdditionalCredits = 25,
-            },
-            Availability = ImmutableDictionary<string, bool>.Empty
-                .Add("image.generate", true),
+            Availability = ImmutableDictionary<string, bool>.Empty.Add("image.generate", true),
         };
 
         Assert.Multiple(() =>
@@ -155,4 +103,25 @@ public sealed class AiAvailabilityContractTests
             Assert.That(normalized.Balance.AdditionalCredits, Is.EqualTo(25));
         });
     }
+
+    private static EntitlementsResponse Entitlements(int usedPercent, int remainingPercent, int additionalCredits)
+        => new()
+        {
+            Plan = "pro",
+            SubscriptionStatus = "active",
+            CurrentPeriodStart = null,
+            CurrentPeriodEnd = null,
+            CanUseAi = true,
+            Balance = new AiBalanceResponse
+            {
+                MonthlyUsage = new AiMonthlyUsageResponse
+                {
+                    UsedPercent = usedPercent,
+                    RemainingPercent = remainingPercent,
+                    IsExhausted = remainingPercent == 0,
+                },
+                AdditionalCredits = additionalCredits,
+            },
+            Availability = ImmutableDictionary<string, bool>.Empty,
+        };
 }

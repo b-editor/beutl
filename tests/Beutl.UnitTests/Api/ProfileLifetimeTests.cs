@@ -1,10 +1,9 @@
 ﻿using System.Net;
 using System.Net.Http.Json;
 using Beutl.Api;
-using Beutl.Api.Clients;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
-using Beutl.Testing.Headless;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Api;
 
@@ -20,7 +19,7 @@ public sealed class ProfileLifetimeTests
         using var handler = new BlockingHandler(requestStarted, releaseRequest);
         using var httpClient = new HttpClient(handler);
         var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        var profile = new Profile(CreateProfileResponse(), app);
+        var profile = new Profile(ApiTestAuthentication.CreateProfileResponse(), app);
 
         Task refresh = profile.RefreshAsync(CancellationToken.None);
         await requestStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
@@ -39,7 +38,7 @@ public sealed class ProfileLifetimeTests
         using var handler = new BlockingHandler(requestStarted, releaseRequest);
         using var httpClient = new HttpClient(handler);
         var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        var profile = new Profile(CreateProfileResponse(), app);
+        var profile = new Profile(ApiTestAuthentication.CreateProfileResponse(), app);
 
         Task getPackages = profile.GetPackagesAsync(CancellationToken.None);
         await requestStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
@@ -55,7 +54,7 @@ public sealed class ProfileLifetimeTests
     {
         var requestStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseRequest = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        using var handler = new DelegateHandler(async (request, cancellationToken) =>
+        using var handler = new DelegateHttpHandler(async (request, cancellationToken) =>
         {
             requestStarted.TrySetResult();
             await releaseRequest.Task;
@@ -63,12 +62,12 @@ public sealed class ProfileLifetimeTests
             // recheck the lifetime token before publishing the refreshed state.
             return new HttpResponseMessage(HttpStatusCode.OK)
             {
-                Content = JsonContent.Create(CreateProfileResponse())
+                Content = JsonContent.Create(ApiTestAuthentication.CreateProfileResponse())
             };
         });
         using var httpClient = new HttpClient(handler);
         var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-        var profile = new Profile(CreateProfileResponse(), app);
+        var profile = new Profile(ApiTestAuthentication.CreateProfileResponse(), app);
 
         Task refresh = profile.RefreshAsync(CancellationToken.None);
         await requestStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
@@ -84,7 +83,7 @@ public sealed class ProfileLifetimeTests
     {
         var requestCompleted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         BeutlApiApplication? appRef = null;
-        using var handler = new DelegateHandler((request, cancellationToken) =>
+        using var handler = new DelegateHttpHandler((request, cancellationToken) =>
         {
             requestCompleted.TrySetResult();
             // Dispose the application while the empty response is being processed, so the
@@ -98,7 +97,7 @@ public sealed class ProfileLifetimeTests
         using var httpClient = new HttpClient(handler);
         var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         appRef = app;
-        var profile = new Profile(CreateProfileResponse(), app);
+        var profile = new Profile(ApiTestAuthentication.CreateProfileResponse(), app);
 
         Task<Package[]> getPackages = profile.GetPackagesAsync(CancellationToken.None);
         await requestCompleted.Task.WaitAsync(TimeSpan.FromSeconds(5));
@@ -108,69 +107,16 @@ public sealed class ProfileLifetimeTests
     }
 
     [Test]
-    public async Task AuthenticatedUserRefresh_Rethrows_WhenCancelledAfterFileRead()
+    public async Task RefreshAsync_PreCanceledToken_Throws()
     {
-        Assert.That(Helper.AppRoot, Is.EqualTo(BeutlHomeIsolation.CurrentHome));
-        string userFile = Path.Combine(Helper.AppRoot, BeutlApiApplication.UserFileName);
-        File.WriteAllText(userFile, """
-            {
-              "token": "stale-token",
-              "refresh_token": "stale-refresh",
-              "expiration": "2027-01-01T00:00:00Z",
-              "profile": {
-                "id": "profile-id",
-                "name": "profile-name",
-                "displayName": "Profile Name",
-                "bio": null,
-                "iconId": null,
-                "iconUrl": null
-              }
-            }
-            """);
-        try
-        {
-            using var handler = new DelegateHandler((request, cancellationToken) =>
-                Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
-                {
-                    Content = new StringContent("{}")
-                }));
-            using var httpClient = new HttpClient(handler);
-            var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
-            var profile = new Profile(CreateProfileResponse(), app);
-            var authResponse = new AuthResponse
-            {
-                Token = "stale-token",
-                RefreshToken = "stale-refresh",
-                Expiration = DateTime.UtcNow.AddDays(1)
-            };
-            var user = new AuthenticatedUser(profile, authResponse, app, DateTime.UtcNow.AddDays(-1));
+        using var httpClient = new HttpClient();
+        var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
+        AuthenticatedUser user = ApiTestAuthentication.CreateUser(app);
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
 
-            // A stale write-time forces the persisted-file branch; a pre-canceled token
-            // makes the cancellation point deterministic instead of racing the file read.
-            using var cancellation = new CancellationTokenSource();
-            cancellation.Cancel();
-            Task refresh = user.RefreshAsync(cancellation.Token).AsTask();
-
-            await Assert.CatchAsync<OperationCanceledException>(async () =>
-                await refresh.WaitAsync(TimeSpan.FromSeconds(5)));
-        }
-        finally
-        {
-            File.Delete(userFile);
-        }
-    }
-
-    private static ProfileResponse CreateProfileResponse()
-    {
-        return new ProfileResponse
-        {
-            Id = "profile-id",
-            Name = "profile-name",
-            DisplayName = "Profile Name",
-            Bio = null,
-            IconId = null,
-            IconUrl = null,
-        };
+        await Assert.CatchAsync<OperationCanceledException>(async () =>
+            await user.RefreshAsync(cancellation.Token));
     }
 
     private sealed class BlockingHandler(
@@ -187,14 +133,5 @@ public sealed class ProfileLifetimeTests
                 Content = new StringContent("{}")
             };
         }
-    }
-
-    private sealed class DelegateHandler(
-        Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> handler)
-        : HttpMessageHandler
-    {
-        protected override Task<HttpResponseMessage> SendAsync(
-            HttpRequestMessage request, CancellationToken cancellationToken)
-            => handler(request, cancellationToken);
     }
 }

@@ -41,7 +41,7 @@ internal sealed class RenderRequestOptions
         Purpose = purpose;
         TargetDomain = targetDomain;
         RequestedRegion = requestedRegion;
-        OutputScale = SanitizeOutputScale(outputScale);
+        OutputScale = RenderScaleUtilities.SanitizeOutputScale(outputScale);
         MaxWorkingScale = RenderScaleUtilities.SanitizeMaxWorkingScale(maxWorkingScale);
         RenderCacheOptions sourceCachePolicy = cachePolicy ?? RenderCacheOptions.Default;
         CachePolicy = new RenderCacheOptions(sourceCachePolicy.IsEnabled, sourceCachePolicy.Rules);
@@ -82,20 +82,15 @@ internal sealed class RenderRequestOptions
 
     /// <summary>Whether this request may expect a 3D-capable backend at execution.</summary>
     /// <remarks>
-    /// Settled once when the request is created and read by every recording it drives, so a recording that
-    /// branches on it depends on request state rather than on process state: the value is part of
-    /// <see cref="RenderNodeRecordingKey"/>, and a nested request inherits its parent's answer. The entry
-    /// renderer takes it from <see cref="Backend.GraphicsContextFactory.Predict3DRenderingSupport"/>; a request
-    /// built directly defaults to <see langword="true"/>, which is the prediction before any backend exists.
+    /// Settled at creation and part of <see cref="RenderNodeRecordingKey"/>; a nested request inherits it. The entry
+    /// renderer predicts it, and a request built directly assumes <see langword="true"/> before any backend exists.
     /// </remarks>
     public bool Supports3DRendering { get; }
 
     /// <summary>The 3D extents this request may expect to allocate, or unreported when unknown.</summary>
     /// <remarks>
-    /// Settled alongside <see cref="Supports3DRendering"/> and carried the same way, so a node that would
-    /// allocate a 3D surface can ask at record time whether the extents it needs are ones the device can
-    /// make, and answer for bounds, cardinality and hit testing with what the request can actually draw.
-    /// <see cref="Device3DExtentBudget.Unreported"/> refuses nothing; the allocation still decides.
+    /// Carried like <see cref="Supports3DRendering"/>, so a node can ask at record time whether its 3D extents can be
+    /// made. <see cref="Device3DExtentBudget.Unreported"/> refuses nothing; the allocation still decides.
     /// </remarks>
     public Device3DExtentBudget Device3DExtentBudget { get; }
 
@@ -117,29 +112,14 @@ internal sealed class RenderRequestOptions
                 "A nested target working scale must be positive and finite.");
         }
 
-        return CreateNestedCore(
-            targetBinding,
-            targetDomain,
-            requestedRegion,
-            workingScale,
-            workingScale);
-    }
-
-    private RenderRequestOptions CreateNestedCore(
-        NestedRenderTargetBinding targetBinding,
-        Rect? targetDomain,
-        Rect? requestedRegion,
-        float outputScale,
-        float maxWorkingScale)
-    {
         ArgumentNullException.ThrowIfNull(targetBinding);
         var nested = new RenderRequestOptions(
             Intent,
             Purpose,
             targetDomain ?? TargetDomain,
             requestedRegion,
-            outputScale,
-            maxWorkingScale,
+            workingScale,
+            workingScale,
             CachePolicy,
             FusionMode,
             Owner,
@@ -149,9 +129,6 @@ internal sealed class RenderRequestOptions
         nested.NestedPolicyParent = this;
         return nested;
     }
-
-    private static float SanitizeOutputScale(float outputScale)
-        => RenderScaleUtilities.SanitizeOutputScale(outputScale);
 
     private static void ValidateTargetDomain(Rect? targetDomain)
     {

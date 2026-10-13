@@ -16,15 +16,6 @@ public sealed partial class RenderTools
         return CreateSceneSnapshot(session);
     }
 
-    // Reads the frame rate from the given session's live, Project-attached scene; CreateSceneSnapshot
-    // returns a clone detached from its Project, on which the project frame-rate lookup would always
-    // miss. Takes the same session the snapshot was read from so the two cannot straddle a swap.
-    private static int ReadSessionFrameRate(IEditingSession session)
-    {
-        return session.ReadOnSession(() =>
-            session.Root is Scene liveScene ? GetSceneFrameRate(liveScene) : DefaultSceneFrameRate);
-    }
-
     internal static Scene CreateSceneSnapshot(IEditingSession session)
     {
         ArgumentNullException.ThrowIfNull(session);
@@ -82,11 +73,8 @@ public sealed partial class RenderTools
         return referenceClones;
     }
 
-    // Expression evaluation resolves through the owner's hierarchical root and falls back to the
-    // LIVE BeutlApplication.Current when the owner is detached, so a rootless snapshot would read
-    // live objects mid-render — the exact concurrent-mutation hazard the snapshot exists to
-    // prevent. Root the snapshot like FileEditingSession roots a headless session, with the
-    // referenced-scene clones alongside so Id lookups resolve snapshot-locally.
+    // Root the snapshot in its own Project and BeutlApplication: expressions of a detached owner
+    // fall back to the live BeutlApplication.Current.
     private static void AttachSnapshotRoot(Scene liveScene, Scene clone, IReadOnlyList<CoreObject> referenceClones)
     {
         var project = new Project();

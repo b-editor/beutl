@@ -50,19 +50,8 @@ public sealed class SceneSettingsTabViewModel : IToolContext
         StartInput.SetValidateNotifyError(StartValidator);
         DurationInput.SetValidateNotifyError(DurationValidator);
 
-        CanApply = Width.CombineLatest(Height, StartInput, DurationInput, LayerCount).Select(t =>
-            {
-                int width = t.First;
-                int height = t.Second;
-
-                string startTime = t.Third;
-                string durationTime = t.Fourth;
-                return width > 0 &&
-                    height > 0 &&
-                    TimeSpan.TryParse(startTime, out TimeSpan ts1) && ts1 >= TimeSpan.Zero &&
-                    TimeSpan.TryParse(durationTime, out TimeSpan ts2) && ts2 > TimeSpan.Zero &&
-                    t.Fifth > 0;
-            })
+        CanApply = Width.CombineLatest(Height, StartInput, DurationInput, LayerCount)
+            .Select(_ => TryReadSceneSettings(out var _, out var _, out var _) && LayerCount.Value > 0)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposable);
 

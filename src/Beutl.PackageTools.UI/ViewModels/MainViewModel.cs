@@ -271,7 +271,7 @@ public class MainViewModel : IAsyncDisposable
     public ValueTask DisposeAsync()
         => _operationLifetime.DisposeAsync();
 
-    protected virtual async ValueTask DisposeOwnedResources()
+    private async ValueTask DisposeOwnedResources()
     {
         foreach (Process process in _beutlProcesses.Concat(_pkgProcesses))
         {

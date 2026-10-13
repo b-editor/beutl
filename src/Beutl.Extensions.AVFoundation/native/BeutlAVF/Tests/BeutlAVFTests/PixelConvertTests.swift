@@ -36,8 +36,8 @@ final class PixelConvertTests: XCTestCase {
 
     // Verify that a CV32ARGB-formatted input ([A][R][G][B] per pixel in memory) is
     // converted to the Bgra8888 layout ([B][G][R][A]) that Beutl's SKBitmap expects.
-    // A small 2×1 buffer is used so IOSurface padding forces the row-based (padded)
-    // swizzle path; the larger test below exercises the fast 32-bit word path.
+    // A small 2×1 buffer gets padded rows; the larger test below uses tight ones. One
+    // vImage call handles both.
     func testARGBToBGRA8888Padded() throws {
         let width = 2
         let height = 1
@@ -67,7 +67,7 @@ final class PixelConvertTests: XCTestCase {
     }
 
     // Construct a 64×4 ARGB buffer (a width whose bytes-per-row is almost always the
-    // tight multiple IOSurface would pick) so the fast path is exercised.
+    // tight multiple IOSurface would pick) so tight rows are exercised.
     func testARGBToBGRA8888FastPath() throws {
         let width = 64
         let height = 4

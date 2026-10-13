@@ -18,10 +18,7 @@ public class RenderNodeCacheTests
     {
         using var node = new ContainerRenderNode();
 
-        for (int i = 0; i < RenderNodeCache.StableRequestCount; i++)
-        {
-            node.Cache.RecordSuccessfulStableRequest();
-        }
+        node.Cache.RecordStableRequests();
 
         Assert.That(node.Cache.CanCapture, Is.True);
     }
@@ -32,10 +29,7 @@ public class RenderNodeCacheTests
         using var node = new ContainerRenderNode();
         RenderNodeCache.PublishAtomically(
             [RenderCacheTestSupport.CreatePublication(node.Cache, RenderTarget.CreateNull(1, 1), new Rect(0, 0, 1, 1))]);
-        for (int i = 0; i < RenderNodeCache.StableRequestCount; i++)
-        {
-            node.Cache.RecordSuccessfulStableRequest();
-        }
+        node.Cache.RecordStableRequests();
         node.MarkChanged();
 
         RenderNodeCacheLifecycle lifecycle = RenderNodeCacheHelper.BeginLifecycle(node);
@@ -70,13 +64,10 @@ public class RenderNodeCacheTests
             RenderCacheTestSupport.CreatePublication(dirtyLeaf.Cache, RenderTarget.CreateNull(1, 1), new Rect(0, 0, 1, 1)),
             RenderCacheTestSupport.CreatePublication(sibling.Cache, RenderTarget.CreateNull(1, 1), new Rect(0, 0, 1, 1)),
         ]);
-        for (int i = 0; i < RenderNodeCache.StableRequestCount; i++)
-        {
-            root.Cache.RecordSuccessfulStableRequest();
-            dirtyBranch.Cache.RecordSuccessfulStableRequest();
-            dirtyLeaf.Cache.RecordSuccessfulStableRequest();
-            sibling.Cache.RecordSuccessfulStableRequest();
-        }
+        root.Cache.RecordStableRequests();
+        dirtyBranch.Cache.RecordStableRequests();
+        dirtyLeaf.Cache.RecordStableRequests();
+        sibling.Cache.RecordStableRequests();
         dirtyBranch.MarkChanged();
 
         RenderNodeCacheLifecycle lifecycle = RenderNodeCacheHelper.BeginLifecycle(root);

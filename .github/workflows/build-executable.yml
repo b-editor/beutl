@@ -17,27 +17,36 @@ on:
       infoVer:
         required: true
         type: string
-    outputs:
-      artifact-run-id:
-        description: Run ID that published the artifacts
-        value: ${{ jobs.build-executable.outputs.artifact-run-id }}
+      # Only self-contained builds ship (#2887). The Windows zips feed build-windows-installer.yml,
+      # and macOS ships the signed app from build-macos-app.yml.
+      rids:
+        description: The Nuke runtimes to build, as a JSON array.
+        required: false
+        type: string
+        default: '["linux_x64", "linux_arm64", "win_x64", "win_arm64"]'
+      selfContained:
+        required: false
+        type: boolean
+        default: true
+      metadata:
+        description: Whether to write asset_metadata.json.
+        required: false
+        type: boolean
+        default: true
+      artifactName:
+        description: The artifact name, where {0} is the runtime and {1} the version.
+        required: false
+        type: string
+        default: 'beutl-{0}-standalone-{1}'
 
 jobs:
   build-executable:
     runs-on: ubuntu-latest
-    outputs:
-      artifact-run-id: ${{ steps.run-id.outputs.run-id }}
     strategy:
       matrix:
-        # Only self-contained builds ship (#2887). The Windows zips feed build-windows-installer.yml,
-        # and macOS ships the signed app from build-macos-app.yml.
-        rid: [ linux_x64, linux_arm64, win_x64, win_arm64 ]
+        rid: ${{ fromJSON(inputs.rids) }}
 
     steps:
-      - name: Set artifact run id
-        id: run-id
-        run: echo "run-id=${{ github.run_id }}" >> $GITHUB_OUTPUT
-
       - name: Checkout
         uses: actions/checkout@v7.0.1
         with:
@@ -60,7 +69,7 @@ jobs:
       - name: Publish
         run: |
           ./build.sh publish \
-            --self-contained true \
+            --self-contained ${{ inputs.selfContained }} \
             --runtime ${{ matrix.rid }} \
             --skip restore \
             --version ${{ inputs.nugetVer }} \
@@ -78,6 +87,7 @@ jobs:
         run: python3 build/smoke_test_output.py output/Beutl
 
       - name: Store Metadata
+        if: inputs.metadata
         run: |
           cd output/Beutl
           ASSET_METADATA_ID=`uuidgen`
@@ -100,12 +110,12 @@ jobs:
         run: |
           ./build.sh zip \
             --runtime ${{ matrix.rid }} \
-            --self-contained true \
+            --self-contained ${{ inputs.selfContained }} \
             --skip publish \
             --version ${{ inputs.nugetVer }}
 
       - name: Save
         uses: actions/upload-artifact@v7.0.2
         with:
-          name: beutl-${{ matrix.rid }}-standalone-${{ inputs.semVer }}
+          name: ${{ format(inputs.artifactName, matrix.rid, inputs.semVer) }}
           path: ./artifacts/*.zip

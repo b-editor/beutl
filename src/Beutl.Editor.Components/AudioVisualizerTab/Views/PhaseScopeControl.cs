@@ -33,9 +33,7 @@ public sealed class PhaseScopeControl : AudioVisualizerControlBase
         ReadOnlySpan<float> left = _left.AsSpan(leadingZeros, got);
         ReadOnlySpan<float> right = _right.AsSpan(leadingZeros, got);
 
-        // Reserve enough margin outside the diamond for axis labels (M/L/R/S)
-        // and the correlation readout. The previous 10 px margin clipped 12 pt
-        // labels when they were positioned outside the vertices.
+        // Reserve room outside the diamond for the M/L/R/S labels and the correlation readout.
         const double outerMargin = 24;
         double size = Math.Min(bounds.Width, bounds.Height) - outerMargin * 2;
         if (size < 40) return;
@@ -46,7 +44,7 @@ public sealed class PhaseScopeControl : AudioVisualizerControlBase
             size);
 
         DrawGuides(context, area);
-        DrawCorrelationLabel(context, bounds, ComputeCorrelation(left, right));
+        DrawCorrelationLabel(context, ComputeCorrelation(left, right));
         DrawSamples(context, area, left, right);
     }
 
@@ -80,7 +78,7 @@ public sealed class PhaseScopeControl : AudioVisualizerControlBase
         DrawAxisLabelCentered(context, "S", new Point(area.Center.X, area.Bottom + 2), textBrush, hAlign: 0.5, vAlign: 0.0);
     }
 
-    private void DrawCorrelationLabel(DrawingContext context, Rect bounds, float correlation)
+    private void DrawCorrelationLabel(DrawingContext context, float correlation)
     {
         string label = $"corr {correlation,5:+0.00;-0.00; 0.00}";
         var text = new FormattedText(

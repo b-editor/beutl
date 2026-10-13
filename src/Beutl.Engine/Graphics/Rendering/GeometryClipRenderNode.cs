@@ -60,8 +60,8 @@ public sealed class GeometryClipRenderNode(Geometry.Resource clip, ClipOperation
                     })),
                 RenderBoundsContract.Create(
                     boundsMetadata,
-                    static (state, value) => state.TransformBounds(value),
-                    static (state, value) => state.GetRequiredInputBounds(value)),
+                    GeometryClipBoundsMetadata.ClipBounds,
+                    GeometryClipBoundsMetadata.ClipBounds),
                 RenderHitTestContract.FromResource(
                     resource,
                     operation,
@@ -87,10 +87,8 @@ public sealed class GeometryClipRenderNode(Geometry.Resource clip, ClipOperation
 
     private readonly record struct GeometryClipBoundsMetadata(Rect Bounds, ClipOperation Operation)
     {
-        public Rect TransformBounds(Rect value)
-            => Operation == ClipOperation.Intersect ? value.Intersect(Bounds) : value;
-
-        public Rect GetRequiredInputBounds(Rect value)
-            => Operation == ClipOperation.Intersect ? value.Intersect(Bounds) : value;
+        // Both directions of the bounds mapping keep only what the clip lets through.
+        public static Rect ClipBounds(GeometryClipBoundsMetadata state, Rect value)
+            => state.Operation == ClipOperation.Intersect ? value.Intersect(state.Bounds) : value;
     }
 }

@@ -22,8 +22,6 @@ public static class MergePatch
             JsonObject? targetObject = target as JsonObject;
             if (ShouldReplaceTypedObject(targetObject, patchObject))
             {
-                // A type-change replacement is a full desired object, not a patch; directives
-                // inside it are never executed and would leak as literal properties.
                 RejectNestedDirectives(patchObject, path);
                 return patchObject.DeepClone();
             }
@@ -167,8 +165,6 @@ public static class MergePatch
         JsonObject nextItem = (JsonObject)patchItem.DeepClone();
         nextItem[nameof(CoreObject.Id)] = id.ToString();
         RemoveDirectives(nextItem);
-        // An inserted member is a full desired object, not a patch: nested $-directives are
-        // never executed, so they would leak into the stored document as literal properties.
         RejectNestedDirectives(nextItem, $"{path}[new:{patchIndex}]");
         result.Add(nextItem);
         MoveWithDirectives(result, id, patchItem);
@@ -237,8 +233,6 @@ public static class MergePatch
         JsonArray result = [];
         for (int i = 1; i < patch.Count; i++)
         {
-            // Replacement members are full desired objects; nested directives are never executed
-            // and would leak into the stored document.
             RejectNestedDirectives(patch[i], $"{path}[{i}]");
             result.Add(patch[i]?.DeepClone());
         }
@@ -275,11 +269,6 @@ public static class MergePatch
     private static void MoveWithDirectives(JsonArray array, Guid id, JsonObject directiveSource)
     {
         int sourceIndex = IndexOf(array, id);
-        if (sourceIndex < 0)
-        {
-            return;
-        }
-
         int? targetIndex = null;
         if (directiveSource.TryGetPropertyValue("$index", out JsonNode? indexNode))
         {
@@ -372,6 +361,9 @@ public static class MergePatch
         }
     }
 
+    // Type-change replacements, inserted members and replacement members are full desired objects, not
+    // patches: nested directives in them are never executed and would leak into the stored document as
+    // literal properties.
     private static void RejectNestedDirectives(JsonNode? node, string path)
     {
         switch (node)

@@ -33,7 +33,6 @@ public static class ObjectRegenerator
             .Distinct()
             .ToArray();
 
-        // UTF-8に書き込む
         JsonSerializerOptions options = JsonHelper.SerializerOptions;
         var writerOptions = new JsonWriterOptions
         {
@@ -47,7 +46,6 @@ public static class ObjectRegenerator
             jsonObject.WriteTo(writer, options);
         }
 
-        // Idを置き換える
         Span<byte> buffer = GetWrittenSpan(output);
         Span<byte> oldStr = stackalloc byte[DefaultGuidStringSize];
         Span<byte> newStr = stackalloc byte[DefaultGuidStringSize];
@@ -115,9 +113,7 @@ public static class ObjectRegenerator
 
     private static JsonObject ParseRegeneratedBuffer(Span<byte> buffer)
     {
-        return JsonNode.Parse(buffer)?.AsObject()
-            ?? throw new InvalidOperationException(
-                $"ObjectRegenerator: serialized payload could not be parsed as JsonObject. Bytes={buffer.Length}");
+        return JsonNode.Parse(buffer)!.AsObject();
     }
 
     public static void Regenerate<T>(T obj, out T newInstance)
@@ -184,9 +180,7 @@ public static class ObjectRegenerator
     {
         Span<char> utf16 = stackalloc char[DefaultGuidStringSize];
 
-        if (!id.TryFormat(utf16, out _))
-            throw new InvalidOperationException($"Failed to format Guid {id} as UTF-16 in a {DefaultGuidStringSize}-char span.");
-
+        id.TryFormat(utf16, out _);
         Encoding.UTF8.GetBytes(utf16, utf8);
     }
 

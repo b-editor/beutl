@@ -175,7 +175,6 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
 
     private void DrawChannel(DrawingContext context, double x, double y, double w, double h, float rms, float peak)
     {
-        // Background
         var bg = new SolidColorBrush(Color.FromArgb(40, 255, 255, 255));
         context.FillRectangle(bg, new Rect(x, y, w, h));
 
@@ -186,7 +185,6 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
         var rmsRect = new Rect(x, y + h - rmsHeight, w, rmsHeight);
         context.FillRectangle(PrimaryBrush, rmsRect);
 
-        // Peak hold marker
         if (peakFrac > 0)
         {
             double peakY = y + h - peakFrac * h;
@@ -214,7 +212,7 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
 
             context.DrawLine(tickPen, new Point(tickStart, tickY), new Point(tickEnd - 2, tickY));
 
-            string label = db == 0f ? "0" : db.ToString("0", CultureInfo.InvariantCulture);
+            string label = db.ToString("0", CultureInfo.InvariantCulture);
             var formatted = new FormattedText(
                 label,
                 CultureInfo.CurrentCulture,
@@ -235,7 +233,7 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
     private static float DecayHold(float current, float instant, double elapsed)
     {
         if (instant > current) return instant;
-        // decay ~6 dB/sec
+        // Lowers the amplitude linearly by 0.5 per second.
         float decay = (float)(0.5 * elapsed);
         float v = current - decay;
         return v < instant ? instant : v;

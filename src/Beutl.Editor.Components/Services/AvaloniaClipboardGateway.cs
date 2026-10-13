@@ -35,8 +35,6 @@ public sealed class AvaloniaClipboardGateway : IClipboardGateway
         if (clipboard is null) return null;
 
         DataFormat? avFormat = MapFromString(format);
-        if (avFormat is null) return null;
-
         if (avFormat is DataFormat<string> stringFormat)
         {
             return await clipboard.TryGetValueAsync(stringFormat);

@@ -141,12 +141,6 @@ public static class CoreListExtensions
                     break;
 
                 case NotifyCollectionChangedAction.Reset:
-                    if (reset == null)
-                    {
-                        throw new InvalidOperationException(
-                            "Reset called on collection without reset handler.");
-                    }
-
                     reset();
                     addAll();
                     break;

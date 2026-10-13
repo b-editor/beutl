@@ -11,8 +11,7 @@ namespace Beutl.Services;
 /// <remarks>
 /// Lives in <c>Beutl.ProjectSystem</c> (not on <see cref="Project"/>) so the model stays plain and
 /// the failure policy lives in one place. <c>internal</c>, reachable via <c>InternalsVisibleTo</c>
-/// from the app and unit tests. Promote <see cref="PersistOrRollback"/> to public surface only if an
-/// out-of-tree consumer ever needs it.
+/// from the app and unit tests.
 /// </remarks>
 internal static class ProjectPersistence
 {
@@ -38,10 +37,7 @@ internal static class ProjectPersistence
         RemoveItemAndPersist(project, item, () => StoreProject(project));
     }
 
-    /// <summary>
-    /// Add-and-persist with an injectable persist step (a unit-test seam). Production callers use the
-    /// parameterless <see cref="AddItemAndPersist(Project, ProjectItem)"/> overload.
-    /// </summary>
+    /// <summary>A unit-test seam that replaces the persist step.</summary>
     internal static void AddItemAndPersist(Project project, ProjectItem item, Action persist)
     {
         ArgumentNullException.ThrowIfNull(project);
@@ -59,10 +55,7 @@ internal static class ProjectPersistence
         PersistOrRollback(persist, () => project.Items.Remove(item));
     }
 
-    /// <summary>
-    /// Remove-and-persist with an injectable persist step (a unit-test seam). Production callers use
-    /// the parameterless <see cref="RemoveItemAndPersist(Project, ProjectItem)"/> overload.
-    /// </summary>
+    /// <summary>A unit-test seam that replaces the persist step.</summary>
     internal static void RemoveItemAndPersist(Project project, ProjectItem item, Action persist)
     {
         ArgumentNullException.ThrowIfNull(project);
@@ -90,10 +83,6 @@ internal static class ProjectPersistence
     /// <param name="persist">The persist step that may fail (e.g. writing a file to disk).</param>
     /// <param name="rollback">Best-effort undo of the side effect performed before persisting.</param>
     /// <exception cref="ProjectStateDivergedException">Both steps failed.</exception>
-    /// <remarks>
-    /// Synchronous on purpose — all current persistence is synchronous. Add a <c>Task</c>-returning
-    /// overload if an async persist step is ever needed.
-    /// </remarks>
     internal static void PersistOrRollback(Action persist, Action rollback)
     {
         ArgumentNullException.ThrowIfNull(persist);

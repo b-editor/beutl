@@ -53,7 +53,6 @@ public sealed class App : Application
         GlobalConfiguration config = GlobalConfiguration.Instance;
         ViewConfig view = config.ViewConfig;
 
-        // Apply GPU selection from config
         GraphicsContextFactory.SelectGpuByName(config.GraphicsConfig.SelectedGpuName);
 
         AvaloniaXamlLoader.Load(this);
@@ -147,7 +146,6 @@ public sealed class App : Application
             s_logger.LogWarning(ex, "Proxy media services failed to initialize.");
         }
 
-        // Setup AppHelper delegates for Beutl.Editor.Components
         AppHelper.GetContextCommandManager = GetContextCommandManager;
 
         // 以下三つの処理は意外と重い

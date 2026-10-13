@@ -14,13 +14,11 @@ public abstract class HdrScopeControlBase : ScopeControlBase
 
     private float _hdrRange = 1.0f;
 
-    // Drag state
     private bool _isDragging;
     private Point _dragStartPosition;
     private float _dragStartHdrRange;
     private Cursor? _previousCursor;
 
-    // Overlay state
     private string? _overlayText;
     private CancellationTokenSource? _overlayHideCts;
 
@@ -162,13 +160,11 @@ public abstract class HdrScopeControlBase : ScopeControlBase
         double x = bounds.Width - bgWidth - 4;
         double y = 4;
 
-        // Background
         context.FillRectangle(
             new SolidColorBrush(Color.FromArgb(160, 0, 0, 0)),
             new Rect(x, y, bgWidth, bgHeight),
             4);
 
-        // Text
         context.DrawText(formattedText, new Point(x + padding, y + padding));
     }
 

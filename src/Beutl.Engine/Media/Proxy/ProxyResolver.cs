@@ -76,69 +76,79 @@ public sealed class ProxyResolver : IProxyResolver
 
         // With no current fingerprint, pick the newest source version from same-path entries in every state, so a
         // failed regeneration for a replaced original wins over an older Ready proxy and yields no proxy.
-        var matches = new List<(ProxyFingerprint Source, DateTime GeneratedAtUtc, ProxyResolution? Resolution)>();
+        var matches = new List<(ProxyEntry Entry, ProxyResolution? Resolution)>();
         foreach (ProxyEntry entry in _store.Enumerate())
         {
             if (!string.Equals(entry.Source.AbsolutePath, absolutePath, StringComparison.Ordinal))
                 continue;
 
             ProxyResolution? resolution = entry.State == ProxyState.Ready ? EvaluateEntry(entry) : null;
-            matches.Add((entry.Source, entry.GeneratedAtUtc, resolution));
+            matches.Add((entry, resolution));
         }
 
         if (matches.Count == 0)
             return null;
 
-        // Rank sources by their newest generation (precomputed once, not per comparison), then by source mtime.
-        Dictionary<ProxyFingerprint, DateTime> newestBySource = matches
-            .GroupBy(m => m.Source)
-            .ToDictionary(g => g.Key, g => g.Max(m => m.GeneratedAtUtc));
-        ProxyFingerprint newestSource = matches
-            .OrderByDescending(m => newestBySource[m.Source])
-            .ThenByDescending(m => m.Source.MtimeUtc)
-            .First().Source;
-
+        ProxyFingerprint newestSource = NewestSource(matches.Select(m => m.Entry));
         var candidates = matches
-            .Where(m => m.Source == newestSource && m.Resolution is not null)
+            .Where(m => m.Entry.Source == newestSource && m.Resolution is not null)
             .Select(m => m.Resolution!)
             .ToList();
 
         return SelectBest(candidates, preferredPreset);
     }
 
+    // Ranks sources by their newest generation (precomputed once, not per comparison), then by source mtime.
+    internal static ProxyFingerprint NewestSource(IEnumerable<ProxyEntry> entries)
+    {
+        Dictionary<ProxyFingerprint, DateTime> newestBySource = entries
+            .GroupBy(e => e.Source)
+            .ToDictionary(g => g.Key, g => g.Max(e => e.GeneratedAtUtc));
+        return entries
+            .OrderByDescending(e => newestBySource[e.Source])
+            .ThenByDescending(e => e.Source.MtimeUtc)
+            .First().Source;
+    }
+
     private ProxyResolution? SelectBest(IReadOnlyList<ProxyResolution> candidates, ProxyPreset preferredPreset)
     {
-        // preferredPreset caps the actual decoded density: prefer the densest proxy within it, else the densest overall,
-        // which is still cheaper than the original.
-        float cap = ScaleOf(preferredPreset);
-        ProxyResolution? cappedWinner = null;
-        float cappedWinnerDensity = -1f;
-        ProxyResolution? densestWinner = null;
-        float densestDensity = -1f;
-
-        foreach (ProxyResolution resolution in candidates)
-        {
-            float density = resolution.SupplyDensity;
-            if (density <= cap + DensityTolerance && density > cappedWinnerDensity)
-            {
-                cappedWinner = resolution;
-                cappedWinnerDensity = density;
-            }
-
-            if (density > densestDensity)
-            {
-                densestWinner = resolution;
-                densestDensity = density;
-            }
-        }
-
-        ProxyResolution? chosen = cappedWinner ?? densestWinner;
+        ProxyResolution? chosen = SelectDensest(candidates, preferredPreset, resolution => resolution.SupplyDensity);
         if (chosen is null)
             return null;
 
         // Touch only the proxy we actually hand out (contract: exactly once per successful Resolve).
         _store.Touch(chosen.Source, chosen.Preset, DateTime.UtcNow);
         return chosen;
+    }
+
+    // preferredPreset caps the actual decoded density: prefer the densest proxy within it, else the densest overall,
+    // which is still cheaper than the original.
+    internal static T? SelectDensest<T>(IEnumerable<T> candidates, ProxyPreset preferredPreset, Func<T, float> supplyDensity)
+        where T : class
+    {
+        float cap = ScaleOf(preferredPreset);
+        T? cappedWinner = null;
+        float cappedWinnerDensity = -1f;
+        T? densestWinner = null;
+        float densestDensity = -1f;
+
+        foreach (T candidate in candidates)
+        {
+            float density = supplyDensity(candidate);
+            if (density <= cap + DensityTolerance && density > cappedWinnerDensity)
+            {
+                cappedWinner = candidate;
+                cappedWinnerDensity = density;
+            }
+
+            if (density > densestDensity)
+            {
+                densestWinner = candidate;
+                densestDensity = density;
+            }
+        }
+
+        return cappedWinner ?? densestWinner;
     }
 
     private static float ScaleOf(ProxyPreset preset)

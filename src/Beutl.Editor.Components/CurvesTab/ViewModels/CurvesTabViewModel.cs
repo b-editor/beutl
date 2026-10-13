@@ -7,34 +7,22 @@ using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Media;
 using Beutl.Media.Source;
-using Beutl.ProjectSystem;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
 namespace Beutl.Editor.Components.CurvesTab.ViewModels;
 
-public sealed class CurvesTabViewModel : IPinnableToolContext
+public sealed class CurvesTabViewModel : EffectToolTabViewModel<Curves>
 {
-    private readonly CompositeDisposable _disposables = [];
-    private readonly CompositeDisposable _effectDisposables = [];
-    private readonly IEditorContext _editorContext;
     private readonly IPreviewPlayer _player;
-    private readonly Scene _scene;
-    private readonly ToolTabPin _pin;
 
     public CurvesTabViewModel(IEditorContext editorContext)
+        : base(editorContext, Strings.Curves)
     {
-        _editorContext = editorContext;
         _player = editorContext.GetService<IPreviewPlayer>()!;
-        _scene = editorContext.GetService<Scene>()!;
 
         SourceBitmap.Value = _player.PreviewImage.Value;
-
-        Effect.Subscribe(SetEditors)
-            .DisposeWith(_disposables);
-
-        _pin = new ToolTabPin(Effect.Select(effect => effect != null)).DisposeWith(_disposables);
 
         _player.AfterRendered.CombineLatest(IsSelected)
             .ObserveOnUIDispatcher()
@@ -45,17 +33,7 @@ public sealed class CurvesTabViewModel : IPinnableToolContext
                 SourceBitmap.Value = _player.PreviewImage.Value;
                 UpdateHistogramForCurrentGroup();
             })
-            .DisposeWith(_disposables);
-
-        HasCurves = Effect
-            .Select(x => x != null)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables)!;
-
-        IsCurvesMissing = HasCurves
-            .Select(v => !v)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables)!;
+            .DisposeWith(Disposables);
 
         CurveGroups =
         [
@@ -82,7 +60,7 @@ public sealed class CurvesTabViewModel : IPinnableToolContext
             .Where(v => v != null)
             .Select(v => v!.Group)
             .Subscribe(group => SelectedGroup.Value = group)
-            .DisposeWith(_disposables);
+            .DisposeWith(Disposables);
 
         SelectedGroup
             .Subscribe(group =>
@@ -95,7 +73,7 @@ public sealed class CurvesTabViewModel : IPinnableToolContext
 
                 UpdateHistogramForCurrentGroup();
             })
-            .DisposeWith(_disposables);
+            .DisposeWith(Disposables);
 
         ShowCustom = ObserveGroupVisibility(CurveGroup.Custom, initialValue: true);
 
@@ -103,7 +81,7 @@ public sealed class CurvesTabViewModel : IPinnableToolContext
             .Where(v => v != null)
             .Select(v => v!.Channel)
             .Subscribe(channel => SelectedChannel.Value = channel)
-            .DisposeWith(_disposables);
+            .DisposeWith(Disposables);
 
         SelectedChannel
             .Subscribe(channel =>
@@ -114,7 +92,7 @@ public sealed class CurvesTabViewModel : IPinnableToolContext
                     SelectedChannelItem.Value = item;
                 }
             })
-            .DisposeWith(_disposables);
+            .DisposeWith(Disposables);
 
         ShowMasterCurve = ObserveChannelVisibility(CustomCurveChannel.Master, initialValue: true);
         ShowRedCurve = ObserveChannelVisibility(CustomCurveChannel.Red);
@@ -126,13 +104,6 @@ public sealed class CurvesTabViewModel : IPinnableToolContext
         ShowHueVsLuminance = ObserveGroupVisibility(CurveGroup.HueVsLuminance);
         ShowLuminanceVsSaturation = ObserveGroupVisibility(CurveGroup.LuminanceVsSaturation);
         ShowSaturationVsSaturation = ObserveGroupVisibility(CurveGroup.SaturationVsSaturation);
-
-        Header = Effect
-            .Select(ToolTabHeaderHelper.ObserveEffectLabel)
-            .Switch()
-            .Select(label => ToolTabHeaderHelper.Compose(Strings.Curves, label))
-            .ToReadOnlyReactivePropertySlim(Strings.Curves)
-            .DisposeWith(_disposables)!;
     }
 
     private ReadOnlyReactivePropertySlim<bool> ObserveGroupVisibility(CurveGroup group, bool initialValue = false)
@@ -140,7 +111,7 @@ public sealed class CurvesTabViewModel : IPinnableToolContext
         return SelectedGroup
             .Select(x => x == group)
             .ToReadOnlyReactivePropertySlim(initialValue)
-            .DisposeWith(_disposables)!;
+            .DisposeWith(Disposables)!;
     }
 
     // The custom curves share one panel; each channel shows only while that panel does.
@@ -149,18 +120,10 @@ public sealed class CurvesTabViewModel : IPinnableToolContext
         return ShowCustom
             .CombineLatest(SelectedChannel, (showCustom, selected) => showCustom && selected == channel)
             .ToReadOnlyReactivePropertySlim(initialValue)
-            .DisposeWith(_disposables)!;
+            .DisposeWith(Disposables)!;
     }
 
-    public IReadOnlyReactiveProperty<string> Header { get; }
-
-    public ToolTabExtension Extension => CurvesTabExtension.Instance;
-
-    public IReactiveProperty<bool> IsSelected { get; } = new ReactiveProperty<bool>();
-
-    public ReadOnlyReactivePropertySlim<bool> HasCurves { get; }
-
-    public ReadOnlyReactivePropertySlim<bool> IsCurvesMissing { get; }
+    public override ToolTabExtension Extension => CurvesTabExtension.Instance;
 
     public IReadOnlyList<CurveGroupItem> CurveGroups { get; }
 
@@ -216,69 +179,28 @@ public sealed class CurvesTabViewModel : IPinnableToolContext
 
     public ReadOnlyReactivePropertySlim<bool> ShowSaturationVsSaturation { get; }
 
-    public ReactivePropertySlim<Curves?> Effect { get; } = new();
-
-    public IReactiveProperty<bool> IsPinned => _pin.IsPinned;
-
-    public IReadOnlyReactiveProperty<bool> HasTarget => _pin.HasTarget;
-
-    public void Dispose()
+    public override void ReadFromJson(JsonObject json)
     {
-        ClearEditors();
-        _disposables.Dispose();
-    }
-
-    public void ReadFromJson(JsonObject json)
-    {
-        if (json.TryGetPropertyValue("selectedGroup", out var selectedGroupNode)
-            && selectedGroupNode is JsonValue selectedGroupValue
-            && selectedGroupValue.TryGetValue(out int selectedGroup))
+        if (json.TryGetPropertyValueAsJsonValue("selectedGroup", out int selectedGroup))
         {
             SelectedGroup.Value = (CurveGroup)selectedGroup;
         }
 
-        if (json.TryGetPropertyValue("selectedChannel", out var selectedChannelNode)
-            && selectedChannelNode is JsonValue selectedChannelValue
-            && selectedChannelValue.TryGetValue(out int selectedChannel))
+        if (json.TryGetPropertyValueAsJsonValue("selectedChannel", out int selectedChannel))
         {
             SelectedChannel.Value = (CustomCurveChannel)selectedChannel;
         }
 
-        if (json.TryGetPropertyValue("effectId", out var effectIdNode)
-            && effectIdNode is JsonValue effectIdValue
-            && effectIdValue.TryGetValue(out string? effectIdStr)
-            && Guid.TryParse(effectIdStr, out Guid effectId))
-        {
-            var colorGrading = _scene.FindById(effectId) as Curves;
-            Effect.Value = colorGrading;
-        }
-
-        _pin.ReadFromJson(json);
+        ReadEffectFromJson(json);
+        ReadPinFromJson(json);
     }
 
-    public void WriteToJson(JsonObject json)
+    public override void WriteToJson(JsonObject json)
     {
         json["selectedGroup"] = (int)SelectedGroup.Value;
         json["selectedChannel"] = (int)SelectedChannel.Value;
-        json["effectId"] = Effect.Value?.Id;
-        _pin.WriteToJson(json);
-    }
-
-    public object? GetService(Type serviceType)
-    {
-        if (serviceType == typeof(HistoryManager))
-            return _editorContext.GetService<HistoryManager>();
-
-        if (serviceType == typeof(Element))
-            return Effect.Value?.FindHierarchicalParent<Element>();
-
-        if (serviceType == typeof(Curves))
-            return Effect.Value;
-
-        if (serviceType == typeof(Scene))
-            return _scene;
-
-        return _editorContext.GetService(serviceType);
+        WriteEffectToJson(json);
+        WritePinToJson(json);
     }
 
     public void SelectCurveByPropertyName(string propertyName)
@@ -319,14 +241,14 @@ public sealed class CurvesTabViewModel : IPinnableToolContext
         }
     }
 
-    private void SetEditors(Curves? effect)
+    private protected override void SetEditors(Curves? effect)
     {
         ClearEditors();
 
         if (effect == null)
             return;
 
-        var history = _editorContext.GetService<HistoryManager>()!;
+        var history = EditorContext.GetService<HistoryManager>()!;
 
         MasterCurve.Value = CreateCurve(effect.MasterCurve, history);
         RedCurve.Value = CreateCurve(effect.RedCurve, history);
@@ -338,25 +260,19 @@ public sealed class CurvesTabViewModel : IPinnableToolContext
         LuminanceVsSaturation.Value = CreateCurve(effect.LuminanceVsSaturation, history);
         SaturationVsSaturation.Value = CreateCurve(effect.SaturationVsSaturation, history);
 
-        effect.DetachedFromHierarchy += OnEffectDetached;
-        _effectDisposables.Add(Disposable.Create(() => effect.DetachedFromHierarchy -= OnEffectDetached));
-    }
-
-    private void OnEffectDetached(object? sender, HierarchyAttachmentEventArgs e)
-    {
-        _editorContext.CloseToolTab(this);
+        CloseWhenDetached(effect);
     }
 
     private CurvePresenterViewModel CreateCurve(IProperty<CurveMap> property, HistoryManager history)
     {
-        var vm = new CurvePresenterViewModel(property.Name, property, history);
-        _effectDisposables.Add(vm);
+        var vm = new CurvePresenterViewModel(property, history);
+        EffectDisposables.Add(vm);
         return vm;
     }
 
-    private void ClearEditors()
+    private protected override void ClearEditors()
     {
-        _effectDisposables.Clear();
+        EffectDisposables.Clear();
 
         MasterCurve.Value = null;
         RedCurve.Value = null;

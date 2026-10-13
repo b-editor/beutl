@@ -92,7 +92,7 @@ public sealed class AgentToolkitInstallManifestTests
                 Is.False);
             Assert.That(
                 AgentToolkitInstallManifestStore.IsUpdateAvailable(
-                    new AgentToolkitInstallManifest("stale", []), assets),
+                    new AgentToolkitInstallManifest("stale", [], AgentToolkitInstallManifest.CurrentMcpLayout), assets),
                 Is.True);
         });
     }

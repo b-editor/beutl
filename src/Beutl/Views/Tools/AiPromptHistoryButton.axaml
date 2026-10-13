@@ -23,8 +23,7 @@
                       ToolTip.Tip="{x:Static lang:Strings.AiPromptHistory}">
             <icons:FluentIcon FontSize="12" Icon="History" />
         </ToggleButton>
-        <Popup x:Name="HistoryPopup"
-               IsLightDismissEnabled="True"
+        <Popup IsLightDismissEnabled="True"
                IsOpen="{CompiledBinding IsHistoryOpen.Value, Mode=TwoWay}"
                Placement="BottomEdgeAlignedRight"
                PlacementTarget="{Binding #HistoryToggle}">
@@ -43,8 +42,7 @@
                                IsVisible="{CompiledBinding !HasHistory.Value}"
                                Text="{x:Static lang:Strings.AiPromptHistoryEmpty}"
                                TextWrapping="Wrap" />
-                    <tools:AiPromptChoiceListView x:Name="HistoryList"
-                                                  MaxHeight="280"
+                    <tools:AiPromptChoiceListView MaxHeight="280"
                                                   Choices="{CompiledBinding History}"
                                                   IsVisible="{CompiledBinding HasHistory.Value}" />
                     <Button HorizontalAlignment="Right"

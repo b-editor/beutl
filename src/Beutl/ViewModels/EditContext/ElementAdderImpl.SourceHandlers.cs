@@ -1,7 +1,6 @@
 ﻿using System.Collections.Immutable;
 using Beutl.Audio;
 using Beutl.Composition;
-using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Models;
 using Beutl.Engine;
 using Beutl.Graphics;
@@ -45,7 +44,7 @@ internal sealed partial class ElementAdderImpl
             ? Path.GetFileName(fileName)
             : description.Name;
         string typeName = typeof(TValue).FullName!;
-        element.AccentColor = ColorGenerator.GenerateColor(typeName);
+        element.AccentColor = ElementAccentColorGenerator.GenerateColor(typeName);
 
         value = new TValue();
         element.AddObject(value);
@@ -215,7 +214,7 @@ internal sealed partial class ElementAdderImpl
             Element element = owner.CreateElement(context.Description);
             Type objectType = engineObject.GetType();
             element.Name = context.Description.ResolveName(objectType);
-            element.AccentColor = ColorGenerator.GenerateColor(objectType.FullName ?? objectType.Name);
+            element.AccentColor = ElementAccentColorGenerator.GenerateColor(objectType.FullName ?? objectType.Name);
             element.AddObject(engineObject);
             if (engineObject is Drawable drawable)
             {

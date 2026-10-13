@@ -143,8 +143,6 @@ public abstract class ScopeControlBase : Control
             int targetWidth = (int)Math.Max(1, bounds.Width - axisMargin);
             int targetHeight = (int)Math.Max(1, bounds.Height - axisMargin);
 
-            if (targetWidth <= 0 || targetHeight <= 0) return;
-
             result = await Task.Run(() =>
             {
                 ct.ThrowIfCancellationRequested();
@@ -213,7 +211,6 @@ public abstract class ScopeControlBase : Control
         double contentWidth = bounds.Width - axisMargin;
         double contentHeight = bounds.Height - axisMargin;
 
-        // Draw background
         var bgBrush = BackgroundBrush;
         if (bgBrush != null)
         {
@@ -236,7 +233,6 @@ public abstract class ScopeControlBase : Control
             }
         }
 
-        // Draw axes
         DrawAxes(context, bounds, axisMargin, contentWidth, contentHeight);
     }
 
@@ -245,17 +241,14 @@ public abstract class ScopeControlBase : Control
     {
         var labelBrush = LabelBrush ?? Brushes.Gray;
 
-        // Draw vertical axis line
         context.DrawLine(_axisPen, new Point(axisMargin, 0), new Point(axisMargin, contentHeight));
 
-        // Draw horizontal axis line
         context.DrawLine(_axisPen, new Point(axisMargin, contentHeight), new Point(bounds.Width, contentHeight));
 
         DrawVerticalLabels(context, VerticalAxisLabels, labelBrush, axisMargin, contentHeight);
         DrawHorizontalLabels(context, HorizontalAxisLabels, labelBrush, bounds, axisMargin, contentWidth, contentHeight);
     }
 
-    // Draw vertical labels (from top to bottom)
     private void DrawVerticalLabels(
         DrawingContext context, string[]? verticalLabels, IBrush labelBrush, double axisMargin, double contentHeight)
     {
@@ -285,7 +278,6 @@ public abstract class ScopeControlBase : Control
         }
     }
 
-    // Draw horizontal labels (from left to right)
     private void DrawHorizontalLabels(
         DrawingContext context, string[]? horizontalLabels, IBrush labelBrush, Rect bounds, double axisMargin,
         double contentWidth, double contentHeight)

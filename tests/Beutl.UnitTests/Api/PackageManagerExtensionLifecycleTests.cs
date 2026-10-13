@@ -339,29 +339,6 @@ public class PackageManagerExtensionLifecycleTests
     }
 
     [Test]
-    public async Task Unload_DoesNotCaptureDiagnostics_WhenPackageUnloadsCleanly()
-    {
-        var diagnostics = new RecordingUnloadDiagnostics();
-        PackageManager manager = CreatePackageManager(diagnostics, out _, out _);
-        var package = new LocalPackage { Name = "CleanUnload" };
-        manager.LoadExtensionsAndRegister(
-            activity: null,
-            package,
-            assemblies: [],
-            loadContext: null,
-            [typeof(LeaseManagedAiJobStatusResolverExtension)]);
-
-        bool unloaded = await manager.Unload(package);
-
-        Assert.Multiple(() =>
-        {
-            // No load context means nothing pins the package, so the unload succeeds and diagnostics stay idle.
-            Assert.That(unloaded, Is.True);
-            Assert.That(diagnostics.InvokeCount, Is.EqualTo(0));
-        });
-    }
-
-    [Test]
     public async Task Unload_WaitsForPublicExtensionLeaseBeforeCallingExtensionUnload()
     {
         PackageManager manager = CreatePackageManager(out _, out ExtensionProvider provider);
@@ -409,7 +386,7 @@ public class PackageManagerExtensionLifecycleTests
     }
 
     [Test]
-    public async Task Unload_SupportsAlternativeExtensionRegistryImplementations()
+    public async Task Unload_MutatesTheRegistryUnderItsSynchronization()
     {
         var registry = new DelegatingExtensionRegistry();
         PackageManager manager = CreatePackageManager(registry, out _);
@@ -481,7 +458,11 @@ public class PackageManagerExtensionLifecycleTests
     public async Task Unload_DrainsLiveCaptionDescriptorAndPlacementLeases()
     {
         PackageManager manager = CreatePackageManager(out _, out ExtensionProvider provider);
-        await using CaptionCatalog catalog = CaptionCatalog.Compose("Default", [], provider);
+        await using CaptionCatalog catalog = CaptionCatalog.ComposeWithDefaultElementFactory(
+            "Default",
+            [],
+            provider,
+            DefaultTextCaptionElementFactory.Instance);
         var package = new LocalPackage { Name = "LiveCaptionPresentation" };
         manager.LoadExtensionsAndRegister(
             activity: null,
@@ -516,50 +497,45 @@ public class PackageManagerExtensionLifecycleTests
         }
     }
 
-    [Test]
-    public async Task Unload_RequiresRestartForLongLivedExtensionFamilies()
+    private static IEnumerable<TestCaseData> RestartOnlyExtensions()
     {
-        PackageManager manager = CreatePackageManager(out _, out ExtensionProvider provider);
-        var package = new LocalPackage { Name = "LongLivedView" };
-        manager.LoadExtensionsAndRegister(
-            activity: null,
-            package,
-            assemblies: [],
-            loadContext: null,
-            [typeof(SuccessfulViewExtension)]);
-
-        bool unloaded = await manager.Unload(package);
-
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(unloaded, Is.False);
-            Assert.That(SuccessfulViewExtension.UnloadCount, Is.Zero);
-            Assert.That(provider.GetExtensions<SuccessfulViewExtension>(), Has.Length.EqualTo(1));
-            Assert.That(manager.LoadedPackage, Does.Contain(package));
-        }
+        yield return new TestCaseData(
+                typeof(SuccessfulViewExtension),
+                (Func<int>)(() => SuccessfulViewExtension.UnloadCount))
+            .SetName("Unload_RequiresRestartForLongLivedExtensionFamilies");
+        yield return new TestCaseData(
+                typeof(MaterializingElementSourceHandlerExtension),
+                (Func<int>)(() => MaterializingElementSourceHandlerExtension.UnloadCount))
+            .SetName("Unload_RequiresRestartForElementSourceHandlerExtensions");
+        yield return new TestCaseData(
+                typeof(RestartOnlyCaptionElementFactoryExtension),
+                (Func<int>)(() => RestartOnlyCaptionElementFactoryExtension.UnloadCount))
+            .SetName("Unload_RequiresRestartForCaptionElementFactoryExtensions");
+        yield return new TestCaseData(
+                typeof(RestartOnlyAiJobResultApplicatorExtension),
+                (Func<int>)(() => RestartOnlyAiJobResultApplicatorExtension.UnloadCount))
+            .SetName("Unload_RequiresRestartForAiJobResultApplicatorExtensions");
     }
 
-    [Test]
-    public async Task Unload_RequiresRestartForElementSourceHandlerExtensions()
+    [TestCaseSource(nameof(RestartOnlyExtensions))]
+    public async Task Unload_RequiresRestartForExtension(Type extensionType, Func<int> unloadCount)
     {
         PackageManager manager = CreatePackageManager(out _, out ExtensionProvider provider);
-        var package = new LocalPackage { Name = "MaterializedElementGraph" };
+        var package = new LocalPackage { Name = extensionType.Name };
         manager.LoadExtensionsAndRegister(
             activity: null,
             package,
             assemblies: [],
             loadContext: null,
-            [typeof(MaterializingElementSourceHandlerExtension)]);
+            [extensionType]);
 
         bool unloaded = await manager.Unload(package);
 
         using (Assert.EnterMultipleScope())
         {
             Assert.That(unloaded, Is.False);
-            Assert.That(MaterializingElementSourceHandlerExtension.UnloadCount, Is.Zero);
-            Assert.That(
-                provider.GetExtensions<MaterializingElementSourceHandlerExtension>(),
-                Has.Length.EqualTo(1));
+            Assert.That(unloadCount(), Is.Zero);
+            Assert.That(provider.AllExtensions.Count(extension => extension.GetType() == extensionType), Is.EqualTo(1));
             Assert.That(manager.LoadedPackage, Does.Contain(package));
         }
     }
@@ -568,7 +544,11 @@ public class PackageManagerExtensionLifecycleTests
     public async Task Unload_WaitsForActiveCaptionLeaseBeforeCallingExtensionUnload()
     {
         PackageManager manager = CreatePackageManager(out _, out ExtensionProvider provider);
-        await using CaptionCatalog catalog = CaptionCatalog.Compose("Default", [], provider);
+        await using CaptionCatalog catalog = CaptionCatalog.ComposeWithDefaultElementFactory(
+            "Default",
+            [],
+            provider,
+            DefaultTextCaptionElementFactory.Instance);
         var package = new LocalPackage { Name = "BlockingCaption" };
         manager.LoadExtensionsAndRegister(
             activity: null,
@@ -614,56 +594,6 @@ public class PackageManagerExtensionLifecycleTests
             Assert.That(BlockingCaptionDecoderExtension.UnloadCount, Is.EqualTo(1));
             Assert.Throws<NotSupportedException>(() =>
                 catalog.Serializer.Import("after unload"u8, s_blockingCaptionFormat));
-        });
-    }
-
-    [Test]
-    public async Task Unload_RequiresRestartForCaptionElementFactoryExtensions()
-    {
-        PackageManager manager = CreatePackageManager(out _, out ExtensionProvider provider);
-        var package = new LocalPackage { Name = "RestartOnlyCaptionTemplate" };
-        manager.LoadExtensionsAndRegister(
-            activity: null,
-            package,
-            assemblies: [],
-            loadContext: null,
-            [typeof(RestartOnlyCaptionElementFactoryExtension)]);
-
-        bool unloaded = await manager.Unload(package);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(unloaded, Is.False);
-            Assert.That(RestartOnlyCaptionElementFactoryExtension.UnloadCount, Is.Zero);
-            Assert.That(
-                provider.GetExtensions<RestartOnlyCaptionElementFactoryExtension>(),
-                Has.Length.EqualTo(1));
-            Assert.That(manager.LoadedPackage, Does.Contain(package));
-        });
-    }
-
-    [Test]
-    public async Task Unload_RequiresRestartForAiJobResultApplicatorExtensions()
-    {
-        PackageManager manager = CreatePackageManager(out _, out ExtensionProvider provider);
-        var package = new LocalPackage { Name = "PersistentAiResultGraph" };
-        manager.LoadExtensionsAndRegister(
-            activity: null,
-            package,
-            assemblies: [],
-            loadContext: null,
-            [typeof(RestartOnlyAiJobResultApplicatorExtension)]);
-
-        bool unloaded = await manager.Unload(package);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(unloaded, Is.False);
-            Assert.That(RestartOnlyAiJobResultApplicatorExtension.UnloadCount, Is.Zero);
-            Assert.That(
-                provider.GetExtensions<RestartOnlyAiJobResultApplicatorExtension>(),
-                Has.Length.EqualTo(1));
-            Assert.That(manager.LoadedPackage, Does.Contain(package));
         });
     }
 
@@ -742,14 +672,6 @@ public class PackageManagerExtensionLifecycleTests
         out ContextCommandManager commandManager,
         out ExtensionProvider extensionProvider)
     {
-        return CreatePackageManager(diagnostics: null, out commandManager, out extensionProvider);
-    }
-
-    private static PackageManager CreatePackageManager(
-        ILoadContextUnloadDiagnostics? diagnostics,
-        out ContextCommandManager commandManager,
-        out ExtensionProvider extensionProvider)
-    {
         commandManager = new ContextCommandManager(
             new ContextCommandSettingsStore(),
             new ContextCommandHandlerRegistry());
@@ -759,8 +681,7 @@ public class PackageManagerExtensionLifecycleTests
             new InstalledPackageRepository(),
             extensionProvider,
             commandManager,
-            apiApplication: null!,
-            diagnostics);
+            apiApplication: null!);
     }
 
     private static PackageManager CreatePackageManager(
@@ -821,17 +742,6 @@ public class PackageManagerExtensionLifecycleTests
         {
             SynchronizationCount++;
             _inner.SynchronizeMutation(action);
-        }
-    }
-
-    private sealed class RecordingUnloadDiagnostics : ILoadContextUnloadDiagnostics
-    {
-        public int InvokeCount { get; private set; }
-
-        public string? CaptureUnloadFailure(string packageName, IReadOnlyList<string> assemblySimpleNames)
-        {
-            InvokeCount++;
-            return null;
         }
     }
 

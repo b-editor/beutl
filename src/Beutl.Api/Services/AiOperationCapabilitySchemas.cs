@@ -67,6 +67,9 @@ internal readonly record struct AiOperationCapabilitySchemaSnapshot(
     long Revision,
     ImmutableDictionary<AiOperationId, AiModelCapabilitySchema> Schemas)
 {
+    public static AiOperationCapabilitySchemaSnapshot Empty { get; } =
+        new(0, ImmutableDictionary<AiOperationId, AiModelCapabilitySchema>.Empty);
+
     public AiModelCapabilitySchema GetSchema(AiOperationId operation)
         => Schemas.GetValueOrDefault(operation, GetBuiltInSchema(operation));
 
@@ -146,9 +149,6 @@ internal sealed class AiOperationCapabilitySchemaRegistry :
             return new AiOperationCapabilitySchemaSnapshot(_revision, _schemas);
         }
     }
-
-    internal AiModelCapabilitySchema GetSchema(AiOperationId operation)
-        => GetSnapshot().GetSchema(operation);
 
     public void Dispose()
     {
@@ -259,8 +259,8 @@ internal sealed class AiOperationCapabilitySchemaRegistry :
             {
                 try
                 {
-                    IReadOnlyCollection<AiOperationCapabilitySchemaRegistration>? registrations =
-                        lease.Extension.Registrations;
+                    AiOperationCapabilitySchemaRegistration[]? registrations =
+                        lease.Extension.Registrations?.ToArray();
                     if (registrations is null
                         || registrations.Any(registration => registration is null))
                     {
@@ -268,13 +268,7 @@ internal sealed class AiOperationCapabilitySchemaRegistry :
                             "An AI operation capability-schema extension returned invalid registrations.");
                     }
 
-                    result.Add(new SchemaCandidate(
-                        descriptor.TypeName,
-                        registrations.Select(registration =>
-                            new AiOperationCapabilitySchemaRegistration(
-                                registration.Operation,
-                                registration.Schema,
-                                registration.Mode)).ToArray()));
+                    result.Add(new SchemaCandidate(descriptor.TypeName, registrations));
                 }
                 catch (Exception ex)
                 {
@@ -357,21 +351,4 @@ internal sealed class AiOperationCapabilitySchemaRegistry :
 
         public AiOperationCapabilitySchemaRegistration[] Registrations { get; } = registrations;
     }
-}
-
-internal sealed class BuiltInAiOperationCapabilitySchemaProvider :
-    IAiOperationCapabilitySchemaProvider
-{
-    public static BuiltInAiOperationCapabilitySchemaProvider Instance { get; } = new();
-
-    public event EventHandler? Changed
-    {
-        add { }
-        remove { }
-    }
-
-    public AiOperationCapabilitySchemaSnapshot GetSnapshot()
-        => new(
-            0,
-            ImmutableDictionary<AiOperationId, AiModelCapabilitySchema>.Empty);
 }

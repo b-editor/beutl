@@ -59,30 +59,13 @@ public class InstalledPackageRepository : IBeutlApiResource
         return () =>
         {
             foreach (PackageIdentity removed in removedItems)
-                PublishCommittedChange(removed, false);
-            PublishCommittedChange(package, true);
+                _subject.OnNext((removed, false));
+            _subject.OnNext((package, true));
         };
     }
 
-    private void PublishCommittedChange(PackageIdentity package, bool exists)
-    {
-        try
-        {
-            _subject.OnNext((package, exists));
-        }
-        catch (Exception ex)
-        {
-            // Observer failures cannot undo an already persisted registration or make
-            // the installer roll back the payload while the repository records the new version.
-            ReportObserverFailure(ex);
-        }
-    }
-
     private void ReportObserverFailure(Exception exception)
-    {
-        try { _logger.LogError(exception, "An installed-package observer failed while receiving a notification."); }
-        catch { }
-    }
+        => _logger.LogError(exception, "An installed-package observer failed while receiving a notification.");
 
     // Wrap each subscription, not only the subject: one returned observable can
     // itself have several observers through LightweightObservableBase.PublishNext.

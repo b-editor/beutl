@@ -6,7 +6,7 @@ internal static class TargetDependencyLowerer
 {
     public static TargetDependencyPlan Lower(
         ImmutableArray<RenderFragmentReference> roots,
-        Rect? rootDomain = null)
+        Rect? rootDomain)
     {
         var builder = new Builder();
         TargetScopeId rootScope = builder.CreateScope(
@@ -356,16 +356,9 @@ internal static class TargetDependencyLowerer
             TargetRegion region,
             Rect? ownerDomain,
             RenderFragmentReference owner)
-        {
-            return region.Kind switch
-            {
-                TargetRegionKind.Empty => Rect.Empty,
-                TargetRegionKind.Region => region.Value,
-                TargetRegionKind.Full when ownerDomain is { } domain => domain,
-                TargetRegionKind.Full => throw new RenderTargetDomainRequiredException(
-                    $"A reachable Full target access on {owner.Kind} requires a finite owning target domain."),
-                _ => throw new InvalidOperationException("The target region is uninitialized."),
-            };
-        }
+            => region.TryResolve(ownerDomain, out Rect resolved)
+                ? resolved
+                : throw new RenderTargetDomainRequiredException(
+                    $"A reachable Full target access on {owner.Kind} requires a finite owning target domain.");
     }
 }

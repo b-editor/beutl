@@ -6,8 +6,7 @@ namespace Beutl.Editor.Services;
 /// Mutation operations on a <see cref="GraphModel"/>: add/remove/move/rename
 /// nodes, connect/disconnect ports, and the dynamic-port flow unique to
 /// <see cref="GroupInput"/> / <see cref="GroupOutput"/>. Centralizes the
-/// validation branches (GroupInput uniqueness, cascade disconnects) and the
-/// many commit sites that were scattered across the node-graph ViewModels.
+/// validation branches (GroupInput uniqueness, cascade disconnects).
 /// </summary>
 public interface INodeGraphMutationService
 {

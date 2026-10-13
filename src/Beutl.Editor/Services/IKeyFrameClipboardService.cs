@@ -6,8 +6,7 @@ namespace Beutl.Editor.Services;
 /// <summary>
 /// Parses clipboard JSON for <see cref="KeyFrameAnimation"/> / <see cref="KeyFrame"/>
 /// and applies it to a target animation. Centralizes the type-discriminator
-/// validation, generic-mismatch fallback, and existing-key collision logic that
-/// was duplicated between the graph and inline-animation ViewModels.
+/// validation, generic-mismatch fallback, and existing-key collision logic.
 /// </summary>
 public interface IKeyFrameClipboardService
 {

@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using Avalonia.Headless.NUnit;
+﻿using Avalonia.Headless.NUnit;
 using Beutl.Configuration;
 using Beutl.Editor.VersionControl;
 using Beutl.Testing.Headless;
@@ -35,31 +34,21 @@ public class ProjectLifecyclePerformanceTests
             }
 
             string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, $"lifecycle-{trackHistory}-{Guid.NewGuid():N}");
-            var watch = Stopwatch.StartNew();
             Project project = (await TestShell.Project.CreateProject(1920, 1080, 30, 44100, "Empty", location))!;
-            TestContext.Progress.WriteLine($"LIFECYCLE git={trackHistory} create={watch.Elapsed.TotalMilliseconds:F1}ms");
             Assert.That(project, Is.Not.Null);
             Assert.That(TestShell.Editor.TabItems.Count, Is.EqualTo(1));
             string file = project.Uri!.LocalPath;
             if (trackHistory)
             {
-                watch.Restart();
                 Assert.That(await TestShell.VersionControl.InitializeCurrentProjectAsync(project,
                     _ => Task.FromResult<GitIdentity?>(new("Lifecycle Test", "lifecycle@example.invalid"))), Is.True);
-                TestContext.Progress.WriteLine($"LIFECYCLE git={trackHistory} initialize={watch.Elapsed.TotalMilliseconds:F1}ms");
             }
 
-            watch.Restart();
             await TestShell.Project.CloseProjectAsync();
-            TestContext.Progress.WriteLine($"LIFECYCLE git={trackHistory} first-close={watch.Elapsed.TotalMilliseconds:F1}ms");
             Assert.That(TestShell.Editor.TabItems, Is.Empty);
-            watch.Restart();
             await TestShell.Project.OpenProject(file);
-            TestContext.Progress.WriteLine($"LIFECYCLE git={trackHistory} open={watch.Elapsed.TotalMilliseconds:F1}ms");
             Assert.That(TestShell.Project.CurrentProject.Value?.Uri?.LocalPath, Is.EqualTo(file));
-            watch.Restart();
             await TestShell.Project.CloseProjectAsync();
-            TestContext.Progress.WriteLine($"LIFECYCLE git={trackHistory} second-close={watch.Elapsed.TotalMilliseconds:F1}ms");
             Assert.That(TestShell.Project.CurrentProject.Value, Is.Null);
             Assert.That(File.Exists(file), Is.True);
         }

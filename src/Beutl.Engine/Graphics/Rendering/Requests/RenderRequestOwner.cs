@@ -19,9 +19,6 @@ internal sealed class RenderRequestOwner : IDisposable
 
     public ExceptionDispatchInfo? PrimaryFailure => _primaryFailure;
 
-    public ImmutableArray<Exception> SecondaryFailures
-        => _secondaryFailures is null ? [] : [.. _secondaryFailures];
-
     public ImmutableArray<Exception> CleanupFailures
         => _cleanupFailures is null ? [] : [.. _cleanupFailures];
 

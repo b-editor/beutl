@@ -101,17 +101,15 @@ internal sealed class AiImageJobRetryHandler(
             ? aspectElement.ValueKind == JsonValueKind.String
                 ? aspectElement.GetString() ?? string.Empty
                 : string.Empty
-            : hasSize
-                ? sizeElement.ValueKind == JsonValueKind.String
-                    ? sizeElement.GetString() switch
-                    {
-                        "1024x1024" => "1:1",
-                        "1024x1536" => "2:3",
-                        "1536x1024" => "3:2",
-                        _ => string.Empty,
-                    }
-                    : string.Empty
-                : "1:1";
+            : sizeElement.ValueKind == JsonValueKind.String
+                ? sizeElement.GetString() switch
+                {
+                    "1024x1024" => "1:1",
+                    "1024x1536" => "2:3",
+                    "1536x1024" => "3:2",
+                    _ => string.Empty,
+                }
+                : string.Empty;
         if (!AiReplayInputValidation.IsStructurallyValidAspectRatio(aspectRatio))
             return false;
 

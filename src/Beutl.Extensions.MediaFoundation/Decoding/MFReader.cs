@@ -48,7 +48,7 @@ public class MFReader : MediaReader
         string file,
         MediaOptions options,
         MFDecodingExtension extension,
-        Func<string, MediaOptions, MFDecodingExtension, IMediaFoundationVideoDecoder> createVideoDecoder,
+        Func<string, MFDecodingExtension, IMediaFoundationVideoDecoder> createVideoDecoder,
         Func<string, MediaFoundationReaderSettings, MediaFoundationReader> createAudioReader,
         Func<string, bool>? hasAudioStream = null,
         Func<string, long>? getFirstVideoTimestamp = null)
@@ -65,7 +65,7 @@ public class MFReader : MediaReader
             {
                 try
                 {
-                    _decoder = createVideoDecoder(file, new MediaOptions(MediaMode.Video), extension);
+                    _decoder = createVideoDecoder(file, extension);
                     MFMediaInfo info = _decoder.GetMediaInfo();
                     _videoInfo = new VideoStreamInfo(
                         info.VideoFormatName ?? "Unknown",
@@ -139,11 +139,8 @@ public class MFReader : MediaReader
         }
     }
 
-    private static IMediaFoundationVideoDecoder CreateVideoDecoder(
-        string file,
-        MediaOptions options,
-        MFDecodingExtension extension)
-        => new MFDecoder(file, options, extension);
+    private static IMediaFoundationVideoDecoder CreateVideoDecoder(string file, MFDecodingExtension extension)
+        => new MFDecoder(file, extension);
 
     private static MediaFoundationReader CreateAudioReader(string file, MediaFoundationReaderSettings settings)
         => new(file, settings);

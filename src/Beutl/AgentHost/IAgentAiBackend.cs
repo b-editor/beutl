@@ -1,5 +1,4 @@
-﻿using Beutl.Api.Services;
-using Beutl.NodeGraph.Generative;
+﻿using Beutl.NodeGraph.Generative;
 using Beutl.ProjectSystem;
 
 namespace Beutl.AgentHost;
@@ -44,32 +43,4 @@ internal interface IAgentAiBackend
         string? modelId,
         IProgress<string> progress,
         CancellationToken cancellationToken);
-}
-
-/// <summary>Stands in until the application has its API clients, and in hosts without them.</summary>
-internal sealed class UnavailableAgentAiBackend : IAgentAiBackend
-{
-    public static UnavailableAgentAiBackend Instance { get; } = new();
-
-    public Task<string?> GetUnavailableReasonAsync(CancellationToken cancellationToken)
-        => Task.FromResult<string?>("AI generation is not available in this host.");
-
-    public Task<IReadOnlyList<GenerativeModelInfo>> GetModelsAsync(string operationId, CancellationToken cancellationToken)
-        => Task.FromResult<IReadOnlyList<GenerativeModelInfo>>([]);
-
-    public bool KnowsModelAvailability => false;
-
-    public IGenerativeNodeExecutor CreateExecutor(Scene scene)
-        => throw new InvalidOperationException("AI generation is not available in this host.");
-
-    public Task<long> GetImageReferenceBudgetAsync(CancellationToken cancellationToken)
-        => Task.FromResult(AiRequestLimits.MaxImageReferencesTotalBytes);
-
-    public Task<AgentTranscript> TranscribeAsync(
-        string path,
-        string? language,
-        string? modelId,
-        IProgress<string> progress,
-        CancellationToken cancellationToken)
-        => throw new InvalidOperationException("AI generation is not available in this host.");
 }

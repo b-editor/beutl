@@ -44,6 +44,7 @@
     <Compile Include="..\..\src\Beutl.FFmpegWorker\Encoding\FrameFit.cs" Link="Linked\FrameFit.cs" />
     <Compile Include="..\..\src\Beutl.FFmpegWorker\Encoding\EncoderOptionsQuery.cs" Link="Linked\EncoderOptionsQuery.cs" />
     <Compile Include="..\..\src\Beutl.FFmpegWorker\ColorSpaceHelper.cs" Link="Linked\ColorSpaceHelper.cs" />
+    <Compile Include="..\..\src\Beutl.FFmpegWorker\HardwareAcceleration.cs" Link="Linked\HardwareAcceleration.cs" />
     <Compile Include="..\..\src\Beutl.FFmpegWorker\FFmpegLoaderWorker.cs" Link="Linked\FFmpegLoaderWorker.cs" />
     <Compile Include="..\..\src\Beutl.FFmpegWorker\WorkerLog.cs" Link="Linked\WorkerLog.cs" />
     <Compile Include="..\..\src\Beutl.Extensions.FFmpeg\FFmpegNativeRid.cs" Link="Linked\FFmpegNativeRid.cs" />

@@ -1,5 +1,4 @@
-﻿using System.Buffers;
-using System.Text.Json;
+﻿using System.Text.Json;
 using Avalonia.Threading;
 using Beutl.AgentToolkit.Common;
 using Beutl.Editor.Services.Mcp;
@@ -71,22 +70,7 @@ internal sealed class ExtensionMcpTool(
     }
 
     private static JsonElement CreateArguments(IDictionary<string, JsonElement>? arguments)
-    {
-        var buffer = new ArrayBufferWriter<byte>();
-        using (var writer = new Utf8JsonWriter(buffer))
-        {
-            writer.WriteStartObject();
-            foreach ((string name, JsonElement value) in arguments ?? new Dictionary<string, JsonElement>())
-            {
-                writer.WritePropertyName(name);
-                value.WriteTo(writer);
-            }
-            writer.WriteEndObject();
-        }
-
-        using JsonDocument document = JsonDocument.Parse(buffer.WrittenMemory);
-        return document.RootElement.Clone();
-    }
+        => JsonSerializer.SerializeToElement(arguments ?? new Dictionary<string, JsonElement>());
 
     private static CallToolResult ToProtocolResult(McpToolResult result)
     {

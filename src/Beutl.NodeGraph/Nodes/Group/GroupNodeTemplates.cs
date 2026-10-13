@@ -76,21 +76,8 @@ public sealed class GroupNodeTemplates(string directory)
     public static void RenewRequestKeys(GroupNode group)
     {
         ArgumentNullException.ThrowIfNull(group);
-        foreach (GenerativeNode node in EnumerateNodes(group.Group).OfType<GenerativeNode>())
+        foreach (GenerativeNode node in group.Group.EnumerateGraphs().SelectMany(graph => graph.Nodes).OfType<GenerativeNode>())
             node.RenewRequestKey();
-    }
-
-    private static IEnumerable<GraphNode> EnumerateNodes(GraphModel model)
-    {
-        foreach (GraphNode node in model.Nodes)
-        {
-            yield return node;
-            if (node is GroupNode inner)
-            {
-                foreach (GraphNode nested in EnumerateNodes(inner.Group))
-                    yield return nested;
-            }
-        }
     }
 
     private string UniquePath(string name)

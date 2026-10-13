@@ -14,12 +14,10 @@ internal sealed partial class RenderRequestExecutor
     private readonly ProgramCache<CachedSkRuntimeEffect>? _programCache;
     private readonly ProgramCache<GLSLFilterPipeline>? _spirvProgramCache;
     private readonly ShaderBackendPreference _shaderBackendPreference;
-    private readonly Action<RenderFragmentKind>? _afterCaptureAllocation;
 
     public RenderExecutionStatistics Statistics { get; private set; }
 
     internal static Rect GetDirectFilterLayerBounds(
-        Rect semanticInputBounds,
         Rect replayedInputBounds,
         Rect? materializedRasterBounds = null)
         => materializedRasterBounds ?? replayedInputBounds;
@@ -27,14 +25,12 @@ internal sealed partial class RenderRequestExecutor
     public RenderRequestExecutor(
         RenderTargetLeaseSession targets,
         ProgramCache<CachedSkRuntimeEffect>? programCache = null,
-        Action<RenderFragmentKind>? afterCaptureAllocation = null,
         ProgramCache<GLSLFilterPipeline>? spirvProgramCache = null,
         ShaderBackendPreference shaderBackendPreference = ShaderBackendPreference.Auto)
     {
         _targets = targets ?? throw new ArgumentNullException(nameof(targets));
         _programCache = programCache;
         _spirvProgramCache = spirvProgramCache;
-        _afterCaptureAllocation = afterCaptureAllocation;
         if (!Enum.IsDefined(shaderBackendPreference))
             throw new ArgumentOutOfRangeException(nameof(shaderBackendPreference));
         _shaderBackendPreference = shaderBackendPreference;
@@ -173,7 +169,7 @@ internal sealed partial class RenderRequestExecutor
                     firstExternalCleanupFailure ??= failure;
                     bool alreadyRecorded = cleanupFailures.Any(
                         existing => ReferenceEquals(existing, failure));
-                    AddCleanupFailure(cleanupFailures, failure);
+                    CleanupFailures.Append(cleanupFailures, failure);
                     if (!alreadyRecorded)
                         owner.RecordCleanupFailure(failure);
                 }
@@ -199,7 +195,7 @@ internal sealed partial class RenderRequestExecutor
             }
             catch (Exception ex)
             {
-                AppendCleanupFailures(cleanupFailures, ex);
+                CleanupFailures.Append(cleanupFailures, ex);
             }
         }
     }
@@ -260,7 +256,7 @@ internal sealed partial class RenderRequestExecutor
             catch (FamilyCachePublicationException ex)
             {
                 foreach (Exception cleanupFailure in ex.CleanupFailures)
-                    AppendCleanupFailures(cleanupFailures, cleanupFailure);
+                    CleanupFailures.Append(cleanupFailures, cleanupFailure);
                 primaryFailure = ex.Failure;
             }
             catch (Exception ex)
@@ -301,7 +297,7 @@ internal sealed partial class RenderRequestExecutor
         ref ExceptionDispatchInfo? primaryFailure,
         Exception exception)
     {
-        AppendCleanupFailures(cleanupFailures, exception);
+        CleanupFailures.Append(cleanupFailures, exception);
         primaryFailure ??= ExceptionDispatchInfo.Capture(
             exception is AggregateException aggregate
                 ? aggregate.Flatten().InnerExceptions[0]
@@ -325,7 +321,6 @@ internal sealed partial class RenderRequestExecutor
         private readonly ProgramCache<GLSLFilterPipeline> _spirvProgramCache;
         private readonly ShaderBackendPreference _shaderBackendPreference;
         private readonly DrawableBrushMaterializer _drawableBrushMaterializer;
-        private readonly Action<RenderFragmentKind>? _afterCaptureAllocation;
         private Dictionary<RenderFragmentId, Rect>? _resolvedExecutionDomains;
         private readonly Dictionary<RenderFragmentReference, IReadOnlyList<MaterializedRenderValue>> _values =
             new(ReferenceEqualityComparer.Instance);
@@ -364,8 +359,7 @@ internal sealed partial class RenderRequestExecutor
             RenderTargetLeaseSession targets,
             ProgramCache<CachedSkRuntimeEffect> programCache,
             ProgramCache<GLSLFilterPipeline> spirvProgramCache,
-            ShaderBackendPreference shaderBackendPreference,
-            Action<RenderFragmentKind>? afterCaptureAllocation)
+            ShaderBackendPreference shaderBackendPreference)
         {
             _options = options;
             _graph = graph ?? throw new ArgumentNullException(nameof(graph));
@@ -384,7 +378,6 @@ internal sealed partial class RenderRequestExecutor
             _spirvProgramCache = spirvProgramCache;
             _shaderBackendPreference = shaderBackendPreference;
             _drawableBrushMaterializer = MaterializeDrawableBrush;
-            _afterCaptureAllocation = afterCaptureAllocation;
             _cacheCaptures = cacheResolution.MissCaptureCount == 0
                 ? []
                 : new IReadOnlyList<MaterializedRenderValue>?[cacheResolution.Decisions.Length];
@@ -459,13 +452,9 @@ internal sealed partial class RenderRequestExecutor
         /// <paramref name="callerScale"/> of it.
         /// </summary>
         /// <remarks>
-        /// The caller scale is the density this replay demands of an unbounded fragment, expressed in the
-        /// fragment's own logical space: the destination density at a request root or a fresh buffer, carried
-        /// backwards through every <see cref="RenderScopeTransformSpace.InputLogical"/> scope on the way down
-        /// the same way <see cref="RenderMaterializationDemandResolver"/> compiled the demand it is checked
-        /// against. <see cref="ImmediateCanvas.Density"/> alone is the surface's density and does not see the
-        /// transform such a scope pushed on top of it, so a scope that shrinks its input would ask more of it
-        /// than the plan compiled and trip the materialization cross-check.
+        /// The caller scale is the density this replay demands of an unbounded fragment, in the fragment's own space;
+        /// <see cref="RenderScopeTransformSpace.InputLogical"/> scopes carry it backwards exactly as the demand
+        /// resolver did.
         /// </remarks>
         private void Replay(
             RenderFragmentReference fragment,
@@ -484,10 +473,6 @@ internal sealed partial class RenderRequestExecutor
                 _executionLedger.AbandonActive();
                 CompleteFragmentUse(fragment);
             }
-            catch (PreviewAllocationDropException)
-            {
-                throw;
-            }
             finally
             {
                 _replayDepth--;
@@ -499,9 +484,7 @@ internal sealed partial class RenderRequestExecutor
         /// between them remaps the input's logical space.
         /// </summary>
         private EffectiveScale ResolveCallerScale(ImmediateCanvas destination)
-            => EffectiveScale.At(MathF.Min(
-                destination.Density,
-                RenderScaleUtilities.SanitizeMaxWorkingScale(_options.MaxWorkingScale)));
+            => BoundCallerScale(destination.Density);
 
         /// <summary>
         /// Carries the scale a scope is replayed at back to the input it replays, in the input's own logical
@@ -681,6 +664,7 @@ internal sealed partial class RenderRequestExecutor
                     ExecuteReplayIsland(fragment, () => ReplayTargetLayerScope(fragment, destination, callerScale));
                     return;
                 case RenderFragmentKind.OpaqueSource:
+                case RenderFragmentKind.OpaqueCombine:
                     if (TryReplayEngineSourceDirect(fragment, destination, callerScale))
                         return;
                     DrawMaterializedFragment(fragment, destination, callerScale);
@@ -697,25 +681,20 @@ internal sealed partial class RenderRequestExecutor
                         return;
                     DrawMaterializedFragment(fragment, destination, callerScale);
                     return;
-                case RenderFragmentKind.OpaqueCombine:
-                    if (TryReplayEngineSourceDirect(fragment, destination, callerScale))
-                        return;
-                    DrawMaterializedFragment(fragment, destination, callerScale);
-                    return;
                 case RenderFragmentKind.TargetCapture:
                     _ = Materialize(fragment, destination);
                     return;
                 case RenderFragmentKind.BuiltInBackdropCapture:
                     {
                         IReadOnlyList<MaterializedRenderValue> values = Materialize(fragment, destination);
-                        if (values.Count != 1
-                            || ((BuiltInBackdropCaptureRenderFragmentPayload)fragment.Payload!).Identity
-                            is not IBuiltInBackdropCaptureSink sink)
+                        if (values.Count != 1)
                         {
                             throw new InvalidOperationException(
                                 "A built-in backdrop capture must produce one value for its publication sink.");
                         }
 
+                        IBuiltInBackdropCaptureSink sink =
+                            ((BuiltInBackdropCaptureRenderFragmentPayload)fragment.Payload!).Identity;
                         AddValueReferences(values);
                         (_backdropCaptures ??= []).Add((sink, values[0]));
                         return;
@@ -770,27 +749,20 @@ internal sealed partial class RenderRequestExecutor
             Rect bounds,
             EffectiveScale effectiveScale,
             PixelRect deviceBounds,
-            bool ownsTarget,
             Vector deviceGridOffset = default,
             Rect? completeBounds = null,
             bool preserveImperativeRasterPlacement = false)
-        {
-            ArgumentNullException.ThrowIfNull(target);
-            ValidatePhysicalFootprint(
-                target,
+            : this(
+                target ?? throw new ArgumentNullException(nameof(target)),
+                lease: null,
+                effectTargetLease: null,
                 bounds,
                 effectiveScale,
                 deviceBounds,
                 deviceGridOffset,
-                preserveImperativeRasterPlacement);
-            Target = target;
-            Bounds = bounds;
-            CompleteBounds = completeBounds ?? bounds;
-            EffectiveScale = effectiveScale;
-            DeviceBounds = deviceBounds;
-            DeviceGridOffset = deviceGridOffset;
-            OwnsTarget = ownsTarget;
-            PreserveImperativeRasterPlacement = preserveImperativeRasterPlacement;
+                completeBounds,
+                preserveImperativeRasterPlacement)
+        {
         }
 
         public MaterializedRenderValue(
@@ -800,22 +772,17 @@ internal sealed partial class RenderRequestExecutor
             PixelRect deviceBounds,
             Vector deviceGridOffset = default,
             Rect? completeBounds = null)
-        {
-            ArgumentNullException.ThrowIfNull(lease);
-            ValidatePhysicalFootprint(
-                lease.Target,
+            : this(
+                (lease ?? throw new ArgumentNullException(nameof(lease))).Target,
+                lease,
+                effectTargetLease: null,
                 bounds,
                 effectiveScale,
                 deviceBounds,
-                deviceGridOffset);
-            _lease = lease;
-            Target = lease.Target;
-            Bounds = bounds;
-            CompleteBounds = completeBounds ?? bounds;
-            EffectiveScale = effectiveScale;
-            DeviceBounds = deviceBounds;
-            DeviceGridOffset = deviceGridOffset;
-            OwnsTarget = true;
+                deviceGridOffset,
+                completeBounds,
+                preserveImperativeRasterPlacement: false)
+        {
         }
 
         public MaterializedRenderValue(
@@ -826,23 +793,45 @@ internal sealed partial class RenderRequestExecutor
             Vector deviceGridOffset = default,
             Rect? completeBounds = null,
             bool preserveImperativeRasterPlacement = false)
+            : this(
+                (lease ?? throw new ArgumentNullException(nameof(lease))).Target,
+                lease: null,
+                effectTargetLease: lease,
+                bounds,
+                effectiveScale,
+                deviceBounds,
+                deviceGridOffset,
+                completeBounds,
+                preserveImperativeRasterPlacement)
         {
-            ArgumentNullException.ThrowIfNull(lease);
+        }
+
+        private MaterializedRenderValue(
+            RenderTarget target,
+            RenderTargetLease? lease,
+            EffectTargetRenderTargetLease? effectTargetLease,
+            Rect bounds,
+            EffectiveScale effectiveScale,
+            PixelRect deviceBounds,
+            Vector deviceGridOffset,
+            Rect? completeBounds,
+            bool preserveImperativeRasterPlacement)
+        {
             ValidatePhysicalFootprint(
-                lease.Target,
+                target,
                 bounds,
                 effectiveScale,
                 deviceBounds,
                 deviceGridOffset,
                 preserveImperativeRasterPlacement);
-            _effectTargetLease = lease;
-            Target = lease.Target;
+            _lease = lease;
+            _effectTargetLease = effectTargetLease;
+            Target = target;
             Bounds = bounds;
             CompleteBounds = completeBounds ?? bounds;
             EffectiveScale = effectiveScale;
             DeviceBounds = deviceBounds;
             DeviceGridOffset = deviceGridOffset;
-            OwnsTarget = true;
             PreserveImperativeRasterPlacement = preserveImperativeRasterPlacement;
         }
 
@@ -879,8 +868,6 @@ internal sealed partial class RenderRequestExecutor
             }
         }
 
-        public bool OwnsTarget { get; }
-
         public bool PreserveImperativeRasterPlacement { get; }
 
         public RenderTarget TransferToAcceptedCache()
@@ -902,7 +889,7 @@ internal sealed partial class RenderRequestExecutor
                 _effectTargetLease.Dispose();
             else if (_lease is not null)
                 _lease.Dispose();
-            else if (OwnsTarget)
+            else
                 Target.Dispose();
         }
 

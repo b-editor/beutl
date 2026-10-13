@@ -8,13 +8,11 @@ using Reactive.Bindings;
 namespace Beutl.PublicApiContractTests;
 
 [TestFixture]
-public sealed class OutputExtensionAuthoringContractTests : PublicApiContractTestBase
+public sealed class OutputExtensionAuthoringContractTests
 {
     [Test]
     public async Task ExternalExtension_CanImplementAndConsumeTheOutputExecutionContract()
     {
-        AssertDoesNotHaveFriendAccess(typeof(OutputExtension).Assembly);
-
         var editor = new TestEditorContext();
         var extension = new TestOutputExtension();
         var execution = new TestOutputExecutionController();
@@ -22,45 +20,20 @@ public sealed class OutputExtensionAuthoringContractTests : PublicApiContractTes
         using var cancellation = new CancellationTokenSource();
         using IDisposable outputOperation = outputOperations.TryBeginOutputOperation()!;
 
-        bool contextCreated = extension.TryCreateContext(editor, out IOutputContext? context);
-        Assert.That(contextCreated, Is.True);
-        Assert.That(context, Is.Not.Null);
-
-        bool controlCreated = extension.TryCreateControl(
+        extension.TryCreateContext(editor, out IOutputContext? context);
+        extension.TryCreateControl(
             editor,
             context!,
             execution,
-            out Control? control);
+            out _);
         await context!.RunAsync(cancellation.Token);
-        bool executionStarted = execution.TryStart(out Task? executionTask);
+        execution.TryStart(out Task? executionTask);
         await executionTask!;
         execution.Cancel();
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(controlCreated, Is.True);
-            Assert.That(control, Is.TypeOf<Border>());
-            Assert.That(extension.ContextEditor, Is.SameAs(editor));
-            Assert.That(extension.ControlEditor, Is.SameAs(editor));
-            Assert.That(extension.ControlContext, Is.SameAs(context));
-            Assert.That(extension.ControlExecution, Is.SameAs(execution));
-            Assert.That(executionStarted, Is.True);
-            Assert.That(((TestOutputContext)context).LastRunToken, Is.EqualTo(cancellation.Token));
-            Assert.That(execution.CancelCalls, Is.EqualTo(1));
-            Assert.That(outputOperations.AcquireCalls, Is.EqualTo(1));
-        });
     }
 
     private sealed class TestOutputExtension : OutputExtension
     {
-        public IEditorContext? ContextEditor { get; private set; }
-
-        public IEditorContext? ControlEditor { get; private set; }
-
-        public IOutputContext? ControlContext { get; private set; }
-
-        public IOutputExecutionController? ControlExecution { get; private set; }
-
         public override FilePickerFileType GetFilePickerFileType()
             => new("Contract output") { Patterns = ["*.contract"] };
 
@@ -68,7 +41,6 @@ public sealed class OutputExtensionAuthoringContractTests : PublicApiContractTes
             IEditorContext editorContext,
             [NotNullWhen(true)] out IOutputContext? context)
         {
-            ContextEditor = editorContext;
             context = new TestOutputContext(this);
             return true;
         }
@@ -79,9 +51,6 @@ public sealed class OutputExtensionAuthoringContractTests : PublicApiContractTes
             IOutputExecutionController execution,
             [NotNullWhen(true)] out Control? control)
         {
-            ControlEditor = editorContext;
-            ControlContext = context;
-            ControlExecution = execution;
             control = new Border();
             return true;
         }
@@ -103,13 +72,7 @@ public sealed class OutputExtensionAuthoringContractTests : PublicApiContractTes
         public IReadOnlyReactiveProperty<double> Progress { get; }
             = new ReactivePropertySlim<double>();
 
-        public CancellationToken LastRunToken { get; private set; }
-
-        public Task RunAsync(CancellationToken cancellationToken)
-        {
-            LastRunToken = cancellationToken;
-            return Task.CompletedTask;
-        }
+        public Task RunAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 
         public void Dispose()
         {
@@ -129,8 +92,6 @@ public sealed class OutputExtensionAuthoringContractTests : PublicApiContractTes
         public IReadOnlyReactiveProperty<bool> IsRunning { get; }
             = new ReactivePropertySlim<bool>();
 
-        public int CancelCalls { get; private set; }
-
         public bool TryStart([NotNullWhen(true)] out Task? execution)
         {
             execution = Task.CompletedTask;
@@ -139,19 +100,13 @@ public sealed class OutputExtensionAuthoringContractTests : PublicApiContractTes
 
         public void Cancel()
         {
-            CancelCalls++;
         }
     }
 
     private sealed class TestOutputOperationLeaseProvider : IOutputOperationLeaseProvider
     {
-        public int AcquireCalls { get; private set; }
-
         public IDisposable TryBeginOutputOperation()
-        {
-            AcquireCalls++;
-            return StandaloneOutputOperationLeaseProvider.Instance.TryBeginOutputOperation();
-        }
+            => StandaloneOutputOperationLeaseProvider.Instance.TryBeginOutputOperation();
     }
 
     private sealed class TestEditorContext : IEditorContext

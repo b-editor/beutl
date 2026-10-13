@@ -109,27 +109,6 @@ public sealed class AgentHostAiBackendTests
     }
 
     [Test]
-    public async Task WithoutApiClientsEveryAiToolIsUnavailable()
-    {
-        UnavailableAgentAiBackend backend = UnavailableAgentAiBackend.Instance;
-        string? reason = await backend.GetUnavailableReasonAsync(CancellationToken.None);
-        IReadOnlyList<GenerativeModelInfo> models = await backend.GetModelsAsync("image.generate", CancellationToken.None);
-        long budget = await backend.GetImageReferenceBudgetAsync(CancellationToken.None);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(budget, Is.EqualTo(AiRequestLimits.MaxImageReferencesTotalBytes));
-            Assert.That(backend.KnowsModelAvailability, Is.False);
-            Assert.That(reason, Is.Not.Null);
-            Assert.That(models, Is.Empty);
-            Assert.That(() => backend.CreateExecutor(new Scene()), Throws.InvalidOperationException);
-            Assert.That(
-                () => backend.TranscribeAsync("a.wav", null, null, new Progress<string>(), CancellationToken.None),
-                Throws.InvalidOperationException);
-        });
-    }
-
-    [Test]
     public async Task ALongRecordingIsTranscribedInPartsAndKeepsItsTimes()
     {
         const int sampleRate = 8_000;

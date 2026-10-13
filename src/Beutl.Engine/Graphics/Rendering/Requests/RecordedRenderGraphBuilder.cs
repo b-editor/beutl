@@ -28,16 +28,6 @@ internal sealed class RecordedRenderGraphBuilder
 
     public RenderRequestId RequestId { get; }
 
-    public RenderFragmentId AddFragment(RenderFragmentReference reference)
-    {
-        EnsureMutable();
-        ArgumentNullException.ThrowIfNull(reference);
-        ValidateUncommittedReference(reference);
-        foreach (RenderFragmentReference input in reference.Inputs)
-            ValidateCommittedReference(input);
-        return CommitFragment(reference);
-    }
-
     public void PublishRoot(RenderFragmentId fragmentId)
     {
         EnsureMutable();
@@ -48,7 +38,7 @@ internal sealed class RecordedRenderGraphBuilder
     public RenderCacheCandidateId AddCacheCandidate(
         RenderFragmentId fragmentId,
         object cacheKey,
-        RenderNodeCache? cache = null)
+        RenderNodeCache cache)
     {
         EnsureMutable();
         ValidateExistingFragment(fragmentId);

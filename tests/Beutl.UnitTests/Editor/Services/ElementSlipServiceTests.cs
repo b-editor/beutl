@@ -11,6 +11,7 @@ using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.UnitTests.Engine.Graphics.Rendering;
 using Beutl.UnitTests.TestInfrastructure;
+using static Beutl.UnitTests.TestInfrastructure.TrimTestMedia;
 
 namespace Beutl.UnitTests.Editor.Services;
 
@@ -42,6 +43,21 @@ public class ElementSlipServiceTests
 
     private Element AddElement(TimeSpan start, TimeSpan length, int zIndex = 0)
         => _harness.AddElement(start, length, zIndex);
+
+    // Adds the SourceVideo, SourceSound or SceneSound that mediaType names without a source, so its length is unknown.
+    private static IProperty<TimeSpan> AddMediaWithoutSource(Element element, string mediaType)
+    {
+        if (mediaType == nameof(SourceVideo))
+        {
+            var video = new SourceVideo();
+            element.Objects.Add(video);
+            return video.OffsetPosition;
+        }
+
+        Sound sound = mediaType == nameof(SourceSound) ? new SourceSound() : new SceneSound();
+        element.Objects.Add(sound);
+        return sound.OffsetPosition;
+    }
 
     [Test]
     public void Constructor_NullHistoryManager_Throws()
@@ -150,44 +166,42 @@ public class ElementSlipServiceTests
         });
     }
 
-    [Test]
-    public void Slip_SourceVideo_ShiftsOffsetPositionAndCommits()
+    [TestCase(nameof(SourceVideo), 1.0)]
+    [TestCase(nameof(SourceSound), 0.5)]
+    [TestCase(nameof(SceneSound), 1.0)]
+    public void Slip_MediaWithoutSource_ShiftsOffsetPositionAndCommits(string mediaType, double delta)
     {
         Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
-        var video = new SourceVideo();
-        element.Objects.Add(video);
+        IProperty<TimeSpan> offset = AddMediaWithoutSource(element, mediaType);
         int before = _history.UndoCount;
 
-        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(1));
+        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(delta));
 
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.True);
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(offset.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(delta)));
             Assert.That(element.Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
             Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
     }
 
-    [Test]
-    public void Slip_SourceVideo_ClampsToUsableSourceDuration()
+    [TestCase(nameof(SourceVideo))]
+    [TestCase(nameof(SourceSound))]
+    [TestCase(nameof(SceneSound))]
+    public void Slip_ClampsToUsableSourceDuration(string mediaType)
     {
+        // A 3s source with a 2s clip leaves 1s of headroom.
         Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
-        var videoSource = new VideoSource();
-        videoSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 90)));
-        var video = new SourceVideo
-        {
-            Source = { CurrentValue = videoSource }
-        };
-        element.Objects.Add(video);
+        var media = AddMedia(element, mediaType, 100, durationSeconds: 3);
 
         bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(5));
 
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.True);
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(media.Offset.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
         });
     }
 
@@ -198,8 +212,7 @@ public class ElementSlipServiceTests
     public void Slip_ExhaustedVideo_PreservesKnownSourceBounds(int offset, int delta, bool expectedApplied)
     {
         Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
-        var source = new VideoSource();
-        source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 60)));
+        var source = CreateVideoSource(2);
         var video = new SourceVideo
         {
             Source = { CurrentValue = source },
@@ -221,63 +234,6 @@ public class ElementSlipServiceTests
     }
 
     [Test]
-    public void Slip_SourceSound_ShiftsOffsetPositionAndCommits()
-    {
-        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
-        var sound = new SourceSound();
-        element.Objects.Add(sound);
-        int before = _history.UndoCount;
-
-        bool applied = _service.Slip(_scene, [element], TimeSpan.FromMilliseconds(500));
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(applied, Is.True);
-            Assert.That(sound.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromMilliseconds(500)));
-            Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
-        });
-    }
-
-    [Test]
-    public void Slip_SourceSound_ClampsToUsableSourceDuration()
-    {
-        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
-        var soundSource = new SoundSource();
-        soundSource.ReadFrom(new Uri(TestMediaHelper.CreateTestAudioFile(durationSeconds: 3)));
-        var sound = new SourceSound
-        {
-            Source = { CurrentValue = soundSource }
-        };
-        element.Objects.Add(sound);
-
-        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(5));
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(applied, Is.True);
-            Assert.That(sound.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
-        });
-    }
-
-    [Test]
-    public void Slip_SceneSound_ShiftsOffsetPositionAndCommits()
-    {
-        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
-        var sceneSound = new SceneSound();
-        element.Objects.Add(sceneSound);
-        int before = _history.UndoCount;
-
-        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(1));
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(applied, Is.True);
-            Assert.That(sceneSound.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
-            Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
-        });
-    }
-
-    [Test]
     public void Slip_SubFrameSourceTail_ClampsToWholeSourceTicks()
     {
         Element element = AddElement(TimeSpan.Zero, TimeSpan.FromTicks(333333));
@@ -295,25 +251,6 @@ public class ElementSlipServiceTests
             Assert.That(applied, Is.True);
             Assert.That(sound.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromTicks(333333)));
             Assert.That(linked.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromTicks(666666)));
-        });
-    }
-
-    [Test]
-    public void Slip_SceneSound_ClampsToReferencedSceneDuration()
-    {
-        // A 3s referenced scene with a 2s clip leaves 1s of headroom, like a 3s file source.
-        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
-        var referenced = new Scene { Duration = TimeSpan.FromSeconds(3) };
-        var sceneSound = new SceneSound();
-        sceneSound.ReferencedScene.CurrentValue = referenced;
-        element.Objects.Add(sceneSound);
-
-        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(5));
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(applied, Is.True);
-            Assert.That(sceneSound.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
         });
     }
 
@@ -445,8 +382,7 @@ public class ElementSlipServiceTests
         // Video source allows a 1s offset (3s source - 2s element); audio source allows 3s
         // (5s - 2s). A +5s request must land both at the tighter 1s so the streams stay in sync.
         Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
-        var videoSource = new VideoSource();
-        videoSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 90)));
+        var videoSource = CreateVideoSource(3);
         var video = new SourceVideo { Source = { CurrentValue = videoSource } };
         var soundSource = new SoundSource();
         soundSource.ReadFrom(new Uri(TestMediaHelper.CreateTestAudioFile(durationSeconds: 5)));
@@ -464,14 +400,30 @@ public class ElementSlipServiceTests
         });
     }
 
-    [Test]
-    public void Slip_VideoNestedInDrawableGroup_ShiftsOffsetPositionAndCommits()
+    [TestCase(nameof(DrawableGroup))]
+    [TestCase(nameof(DrawablePresenter))]
+    [TestCase(nameof(DrawableTimeController))]
+    public void Slip_VideoNestedInContainer_ShiftsOffsetPositionAndCommits(string container)
     {
         Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
         var video = new SourceVideo();
-        var group = new DrawableGroup();
-        group.Children.Add(video);
-        element.Objects.Add(group);
+        Drawable holder;
+        switch (container)
+        {
+            case nameof(DrawableGroup):
+                var group = new DrawableGroup();
+                group.Children.Add(video);
+                holder = group;
+                break;
+            case nameof(DrawablePresenter):
+                holder = new DrawablePresenter { Target = { CurrentValue = video } };
+                break;
+            default:
+                holder = new DrawableTimeController { Target = { CurrentValue = video } };
+                break;
+        }
+
+        element.Objects.Add(holder);
         int before = _history.UndoCount;
 
         bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(1));
@@ -492,8 +444,7 @@ public class ElementSlipServiceTests
     public void Slip_NestedVideo_ClampsToRenderedParentWindow(bool presenter, float speed, double delta, double expectedOffset)
     {
         Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(4));
-        var source = new VideoSource();
-        source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 150)));
+        var source = CreateVideoSource(5);
         var video = new SourceVideo
         {
             Source = { CurrentValue = source },
@@ -617,8 +568,7 @@ public class ElementSlipServiceTests
         IProperty<TimeSpan> offset;
         if (kind == "video")
         {
-            var source = new VideoSource();
-            source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 150)));
+            var source = CreateVideoSource(5);
             var video = new SourceVideo { Source = { CurrentValue = source } };
             var group = new DrawableGroup();
             group.Children.Add(video);
@@ -674,8 +624,7 @@ public class ElementSlipServiceTests
     public void Slip_TimeController_DoesNotRestrictIndependentSound(bool sceneAudio)
     {
         Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(10));
-        // An unsupported controller with participating video rejects the whole edit
-        // on main. Keep this case audio-only while exercising the nested sound window.
+        // The unsupported controller rejects the whole edit when video takes part, so this case is audio only.
         element.Objects.Add(new DrawableTimeController
         {
             Target = { CurrentValue = new DrawableGroup() },
@@ -715,8 +664,7 @@ public class ElementSlipServiceTests
     public void Slip_ControllerPreservesPlainVideoBoundsInEitherTraversalOrder(bool controllerFirst, bool sharedTarget)
     {
         Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(4));
-        var source = new VideoSource();
-        source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 150)));
+        var source = CreateVideoSource(5);
         var video = new SourceVideo
         {
             Source = { CurrentValue = source },
@@ -759,8 +707,7 @@ public class ElementSlipServiceTests
     public void Slip_IdentityControllerOnlyTarget_UsesControllerWindowThroughNestedPresenter(bool nestedPresenter)
     {
         Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(4));
-        var source = new VideoSource();
-        source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 150)));
+        var source = CreateVideoSource(5);
         var video = new SourceVideo
         {
             Source = { CurrentValue = source },
@@ -811,8 +758,7 @@ public class ElementSlipServiceTests
         int start, int length, int controllerStart, string targetKind, int expectedOffset)
     {
         Element element = AddElement(TimeSpan.FromSeconds(start), TimeSpan.FromSeconds(length));
-        var source = new VideoSource();
-        source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 150)));
+        var source = CreateVideoSource(5);
         var video = new SourceVideo
         {
             Source = { CurrentValue = source },
@@ -879,8 +825,7 @@ public class ElementSlipServiceTests
     public void Slip_NestedTimeController_RetainsElementBoundsUntilTimeMappingIsSupported()
     {
         Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(10));
-        var source = new VideoSource();
-        source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 150)));
+        var source = CreateVideoSource(5);
         var video = new SourceVideo
         {
             Source = { CurrentValue = source },
@@ -928,8 +873,7 @@ public class ElementSlipServiceTests
         double start, double length, double videoStart, float speed, double expectedOffset)
     {
         Element element = AddElement(TimeSpan.FromSeconds(start), TimeSpan.FromSeconds(length));
-        var source = new VideoSource();
-        source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 150)));
+        var source = CreateVideoSource(5);
         var video = new SourceVideo
         {
             Source = { CurrentValue = source },
@@ -975,8 +919,7 @@ public class ElementSlipServiceTests
         bool storedLoop, bool? first, bool? last, int expectedOffset)
     {
         Element element = AddElement(TimeSpan.FromSeconds(6), TimeSpan.FromSeconds(2));
-        var source = new VideoSource();
-        source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 150)));
+        var source = CreateVideoSource(5);
         var animation = new KeyFrameAnimation<bool>();
         if (first.HasValue && last.HasValue)
         {
@@ -1022,8 +965,7 @@ public class ElementSlipServiceTests
     public void Slip_DisabledController_PreservesTargetBoundsForReenabling(bool nestedPresenter, bool loop, float speed)
     {
         Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
-        var source = new VideoSource();
-        source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 150)));
+        var source = CreateVideoSource(5);
         var video = new SourceVideo
         {
             Source = { CurrentValue = source },
@@ -1093,8 +1035,7 @@ public class ElementSlipServiceTests
         }
         else
         {
-            var source = new VideoSource();
-            source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 150)));
+            var source = CreateVideoSource(5);
             var video = new SourceVideo
             {
                 Source = { CurrentValue = source },
@@ -1119,8 +1060,7 @@ public class ElementSlipServiceTests
         var app = new BeutlApplication();
         app.Items.Add(_scene);
         Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(3));
-        var videoSource = new VideoSource();
-        videoSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 150)));
+        var videoSource = CreateVideoSource(5);
         var video = new SourceVideo
         {
             Source = { CurrentValue = videoSource },
@@ -1155,44 +1095,6 @@ public class ElementSlipServiceTests
             Assert.That(sound.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
             Assert.That(video.TimeRange, Is.EqualTo(TimeRange.FromSeconds(2)));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
-        });
-    }
-
-    [Test]
-    public void Slip_VideoNestedInDrawablePresenter_ShiftsOffsetPositionAndCommits()
-    {
-        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
-        var video = new SourceVideo();
-        var presenter = new DrawablePresenter();
-        presenter.Target.CurrentValue = video;
-        element.Objects.Add(presenter);
-        int before = _history.UndoCount;
-
-        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(1));
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(applied, Is.True);
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
-            Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
-        });
-    }
-
-    [Test]
-    public void Slip_VideoNestedInDrawableTimeController_ShiftsOffsetPositionAndCommits()
-    {
-        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
-        var video = new SourceVideo();
-        var controller = new DrawableTimeController();
-        controller.Target.CurrentValue = video;
-        element.Objects.Add(controller);
-
-        bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(1));
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(applied, Is.True);
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
         });
     }
 
@@ -1289,8 +1191,7 @@ public class ElementSlipServiceTests
     public void Slip_TimeControllerBeforeVideo_DoesNotBlockLaterSource()
     {
         Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
-        var source = new VideoSource();
-        source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 180)));
+        var source = CreateVideoSource(6);
         var video = new SourceVideo { Source = { CurrentValue = source }, Speed = { CurrentValue = 200 } };
         var controller = new DrawableTimeController { Speed = { CurrentValue = 50 } };
         element.Objects.Add(controller);
@@ -1469,8 +1370,7 @@ public class ElementSlipServiceTests
         // First element's video source only allows a 1s slip (3s source - 2s element); the
         // second element's media is unbounded. The shared delta must land both at 1s.
         Element first = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), zIndex: 0);
-        var videoSource = new VideoSource();
-        videoSource.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 90)));
+        var videoSource = CreateVideoSource(3);
         var video = new SourceVideo { Source = { CurrentValue = videoSource } };
         first.Objects.Add(video);
 

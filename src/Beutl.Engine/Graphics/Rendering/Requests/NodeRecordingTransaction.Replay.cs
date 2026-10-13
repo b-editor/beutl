@@ -61,7 +61,7 @@ internal sealed partial class NodeRecordingTransaction
                 RenderFragmentReference reference = fragment.Template.CloneForReplay(fragmentInputs);
                 replayed[index] = reference;
                 OwnedReferences.Add(reference);
-                _fragments.Add(new RecordedRenderFragmentEntry(reference, fragment.Origin, fragment.Role));
+                _fragments.Add(new RecordedRenderFragmentEntry(reference, fragment.Origin));
                 _hasOwnTargetEffectFragment |= IsTargetEffect(reference.Kind);
             }
 

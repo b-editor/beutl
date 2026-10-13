@@ -1,6 +1,5 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
-using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.AgentToolkit.Tools;
 using Beutl.Animation;
@@ -19,7 +18,7 @@ public sealed class ApplierReviewFollowupTests
         Scene scene = CreateSceneWithElement(out Element element);
         Uri originalUri = element.Uri!;
         using var session = new AgentToolkitTestSession(scene);
-        EditTools tools = CreateTools(session);
+        EditTools tools = session.CreateEditTools();
 
         JsonObject document = session.Documents.Read(session.Root);
         JsonObject elementJson = FindById(document, element.Id)!;
@@ -42,7 +41,7 @@ public sealed class ApplierReviewFollowupTests
         Guid firstId = animation.KeyFrames[0].Id;
         Guid secondId = animation.KeyFrames[1].Id;
         using var session = new AgentToolkitTestSession(scene);
-        EditTools tools = CreateTools(session);
+        EditTools tools = session.CreateEditTools();
 
         // Push the first frame (0s) past the second (1s); collection order must follow KeyTime.
         JsonObject document = session.Documents.Read(session.Root);
@@ -63,8 +62,7 @@ public sealed class ApplierReviewFollowupTests
     [Test]
     public void Unrelated_edit_preserves_lossy_easing_storage_suppression()
     {
-        string dir = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        string dir = TestWorkspace.CreateDirectory();
         try
         {
             var sceneUri = new Uri(Path.Combine(dir, "Scene.scene"));
@@ -99,7 +97,7 @@ public sealed class ApplierReviewFollowupTests
             Scene recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
             Element recoveredElement = recovered.Children.Single();
             using var session = new AgentToolkitTestSession(recovered);
-            EditTools tools = CreateTools(session);
+            EditTools tools = session.CreateEditTools();
             JsonObject desired = session.Documents.Read(session.Root);
             FindById(desired, recoveredElement.Id)![nameof(CoreObject.Name)] = "Changed";
 
@@ -157,26 +155,11 @@ public sealed class ApplierReviewFollowupTests
         });
     }
 
-    private static EditTools CreateTools(AgentToolkitTestSession session)
-    {
-        var manager = new AgentSessionManager();
-        manager.UseSource(new AgentToolkitTestSessionSource(session));
-        return new EditTools(manager);
-    }
-
     private static Scene CreateSceneWithElement(out Element element)
     {
-        string dir = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
-        var scene = new Scene(1920, 1080, "Scene") { Uri = new Uri(Path.Combine(dir, "Scene.scene")) };
-        element = new Element
-        {
-            Start = TimeSpan.Zero,
-            Length = TimeSpan.FromSeconds(4),
-            Uri = new Uri(Path.Combine(dir, "element.belm"))
-        };
+        Scene scene = TestWorkspace.CreateScene();
+        element = TestWorkspace.AddElement(scene, TimeSpan.Zero, TimeSpan.FromSeconds(4));
         element.AddObject(new TextBlock { Text = { CurrentValue = "Launch" } });
-        scene.Children.Add(element);
         return scene;
     }
 

@@ -19,6 +19,7 @@ using Beutl.Serialization;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels.Editors;
 using static Beutl.HeadlessUITests.PropertyEditorTestHost;
+using static Beutl.Testing.Headless.JsonTestHelpers;
 
 namespace Beutl.HeadlessUITests;
 
@@ -1109,38 +1110,6 @@ public sealed class FallbackEditorPersistenceTests
     private static bool HoldsWhatWasRead(string elementPath, string originalJson)
     {
         return JsonNode.DeepEquals(JsonNode.Parse(File.ReadAllText(elementPath)), JsonNode.Parse(originalJson));
-    }
-
-    // The first object in node, depth first, that match accepts.
-    private static JsonObject? FindObject(JsonNode node, Func<JsonObject, bool> match)
-    {
-        if (node is JsonObject obj)
-        {
-            if (match(obj))
-            {
-                return obj;
-            }
-
-            foreach ((string _, JsonNode? child) in obj)
-            {
-                if (child is not null && FindObject(child, match) is { } result)
-                {
-                    return result;
-                }
-            }
-        }
-        else if (node is JsonArray array)
-        {
-            foreach (JsonNode? child in array)
-            {
-                if (child is not null && FindObject(child, match) is { } result)
-                {
-                    return result;
-                }
-            }
-        }
-
-        return null;
     }
 
     public enum PresenterKind

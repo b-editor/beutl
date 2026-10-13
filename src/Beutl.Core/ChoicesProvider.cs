@@ -24,9 +24,6 @@ public interface IChoicesProvider
 [AttributeUsage(AttributeTargets.Property, AllowMultiple = false)]
 public sealed class ChoicesProviderAttribute : Attribute
 {
-    /// <summary>
-    /// コンストラクタ
-    /// </summary>
     /// <param name="providerType"><see cref="IChoicesProvider"/>を継承する型</param>
     public ChoicesProviderAttribute(Type providerType)
     {

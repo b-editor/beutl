@@ -20,7 +20,6 @@ public class ProjectMutateAndPersistTests
 
         Assert.That(project.Items, Does.Contain(item));
         Assert.That(persistCalls, Is.EqualTo(1));
-        // Adding through the HierarchicalList must also attach the parent.
         Assert.That(item.HierarchicalParent, Is.SameAs(project));
     }
 
@@ -34,7 +33,6 @@ public class ProjectMutateAndPersistTests
             ProjectPersistence.AddItemAndPersist(project, item, () => throw new InvalidOperationException("disk full")));
 
         Assert.That(project.Items, Does.Not.Contain(item));
-        // Rolling back must also detach the parent.
         Assert.That(item.HierarchicalParent, Is.Null);
     }
 
@@ -48,7 +46,6 @@ public class ProjectMutateAndPersistTests
         Assert.Throws<InvalidOperationException>(() =>
             ProjectPersistence.AddItemAndPersist(project, item, () => throw new InvalidOperationException("disk full")));
 
-        // The item was already a member, so a failed persist must not remove it.
         Assert.That(project.Items, Does.Contain(item));
     }
 
@@ -64,29 +61,28 @@ public class ProjectMutateAndPersistTests
         Assert.That(project.Items.Count(i => ReferenceEquals(i, item)), Is.EqualTo(1));
     }
 
-    [Test]
-    public void AddItemAndPersist_NullProject_Throws()
+    private static IEnumerable<TestCaseData> NullArgumentCalls()
     {
-        var item = new FakeProjectItem();
+        yield return Case("AddItemAndPersist, null project",
+            () => ProjectPersistence.AddItemAndPersist(null!, new FakeProjectItem(), () => { }));
+        yield return Case("AddItemAndPersist, null item",
+            () => ProjectPersistence.AddItemAndPersist(new Project(), null!, () => { }));
+        yield return Case("AddItemAndPersist, null persist",
+            () => ProjectPersistence.AddItemAndPersist(new Project(), new FakeProjectItem(), null!));
+        yield return Case("RemoveItemAndPersist, null project",
+            () => ProjectPersistence.RemoveItemAndPersist(null!, new FakeProjectItem(), () => { }));
+        yield return Case("RemoveItemAndPersist, null item",
+            () => ProjectPersistence.RemoveItemAndPersist(new Project(), null!, () => { }));
+        yield return Case("RemoveItemAndPersist, null persist",
+            () => ProjectPersistence.RemoveItemAndPersist(new Project(), new FakeProjectItem(), null!));
 
-        Assert.Throws<ArgumentNullException>(() => ProjectPersistence.AddItemAndPersist(null!, item, () => { }));
+        static TestCaseData Case(string name, Action call) => new TestCaseData(call).SetArgDisplayNames(name);
     }
 
-    [Test]
-    public void AddItemAndPersist_NullItem_Throws()
+    [TestCaseSource(nameof(NullArgumentCalls))]
+    public void NullArgument_Throws(Action call)
     {
-        var project = new Project();
-
-        Assert.Throws<ArgumentNullException>(() => ProjectPersistence.AddItemAndPersist(project, null!, () => { }));
-    }
-
-    [Test]
-    public void AddItemAndPersist_NullPersist_Throws()
-    {
-        var project = new Project();
-        var item = new FakeProjectItem();
-
-        Assert.Throws<ArgumentNullException>(() => ProjectPersistence.AddItemAndPersist(project, item, null!));
+        Assert.Throws<ArgumentNullException>(() => call());
     }
 
     [Test]
@@ -101,7 +97,6 @@ public class ProjectMutateAndPersistTests
 
         Assert.That(project.Items, Does.Not.Contain(item));
         Assert.That(persistCalls, Is.EqualTo(1));
-        // Removing through the HierarchicalList must also detach the parent.
         Assert.That(item.HierarchicalParent, Is.Null);
     }
 
@@ -119,10 +114,8 @@ public class ProjectMutateAndPersistTests
         Assert.Throws<InvalidOperationException>(() =>
             ProjectPersistence.RemoveItemAndPersist(project, target, () => throw new InvalidOperationException("disk full")));
 
-        // The removal is rolled back, restoring the original position.
         Assert.That(project.Items, Has.Count.EqualTo(3));
         Assert.That(project.Items[1], Is.SameAs(target));
-        // Re-inserting must re-attach the parent.
         Assert.That(target.HierarchicalParent, Is.SameAs(project));
     }
 
@@ -139,34 +132,7 @@ public class ProjectMutateAndPersistTests
         Assert.That(project.Items, Does.Not.Contain(item));
     }
 
-    [Test]
-    public void RemoveItemAndPersist_NullProject_Throws()
-    {
-        var item = new FakeProjectItem();
-
-        Assert.Throws<ArgumentNullException>(() => ProjectPersistence.RemoveItemAndPersist(null!, item, () => { }));
-    }
-
-    [Test]
-    public void RemoveItemAndPersist_NullItem_Throws()
-    {
-        var project = new Project();
-
-        Assert.Throws<ArgumentNullException>(() => ProjectPersistence.RemoveItemAndPersist(project, null!, () => { }));
-    }
-
-    [Test]
-    public void RemoveItemAndPersist_NullPersist_Throws()
-    {
-        var project = new Project();
-        var item = new FakeProjectItem();
-
-        Assert.Throws<ArgumentNullException>(() => ProjectPersistence.RemoveItemAndPersist(project, item, null!));
-    }
-
-    // The two tests below exercise the parameterless overloads, which route through the real
-    // StoreProject (null-Uri guard + CoreSerializer write) — the one seam the injectable overloads
-    // cannot cover.
+    // The parameterless overloads are the only path through the real StoreProject.
 
     [Test]
     public void AddItemAndPersist_ParameterlessOverload_NullProjectUri_ThrowsAndRollsBack()

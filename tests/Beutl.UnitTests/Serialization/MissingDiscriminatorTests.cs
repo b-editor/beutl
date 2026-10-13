@@ -23,7 +23,7 @@ public class MissingDiscriminatorTests
         holder.Leaf.CurrentValue = CreateLeaf(3);
         JsonObject json = CoreSerializer.SerializeToJsonObject(holder);
         RemoveType(json[nameof(LeafHolder.Leaf)]!.AsObject());
-        int incidentsBefore = DeserializationIncidents.FallbackCount;
+        using DeserializationIncidents.Capture incidents = DeserializationIncidents.BeginCapture();
 
         object restored = CoreSerializer.DeserializeFromJsonObject(json, typeof(LeafHolder));
 
@@ -31,7 +31,7 @@ public class MissingDiscriminatorTests
         UnsealedLeaf? leaf = ((LeafHolder)restored).Leaf.CurrentValue;
         Assert.That(leaf, Is.TypeOf<UnsealedLeaf>());
         Assert.That(leaf!.Width.CurrentValue, Is.EqualTo(3));
-        Assert.That(DeserializationIncidents.FallbackCount, Is.EqualTo(incidentsBefore));
+        Assert.That(incidents.Count, Is.Zero);
     }
 
     // A value read through ICoreSerializationContext.GetValue.

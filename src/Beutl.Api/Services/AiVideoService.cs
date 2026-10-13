@@ -15,8 +15,6 @@ internal sealed partial class AiVideoService(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
-        // The caller's key when it has one: that is what lets a retry recover a
-        // clip already paid for instead of buying it again.
         string idempotencyKey = request.IdempotencyKey ?? CreateIdempotencyKey();
         if (request.InputReferences.Count > 0) return await CreateFromReferencesAsync(request, idempotencyKey, cancellationToken);
         if (request.FirstFrame is null)
@@ -43,12 +41,16 @@ internal sealed partial class AiVideoService(
         }
 
         cancellationToken.ThrowIfCancellationRequested();
-        await using Stream firstStream = await OpenFrameStreamAsync(
+        await using Stream firstStream = await AiUploadValidation.OpenAsync(
             request.FirstFrame,
+            AiRequestLimits.MaxFrameUploadBytes,
             cancellationToken);
         await using Stream? lastStream = request.LastFrame is null
             ? null
-            : await OpenFrameStreamAsync(request.LastFrame, cancellationToken);
+            : await AiUploadValidation.OpenAsync(
+                request.LastFrame,
+                AiRequestLimits.MaxFrameUploadBytes,
+                cancellationToken);
         StreamPart firstPart = AiMultipartFormData.File(
             firstStream,
             request.FirstFrame.FileName,
@@ -108,15 +110,5 @@ internal sealed partial class AiVideoService(
         activity?.SetTag("generateAudio", request.GenerateAudio);
         activity?.SetTag("hasFirstFrame", request.FirstFrame is not null);
         activity?.SetTag("hasLastFrame", request.LastFrame is not null);
-    }
-
-    private static async ValueTask<Stream> OpenFrameStreamAsync(
-        AiUploadSource source,
-        CancellationToken cancellationToken)
-    {
-        return await AiUploadValidation.OpenAsync(
-            source,
-            AiRequestLimits.MaxFrameUploadBytes,
-            cancellationToken);
     }
 }

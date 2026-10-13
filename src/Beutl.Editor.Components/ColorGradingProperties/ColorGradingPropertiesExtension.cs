@@ -15,19 +15,9 @@ public sealed class ColorGradingPropertiesExtension : PropertyEditorExtension
 
     public override IEnumerable<IPropertyAdapter> MatchProperty(IReadOnlyList<IPropertyAdapter> properties)
     {
-        try
-        {
-            var colorGradingProps = properties.Where(p => p.ImplementedType == typeof(ColorGrading)).ToArray();
-            if (colorGradingProps.Length > 1)
-            {
-                return colorGradingProps;
-            }
-        }
-        catch
-        {
-        }
-
-        return [];
+        // ImplementedType throws for a list item's adapter, so match on the owner instead.
+        var colorGradingProps = properties.Where(p => p.GetEngineProperty()?.GetOwnerObject() is ColorGrading).ToArray();
+        return colorGradingProps.Length > 1 ? colorGradingProps : [];
     }
 
     public override bool TryCreateContext(IReadOnlyList<IPropertyAdapter> properties,

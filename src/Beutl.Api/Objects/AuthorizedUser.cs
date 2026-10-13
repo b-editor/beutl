@@ -1,4 +1,5 @@
 ﻿using Beutl.Api.Clients;
+using Nito.AsyncEx;
 
 namespace Beutl.Api.Objects;
 
@@ -43,7 +44,7 @@ public class AuthenticatedUser(
 
     public bool IsExpired => Expiration < DateTimeOffset.UtcNow;
 
-    public MyAsyncLock Lock => clients.Lock;
+    public AsyncLock Lock => clients.Lock;
 
     public ValueTask RefreshAsync(
         CancellationToken cancellationToken,

@@ -49,7 +49,7 @@
                 <TextBlock Grid.Row="2"
                            HorizontalAlignment="Stretch"
                            VerticalAlignment="Stretch"
-                           Text="{Binding Content.Value}"
+                           Text="{Binding Content}"
                            TextWrapping="Wrap" />
 
                 <ItemsControl Name="CommandsHost" Grid.Row="4">

@@ -465,7 +465,7 @@ public sealed class ProxiesTabViewModelTests
 
         using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, queue, sourcePath));
 
-        await viewModel.RegenerateAsync(viewModel.Clips.Single());
+        await viewModel.GenerateAsync(viewModel.Clips.Single());
 
         Assert.Multiple(() =>
         {

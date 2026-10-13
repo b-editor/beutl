@@ -59,8 +59,7 @@ internal sealed class AgentHostInstanceRouter
         Task<AgentHostInstanceInfo?>[] tasks = _registry.Read().Where(entry => entry.InstanceId != InstanceId)
             .Select(entry => _peers.ReadInfoAsync(entry, cancellationToken)).ToArray();
         AgentHostInstanceInfo?[] instances = await Task.WhenAll(tasks).ConfigureAwait(false);
-        return new ListAgentHostInstancesResponse(InstanceId, instances.OfType<AgentHostInstanceInfo>().Prepend(self)
-            .OrderBy(info => info.ProcessId).ThenBy(info => info.InstanceId, StringComparer.Ordinal).ToArray());
+        return new ListAgentHostInstancesResponse(InstanceId, LiveToolRouting.OrderByProcess(instances.Prepend(self)));
     }
 
     public ValueTask<CallToolResult> ForwardAsync(
@@ -78,17 +77,11 @@ internal sealed class AgentHostInstanceRouter
                 if (tool.Name == "list_instances")
                     return tool;
 
-                JsonObject node = JsonSerializer.SerializeToNode(tool)!.AsObject();
-                JsonObject schema = node["inputSchema"]!.AsObject();
-                var properties = schema["properties"] as JsonObject;
-                if (properties is null)
-                    schema["properties"] = properties = new JsonObject();
-                properties["instanceId"] = new JsonObject
+                return LiveToolRouting.EditSchema(tool, (_, properties) => properties["instanceId"] = new JsonObject
                 {
                     ["type"] = "string",
                     ["description"] = "Target Beutl instance ID from list_instances. Pass the same ID on every call, including scene discovery, read, edit, history, render and job polling. Omit to operate on the connected instance."
-                };
-                return node.Deserialize<Tool>()!;
+                });
             }).ToArray();
             return result;
         });
@@ -99,21 +92,10 @@ internal sealed class AgentHostInstanceRouter
             if (original?.Arguments is not { } arguments || !arguments.TryGetValue("instanceId", out JsonElement id))
                 return await next(context, cancellationToken).ConfigureAwait(false);
 
-            if (original.Name == "list_instances" || id.ValueKind != JsonValueKind.String
-                || !Guid.TryParseExact(id.GetString(), "N", out _))
+            if (!LiveToolRouting.TryGetInstanceId(original.Name, id, out string? instanceId))
                 return LiveToolResults.InvalidInstanceId();
 
-            string instanceId = id.GetString()!;
-            var forwardedArguments = new Dictionary<string, JsonElement>(arguments, StringComparer.Ordinal);
-            forwardedArguments.Remove("instanceId");
-            var parameters = new CallToolRequestParams
-            {
-                Name = original.Name,
-                Arguments = forwardedArguments,
-                Meta = original.Meta,
-                InputResponses = original.InputResponses,
-                RequestState = original.RequestState
-            };
+            CallToolRequestParams parameters = LiveToolRouting.WithoutArgument(original, arguments, "instanceId");
             var router = context.Services!.GetRequiredService<AgentHostInstanceRouter>();
             if (instanceId != router.InstanceId)
                 return await router.ForwardAsync(instanceId, parameters, context.Server, cancellationToken).ConfigureAwait(false);

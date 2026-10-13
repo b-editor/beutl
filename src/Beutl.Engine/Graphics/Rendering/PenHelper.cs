@@ -35,13 +35,7 @@ public static class PenHelper
     {
         if (pen != null)
         {
-            float thickness = pen.Thickness;
-            rect = pen.StrokeAlignment switch
-            {
-                StrokeAlignment.Center => rect.Inflate(thickness / 2),
-                StrokeAlignment.Outside => rect.Inflate(thickness),
-                _ => rect,
-            };
+            rect = rect.Inflate(GetRealThickness(pen.StrokeAlignment, pen.Thickness));
 
             if (pen.Offset > 0)
             {

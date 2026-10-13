@@ -60,8 +60,7 @@ internal sealed partial class PathEditorInteraction
         {
             // An explicit start owns the existing first edge. A curved
             // closing edge must be appended, never written over segment 0.
-            if (_outgoing is { } outgoing && PathEditingOperations.IsStatic(figure.StartPoint)
-                && PathEditingOperations.IsStatic(figure.Segments[^1].GetEndPoint()))
+            if (_outgoing is { } outgoing)
             {
                 BtlPoint last = figure.Segments[^1].GetEndPoint().GetValue(Composition);
                 figure.Segments.Add(PathEditingOperations.Cubic(outgoing,

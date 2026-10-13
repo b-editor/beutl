@@ -32,12 +32,10 @@ internal static class FilterEffectStageFallbackExecutor
         RenderRequestPurpose purpose,
         SkRuntimeEffectProgramAcquirer acquireProgram,
         RenderTargetLeaseSession? leaseSession,
-        BufferDimensionBudget? budget = null)
+        BufferDimensionBudget budget)
     {
         ArgumentNullException.ThrowIfNull(targets);
         ArgumentNullException.ThrowIfNull(description);
-        BufferDimensionBudget.ThrowIfUninitialized(budget, nameof(budget));
-        BufferDimensionBudget resolvedBudget = budget ?? BufferDimensionBudget.Resolve(BufferBudgetScope.Allocation);
         ArgumentNullException.ThrowIfNull(acquireProgram);
         var environment = new StageEnvironment(
             outputScale,
@@ -46,7 +44,7 @@ internal static class FilterEffectStageFallbackExecutor
             intent,
             purpose,
             leaseSession,
-            resolvedBudget);
+            budget);
         ReplaceTargets(
             targets,
             target => ExecuteShader(target, description, acquireProgram, environment));
@@ -61,12 +59,10 @@ internal static class FilterEffectStageFallbackExecutor
         RenderIntent intent,
         RenderRequestPurpose purpose,
         RenderTargetLeaseSession? leaseSession,
-        BufferDimensionBudget? budget = null)
+        BufferDimensionBudget budget)
     {
         ArgumentNullException.ThrowIfNull(targets);
         ArgumentNullException.ThrowIfNull(description);
-        BufferDimensionBudget.ThrowIfUninitialized(budget, nameof(budget));
-        BufferDimensionBudget resolvedBudget = budget ?? BufferDimensionBudget.Resolve(BufferBudgetScope.Allocation);
         var environment = new StageEnvironment(
             outputScale,
             workingScale,
@@ -74,7 +70,7 @@ internal static class FilterEffectStageFallbackExecutor
             intent,
             purpose,
             leaseSession,
-            resolvedBudget);
+            budget);
         ReplaceTargets(
             targets,
             target => ExecuteGeometry(target, description, environment));
@@ -726,9 +722,7 @@ internal static class FilterEffectStageFallbackExecutor
         s_logger.LogWarning(
             "{Message} Preview drops this target; delivery render fails fast.",
             message);
-        if (intent == RenderIntent.Delivery)
-            throw new InvalidOperationException(message);
-        leaseSession?.MarkContentDropped();
+        EffectTargetAllocation.FailDeliveryOrDrop(intent, leaseSession, message);
     }
 
     private static void ReplaceTargets(
@@ -745,8 +739,7 @@ internal static class FilterEffectStageFallbackExecutor
 
         // Clear disposes the originals; the replacements move across alive.
         targets.Clear();
-        while (replacements.Count > 0)
-            targets.Add(replacements.DetachAt(0));
+        targets.AddRange(replacements);
     }
 
     private static bool IsEmpty(Rect bounds)

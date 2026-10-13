@@ -537,12 +537,6 @@ public sealed class AiPromptLibraryViewModelTests
             _templates = templates?.ToList() ?? [];
         }
 
-        public string StoragePath => "in-memory";
-
-        public bool RetainRecentPromptText => true;
-
-        public string? RecoveredCorruptFilePath => null;
-
         public Exception? ReadFailure { get; init; }
 
         public Exception? RecordFailure { get; init; }
@@ -661,19 +655,6 @@ public sealed class AiPromptLibraryViewModelTests
         {
             ThrowMutationFailure();
             _history.Clear();
-        }
-
-        public void ClearTemplates()
-        {
-            ThrowMutationFailure();
-            _templates.Clear();
-        }
-
-        public void ClearAll()
-        {
-            ThrowMutationFailure();
-            _history.Clear();
-            _templates.Clear();
         }
 
         private void ThrowMutationFailure()

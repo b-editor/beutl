@@ -71,9 +71,6 @@ Beutl에서 올바르게 처리되지 않은 오류가 발생했습니다.
   <data name="ErrorOccurred" xml:space="preserve">
     <value>오류가 발생했습니다.</value>
   </data>
-  <data name="LogFileNotFound" xml:space="preserve">
-    <value>로그 파일을 찾을 수 없습니다</value>
-  </data>
   <data name="MoreDetails" xml:space="preserve">
     <value>자세한 정보</value>
   </data>

@@ -149,8 +149,7 @@
               IsVisible="{Binding SignedIn.Value}"
               RowDefinitions="Auto,Auto,*,Auto">
             <Border Height="2">
-                <ProgressBar x:Name="LoadingProgress"
-                             Height="2"
+                <ProgressBar Height="2"
                              AutomationProperties.Name="{x:Static lang:Strings.CloudStorage}"
                              IsIndeterminate="True"
                              IsVisible="{Binding IsLoadingVisible.Value}" />
@@ -254,8 +253,7 @@
                     </Grid>
                 </Border>
                 <Border Height="2">
-                    <ProgressBar x:Name="LoadingMoreProgress"
-                                 Height="2"
+                    <ProgressBar Height="2"
                                  AutomationProperties.Name="{x:Static lang:Strings.CloudStorageLoadingMore}"
                                  IsIndeterminate="True"
                                  IsVisible="{Binding IsLoadingMoreVisible.Value}" />
@@ -264,8 +262,7 @@
                       ColumnDefinitions="*,Auto"
                       ColumnSpacing="8"
                       IsVisible="{Binding LoadMoreError.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-                    <TextBlock x:Name="LoadMoreErrorText"
-                               VerticalAlignment="Center"
+                    <TextBlock VerticalAlignment="Center"
                                Foreground="{DynamicResource SystemFillColorCriticalBrush}"
                                Text="{Binding LoadMoreError.Value}"
                                TextWrapping="Wrap" />

@@ -1,10 +1,8 @@
 ﻿using Avalonia.Headless.NUnit;
 using Avalonia.Threading;
 using Beutl.Editor.Components.LibraryTab.ViewModels;
-using Beutl.Extensibility;
 using Beutl.Services;
 using Beutl.Testing.Headless;
-using Moq;
 
 namespace Beutl.HeadlessUITests;
 
@@ -22,7 +20,7 @@ public sealed class LibraryTabRegistrationTests
     [AvaloniaTest]
     public void An_item_registered_after_the_tab_opens_is_listed_until_its_type_unloads()
     {
-        using var viewModel = new LibraryTabViewModel(Mock.Of<IEditorContext>());
+        using var viewModel = new LibraryTabViewModel();
         LibraryItemViewModel[] before = [.. viewModel.LibraryItems];
         try
         {
@@ -54,7 +52,7 @@ public sealed class LibraryTabRegistrationTests
     [AvaloniaTest]
     public void An_item_registered_into_a_group_goes_with_its_type()
     {
-        using var viewModel = new LibraryTabViewModel(Mock.Of<IEditorContext>());
+        using var viewModel = new LibraryTabViewModel();
         LibraryItemViewModel[] before = [.. viewModel.LibraryItems];
         try
         {
@@ -80,7 +78,7 @@ public sealed class LibraryTabRegistrationTests
     [AvaloniaTest]
     public async Task A_search_runs_again_when_an_item_is_registered()
     {
-        using var viewModel = new LibraryTabViewModel(Mock.Of<IEditorContext>());
+        using var viewModel = new LibraryTabViewModel();
         await viewModel.Search(LateName, CancellationToken.None);
         Assert.That(viewModel.SearchResult, Is.Empty);
         try

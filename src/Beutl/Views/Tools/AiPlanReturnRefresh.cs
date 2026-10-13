@@ -7,10 +7,8 @@ using Microsoft.Extensions.Logging;
 
 namespace Beutl.Views.Tools;
 
-// The AI plan is managed on the website. Any control that can send the user
-// there attaches this so the entitlements are re-read when the app is focused
-// again; otherwise a change made in the browser — a customer portal
-// cancellation in particular — stays invisible until the next manual reload.
+// The AI plan changes on the website, so a control that can send the user there attaches this to re-read
+// the entitlements when the app is focused again.
 internal static class AiPlanReturnRefresh
 {
     private static readonly ILogger s_logger = Log.CreateLogger(typeof(AiPlanReturnRefresh));
@@ -20,9 +18,24 @@ internal static class AiPlanReturnRefresh
         IAiPlanCoordinator coordinator,
         Action? refreshed = null)
     {
-        ArgumentNullException.ThrowIfNull(control);
-        ArgumentNullException.ThrowIfNull(coordinator);
         return new Subscription(control, coordinator, refreshed);
+    }
+
+    // Attaches for the control's DataContext while it is a TViewModel, replacing the subscription when it changes.
+    public static void AttachToDataContext<TViewModel>(
+        Control control,
+        Func<TViewModel, IAiPlanCoordinator?> coordinator,
+        Action<TViewModel> refreshed)
+        where TViewModel : class
+    {
+        IDisposable? subscription = null;
+        control.DataContextChanged += (_, _) =>
+        {
+            subscription?.Dispose();
+            subscription = control.DataContext is TViewModel viewModel && coordinator(viewModel) is { } planCoordinator
+                ? Attach(control, planCoordinator, () => refreshed(viewModel))
+                : null;
+        };
     }
 
     private sealed class Subscription : IDisposable

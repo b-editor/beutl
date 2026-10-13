@@ -188,13 +188,8 @@ public class CoreList<T> : ICoreList<T>
         }
     }
 
-    // The swap is notified the way Clear is. A list with ResetBehavior.Reset raises one Reset once the new
-    // items are in place. A list with ResetBehavior.Remove, which lists whose observers need the individual
-    // items (such as ForEachItem's removed callback) use, raises a Remove of the old items and then an Add
-    // of the new ones.
-    // A single Replace is never raised, because its old and new item counts could differ: DynamicData's
-    // ToObservableChangeSet applies only NewItems[0] of a Replace (and throws when it is empty), and
-    // Avalonia's VirtualizingStackPanel does not shift the containers after the replaced range.
+    // Notified like Clear: one Reset with ResetBehavior.Reset, else a Remove of the old items and an Add of the new.
+    // A Replace is never raised: its counts can differ, which DynamicData and Avalonia's panels do not handle.
     public virtual void Replace(IList<T> source)
     {
         ArgumentNullException.ThrowIfNull(source);
@@ -558,12 +553,6 @@ public class CoreList<T> : ICoreList<T>
         }
         else
         {
-            //
-            // Catch the obvious case assignment will fail.
-            // We can't find all possible problems by doing the check though.
-            // For example, if the element type of the Array is derived from T,
-            // we can't figure out if we can successfully copy the element beforehand.
-            //
             Type targetType = array.GetType().GetElementType()!;
             Type sourceType = typeof(T);
             if (!(targetType.IsAssignableFrom(sourceType) || sourceType.IsAssignableFrom(targetType)))
@@ -571,10 +560,6 @@ public class CoreList<T> : ICoreList<T>
                 throw new ArgumentException("Invalid array type");
             }
 
-            //
-            // We can't cast array of value type to object[], so we don't support
-            // widening of primitive types here.
-            //
             if (array is not object?[] objects)
             {
                 throw new ArgumentException("Invalid array type");

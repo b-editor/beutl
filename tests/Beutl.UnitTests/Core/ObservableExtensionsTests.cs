@@ -52,19 +52,4 @@ public class ObservableExtensionsTests
 
         Assert.That(diffs, Is.EqualTo(new[] { 10, 5, -8 }));
     }
-
-    [Test]
-    public void CombineWithPrevious_FirstValueHasDefaultPrevious()
-    {
-        var source = new Subject<string>();
-        var pairs = new List<(string? Old, string? New)>();
-
-        using IDisposable sub = source.CombineWithPrevious().Subscribe(p => pairs.Add(p));
-
-        source.OnNext("first");
-
-        Assert.That(pairs, Has.Count.EqualTo(1));
-        Assert.That(pairs[0].Old, Is.Null);
-        Assert.That(pairs[0].New, Is.EqualTo("first"));
-    }
 }

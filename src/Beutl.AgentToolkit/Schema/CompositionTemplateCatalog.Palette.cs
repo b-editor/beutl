@@ -51,7 +51,7 @@ public sealed partial class CompositionTemplateCatalog
         double bgSatB = rng.Range(14f, 32f);
         double bgValB = bgValA + rng.Range(6f, 12f);
 
-        // Accent: the vivid focal color, capped below the oversaturation ceiling.
+        // Accent: the vivid focal color.
         double accentSat = rng.Range(52f, (float)maxSaturation);
         double accentVal = rng.Range(72f, 92f);
 

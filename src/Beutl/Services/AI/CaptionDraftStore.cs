@@ -28,18 +28,13 @@ internal sealed record CaptionTranslationResume(
     string TargetLanguage,
     Dictionary<string, string> TranslatedPieces,
     int CompletedBatchCount,
-    // What the batches of this run were named to the server. Kept so that a run
-    // resumed in a later session asks for the translations it already paid for
-    // rather than buying them again. Empty in a draft written before this was
-    // recorded, which resumes as a run of its own.
+    // The names this run's batches went to the server under, so a later session asks again for translations
+    // already paid for. Empty in a draft written before this was recorded, which resumes as a run of its own.
     string RequestKeySeed = "",
-    // The model those names were built from. A run resumed on another model
-    // would name its unfinished batches differently and buy them again, so the
-    // picker is put back on this one.
+    // The model those names were built from; the picker returns to it so unfinished batches keep their names.
     string RequestKeyModel = "",
-    // Whether the draft ended while holding a dispatched but unsettled name. A seed alone cannot
-    // answer this because unreserved and refunded requests also retain seeds. Confusing them would
-    // restore unpaid work as an already-paid recovery.
+    // Whether the draft ended holding a dispatched, unsettled name. A seed alone cannot tell, as unreserved and
+    // refunded requests keep seeds too; confusing them would restore unpaid work as already paid.
     bool RequestKeyNamePending = false,
     int MaxSegments = 0,
     int MaxCharacters = 0,
@@ -55,19 +50,13 @@ internal sealed record CaptionSceneTranscriptionResume(
     AiTranscriptionSegment[] Segments,
     string? DetectedLanguage,
     int CompletedChunkCount,
-    // What the chunks of this run were named to the server. Scene audio is
-    // composed rather than read from a file, so nothing written down proves it
-    // is still the same audio — the server's own fingerprint does. A chunk
-    // asked for again under this seed is answered from the job it made when the
-    // audio matches, and refused as a different request when it does not, which
-    // is where the run starts over.
+    // The names this run's chunks went to the server under. Composed scene audio is proven unchanged only by the
+    // server's fingerprint: a matching chunk is answered from its job, a changed one is refused and the run restarts.
     string RequestKeySeed = "",
     string RequestKeyModel = "",
     bool RequestKeyNamePending = false,
-    // A random identifier shared only by scene-mix operations created by one dialog lifetime.
-    // Completed chunks cannot be validated against edited audio, so a partial run may continue
-    // only while this identifier still matches. A zero-completion pending request remains safe to
-    // retry because the server validates that chunk's audio fingerprint.
+    // Shared only by one dialog's scene-mix operations: completed chunks cannot be checked against edited audio, so a
+    // partial run continues only while it matches. A pending first chunk is safe, as the server checks its audio.
     Guid AudioSessionId = default);
 
 internal sealed record CaptionSourceTranscriptionResume(
@@ -83,17 +72,12 @@ internal sealed record CaptionSourceTranscriptionResume(
     AiTranscriptionSegment[] Segments,
     string? DetectedLanguage,
     int CompletedChunkCount,
-    // What the chunks of this run were named to the server. Kept so that a run
-    // resumed in a later session asks for the transcriptions it already paid
-    // for rather than buying them again. Empty in a draft written before this
-    // was recorded, which resumes as a run of its own.
+    // The names this run's chunks went to the server under, so a later session asks again for transcriptions
+    // already paid for. Empty in a draft written before this was recorded, which resumes as a run of its own.
     string RequestKeySeed = "",
-    // The model those names were built from. A run resumed on another model
-    // would name its unfinished chunks differently and buy them again, so the
-    // picker is put back on this one.
+    // The model those names were built from; the picker returns to it so unfinished chunks keep their names.
     string RequestKeyModel = "",
-    // Whether the draft ended while holding a dispatched but unsettled name. A seed alone cannot
-    // answer this because unreserved and refunded requests also retain seeds.
+    // Whether the draft ended holding a dispatched, unsettled name; unreserved and refunded requests keep seeds too.
     bool RequestKeyNamePending = false,
     // The canonical start of the selected source window. Together with TotalSamples this identifies
     // the exact audio submitted for this run. Null marks a legacy draft that cannot safely resume.

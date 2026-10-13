@@ -57,14 +57,11 @@ internal static class AiVideoResultDownload
         long maximumBytes = MaximumBytes)
     {
         ArgumentNullException.ThrowIfNull(destination);
-        if (!destination.CanWrite)
-            throw new ArgumentException("The destination stream must be writable.", nameof(destination));
-        if (maximumBytes <= 0)
-            throw new ArgumentOutOfRangeException(nameof(maximumBytes));
 
         return new BoundedWriteStream(destination, maximumBytes);
     }
 
+    // The caller owns the staging file stream. This wrapper only bounds writes.
     private sealed class BoundedWriteStream(Stream destination, long maximumBytes) : Stream
     {
         private long _written;
@@ -136,12 +133,6 @@ internal static class AiVideoResultDownload
             EnsureCapacity(1);
             destination.WriteByte(value);
             _written++;
-        }
-
-        protected override void Dispose(bool disposing)
-        {
-            // The caller owns the staging file stream. This wrapper only bounds writes.
-            base.Dispose(disposing);
         }
 
         private void EnsureCapacity(int count)

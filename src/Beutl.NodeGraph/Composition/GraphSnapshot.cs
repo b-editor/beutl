@@ -46,7 +46,6 @@ public sealed class GraphSnapshot : IDisposable
             _ = node.NestedInputPorts;
         if (!_isDirty) return;
 
-        // 既存リソースをクリーンアップ
         Uninitialize();
 
         // Rejected edges retain their connections, but must not leave an old expression value
@@ -68,30 +67,23 @@ public sealed class GraphSnapshot : IDisposable
             return;
         }
 
-        // 隣接リストと入次数を構築
         var (inDegree, adjacency) = BuildAdjacencyAndInDegree(model.Nodes);
 
-        // Kahn's アルゴリズム (BFS トポロジカルソート)
         var sorted = TopologicalSort(inDegree, adjacency);
 
-        // サイクル検出
         if (sorted.Count != nodeCount)
         {
             Log.CreateLogger<GraphSnapshot>().LogWarning("Node graph contains a cycle; {Count} blocked nodes were skipped.", nodeCount - sorted.Count);
         }
 
-        // リソースとコンテキストを構築
         try
         {
             var nodeToResourceIndex = BuildResourcesAndContexts(sorted, context);
 
-            // ConnectionSnapshot を構築
             var connectionList = BuildConnectionSnapshots(model.AllConnections, nodeToResourceIndex);
 
-            // _inputConnectionMap を構築（ListInputPort の順序を反映）
             BuildInputConnectionMap(connectionList);
 
-            // Resource を初期化
             InitializeResources();
 
             _isDirty = false;
@@ -190,7 +182,6 @@ public sealed class GraphSnapshot : IDisposable
             GraphNode node = sorted[i];
             nodeToResourceIndex[node] = i;
 
-            // ItemValues を構築
             INodeMember[] members = node.EnumerateMembers().ToArray();
             var itemIndexMap = new Dictionary<INodeMember, int>(members.Length);
             var itemValues = new IItemValue[members.Length];
@@ -215,7 +206,6 @@ public sealed class GraphSnapshot : IDisposable
                 throw;
             }
 
-            // Resource を生成
             resource.SlotIndex = i;
             resource.ItemValues = itemValues;
             resource.Members = members;
@@ -283,7 +273,6 @@ public sealed class GraphSnapshot : IDisposable
                 OriginalConnection = connection
             });
 
-            // 出力→接続マップに追加
             var key = (outputResourceIdx, outputItemIdx);
             if (!_outputConnectionMap.TryGetValue(key, out var connIndices))
             {
@@ -293,7 +282,6 @@ public sealed class GraphSnapshot : IDisposable
 
             connIndices.Add(connIdx);
 
-            // 接続済み入力セットに追加
             _connectedInputs.Add((inputResourceIdx, inputItemIdx));
         }
 
@@ -303,7 +291,6 @@ public sealed class GraphSnapshot : IDisposable
 
     private void BuildInputConnectionMap(List<ConnectionSnapshot> connectionList)
     {
-        // Connection -> connectionIndex のマッピングを作成
         var connectionToIndex = new Dictionary<Connection, int>();
         for (int i = 0; i < connectionList.Count; i++)
         {
@@ -314,7 +301,6 @@ public sealed class GraphSnapshot : IDisposable
             }
         }
 
-        // 各 ListInputPort について、Connections の順序で登録
         for (int resourceIdx = 0; resourceIdx < _resources.Length; resourceIdx++)
         {
             GraphNode node = _resources[resourceIdx].RequireOriginal();
@@ -366,13 +352,10 @@ public sealed class GraphSnapshot : IDisposable
             ctx.PreferredProxyPreset = context.PreferredProxyPreset;
             ctx.TargetDomain = context.TargetDomain;
 
-            // アニメーション/プロパティ値をロード
             LoadAnimatedValues(ctx.Resource, ctx.Time);
 
-            // ノード固有の評価
             ctx.Resource.Update(ctx);
 
-            // 出力値を下流に伝搬
             PropagateOutputs(ctx.Resource);
         }
     }
@@ -434,7 +417,6 @@ public sealed class GraphSnapshot : IDisposable
     {
         var key = (slotIndex, itemIndex);
 
-        // _inputConnectionMap を使用して ListInputPort.Connections の順序を保持
         if (_inputConnectionMap.TryGetValue(key, out var connIndices))
         {
             foreach (int connIdx in connIndices)
@@ -509,7 +491,6 @@ public sealed class GraphSnapshot : IDisposable
                     _ => ConnectionStatus.Error
                 };
 
-                // IEnginePropertyBackedInputPort なら、ItemValue の値をプロパティに反映
                 if (conn is { OriginalConnection.Input.Value: IEnginePropertyBackedInputPort inputNodePort })
                 {
                     inputNodePort.CopyFrom(inputValue);

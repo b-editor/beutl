@@ -12,6 +12,7 @@ public partial class PackageInstaller
     private const string DataInstallStagingPrefix = ".data-install-";
     private static readonly Microsoft.Extensions.Logging.ILogger s_recoveryLogger = Log.CreateLogger<PackageInstaller>();
 
+    // Test seam: tests observe or fail each data install step; production leaves it null.
     internal Action<string>? AfterDataInstallStep { get; set; }
 
     private enum DataInstallPhase { Prepared, Published, RollingBack, Committed, Recovered }

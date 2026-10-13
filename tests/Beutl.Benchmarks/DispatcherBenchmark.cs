@@ -44,7 +44,7 @@ public class DispatcherBenchmark
         _dispatcher.Invoke(static () => { }, DispatchPriority.Low);
     }
 
-    // Many producers posting concurrently: where removing per-Post lock + CTS churn shows up most.
+    // Many producers posting concurrently.
     [Benchmark]
     public void ConcurrentDispatch()
     {

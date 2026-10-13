@@ -171,7 +171,7 @@ public sealed record AiCaptionTranslationSegmentContext
         if (end <= start)
             throw new ArgumentOutOfRangeException(nameof(end));
 
-        GroupId = groupId.Trim();
+        GroupId = groupId;
         PartIndex = partIndex;
         Start = start;
         End = end;

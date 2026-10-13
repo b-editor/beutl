@@ -11,11 +11,7 @@ internal readonly record struct AiServerSentEvent(string Event, string Data);
 /// Reads an answer that arrives a piece at a time.
 /// </summary>
 /// <remarks>
-/// The AI endpoints stream when asked to: subtitles as they are translated, or
-/// the rough versions of a picture as it is worked out, and then always one
-/// closing event carrying the same answer a caller that did not ask would have
-/// waited for. Refit cannot read that, so these requests are made with the
-/// HttpClient directly.
+/// Refit cannot read an event stream, so these requests use the HttpClient directly.
 /// </remarks>
 internal static class AiEventStream
 {
@@ -110,8 +106,6 @@ internal static class AiEventStream
                     {
                         if (line.Length == 0)
                             return null;
-                        if (line[^1] == '\r')
-                            line.Length--;
                         return line.ToString();
                     }
                 }

@@ -3,7 +3,6 @@ using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Graphics.Effects;
-using Beutl.ProjectSystem;
 using Beutl.PropertyAdapters;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
@@ -19,63 +18,23 @@ public record ColorGradingWheelMode(string Name, int Value)
         new($"{GraphicsStrings.ColorGrading_Lift} / {GraphicsStrings.ColorGrading_Gamma} / {GraphicsStrings.ColorGrading_Gain} / {GraphicsStrings.ColorGrading_Offset}", 1);
 }
 
-public sealed class ColorGradingTabViewModel : IPinnableToolContext, IPropertyEditorContextVisitor
+public sealed class ColorGradingTabViewModel : EffectToolTabViewModel<ColorGrading>, IPropertyEditorContextVisitor
 {
-    private readonly CompositeDisposable _disposables = [];
-    private readonly IEditorContext _editorContext;
-    private readonly CompositeDisposable _effectDisposables = [];
-    private readonly ToolTabPin _pin;
-
     public ColorGradingTabViewModel(IEditorContext editorContext)
+        : base(editorContext, Strings.ColorGrading)
     {
-        _editorContext = editorContext;
-
-        Effect.Subscribe(SetEditors)
-            .DisposeWith(_disposables);
-
-        _pin = new ToolTabPin(Effect.Select(effect => effect != null)).DisposeWith(_disposables);
-
-        HasColorGrading = Effect
-            .Select(x => x != null)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables)!;
-
         IsLogMode = WheelMode
             .Select(v => v == ColorGradingWheelMode.ShadowsMidtonesHighlights)
             .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables)!;
+            .DisposeWith(Disposables)!;
 
         IsLiftGammaGainMode = WheelMode
             .Select(v => v == ColorGradingWheelMode.LiftGammaGainOffset)
             .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables)!;
-
-        IsColorGradingMissing = HasColorGrading
-            .Select(v => !v)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables)!;
-
-        Header = Effect
-            .Select(ToolTabHeaderHelper.ObserveEffectLabel)
-            .Switch()
-            .Select(label => ToolTabHeaderHelper.Compose(Strings.ColorGrading, label))
-            .ToReadOnlyReactivePropertySlim(Strings.ColorGrading)
-            .DisposeWith(_disposables)!;
+            .DisposeWith(Disposables)!;
     }
 
-    public IReadOnlyReactiveProperty<string> Header { get; }
-
-    public ToolTabExtension Extension => ColorGradingTabExtension.Instance;
-
-    public IReactiveProperty<bool> IsSelected { get; } = new ReactiveProperty<bool>();
-
-    public ReadOnlyReactivePropertySlim<bool> HasColorGrading { get; }
-
-    public ReactivePropertySlim<ColorGrading?> Effect { get; } = new();
-
-    public IReactiveProperty<bool> IsPinned => _pin.IsPinned;
-
-    public IReadOnlyReactiveProperty<bool> HasTarget => _pin.HasTarget;
+    public override ToolTabExtension Extension => ColorGradingTabExtension.Instance;
 
     public ReactivePropertySlim<ColorGradingWheelMode> WheelMode { get; } =
         new(ColorGradingWheelMode.ShadowsMidtonesHighlights);
@@ -91,8 +50,6 @@ public sealed class ColorGradingTabViewModel : IPinnableToolContext, IPropertyEd
     public ReadOnlyReactivePropertySlim<bool> IsLogMode { get; }
 
     public ReadOnlyReactivePropertySlim<bool> IsLiftGammaGainMode { get; }
-
-    public ReadOnlyReactivePropertySlim<bool> IsColorGradingMissing { get; }
 
     public ReactivePropertySlim<IPropertyEditorContext?> TemperatureEditor { get; } = new();
 
@@ -132,68 +89,39 @@ public sealed class ColorGradingTabViewModel : IPinnableToolContext, IPropertyEd
     {
     }
 
-    public object? GetService(Type serviceType)
+    public override void ReadFromJson(JsonObject json)
     {
-        if (serviceType == typeof(Element))
-            return Effect.Value?.FindHierarchicalParent<Element>();
-
-        if (serviceType == typeof(ColorGrading))
-            return Effect.Value;
-
-        return _editorContext.GetService(serviceType);
-    }
-
-    public void Dispose()
-    {
-        ClearEditors();
-        _disposables.Dispose();
-    }
-
-    public void ReadFromJson(JsonObject json)
-    {
-        if (json.TryGetPropertyValue("wheelMode", out var wheelModeNode)
-            && wheelModeNode is JsonValue wheelModeValue
-            && wheelModeValue.TryGetValue(out int mode))
+        if (json.TryGetPropertyValueAsJsonValue("wheelMode", out int mode))
         {
             WheelMode.Value = AvailableWheelModes.FirstOrDefault(i => i.Value == mode) ?? WheelMode.Value;
         }
 
-        if (json.TryGetPropertyValue("effectId", out var effectIdNode)
-            && effectIdNode is JsonValue effectIdValue
-            && effectIdValue.TryGetValue(out string? effectIdStr)
-            && Guid.TryParse(effectIdStr, out Guid effectId))
-        {
-            var scene = _editorContext.GetService<Scene>();
-            var colorGrading = scene?.FindById(effectId) as ColorGrading;
-            Effect.Value = colorGrading;
-        }
+        ReadEffectFromJson(json);
 
-        if (json.TryGetPropertyValue("isNumberEditorsVisible", out var isNumberEditorsVisibleNode)
-            && isNumberEditorsVisibleNode is JsonValue isNumberEditorsVisibleValue
-            && isNumberEditorsVisibleValue.TryGetValue(out bool isVisible))
+        if (json.TryGetPropertyValueAsJsonValue("isNumberEditorsVisible", out bool isVisible))
         {
             IsNumberEditorsVisible.Value = isVisible;
         }
 
-        _pin.ReadFromJson(json);
+        ReadPinFromJson(json);
     }
 
-    public void WriteToJson(JsonObject json)
+    public override void WriteToJson(JsonObject json)
     {
         json["wheelMode"] = WheelMode.Value.Value;
-        json["effectId"] = Effect.Value?.Id;
+        WriteEffectToJson(json);
         json["isNumberEditorsVisible"] = IsNumberEditorsVisible.Value;
-        _pin.WriteToJson(json);
+        WritePinToJson(json);
     }
 
-    private void SetEditors(ColorGrading? effect)
+    private protected override void SetEditors(ColorGrading? effect)
     {
         ClearEditors();
 
         if (effect == null)
             return;
 
-        var factory = _editorContext.GetService<IPropertyEditorFactory>();
+        var factory = EditorContext.GetService<IPropertyEditorFactory>();
         if (factory == null)
             return;
 
@@ -216,8 +144,7 @@ public sealed class ColorGradingTabViewModel : IPinnableToolContext, IPropertyEd
         GainEditor.Value = CreateEditor(factory, effect.Gain, effect);
         OffsetEditor.Value = CreateEditor(factory, effect.Offset, effect);
 
-        effect.DetachedFromHierarchy += OnEffectDetached;
-        _effectDisposables.Add(Disposable.Create(() => effect.DetachedFromHierarchy -= OnEffectDetached));
+        CloseWhenDetached(effect);
     }
 
     private IPropertyEditorContext? CreateEditor<T>(IPropertyEditorFactory factory, IProperty<T> property, EngineObject owner)
@@ -230,17 +157,12 @@ public sealed class ColorGradingTabViewModel : IPinnableToolContext, IPropertyEd
         if (ctx != null)
         {
             ctx.Accept(this);
-            _effectDisposables.Add(ctx);
+            EffectDisposables.Add(ctx);
         }
         return ctx;
     }
 
-    private void OnEffectDetached(object? sender, HierarchyAttachmentEventArgs e)
-    {
-        _editorContext.CloseToolTab(this);
-    }
-
-    private void ClearEditors()
+    private protected override void ClearEditors()
     {
         TemperatureEditor.Value = null;
         TintEditor.Value = null;
@@ -261,6 +183,6 @@ public sealed class ColorGradingTabViewModel : IPinnableToolContext, IPropertyEd
         GainEditor.Value = null;
         OffsetEditor.Value = null;
 
-        _effectDisposables.Clear();
+        EffectDisposables.Clear();
     }
 }

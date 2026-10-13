@@ -1,6 +1,4 @@
-﻿using System.Reflection;
-using Beutl.AgentToolkit.Rendering;
-using Beutl.AgentToolkit.Tools;
+﻿using Beutl.AgentToolkit.Rendering;
 using Beutl.Extensions.AVFoundation.Encoding;
 using Beutl.Extensions.FFmpeg.Encoding;
 using Beutl.FFmpegIpc;
@@ -130,40 +128,6 @@ public sealed class VideoExporterQualityTests
 
         Assert.That(warnings, Has.Count.EqualTo(1));
         Assert.That(warnings[0], Does.Contain("AVFoundation").And.Contain("crf").And.Contain("ignored"));
-    }
-
-    [Test]
-    public void Crf_tool_schema_documents_the_avfoundation_warning()
-    {
-        ParameterInfo crf = typeof(RenderTools)
-            .GetMethod(nameof(RenderTools.ExportVideo))!
-            .GetParameters()
-            .Single(parameter => parameter.Name == "crf");
-        string? description =
-            crf.GetCustomAttribute<System.ComponentModel.DescriptionAttribute>()?.Description;
-
-        Assert.That(
-            description,
-            Does.Contain("AVFoundation").And.Contain("warning"));
-    }
-
-    [Test]
-    public void Bitrate_tool_schema_documents_the_avfoundation_undershoot_warning()
-    {
-        ParameterInfo bitrate = typeof(RenderTools)
-            .GetMethod(nameof(RenderTools.ExportVideo))!
-            .GetParameters()
-            .Single(parameter => parameter.Name == "bitrate");
-        string? description =
-            bitrate.GetCustomAttribute<System.ComponentModel.DescriptionAttribute>()?.Description;
-
-        Assert.That(
-            description,
-            Does.Contain("AVFoundation")
-                .And.Contain("warning")
-                .And.Contain("50%")
-                .And.Contain("audio")
-                .And.Contain("muxing"));
     }
 
     [Test]

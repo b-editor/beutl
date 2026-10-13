@@ -92,11 +92,9 @@ public sealed class GlobalConfiguration
     public Exception? RestoreFileFailure { get; private set; }
 
     /// <summary>
-    /// Where the last <see cref="Restore"/> kept the file as it read it, because the next save drops what could
-    /// not be read: the values <see cref="RestoreFailures"/> lists, kept as <c>settings.json.bak</c>, or the
-    /// whole file when <see cref="RestoreFileFailure"/> is set, kept as
-    /// <c>settings.json.corrupt-&lt;time&gt;-&lt;suffix&gt;</c>. Null when nothing failed or the copy could not be
-    /// written.
+    /// Where the last <see cref="Restore"/> copied the file before a save drops what it could not read:
+    /// <c>settings.json.bak</c> for unreadable values, <c>settings.json.corrupt-…</c> for an unreadable file.
+    /// Null when nothing failed or the copy failed.
     /// </summary>
     public string? RestoreBackupPath { get; private set; }
 
@@ -220,7 +218,7 @@ public sealed class GlobalConfiguration
         }
     }
 
-    // Opening the file can still throw, as it did through JsonHelper.JsonRestore.
+    // Only parse failures are reported; a failure to open the file propagates.
     private static bool TryParse(
         string file, [NotNullWhen(true)] out JsonObject? json, [NotNullWhen(false)] out Exception? failure)
     {
@@ -287,8 +285,7 @@ public sealed class GlobalConfiguration
         }
     }
 
-    // Named as EditViewModel names an unreadable view state it moves aside: the UTC time and a random suffix,
-    // so copies made in the same second, by another Beutl or a later start, do not collide.
+    // The UTC time and a random suffix keep copies made in the same second apart.
     private string? KeepUnreadableCopy(string file)
     {
         string copy = string.Create(

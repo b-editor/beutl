@@ -57,6 +57,13 @@ public sealed class TextRenderNode(FormattedText text, Brush.Resource? fill, Pen
             ? null
             : context.Borrow(textPen);
         bool hasFill = fill is not null;
+        RenderResource[] resources = (textBrushResource, textPenResource) switch
+        {
+            (null, null) => [textResource],
+            (null, { } penResource) => [textResource, penResource],
+            ({ } brushResource, null) => [textResource, brushResource],
+            ({ } brushResource, { } penResource) => [textResource, brushResource, penResource],
+        };
 
         context.Publish(context.PaintedSource(
             state: text,
@@ -72,10 +79,7 @@ public sealed class TextRenderNode(FormattedText text, Brush.Resource? fill, Pen
             scale: RenderScaleContract.Vector,
             directReplayAtExactIntegerReduction: false,
             deviceGridSensitivity: RenderDeviceGridSensitivity.PhaseDependent,
-            resources: DeferredOpaqueSource.Resources(
-                textResource,
-                textBrushResource,
-                textPenResource),
+            resources: resources,
             rasterOutset: rasterOutset));
     }
 

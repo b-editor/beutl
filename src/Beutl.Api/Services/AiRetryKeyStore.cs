@@ -73,13 +73,6 @@ internal sealed class AiRetryAttempt : IDisposable
             }
         }
     }
-
-    public override bool Equals(object? obj)
-        => obj is AiRetryAttempt other
-            && StringComparer.Ordinal.Equals(Token, other.Token);
-
-    public override int GetHashCode()
-        => StringComparer.Ordinal.GetHashCode(Token);
 }
 
 internal interface IAiRetryKeyStore
@@ -90,6 +83,7 @@ internal interface IAiRetryKeyStore
 
     void AbandonAttempt(AiRetryAttempt attempt);
 
+    // isRepeat is true only for a Recovery attempt, which reuses the stored key; callers rely on that.
     bool TryConsumeAttempt(
         AiRetryAttempt attempt,
         AiJob job,

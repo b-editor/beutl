@@ -28,14 +28,7 @@ public sealed partial class WipeTransition : ClipTransition
 
         public override void Draw(ClipTransitionContext context)
         {
-            if (_mask is { } mask)
-            {
-                context.DrawWipe(mask, Direction);
-            }
-            else
-            {
-                base.Draw(context);
-            }
+            context.DrawWipe(_mask!, Direction);
         }
 
         // An opaque-to-clear ramp along Direction, laid across whatever bounds it is drawn into.

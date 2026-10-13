@@ -10,10 +10,6 @@ final class VideoSampleCache {
         var sample: CMSampleBuffer
     }
 
-    // Mirror of the C# implementation: if the reported frame is off by more than this,
-    // log a warning but still renumber to (last + 1) to preserve monotonic ordering.
-    private static let frameWarningGapCount = 1
-
     private let capacity: Int
     private var storage: [Entry] = []
 
@@ -45,8 +41,7 @@ final class VideoSampleCache {
     }
 
     func search(frame: Int) -> CMSampleBuffer? {
-        // Reverse iteration mirrors the C# implementation that favors the most
-        // recently-cached frame in case of accidental duplicates.
+        // Reverse iteration returns the most recently cached frame when there are duplicates.
         for entry in storage.reversed() where entry.frame == frame {
             return entry.sample
         }

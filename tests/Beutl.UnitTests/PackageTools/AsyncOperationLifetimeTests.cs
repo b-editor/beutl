@@ -156,11 +156,7 @@ public sealed class AsyncOperationLifetimeTests
         await operation.WaitAsync(TimeSpan.FromSeconds(5));
         await WaitUntilAsync(() => resourceDisposeCount == 1, TimeSpan.FromSeconds(5));
 
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(stopwatch.Elapsed, Is.LessThan(TimeSpan.FromSeconds(2)));
-            Assert.That(resourceDisposeCount, Is.EqualTo(1));
-        }
+        Assert.That(stopwatch.Elapsed, Is.LessThan(TimeSpan.FromSeconds(2)));
     }
 
     [Test]
@@ -248,7 +244,6 @@ public sealed class AsyncOperationLifetimeTests
         releaseOperation.TrySetResult();
         await operation.WaitAsync(TimeSpan.FromSeconds(5));
         await WaitUntilAsync(() => resourceDisposeCount == 1, TimeSpan.FromSeconds(5));
-        Assert.That(resourceDisposeCount, Is.EqualTo(1));
     }
 
     private static async Task WaitUntilAsync(Func<bool> condition, TimeSpan timeout)

@@ -16,8 +16,7 @@ public sealed class ReferencedSceneApplyTests
     private static (AgentToolkitTestSession Session, Scene Parent, Scene Child, SceneDrawable Drawable)
         CreateNestedSceneSession()
     {
-        string dir = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        string dir = TestWorkspace.CreateDirectory();
         var parent = new Scene(1920, 1080, "parent") { Uri = new Uri(Path.Combine(dir, "parent.scene")) };
         var child = new Scene(960, 540, "child") { Uri = new Uri(Path.Combine(dir, "child.scene")) };
         var project = new Project();
@@ -49,223 +48,83 @@ public sealed class ReferencedSceneApplyTests
     private static Guid? ExpressionObjectId(SceneDrawable drawable)
         => (drawable.ReferencedScene.Expression as IReferenceExpression)?.ObjectId;
 
-    [Test]
-    public void Apply_DirectInlineSceneValue_IsRejectedWithExpressionsGuidance()
-    {
-        (AgentToolkitTestSession session, Scene parent, Scene child, SceneDrawable drawable) =
-            CreateNestedSceneSession();
-        using (session)
+    private static Action<Scene, Scene, JsonObject> SetExpression(Func<Scene, Scene, JsonObject> reference)
+        => (parent, child, drawableNode) => drawableNode["Expressions"] = new JsonObject
         {
-            var reconciler = new Reconciler();
-            JsonObject desired = session.Documents.Read(parent);
-            GetDrawableNode(desired)["ReferencedScene"] = new JsonObject
-            {
-                ["$type"] = "[Beutl.ProjectSystem]:Scene",
-                ["Id"] = child.Id.ToString(),
-            };
+            ["ReferencedScene"] = reference(parent, child),
+        };
 
-            ReconcileException? ex = Assert.Throws<ReconcileException>(() => reconciler.Apply(session, desired));
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(ex!.Error.Code, Is.EqualTo(ErrorCode.ValidationRejected));
-                Assert.That(ex.Error.Message, Does.Contain("Expressions"));
-                Assert.That(drawable.ReferencedScene.CurrentValue, Is.Null);
-                Assert.That(drawable.ReferencedScene.Expression, Is.Null);
-            });
-        }
-    }
-
-    [Test]
-    public void Apply_DirectGuidStringValue_IsRejectedWithExpressionsGuidance()
-    {
-        (AgentToolkitTestSession session, Scene parent, Scene child, SceneDrawable drawable) =
-            CreateNestedSceneSession();
-        using (session)
-        {
-            var reconciler = new Reconciler();
-            JsonObject desired = session.Documents.Read(parent);
-            GetDrawableNode(desired)["ReferencedScene"] = child.Id.ToString();
-
-            ReconcileException? ex = Assert.Throws<ReconcileException>(() => reconciler.Apply(session, desired));
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(ex!.Error.Code, Is.EqualTo(ErrorCode.ValidationRejected));
-                Assert.That(ex.Error.Message, Does.Contain("Expressions"));
-                Assert.That(drawable.ReferencedScene.CurrentValue, Is.Null);
-            });
-        }
-    }
-
-    [Test]
-    public void Apply_ExpressionReferenceWithUnknownObjectId_IsRejectedWithoutMutation()
-    {
-        (AgentToolkitTestSession session, Scene parent, _, SceneDrawable drawable) =
-            CreateNestedSceneSession();
-        using (session)
-        {
-            var reconciler = new Reconciler();
-            JsonObject desired = session.Documents.Read(parent);
-            GetDrawableNode(desired)["Expressions"] = new JsonObject
-            {
-                ["ReferencedScene"] = new JsonObject { ["ObjectId"] = JsonValue.Create(Guid.NewGuid()) },
-            };
-
-            ReconcileException? ex = Assert.Throws<ReconcileException>(() => reconciler.Apply(session, desired));
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(ex!.Error.Code, Is.EqualTo(ErrorCode.ValidationRejected));
-                Assert.That(ex.Error.Message, Does.Contain("exists in the project"));
-                Assert.That(drawable.ReferencedScene.Expression, Is.Null);
-            });
-        }
-    }
-
-    [Test]
-    public void Apply_ExpressionReferenceWithAllZeroObjectId_IsRejectedWithoutMutation()
-    {
-        (AgentToolkitTestSession session, Scene parent, _, SceneDrawable drawable) =
-            CreateNestedSceneSession();
-        using (session)
-        {
-            var reconciler = new Reconciler();
-            JsonObject desired = session.Documents.Read(parent);
-            GetDrawableNode(desired)["Expressions"] = new JsonObject
-            {
-                ["ReferencedScene"] = new JsonObject { ["ObjectId"] = JsonValue.Create(Guid.Empty) },
-            };
-
-            ReconcileException? ex = Assert.Throws<ReconcileException>(() => reconciler.Apply(session, desired));
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(ex!.Error.Code, Is.EqualTo(ErrorCode.ValidationRejected));
-                Assert.That(ex.Error.Message, Does.Contain("all-zero"));
-                Assert.That(drawable.ReferencedScene.Expression, Is.Null);
-            });
-        }
-    }
-
-    [Test]
-    public void Apply_ExpressionReferenceMissingObjectId_IsRejected()
-    {
-        (AgentToolkitTestSession session, Scene parent, _, SceneDrawable drawable) =
-            CreateNestedSceneSession();
-        using (session)
-        {
-            var reconciler = new Reconciler();
-            JsonObject desired = session.Documents.Read(parent);
-            // A present expression node without a valid ObjectId (here a misspelled key) parses to
-            // no expression, silently clearing the reference; apply must reject it instead.
-            GetDrawableNode(desired)["Expressions"] = new JsonObject
-            {
-                ["ReferencedScene"] = new JsonObject { ["ObjectID"] = Guid.NewGuid().ToString() },
-            };
-
-            ReconcileException? ex = Assert.Throws<ReconcileException>(() => reconciler.Apply(session, desired));
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(ex!.Error.Code, Is.EqualTo(ErrorCode.ValidationRejected));
-                Assert.That(ex.Error.Message, Does.Contain("ObjectId"));
-                Assert.That(drawable.ReferencedScene.Expression, Is.Null);
-            });
-        }
-    }
-
-    [Test]
-    public void Apply_ExpressionReferenceWithObjectFormObjectId_IsRejected()
-    {
-        (AgentToolkitTestSession session, Scene parent, Scene child, SceneDrawable drawable) =
-            CreateNestedSceneSession();
-        using (session)
-        {
-            var reconciler = new Reconciler();
-            JsonObject desired = session.Documents.Read(parent);
-            // The engine's expression parser only builds a ReferenceExpression from a scalar Guid
-            // ObjectId; an object form would deserialize to no expression, so apply must reject it
-            // rather than silently drop the reference.
-            GetDrawableNode(desired)["Expressions"] = new JsonObject
-            {
-                ["ReferencedScene"] = new JsonObject
+    private static readonly TestCaseData[] s_rejectedReferences =
+    [
+        new TestCaseData(
+                (Action<Scene, Scene, JsonObject>)((_, child, drawableNode) => drawableNode["ReferencedScene"] = new JsonObject
+                {
+                    ["$type"] = "[Beutl.ProjectSystem]:Scene",
+                    ["Id"] = child.Id.ToString(),
+                }),
+                "Expressions")
+            .SetName("Apply_DirectInlineSceneValue_IsRejectedWithExpressionsGuidance"),
+        new TestCaseData(
+                (Action<Scene, Scene, JsonObject>)((_, child, drawableNode) => drawableNode["ReferencedScene"] = child.Id.ToString()),
+                "Expressions")
+            .SetName("Apply_DirectGuidStringValue_IsRejectedWithExpressionsGuidance"),
+        new TestCaseData(
+                SetExpression((_, _) => new JsonObject { ["ObjectId"] = JsonValue.Create(Guid.NewGuid()) }),
+                "exists in the project")
+            .SetName("Apply_ExpressionReferenceWithUnknownObjectId_IsRejectedWithoutMutation"),
+        new TestCaseData(
+                SetExpression((_, _) => new JsonObject { ["ObjectId"] = JsonValue.Create(Guid.Empty) }),
+                "all-zero")
+            .SetName("Apply_ExpressionReferenceWithAllZeroObjectId_IsRejectedWithoutMutation"),
+        // A present expression node without a valid ObjectId (here a misspelled key) parses to
+        // no expression, silently clearing the reference; apply must reject it instead.
+        new TestCaseData(
+                SetExpression((_, _) => new JsonObject { ["ObjectID"] = Guid.NewGuid().ToString() }),
+                "ObjectId")
+            .SetName("Apply_ExpressionReferenceMissingObjectId_IsRejected"),
+        // The engine's expression parser only builds a ReferenceExpression from a scalar Guid
+        // ObjectId; an object form would deserialize to no expression, so apply must reject it
+        // rather than silently drop the reference.
+        new TestCaseData(
+                SetExpression((_, child) => new JsonObject
                 {
                     ["ObjectId"] = new JsonObject { ["Id"] = child.Id.ToString() },
-                },
-            };
-
-            ReconcileException? ex = Assert.Throws<ReconcileException>(() => reconciler.Apply(session, desired));
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(ex!.Error.Code, Is.EqualTo(ErrorCode.ValidationRejected));
-                Assert.That(ex.Error.Message, Does.Contain("Guid string"));
-                Assert.That(drawable.ReferencedScene.Expression, Is.Null);
-            });
-        }
-    }
-
-    [Test]
-    public void Apply_ExpressionReferenceWithWrongType_IsRejectedWithoutMutation()
-    {
-        (AgentToolkitTestSession session, Scene parent, _, SceneDrawable drawable) =
-            CreateNestedSceneSession();
-        using (session)
-        {
-            var reconciler = new Reconciler();
-            JsonObject desired = session.Documents.Read(parent);
-            // ObjectId points at the timeline Element (not a Scene); with no PropertyPath the
-            // expression evaluates to null, so apply must reject rather than compose empty.
-            GetDrawableNode(desired)["Expressions"] = new JsonObject
-            {
-                ["ReferencedScene"] = new JsonObject { ["ObjectId"] = JsonValue.Create(parent.Children.Single().Id) },
-            };
-
-            ReconcileException? ex = Assert.Throws<ReconcileException>(() => reconciler.Apply(session, desired));
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(ex!.Error.Code, Is.EqualTo(ErrorCode.ValidationRejected));
-                Assert.That(ex.Error.Message, Does.Contain("exists in the project"));
-                Assert.That(drawable.ReferencedScene.Expression, Is.Null);
-            });
-        }
-    }
-
-    [Test]
-    public void Apply_ExpressionReferenceWithEmptyPropertyPathAndWrongType_IsRejectedWithoutMutation()
-    {
-        (AgentToolkitTestSession session, Scene parent, _, SceneDrawable drawable) =
-            CreateNestedSceneSession();
-        using (session)
-        {
-            var reconciler = new Reconciler();
-            JsonObject desired = session.Documents.Read(parent);
-            // An empty PropertyPath evaluates as a direct-object reference, so a non-Scene target
-            // (the timeline Element) must fail the referenced-type check instead of bypassing it.
-            GetDrawableNode(desired)["Expressions"] = new JsonObject
-            {
-                ["ReferencedScene"] = new JsonObject
+                }),
+                "Guid string")
+            .SetName("Apply_ExpressionReferenceWithObjectFormObjectId_IsRejected"),
+        // ObjectId points at the timeline Element (not a Scene); with no PropertyPath the
+        // expression evaluates to null, so apply must reject rather than compose empty.
+        new TestCaseData(
+                SetExpression((parent, _) => new JsonObject { ["ObjectId"] = JsonValue.Create(parent.Children.Single().Id) }),
+                "exists in the project")
+            .SetName("Apply_ExpressionReferenceWithWrongType_IsRejectedWithoutMutation"),
+        // An empty PropertyPath evaluates as a direct-object reference, so a non-Scene target
+        // (the timeline Element) must fail the referenced-type check instead of bypassing it.
+        new TestCaseData(
+                SetExpression((parent, _) => new JsonObject
                 {
                     ["ObjectId"] = JsonValue.Create(parent.Children.Single().Id),
                     ["PropertyPath"] = "",
-                },
-            };
+                }),
+                "exists in the project")
+            .SetName("Apply_ExpressionReferenceWithEmptyPropertyPathAndWrongType_IsRejectedWithoutMutation"),
+        // A scene reference names its target directly by Id. The PropertyPath form cannot be
+        // attached to a project-detached render snapshot, so it is rejected even when the path
+        // resolves to a Scene-typed property (here child.ReferencedScene) at runtime.
+        new TestCaseData(
+                SetExpression((_, child) => new JsonObject
+                {
+                    ["ObjectId"] = JsonValue.Create(child.Id),
+                    ["PropertyPath"] = "ReferencedScene",
+                }),
+                "PropertyPath")
+            .SetName("Apply_ExpressionReferenceWithPropertyPath_IsRejectedAsUnsupported"),
+    ];
 
-            ReconcileException? ex = Assert.Throws<ReconcileException>(() => reconciler.Apply(session, desired));
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(ex!.Error.Code, Is.EqualTo(ErrorCode.ValidationRejected));
-                Assert.That(ex.Error.Message, Does.Contain("exists in the project"));
-                Assert.That(drawable.ReferencedScene.Expression, Is.Null);
-            });
-        }
-    }
-
-    [Test]
-    public void Apply_ExpressionReferenceWithPropertyPath_IsRejectedAsUnsupported()
+    [TestCaseSource(nameof(s_rejectedReferences))]
+    public void Apply_InvalidSceneReference_IsRejectedWithoutMutation(
+        Action<Scene, Scene, JsonObject> writeReference,
+        string expectedMessage)
     {
         (AgentToolkitTestSession session, Scene parent, Scene child, SceneDrawable drawable) =
             CreateNestedSceneSession();
@@ -273,24 +132,15 @@ public sealed class ReferencedSceneApplyTests
         {
             var reconciler = new Reconciler();
             JsonObject desired = session.Documents.Read(parent);
-            // A scene reference names its target directly by Id. The PropertyPath form cannot be
-            // attached to a project-detached render snapshot, so it is rejected even when the path
-            // resolves to a Scene-typed property (here child.ReferencedScene) at runtime.
-            GetDrawableNode(desired)["Expressions"] = new JsonObject
-            {
-                ["ReferencedScene"] = new JsonObject
-                {
-                    ["ObjectId"] = JsonValue.Create(child.Id),
-                    ["PropertyPath"] = "ReferencedScene",
-                },
-            };
+            writeReference(parent, child, GetDrawableNode(desired));
 
             ReconcileException? ex = Assert.Throws<ReconcileException>(() => reconciler.Apply(session, desired));
 
             Assert.Multiple(() =>
             {
                 Assert.That(ex!.Error.Code, Is.EqualTo(ErrorCode.ValidationRejected));
-                Assert.That(ex.Error.Message, Does.Contain("PropertyPath"));
+                Assert.That(ex.Error.Message, Does.Contain(expectedMessage));
+                Assert.That(drawable.ReferencedScene.CurrentValue, Is.Null);
                 Assert.That(drawable.ReferencedScene.Expression, Is.Null);
             });
         }

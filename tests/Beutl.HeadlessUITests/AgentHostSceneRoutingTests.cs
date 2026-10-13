@@ -446,7 +446,7 @@ public sealed class AgentHostSceneRoutingTests
         => ((EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value).Scene;
 
     private static AgentHostEndpoint CreateHost()
-        => new(TestShell.Project, TestShell.Editor, new AiAgentConfig
+        => new(TestShell.Project, TestShell.Editor, UnavailableAgentAiBackend.Instance, new AiAgentConfig
         {
             LiveMcpToken = "scene-routing-test-token"
         });

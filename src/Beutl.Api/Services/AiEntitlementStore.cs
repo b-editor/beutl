@@ -12,8 +12,6 @@ internal sealed class AiEntitlementStore : IBeutlApiResource, IDisposable
     private readonly object _gate = new();
     private readonly SemaphoreSlim _balanceRequestGate = new(1, 1);
     private AuthenticatedUser? _owner;
-    private long _lastAppliedSnapshotRequest;
-    private long _nextSnapshotRequest;
     private bool _disposed;
 
     public AiEntitlementStore(BeutlApiApplication application)
@@ -24,15 +22,6 @@ internal sealed class AiEntitlementStore : IBeutlApiResource, IDisposable
 
     public IReadOnlyReactiveProperty<AiEntitlements?> Entitlements => _readOnlyEntitlements;
 
-    public long BeginSnapshotRequest()
-    {
-        lock (_gate)
-        {
-            ObjectDisposedException.ThrowIf(_disposed, this);
-            return ++_nextSnapshotRequest;
-        }
-    }
-
     public Task WaitForBalanceRequestAsync(CancellationToken cancellationToken)
         => _balanceRequestGate.WaitAsync(cancellationToken);
 
@@ -41,19 +30,13 @@ internal sealed class AiEntitlementStore : IBeutlApiResource, IDisposable
 
     public void ApplyEntitlements(
         AiEntitlements? entitlements,
-        AuthenticatedUser owner,
-        long snapshotRequest)
+        AuthenticatedUser owner)
     {
         lock (_gate)
         {
-            if (_disposed
-                || !ReferenceEquals(_owner, owner)
-                || snapshotRequest < _lastAppliedSnapshotRequest)
-            {
+            if (_disposed || !ReferenceEquals(_owner, owner))
                 return;
-            }
 
-            _lastAppliedSnapshotRequest = snapshotRequest;
             _entitlements.Value = entitlements;
         }
     }
@@ -81,7 +64,6 @@ internal sealed class AiEntitlementStore : IBeutlApiResource, IDisposable
                 return;
 
             _owner = user;
-            _lastAppliedSnapshotRequest = ++_nextSnapshotRequest;
             _entitlements.Value = null;
         }
     }

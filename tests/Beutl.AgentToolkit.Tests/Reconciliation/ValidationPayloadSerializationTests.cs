@@ -19,7 +19,8 @@ public sealed class ValidationPayloadSerializationTests
     [Test]
     public void Validation_payload_for_a_replaced_effect_is_serializable()
     {
-        Scene scene = CreateSceneWithElement(out Element element);
+        Scene scene = TestWorkspace.CreateScene();
+        Element element = TestWorkspace.AddElement(scene, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
         var rect = new RectShape
         {
             Name = "Filtered rect",
@@ -31,9 +32,7 @@ public sealed class ValidationPayloadSerializationTests
         };
         element.AddObject(rect);
         using var session = new AgentToolkitTestSession(scene);
-        var manager = new AgentSessionManager();
-        manager.UseSource(new AgentToolkitTestSessionSource(session));
-        var tools = new EditTools(manager);
+        EditTools tools = session.CreateEditTools();
 
         ToolResult<ApplyEditResponse> apply = tools.ApplyEdit(
             patch: new JsonObject
@@ -69,13 +68,12 @@ public sealed class ValidationPayloadSerializationTests
     [Test]
     public void Validation_payload_for_an_inserted_media_reference_is_serializable()
     {
-        Scene scene = CreateSceneWithElement(out _);
+        Scene scene = TestWorkspace.CreateScene();
+        TestWorkspace.AddElement(scene, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
         string mediaPath = Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, "image.png");
         File.WriteAllBytes(mediaPath, []);
         using var session = new AgentToolkitTestSession(scene);
-        var manager = new AgentSessionManager();
-        manager.UseSource(new AgentToolkitTestSessionSource(session));
-        var tools = new EditTools(manager);
+        EditTools tools = session.CreateEditTools();
 
         ToolResult<ApplyEditResponse> apply = tools.ApplyEdit(
             patch: new JsonObject
@@ -112,23 +110,5 @@ public sealed class ValidationPayloadSerializationTests
     private static string SerializeValidation(ApplyEditResponse response)
     {
         return JsonSerializer.Serialize(response.Validation, s_toolResultOptions);
-    }
-
-    private static Scene CreateSceneWithElement(out Element element)
-    {
-        string dir = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
-        var scene = new Scene(1920, 1080, "Scene")
-        {
-            Uri = new Uri(Path.Combine(dir, "Scene.scene"))
-        };
-        element = new Element
-        {
-            Start = TimeSpan.FromSeconds(1),
-            Length = TimeSpan.FromSeconds(2),
-            Uri = new Uri(Path.Combine(dir, "element.belm"))
-        };
-        scene.Children.Add(element);
-        return scene;
     }
 }

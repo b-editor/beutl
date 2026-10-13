@@ -23,8 +23,6 @@ public sealed class FileThumbnailService : IDisposable
     private readonly ConcurrentDictionary<
         string,
         (MediaFileInfo Info, long LastAccessTicks, (long Length, DateTime LastWriteUtc) File)> _mediaInfoCache = new();
-    private readonly ConcurrentDictionary<TemplateDirectoryMembershipKey, bool>
-        _templateDirectoryMembership = new();
     private readonly SemaphoreSlim _semaphore = new(4); // 同時生成数を制限
     private readonly ILogger _logger = Log.CreateLogger<FileThumbnailService>();
     private readonly Timer _pruneTimer;
@@ -38,8 +36,6 @@ public sealed class FileThumbnailService : IDisposable
     public static FileThumbnailService Instance => s_instance.Value;
 
     public int ThumbnailSize { get; set; } = 64;
-
-    internal int TemplateDirectoryMembershipCount => _templateDirectoryMembership.Count;
 
     public async Task<Bitmap?> GetThumbnailAsync(string filePath, CancellationToken cancellationToken = default)
     {
@@ -133,11 +129,6 @@ public sealed class FileThumbnailService : IDisposable
         catch (OperationCanceledException)
         {
             throw;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "Failed to get media info for {FilePath}", filePath);
-            return null;
         }
         finally
         {
@@ -286,23 +277,10 @@ public sealed class FileThumbnailService : IDisposable
             return false;
         }
 
-        if (_templateDirectoryMembership.Count >= 512)
-        {
-            _templateDirectoryMembership.Clear();
-        }
-
-        return _templateDirectoryMembership.GetOrAdd(
-            new TemplateDirectoryMembershipKey(
-                canonicalTemplatesDirectory,
-                canonicalDirectory),
-            static key => FilePathComparison.IsSameOrDescendant(
-                key.TemplatesDirectory,
-                key.CandidateDirectory));
+        return FilePathComparison.IsSameOrDescendantCanonicalPath(
+            canonicalTemplatesDirectory,
+            canonicalDirectory);
     }
-
-    private readonly record struct TemplateDirectoryMembershipKey(
-        string TemplatesDirectory,
-        string CandidateDirectory);
 
     private async Task<Bitmap?> GenerateImageThumbnailAsync(string filePath, CancellationToken cancellationToken)
     {
@@ -500,7 +478,6 @@ public sealed class FileThumbnailService : IDisposable
     {
         _cache.Clear();
         _mediaInfoCache.Clear();
-        _templateDirectoryMembership.Clear();
     }
 
     public void Dispose()

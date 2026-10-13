@@ -1,10 +1,9 @@
 ﻿using System.Reactive.Linq;
-using System.Reflection;
 using Beutl.Api;
-using Beutl.Api.Clients;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
 using Beutl.Extensibility;
+using Beutl.UnitTests.TestInfrastructure;
 using Reactive.Bindings;
 
 namespace Beutl.UnitTests.Api;
@@ -109,24 +108,7 @@ public class SharedApiStateSubscriptionTests
     {
         using var http = new HttpClient();
         await using var application = new BeutlApiApplication(http, new ExtensionProvider());
-        var profile = new Profile(new ProfileResponse
-        {
-            Id = "test-user",
-            Name = "test",
-            DisplayName = "Test User",
-            Bio = null,
-            IconId = null,
-            IconUrl = null,
-        }, application);
-        var owner = new AuthenticatedUser(profile, new AuthResponse
-        {
-            Token = "token",
-            RefreshToken = "refresh-token",
-            Expiration = DateTime.UtcNow.AddHours(1),
-        }, application, DateTime.UtcNow);
-        FieldInfo authentication = typeof(BeutlApiApplication).GetField(
-            "_authenticatedUser", BindingFlags.NonPublic | BindingFlags.Instance)!;
-        ((ReactivePropertySlim<AuthenticatedUser?>)authentication.GetValue(application)!).Value = owner;
+        AuthenticatedUser owner = ApiTestAuthentication.SignIn(application);
 
         using var entitlementCallbackEntered = new ManualResetEventSlim();
         using var authenticationCallbackEntered = new ManualResetEventSlim();
@@ -138,7 +120,7 @@ public class SharedApiStateSubscriptionTests
                 return;
 
             authenticationCallbackEntered.Set();
-            // Bound the overlap so the old locking fails without leaving a deadlock.
+            // Bound the wait so a regression fails instead of deadlocking.
             if (!subscriptionChanged.Wait(timeout))
                 throw new TimeoutException("The entitlement callback could not change authentication subscriptions.");
         });
@@ -166,9 +148,8 @@ public class SharedApiStateSubscriptionTests
         });
         var entitlement = new AiEntitlements("pro", "active", null, null, false, true,
             new AiBalance(new AiMonthlyUsage(0, 100, false), 1, false), new AiOperationAvailability([]));
-        long request = store.BeginSnapshotRequest();
         Task publication = Task.Factory.StartNew(
-            () => store.ApplyEntitlements(entitlement, owner, request),
+            () => store.ApplyEntitlements(entitlement, owner),
             CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
         Task signOut = Task.Factory.StartNew(() =>
         {
@@ -180,7 +161,7 @@ public class SharedApiStateSubscriptionTests
 
         await Task.WhenAll(publication, signOut).WaitAsync(timeout + timeout);
         // An old account's delayed response must not restore the cleared snapshot.
-        store.ApplyEntitlements(entitlement, owner, request);
+        store.ApplyEntitlements(entitlement, owner);
         Assert.Multiple(() =>
         {
             Assert.That(application.AuthenticatedUser.Value, Is.Null);

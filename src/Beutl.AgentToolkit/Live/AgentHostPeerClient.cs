@@ -17,7 +17,6 @@ public sealed class AgentHostPeerClient(AgentHostInstanceRegistry registry, Agen
 {
     public const string InstanceHeader = "X-Beutl-Instance-Id";
     private static readonly TimeSpan s_connectionTimeout = TimeSpan.FromSeconds(2);
-    private static readonly JsonSerializerOptions s_jsonOptions = new(JsonSerializerDefaults.Web);
 
     public AgentHostInstanceRegistry Registry => registry;
 
@@ -35,7 +34,7 @@ public sealed class AgentHostPeerClient(AgentHostInstanceRegistry registry, Agen
             if (!await AuthenticateAsync(registration, http, timeout.Token).ConfigureAwait(false))
                 return null;
             var info = await http.GetFromJsonAsync<AgentHostInstanceInfo>(
-                new Uri(registration.EndpointUri, "/agent-host"), s_jsonOptions, timeout.Token).ConfigureAwait(false);
+                new Uri(registration.EndpointUri, "/agent-host"), JsonSerializerOptions.Web, timeout.Token).ConfigureAwait(false);
             if (info?.InstanceId == registration.InstanceId)
                 return info;
             registry.RemoveIfUnchanged(registration);
@@ -142,7 +141,7 @@ public sealed class AgentHostPeerClient(AgentHostInstanceRegistry registry, Agen
         {
             var proof = await http.GetFromJsonAsync<AgentHostIdentityProof>(
                 new Uri(registration.EndpointUri, "/agent-host/identity?challenge=" + challenge),
-                s_jsonOptions, cancellationToken).ConfigureAwait(false);
+                JsonSerializerOptions.Web, cancellationToken).ConfigureAwait(false);
             if (!authentication.VerifyProof(registration.InstanceId, challenge, proof))
             {
                 // A different token does not prove that a host is dead. Prune only an identity

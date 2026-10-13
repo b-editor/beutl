@@ -193,7 +193,7 @@ public sealed partial class Reconciler
         if (node is JsonObject obj)
         {
             if (CollectionReconciler.TryGetId(obj, out Guid id)
-                && IdentityHelper.FindById(sandboxRoot, id) is EngineObject engineObject
+                && sandboxRoot.FindById(id) is EngineObject engineObject
                 && obj["Animations"] is JsonObject animations)
             {
                 foreach ((string propertyName, JsonNode? animationNode) in animations.ToArray())
@@ -302,7 +302,7 @@ public sealed partial class Reconciler
         }
 
         if (desiredAnimations is null
-            || IdentityHelper.FindById(sandboxRoot, id) is not EngineObject engineObject)
+            || sandboxRoot.FindById(id) is not EngineObject engineObject)
         {
             return;
         }
@@ -379,7 +379,7 @@ public sealed partial class Reconciler
             object? value = valueNode is null
                 ? null
                 : EnumJsonValueNormalizer.Deserialize(valueNode, property.ValueType, options);
-            ValidationOutcome outcome = ValidationEvaluator.EvaluateAnimationValue(
+            ValidationOutcome outcome = ValidationEvaluator.Evaluate(
                 property,
                 value,
                 options);

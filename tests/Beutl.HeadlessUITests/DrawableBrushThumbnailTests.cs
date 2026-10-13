@@ -28,7 +28,7 @@ public class DrawableBrushThumbnailTests
     {
         TestGpu.RequireAnyDevice();
         AvaImageBrush imageBrush;
-        using (var scope = new ThumbnailScope(CreateRectangle(40, 24, Colors.Red), Stretch.Uniform))
+        await using (var scope = new ThumbnailScope(CreateRectangle(40, 24, Colors.Red), Stretch.Uniform))
         {
             imageBrush = scope.ImageBrush;
             WriteableBitmap first = await scope.PublishFirstAsync();
@@ -96,7 +96,7 @@ public class DrawableBrushThumbnailTests
         var staleDrawable = new BlockingThumbnailDrawable(40, 24, Brushes.Resource.Red);
         var imageBrush = new AvaImageBrush();
         ConcurrentQueue<AvaPixelSize> publishedSizes = RecordPublishedSizes(imageBrush);
-        using var scope = new ThumbnailScope(staleDrawable, imageBrush: imageBrush);
+        await using var scope = new ThumbnailScope(staleDrawable, imageBrush: imageBrush);
 
         try
         {
@@ -126,7 +126,7 @@ public class DrawableBrushThumbnailTests
         TestGpu.RequireAnyDevice();
         var imageBrush = new AvaImageBrush();
         ConcurrentQueue<AvaPixelSize> publishedSizes = RecordPublishedSizes(imageBrush);
-        using var scope = new ThumbnailScope(CreateRectangle(40, 24, Colors.Red), imageBrush: imageBrush);
+        await using var scope = new ThumbnailScope(CreateRectangle(40, 24, Colors.Red), imageBrush: imageBrush);
 
         Assert.That(AvaDispatcher.UIThread.CheckAccess(), Is.True);
         scope.Handler.Update();
@@ -189,7 +189,7 @@ public class DrawableBrushThumbnailTests
         finally
         {
             handler.Dispose();
-            ReleaseResource(resource);
+            await ReleaseResourceAsync(resource);
         }
 
         Assert.That(imageBrush.Source, Is.Null);
@@ -267,7 +267,7 @@ public class DrawableBrushThumbnailTests
         finally
         {
             handler.Dispose();
-            ReleaseResource(resource);
+            await ReleaseResourceAsync(resource);
         }
 
         Assert.That(imageBrush.Source, Is.Null);
@@ -331,7 +331,7 @@ public class DrawableBrushThumbnailTests
         finally
         {
             handler.Dispose();
-            ReleaseResource(resource);
+            await ReleaseResourceAsync(resource);
         }
 
         Assert.That(imageBrush.Source, Is.Null);
@@ -427,7 +427,7 @@ public class DrawableBrushThumbnailTests
         finally
         {
             handler.Dispose();
-            ReleaseResource(resource);
+            await ReleaseResourceAsync(resource);
         }
 
         Assert.That(imageBrush.Source, Is.Null);
@@ -515,8 +515,8 @@ public class DrawableBrushThumbnailTests
     }
 
     // An ImageBrush.Source subscriber is arbitrary code and may throw out of the assignment that clears the
-    // source. Dispose has already latched _disposeRequested by then, so a throw escaping the clear turns every
-    // later Dispose into a no-op and strands the published bitmap for good.
+    // source. Dispose has already latched _disposeRequested by then, so the clear must still release the
+    // published bitmap: every later Dispose is a no-op.
     [AvaloniaTest]
     public async Task Dispose_completes_its_cleanup_when_a_source_subscriber_throws()
     {
@@ -563,7 +563,7 @@ public class DrawableBrushThumbnailTests
         {
             imageBrush.PropertyChanged -= Reject;
             handler.Dispose();
-            ReleaseResource(resource);
+            await ReleaseResourceAsync(resource);
         }
     }
 
@@ -573,7 +573,7 @@ public class DrawableBrushThumbnailTests
         TestGpu.RequireAnyDevice();
         var group = new DrawableGroup();
         group.Children.Add(CreateRectangle(40, 24, Colors.Red));
-        using var scope = new ThumbnailScope(group, Stretch.Uniform);
+        await using var scope = new ThumbnailScope(group, Stretch.Uniform);
 
         scope.Handler.Update();
         await HeadlessTestHelpers.WaitUntilAsync(() => scope.ImageBrush.Source is WriteableBitmap);
@@ -622,7 +622,7 @@ public class DrawableBrushThumbnailTests
         finally
         {
             handler.Dispose();
-            ReleaseResource(resource);
+            await ReleaseResourceAsync(resource);
         }
     }
 
@@ -669,12 +669,12 @@ public class DrawableBrushThumbnailTests
         return publishedSizes;
     }
 
-    // Disposes the resource on the render dispatcher, after the updates queued there, as its owner does.
-    private static void ReleaseResource(DrawableBrush.Resource resource)
-        => RenderThread.Dispatcher.Invoke(resource.Dispose, DispatchPriority.Low, CancellationToken.None);
+    // The handler does not own the resource; release it on the render thread after the queued updates.
+    private static Task ReleaseResourceAsync(DrawableBrush.Resource resource)
+        => RenderThread.Dispatcher.InvokeAsync(resource.Dispose, DispatchPriority.Low);
 
     // A drawable brush, its resource, and a handler that publishes thumbnails of it to an image brush.
-    private sealed class ThumbnailScope : IDisposable
+    private sealed class ThumbnailScope : IAsyncDisposable
     {
         public ThumbnailScope(Drawable drawable, Stretch? stretch = null, AvaImageBrush? imageBrush = null)
         {
@@ -704,10 +704,10 @@ public class DrawableBrushThumbnailTests
             return (WriteableBitmap)ImageBrush.Source!;
         }
 
-        public void Dispose()
+        public async ValueTask DisposeAsync()
         {
             Handler.Dispose();
-            ReleaseResource(Resource);
+            await ReleaseResourceAsync(Resource);
         }
     }
 }

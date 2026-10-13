@@ -33,7 +33,6 @@ public class FFmpegWorkerProcessTests
             Assert.That(worker.WorkerPid, Is.Zero);
             Assert.That(typeof(FFmpegWorkerProcess).GetField("_logPump", flags)!.GetValue(worker), Is.Null);
             Assert.That(typeof(FFmpegWorkerProcess).GetField("_lastStartupFailure", flags)!.GetValue(worker), Is.Null);
-            await Task.CompletedTask;
         }
         finally
         {

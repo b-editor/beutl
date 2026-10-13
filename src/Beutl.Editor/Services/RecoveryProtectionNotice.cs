@@ -9,22 +9,17 @@ namespace Beutl.Editor.Services;
 // (Element.IsRecoveryProtected). Those elements are read-only, and nothing else tells the user why.
 internal static class RecoveryProtectionNotice
 {
-    private const int MaxListedElements = 5;
-
     // Null when no element of the scene is recovery-protected.
     public static Notification? Create(Scene scene, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(scene);
-        string[] names = scene.Children
-            .Where(static element => element.IsRecoveryProtected)
-            .OrderBy(static element => element.Start)
-            .ThenBy(static element => element.ZIndex)
-            .Select(GetLabel)
-            .ToArray();
-        if (names.Length == 0) return null;
-
-        string listed = string.Join(", ", names.Take(MaxListedElements));
-        if (names.Length > MaxListedElements) listed += ", …";
+        if (ElementNoticeFormatting.FormatNames(scene.Children
+                .Where(static element => element.IsRecoveryProtected)
+                .OrderBy(static element => element.Start)
+                .ThenBy(static element => element.ZIndex)) is not { } listed)
+        {
+            return null;
+        }
 
         return new Notification(
             MessageStrings.RecoveryProtectedElementsTitle,
@@ -38,13 +33,5 @@ internal static class RecoveryProtectionNotice
         {
             CancellationToken = cancellationToken,
         };
-    }
-
-    // The element's name, or its file name when it has none.
-    private static string GetLabel(Element element)
-    {
-        if (!string.IsNullOrWhiteSpace(element.Name)) return element.Name;
-
-        return element.Uri is { } uri ? Path.GetFileNameWithoutExtension(uri.LocalPath) : string.Empty;
     }
 }

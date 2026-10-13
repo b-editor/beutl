@@ -267,23 +267,6 @@ internal sealed partial class RenderRequestExecutor
                 });
         }
 
-        private IReadOnlyList<RenderExecutionInput> CreateExecutionInputs(
-            RenderExecutionSessionToken token,
-            IReadOnlyList<MaterializedRenderValue> values,
-            bool requiresReadback,
-            List<SKImage> images)
-        {
-            var inputs = new List<RenderExecutionInput>(values.Count);
-            foreach (MaterializedRenderValue value in values)
-            {
-                SKImage image = value.Target.Value.Snapshot();
-                images.Add(image);
-                inputs.Add(CreateExecutionInput(token, value, image, requiresReadback));
-            }
-
-            return inputs;
-        }
-
         private IReadOnlyList<RenderExecutionInput> CreateTargetCommandExecutionInputs(
             RenderExecutionSessionToken token,
             IReadOnlyList<MaterializedRenderValue> values,
@@ -396,9 +379,6 @@ internal sealed partial class RenderRequestExecutor
             ImmediateCanvas currentTarget,
             EffectiveScale? requestedScale)
         {
-            if (_values.TryGetValue(fragment, out IReadOnlyList<MaterializedRenderValue>? existing))
-                return existing;
-
             Rect domain = ((LayerRenderFragmentPayload)fragment.Payload!).Domain
                 ?? fragment.Bounds;
             EffectiveScale scale = ClampToActiveDeviceGrid(
@@ -478,7 +458,6 @@ internal sealed partial class RenderRequestExecutor
             bool succeeded = false;
             try
             {
-                _afterCaptureAllocation?.Invoke(fragment.Kind);
                 using (var canvas = CreateValueCanvas(value))
                 using (canvas.PushTransform(value.RasterAlignmentTransform))
                 {
@@ -554,20 +533,10 @@ internal sealed partial class RenderRequestExecutor
         private Rect ResolveTargetLayerScopeDomain(
             RenderFragmentReference fragment,
             ImmediateCanvas destination)
-        {
-            TargetRegion region = ((TargetLayerScopeRenderFragmentPayload)fragment.Payload!).Region;
-            return region.Kind switch
-            {
-                TargetRegionKind.Empty => Rect.Empty,
-                TargetRegionKind.Region => region.Value,
-                TargetRegionKind.Full
-                    when fragment.Id is { } id
-                         && _resolvedExecutionDomains?.TryGetValue(id, out Rect resolved) == true => resolved,
-                TargetRegionKind.Full when _options.TargetDomain is { } targetDomain => targetDomain,
-                TargetRegionKind.Full => new Rect(default, destination.LogicalSize),
-                _ => throw new InvalidOperationException("The target-layer region is uninitialized."),
-            };
-        }
+            => ResolveTargetRegion(
+                ((TargetLayerScopeRenderFragmentPayload)fragment.Payload!).Region,
+                fragment,
+                destination);
 
         private bool IsMatchingTargetLayerScope(
             RenderFragmentReference fragment,

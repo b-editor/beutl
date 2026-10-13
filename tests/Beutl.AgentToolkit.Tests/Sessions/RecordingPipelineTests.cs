@@ -1,4 +1,5 @@
 ﻿using Beutl.AgentToolkit.Sessions;
+using Beutl.AgentToolkit.Tests.Helpers;
 
 namespace Beutl.AgentToolkit.Tests.Sessions;
 
@@ -34,19 +35,5 @@ public class RecordingPipelineTests
         Assert.That(root.Value, Is.EqualTo(1));
         Assert.That(pipeline.History.Undo(), Is.True);
         Assert.That(root.Value, Is.Zero);
-    }
-
-    private sealed class TestModel : CoreObject
-    {
-        public static readonly CoreProperty<int> ValueProperty =
-            ConfigureProperty<int, TestModel>(nameof(Value))
-                .DefaultValue(0)
-                .Register();
-
-        public int Value
-        {
-            get => GetValue(ValueProperty);
-            set => SetValue(ValueProperty, value);
-        }
     }
 }

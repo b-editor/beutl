@@ -61,13 +61,11 @@ public sealed class EngineResourceIdentityRoutingTests
 
         Exception? failure = RecordAndCaptureFailure(node);
 
-        Assert.That(failure, Is.Null,
-            "with the geometry attached, the detached fill's identity read is the first dereference, "
-            + "so the routing has to rescue it");
+        Assert.That(failure, Is.Null, "recording a node with a detached fill must not throw");
     }
 
     [Test]
-    public void GeometryRenderNode_WithADetachedGeometry_ReachesItsRoutedIdentityRead()
+    public void GeometryRenderNode_WithADetachedGeometry_RecordsItsFragment()
     {
         using var geometry = new EllipseGeometry.Resource { Width = 40, Height = 30 };
         using var node = new GeometryRenderNode(geometry, null, null);
@@ -75,7 +73,7 @@ public sealed class EngineResourceIdentityRoutingTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(RecordAndCaptureFailure(node), Is.Null,
-                "GetRenderBounds no longer dereferences the backing object, so recording reaches the routed read");
+                "recording a node with a detached geometry must not throw");
             Assert.That(RecordedFragmentCount(node), Is.EqualTo(1));
         }
     }
@@ -90,13 +88,13 @@ public sealed class EngineResourceIdentityRoutingTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(RecordAndCaptureFailure(node), Is.Null,
-                "the routed identity read and the Bounds read one statement later both survive detachment now");
+                "recording a clip with a detached geometry must not throw");
             Assert.That(RecordedFragmentCount(node), Is.EqualTo(1));
         }
     }
 
     [Test]
-    public void ParticleRenderNode_NeverReachesItsIdentityRead_BecauseADetachedEmitterHasNoAliveParticles()
+    public void ParticleRenderNode_WithADetachedEmitter_RecordsNothingBecauseItHasNoAliveParticles()
     {
         using var emitter = new ParticleEmitter.Resource();
         using var node = new ParticleRenderNode(emitter);
@@ -111,7 +109,7 @@ public sealed class EngineResourceIdentityRoutingTests
     }
 
     [Test]
-    public void Scene3DRenderNode_NeverReachesItsIdentityReads_BecauseADetachedSceneHasNoCamera()
+    public void Scene3DRenderNode_WithADetachedScene_RecordsNothingBecauseItHasNoCamera()
     {
         using var scene = new Scene3D.Resource();
         using var node = new Scene3DRenderNode(scene);
@@ -275,9 +273,6 @@ public sealed class EngineResourceIdentityRoutingTests
         return current;
     }
 
-    private static Type? DeepestFrameType(Exception exception)
-        => new System.Diagnostics.StackTrace(exception).GetFrame(0)?.GetMethod()?.DeclaringType;
-
     private static RenderRequest CreateRequest(RenderRequestOwner owner)
         => new(new RenderRequestOptions(
             RenderIntent.Preview,
@@ -287,12 +282,6 @@ public sealed class EngineResourceIdentityRoutingTests
             targetDomain: new Rect(0, 0, 32, 32),
             cachePolicy: RenderCacheOptions.Disabled,
             owner: owner));
-
-    private static RenderFragmentReference SingleRoot(RecordedRenderGraph graph)
-    {
-        RenderFragmentId rootId = graph.PublicationRoots.Single();
-        return graph.GetFragment(rootId);
-    }
 
     private readonly record struct GeometryHitTestIdentityShape(
         Guid GeometryId,
@@ -307,34 +296,4 @@ public sealed class EngineResourceIdentityRoutingTests
     private readonly record struct SceneSnapshotIdentityShape(Guid SceneId, int Version);
 
     private readonly record struct SceneRuntimeIdentityShape(Guid SceneId, int Version, Rect Bounds);
-
-    private sealed class TwiceBorrowingNode(EngineObject.Resource resource) : RenderNode
-    {
-        private static readonly Rect s_bounds = new(0, 0, 8, 8);
-
-        public override void Process(RenderNodeContext context)
-        {
-            RenderResource<EngineObject.Resource> first = context.Borrow(resource);
-            RenderResource<EngineObject.Resource> second = context.Borrow(resource);
-            OpaqueRenderDescription description = OpaqueRenderDescription.Create(
-                s_bounds,
-                static (session, bounds) =>
-                {
-                    using OpaqueRenderOutput output = session.CreateOutput(bounds);
-                    session.Publish(output);
-                },
-                OpaqueRenderBoundsContract.Source(s_bounds),
-                RenderHitTestContract.OutputBounds,
-                RenderValueCardinality.Single,
-                RenderScaleContract.MaterializeAtWorkingScale,
-                resources: [EngineResourceIdentityRoutingSlots.First.Bind(first), EngineResourceIdentityRoutingSlots.Second.Bind(second)]);
-            context.Publish(context.OpaqueSource(description));
-        }
-    }
-}
-
-internal static class EngineResourceIdentityRoutingSlots
-{
-    internal static readonly RenderResourceSlot<EngineObject.Resource> First = new();
-    internal static readonly RenderResourceSlot<EngineObject.Resource> Second = new();
 }

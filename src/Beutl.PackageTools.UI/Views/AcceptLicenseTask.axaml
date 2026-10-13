@@ -2,34 +2,17 @@
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:local="using:Beutl.PackageTools.UI.Views"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:models="using:Beutl.PackageTools.UI.Models"
              xmlns:res="using:Beutl.PackageTools.UI.Resources"
-             xmlns:ui="using:FluentAvalonia.UI.Controls"
              d:DesignHeight="450"
              d:DesignWidth="320"
              x:DataType="models:AcceptLicenseTaskModel"
              mc:Ignorable="d">
-    <Grid ColumnDefinitions="16,8,*">
-        <Grid HorizontalAlignment="Center" RowDefinitions="Auto,*">
-            <ui:FAInfoBadge Classes="step"
-                          Classes.Critical="{Binding Failed.Value, FallbackValue=False}"
-                          Classes.Informational="{Binding !IsRunning.Value, FallbackValue=True}"
-                          Classes.Success="{Binding Succeeded.Value, FallbackValue=False}"
-                          Value="4" />
-            <Border Grid.Row="1"
-                    Width="2"
-                    Background="Gray"
-                    IsVisible="{Binding ShowDetails.Value, FallbackValue=False}" />
-        </Grid>
-        <Grid Grid.Column="2" RowDefinitions="Auto,Auto">
-            <TextBlock Classes.tip="{Binding Converter={x:Static ObjectConverters.IsNotNull}}"
-                       PointerPressed="OnTaskNamePointerPressed"
-                       PointerReleased="OnTaskNamePointerReleased"
-                       Text="{x:Static res:Strings.Acceptance_of_License}" />
-
-            <StackPanel Grid.Row="1"
-                        Margin="0,6,0,0"
+    <local:TaskStep Title="{x:Static res:Strings.Acceptance_of_License}" Step="4">
+        <local:TaskStep.Details>
+            <StackPanel Margin="0,6,0,0"
                         IsVisible="{Binding ShowDetails.Value, FallbackValue=False}"
                         Spacing="8">
                 <Grid Grid.Row="1"
@@ -66,13 +49,13 @@
                                       Command="{Binding AcceptAll}"
                                       CommandParameter="{x:False}"
                                       Content="{x:Static res:Strings.No}"
-                                      IsHitTestVisible="{Binding !IsAcceptedNull.Value}" />
+                                      IsHitTestVisible="{Binding !AcceptAnswer.HasValue.Value}" />
                         <ToggleButton Grid.Column="2"
                                       HorizontalAlignment="Stretch"
                                       Command="{Binding AcceptAll}"
                                       CommandParameter="{x:True}"
                                       Content="{x:Static res:Strings.AcceptAll}"
-                                      IsHitTestVisible="{Binding !IsAcceptedNull.Value}" />
+                                      IsHitTestVisible="{Binding !AcceptAnswer.HasValue.Value}" />
                     </Grid>
                 </Grid>
 
@@ -80,6 +63,6 @@
                            Text="{x:Static res:Strings.There_are_no_licenses_that_require_acceptance}"
                            TextWrapping="WrapWithOverflow" />
             </StackPanel>
-        </Grid>
-    </Grid>
+        </local:TaskStep.Details>
+    </local:TaskStep>
 </UserControl>

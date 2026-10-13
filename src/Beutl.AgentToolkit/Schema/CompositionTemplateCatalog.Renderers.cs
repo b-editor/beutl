@@ -918,19 +918,6 @@ public sealed partial class CompositionTemplateCatalog
             });
     }
 
-    private static Element CreateElement(string name, int zIndex, TimeSpan length, EngineObject obj)
-    {
-        var element = new Element
-        {
-            Name = name,
-            Start = TimeSpan.Zero,
-            Length = length,
-            ZIndex = zIndex
-        };
-        element.AddObject(obj);
-        return element;
-    }
-
     private static Element CreateTextElement(
         string elementName,
         string objectName,
@@ -995,16 +982,6 @@ public sealed partial class CompositionTemplateCatalog
                 new GradientStop(Color.Parse(outerColor), 1)
             }
         };
-    }
-
-    private static ColorShift CreateColorShift(int offset)
-    {
-        var colorShift = new ColorShift();
-        colorShift.RedOffset.CurrentValue = new PixelPoint(offset, 0);
-        colorShift.GreenOffset.CurrentValue = PixelPoint.Origin;
-        colorShift.BlueOffset.CurrentValue = new PixelPoint(-offset, 0);
-        colorShift.AlphaOffset.CurrentValue = PixelPoint.Origin;
-        return colorShift;
     }
 
     // Keyframes are authored on the serialized form (AddFloatAnimation works on JSON), so the element

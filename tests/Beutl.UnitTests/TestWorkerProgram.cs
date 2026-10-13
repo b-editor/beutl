@@ -62,8 +62,16 @@ internal static class TestWorkerProgram
     internal static Task RunAsync(params string[] arguments)
         => RunAsync(null, arguments);
 
-    internal static async Task RunAsync(
+    internal static Task RunAsync(
         Action<System.Diagnostics.ProcessStartInfo>? configureStartInfo,
+        params string[] arguments)
+        => RunAsync(configureStartInfo, expectSuccess: true, TimeSpan.FromSeconds(30), arguments);
+
+    // Returns the worker's output. A worker that is expected to fail, or to be killed, must exit non-zero.
+    internal static async Task<string> RunAsync(
+        Action<System.Diagnostics.ProcessStartInfo>? configureStartInfo,
+        bool expectSuccess,
+        TimeSpan timeout,
         params string[] arguments)
     {
         var start = new System.Diagnostics.ProcessStartInfo("dotnet")
@@ -79,13 +87,18 @@ internal static class TestWorkerProgram
         using var process = System.Diagnostics.Process.Start(start)!;
         Task<string> stdout = process.StandardOutput.ReadToEndAsync();
         Task<string> stderr = process.StandardError.ReadToEndAsync();
-        try { await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(30)); }
+        try { await process.WaitForExitAsync().WaitAsync(timeout); }
         catch
         {
             if (!process.HasExited) process.Kill(entireProcessTree: true);
             await process.WaitForExitAsync();
             throw;
         }
-        Assert.That(process.ExitCode, Is.Zero, await stdout + await stderr);
+        string output = await stdout + await stderr;
+        if (expectSuccess)
+            Assert.That(process.ExitCode, Is.Zero, output);
+        else
+            Assert.That(process.ExitCode, Is.Not.Zero, "The worker should have failed. " + output);
+        return output;
     }
 }

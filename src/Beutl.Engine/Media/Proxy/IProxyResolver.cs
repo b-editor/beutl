@@ -30,15 +30,14 @@ public sealed record ProxyResolution(
     PixelSize OriginalLogicalFrameSize,
     PixelSize ProxyDecodedFrameSize)
 {
-    public float SupplyDensity
+    public float SupplyDensity => SupplyDensityOf(OriginalLogicalFrameSize, ProxyDecodedFrameSize);
+
+    internal static float SupplyDensityOf(PixelSize originalLogicalFrameSize, PixelSize proxyDecodedFrameSize)
     {
-        get
-        {
-            int originalLongEdge = Math.Max(OriginalLogicalFrameSize.Width, OriginalLogicalFrameSize.Height);
-            int proxyLongEdge = Math.Max(ProxyDecodedFrameSize.Width, ProxyDecodedFrameSize.Height);
-            return originalLongEdge == 0 || proxyLongEdge == 0
-                ? 1f
-                : (float)proxyLongEdge / originalLongEdge;
-        }
+        int originalLongEdge = Math.Max(originalLogicalFrameSize.Width, originalLogicalFrameSize.Height);
+        int proxyLongEdge = Math.Max(proxyDecodedFrameSize.Width, proxyDecodedFrameSize.Height);
+        return originalLongEdge == 0 || proxyLongEdge == 0
+            ? 1f
+            : (float)proxyLongEdge / originalLongEdge;
     }
 }

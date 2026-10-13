@@ -30,7 +30,6 @@ public static class FallbackClassAnalyzer
             return null;
         }
 
-        // Check if the class implements IFallback
         INamedTypeSymbol? iFallbackSymbol = context.SemanticModel.Compilation
             .GetTypeByMetadataName("Beutl.Serialization.IFallback");
 
@@ -49,10 +48,8 @@ public static class FallbackClassAnalyzer
 
         bool isPartial = classDeclaration.Modifiers.Any(m => m.IsKind(SyntaxKind.PartialKeyword));
 
-        // Collect unimplemented abstract methods from the base class hierarchy
         var abstractMethods = CollectUnimplementedAbstractMethods(symbol);
 
-        // Collect abstract methods from the base class's Resource nested type
         var resourceAbstractMethods = CollectResourceAbstractMethods(symbol);
 
         return new FallbackClassInfo(symbol, isPartial, abstractMethods, resourceAbstractMethods);
@@ -62,7 +59,6 @@ public static class FallbackClassAnalyzer
     {
         var result = ImmutableArray.CreateBuilder<AbstractMethodInfo>();
 
-        // Collect all abstract methods from base classes
         var abstractMethods = new Dictionary<string, IMethodSymbol>();
         for (INamedTypeSymbol? current = symbol.BaseType; current is not null; current = current.BaseType)
         {
@@ -78,7 +74,6 @@ public static class FallbackClassAnalyzer
             }
         }
 
-        // Remove methods already overridden in the user's partial declaration
         foreach (string key in symbol.GetMembers()
             .OfType<IMethodSymbol>()
             .Where(IsOrdinaryOverride)
@@ -99,7 +94,6 @@ public static class FallbackClassAnalyzer
     {
         var result = ImmutableArray.CreateBuilder<AbstractMethodInfo>();
 
-        // Find the Resource nested type in the base class hierarchy
         for (INamedTypeSymbol? current = symbol.BaseType; current is not null; current = current.BaseType)
         {
             foreach (INamedTypeSymbol nestedType in current.GetTypeMembers("Resource"))
@@ -113,7 +107,6 @@ public static class FallbackClassAnalyzer
             }
         }
 
-        // Remove methods already overridden in the user's Resource partial declaration
         foreach (INamedTypeSymbol nestedType in symbol.GetTypeMembers("Resource"))
         {
             foreach (string key in nestedType.GetMembers()

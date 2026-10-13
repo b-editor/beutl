@@ -112,9 +112,13 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposable);
 
-        CanEncode = DestinationFile.Select(x => x != null)
-            .AreTrue(SelectedEncoder.Select(x => x != null),
-                SupersampleWarning.Select(w => w == null))
+        CanEncode = new[]
+            {
+                DestinationFile.Select(x => x != null),
+                SelectedEncoder.Select(x => x != null),
+                SupersampleWarning.Select(w => w == null)
+            }
+            .CombineLatestValuesAreAllTrue()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposable);
 

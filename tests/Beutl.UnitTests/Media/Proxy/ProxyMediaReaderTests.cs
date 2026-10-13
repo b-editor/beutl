@@ -21,12 +21,7 @@ public sealed class ProxyMediaReaderTests
         var inner = new FakeMediaReader(() => disposeOrder.Add("inner"));
         var pin = new FakePin(() => disposeOrder.Add("pin"));
 
-        var resolution = new ProxyResolution(
-            AbsoluteProxyFilePath: "/proxy.mp4",
-            Source: new ProxyFingerprint("/source.mp4", 100, DateTime.UtcNow),
-            Preset: ProxyPreset.Quarter,
-            OriginalLogicalFrameSize: new PixelSize(100, 80),
-            ProxyDecodedFrameSize: new PixelSize(50, 40));
+        ProxyResolution resolution = CreateResolution();
 
         var reader = new ProxyMediaReader(inner, pin, resolution);
         Assert.Multiple(() =>
@@ -53,12 +48,7 @@ public sealed class ProxyMediaReaderTests
         var inner = new FakeMediaReader(() => throw new InvalidOperationException("inner failed"));
         var pin = new FakePin(() => pinDisposed = true);
 
-        var resolution = new ProxyResolution(
-            AbsoluteProxyFilePath: "/proxy.mp4",
-            Source: new ProxyFingerprint("/source.mp4", 100, DateTime.UtcNow),
-            Preset: ProxyPreset.Quarter,
-            OriginalLogicalFrameSize: new PixelSize(100, 80),
-            ProxyDecodedFrameSize: new PixelSize(50, 40));
+        ProxyResolution resolution = CreateResolution();
 
         var reader = new ProxyMediaReader(inner, pin, resolution);
 
@@ -80,20 +70,13 @@ public sealed class ProxyMediaReaderTests
         var inner = new FakeMediaReader(() => innerDisposed = true);
         var pin = new FakePin(() => pinDisposed = true);
 
-        var resolution = new ProxyResolution(
-            AbsoluteProxyFilePath: "/proxy.mp4",
-            Source: new ProxyFingerprint("/source.mp4", 100, DateTime.UtcNow),
-            Preset: ProxyPreset.Quarter,
-            OriginalLogicalFrameSize: new PixelSize(100, 80),
-            ProxyDecodedFrameSize: new PixelSize(50, 40));
+        ProxyResolution resolution = CreateResolution();
 
         var reader = new ProxyMediaReader(inner, pin, resolution);
 
         // The finalizer path (~MediaReader → Dispose(false)) invoked deterministically: an abandoned
         // reader must still release the pin, or eviction treats the proxy file as in use forever.
-        typeof(ProxyMediaReader)
-            .GetMethod("Dispose", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance, [typeof(bool)])!
-            .Invoke(reader, [false]);
+        InvokeDispose(reader, disposing: false);
 
         Assert.Multiple(() =>
         {
@@ -111,20 +94,13 @@ public sealed class ProxyMediaReaderTests
         var inner = new FakeMediaReader();
         var pin = new FakePin(() => throw new InvalidOperationException("third-party pin failure"));
 
-        var resolution = new ProxyResolution(
-            AbsoluteProxyFilePath: "/proxy.mp4",
-            Source: new ProxyFingerprint("/source.mp4", 100, DateTime.UtcNow),
-            Preset: ProxyPreset.Quarter,
-            OriginalLogicalFrameSize: new PixelSize(100, 80),
-            ProxyDecodedFrameSize: new PixelSize(50, 40));
+        ProxyResolution resolution = CreateResolution();
 
         var reader = new ProxyMediaReader(inner, pin, resolution);
 
         // A pin from a third-party IProxyResolver may throw; on the finalizer path (disposing: false)
         // an escaping exception would terminate the process, so it must be swallowed.
-        Assert.That(() => typeof(ProxyMediaReader)
-            .GetMethod("Dispose", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance, [typeof(bool)])!
-            .Invoke(reader, [false]), Throws.Nothing);
+        Assert.That(() => InvokeDispose(reader, disposing: false), Throws.Nothing);
 
         // The disposing path must still propagate the failure rather than hide it.
         Assert.That(() => reader.Dispose(), Throws.InvalidOperationException);
@@ -132,6 +108,19 @@ public sealed class ProxyMediaReaderTests
         GC.SuppressFinalize(reader);
         GC.SuppressFinalize(inner);
     }
+
+    private static ProxyResolution CreateResolution() => new(
+        AbsoluteProxyFilePath: "/proxy.mp4",
+        Source: new ProxyFingerprint("/source.mp4", 100, DateTime.UtcNow),
+        Preset: ProxyPreset.Quarter,
+        OriginalLogicalFrameSize: new PixelSize(100, 80),
+        ProxyDecodedFrameSize: new PixelSize(50, 40));
+
+    // Calls the protected Dispose(bool), as the finalizer does for disposing: false.
+    private static void InvokeDispose(ProxyMediaReader reader, bool disposing)
+        => typeof(ProxyMediaReader)
+            .GetMethod("Dispose", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance, [typeof(bool)])!
+            .Invoke(reader, [disposing]);
 
     private sealed class FakeMediaReader(Action? onDispose = null) : MediaReader
     {

@@ -559,12 +559,13 @@ public sealed class SymbolicOwningDomainTests
             context.Publish(context.BuiltInBackdropCapture(this));
         }
 
-        void IBuiltInBackdropCaptureSink.CommitBackdropCapture(Bitmap bitmap, float density)
+        bool IBuiltInBackdropCaptureSink.TryCommitBackdropCapture(Bitmap bitmap, float density)
         {
             CaptureCount++;
             CapturedDeviceSize = new PixelSize(bitmap.Width, bitmap.Height);
             CapturedDensity = density;
             bitmap.Dispose();
+            return true;
         }
     }
 
@@ -592,8 +593,11 @@ public sealed class SymbolicOwningDomainTests
             context.Publish(context.Layer([contributing], secondConsumerDomain));
         }
 
-        void IBuiltInBackdropCaptureSink.CommitBackdropCapture(Bitmap bitmap, float density)
-            => bitmap.Dispose();
+        bool IBuiltInBackdropCaptureSink.TryCommitBackdropCapture(Bitmap bitmap, float density)
+        {
+            bitmap.Dispose();
+            return true;
+        }
     }
 
     private sealed class UnknownEffectItemDerivedFanOutNode : RenderNode

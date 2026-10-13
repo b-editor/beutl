@@ -13,10 +13,14 @@ namespace Beutl.AgentToolkit.Tools;
 
 public sealed partial class EditTools
 {
+    private const string CustomPatchAdvice =
+        "For original creative briefs, author a custom patch and pass it to apply_edit.";
+
     [McpServerTool(Name = "plan_composition")]
     [Description("Dry-runs an explicitly named reusable composition template without returning a huge patch. Use only when the user asked for a template/starter or a named composition style.")]
     public ToolResult<PlanCompositionResponse> PlanComposition(
         string? name = null,
+        // Unused because a name is required; kept so calls that pass it stay valid.
         string? tag = null,
         JsonObject? inputProps = null,
         string? seed = null,
@@ -24,11 +28,10 @@ public sealed partial class EditTools
     {
         return Execute(() =>
         {
-            RequireCompositionName(name);
+            CompositionTemplateCatalog.RequireCompositionName(name, CustomPatchAdvice);
             IEditingSession session = sessions.RequireSession();
             CompositionRender composition = _compositionCatalog.Render(
                 name,
-                tag,
                 inputProps,
                 sessions.ResolveCompositionSeed(seed));
             // Resolve the patch and plan inside the session dispatch so a LiveEditor plan does not
@@ -63,6 +66,7 @@ public sealed partial class EditTools
     [Description("Applies an explicitly named reusable composition template through the declarative editor loop. Prefer planId from plan_composition for compact plan/apply parity; expectedChangeSet remains supported.")]
     public ToolResult<ApplyCompositionResponse> ApplyComposition(
         string? name = null,
+        // Unused because a name is required; kept so calls that pass it stay valid.
         string? tag = null,
         JsonObject? inputProps = null,
         string? seed = null,
@@ -100,10 +104,9 @@ public sealed partial class EditTools
                     storedResult);
             }
 
-            RequireCompositionName(name);
+            CompositionTemplateCatalog.RequireCompositionName(name, CustomPatchAdvice);
             CompositionRender composition = _compositionCatalog.Render(
                 name,
-                tag,
                 inputProps,
                 sessions.ResolveCompositionSeed(seed));
             JsonArray? normalizedExpectedChangeSet = NormalizeExpectedChangeSet(expectedChangeSet);
@@ -161,20 +164,6 @@ public sealed partial class EditTools
                && TimeSpan.TryParseExact(text, "c", CultureInfo.InvariantCulture, out TimeSpan start)
             ? start
             : TimeSpan.Zero;
-    }
-
-    private static void RequireCompositionName(string? name)
-    {
-        if (!string.IsNullOrWhiteSpace(name))
-        {
-            return;
-        }
-
-        throw new ReconcileException(new ToolError(
-            ErrorCode.ValidationRejected,
-            "Composition templates require an explicit template name.",
-            null,
-            "Call list_compositions to inspect options, then pass a returned name only when the user explicitly asked for a reusable template/starter. For original creative briefs, author a custom patch and pass it to apply_edit."));
     }
 
     private static bool ChangeSetMatches(ReconcilePlan plan, JsonArray expectedChangeSet)

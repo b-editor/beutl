@@ -140,13 +140,6 @@ internal sealed class RenderNodeCache(RenderNode node) : IDisposable
             {
                 ArgumentNullException.ThrowIfNull(value);
                 ObjectDisposedException.ThrowIf(value.Target.IsDisposed, value.Target);
-                if (!RenderRectValidation.IsFiniteNonNegative(value.Bounds)
-                    || value.EffectiveScale.IsUnbounded
-                    || value.DeviceBounds.Size != new PixelSize(value.Target.Width, value.Target.Height))
-                {
-                    throw new InvalidOperationException(
-                        "A cache publication requires finite bounds, a concrete density, and matching device bounds.");
-                }
             }
 
             prepared[index] = (

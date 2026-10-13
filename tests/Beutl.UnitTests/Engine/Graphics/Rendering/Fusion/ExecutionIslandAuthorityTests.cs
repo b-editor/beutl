@@ -85,9 +85,6 @@ public sealed class ExecutionIslandAuthorityTests
                     out ExecutionIslandMembership membership),
                 Is.True);
             Assert.That(membership.Island.ShaderRun, Is.Null);
-            Assert.That(compiled.ExecutionPlan.Boundaries,
-                Has.Some.Matches<ExecutionIslandBoundary>(static boundary =>
-                    boundary.Reason == ExecutionIslandBoundaryReason.SemanticComposite));
         });
     }
 
@@ -149,9 +146,6 @@ public sealed class ExecutionIslandAuthorityTests
                 s_bounds,
                 FusionMode.Enabled);
 
-            ExecutionIslandBoundaryReason semanticReason = opaque
-                ? ExecutionIslandBoundaryReason.Opaque
-                : ExecutionIslandBoundaryReason.Geometry;
             Assert.Multiple(() =>
             {
                 Assert.That(FusionBoundaryExecutionTestSupport.SumAbsoluteChannels(result.Bitmap),
@@ -195,10 +189,7 @@ public sealed class ExecutionIslandAuthorityTests
     {
         using CompiledRenderRequest compiled = CompileTerminalOpacity();
         CompiledShaderRun run = compiled.ExecutionPlan.ShaderRuns.Single();
-        var invalid = new ExecutionIslandPlan(
-            compiled.Graph.Fragments.Length,
-            [],
-            compiled.ExecutionPlan.Boundaries);
+        var invalid = new ExecutionIslandPlan(compiled.Graph.Fragments.Length, []);
         ExecutionIslandExecutionLedger ledger = invalid.CreateExecutionLedger(compiled.Graph);
 
         Assert.That(
@@ -219,8 +210,7 @@ public sealed class ExecutionIslandAuthorityTests
                 new ExecutionIsland(
                     1,
                     [0]),
-            ],
-            []),
+            ]),
             Throws.ArgumentException.With.Message.Contains("more than one execution island"));
     }
 
@@ -388,8 +378,7 @@ public sealed class ExecutionIslandAuthorityTests
                 new ExecutionIsland(
                     1,
                     [3]),
-            ],
-            []);
+            ]);
         return (graph, roots, plan, first, second);
     }
 

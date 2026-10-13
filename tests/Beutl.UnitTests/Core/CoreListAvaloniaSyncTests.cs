@@ -4,10 +4,8 @@ using Beutl.Collections;
 
 namespace Beutl.UnitTests.Core;
 
-// AvaloniaTypeConverter で行っている CoreList<T>.Move → AvaloniaList<T>.Move の同期処理が
-// 正しいセマンティクスで動作することを検証する。
-// GradientStopsSlider のドラッグで Stop が他のストップを横断する操作で発生していた
-// ArgumentOutOfRangeException の回帰を防ぐ。
+// CoreList.Move の添字が AvaloniaList.Move と同じ意味であることを確かめる
+// （GradientStopsSlider のドラッグで起きていた ArgumentOutOfRangeException の回帰）。
 [TestFixture]
 public class CoreListAvaloniaSyncTests
 {
@@ -42,58 +40,19 @@ public class CoreListAvaloniaSyncTests
         return (source, mirror);
     }
 
-    [Test]
-    public void Move_ForwardByOne_KeepsMirrorInSync()
+    // The mirror replays the Move event's indices with AvaloniaList.Move.
+    [TestCase(0, 1, new[] { "B", "A", "C", "D" })]
+    [TestCase(0, 2, new[] { "B", "C", "A", "D" })]
+    [TestCase(0, 3, new[] { "B", "C", "D", "A" })]
+    [TestCase(3, 2, new[] { "A", "B", "D", "C" })]
+    [TestCase(3, 0, new[] { "D", "A", "B", "C" })]
+    public void Move_TakesTheIndicesAvaloniaListMoveTakes(int from, int to, string[] expected)
     {
         (CoreList<string> source, AvaloniaList<string> mirror) = BuildPair("A", "B", "C", "D");
 
-        source.Move(0, 1);
+        source.Move(from, to);
 
-        Assert.That(source, Is.EqualTo(new[] { "B", "A", "C", "D" }));
-        Assert.That(mirror, Is.EqualTo(source));
-    }
-
-    [Test]
-    public void Move_ForwardAcrossMiddle_KeepsMirrorInSync()
-    {
-        (CoreList<string> source, AvaloniaList<string> mirror) = BuildPair("A", "B", "C", "D");
-
-        source.Move(0, 2);
-
-        Assert.That(source, Is.EqualTo(new[] { "B", "C", "A", "D" }));
-        Assert.That(mirror, Is.EqualTo(source));
-    }
-
-    [Test]
-    public void Move_ForwardToTail_KeepsMirrorInSync()
-    {
-        (CoreList<string> source, AvaloniaList<string> mirror) = BuildPair("A", "B", "C", "D");
-
-        source.Move(0, 3);
-
-        Assert.That(source, Is.EqualTo(new[] { "B", "C", "D", "A" }));
-        Assert.That(mirror, Is.EqualTo(source));
-    }
-
-    [Test]
-    public void Move_BackwardByOne_KeepsMirrorInSync()
-    {
-        (CoreList<string> source, AvaloniaList<string> mirror) = BuildPair("A", "B", "C", "D");
-
-        source.Move(3, 2);
-
-        Assert.That(source, Is.EqualTo(new[] { "A", "B", "D", "C" }));
-        Assert.That(mirror, Is.EqualTo(source));
-    }
-
-    [Test]
-    public void Move_BackwardToHead_KeepsMirrorInSync()
-    {
-        (CoreList<string> source, AvaloniaList<string> mirror) = BuildPair("A", "B", "C", "D");
-
-        source.Move(3, 0);
-
-        Assert.That(source, Is.EqualTo(new[] { "D", "A", "B", "C" }));
+        Assert.That(source, Is.EqualTo(expected));
         Assert.That(mirror, Is.EqualTo(source));
     }
 

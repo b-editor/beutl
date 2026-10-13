@@ -779,7 +779,7 @@ public sealed class UsageTelemetryTests
     [TestCase(true)]
     public async Task Library_search_does_not_cross_consent_periods_while_waiting(bool initiallyEnabled)
     {
-        using var library = new LibraryTabViewModel(new Mock<IEditorContext>().Object);
+        using var library = new LibraryTabViewModel();
         var gate = (SemaphoreSlim)typeof(LibraryTabViewModel)
             .GetField("_asyncLock", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(library)!;
         await gate.WaitAsync();
@@ -801,7 +801,7 @@ public sealed class UsageTelemetryTests
     [AvaloniaTest]
     public async Task Library_search_that_follows_a_library_change_records_no_usage()
     {
-        using var library = new LibraryTabViewModel(new Mock<IEditorContext>().Object);
+        using var library = new LibraryTabViewModel();
         await library.Search("Xyzzy", CancellationToken.None);
         _usage.Flush();
         Assert.That(_summaries.Count(s => s.Key.Event == "tool.command"), Is.EqualTo(1));

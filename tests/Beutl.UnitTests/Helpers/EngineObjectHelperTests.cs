@@ -12,21 +12,29 @@ namespace Beutl.UnitTests.Helpers;
 [TestFixture]
 public class EngineObjectHelperTests
 {
+    private ProbeObject _probe = null!;
+    private BehaviorSubject<TimeSpan> _time = null!;
+
+    [SetUp]
+    public void SetUp()
+    {
+        _probe = new ProbeObject();
+        _time = new BehaviorSubject<TimeSpan>(TimeSpan.Zero);
+    }
+
     // The subscription creates and updates its resource inside a posted render-thread callback, and the
     // render thread installs no unhandled-exception handler, so an escaping exception unwinds its loop
     // and every later render on that thread is lost.
     [Test]
     public void A_failing_resource_factory_reports_through_the_observer_and_spares_the_render_thread()
     {
-        var probe = new ProbeObject();
-        var time = new BehaviorSubject<TimeSpan>(TimeSpan.Zero);
         var failure = new InvalidOperationException("the resource factory rejected the current state");
         Exception? reported = null;
         using var reportedSignal = new ManualResetEventSlim();
 
-        using (probe
+        using (_probe
                    .SubscribeEngineVersionedResource<ProbeObject, EngineObject.Resource>(
-                       time,
+                       _time,
                        (_, _) => throw failure)
                    .Subscribe(
                        _ => { },
@@ -48,15 +56,11 @@ public class EngineObjectHelperTests
             "the render thread stopped taking work after the failed callback");
     }
 
-    // Every production subscriber reaches this through a Subscribe overload that installs no error handler,
-    // and Rx's default one rethrows the failure from inside OnError. The report runs inline on the
-    // dispatcher callback that raised it, past the catch that would have contained it, so that rethrow
-    // escapes into the loop - which installs no unhandled-exception handler and dies with it.
+    // Production subscribers install no error handler, and Rx's default one rethrows from inside OnError, inline on
+    // the dispatcher callback and past its catch, into a loop that installs no unhandled-exception handler.
     [Test]
     public void A_failure_reported_to_a_subscriber_without_an_error_handler_spares_the_dispatcher()
     {
-        var probe = new ProbeObject();
-        var time = new BehaviorSubject<TimeSpan>(TimeSpan.Zero);
         using var attempted = new ManualResetEventSlim();
         Dispatcher dispatcher = Dispatcher.Spawn();
         // An unwound loop rethrows off the dispatcher's own thread, which would end the test host rather
@@ -66,9 +70,9 @@ public class EngineObjectHelperTests
 
         try
         {
-            subscription = probe
+            subscription = _probe
                 .SubscribeEngineVersionedResource<ProbeObject, EngineObject.Resource>(
-                    time,
+                    _time,
                     (_, _) =>
                     {
                         attempted.Set();
@@ -88,9 +92,7 @@ public class EngineObjectHelperTests
         finally
         {
             subscription?.Dispose();
-            if (!dispatcher.HasShutdownStarted)
-                dispatcher.Shutdown();
-            Assert.That(dispatcher.Thread.Join(TimeSpan.FromSeconds(30)), Is.True);
+            ShutDownAndJoin(dispatcher);
         }
     }
 
@@ -99,13 +101,11 @@ public class EngineObjectHelperTests
     [Test]
     public void A_throwing_resource_dispose_does_not_take_the_render_thread_down()
     {
-        var probe = new ProbeObject();
-        var time = new BehaviorSubject<TimeSpan>(TimeSpan.Zero);
         using var published = new ManualResetEventSlim();
 
-        IDisposable subscription = probe
+        IDisposable subscription = _probe
             .SubscribeEngineVersionedResource<ProbeObject, EngineObject.Resource>(
-                time,
+                _time,
                 (_, _) => new ThrowingResource())
             .Subscribe(_ => published.Set());
         Assert.That(published.Wait(TimeSpan.FromSeconds(30)), Is.True, "no resource was ever published");
@@ -123,12 +123,11 @@ public class EngineObjectHelperTests
     [Test]
     public void A_failing_time_stream_reaches_the_observer()
     {
-        var probe = new ProbeObject();
         var time = new Subject<TimeSpan>();
         var failure = new InvalidOperationException("the clock faulted");
         Exception? reported = null;
 
-        using (probe
+        using (_probe
                    .SubscribeEngineVersionedResource<ProbeObject, EngineObject.Resource>(
                        time,
                        (o, c) => o.ToResource(c))
@@ -140,19 +139,11 @@ public class EngineObjectHelperTests
         Assert.That(reported, Is.SameAs(failure));
     }
 
-    // The release is only ever queued to the render dispatcher, and a dispatcher stops draining its queue
-    // the moment a shutdown begins. A shutdown starting after that dispatch - or before the queued call is
-    // reached - therefore abandoned the release, leaving the resource held and the token source alive with
-    // the subscription already gone and nothing left to notice.
-    //
-    // Recovering it has to wait for the dispatcher thread to actually stop, not merely for Shutdown() to be
-    // called: the blocked operation below stands in for a frame still reading the resource, and it keeps
-    // running well past the point where HasShutdownStarted turns true.
+    // Shutdown stops draining the queue, so a release queued before it must still run once the dispatcher thread has
+    // actually stopped; the blocked operation below stands in for a frame still reading the resource.
     [Test]
     public void Render_dispatcher_shutdown_releases_a_resource_whose_dispatch_it_abandoned()
     {
-        var probe = new ProbeObject();
-        var time = new BehaviorSubject<TimeSpan>(TimeSpan.Zero);
         using var published = new ManualResetEventSlim();
         using var blockerEntered = new ManualResetEventSlim();
         using var releaseBlocker = new ManualResetEventSlim();
@@ -161,9 +152,9 @@ public class EngineObjectHelperTests
 
         try
         {
-            IDisposable subscription = probe
+            IDisposable subscription = _probe
                 .SubscribeEngineVersionedResource<ProbeObject, CountingResource>(
-                    time,
+                    _time,
                     (_, _) => new CountingResource(),
                     dispatcher)
                 .Subscribe(t =>
@@ -206,23 +197,16 @@ public class EngineObjectHelperTests
         finally
         {
             releaseBlocker.Set();
-            if (!dispatcher.HasShutdownStarted)
-                dispatcher.Shutdown();
-            Assert.That(dispatcher.Thread.Join(TimeSpan.FromSeconds(30)), Is.True);
+            ShutDownAndJoin(dispatcher);
             created?.Dispose();
         }
     }
 
-    // A published resource is rebuilt in place on the render dispatcher: ResourceReconciler.ReconcileChildren
-    // replaces the entries of every list the resource owns and disposes the ones it drops. A subscriber that was
-    // handed the live resource walks those lists from its own thread, so it can land midway through a rebuild -
-    // which is where the path editor's "Collection was modified" and index faults come from. The resource below
-    // stands in for that contract with a list it empties and refills.
+    // A published resource is rebuilt in place on the render dispatcher, so a reader on another thread could land
+    // midway through a rebuild, as the path editor's "Collection was modified" faults did.
     [Test]
     public void A_reader_never_observes_a_resource_midway_through_a_rebuild()
     {
-        var probe = new ProbeObject();
-        var time = new BehaviorSubject<TimeSpan>(TimeSpan.Zero);
         using var published = new ManualResetEventSlim();
         Dispatcher dispatcher = Dispatcher.Spawn();
         RebuildingResource? resource = null;
@@ -231,27 +215,18 @@ public class EngineObjectHelperTests
 
         try
         {
-            subscription = probe
+            subscription = _probe
                 .SubscribeEngineVersionedResource<ProbeObject, RebuildingResource>(
-                    time,
+                    _time,
                     (_, _) => resource = new RebuildingResource(),
                     dispatcher)
-                .Subscribe(h =>
-                {
-                    // Only the dispatcher thread publishes, so the rebuild's own publication cannot race the
-                    // read below for this field.
-                    if (published.IsSet)
-                        return;
-
-                    handle = h;
-                    published.Set();
-                });
+                .Subscribe(CaptureFirst<RebuildingResource>(published, h => handle = h));
 
             Assert.That(published.Wait(TimeSpan.FromSeconds(30)), Is.True, "no resource was ever published");
 
             // The resource now exists, so this tick takes the Reconcile path, where the rebuild parks with the
             // item list emptied and waits for the reader below.
-            time.OnNext(TimeSpan.FromSeconds(1));
+            _time.OnNext(TimeSpan.FromSeconds(1));
             Assert.That(
                 resource!.RebuildEntered.Wait(TimeSpan.FromSeconds(30)), Is.True,
                 "the rebuild never started");
@@ -280,9 +255,7 @@ public class EngineObjectHelperTests
         {
             resource?.ReaderArrived.Set();
             subscription?.Dispose();
-            if (!dispatcher.HasShutdownStarted)
-                dispatcher.Shutdown();
-            Assert.That(dispatcher.Thread.Join(TimeSpan.FromSeconds(30)), Is.True);
+            ShutDownAndJoin(dispatcher);
             resource?.Dispose();
         }
     }
@@ -292,17 +265,15 @@ public class EngineObjectHelperTests
     [Test]
     public void A_handle_outliving_its_subscription_reads_as_empty()
     {
-        var probe = new ProbeObject();
-        var time = new BehaviorSubject<TimeSpan>(TimeSpan.Zero);
         using var published = new ManualResetEventSlim();
         Dispatcher dispatcher = Dispatcher.Spawn();
         EngineResourceHandle<CountingResource>? handle = null;
 
         try
         {
-            IDisposable subscription = probe
+            IDisposable subscription = _probe
                 .SubscribeEngineVersionedResource<ProbeObject, CountingResource>(
-                    time,
+                    _time,
                     (_, _) => new CountingResource(),
                     dispatcher)
                 .Subscribe(h =>
@@ -322,22 +293,15 @@ public class EngineObjectHelperTests
         }
         finally
         {
-            if (!dispatcher.HasShutdownStarted)
-                dispatcher.Shutdown();
-            Assert.That(dispatcher.Thread.Join(TimeSpan.FromSeconds(30)), Is.True);
+            ShutDownAndJoin(dispatcher);
         }
     }
 
-    // Project hands back a handle onto a child the parent owns, and the parent's rebuild disposes that child
-    // the moment ResourceReconciler.ReconcileChild or ReconcileChildren replaces or drops it. The gate only
-    // records the subscription's final release, so a projection that tracked nothing else stayed "live" and lent
-    // out a resource that had already been released - Geometry.Resource answers a read of one with
-    // ObjectDisposedException, and the generated PostDispose overrides have freed its native handles by then.
+    // Project hands back a handle onto a child the parent owns, and the parent's rebuild disposes that child when it
+    // replaces or drops it, so the projected handle must read as empty rather than lend out the released child.
     [Test]
     public void A_projected_handle_reads_as_empty_once_its_child_is_replaced()
     {
-        var probe = new ProbeObject();
-        var time = new BehaviorSubject<TimeSpan>(TimeSpan.Zero);
         using var projected = new ManualResetEventSlim();
         using var replaced = new ManualResetEventSlim();
         Dispatcher dispatcher = Dispatcher.Spawn();
@@ -348,15 +312,13 @@ public class EngineObjectHelperTests
 
         try
         {
-            subscription = probe
+            subscription = _probe
                 .SubscribeEngineVersionedResource<ProbeObject, ReplacingParentResource>(
-                    time,
+                    _time,
                     (_, _) => parent = new ReplacingParentResource(),
                     dispatcher)
                 .Subscribe(h =>
                 {
-                    // Only the dispatcher thread publishes, so the rebuild's own publication cannot race the
-                    // projection below for these fields.
                     if (!projected.IsSet)
                     {
                         staleChild = h.Project(r => r.Child);
@@ -372,7 +334,7 @@ public class EngineObjectHelperTests
 
             // The resource now exists, so this tick takes the Reconcile path, which drops the child the
             // projection above points at and installs a fresh one in its place.
-            time.OnNext(TimeSpan.FromSeconds(1));
+            _time.OnNext(TimeSpan.FromSeconds(1));
             Assert.That(replaced.Wait(TimeSpan.FromSeconds(30)), Is.True, "the replacement was never published");
             Assert.That(firstChild!.IsDisposed, Is.True, "the rebuild kept the original child");
 
@@ -382,22 +344,16 @@ public class EngineObjectHelperTests
         finally
         {
             subscription?.Dispose();
-            if (!dispatcher.HasShutdownStarted)
-                dispatcher.Shutdown();
-            Assert.That(dispatcher.Thread.Join(TimeSpan.FromSeconds(30)), Is.True);
+            ShutDownAndJoin(dispatcher);
             parent?.Dispose();
         }
     }
 
-    // Most rebuilds move the parent's version without touching any one child - a shape's pen changing leaves
-    // its geometry alone. Invalidating every projection on a version bump would be the cheap way to close the
-    // case above, and it would cost the path editor a frame of its overlay every time anything else about the
-    // shape moved, so a projection whose child survived has to keep reading.
+    // Most rebuilds bump the parent's version without touching the child, and invalidating every projection would cost
+    // the path editor a frame of its overlay each time, so a projection whose child survived has to keep reading.
     [Test]
     public void A_projected_handle_survives_a_rebuild_that_keeps_its_child()
     {
-        var probe = new ProbeObject();
-        var time = new BehaviorSubject<TimeSpan>(TimeSpan.Zero);
         using var projected = new ManualResetEventSlim();
         using var rebuilt = new ManualResetEventSlim();
         Dispatcher dispatcher = Dispatcher.Spawn();
@@ -407,9 +363,9 @@ public class EngineObjectHelperTests
 
         try
         {
-            subscription = probe
+            subscription = _probe
                 .SubscribeEngineVersionedResource<ProbeObject, RetainingParentResource>(
-                    time,
+                    _time,
                     (_, _) => parent = new RetainingParentResource(),
                     dispatcher)
                 .Subscribe(h =>
@@ -426,7 +382,7 @@ public class EngineObjectHelperTests
 
             Assert.That(projected.Wait(TimeSpan.FromSeconds(30)), Is.True, "no resource was ever published");
 
-            time.OnNext(TimeSpan.FromSeconds(1));
+            _time.OnNext(TimeSpan.FromSeconds(1));
             Assert.That(rebuilt.Wait(TimeSpan.FromSeconds(30)), Is.True, "the rebuild was never published");
 
             CountingResource? observed = null;
@@ -441,9 +397,7 @@ public class EngineObjectHelperTests
         finally
         {
             subscription?.Dispose();
-            if (!dispatcher.HasShutdownStarted)
-                dispatcher.Shutdown();
-            Assert.That(dispatcher.Thread.Join(TimeSpan.FromSeconds(30)), Is.True);
+            ShutDownAndJoin(dispatcher);
             parent?.Dispose();
         }
     }
@@ -455,7 +409,6 @@ public class EngineObjectHelperTests
     public void A_source_holding_no_object_publishes_an_empty_handle()
     {
         var source = new BehaviorSubject<ProbeObject?>(null);
-        var time = new BehaviorSubject<TimeSpan>(TimeSpan.Zero);
         Dispatcher dispatcher = Dispatcher.Spawn();
         var published = new List<EngineResourceHandle<CountingResource>?>();
 
@@ -463,7 +416,7 @@ public class EngineObjectHelperTests
         {
             using (source
                        .SwitchToEngineVersionedResource<ProbeObject, CountingResource>(
-                           time,
+                           _time,
                            (_, _) => new CountingResource(),
                            dispatcher)
                        .Subscribe(published.Add))
@@ -474,22 +427,16 @@ public class EngineObjectHelperTests
         }
         finally
         {
-            if (!dispatcher.HasShutdownStarted)
-                dispatcher.Shutdown();
-            Assert.That(dispatcher.Thread.Join(TimeSpan.FromSeconds(30)), Is.True);
+            ShutDownAndJoin(dispatcher);
         }
     }
 
-    // Moving off an object has to take its resource with it. The subscription that owns the resource is the
-    // only thing holding it, and the dispatcher keeps rebuilding it on every tick for as long as that
-    // subscription lives, so a switch that left it subscribed would go on paying for an object nobody is
-    // looking at.
+    // Moving off an object has to release its resource: the dispatcher keeps rebuilding it on every tick for as long as
+    // the owning subscription lives.
     [Test]
     public void Moving_the_source_off_an_object_publishes_an_empty_handle_and_releases_its_resource()
     {
-        var probe = new ProbeObject();
-        var source = new BehaviorSubject<ProbeObject?>(probe);
-        var time = new BehaviorSubject<TimeSpan>(TimeSpan.Zero);
+        var source = new BehaviorSubject<ProbeObject?>(_probe);
         using var published = new ManualResetEventSlim();
         Dispatcher dispatcher = Dispatcher.Spawn();
         CountingResource? created = null;
@@ -499,7 +446,7 @@ public class EngineObjectHelperTests
         {
             using (source
                        .SwitchToEngineVersionedResource<ProbeObject, CountingResource>(
-                           time,
+                           _time,
                            (_, _) => created = new CountingResource(),
                            dispatcher)
                        .Subscribe(h =>
@@ -521,23 +468,16 @@ public class EngineObjectHelperTests
         }
         finally
         {
-            if (!dispatcher.HasShutdownStarted)
-                dispatcher.Shutdown();
-            Assert.That(dispatcher.Thread.Join(TimeSpan.FromSeconds(30)), Is.True);
+            ShutDownAndJoin(dispatcher);
             created?.Dispose();
         }
     }
 
-    // A dispatcher runs a cleanup requested from its own thread inline rather than queueing it, and the lock
-    // the gate hands readers is re-entrant, so a subscriber that disposes its subscription from inside a read
-    // on the owning dispatcher walks straight back into the gate it is already holding. Releasing there frees
-    // the resource the reader above still has in hand - the read goes on running against a disposed resource,
-    // which is exactly what the handle exists to prevent.
+    // On its own thread a dispatcher runs the cleanup inline and the gate's lock is re-entrant, so disposing from
+    // inside a read must defer the release until the read ends rather than free the resource the reader still holds.
     [Test]
     public void Disposing_the_subscription_from_inside_a_read_leaves_the_resource_alive_until_the_read_ends()
     {
-        var probe = new ProbeObject();
-        var time = new BehaviorSubject<TimeSpan>(TimeSpan.Zero);
         using var published = new ManualResetEventSlim();
         using var readFinished = new ManualResetEventSlim();
         Dispatcher dispatcher = Dispatcher.Spawn();
@@ -551,21 +491,12 @@ public class EngineObjectHelperTests
 
         try
         {
-            subscription = probe
+            subscription = _probe
                 .SubscribeEngineVersionedResource<ProbeObject, CountingResource>(
-                    time,
+                    _time,
                     (_, _) => created = new CountingResource(),
                     dispatcher)
-                .Subscribe(h =>
-                {
-                    // Only the dispatcher thread publishes, so a later rebuild cannot race the read below
-                    // for this field.
-                    if (published.IsSet)
-                        return;
-
-                    handle = h;
-                    published.Set();
-                });
+                .Subscribe(CaptureFirst<CountingResource>(published, h => handle = h));
 
             Assert.That(published.Wait(TimeSpan.FromSeconds(30)), Is.True, "no resource was ever published");
 
@@ -603,22 +534,16 @@ public class EngineObjectHelperTests
         finally
         {
             subscription?.Dispose();
-            if (!dispatcher.HasShutdownStarted)
-                dispatcher.Shutdown();
-            Assert.That(dispatcher.Thread.Join(TimeSpan.FromSeconds(30)), Is.True);
+            ShutDownAndJoin(dispatcher);
             created?.Dispose();
         }
     }
 
-    // The control for the case above: off the owning dispatcher the release is queued rather than run inline,
-    // so it reaches the gate as an ordinary contender and blocks on the lock the reader holds. Nothing is
-    // deferred here, and nothing may be disposed early either - which is what pins the fix to the re-entrant
-    // path rather than to releases in general.
+    // The control for the case above: off the dispatcher the release is queued and blocks on the lock the reader holds,
+    // so nothing is deferred or disposed early, which pins the fix to the re-entrant path.
     [Test]
     public void Disposing_the_subscription_off_the_dispatcher_waits_for_the_reader_at_the_gate()
     {
-        var probe = new ProbeObject();
-        var time = new BehaviorSubject<TimeSpan>(TimeSpan.Zero);
         using var published = new ManualResetEventSlim();
         using var disposeReturned = new ManualResetEventSlim();
         Dispatcher dispatcher = Dispatcher.Spawn();
@@ -630,19 +555,12 @@ public class EngineObjectHelperTests
 
         try
         {
-            subscription = probe
+            subscription = _probe
                 .SubscribeEngineVersionedResource<ProbeObject, CountingResource>(
-                    time,
+                    _time,
                     (_, _) => created = new CountingResource(),
                     dispatcher)
-                .Subscribe(h =>
-                {
-                    if (published.IsSet)
-                        return;
-
-                    handle = h;
-                    published.Set();
-                });
+                .Subscribe(CaptureFirst<CountingResource>(published, h => handle = h));
 
             Assert.That(published.Wait(TimeSpan.FromSeconds(30)), Is.True, "no resource was ever published");
 
@@ -679,25 +597,16 @@ public class EngineObjectHelperTests
         finally
         {
             subscription?.Dispose();
-            if (!dispatcher.HasShutdownStarted)
-                dispatcher.Shutdown();
-            Assert.That(dispatcher.Thread.Join(TimeSpan.FromSeconds(30)), Is.True);
+            ShutDownAndJoin(dispatcher);
             created?.Dispose();
         }
     }
 
-    // The deferred release runs from the reader's own stack, long after ReleaseResource's try/catch has
-    // returned, so nothing upstream is left to contain a throwing Dispose. On the render thread that would
-    // unwind the loop - the same hazard A_throwing_resource_dispose_does_not_take_the_render_thread_down
-    // pins on the non-deferred path - and it would strike inside a reader that did nothing wrong.
-    //
-    // Resource.Dispose() sets IsDisposed only after Dispose(true) returns, so a resource whose release threw
-    // stays undisposed. The evidence that the deferred release actually ran is the call count, not the flag.
+    // The deferred release runs from the reader's own stack, past ReleaseResource's try/catch, so a throwing Dispose
+    // must be contained there rather than unwind the render loop inside a reader that did nothing wrong.
     [Test]
     public void A_throwing_dispose_deferred_behind_a_reader_stays_out_of_the_read()
     {
-        var probe = new ProbeObject();
-        var time = new BehaviorSubject<TimeSpan>(TimeSpan.Zero);
         using var published = new ManualResetEventSlim();
         using var readFinished = new ManualResetEventSlim();
         Dispatcher dispatcher = Dispatcher.Spawn();
@@ -709,19 +618,12 @@ public class EngineObjectHelperTests
 
         try
         {
-            subscription = probe
+            subscription = _probe
                 .SubscribeEngineVersionedResource<ProbeObject, ThrowingCountingResource>(
-                    time,
+                    _time,
                     (_, _) => created = new ThrowingCountingResource(),
                     dispatcher)
-                .Subscribe(h =>
-                {
-                    if (published.IsSet)
-                        return;
-
-                    handle = h;
-                    published.Set();
-                });
+                .Subscribe(CaptureFirst<ThrowingCountingResource>(published, h => handle = h));
 
             Assert.That(published.Wait(TimeSpan.FromSeconds(30)), Is.True, "no resource was ever published");
 
@@ -765,11 +667,30 @@ public class EngineObjectHelperTests
         finally
         {
             subscription?.Dispose();
-            if (!dispatcher.HasShutdownStarted)
-                dispatcher.Shutdown();
-            Assert.That(dispatcher.Thread.Join(TimeSpan.FromSeconds(30)), Is.True);
+            ShutDownAndJoin(dispatcher);
         }
     }
+
+    private static void ShutDownAndJoin(Dispatcher dispatcher)
+    {
+        if (!dispatcher.HasShutdownStarted)
+            dispatcher.Shutdown();
+        Assert.That(dispatcher.Thread.Join(TimeSpan.FromSeconds(30)), Is.True);
+    }
+
+    // Keeps only the first handle. Only the dispatcher thread publishes, so a later rebuild's publication cannot
+    // race the test's reads of the captured handle.
+    private static Action<EngineResourceHandle<T>> CaptureFirst<T>(
+        ManualResetEventSlim published, Action<EngineResourceHandle<T>> capture)
+        where T : EngineObject.Resource
+        => h =>
+        {
+            if (published.IsSet)
+                return;
+
+            capture(h);
+            published.Set();
+        };
 
     [SuppressResourceClassGeneration]
     private sealed class ProbeObject : EngineObject;

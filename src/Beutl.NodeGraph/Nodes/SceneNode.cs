@@ -79,6 +79,7 @@ public partial class SceneNode : GraphNode
     {
         private SceneDrawable.Resource? _sceneResource;
 
+        /// <summary>The scene's resource as last updated, for tests.</summary>
         internal SceneDrawable.Resource? SceneResource => _sceneResource;
 
         public override void Update(GraphCompositionContext context)

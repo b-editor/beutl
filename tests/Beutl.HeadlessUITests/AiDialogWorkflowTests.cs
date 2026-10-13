@@ -212,7 +212,7 @@ public sealed partial class AiDialogWorkflowTests
     public void ImageSaveLease_SurvivesResultReplacement()
     {
         var owner = Ref<Bitmap>.Create(new Bitmap(2, 2));
-        using Ref<Bitmap>? saveLease = AiResultImageLease.Acquire(owner);
+        using Ref<Bitmap>? saveLease = owner.TryClone();
 
         owner.Dispose();
 

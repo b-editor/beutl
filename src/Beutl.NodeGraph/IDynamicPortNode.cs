@@ -2,7 +2,6 @@
 
 namespace Beutl.NodeGraph;
 
-//IGroupInputOutputNode
 public interface IDynamicPortNode
 {
     NodePortLocation PossibleLocation { get; }

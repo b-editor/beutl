@@ -55,22 +55,6 @@ public sealed partial class QueryTools(AgentSessionManager sessions) : ToolBase
             new("beutl-agent-source-grounding", "Checking coordinates, units, bounds, and runtime behavior.", "Read the installed SKILL.md; source inspection is optional.")
         ];
 
-    private static IReadOnlyDictionary<string, string> CreateCategoryAliases()
-        => new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["visualEffect"] = "FilterEffect",
-            ["effect"] = "FilterEffect",
-            ["filter"] = "FilterEffect",
-            ["videoEffect"] = "FilterEffect",
-            ["text"] = "TextBlock",
-            ["typography"] = "TextBlock",
-            ["label"] = "TextBlock",
-            ["fill"] = "Brush",
-            ["gradient"] = "Brush",
-            ["stroke"] = "Pen",
-            ["ease"] = "Easing"
-        };
-
     [McpServerTool(Name = "get_started")]
     [Description("Returns the editing API workflow: discover/open, inspect schema and document data, apply edits, render, save, and export. Describes operation semantics only; it does not choose a creative direction or judge whether a video is finished.")]
     public ToolResult<GettingStartedResponse> GetStarted()
@@ -88,7 +72,7 @@ public sealed partial class QueryTools(AgentSessionManager sessions) : ToolBase
                 "export_video writes to the requested path. Successful validation, rendering, saving, or exporting confirms that operation only; the agent evaluates the result against the user's request."
             ],
             CreateRecommendedSkills(),
-            CreateCategoryAliases(),
+            SchemaGenerator.CreateListedCategoryAliases(),
             RawHttpNote));
 
     [McpServerTool(Name = "get_schema")]
@@ -258,16 +242,17 @@ public sealed partial class QueryTools(AgentSessionManager sessions) : ToolBase
     [Description("Materializes an explicitly named reusable composition template into a declarative Beutl JSON Merge Patch. Use only when the user asked for a template/starter or a named composition style.")]
     public ToolResult<RenderCompositionPatchResponse> RenderCompositionPatch(
         string? name = null,
+        // Unused because a name is required; kept so calls that pass it stay valid.
         string? tag = null,
         JsonObject? inputProps = null,
         string? seed = null)
     {
         return Execute(() =>
         {
-            RequireCompositionName(name);
+            CompositionTemplateCatalog.RequireCompositionName(
+                name, "For original creative briefs, author a custom patch for apply_edit.");
             CompositionRender composition = _compositionCatalog.Render(
                 name,
-                tag,
                 inputProps,
                 sessions.ResolveCompositionSeed(seed));
             composition = composition with
@@ -299,20 +284,6 @@ public sealed partial class QueryTools(AgentSessionManager sessions) : ToolBase
         }
 
         return scene;
-    }
-
-    private static void RequireCompositionName(string? name)
-    {
-        if (!string.IsNullOrWhiteSpace(name))
-        {
-            return;
-        }
-
-        throw new ReconcileException(new ToolError(
-            ErrorCode.ValidationRejected,
-            "Composition templates require an explicit template name.",
-            null,
-            "Call list_compositions to inspect options, then pass a returned name only when the user explicitly asked for a reusable template/starter. For original creative briefs, author a custom patch for apply_edit."));
     }
 
     private static IReadOnlyList<DeclarativeExampleSummary> FilterExamples(

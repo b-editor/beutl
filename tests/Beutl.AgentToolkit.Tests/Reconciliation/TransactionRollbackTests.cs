@@ -1,6 +1,5 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
-using Beutl.AgentToolkit.Sessions;
 using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.AgentToolkit.Tools;
 
@@ -13,9 +12,7 @@ public sealed class TransactionRollbackTests
     {
         var root = new ThrowingCoreObject();
         using var session = new AgentToolkitTestSession(root);
-        var manager = new AgentSessionManager();
-        manager.UseSource(new AgentToolkitTestSessionSource(session));
-        var tools = new EditTools(manager);
+        EditTools tools = session.CreateEditTools();
 
         JsonObject patch = new()
         {

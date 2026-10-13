@@ -18,41 +18,28 @@ public static class ThemeNotifier
 
     public static void NotifyApplied(ThemeDescriptor descriptor, ThemeExtension? extension, Color? accent = null)
     {
-        ArgumentNullException.ThrowIfNull(descriptor);
-        if (extension == null)
-        {
-            return;
-        }
-
-        try
-        {
-            extension.OnApplied(new ThemeApplyContext { Descriptor = descriptor, Accent = accent });
-        }
-        catch (Exception ex)
-        {
-            s_logger.LogWarning(ex, "ThemeExtension.OnApplied for '{Id}' threw; continuing.", descriptor.Id);
-        }
+        Notify(descriptor, extension, "ThemeExtension.OnApplied for '{Id}' threw; continuing.",
+            e => e.OnApplied(new ThemeApplyContext { Descriptor = descriptor, Accent = accent }));
     }
 
     public static void NotifyAccentChanged(ThemeDescriptor descriptor, ThemeExtension? extension, Color? accent)
     {
-        ArgumentNullException.ThrowIfNull(descriptor);
-        if (extension == null)
-        {
-            return;
-        }
-
-        try
-        {
-            extension.OnAccentChanged(new ThemeApplyContext { Descriptor = descriptor, Accent = accent });
-        }
-        catch (Exception ex)
-        {
-            s_logger.LogWarning(ex, "ThemeExtension.OnAccentChanged for '{Id}' threw; continuing.", descriptor.Id);
-        }
+        Notify(descriptor, extension, "ThemeExtension.OnAccentChanged for '{Id}' threw; continuing.",
+            e => e.OnAccentChanged(new ThemeApplyContext { Descriptor = descriptor, Accent = accent }));
     }
 
     public static void NotifyReverted(ThemeDescriptor descriptor, ThemeExtension? extension)
+    {
+        Notify(descriptor, extension, "ThemeExtension.OnReverted for '{Id}' threw; continuing.",
+            e => e.OnReverted());
+    }
+
+    // Each caller passes its own message template, keeping one constant template per callback.
+    private static void Notify(
+        ThemeDescriptor descriptor,
+        ThemeExtension? extension,
+        string messageTemplate,
+        Action<ThemeExtension> invoke)
     {
         ArgumentNullException.ThrowIfNull(descriptor);
         if (extension == null)
@@ -62,11 +49,11 @@ public static class ThemeNotifier
 
         try
         {
-            extension.OnReverted();
+            invoke(extension);
         }
         catch (Exception ex)
         {
-            s_logger.LogWarning(ex, "ThemeExtension.OnReverted for '{Id}' threw; continuing.", descriptor.Id);
+            s_logger.LogWarning(ex, messageTemplate, descriptor.Id);
         }
     }
 }

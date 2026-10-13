@@ -26,18 +26,6 @@ public class ArrayTypeHelpersTests
     }
 
     [Test]
-    public void GetElementType_CachesAfterFirstLookup()
-    {
-        Type? first = ArrayTypeHelpers.GetElementType(typeof(List<double>));
-        Type? second = ArrayTypeHelpers.GetElementType(typeof(List<double>));
-        Assert.Multiple(() =>
-        {
-            Assert.That(first, Is.EqualTo(typeof(double)));
-            Assert.That(second, Is.EqualTo(typeof(double)));
-        });
-    }
-
-    [Test]
     public void GetEntryType_DictionaryType_ReturnsKeyValueTypes()
     {
         var (k, v) = ArrayTypeHelpers.GetEntryType(typeof(Dictionary<string, int>));

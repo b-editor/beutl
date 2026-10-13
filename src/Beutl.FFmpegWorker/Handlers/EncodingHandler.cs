@@ -8,16 +8,11 @@ using Beutl.Media;
 
 namespace Beutl.FFmpegWorker.Handlers;
 
-internal sealed class EncodingHandler : IDisposable
+internal sealed class EncodingHandler
 {
-    private CancellationTokenSource? _encodeCts;
-
     public async Task<IpcMessage> HandleStartAsync(IpcMessage msg, IpcConnection connection, CancellationToken ct)
     {
         var request = msg.RequirePayload<EncodeStartRequest>(MessageType.StartEncode);
-
-        _encodeCts?.Dispose();
-        _encodeCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
 
         try
         {
@@ -61,7 +56,7 @@ internal sealed class EncodingHandler : IDisposable
             using var sampleProvider = new IpcSampleProvider(connection, audioBuffers,
                 request.SampleCount, request.ProviderSampleRate);
 
-            await controller.Encode(frameProvider, sampleProvider, _encodeCts.Token);
+            await controller.Encode(frameProvider, sampleProvider, ct);
 
             return IpcMessage.Create(msg.Id, MessageType.EncodeComplete,
                 new EncodeCompleteMessage { Success = true });
@@ -129,15 +124,11 @@ internal sealed class EncodingHandler : IDisposable
             : new CodecRecord(codecName, codecName);
     }
 
+    // StartEncode is handled sequentially, so this runs only after an encode has ended. A CancelEncode sent
+    // during an encode is read by IpcConnection.SendAndReceiveAsync in place of a frame or sample reply.
     public IpcMessage HandleCancel(IpcMessage msg)
     {
-        _encodeCts?.Cancel();
         return IpcMessage.Create(msg.Id, MessageType.EncodeComplete,
             new EncodeCompleteMessage { Success = false, Error = "Cancelled" });
-    }
-
-    public void Dispose()
-    {
-        _encodeCts?.Dispose();
     }
 }

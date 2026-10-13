@@ -17,8 +17,9 @@
              x:CompileBindings="True"
              x:DataType="viewModels:AiWorkspaceViewModel"
              mc:Ignorable="d">
-    <!-- Avalonia.Native 12.1.2 aborts on an empty macOS live-region announcement.
-         SafeLiveRegionTextBlock preserves nonempty announcements. -->
+    <UserControl.Styles>
+        <StyleInclude Source="/Views/Tools/AiFileDropStyles.axaml" />
+    </UserControl.Styles>
     <UserControl.DataTemplates>
         <DataTemplate DataType="dialogs:AiImageGenerationDialogViewModel">
             <tools:AiImageGenerationView />
@@ -73,10 +74,7 @@
                         Content="{CompiledBinding ActiveContent.Value}"
                         IsVisible="{CompiledBinding !IsGateOpen.Value}" />
 
-        <!--  Signed out or without a plan there is nothing to run yet, so the
-              content reads like the browser's blank page or an untracked
-              project: one centered panel instead of a disabled form. The
-              section strip stays so pages remain reachable.  -->
+        <!--  Signed out or without a plan, one centered panel replaces the disabled form; the section strip stays.  -->
         <ScrollViewer Grid.Row="1"
                       HorizontalContentAlignment="Stretch"
                       Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
@@ -85,8 +83,7 @@
             <Border x:Name="AiGatePanel"
                     Margin="24"
                     Padding="8,24"
-                    VerticalAlignment="Center"
-                    IsVisible="{CompiledBinding IsGateOpen.Value}">
+                    VerticalAlignment="Center">
                 <StackPanel MaxWidth="320"
                             HorizontalAlignment="Center"
                             Spacing="24">

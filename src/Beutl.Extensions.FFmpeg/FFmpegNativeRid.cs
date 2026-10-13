@@ -9,12 +9,8 @@ namespace Beutl.Extensions.FFmpeg;
 /// system ones.
 /// </summary>
 /// <remarks>
-/// <see cref="System.Environment.Is64BitProcess"/> cannot distinguish x64 from arm64 — both are
-/// 64-bit — so an arm64 process would otherwise probe the <c>win-x64</c> or
-/// <c>x86_64-linux-gnu</c> folder and fail to find or load the native libraries
-/// (<see cref="System.BadImageFormatException"/>). Selecting on
-/// <see cref="RuntimeInformation.ProcessArchitecture"/> keeps each architecture pointed at its
-/// own native folder.
+/// <see cref="System.Environment.Is64BitProcess"/> cannot tell x64 from arm64, so this selects on
+/// <see cref="RuntimeInformation.ProcessArchitecture"/>.
 /// </remarks>
 internal static class FFmpegNativeRid
 {

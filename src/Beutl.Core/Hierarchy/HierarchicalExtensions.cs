@@ -26,14 +26,7 @@ public static class HierarchicalExtensions
                 obj = obj.HierarchicalParent;
             }
 
-            if (obj is T result)
-            {
-                return result;
-            }
-            else
-            {
-                return default;
-            }
+            return (T)obj;
         }
         catch
         {

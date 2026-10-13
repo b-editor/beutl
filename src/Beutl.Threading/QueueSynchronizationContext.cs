@@ -8,13 +8,11 @@ internal sealed class QueueSynchronizationContext(Dispatcher dispatcher, TimePro
     private readonly OperationQueue _operationQueue = new();
     private readonly TimerQueue _timerQueue = new(timeProvider);
 
-    // Written by Shutdown() outside the lock, read unlocked elsewhere; volatile stops a stale read
-    // that misses a shutdown on weak-memory architectures.
+    // _running and the shutdown flags below are written on one thread and read on others without the lock;
+    // volatile stops a stale read that misses a shutdown on weak-memory architectures.
     private volatile bool _running;
     private CancellationTokenSource? _waitToken;
 
-    // Volatile for the same reason as _running: written on one thread, read cross-thread through the
-    // public getters with no lock.
     private volatile bool _hasShutdownFinished;
     private volatile bool _hasShutdownStarted;
 
@@ -32,9 +30,8 @@ internal sealed class QueueSynchronizationContext(Dispatcher dispatcher, TimePro
     {
         lock (this)
         {
-            // Shutdown() can win the race with this thread reaching Start(). Setting _running back to
-            // true would restart the loop it stopped, and nothing would stop it a second time: the
-            // dispatcher would run forever and never raise ShutdownFinished.
+            // Shutdown() can run before this thread gets here; setting _running back to true would restart a
+            // stopped loop that nothing stops again, so the dispatcher would never raise ShutdownFinished.
             if (!HasShutdownStarted)
                 _running = true;
         }

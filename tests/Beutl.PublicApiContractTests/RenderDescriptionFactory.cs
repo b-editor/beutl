@@ -17,8 +17,6 @@ internal static class RenderDescriptionFactory
         RenderHitTestContract hitTest,
         RenderValueCardinality valueCardinality,
         RenderScaleContract scale,
-        RenderDeviceGridSensitivity deviceGridSensitivity = RenderDeviceGridSensitivity.PhaseDependent,
-        IEnumerable<RenderInputReadback>? inputReadbacks = null,
         IReadOnlyList<RenderResourceBinding>? resources = null,
         RenderInputDemandContract inputDemand = default)
     {
@@ -29,28 +27,22 @@ internal static class RenderDescriptionFactory
             hitTest,
             valueCardinality,
             scale,
-            deviceGridSensitivity,
-            inputReadbacks,
-            resources,
-            inputDemand);
+            resources: resources,
+            inputDemand: inputDemand);
     }
 
     public static GeometryDescription Geometry(
         Action<GeometrySession> render,
         RenderBoundsContract bounds,
         RenderHitTestContract hitTest,
-        bool requiresReadback = false,
-        RenderInputDemandContract inputDemand = default,
-        IReadOnlyList<RenderResourceBinding>? resources = null)
+        bool requiresReadback = false)
     {
         return GeometryDescription.Create(
             render,
             static (session, action) => action(session),
             bounds,
             hitTest,
-            requiresReadback,
-            inputDemand,
-            resources);
+            requiresReadback);
     }
 
     public static TargetScopeDescription TargetScope(
@@ -59,9 +51,7 @@ internal static class RenderDescriptionFactory
         RenderHitTestContract hitTest,
         RenderScaleContract scale,
         RenderDeviceGridSensitivity deviceGridSensitivity = RenderDeviceGridSensitivity.PhaseDependent,
-        RenderDeviceGridMapping deviceGridMapping = RenderDeviceGridMapping.Remapped,
-        RenderScopeTransformSpace transformSpace = RenderScopeTransformSpace.AmbientTarget,
-        IReadOnlyList<RenderResourceBinding>? resources = null)
+        RenderDeviceGridMapping deviceGridMapping = RenderDeviceGridMapping.Remapped)
     {
         return TargetScopeDescription.Create(
             execute,
@@ -70,9 +60,7 @@ internal static class RenderDescriptionFactory
             hitTest,
             scale,
             deviceGridSensitivity,
-            deviceGridMapping,
-            transformSpace,
-            resources);
+            deviceGridMapping);
     }
 
     public static TargetCommandDescription TargetCommand(
@@ -80,10 +68,7 @@ internal static class RenderDescriptionFactory
         TargetRegion affectedRegion,
         Rect queryBounds,
         RenderHitTestContract hitTest,
-        TargetAccess access = TargetAccess.ReadWrite,
-        IEnumerable<RenderInputReadback>? inputReadbacks = null,
-        IReadOnlyList<RenderResourceBinding>? resources = null,
-        RenderInputDemandContract inputDemand = default)
+        TargetAccess access = TargetAccess.ReadWrite)
     {
         return TargetCommandDescription.Create(
             execute,
@@ -91,9 +76,6 @@ internal static class RenderDescriptionFactory
             affectedRegion,
             queryBounds,
             hitTest,
-            access,
-            inputReadbacks,
-            resources,
-            inputDemand);
+            access);
     }
 }

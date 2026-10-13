@@ -20,27 +20,20 @@
 
         <!-- TeachingTip コンテンツ（吹き出し） -->
         <Border x:Name="TipContainer"
+                Classes="OverlayCard"
                 MaxWidth="400"
                 Padding="16"
                 HorizontalAlignment="Center"
                 VerticalAlignment="Center"
-                Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
-                BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
-                BorderThickness="1"
-                CornerRadius="{DynamicResource OverlayCornerRadius}"
-                IsHitTestVisible="True"
-                BoxShadow="0 8 32 0 #40000000">
+                IsHitTestVisible="True">
             <StackPanel Spacing="12">
-                <!-- タイトル -->
                 <TextBlock x:Name="TipTitle"
                            FontWeight="SemiBold"
                            Theme="{StaticResource SubtitleTextBlockStyle}" />
 
-                <!-- コンテンツ -->
                 <TextBlock x:Name="TipContent"
                            TextWrapping="Wrap" />
 
-                <!-- ステップカウンター + ナビゲーション -->
                 <Grid ColumnDefinitions="*,Auto">
                     <TextBlock x:Name="StepCounter"
                                VerticalAlignment="Center"
@@ -49,8 +42,7 @@
                     <StackPanel Grid.Column="1"
                                 Orientation="Horizontal"
                                 Spacing="8">
-                        <Button x:Name="SkipButton"
-                                Click="OnSkipClick"
+                        <Button Click="OnSkipClick"
                                 Content="{x:Static lang:TutorialStrings.TutorialSkip}"
                                 Theme="{StaticResource TransparentButton}" />
                         <Button x:Name="PreviousButton"

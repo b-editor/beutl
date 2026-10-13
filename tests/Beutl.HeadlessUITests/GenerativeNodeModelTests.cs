@@ -499,7 +499,7 @@ public sealed class GenerativeNodeModelTests
         var scene = new Scene(640, 480, "nodes") { Uri = new Uri(Path.Combine(_directory, "scene.scene")) };
         return new AiGenerativeNodeExecutor(
             scene, models, new CapturingImages(), new AlwaysAvailable(), new ClipContent(),
-            videos: videos, jobKinds: kinds.Object)
+            Moq.Mock.Of<IGenerativePromptLibrary>(), Moq.Mock.Of<IAiImageEditingService>(), videos, kinds.Object)
         {
             PollInterval = TimeSpan.Zero,
             VideoDurationReader = _ => sourceSeconds,
@@ -589,8 +589,10 @@ public sealed class GenerativeNodeModelTests
             images,
             new AlwaysAvailable(),
             new PngContent(),
-            library,
-            editing);
+            library ?? Moq.Mock.Of<IGenerativePromptLibrary>(),
+            editing ?? Moq.Mock.Of<IAiImageEditingService>(),
+            Moq.Mock.Of<IAiVideoService>(),
+            Moq.Mock.Of<IAiJobKindRegistry>());
     }
 
     private static AiGenerativeModelCatalog CreateCatalog()
@@ -655,9 +657,6 @@ public sealed class GenerativeNodeModelTests
         IReadOnlyList<PromptTemplate> templates,
         IReadOnlyList<PromptHistoryEntry> history) : IPromptLibrary
     {
-        public string StoragePath => string.Empty;
-        public bool RetainRecentPromptText => true;
-        public string? RecoveredCorruptFilePath => null;
         public IReadOnlyList<PromptHistoryEntry> History => history;
         public IReadOnlyList<PromptTemplate> Templates => templates;
         public PromptHistoryEntry Record(PromptTaskKind taskKind, string prompt) => throw new NotSupportedException();
@@ -667,8 +666,6 @@ public sealed class GenerativeNodeModelTests
         public bool DeleteHistory(Guid id) => false;
         public bool DeleteTemplate(Guid id) => false;
         public void ClearHistory() { }
-        public void ClearTemplates() { }
-        public void ClearAll() { }
     }
 
     private sealed class StubEntitlements : IAiEntitlementService

@@ -411,10 +411,7 @@ public sealed partial class MetadataCallbackPurityAnalyzer
         {
             switch (declaration.GetSyntax(context.CancellationToken))
             {
-                // An operator and a conversion are declared by their own node kinds rather than as methods,
-                // and their bodies are as much a body as any. A constructor is a base method declaration too
-                // and never arrives here: it is followed through GetConstructorBodies, which reads the
-                // initialisers this would miss.
+                // An operator and a conversion are declared by their own node kinds, and their bodies count too.
                 case BaseMethodDeclarationSyntax { Body: { } block }:
                     return block;
 
@@ -427,10 +424,7 @@ public sealed partial class MetadataCallbackPurityAnalyzer
                 case LocalFunctionStatementSyntax { ExpressionBody.Expression: { } expression }:
                     return expression;
 
-                // An accessor is a body too. An expression-bodied property declares its getter as the arrow
-                // clause itself rather than as an accessor, and an auto-property's accessor has no body at
-                // all - which is the no-source answer, and the right one: what such a getter hands back was
-                // put there by a constructor or an initialiser, which the constructor walk reads.
+                // An expression-bodied property's getter is the arrow clause; an auto-property's has no body.
                 case AccessorDeclarationSyntax { Body: { } block }:
                     return block;
 

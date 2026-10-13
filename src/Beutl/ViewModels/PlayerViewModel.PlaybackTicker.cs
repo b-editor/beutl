@@ -170,7 +170,7 @@ public partial class PlayerViewModel
                 }
 
                 bool dequeued = false;
-                while (_playerImpl.TryDequeue(out IPlayer.Frame frame))
+                while (_playerImpl.TryDequeue(out BufferedPlayer.Frame frame))
                 {
                     dequeued = true;
                     using (frame.Bitmap)

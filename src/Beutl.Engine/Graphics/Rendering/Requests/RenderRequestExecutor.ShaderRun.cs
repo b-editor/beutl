@@ -231,8 +231,6 @@ internal sealed partial class RenderRequestExecutor
             }
             finally
             {
-                // Reverse index walk: the LINQ form buffers the whole list before yielding, and this runs
-                // in a per-frame teardown path.
                 for (int index = children.Count - 1; index >= 0; index--)
                     children[index].Dispose();
             }

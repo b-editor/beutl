@@ -7,12 +7,11 @@ import json
 import struct
 from pathlib import Path
 
-from patches import patch_hashes
+from patches import RIDS, library_name, patch_hashes
 
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
-RIDS = ("linux-x64", "linux-arm64", "win-x64", "win-arm64", "osx")
 REQUIRED_EXPORTS = {
     b"gr_beutl_backendtexture_get_vk_image_layout",
     b"gr_beutl_backendtexture_set_vk_image_layout",
@@ -27,12 +26,6 @@ def required_exports(rid):
 
 # Mach-O CPU types of the slices the universal macOS runtime must carry.
 MACHO_SLICES = {0x0100000C: "arm64", 0x01000007: "x86_64"}
-
-
-def library_name(rid):
-    if rid == "osx":
-        return "libSkiaSharp.dylib"
-    return "libSkiaSharp.so" if rid.startswith("linux-") else "libSkiaSharp.dll"
 
 
 def unpack(data, layout, offset):

@@ -149,7 +149,7 @@ public class CircularBufferTests
         buf.PushBack(1);
         buf.PushBack(2);
         buf.PushBack(3);
-        buf.PushBack(4); // wraps; expected [2, 3, 4]
+        buf.PushBack(4);
         Assert.That(buf.ToList(), Is.EqualTo(new[] { 2, 3, 4 }));
     }
 
@@ -160,7 +160,7 @@ public class CircularBufferTests
         buf.PushBack(1);
         buf.PushBack(2);
         buf.PushBack(3);
-        buf.PushBack(4); // wraps internally
+        buf.PushBack(4);
 
         IList<ArraySegment<int>> segs = buf.ToArraySegments();
         Assert.That(segs, Has.Count.EqualTo(2));

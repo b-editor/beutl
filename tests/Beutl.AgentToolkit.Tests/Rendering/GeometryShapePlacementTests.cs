@@ -1,4 +1,5 @@
 ﻿using Beutl.AgentToolkit.Rendering;
+using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
@@ -16,8 +17,7 @@ public sealed class GeometryShapePlacementTests
     [TestCase(30f, 20f)]
     public async Task Drawn_center_is_alignment_center_plus_path_bounds_origin(float originX, float originY)
     {
-        string dir = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        string dir = TestWorkspace.CreateDirectory();
         var scene = new Scene(320, 180, "Scene") { Uri = new Uri(Path.Combine(dir, "Scene.scene")) };
         var element = new Element
         {

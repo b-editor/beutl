@@ -314,11 +314,6 @@ internal sealed partial class RegionAnalyzer
     private static ImmutableArray<RequiredRegion> FullInputs(RenderFragmentReference reference)
         => RepeatInputs(RequiredRegion.Full, reference.Inputs.Length);
 
-    /// <summary>Builds one requirement per input, all the same.</summary>
-    /// <remarks>
-    /// The propagation loop calls this once per fragment per pass and runs at least twice, so filling a
-    /// sized builder is preferred to the iterator <c>Repeat</c> would allocate for the range to walk.
-    /// </remarks>
     private static ImmutableArray<RequiredRegion> RepeatInputs(RequiredRegion region, int count)
     {
         if (count == 0)
@@ -378,17 +373,10 @@ internal sealed partial class RegionAnalyzer
     }
 
     private static Rect ResolveTargetRegion(TargetRegion region, Rect? targetDomain)
-    {
-        return region.Kind switch
-        {
-            TargetRegionKind.Empty => Rect.Empty,
-            TargetRegionKind.Region => region.Value,
-            TargetRegionKind.Full when targetDomain is { } domain => domain,
-            TargetRegionKind.Full => throw new RenderTargetDomainRequiredException(
-                "A target-less request with Full target access requires a finite TargetDomain."),
-            _ => throw new InvalidOperationException("The target region is uninitialized."),
-        };
-    }
+        => region.TryResolve(targetDomain, out Rect resolved)
+            ? resolved
+            : throw new RenderTargetDomainRequiredException(
+                "A target-less request with Full target access requires a finite TargetDomain.");
 
     private static bool UnionRequirement(
         Dictionary<RenderFragmentReference, RequiredRegion> requirements,

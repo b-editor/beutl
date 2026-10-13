@@ -16,19 +16,15 @@ namespace Beutl.UnitTests.ProjectSystem;
 // Opens a project that Beutl 1.1.0 saved, the way the app opens a project, and compares what 2.x makes of
 // it with Assets/V1ProjectFixture.approved.txt: the objects each element migrates to and their values that
 // differ from a new object of the same type, the 1.1.0 values 2.x does not read, which elements recovery
-// keeps read-only, and the notices shown on open. When the result changes, the test writes it to
-// V1ProjectFixture.received.txt in its output folder; if the change is intended, copy that over the
-// approved file.
+// keeps read-only, and the notices shown on open. A failure says where it wrote the result and how to approve it.
 //
 // Assets/V1Project holds the files exactly as v1.1.0 wrote them. A throwaway program built against the
 // v1.1.0 tag produced them: it followed that version's ProjectService.CreateProject and
 // EditViewModel.AddElement and saved with its own serializer. There is one element per operator type
 // v1.1.0 offers (EllipseOperator, RectOperator, RoundedRectOperator, GeometryOperator, TextBlockOperator,
-// SourceVideoOperator, SourceImageOperator, SourceBackdropOperator, SourceSoundOperator, DecorateOperator,
-// GroupOperator and TakeAfterOperator) and one element drawn by its node tree. The media paths point to
-// files that are not shipped. The other ElementMigration keys (the 3D, particle, time controller and
-// sound group operators) only existed in builds of main between v1.1.0 and v2.0.0-preview.1, so no 1.1.0
-// file holds them.
+// SourceVideoOperator, SourceImageOperator, SourceBackdropOperator, SourceSoundOperator, DecorateOperator
+// and GroupOperator), with the TakeAfterOperator that DecorateOperator and GroupOperator need, and one
+// element drawn by its node tree. The media paths point to files that are not shipped.
 [TestFixture]
 public class V1ProjectFixtureTests
 {

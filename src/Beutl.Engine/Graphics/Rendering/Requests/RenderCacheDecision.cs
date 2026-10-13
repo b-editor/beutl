@@ -3,10 +3,8 @@
 internal readonly record struct RenderCacheDecision(
     RenderCacheCandidate Candidate,
     RenderCacheResolutionKind Kind,
-    RenderCacheBypassReason BypassReason,
     RenderOutputCacheIdentity? MissIdentity,
-    RenderCacheEntry? HitEntry,
-    RenderCacheCandidateId SupersededBy = default)
+    RenderCacheEntry? HitEntry)
 {
     public RenderOutputCacheIdentity? Identity => HitEntry?.Identity ?? MissIdentity;
 }

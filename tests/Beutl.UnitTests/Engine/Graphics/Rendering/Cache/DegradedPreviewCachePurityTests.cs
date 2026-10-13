@@ -5,8 +5,6 @@ using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
 using Beutl.Media.Source;
-using Beutl.Serialization;
-using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Cache;
 
@@ -197,12 +195,8 @@ public sealed class DegradedPreviewCachePurityTests
 
     private static Brush CreateTileBrush()
     {
-        using var bitmap = new Bitmap(4, 4);
-        using var stream = new MemoryStream();
-        bitmap.Save(stream, EncodedImageFormat.Png);
-
         var source = new ImageSource();
-        source.ReadFrom(UriHelper.CreateBase64DataUri("image/png", stream.ToArray()));
+        source.ReadFrom(TestMediaHelper.CreateTestImageUri(4, 4));
         var brush = new ImageBrush(source);
         brush.Stretch.CurrentValue = Stretch.Fill;
         brush.TileMode.CurrentValue = TileMode.None;
@@ -220,12 +214,6 @@ public sealed class DegradedPreviewCachePurityTests
             bitmap.Dispose();
             return true;
         }
-
-        void IBuiltInBackdropCaptureSink.CommitBackdropCapture(Bitmap bitmap, float density)
-        {
-            Commits++;
-            bitmap.Dispose();
-        }
     }
 
     private sealed class ThrowingBackdropSinkProbeNode(InvalidOperationException primaryFailure)
@@ -238,9 +226,6 @@ public sealed class DegradedPreviewCachePurityTests
             ReceivedBitmap = bitmap;
             throw primaryFailure;
         }
-
-        void IBuiltInBackdropCaptureSink.CommitBackdropCapture(Bitmap bitmap, float density)
-            => throw new AssertionException("The renderer must use the non-throwing publication contract.");
     }
 
     [Test]
@@ -410,15 +395,4 @@ public sealed class DegradedPreviewCachePurityTests
             return new CpuRenderTarget(allocation.DeviceSize.Width, allocation.DeviceSize.Height);
         }
     }
-
-    private sealed class CpuRenderTarget(int width, int height)
-        : RenderTarget(
-            SKSurface.Create(new SKImageInfo(
-                width,
-                height,
-                SKColorType.RgbaF16,
-                SKAlphaType.Premul,
-                SKColorSpace.CreateSrgbLinear())),
-            width,
-            height);
 }

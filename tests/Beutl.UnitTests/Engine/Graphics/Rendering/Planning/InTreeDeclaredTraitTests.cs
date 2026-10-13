@@ -76,8 +76,9 @@ public sealed class InTreeDeclaredTraitTests
         text.Cache.RecordStableRequests();
         transform.AddChild(text);
 
-        Assert.That(ResolveSingleCacheDecision(transform).BypassReason, Is.EqualTo(
-            expectBypass ? RenderCacheBypassReason.DeviceGridDependentOutput : RenderCacheBypassReason.None));
+        Assert.That(
+            ResolveSingleCacheDecision(transform).Kind == RenderCacheResolutionKind.Bypass,
+            Is.EqualTo(expectBypass));
     }
 
     [Test]
@@ -118,8 +119,9 @@ public sealed class InTreeDeclaredTraitTests
             transformOperator);
         transform.AddChild(source);
 
-        Assert.That(ResolveSingleCacheDecision(transform).BypassReason, Is.EqualTo(
-            expectBypass ? RenderCacheBypassReason.DeviceGridDependentOutput : RenderCacheBypassReason.None));
+        Assert.That(
+            ResolveSingleCacheDecision(transform).Kind == RenderCacheResolutionKind.Bypass,
+            Is.EqualTo(expectBypass));
     }
 
     [Test]

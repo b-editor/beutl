@@ -17,8 +17,6 @@ internal readonly record struct ReplayedHitTestRead(
 /// <summary>Builds the reusable form of a recording, and reports what cannot take one.</summary>
 internal static class RenderNodeRecordingCache
 {
-    public const string ProcessRole = "RenderNode.Process";
-
     /// <summary>Captures one node recording for reuse, or returns a refused snapshot.</summary>
     /// <remarks>
     /// Recordings that retain request-scoped resources, nested requests, backdrop bindings, driven-node work,
@@ -81,7 +79,6 @@ internal static class RenderNodeRecordingCache
             fragments[index] = new ReplayedRenderFragment(
                 reference.CloneForReplay([]),
                 entry.Origin,
-                entry.Role,
                 inputSlots);
             slots[reference] = index;
         }
@@ -128,16 +125,9 @@ internal static class RenderNodeRecordingCache
         => new(key, inputFingerprints, inputIdentities, hitTestReads, null, null, null);
 
     /// <summary>
-    /// States each hit test the recording read over an input slot, or reports one that cannot be asked again.
+    /// Rebases each hit-test read onto an input slot. A read of the recording's own fragment is dropped when its
+    /// cone stays inside the recording; any other read refuses the snapshot.
     /// </summary>
-    /// <remarks>
-    /// A read of a declared input is kept, and asking it again over the inputs a later request offers is what
-    /// decides whether the recording still stands. A read of a fragment this recording made itself is dropped
-    /// when nothing in that fragment's input cone leaves the recording: replay rebuilds such a fragment from
-    /// the retained templates alone, so it answers what it answered. Anything else - a fragment reached from
-    /// outside this recording, or one of its own whose cone reaches a declared input - has an answer that only
-    /// a fresh recording can settle.
-    /// </remarks>
     private static bool TryRebaseHitTestReads(
         IReadOnlyList<RecordedHitTestRead> reads,
         IReadOnlyList<RenderFragmentReference> inputs,

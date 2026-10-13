@@ -3,8 +3,6 @@ using Beutl.Editor.Components.FileBrowserTab.Services;
 
 namespace Beutl.Editor.Components.FileBrowserTab.ViewModels;
 
-// ディレクトリ内のファイル/フォルダを列挙するユーティリティ。
-// 隠しファイルを除外し、ディレクトリ優先・名前順でソートする。
 internal static class FileSystemEnumerator
 {
     internal static bool IsVisible(FileSystemInfo entry)
@@ -18,8 +16,6 @@ internal static class FileSystemEnumerator
             .Where(IsVisible).Select(entry => (entry.Name, entry is DirectoryInfo)));
     }
 
-    // 指定ディレクトリ内のアイテムをViewModelとして列挙する。
-    // ディレクトリが先、ファイルが後。隠しファイルは除外。名前順ソート。
     public static IEnumerable<FileSystemItemViewModel> EnumerateDirectory(string path)
     {
         var dirInfo = new DirectoryInfo(path);
@@ -51,7 +47,6 @@ internal static class FileSystemEnumerator
         collection.Clear();
     }
 
-    // コレクションをクリアして指定ディレクトリの内容で再構築する。
     public static void PopulateCollection(ObservableCollection<FileSystemItemViewModel> collection, string path)
     {
         DisposeAndClear(collection);

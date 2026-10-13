@@ -1,5 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 
+using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TerminalTab;
 using Beutl.Editor.Components.TerminalTab.ViewModels;
 using Beutl.Language;
@@ -127,7 +128,7 @@ public class TerminalTabViewModelTests
         var editorContext = new TestEditorContext(scene);
         editorContext.AddService(scene);
 
-        string? result = TerminalTabViewModel.ResolveWorkingDirectory(editorContext);
+        string? result = EditorContextDirectories.GetProjectOrSceneDirectory(editorContext);
 
         Assert.That(result, Is.EqualTo(projectDir));
     }
@@ -143,7 +144,7 @@ public class TerminalTabViewModelTests
         var editorContext = new TestEditorContext(scene);
         editorContext.AddService(scene);
 
-        string? result = TerminalTabViewModel.ResolveWorkingDirectory(editorContext);
+        string? result = EditorContextDirectories.GetProjectOrSceneDirectory(editorContext);
 
         Assert.That(result, Is.EqualTo(sceneDir));
     }
@@ -154,7 +155,7 @@ public class TerminalTabViewModelTests
         var scene = new Scene(640, 480, string.Empty);
         var editorContext = new TestEditorContext(scene);
 
-        string? result = TerminalTabViewModel.ResolveWorkingDirectory(editorContext);
+        string? result = EditorContextDirectories.GetProjectOrSceneDirectory(editorContext);
 
         Assert.That(result, Is.Null);
     }

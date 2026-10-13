@@ -34,7 +34,7 @@ public sealed class CapturedResourceBorrowContractTests
     public void BorrowedResource_IsBoundByItsTypedSlotWithoutAnAuthorIdentity()
     {
         var payload = new BorrowedPayload();
-        using var node = new DelegateSourceNode(context =>
+        using var node = new DelegateNode(context =>
         {
             RenderResource<BorrowedPayload> token = context.Borrow(payload);
             context.Publish(context.OpaqueSource(PayloadSource(s_payloadSlot.Bind(token))));
@@ -55,11 +55,6 @@ public sealed class CapturedResourceBorrowContractTests
             Assert.That(rasterization.IsEmpty, Is.False);
             Assert.That(payload.Uses, Is.EqualTo(1));
         });
-    }
-
-    private sealed class DelegateSourceNode(Action<RenderNodeContext> process) : RenderNode
-    {
-        public override void Process(RenderNodeContext context) => process(context);
     }
 
     private sealed class BorrowedPayload

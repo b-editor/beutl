@@ -11,22 +11,13 @@ public class ActionViewModel
     public ActionViewModel(ChangesModel changesModel, PackageChangeModel model)
     {
         Model = model;
-        if (model.Action == PackageChangeAction.Install)
+        Title = model.Action switch
         {
-            Title = $"{Strings.Install} ({changesModel.InstallItems.IndexOf(model) + 1}/{changesModel.InstallItems.Count})";
-        }
-        else if (model.Action == PackageChangeAction.Uninstall)
-        {
-            Title = $"{Strings.Uninstall} ({changesModel.UninstallItems.IndexOf(model) + 1}/{changesModel.UninstallItems.Count})";
-        }
-        else if (model.Action == PackageChangeAction.Update)
-        {
-            Title = $"{Strings.Update} ({changesModel.UpdateItems.IndexOf(model) + 1}/{changesModel.UpdateItems.Count})";
-        }
-        else
-        {
-            Title = "";
-        }
+            PackageChangeAction.Install => $"{Strings.Install} ({changesModel.InstallItems.IndexOf(model) + 1}/{changesModel.InstallItems.Count})",
+            PackageChangeAction.Uninstall => $"{Strings.Uninstall} ({changesModel.UninstallItems.IndexOf(model) + 1}/{changesModel.UninstallItems.Count})",
+            PackageChangeAction.Update => $"{Strings.Update} ({changesModel.UpdateItems.IndexOf(model) + 1}/{changesModel.UpdateItems.Count})",
+            _ => throw new ArgumentOutOfRangeException(nameof(model), model.Action, null),
+        };
 
         Finished = Succeeded.CombineLatest(Failed, Canceled)
             .Select(t => t.First || t.Second || t.Third)

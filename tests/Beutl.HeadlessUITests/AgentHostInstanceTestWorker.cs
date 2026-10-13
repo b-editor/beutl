@@ -29,7 +29,7 @@ internal static class AgentHostInstanceTestWorker
                 Scene scene = project.Items.OfType<Scene>().Single();
                 TestShell.Editor.ActivateTabItem(scene);
                 await using var endpoint = new AgentHostEndpoint(
-                    TestShell.Project, TestShell.Editor, preferredPort, Token, registryDirectory: directory);
+                    TestShell.Project, TestShell.Editor, UnavailableAgentAiBackend.Instance, preferredPort, Token, registryDirectory: directory);
                 await endpoint.StartAsync();
                 Console.WriteLine(ReadyPrefix + JsonSerializer.Serialize(new
                 {

@@ -53,10 +53,6 @@ public partial class PlayerView
 
         void OnReleased(PointerReleasedEventArgs e);
 
-        void OnWheelChanged(PointerWheelEventArgs e)
-        {
-        }
-
         void OnKeyDown(KeyEventArgs e)
         {
         }
@@ -80,8 +76,6 @@ public partial class PlayerView
         public required PlayerViewModel ViewModel { get; init; }
 
         private Player Player => View.Player;
-
-        public void OnWheelChanged(PointerWheelEventArgs e) => View.ZoomFrameAtPointer(e, ViewModel);
 
         public void OnMoved(PointerEventArgs e)
         {
@@ -206,7 +200,11 @@ public partial class PlayerView
                 e.Handled = true;
                 return;
             }
-            CreateMouseHandler(viewModel).OnWheelChanged(e);
+
+            if (viewModel.IsHandMode.Value)
+                ZoomFrameAtPointer(e, viewModel);
+            else if (viewModel.IsCameraMode.Value)
+                CreateCameraHandler(viewModel).OnWheelChanged(e);
         }
     }
 
@@ -250,30 +248,29 @@ public partial class PlayerView
 
     private IMouseControlHandler CreateMouseHandler(PlayerViewModel viewModel)
     {
-        if (viewModel.IsMoveMode.Value)
-        {
-            // Move-mode pointer-down is handled directly in OnFramePointerPressed; this path only
-            // serves wheel events, where a no-op handler is fine.
-            return CreateTransformHandlesHandler(viewModel, TransformHandlesOverlay.HandleKind.None);
-        }
-        else if (viewModel.IsHandMode.Value)
+        if (viewModel.IsHandMode.Value)
         {
             return new MouseControlHand { ViewModel = viewModel, View = this };
         }
         else if (viewModel.IsCameraMode.Value)
         {
-            return new MouseControl3DCamera
-            {
-                ViewModel = viewModel,
-                Clock = viewModel.EditViewModel.GetRequiredService<IEditorClock>(),
-                EditorSelection = viewModel.EditViewModel.GetRequiredService<IEditorSelection>(),
-                View = this
-            };
+            return CreateCameraHandler(viewModel);
         }
         else
         {
             return new MouseControlCrop { ViewModel = viewModel, View = this };
         }
+    }
+
+    private MouseControl3DCamera CreateCameraHandler(PlayerViewModel viewModel)
+    {
+        return new MouseControl3DCamera
+        {
+            ViewModel = viewModel,
+            Clock = viewModel.EditViewModel.GetRequiredService<IEditorClock>(),
+            EditorSelection = viewModel.EditViewModel.GetRequiredService<IEditorSelection>(),
+            View = this
+        };
     }
 
     private MouseControlTransformHandles CreateTransformHandlesHandler(

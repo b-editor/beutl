@@ -33,7 +33,6 @@ public sealed partial class RoundedRectShape : Shape
     public partial class Resource
     {
         private readonly RoundedRectGeometry _geometry = new();
-        private RoundedRectGeometry.Resource? _geometryResource;
 
         partial void PostReconcile(RoundedRectShape obj, CompositionContext context)
         {
@@ -42,21 +41,9 @@ public sealed partial class RoundedRectShape : Shape
             _geometry.CornerRadius.CurrentValue = CornerRadius;
             _geometry.Smoothing.CurrentValue = Math.Clamp(Smoothing, 0, 100);
 
-            bool changed = false;
-            ResourceReconciler.ReconcileResource(
-                context: context,
-                value: _geometry,
-                field: ref _geometryResource,
-                changed: ref changed);
-            if (changed)
-                Version++;
+            ReconcileGeometry(_geometry, context);
         }
 
-        partial void PostDispose(bool disposing)
-        {
-            _geometryResource?.Dispose();
-        }
-
-        public override Geometry.Resource? GetGeometry() => _geometryResource;
+        public override Geometry.Resource? GetGeometry() => GeometryResource;
     }
 }

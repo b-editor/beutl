@@ -1,5 +1,4 @@
-﻿using System.Globalization;
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless;
@@ -181,7 +180,7 @@ public class VersionControlToolBarTests
                 DataContext = model,
                 VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top
             };
-            var formatter = new VersionControlRelativeTimeFormatter(TimeProvider.System, CultureInfo.CurrentUICulture);
+            var formatter = new VersionControlRelativeTimeFormatter(TimeProvider.System);
             using var shortCommit = new VersionControlCommitViewModel(model,
                 new CommitInfo("abcdef1234567890", "abcdef1", "Update project", "Test Author", DateTimeOffset.UtcNow, SnapshotKind.Manual),
                 formatter);

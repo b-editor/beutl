@@ -18,8 +18,8 @@ public class RationalTests
 
         Rational.Reduce(ref left, ref right);
 
-        Assert.That(left, Is.EqualTo(new Rational(expLeftNum, expLeftDen)));
-        Assert.That(right, Is.EqualTo(new Rational(exptRightNum, expRightDen)));
+        Assert.That((left.Numerator, left.Denominator), Is.EqualTo((expLeftNum, expLeftDen)));
+        Assert.That((right.Numerator, right.Denominator), Is.EqualTo((exptRightNum, expRightDen)));
     }
 
     [Test]
@@ -55,19 +55,26 @@ public class RationalTests
     [TestCase(2, 7, 2, 7)]
     [TestCase(2, 16, 1, 8)]
     [TestCase(9, 54, 1, 6)]
-    [TestCase(54, 9, 6, 1)]
     public void Simply(long num, long den, long expNum, long expDen)
     {
-        Assert.That(new Rational(num, den).Simplify(), Is.EqualTo(new Rational(expNum, expDen)));
+        Rational simplified = new Rational(num, den).Simplify();
+        Assert.That((simplified.Numerator, simplified.Denominator), Is.EqualTo((expNum, expDen)));
     }
 
     [Test]
-    [TestCase("1/1")]
-    [TestCase("0/1")]
-    [TestCase("0 / 1")]
-    public void Parse(string s)
+    public void Simply_IntegerValue_KeepsItsValue()
     {
-        Rational.Parse(s);
+        Assert.That(new Rational(54, 9).Simplify(), Is.EqualTo(new Rational(6, 1)));
+    }
+
+    [Test]
+    [TestCase("1/1", 1, 1)]
+    [TestCase("0/1", 0, 1)]
+    [TestCase("0 / 1", 0, 1)]
+    public void Parse(string s, long num, long den)
+    {
+        Rational parsed = Rational.Parse(s);
+        Assert.That((parsed.Numerator, parsed.Denominator), Is.EqualTo((num, den)));
     }
 
     [Test]

@@ -12,12 +12,9 @@ namespace Beutl.Graphics.Effects;
 [Display(Name = nameof(GraphicsStrings.MosaicEffect), ResourceType = typeof(GraphicsStrings))]
 public partial class MosaicEffect : FilterEffect
 {
-    // The centre of an even tile is a pixel corner, where nearest sampling may take either neighbour - which
-    // one varied with the texture size on both AMD Radeon and Apple's Metal, so a mosaic changed colour
-    // between render scales. Sampling the centre of the pixel that starts there makes the choice explicit,
-    // and it is the pixel that bottom-right-exclusive coverage assigns the corner to. The snap is made in this
-    // stage's device grid, so it settles the choice only while src is held at the working scale; an input
-    // at another density maps the snapped point onto its own grid, where it can land on a corner (#2723).
+    // The centre of an even tile is a pixel corner, where nearest sampling took either neighbour depending on
+    // the texture size on AMD Radeon and Apple's Metal, so the centre of the pixel starting there is sampled.
+    // The snap is in this stage's device grid; an input at another density can still land on a corner (#2723).
     private const string ShaderSource =
         """
         uniform shader src;
@@ -121,25 +118,8 @@ public partial class MosaicEffect : FilterEffect
 
     /// <summary>Answers a hit test the way the entry point resolves a fragment: at its tile's centre.</summary>
     /// <remarks>
-    /// <para>
-    /// The entry point discards <c>fragCoord</c> and returns <c>src</c> at the centre of the tile holding it,
-    /// so what a pixel carries is what the input covered at that centre and nothing about what it covered at
-    /// the pixel. Both directions of that are reachable with one ordinary shape: a tile straddling an edge
-    /// paints its whole area wherever its centre is covered, and erases its whole area wherever the centre is
-    /// not. Forwarding the query unchanged answers for the input's coverage instead, which disagrees on both.
-    /// </para>
-    /// <para>
-    /// Unlike a stage that only sometimes relocates content, this one has no setting that stops it: the grid
-    /// exists at every tile size. The contract is therefore unconditional, and it costs no precision to be so -
-    /// it restates the entry point's own mapping rather than widening anything to the output rectangle.
-    /// </para>
-    /// <para>
-    /// The output rectangle still bounds the answer, as a floor rather than as a claim: the entry point is
-    /// evaluated only for fragments of it, so outside it the stage wrote nothing whatever the grid maps a
-    /// coordinate to. That bound is stated here because <see cref="RenderHitTestContract.Custom"/> applies
-    /// none, and a stage that resolves a coordinate instead of forwarding one - clamping, wrapping, folding -
-    /// has nothing else to stop it answering for the whole plane.
-    /// </para>
+    /// A pixel carries what the input covered at its tile's centre, so forwarding the query would disagree both
+    /// ways. The output rectangle bounds the answer, since <see cref="RenderHitTestContract.Custom"/> applies none.
     /// </remarks>
     private readonly record struct MosaicSampling(Size TileSize, RelativePoint Origin)
     {
@@ -147,10 +127,6 @@ public partial class MosaicEffect : FilterEffect
         {
             Rect outputBounds = context.OutputBounds;
 
-            // The grid is defined over the whole plane and names a sample for any coordinate, but the entry
-            // point runs only for fragments of this stage's own output. Outside that rectangle the stage
-            // evaluated nothing, so there is no sample to clamp and nothing to report - and
-            // RenderHitTestContract.Custom applies no such gate of its own.
             if (!outputBounds.ContainsExclusive(point))
                 return false;
 
@@ -189,21 +165,8 @@ public partial class MosaicEffect : FilterEffect
 
         /// <summary>Moves a sample onto the input the way the sampler's clamp does, if the input has one.</summary>
         /// <remarks>
-        /// <para>
-        /// The stage samples with <see cref="SKShaderTileMode.Clamp"/>, so a tile whose centre falls outside
-        /// the input reads the input's edge rather than transparency, and the pixels of that tile are painted
-        /// with whatever the edge carries.
-        /// </para>
-        /// <para>
-        /// Where the edge is depends on the engine's rule for what a content node covers, which is bottom-right
-        /// exclusive: <see cref="Rect.ContainsExclusive"/> is what
-        /// <see cref="Rendering.RectangleRenderNode"/> and the image and video source nodes answer over, and it
-        /// is the logical form of a device rectangle spanning half-open pixel columns. Clamping to
-        /// <see cref="Rect.Right"/> itself would therefore land on the one coordinate the input rejects, which
-        /// is why the target is the last <see langword="float"/> below it rather than the edge or an epsilon
-        /// short of it. An input that has no such coordinate on an axis covers no column there and carries
-        /// nothing for the tile to read.
-        /// </para>
+        /// The stage samples with <see cref="SKShaderTileMode.Clamp"/>, so a centre outside the input reads its edge.
+        /// Coverage is bottom-right exclusive, so the clamp ends on the last float below the edge.
         /// </remarks>
         private static bool TryClampToBounds(Point point, Rect bounds, out Point clamped)
         {

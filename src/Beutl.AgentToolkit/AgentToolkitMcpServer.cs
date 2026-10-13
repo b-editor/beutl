@@ -27,14 +27,7 @@ public static class AgentToolkitMcpServer
 
         services
             .AddSingleton<IOutputOperationLeaseProvider>(StandaloneOutputOperationLeaseProvider.Instance)
-            .AddSingleton<DestructiveGuard>()
-            .AddSingleton<StillRenderer>()
-            .AddSingleton<StoryboardRenderer>()
-            .AddSingleton<FrameDifferenceAnalyzer>()
-            .AddSingleton<AudioRhythmAnalyzer>()
-            .AddSingleton<EncoderRegistration>()
-            .AddSingleton<VideoExporter>()
-            .AddSingleton<RenderJobManager>()
+            .AddAgentToolkitRendering()
             .AddSingleton<FileSessionSource>()
             .AddSingleton<IProjectSessionGateway, FileProjectSessionGateway>()
             .AddSingleton<AgentSessionManager>();
@@ -56,6 +49,28 @@ public static class AgentToolkitMcpServer
                 filters.AddToolkitCallToolErrorFilter();
             })
             .WithTools<LiveInstanceTools>()
+            .WithSharedAgentToolkitTools();
+    }
+
+    // The services and tools both hosts share; each host adds its own lease provider, sessions and tools.
+    public static IServiceCollection AddAgentToolkitRendering(this IServiceCollection services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        return services
+            .AddSingleton<DestructiveGuard>()
+            .AddSingleton<StillRenderer>()
+            .AddSingleton<StoryboardRenderer>()
+            .AddSingleton<FrameDifferenceAnalyzer>()
+            .AddSingleton<AudioRhythmAnalyzer>()
+            .AddSingleton<EncoderRegistration>()
+            .AddSingleton<VideoExporter>()
+            .AddSingleton<RenderJobManager>();
+    }
+
+    public static IMcpServerBuilder WithSharedAgentToolkitTools(this IMcpServerBuilder builder)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        return builder
             .WithTools<SessionTools>()
             .WithTools<QueryTools>()
             .WithTools<EditTools>()

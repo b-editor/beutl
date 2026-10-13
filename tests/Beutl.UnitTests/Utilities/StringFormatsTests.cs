@@ -30,7 +30,6 @@ public class StringFormatsTests
     [Test]
     public void ToHumanReadableSize_CustomStandard_RespectsBase1000()
     {
-        // With a base-1000 standard, 1500 -> 1.50 KB
         Assert.That(
             StringFormats.ToHumanReadableSize(1500, standard: 1000, formatProvider: CultureInfo.InvariantCulture),
             Is.EqualTo("1.50 KB"));
@@ -39,7 +38,6 @@ public class StringFormatsTests
     [Test]
     public void ToHumanReadableSize_StartingScale_ChoosesProvidedUnit()
     {
-        // Starting at scale=2 (MB), 4 stays at "4.00 MB" since 4 <= 1024.
         Assert.That(
             StringFormats.ToHumanReadableSize(4, scale: 2, formatProvider: CultureInfo.InvariantCulture),
             Is.EqualTo("4.00 MB"));
@@ -48,7 +46,6 @@ public class StringFormatsTests
     [Test]
     public void ToHumanReadableSize_NoFormatProvider_UsesCurrent()
     {
-        // Sanity check: doesn't throw and returns a non-empty string.
         Assert.That(StringFormats.ToHumanReadableSize(1024), Is.Not.Empty);
     }
 }

@@ -323,28 +323,7 @@ public sealed class ProxyStoreTests
         });
     }
 
-    [Test]
-    public async Task ReconcileAsync_AdoptsSidecarWhenIndexIsCorrupt()
-    {
-        string root = CreateRoot();
-        ProxyEntry entry = CreateEntry(root, "hash/quarter.mp4");
-        string metadataPath = Path.Combine(root, "hash", "meta.json");
-        Directory.CreateDirectory(Path.GetDirectoryName(metadataPath)!);
-        var metadata = new ProxySourceMetadata
-        {
-            Source = entry.Source,
-            Entries = [entry],
-        };
-        File.WriteAllText(metadataPath, JsonSerializer.Serialize(metadata, s_jsonOptions));
-        File.WriteAllText(Path.Combine(root, "index.json"), "{not valid json");
-
-        var store = new ProxyStore(root);
-        await store.ReconcileAsync(CancellationToken.None);
-
-        Assert.That(store.TryGet(entry.Source, entry.Preset), Is.EqualTo(entry));
-    }
-
-    // Fix #6: a flush must not drop valid in-memory entries just because index.json became unreadable.
+    // A flush must not drop valid in-memory entries just because index.json became unreadable.
     // Without the degrade path, registering the second entry would reseed _entries from the corrupt
     // (empty) disk view and lose the first entry, then write that partial index back.
     [Test]
@@ -376,14 +355,7 @@ public sealed class ProxyStoreTests
     {
         string root = CreateRoot();
         ProxyEntry entry = CreateEntry(root, "hash/quarter.mp4");
-        string metadataPath = Path.Combine(root, "hash", "meta.json");
-        Directory.CreateDirectory(Path.GetDirectoryName(metadataPath)!);
-        var metadata = new ProxySourceMetadata
-        {
-            Source = entry.Source,
-            Entries = [entry],
-        };
-        File.WriteAllText(metadataPath, JsonSerializer.Serialize(metadata, s_jsonOptions));
+        WriteSidecar(root, entry);
         File.WriteAllText(Path.Combine(root, "index.json"), "{not valid json");
 
         var store = new ProxyStore(root);
@@ -410,14 +382,7 @@ public sealed class ProxyStoreTests
         string root = CreateRoot();
         var store = new ProxyStore(root);
         ProxyEntry entry = CreateEntry(root, "hash/quarter.mp4");
-        string metadataPath = Path.Combine(root, "hash", "meta.json");
-        Directory.CreateDirectory(Path.GetDirectoryName(metadataPath)!);
-        var metadata = new ProxySourceMetadata
-        {
-            Source = entry.Source,
-            Entries = [entry],
-        };
-        File.WriteAllText(metadataPath, JsonSerializer.Serialize(metadata, s_jsonOptions));
+        WriteSidecar(root, entry);
 
         var registered = new List<(ProxyFingerprint Source, ProxyPreset Preset)>();
         store.Changed += (_, e) =>
@@ -485,10 +450,7 @@ public sealed class ProxyStoreTests
         });
     }
 
-    // #6: a delete that degraded under lock contention leaves the key in _pendingRemoveKeys. When a
-    // regenerated proxy for the same key is registered on the next (uncontended) flush, the fresh
-    // registration must supersede the stale pending delete — otherwise the merge drops it and
-    // _entries.Clear() loses it from memory too, so the delete/regenerate race silently discards the proxy.
+    // A re-registration after a delete that degraded under lock contention supersedes the pending delete.
     [Test]
     public void FlushCore_ReRegistrationAfterDegradedDelete_KeepsFreshProxy()
     {
@@ -549,14 +511,7 @@ public sealed class ProxyStoreTests
     {
         string root = CreateRoot();
         ProxyEntry entry = CreateEntry(root, "hash/quarter.mp4");
-        string metadataPath = Path.Combine(root, "hash", "meta.json");
-        var metadata = new ProxySourceMetadata
-        {
-            Version = ProxySourceMetadata.CurrentVersion - 1,
-            Source = entry.Source,
-            Entries = [entry],
-        };
-        File.WriteAllText(metadataPath, JsonSerializer.Serialize(metadata, s_jsonOptions));
+        WriteSidecar(root, entry, ProxySourceMetadata.CurrentVersion - 1);
 
         var store = new ProxyStore(root);
         await store.ReconcileAsync(CancellationToken.None);
@@ -657,16 +612,7 @@ public sealed class ProxyStoreTests
             FailureReason = "decode failed",
         };
         store.Register(failed);
-        string metadataPath = Path.Combine(root, "hash", "meta.json");
-        File.WriteAllText(
-            metadataPath,
-            JsonSerializer.Serialize(
-                new ProxySourceMetadata
-                {
-                    Source = ready.Source,
-                    Entries = [ready],
-                },
-                s_jsonOptions));
+        WriteSidecar(root, ready);
 
         await store.ReconcileAsync(CancellationToken.None);
 
@@ -736,16 +682,7 @@ public sealed class ProxyStoreTests
         string root = CreateRoot();
         var store = new ProxyStore(root);
         ProxyEntry entry = CreateEntry(root, "hash/quarter.mp4");
-        string metadataPath = Path.Combine(root, "hash", "meta.json");
-        File.WriteAllText(
-            metadataPath,
-            JsonSerializer.Serialize(
-                new ProxySourceMetadata
-                {
-                    Source = entry.Source,
-                    Entries = [entry],
-                },
-                s_jsonOptions));
+        string metadataPath = WriteSidecar(root, entry);
         store.Register(entry);
 
         store.Delete(entry.Source, entry.Preset);
@@ -890,8 +827,8 @@ public sealed class ProxyStoreTests
         if (OperatingSystem.IsWindows())
             Assert.Ignore("Revoking directory write permission via UnixFileMode is not supported on Windows.");
 
-        // Root bypasses the permission check, so under a root container this fails loudly
-        // (Register throws) rather than passing vacuously; CI runners are non-root.
+        // Root bypasses the permission check, so under a root container the store never degrades and the
+        // IsPersistenceDegraded check fails loudly rather than passing vacuously; CI runners are non-root.
 
         string root = CreateRoot();
         ProxyEntry entry = CreateEntry(root, "hash/quarter.mp4");
@@ -1231,6 +1168,21 @@ public sealed class ProxyStoreTests
         string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
         return root;
+    }
+
+    // Writes entry's sidecar under hash/, as the store does, and returns its path.
+    private static string WriteSidecar(string root, ProxyEntry entry, int? version = null)
+    {
+        string metadataPath = Path.Combine(root, "hash", "meta.json");
+        Directory.CreateDirectory(Path.GetDirectoryName(metadataPath)!);
+        var metadata = new ProxySourceMetadata
+        {
+            Version = version ?? ProxySourceMetadata.CurrentVersion,
+            Source = entry.Source,
+            Entries = [entry],
+        };
+        File.WriteAllText(metadataPath, JsonSerializer.Serialize(metadata, s_jsonOptions));
+        return metadataPath;
     }
 
     private static ProxyEntry CreateEntry(string root, string relative)

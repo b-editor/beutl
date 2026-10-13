@@ -15,7 +15,7 @@ public sealed class SceneTimeRangeService : ISceneTimeRangeService
     public void SetStart(Scene scene, TimeSpan newStart)
     {
         ArgumentNullException.ThrowIfNull(scene);
-        ApplyStart(scene, newStart, scene.Start, scene.Duration);
+        ApplyStart(scene, newStart);
         _historyManager.Commit(CommandNames.ChangeSceneStart);
     }
 
@@ -55,12 +55,12 @@ public sealed class SceneTimeRangeService : ISceneTimeRangeService
     /// <summary>
     /// One-shot start update (keyboard / menu path). Setting start past the
     /// current end shifts the end forward one frame and snaps start to the old
-    /// end, preserving the legacy "set start to pointer position" behavior.
+    /// end.
     /// </summary>
-    private static void ApplyStart(Scene scene, TimeSpan newStart, TimeSpan referenceStart, TimeSpan referenceDuration)
+    private static void ApplyStart(Scene scene, TimeSpan newStart)
     {
         TimeSpan frame = GetFrameDuration(scene);
-        TimeSpan sceneEnd = referenceStart + referenceDuration;
+        TimeSpan sceneEnd = scene.Start + scene.Duration;
 
         if (newStart > sceneEnd)
         {
@@ -87,8 +87,7 @@ public sealed class SceneTimeRangeService : ISceneTimeRangeService
 
     /// <summary>
     /// One-shot end update (keyboard / menu path). An end before the current
-    /// start shifts both start and duration backward, preserving the legacy
-    /// "set end to pointer position" behavior.
+    /// start shifts both start and duration backward.
     /// </summary>
     private static void ApplyEnd(Scene scene, TimeSpan newEnd)
     {
@@ -113,7 +112,7 @@ public sealed class SceneTimeRangeService : ISceneTimeRangeService
     /// Drag-phase start update. Clamps start to <c>[0, initialEnd - 1 frame]</c>
     /// against the end captured at drag-press, pinning the scene end. Unlike
     /// <see cref="ApplyStart"/> it never shifts the end forward (drag past end
-    /// clamps to the end), matching the pre-refactor drag loop.
+    /// clamps to the end).
     /// </summary>
     private static void ApplyStartDrag(Scene scene, TimeSpan newStart, TimeSpan initialStart, TimeSpan initialDuration)
     {
@@ -130,8 +129,7 @@ public sealed class SceneTimeRangeService : ISceneTimeRangeService
     /// <summary>
     /// Drag-phase end update. Clamps duration to <c>>= 1 frame</c> and never
     /// touches <see cref="Scene.Start"/>; dragging left of Start must only
-    /// shrink duration, not move the scene backward — a regression vs. the
-    /// pre-refactor drag loop.
+    /// shrink duration, not move the scene backward.
     /// </summary>
     private static void ApplyEndDrag(Scene scene, TimeSpan pointerTime)
     {

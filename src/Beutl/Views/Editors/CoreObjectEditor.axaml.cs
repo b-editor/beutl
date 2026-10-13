@@ -14,8 +14,6 @@ namespace Beutl.Views.Editors;
 
 public partial class CoreObjectEditor : UserControl
 {
-    private bool _flyoutOpen;
-
     public CoreObjectEditor()
     {
         InitializeComponent();
@@ -52,37 +50,14 @@ public partial class CoreObjectEditor : UserControl
         if (DataContext is not ICoreObjectEditorViewModel { IsDisposed: false } viewModel) return;
         if (viewModel.GetService<EditViewModel>() is not { } editViewModel) return;
 
-        ObjectPropertyTabViewModel objViewModel
-            = ObjectPropertyTabViewModel.FindReusable(editViewModel, viewModel.Value.Value)
-              ?? new ObjectPropertyTabViewModel(editViewModel);
-
-        objViewModel.NavigateCore(viewModel.Value.Value, false, viewModel);
-        editViewModel.OpenToolTab(objViewModel);
+        ObjectPropertyTabViewModel.Open(editViewModel, viewModel.Value.Value, viewModel);
     }
 
     private async void NewClick(object? sender, RoutedEventArgs e)
     {
         if (DataContext is not ICoreObjectEditorViewModel { IsDisposed: false } viewModel) return;
 
-        Type propertyType = viewModel.PropertyAdapter.PropertyType;
-
-        if (propertyType.IsSealed)
-        {
-            viewModel.SetNewInstance(propertyType);
-            return;
-        }
-
-        object? result = await SelectTypeOrReference();
-
-        switch (result)
-        {
-            case Type selectedType:
-                viewModel.SetNewInstance(selectedType);
-                break;
-            case CoreObject target:
-                viewModel.SetTarget(target);
-                break;
-        }
+        await CoreObjectPickerHelper.NewInstanceOrPickAsync(this, viewModel);
     }
 
     private void SetNullClick(object? sender, RoutedEventArgs e)
@@ -92,44 +67,10 @@ public partial class CoreObjectEditor : UserControl
         viewModel.SetNull();
     }
 
-    private void SelectTarget_Requested(object? sender, RoutedEventArgs e)
+    private async void SelectTarget_Requested(object? sender, RoutedEventArgs e)
     {
-        OnSelectTargetRequested();
-    }
+        if (DataContext is not ICoreObjectEditorViewModel { IsDisposed: false } viewModel) return;
 
-    private async Task<object?> SelectTypeOrReference()
-    {
-        if (_flyoutOpen) return null;
-        if (DataContext is not ICoreObjectEditorViewModel { IsDisposed: false } viewModel) return null;
-
-        try
-        {
-            _flyoutOpen = true;
-            return await CoreObjectPickerHelper.ShowTypeOrReferenceAsync(this, viewModel);
-        }
-        finally
-        {
-            _flyoutOpen = false;
-        }
-    }
-
-    private async void OnSelectTargetRequested()
-    {
-        if (DataContext is not ICoreObjectEditorViewModel { IsDisposed: false } vm) return;
-        if (_flyoutOpen) return;
-
-        try
-        {
-            _flyoutOpen = true;
-            await TargetSelectionHelper.HandleSelectTargetRequestAsync<ICoreObjectEditorViewModel, CoreObject>(
-                this,
-                vm,
-                vm => vm.GetAvailableTargets(),
-                (vm, target) => vm.SetTarget(target));
-        }
-        finally
-        {
-            _flyoutOpen = false;
-        }
+        await CoreObjectPickerHelper.PickTargetAsync(this, viewModel);
     }
 }

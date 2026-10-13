@@ -48,11 +48,6 @@ internal sealed class RenderRequestCompiler
         }
     }
 
-    public CompiledRenderRequest Compile(
-        RenderRequest request,
-        RecordedRenderGraph graph)
-        => Compile(request, graph, SkslBackendBudgetResolver.Portable);
-
     internal CompiledRenderRequest Compile(
         RenderRequest request,
         RecordedRenderGraph graph,
@@ -255,7 +250,7 @@ internal sealed class RenderRequestCompiler
 
     private static void CompleteMetadataFamily(RenderRequest root, RecordedRenderGraph graph)
     {
-        foreach ((RenderRequest request, _) in EnumerateFamilyDepthFirst(root, graph))
+        foreach (RenderRequest request in EnumerateFamilyDepthFirst(root, graph))
             request.CompleteMetadataOnly();
     }
 
@@ -269,23 +264,20 @@ internal sealed class RenderRequestCompiler
             owner.RecordPrimaryFailure(exception);
         owner.Cleanup();
 
-        foreach ((RenderRequest request, _) in EnumerateFamilyDepthFirst(root, graph))
+        foreach (RenderRequest request in EnumerateFamilyDepthFirst(root, graph))
             request.FailFamilyMember();
     }
 
-    private static IEnumerable<(RenderRequest Request, RecordedRenderGraph Graph)> EnumerateFamilyDepthFirst(
+    private static IEnumerable<RenderRequest> EnumerateFamilyDepthFirst(
         RenderRequest root,
         RecordedRenderGraph graph)
     {
         foreach (RecordedNestedRenderRequest nested in graph.NestedRequests)
         {
-            foreach ((RenderRequest request, RecordedRenderGraph nestedGraph) in
-                     EnumerateFamilyDepthFirst(nested.Request, nested.Graph))
-            {
-                yield return (request, nestedGraph);
-            }
+            foreach (RenderRequest request in EnumerateFamilyDepthFirst(nested.Request, nested.Graph))
+                yield return request;
         }
 
-        yield return (root, graph);
+        yield return root;
     }
 }

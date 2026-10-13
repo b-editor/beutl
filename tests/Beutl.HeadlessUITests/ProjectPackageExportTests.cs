@@ -69,7 +69,7 @@ public class ProjectPackageExportTests
                        throw new IOException("save failed");
                }))
         {
-            Assert.That(await CaptureFailure(TestShell.MainViewModel.ExportProjectAsync(project, output)), Is.TypeOf<IOException>());
+            await Assert.ThrowsAsync<IOException>(() => TestShell.MainViewModel.ExportProjectAsync(project, output));
         }
 
         Assert.That(File.ReadAllText(output), Is.EqualTo("previous complete package"));
@@ -126,7 +126,7 @@ public class ProjectPackageExportTests
             Task<ExportResult> export = TestShell.MainViewModel.ExportProjectAsync(project, output, cancellationToken: cancellation.Token);
             Assert.That(export.IsCompleted, Is.False);
             cancellation.Cancel();
-            Assert.That(await CaptureFailure(export), Is.InstanceOf<OperationCanceledException>());
+            await Assert.CatchAsync<OperationCanceledException>(() => export);
         }
 
         Assert.That(editor.IsEnabled.Value, Is.True);
@@ -159,12 +159,6 @@ public class ProjectPackageExportTests
         string destination = Path.Combine(BeutlHomeIsolation.CurrentHome!, "imported-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(destination);
         return (await ProjectPackageService.Current.ImportAsync(archive, destination))!;
-    }
-
-    private static async Task<Exception?> CaptureFailure(Task task)
-    {
-        try { await task; return null; }
-        catch (Exception ex) { return ex; }
     }
 
     private sealed class InlineProgress(Action<(string Message, double Progress)> report) : IProgress<(string Message, double Progress)>

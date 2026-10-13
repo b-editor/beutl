@@ -136,10 +136,7 @@ public sealed class AiRequestWasDeletedException : AiException
 /// (409 aiRequestChanged).
 /// </summary>
 /// <remarks>
-/// The server fingerprints what a name was used for and refuses to answer it
-/// with anything else. Asking again for exactly what that name was sent with
-/// collects what it may already have paid for; anything else is a new request
-/// and needs a new name.
+/// Asking again with exactly what the name was sent with collects what it paid for; anything else needs a new name.
 /// </remarks>
 public sealed class AiRequestChangedException : AiException
 {
@@ -154,10 +151,8 @@ public sealed class AiRequestChangedException : AiException
 /// (503 aiResultUnavailable).
 /// </summary>
 /// <remarks>
-/// The job succeeded and was charged for; only fetching what it produced
-/// failed. Nothing is settled by this, so asking again under the same
-/// idempotency key is what recovers it — which is why it is told apart from a
-/// failure the server owns and has refunded.
+/// The job succeeded and was charged for, so asking again under the same idempotency key recovers it, unlike a
+/// failure the server has refunded.
 /// </remarks>
 public sealed class AiResultUnavailableException : AiException
 {

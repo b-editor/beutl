@@ -227,7 +227,6 @@ public abstract partial class GraphNode : EngineObject
         if (!_nestedPortManager.IsSynchronizing) TopologyChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    // TODO: AddInput, AddOutput, AddPropertyに変更する
     protected InputPort<T> AddInput<T>(EngineObject obj, IProperty<T> property)
     {
         var port = new EnginePropertyBackedInputPort<T>(obj, property);

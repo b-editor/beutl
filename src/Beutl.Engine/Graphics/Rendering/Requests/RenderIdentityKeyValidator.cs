@@ -5,23 +5,9 @@ using Beutl.Graphics.Shaders;
 namespace Beutl.Graphics.Rendering.Requests;
 
 /// <summary>
-/// Rejects a value that must not stand for a recorded operation's identity.
+/// Rejects a delegate target that must not stand for a recorded operation's identity. Type tests only, no
+/// reflection; only the single target object is checked, not what it holds.
 /// </summary>
-/// <remarks>
-/// <para>
-/// Recording runs this once per node per frame, so every test here is a type pattern the JIT compiles to a
-/// cast. Nothing reads a field, asks a type for its members, or otherwise reaches for reflection: a walk
-/// like that costs the render path whatever the author's object graph happens to be, and no amount of
-/// per-type memoization makes the first frame that meets a type free.
-/// </para>
-/// <para>
-/// What reaches this is one object - the delegate's target - so what it decides is what that single object
-/// is, never what it holds. A closure over anything besides <see langword="this"/> arrives as a compiler
-/// display class, which is none of these types however many of them its fields hold, and has always been
-/// accepted. So the list bites a callback that <em>is</em> one of these: a method group bound to one, or a
-/// lambda inside one that reads nothing but its own instance.
-/// </para>
-/// </remarks>
 internal static class RenderIdentityKeyValidator
 {
     private const string IdentityRejection =
@@ -32,10 +18,8 @@ internal static class RenderIdentityKeyValidator
     {
         ArgumentNullException.ThrowIfNull(key, parameterName);
 
-        // Disposability is the only ground this list had against a node, and a node holds no device
-        // resource, opens no session, and reaches no part of the request graph. An answer of the node's that
-        // moves after recording is caught by the recorded-answer cross-check instead. The exemption is
-        // written into this clause alone, so a node that is also a mutable collection is still rejected.
+        // A node holds no device resource or session, and the recorded-answer cross-check catches an answer of
+        // its that moves, so it is exempt here; a node that is also a mutable collection is still rejected below.
         bool retainsLifetimeOrCapability = key is (IDisposable and not RenderNode)
             or RenderResource
             or RenderNodeContext
@@ -58,9 +42,9 @@ internal static class RenderIdentityKeyValidator
             or RawTargetScopeSession
             or RawTargetCommandSession;
 
-        // A collection interface says the payload is mutable without asking the type anything: the
-        // immutable collections implement the read-only interfaces instead.
-        bool mutablePayload = key is Array or IList or IDictionary or ICollection;
+        // A non-generic collection interface marks the payload as mutable without asking the type anything.
+        // The immutable collections implement it too, so they are rejected as well.
+        bool mutablePayload = key is ICollection;
         if (retainsLifetimeOrCapability || mutablePayload)
         {
             throw new ArgumentException(IdentityRejection, parameterName);

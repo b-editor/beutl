@@ -173,6 +173,7 @@ public sealed class OpaqueRenderDescription
     /// The opt-out for a callback whose pixel-affecting state cannot be expressed as copied, deeply immutable
     /// CPU state. The callback may capture, and the recorded output takes a fresh request-local identity every
     /// time.
+    /// Test seam: only tests call this.
     /// </remarks>
     internal static OpaqueRenderDescription CreateRequestLocal(
         Action<OpaqueRenderSession> execute,
@@ -234,11 +235,9 @@ public sealed class OpaqueRenderDescription
     /// Creates an engine-owned drawable source whose identity is declared rather than derived from state.
     /// </summary>
     /// <remarks>
-    /// The callback is assembled by a shared recorder helper and reaches request-scoped resources and a
-    /// recorded paint plan, neither of which can be part of a persistent identity, so the declared identity is
-    /// hand-verified against what the helper draws with. The shape is reachable from outside the engine through
-    /// <see cref="RenderNodeContext"/>'s <c>PaintedSource</c>, whose caller-supplied draw callback is held
-    /// purely by BESG003 rather than by the shape being unreachable.
+    /// The callback reaches request-scoped resources and a recorded paint plan, so the declared identity is
+    /// hand-verified against what the recorder helper draws with. Outside callers reach this shape through
+    /// <see cref="RenderNodeContext"/>'s <c>PaintedSource</c>, whose draw callback BESG003 holds pure.
     /// </remarks>
     /// <param name="resources">
     /// The fresh binding array assembled by <see cref="RenderNodeContext"/>, stored without another copy.
@@ -258,8 +257,6 @@ public sealed class OpaqueRenderDescription
     {
         ArgumentNullException.ThrowIfNull(execute);
         ArgumentNullException.ThrowIfNull(bounds);
-        hitTest.ThrowIfUninitialized(nameof(hitTest));
-        scale.ThrowIfUninitialized(nameof(scale));
         ThrowIfUndefined(deviceGridSensitivity);
         object definitionFingerprint = new EngineOpaqueDefinition(
             RenderBackendBoundary.None,
@@ -360,7 +357,6 @@ public sealed class OpaqueRenderDescription
         IReadOnlyList<RenderResource>? resources)
     {
         IReadOnlyList<RenderResource> declared = resources ?? Array.Empty<RenderResource>();
-        RenderDescriptionValidation.ThrowIfResourcesUndeclarable(declared, nameof(resources));
         return declared
             .Select(static resource => RenderResourceBinding.CreateEngineBinding(resource))
             .ToArray();

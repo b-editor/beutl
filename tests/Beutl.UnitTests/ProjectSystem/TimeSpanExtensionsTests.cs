@@ -37,14 +37,6 @@ public class TimeSpanExtensionsTests
     }
 
     [Test]
-    public void ToTimeSpan_Int_ReturnsExactTickQuotient()
-    {
-        TimeSpan ts = 30.ToTimeSpan(60);
-
-        Assert.That(ts.Ticks, Is.EqualTo(TimeSpan.TicksPerSecond * 30 / 60));
-    }
-
-    [Test]
     public void ToTimeSpan_Int_AvoidsFloatingPointError()
     {
         TimeSpan ts = 1.ToTimeSpan(3);

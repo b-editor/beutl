@@ -51,7 +51,6 @@ public sealed partial class RenderTools
         destructiveGuard.EnsureOverwriteAllowed(plan.ContactSheetPath, plan.ConfirmOverwrite);
 
         var renderedShots = new List<RenderStoryboardShot>(plan.Shots.Count);
-        var contactSheetFrames = new List<StoryboardContactSheetFrame>(plan.Shots.Count);
         var eyeTraceFrames = new List<StoryboardEyeTraceFrame>(plan.Shots.Count);
         progress.Report(0, plan.Shots.Count, "rendering shots");
         foreach ((ResolvedStoryboardFrame shot, string resolvedPath) in plan.Shots)
@@ -75,7 +74,6 @@ public sealed partial class RenderTools
                 shot.Kind,
                 shot.SubdivisionLevel);
             renderedShots.Add(renderedShot);
-            contactSheetFrames.Add(ToContactSheetFrame(renderedShot));
             if (focalPoint is not null)
             {
                 eyeTraceFrames.Add(new StoryboardEyeTraceFrame(
@@ -85,19 +83,9 @@ public sealed partial class RenderTools
         }
 
         progress.Report(plan.Shots.Count, plan.Shots.Count, "contact sheet");
-        storyboardRenderer.RenderContactSheet(contactSheetFrames, plan.ContactSheetPath);
+        storyboardRenderer.RenderContactSheet(renderedShots, plan.ContactSheetPath);
         CutEyeTrace[] cutEyeTrace = BuildCutEyeTrace(eyeTraceFrames);
         return new RenderStoryboardResponse(plan.ContactSheetPath, renderedShots, cutEyeTrace);
-    }
-
-    private static StoryboardContactSheetFrame ToContactSheetFrame(RenderStoryboardShot shot)
-    {
-        return new StoryboardContactSheetFrame(
-            shot.Name,
-            shot.TimeSeconds,
-            shot.StillPath,
-            shot.Kind,
-            shot.SubdivisionLevel);
     }
 
     private static void SaveStoryboardStill(Bitmap bitmap, string outputPath)
@@ -215,15 +203,8 @@ public sealed partial class RenderTools
     internal static IReadOnlyList<ResolvedStoryboardFrame> ResolveStoryboardFrames(
         Scene scene,
         StoryboardShotInput[]? shots,
-        int subdivisionLevel)
-        => ResolveStoryboardFrames(scene, shots, null, subdivisionLevel);
-
-    internal static IReadOnlyList<ResolvedStoryboardFrame> ResolveStoryboardFrames(
-        Scene scene,
-        StoryboardShotInput[]? shots,
         double[]? timeSeconds,
-        int subdivisionLevel,
-        int? frameRate = null)
+        int subdivisionLevel)
     {
         IReadOnlyList<ResolvedStoryboardShot> anchors = ResolveExplicitStoryboardTimes(scene, timeSeconds)
                                                         ?? ResolveStoryboardShots(scene, shots);
@@ -239,14 +220,10 @@ public sealed partial class RenderTools
                 .ToArray();
         }
 
-        TimeSpan dedupeTolerance = GetStoryboardDedupeTolerance(frameRate ?? GetSceneFrameRate(scene));
+        TimeSpan dedupeTolerance = GetStoryboardDedupeTolerance(GetSceneFrameRate(scene));
         ResolvedStoryboardShot[] dedupedAnchors = timeSeconds is null
             ? DeduplicateStoryboardAnchors(anchors, dedupeTolerance)
             : anchors.ToArray();
-        if (dedupedAnchors.Length == 0)
-        {
-            return [];
-        }
 
         int denominator = 1 << normalizedSubdivisionLevel;
         var frames = new List<ResolvedStoryboardFrame>(dedupedAnchors.Length * denominator);
@@ -361,9 +338,8 @@ public sealed partial class RenderTools
         return time;
     }
 
-    // Element.Range treats its end as exclusive, so a shot exactly at Duration renders past every
-    // element (a blank frame); pull it one tick inside the scene. Truly out-of-range values are
-    // rejected before this by the callers; this only nudges the Duration boundary itself.
+    // Element.Range treats its end as exclusive, so a time at or past Duration is pulled one tick
+    // inside the scene.
     private static TimeSpan ClampShotToRenderableRange(TimeSpan time, TimeSpan duration)
         => duration > TimeSpan.Zero && time >= duration
             ? TimeSpan.FromTicks(duration.Ticks - 1)

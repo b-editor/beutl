@@ -172,8 +172,8 @@ public sealed partial class AudioSpectrumDrawable : AudioVisualizerDrawable
             {
                 case FrequencyScale.Logarithmic:
                     {
-                        double freqLow = axis.FMin * Math.Pow(axis.FMax / axis.FMin, (double)i / barCount);
-                        double freqHigh = axis.FMin * Math.Pow(axis.FMax / axis.FMin, (double)(i + 1) / barCount);
+                        double freqLow = axis.FrequencyAt((double)i / barCount, freqScale);
+                        double freqHigh = axis.FrequencyAt((double)(i + 1) / barCount, freqScale);
                         binLow = (int)Math.Floor(freqLow / axis.FMax * bins);
                         binHigh = (int)Math.Ceiling(freqHigh / axis.FMax * bins);
                         break;
@@ -182,8 +182,8 @@ public sealed partial class AudioSpectrumDrawable : AudioVisualizerDrawable
                     {
                         double m1 = axis.MelMin + (axis.MelMax - axis.MelMin) * i / barCount;
                         double m2 = axis.MelMin + (axis.MelMax - axis.MelMin) * (i + 1) / barCount;
-                        double f1 = 700.0 * (Math.Pow(10, m1 / 2595.0) - 1);
-                        double f2 = 700.0 * (Math.Pow(10, m2 / 2595.0) - 1);
+                        double f1 = FrequencyAxis.MelToFrequency(m1);
+                        double f2 = FrequencyAxis.MelToFrequency(m2);
                         binLow = (int)Math.Floor(f1 / axis.FMax * bins);
                         binHigh = (int)Math.Ceiling(f2 / axis.FMax * bins);
                         break;

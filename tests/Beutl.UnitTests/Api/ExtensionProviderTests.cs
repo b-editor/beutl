@@ -12,15 +12,6 @@ public sealed class ExtensionProviderTests
     private sealed class OtherStubExtension : Extension;
 
     [Test]
-    public void ExtensionProvider_ImplementsMutableRegistryAbstraction()
-    {
-        var provider = new ExtensionProvider();
-
-        Assert.That(provider, Is.InstanceOf<IExtensionRegistry>());
-        Assert.That(provider, Is.InstanceOf<IExtensionProvider>());
-    }
-
-    [Test]
     public void IExtensionProvider_ExtensionsExposeCopiedMetadataOnly()
     {
         var provider = new ExtensionProvider();

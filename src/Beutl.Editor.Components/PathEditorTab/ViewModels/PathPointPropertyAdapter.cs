@@ -13,16 +13,12 @@ internal class PathPointPropertyAdapter(IProperty<Point> property, EngineObject 
 {
     protected string Label { get; } = label;
     string IPropertyAdapter.DisplayName => Label;
-    IProperty IPropertyAdapter.GetEngineProperty() => Property;
 }
 
 internal sealed class AnimatedPathPointPropertyAdapter(AnimatableProperty<Point> property, EngineObject owner, string label)
     : PathPointPropertyAdapter(property, owner, label), IAnimatablePropertyAdapter<Point>
 {
     private readonly AnimatablePropertyAdapter<Point> _inner = new(property, owner);
-
-    string IPropertyAdapter.DisplayName => Label;
-    IProperty IPropertyAdapter.GetEngineProperty() => Property;
 
     public IAnimation<Point>? Animation { get => _inner.Animation; set => _inner.Animation = value; }
     public IObservable<IAnimation<Point>?> ObserveAnimation => _inner.ObserveAnimation;

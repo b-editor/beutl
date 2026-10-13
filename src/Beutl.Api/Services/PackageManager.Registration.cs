@@ -165,10 +165,6 @@ public sealed partial class PackageManager
             package,
             rollbackExtensions,
             loadContext);
-        lock (_packageLifecycleGate)
-        {
-            _pendingRollbacks.Add(package.LocalId, pendingRollback);
-        }
         _ = DrainAndRollbackAsync(
             pendingRollback,
             removal);
@@ -212,7 +208,6 @@ public sealed partial class PackageManager
         }
         lock (_packageLifecycleGate)
         {
-            _pendingRollbacks.Remove(pendingRollback.Package.LocalId);
             _quarantinedPackages.Remove(pendingRollback.Package.LocalId);
         }
     }

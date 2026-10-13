@@ -20,6 +20,9 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public sealed class EncoderOptionsEditorTests
 {
+    // The option cache is process-wide, so each test gets its own output file and cache key.
+    private static string UniqueOutputFile(string extension) => $"{Guid.NewGuid():N}{extension}";
+
     [AvaloniaTest]
     [TestCase(false, "28", true)]
     [TestCase(true, "custom-crf", true)]
@@ -29,7 +32,7 @@ public sealed class EncoderOptionsEditorTests
         var settings = new FFmpegVideoEncoderSettings
         {
             Codec = new CodecRecord("libx264", "H.264"),
-            OutputFile = "out.mp4",
+            OutputFile = UniqueOutputFile(".mp4"),
             Options = [new("crf", "22")],
         };
         EncoderOptionInfo[] schema = [new() { Name = "crf", Kind = EncoderOptionKind.Integer, Minimum = 0, Maximum = 51 }];
@@ -72,7 +75,6 @@ public sealed class EncoderOptionsEditorTests
         {
             reply.TrySetResult(new OptionsQueryResult<EncoderOptionInfo>(schema, false));
             window.Close();
-            FFmpegOptionsCaches.ClearAll();
         }
     }
 
@@ -85,7 +87,7 @@ public sealed class EncoderOptionsEditorTests
         var settings = new FFmpegVideoEncoderSettings
         {
             Codec = new CodecRecord("libvpx-vp9", "VP9"),
-            OutputFile = "out.webm",
+            OutputFile = UniqueOutputFile(".webm"),
             Options = [new("crf", "22")],
         };
         EncoderOptionInfo[] schema = [new() { Name = "crf", Kind = EncoderOptionKind.Integer, Minimum = minimum, Maximum = maximum }];
@@ -118,7 +120,7 @@ public sealed class EncoderOptionsEditorTests
             HeadlessTestHelpers.Render(2);
             Assert.That(model.GetValue("crf"), Is.EqualTo(expected));
         }
-        finally { window.Close(); FFmpegOptionsCaches.ClearAll(); }
+        finally { window.Close(); }
     }
 
     [AvaloniaTest]
@@ -131,7 +133,7 @@ public sealed class EncoderOptionsEditorTests
         var settings = new FFmpegVideoEncoderSettings
         {
             Codec = new CodecRecord("libx264", "H.264"),
-            OutputFile = "out.mp4",
+            OutputFile = UniqueOutputFile(".mp4"),
             Format = FFPixelFormat.YUV420P,
             Options = [new("crf", "22")],
         };
@@ -158,7 +160,7 @@ public sealed class EncoderOptionsEditorTests
             HeadlessTestHelpers.Render(2);
             Assert.That(model.GetValue("crf"), Is.EqualTo(text));
         }
-        finally { window.Close(); FFmpegOptionsCaches.ClearAll(); }
+        finally { window.Close(); }
     }
 
     [AvaloniaTest]
@@ -167,7 +169,7 @@ public sealed class EncoderOptionsEditorTests
         var settings = new FFmpegVideoEncoderSettings
         {
             Codec = new CodecRecord("libx264", "H.264"),
-            OutputFile = "out.mp4",
+            OutputFile = UniqueOutputFile(".mp4"),
             Options = [new("first", "one"), new("second", "two"), new("crf", "100")],
         };
         EncoderOptionInfo[] schema = [new() { Name = "crf", Kind = EncoderOptionKind.Integer, Minimum = 0, Maximum = 63 }];
@@ -206,7 +208,7 @@ public sealed class EncoderOptionsEditorTests
             Assert.That(view.GetVisualDescendants().OfType<TextBlock>()
                 .Any(c => c.IsEffectivelyVisible && c.Text == Strings.EncoderOptionsDuplicate), Is.False);
         }
-        finally { window.Close(); FFmpegOptionsCaches.ClearAll(); }
+        finally { window.Close(); }
     }
 
     [AvaloniaTest]
@@ -219,7 +221,7 @@ public sealed class EncoderOptionsEditorTests
         var settings = new FFmpegVideoEncoderSettings
         {
             Codec = new CodecRecord("libx264", "H.264"),
-            OutputFile = "out.mp4",
+            OutputFile = UniqueOutputFile(".mp4"),
             Options = [new(" ", "value")],
         };
         await PrimeSchema(settings, []);
@@ -235,7 +237,6 @@ public sealed class EncoderOptionsEditorTests
         finally
         {
             window.Close();
-            FFmpegOptionsCaches.ClearAll();
             System.Globalization.CultureInfo.CurrentUICulture = previousCulture;
         }
     }
@@ -246,7 +247,7 @@ public sealed class EncoderOptionsEditorTests
         var settings = new FFmpegVideoEncoderSettings
         {
             Codec = new CodecRecord("libvpx-vp9", "VP9"),
-            OutputFile = "out.webm",
+            OutputFile = UniqueOutputFile(".webm"),
             Options = [new("deadline", "1000000"), new("cpu-used", "1")],
         };
         EncoderOptionInfo[] schema =
@@ -273,7 +274,7 @@ public sealed class EncoderOptionsEditorTests
             Assert.That(model.GetWarning(schema[0], "120000"), Is.Null);
             Assert.That(model.GetValue("cpu-used"), Is.EqualTo("4"));
         }
-        finally { window.Close(); FFmpegOptionsCaches.ClearAll(); }
+        finally { window.Close(); }
     }
 
     [AvaloniaTest]
@@ -285,7 +286,7 @@ public sealed class EncoderOptionsEditorTests
         var settings = new FFmpegVideoEncoderSettings
         {
             Codec = new CodecRecord("libx264", "H.264"),
-            OutputFile = "out.mp4",
+            OutputFile = UniqueOutputFile(".mp4"),
             Format = FFPixelFormat.YUV420P,
         };
         settings.Options.Single(o => o.Name == "profile").Value = "main10";
@@ -352,7 +353,7 @@ public sealed class EncoderOptionsEditorTests
             advanced.IsChecked = false;
             HeadlessTestHelpers.Render(2);
         }
-        finally { window.Close(); FFmpegOptionsCaches.ClearAll(); }
+        finally { window.Close(); }
     }
 
     private static string CacheKey(FFmpegVideoEncoderSettings settings, int? format = null)

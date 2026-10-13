@@ -6,7 +6,6 @@ using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shaders;
 using Beutl.Media;
-using SkiaSharp;
 
 namespace Beutl.PublicApiContractTests;
 
@@ -216,9 +215,21 @@ public sealed class FilterEffectCompatibilityContractTests
             },
             static context => context.Brightness(0.75f));
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
-        using var root = new SymbolicFullFilterInputNode(
+        using var root = new FilterInputNode(
             new BoundsDependentWorkingScaleFilterNode(resource),
-            sourceBounds);
+            context =>
+            {
+                RenderFragmentHandle concrete = context.OpaqueSource(CreateMetadataSource(
+                    sourceBounds,
+                    RenderScaleContract.Custom(static _ => 4)));
+                RenderFragmentHandle scopedSource = context.OpaqueSource(CreateMetadataSource(
+                    sourceBounds,
+                    RenderScaleContract.Vector));
+                RenderFragmentHandle symbolic = context.TargetLayerScope(
+                    [scopedSource],
+                    TargetRegion.Full);
+                return [concrete, symbolic];
+            });
         using var renderer = new RenderNodeRenderer(
             root,
             new RenderNodeRenderRequest
@@ -267,8 +278,18 @@ public sealed class FilterEffectCompatibilityContractTests
             },
             static context => context.Shader(s_identityShader));
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
-        using var root = new ConcreteMultiFilterInputNode(
-            new BranchSensitiveWorkingScaleFilterNode(resource));
+        using var root = new FilterInputNode(
+            new BranchSensitiveWorkingScaleFilterNode(resource),
+            static context =>
+            {
+                RenderFragmentHandle first = context.OpaqueSource(CreateMetadataSource(
+                    s_bounds,
+                    RenderScaleContract.Custom(static _ => 1)));
+                RenderFragmentHandle second = context.OpaqueSource(CreateMetadataSource(
+                    s_bounds.Translate(new Point(20, 0)),
+                    RenderScaleContract.Custom(static _ => 2)));
+                return [first, second];
+            });
         using var renderer = new RenderNodeRenderer(
             root,
             new RenderNodeRenderRequest
@@ -305,8 +326,14 @@ public sealed class FilterEffectCompatibilityContractTests
             },
             static context => context.Shader(s_identityShader));
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
-        using var root = new ConcreteSingleFilterInputNode(
-            new VectorWorkingScaleFilterNode(resource));
+        using var root = new FilterInputNode(
+            new VectorWorkingScaleFilterNode(resource),
+            static context =>
+            [
+                context.OpaqueSource(CreateMetadataSource(
+                    s_bounds,
+                    RenderScaleContract.Custom(static _ => 1))),
+            ]);
         using var renderer = new RenderNodeRenderer(
             root,
             new RenderNodeRenderRequest
@@ -387,8 +414,7 @@ public sealed class FilterEffectCompatibilityContractTests
     {
         public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
         {
-            // This is intentionally an old-style ApplyTo implementation. It does not use any
-            // feature-004 Shader/Geometry API and therefore exercises source compatibility.
+            // Deliberately uses only the pre-Shader/Geometry ApplyTo surface, to pin source compatibility.
             context.Brightness(1);
             context.CustomEffect(
                 new EffectItemMarker(executionOrder, $"{prefix}:after-color"),
@@ -418,12 +444,7 @@ public sealed class FilterEffectCompatibilityContractTests
             return resource;
         }
 
-        public new sealed class Resource : FilterEffect.Resource
-        {
-            public Resource()
-            {
-            }
-        }
+        public new sealed class Resource : FilterEffect.Resource;
     }
 
     private sealed record EffectItemMarker(List<string> Order, string Name);
@@ -447,12 +468,7 @@ public sealed class FilterEffectCompatibilityContractTests
             return resource;
         }
 
-        public new sealed class Resource : FilterEffect.Resource
-        {
-            public Resource()
-            {
-            }
-        }
+        public new sealed class Resource : FilterEffect.Resource;
     }
 
     private sealed class BoundsDependentWorkingScaleFilterNode(FilterEffect.Resource resource)
@@ -483,26 +499,12 @@ public sealed class FilterEffectCompatibilityContractTests
         protected override RenderScaleContract? GetWorkingScaleContract() => RenderScaleContract.Vector;
     }
 
-    private sealed class SymbolicFullFilterInputNode(
+    private sealed class FilterInputNode(
         FilterEffectRenderNode filter,
-        Rect sourceBounds) : RenderNode
+        Func<RenderNodeContext, RenderFragmentHandle[]> createInputs) : RenderNode
     {
         public override void Process(RenderNodeContext context)
-        {
-            RenderFragmentHandle concrete = context.OpaqueSource(CreateMetadataSource(
-                sourceBounds,
-                RenderScaleContract.Custom(static _ => 4),
-                "concrete"));
-            RenderFragmentHandle scopedSource = context.OpaqueSource(CreateMetadataSource(
-                sourceBounds,
-                RenderScaleContract.Vector,
-                "scoped"));
-            RenderFragmentHandle symbolic = context.TargetLayerScope(
-                [scopedSource],
-                TargetRegion.Full);
-
-            context.PublishRange(context.RecordNode(filter, [concrete, symbolic]));
-        }
+            => context.PublishRange(context.RecordNode(filter, createInputs(context)));
 
         protected override void OnDispose(bool disposing)
         {
@@ -513,57 +515,7 @@ public sealed class FilterEffectCompatibilityContractTests
         }
     }
 
-    private sealed class ConcreteMultiFilterInputNode(
-        FilterEffectRenderNode filter) : RenderNode
-    {
-        public override void Process(RenderNodeContext context)
-        {
-            RenderFragmentHandle first = context.OpaqueSource(CreateMetadataSource(
-                s_bounds,
-                RenderScaleContract.Custom(static _ => 1),
-                "concrete-at-one"));
-            RenderFragmentHandle second = context.OpaqueSource(CreateMetadataSource(
-                s_bounds.Translate(new Point(20, 0)),
-                RenderScaleContract.Custom(static _ => 2),
-                "concrete-at-two"));
-
-            context.PublishRange(context.RecordNode(filter, [first, second]));
-        }
-
-        protected override void OnDispose(bool disposing)
-        {
-            if (disposing)
-                filter.Dispose();
-
-            base.OnDispose(disposing);
-        }
-    }
-
-    private sealed class ConcreteSingleFilterInputNode(
-        FilterEffectRenderNode filter) : RenderNode
-    {
-        public override void Process(RenderNodeContext context)
-        {
-            RenderFragmentHandle source = context.OpaqueSource(CreateMetadataSource(
-                s_bounds,
-                RenderScaleContract.Custom(static _ => 1),
-                "single-at-one"));
-            context.PublishRange(context.RecordNode(filter, [source]));
-        }
-
-        protected override void OnDispose(bool disposing)
-        {
-            if (disposing)
-                filter.Dispose();
-
-            base.OnDispose(disposing);
-        }
-    }
-
-    private static OpaqueRenderDescription CreateMetadataSource(
-        Rect bounds,
-        RenderScaleContract scale,
-        object _)
+    private static OpaqueRenderDescription CreateMetadataSource(Rect bounds, RenderScaleContract scale)
     {
         return RenderDescriptionFactory.Opaque(
             static _ => throw new AssertionException("Measure must not execute opaque callbacks."),
@@ -571,26 +523,6 @@ public sealed class FilterEffectCompatibilityContractTests
             RenderHitTestContract.OutputBounds,
             RenderValueCardinality.Single,
             scale);
-    }
-
-    private sealed class SolidSourceNode(Rect bounds, Color color) : RenderNode
-    {
-        public override void Process(RenderNodeContext context)
-        {
-            OpaqueRenderDescription description = OpaqueRenderDescription.Create(
-                (bounds, color),
-                static (session, state) =>
-                {
-                    using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
-                    output.Canvas.Use(canvas => canvas.Clear(state.color));
-                    session.Publish(output);
-                },
-                OpaqueRenderBoundsContract.Source(bounds),
-                RenderHitTestContract.OutputBounds,
-                RenderValueCardinality.Single,
-                RenderScaleContract.MaterializeAtWorkingScale);
-            context.Publish(context.OpaqueSource(description));
-        }
     }
 
     private sealed class OwnedEffectNode(FilterEffectRenderNode node, FilterEffect.Resource resource) : RenderNode
@@ -610,33 +542,6 @@ public sealed class FilterEffectCompatibilityContractTests
             }
 
             base.OnDispose(disposing);
-        }
-    }
-
-    private sealed class CpuTargetFactory : IRenderTargetFactory
-    {
-        public RenderTarget Create(RenderTargetAllocationDescriptor allocation) =>
-            new CpuRenderTarget(allocation.DeviceSize);
-    }
-
-    private sealed class CpuRenderTarget : RenderTarget
-    {
-        private static readonly SKColorSpace s_colorSpace = SKColorSpace.CreateSrgbLinear();
-
-        public CpuRenderTarget(PixelSize size)
-            : base(CreateSurface(size), size.Width, size.Height)
-        {
-        }
-
-        private static SKSurface CreateSurface(PixelSize size)
-        {
-            return SKSurface.Create(new SKImageInfo(
-                       size.Width,
-                       size.Height,
-                       SKColorType.RgbaF16,
-                       SKAlphaType.Premul,
-                       s_colorSpace))
-                   ?? throw new InvalidOperationException("Could not create a CPU contract-test surface.");
         }
     }
 }

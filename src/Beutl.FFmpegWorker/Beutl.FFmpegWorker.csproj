@@ -23,9 +23,7 @@
     <PackageReference Include="Microsoft.Extensions.Logging.Console" />
   </ItemGroup>
 
-  <!-- Settings/record types shared with the MIT extension (compiled here under BEUTL_FFMPEG_WORKER).
-       The FFmpeg-calling types (FFmpegReader / FFmpegEncodingController / ColorSpaceHelper)
-       now live in this project directly and are picked up by the default glob. -->
+  <!-- Settings/record types shared with the MIT extension (compiled here under BEUTL_FFMPEG_WORKER). -->
   <ItemGroup>
     <Compile Include="..\Beutl.Extensions.FFmpeg.Core\Encoding\CodecRecord.cs" Link="Linked\CodecRecord.cs" />
     <Compile Include="..\Beutl.Extensions.FFmpeg.Core\Encoding\FFmpegEncodingSettings.cs" Link="Linked\FFmpegEncodingSettings.cs" />

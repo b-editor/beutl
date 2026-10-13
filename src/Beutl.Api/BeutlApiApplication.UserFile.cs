@@ -91,7 +91,7 @@ public partial class BeutlApiApplication
             AuthenticatedUser? user = await ReadUserAsync(token);
             if (user != null)
             {
-                CommitAuthenticatedUser(user, authenticationAttempt, token);
+                CommitAuthenticatedUser(user, authenticationAttempt, persist: false, token);
                 try
                 {
                     await user.RefreshAsync(token);

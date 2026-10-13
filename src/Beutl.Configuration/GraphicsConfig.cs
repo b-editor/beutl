@@ -13,10 +13,6 @@ public sealed class GraphicsConfig : ConfigurationBase
             .Register();
     }
 
-    public GraphicsConfig()
-    {
-    }
-
     public string? SelectedGpuName
     {
         get => GetValue(SelectedGpuNameProperty);

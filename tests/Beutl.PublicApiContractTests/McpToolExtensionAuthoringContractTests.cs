@@ -6,12 +6,11 @@ using Beutl.Extensibility;
 namespace Beutl.PublicApiContractTests;
 
 [TestFixture]
-public sealed class McpToolExtensionAuthoringContractTests : PublicApiContractTestBase
+public sealed class McpToolExtensionAuthoringContractTests
 {
     [Test]
     public async Task APluginAuthoredExtension_CanDeclareAndRunTools()
     {
-        AssertDoesNotHaveFriendAccess(typeof(McpToolExtension).Assembly);
         var extension = new PluginToolExtension();
         using JsonDocument arguments = JsonDocument.Parse("""{"text":"hello"}""");
 

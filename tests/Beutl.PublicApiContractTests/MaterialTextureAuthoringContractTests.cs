@@ -9,30 +9,27 @@ using Beutl.Graphics3D.Textures;
 namespace Beutl.PublicApiContractTests;
 
 [TestFixture]
-public sealed class MaterialTextureAuthoringContractTests : PublicApiContractTestBase
+public sealed class MaterialTextureAuthoringContractTests
 {
     [Test]
     public void MaterialResource_TextureEnumerationRemainsAnOptionalExtensionPoint()
     {
-        AssertDoesNotHaveFriendAccess(typeof(Material3D).Assembly);
         var material = new PluginMaterial();
         using PluginMaterial.Resource evaluated = material.ToResource(CompositionContext.Default);
         using var texture = new DrawableTextureSource.Resource();
         using var resource = new PluginMaterial.Resource(texture);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(typeof(MaterialResourceUsingDefaultTextureEnumeration).IsAbstract, Is.True);
-            Assert.That(typeof(PluginMaterial).IsAbstract, Is.False);
-            Assert.That(typeof(PluginMaterial.Resource).IsAbstract, Is.False);
-            Assert.That(evaluated, Is.TypeOf<PluginMaterial.Resource>());
-            Assert.That(resource.DeclaredTextures, Is.EqualTo(new TextureSource.Resource[] { texture }));
-        });
     }
 
-    private abstract class MaterialResourceUsingDefaultTextureEnumeration : Material3D.Resource
+    // Sealed and without EnumerateTextureSources, so this stops compiling if that hook becomes abstract.
+    private sealed class MaterialResourceUsingDefaultTextureEnumeration : Material3D.Resource
     {
-        protected MaterialResourceUsingDefaultTextureEnumeration()
+        protected override IPipeline3D? Pipeline => null;
+
+        public override void EnsurePipeline(RenderContext3D context)
+        {
+        }
+
+        public override void Bind(RenderContext3D context, Object3D.Resource obj, Matrix4x4 worldMatrix)
         {
         }
     }

@@ -332,7 +332,7 @@ public class PlayerViewModelQuiescenceTests
                     thread.Start();
                 Assert.That(callersStarted.Wait(TimeSpan.FromSeconds(5)), Is.True);
                 // Hold startup before its first await. Both callers must reach the contended
-                // lock before releasing it, so the old check-then-start race is deterministic.
+                // lock before releasing it, so the check-then-start race is deterministic.
                 Assert.That(SpinWait.SpinUntil(() => threads.All(thread =>
                     (thread.ThreadState & System.Threading.ThreadState.WaitSleepJoin) != 0),
                     TimeSpan.FromSeconds(5)), Is.True);
@@ -384,7 +384,7 @@ public class PlayerViewModelQuiescenceTests
         try
         {
             await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
-            int generation = GetSessionGuard(editor.Player).Claim();
+            int generation = GetSessionGuard(editor.Player).Claim(static () => { });
             buffer = ComposeThread.Dispatcher.InvokeAsync(() =>
                 editor.Player.FillAudioData(TimeSpan.Zero, editor.Scene, generation, cts.Token));
             if (cancelToken)
@@ -524,7 +524,7 @@ public class PlayerViewModelQuiescenceTests
 
     private static Task StartComposition(EditViewModel editor)
     {
-        int generation = GetSessionGuard(editor.Player).Claim();
+        int generation = GetSessionGuard(editor.Player).Claim(static () => { });
         Task playback = Task.Run(() =>
         {
             using var pcm = editor.Player.FillAudioData(

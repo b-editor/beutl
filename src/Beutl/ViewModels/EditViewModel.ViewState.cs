@@ -13,15 +13,7 @@ public partial class EditViewModel
 {
     private string ViewStateDirectory()
     {
-        string directory = Path.GetDirectoryName(Scene.Uri!.LocalPath)!;
-
-        directory = Path.Combine(directory, EditorConstants.BeutlFolder, EditorConstants.ViewStateFolder);
-        if (!Directory.Exists(directory))
-        {
-            Directory.CreateDirectory(directory);
-        }
-
-        return directory;
+        return EditorConstants.GetViewStateDirectory(Scene.Uri!);
     }
 
     private void SaveState(bool isExplicitUserSave = false)

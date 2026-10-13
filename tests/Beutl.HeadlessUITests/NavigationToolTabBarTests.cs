@@ -31,7 +31,7 @@ public class NavigationToolTabBarTests
     public async Task Navigation_keeps_selection_menus_and_narrow_width_access(int width)
     {
         (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("navigation-bars");
-        using var library = new LibraryTabViewModel(editor);
+        using var library = new LibraryTabViewModel();
         var originalModes = library.LibraryTabDisplayModes.ToArray();
         await using AiWorkspaceViewModel workspace = TestShell.MainViewModel.CreateAiWorkspaceViewModel(editor);
         var libraryView = new LibraryTabView { DataContext = library };

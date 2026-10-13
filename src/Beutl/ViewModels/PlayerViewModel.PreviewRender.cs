@@ -38,11 +38,6 @@ public partial class PlayerViewModel
         UpdatePreviewRenderError(null, () => _sessionGuard.Owns(generation));
     }
 
-    internal void SetPreviewRenderError(string? message)
-    {
-        UpdatePreviewRenderError(message, static () => true);
-    }
-
     internal bool ApplyPlaybackRenderFailure(
         BufferedPlayer.RenderFailure failure,
         int rate,

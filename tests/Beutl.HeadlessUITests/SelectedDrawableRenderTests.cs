@@ -15,14 +15,24 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class SelectedDrawableRenderTests
 {
-    private static Task ResetProjectAsync() => TestReset.ResetShellAsync();
-
     private static string NewWorkspace(string name)
     {
         string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, name);
         Directory.CreateDirectory(location);
         return location;
     }
+
+    // A 48x32 red rectangle with its top-left corner moved to (x, y).
+    private static RectShape CreateRedRect(float x, float y)
+        => new()
+        {
+            Width = { CurrentValue = 48 },
+            Height = { CurrentValue = 32 },
+            AlignmentX = { CurrentValue = AlignmentX.Left },
+            AlignmentY = { CurrentValue = AlignmentY.Top },
+            Transform = { CurrentValue = new TranslateTransform(x, y) },
+            Fill = { CurrentValue = new SolidColorBrush(Colors.Red) },
+        };
 
     private static async Task<EditViewModel> OpenEditor(string name)
     {
@@ -59,17 +69,9 @@ public class SelectedDrawableRenderTests
     public async Task Shifted_selected_drawable_measure_matches_rasterization_and_caller_owns_result()
     {
         TestGpu.RequireAnyDevice();
-        await ResetProjectAsync();
+        await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditor("selected-drawable-shifted");
-        var drawable = new RectShape
-        {
-            Width = { CurrentValue = 48 },
-            Height = { CurrentValue = 32 },
-            AlignmentX = { CurrentValue = AlignmentX.Left },
-            AlignmentY = { CurrentValue = AlignmentY.Top },
-            Transform = { CurrentValue = new TranslateTransform(37, 29) },
-            Fill = { CurrentValue = new SolidColorBrush(Colors.Red) },
-        };
+        var drawable = CreateRedRect(37, 29);
 
         PixelSize measuredSize = await editor.Player.MeasureSelectedDrawable(drawable);
         Bitmap playerBitmap = await editor.Player.DrawSelectedDrawable(drawable);
@@ -132,18 +134,10 @@ public class SelectedDrawableRenderTests
     public async Task Selected_drawable_outside_the_frame_is_still_exported_whole()
     {
         TestGpu.RequireAnyDevice();
-        await ResetProjectAsync();
+        await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditor("selected-drawable-off-frame");
-        var drawable = new RectShape
-        {
-            Width = { CurrentValue = 48 },
-            Height = { CurrentValue = 32 },
-            AlignmentX = { CurrentValue = AlignmentX.Left },
-            AlignmentY = { CurrentValue = AlignmentY.Top },
-            // The project frame is 320x240, so this sits entirely beyond its bottom-right corner.
-            Transform = { CurrentValue = new TranslateTransform(400, 300) },
-            Fill = { CurrentValue = new SolidColorBrush(Colors.Red) },
-        };
+        // The project frame is 320x240, so this sits entirely beyond its bottom-right corner.
+        var drawable = CreateRedRect(400, 300);
 
         PixelSize measuredSize = await editor.Player.MeasureSelectedDrawable(drawable);
         Bitmap bitmap = await editor.Player.DrawSelectedDrawable(drawable);
@@ -167,18 +161,10 @@ public class SelectedDrawableRenderTests
     public async Task Selected_drawable_straddling_the_frame_edge_keeps_its_hidden_half()
     {
         TestGpu.RequireAnyDevice();
-        await ResetProjectAsync();
+        await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditor("selected-drawable-straddling");
-        var drawable = new RectShape
-        {
-            Width = { CurrentValue = 48 },
-            Height = { CurrentValue = 32 },
-            AlignmentX = { CurrentValue = AlignmentX.Left },
-            AlignmentY = { CurrentValue = AlignmentY.Top },
-            // Half of its width hangs past the frame's right edge at x = 320.
-            Transform = { CurrentValue = new TranslateTransform(296, 100) },
-            Fill = { CurrentValue = new SolidColorBrush(Colors.Red) },
-        };
+        // Half of its width hangs past the frame's right edge at x = 320.
+        var drawable = CreateRedRect(296, 100);
 
         PixelSize measuredSize = await editor.Player.MeasureSelectedDrawable(drawable);
 
@@ -207,7 +193,7 @@ public class SelectedDrawableRenderTests
     [AvaloniaTest]
     public async Task Empty_selected_drawable_measure_matches_empty_rasterization()
     {
-        await ResetProjectAsync();
+        await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditor("selected-drawable-empty");
         var drawable = new RectShape
         {
@@ -267,18 +253,10 @@ public class SelectedDrawableRenderTests
     public async Task Group_uses_its_content_extent_for_measurement_and_rasterization()
     {
         TestGpu.RequireAnyDevice();
-        await ResetProjectAsync();
+        await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditor("selected-drawable-full-target-group");
         var group = new DrawableGroup();
-        group.Children.Add(new RectShape
-        {
-            Width = { CurrentValue = 48 },
-            Height = { CurrentValue = 32 },
-            AlignmentX = { CurrentValue = AlignmentX.Left },
-            AlignmentY = { CurrentValue = AlignmentY.Top },
-            Transform = { CurrentValue = new TranslateTransform(37, 29) },
-            Fill = { CurrentValue = new SolidColorBrush(Colors.Red) },
-        });
+        group.Children.Add(CreateRedRect(37, 29));
 
         PixelSize measuredSize = await editor.Player.MeasureSelectedDrawable(group);
         using Bitmap bitmap = await editor.Player.DrawSelectedDrawable(group);
@@ -302,7 +280,7 @@ public class SelectedDrawableRenderTests
     public async Task Full_target_only_drawable_renders_when_query_bounds_are_empty()
     {
         TestGpu.RequireAnyDevice();
-        await ResetProjectAsync();
+        await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditor("selected-drawable-full-target-only");
         var drawable = new SelectedDrawableFullTargetDrawable();
 
@@ -328,19 +306,11 @@ public class SelectedDrawableRenderTests
     public async Task Full_target_drawable_grouped_with_off_frame_content_keeps_that_content()
     {
         TestGpu.RequireAnyDevice();
-        await ResetProjectAsync();
+        await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditor("selected-drawable-full-target-off-frame");
         var group = new DrawableGroup();
         group.Children.Add(new SelectedDrawableFullTargetDrawable());
-        group.Children.Add(new RectShape
-        {
-            Width = { CurrentValue = 48 },
-            Height = { CurrentValue = 32 },
-            AlignmentX = { CurrentValue = AlignmentX.Left },
-            AlignmentY = { CurrentValue = AlignmentY.Top },
-            Transform = { CurrentValue = new TranslateTransform(400, 300) },
-            Fill = { CurrentValue = new SolidColorBrush(Colors.Red) },
-        });
+        group.Children.Add(CreateRedRect(400, 300));
 
         PixelSize measuredSize = await editor.Player.MeasureSelectedDrawable(group);
         using Bitmap bitmap = await editor.Player.DrawSelectedDrawable(group);
@@ -357,7 +327,7 @@ public class SelectedDrawableRenderTests
     public async Task Nested_scene_selected_drawable_records_the_requested_output_scale()
     {
         TestGpu.RequireAnyDevice();
-        await ResetProjectAsync();
+        await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditor("selected-drawable-nested-scale");
         string location = NewWorkspace("selected-drawable-nested-scale-source");
         var innerScene = new Scene(64, 48, string.Empty)
@@ -396,7 +366,7 @@ public class SelectedDrawableRenderTests
     public async Task Selected_drawable_records_the_sanitized_output_scale_for_an_invalid_request()
     {
         TestGpu.RequireAnyDevice();
-        await ResetProjectAsync();
+        await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditor("selected-drawable-invalid-scale");
 
         foreach (float requested in new[] { float.NaN, 0f, -2f })

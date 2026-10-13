@@ -19,7 +19,7 @@ When adding a feature here, picture the IPC boundary first: what message does MI
 
 ## Tests
 
-Process-level tests live in `tests/Beutl.FFmpegIpc.Tests/` — they spawn this worker and exercise the IPC protocol. Treat that project as the contract-test surface for any change here.
+Process-level tests live in `tests/Beutl.FFmpegIpc.Tests/` — they spawn this worker and exercise the IPC protocol. Treat that project as the contract-test surface for any change here. `tests/Beutl.FFmpegWorker.Tests/` compiles the worker's types from linked sources and tests them in process.
 
 ## Self-contained build note
 

@@ -26,7 +26,8 @@ public partial class MenuBarViewModel
 
         RemoveFromProject = new(isProjectOpenedAndTabOpened);
 
-        DeleteLayer = new(isSceneOpened);
+        DeleteLayer = new AsyncReactiveCommand(isSceneOpened)
+            .WithSubscribe(OnDeleteElement);
         ExcludeLayer = new ReactiveCommandSlim(isSceneOpened)
             .WithSubscribe(OnExcludeElement);
 
@@ -75,6 +76,9 @@ public partial class MenuBarViewModel
 
     public AsyncReactiveCommand RelinkMedia { get; private set; }
 
+    // Set by the view; asks the user to confirm deleting the file with the given name.
+    internal Func<string, Task<bool>>? ConfirmDeleteElementAsync { get; set; }
+
     private bool TryGetSelectedEditViewModel([NotNullWhen(true)] out EditViewModel? viewModel)
     {
         if (_editorService.SelectedTabItem.Value?.Context.Value is EditViewModel editViewModel)
@@ -116,6 +120,17 @@ public partial class MenuBarViewModel
         scene = null;
         element = null;
         return false;
+    }
+
+    private async Task OnDeleteElement()
+    {
+        if (ConfirmDeleteElementAsync is { } confirm
+            && TryGetSelectedElement(out EditViewModel? viewModel, out Scene? scene, out Element? element)
+            && await confirm(Path.GetFileName(element.Uri!.LocalPath)))
+        {
+            viewModel.GetRequiredService<IElementStructureService>()
+                .Delete(scene, [element], GlobalConfiguration.Instance.EditorConfig.IsRippleEnabled);
+        }
     }
 
     private void OnExcludeElement()

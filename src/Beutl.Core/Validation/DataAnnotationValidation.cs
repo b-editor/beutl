@@ -4,12 +4,11 @@ namespace Beutl.Validation;
 
 internal static class DataAnnotationValidation
 {
-    // The error message attribute gives for value, named after the property or else valueType.
+    // The error message attribute gives for value, named after the property or else T.
     public static string? ValidateWithAttribute<T>(
         ValidationAttribute? attribute,
         ValidationContext context,
-        T? value,
-        Type valueType)
+        T? value)
     {
         if (attribute == null)
         {
@@ -20,7 +19,7 @@ internal static class DataAnnotationValidation
         {
             if (!attribute.IsValid(value))
             {
-                return attribute.FormatErrorMessage(context.Property?.Name ?? valueType.Name);
+                return attribute.FormatErrorMessage(context.Property?.Name ?? typeof(T).Name);
             }
             else
             {

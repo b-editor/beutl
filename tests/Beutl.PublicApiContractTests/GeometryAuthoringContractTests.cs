@@ -4,7 +4,7 @@ using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
-using SkiaSharp;
+using static Beutl.PublicApiContractTests.ContractTestSupport;
 
 namespace Beutl.PublicApiContractTests;
 
@@ -28,7 +28,7 @@ public sealed class GeometryAuthoringContractTests
     {
         var inputBounds = new Rect(10, 20, 8, 6);
         var outputBounds = inputBounds.Inflate(new Thickness(2));
-        var resource = new GeometryResource("metadata");
+        var resource = new GeometryResource();
         FragmentSnapshot observedFragment = default;
 
         using var node = new DelegateNode(context =>
@@ -75,7 +75,7 @@ public sealed class GeometryAuthoringContractTests
     {
         var bounds = new Rect(0, 0, 8, 6);
         var shrink = new Rect(2, 1, 3, 3);
-        var declared = new GeometryResource("declared");
+        var declared = new GeometryResource();
         var effect = new PluginGeometryEffect(declared, shrink);
         using PluginGeometryEffect.Resource resource = effect.ToResource(CompositionContext.Default);
         using FilterEffectRenderNode node = resource.CreateRenderNode();
@@ -197,12 +197,6 @@ public sealed class GeometryAuthoringContractTests
         return renderer.Rasterize();
     }
 
-    private static float AlphaAt(Bitmap bitmap, int x, int y)
-    {
-        Assert.That(bitmap.ColorType, Is.EqualTo(BitmapColorType.RgbaF16));
-        return (float)bitmap.GetRow<Half>(y)[x * 4 + 3];
-    }
-
     private static float MaxAlpha(Bitmap bitmap)
     {
         float max = 0;
@@ -251,17 +245,6 @@ public sealed class GeometryAuthoringContractTests
             RenderHitTestContract.OutputBounds,
             RenderValueCardinality.Single,
             RenderScaleContract.MaterializeAtWorkingScale);
-    }
-
-    private sealed class SolidSourceNode(Rect bounds, Color color) : RenderNode
-    {
-        public override void Process(RenderNodeContext context)
-            => context.Publish(context.OpaqueSource(ExecutingSource(bounds, color)));
-    }
-
-    private sealed class DelegateNode(Action<RenderNodeContext> process) : RenderNode
-    {
-        public override void Process(RenderNodeContext context) => process(context);
     }
 
     [SuppressResourceClassGeneration]
@@ -343,18 +326,12 @@ public sealed class GeometryAuthoringContractTests
 
         public new sealed class Resource : FilterEffect.Resource
         {
-            public Resource()
-            {
-            }
-
             public override FilterEffectRenderNode CreateRenderNode() => new(this);
         }
     }
 
-    private sealed class GeometryResource(string name) : IDisposable
+    private sealed class GeometryResource : IDisposable
     {
-        public string Name { get; } = name;
-
         public int DisposeCalls { get; private set; }
 
         public void Dispose() => DisposeCalls++;
@@ -376,33 +353,6 @@ public sealed class GeometryAuthoringContractTests
                 handle.ValueCardinality,
                 handle.ContributesValuesToTarget,
                 handle.CanBeUsedAsValueInput);
-        }
-    }
-
-    private sealed class CpuTargetFactory : IRenderTargetFactory
-    {
-        public RenderTarget Create(RenderTargetAllocationDescriptor allocation) =>
-            new CpuRenderTarget(allocation.DeviceSize);
-    }
-
-    private sealed class CpuRenderTarget : RenderTarget
-    {
-        private static readonly SKColorSpace s_colorSpace = SKColorSpace.CreateSrgbLinear();
-
-        public CpuRenderTarget(PixelSize size)
-            : base(CreateSurface(size), size.Width, size.Height)
-        {
-        }
-
-        private static SKSurface CreateSurface(PixelSize size)
-        {
-            return SKSurface.Create(new SKImageInfo(
-                       size.Width,
-                       size.Height,
-                       SKColorType.RgbaF16,
-                       SKAlphaType.Premul,
-                       s_colorSpace))
-                   ?? throw new InvalidOperationException("Could not create a CPU contract-test surface.");
         }
     }
 }

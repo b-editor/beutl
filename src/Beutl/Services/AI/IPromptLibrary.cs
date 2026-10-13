@@ -2,12 +2,6 @@
 
 internal interface IPromptLibrary
 {
-    string StoragePath { get; }
-
-    bool RetainRecentPromptText { get; }
-
-    string? RecoveredCorruptFilePath { get; }
-
     IReadOnlyList<PromptHistoryEntry> History { get; }
 
     IReadOnlyList<PromptTemplate> Templates { get; }
@@ -25,10 +19,6 @@ internal interface IPromptLibrary
     bool DeleteTemplate(Guid id);
 
     void ClearHistory();
-
-    void ClearTemplates();
-
-    void ClearAll();
 }
 
 /// <summary>

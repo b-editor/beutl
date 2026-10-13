@@ -120,7 +120,6 @@ public sealed class PooledArrayBufferWriter<T> : IBufferWriter<T>, IDisposable
         {
             int currentLength = _buffer.Length;
 
-            // Attempt to grow by the larger of the sizeHint and double the current size.
             int growBy = Math.Max(sizeHint, currentLength);
 
             if (currentLength == 0)
@@ -132,7 +131,6 @@ public sealed class PooledArrayBufferWriter<T> : IBufferWriter<T>, IDisposable
 
             if ((uint)newSize > int.MaxValue)
             {
-                // Attempt to grow to ArrayMaxLength.
                 uint needed = (uint)(currentLength - FreeCapacity + sizeHint);
                 Debug.Assert(needed > currentLength);
 

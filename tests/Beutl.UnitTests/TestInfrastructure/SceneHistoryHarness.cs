@@ -5,16 +5,9 @@ using Beutl.ProjectSystem;
 namespace Beutl.UnitTests.TestInfrastructure;
 
 /// <summary>
-/// Wires the repeated <see cref="OperationSequenceGenerator"/> + <see cref="HistoryManager"/> +
-/// <see cref="CoreObjectOperationObserver"/> + <c>Subscribe</c> setup that the editor-service fixtures
-/// share, and disposes the observer and history in reverse order on teardown.
+/// Wires <see cref="OperationSequenceGenerator"/>, <see cref="HistoryManager"/> and a subscribed
+/// <see cref="CoreObjectOperationObserver"/> for any <see cref="CoreObject"/> root.
 /// </summary>
-/// <remarks>
-/// This is the non-Scene-specific portion: any fixture whose root is a plain <see cref="CoreObject"/>
-/// (an <see cref="Element"/>, a node graph, a bespoke test model, ...) can reuse it directly.
-/// Scene-rooted fixtures that also need a backing temp directory use <see cref="SceneHistoryHarness"/>,
-/// which composes this type.
-/// </remarks>
 public sealed class HistoryHarness : IDisposable
 {
     public HistoryHarness(CoreObject root)
@@ -42,11 +35,8 @@ public sealed class HistoryHarness : IDisposable
 }
 
 /// <summary>
-/// Disposable harness for the Scene-rooted editor-service fixtures that persist elements to disk. It
-/// owns a temp working directory, builds a <see cref="Scene"/> whose <see cref="Scene.Uri"/> points
-/// into it, and exposes a <see cref="HistoryHarness"/> so the history/observer plumbing is shared with
-/// the non-Scene fixtures. Each fixture keeps its own dimensions, time range, and temp-directory prefix
-/// by passing them to the constructor.
+/// Owns a temp directory holding the <see cref="Scene"/> file, and composes <see cref="HistoryHarness"/> for
+/// the history wiring.
 /// </summary>
 public sealed class SceneHistoryHarness : IDisposable
 {
@@ -92,9 +82,7 @@ public sealed class SceneHistoryHarness : IDisposable
 
     /// <summary>
     /// Creates an <see cref="Element"/> backed by a fresh layer file under <see cref="BasePath"/> and
-    /// appends it to <see cref="Scene"/>'s children. <see cref="Element.IsEnabled"/> defaults to
-    /// <see langword="true"/>, matching the engine default, so callers that never enabled it explicitly
-    /// keep the same value.
+    /// appends it to <see cref="Scene"/>'s children.
     /// </summary>
     public Element AddElement(TimeSpan start, TimeSpan length, int zIndex = 0, bool isEnabled = true)
     {

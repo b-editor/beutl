@@ -18,8 +18,7 @@ public sealed class SceneSnapshotTests
         var scene = new Scene(640, 360, "Scene");
         using var session = new AgentToolkitTestSession(scene, EditingSessionSource.File);
 
-        // Renders run after ReadOnSession releases the dispatch lock, so a concurrent apply_edit
-        // could mutate a shared live scene mid-render; every snapshot must be a clone.
+        // Every snapshot must be an isolated clone; see CreateSceneSnapshot.
         Scene snapshot = RenderTools.CreateSceneSnapshot(session);
 
         Assert.Multiple(() =>
@@ -32,8 +31,7 @@ public sealed class SceneSnapshotTests
     [Test]
     public void Gpu_preflight_scopes_to_the_sampled_time_and_visible_window()
     {
-        string dir = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        string dir = TestWorkspace.CreateDirectory();
         var scene = new Scene(640, 360, "Scene")
         {
             Duration = TimeSpan.FromSeconds(4),
@@ -148,6 +146,7 @@ public sealed class SceneSnapshotTests
             .Objects
             .OfType<SceneDrawable>()
             .Single();
+        // A detached owner would resolve the expression through the live BeutlApplication.Current.
         Scene? clonedTarget = (((IHierarchical)snapshot).HierarchicalRoot as ICoreObject)
             ?.FindById(referenced.Id) as Scene;
         Assert.Multiple(() =>
@@ -163,37 +162,9 @@ public sealed class SceneSnapshotTests
     }
 
     [Test]
-    public void Snapshot_clones_expression_referenced_scenes_into_its_own_root()
-    {
-        (Scene outer, Scene referenced) = BuildOuterWithReferencedScene3D(r =>
-        {
-            var sceneDrawable = new SceneDrawable();
-            sceneDrawable.ReferencedScene.Expression = new ReferenceExpression<Scene?>(r.Id);
-            return sceneDrawable;
-        });
-        AttachProject(outer, referenced);
-        using var session = new AgentToolkitTestSession(outer, EditingSessionSource.File);
-
-        Scene snapshot = RenderTools.CreateSceneSnapshot(session);
-
-        // The snapshot must carry its own hierarchy root: a detached owner's expression lookup
-        // falls back to the live BeutlApplication.Current, breaking snapshot isolation.
-        IHierarchicalRoot? snapshotRoot = ((IHierarchical)snapshot).HierarchicalRoot;
-        Assert.That(snapshotRoot, Is.Not.Null);
-        Scene? clonedTarget = (snapshotRoot as ICoreObject)?.FindById(referenced.Id) as Scene;
-        Assert.Multiple(() =>
-        {
-            Assert.That(clonedTarget, Is.Not.Null);
-            Assert.That(clonedTarget, Is.Not.SameAs(referenced));
-            Assert.That(clonedTarget!.Children, Has.Count.EqualTo(1));
-        });
-    }
-
-    [Test]
     public void Gpu_preflight_terminates_on_mutual_scene_references()
     {
-        string dir = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        string dir = TestWorkspace.CreateDirectory();
         var sceneA = new Scene(640, 360, "A")
         {
             Duration = TimeSpan.FromSeconds(2),
@@ -228,8 +199,7 @@ public sealed class SceneSnapshotTests
     [Test]
     public void Active_element_summary_filters_at_the_scene_start_offset()
     {
-        string dir = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        string dir = TestWorkspace.CreateDirectory();
         var scene = new Scene(640, 360, "Scene")
         {
             Start = TimeSpan.FromSeconds(10),
@@ -257,8 +227,7 @@ public sealed class SceneSnapshotTests
 
     private static (Scene Outer, Scene Referenced) BuildOuterWithReferencedScene3D(Func<Scene, EngineObject> makeReference)
     {
-        string dir = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        string dir = TestWorkspace.CreateDirectory();
         var outer = new Scene(640, 360, "Outer")
         {
             Duration = TimeSpan.FromSeconds(4),

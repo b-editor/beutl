@@ -4,6 +4,7 @@ using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
+using Reactive.Bindings.Extensions;
 
 namespace Beutl.ViewModels.Tools;
 
@@ -18,7 +19,7 @@ public class OutputTabViewModel : IToolContext
         EditViewModel = editViewModel;
         _outputService = new OutputService(editViewModel);
         CanRemove = SelectedItem
-            .Select(x => x?.IsRunning.Not() ?? Observable.ReturnThenNever(false))
+            .Select(x => x?.IsRunning.Inverse() ?? Observable.ReturnThenNever(false))
             .Switch()
             .ToReadOnlyReactivePropertySlim();
         ReadFromJson(null);

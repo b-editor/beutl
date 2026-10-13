@@ -43,13 +43,9 @@ public static partial class FilePathComparison
         /// The resolved path. It is comparable only with roots resolved by this context.
         /// </param>
         /// <remarks>
-        /// Unlike <see cref="ResolveCanonicalPath(string)"/>, this can continue through an
-        /// ancestor of <paramref name="path"/> whose entry names cannot be inspected. An entry beneath a directory that can be traversed
-        /// but not listed, such as a traverse-only directory or a share that refuses enumeration,
-        /// keeps its supplied spelling, and symbolic links among such entries are still followed. The answer stays exact because resolving the root verified the spelling of each existing
-        /// ancestor of the root. A directory that cannot be inspected therefore lies either beneath the
-        /// root, whose resolved prefix the entry keeps, or outside the root's ancestry, from where
-        /// only a followed symbolic link can reach the root.
+        /// Unlike <see cref="ResolveCanonicalPath(string)"/>, an entry beneath an ancestor that cannot be listed keeps its
+        /// supplied spelling, and symbolic links are still followed. The answer stays exact because resolving the root
+        /// verified the spelling of each of the root's existing ancestors.
         /// </remarks>
         public bool IsSameOrDescendantOfCanonicalRoot(
             string canonicalRoot,

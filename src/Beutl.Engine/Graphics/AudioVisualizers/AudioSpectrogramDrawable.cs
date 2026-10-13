@@ -102,8 +102,7 @@ public sealed partial class AudioSpectrogramDrawable : AudioVisualizerDrawable
 
             // 高強度 (normalized=1) 相当の Fill を 1 度構築し、各セルは Alpha のみ書き換える。
             _paint ??= new SKPaint();
-            canvas.CreateBrushConstructor(bounds, Fill, BlendMode.SrcOver).ConfigurePaint(_paint);
-            _paint.Style = SKPaintStyle.Fill;
+            VisualizerPaint.ConfigureFill(_paint, canvas, bounds, Fill);
             SKColor baseColor = _paint.Color;
             byte baseAlpha = baseColor.Alpha;
 
@@ -175,8 +174,8 @@ public sealed partial class AudioSpectrogramDrawable : AudioVisualizerDrawable
                 double tHigh = 1.0 - row / (double)pixelRows;
                 if (tLow < 0) tLow = 0;
                 if (tHigh > 1) tHigh = 1;
-                double f1 = FreqForT(tLow, freqScale, axis.FMin, axis.FMax, axis.MelMin, axis.MelMax);
-                double f2 = FreqForT(tHigh, freqScale, axis.FMin, axis.FMax, axis.MelMin, axis.MelMax);
+                double f1 = axis.FrequencyAt(tLow, freqScale);
+                double f2 = axis.FrequencyAt(tHigh, freqScale);
                 int bLo = (int)Math.Floor(f1 / axis.FMax * bins);
                 int bHi = (int)Math.Ceiling(f2 / axis.FMax * bins);
                 if (bLo < 0) bLo = 0;
@@ -200,13 +199,5 @@ public sealed partial class AudioSpectrogramDrawable : AudioVisualizerDrawable
 
             return peak;
         }
-
-        private static double FreqForT(double t, FrequencyScale scale, float fMin, float fMax, double melMin, double melMax)
-            => scale switch
-            {
-                FrequencyScale.Logarithmic => fMin * Math.Pow(fMax / fMin, t),
-                FrequencyScale.Mel => 700.0 * (Math.Pow(10, (melMin + (melMax - melMin) * t) / 2595.0) - 1),
-                _ => t * fMax,
-            };
     }
 }

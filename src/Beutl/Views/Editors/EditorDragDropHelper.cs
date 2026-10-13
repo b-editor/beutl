@@ -40,7 +40,6 @@ internal static class EditorDragDropHelper
         return false;
     }
 
-    // Loads the object template saved in a dropped .json file.
     public static bool TryLoadDroppedTemplate(DragEventArgs e, [NotNullWhen(true)] out ObjectTemplateItem? template)
     {
         if (e.DataTransfer.TryGetFile()?.TryGetLocalPath() is { } droppedFile

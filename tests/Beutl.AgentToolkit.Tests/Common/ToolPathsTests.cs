@@ -1,5 +1,6 @@
 ﻿using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
+using Beutl.AgentToolkit.Tests.Helpers;
 
 namespace Beutl.AgentToolkit.Tests.Common;
 
@@ -86,14 +87,7 @@ public sealed class ToolPathsTests
     {
         string target = Directory.CreateDirectory(Path.Combine(_root, "target")).FullName;
         string link = Path.Combine(_root, "link");
-        try
-        {
-            Directory.CreateSymbolicLink(link, target);
-        }
-        catch (Exception ex) when (ex is UnauthorizedAccessException or PlatformNotSupportedException or IOException)
-        {
-            Assert.Ignore("Symlink creation is not available in this environment.");
-        }
+        TestWorkspace.CreateSymbolicLinkOrIgnore(link, target, directory: true);
 
         string resolved = ToolPaths.ResolveForWrite(Path.Combine(link, "still.png"), "outputPath");
 

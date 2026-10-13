@@ -102,7 +102,6 @@ public sealed partial class Clipping : FilterEffect
             if (intersect.IsEmpty || clipRect.Width == 0 || clipRect.Height == 0)
             {
                 context.Targets.RemoveAt(i);
-                target.Dispose();
                 i--;
             }
             else
@@ -145,7 +144,6 @@ public sealed partial class Clipping : FilterEffect
                         new((target.Bounds.X - newBounds.X) * w, (target.Bounds.Y - newBounds.Y) * w));
                 }
 
-                target.Dispose();
                 context.Targets[i] = newTarget;
             }
         }

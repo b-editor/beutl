@@ -475,10 +475,8 @@ internal sealed class AgentHostAiTools(
             throw Invalid($"waitSeconds must be between 0 and {MaxWaitSeconds}.", "waitSeconds");
     }
 
-    // As the executor resolves it: the named model, or the default one the account can use. An empty
-    // catalog (offline) leaves the choice to the service, with the AI tab's fallback lists.
-    // The executor refuses a named model that an empty catalog cannot confirm, so it is refused here,
-    // before a job starts, unless the caller sends the id itself.
+    // As the executor resolves it: the named model, or the default the account can use. A named model an
+    // empty (offline) catalog cannot confirm is refused before a job starts, unless the caller sends the id.
     private async Task<GenerativeModelInfo?> ResolveModelAsync(
         string operation,
         string? model,

@@ -1,7 +1,7 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
-using Beutl.AgentToolkit.Sessions;
+using Beutl.AgentToolkit.Schema;
 using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.AgentToolkit.Tools;
 using Beutl.Audio.Effects;
@@ -21,17 +21,15 @@ public sealed class DeclarativeBrushEffectTests
     {
         Scene scene = CreateSceneWithRect(out Element element, out RectShape rect);
         using var session = new AgentToolkitTestSession(scene);
-        var manager = new AgentSessionManager();
-        manager.UseSource(new AgentToolkitTestSessionSource(session));
-        var tools = new EditTools(manager);
+        EditTools tools = session.CreateEditTools();
 
         JsonObject createPatch = PatchRectObject(
             element,
             rect,
             new JsonObject
             {
-                [nameof(Shape.Fill)] = SerializeWithoutIds(CreateGradientBrush()),
-                [nameof(Drawable.FilterEffect)] = SerializeWithoutIds(CreateEffectChain())
+                [nameof(Shape.Fill)] = SamplePatchBuilder.SerializeWithoutIds(CreateGradientBrush()),
+                [nameof(Drawable.FilterEffect)] = SamplePatchBuilder.SerializeWithoutIds(CreateEffectChain())
             });
 
         ToolResult<ApplyEditResponse> createApply = tools.ApplyEdit(
@@ -103,9 +101,7 @@ public sealed class DeclarativeBrushEffectTests
         Scene scene = CreateSceneWithRect(out Element element, out RectShape rect);
         rect.FilterEffect.CurrentValue = CreateEffectChain();
         using var session = new AgentToolkitTestSession(scene);
-        var manager = new AgentSessionManager();
-        manager.UseSource(new AgentToolkitTestSessionSource(session));
-        var tools = new EditTools(manager);
+        EditTools tools = session.CreateEditTools();
 
         JsonObject desired = session.Documents.Read(session.Root);
         JsonObject rectJson = (JsonObject)((JsonArray)((JsonObject)((JsonArray)desired["Elements"]!)[0]!)["Objects"]!)[0]!;
@@ -121,55 +117,36 @@ public sealed class DeclarativeBrushEffectTests
         });
     }
 
-    [Test]
-    public void Non_object_list_property_entry_reports_the_actual_field_name_in_the_error_target()
-    {
-        Scene scene = CreateSceneWithRect(out Element element, out _);
+    private static readonly TestCaseData[] s_invalidBandLists =
+    [
         // EqualizerEffect.Bands is an identity list property whose JSON field name ("Bands") is not the
         // one inferred from its element type (which would be "Children"): the rejection Target must
         // name the real property, so agent clients can locate the failing field.
-        var equalizer = new EqualizerEffect();
-        element.AddObject(equalizer);
-        using var session = new AgentToolkitTestSession(scene);
-        var manager = new AgentSessionManager();
-        manager.UseSource(new AgentToolkitTestSessionSource(session));
-        var tools = new EditTools(manager);
+        new TestCaseData(
+                (Func<JsonArray, JsonArray>)(bands => new JsonArray(bands[0]!.DeepClone(), JsonValue.Create(42))),
+                "Bands[1]")
+            .SetName("Non_object_list_property_entry_reports_the_actual_field_name_in_the_error_target"),
+        // No Id-bearing entries, so this is a wholesale replacement (not an identity merge): a null
+        // member must be rejected rather than inserted for later rendering to dereference.
+        new TestCaseData((Func<JsonArray, JsonArray>)(_ => new JsonArray((JsonNode?)null)), "Bands[0]")
+            .SetName("Null_member_in_a_typed_replacement_list_is_rejected"),
+    ];
 
-        JsonObject desired = session.Documents.Read(session.Root);
-        JsonArray objects = (JsonArray)((JsonObject)((JsonArray)desired["Elements"]!)[0]!)["Objects"]!;
-        JsonObject equalizerJson = (JsonObject)objects.Single(node =>
-            node is JsonObject obj && (string?)obj[nameof(CoreObject.Id)] == equalizer.Id.ToString())!;
-        var bands = (JsonArray)equalizerJson[nameof(EqualizerEffect.Bands)]!;
-        equalizerJson[nameof(EqualizerEffect.Bands)] = new JsonArray(bands[0]!.DeepClone(), JsonValue.Create(42));
-
-        ToolResult<ApplyEditResponse> apply = tools.ApplyEdit(desired: desired, schemaVersion: SchemaVersion.Current);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(apply.IsSuccess, Is.False);
-            Assert.That(apply.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
-            Assert.That(apply.Error.Target, Is.EqualTo("Bands[1]"));
-        });
-    }
-
-    [Test]
-    public void Null_member_in_a_typed_replacement_list_is_rejected()
+    [TestCaseSource(nameof(s_invalidBandLists))]
+    public void Invalid_equalizer_band_entries_are_rejected(Func<JsonArray, JsonArray> replaceBands, string expectedTarget)
     {
         Scene scene = CreateSceneWithRect(out Element element, out _);
         var equalizer = new EqualizerEffect();
         element.AddObject(equalizer);
         using var session = new AgentToolkitTestSession(scene);
-        var manager = new AgentSessionManager();
-        manager.UseSource(new AgentToolkitTestSessionSource(session));
-        var tools = new EditTools(manager);
+        EditTools tools = session.CreateEditTools();
 
         JsonObject desired = session.Documents.Read(session.Root);
         JsonArray objects = (JsonArray)((JsonObject)((JsonArray)desired["Elements"]!)[0]!)["Objects"]!;
         JsonObject equalizerJson = (JsonObject)objects.Single(node =>
             node is JsonObject obj && (string?)obj[nameof(CoreObject.Id)] == equalizer.Id.ToString())!;
-        // No Id-bearing entries, so this is a wholesale replacement (not an identity merge): a null
-        // member must be rejected rather than inserted for later rendering to dereference.
-        equalizerJson[nameof(EqualizerEffect.Bands)] = new JsonArray((JsonNode?)null);
+        equalizerJson[nameof(EqualizerEffect.Bands)] =
+            replaceBands((JsonArray)equalizerJson[nameof(EqualizerEffect.Bands)]!);
 
         ToolResult<ApplyEditResponse> apply = tools.ApplyEdit(desired: desired, schemaVersion: SchemaVersion.Current);
 
@@ -177,7 +154,7 @@ public sealed class DeclarativeBrushEffectTests
         {
             Assert.That(apply.IsSuccess, Is.False);
             Assert.That(apply.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
-            Assert.That(apply.Error.Target, Is.EqualTo("Bands[0]"));
+            Assert.That(apply.Error.Target, Is.EqualTo(expectedTarget));
         });
     }
 
@@ -210,32 +187,6 @@ public sealed class DeclarativeBrushEffectTests
         };
     }
 
-    private static JsonObject SerializeWithoutIds(ICoreSerializable value)
-    {
-        JsonObject json = CoreSerializer.SerializeToJsonObject(value);
-        RemoveIds(json);
-        return json;
-    }
-
-    private static void RemoveIds(JsonNode? node)
-    {
-        if (node is JsonObject obj)
-        {
-            obj.Remove(nameof(CoreObject.Id));
-            foreach (JsonNode? child in obj.Select(pair => pair.Value).ToArray())
-            {
-                RemoveIds(child);
-            }
-        }
-        else if (node is JsonArray array)
-        {
-            foreach (JsonNode? child in array.ToArray())
-            {
-                RemoveIds(child);
-            }
-        }
-    }
-
     private static JsonObject PatchRectObject(Element element, RectShape rect, JsonObject rectPatch)
     {
         rectPatch[nameof(CoreObject.Id)] = rect.Id.ToString();
@@ -251,25 +202,14 @@ public sealed class DeclarativeBrushEffectTests
 
     private static Scene CreateSceneWithRect(out Element element, out RectShape rect)
     {
-        string dir = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
-        var scene = new Scene(1920, 1080, "Scene")
-        {
-            Uri = new Uri(Path.Combine(dir, "Scene.scene"))
-        };
-        element = new Element
-        {
-            Start = TimeSpan.Zero,
-            Length = TimeSpan.FromSeconds(4),
-            Uri = new Uri(Path.Combine(dir, "element.belm"))
-        };
+        Scene scene = TestWorkspace.CreateScene();
+        element = TestWorkspace.AddElement(scene, TimeSpan.Zero, TimeSpan.FromSeconds(4));
         rect = new RectShape
         {
             Width = { CurrentValue = 640 },
             Height = { CurrentValue = 360 }
         };
         element.AddObject(rect);
-        scene.Children.Add(element);
         return scene;
     }
 }

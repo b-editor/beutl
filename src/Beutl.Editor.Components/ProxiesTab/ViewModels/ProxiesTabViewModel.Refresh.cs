@@ -37,11 +37,7 @@ public sealed partial class ProxiesTabViewModel
         if (e is CorePropertyChangedEventArgs<int> presetArgs
             && presetArgs.Property == ProxyStoreConfig.DefaultPresetProperty)
         {
-            if (!Dispatcher.UIThread.CheckAccess())
-                Dispatcher.UIThread.Post(() => ApplyDefaultPresetChange(presetArgs.OldValue, presetArgs.NewValue));
-            else
-                ApplyDefaultPresetChange(presetArgs.OldValue, presetArgs.NewValue);
-
+            RunOnUIIfLive(() => ApplyDefaultPresetChange(presetArgs.OldValue, presetArgs.NewValue));
             return;
         }
 
@@ -50,26 +46,14 @@ public sealed partial class ProxiesTabViewModel
         if (e is CorePropertyChangedEventArgs<long> capArgs
             && capArgs.Property == ProxyStoreConfig.MaxTotalBytesProperty)
         {
-            if (!Dispatcher.UIThread.CheckAccess())
-                Dispatcher.UIThread.Post(UpdateStoreSummaryIfLive);
-            else
-                UpdateStoreSummaryIfLive();
+            RunOnUIIfLive(UpdateStoreSummary);
         }
-    }
-
-    private void UpdateStoreSummaryIfLive()
-    {
-        if (!_isDisposed)
-            UpdateStoreSummary();
     }
 
     // Rows that merely showed the previous default follow a Settings change, so Generate honors the
     // setting the UI now shows; rows the user explicitly set to another preset keep their choice.
     private void ApplyDefaultPresetChange(int oldValue, int newValue)
     {
-        if (_isDisposed)
-            return;
-
         ProxyPreset oldPreset = ToPreset(oldValue);
         ProxyPreset newPreset = ToPreset(newValue);
         if (oldPreset == newPreset)
@@ -96,28 +80,14 @@ public sealed partial class ProxiesTabViewModel
         RefreshScheduler(() =>
         {
             Interlocked.Exchange(ref _refreshScheduled, 0);
-            if (!_isDisposed)
-                Refresh();
+            Refresh();
         });
     }
 
-    private void Refresh()
+    private void Refresh() => RunOnUIIfLive(() =>
     {
-        if (_isDisposed)
-            return;
-
-        if (!Dispatcher.UIThread.CheckAccess())
-        {
-            PostIfLive(Refresh);
-            return;
-        }
-
-        // Only a deliberate user choice survives a rebuild verbatim; a background proxy finishing
-        // (Registered/StateChanged) or a terminal job triggers Refresh, and an explicit pick must not be
-        // reverted to following. A row that was merely pinned to an existing proxy re-derives its state
-        // below so a since-deleted/evicted proxy no longer leaves it stuck off the default. Key on the
-        // canonical Source.AbsolutePath (what enumeration dedupes on), not clip.Path (a raw LocalPath):
-        // the same file spelled differently (case / symlink) must still re-associate its prior state.
+        // Only an explicit user choice survives a rebuild; key on Source.AbsolutePath so the same file
+        // spelled differently keeps its state.
         Dictionary<string, (ProxyPreset Preset, bool Explicit)> priorChoiceByKey = Clips.ToDictionary(
             static clip => clip.Source.AbsolutePath,
             static clip => (clip.Preset.Value, clip.IsExplicitlyChosen));
@@ -153,6 +123,18 @@ public sealed partial class ProxiesTabViewModel
         RefreshJobs();
         UpdateStoreSummary();
         UpdateClipSummary();
+    });
+
+    // Runs the action now on the UI thread, else posts it there; either way only while the tab is live.
+    private void RunOnUIIfLive(Action action)
+    {
+        if (_isDisposed)
+            return;
+
+        if (Dispatcher.UIThread.CheckAccess())
+            action();
+        else
+            PostIfLive(action);
     }
 
     // Re-enters on the UI thread unless the tab is disposed by the time the dispatcher runs it.
@@ -165,17 +147,8 @@ public sealed partial class ProxiesTabViewModel
         });
     }
 
-    private void RefreshJobs()
+    private void RefreshJobs() => RunOnUIIfLive(() =>
     {
-        if (_isDisposed)
-            return;
-
-        if (!Dispatcher.UIThread.CheckAccess())
-        {
-            PostIfLive(RefreshJobs);
-            return;
-        }
-
         ProxyJob[] pendingJobs = [.. _queue?.Pending() ?? []];
         foreach (ProxyClipViewModel clip in Clips)
         {
@@ -187,15 +160,11 @@ public sealed partial class ProxiesTabViewModel
             : pendingJobs.Length == 1
                 ? Strings.ProxyQueuedJobSingular
                 : string.Format(CultureInfo.CurrentCulture, Strings.ProxyQueuedJobPlural, pendingJobs.Length);
-    }
+    });
 
     /// <summary>
-    /// The authoritative enumeration of the video sources referenced by the current project.
-    /// Its result is the single source of truth for both the per-project usage total
-    /// (<see cref="UpdateStoreSummary"/>) and the delete-all action
-    /// (<see cref="DeleteAllForProjectAsync"/>) — both consume it via <see cref="Clips"/>.
-    /// Any new element type that can hold a <see cref="VideoSource"/> MUST be walked here,
-    /// otherwise its sources are silently excluded from usage accounting and delete-all.
+    /// Enumerates the project's video sources; usage totals and delete-all both rely on it, so any
+    /// element type holding a <see cref="VideoSource"/> must be walked here.
     /// </summary>
     private IEnumerable<(string Path, ProxyFingerprint Fingerprint)> EnumerateProjectVideoSources()
     {
@@ -327,9 +296,6 @@ public sealed partial class ProxiesTabViewModel
 
     private void OnStoreChanged(object? sender, ProxyStoreChangedEventArgs e)
     {
-        if (_isDisposed)
-            return;
-
         // A Touched event (preview resolving a proxy) only bumps LastUsedUtc; rebuilding the clip
         // list on it would silently clear the user's bulk-action selection during normal playback.
         if (e.Kind == ProxyStoreChangeKind.Touched)
@@ -338,17 +304,8 @@ public sealed partial class ProxiesTabViewModel
         ScheduleRefresh();
     }
 
-    private void OnJobChanged(object? sender, ProxyJobChangedEventArgs e)
+    private void OnJobChanged(object? sender, ProxyJobChangedEventArgs e) => RunOnUIIfLive(() =>
     {
-        if (_isDisposed)
-            return;
-
-        if (!Dispatcher.UIThread.CheckAccess())
-        {
-            PostIfLive(() => OnJobChanged(sender, e));
-            return;
-        }
-
         StatusMessage.Value = string.Format(
             CultureInfo.CurrentCulture,
             Strings.ProxyJobStatusWithMessageFormat,
@@ -362,7 +319,7 @@ public sealed partial class ProxiesTabViewModel
         {
             ScheduleRefresh();
         }
-    }
+    });
 
     private static ProxyPreset ToPreset(int value)
     {

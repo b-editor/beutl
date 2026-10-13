@@ -37,13 +37,11 @@
     <Panel>
         <Border Background="Transparent" PointerPressed="OnBackdropPointerPressed" />
         <Border x:Name="SwitcherContainer"
+                Classes="OverlayCard"
                 Margin="16" Padding="12"
-                HorizontalAlignment="Center" VerticalAlignment="Center"
-                Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
-                BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" BorderThickness="1"
-                CornerRadius="{DynamicResource OverlayCornerRadius}" BoxShadow="0 8 32 0 #40000000">
+                HorizontalAlignment="Center" VerticalAlignment="Center">
             <Panel>
-                <Grid x:Name="NavigationPanel" ColumnDefinitions="0.9*,Auto,1.1*" ColumnSpacing="12"
+                <Grid ColumnDefinitions="0.9*,Auto,1.1*" ColumnSpacing="12"
                       IsVisible="{Binding !IsCreating.Value}">
                     <Grid RowDefinitions="Auto,*">
                         <Grid ColumnDefinitions="*,Auto" Margin="8,0,0,6">
@@ -73,7 +71,7 @@
                                  AutomationProperties.Name="{x:Static lang:Strings.TabSwitcher_Documents}" />
                     </Grid>
                 </Grid>
-                <Grid x:Name="CreationPanel" RowDefinitions="Auto,*" IsVisible="{Binding IsCreating.Value}">
+                <Grid RowDefinitions="Auto,*" IsVisible="{Binding IsCreating.Value}">
                     <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" Margin="0,0,0,8">
                         <Button x:Name="BackButton" Width="28" Height="28" Padding="5" Theme="{StaticResource LiteButtonStyle}"
                                 Click="OnBackClick" ToolTip.Tip="{x:Static lang:Strings.Back}"

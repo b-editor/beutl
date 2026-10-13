@@ -15,6 +15,7 @@ namespace Beutl.Views;
 public sealed partial class MacWindow : Window
 {
     private readonly ToolWindowLauncher _toolWindowLauncher = new();
+    private readonly MainWindowCloseGuard _closeGuard;
     private MacOSTitleBar? _titleBar;
 
     public MacWindow()
@@ -26,6 +27,7 @@ public sealed partial class MacWindow : Window
         }
 
         InitializeComponent();
+        _closeGuard = new MainWindowCloseGuard(this, mainView);
         WindowPlacement.Restore(this);
     }
 
@@ -65,18 +67,10 @@ public sealed partial class MacWindow : Window
             }
         }
 
-        NativeMenu? recentFiles = null;
-        NativeMenu? recentProj = null;
-        try
-        {
-            var rootMenu = NativeMenu.GetMenu(this)!;
-            var fileMenu = FindMenuItem(rootMenu, Strings.File);
-            recentFiles = FindMenuItem(fileMenu?.Menu, Strings.RecentFiles)?.Menu;
-            recentProj = FindMenuItem(fileMenu?.Menu, Strings.RecentProjects)?.Menu;
-        }
-        catch
-        {
-        }
+        var rootMenu = NativeMenu.GetMenu(this)!;
+        var fileMenu = FindMenuItem(rootMenu, Strings.File);
+        NativeMenu? recentFiles = FindMenuItem(fileMenu?.Menu, Strings.RecentFiles)?.Menu;
+        NativeMenu? recentProj = FindMenuItem(fileMenu?.Menu, Strings.RecentProjects)?.Menu;
 
         if (recentFiles != null && recentProj != null)
         {
@@ -92,8 +86,7 @@ public sealed partial class MacWindow : Window
         }
     }
 
-    // Resolved by header rather than position: a menu edit used to shift these silently, and the
-    // catch below then dropped every extension entry instead of surfacing anything.
+    // Resolved by header so a menu edit cannot shift these.
     internal static NativeMenuItem? FindMenuItem(NativeMenu? menu, string header)
     {
         return menu?.Items
@@ -103,23 +96,12 @@ public sealed partial class MacWindow : Window
 
     internal void InitExtMenuItems(MainViewModel viewModel)
     {
-        NativeMenuItem? viewMenuItem = null;
-        NativeMenu? editorTabMenu = null;
-        NativeMenu? toolTabMenu = null;
-        NativeMenu? toolWindowMenu = null;
-        NativeMenu? dockLayoutPresetMenu = null;
-        try
-        {
-            NativeMenu rootMenu = NativeMenu.GetMenu(this)!;
-            viewMenuItem = FindMenuItem(rootMenu, Strings.View);
-            editorTabMenu = FindMenuItem(viewMenuItem?.Menu, Strings.Editors)?.Menu;
-            toolTabMenu = FindMenuItem(viewMenuItem?.Menu, Strings.Tools)?.Menu;
-            toolWindowMenu = FindMenuItem(rootMenu, Strings.Tools)?.Menu;
-            dockLayoutPresetMenu = FindMenuItem(viewMenuItem?.Menu, Strings.ApplyDockLayout)?.Menu;
-        }
-        catch
-        {
-        }
+        NativeMenu rootMenu = NativeMenu.GetMenu(this)!;
+        NativeMenuItem? viewMenuItem = FindMenuItem(rootMenu, Strings.View);
+        NativeMenu? editorTabMenu = FindMenuItem(viewMenuItem?.Menu, Strings.Editors)?.Menu;
+        NativeMenu? toolTabMenu = FindMenuItem(viewMenuItem?.Menu, Strings.Tools)?.Menu;
+        NativeMenu? toolWindowMenu = FindMenuItem(rootMenu, Strings.Tools)?.Menu;
+        NativeMenu? dockLayoutPresetMenu = FindMenuItem(viewMenuItem?.Menu, Strings.ApplyDockLayout)?.Menu;
 
         if (viewMenuItem == null || editorTabMenu == null || toolTabMenu == null || toolWindowMenu == null) return;
 
@@ -128,22 +110,15 @@ public sealed partial class MacWindow : Window
             InitDockLayoutPresetMenu(viewModel, dockLayoutPresetMenu);
         }
 
-        // ToolTabExtensionをメニューに表示する
         NativeMenuItem CreateToolTabMenuItem(ToolTabExtension item)
         {
             var menuItem = new NativeMenuItem() { Header = item.Header, CommandParameter = item };
 
             menuItem.Click += (s, e) =>
             {
-                if (viewModel.EditorService.SelectedTabItem.Value?.Context.Value is IEditorContext editorContext
-                    && s is NativeMenuItem { CommandParameter: ToolTabExtension ext }
-                    && ext.TryCreateContext(editorContext, out IToolContext? toolContext))
+                if (s is NativeMenuItem { CommandParameter: ToolTabExtension ext })
                 {
-                    bool result = editorContext.OpenToolTab(toolContext);
-                    if (!result)
-                    {
-                        toolContext.Dispose();
-                    }
+                    ExtensionMenuActions.OpenToolTab(viewModel, ext);
                 }
             };
 
@@ -162,7 +137,6 @@ public sealed partial class MacWindow : Window
             (i, _) => toolTabMenu.Items.RemoveAt(i),
             toolTabMenu.Items.Clear);
 
-        // EditorExtensionをメニューに表示する
         NativeMenuItem CreateEditorMenuItem(EditorExtension item)
         {
             var menuItem = new NativeMenuItem()
@@ -215,7 +189,6 @@ public sealed partial class MacWindow : Window
             }
         };
 
-        // ToolWindowExtension をメニューに表示する
         NativeMenuItem CreateToolWindowMenuItem(ToolWindowExtension item)
         {
             var menuItem = new NativeMenuItem() { Header = item.DisplayName, CommandParameter = item };
@@ -298,91 +271,13 @@ public sealed partial class MacWindow : Window
         return _toolWindowLauncher.OpenAsync(extension, () => this);
     }
 
-    private bool _captureStopped;
-    private Task? _captureStopTask;
-    private bool _viewModelDisposed;
-    private Task? _viewModelDisposeTask;
-
     protected override void OnClosing(WindowClosingEventArgs e)
     {
-        if (!_captureStopped)
-        {
-            if (_captureStopTask is not null)
-            {
-                // A shutdown task is already draining ffmpeg from a prior close
-                // attempt; keep cancelling until that task finalizes and calls Close().
-                e.Cancel = true;
-                return;
-            }
-
-            if (mainView is { HasActiveCapture: true } mv)
-            {
-                e.Cancel = true;
-                _captureStopTask = StopCaptureAndCloseAsync(mv);
-                return;
-            }
-        }
-
-        if (!_viewModelDisposed && DataContext is MainViewModel viewModel)
-        {
-            e.Cancel = true;
-            if (_viewModelDisposeTask is null)
-            {
-                _viewModelDisposeTask = DisposeViewModelAndCloseAsync(viewModel);
-            }
+        if (_closeGuard.CancelClosing(e))
             return;
-        }
 
         base.OnClosing(e);
         WindowPlacement.Save(this);
-    }
-
-    private async Task DisposeViewModelAndCloseAsync(MainViewModel viewModel)
-    {
-        // Publish the in-flight task before a synchronous veto can clear it.
-        await Task.Yield();
-        bool closeAccepted = false;
-        try
-        {
-            if (!await viewModel.TryDisposeForWindowCloseAsync())
-                return;
-            closeAccepted = true;
-            await viewModel.WaitForDisposalAsync();
-        }
-        catch (Exception ex)
-        {
-            await ex.Handle();
-        }
-        finally
-        {
-            if (closeAccepted)
-            {
-                // Once closing is accepted, a cached cleanup failure cannot veto exit.
-                _viewModelDisposed = true;
-                Close();
-            }
-            else
-            {
-                _viewModelDisposeTask = null;
-            }
-        }
-    }
-
-    private async Task StopCaptureAndCloseAsync(MainView mv)
-    {
-        try
-        {
-            await mv.EnsureCaptureStoppedAsync();
-        }
-        catch (Exception ex)
-        {
-            await ex.Handle();
-        }
-        finally
-        {
-            _captureStopped = true;
-            Close();
-        }
     }
 
     private async void OpenTutorialsDialog(object? sender, EventArgs e) => await mainView.ShowTutorialsDialogAsync();

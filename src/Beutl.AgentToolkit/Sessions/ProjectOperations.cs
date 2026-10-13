@@ -209,18 +209,19 @@ public static class ProjectOperations
             if (element.Uri is not null && !IsInsideDirectory(projectDirectory, element.Uri.LocalPath))
             {
                 element.Uri = CreateFileUri(
-                    ReserveRehomedElementPath(element.Uri, previousSceneDirectory, sceneDirectory, usedPaths));
+                    ReserveRehomedElementPath(element.Uri, previousSceneDirectory, sceneDirectory, usedPaths, checkDisk: true));
             }
         }
     }
 
     // Keeps the sidecar's scene-relative layout while it stays inside the scene directory, then
-    // suffixes the name until it is free both on disk and among the scene's other sidecars.
-    private static string ReserveRehomedElementPath(
+    // suffixes the name until it is free among the scene's other sidecars and, with checkDisk, on disk.
+    internal static string ReserveRehomedElementPath(
         Uri elementUri,
         string? previousSceneDirectory,
         string sceneDirectory,
-        HashSet<string> usedPaths)
+        HashSet<string> usedPaths,
+        bool checkDisk)
     {
         string relativePath = previousSceneDirectory is not null
             ? Path.GetRelativePath(previousSceneDirectory, elementUri.LocalPath)
@@ -235,7 +236,7 @@ public static class ProjectOperations
         string name = Path.GetFileNameWithoutExtension(candidate);
         string extension = Path.GetExtension(candidate);
         for (int suffix = 2;
-             FileSystemEntryExists(uniqueCandidate)
+             (checkDisk && FileSystemEntryExists(uniqueCandidate))
              || !usedPaths.Add(ResolveSidecarPath(new Uri(uniqueCandidate)));
              suffix++)
         {
@@ -264,10 +265,7 @@ public static class ProjectOperations
         // Resolve both sides through symlinks: a purely textual check would accept an in-project
         // sidecar Uri that names a symlink whose target is outside, letting StoreToUri write through
         // the link and preserve the boundary escape.
-        string root = Path.TrimEndingDirectorySeparator(
-            PathBoundary.ResolveDeepestExistingTarget(Path.GetFullPath(directory)));
-        string full = PathBoundary.ResolveDeepestExistingTarget(Path.GetFullPath(candidate));
-        return PathBoundary.IsPathInsideRoot(root, full);
+        return FilePathComparison.IsSameOrDescendant(Path.GetFullPath(directory), Path.GetFullPath(candidate));
     }
 
     // apply_edit must have no filesystem side effects (a dry-run/rejected edit must leave the disk

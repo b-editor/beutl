@@ -33,11 +33,6 @@ public sealed partial class ProxiesTabViewModel
         RefreshJobs();
     }
 
-    public async Task RegenerateAsync(ProxyClipViewModel clip)
-    {
-        await GenerateAsync(clip);
-    }
-
     public void Delete(ProxyClipViewModel clip)
     {
         int failed = DeleteClipProxy(clip) ? 0 : 1;
@@ -75,7 +70,9 @@ public sealed partial class ProxiesTabViewModel
         if (store.TryGet(source, preset) is not { } entry)
             return null;
 
-        return Path.Combine(store.StoreRootPath, entry.ProxyFileRelative.Replace('/', Path.DirectorySeparatorChar));
+        return ProxyPathUtilities.TryResolveRelativePath(store.StoreRootPath, entry.ProxyFileRelative, out string path)
+            ? path
+            : null;
     }
 
     private void ReportDeleteFailures(int failed)
@@ -134,10 +131,8 @@ public sealed partial class ProxiesTabViewModel
 
     internal void OnPresetChanged(ProxyClipViewModel clip, ProxyPreset oldPreset, ProxyPreset newPreset)
     {
-        // Moving the dropdown off a preset whose job is still Queued/Running would otherwise
-        // orphan that job: it keeps the sole serial slot and produces a proxy for a preset the
-        // user no longer selected. Each source maps to a single row here, so cancelling the job
-        // for (this source, old preset) cannot affect another visible clip.
+        // A job still queued or running for the old preset would hold the serial slot for a preset no
+        // longer selected; each source has one row, so cancelling it affects no other clip.
         if (oldPreset != newPreset)
             CancelMatchingJobs(clip.Source, oldPreset);
 
@@ -183,10 +178,8 @@ public sealed partial class ProxiesTabViewModel
 
         foreach (ProxyEntry entry in _store.Enumerate())
         {
-            // Match on path + size, not the full fingerprint: an in-place replace changes the size,
-            // so old dimensions can't drive eligibility for a heavier file; a benign mtime-only
-            // touch keeps the size, so valid dimensions are still used (rather than falling back to
-            // the coarse file-size floor). Only same-path/same-size entries describe this file.
+            // Match path and size: a replaced file changes size, so its old dimensions must not decide
+            // eligibility, while an mtime-only touch keeps them.
             if (entry.Source.AbsolutePath != source.AbsolutePath
                 || entry.Source.FileSizeBytes != source.FileSizeBytes)
             {
@@ -203,7 +196,7 @@ public sealed partial class ProxiesTabViewModel
 
     private ProxyClipViewModel[] SelectedClips() => Clips.Where(static c => c.IsSelected.Value).ToArray();
 
-    private async Task GenerateSelectedAsync()
+    private async Task GenerateSelectedAsync(bool refreshClips)
     {
         if (!EnsureQueueAvailable())
             return;
@@ -213,20 +206,10 @@ public sealed partial class ProxiesTabViewModel
             await _queue.EnqueueAsync(clip.Source, clip.Preset.Value, ForegroundGenerationPriority);
         }
 
-        RefreshJobs();
-    }
-
-    private async Task RegenerateSelectedAsync()
-    {
-        if (!EnsureQueueAvailable())
-            return;
-
-        foreach (ProxyClipViewModel clip in SelectedClips())
-        {
-            await _queue.EnqueueAsync(clip.Source, clip.Preset.Value, ForegroundGenerationPriority);
-        }
-
-        Refresh();
+        if (refreshClips)
+            Refresh();
+        else
+            RefreshJobs();
     }
 
     private void DeleteSelected()

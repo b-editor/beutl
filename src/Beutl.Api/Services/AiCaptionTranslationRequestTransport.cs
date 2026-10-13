@@ -4,12 +4,12 @@ using Beutl.Api.Clients;
 namespace Beutl.Api.Services;
 
 /// <summary>
-/// Builds the wire request once and enforces the exact serialized body limit
-/// before either the Refit or event-stream transport can send it.
+/// Builds the wire request body and enforces its exact serialized size limit
+/// before it is sent.
 /// </summary>
 internal static class AiCaptionTranslationRequestTransport
 {
-    public static AiCaptionTranslationRequestPayload CreatePayload(
+    public static byte[] CreatePayload(
         AiCaptionTranslationRequest request)
     {
         var dto = new AiCaptionTranslationRequestDto
@@ -51,9 +51,6 @@ internal static class AiCaptionTranslationRequestTransport
                 nameof(request));
         }
 
-        return new AiCaptionTranslationRequestPayload(serialized);
+        return serialized;
     }
 }
-
-internal readonly record struct AiCaptionTranslationRequestPayload(
-    byte[] Json);

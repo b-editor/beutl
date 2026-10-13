@@ -1,7 +1,6 @@
 <UserControl x:Class="Beutl.Views.Editors.FilterEffectEditor"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:controls="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
@@ -10,7 +9,6 @@
              xmlns:pe="using:Beutl.Controls.PropertyEditors"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:viewModel="using:Beutl.ViewModels.Editors"
-             x:Name="root"
              d:DesignHeight="450"
              d:DesignWidth="800"
              x:DataType="viewModel:FilterEffectEditorViewModel"
@@ -32,32 +30,7 @@
                 </ui:FAMenuFlyout>
             </ToggleButton.ContextFlyout>
             <ToggleButton.Tag>
-                <StackPanel Orientation="Horizontal" Spacing="4">
-                    <ToggleButton Padding="0"
-                                  Classes="size-24x24"
-                                  IsChecked="{Binding IsEnabled.Value}"
-                                  IsEnabled="{Binding CanEditProperty.Value}"
-                                  IsVisible="{Binding !IsGroupOrNull.Value}"
-                                  Theme="{StaticResource VisibilityToggleButtonStyle}" />
-
-                    <Button Padding="0"
-                            HorizontalContentAlignment="Center"
-                            VerticalContentAlignment="Center"
-                            Classes="size-24x24"
-                            Click="Tag_Click"
-                            Theme="{StaticResource TransparentButton}">
-                        <icons:FluentIcon Classes.add="{Binding IsGroup.Value}">
-                            <icons:FluentIcon.Styles>
-                                <Style Selector="icons|FluentIcon">
-                                    <Setter Property="Icon" Value="Compose" />
-                                </Style>
-                                <Style Selector="icons|FluentIcon.add">
-                                    <Setter Property="Icon" Value="Add" />
-                                </Style>
-                            </icons:FluentIcon.Styles>
-                        </icons:FluentIcon>
-                    </Button>
-                </StackPanel>
+                <local:EffectEditorHeaderButtons Click="Tag_Click" />
             </ToggleButton.Tag>
             <WrapPanel Orientation="Horizontal">
                 <TextBlock Text="{Binding Header, FallbackValue=Filter}" />
@@ -95,24 +68,7 @@
                Grid.Row="1"
                MinHeight="24"
                IsVisible="{Binding !IsPresenter.Value}">
-            <TextBlock Margin="16,0,0,0"
-                       IsVisible="{Binding Value.Value, Converter={x:Static ObjectConverters.IsNull}}"
-                       Text="{x:Static lang:MessageStrings.PropertyUnset}" />
-
-            <controls:TreeLineDecorator LineBrush="{DynamicResource DividerStrokeColorDefaultBrush}">
-                <local:PropertiesEditor Padding="0"
-                                        DataContext="{Binding Properties.Value}"
-                                        IsVisible="{ReflectionBinding #root.DataContext.Properties.Value,
-                                                                      Converter={x:Static ObjectConverters.IsNotNull}}" />
-            </controls:TreeLineDecorator>
-
-            <ItemsControl DataContext="{Binding Group.Value}" ItemsSource="{Binding Items}">
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <local:ListItemEditor />
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
+            <local:EffectEditorContent />
         </Panel>
     </Grid>
 </UserControl>

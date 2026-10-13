@@ -1,4 +1,5 @@
-﻿using Beutl.Api.Objects;
+﻿using System.Reactive.Disposables;
+using Beutl.Api.Objects;
 
 namespace Beutl.Api.Services;
 
@@ -14,6 +15,7 @@ internal sealed class AiRetryAttemptContext(
     public IAiRetryKeyStore Store { get; } = store
         ?? throw new ArgumentNullException(nameof(store));
 
+    // Test seam: tests retry without a signed-in user; production always passes false.
     private bool AllowSyntheticIdentity { get; } = allowSyntheticIdentity;
 
     public AiAuthenticatedRequestIdentity GetRequiredIdentity()
@@ -32,7 +34,7 @@ internal sealed class AiRetryAttemptContext(
 
     public IDisposable Enter(AiAuthenticatedRequestIdentity identity)
         => identity.User is null
-            ? EmptyDisposable.Instance
+            ? Disposable.Empty
             : AiAuthenticatedRequestScope.Enter(identity.User);
 }
 
@@ -63,14 +65,5 @@ internal static class AiAuthenticatedRequestScope
                 _previous = null;
             }
         }
-    }
-}
-
-internal sealed class EmptyDisposable : IDisposable
-{
-    public static EmptyDisposable Instance { get; } = new();
-
-    public void Dispose()
-    {
     }
 }

@@ -205,11 +205,8 @@ public class VideoCodecChoicesProvider : IChoicesProvider
 #if !BEUTL_FFMPEG_WORKER
         return FFmpegWorkerCodecCache.GetVideoCodecs();
 #else
-        return FFmpegSharp.MediaCodec.GetCodecs()
-            .Where(i => i.IsEncoder && i.Type == global::FFmpeg.AutoGen.Abstractions.AVMediaType.AVMEDIA_TYPE_VIDEO)
-            .Select(i => (object)new CodecRecord(i.Name, i.LongName))
-            .Prepend(CodecRecord.Default)
-            .ToArray();
+        // The worker builds settings from IPC values and never deserializes them or shows choices.
+        return [CodecRecord.Default];
 #endif
     }
 }

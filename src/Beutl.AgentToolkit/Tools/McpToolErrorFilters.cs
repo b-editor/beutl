@@ -1,6 +1,7 @@
 ﻿using System.Text.Json;
 using System.Text.RegularExpressions;
 using Beutl.AgentToolkit.Common;
+using Beutl.AgentToolkit.Live;
 using Microsoft.Extensions.DependencyInjection;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
@@ -9,7 +10,6 @@ namespace Beutl.AgentToolkit.Tools;
 
 public static class McpToolErrorFilters
 {
-    private static readonly JsonSerializerOptions s_toolResultOptions = new(JsonSerializerDefaults.Web);
     private static readonly TimeSpan s_patternTimeout = TimeSpan.FromMilliseconds(100);
 
     private static readonly string[] s_compositionKeywords =
@@ -186,13 +186,11 @@ public static class McpToolErrorFilters
         string message = detail is null
             ? $"Call to '{target}' failed."
             : $"Call to '{target}' failed: {detail}";
-        ToolResult<object?> result = ToolResult<object?>.Failure(
+        return LiveToolResults.Error(
             ErrorCode.ValidationRejected,
             message,
             target,
             "If the message names a missing or mistyped argument, call tools/list for the current schema and pass the documented JSON shapes. Otherwise the tool may have already applied its changes, so read back the current state before retrying to avoid applying the same edit twice.");
-
-        return CreateTextResult(result);
     }
 
     private static CallToolResult CreateUnknownArgumentsResult(
@@ -210,32 +208,15 @@ public static class McpToolErrorFilters
         }
 
         string acceptedList = acceptedParts.Count == 0 ? "none" : string.Join(", ", acceptedParts);
-        ToolResult<object?> result = ToolResult<object?>.Failure(
+        return LiveToolResults.Error(
             ErrorCode.ValidationRejected,
             $"Unknown argument(s) for '{target}': {unknownList}. Accepted parameters: {acceptedList}.",
             target,
             "Remove unknown arguments, or call tools/list for the current schema and pass only documented argument names.");
-
-        return CreateTextResult(result);
     }
 
     private static string ResolveTarget(string? toolName)
     {
         return string.IsNullOrWhiteSpace(toolName) ? "tool" : toolName;
-    }
-
-    private static CallToolResult CreateTextResult(ToolResult<object?> result)
-    {
-        return new CallToolResult
-        {
-            Content =
-            [
-                new TextContentBlock
-                {
-                    Text = JsonSerializer.Serialize(result, s_toolResultOptions)
-                }
-            ],
-            IsError = false
-        };
     }
 }

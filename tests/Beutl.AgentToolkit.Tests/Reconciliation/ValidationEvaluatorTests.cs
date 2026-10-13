@@ -66,7 +66,7 @@ public class ValidationEvaluatorTests
     {
         IProperty<int> property = Property.CreateAnimatable(0, new RejectingValidator());
 
-        ValidationOutcome outcome = ValidationEvaluator.EvaluateAnimationValue(
+        ValidationOutcome outcome = ValidationEvaluator.Evaluate(
             property,
             42,
             options: null);

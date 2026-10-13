@@ -86,18 +86,15 @@ public class OutputTabBarTests
             HeadlessTestHelpers.Render();
             Assert.That(((ISolidColorBrush)profileBorder.Background!).Color.A, Is.Zero);
             HeadlessTestHelpers.Click(profiles);
-            var picker = (OutputPickerFlyout)typeof(OutputTab)
-                .GetField("_activeFlyout", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
-                .GetValue(view)!;
-            Assert.That(picker.IsOpen, Is.True);
-            var presenter = (OutputPickerFlyoutPresenter)picker.Popup.Child!;
+            var popup = window.OpenedPopups.Single(popup => popup.Child is OutputPickerFlyoutPresenter);
+            var presenter = (OutputPickerFlyoutPresenter)popup.Child!;
             HeadlessTestHelpers.Click(presenter.GetVisualDescendants().OfType<Button>().Single(button => button.Name == "ProfilesTabButton"));
-            Assert.That(picker.ViewModel.ShowPresets.Value, Is.False);
+            Assert.That(presenter.ShowPresets, Is.False);
             var profileList = presenter.GetVisualDescendants().OfType<ListBox>().Single(list => list.Name == "PART_ProfileListBox");
             profileList.SelectedItem = presenter.ProfileItems!.Single(item => ReferenceEquals(item.UserData, model.Items[0]));
             HeadlessTestHelpers.Settle();
             HeadlessTestHelpers.Click(presenter.GetVisualDescendants().OfType<Button>().Single(button => button.Name == "AcceptButton"));
-            Assert.That(picker.IsOpen, Is.False);
+            Assert.That(popup.IsOpen, Is.False);
             Assert.That(model.SelectedItem.Value, Is.SameAs(model.Items[0]));
         }
         finally { window.Close(); }

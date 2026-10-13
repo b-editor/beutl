@@ -4,15 +4,8 @@ using Microsoft.Extensions.Logging;
 namespace Beutl.Editor.Components.Helpers;
 
 /// <summary>
-/// Orders one subscription's resource rebuild against readers on other threads.
+/// Orders a resource's rebuild on its owning dispatcher against readers on other threads, and records its release.
 /// </summary>
-/// <remarks>
-/// A versioned resource is rebuilt in place, so the dispatcher that owns it is a writer every other thread
-/// races: <c>ResourceReconciler.ReconcileChildren</c> replaces the entries of the lists the resource owns and
-/// disposes the ones it drops, and <c>ResourceReconciler.ReconcileValue</c> overwrites its values. Holding this
-/// while rebuilding and while reading is what keeps a reader from landing midway through one. The release runs
-/// here too, so a handle that outlives its subscription can tell that the resource behind it is gone.
-/// </remarks>
 internal sealed class EngineResourceGate
 {
     private static readonly ILogger s_logger = Log.CreateLogger(typeof(EngineResourceGate));
@@ -53,31 +46,15 @@ internal sealed class EngineResourceGate
         }
         catch (Exception releaseFailure)
         {
-            // Whoever asked for the release has long since returned, so there is nobody left to report this
-            // to, and this runs on the reader's thread - the render thread in the case a release defers for,
-            // whose loop installs no unhandled-exception handler.
             s_logger.LogWarning(
                 releaseFailure, "Releasing a versioned resource behind its last reader failed.");
         }
     }
 
     /// <summary>
-    /// Shuts the gate to new readers and disposes the resource, or leaves the disposal to the reader that is
-    /// already inside.
+    /// Shuts the gate to new readers and disposes the resource. A release that arrives while a reader is inside
+    /// only marks the gate; the outermost reader disposes on its way out.
     /// </summary>
-    /// <remarks>
-    /// <para>
-    /// Marking the gate released before the teardown is what leaves an already-published handle reporting
-    /// itself empty rather than reaching a disposed resource.
-    /// </para>
-    /// <para>
-    /// A release reaches this from inside a read whenever the two meet on the owning dispatcher's thread:
-    /// that dispatcher runs a cleanup requested from its own thread inline rather than queueing it, so a
-    /// subscriber disposing its subscription from within a read walks back in through the re-entrant lock it
-    /// is still holding. Disposing there would free the resource out from under the reader above, so the
-    /// inner frame only shuts the door and the outermost reader finishes the job on its way out.
-    /// </para>
-    /// </remarks>
     public void Release()
     {
         lock (SyncRoot)

@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Build;
 
@@ -72,12 +73,13 @@ public class UnixUpdaterTests
                 mkdir -p "$2"
                 exec /bin/cp -R "$1/." "$2"
                 """ + "\n");
+            string script = Path.Combine(RepositoryPaths.Root, "src", "Beutl", "Resources", $"{platform}-update.sh");
             var start = new ProcessStartInfo("/bin/bash")
             {
                 RedirectStandardInput = true,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
-                ArgumentList = { FindScript(platform), update, original, processName, Path.Combine(original, "Beutl") },
+                ArgumentList = { script, update, original, processName, Path.Combine(original, "Beutl") },
             };
             start.Environment["PATH"] = bin + Path.PathSeparator + Environment.GetEnvironmentVariable("PATH");
             start.Environment["TEST_FAILURE"] = failure;
@@ -141,16 +143,5 @@ public class UnixUpdaterTests
         File.WriteAllText(path, script.ReplaceLineEndings("\n"));
         if (!OperatingSystem.IsWindows())
             File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
-    }
-
-    private static string FindScript(string platform)
-    {
-        for (DirectoryInfo? directory = new(TestContext.CurrentContext.TestDirectory);
-             directory is not null; directory = directory.Parent)
-        {
-            string path = Path.Combine(directory.FullName, "src", "Beutl", "Resources", $"{platform}-update.sh");
-            if (File.Exists(path)) return path;
-        }
-        throw new FileNotFoundException($"Could not find the {platform} update script.");
     }
 }

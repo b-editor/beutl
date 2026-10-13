@@ -12,6 +12,13 @@ namespace Beutl.Editor.Services;
 /// </summary>
 public sealed partial class ElementSourceHandlerRegistry : IElementSourceHandlerRegistry, IAsyncDisposable
 {
+    // The two composition phases: every Add registration, then every Replace one.
+    private static readonly ElementSourceHandlerRegistrationMode[] s_phases =
+    [
+        ElementSourceHandlerRegistrationMode.Add,
+        ElementSourceHandlerRegistrationMode.Replace,
+    ];
+
     private readonly Dictionary<Type, List<Registration>> _handlers = [];
     private readonly CoreList<ElementSourceHandlerDescriptor> _handlerMetadata = [];
     private readonly HashSet<Task> _activeRegistrationRetirements = [];
@@ -165,9 +172,6 @@ public sealed partial class ElementSourceHandlerRegistry : IElementSourceHandler
         {
             lock (_gate)
             {
-                if (_disposed)
-                    return Task.CompletedTask;
-
                 _disposed = true;
                 registrations = _handlers.Values.SelectMany(value => value).ToArray();
                 _handlers.Clear();
@@ -203,21 +207,16 @@ public sealed partial class ElementSourceHandlerRegistry : IElementSourceHandler
 
     private void AttachExtensionProvider(IExtensionRegistry extensionProvider)
     {
-        ArgumentNullException.ThrowIfNull(extensionProvider);
         extensionProvider.SynchronizeMutation(() =>
         {
             lock (_extensionCompositionGate)
             {
-                ObjectDisposedException.ThrowIf(_disposed, this);
-                if (_extensionProvider is not null)
-                    throw new InvalidOperationException("An extension provider is already attached.");
-
                 _extensionProvider = extensionProvider;
                 extensionProvider.AllExtensions.CollectionChanged += OnExtensionsChanged;
                 extensionProvider.ExtensionsChanged += OnExtensionsCommitted;
                 try
                 {
-                    SynchronizeExtensionRegistrationsCore();
+                    SynchronizeExtensionRegistrationsCore(extensionProvider);
                 }
                 catch
                 {
@@ -239,7 +238,7 @@ public sealed partial class ElementSourceHandlerRegistry : IElementSourceHandler
         {
             if (!_disposed)
             {
-                SynchronizeExtensionRegistrationsCore();
+                SynchronizeExtensionRegistrationsCore(_extensionProvider!);
             }
         }
     }
@@ -249,14 +248,12 @@ public sealed partial class ElementSourceHandlerRegistry : IElementSourceHandler
         lock (_extensionCompositionGate)
         {
             if (!_disposed)
-                SynchronizeExtensionRegistrationsCore();
+                SynchronizeExtensionRegistrationsCore(_extensionProvider!);
         }
     }
 
-    private void SynchronizeExtensionRegistrationsCore()
+    private void SynchronizeExtensionRegistrationsCore(IExtensionRegistry extensionProvider)
     {
-        IExtensionRegistry extensionProvider = _extensionProvider
-            ?? throw new InvalidOperationException("No extension provider is attached.");
         ElementSourceHandlerExtension[] currentExtensions =
             extensionProvider.GetExtensions<ElementSourceHandlerExtension>();
         var currentSet = new HashSet<ElementSourceHandlerExtension>(
@@ -336,82 +333,61 @@ public sealed partial class ElementSourceHandlerRegistry : IElementSourceHandler
         }
     }
 
+    // Composes the candidates against the registered source types first, so that only the accepted
+    // registrations are added to the live state.
     private void RegisterCandidates_NoLock(
         List<(ElementSourceHandlerExtension Extension, PreparedRegistration[] Registrations)> candidates,
         Dictionary<ElementSourceHandlerExtension, Exception> failures)
     {
-        while (true)
-        {
-            var attemptOwned = new Dictionary<
-                ElementSourceHandlerExtension,
-                List<Registration>>(ReferenceEqualityComparer.Instance);
-            foreach ((ElementSourceHandlerExtension extension, _) in candidates)
+        Type[] registeredTypes = _handlers
+            .Where(pair => pair.Value.Count > 0)
+            .Select(pair => pair.Key)
+            .ToArray();
+        _ = TwoPhaseComposition.Compose(
+            candidates,
+            static candidate => candidate.Extension,
+            failures,
+            () => new HashSet<Type>(registeredTypes),
+            (registered, candidate, phaseIndex) =>
             {
-                if (!failures.ContainsKey(extension))
-                    attemptOwned.Add(extension, []);
-            }
-            Dictionary<ElementSourceHandlerExtension, (Exception Exception, int Phase)> newFailures =
-                RegisterAttempt_NoLock(candidates, failures, attemptOwned);
-
-            if (newFailures.Count > 0)
-            {
-                foreach (List<Registration> owned in attemptOwned.Values)
+                foreach (PreparedRegistration registration in candidate.Registrations
+                             .Where(registration => registration.Mode == s_phases[phaseIndex]))
                 {
-                    DisposeRegistrationsAsync(owned).AsTask().GetAwaiter().GetResult();
+                    ValidateRegistrationMode(registration, registered.Contains(registration.SourceType));
+                    registered.Add(registration.SourceType);
                 }
-                int latestFailedPhase = newFailures.Values.Max(failure => failure.Phase);
-                KeyValuePair<ElementSourceHandlerExtension, (Exception Exception, int Phase)> rejected =
-                    newFailures.First(failure => failure.Value.Phase == latestFailedPhase);
-                failures.TryAdd(rejected.Key, rejected.Value.Exception);
-                continue;
-            }
 
-            foreach ((ElementSourceHandlerExtension extension, List<Registration> owned)
-                     in attemptOwned)
-            {
-                _extensionRegistrations.Add(extension, owned);
-            }
-            break;
-        }
-    }
+                return registered;
+            });
 
-    private Dictionary<ElementSourceHandlerExtension, (Exception Exception, int Phase)> RegisterAttempt_NoLock(
-        List<(ElementSourceHandlerExtension Extension, PreparedRegistration[] Registrations)> candidates,
-        Dictionary<ElementSourceHandlerExtension, Exception> failures,
-        Dictionary<ElementSourceHandlerExtension, List<Registration>> attemptOwned)
-    {
-        var newFailures = new Dictionary<
-            ElementSourceHandlerExtension,
-            (Exception Exception, int Phase)>(ReferenceEqualityComparer.Instance);
-        ElementSourceHandlerRegistrationMode[] phases =
-        [
-            ElementSourceHandlerRegistrationMode.Add,
-            ElementSourceHandlerRegistrationMode.Replace,
-        ];
-        for (int phaseIndex = 0; phaseIndex < phases.Length; phaseIndex++)
+        var owned = new Dictionary<ElementSourceHandlerExtension, List<Registration>>(
+            ReferenceEqualityComparer.Instance);
+        foreach ((ElementSourceHandlerExtension extension, _) in candidates)
         {
-            ElementSourceHandlerRegistrationMode mode = phases[phaseIndex];
+            if (!failures.ContainsKey(extension))
+                owned.Add(extension, []);
+        }
+
+        foreach (ElementSourceHandlerRegistrationMode mode in s_phases)
+        {
             foreach ((ElementSourceHandlerExtension extension,
                      PreparedRegistration[] registrations) in candidates)
             {
-                if (failures.ContainsKey(extension) || newFailures.ContainsKey(extension))
+                if (!owned.TryGetValue(extension, out List<Registration>? registered))
                     continue;
-                try
+
+                foreach (PreparedRegistration registration in registrations
+                             .Where(registration => registration.Mode == mode))
                 {
-                    foreach (PreparedRegistration registration in registrations
-                                 .Where(registration => registration.Mode == mode))
-                    {
-                        attemptOwned[extension].Add(RegisterPrepared_NoLock(registration));
-                    }
-                }
-                catch (Exception ex)
-                {
-                    newFailures.Add(extension, (ex, phaseIndex));
+                    registered.Add(RegisterPrepared_NoLock(registration));
                 }
             }
         }
 
-        return newFailures;
+        foreach ((ElementSourceHandlerExtension extension, List<Registration> registered) in owned)
+        {
+            _extensionRegistrations.Add(extension, registered);
+        }
     }
 
     private Task UnregisterAsync(Registration registration, RegistrationState state)
@@ -526,6 +502,22 @@ public sealed partial class ElementSourceHandlerRegistry : IElementSourceHandler
         ObjectDisposedException.ThrowIf(_disposed, this);
         bool exists = _handlers.TryGetValue(registration.SourceType, out List<Registration>? entries)
             && entries.Count > 0;
+        ValidateRegistrationMode(registration, exists);
+
+        entries ??= [];
+        _handlers[registration.SourceType] = entries;
+        var state = new RegistrationState(
+            registration.SourceType,
+            registration.Handler,
+            registration.Order,
+            ++_registrationSequence);
+        var owner = new Registration(this, state);
+        entries.Add(owner);
+        return owner;
+    }
+
+    private static void ValidateRegistrationMode(PreparedRegistration registration, bool exists)
+    {
         if (registration.Mode == ElementSourceHandlerRegistrationMode.Add && exists)
         {
             throw new ArgumentException(
@@ -540,17 +532,6 @@ public sealed partial class ElementSourceHandlerRegistry : IElementSourceHandler
                 + "because it is not registered.",
                 nameof(registration));
         }
-
-        entries ??= [];
-        _handlers[registration.SourceType] = entries;
-        var state = new RegistrationState(
-            registration.SourceType,
-            registration.Handler,
-            registration.Order,
-            ++_registrationSequence);
-        var owner = new Registration(this, state);
-        entries.Add(owner);
-        return owner;
     }
 
     private static ValueTask DisposeRegistrationsAsync(IEnumerable<Registration> registrations)

@@ -4,46 +4,12 @@ using Beutl.Graphics.Effects;
 namespace Beutl.Graphics.Rendering.Requests;
 
 /// <summary>
-/// Fails a request whose symbolic fragment carries a metadata callback that no longer answers what it
-/// answered while recording.
+/// Replays each author-supplied forward mapping (bounds and supply density) of a symbolic fragment over its
+/// inputs' recorded metadata and fails if it no longer returns what recording stored.
 /// </summary>
 /// <remarks>
-/// <para>
-/// A metadata callback must be deterministic over its inputs. <see cref="RegionAnalyzer"/> already holds a
-/// concrete fragment to that, and it gets the check for free: the resolved answer is computed over the same
-/// input bounds recording passed the callback, so requiring it to equal
-/// <see cref="RenderFragmentReference.RecordedBounds"/> compares two evaluations of one callback at one
-/// point. A symbolic fragment resolves over inputs that were meant to move, so its resolved answer is
-/// expected to differ from the recorded one and that comparison has nothing to hold on to.
-/// </para>
-/// <para>
-/// The recorded point is still comparable. Each callback is evaluated again over the inputs' recorded
-/// metadata - the arguments recording actually passed it - and required to return what recording stored.
-/// That is the same rule the concrete path enforces, moved to the one input where a recorded answer exists,
-/// and it is the only form that catches the hazard: a value a callback reads that moved once, between
-/// recording and resolution, and then stayed put reads identically on two evaluations at the resolved point,
-/// so evaluating twice there would let it through.
-/// </para>
-/// <para>
-/// Only author-supplied mappings are replayed. A fragment kind whose forward bounds or density is an engine
-/// rule over its inputs - a passthrough, a union, a working-scale resolution - has no callback that could
-/// answer differently, and replaying it would compare the engine against itself over inputs that legitimately
-/// moved.
-/// </para>
-/// <para>
-/// The hit-test contract is not covered because resolution does not evaluate it. Lowering a symbolic
-/// fragment's rule re-reads an immutable property of the description the payload already holds, so there is no
-/// second answer that could disagree with the first; the contract's own predicate runs when a point is tested,
-/// after planning, where no recorded answer exists to hold it to.
-/// </para>
-/// <para>
-/// Neither is the backward direction - <see cref="RenderBoundsContract.GetRequiredInputBounds"/>,
-/// <see cref="OpaqueRenderBoundsContract"/>'s backward mapping, and
-/// <see cref="RenderInputDemandContract"/>. Recording never evaluates those, so no recorded answer exists to
-/// hold them to either, and the only mechanism left is evaluating one of them twice in a row, which catches a
-/// callback that moves mid-resolution and not the one that moved before it. They are also unguarded for a
-/// concrete fragment, so they are not the asymmetry this closes.
-/// </para>
+/// Engine rules are not replayed, since that would compare the engine with itself; hit tests and backward mappings
+/// are not either, because no recorded answer exists for them.
 /// </remarks>
 internal static class SymbolicMetadataCrossCheck
 {
@@ -89,11 +55,8 @@ internal static class SymbolicMetadataCrossCheck
 
     private static Rect? ReplayRecordedBounds(RenderFragmentReference reference)
     {
-        // An owning-domain fragment states no bounds of its own while recording, so the rectangle it carries
-        // is a placeholder the domain replaces rather than an answer any mapping gave. A scope whose transform
-        // composes against the ambient carries a placeholder for the same reason: the mapping recording ran is
-        // the engine's own over a matrix only the resolved graph can supply, so replaying it here would compare
-        // the engine against itself over a matrix that legitimately moved.
+        // An owning-domain fragment and a scope composing against the ambient carry placeholder bounds rather
+        // than an answer an author mapping gave, so there is nothing to replay.
         if (reference.BoundsRequirement == RenderFragmentBoundsRequirement.OwningTargetDomain
             || DeclaresAmbientTransform(reference))
         {

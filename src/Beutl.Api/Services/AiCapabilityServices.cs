@@ -30,7 +30,6 @@ internal sealed class AiEntitlementService(
             return null;
 
         await entitlementStore.WaitForBalanceRequestAsync(token);
-        long snapshotRequest = entitlementStore.BeginSnapshotRequest();
         try
         {
             AuthenticatedApiResult<EntitlementsResponse> response =
@@ -40,13 +39,13 @@ internal sealed class AiEntitlementService(
                     token,
                     authenticatedUser);
             AiEntitlements result = AiModelMapper.ToModel(response.Value);
-            entitlementStore.ApplyEntitlements(result, response.User, snapshotRequest);
+            entitlementStore.ApplyEntitlements(result, response.User);
             return result;
         }
         catch (ApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Unauthorized)
         {
             activity?.SetStatus(ActivityStatusCode.Error);
-            entitlementStore.ApplyEntitlements(null, authenticatedUser, snapshotRequest);
+            entitlementStore.ApplyEntitlements(null, authenticatedUser);
             return null;
         }
         finally
@@ -141,8 +140,6 @@ internal sealed class AiImageEditingService(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
-        // The caller's key when it has one: that is what lets a retry recover an
-        // edit already paid for instead of buying it again.
         string idempotencyKey = request.IdempotencyKey ?? CreateIdempotencyKey();
         cancellationToken.ThrowIfCancellationRequested();
         await using Stream stream = await AiUploadValidation.OpenAsync(
@@ -181,8 +178,6 @@ internal sealed class AiTranscriptionService(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
-        // The caller's key when it has one: that is what lets a retry recover a
-        // transcription already paid for instead of buying it again.
         string idempotencyKey = request.IdempotencyKey ?? CreateIdempotencyKey();
         cancellationToken.ThrowIfCancellationRequested();
         await using Stream stream = await AiUploadValidation.OpenAsync(
@@ -253,10 +248,6 @@ internal sealed class AiCaptionTranslationService(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
-        AiCaptionTranslationRequestPayload payload =
-            AiCaptionTranslationRequestTransport.CreatePayload(request);
-        // The caller's key when it has one: that is what lets a retry recover a
-        // translation already paid for instead of buying it again.
         string idempotencyKey = request.IdempotencyKey ?? CreateIdempotencyKey();
         void Describe(Activity? activity)
         {
@@ -265,36 +256,28 @@ internal sealed class AiCaptionTranslationService(
             activity?.SetTag("streamed", progress is not null);
         }
 
-        if (progress is null)
+        Action<AiServerSentEvent> onProgress = static _ => { };
+        if (progress is not null)
         {
-            return ExecuteStreamingAsync(
-                "AiCaptionTranslationService.Translate",
-                () => JsonRequestBytes(
-                    "/api/v3/ai/translations",
-                    idempotencyKey,
-                    payload.Json),
-                _ => { },
-                ReadTranslationResult,
-                cancellationToken,
-                Describe,
-                requestEventStream: false);
-        }
-
-        HashSet<string> requestedSegmentIds = request.Segments
-            .Select(static segment => segment.Id)
-            .ToHashSet(StringComparer.Ordinal);
-        var reportedSegmentIds = new HashSet<string>(StringComparer.Ordinal);
-        return ExecuteStreamingAsync(
-            "AiCaptionTranslationService.Translate",
-            () => JsonRequestBytes("/api/v3/ai/translations", idempotencyKey, payload.Json),
-            item => ReportTranslationSegment(
+            HashSet<string> requestedSegmentIds = request.Segments
+                .Select(static segment => segment.Id)
+                .ToHashSet(StringComparer.Ordinal);
+            var reportedSegmentIds = new HashSet<string>(StringComparer.Ordinal);
+            onProgress = item => ReportTranslationSegment(
                 item,
                 progress,
                 requestedSegmentIds,
-                reportedSegmentIds),
+                reportedSegmentIds);
+        }
+
+        return ExecuteStreamingAsync(
+            "AiCaptionTranslationService.Translate",
+            () => JsonRequestBytes("/api/v3/ai/translations", idempotencyKey, request.Payload),
+            onProgress,
             ReadTranslationResult,
             cancellationToken,
-            Describe);
+            Describe,
+            requestEventStream: progress is not null);
     }
 
     private static AiCaptionTranslationResponse ReadTranslationResult(string data)

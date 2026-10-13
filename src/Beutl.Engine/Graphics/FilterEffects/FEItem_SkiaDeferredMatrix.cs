@@ -12,8 +12,6 @@ internal sealed record FEItem_SkiaDeferredMatrix<T>(
     Func<T, Rect, Matrix> MatrixFactory,
     BitmapInterpolationMode InterpolationMode) : IFEItem_DeferredBounds
 {
-    public bool ResolveBoundsAtExecutionTime => true;
-
     public bool SupportsDirectReplay => false;
 
     // Unresolved, the mapping is unknown; a recording-time bounds walk that took a concrete answer here

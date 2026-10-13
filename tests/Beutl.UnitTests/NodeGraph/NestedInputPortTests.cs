@@ -9,38 +9,17 @@ using Beutl.Engine.Expressions;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.NodeGraph;
-using Beutl.NodeGraph.Composition;
 using Beutl.NodeGraph.Nodes;
 using Beutl.NodeGraph.Nodes.Group;
 using Beutl.Serialization;
 using Beutl.UnitTests.TestInfrastructure;
+using static Beutl.UnitTests.NodeGraph.NodeGraphTestHelpers;
 
 namespace Beutl.UnitTests.NodeGraph;
 
 [TestFixture]
 public class NestedInputPortTests
 {
-    private static INestedInputPort Find(GraphNode node, IProperty property)
-        => node.NestedInputPorts.Single(p => ReferenceEquals(p.Property?.GetEngineProperty(), property));
-
-    private static LayerInputNode.LayerInputPort<T> Source<T>(GraphModel graph, T value)
-    {
-        var source = new LayerInputNode();
-        var output = new LayerInputNode.LayerInputPort<T>();
-        output.SetupProperty("Value");
-        output.Property!.SetValue(value);
-        source.Items.Add(output);
-        graph.Nodes.Add(source);
-        return output;
-    }
-
-    private static void Evaluate(GraphModel graph)
-    {
-        using var snapshot = new GraphSnapshot();
-        snapshot.Build(graph, CompositionContext.Default);
-        snapshot.Evaluate(CompositionTarget.Graphics, CompositionContext.Default);
-    }
-
     [TestCase(false)]
     [TestCase(true)]
     public void PublishingSuppressionStillSynchronizesObjectAndListPorts(bool list)
@@ -507,13 +486,8 @@ public class NestedInputPortTests
     [Test]
     public void GroupInputsKeepTheirRootIndicesWhenNestedPortsArePresent()
     {
-        using var scene = new SceneHistoryHarness("nested-group-inputs");
-        var application = new BeutlApplication();
-        application.Items.Add(scene.Scene);
         var graph = new GraphModel();
-        var drawable = new NodeGraphDrawable();
-        drawable.Model.CurrentValue = graph;
-        scene.AddElement().AddObject(drawable);
+        using SceneHistoryHarness scene = AttachToScene(graph, "nested-group-inputs");
         var group = new GroupNode();
         graph.Nodes.Add(group);
         var input = new GroupInput();

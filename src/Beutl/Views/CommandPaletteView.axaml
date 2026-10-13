@@ -10,28 +10,21 @@
              d:DesignWidth="800"
              x:CompileBindings="True"
              x:DataType="viewModels:CommandPaletteViewModel"
-             IsHitTestVisible="{Binding IsOpen.Value}"
              IsVisible="{Binding IsOpen.Value}"
              mc:Ignorable="d">
     <Panel>
         <!-- Light-dismiss backdrop -->
-        <Border x:Name="Backdrop"
-                Background="Transparent"
-                IsHitTestVisible="True"
+        <Border Background="Transparent"
                 PointerPressed="OnBackdropPointerPressed" />
 
         <!-- Palette container (Width はコードビハインドで TopLevel サイズに応じて動的設定) -->
         <Border x:Name="PaletteContainer"
+                Classes="OverlayCard"
                 MaxHeight="480"
                 Margin="16,80,16,16"
                 Padding="0"
                 HorizontalAlignment="Center"
-                VerticalAlignment="Top"
-                Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
-                BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
-                BorderThickness="1"
-                BoxShadow="0 8 32 0 #40000000"
-                CornerRadius="{DynamicResource OverlayCornerRadius}">
+                VerticalAlignment="Top">
             <Grid RowDefinitions="Auto,Auto,Auto,*,Auto">
                 <TextBlock Margin="16,12,16,0"
                            FontWeight="SemiBold"
@@ -55,8 +48,7 @@
                                    IsVisible="{Binding Prompt.Value.Message, Converter={x:Static StringConverters.IsNotNullOrEmpty}, FallbackValue=False}"
                                    Text="{Binding Prompt.Value.Message}"
                                    TextWrapping="Wrap" />
-                        <TextBlock x:Name="ValidationMessage"
-                                   Margin="16,4,16,8"
+                        <TextBlock Margin="16,4,16,8"
                                    Foreground="{DynamicResource SystemFillColorCriticalBrush}"
                                    IsVisible="{Binding Prompt.Value.ValidationError.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}, FallbackValue=False}"
                                    Text="{Binding Prompt.Value.ValidationError.Value}"

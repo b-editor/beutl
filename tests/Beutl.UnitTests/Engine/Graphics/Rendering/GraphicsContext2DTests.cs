@@ -27,47 +27,6 @@ public class GraphicsContext2DTests
     }
 
     [Test]
-    public void ShouldTriggerOnUntrackedEvent()
-    {
-        var drawable = new RectShape();
-        drawable.AlignmentX.CurrentValue = AlignmentX.Center;
-        drawable.AlignmentY.CurrentValue = AlignmentY.Center;
-        drawable.TransformOrigin.CurrentValue = RelativePoint.Center;
-        drawable.Width.CurrentValue = 100;
-        drawable.Height.CurrentValue = 100;
-        drawable.Fill.CurrentValue = Brushes.White;
-        drawable.FilterEffect.CurrentValue = new FilterEffectGroup { Children = { new SplitEffect(), new InnerShadow() } };
-        drawable.Transform.CurrentValue = new TransformGroup { Children = { new RotationTransform(), new ScaleTransform() } };
-        var resource = drawable.ToResource(CompositionContext.Default);
-
-        var node = new DrawableRenderNode(resource);
-        using (var context = new GraphicsContext2D(node, new Size(1920, 1080)))
-        {
-            drawable.Render(context, resource);
-        }
-
-        ((FilterEffectGroup)drawable.FilterEffect.CurrentValue).Children.RemoveAt(0);
-        var versionBumped = false;
-        resource.Reconcile(drawable, CompositionContext.Default, ref versionBumped);
-
-        bool triggered = false;
-        RenderNode? untrackedNode = null;
-        using (var context2 = new GraphicsContext2D(node, new Size(1920, 1080)))
-        {
-            context2.OnUntracked = n =>
-            {
-                triggered = true;
-                untrackedNode = n;
-            };
-            drawable.Render(context2, resource);
-        }
-
-        Assert.That(triggered, Is.True);
-        Assert.That(untrackedNode, Is.Not.Null);
-        Assert.That(untrackedNode, Is.TypeOf<FilterEffectRenderNode>());
-    }
-
-    [Test]
     public void DrawNodeUpdateFailure_PreservesTheExistingTree()
     {
         using var root = new ContainerRenderNode();
@@ -102,11 +61,9 @@ public class GraphicsContext2DTests
         var removed = new TrackingRenderNode();
         root.AddChild(retained);
         root.AddChild(removed);
-        RenderNode? untracked = null;
 
         using (var context = new GraphicsContext2D(root))
         {
-            context.OnUntracked = node => untracked = node;
             context.DrawNode(retained);
         }
 
@@ -115,7 +72,6 @@ public class GraphicsContext2DTests
             Assert.That(root.Children, Is.EqualTo(new[] { retained }));
             Assert.That(root.HasChanges, Is.True);
             Assert.That(removed.IsDisposed, Is.True);
-            Assert.That(untracked, Is.SameAs(removed));
         });
     }
 

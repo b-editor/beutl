@@ -23,24 +23,13 @@ public sealed partial class DipToColorTransition : ClipTransition
 
     public new partial class Resource
     {
-        private SolidColorBrush? _brush;
-        private SolidColorBrush.Resource? _fill;
+        private readonly DipFill _dipFill = new();
 
-        public override void Draw(ClipTransitionContext context)
-        {
-            context.DrawThrough(_fill);
-        }
+        public override void Draw(ClipTransitionContext context) => _dipFill.Draw(context);
 
         partial void PostReconcile(DipToColorTransition obj, CompositionContext context)
-        {
-            UpdateDipFill(ref _brush, ref _fill, Color, context);
-        }
+            => _dipFill.Update(this, Color, context);
 
-        partial void PostDispose(bool disposing)
-        {
-            _fill?.Dispose();
-            _fill = null;
-            _brush = null;
-        }
+        partial void PostDispose(bool disposing) => _dipFill.Dispose();
     }
 }

@@ -926,11 +926,12 @@ public sealed class GpuPassFusionScaleRegionTests
                 CreateCombineDescription(typeof(CaptureDensityNode))));
         }
 
-        void IBuiltInBackdropCaptureSink.CommitBackdropCapture(Bitmap bitmap, float density)
+        bool IBuiltInBackdropCaptureSink.TryCommitBackdropCapture(Bitmap bitmap, float density)
         {
             _committedBackdrop?.Dispose();
             _committedBackdrop = bitmap;
             CommittedBackdropDensity = density;
+            return true;
         }
 
         protected override void OnDispose(bool disposing)

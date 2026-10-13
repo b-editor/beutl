@@ -172,12 +172,7 @@ public sealed partial class FilterEffectContext : IDisposable
     /// <see langword="true"/> when one concrete effect-input density is available;
     /// otherwise <see langword="false"/> because the inputs are unresolved or branch-dependent.
     /// </returns>
-    /// <remarks>
-    /// A later bounds-expanding operation may apply the per-buffer dimension clamp and run below this nominal
-    /// density. Use this value only for scale-independent recording decisions; read the operation-specific density
-    /// or actual target scale from the execution-time shader, geometry, or custom-effect context for device math.
-    /// A <see langword="false"/> result requires scale-independent recording.
-    /// </remarks>
+    /// <remarks>See the remarks on <see cref="WorkingScale"/>.</remarks>
     public bool TryGetWorkingScale(out float workingScale)
     {
         workingScale = _hasResolvedWorkingScale
@@ -410,7 +405,7 @@ public sealed partial class FilterEffectContext : IDisposable
         foreach (IFEItem item in items)
         {
             context.AddItem(item);
-            if (item is IFEItem_Skia { ResolveBoundsAtExecutionTime: true })
+            if (item is IFEItem_DeferredBounds)
             {
                 // A deferred-bound item resolves its bounds at execution time; authoring it
                 // here against the provisional segment input would freeze the wrong matrix.

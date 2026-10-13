@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Text.Json;
 using System.Xml.Linq;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Build;
 
@@ -92,14 +93,6 @@ public class SkiaNativeAssetSelectionTests
         Assert.That(output, Does.Contain("requires its patched libSkiaSharp"));
     }
 
-    private static string FindRepository()
-    {
-        DirectoryInfo? repository = new(AppContext.BaseDirectory);
-        while (repository != null && !File.Exists(Path.Combine(repository.FullName, "native", "SkiaSharp", "Beutl.Engine.targets")))
-            repository = repository.Parent;
-        return repository?.FullName ?? throw new InvalidOperationException("Beutl repository not found.");
-    }
-
     private static async Task<(int ExitCode, string Output)> RunDotNet(string repository, params string[] arguments)
     {
         var start = new ProcessStartInfo("dotnet")
@@ -137,7 +130,7 @@ public class SkiaNativeAssetSelectionTests
     private sealed class PublishFixture : IDisposable
     {
         private readonly string _directory = Path.Combine(Path.GetTempPath(), "beutl-skia-publish-" + Guid.NewGuid().ToString("N"));
-        private readonly string _repository = FindRepository();
+        private readonly string _repository = RepositoryPaths.Root;
         private readonly string _project;
 
         public PublishFixture()
@@ -200,7 +193,7 @@ public class SkiaNativeAssetSelectionTests
 
         public AssetFixture(string referenceKind, bool ridSpecific, string version, bool useBundledAssets = false)
         {
-            _repository = FindRepository();
+            _repository = RepositoryPaths.Root;
             string nativeRoot = useBundledAssets
                 ? Path.Combine(_repository, "src", "Beutl.Engine")
                 : Path.Combine(_directory, "patched");

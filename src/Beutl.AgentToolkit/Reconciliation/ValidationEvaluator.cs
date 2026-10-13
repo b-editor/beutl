@@ -74,33 +74,16 @@ public static class ValidationEvaluator
         }
 
         IValidator? validator = property.GetMetadata<ICorePropertyMetadata>(target.GetType()).GetValidator();
-        return EvaluateValidator(validator, new ValidationContext(target, property), value, options);
+        return EvaluateValidator(validator, new ValidationContext(target, property), value, options, out _);
     }
 
     public static ValidationOutcome Evaluate(
         IProperty property, object? value, CoreSerializerOptions? options)
     {
-        return EvaluateProperty(property, value, options, out _);
+        return Evaluate(property, value, options, out _);
     }
 
-    internal static ValidationOutcome EvaluateAnimationValue(
-        IProperty property,
-        object? value,
-        CoreSerializerOptions? options)
-    {
-        return EvaluateAnimationValue(property, value, options, out _);
-    }
-
-    internal static ValidationOutcome EvaluateAnimationValue(
-        IProperty property,
-        object? value,
-        CoreSerializerOptions? options,
-        out object? acceptedValue)
-    {
-        return EvaluateProperty(property, value, options, out acceptedValue);
-    }
-
-    private static ValidationOutcome EvaluateProperty(
+    internal static ValidationOutcome Evaluate(
         IProperty property,
         object? value,
         CoreSerializerOptions? options,
@@ -145,12 +128,6 @@ public static class ValidationEvaluator
             $"Font family '{family.Name}' is not installed or is not a typographic family name, so it renders in the fallback face.",
             options,
             "Call list_fonts for installed families and their available weight/style typeface pairs. A subfamily name such as \"Inter 28pt\" is not a family name; use the typographic family (\"Inter\") and choose FontWeight and FontStyle from the same returned typeface entry.");
-    }
-
-    private static ValidationOutcome EvaluateValidator(
-        IValidator? validator, ValidationContext context, object? value, CoreSerializerOptions? options)
-    {
-        return EvaluateValidator(validator, context, value, options, out _);
     }
 
     private static ValidationOutcome EvaluateValidator(

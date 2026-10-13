@@ -42,14 +42,6 @@ public sealed class FFmpegEncodingScaleTests
         {
             Assert.Ignore(ex.Message);
         }
-        catch (InvalidOperationException ex) when (ex.Message.Contains("before establishing connection", StringComparison.Ordinal))
-        {
-            Assert.Ignore(ex.Message);
-        }
-        catch (TimeoutException ex)
-        {
-            Assert.Ignore(ex.Message);
-        }
 
         using MediaReader? reader = new FFmpegDecoderInfo(new FFmpegDecodingSettings())
             .Open(outputPath, new MediaOptions(MediaMode.Video));

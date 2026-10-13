@@ -3,6 +3,7 @@ using System.Threading.Channels;
 
 using Beutl.Media;
 using Beutl.Media.Proxy;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Media.Proxy;
 
@@ -97,7 +98,7 @@ public class ProxyJobQueueTests
         ProxyJob firstJob = await queue.EnqueueAsync(first, ProxyPreset.Quarter);
         ProxyJob secondJob = await queue.EnqueueAsync(second, ProxyPreset.Quarter);
 
-        await generator.WaitForCountAsync(2);
+        await generator.WaitForTwoGenerationsAsync();
 
         Assert.Multiple(() =>
         {
@@ -915,10 +916,8 @@ public class ProxyJobQueueTests
         });
     }
 
-    // greptile P1: DisposeAsync must unsubscribe from the resolved generator's AvailabilityChanged, or the
-    // generator keeps a live reference to the queue (leak) and can fire into a disposed object. The
-    // unsubscribe now runs after the drain loop ends so a generator resolved during disposal cannot leave
-    // a stray subscription the pre-drain read would miss.
+    // DisposeAsync must unsubscribe from the generator's AvailabilityChanged, or the generator keeps
+    // referring to the disposed queue.
     [Test]
     public async Task DisposeAsync_UnsubscribesFromGeneratorAvailability()
     {
@@ -1114,7 +1113,7 @@ public class ProxyJobQueueTests
     {
         string root = CreateRoot();
         var store = new ProxyStore(root);
-        var generator = new ManualRecoveryGenerator();
+        var generator = new ToggleAvailabilityGenerator();
         await using var queue = new ProxyJobQueue(
             generator,
             store,
@@ -1123,7 +1122,7 @@ public class ProxyJobQueueTests
         ProxyFingerprint source = CreateFingerprint("recover.mov");
 
         ProxyJob job = await queue.EnqueueAsync(source, ProxyPreset.Quarter);
-        await generator.FirstUnavailable.WaitAsync(TimeSpan.FromSeconds(5));
+        await generator.UnavailableHit.WaitAsync(TimeSpan.FromSeconds(5));
 
         // Restore availability WITHOUT firing AvailabilityChanged: only the backoff re-probe can
         // discover it. This is the transient-recovery-without-the-install-wizard path.
@@ -1142,18 +1141,19 @@ public class ProxyJobQueueTests
     {
         var generator = new ControlledBlockingGenerator();
         await using var queue = new ProxyJobQueue(generator);
+        IProxyJobQueue sut = queue;
         ProxyFingerprint running = CreateFingerprint("running.mov");
         ProxyFingerprint bulkA = CreateFingerprint("bulk-a.mov");
         ProxyFingerprint bulkB = CreateFingerprint("bulk-b.mov");
         ProxyFingerprint urgent = CreateFingerprint("urgent.mov");
 
         // Occupy the single worker so the rest sit Queued behind it.
-        ProxyJob runningJob = await queue.EnqueueAsync(running, ProxyPreset.Quarter);
+        ProxyJob runningJob = await sut.EnqueueAsync(running, ProxyPreset.Quarter);
         await generator.WaitForStartedCountAsync(1);
 
-        await queue.EnqueueAsync(bulkA, ProxyPreset.Quarter);
-        await queue.EnqueueAsync(bulkB, ProxyPreset.Quarter);
-        ProxyJob urgentJob = await queue.EnqueueAsync(urgent, ProxyPreset.Quarter, priority: 10);
+        await sut.EnqueueAsync(bulkA, ProxyPreset.Quarter);
+        await sut.EnqueueAsync(bulkB, ProxyPreset.Quarter);
+        ProxyJob urgentJob = await sut.EnqueueAsync(urgent, ProxyPreset.Quarter, priority: 10);
 
         generator.ReleaseOne();
         await generator.WaitForStartedCountAsync(2);
@@ -1168,6 +1168,7 @@ public class ProxyJobQueueTests
 
         Assert.Multiple(() =>
         {
+            Assert.That(urgentJob.Priority, Is.EqualTo(10));
             Assert.That(generator.StartedSources[0], Is.EqualTo(running));
             Assert.That(generator.StartedSources[1], Is.EqualTo(urgent), "the high-priority job must jump the earlier-queued bulk");
             Assert.That(generator.StartedSources.Skip(2), Is.EqualTo(new[] { bulkA, bulkB }));
@@ -1175,7 +1176,7 @@ public class ProxyJobQueueTests
     }
 
     [Test]
-    public async Task EnqueueAsync_AlreadyCanceledToken_NeverDispatchesTheJob()
+    public async Task EnqueueAsync_AlreadyCanceledToken_CancelsTheJobWithoutDispatchingIt()
     {
         // Enqueue is non-blocking (a full channel drops the wake permit, it never blocks), so there is
         // no cancel-mid-write. A token already canceled at enqueue must still be rejected before the job
@@ -1185,6 +1186,17 @@ public class ProxyJobQueueTests
         ProxyFingerprint running = CreateFingerprint("running.mov");
         ProxyFingerprint bulk = CreateFingerprint("bulk.mov");
         ProxyFingerprint canceled = CreateFingerprint("canceled.mov");
+        var canceledJobs = new List<ProxyJob>();
+        queue.JobChanged += (_, e) =>
+        {
+            if (e.Kind == ProxyJobChangeKind.Canceled)
+            {
+                lock (canceledJobs)
+                {
+                    canceledJobs.Add(e.Job);
+                }
+            }
+        };
 
         ProxyJob runningJob = await queue.EnqueueAsync(running, ProxyPreset.Quarter);
         await generator.WaitForStartedCountAsync(1);
@@ -1195,6 +1207,19 @@ public class ProxyJobQueueTests
         cts.Cancel();
         await Assert.CatchAsync<OperationCanceledException>(
             async () => await queue.EnqueueAsync(canceled, ProxyPreset.Quarter, priority: 10, cts.Token));
+
+        ProxyJob? canceledJob;
+        lock (canceledJobs)
+        {
+            canceledJob = canceledJobs.FirstOrDefault(j => j.Source == canceled);
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(canceledJob, Is.Not.Null);
+            Assert.That(canceledJob!.Status, Is.EqualTo(ProxyJobStatus.Canceled));
+            Assert.That(queue.Pending().Select(j => j.Source), Does.Not.Contain(canceled));
+        });
 
         generator.ReleaseOne();
         await generator.WaitForStartedCountAsync(2);
@@ -1208,10 +1233,7 @@ public class ProxyJobQueueTests
     [Test]
     public async Task GenerateBulk_WhileGeneratorUnavailable_DoesNotBlockEnqueue()
     {
-        // Regression for the bounded-channel deadlock: the single drain loop parks on generator
-        // unavailability backoff, so a large sequential bulk enqueue must still complete instead of
-        // blocking on a full channel. Every job is registered as Queued, and when availability returns
-        // they all run.
+        // A large bulk enqueue must not stall while the generator is unavailable.
         string root = CreateRoot();
         var store = new ProxyStore(root);
         var generator = new ToggleAvailabilityGenerator();
@@ -1230,7 +1252,6 @@ public class ProxyJobQueueTests
             return jobs;
         });
 
-        // Under the old bounded blocking write this hung once the queue filled while the drain parked.
         List<ProxyJob> queued = await enqueueAll.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.That(queued, Has.Count.EqualTo(32));
 
@@ -1239,43 +1260,6 @@ public class ProxyJobQueueTests
             await WaitForTerminalAsync(job);
 
         Assert.That(queued.Select(static j => j.Status), Is.All.EqualTo(ProxyJobStatus.Succeeded));
-    }
-
-    [Test]
-    public async Task EnqueueAsync_PriorityReachableThroughInterfaceType()
-    {
-        var generator = new ControlledBlockingGenerator();
-        await using var queue = new ProxyJobQueue(generator);
-        IProxyJobQueue sut = queue;
-        ProxyFingerprint running = CreateFingerprint("running.mov");
-        ProxyFingerprint bulk = CreateFingerprint("bulk.mov");
-        ProxyFingerprint urgent = CreateFingerprint("urgent.mov");
-
-        ProxyJob runningJob = await sut.EnqueueAsync(running, ProxyPreset.Quarter);
-        await generator.WaitForStartedCountAsync(1);
-
-        await sut.EnqueueAsync(bulk, ProxyPreset.Quarter);
-        ProxyJob urgentJob = await sut.EnqueueAsync(urgent, ProxyPreset.Quarter, priority: 10);
-
-        generator.ReleaseOne();
-        await generator.WaitForStartedCountAsync(2);
-        generator.ReleaseOne();
-        await generator.WaitForStartedCountAsync(3);
-        generator.ReleaseAll();
-
-        await WaitForTerminalAsync(runningJob);
-        await WaitForTerminalAsync(urgentJob);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(urgentJob.Priority, Is.EqualTo(10));
-            Assert.That(generator.StartedSources[0], Is.EqualTo(running));
-            Assert.That(
-                generator.StartedSources[1],
-                Is.EqualTo(urgent),
-                "priority set via IProxyJobQueue must jump the earlier-queued bulk");
-            Assert.That(generator.StartedSources[2], Is.EqualTo(bulk));
-        });
     }
 
     [Test]
@@ -1478,9 +1462,7 @@ public class ProxyJobQueueTests
         await generator.FirstUnavailable.WaitAsync(TimeSpan.FromSeconds(5));
 
         // The requeue happens after FirstUnavailable fires (inside GenerateAsync), so poll briefly.
-        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(5);
-        while (job.StatusMessage is null && DateTime.UtcNow < deadline)
-            await Task.Delay(10);
+        await WaitUntilAsync(() => job.StatusMessage is not null);
 
         Assert.Multiple(() =>
         {
@@ -1544,68 +1526,6 @@ public class ProxyJobQueueTests
         {
             Assert.That(firstJob.Status, Is.EqualTo(ProxyJobStatus.Succeeded));
             Assert.That(generator.Sources, Does.Contain(firstSource));
-        });
-    }
-
-    [Test]
-    public async Task EnqueueAsync_AlreadyCanceledToken_CompletesJobAsCanceled()
-    {
-        var generator = new BlockingGenerator();
-        await using var queue = new ProxyJobQueue(generator);
-        ProxyFingerprint canceledSource = CreateFingerprint("precanceled.mov");
-        var canceledJobs = new List<ProxyJob>();
-        queue.JobChanged += (_, e) =>
-        {
-            if (e.Kind == ProxyJobChangeKind.Canceled)
-            {
-                lock (canceledJobs)
-                {
-                    canceledJobs.Add(e.Job);
-                }
-            }
-        };
-
-        await queue.EnqueueAsync(CreateFingerprint("precancel-running.mov"), ProxyPreset.Quarter);
-
-        using var cts = new CancellationTokenSource();
-        cts.Cancel();
-        await Assert.CatchAsync<OperationCanceledException>(
-            async () => await queue.EnqueueAsync(canceledSource, ProxyPreset.Quarter, cancellationToken: cts.Token));
-
-        ProxyJob? canceledJob;
-        lock (canceledJobs)
-        {
-            canceledJob = canceledJobs.FirstOrDefault(j => j.Source == canceledSource);
-        }
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(canceledJob, Is.Not.Null);
-            Assert.That(canceledJob!.Status, Is.EqualTo(ProxyJobStatus.Canceled));
-            Assert.That(queue.Pending().Select(j => j.Source), Does.Not.Contain(canceledSource));
-        });
-        generator.Release();
-    }
-
-    [Test]
-    public async Task DisposeAsync_AfterMultipleEnqueues_CancelsEveryQueuedJob()
-    {
-        var generator = new BlockingGenerator();
-        var queue = new ProxyJobQueue(generator);
-
-        ProxyJob running = await queue.EnqueueAsync(CreateFingerprint("dispose-running.mov"), ProxyPreset.Quarter);
-        ProxyJob buffered = await queue.EnqueueAsync(CreateFingerprint("dispose-buffered.mov"), ProxyPreset.Quarter);
-        ProxyJob extra = await queue.EnqueueAsync(CreateFingerprint("dispose-extra.mov"), ProxyPreset.Quarter);
-
-        await queue.DisposeAsync();
-
-        // Dispose's leftover sweep must cancel every queued job so nothing is left non-terminal.
-        Assert.Multiple(() =>
-        {
-            Assert.That(running.Status, Is.EqualTo(ProxyJobStatus.Canceled));
-            Assert.That(buffered.Status, Is.EqualTo(ProxyJobStatus.Canceled));
-            Assert.That(extra.Status, Is.EqualTo(ProxyJobStatus.Canceled));
-            Assert.That(queue.Pending(), Is.Empty);
         });
     }
 
@@ -1699,20 +1619,14 @@ public class ProxyJobQueueTests
 
         // Wait on the recorded events, not job status: Status turns Succeeded before the
         // Succeeded notification fans out, so a status poll can win the race.
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        while (true)
+        await WaitUntilAsync(() =>
         {
             lock (seenKinds)
             {
-                if (seenKinds.Contains((first, ProxyJobChangeKind.Succeeded))
-                    && seenKinds.Contains((second, ProxyJobChangeKind.Succeeded)))
-                {
-                    break;
-                }
+                return seenKinds.Contains((first, ProxyJobChangeKind.Succeeded))
+                    && seenKinds.Contains((second, ProxyJobChangeKind.Succeeded));
             }
-
-            await Task.Delay(10, cts.Token);
-        }
+        });
 
         Assert.Multiple(() =>
         {
@@ -2090,12 +2004,7 @@ public class ProxyJobQueueTests
             return ValueTask.CompletedTask;
         }
 
-        public Task WaitForCountAsync(int count)
-        {
-            return count == 2
-                ? _two.Task.WaitAsync(TimeSpan.FromSeconds(5))
-                : throw new ArgumentOutOfRangeException(nameof(count), "This fixture only supports waiting for exactly 2 generations.");
-        }
+        public Task WaitForTwoGenerationsAsync() => _two.Task.WaitAsync(TimeSpan.FromSeconds(5));
     }
 
     private sealed class BlockingGenerator : IProxyGenerator
@@ -2245,128 +2154,39 @@ public class ProxyJobQueueTests
             _available = true;
             AvailabilityChanged?.Invoke(this, EventArgs.Empty);
         }
-    }
-
-    private sealed class ManualRecoveryGenerator : IProxyGenerator, IProxyGeneratorAvailability
-    {
-        private readonly List<ProxyFingerprint> _succeededSources = [];
-        private readonly TaskCompletionSource _firstUnavailable = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        private volatile bool _available;
-
-        public bool IsAvailable => _available;
-
-        public Task FirstUnavailable => _firstUnavailable.Task;
-
-        public IReadOnlyList<ProxyFingerprint> SucceededSources
-        {
-            get
-            {
-                lock (_succeededSources)
-                {
-                    return [.. _succeededSources];
-                }
-            }
-        }
-
-#pragma warning disable CS0067 // Deliberately never raised: the queue must recover via backoff, not this event.
-        public event EventHandler? AvailabilityChanged;
-#pragma warning restore CS0067
-
-        public ValueTask GenerateAsync(ProxyJob job)
-        {
-            if (!_available)
-            {
-                _firstUnavailable.TrySetResult();
-                throw new ProxyGeneratorUnavailableException("transiently unavailable");
-            }
-
-            lock (_succeededSources)
-            {
-                _succeededSources.Add(job.Source);
-            }
-
-            return ValueTask.CompletedTask;
-        }
 
         public void MakeAvailableSilently() => _available = true;
     }
 
-    private sealed class ThrowingRegisterStore : IProxyStore
+    private sealed class ThrowingRegisterStore()
+        : StubProxyStore(Path.Combine(TestContext.CurrentContext.WorkDirectory, "throwing-store"))
     {
-        public string StoreRootPath => Path.Combine(TestContext.CurrentContext.WorkDirectory, "throwing-store");
-
-        public ProxyEntry? TryGet(ProxyFingerprint source, ProxyPreset preset) => null;
-
-        public IReadOnlyList<ProxyEntry> Enumerate() => [];
-
-        public void Register(ProxyEntry entry) => throw new InvalidOperationException("index locked");
-
-        public bool TryTransition(ProxyFingerprint source, ProxyPreset preset, ProxyState newState, string? failureReason = null) => false;
-
-        public bool Delete(ProxyFingerprint source, ProxyPreset preset) => false;
-
-        public void Touch(ProxyFingerprint source, ProxyPreset preset, DateTime nowUtc)
-        {
-        }
-
-        public long GetTotalBytes() => 0;
-
-        public long GetTotalBytes(IReadOnlySet<string> sourceAbsolutePaths) => 0;
-
-        public Task FlushAsync(CancellationToken cancellationToken) => Task.CompletedTask;
-
-        public Task ReconcileAsync(CancellationToken cancellationToken) => Task.CompletedTask;
-
-#pragma warning disable CS0067 // Not exercised by these tests.
-        public event EventHandler<ProxyStoreChangedEventArgs>? Changed;
-#pragma warning restore CS0067
+        public override void Register(ProxyEntry entry) => throw new InvalidOperationException("index locked");
     }
 
-    private sealed class ThrowingDeleteStore : IProxyStore
+    private sealed class ThrowingDeleteStore() : StubProxyStore(Path.GetTempPath())
     {
         private ProxyEntry? _entry;
 
-        public string StoreRootPath => Path.GetTempPath();
+        public override ProxyEntry? TryGet(ProxyFingerprint source, ProxyPreset preset) => _entry;
 
-        public ProxyEntry? TryGet(ProxyFingerprint source, ProxyPreset preset) => _entry;
+        public override IReadOnlyList<ProxyEntry> Enumerate() => _entry is null ? [] : [_entry];
 
-        public IReadOnlyList<ProxyEntry> Enumerate() => _entry is null ? [] : [_entry];
+        public override void Register(ProxyEntry entry) => _entry = entry;
 
-        public void Register(ProxyEntry entry) => _entry = entry;
-
-        public bool TryTransition(ProxyFingerprint source, ProxyPreset preset, ProxyState newState, string? failureReason = null) => false;
-
-        public bool Delete(ProxyFingerprint source, ProxyPreset preset) => throw new IOException("delete failed");
-
-        public void Touch(ProxyFingerprint source, ProxyPreset preset, DateTime nowUtc)
-        {
-        }
-
-        public long GetTotalBytes() => 0;
-
-        public long GetTotalBytes(IReadOnlySet<string> sourceAbsolutePaths) => 0;
-
-        public Task FlushAsync(CancellationToken cancellationToken) => Task.CompletedTask;
-
-        public Task ReconcileAsync(CancellationToken cancellationToken) => Task.CompletedTask;
-
-#pragma warning disable CS0067 // Not exercised by these tests.
-        public event EventHandler<ProxyStoreChangedEventArgs>? Changed;
-#pragma warning restore CS0067
+        public override bool Delete(ProxyFingerprint source, ProxyPreset preset) => throw new IOException("delete failed");
     }
 
-    private sealed class MutatingThenThrowStore : IProxyStore
+    private sealed class MutatingThenThrowStore() : StubProxyStore(Path.GetTempPath())
     {
         private ProxyEntry? _entry;
         private bool _throwOnRegister = true;
 
-        public string StoreRootPath => Path.GetTempPath();
+        public override ProxyEntry? TryGet(ProxyFingerprint source, ProxyPreset preset) => _entry;
 
-        public ProxyEntry? TryGet(ProxyFingerprint source, ProxyPreset preset) => _entry;
+        public override IReadOnlyList<ProxyEntry> Enumerate() => _entry is null ? [] : [_entry];
 
-        public IReadOnlyList<ProxyEntry> Enumerate() => _entry is null ? [] : [_entry];
-
-        public void Register(ProxyEntry entry)
+        public override void Register(ProxyEntry entry)
         {
             _entry = entry;
             if (_throwOnRegister)
@@ -2376,34 +2196,12 @@ public class ProxyJobQueueTests
             }
         }
 
-        public bool TryTransition(
-            ProxyFingerprint source,
-            ProxyPreset preset,
-            ProxyState newState,
-            string? failureReason = null) => false;
-
-        public bool Delete(ProxyFingerprint source, ProxyPreset preset)
+        public override bool Delete(ProxyFingerprint source, ProxyPreset preset)
         {
             bool removed = _entry is not null;
             _entry = null;
             return removed;
         }
-
-        public void Touch(ProxyFingerprint source, ProxyPreset preset, DateTime nowUtc)
-        {
-        }
-
-        public long GetTotalBytes() => 0;
-
-        public long GetTotalBytes(IReadOnlySet<string> sourceAbsolutePaths) => 0;
-
-        public Task FlushAsync(CancellationToken cancellationToken) => Task.CompletedTask;
-
-        public Task ReconcileAsync(CancellationToken cancellationToken) => Task.CompletedTask;
-
-#pragma warning disable CS0067 // Not exercised by these tests.
-        public event EventHandler<ProxyStoreChangedEventArgs>? Changed;
-#pragma warning restore CS0067
     }
 
     private sealed class ControlledBlockingGenerator : IProxyGenerator

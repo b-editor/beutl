@@ -370,11 +370,7 @@ internal sealed partial class DeclarativeDocumentApplier
             return normalized;
         }
 
-        if (typeof(Scene).IsAssignableFrom(actualType))
-        {
-            NormalizeIdentityArray(normalized, nameof(Scene.Children), typeof(Element));
-        }
-        else if (typeof(Element).IsAssignableFrom(actualType))
+        if (typeof(Element).IsAssignableFrom(actualType))
         {
             NormalizeIdentityArray(normalized, nameof(Element.Objects), typeof(EngineObject));
         }

@@ -1,6 +1,7 @@
 ﻿using System.Collections.Immutable;
 using Beutl.Editor.Services;
 using Beutl.ProjectSystem;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Editor.Services;
 
@@ -10,15 +11,6 @@ public class DuplicateHelperTests
     private static string GetTempPath()
     {
         return Path.Combine(Path.GetTempPath(), $"beutl_duplicate_helper_{Guid.NewGuid():N}");
-    }
-
-    private static Scene CreateScene(string basePath)
-    {
-        Directory.CreateDirectory(basePath);
-        return new Scene(100, 100, string.Empty)
-        {
-            Uri = new Uri(Path.Combine(basePath, "test.scene"))
-        };
     }
 
     private static Element CreateElement(TimeSpan start, TimeSpan length, int zIndex = 0, Guid? id = null, string? basePath = null)
@@ -40,8 +32,6 @@ public class DuplicateHelperTests
     [Test]
     public void ComputePlacementRange_UsesRangeEnd_NotMaxStart()
     {
-        // A starts at 0s, length 10s — ends at 10s
-        // B starts at 1s, length 1s — ends at 2s
         // The placement search seed range should span A's full duration (10s),
         // not just maxStart-minStart (1s). Otherwise the spiral search picks
         // a "next slot" that overlaps A.
@@ -95,99 +85,87 @@ public class DuplicateHelperTests
     [Test]
     public void PlaceDuplicates_RemapsGroupsToNewIds_PreservingMembership()
     {
-        string basePath = GetTempPath();
-        try
-        {
-            Scene scene = CreateScene(basePath);
-            Guid sourceA = Guid.NewGuid();
-            Guid sourceB = Guid.NewGuid();
-            Guid sourceC = Guid.NewGuid();
-            Element a = CreateElement(TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(1), zIndex: 0, id: sourceA, basePath: basePath);
-            Element b = CreateElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1), zIndex: 0, id: sourceB, basePath: basePath);
-            Element c = CreateElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1), zIndex: 0, id: sourceC, basePath: basePath);
-            scene.Children.Add(a);
-            scene.Children.Add(b);
-            scene.Children.Add(c);
-            scene.Groups.Add(ImmutableHashSet.Create(sourceA, sourceB, sourceC));
+        using var harness = new SceneHistoryHarness("beutl_duplicate_helper");
+        Scene scene = harness.Scene;
+        Guid sourceA = Guid.NewGuid();
+        Guid sourceB = Guid.NewGuid();
+        Guid sourceC = Guid.NewGuid();
+        Element a = CreateElement(TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(1), zIndex: 0, id: sourceA, basePath: harness.BasePath);
+        Element b = CreateElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1), zIndex: 0, id: sourceB, basePath: harness.BasePath);
+        Element c = CreateElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1), zIndex: 0, id: sourceC, basePath: harness.BasePath);
+        scene.Children.Add(a);
+        scene.Children.Add(b);
+        scene.Children.Add(c);
+        scene.Groups.Add(ImmutableHashSet.Create(sourceA, sourceB, sourceC));
 
-            // 新規要素は正規化済みの位置を持つ前提 (ObjectRegenerator が新しい Id を振った状態)
-            Element newA = CreateElement(TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(1), zIndex: 0);
-            Element newB = CreateElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1), zIndex: 0);
-            Element newC = CreateElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1), zIndex: 0);
+        // 新規要素は正規化済みの位置を持つ前提 (ObjectRegenerator が新しい Id を振った状態)
+        Element newA = CreateElement(TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(1), zIndex: 0);
+        Element newB = CreateElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1), zIndex: 0);
+        Element newC = CreateElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1), zIndex: 0);
 
-            DuplicateHelper.PlaceDuplicates(
-                scene,
-                newElements: [newA, newB, newC],
-                sourceElements: [a, b, c],
-                anchorStart: TimeSpan.FromSeconds(10),
-                anchorZIndex: 1);
+        DuplicateHelper.PlaceDuplicates(
+            scene,
+            newElements: [newA, newB, newC],
+            sourceElements: [a, b, c],
+            anchorStart: TimeSpan.FromSeconds(10),
+            anchorZIndex: 1);
 
-            Assert.That(scene.Children.Count, Is.EqualTo(6));
-            Assert.That(scene.Groups.Count, Is.EqualTo(2));
+        Assert.That(scene.Children.Count, Is.EqualTo(6));
+        Assert.That(scene.Groups.Count, Is.EqualTo(2));
 
-            // 元グループは変更されない
-            ImmutableHashSet<Guid> originalGroup = scene.Groups[0];
-            Assert.That(originalGroup.SetEquals([sourceA, sourceB, sourceC]), Is.True);
+        ImmutableHashSet<Guid> originalGroup = scene.Groups[0];
+        Assert.That(originalGroup.SetEquals([sourceA, sourceB, sourceC]), Is.True);
 
-            // 新規グループは新 ID 3 つを含み、元 ID とは交差しない
-            ImmutableHashSet<Guid> newGroup = scene.Groups[1];
-            Assert.That(newGroup.Count, Is.EqualTo(3));
-            Assert.That(newGroup.SetEquals([newA.Id, newB.Id, newC.Id]), Is.True);
-            Assert.That(newGroup.Overlaps([sourceA, sourceB, sourceC]), Is.False);
+        ImmutableHashSet<Guid> newGroup = scene.Groups[1];
+        Assert.That(newGroup.Count, Is.EqualTo(3));
+        Assert.That(newGroup.SetEquals([newA.Id, newB.Id, newC.Id]), Is.True);
+        Assert.That(newGroup.Overlaps([sourceA, sourceB, sourceC]), Is.False);
 
-            // アンカー位置からの相対配置が保たれている
-            Assert.That(newA.Start, Is.EqualTo(TimeSpan.FromSeconds(10)));
-            Assert.That(newB.Start, Is.EqualTo(TimeSpan.FromSeconds(11)));
-            Assert.That(newC.Start, Is.EqualTo(TimeSpan.FromSeconds(12)));
-            Assert.That(newA.ZIndex, Is.EqualTo(1));
-            Assert.That(newB.ZIndex, Is.EqualTo(1));
-            Assert.That(newC.ZIndex, Is.EqualTo(1));
-        }
-        finally
-        {
-            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
-        }
+        Assert.That(newA.Start, Is.EqualTo(TimeSpan.FromSeconds(10)));
+        Assert.That(newB.Start, Is.EqualTo(TimeSpan.FromSeconds(11)));
+        Assert.That(newC.Start, Is.EqualTo(TimeSpan.FromSeconds(12)));
+        Assert.That(newA.ZIndex, Is.EqualTo(1));
+        Assert.That(newB.ZIndex, Is.EqualTo(1));
+        Assert.That(newC.ZIndex, Is.EqualTo(1));
     }
 
     [Test]
     public void PlaceDuplicates_PositionalIdMapping_PreservesOrder()
     {
-        // idMapping は sourceElements[i] -> newElements[i] の位置zipで作る。
-        // ObjectRegenerator の順序保存が暗黙の契約。並びが崩れるとグループ remap も崩れる。
-        string basePath = GetTempPath();
-        try
-        {
-            Scene scene = CreateScene(basePath);
-            Guid sourceX = Guid.NewGuid();
-            Guid sourceY = Guid.NewGuid();
-            Element x = CreateElement(TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(1), id: sourceX, basePath: basePath);
-            Element y = CreateElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(1), id: sourceY, basePath: basePath);
-            scene.Children.Add(x);
-            scene.Children.Add(y);
-            // X と Y を別グループに置く
-            scene.Groups.Add(ImmutableHashSet.Create(sourceX, Guid.NewGuid()));
-            scene.Groups.Add(ImmutableHashSet.Create(sourceY, Guid.NewGuid()));
+        // idMapping zips sourceElements[i] with newElements[i], so each new group holds the clones of one
+        // source group only while the two arrays keep the same order.
+        using var harness = new SceneHistoryHarness("beutl_duplicate_helper");
+        Scene scene = harness.Scene;
+        Guid sourceX = Guid.NewGuid();
+        Guid sourceY = Guid.NewGuid();
+        Guid sourceZ = Guid.NewGuid();
+        Guid sourceW = Guid.NewGuid();
+        Element x = CreateElement(TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(1), id: sourceX, basePath: harness.BasePath);
+        Element y = CreateElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1), id: sourceY, basePath: harness.BasePath);
+        Element z = CreateElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1), id: sourceZ, basePath: harness.BasePath);
+        Element w = CreateElement(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(1), id: sourceW, basePath: harness.BasePath);
+        scene.Children.Add(x);
+        scene.Children.Add(y);
+        scene.Children.Add(z);
+        scene.Children.Add(w);
+        scene.Groups.Add(ImmutableHashSet.Create(sourceX, sourceY));
+        scene.Groups.Add(ImmutableHashSet.Create(sourceZ, sourceW));
 
-            Element newX = CreateElement(TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(1));
-            Element newY = CreateElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(1));
+        Element newX = CreateElement(TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(1));
+        Element newY = CreateElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+        Element newZ = CreateElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1));
+        Element newW = CreateElement(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(1));
 
-            DuplicateHelper.PlaceDuplicates(
-                scene,
-                newElements: [newX, newY],
-                sourceElements: [x, y],
-                anchorStart: TimeSpan.FromSeconds(20),
-                anchorZIndex: 0);
+        DuplicateHelper.PlaceDuplicates(
+            scene,
+            newElements: [newX, newY, newZ, newW],
+            sourceElements: [x, y, z, w],
+            anchorStart: TimeSpan.FromSeconds(20),
+            anchorZIndex: 0);
 
-            // sourceX の新規 ID は newX.Id でなければならない (位置 zip)。
-            // 順序が swap してしまうと sourceX -> newY.Id になり、後続のグループ remap で
-            // X のグループに「Y のクローン」が入る silent corruption が発生する。
-            Assert.That(newX.Start, Is.EqualTo(TimeSpan.FromSeconds(20)));
-            Assert.That(newY.Start, Is.EqualTo(TimeSpan.FromSeconds(25)));
-        }
-        finally
-        {
-            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
-        }
+        Assert.That(scene.Groups.Count, Is.EqualTo(4));
+        Assert.That(scene.Groups[2].SetEquals([newX.Id, newY.Id]), Is.True);
+        Assert.That(scene.Groups[3].SetEquals([newZ.Id, newW.Id]), Is.True);
     }
 
     [Test]
@@ -279,26 +257,18 @@ public class DuplicateHelperTests
     public void PlaceDuplicates_ThrowsArgumentException_WhenLengthsMismatch()
     {
         // Positional zip mapping breaking silently would corrupt group remap.
-        string basePath = GetTempPath();
-        try
-        {
-            Scene scene = CreateScene(basePath);
-            Element source = CreateElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
-            Element newA = CreateElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
-            Element newB = CreateElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+        var scene = new Scene(100, 100, string.Empty);
+        Element source = CreateElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        Element newA = CreateElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        Element newB = CreateElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
 
-            Assert.Throws<ArgumentException>(
-                () => DuplicateHelper.PlaceDuplicates(
-                    scene,
-                    newElements: [newA, newB],
-                    sourceElements: [source],
-                    anchorStart: TimeSpan.Zero,
-                    anchorZIndex: 0));
-        }
-        finally
-        {
-            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
-        }
+        Assert.Throws<ArgumentException>(
+            () => DuplicateHelper.PlaceDuplicates(
+                scene,
+                newElements: [newA, newB],
+                sourceElements: [source],
+                anchorStart: TimeSpan.Zero,
+                anchorZIndex: 0));
     }
 
     [Test]
@@ -332,7 +302,6 @@ public class DuplicateHelperTests
                     anchorStart: TimeSpan.Zero,
                     anchorZIndex: 0));
 
-            // Scene 状態は無変更で抜けている
             Assert.That(scene.Children.Count, Is.EqualTo(sceneChildrenBefore));
             Assert.That(scene.Groups.Count, Is.EqualTo(sceneGroupsBefore));
         }

@@ -248,16 +248,6 @@ public readonly partial struct Rational(long numerator, long denominator)
             return this;
         }
 
-        if (Numerator == 0)
-        {
-            return NaN;
-        }
-
-        if (Numerator == Denominator)
-        {
-            return new Rational(1, 1);
-        }
-
         long gcd = GreatestCommonDivisor(Math.Abs(Numerator), Math.Abs(Denominator));
 
         if (gcd > 1)

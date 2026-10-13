@@ -14,7 +14,8 @@ internal static class AgentHostTestHelpers
 {
     // A host that registers itself in directory, on firstPort or else on a free port.
     public static AgentHostEndpoint CreateHost(EditorService editor, string directory, string token, int? firstPort = null)
-        => new(new ProjectService(), editor, firstPort ?? AvailablePort(), token, registryDirectory: directory);
+        => new(new ProjectService(), editor, UnavailableAgentAiBackend.Instance, firstPort ?? AvailablePort(), token,
+            registryDirectory: directory);
 
     public static Task<McpClient> ConnectAsync(AgentHostEndpoint host) => ConnectAsync(host.EndpointUri!, host.Token);
 

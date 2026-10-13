@@ -18,9 +18,7 @@
                     Grid.IsSharedSizeScope="True"
                     Orientation="Vertical">
 
-            <!--  Preview render quality (feature 003, US4): non-persisted per edit view.
-                  Disabled during playback to avoid a mid-playback renderer/frame-cache rebuild.
-                  Hidden when the editor context does not provide IPreviewRenderQuality.  -->
+            <!--  Disabled during playback, which would rebuild the renderer; hidden without IPreviewRenderQuality.  -->
             <Grid Margin="8,8,8,0"
                   ColumnDefinitions="*,Auto"
                   IsVisible="{CompiledBinding IsRenderQualityAvailable}">

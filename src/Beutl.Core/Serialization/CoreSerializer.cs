@@ -254,7 +254,7 @@ public static partial class CoreSerializer
             {
                 coreObj.Uri = uri;
             }
-            options ??= new CoreSerializerOptions { BaseUri = uri, Mode = options?.Mode };
+            options ??= new CoreSerializerOptions { BaseUri = uri };
         }
     }
 
@@ -336,13 +336,7 @@ public static partial class CoreSerializer
             && FallbackDeserializationHelper.TryCreateFallback(type, null, jsonObject) is { } unknownTypeFallback)
         {
             ((IFallback)unknownTypeFallback).Reason = FallbackReason.TypeNotFound;
-            if (unknownTypeFallback is CoreObject coreObject)
-            {
-                coreObject.Uri = uri;
-            }
-
-            RecordRead(unknownTypeFallback, version, uri);
-            return unknownTypeFallback;
+            return Adopt(unknownTypeFallback);
         }
 
         if (actualType == null)
@@ -362,13 +356,7 @@ public static partial class CoreSerializer
                     jsonObject,
                     exception) is { } incompatibleTypeFallback)
             {
-                if (incompatibleTypeFallback is CoreObject coreObject)
-                {
-                    coreObject.Uri = uri;
-                }
-
-                RecordRead(incompatibleTypeFallback, version, uri);
-                return incompatibleTypeFallback;
+                return Adopt(incompatibleTypeFallback);
             }
 
             throw exception;
@@ -387,8 +375,17 @@ public static partial class CoreSerializer
         catch (Exception ex) when (FallbackDeserializationHelper.TryCreateFallback(
             type, actualType, jsonObject, ex) is { } fallback)
         {
+            return Adopt(fallback);
+        }
+
+        // A fallback stands in for the object the file holds, so it takes the file's Uri and version fields.
+        ICoreSerializable Adopt(ICoreSerializable fallback)
+        {
             if (fallback is CoreObject coreObject)
+            {
                 coreObject.Uri = uri;
+            }
+
             RecordRead(fallback, version, uri);
             return fallback;
         }
@@ -432,15 +429,8 @@ public static partial class CoreSerializer
         }
 
         var options = new CoreSerializerOptions { BaseUri = uri, Mode = CoreSerializationMode.Read };
-        if (obj is Project project)
-        {
-            // The files the project references are read while it is, and record it as their project.
-            using (RootFileVersions.BeginReading(project))
-            {
-                PopulateFromJsonObjectCore(obj, type, json, options);
-            }
-        }
-        else
+        // The files a project references are read while it is, and record it as their project.
+        using (RootFileVersions.BeginReading(obj as Project))
         {
             PopulateFromJsonObjectCore(obj, type, json, options);
         }
