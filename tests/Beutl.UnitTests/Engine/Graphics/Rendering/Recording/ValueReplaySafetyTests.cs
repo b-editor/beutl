@@ -4,7 +4,7 @@ using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Rendering.Requests;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
-using SkiaSharp;
+using static Beutl.UnitTests.Engine.Graphics.Rendering.RenderGraphTestSupport;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Recording;
 
@@ -12,17 +12,12 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering.Recording;
 public sealed class ValueReplaySafetyTests
 {
     /// <remarks>
-    /// A value replay map holds together only when the transform between the scope and its input is expressed
-    /// in the input's own coordinates. Every composition is resolved into such a matrix before anything reads
-    /// the scope, so all three qualify - the ambient one no longer leaves a transform the value graph has no
-    /// representation of.
+    /// Every composition is resolved into an input-space matrix before the scope is read, so all three publish a value replay map.
     /// </remarks>
-    [TestCase(TransformOperator.Prepend, true)]
-    [TestCase(TransformOperator.Append, true)]
-    [TestCase(TransformOperator.Set, true)]
-    public void Transform_PublishesEveryCompositionAsAValueReplayMap(
-        TransformOperator transformOperator,
-        bool expectedValueReplay)
+    [TestCase(TransformOperator.Prepend)]
+    [TestCase(TransformOperator.Append)]
+    [TestCase(TransformOperator.Set)]
+    public void Transform_PublishesEveryCompositionAsAValueReplayMap(TransformOperator transformOperator)
     {
         using var transform = new TransformRenderNode(
             Matrix.CreateTranslation(3.25f, 4.5f),
@@ -39,8 +34,8 @@ public sealed class ValueReplaySafetyTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(payload.Description.IsValueReplayMap, Is.EqualTo(expectedValueReplay));
-            Assert.That(root.CanBeUsedAsValueInput, Is.EqualTo(expectedValueReplay));
+            Assert.That(payload.Description.IsValueReplayMap, Is.True);
+            Assert.That(root.CanBeUsedAsValueInput, Is.True);
         });
     }
 
@@ -93,27 +88,28 @@ public sealed class ValueReplaySafetyTests
     /// <remarks>
     /// An ambient composition is resolved into the input's own space before planning reads it, so the density
     /// it carries back to its input is the one the step between them needs - the same answer the identical
-    /// matrix gets as a Prepend. Materializing at the unscaled demand and enlarging the result during replay
-    /// is what a scope whose transform the value graph could not represent was left with.
+    /// matrix gets as a Prepend.
     /// </remarks>
     [TestCase(TransformOperator.Prepend)]
     [TestCase(TransformOperator.Append)]
     public void ATransformedLayerMaterializesAtTheDensityItsScopeEnlargesItBy(
         TransformOperator transformOperator)
     {
-        var requestedSizes = new List<PixelSize>();
+        var factory = new FailureTestTargetFactory();
         using RenderNode root = CreateTransformedLayer(
             Matrix.CreateScale(4, 4),
             transformOperator,
             new Rect(0, 0, 8, 6));
-        using var renderer = CreateRenderer(root, new RecordingCpuTargetFactory(requestedSizes));
+        using var renderer = CreateRenderer(root, factory);
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
 
         Assert.Multiple(() =>
         {
             Assert.That(rasterization.IsEmpty, Is.False);
-            Assert.That(requestedSizes, Does.Contain(new PixelSize(32, 24)),
+            Assert.That(
+                factory.Targets.Select(static target => new PixelSize(target.Width, target.Height)),
+                Does.Contain(new PixelSize(32, 24)),
                 "The layer must be rasterized at the density its scope draws it at.");
         });
     }
@@ -129,7 +125,7 @@ public sealed class ValueReplaySafetyTests
             perspective.CreateMatrix(Composition.CompositionContext.Default),
             TransformOperator.Prepend,
             new Rect(0, 0, 24, 16));
-        using var renderer = CreateRenderer(root, new RecordingCpuTargetFactory([]));
+        using var renderer = CreateRenderer(root, new FailureTestTargetFactory());
 
         Assert.That(() => renderer.Rasterize().Dispose(), Throws.Nothing);
     }
@@ -166,12 +162,6 @@ public sealed class ValueReplaySafetyTests
         layer.AddChild(new RectangleRenderNode(bounds, Brushes.Resource.White, null));
         root.AddChild(layer);
         return root;
-    }
-
-    private static RenderFragmentReference GetSingleRoot(RecordedRenderGraph graph)
-    {
-        RenderFragmentId rootId = graph.PublicationRoots.Single();
-        return graph.GetFragment(rootId);
     }
 
     private static TargetScopeDescription CreateIdentityValueReplayDescription(string key)
@@ -222,25 +212,5 @@ public sealed class ValueReplaySafetyTests
                 layer,
                 CreateIdentityValueReplayDescription(nameof(FiniteLayerReplayNode))));
         }
-    }
-
-    private sealed class RecordingCpuTargetFactory(List<PixelSize> requestedSizes) : IRenderTargetFactory
-    {
-        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
-        {
-            PixelSize size = allocation.DeviceSize;
-            requestedSizes.Add(size);
-            SKSurface surface = SKSurface.Create(new SKImageInfo(
-                                    size.Width,
-                                    size.Height,
-                                    SKColorType.RgbaF16,
-                                    SKAlphaType.Premul,
-                                    SKColorSpace.CreateSrgbLinear()))
-                                ?? throw new InvalidOperationException("Could not create the CPU test surface.");
-            return new CpuRenderTarget(surface, size);
-        }
-
-        private sealed class CpuRenderTarget(SKSurface surface, PixelSize size)
-            : RenderTarget(surface, size.Width, size.Height);
     }
 }

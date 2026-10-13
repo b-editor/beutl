@@ -6,8 +6,6 @@ using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shaders;
 using Beutl.Media;
 
-using SkiaSharp;
-
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
 [TestFixture]
@@ -45,15 +43,19 @@ public sealed class RenderNodeRendererAllocationFailureTests
     private sealed class FailNthTargetFactory(int failureAt) : CpuTargetFactory
     {
         public bool FailureConsumed { get; private set; }
+
+        public PixelSize? FailedDeviceSize { get; private set; }
+
         public override RenderTarget? Create(RenderTargetAllocationDescriptor allocation)
         {
             CreateCalls++;
             if (CreateCalls == failureAt)
             {
                 FailureConsumed = true;
+                FailedDeviceSize = allocation.DeviceSize;
                 return null;
             }
-            return CreateTarget(allocation.DeviceSize);
+            return new CpuRenderTarget(allocation.DeviceSize);
         }
     }
 
@@ -62,7 +64,7 @@ public sealed class RenderNodeRendererAllocationFailureTests
     {
         using FilterEffect.Resource resource = CreateStrokeEffectResource();
         using FilterEffectRenderNode node = CreateScene(resource);
-        var factory = new FailSecondTargetFactory();
+        var factory = new FailNthTargetFactory(2);
         using var renderer = CreateRenderer(node, RenderIntent.Preview, factory);
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
@@ -89,7 +91,7 @@ public sealed class RenderNodeRendererAllocationFailureTests
     {
         using FilterEffect.Resource resource = CreateStrokeEffectResource();
         using FilterEffectRenderNode node = CreateScene(resource);
-        var factory = new FailSecondTargetFactory();
+        var factory = new FailNthTargetFactory(2);
         using var renderer = CreateRenderer(node, RenderIntent.Delivery, factory);
 
         InvalidOperationException? exception = Assert.Throws<InvalidOperationException>(() =>
@@ -164,7 +166,7 @@ public sealed class RenderNodeRendererAllocationFailureTests
             RenderIntent.Preview,
             factory,
             requestedRegion: new Rect(25, 25, 50, 50));
-        using RenderTarget target = CpuTargetFactory.CreateTarget(new PixelSize(100, 100));
+        using RenderTarget target = new CpuRenderTarget(100, 100);
         using var canvas = new ImmediateCanvas(target, RenderIntent.Preview, logicalSize: s_domain.Size);
         canvas.Clear(Colors.OrangeRed);
         using Bitmap before = target.Snapshot();
@@ -190,7 +192,7 @@ public sealed class RenderNodeRendererAllocationFailureTests
             RenderIntent.Delivery,
             factory,
             requestedRegion: new Rect(25, 25, 50, 50));
-        using RenderTarget target = CpuTargetFactory.CreateTarget(new PixelSize(100, 100));
+        using RenderTarget target = new CpuRenderTarget(100, 100);
         using var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, logicalSize: s_domain.Size);
         canvas.Clear(Colors.OrangeRed);
 
@@ -276,27 +278,6 @@ public sealed class RenderNodeRendererAllocationFailureTests
             Purpose = RenderRequestPurpose.Frame,
         }, factory);
 
-    private sealed class FailSecondTargetFactory : CpuTargetFactory
-    {
-        public bool FailureConsumed { get; private set; }
-
-        public PixelSize? FailedDeviceSize { get; private set; }
-
-        public override RenderTarget? Create(RenderTargetAllocationDescriptor allocation)
-        {
-            PixelSize deviceSize = allocation.DeviceSize;
-            int index = CreateCalls++;
-            if (index == 1)
-            {
-                FailureConsumed = true;
-                FailedDeviceSize = deviceSize;
-                return null;
-            }
-
-            return CreateTarget(deviceSize);
-        }
-    }
-
     private sealed class FailSpecificSizeTargetFactory(PixelSize failureSize) : CpuTargetFactory
     {
         public bool FailureConsumed { get; private set; }
@@ -314,7 +295,7 @@ public sealed class RenderNodeRendererAllocationFailureTests
                 return null;
             }
 
-            return CreateTarget(deviceSize);
+            return new CpuRenderTarget(deviceSize);
         }
     }
 
@@ -367,24 +348,8 @@ public sealed class RenderNodeRendererAllocationFailureTests
 
         public virtual RenderTarget? Create(RenderTargetAllocationDescriptor allocation)
         {
-            PixelSize deviceSize = allocation.DeviceSize;
             CreateCalls++;
-            return CreateTarget(deviceSize);
-        }
-
-        internal static RenderTarget CreateTarget(PixelSize deviceSize)
-        {
-            SKSurface surface = SKSurface.Create(new SKImageInfo(
-                    deviceSize.Width,
-                    deviceSize.Height,
-                    SKColorType.RgbaF16,
-                    SKAlphaType.Premul,
-                    SKColorSpace.CreateSrgbLinear()))
-                ?? throw new InvalidOperationException("Could not create the CPU allocation-failure test surface.");
-            return new CpuRenderTarget(surface, deviceSize);
+            return new CpuRenderTarget(allocation.DeviceSize);
         }
     }
-
-    private sealed class CpuRenderTarget(SKSurface surface, PixelSize size)
-        : RenderTarget(surface, size.Width, size.Height);
 }

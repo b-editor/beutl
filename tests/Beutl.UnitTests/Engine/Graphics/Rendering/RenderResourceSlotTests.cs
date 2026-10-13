@@ -1,4 +1,5 @@
 ﻿using Beutl.Graphics.Rendering;
+using Beutl.UnitTests.Engine.Graphics.Rendering.Failure;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
@@ -119,10 +120,10 @@ public sealed class RenderResourceSlotTests
     [Test]
     public void BindingRejectsATokenWhoseLifecycleHasEnded()
     {
-        var payload = new DisposablePayload();
+        var payload = new FailureTestDisposable();
         using var registry = new RenderRequestResourceRegistry();
-        RenderResource<DisposablePayload> token = registry.RegisterOwned(payload);
-        var slot = new RenderResourceSlot<DisposablePayload>();
+        RenderResource<FailureTestDisposable> token = registry.RegisterOwned(payload);
+        var slot = new RenderResourceSlot<FailureTestDisposable>();
 
         registry.Rollback(token);
 
@@ -133,18 +134,6 @@ public sealed class RenderResourceSlotTests
                 () => slot.Bind(token),
                 Throws.InvalidOperationException.With.Message.Contains("cannot be bound"));
         });
-    }
-
-    [Test]
-    public void BorrowedResourcesAreReleasedWithoutTakingDisposalOwnership()
-    {
-        var payload = new DisposablePayload();
-        using var registry = new RenderRequestResourceRegistry();
-        RenderResource<DisposablePayload> token = registry.RegisterBorrowed(payload);
-
-        registry.Rollback(token);
-
-        Assert.That(payload.DisposeCalls, Is.Zero);
     }
 
     private static long MeasureAllocatedBytes(Action action)
@@ -161,12 +150,5 @@ public sealed class RenderResourceSlotTests
     private sealed class Payload(string name)
     {
         public string Name { get; } = name;
-    }
-
-    private sealed class DisposablePayload : IDisposable
-    {
-        public int DisposeCalls { get; private set; }
-
-        public void Dispose() => DisposeCalls++;
     }
 }

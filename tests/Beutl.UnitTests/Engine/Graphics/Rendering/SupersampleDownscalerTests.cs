@@ -12,7 +12,7 @@ public class SupersampleDownscalerTests
     private static Bitmap MakeBitmap(int w, int h)
         => new(new SKBitmap(new SKImageInfo(w, h, SKColorType.Rgba8888, SKAlphaType.Premul)));
 
-    // <= 2× uses Mitchell cubic; > 2× switches to trilinear + mipmaps to avoid undersampling (SC-009).
+    // <= 2× uses Mitchell cubic; > 2× switches to trilinear + mipmaps to avoid undersampling.
     [TestCase(0.5f)]
     [TestCase(1f)]
     [TestCase(2f)]

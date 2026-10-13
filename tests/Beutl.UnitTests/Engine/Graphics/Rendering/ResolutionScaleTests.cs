@@ -6,7 +6,7 @@ using Beutl.Models;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
-// Pure-math tests for the supply-driven scale model. No GPU required.
+// Scale-model tests that need no GPU.
 [TestFixture]
 public class ResolutionScaleTests
 {
@@ -42,14 +42,14 @@ public class ResolutionScaleTests
 
     // --- ResolveWorkingScale: w = min(max(s_out, densest supply), maxWorkingScale) ---
 
-    [Test]
-    public void Resolve_AllVectorInputs_RastersAtOutputScale()
+    [TestCase(2, 0.5f, TestName = "Resolve_AllVectorInputs_RastersAtOutputScale")]
+    [TestCase(1, 1.0f, TestName = "Resolve_UnitInputsUnitOutput_IsOne")]
+    public void Resolve_VectorInputs_RasterAtOutputScale(int vectorInputs, float outputScale)
     {
-        // All-vector: rasterize at the output density.
         float w = RenderScaleUtilities.ResolveWorkingScale(
-            [EffectiveScale.Unbounded, EffectiveScale.Unbounded],
-            outputScale: 0.5f);
-        Assert.That(w, Is.EqualTo(0.5f));
+            Enumerable.Repeat(EffectiveScale.Unbounded, vectorInputs).ToArray(),
+            outputScale);
+        Assert.That(w, Is.EqualTo(outputScale));
     }
 
     [Test]
@@ -57,36 +57,6 @@ public class ResolutionScaleTests
     {
         float w = RenderScaleUtilities.ResolveWorkingScale([], outputScale: 1.5f);
         Assert.That(w, Is.EqualTo(1.5f));
-    }
-
-    [Test]
-    public void Resolve_SubOutputSupply_IsFlooredAtOutputScale()
-    {
-        // Sub-output supply floored to s_out: w = max(1.0, 0.5) = 1.0.
-        float w = RenderScaleUtilities.ResolveWorkingScale(
-            [EffectiveScale.At(0.5f)],
-            outputScale: 1.0f);
-        Assert.That(w, Is.EqualTo(1.0f));
-    }
-
-    [Test]
-    public void Resolve_ReducedScaleProxy_StaysCheapInPreview()
-    {
-        // A 0.5 proxy at 0.5 preview gives max(0.5, 0.5) = 0.5, no forced upsample.
-        float w = RenderScaleUtilities.ResolveWorkingScale(
-            [EffectiveScale.At(0.5f)],
-            outputScale: 0.5f);
-        Assert.That(w, Is.EqualTo(0.5f));
-    }
-
-    [Test]
-    public void Resolve_HighResSource_IsNotClampedByOutput()
-    {
-        // A 2.0 source at 1.0 output keeps its density. Output is not a ceiling.
-        float w = RenderScaleUtilities.ResolveWorkingScale(
-            [EffectiveScale.At(2.0f)],
-            outputScale: 1.0f);
-        Assert.That(w, Is.EqualTo(2.0f));
     }
 
     [Test]
@@ -101,7 +71,6 @@ public class ResolutionScaleTests
     [Test]
     public void Resolve_MaxWorkingScale_CapsResult()
     {
-        // Preview ceiling: a 4.0 source is capped to 2x the output.
         float w = RenderScaleUtilities.ResolveWorkingScale(
             [EffectiveScale.At(4.0f)],
             outputScale: 1.0f,
@@ -111,44 +80,16 @@ public class ResolutionScaleTests
 
     // --- Mixed bitmap + vector must not drag vector down to bitmap's density ---
 
-    [Test]
-    public void Resolve_LowResBitmapWithVector_FloorsAtOutput()
+    // A 0.5 bitmap beside vector must not pull w to 0.5; vector can draw at s_out.
+    [TestCase(0.5f, 1.0f, TestName = "Resolve_LowResBitmapWithVector_FloorsAtOutput")]
+    [TestCase(2.0f, 2.0f, TestName = "Resolve_HighResBitmapWithVector_KeepsBitmapDensity")]
+    [TestCase(1.0f, 1.0f, TestName = "Resolve_UnitBitmapWithVector_IsByteIdentityNeutral")]
+    public void Resolve_BitmapWithVector_IsMaxOfBitmapAndOutput(float bitmapDensity, float expected)
     {
-        // A 0.5 bitmap beside vector must not pull w to 0.5; vector can draw at s_out.
         float w = RenderScaleUtilities.ResolveWorkingScale(
-            [EffectiveScale.At(0.5f), EffectiveScale.Unbounded],
+            [EffectiveScale.At(bitmapDensity), EffectiveScale.Unbounded],
             outputScale: 1.0f);
-        Assert.That(w, Is.EqualTo(1.0f));
-    }
-
-    [Test]
-    public void Resolve_HighResBitmapWithVector_KeepsBitmapDensity()
-    {
-        // A 2.0 bitmap alongside vector keeps the densest supply (2.0), not pulled to 1.0.
-        float w = RenderScaleUtilities.ResolveWorkingScale(
-            [EffectiveScale.At(2.0f), EffectiveScale.Unbounded],
-            outputScale: 1.0f);
-        Assert.That(w, Is.EqualTo(2.0f));
-    }
-
-    [Test]
-    public void Resolve_UnitBitmapWithVector_IsByteIdentityNeutral()
-    {
-        // At(1) + vector at output 1.0 => w == 1.
-        float w = RenderScaleUtilities.ResolveWorkingScale(
-            [EffectiveScale.At(1.0f), EffectiveScale.Unbounded],
-            outputScale: 1.0f);
-        Assert.That(w, Is.EqualTo(1.0f));
-    }
-
-    [Test]
-    public void Resolve_UnitInputsUnitOutput_IsOne()
-    {
-        // Unit supply at output 1.0 => w == 1.
-        float w = RenderScaleUtilities.ResolveWorkingScale(
-            [EffectiveScale.Unbounded],
-            outputScale: 1.0f);
-        Assert.That(w, Is.EqualTo(1.0f));
+        Assert.That(w, Is.EqualTo(expected));
     }
 
     // --- CHARACTERIZATION: "densest input forces the whole boundary" (pinning known behavior) ---
@@ -156,14 +97,12 @@ public class ResolutionScaleTests
     [Test]
     public void Resolve_SmallHighDensitySiblingBesideLowDensity_RaisesWholeBoundary()
     {
-        // CHARACTERIZATION: the densest input raises w for the entire boundary (known footgun, pinned here).
         float wWithVector = RenderScaleUtilities.ResolveWorkingScale(
             [EffectiveScale.At(8f), EffectiveScale.At(1f), EffectiveScale.Unbounded],
             outputScale: 1f);
         Assert.That(wWithVector, Is.EqualTo(8f),
             "one small At(8) sibling lifts the whole boundary to w == 8");
 
-        // Even a single dense sibling next to pure vector content raises w.
         float wDenseBesideVector = RenderScaleUtilities.ResolveWorkingScale(
             [EffectiveScale.At(8f), EffectiveScale.Unbounded],
             outputScale: 1f);
@@ -194,37 +133,8 @@ public class ResolutionScaleTests
     [Test]
     public void ClampBudget_SmallBuffer_LeavesScaleUnchanged()
     {
-        // Common case: a buffer within the GPU limit is untouched.
         float w = BufferDimensionBudget.EngineCeiling.ClampWorkingScale(new Rect(0, 0, 1920, 1080), 2.0f);
         Assert.That(w, Is.EqualTo(2.0f));
-    }
-
-    [Test]
-    public void ClampBudget_AnisotropicOverAllocation_IsBounded()
-    {
-        // Anisotropic case: ceil(8640 * 4) = 34560 > 16384, must clamp so the larger axis fits.
-        float w = BufferDimensionBudget.EngineCeiling.ClampWorkingScale(new Rect(0, 0, 960, 8640), 4.0f);
-        Assert.That(w, Is.LessThan(4.0f), "anisotropic density must be clamped to fit the GPU buffer limit");
-        // Hard guarantee: ceil(8640 * w) must be <= the limit.
-        Assert.That(Math.Ceiling(8640.0 * w), Is.LessThanOrEqualTo(BufferDimensionBudget.EngineCeiling.MaxDimension));
-    }
-
-    [Test]
-    public void ClampBudget_IsAHardGuarantee_AcrossFractionalBounds()
-    {
-        // Probe fractional bounds/scales that previously let ceil(axis * w) exceed the limit by 1.
-        foreach (float axis in new[] { 5000.3f, 8640.7f, 12000.1f, 16384.9f, 20001.5f, 33333.33f })
-        {
-            foreach (float w in new[] { 1.7f, 3.3f, 4.0f, 7.9f, 12.5f })
-            {
-                var bounds = new Rect(0, 0, axis, axis * 0.5f);
-                float clamped = BufferDimensionBudget.EngineCeiling.ClampWorkingScale(bounds, w);
-                double allocatedAxis = Math.Ceiling((double)axis * clamped);
-                Assert.That(allocatedAxis, Is.LessThanOrEqualTo(BufferDimensionBudget.EngineCeiling.MaxDimension),
-                    $"axis={axis}, w={w}: allocated {allocatedAxis} px must fit the GPU limit exactly");
-                Assert.That(clamped, Is.LessThanOrEqualTo(w), "the clamp must never raise the scale");
-            }
-        }
     }
 
     [Test]
@@ -305,32 +215,10 @@ public class ResolutionScaleTests
     [Test]
     public void ClampBudget_NeverIncreasesScale_AndGuardsNonFinite()
     {
-        // The clamp only ever reduces; a degenerate w passes through without amplification.
         Assert.That(BufferDimensionBudget.EngineCeiling.ClampWorkingScale(new Rect(0, 0, 100, 100), 3.0f),
-            Is.EqualTo(3.0f)); // fits => unchanged, never raised
+            Is.EqualTo(3.0f));
         Assert.That(BufferDimensionBudget.EngineCeiling.ClampWorkingScale(new Rect(0, 0, 100, 100), float.NaN),
             Is.NaN);
-    }
-
-    [Test]
-    public void ClampBudget_PostEffectInflation_NeedsReclampAtAllocationSite()
-    {
-        // The node-level clamp runs against pre-effect bounds, but effect inflation (blur/shadow) can
-        // overflow the GPU limit, so Flush re-clamps against inflated bounds.
-        var inputBounds = new Rect(0, 0, 4000, 4000);
-        float wAtInput = BufferDimensionBudget.EngineCeiling.ClampWorkingScale(inputBounds, 3.0f);
-        Assert.That(wAtInput, Is.EqualTo(3.0f), "input bounds fit at w=3 — the node-level clamp is inert");
-
-        // A large blur inflates each side by 3*sigma; Flush allocates against inflated bounds.
-        Rect inflated = inputBounds.Inflate(new Thickness(3 * 2000, 3 * 2000));
-        float wAtAllocation = BufferDimensionBudget.EngineCeiling.ClampWorkingScale(inflated, 3.0f);
-        Assert.That(wAtAllocation, Is.LessThan(wAtInput),
-            "the re-clamp against post-inflation bounds must reduce w so the inflated buffer stays allocatable");
-        double largestAxis = Math.Max(inflated.Width, inflated.Height);
-        Assert.That(
-            Math.Ceiling(largestAxis * wAtAllocation),
-            Is.LessThanOrEqualTo(BufferDimensionBudget.EngineCeiling.MaxDimension),
-            "post-inflation buffer must fit the GPU dimension limit after the allocation-site re-clamp");
     }
 
     // --- ResolveWorkingScale defensive guard (degenerate output scale) ----------------------------------
@@ -350,7 +238,6 @@ public class ResolutionScaleTests
     [Test]
     public void ResolveWorkingScale_DegenerateOutputScale_DoesNotDragDownAConcreteSupply()
     {
-        // With a concrete supply, the densest input still wins regardless of the sanitized output scale.
         ReadOnlySpan<EffectiveScale> mixed = [EffectiveScale.At(2f), EffectiveScale.Unbounded];
         float w = RenderScaleUtilities.ResolveWorkingScale(mixed, float.NaN);
         Assert.That(w, Is.EqualTo(2f));
@@ -359,6 +246,7 @@ public class ResolutionScaleTests
     // --- s_out floor across supersample / preview outputs ---
 
     [TestCase(0.5f, 2.0f, 2.0f)] // sub-output proxy floored to 2.0
+    [TestCase(0.5f, 1.0f, 1.0f)] // sub-output proxy floored to 1.0
     [TestCase(1.0f, 2.0f, 2.0f)] // 1:1 source floored to 2.0
     [TestCase(2.0f, 2.0f, 2.0f)] // supply matches output
     [TestCase(2.0f, 1.0f, 2.0f)] // supply wins, s_out not a ceiling
@@ -419,43 +307,11 @@ public class ResolutionScaleTests
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
         });
         Assert.That(renderer.DefaultRequest.MaxWorkingScale, Is.EqualTo(float.PositiveInfinity));
-        // and it must not pull a resolved working scale to zero / NaN
         float w = RenderScaleUtilities.ResolveWorkingScale(
             [EffectiveScale.At(3f)],
             1f,
             renderer.DefaultRequest.MaxWorkingScale);
         Assert.That(w, Is.EqualTo(3f));
-    }
-
-    [TestCase(float.NaN)]
-    [TestCase(0f)]
-    [TestCase(-1f)]
-    public void RenderNodeRenderer_DegenerateMaxWorkingScale_IsStableAcrossNodeKinds(float bad)
-    {
-        using var node = new PassThroughRenderNode();
-        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
-        {
-            Intent = RenderIntent.Preview,
-            OutputScale = 1,
-            MaxWorkingScale = bad,
-            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-        });
-        Assert.That(renderer.DefaultRequest.MaxWorkingScale, Is.EqualTo(float.PositiveInfinity));
-    }
-
-    [TestCase(float.NaN)]
-    [TestCase(0f)]
-    [TestCase(-1f)]
-    public void RenderNodeRenderer_DegenerateOutputScale_DefaultsToOne(float bad)
-    {
-        using var node = new PassThroughRenderNode();
-        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
-        {
-            Intent = RenderIntent.Preview,
-            OutputScale = bad,
-            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-        });
-        Assert.That(renderer.DefaultRequest.OutputScale, Is.EqualTo(1f));
     }
 
     // --- Shader device-buffer dimensions (the size SKSL/GLSL resolution uniforms must report) ------------

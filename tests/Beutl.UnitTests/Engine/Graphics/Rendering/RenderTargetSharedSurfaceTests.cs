@@ -119,9 +119,9 @@ public sealed class RenderTargetSharedSurfaceTests
 
         public abstract void ClearToTransparent();
 
-        public void MarkContentsTransparent() => MarkedTransparentCount++;
-
-        public int MarkedTransparentCount { get; private set; }
+        public void MarkContentsTransparent()
+        {
+        }
 
         public void Dispose() => DisposeCount++;
     }

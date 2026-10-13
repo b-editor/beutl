@@ -16,7 +16,6 @@ internal static class TestMediaHelper
     {
         using var bitmap = new Bitmap(width, height);
 
-        // Fill with a solid color
         var color = fillColor ?? Colors.White;
         var pixel = new Bgra8888(color.B, color.G, color.R, color.A);
         bitmap.GetPixelSpan<Bgra8888>().Fill(pixel);
@@ -45,7 +44,6 @@ internal static class TestMediaHelper
         var fileName = $"test-video-{width}x{height}@{frameRate.Numerator}_{frameRate.Denominator}f{frameCount}.testvideo";
         var filePath = Path.Combine(Path.GetTempPath(), fileName);
 
-        // Create an empty file if it doesn't exist
         if (!File.Exists(filePath))
         {
             File.WriteAllBytes(filePath, []);
@@ -138,7 +136,6 @@ internal sealed class TestDecoderInfo : IDecoderInfo
 internal sealed class TestMediaReader : MediaReader
 {
     private readonly PixelSize _frameSize;
-    private readonly Rational _frameRate;
     private readonly int _frameCount;
     private readonly VideoStreamInfo _videoInfo;
     private readonly AudioStreamInfo _audioInfo;
@@ -146,7 +143,6 @@ internal sealed class TestMediaReader : MediaReader
     public TestMediaReader(PixelSize frameSize, Rational frameRate, int frameCount)
     {
         _frameSize = frameSize;
-        _frameRate = frameRate;
         _frameCount = frameCount;
         _videoInfo = new VideoStreamInfo(
             "test",
@@ -176,9 +172,7 @@ internal sealed class TestMediaReader : MediaReader
             return false;
         }
 
-        // Create a simple test bitmap
         var bitmap = new Bitmap(_frameSize.Width, _frameSize.Height);
-        // Fill with a frame-dependent color for testing
         byte colorValue = (byte)((frame * 10) % 256);
         bitmap.GetPixelSpan<Bgra8888>().Fill(new Bgra8888(colorValue, colorValue, colorValue, 255));
         image = Ref<Bitmap>.Create(bitmap);

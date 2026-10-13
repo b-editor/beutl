@@ -1,7 +1,6 @@
 ﻿using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
-using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
@@ -14,7 +13,7 @@ public sealed class RenderNodeRendererDeviceBoundsTests
         var bounds = new Rect(10.25f, 20.25f, 3.5f, 2.5f);
         const float outputScale = 2;
         using RenderNode root = ScaleRecordingTestHelper.Source(EffectiveScale.At(1), bounds);
-        var factory = new CpuTargetFactory();
+        var factory = new CpuRenderTargetFactory();
         using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
         {
             Intent = RenderIntent.Preview,
@@ -53,7 +52,7 @@ public sealed class RenderNodeRendererDeviceBoundsTests
         Assert.That(bounds.Right, Is.EqualTo(bounds.X), "the fixture requires a float-collapsed right edge");
 
         using RenderNode root = ScaleRecordingTestHelper.Source(EffectiveScale.At(1), bounds);
-        var factory = new CpuTargetFactory();
+        var factory = new CpuRenderTargetFactory();
         using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
         {
             Intent = RenderIntent.Preview,
@@ -82,7 +81,7 @@ public sealed class RenderNodeRendererDeviceBoundsTests
         var logicalSize = new Size(192, 108);
         Rect? observedDomain = null;
         using var root = new DomainProbeNode(context => observedDomain = context.TargetDomain);
-        using var target = new DeviceBoundsRenderTarget(deviceSize);
+        using var target = new CpuRenderTarget(deviceSize);
         using var canvas = new ImmediateCanvas(target, RenderIntent.Preview, density: 2, logicalSize: logicalSize);
         using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest { Intent = RenderIntent.Preview });
 
@@ -91,37 +90,6 @@ public sealed class RenderNodeRendererDeviceBoundsTests
 
         Assert.That(observedDomain, Is.EqualTo(new Rect(0, 0, 384, 216)));
     }
-
-    private sealed class CpuTargetFactory : IRenderTargetFactory
-    {
-        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
-        {
-            PixelSize deviceSize = allocation.DeviceSize;
-            SKSurface surface = SKSurface.Create(new SKImageInfo(
-                                   deviceSize.Width,
-                                   deviceSize.Height,
-                                   SKColorType.RgbaF16,
-                                   SKAlphaType.Premul,
-                                   SKColorSpace.CreateSrgbLinear()))
-                               ?? throw new InvalidOperationException(
-                                   "Could not create the CPU device-bounds test surface.");
-            return new CpuRenderTarget(surface, deviceSize);
-        }
-
-        private sealed class CpuRenderTarget(SKSurface surface, PixelSize size)
-            : RenderTarget(surface, size.Width, size.Height);
-    }
-
-    private sealed class DeviceBoundsRenderTarget(PixelSize size)
-        : RenderTarget(
-            SKSurface.Create(new SKImageInfo(
-                size.Width,
-                size.Height,
-                SKColorType.RgbaF16,
-                SKAlphaType.Premul,
-                SKColorSpace.CreateSrgbLinear())),
-            size.Width,
-            size.Height);
 
     private sealed class DomainProbeNode(Action<RenderNodeContext> observe) : RenderNode
     {

@@ -35,7 +35,6 @@ public class RenderTargetSnapshotTests
             using Bitmap reused = NewScratch(64, 48);
             target.SnapshotInto(reused);
 
-            // The reuse path must read back the exact same pixels as the allocating path.
             AssertRowsIdentical(allocated, reused, "allocating and reuse snapshot paths");
         });
     }
@@ -62,7 +61,6 @@ public class RenderTargetSnapshotTests
                 canvas.Clear(Colors.Black);
             }
 
-            // Same scratch instance, second call must reflect the new (black) surface, not stale white.
             target.SnapshotInto(scratch);
             Assert.That(IsWhite(scratch, 16, 16), Is.False, "reused snapshot should be overwritten with the new surface");
         });
@@ -81,60 +79,28 @@ public class RenderTargetSnapshotTests
         });
     }
 
-    [Test]
-    public void SnapshotIntoDestination_FormatMismatch_Throws()
+    // Each destination differs from the surface's RgbaF16, Premul, linear-sRGB format in one property only, so
+    // each case isolates one branch of the validation.
+    [TestCase(BitmapColorType.RgbaF16, BitmapAlphaType.Premul, false, TestName = "SnapshotIntoDestination_ColorSpaceMismatch_Throws")]
+    [TestCase(BitmapColorType.RgbaF16, BitmapAlphaType.Unpremul, true, TestName = "SnapshotIntoDestination_AlphaTypeMismatch_Throws")]
+    [TestCase(BitmapColorType.Bgra8888, BitmapAlphaType.Premul, true, TestName = "SnapshotIntoDestination_ColorTypeMismatch_Throws")]
+    public void SnapshotIntoDestination_FormatMismatch_Throws(
+        BitmapColorType colorType,
+        BitmapAlphaType alphaType,
+        bool linearColorSpace)
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             using var target = RenderTarget.Create(64, 48)!;
-            // Right size, wrong pixel format: ReadPixels would not convert, so this must be rejected.
-            using var wrongFormat = new Bitmap(64, 48, BitmapColorType.Bgra8888, BitmapAlphaType.Unpremul, BitmapColorSpace.Srgb);
+            using var wrongFormat = new Bitmap(
+                64,
+                48,
+                colorType,
+                alphaType,
+                linearColorSpace ? BitmapColorSpace.LinearSrgb : BitmapColorSpace.Srgb);
 
             Assert.Throws<ArgumentException>(() => target.SnapshotInto(wrongFormat));
-        });
-    }
-
-    [Test]
-    public void SnapshotIntoDestination_ColorSpaceMismatch_Throws()
-    {
-        VulkanTestEnvironment.EnsureAvailable();
-        VulkanTestEnvironment.InvokeOnRenderThread(() =>
-        {
-            using var target = RenderTarget.Create(64, 48)!;
-            // sRGB instead of the surface's LinearSrgb (wrong gamma) must be rejected.
-            using var wrongColorSpace = new Bitmap(64, 48, BitmapColorType.RgbaF16, BitmapAlphaType.Premul, BitmapColorSpace.Srgb);
-
-            Assert.Throws<ArgumentException>(() => target.SnapshotInto(wrongColorSpace));
-        });
-    }
-
-    [Test]
-    public void SnapshotIntoDestination_AlphaTypeMismatch_Throws()
-    {
-        VulkanTestEnvironment.EnsureAvailable();
-        VulkanTestEnvironment.InvokeOnRenderThread(() =>
-        {
-            using var target = RenderTarget.Create(64, 48)!;
-            // Unpremul instead of the surface's Premul must be rejected. Isolates the AlphaType branch.
-            using var wrongAlpha = new Bitmap(64, 48, BitmapColorType.RgbaF16, BitmapAlphaType.Unpremul, BitmapColorSpace.LinearSrgb);
-
-            Assert.Throws<ArgumentException>(() => target.SnapshotInto(wrongAlpha));
-        });
-    }
-
-    [Test]
-    public void SnapshotIntoDestination_ColorTypeMismatch_Throws()
-    {
-        VulkanTestEnvironment.EnsureAvailable();
-        VulkanTestEnvironment.InvokeOnRenderThread(() =>
-        {
-            using var target = RenderTarget.Create(64, 48)!;
-            // Right size, AlphaType and ColorSpace, but Bgra8888 instead of the surface's RgbaF16.
-            // Isolates the ColorType branch of the validation.
-            using var wrongColorType = new Bitmap(64, 48, BitmapColorType.Bgra8888, BitmapAlphaType.Premul, BitmapColorSpace.LinearSrgb);
-
-            Assert.Throws<ArgumentException>(() => target.SnapshotInto(wrongColorType));
         });
     }
 

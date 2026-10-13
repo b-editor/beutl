@@ -1,12 +1,8 @@
-﻿using System.Collections.Immutable;
-
-using Beutl.Composition;
-using Beutl.Engine;
+﻿using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.UnitTests.Engine.Graphics.Backend;
-using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
@@ -65,30 +61,14 @@ public class RendererExceptionSafetyTests
     {
         RenderThread.Dispatcher.Invoke(() =>
         {
-            using var renderer = new Renderer(
-                width: 16,
-                height: 16,
-                RenderIntent.Preview,
-                renderScale: 1,
-                maxWorkingScale: float.PositiveInfinity,
-                surface: new CpuRenderTarget(16, 16));
+            using var renderer = RendererTestSupport.CreateCpuRenderer(16, 16);
             var previous = new FaultingDrawable([new RecordedOperationSpec("previous")]);
-            var previousResource = (Drawable.Resource)previous.ToResource(CompositionContext.Default);
-            var previousFrame = new CompositionFrame(
-                ImmutableArray.Create<EngineObject.Resource>(previousResource),
-                new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
-                new PixelSize(16, 16),
-                null);
+            CompositionFrame previousFrame = RendererTestSupport.CreateFrame(new(16, 16), previous);
             renderer.Render(previousFrame);
             Assert.That(renderer.GetBoundary(previous), Is.Not.Null);
 
             var faulting = new FaultingDrawable([new RecordedOperationSpec("fault", ThrowOnExecute: true)]);
-            var faultingResource = (Drawable.Resource)faulting.ToResource(CompositionContext.Default);
-            var faultingFrame = new CompositionFrame(
-                ImmutableArray.Create<EngineObject.Resource>(faultingResource),
-                new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
-                new PixelSize(16, 16),
-                null);
+            CompositionFrame faultingFrame = RendererTestSupport.CreateFrame(new(16, 16), faulting);
 
             Assert.That(
                 () => renderer.Render(faultingFrame),
@@ -107,22 +87,10 @@ public class RendererExceptionSafetyTests
     {
         RenderThread.Dispatcher.Invoke(() =>
         {
-            using var renderer = new Renderer(
-                width: 16,
-                height: 16,
-                RenderIntent.Preview,
-                renderScale: 1,
-                maxWorkingScale: float.PositiveInfinity,
-                surface: new CpuRenderTarget(16, 16));
-            var first = new RecordingFailureDrawable(failures: 0);
-            var faulting = new RecordingFailureDrawable(failures: 1);
-            var firstResource = (Drawable.Resource)first.ToResource(CompositionContext.Default);
-            var faultingResource = (Drawable.Resource)faulting.ToResource(CompositionContext.Default);
-            var frame = new CompositionFrame(
-                ImmutableArray.Create<EngineObject.Resource>(firstResource, faultingResource),
-                new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
-                new PixelSize(16, 16),
-                null);
+            using var renderer = RendererTestSupport.CreateCpuRenderer(16, 16);
+            var first = new SwitchableFaultingDrawable();
+            var faulting = new SwitchableFaultingDrawable { ShouldFault = true };
+            CompositionFrame frame = RendererTestSupport.CreateFrame(new(16, 16), first, faulting);
 
             Assert.That(
                 () => renderer.UpdateFrame(frame),
@@ -134,6 +102,7 @@ public class RendererExceptionSafetyTests
                 Assert.That(renderer.GetBoundaries(zIndex: 0), Is.Empty);
             });
 
+            faulting.ShouldFault = false;
             Assert.That(() => renderer.UpdateFrame(frame), Throws.Nothing);
             Assert.Multiple(() =>
             {
@@ -152,24 +121,11 @@ public class RendererExceptionSafetyTests
         params RecordedOperationSpec[] operations)
     {
         var drawable = new FaultingDrawable(operations) { Discharged = discharged };
-        var resource = (Drawable.Resource)drawable.ToResource(CompositionContext.Default);
-        return new CompositionFrame(
-            ImmutableArray.Create<EngineObject.Resource>(resource),
-            new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
-            new PixelSize(16, 16),
-            new CompositionEligibility([drawable]));
+        return RendererTestSupport.CreateFrame(new(16, 16), drawable) with
+        {
+            Eligibility = new CompositionEligibility([drawable]),
+        };
     }
-
-    private sealed class CpuRenderTarget(int width, int height)
-        : RenderTarget(
-            SKSurface.Create(new SKImageInfo(
-                width,
-                height,
-                SKColorType.RgbaF16,
-                SKAlphaType.Premul,
-                SKColorSpace.CreateSrgbLinear())),
-            width,
-            height);
 }
 
 // Top-level partial because EngineObjectResourceGenerator does not support nested types.
@@ -194,69 +150,26 @@ internal sealed partial class FaultingDrawable : Drawable
     }
 }
 
-internal sealed partial class RecordingFailureDrawable : Drawable
-{
-    private int _remainingFailures;
-
-    public RecordingFailureDrawable(int failures)
-    {
-        _remainingFailures = failures;
-    }
-
-    public int RenderCalls { get; private set; }
-
-    public override void Render(GraphicsContext2D context, Drawable.Resource resource)
-    {
-        RenderCalls++;
-        context.DrawRectangle(new Rect(0, 0, 4, 4), Brushes.Resource.White, null);
-        if (_remainingFailures-- > 0)
-        {
-            throw new InvalidOperationException("recording failed");
-        }
-    }
-
-    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource) => new(4, 4);
-
-    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
-    {
-    }
-}
-
 internal sealed class FixedOpsNode : RenderNode
 {
     private static readonly RenderResourceSlot<SolidColorBrush.Resource> s_fillSlot = new();
-    private readonly Func<IReadOnlyList<RecordedOperationSpec>> _operationFactory;
+    private readonly IReadOnlyList<RecordedOperationSpec> _operations;
     private readonly ICollection<string> _discharged;
-    private readonly Action? _onProcess;
 
     public FixedOpsNode(
         IReadOnlyList<RecordedOperationSpec> operations,
         ICollection<string>? discharged = null)
-        : this(() => operations, discharged)
     {
-    }
-
-    public FixedOpsNode(
-        Func<IReadOnlyList<RecordedOperationSpec>> operationFactory,
-        ICollection<string>? discharged = null,
-        Action? onProcess = null)
-    {
-        _operationFactory = operationFactory;
+        _operations = operations;
         _discharged = discharged ?? new List<string>();
-        _onProcess = onProcess;
     }
-
-    public int ProcessCalls { get; private set; }
 
     public override void Process(RenderNodeContext context)
     {
-        ProcessCalls++;
-        _onProcess?.Invoke();
-        IReadOnlyList<RecordedOperationSpec> operations = _operationFactory();
         RenderResource<SolidColorBrush.Resource> fillResource = context.Borrow(Brushes.Resource.White);
-        for (int index = 0; index < operations.Count; index++)
+        for (int index = 0; index < _operations.Count; index++)
         {
-            RecordedOperationSpec spec = operations[index];
+            RecordedOperationSpec spec = _operations[index];
             bool trackDischarge = context.Purpose != RenderRequestPurpose.Bounds || spec.TrackMetadataDischarge;
             var operation = new RecordedOperation(spec, _discharged, trackDischarge);
             _ = context.Own(operation);
@@ -281,10 +194,9 @@ internal readonly record struct RecordedOperationSpec(
     bool AllocateBeforeThrow = false,
     bool ThrowOnDispose = false,
     string? DisposeFaultMessage = null,
-    bool TrackMetadataDischarge = false,
-    Rect? Bounds = null)
+    bool TrackMetadataDischarge = false)
 {
-    public Rect EffectiveBounds => Bounds ?? new Rect(0, 0, 4, 4);
+    public Rect EffectiveBounds => new(0, 0, 4, 4);
 }
 
 internal sealed class RecordedOperation(

@@ -121,8 +121,8 @@ public sealed class ShaderMigrationPhysicalFootprintTests
 
         var effect = new Invert();
         effect.Amount.CurrentValue = 0;
-        TargetSnapshot tight = ApplyEffect(effect, bounds, tightBacking, tightDeviceBounds);
-        TargetSnapshot apron = ApplyEffect(effect, bounds, apronBacking, apronDeviceBounds);
+        TargetSnapshot tight = ApplyMovedEffect(effect, bounds, bounds, tightBacking, tightDeviceBounds);
+        TargetSnapshot apron = ApplyMovedEffect(effect, bounds, bounds, apronBacking, apronDeviceBounds);
 
         Assert.Multiple(() =>
         {
@@ -205,17 +205,6 @@ public sealed class ShaderMigrationPhysicalFootprintTests
         return Snapshot(targets.Single());
     }
 
-    private static TargetSnapshot ApplyEffect(
-        FilterEffect effect,
-        Rect bounds,
-        RenderTarget backing,
-        PixelRect deviceBounds)
-    {
-        using EffectTargets targets = CreateTargets(backing, bounds, deviceBounds);
-        ApplyDirect(effect, bounds, targets);
-        return Snapshot(targets.Single());
-    }
-
     private static TargetSnapshot Snapshot(EffectTarget target)
     {
         using Bitmap bitmap = target.RenderTarget!.Snapshot();
@@ -287,19 +276,6 @@ public sealed class ShaderMigrationPhysicalFootprintTests
         canvas.DrawRect(SKRect.Create(offsetX + 1, offsetY + 1, 3, 3), paint);
         canvas.DrawRect(SKRect.Create(offsetX + 6, offsetY + 6, 3, 3), paint);
         canvas.Flush();
-    }
-
-    private sealed class CpuRenderTarget(int width, int height)
-        : RenderTarget(CreateSurface(width, height), width, height)
-    {
-        private static SKSurface CreateSurface(int width, int height)
-            => SKSurface.Create(new SKImageInfo(
-                   width,
-                   height,
-                   SKColorType.RgbaF16,
-                   SKAlphaType.Premul,
-                   SKColorSpace.CreateSrgbLinear()))
-               ?? throw new InvalidOperationException("A CPU test surface could not be created.");
     }
 
     private readonly record struct TargetSnapshot(

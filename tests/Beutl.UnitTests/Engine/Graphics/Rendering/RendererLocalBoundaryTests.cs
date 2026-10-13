@@ -1,14 +1,8 @@
-﻿using System.Collections.Immutable;
-
-using Beutl.Composition;
-using Beutl.Engine;
-using Beutl.Graphics;
+﻿using Beutl.Graphics;
 using Beutl.Graphics.Effects;
-using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
-using Beutl.Media;
-using SkiaSharp;
+using static Beutl.UnitTests.Engine.Graphics.Rendering.RendererTestSupport;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
@@ -26,8 +20,11 @@ public class RendererLocalBoundaryTests
     {
         EllipseShape ellipse = CreateShadowedEllipse();
 
-        (Rect? boundary, (Rect Bounds, Matrix Transform)? local) =
-            Measure(renderer => (renderer.GetBoundary(ellipse), renderer.GetLocalBoundary(ellipse)), ellipse);
+        (Rect? boundary, (Rect Bounds, Matrix Transform)? local) = QueryFrame(
+            Width,
+            Height,
+            renderer => (renderer.GetBoundary(ellipse), renderer.GetLocalBoundary(ellipse)),
+            ellipse);
 
         Assert.That(local, Is.Not.Null);
         Rect mapped = MapToAABB(local!.Value.Bounds, local.Value.Transform);
@@ -47,9 +44,13 @@ public class RendererLocalBoundaryTests
         RectShape turned = CreateBlurredRect(rotation: 30);
         RectShape upright = CreateBlurredRect(rotation: 0);
 
-        (Rect? boundary, (Rect Bounds, Matrix Transform)? local) =
-            Measure(renderer => (renderer.GetBoundary(turned), renderer.GetLocalBoundary(turned)), turned);
-        (Rect Bounds, Matrix Transform)? uprightLocal = Measure(renderer => renderer.GetLocalBoundary(upright), upright);
+        (Rect? boundary, (Rect Bounds, Matrix Transform)? local) = QueryFrame(
+            Width,
+            Height,
+            renderer => (renderer.GetBoundary(turned), renderer.GetLocalBoundary(turned)),
+            turned);
+        (Rect Bounds, Matrix Transform)? uprightLocal =
+            QueryFrame(Width, Height, renderer => renderer.GetLocalBoundary(upright), upright);
 
         Assert.That(local, Is.Not.Null);
         Assert.That(uprightLocal, Is.Not.Null);
@@ -88,7 +89,8 @@ public class RendererLocalBoundaryTests
         transform.Children.Add(new TranslateTransform(50, 30));
         transform.Children.Add(new RotationTransform(rotation));
 
-        (Rect Bounds, Matrix Transform)? local = Measure(renderer => renderer.GetLocalBoundary(rect), rect);
+        (Rect Bounds, Matrix Transform)? local =
+            QueryFrame(Width, Height, renderer => renderer.GetLocalBoundary(rect), rect);
 
         Assert.That(local, Is.Not.Null);
         Point center = local!.Value.Transform.Transform(local.Value.Bounds.Center);
@@ -116,8 +118,11 @@ public class RendererLocalBoundaryTests
             0, 1, 0,
             0, 0, 1));
 
-        (Rect? boundary, (Rect Bounds, Matrix Transform)? local) =
-            Measure(renderer => (renderer.GetBoundary(rect), renderer.GetLocalBoundary(rect)), rect);
+        (Rect? boundary, (Rect Bounds, Matrix Transform)? local) = QueryFrame(
+            Width,
+            Height,
+            renderer => (renderer.GetBoundary(rect), renderer.GetLocalBoundary(rect)),
+            rect);
 
         Assert.Multiple(() =>
         {
@@ -134,7 +139,11 @@ public class RendererLocalBoundaryTests
         EllipseShape absent = CreateShadowedEllipse();
 
         ((Rect Bounds, Matrix Transform)? Group, (Rect Bounds, Matrix Transform)? Absent, Rect? GroupBoundary) result =
-            Measure(renderer => (renderer.GetLocalBoundary(group), renderer.GetLocalBoundary(absent), renderer.GetBoundary(group)), group);
+            QueryFrame(
+                Width,
+                Height,
+                renderer => (renderer.GetLocalBoundary(group), renderer.GetLocalBoundary(absent), renderer.GetBoundary(group)),
+                group);
 
         Assert.Multiple(() =>
         {
@@ -168,28 +177,6 @@ public class RendererLocalBoundaryTests
         return rect;
     }
 
-    private static T Measure<T>(Func<Renderer, T> query, params Drawable[] drawables)
-    {
-        return RenderThread.Dispatcher.Invoke(() =>
-        {
-            using var renderer = new Renderer(
-                Width,
-                Height,
-                RenderIntent.Preview,
-                renderScale: 1,
-                maxWorkingScale: float.PositiveInfinity,
-                surface: new CpuRenderTarget(Width, Height));
-            ImmutableArray<EngineObject.Resource> resources =
-                [.. drawables.Select(d => (EngineObject.Resource)d.ToResource(CompositionContext.Default))];
-            renderer.UpdateFrame(new CompositionFrame(
-                resources,
-                new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
-                new PixelSize(Width, Height),
-                null));
-            return query(renderer);
-        });
-    }
-
     private static Rect MapToAABB(Rect bounds, Matrix transform)
     {
         Point[] corners =
@@ -211,15 +198,4 @@ public class RendererLocalBoundaryTests
         Assert.That(actual.Width, Is.EqualTo(expected.Width).Within(0.01), "Width");
         Assert.That(actual.Height, Is.EqualTo(expected.Height).Within(0.01), "Height");
     }
-
-    private sealed class CpuRenderTarget(int width, int height)
-        : RenderTarget(
-            SKSurface.Create(new SKImageInfo(
-                width,
-                height,
-                SKColorType.RgbaF16,
-                SKAlphaType.Premul,
-                SKColorSpace.CreateSrgbLinear())),
-            width,
-            height);
 }

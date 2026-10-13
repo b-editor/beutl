@@ -3,6 +3,7 @@ using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Requests;
 using Beutl.Graphics.Shaders;
+using Beutl.UnitTests.Engine.Graphics.Rendering.Failure;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Recording;
 
@@ -196,17 +197,17 @@ public sealed class RenderRecordingCrossCheckTests
         {
             Assert.That(node.CreatedResources, Has.Count.EqualTo(2), "the node is recorded twice");
             Assert.That(
-                node.CreatedResources[0].DisposeCount,
+                node.CreatedResources[0].DisposeCalls,
                 Is.EqualTo(1),
                 "the probe's resource belongs to a recording the graph never received");
             Assert.That(
-                node.CreatedResources[1].DisposeCount,
+                node.CreatedResources[1].DisposeCalls,
                 Is.Zero,
                 "the surviving recording still owns its resource");
         });
 
         owner.Cleanup();
-        Assert.That(node.CreatedResources[1].DisposeCount, Is.EqualTo(1));
+        Assert.That(node.CreatedResources[1].DisposeCalls, Is.EqualTo(1));
     }
 
     private static RecordedRenderGraph Record(RenderNode node)
@@ -369,21 +370,14 @@ public sealed class RenderRecordingCrossCheckTests
 
     private sealed class OwningSourceNode(Rect bounds) : RenderNode
     {
-        public List<TrackedResource> CreatedResources { get; } = [];
+        public List<FailureTestDisposable> CreatedResources { get; } = [];
 
         public override void Process(RenderNodeContext context)
         {
-            var resource = new TrackedResource();
+            var resource = new FailureTestDisposable();
             CreatedResources.Add(resource);
             _ = context.Own(resource);
             context.Publish(context.OpaqueSource(CreateSource(bounds)));
         }
-    }
-
-    internal sealed class TrackedResource : IDisposable
-    {
-        public int DisposeCount { get; private set; }
-
-        public void Dispose() => DisposeCount++;
     }
 }
