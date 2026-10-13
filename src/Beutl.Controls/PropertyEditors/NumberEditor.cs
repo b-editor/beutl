@@ -39,6 +39,7 @@ public class NumberEditor<TValue> : StringEditor
 
     private TValue _value = TValue.Zero;
     private TValue _oldValue = TValue.Zero;
+    private bool _updatingValueFromText;
     private readonly CompositeDisposable _disposables = [];
     private HeaderScrubGesture _scrub;
     private TextBlock? _headerText;
@@ -53,7 +54,7 @@ public class NumberEditor<TValue> : StringEditor
         get => _value;
         set
         {
-            if (SetAndRaise(ValueProperty, ref _value, value))
+            if (SetAndRaise(ValueProperty, ref _value, value) && !_updatingValueFromText)
             {
                 Text = NumberEditorHelper.Format(value, NumberFormat);
             }
@@ -174,10 +175,13 @@ public class NumberEditor<TValue> : StringEditor
     protected override void OnTextBoxLostFocus(RoutedEventArgs e)
     {
         if (InnerTextBox == null) return;
-        if (!DataValidationErrors.GetHasErrors(InnerTextBox)
-            && Value != _oldValue)
+        if (!DataValidationErrors.GetHasErrors(InnerTextBox))
         {
-            RaiseEvent(new PropertyEditorValueChangedEventArgs<TValue>(Value, _oldValue, ValueConfirmedEvent));
+            Text = NumberEditorHelper.Format(Value, NumberFormat);
+            if (Value != _oldValue)
+            {
+                RaiseEvent(new PropertyEditorValueChangedEventArgs<TValue>(Value, _oldValue, ValueConfirmedEvent));
+            }
         }
     }
 
@@ -186,8 +190,17 @@ public class NumberEditor<TValue> : StringEditor
         if (InnerTextBox?.IsKeyboardFocusWithin == true
             && NumberEditorHelper.TryParseEdit(newValue, oldValue, out TValue? newValue2, out TValue? oldValue2))
         {
-            Value = newValue2;
-            RaiseEvent(new PropertyEditorValueChangedEventArgs<TValue>(newValue2, oldValue2, ValueChangedEvent));
+            // Keep the typed text and caret even when a binding or handler coerces Value.
+            _updatingValueFromText = true;
+            try
+            {
+                Value = newValue2;
+                RaiseEvent(new PropertyEditorValueChangedEventArgs<TValue>(newValue2, oldValue2, ValueChangedEvent));
+            }
+            finally
+            {
+                _updatingValueFromText = false;
+            }
         }
 
         UpdateErrors();
@@ -207,9 +220,11 @@ public class NumberEditor<TValue> : StringEditor
             && TValue.TryParse(InnerTextBox.Text, CultureInfo.CurrentCulture, out TValue? value)
             && value is not null)
         {
-            value = NumberEditorHelper.StepByWheel(value, e, LargeChange, SmallChange);
+            // The text can still be an out-of-range draft; step from the coerced value.
+            value = NumberEditorHelper.StepByWheel(Value, e, LargeChange, SmallChange);
 
             Value = value;
+            Text = NumberEditorHelper.Format(Value, NumberFormat);
 
             e.Handled = true;
         }

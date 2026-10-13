@@ -28,6 +28,7 @@ public class RelativePointEditor : Vector2Editor
             defaultBindingMode: BindingMode.TwoWay);
 
     private readonly CompositeDisposable _disposables = [];
+    private TextBox? _updatingTextBox;
     private float _firstValue;
     private float _oldFirstValue;
     private float _secondValue;
@@ -73,15 +74,15 @@ public class RelativePointEditor : Vector2Editor
 
     private void UpdateText()
     {
-        if (Unit == Graphics.RelativeUnit.Relative)
+        string Format(float value) => Unit == Graphics.RelativeUnit.Relative ? $"{value * 100:f}%" : $"{value}";
+
+        if (_updatingTextBox == null || _updatingTextBox != InnerFirstTextBox)
         {
-            FirstText = $"{_firstValue * 100:f}%";
-            SecondText = $"{_secondValue * 100:f}%";
+            FirstText = Format(FirstValue);
         }
-        else
+        if (_updatingTextBox == null || _updatingTextBox != InnerSecondTextBox)
         {
-            FirstText = $"{_firstValue}";
-            SecondText = $"{_secondValue}";
+            SecondText = Format(SecondValue);
         }
     }
 
@@ -113,6 +114,7 @@ public class RelativePointEditor : Vector2Editor
     {
         if (!DataValidationErrors.GetHasErrors(this))
         {
+            UpdateText();
             if (FirstValue != _oldFirstValue
                 || SecondValue != _oldSecondValue
                 || Unit != _oldUnit)
@@ -130,42 +132,52 @@ public class RelativePointEditor : Vector2Editor
 
     private void OnInnerTextBoxTextChanged(TextBox sender, string? newValue, string? oldValue)
     {
-        if (sender.IsKeyboardFocusWithin
+        if (_updatingTextBox == null
+            && sender.IsKeyboardFocusWithin
             && RelativeUnitParser.TryParseEdit(
                 newValue, oldValue,
                 out float newValue2, out Graphics.RelativeUnit newUnit,
                 out float oldValue2, out Graphics.RelativeUnit oldUnit))
         {
-            var newValues = (FirstValue, SecondValue);
-            var oldValues = (FirstValue, SecondValue);
-            Unit = newUnit;
-            if (IsUniform)
+            // Preserve only the component being typed while bindings coerce the values.
+            _updatingTextBox = sender;
+            try
             {
-                FirstValue = SecondValue = newValue2;
-                newValues = (newValue2, newValue2);
-                oldValues = (oldValue2, oldValue2);
-            }
-            else
-            {
-                switch (sender.Name)
+                var newValues = (FirstValue, SecondValue);
+                var oldValues = (FirstValue, SecondValue);
+                Unit = newUnit;
+                if (IsUniform)
                 {
-                    case "PART_InnerFirstTextBox":
-                        FirstValue = newValue2;
-                        newValues.FirstValue = newValue2;
-                        oldValues.FirstValue = oldValue2;
-                        break;
-                    case "PART_InnerSecondTextBox":
-                        SecondValue = newValue2;
-                        newValues.SecondValue = newValue2;
-                        oldValues.SecondValue = oldValue2;
-                        break;
+                    FirstValue = SecondValue = newValue2;
+                    newValues = (newValue2, newValue2);
+                    oldValues = (oldValue2, oldValue2);
                 }
-            }
+                else
+                {
+                    switch (sender.Name)
+                    {
+                        case "PART_InnerFirstTextBox":
+                            FirstValue = newValue2;
+                            newValues.FirstValue = newValue2;
+                            oldValues.FirstValue = oldValue2;
+                            break;
+                        case "PART_InnerSecondTextBox":
+                            SecondValue = newValue2;
+                            newValues.SecondValue = newValue2;
+                            oldValues.SecondValue = oldValue2;
+                            break;
+                    }
+                }
 
-            RaiseEvent(new PropertyEditorValueChangedEventArgs<Graphics.RelativePoint>(
-                new Graphics.RelativePoint(newValues.FirstValue, newValues.SecondValue, newUnit),
-                new Graphics.RelativePoint(oldValues.FirstValue, oldValues.SecondValue, oldUnit),
-                ValueChangedEvent));
+                RaiseEvent(new PropertyEditorValueChangedEventArgs<Graphics.RelativePoint>(
+                    new Graphics.RelativePoint(newValues.FirstValue, newValues.SecondValue, newUnit),
+                    new Graphics.RelativePoint(oldValues.FirstValue, oldValues.SecondValue, oldUnit),
+                    ValueChangedEvent));
+            }
+            finally
+            {
+                _updatingTextBox = null;
+            }
         }
 
         UpdateErrors();
@@ -184,9 +196,16 @@ public class RelativePointEditor : Vector2Editor
         if (!DataValidationErrors.GetHasErrors(this)
             && sender is TextBox textBox
             && textBox.IsKeyboardFocusWithin
-            && TryParse(textBox.Text, out float value, out Graphics.RelativeUnit unit))
+            && TryParse(textBox.Text, out float value, out _))
         {
-            value = RelativeUnitParser.StepByWheel(value, unit, e);
+            // The text can still be an out-of-range draft; step from the coerced value.
+            value = textBox.Name switch
+            {
+                "PART_InnerFirstTextBox" => FirstValue,
+                "PART_InnerSecondTextBox" => SecondValue,
+                _ => value,
+            };
+            value = RelativeUnitParser.StepByWheel(value, Unit, e);
 
             if (IsUniform)
             {
@@ -207,6 +226,7 @@ public class RelativePointEditor : Vector2Editor
                 }
             }
 
+            UpdateText();
             e.Handled = true;
         }
     }

@@ -36,6 +36,7 @@ public class Vector3Editor<TElement> : Vector3Editor
         Vector4Editor<TElement>.SmallChangeProperty.AddOwner<Vector3Editor<TElement>>();
 
     private readonly CompositeDisposable _disposables = [];
+    private TextBox? _updatingTextBox;
     private TElement _firstValue = TElement.Zero;
     private TElement _oldFirstValue = TElement.Zero;
     private TElement _secondValue = TElement.Zero;
@@ -58,7 +59,8 @@ public class Vector3Editor<TElement> : Vector3Editor
         get => _firstValue;
         set
         {
-            if (SetAndRaise(FirstValueProperty, ref _firstValue, value))
+            if (SetAndRaise(FirstValueProperty, ref _firstValue, value)
+                && (_updatingTextBox == null || _updatingTextBox != InnerFirstTextBox))
             {
                 FirstText = NumberEditorHelper.Format(value, NumberFormat);
             }
@@ -70,7 +72,8 @@ public class Vector3Editor<TElement> : Vector3Editor
         get => _secondValue;
         set
         {
-            if (SetAndRaise(SecondValueProperty, ref _secondValue, value))
+            if (SetAndRaise(SecondValueProperty, ref _secondValue, value)
+                && (_updatingTextBox == null || _updatingTextBox != InnerSecondTextBox))
             {
                 SecondText = NumberEditorHelper.Format(value, NumberFormat);
             }
@@ -82,7 +85,8 @@ public class Vector3Editor<TElement> : Vector3Editor
         get => _thirdValue;
         set
         {
-            if (SetAndRaise(ThirdValueProperty, ref _thirdValue, value))
+            if (SetAndRaise(ThirdValueProperty, ref _thirdValue, value)
+                && (_updatingTextBox == null || _updatingTextBox != InnerThirdTextBox))
             {
                 ThirdText = NumberEditorHelper.Format(value, NumberFormat);
             }
@@ -101,13 +105,18 @@ public class Vector3Editor<TElement> : Vector3Editor
         set => SetValue(SmallChangeProperty, value);
     }
 
+    private void UpdateText()
+    {
+        FirstText = NumberEditorHelper.Format(FirstValue, NumberFormat);
+        SecondText = NumberEditorHelper.Format(SecondValue, NumberFormat);
+        ThirdText = NumberEditorHelper.Format(ThirdValue, NumberFormat);
+    }
+
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
         _disposables.Clear();
         base.OnApplyTemplate(e);
-        FirstText = NumberEditorHelper.Format(_firstValue, NumberFormat);
-        SecondText = NumberEditorHelper.Format(_secondValue, NumberFormat);
-        ThirdText = NumberEditorHelper.Format(_thirdValue, NumberFormat);
+        UpdateText();
 
         var valueHandlers = new ComponentValueHandlers(
             OnInnerTextBoxGotFocus, OnInnerTextBoxLostFocus, OnInnerTextBoxTextChanged, OnInnerTextBoxPointerWheelChanged);
@@ -227,6 +236,7 @@ public class Vector3Editor<TElement> : Vector3Editor
     {
         if (!DataValidationErrors.GetHasErrors(this))
         {
+            UpdateText();
             RaiseConfirmedIfChanged();
         }
     }
@@ -253,43 +263,53 @@ public class Vector3Editor<TElement> : Vector3Editor
 
     private void OnInnerTextBoxTextChanged(TextBox sender, string? newValue, string? oldValue)
     {
-        if (sender.IsKeyboardFocusWithin
+        if (_updatingTextBox == null
+            && sender.IsKeyboardFocusWithin
             && NumberEditorHelper.TryParseEdit(newValue, oldValue, out TElement? newValue2, out TElement? oldValue2))
         {
-            var newValues = (FirstValue, SecondValue, ThirdValue);
-            var oldValues = (FirstValue, SecondValue, ThirdValue);
-            if (IsUniform)
+            // Preserve only the component being typed while bindings coerce the values.
+            _updatingTextBox = sender;
+            try
             {
-                FirstValue = SecondValue = ThirdValue = newValue2;
-                newValues = (newValue2, newValue2, newValue2);
-                oldValues = (oldValue2, oldValue2, oldValue2);
-            }
-            else
-            {
-                switch (sender.Name)
+                var newValues = (FirstValue, SecondValue, ThirdValue);
+                var oldValues = (FirstValue, SecondValue, ThirdValue);
+                if (IsUniform)
                 {
-                    case "PART_InnerFirstTextBox":
-                        FirstValue = newValue2;
-                        newValues.FirstValue = newValue2;
-                        oldValues.FirstValue = oldValue2;
-                        break;
-                    case "PART_InnerSecondTextBox":
-                        SecondValue = newValue2;
-                        newValues.SecondValue = newValue2;
-                        oldValues.SecondValue = oldValue2;
-                        break;
-                    case "PART_InnerThirdTextBox":
-                        ThirdValue = newValue2;
-                        newValues.ThirdValue = newValue2;
-                        oldValues.ThirdValue = oldValue2;
-                        break;
-                    default:
-                        break;
+                    FirstValue = SecondValue = ThirdValue = newValue2;
+                    newValues = (newValue2, newValue2, newValue2);
+                    oldValues = (oldValue2, oldValue2, oldValue2);
                 }
-            }
+                else
+                {
+                    switch (sender.Name)
+                    {
+                        case "PART_InnerFirstTextBox":
+                            FirstValue = newValue2;
+                            newValues.FirstValue = newValue2;
+                            oldValues.FirstValue = oldValue2;
+                            break;
+                        case "PART_InnerSecondTextBox":
+                            SecondValue = newValue2;
+                            newValues.SecondValue = newValue2;
+                            oldValues.SecondValue = oldValue2;
+                            break;
+                        case "PART_InnerThirdTextBox":
+                            ThirdValue = newValue2;
+                            newValues.ThirdValue = newValue2;
+                            oldValues.ThirdValue = oldValue2;
+                            break;
+                        default:
+                            break;
+                    }
+                }
 
-            RaiseEvent(new PropertyEditorValueChangedEventArgs<(TElement, TElement, TElement)>(
-                newValues, oldValues, ValueChangedEvent));
+                RaiseEvent(new PropertyEditorValueChangedEventArgs<(TElement, TElement, TElement)>(
+                    newValues, oldValues, ValueChangedEvent));
+            }
+            finally
+            {
+                _updatingTextBox = null;
+            }
         }
 
         UpdateErrors();
@@ -313,6 +333,14 @@ public class Vector3Editor<TElement> : Vector3Editor
             && TElement.TryParse(textBox.Text, CultureInfo.CurrentCulture, out TElement? value)
             && value is not null)
         {
+            // The text can still be an out-of-range draft; step from the coerced value.
+            value = textBox.Name switch
+            {
+                "PART_InnerFirstTextBox" => FirstValue,
+                "PART_InnerSecondTextBox" => SecondValue,
+                "PART_InnerThirdTextBox" => ThirdValue,
+                _ => value,
+            };
             value = NumberEditorHelper.StepByWheel(value, e, LargeChange, SmallChange);
 
             if (IsUniform)
@@ -337,6 +365,7 @@ public class Vector3Editor<TElement> : Vector3Editor
                 }
             }
 
+            UpdateText();
             e.Handled = true;
         }
     }

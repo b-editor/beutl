@@ -39,6 +39,7 @@ public class RelativeRectEditor : Vector4Editor
             defaultBindingMode: BindingMode.TwoWay);
 
     private readonly CompositeDisposable _disposables = [];
+    private TextBox? _updatingTextBox;
     private float _firstValue;
     private float _oldFirstValue;
     private float _secondValue;
@@ -118,19 +119,23 @@ public class RelativeRectEditor : Vector4Editor
 
     private void UpdateText()
     {
-        if (Unit == Graphics.RelativeUnit.Relative)
+        string Format(float value) => Unit == Graphics.RelativeUnit.Relative ? $"{value * 100:f}%" : $"{value}";
+
+        if (_updatingTextBox == null || _updatingTextBox != InnerFirstTextBox)
         {
-            FirstText = $"{_firstValue * 100:f}%";
-            SecondText = $"{_secondValue * 100:f}%";
-            ThirdText = $"{_thirdValue * 100:f}%";
-            FourthText = $"{_fourthValue * 100:f}%";
+            FirstText = Format(FirstValue);
         }
-        else
+        if (_updatingTextBox == null || _updatingTextBox != InnerSecondTextBox)
         {
-            FirstText = $"{_firstValue}";
-            SecondText = $"{_secondValue}";
-            ThirdText = $"{_thirdValue}";
-            FourthText = $"{_fourthValue}";
+            SecondText = Format(SecondValue);
+        }
+        if (_updatingTextBox == null || _updatingTextBox != InnerThirdTextBox)
+        {
+            ThirdText = Format(ThirdValue);
+        }
+        if (_updatingTextBox == null || _updatingTextBox != InnerFourthTextBox)
+        {
+            FourthText = Format(FourthValue);
         }
     }
 
@@ -166,6 +171,7 @@ public class RelativeRectEditor : Vector4Editor
     {
         if (!DataValidationErrors.GetHasErrors(this))
         {
+            UpdateText();
             if (FirstValue != _oldFirstValue
                 || SecondValue != _oldSecondValue
                 || ThirdValue != _oldThirdValue
@@ -186,52 +192,62 @@ public class RelativeRectEditor : Vector4Editor
 
     private void OnInnerTextBoxTextChanged(TextBox sender, string? newValue, string? oldValue)
     {
-        if (sender.IsKeyboardFocusWithin
+        if (_updatingTextBox == null
+            && sender.IsKeyboardFocusWithin
             && RelativeUnitParser.TryParseEdit(
                 newValue, oldValue,
                 out float newValue2, out Graphics.RelativeUnit newUnit,
                 out float oldValue2, out Graphics.RelativeUnit oldUnit))
         {
-            var newValues = (FirstValue, SecondValue, ThirdValue, FourthValue);
-            var oldValues = (FirstValue, SecondValue, ThirdValue, FourthValue);
-            Unit = newUnit;
-            if (IsUniform)
+            // Preserve only the component being typed while bindings coerce the values.
+            _updatingTextBox = sender;
+            try
             {
-                FirstValue = SecondValue = ThirdValue = FourthValue = newValue2;
-                newValues = (newValue2, newValue2, newValue2, newValue2);
-                oldValues = (oldValue2, oldValue2, oldValue2, oldValue2);
-            }
-            else
-            {
-                switch (sender.Name)
+                var newValues = (FirstValue, SecondValue, ThirdValue, FourthValue);
+                var oldValues = (FirstValue, SecondValue, ThirdValue, FourthValue);
+                Unit = newUnit;
+                if (IsUniform)
                 {
-                    case "PART_InnerFirstTextBox":
-                        FirstValue = newValue2;
-                        newValues.FirstValue = newValue2;
-                        oldValues.FirstValue = oldValue2;
-                        break;
-                    case "PART_InnerSecondTextBox":
-                        SecondValue = newValue2;
-                        newValues.SecondValue = newValue2;
-                        oldValues.SecondValue = oldValue2;
-                        break;
-                    case "PART_InnerThirdTextBox":
-                        ThirdValue = newValue2;
-                        newValues.ThirdValue = newValue2;
-                        oldValues.ThirdValue = oldValue2;
-                        break;
-                    case "PART_InnerFourthTextBox":
-                        FourthValue = newValue2;
-                        newValues.FourthValue = newValue2;
-                        oldValues.FourthValue = oldValue2;
-                        break;
+                    FirstValue = SecondValue = ThirdValue = FourthValue = newValue2;
+                    newValues = (newValue2, newValue2, newValue2, newValue2);
+                    oldValues = (oldValue2, oldValue2, oldValue2, oldValue2);
                 }
-            }
+                else
+                {
+                    switch (sender.Name)
+                    {
+                        case "PART_InnerFirstTextBox":
+                            FirstValue = newValue2;
+                            newValues.FirstValue = newValue2;
+                            oldValues.FirstValue = oldValue2;
+                            break;
+                        case "PART_InnerSecondTextBox":
+                            SecondValue = newValue2;
+                            newValues.SecondValue = newValue2;
+                            oldValues.SecondValue = oldValue2;
+                            break;
+                        case "PART_InnerThirdTextBox":
+                            ThirdValue = newValue2;
+                            newValues.ThirdValue = newValue2;
+                            oldValues.ThirdValue = oldValue2;
+                            break;
+                        case "PART_InnerFourthTextBox":
+                            FourthValue = newValue2;
+                            newValues.FourthValue = newValue2;
+                            oldValues.FourthValue = oldValue2;
+                            break;
+                    }
+                }
 
-            RaiseEvent(new PropertyEditorValueChangedEventArgs<Graphics.RelativeRect>(
-                new Graphics.RelativeRect(newValues.FirstValue, newValues.SecondValue, newValues.ThirdValue, newValues.FourthValue, newUnit),
-                new Graphics.RelativeRect(oldValues.FirstValue, oldValues.SecondValue, oldValues.ThirdValue, oldValues.FourthValue, oldUnit),
-                ValueChangedEvent));
+                RaiseEvent(new PropertyEditorValueChangedEventArgs<Graphics.RelativeRect>(
+                    new Graphics.RelativeRect(newValues.FirstValue, newValues.SecondValue, newValues.ThirdValue, newValues.FourthValue, newUnit),
+                    new Graphics.RelativeRect(oldValues.FirstValue, oldValues.SecondValue, oldValues.ThirdValue, oldValues.FourthValue, oldUnit),
+                    ValueChangedEvent));
+            }
+            finally
+            {
+                _updatingTextBox = null;
+            }
         }
 
         UpdateErrors();
@@ -253,9 +269,18 @@ public class RelativeRectEditor : Vector4Editor
         if (!DataValidationErrors.GetHasErrors(this)
             && sender is TextBox textBox
             && textBox.IsKeyboardFocusWithin
-            && TryParse(textBox.Text, out float value, out Graphics.RelativeUnit unit))
+            && TryParse(textBox.Text, out float value, out _))
         {
-            value = RelativeUnitParser.StepByWheel(value, unit, e);
+            // The text can still be an out-of-range draft; step from the coerced value.
+            value = textBox.Name switch
+            {
+                "PART_InnerFirstTextBox" => FirstValue,
+                "PART_InnerSecondTextBox" => SecondValue,
+                "PART_InnerThirdTextBox" => ThirdValue,
+                "PART_InnerFourthTextBox" => FourthValue,
+                _ => value,
+            };
+            value = RelativeUnitParser.StepByWheel(value, Unit, e);
 
             if (IsUniform)
             {
@@ -282,6 +307,7 @@ public class RelativeRectEditor : Vector4Editor
                 }
             }
 
+            UpdateText();
             e.Handled = true;
         }
     }
