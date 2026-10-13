@@ -45,10 +45,9 @@ public sealed class AiUsageViewModelTests
 
         entitlements.Value = CreateEntitlements(
             canUseAi: true,
-            used: 125,
-            limit: 500,
+            usedPercent: 25,
             additionalCredits: 40,
-            additionalCreditDebt: 15);
+            additionalCreditDebt: true);
 
         using (Assert.EnterMultipleScope())
         {
@@ -56,40 +55,16 @@ public sealed class AiUsageViewModelTests
             Assert.That(viewModel.HasSnapshot.Value, Is.True);
             Assert.That(viewModel.UsagePercent.Value, Is.EqualTo(25));
             Assert.That(viewModel.RemainingPercent.Value, Is.EqualTo(75));
-            Assert.That(viewModel.IsMonthlyAllowanceExhausted.Value, Is.False);
-            Assert.That(viewModel.HasAdditionalCredits.Value, Is.True);
-            Assert.That(viewModel.HasAdditionalCreditDebt.Value, Is.True);
-        }
-    }
-
-    [Test]
-    public void PresentedUsage_ShowsProportionWithoutDisclosingRawUnits()
-    {
-        using var entitlements = new ReactivePropertySlim<AiEntitlements?>();
-        using var viewModel = new AiUsageViewModel(entitlements);
-
-        entitlements.Value = CreateEntitlements(
-            canUseAi: true,
-            used: 125,
-            limit: 500,
-            additionalCredits: 40,
-            additionalCreditDebt: 15);
-
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(viewModel.UsagePercent.Value, Is.EqualTo(25));
             Assert.That(viewModel.MonthlyUsageText.Value, Does.Contain("25"));
             Assert.That(viewModel.MonthlyRemainingText.Value, Does.Contain("75"));
-            Assert.That(
-                viewModel.MonthlyUsageText.Value,
-                Does.Not.Contain("500"),
-                "The allowance size must stay hidden so per-operation cost cannot be derived.");
+            Assert.That(viewModel.IsMonthlyAllowanceExhausted.Value, Is.False);
+            Assert.That(viewModel.HasAdditionalCredits.Value, Is.True);
             Assert.That(
                 viewModel.AdditionalCreditsText.Value,
                 Does.Contain("40"),
                 "Purchased credits are a paid-for quantity and stay visible.");
             Assert.That(viewModel.AdditionalCredits.Value, Is.EqualTo(40));
-            Assert.That(viewModel.HasAdditionalCredits.Value, Is.True);
+            Assert.That(viewModel.HasAdditionalCreditDebt.Value, Is.True);
         }
     }
 
@@ -97,11 +72,11 @@ public sealed class AiUsageViewModelTests
     public void ReplacingSharedSnapshot_UpdatesEveryPresentation()
     {
         using var entitlements = new ReactivePropertySlim<AiEntitlements?>(
-            CreateEntitlements(canUseAi: true, used: 125, limit: 500, additionalCredits: 40));
+            CreateEntitlements(canUseAi: true, usedPercent: 25, additionalCredits: 40));
         using var first = new AiUsageViewModel(entitlements);
         using var second = new AiUsageViewModel(entitlements);
 
-        entitlements.Value = CreateEntitlements(canUseAi: true, used: 200, limit: 500, additionalCredits: 25);
+        entitlements.Value = CreateEntitlements(canUseAi: true, usedPercent: 40, additionalCredits: 25);
 
         using (Assert.EnterMultipleScope())
         {
@@ -116,7 +91,7 @@ public sealed class AiUsageViewModelTests
     public void ClearingSnapshot_RemovesPreviousAccountsBalance()
     {
         using var entitlements = new ReactivePropertySlim<AiEntitlements?>(
-            CreateEntitlements(canUseAi: true, used: 125, limit: 500, additionalCredits: 40));
+            CreateEntitlements(canUseAi: true, usedPercent: 25, additionalCredits: 40));
         using var viewModel = new AiUsageViewModel(entitlements);
 
         entitlements.Value = null;
@@ -147,10 +122,9 @@ public sealed class AiUsageViewModelTests
 
     private static AiEntitlements CreateEntitlements(
         bool canUseAi,
-        int used,
-        int limit,
+        int usedPercent,
         int additionalCredits,
-        int additionalCreditDebt = 0)
+        bool additionalCreditDebt = false)
     {
         return new AiEntitlements(
             canUseAi ? "pro" : null,
@@ -160,15 +134,9 @@ public sealed class AiUsageViewModelTests
             false,
             canUseAi,
             new AiBalance(
-                new AiMonthlyUsage(
-                    ToPercent(used, limit),
-                    100 - ToPercent(used, limit),
-                    limit > 0 && used >= limit),
+                new AiMonthlyUsage(usedPercent, 100 - usedPercent, usedPercent >= 100),
                 additionalCredits,
-                additionalCreditDebt > 0),
+                additionalCreditDebt),
             new AiOperationAvailability([]));
     }
-
-    private static int ToPercent(int used, int limit)
-        => limit <= 0 ? 0 : Math.Clamp((int)Math.Round(used * 100.0 / limit), 0, 100);
 }

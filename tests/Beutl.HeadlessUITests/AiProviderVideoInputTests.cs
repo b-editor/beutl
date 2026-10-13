@@ -1,10 +1,8 @@
 ﻿using System.Net;
 using System.Text.Json.Nodes;
 using Avalonia.Controls;
-using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.LogicalTree;
-using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Beutl.Api;
 using Beutl.Api.Services;
@@ -12,7 +10,7 @@ using Beutl.Language;
 using Beutl.Services.AI;
 using Beutl.Testing.Headless;
 using Beutl.Views.Tools;
-using static Beutl.HeadlessUITests.AiDialogTestFactory;
+using static Beutl.HeadlessUITests.AiTestSupport;
 
 namespace Beutl.HeadlessUITests;
 
@@ -39,15 +37,13 @@ public sealed partial class AiDialogWorkflowTests
     {
         await TestReset.ResetShellAsync();
         var requests = new List<(string Key, string Body)>();
-        using var handler = new StubHandler(async (request, token) =>
+        await using var api = new ApiScope(new StubHandler(async (request, token) =>
         {
             if (request.RequestUri?.AbsolutePath == "/api/v3/ai/videos/frames")
                 requests.Add((request.Headers.GetValues("Idempotency-Key").Single(), await request.Content!.ReadAsStringAsync(token)));
             return ProviderVideoResponse(request);
-        });
-        using var http = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(http, new ExtensionProvider());
-        SetAuthenticatedUser(clients, http);
+        }));
+        BeutlApiApplication clients = api.Clients;
         DateTimeOffset now = DateTimeOffset.UtcNow;
         using var store = new FileAiRequestRecoveryStore(Path.Combine(BeutlHomeIsolation.CurrentHome!, "restart-" + Guid.NewGuid().ToString("N")), () => now);
         using var context = new AiRequestRecoveryContext(store, () => new AiAuthenticatedRequestIdentity("test-user", null));
@@ -92,7 +88,7 @@ public sealed partial class AiDialogWorkflowTests
         var model = capabilities["operations"]!["video.generate"]!["models"]![0]!;
         model["maxPromptLength"] = originalLimit;
         var requests = new List<(string Key, string Body)>();
-        using var handler = new StubHandler(async (request, token) =>
+        await using var api = new ApiScope(new StubHandler(async (request, token) =>
         {
             if (request.RequestUri?.AbsolutePath == "/api/v3/ai/capabilities")
                 return JsonResponse(HttpStatusCode.OK, capabilities.ToJsonString());
@@ -102,10 +98,8 @@ public sealed partial class AiDialogWorkflowTests
                 return JsonResponse(HttpStatusCode.Conflict, """{"error_code":"aiRequestInProgress","message":"Pending","documentation_url":null}""");
             }
             return ProviderVideoResponse(request);
-        });
-        using var http = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(http, new ExtensionProvider());
-        SetAuthenticatedUser(clients, http);
+        }));
+        BeutlApiApplication clients = api.Clients;
         DateTimeOffset now = DateTimeOffset.UtcNow;
         using var store = new FileAiRequestRecoveryStore(Path.Combine(BeutlHomeIsolation.CurrentHome!, "prompt-limit-" + Guid.NewGuid().ToString("N")), () => now);
         using var context = new AiRequestRecoveryContext(store, () => new AiAuthenticatedRequestIdentity("test-user", null));
@@ -150,10 +144,8 @@ public sealed partial class AiDialogWorkflowTests
     public async Task ProviderInputs_ModelChangesKeepSelectionsAndFirstFramesSuspendReferences()
     {
         await TestReset.ResetShellAsync();
-        using var handler = new StubHandler(ProviderVideoResponse);
-        using var http = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(http, new ExtensionProvider());
-        SetAuthenticatedUser(clients, http);
+        await using var api = new ApiScope(new StubHandler(ProviderVideoResponse));
+        BeutlApiApplication clients = api.Clients;
         await using var vm = CreateVideoGenerationDialog(clients);
         await WaitUntilAsync(() => vm.ModelPicker.Options.Count == 2);
         string path = Path.Combine(BeutlHomeIsolation.CurrentHome!, "input.mp4");
@@ -178,11 +170,9 @@ public sealed partial class AiDialogWorkflowTests
     public async Task ProviderInputs_AudioControlsFollowThePublishedAllowance()
     {
         await TestReset.ResetShellAsync();
-        using var handler = new StubHandler(request => request.RequestUri?.AbsolutePath == "/api/v3/ai/capabilities"
-            ? JsonResponse(HttpStatusCode.OK, ProviderVideoCapabilities.Replace("\"maxAudioReferences\":1", "\"maxAudioReferences\":0")) : ProviderVideoResponse(request));
-        using var http = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(http, new ExtensionProvider());
-        SetAuthenticatedUser(clients, http);
+        await using var api = new ApiScope(new StubHandler(request => request.RequestUri?.AbsolutePath == "/api/v3/ai/capabilities"
+            ? JsonResponse(HttpStatusCode.OK, ProviderVideoCapabilities.Replace("\"maxAudioReferences\":1", "\"maxAudioReferences\":0")) : ProviderVideoResponse(request)));
+        BeutlApiApplication clients = api.Clients;
         await using var vm = CreateVideoGenerationDialog(clients);
         await WaitUntilAsync(() => vm.ModelPicker.Options.Count == 2);
         Assert.That(vm.ReferenceGroups.Single(group => group.Kind == "audio").IsVisible.Value, Is.False);
@@ -194,10 +184,8 @@ public sealed partial class AiDialogWorkflowTests
     public async Task ProviderInputs_ReferenceControlsFitNarrowTabs(int width)
     {
         await TestReset.ResetShellAsync();
-        using var handler = new StubHandler(ProviderVideoResponse);
-        using var http = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(http, new ExtensionProvider());
-        SetAuthenticatedUser(clients, http);
+        await using var api = new ApiScope(new StubHandler(ProviderVideoResponse));
+        BeutlApiApplication clients = api.Clients;
         await using var vm = CreateVideoGenerationDialog(clients);
         await WaitUntilAsync(() => vm.ReferenceGroups.All(group => group.IsSupported.Value));
         var view = new AiVideoGenerationView { DataContext = vm };
@@ -209,9 +197,6 @@ public sealed partial class AiDialogWorkflowTests
                 Assert.That(view.GetLogicalDescendants().OfType<Button>().Single(button => ReferenceEquals(button.Command, group.Pick)).IsEffectivelyVisible, Is.True);
             foreach (var scroll in view.GetLogicalDescendants().OfType<ScrollViewer>())
                 Assert.That(scroll.Extent.Width, Is.LessThanOrEqualTo(scroll.Viewport.Width + 1));
-            Directory.CreateDirectory("/tmp/beutl-provider-scoped-ui");
-            using var bitmap = window.CaptureRenderedFrame();
-            bitmap?.Save($"/tmp/beutl-provider-scoped-ui/references-{width}.png", PngBitmapEncoderOptions.Default);
         }
         finally { window.Close(); }
     }

@@ -4,7 +4,7 @@ using Avalonia.Headless.NUnit;
 using Beutl.Api;
 using Beutl.Api.Services;
 using Beutl.Testing.Headless;
-using static Beutl.HeadlessUITests.AiDialogTestFactory;
+using static Beutl.HeadlessUITests.AiTestSupport;
 
 namespace Beutl.HeadlessUITests;
 
@@ -37,17 +37,15 @@ public sealed partial class AiDialogWorkflowTests
             ["aspectRatios"] = new JsonArray(),
         });
         string? sent = null;
-        using var handler = new StubHandler(async (request, token) =>
+        await using var api = new ApiScope(new StubHandler(async (request, token) =>
         {
             if (request.RequestUri?.AbsolutePath == "/api/v3/ai/capabilities")
                 return JsonResponse(HttpStatusCode.OK, capabilities.ToJsonString());
             if (request.Method == HttpMethod.Post && request.RequestUri!.AbsolutePath.StartsWith("/api/v3/ai/videos", StringComparison.Ordinal))
                 sent = await request.Content!.ReadAsStringAsync(token);
             return ProviderVideoResponse(request);
-        });
-        using var http = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(http, new ExtensionProvider());
-        SetAuthenticatedUser(clients, http);
+        }));
+        BeutlApiApplication clients = api.Clients;
         await using var vm = CreateVideoGenerationDialog(clients, sourceMode: mode);
         await WaitUntilAsync(() => vm.ModelPicker.IsLoaded.Value);
         Assert.That(vm.ModelPicker.Options.Count, Is.EqualTo(usable ? 1 : 0));

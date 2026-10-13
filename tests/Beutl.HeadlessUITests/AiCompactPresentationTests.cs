@@ -18,7 +18,7 @@ using Beutl.ViewModels.Dialogs;
 using Beutl.Views.Tools;
 using FluentAvalonia.UI.Controls;
 using Reactive.Bindings;
-using static Beutl.HeadlessUITests.AiDialogTestFactory;
+using static Beutl.HeadlessUITests.AiTestSupport;
 
 namespace Beutl.HeadlessUITests;
 

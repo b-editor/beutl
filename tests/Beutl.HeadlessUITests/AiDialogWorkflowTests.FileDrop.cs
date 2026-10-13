@@ -20,7 +20,7 @@ using Beutl.ViewModels;
 using Beutl.ViewModels.Dialogs;
 using Beutl.Views.Tools;
 using Moq;
-using static Beutl.HeadlessUITests.AiDialogTestFactory;
+using static Beutl.HeadlessUITests.AiTestSupport;
 
 namespace Beutl.HeadlessUITests;
 

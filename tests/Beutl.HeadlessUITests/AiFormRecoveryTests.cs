@@ -5,8 +5,6 @@ using System.Text;
 using System.Text.Json;
 using Avalonia.Headless.NUnit;
 using Beutl.Api;
-using Beutl.Api.Clients;
-using Beutl.Api.Objects;
 using Beutl.Api.Services;
 using Beutl.Services;
 using Beutl.Services.AI;
@@ -14,8 +12,7 @@ using Beutl.Services.PrimitiveImpls;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Dialogs;
-using Reactive.Bindings;
-using static Beutl.HeadlessUITests.AiDialogTestFactory;
+using static Beutl.HeadlessUITests.AiTestSupport;
 
 namespace Beutl.HeadlessUITests;
 
@@ -753,33 +750,6 @@ public sealed class AiFormRecoveryTests
             await Task.Delay(10, timeout.Token);
             HeadlessTestHelpers.Settle();
         }
-    }
-
-    private static void SetAuthenticatedUser(BeutlApiApplication app)
-    {
-        var profile = new Profile(new ProfileResponse
-        {
-            Id = "test-user",
-            Name = "test",
-            DisplayName = "Test User",
-            Bio = null,
-            IconId = null,
-            IconUrl = null,
-        }, app);
-        var user = new AuthenticatedUser(
-            profile,
-            new AuthResponse
-            {
-                Token = "token",
-                RefreshToken = "refresh-token",
-                Expiration = DateTime.UtcNow.AddHours(1),
-            },
-            app,
-            DateTime.UtcNow);
-        FieldInfo field = typeof(BeutlApiApplication).GetField(
-            "_authenticatedUser",
-            BindingFlags.NonPublic | BindingFlags.Instance)!;
-        ((ReactivePropertySlim<AuthenticatedUser?>)field.GetValue(app)!).Value = user;
     }
 
     private static string RecoveryCapabilitiesJson() => """

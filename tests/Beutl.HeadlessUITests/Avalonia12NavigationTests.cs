@@ -1,5 +1,4 @@
-﻿using Avalonia.Controls;
-using Avalonia.Headless.NUnit;
+﻿using Avalonia.Headless.NUnit;
 using Avalonia.Xaml.Interactivity;
 using Beutl.Controls;
 using FluentAvalonia.UI.Controls;
@@ -37,8 +36,4 @@ public class Avalonia12NavigationTests
             Interaction.GetBehaviors(item).Remove(behavior);
         }
     }
-
-    private sealed record Context(string Name);
-
-    public sealed class Page : UserControl;
 }

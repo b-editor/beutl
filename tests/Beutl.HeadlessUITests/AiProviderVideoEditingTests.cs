@@ -3,10 +3,8 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.LogicalTree;
-using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Beutl.Api;
 using Beutl.Api.Services;
@@ -15,7 +13,7 @@ using Beutl.Testing.Headless;
 using Beutl.ViewModels.Dialogs;
 using Beutl.ViewModels.Tools;
 using Beutl.Views.Tools;
-using static Beutl.HeadlessUITests.AiDialogTestFactory;
+using static Beutl.HeadlessUITests.AiTestSupport;
 
 namespace Beutl.HeadlessUITests;
 
@@ -31,15 +29,13 @@ public sealed partial class AiDialogWorkflowTests
         const string originalPrompt = "  change  the sky\nkeep\tmy subject  ";
         var sent = new List<(string Key, string Body)>();
         string route = "/api/v3/ai/videos/" + mode.ToString().ToLowerInvariant();
-        using var handler = new StubHandler(async (request, token) =>
+        await using var api = new ApiScope(new StubHandler(async (request, token) =>
         {
             if (request.RequestUri?.AbsolutePath == route)
                 sent.Add((request.Headers.GetValues("Idempotency-Key").Single(), await request.Content!.ReadAsStringAsync(token)));
             return ProviderVideoResponse(request);
-        });
-        using var http = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(http, new ExtensionProvider());
-        SetAuthenticatedUser(clients, http);
+        }));
+        BeutlApiApplication clients = api.Clients;
         DateTimeOffset now = DateTimeOffset.UtcNow;
         using var store = new FileAiRequestRecoveryStore(Path.Combine(BeutlHomeIsolation.CurrentHome!, "restart-" + Guid.NewGuid().ToString("N")), () => now);
         using var context = new AiRequestRecoveryContext(store, () => new AiAuthenticatedRequestIdentity("test-user", null));
@@ -92,15 +88,13 @@ public sealed partial class AiDialogWorkflowTests
     {
         await TestReset.ResetShellAsync();
         var sent = new List<(string Key, string Body)>();
-        using var handler = new StubHandler(async (request, token) =>
+        await using var api = new ApiScope(new StubHandler(async (request, token) =>
         {
             if (request.RequestUri?.AbsolutePath == "/api/v3/ai/videos/edit")
                 sent.Add((request.Headers.GetValues("Idempotency-Key").Single(), await request.Content!.ReadAsStringAsync(token)));
             return ProviderVideoResponse(request);
-        });
-        using var http = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(http, new ExtensionProvider());
-        SetAuthenticatedUser(clients, http);
+        }));
+        BeutlApiApplication clients = api.Clients;
         using var context = CreateIdentityContext(() => "test-user");
         await using var vm = new AiVideoEditingViewModel(mode => CreateVideoGenerationDialog(clients, context: context, sourceMode: mode));
         var edit = vm.ActiveContent.Value!;
@@ -141,10 +135,8 @@ public sealed partial class AiDialogWorkflowTests
         var layout = new JsonObject(); workspace.WriteToJson(layout);
         Assert.That(layout.Count, Is.EqualTo(2));
         Assert.That(layout["videoMode"]!.GetValue<string>(), Is.EqualTo("Motion"));
-        using var handler = new StubHandler(ProviderVideoResponse);
-        using var http = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(http, new ExtensionProvider());
-        SetAuthenticatedUser(clients, http);
+        await using var api = new ApiScope(new StubHandler(ProviderVideoResponse));
+        BeutlApiApplication clients = api.Clients;
         await using var group = new AiVideoEditingViewModel(mode => CreateVideoGenerationDialog(clients, sourceMode: mode));
         foreach (var task in group.Tasks)
         {
@@ -169,9 +161,6 @@ public sealed partial class AiDialogWorkflowTests
                 double Top(Control control) => control.TranslatePoint(default, view)!.Value.Y;
                 Assert.That(Top(sourceField), Is.LessThan(Top(view.FindControl<StackPanel>("TaskField")!)));
                 Assert.That(Top(modelField), Is.LessThanOrEqualTo(Top(promptField)));
-                Directory.CreateDirectory("/tmp/beutl-provider-scoped-ui");
-                using var frame = window.CaptureRenderedFrame();
-                frame?.Save($"/tmp/beutl-provider-scoped-ui/{task.Mode}-{width}.png", PngBitmapEncoderOptions.Default);
             }
             finally { window.Close(); }
         }

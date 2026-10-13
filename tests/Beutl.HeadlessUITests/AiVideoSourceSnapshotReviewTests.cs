@@ -5,7 +5,7 @@ using Beutl.Api.Services;
 using Beutl.Language;
 using Beutl.Services.AI;
 using Beutl.Testing.Headless;
-using static Beutl.HeadlessUITests.AiDialogTestFactory;
+using static Beutl.HeadlessUITests.AiTestSupport;
 
 namespace Beutl.HeadlessUITests;
 
@@ -22,15 +22,13 @@ public sealed partial class AiDialogWorkflowTests
     {
         await TestReset.ResetShellAsync();
         int uploads = 0;
-        using var handler = new StubHandler(request =>
+        await using var api = new ApiScope(new StubHandler(request =>
         {
             if (request.Method == HttpMethod.Post && request.RequestUri!.AbsolutePath.StartsWith("/api/v3/ai/videos", StringComparison.Ordinal))
                 uploads++;
             return ProviderVideoResponse(request);
-        });
-        using var http = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(http, new ExtensionProvider());
-        SetAuthenticatedUser(clients, http);
+        }));
+        BeutlApiApplication clients = api.Clients;
         using var store = new FileAiRequestRecoveryStore(Path.Combine(BeutlHomeIsolation.CurrentHome!, "invalid-video-" + Guid.NewGuid().ToString("N")));
         using var context = new AiRequestRecoveryContext(store, () => new AiAuthenticatedRequestIdentity("test-user", null));
         await using var vm = CreateVideoGenerationDialog(clients, context: context, sourceMode: sourceVideo ? AiSourceVideoMode.Edit : null);
@@ -68,14 +66,12 @@ public sealed partial class AiDialogWorkflowTests
     {
         await TestReset.ResetShellAsync();
         int uploads = 0;
-        using var handler = new StubHandler(request =>
+        await using var api = new ApiScope(new StubHandler(request =>
         {
             if (request.RequestUri?.AbsolutePath == "/api/v3/ai/videos/edit") uploads++;
             return ProviderVideoResponse(request);
-        });
-        using var http = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(http, new ExtensionProvider());
-        SetAuthenticatedUser(clients, http);
+        }));
+        BeutlApiApplication clients = api.Clients;
         using var store = new FileAiRequestRecoveryStore(Path.Combine(BeutlHomeIsolation.CurrentHome!, "source-snapshot-" + Guid.NewGuid().ToString("N")));
         using var context = new AiRequestRecoveryContext(store, () => new AiAuthenticatedRequestIdentity("test-user", null));
         var availability = new SourceDurationAvailability();

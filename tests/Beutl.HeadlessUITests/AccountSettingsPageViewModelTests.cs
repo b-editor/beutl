@@ -1,18 +1,15 @@
 ﻿using System.Net;
-using System.Reflection;
 using System.Text;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Beutl.Api;
-using Beutl.Api.Clients;
-using Beutl.Api.Objects;
 using Beutl.Api.Services;
 using Beutl.Language;
 using Beutl.Pages.SettingsPages;
 using Beutl.Services;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels.SettingsPages;
-using Reactive.Bindings;
+using static Beutl.HeadlessUITests.AiTestSupport;
 
 namespace Beutl.HeadlessUITests;
 
@@ -234,35 +231,6 @@ public sealed class AccountSettingsPageViewModelTests
             Assert.That(handler.Requests, Has.Count.EqualTo(1));
             Assert.DoesNotThrow(viewModel.Dispose);
         }
-    }
-
-    private static void SetAuthenticatedUser(BeutlApiApplication clients, string? userId)
-    {
-        FieldInfo field = typeof(BeutlApiApplication).GetField(
-            "_authenticatedUser",
-            BindingFlags.NonPublic | BindingFlags.Instance)!;
-        var state = (ReactivePropertySlim<AuthenticatedUser?>)field.GetValue(clients)!;
-        if (userId is null)
-        {
-            state.Value = null;
-            return;
-        }
-
-        var profile = new Profile(new ProfileResponse
-        {
-            Id = userId,
-            Name = userId,
-            DisplayName = userId,
-            Bio = null,
-            IconId = null,
-            IconUrl = null,
-        }, clients);
-        state.Value = new AuthenticatedUser(profile, new AuthResponse
-        {
-            Token = $"token-{userId}",
-            RefreshToken = $"refresh-{userId}",
-            Expiration = DateTime.UtcNow.AddHours(1),
-        }, clients, DateTime.UtcNow);
     }
 
     private static AiPlanCoordinator CreateCoordinator(BeutlApiApplication clients)

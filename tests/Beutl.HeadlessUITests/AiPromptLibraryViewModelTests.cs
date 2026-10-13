@@ -39,36 +39,13 @@ public sealed class AiPromptLibraryViewModelTests
     }
 
     [AvaloniaTest]
-    public void DeferredInitialReadFailureIsContainedOnTheUiDispatcher()
+    [TestCase(typeof(IOException))]
+    [TestCase(typeof(NotSupportedException))]
+    public void DeferredInitialReadFailureIsContainedOnTheUiDispatcher(Type failure)
     {
         var library = new FakePromptLibrary
         {
-            ReadFailure = new IOException("prompt storage unavailable"),
-        };
-        Task<AiPromptLibraryViewModel> creation = Task.Run(() =>
-            new AiPromptLibraryViewModel(
-                PromptTaskKind.Image,
-                static () => string.Empty,
-                static _ => { },
-                library));
-        bool completedWithoutUiPump = creation.Wait(TimeSpan.FromSeconds(2));
-        Assert.DoesNotThrow(() => Dispatcher.UIThread.RunJobs());
-        using AiPromptLibraryViewModel viewModel = creation.GetAwaiter().GetResult();
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(completedWithoutUiPump, Is.True);
-            Assert.That(viewModel.Templates, Is.Empty);
-            Assert.That(viewModel.History, Is.Empty);
-            Assert.That(viewModel.Error.Value, Is.EqualTo(Strings.AiResultUnavailable));
-        }
-    }
-
-    [AvaloniaTest]
-    public void DeferredInitialNewerFormatFailureIsContainedOnTheUiDispatcher()
-    {
-        var library = new FakePromptLibrary
-        {
-            ReadFailure = new NotSupportedException("prompt storage is from a newer version"),
+            ReadFailure = (Exception)Activator.CreateInstance(failure, "prompt storage unavailable")!,
         };
         Task<AiPromptLibraryViewModel> creation = Task.Run(() =>
             new AiPromptLibraryViewModel(
@@ -313,29 +290,6 @@ public sealed class AiPromptLibraryViewModelTests
     }
 
     [Test]
-    public void Record_StorageFailureIsContainedAndSurfaced()
-    {
-        var library = new FakePromptLibrary
-        {
-            RecordFailure = new IOException("Prompt history is unavailable."),
-        };
-        using var viewModel = new AiPromptLibraryViewModel(
-            PromptTaskKind.Video,
-            () => string.Empty,
-            _ => { },
-            library,
-            dispatchToUi: static action => action());
-
-        Assert.DoesNotThrow(() => viewModel.Record("paid prompt"));
-
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(viewModel.Error.Value, Is.EqualTo(Strings.AiResultUnavailable));
-            Assert.That(viewModel.History, Is.Empty);
-        }
-    }
-
-    [Test]
     public void SaveTemplate_RoutesCurrentValuesAndShowsTheSavedTemplate()
     {
         var library = new FakePromptLibrary();
@@ -400,54 +354,16 @@ public sealed class AiPromptLibraryViewModelTests
         }
     }
 
-    [TestCase("save")]
-    [TestCase("pin")]
-    [TestCase("delete")]
-    [TestCase("clear")]
-    public void ManagementCommand_StorageFailureIsContainedAndSurfaced(string operation)
+    [Test]
+    public void StorageFailureIsContainedByMutationEntryPoints(
+        [Values(typeof(IOException), typeof(NotSupportedException))] Type failure,
+        [Values("record", "save", "pin", "delete", "clear")] string operation)
     {
         var library = new FakePromptLibrary(
             templates: [CreateTemplate(PromptTaskKind.Image, "Template", updatedMinute: 1)])
         {
-            MutationFailure = new IOException("The prompt library is unavailable."),
-        };
-        using var viewModel = new AiPromptLibraryViewModel(
-            PromptTaskKind.Image,
-            () => "current prompt",
-            _ => { },
-            library,
-            dispatchToUi: static action => action());
-        viewModel.TemplateName.Value = "New template";
-        AiPromptChoice choice = viewModel.Templates.Single();
-        Action execute = operation switch
-        {
-            "save" => () => Execute(viewModel.SaveTemplate),
-            "pin" => () => Execute(viewModel.TogglePin, choice),
-            "delete" => () => Execute(viewModel.Delete, choice),
-            _ => () => Execute(viewModel.ClearHistory),
-        };
-
-        Assert.DoesNotThrow(execute);
-
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(viewModel.Error.Value, Is.EqualTo(Strings.AiResultUnavailable));
-            Assert.That(viewModel.Templates.Single().Id, Is.EqualTo(choice.Id));
-        }
-    }
-
-    [TestCase("record")]
-    [TestCase("save")]
-    [TestCase("pin")]
-    [TestCase("delete")]
-    [TestCase("clear")]
-    public void NewerStorageFormatFailureIsContainedByMutationEntryPoints(string operation)
-    {
-        var library = new FakePromptLibrary(
-            templates: [CreateTemplate(PromptTaskKind.Image, "Template", updatedMinute: 1)])
-        {
-            RecordFailure = new NotSupportedException("newer prompt library"),
-            MutationFailure = new NotSupportedException("newer prompt library"),
+            RecordFailure = (Exception)Activator.CreateInstance(failure, "The prompt library is unavailable.")!,
+            MutationFailure = (Exception)Activator.CreateInstance(failure, "The prompt library is unavailable.")!,
         };
         using var viewModel = new AiPromptLibraryViewModel(
             PromptTaskKind.Image,

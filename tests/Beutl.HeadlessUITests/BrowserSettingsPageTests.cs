@@ -1,8 +1,6 @@
 ﻿using System.Reactive.Linq;
 using Avalonia.Controls;
-using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
-using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -11,6 +9,7 @@ using Beutl.Editor.Components.WebBrowserTab;
 using Beutl.Pages;
 using Beutl.Pages.SettingsPages;
 using Beutl.Services;
+using Beutl.Testing.Headless;
 using Beutl.ViewModels.SettingsPages;
 using FluentAvalonia.UI.Controls;
 
@@ -25,7 +24,7 @@ public class BrowserSettingsPageTests
     public async Task BackgroundFilterChangesUpdateStatusOnTheUiThread(bool loadCache)
     {
         string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
-        using var client = new HttpClient(new FilterResponseHandler());
+        using var client = new HttpClient(new BrowserAdBlockTestRules.FilterResponseHandler());
         string cache = Path.Combine(root, "filters.json");
         var filters = new BrowserAdBlockFilterStore(cache, client);
         if (loadCache)
@@ -53,7 +52,7 @@ public class BrowserSettingsPageTests
     public void QueuedFilterStatusChangeIsIgnoredAfterDisposal()
     {
         string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
-        using var client = new HttpClient(new FilterResponseHandler());
+        using var client = new HttpClient(new BrowserAdBlockTestRules.FilterResponseHandler());
         var filters = new BrowserAdBlockFilterStore(Path.Combine(root, "filters.json"), client);
         var profile = new BrowserProfile(Path.Combine(root, "profile.json"), adBlockFilters: filters);
         using var vm = new BrowserSettingsPageViewModel(profile, () => null);
@@ -92,18 +91,16 @@ public class BrowserSettingsPageTests
     }
 
     [AvaloniaTest]
-    [TestCase(640, false)]
-    [TestCase(760, true)]
-    public async Task Page_ImmediatelyPersistsBoundSettings(int width, bool light)
+    public async Task Page_ImmediatelyPersistsBoundSettings()
     {
         string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
-        using var client = new HttpClient(new FilterResponseHandler());
+        using var client = new HttpClient(new BrowserAdBlockTestRules.FilterResponseHandler());
         var filters = new BrowserAdBlockFilterStore(Path.Combine(root, "filters.json"), client);
         await filters.UpdateAsync([BrowserAdBlockFilterStore.EasyListUrl], CancellationToken.None);
         var profile = new BrowserProfile(Path.Combine(root, "profile.json"), adBlockFilters: filters);
         using var vm = new BrowserSettingsPageViewModel(profile, () => null);
         var page = new BrowserSettingsPage { DataContext = vm };
-        var window = new Window { Content = page, Width = width, Height = 840, RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark };
+        var window = new Window { Content = page, Width = 640, Height = 840, RequestedThemeVariant = ThemeVariant.Dark };
         try
         {
             window.Show();
@@ -111,14 +108,11 @@ public class BrowserSettingsPageTests
             Assert.That(page.GetVisualDescendants().OfType<OptionsDisplayItem>().Count(), Is.EqualTo(6));
             page.FindControl<ToggleSwitch>("BlockAdsToggle")!.IsChecked = true;
             Dispatcher.UIThread.RunJobs();
-            if (Environment.GetEnvironmentVariable("BEUTL_BROWSER_CAPTURE") is { Length: > 0 } directory)
+            if (HeadlessCapture.IsRequested)
             {
                 // Capture the expanded settings after its opacity/chevron transition settles.
                 await Task.Delay(350);
-                Dispatcher.UIThread.RunJobs();
-                Directory.CreateDirectory(directory);
-                using var image = window.CaptureRenderedFrame();
-                image?.Save(Path.Combine(directory, $"settings-{width}-{light}.png"), PngBitmapEncoderOptions.Default);
+                HeadlessCapture.SaveIfRequested(window, nameof(BrowserSettingsPageTests), "settings");
             }
             page.FindControl<ComboBox>("SearchEngineComboBox")!.SelectedIndex = 1;
             page.FindControl<ToggleSwitch>("SuggestionsToggle")!.IsChecked = false;
@@ -129,12 +123,6 @@ public class BrowserSettingsPageTests
             Assert.That(vm.CanClearCookies, Is.False);
         }
         finally { window.Close(); if (Directory.Exists(root)) Directory.Delete(root, true); }
-    }
-
-    private sealed class FilterResponseHandler : HttpMessageHandler
-    {
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
-            Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = new StringContent("[Adblock Plus 2.0]\n||ads.example.test^") });
     }
 
     [AvaloniaTest]

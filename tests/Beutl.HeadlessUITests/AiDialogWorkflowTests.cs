@@ -11,7 +11,6 @@ using Avalonia.Headless.NUnit;
 using Avalonia.Platform.Storage;
 using Beutl.Api;
 using Beutl.Api.Clients;
-using Beutl.Api.Objects;
 using Beutl.Api.Services;
 using Beutl.Audio;
 using Beutl.Editor.Models;
@@ -29,8 +28,7 @@ using Beutl.ViewModels;
 using Beutl.ViewModels.Dialogs;
 using Beutl.Views.Tools;
 using FluentAvalonia.UI.Controls;
-using Reactive.Bindings;
-using static Beutl.HeadlessUITests.AiDialogTestFactory;
+using static Beutl.HeadlessUITests.AiTestSupport;
 
 namespace Beutl.HeadlessUITests;
 
@@ -5139,30 +5137,6 @@ public sealed partial class AiDialogWorkflowTests
         }
     }
 
-    private static void SetAuthenticatedUser(BeutlApiApplication app, HttpClient httpClient)
-    {
-        httpClient.BaseAddress = new Uri("https://beutl.beditor.net");
-        var profile = new Profile(new ProfileResponse
-        {
-            Id = "test-user",
-            Name = "test",
-            DisplayName = "Test User",
-            Bio = null,
-            IconId = null,
-            IconUrl = null,
-        }, app);
-        var user = new AuthenticatedUser(profile, new AuthResponse
-        {
-            Token = "token",
-            RefreshToken = "refresh-token",
-            Expiration = DateTime.UtcNow.AddHours(1),
-        }, app, DateTime.UtcNow);
-        FieldInfo field = typeof(BeutlApiApplication).GetField(
-            "_authenticatedUser",
-            BindingFlags.NonPublic | BindingFlags.Instance)!;
-        ((ReactivePropertySlim<AuthenticatedUser?>)field.GetValue(app)!).Value = user;
-    }
-
     // Two video models with different shapes: one takes 4/6/8 seconds at 720p or
     // 1080p, the other renders only at 2K, refuses anything under five seconds
     // and takes no seed.
@@ -5382,12 +5356,6 @@ public sealed partial class AiDialogWorkflowTests
         }
         """;
 
-    private static HttpResponseMessage JsonResponse(HttpStatusCode status, string json)
-        => new(status)
-        {
-            Content = new StringContent(json, Encoding.UTF8, "application/json"),
-        };
-
     // The server's error body. withDocumentationUrl: false leaves the field out, which is not the same as
     // null: the client's ApiErrorResponse requires it.
     private static HttpResponseMessage ErrorResponse(
@@ -5397,15 +5365,6 @@ public sealed partial class AiDialogWorkflowTests
         if (withDocumentationUrl) body["documentation_url"] = null;
         return JsonResponse(status, JsonSerializer.Serialize(body));
     }
-
-    private static HttpResponseMessage ByteResponse(byte[] bytes, string mediaType)
-        => new(HttpStatusCode.OK)
-        {
-            Content = new ByteArrayContent(bytes)
-            {
-                Headers = { ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(mediaType) },
-            },
-        };
 
     private sealed class CancellationObservingStream : Stream
     {
@@ -5471,53 +5430,5 @@ public sealed partial class AiDialogWorkflowTests
 
         public override void Write(byte[] buffer, int offset, int count)
             => throw new NotSupportedException();
-    }
-
-    // The handler, its HttpClient and the clients over them, signed in unless signIn is false; disposed in
-    // reverse order of creation.
-    private sealed class ApiScope : IAsyncDisposable
-    {
-        private readonly StubHandler _handler;
-        private readonly HttpClient _http;
-
-        public ApiScope(StubHandler handler, bool signIn = true)
-        {
-            _handler = handler;
-            _http = new HttpClient(handler);
-            Clients = new BeutlApiApplication(_http, new ExtensionProvider());
-            if (signIn) SetAuthenticatedUser(Clients, _http);
-        }
-
-        public BeutlApiApplication Clients { get; }
-
-        public async ValueTask DisposeAsync()
-        {
-            await Clients.DisposeAsync();
-            _http.Dispose();
-            _handler.Dispose();
-        }
-    }
-
-    private sealed class StubHandler(
-        Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> responder,
-        bool handleAvailability = true) : HttpMessageHandler
-    {
-        public StubHandler(Func<HttpRequestMessage, HttpResponseMessage> responder)
-            : this((request, _) => Task.FromResult(responder(request)))
-        {
-        }
-
-        protected override async Task<HttpResponseMessage> SendAsync(
-            HttpRequestMessage request,
-            CancellationToken cancellationToken)
-        {
-            HttpResponseMessage response = handleAvailability
-                && request.RequestUri?.AbsolutePath
-                == "/api/v3/user/ai-availability"
-                ? JsonResponse(HttpStatusCode.OK, "{ \"available\": true }")
-                : await responder(request, cancellationToken);
-            response.RequestMessage = request;
-            return response;
-        }
     }
 }

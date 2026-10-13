@@ -164,7 +164,6 @@ public sealed class CaptionExportStorageTests
         return new StorageTransactionMocks(
             destination,
             parent,
-            stagingFolder,
             backupFolder,
             stagedFile,
             backupFile);
@@ -180,7 +179,6 @@ public sealed class CaptionExportStorageTests
     private sealed record StorageTransactionMocks(
         Mock<IStorageFile> Destination,
         Mock<IStorageFolder> Parent,
-        Mock<IStorageFolder> StagingFolder,
         Mock<IStorageFolder> BackupFolder,
         Mock<IStorageFile> StagedFile,
         Mock<IStorageFile> BackupFile);

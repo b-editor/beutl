@@ -8,7 +8,7 @@ using Beutl.Graphics;
 using Beutl.Media.Source;
 using Beutl.Services.AI;
 using Beutl.Testing.Headless;
-using static Beutl.HeadlessUITests.AiDialogTestFactory;
+using static Beutl.HeadlessUITests.AiTestSupport;
 
 namespace Beutl.HeadlessUITests;
 
@@ -35,17 +35,15 @@ public sealed partial class AiDialogWorkflowTests
         var selected = added.Elements.Single();
         ((IEditorSelection)editor.GetService(typeof(IEditorSelection))!).SelectedObject.Value = selected;
         var sent = new List<(string Key, string Body)>();
-        using var handler = new StubHandler(async (request, token) =>
+        await using var api = new ApiScope(new StubHandler(async (request, token) =>
         {
             if (request.RequestUri?.AbsolutePath == "/api/v3/ai/capabilities")
                 return JsonResponse(HttpStatusCode.OK, ProviderVideoCapabilities.Replace("\"inputReferences\":true", "\"inputReferences\":true,\"firstFrame\":true"));
             if (request.Method == HttpMethod.Post && request.RequestUri!.AbsolutePath.StartsWith("/api/v3/ai/videos/", StringComparison.Ordinal))
                 sent.Add((request.Headers.GetValues("Idempotency-Key").Single(), await request.Content!.ReadAsStringAsync(token)));
             return ProviderVideoResponse(request);
-        });
-        using var http = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(http, new ExtensionProvider());
-        SetAuthenticatedUser(clients, http);
+        }));
+        BeutlApiApplication clients = api.Clients;
         DateTimeOffset now = DateTimeOffset.UtcNow;
         using var store = new FileAiRequestRecoveryStore(Path.Combine(BeutlHomeIsolation.CurrentHome!, "selected-image-" + Guid.NewGuid().ToString("N")), () => now);
         using var context = new AiRequestRecoveryContext(store, () => new AiAuthenticatedRequestIdentity("test-user", null));

@@ -264,10 +264,8 @@ public sealed class AiSubtitleAdvancedTests
 
         Assert.Multiple(() =>
         {
-            // The resample cursor is written samples times the source rate, which
-            // leaves int after about three seconds of 48 kHz audio. Wrapped
-            // negative, the cursor never reaches the end of the block and the
-            // loop writes until the disk is full.
+            // The resample cursor (written samples times the source rate) overflowed int after about
+            // three seconds of 48 kHz audio, so the loop never ended.
             Assert.That(result.OutputSampleCount, Is.EqualTo(4 * 16_000));
             Assert.That(stream.Length, Is.EqualTo(44 + (4 * 16_000 * sizeof(short))));
         });

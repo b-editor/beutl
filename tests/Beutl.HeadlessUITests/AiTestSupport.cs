@@ -1,0 +1,190 @@
+﻿using System.Net;
+using System.Net.Http.Headers;
+using System.Reactive.Linq;
+using System.Reflection;
+using System.Text;
+using Beutl.Api;
+using Beutl.Api.Clients;
+using Beutl.Api.Objects;
+using Beutl.Api.Services;
+using Beutl.Editor.Services.Captions;
+using Beutl.Services;
+using Beutl.Services.AI;
+using Beutl.ViewModels;
+using Beutl.ViewModels.Dialogs;
+using Reactive.Bindings;
+
+namespace Beutl.HeadlessUITests;
+
+// Stubbed API clients, a signed-in user and the AI dialog view models for the AI tests.
+internal static class AiTestSupport
+{
+    public static HttpResponseMessage JsonResponse(HttpStatusCode status, string json)
+        => new(status)
+        {
+            Content = new StringContent(json, Encoding.UTF8, "application/json"),
+        };
+
+    public static HttpResponseMessage ByteResponse(byte[] bytes, string mediaType)
+        => new(HttpStatusCode.OK)
+        {
+            Content = new ByteArrayContent(bytes)
+            {
+                Headers = { ContentType = new MediaTypeHeaderValue(mediaType) },
+            },
+        };
+
+    // Signs the clients in as id, or out when id is null. BeutlApiApplication has no way in for tests, so
+    // this sets the user it holds.
+    public static void SetAuthenticatedUser(BeutlApiApplication clients, string? id = "test-user")
+    {
+        FieldInfo field = typeof(BeutlApiApplication).GetField(
+            "_authenticatedUser",
+            BindingFlags.NonPublic | BindingFlags.Instance)!;
+        var state = (ReactivePropertySlim<AuthenticatedUser?>)field.GetValue(clients)!;
+        if (id is null)
+        {
+            state.Value = null;
+            return;
+        }
+
+        var profile = new Profile(new ProfileResponse
+        {
+            Id = id,
+            Name = id,
+            DisplayName = id,
+            Bio = null,
+            IconId = null,
+            IconUrl = null,
+        }, clients);
+        state.Value = new AuthenticatedUser(profile, new AuthResponse
+        {
+            Token = $"token-{id}",
+            RefreshToken = $"refresh-{id}",
+            Expiration = DateTime.UtcNow.AddHours(1),
+        }, clients, DateTime.UtcNow);
+    }
+
+    // The AI dialog view models over a test's API clients. Unless a test passes its own, each gets a fresh
+    // form recovery context and a plan coordinator over the clients' entitlements.
+    public static AiImageGenerationDialogViewModel CreateImageGenerationDialog(
+        BeutlApiApplication clients,
+        EditViewModel? editor = null,
+        AiRequestRecoveryContext? context = null,
+        IAiPlanCoordinator? planCoordinator = null)
+        => new(
+            clients.GetResource<IAiEntitlementService>(),
+            clients.GetResource<IAiOperationAvailabilityService>(),
+            clients.GetResource<IAiModelCatalogService>(),
+            planCoordinator ?? CreatePlanCoordinator(clients),
+            clients.GetResource<IAiImageGenerationService>(),
+            clients.GetResource<IAuthenticatedContentService>(),
+            editor,
+            context ?? AiRetryTestContext.CreateForm());
+
+    public static AiImageEditDialogViewModel CreateImageEditDialog(
+        BeutlApiApplication clients,
+        EditViewModel? editor = null,
+        AiRequestRecoveryContext? context = null,
+        IAiPlanCoordinator? planCoordinator = null)
+        => new(
+            clients.GetResource<IAiEntitlementService>(),
+            clients.GetResource<IAiOperationAvailabilityService>(),
+            clients.GetResource<IAiModelCatalogService>(),
+            planCoordinator ?? CreatePlanCoordinator(clients),
+            clients.GetResource<IAiImageEditingService>(),
+            clients.GetResource<IAuthenticatedContentService>(),
+            editor,
+            context ?? AiRetryTestContext.CreateForm());
+
+    public static AiVideoGenerationDialogViewModel CreateVideoGenerationDialog(
+        BeutlApiApplication clients,
+        EditViewModel? editor = null,
+        AiRequestRecoveryContext? context = null,
+        AiSourceVideoMode? sourceMode = null,
+        IAiOperationAvailabilityService? availability = null,
+        IAiPlanCoordinator? planCoordinator = null)
+        => new(
+            clients.GetResource<IAiEntitlementService>(),
+            availability ?? clients.GetResource<IAiOperationAvailabilityService>(),
+            clients.GetResource<IAiModelCatalogService>(),
+            planCoordinator ?? CreatePlanCoordinator(clients),
+            clients.GetResource<IAiVideoService>(),
+            clients.GetResource<IAuthenticatedContentService>(),
+            clients.GetResource<IAiJobKindRegistry>(),
+            clients.GetResource<IAiJobMonitor>(),
+            editor,
+            context ?? AiRetryTestContext.CreateForm(), sourceMode);
+
+    public static AiSubtitleDialogViewModel CreateSubtitleDialog(
+        BeutlApiApplication clients,
+        EditViewModel? editor = null,
+        ICaptionDraftStore? draftStore = null,
+        IObservable<CaptionDraftScope?>? draftScopes = null,
+        IAiOperationAvailabilityService? availabilityService = null)
+        => new(
+            clients.GetResource<IAiEntitlementService>(),
+            availabilityService ?? clients.GetResource<IAiOperationAvailabilityService>(),
+            clients.GetResource<IAiModelCatalogService>(),
+            CreatePlanCoordinator(clients),
+            clients.GetResource<IAiTranscriptionService>(),
+            clients.GetResource<IAiCaptionTranslationService>(),
+            CaptionCatalog.CreateDefault("Default"),
+            draftStore ?? CaptionDraftStoreProvider.Current,
+            draftScopes ?? Observable.Return<CaptionDraftScope?>(null),
+            editor);
+
+    private static IAiPlanCoordinator CreatePlanCoordinator(BeutlApiApplication clients)
+        => new AiPlanCoordinator(clients.GetResource<IAiEntitlementService>());
+
+    // Answers each request through responder. Unless handleAvailability is false, it answers the
+    // availability check itself.
+    public sealed class StubHandler(
+        Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> responder,
+        bool handleAvailability = true) : HttpMessageHandler
+    {
+        public StubHandler(Func<HttpRequestMessage, HttpResponseMessage> responder, bool handleAvailability = true)
+            : this((request, _) => Task.FromResult(responder(request)), handleAvailability)
+        {
+        }
+
+        protected override async Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            HttpResponseMessage response = handleAvailability
+                && request.RequestUri?.AbsolutePath
+                == "/api/v3/user/ai-availability"
+                ? JsonResponse(HttpStatusCode.OK, "{ \"available\": true }")
+                : await responder(request, cancellationToken);
+            response.RequestMessage = request;
+            return response;
+        }
+    }
+
+    // The handler, its HttpClient and the clients over them, signed in unless signIn is false; disposed in
+    // reverse order of creation.
+    public sealed class ApiScope : IAsyncDisposable
+    {
+        private readonly StubHandler _handler;
+        private readonly HttpClient _http;
+
+        public ApiScope(StubHandler handler, bool signIn = true)
+        {
+            _handler = handler;
+            _http = new HttpClient(handler);
+            Clients = new BeutlApiApplication(_http, new ExtensionProvider());
+            if (signIn) SetAuthenticatedUser(Clients);
+        }
+
+        public BeutlApiApplication Clients { get; }
+
+        public async ValueTask DisposeAsync()
+        {
+            await Clients.DisposeAsync();
+            _http.Dispose();
+            _handler.Dispose();
+        }
+    }
+}

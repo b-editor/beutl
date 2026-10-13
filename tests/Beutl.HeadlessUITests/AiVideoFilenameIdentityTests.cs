@@ -3,7 +3,7 @@ using Avalonia.Headless.NUnit;
 using Beutl.Api;
 using Beutl.Api.Services;
 using Beutl.Testing.Headless;
-using static Beutl.HeadlessUITests.AiDialogTestFactory;
+using static Beutl.HeadlessUITests.AiTestSupport;
 
 namespace Beutl.HeadlessUITests;
 
@@ -19,15 +19,13 @@ public sealed partial class AiDialogWorkflowTests
     {
         await TestReset.ResetShellAsync();
         var sent = new List<(string Key, string Body)>();
-        using var handler = new StubHandler(async (request, token) =>
+        await using var api = new ApiScope(new StubHandler(async (request, token) =>
         {
             if (request.Method == HttpMethod.Post && request.RequestUri!.AbsolutePath.StartsWith("/api/v3/ai/videos", StringComparison.Ordinal))
                 sent.Add((request.Headers.GetValues("Idempotency-Key").Single(), await request.Content!.ReadAsStringAsync(token)));
             return ProviderVideoResponse(request);
-        });
-        using var http = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(http, new ExtensionProvider());
-        SetAuthenticatedUser(clients, http);
+        }));
+        BeutlApiApplication clients = api.Clients;
         AiSourceVideoMode? mode = role switch
         {
             "source" => AiSourceVideoMode.Edit,

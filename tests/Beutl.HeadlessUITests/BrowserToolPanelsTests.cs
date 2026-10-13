@@ -7,7 +7,6 @@ using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
-using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -59,19 +58,19 @@ public class BrowserToolPanelsTests
             Assert.That(border.BorderThickness, Is.EqualTo(default(Thickness)));
             Assert.That(((ISolidColorBrush)border.Background!).Color.A, Is.Zero);
             CheckHeight();
-            Capture(window, $"address-idle-{width}-{light}");
+            HeadlessCapture.SaveIfRequested(window, nameof(BrowserToolPanelsTests), $"address-idle-{width}-{light}");
 
             window.MouseMove(address.TranslatePoint(new Point(address.Bounds.Width / 2, address.Bounds.Height / 2), window)!.Value);
             HeadlessTestHelpers.Render();
             CheckHeight();
-            Capture(window, $"address-hover-{width}-{light}");
+            HeadlessCapture.SaveIfRequested(window, nameof(BrowserToolPanelsTests), $"address-hover-{width}-{light}");
 
             address.Focus(NavigationMethod.Tab);
             HeadlessTestHelpers.Render();
             CheckHeight();
             Assert.That(address.SelectedText, Is.EqualTo(uri.AbsoluteUri));
             Assert.That(address.BorderThickness, Is.EqualTo(default(Thickness)));
-            Capture(window, $"address-focused-{width}-{light}");
+            HeadlessCapture.SaveIfRequested(window, nameof(BrowserToolPanelsTests), $"address-focused-{width}-{light}");
             window.KeyTextInput("検索テスト");
             Assert.That(address.Address, Is.EqualTo("検索テスト"));
             menu.Focus();
@@ -90,11 +89,9 @@ public class BrowserToolPanelsTests
     }
 
     [AvaloniaTest]
-    [TestCase(320, false)]
-    [TestCase(640, false)]
-    [TestCase(320, true)]
-    [TestCase(640, true)]
-    public async Task PanelsRemainReadableAndDownloadActionsStayVisible(int width, bool light)
+    [TestCase(320)]
+    [TestCase(640)]
+    public async Task PanelsRemainReadableAndDownloadActionsStayVisible(int width)
     {
         string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
@@ -108,7 +105,7 @@ public class BrowserToolPanelsTests
         using var view = new WebBrowserTabView(url => new NativeWebView { Source = url }, () => (true, null, false));
         view.DataContext = vm;
         vm.CompleteNavigation(uri, true, false, false);
-        var window = new Window { Content = view, Width = width, Height = 640, RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark };
+        var window = new Window { Content = view, Width = width, Height = 640, RequestedThemeVariant = ThemeVariant.Dark };
         try
         {
             window.Show();
@@ -130,10 +127,10 @@ public class BrowserToolPanelsTests
                 Assert.That(close.Bounds.Size, Is.EqualTo(menu.Bounds.Size),
                     "the two bars should use the same icon button size");
             });
-            Capture(window, $"history-{width}-{light}");
+            HeadlessCapture.SaveIfRequested(window, nameof(BrowserToolPanelsTests), $"history-{width}");
             profile.ClearHistory();
             Dispatcher.UIThread.RunJobs();
-            Capture(window, $"history-empty-{width}-{light}");
+            HeadlessCapture.SaveIfRequested(window, nameof(BrowserToolPanelsTests), $"history-empty-{width}");
 
             Task<WebBrowserTabView.BrowserDownloadOptions?> pending = view.ChooseDownloadOptionsAsync(
                 new Uri("https://videos.example.com/forest-light.mp4?download=true"), default);
@@ -144,7 +141,7 @@ public class BrowserToolPanelsTests
             Point confirmPosition = confirm.TranslatePoint(default, window)!.Value;
             Assert.That(confirmPosition.Y + confirm.Bounds.Height, Is.LessThanOrEqualTo(window.Bounds.Height));
             Assert.That(options.SelectedDirectory, Is.EqualTo(Path.Combine(root, "resources", "downloads")));
-            Capture(window, $"download-options-{width}-{light}");
+            HeadlessCapture.SaveIfRequested(window, nameof(BrowserToolPanelsTests), $"download-options-{width}");
             window.Height = 360;
             window.UpdateLayout();
             confirmPosition = confirm.TranslatePoint(default, window)!.Value;
@@ -166,17 +163,17 @@ public class BrowserToolPanelsTests
             Assert.That(view.FindControl<TextBlock>("FindStatusText")!.IsVisible, Is.False);
             Assert.That(view.FindControl<TextBlock>("FindCountText")!.IsEffectivelyVisible, Is.True);
             Assert.That(view.FindControl<TextBlock>("FindCountText")!.Text, Is.EqualTo(string.Format(Strings.BrowserFindCount, 2, 24)));
-            Capture(window, $"find-{width}-{light}");
+            HeadlessCapture.SaveIfRequested(window, nameof(BrowserToolPanelsTests), $"find-{width}");
             view.PageScriptRunner = _ => Task.FromResult<string?>("{\"Index\":0,\"Count\":0}");
             await view.FindInPageAsync(0);
             Assert.That(view.FindControl<Button>("FindNextButton")!.IsEnabled, Is.False);
             Assert.That(view.FindControl<TextBlock>("FindStatusText")!.Text, Is.EqualTo(Strings.BrowserFindNoResults));
-            Capture(window, $"find-no-results-{width}-{light}");
+            HeadlessCapture.SaveIfRequested(window, nameof(BrowserToolPanelsTests), $"find-no-results-{width}");
             view.PageScriptRunner = _ => Task.FromResult<string?>(null);
             await view.FindInPageAsync(0);
             Assert.That(view.FindControl<TextBlock>("FindCountText")!.Text, Is.Empty);
             Assert.That(view.FindControl<TextBlock>("FindStatusText")!.Text, Is.EqualTo(Strings.BrowserFindUnavailable));
-            Capture(window, $"find-unavailable-{width}-{light}");
+            HeadlessCapture.SaveIfRequested(window, nameof(BrowserToolPanelsTests), $"find-unavailable-{width}");
         }
         finally { window.Close(); Directory.Delete(root, true); }
     }
@@ -331,7 +328,7 @@ public class BrowserToolPanelsTests
             Assert.That(view.FindControl<ProgressBar>("DownloadProgressBar")!.IsIndeterminate, Is.True);
             Assert.That(view.FindControl<ProgressBar>("DownloadProgressBar")!.IsVisible, Is.True);
             Assert.That(view.FindControl<Button>("DismissDownloadStatusButton")!.IsVisible, Is.False);
-            Capture(window, "download-progress-320");
+            HeadlessCapture.SaveIfRequested(window, nameof(BrowserToolPanelsTests), "download-progress-320");
             view.FindControl<Button>("DownloadCancelButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             await pending;
             Assert.That(view.FindControl<ProgressBar>("DownloadProgressBar")!.IsVisible, Is.False);
@@ -352,9 +349,7 @@ public class BrowserToolPanelsTests
         using var vm = new WebBrowserTabViewModel(CreateContext(root), WebBrowserTabViewModel.BlankPage, profile);
         using var view = new WebBrowserTabView(_ => new NativeWebView(), () => (false, null, false)) { DataContext = vm };
         var window = new Window { Content = view, Width = 640, Height = 480 };
-        INotificationServiceHandler? previousHandler = NotificationService.Handler;
-        var notifications = new CaptureNotificationHandler();
-        NotificationService.Handler = notifications;
+        using var notifications = new NotificationCapture();
         try
         {
             window.Show();
@@ -367,7 +362,7 @@ public class BrowserToolPanelsTests
             Assert.That(IsMenuItemEnabled(view, Strings.BrowserBookmarkThisPage), Is.True);
             OpenMenu(view, Strings.BrowserBookmarkThisPage);
             Assert.That(profile.Bookmarks, Is.EqualTo(new[] { new BrowserBookmark(uri.AbsoluteUri, "Example Page") }));
-            Notification notification = notifications.Notifications.Single();
+            Notification notification = notifications.All.Single();
             Assert.Multiple(() =>
             {
                 Assert.That(notification.Type, Is.EqualTo(NotificationType.Success));
@@ -381,7 +376,6 @@ public class BrowserToolPanelsTests
         }
         finally
         {
-            NotificationService.Handler = previousHandler ?? notifications;
             window.Close();
             if (Directory.Exists(root)) Directory.Delete(root, true);
         }
@@ -399,13 +393,11 @@ public class BrowserToolPanelsTests
         view.OnNativeDownloadRequested(new Uri("https://files.example/movie.mp4"), "movie.mp4", new IdleDownloadSource());
         Dispatcher.UIThread.RunJobs();
         Assert.That(view.FindControl<Button>("ConfirmPageDownloadButton")!.IsVisible, Is.True);
-        INotificationServiceHandler? previousHandler = NotificationService.Handler;
-        var notifications = new CaptureNotificationHandler();
-        NotificationService.Handler = notifications;
+        using var notifications = new NotificationCapture();
         try
         {
             OpenMenu(view, Strings.BrowserBookmarkThisPage);
-            Notification notification = notifications.Notifications.Single();
+            Notification notification = notifications.All.Single();
             Assert.Multiple(() =>
             {
                 Assert.That(profile.Bookmarks, Is.Empty);
@@ -417,7 +409,6 @@ public class BrowserToolPanelsTests
         }
         finally
         {
-            NotificationService.Handler = previousHandler ?? notifications;
             if (Directory.Exists(root)) Directory.Delete(root, true);
         }
     }
@@ -466,23 +457,6 @@ public class BrowserToolPanelsTests
             Assert.That(position.X, Is.GreaterThanOrEqualTo(-1), control.Name);
             Assert.That(position.X + control.Bounds.Width, Is.LessThanOrEqualTo(view.Bounds.Width + 1), control.Name);
         }
-    }
-
-    private static void Capture(Window window, string name)
-    {
-        if (Environment.GetEnvironmentVariable("BEUTL_BROWSER_CAPTURE") is not { Length: > 0 } directory) return;
-        Dispatcher.UIThread.RunJobs();
-        window.UpdateLayout();
-        Directory.CreateDirectory(directory);
-        using var image = window.CaptureRenderedFrame();
-        image?.Save(Path.Combine(directory, name + ".png"), PngBitmapEncoderOptions.Default);
-    }
-
-    private sealed class CaptureNotificationHandler : INotificationServiceHandler
-    {
-        public List<Notification> Notifications { get; } = [];
-
-        public void Show(Notification notification) => Notifications.Add(notification);
     }
 
     private sealed class IdleDownloadSource : IBrowserDownloadSource

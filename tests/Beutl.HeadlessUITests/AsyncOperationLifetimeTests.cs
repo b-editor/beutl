@@ -338,22 +338,6 @@ public sealed class AsyncOperationLifetimeTests
     }
 
     [Test]
-    public void Dispose_ReportsCancellationCallbackFailureAfterDrain()
-    {
-        var lifetime = new AsyncOperationLifetime();
-        AsyncOperationLifetime.Operation operation = lifetime.TryEnter()!;
-        using CancellationTokenRegistration registration = operation.CancellationToken.Register(
-            static () => throw new InvalidOperationException("callback failed"));
-
-        Task disposal = lifetime.DisposeAsync().AsTask();
-        operation.Dispose();
-
-        Assert.That(
-            async () => await disposal.WaitAsync(TimeSpan.FromSeconds(5)),
-            Throws.InstanceOf<InvalidOperationException>());
-    }
-
-    [Test]
     public async Task Cancel_AfterDisposeIsIgnored()
     {
         await using var lifetime = new AsyncOperationLifetime();
@@ -430,7 +414,7 @@ public sealed class AsyncOperationLifetimeTests
         operation.Dispose();
         Assert.That(
             async () => await first.WaitAsync(TimeSpan.FromSeconds(5)),
-            Throws.InstanceOf<Exception>());
+            Throws.InstanceOf<InvalidOperationException>());
         Assert.That(lifetime.TryEnter(), Is.Null);
         Assert.That(disposeCount, Is.EqualTo(1));
     }

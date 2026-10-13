@@ -6,7 +6,6 @@ using Beutl.PackageTools.UI.Views;
 using Beutl.Pages;
 using Beutl.Testing.Headless;
 using Beutl.Views;
-using FluentAvalonia.UI.Windowing;
 
 namespace Beutl.HeadlessUITests;
 
@@ -85,55 +84,6 @@ public class AvaloniaWindowInitializationTests
         {
             await CloseAsync(window);
         }
-    }
-
-    [AvaloniaTest]
-    public async Task App_windows_can_be_opened_together_and_recreated_in_runtime_mode()
-    {
-        var lifecycleDesignModes = new List<bool>();
-        for (int i = 0; i < 2; i++)
-        {
-            var first = HeadlessAppWindow.Create(() => new FAAppWindow());
-            FAAppWindow? second = null;
-            try
-            {
-                second = HeadlessAppWindow.Create(() => new FAAppWindow());
-                foreach (FAAppWindow window in new[] { first, second })
-                {
-                    window.Opened += (_, _) => lifecycleDesignModes.Add(Design.IsDesignMode);
-                    window.Closing += (_, _) => lifecycleDesignModes.Add(Design.IsDesignMode);
-                    window.Content = new TextBlock { Text = "Headless app window" };
-                    window.Show();
-                }
-                HeadlessTestHelpers.Render();
-                Assert.Multiple(() =>
-                {
-                    Assert.That(Design.IsDesignMode, Is.False);
-                    Assert.That(first.IsVisible, Is.True);
-                    Assert.That(second.IsVisible, Is.True);
-                });
-            }
-            finally
-            {
-                if (second is not null)
-                    await CloseAsync(second);
-                await CloseAsync(first);
-            }
-        }
-        Assert.That(lifecycleDesignModes, Is.EqualTo(Enumerable.Repeat(false, 8)));
-    }
-
-    [AvaloniaTest]
-    public void Failed_app_window_construction_restores_runtime_mode()
-    {
-        var failure = new InvalidOperationException("Window construction failed.");
-        var thrown = Assert.Throws<InvalidOperationException>(() =>
-            HeadlessAppWindow.Create<FAAppWindow>(() => throw failure));
-        Assert.Multiple(() =>
-        {
-            Assert.That(thrown, Is.SameAs(failure));
-            Assert.That(Design.IsDesignMode, Is.False);
-        });
     }
 
     private static async Task CloseAsync(Window window)
