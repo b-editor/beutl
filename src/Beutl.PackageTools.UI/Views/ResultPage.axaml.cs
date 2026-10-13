@@ -36,13 +36,9 @@ public partial class ResultPage : PackageToolPage
         FAFrame? frame = this.FindAncestorOfType<FAFrame>();
         if (frame == null) return;
 
-        if (sender is StyledElement { DataContext: ActionViewModel item })
+        if (sender is StyledElement { DataContext: ActionViewModel or CleanViewModel } element)
         {
-            frame.NavigateFromObject(item);
-        }
-        else if (sender is StyledElement { DataContext: CleanViewModel clean })
-        {
-            frame.NavigateFromObject(clean);
+            frame.NavigateFromObject(element.DataContext);
         }
     }
 }

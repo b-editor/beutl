@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics.CodeAnalysis;
 
 namespace Beutl.Threading;
 
@@ -23,7 +22,7 @@ public class Dispatcher
 
     public static Dispatcher Current => s_current!;
 
-    public Thread Thread { get; private set; }
+    public Thread Thread { get; }
 
     public bool HasShutdownStarted => _synchronizationContext.HasShutdownStarted;
 
@@ -58,7 +57,6 @@ public class Dispatcher
         try
         {
             s_current = this;
-            Thread = Thread.CurrentThread;
             SynchronizationContext.SetSynchronizationContext(_synchronizationContext);
 
             _synchronizationContext.Start();
@@ -83,7 +81,6 @@ public class Dispatcher
     public void Shutdown()
     {
         _synchronizationContext.Shutdown();
-        Debug.WriteLine($"'{Thread?.Name ?? Thread?.ManagedThreadId.ToString()}' を停止しました");
     }
 
     public bool CheckAccess()

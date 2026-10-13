@@ -176,21 +176,11 @@ public sealed class ViewConfig : ConfigurationBase
     {
         base.Deserialize(context);
 
-        // The raw node is needed only to tell a legacy JSON number from a string id; any other
-        // context can only carry the string form.
-        if (context is IJsonSerializationContext jsonContext)
-        {
-            Theme = NormalizeThemeId(jsonContext.GetNode(nameof(Theme)));
-        }
-        else
-        {
-            Theme = BuiltinThemeIds.TryNormalize(context.GetValue<string>(nameof(Theme))) ?? DefaultThemeId;
-        }
+        Theme = context is IJsonSerializationContext jsonContext
+            ? NormalizeThemeId(jsonContext.GetNode(nameof(Theme)))
+            : DefaultThemeId;
 
-        // 古い settings.json や手動編集後のファイルでこれらのキーが欠落していると
-        // GetValue が null を返す。null! を素通りさせると _recentFiles.Replace(null) で
-        // ArgumentNullException が起き、後続の Editor/Graphics/Tutorial 設定の
-        // Deserialize もまとめて中断してしまう。null の場合は既存の空リストを保持する。
+        // A missing or null key keeps the existing empty list (Replace(null) throws).
         if (TryReadValue(context, nameof(RecentFiles), out CoreList<string>? recentFiles) && recentFiles is not null)
         {
             RecentFiles = recentFiles;

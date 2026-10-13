@@ -132,17 +132,17 @@ class NativeBinaryVerificationTests(unittest.TestCase):
                 self.assert_rejected_with_updated_hash("osx", bytes(data), f"architecture mismatch.*{architecture}")
 
     def test_macos_runtime_requires_the_linker_patch_hash(self):
-        for key in ("macosLinkerPatchSha256",):
-            with self.subTest(key=key), tempfile.TemporaryDirectory() as temporary:
-                root = Path(temporary)
-                directory = root / "runtimes" / "osx" / "native"
-                shutil.copytree(self.native_root / "runtimes" / "osx" / "native", directory)
-                manifest_path = directory / "build.json"
-                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-                manifest.pop(key, None)
-                manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
-                with self.assertRaisesRegex(ValueError, key):
-                    verify.verify(root, ["osx"])
+        key = "macosLinkerPatchSha256"
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            directory = root / "runtimes" / "osx" / "native"
+            shutil.copytree(self.native_root / "runtimes" / "osx" / "native", directory)
+            manifest_path = directory / "build.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest.pop(key, None)
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, key):
+                verify.verify(root, ["osx"])
 
     def test_each_required_export_is_checked(self):
         for rid in verify.RIDS:

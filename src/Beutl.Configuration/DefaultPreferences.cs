@@ -77,7 +77,6 @@ public sealed class DefaultPreferences : IPreferences
             }
             catch (FormatException)
             {
-                // bad get, fall back to default
             }
         }
 
@@ -104,7 +103,6 @@ public sealed class DefaultPreferences : IPreferences
         }
         catch (JsonException)
         {
-            // if deserialization fails proceed with empty settings
         }
     }
 

@@ -14,7 +14,6 @@
     <!-- Preserve reflection bindings for dynamic editor models; projects can opt into compiled bindings. -->
     <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>
     <NoWarn>$(NoWarn);NU1507</NoWarn>
-    <NBGV_ThisAssemblyIncludesPackageVersion>true</NBGV_ThisAssemblyIncludesPackageVersion>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <AssemblyVersion>2.99.99.0</AssemblyVersion>
     <Version>2.99.99</Version>
@@ -24,14 +23,7 @@
     <ResXGenerator_PublicClass>true</ResXGenerator_PublicClass>
     <ResXGenerator_GenerationType>CodeGeneration</ResXGenerator_GenerationType>
     <ResXGenerator_NullForgivingOperators>true</ResXGenerator_NullForgivingOperators>
-    <ResXGenerator_GenerateCode>true</ResXGenerator_GenerateCode>
   </PropertyGroup>
-
-  <ItemGroup>
-    <EmbeddedResource Update="@(EmbeddedResource)">
-      <GenerateResource>false</GenerateResource>
-    </EmbeddedResource>
-  </ItemGroup>
 
   <PropertyGroup Condition="'$(Configuration)'=='Debug'">
     <Optimize>false</Optimize>

@@ -83,40 +83,9 @@ jobs:
     needs: [ determine-version, build-executable, build-windows-installer, build-debian-package, build-flatpak-package, build-nuget, build-app-bundle ]
     runs-on: ubuntu-latest
     steps:
-      - name: Download executable artifacts
+      - name: Download artifacts
         uses: actions/download-artifact@v8.0.2
         with:
-          run-id: ${{ needs.build-executable.outputs.artifact-run-id }}
-          path: artifacts
-
-      - name: Download Windows installer artifacts
-        uses: actions/download-artifact@v8.0.2
-        with:
-          run-id: ${{ needs.build-windows-installer.outputs.artifact-run-id }}
-          path: artifacts
-
-      - name: Download Debian package artifacts
-        uses: actions/download-artifact@v8.0.2
-        with:
-          run-id: ${{ needs.build-debian-package.outputs.artifact-run-id }}
-          path: artifacts
-
-      - name: Download Flatpak artifacts
-        uses: actions/download-artifact@v8.0.2
-        with:
-          run-id: ${{ needs.build-flatpak-package.outputs.artifact-run-id }}
-          path: artifacts
-
-      - name: Download macOS app artifacts
-        uses: actions/download-artifact@v8.0.2
-        with:
-          run-id: ${{ needs.build-app-bundle.outputs.artifact-run-id }}
-          path: artifacts
-
-      - name: Download NuGet artifacts
-        uses: actions/download-artifact@v8.0.2
-        with:
-          run-id: ${{ needs.build-nuget.outputs.artifact-run-id }}
           path: artifacts
 
       - name: Print

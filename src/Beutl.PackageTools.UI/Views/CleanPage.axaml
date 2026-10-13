@@ -38,7 +38,7 @@
                         </ListBox.ItemTemplate>
                     </ListBox>
 
-                    <ProgressBar Value="{Binding Progress.Value}" />
+                    <ProgressBar Value="{Binding Progress.Percent.Value}" />
 
                     <SelectableTextBlock Text="{Binding Message.Value}" TextWrapping="WrapWithOverflow" />
 

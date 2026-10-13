@@ -8,7 +8,7 @@ using Reactive.Bindings;
 namespace Beutl.PackageTools.UI.ViewModels;
 
 public class UninstallViewModel(BeutlApiApplication app, ChangesModel changesModel, PackageChangeModel model)
-    : ActionViewModel(changesModel, model), IProgress<double>
+    : ActionViewModel(changesModel, model)
 {
     private readonly ILogger _logger = Log.CreateLogger<UninstallViewModel>();
 
@@ -16,7 +16,7 @@ public class UninstallViewModel(BeutlApiApplication app, ChangesModel changesMod
 
     public ReactiveProperty<string> ErrorMessage { get; } = new();
 
-    public ReactiveProperty<double> Progress { get; } = new();
+    public ProgressState Progress { get; } = new();
 
     public void Run(CancellationToken token)
     {
@@ -28,15 +28,13 @@ public class UninstallViewModel(BeutlApiApplication app, ChangesModel changesMod
             InstalledPackageRepository repos = app.GetResource<InstalledPackageRepository>();
             PackageInstaller installer = app.GetResource<PackageInstaller>();
 
-            string[]? installeds = ResolveInstalledDirectories(package, repos);
+            string[]? installeds = ResolveInstalledDirectories(package);
 
             if (installeds.Length <= 0)
             {
                 _logger.LogWarning("Package {PackageId} has already been uninstalled.", package.Id);
-                // A data package's payload lives outside the install directory, so a
-                // retried uninstall has to remove it even when the extracted package
-                // is already gone. The repository entry is the only remaining record of
-                // that payload, so it stays until the removal actually succeeds.
+                // A data package's payload lives outside the install directory, so try to remove it even when
+                // the extracted files are gone. Keep the repository entry until the removal succeeds.
                 if (installer.UninstallDataPackage(package.Id))
                 {
                     repos.RemovePackages(package.Id);
@@ -63,7 +61,7 @@ public class UninstallViewModel(BeutlApiApplication app, ChangesModel changesMod
                     PackageUninstallContext context = installer.PrepareForUninstall(installed, true, token);
 
                     Message.Value = Strings.Deleting_files;
-                    installer.Uninstall(context, this, token);
+                    installer.Uninstall(context, Progress, token);
 
                     if (context.FailedPackages?.Count > 0)
                     {
@@ -101,30 +99,9 @@ public class UninstallViewModel(BeutlApiApplication app, ChangesModel changesMod
         }
     }
 
-    private static string[] ResolveInstalledDirectories(PackageIdentity package, InstalledPackageRepository repos)
+    private static string[] ResolveInstalledDirectories(PackageIdentity package)
     {
-        string[]? installeds;
-        if (!package.HasVersion)
-        {
-            installeds = repos.GetLocalPackages(package.Id)
-                .Select(Helper.ResolveInstalledDirectory)
-                .Where(Directory.Exists)
-                .ToArray();
-        }
-        else
-        {
-            string installed = Helper.ResolveInstalledDirectory(package);
-            installeds = Directory.Exists(installed) ? [installed] : [];
-        }
-
-        return installeds;
-    }
-
-    void IProgress<double>.Report(double value)
-    {
-        if (double.IsFinite(value))
-        {
-            Progress.Value = value * 100;
-        }
+        string installed = Helper.ResolveInstalledDirectory(package);
+        return Directory.Exists(installed) ? [installed] : [];
     }
 }
