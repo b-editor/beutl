@@ -40,9 +40,8 @@ public class BuiltinThemeIdsTests
         Assert.That(BuiltinThemeIds.TryNormalize(raw), Is.Null);
     }
 
-    // ThemeRegistry rejects these: settings would rewrite the id on the next load, silently losing an
-    // extension's theme. The padded ones normalize to a perfectly good custom id — just not the one
-    // the extension registered under, so the selection would resolve to nothing on the next start.
+    // Ids settings rewrite on load: an extension theme registered under one would lose its selection on
+    // the next start, so ThemeRegistry rejects them.
     [TestCase("dark")]
     [TestCase("HighContrast")]
     [TestCase("0")]

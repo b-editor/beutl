@@ -109,7 +109,7 @@ public partial class FFmpegInstallService
         else
         {
             // 検証に失敗したので missing フラグを立て直し、無駄な再起動を防ぐ
-            FFmpegInstallNotifier.MarkMissing();
+            FFmpegLibraryState.MarkMissing();
             ProgressTextChanged?.Invoke(Strings.FFmpeg_verification_failed);
             Completed?.Invoke(false);
         }

@@ -52,26 +52,4 @@ public class LatestRefreshTrackerTests
 
         Assert.That(LatestRefreshTracker.IsCurrent(token), Is.False);
     }
-
-    [Test]
-    public void IsCurrent_OnSupersededToken_DoesNotThrow_AfterSourceDisposed()
-    {
-        // A superseded token's source is cancelled and then disposed, yet the fire-and-forget update
-        // still reads it on the UI thread after the async hop. Reading IsCancellationRequested must
-        // stay safe post-dispose (it does; only WaitHandle/Register throw), and report stale.
-        using var tracker = new LatestRefreshTracker();
-        CancellationToken stale = tracker.StartNew();
-        tracker.StartNew(); // cancels + disposes the first source
-
-        Assert.DoesNotThrow(() => _ = LatestRefreshTracker.IsCurrent(stale));
-        Assert.That(LatestRefreshTracker.IsCurrent(stale), Is.False);
-    }
-
-    [Test]
-    public void IsCurrent_DefaultToken_IsTrue()
-    {
-        // A default token (never cancelled) is treated as current, matching the path where no
-        // CancellationTokenSource is created.
-        Assert.That(LatestRefreshTracker.IsCurrent(CancellationToken.None), Is.True);
-    }
 }

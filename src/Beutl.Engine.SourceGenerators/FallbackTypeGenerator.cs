@@ -20,10 +20,8 @@ public sealed class FallbackTypeGenerator : IIncrementalGenerator
             .Where(static info => info is not null)
             .Select(static (info, _) => info!.Value);
 
-        var compilationAndClasses = context.CompilationProvider.Combine(classDeclarations.Collect());
-
-        context.RegisterSourceOutput(compilationAndClasses, static (productionContext, pair) =>
-            Execute(productionContext, pair.Right));
+        context.RegisterSourceOutput(classDeclarations.Collect(), static (productionContext, classes) =>
+            Execute(productionContext, classes));
     }
 
     private static void Execute(SourceProductionContext context, ImmutableArray<FallbackClassInfo> classes)

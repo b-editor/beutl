@@ -1,5 +1,4 @@
-﻿using System.Collections.Concurrent;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Reactive.Linq;
 using System.Reflection;
 using Avalonia;
@@ -12,6 +11,7 @@ using Beutl.Extensions.FFmpeg.PropertyEditors;
 using Beutl.FFmpegIpc;
 using Beutl.Logging;
 using Beutl.Services;
+using Beutl.UnitTests.TestInfrastructure;
 using Microsoft.Extensions.Logging;
 using Moq;
 using AudioFormat = Beutl.Extensions.FFmpeg.Encoding.FFmpegAudioEncoderSettings.AudioFormat;
@@ -23,7 +23,8 @@ namespace Beutl.UnitTests.Extensions.FFmpeg;
 public sealed class FFmpegMissingLibrariesTests
 {
     private const BindingFlags InstanceFlags = BindingFlags.Instance | BindingFlags.NonPublic;
-    private readonly CaptureLoggerProvider _logs = new();
+    private readonly CapturingLoggerProvider _logs =
+        new(category => category.StartsWith("Beutl.Extensions.FFmpeg", StringComparison.Ordinal));
     private HeadlessUnitTestSession _session = null!;
 
     [OneTimeSetUp]
@@ -38,7 +39,6 @@ public sealed class FFmpegMissingLibrariesTests
     [SetUp]
     public void SetUp()
     {
-        FFmpegOptionsCaches.ClearAll();
         FFmpegWorkerCodecCache.Invalidate();
         FFmpegInstallNotifier.MarkInstalled();
         _logs.Entries.Clear();
@@ -47,7 +47,6 @@ public sealed class FFmpegMissingLibrariesTests
     [TearDown]
     public void TearDown()
     {
-        FFmpegOptionsCaches.ClearAll();
         FFmpegWorkerCodecCache.Invalidate();
         FFmpegInstallNotifier.MarkInstalled();
     }
@@ -121,14 +120,14 @@ public sealed class FFmpegMissingLibrariesTests
         if (FFmpegWorkerProcess.DecodingInstance.IsRunning)
             Assert.Ignore("A shared decoder is already running; the missing-library path cannot be exercised.");
 
-        FFmpegInstallNotifier.MarkMissing();
+        FFmpegLibraryState.MarkMissing();
 
         IReadOnlyList<object> codecs = audio
             ? FFmpegWorkerCodecCache.GetAudioCodecs()
             : FFmpegWorkerCodecCache.GetVideoCodecs();
 
         Assert.That(codecs, Is.EqualTo(new object[] { CodecRecord.Default }));
-        Assert.That(FFmpegInstallNotifier.IsLibrariesMissing, Is.True);
+        Assert.That(FFmpegLibraryState.IsLibrariesMissing, Is.True);
         Assert.That(_logs.Entries, Is.Empty);
     }
 
@@ -145,7 +144,7 @@ public sealed class FFmpegMissingLibrariesTests
         FieldInfo handlerField = typeof(NotificationService).GetField("s_handler", BindingFlags.Static | BindingFlags.NonPublic)!;
         object? previousHandler = handlerField.GetValue(null);
         var extension = new FFmpegDecodingExtension();
-        FFmpegInstallNotifier.MarkMissing();
+        FFmpegLibraryState.MarkMissing();
         NotificationService.Handler = notifications.Object;
         try
         {
@@ -154,7 +153,7 @@ public sealed class FFmpegMissingLibrariesTests
             Assert.That(shown, Is.Not.Null);
             Assert.That(shown!.Actions, Has.Count.EqualTo(1));
             Assert.That(shown.Actions![0].Text, Is.EqualTo(Beutl.Extensions.FFmpeg.Properties.Strings.Install));
-            Assert.That(FFmpegInstallNotifier.IsLibrariesMissing, Is.True);
+            Assert.That(FFmpegLibraryState.IsLibrariesMissing, Is.True);
             Assert.That(_logs.Entries, Is.Empty);
         }
         finally
@@ -198,8 +197,8 @@ public sealed class FFmpegMissingLibrariesTests
 
             Assert.That(completed, Is.False);
             Assert.That(indeterminate, Is.EqualTo(new[] { true, false }));
-            Assert.That(FFmpegInstallNotifier.IsLibrariesMissing, Is.True);
-            Assert.That(FFmpegInstallNotifier.IsVerificationInProgress, Is.False);
+            Assert.That(FFmpegLibraryState.IsLibrariesMissing, Is.True);
+            Assert.That(FFmpegLibraryState.IsVerificationInProgress, Is.False);
             if (missing)
                 Assert.That(_logs.Entries, Is.Empty);
             else
@@ -231,34 +230,11 @@ public sealed class FFmpegMissingLibrariesTests
         var completion = new TaskCompletionSource<OptionsQueryResult<T>>(TaskCreationOptions.RunContinuationsAsynchronously);
         // Share an in-flight query with the editor so failures are deterministic without starting a worker.
         Task<OptionsQueryResult<T>> pending = cache.GetOrQueryAsync(key, () => completion.Task);
-        var refresh = (Task)editor.GetType().GetMethod("UpdateAsync", InstanceFlags)!
+        // UpdateAsync is private to the shared CodecOptionEditorViewModel base.
+        var refresh = (Task)editor.GetType().BaseType!.GetMethod("UpdateAsync", InstanceFlags)!
             .Invoke(editor, [query, key, CancellationToken.None])!;
         completion.SetException(failure);
         await refresh.WaitAsync(TimeSpan.FromSeconds(10));
         Assert.That(await Assert.CatchAsync<Exception>(async () => await pending), Is.SameAs(failure));
-    }
-
-    private sealed class CaptureLoggerProvider : ILoggerProvider
-    {
-        private bool _disposed;
-        public ConcurrentQueue<(LogLevel Level, Exception? Exception)> Entries { get; } = new();
-
-        public ILogger CreateLogger(string categoryName) => new CaptureLogger(this, categoryName);
-
-        public void Dispose() => _disposed = true;
-
-        private sealed class CaptureLogger(CaptureLoggerProvider provider, string category) : ILogger
-        {
-            public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
-
-            public bool IsEnabled(LogLevel logLevel) => !provider._disposed;
-
-            public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
-                Func<TState, Exception?, string> formatter)
-            {
-                if (IsEnabled(logLevel) && category.StartsWith("Beutl.Extensions.FFmpeg", StringComparison.Ordinal))
-                    provider.Entries.Enqueue((logLevel, exception));
-            }
-        }
     }
 }

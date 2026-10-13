@@ -16,7 +16,6 @@ public static class MessageSerializer
 
     public static async ValueTask WriteMessageAsync(Stream stream, IpcMessage message, CancellationToken ct = default)
     {
-        // JSONをArrayPoolバッファにシリアライズ
         byte[] jsonBuf = JsonSerializer.SerializeToUtf8Bytes(message, IpcJsonContext.Default.Options);
         if (jsonBuf.Length > MaxMessageSize)
             throw new InvalidOperationException($"Message too large to send: {jsonBuf.Length} bytes (max {MaxMessageSize})");
@@ -42,7 +41,9 @@ public static class MessageSerializer
         byte[] lengthBuf = ArrayPool<byte>.Shared.Rent(LengthPrefixSize);
         try
         {
-            int bytesRead = await ReadExactlyAsync(stream, lengthBuf.AsMemory(0, LengthPrefixSize), ct).ConfigureAwait(false);
+            int bytesRead = await stream.ReadAtLeastAsync(
+                lengthBuf.AsMemory(0, LengthPrefixSize), LengthPrefixSize, throwOnEndOfStream: false, ct)
+                .ConfigureAwait(false);
             if (bytesRead < LengthPrefixSize)
                 return null;
 
@@ -53,7 +54,8 @@ public static class MessageSerializer
             byte[] jsonBuf = ArrayPool<byte>.Shared.Rent(length);
             try
             {
-                bytesRead = await ReadExactlyAsync(stream, jsonBuf.AsMemory(0, length), ct).ConfigureAwait(false);
+                bytesRead = await stream.ReadAtLeastAsync(
+                    jsonBuf.AsMemory(0, length), length, throwOnEndOfStream: false, ct).ConfigureAwait(false);
                 if (bytesRead < length)
                     return null;
 
@@ -69,18 +71,5 @@ public static class MessageSerializer
         {
             ArrayPool<byte>.Shared.Return(lengthBuf);
         }
-    }
-
-    private static async ValueTask<int> ReadExactlyAsync(Stream stream, Memory<byte> buffer, CancellationToken ct)
-    {
-        int totalRead = 0;
-        while (totalRead < buffer.Length)
-        {
-            int read = await stream.ReadAsync(buffer[totalRead..], ct).ConfigureAwait(false);
-            if (read == 0)
-                return totalRead;
-            totalRead += read;
-        }
-        return totalRead;
     }
 }

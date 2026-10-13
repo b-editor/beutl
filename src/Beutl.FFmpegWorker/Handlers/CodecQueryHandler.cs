@@ -10,8 +10,7 @@ internal sealed class CodecQueryHandler
 {
     public IpcMessage HandleQueryEncoderOptions(IpcMessage msg)
     {
-        var request = msg.GetPayload<QueryEncoderOptionsRequest>()
-            ?? throw new InvalidOperationException("Missing payload for QueryEncoderOptions");
+        var request = msg.RequirePayload<QueryEncoderOptionsRequest>(MessageType.QueryEncoderOptions);
         try
         {
             MediaCodec codec = FindVideoEncoder(request.CodecName, request.OutputFile);

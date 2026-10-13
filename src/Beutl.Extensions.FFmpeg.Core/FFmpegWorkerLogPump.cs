@@ -20,9 +20,9 @@ internal sealed class FFmpegWorkerLogPump : IDisposable
     private readonly object _standardErrorGate = new();
     private int _disposed;
 
-    public FFmpegWorkerLogPump(int capacity = DefaultCapacity)
+    public FFmpegWorkerLogPump()
     {
-        _channel = Channel.CreateBounded<(string, string)>(new BoundedChannelOptions(capacity)
+        _channel = Channel.CreateBounded<(string, string)>(new BoundedChannelOptions(DefaultCapacity)
         {
             FullMode = BoundedChannelFullMode.DropOldest,
             SingleReader = true,

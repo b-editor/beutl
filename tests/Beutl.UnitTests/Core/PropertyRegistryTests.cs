@@ -57,7 +57,6 @@ public class PropertyRegistryTests
         Assert.Multiple(() =>
         {
             Assert.That(registered, Does.Contain(FixtureB.LabelProperty));
-            // CoreObject から継承した Id / Name もリストに含まれる
             Assert.That(registered, Does.Contain(CoreObject.IdProperty));
             Assert.That(registered, Does.Contain(CoreObject.NameProperty));
         });

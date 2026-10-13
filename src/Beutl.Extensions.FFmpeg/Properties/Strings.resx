@@ -138,14 +138,8 @@
   <data name="Failed_to_find_FFmpeg_release" xml:space="preserve">
     <value>Failed to find FFmpeg release. Unsupported platform or network error.</value>
   </data>
-  <data name="Installation_complete" xml:space="preserve">
-    <value>Installation complete.</value>
-  </data>
   <data name="Installing_FFmpeg_via_Homebrew" xml:space="preserve">
     <value>Installing FFmpeg via Homebrew...</value>
-  </data>
-  <data name="Homebrew_not_found" xml:space="preserve">
-    <value>Homebrew not found. Please install Homebrew first: https://brew.sh</value>
   </data>
   <data name="Installation_failed" xml:space="preserve">
     <value>Installation failed: {0}</value>

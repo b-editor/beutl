@@ -12,13 +12,10 @@ internal struct BeutlVideoInfo
     public int CodecFourCC;
     public int FrameRateNum;
     public int FrameRateDen;
-    public long DurationNum;
-    public long DurationDen;
     public long NominalFrameCount;
     public int IsHdr;                 // 0 = SDR, 1 = HDR
     public int TransferFunction;      // Beutl.Media.BitmapColorTransfer
     public int ColorPrimaries;        // Beutl.Media.BitmapColorPrimaries
-    public int BytesPerPixel;         // 4 (Bgra8888) or 8 (Rgba16161616)
 }
 
 [StructLayout(LayoutKind.Sequential, Pack = 4)]
@@ -29,7 +26,6 @@ internal struct BeutlAudioInfo
     public int CodecFourCC;
     public long DurationNum;
     public long DurationDen;
-    public long NominalSampleCount;
 }
 
 [StructLayout(LayoutKind.Sequential, Pack = 4)]

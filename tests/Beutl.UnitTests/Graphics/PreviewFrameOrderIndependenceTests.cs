@@ -66,15 +66,17 @@ public class PreviewFrameOrderIndependenceTests
         GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode = _oldPreviewSourceMode;
     }
 
-    [TestCase(false, false)]
-    [TestCase(true, false)]
-    [TestCase(true, true)]
-    public void RenderedFrameIsTheSameWhetherOrNotCacheHitsPrecededIt(bool preferProxy, bool withEffect)
+    [TestCase(false, false, false)]
+    [TestCase(true, false, false)]
+    [TestCase(true, true, false)]
+    // A SourceBackdrop composites what is already drawn beneath it, so its picture comes from render state.
+    [TestCase(true, false, true)]
+    public void RenderedFrameIsTheSameWhetherOrNotCacheHitsPrecededIt(bool preferProxy, bool withEffect, bool withBackdrops)
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            using var media = new SceneMedia(preferProxy, withEffect);
+            using var media = new SceneMedia(preferProxy, withEffect, withBackdrops);
 
             string[] baseline = new string[FrameCount];
             using (var renderer = new SceneRenderer(media.NewScene(), RenderIntent.Preview) { CacheOptions = RenderCacheOptions.Default })
@@ -107,56 +109,6 @@ public class PreviewFrameOrderIndependenceTests
                 }
 
                 // Stands for turning the frame cache off and on: every frame is rendered again.
-                foreach (int frame in s_recheck)
-                {
-                    Assert.That(RenderAndHash(renderer, frame), Is.EqualTo(baseline[frame]),
-                        $"frame {frame} rendered a different picture on the second pass");
-                }
-            }
-        });
-    }
-
-    /// <summary>
-    /// <see cref="SourceBackdrop"/> composites whatever has already been drawn beneath it, so its
-    /// picture comes from render state rather than from the frame's own time.
-    /// </summary>
-    [Test]
-    public void BackdropFrameIsTheSameWhetherOrNotCacheHitsPrecededIt()
-    {
-        VulkanTestEnvironment.EnsureAvailable();
-        VulkanTestEnvironment.InvokeOnRenderThread(() =>
-        {
-            using var media = new SceneMedia(preferProxy: true, withEffect: false, withBackdrops: true);
-
-            string[] baseline = new string[FrameCount];
-            using (var renderer = new SceneRenderer(media.NewScene(), RenderIntent.Preview) { CacheOptions = RenderCacheOptions.Default })
-            {
-                for (int frame = 0; frame < FrameCount; frame++)
-                {
-                    baseline[frame] = RenderAndHash(renderer, frame);
-                    Assert.That(RenderAndHash(renderer, frame), Is.EqualTo(baseline[frame]),
-                        $"frame {frame} rendered differently when rendered twice in a row");
-                }
-            }
-
-            Assert.That(baseline.Distinct().Count(), Is.EqualTo(FrameCount),
-                "the scene has to look different on every frame or the comparisons below prove nothing");
-
-            using (var renderer = new SceneRenderer(media.NewScene(), RenderIntent.Preview) { CacheOptions = RenderCacheOptions.Default })
-            {
-                var rendered = new HashSet<int>();
-                foreach (int frame in s_scrub)
-                {
-                    if (!rendered.Add(frame))
-                    {
-                        renderer.UpdateFrame(renderer.Compositor.EvaluateGraphics(frame.ToTimeSpan(Rate)));
-                        continue;
-                    }
-
-                    Assert.That(RenderAndHash(renderer, frame), Is.EqualTo(baseline[frame]),
-                        $"frame {frame} rendered a different picture after the scrub reached it");
-                }
-
                 foreach (int frame in s_recheck)
                 {
                     Assert.That(RenderAndHash(renderer, frame), Is.EqualTo(baseline[frame]),

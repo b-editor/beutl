@@ -36,7 +36,6 @@ public class TypeFormatTests
     [Test]
     public void ToString_AssemblyAndNamespacePrefix()
     {
-        // The format encodes assembly in [...] and uses ':' before the type name.
         string formatted = TypeFormat.ToString(typeof(int));
 
         Assert.That(formatted, Does.StartWith("["));
@@ -47,7 +46,6 @@ public class TypeFormatTests
     [Test]
     public void ToType_UnknownAssembly_ReturnsNull()
     {
-        // Make a syntactically valid string referencing an unknown assembly.
         string formatted = "[NoSuchAssembly.Foo]:NoSuchType";
 
         Type? result = TypeFormat.ToType(formatted);

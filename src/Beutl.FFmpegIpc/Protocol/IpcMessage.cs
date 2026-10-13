@@ -97,10 +97,6 @@ public sealed class IpcMessage
 [JsonSerializable(typeof(QueryAudioFormatsResponse))]
 [JsonSerializable(typeof(QueryEncoderOptionsRequest))]
 [JsonSerializable(typeof(QueryEncoderOptionsResponse))]
-// Supporting types
-[JsonSerializable(typeof(Dictionary<string, string>))]
-// Nullable error code
-[JsonSerializable(typeof(int?))]
 [JsonSourceGenerationOptions(
     PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
     DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]

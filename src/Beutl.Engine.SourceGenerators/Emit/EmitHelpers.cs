@@ -51,7 +51,7 @@ public static class EmitHelpers
         return builder.ToString();
     }
 
-    public static string GetTypeConstraintClauses(INamedTypeSymbol symbol, string indent)
+    public static string GetTypeConstraintClauses(INamedTypeSymbol symbol)
     {
         if (symbol.TypeParameters.Length == 0)
         {
@@ -95,7 +95,7 @@ public static class EmitHelpers
                 continue;
             }
 
-            sb.Append(indent).Append("    where ").Append(typeParameter.Name).Append(" : ");
+            sb.Append("    where ").Append(typeParameter.Name).Append(" : ");
             for (int i = 0; i < constraints.Count; i++)
             {
                 if (i > 0)
@@ -114,16 +114,6 @@ public static class EmitHelpers
 
     public static string ToFieldName(string propertyName)
     {
-        if (string.IsNullOrEmpty(propertyName))
-        {
-            return "_value";
-        }
-
-        if (propertyName.Length == 1)
-        {
-            return "_" + propertyName.ToLowerInvariant();
-        }
-
         return "_" + char.ToLowerInvariant(propertyName[0]) + propertyName.Substring(1);
     }
 
@@ -134,7 +124,7 @@ public static class EmitHelpers
         {
             return name.Substring(0, name.Length - 1) + ".Resource?";
         }
-        return symbol.ToDisplayString(TypeDisplayFormat) + ".Resource";
+        return name + ".Resource";
     }
 
     public static string GetHintName(INamedTypeSymbol symbol)

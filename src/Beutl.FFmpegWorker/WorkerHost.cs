@@ -32,9 +32,9 @@ internal sealed class WorkerHost(IpcConnection connection) : IDisposable
                 break;
 
             // デコード系メッセージは並行処理可能（fire-and-forget で送信）
-            if (IsParallelizable(message.Type))
+            if (GetParallelHandler(message.Type) is { } handler)
             {
-                StartParallel(message, ct);
+                StartParallel(message, handler, ct);
                 continue;
             }
 
@@ -55,14 +55,14 @@ internal sealed class WorkerHost(IpcConnection connection) : IDisposable
         }
     }
 
-    private void StartParallel(IpcMessage msg, CancellationToken ct)
+    private void StartParallel(IpcMessage msg, Func<IpcMessage, IpcMessage> handler, CancellationToken ct)
     {
         _ = Task.Run(async () =>
         {
             IpcMessage response;
             try
             {
-                response = HandleMessage(msg);
+                response = handler(msg);
             }
             catch (Exception ex)
             {
@@ -102,36 +102,23 @@ internal sealed class WorkerHost(IpcConnection connection) : IDisposable
             FFmpegErrorCodeExtractor.TryGetFFmpegErrorCode(ex));
     }
 
-    private IpcMessage HandleMessage(IpcMessage message)
+    // The handler of a message that may run in parallel, or null for one handled sequentially.
+    private Func<IpcMessage, IpcMessage>? GetParallelHandler(MessageType type)
     {
-        return message.Type switch
+        return type switch
         {
-            MessageType.OpenFile => _decodingHandler.HandleOpen(message),
-            MessageType.ReadVideo => _decodingHandler.HandleReadVideo(message),
-            MessageType.ReadAudio => _decodingHandler.HandleReadAudio(message),
-            MessageType.CloseReader => _decodingHandler.HandleClose(message),
-            MessageType.UpdateDecoderSettings => _decodingHandler.HandleUpdateDecoderSettings(message),
-            MessageType.QueryCodecs => _codecQueryHandler.HandleQueryCodecs(message),
-            MessageType.QueryPixelFormats => _codecQueryHandler.HandleQueryPixelFormats(message),
-            MessageType.QuerySampleRates => _codecQueryHandler.HandleQuerySampleRates(message),
-            MessageType.QueryAudioFormats => _codecQueryHandler.HandleQueryAudioFormats(message),
-            MessageType.QueryEncoderOptions => _codecQueryHandler.HandleQueryEncoderOptions(message),
-            _ => IpcMessage.CreateError(message.Id, $"Unknown message type: {message.Type}"),
+            MessageType.OpenFile => _decodingHandler.HandleOpen,
+            MessageType.ReadVideo => _decodingHandler.HandleReadVideo,
+            MessageType.ReadAudio => _decodingHandler.HandleReadAudio,
+            MessageType.CloseReader => _decodingHandler.HandleClose,
+            MessageType.UpdateDecoderSettings => _decodingHandler.HandleUpdateDecoderSettings,
+            MessageType.QueryCodecs => _codecQueryHandler.HandleQueryCodecs,
+            MessageType.QueryPixelFormats => _codecQueryHandler.HandleQueryPixelFormats,
+            MessageType.QuerySampleRates => _codecQueryHandler.HandleQuerySampleRates,
+            MessageType.QueryAudioFormats => _codecQueryHandler.HandleQueryAudioFormats,
+            MessageType.QueryEncoderOptions => _codecQueryHandler.HandleQueryEncoderOptions,
+            _ => null,
         };
-    }
-
-    private static bool IsParallelizable(MessageType type)
-    {
-        return type is MessageType.ReadVideo
-            or MessageType.ReadAudio
-            or MessageType.OpenFile
-            or MessageType.CloseReader
-            or MessageType.UpdateDecoderSettings
-            or MessageType.QueryCodecs
-            or MessageType.QueryPixelFormats
-            or MessageType.QuerySampleRates
-            or MessageType.QueryAudioFormats
-            or MessageType.QueryEncoderOptions;
     }
 
     private static IpcMessage HandleShutdown(IpcMessage message)
@@ -142,6 +129,5 @@ internal sealed class WorkerHost(IpcConnection connection) : IDisposable
     public void Dispose()
     {
         _decodingHandler.Dispose();
-        _encodingHandler.Dispose();
     }
 }

@@ -4,7 +4,7 @@ namespace Beutl.FFmpegIpc.Tests;
 
 /// <summary>
 /// Pins the seek/prefetch slot mechanics both IPC providers use: a matching key consumes the armed
-/// prefetch, any other key drains it as stale, and detaching always clears the slot before the caller awaits.
+/// prefetch, and detaching always clears the slot before the caller awaits.
 /// </summary>
 [TestFixture]
 public class PrefetchSlotTests
@@ -20,7 +20,6 @@ public class PrefetchSlotTests
             Assert.That(slot.IsFaulted, Is.False);
             Assert.That(slot.Detach(), Is.Null);
             Assert.That(slot.TryConsumeMatching(0, out _), Is.Null);
-            Assert.That(slot.TryDetachStale(0), Is.Null);
         });
     }
 
@@ -70,37 +69,6 @@ public class PrefetchSlotTests
         {
             Assert.That(consumed, Is.Null);
             Assert.That(slot.HasPrefetch, Is.True, "a non-matching consume must not drop the armed prefetch");
-        });
-    }
-
-    [Test]
-    public void TryDetachStale_OnDifferentKey_DetachesTaskAndClears()
-    {
-        var slot = new PrefetchSlot<long, int>();
-        var task = Task.FromResult(42);
-        slot.Arm(7, bufferIndex: 1, task);
-
-        Task<int>? stale = slot.TryDetachStale(8);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(stale, Is.SameAs(task));
-            Assert.That(slot.HasPrefetch, Is.False, "a drained stale slot is cleared");
-        });
-    }
-
-    [Test]
-    public void TryDetachStale_OnMatchingKey_ReturnsNullAndLeavesSlotArmed()
-    {
-        var slot = new PrefetchSlot<long, int>();
-        slot.Arm(7, bufferIndex: 1, Task.FromResult(42));
-
-        Task<int>? stale = slot.TryDetachStale(7);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(stale, Is.Null, "a matching key is a hit, not stale");
-            Assert.That(slot.HasPrefetch, Is.True);
         });
     }
 

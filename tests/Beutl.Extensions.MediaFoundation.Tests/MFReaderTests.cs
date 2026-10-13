@@ -22,7 +22,7 @@ public class MFReaderTests
             "sample.mp4",
             new MediaOptions(MediaMode.AudioVideo),
             new MFDecodingExtension(),
-            (_, _, _) => decoder,
+            (_, _) => decoder,
             static (_, _) => throw new NotSupportedException("audio factory must not be called without an audio stream"),
             hasAudioStream: static _ => false);
 
@@ -51,7 +51,7 @@ public class MFReaderTests
             "sample.mp4",
             new MediaOptions(MediaMode.AudioVideo),
             new MFDecodingExtension(),
-            (_, _, _) => decoder,
+            (_, _) => decoder,
             static (_, _) => throw new InvalidOperationException("audio initialization failed"),
             hasAudioStream: static _ => true));
 
@@ -67,7 +67,7 @@ public class MFReaderTests
             "sample.mp3",
             new MediaOptions(MediaMode.Audio),
             new MFDecodingExtension(),
-            static (_, _, _) => throw new NotSupportedException("video factory must not be called in audio-only mode"),
+            static (_, _) => throw new NotSupportedException("video factory must not be called in audio-only mode"),
             static (_, _) => throw new InvalidOperationException("audio initialization failed")));
     }
 
@@ -83,7 +83,7 @@ public class MFReaderTests
             "sample.mp4",
             new MediaOptions(MediaMode.Video),
             new MFDecodingExtension(),
-            (_, _, _) => decoder,
+            (_, _) => decoder,
             static (_, _) => throw new NotSupportedException()));
 
         Assert.That(decoder.DisposeCount, Is.EqualTo(1));
@@ -99,7 +99,7 @@ public class MFReaderTests
             "sample.mp4",
             new MediaOptions(MediaMode.Video),
             new MFDecodingExtension(),
-            (_, _, _) => decoder,
+            (_, _) => decoder,
             static (_, _) => throw new NotSupportedException());
 
         Assert.Multiple(() =>

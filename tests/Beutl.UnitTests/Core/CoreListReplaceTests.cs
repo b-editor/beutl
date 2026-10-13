@@ -122,55 +122,33 @@ public class CoreListReplaceTests
         });
     }
 
-    [Test]
-    public void Replace_OnRemoveList_WithShorterList_RaisesRemoveThenAdd()
+    [TestCase(new[] { "a", "b", "c" }, new[] { "x" })]
+    [TestCase(new[] { "a" }, new[] { "x", "y", "z" })]
+    public void Replace_OnRemoveList_WithListOfAnotherLength_RaisesRemoveThenAdd(string[] initial, string[] replacement)
     {
-        CoreList<string> list = CreateList(ResetBehavior.Remove, "a", "b", "c");
-        List<NotifyCollectionChangedEventArgs> changes = RecordChanges(list);
-
-        list.Replace(["x"]);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(list, Is.EqualTo(new[] { "x" }));
-            Assert.That(changes.Select(e => e.Action), Is.EqualTo(new[]
-            {
-                NotifyCollectionChangedAction.Remove,
-                NotifyCollectionChangedAction.Add
-            }));
-            Assert.That(changes[0].OldStartingIndex, Is.Zero);
-            Assert.That(changes[0].OldItems, Is.EqualTo(new[] { "a", "b", "c" }));
-            Assert.That(changes[1].NewStartingIndex, Is.Zero);
-            Assert.That(changes[1].NewItems, Is.EqualTo(new[] { "x" }));
-        });
-    }
-
-    [Test]
-    public void Replace_OnRemoveList_WithLongerList_RaisesRemoveThenAdd()
-    {
-        CoreList<string> list = CreateList(ResetBehavior.Remove, "a");
+        CoreList<string> list = CreateList(ResetBehavior.Remove, initial);
         List<NotifyCollectionChangedEventArgs> changes = RecordChanges(list);
         var detached = new List<string>();
         var attached = new List<string>();
         list.Detached += detached.Add;
         list.Attached += attached.Add;
 
-        list.Replace(["x", "y", "z"]);
+        list.Replace(replacement);
 
         Assert.Multiple(() =>
         {
-            Assert.That(list, Is.EqualTo(new[] { "x", "y", "z" }));
+            Assert.That(list, Is.EqualTo(replacement));
             Assert.That(changes.Select(e => e.Action), Is.EqualTo(new[]
             {
                 NotifyCollectionChangedAction.Remove,
                 NotifyCollectionChangedAction.Add
             }));
             Assert.That(changes[0].OldStartingIndex, Is.Zero);
-            Assert.That(changes[0].OldItems, Is.EqualTo(new[] { "a" }));
+            Assert.That(changes[0].OldItems, Is.EqualTo(initial));
             Assert.That(changes[1].NewStartingIndex, Is.Zero);
-            Assert.That(changes[1].NewItems, Is.EqualTo(new[] { "x", "y", "z" }));
-            Assert.That(detached, Is.EqualTo(new[] { "a" }));
-            Assert.That(attached, Is.EqualTo(new[] { "x", "y", "z" }));
+            Assert.That(changes[1].NewItems, Is.EqualTo(replacement));
+            Assert.That(detached, Is.EqualTo(initial));
+            Assert.That(attached, Is.EqualTo(replacement));
         });
     }
 

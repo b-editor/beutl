@@ -86,16 +86,16 @@ public sealed class SharedMemoryBuffer : IDisposable
         _accessor.SafeMemoryMappedViewHandle.ReleasePointer();
     }
 
-    public unsafe void Write(ReadOnlySpan<byte> data, long offset = 0)
+    public unsafe void Write(ReadOnlySpan<byte> data)
     {
-        if (offset + data.Length > Capacity)
-            throw new ArgumentOutOfRangeException(nameof(offset), "Write exceeds buffer capacity.");
+        if (data.Length > Capacity)
+            throw new ArgumentOutOfRangeException(nameof(data), "Write exceeds buffer capacity.");
 
         byte* ptr = null;
         _accessor.SafeMemoryMappedViewHandle.AcquirePointer(ref ptr);
         try
         {
-            data.CopyTo(new Span<byte>(ptr + offset, data.Length));
+            data.CopyTo(new Span<byte>(ptr, data.Length));
         }
         finally
         {
@@ -103,16 +103,16 @@ public sealed class SharedMemoryBuffer : IDisposable
         }
     }
 
-    public unsafe void Read(Span<byte> destination, long offset = 0)
+    public unsafe void Read(Span<byte> destination)
     {
-        if (offset + destination.Length > Capacity)
-            throw new ArgumentOutOfRangeException(nameof(offset), "Read exceeds buffer capacity.");
+        if (destination.Length > Capacity)
+            throw new ArgumentOutOfRangeException(nameof(destination), "Read exceeds buffer capacity.");
 
         byte* ptr = null;
         _accessor.SafeMemoryMappedViewHandle.AcquirePointer(ref ptr);
         try
         {
-            new ReadOnlySpan<byte>(ptr + offset, destination.Length).CopyTo(destination);
+            new ReadOnlySpan<byte>(ptr, destination.Length).CopyTo(destination);
         }
         finally
         {

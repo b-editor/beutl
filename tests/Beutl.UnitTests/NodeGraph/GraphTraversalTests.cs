@@ -5,6 +5,7 @@ using Beutl.NodeGraph;
 using Beutl.NodeGraph.Composition;
 using Beutl.NodeGraph.Nodes;
 using Beutl.NodeGraph.Nodes.Group;
+using static Beutl.UnitTests.NodeGraph.NodeGraphTestHelpers;
 
 namespace Beutl.UnitTests.NodeGraph;
 
@@ -46,14 +47,9 @@ public class GraphTraversalTests
         var node = new GeometryShapeNode();
         node.Fill.Property!.SetValue(brush);
         first.Group.Nodes.Add(node);
-        var source = new LayerInputNode();
-        var output = new LayerInputNode.LayerInputPort<float>();
-        output.SetupProperty("Opacity");
-        output.Property!.SetValue(37f);
-        source.Items.Add(output);
-        first.Group.Nodes.Add(source);
+        var output = Source(first.Group, 37f, "Opacity");
         graph.Nodes.AddRange([first, second]);
-        var port = node.NestedInputPorts.Single(p => ReferenceEquals(p.Property!.GetEngineProperty(), brush.Opacity));
+        var port = Find(node, brush.Opacity);
         var connection = first.Group.Connect(port, output);
         int notifications = 0;
         first.Group.TopologyChanged += (_, _) => notifications++;

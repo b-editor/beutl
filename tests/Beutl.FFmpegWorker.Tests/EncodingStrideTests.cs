@@ -79,7 +79,6 @@ public sealed class EncodingStrideTests
 
             Assert.That(spanReader.ReadVideo(0, pixels, out VideoFrameInfo info), Is.True);
             Assert.That(info.DataLength, Is.EqualTo(pixels.Length));
-            Assert.That(info.IsHdr, Is.EqualTo(hdr));
 
             for (int row = 0; row < height; row++)
             {

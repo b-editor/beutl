@@ -4,15 +4,8 @@ using Microsoft.Extensions.Logging;
 
 namespace Beutl.Extensibility;
 
-// Static registry of ThemeDescriptor instances. A ThemeExtension registers its descriptor at
-// Load() and unregisters at Unload(); the host resolves the selected theme id and re-applies when
-// the set changes. Ids are unique and a repeat Register overwrites, so a re-Load after a rolled-back
-// partial init is idempotent; the ids reserved for built-ins (BuiltinThemeIds.IsReserved) are the
-// exception and an extension cannot claim one. Registration is keyed on the descriptor instance, not
-// the record's value: only the instance that registered an id may Unregister it, so an extension
-// replaced by another cannot evict its successor. The owning ThemeExtension is kept alongside the
-// descriptor so the host can notify it on apply/revert without a separate lookup; null means the
-// host registered it.
+// Static registry of ThemeDescriptor instances. Registration is keyed on the descriptor instance: only the
+// instance that registered an id may Unregister it.
 public static class ThemeRegistry
 {
     private static readonly ILogger s_logger = Log.CreateLogger(nameof(ThemeRegistry));

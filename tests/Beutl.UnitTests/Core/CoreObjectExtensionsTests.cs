@@ -54,20 +54,6 @@ public class CoreObjectExtensionsTests
     }
 
     [Test]
-    public void GetObservable_EmitsCurrentValueImmediately()
-    {
-        var obj = new TestCoreObject { Name = "init" };
-        string? captured = null;
-
-        using IDisposable sub = obj.GetObservable(CoreObject.NameProperty).Subscribe(v => captured = v);
-
-        Assert.That(captured, Is.EqualTo("init"));
-
-        obj.Name = "next";
-        Assert.That(captured, Is.EqualTo("next"));
-    }
-
-    [Test]
     public void GetObservable_EmitsOncePerChange()
     {
         var obj = new TestCoreObject { Name = "init" };

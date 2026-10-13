@@ -84,7 +84,6 @@ public class PooledArrayTests
         array.Dispose();
         Assert.That(array.IsDisposed, Is.True);
 
-        // Calling Dispose again must not throw.
         array.Dispose();
         Assert.That(array.IsDisposed, Is.True);
 

@@ -80,14 +80,8 @@
   <data name="Failed_to_find_FFmpeg_release" xml:space="preserve">
     <value>找不到 FFmpeg 发布版本。平台不受支持或网络错误。</value>
   </data>
-  <data name="Installation_complete" xml:space="preserve">
-    <value>安装完成。</value>
-  </data>
   <data name="Installing_FFmpeg_via_Homebrew" xml:space="preserve">
     <value>正在通过 Homebrew 安装 FFmpeg...</value>
-  </data>
-  <data name="Homebrew_not_found" xml:space="preserve">
-    <value>未找到 Homebrew。请先安装 Homebrew: https://brew.sh</value>
   </data>
   <data name="Installation_failed" xml:space="preserve">
     <value>安装失败: {0}</value>

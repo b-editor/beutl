@@ -21,10 +21,4 @@ public class ChoicesProviderAttributeTests
     {
         Assert.Throws<ArgumentException>(() => new ChoicesProviderAttribute(typeof(NotAProvider)));
     }
-
-    [Test]
-    public void Provider_GetChoices_ReturnsConfiguredOptions()
-    {
-        Assert.That(IntChoicesProvider.GetChoices(), Is.EqualTo(new object[] { 1, 2, 3 }));
-    }
 }

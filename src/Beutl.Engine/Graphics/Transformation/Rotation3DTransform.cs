@@ -62,6 +62,15 @@ public sealed partial class Rotation3DTransform : Transform
         float rotationZ = context.Get(RotationZ);
         float depth = context.Get(Depth);
 
+        return CreateMatrix(rotationX, rotationY, rotationZ, centerX, centerY, centerZ, depth);
+    }
+
+    // Also used by Rotation3DMatrixNode in Beutl.NodeGraph.
+    internal static Matrix CreateMatrix(
+        float rotationX, float rotationY, float rotationZ,
+        float centerX, float centerY, float centerZ,
+        float depth)
+    {
         Matrix4x4 matrix44 = Matrix4x4.Identity;
         float centerSum = centerX + centerY + centerZ;
 

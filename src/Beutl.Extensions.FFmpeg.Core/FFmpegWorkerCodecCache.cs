@@ -15,67 +15,30 @@ internal static class FFmpegWorkerCodecCache
 {
     private static readonly ILogger s_logger = Log.CreateLogger(typeof(FFmpegWorkerCodecCache));
     private static readonly object s_lock = new();
-    private static volatile IReadOnlyList<object>? _videoCodecs;
-    private static volatile IReadOnlyList<object>? _audioCodecs;
+    // Accessed through Volatile.Read/Write.
+    private static IReadOnlyList<object>? _videoCodecs;
+    private static IReadOnlyList<object>? _audioCodecs;
     private static bool s_missingQueryInFlight;
 
-    public static IReadOnlyList<object> GetVideoCodecs()
+    public static IReadOnlyList<object> GetVideoCodecs() => GetCodecs(ref _videoCodecs, "video");
+
+    public static IReadOnlyList<object> GetAudioCodecs() => GetCodecs(ref _audioCodecs, "audio");
+
+    private static IReadOnlyList<object> GetCodecs(ref IReadOnlyList<object>? cache, string mediaType)
     {
-        var cached = _videoCodecs;
+        var cached = Volatile.Read(ref cache);
         if (cached != null) return cached;
 
         (IReadOnlyList<object> Codecs, FFmpegLibrariesNotFoundException? MissingException) query;
         Action? dispatchMissingNotification = null;
         lock (s_lock)
         {
-            cached = _videoCodecs;
+            cached = Volatile.Read(ref cache);
             if (cached != null) return cached;
             if (s_missingQueryInFlight)
                 return [CodecRecord.Default];
 
-            query = RefreshVideoCodecs();
-            if (query.MissingException is not null)
-            {
-                FFmpegLibraryState.RecordMissingObservedDeferred(
-                    out dispatchMissingNotification);
-                s_missingQueryInFlight = true;
-            }
-        }
-
-        try
-        {
-            if (dispatchMissingNotification is not null)
-            {
-                dispatchMissingNotification();
-            }
-
-            return query.Codecs;
-        }
-        finally
-        {
-            if (dispatchMissingNotification is not null)
-            {
-                lock (s_lock)
-                    s_missingQueryInFlight = false;
-            }
-        }
-    }
-
-    public static IReadOnlyList<object> GetAudioCodecs()
-    {
-        var cached = _audioCodecs;
-        if (cached != null) return cached;
-
-        (IReadOnlyList<object> Codecs, FFmpegLibrariesNotFoundException? MissingException) query;
-        Action? dispatchMissingNotification = null;
-        lock (s_lock)
-        {
-            cached = _audioCodecs;
-            if (cached != null) return cached;
-            if (s_missingQueryInFlight)
-                return [CodecRecord.Default];
-
-            query = RefreshAudioCodecs();
+            query = RefreshCodecs(ref cache, mediaType);
             if (query.MissingException is not null)
             {
                 FFmpegLibraryState.RecordMissingObservedDeferred(
@@ -104,19 +67,19 @@ internal static class FFmpegWorkerCodecCache
     }
 
     private static (IReadOnlyList<object> Codecs, FFmpegLibrariesNotFoundException? MissingException)
-        RefreshVideoCodecs()
+        RefreshCodecs(ref IReadOnlyList<object>? cache, string mediaType)
     {
         try
         {
             var connection = FFmpegWorkerProcess.DecodingInstance.EnsureStartedAsync().GetAwaiter().GetResult();
             var response = connection.RequestAsync<QueryCodecsRequest, QueryCodecsResponse>(
                 MessageType.QueryCodecs, MessageType.QueryCodecsResult,
-                new QueryCodecsRequest { MediaType = "video" }).AsTask().GetAwaiter().GetResult();
+                new QueryCodecsRequest { MediaType = mediaType }).AsTask().GetAwaiter().GetResult();
             var result = response.Codecs
                 .Select(c => (object)new CodecRecord(c.Name, c.LongName))
                 .Prepend(CodecRecord.Default)
                 .ToArray();
-            _videoCodecs = result;
+            Volatile.Write(ref cache, result);
             return (result, null);
         }
         catch (FFmpegLibrariesNotFoundException ex)
@@ -125,41 +88,15 @@ internal static class FFmpegWorkerCodecCache
         }
         catch (Exception ex)
         {
-            s_logger.LogError(ex, "Failed to query video codecs from worker");
+            s_logger.LogError(ex, "Failed to query {MediaType} codecs from worker", mediaType);
             return ([CodecRecord.Default], null);
         }
     }
 
-    private static (IReadOnlyList<object> Codecs, FFmpegLibrariesNotFoundException? MissingException)
-        RefreshAudioCodecs()
-    {
-        try
-        {
-            var connection = FFmpegWorkerProcess.DecodingInstance.EnsureStartedAsync().GetAwaiter().GetResult();
-            var response = connection.RequestAsync<QueryCodecsRequest, QueryCodecsResponse>(
-                MessageType.QueryCodecs, MessageType.QueryCodecsResult,
-                new QueryCodecsRequest { MediaType = "audio" }).AsTask().GetAwaiter().GetResult();
-            var result = response.Codecs
-                .Select(c => (object)new CodecRecord(c.Name, c.LongName))
-                .Prepend(CodecRecord.Default)
-                .ToArray();
-            _audioCodecs = result;
-            return (result, null);
-        }
-        catch (FFmpegLibrariesNotFoundException ex)
-        {
-            return ([CodecRecord.Default], ex);
-        }
-        catch (Exception ex)
-        {
-            s_logger.LogError(ex, "Failed to query audio codecs from worker");
-            return ([CodecRecord.Default], null);
-        }
-    }
-
+    // Test-only: resets the process-wide cache between tests.
     public static void Invalidate()
     {
-        _videoCodecs = null;
-        _audioCodecs = null;
+        Volatile.Write(ref _videoCodecs, null);
+        Volatile.Write(ref _audioCodecs, null);
     }
 }

@@ -166,7 +166,6 @@ public class FFmpegEncodingControllerProxy(string outputFile, FFmpegEncodingSett
             VideoOptions = VideoSettings.Options
                 .Where(o => !string.IsNullOrWhiteSpace(o.Name))
                 .ToDictionary(o => o.Name, o => o.Value),
-            IsHdr = IsHdr(),
             AudioSampleRate = AudioSettings.SampleRate,
             AudioChannels = AudioSettings.Channels,
             AudioBitrate = AudioSettings.Bitrate,
@@ -200,10 +199,5 @@ public class FFmpegEncodingControllerProxy(string outputFile, FFmpegEncodingSett
         {
             _logger.LogWarning(ex, "Failed to send cancel notification to FFmpeg worker");
         }
-    }
-
-    private bool IsHdr()
-    {
-        return VideoSettings.ColorTrc is FFColorTransfer.SMPTE2084 or FFColorTransfer.ARIB_STD_B67;
     }
 }

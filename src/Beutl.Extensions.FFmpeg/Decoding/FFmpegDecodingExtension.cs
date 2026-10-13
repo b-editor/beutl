@@ -50,9 +50,7 @@ public class FFmpegDecodingExtension : DecodingExtension
         {
             try
             {
-                if (e.PropertyName is not (nameof(FFmpegDecodingSettings.ThreadCount)
-                    or nameof(FFmpegDecodingSettings.Acceleration)
-                    or nameof(FFmpegDecodingSettings.ForceSrgbGamma)))
+                if (e.PropertyName != nameof(FFmpegDecodingSettings.ForceSrgbGamma))
                 {
                     return;
                 }
@@ -63,9 +61,7 @@ public class FFmpegDecodingExtension : DecodingExtension
                     var connection = await worker.EnsureStartedAsync();
                     var request = new UpdateDecoderSettingsRequest
                     {
-                        ThreadCount = Settings.ThreadCount,
                         ForceSrgbGamma = Settings.ForceSrgbGamma,
-                        Acceleration = (int)Settings.Acceleration,
                     };
 
                     await connection.SendAndReceiveAsync(IpcMessage.Create(connection.NextId(), MessageType.UpdateDecoderSettings, request));

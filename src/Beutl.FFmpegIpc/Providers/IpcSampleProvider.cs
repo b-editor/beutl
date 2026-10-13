@@ -41,13 +41,8 @@ internal sealed class IpcSampleProvider : ISampleProvider
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        // Honor the ISampleProvider convention (see Beutl.Models.SampleProviderImpl.Sample): always return a
-        // Pcm of the requested length, zero-filling any samples past the timeline end. The encoder issues the
-        // final Sample with frame.NbSamples, which can straddle EOF; FFmpegEncodingController.GetAudioFrame
-        // copies pcm.NumSamples into a fixed-size frame but still encodes frame.NbSamples, so a short Pcm
-        // would leave stale tail samples in the final frame. Reading past SampleCount would also slice
-        // out-of-range chunk data (ArgumentOutOfRangeException), so we fill only the available prefix and
-        // leave the rest silent.
+        // Always return a Pcm of the requested length, zero-filling past the timeline end: the encoder encodes
+        // frame.NbSamples even from a shorter Pcm, so a short one would leave stale samples in the final frame.
         long availableLength = offset >= SampleCount ? 0 : Math.Min(length, SampleCount - offset);
         if (availableLength <= 0)
             return new Pcm<Stereo32BitFloat>((int)SampleRate, (int)length);
@@ -65,16 +60,6 @@ internal sealed class IpcSampleProvider : ISampleProvider
     // the timeline (offset + length <= SampleCount), so the chunk loader never slices past EOF.
     private async ValueTask<Pcm<Stereo32BitFloat>> SampleExact(long offset, long length)
     {
-        // キャッシュヒット: 要求範囲がキャッシュ内に完全に収まる
-        if (_currentChunk != null
-            && offset >= _currentChunkOffset
-            && offset + length <= _currentChunkOffset + _currentChunk.NumSamples)
-        {
-            var result = CopyFromCache(offset, length);
-            StartPrefetchIfNeeded();
-            return result;
-        }
-
         // キャッシュに前半が含まれているか確認
         await EnsureChunkLoaded(offset);
 
@@ -149,7 +134,7 @@ internal sealed class IpcSampleProvider : ISampleProvider
 
         // プリフェッチが進行中だが要求と一致しない場合は、完了を待ってから結果を破棄する。
         // ホストへ非順次なリクエストが流出しないよう、参照を捨てるだけでなく必ず await する。
-        Task<Pcm<Stereo32BitFloat>>? stale = _prefetch.TryDetachStale(chunkOffset);
+        Task<Pcm<Stereo32BitFloat>>? stale = _prefetch.Detach();
         if (stale != null)
         {
             try
@@ -241,19 +226,9 @@ internal sealed class IpcSampleProvider : ISampleProvider
         if (_disposed) return;
         _disposed = true;
 
-        // A prefetch may still be in flight when the encode is torn down (cancel, error, normal end). The
-        // connection/pipe it talks to may already be closing, so we must NOT synchronously wait on it here:
-        // .Wait()/.GetAwaiter().GetResult() could deadlock or rethrow the pipe-teardown fault. Attach a
-        // continuation that observes a fault (preventing UnobservedTaskException) and disposes the native Pcm
-        // a successful prefetch would otherwise leak. Owning the connection is the caller's job, so we only
-        // neutralize our own task. Returns promptly regardless of when the prefetch completes.
-        //
-        // The continuation handles all three terminal states: Faulted (observe the exception so it is not
-        // unobserved), CompletedSuccessfully (dispose the native Pcm the result holds), and Canceled (yields
-        // no result and no fault, so neither branch fires — cancellation is not an unobserved exception).
-        // ExecuteSynchronously is safe because t.Result.Dispose() is a single P/Invoke free: no lock
-        // contention and no throw path. If that body ever becomes heavier, drop ExecuteSynchronously so the
-        // runtime schedules the continuation on a pool thread instead of the completing (receive-loop) one.
+        // Don't wait on a prefetch whose connection may be closing: observe its fault, or dispose the native
+        // Pcm a successful one holds. ExecuteSynchronously runs this on the completing thread; drop it if the
+        // body grows beyond a single free.
         _prefetch.Detach()?.ContinueWith(
             static t =>
             {

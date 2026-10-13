@@ -9,7 +9,7 @@ namespace Beutl.Extensions.AVFoundation.Decoding;
 [Display(Name = nameof(Strings.AVFoundationDecoder), ResourceType = typeof(Strings))]
 public class AVFDecodingExtension : DecodingExtension
 {
-    public override AVFDecodingSettings? Settings { get; } = new();
+    public override AVFDecodingSettings Settings { get; } = new();
 
     public override IDecoderInfo GetDecoderInfo()
     {

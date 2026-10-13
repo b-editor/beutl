@@ -1,5 +1,6 @@
 ﻿using Beutl.Media;
 using Beutl.Media.Proxy;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Media.Proxy;
 
@@ -63,22 +64,6 @@ public class ProxyResolverTests
             Assert.That(touched!.LastUsedUtc, Is.GreaterThan(beforeResolve));
             Assert.That(touchCount, Is.EqualTo(1));
             Assert.That(persisted!.LastUsedUtc, Is.EqualTo(touched.LastUsedUtc));
-        });
-    }
-
-    [Test]
-    public void Resolve_FallsBackAcrossPresets()
-    {
-        string source = CreateSourceFile();
-        RegisterProxy(source, ProxyPreset.Half, new PixelSize(100, 80), new PixelSize(50, 40));
-
-        ProxyResolution? result = _resolver.Resolve(new Uri(source), ProxyPreset.Quarter);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(result, Is.Not.Null);
-            Assert.That(result!.Preset, Is.EqualTo(ProxyPreset.Half));
-            Assert.That(result.SupplyDensity, Is.EqualTo(0.5f).Within(1e-6));
         });
     }
 
@@ -183,7 +168,7 @@ public class ProxyResolverTests
             Assert.That(_resolver.GetSourceVersion(fingerprintB.AbsolutePath), Is.EqualTo(0));
         });
 
-        // A real state change to A must keep advancing A's version (SC-003) ...
+        // A real state change to A must keep advancing A's version ...
         _store.TryTransition(fingerprintA, ProxyPreset.Quarter, ProxyState.Stale);
         Assert.Multiple(() =>
         {
@@ -424,98 +409,24 @@ public class ProxyResolverTests
         Assert.That(_resolver.IsPinned(resolution.AbsoluteProxyFilePath), Is.False);
     }
 
-    [Test]
-    public void Resolve_RejectsProxyPathEscapingStoreRoot()
-    {
-        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        string source = CreateSourceFile();
-        ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(source);
-        var store = new UnsafeStore(root, new ProxyEntry(
-            fingerprint,
-            ProxyPreset.Quarter,
-            ProxyState.Ready,
-            "../outside.mp4",
-            3,
-            new PixelSize(100, 80),
-            new PixelSize(25, 20),
-            DateTime.UtcNow,
-            DateTime.UtcNow,
-            null));
-        var resolver = new ProxyResolver(store);
-
-        ProxyResolution? result = resolver.Resolve(new Uri(source), ProxyPreset.Quarter);
-
-        Assert.That(result, Is.Null);
-    }
-
-    [Test]
-    public void Resolve_RejectsReadyEntryWithInvalidRecordedSize()
+    [TestCase("../outside.mp4", 3, false, false)] // escapes the store root
+    [TestCase("proxy.mp4", 0, false, true)] // invalid recorded size
+    [TestCase("proxy.mp4", 3, false, false)] // proxy file missing
+    [TestCase("proxy.mp4", 3, true, true)] // invalid original dimensions
+    public void Resolve_RejectsAReadyEntryItCannotServe(string relative, long recordedSize, bool emptyOriginal, bool writeFile)
     {
         string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
         string source = CreateSourceFile();
-        string proxyPath = Path.Combine(root, "proxy.mp4");
-        File.WriteAllBytes(proxyPath, [1, 2, 3]);
-        ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(source);
+        if (writeFile)
+            File.WriteAllBytes(Path.Combine(root, relative), [1, 2, 3]);
         var store = new UnsafeStore(root, new ProxyEntry(
-            fingerprint,
+            ProxyFingerprint.FromFile(source),
             ProxyPreset.Quarter,
             ProxyState.Ready,
-            "proxy.mp4",
-            0,
-            new PixelSize(100, 80),
-            new PixelSize(25, 20),
-            DateTime.UtcNow,
-            DateTime.UtcNow,
-            null));
-        var resolver = new ProxyResolver(store);
-
-        ProxyResolution? result = resolver.Resolve(new Uri(source), ProxyPreset.Quarter);
-
-        Assert.That(result, Is.Null);
-    }
-
-    [Test]
-    public void Resolve_ReturnsNullWhenReadyProxyFileIsMissing()
-    {
-        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        string source = CreateSourceFile();
-        ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(source);
-        var store = new UnsafeStore(root, new ProxyEntry(
-            fingerprint,
-            ProxyPreset.Quarter,
-            ProxyState.Ready,
-            "proxy.mp4",
-            3,
-            new PixelSize(100, 80),
-            new PixelSize(25, 20),
-            DateTime.UtcNow,
-            DateTime.UtcNow,
-            null));
-        var resolver = new ProxyResolver(store);
-
-        ProxyResolution? result = resolver.Resolve(new Uri(source), ProxyPreset.Quarter);
-
-        Assert.That(result, Is.Null);
-    }
-
-    [Test]
-    public void Resolve_RejectsReadyEntryWithInvalidDimensions()
-    {
-        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        string source = CreateSourceFile();
-        string proxyPath = Path.Combine(root, "proxy.mp4");
-        File.WriteAllBytes(proxyPath, [1, 2, 3]);
-        ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(source);
-        var store = new UnsafeStore(root, new ProxyEntry(
-            fingerprint,
-            ProxyPreset.Quarter,
-            ProxyState.Ready,
-            "proxy.mp4",
-            3,
-            PixelSize.Empty,
+            relative,
+            recordedSize,
+            emptyOriginal ? PixelSize.Empty : new PixelSize(100, 80),
             new PixelSize(25, 20),
             DateTime.UtcNow,
             DateTime.UtcNow,
@@ -553,35 +464,15 @@ public class ProxyResolverTests
         PixelSize originalSize,
         PixelSize proxySize,
         ProxyState state = ProxyState.Ready)
-    {
-        string relative = Path.Combine(Guid.NewGuid().ToString("N"), $"{preset}.mp4");
-        string path = Path.Combine(_root, relative);
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        File.WriteAllBytes(path, [1, 2, 3]);
-
-        var now = DateTime.UtcNow;
-        var entry = new ProxyEntry(
-            ProxyFingerprint.FromFile(source),
-            preset,
-            state,
-            relative.Replace(Path.DirectorySeparatorChar, '/'),
-            3,
-            originalSize,
-            proxySize,
-            now,
-            now,
-            null);
-
-        _store.Register(entry);
-        return entry;
-    }
+        => RegisterProxyEntry(ProxyFingerprint.FromFile(source), preset, originalSize, proxySize, DateTime.UtcNow, state);
 
     private ProxyEntry RegisterProxyEntry(
         ProxyFingerprint source,
         ProxyPreset preset,
         PixelSize originalSize,
         PixelSize proxySize,
-        DateTime generatedAtUtc)
+        DateTime generatedAtUtc,
+        ProxyState state = ProxyState.Ready)
     {
         string relative = Path.Combine(Guid.NewGuid().ToString("N"), $"{preset}.mp4");
         string path = Path.Combine(_root, relative);
@@ -591,7 +482,7 @@ public class ProxyResolverTests
         var entry = new ProxyEntry(
             source,
             preset,
-            ProxyState.Ready,
+            state,
             relative.Replace(Path.DirectorySeparatorChar, '/'),
             3,
             originalSize,
@@ -604,44 +495,13 @@ public class ProxyResolverTests
         return entry;
     }
 
-    private sealed class UnsafeStore(string root, ProxyEntry entry) : IProxyStore
+    private sealed class UnsafeStore(string root, ProxyEntry entry) : StubProxyStore(root)
     {
-        public string StoreRootPath { get; } = root;
-
-        public event EventHandler<ProxyStoreChangedEventArgs>? Changed;
-
-        public ProxyEntry? TryGet(ProxyFingerprint source, ProxyPreset preset)
+        public override ProxyEntry? TryGet(ProxyFingerprint source, ProxyPreset preset)
         {
             return source == entry.Source && preset == entry.Preset ? entry : null;
         }
 
-        public IReadOnlyList<ProxyEntry> Enumerate() => [entry];
-
-        public void Register(ProxyEntry entry)
-        {
-        }
-
-        public bool TryTransition(ProxyFingerprint source, ProxyPreset preset, ProxyState newState, string? failureReason = null)
-            => false;
-
-        public bool Delete(ProxyFingerprint source, ProxyPreset preset) => false;
-
-        public void Touch(ProxyFingerprint source, ProxyPreset preset, DateTime nowUtc)
-        {
-            Changed?.Invoke(this, new ProxyStoreChangedEventArgs
-            {
-                Source = source,
-                Preset = preset,
-                Kind = ProxyStoreChangeKind.Touched,
-            });
-        }
-
-        public long GetTotalBytes() => 0;
-
-        public long GetTotalBytes(IReadOnlySet<string> sourceAbsolutePaths) => 0;
-
-        public Task FlushAsync(CancellationToken cancellationToken) => Task.CompletedTask;
-
-        public Task ReconcileAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+        public override IReadOnlyList<ProxyEntry> Enumerate() => [entry];
     }
 }

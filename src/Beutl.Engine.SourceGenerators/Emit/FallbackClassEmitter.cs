@@ -30,29 +30,23 @@ public static class FallbackClassEmitter
 
         string indent = "    ";
 
-        // Json property
         EmitJsonProperty(sb, indent);
         sb.AppendLine();
 
-        // Serialize override
         EmitSerialize(sb, indent);
         sb.AppendLine();
 
-        // Deserialize override
         EmitDeserialize(sb, indent);
         sb.AppendLine();
 
-        // TryGetTypeName
         EmitTryGetTypeName(sb, indent);
 
-        // Abstract method stubs
         foreach (AbstractMethodInfo methodInfo in info.AbstractMethods)
         {
             sb.AppendLine();
             EmitAbstractMethodStub(sb, indent, methodInfo);
         }
 
-        // Resource abstract method stubs
         if (info.ResourceAbstractMethods.Length > 0)
         {
             sb.AppendLine();

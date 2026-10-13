@@ -17,7 +17,6 @@ public class NodePort<T> : NodeMember<T>, INodePort
 
     protected void VerifyConnection(Connection connection)
     {
-        // InputもOutputも自分じゃない場合は例外を発生させる
         if (connection.Input.Id != Id && connection.Output.Id != Id)
         {
             throw new InvalidOperationException("The connection does not belong to this port.");

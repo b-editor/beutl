@@ -13,7 +13,7 @@ public static class GenerativeInputs
 
     /// <summary>Whether a clip at this path is of a kind a generation can take.</summary>
     public static bool IsSupportedVideoFile(string path)
-        => MediaTypeOf(Path.GetExtension(path)) is not null;
+        => MediaTypeOf(Path.GetExtension(path).ToLowerInvariant()) is not null;
 
     /// <summary>Reads a clip handed to a generation as input, named <paramref name="name"/> plus its extension.</summary>
     public static GenerativeFileInput ReadVideoFile(string path, string name)
@@ -37,7 +37,8 @@ public static class GenerativeInputs
         }
     }
 
-    private static string? MediaTypeOf(string extension) => extension.ToLowerInvariant() switch
+    // Takes a lowercased extension.
+    private static string? MediaTypeOf(string extension) => extension switch
     {
         ".mp4" => "video/mp4",
         ".webm" => "video/webm",

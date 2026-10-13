@@ -11,9 +11,8 @@ internal static class FrameFit
     /// </summary>
     /// <remarks>
     /// The whole frame is kept and the rest of the output is black, a letterbox or a pillarbox, so an output of
-    /// another aspect ratio does not stretch the picture. A destination that is the source scaled and rounded to
-    /// whole pixels, within a pixel on each axis, scales straight to it as before; proxies rely on that, since
-    /// they round both extents to even numbers.
+    /// another aspect ratio does not stretch the picture. Proxies round both extents to even numbers, so a
+    /// destination within a pixel of the scaled source on each axis scales straight to it without padding.
     /// </remarks>
     /// <param name="source">The size of the frames the encoder is handed.</param>
     /// <param name="destination">The size of the encoded frames.</param>

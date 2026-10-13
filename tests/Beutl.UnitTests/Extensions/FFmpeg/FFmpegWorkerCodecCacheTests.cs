@@ -28,7 +28,7 @@ public class FFmpegWorkerCodecCacheTests
                 Interlocked.Exchange(ref nestedTimedOut, 1);
         }
 
-        FFmpegInstallNotifier.AvailabilityChanged += OnAvailabilityChanged;
+        FFmpegLibraryState.AvailabilityChanged += OnAvailabilityChanged;
         try
         {
             _ = FFmpegWorkerCodecCache.GetVideoCodecs();
@@ -40,7 +40,7 @@ public class FFmpegWorkerCodecCacheTests
         }
         finally
         {
-            FFmpegInstallNotifier.AvailabilityChanged -= OnAvailabilityChanged;
+            FFmpegLibraryState.AvailabilityChanged -= OnAvailabilityChanged;
             if (nestedQuery is not null)
                 nestedQuery.Wait(TimeSpan.FromSeconds(5));
             FFmpegWorkerCodecCache.Invalidate();

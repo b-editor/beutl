@@ -24,18 +24,9 @@ public partial class FFmpegInstallService
             _logger.LogInformation("Homebrew not found, attempting to install");
             ProgressTextChanged?.Invoke(Strings.Homebrew_not_found_installing);
 
-            bool homebrewInstalled = await InstallHomebrewAsync(client);
-            if (!homebrewInstalled)
-            {
-                Completed?.Invoke(false);
-                return;
-            }
-
-            brewPath = GetBrewPath();
+            brewPath = await InstallHomebrewAsync(client);
             if (brewPath == null)
             {
-                _logger.LogError("Homebrew still not found after installation");
-                ProgressTextChanged?.Invoke(Strings.Homebrew_not_found);
                 Completed?.Invoke(false);
                 return;
             }
@@ -56,8 +47,8 @@ public partial class FFmpegInstallService
             CreateNoWindow = true,
             Environment =
             {
-                ["NONINTERACTIVE"] = "1", // Set SUDO_ASKPASS for brew install (may need sudo for some operations)
-                ["SUDO_ASKPASS"] = askPassPath
+                ["NONINTERACTIVE"] = "1",
+                ["SUDO_ASKPASS"] = askPassPath // Set SUDO_ASKPASS for brew install (may need sudo for some operations)
             }
         };
 
@@ -186,8 +177,9 @@ public partial class FFmpegInstallService
             | UnixFileMode.OtherExecute);
     }
 
+    // Returns the brew path, or null when the installation failed.
     [SupportedOSPlatform("macos")]
-    private async Task<bool> InstallHomebrewAsync(HttpClient client)
+    private async Task<string?> InstallHomebrewAsync(HttpClient client)
     {
         CancellationToken ct = _cts.Token;
         ProgressTextChanged?.Invoke(Strings.Installing_Homebrew);
@@ -242,7 +234,7 @@ public partial class FFmpegInstallService
             {
                 _logger.LogError("Homebrew installation failed: {Error}", error);
                 ProgressTextChanged?.Invoke(string.Format(Strings.Homebrew_installation_failed, error));
-                return false;
+                return null;
             }
 
             _logger.LogInformation("Homebrew installation completed: {Output}", output);
@@ -253,10 +245,10 @@ public partial class FFmpegInstallService
             {
                 _logger.LogError("Homebrew not found after installation");
                 ProgressTextChanged?.Invoke(Strings.Homebrew_not_found_after_installation);
-                return false;
+                return null;
             }
 
-            return true;
+            return brewPath;
         }
         catch (OperationCanceledException)
         {
@@ -266,7 +258,7 @@ public partial class FFmpegInstallService
         {
             _logger.LogError(ex, "Failed to install Homebrew");
             ProgressTextChanged?.Invoke(string.Format(Strings.Failed_to_install_Homebrew, ex.Message));
-            return false;
+            return null;
         }
     }
 }
