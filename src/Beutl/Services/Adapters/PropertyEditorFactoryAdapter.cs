@@ -1,7 +1,6 @@
 ﻿using Beutl.Api.Services;
 using Beutl.Editor.Services;
 using Beutl.ViewModels;
-using DynamicData;
 
 namespace Beutl.Services.Adapters;
 
@@ -26,24 +25,12 @@ internal sealed class PropertyEditorFactoryAdapter(ExtensionProvider extensionPr
     {
         List<IPropertyAdapter> props = [.. properties];
         var tempItems = new List<IPropertyEditorContext?>(props.Count);
-        IPropertyAdapter[]? foundItems;
-        PropertyEditorExtension? extension;
-
-        do
+        CoreObjectPropertyEditorBuilder.CreateContexts(props, extensionProvider, context =>
         {
-            (foundItems, extension) = PropertyEditorService.MatchProperty(props, extensionProvider);
-            if (foundItems != null && extension != null)
-            {
-                if (extension.TryCreateContext(foundItems, out IPropertyEditorContext? context))
-                {
-                    tempItems.Add(context);
-                    if (visitor != null)
-                        context.Accept(visitor);
-                }
-
-                props.RemoveMany(foundItems);
-            }
-        } while (foundItems != null && extension != null);
+            tempItems.Add(context);
+            if (visitor != null)
+                context.Accept(visitor);
+        });
 
         CoreObjectPropertyEditorBuilder.GroupByDisplayGroupName(tempItems);
         return tempItems;

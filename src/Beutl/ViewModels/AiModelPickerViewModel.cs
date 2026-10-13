@@ -37,12 +37,8 @@ internal sealed record AiModelPickerOption(AiModelOption Model, bool IsAvailable
 }
 
 /// <summary>
-/// Which model an operation should run on.
-///
-/// The list is fetched rather than declared, because an administrator registers
-/// it on the server; until it arrives, and whenever it holds fewer than two
-/// entries, the dialog shows no picker and the request names no model, which is
-/// how it behaved before models could be chosen.
+/// Which model an operation should run on. The list comes from the server; until it arrives, and whenever it
+/// holds fewer than two entries, the dialog shows no picker and the request names no model.
 /// </summary>
 internal sealed class AiModelPickerViewModel : IDisposable
 {
@@ -51,23 +47,16 @@ internal sealed class AiModelPickerViewModel : IDisposable
     private readonly IAiModelCatalogService _catalog;
     private readonly IAiEntitlementService _entitlements;
     private readonly CancellationTokenSource _lifetimeCancellation = new();
-    // What the list currently on offer was built from. Reloading is how a model
-    // an operator changed reaches a screen that is already open, and most
-    // reloads find exactly what is already there — rebuilding then would empty
-    // the list and move the user's choice for nothing.
+    // What the list on offer was built from. Most reloads find exactly this, and rebuilding the list then
+    // would empty it and move the user's choice for nothing.
     private AiModelCatalog? _loadedCatalog;
     private AiEntitlements? _loadedEntitlements;
     private int _disposed;
-    // Which load is the one whose answer still matters. Two can be in the air
-    // at once — switching task while a scheduled reload is fetching — and only
-    // the newest may say the list has arrived, or a request could go out while
-    // the list for the task on screen is still on its way.
+    // The newest load, the only one that may say the list has arrived: a task switch during a scheduled
+    // reload puts two in the air, and the older one could let a request out before the right list arrives.
     private int _loadGeneration;
-    // How often a page that stays where it is asks again. The catalog itself is
-    // cached with a freshness window, so most of these cost nothing; without
-    // them, a page left in the foreground goes on offering a model an operator
-    // has since withdrawn for as long as it is left there. Reopening the page,
-    // or coming back to the window, is the other way this happens.
+    // How often an open page asks again, so it stops offering a model an operator has withdrawn. The
+    // catalog is cached with a freshness window, so most of these cost nothing.
     private static readonly TimeSpan s_reloadInterval = TimeSpan.FromMinutes(1);
 
     public AiModelPickerViewModel(
@@ -85,7 +74,6 @@ internal sealed class AiModelPickerViewModel : IDisposable
             .DisposeWith(_disposables);
         IsSelectionEnabled = new ReactivePropertySlim<bool>(true)
             .DisposeWith(_disposables);
-        Label = Strings.AiModel;
         Observable
             .Interval(s_reloadInterval, UiThreadScheduler.Instance)
             .Subscribe(_ => ReloadOnSchedule())
@@ -93,29 +81,16 @@ internal sealed class AiModelPickerViewModel : IDisposable
     }
 
     /// <summary>
-    /// Whether the list for <paramref name="operation"/> may be put on offer
-    /// right now.
+    /// Whether the list for <paramref name="operation"/> may be put on offer right now. A screen holding an
+    /// unsettled request says no, since moving the model renames a request already paid for, but never to a
+    /// list it does not have yet, which would leave it unable to send anything.
     /// </summary>
-    /// <remarks>
-    /// A screen holding a name the server has not settled says no to replacing
-    /// the list that request was built against: what it carries follows the
-    /// model on offer, and moving that renames a request already paid for. It
-    /// must not say no to a list it does not have yet, though — a screen with
-    /// no list for what it is showing cannot send anything at all, which is how
-    /// coming back to an unfinished request would strand it.
-    /// </remarks>
     public Func<AiOperationId, bool>? CanReload { get; set; }
 
     /// <summary>
-    /// Models that must stay on the list for an operation however the catalog
-    /// changes, because a request still waiting to be collected named them.
+    /// Models that stay on the list for an operation however the catalog changes, because a request still
+    /// waiting to be collected named them; the server answers such a request even for a withdrawn model.
     /// </summary>
-    /// <remarks>
-    /// The server answers such a request before it looks at whether the model
-    /// is still offered, so the screen has to be able to say that model's name.
-    /// There may be more than one — two requests on the same operation, sent on
-    /// different models, can both be waiting.
-    /// </remarks>
     public Func<AiOperationId, IReadOnlyList<AiModelId>>? KeepOffered { get; set; }
 
     private void ReloadOnSchedule()
@@ -151,8 +126,6 @@ internal sealed class AiModelPickerViewModel : IDisposable
     /// </summary>
     public AiOperationId Operation { get; private set; }
 
-    public string Label { get; }
-
     public ObservableCollection<AiModelPickerOption> Options { get; } = [];
 
     /// <summary>
@@ -176,30 +149,15 @@ internal sealed class AiModelPickerViewModel : IDisposable
     public ReactivePropertySlim<bool> HasChoice { get; }
 
     /// <summary>
-    /// True when the server registered models for this operation and none of
-    /// them can serve it.
+    /// True when the server registered models for this operation and none of them can serve it. An empty list
+    /// alone says nothing: a server that publishes no models is answered by naming none and letting it choose.
     /// </summary>
-    /// <remarks>
-    /// An empty list on its own says nothing — a server that publishes no
-    /// models at all is answered by naming none and letting it choose, which is
-    /// how this client behaved before models could be chosen. It is only when
-    /// there were models to offer and every one was ruled out that a request
-    /// would be refused however it is shaped, and the screen has nothing to
-    /// offer rather than nothing to choose between.
-    /// </remarks>
     public ReactivePropertySlim<bool> OffersNothingUsable { get; }
 
     /// <summary>
-    /// Whether the list has been asked for at least once.
+    /// Whether the list has been asked for at least once. Until then a request names no model and runs on the
+    /// server's default, which may cost more than the model the screen would have offered.
     /// </summary>
-    /// <remarks>
-    /// Until then nothing is known: the operation may have no model that can
-    /// serve it, and a request sent meanwhile names none and runs on whatever
-    /// the server has as its default — which may cost more than the model the
-    /// screen would have offered. A failed attempt still counts as asked: a
-    /// catalog that cannot be read must not leave the screen unable to send at
-    /// all, which is how it behaved before models could be chosen.
-    /// </remarks>
     public ReactivePropertySlim<bool> IsLoaded { get; }
 
     internal ReactivePropertySlim<bool> IsSelectionEnabled { get; }
@@ -253,15 +211,9 @@ internal sealed class AiModelPickerViewModel : IDisposable
         => LoadAsync(operation, preferred, preferredSpecified: preferred is not null, cancellationToken);
 
     /// <summary>
-    /// Loads the list and lands on <paramref name="preferred"/> when it is
-    /// still offered.
+    /// Loads the list and lands on <paramref name="preferred"/> when it is still offered, so a resumed run goes
+    /// back to the model its requests are named by instead of buying the unfinished pieces again.
     /// </summary>
-    /// <remarks>
-    /// A run that was interrupted names its requests partly by the model it ran
-    /// on, so a resumed run has to go back to that model: landing on whichever
-    /// the account can afford today would name the unfinished pieces
-    /// differently and buy them again.
-    /// </remarks>
     public async Task LoadAsync(
         AiOperationId operation,
         AiModelId? preferred,
@@ -271,12 +223,7 @@ internal sealed class AiModelPickerViewModel : IDisposable
         if (Volatile.Read(ref _disposed) != 0)
             return;
 
-        // Nothing is known about an operation this picker has not been asked
-        // for yet — least of all whether it has a model that can serve it. The
-        // image editor's five tasks are five operations, and a request sent
-        // while the list for the new one is still on its way would name no
-        // model and run on the server's default, which may cost more than the
-        // model the screen was about to offer.
+        // Another operation is not loaded until its own list arrives (see IsLoaded).
         if (Operation != operation)
             IsLoaded.Value = false;
 
@@ -336,12 +283,7 @@ internal sealed class AiModelPickerViewModel : IDisposable
         // The choice already made, kept when it is still on offer: a reload is
         // not a reason to move it.
         AiModelId? keep = preferredSpecified ? preferred : (preferred ?? SelectedModel);
-        // Models the catalog no longer lists that an uncollected request was
-        // sent with. The server answers such a request before it looks at
-        // whether the model is still offered, so each one stays on the list,
-        // unpickable for anything new, until that request is settled. What is on
-        // offer right now may be another operation's list entirely, so a name
-        // with nothing behind it is shown as itself rather than dropped.
+        // Kept for uncollected requests (see KeepOffered), unpickable; one not on the list shows its id.
         AiModelPickerOption[] mustStay = CollectRetainedOptions(operation);
         Operation = operation;
         ImageReferenceLimits = catalog.GetImageReferenceLimits(operation);
@@ -414,10 +356,7 @@ internal sealed class AiModelPickerViewModel : IDisposable
         ImmutableArray<AiModelOption> registered, AiModelCatalog catalog, AiOperationId operation)
     {
         HasChoice.Value = Options.Count > 1;
-        // Two ways an operation has nothing to run on: every model it registered
-        // was ruled out here, or the server named the operation and offered no
-        // model for it at all. A server that says nothing about the operation is
-        // neither — a request then names no model and the server picks.
+        // Every registered model ruled out, or none offered for the operation (see OffersNothingUsable).
         OffersNothingUsable.Value =
             (!registered.IsDefaultOrEmpty && Options.Count == 0)
             || catalog.OffersNoModel(operation);

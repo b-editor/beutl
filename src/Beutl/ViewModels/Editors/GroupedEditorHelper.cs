@@ -26,18 +26,13 @@ internal static class GroupedEditorHelper
         {
             groupChildren.Add(pasted);
         }
-        else if (vm.EditingKeyFrame.Value is { } kf)
-        {
-            vm.SetValue(kf.Value, pasted, CommandNames.PasteObject);
-            return true;
-        }
-        else if (vm.PropertyAdapter is ListItemAccessorImpl<TItem> listItemAccessor)
+        else if (vm.EditingKeyFrame.Value is null && vm.PropertyAdapter is ListItemAccessorImpl<TItem> listItemAccessor)
         {
             listItemAccessor.List.Insert(listItemAccessor.Index, pasted);
         }
         else
         {
-            vm.SetValue(vm.PropertyAdapter.GetValue(), pasted, CommandNames.PasteObject);
+            vm.SetValue(vm.GetEditingValue(), pasted, CommandNames.PasteObject);
             return true;
         }
 

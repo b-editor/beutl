@@ -3,8 +3,6 @@ using Beutl.Editor;
 using Beutl.Editor.Observers;
 using Beutl.Editor.Services;
 using Beutl.Media.Encoding;
-using Beutl.Services;
-using DynamicData;
 
 namespace Beutl.ViewModels;
 
@@ -41,23 +39,11 @@ public sealed class EncoderSettingsViewModel : IPropertyEditorContextVisitor, IS
         List<IPropertyAdapter> props = CoreObjectPropertyEditorBuilder.CreateAdapters(obj, predicate);
 
         var tempItems = new List<IPropertyEditorContext?>(props.Count);
-        IPropertyAdapter[]? foundItems;
-        PropertyEditorExtension? extension;
-
-        do
+        CoreObjectPropertyEditorBuilder.CreateContexts(props, _extensionProvider, context =>
         {
-            (foundItems, extension) = PropertyEditorService.MatchProperty(props, _extensionProvider);
-            if (foundItems != null && extension != null)
-            {
-                if (extension.TryCreateContext(foundItems, out IPropertyEditorContext? context))
-                {
-                    tempItems.Add(context);
-                    context.Accept(this);
-                }
-
-                props.RemoveMany(foundItems);
-            }
-        } while (foundItems != null && extension != null);
+            tempItems.Add(context);
+            context.Accept(this);
+        });
 
         tempItems.Sort((x, y) =>
         {

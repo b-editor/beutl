@@ -5,10 +5,9 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Editors;
 
-// TODO: PathSegmentEditorViewModel に改名
-public sealed class PathOperationEditorViewModel : ValueEditorViewModel<PathSegment?>
+public sealed class PathSegmentEditorViewModel : ValueEditorViewModel<PathSegment?>
 {
-    public PathOperationEditorViewModel(IPropertyAdapter<PathSegment?> property)
+    public PathSegmentEditorViewModel(IPropertyAdapter<PathSegment?> property)
         : base(property)
     {
         OpName = Value.Select(GetOpName)
@@ -83,11 +82,6 @@ public sealed class PathOperationEditorViewModel : ValueEditorViewModel<PathSegm
     private void AcceptProperties()
     {
         NestedEditorContextHelper.AcceptChildren(new ChildVisitor(this), null, Properties.Value);
-    }
-
-    public void SetNull()
-    {
-        SetValue(Value.Value, null);
     }
 
     public override void ReadFromJson(JsonObject json)

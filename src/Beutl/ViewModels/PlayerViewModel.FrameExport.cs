@@ -11,48 +11,42 @@ public partial class PlayerViewModel
     /// <summary>
     /// Measures the logical pixel size <paramref name="drawable"/> renders into at unit scale.
     /// </summary>
-    public async Task<PixelSize> MeasureSelectedDrawable(Drawable drawable)
-    {
-        await Pause();
-
-        return await RenderThread.Dispatcher.InvokeAsync(() =>
-        {
-            if (Scene == null) throw new Exception("Scene is null.");
-            SceneRenderer sceneRenderer = EditViewModel.Renderer.Value;
-            PixelSize frameSize = sceneRenderer.FrameSize;
-            CompositionContext compositionContext = CreateSelectedDrawableCompositionContext(
-                CurrentFrame.Value,
-                frameSize);
-            using var resource = drawable.ToResource(compositionContext);
-            using var root = new DrawableRenderNode(resource);
-            using (var context = new GraphicsContext2D(root, frameSize.ToSize(1)))
-            {
-                drawable.Render(context, resource);
-            }
-
-            var request = new RenderNodeRenderRequest
-            {
-                Intent = RenderIntent.Preview,
-                TargetDomain = compositionContext.TargetDomain,
-                OutputScale = 1,
-                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-            };
-            using var renderer = new RenderNodeRenderer(root, request);
-            RenderNodeRenderRequest measureRequest = request with
-            {
-                TargetDomain = ResolveSelectedDrawableDomain(
-                    renderer,
-                    request,
-                    compositionContext.TargetDomain),
-            };
-            return PixelRect.FromRect(GetSelectedDrawableRasterRegion(renderer.Measure(measureRequest))).Size;
-        });
-    }
+    public Task<PixelSize> MeasureSelectedDrawable(Drawable drawable)
+        => RenderSelectedDrawable(
+            drawable,
+            RenderIntent.Preview,
+            outputScale: 1,
+            maxWorkingScale: float.PositiveInfinity,
+            (renderer, request) => PixelRect.FromRect(renderer.Measure(request).OutputBounds).Size);
 
     /// <summary>
     /// Renders <paramref name="drawable"/> on its own at the given <paramref name="outputScale"/>.
     /// </summary>
-    public async Task<Bitmap> DrawSelectedDrawable(Drawable drawable, float outputScale = 1f)
+    public Task<Bitmap> DrawSelectedDrawable(Drawable drawable, float outputScale = 1f)
+        => RenderSelectedDrawable(
+            drawable,
+            RenderIntent.Delivery,
+            outputScale,
+            WorkingScaleCeiling.Export(),
+            (renderer, request) =>
+            {
+                Rect outputBounds = renderer.Measure(request).OutputBounds;
+                using RenderNodeRasterization rasterization = renderer.Rasterize(request with
+                {
+                    RequestedRegion = outputBounds,
+                });
+                return rasterization.Bitmap?.Clone()
+                    ?? throw new InvalidOperationException("The selected drawable produced no raster output.");
+            });
+
+    // Records drawable on its own on the render thread and passes the renderer and the request, with the
+    // domain resolved for the drawable, to finish.
+    private async Task<T> RenderSelectedDrawable<T>(
+        Drawable drawable,
+        RenderIntent intent,
+        float outputScale,
+        float maxWorkingScale,
+        Func<RenderNodeRenderer, RenderNodeRenderRequest, T> finish)
     {
         await Pause();
 
@@ -73,54 +67,30 @@ public partial class PlayerViewModel
 
             var request = new RenderNodeRenderRequest
             {
-                Intent = RenderIntent.Delivery,
+                Intent = intent,
                 TargetDomain = compositionContext.TargetDomain,
                 OutputScale = outputScale,
-                MaxWorkingScale = WorkingScaleCeiling.Export(),
+                MaxWorkingScale = maxWorkingScale,
                 CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             };
             using var renderer = new RenderNodeRenderer(root, request);
-            RenderNodeRenderRequest exportRequest = request with
+            return finish(renderer, request with
             {
                 TargetDomain = ResolveSelectedDrawableDomain(
                     renderer,
                     request,
                     compositionContext.TargetDomain),
-            };
-            Rect outputBounds = GetSelectedDrawableRasterRegion(renderer.Measure(exportRequest));
-            using RenderNodeRasterization rasterization = renderer.Rasterize(exportRequest with
-            {
-                RequestedRegion = outputBounds,
             });
-            return rasterization.Bitmap?.Clone()
-                ?? throw new InvalidOperationException("The selected drawable produced no raster output.");
         });
     }
-
-    internal static Rect GetSelectedDrawableRasterRegion(RenderNodeMeasurement measurement)
-        => measurement.OutputBounds;
 
     /// <summary>
     /// The target domain a selected-drawable export renders against: wide enough to own a fragment that
     /// resolves its region from the target, but never narrower than the drawable itself.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// A request's target domain is a hard output clip, so exporting against the scene frame cropped an
-    /// element hanging over the edge and produced nothing at all for one entirely outside it - neither of
-    /// which is what "save this element as an image" means. Measuring without a domain first asks the
-    /// drawable how much room it actually takes.
-    /// </para>
-    /// <para>
-    /// A subtree that reads the whole target - a backdrop, say - cannot answer that question: it says so by
-    /// throwing, because the extent it would report is the domain it was not given. Keeping only the frame
-    /// there reinstates the crop this method exists to avoid, and a backdrop carried past the frame edge by
-    /// a transform loses the export entirely. Ask again with the frame and read
-    /// <see cref="RenderNodeMeasurement.QueryBounds"/> instead: the domain clips
-    /// <see cref="RenderNodeMeasurement.OutputBounds"/> but not the region the subtree asked to read, so
-    /// that is the content extent, and it stays finite - an unbounded full-target read contributes to the
-    /// output it fills, never to what it queries.
-    /// </para>
+    /// The domain clips the output, so the drawable is measured without one first. A subtree that reads the
+    /// whole target throws then, so it is measured with the frame and its QueryBounds are used instead.
     /// </remarks>
     internal static Rect? ResolveSelectedDrawableDomain(
         RenderNodeRenderer renderer,
@@ -192,7 +162,6 @@ public partial class PlayerViewModel
             var compositionFrame = renderer.Compositor.EvaluateGraphics(CurrentFrame.Value);
             renderer.Render(compositionFrame);
 
-            // Surface is ceil(FrameSize * outputScale); return as-is.
             return renderer.Snapshot();
         });
     }

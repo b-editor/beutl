@@ -1,27 +1,16 @@
-﻿using System.Text.Json.Nodes;
-using Avalonia.Input;
-using Beutl.Editor.Components.Helpers;
+﻿using Avalonia.Input;
 using Beutl.Engine;
-using Beutl.Engine.Expressions;
 using Beutl.Graphics.Effects;
 using Beutl.PropertyAdapters;
-using Beutl.Serialization;
-using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEffect?>, IFallbackObjectViewModel
+public sealed class FilterEffectEditorViewModel : GroupableEditorViewModel<FilterEffect, FilterEffectGroup, FallbackFilterEffect>
 {
     public FilterEffectEditorViewModel(IPropertyAdapter<FilterEffect?> property)
         : base(property)
     {
-        CanCopy = Value.Select(v => v is FilterEffect and not FallbackFilterEffect)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(Disposables);
-
-        (IsFallback, ActualTypeName, FallbackMessage) = FallbackEditorHelper.ObserveFallbackInfo(Value, Disposables);
-
         FilterName = Value.Select(v =>
             {
                 if (v != null)
@@ -37,160 +26,23 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        IsGroup = Value.Select(v => v is FilterEffectGroup)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(Disposables);
-
-        IsGroupOrNull = Value.Select(v => v is FilterEffectGroup || v == null)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(Disposables);
-
-        IsExpanded.SkipWhile(v => !v)
-            .Take(1)
-            .Subscribe(_ =>
-                Value.Subscribe(v =>
-                    {
-                        Properties.Value?.Dispose();
-                        Properties.Value = null;
-                        Group.Value?.Dispose();
-                        Group.Value = null;
-
-                        if (v is FilterEffectGroup group)
-                        {
-                            var prop = new EnginePropertyAdapter<ICoreList<FilterEffect>>(group.Children, group);
-                            Group.Value = new ListEditorViewModel<FilterEffect>(prop) { IsExpanded = { Value = true } };
-                        }
-                        else if (v != null)
-                        {
-                            Properties.Value = new PropertiesEditorViewModel(v, GetExtensionProvider());
-                        }
-
-                        AcceptChild();
-                    })
-                    .DisposeWith(Disposables))
-            .DisposeWith(Disposables);
-
-        IsEnabled = Value.Select(x =>
-                x?.GetObservable(FilterEffect.IsEnabledProperty) ?? Observable.ReturnThenNever(x?.IsEnabled ?? false))
-            .Switch()
-            .ToReactiveProperty()
-            .DisposeWith(Disposables);
-
-        IsEnabled.Skip(1)
-            .Subscribe(v =>
-            {
-                if (Value.Value is { } filter && filter.IsEnabled != v)
-                {
-                    // A fallback saves the JSON it was read from, so the change would be lost.
-                    if (!IsElementEditable || filter is IFallback)
-                    {
-                        IsEnabled.Value = filter.IsEnabled;
-                        return;
-                    }
-                    filter.IsEnabled = v;
-                    Commit();
-                }
-            })
-            .DisposeWith(Disposables);
-
         (IsPresenter, CurrentTargetName) = PresenterEditorHelper.ObservePresenter<FilterEffect>(Value, Disposables);
     }
-
-    public override IReadOnlyReactiveProperty<bool> CanCopy { get; }
-
-    public override IReadOnlyReactiveProperty<bool> CanSaveAsTemplate => CanCopy;
-
-    protected override Type? TemplateBaseType => typeof(FilterEffect);
 
     protected override DataFormat<string>? PasteFormat => BeutlDataFormats.FilterEffect;
 
     public ReadOnlyReactivePropertySlim<string?> FilterName { get; }
 
-    public ReadOnlyReactivePropertySlim<bool> IsGroup { get; }
-
-    public ReadOnlyReactivePropertySlim<bool> IsGroupOrNull { get; }
-
-    public ReactivePropertySlim<bool> IsExpanded { get; } = new();
-
-    public ReactiveProperty<bool> IsEnabled { get; }
-
-    public IReadOnlyReactiveProperty<bool> IsFallback { get; }
-
-    public IReadOnlyReactiveProperty<string> ActualTypeName { get; }
-
-    public IReadOnlyReactiveProperty<string> FallbackMessage { get; }
-
-    public ReactivePropertySlim<PropertiesEditorViewModel?> Properties { get; } = new();
-
-    public ReactivePropertySlim<ListEditorViewModel<FilterEffect>?> Group { get; } = new();
-
     public ReadOnlyReactivePropertySlim<bool> IsPresenter { get; }
 
     public ReadOnlyReactivePropertySlim<string?> CurrentTargetName { get; }
 
-    public override void Accept(IPropertyEditorContextVisitor visitor)
-    {
-        base.Accept(visitor);
-        AcceptChild();
-    }
-
-    private void AcceptChild()
-    {
-        NestedEditorContextHelper.AcceptChildren(new ChildVisitor(this), Group.Value, Properties.Value);
-    }
-
-    public void ChangeFilter(FilterEffect instance)
-    {
-        IsExpanded.Value = true;
-        SetValue(Value.Value, instance);
-    }
+    public void ChangeFilter(FilterEffect instance) => ChangeValue(instance);
 
     public void ChangeFilterType(Type type)
     {
         if (Activator.CreateInstance(type) is FilterEffect instance)
             ChangeFilter(instance);
-    }
-
-    protected override ICoreSerializable? GetCopyTarget()
-        => Value.Value is FilterEffect fe and not FallbackFilterEffect ? fe : null;
-
-    protected override ICoreSerializable? GetTemplateTarget() => GetCopyTarget();
-
-    public override bool IsTemplateGroup => Value.Value is FilterEffectGroup;
-
-    public override bool ApplyTemplate(ObjectTemplateItem template)
-    {
-        return GroupedEditorHelper.ApplyTemplate(
-            template, this, IsExpanded,
-            Value.Value is FilterEffectGroup,
-            AddItem, ChangeFilter);
-    }
-
-    public override bool TryPasteJson(string json)
-    {
-        return GroupedEditorHelper.TryPasteJson(
-            json, this, IsExpanded,
-            (Value.Value as FilterEffectGroup)?.Children);
-    }
-
-    public void AddItem(FilterEffect instance)
-    {
-        if (!IsElementEditable) return;
-        if (Value.Value is FilterEffectGroup group)
-        {
-            IsExpanded.Value = true;
-            group.Children.Add(instance);
-            Commit();
-
-            if (Group.Value is { } listEditor)
-            {
-                var addedItem = listEditor.Items.LastOrDefault();
-                if (addedItem?.Context is FilterEffectEditorViewModel vm)
-                {
-                    vm.IsExpanded.Value = true;
-                }
-            }
-        }
     }
 
     public void AddItem(Type type)
@@ -206,57 +58,11 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
             && Activator.CreateInstance(presenterType) is IPresenter<FilterEffect> presenter)
         {
             IsExpanded.Value = true;
-            presenter.Target.Expression = Expression.CreateReference<FilterEffect>(target.Id);
+            PresenterEditorHelper.AssignTarget(presenter, target);
             group.Children.Add((FilterEffect)presenter);
             Commit();
         }
     }
 
-    public void SetNull()
-    {
-        SetValue(Value.Value, null);
-    }
-
-    public void SetTarget(FilterEffect? target)
-    {
-        // Only the presenter's target is replaced, so check that rather than the whole value.
-        if (IsDisposed || Value.Value is not IPresenter<FilterEffect> presenter) return;
-        if (!CanReplace(presenter.Target.CurrentValue)) return;
-        PresenterEditorHelper.AssignTarget(presenter, target);
-
-        CompleteElementRepair();
-        Commit();
-    }
-
-    public IReadOnlyList<TargetObjectInfo> GetAvailableTargets()
-        => TargetObjectSearchHelper.GetAvailableTargets<FilterEffect>(this);
-
-
-
-    public override void ReadFromJson(JsonObject json)
-    {
-        base.ReadFromJson(json);
-        NestedEditorContextHelper.ReadNestedJson(json, IsExpanded, Properties.Value, Group.Value);
-    }
-
-    public override void WriteToJson(JsonObject json)
-    {
-        base.WriteToJson(json);
-        NestedEditorContextHelper.WriteNestedJson(json, IsExpanded.Value, Properties.Value, Group.Value);
-    }
-
-    public IObservable<string?> GetJsonString() => FallbackHelper.GetFallbackJson(Value);
-
-    public void SetJsonString(string? str)
-    {
-        FilterEffect? previous = Value.Value;
-        SetValue(previous, FallbackHelper.DeserializeInstance<FilterEffect>(str));
-    }
-
-    protected override void Dispose(bool disposing)
-    {
-        base.Dispose(disposing);
-        Properties.Value?.Dispose();
-        Group.Value?.Dispose();
-    }
+    protected override IListProperty<FilterEffect> ChildrenOf(FilterEffectGroup group) => group.Children;
 }

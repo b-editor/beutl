@@ -1,4 +1,5 @@
 ﻿using System.Text.Json.Nodes;
+using Beutl.Editor.Components.Helpers;
 
 namespace Beutl.ViewModels.Editors;
 
@@ -29,37 +30,11 @@ public sealed class PropertyEditorGroupContext(IPropertyEditorContext?[] childre
 
     public void ReadFromJson(JsonObject json)
     {
-        if (json.TryGetPropertyValue(nameof(Properties), out JsonNode? childrenNode)
-            && childrenNode is JsonArray childrenArray)
-        {
-            foreach ((JsonNode? node, IPropertyEditorContext? context) in childrenArray.Zip(children))
-            {
-                if (context != null && node != null)
-                {
-                    context.ReadFromJson(node.AsObject());
-                }
-            }
-        }
+        NestedEditorContextHelper.ReadEditorArray(json, nameof(Properties), children);
     }
 
     public void WriteToJson(JsonObject json)
     {
-        var array = new JsonArray();
-
-        foreach (IPropertyEditorContext? item in children.AsSpan())
-        {
-            if (item == null)
-            {
-                array.Add(null);
-            }
-            else
-            {
-                var node = new JsonObject();
-                item.WriteToJson(node);
-                array.Add(node);
-            }
-        }
-
-        json[nameof(Properties)] = array;
+        NestedEditorContextHelper.WriteEditorArray(json, nameof(Properties), children);
     }
 }

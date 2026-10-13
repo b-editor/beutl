@@ -55,7 +55,7 @@ public sealed partial class EditViewModel
     private KeyFrameClipboardService? _keyFrameClipboardService;
     private NodeGraphMutationService? _nodeGraphMutationService;
     private ElementObjectService? _elementObjectService;
-    private IClipboardGateway? _clipboardGateway;
+    private readonly IClipboardGateway _clipboardGateway = new Beutl.Editor.Components.Services.AvaloniaClipboardGateway();
     private Services.Adapters.PropertyEditorFactoryAdapter? _propertyEditorFactory;
     private Services.Adapters.PropertiesEditorFactoryImpl? _propertiesEditorFactory;
     private volatile bool _viewStateSaveSuppressed;
@@ -92,7 +92,6 @@ public sealed partial class EditViewModel
         PreviewSurfaceSize = new ReactivePropertySlim<Beutl.Graphics.Size>(default)
             .DisposeWith(_disposables);
 
-        // Rebuild only when the resolved output scale actually changes (DistinctUntilChanged).
         IObservable<(PixelSize FrameSize, float OutputScale)> frameSizeAndScale =
             scene.GetObservable(Scene.FrameSizeProperty)
                 .CombineLatest(PreviewScale, PreviewSurfaceSize,
@@ -180,7 +179,6 @@ public sealed partial class EditViewModel
             .DisposeWith(_disposables);
 
         _elementAdder = new ElementAdderImpl(this);
-        _clipboardGateway = new Beutl.Editor.Components.Services.AvaloniaClipboardGateway();
 
         _autoSaveService.SaveError
             .Subscribe(_ =>

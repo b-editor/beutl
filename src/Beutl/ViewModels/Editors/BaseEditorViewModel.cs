@@ -1,5 +1,4 @@
-﻿using System.Collections.Immutable;
-using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics.CodeAnalysis;
 using System.Reactive.Subjects;
 using System.Text.Json.Nodes;
 using Avalonia;
@@ -42,10 +41,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
     private IEditorClock? _clock;
     private IServiceProvider? _parentServices;
     private IPropertyEditorControlHost? _propertyEditorControlHost;
-    // Carries the editor session's ExtensionProvider once Accept injects the EditViewModel.
-    // Editors that build child property-editor contexts gate on this; it becomes available at
-    // the same point as the rest of the editor session (clock, element, ...), which Accept also
-    // wires up.
+    // The ExtensionProvider Accept injects; editors that build child contexts wait for it.
     private readonly ReactivePropertySlim<Beutl.Api.Services.ExtensionProvider?> _extensionProvider = new();
 
     protected BaseEditorViewModel(IPropertyAdapter property)
@@ -208,8 +204,6 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
     public IObservable<TimeSpan> CurrentTime { get; }
 
     [AllowNull] public PropertyEditorExtension Extension { get; set; }
-
-    protected ImmutableArray<CoreObject?> GetStorables() => [_element];
 
     protected void CompleteElementRepair()
     {
@@ -438,7 +432,6 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
         return null;
     }
 
-    // 任意のICoreSerializableオブジェクトのクリップボードコピー&ペースト対応
     private static readonly IReadOnlyReactiveProperty<bool> s_alwaysFalse
         = new ReactivePropertySlim<bool>(false);
 
@@ -472,7 +465,6 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
         return json != null && TryPasteJson(json);
     }
 
-    // テンプレート保存・適用対応
     public virtual IReadOnlyReactiveProperty<bool> CanSaveAsTemplate => s_alwaysFalse;
 
     protected virtual Type? TemplateBaseType => null;
@@ -554,20 +546,14 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
         return _parentServices?.GetService(serviceType) ?? _editViewModel?.GetService(serviceType);
     }
 
-    // Resolve the editor session's ExtensionProvider from the host service chain (populated in
-    // Accept). Used by editors that build child property-editor contexts after Accept has run
-    // (e.g. behind IsExpanded) so they can call PropertyEditorService.MatchProperty. Resolving
-    // the provider itself (rather than via EditViewModel) keeps nested editors working in
-    // non-scene hosts such as the encoder / extension settings dialogs.
+    // For editors that build child contexts after Accept. Resolves the ExtensionProvider itself so
+    // hosts without an EditViewModel work too.
     protected Beutl.Api.Services.ExtensionProvider GetExtensionProvider()
     {
         return this.GetRequiredService<Beutl.Api.Services.ExtensionProvider>();
     }
 
-    // Fires the editor session's ExtensionProvider once Accept has injected it. Editors whose
-    // child contexts are built eagerly (subscribed in their constructor, before Accept) combine
-    // their value stream with this so the child PropertiesEditorViewModel is only built once the
-    // provider is known.
+    // Fires once Accept has injected the ExtensionProvider.
     protected IObservable<Beutl.Api.Services.ExtensionProvider> ObserveExtensionProvider()
     {
         return _extensionProvider.Where(x => x != null)!;
@@ -580,11 +566,10 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
             Task.Run(() =>
             {
                 int rate = player.GetFrameRate();
-                ImmutableArray<CoreObject?> storables = GetStorables();
-                IEnumerable<TimeRange> affectedRange = storables.OfType<Element>().Select(v => v.Range);
+                IEnumerable<Element> elements = _element is { } element ? [element] : [];
 
-                cacheManager.DeleteAndUpdateBlocks(affectedRange
-                    .Select(item => FrameCacheRanges.ToFrameRange(item, rate)));
+                cacheManager.DeleteAndUpdateBlocks(elements
+                    .Select(item => FrameCacheRanges.ToFrameRange(item.Range, rate)));
             });
         }
     }
@@ -665,13 +650,16 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
     {
         // Like SetValue(oldValue, newValue): replacing the current value can repair the element, as when a
         // file-backed editor puts a valid file in place of a source that loading dropped.
-        if (IsDisposed
-            || !CanReplace(EditingKeyFrame.Value is { } keyFrame ? keyFrame.Value : PropertyAdapter.GetValue(), newValue)) return;
+        if (IsDisposed || !CanReplace(GetEditingValue(), newValue)) return;
         WriteValue(newValue);
 
         CompleteElementRepair();
         Commit();
     }
+
+    // The value of the keyframe being edited, or of the property itself when no keyframe is.
+    protected internal T? GetEditingValue()
+        => EditingKeyFrame.Value is { } keyFrame ? keyFrame.Value : PropertyAdapter.GetValue();
 
     // Writes to the keyframe being edited, or to the property itself when no keyframe is.
     private void WriteValue(T? newValue)
@@ -691,7 +679,7 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
     {
         if (IsDisposed) return default;
         if (!IsElementEditable)
-            return EditingKeyFrame.Value is { } keyframe ? keyframe.Value : PropertyAdapter.GetValue();
+            return GetEditingValue();
         if (EditingKeyFrame.Value != null)
         {
             EditingKeyFrame.Value.Value = value!;

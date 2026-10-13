@@ -1,7 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Engine;
-using Beutl.Engine.Expressions;
 using Beutl.Graphics;
 using Beutl.Graphics3D.Textures;
 using Beutl.Services;
@@ -27,7 +26,7 @@ public sealed class TextureSourceEditorViewModel : BaseEditorViewModel
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        ChildContext = Value.Select(v => v)
+        ChildContext = Value
             .CombineLatest(ObserveExtensionProvider())
             .Select(t => t.First != null ? new PropertiesEditorViewModel(t.First, t.Second) : null)
             .DisposePreviousValue()
@@ -132,8 +131,7 @@ public sealed class TextureSourceEditorViewModel : BaseEditorViewModel
             && Activator.CreateInstance(presenterType) is Drawable presenterDrawable
             && presenterDrawable is IPresenter<Drawable> presenterInterface)
         {
-            var expression = Expression.CreateReference<Drawable>(target.Id);
-            presenterInterface.Target.Expression = expression;
+            PresenterEditorHelper.AssignTarget(presenterInterface, target);
             drawableSource.Drawable.CurrentValue = presenterDrawable;
             CompleteElementRepair();
             Commit();

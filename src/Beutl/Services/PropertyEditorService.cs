@@ -127,7 +127,7 @@ public static class PropertyEditorService
         private static readonly Dictionary<Type, ListItemEditor> s_listItemEditorsOverride = new()
         {
             { typeof(FilterEffect), new(_ => new FilterEffectListItemEditor(), s => new FilterEffectEditorViewModel(s.ToTyped<FilterEffect?>())) },
-            { typeof(PathSegment), new(_ => new PathOperationListItemEditor(), s => new PathOperationEditorViewModel(s.ToTyped<PathSegment?>())) },
+            { typeof(PathSegment), new(_ => new PathOperationListItemEditor(), s => new PathSegmentEditorViewModel(s.ToTyped<PathSegment?>())) },
             { typeof(PathFigure), new(_ => new PathFigureListItemEditor(), s => new PathFigureEditorViewModel(s.ToTyped<PathFigure>())) },
             { typeof(AudioEffect), new(_ => new AudioEffectListItemEditor(), s => new AudioEffectEditorViewModel(s.ToTyped<AudioEffect?>())) },
             { typeof(Transform), new(_ => new TransformListItemEditor(), s => new TransformEditorViewModel(s.ToTyped<Transform?>())) },

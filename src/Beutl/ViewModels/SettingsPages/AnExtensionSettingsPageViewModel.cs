@@ -2,10 +2,8 @@
 using Beutl.Controls.Navigation;
 using Beutl.Editor;
 using Beutl.Editor.Services;
-using Beutl.Services;
 using Beutl.ViewModels.Editors;
 
-using DynamicData;
 
 using Reactive.Bindings;
 
@@ -52,23 +50,11 @@ public sealed class AnExtensionSettingsPageViewModel : PageContext, IPropertyEdi
         List<IPropertyAdapter> props = CoreObjectPropertyEditorBuilder.CreateAdapters(obj, predicate);
 
         var tempItems = new List<IPropertyEditorContext?>(props.Count);
-        IPropertyAdapter[]? foundItems;
-        PropertyEditorExtension? extension;
-
-        do
+        CoreObjectPropertyEditorBuilder.CreateContexts(props, extensionProvider, context =>
         {
-            (foundItems, extension) = PropertyEditorService.MatchProperty(props, extensionProvider);
-            if (foundItems != null && extension != null)
-            {
-                if (extension.TryCreateContextForSettings(foundItems, out IPropertyEditorContext? context))
-                {
-                    tempItems.Add(context);
-                    context.Accept(this);
-                }
-
-                props.RemoveMany(foundItems);
-            }
-        } while (foundItems != null && extension != null);
+            tempItems.Add(context);
+            context.Accept(this);
+        }, forSettings: true);
 
         CoreObjectPropertyEditorBuilder.GroupByDisplayGroupName(tempItems);
 

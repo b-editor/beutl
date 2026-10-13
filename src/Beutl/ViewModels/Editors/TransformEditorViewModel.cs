@@ -1,11 +1,7 @@
-﻿using System.Text.Json.Nodes;
-using Avalonia.Input;
-using Beutl.Editor.Components.Helpers;
+﻿using Avalonia.Input;
 using Beutl.Engine;
 using Beutl.Graphics.Transformation;
 using Beutl.PropertyAdapters;
-using Beutl.Serialization;
-using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
 
@@ -23,7 +19,7 @@ public enum KnownTransformType
     Presenter
 }
 
-public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>, IFallbackObjectViewModel
+public sealed class TransformEditorViewModel : GroupableEditorViewModel<Transform, TransformGroup, FallbackTransform>
 {
     private static KnownTransformType GetTransformType(Transform? obj)
     {
@@ -73,12 +69,6 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>,
     public TransformEditorViewModel(IPropertyAdapter<Transform?> property)
         : base(property)
     {
-        CanCopy = Value.Select(v => v is Transform and not FallbackTransform)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(Disposables);
-
-        (IsFallback, ActualTypeName, FallbackMessage) = FallbackEditorHelper.ObserveFallbackInfo(Value, Disposables);
-
         TransformType = Value.Select(GetTransformType)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
@@ -87,150 +77,25 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>,
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        IsGroup = Value.Select(v => v is TransformGroup)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(Disposables);
-
-        IsGroupOrNull = Value.Select(v => v is TransformGroup || v == null)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(Disposables);
-
-        IsExpanded.SkipWhile(v => !v)
-            .Take(1)
-            .Subscribe(_ =>
-                Value.Subscribe(v =>
-                {
-                    Properties.Value?.Dispose();
-                    Properties.Value = null;
-                    Group.Value?.Dispose();
-                    Group.Value = null;
-
-                    if (v is TransformGroup group)
-                    {
-                        var prop = new EnginePropertyAdapter<ICoreList<Transform>>(group.Children, group);
-                        Group.Value = new ListEditorViewModel<Transform?>(prop)
-                        {
-                            IsExpanded = { Value = true }
-                        };
-                    }
-                    else if (v != null)
-                    {
-                        Properties.Value = new PropertiesEditorViewModel(v, GetExtensionProvider());
-                    }
-
-                    AcceptChild();
-                })
-                .DisposeWith(Disposables))
-            .DisposeWith(Disposables);
-
-        IsEnabled = Value.Select(x => (x as Transform)?.GetObservable(Transform.IsEnabledProperty) ?? Observable.ReturnThenNever(x?.IsEnabled ?? false))
-            .Switch()
-            .ToReactiveProperty()
-            .DisposeWith(Disposables);
-
-        IsEnabled.Skip(1)
-            .Subscribe(v =>
-            {
-                if (Value.Value is Transform transform && transform.IsEnabled != v)
-                {
-                    // A fallback saves the JSON it was read from, so the change would be lost.
-                    if (!IsElementEditable || transform is IFallback)
-                    {
-                        IsEnabled.Value = transform.IsEnabled;
-                        return;
-                    }
-                    transform.IsEnabled = v;
-                    Commit();
-                }
-            })
-            .DisposeWith(Disposables);
-
         (IsPresenter, CurrentTargetName) = PresenterEditorHelper.ObservePresenter<Transform>(Value, Disposables);
     }
 
     public ReadOnlyReactivePropertySlim<string?> TransformName { get; }
 
-    public override IReadOnlyReactiveProperty<bool> CanCopy { get; }
-
-    public override IReadOnlyReactiveProperty<bool> CanSaveAsTemplate => CanCopy;
-
-    protected override Type? TemplateBaseType => typeof(Transform);
-
     protected override DataFormat<string>? PasteFormat => BeutlDataFormats.Transform;
 
     public ReadOnlyReactivePropertySlim<KnownTransformType> TransformType { get; }
-
-    public ReadOnlyReactivePropertySlim<bool> IsGroup { get; }
-
-    public ReadOnlyReactivePropertySlim<bool> IsGroupOrNull { get; }
-
-    public ReactivePropertySlim<bool> IsExpanded { get; } = new(false);
-
-    public ReactiveProperty<bool> IsEnabled { get; }
-
-    public ReactivePropertySlim<PropertiesEditorViewModel?> Properties { get; } = new();
-
-    public ReactivePropertySlim<ListEditorViewModel<Transform?>?> Group { get; } = new();
 
     public ReadOnlyReactivePropertySlim<bool> IsPresenter { get; }
 
     public ReadOnlyReactivePropertySlim<string?> CurrentTargetName { get; }
 
-    public IReadOnlyReactiveProperty<bool> IsFallback { get; }
-
-    public IReadOnlyReactiveProperty<string> ActualTypeName { get; }
-
-    public IReadOnlyReactiveProperty<string> FallbackMessage { get; }
-
-    public IObservable<string?> GetJsonString() => FallbackHelper.GetFallbackJson(Value);
-
-    public void SetJsonString(string? str)
-    {
-        Transform? previous = Value.Value;
-        SetValue(previous, FallbackHelper.DeserializeInstance<Transform>(str));
-    }
-
-    public override void Accept(IPropertyEditorContextVisitor visitor)
-    {
-        base.Accept(visitor);
-        AcceptChild();
-    }
-
-    private void AcceptChild()
-    {
-        NestedEditorContextHelper.AcceptChildren(new ChildVisitor(this), Group.Value, Properties.Value);
-    }
-
-    public void ChangeTransform(Transform instance)
-    {
-        IsExpanded.Value = true;
-        SetValue(Value.Value, instance);
-    }
+    public void ChangeTransform(Transform instance) => ChangeValue(instance);
 
     public void ChangeType(KnownTransformType type)
     {
         if (CreateTransform(type) is { } obj)
             ChangeTransform(obj);
-    }
-
-    public void AddItem(Transform instance)
-    {
-        if (!IsElementEditable) return;
-        if (Value.Value is TransformGroup group)
-        {
-            IsExpanded.Value = true;
-            group.Children.Add(instance);
-            Commit();
-
-            if (Group.Value is { } listEditor)
-            {
-                var addedItem = listEditor.Items.LastOrDefault();
-                if (addedItem?.Context is TransformEditorViewModel vm)
-                {
-                    vm.IsExpanded.Value = true;
-                }
-            }
-        }
     }
 
     public void AddItem(KnownTransformType type)
@@ -239,65 +104,5 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>,
             AddItem(obj);
     }
 
-    protected override ICoreSerializable? GetCopyTarget()
-        => Value.Value is { } tf and not FallbackTransform ? tf : null;
-
-    protected override ICoreSerializable? GetTemplateTarget() => GetCopyTarget();
-
-    public override bool IsTemplateGroup => Value.Value is TransformGroup;
-
-    public override bool ApplyTemplate(ObjectTemplateItem template)
-    {
-        return GroupedEditorHelper.ApplyTemplate(
-            template, this, IsExpanded,
-            Value.Value is TransformGroup,
-            AddItem, ChangeTransform);
-    }
-
-    public override bool TryPasteJson(string json)
-    {
-        return GroupedEditorHelper.TryPasteJson(
-            json, this, IsExpanded,
-            (Value.Value as TransformGroup)?.Children);
-    }
-
-    public void SetNull()
-    {
-        SetValue(Value.Value, null);
-    }
-
-    public void SetTarget(Transform? target)
-    {
-        // Only the presenter's target is replaced, so check that rather than the whole value.
-        if (IsDisposed || Value.Value is not IPresenter<Transform> presenter) return;
-        if (!CanReplace(presenter.Target.CurrentValue)) return;
-        PresenterEditorHelper.AssignTarget(presenter, target);
-        CompleteElementRepair();
-        Commit();
-    }
-
-    public IReadOnlyList<TargetObjectInfo> GetAvailableTargets()
-        => TargetObjectSearchHelper.GetAvailableTargets<Transform>(this);
-
-
-
-    public override void ReadFromJson(JsonObject json)
-    {
-        base.ReadFromJson(json);
-        NestedEditorContextHelper.ReadNestedJson(json, IsExpanded, Properties.Value, Group.Value);
-    }
-
-    public override void WriteToJson(JsonObject json)
-    {
-        base.WriteToJson(json);
-        NestedEditorContextHelper.WriteNestedJson(json, IsExpanded.Value, Properties.Value, Group.Value);
-    }
-
-    protected override void Dispose(bool disposing)
-    {
-        base.Dispose(disposing);
-        Properties.Value?.Dispose();
-        Group.Value?.Dispose();
-    }
-
+    protected override IListProperty<Transform> ChildrenOf(TransformGroup group) => group.Children;
 }

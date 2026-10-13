@@ -140,7 +140,7 @@
                                TextWrapping="Wrap" />
                     <TextBlock Foreground="{DynamicResource SystemFillColorCautionBrush}"
                                IsVisible="{CompiledBinding Usage.HasAdditionalCreditDebt.Value}"
-                               Text="{CompiledBinding Usage.AdditionalCreditDebtText.Value}"
+                               Text="{x:Static lang:Strings.AiAdditionalCreditDebt}"
                                TextWrapping="Wrap" />
                 </StackPanel>
             </StackPanel>

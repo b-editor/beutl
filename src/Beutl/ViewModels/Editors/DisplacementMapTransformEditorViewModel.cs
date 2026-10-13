@@ -39,17 +39,6 @@ public sealed class DisplacementMapTransformEditorViewModel : ValueEditorViewMod
         };
     }
 
-    private static string ToDisplayName(DispMapTransformType type)
-    {
-        return type switch
-        {
-            DispMapTransformType.Translate => GraphicsStrings.TranslateTransform,
-            DispMapTransformType.Rotation => GraphicsStrings.Rotation,
-            DispMapTransformType.Scale => GraphicsStrings.Scale,
-            _ => "Null"
-        };
-    }
-
     public DisplacementMapTransformEditorViewModel(IPropertyAdapter<DisplacementMapTransform?> property)
         : base(property)
     {
@@ -58,10 +47,6 @@ public sealed class DisplacementMapTransformEditorViewModel : ValueEditorViewMod
             .DisposeWith(Disposables);
 
         TransformType = Value.Select(GetTransformType)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(Disposables);
-
-        TransformName = TransformType.Select(ToDisplayName)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
@@ -74,10 +59,6 @@ public sealed class DisplacementMapTransformEditorViewModel : ValueEditorViewMod
             .DisposeWith(Disposables);
 
         IsScale = TransformType.Select(v => v == DispMapTransformType.Scale)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(Disposables);
-
-        IsNull = Value.Select(v => v == null)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
@@ -105,17 +86,13 @@ public sealed class DisplacementMapTransformEditorViewModel : ValueEditorViewMod
 
     protected override DataFormat<string>? PasteFormat => BeutlDataFormats.EngineObject;
 
-    public ReadOnlyReactivePropertySlim<string?> TransformName { get; }
-
-    public ReadOnlyReactivePropertySlim<DispMapTransformType> TransformType { get; }
+    private ReadOnlyReactivePropertySlim<DispMapTransformType> TransformType { get; }
 
     public ReadOnlyReactivePropertySlim<bool> IsTranslate { get; }
 
     public ReadOnlyReactivePropertySlim<bool> IsRotation { get; }
 
     public ReadOnlyReactivePropertySlim<bool> IsScale { get; }
-
-    public ReadOnlyReactivePropertySlim<bool> IsNull { get; }
 
     public ReactivePropertySlim<bool> IsExpanded { get; } = new(false);
 
@@ -136,11 +113,6 @@ public sealed class DisplacementMapTransformEditorViewModel : ValueEditorViewMod
     {
         DisplacementMapTransform? obj = CreateTransform(type);
         SetValue(Value.Value, obj);
-    }
-
-    public void SetNull()
-    {
-        SetValue(Value.Value, null);
     }
 
     protected override ICoreSerializable? GetCopyTarget() => Value.Value;

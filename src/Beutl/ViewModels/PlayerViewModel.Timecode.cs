@@ -36,10 +36,7 @@ public partial class PlayerViewModel
             return false;
         }
 
-        // Frame-snap up front so ApplyTimecodeSeek cannot fail later — without
-        // this, the parser-accepted value could be returned to the view, the
-        // editor would close on Accept(), and the actual seek would silently
-        // no-op when RoundToRate overflowed.
+        // Snap here so a RoundToRate overflow is reported now, not as a silent no-op seek after the editor closes.
         try
         {
             target = parsed.RoundToRate(rate);

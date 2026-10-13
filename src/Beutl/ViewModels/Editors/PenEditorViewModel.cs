@@ -7,8 +7,6 @@ using Beutl.Engine;
 using Beutl.Media;
 using Beutl.PropertyAdapters;
 using Beutl.Serialization;
-using Beutl.Services;
-using DynamicData;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 
@@ -36,26 +34,6 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
 
     private void Update(Pen? pen, Beutl.Api.Services.ExtensionProvider extensionProvider)
     {
-        void CreateContexts(PooledList<IPropertyAdapter> props, CoreList<IPropertyEditorContext> dst)
-        {
-            IPropertyAdapter[]? foundItems;
-            PropertyEditorExtension? extension;
-
-            do
-            {
-                (foundItems, extension) = PropertyEditorService.MatchProperty(props, extensionProvider);
-                if (foundItems != null && extension != null)
-                {
-                    if (extension.TryCreateContext(foundItems, out IPropertyEditorContext? context))
-                    {
-                        dst.Add(context);
-                    }
-
-                    props.RemoveMany(foundItems);
-                }
-            } while (foundItems != null && extension != null);
-        }
-
         DisposeContexts();
         MajorProperties.Clear();
         MinorProperties.Clear();
@@ -68,7 +46,7 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
             span[2] = new SimplePropertyAdapter<StrokeAlignment>((SimpleProperty<StrokeAlignment>)pen.StrokeAlignment, pen);
             span[3] = new SimplePropertyAdapter<Brush?>((SimpleProperty<Brush?>)pen.Brush, pen);
 
-            CreateContexts(props, MajorProperties);
+            CoreObjectPropertyEditorBuilder.CreateContexts(props, extensionProvider, MajorProperties.Add);
 
             props.Clear();
             span = props.AddSpan(8);
@@ -81,7 +59,7 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
             span[6] = new AnimatablePropertyAdapter<float>((AnimatableProperty<float>)pen.TrimOffset, pen);
             span[7] = new AnimatablePropertyAdapter<float>((AnimatableProperty<float>)pen.Offset, pen);
 
-            CreateContexts(props, MinorProperties);
+            CoreObjectPropertyEditorBuilder.CreateContexts(props, extensionProvider, MinorProperties.Add);
         }
 
         AcceptChildren();
@@ -89,17 +67,14 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
 
     private void AcceptChildren()
     {
-        if (Value.Value != null)
+        var visitor = new ChildVisitor(this);
+        foreach (IPropertyEditorContext item in MajorProperties)
         {
-            var visitor = new ChildVisitor(this);
-            foreach (IPropertyEditorContext item in MajorProperties)
-            {
-                item.Accept(visitor);
-            }
-            foreach (IPropertyEditorContext item in MinorProperties)
-            {
-                item.Accept(visitor);
-            }
+            item.Accept(visitor);
+        }
+        foreach (IPropertyEditorContext item in MinorProperties)
+        {
+            item.Accept(visitor);
         }
     }
 
@@ -129,12 +104,17 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
 
     public void SetValue(Pen? oldValue, Pen? newValue)
     {
+        SetValue(oldValue, newValue, null);
+    }
+
+    private void SetValue(Pen? oldValue, Pen? newValue, string? commandName)
+    {
         if (!CanReplace(oldValue, newValue)) return;
         if (!EqualityComparer<Pen>.Default.Equals(oldValue, newValue))
         {
             PropertyAdapter.SetValue(newValue);
             CompleteElementRepair();
-            Commit();
+            Commit(commandName);
         }
     }
 
@@ -148,9 +128,7 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
         if (template.CreateInstance() is not Pen instance || !CanReplace(Value.Value, instance)) return false;
         IsExpanded.Value = true;
 
-        PropertyAdapter.SetValue(instance);
-        CompleteElementRepair();
-        Commit(CommandNames.ApplyTemplate);
+        SetValue(Value.Value, instance, CommandNames.ApplyTemplate);
         return true;
     }
 
@@ -162,9 +140,7 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
 
         IsExpanded.Value = true;
 
-        PropertyAdapter.SetValue(pasted);
-        CompleteElementRepair();
-        Commit(CommandNames.PasteObject);
+        SetValue(Value.Value, pasted, CommandNames.PasteObject);
         return true;
     }
 

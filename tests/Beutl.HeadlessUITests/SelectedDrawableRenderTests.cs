@@ -46,25 +46,6 @@ public class SelectedDrawableRenderTests
         return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
     }
 
-    [Test]
-    public void Selected_drawable_raster_region_uses_output_bounds_not_query_bounds()
-    {
-        var outputBounds = new Rect(0, 0, 320, 240);
-        var queryBounds = new Rect(37, 29, 48, 32);
-        var measurement = new RenderNodeMeasurement(
-            outputBounds,
-            queryBounds,
-            EffectiveScale.Unbounded,
-            RenderValueCardinality.Single,
-            HasFragments: true,
-            HasContributingValues: false,
-            HasTargetEffects: true);
-
-        Assert.That(
-            PlayerViewModel.GetSelectedDrawableRasterRegion(measurement),
-            Is.EqualTo(outputBounds));
-    }
-
     [AvaloniaTest]
     public async Task Shifted_selected_drawable_measure_matches_rasterization_and_caller_owns_result()
     {

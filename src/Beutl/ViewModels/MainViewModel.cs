@@ -58,6 +58,7 @@ public sealed partial class MainViewModel : BasePageViewModel, IContextCommandHa
     {
     }
 
+    // Test seam: the app uses the parameterless constructor; only tests pass these arguments.
     internal MainViewModel(
         Action<BeutlApiApplication>? shutdownHandoff,
         Func<TimeSpan, Task>? waitForPackageInstallerIdle = null)

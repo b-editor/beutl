@@ -1,7 +1,4 @@
-﻿using Avalonia;
-using Avalonia.Interactivity;
-
-using Beutl.Controls.PropertyEditors;
+﻿using Beutl.Controls.PropertyEditors;
 
 namespace Beutl.ViewModels.Editors;
 
@@ -12,18 +9,7 @@ public sealed class BooleanEditorViewModel(IPropertyAdapter<bool> property) : Va
         base.Accept(visitor);
         if (visitor is BooleanEditor view && !Disposables.IsDisposed)
         {
-            view.Bind(BooleanEditor.ValueProperty, Value.ToBinding())
-                .DisposeWith(Disposables);
-            view.AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
-                .DisposeWith(Disposables);
-        }
-    }
-
-    private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
-    {
-        if (e is PropertyEditorValueChangedEventArgs<bool> args)
-        {
-            SetValue(args.OldValue, args.NewValue);
+            AttachConfirmedValueBinding(view, BooleanEditor.ValueProperty);
         }
     }
 }

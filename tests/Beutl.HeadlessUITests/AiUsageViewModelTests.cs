@@ -89,7 +89,6 @@ public sealed class AiUsageViewModelTests
                 Does.Contain("40"),
                 "Purchased credits are a paid-for quantity and stay visible.");
             Assert.That(viewModel.AdditionalCredits.Value, Is.EqualTo(40));
-            Assert.That(viewModel.AdditionalCreditDebtText.Value, Does.Not.Contain("15"));
             Assert.That(viewModel.HasAdditionalCredits.Value, Is.True);
         }
     }

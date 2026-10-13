@@ -47,17 +47,6 @@ public partial class MenuBarViewModel
         });
     }
 
-    // Scene
-    //    New
-    //    Remove
-    //    Settings
-    //    Layer
-    //       Add
-    //       Delete
-    //       Exclude
-    //       Cut
-    //       Copy
-    //       Paste
     public AsyncReactiveCommand NewScene { get; } = new();
 
     public ReactiveCommandSlim<EditorTabItem?> RemoveFromProject { get; private set; }

@@ -332,8 +332,7 @@ public sealed partial class BrushEditor : UserControl
 
         if (e.NewIndex != e.OldIndex)
             list.Move(e.NewIndex, e.OldIndex);
-        GradientStop obj = list[e.OldIndex];
-        viewModel.ConfirmeGradientStop(e.OldIndex, e.NewIndex, e.OldObject.ToBtlImmutableGradientStop(), obj);
+        viewModel.ConfirmeGradientStop(e.OldIndex, e.NewIndex);
     }
 
     private void OnGradientStopChanged(object? sender,

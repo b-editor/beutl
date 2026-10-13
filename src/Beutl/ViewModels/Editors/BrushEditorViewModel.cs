@@ -205,38 +205,13 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
     }
 
     public void InsertGradientStop(int index, GradientStop item)
-    {
-        if (!IsElementEditable) return;
-        if (Value.Value is GradientBrush { GradientStops: { } list })
-        {
-            list.Insert(index, item);
-            Commit();
-        }
-    }
+        => GradientStopEdits.Insert(this, (Value.Value as GradientBrush)?.GradientStops, index, item);
 
     public void RemoveGradientStop(int index)
-    {
-        if (!IsElementEditable) return;
-        if (Value.Value is GradientBrush { GradientStops: { } list })
-        {
-            list.RemoveAt(index);
-            Commit();
-        }
-    }
+        => GradientStopEdits.Remove(this, (Value.Value as GradientBrush)?.GradientStops, index);
 
-    public void ConfirmeGradientStop(
-        int oldIndex, int newIndex,
-        GradientStop.Resource oldObject, GradientStop obj)
-    {
-        if (!IsElementEditable) return;
-        if (Value.Value is GradientBrush { GradientStops: { } list })
-        {
-            if (oldIndex != newIndex)
-                list.Move(oldIndex, newIndex);
-
-            Commit();
-        }
-    }
+    public void ConfirmeGradientStop(int oldIndex, int newIndex)
+        => GradientStopEdits.Confirm(this, (Value.Value as GradientBrush)?.GradientStops, oldIndex, newIndex);
 
     // These check the part they replace, not the whole brush: replacing the drawable while the brush's
     // transform could not be loaded leaves the element protected, so that change would not be saved.

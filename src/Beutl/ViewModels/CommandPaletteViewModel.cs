@@ -54,7 +54,7 @@ public sealed class CommandPaletteViewModel : BaseViewModel
                 {
                     Close();
                 }
-                else if (IsOpen.Value && _interaction is null)
+                else if (IsOpen.Value)
                 {
                     RebuildSnapshot();
                 }
@@ -492,7 +492,7 @@ public sealed class CommandPaletteViewModel : BaseViewModel
         {
             score += 30;
         }
-        else if (idx > 0 && !char.IsLetterOrDigit(haystack[idx - 1]))
+        else if (!char.IsLetterOrDigit(haystack[idx - 1]))
         {
             score += 15;
         }
