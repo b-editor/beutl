@@ -35,10 +35,6 @@ public static class UnhandledExceptionHandler
             {
                 s_logger?.LogCritical(ex, "An unhandled exception occurred. (IsTerminating: {IsTerminating})", e.IsTerminating);
                 SaveException(ex);
-
-                //var stack = new StackTrace();
-                //var fr = stack.GetFrames();
-                //Todo: スタックトレースからどこの拡張機能が例外を投げたかを追跡したい
             }
 
             PrivateExit();
@@ -79,10 +75,8 @@ public static class UnhandledExceptionHandler
         if (s_exited)
             return;
 
-        // This runs on the crash path, so each step has to stand alone: a graphics teardown that throws
-        // must not take the render-thread shutdown with it - that one is what lets the process end - nor
-        // the log flush that records why we are here. Setting the flag first also stops a throw from
-        // leaving the sequence looking un-run, which would have Exit() attempt all of it a second time.
+        // Each step stands alone, so a failure cannot skip the render-thread shutdown or the log flush.
+        // The flag is set first so that Exit() does not run the sequence a second time.
         s_exited = true;
         RunOrLog(
             static () => GlobalConfiguration.Instance.Save(GlobalConfiguration.DefaultFilePath),
@@ -106,9 +100,7 @@ public static class UnhandledExceptionHandler
             }
             catch
             {
-                // The logger factory is one of the things torn down here, so by the time a later step
-                // fails there may be nothing left to report to. Losing the report is better than
-                // throwing out of the handler that exists to stop exceptions escaping.
+                // The logger may already be disposed.
             }
         }
     }

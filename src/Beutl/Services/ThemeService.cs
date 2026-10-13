@@ -35,7 +35,6 @@ internal sealed class ThemeService : IDisposable
     private IDisposable? _useCustomAccentSubscription;
     private IDisposable? _customAccentColorSubscription;
     private IPlatformSettings? _platformSettings;
-    private bool _changedSubscribed;
     private bool _disposed;
     private int _applyQueued;
     private Color? _appliedTextOnAccent;
@@ -54,10 +53,8 @@ internal sealed class ThemeService : IDisposable
             ThemeRegistry.Register(descriptor);
         }
 
-        // The default theme is an extension, and the primitive-extension pass loads on a background
-        // thread — after the first apply below. Without this the app renders classic dark and flashes
-        // to the design theme (#2134). That pass still loads it too; the descriptor instance is
-        // stable, so the second registration resolves to the same theme and applies nothing.
+        // The default theme's extension otherwise loads on a background thread after the first apply,
+        // which flashes another theme (#2134). Its later load registers the same instance: no re-apply.
         DarkBorderThemeExtension.Instance.Load();
 
         _themeSubscription = _viewConfig.GetObservable(ViewConfig.ThemeProperty)
@@ -67,7 +64,6 @@ internal sealed class ThemeService : IDisposable
         _customAccentColorSubscription = _viewConfig.GetObservable(ViewConfig.CustomAccentColorProperty)
             .Subscribe(_ => ScheduleApply());
         ThemeRegistry.Changed += OnThemeRegistryChanged;
-        _changedSubscribed = true;
 
         // The OS accent is the one accent Beutl does not resolve, so no config or registry trigger
         // ever reports it moving. FluentAvalonia refreshes SystemAccentColor* from this same event
@@ -163,10 +159,8 @@ internal sealed class ThemeService : IDisposable
             return;
         }
 
-        // The selected theme could not be applied. Keeping the current one is right only while it is
-        // still registered — at first apply there is none (the app would stay unthemed, and nothing
-        // guarantees another trigger), and a failed candidate may have replaced the applied
-        // descriptor's id, which would leave an evicted theme active with its owner never reverted.
+        // Keep the current theme only while it is still registered: at first apply there is none, and a
+        // failed candidate may have replaced its id, which would leave an evicted theme active.
         if (_appliedDescriptor != null
             && ReferenceEquals(ThemeRegistry.Resolve(_appliedDescriptor.Id), _appliedDescriptor))
         {
@@ -214,11 +208,8 @@ internal sealed class ThemeService : IDisposable
     // already-applied descriptor counts as applied.
     private bool ApplyCore(ThemeDescriptor descriptor)
     {
-        // Skip when the resolved descriptor is unchanged — re-applying on unrelated
-        // ThemeRegistry.Changed (extension load/unload) would flicker. Identity rather than the
-        // record's structural equality, matching how ThemeRegistry keys ownership: an equal-valued
-        // re-registration is a new owner that still needs its OnApplied. An untouched registry
-        // resolves to the same instance, so this still skips.
+        // Skip an unchanged descriptor so unrelated registry changes do not flicker. Compare identity,
+        // not record equality: an equal-valued re-registration is a new owner that needs its OnApplied.
         if (ReferenceEquals(_appliedDescriptor, descriptor))
         {
             return true;
@@ -285,10 +276,8 @@ internal sealed class ThemeService : IDisposable
             return resources;
         }
 
-        // A root that is not a ResourceDictionary would otherwise be indistinguishable from "this
-        // theme has no resources", which silently drops the previous theme's overrides. Throwing
-        // routes it through the caller's catch, so the current theme survives and the extension
-        // author gets the offending type.
+        // Otherwise a non-dictionary root would look like a theme without resources and drop the previous
+        // overrides; throwing keeps the current theme and tells the extension author the offending type.
         throw new InvalidOperationException(
             $"Theme '{descriptor.Id}' resource '{uri}' must be a ResourceDictionary (or another " +
             $"{nameof(IResourceProvider)}), but loaded as '{loaded?.GetType().FullName ?? "null"}'.");
@@ -321,9 +310,6 @@ internal sealed class ThemeService : IDisposable
             _platformSettings = null;
         }
 
-        if (_changedSubscribed)
-        {
-            ThemeRegistry.Changed -= OnThemeRegistryChanged;
-        }
+        ThemeRegistry.Changed -= OnThemeRegistryChanged;
     }
 }

@@ -1,6 +1,6 @@
 ﻿using Beutl.Api.Services;
 using Beutl.Editor.Services;
-using Beutl.ViewModels.Editors;
+using Beutl.ViewModels;
 using DynamicData;
 
 namespace Beutl.Services.Adapters;
@@ -45,33 +45,7 @@ internal sealed class PropertyEditorFactoryAdapter(ExtensionProvider extensionPr
             }
         } while (foundItems != null && extension != null);
 
-        foreach ((string? Key, IPropertyEditorContext?[] Value) group in tempItems.GroupBy(x =>
-                     {
-                         if (x is BaseEditorViewModel { PropertyAdapter: { } adapter })
-                         {
-                             return (adapter.GetAttributes().FirstOrDefault(i => i is System.ComponentModel.DataAnnotations.DisplayAttribute) as System.ComponentModel.DataAnnotations.DisplayAttribute)
-                                 ?.GetGroupName();
-                         }
-                         else
-                         {
-                             return null;
-                         }
-                     })
-                     .Select(x => (x.Key, x.ToArray()))
-                     .ToArray())
-        {
-            if (group.Key != null)
-            {
-                IPropertyEditorContext?[] array = group.Value;
-                if (array.Length >= 1)
-                {
-                    int index = tempItems.IndexOf(array[0]);
-                    tempItems.RemoveMany(array);
-                    tempItems.Insert(index, new PropertyEditorGroupContext(array, group.Key, index == 0));
-                }
-            }
-        }
-
+        CoreObjectPropertyEditorBuilder.GroupByDisplayGroupName(tempItems);
         return tempItems;
     }
 }

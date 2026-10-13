@@ -526,8 +526,7 @@ public sealed partial class EditViewModel
         _logger.LogInformation("Saving scene ({SceneId}).", scene.Id);
         Uri sceneUri = scene.Uri
             ?? throw new InvalidOperationException("An unsaved scene needs a destination before it can be saved.");
-        UnsavedSceneStorage.SaveRelocation relocation =
-            UnsavedSceneStorage.PrepareSave(scene, sceneUri);
+        UnsavedSceneStorage.SaveRelocation relocation = new(scene, sceneUri);
         // A failure at any step restores the project, scene, element and resource files this
         // save replaced, instead of leaving the files written before it on disk.
         using (StorageWriteTransaction transaction = StorageWriteTransaction.Begin())

@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using Avalonia.Controls;
 using Avalonia.Platform.Storage;
 using Beutl.Api.Services;
+using Beutl.Editor;
 using Beutl.ProjectSystem;
 using Beutl.ViewModels;
 using Beutl.Views;
@@ -144,11 +145,17 @@ public sealed class SceneEditorExtension : EditorExtension
 
     public override FilePickerFileType GetFilePickerFileType()
     {
-        return new FilePickerFileType(Strings.SceneFile) { Patterns = ["*.scene"] };
+        return CreateSceneFileType();
+    }
+
+    // Also used by SceneOutputExtension.
+    internal static FilePickerFileType CreateSceneFileType()
+    {
+        return new FilePickerFileType(Strings.SceneFile) { Patterns = [$"*.{EditorConstants.SceneFileExtension}"] };
     }
 
     public override bool MatchFileExtension(string ext)
     {
-        return ext.Equals(".scene", StringComparison.OrdinalIgnoreCase);
+        return ext.Equals($".{EditorConstants.SceneFileExtension}", StringComparison.OrdinalIgnoreCase);
     }
 }

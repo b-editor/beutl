@@ -74,24 +74,16 @@ internal partial class VersionControlCoordinator
             cancellationToken);
     }
 
-    private async Task CommitSnapshotAsync(
-        bool enabled,
-        string message,
-        SnapshotKind kind,
+    private async Task CommitSaveSnapshotAsync(
         IProjectFileWriteLease? completedWrite,
         CancellationToken cancellationToken)
     {
-        if (!enabled)
-        {
-            return;
-        }
-
         using IDisposable? snapshotMutation = TryBeginWorktreeMutation(completedWrite);
         if (snapshotMutation is null)
         {
             _logger.LogInformation(
                 "Skipped the {SnapshotKind} project snapshot because the workspace is reserved.",
-                kind);
+                SnapshotKind.Save);
             return;
         }
 
@@ -113,7 +105,7 @@ internal partial class VersionControlCoordinator
 
         try
         {
-            await service.CommitAllAsync(message, kind, cancellationToken);
+            await service.CommitAllAsync(SaveSnapshotMessage, SnapshotKind.Save, cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -121,14 +113,11 @@ internal partial class VersionControlCoordinator
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to create the {SnapshotKind} project snapshot.", kind);
-            if (kind == SnapshotKind.Save)
-            {
-                PublishNotification(() =>
-                    NotificationService.ShowWarning(
-                        Strings.VersionControl,
-                        FormatSnapshotFailure(ex)));
-            }
+            _logger.LogError(ex, "Failed to create the {SnapshotKind} project snapshot.", SnapshotKind.Save);
+            PublishNotification(() =>
+                NotificationService.ShowWarning(
+                    Strings.VersionControl,
+                    FormatSnapshotFailure(ex)));
         }
     }
 
@@ -179,12 +168,7 @@ internal partial class VersionControlCoordinator
                 // A save still writing finishes first, and none can start until the snapshot ends.
                 using IProjectFileWriteLease write =
                     await _editorService.BeginProjectFileWriteAsync(operation.CancellationToken);
-                await CommitSnapshotAsync(
-                    enabled: true,
-                    SaveSnapshotMessage,
-                    SnapshotKind.Save,
-                    write,
-                    operation.CancellationToken);
+                await CommitSaveSnapshotAsync(write, operation.CancellationToken);
             }
             catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
             {

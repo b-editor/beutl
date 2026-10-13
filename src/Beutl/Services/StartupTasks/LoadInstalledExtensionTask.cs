@@ -20,23 +20,18 @@ public sealed class LoadInstalledExtensionTask : StartupTask
         {
             using (Activity? activity = Telemetry.StartActivity("LoadInstalledExtensionTask"))
             {
-                // 依存関係の再復元完了を待機
                 ResolvePackageDependenciesTask resolveTask =
                     startup.GetTask<ResolvePackageDependenciesTask>();
                 await resolveTask.Task;
 
-                // 依存関係の再復元に失敗したパッケージIDを収集
                 HashSet<string> failedPackageIds = new(
                     resolveTask.Failures.Select(f => f.Package.Id),
                     StringComparer.OrdinalIgnoreCase);
 
-                // クラッシュ復旧プロンプトの結果を待機し、制限モードか判定
                 CrashRecoveryPromptTask promptTask = startup.GetTask<CrashRecoveryPromptTask>();
                 await promptTask.Task;
-                IsRestrictedMode = promptTask.IsRestrictedMode;
 
-                // .beutl/packages/ 内のパッケージを読み込む
-                if (!IsRestrictedMode)
+                if (!promptTask.IsRestrictedMode)
                 {
                     IReadOnlyList<LocalPackage> packages = await _manager.GetPackages();
 
@@ -70,8 +65,6 @@ public sealed class LoadInstalledExtensionTask : StartupTask
     public override Task Task { get; }
 
     public ConcurrentBag<(LocalPackage, Exception)> Failures { get; } = [];
-
-    public bool IsRestrictedMode { get; private set; }
 
     // Shared with LoadSideloadExtensionTask: a package that fails to load is recorded for the
     // failure report and does not stop the others.

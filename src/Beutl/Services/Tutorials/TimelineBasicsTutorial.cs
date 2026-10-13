@@ -174,7 +174,7 @@ public static class TimelineBasicsTutorial
                         {
                             IProperty<float> widthProp = ellipseOp.Width;
                             if (widthProp.Animation is KeyFrameAnimation<float> animation
-                                && animation.KeyFrames.LastOrDefault() is { Value: 100f or <= 100f } lastKeyFrame)
+                                && animation.KeyFrames.LastOrDefault() is { Value: <= 100f } lastKeyFrame)
                             {
                                 lastKeyFrame.Value = 300f;
                                 editVm.HistoryManager.Commit(CommandNames.EditKeyFrame);

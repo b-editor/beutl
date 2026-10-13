@@ -278,8 +278,6 @@ public sealed class OutputPresetService
             aud,
             FFColorTransfer.ARIB_STD_B67,
             "repeat-headers=1");
-        // ConfigureHdr(..., FFColorTransfer.ARIB_STD_B67,
-        //     "colorprim=bt2020:transfer=arib-std-b67:colormatrix=bt2020nc:range=limited:repeat-headers=1");
 
         _items.Add(CreateFFmpegPreset(vid, aud, "HLG"));
 

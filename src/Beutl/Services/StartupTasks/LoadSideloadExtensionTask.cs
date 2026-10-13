@@ -56,6 +56,7 @@ public sealed class LoadSideloadExtensionTask : StartupTask
 
     public override Task Task { get; }
 
+    // Test seam: tests await the deferred loading.
     internal Task DeferredLoadingTask => _deferredLoadingTask;
 
     public ConcurrentBag<(LocalPackage, Exception)> Failures { get; } = [];

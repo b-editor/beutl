@@ -58,27 +58,10 @@ public partial class EditorService
         }
     }
 
-    internal IDisposable BeginObservedOutputOperation(IEditorContext? context = null)
-    {
-        IDisposable operation = TryBeginOutputOperation()
-                                ?? throw new InvalidOperationException(
-                                    "Output cannot start while the project workspace is being replaced.");
-
-        if (context is null)
-        {
-            return operation;
-        }
-
-        try
-        {
-            return new OutputOperationLease(operation, SuspendEditor(context));
-        }
-        catch
-        {
-            operation.Dispose();
-            throw;
-        }
-    }
+    internal IDisposable BeginObservedOutputOperation()
+        => TryBeginOutputOperation()
+           ?? throw new InvalidOperationException(
+               "Output cannot start while the project workspace is being replaced.");
 
     internal async ValueTask<IProjectFileWriteLease> BeginProjectFileWriteAsync(
         CancellationToken cancellationToken)
@@ -246,30 +229,6 @@ public partial class EditorService
             if (Interlocked.Exchange(ref _disposed, 1) == 0)
             {
                 owner.EndWorkspaceOperation(kind);
-            }
-        }
-    }
-
-    private sealed class OutputOperationLease(
-        IDisposable operation,
-        IDisposable suspension) : IDisposable
-    {
-        private int _disposed;
-
-        public void Dispose()
-        {
-            if (Interlocked.Exchange(ref _disposed, 1) != 0)
-            {
-                return;
-            }
-
-            try
-            {
-                suspension.Dispose();
-            }
-            finally
-            {
-                operation.Dispose();
             }
         }
     }

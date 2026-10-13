@@ -40,9 +40,6 @@ internal static class UnsavedSceneStorage
         }
     }
 
-    public static SaveRelocation PrepareSave(Scene scene, Uri sceneUri)
-        => new(scene, sceneUri);
-
     internal sealed class SaveRelocation
     {
         private static readonly ILogger s_logger = Log.CreateLogger<SaveRelocation>();
@@ -132,7 +129,7 @@ internal static class UnsavedSceneStorage
             foreach (Element element in scene.Children)
             {
                 if (element.Uri is not { IsFile: true } original
-                    || !TryResolveOwnedPath(paths, ownedRoot, original.LocalPath, out _))
+                    || !paths.IsSameOrDescendantOfCanonicalRoot(ownedRoot, original.LocalPath, out _))
                 {
                     continue;
                 }
@@ -178,7 +175,7 @@ internal static class UnsavedSceneStorage
                 }
 
                 if (!original.IsFile
-                    || !TryResolveOwnedPath(paths, ownedRoot, original.LocalPath, out string identity))
+                    || !paths.IsSameOrDescendantOfCanonicalRoot(ownedRoot, original.LocalPath, out string identity))
                     continue;
 
                 if (!groups.TryGetValue(identity, out List<(IFileSource Source, Uri Original)>? sources))
@@ -209,15 +206,6 @@ internal static class UnsavedSceneStorage
                     sources));
             }
             return result;
-        }
-
-        private static bool TryResolveOwnedPath(
-            FilePathComparison.ResolutionContext paths,
-            string ownedRoot,
-            string path,
-            out string identity)
-        {
-            return paths.IsSameOrDescendantOfCanonicalRoot(ownedRoot, path, out identity);
         }
 
         private static string GetUniqueDestination(

@@ -9,7 +9,6 @@ public partial class ProjectService
     private readonly object _transitionSync = new();
     private ProjectOpenAttempt? _currentOpenAttempt;
     private ProjectTransitionContext? _currentTransition;
-    private long _nextTransitionId;
 
     internal ProjectTransitionContext? CurrentTransition
     {
@@ -84,10 +83,7 @@ public partial class ProjectService
     // Must be called while holding _transitionGate; disposing the scope releases it.
     private ProjectTransitionScope EnterTransition(ProjectTransitionPurpose purpose, object owner)
     {
-        var context = new ProjectTransitionContext(
-            Interlocked.Increment(ref _nextTransitionId),
-            purpose,
-            owner);
+        var context = new ProjectTransitionContext(purpose, owner);
         lock (_transitionSync)
         {
             _currentTransition = context;

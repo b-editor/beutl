@@ -145,7 +145,7 @@ internal partial class VersionControlCoordinator
         try
         {
             if (!ReferenceEquals(_projectService.CurrentProject.Value, project)
-                || !ReferenceEquals(GetOwnedBackend(), ownedService))
+                || !ReferenceEquals(_state.OwnedService, ownedService))
             {
                 return new RemoteOpResult.Failed(PullProjectChangedMessage);
             }
@@ -200,12 +200,8 @@ internal partial class VersionControlCoordinator
             return preflight.Result;
         }
 
-        // Same reason as the restore and branch-switch paths: the merge runs uncancellable with
-        // the project closed, so the objects its LFS smudge filter needs are pulled in here, while
-        // this is still cancellable and the project is still open. The preflight's fetch moved the
-        // remote-tracking ref and not the local branch, so the prefetch has to name the fetched
-        // commit - a branch name would resolve to the pre-pull tip and miss exactly the objects the
-        // merge is about to need.
+        // The merge runs uncancellable with the project closed, so its LFS objects are fetched first.
+        // Only the remote-tracking ref has moved, so name the fetched commit rather than the branch.
         await service.PrefetchCommitLfsObjectsAsync(
             upstreamCommit,
             LfsPrefetchScope.RepositoryWide,

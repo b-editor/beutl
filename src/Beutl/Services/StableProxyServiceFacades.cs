@@ -30,11 +30,8 @@ internal sealed class StableProxyStoreFacade(IProxyStore initial) : IProxyStore
         if (handlers is not null)
         {
             next.Changed += handlers;
-            // The new store loads its entries in the constructor (no Registered events), so raise a Reset
-            // to make open Proxies tabs / timeline badges refresh to the new store's state rather than
-            // keeping the previous store's Ready/Missing display until a manual refresh. Invoke each
-            // subscriber in its own try/catch: ProxyMediaServices swaps the facades in sequence mid-
-            // reinit, so one throwing consumer must not abort the remaining swaps.
+            // Raise a Reset so open views refresh to the new store, which loads without Registered events.
+            // Each subscriber gets its own try/catch so one failure does not stop the others.
             var args = new ProxyStoreChangedEventArgs
             {
                 Source = default,

@@ -95,15 +95,13 @@ public sealed class CheckForUpdatesTask : StartupTask
         return isLatest ? UpdateCheckResult.UpToDate : UpdateCheckResult.UpdateAvailable;
     }
 
-    // "No" keeps Beutl running and does not open the browser. Quitting would leave users who cannot
-    // update right away with no way to open or save their projects; the dialog shows again on the next start.
+    // Closes Beutl only when the release page opened, so the user is never locked out of the update.
+    // "No" keeps it running so projects can still be saved; the dialog shows again on the next start.
     internal static void HandleUpgradeRequiredAnswer(
         FAContentDialogResult answer,
         Func<bool> openReleasePage,
         Action closeApp)
     {
-        // Only close the app if we actually managed to send the user to the update page.
-        // Otherwise the user would be locked out without any way to obtain the new version.
         if (answer == FAContentDialogResult.Primary && openReleasePage())
         {
             closeApp();
@@ -159,11 +157,8 @@ public sealed class CheckForUpdatesTask : StartupTask
             _logger.LogError(ex, "An error occurred while checking for updates");
             if (ex is OperationCanceledException)
             {
-                // HttpClient timeouts surface as TaskCanceledException or, on modern .NET,
-                // sometimes as plain OperationCanceledException. No external CancellationToken
-                // is passed here, so any OCE is effectively a network timeout — show a
-                // localized message instead of the generic "A task was canceled." text, and
-                // skip DefaultExceptionHandler.Handle, which silently swallows OCE subclasses.
+                // No external token is passed, so an OCE is a network timeout. Show a dedicated
+                // message, since Handle ignores OCE.
                 NotificationService.ShowError(Strings.Error, MessageStrings.UpdateCheckTimedOut);
             }
             else

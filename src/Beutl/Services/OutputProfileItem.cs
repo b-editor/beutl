@@ -14,7 +14,6 @@ public sealed class OutputProfileItem : IDisposable, IOutputExecutionController
     private readonly EditorService _editorService;
     private readonly object _outputOperationSync = new();
     private readonly ReactivePropertySlim<bool> _isRunning = new();
-    private IDisposable? _outputOperation;
     private CancellationTokenSource? _executionCancellation;
     private Task? _executionTask;
     private bool _disposeRequested;
@@ -53,18 +52,8 @@ public sealed class OutputProfileItem : IDisposable, IOutputExecutionController
             outputOperation = _editorService.TryBeginOutputOperation();
             if (outputOperation is not null)
             {
-                try
-                {
-                    executionCancellation = new CancellationTokenSource();
-                }
-                catch
-                {
-                    outputOperation.Dispose();
-                    throw;
-                }
-
+                executionCancellation = new CancellationTokenSource();
                 completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-                _outputOperation = outputOperation;
                 _executionCancellation = executionCancellation;
                 _executionTask = completion.Task;
             }
@@ -317,11 +306,6 @@ public sealed class OutputProfileItem : IDisposable, IOutputExecutionController
             _logger.LogError(
                 ex,
                 "The output workspace lease failed during terminal release.");
-        }
-
-        if (ReferenceEquals(_outputOperation, outputOperation))
-        {
-            _outputOperation = null;
         }
     }
 

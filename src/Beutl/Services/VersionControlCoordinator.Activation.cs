@@ -57,7 +57,7 @@ internal partial class VersionControlCoordinator
 
         try
         {
-            if (GetOwnedBackend() is { Repository: { } repository } preservedService
+            if (_state.OwnedService is { Repository: { } repository } preservedService
                 && PathsEqual(repository.ProjectRoot, GetProjectRoot(project)))
             {
                 SetVisibleService(preservedService);
@@ -244,11 +244,9 @@ internal partial class VersionControlCoordinator
     {
         GitAvailability availability = await activation.Service.GetAvailabilityAsync(
             activation.CancellationToken);
-        // A project created in this session opens with the backend its creation left: tracked when the
-        // new-project dialog chose tracking and initialization recorded the first version, untracked
-        // otherwise. The dialog already decided, so discovery neither adopts an enclosing repository
-        // nor asks again; initialization did both before the project opened. Discovery only looks
-        // again at a repository that initialization created or attached before it stopped.
+        // A project created in this session keeps the backend its creation left, as the new-project
+        // dialog already decided. Discovery only looks again at a repository that initialization
+        // created or attached before it stopped.
         if (availability.State != GitAvailabilityState.Installed
             || activation.IsNewProject && activation.InterruptedNewProjectRepository is null)
         {
@@ -348,12 +346,9 @@ internal partial class VersionControlCoordinator
         return true;
     }
 
-    // Version tracking stays opt-in per project, so merely opening a project whose directory the
-    // user has already made a repository must not start writing hygiene files and commits. Only a
-    // repository that already records an earlier opt-in resumes tracking without asking.
-    // Adopting a foreign work tree is the user's call, but only the first time: a repository that
-    // already records an opt-in resumes tracking without asking, exactly like a non-nested one.
-    // Asking on every open would turn a dismissed prompt into a session with no snapshots at all.
+    // Tracking is opt-in per project: a repository that records an earlier opt-in resumes without
+    // asking, and any other asks only the first time. Asking on every open would turn a dismissed
+    // prompt into a session with no snapshots at all.
     private async Task<bool> ConfirmUseEnclosingRepositoryIfNeededAsync(
         IProjectVersionControlBackend service,
         RepositoryInfo repository,

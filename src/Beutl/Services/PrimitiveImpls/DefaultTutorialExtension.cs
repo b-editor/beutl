@@ -8,9 +8,6 @@ public class DefaultTutorialExtension : TutorialExtension
     private readonly EditorService _editorService;
     private readonly ProjectService _projectService;
 
-    // The editor-session services are constructor-injected from the composition root so the
-    // tutorial step bodies can drive the editor. Unlike the other primitive extensions this one
-    // cannot be a service-free static singleton, so LoadPrimitiveExtensionTask constructs it.
     public DefaultTutorialExtension(EditorService editorService, ProjectService projectService)
     {
         ArgumentNullException.ThrowIfNull(editorService);

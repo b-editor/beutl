@@ -259,7 +259,7 @@ public sealed partial class MainViewModel : BasePageViewModel, IContextCommandHa
 
     public ReadOnlyObservableCollection<ToolWindowExtension> ToolWindowExtensions { get; }
 
-    public ContextCommandManager? ContextCommandManager { get; }
+    public ContextCommandManager ContextCommandManager { get; }
 
     public CommandPaletteViewModel CommandPalette { get; }
     public TabSwitcherViewModel TabSwitcher { get; }

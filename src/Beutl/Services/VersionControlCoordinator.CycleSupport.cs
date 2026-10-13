@@ -90,11 +90,6 @@ internal partial class VersionControlCoordinator
             : null;
     }
 
-    private IProjectVersionControlBackend? GetOwnedBackend()
-    {
-        return _state.OwnedService;
-    }
-
     private Project GetOpenProject()
     {
         return _projectService.CurrentProject.Value
@@ -248,7 +243,7 @@ internal partial class VersionControlCoordinator
         ProjectService.ProjectTransitionScope transition,
         string projectFile)
     {
-        RepositoryInfo repository = GetOwnedBackend()?.Repository
+        RepositoryInfo repository = _state.OwnedService?.Repository
                                     ?? throw new InvalidOperationException(
                                         "The repository is unavailable before reopening the project.");
         EnsureProjectFileIsPhysicallyContained(repository, projectFile);

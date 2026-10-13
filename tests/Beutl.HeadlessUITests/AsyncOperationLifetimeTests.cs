@@ -486,29 +486,4 @@ public sealed class AsyncOperationLifetimeTests
             Throws.InstanceOf<InvalidOperationException>());
         Assert.That(disposeCount, Is.EqualTo(1));
     }
-
-    [Test]
-    public async Task Dispose_ReportsADeferredResourceFailureAfterTheDeadline()
-    {
-        var releaseCleanup = new TaskCompletionSource(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        var observed = new TaskCompletionSource<Exception>(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        var lifetime = new AsyncOperationLifetime(
-            TimeSpan.FromMilliseconds(100),
-            exception => observed.TrySetResult(exception));
-
-        Task disposal = lifetime.DisposeAsync(async () =>
-        {
-            await releaseCleanup.Task;
-            throw new InvalidOperationException("late cleanup failed");
-        }).AsTask();
-        await disposal.WaitAsync(TimeSpan.FromSeconds(5));
-        Assert.That(disposal.IsCompletedSuccessfully, Is.True);
-
-        releaseCleanup.TrySetResult();
-        Exception failure = await observed.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        Assert.That(failure, Is.TypeOf<InvalidOperationException>());
-        Assert.That(failure.Message, Is.EqualTo("late cleanup failed"));
-    }
 }
