@@ -16,9 +16,7 @@ public partial class DisplacementMapTransformEditor : UserControl
 
     private void Tag_Click(object? sender, RoutedEventArgs e)
     {
-        var target = sender as Button ?? expandToggle;
-
-        expandToggle.ContextFlyout?.ShowAt(target);
+        expandToggle.ContextFlyout?.ShowAt((Button)sender!);
     }
 
     private void TransformTypeClicked(object? sender, RoutedEventArgs e)

@@ -69,7 +69,6 @@ public partial class TutorialOverlay : UserControl
         else
         {
             ClearHighlights();
-            // ターゲットがない場合は中央に表示
             TipContainer.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center;
             TipContainer.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center;
         }
@@ -140,7 +139,6 @@ public partial class TutorialOverlay : UserControl
 
     private void PositionHighlights()
     {
-        // 必要に応じてボーダーを追加
         EnsureBorderPool(_currentTargets.Count);
 
         var targetRects = new List<Rect>();
@@ -150,40 +148,31 @@ public partial class TutorialOverlay : UserControl
             Control target = _currentTargets[i];
             Border border = _highlightBorders[i];
 
-            try
+            Point? pos = target.TranslatePoint(new Point(0, 0), this);
+            if (pos.HasValue)
             {
-                Point? pos = target.TranslatePoint(new Point(0, 0), this);
-                if (pos.HasValue)
-                {
-                    var rect = new Rect(
-                        pos.Value.X - HighlightPadding, pos.Value.Y - HighlightPadding,
-                        target.Bounds.Width + HighlightPadding * 2, target.Bounds.Height + HighlightPadding * 2);
-                    border.IsVisible = true;
-                    Canvas.SetLeft(border, rect.X);
-                    Canvas.SetTop(border, rect.Y);
-                    border.Width = rect.Width;
-                    border.Height = rect.Height;
+                var rect = new Rect(
+                    pos.Value.X - HighlightPadding, pos.Value.Y - HighlightPadding,
+                    target.Bounds.Width + HighlightPadding * 2, target.Bounds.Height + HighlightPadding * 2);
+                border.IsVisible = true;
+                Canvas.SetLeft(border, rect.X);
+                Canvas.SetTop(border, rect.Y);
+                border.Width = rect.Width;
+                border.Height = rect.Height;
 
-                    targetRects.Add(rect);
-                }
-                else
-                {
-                    border.IsVisible = false;
-                }
+                targetRects.Add(rect);
             }
-            catch
+            else
             {
                 border.IsVisible = false;
             }
         }
 
-        // 残りのボーダーを非表示
         for (int i = _currentTargets.Count; i < _highlightBorders.Count; i++)
         {
             _highlightBorders[i].IsVisible = false;
         }
 
-        // オーバーレイ背景にクリッピングを適用
         UpdateOverlayClip(targetRects);
     }
 
@@ -237,55 +226,46 @@ public partial class TutorialOverlay : UserControl
 
     private void PositionTip(Control target, TutorialStepPlacement placement)
     {
-        try
+        Point? pos = target.TranslatePoint(new Point(0, 0), this);
+        if (!pos.HasValue)
+            return;
+
+        double targetLeft = pos.Value.X;
+        double targetRight = pos.Value.X + target.Bounds.Width;
+        double targetCenterX = pos.Value.X + target.Bounds.Width / 2;
+        double targetCenterY = pos.Value.Y + target.Bounds.Height / 2;
+        double targetBottom = pos.Value.Y + target.Bounds.Height;
+        double targetTop = pos.Value.Y;
+
+        TipContainer.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left;
+        TipContainer.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top;
+
+        double tipLeft = Math.Max(TipGap, targetCenterX - TipHalfWidth);
+        double tipTop;
+
+        if (placement == TutorialStepPlacement.Top)
         {
-            Point? pos = target.TranslatePoint(new Point(0, 0), this);
-            if (!pos.HasValue)
-                return;
-
-            double targetLeft = pos.Value.X;
-            double targetRight = pos.Value.X + target.Bounds.Width;
-            double targetCenterX = pos.Value.X + target.Bounds.Width / 2;
-            double targetCenterY = pos.Value.Y + target.Bounds.Height / 2;
-            double targetBottom = pos.Value.Y + target.Bounds.Height;
-            double targetTop = pos.Value.Y;
-
-            TipContainer.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left;
-            TipContainer.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top;
-
-            double tipLeft = Math.Max(TipGap, targetCenterX - TipHalfWidth);
-            double tipTop;
-
-            if (placement == TutorialStepPlacement.Top)
-            {
-                tipTop = targetTop - TipGap;
-                TipContainer.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Bottom;
-                TipContainer.Margin = new Thickness(tipLeft, 0, 0, tipTop);
-            }
-            else if (placement == TutorialStepPlacement.Left)
-            {
-                tipLeft = Bounds.Width - (targetLeft - TipGap);
-                tipTop = targetCenterY;
-                TipContainer.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right;
-                TipContainer.Margin = new Thickness(0, tipTop, tipLeft, 0);
-            }
-            else if (placement == TutorialStepPlacement.Right)
-            {
-                tipLeft = targetRight + TipGap;
-                tipTop = targetCenterY;
-                TipContainer.Margin = new Thickness(tipLeft, tipTop, 0, 0);
-            }
-            else if (placement == TutorialStepPlacement.Bottom)
-            {
-                tipTop = targetBottom + TipGap;
-                TipContainer.Margin = new Thickness(tipLeft, tipTop, 0, 0);
-            }
+            tipTop = targetTop - TipGap;
+            TipContainer.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Bottom;
+            TipContainer.Margin = new Thickness(tipLeft, 0, 0, tipTop);
         }
-        catch
+        else if (placement == TutorialStepPlacement.Left)
         {
-            TipContainer.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center;
-            TipContainer.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center;
-            TipContainer.Margin = default;
+            tipLeft = Bounds.Width - (targetLeft - TipGap);
+            tipTop = targetCenterY;
+            TipContainer.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right;
+            TipContainer.Margin = new Thickness(0, tipTop, tipLeft, 0);
+        }
+        else if (placement == TutorialStepPlacement.Right)
+        {
+            tipLeft = targetRight + TipGap;
+            tipTop = targetCenterY;
+            TipContainer.Margin = new Thickness(tipLeft, tipTop, 0, 0);
+        }
+        else if (placement == TutorialStepPlacement.Bottom)
+        {
+            tipTop = targetBottom + TipGap;
+            TipContainer.Margin = new Thickness(tipLeft, tipTop, 0, 0);
         }
     }
 

@@ -53,18 +53,12 @@ public partial class GraphNodeView : UserControl
 
         this.SubscribeDataContextChange<GraphNodeViewModel>(OnDataContextAttached, OnDataContextDetached);
 
-        SizeChanged += OnSizeChanged;
         LayoutUpdated += (_, _) => UpdateNodePortPosition();
     }
 
     private void OnContextRequested(object? sender, ContextRequestedEventArgs e)
     {
         e.Handled = true;
-    }
-
-    private void OnSizeChanged(object? sender, SizeChangedEventArgs e)
-    {
-        UpdateNodePortPosition();
     }
 
     internal void AttachNestedPort(NodePortPoint port)
@@ -265,7 +259,7 @@ public partial class GraphNodeView : UserControl
     {
         PointerPoint point = e.GetCurrentPoint(this);
         if (_captured
-            && DataContext is GraphNodeViewModel { IsFallback: false }
+            && DataContext is GraphNodeViewModel { IsFallback: false } viewModel
             && point.Properties.IsLeftButtonPressed
             && Parent is Canvas canvas)
         {
@@ -275,10 +269,7 @@ public partial class GraphNodeView : UserControl
             double left = Canvas.GetLeft(this) + delta.X;
             double top = Canvas.GetTop(this) + delta.Y;
 
-            if (DataContext is GraphNodeViewModel viewModel)
-            {
-                viewModel.Position.Value = new(left, top);
-            }
+            viewModel.Position.Value = new(left, top);
 
             foreach (GraphNodeView? item in GetSelection())
             {
@@ -309,7 +300,7 @@ public partial class GraphNodeView : UserControl
     {
         if (Parent is Canvas canvas)
         {
-            foreach (Control? item in canvas.Children.Where(x => x.DataContext is GraphNodeViewModel))
+            foreach (Control item in canvas.Children)
             {
                 if (item.DataContext is GraphNodeViewModel itemViewModel)
                 {
@@ -344,7 +335,7 @@ public partial class GraphNodeView : UserControl
                 else
                 {
                     IEnumerable<GraphNodeViewModel> selection = GetSelection()
-                        .Where(x => x != this && x.DataContext is GraphNodeViewModel)
+                        .Where(x => x != this)
                         .Select(x => (GraphNodeViewModel)x.DataContext!);
                     viewModel.UpdatePosition(selection);
                 }

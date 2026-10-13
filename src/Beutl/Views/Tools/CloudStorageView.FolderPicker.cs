@@ -55,7 +55,6 @@ public sealed partial class CloudStorageView
             _movingFolder = context.Items is [var item] && item.IsFolder ? item.Id : null;
             _list = new ListBox
             {
-                Name = "StorageFolderDestinations",
                 ItemsSource = _choices,
                 Height = Math.Clamp((TopLevel.GetTopLevel(owner)?.Bounds.Height ?? 580) - 300, 160, 280),
                 ItemTemplate = new FuncDataTemplate<StorageEntryResponse>((folder, _) => new TextBlock
@@ -160,7 +159,7 @@ public sealed partial class CloudStorageView
                     && (_movingFolder == null || _target != _movingFolder && response.Path.All(x => x.Id != _movingFolder));
             }
             catch (OperationCanceledException) { }
-            catch (Exception ex)
+            catch (Exception)
             {
                 if (!_cancellation.IsCancellationRequested)
                 {
@@ -168,7 +167,6 @@ public sealed partial class CloudStorageView
                     _failedLoad = (destination, append);
                     _retry.IsVisible = true;
                 }
-                Debug.WriteLine(ex);
             }
             finally
             {

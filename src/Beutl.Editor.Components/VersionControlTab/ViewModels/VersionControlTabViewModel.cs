@@ -47,7 +47,6 @@ internal sealed partial class VersionControlTabViewModel : IToolContext
     private CancellationTokenSource? _selectionCancellation;
     private CancellationTokenSource? _remoteOperationCancellation;
     private int _remoteOperationUserCancellation;
-    private int _remoteOperationGeneration;
     private RemoteMutationLease? _remoteMutationOwner;
     private TaskCompletionSource _remoteOperationCompletion =
         CompletedCompletion();
@@ -89,8 +88,7 @@ internal sealed partial class VersionControlTabViewModel : IToolContext
             editorContext.GetService(typeof(IProjectVersionControlCoordinator))
                 as IProjectVersionControlCoordinator,
             VersionControlUiThread.Post,
-            timeProvider: null,
-            culture: null)
+            timeProvider: null)
     {
     }
 
@@ -100,23 +98,19 @@ internal sealed partial class VersionControlTabViewModel : IToolContext
         IReadOnlyReactiveProperty<IProjectVersionControlService?> serviceSource,
         IProjectVersionControlCoordinator? versionControlCoordinator,
         Action<Action> postToUi,
-        TimeProvider? timeProvider = null,
-        CultureInfo? culture = null)
+        TimeProvider? timeProvider = null)
     {
-        Extension = extension ?? throw new ArgumentNullException(nameof(extension));
-        _editorContext = editorContext ?? throw new ArgumentNullException(nameof(editorContext));
-        ArgumentNullException.ThrowIfNull(serviceSource);
+        Extension = extension;
+        _editorContext = editorContext;
         IProjectVersionControlService? service = serviceSource.Value;
         _versionControlCoordinator = versionControlCoordinator;
         _repositoryAdoptionSource = versionControlCoordinator as IRepositoryAdoptionConfirmationSource;
-        _postToUi = postToUi ?? throw new ArgumentNullException(nameof(postToUi));
-        _relativeTimeFormatter = new VersionControlRelativeTimeFormatter(
-            timeProvider ?? TimeProvider.System,
-            culture ?? CultureInfo.CurrentUICulture);
+        _postToUi = postToUi;
+        _relativeTimeFormatter = new VersionControlRelativeTimeFormatter(timeProvider ?? TimeProvider.System);
         _fileCache = new(32, 2 * 1024 * 1024, timeProvider ?? TimeProvider.System);
         _diffCache = new(16, 8 * 1024 * 1024, timeProvider ?? TimeProvider.System);
 
-        IsTracked = new ReactivePropertySlim<bool>(service?.Repository is not null)
+        IsTracked = new ReactivePropertySlim<bool>()
             .DisposeWith(_disposables);
         IsGitAvailable = new ReactivePropertySlim<bool>()
             .DisposeWith(_disposables);
@@ -128,25 +122,20 @@ internal sealed partial class VersionControlTabViewModel : IToolContext
             .DisposeWith(_disposables);
         HasBlockingGuidance = new ReactivePropertySlim<bool>()
             .DisposeWith(_disposables);
-        HasRecoverableLock = new ReactivePropertySlim<bool>(
-                _lockRecoveryService?.RecoverableLock is not null)
+        HasRecoverableLock = new ReactivePropertySlim<bool>()
             .DisposeWith(_disposables);
-        CanRemoveStaleLock = new ReactivePropertySlim<bool>(
-                _lockRecoveryService?.RecoverableLock is { RequiresManualRemoval: false })
+        CanRemoveStaleLock = new ReactivePropertySlim<bool>()
             .DisposeWith(_disposables);
         StaleLockGuidance = new ReactivePropertySlim<string>(
                 Strings.VersionControl_StaleLockGuidance)
             .DisposeWith(_disposables);
         DirtySummary = new ReactivePropertySlim<string>()
             .DisposeWith(_disposables);
-        StatusMessage = new ReactivePropertySlim<string>(
-                IsTracked.Value
-                    ? string.Empty
-                    : Strings.VersionControl_NoRepository)
+        StatusMessage = new ReactivePropertySlim<string>(string.Empty)
             .DisposeWith(_disposables);
         IsLoading = new ReactivePropertySlim<bool>()
             .DisposeWith(_disposables);
-        HasMoreHistory = new ReactivePropertySlim<bool>(IsTracked.Value)
+        HasMoreHistory = new ReactivePropertySlim<bool>()
             .DisposeWith(_disposables);
         IsHistoryEmpty = new ReactivePropertySlim<bool>(true)
             .DisposeWith(_disposables);
@@ -179,11 +168,9 @@ internal sealed partial class VersionControlTabViewModel : IToolContext
             .DisposeWith(_disposables);
         _isConfiguringRemote = new ReactivePropertySlim<bool>()
             .DisposeWith(_disposables);
-        IsNestedRepository = new ReactivePropertySlim<bool>(
-                service?.Repository?.IsNestedInForeignRepo == true)
+        IsNestedRepository = new ReactivePropertySlim<bool>()
             .DisposeWith(_disposables);
-        RepositoryScopeText = new ReactivePropertySlim<string>(
-                GetRepositoryScopeText(service))
+        RepositoryScopeText = new ReactivePropertySlim<string>(string.Empty)
             .DisposeWith(_disposables);
         PendingRepositoryAdoption = new ReactivePropertySlim<RepositoryAdoptionRequest?>()
             .DisposeWith(_disposables);
@@ -222,14 +209,11 @@ internal sealed partial class VersionControlTabViewModel : IToolContext
                 EnableVersionControlAsync,
                 nameof(EnableVersionControlCommand)))
             .DisposeWith(_disposables);
-        // An observable, not the property itself: given a writable property, AsyncReactiveCommand
-        // shares it as its own busy state and sets it to false while running, so DownloadGitAsync
-        // would see Git as available and never open the downloads page.
+        // AsyncReactiveCommand rewrites a writable property it is given as its busy flag, so these
+        // two commands get AsObservable().
         DownloadGitCommand = new AsyncReactiveCommand(IsUnavailable.AsObservable())
             .WithSubscribe(DownloadGitAsync)
             .DisposeWith(_disposables);
-        // An observable, not the property itself: given a writable property, AsyncReactiveCommand
-        // shares it as its own busy state and sets it back to true after a successful removal.
         RemoveStaleLockCommand = new AsyncReactiveCommand(CanRemoveStaleLock.AsObservable())
             .WithSubscribe(() => RunCommandAsync(
                 RemoveStaleLockAsync,
@@ -274,7 +258,6 @@ internal sealed partial class VersionControlTabViewModel : IToolContext
             .DisposeWith(_disposables);
         _primaryAction = new ReactivePropertySlim<VersionControlPrimaryAction>(
                 new(
-                    VersionControlPrimaryActionKind.UpToDate,
                     Strings.VersionControl_UpToDate,
                     _disabledPrimaryActionCommand))
             .DisposeWith(_disposables);
@@ -503,6 +486,7 @@ internal sealed partial class VersionControlTabViewModel : IToolContext
 
     internal ReactiveCommandSlim InvokePrimaryActionCommand { get; }
 
+    // Test seam: the latest asynchronous refresh, which tests await.
     public Task Initialization { get; private set; }
 
     public Func<CommitInfo, Task<string?>> RequestBranchNameAsync { get; set; }

@@ -42,7 +42,7 @@ public class NavigationToolTabBarTests
         TestShell.Editor.ActivateTabItem(scene);
         HeadlessTestHelpers.Settle();
         var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
-        using var library = new LibraryTabViewModel(editor);
+        using var library = new LibraryTabViewModel();
         var originalModes = library.LibraryTabDisplayModes.ToArray();
         await using AiWorkspaceViewModel workspace = TestShell.MainViewModel.CreateAiWorkspaceViewModel(editor);
         var libraryView = new LibraryTabView { DataContext = library };

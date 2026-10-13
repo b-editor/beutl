@@ -215,10 +215,7 @@ internal sealed class WebBrowserTabViewModel : IToolContext
             }
         }
 
-        if (IsPersistableUri(uri))
-        {
-            SetCurrentUri(uri);
-        }
+        SetCurrentUri(uri);
 
         _isLoading.Value = false;
         _canGoBack.Value = canGoBack;

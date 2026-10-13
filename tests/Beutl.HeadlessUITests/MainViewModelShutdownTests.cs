@@ -30,8 +30,7 @@ public sealed class MainViewModelShutdownTests
         {
             window.Show();
             window.Close();
-            var closing = (Task)window.GetType().GetField("_viewModelDisposeTask",
-                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(window)!;
+            Task closing = GetViewModelDisposeTask(window);
             await closing.WaitAsync(TimeSpan.FromSeconds(5));
             Assert.That(window.IsVisible, Is.False, "A faulted disposal task must not permanently veto closing.");
         }
@@ -66,8 +65,7 @@ public sealed class MainViewModelShutdownTests
         {
             window.Show();
             window.Close();
-            var closing = (Task)window.GetType().GetField("_viewModelDisposeTask",
-                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(window)!;
+            Task closing = GetViewModelDisposeTask(window);
             await closing.WaitAsync(TimeSpan.FromSeconds(5));
             Assert.That(window.IsVisible, Is.True);
             Assert.That(viewModel.ProjectService.CurrentProject.Value, Is.Not.Null);
@@ -512,6 +510,14 @@ public sealed class MainViewModelShutdownTests
             Reissues.Add(_snapshot());
             e.Cancel = true;
         }
+    }
+
+    private static Task GetViewModelDisposeTask(Avalonia.Controls.Window window)
+    {
+        const System.Reflection.BindingFlags flags =
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+        object guard = window.GetType().GetField("_closeGuard", flags)!.GetValue(window)!;
+        return (Task)typeof(MainWindowCloseGuard).GetField("_viewModelDisposeTask", flags)!.GetValue(guard)!;
     }
 
     private static async Task WaitUntilAsync(Func<bool> predicate, TimeSpan timeout)

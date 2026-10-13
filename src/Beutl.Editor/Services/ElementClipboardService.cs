@@ -23,7 +23,7 @@ public sealed class ElementClipboardService : IElementClipboardService
     private readonly Func<Color> _imageAccentColorFactory;
 
     /// <param name="imageAccentColorFactory">Accent color for an element created
-    /// from a bitmap paste. Production passes <c>ColorGenerator.GenerateColor</c>;
+    /// from a bitmap paste. Production passes <c>ElementAccentColorGenerator.GenerateColor</c>;
     /// tests can pass a fixed color.</param>
     public ElementClipboardService(
         HistoryManager historyManager,

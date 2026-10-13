@@ -52,8 +52,6 @@ public sealed partial class MainView : UserControl
             NotificationPanel.Margin = new(0, 40 + 8, 8, 0);
 
             TitleBreadcrumbBar.Margin = new(80, 0, 8, 0);
-            Titlebar.ColumnDefinitions[^2].Width = GridLength.Star;
-            Titlebar.ColumnDefinitions[^1].Width = GridLength.Auto;
 
             Titlebar.PointerPressed += (s, e) =>
             {
@@ -112,18 +110,12 @@ public sealed partial class MainView : UserControl
         if (sender is FAAppWindow cw)
         {
             FAAppWindowTitleBar titleBar = cw.TitleBar;
-            if (titleBar != null)
-            {
-                titleBar.ExtendsContentIntoTitleBar = true;
+            titleBar.ExtendsContentIntoTitleBar = true;
 
-                // Avalonia 12 draws three 46 DIP caption buttons; reserve their width plus spacing.
-                Titlebar.Margin = new Thickness(0, 0, OperatingSystem.IsWindows() ? 140 : 0, 0);
-                WindowDecorationProperties.SetElementRole(Titlebar, WindowDecorationsElementRole.TitleBar);
-                WindowDecorationProperties.SetElementRole(MenuBar, WindowDecorationsElementRole.User);
-                WindowDecorationProperties.SetElementRole(TitleBarBranchWidget, WindowDecorationsElementRole.User);
-                WindowDecorationProperties.SetElementRole(OpenNotificationsButton, WindowDecorationsElementRole.User);
-                NotificationPanel.Margin = new(0, titleBar.Height + 8, 8, 0);
-            }
+            // Avalonia 12 draws three 46 DIP caption buttons; reserve their width plus spacing.
+            Titlebar.Margin = new Thickness(0, 0, OperatingSystem.IsWindows() ? 140 : 0, 0);
+            WindowDecorationProperties.SetElementRole(Titlebar, WindowDecorationsElementRole.TitleBar);
+            NotificationPanel.Margin = new(0, titleBar.Height + 8, 8, 0);
         }
 
         if (DataContext is MainViewModel viewModel)
@@ -215,25 +207,17 @@ public sealed partial class MainView : UserControl
         }
     }
 
-    // 拡張機能を読み込んだ後に呼び出す
     private void InitExtMenuItems(MainViewModel viewModel)
     {
-        // ToolTabExtensionをメニューに表示する
         MenuItem CreateToolTabMenuItem(ToolTabExtension item)
         {
             var menuItem = new MenuItem() { Header = item.Header, DataContext = item };
 
             menuItem.Click += (s, e) =>
             {
-                if (viewModel.EditorService.SelectedTabItem.Value?.Context.Value is IEditorContext editorContext
-                    && s is MenuItem { DataContext: ToolTabExtension ext }
-                    && ext.TryCreateContext(editorContext, out IToolContext? toolContext))
+                if (s is MenuItem { DataContext: ToolTabExtension ext })
                 {
-                    bool result = editorContext.OpenToolTab(toolContext);
-                    if (!result)
-                    {
-                        toolContext.Dispose();
-                    }
+                    ExtensionMenuActions.OpenToolTab(viewModel, ext);
                 }
             };
 
@@ -250,7 +234,6 @@ public sealed partial class MainView : UserControl
 
         toolTabMenuItem.ItemsSource = list1;
 
-        // EditorExtensionをメニューに表示する
         MenuItem CreateEditorMenuItem(EditorExtension item)
         {
             var menuItem = new MenuItem()
@@ -298,7 +281,6 @@ public sealed partial class MainView : UserControl
             }
         };
 
-        // ToolWindowExtension をメニューに表示する
         MenuItem CreateToolWindowMenuItem(ToolWindowExtension item)
         {
             var menuItem = new MenuItem()
@@ -338,13 +320,18 @@ public sealed partial class MainView : UserControl
 
     private async void GoToInformationPage(object? sender, RoutedEventArgs e) => await GoToInformationPageAsync();
 
-    internal async Task GoToInformationPageAsync()
+    internal Task GoToInformationPageAsync()
+    {
+        return ShowSettingsDialogAsync(static dialogViewModel => dialogViewModel.GoToSettingsPage());
+    }
+
+    private async Task ShowSettingsDialogAsync(Action<SettingsDialogViewModel> navigate)
     {
         if (DataContext is MainViewModel viewModel && TopLevel.GetTopLevel(this) is Window window)
         {
             using var dialogViewModel = viewModel.CreateSettingsDialog();
             var dialog = new SettingsDialog { DataContext = dialogViewModel };
-            dialogViewModel.GoToSettingsPage();
+            navigate(dialogViewModel);
             await dialog.ShowDialog(window);
         }
     }
@@ -355,27 +342,9 @@ public sealed partial class MainView : UserControl
         Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
     }
 
-    private void OpenNotificationsClick(object? sender, RoutedEventArgs e)
-    {
-        if (HiddenNotificationPanel.Children.Count > 0
-            && sender is Button btn)
-        {
-            btn.Flyout?.ShowAt(btn);
-        }
-    }
-
     private async void OpenSettingsDialog(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not MainViewModel viewModel)
-            return;
-
-        if (TopLevel.GetTopLevel(this) is not Window window)
-            return;
-
-        using var dialogViewModel = viewModel.CreateSettingsDialog();
-        var dialog = new SettingsDialog { DataContext = dialogViewModel };
-        dialogViewModel.GoToAccountSettingsPage();
-        await dialog.ShowDialog(window);
+        await ShowSettingsDialogAsync(static dialogViewModel => dialogViewModel.GoToAccountSettingsPage());
     }
 
     private async void OpenTutorialsDialog(object? sender, RoutedEventArgs e) => await ShowTutorialsDialogAsync();

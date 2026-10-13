@@ -6,8 +6,7 @@ using Beutl.Models;
 namespace Beutl.Editor.Components.Converters;
 
 /// <summary>
-/// Maps <see cref="RenderScale"/> values to their localized display names for the preview
-/// render-quality selector. One-way only.
+/// Localized display names for <see cref="RenderScale"/>. One-way.
 /// </summary>
 public sealed class RenderScaleNameConverter : IValueConverter
 {

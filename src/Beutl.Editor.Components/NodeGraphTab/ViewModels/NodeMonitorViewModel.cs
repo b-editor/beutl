@@ -15,7 +15,6 @@ public class NodeMonitorViewModel : NodeMemberViewModel
         INodeMonitor model, IPropertyEditorContext? propertyEditorContext, GraphNodeViewModel nodeViewModel)
         : base(model, propertyEditorContext, nodeViewModel)
     {
-        // ContentChanged->UI更新
         Observable.FromEventPattern(
                 h => model.ContentChanged += h,
                 h => model.ContentChanged -= h)
@@ -23,16 +22,15 @@ public class NodeMonitorViewModel : NodeMemberViewModel
             .Subscribe(_ => UpdateDisplay())
             .DisposeWith(_disposables);
 
-        // IsPlaying, IsExpanded -> IsEnabled 連動
+        // 再生中でなく展開中のときだけモニターを動かす。
         var previewPlayer = nodeViewModel.EditorContext.GetRequiredService<IPreviewPlayer>();
 
         previewPlayer.IsPlaying.CombineLatest(nodeViewModel.IsExpanded)
-            // IsPlayingがfalseで、かつIsExpandedがtrueのときのみ有効
             .Select(t => t is { First: false, Second: true })
             .DistinctUntilChanged()
             .Do(enabled => model.IsEnabled = enabled)
             .ObserveOnUIDispatcher()
-            .Where(v => v) // 有効になったときのみ
+            .Where(v => v)
             .Subscribe(_ => UpdateDisplay())
             .DisposeWith(_disposables);
     }
@@ -74,18 +72,13 @@ public class NodeMonitorViewModel : NodeMemberViewModel
             return;
         }
 
-        try
-        {
-            var old = DisplayBitmap;
-            DisplayBitmap = source.Clone();
-            old?.Dispose();
+        if (source.TryClone() is not { } clone) return;
 
-            ImageInvalidated?.Invoke(this, EventArgs.Empty);
-        }
-        catch
-        {
-            // 変換失敗時は何もしない
-        }
+        var old = DisplayBitmap;
+        DisplayBitmap = clone;
+        old?.Dispose();
+
+        ImageInvalidated?.Invoke(this, EventArgs.Empty);
     }
 
     protected override void OnDispose()

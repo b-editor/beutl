@@ -251,7 +251,7 @@ public class LibraryItemPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
         e.Handled = true;
     }
 
-    public void FocusInitialElement()
+    public override void FocusInitialElement()
     {
         Dispatcher.UIThread.Post(() =>
         {

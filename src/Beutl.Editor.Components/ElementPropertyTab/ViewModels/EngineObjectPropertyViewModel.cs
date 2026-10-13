@@ -80,46 +80,20 @@ public sealed class EngineObjectPropertyViewModel : IDisposable, IPropertyEditor
     {
         if (json is JsonObject obj)
         {
-            if (obj.TryGetPropertyValue("is-expanded", out JsonNode? isExpandedNode)
-                && isExpandedNode is JsonValue isExpandedValue
-                && isExpandedValue.TryGetValue(out bool isExpanded))
+            if (obj.TryGetPropertyValueAsJsonValue("is-expanded", out bool isExpanded))
             {
                 IsExpanded.Value = isExpanded;
             }
 
-            if (obj.TryGetPropertyValue("properties", out JsonNode? propsNode)
-                && propsNode is JsonArray propsArray)
-            {
-                foreach ((JsonNode? node, IPropertyEditorContext? context) in propsArray.Zip(Properties))
-                {
-                    if (context != null && node != null)
-                    {
-                        context.ReadFromJson(node.AsObject());
-                    }
-                }
-            }
+            NestedEditorContextHelper.ReadEditorArray(obj, "properties", Properties);
         }
     }
 
     public JsonNode SaveState()
     {
-        var array = new JsonArray();
-
-        foreach (IPropertyEditorContext? item in Properties.GetMarshal().Value)
-        {
-            if (item == null)
-            {
-                array.Add(null);
-            }
-            else
-            {
-                var node = new JsonObject();
-                item.WriteToJson(node);
-                array.Add(node);
-            }
-        }
-
-        return new JsonObject { ["is-expanded"] = IsExpanded.Value, ["properties"] = array };
+        var json = new JsonObject { ["is-expanded"] = IsExpanded.Value };
+        NestedEditorContextHelper.WriteEditorArray(json, "properties", Properties);
+        return json;
     }
 
     public void Dispose()

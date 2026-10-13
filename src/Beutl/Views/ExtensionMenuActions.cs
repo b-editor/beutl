@@ -6,6 +6,16 @@ namespace Beutl.Views;
 // The actions behind the extension entries of the main menu, shared by the in-window menu and the native menu.
 internal static class ExtensionMenuActions
 {
+    public static void OpenToolTab(MainViewModel viewModel, ToolTabExtension extension)
+    {
+        if (viewModel.EditorService.SelectedTabItem.Value?.Context.Value is IEditorContext editorContext
+            && extension.TryCreateContext(editorContext, out IToolContext? toolContext)
+            && !editorContext.OpenToolTab(toolContext))
+        {
+            toolContext.Dispose();
+        }
+    }
+
     public static async Task SwitchEditorAsync(
         MainViewModel viewModel, EditorTabItem selectedTab, EditorExtension editorExtension)
     {

@@ -89,47 +89,37 @@ public partial class KeyModifierMonitor : FAAppWindow
         if (_buttons.TryGetValue(e.Key, out Button? btn))
         {
             btn.Classes.Set("accent", false);
-            CancellationTokenSource? cts;
-            lock (_cts)
+            if (_cts.TryGetValue(e.Key, out CancellationTokenSource? cts))
             {
-                if (_cts.TryGetValue(e.Key, out cts))
-                {
-                    cts.Cancel();
-                    _cts.Remove(e.Key);
-                }
-
-                cts = new CancellationTokenSource();
-                _cts.TryAdd(e.Key, cts);
+                cts.Cancel();
+                _cts.Remove(e.Key);
             }
 
-            try
+            cts = new CancellationTokenSource();
+            _cts.TryAdd(e.Key, cts);
+
+            var anim = new Avalonia.Animation.Animation
             {
-                var anim = new Avalonia.Animation.Animation
+                Duration = TimeSpan.FromSeconds(3),
+                Children =
                 {
-                    Duration = TimeSpan.FromSeconds(3),
-                    Children =
+                    new KeyFrame
                     {
-                        new KeyFrame
-                        {
-                            Cue = new Cue(0),
-                            Setters = { new Setter(OpacityProperty, 1d) }
-                        },
-                        new KeyFrame
-                        {
-                            Cue = new Cue(1),
-                            Setters = { new Setter(OpacityProperty, 0d) }
-                        },
-                    }
-                };
-
-                await anim.RunAsync(btn, cts.Token);
-                if (!cts.IsCancellationRequested)
-                {
-                    Host.Children.Remove(btn);
+                        Cue = new Cue(0),
+                        Setters = { new Setter(OpacityProperty, 1d) }
+                    },
+                    new KeyFrame
+                    {
+                        Cue = new Cue(1),
+                        Setters = { new Setter(OpacityProperty, 0d) }
+                    },
                 }
-            }
-            catch
+            };
+
+            await anim.RunAsync(btn, cts.Token);
+            if (!cts.IsCancellationRequested)
             {
+                Host.Children.Remove(btn);
             }
         }
     }
@@ -138,13 +128,10 @@ public partial class KeyModifierMonitor : FAAppWindow
     {
         if (Skip(e.Key)) return;
 
-        lock (_cts)
+        if (_cts.TryGetValue(e.Key, out CancellationTokenSource? cts))
         {
-            if (_cts.TryGetValue(e.Key, out CancellationTokenSource? cts))
-            {
-                cts.Cancel();
-                _cts.Remove(e.Key);
-            }
+            cts.Cancel();
+            _cts.Remove(e.Key);
         }
 
         if (!_buttons.TryGetValue(e.Key, out Button? btn))

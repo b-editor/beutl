@@ -105,20 +105,6 @@ public partial class PlayerView
         private KeyFrameState<float>? FindKf(IProperty<float> property)
             => FindKeyFramePair(property, Clock, EditViewModel.Scene, _press?.Element?.Start);
 
-        private bool TryGetSession(
-            [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out PressState? press,
-            [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out EnsuredState? ensured)
-        {
-            press = _press;
-            ensured = _ensured;
-            if (press != null && ensured != null) return true;
-            _logger.LogError(
-                "MouseControlTransformHandles handler invoked without session (press={HasPress}, ensured={HasEnsured}, kind={Kind}). Aborting drag.",
-                press != null, ensured != null, Kind);
-            ResetSession();
-            return false;
-        }
-
         private static bool ApplyDelta(KeyFrameState<float>? kf, (float prev, float next) start, float delta)
             => KeyFrameDeltaHelper.ApplyDelta(kf?.Previous, kf?.Next, start.prev, start.next, delta);
 
@@ -159,25 +145,15 @@ public partial class PlayerView
                 return;
             }
 
+            // HitTest returns a handle only while the overlay has a shape, so its state is valid here.
             TransformHandlesOverlay overlay = View.transformHandlesOverlay;
-            Drawable? drawable = overlay.Drawable;
+            Drawable drawable = overlay.Drawable!;
             Element? element = overlay.Element;
             double frameScale = overlay.FrameScale;
             BtlRect localBounds = overlay.LocalBounds;
             BtlMatrix startUserMatrix = overlay.UserMatrix;
             BtlPoint pivotLocal = overlay.PivotLocal;
-
-            if (drawable == null || element == null || frameScale <= 0
-                || localBounds.Width <= 0 || localBounds.Height <= 0
-                || !startUserMatrix.TryInvert(out BtlMatrix invStartUserMatrix))
-            {
-                _logger.LogWarning(
-                    "Transform handle press cancelled: kind={Kind}, drawable={DrawableType}, element='{Element}', frameScale={FrameScale}",
-                    Kind, drawable?.GetType().Name ?? "null", element?.Name ?? "null", frameScale);
-                _press = null;
-                e.Handled = true;
-                return;
-            }
+            startUserMatrix.TryInvert(out BtlMatrix invStartUserMatrix);
 
             AvaPoint startImagePos = pp.Position;
             AvaPoint pivotImage = overlay.PivotImage;
@@ -309,8 +285,7 @@ public partial class PlayerView
                 HasDrawingMatrix: hasDrawing);
             _ensured = null;
 
-            // Capture the pointer so a translate drag started here still delivers Released even when
-            // the cursor leaves framePanel during the drag.
+            // Capture the pointer for the same reason as OnPressed.
             e.Pointer.Capture(View.framePanel);
             _capturedPointer = e.Pointer;
 
@@ -468,22 +443,22 @@ public partial class PlayerView
             {
                 case TransformHandlesOverlay.HandleKind.None:
                 case TransformHandlesOverlay.HandleKind.Center:
-                    HandleTranslate(currentImg);
+                    HandleTranslate(_press, _ensured, currentImg);
                     break;
                 case TransformHandlesOverlay.HandleKind.TopLeft:
                 case TransformHandlesOverlay.HandleKind.TopRight:
                 case TransformHandlesOverlay.HandleKind.BottomRight:
                 case TransformHandlesOverlay.HandleKind.BottomLeft:
-                    HandleCorner(currentImg);
+                    HandleCorner(_press, _ensured, currentImg);
                     break;
                 case TransformHandlesOverlay.HandleKind.Top:
                 case TransformHandlesOverlay.HandleKind.Bottom:
                 case TransformHandlesOverlay.HandleKind.Left:
                 case TransformHandlesOverlay.HandleKind.Right:
-                    HandleEdge(currentImg);
+                    HandleEdge(_press, _ensured, currentImg);
                     break;
                 case TransformHandlesOverlay.HandleKind.Rotate:
-                    HandleRotate(currentImg);
+                    HandleRotate(_press, _ensured, currentImg);
                     break;
                 default:
                     throw new System.ArgumentOutOfRangeException(nameof(Kind), Kind, "Unhandled HandleKind in OnMoved switch.");
@@ -498,10 +473,8 @@ public partial class PlayerView
             e.Handled = true;
         }
 
-        private void HandleTranslate(AvaPoint currentImg)
+        private void HandleTranslate(PressState press, EnsuredState ensured, AvaPoint currentImg)
         {
-            if (!TryGetSession(out PressState? press, out EnsuredState? ensured)) return;
-
             double scale = press.FrameScale;
             AvaPoint scaledCurrent = new(currentImg.X / scale, currentImg.Y / scale);
             AvaPoint scaledStart = new(press.StartImagePos.X / scale, press.StartImagePos.Y / scale);
@@ -532,10 +505,8 @@ public partial class PlayerView
             WriteScalar(ensured.Translate.Y, ensured.KfTransY, ensured.KfStartTransY, dy, newY);
         }
 
-        private void HandleCorner(AvaPoint currentImg)
+        private void HandleCorner(PressState press, EnsuredState ensured, AvaPoint currentImg)
         {
-            if (!TryGetSession(out PressState? press, out EnsuredState? ensured)) return;
-
             BtlPoint currentLocal = ImagePointToStartLocal(press, currentImg);
             (double anchorX, double anchorY) = CornerAnchorLocal(press, Kind);
 
@@ -559,10 +530,8 @@ public partial class PlayerView
             ApplyScaleWithPivotCorrection(press, ensured, newScaleX, newScaleY, anchorX, anchorY);
         }
 
-        private void HandleEdge(AvaPoint currentImg)
+        private void HandleEdge(PressState press, EnsuredState ensured, AvaPoint currentImg)
         {
-            if (!TryGetSession(out PressState? press, out EnsuredState? ensured)) return;
-
             BtlPoint currentLocal = ImagePointToStartLocal(press, currentImg);
             (double anchorX, double anchorY) = EdgeAnchorLocal(press, Kind);
 
@@ -604,9 +573,8 @@ public partial class PlayerView
             View.framePanel.Cursor = null;
         }
 
-        private void HandleRotate(AvaPoint currentImg)
+        private void HandleRotate(PressState press, EnsuredState ensured, AvaPoint currentImg)
         {
-            if (!TryGetSession(out PressState? press, out EnsuredState? ensured)) return;
             double sx = press.StartImagePos.X - press.PivotImage.X;
             double sy = press.StartImagePos.Y - press.PivotImage.Y;
             double cx = currentImg.X - press.PivotImage.X;
@@ -650,10 +618,9 @@ public partial class PlayerView
             WriteScalar(ensured.Scale.ScaleY, ensured.KfScaleY, ensured.KfStartScaleY, deltaScaleY, newScaleY);
         }
 
-        // Compensate the anchor shift caused by a scale change via the operative Translate. The translate is solved
-        // from the group as the new scale leaves it, so the anchor stays put whatever order the group's transforms
-        // are in and whatever uniform Scale they carry; a group that cannot be solved falls back to the canonical
-        // [T, R, S] formula in <see cref="TransformHandleMath.ComputePivotTranslationDelta"/>.
+        // Keeps the anchor in place by solving the Translate from the whole group at the new scale. A group
+        // that cannot be solved falls back to the [T, R, S] formula in
+        // <see cref="TransformHandleMath.ComputePivotTranslationDelta"/>.
         private void ApplyScaleWithPivotCorrection(
             PressState press, EnsuredState ensured,
             float newScaleX, float newScaleY, double anchorX, double anchorY)
@@ -734,10 +701,8 @@ public partial class PlayerView
             return press.InvStartUserMatrix.Transform(new BtlPoint((float)sceneX, (float)sceneY));
         }
 
-        // Anchors are points on the overlay's box, in the drawable's own space (the space PivotLocal is in).
-        // The box need not start at (0,0): it follows what the drawable draws, such as a drop shadow or a
-        // geometry whose bounds start elsewhere. Each anchor is the OPPOSITE corner/edge of the grabbed
-        // handle (so the grabbed side moves while the anchor stays put).
+        // The anchor is the corner or edge opposite the grabbed handle, in the drawable's own space, on a box
+        // that does not have to start at the origin.
         private static (double X, double Y) CornerAnchorLocal(PressState press, TransformHandlesOverlay.HandleKind kind)
         {
             BtlRect bounds = press.LocalBounds;

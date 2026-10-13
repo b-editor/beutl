@@ -5,27 +5,17 @@ namespace Beutl.Views.Tools;
 
 public partial class AiVideoGenerationView : UserControl
 {
-    private IDisposable? _planReturnRefresh;
-
     public AiVideoGenerationView()
     {
         InitializeComponent();
-        DataContextChanged += OnDataContextChanged;
-    }
-
-    private void OnDataContextChanged(object? sender, EventArgs e)
-    {
-        _planReturnRefresh?.Dispose();
-        _planReturnRefresh = DataContext is AiVideoGenerationDialogViewModel viewModel
-            ? AiPlanReturnRefresh.Attach(
-                this,
-                viewModel.AiPlanCoordinator,
-                () =>
-                {
-                    viewModel.RefreshAvailability();
-                    viewModel.RefreshModels();
-                })
-            : null;
+        AiPlanReturnRefresh.AttachToDataContext<AiVideoGenerationDialogViewModel>(
+            this,
+            viewModel => viewModel.AiPlanCoordinator,
+            viewModel =>
+            {
+                viewModel.RefreshAvailability();
+                viewModel.RefreshModels();
+            });
     }
 
     protected override void OnLoaded(Avalonia.Interactivity.RoutedEventArgs e)

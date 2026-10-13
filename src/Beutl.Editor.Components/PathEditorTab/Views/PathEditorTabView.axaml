@@ -143,12 +143,10 @@
 
             <views:PathGeometryControl x:Name="view"
                                        Figure="{Binding PathFigure.Value}"
-                                       Geometry="{Binding PathGeometry.Value}"
                                        GeometryResource="{Binding GeometryResource.Value}"
                                        IsHitTestVisible="False"
                                        IsPlaying="{Binding IsPlaying.Value}"
                                        Matrix="{Binding #root.Matrix}"
-                                       Scale="{Binding #root.Scale}"
                                        SelectedOperation="{Binding SelectedOperation.Value}" />
             <TextBlock x:Name="EmptyHint" Classes="secondary" Margin="24"
                        HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="240"
@@ -189,7 +187,6 @@
                                              GroupName="PathEditor_DragMode"
                                              IsChecked="{Binding Symmetry.Value, Mode=OneWay}"
                                              Tag="Symmetry"
-                                             Theme="{StaticResource LiteNavRadioButton}"
                                              ToolTip.Tip="{x:Static lang:Strings.PathEditor_MirrorBoth}">
                                     <Path Width="16" Height="16" Stretch="Uniform"
                                           Fill="{DynamicResource TextFillColorPrimaryBrush}"
@@ -202,7 +199,6 @@
                                              GroupName="PathEditor_DragMode"
                                              IsChecked="{Binding Asymmetry.Value, Mode=OneWay}"
                                              Tag="Asymmetry"
-                                             Theme="{StaticResource LiteNavRadioButton}"
                                              ToolTip.Tip="{x:Static lang:Strings.PathEditor_MirrorAngle}">
                                     <Path Width="16" Height="16" Stretch="Uniform"
                                           Fill="{DynamicResource TextFillColorPrimaryBrush}"
@@ -215,7 +211,6 @@
                                              GroupName="PathEditor_DragMode"
                                              IsChecked="{Binding Separately.Value, Mode=OneWay}"
                                              Tag="Separately"
-                                             Theme="{StaticResource LiteNavRadioButton}"
                                              ToolTip.Tip="{x:Static lang:Strings.PathEditor_Independent}">
                                     <Path Width="16" Height="16" Stretch="Uniform"
                                           Fill="{DynamicResource TextFillColorPrimaryBrush}"

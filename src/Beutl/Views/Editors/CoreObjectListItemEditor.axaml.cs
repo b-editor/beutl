@@ -9,8 +9,6 @@ namespace Beutl.Views.Editors;
 
 public partial class CoreObjectListItemEditor : UserControl, IListItemEditor
 {
-    private bool _flyoutOpen;
-
     public CoreObjectListItemEditor()
     {
         InitializeComponent();
@@ -34,60 +32,13 @@ public partial class CoreObjectListItemEditor : UserControl, IListItemEditor
     {
         if (DataContext is not ICoreObjectEditorViewModel { IsDisposed: false } viewModel) return;
 
-        Type propertyType = viewModel.PropertyAdapter.PropertyType;
-
-        if (propertyType.IsSealed)
-        {
-            viewModel.SetNewInstance(propertyType);
-            return;
-        }
-
-        object? result = await SelectTypeOrReference();
-
-        switch (result)
-        {
-            case Type selectedType:
-                viewModel.SetNewInstance(selectedType);
-                break;
-            case CoreObject target:
-                viewModel.SetTarget(target);
-                break;
-        }
+        await CoreObjectPickerHelper.NewInstanceOrPickAsync(this, viewModel);
     }
 
     private async void SelectTarget_Requested(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not ICoreObjectEditorViewModel { IsDisposed: false } vm) return;
-        if (_flyoutOpen) return;
+        if (DataContext is not ICoreObjectEditorViewModel { IsDisposed: false } viewModel) return;
 
-        try
-        {
-            _flyoutOpen = true;
-            await TargetSelectionHelper.HandleSelectTargetRequestAsync<ICoreObjectEditorViewModel, CoreObject>(
-                this,
-                vm,
-                viewModel => viewModel.GetAvailableTargets(),
-                (viewModel, target) => viewModel.SetTarget(target));
-        }
-        finally
-        {
-            _flyoutOpen = false;
-        }
-    }
-
-    private async Task<object?> SelectTypeOrReference()
-    {
-        if (_flyoutOpen) return null;
-        if (DataContext is not ICoreObjectEditorViewModel { IsDisposed: false } viewModel) return null;
-
-        try
-        {
-            _flyoutOpen = true;
-            return await CoreObjectPickerHelper.ShowTypeOrReferenceAsync(this, viewModel);
-        }
-        finally
-        {
-            _flyoutOpen = false;
-        }
+        await CoreObjectPickerHelper.PickTargetAsync(this, viewModel);
     }
 }

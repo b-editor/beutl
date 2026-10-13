@@ -164,16 +164,16 @@ public sealed partial class FileBrowserTabViewModel
 
     public void CreateNewFolder()
     {
-        if (string.IsNullOrEmpty(_rootPath) || !Directory.Exists(_rootPath))
+        if (string.IsNullOrEmpty(RootPath.Value) || !Directory.Exists(RootPath.Value))
             return;
 
         string baseName = Strings.NewFolder;
-        string newFolderPath = Path.Combine(_rootPath, baseName);
+        string newFolderPath = Path.Combine(RootPath.Value, baseName);
         int counter = 1;
 
         while (Directory.Exists(newFolderPath))
         {
-            newFolderPath = Path.Combine(_rootPath, $"{baseName} ({counter})");
+            newFolderPath = Path.Combine(RootPath.Value, $"{baseName} ({counter})");
             counter++;
         }
 
@@ -244,14 +244,10 @@ public sealed partial class FileBrowserTabViewModel
     /// </summary>
     internal TimeSpan TransferNotificationDelay { get; set; } = TimeSpan.FromSeconds(1);
 
-    public Task CopyFilesToDirectoryAsync(IEnumerable<(string LocalPath, bool IsDirectory)> files, string targetDir)
+    public Task TransferFilesToDirectoryAsync(
+        IEnumerable<(string LocalPath, bool IsDirectory)> files, string targetDir, bool move)
     {
-        return TransferFilesAsync(
-            Strings.Copy,
-            Strings.FileBrowser_CopyingFiles,
-            files,
-            () => targetDir,
-            CopyFilesToDirectoryCore);
+        return TransferFilesAsync(move, files, () => targetDir);
     }
 
     // Runs on the thread pool. A failure is logged and counted, so the caller reports it on the UI thread.
@@ -299,28 +295,13 @@ public sealed partial class FileBrowserTabViewModel
         return failures;
     }
 
-    public Task CopyFilesToResourcesAsync(IEnumerable<(string LocalPath, bool IsDirectory)> files)
+    public Task TransferFilesToResourcesAsync(IEnumerable<(string LocalPath, bool IsDirectory)> files, bool move)
     {
         if (string.IsNullOrEmpty(_projectDirectory))
             return Task.CompletedTask;
 
         string projectDirectory = _projectDirectory;
-        return TransferFilesAsync(
-            Strings.Copy,
-            Strings.FileBrowser_CopyingFiles,
-            files,
-            () => EnsureResourcesDirectory(projectDirectory),
-            CopyFilesToDirectoryCore);
-    }
-
-    public Task MoveFilesToDirectoryAsync(IEnumerable<(string LocalPath, bool IsDirectory)> files, string targetDir)
-    {
-        return TransferFilesAsync(
-            Strings.Move,
-            Strings.FileBrowser_MovingFiles,
-            files,
-            () => targetDir,
-            MoveFilesToDirectoryCore);
+        return TransferFilesAsync(move, files, () => EnsureResourcesDirectory(projectDirectory));
     }
 
     // Runs on the thread pool. A failure is logged and counted, so the caller reports it on the UI thread.
@@ -393,37 +374,24 @@ public sealed partial class FileBrowserTabViewModel
         return failures;
     }
 
-    public Task MoveFilesToResourcesAsync(IEnumerable<(string LocalPath, bool IsDirectory)> files)
-    {
-        if (string.IsNullOrEmpty(_projectDirectory))
-            return Task.CompletedTask;
-
-        string projectDirectory = _projectDirectory;
-        return TransferFilesAsync(
-            Strings.Move,
-            Strings.FileBrowser_MovingFiles,
-            files,
-            () => EnsureResourcesDirectory(projectDirectory),
-            MoveFilesToDirectoryCore);
-    }
-
     /// <summary>
     /// Copies or moves dropped files without blocking the UI thread.
     /// </summary>
     /// <remarks>
     /// Footage copied from an external drive can take minutes, so the transfer runs on the thread pool.
-    /// It keeps the project-file write reservation until it ends, as it did when it ran inline, so no
-    /// worktree mutation lands on files it is still writing. A transfer that runs for a while shows a
-    /// notification that cancels it before its next entry. Failures are reported on the UI thread
-    /// once the transfer is over.
+    /// It keeps the project-file write reservation until it ends, so no worktree mutation lands on files
+    /// it is still writing. A long transfer shows a notification that cancels it before its next entry.
+    /// Failures are reported on the UI thread once the transfer is over.
     /// </remarks>
     private async Task TransferFilesAsync(
-        string operation,
-        string runningMessage,
+        bool move,
         IEnumerable<(string LocalPath, bool IsDirectory)> files,
-        Func<string> getTargetDirectory,
-        Func<IReadOnlyList<(string LocalPath, bool IsDirectory)>, string, CancellationToken, int> transfer)
+        Func<string> getTargetDirectory)
     {
+        string operation = move ? Strings.Move : Strings.Copy;
+        string runningMessage = move ? Strings.FileBrowser_MovingFiles : Strings.FileBrowser_CopyingFiles;
+        Func<IReadOnlyList<(string LocalPath, bool IsDirectory)>, string, CancellationToken, int> transfer =
+            move ? MoveFilesToDirectoryCore : CopyFilesToDirectoryCore;
         if (!TryBeginProjectFileWrite(operation, out IProjectFileWriteLease? fileWrite))
             return;
 

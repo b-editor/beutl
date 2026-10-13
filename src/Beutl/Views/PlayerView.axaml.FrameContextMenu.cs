@@ -24,8 +24,7 @@ namespace Beutl.Views;
 
 public partial class PlayerView
 {
-    private FAMenuFlyoutItem? _saveElementAsImage;
-    private FAMenuFlyoutItem? _saveFrameAsImage;
+    private FAMenuFlyoutItem _saveElementAsImage = null!;
     private void ConfigureFrameContextMenu(Control control)
     {
         _saveElementAsImage = new FAMenuFlyoutItem
@@ -34,7 +33,7 @@ public partial class PlayerView
             IsEnabled = false
         };
         _saveElementAsImage.Click += OnSaveElementAsImageClick;
-        _saveFrameAsImage = new FAMenuFlyoutItem
+        var saveFrameAsImage = new FAMenuFlyoutItem
         {
             Text = Strings.SaveFrameAsImage,
             IconSource = new FluentIconSource
@@ -42,7 +41,7 @@ public partial class PlayerView
                 Icon = Icon.Image
             },
         };
-        _saveFrameAsImage.Click += OnSaveFrameAsImageClick;
+        saveFrameAsImage.Click += OnSaveFrameAsImageClick;
         var resetZoom = new FAMenuFlyoutItem
         {
             Text = Strings.ResetZoom
@@ -53,7 +52,7 @@ public partial class PlayerView
         {
             Items =
             {
-                _saveFrameAsImage,
+                saveFrameAsImage,
                 _saveElementAsImage,
                 resetZoom
             }
@@ -79,10 +78,7 @@ public partial class PlayerView
             return;
         }
 
-        if (_saveElementAsImage != null)
-        {
-            _saveElementAsImage.IsEnabled = _lastSelected.TryGetTarget(out _);
-        }
+        _saveElementAsImage.IsEnabled = _lastSelected.TryGetTarget(out _);
     }
 
     internal static async Task<IStorageFile?> SaveImageFilePicker(string name, IStorageProvider storage)

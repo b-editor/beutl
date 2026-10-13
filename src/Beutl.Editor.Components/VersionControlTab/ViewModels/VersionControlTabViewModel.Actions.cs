@@ -208,17 +208,14 @@ internal partial class VersionControlTabViewModel
     {
         VersionControlPrimaryAction action = IsRemoteOperationRunning.Value
             ? new(
-                VersionControlPrimaryActionKind.Cancel,
                 Strings.Cancel,
                 CancelRemoteOperationCommand)
             : _hasUncommittedChanges
                 ? new(
-                    VersionControlPrimaryActionKind.Commit,
                     Strings.VersionControl_CommitNow,
                     CommitCommand)
                 : _behindCount > 0
                     ? new(
-                        VersionControlPrimaryActionKind.PullFromRemote,
                         string.Format(
                             CultureInfo.CurrentCulture,
                             Strings.VersionControl_PullCountFormat,
@@ -226,7 +223,6 @@ internal partial class VersionControlTabViewModel
                         PullCommand)
                     : _aheadCount > 0
                         ? new(
-                            VersionControlPrimaryActionKind.Push,
                             string.Format(
                                 CultureInfo.CurrentCulture,
                                 Strings.VersionControl_PushCountFormat,
@@ -234,11 +230,9 @@ internal partial class VersionControlTabViewModel
                             PushCommand)
                         : HasRemote.Value
                             ? new(
-                                VersionControlPrimaryActionKind.UpToDate,
                                 Strings.VersionControl_UpToDate,
                                 _disabledPrimaryActionCommand)
                             : new(
-                                VersionControlPrimaryActionKind.PublishBranch,
                                 Strings.VersionControl_PublishBranch,
                                 PublishBranchCommand);
         ObservePrimaryAction(action);

@@ -14,9 +14,6 @@ namespace Beutl.Editor.Components.Views;
 
 public sealed class MarkerEditFlyout : FAPickerFlyoutBase
 {
-    public static readonly StyledProperty<TimeSpan> TimeProperty
-        = AvaloniaProperty.Register<MarkerEditFlyout, TimeSpan>(nameof(Time));
-
     public static readonly StyledProperty<string> MarkerNameProperty
         = AvaloniaProperty.Register<MarkerEditFlyout, string>(nameof(MarkerName), string.Empty);
 
@@ -31,12 +28,6 @@ public sealed class MarkerEditFlyout : FAPickerFlyoutBase
     private ColorPickerButton? _colorButton;
     private Button? _deleteButton;
     private MarkerEditValues _initial;
-
-    public TimeSpan Time
-    {
-        get => GetValue(TimeProperty);
-        set => SetValue(TimeProperty, value);
-    }
 
     public string MarkerName
     {
@@ -61,7 +52,6 @@ public sealed class MarkerEditFlyout : FAPickerFlyoutBase
 
     protected override Control CreatePresenter()
     {
-        // 入力フィールド
         _nameBox = new TextBox();
         _nameBox.TextChanged += (_, _) => RaiseValuesChanged();
 
@@ -81,7 +71,6 @@ public sealed class MarkerEditFlyout : FAPickerFlyoutBase
         };
         _noteBox.TextChanged += (_, _) => RaiseValuesChanged();
 
-        // 削除ボタン: アクセントカラー(Critical)で右寄せ
         _deleteButton = new Button
         {
             Content = new StackPanel

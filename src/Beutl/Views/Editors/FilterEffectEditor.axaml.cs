@@ -15,8 +15,6 @@ namespace Beutl.Views.Editors;
 
 public partial class FilterEffectEditor : UserControl
 {
-    private bool _flyoutOpen;
-
     public FilterEffectEditor()
     {
         InitializeComponent();
@@ -102,13 +100,10 @@ public partial class FilterEffectEditor : UserControl
         }
     }
 
-    private async Task<object?> SelectTypeOrReference()
+    private Task<object?> SelectTypeOrReference()
     {
-        if (_flyoutOpen) return null;
-
-        try
+        return PickerGuard.RunAsync(this, () =>
         {
-            _flyoutOpen = true;
             var selectVm = new SelectFilterEffectTypeViewModel();
 
             if (DataContext is FilterEffectEditorViewModel { IsDisposed: false } vm
@@ -118,12 +113,8 @@ public partial class FilterEffectEditor : UserControl
                 selectVm.InitializeReferences(targets);
             }
 
-            return await LibraryItemPickerHelper.ShowAsync(this, selectVm, KnownLibraryItemFormats.FilterEffect);
-        }
-        finally
-        {
-            _flyoutOpen = false;
-        }
+            return LibraryItemPickerHelper.ShowAsync(this, selectVm, KnownLibraryItemFormats.FilterEffect);
+        });
     }
 
     private async void ChangeFilterTypeClick(object? sender, RoutedEventArgs e)
@@ -165,20 +156,12 @@ public partial class FilterEffectEditor : UserControl
     private async void SelectTarget_Requested(object? sender, RoutedEventArgs e)
     {
         if (DataContext is not FilterEffectEditorViewModel { IsDisposed: false } vm) return;
-        if (_flyoutOpen) return;
 
-        try
-        {
-            _flyoutOpen = true;
-            await TargetSelectionHelper.HandleSelectTargetRequestAsync<FilterEffectEditorViewModel, FilterEffect>(
+        await PickerGuard.RunAsync(this, () =>
+            TargetSelectionHelper.HandleSelectTargetRequestAsync<FilterEffectEditorViewModel, FilterEffect>(
                 this,
                 vm,
                 vm => vm.GetAvailableTargets(),
-                (vm, target) => vm.SetTarget(target));
-        }
-        finally
-        {
-            _flyoutOpen = false;
-        }
+                (vm, target) => vm.SetTarget(target)));
     }
 }

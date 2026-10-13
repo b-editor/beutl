@@ -12,7 +12,6 @@ namespace Beutl.Views;
 
 public sealed partial class MainView
 {
-    [Conditional("DEBUG")]
     private void GC_Collect_Click(object? sender, RoutedEventArgs e) => RunGcCollect();
 
     internal void RunGcCollect()
@@ -34,7 +33,6 @@ public sealed partial class MainView
             $"{Strings.ElapsedTime}: {elapsed.TotalMilliseconds}ms\n{Strings.Difference}: {str}");
     }
 
-    [Conditional("DEBUG")]
     private void MonitorKeyModifier_Click(object? sender, RoutedEventArgs e) => OpenKeyModifierMonitor();
 
     internal void OpenKeyModifierMonitor()
@@ -45,7 +43,6 @@ public sealed partial class MainView
         }
     }
 
-    [Conditional("DEBUG")]
     private void ThrowUnhandledException_Click(object? sender, RoutedEventArgs e) => ThrowDebugException();
 
     internal void ThrowDebugException()
@@ -53,7 +50,6 @@ public sealed partial class MainView
         throw new Exception("An unhandled exception occurred.");
     }
 
-    [Conditional("DEBUG")]
     private async void StartWindowCapture_Click(object? sender, RoutedEventArgs e) => await StartWindowCaptureAsync();
 
     internal async Task StartWindowCaptureAsync()
@@ -116,7 +112,6 @@ public sealed partial class MainView
         }
     }
 
-    [Conditional("DEBUG")]
     private async void StopWindowCapture_Click(object? sender, RoutedEventArgs e) => await StopWindowCaptureAsync();
 
     internal async Task StopWindowCaptureAsync()

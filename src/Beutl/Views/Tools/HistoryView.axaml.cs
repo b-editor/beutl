@@ -4,15 +4,12 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Beutl.Editor;
-using Beutl.Logging;
 using Beutl.ViewModels.Tools;
-using Microsoft.Extensions.Logging;
 
 namespace Beutl.Views.Tools;
 
 public partial class HistoryView : UserControl
 {
-    private readonly ILogger _logger = Log.CreateLogger<HistoryView>();
     private CompositeDisposable? _viewModelSubscriptions;
     private HistoryViewModel? _currentViewModel;
     // Guards re-entrant JumpTo calls when SelectedIndex is updated programmatically
@@ -56,9 +53,7 @@ public partial class HistoryView : UserControl
         _currentViewModel = viewModel;
         _viewModelSubscriptions = new CompositeDisposable
         {
-            viewModel.CurrentIndex.Subscribe(
-                _ => SyncSelection(),
-                ex => _logger.LogError(ex, "CurrentIndex stream errored; selection will stop syncing")),
+            viewModel.CurrentIndex.Subscribe(_ => SyncSelection()),
         };
 
         ((INotifyCollectionChanged)viewModel.Entries).CollectionChanged += OnEntriesChanged;
@@ -82,7 +77,7 @@ public partial class HistoryView : UserControl
 
     private void SyncSelection()
     {
-        if (_currentViewModel is null || HistoryList is null) return;
+        if (_currentViewModel is null) return;
 
         int target = _currentViewModel.CurrentIndex.Value;
         if (target < 0 || target >= _currentViewModel.Entries.Count)
@@ -105,7 +100,7 @@ public partial class HistoryView : UserControl
 
     private void UpdateItemAppearance()
     {
-        if (_currentViewModel is null || HistoryList is null) return;
+        if (_currentViewModel is null) return;
 
         int current = _currentViewModel.CurrentIndex.Value;
         for (int i = 0; i < _currentViewModel.Entries.Count; i++)
@@ -145,19 +140,17 @@ public partial class HistoryView : UserControl
     private async void OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
         if (_suppressSelectionChanged) return;
-        if (_currentViewModel is null || HistoryList is null) return;
+        if (_currentViewModel is null) return;
 
         HistoryViewModel viewModel = _currentViewModel;
         int index = HistoryList.SelectedIndex;
         if (index < 0) return;
 
         await viewModel.JumpTo(index);
-        if (_currentViewModel != viewModel || HistoryList is null) return;
+        if (_currentViewModel != viewModel) return;
 
-        // If JumpTo did not actually move (failure, no-op, or same index),
-        // StateChanged may not have fired and the selected row would otherwise
-        // remain on the clicked index, drifting from the real CurrentIndex.
-        // Re-sync so a subsequent click on the same row re-issues JumpTo.
+        // Re-sync when JumpTo did not move, so the clicked row does not stay selected and a second
+        // click on it jumps again.
         if (viewModel.CurrentIndex.Value != index)
         {
             SyncSelection();

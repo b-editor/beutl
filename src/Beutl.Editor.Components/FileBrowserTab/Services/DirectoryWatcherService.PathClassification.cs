@@ -6,12 +6,7 @@ internal sealed partial class DirectoryWatcherService
 {
     private sealed record DirectoryIdentity(string LinkFingerprint, string CanonicalPath);
 
-    private readonly record struct SpecialDirectoryMembershipKey(
-        string TemplatesDirectory,
-        string MaterialsDirectory,
-        string CandidateDirectory);
-
-    // プロジェクト、シーン、要素のファイルは頻繁に変更されるため除外
+    // 保存のたびに変わるエディターの文書と一時ファイル、メタデータフォルダの配下を除外する。
     internal bool ShouldExcludePath(string path)
     {
         return ShouldExcludePath(
@@ -33,10 +28,8 @@ internal sealed partial class DirectoryWatcherService
             return true;
         }
 
-        // Templates and materials live below BEUTL_HOME/.beutl by default, so their explicit
-        // exception must win over the reserved-metadata rule. Cache by containing directory: a
-        // watcher burst commonly reports hundreds of sibling files, and canonical resolution only
-        // needs to run once for that directory identity.
+        // Templates and materials live below BEUTL_HOME/.beutl by default, so this exception wins over
+        // the reserved-metadata rule. Resolution is cached per directory, as a burst reports many siblings.
         if (IsTemplateOrMaterialPath(
                 path,
                 templatesDirectoryPath,
@@ -117,23 +110,17 @@ internal sealed partial class DirectoryWatcherService
             return false;
         }
 
-        if (_templateOrMaterialDirectories.Count >= 512)
+        if (_directoryIdentities.Count >= 512)
         {
-            _templateOrMaterialDirectories.Clear();
             _directoryIdentities.Clear();
         }
 
-        return _templateOrMaterialDirectories.GetOrAdd(
-            new SpecialDirectoryMembershipKey(
-                canonicalTemplatesDirectory,
-                canonicalMaterialsDirectory,
-                canonicalDirectory),
-            static key => FilePathComparison.IsSameOrDescendant(
-                              key.TemplatesDirectory,
-                              key.CandidateDirectory)
-                          || FilePathComparison.IsSameOrDescendant(
-                              key.MaterialsDirectory,
-                              key.CandidateDirectory));
+        return FilePathComparison.IsSameOrDescendantCanonicalPath(
+                   canonicalTemplatesDirectory,
+                   canonicalDirectory)
+               || FilePathComparison.IsSameOrDescendantCanonicalPath(
+                   canonicalMaterialsDirectory,
+                   canonicalDirectory);
     }
 
     private bool IsConfiguredSpecialDirectory(

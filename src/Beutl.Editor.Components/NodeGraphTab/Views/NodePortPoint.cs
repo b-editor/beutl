@@ -127,7 +127,7 @@ public sealed class NodePortPoint : Control
     {
         if (_canvas != null)
         {
-            IInputElement? elm = _canvas!.InputHitTest(e.GetPosition(_canvas));
+            IInputElement? elm = _canvas.InputHitTest(e.GetPosition(_canvas));
             if (elm != this && elm is NodePortPoint { DataContext: NodePortViewModel endViewModel })
             {
                 var args = new NodePortConnectRequestedEventArgs(endViewModel, false);

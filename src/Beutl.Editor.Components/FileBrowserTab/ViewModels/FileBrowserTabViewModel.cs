@@ -20,7 +20,6 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
     private readonly ILogger _logger = Log.CreateLogger<FileBrowserTabViewModel>();
     private readonly IEditorContext _editorContext;
     private readonly DirectoryWatcherService _directoryWatcher = new();
-    private string _rootPath = string.Empty;
     private readonly FavoritesManager _favoritesManager = new();
     private readonly MediaFileSearcher _mediaSearcher = new();
     // Canceled when the tab closes, which stops a copy or move before its next entry.
@@ -50,16 +49,13 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
         _editorContext = editorContext;
         InitializeStorage(storageProviders);
 
-        // お気に入り変更時にホームビューを更新
         _favoritesManager.Changed += OnFavoritesChanged;
 
         DecoderRegistry.DecodersChanged += OnDecodersChanged;
 
-        // ディレクトリ変更時にリフレッシュ
         _directoryWatcher.Changed += OnWatchedDirectoryChanged;
         _directoryWatcher.EntriesChanged += RefreshChangedEntries;
 
-        // プロジェクトディレクトリの取得
         _projectDirectory = EditorContextDirectories.GetProjectOrSceneDirectory(_editorContext);
 
         Header = RootPath.CombineLatest(ActiveStorageProvider,
@@ -94,7 +90,6 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
 
     private void OnRootPathChanged(string path)
     {
-        _rootPath = path;
         if (!string.IsNullOrEmpty(path))
         {
             IsHomeView.Value = false;
@@ -136,10 +131,8 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
 
     public ReactivePropertySlim<bool> IsHomeView { get; } = new(true);
 
-    // ファイル/フォルダの一覧（フラット表示用）
     public ObservableCollection<FileSystemItemViewModel> Items { get; } = [];
 
-    // ツリー表示用のルートアイテム
     public ObservableCollection<FileSystemItemViewModel> TreeRootItems { get; } = [];
 
     public ObservableCollection<FileSystemItemViewModel> SelectedItems { get; } = [];
@@ -214,7 +207,7 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
                 return;
             }
 
-            string? root = IsHomeView.Value ? _projectDirectory : _rootPath;
+            string? root = IsHomeView.Value ? _projectDirectory : RootPath.Value;
             var items = IsHomeView.Value ? ProjectDirectoryItems
                 : ViewMode.Value == FileBrowserViewMode.Tree ? TreeRootItems : Items;
             // A recursive deletion reports children too. Remove vanished parent entries before
@@ -260,28 +253,28 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
         FileSystemEnumerator.DisposeAndClear(TreeRootItems);
         SelectedItems.Clear();
 
-        if (string.IsNullOrEmpty(_rootPath) || !Directory.Exists(_rootPath))
+        if (string.IsNullOrEmpty(RootPath.Value) || !Directory.Exists(RootPath.Value))
             return;
 
         try
         {
             if (ViewMode.Value == FileBrowserViewMode.Tree)
             {
-                FileSystemEnumerator.PopulateCollection(TreeRootItems, _rootPath);
+                FileSystemEnumerator.PopulateCollection(TreeRootItems, RootPath.Value);
             }
             else
             {
-                FileSystemEnumerator.PopulateCollection(Items, _rootPath);
+                FileSystemEnumerator.PopulateCollection(Items, RootPath.Value);
             }
         }
         catch (UnauthorizedAccessException ex)
         {
-            _logger.LogError(ex, "Access denied to directory {Path}", _rootPath);
+            _logger.LogError(ex, "Access denied to directory {Path}", RootPath.Value);
             NotificationService.ShowWarning(Strings.FileBrowser, ex.Message);
         }
         catch (IOException ex)
         {
-            _logger.LogError(ex, "IO error accessing directory {Path}", _rootPath);
+            _logger.LogError(ex, "IO error accessing directory {Path}", RootPath.Value);
             NotificationService.ShowWarning(Strings.FileBrowser, ex.Message);
         }
     }
@@ -305,10 +298,8 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
         if (root == null)
             return;
 
-        // ルートセグメントを追加
         BreadcrumbItems.Add(new BreadcrumbPathItem(root, root));
 
-        // ルート以降のセグメントを分割して追加
         string relativePart = path[root.Length..];
         string[] segments = relativePart.Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries);
 
@@ -355,10 +346,8 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
     {
         _projectDirectory = EditorContextDirectories.GetProjectOrSceneDirectory(_editorContext);
 
-        // お気に入りの更新
         _favoritesManager.RefreshFavoriteItems();
 
-        // プロジェクトディレクトリの更新
         FileSystemEnumerator.DisposeAndClear(ProjectDirectoryItems);
         if (!string.IsNullOrEmpty(_projectDirectory) && Directory.Exists(_projectDirectory))
         {
@@ -373,7 +362,6 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
             }
         }
 
-        // メディアファイル検索
         _mediaSearcher.SearchAsync(_projectDirectory);
     }
 

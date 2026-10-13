@@ -14,9 +14,7 @@
              x:DataType="viewModel:NodeGraphViewModel"
              RenderOptions.BitmapInterpolationMode="HighQuality"
              mc:Ignorable="d">
-    <ScrollViewer Grid.Row="4"
-                  Grid.Column="1"
-                  HorizontalScrollBarVisibility="Auto"
+    <ScrollViewer HorizontalScrollBarVisibility="Auto"
                   VerticalScrollBarVisibility="Auto">
         <Panel>
             <local:NodeGraphBackground HorizontalAlignment="Stretch"

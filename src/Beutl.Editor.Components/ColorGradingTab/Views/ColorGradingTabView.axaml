@@ -47,7 +47,7 @@
         <WrapPanel Grid.Row="1" Margin="8,0">
             <WrapPanel.IsVisible>
                 <MultiBinding Converter="{x:Static BoolConverters.And}">
-                    <Binding Path="HasColorGrading.Value" />
+                    <Binding Path="HasEffect.Value" />
                     <Binding Path="IsNumberEditorsVisible.Value" />
                 </MultiBinding>
             </WrapPanel.IsVisible>
@@ -87,7 +87,7 @@
                              Theme="{StaticResource MinimalNumberEditor}" />
         </WrapPanel>
 
-        <Panel Grid.Row="2" IsVisible="{Binding HasColorGrading.Value}">
+        <Panel Grid.Row="2" IsVisible="{Binding HasEffect.Value}">
             <Grid x:Name="LogControls"
                   VerticalAlignment="Stretch"
                   ColumnDefinitions="*,*,*"
@@ -113,7 +113,7 @@
         <TextBlock Grid.RowSpan="3"
                    HorizontalAlignment="Center"
                    VerticalAlignment="Center"
-                   IsVisible="{Binding IsColorGradingMissing.Value}"
+                   IsVisible="{Binding !HasEffect.Value}"
                    Text="{x:Static lang:MessageStrings.ColorGradingMissing}"
                    TextWrapping="Wrap" />
     </Grid>

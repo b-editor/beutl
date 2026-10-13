@@ -12,10 +12,6 @@ namespace Beutl.Editor.Components.ColorScopesTab.Views.Scopes;
 /// </summary>
 public sealed class FalseColorControl : ImageOverlayScopeBase
 {
-    static FalseColorControl()
-    {
-    }
-
     protected override Orientation DragAxis => Orientation.Vertical;
 
     protected override unsafe WriteableBitmap? RenderImage(BtlBitmap source, WriteableBitmap? existing)
@@ -28,7 +24,7 @@ public sealed class FalseColorControl : ImageOverlayScopeBase
         WriteableBitmap result = ScopeBitmaps.ReuseOrCreate(existing, sourceWidth, sourceHeight);
 
         BitmapColorSpace targetColorSpace = ScopeBitmaps.ToBitmapColorSpace(ColorSpace);
-        float invHdr = 1f / MathF.Max(HdrRange, 1e-6f);
+        float invHdr = 1f / HdrRange;
 
         BtlBitmap rgbaF16 = ScopeBitmaps.ToRgbaF16(source, targetColorSpace, BitmapAlphaType.Unpremul, out bool requireDispose);
 

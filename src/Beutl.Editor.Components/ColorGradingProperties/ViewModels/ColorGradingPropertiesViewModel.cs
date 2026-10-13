@@ -69,10 +69,6 @@ public class ColorGradingPropertiesViewModel : IPropertyEditorContext, IServiceP
         if (visitor is IServiceProvider serviceProvider)
         {
             _parentServices = serviceProvider;
-        }
-
-        if (visitor is IServiceProvider)
-        {
             CreateEditors();
             AcceptChildren();
         }
@@ -86,17 +82,7 @@ public class ColorGradingPropertiesViewModel : IPropertyEditorContext, IServiceP
             IsExpanded.Value = (bool)isExpanded;
         }
 
-        if (json.TryGetPropertyValue(nameof(Properties), out JsonNode? propsNode)
-            && propsNode is JsonArray propsArray)
-        {
-            foreach ((JsonNode? node, IPropertyEditorContext? context) in propsArray.Zip(Properties))
-            {
-                if (node != null)
-                {
-                    context.ReadFromJson(node.AsObject());
-                }
-            }
-        }
+        NestedEditorContextHelper.ReadEditorArray(json, nameof(Properties), Properties);
     }
 
     public void WriteToJson(JsonObject json)
@@ -104,16 +90,7 @@ public class ColorGradingPropertiesViewModel : IPropertyEditorContext, IServiceP
         try
         {
             json[nameof(IsExpanded)] = IsExpanded.Value;
-            var array = new JsonArray();
-
-            foreach (IPropertyEditorContext? item in Properties.GetMarshal().Value)
-            {
-                var node = new JsonObject();
-                item.WriteToJson(node);
-                array.Add(node);
-            }
-
-            json[nameof(Properties)] = array;
+            NestedEditorContextHelper.WriteEditorArray(json, nameof(Properties), Properties);
         }
         catch
         {

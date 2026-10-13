@@ -46,37 +46,10 @@ public sealed class PathPointDragState
 
     public BtlPoint OldValue { get; }
 
-    public BtlPoint GetSampleValue(TimeSpan currentTime)
-    {
-        if (Previous != null)
-        {
-            return Previous.GetValue(KeyFrame<BtlPoint>.ValueProperty);
-        }
-        else
-        {
-            var ctx = new CompositionContext(currentTime);
-            return Property.GetValue(ctx);
-        }
-    }
-
     public BtlPoint GetInterpolatedValue(TimeSpan currentTime)
     {
         var ctx = new CompositionContext(currentTime);
         return Property.GetValue(ctx);
-    }
-
-    public void SetValue(BtlPoint point)
-    {
-        if (Previous == null && Next == null)
-        {
-            Property.CurrentValue = point;
-        }
-        else
-        {
-            CoreProperty<BtlPoint> prop = KeyFrame<BtlPoint>.ValueProperty;
-
-            Previous?.SetValue(prop, point);
-        }
     }
 
     public void MoveFromStart(BtlVector delta)
@@ -95,7 +68,7 @@ public sealed class PathPointDragState
         if (Previous == null && Next == null)
         {
             BtlPoint p = Property.CurrentValue + delta;
-            p = new BtlPoint(PathEditorHelper.Round(p.X), PathEditorHelper.Round(p.Y));
+            p = PathEditorHelper.Round(p);
 
             Property.CurrentValue = p;
         }

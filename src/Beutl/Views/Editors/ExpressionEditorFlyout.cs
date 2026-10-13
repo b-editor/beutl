@@ -46,7 +46,7 @@ public sealed class ExpressionEditorFlyout : FAPickerFlyoutBase
         _presenter.ErrorMessage = ErrorMessage;
         _presenter.Confirmed += OnFlyoutConfirmed;
         _presenter.Dismissed += OnFlyoutDismissed;
-        _presenter.CloseClicked += OnFlyoutCloseClicked;
+        _presenter.CloseClicked += OnFlyoutDismissed;
         _presenter.KeyDown += OnFlyoutKeyDown;
 
         return _presenter;
@@ -99,11 +99,6 @@ public sealed class ExpressionEditorFlyout : FAPickerFlyoutBase
     }
 
     protected override bool ShouldShowConfirmationButtons() => true;
-
-    private void OnFlyoutCloseClicked(DraggablePickerFlyoutPresenter sender, EventArgs args)
-    {
-        Hide();
-    }
 
     private void OnFlyoutDismissed(DraggablePickerFlyoutPresenter sender, EventArgs args)
     {

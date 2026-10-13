@@ -427,7 +427,6 @@ public class DirectoryWatcherServiceTests
             {
                 Assert.That(service.IsObjectTemplateFile(Path.Combine(directory, "one.json")), Is.True);
                 Assert.That(service.IsObjectTemplateFile(Path.Combine(directory, "two.json")), Is.True);
-                Assert.That(service.TemplateDirectoryMembershipCount, Is.EqualTo(1));
             });
         }
         finally

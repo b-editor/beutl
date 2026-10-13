@@ -24,11 +24,11 @@ public sealed partial class CloudStorageView
     private FAMenuFlyout? _storageMenu;
     private FAContentDialog? _storageDialog;
     private CancellationTokenSource? _downloadCancellation;
+    // Seams for tests, which read the open menu and dialog and replace the prompts and the launcher.
     internal FAMenuFlyout? StorageMenu => _storageMenu;
     internal FAContentDialog? StorageDialog => _storageDialog;
     internal Func<string, string, bool, Task<string?>>? NamePrompt { get; set; }
     internal Func<string, Task<bool>>? DeletePrompt { get; set; }
-    internal Func<StorageActionContext, Task<StorageDestination?>>? DestinationPrompt { get; set; }
     internal Func<Uri, Task>? UriLauncher { get; set; }
 
     private void CloseStorageInteractions()
@@ -164,7 +164,7 @@ public sealed partial class CloudStorageView
                         await vm.RenameAsync(context, name);
                     break;
                 case "move":
-                    var destination = DestinationPrompt != null ? await DestinationPrompt(context) : await PickStorageFolderAsync(vm, context);
+                    var destination = await PickStorageFolderAsync(vm, context);
                     if (destination != null) await vm.MoveAsync(context, destination.Id);
                     break;
                 case "setPublic": await vm.SetVisibilityAsync(context, true); break;
@@ -219,7 +219,7 @@ public sealed partial class CloudStorageView
     private async Task<string?> PromptStorageNameAsync(string title, string initialName, bool selectStem)
     {
         if (NamePrompt != null) return await NamePrompt(title, initialName, selectStem);
-        var input = new TextBox { Name = "StorageNameInput", Text = initialName, MaxLength = 255, MinWidth = 240 };
+        var input = new TextBox { Text = initialName, MaxLength = 255, MinWidth = 240 };
         var validation = new TextBlock { Text = Strings.CloudStorageInvalidName, TextWrapping = TextWrapping.Wrap, IsVisible = false };
         var dialog = new FAContentDialog
         {

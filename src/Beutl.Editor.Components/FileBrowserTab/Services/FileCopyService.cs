@@ -1,9 +1,7 @@
 ﻿namespace Beutl.Editor.Components.FileBrowserTab.Services;
 
-// ファイルおよびディレクトリのコピー操作を提供するユーティリティ。
 internal static class FileCopyService
 {
-    // ソースディレクトリの内容を再帰的に宛先ディレクトリにコピーする。
     // 既に存在するファイルはスキップされる。
     // キャンセルは次のファイルかフォルダーの前に反映される。
     public static void CopyDirectoryRecursive(

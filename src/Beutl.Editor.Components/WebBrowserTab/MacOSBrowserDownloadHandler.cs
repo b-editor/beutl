@@ -18,7 +18,7 @@ internal sealed partial class MacOSBrowserDownloadHandler : IDisposable
     private static readonly nint s_delegateClass = CreateDelegateClass();
     private readonly Action<Uri, string, IBrowserDownloadSource> _onDownload;
     private readonly Action<Uri> _onNavigationCommitted;
-    private readonly Action? _onNavigationStarted;
+    private readonly Action _onNavigationStarted;
     private readonly Dictionary<nint, NativeDownload> _pendingDownloads = [];
     private readonly BrowserDownloadNavigation _navigation = new();
     private readonly BrowserNavigationCancellations _cancellations = new(
@@ -29,7 +29,7 @@ internal sealed partial class MacOSBrowserDownloadHandler : IDisposable
     private nint _delegate;
 
     private MacOSBrowserDownloadHandler(nint webView, Action<Uri, string, IBrowserDownloadSource> onDownload,
-        Action<Uri> onNavigationCommitted, Action? onNavigationStarted)
+        Action<Uri> onNavigationCommitted, Action onNavigationStarted)
     {
         _webView = webView;
         _onDownload = onDownload;
@@ -42,7 +42,7 @@ internal sealed partial class MacOSBrowserDownloadHandler : IDisposable
     }
 
     internal static MacOSBrowserDownloadHandler? TryAttach(IPlatformHandle? handle, Action<Uri, string, IBrowserDownloadSource> onDownload,
-        Action<Uri> onNavigationCommitted, Action? onNavigationStarted = null)
+        Action<Uri> onNavigationCommitted, Action onNavigationStarted)
     {
         if (handle is not IAppleWKWebViewPlatformHandle apple || objc_getClass("WKDownload") == 0) return null;
         nint webView = apple.GetWKWebViewRetained();
@@ -140,7 +140,7 @@ internal sealed partial class MacOSBrowserDownloadHandler : IDisposable
         try
         {
             handler._cancellations.BeginNavigation(navigation);
-            handler._onNavigationStarted?.Invoke();
+            handler._onNavigationStarted();
         }
         catch
         {

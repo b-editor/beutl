@@ -1,18 +1,12 @@
 ﻿using Avalonia;
-using Avalonia.Controls;
 using Avalonia.Controls.PanAndZoom;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
 
 namespace Beutl.Editor.Components.NodeGraphTab.Views;
 
-public sealed class NodeGraphOverlay : Control
+public sealed class NodeGraphOverlay : ZoomBorderBoundControl
 {
-    public static readonly DirectProperty<NodeGraphOverlay, ZoomBorder> ZoomBorderProperty
-        = NodeGraphBackground.ZoomBorderProperty.AddOwner<NodeGraphOverlay>(
-            o => o.ZoomBorder,
-            (o, v) => o.ZoomBorder = v);
-
     public static readonly DirectProperty<NodeGraphOverlay, Rect> SelectionRangeProperty
         = AvaloniaProperty.RegisterDirect<NodeGraphOverlay, Rect>(
             nameof(SelectionRange), o => o.SelectionRange, (o, v) => o.SelectionRange = v);
@@ -20,7 +14,6 @@ public sealed class NodeGraphOverlay : Control
     private readonly Pen _pen = new();
     private readonly IBrush _selectionFillBrush = new ImmutableSolidColorBrush(Colors.CornflowerBlue, 0.3);
     private readonly IBrush _selectionStrokeBrush = Brushes.CornflowerBlue;
-    private ZoomBorder _zoomBorder = null!;
     private Rect _selectionRange;
 
     static NodeGraphOverlay()
@@ -28,38 +21,10 @@ public sealed class NodeGraphOverlay : Control
         AffectsRender<NodeGraphOverlay>(SelectionRangeProperty);
     }
 
-    public ZoomBorder ZoomBorder
-    {
-        get => _zoomBorder;
-        set => SetAndRaise(ZoomBorderProperty, ref _zoomBorder, value);
-    }
-
     public Rect SelectionRange
     {
         get => _selectionRange;
         set => SetAndRaise(SelectionRangeProperty, ref _selectionRange, value);
-    }
-
-    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
-    {
-        base.OnPropertyChanged(change);
-        if (change.Property == ZoomBorderProperty)
-        {
-            if (change.OldValue is ZoomBorder oldValue)
-            {
-                oldValue.ZoomChanged -= OnZoomChanged;
-            }
-
-            if (change.NewValue is ZoomBorder newValue)
-            {
-                newValue.ZoomChanged += OnZoomChanged;
-            }
-        }
-    }
-
-    private void OnZoomChanged(object sender, ZoomChangedEventArgs e)
-    {
-        InvalidateVisual();
     }
 
     public override void Render(DrawingContext context)

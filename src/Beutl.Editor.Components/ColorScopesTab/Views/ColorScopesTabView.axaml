@@ -2,6 +2,7 @@
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="using:Beutl.Controls"
+             xmlns:converters="using:Beutl.Editor.Components.Converters"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
@@ -19,7 +20,7 @@
                 <ComboBox x:Name="ScopeTypeComboBox"
                           HorizontalAlignment="Stretch"
                           VerticalAlignment="Center"
-                          SelectedIndex="{Binding SelectedScopeType.Value, Converter={x:Static scopes:ScopeTypeConverter.Instance}}"
+                          SelectedIndex="{Binding SelectedScopeType.Value, Converter={x:Static converters:EnumIndexConverters.ScopeTypes}}"
                           Theme="{StaticResource LiteComboBoxStyle}">
                     <ComboBoxItem Content="{x:Static lang:Strings.Waveform}" />
                     <ComboBoxItem Content="{x:Static lang:Strings.Histogram}" />
@@ -29,10 +30,10 @@
                 </ComboBox>
 
                 <Grid VerticalAlignment="Center"
-                      IsVisible="{Binding SelectedScopeType.Value, Converter={x:Static scopes:ScopeTypeConverter.Instance}, ConverterParameter=Waveform}">
+                      IsVisible="{Binding SelectedScopeType.Value, Converter={x:Static converters:EnumIndexConverters.ScopeTypes}, ConverterParameter=Waveform}">
                     <ComboBox x:Name="WaveformModeComboBox"
                               HorizontalAlignment="Stretch"
-                              SelectedIndex="{Binding WaveformMode.Value, Converter={x:Static scopes:WaveformModeConverter.Instance}}"
+                              SelectedIndex="{Binding WaveformMode.Value, Converter={x:Static converters:EnumIndexConverters.WaveformModes}}"
                               Theme="{StaticResource LiteComboBoxStyle}">
                         <ComboBoxItem Content="{x:Static lang:Strings.Luma}" />
                         <ComboBoxItem Content="{x:Static lang:Strings.RgbOverlay}" />
@@ -41,10 +42,10 @@
                 </Grid>
 
                 <Grid VerticalAlignment="Center"
-                      IsVisible="{Binding SelectedScopeType.Value, Converter={x:Static scopes:ScopeTypeConverter.Instance}, ConverterParameter=Histogram}">
+                      IsVisible="{Binding SelectedScopeType.Value, Converter={x:Static converters:EnumIndexConverters.ScopeTypes}, ConverterParameter=Histogram}">
                     <ComboBox x:Name="HistogramModeComboBox"
                               HorizontalAlignment="Stretch"
-                              SelectedIndex="{Binding HistogramMode.Value, Converter={x:Static scopes:HistogramModeConverter.Instance}}"
+                              SelectedIndex="{Binding HistogramMode.Value, Converter={x:Static converters:EnumIndexConverters.HistogramModes}}"
                               Theme="{StaticResource LiteComboBoxStyle}">
                         <ComboBoxItem Content="{x:Static lang:Strings.RgbOverlay}" />
                         <ComboBoxItem Content="{x:Static lang:Strings.RgbParade}" />
@@ -53,7 +54,7 @@
 
                 <Button x:Name="ZebraSettingsButton"
                         VerticalAlignment="Center"
-                        IsVisible="{Binding SelectedScopeType.Value, Converter={x:Static scopes:ScopeTypeConverter.Instance}, ConverterParameter=Zebra}"
+                        IsVisible="{Binding SelectedScopeType.Value, Converter={x:Static converters:EnumIndexConverters.ScopeTypes}, ConverterParameter=Zebra}"
                         Theme="{StaticResource ToolTabBarIconButtonTheme}"
                         ToolTip.Tip="{x:Static lang:Strings.Settings}">
                     <icons:FluentIcon FontSize="16" Icon="Settings" />
@@ -80,7 +81,6 @@
                                     </Style>
                                 </StackPanel.Styles>
 
-                                <!--  Header  -->
                                 <Border Padding="16,12,16,12">
                                     <StackPanel Orientation="Horizontal" Spacing="8">
                                         <icons:FluentIcon VerticalAlignment="Center"
@@ -130,7 +130,7 @@
                 <ComboBox x:Name="ColorSpaceComboBox"
                           HorizontalAlignment="Stretch"
                           VerticalAlignment="Center"
-                          SelectedIndex="{Binding ColorSpace.Value, Converter={x:Static scopes:ScopeColorSpaceConverter.Instance}}"
+                          SelectedIndex="{Binding ColorSpace.Value, Converter={x:Static converters:EnumIndexConverters.ScopeColorSpaces}}"
                           Theme="{StaticResource LiteComboBoxStyle}">
                     <ComboBoxItem Content="{x:Static lang:Strings.Gamma}" />
                     <ComboBoxItem Content="{x:Static lang:Strings.Linear}" />
@@ -144,7 +144,7 @@
                                     BackgroundBrush="{StaticResource ColorScopeBackgroundBrush}"
                                     ColorSpace="{Binding ColorSpace.Value}"
                                     HdrRange="{Binding WaveformHdrRange.Value, Mode=TwoWay}"
-                                    IsVisible="{Binding SelectedScopeType.Value, Converter={x:Static scopes:ScopeTypeConverter.Instance}, ConverterParameter=Waveform}"
+                                    IsVisible="{Binding SelectedScopeType.Value, Converter={x:Static converters:EnumIndexConverters.ScopeTypes}, ConverterParameter=Waveform}"
                                     LabelBrush="{StaticResource ColorScopeLabelBrush}"
                                     Mode="{Binding WaveformMode.Value}"
                                     SourceBitmap="{Binding SourceBitmap.Value}" />
@@ -154,7 +154,7 @@
                                      BackgroundBrush="{StaticResource ColorScopeBackgroundBrush}"
                                      ColorSpace="{Binding ColorSpace.Value}"
                                      HdrRange="{Binding HistogramHdrRange.Value, Mode=TwoWay}"
-                                     IsVisible="{Binding SelectedScopeType.Value, Converter={x:Static scopes:ScopeTypeConverter.Instance}, ConverterParameter=Histogram}"
+                                     IsVisible="{Binding SelectedScopeType.Value, Converter={x:Static converters:EnumIndexConverters.ScopeTypes}, ConverterParameter=Histogram}"
                                      LabelBrush="{StaticResource ColorScopeLabelBrush}"
                                      Mode="{Binding HistogramMode.Value}"
                                      SourceBitmap="{Binding SourceBitmap.Value}" />
@@ -163,7 +163,7 @@
                                        AxisBrush="{StaticResource ColorScopeAxisBrush}"
                                        BackgroundBrush="{StaticResource ColorScopeBackgroundBrush}"
                                        ColorSpace="{Binding ColorSpace.Value}"
-                                       IsVisible="{Binding SelectedScopeType.Value, Converter={x:Static scopes:ScopeTypeConverter.Instance}, ConverterParameter=Vectorscope}"
+                                       IsVisible="{Binding SelectedScopeType.Value, Converter={x:Static converters:EnumIndexConverters.ScopeTypes}, ConverterParameter=Vectorscope}"
                                        LabelBrush="{StaticResource ColorScopeLabelBrush}"
                                        SourceBitmap="{Binding SourceBitmap.Value}" />
 
@@ -171,7 +171,7 @@
                                       BackgroundBrush="{StaticResource ColorScopeBackgroundBrush}"
                                       ColorSpace="{Binding ColorSpace.Value}"
                                       HdrRange="{Binding FalseColorHdrRange.Value, Mode=TwoWay}"
-                                      IsVisible="{Binding SelectedScopeType.Value, Converter={x:Static scopes:ScopeTypeConverter.Instance}, ConverterParameter=FalseColor}"
+                                      IsVisible="{Binding SelectedScopeType.Value, Converter={x:Static converters:EnumIndexConverters.ScopeTypes}, ConverterParameter=FalseColor}"
                                       SourceBitmap="{Binding SourceBitmap.Value}" />
 
             <scopes:ZebraControl x:Name="ZebraControl"
@@ -179,7 +179,7 @@
                                  ColorSpace="{Binding ColorSpace.Value}"
                                  HdrRange="{Binding ZebraHdrRange.Value, Mode=TwoWay}"
                                  HighThreshold="{Binding ZebraHighThreshold.Value}"
-                                 IsVisible="{Binding SelectedScopeType.Value, Converter={x:Static scopes:ScopeTypeConverter.Instance}, ConverterParameter=Zebra}"
+                                 IsVisible="{Binding SelectedScopeType.Value, Converter={x:Static converters:EnumIndexConverters.ScopeTypes}, ConverterParameter=Zebra}"
                                  LowThreshold="{Binding ZebraLowThreshold.Value}"
                                  SourceBitmap="{Binding SourceBitmap.Value}" />
         </Panel>

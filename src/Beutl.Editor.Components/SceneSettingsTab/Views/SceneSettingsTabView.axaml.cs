@@ -24,12 +24,12 @@ public partial class SceneSettingsTabView : UserControl
         base.OnDataContextChanged(e);
         if (DataContext is SceneSettingsTabViewModel viewModel)
         {
-            sizeEditor.Bind(Int2Editor.FirstValueProperty, viewModel.Width.ToPropertyBinding(BindingMode.TwoWay))
+            sizeEditor.Bind(Vector2Editor<int>.FirstValueProperty, viewModel.Width.ToPropertyBinding(BindingMode.TwoWay))
                 .DisposeWith(_disposables);
-            sizeEditor.Bind(Int2Editor.SecondValueProperty, viewModel.Height.ToPropertyBinding(BindingMode.TwoWay))
+            sizeEditor.Bind(Vector2Editor<int>.SecondValueProperty, viewModel.Height.ToPropertyBinding(BindingMode.TwoWay))
                 .DisposeWith(_disposables);
 
-            countEditor.Bind(IntEditor.ValueProperty, viewModel.LayerCount.ToPropertyBinding(BindingMode.TwoWay))
+            countEditor.Bind(NumberEditor<int>.ValueProperty, viewModel.LayerCount.ToPropertyBinding(BindingMode.TwoWay))
                 .DisposeWith(_disposables);
         }
         else
@@ -37,12 +37,4 @@ public partial class SceneSettingsTabView : UserControl
             _disposables.Clear();
         }
     }
-}
-
-public sealed class IntEditor : NumberEditor<int>
-{
-}
-
-public sealed class Int2Editor : Vector2Editor<int>
-{
 }

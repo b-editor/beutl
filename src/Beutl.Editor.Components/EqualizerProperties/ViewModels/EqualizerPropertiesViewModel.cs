@@ -62,8 +62,10 @@ public sealed class EqualizerPropertiesViewModel : IPropertyEditorContext, IServ
         {
             _parentServices = serviceProvider;
             _element = serviceProvider.GetService<Element>();
+            // Bands.Add already visits the band editors the first call creates.
+            bool revisitBands = _editorsCreated;
             CreateEditors();
-            AcceptChildren();
+            AcceptChildren(revisitBands);
             AttachClock();
             SampleRate.Value = _element?.FindHierarchicalParent<Project>()?.GetSampleRate() ?? 44100;
         }
@@ -179,10 +181,13 @@ public sealed class EqualizerPropertiesViewModel : IPropertyEditorContext, IServ
         Bands.Clear();
     }
 
-    private void AcceptChildren()
+    private void AcceptChildren(bool includeBands)
     {
         var visitor = new ChildVisitor(this);
         BandCountEditor.Value?.Accept(visitor);
+
+        if (!includeBands)
+            return;
 
         foreach (var band in Bands)
         {

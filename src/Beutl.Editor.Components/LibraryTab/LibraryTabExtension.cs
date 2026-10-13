@@ -42,7 +42,7 @@ public sealed partial class LibraryTabExtension : ToolTabExtension
 
     public override bool TryCreateContext(IEditorContext editorContext, [NotNullWhen(true)] out IToolContext? context)
     {
-        context = new LibraryTabViewModel(editorContext);
+        context = new LibraryTabViewModel();
         return true;
     }
 }
