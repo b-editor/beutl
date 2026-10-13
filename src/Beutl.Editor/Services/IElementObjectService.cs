@@ -4,10 +4,7 @@ using Beutl.ProjectSystem;
 namespace Beutl.Editor.Services;
 
 /// <summary>
-/// Mutations on the <c>EngineObject</c> list an <see cref="Element"/> owns —
-/// Add / Insert / Move / Remove / PasteOver / SetEnabled. Centralizes what was
-/// scattered across the property ViewModels so the index-validation, idempotency,
-/// and paste-failure contracts can be unit-tested in one place.
+/// Mutations on the <c>EngineObject</c> list an <see cref="Element"/> owns.
 /// Mutations on a locked element or layer are ignored and do not commit history.
 /// </summary>
 public interface IElementObjectService

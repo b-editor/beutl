@@ -17,18 +17,21 @@ namespace Beutl.HeadlessUITests;
 public class ThemeServiceTests
 {
     [AvaloniaTest]
-    public void ApplyTheme_WhenResourceFailsToLoad_LeavesCurrentThemeIntact()
+    [TestCase("avares://NoSuchAssembly/Missing.axaml")]
+    [TestCase("avares://Beutl.HeadlessUITests/Assets/NotAResourceDictionary.axaml")]
+    public void ApplyTheme_WhenResourcesAreBroken_LeavesCurrentThemeIntact(string resourceUri)
     {
         // A theme whose ResourceUri cannot be loaded must not be applied at all. Committing the
         // variant before the load means a bad extension release half-applies: the base variant
         // switches and the previous theme's resources are gone, but its brush overrides never merge.
+        // A root that loads but is not an IResourceProvider is a broken theme too, not a theme without
+        // resources: treating it as the latter drops the previous overrides and applies none.
         using var scope = new ThemeScope();
         Application.Current!.RequestedThemeVariant = ThemeVariant.Dark;
         scope.Service.Start();
         Dispatcher.UIThread.RunJobs();
 
-        var broken = new ThemeDescriptor(
-            "test.broken", "Broken", ThemeVariant.Light, new Uri("avares://NoSuchAssembly/Missing.axaml"));
+        var broken = new ThemeDescriptor("test.broken", "Broken", ThemeVariant.Light, new Uri(resourceUri));
         ThemeRegistry.Register(broken);
 
         scope.Config.Theme = "test.broken";
@@ -103,27 +106,6 @@ public class ThemeServiceTests
         Dispatcher.UIThread.RunJobs();
 
         Assert.That(Application.Current!.RequestedThemeVariant, Is.EqualTo(ThemeVariant.Light));
-    }
-
-    [AvaloniaTest]
-    public void ApplyTheme_WhenResourceIsNotAResourceDictionary_LeavesCurrentThemeIntact()
-    {
-        // A root that loads but is not an IResourceProvider is a broken theme, not a theme without
-        // resources: treating it as the latter drops the previous overrides and applies none.
-        using var scope = new ThemeScope();
-        Application.Current!.RequestedThemeVariant = ThemeVariant.Dark;
-        scope.Service.Start();
-        Dispatcher.UIThread.RunJobs();
-
-        var wrongRoot = new ThemeDescriptor(
-            "test.wrongroot", "WrongRoot", ThemeVariant.Light,
-            new Uri("avares://Beutl.HeadlessUITests/Assets/NotAResourceDictionary.axaml"));
-        ThemeRegistry.Register(wrongRoot);
-
-        scope.Config.Theme = "test.wrongroot";
-        Dispatcher.UIThread.RunJobs();
-
-        Assert.That(Application.Current.RequestedThemeVariant, Is.EqualTo(ThemeVariant.Dark));
     }
 
     [AvaloniaTest]
@@ -410,11 +392,8 @@ public class ThemeServiceTests
         });
     }
 
-    // The OS accent is the one accent Beutl does not resolve, so no config or registry trigger reports
-    // it moving and the context has nothing to carry. The owner still has to hear about it, or an
-    // OnApplied that recomputed from SystemAccentColor keeps the old shade for as long as the theme
-    // stays applied. Driven through the seam rather than the platform: the headless IPlatformSettings
-    // is real, and a test cannot raise its event.
+    // Beutl resolves no accent here, so the owner must still hear about OS accent changes. Driven
+    // through the seam because the headless platform cannot raise the event.
     [AvaloniaTest]
     public void OsAccentChange_NotifiesTheActiveOwner_WhileBeutlResolvesNoAccentOfItsOwn()
     {

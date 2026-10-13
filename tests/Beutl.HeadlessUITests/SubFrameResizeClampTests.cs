@@ -65,7 +65,6 @@ public class SubFrameResizeClampTests
         return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
     }
 
-    // Primary telemetry stack (4 of 5 sessions):
     // ElementViewModel.OnChangeToOriginalDuration -> ElementResizeService.Resize -> Scene.MoveChild.
     [AvaloniaTest]
     public async Task ChangeToOriginalDuration_SubFrameMedia_ClampsToOneFrameWithoutCrashing()
@@ -128,10 +127,9 @@ public class SubFrameResizeClampTests
         });
     }
 
-    // Second telemetry stack (preview.6, OnBorderPointerReleased -> Resize -> MoveChild): the
-    // pointer-release resize submits Width/BorderMargin pixels rounded to frames, and a clip whose
-    // visual width rounds to zero frames used to reach Scene.MoveChild with length == 0 through
-    // SubmitViewModelChanges.
+    // OnBorderPointerReleased -> Resize -> MoveChild: the pointer-release resize submits Width/BorderMargin
+    // pixels rounded to frames, so a clip whose visual width rounds to zero frames submits length == 0
+    // through SubmitViewModelChanges.
     [AvaloniaTest]
     public async Task SubmitViewModelChanges_ZeroPixelWidth_ClampsToOneFrameWithoutCrashing()
     {

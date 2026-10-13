@@ -17,25 +17,21 @@ public static class BeutlEnvironment
         return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".beutl");
     }
 
-    // $BEUTL_HOME/packages
     public static string GetPackagesDirectoryPath()
     {
         return Path.Combine(GetHomeDirectoryPath(), "packages");
     }
 
-    // $BEUTL_HOME/sideloads
     public static string GetSideloadsDirectoryPath()
     {
         return Path.Combine(GetHomeDirectoryPath(), "sideloads");
     }
 
-    // $BEUTL_HOME/templates
     public static string GetTemplatesDirectoryPath()
     {
         return Path.Combine(GetHomeDirectoryPath(), "templates");
     }
 
-    // $BEUTL_HOME/materials
     public static string GetMaterialsDirectoryPath()
     {
         return Path.Combine(GetHomeDirectoryPath(), "materials");

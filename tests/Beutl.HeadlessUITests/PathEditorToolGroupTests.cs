@@ -120,8 +120,7 @@ public class PathEditorToolGroupTests
 
             if (Environment.GetEnvironmentVariable("BEUTL_PATH_TOOLS_CAPTURE") is { Length: > 0 } directory)
             {
-                // A sample path makes the outline/fill display controls visible without
-                // involving geometry editing, which this toolbar change does not affect.
+                // A sample path makes the outline and fill visible in the capture.
                 path.Data = Geometry.Parse("M 80,45 C 130,10 200,140 270,50 L 270,140 L 80,140 Z");
                 window.MouseMove(new Point(width - 1, height - 1));
                 HeadlessTestHelpers.Render();

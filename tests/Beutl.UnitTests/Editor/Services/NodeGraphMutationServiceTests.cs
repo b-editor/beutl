@@ -288,7 +288,7 @@ public class NodeGraphMutationServiceTests
         {
             Assert.That(a.Position, Is.EqualTo((10d, 20d)));
             Assert.That(b.Position, Is.EqualTo((100d, 200d)));
-            // Three coordinate writes collapse into one MoveNode entry.
+            // All the moves collapse into one history entry.
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
     }

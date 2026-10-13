@@ -19,7 +19,7 @@ public class BeutlToolDockable : Tool, IDisposable
         ToolContext = context;
         EditViewModel = editViewModel;
 
-        Id = CreateId(context);
+        Id = CreateId(context.Extension);
         Title = ResolveTitle(context, context.Header.Value);
         Icon = context.Extension.GetIcon();
         Context = context;
@@ -127,11 +127,11 @@ public class BeutlToolDockable : Tool, IDisposable
             : context.Extension.DisplayName;
     }
 
-    private static string CreateId(IToolContext context)
+    internal static string CreateId(ToolTabExtension extension)
     {
         // Unique id per instance for CanMultiple tools, stable id for singletons.
-        var typeName = context.Extension.GetType().FullName ?? context.Extension.Name;
-        return context.Extension.CanMultiple
+        var typeName = extension.GetType().FullName ?? extension.Name;
+        return extension.CanMultiple
             ? $"{typeName}#{Guid.NewGuid():N}"
             : typeName;
     }

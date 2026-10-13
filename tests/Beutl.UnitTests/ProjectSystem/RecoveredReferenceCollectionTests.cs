@@ -128,12 +128,7 @@ public class RecoveredReferenceCollectionTests
         var scene = new Scene { Uri = new Uri(Path.Combine(root, "scene.scene")) };
         scene.Children.Add(target);
         scene.Children.Add(owner);
-        var migrations = (Dictionary<Guid, Guid>)typeof(SceneRecovery)
-            .GetField("_pendingRecoveredElementIdMigrations", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .GetValue(scene.Recovery)!;
-        migrations[oldId] = target.Id;
-        typeof(SceneRecovery).GetMethod("MigrateRecoveredElementReferences", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .Invoke(scene.Recovery, null);
+        SceneRecoveryTestAccess.MigrateReferences(scene, oldId, target.Id);
         return target;
     }
 }

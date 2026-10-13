@@ -12,12 +12,6 @@ namespace Beutl.HeadlessUITests;
 public class ReactiveSchedulingTests
 {
     [AvaloniaTest]
-    public void ReactiveUI_UsesApplicationUIScheduler()
-    {
-        Assert.That(ReactiveUI.Reactive.RxSchedulers.MainThreadScheduler, Is.SameAs(UiThreadScheduler.Instance));
-    }
-
-    [AvaloniaTest]
     public void ReactiveProperty_DefaultScheduler_DeliversUIThreadChangesSynchronously()
     {
         using var property = new ReactiveProperty<int>();

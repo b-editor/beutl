@@ -1,28 +1,27 @@
 ﻿namespace Beutl.Editor.Services.Captions;
 
-internal abstract class CaptionRegistryLeaseState<TOwner>
-    where TOwner : class
+internal abstract class CaptionRegistryLeaseState
 {
     private readonly object _gate = new();
     private TaskCompletionSource? _drained;
-    private readonly Dictionary<TOwner, int> _leases =
+    private readonly Dictionary<object, int> _leases =
         new(ReferenceEqualityComparer.Instance);
-    private readonly Dictionary<TOwner, TaskCompletionSource> _ownerDrains =
+    private readonly Dictionary<object, TaskCompletionSource> _ownerDrains =
         new(ReferenceEqualityComparer.Instance);
     private int _leaseCount;
     private bool _retired;
 
-    public IDisposable AcquireLease(IReadOnlyCollection<TOwner> owners)
+    public IDisposable AcquireLease(IReadOnlyCollection<object> owners)
     {
         ArgumentNullException.ThrowIfNull(owners);
-        var seen = new HashSet<TOwner>(ReferenceEqualityComparer.Instance);
-        TOwner[] snapshot = owners.Where(seen.Add).ToArray();
+        var seen = new HashSet<object>(ReferenceEqualityComparer.Instance);
+        object[] snapshot = owners.Where(seen.Add).ToArray();
         lock (_gate)
         {
             if (_retired)
                 throw new InvalidOperationException("The caption registry state has been retired.");
 
-            foreach (TOwner owner in snapshot)
+            foreach (object owner in snapshot)
             {
                 _leases.TryGetValue(owner, out int count);
                 _leases[owner] = count + 1;
@@ -33,7 +32,7 @@ internal abstract class CaptionRegistryLeaseState<TOwner>
         }
     }
 
-    public Task DrainOwnerAsync(TOwner owner)
+    public Task DrainOwnerAsync(object owner)
     {
         ArgumentNullException.ThrowIfNull(owner);
         lock (_gate)
@@ -58,7 +57,7 @@ internal abstract class CaptionRegistryLeaseState<TOwner>
         }
     }
 
-    private TaskCompletionSource AddOwnerDrain(TOwner owner)
+    private TaskCompletionSource AddOwnerDrain(object owner)
     {
         var drain = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
@@ -66,14 +65,14 @@ internal abstract class CaptionRegistryLeaseState<TOwner>
         return drain;
     }
 
-    private void Release(IReadOnlyList<TOwner> owners)
+    private void Release(IReadOnlyList<object> owners)
     {
         TaskCompletionSource? drained = null;
         List<TaskCompletionSource>? ownerDrains = null;
         lock (_gate)
         {
             _leaseCount--;
-            foreach (TOwner owner in owners)
+            foreach (object owner in owners)
             {
                 int count = _leases[owner] - 1;
                 if (count == 0)
@@ -103,22 +102,21 @@ internal abstract class CaptionRegistryLeaseState<TOwner>
     }
 
     private sealed class Lease(
-        CaptionRegistryLeaseState<TOwner> owner,
-        IReadOnlyList<TOwner> owners) : IDisposable
+        CaptionRegistryLeaseState owner,
+        IReadOnlyList<object> owners) : IDisposable
     {
-        private CaptionRegistryLeaseState<TOwner>? _owner = owner;
+        private CaptionRegistryLeaseState? _owner = owner;
 
         public void Dispose()
             => Interlocked.Exchange(ref _owner, null)?.Release(owners);
     }
 }
 
-internal sealed class CaptionRegistryDrain<TOwner>(
+internal sealed class CaptionRegistryDrain(
     Task all,
-    Func<TOwner, Task> drainOwner)
-    where TOwner : class
+    Func<object, Task> drainOwner)
 {
     public ValueTask All => new(all);
 
-    public Task DrainOwnerAsync(TOwner owner) => drainOwner(owner);
+    public Task DrainOwnerAsync(object owner) => drainOwner(owner);
 }

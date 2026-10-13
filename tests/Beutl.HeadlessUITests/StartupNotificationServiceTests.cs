@@ -342,16 +342,7 @@ public sealed class StartupNotificationServiceTests
 
         public void Dispose()
         {
-            NotificationService.Handler = _previousHandler ?? NullNotificationHandler.Instance;
-        }
-    }
-
-    private sealed class NullNotificationHandler : INotificationServiceHandler
-    {
-        public static NullNotificationHandler Instance { get; } = new();
-
-        public void Show(Notification notification)
-        {
+            NotificationService.Handler = _previousHandler!;
         }
     }
 }

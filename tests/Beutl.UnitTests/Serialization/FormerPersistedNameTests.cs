@@ -34,7 +34,7 @@ public class FormerPersistedNameTests
         Assert.That((string?)item["$type"], Is.EqualTo(TypeFormat.ToString(typeof(RenamedLeaf))));
         item["$type"] = FormerLeafName;
         string path = Path.Combine(Path.GetTempPath(), $"beutl-former-name-{Guid.NewGuid():N}.belm");
-        int fallbacksBefore = DeserializationIncidents.FallbackCount;
+        using DeserializationIncidents.Capture incidents = DeserializationIncidents.BeginCapture();
         try
         {
             File.WriteAllText(path, json.ToJsonString());
@@ -46,7 +46,7 @@ public class FormerPersistedNameTests
             {
                 Assert.That(restored.Objects.Single(), Is.TypeOf<RenamedLeaf>());
                 Assert.That(((RenamedLeaf)restored.Objects[0]).Width.CurrentValue, Is.EqualTo(3));
-                Assert.That(DeserializationIncidents.FallbackCount, Is.EqualTo(fallbacksBefore));
+                Assert.That(incidents.Count, Is.Zero);
                 Assert.That(
                     (string?)resaved[nameof(Element.Objects)]![0]!["$type"],
                     Is.EqualTo(TypeFormat.ToString(typeof(RenamedLeaf))),

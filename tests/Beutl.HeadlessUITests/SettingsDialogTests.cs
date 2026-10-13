@@ -32,24 +32,10 @@ public class SettingsDialogTests
     }
 
     [AvaloniaTest]
-    public async Task Account_requested_before_ShowDialog_is_rendered_on_first_open()
-    {
-        await VerifyInitialPageAsync(requestAccount: true, requestInformation: false);
-    }
-
-    [AvaloniaTest]
-    public async Task Latest_request_before_ShowDialog_wins_without_an_extra_back_entry()
-    {
-        await VerifyInitialPageAsync(requestAccount: true, requestInformation: true);
-    }
-
-    [AvaloniaTest]
-    public async Task Opening_without_a_request_renders_the_default_account_page()
-    {
-        await VerifyInitialPageAsync(requestAccount: false, requestInformation: false);
-    }
-
-    private static async Task VerifyInitialPageAsync(bool requestAccount, bool requestInformation)
+    [TestCase(true, false, TestName = "Account_requested_before_ShowDialog_is_rendered_on_first_open")]
+    [TestCase(true, true, TestName = "Latest_request_before_ShowDialog_wins_without_an_extra_back_entry")]
+    [TestCase(false, false, TestName = "Opening_without_a_request_renders_the_default_account_page")]
+    public async Task Initial_page_follows_the_requests_made_before_ShowDialog(bool requestAccount, bool requestInformation)
     {
         await TestReset.ResetShellAsync();
         using SettingsDialogViewModel viewModel = TestShell.MainViewModel.CreateSettingsDialog();

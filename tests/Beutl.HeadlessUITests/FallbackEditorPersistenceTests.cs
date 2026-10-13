@@ -1452,35 +1452,7 @@ public sealed class FallbackEditorPersistenceTests
     }
 
     private static JsonObject? FindObjectWithProperty(JsonNode node, string propertyName)
-    {
-        if (node is JsonObject obj)
-        {
-            if (obj.ContainsKey(propertyName))
-            {
-                return obj;
-            }
-
-            foreach ((string _, JsonNode? child) in obj)
-            {
-                if (child is not null && FindObjectWithProperty(child, propertyName) is { } result)
-                {
-                    return result;
-                }
-            }
-        }
-        else if (node is JsonArray array)
-        {
-            foreach (JsonNode? child in array)
-            {
-                if (child is not null && FindObjectWithProperty(child, propertyName) is { } result)
-                {
-                    return result;
-                }
-            }
-        }
-
-        return null;
-    }
+        => JsonTestHelpers.FindObject(node, obj => obj.ContainsKey(propertyName));
 
     private static JsonObject? FindObjectWithNonEmptyArrayProperty(JsonNode node, string propertyName)
     {

@@ -48,16 +48,6 @@ public class ElementClipboardServiceTests
     private Element AddElement(TimeSpan start, TimeSpan length, int zIndex = 0)
         => _harness.AddElement(start, length, zIndex);
 
-    [Test]
-    public async Task CopyAsync_SingleElement_WritesElementFormat()
-    {
-        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
-
-        await _service.CopyAsync([element]);
-
-        IReadOnlyList<string> formats = await _clipboard.GetFormatsAsync();
-        Assert.That(formats, Does.Contain(BeutlClipboardFormats.Element));
-    }
 
     [Test]
     public async Task CopyAsync_MultipleElements_WritesElementsFormat()

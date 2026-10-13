@@ -11,17 +11,18 @@ namespace Beutl.Editor.Services.Captions;
 /// </summary>
 public sealed class CaptionCodecInfo
 {
+    // The registry has already normalized and checked the descriptor's extensions.
     internal CaptionCodecInfo(
         CaptionCodecDescriptor descriptor,
+        string[] normalizedExtensions,
         bool canDecode,
         bool canEncode)
-        : this(
-            descriptor.Format,
-            descriptor.FileExtensions,
-            canDecode,
-            canEncode,
-            descriptor.Order)
     {
+        Format = descriptor.Format;
+        FileExtensions = Array.AsReadOnly(normalizedExtensions);
+        CanDecode = canDecode;
+        CanEncode = canEncode;
+        Order = descriptor.Order;
     }
 
     public CaptionCodecInfo(
@@ -205,7 +206,7 @@ public sealed class CaptionCodecRegistry : ICaptionCodecProvider, IAsyncDisposab
         }
     }
 
-    internal CaptionRegistryDrain<Extension> ReplaceOwned(
+    internal CaptionRegistryDrain ReplaceOwned(
         IEnumerable<CaptionCodecDescriptorRegistration> descriptors,
         IEnumerable<CaptionDecoderRegistration> decoders,
         IEnumerable<CaptionEncoderRegistration> encoders,
@@ -215,15 +216,12 @@ public sealed class CaptionCodecRegistry : ICaptionCodecProvider, IAsyncDisposab
         lock (_mutationGate)
         {
             ThrowIfDisposed();
-            CaptionRegistryDrain<object> retired = SwapState(State.Create(
+            return SwapState(State.Create(
                 descriptors,
                 decoders,
                 encoders,
                 ToObjectOwners(decoderOwners),
                 ToObjectOwners(encoderOwners)));
-            return new CaptionRegistryDrain<Extension>(
-                retired.All.AsTask(),
-                owner => retired.DrainOwnerAsync(owner));
         }
     }
 
@@ -349,7 +347,7 @@ public sealed class CaptionCodecRegistry : ICaptionCodecProvider, IAsyncDisposab
         _descriptorEntries.Clear();
         _decoderEntries.Clear();
         _encoderEntries.Clear();
-        CaptionRegistryDrain<object> retired = SwapState(State.Create([], [], []));
+        CaptionRegistryDrain retired = SwapState(State.Create([], [], []));
         return Task.WhenAll(
             _retiredStates.Select(state => state.RetireAsync())
                 .Append(retired.All.AsTask())
@@ -387,7 +385,7 @@ public sealed class CaptionCodecRegistry : ICaptionCodecProvider, IAsyncDisposab
                 entry => (object)entry));
     }
 
-    private CaptionRegistryDrain<object> SwapState(State next)
+    private CaptionRegistryDrain SwapState(State next)
     {
         State previous;
         lock (_stateGate)
@@ -417,7 +415,7 @@ public sealed class CaptionCodecRegistry : ICaptionCodecProvider, IAsyncDisposab
                 TaskScheduler.Default);
         }
 
-        return new CaptionRegistryDrain<object>(retired, previous.DrainOwnerAsync);
+        return new CaptionRegistryDrain(retired, previous.DrainOwnerAsync);
     }
 
     private static bool HaveSameMetadata(
@@ -480,12 +478,12 @@ public sealed class CaptionCodecRegistry : ICaptionCodecProvider, IAsyncDisposab
         {
             if (!entries.Remove(entry))
                 return _disposeTask ?? Task.CompletedTask;
-            CaptionRegistryDrain<object> retired = SwapState(CreateDirectState());
+            CaptionRegistryDrain retired = SwapState(CreateDirectState());
             return DrainOwnerAcrossRetiredStates(entry, retired);
         }
     }
 
-    private Task DrainOwnerAcrossRetiredStates(object owner, CaptionRegistryDrain<object> retired)
+    private Task DrainOwnerAcrossRetiredStates(object owner, CaptionRegistryDrain retired)
         => Task.WhenAll(
             _retiredStates.Select(state => state.DrainOwnerAsync(owner))
                 .Append(retired.DrainOwnerAsync(owner))
@@ -531,10 +529,11 @@ public sealed class CaptionCodecRegistry : ICaptionCodecProvider, IAsyncDisposab
         return normalized;
     }
 
-    private sealed class State : CaptionRegistryLeaseState<object>
+    private sealed class State : CaptionRegistryLeaseState
     {
         private State(
             Dictionary<CaptionFormatId, CaptionCodecDescriptor> descriptors,
+            Dictionary<CaptionFormatId, string[]> extensionsByFormat,
             Dictionary<CaptionFormatId, ICaptionDecoder> decoders,
             Dictionary<CaptionFormatId, ICaptionEncoder> encoders,
             Dictionary<string, CaptionFormatId> formatsByExtension,
@@ -549,6 +548,7 @@ public sealed class CaptionCodecRegistry : ICaptionCodecProvider, IAsyncDisposab
             CaptionCodecInfo[] codecs = descriptors.Values
                 .Select(descriptor => new CaptionCodecInfo(
                     descriptor,
+                    extensionsByFormat[descriptor.Format],
                     decoders.ContainsKey(descriptor.Format),
                     encoders.ContainsKey(descriptor.Format)))
                 .OrderBy(codec => codec.Order)
@@ -632,8 +632,10 @@ public sealed class CaptionCodecRegistry : ICaptionCodecProvider, IAsyncDisposab
 
             var formatsByExtension = new Dictionary<string, CaptionFormatId>(
                 StringComparer.OrdinalIgnoreCase);
+            var extensionsByFormat = new Dictionary<CaptionFormatId, string[]>();
             foreach (CaptionCodecDescriptor descriptor in descriptors.Values)
             {
+                var extensions = new List<string>(descriptor.FileExtensions.Count);
                 foreach (string extension in descriptor.FileExtensions)
                 {
                     string normalized = NormalizeExtension(extension);
@@ -643,11 +645,16 @@ public sealed class CaptionCodecRegistry : ICaptionCodecProvider, IAsyncDisposab
                             $"File extension '{normalized}' is registered more than once.",
                             nameof(descriptorRegistrations));
                     }
+
+                    extensions.Add(normalized);
                 }
+
+                extensionsByFormat.Add(descriptor.Format, [.. extensions]);
             }
 
             return new State(
                 descriptors,
+                extensionsByFormat,
                 decoders,
                 encoders,
                 formatsByExtension,

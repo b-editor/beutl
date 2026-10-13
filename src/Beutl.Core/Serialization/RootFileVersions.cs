@@ -28,7 +28,6 @@ internal static class RootFileVersions
     // Async-local because a scene reads its element files in parallel.
     private static readonly AsyncLocal<Project?> s_readingProject = new();
 
-    // Only a project file records the version that last saved it.
     internal static string? GetAppVersion(Project project)
     {
         return s_entries.TryGetValue(project, out Entry? entry) ? entry.AppVersion : null;
@@ -114,24 +113,11 @@ internal static class RootFileVersions
     }
 
     /// <summary>
-    /// Records the <c>minAppVersion</c> a save wrote for <paramref name="obj"/>.
+    /// Raises what <paramref name="obj"/> records to at least <paramref name="minAppVersion"/> and returns it.
     /// </summary>
-    internal static void RecordWrite(ICoreSerializable obj, string minAppVersion)
+    internal static string RaiseMinAppVersion(ICoreSerializable obj, string minAppVersion)
     {
         Entry entry = s_entries.GetValue(obj, static _ => new Entry());
-        lock (entry)
-        {
-            entry.MinAppVersion = FileFormat.Max(entry.MinAppVersion, minAppVersion);
-        }
-    }
-
-    /// <summary>
-    /// Raises the <c>minAppVersion</c> recorded for <paramref name="project"/> to at least
-    /// <paramref name="minAppVersion"/> and returns the result.
-    /// </summary>
-    internal static string RaiseMinAppVersion(Project project, string minAppVersion)
-    {
-        Entry entry = s_entries.GetValue(project, static _ => new Entry());
         lock (entry)
         {
             entry.MinAppVersion = FileFormat.Max(entry.MinAppVersion, minAppVersion);
@@ -175,10 +161,15 @@ internal static class RootFileVersions
 
     /// <summary>
     /// Makes <paramref name="project"/> the project that files read on this flow belong to, until the
-    /// returned scope is disposed.
+    /// returned scope is disposed. Without a project, the files keep the project being read around them.
     /// </summary>
-    internal static ReadingScope BeginReading(Project project)
+    internal static ReadingScope BeginReading(Project? project)
     {
+        if (project is null)
+        {
+            return default;
+        }
+
         Entry entry = s_entries.GetValue(project, static _ => new Entry());
         lock (entry)
         {
@@ -187,12 +178,18 @@ internal static class RootFileVersions
 
         Project? previous = s_readingProject.Value;
         s_readingProject.Value = project;
-        return new ReadingScope(previous);
+        return new ReadingScope(previous, restore: true);
     }
 
-    internal readonly struct ReadingScope(Project? previous) : IDisposable
+    internal readonly struct ReadingScope(Project? previous, bool restore) : IDisposable
     {
-        public void Dispose() => s_readingProject.Value = previous;
+        public void Dispose()
+        {
+            if (restore)
+            {
+                s_readingProject.Value = previous;
+            }
+        }
     }
 
     /// <summary>

@@ -22,6 +22,6 @@ public sealed class DataAnnotationValidater<T> : IValidator<T>
 
     public string? Validate(ValidationContext context, T? value)
     {
-        return DataAnnotationValidation.ValidateWithAttribute(Attribute, context, value, typeof(T));
+        return DataAnnotationValidation.ValidateWithAttribute(Attribute, context, value);
     }
 }

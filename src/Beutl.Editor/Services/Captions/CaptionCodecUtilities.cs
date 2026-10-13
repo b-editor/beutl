@@ -73,8 +73,6 @@ internal static class CaptionCodecUtilities
         int cueIndex,
         long resolutionTicks)
     {
-        EnsureCueCanExport(cue, cueIndex);
-
         long startTicks = cue.Start.Ticks - cue.Start.Ticks % resolutionTicks;
         long endTicks = cue.End.Ticks;
         long remainder = endTicks % resolutionTicks;
@@ -169,9 +167,6 @@ internal static class CaptionCodecUtilities
                 ? fraction * TimeSpan.TicksPerMillisecond
                 : fraction * (TimeSpan.TicksPerSecond / 100);
             long ticks = checked(totalSeconds * TimeSpan.TicksPerSecond + fractionTicks);
-            if (ticks > TimeSpan.MaxValue.Ticks)
-                return false;
-
             result = new TimeSpan(ticks);
             return true;
         }

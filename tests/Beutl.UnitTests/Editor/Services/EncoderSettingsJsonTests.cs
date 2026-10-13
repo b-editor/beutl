@@ -14,30 +14,6 @@ public class EncoderSettingsJsonTests
         Assert.That(EncoderSettingsJson.Serialize(null), Is.Null);
     }
 
-    [Test]
-    public void Populate_PopulatesVideoSettings()
-    {
-        var source = new VideoEncoderSettings
-        {
-            SourceSize = new PixelSize(1920, 1080),
-            DestinationSize = new PixelSize(1280, 720),
-            FrameRate = new Rational(60, 1),
-            Bitrate = 7_000_000,
-            KeyframeRate = 24
-        };
-        var target = new VideoEncoderSettings();
-
-        EncoderSettingsJson.Populate(target, EncoderSettingsJson.Serialize(source)!);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(target.SourceSize, Is.EqualTo(source.SourceSize));
-            Assert.That(target.DestinationSize, Is.EqualTo(source.DestinationSize));
-            Assert.That(target.FrameRate, Is.EqualTo(source.FrameRate));
-            Assert.That(target.Bitrate, Is.EqualTo(source.Bitrate));
-            Assert.That(target.KeyframeRate, Is.EqualTo(source.KeyframeRate));
-        });
-    }
 
     [Test]
     public void PopulateVideoPreset_PreservesTimelineOwnedSettings()

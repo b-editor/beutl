@@ -78,10 +78,11 @@ public class AiSubtitleTemplateTests
         ObjectTemplateItem shape = ObjectTemplateItem.CreateFromInstance(new EllipseShape(), "Shape");
         ObjectTemplateItem alpha = ObjectTemplateItem.CreateFromInstance(new TextBlock(), "Alpha");
 
-        await using CaptionCatalog catalog = CaptionCatalog.Compose(
+        await using CaptionCatalog catalog = CaptionCatalog.ComposeWithDefaultElementFactory(
             "Default",
             [zulu, shape, alpha],
-            new ExtensionProvider());
+            new ExtensionProvider(),
+            DefaultTextCaptionElementFactory.Instance);
         IReadOnlyList<CaptionTemplateDescriptor> result = catalog.Templates.Templates;
 
         using (Assert.EnterMultipleScope())

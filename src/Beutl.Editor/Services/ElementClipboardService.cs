@@ -203,17 +203,7 @@ public sealed class ElementClipboardService : IElementClipboardService
         newElement.Start = clickedFrame;
         newElement.ZIndex = clickedLayer;
 
-        CoreSerializer.StoreToUri(newElement, ElementFileNaming.GetUri(scene.Uri, newElement.Id), owner: scene);
-
-        scene.AddChild(newElement);
-        _historyManager.Commit(CommandNames.PasteElement);
-
-        return new ElementPasteOutcome(
-            Pasted: true,
-            NewElements: [newElement],
-            ScrollTo: newElement.Range,
-            ScrollToZIndex: newElement.ZIndex,
-            AddFailure: null);
+        return AddPastedElement(scene, newElement);
     }
 
     private async Task<ElementPasteOutcome> PasteFilesAsync(Scene scene, TimeSpan clickedFrame, int clickedLayer)
@@ -311,7 +301,13 @@ public sealed class ElementClipboardService : IElementClipboardService
         };
         newElement.AddObject(sourceImage);
 
-        CoreSerializer.StoreToUri(newElement, ElementFileNaming.GetUri(scene.Uri, newElement.Id), owner: scene);
+        return AddPastedElement(scene, newElement);
+    }
+
+    // Saves the element file next to the scene, adds the element and commits the paste.
+    private ElementPasteOutcome AddPastedElement(Scene scene, Element newElement)
+    {
+        CoreSerializer.StoreToUri(newElement, ElementFileNaming.GetUri(scene.Uri!, newElement.Id), owner: scene);
 
         scene.AddChild(newElement);
         _historyManager.Commit(CommandNames.PasteElement);

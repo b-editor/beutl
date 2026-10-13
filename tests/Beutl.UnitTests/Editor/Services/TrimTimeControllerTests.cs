@@ -12,6 +12,7 @@ using Beutl.ProjectSystem;
 using Beutl.UnitTests.Engine.Graphics.Rendering;
 using Beutl.UnitTests.TestInfrastructure;
 using Beutl.Validation;
+using static Beutl.UnitTests.TestInfrastructure.TrimTestMedia;
 
 namespace Beutl.UnitTests.Editor.Services;
 
@@ -21,7 +22,7 @@ public class TrimTimeControllerTests
 {
     private SceneHistoryHarness _harness = null!;
     private ElementSlipService _slip = null!;
-    private bool _originalClampResizeToOriginalLength;
+    private ClampResizeToOriginalLengthScope _clamp = null!;
 
     [OneTimeSetUp]
     public void OneTimeSetUp() => TestMediaHelper.RegisterTestDecoder();
@@ -29,8 +30,7 @@ public class TrimTimeControllerTests
     [SetUp]
     public void Setup()
     {
-        _originalClampResizeToOriginalLength = GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength;
-        GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength = true;
+        _clamp = new ClampResizeToOriginalLengthScope(true);
         _harness = new SceneHistoryHarness("beutl_trim_controller", start: TimeSpan.Zero, duration: Seconds(30));
         _slip = new ElementSlipService(_harness.History);
     }
@@ -38,7 +38,7 @@ public class TrimTimeControllerTests
     [TearDown]
     public void TearDown()
     {
-        GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength = _originalClampResizeToOriginalLength;
+        _clamp.Dispose();
         _harness.Dispose();
     }
 
@@ -86,7 +86,7 @@ public class TrimTimeControllerTests
     {
         var video = CreateVideo(20);
         var controller = CreateController(video, speed: 50, offsetSeconds: 0.5);
-        controller.Speed.Animation = CreateGlobalSpeedRamp();
+        controller.Speed.Animation = CreateSpeedRamp(useGlobalClock: true);
         Element element = AddElement(5, 2, controller);
         double beforeStart = ReadPosition(controller, 5);
         double beforeShiftedStart = ReadPosition(controller, 6);
@@ -319,11 +319,7 @@ public class TrimTimeControllerTests
             OffsetPosition = { CurrentValue = Seconds(0.25) }
         };
         element.Objects.Add(controller);
-        using var compositor = new SceneCompositor(_harness.Scene)
-        {
-            DisableResourceShare = true,
-            ForceOriginalSource = true
-        };
+        using var compositor = CreateCompositor(_harness.Scene);
 
         double ReadFlowPosition(double localSeconds)
         {
@@ -410,11 +406,7 @@ public class TrimTimeControllerTests
 
         bool applied = _slip.Slip(_harness.Scene, [element], Seconds(5));
 
-        using var compositor = new SceneCompositor(_harness.Scene)
-        {
-            DisableResourceShare = true,
-            ForceOriginalSource = true
-        };
+        using var compositor = CreateCompositor(_harness.Scene);
         CompositionFrame frame = compositor.EvaluateGraphics(Seconds(6.5));
         Assert.That(frame.Objects, Has.Length.EqualTo(1));
 
@@ -556,35 +548,26 @@ public class TrimTimeControllerTests
         });
         var constraints = SlippableMedia.CreateResizeConstraints(element);
         var service = new ElementResizeService(_harness.History);
-        bool originalClamp = GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength;
-        try
+        Assert.That(constraints.GetMaximumDuration()?.TotalSeconds, Is.EqualTo(2).Within(0.000001));
+        // At length 1.5 the new loop period requests source 0.5..1.25, even
+        // though both the original length 1 and the maximum length 2 are safe.
+        TimeSpan preview = constraints.ClampLength(Seconds(1.5));
+        service.Resize(_harness.Scene, [new ElementResizeRequest(element, element.Start, Seconds(1.5), 0)], ripple);
+        Assert.Multiple(() =>
         {
-            GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength = true;
-            Assert.That(constraints.GetMaximumDuration()?.TotalSeconds, Is.EqualTo(2).Within(0.000001));
-            // At length 1.5 the new loop period requests source 0.5..1.25, even
-            // though both the original length 1 and the maximum length 2 are safe.
-            TimeSpan preview = constraints.ClampLength(Seconds(1.5));
-            service.Resize(_harness.Scene, [new ElementResizeRequest(element, element.Start, Seconds(1.5), 0)], ripple);
-            Assert.Multiple(() =>
-            {
-                Assert.That(preview, Is.EqualTo(Seconds(1)));
-                Assert.That(element.Length, Is.EqualTo(preview));
-                Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
-            });
+            Assert.That(preview, Is.EqualTo(Seconds(1)));
+            Assert.That(element.Length, Is.EqualTo(preview));
+            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+        });
 
-            service.Resize(_harness.Scene, [new ElementResizeRequest(element, element.Start, Seconds(2), 0)], ripple);
-            using var compositor = new SceneCompositor(_harness.Scene) { DisableResourceShare = true, ForceOriginalSource = true };
-            CompositionFrame frame = compositor.EvaluateGraphics(element.Range.End - TimeSpan.FromTicks(1));
-            Assert.Multiple(() =>
-            {
-                Assert.That(element.Length, Is.EqualTo(Seconds(2)));
-                Assert.That(ReadPosition(frame.Objects.Single()), Is.LessThanOrEqualTo(1));
-            });
-        }
-        finally
+        service.Resize(_harness.Scene, [new ElementResizeRequest(element, element.Start, Seconds(2), 0)], ripple);
+        using var compositor = CreateCompositor(_harness.Scene);
+        CompositionFrame frame = compositor.EvaluateGraphics(element.Range.End - TimeSpan.FromTicks(1));
+        Assert.Multiple(() =>
         {
-            GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength = originalClamp;
-        }
+            Assert.That(element.Length, Is.EqualTo(Seconds(2)));
+            Assert.That(ReadPosition(frame.Objects.Single()), Is.LessThanOrEqualTo(1));
+        });
     }
 
     [TestCase(false, 9.5, 3, 1, 0, 4, 3)]
@@ -791,7 +774,7 @@ public class TrimTimeControllerTests
         element.Objects.Add(controller);
         var linkedVideo = CreateVideo(20);
         Element linked = AddElement(5, 2, linkedVideo);
-        using (var compositor = new SceneCompositor(_harness.Scene) { DisableResourceShare = true, ForceOriginalSource = true })
+        using (var compositor = CreateCompositor(_harness.Scene))
             Assert.That(ReadPosition(compositor.EvaluateGraphics(Seconds(1)).Objects.Single()), Is.EqualTo(2));
         int history = _harness.History.UndoCount;
 
@@ -818,13 +801,13 @@ public class TrimTimeControllerTests
         Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
     }
 
-    [TestCase(false)]
-    [TestCase(true)]
-    public void Slip_VideoSpeedExpression_RejectsUnevaluatedMapping(bool emptyAnimation)
+    // Without the empty animation this is the case of ElementSlipServiceTests.Slip_SpeedExpression_RejectsBeforeMutation.
+    [Test]
+    public void Slip_VideoSpeedExpression_RejectsUnevaluatedMapping()
     {
         var video = CreateVideo(20);
         video.Speed.Expression = Expression.Create<float>("200");
-        if (emptyAnimation) video.Speed.Animation = new KeyFrameAnimation<float>();
+        video.Speed.Animation = new KeyFrameAnimation<float>();
         Element element = AddElement(0, 2, video);
         Assert.That(ReadPosition(video, 1), Is.EqualTo(2));
 
@@ -960,7 +943,7 @@ public class TrimTimeControllerTests
         TimeSpan start = Seconds(leftEdge ? 4 : 5);
         ElementResizeRequest[] requests = [new(owner, start, Seconds(3), 1), new(presented, start, Seconds(3), 0)];
         if (reverseOrder) Array.Reverse(requests);
-        using var compositor = new SceneCompositor(_harness.Scene) { DisableResourceShare = true, ForceOriginalSource = true };
+        using var compositor = CreateCompositor(_harness.Scene);
         Assert.That(ReadPosition(compositor.EvaluateGraphics(owner.Start).Objects.OfType<DrawableTimeController.Resource>().Single()), Is.EqualTo(4));
 
         new ElementResizeService(_harness.History).Resize(_harness.Scene, requests);
@@ -1045,7 +1028,7 @@ public class TrimTimeControllerTests
         var controller = new DrawableTimeController();
         controller.Target.Expression = new ReferenceExpression<Drawable?>(evaluated.Id);
         element.Objects.Add(controller);
-        using var compositor = new SceneCompositor(_harness.Scene) { DisableResourceShare = true, ForceOriginalSource = true };
+        using var compositor = CreateCompositor(_harness.Scene);
         var resource = (DrawableTimeController.Resource)compositor.EvaluateGraphics(Seconds(1)).Objects.Single();
         Assert.That(resource.Target!.GetOriginal(), Is.SameAs(consumed));
 
@@ -1077,7 +1060,7 @@ public class TrimTimeControllerTests
             lanes.Select(lane => new ElementTrimPair(lane.Front, lane.Back)).ToArray(), [middleA, middleB]).Clamp(Seconds(-1));
 
         bool applied = new ElementResizeService(_harness.History).Slide(_harness.Scene, lanes, Seconds(-1));
-        using var compositor = new SceneCompositor(_harness.Scene) { DisableResourceShare = true, ForceOriginalSource = true };
+        using var compositor = CreateCompositor(_harness.Scene);
         var resource = compositor.EvaluateGraphics(middleB.Start + Seconds(1.5)).Objects
             .OfType<DrawableTimeController.Resource>().Single();
         double position = ReadPosition(resource);
@@ -1116,7 +1099,7 @@ public class TrimTimeControllerTests
         TimeSpan preview = ElementResizeService.CreateTrimConstraints(_harness.Scene,
             lanes.Select(lane => new ElementTrimPair(lane.Front, lane.Back)).ToArray(), [middleA, middleB]).Clamp(Seconds(1));
         Assert.That(new ElementResizeService(_harness.History).Slide(_harness.Scene, lanes, Seconds(1)), Is.True);
-        using var compositor = new SceneCompositor(_harness.Scene) { DisableResourceShare = true, ForceOriginalSource = true };
+        using var compositor = CreateCompositor(_harness.Scene);
         var resource = compositor.EvaluateGraphics(Seconds(4.5)).Objects.OfType<DrawableTimeController.Resource>().Single();
         Assert.Multiple(() =>
         {
@@ -1142,7 +1125,7 @@ public class TrimTimeControllerTests
         if (emptyStoredTarget) controller.Target.CurrentValue = null;
         Element element = AddElement(0, 1, controller);
         element.Objects.Insert(0, new PortalObject { Count = { CurrentValue = 1 } });
-        using var compositor = new SceneCompositor(_harness.Scene) { DisableResourceShare = true, ForceOriginalSource = true };
+        using var compositor = CreateCompositor(_harness.Scene);
         var resource = compositor.EvaluateGraphics(Seconds(0.5)).Objects.OfType<DrawableTimeController.Resource>().Single();
         Assert.That(resource.Target!.GetOriginal(), Is.SameAs(imported));
 
@@ -1169,7 +1152,7 @@ public class TrimTimeControllerTests
         element.Objects.Insert(0, new PortalObject { Count = { CurrentValue = 1 } });
 
         new ElementResizeService(_harness.History).Resize(_harness.Scene, [new(element, element.Start, Seconds(5), 0)]);
-        using var compositor = new SceneCompositor(_harness.Scene) { DisableResourceShare = true, ForceOriginalSource = true };
+        using var compositor = CreateCompositor(_harness.Scene);
         var resource = compositor.EvaluateGraphics(element.Range.End - Seconds(0.5)).Objects.OfType<DrawableTimeController.Resource>().Single();
         Assert.Multiple(() =>
         {
@@ -1228,7 +1211,7 @@ public class TrimTimeControllerTests
         }
         else element.Objects.Insert(0, video);
         element.Objects.Insert(1, new PortalObject { Clear = { CurrentValue = true }, Count = { CurrentValue = importedInput ? 1 : 0 } });
-        using var compositor = new SceneCompositor(_harness.Scene) { DisableResourceShare = true, ForceOriginalSource = true };
+        using var compositor = CreateCompositor(_harness.Scene);
         var resource = compositor.EvaluateGraphics(Seconds(0.5)).Objects.OfType<DrawableTimeController.Resource>().Single();
         Assert.That(resource.Target, Is.Null);
 
@@ -1275,7 +1258,7 @@ public class TrimTimeControllerTests
         var controller = CreateController(video);
         Element element = AddElement(0, 0.5, controller);
         element.Objects.Insert(0, new PortalObject { Count = { CurrentValue = 1 } });
-        using var compositor = new SceneCompositor(_harness.Scene) { DisableResourceShare = true, ForceOriginalSource = true };
+        using var compositor = CreateCompositor(_harness.Scene);
         var resource = compositor.EvaluateGraphics(Seconds(0.25)).Objects.OfType<DrawableTimeController.Resource>().Single();
         Assert.That(resource.Target, Is.Null);
 
@@ -1297,7 +1280,7 @@ public class TrimTimeControllerTests
         var controller = CreateController(video);
         Element element = AddElement(2, 2, controller);
         element.Objects.Insert(0, new PortalObject { Count = { CurrentValue = 1 } });
-        using var compositor = new SceneCompositor(_harness.Scene) { DisableResourceShare = true, ForceOriginalSource = true };
+        using var compositor = CreateCompositor(_harness.Scene);
         Assert.That(compositor.EvaluateGraphics(Seconds(3)).Objects.OfType<DrawableTimeController.Resource>().Single().Target, Is.Null);
         var constraints = SlippableMedia.CreateResizeConstraints(element);
         TimeSpan preview = newStart == 2 ? constraints.ClampLength(Seconds(newLength)) : constraints.ClampStart(Seconds(newStart));
@@ -1343,7 +1326,7 @@ public class TrimTimeControllerTests
         var linkedVideo = CreateVideo(20);
         Element linked = AddElement(4, 2, linkedVideo);
         linked.ZIndex = 2;
-        using var compositor = new SceneCompositor(_harness.Scene) { DisableResourceShare = true, ForceOriginalSource = true };
+        using var compositor = CreateCompositor(_harness.Scene);
         Assert.That(compositor.EvaluateGraphics(Seconds(4.5)).Objects.OfType<DrawableTimeController.Resource>()
             .Single().Target!.GetOriginal(), Is.SameAs(video), "Locks restrict editing, not playback.");
         var resize = new ElementResizeService(_harness.History);
@@ -1400,7 +1383,7 @@ public class TrimTimeControllerTests
         Element disabled = _harness.AddElement(TimeSpan.Zero, Seconds(1), 0);
         disabled.IsEnabled = false;
         disabled.Objects.Add(new PortalObject { Count = { CurrentValue = 2 } });
-        using var compositor = new SceneCompositor(_harness.Scene) { DisableResourceShare = true, ForceOriginalSource = true };
+        using var compositor = CreateCompositor(_harness.Scene);
         var resource = compositor.EvaluateGraphics(Seconds(0.25)).Objects.OfType<DrawableTimeController.Resource>().Single();
         Assert.That(resource.Target!.GetOriginal(), Is.SameAs(video));
 
@@ -1465,7 +1448,7 @@ public class TrimTimeControllerTests
         var controller = CreateController(video);
         Element element = AddElement(0, 0.5, controller);
         element.Objects.Insert(0, new PortalObject { Count = { CurrentValue = 1 } });
-        using var compositor = new SceneCompositor(_harness.Scene) { DisableResourceShare = true, ForceOriginalSource = true };
+        using var compositor = CreateCompositor(_harness.Scene);
         Assert.That(compositor.EvaluateGraphics(Seconds(0.25)).Objects.OfType<DrawableTimeController.Resource>().Single().Target, Is.Null);
 
         Assert.That(_slip.Slip(_harness.Scene, [element], Seconds(0.25)), Is.False);
@@ -1535,7 +1518,7 @@ public class TrimTimeControllerTests
         if (hasActiveProvider) AddElement(2, 8, active).ZIndex = 1;
         Element element = AddElement(2, 2, new DrawableTimeController());
         element.Objects.Insert(0, new PortalObject { Count = { CurrentValue = 1 } });
-        using var compositor = new SceneCompositor(_harness.Scene) { DisableResourceShare = true, ForceOriginalSource = true };
+        using var compositor = CreateCompositor(_harness.Scene);
         var resource = compositor.EvaluateGraphics(Seconds(3)).Objects.OfType<DrawableTimeController.Resource>().Single();
         Assert.That(resource.Target?.GetOriginal(), Is.SameAs(hasActiveProvider ? active : null));
 
@@ -1598,7 +1581,7 @@ public class TrimTimeControllerTests
         AddElement(leftEdge ? 0 : 2, leftEdge ? 3 : 8, video).ZIndex = 1;
         Element element = AddElement(leftEdge ? 4 : 0, 1, new DrawableTimeController { Speed = { CurrentValue = 200 } });
         element.Objects.Insert(0, new PortalObject { Count = { CurrentValue = 1 } });
-        using var compositor = new SceneCompositor(_harness.Scene) { DisableResourceShare = true, ForceOriginalSource = true };
+        using var compositor = CreateCompositor(_harness.Scene);
         Assert.That(compositor.EvaluateGraphics(element.Start + Seconds(0.5)).Objects
             .OfType<DrawableTimeController.Resource>().Single().Target, Is.Null);
         var constraints = SlippableMedia.CreateResizeConstraints(element);
@@ -1633,18 +1616,6 @@ public class TrimTimeControllerTests
         return element;
     }
 
-    private static SourceVideo CreateVideo(int durationSeconds, float speed = 100, double offsetSeconds = 0)
-    {
-        var source = new VideoSource();
-        source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), durationSeconds * 30)));
-        return new SourceVideo
-        {
-            Source = { CurrentValue = source },
-            Speed = { CurrentValue = speed },
-            OffsetPosition = { CurrentValue = Seconds(offsetSeconds) }
-        };
-    }
-
     private static DrawableTimeController CreateController(Drawable target, float speed = 100, double offsetSeconds = 0)
         => new()
         {
@@ -1677,24 +1648,4 @@ public class TrimTimeControllerTests
         // OnDraw adds the source offset after RequestedPosition has undergone speed/loop mapping.
         return (video.RequestedPosition + video.OffsetPosition).TotalSeconds;
     }
-
-    private static KeyFrameAnimation<float> CreateGlobalSpeedRamp()
-    {
-        var animation = new KeyFrameAnimation<float> { UseGlobalClock = true };
-        animation.KeyFrames.Add(new KeyFrame<float>
-        {
-            KeyTime = TimeSpan.Zero,
-            Value = 100,
-            Easing = new LinearEasing()
-        });
-        animation.KeyFrames.Add(new KeyFrame<float>
-        {
-            KeyTime = Seconds(10),
-            Value = 200,
-            Easing = new LinearEasing()
-        });
-        return animation;
-    }
-
-    private static TimeSpan Seconds(double value) => TimeSpan.FromSeconds(value);
 }

@@ -50,8 +50,6 @@ public sealed partial class ElementResizeService : IElementResizeService
     private static TimeSpan GetMinimumLength(Scene scene)
     {
         int rate = SceneTimeRangeService.GetFrameRate(scene);
-        // Invalid persisted rates use the default; sub-tick frames still require a positive duration.
-        if (rate <= 0) rate = 30;
         return TimeSpan.FromTicks((TimeSpan.TicksPerSecond + (long)rate - 1) / rate);
     }
 
@@ -215,7 +213,6 @@ public sealed partial class ElementResizeService : IElementResizeService
         for (int i = 0; i < requests.Count; i++)
         {
             ElementResizeRequest req = requests[i];
-            ArgumentNullException.ThrowIfNull(req.Element);
             TimeSpan start = req.NewStart < TimeSpan.Zero ? TimeSpan.Zero : req.NewStart;
             TimeSpan length = req.NewLength;
             if (ripple && req.NewStart < TimeSpan.Zero && length > TimeSpan.Zero)

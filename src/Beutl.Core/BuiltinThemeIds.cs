@@ -3,10 +3,8 @@ using System.Globalization;
 
 namespace Beutl;
 
-// Persisted in settings.json (ViewConfig.Theme) — these ids must never change. Extensions pick their own.
-// In Beutl.Core so Beutl.Configuration and Beutl.Extensibility both see it without a cycle: settings
-// normalization and registry validation must agree on what counts as a built-in id, or an extension
-// could register an id that settings then rewrites out from under it.
+// Persisted in settings.json (ViewConfig.Theme), so these ids never change; extensions pick their own. In Beutl.Core
+// because settings normalization (Configuration) and theme registration (Extensibility) must agree on them.
 public static class BuiltinThemeIds
 {
     public const string Light = "light";
@@ -20,11 +18,9 @@ public static class BuiltinThemeIds
         FrozenSet.ToFrozenSet([Light, Dark, HighContrast, System], StringComparer.Ordinal);
 
     /// <summary>
-    /// The built-in id a legacy &lt;2.0 <c>ViewTheme</c> value names, or null when it names no theme:
-    /// 1 (Dark) was the pre-2.0 default, so it marks a user who never chose a theme, and anything
-    /// outside the enum's 0-3 is corrupt. The caller owns the fallback — the product default is an
-    /// app-layer id this class must never return, since <see cref="IsReserved"/> backs ThemeRegistry's
-    /// reserved-id check.
+    /// The built-in id a legacy &lt;2.0 <c>ViewTheme</c> value names, or null for 1 (the pre-2.0 default: the user
+    /// never chose) and values outside 0-3. The caller picks the fallback, an app-layer id that
+    /// <see cref="IsReserved"/> must not reserve.
     /// </summary>
     public static string? TryFromLegacyEnum(int value) => value switch
     {
@@ -35,10 +31,8 @@ public static class BuiltinThemeIds
     };
 
     /// <summary>
-    /// The canonical id for a persisted value: legacy &lt;2.0 forms (the enum as 0-3, or a PascalCase
-    /// name) become the stable id and anything else is a custom id returned trimmed. Null when the
-    /// value names no theme — it is blank, or a legacy enum form
-    /// <see cref="TryFromLegacyEnum"/> rejects — leaving the fallback to the caller.
+    /// The built-in id for a legacy &lt;2.0 form (0-3 or a PascalCase name), any other value trimmed as a custom id,
+    /// or null for a blank value or one <see cref="TryFromLegacyEnum"/> rejects.
     /// </summary>
     public static string? TryNormalize(string? raw)
     {
@@ -68,11 +62,8 @@ public static class BuiltinThemeIds
     }
 
     /// <summary>
-    /// True when settings normalization would not hand <paramref name="id"/> back as it is — a
-    /// built-in id, one of its legacy aliases ("Dark", "2"), a value that names no theme at all
-    /// ("1", ""), or one normalization rewrites in any other way, such as the surrounding whitespace
-    /// it trims. An extension must not register such an id: settings would rewrite the user's
-    /// selection on the next load, silently dropping the extension's theme.
+    /// True for a built-in id and any value settings normalization would not keep as it is, such as "Dark", "2", "1"
+    /// or an untrimmed id. An extension must not register such an id: the next load would rewrite the user's choice.
     /// </summary>
     public static bool IsReserved(string? id) =>
         TryNormalize(id) is not { } normalized

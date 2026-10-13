@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
+using Beutl.Api.Services;
 
 namespace Beutl.Editor.Services;
 
@@ -10,10 +11,7 @@ public sealed partial class ElementSourceHandlerRegistry
         int order,
         long sequence)
     {
-        private readonly object _gate = new();
-        private TaskCompletionSource? _drained;
-        private int _activeLeases;
-        private bool _retired;
+        private readonly LeaseDrain _drain = new();
 
         public Type SourceType { get; } = sourceType;
 
@@ -31,46 +29,13 @@ public sealed partial class ElementSourceHandlerRegistry
 
         public bool TryAcquire([NotNullWhen(true)] out HandlerLease? lease)
         {
-            lock (_gate)
-            {
-                if (_retired)
-                {
-                    lease = null;
-                    return false;
-                }
-
-                _activeLeases++;
-                lease = new HandlerLease(this);
-                return true;
-            }
+            lease = _drain.TryAcquire() ? new HandlerLease(this) : null;
+            return lease is not null;
         }
 
-        public Task RetireAsync()
-        {
-            lock (_gate)
-            {
-                _retired = true;
-                return _activeLeases == 0
-                    ? Task.CompletedTask
-                    : (_drained ??= new TaskCompletionSource(
-                        TaskCreationOptions.RunContinuationsAsynchronously)).Task;
-            }
-        }
+        public Task RetireAsync() => _drain.RetireAsync();
 
-        public void ReleaseLease()
-        {
-            TaskCompletionSource? drained = null;
-            lock (_gate)
-            {
-                _activeLeases--;
-                if (_activeLeases == 0 && _retired)
-                {
-                    drained = _drained;
-                }
-            }
-
-            drained?.TrySetResult();
-        }
+        public void ReleaseLease() => _drain.Release();
     }
 
     private sealed class Registration : IElementSourceHandlerRegistration

@@ -423,15 +423,6 @@ public readonly partial struct Rational : INumber<Rational>, IMinMaxValue<Ration
     private static bool TryConvertTo<TOther>(Rational value, [MaybeNullWhen(false)] out TOther result)
         where TOther : INumberBase<TOther>
     {
-        // In order to reduce overall code duplication and improve the inlinabilty of these
-        // methods for the corelib types we have `ConvertFrom` handle the same sign and
-        // `ConvertTo` handle the opposite sign. However, since there is an uneven split
-        // between signed and unsigned types, the one that handles unsigned will also
-        // handle `Decimal`.
-        //
-        // That is, `ConvertFrom` for `float` will handle the other signed types and
-        // `ConvertTo` will handle the unsigned types.
-
         if (typeof(TOther) == typeof(byte))
         {
             float valueF = value.ToSingle();

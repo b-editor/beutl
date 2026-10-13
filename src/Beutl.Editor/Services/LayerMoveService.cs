@@ -31,7 +31,6 @@ public sealed class LayerMoveService : ILayerMoveService
         var shifted = new List<Element>();
         foreach (Element child in scene.Children)
         {
-            if (child.ZIndex == oldLayer) continue;
             if (InShiftRange(child.ZIndex, oldLayer, newLayer))
             {
                 shifted.Add(child);

@@ -13,7 +13,6 @@ namespace Beutl.UnitTests.Editor.Services;
 public class ElementAttributeServiceTests
 {
     private SceneHistoryHarness _harness = null!;
-    private Scene _scene = null!;
     private HistoryManager _history = null!;
     private ElementAttributeService _service = null!;
 
@@ -21,7 +20,6 @@ public class ElementAttributeServiceTests
     public void Setup()
     {
         _harness = new SceneHistoryHarness("beutl_attr", start: TimeSpan.Zero, duration: TimeSpan.FromSeconds(60));
-        _scene = _harness.Scene;
         _history = _harness.History;
         _service = new ElementAttributeService(_history);
     }

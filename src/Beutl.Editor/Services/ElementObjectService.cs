@@ -91,8 +91,7 @@ public sealed class ElementObjectService : IElementObjectService
 
         try
         {
-            EngineObject? obj = Activator.CreateInstance(type) as EngineObject;
-            if (obj is null) return ObjectPasteOutcome.MissingType;
+            var obj = (EngineObject)Activator.CreateInstance(type)!;
 
             CoreSerializer.PopulateFromJsonObject(obj, type, newJson);
             // A replacement that still holds what could not be loaded never completes the repair, so

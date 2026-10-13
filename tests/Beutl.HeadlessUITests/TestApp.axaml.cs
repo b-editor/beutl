@@ -18,10 +18,6 @@ public sealed class TestApp : Application
     // Mirrors LoadPrimitiveExtensionTask's built-in package slot (LocalPackage.Reserved0, which is internal).
     private const int BuiltInExtensionPackageId = 0;
 
-    // The headless session re-runs RegisterServices per test, but the registries it populates are
-    // process-global singletons; guard the one-time population so re-entry does not double-register.
-    private static bool s_globalServicesInitialized;
-
     private MainViewModel? _mainViewModel;
 
     public override void Initialize()
@@ -42,13 +38,6 @@ public sealed class TestApp : Application
         TutorialService.Current = new TutorialServiceHandler();
         AppHelper.GetContextCommandManager = () => GetMainViewModel().ContextCommandManager;
         ReactivePropertyScheduler.SetDefault(UiThreadScheduler.Instance);
-
-        if (s_globalServicesInitialized)
-        {
-            return;
-        }
-
-        s_globalServicesInitialized = true;
         LibraryRegistrar.RegisterAll();
         NodesRegistrar.RegisterAll();
         foreach (Extension item in LoadPrimitiveExtensionTask.PrimitiveExtensions)

@@ -10,9 +10,6 @@ internal sealed class PlaybackSessionGuard
     private readonly object _sync = new();
     private int _generation;
 
-    // Claim a fresh session and return the token that identifies the claiming task.
-    public int Claim() => Claim(static () => { });
-
     // Claim and initialize the shared session state atomically with respect to a prior owner's
     // final guarded write. This prevents a late failure from clearing the new owner's state.
     public int Claim(Action initialize)
@@ -30,16 +27,12 @@ internal sealed class PlaybackSessionGuard
     public bool Owns(int token) => Volatile.Read(ref _generation) == token;
 
     // Disown the current owner on pause so its late restore
-    // becomes a no-op; the next Claim() starts a new session.
-    public void Disown() => Disown(static () => { });
-
-    public void Disown(Action restore)
+    // becomes a no-op; the next Claim starts a new session.
+    public void Disown()
     {
-        ArgumentNullException.ThrowIfNull(restore);
         lock (_sync)
         {
             Interlocked.Increment(ref _generation);
-            restore();
         }
     }
 

@@ -30,12 +30,7 @@ using FluentAvalonia.Styling;
 
 namespace Beutl.HeadlessUITests;
 
-// Pixel readback of the fully-inflated shell works locally on MoltenVK; the crash noted in
-// ShellViewTests applies to SwiftShader CI only.
-//
-// A frame is evidence about color only. Control metrics -- font size, row heights, slider geometry,
-// border thickness, glyph insets -- come from DesignTokens.axaml and DropDownGlyphBehavior, not the
-// theme dictionaries; ControlMetricsTests is the authority on those.
+// Pixel readback of the fully-inflated shell works headless, on MoltenVK and on SwiftShader.
 [TestFixture]
 [Explicit("Produces PNG captures for manual design review; not a regression test.")]
 public class ThemeCaptureTests
@@ -46,8 +41,7 @@ public class ThemeCaptureTests
 
     // Production seeds FluentAvalonia's accent from the applied theme's descriptor (ThemeService);
     // these captures only flip the variant, so unseeded they would show the headless host's accent.
-    // Built-ins declare no design accent, hence null for the light capture. Beutl.Media.Color is also
-    // in scope here, so the accent is qualified.
+    // Built-ins declare no design accent, hence null for the light capture.
     private static void UseCaptureTheme(ThemeVariant variant, Avalonia.Media.Color? designAccent)
     {
         Application.Current!.RequestedThemeVariant = variant;
