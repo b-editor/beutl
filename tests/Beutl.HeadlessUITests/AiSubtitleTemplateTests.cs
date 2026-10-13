@@ -1049,32 +1049,8 @@ public class AiSubtitleTemplateTests
     private static Extension[] CreateTemplateExtensions(CaptionTemplateRegistrationSet template)
         =>
         [
-            new TestTemplateDescriptorExtension([template.DescriptorRegistration]),
-            new TestElementFactoryExtension([template.ElementFactoryRegistration]),
-            new TestPlacementExtension([template.PlacementPolicyRegistration]),
+            new TestCaptionTemplateDescriptorExtension([template.DescriptorRegistration]),
+            new TestCaptionElementFactoryExtension([template.ElementFactoryRegistration]),
+            new TestCaptionPlacementExtension([template.PlacementPolicyRegistration]),
         ];
-
-    private sealed class TestTemplateDescriptorExtension(
-        IReadOnlyCollection<CaptionTemplateDescriptorRegistration> registrations)
-        : CaptionTemplateDescriptorExtension
-    {
-        public override IReadOnlyCollection<CaptionTemplateDescriptorRegistration> Registrations
-            => registrations;
-    }
-
-    private sealed class TestElementFactoryExtension(
-        IReadOnlyCollection<CaptionElementFactoryRegistration> registrations)
-        : CaptionElementFactoryExtension
-    {
-        public override IReadOnlyCollection<CaptionElementFactoryRegistration> Registrations
-            => registrations;
-    }
-
-    private sealed class TestPlacementExtension(
-        IReadOnlyCollection<CaptionPlacementPolicyRegistration> registrations)
-        : CaptionPlacementPolicyExtension
-    {
-        public override IReadOnlyCollection<CaptionPlacementPolicyRegistration> Registrations
-            => registrations;
-    }
 }

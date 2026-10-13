@@ -5,6 +5,7 @@ using Beutl.Api.Services;
 using Beutl.Language;
 using Beutl.Services.AI;
 using Beutl.Testing.Headless;
+using static Beutl.HeadlessUITests.AiDialogTestFactory;
 
 namespace Beutl.HeadlessUITests;
 

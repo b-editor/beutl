@@ -6,6 +6,7 @@ using Beutl.Api.Services;
 using Beutl.Services.AI;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels.Dialogs;
+using static Beutl.HeadlessUITests.AiDialogTestFactory;
 
 namespace Beutl.HeadlessUITests;
 
@@ -18,8 +19,7 @@ public sealed partial class AiDialogWorkflowTests
     [TestCase(AiSourceVideoMode.Extend, 12.2, true)]
     public async Task Review_SourceVideoImportRetainsTheFullResultDuration(AiSourceVideoMode mode, double expectedSeconds, bool deleteSource)
     {
-        await TestReset.ResetShellAsync();
-        var editor = await OpenEditor("fractional-video-edit");
+        (_, _, var editor) = await TestShell.OpenNewSceneAsync("fractional-video-edit");
         string? uploaded = null;
         using var handler = new StubHandler(async (request, token) =>
         {

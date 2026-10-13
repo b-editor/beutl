@@ -12,6 +12,7 @@ using Beutl.Language;
 using Beutl.Services.AI;
 using Beutl.Testing.Headless;
 using Beutl.Views.Tools;
+using static Beutl.HeadlessUITests.AiDialogTestFactory;
 
 namespace Beutl.HeadlessUITests;
 

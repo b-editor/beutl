@@ -376,30 +376,6 @@ public sealed class AiCaptionExtensionCompositionTests
             ]),
         ];
 
-    private sealed class TestCaptionCodecDescriptorExtension(
-        IReadOnlyCollection<CaptionCodecDescriptorRegistration> registrations)
-        : CaptionCodecDescriptorExtension
-    {
-        public override IReadOnlyCollection<CaptionCodecDescriptorRegistration> Registrations
-            => registrations;
-    }
-
-    private sealed class TestCaptionDecoderExtension(
-        IReadOnlyCollection<CaptionDecoderRegistration> registrations)
-        : CaptionDecoderExtension
-    {
-        public override IReadOnlyCollection<CaptionDecoderRegistration> Registrations
-            => registrations;
-    }
-
-    private sealed class TestCaptionEncoderExtension(
-        IReadOnlyCollection<CaptionEncoderRegistration> registrations)
-        : CaptionEncoderExtension
-    {
-        public override IReadOnlyCollection<CaptionEncoderRegistration> Registrations
-            => registrations;
-    }
-
     private sealed class InvalidCaptionDecoderExtension : CaptionDecoderExtension
     {
         public override IReadOnlyCollection<CaptionDecoderRegistration> Registrations => [null!];
@@ -430,30 +406,6 @@ public sealed class AiCaptionExtensionCompositionTests
                     DefaultCaptionPlacementPolicy.Instance),
             ]),
         ];
-    }
-
-    private sealed class TestCaptionTemplateDescriptorExtension(
-        IReadOnlyCollection<CaptionTemplateDescriptorRegistration> registrations)
-        : CaptionTemplateDescriptorExtension
-    {
-        public override IReadOnlyCollection<CaptionTemplateDescriptorRegistration> Registrations
-            => registrations;
-    }
-
-    private sealed class TestCaptionElementFactoryExtension(
-        IReadOnlyCollection<CaptionElementFactoryRegistration> registrations)
-        : CaptionElementFactoryExtension
-    {
-        public override IReadOnlyCollection<CaptionElementFactoryRegistration> Registrations
-            => registrations;
-    }
-
-    private sealed class TestCaptionPlacementExtension(
-        IReadOnlyCollection<CaptionPlacementPolicyRegistration> registrations)
-        : CaptionPlacementPolicyExtension
-    {
-        public override IReadOnlyCollection<CaptionPlacementPolicyRegistration> Registrations
-            => registrations;
     }
 
     private sealed class TestCaptionCodec : ICaptionDecoder, ICaptionEncoder

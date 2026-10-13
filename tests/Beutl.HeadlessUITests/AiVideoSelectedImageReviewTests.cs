@@ -8,6 +8,7 @@ using Beutl.Graphics;
 using Beutl.Media.Source;
 using Beutl.Services.AI;
 using Beutl.Testing.Headless;
+using static Beutl.HeadlessUITests.AiDialogTestFactory;
 
 namespace Beutl.HeadlessUITests;
 
@@ -20,8 +21,7 @@ public sealed partial class AiDialogWorkflowTests
     [TestCase(AiSourceVideoMode.Motion)]
     public async Task Review_SelectedSceneImageOnlyInitializesVideoGeneration(AiSourceVideoMode? mode)
     {
-        await TestReset.ResetShellAsync();
-        var editor = await OpenEditor("selected-image-video");
+        (_, _, var editor) = await TestShell.OpenNewSceneAsync("selected-image-video");
         string imagePath = Path.Combine(BeutlHomeIsolation.CurrentHome!, "unrelated-selection.png");
         await File.WriteAllBytesAsync(imagePath, s_png);
         var imageSource = new ImageSource();

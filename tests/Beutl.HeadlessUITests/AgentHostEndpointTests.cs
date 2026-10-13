@@ -24,24 +24,9 @@ public sealed class AgentHostEndpointTests
     [AvaloniaTest]
     public async Task Live_session_rejects_mutations_while_the_editor_is_disabled()
     {
-        await TestReset.ResetShellAsync();
         try
         {
-            string location = Path.Combine(
-                Beutl.Testing.Headless.BeutlHomeIsolation.CurrentHome!,
-                "agent-live-disabled-editor");
-            Directory.CreateDirectory(location);
-            Project project = (await TestShell.Project.CreateProject(
-                640,
-                480,
-                30,
-                44100,
-                "live",
-                location))!;
-            Scene scene = project.Items.OfType<Scene>().Single();
-            TestShell.Editor.ActivateTabItem(scene);
-            Beutl.Testing.Headless.HeadlessTestHelpers.Settle();
-            var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+            (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("agent-live-disabled-editor");
             var binding = new EditViewModelLiveBinding(editor);
             LiveEditingSession session = LiveEditingSession.Create(binding);
             int invocations = 0;
@@ -83,24 +68,11 @@ public sealed class AgentHostEndpointTests
     [AvaloniaTest]
     public async Task Add_scene_rejects_a_disabled_live_editor_without_mutating_the_project()
     {
-        await TestReset.ResetShellAsync();
         try
         {
-            string location = Path.Combine(
-                Beutl.Testing.Headless.BeutlHomeIsolation.CurrentHome!,
-                "agent-add-scene-disabled-editor");
-            Directory.CreateDirectory(location);
-            Project project = (await TestShell.Project.CreateProject(
-                640,
-                480,
-                30,
-                44100,
-                "live",
-                location))!;
-            Scene scene = project.Items.OfType<Scene>().Single();
-            TestShell.Editor.ActivateTabItem(scene);
-            Beutl.Testing.Headless.HeadlessTestHelpers.Settle();
-            var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+            (Project project, _, EditViewModel editor) =
+                await TestShell.OpenNewSceneAsync("agent-add-scene-disabled-editor");
+            string location = Path.GetDirectoryName(project.Uri!.LocalPath)!;
             LiveEditingSession session = LiveEditingSession.Create(new EditViewModelLiveBinding(editor));
             var gateway = new EditorProjectSessionGateway(TestShell.Project, TestShell.Editor);
             Dictionary<string, string> filesBefore = SnapshotFiles(location);
@@ -169,24 +141,9 @@ public sealed class AgentHostEndpointTests
     [AvaloniaTest]
     public async Task Live_session_reports_unavailable_as_soon_as_editor_disposal_starts()
     {
-        await TestReset.ResetShellAsync();
         try
         {
-            string location = Path.Combine(
-                Beutl.Testing.Headless.BeutlHomeIsolation.CurrentHome!,
-                "agent-live-disposed-editor-state");
-            Directory.CreateDirectory(location);
-            Project project = (await TestShell.Project.CreateProject(
-                640,
-                480,
-                30,
-                44100,
-                "live",
-                location))!;
-            Scene scene = project.Items.OfType<Scene>().Single();
-            TestShell.Editor.ActivateTabItem(scene);
-            Beutl.Testing.Headless.HeadlessTestHelpers.Settle();
-            var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+            (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("agent-live-disposed-editor-state");
             var binding = new EditViewModelLiveBinding(editor);
             LiveEditingSession session = LiveEditingSession.Create(binding);
 
@@ -212,24 +169,9 @@ public sealed class AgentHostEndpointTests
     [AvaloniaTest]
     public async Task Live_binding_reports_unavailable_when_its_scene_is_cleared()
     {
-        await TestReset.ResetShellAsync();
         try
         {
-            string location = Path.Combine(
-                Beutl.Testing.Headless.BeutlHomeIsolation.CurrentHome!,
-                "agent-live-cleared-scene");
-            Directory.CreateDirectory(location);
-            Project project = (await TestShell.Project.CreateProject(
-                640,
-                480,
-                30,
-                44100,
-                "live",
-                location))!;
-            Scene scene = project.Items.OfType<Scene>().Single();
-            TestShell.Editor.ActivateTabItem(scene);
-            Beutl.Testing.Headless.HeadlessTestHelpers.Settle();
-            var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+            (_, Scene scene, EditViewModel editor) = await TestShell.OpenNewSceneAsync("agent-live-cleared-scene");
             var binding = new EditViewModelLiveBinding(editor);
             FieldInfo sceneField = typeof(EditViewModel).GetField(
                 "<Scene>k__BackingField",
@@ -336,7 +278,7 @@ public sealed class AgentHostEndpointTests
             using HttpResponseMessage rejected = await client.GetAsync(endpoint.EndpointUri);
             Assert.That((int)rejected.StatusCode, Is.EqualTo(401));
 
-            // The query-token form was removed; only the Authorization header authenticates.
+            // A token in the query string does not authenticate.
             using HttpResponseMessage queryRejected = await client.GetAsync(
                 new Uri(endpoint.EndpointUri + "?token=" + endpoint.Token));
             Assert.That((int)queryRejected.StatusCode, Is.EqualTo(401));

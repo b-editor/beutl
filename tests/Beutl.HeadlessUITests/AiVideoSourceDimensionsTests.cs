@@ -4,6 +4,7 @@ using Avalonia.Headless.NUnit;
 using Beutl.Api;
 using Beutl.Api.Services;
 using Beutl.Testing.Headless;
+using static Beutl.HeadlessUITests.AiDialogTestFactory;
 
 namespace Beutl.HeadlessUITests;
 

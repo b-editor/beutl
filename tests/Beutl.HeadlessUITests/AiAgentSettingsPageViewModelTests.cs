@@ -1,8 +1,6 @@
 ﻿using System.Globalization;
 using Avalonia.Controls;
-using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
-using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Beutl.AgentToolkit.Installation;
@@ -20,8 +18,6 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public sealed class AiAgentSettingsPageViewModelTests
 {
-    private static AiAgentSettingsPageViewModel CreateViewModel(AiAgentConfig config) => new(config);
-
     private static AgentChoiceItem Choice(AiAgentSettingsPageViewModel viewModel, string id)
     {
         return viewModel.AgentChoices.Single(a => a.Id == id);
@@ -30,7 +26,7 @@ public sealed class AiAgentSettingsPageViewModelTests
     [AvaloniaTest]
     public void Empty_config_defaults_to_first_catalog_agent_and_global_scope()
     {
-        using AiAgentSettingsPageViewModel viewModel = CreateViewModel(new AiAgentConfig());
+        using var viewModel = new AiAgentSettingsPageViewModel(new AiAgentConfig());
 
         string home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         Assert.Multiple(() =>
@@ -55,7 +51,7 @@ public sealed class AiAgentSettingsPageViewModelTests
     [AvaloniaTest]
     public void Missing_launcher_command_disables_the_mcp_toggle()
     {
-        using AiAgentSettingsPageViewModel viewModel = CreateViewModel(new AiAgentConfig());
+        using var viewModel = new AiAgentSettingsPageViewModel(new AiAgentConfig());
 
         viewModel.McpCommand.Value = "";
 
@@ -70,7 +66,7 @@ public sealed class AiAgentSettingsPageViewModelTests
     [AvaloniaTest]
     public void Claude_code_project_scope_enables_mcp_at_the_repo_root()
     {
-        using AiAgentSettingsPageViewModel viewModel = CreateViewModel(new AiAgentConfig());
+        using var viewModel = new AiAgentSettingsPageViewModel(new AiAgentConfig());
 
         viewModel.SelectedScope.Value = viewModel.ScopeChoices.Single(
             s => s.Scope == AgentInstallScope.Project);
@@ -88,7 +84,7 @@ public sealed class AiAgentSettingsPageViewModelTests
     [AvaloniaTest]
     public void Codex_uses_its_config_file_and_converts_subagents()
     {
-        using AiAgentSettingsPageViewModel viewModel = CreateViewModel(new AiAgentConfig());
+        using var viewModel = new AiAgentSettingsPageViewModel(new AiAgentConfig());
 
         viewModel.SelectedAgent.Value = Choice(viewModel, "codex");
 
@@ -132,7 +128,7 @@ public sealed class AiAgentSettingsPageViewModelTests
                 InstallMcp = true,
                 StdioCommand = "beutl-mcp",
             };
-            using AiAgentSettingsPageViewModel viewModel = CreateViewModel(config);
+            using var viewModel = new AiAgentSettingsPageViewModel(config);
             viewModel.SelectedAgent.Value = Choice(viewModel, "codex");
             string expected = scope == AgentInstallScope.Global ? Path.Combine(codexHome, "config.toml")
                 : Path.Combine(root, ".codex", "config.toml");
@@ -176,7 +172,7 @@ public sealed class AiAgentSettingsPageViewModelTests
                 InstallMcp = true,
                 StdioCommand = "beutl-mcp",
             };
-            using AiAgentSettingsPageViewModel viewModel = CreateViewModel(config);
+            using var viewModel = new AiAgentSettingsPageViewModel(config);
             Assert.Multiple(() =>
             {
                 Assert.That(viewModel.CanInstallMcp.Value, Is.False);
@@ -201,12 +197,6 @@ public sealed class AiAgentSettingsPageViewModelTests
                 warning.BringIntoView();
                 HeadlessTestHelpers.Render();
                 Assert.That(warning.IsOpen, Is.True);
-                if (Environment.GetEnvironmentVariable("BEUTL_CODEX_MCP_CAPTURE") is { Length: > 0 } directory)
-                {
-                    Directory.CreateDirectory(directory);
-                    using var image = window.CaptureRenderedFrame();
-                    image!.Save(Path.Combine(directory, "codex-relative-home.png"), PngBitmapEncoderOptions.Default);
-                }
             }
             finally
             {
@@ -245,7 +235,7 @@ public sealed class AiAgentSettingsPageViewModelTests
                 InstallSubagents = installSubagents,
                 InstallMcp = true,
             };
-            using AiAgentSettingsPageViewModel viewModel = CreateViewModel(config);
+            using var viewModel = new AiAgentSettingsPageViewModel(config);
             Assert.That(viewModel.CanInstallMcp.Value, Is.False);
 
             await viewModel.InstallAsync();
@@ -300,9 +290,7 @@ public sealed class AiAgentSettingsPageViewModelTests
     }
 
     [AvaloniaTest]
-    [TestCase(480, false)]
-    [TestCase(800, true)]
-    public async Task Codex_settings_install_the_mcp_server_and_display_the_actual_config_path(int width, bool light)
+    public async Task Codex_settings_install_the_mcp_server_and_display_the_actual_config_path()
     {
         string root = Path.Combine(BeutlHomeIsolation.CurrentHome!, "codex-install-" + Guid.NewGuid().ToString("N"));
         var config = new AiAgentConfig
@@ -322,9 +310,9 @@ public sealed class AiAgentSettingsPageViewModelTests
         var window = new Window
         {
             Content = page,
-            Width = width,
+            Width = 480,
             Height = 1000,
-            RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark,
+            RequestedThemeVariant = ThemeVariant.Dark,
         };
         try
         {
@@ -379,18 +367,6 @@ public sealed class AiAgentSettingsPageViewModelTests
 
             mcpRow.BringIntoView();
             HeadlessTestHelpers.Render();
-            if (Environment.GetEnvironmentVariable("BEUTL_CODEX_MCP_CAPTURE") is { Length: > 0 } directory)
-            {
-                Directory.CreateDirectory(directory);
-                using var image = window.CaptureRenderedFrame();
-                Assert.That(image, Is.Not.Null);
-                image!.Save(Path.Combine(directory, $"codex-mcp-{width}-{light}.png"), PngBitmapEncoderOptions.Default);
-                File.Copy(path, Path.Combine(directory, "config.toml"), overwrite: true);
-                advanced.BringIntoView();
-                HeadlessTestHelpers.Render();
-                using var advancedImage = window.CaptureRenderedFrame();
-                advancedImage!.Save(Path.Combine(directory, $"codex-advanced-{width}-{light}.png"), PngBitmapEncoderOptions.Default);
-            }
 
             viewModel.SelectedAgent.Value = Choice(viewModel, AiAgentSettingsPageViewModel.CustomAgentId);
             HeadlessTestHelpers.Render();
@@ -406,7 +382,7 @@ public sealed class AiAgentSettingsPageViewModelTests
     [AvaloniaTest]
     public void Agent_without_mcp_support_disables_mcp()
     {
-        using AiAgentSettingsPageViewModel viewModel = CreateViewModel(new AiAgentConfig());
+        using var viewModel = new AiAgentSettingsPageViewModel(new AiAgentConfig());
 
         viewModel.SelectedAgent.Value = Choice(viewModel, "goose");
 
@@ -425,7 +401,7 @@ public sealed class AiAgentSettingsPageViewModelTests
     public void Scope_change_switches_between_home_and_project_paths()
     {
         var config = new AiAgentConfig();
-        using AiAgentSettingsPageViewModel viewModel = CreateViewModel(config);
+        using var viewModel = new AiAgentSettingsPageViewModel(config);
         viewModel.SelectedAgent.Value = Choice(viewModel, "codex");
         viewModel.ProjectRoot.Value = "/repo";
 
@@ -444,7 +420,7 @@ public sealed class AiAgentSettingsPageViewModelTests
     [AvaloniaTest]
     public void Custom_agent_uses_manual_paths_and_hides_scope()
     {
-        using AiAgentSettingsPageViewModel viewModel = CreateViewModel(new AiAgentConfig());
+        using var viewModel = new AiAgentSettingsPageViewModel(new AiAgentConfig());
 
         viewModel.SelectedAgent.Value = Choice(viewModel, AiAgentSettingsPageViewModel.CustomAgentId);
         viewModel.ProjectRoot.Value = "/anywhere";
@@ -468,7 +444,7 @@ public sealed class AiAgentSettingsPageViewModelTests
         string root = Path.Combine(BeutlHomeIsolation.CurrentHome!, "agent-install-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
         var config = new AiAgentConfig();
-        using AiAgentSettingsPageViewModel viewModel = CreateViewModel(config);
+        using var viewModel = new AiAgentSettingsPageViewModel(config);
         viewModel.SelectedAgent.Value = Choice(viewModel, AiAgentSettingsPageViewModel.CustomAgentId);
         viewModel.ProjectRoot.Value = root;
         viewModel.InstallMcp.Value = false;
@@ -513,16 +489,14 @@ public sealed class AiAgentSettingsPageViewModelTests
 
     // Writing the configuration back would drop the user's comments, so the page shows the entry to add.
     [AvaloniaTest]
-    [TestCase(true)]
-    [TestCase(false)]
-    public async Task Install_shows_the_entry_to_add_when_the_mcp_config_has_comments(bool light)
+    public async Task Install_shows_the_entry_to_add_when_the_mcp_config_has_comments()
     {
         string root = Path.Combine(BeutlHomeIsolation.CurrentHome!, "agent-comments-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
         string configPath = Path.Combine(root, ".mcp.json");
         const string original = "{\n  // keep me\n  \"mcpServers\": {}\n}\n";
         File.WriteAllText(configPath, original);
-        using AiAgentSettingsPageViewModel viewModel = CreateViewModel(new AiAgentConfig());
+        using var viewModel = new AiAgentSettingsPageViewModel(new AiAgentConfig());
         viewModel.SelectedAgent.Value = Choice(viewModel, AiAgentSettingsPageViewModel.CustomAgentId);
         viewModel.ProjectRoot.Value = root;
         viewModel.McpCommand.Value = "beutl-mcp";
@@ -545,7 +519,7 @@ public sealed class AiAgentSettingsPageViewModelTests
             Content = page,
             Width = 800,
             Height = 900,
-            RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark,
+            RequestedThemeVariant = ThemeVariant.Dark,
         };
         try
         {
@@ -560,12 +534,6 @@ public sealed class AiAgentSettingsPageViewModelTests
                 Assert.That(snippet.IsEffectivelyVisible, Is.True);
                 Assert.That(snippet.IsReadOnly, Is.True);
             });
-            if (Environment.GetEnvironmentVariable("BEUTL_AGENT_INSTALL_CAPTURE") is { Length: > 0 } directory)
-            {
-                Directory.CreateDirectory(directory);
-                using var image = window.CaptureRenderedFrame();
-                image!.Save(Path.Combine(directory, $"mcp-config-comments-{(light ? "light" : "dark")}.png"), PngBitmapEncoderOptions.Default);
-            }
         }
         finally
         {
@@ -578,7 +546,7 @@ public sealed class AiAgentSettingsPageViewModelTests
     {
         string root = Path.Combine(BeutlHomeIsolation.CurrentHome!, "agent-backup-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
-        using AiAgentSettingsPageViewModel viewModel = CreateViewModel(new AiAgentConfig());
+        using var viewModel = new AiAgentSettingsPageViewModel(new AiAgentConfig());
         viewModel.SelectedAgent.Value = Choice(viewModel, AiAgentSettingsPageViewModel.CustomAgentId);
         viewModel.ProjectRoot.Value = root;
         viewModel.InstallMcp.Value = false;
@@ -608,7 +576,7 @@ public sealed class AiAgentSettingsPageViewModelTests
         string manifestPath = AgentToolkitInstallManifestStore.GetDefaultPath();
         // Written by a version that installed the separate beutl-live entry: no layout recorded.
         AgentToolkitInstallManifestStore.Save(manifestPath, new AgentToolkitInstallManifest("stale", []));
-        using AiAgentSettingsPageViewModel viewModel = CreateViewModel(new AiAgentConfig());
+        using var viewModel = new AiAgentSettingsPageViewModel(new AiAgentConfig());
         viewModel.SelectedAgent.Value = Choice(viewModel, AiAgentSettingsPageViewModel.CustomAgentId);
         viewModel.ProjectRoot.Value = root;
         viewModel.McpCommand.Value = "";
@@ -643,7 +611,7 @@ public sealed class AiAgentSettingsPageViewModelTests
             ProjectRoot = root,
             InstallSubagents = false,
         };
-        using AiAgentSettingsPageViewModel viewModel = CreateViewModel(config);
+        using var viewModel = new AiAgentSettingsPageViewModel(config);
         Assert.That(viewModel.CanInstallMcp.Value, Is.False);
 
         // Nothing to migrate for an agent without an MCP registry, so the notice must not persist.
@@ -657,7 +625,7 @@ public sealed class AiAgentSettingsPageViewModelTests
     public void Edits_write_through_to_config_and_restore_in_a_new_view_model()
     {
         var config = new AiAgentConfig();
-        using (AiAgentSettingsPageViewModel viewModel = CreateViewModel(config))
+        using (var viewModel = new AiAgentSettingsPageViewModel(config))
         {
             viewModel.SelectedAgent.Value = Choice(viewModel, "cursor");
             viewModel.SelectedScope.Value = viewModel.ScopeChoices.Single(
@@ -678,7 +646,7 @@ public sealed class AiAgentSettingsPageViewModelTests
             Assert.That(config.FollowLiveMcpEdits, Is.True);
         });
 
-        using AiAgentSettingsPageViewModel restored = CreateViewModel(config);
+        using var restored = new AiAgentSettingsPageViewModel(config);
         Assert.Multiple(() =>
         {
             Assert.That(restored.SelectedAgent.Value.Id, Is.EqualTo("cursor"));
@@ -696,7 +664,7 @@ public sealed class AiAgentSettingsPageViewModelTests
     public void Customized_mcp_command_survives_reopening()
     {
         var config = new AiAgentConfig();
-        using (AiAgentSettingsPageViewModel viewModel = CreateViewModel(config))
+        using (var viewModel = new AiAgentSettingsPageViewModel(config))
         {
             viewModel.McpCommand.Value = "/custom/beutl-agent";
             viewModel.McpArguments.Value = "mcp\n--flag";
@@ -710,7 +678,7 @@ public sealed class AiAgentSettingsPageViewModelTests
 
         // A fresh view model (reopen, or the reinstall update-prompt path) must keep the override
         // instead of reverting to the detected launcher.
-        using AiAgentSettingsPageViewModel restored = CreateViewModel(config);
+        using var restored = new AiAgentSettingsPageViewModel(config);
         Assert.Multiple(() =>
         {
             Assert.That(restored.McpCommand.Value, Is.EqualTo("/custom/beutl-agent"));

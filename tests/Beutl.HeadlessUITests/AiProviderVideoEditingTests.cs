@@ -15,6 +15,7 @@ using Beutl.Testing.Headless;
 using Beutl.ViewModels.Dialogs;
 using Beutl.ViewModels.Tools;
 using Beutl.Views.Tools;
+using static Beutl.HeadlessUITests.AiDialogTestFactory;
 
 namespace Beutl.HeadlessUITests;
 
@@ -128,8 +129,7 @@ public sealed partial class AiDialogWorkflowTests
     [TestCase(640)]
     public async Task ProviderEditing_OneSectionRestoresModeAndUsesADistinctIcon(int width)
     {
-        await TestReset.ResetShellAsync();
-        var editor = await OpenEditor("provider-video-ui");
+        (_, _, var editor) = await TestShell.OpenNewSceneAsync("provider-video-ui");
         await using var workspace = TestShell.MainViewModel.CreateAiWorkspaceViewModel(editor);
         var generation = workspace.Sections.Single(section => section.Id == AiWorkspaceSection.VideoGeneration);
         var editing = workspace.Sections.Single(section => section.Id == AiWorkspaceSection.VideoEditing);
