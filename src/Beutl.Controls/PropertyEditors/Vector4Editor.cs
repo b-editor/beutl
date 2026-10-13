@@ -55,6 +55,7 @@ public class Vector4Editor<TElement> : Vector4Editor
 
     private readonly CompositeDisposable _disposables = [];
     private TextBox? _updatingTextBox;
+    private bool _updatingValueFromWheel;
     private TElement _firstValue = TElement.Zero;
     private TElement _oldFirstValue = TElement.Zero;
     private TElement _secondValue = TElement.Zero;
@@ -283,7 +284,8 @@ public class Vector4Editor<TElement> : Vector4Editor
 
     private void OnInnerTextBoxTextChanged(TextBox sender, string? newValue, string? oldValue)
     {
-        if (_updatingTextBox == null
+        if (!_updatingValueFromWheel
+            && _updatingTextBox == null
             && sender.IsKeyboardFocusWithin
             && NumberEditorHelper.TryParseEdit(newValue, oldValue, out TElement? newValue2, out TElement? oldValue2))
         {
@@ -359,43 +361,61 @@ public class Vector4Editor<TElement> : Vector4Editor
             && TElement.TryParse(textBox.Text, CultureInfo.CurrentCulture, out TElement? value)
             && value is not null)
         {
-            // The text can still be an out-of-range draft; step from the coerced value.
-            value = textBox.Name switch
+            // Notify explicitly; equal draft text may not produce a text-change event.
+            _updatingValueFromWheel = true;
+            try
             {
-                "PART_InnerFirstTextBox" => FirstValue,
-                "PART_InnerSecondTextBox" => SecondValue,
-                "PART_InnerThirdTextBox" => ThirdValue,
-                "PART_InnerFourthTextBox" => FourthValue,
-                _ => value,
-            };
-            value = NumberEditorHelper.StepByWheel(value, e, LargeChange, SmallChange);
-
-            if (IsUniform)
-            {
-                FirstValue = SecondValue = ThirdValue = FourthValue = value;
-            }
-            else
-            {
-                switch (textBox.Name)
+                var oldValue = (FirstValue, SecondValue, ThirdValue, FourthValue);
+                // The text can still be an out-of-range draft; step from the coerced value.
+                value = textBox.Name switch
                 {
-                    case "PART_InnerFirstTextBox":
-                        FirstValue = value;
-                        break;
-                    case "PART_InnerSecondTextBox":
-                        SecondValue = value;
-                        break;
-                    case "PART_InnerThirdTextBox":
-                        ThirdValue = value;
-                        break;
-                    case "PART_InnerFourthTextBox":
-                        FourthValue = value;
-                        break;
-                    default:
-                        break;
+                    "PART_InnerFirstTextBox" => FirstValue,
+                    "PART_InnerSecondTextBox" => SecondValue,
+                    "PART_InnerThirdTextBox" => ThirdValue,
+                    "PART_InnerFourthTextBox" => FourthValue,
+                    _ => value,
+                };
+                value = NumberEditorHelper.StepByWheel(value, e, LargeChange, SmallChange);
+
+                if (IsUniform)
+                {
+                    FirstValue = SecondValue = ThirdValue = FourthValue = value;
                 }
+                else
+                {
+                    switch (textBox.Name)
+                    {
+                        case "PART_InnerFirstTextBox":
+                            FirstValue = value;
+                            break;
+                        case "PART_InnerSecondTextBox":
+                            SecondValue = value;
+                            break;
+                        case "PART_InnerThirdTextBox":
+                            ThirdValue = value;
+                            break;
+                        case "PART_InnerFourthTextBox":
+                            FourthValue = value;
+                            break;
+                        default:
+                            break;
+                    }
+                }
+
+                var newValue = (FirstValue, SecondValue, ThirdValue, FourthValue);
+                if (newValue != oldValue)
+                {
+                    RaiseEvent(new PropertyEditorValueChangedEventArgs<(TElement, TElement, TElement, TElement)>(
+                        newValue, oldValue, ValueChangedEvent));
+                }
+
+                UpdateText();
+            }
+            finally
+            {
+                _updatingValueFromWheel = false;
             }
 
-            UpdateText();
             e.Handled = true;
         }
     }

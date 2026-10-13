@@ -29,6 +29,7 @@ public class RelativePointEditor : Vector2Editor
 
     private readonly CompositeDisposable _disposables = [];
     private TextBox? _updatingTextBox;
+    private bool _updatingValueFromWheel;
     private float _firstValue;
     private float _oldFirstValue;
     private float _secondValue;
@@ -132,7 +133,8 @@ public class RelativePointEditor : Vector2Editor
 
     private void OnInnerTextBoxTextChanged(TextBox sender, string? newValue, string? oldValue)
     {
-        if (_updatingTextBox == null
+        if (!_updatingValueFromWheel
+            && _updatingTextBox == null
             && sender.IsKeyboardFocusWithin
             && RelativeUnitParser.TryParseEdit(
                 newValue, oldValue,
@@ -198,35 +200,53 @@ public class RelativePointEditor : Vector2Editor
             && textBox.IsKeyboardFocusWithin
             && TryParse(textBox.Text, out float value, out _))
         {
-            // The text can still be an out-of-range draft; step from the coerced value.
-            value = textBox.Name switch
+            // Notify explicitly; equal draft text may not produce a text-change event.
+            _updatingValueFromWheel = true;
+            try
             {
-                "PART_InnerFirstTextBox" => FirstValue,
-                "PART_InnerSecondTextBox" => SecondValue,
-                _ => value,
-            };
-            value = RelativeUnitParser.StepByWheel(value, Unit, e);
-
-            if (IsUniform)
-            {
-                FirstValue = SecondValue = value;
-            }
-            else
-            {
-                switch (textBox.Name)
+                var oldValue = new Graphics.RelativePoint(FirstValue, SecondValue, Unit);
+                // The text can still be an out-of-range draft; step from the coerced value.
+                value = textBox.Name switch
                 {
-                    case "PART_InnerFirstTextBox":
-                        FirstValue = value;
-                        break;
-                    case "PART_InnerSecondTextBox":
-                        SecondValue = value;
-                        break;
-                    default:
-                        break;
+                    "PART_InnerFirstTextBox" => FirstValue,
+                    "PART_InnerSecondTextBox" => SecondValue,
+                    _ => value,
+                };
+                value = RelativeUnitParser.StepByWheel(value, Unit, e);
+
+                if (IsUniform)
+                {
+                    FirstValue = SecondValue = value;
                 }
+                else
+                {
+                    switch (textBox.Name)
+                    {
+                        case "PART_InnerFirstTextBox":
+                            FirstValue = value;
+                            break;
+                        case "PART_InnerSecondTextBox":
+                            SecondValue = value;
+                            break;
+                        default:
+                            break;
+                    }
+                }
+
+                var newValue = new Graphics.RelativePoint(FirstValue, SecondValue, Unit);
+                if (newValue != oldValue)
+                {
+                    RaiseEvent(new PropertyEditorValueChangedEventArgs<Graphics.RelativePoint>(
+                        newValue, oldValue, ValueChangedEvent));
+                }
+
+                UpdateText();
+            }
+            finally
+            {
+                _updatingValueFromWheel = false;
             }
 
-            UpdateText();
             e.Handled = true;
         }
     }

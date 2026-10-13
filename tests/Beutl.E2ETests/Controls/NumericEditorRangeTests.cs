@@ -181,6 +181,43 @@ public class NumericEditorRangeTests
     }
 
     [AvaloniaTest]
+    [TestCaseSource(nameof(s_editors))]
+    public void Wheel_notifies_once_even_when_the_result_matches_the_draft(EditorCase editorCase)
+    {
+        using var editor = new BoundedEditor(editorCase);
+        var changes = new List<object?>();
+        editor.Host.Editor.ValueChanged += (_, e) => changes.Add(e.NewValue);
+        foreach ((string input, int delta, float proposed, float bounded) in new[]
+                 { ("40", -1, 40f, 50f), ("210", 1, 210f, 200f), ("70", 1, 80f, 80f) })
+        {
+            for (int index = 0; index < editor.VisibleComponentCount; index++)
+            {
+                float[] initial = editor.Reset(100);
+                TextBox box = editor.TextBox(index);
+                editor.Host.TypeInto(box, input);
+                Assert.That(box.Text, Is.EqualTo(input));
+                float[] beforeWheel = editor.Values;
+                changes.Clear();
+
+                editor.Host.WheelOver(box, delta);
+
+                float[] expected = editor.WithEditedValue(initial, index, bounded);
+                Assert.That(editor.Values, Is.EqualTo(expected));
+                editor.AssertTextMatchesValues();
+                Assert.That(changes, Is.EqualTo(new[]
+                {
+                    editor.Compose(editor.WithEditedValue(beforeWheel, index, proposed))
+                }));
+                Assert.That(editor.Confirmed, Is.Empty);
+                if (index == 0) editor.Capture($"wheel-from-{input}");
+
+                editor.Host.MoveFocusToSink();
+                Assert.That(editor.Confirmed, Is.EqualTo(new[] { editor.Compose(expected) }));
+            }
+        }
+    }
+
+    [AvaloniaTest]
     [TestCase("Vector2")]
     [TestCase("Vector3")]
     public void Component_header_drag_changes_only_its_component(string kind)
