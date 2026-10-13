@@ -4,7 +4,6 @@ using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Shaders;
 using Beutl.Media;
-using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Cache;
 
@@ -132,7 +131,7 @@ public sealed class ShaderRequestScaleIdentityTests
             TargetDomain = s_bounds,
             CacheOptions = RenderCacheOptions.Enabled,
             Purpose = RenderRequestPurpose.Frame,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
 
     private static ulong ReadFirstPixel(Bitmap bitmap)
     {
@@ -173,21 +172,4 @@ public sealed class ShaderRequestScaleIdentityTests
             context.Publish(context.ContributeValues(context.Shader(input, description)));
         }
     }
-
-    private sealed class CpuTargetFactory : IRenderTargetFactory
-    {
-        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
-            => new CpuRenderTarget(allocation.DeviceSize.Width, allocation.DeviceSize.Height);
-    }
-
-    private sealed class CpuRenderTarget(int width, int height)
-        : RenderTarget(
-            SKSurface.Create(new SKImageInfo(
-                width,
-                height,
-                SKColorType.RgbaF16,
-                SKAlphaType.Premul,
-                SKColorSpace.CreateSrgbLinear())),
-            width,
-            height);
 }

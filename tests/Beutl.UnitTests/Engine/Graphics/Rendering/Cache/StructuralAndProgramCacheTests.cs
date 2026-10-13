@@ -31,7 +31,7 @@ public sealed class StructuralAndProgramCacheTests
             OutputScale = 1,
             MaxWorkingScale = 1,
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
         ushort[]? firstPixels = null;
         ushort[]? finalPixels = null;
 
@@ -211,7 +211,7 @@ public sealed class StructuralAndProgramCacheTests
             Intent = RenderIntent.Preview,
             TargetDomain = new Rect(0, 0, 8, 8),
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
 
         using (renderer.Rasterize())
         {
@@ -483,16 +483,12 @@ public sealed class StructuralAndProgramCacheTests
             cachePolicy: RenderCacheOptions.Disabled,
             fusionMode: fusionMode));
 
-    // Every settable member here reaches what Process records, so each one raises HasChanges: a recording is
-    // reused for a node that reports none, and a value that only reaches an execution callback is still part
-    // of the recording that would be reused.
+    // Each setter raises HasChanges because its value reaches the recording.
     private sealed class ParameterShaderNode : RenderNode
     {
         private Rect _bounds = new(2, 3, 12, 8);
         private float _value = 0.25f;
         private int _structuralVariant;
-        private bool _useCustomBinder;
-        private object _binderStructuralKey = "binder-v1";
 
         public Rect Bounds
         {
@@ -511,20 +507,6 @@ public sealed class StructuralAndProgramCacheTests
             get => _structuralVariant;
             set => SetRecordedField(ref _structuralVariant, value);
         }
-
-        public bool UseCustomBinder
-        {
-            get => _useCustomBinder;
-            set => SetRecordedField(ref _useCustomBinder, value);
-        }
-
-        public object BinderStructuralKey
-        {
-            get => _binderStructuralKey;
-            set => SetRecordedField(ref _binderStructuralKey, value);
-        }
-
-        public ShaderDescription? LastDescription { get; private set; }
 
         private void SetRecordedField<T>(ref T field, T value)
         {
@@ -546,26 +528,11 @@ public sealed class StructuralAndProgramCacheTests
                 RenderScaleContract.MaterializeAtWorkingScale);
             RenderFragmentHandle input = context.OpaqueSource(source);
             string shaderSource = StructuralVariant == 0 ? FirstSource : SecondSource;
-            LastDescription = ShaderDescription.CurrentPixel(
+            ShaderDescription description = ShaderDescription.CurrentPixel(
                 shaderSource,
-                bindings =>
-                {
-                    if (UseCustomBinder)
-                    {
-                    }
-                    else
-                    {
-                        bindings.Uniform("gain", Value);
-                    }
-                });
-            context.Publish(context.Shader(input, LastDescription));
+                bindings => bindings.Uniform("gain", Value));
+            context.Publish(context.Shader(input, description));
         }
-
-        private static void BindFloat(
-            ShaderUniformWriter writer,
-            float value,
-            ShaderExecutionContext context)
-            => writer.Set(value);
     }
 
     private sealed class EmptyNode : RenderNode
@@ -647,8 +614,8 @@ public sealed class StructuralAndProgramCacheTests
 
         public override void Process(RenderNodeContext context)
         {
-            RenderFragmentHandle first = context.OpaqueSource(CreateSource("first"));
-            RenderFragmentHandle second = context.OpaqueSource(CreateSource("second"));
+            RenderFragmentHandle first = context.OpaqueSource(CreateSource());
+            RenderFragmentHandle second = context.OpaqueSource(CreateSource());
             int selectedInput = ReadFirstInput ? 0 : 1;
             RenderFragmentHandle command = context.TargetCommand(
                 [first, second],
@@ -664,7 +631,7 @@ public sealed class StructuralAndProgramCacheTests
             context.PublishRange([first, second, command]);
         }
 
-        private static OpaqueRenderDescription CreateSource(string key)
+        private static OpaqueRenderDescription CreateSource()
             => OpaqueRenderDescription.CreateRequestLocal(
                 session =>
                 {
@@ -712,21 +679,4 @@ public sealed class StructuralAndProgramCacheTests
             context.Publish(context.Shader(input, shader));
         }
     }
-
-    private sealed class CpuTargetFactory : IRenderTargetFactory
-    {
-        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
-            => new CpuRenderTarget(allocation.DeviceSize.Width, allocation.DeviceSize.Height);
-    }
-
-    private sealed class CpuRenderTarget(int width, int height)
-        : RenderTarget(
-            SKSurface.Create(new SKImageInfo(
-                width,
-                height,
-                SKColorType.RgbaF16,
-                SKAlphaType.Premul,
-                SKColorSpace.CreateSrgbLinear())),
-            width,
-            height);
 }

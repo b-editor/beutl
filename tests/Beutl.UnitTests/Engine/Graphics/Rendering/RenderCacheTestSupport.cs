@@ -1,7 +1,11 @@
-﻿using Beutl.Graphics;
+﻿using Beutl.Composition;
+using Beutl.Graphics;
+using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Rendering.Requests;
+using Beutl.Graphics.Shapes;
+using Beutl.Graphics.Transformation;
 using Beutl.Media;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
@@ -80,5 +84,37 @@ internal static class RenderCacheTestSupport
         node.ClearChanges(node.ChangeVersion);
         foreach (RenderNode child in node.ChildNodes.ToArray())
             child.SettleConstruction();
+    }
+
+    /// <summary>A 240x160 background, a brightened ellipse and a text label, composed by the cache tests.</summary>
+    public static Drawable.Resource[] CreateRepresentativeScene()
+    {
+        var background = new RectShape
+        {
+            Width = { CurrentValue = 240 },
+            Height = { CurrentValue = 160 },
+            Fill = { CurrentValue = Brushes.CornflowerBlue },
+        };
+
+        var accent = new EllipseShape
+        {
+            Width = { CurrentValue = 76 },
+            Height = { CurrentValue = 76 },
+            Fill = { CurrentValue = Brushes.OrangeRed },
+            FilterEffect = { CurrentValue = new Brightness { Amount = { CurrentValue = 78 } } },
+            Transform = { CurrentValue = new TranslateTransform(44, -18) },
+        };
+
+        var label = new TextBlock
+        {
+            FontFamily = { CurrentValue = FontFamily.Default },
+            Size = { CurrentValue = 28 },
+            Fill = { CurrentValue = Brushes.White },
+            Text = { CurrentValue = "CACHE" },
+            Transform = { CurrentValue = new TranslateTransform(-28, 30) },
+        };
+
+        CompositionContext context = CompositionContext.Default;
+        return [background.ToResource(context), accent.ToResource(context), label.ToResource(context)];
     }
 }

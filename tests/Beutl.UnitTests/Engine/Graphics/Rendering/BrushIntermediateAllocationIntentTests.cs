@@ -4,7 +4,6 @@ using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
 using Beutl.Media.Source;
-using Beutl.Serialization;
 using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
@@ -202,12 +201,8 @@ public sealed class BrushIntermediateAllocationIntentTests
 
     private static ImageBrush.Resource CreateImageBrush()
     {
-        using var bitmap = new Bitmap(4, 4);
-        using var stream = new MemoryStream();
-        bitmap.Save(stream, EncodedImageFormat.Png);
-
         var source = new ImageSource();
-        source.ReadFrom(UriHelper.CreateBase64DataUri("image/png", stream.ToArray()));
+        source.ReadFrom(TestMediaHelper.CreateTestImageUri(4, 4));
         var brush = new ImageBrush(source);
         brush.Stretch.CurrentValue = Stretch.Fill;
         brush.TileMode.CurrentValue = TileMode.None;

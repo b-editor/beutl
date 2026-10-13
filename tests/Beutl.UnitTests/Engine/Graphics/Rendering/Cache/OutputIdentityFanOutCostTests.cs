@@ -11,9 +11,8 @@ public sealed class OutputIdentityFanOutCostTests
 {
     private static readonly Rect s_bounds = new(0, 0, 8, 8);
 
-    // Twenty-six doublings are about 67 million paths and 27 edges. Walking the paths took 20 seconds on the
-    // machine this was written on and walking the edges took none of it, so the bound below separates the two
-    // by enough that a slower machine still lands on the right side.
+    // 26 doublings give about 67 million paths over 27 edges; the 5 s bound separates path-cost hashing (about
+    // 20 s) from edge-cost hashing.
     private const int Doublings = 26;
 
     [Test]

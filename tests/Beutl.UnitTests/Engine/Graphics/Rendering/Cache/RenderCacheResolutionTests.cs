@@ -1,12 +1,10 @@
 ﻿using System.Collections.Immutable;
 using Beutl.Graphics;
-using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Rendering.Requests;
 using Beutl.Graphics.Shaders;
 using Beutl.Media;
-using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Cache;
 
@@ -187,13 +185,13 @@ public sealed class RenderCacheResolutionTests
             Assert.That(
                 rasterization.Bitmap!.GetPixelSpan<ushort>().SequenceEqual(firstPixels),
                 Is.True,
-                $"warm frame {frame} must match the cold prefix output (SC-012)");
+                $"warm frame {frame} must match the cold prefix output");
         }
 
         Assert.Multiple(() =>
         {
             Assert.That(node.ExecuteCount, Is.EqualTo(1),
-                "the static prefix must not re-execute across 100 animated frames (SC-012)");
+                "the static prefix must not re-execute across 100 animated frames");
             Assert.That(node.Cache.IsCached, Is.True);
         });
     }
@@ -393,8 +391,8 @@ public sealed class RenderCacheResolutionTests
         RenderCacheResolution cold = Resolve(scenario);
         var lookup = new RecordingLookup();
         RenderCacheDecision coldChildDecision = GetDecision(cold, scenario.Candidate(child));
-        if (coldChildDecision.Kind == RenderCacheResolutionKind.MissCapture)
-            lookup.Add(coldChildDecision);
+        Assert.That(coldChildDecision.Kind, Is.EqualTo(RenderCacheResolutionKind.MissCapture));
+        lookup.Add(coldChildDecision);
 
         RenderCacheResolution warmed = Resolve(scenario, lookup);
         RenderCacheDecision boundaryDecision = GetDecision(warmed, scenario.Candidate(boundary));
@@ -403,8 +401,7 @@ public sealed class RenderCacheResolutionTests
         Assert.Multiple(() =>
         {
             Assert.That(boundaryDecision.Kind, Is.EqualTo(RenderCacheResolutionKind.Bypass));
-            if (coldChildDecision.Kind == RenderCacheResolutionKind.MissCapture)
-                Assert.That(childDecision.Kind, Is.EqualTo(RenderCacheResolutionKind.Hit));
+            Assert.That(childDecision.Kind, Is.EqualTo(RenderCacheResolutionKind.Hit));
         });
     }
 
@@ -1237,32 +1234,13 @@ public sealed class RenderCacheResolutionTests
             Throws.InvalidOperationException);
     }
 
-    private static Scenario PrefixAndTail(int frame)
+    private static Scenario ShaderCandidate(ShaderDescription description)
     {
-        RenderFragmentReference prefix = Pure(payload: new RuntimeValue(100));
-        RenderFragmentReference tail = Pure([prefix], payload: new RuntimeValue(frame));
-        return Build(
-            [prefix, tail],
-            [tail],
-            [(prefix, "prefix"), (tail, "tail")],
-            names: new Dictionary<string, RenderFragmentReference>
-            {
-                ["prefix"] = prefix,
-                ["tail"] = tail,
-            });
-    }
-
-    private static Scenario ShaderCandidate(
-        ShaderDescription description,
-        float outputScale = 1,
-        float maxWorkingScale = float.PositiveInfinity,
-        EffectiveScale? scale = null)
-    {
-        RenderFragmentReference source = Pure(scale: scale);
+        RenderFragmentReference source = Pure();
         var shader = new RenderFragmentReference(
             RenderFragmentKind.Shader,
             s_bounds,
-            scale ?? EffectiveScale.Unbounded,
+            EffectiveScale.Unbounded,
             RenderValueCardinality.Single,
             contributesValuesToTarget: true,
             canBeUsedAsValueInput: true,
@@ -1274,9 +1252,7 @@ public sealed class RenderCacheResolutionTests
         return Build(
             [source, shader],
             [shader],
-            [(shader, "shader")],
-            outputScale: outputScale,
-            maxWorkingScale: maxWorkingScale);
+            [(shader, "shader")]);
     }
 
     private static Scenario ShaderFanOut(
@@ -1310,42 +1286,6 @@ public sealed class RenderCacheResolutionTests
             {
                 ["candidate"] = candidate,
                 ["shared"] = shared,
-            });
-    }
-
-    private static Scenario TransparentShaderFanOut(
-        ShaderDescription reusableDescription,
-        bool widenSiblingRequirement)
-    {
-        RenderFragmentReference source = Pure();
-        RenderFragmentReference producer = Shader(
-            source,
-            ShaderDescription.CurrentPixel("half4 apply(half4 color) { return color; }"));
-        RenderFragmentReference wrapper = Pure([producer]);
-        RenderFragmentReference candidate = Shader(wrapper, reusableDescription);
-        RenderBoundsContract siblingBounds = widenSiblingRequirement
-            ? RenderBoundsContract.Create(
-                static input => input,
-                static requested => requested.Inflate(new Thickness(8)))
-            : RenderBoundsContract.Create(
-                static input => input,
-                static requested => requested);
-        RenderFragmentReference sibling = Shader(
-            producer,
-            ShaderDescription.WholeSource(
-                "uniform shader src; half4 main(float2 coord) { return src.eval(coord); }",
-                siblingBounds));
-
-        return Build(
-            [source, producer, wrapper, candidate, sibling],
-            [candidate, sibling],
-            [(candidate, "transparent-fanout-candidate")],
-            requestedRegion: new Rect(16, 16, 16, 16),
-            names: new Dictionary<string, RenderFragmentReference>
-            {
-                ["candidate"] = candidate,
-                ["producer"] = producer,
-                ["wrapper"] = wrapper,
             });
     }
 
@@ -1402,27 +1342,6 @@ public sealed class RenderCacheResolutionTests
             [input],
             new ShaderRenderFragmentPayload(description),
             RenderFragmentHitTest.Bounds);
-
-    private static Scenario GeometryCandidate(GeometryDescription description)
-    {
-        RenderFragmentReference source = Pure();
-        var geometry = new RenderFragmentReference(
-            RenderFragmentKind.Geometry,
-            s_bounds,
-            EffectiveScale.Unbounded,
-            RenderValueCardinality.Single,
-            contributesValuesToTarget: true,
-            canBeUsedAsValueInput: true,
-            hasTargetEffects: false,
-            hasOpaqueExternalWork: false,
-            [source],
-            new GeometryRenderFragmentPayload(description),
-            RenderFragmentHitTest.Bounds);
-        return Build(
-            [source, geometry],
-            [geometry],
-            [(geometry, "geometry")]);
-    }
 
     private static Scenario OpacityMaskCandidate(float outputScale)
     {
@@ -1548,9 +1467,7 @@ public sealed class RenderCacheResolutionTests
             cachePolicy: RenderCacheOptions.Enabled,
             targetDomain: s_bounds));
 
-    private static RenderNodeRenderer CreateFrameRenderer(
-        RenderNode node,
-        IRenderTargetFactory? targetFactory = null)
+    private static RenderNodeRenderer CreateFrameRenderer(RenderNode node)
         => new(node, new RenderNodeRenderRequest
         {
             Intent = RenderIntent.Preview,
@@ -1559,7 +1476,7 @@ public sealed class RenderCacheResolutionTests
             MaxWorkingScale = 1,
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Enabled,
             Purpose = RenderRequestPurpose.Frame,
-        }, targetFactory);
+        });
 
     private static Scenario SingleCandidate(
         Rect? requestedRegion = null,
@@ -1697,29 +1614,11 @@ public sealed class RenderCacheResolutionTests
             RenderFragmentHitTest.Bounds);
     }
 
-
-    private static ShaderRenderFragmentPayload CreateShaderPayload()
-    {
-        ShaderDescription description = ShaderDescription.CurrentPixel(
-            "half4 apply(half4 color) { return color; }");
-        return new ShaderRenderFragmentPayload(description);
-    }
-
-    private static GeometryRenderFragmentPayload CreateGeometryPayload()
-    {
-        GeometryDescription description = GeometryDescription.CreateRequestLocal(
-            static _ => { },
-            RenderBoundsContract.Identity,
-            RenderHitTestContract.OutputBounds);
-        return new GeometryRenderFragmentPayload(description);
-    }
-
     private static RenderFragmentReference FixedScaleMap(
         RenderFragmentReference input,
         float authoredScale,
         float resolvedScale)
     {
-        var identity = new FixedScaleIdentity(authoredScale);
         OpaqueRenderDescription description = OpaqueRenderDescription.CreateRequestLocal(
             static _ => { },
             OpaqueRenderBoundsContract.Map(RenderBoundsContract.Identity),
@@ -1954,12 +1853,6 @@ public sealed class RenderCacheResolutionTests
         public float Resolve(RenderScaleContext _) => Scale;
     }
 
-    private readonly record struct FixedScaleIdentity(float Scale);
-
-    private static void RenderStableGeometry(GeometrySession session, string state)
-    {
-    }
-
     private sealed record CollidingKey(string Value)
     {
         public override int GetHashCode() => 7;
@@ -1969,13 +1862,10 @@ public sealed class RenderCacheResolutionTests
     {
         public int PrepareCount { get; private set; }
 
-        public int ProcessCount { get; private set; }
-
         public override void PrepareForRequest(RenderNodePreparation preparation) => PrepareCount++;
 
         public override void Process(RenderNodeContext context)
         {
-            ProcessCount++;
             context.Publish(context.OpaqueSource(OpaqueRenderDescription.Create(
                 "prepared",
                 static (_, _) => { },
@@ -1996,7 +1886,6 @@ public sealed class RenderCacheResolutionTests
     {
         private static readonly RenderResourceSlot<ExecutionProbe> s_probeSlot = new();
         private readonly ExecutionProbe _probe = new();
-        private readonly object _probeKey = new();
 
         public int ExecuteCount => _probe.Count;
 
@@ -2056,7 +1945,6 @@ public sealed class RenderCacheResolutionTests
 
         private static readonly RenderResourceSlot<SolidCacheProbe> s_probeSlot = new();
         private readonly SolidCacheProbe _probe = new();
-        private readonly object _probeKey = new();
 
         public int ExecuteCount => _probe.Count;
 
@@ -2079,46 +1967,5 @@ public sealed class RenderCacheResolutionTests
             Count++;
             OnExecute?.Invoke();
         }
-    }
-
-    private sealed class TrackingTargetFactory : IRenderTargetFactory
-    {
-        public List<TrackingRenderTarget> Targets { get; } = [];
-
-        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
-        {
-            PixelSize deviceSize = allocation.DeviceSize;
-            var result = new TrackingRenderTarget(deviceSize);
-            Targets.Add(result);
-            return result;
-        }
-    }
-
-    private sealed class TrackingRenderTarget : RenderTarget
-    {
-        private static readonly SKColorSpace s_colorSpace = SKColorSpace.CreateSrgbLinear();
-
-        public TrackingRenderTarget(PixelSize size)
-            : base(CreateSurface(size), size.Width, size.Height)
-        {
-        }
-
-        public int DisposeCalls { get; private set; }
-
-        protected override void Dispose(bool disposing)
-        {
-            if (!IsDisposed)
-                DisposeCalls++;
-            base.Dispose(disposing);
-        }
-
-        private static SKSurface CreateSurface(PixelSize size)
-            => SKSurface.Create(new SKImageInfo(
-                   size.Width,
-                   size.Height,
-                   SKColorType.RgbaF16,
-                   SKAlphaType.Premul,
-                   s_colorSpace))
-               ?? throw new InvalidOperationException("Could not create a cache-test render target.");
     }
 }

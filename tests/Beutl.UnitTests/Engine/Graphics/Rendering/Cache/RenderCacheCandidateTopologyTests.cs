@@ -201,7 +201,7 @@ public sealed class RenderCacheCandidateTopologyTests
     }
 
     private static GraphCase RepresentativeScene()
-        => RecordDrawables(RenderCacheCandidateTopologyScenes.CreateRepresentativeScene());
+        => RecordDrawables(RenderCacheTestSupport.CreateRepresentativeScene());
 
     private static GraphCase ShapeScene(int shapes)
         => RecordDrawables(RenderCacheCandidateTopologyScenes.CreateShapeScene(shapes, s_frameSize));
@@ -216,7 +216,8 @@ public sealed class RenderCacheCandidateTopologyTests
                 context.DrawDrawable(resource);
         }
 
-        WarmCaches(root, []);
+        WarmCaches(root);
+        root.SettleConstruction();
         var request = new RenderRequest(new RenderRequestOptions(
             RenderIntent.Preview,
             RenderRequestPurpose.Frame,
@@ -227,17 +228,11 @@ public sealed class RenderCacheCandidateTopologyTests
         return new GraphCase(graph, [request, root, .. resources]);
     }
 
-    private static void WarmCaches(RenderNode current, HashSet<RenderNode> seen)
+    private static void WarmCaches(RenderNode node)
     {
-        if (current.IsDisposed || !seen.Add(current))
-            return;
-
-        ReadOnlySpan<RenderNode> children = current.ChildNodes;
-        for (int i = 0; i < children.Length; i++)
-            WarmCaches(children[i], seen);
-
-        current.Cache.RecordStableRequests();
-        current.ClearChanges(current.ChangeVersion);
+        node.Cache.RecordStableRequests();
+        foreach (RenderNode child in node.ChildNodes)
+            WarmCaches(child);
     }
 
     private static GraphCase SharedFragmentIdCandidates()
@@ -339,37 +334,6 @@ public sealed class RenderCacheCandidateTopologyTests
 
 internal static class RenderCacheCandidateTopologyScenes
 {
-    public static Drawable.Resource[] CreateRepresentativeScene()
-    {
-        var background = new RectShape
-        {
-            Width = { CurrentValue = 240 },
-            Height = { CurrentValue = 160 },
-            Fill = { CurrentValue = Brushes.CornflowerBlue },
-        };
-
-        var accent = new EllipseShape
-        {
-            Width = { CurrentValue = 76 },
-            Height = { CurrentValue = 76 },
-            Fill = { CurrentValue = Brushes.OrangeRed },
-            FilterEffect = { CurrentValue = new Brightness { Amount = { CurrentValue = 78 } } },
-            Transform = { CurrentValue = new TranslateTransform(44, -18) },
-        };
-
-        var label = new TextBlock
-        {
-            FontFamily = { CurrentValue = FontFamily.Default },
-            Size = { CurrentValue = 28 },
-            Fill = { CurrentValue = Brushes.White },
-            Text = { CurrentValue = "CACHE" },
-            Transform = { CurrentValue = new TranslateTransform(-28, 30) },
-        };
-
-        CompositionContext context = CompositionContext.Default;
-        return [background.ToResource(context), accent.ToResource(context), label.ToResource(context)];
-    }
-
     public static Drawable.Resource[] CreateShapeScene(int shapes, PixelSize frameSize)
     {
         CompositionContext context = CompositionContext.Default;
