@@ -138,13 +138,18 @@ internal static class AiTestSupport
         => new AiPlanCoordinator(clients.GetResource<IAiEntitlementService>());
 
     // Answers each request through responder. Unless handleAvailability is false, it answers the
-    // availability check itself.
+    // availability check itself. With throwIfCanceled, a request whose token is already canceled throws
+    // before it reaches responder, so it is not counted as an answered request.
     public sealed class StubHandler(
         Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> responder,
-        bool handleAvailability = true) : HttpMessageHandler
+        bool handleAvailability = true,
+        bool throwIfCanceled = false) : HttpMessageHandler
     {
-        public StubHandler(Func<HttpRequestMessage, HttpResponseMessage> responder, bool handleAvailability = true)
-            : this((request, _) => Task.FromResult(responder(request)), handleAvailability)
+        public StubHandler(
+            Func<HttpRequestMessage, HttpResponseMessage> responder,
+            bool handleAvailability = true,
+            bool throwIfCanceled = false)
+            : this((request, _) => Task.FromResult(responder(request)), handleAvailability, throwIfCanceled)
         {
         }
 
@@ -152,7 +157,8 @@ internal static class AiTestSupport
             HttpRequestMessage request,
             CancellationToken cancellationToken)
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            if (throwIfCanceled)
+                cancellationToken.ThrowIfCancellationRequested();
             HttpResponseMessage response = handleAvailability
                 && request.RequestUri?.AbsolutePath
                 == "/api/v3/user/ai-availability"

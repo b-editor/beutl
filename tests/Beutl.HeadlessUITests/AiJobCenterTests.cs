@@ -601,7 +601,7 @@ public sealed class AiJobCenterTests
             "/api/v3/ai/jobs/job-failed" when request.Method == HttpMethod.Delete => DeleteJob(),
             "/api/contents/file-success" => ByteResponse(s_png, "image/png"),
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
-        }, handleAvailability: false));
+        }, handleAvailability: false, throwIfCanceled: true));
         BeutlApiApplication clients = api.Clients;
         using var viewModel = CreateJobCenter(editor, clients);
 
@@ -653,7 +653,7 @@ public sealed class AiJobCenterTests
             "/api/v3/ai/jobs/job-failed" when request.Method == HttpMethod.Delete => MissingDelete(),
             "/api/contents/file-success" => ByteResponse(s_png, "image/png"),
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
-        }, handleAvailability: false));
+        }, handleAvailability: false, throwIfCanceled: true));
         BeutlApiApplication clients = api.Clients;
         using var viewModel = CreateJobCenter(editor, clients);
         await HeadlessTestHelpers.WaitUntilAsync(() => viewModel.Jobs.Count == 2);
@@ -703,7 +703,7 @@ public sealed class AiJobCenterTests
                 }
                 """),
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
-        }, handleAvailability: false));
+        }, handleAvailability: false, throwIfCanceled: true));
         BeutlApiApplication clients = api.Clients;
         using var viewModel = CreateJobCenter(editor, clients);
         using var item = CreateItem(CreateJob(
@@ -736,7 +736,7 @@ public sealed class AiJobCenterTests
             "/api/v3/ai/jobs" => JsonResponse(HttpStatusCode.OK, """{ "jobs": [], "nextCursor": null }"""),
             "/api/v3/ai/images" => RetryImage(),
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
-        }, handleAvailability: false));
+        }, handleAvailability: false, throwIfCanceled: true));
         BeutlApiApplication clients = api.Clients;
         using var viewModel = CreateJobCenter(editor, clients);
         using var item = CreateItem(CreateJob(
@@ -809,7 +809,7 @@ public sealed class AiJobCenterTests
                 default:
                     return JsonResponse(HttpStatusCode.NotFound, "{}");
             }
-        }, handleAvailability: false));
+        }, handleAvailability: false, throwIfCanceled: true));
         BeutlApiApplication clients = api.Clients;
         using var viewModel = CreateJobCenter(editor, clients);
         using var item = CreateItem(CreateJob(
@@ -847,7 +847,7 @@ public sealed class AiJobCenterTests
                 HttpStatusCode.OK,
                 """{ "jobs": [], "nextCursor": null }"""),
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
-        }, handleAvailability: false));
+        }, handleAvailability: false, throwIfCanceled: true));
         BeutlApiApplication clients = api.Clients;
 
         IAiJobKindRegistry jobKinds = clients.GetResource<IAiJobKindRegistry>();
@@ -927,7 +927,7 @@ public sealed class AiJobCenterTests
         {
             "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.OK, EntitlementsJson()),
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
-        }, handleAvailability: false));
+        }, handleAvailability: false, throwIfCanceled: true));
         BeutlApiApplication clients = api.Clients;
 
         IAiJobKindRegistry jobKinds = clients.GetResource<IAiJobKindRegistry>();
@@ -989,7 +989,7 @@ public sealed class AiJobCenterTests
             "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.OK, EntitlementsJson()),
             "/api/v3/ai/jobs" => JsonResponse(HttpStatusCode.OK, "{\"jobs\":[],\"nextCursor\":null}"),
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
-        }, handleAvailability: false));
+        }, handleAvailability: false, throwIfCanceled: true));
         BeutlApiApplication clients = api.Clients;
         var resultCapabilities = new IndependentResultCapabilities();
         await using IAiJobPresentationRegistration presentationRegistration = _resultHandlers.Register(
@@ -1026,7 +1026,7 @@ public sealed class AiJobCenterTests
                 HttpStatusCode.OK,
                 """{ "jobs": [], "nextCursor": null }"""),
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
-        }, handleAvailability: false));
+        }, handleAvailability: false, throwIfCanceled: true));
         BeutlApiApplication clients = api.Clients;
         IAiJobKindRegistry registry = clients.GetResource<IAiJobKindRegistry>();
         using var viewModel = CreateJobCenter(editor, clients);
@@ -1105,7 +1105,7 @@ public sealed class AiJobCenterTests
             "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.InternalServerError, "{}"),
             "/api/v3/ai/jobs" => JsonResponse(HttpStatusCode.OK, "{\"jobs\":[],\"nextCursor\":null}"),
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
-        }, handleAvailability: false));
+        }, handleAvailability: false, throwIfCanceled: true));
         BeutlApiApplication clients = api.Clients;
         using var viewModel = CreateJobCenter(editor, clients);
         using var item = new AiJobItemViewModel(
@@ -1135,7 +1135,7 @@ public sealed class AiJobCenterTests
             "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.InternalServerError, "{}"),
             "/api/v3/ai/jobs" => JsonResponse(HttpStatusCode.OK, "{\"jobs\":[],\"nextCursor\":null}"),
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
-        }, handleAvailability: false));
+        }, handleAvailability: false, throwIfCanceled: true));
         BeutlApiApplication clients = api.Clients;
         IAiJobKindRegistry registry = clients.GetResource<IAiJobKindRegistry>();
         using var viewModel = CreateJobCenter(editor, clients);
@@ -1172,7 +1172,7 @@ public sealed class AiJobCenterTests
             "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.InternalServerError, "{}"),
             "/api/v3/ai/jobs" => JsonResponse(HttpStatusCode.OK, "{\"jobs\":[],\"nextCursor\":null}"),
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
-        }, handleAvailability: false));
+        }, handleAvailability: false, throwIfCanceled: true));
         BeutlApiApplication clients = api.Clients;
         IAiJobKindRegistry registry = clients.GetResource<IAiJobKindRegistry>();
         using var viewModel = CreateJobCenter(editor, clients);
@@ -1212,7 +1212,7 @@ public sealed class AiJobCenterTests
             "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.InternalServerError, "{}"),
             "/api/v3/ai/jobs" => JsonResponse(HttpStatusCode.OK, "{\"jobs\":[],\"nextCursor\":null}"),
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
-        }, handleAvailability: false));
+        }, handleAvailability: false, throwIfCanceled: true));
         BeutlApiApplication clients = api.Clients;
         IAiJobKindRegistry registry = clients.GetResource<IAiJobKindRegistry>();
         using var viewModel = CreateJobCenter(editor, clients);
@@ -1249,7 +1249,7 @@ public sealed class AiJobCenterTests
             "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.OK, EntitlementsJson()),
             "/api/v3/ai/jobs" => JsonResponse(HttpStatusCode.OK, "{\"jobs\":[],\"nextCursor\":null}"),
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
-        }, handleAvailability: false));
+        }, handleAvailability: false, throwIfCanceled: true));
         BeutlApiApplication clients = api.Clients;
         IAiJobKindRegistry registry = clients.GetResource<IAiJobKindRegistry>();
         using var viewModel = CreateJobCenter(editor, clients);
@@ -1286,7 +1286,7 @@ public sealed class AiJobCenterTests
             "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.InternalServerError, "{}"),
             "/api/v3/ai/jobs" => JsonResponse(HttpStatusCode.OK, "{\"jobs\":[],\"nextCursor\":null}"),
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
-        }, handleAvailability: false));
+        }, handleAvailability: false, throwIfCanceled: true));
         BeutlApiApplication clients = api.Clients;
         IAiJobKindRegistry registry = clients.GetResource<IAiJobKindRegistry>();
         using var viewModel = CreateJobCenter(editor, clients);
@@ -1318,7 +1318,7 @@ public sealed class AiJobCenterTests
             "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.InternalServerError, "{}"),
             "/api/v3/ai/jobs" => JsonResponse(HttpStatusCode.OK, "{\"jobs\":[],\"nextCursor\":null}"),
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
-        }, handleAvailability: false));
+        }, handleAvailability: false, throwIfCanceled: true));
         BeutlApiApplication clients = api.Clients;
         IAiJobKindRegistry registry = clients.GetResource<IAiJobKindRegistry>();
         using var viewModel = CreateJobCenter(editor, clients);
@@ -1515,7 +1515,7 @@ public sealed class AiJobCenterTests
             }
 
             return JsonResponse(HttpStatusCode.NotFound, "{}");
-        }, handleAvailability: false));
+        }, handleAvailability: false, throwIfCanceled: true));
         BeutlApiApplication clients = api.Clients;
         using var viewModel = CreateJobCenter(editor, clients);
         AiJob[] jobs = Enumerable.Range(0, 10)
@@ -1592,7 +1592,7 @@ public sealed class AiJobCenterTests
             }
 
             return JsonResponse(HttpStatusCode.NotFound, "{}");
-        }, handleAvailability: false));
+        }, handleAvailability: false, throwIfCanceled: true));
         BeutlApiApplication clients = api.Clients;
         using var viewModel = CreateJobCenter(editor, clients);
         AiJob[] jobs = Enumerable.Range(0, 5)
@@ -1655,7 +1655,7 @@ public sealed class AiJobCenterTests
             }
 
             return JsonResponse(HttpStatusCode.NotFound, "{}");
-        }, handleAvailability: false));
+        }, handleAvailability: false, throwIfCanceled: true));
         BeutlApiApplication clients = api.Clients;
         using var viewModel = CreateJobCenter(editor, clients);
         await HeadlessTestHelpers.WaitUntilAsync(
@@ -1712,7 +1712,7 @@ public sealed class AiJobCenterTests
             "/api/v3/ai/jobs" => JsonResponse(HttpStatusCode.OK, JobsJson(deleted: false)),
             "/api/contents/file-success" => CountedPng(ref contentRequests),
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
-        }, handleAvailability: false));
+        }, handleAvailability: false, throwIfCanceled: true));
         BeutlApiApplication clients = api.Clients;
         using var viewModel = CreateJobCenter(editor, clients);
 
@@ -1758,7 +1758,7 @@ public sealed class AiJobCenterTests
             "/api/v3/ai/jobs" => JsonResponse(HttpStatusCode.OK, JobsJson(deleted: false)),
             "/api/contents/file-success" => CountedPng(ref contentRequests),
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
-        }, handleAvailability: false));
+        }, handleAvailability: false, throwIfCanceled: true));
         BeutlApiApplication clients = api.Clients;
         using var viewModel = CreateJobCenter(editor, clients);
 
@@ -1786,7 +1786,10 @@ public sealed class AiJobCenterTests
     public async Task ViewModel_DiscardsOutOfOrderSnapshots()
     {
         (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-job-center-snapshot-order");
-        await using var api = new ApiScope(new StubHandler(_ => JsonResponse(HttpStatusCode.OK, "{}"), handleAvailability: false));
+        await using var api = new ApiScope(new StubHandler(
+            _ => JsonResponse(HttpStatusCode.OK, "{}"),
+            handleAvailability: false,
+            throwIfCanceled: true));
         BeutlApiApplication clients = api.Clients;
         using var viewModel = CreateJobCenter(editor, clients);
         AiJob job = CreateJob("video", "succeeded");
@@ -1813,7 +1816,7 @@ public sealed class AiJobCenterTests
                 ? ByteResponse([0, 1, 2], "image/png")
                 : ByteResponse(s_png, "image/png"),
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
-        }, handleAvailability: false));
+        }, handleAvailability: false, throwIfCanceled: true));
         BeutlApiApplication clients = api.Clients;
         using var viewModel = CreateJobCenter(editor, clients);
 
@@ -1847,7 +1850,7 @@ public sealed class AiJobCenterTests
             "/api/v3/ai/jobs" => JsonResponse(HttpStatusCode.OK, JobsJson(deleted: false)),
             "/api/contents/file-success" => ByteResponse(s_png, "image/png"),
             _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
-        }, handleAvailability: false));
+        }, handleAvailability: false, throwIfCanceled: true));
         BeutlApiApplication clients = api.Clients;
         using var viewModel = CreateJobCenter(editor, clients);
 
