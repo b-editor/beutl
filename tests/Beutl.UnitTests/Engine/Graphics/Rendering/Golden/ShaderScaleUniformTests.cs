@@ -1,10 +1,7 @@
-﻿using Beutl.Composition;
-using Beutl.Graphics;
-using Beutl.Graphics.Effects;
-using Beutl.Graphics.Shapes;
-using Beutl.Graphics.Transformation;
+﻿using Beutl.Graphics.Effects;
 using Beutl.Media;
 using Beutl.UnitTests.Engine.Graphics.Backend;
+using static Beutl.UnitTests.Engine.Graphics.Rendering.Golden.GoldenImageHarness;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
@@ -14,22 +11,6 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 public class ShaderScaleUniformTests
 {
     private static readonly PixelSize Frame = new(200, 200);
-
-    private static Drawable.Resource Make(Func<FilterEffect> makeEffect)
-    {
-        var shape = new RectShape();
-        shape.AlignmentX.CurrentValue = AlignmentX.Center;
-        shape.AlignmentY.CurrentValue = AlignmentY.Center;
-        shape.TransformOrigin.CurrentValue = RelativePoint.Center;
-        shape.Width.CurrentValue = 140;
-        shape.Height.CurrentValue = 90;
-        shape.Fill.CurrentValue = Brushes.White;
-        var rotation = new RotationTransform();
-        rotation.Rotation.CurrentValue = 21f;
-        shape.Transform.CurrentValue = rotation;
-        shape.FilterEffect.CurrentValue = makeEffect();
-        return shape.ToResource(CompositionContext.Default);
-    }
 
     // ---- (a) scale-unaware SKSL: a pure UV expression, independent of device density. ----
     private const string SkslUvScript =
@@ -62,8 +43,8 @@ public class ShaderScaleUniformTests
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            using Bitmap a = GoldenImageHarness.RenderAtScale(Make(MakeSkslUvEffect), Frame, 1f);
-            using Bitmap b = GoldenImageHarness.RenderAtScale(Make(MakeSkslUvEffect), Frame, 1f);
+            using Bitmap a = GoldenImageHarness.RenderAtScale(RotatedRect(MakeSkslUvEffect), Frame, 1f);
+            using Bitmap b = GoldenImageHarness.RenderAtScale(RotatedRect(MakeSkslUvEffect), Frame, 1f);
             GoldenImageHarness.AssertByteIdentical(a, b);
         });
     }
@@ -75,8 +56,9 @@ public class ShaderScaleUniformTests
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            using Bitmap shaded = GoldenImageHarness.RenderAtScale(Make(MakeSkslUvEffect), Frame, 1f);
-            using Bitmap plain = GoldenImageHarness.RenderAtScale(Make(() => new FilterEffectGroup()), Frame, 1f);
+            using Bitmap shaded = GoldenImageHarness.RenderAtScale(RotatedRect(MakeSkslUvEffect), Frame, 1f);
+            using Bitmap plain = GoldenImageHarness.RenderAtScale(
+                RotatedRect(() => new FilterEffectGroup()), Frame, 1f);
             double ssim = ImageMetrics.Ssim(shaded, plain);
             TestContext.WriteLine($"[Sksl UV guard] shaded vs plain SSIM={ssim:F4}");
             Assert.That(ssim, Is.LessThan(0.99),
@@ -117,10 +99,10 @@ public class ShaderScaleUniformTests
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            using Bitmap full = GoldenImageHarness.RenderAtScale(Make(MakeSkslDiscEffect), Frame, 1f);
-            using Bitmap half = GoldenImageHarness.RenderAtScale(Make(MakeSkslDiscEffect), Frame, 0.5f);
-            // Upscales the 0.5 render and asserts SSIM >= 0.985 / MAE <= 0.02 against the 1.0 reference: the
-            // iScale-shrunk disc must occupy the same logical region.
+            using Bitmap full = GoldenImageHarness.RenderAtScale(RotatedRect(MakeSkslDiscEffect), Frame, 1f);
+            using Bitmap half = GoldenImageHarness.RenderAtScale(RotatedRect(MakeSkslDiscEffect), Frame, 0.5f);
+            // Upscales the 0.5 render and compares it against the 1.0 reference with the exact-effect golden
+            // thresholds: the iScale-shrunk disc must occupy the same logical region.
             GoldenImageHarness.AssertReducedScaleExact(full, half);
         });
     }
@@ -171,8 +153,9 @@ public class ShaderScaleUniformTests
         {
             Assert.That(new GLSLScriptEffect().ValidateScript(GlslDevicePxBorder).Error, Is.Null, "GLSL border must compile");
 
-            using Bitmap bordered = GoldenImageHarness.RenderAtScale(Make(MakeGlslBorderEffect), Frame, 1f);
-            using Bitmap plain = GoldenImageHarness.RenderAtScale(Make(() => new FilterEffectGroup()), Frame, 1f);
+            using Bitmap bordered = GoldenImageHarness.RenderAtScale(RotatedRect(MakeGlslBorderEffect), Frame, 1f);
+            using Bitmap plain = GoldenImageHarness.RenderAtScale(
+                RotatedRect(() => new FilterEffectGroup()), Frame, 1f);
             double ssim = ImageMetrics.Ssim(bordered, plain);
             TestContext.WriteLine($"[GLSL guard] bordered vs plain SSIM={ssim:F4}");
             Assert.That(ssim, Is.LessThan(0.99),
@@ -186,8 +169,8 @@ public class ShaderScaleUniformTests
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            using Bitmap r1 = GoldenImageHarness.RenderAtScale(Make(MakeGlslBorderEffect), Frame, 1f);
-            using Bitmap hi = GoldenImageHarness.RenderAtScale(Make(MakeGlslBorderEffect), Frame, 2f);
+            using Bitmap r1 = GoldenImageHarness.RenderAtScale(RotatedRect(MakeGlslBorderEffect), Frame, 1f);
+            using Bitmap hi = GoldenImageHarness.RenderAtScale(RotatedRect(MakeGlslBorderEffect), Frame, 2f);
             using Bitmap delivered = GoldenImageHarness.MitchellResampleTo(hi, Frame);
 
             string? nonFinite = ImageMetrics.FirstNonFinite(("1:1", r1), ("2x", hi), ("2x-delivered", delivered));
@@ -246,8 +229,9 @@ public class ShaderScaleUniformTests
         {
             Assert.That(new GLSLScriptEffect().ValidateScript(GlslScaleDisc).Error, Is.Null, "scale-aware GLSL must compile");
 
-            using Bitmap disc = GoldenImageHarness.RenderAtScale(Make(MakeGlslScaleDiscEffect), Frame, 1f);
-            using Bitmap plain = GoldenImageHarness.RenderAtScale(Make(() => new FilterEffectGroup()), Frame, 1f);
+            using Bitmap disc = GoldenImageHarness.RenderAtScale(RotatedRect(MakeGlslScaleDiscEffect), Frame, 1f);
+            using Bitmap plain = GoldenImageHarness.RenderAtScale(
+                RotatedRect(() => new FilterEffectGroup()), Frame, 1f);
             double ssim = ImageMetrics.Ssim(disc, plain);
             TestContext.WriteLine($"[GLSL scale guard] disc vs plain SSIM={ssim:F4}");
             Assert.That(ssim, Is.LessThan(0.99),
@@ -261,8 +245,8 @@ public class ShaderScaleUniformTests
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            using Bitmap full = GoldenImageHarness.RenderAtScale(Make(MakeGlslScaleDiscEffect), Frame, 1f);
-            using Bitmap half = GoldenImageHarness.RenderAtScale(Make(MakeGlslScaleDiscEffect), Frame, 0.5f);
+            using Bitmap full = GoldenImageHarness.RenderAtScale(RotatedRect(MakeGlslScaleDiscEffect), Frame, 1f);
+            using Bitmap half = GoldenImageHarness.RenderAtScale(RotatedRect(MakeGlslScaleDiscEffect), Frame, 0.5f);
             // The `scale`-shrunk disc must occupy the same logical region: upscale the 0.5 render and assert it
             // matches the 1.0 reference within SSIM/MAE.
             GoldenImageHarness.AssertReducedScaleExact(full, half);

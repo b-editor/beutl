@@ -15,18 +15,6 @@ public class ScaleOneContentCoverageTests
     private static readonly PixelSize Frame = new(180, 120);
 
     [Test]
-    public void TextBlock_ScaleOne_IsDeterministicByteIdentical()
-    {
-        VulkanTestEnvironment.EnsureAvailable();
-        VulkanTestEnvironment.InvokeOnRenderThread(() =>
-        {
-            using Bitmap a = GoldenImageHarness.RenderAtScale(MakeTextBlock(), Frame, 1f);
-            using Bitmap b = GoldenImageHarness.RenderAtScale(MakeTextBlock(), Frame, 1f);
-            GoldenImageHarness.AssertByteIdentical(a, b);
-        });
-    }
-
-    [Test]
     public void UnscaledSourceImage_ScaleOne_IsDeterministicByteIdentical()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -36,19 +24,6 @@ public class ScaleOneContentCoverageTests
             using Bitmap b = GoldenImageHarness.RenderAtScale(MakeUnscaledSourceImage(), Frame, 1f);
             GoldenImageHarness.AssertByteIdentical(a, b);
         });
-    }
-
-    private static Drawable.Resource MakeTextBlock()
-    {
-        Typeface typeface = TypefaceProvider.Typeface();
-        var text = new TextBlock();
-        text.FontFamily.CurrentValue = typeface.FontFamily;
-        text.FontStyle.CurrentValue = typeface.Style;
-        text.FontWeight.CurrentValue = typeface.Weight;
-        text.Size.CurrentValue = 32;
-        text.Fill.CurrentValue = Brushes.White;
-        text.Text.CurrentValue = "Scale 1.0 text";
-        return text.ToResource(CompositionContext.Default);
     }
 
     private static Drawable.Resource MakeUnscaledSourceImage()

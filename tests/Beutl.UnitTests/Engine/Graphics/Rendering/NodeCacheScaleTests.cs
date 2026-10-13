@@ -4,7 +4,6 @@ using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Rendering.Requests;
 using Beutl.Media;
-using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
@@ -216,7 +215,7 @@ public class NodeCacheScaleTests
                 true,
                 cacheRules ?? RenderCacheRules.Default),
             Purpose = RenderRequestPurpose.Frame,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
 
     private sealed class ConcreteSourceNode : RenderNode
     {
@@ -311,31 +310,6 @@ public class NodeCacheScaleTests
                 RenderDeviceGridSensitivity.Insensitive,
                 RenderDeviceGridMapping.Preserved);
             context.Publish(context.TargetScope(source, replayDescription));
-        }
-    }
-
-    private sealed class CpuTargetFactory : IRenderTargetFactory
-    {
-        private static readonly SKColorSpace s_colorSpace = SKColorSpace.CreateSrgbLinear();
-
-        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
-            => new CpuRenderTarget(allocation.DeviceSize);
-
-        private sealed class CpuRenderTarget : RenderTarget
-        {
-            public CpuRenderTarget(PixelSize size)
-                : base(
-                    SKSurface.Create(new SKImageInfo(
-                        size.Width,
-                        size.Height,
-                        SKColorType.RgbaF16,
-                        SKAlphaType.Premul,
-                        s_colorSpace))
-                    ?? throw new InvalidOperationException("Could not create a CPU cache-scale test target."),
-                    size.Width,
-                    size.Height)
-            {
-            }
         }
     }
 }

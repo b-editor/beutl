@@ -16,7 +16,6 @@ public sealed class FilterEffectAlphaReadbackTests
     private static readonly PixelSize s_sourceSize = new(72, 56);
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void SnapshotAlpha_ReadsAlpha8AndMatchesEffectItemConversionExactly()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -41,7 +40,6 @@ public sealed class FilterEffectAlphaReadbackTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void SnapshotAlpha_RetainsCompletionWaitForCpuReadback()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -64,7 +62,6 @@ public sealed class FilterEffectAlphaReadbackTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void ClippingAutoClip_DirectAlphaReadbackMatchesEffectItemBoundsExactly()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -84,7 +81,6 @@ public sealed class FilterEffectAlphaReadbackTests
     // FlatShadow and StrokeEffect outline these contours, and PartsSplitEffect splits by the hierarchy, so
     // identical contours from both readbacks give identical effect output.
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void FindContours_DirectAlphaReadbackMatchesEffectItemContoursExactly()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -101,7 +97,6 @@ public sealed class FilterEffectAlphaReadbackTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void FindContoursWithHierarchy_DirectAlphaReadbackMatchesEffectItemContoursExactly()
     {
         VulkanTestEnvironment.EnsureAvailable();

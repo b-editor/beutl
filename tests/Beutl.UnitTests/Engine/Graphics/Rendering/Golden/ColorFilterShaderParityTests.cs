@@ -25,7 +25,6 @@ public sealed class ColorFilterShaderParityTests
     private static readonly Rect s_bounds = new(0, 0, Sweep.Width, Sweep.Height);
 
     [TestCaseSource(nameof(Amounts))]
-    [Category("GpuPassFusionGpu")]
     public void ShaderColorMatrix_MatchesTheSkiaColorFilter(float amount)
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -42,7 +41,6 @@ public sealed class ColorFilterShaderParityTests
     }
 
     [TestCaseSource(nameof(StructuredMatrices))]
-    [Category("GpuPassFusionGpu")]
     public void ShaderColorMatrix_MatchesTheSkiaColorFilterForAsymmetricAndOffsetMatrices(
         string name,
         float[] matrix)
@@ -82,7 +80,6 @@ public sealed class ColorFilterShaderParityTests
     [TestCase(0f)]
     [TestCase(0.35f)]
     [TestCase(2f)]
-    [Category("GpuPassFusionGpu")]
     public void Saturate_MatchesTheSkiaColorFilterWithinOneStorageCode(float amount)
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -101,7 +98,6 @@ public sealed class ColorFilterShaderParityTests
     [TestCase(90f)]
     [TestCase(180f)]
     [TestCase(-45f)]
-    [Category("GpuPassFusionGpu")]
     public void HueRotate_MatchesTheSkiaColorFilterWithinOneStorageCode(float degrees)
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -118,7 +114,6 @@ public sealed class ColorFilterShaderParityTests
     }
 
     [TestCaseSource(nameof(LightingCases))]
-    [Category("GpuPassFusionGpu")]
     public void Lighting_WithNonZeroOffsetsMatchesTheSkiaColorFilterWithinOneStorageCode(
         string name,
         Color multiply,
@@ -177,7 +172,6 @@ public sealed class ColorFilterShaderParityTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void LumaColor_MatchesTheSkiaColorFilterWithinOneStorageCode()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -190,7 +184,6 @@ public sealed class ColorFilterShaderParityTests
     }
 
     [TestCaseSource(nameof(HighContrastCases))]
-    [Category("GpuPassFusionGpu")]
     public void HighContrast_MatchesTheSkiaColorFilterWithinOneStorageCode(
         bool grayscale,
         HighContrastInvertStyle invertStyle,

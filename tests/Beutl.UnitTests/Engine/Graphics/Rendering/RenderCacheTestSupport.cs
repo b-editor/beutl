@@ -16,12 +16,13 @@ internal static class RenderCacheTestSupport
         Rect bounds,
         string name = "test-cache",
         string device = "test-device",
-        string context = "test-context")
+        string context = "test-context",
+        float density = 1)
     {
         var fragment = new RenderFragmentReference(
             RenderFragmentKind.Layer,
             bounds,
-            EffectiveScale.At(1),
+            EffectiveScale.At(density),
             RenderValueCardinality.Single,
             contributesValuesToTarget: true,
             canBeUsedAsValueInput: true,
@@ -35,7 +36,7 @@ internal static class RenderCacheTestSupport
             RenderFragmentOutputIdentity.Create(fragment, new RenderRequestId(1)),
             bounds,
             RequiredRegion.Region(bounds),
-            density: 1,
+            density,
             RenderCacheFormatIdentity.LinearPremultipliedRgba16Float,
             RenderIntent.Preview,
             RenderRequestPurpose.Frame,

@@ -18,7 +18,6 @@ public sealed class DirectBlurFiniteOutputTests
     private static readonly Rect s_sourceBounds = new(190, 120, 120, 90);
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void DirectDestinationReplay_BlurSamplesOnlyTheDeclaredSourceBounds()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -37,7 +36,6 @@ public sealed class DirectBlurFiniteOutputTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void DirectMaterialization_BlurSamplesOnlyTheDeclaredSourceBounds()
     {
         VulkanTestEnvironment.EnsureAvailable();

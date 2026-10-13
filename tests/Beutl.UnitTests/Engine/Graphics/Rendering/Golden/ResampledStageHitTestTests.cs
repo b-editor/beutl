@@ -2,11 +2,11 @@
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
-using Beutl.Graphics.Shaders;
 using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.Serialization;
 using Beutl.UnitTests.Engine.Graphics.Backend;
+using static Beutl.UnitTests.Engine.Graphics.Rendering.Golden.FilteredShapeHarness;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
@@ -28,7 +28,6 @@ public sealed class ResampledStageHitTestTests
     private static readonly Rect s_offsetContent = new(Size, Size, Size, Size);
 
     [TestCaseSource(nameof(ColorShiftCases))]
-    [Category("GpuPassFusionGpu")]
     public void ColorShift_TheHitTestContract_AgreesWithWhatTheStagePainted(
         PixelPoint red,
         PixelPoint green,
@@ -65,7 +64,6 @@ public sealed class ResampledStageHitTestTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void ColorShift_WithoutAnOffset_StillMissesTheClearCorner()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -89,7 +87,6 @@ public sealed class ResampledStageHitTestTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void ColorShift_WithAnOffset_StillMissesWhereNoChannelLanded()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -114,7 +111,6 @@ public sealed class ResampledStageHitTestTests
     }
 
     [TestCaseSource(nameof(MosaicCases))]
-    [Category("GpuPassFusionGpu")]
     public void MosaicEffect_TheHitTestContract_AgreesWithWhatTheStagePainted(
         float tile,
         RelativePoint origin,
@@ -135,7 +131,6 @@ public sealed class ResampledStageHitTestTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void MosaicEffect_StillMissesATileTheStageErased()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -160,7 +155,6 @@ public sealed class ResampledStageHitTestTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void MosaicEffect_AtAFractionalOrigin_LeavesAnUncoveredTileClearAndUnselectable()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -182,7 +176,6 @@ public sealed class ResampledStageHitTestTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void MosaicEffect_ATileCentreOutsideTheInput_ReadsTheEdgeAndHits()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -207,7 +200,6 @@ public sealed class ResampledStageHitTestTests
     }
 
     [TestCaseSource(nameof(DisplacementMapCases))]
-    [Category("GpuPassFusionGpu")]
     public void DisplacementMap_TheHitTestContract_AgreesWithWhatTheStagePainted(
         Func<FilterEffect> effect,
         Point point)
@@ -265,21 +257,23 @@ public sealed class ResampledStageHitTestTests
         Assert.Multiple(() =>
         {
             Assert.That(
-                DeclaredShaderContractOf(Displace(Translated(20, 0))),
+                ShaderContractOf(Displace(Translated(20, 0)), s_shiftContent),
                 Is.Not.Null,
                 "a brush whose shader is a pure function of the point carries the resolved contract");
             Assert.That(
-                DeclaredShaderContractOf(Displace(Translated(20, 0), CreateImageBrush())),
+                ShaderContractOf(Displace(Translated(20, 0), CreateImageBrush()), s_shiftContent),
                 Is.Null,
                 "a tile brush's shader rasterizes an intermediate render target, which a hit test must not "
                 + "allocate, so the query stays forwarded");
         });
     }
 
-    /// <summary>Reads back the hit-test contract an effect declared, or its absence.</summary>
-    private static RenderHitTestContract? DeclaredShaderContractOf(FilterEffect effect)
+    /// <summary>
+    /// Reads back the hit-test contract an effect declared over <paramref name="content"/>, or its absence.
+    /// </summary>
+    private static RenderHitTestContract? ShaderContractOf(FilterEffect effect, Rect content)
     {
-        using var context = new FilterEffectContext(s_shiftContent);
+        using var context = new FilterEffectContext(content);
         effect.ApplyTo(context, (FilterEffect.Resource)effect.ToResource(CompositionContext.Default));
         return context.GetOrderedItems()
             .OfType<FEItem_Shader>()
@@ -359,7 +353,6 @@ public sealed class ResampledStageHitTestTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void MosaicEffect_OutsideItsOwnOutput_ClaimsNothing()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -388,7 +381,6 @@ public sealed class ResampledStageHitTestTests
 
     [TestCase(92f, 50f, TestName = "MosaicEffect_ATileCentreOnTheRightEdge_ReadsTheEdgeAndHits")]
     [TestCase(50f, 92f, TestName = "MosaicEffect_ATileCentreOnTheBottomEdge_ReadsTheEdgeAndHits")]
-    [Category("GpuPassFusionGpu")]
     public void MosaicEffect_ATileCentreOnTheExclusiveEdge_ReadsTheEdgeAndHits(float x, float y)
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -436,7 +428,8 @@ public sealed class ResampledStageHitTestTests
     [Test]
     public void MosaicEffect_ClampsOntoTheLastCoordinateTheInputAnswersFor()
     {
-        RenderHitTestContract contract = ShaderContractOf(Mosaic(20, RelativePoint.Center));
+        RenderHitTestContract contract = ShaderContractOf(Mosaic(20, RelativePoint.Center), s_tileContent)
+            ?? throw new InvalidOperationException("The effect recorded no hit-test contract.");
         var asked = new List<Point>();
         var input = new RenderHitTestInput(
             s_tileContent,
@@ -468,7 +461,8 @@ public sealed class ResampledStageHitTestTests
     [TestCase(0f, 50f, 100f, 0f, TestName = "MosaicEffect_OverAnInputWithNoHeight_Misses")]
     public void MosaicEffect_OverAnInputWithNoArea_Misses(float x, float y, float width, float height)
     {
-        RenderHitTestContract contract = ShaderContractOf(Mosaic(20, RelativePoint.Center));
+        RenderHitTestContract contract = ShaderContractOf(Mosaic(20, RelativePoint.Center), s_tileContent)
+            ?? throw new InvalidOperationException("The effect recorded no hit-test contract.");
         var input = new RenderHitTestInput(new Rect(x, y, width, height), static _ => true);
 
         Assert.That(
@@ -476,19 +470,6 @@ public sealed class ResampledStageHitTestTests
                 s_tileContent, [input], Array.Empty<RenderResourceBinding>(), new Point(50, 50)),
             Is.False,
             "an input covering no area carries nothing for any tile to sample");
-    }
-
-    /// <summary>Reads back the hit-test contract the effect recorded, so it can be asked directly.</summary>
-    private static RenderHitTestContract ShaderContractOf(FilterEffect effect)
-    {
-        using var context = new FilterEffectContext(s_tileContent);
-        effect.ApplyTo(context, (FilterEffect.Resource)effect.ToResource(CompositionContext.Default));
-        ShaderDescription description = context.GetOrderedItems()
-            .OfType<FEItem_Shader>()
-            .Single()
-            .Description;
-        return description.HitTest
-               ?? throw new InvalidOperationException("The effect recorded no hit-test contract.");
     }
 
     [TestCaseSource(nameof(OutsideOutputCases))]
@@ -521,7 +502,6 @@ public sealed class ResampledStageHitTestTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void ColorShift_OverANonWhiteInput_CannotDistinguishAZeroChannelFromANonZeroOne()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -560,7 +540,6 @@ public sealed class ResampledStageHitTestTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void ColorShift_OverANonWhiteInput_StillMissesWhereNoChannelLanded()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -721,82 +700,6 @@ public sealed class ResampledStageHitTestTests
         {
             TileSize = { CurrentValue = new Size(tile, tile) },
             Origin = { CurrentValue = origin },
-        };
-
-    private static bool HitTest(
-        Rect content,
-        FilterEffect effect,
-        Point point,
-        bool fullBleed = false,
-        float outputScale = 1f,
-        Rect? targetDomain = null,
-        Brush.Resource? fill = null)
-    {
-        using RenderNode root = BuildTree(content, effect, fullBleed, fill);
-        using var renderer = new RenderNodeRenderer(root, Options(outputScale, targetDomain));
-        return renderer.HitTest(point);
-    }
-
-    /// <summary>The rectangle the request resolved for the stage - the extent it may answer for.</summary>
-    private static Rect OutputBounds(
-        Rect content,
-        FilterEffect effect,
-        bool fullBleed = false,
-        Rect? targetDomain = null,
-        Brush.Resource? fill = null)
-    {
-        using RenderNode root = BuildTree(content, effect, fullBleed, fill);
-        using var renderer = new RenderNodeRenderer(root, Options(targetDomain: targetDomain));
-        return renderer.Measure().OutputBounds;
-    }
-
-    private static Bitmap Render(
-        Rect content,
-        FilterEffect effect,
-        bool fullBleed = false,
-        int surface = Size,
-        Rect? targetDomain = null,
-        Brush.Resource? fill = null)
-    {
-        using RenderTarget target = RenderTarget.Create(surface, surface)
-            ?? throw new InvalidOperationException("Could not allocate the resampling render target.");
-        using var canvas = new ImmediateCanvas(
-            target, RenderIntent.Preview, 1f, logicalSize: new Size(surface, surface));
-        canvas.Clear(Colors.Transparent);
-
-        using (RenderNode root = BuildTree(content, effect, fullBleed, fill))
-        using (var renderer = new RenderNodeRenderer(root, Options(targetDomain: targetDomain)))
-        {
-            renderer.Render(canvas);
-        }
-
-        return target.Snapshot();
-    }
-
-    private static RenderNode BuildTree(
-        Rect content,
-        FilterEffect effect,
-        bool fullBleed,
-        Brush.Resource? fill = null)
-    {
-        Brush.Resource brush = fill ?? Brushes.Resource.White;
-        RenderNode leaf = fullBleed
-            ? new RectangleRenderNode(content, brush, null)
-            : new EllipseRenderNode(content, brush, null);
-
-        var node = new FilterEffectRenderNode(effect.ToResource(CompositionContext.Default));
-        node.AddChild(leaf);
-        return node;
-    }
-
-    private static RenderNodeRenderRequest Options(float outputScale = 1f, Rect? targetDomain = null)
-        => new()
-        {
-            Intent = RenderIntent.Delivery,
-            TargetDomain = targetDomain ?? new Rect(0, 0, Size, Size),
-            OutputScale = outputScale,
-            MaxWorkingScale = outputScale,
-            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
         };
 
     /// <remarks>

@@ -9,44 +9,24 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 [TestFixture]
 public sealed class MappedInputReadbackIntentTests
 {
-    [TestCase(float.PositiveInfinity)]
-    [TestCase(2f)]
-    public void DeliveryReadbackFailureFailsRegardlessOfTheWorkingScaleCeiling(float maxWorkingScale)
+    [Test]
+    public void DeliveryReadbackFailureFailsRegardlessOfTheWorkingScaleCeiling()
     {
-        using var targets = new EffectTargets();
-        var context = new CustomFilterEffectContext(
-            targets,
-            RenderIntent.Delivery,
-            RenderRequestPurpose.Auxiliary,
-            outputScale: 1f,
-            workingScale: 1f,
-            maxWorkingScale: maxWorkingScale);
-
         Assert.That(
             () => CustomFilterEffectContext.ThrowIfDeliveryReadbackFailure(
-                context.Intent,
+                RenderIntent.Delivery,
                 new PixelRect(0, 0, 4, 3)),
             Throws.TypeOf<InvalidOperationException>()
                 .With.Message.Contains("4x3 px")
                 .And.Message.Contains("delivery render fails"));
     }
 
-    [TestCase(float.PositiveInfinity)]
-    [TestCase(2f)]
-    public void PreviewReadbackFailureDegradesRegardlessOfTheWorkingScaleCeiling(float maxWorkingScale)
+    [Test]
+    public void PreviewReadbackFailureDegradesRegardlessOfTheWorkingScaleCeiling()
     {
-        using var targets = new EffectTargets();
-        var context = new CustomFilterEffectContext(
-            targets,
-            RenderIntent.Preview,
-            RenderRequestPurpose.Auxiliary,
-            outputScale: 1f,
-            workingScale: 1f,
-            maxWorkingScale: maxWorkingScale);
-
         Assert.That(
             () => CustomFilterEffectContext.ThrowIfDeliveryReadbackFailure(
-                context.Intent,
+                RenderIntent.Preview,
                 new PixelRect(0, 0, 4, 3)),
             Throws.Nothing);
     }

@@ -18,7 +18,6 @@ public class AnisotropicHairlineCoverageTests
     private const double InkTolerance = 0.06;
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void AnEffectOverAHairline_KeepsTheInkItHasWithoutTheEffect(
         [Values("blur", "shadow-only", "dilate", "blur over shadow-only")] string scenario,
         [Values(0.25f, 0.333f, 0.5f, 1f, 2f)] float outputScale)
@@ -37,7 +36,6 @@ public class AnisotropicHairlineCoverageTests
     [TestCase(0.25f)]
     [TestCase(0.5f)]
     [TestCase(1f)]
-    [Category("GpuPassFusionGpu")]
     public void AnAnisotropicallyScaledHairline_KeepsItsInkUnderABlur(float outputScale)
     {
         AssertEffectPreservesHairlineInk(Blur(), outputScale, "anisotropic blur", scaleY: 2000f);

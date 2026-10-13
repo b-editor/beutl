@@ -22,7 +22,6 @@ public class ShaderMatrixUniformTests
     private const int TranslationX = 60;
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void SkMatrixUniform_TranslatesSampledCoordinatesByItsTranslationColumn()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -36,7 +35,8 @@ public class ShaderMatrixUniformTests
 
             (int dx, int dy, double error) = BestIntegerShift(unshifted, shifted, 96);
             TestContext.WriteLine(
-                $"identity coverage={CoveredPixelCount(unshifted)} shifted coverage={CoveredPixelCount(shifted)} "
+                $"identity coverage={ImageMetrics.CountCoveredPixels(unshifted)} "
+                + $"shifted coverage={ImageMetrics.CountCoveredPixels(shifted)} "
                 + $"best shift=({dx},{dy}) error={error:F6} error@0={ShiftedMeanAbsoluteError(unshifted, shifted, 0, 0):F6}");
 
             Assert.Multiple(() =>
@@ -47,7 +47,7 @@ public class ShaderMatrixUniformTests
 
                 // Non-vacuity: an empty source would match at every candidate shift.
                 Assert.That(
-                    CoveredPixelCount(unshifted),
+                    ImageMetrics.CountCoveredPixels(unshifted),
                     Is.GreaterThan(Width * Height / 8),
                     "the identity-matrix render must contain substantial opaque coverage.");
 
@@ -62,7 +62,6 @@ public class ShaderMatrixUniformTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void SkMatrixUniform_MatchesAnExplicitColumnMajorFloatSequence()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -159,22 +158,6 @@ public class ShaderMatrixUniformTests
         }
 
         return sum / ((double)Width * Height * 4);
-    }
-
-    private static long CoveredPixelCount(Bitmap bitmap)
-    {
-        long count = 0;
-        for (int y = 0; y < Height; y++)
-        {
-            ReadOnlySpan<ushort> row = bitmap.GetRow<ushort>(y);
-            for (int x = 0; x < Width; x++)
-            {
-                if ((float)BitConverter.UInt16BitsToHalf(row[(x * 4) + 3]) > 0.5f)
-                    count++;
-            }
-        }
-
-        return count;
     }
 
     // Samples the upstream source through a float3x3 uniform. The bounds contract keeps the full frame so a

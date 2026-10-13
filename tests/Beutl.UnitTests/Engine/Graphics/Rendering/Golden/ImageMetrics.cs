@@ -5,16 +5,9 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 internal readonly record struct RgbaMaximumError(double Red, double Green, double Blue, double Alpha)
 {
     public double Maximum => Math.Max(Math.Max(Red, Green), Math.Max(Blue, Alpha));
-
-    public double this[int channel] => channel switch
-    {
-        0 => Red,
-        1 => Green,
-        2 => Blue,
-        3 => Alpha,
-        _ => throw new ArgumentOutOfRangeException(nameof(channel)),
-    };
 }
+
+internal readonly record struct Rgba(float Red, float Green, float Blue, float Alpha);
 
 // Image-quality metrics over linear-premultiplied RgbaF16 bitmaps. Pure CPU math.
 internal static class ImageMetrics
@@ -105,11 +98,8 @@ internal static class ImageMetrics
     /// <paramref name="magnitudeCeiling"/>.
     /// </summary>
     /// <remarks>
-    /// An absolute-error bound cannot express "one step" for a half-float buffer: the step is 2^-24 near
-    /// zero and 2^-11 near one, so a bound tight enough for the top of the range rejects an adjacent code
-    /// at the bottom of it. The ceiling exists for the reverse case: it restricts the comparison to the
-    /// magnitudes where an absolute bound is too coarse to say anything at all. Non-finite codes carry no
-    /// ordering; pair this with <see cref="FirstNonFinite"/>.
+    /// A half-float step ranges from 2^-24 to 2^-11, so compare storage codes rather than absolute error; the
+    /// ceiling limits the comparison to magnitudes where an absolute bound is too coarse.
     /// </remarks>
     public static RgbaMaximumError MaximumStorageCodeDistancePerChannel(
         Bitmap a,
@@ -236,46 +226,7 @@ internal static class ImageMetrics
     public static double Ssim(Bitmap a, Bitmap b)
     {
         EnsureComparable(a, b);
-
-        double meanA = 0;
-        double meanB = 0;
-        for (int y = 0; y < a.Height; y++)
-        {
-            ReadOnlySpan<ushort> rowA = a.GetRow<ushort>(y);
-            ReadOnlySpan<ushort> rowB = b.GetRow<ushort>(y);
-            for (int x = 0; x < a.Width; x++)
-            {
-                meanA += Luma(rowA, x);
-                meanB += Luma(rowB, x);
-            }
-        }
-
-        double pixels = (double)a.Width * a.Height;
-        meanA /= pixels;
-        meanB /= pixels;
-
-        double varianceA = 0;
-        double varianceB = 0;
-        double covariance = 0;
-        for (int y = 0; y < a.Height; y++)
-        {
-            ReadOnlySpan<ushort> rowA = a.GetRow<ushort>(y);
-            ReadOnlySpan<ushort> rowB = b.GetRow<ushort>(y);
-            for (int x = 0; x < a.Width; x++)
-            {
-                double deltaA = Luma(rowA, x) - meanA;
-                double deltaB = Luma(rowB, x) - meanB;
-                varianceA += deltaA * deltaA;
-                varianceB += deltaB * deltaB;
-                covariance += deltaA * deltaB;
-            }
-        }
-
-        varianceA /= pixels;
-        varianceB /= pixels;
-        covariance /= pixels;
-
-        return Ssim(meanA, meanB, varianceA, varianceB, covariance);
+        return WindowSsim(a, b, 0, 0, a.Width, a.Height);
     }
 
     /// <summary>
@@ -301,44 +252,6 @@ internal static class ImageMetrics
         return minimum;
     }
 
-    /// <summary>
-    /// Mean squared gradient (adjacent luminance differences) -- a proxy for aliasing energy. Diagnostic only.
-    /// </summary>
-    public static double AliasingEnergy(Bitmap bitmap)
-    {
-        EnsureSupported(bitmap, nameof(bitmap));
-
-        double sum = 0;
-        long count = 0;
-        for (int y = 0; y < bitmap.Height; y++)
-        {
-            ReadOnlySpan<ushort> row = bitmap.GetRow<ushort>(y);
-            ReadOnlySpan<ushort> nextRow = y + 1 < bitmap.Height
-                ? bitmap.GetRow<ushort>(y + 1)
-                : default;
-
-            for (int x = 0; x < bitmap.Width; x++)
-            {
-                double luminance = Luma(row, x);
-                if (x + 1 < bitmap.Width)
-                {
-                    double difference = luminance - Luma(row, x + 1);
-                    sum += difference * difference;
-                    count++;
-                }
-
-                if (y + 1 < bitmap.Height)
-                {
-                    double difference = luminance - Luma(nextRow, x);
-                    sum += difference * difference;
-                    count++;
-                }
-            }
-        }
-
-        return count == 0 ? 0 : sum / count;
-    }
-
     /// <summary>Returns whether any pixel has a finite alpha above <paramref name="alphaThreshold"/>.</summary>
     public static bool HasFiniteVisibleContent(Bitmap bitmap, float alphaThreshold = 0f)
     {
@@ -352,6 +265,51 @@ internal static class ImageMetrics
 
         return false;
     }
+
+    /// <summary>Reads the RGBA channels of one pixel.</summary>
+    public static Rgba ReadPixel(Bitmap bitmap, int x, int y)
+    {
+        ReadOnlySpan<ushort> row = bitmap.GetRow<ushort>(y);
+        int offset = x * ChannelCount;
+        return new Rgba(
+            HalfBitsToFloat(row[offset]),
+            HalfBitsToFloat(row[offset + 1]),
+            HalfBitsToFloat(row[offset + 2]),
+            HalfBitsToFloat(row[offset + 3]));
+    }
+
+    /// <summary>Reads the alpha of one pixel.</summary>
+    public static float AlphaAt(Bitmap bitmap, int x, int y)
+        => HalfBitsToFloat(bitmap.GetRow<ushort>(y)[(x * ChannelCount) + 3]);
+
+    /// <summary>Reads the red and blue channels of one pixel.</summary>
+    public static (float Red, float Blue) RedBlueAt(Bitmap bitmap, int x, int y)
+    {
+        ReadOnlySpan<ushort> row = bitmap.GetRow<ushort>(y);
+        int offset = x * ChannelCount;
+        return (HalfBitsToFloat(row[offset]), HalfBitsToFloat(row[offset + 2]));
+    }
+
+    /// <summary>Counts the pixels whose alpha is above one half.</summary>
+    public static long CountCoveredPixels(Bitmap bitmap)
+    {
+        long count = 0;
+        for (int y = 0; y < bitmap.Height; y++)
+        {
+            ReadOnlySpan<ushort> row = bitmap.GetRow<ushort>(y);
+            for (int x = 0; x < bitmap.Width; x++)
+            {
+                if (HalfBitsToFloat(row[(x * ChannelCount) + 3]) > 0.5f)
+                    count++;
+            }
+        }
+
+        return count;
+    }
+
+    /// <summary>The share of pixels <see cref="CountCoveredPixels"/> counts.</summary>
+    public static double CoveredPixelRatio(Bitmap bitmap)
+        => CountCoveredPixels(bitmap) / ((double)bitmap.Width * bitmap.Height);
 
     /// <summary>
     /// Returns the first non-finite (NaN/Inf) RGBA component across the given bitmaps, or null if all finite.
@@ -470,7 +428,7 @@ internal static class ImageMetrics
 
     private static float HalfBitsToFloat(ushort bits) => (float)BitConverter.UInt16BitsToHalf(bits);
 
-    private static int StorageCodeDistance(ushort a, ushort b)
+    internal static int StorageCodeDistance(ushort a, ushort b)
         => Math.Abs(OrderedHalfCode(a) - OrderedHalfCode(b));
 
     // Half is sign-magnitude, so its raw codes are not monotonic across zero. Mirroring the negative

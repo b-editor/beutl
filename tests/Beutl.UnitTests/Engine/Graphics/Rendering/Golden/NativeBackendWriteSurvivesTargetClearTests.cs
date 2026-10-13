@@ -1,11 +1,8 @@
 ﻿using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
-using Beutl.Graphics.Rendering;
-using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
-using Beutl.ProjectSystem;
 using Beutl.UnitTests.Engine.Graphics.Backend;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
@@ -48,41 +45,15 @@ public class NativeBackendWriteSurvivesTargetClearTests
             rectangle.Fill.CurrentValue = new SolidColorBrush(Colors.OrangeRed);
             rectangle.FilterEffect.CurrentValue = effect;
 
-            var scene = new Scene(256, 144, "glsl-clear")
-            {
-                Uri = new Uri("file:///glsl-clear/scene"),
-            };
-            var element = new Element
-            {
-                Start = TimeSpan.Zero,
-                Length = TimeSpan.FromSeconds(4),
-                ZIndex = 0,
-                IsEnabled = true,
-                Uri = new Uri("file:///glsl-clear/element"),
-            };
-            element.AddObject(rectangle);
-            scene.Children.Add(element);
-
-            using var renderer = new SceneRenderer(scene, RenderIntent.Preview, outputScale, false, outputScale * 2f)
-            {
-                CacheOptions = RenderCacheOptions.Disabled,
-            };
-            renderer.Render(renderer.Compositor.EvaluateGraphics(TimeSpan.Zero));
-            using Bitmap bitmap = renderer.Snapshot();
-
-            long opaque = 0;
-            for (int y = 0; y < bitmap.Height; y++)
-            {
-                ReadOnlySpan<ushort> row = bitmap.GetRow<ushort>(y)[..(bitmap.Width * 4)];
-                for (int x = 3; x < row.Length; x += 4)
-                {
-                    if ((float)BitConverter.UInt16BitsToHalf(row[x]) > 0.5f)
-                        opaque++;
-                }
-            }
+            using Bitmap bitmap = SceneRenderHarness.RenderSingle(
+                rectangle,
+                new PixelSize(256, 144),
+                outputScale,
+                outputScale * 2f,
+                TimeSpan.Zero);
 
             Assert.That(
-                opaque,
+                ImageMetrics.CountCoveredPixels(bitmap),
                 Is.GreaterThan(0),
                 "the GLSL effect wrote the target through the Vulkan backend, so its output must survive "
                 + "the transparent clear the allocator issues.");

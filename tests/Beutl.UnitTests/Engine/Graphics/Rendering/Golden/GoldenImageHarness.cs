@@ -1,6 +1,10 @@
-﻿using Beutl.Graphics;
+﻿using Beutl.Composition;
+using Beutl.Graphics;
+using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Requests;
+using Beutl.Graphics.Shapes;
+using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.UnitTests.Engine.Graphics.Backend;
 using SkiaSharp;
@@ -23,7 +27,8 @@ internal static class GoldenImageHarness
         Rect? requestedRegion = null,
         Color? clearColor = null,
         FusionMode fusionMode = FusionMode.Enabled,
-        float? maxWorkingScale = null)
+        float? maxWorkingScale = null,
+        RenderRequestPurpose purpose = RenderRequestPurpose.Auxiliary)
     {
         int dw = (int)MathF.Ceiling(logicalSize.Width * scale);
         int dh = (int)MathF.Ceiling(logicalSize.Height * scale);
@@ -48,6 +53,7 @@ internal static class GoldenImageHarness
             OutputScale = scale,
             MaxWorkingScale = maxWorkingScale ?? float.PositiveInfinity,
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+            Purpose = purpose,
             FusionMode = fusionMode,
         });
         renderer.Render(canvas);
@@ -72,14 +78,65 @@ internal static class GoldenImageHarness
         return new Bitmap(dst);
     }
 
-    /// <summary>Asserts two bitmaps are exactly equal byte-for-byte.</summary>
-    public static void AssertByteIdentical(Bitmap expected, Bitmap actual)
+    /// <summary>
+    /// Asserts two bitmaps are exactly equal byte-for-byte, reporting how many channels of
+    /// <paramref name="scenario"/> differ and by how much. <paramref name="requireVisibleContent"/> also rejects
+    /// a match between two invisible renders.
+    /// </summary>
+    public static void AssertByteIdentical(
+        Bitmap expected,
+        Bitmap actual,
+        string scenario = "pixel bytes",
+        bool requireVisibleContent = false)
     {
-        Assert.That(actual.Width, Is.EqualTo(expected.Width), "width");
-        Assert.That(actual.Height, Is.EqualTo(expected.Height), "height");
-        ReadOnlySpan<byte> a = expected.GetPixelSpan();
-        ReadOnlySpan<byte> b = actual.GetPixelSpan();
-        Assert.That(b.SequenceEqual(a), Is.True, "pixel bytes are not identical");
+        ReadOnlySpan<ushort> a = expected.GetPixelSpan<ushort>();
+        ReadOnlySpan<ushort> b = actual.GetPixelSpan<ushort>();
+        int length = Math.Min(a.Length, b.Length);
+        int differing = Math.Abs(a.Length - b.Length);
+        double maximum = 0;
+        for (int index = 0; index < length; index++)
+        {
+            if (a[index] == b[index])
+                continue;
+
+            differing++;
+            double left = (double)BitConverter.UInt16BitsToHalf(a[index]);
+            double right = (double)BitConverter.UInt16BitsToHalf(b[index]);
+            maximum = Math.Max(maximum, Math.Abs(left - right));
+        }
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(actual.Width, Is.EqualTo(expected.Width), $"{scenario}: width");
+            Assert.That(actual.Height, Is.EqualTo(expected.Height), $"{scenario}: height");
+            Assert.That(differing, Is.Zero, $"{scenario}: {differing} channels differ, maximum delta {maximum:F6}.");
+            if (requireVisibleContent)
+            {
+                Assert.That(
+                    ImageMetrics.HasFiniteVisibleContent(expected),
+                    Is.True,
+                    $"{scenario} must render finite visible content.");
+            }
+        }
+    }
+
+    /// <summary>
+    /// A centred 140x90 rectangle rotated by 21 degrees, white unless <paramref name="fill"/> is given.
+    /// </summary>
+    public static Drawable.Resource RotatedRect(Func<FilterEffect> makeEffect, Brush? fill = null)
+    {
+        var shape = new RectShape();
+        shape.AlignmentX.CurrentValue = AlignmentX.Center;
+        shape.AlignmentY.CurrentValue = AlignmentY.Center;
+        shape.TransformOrigin.CurrentValue = RelativePoint.Center;
+        shape.Width.CurrentValue = 140;
+        shape.Height.CurrentValue = 90;
+        shape.Fill.CurrentValue = fill ?? Brushes.White;
+        var rotation = new RotationTransform();
+        rotation.Rotation.CurrentValue = 21f;
+        shape.Transform.CurrentValue = rotation;
+        shape.FilterEffect.CurrentValue = makeEffect();
+        return shape.ToResource(CompositionContext.Default);
     }
 
     /// <summary>

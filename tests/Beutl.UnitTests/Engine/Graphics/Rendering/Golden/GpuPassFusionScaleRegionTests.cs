@@ -112,7 +112,7 @@ public sealed class GpuPassFusionScaleRegionTests
             OutputScale = 1,
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             Purpose = RenderRequestPurpose.Frame,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
 
@@ -137,7 +137,7 @@ public sealed class GpuPassFusionScaleRegionTests
             OutputScale = 1,
             MaxWorkingScale = 4,
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
 
         RenderNodeMeasurement measurement = renderer.Measure();
         Assert.That(node.CallbackCount, Is.Zero, "metadata resolution must not execute guarded work");
@@ -176,7 +176,7 @@ public sealed class GpuPassFusionScaleRegionTests
             OutputScale = 2,
             MaxWorkingScale = 4,
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
 
         RenderNodeMeasurement measurement = renderer.Measure();
         Assert.That(node.TotalCallbackCount, Is.Zero);
@@ -218,7 +218,7 @@ public sealed class GpuPassFusionScaleRegionTests
             OutputScale = 2,
             MaxWorkingScale = 4,
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
 
         RenderNodeMeasurement measurement = renderer.Measure();
         Assert.That(node.CallbackCount, Is.Zero);
@@ -256,7 +256,7 @@ public sealed class GpuPassFusionScaleRegionTests
             Intent = RenderIntent.Preview,
             RequestedRegion = requestedRegion,
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
         using var target = new CpuRenderTarget(80, 80);
         using var canvas = new ImmediateCanvas(
             target,
@@ -267,8 +267,8 @@ public sealed class GpuPassFusionScaleRegionTests
 
         renderer.Render(canvas);
         using Bitmap completed = target.Snapshot();
-        (float outsideRed, float outsideBlue) = RedBlueAt(completed, 21, 41);
-        (float insideRed, float insideBlue) = RedBlueAt(completed, 26, 46);
+        (float outsideRed, float outsideBlue) = ImageMetrics.RedBlueAt(completed, 21, 41);
+        (float insideRed, float insideBlue) = ImageMetrics.RedBlueAt(completed, 26, 46);
 
         Assert.Multiple(() =>
         {
@@ -293,7 +293,7 @@ public sealed class GpuPassFusionScaleRegionTests
             Intent = RenderIntent.Preview,
             RequestedRegion = requestedRegion,
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
         using var target = new CpuRenderTarget(80, 80);
         using var canvas = new ImmediateCanvas(
             target,
@@ -345,8 +345,8 @@ public sealed class GpuPassFusionScaleRegionTests
 
         Assert.That(() => renderer.Render(canvas), Throws.Nothing);
         using Bitmap completed = target.Snapshot();
-        (float insideRed, float insideBlue) = RedBlueAt(completed, 16, 12);
-        (float outsideRed, float outsideBlue) = RedBlueAt(completed, 48, 32);
+        (float insideRed, float insideBlue) = ImageMetrics.RedBlueAt(completed, 16, 12);
+        (float outsideRed, float outsideBlue) = ImageMetrics.RedBlueAt(completed, 48, 32);
 
         Assert.Multiple(() =>
         {
@@ -399,7 +399,7 @@ public sealed class GpuPassFusionScaleRegionTests
             Intent = RenderIntent.Preview,
             RequestedRegion = requestedRegion,
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
 
     [TestCase(CaptureContainer.FiniteLayer)]
     [TestCase(CaptureContainer.TargetLayerScope)]
@@ -419,7 +419,7 @@ public sealed class GpuPassFusionScaleRegionTests
             OutputScale = 1,
             MaxWorkingScale = 2,
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
         using RenderNodeRasterization rasterization = renderer.Rasterize();
 
         Assert.Multiple(() =>
@@ -438,7 +438,6 @@ public sealed class GpuPassFusionScaleRegionTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void AntialiasedThinStroke_CurrentPixelBoundaryPreservesEdgeCoverage()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -608,7 +607,7 @@ public sealed class GpuPassFusionScaleRegionTests
                 context.RecordNode(_vector, [])[0],
                 context.RecordNode(_textNode, [])[0],
             ];
-            context.Publish(context.OpaqueCombine(inputs, CreateCombineDescription(typeof(MixedDensityNode))));
+            context.Publish(context.OpaqueCombine(inputs, CreateCombineDescription()));
         }
 
         protected override void OnDispose(bool disposing)
@@ -695,9 +694,7 @@ public sealed class GpuPassFusionScaleRegionTests
 
         public override void Process(RenderNodeContext context)
         {
-            RenderFragmentHandle source = context.OpaqueSource(CreateRoiSourceDescription(
-                bounds,
-                typeof(TypedValueRoiNode)));
+            RenderFragmentHandle source = context.OpaqueSource(CreateRoiSourceDescription(bounds));
             GeometryDescription geometry = GeometryDescription.CreateRequestLocal(
                 session =>
                 {
@@ -860,16 +857,7 @@ public sealed class GpuPassFusionScaleRegionTests
         }
     }
 
-    private static (float Red, float Blue) RedBlueAt(Bitmap bitmap, int x, int y)
-    {
-        Span<ushort> row = bitmap.GetRow<ushort>(y);
-        int offset = x * 4;
-        return (
-            (float)BitConverter.UInt16BitsToHalf(row[offset]),
-            (float)BitConverter.UInt16BitsToHalf(row[offset + 2]));
-    }
-
-    private static OpaqueRenderDescription CreateRoiSourceDescription(Rect bounds, object key)
+    private static OpaqueRenderDescription CreateRoiSourceDescription(Rect bounds)
         => OpaqueRenderDescription.CreateRequestLocal(
             session =>
             {
@@ -921,9 +909,7 @@ public sealed class GpuPassFusionScaleRegionTests
                 _ => throw new ArgumentOutOfRangeException(),
             };
             RenderFragmentHandle dense = context.RecordNode(_denseSource, [])[0];
-            context.Publish(context.OpaqueCombine(
-                [layer, dense],
-                CreateCombineDescription(typeof(CaptureDensityNode))));
+            context.Publish(context.OpaqueCombine([layer, dense], CreateCombineDescription()));
         }
 
         bool IBuiltInBackdropCaptureSink.TryCommitBackdropCapture(Bitmap bitmap, float density)
@@ -969,8 +955,6 @@ public sealed class GpuPassFusionScaleRegionTests
             Public,
             BuiltIn,
         }
-
-        private readonly record struct CaptureObserverIdentity(CaptureKind Kind);
     }
 
     private sealed class ThinStrokeShaderNode : RenderNode
@@ -1016,7 +1000,7 @@ public sealed class GpuPassFusionScaleRegionTests
         }
     }
 
-    private static OpaqueRenderDescription CreateCombineDescription(object structuralKey)
+    private static OpaqueRenderDescription CreateCombineDescription()
     {
         return OpaqueRenderDescription.CreateRequestLocal(
             execute: static session =>
@@ -1035,21 +1019,4 @@ public sealed class GpuPassFusionScaleRegionTests
             valueCardinality: RenderValueCardinality.Single,
             scale: RenderScaleContract.MaterializeAtWorkingScale);
     }
-
-    private sealed class CpuTargetFactory : IRenderTargetFactory
-    {
-        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
-            => new CpuRenderTarget(allocation.DeviceSize.Width, allocation.DeviceSize.Height);
-    }
-
-    private sealed class CpuRenderTarget(int width, int height)
-        : RenderTarget(
-            SKSurface.Create(new SKImageInfo(
-                width,
-                height,
-                SKColorType.RgbaF16,
-                SKAlphaType.Premul,
-                SKColorSpace.CreateSrgbLinear())),
-            width,
-            height);
 }

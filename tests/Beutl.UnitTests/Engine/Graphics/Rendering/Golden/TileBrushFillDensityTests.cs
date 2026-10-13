@@ -30,10 +30,14 @@ public class TileBrushFillDensityTests
 
     private static Drawable.Resource MakeDirectEllipse() => MakeEllipse().ToResource(CompositionContext.Default);
 
-    private static Drawable.Resource MakeBrushFilled(TileMode tileMode, RelativeRect dest, Stretch stretch)
+    private static Drawable.Resource MakeBrushFilled(
+        TileMode tileMode,
+        RelativeRect dest,
+        Stretch stretch,
+        Drawable? content = null)
     {
         var brush = new DrawableBrush();
-        brush.Drawable.CurrentValue = MakeEllipse();
+        brush.Drawable.CurrentValue = content ?? MakeEllipse();
         brush.Stretch.CurrentValue = stretch;
         brush.TileMode.CurrentValue = tileMode;
         brush.DestinationRect.CurrentValue = dest;
@@ -65,15 +69,16 @@ public class TileBrushFillDensityTests
         });
     }
 
-    // Tiling must use the same logical period at any render scale.
-    [Test]
-    public void DrawableBrushTile_ConsistentAcrossScale()
+    // Tiling must use the same logical period at any render scale. A quarter-sized destination tile is
+    // repeated; the non-zero destination origin adds a tile translation offset the zero-origin case never reaches.
+    [TestCase(0f, 0f, TestName = "DrawableBrushTile_ConsistentAcrossScale")]
+    [TestCase(0.1f, 0.15f, TestName = "DrawableBrushTile_NonOriginDest_ConsistentAcrossScale")]
+    public void DrawableBrushTile_ConsistentAcrossScale(float destX, float destY)
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            // 2x2 tiling: a quarter-sized destination tile, repeated.
-            var dest = new RelativeRect(0, 0, 0.5f, 0.5f, RelativeUnit.Relative);
+            var dest = new RelativeRect(destX, destY, 0.5f, 0.5f, RelativeUnit.Relative);
             using Bitmap full = GoldenImageHarness.RenderAtScale(
                 MakeBrushFilled(TileMode.Tile, dest, Stretch.Uniform), Frame, 1f);
             using Bitmap ss = GoldenImageHarness.RenderAtScale(
@@ -81,32 +86,10 @@ public class TileBrushFillDensityTests
             using Bitmap down = GoldenImageHarness.MitchellResampleTo(ss, new PixelSize(full.Width, full.Height));
             double ssim = ImageMetrics.Ssim(full, down);
             double mae = ImageMetrics.MeanAbsoluteError(full, down);
-            TestContext.WriteLine($"[DrawableBrush Tile 2x2] 1.0 vs 2.0-down SSIM={ssim:F4} MAE={mae:F4}");
+            TestContext.WriteLine(
+                $"[DrawableBrush Tile at ({destX}, {destY})] 1.0 vs 2.0-down SSIM={ssim:F4} MAE={mae:F4}");
             Assert.That(ssim, Is.GreaterThan(GoldenThresholds.ExactSsimMin),
-                $"DrawableBrush tiling diverged across render scale (mistiled): SSIM={ssim:F4}");
-        });
-    }
-
-    // Same logical-period invariant as above, but with a non-zero destination origin (non-zero
-    // tile translation offset), which the zero-origin cases never reach.
-    [Test]
-    public void DrawableBrushTile_NonOriginDest_ConsistentAcrossScale()
-    {
-        VulkanTestEnvironment.EnsureAvailable();
-        VulkanTestEnvironment.InvokeOnRenderThread(() =>
-        {
-            // A quarter-sized tile anchored away from the origin, repeated.
-            var dest = new RelativeRect(0.1f, 0.15f, 0.5f, 0.5f, RelativeUnit.Relative);
-            using Bitmap full = GoldenImageHarness.RenderAtScale(
-                MakeBrushFilled(TileMode.Tile, dest, Stretch.Uniform), Frame, 1f);
-            using Bitmap ss = GoldenImageHarness.RenderAtScale(
-                MakeBrushFilled(TileMode.Tile, dest, Stretch.Uniform), Frame, 2f);
-            using Bitmap down = GoldenImageHarness.MitchellResampleTo(ss, new PixelSize(full.Width, full.Height));
-            double ssim = ImageMetrics.Ssim(full, down);
-            double mae = ImageMetrics.MeanAbsoluteError(full, down);
-            TestContext.WriteLine($"[DrawableBrush Tile non-origin] 1.0 vs 2.0-down SSIM={ssim:F4} MAE={mae:F4}");
-            Assert.That(ssim, Is.GreaterThan(GoldenThresholds.ExactSsimMin),
-                $"non-origin DrawableBrush tiling diverged across render scale (mistiled): SSIM={ssim:F4}");
+                $"DrawableBrush tiling at ({destX}, {destY}) diverged across render scale (mistiled): SSIM={ssim:F4}");
         });
     }
 
@@ -174,7 +157,6 @@ public class TileBrushFillDensityTests
     // 2x2 tiles with a 6px gap widen the 60x40 source to 66x46; Uniform into 180x120 scales it by
     // min(180/66, 120/46) = 2.6087, so the painted extent must be 172x120, not the source's own 66x46.
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void DrawableBrushFill_SourceCarriesSplitEffect_StretchesAgainstTheEffectOutput()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -202,7 +184,6 @@ public class TileBrushFillDensityTests
 
     // The same defect through an effect that only flattens its targets: 60x40 into 180x120 is a clean 3x.
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void DrawableBrushFill_SourceCarriesLayerEffect_StretchesAgainstTheEffectOutput()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -293,19 +274,8 @@ public class TileBrushFillDensityTests
             using Bitmap direct = GoldenImageHarness.RenderAtScale(
                 MakeStripes().ToResource(CompositionContext.Default), Frame, 2f);
 
-            var brush = new DrawableBrush();
-            brush.Drawable.CurrentValue = MakeStripes();
-            brush.Stretch.CurrentValue = Stretch.Fill;
-            brush.TileMode.CurrentValue = TileMode.None;
-            brush.DestinationRect.CurrentValue = RelativeRect.Fill;
-            var host = new RectShape();
-            host.AlignmentX.CurrentValue = AlignmentX.Center;
-            host.AlignmentY.CurrentValue = AlignmentY.Center;
-            host.Width.CurrentValue = 160;
-            host.Height.CurrentValue = 160;
-            host.Fill.CurrentValue = brush;
             using Bitmap filled = GoldenImageHarness.RenderAtScale(
-                host.ToResource(CompositionContext.Default), Frame, 2f);
+                MakeBrushFilled(TileMode.None, RelativeRect.Fill, Stretch.Fill, MakeStripes()), Frame, 2f);
 
             double ssim = ImageMetrics.Ssim(direct, filled);
             double mae = ImageMetrics.MeanAbsoluteError(direct, filled);

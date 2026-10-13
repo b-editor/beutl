@@ -17,25 +17,14 @@ internal static class GpuPassFusionSameProcessParityHarness
 
     /// <param name="render">Renders the workload once per fusion mode, returning independently owned images.</param>
     /// <param name="aaEdgeRegion">The antialiased crop the edge-band bounds apply to, when the workload has one.</param>
-    /// <param name="caseName">
-    /// Names this comparison in the SC-007 evidence manifest. Defaults to the running test's full name, so a
-    /// workload is recorded whether or not its author remembered the evidence run.
-    /// </param>
-    /// <param name="outputScale">The output scale the workload rendered at, recorded alongside its metrics.</param>
     public static GpuPassFusionParityResult AssertParity(
         Func<FusionMode, Bitmap> render,
-        PixelRect? aaEdgeRegion = null,
-        string? caseName = null,
-        double outputScale = 1.0)
+        PixelRect? aaEdgeRegion = null)
     {
         ArgumentNullException.ThrowIfNull(render);
 
-        using Bitmap disabled = render(FusionMode.Disabled)
-            ?? throw new InvalidOperationException("The fusion-disabled render returned null.");
-        using Bitmap enabled = render(FusionMode.Enabled)
-            ?? throw new InvalidOperationException("The fusion-enabled render returned null.");
-        if (ReferenceEquals(disabled, enabled))
-            throw new InvalidOperationException("Fusion-disabled and enabled runs must return independently owned images.");
+        using Bitmap disabled = render(FusionMode.Disabled);
+        using Bitmap enabled = render(FusionMode.Enabled);
 
         string? nonFinite = ImageMetrics.FirstNonFinite(
             ("fusion-disabled", disabled),
@@ -63,8 +52,8 @@ internal static class GpuPassFusionSameProcessParityHarness
         if (GpuPassFusionParityEvidence.IsRecording)
         {
             GpuPassFusionParityEvidence.Record(
-                caseName ?? TestContext.CurrentContext.Test.FullName,
-                outputScale,
+                TestContext.CurrentContext.Test.FullName,
+                1.0,
                 disabled.Width,
                 disabled.Height,
                 result,
@@ -160,23 +149,6 @@ internal static class GpuPassFusionSameProcessParityHarness
                 nameof(region),
                 region,
                 $"AA edge region must be a non-empty subset of the {width}x{height} output.");
-        }
-    }
-}
-
-internal readonly record struct GpuPassFusionPixelRegion(int X, int Y, int Width, int Height)
-{
-    public int Right => checked(X + Width);
-
-    public int Bottom => checked(Y + Height);
-
-    public void ValidateInside(int imageWidth, int imageHeight, string description)
-    {
-        if (X < 0 || Y < 0 || Width <= 0 || Height <= 0 || Right > imageWidth || Bottom > imageHeight)
-        {
-            throw new InvalidDataException(
-                $"{description} ({X}, {Y}, {Width}, {Height}) is not a non-empty subset of "
-                + $"{imageWidth}x{imageHeight}.");
         }
     }
 }

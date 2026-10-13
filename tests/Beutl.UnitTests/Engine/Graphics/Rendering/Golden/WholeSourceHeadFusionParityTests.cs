@@ -125,7 +125,7 @@ public sealed class WholeSourceHeadFusionParityTests
             TargetDomain = s_bounds,
             CacheOptions = RenderCacheOptions.Disabled,
             FusionMode = fusionMode,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
         statistics = renderer.LastExecutionStatistics;
@@ -178,16 +178,8 @@ public sealed class WholeSourceHeadFusionParityTests
             TargetDomain = canvasBounds,
             CacheOptions = RenderCacheOptions.Disabled,
             FusionMode = fusionMode,
-        }, new CpuTargetFactory());
-        var canvasSize = new PixelSize(100, 100);
-        SKSurface surface = SKSurface.Create(new SKImageInfo(
-                canvasSize.Width,
-                canvasSize.Height,
-                SKColorType.RgbaF16,
-                SKAlphaType.Premul,
-                SKColorSpace.CreateSrgbLinear()))
-            ?? throw new InvalidOperationException("Could not create the CPU output-size parity surface.");
-        using RenderTarget destination = new CpuRenderTarget(surface, canvasSize);
+        }, new CpuRenderTargetFactory());
+        using RenderTarget destination = new CpuRenderTarget(100, 100);
         using (var canvas = new ImmediateCanvas(destination, RenderIntent.Preview, logicalSize: canvasBounds.Size))
         {
             canvas.Clear();
@@ -196,23 +188,4 @@ public sealed class WholeSourceHeadFusionParityTests
         statistics = renderer.LastExecutionStatistics;
         return destination.Snapshot();
     }
-
-    private sealed class CpuTargetFactory : IRenderTargetFactory
-    {
-        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
-        {
-            PixelSize size = allocation.DeviceSize;
-            SKSurface surface = SKSurface.Create(new SKImageInfo(
-                    size.Width,
-                    size.Height,
-                    SKColorType.RgbaF16,
-                    SKAlphaType.Premul,
-                    SKColorSpace.CreateSrgbLinear()))
-                ?? throw new InvalidOperationException("Could not create the CPU WholeSource fusion test surface.");
-            return new CpuRenderTarget(surface, size);
-        }
-    }
-
-    private sealed class CpuRenderTarget(SKSurface surface, PixelSize size)
-        : RenderTarget(surface, size.Width, size.Height);
 }

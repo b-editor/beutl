@@ -22,7 +22,6 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering.Planning;
 public sealed class RendererWideRecordingTests
 {
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void ProductionFrameRenderer_PreservesPlanLifetimeAcrossFrames()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -459,7 +458,6 @@ public sealed class RendererWideRecordingTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void ProductionFrameRenderer_ClearAllCachesColdResetsFrameCachesWithoutChangingPolicy()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -516,7 +514,6 @@ public sealed class RendererWideRecordingTests
 
     [Test]
     [NonParallelizable]
-    [Category("GpuPassFusionGpu")]
     public void CacheMutations_FromCallerThread_DisposeCachedTreesOnRenderThread()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -559,7 +556,6 @@ public sealed class RendererWideRecordingTests
 
     [Test]
     [NonParallelizable]
-    [Category("GpuPassFusionGpu")]
     public void Detachment_FromCallerThread_DisposesCachedTreeOnRenderThread()
     {
         VulkanTestEnvironment.EnsureAvailable();

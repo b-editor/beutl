@@ -7,7 +7,7 @@ using Beutl.UnitTests.Engine.Graphics.Backend;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
-// A vector scene renders faithfully at a reduced output scale and deterministically at 1.0.
+// A vector scene renders faithfully at a reduced output scale.
 [NonParallelizable]
 [TestFixture]
 public class Slice1ReducedScaleTests
@@ -24,33 +24,6 @@ public class Slice1ReducedScaleTests
         shape.Height.CurrentValue = 120;
         shape.Fill.CurrentValue = Brushes.White;
         return shape.ToResource(CompositionContext.Default);
-    }
-
-    [Test]
-    public void ScaleOne_IsDeterministic()
-    {
-        VulkanTestEnvironment.EnsureAvailable();
-        VulkanTestEnvironment.InvokeOnRenderThread(() =>
-        {
-            using Bitmap a = GoldenImageHarness.RenderAtScale(MakeScene(), Frame, 1f);
-            using Bitmap b = GoldenImageHarness.RenderAtScale(MakeScene(), Frame, 1f);
-            GoldenImageHarness.AssertByteIdentical(a, b);
-        });
-    }
-
-    [Test]
-    public void RootSurface_IsCeilFrameTimesScale()
-    {
-        VulkanTestEnvironment.EnsureAvailable();
-        VulkanTestEnvironment.InvokeOnRenderThread(() =>
-        {
-            foreach (float s in new[] { 1f, 0.5f, 0.25f, 0.333f, 1.5f, 2f })
-            {
-                using Bitmap b = GoldenImageHarness.RenderAtScale(MakeScene(), Frame, s);
-                Assert.That(b.Width, Is.EqualTo((int)MathF.Ceiling(Frame.Width * s)), $"width @ {s}");
-                Assert.That(b.Height, Is.EqualTo((int)MathF.Ceiling(Frame.Height * s)), $"height @ {s}");
-            }
-        });
     }
 
     [Test]

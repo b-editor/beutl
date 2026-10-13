@@ -19,7 +19,6 @@ public sealed class ExecutionIslandAuthorityTests
     private static readonly Rect s_bounds = new(0, 0, 24, 16);
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void TerminalOpacity_DispatchesTheCompiledRunBeforeSemanticReplay()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -45,7 +44,6 @@ public sealed class ExecutionIslandAuthorityTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void SameBackendCompiledRun_HasNoExecutorManagedFlush()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -90,7 +88,6 @@ public sealed class ExecutionIslandAuthorityTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void OpacityOnly_RuntimeUsesSemanticReplayWithOneGpuPass()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -134,7 +131,6 @@ public sealed class ExecutionIslandAuthorityTests
 
     [TestCase(false)]
     [TestCase(true)]
-    [Category("GpuPassFusionGpu")]
     public void DeclaredInputReadback_IsPlannedAndCountedOnlyAtActualUse(bool opaque)
     {
         VulkanTestEnvironment.EnsureAvailable();

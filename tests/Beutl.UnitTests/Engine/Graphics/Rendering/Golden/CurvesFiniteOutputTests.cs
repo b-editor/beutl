@@ -14,7 +14,6 @@ public sealed class CurvesFiniteOutputTests
     private static readonly PixelSize s_frame = new(128, 96);
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void OutOfRangeMasterCurve_ProducesFiniteExtendedRangePixels()
     {
         VulkanTestEnvironment.EnsureAvailable();

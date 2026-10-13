@@ -31,7 +31,7 @@ public class ImageSourceRenderNodeTest
         fillBuilder.AddRect(SKRect.Create(0, 0, 100, 100));
         using SKPath fillPath = fillBuilder.Detach();
         using var stroke = PenHelper.CreateStrokePath(fillPath, penResource, new Rect(0, 0, 100, 100));
-        using var node = new ImageSourceRenderNode(GetTestImageSourceResource(), null, penResource);
+        using var node = new ImageSourceRenderNode(_imageSourceResource!, null, penResource);
         using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest { Intent = RenderIntent.Preview });
         foreach (int x in new[] { -5, 5, 15, 35, 50, 85, 95, 105 })
             Assert.That(renderer.HitTest(new Point(x, 50)), Is.EqualTo(stroke.Contains(x, 50)), $"x={x}");
@@ -54,15 +54,10 @@ public class ImageSourceRenderNodeTest
         _imageSource = null;
     }
 
-    public ImageSource.Resource GetTestImageSourceResource()
-    {
-        return _imageSourceResource!;
-    }
-
     [Test]
     public void Update_ShouldReturnFalse_WhenAllPropertiesMatch()
     {
-        ImageSource.Resource source = GetTestImageSourceResource();
+        ImageSource.Resource source = _imageSourceResource!;
         var fill = Brushes.Resource.White;
         var pen = new Pen();
         pen.Brush.CurrentValue = Brushes.Black;
@@ -76,7 +71,7 @@ public class ImageSourceRenderNodeTest
     [Test]
     public void Update_ShouldReturnTrue_WhenPropertiesDoNotMatch()
     {
-        ImageSource.Resource source = GetTestImageSourceResource();
+        ImageSource.Resource source = _imageSourceResource!;
         var fill = Brushes.Resource.White;
         var pen = new Pen();
         pen.Brush.CurrentValue = Brushes.Black;
@@ -94,7 +89,7 @@ public class ImageSourceRenderNodeTest
     [Test]
     public void Measure_WithoutInput_ShouldReportRecordedFragment()
     {
-        ImageSource.Resource source = GetTestImageSourceResource();
+        ImageSource.Resource source = _imageSourceResource!;
         using var node = new ImageSourceRenderNode(source, null, null);
         using var renderer = CreateRenderer(node);
         RenderNodeMeasurement measurement = renderer.Measure();
@@ -105,7 +100,7 @@ public class ImageSourceRenderNodeTest
     [Test]
     public void Measure_WithInput_ShouldReportRecordedFragment()
     {
-        ImageSource.Resource source = GetTestImageSourceResource();
+        ImageSource.Resource source = _imageSourceResource!;
         using var node = new InputFeedingNode(new ImageSourceRenderNode(source, null, null));
         using var renderer = CreateRenderer(node);
         RenderNodeMeasurement measurement = renderer.Measure();
@@ -116,7 +111,7 @@ public class ImageSourceRenderNodeTest
     [Test]
     public void HitTest_ShouldReturnTrue_WhenPointIsInsideStroke()
     {
-        ImageSource.Resource source = GetTestImageSourceResource();
+        ImageSource.Resource source = _imageSourceResource!;
         var pen = new Pen();
         pen.Brush.CurrentValue = Brushes.Black;
         pen.Thickness.CurrentValue = 50;
@@ -131,7 +126,7 @@ public class ImageSourceRenderNodeTest
     [Test]
     public void HitTest_ShouldReturnFalse_WhenPointIsOutsideStroke()
     {
-        ImageSource.Resource source = GetTestImageSourceResource();
+        ImageSource.Resource source = _imageSourceResource!;
         var pen = new Pen();
         pen.Brush.CurrentValue = Brushes.Black;
         pen.Thickness.CurrentValue = 50;
@@ -146,7 +141,7 @@ public class ImageSourceRenderNodeTest
     [Test]
     public void HitTest_ShouldReturnTrue_WhenPointIsInsideFill()
     {
-        ImageSource.Resource source = GetTestImageSourceResource();
+        ImageSource.Resource source = _imageSourceResource!;
         Brush.Resource fill = Brushes.Resource.White;
         using var node = new ImageSourceRenderNode(source, fill, null);
         using var renderer = CreateRenderer(node);
@@ -158,7 +153,7 @@ public class ImageSourceRenderNodeTest
     [Test]
     public void HitTest_ShouldReturnFalse_WhenPointIsOutsideFill()
     {
-        ImageSource.Resource source = GetTestImageSourceResource();
+        ImageSource.Resource source = _imageSourceResource!;
         Brush.Resource fill = Brushes.Resource.White;
         using var node = new ImageSourceRenderNode(source, fill, null);
         using var renderer = CreateRenderer(node);
@@ -171,7 +166,7 @@ public class ImageSourceRenderNodeTest
     [Test]
     public void Measure_ReportsConcreteNativeDensity_NotUnbounded()
     {
-        ImageSource.Resource source = GetTestImageSourceResource();
+        ImageSource.Resource source = _imageSourceResource!;
         using var node = new ImageSourceRenderNode(source, Brushes.Resource.White, null);
         using var renderer = CreateRenderer(node);
         RenderNodeMeasurement measurement = renderer.Measure();

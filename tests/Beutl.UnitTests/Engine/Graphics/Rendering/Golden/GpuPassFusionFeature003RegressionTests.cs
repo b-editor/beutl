@@ -59,6 +59,33 @@ public sealed class GpuPassFusionFeature003RegressionTests
             outputScale: 2,
             maxWorkingScale: float.PositiveInfinity,
             expected: 2);
+        // Unbounded (vector) inputs are excluded from the supply max.
+        yield return DensityCase(
+            "unbounded input does not raise supply",
+            [EffectiveScale.Unbounded],
+            outputScale: 2,
+            maxWorkingScale: float.PositiveInfinity,
+            expected: 2);
+        // The Unbounded sentinel is skipped; the concrete supply (10) drives the result.
+        yield return DensityCase(
+            "concrete supply above output ignores unbounded and tracks supply",
+            [EffectiveScale.Unbounded, EffectiveScale.At(10)],
+            outputScale: 2,
+            maxWorkingScale: float.PositiveInfinity,
+            expected: 10);
+        // A finite ceiling caps a concrete supply that exceeds it.
+        yield return DensityCase(
+            "concrete supply exceeding a finite ceiling is capped",
+            [EffectiveScale.At(8)],
+            outputScale: 2,
+            maxWorkingScale: 5,
+            expected: 5);
+        yield return DensityCase(
+            "concrete supply under an infinite ceiling tracks supply",
+            [EffectiveScale.At(8)],
+            outputScale: 2,
+            maxWorkingScale: float.PositiveInfinity,
+            expected: 8);
     }
 
     [TestCaseSource(nameof(DensityCases))]
@@ -110,9 +137,9 @@ public sealed class GpuPassFusionFeature003RegressionTests
     {
         var bounds = new Rect(0, 0, 10_000.25f, 20);
         float clamped = BufferDimensionBudget.EngineCeiling.ClampWorkingScale(bounds, 4);
-        RenderOutputCacheIdentity atOne = CreateCacheIdentity(bounds, density: 1);
-        RenderOutputCacheIdentity atTwo = CreateCacheIdentity(bounds, density: 2);
-        RenderOutputCacheIdentity atTwoAgain = CreateCacheIdentity(bounds, density: 2);
+        RenderOutputCacheIdentity atOne = RenderCacheTestSupport.CreateCacheIdentity(bounds, density: 1);
+        RenderOutputCacheIdentity atTwo = RenderCacheTestSupport.CreateCacheIdentity(bounds, density: 2);
+        RenderOutputCacheIdentity atTwoAgain = RenderCacheTestSupport.CreateCacheIdentity(bounds, density: 2);
 
         Assert.Multiple(() =>
         {
@@ -129,7 +156,6 @@ public sealed class GpuPassFusionFeature003RegressionTests
     [TestCase(RepresentativeContent.Vector)]
     [TestCase(RepresentativeContent.Bitmap)]
     [TestCase(RepresentativeContent.Text)]
-    [Category("GpuPassFusionGpu")]
     public void Feature003ScaleOneGoldenAnchor_IsByteStableAndNonVacuous(
         RepresentativeContent content)
     {
@@ -140,64 +166,18 @@ public sealed class GpuPassFusionFeature003RegressionTests
             using Bitmap second = RenderRepresentative(content, 1);
 
             GoldenImageHarness.AssertByteIdentical(first, second);
+            Assert.That(
+                ImageMetrics.FirstNonFinite(("scale-one golden", first)),
+                Is.Null,
+                "the scale-one golden must contain only finite RGBA16F values");
             Assert.That(SumAbsoluteRgb(first), Is.GreaterThan(1),
                 "a byte-stable opaque-black result is not a useful golden anchor");
         });
     }
 
-    [TestCase(float.PositiveInfinity)]
-    [TestCase(float.NegativeInfinity)]
-    public void Feature003ScaleOneGoldenEnergy_RejectsInfiniteRgb(float value)
-    {
-        using var bitmap = new Bitmap(
-            1,
-            1,
-            BitmapColorType.RgbaF16,
-            BitmapAlphaType.Premul,
-            BitmapColorSpace.LinearSrgb);
-        bitmap.GetPixelSpan<ushort>()[1] = BitConverter.HalfToUInt16Bits((Half)value);
-
-        AssertionException? exception = Assert.Throws<AssertionException>(() => SumAbsoluteRgb(bitmap));
-        Assert.That(exception!.Message, Does.Contain("pixel 0 channel 1").And.Contain("non-finite"));
-    }
-
-    [TestCase(float.PositiveInfinity)]
-    [TestCase(float.NegativeInfinity)]
-    public void Feature003ScaleOneGoldenEnergy_RejectsInfiniteAlpha(float value)
-    {
-        using var bitmap = new Bitmap(
-            1,
-            1,
-            BitmapColorType.RgbaF16,
-            BitmapAlphaType.Premul,
-            BitmapColorSpace.LinearSrgb);
-        bitmap.GetPixelSpan<ushort>()[3] = BitConverter.HalfToUInt16Bits((Half)value);
-
-        AssertionException? exception = Assert.Throws<AssertionException>(() => SumAbsoluteRgb(bitmap));
-        Assert.That(exception!.Message, Does.Contain("pixel 0 channel 3").And.Contain("non-finite"));
-    }
-
-    [Test]
-    public void Feature003ScaleOneGoldenEnergy_RejectsTransparentNonzeroRgb()
-    {
-        using var bitmap = new Bitmap(
-            1,
-            1,
-            BitmapColorType.RgbaF16,
-            BitmapAlphaType.Premul,
-            BitmapColorSpace.LinearSrgb);
-        bitmap.GetPixelSpan<ushort>()[1] = BitConverter.HalfToUInt16Bits((Half)0.25f);
-
-        AssertionException? exception = Assert.Throws<AssertionException>(() => SumAbsoluteRgb(bitmap));
-        Assert.That(
-            exception!.Message,
-            Does.Contain("transparent pixel 0").And.Contain("non-zero premultiplied RGB"));
-    }
-
     [TestCase(RepresentativeContent.Vector)]
     [TestCase(RepresentativeContent.Bitmap)]
     [TestCase(RepresentativeContent.Text)]
-    [Category("GpuPassFusionGpu")]
     public void Feature003HalfPreviewAndDoubleSupersample_PreserveLogicalContentAndDeviceSizes(
         RepresentativeContent content)
     {
@@ -252,7 +232,7 @@ public sealed class GpuPassFusionFeature003RegressionTests
 
         Assert.That(() => executor.Flush(), Throws.Nothing);
         Assert.That(executor.CurrentTargets, Is.Empty,
-            "preview keeps the current-main drop-on-allocation-failure outcome");
+            "preview drops the effect output when the flush allocation fails");
     }
 
     [Test]
@@ -281,34 +261,6 @@ public sealed class GpuPassFusionFeature003RegressionTests
         float maxWorkingScale,
         float expected)
         => new TestCaseData(inputs, outputScale, maxWorkingScale, expected).SetName(name);
-
-    private static RenderOutputCacheIdentity CreateCacheIdentity(Rect bounds, float density)
-    {
-        var fragment = new RenderFragmentReference(
-            RenderFragmentKind.MaterializedInput,
-            bounds,
-            EffectiveScale.At(density),
-            RenderValueCardinality.Single,
-            contributesValuesToTarget: true,
-            canBeUsedAsValueInput: true,
-            hasTargetEffects: false,
-            hasOpaqueExternalWork: false,
-            inputs: [],
-            payload: null,
-            hitTest: RenderFragmentHitTest.None);
-        var requestId = new RenderRequestId(1);
-        return new RenderOutputCacheIdentity(
-            candidateKey: "feature-003-density",
-            RenderFragmentOutputIdentity.Create(fragment, requestId),
-            bounds,
-            RequiredRegion.Region(bounds),
-            density,
-            RenderCacheFormatIdentity.LinearPremultipliedRgba16Float,
-            RenderIntent.Preview,
-            RenderRequestPurpose.Frame,
-            FusionMode.Enabled,
-            new RenderCacheDeviceContextIdentity("device", "context"));
-    }
 
     private static Bitmap RenderRepresentative(RepresentativeContent content, float scale)
     {
@@ -405,15 +357,14 @@ public sealed class GpuPassFusionFeature003RegressionTests
         ReadOnlySpan<ushort> pixels = bitmap.GetPixelSpan<ushort>();
         for (int offset = 0; offset < pixels.Length; offset += 4)
         {
-            int pixelIndex = offset / 4;
-            float red = DecodeFiniteChannel(pixels, offset, pixelIndex, channel: 0);
-            float green = DecodeFiniteChannel(pixels, offset, pixelIndex, channel: 1);
-            float blue = DecodeFiniteChannel(pixels, offset, pixelIndex, channel: 2);
-            float alpha = DecodeFiniteChannel(pixels, offset, pixelIndex, channel: 3);
+            float red = (float)BitConverter.UInt16BitsToHalf(pixels[offset]);
+            float green = (float)BitConverter.UInt16BitsToHalf(pixels[offset + 1]);
+            float blue = (float)BitConverter.UInt16BitsToHalf(pixels[offset + 2]);
+            float alpha = (float)BitConverter.UInt16BitsToHalf(pixels[offset + 3]);
             if (alpha == 0 && (red != 0 || green != 0 || blue != 0))
             {
                 throw new AssertionException(
-                    $"Scale-one golden transparent pixel {pixelIndex} contains non-zero premultiplied RGB: "
+                    $"Scale-one golden transparent pixel {offset / 4} contains non-zero premultiplied RGB: "
                     + $"({red}, {green}, {blue}).");
             }
 
@@ -421,22 +372,6 @@ public sealed class GpuPassFusionFeature003RegressionTests
         }
 
         return result;
-    }
-
-    private static float DecodeFiniteChannel(
-        ReadOnlySpan<ushort> pixels,
-        int offset,
-        int pixelIndex,
-        int channel)
-    {
-        float value = (float)BitConverter.UInt16BitsToHalf(pixels[offset + channel]);
-        if (!float.IsFinite(value))
-        {
-            throw new AssertionException(
-                $"Scale-one golden pixel {pixelIndex} channel {channel} is non-finite: {value}.");
-        }
-
-        return value;
     }
 
     private sealed class MaterializedBitmapNode(RenderTarget source) : RenderNode
@@ -464,7 +399,7 @@ public sealed class GpuPassFusionFeature003RegressionTests
     {
         public static GoldenLimits For(RepresentativeContent content)
             => content == RepresentativeContent.Text
-                // Full-hinted glyph rasterization is intentionally resolution-sensitive under feature 003.
+                // Full-hinted glyph rasterization is intentionally resolution-sensitive.
                 ? new GoldenLimits(0.75, 0.04, 0.92, 0.025)
                 : new GoldenLimits(0.95, 0.035, 0.98, 0.02);
     }

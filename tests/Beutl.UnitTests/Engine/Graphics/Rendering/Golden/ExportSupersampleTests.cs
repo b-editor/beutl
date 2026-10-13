@@ -8,8 +8,8 @@ using Beutl.UnitTests.Engine.Graphics.Backend;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
-// US4 / SC-009: export supersampling (render at s>1, downscale to FrameSize) reduces aliasing while
-// the delivered size stays FrameSize.
+// Export supersampling (render at s>1, downscale to FrameSize) reduces aliasing while the delivered size
+// stays FrameSize.
 [NonParallelizable]
 [TestFixture]
 public class ExportSupersampleTests

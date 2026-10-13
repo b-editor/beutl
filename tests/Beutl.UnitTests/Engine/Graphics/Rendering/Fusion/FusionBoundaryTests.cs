@@ -17,7 +17,6 @@ public sealed class FusionBoundaryTests
     private static readonly Rect s_bounds = new(0, 0, 24, 16);
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void AntialiasedThinStroke_NonlinearShaderPreservesCoverageAtTheExactBoundary()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -51,7 +50,6 @@ public sealed class FusionBoundaryTests
 
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void StandaloneBackendOverflow_ExecutesCompatibilityPathWithParityAndExactReason()
     {
         VulkanTestEnvironment.EnsureAvailable();

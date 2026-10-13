@@ -158,7 +158,6 @@ public sealed class CrossNodeShaderFusionTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void ChangingFromCpuToGpuDestination_SelectsTheActualSurfaceCapabilityClass()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -208,7 +207,6 @@ public sealed class CrossNodeShaderFusionTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void ProgramCache_ContextChangeMissesAndThenWarmsTheNewContext()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -318,7 +316,6 @@ public sealed class CrossNodeShaderFusionTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void Enabled_ExecutesDistinctNodePrimaryChainOnce_WithParityAndAWarmedProgram()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -382,7 +379,6 @@ public sealed class CrossNodeShaderFusionTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void UnboundedVectorShaderRoot_DrawsTerminalRunDirectlyAndCacheForcesMaterialization()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -430,7 +426,6 @@ public sealed class CrossNodeShaderFusionTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void PublishedShaderFanOut_DisablesTerminalDirectDraw()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -453,7 +448,6 @@ public sealed class CrossNodeShaderFusionTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void TerminalDirectDraw_PreservesActiveDestinationState_WithCacheMissAsReference()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -494,7 +488,6 @@ public sealed class CrossNodeShaderFusionTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void TerminalDirectDraw_FractionalDestinationFallsBackToMaterializedComposite()
     {
         VulkanTestEnvironment.EnsureAvailable();

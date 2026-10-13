@@ -52,7 +52,6 @@ public class CustomEffectDeviceGridPhaseTests
     // 2x2 tiles with a 6px gap centre the layout box 3 logical pixels outside the 60x40 source, so at
     // 0.5x the source sits half a device pixel off the box grid.
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void DrawableBrushFill_SplitSourceOffTheBoxGrid_KeepsHardFillEdges()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -65,7 +64,6 @@ public class CustomEffectDeviceGridPhaseTests
     // The control: an 8px gap moves the box a whole device pixel at 0.5x, so the source was already on
     // the grid and the edge must stay hard whatever the phase handling does.
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void DrawableBrushFill_SplitSourceOnTheBoxGrid_KeepsHardFillEdges()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -76,7 +74,6 @@ public class CustomEffectDeviceGridPhaseTests
     // fragment, so the split's input is materialized one execution frame deeper; the grid the custom
     // effect crops on has to reach that frame too.
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void DrawableBrushFill_SplitSourceBehindAColourStage_KeepsHardFillEdges()
     {
         VulkanTestEnvironment.EnsureAvailable();

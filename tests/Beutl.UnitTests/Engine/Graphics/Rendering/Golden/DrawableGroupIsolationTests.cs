@@ -7,7 +7,6 @@ using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.UnitTests.Engine.Graphics.Backend;
-using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
@@ -28,7 +27,7 @@ public sealed class DrawableGroupIsolationTests
             inner.Children.Add(CreateRectangle(400, 240, Brushes.White));
             using Drawable.Resource outer = CreateGroup(50, null, inner);
             using Bitmap bitmap = RenderScene(outer);
-            Assert.That(ReadPixel(bitmap, 200, 200).Alpha, Is.EqualTo(0.25f).Within(0.003f));
+            Assert.That(ImageMetrics.ReadPixel(bitmap, 200, 200).Alpha, Is.EqualTo(0.25f).Within(0.003f));
         });
     }
 
@@ -52,10 +51,14 @@ public sealed class DrawableGroupIsolationTests
             using Bitmap actual = RenderScene(out RenderExecutionStatistics statistics, group);
             using Bitmap expected = RenderScene(control);
 
-            AssertByteIdentical(expected, actual, "overlapping children at group opacity 50%");
-            Rgba left = ReadPixel(actual, 40, 200);
-            Rgba overlap = ReadPixel(actual, 200, 200);
-            Rgba right = ReadPixel(actual, 360, 200);
+            GoldenImageHarness.AssertByteIdentical(
+                expected,
+                actual,
+                "overlapping children at group opacity 50%",
+                requireVisibleContent: true);
+            Rgba left = ImageMetrics.ReadPixel(actual, 40, 200);
+            Rgba overlap = ImageMetrics.ReadPixel(actual, 200, 200);
+            Rgba right = ImageMetrics.ReadPixel(actual, 360, 200);
             Assert.Multiple(() =>
             {
                 Assert.That(left.Alpha, Is.EqualTo(0.5f).Within(0.003f));
@@ -96,11 +99,15 @@ public sealed class DrawableGroupIsolationTests
             using Bitmap expected = RenderScene(plain);
             using Bitmap actual = RenderScene(filtered);
 
-            // Byte-identical: both paths now carry the group opacity in float precision, so an identity
-            // effect reproduces the unfiltered composition exactly.
-            AssertByteIdentical(expected, actual, "identity effect on an overlapping group");
+            // Both paths carry the group opacity in float precision, so the identity effect reproduces the
+            // composition exactly.
+            GoldenImageHarness.AssertByteIdentical(
+                expected,
+                actual,
+                "identity effect on an overlapping group",
+                requireVisibleContent: true);
             Assert.That(
-                ReadPixel(actual, 200, 200).Alpha,
+                ImageMetrics.ReadPixel(actual, 200, 200).Alpha,
                 Is.EqualTo(0.5f).Within(0.003f),
                 "the group opacity must be applied exactly once.");
         });
@@ -139,10 +146,11 @@ public sealed class DrawableGroupIsolationTests
             using Bitmap actual = RenderScene(groupFiltered);
             using Bitmap expected = RenderScene(childrenFiltered);
 
-            AssertByteIdentical(
+            GoldenImageHarness.AssertByteIdentical(
                 expected,
                 actual,
-                "a group SplitEffect and an equivalent SplitEffect on each child");
+                "a group SplitEffect and an equivalent SplitEffect on each child",
+                requireVisibleContent: true);
         });
     }
 
@@ -168,7 +176,10 @@ public sealed class DrawableGroupIsolationTests
                     ImageMetrics.FirstNonFinite(("blurred group hairline", actual)),
                     Is.Null,
                     "A per-child filter layer must not sample outside the hairline child it replays.");
-                Assert.That(HasFiniteVisibleContent(actual), Is.True, "The fixture must render visible content.");
+                Assert.That(
+                    ImageMetrics.HasFiniteVisibleContent(actual),
+                    Is.True,
+                    "The fixture must render visible content.");
             });
         });
     }
@@ -206,7 +217,10 @@ public sealed class DrawableGroupIsolationTests
                     ImageMetrics.FirstNonFinite(("filtered group with off-frame child", actual)),
                     Is.Null,
                     "Each effect layer must stay within the off-frame child content it replays.");
-                Assert.That(HasFiniteVisibleContent(actual), Is.True, "The fixture must render visible content.");
+                Assert.That(
+                    ImageMetrics.HasFiniteVisibleContent(actual),
+                    Is.True,
+                    "The fixture must render visible content.");
             });
         });
     }
@@ -233,13 +247,14 @@ public sealed class DrawableGroupIsolationTests
             using Bitmap actual = RenderScene(backdrop, multiplyGroup);
             using Bitmap expected = RenderScene(sourceOverBackdrop, sourceOverGroup);
 
-            AssertByteIdentical(
+            GoldenImageHarness.AssertByteIdentical(
                 expected,
                 actual,
-                $"Multiply child against an isolated group at opacity {opacity}%");
+                $"Multiply child against an isolated group at opacity {opacity}%",
+                requireVisibleContent: true);
             Assert.That(
-                ReadPixel(actual, 20, 20),
-                Is.EqualTo(ReadPixel(expected, 20, 20)),
+                ImageMetrics.ReadPixel(actual, 20, 20),
+                Is.EqualTo(ImageMetrics.ReadPixel(expected, 20, 20)),
                 "Pixels outside the group content must remain backdrop-only.");
         });
     }
@@ -258,12 +273,12 @@ public sealed class DrawableGroupIsolationTests
                 CreateRectangle(240, 240, halfWhite, blendMode: BlendMode.DstIn));
             using Bitmap actual = RenderScene(group);
 
-            Rgba center = ReadPixel(actual, 200, 200);
+            Rgba center = ImageMetrics.ReadPixel(actual, 200, 200);
             Assert.Multiple(() =>
             {
                 Assert.That(center.Alpha, Is.EqualTo(128f / 255f).Within(0.002f));
                 Assert.That(center.Red, Is.EqualTo(center.Alpha).Within(0.002f));
-                Assert.That(ReadPixel(actual, 20, 20).Alpha, Is.Zero);
+                Assert.That(ImageMetrics.ReadPixel(actual, 20, 20).Alpha, Is.Zero);
             });
         });
     }
@@ -285,7 +300,7 @@ public sealed class DrawableGroupIsolationTests
                 CreateRectangle(240, 240, gradient, blendMode: BlendMode.DstIn));
             using Bitmap actual = RenderScene(group);
 
-            Rgba center = ReadPixel(actual, 200, 200);
+            Rgba center = ImageMetrics.ReadPixel(actual, 200, 200);
             Assert.Multiple(() =>
             {
                 Assert.That(center.Alpha, Is.EqualTo(0.5f).Within(0.003f));
@@ -356,10 +371,11 @@ public sealed class DrawableGroupIsolationTests
             using Bitmap expected = Render(includeZeroAreaRectangle: false);
             using Bitmap actual = Render(includeZeroAreaRectangle: true);
 
-            AssertByteIdentical(
+            GoldenImageHarness.AssertByteIdentical(
                 expected,
                 actual,
-                $"fractional {width}x{height} {blendMode} rectangle");
+                $"fractional {width}x{height} {blendMode} rectangle",
+                requireVisibleContent: true);
         });
     }
 
@@ -387,14 +403,14 @@ public sealed class DrawableGroupIsolationTests
 
             Assert.Multiple(() =>
             {
-                Assert.That(ReadPixel(isolated, 200, 200).Alpha, Is.EqualTo(1).Within(0.001f));
+                Assert.That(ImageMetrics.ReadPixel(isolated, 200, 200).Alpha, Is.EqualTo(1).Within(0.001f));
                 Assert.That(
-                    ReadPixel(isolated, 80, 200).Alpha,
+                    ImageMetrics.ReadPixel(isolated, 80, 200).Alpha,
                     Is.Zero,
                     "Content outside the DstIn window must be removed across the group scope.");
                 Assert.That(
-                    ReadPixel(composited, 20, 20),
-                    Is.EqualTo(ReadPixel(composited, 80, 200)),
+                    ImageMetrics.ReadPixel(composited, 20, 20),
+                    Is.EqualTo(ImageMetrics.ReadPixel(composited, 80, 200)),
                     "Removing group content must reveal, not modify, the outer backdrop.");
             });
         });
@@ -416,16 +432,17 @@ public sealed class DrawableGroupIsolationTests
 
             Assert.Multiple(() =>
             {
-                AssertByteIdentical(
+                GoldenImageHarness.AssertByteIdentical(
                     expected,
                     actual,
-                    "fractionally translated DstIn mask with an identity group effect");
+                    "fractionally translated DstIn mask with an identity group effect",
+                    requireVisibleContent: true);
                 Assert.That(
-                    ReadPixel(expected, 150, 150).Alpha,
+                    ImageMetrics.ReadPixel(expected, 150, 150).Alpha,
                     Is.EqualTo(0.75f * 0.75f).Within(0.003f),
                     "A corner pixel must contain the product of the horizontal and vertical mask coverage.");
                 Assert.That(
-                    ReadPixel(actual, 150, 150).Alpha,
+                    ImageMetrics.ReadPixel(actual, 150, 150).Alpha,
                     Is.EqualTo(0.75f * 0.75f).Within(0.003f),
                     "The effect path must preserve two-dimensional mask coverage.");
             });
@@ -448,24 +465,25 @@ public sealed class DrawableGroupIsolationTests
 
             Assert.Multiple(() =>
             {
-                AssertByteIdentical(
+                GoldenImageHarness.AssertByteIdentical(
                     expected,
                     actual,
-                    "fractionally translated DstOut mask with and without an identity group effect");
+                    "fractionally translated DstOut mask with and without an identity group effect",
+                    requireVisibleContent: true);
                 Assert.That(
-                    ReadPixel(expected, 120, 200).Alpha,
+                    ImageMetrics.ReadPixel(expected, 120, 200).Alpha,
                     Is.EqualTo(0.5f).Within(0.003f),
                     "The leading vertical eraser edge must preserve its absolute half-pixel coverage.");
                 Assert.That(
-                    ReadPixel(expected, 200, 120).Alpha,
+                    ImageMetrics.ReadPixel(expected, 200, 120).Alpha,
                     Is.EqualTo(0.25f).Within(0.003f),
                     "The leading horizontal eraser edge must retain one minus 75% eraser coverage.");
                 Assert.That(
-                    ReadPixel(expected, 120, 120).Alpha,
+                    ImageMetrics.ReadPixel(expected, 120, 120).Alpha,
                     Is.EqualTo(1 - (0.5f * 0.75f)).Within(0.003f),
                     "The leading corner must use the product of both eraser coverage axes.");
                 Assert.That(
-                    ReadPixel(expected, 280, 280).Alpha,
+                    ImageMetrics.ReadPixel(expected, 280, 280).Alpha,
                     Is.EqualTo(1 - (0.5f * 0.25f)).Within(0.003f),
                     "The trailing corner must use the product of both eraser coverage axes.");
             });
@@ -487,20 +505,21 @@ public sealed class DrawableGroupIsolationTests
 
             Assert.Multiple(() =>
             {
-                AssertByteIdentical(
+                GoldenImageHarness.AssertByteIdentical(
                     expected,
                     actual,
-                    "quarter-scale DstIn mask with and without an identity group effect");
+                    "quarter-scale DstIn mask with and without an identity group effect",
+                    requireVisibleContent: true);
                 Assert.That(
-                    ReadPixel(expected, 37, 50).Alpha,
+                    ImageMetrics.ReadPixel(expected, 37, 50).Alpha,
                     Is.GreaterThan(0),
                     "The first covered device column must remain present.");
                 Assert.That(
-                    ReadPixel(expected, 36, 50).Alpha,
+                    ImageMetrics.ReadPixel(expected, 36, 50).Alpha,
                     Is.Zero.Within(0.001f),
                     "No leading one-device-pixel fringe may escape the mask footprint.");
                 Assert.That(
-                    ReadPixel(expected, 63, 50).Alpha,
+                    ImageMetrics.ReadPixel(expected, 63, 50).Alpha,
                     Is.Zero.Within(0.001f),
                     "No trailing one-device-pixel fringe may escape the mask footprint.");
             });
@@ -518,9 +537,9 @@ public sealed class DrawableGroupIsolationTests
             using Drawable.Resource group = CreateTranslatedDstOutGroup(effect: null);
             using Bitmap actual = RenderScene(backdrop, group);
 
-            Rgba backdropOnly = ReadPixel(actual, 20, 20);
-            Rgba content = ReadPixel(actual, 80, 200);
-            Rgba erased = ReadPixel(actual, 200, 200);
+            Rgba backdropOnly = ImageMetrics.ReadPixel(actual, 20, 20);
+            Rgba content = ImageMetrics.ReadPixel(actual, 80, 200);
+            Rgba erased = ImageMetrics.ReadPixel(actual, 200, 200);
             Assert.Multiple(() =>
             {
                 Assert.That(
@@ -559,7 +578,7 @@ public sealed class DrawableGroupIsolationTests
 
             using Drawable.Resource resource = outer.ToResource(CompositionContext.Default);
             using Bitmap actual = RenderScene(resource);
-            Rgba center = ReadPixel(actual, 200, 200);
+            Rgba center = ImageMetrics.ReadPixel(actual, 200, 200);
             const float expectedAlpha = 0.25f;
 
             Assert.Multiple(() =>
@@ -597,18 +616,21 @@ public sealed class DrawableGroupIsolationTests
             using Bitmap replayGroup = RenderScene(outputScale, FusionMode.Disabled, group);
             using Bitmap replayBare = RenderScene(outputScale, FusionMode.Disabled, bare);
 
-            AssertByteIdentical(
+            GoldenImageHarness.AssertByteIdentical(
                 fusedBare,
                 fusedGroup,
-                $"fused 100%-opacity group antialiasing at scale {outputScale}");
-            AssertByteIdentical(
+                $"fused 100%-opacity group antialiasing at scale {outputScale}",
+                requireVisibleContent: true);
+            GoldenImageHarness.AssertByteIdentical(
                 replayBare,
                 replayGroup,
-                $"replayed 100%-opacity group antialiasing at scale {outputScale}");
-            AssertByteIdentical(
+                $"replayed 100%-opacity group antialiasing at scale {outputScale}",
+                requireVisibleContent: true);
+            GoldenImageHarness.AssertByteIdentical(
                 fusedGroup,
                 replayGroup,
-                $"fused/replayed group parity at scale {outputScale}");
+                $"fused/replayed group parity at scale {outputScale}",
+                requireVisibleContent: true);
         });
     }
 
@@ -628,7 +650,7 @@ public sealed class DrawableGroupIsolationTests
                 .ToResource(CompositionContext.Default);
             using Bitmap actual = RenderScene(backdrop, multiply);
 
-            Rgba overlap = ReadPixel(actual, 200, 200);
+            Rgba overlap = ImageMetrics.ReadPixel(actual, 200, 200);
             Assert.Multiple(() =>
             {
                 Assert.That(overlap.Red, Is.Zero.Within(0.001f));
@@ -698,7 +720,11 @@ public sealed class DrawableGroupIsolationTests
 
             if (opacity == 100)
             {
-                AssertByteIdentical(expected, actual, "a SourceBackdrop nested in a DrawableGroup");
+                GoldenImageHarness.AssertByteIdentical(
+                    expected,
+                    actual,
+                    "a SourceBackdrop nested in a DrawableGroup",
+                    requireVisibleContent: true);
             }
             else
             {
@@ -746,7 +772,7 @@ public sealed class DrawableGroupIsolationTests
 
         using Bitmap actual = RenderScene(frame, group);
 
-        Rgba pixel = ReadPixel(actual, 4, 4);
+        Rgba pixel = ImageMetrics.ReadPixel(actual, 4, 4);
         Assert.Multiple(() =>
         {
             Assert.That(pixel.Alpha, Is.EqualTo(0.5f).Within(0.01f));
@@ -787,15 +813,12 @@ public sealed class DrawableGroupIsolationTests
         return group.ToResource(CompositionContext.Default);
     }
 
-    private static Drawable.Resource CreateTranslatedDstOutGroup(
-        FilterEffect? effect,
-        float eraserOpacity = 100)
+    private static Drawable.Resource CreateTranslatedDstOutGroup(FilterEffect? effect)
     {
         var eraser = CreateRectangle(
             160,
             160,
             Brushes.White,
-            opacity: eraserOpacity,
             blendMode: BlendMode.DstOut);
         eraser.Transform.CurrentValue = new TranslateTransform(0.25f, 0.25f);
 
@@ -813,8 +836,7 @@ public sealed class DrawableGroupIsolationTests
         Brush fill,
         float opacity = 100,
         BlendMode blendMode = BlendMode.SrcOver,
-        AlignmentX alignmentX = AlignmentX.Center,
-        AlignmentY alignmentY = AlignmentY.Center)
+        AlignmentX alignmentX = AlignmentX.Center)
     {
         var shape = new RectShape();
         shape.Width.CurrentValue = width;
@@ -823,7 +845,7 @@ public sealed class DrawableGroupIsolationTests
         shape.Opacity.CurrentValue = opacity;
         shape.BlendMode.CurrentValue = blendMode;
         shape.AlignmentX.CurrentValue = alignmentX;
-        shape.AlignmentY.CurrentValue = alignmentY;
+        shape.AlignmentY.CurrentValue = AlignmentY.Center;
         return shape;
     }
 
@@ -902,63 +924,6 @@ public sealed class DrawableGroupIsolationTests
         return target.Snapshot();
     }
 
-    private static Rgba ReadPixel(Bitmap bitmap, int x, int y)
-    {
-        ReadOnlySpan<ushort> pixels = bitmap.GetPixelSpan<ushort>();
-        int offset = ((y * bitmap.Width) + x) * 4;
-        return new Rgba(
-            (float)BitConverter.UInt16BitsToHalf(pixels[offset]),
-            (float)BitConverter.UInt16BitsToHalf(pixels[offset + 1]),
-            (float)BitConverter.UInt16BitsToHalf(pixels[offset + 2]),
-            (float)BitConverter.UInt16BitsToHalf(pixels[offset + 3]));
-    }
-
-    private static void AssertByteIdentical(Bitmap expected, Bitmap actual, string scenario)
-    {
-        ReadOnlySpan<byte> expectedPixels = expected.GetPixelSpan();
-        ReadOnlySpan<byte> actualPixels = actual.GetPixelSpan();
-        bool identical = actualPixels.SequenceEqual(expectedPixels);
-        Assert.Multiple(() =>
-        {
-            Assert.That(actual.Width, Is.EqualTo(expected.Width));
-            Assert.That(actual.Height, Is.EqualTo(expected.Height));
-            Assert.That(
-                identical,
-                Is.True,
-                $"{scenario} must be byte-identical.");
-            Assert.That(
-                HasFiniteVisibleContent(expected),
-                Is.True,
-                $"{scenario} must render finite visible content (SC-013 non-vacuity).");
-        });
-    }
-
-    private static bool HasFiniteVisibleContent(Bitmap bitmap)
-    {
-        ReadOnlySpan<ushort> pixels = bitmap.GetPixelSpan<ushort>();
-        for (int i = 3; i < pixels.Length; i += 4)
-        {
-            float a = (float)BitConverter.UInt16BitsToHalf(pixels[i]);
-            if (float.IsFinite(a) && a > 0f)
-            {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private sealed class CpuRenderTarget(int width, int height)
-        : RenderTarget(
-            SKSurface.Create(new SKImageInfo(
-                width,
-                height,
-                SKColorType.RgbaF16,
-                SKAlphaType.Premul,
-                SKColorSpace.CreateSrgbLinear())),
-            width,
-            height);
-
-    private readonly record struct Rgba(float Red, float Green, float Blue, float Alpha);
 }
 
 internal sealed partial class ClearOnlyDrawable(Color color) : Drawable

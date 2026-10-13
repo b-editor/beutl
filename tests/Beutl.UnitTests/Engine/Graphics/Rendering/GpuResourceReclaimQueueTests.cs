@@ -19,16 +19,7 @@ public sealed class GpuResourceReclaimQueueTests
             using RenderTarget destination = CreateBackendTarget(64, 64);
             using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview);
             canvas.Clear(Colors.Black);
-
-            RenderTarget source = CreateBackendTarget(32, 32);
-            using (var sourceCanvas = new ImmediateCanvas(source, RenderIntent.Preview))
-            {
-                sourceCanvas.Clear(Colors.Red);
-            }
-
-            GpuResourceReclaimQueue.FlushAndDrain();
-            canvas.DrawRenderTargetPixelsWithoutFlush(source, 0, 0);
-            source.Dispose();
+            ReadAndReleaseSource(canvas);
             Assert.That(GpuResourceReclaimQueue.PendingCount, Is.GreaterThan(0), "precondition");
 
             bool claimedForeign = GpuResourceReclaimQueue.FlushAndDrain(foreign.SkiaContext);
@@ -53,16 +44,7 @@ public sealed class GpuResourceReclaimQueueTests
             using RenderTarget destination = CreateBackendTarget(64, 64);
             using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview);
             canvas.Clear(Colors.Black);
-
-            RenderTarget source = CreateBackendTarget(32, 32);
-            using (var sourceCanvas = new ImmediateCanvas(source, RenderIntent.Preview))
-            {
-                sourceCanvas.Clear(Colors.Red);
-            }
-
-            GpuResourceReclaimQueue.FlushAndDrain();
-            canvas.DrawRenderTargetPixelsWithoutFlush(source, 0, 0);
-            source.Dispose();
+            ReadAndReleaseSource(canvas);
             Assert.That(GpuResourceReclaimQueue.PendingCount, Is.GreaterThan(0), "precondition");
 
             bool claimedShared = GpuResourceReclaimQueue.FlushAndDrain(
@@ -81,18 +63,7 @@ public sealed class GpuResourceReclaimQueueTests
             using RenderTarget destination = CreateBackendTarget(64, 64);
             using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview);
             canvas.Clear(Colors.Black);
-
-            RenderTarget source = CreateBackendTarget(32, 32);
-            using (var sourceCanvas = new ImmediateCanvas(source, RenderIntent.Preview))
-            {
-                sourceCanvas.Clear(Colors.Red);
-            }
-
-            GpuResourceReclaimQueue.FlushAndDrain();
-            Assert.That(GpuResourceReclaimQueue.PendingCount, Is.Zero, "precondition");
-
-            canvas.DrawRenderTargetPixelsWithoutFlush(source, 0, 0);
-            source.Dispose();
+            ReadAndReleaseSource(canvas);
 
             Assert.That(
                 GpuResourceReclaimQueue.PendingCount,
@@ -133,6 +104,23 @@ public sealed class GpuResourceReclaimQueueTests
 
             Assert.That(GpuResourceReclaimQueue.PendingCount, Is.Zero);
         });
+    }
+
+    // Reads a freshly drawn source into the canvas without flushing and releases it, so only that unsubmitted
+    // read keeps the source alive.
+    private static void ReadAndReleaseSource(ImmediateCanvas canvas)
+    {
+        RenderTarget source = CreateBackendTarget(32, 32);
+        using (var sourceCanvas = new ImmediateCanvas(source, RenderIntent.Preview))
+        {
+            sourceCanvas.Clear(Colors.Red);
+        }
+
+        GpuResourceReclaimQueue.FlushAndDrain();
+        Assert.That(GpuResourceReclaimQueue.PendingCount, Is.Zero, "precondition");
+
+        canvas.DrawRenderTargetPixelsWithoutFlush(source, 0, 0);
+        source.Dispose();
     }
 
     private static RenderTarget CreateBackendTarget(int width, int height)

@@ -17,7 +17,6 @@ public sealed class CustomEffectSynchronizationTests
     private static readonly Rect s_targetDomain = new(0, 0, 28, 24);
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void Snapshot_RetainsCompletionWaitForCpuReadback()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -41,7 +40,6 @@ public sealed class CustomEffectSynchronizationTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void BackendInterop_RetainsCompletionWaitBeforeTextureExposure()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -63,7 +61,6 @@ public sealed class CustomEffectSynchronizationTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void SameContextTextureSampling_SubmitsWithoutCompletionWait()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -92,7 +89,6 @@ public sealed class CustomEffectSynchronizationTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void CrossContextTextureSampling_RetainsCompletionWait()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -119,7 +115,6 @@ public sealed class CustomEffectSynchronizationTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void ExecutorManagedCustomEffect_CpuTargetsDoNotFlushInitializedSharedContext()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -153,7 +148,6 @@ public sealed class CustomEffectSynchronizationTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void ExecutorManagedCustomEffect_GpuDeferredDrawSurvivesSourceDisposeWithoutInternalFlush()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -223,7 +217,6 @@ public sealed class CustomEffectSynchronizationTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void ExecutorManagedCustomEffect_CrossContextCopyFlushesSourceThenSubmitsDestination()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -301,7 +294,6 @@ public sealed class CustomEffectSynchronizationTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void PublicFilterEffectExecutor_RetainsEffectItemCanvasAndSourceFlushes()
     {
         VulkanTestEnvironment.EnsureAvailable();

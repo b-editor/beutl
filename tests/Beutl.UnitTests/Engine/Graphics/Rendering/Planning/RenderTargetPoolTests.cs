@@ -45,7 +45,6 @@ public sealed class RenderTargetPoolTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void NativeAcquisition_DoesNotScheduleSkiaImageReads()
     {
         IGraphicsContext graphics = VulkanTestEnvironment.EnsureAvailable();
@@ -145,7 +144,6 @@ public sealed class RenderTargetPoolTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void EffectTargetFinalCloneRelease_DefersThePoolSlotUntilReclaim()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -688,7 +686,6 @@ public sealed class RenderTargetPoolTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void DeferredGpuDraw_PreservesSnapshotAcrossSameSlotReuse()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -768,7 +765,6 @@ public sealed class RenderTargetPoolTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void TargetlessGpuBinding_ForwardsLiveContextOnLaterMiss()
     {
         VulkanTestEnvironment.EnsureAvailable();
