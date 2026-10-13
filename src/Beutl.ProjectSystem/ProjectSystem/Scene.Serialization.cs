@@ -16,7 +16,9 @@ namespace Beutl.ProjectSystem;
 [DroppedMembers("MediaFingerprints")]
 public partial class Scene
 {
-    // Null while the scene has no fingerprints; see MediaFingerprintFile.
+    // The file that stores the scene's media fingerprints, or null while the scene has none: its scene file then
+    // references no file, and a save removes the one in its folder. A file that a later version of Beutl wrote
+    // stays here without fingerprints, so a save keeps the reference to it and leaves the file alone.
     internal MediaFingerprintFile? MediaFingerprintFile { get; private set; }
 
     // Keyed by absolute URI.
@@ -42,7 +44,7 @@ public partial class Scene
     }
 
     // Writes MediaFingerprintFile into the scene's folder, or removes the file there while the scene has no
-    // fingerprints.
+    // fingerprints. A save of the scene with SaveReferencedObjects does this itself.
     internal void SaveMediaFingerprintFile()
     {
         if (GetMediaFingerprintFileUri() is { } fileUri)
@@ -90,12 +92,28 @@ public partial class Scene
             context.SetValue("Elements", elementsNode);
         }
 
-        // Only a scene with fingerprints references the file. The serializer saves it with SaveReferencedObjects,
-        // embeds it with EmbedReferencedObjects and otherwise writes the reference.
+        if (context.Mode.HasFlag(CoreSerializationMode.SaveReferencedObjects))
+        {
+            // Saved, or removed, here rather than by the serializer, which would rewrite the file on every save
+            // and replace one a later version of Beutl wrote.
+            SaveMediaFingerprintFile();
+        }
+
+        // Only a scene with fingerprints references the file.
         if (MediaFingerprintFile is { } fingerprints && GetMediaFingerprintFileUri() is { } fingerprintsUri)
         {
-            fingerprints.Uri = fingerprintsUri;
-            context.SetValue(MediaFingerprintFile.SceneProperty, fingerprints);
+            if (context.Mode.HasFlag(CoreSerializationMode.SaveReferencedObjects))
+            {
+                context.SetValue(MediaFingerprintFile.SceneProperty,
+                    UriHelper.ToSerializedUri(fingerprintsUri, context.BaseUri).ToString());
+            }
+            else
+            {
+                // The serializer writes the reference, or the fingerprints themselves when it embeds referenced
+                // objects.
+                fingerprints.Uri = fingerprintsUri;
+                context.SetValue(MediaFingerprintFile.SceneProperty, fingerprints);
+            }
         }
     }
 

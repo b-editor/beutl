@@ -58,7 +58,7 @@ public class MediaFingerprintPersistenceTests
             // The editor's background update after an explicit save, then the next explicit save.
             updated = MediaFingerprintFile.Update(scene.Uri, scene.Id, scene.MediaFingerprints);
             replacedByTheUpdate = [.. replaced];
-            SaveAsTheEditorDoes(scene);
+            CoreSerializer.StoreToUri(scene, scene.Uri);
         }
 
         Assert.Multiple(() =>
@@ -223,7 +223,7 @@ public class MediaFingerprintPersistenceTests
         scene.Children.Clear();
         await service.UpdateFingerprintsAsync(scene, force: true);
         bool keptAfterTheScan = scene.MediaFingerprintFile is not null;
-        SaveAsTheEditorDoes(scene);
+        CoreSerializer.StoreToUri(scene, scene.Uri);
 
         Assert.Multiple(() =>
         {
@@ -448,7 +448,14 @@ public class MediaFingerprintPersistenceTests
             });
         }
 
-        // In one transaction, as EditViewModel.SaveAsync saves.
+        // As EditViewModel.SaveAsync does it: one transaction, the fingerprint file before the scene file, which
+        // it stores without SaveReferencedObjects.
+        void SaveAsTheEditorDoes()
+        {
+            scene.SaveMediaFingerprintFile();
+            CoreSerializer.StoreToUri(scene, scene.Uri, CoreSerializationMode.Write);
+        }
+
         using (StorageWriteTransaction transaction = StorageWriteTransaction.Begin())
         using (StorageWriteTransaction.InjectFaultsForTesting((step, file) =>
                {
@@ -456,12 +463,12 @@ public class MediaFingerprintPersistenceTests
                        throw new IOException("Injected scene write failure.");
                }))
         {
-            Assert.Throws<IOException>(() => SaveAsTheEditorDoes(scene));
+            Assert.Throws<IOException>(SaveAsTheEditorDoes);
             transaction.Rollback();
         }
 
         byte[] afterFailure = File.ReadAllBytes(path);
-        SaveAsTheEditorDoes(scene);
+        SaveAsTheEditorDoes();
 
         Assert.Multiple(() =>
         {
@@ -508,14 +515,6 @@ public class MediaFingerprintPersistenceTests
     }
 
     private string MediaUri(string name) => new Uri(Path.Combine(_root, name)).AbsoluteUri;
-
-    // As EditViewModel.SaveAsync saves a scene: the fingerprint file first, then the scene file, which it stores
-    // without SaveReferencedObjects.
-    private static void SaveAsTheEditorDoes(Scene scene)
-    {
-        scene.SaveMediaFingerprintFile();
-        CoreSerializer.StoreToUri(scene, scene.Uri!, CoreSerializationMode.Write);
-    }
 
     private static JsonObject ReadJson(string path) => JsonNode.Parse(File.ReadAllText(path))!.AsObject();
 
