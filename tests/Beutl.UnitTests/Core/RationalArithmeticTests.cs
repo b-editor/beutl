@@ -92,14 +92,14 @@ public class RationalArithmeticTests
     public void Addition_CombinesWithCommonDenominator()
     {
         Rational result = new Rational(1, 2) + new Rational(1, 3);
-        Assert.That(result.Simplify(), Is.EqualTo(new Rational(5, 6)));
+        Assert.That(result, Is.EqualTo(new Rational(5, 6)));
     }
 
     [Test]
     public void Subtraction_CombinesWithCommonDenominator()
     {
         Rational result = new Rational(1, 2) - new Rational(1, 3);
-        Assert.That(result.Simplify(), Is.EqualTo(new Rational(1, 6)));
+        Assert.That(result, Is.EqualTo(new Rational(1, 6)));
     }
 
     [Test]
@@ -114,7 +114,7 @@ public class RationalArithmeticTests
     public void Division_RegularCase_DividesCorrectly()
     {
         Rational result = new Rational(1, 2) / new Rational(1, 4);
-        Assert.That(result.Simplify(), Is.EqualTo(new Rational(2, 1)));
+        Assert.That(result, Is.EqualTo(new Rational(2, 1)));
     }
 
     [Test]
@@ -191,6 +191,25 @@ public class RationalArithmeticTests
     }
 
     [Test]
+    public void EqualityOperators_BehaveAsExpected()
+    {
+        Assert.That(new Rational(1, 2) == new Rational(2, 4), Is.True);
+        Assert.That(new Rational(1, 2) != new Rational(3, 4), Is.True);
+    }
+
+    [Test]
+    public void Equals_NullObject_ReturnsFalse()
+    {
+        Assert.That(new Rational(1, 2).Equals((object?)null), Is.False);
+    }
+
+    [Test]
+    public void GetHashCode_SameNumeratorDenominator_AreEqual()
+    {
+        Assert.That(new Rational(2, 4).GetHashCode(), Is.EqualTo(new Rational(2, 4).GetHashCode()));
+    }
+
+    [Test]
     public void ToString_NaN_ProducesIndeterminateLabel()
     {
         Assert.That(Rational.NaN.ToString(), Is.EqualTo("[ Indeterminate ]"));
@@ -198,7 +217,15 @@ public class RationalArithmeticTests
         Assert.That(Rational.NegativeInfinity.ToString(), Is.EqualTo("[ NegativeInfinity ]"));
         Assert.That(Rational.Zero.ToString(), Is.EqualTo("0"));
         Assert.That(new Rational(5).ToString(), Is.EqualTo("5"));
+        Assert.That(new Rational(-3, 1).ToString(), Is.EqualTo("-3"));
         Assert.That(new Rational(1, 2).ToString(), Is.EqualTo("1/2"));
+    }
+
+    [Test]
+    public void ToString_WithFormatSpecifier_DelegatesToFormatProvider()
+    {
+        var r = new Rational(3, 4);
+        Assert.That(r.ToString("X", CultureInfo.InvariantCulture), Is.EqualTo("3/4"));
     }
 
     [Test]
@@ -211,8 +238,14 @@ public class RationalArithmeticTests
         Assert.That(Rational.PositiveInfinity.TryFormat(buf, out w, default, CultureInfo.InvariantCulture), Is.True);
         Assert.That(buf[..w].ToString(), Is.EqualTo("[ PositiveInfinity ]"));
 
+        Assert.That(Rational.NegativeInfinity.TryFormat(buf, out w, default, CultureInfo.InvariantCulture), Is.True);
+        Assert.That(buf[..w].ToString(), Is.EqualTo("[ NegativeInfinity ]"));
+
         Assert.That(new Rational(0, 1).TryFormat(buf, out w, default, CultureInfo.InvariantCulture), Is.True);
         Assert.That(buf[..w].ToString(), Is.EqualTo("0"));
+
+        Assert.That(new Rational(7, 1).TryFormat(buf, out w, default, CultureInfo.InvariantCulture), Is.True);
+        Assert.That(buf[..w].ToString(), Is.EqualTo("7"));
 
         Assert.That(new Rational(7, 2).TryFormat(buf, out w, default, CultureInfo.InvariantCulture), Is.True);
         Assert.That(buf[..w].ToString(), Is.EqualTo("7/2"));
@@ -235,7 +268,14 @@ public class RationalArithmeticTests
         Assert.That(Rational.NegativeInfinity.Simplify(), Is.EqualTo(Rational.NegativeInfinity));
         Assert.That(new Rational(5, 5).Simplify(), Is.EqualTo(new Rational(1, 1)));
         Assert.That(Rational.Zero.Simplify(), Is.EqualTo(Rational.Zero));
-        Assert.That(new Rational(6, 8).Simplify(), Is.EqualTo(new Rational(3, 4)));
+        Rational simplified = new Rational(6, 8).Simplify();
+        Assert.That((simplified.Numerator, simplified.Denominator), Is.EqualTo((3L, 4L)));
+    }
+
+    [Test]
+    public void Simplify_ZeroNumerator_TreatedAsIntegerAndReturnsItself()
+    {
+        Assert.That(new Rational(0, 5).Simplify(), Is.EqualTo(new Rational(0, 5)));
     }
 
     [Test]

@@ -11,39 +11,21 @@ namespace Beutl.UnitTests.NodeGraph;
 public class GroupNodeTests
 {
     [Test]
-    public void RemovingAnOutputPortAfterTheFirstStopsMirroringIt()
+    public void RemovingAPortAfterTheFirstStopsMirroringIt([Values] bool outputSide)
     {
         GroupNode group = CreateAttachedGroup();
-        var output = new GroupOutput();
-        group.Group.Nodes.Add(output);
-        GroupOutput.GroupOutputPort<float>[] ports =
-            [.. Enumerable.Range(0, 3).Select(i => new GroupOutput.GroupOutputPort<float> { Name = $"Out{i}" })];
-        foreach (GroupOutput.GroupOutputPort<float> port in ports)
-            output.Items.Add(port);
+        GraphNode ioNode = outputSide ? new GroupOutput() : new GroupInput();
+        group.Group.Nodes.Add(ioNode);
+        string prefix = outputSide ? "Out" : "In";
+        INodeMember[] ports = [.. Enumerable.Range(0, 3).Select(i => CreatePort(outputSide, $"{prefix}{i}"))];
+        foreach (INodeMember port in ports)
+            ioNode.Items.Add(port);
         INodeMember mirror = group.Items[2];
 
-        output.Items.RemoveAt(2);
+        ioNode.Items.RemoveAt(2);
         ports[2].Name = "Renamed";
 
-        Assert.That(mirror.Name, Is.EqualTo("Out2"));
-    }
-
-    [Test]
-    public void RemovingAnInputPortAfterTheFirstStopsMirroringIt()
-    {
-        GroupNode group = CreateAttachedGroup();
-        var input = new GroupInput();
-        group.Group.Nodes.Add(input);
-        GroupInput.GroupInputPort<float>[] ports =
-            [.. Enumerable.Range(0, 3).Select(i => new GroupInput.GroupInputPort<float> { Name = $"In{i}" })];
-        foreach (GroupInput.GroupInputPort<float> port in ports)
-            input.Items.Add(port);
-        INodeMember mirror = group.Items[2];
-
-        input.Items.RemoveAt(2);
-        ports[2].Name = "Renamed";
-
-        Assert.That(mirror.Name, Is.EqualTo("In2"));
+        Assert.That(mirror.Name, Is.EqualTo($"{prefix}2"));
     }
 
     [Test]

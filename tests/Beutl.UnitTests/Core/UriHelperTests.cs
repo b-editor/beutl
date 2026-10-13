@@ -32,8 +32,7 @@ public class UriHelperTests
     [Test]
     public void ParseDataUri_MissingComma_Throws()
     {
-        // Constructed without going through Uri parsing of the data scheme,
-        // so an invalid data URI without a comma raises FormatException.
+        // A data URI without a comma raises FormatException.
         var uri = new Uri("data:text/plain", UriKind.Absolute);
 
         Assert.That(() => UriHelper.ParseDataUri(uri), Throws.TypeOf<FormatException>());

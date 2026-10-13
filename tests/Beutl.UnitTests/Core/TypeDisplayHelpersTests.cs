@@ -110,7 +110,6 @@ public class TypeDisplayHelpersTests
     [Test]
     public void GetLocalizedName_Type_CachesResult()
     {
-        // Calling twice should return identical (cached) string instance.
         string a = TypeDisplayHelpers.GetLocalizedName(typeof(TypeWithDisplay));
         string b = TypeDisplayHelpers.GetLocalizedName(typeof(TypeWithDisplay));
         Assert.That(a, Is.SameAs(b));

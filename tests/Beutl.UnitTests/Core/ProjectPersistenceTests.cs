@@ -44,7 +44,6 @@ public class ProjectPersistenceTests
                 () => throw persistEx,
                 () => throw rollbackEx));
 
-        // Both the original persist failure and the rollback failure are preserved.
         Assert.That(caught!.InnerException, Is.SameAs(persistEx));
         Assert.That(caught.RollbackException, Is.SameAs(rollbackEx));
     }

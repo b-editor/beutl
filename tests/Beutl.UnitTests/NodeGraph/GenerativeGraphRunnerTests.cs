@@ -1,6 +1,5 @@
 ﻿using Beutl.Composition;
 using Beutl.Editor;
-using Beutl.Editor.Observers;
 using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.NodeGraph;
@@ -10,6 +9,7 @@ using Beutl.NodeGraph.Nodes.Generative;
 using Beutl.NodeGraph.Nodes.Group;
 using Beutl.Serialization;
 using Beutl.UnitTests.TestInfrastructure;
+using static Beutl.UnitTests.NodeGraph.NodeGraphTestHelpers;
 
 namespace Beutl.UnitTests.NodeGraph;
 
@@ -238,16 +238,13 @@ public sealed class GenerativeGraphRunnerTests
         var (model, node) = await GenerateTimesAsync(2);
         GenerationRecord first = node.Generations[0];
         GenerationRecord latest = node.Generations[1];
-        var sequence = new OperationSequenceGenerator();
-        using var history = new HistoryManager(model, sequence);
-        using var observer = new CoreObjectOperationObserver(null, model, sequence);
-        history.Subscribe(observer);
+        using var harness = new HistoryHarness(model);
 
         node.SelectGeneration(first.Id);
-        history.Commit("select");
+        harness.History.Commit("select");
         Assert.That(node.ActiveGeneration, Is.SameAs(first));
 
-        history.Undo();
+        harness.History.Undo();
         Assert.That(node.ActiveGeneration, Is.SameAs(latest));
     }
 
@@ -260,25 +257,22 @@ public sealed class GenerativeGraphRunnerTests
         var node = new AiImageGenerationNode();
         node.Prompt.Property!.SetValue("a cat");
         model.Nodes.Add(node);
-        var sequence = new OperationSequenceGenerator();
-        using var history = new HistoryManager(model, sequence);
-        using var observer = new CoreObjectOperationObserver(null, model, sequence);
-        history.Subscribe(observer);
+        using var harness = new HistoryHarness(model);
         var executor = new FakeExecutor(_directory);
 
-        await new GenerativeGraphRunner(executor, new InlineHost { History = history })
+        await new GenerativeGraphRunner(executor, new InlineHost { History = harness.History })
             .RunAsync(model, null, force: false, CancellationToken.None);
         string sent = executor.Requests.Single().RequestKeySeed;
-        Assert.That(history.UndoCount, Is.EqualTo(1));
+        Assert.That(harness.History.UndoCount, Is.EqualTo(1));
 
-        history.Undo();
+        harness.History.Undo();
         Assert.Multiple(() =>
         {
             Assert.That(node.ActiveGeneration, Is.Null, "undo takes the generation back");
             Assert.That(node.RequestKeySeed, Is.Not.EqualTo(sent));
         });
 
-        history.Redo();
+        harness.History.Redo();
         Assert.Multiple(() =>
         {
             Assert.That(node.ActiveGeneration, Is.Not.Null, "redo brings the generation back");
@@ -629,13 +623,8 @@ public sealed class GenerativeGraphRunnerTests
     public async Task AiNodesInsideAGroupRunBetweenWhatFeedsAndReadsTheGroup()
     {
         // A group only mirrors its inner ports once it is attached, as in the editor.
-        using var scene = new SceneHistoryHarness("generative-group");
-        var application = new BeutlApplication();
-        application.Items.Add(scene.Scene);
         var model = new GraphModel();
-        var drawable = new NodeGraphDrawable();
-        drawable.Model.CurrentValue = model;
-        scene.AddElement().AddObject(drawable);
+        using SceneHistoryHarness scene = AttachToScene(model, "generative-group");
         var upstream = new AiImageGenerationNode();
         upstream.Prompt.Property!.SetValue("a cat");
         var downstream = new AiImageGenerationNode();
@@ -673,13 +662,8 @@ public sealed class GenerativeGraphRunnerTests
     [Test]
     public async Task AGroupedNodeWaitsOnlyForTheGroupInputItReads()
     {
-        using var scene = new SceneHistoryHarness("generative-group-inputs");
-        var application = new BeutlApplication();
-        application.Items.Add(scene.Scene);
         var model = new GraphModel();
-        var drawable = new NodeGraphDrawable();
-        drawable.Model.CurrentValue = model;
-        scene.AddElement().AddObject(drawable);
+        using SceneHistoryHarness scene = AttachToScene(model, "generative-group-inputs");
         var used = new AiImageGenerationNode();
         used.Prompt.Property!.SetValue("a cat");
         var unrelated = new AiImageGenerationNode();

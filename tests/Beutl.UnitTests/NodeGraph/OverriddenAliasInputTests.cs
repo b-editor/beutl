@@ -1,13 +1,12 @@
 ﻿using Beutl.Animation;
 using Beutl.Composition;
 using Beutl.Engine;
-using Beutl.Engine.Expressions;
 using Beutl.Media;
 using Beutl.NodeGraph;
-using Beutl.NodeGraph.Composition;
 using Beutl.NodeGraph.Nodes;
 using Beutl.NodeGraph.Nodes.Group;
 using Beutl.UnitTests.TestInfrastructure;
+using static Beutl.UnitTests.NodeGraph.NodeGraphTestHelpers;
 
 namespace Beutl.UnitTests.NodeGraph;
 
@@ -61,13 +60,13 @@ public class OverriddenAliasInputTests
         rejectedParent.CurrentValue = separate;
         var acceptedPort = Find(acceptedNode, shared.Opacity);
         var rejectedPort = Find(rejectedNode, separate.Opacity);
-        var accepted = acceptedGraph.Connect(acceptedPort, Source(acceptedGraph, 12f));
-        var rejected = rejectedGraph.Connect(rejectedPort, Source(rejectedGraph, 90f));
+        var accepted = acceptedGraph.Connect(acceptedPort, Source(acceptedGraph, 12f, "Opacity"));
+        var rejected = rejectedGraph.Connect(rejectedPort, Source(rejectedGraph, 90f, "Opacity"));
         Evaluate(graph);
         using var resource = shared.ToResource(CompositionContext.Default);
         using var history = new HistoryHarness(graph);
         var replacement = new SolidColorBrush(Colors.Blue);
-        if (expression) rejectedParent.Expression = new ConstantBrushExpression(replacement);
+        if (expression) rejectedParent.Expression = new ConstantExpression<Brush?>(replacement);
         else
         {
             var animation = new KeyFrameAnimation<Brush?>();
@@ -117,37 +116,6 @@ public class OverriddenAliasInputTests
         CheckSingleWriter();
     }
 
-    private static INestedInputPort Find(GraphNode node, IProperty property)
-        => node.NestedInputPorts.Single(p => ReferenceEquals(p.Property!.GetEngineProperty(), property));
-
-    private static IOutputPort Source(GraphModel graph, float value)
-    {
-        var node = new LayerInputNode();
-        var port = new LayerInputNode.LayerInputPort<float>();
-        port.SetupProperty("Opacity");
-        port.Property!.SetValue(value);
-        node.Items.Add(port);
-        graph.Nodes.Add(node);
-        return port;
-    }
-
-    private static void Evaluate(GraphModel graph)
-    {
-        using var snapshot = new GraphSnapshot();
-        snapshot.Build(graph, CompositionContext.Default);
-        snapshot.Evaluate(CompositionTarget.Graphics, CompositionContext.Default);
-    }
-
-    private sealed class ConstantBrushExpression(Brush value) : IExpression<Brush?>
-    {
-        public string ExpressionString => "test constant brush";
-        public bool Validate(out string? error)
-        {
-            error = null;
-            return true;
-        }
-        public Brush? Evaluate(ExpressionContext context) => value;
-    }
 }
 
 internal sealed partial class OverridableBrushPair : EngineObject
