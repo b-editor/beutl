@@ -66,14 +66,15 @@ internal static class TestPackages
         return identity;
     }
 
-    // Deletes the files and folders at paths, and empties the list.
+    // Deletes the files and folders at paths, and empties the list. A path whose folder does not exist, such as
+    // the install folder of a package that never resolved, has nothing to delete.
     public static void Delete(List<string> paths)
     {
         foreach (string path in paths)
         {
             if (Directory.Exists(path))
                 Directory.Delete(path, recursive: true);
-            else
+            else if (Directory.Exists(Path.GetDirectoryName(path)))
                 File.Delete(path);
         }
         paths.Clear();
