@@ -74,6 +74,28 @@ public sealed class ShaderFallbackTests
         });
     }
 
+    [Test]
+    public void OrdinaryCpuBackend_PreservesExplicitProgramValidationFailure()
+    {
+        using var source = new CpuRenderTarget(6, 4);
+        ShaderDescription invalid = ShaderDescription.WholeSource(
+            "uniform shader src; half4 main(float2 p) { this is not valid SkSL; }",
+            RenderBoundsContract.Identity);
+        using var node = new ShaderNode(source, invalid);
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            TargetDomain = s_bounds,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+            FusionMode = FusionMode.Disabled,
+        }, new CpuRenderTargetFactory());
+
+        Assert.That(
+            () => renderer.Rasterize(),
+            Throws.TypeOf<InvalidOperationException>()
+                .With.Message.StartsWith("SkSL program validation failed:"));
+    }
+
     [TestCase(ShaderDescriptionKind.WholeSource)]
     [TestCase(ShaderDescriptionKind.CurrentPixel)]
     public void CompatibilityShaderProgramCache_ColdMissThenWarmHit(
