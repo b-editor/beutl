@@ -112,6 +112,7 @@ public sealed class MissingMediaViewModel : IToolContext
     public ReactivePropertySlim<string> Summary { get; } = new(string.Empty);
     public ReactivePropertySlim<string?> Error { get; } = new();
     internal CancellationToken CancellationToken => _token;
+    // Test seam: tests replace the candidate search; the app leaves it null.
     internal Func<IEnumerable<MissingMedia>, string, CancellationToken,
         Task<IReadOnlyDictionary<MissingMedia, IReadOnlyList<string>>>>? FindCandidateMatches
     { get; set; }
@@ -119,6 +120,7 @@ public sealed class MissingMediaViewModel : IToolContext
 
     public void Close() => _editor.CloseToolTab(this);
 
+    // Test seam: tests await the candidate scan.
     internal Task WaitForCandidatesAsync() => _candidateScanTask;
 
     internal async Task RefreshRowsAsync()

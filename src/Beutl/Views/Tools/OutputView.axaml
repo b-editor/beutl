@@ -19,7 +19,6 @@
             <StackPanel Spacing="6">
                 <TextBlock Margin="0,8,0,0" Text="{Binding ProgressText.Value}" />
                 <ProgressBar Margin="0,0,8,0"
-                             IsIndeterminate="{Binding IsIndeterminate.Value}"
                              Maximum="{Binding ProgressMax.Value}"
                              Value="{Binding ProgressValue.Value}" />
                 <StackPanel IsVisible="{Binding IsEncoding.Value}"

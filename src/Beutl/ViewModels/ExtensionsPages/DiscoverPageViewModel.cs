@@ -26,64 +26,30 @@ public sealed class DiscoverPageViewModel : BasePageViewModel, ISupportRefreshVi
         DataContextFactory = new DataContextFactory(_discover, apiApp, editorService, projectService);
 
         Refresh = new AsyncReactiveCommand(IsBusy.Inverse())
-            .WithSubscribe(async () =>
-            {
-                using Activity? activity = Telemetry.StartActivity("DiscoverPage.Refresh");
-
-                try
+            .WithSubscribe(() => StorePageCommand.RunAsync(
+                IsBusy, "DiscoverPage.Refresh", _lifetimeCts.Token, _logger,
+                async activity =>
                 {
-                    IsBusy.Value = true;
                     Items.Clear();
                     Items.AddRange(Enumerable.Repeat(new DummyItem(), 10));
 
                     Package[] array = await LoadItems(0, PackagePageList.PageSize, activity, _lifetimeCts.Token);
                     PackagePageList.ShowFirstPage(Items, array);
-                }
-                catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
-                {
-                }
-                catch (Exception e)
-                {
-                    activity?.SetStatus(ActivityStatusCode.Error);
-                    await e.Handle();
-                    _logger.LogError(e, "An unexpected error has occurred.");
-                }
-                finally
-                {
-                    IsBusy.Value = false;
-                }
-            })
+                }))
             .DisposeWith(_disposables);
 
         More = new AsyncReactiveCommand(IsBusy.Inverse())
-            .WithSubscribe(async () =>
-            {
-                using Activity? activity = Telemetry.StartActivity("DiscoverPage.More");
-
-                try
+            .WithSubscribe(() => StorePageCommand.RunAsync(
+                IsBusy, "DiscoverPage.More", _lifetimeCts.Token, _logger,
+                async activity =>
                 {
-                    IsBusy.Value = true;
                     Package[] array = await LoadItems(
                         PackagePageList.NextPageStart(Items),
                         PackagePageList.PageSize,
                         activity,
                         _lifetimeCts.Token);
                     PackagePageList.AppendNextPage(Items, array);
-                }
-                catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
-                {
-                }
-                catch (Exception e)
-                {
-                    activity?.SetStatus(ActivityStatusCode.Error);
-                    await e.Handle();
-                    _logger.LogError(e, "An unexpected error has occurred.");
-                }
-                finally
-                {
-                    IsBusy.Value = false;
-                }
-            })
+                }))
             .DisposeWith(_disposables);
 
         Kind = new PackageKindFilterViewModel(() => Refresh.Execute())

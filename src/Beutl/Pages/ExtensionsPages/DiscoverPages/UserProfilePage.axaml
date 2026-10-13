@@ -152,9 +152,7 @@
                                                 HorizontalContentAlignment="Stretch"
                                                 VerticalContentAlignment="Stretch"
                                                 IsHitTestVisible="False">
-                                            <Grid Margin="16"
-                                                  ColumnDefinitions="Auto,16,*"
-                                                  IsVisible="{Binding Converter={x:Static ObjectConverters.IsNotNull}}">
+                                            <Grid Margin="16" ColumnDefinitions="Auto,16,*">
                                                 <Border Width="80"
                                                         Height="80"
                                                         Classes="placeholder"

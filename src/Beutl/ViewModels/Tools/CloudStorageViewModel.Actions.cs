@@ -76,9 +76,10 @@ internal sealed partial class CloudStorageViewModel
         if (context.Items is [var folder] && folder.IsFolder && folder.Can("delete"))
             return MutateAsync(context, async (authorization, token) =>
                 await _clients.Storage.DeleteFolderTree(authorization, folder.Id, token));
-        var ids = context.Items.Where(item => !item.IsFolder && item.Can("delete")).Select(x => x.Id).ToArray();
+        CloudStorageItem[] files = context.Items.Where(item => !item.IsFolder && item.Can("delete")).ToArray();
+        var ids = files.Select(x => x.Id).ToArray();
         if (ids.Length is 0 or > 200) return Task.FromResult(false);
-        return MutateAsync(context with { Items = context.Items.Where(item => !item.IsFolder && item.Can("delete")).ToArray() }, async (authorization, token) =>
+        return MutateAsync(context with { Items = files }, async (authorization, token) =>
             await _clients.Storage.FileBatch(authorization, new { operation = "delete", ids }, token));
     }
 

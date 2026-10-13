@@ -451,9 +451,9 @@ public sealed class AiJobCenterTests
             kind: "image",
             status: "succeeded",
             url: "https://beutl.beditor.net/api/contents/preview"));
-        Assert.That(item.TryClaimPreviewLoad(), Is.True);
-        item.ResetPreviewLoadClaim();
-        Assert.That(item.TryClaimPreviewLoad(), Is.True);
+        Assert.That(item.TryClaimPreviewLoad(out long loadGeneration), Is.True);
+        item.ResetPreviewLoadClaim(loadGeneration);
+        Assert.That(item.TryClaimPreviewLoad(out _), Is.True);
     }
 
     [AvaloniaTest]
@@ -473,7 +473,7 @@ public sealed class AiJobCenterTests
         {
             Assert.That(item.Preview, Is.Null);
             Assert.That(stalePreview.Value, Is.Null);
-            Assert.That(item.TryClaimPreviewLoad(), Is.True,
+            Assert.That(item.TryClaimPreviewLoad(out _), Is.True,
                 "Returning to the viewport must be able to start a fresh preview request.");
         }
     }
@@ -492,7 +492,8 @@ public sealed class AiJobCenterTests
                 notifications++;
         };
         var bitmap = Ref<Bitmap>.Create(Bitmap.FromStream(new MemoryStream(s_png)));
-        item.SetPreview(bitmap);
+        item.TryClaimPreviewLoad(out long loadGeneration);
+        item.SetPreview(bitmap, loadGeneration);
         item.Dispose();
         Assert.That(notifications, Is.EqualTo(1));
         Assert.That(item.Preview, Is.Null);
@@ -511,7 +512,7 @@ public sealed class AiJobCenterTests
         };
         item.Dispose();
         var incoming = Ref<Bitmap>.Create(Bitmap.FromStream(new MemoryStream(s_png)));
-        item.SetPreview(incoming);
+        item.SetPreview(incoming, loadGeneration: 0);
         Assert.That(notifications, Is.Zero);
         Assert.That(item.Preview, Is.Null);
         Assert.That(incoming.Value, Is.Null,
@@ -944,7 +945,8 @@ public sealed class AiJobCenterTests
             Assert.That(item.CanRetry, Is.True);
         }
 
-        await viewModel.RetryJobAsync(item);
+        await viewModel.RequestRetryConfirmationAsync(item);
+        await viewModel.ConfirmPendingActionAsync();
         item.Update(CreateJob(
             kind: "vendor.upscale",
             status: "ready",
@@ -1012,8 +1014,10 @@ public sealed class AiJobCenterTests
             jobKinds,
             _resultHandlers);
 
-        await viewModel.RetryJobAsync(item);
-        await viewModel.RetryJobAsync(item);
+        await viewModel.RequestRetryConfirmationAsync(item);
+        await viewModel.ConfirmPendingActionAsync();
+        await viewModel.RequestRetryConfirmationAsync(item);
+        await viewModel.ConfirmPendingActionAsync();
 
         using (Assert.EnterMultipleScope())
         {
@@ -1250,7 +1254,8 @@ public sealed class AiJobCenterTests
             registry,
             _resultHandlers);
 
-        Task retry = viewModel.RetryJobAsync(item);
+        await viewModel.RequestRetryConfirmationAsync(item);
+        Task retry = viewModel.ConfirmPendingActionAsync();
         await blocking.ExecutionStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
         Task retirement = registration.DisposeAsync().AsTask();
         Assert.That(retirement.IsCompleted, Is.False);

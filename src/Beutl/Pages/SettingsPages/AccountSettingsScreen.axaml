@@ -23,7 +23,6 @@
                     Orientation="Vertical"
                     Spacing="4">
             <Grid Margin="0,32,0,0" ColumnDefinitions="Auto,16,Auto,*">
-                <!-- Profile image -->
                 <Border Width="64"
                         Height="64"
                         Background="{DynamicResource ControlSolidFillColorDefaultBrush}"
@@ -47,10 +46,8 @@
                 </asyncImage:AdvancedImage>
 
                 <StackPanel Grid.Column="2" VerticalAlignment="Center">
-                    <!-- Display name -->
                     <TextBlock Classes="SubtitleTextBlockStyle" Text="{CompiledBinding DisplayName.Value}" />
 
-                    <!-- Account name -->
                     <TextBlock Classes="CaptionTextBlockStyle"
                                Opacity="0.8"
                                Text="{CompiledBinding Name.Value}" />

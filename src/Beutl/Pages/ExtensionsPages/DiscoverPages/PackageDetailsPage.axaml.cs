@@ -35,25 +35,15 @@ public partial class PackageDetailsPage : UserControl
         {
             var navigation = e.Parameter as PackageDetailsNavigation
                 ?? new PackageDetailsNavigation((Package)e.Parameter, null);
-            DestroyDataContext();
-            DataContextFactory factory = GetDataContextFactory();
+            DiscoverPageHelper.DestroyDataContext<PackageDetailsPageViewModel>(this);
+            DataContextFactory factory = DiscoverPageHelper.GetDataContextFactory(this);
             DataContext = factory.PackageDetailPage(navigation.Package, navigation.Version);
         }
     }
 
     private void OnNavigatedFrom(object? sender, FANavigationEventArgs e)
     {
-        DestroyDataContext();
-    }
-
-    private void DestroyDataContext()
-    {
         DiscoverPageHelper.DestroyDataContext<PackageDetailsPageViewModel>(this);
-    }
-
-    private DataContextFactory GetDataContextFactory()
-    {
-        return DiscoverPageHelper.GetDataContextFactory(this);
     }
 
     private async void OpenWebSite_Click(object? sender, RoutedEventArgs e)

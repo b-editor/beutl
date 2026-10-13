@@ -96,75 +96,75 @@ public sealed partial class SettingsDialog : FAAppWindow
         frame.Navigate(pageType, obj, transitionInfo);
     }
 
+    // Each settings page with the type name of its view model and its place in the navigation pane; pages that
+    // share an order select the same item. A sub page is opened from another page. The pane's own pages also
+    // have the item to show and the view model to open them with.
+    private sealed record SettingsPageEntry(
+        Type PageType,
+        string ContextTypeName,
+        int Order,
+        bool IsSubPage = false,
+        Func<FANavigationViewItem>? CreateItem = null,
+        Func<SettingsDialogViewModel, object?>? GetContext = null);
+
+    private static readonly SettingsPageEntry[] s_pages =
+    [
+        new(typeof(AccountSettingsPage), "AccountSettingsPageViewModel", 0,
+            CreateItem: () => NavigationItem(
+                SettingsStrings.Account, typeof(AccountSettingsPage),
+                new FluentIconSource { Icon = FluentIcons.Common.Icon.People }),
+            GetContext: settings => settings.Account),
+        new(typeof(ViewSettingsPage), "ViewSettingsPageViewModel", 1,
+            CreateItem: () => NavigationItem(
+                Strings.View, typeof(ViewSettingsPage),
+                new FluentIconSource { Icon = FluentIcons.Common.Icon.Eye }),
+            GetContext: settings => settings.View),
+        new(typeof(EditorSettingsPage), "EditorSettingsPageViewModel", 2,
+            CreateItem: () => NavigationItem(
+                Strings.Editor, typeof(EditorSettingsPage),
+                new FluentIconSource { Icon = FluentIcons.Common.Icon.Edit }),
+            GetContext: settings => settings.Editor),
+        new(typeof(KeyMapSettingsPage), "KeyMapSettingsPageViewModel", 3,
+            CreateItem: () => NavigationItem(
+                SettingsStrings.Keymap, typeof(KeyMapSettingsPage),
+                new FluentIconSource { Icon = FluentIcons.Common.Icon.Keyboard }),
+            GetContext: settings => settings.KeyMap),
+        new(typeof(FontSettingsPage), "FontSettingsPageViewModel", 4,
+            CreateItem: () => NavigationItem(
+                SettingsStrings.Font, typeof(FontSettingsPage),
+                new FluentIconSource { Icon = FluentIcons.Common.Icon.TextFont }),
+            GetContext: settings => settings.Font),
+        new(typeof(ExtensionsSettingsPage), "ExtensionsSettingsPageViewModel", 5,
+            CreateItem: () => NavigationItem(
+                Strings.Extensions, typeof(ExtensionsSettingsPage),
+                new FluentIconSource { Icon = FluentIcons.Common.Icon.PuzzlePiece }),
+            GetContext: settings => settings.ExtensionsPage),
+        new(typeof(EditorExtensionPriorityPage), "EditorExtensionPriorityPageViewModel", 5, IsSubPage: true),
+        new(typeof(DecoderPriorityPage), "DecoderPriorityPageViewModel", 5, IsSubPage: true),
+        new(typeof(AnExtensionSettingsPage), "AnExtensionSettingsPageViewModel", 5, IsSubPage: true),
+        new(typeof(AiAgentSettingsPage), "AiAgentSettingsPageViewModel", 6,
+            CreateItem: () => NavigationItem(
+                SettingsStrings.AiAgents, typeof(AiAgentSettingsPage),
+                new FluentIcons.Avalonia.Fluent.SymbolIconSource { Symbol = FluentIcons.Common.Symbol.Chat }),
+            GetContext: settings => settings.AiAgent),
+        new(typeof(BrowserSettingsPage), "BrowserSettingsPageViewModel", 7,
+            CreateItem: () => NavigationItem(
+                Strings.WebBrowser, typeof(BrowserSettingsPage),
+                new FluentIconSource { Icon = FluentIcons.Common.Icon.Globe }),
+            GetContext: settings => settings.Browser),
+        new(typeof(InformationPage), "InformationPageViewModel", 9,
+            CreateItem: () => NavigationItem(
+                Strings.Info, typeof(InformationPage),
+                new FluentIconSource { Icon = FluentIcons.Common.Icon.Info }),
+            GetContext: settings => settings.Information),
+        new(typeof(TelemetrySettingsPage), "TelemetrySettingsPageViewModel", 9, IsSubPage: true),
+    ];
+
+    private static FANavigationViewItem NavigationItem(string content, Type pageType, FAIconSource icon)
+        => new() { Content = content, Tag = pageType, IconSource = icon };
+
     private static List<FANavigationViewItem> GetItems()
-    {
-        return
-        [
-            new FANavigationViewItem()
-            {
-                Content = SettingsStrings.Account,
-                Tag = typeof(AccountSettingsPage),
-                IconSource = new FluentIconSource { Icon = FluentIcons.Common.Icon.People }
-            },
-            new FANavigationViewItem()
-            {
-                Content = Strings.View,
-                Tag = typeof(ViewSettingsPage),
-                IconSource = new FluentIconSource { Icon = FluentIcons.Common.Icon.Eye }
-            },
-            new FANavigationViewItem()
-            {
-                Content = Strings.Editor,
-                Tag = typeof(EditorSettingsPage),
-                IconSource = new FluentIconSource { Icon = FluentIcons.Common.Icon.Edit }
-            },
-            new FANavigationViewItem()
-            {
-                Content = SettingsStrings.Keymap,
-                Tag = typeof(KeyMapSettingsPage),
-                IconSource = new FluentIconSource { Icon = FluentIcons.Common.Icon.Keyboard }
-            },
-            new FANavigationViewItem()
-            {
-                Content = SettingsStrings.Font,
-                Tag = typeof(FontSettingsPage),
-                IconSource = new FluentIconSource { Icon = FluentIcons.Common.Icon.TextFont }
-            },
-            new FANavigationViewItem()
-            {
-                Content = Strings.Extensions,
-                Tag = typeof(ExtensionsSettingsPage),
-                IconSource = new FluentIconSource()
-                {
-                    Icon = FluentIcons.Common.Icon.PuzzlePiece
-                }
-            },
-            new FANavigationViewItem()
-            {
-                Content = SettingsStrings.AiAgents,
-                Tag = typeof(AiAgentSettingsPage),
-                IconSource = new FluentIcons.Avalonia.Fluent.SymbolIconSource()
-                {
-                    Symbol = FluentIcons.Common.Symbol.Chat
-                }
-            },
-            new FANavigationViewItem()
-            {
-                Content = Strings.WebBrowser,
-                Tag = typeof(BrowserSettingsPage),
-                IconSource = new FluentIconSource { Icon = FluentIcons.Common.Icon.Globe }
-            },
-            new FANavigationViewItem()
-            {
-                Content = Strings.Info,
-                Tag = typeof(InformationPage),
-                IconSource = new FluentIconSource()
-                {
-                    Icon = FluentIcons.Common.Icon.Info
-                }
-            }
-        ];
-    }
+        => [.. s_pages.Where(page => page.CreateItem is not null).Select(page => page.CreateItem!())];
 
     private void Nav_BackRequested(object? sender, FANavigationViewBackRequestedEventArgs e)
     {
@@ -185,19 +185,8 @@ public sealed partial class SettingsDialog : FAAppWindow
             && DataContext is SettingsDialogViewModel settingsPage)
         {
             FANavigationTransitionInfo transitionInfo = SharedNavigationTransitionInfo.Instance;
-            object? parameter = typ.Name switch
-            {
-                "AccountSettingsPage" => settingsPage.Account,
-                "ViewSettingsPage" => settingsPage.View,
-                "EditorSettingsPage" => settingsPage.Editor,
-                "FontSettingsPage" => settingsPage.Font,
-                "ExtensionsSettingsPage" => settingsPage.ExtensionsPage,
-                "AiAgentSettingsPage" => settingsPage.AiAgent,
-                "BrowserSettingsPage" => settingsPage.Browser,
-                "InformationPage" => settingsPage.Information,
-                "KeyMapSettingsPage" => settingsPage.KeyMap,
-                _ => null,
-            };
+            object? parameter = s_pages.FirstOrDefault(page => page.PageType.Name == typ.Name)
+                ?.GetContext?.Invoke(settingsPage);
 
             frame.Navigate(typ, parameter, transitionInfo);
         }
@@ -230,51 +219,15 @@ public sealed partial class SettingsDialog : FAAppWindow
             return IsSubPage(pagetype) ? 1 : 0;
         }
 
-        // Pages reached from another settings page rather than from the navigation pane.
         private static bool IsSubPage(Type pagetype)
-        {
-            return pagetype == typeof(EditorExtensionPriorityPage)
-                   || pagetype == typeof(DecoderPriorityPage)
-                   || pagetype == typeof(TelemetrySettingsPage)
-                   || pagetype == typeof(AnExtensionSettingsPage);
-        }
+            => s_pages.Any(page => page.IsSubPage && page.PageType == pagetype);
 
+        // The first navigation has no current page, so pagetype can be null; it counts as order 0.
         public int GetOrder(Type pagetype)
-        {
-            return pagetype?.Name switch
-            {
-                "AccountSettingsPage" => 0,
-                "ViewSettingsPage" => 1,
-                "EditorSettingsPage" => 2,
-                "KeyMapSettingsPage" => 3,
-                "FontSettingsPage" => 4,
-                "ExtensionsSettingsPage" or "EditorExtensionPriorityPage" or "DecoderPriorityPage"
-                    or "AnExtensionSettingsPage" => 5,
-                "AiAgentSettingsPage" => 6,
-                "BrowserSettingsPage" => 7,
-                "InformationPage" or "TelemetrySettingsPage" => 9,
-                _ => 0,
-            };
-        }
+            => s_pages.FirstOrDefault(page => page.PageType.Name == pagetype?.Name)?.Order ?? 0;
 
         public Type GetPageType(Type contextType)
-        {
-            return contextType?.Name switch
-            {
-                "AccountSettingsPageViewModel" => typeof(AccountSettingsPage),
-                "ViewSettingsPageViewModel" => typeof(ViewSettingsPage),
-                "EditorSettingsPageViewModel" => typeof(EditorSettingsPage),
-                "KeyMapSettingsPageViewModel" => typeof(KeyMapSettingsPage),
-                "FontSettingsPageViewModel" => typeof(FontSettingsPage),
-                "ExtensionsSettingsPageViewModel" => typeof(ExtensionsSettingsPage),
-                "AiAgentSettingsPageViewModel" => typeof(AiAgentSettingsPage),
-                "BrowserSettingsPageViewModel" => typeof(BrowserSettingsPage),
-                "EditorExtensionPriorityPageViewModel" => typeof(EditorExtensionPriorityPage),
-                "DecoderPriorityPageViewModel" => typeof(DecoderPriorityPage),
-                "TelemetrySettingsPageViewModel" => typeof(TelemetrySettingsPage),
-                "AnExtensionSettingsPageViewModel" => typeof(AnExtensionSettingsPage),
-                _ => typeof(InformationPage),
-            };
-        }
+            => s_pages.FirstOrDefault(page => page.ContextTypeName == contextType?.Name)?.PageType
+               ?? typeof(InformationPage);
     }
 }

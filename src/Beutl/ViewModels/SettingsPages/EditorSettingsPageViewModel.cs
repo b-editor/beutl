@@ -200,7 +200,6 @@ public sealed class EditorSettingsPageViewModel : IDisposable
             })
             .DisposeWith(_disposables);
 
-        // GPU selection
         InitializeGpuSelection();
     }
 
@@ -219,12 +218,10 @@ public sealed class EditorSettingsPageViewModel : IDisposable
     {
         var availableGpus = GraphicsContextFactory.GetAvailableDevices();
 
-        // Build GPU list with "Auto" as first item
         var gpuItems = new List<GpuItem> { new(null, SettingsStrings.SelectedGpu_Auto) };
         gpuItems.AddRange(availableGpus.Select(g => new GpuItem(g.Name, g.Name)));
         AvailableGpus = gpuItems;
 
-        // Find current selection
         string? savedGpuName = _graphicsConfig.SelectedGpuName;
         int selectedIndex = 0;
         if (!string.IsNullOrEmpty(savedGpuName))

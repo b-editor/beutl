@@ -21,25 +21,15 @@ public partial class SearchPage : UserControl
     {
         if (e.Parameter is string keyword)
         {
-            DestroyDataContext();
-            DataContextFactory factory = GetDataContextFactory();
+            DiscoverPageHelper.DestroyDataContext<SearchPageViewModel>(this);
+            DataContextFactory factory = DiscoverPageHelper.GetDataContextFactory(this);
             DataContext = factory.SearchPage(keyword);
         }
     }
 
     private void OnNavigatedFrom(object? sender, FANavigationEventArgs e)
     {
-        DestroyDataContext();
-    }
-
-    private void DestroyDataContext()
-    {
         DiscoverPageHelper.DestroyDataContext<SearchPageViewModel>(this);
-    }
-
-    private DataContextFactory GetDataContextFactory()
-    {
-        return DiscoverPageHelper.GetDataContextFactory(this);
     }
 
     private void Package_Click(object? sender, RoutedEventArgs e)

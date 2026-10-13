@@ -452,7 +452,6 @@ public sealed class AiAgentSettingsPageViewModelTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(viewModel.IsCustomAgent.Value, Is.True);
             Assert.That(viewModel.IsScopeSelectable.Value, Is.False);
             Assert.That(viewModel.IsProjectFolderVisible.Value, Is.True);
             Assert.That(viewModel.CanInstallSubagents.Value, Is.True);

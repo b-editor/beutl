@@ -20,7 +20,7 @@
             </ui:FACommandBar.PrimaryCommands>
         </ui:FACommandBar>
 
-        <ListBox ItemsSource="{CompiledBinding FontDirectories}" SelectedItem="{CompiledBinding SelectFont.Value, Mode=TwoWay}">
+        <ListBox ItemsSource="{CompiledBinding FontDirectories}">
             <ListBox.ItemTemplate>
                 <DataTemplate>
                     <Panel>

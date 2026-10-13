@@ -1,9 +1,5 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
-using Avalonia.LogicalTree;
-
-using Beutl.Api.Objects;
-
 using Beutl.Pages.ExtensionsPages.DiscoverPages;
 using Beutl.ViewModels.ExtensionsPages;
 using FluentAvalonia.UI.Controls;
@@ -29,13 +25,13 @@ public sealed partial class DiscoverPage : UserControl
 
     private void Package_Click(object? sender, RoutedEventArgs e)
     {
-        if (sender is Button { DataContext: Package package }
-            && this.FindLogicalAncestorOfType<FAFrame>() is { } frame)
+        if (DiscoverPageHelper.TryNavigateToPackage(this, sender))
         {
-            frame.Navigate(typeof(PackageDetailsPage), package);
+            return;
         }
-        else if (sender is Button { DataContext: LoadMoreItem }
-                 && DataContext is DiscoverPageViewModel viewModel)
+
+        if (sender is Button { DataContext: LoadMoreItem }
+            && DataContext is DiscoverPageViewModel viewModel)
         {
             viewModel.More.Execute();
         }
