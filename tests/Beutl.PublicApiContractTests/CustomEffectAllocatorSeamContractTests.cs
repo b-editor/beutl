@@ -3,8 +3,8 @@ using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
-using Beutl.Media;
 using SkiaSharp;
+using static Beutl.PublicApiContractTests.ContractTestSupport;
 
 namespace Beutl.PublicApiContractTests;
 
@@ -20,7 +20,7 @@ public sealed class CustomEffectAllocatorSeamContractTests
         var probe = new AllocationProbe();
 
         using (FilterEffect.Resource resource = new ProbeEffect(probe).ToResource(CompositionContext.Default))
-        using (FilterEffectRenderNode node = CreateScene(resource))
+        using (FilterEffectRenderNode node = CreateScene(resource, s_domain))
         using (var renderer = new RenderNodeRenderer(node, CreateRequest(), factory))
         using (renderer.Rasterize())
         {
@@ -63,13 +63,6 @@ public sealed class CustomEffectAllocatorSeamContractTests
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             Purpose = RenderRequestPurpose.Frame,
         };
-
-    private static FilterEffectRenderNode CreateScene(FilterEffect.Resource resource)
-    {
-        var node = new FilterEffectRenderNode(resource);
-        node.AddChild(new EllipseRenderNode(s_domain, Brushes.Resource.White, null));
-        return node;
-    }
 
     // A plugin author's effect: it re-applies a Skia chain to the targets it was handed, which is the shape
     // that needs an intermediate of its own.
@@ -139,10 +132,6 @@ public sealed class CustomEffectAllocatorSeamContractTests
         }
 
         public bool Equals(AllocationProbe? other) => ReferenceEquals(this, other);
-
-        public override bool Equals(object? obj) => ReferenceEquals(this, obj);
-
-        public override int GetHashCode() => System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(this);
     }
 
     private sealed class RecordingTargetFactory : IRenderTargetFactory

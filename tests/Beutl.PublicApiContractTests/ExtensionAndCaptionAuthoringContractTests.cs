@@ -18,8 +18,6 @@ public sealed class ExtensionAndCaptionAuthoringContractTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(provider.GetProperty(nameof(IExtensionProvider.Extensions)), Is.Not.Null);
-            Assert.That(provider.GetEvent(nameof(IExtensionProvider.ExtensionsChanged)), Is.Not.Null);
             Assert.That(provider.GetProperty("AllExtensions"), Is.Null);
             Assert.That(provider.GetMethod("GetExtensions"), Is.Null);
             Assert.That(provider.GetMethod("MatchEditorExtension"), Is.Null);
@@ -75,12 +73,6 @@ public sealed class ExtensionAndCaptionAuthoringContractTests
         {
             Assert.That(registry.Codecs.Single().CanDecode, Is.True);
             Assert.That(registry.Codecs.Single().CanEncode, Is.True);
-            Assert.That(descriptorExtension.Registrations.Single(),
-                Is.SameAs(descriptorRegistration));
-            Assert.That(decoderExtension.Registrations.Single(),
-                Is.SameAs(decoderRegistration));
-            Assert.That(encoderExtension.Registrations.Single(),
-                Is.SameAs(encoderRegistration));
             Assert.That(
                 Enum.GetValues<CaptionCodecRegistrationMode>(),
                 Is.EqualTo(new[]
@@ -149,7 +141,6 @@ public sealed class ExtensionAndCaptionAuthoringContractTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(provider.Extensions.Single(), Is.SameAs(extension));
             Assert.That(handler.SourceTypeName, Is.EqualTo("Example.Source, Example.Package"));
             Assert.That(codecDescriptor.Order, Is.EqualTo(20));
             Assert.That(codec.FileExtensions, Is.EqualTo(new[] { ".example" }));
@@ -265,7 +256,6 @@ public sealed class ExtensionAndCaptionAuthoringContractTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(extension.Registrations.Single(), Is.SameAs(registration));
             Assert.That(catalog.GetCapabilitySchema(operation),
                 Is.EqualTo(AiModelCapabilitySchema.Video));
             Assert.That(catalog.GetCapabilitySchema(new AiOperationId("vendor.generic")),

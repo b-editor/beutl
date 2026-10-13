@@ -746,16 +746,6 @@ public sealed class RenderNodeAuthoringContractTests
         return renderer.Measure();
     }
 
-    private sealed class DelegateNode(Action<RenderNodeContext> process) : RenderNode
-    {
-        public override void Process(RenderNodeContext context) => process(context);
-    }
-
-    private sealed class DelegateContainerNode(Action<RenderNodeContext> process) : ContainerRenderNode
-    {
-        public override void Process(RenderNodeContext context) => process(context);
-    }
-
     private sealed class TrackingDisposable : IDisposable
     {
         public int DisposeCalls { get; private set; }
@@ -777,12 +767,7 @@ public sealed class RenderNodeAuthoringContractTests
             return resource;
         }
 
-        public new sealed class Resource : FilterEffect.Resource
-        {
-            public Resource()
-            {
-            }
-        }
+        public new sealed class Resource : FilterEffect.Resource;
     }
 
     private readonly record struct FragmentSnapshot(

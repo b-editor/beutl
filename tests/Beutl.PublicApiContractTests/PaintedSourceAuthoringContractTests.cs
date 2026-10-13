@@ -1,7 +1,7 @@
 ﻿using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
-using SkiaSharp;
+using static Beutl.PublicApiContractTests.ContractTestSupport;
 
 namespace Beutl.PublicApiContractTests;
 
@@ -62,7 +62,7 @@ public sealed class PaintedSourceAuthoringContractTests
         Exception? uninitialized = null;
         Exception? empty = null;
 
-        using var node = new DelegateProbeNode(context =>
+        using var node = new DelegateNode(context =>
         {
             uninitialized = Assert.Catch(() => context.PaintedSource(
                 rect,
@@ -200,12 +200,6 @@ public sealed class PaintedSourceAuthoringContractTests
         return renderer.Measure();
     }
 
-    private static float AlphaAt(Bitmap bitmap, int x, int y)
-    {
-        Assert.That(bitmap.ColorType, Is.EqualTo(BitmapColorType.RgbaF16));
-        return (float)bitmap.GetRow<Half>(y)[x * 4 + 3];
-    }
-
     private sealed class PaintRecord(Rect rect)
     {
         public Rect Rect { get; } = rect;
@@ -255,11 +249,6 @@ public sealed class PaintedSourceAuthoringContractTests
         }
     }
 
-    private sealed class DelegateProbeNode(Action<RenderNodeContext> process) : RenderNode
-    {
-        public override void Process(RenderNodeContext context) => process(context);
-    }
-
     private sealed class RecordedExtentProbeNode(
         Brush.Resource fill,
         Rect first,
@@ -305,32 +294,5 @@ public sealed class PaintedSourceAuthoringContractTests
                 rect,
                 RenderHitTestContract.OutputBounds,
                 RenderScaleContract.Vector);
-    }
-
-    private sealed class CpuTargetFactory : IRenderTargetFactory
-    {
-        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
-            => new CpuRenderTarget(allocation.DeviceSize);
-    }
-
-    private sealed class CpuRenderTarget : RenderTarget
-    {
-        private static readonly SKColorSpace s_colorSpace = SKColorSpace.CreateSrgbLinear();
-
-        public CpuRenderTarget(PixelSize size)
-            : base(CreateSurface(size), size.Width, size.Height)
-        {
-        }
-
-        private static SKSurface CreateSurface(PixelSize size)
-        {
-            return SKSurface.Create(new SKImageInfo(
-                       size.Width,
-                       size.Height,
-                       SKColorType.RgbaF16,
-                       SKAlphaType.Premul,
-                       s_colorSpace))
-                   ?? throw new InvalidOperationException("Could not create a CPU contract-test surface.");
-        }
     }
 }

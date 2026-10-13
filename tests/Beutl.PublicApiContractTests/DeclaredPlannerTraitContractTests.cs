@@ -182,9 +182,4 @@ public sealed class DeclaredPlannerTraitContractTests
             session.Publish(output);
         }
     }
-
-    private sealed class DelegateNode(Action<RenderNodeContext> process) : RenderNode
-    {
-        public override void Process(RenderNodeContext context) => process(context);
-    }
 }

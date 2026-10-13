@@ -4,9 +4,9 @@ using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
-using Beutl.Graphics.Shapes;
 using Beutl.Media;
 using SkiaSharp;
+using static Beutl.PublicApiContractTests.ContractTestSupport;
 
 namespace Beutl.PublicApiContractTests;
 
@@ -77,7 +77,7 @@ public sealed class DeliveryIntentDeclarationContractTests
     [Test]
     public void AnExplicitDeliveryIntent_SurvivesToTheCanvasFill()
     {
-        using DrawableBrush.Resource brush = CreateUnmaterializableBrushResource();
+        using DrawableBrush.Resource brush = CreateDrawableBrushResource();
 
         Assert.Multiple(() =>
         {
@@ -97,15 +97,6 @@ public sealed class DeliveryIntentDeclarationContractTests
                                     ?? throw new InvalidOperationException("Could not create the canvas target.");
         using var canvas = new ImmediateCanvas(target, intent, logicalSize: new Size(64, 36));
         canvas.DrawRectangle(new Rect(0, 0, 64, 36), brush, pen: null);
-    }
-
-    private static DrawableBrush.Resource CreateUnmaterializableBrushResource()
-    {
-        var content = new EllipseShape();
-        content.Width.CurrentValue = 20;
-        content.Height.CurrentValue = 12;
-        content.Fill.CurrentValue = Brushes.White;
-        return new DrawableBrush(content).ToResource(CompositionContext.Default);
     }
 
     [Test]
@@ -140,14 +131,14 @@ public sealed class DeliveryIntentDeclarationContractTests
     public void AnExplicitDeliveryIntent_SurvivesToRasterize()
     {
         using FilterEffect.Resource resource = CreateStrokeEffectResource();
-        using FilterEffectRenderNode previewNode = CreateScene(resource);
+        using FilterEffectRenderNode previewNode = CreateScene(resource, s_domain);
         using var previewRenderer = new RenderNodeRenderer(
             previewNode,
             CreateRequest(RenderIntent.Preview),
             new FailSecondTargetFactory());
         using RenderNodeRasterization dropped = previewRenderer.Rasterize();
 
-        using FilterEffectRenderNode deliveryNode = CreateScene(resource);
+        using FilterEffectRenderNode deliveryNode = CreateScene(resource, s_domain);
         using var deliveryRenderer = new RenderNodeRenderer(
             deliveryNode,
             CreateRequest(RenderIntent.Delivery),
@@ -188,13 +179,6 @@ public sealed class DeliveryIntentDeclarationContractTests
             Pen = { CurrentValue = pen },
         };
         return effect.ToResource(CompositionContext.Default);
-    }
-
-    private static FilterEffectRenderNode CreateScene(FilterEffect.Resource resource)
-    {
-        var node = new FilterEffectRenderNode(resource);
-        node.AddChild(new EllipseRenderNode(s_domain, Brushes.Resource.White, null));
-        return node;
     }
 
     private static PropertyInfo RequireProperty(Type type, string name)
