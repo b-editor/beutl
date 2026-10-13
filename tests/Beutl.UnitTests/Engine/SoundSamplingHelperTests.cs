@@ -24,8 +24,8 @@ public class SoundSamplingHelperTests
     [Test]
     public void DownsampleMinMax_ZeroBars_DoesNothing()
     {
-        SoundSamplingHelper.DownsampleMinMax(
-            new float[] { 1f, 2f, 3f }, Span<float>.Empty, Span<float>.Empty);
+        Assert.DoesNotThrow(() => SoundSamplingHelper.DownsampleMinMax(
+            new float[] { 1f, 2f, 3f }, Span<float>.Empty, Span<float>.Empty));
     }
 
     [Test]
@@ -114,6 +114,6 @@ public class SoundSamplingHelperTests
     [Test]
     public void ExtractWindow_EmptyDestination_DoesNothing()
     {
-        SoundSamplingHelper.ExtractWindow(new float[] { 1, 2, 3 }, 1, Span<float>.Empty);
+        Assert.DoesNotThrow(() => SoundSamplingHelper.ExtractWindow(new float[] { 1, 2, 3 }, 1, Span<float>.Empty));
     }
 }

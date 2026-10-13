@@ -1,10 +1,8 @@
 ﻿using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
-using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.TextFormatting;
-using Microsoft.Extensions.Logging;
 
 namespace Beutl.UnitTests.Engine;
 
@@ -14,12 +12,6 @@ public class FormattedTextGeometryCacheTests
     [SetUp]
     public void Setup()
     {
-        // Log.LoggerFactory is write-once; don't allocate a factory another fixture may already have set.
-        if (!Log.IsLoggerFactoryConfigured)
-        {
-            Log.LoggerFactory = LoggerFactory.Create(b => b.AddSimpleConsole());
-        }
-
         _ = TypefaceProvider.Typeface();
     }
 

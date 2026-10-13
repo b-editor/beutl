@@ -1,5 +1,4 @@
 ﻿using Beutl.Animation;
-using Beutl.Animation.Easings;
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Engine.Expressions;
@@ -140,9 +139,7 @@ public class PropertyExpressionTests
     public void FailedExpression_FallsBackToAnimationAtTheRequestedTime()
     {
         var property = new AnimatableProperty<float>(7);
-        var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 20, Easing = new LinearEasing() });
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(2), Value = 80, Easing = new LinearEasing() });
+        KeyFrameAnimation<float> animation = TestAnimations.Linear(20f, 80f, TimeSpan.FromSeconds(2));
         property.Animation = animation;
         property.Expression = new StringExpression<float>("throw new InvalidOperationException();");
 

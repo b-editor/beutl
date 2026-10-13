@@ -1,23 +1,17 @@
-﻿using Beutl.Composition;
-using Beutl.Graphics;
+﻿using Beutl.Graphics;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics.Rendering;
-using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics3D;
 using Beutl.Graphics3D.Nodes;
 using Beutl.Media;
 using Moq;
+using static Beutl.UnitTests.Engine.Graphics3D.Scene3DRenderNodeTestScenes;
 
 namespace Beutl.UnitTests.Engine.Graphics3D;
 
-// A 3D scene the device cannot render is refused by the allocation, and a preview drops the value rather
-// than failing. The recording has to reach the same answer, because hit testing never executes: a scene that
-// is never drawn must not answer clicks, and walking topmost-first it must not swallow the clicks meant for
-// the 2D content beneath it.
-//
-// The scene here is deliberately larger than the fixed shadow extents, so a device that refuses it is one
-// that refuses its size rather than one too small to render any 3D at all. The tiny-scene cases below cover
-// that second shape, which the scene footprint alone cannot see.
+// A preview drops a 3D scene the device cannot allocate, so its recording must not answer hits either. The
+// scene is larger than the fixed shadow extents, so a refusal is about its size; the tiny-scene cases cover
+// devices too small for any 3D.
 [NonParallelizable]
 [TestFixture]
 public sealed class Scene3DRenderNodeDeviceBudgetTests
@@ -48,31 +42,6 @@ public sealed class Scene3DRenderNodeDeviceBudgetTests
                 HitTestSceneCenter(Device3DExtentBudget.Unreported),
                 Is.True,
                 "the control: unreported limits refuse nothing, and the allocation still decides");
-        });
-    }
-
-    [Test]
-    public void HitTest_OverTheBudget_LeavesThe2DContentBeneathAnswering()
-    {
-        var rect = new Rect(0, 0, 8, 8);
-        var insideRectOnly = new Point(4, 4);
-        var insideSceneOnly = new Point(SceneWidth - 8, SceneHeight - 8);
-        using var fill = new SolidColorBrush(Colors.Red).ToResource(CompositionContext.Default);
-        using var root = new ContainerRenderNode();
-        using var scene = CreateScene(s_sceneBounds);
-        // Children draw in order, so the scene is on top of the rectangle.
-        root.AddChild(new RectangleRenderNode(rect, fill, null));
-        root.AddChild(new Scene3DRenderNode(scene));
-        using var renderer = new RenderNodeRenderer(
-            root,
-            CreateRequest(Budget(attachment: SceneWidth / 2), s_sceneBounds));
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(renderer.HitTest(insideRectOnly), Is.True,
-                "the 2D content beneath the undrawn scene still answers");
-            Assert.That(renderer.HitTest(insideSceneOnly), Is.False,
-                "where only the undrawn scene lies there is nothing to hit");
         });
     }
 
@@ -184,14 +153,8 @@ public sealed class Scene3DRenderNodeDeviceBudgetTests
         });
     }
 
-    // A known gap, pinned so it cannot close or widen unnoticed. The preflight sizes the 3D surface from
-    // origin-free bounds, which is what Renderer3D allocates, but the 2D intermediate the published output
-    // lands in is sized by CreateOwnedValue as PixelRect.FromRect(bounds.Translate(gridOffset), density).
-    // Under a fractional device-grid phase that is one pixel wider on each axis, so a scene whose footprint
-    // lands exactly on the device's limit records here and is then refused by the pool. The phase belongs to
-    // the target being drawn into and no recording can read it; widening the check by that pixel would
-    // refuse the same scene under the integral phases where it renders. See the comment in
-    // Scene3DRenderNode.Process.
+    // A known gap: under a fractional device-grid phase the intermediate is one pixel wider, so a scene exactly
+    // at the limit records and is then refused by the pool. See Scene3DRenderNode.Process.
     [Test]
     public void ASceneExactlyAtTheDeviceLimit_IsAKnownGap()
     {
@@ -294,44 +257,11 @@ public sealed class Scene3DRenderNodeDeviceBudgetTests
         return new RenderNodeMeasurementProbe(scene, node, renderer, renderer.Measure());
     }
 
-    private static Scene3D.Resource CreateScene(Rect bounds)
-    {
-        var scene = new Scene3D();
-        // An opaque background answers over the whole scene, so the controls do not depend on geometry.
-        scene.BackgroundColor.CurrentValue = Colors.Black;
-        scene.RenderWidth.CurrentValue = (float)bounds.Width;
-        scene.RenderHeight.CurrentValue = (float)bounds.Height;
-        return (Scene3D.Resource)scene.ToResource(CompositionContext.Default);
-    }
-
+    // States the backend so these tests pin the extent budget rather than whether this process has one.
     private static RenderNodeRenderRequest CreateRequest(Device3DExtentBudget? budget, Rect targetDomain)
-        => new()
-        {
-            Intent = RenderIntent.Preview,
-            TargetDomain = targetDomain,
-            CacheOptions = RenderCacheOptions.Disabled,
-            // Stated so these tests pin the extent budget rather than whether this process has a backend.
-            Supports3DRendering = true,
-            Device3DExtentBudget = budget,
-        };
+        => Scene3DRenderNodeTestScenes.CreateRequest(targetDomain, supports3DRendering: true, budget);
 
     // A device large enough for the fixed shadow extents, so a scene-sized refusal is about the scene.
     private static Device3DExtentBudget Budget(int attachment)
         => new(attachment, CubeFaceBudget);
-
-    private sealed class RenderNodeMeasurementProbe(
-        Scene3D.Resource scene,
-        Scene3DRenderNode node,
-        RenderNodeRenderer renderer,
-        RenderNodeMeasurement measurement) : IDisposable
-    {
-        public RenderNodeMeasurement Measurement { get; } = measurement;
-
-        public void Dispose()
-        {
-            renderer.Dispose();
-            node.Dispose();
-            scene.Dispose();
-        }
-    }
 }

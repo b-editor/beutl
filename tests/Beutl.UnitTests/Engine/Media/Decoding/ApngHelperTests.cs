@@ -31,13 +31,8 @@ public class ApngHelperTests
         ];
     }
 
-    // End-to-end control through the decoder: PNG writes every integer big-endian, so this chunk must
-    // parse as 64x48 and re-serialize to the exact bytes it came from. With the reversal removed the
-    // 13-byte length field parses as 0x0D000000 and Chunk's constructor throws "End reached." before
-    // Width is even read.
-    //
-    // RawData writes through BitConverter after reversing, which is host-endianness dependent and therefore
-    // only defined on the little-endian platforms Beutl supports.
+    // PNG integers are big-endian, so this chunk must read as 64x48 and write back to the same bytes.
+    // RawData goes through BitConverter, so this only holds on little-endian hosts.
     [Test]
     public void IHDRChunk_ParsesBigEndianDimensionsAndRoundTripsToTheSameBytes()
     {

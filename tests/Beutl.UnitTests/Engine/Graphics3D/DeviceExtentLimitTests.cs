@@ -2,6 +2,7 @@
 using Beutl.Graphics3D;
 using Beutl.Graphics3D.Nodes;
 using Moq;
+using static Beutl.UnitTests.Engine.Graphics3D.Graphics3DTestDevices;
 
 namespace Beutl.UnitTests.Engine.Graphics3D;
 
@@ -99,7 +100,7 @@ public class DeviceExtentLimitTests
     public void Renderer3DInitialize_AllocatesTheShadowMapsBeforeReturning()
     {
         // Positive control for the eager allocation: with room for the shadow maps, Initialize builds them.
-        Mock<IGraphicsContext> device = LooseDevice();
+        Mock<IGraphicsContext> device = LooseDevice(AttachmentBudget, CubeBudget);
         using var renderer = new Renderer3D(device.Object);
 
         renderer.Initialize(64, 64);
@@ -159,7 +160,7 @@ public class DeviceExtentLimitTests
     {
         // Positive control: the guard has to let the largest extent the device can attach through, or it
         // is refusing everything rather than measuring anything.
-        Mock<IGraphicsContext> device = LooseDevice();
+        Mock<IGraphicsContext> device = LooseDevice(AttachmentBudget, CubeBudget);
         using var pass = new FlipPass(device.Object, Mock.Of<IShaderCompiler>());
 
         pass.Initialize(AttachmentBudget, AttachmentBudget);
@@ -176,7 +177,7 @@ public class DeviceExtentLimitTests
     [Test]
     public void PassResize_PastWhatTheDeviceCanAttach_KeepsTheCurrentExtentAndResources()
     {
-        Mock<IGraphicsContext> device = LooseDevice();
+        Mock<IGraphicsContext> device = LooseDevice(AttachmentBudget, CubeBudget);
         using var pass = new FlipPass(device.Object, Mock.Of<IShaderCompiler>());
         pass.Initialize(16, 16);
         ITexture2D? before = pass.OutputTexture;
@@ -200,7 +201,7 @@ public class DeviceExtentLimitTests
         // Past the guard, a pass disposes what it had before it allocates. If the allocation then fails,
         // the old size must not be reported as still held, or a request to return to it would be skipped
         // and disposed resources left in use.
-        Mock<IGraphicsContext> device = LooseDevice();
+        Mock<IGraphicsContext> device = LooseDevice(AttachmentBudget, CubeBudget);
         using var pass = new FlipPass(device.Object, Mock.Of<IShaderCompiler>());
         pass.Initialize(16, 16);
         device.Setup(c => c.CreateTexture2D(32, 32, TextureFormat.Depth32Float))
@@ -218,7 +219,7 @@ public class DeviceExtentLimitTests
     {
         // ShadowPass and PointShadowPass ignore the extent Initialize is handed and allocate their own
         // fixed map, so a viewport past the attachment limit is not theirs to refuse; only the map is.
-        Mock<IGraphicsContext> device = LooseDevice();
+        Mock<IGraphicsContext> device = LooseDevice(AttachmentBudget, CubeBudget);
         using var shadow = new ShadowPass(device.Object, Mock.Of<IShaderCompiler>());
         using var pointShadow = new PointShadowPass(device.Object, Mock.Of<IShaderCompiler>());
 
@@ -244,7 +245,7 @@ public class DeviceExtentLimitTests
     {
         // Mirrors the 2D path: a limit of zero means the device did not answer, and a guess would refuse
         // an allocation the device might well make.
-        Mock<IGraphicsContext> device = LooseDevice(attachment: 0);
+        Mock<IGraphicsContext> device = LooseDevice(attachment: 0, cube: CubeBudget);
         using var pass = new FlipPass(device.Object, Mock.Of<IShaderCompiler>());
 
         pass.Initialize(100_000, 1);
@@ -292,7 +293,7 @@ public class DeviceExtentLimitTests
     public void PointShadowResize_WithinBothLimits_ReachesTheAllocator()
     {
         // Positive control for the cube guard: a face that fits both limits must be allocated as asked.
-        Mock<IGraphicsContext> device = LooseDevice();
+        Mock<IGraphicsContext> device = LooseDevice(AttachmentBudget, CubeBudget);
         using var pass = new PointShadowPass(device.Object, Mock.Of<IShaderCompiler>());
 
         pass.ResizeShadowMap(CubeBudget);
@@ -351,7 +352,7 @@ public class DeviceExtentLimitTests
     {
         // BeginReplacingResources reports (0, 0) while a pass replaces its resources; a request for
         // (0, 0) must be refused rather than matched against that state and skipped.
-        Mock<IGraphicsContext> device = LooseDevice();
+        Mock<IGraphicsContext> device = LooseDevice(AttachmentBudget, CubeBudget);
         using var pass = new FlipPass(device.Object, Mock.Of<IShaderCompiler>());
         pass.Initialize(16, 16);
         device.Setup(c => c.CreateTexture2D(32, 32, TextureFormat.Depth32Float))
@@ -449,37 +450,6 @@ public class DeviceExtentLimitTests
         device.SetupGet(c => c.MaxCubeFaceDimension).Returns(cube);
         device.Setup(c => c.CreateShaderCompiler()).Returns(Mock.Of<IShaderCompiler>());
         return device;
-    }
-
-    /// <summary>A device that answers every allocation with a mock, for the controls that must reach it.</summary>
-    private static Mock<IGraphicsContext> LooseDevice(int attachment = AttachmentBudget, int cube = CubeBudget)
-    {
-        var device = new Mock<IGraphicsContext>(MockBehavior.Loose) { DefaultValue = DefaultValue.Mock };
-        device.SetupGet(c => c.MaxAttachmentDimension).Returns(attachment);
-        device.SetupGet(c => c.MaxCubeFaceDimension).Returns(cube);
-        // Moq cannot proxy IBuffer.Upload<T>(ReadOnlySpan<T>), so a buffer has to be a real stub.
-        device.Setup(c => c.CreateBuffer(It.IsAny<ulong>(), It.IsAny<BufferUsage>(), It.IsAny<MemoryProperty>()))
-            .Returns((ulong size, BufferUsage _, MemoryProperty _) => new StubBuffer(size));
-        return device;
-    }
-
-    private sealed class StubBuffer(ulong size) : IBuffer
-    {
-        public ulong Size => size;
-
-        public void Upload<T>(ReadOnlySpan<T> data) where T : unmanaged
-        {
-        }
-
-        public IntPtr Map() => IntPtr.Zero;
-
-        public void Unmap()
-        {
-        }
-
-        public void Dispose()
-        {
-        }
     }
 
     private static void AssertNeverAllocated(Mock<IGraphicsContext> device)

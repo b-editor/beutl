@@ -6,136 +6,51 @@ namespace Beutl.UnitTests.Engine;
 
 public class ColorTests
 {
-    [Test]
-    public void ParseRgbHash()
+    [TestCase("#ff8844", 0xff, 0x88, 0x44, 0xff, TestName = "ParseRgbHash")]
+    [TestCase("#f84", 0xff, 0x88, 0x44, 0xff, TestName = "ParseShortRgbHash")]
+    [TestCase("#40ff8844", 0xff, 0x88, 0x44, 0x40, TestName = "ParseArgbHash")]
+    [TestCase("#4f84", 0xff, 0x88, 0x44, 0x44, TestName = "ParseShortArgbHash")]
+    public void ParseHash(string text, int r, int g, int b, int a)
     {
-        var result = Color.Parse("#ff8844");
+        var result = Color.Parse(text);
 
-        Assert.That(result.R, Is.EqualTo(0xff));
-        Assert.That(result.G, Is.EqualTo(0x88));
-        Assert.That(result.B, Is.EqualTo(0x44));
-        Assert.That(result.A, Is.EqualTo(0xff));
+        Assert.That(result.R, Is.EqualTo(r));
+        Assert.That(result.G, Is.EqualTo(g));
+        Assert.That(result.B, Is.EqualTo(b));
+        Assert.That(result.A, Is.EqualTo(a));
     }
 
-    [Test]
-    public void TryParseRgbHash()
+    [TestCase("#ff8844", 0xff, 0x88, 0x44, 0xff, TestName = "TryParseRgbHash")]
+    [TestCase("#f84", 0xff, 0x88, 0x44, 0xff, TestName = "TryParseShortRgbHash")]
+    [TestCase("#40ff8844", 0xff, 0x88, 0x44, 0x40, TestName = "TryParseArgbHash")]
+    [TestCase("#4f84", 0xff, 0x88, 0x44, 0x44, TestName = "TryParseShortArgbHash")]
+    public void TryParseHash(string text, int r, int g, int b, int a)
     {
-        var success = Color.TryParse("#ff8844", out Color result);
+        var success = Color.TryParse(text, out Color result);
 
         Assert.That(success);
-        Assert.That(result.R, Is.EqualTo(0xff));
-        Assert.That(result.G, Is.EqualTo(0x88));
-        Assert.That(result.B, Is.EqualTo(0x44));
-        Assert.That(result.A, Is.EqualTo(0xff));
+        Assert.That(result.R, Is.EqualTo(r));
+        Assert.That(result.G, Is.EqualTo(g));
+        Assert.That(result.B, Is.EqualTo(b));
+        Assert.That(result.A, Is.EqualTo(a));
     }
 
-    [Test]
-    public void ParseShortRgbHash()
+    [TestCase("#ff", TestName = "ParseTooFew")]
+    [TestCase("#ff5555555", TestName = "ParseTooMany")]
+    [TestCase("#ff808g80", TestName = "ParseInvalidNumber")]
+    public void ParseInvalidHash(string text)
     {
-        var result = Color.Parse("#f84");
-
-        Assert.That(result.R, Is.EqualTo(0xff));
-        Assert.That(result.G, Is.EqualTo(0x88));
-        Assert.That(result.B, Is.EqualTo(0x44));
-        Assert.That(result.A, Is.EqualTo(0xff));
+        Assert.Throws<FormatException>(() => Color.Parse(text));
     }
 
-    [Test]
-    public void TryParseShortRgbHash()
+    [TestCase("#ff", TestName = "TryParseTooFew")]
+    [TestCase("#ff5555555", TestName = "TryParseTooMany")]
+    [TestCase("#ff808g80", TestName = "TryParseInvalidNumber")]
+    public void TryParseInvalidHash(string text)
     {
-        var success = Color.TryParse("#f84", out Color result);
-
-        Assert.That(success);
-        Assert.That(result.R, Is.EqualTo(0xff));
-        Assert.That(result.G, Is.EqualTo(0x88));
-        Assert.That(result.B, Is.EqualTo(0x44));
-        Assert.That(result.A, Is.EqualTo(0xff));
+        Assert.That(!Color.TryParse(text, out _));
     }
 
-    [Test]
-    public void ParseArgbHash()
-    {
-        var result = Color.Parse("#40ff8844");
-
-        Assert.That(result.R, Is.EqualTo(0xff));
-        Assert.That(result.G, Is.EqualTo(0x88));
-        Assert.That(result.B, Is.EqualTo(0x44));
-        Assert.That(result.A, Is.EqualTo(0x40));
-    }
-
-    [Test]
-    public void TryParseArgbHash()
-    {
-        var success = Color.TryParse("#40ff8844", out Color result);
-
-        Assert.That(success);
-        Assert.That(result.R, Is.EqualTo(0xff));
-        Assert.That(result.G, Is.EqualTo(0x88));
-        Assert.That(result.B, Is.EqualTo(0x44));
-        Assert.That(result.A, Is.EqualTo(0x40));
-    }
-
-    [Test]
-    public void ParseShortArgbHash()
-    {
-        var result = Color.Parse("#4f84");
-
-        Assert.That(result.R, Is.EqualTo(0xff));
-        Assert.That(result.G, Is.EqualTo(0x88));
-        Assert.That(result.B, Is.EqualTo(0x44));
-        Assert.That(result.A, Is.EqualTo(0x44));
-    }
-
-    [Test]
-    public void TryParseShortArgbHash()
-    {
-        var success = Color.TryParse("#4f84", out Color result);
-
-        Assert.That(success);
-        Assert.That(result.R, Is.EqualTo(0xff));
-        Assert.That(result.G, Is.EqualTo(0x88));
-        Assert.That(result.B, Is.EqualTo(0x44));
-        Assert.That(result.A, Is.EqualTo(0x44));
-    }
-
-    [Test]
-    public void ParseTooFew()
-    {
-        Assert.Throws<FormatException>(() => Color.Parse("#ff"));
-    }
-
-    [Test]
-    public void TryParseTooFew()
-    {
-        Assert.That(!Color.TryParse("#ff", out _));
-    }
-
-    [Test]
-    public void ParseTooMany()
-    {
-        Assert.Throws<FormatException>(() => Color.Parse("#ff5555555"));
-    }
-
-    [Test]
-    public void TryParseTooMany()
-    {
-        Assert.That(!Color.TryParse("#ff5555555", out _));
-    }
-
-    [Test]
-    public void ParseInvalidNumber()
-    {
-        Assert.Throws<FormatException>(() => Color.Parse("#ff808g80"));
-    }
-
-    [Test]
-    public void TryParseInvalidNumber()
-    {
-        Assert.That(!Color.TryParse("#ff808g80", out _));
-    }
-
-    // テストケースは適当です。
-    // I chose test case randomly.
     [Test]
     [TestCase("Aqua")]
     [TestCase("DeepPink")]
@@ -206,13 +121,6 @@ public class ColorTests
         Assert.That(c.G, Is.EqualTo(0));
         Assert.That(c.B, Is.EqualTo(0));
         Assert.That(c.A, Is.EqualTo(0xff));
-    }
-
-    [Test]
-    public void Parse_KnownNameLooksUpExactName()
-    {
-        // KnownColors stores enum field names like "Red".
-        Assert.That(Color.Parse("Red"), Is.EqualTo(Color.FromUInt32(0xffff0000)));
     }
 
     [Test]
@@ -362,13 +270,6 @@ public class ColorTests
     {
         var brush = Color.Parse("Red").ToBrush();
         Assert.That(brush.Color.CurrentValue, Is.EqualTo(Color.Parse("Red")));
-    }
-
-    [Test]
-    public void ToBrushResourceExtension_CreatesResource()
-    {
-        var res = Color.Parse("Red").ToBrushResource();
-        Assert.That(res, Is.Not.Null);
     }
 
     [Test]

@@ -160,13 +160,8 @@ public class CounterTests
     [Test]
     public void ParallelTryAddRefRace_NeverObservesDisposedValue()
     {
-        // Two threads race against each other through a Barrier so both
-        // actually contend on the same Counter:
-        //  - consumer: TryAddRef -> read Value -> Release (the call-site
-        //    pattern in VideoSource/ImageSource/SoundSource)
-        //  - releaser: drops the initial reference at an unpredictable
-        //    point during the consumer's loop, forcing the TOCTOU window
-        //    the volatile+CAS implementation could not close.
+        // A consumer racing the release of the initial reference must never see a disposed value
+        // once TryAddRef has succeeded.
         const int Trials = 200;
         const int ConsumerIterations = 5_000;
         int totalTryAddRefSuccesses = 0;

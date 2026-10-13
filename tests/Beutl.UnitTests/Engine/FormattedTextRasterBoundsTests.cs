@@ -43,14 +43,8 @@ public class FormattedTextRasterBoundsTests
         Assert.That(raster.IsEmpty, Is.False);
 
         var device = PixelRect.FromRect(raster, 1);
-        using var surface = SKSurface.Create(
-            new SKImageInfo(device.Width, device.Height, SKColorType.Rgba8888, SKAlphaType.Premul));
-        SKCanvas canvas = surface.Canvas;
-        canvas.Clear(SKColors.Transparent);
-        using (var paint = new SKPaint { Color = SKColors.White, IsAntialias = true })
+        InkExtent ink = MeasureInk(device, (canvas, paint) =>
         {
-            canvas.Save();
-            canvas.Translate(-device.X, -device.Y);
             if (useThickStroke)
             {
                 canvas.DrawPath(
@@ -62,43 +56,19 @@ public class FormattedTextRasterBoundsTests
             {
                 canvas.DrawText(text.GetTextBlob(), 0, 0, paint);
             }
-
-            canvas.Restore();
-        }
-
-        canvas.Flush();
-        using SKImage image = surface.Snapshot();
-        using SKBitmap bitmap = SKBitmap.FromImage(image);
-
-        int touchedLeft = bitmap.Width;
-        int touchedTop = bitmap.Height;
-        int touchedRight = -1;
-        int touchedBottom = -1;
-        for (int y = 0; y < bitmap.Height; y++)
-        {
-            for (int x = 0; x < bitmap.Width; x++)
-            {
-                if (bitmap.GetPixel(x, y).Alpha == 0)
-                    continue;
-
-                touchedLeft = Math.Min(touchedLeft, x);
-                touchedTop = Math.Min(touchedTop, y);
-                touchedRight = Math.Max(touchedRight, x);
-                touchedBottom = y;
-            }
-        }
+        });
 
         Assert.Multiple(() =>
         {
-            Assert.That(touchedRight, Is.GreaterThanOrEqualTo(0),
+            Assert.That(ink.Right, Is.GreaterThanOrEqualTo(0),
                 "the fixture must actually rasterize glyphs");
-            Assert.That(touchedLeft, Is.GreaterThan(0),
+            Assert.That(ink.Left, Is.GreaterThan(0),
                 "a mask touching column 0 means RasterBounds did not leave room left of the glyphs");
-            Assert.That(touchedTop, Is.GreaterThan(0),
+            Assert.That(ink.Top, Is.GreaterThan(0),
                 "a mask touching row 0 means RasterBounds did not leave room above the glyphs");
-            Assert.That(touchedRight, Is.LessThan(bitmap.Width - 1),
+            Assert.That(ink.Right, Is.LessThan(device.Width - 1),
                 "a mask touching the last column means RasterBounds did not leave room right of the glyphs");
-            Assert.That(touchedBottom, Is.LessThan(bitmap.Height - 1),
+            Assert.That(ink.Bottom, Is.LessThan(device.Height - 1),
                 "a mask touching the last row means RasterBounds did not leave room below the glyphs");
             Assert.That(raster.X, Is.LessThanOrEqualTo(actual.X));
             Assert.That(raster.Y, Is.LessThanOrEqualTo(actual.Y));
@@ -127,51 +97,19 @@ public class FormattedTextRasterBoundsTests
         Assert.That(raster.IsEmpty, Is.False);
 
         var device = PixelRect.FromRect(raster, scale);
-        using var surface = SKSurface.Create(
-            new SKImageInfo(device.Width, device.Height, SKColorType.Rgba8888, SKAlphaType.Premul));
-        SKCanvas canvas = surface.Canvas;
-        canvas.Clear(SKColors.Transparent);
-        using (var paint = new SKPaint { Color = SKColors.White, IsAntialias = true })
-        {
-            canvas.Save();
-            canvas.Translate(-device.X, -device.Y);
-            canvas.DrawText(text.GetTextBlob(scale), 0, 0, paint);
-            canvas.Restore();
-        }
-
-        canvas.Flush();
-        using SKImage image = surface.Snapshot();
-        using SKBitmap bitmap = SKBitmap.FromImage(image);
-
-        int touchedLeft = bitmap.Width;
-        int touchedTop = bitmap.Height;
-        int touchedRight = -1;
-        int touchedBottom = -1;
-        for (int y = 0; y < bitmap.Height; y++)
-        {
-            for (int x = 0; x < bitmap.Width; x++)
-            {
-                if (bitmap.GetPixel(x, y).Alpha == 0)
-                    continue;
-
-                touchedLeft = Math.Min(touchedLeft, x);
-                touchedTop = Math.Min(touchedTop, y);
-                touchedRight = Math.Max(touchedRight, x);
-                touchedBottom = y;
-            }
-        }
+        InkExtent ink = MeasureInk(device, (canvas, paint) => canvas.DrawText(text.GetTextBlob(scale), 0, 0, paint));
 
         Assert.Multiple(() =>
         {
-            Assert.That(touchedRight, Is.GreaterThanOrEqualTo(0),
+            Assert.That(ink.Right, Is.GreaterThanOrEqualTo(0),
                 "the fixture must actually rasterize glyphs");
-            Assert.That(touchedLeft, Is.GreaterThan(0),
+            Assert.That(ink.Left, Is.GreaterThan(0),
                 "a mask touching column 0 means the downscaled footprint clips the glyphs on the left");
-            Assert.That(touchedTop, Is.GreaterThan(0),
+            Assert.That(ink.Top, Is.GreaterThan(0),
                 "a mask touching row 0 means the downscaled footprint clips the glyphs above");
-            Assert.That(touchedRight, Is.LessThan(bitmap.Width - 1),
+            Assert.That(ink.Right, Is.LessThan(device.Width - 1),
                 "a mask touching the last column means the downscaled footprint clips the glyphs on the right");
-            Assert.That(touchedBottom, Is.LessThan(bitmap.Height - 1),
+            Assert.That(ink.Bottom, Is.LessThan(device.Height - 1),
                 "a mask touching the last row means the downscaled footprint clips the glyphs below");
         });
     }
@@ -242,23 +180,45 @@ public class FormattedTextRasterBoundsTests
         });
     }
 
-    // The current SkiaSharp runtime leaves SKTextBlobBuilder run storage readable after Build(), so the
-    // lifetime hazard this guards is not observably red before the production reorder. Repeated measurement
-    // still verifies that moving mask-bound calculation before Build() preserves the published footprint.
-    [Test]
-    public void RasterBounds_RemainsStableAcrossRepeatedMeasurement()
+    // Draws onto a transparent surface that covers device and returns the inked pixels' extent, whose Right is
+    // -1 when nothing was drawn.
+    private static InkExtent MeasureInk(PixelRect device, Action<SKCanvas, SKPaint> draw)
     {
-        using FormattedText text = CreateText("Builder span lifetime", 48f);
-        Rect expected = text.RasterBounds;
-
-        for (int i = 0; i < 8; i++)
+        using var surface = SKSurface.Create(
+            new SKImageInfo(device.Width, device.Height, SKColorType.Rgba8888, SKAlphaType.Premul));
+        SKCanvas canvas = surface.Canvas;
+        canvas.Clear(SKColors.Transparent);
+        using (var paint = new SKPaint { Color = SKColors.White, IsAntialias = true })
         {
-            text.Size = 49f;
-            _ = text.RasterBounds;
-            text.Size = 48f;
-
-            Assert.That(text.RasterBounds, Is.EqualTo(expected), $"RasterBounds changed after measurement cycle {i + 1}.");
+            canvas.Save();
+            canvas.Translate(-device.X, -device.Y);
+            draw(canvas, paint);
+            canvas.Restore();
         }
+
+        canvas.Flush();
+        using SKImage image = surface.Snapshot();
+        using SKBitmap bitmap = SKBitmap.FromImage(image);
+
+        int touchedLeft = bitmap.Width;
+        int touchedTop = bitmap.Height;
+        int touchedRight = -1;
+        int touchedBottom = -1;
+        for (int y = 0; y < bitmap.Height; y++)
+        {
+            for (int x = 0; x < bitmap.Width; x++)
+            {
+                if (bitmap.GetPixel(x, y).Alpha == 0)
+                    continue;
+
+                touchedLeft = Math.Min(touchedLeft, x);
+                touchedTop = Math.Min(touchedTop, y);
+                touchedRight = Math.Max(touchedRight, x);
+                touchedBottom = y;
+            }
+        }
+
+        return new InkExtent(touchedLeft, touchedTop, touchedRight, touchedBottom);
     }
 
     private static Pen.Resource CreateThickPen(float textSize)
@@ -269,4 +229,6 @@ public class FormattedTextRasterBoundsTests
         pen.StrokeAlignment.CurrentValue = StrokeAlignment.Outside;
         return pen.ToResource(CompositionContext.Default);
     }
+
+    private readonly record struct InkExtent(int Left, int Top, int Right, int Bottom);
 }

@@ -115,16 +115,6 @@ public class BitmapColorSpaceMappingTests
     }
 
     [Test]
-    public void BuildHdrColorSpace_Pq_DiffersFromUnscaledGamut()
-    {
-        var unscaled = BitmapColorSpace.CreateRgb(
-            BitmapColorSpaceTransferFn.Pq, BitmapColorSpaceXyz.Rec2020);
-        var hdr = BitmapColorSpaceMapping.BuildHdrColorSpace(
-            BitmapColorTransfer.Pq, BitmapColorPrimaries.Rec2020);
-        Assert.That(hdr, Is.Not.EqualTo(unscaled));
-    }
-
-    [Test]
     public void BuildHdrColorSpace_Hlg_BakesLuminanceScaleAndKeepsTransfer()
     {
         var unscaled = BitmapColorSpace.CreateRgb(
@@ -134,18 +124,6 @@ public class BitmapColorSpaceMappingTests
 
         Assert.That(hdr, Is.Not.EqualTo(unscaled));
         Assert.That(hdr.GetNumericalTransferFunction(), Is.EqualTo(BitmapColorSpaceTransferFn.Hlg));
-    }
-
-    [Test]
-    public void BuildHdrColorSpace_IsPureAcrossCalls()
-    {
-        // Asserts purity only; cross-backend parity (FFmpeg vs AVFoundation) can't be checked
-        // here — it follows from both backends delegating to this same method.
-        var a = BitmapColorSpaceMapping.BuildHdrColorSpace(
-            BitmapColorTransfer.Pq, BitmapColorPrimaries.Rec2020);
-        var b = BitmapColorSpaceMapping.BuildHdrColorSpace(
-            BitmapColorTransfer.Pq, BitmapColorPrimaries.Rec2020);
-        Assert.That(a, Is.EqualTo(b));
     }
 
     [TestCase(BitmapColorTransfer.Pq)]

@@ -21,6 +21,7 @@ public class EasingsTests
     [TestCase(0f, 0f)]
     [TestCase(0.99f, 0f)]
     [TestCase(1f, 1f)]
+    [TestCase(1.5f, 1f)]
     public void HoldEasing_StaysAtZeroUntilEnd(float progress, float expected)
     {
         var easing = new HoldEasing();
@@ -29,38 +30,12 @@ public class EasingsTests
 
     private static readonly Easing[] s_easings =
     [
-        new LinearEasing(),
-        new HoldEasing(),
-        new BackEaseIn(),
-        new BackEaseInOut(),
-        new BackEaseOut(),
-        new BounceEaseIn(),
-        new BounceEaseInOut(),
-        new BounceEaseOut(),
-        new CircularEaseIn(),
-        new CircularEaseInOut(),
-        new CircularEaseOut(),
-        new CubicEaseIn(),
-        new CubicEaseInOut(),
-        new CubicEaseOut(),
-        new ElasticEaseIn(),
-        new ElasticEaseInOut(),
-        new ElasticEaseOut(),
-        new ExponentialEaseIn(),
-        new ExponentialEaseInOut(),
-        new ExponentialEaseOut(),
-        new QuadraticEaseIn(),
-        new QuadraticEaseInOut(),
-        new QuadraticEaseOut(),
-        new QuarticEaseIn(),
-        new QuarticEaseInOut(),
-        new QuarticEaseOut(),
-        new QuinticEaseIn(),
-        new QuinticEaseInOut(),
-        new QuinticEaseOut(),
-        new SineEaseIn(),
-        new SineEaseInOut(),
-        new SineEaseOut(),
+        .. typeof(Easing).Assembly.GetTypes()
+            .Where(static type => type.IsPublic
+                && !type.IsAbstract
+                && typeof(Easing).IsAssignableFrom(type)
+                && type.GetConstructor(Type.EmptyTypes) is not null)
+            .Select(static type => (Easing)Activator.CreateInstance(type)!),
     ];
 
     [Test, TestCaseSource(nameof(s_easings))]

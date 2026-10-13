@@ -2,17 +2,15 @@
 using Beutl.Graphics;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics.Rendering;
-using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics3D;
 using Beutl.Media;
 using Moq;
+using static Beutl.UnitTests.Engine.Graphics3D.Scene3DRenderNodeTestScenes;
 
 namespace Beutl.UnitTests.Engine.Graphics3D;
 
-// A 3D scene exists only on the 3D backend. Without one the node must record nothing, so that the request
-// describes what it can actually draw: no bounds, no value, and above all no hit - a scene that is never
-// drawn must not answer clicks, and walking topmost-first it must not swallow the clicks meant for the 2D
-// content beneath it. main answered this with an empty operation list; the fragment recorder lost it.
+// A 3D scene exists only on the 3D backend, so without one the node records nothing: no bounds, no value and
+// no hit, so that an undrawn scene neither answers clicks nor swallows those meant for the 2D content beneath it.
 [NonParallelizable]
 [TestFixture]
 public sealed class Scene3DRenderNodeBackendAvailabilityTests
@@ -61,11 +59,11 @@ public sealed class Scene3DRenderNodeBackendAvailabilityTests
         var insideSceneOnly = new Point(24, 16);
         using var fill = new SolidColorBrush(Colors.Red).ToResource(CompositionContext.Default);
         using var root = new ContainerRenderNode();
-        using var scene = CreateScene();
+        using var scene = CreateScene(s_sceneBounds);
         // Children draw in order, so the scene is on top of the rectangle.
         root.AddChild(new RectangleRenderNode(rect, fill, null));
         root.AddChild(new Scene3DRenderNode(scene));
-        using var renderer = new RenderNodeRenderer(root, CreateRequest(supports3DRendering: false));
+        using var renderer = new RenderNodeRenderer(root, CreateRequest(s_sceneBounds, supports3DRendering: false));
 
         Assert.Multiple(() =>
         {
@@ -125,52 +123,17 @@ public sealed class Scene3DRenderNodeBackendAvailabilityTests
 
     private static bool HitTestSceneCenter(bool? supports3DRendering)
     {
-        using var scene = CreateScene();
+        using var scene = CreateScene(s_sceneBounds);
         using var node = new Scene3DRenderNode(scene);
-        using var renderer = new RenderNodeRenderer(node, CreateRequest(supports3DRendering));
+        using var renderer = new RenderNodeRenderer(node, CreateRequest(s_sceneBounds, supports3DRendering));
         return renderer.HitTest(s_sceneCenter);
     }
 
     private static RenderNodeMeasurementProbe MeasureScene(bool supports3DRendering)
     {
-        Scene3D.Resource scene = CreateScene();
+        Scene3D.Resource scene = CreateScene(s_sceneBounds);
         var node = new Scene3DRenderNode(scene);
-        var renderer = new RenderNodeRenderer(node, CreateRequest(supports3DRendering));
+        var renderer = new RenderNodeRenderer(node, CreateRequest(s_sceneBounds, supports3DRendering));
         return new RenderNodeMeasurementProbe(scene, node, renderer, renderer.Measure());
-    }
-
-    private static Scene3D.Resource CreateScene()
-    {
-        var scene = new Scene3D();
-        // An opaque background answers over the whole scene, so the controls do not depend on geometry.
-        scene.BackgroundColor.CurrentValue = Colors.Black;
-        scene.RenderWidth.CurrentValue = (float)s_sceneBounds.Width;
-        scene.RenderHeight.CurrentValue = (float)s_sceneBounds.Height;
-        return (Scene3D.Resource)scene.ToResource(CompositionContext.Default);
-    }
-
-    private static RenderNodeRenderRequest CreateRequest(bool? supports3DRendering)
-        => new()
-        {
-            Intent = RenderIntent.Preview,
-            TargetDomain = s_sceneBounds,
-            CacheOptions = RenderCacheOptions.Disabled,
-            Supports3DRendering = supports3DRendering,
-        };
-
-    private sealed class RenderNodeMeasurementProbe(
-        Scene3D.Resource scene,
-        Scene3DRenderNode node,
-        RenderNodeRenderer renderer,
-        RenderNodeMeasurement measurement) : IDisposable
-    {
-        public RenderNodeMeasurement Measurement { get; } = measurement;
-
-        public void Dispose()
-        {
-            renderer.Dispose();
-            node.Dispose();
-            scene.Dispose();
-        }
     }
 }

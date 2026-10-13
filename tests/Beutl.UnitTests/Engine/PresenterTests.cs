@@ -9,143 +9,33 @@ namespace Beutl.UnitTests.Engine;
 [TestFixture]
 public class PresenterTests
 {
-    [Test]
-    public void BrushPresenter_ShouldImplementIPresenter()
+    public static IEnumerable<TestCaseData> Presenters()
     {
-        // Arrange & Act
-        var presenter = new BrushPresenter();
+        yield return Case(static () => new BrushPresenter(), typeof(Brush));
+        yield return Case(static () => new FilterEffectPresenter(), typeof(FilterEffect));
+        yield return Case(static () => new TransformPresenter(), typeof(Transform));
+        yield return Case(static () => new DrawablePresenter(), typeof(Drawable));
 
-        // Assert
-        Assert.That(presenter, Is.InstanceOf<IPresenter<Brush>>());
-        Assert.That(presenter, Is.InstanceOf<IPresenter>());
+        static TestCaseData Case(Func<IPresenter> create, Type targetType)
+            => new TestCaseData(create, targetType).SetArgDisplayNames(targetType.Name);
     }
 
-    [Test]
-    public void BrushPresenter_TargetType_ShouldBeBrush()
+    [TestCaseSource(nameof(Presenters))]
+    public void TargetType_ShouldBeThePresentedType(Func<IPresenter> create, Type targetType)
     {
-        // Arrange
-        IPresenter presenter = new BrushPresenter();
-
-        // Act & Assert
-        Assert.That(presenter.TargetType, Is.EqualTo(typeof(Brush)));
+        Assert.That(create().TargetType, Is.EqualTo(targetType));
     }
 
-    [Test]
-    public void BrushPresenter_Target_ShouldBeNullByDefault()
+    [TestCaseSource(nameof(Presenters))]
+    public void Target_ShouldBeNullByDefault(Func<IPresenter> create, Type targetType)
     {
-        // Arrange
-        var presenter = new BrushPresenter();
+        IPresenter presenter = create();
+        // IPresenter has no Target, so it is read through the typed interface the presenter implements.
+        var target = (IProperty?)typeof(IPresenter<>).MakeGenericType(targetType)
+            .GetProperty(nameof(IPresenter<CoreObject>.Target))!
+            .GetValue(presenter);
 
-        // Act
-        var target = presenter.Target;
-
-        // Assert
         Assert.That(target, Is.Not.Null);
-        Assert.That(target.GetValue(null!), Is.Null);
-    }
-
-    [Test]
-    public void FilterEffectPresenter_ShouldImplementIPresenter()
-    {
-        // Arrange & Act
-        var presenter = new FilterEffectPresenter();
-
-        // Assert
-        Assert.That(presenter, Is.InstanceOf<IPresenter<FilterEffect>>());
-        Assert.That(presenter, Is.InstanceOf<IPresenter>());
-    }
-
-    [Test]
-    public void FilterEffectPresenter_TargetType_ShouldBeFilterEffect()
-    {
-        // Arrange
-        IPresenter presenter = new FilterEffectPresenter();
-
-        // Act & Assert
-        Assert.That(presenter.TargetType, Is.EqualTo(typeof(FilterEffect)));
-    }
-
-    [Test]
-    public void FilterEffectPresenter_Target_ShouldBeNullByDefault()
-    {
-        // Arrange
-        var presenter = new FilterEffectPresenter();
-
-        // Act
-        var target = presenter.Target;
-
-        // Assert
-        Assert.That(target, Is.Not.Null);
-        Assert.That(target.GetValue(null!), Is.Null);
-    }
-
-    [Test]
-    public void TransformPresenter_ShouldImplementIPresenter()
-    {
-        // Arrange & Act
-        var presenter = new TransformPresenter();
-
-        // Assert
-        Assert.That(presenter, Is.InstanceOf<IPresenter<Transform>>());
-        Assert.That(presenter, Is.InstanceOf<IPresenter>());
-    }
-
-    [Test]
-    public void TransformPresenter_TargetType_ShouldBeTransform()
-    {
-        // Arrange
-        IPresenter presenter = new TransformPresenter();
-
-        // Act & Assert
-        Assert.That(presenter.TargetType, Is.EqualTo(typeof(Transform)));
-    }
-
-    [Test]
-    public void TransformPresenter_Target_ShouldBeNullByDefault()
-    {
-        // Arrange
-        var presenter = new TransformPresenter();
-
-        // Act
-        var target = presenter.Target;
-
-        // Assert
-        Assert.That(target, Is.Not.Null);
-        Assert.That(target.GetValue(null!), Is.Null);
-    }
-
-    [Test]
-    public void DrawablePresenter_ShouldImplementIPresenter()
-    {
-        // Arrange & Act
-        var presenter = new DrawablePresenter();
-
-        // Assert
-        Assert.That(presenter, Is.InstanceOf<IPresenter<Drawable>>());
-        Assert.That(presenter, Is.InstanceOf<IPresenter>());
-    }
-
-    [Test]
-    public void DrawablePresenter_TargetType_ShouldBeDrawable()
-    {
-        // Arrange
-        IPresenter presenter = new DrawablePresenter();
-
-        // Act & Assert
-        Assert.That(presenter.TargetType, Is.EqualTo(typeof(Drawable)));
-    }
-
-    [Test]
-    public void DrawablePresenter_Target_ShouldBeNullByDefault()
-    {
-        // Arrange
-        var presenter = new DrawablePresenter();
-
-        // Act
-        var target = presenter.Target;
-
-        // Assert
-        Assert.That(target, Is.Not.Null);
-        Assert.That(target.GetValue(null!), Is.Null);
+        Assert.That(target!.CurrentValue, Is.Null);
     }
 }

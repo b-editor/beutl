@@ -42,8 +42,6 @@ public class SampleProviderReaderTests
             _position += frames;
             return frames * 2;
         }
-
-        public int Position => _position;
     }
 
     // Returns an odd number of floats per call to prove the /2 frame mapping truncates a stray float

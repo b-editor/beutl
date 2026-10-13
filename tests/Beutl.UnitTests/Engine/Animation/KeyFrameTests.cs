@@ -42,18 +42,6 @@ public class KeyFrameTests
         Assert.That(JsonNode.DeepEquals(CoreSerializer.SerializeToJsonObject(keyFrame)["Easing"], JsonNode.Parse(easingJson)), Is.True);
     }
 
-    private sealed class EqualityValue(string key, string state)
-    {
-        public string Key { get; } = key;
-
-        public string State { get; } = state;
-
-        public override bool Equals(object? obj)
-            => obj is EqualityValue other && Key == other.Key;
-
-        public override int GetHashCode() => Key.GetHashCode(StringComparison.Ordinal);
-    }
-
     public abstract class AbstractTestEasing : Easing
     {
     }
@@ -160,7 +148,9 @@ public class KeyFrameTests
 
         keyFrame.Deserialize(context.Object);
 
+        // LinearEasing is also the fallback, so the type alone cannot tell a read name from a failed one.
         Assert.That(keyFrame.Easing, Is.InstanceOf<LinearEasing>());
+        Assert.That(keyFrame.HasLossyEasing, Is.False);
     }
 
     [Test]
