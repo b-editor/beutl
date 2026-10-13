@@ -71,7 +71,6 @@ public class WeakEvent<TSender, TEventArgs> : WeakEvent where TEventArgs : Event
         {
             if (_count == _data.Length)
             {
-                //Extend capacity
                 var extendedData = new WeakReference<IWeakEventSubscriber<TEventArgs>>?[_data.Length * 2];
                 Array.Copy(_data, extendedData, _data.Length);
                 _data = extendedData;
@@ -123,10 +122,8 @@ public class WeakEvent<TSender, TEventArgs> : WeakEvent where TEventArgs : Event
                     _data[c] = null;
                     r = null;
                 }
-                //Mark current index as first empty
                 if (r == null && empty == -1)
                     empty = c;
-                //If current element isn't null and we have an empty one
                 if (r != null && empty != -1)
                 {
                     _data[c] = null;

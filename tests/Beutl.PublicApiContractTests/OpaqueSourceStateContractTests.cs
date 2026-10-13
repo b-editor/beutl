@@ -28,9 +28,9 @@ public sealed class OpaqueSourceStateContractTests
     [Test]
     public void ASourceWithAFixedBoundsContract_PublishesThoseBounds_WhateverItsStateSays()
     {
-        using var atOrigin = new SourceNode(context => context.Publish(
+        using var atOrigin = new DelegateNode(context => context.Publish(
             context.OpaqueSource(FixedBoundsSource(new Point(0, 0)))));
-        using var moved = new SourceNode(context => context.Publish(
+        using var moved = new DelegateNode(context => context.Publish(
             context.OpaqueSource(FixedBoundsSource(new Point(100, 40)))));
 
         Assert.Multiple(() =>
@@ -70,9 +70,9 @@ public sealed class OpaqueSourceStateContractTests
             RenderValueCardinality.Single,
             RenderScaleContract.Vector);
 
-        using var node = new ContainerNode(context => context.Publish(
+        using var node = new DelegateContainerNode(context => context.Publish(
             context.OpaqueCombine(context.Inputs, combine)));
-        node.AddChild(new SourceNode(context => context.Publish(
+        node.AddChild(new DelegateNode(context => context.Publish(
             context.OpaqueSource(FixedBoundsSource(new Point(0, 0))))));
 
         Assert.Multiple(() =>
@@ -89,7 +89,7 @@ public sealed class OpaqueSourceStateContractTests
     [Test]
     public void ASourceThatMoves_DeclaresItsPlaceByBuildingItsDescriptionPerRecording()
     {
-        using var moved = new SourceNode(context =>
+        using var moved = new DelegateNode(context =>
         {
             var bounds = new Rect(new Point(100, 40), s_size);
             context.Publish(context.OpaqueSource(OpaqueRenderDescription.Create(
@@ -127,14 +127,4 @@ public sealed class OpaqueSourceStateContractTests
                 CacheOptions = RenderCacheOptions.Disabled,
                 Purpose = RenderRequestPurpose.Frame,
             });
-
-    private sealed class SourceNode(Action<RenderNodeContext> process) : RenderNode
-    {
-        public override void Process(RenderNodeContext context) => process(context);
-    }
-
-    private sealed class ContainerNode(Action<RenderNodeContext> process) : ContainerRenderNode
-    {
-        public override void Process(RenderNodeContext context) => process(context);
-    }
 }

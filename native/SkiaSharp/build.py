@@ -18,7 +18,7 @@ import shutil
 import subprocess
 import sys
 
-from patches import patch_hashes, patches_for
+from patches import RIDS, library_name, patch_hashes, patches_for
 
 
 HERE = Path(__file__).resolve().parent
@@ -74,7 +74,6 @@ def build_slice(source, args, target_os, arch):
         settings.update(skia_use_metal=True, min_macos_version=MACOS_MIN_VERSIONS[arch])
         settings["extra_cflags"] += ["-DHAVE_ARC4RANDOM_BUF", "-stdlib=libc++"]
         settings["extra_ldflags"] = ["-stdlib=libc++"]
-        filename = "libSkiaSharp.dylib"
     elif target_os == "linux":
         settings.update(cc="clang", cxx="clang++")
         settings["linux_soname_version"] = SOURCE["nativeVersion"]
@@ -84,7 +83,6 @@ def build_slice(source, args, target_os, arch):
             "-fuse-ld=lld", "-static-libstdc++", "-static-libgcc",
             f"-Wl,--version-script={(HERE / 'libSkiaSharp.map').as_posix()}",
         ]
-        filename = "libSkiaSharp.so"
     else:
         if "VCINSTALLDIR" in os.environ:
             settings["win_vc"] = Path(os.environ["VCINSTALLDIR"]).as_posix().rstrip("/")
@@ -98,7 +96,6 @@ def build_slice(source, args, target_os, arch):
         settings["extra_cflags"] += ["/MT", "/EHsc", "/guard:cf", "-D_HAS_AUTO_PTR_ETC=1"]
         settings["extra_ldflags"] = ["/guard:cf", "/DELAYLOAD:d3d12.dll", "/DELAYLOAD:dxgi.dll",
                                      "/DELAYLOAD:D3DCOMPILER_47.dll", "/DEFAULTLIB:delayimp"]
-        filename = "libSkiaSharp.dll"
 
     output = source / "out" / (f"{args.rid}-{arch}" if target_os == "osx" else args.rid)
     output.mkdir(parents=True, exist_ok=True)
@@ -106,6 +103,7 @@ def build_slice(source, args, target_os, arch):
     run(source / "bin" / ("gn.exe" if os.name == "nt" else "gn"), "gen", output,
         f"--script-executable={sys.executable}", cwd=source)
     run("ninja", "-C", output, "-j", args.jobs, "SkiaSharp", cwd=source)
+    filename = library_name(args.rid)
     return output / (filename + "." + SOURCE["nativeVersion"] if target_os == "linux" else filename)
 
 
@@ -146,13 +144,12 @@ def build(args):
 
     if target_os == "osx":
         slices = [build_slice(source, args, target_os, slice_arch) for slice_arch in ("arm64", "x64")]
-        library = source / "out" / args.rid / "libSkiaSharp.dylib"
+        library = source / "out" / args.rid / library_name(args.rid)
         library.parent.mkdir(parents=True, exist_ok=True)
         run("lipo", "-create", *slices, "-output", library)
-        filename = "libSkiaSharp.dylib"
     else:
         library = build_slice(source, args, target_os, arch)
-        filename = library.name.split(".so.")[0] + ".so" if target_os == "linux" else library.name
+    filename = library_name(args.rid)
 
     if target_os == "osx" or arch == host_arch:
         native = ctypes.CDLL(str(library))
@@ -194,7 +191,7 @@ def build(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--rid", required=True, choices=("linux-x64", "linux-arm64", "win-x64", "win-arm64", "osx"))
+    parser.add_argument("--rid", required=True, choices=RIDS)
     parser.add_argument("--source-dir", type=Path, default=ROOT / "artifacts/skia-source")
     parser.add_argument("--output-dir", type=Path, default=ROOT / "src" / "Beutl.Engine")
     parser.add_argument("--jobs", type=int, default=min(os.cpu_count() or 2, 8))

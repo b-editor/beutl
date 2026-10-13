@@ -11,7 +11,6 @@ processors:
     timeout: 1s
     send_batch_size: 1024
 
-  # 追加の属性を付与する場合
   attributes:
     actions:
       - key: deployment.environment
@@ -19,15 +18,12 @@ processors:
         action: insert
 
 exporters:
-  # デバッグ用 - コンソールに出力
   debug:
     verbosity: detailed
 
-  # ファイルに出力する場合
   file:
     path: /telemetry-data/telemetry-data.json
 
-  # Jaegerに送信
   otlp/jaeger:
     endpoint: jaeger:4317
     tls:

@@ -71,7 +71,7 @@ public class InstallViewModel(BeutlApiApplication app, ChangesModel changesModel
                 goto Failed;
             }
 
-            // インストールされているパッケージのリストに追加
+            // Commit the deployment and register the package as installed.
             InstalledPackageRepository repos = app.GetResource<InstalledPackageRepository>();
             var pkg = new PackageIdentity(Model.Id, Model.Version);
 

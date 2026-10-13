@@ -4,7 +4,7 @@ using Reactive.Bindings;
 
 namespace Beutl.PackageTools.UI.Models;
 
-public class ResolveTaskModel : NuGet.Common.LoggerBase
+public class ResolveTaskModel : NuGet.Common.LoggerBase, ITaskStepModel
 {
     private readonly Microsoft.Extensions.Logging.ILogger _logger = Logging.Log.CreateLogger<ResolveTaskModel>();
     private readonly BeutlApiApplication _app;

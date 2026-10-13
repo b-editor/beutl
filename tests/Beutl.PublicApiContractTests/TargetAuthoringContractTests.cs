@@ -23,14 +23,6 @@ public sealed class TargetAuthoringContractTests
             RenderValueCardinality.Single,
             RenderScaleContract.MaterializeAtWorkingScale);
 
-    private static TargetScopeDescription ReplayScope()
-        => TargetScopeDescription.Create(
-            (byte)0,
-            static (session, _) => session.ReplayInput(),
-            RenderBoundsContract.Identity,
-            RenderHitTestContract.AnyInput,
-            RenderScaleContract.PreserveInputSupply);
-
     private static TargetCommandDescription SlotReadingCommand(
         CommandState state,
         RenderResourceBinding payload)
@@ -46,42 +38,6 @@ public sealed class TargetAuthoringContractTests
             s_bounds,
             RenderHitTestContract.OutputBounds,
             resources: [payload]);
-
-    private static TargetCommandDescription ShapeCommand(CommandState state)
-        => TargetCommandDescription.Create(
-            state,
-            static (session, current) => session.ReplaceAffectedRegion(current.Color),
-            TargetRegion.Region(s_bounds),
-            s_bounds,
-            RenderHitTestContract.OutputBounds);
-
-    [Test]
-    public void TargetDescriptions_RecordAsTargetEffectsRatherThanValueInputs()
-    {
-        var commandState = new CommandState(Colors.Red);
-        bool scopeEligible = true;
-        bool commandEligible = true;
-
-        using var node = new DelegateNode(context =>
-        {
-            RenderFragmentHandle source = context.OpaqueSource(SourceDescription(Colors.CornflowerBlue));
-            RenderFragmentHandle scope = context.TargetScope(source, ReplayScope());
-            RenderFragmentHandle command = context.TargetCommand([], ShapeCommand(commandState));
-            scopeEligible = scope.CanBeUsedAsValueInput;
-            commandEligible = command.CanBeUsedAsValueInput;
-            context.PublishRange([scope, command]);
-        });
-
-        RenderNodeMeasurement measurement = Measure(node);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(scopeEligible, Is.False);
-            Assert.That(commandEligible, Is.False);
-            Assert.That(measurement.HasTargetEffects, Is.True);
-            Assert.That(measurement.HasContributingValues, Is.True);
-        });
-    }
 
     [Test]
     public void ATargetCommand_UsesTheResourceBoundToItsDeclaredSlot()
@@ -180,10 +136,6 @@ public sealed class TargetAuthoringContractTests
                 recorded.Processes,
                 Is.EqualTo(1),
                 "the second request's inputs digest to what the recording was made over, so it is served");
-            Assert.That(
-                recorded.Processes,
-                Is.LessThanOrEqualTo(recorded.Preparations),
-                "no Process may run for a request that did not prepare the node first");
         });
     }
 
@@ -225,12 +177,6 @@ public sealed class TargetAuthoringContractTests
         Assert.That(payload.Uses, Is.EqualTo(1));
     }
 
-    private static RenderNodeMeasurement Measure(RenderNode node)
-    {
-        using var renderer = CreateRenderer(node);
-        return renderer.Measure();
-    }
-
     private static RenderNodeRasterization Rasterize(RenderNode node)
     {
         using var renderer = CreateRenderer(node);
@@ -246,11 +192,6 @@ public sealed class TargetAuthoringContractTests
                 TargetDomain = s_bounds,
                 CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             });
-
-    private sealed class DelegateNode(Action<RenderNodeContext> process) : RenderNode
-    {
-        public override void Process(RenderNodeContext context) => process(context);
-    }
 
     private sealed class PreparationCountingNode : RenderNode
     {

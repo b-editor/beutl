@@ -3,10 +3,9 @@ using Beutl.Engine;
 
 namespace Beutl.E2ETests;
 
-// Beutl.Editor.Components grants InternalsVisibleTo only to Beutl and Beutl.UnitTests, so this project is
-// the one place a reader outside that friendship can be written. Every call below therefore compiles only
-// while the handle's reading surface stays public - an editor plugin reaching a published resource has no
-// other way in, and the internal gate behind the handle must not drag any of it out of reach.
+// Beutl.Editor.Components grants this project no InternalsVisibleTo, so every call below compiles only while
+// the handle's reading surface stays public - an editor plugin reaching a published resource has no other way in,
+// and the internal gate behind the handle must not drag any of it out of reach.
 [TestFixture]
 public class EngineResourceHandleVisibilityTests
 {

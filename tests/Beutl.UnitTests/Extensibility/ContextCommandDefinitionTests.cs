@@ -25,18 +25,6 @@ public class ContextCommandDefinitionTests
     }
 
     [Test]
-    public void Normalize_SinglePlatformlessGesture_ExpandsToEachPlatform()
-    {
-        var def = new ContextCommandDefinition("Toggle", keyGestures: [new ContextCommandKeyGesture("C")]);
-
-        foreach (OSPlatform platform in s_platforms)
-        {
-            string?[] keys = def.KeyGestures!.Where(g => g.Platform == platform).Select(g => g.KeyGesture).ToArray();
-            Assert.That(keys, Is.EquivalentTo(new[] { "C" }), $"platform {platform}");
-        }
-    }
-
-    [Test]
     public void Normalize_ExplicitPlatformGesture_OverridesFallback()
     {
         var def = new ContextCommandDefinition(

@@ -5,16 +5,9 @@ sdk: org.freedesktop.Sdk
 command: beutl
 
 finish-args:
-  # --socket=x11 / --device=dri: display + GPU access for Avalonia/Skia rendering.
-  # Avalonia ships only an X11 backend on Linux, so we need an X11 socket on every
-  # session. --socket=fallback-x11 is *not* enough: on a Wayland host it is suppressed
-  # (because a Wayland socket is provided), and Avalonia would then fail with
-  # `XOpenDisplay failed`. --socket=x11 forces the X11 socket to always be mounted,
-  # which on Wayland sessions transparently routes through XWayland.
-  # --socket=wayland is kept so future Avalonia Wayland support (or embedded helper
-  # processes that prefer Wayland) can opt in without another permission change.
-  # --share=ipc: required by the X11 MIT-SHM extension for efficient frame transfer;
-  # also recommended by Flatpak docs for GUI apps.
+  # Avalonia has only an X11 backend on Linux, so always mount the X11 socket (--socket=fallback-x11 is
+  # suppressed on Wayland hosts); --device=dri gives Skia the GPU. --socket=wayland is kept for future
+  # Wayland support, and --share=ipc is needed by X11 MIT-SHM.
   - --socket=x11
   - --socket=wayland
   - --share=ipc
@@ -30,11 +23,7 @@ finish-args:
   # flatpak-spawn --host needs this interface; the portal only updates remote refs.
   - --talk-name=org.freedesktop.Flatpak
 
-# No top-level cleanup: this manifest does not build native dependencies, it only
-# copies the prebuilt self-contained .NET output. Glob patterns like '*.a' would risk
-# matching prebuilt static libraries shipped under runtimes/*/native/, and the directory
-# rules (/include, /lib/pkgconfig, /man, ...) would all be no-ops because nothing is
-# generated there.
+# No top-level cleanup: the module only copies the prebuilt output.
 
 modules:
   - name: beutl

@@ -13,6 +13,8 @@ public sealed class RenderScaleMappingContractTests
     // compilation cannot see, so a callback naming it is not shown to answer the same way twice.
     private static readonly Color s_white = Colors.White;
 
+    private static readonly Rect s_sourceBounds = new(0, 0, 10, 10);
+
     [TestCase(2, 4)]
     public void MapInputSupplyPreservingDemand_IsUsableByExternalRenderNodeAuthors(
         float inputDensity,
@@ -208,6 +210,24 @@ public sealed class RenderScaleMappingContractTests
                 CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             });
 
+    private static RenderFragmentHandle ProbeSource(RenderNodeContext context, MaterializationDensityProbe probe)
+        => context.OpaqueSource(OpaqueRenderDescription.Create(
+            probe,
+            static (session, state) => state.Execute(session),
+            bounds: OpaqueRenderBoundsContract.Source(s_sourceBounds),
+            hitTest: RenderHitTestContract.OutputBounds,
+            valueCardinality: RenderValueCardinality.Single,
+            scale: RenderScaleContract.Vector));
+
+    private static Rect Enlarge(Rect inputBounds)
+        => new(inputBounds.X * 2, inputBounds.Y * 2, inputBounds.Width * 2, inputBounds.Height * 2);
+
+    private static Rect Shrink(Rect outputBounds)
+        => new(outputBounds.X / 2, outputBounds.Y / 2, outputBounds.Width / 2, outputBounds.Height / 2);
+
+    private static EffectiveScale DoubleDemand(EffectiveScale outputDemand)
+        => EffectiveScale.At(outputDemand.Value * 2);
+
     private sealed class MaterializationDensityProbe
     {
         public float ObservedWorkingScale { get; private set; } = float.NaN;
@@ -221,101 +241,13 @@ public sealed class RenderScaleMappingContractTests
         }
     }
 
-    private sealed class EnlargingTargetCommandNode(
-        MaterializationDensityProbe probe,
-        bool mapsOutputDemand) : RenderNode
-    {
-        private static readonly Rect s_sourceBounds = new(0, 0, 10, 10);
-        private static readonly Rect s_targetBounds = new(0, 0, 20, 20);
-
-        public override void Process(RenderNodeContext context)
-        {
-            RenderFragmentHandle source = context.OpaqueSource(OpaqueRenderDescription.Create(
-                probe,
-                static (session, state) => state.Execute(session),
-                bounds: OpaqueRenderBoundsContract.Source(s_sourceBounds),
-                hitTest: RenderHitTestContract.OutputBounds,
-                valueCardinality: RenderValueCardinality.Single,
-                scale: RenderScaleContract.Vector));
-            TargetCommandDescription description = TargetCommandDescription.Create(
-                (byte)0,
-                static (session, _) => session.Canvas.Use(canvas =>
-                {
-                    using (canvas.PushTransform(Matrix.CreateScale(2, 2)))
-                    {
-                        session.Inputs[0].Draw(canvas);
-                    }
-                }),
-                TargetRegion.Region(s_targetBounds),
-                s_targetBounds,
-                RenderHitTestContract.OutputBounds,
-                inputDemand: mapsOutputDemand
-                    ? RenderInputDemandContract.MapOutputDemandToInput(DoubleDemand)
-                    : default);
-            context.Publish(context.TargetCommand([source], description));
-        }
-
-        private static EffectiveScale DoubleDemand(EffectiveScale outputDemand)
-            => EffectiveScale.At(outputDemand.Value * 2);
-    }
-
-    private sealed class EnlargingGeometryNode(
-        MaterializationDensityProbe probe,
-        bool mapsOutputDemand) : RenderNode
-    {
-        private static readonly Rect s_sourceBounds = new(0, 0, 10, 10);
-
-        public override void Process(RenderNodeContext context)
-        {
-            RenderFragmentHandle source = context.OpaqueSource(OpaqueRenderDescription.Create(
-                probe,
-                static (session, state) => state.Execute(session),
-                bounds: OpaqueRenderBoundsContract.Source(s_sourceBounds),
-                hitTest: RenderHitTestContract.OutputBounds,
-                valueCardinality: RenderValueCardinality.Single,
-                scale: RenderScaleContract.Vector));
-            GeometryDescription description = GeometryDescription.Create(
-                (byte)0,
-                static (session, _) => session.Canvas.Use(canvas =>
-                {
-                    using (canvas.PushTransform(Matrix.CreateScale(2, 2)))
-                    {
-                        session.Input.Draw(canvas);
-                    }
-                }),
-                RenderBoundsContract.Create(Enlarge, Shrink),
-                RenderHitTestContract.OutputBounds,
-                inputDemand: mapsOutputDemand
-                    ? RenderInputDemandContract.MapOutputDemandToInput(DoubleDemand)
-                    : default);
-            context.Publish(context.Geometry(source, description));
-        }
-
-        private static Rect Enlarge(Rect inputBounds)
-            => new(inputBounds.X * 2, inputBounds.Y * 2, inputBounds.Width * 2, inputBounds.Height * 2);
-
-        private static Rect Shrink(Rect outputBounds)
-            => new(outputBounds.X / 2, outputBounds.Y / 2, outputBounds.Width / 2, outputBounds.Height / 2);
-
-        private static EffectiveScale DoubleDemand(EffectiveScale outputDemand)
-            => EffectiveScale.At(outputDemand.Value * 2);
-    }
-
     private sealed class EnlargingMapNode(
         MaterializationDensityProbe probe,
         bool mapsOutputDemand) : RenderNode
     {
-        private static readonly Rect s_sourceBounds = new(0, 0, 10, 10);
-
         public override void Process(RenderNodeContext context)
         {
-            RenderFragmentHandle source = context.OpaqueSource(OpaqueRenderDescription.Create(
-                probe,
-                static (session, state) => state.Execute(session),
-                bounds: OpaqueRenderBoundsContract.Source(s_sourceBounds),
-                hitTest: RenderHitTestContract.OutputBounds,
-                valueCardinality: RenderValueCardinality.Single,
-                scale: RenderScaleContract.Vector));
+            RenderFragmentHandle source = ProbeSource(context, probe);
             RenderScaleContract scale = mapsOutputDemand
                 ? RenderScaleContract.MapInputSupply(HalveSupply, DoubleDemand)
                 : RenderScaleContract.MapInputSupplyPreservingDemand(HalveSupply);
@@ -333,19 +265,10 @@ public sealed class RenderScaleMappingContractTests
             context.Publish(enlarged);
         }
 
-        private static Rect Enlarge(Rect inputBounds)
-            => new(inputBounds.X * 2, inputBounds.Y * 2, inputBounds.Width * 2, inputBounds.Height * 2);
-
-        private static Rect Shrink(Rect outputBounds)
-            => new(outputBounds.X / 2, outputBounds.Y / 2, outputBounds.Width / 2, outputBounds.Height / 2);
-
         private static EffectiveScale HalveSupply(EffectiveScale inputSupply)
             => inputSupply.IsUnbounded
                 ? EffectiveScale.Unbounded
                 : EffectiveScale.At(inputSupply.Value / 2);
-
-        private static EffectiveScale DoubleDemand(EffectiveScale outputDemand)
-            => EffectiveScale.At(outputDemand.Value * 2);
     }
 
     private sealed class EnlargingShaderNode(
@@ -354,8 +277,6 @@ public sealed class RenderScaleMappingContractTests
     {
         private const string EnlargingSource =
             "uniform shader src; half4 main(float2 coord) { return src.eval(coord * 0.5); }";
-
-        private static readonly Rect s_sourceBounds = new(0, 0, 10, 10);
 
         private static readonly ShaderDescription s_mapsDemand =
             ShaderDescription.WholeSource(
@@ -370,25 +291,10 @@ public sealed class RenderScaleMappingContractTests
 
         public override void Process(RenderNodeContext context)
         {
-            RenderFragmentHandle source = context.OpaqueSource(OpaqueRenderDescription.Create(
-                probe,
-                static (session, state) => state.Execute(session),
-                bounds: OpaqueRenderBoundsContract.Source(s_sourceBounds),
-                hitTest: RenderHitTestContract.OutputBounds,
-                valueCardinality: RenderValueCardinality.Single,
-                scale: RenderScaleContract.Vector));
+            RenderFragmentHandle source = ProbeSource(context, probe);
             ShaderDescription description = mapsOutputDemand ? s_mapsDemand : s_leavesDemandUnchanged;
             context.Publish(context.Shader(source, description));
         }
-
-        private static Rect Enlarge(Rect inputBounds)
-            => new(inputBounds.X * 2, inputBounds.Y * 2, inputBounds.Width * 2, inputBounds.Height * 2);
-
-        private static Rect Shrink(Rect outputBounds)
-            => new(outputBounds.X / 2, outputBounds.Y / 2, outputBounds.Width / 2, outputBounds.Height / 2);
-
-        private static EffectiveScale DoubleDemand(EffectiveScale outputDemand)
-            => EffectiveScale.At(outputDemand.Value * 2);
     }
 
     private sealed class AsymmetricCombineNode(
@@ -396,12 +302,10 @@ public sealed class RenderScaleMappingContractTests
         MaterializationDensityProbe passedThrough,
         bool mapsPerInputDemand) : RenderNode
     {
-        private static readonly Rect s_sourceBounds = new(0, 0, 10, 10);
-
         public override void Process(RenderNodeContext context)
         {
-            RenderFragmentHandle first = Source(context, enlarged);
-            RenderFragmentHandle second = Source(context, passedThrough);
+            RenderFragmentHandle first = ProbeSource(context, enlarged);
+            RenderFragmentHandle second = ProbeSource(context, passedThrough);
             context.Publish(context.OpaqueCombine(
                 [first, second],
                 OpaqueRenderDescription.Create(
@@ -422,17 +326,6 @@ public sealed class RenderScaleMappingContractTests
                         ? RenderInputDemandContract.MapOutputDemandPerInput(DoubleTheFirstInput)
                         : default)));
         }
-
-        private static RenderFragmentHandle Source(
-            RenderNodeContext context,
-            MaterializationDensityProbe probe)
-            => context.OpaqueSource(OpaqueRenderDescription.Create(
-                probe,
-                static (session, state) => state.Execute(session),
-                bounds: OpaqueRenderBoundsContract.Source(s_sourceBounds),
-                hitTest: RenderHitTestContract.OutputBounds,
-                valueCardinality: RenderValueCardinality.Single,
-                scale: RenderScaleContract.Vector));
 
         private static EffectiveScale DoubleTheFirstInput(int inputIndex, EffectiveScale outputDemand)
             => inputIndex == 0
@@ -458,11 +351,8 @@ public sealed class RenderScaleMappingContractTests
                 hitTest: RenderHitTestContract.None,
                 valueCardinality: RenderValueCardinality.Single,
                 scale: RenderScaleContract.MaterializeAtWorkingScale,
-                inputDemand: RenderInputDemandContract.MapOutputDemandToInput(Double))));
+                inputDemand: RenderInputDemandContract.MapOutputDemandToInput(DoubleDemand))));
         }
-
-        private static EffectiveScale Double(EffectiveScale outputDemand)
-            => EffectiveScale.At(outputDemand.Value * 2);
     }
 
     private sealed class SupplyMappingNode(EffectiveScale inputSupply) : RenderNode

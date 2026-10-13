@@ -1,8 +1,8 @@
-﻿using Beutl.E2ETests.TestInfrastructure;
-using Beutl.Editor;
+﻿using Beutl.Editor;
 using Beutl.Editor.Services;
 using Beutl.Media;
 using Beutl.ProjectSystem;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.E2ETests.Scenarios;
 

@@ -129,9 +129,6 @@ If telemetry collection is enabled, logs are collected automatically.</value>
   <data name="ErrorOccurred" xml:space="preserve">
     <value>Error occurred.</value>
   </data>
-  <data name="LogFileNotFound" xml:space="preserve">
-    <value>Log file not found</value>
-  </data>
   <data name="MoreDetails" xml:space="preserve">
     <value>More Details</value>
   </data>

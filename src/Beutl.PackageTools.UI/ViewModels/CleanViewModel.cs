@@ -1,6 +1,7 @@
 ﻿using System.Reactive.Linq;
 
 using Beutl.Logging;
+using Beutl.PackageTools.UI.Models;
 using Beutl.Utilities;
 
 using NuGet.Packaging.Core;
@@ -11,7 +12,7 @@ namespace Beutl.PackageTools.UI.ViewModels;
 
 public record CleanPackage(PackageIdentity Package, ReactiveProperty<bool> Condition);
 
-public class CleanViewModel : IProgress<double>
+public class CleanViewModel
 {
     private readonly ILogger _logger = Log.CreateLogger<CleanViewModel>();
     private readonly PackageInstaller _installer;
@@ -68,7 +69,7 @@ public class CleanViewModel : IProgress<double>
 
     public ReadOnlyReactiveProperty<string> SizeToBeReleasedString { get; }
 
-    public ReactiveProperty<double> Progress { get; } = new();
+    public ProgressState Progress { get; } = new();
 
     public ReactiveProperty<string> Message { get; } = new();
 
@@ -91,7 +92,7 @@ public class CleanViewModel : IProgress<double>
             PackageCleanContext context = _installer.PrepareForClean(Items.Where(v => !v.Condition.Value).Select(v => v.Package), token);
 
             Message.Value = Strings.Deleting_unnecessary_packages;
-            _installer.Clean(context, this, token);
+            _installer.Clean(context, Progress, token);
             Message.Value = Strings.Deleted_unnecessary_packages;
 
             if (context.FailedPackages?.Count > 0)
@@ -121,14 +122,6 @@ public class CleanViewModel : IProgress<double>
             _logger.LogError(ex, "An exception occurred while deleting packages.");
             ErrorMessage.Value = ex.Message;
             Failed.Value = true;
-        }
-    }
-
-    void IProgress<double>.Report(double value)
-    {
-        if (double.IsFinite(value))
-        {
-            Progress.Value = value * 100;
         }
     }
 }

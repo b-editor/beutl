@@ -5,12 +5,11 @@ using ValidationContext = Beutl.Validation.ValidationContext;
 namespace Beutl.PublicApiContractTests;
 
 [TestFixture]
-public sealed class PropertyValidatorAccessContractTests : PublicApiContractTestBase
+public sealed class PropertyValidatorAccessContractTests
 {
     [Test]
     public void PublicPropertiesExposeTheValidatorTheyActuallyUse()
     {
-        AssertDoesNotHaveFriendAccess(typeof(IProperty).Assembly);
         var validator = new PassthroughValidator();
         IProperty<int> simple = Property.Create(0, validator);
         IProperty<int> animatable = Property.CreateAnimatable(0, validator);

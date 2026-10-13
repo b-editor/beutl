@@ -13,11 +13,7 @@ public static class ArtifactProvider
         string callerClassName = meth.DeclaringType!.Name;
         string dir = Path.Combine("Artifacts", callerClassName, callerMethodName);
 
-        if (!Directory.Exists(dir))
-        {
-            Directory.CreateDirectory(dir);
-        }
-
+        Directory.CreateDirectory(dir);
         return dir;
     }
 }

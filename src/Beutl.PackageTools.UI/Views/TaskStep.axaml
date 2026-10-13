@@ -1,0 +1,34 @@
+<UserControl x:Class="Beutl.PackageTools.UI.Views.TaskStep"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:local="using:Beutl.PackageTools.UI.Views"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:models="using:Beutl.PackageTools.UI.Models"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             d:DesignHeight="450"
+             d:DesignWidth="320"
+             x:DataType="models:ITaskStepModel"
+             mc:Ignorable="d">
+    <Grid ColumnDefinitions="16,8,*">
+        <Grid HorizontalAlignment="Center" RowDefinitions="Auto,*">
+            <ui:FAInfoBadge Classes="step"
+                          Classes.Critical="{Binding Failed.Value, FallbackValue=False}"
+                          Classes.Informational="{Binding !IsRunning.Value, FallbackValue=True}"
+                          Classes.Success="{Binding Succeeded.Value, FallbackValue=False}"
+                          Value="{Binding $parent[local:TaskStep].Step}" />
+            <Border Grid.Row="1"
+                    Width="2"
+                    Background="Gray"
+                    IsVisible="{Binding ShowDetails.Value, FallbackValue=False}" />
+        </Grid>
+        <Grid Grid.Column="2" RowDefinitions="Auto,Auto">
+            <TextBlock Classes.tip="{Binding Converter={x:Static ObjectConverters.IsNotNull}}"
+                       PointerPressed="OnTaskNamePointerPressed"
+                       PointerReleased="OnTaskNamePointerReleased"
+                       Text="{Binding $parent[local:TaskStep].Title}" />
+
+            <ContentPresenter Grid.Row="1" Content="{Binding $parent[local:TaskStep].Details}" />
+        </Grid>
+    </Grid>
+</UserControl>

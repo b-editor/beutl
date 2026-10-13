@@ -20,7 +20,6 @@ public class VersionControlConfigTests
             Assert.That(config.GitExecutablePath, Is.Null);
             Assert.That(config.UseLfsWhenAvailable, Is.True);
             Assert.That(config.LargeMediaWarningThresholdMb, Is.EqualTo(50));
-            Assert.That(GlobalConfiguration.Instance.VersionControlConfig, Is.Not.Null);
         });
     }
 

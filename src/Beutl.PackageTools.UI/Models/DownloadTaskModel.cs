@@ -1,35 +1,28 @@
 ﻿using Beutl.Api.Clients;
 using Beutl.Logging;
 using Reactive.Bindings;
-using Reactive.Bindings.TinyLinq;
 using Refit;
 
 namespace Beutl.PackageTools.UI.Models;
 
-public class DownloadTaskModel : IProgress<double>
+public class DownloadTaskModel : ITaskStepModel
 {
     private readonly ILogger _logger = Log.CreateLogger<DownloadTaskModel>();
     private readonly BeutlApiApplication _app;
     private readonly PackageChangeModel _model;
-    private TaskCompletionSource<bool>? _userInput;
 
     public DownloadTaskModel(PackageChangeModel model, BeutlApiApplication app)
     {
         _app = app;
         _model = model;
         PackageFileName = $"{_model.Id}.{_model.Version}.nupkg";
-        IsLocalSourcePreferredNull = IsLocalSourcePreferred.Select(v => v.HasValue)
-            .ToReadOnlyReactivePropertySlim();
     }
 
     public string PackageFileName { get; }
 
-    // {PackageFileName}をダウンロード中
     public ReactiveProperty<string> DownloadMessage { get; } = new();
 
-    public ReactiveProperty<double> Progress { get; } = new();
-
-    public ReactiveProperty<bool> IsIndeterminate { get; } = new(false);
+    public ProgressState Progress { get; } = new();
 
     public ReactiveProperty<bool> ShowDetails { get; } = new(false);
 
@@ -39,9 +32,7 @@ public class DownloadTaskModel : IProgress<double>
 
     public bool Conflict => _model.Conflict;
 
-    public ReactiveProperty<bool?> IsLocalSourcePreferred { get; } = new();
-
-    public ReadOnlyReactivePropertySlim<bool> IsLocalSourcePreferredNull { get; }
+    public UserAnswer PreferLocalSourceAnswer { get; } = new();
 
     public PackageInstallContext? Context { get; private set; }
 
@@ -55,8 +46,7 @@ public class DownloadTaskModel : IProgress<double>
 
     public void SetPreferLocalSource(bool value)
     {
-        IsLocalSourcePreferred.Value = value;
-        _userInput?.SetResult(value);
+        PreferLocalSourceAnswer.Answer(value);
     }
 
     public async Task<bool> Run(CancellationToken token)
@@ -70,23 +60,12 @@ public class DownloadTaskModel : IProgress<double>
         {
             if (!_model.IsRemote || Conflict)
             {
-                Task<bool>? task;
-                if (!_model.IsRemote)
+                if (_model.IsRemote && !PreferLocalSourceAnswer.Value.Value.HasValue)
                 {
-                    task = Task.FromResult(true);
-                }
-                else if (!IsLocalSourcePreferred.Value.HasValue)
-                {
-                    _userInput = new TaskCompletionSource<bool>();
-                    task = _userInput.Task;
                     _logger.LogInformation("Waiting for user input to resolve conflict for package {PackageId}.", _model.Id);
                 }
-                else
-                {
-                    task = Task.FromResult(IsLocalSourcePreferred.Value.Value);
-                }
 
-                if (await task.WaitAsync(token))
+                if (!_model.IsRemote || await PreferLocalSourceAnswer.WaitAsync(token))
                 {
                     DownloadSkipped.Value = true;
                     Context = installer.PrepareForInstall(_model.Id, _model.Version.ToString(), true, token);
@@ -97,7 +76,7 @@ public class DownloadTaskModel : IProgress<double>
             }
 
             IsProgressBarVisible.Value = true;
-            IsIndeterminate.Value = true;
+            Progress.IsIndeterminate.Value = true;
 
             Package package = await discover.GetPackage(_model.Id, token);
             Release release = await package.GetReleaseAsync(_model.Version.ToString(), token);
@@ -105,7 +84,7 @@ public class DownloadTaskModel : IProgress<double>
             Context = await installer.PrepareForInstall(release, true, token);
             DownloadMessage.Value = string.Format(Strings.Downloading_XXX, PackageFileName);
             _logger.LogInformation("Downloading package file {PackageFileName}.", PackageFileName);
-            await installer.DownloadPackageFile(Context, this, token);
+            await installer.DownloadPackageFile(Context, Progress, token);
             DownloadMessage.Value = string.Format(Strings.Downloaded_XXX, PackageFileName);
             _logger.LogInformation("Downloaded package file {PackageFileName}.", PackageFileName);
 
@@ -141,7 +120,7 @@ public class DownloadTaskModel : IProgress<double>
         }
         finally
         {
-            IsIndeterminate.Value = false;
+            Progress.IsIndeterminate.Value = false;
             IsRunning.Value = false;
             _logger.LogInformation("Download task ended for package {PackageId} version {Version}.", _model.Id, _model.Version);
         }
@@ -157,19 +136,6 @@ public class DownloadTaskModel : IProgress<double>
         {
             _logger.LogError(ex, "Error while handling API error: {ApiContent}", error.Content);
             return null;
-        }
-    }
-
-    void IProgress<double>.Report(double value)
-    {
-        if (double.IsFinite(value))
-        {
-            Progress.Value = value * 100;
-            IsIndeterminate.Value = false;
-        }
-        else
-        {
-            IsIndeterminate.Value = true;
         }
     }
 }

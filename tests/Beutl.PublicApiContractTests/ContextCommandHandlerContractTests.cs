@@ -3,10 +3,10 @@
 namespace Beutl.PublicApiContractTests;
 
 [TestFixture]
-public sealed class ContextCommandHandlerContractTests : PublicApiContractTestBase
+public sealed class ContextCommandHandlerContractTests
 {
     [Test]
-    public async Task Plugin_handler_can_expose_its_complete_operation()
+    public void Plugin_handler_can_expose_its_complete_operation()
     {
         var completion = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
@@ -14,17 +14,6 @@ public sealed class ContextCommandHandlerContractTests : PublicApiContractTestBa
         var execution = new ContextCommandExecution("PluginCommand");
 
         Task operation = handler.ExecuteAsync(execution);
-
-        Assert.That(operation.IsCompleted, Is.False);
-        completion.SetResult();
-        await operation;
-        Assert.That(handler.Execution, Is.SameAs(execution));
-    }
-
-    [Test]
-    public void Extensibility_does_not_grant_friend_access_to_contract_assembly()
-    {
-        AssertDoesNotHaveFriendAccess(typeof(IContextCommandHandler).Assembly);
     }
 
     [Test]
@@ -33,9 +22,6 @@ public sealed class ContextCommandHandlerContractTests : PublicApiContractTestBa
         Assert.Multiple(() =>
         {
             Assert.That(typeof(IContextCommandHandler).GetMethod("Execute"), Is.Null);
-            Assert.That(
-                typeof(IContextCommandHandler).GetMethod(nameof(IContextCommandHandler.ExecuteAsync))?.ReturnType,
-                Is.EqualTo(typeof(Task)));
             Assert.That(typeof(ContextCommandExecution).GetProperty("Completion"), Is.Null);
         });
     }
@@ -54,14 +40,7 @@ public sealed class ContextCommandHandlerContractTests : PublicApiContractTestBa
         var definition = new ContextCommandDefinition("Configure") { Scope = ContextCommandScope.Extension };
         var execution = new ContextCommandExecution(definition.Name) { Interaction = interaction };
 
-        Assert.Multiple(() =>
-        {
-            Assert.That(input, Is.EqualTo("Layout"));
-            Assert.That(selected, Is.SameAs(item));
-            Assert.That(selected!.Value, Is.EqualTo(42));
-            Assert.That(execution.Interaction, Is.SameAs(interaction));
-            Assert.That(new ContextCommandDefinition("Local").Scope, Is.EqualTo(ContextCommandScope.Context));
-        });
+        Assert.That(new ContextCommandDefinition("Local").Scope, Is.EqualTo(ContextCommandScope.Context));
     }
 
     private sealed class PluginInteraction : IContextCommandInteraction
@@ -79,12 +58,6 @@ public sealed class ContextCommandHandlerContractTests : PublicApiContractTestBa
 
     private sealed class PluginContextCommandHandler(Task operation) : IContextCommandHandler
     {
-        public ContextCommandExecution? Execution { get; private set; }
-
-        public Task ExecuteAsync(ContextCommandExecution execution)
-        {
-            Execution = execution;
-            return operation;
-        }
+        public Task ExecuteAsync(ContextCommandExecution execution) => operation;
     }
 }

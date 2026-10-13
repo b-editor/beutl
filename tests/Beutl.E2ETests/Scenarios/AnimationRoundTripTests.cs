@@ -90,6 +90,8 @@ public class AnimationRoundTripTests
             Assert.That(spline.Y1, Is.EqualTo(0.2f));
             Assert.That(spline.X2, Is.EqualTo(0.3f));
             Assert.That(spline.Y2, Is.EqualTo(0.4f));
+            Assert.That(restoredAnimation.Interpolate(TimeSpan.Zero), Is.EqualTo(0f));
+            Assert.That(restoredAnimation.Interpolate(TimeSpan.FromSeconds(2)), Is.EqualTo(100f));
         });
     }
 
@@ -112,30 +114,6 @@ public class AnimationRoundTripTests
             Assert.That(second.Value, Is.EqualTo(100f));
             Assert.That(second.Easing, Is.InstanceOf<SplineEasing>());
             Assert.That(restored.UseGlobalClock, Is.True);
-        });
-    }
-
-    [Test]
-    public void Animation_interpolates_endpoint_values_after_round_trip()
-    {
-        var element = new Element
-        {
-            Start = TimeSpan.Zero,
-            Length = TimeSpan.FromSeconds(5),
-            Uri = new Uri(Path.Combine(_baseDir, "interp.belm")),
-        };
-        var shape = new RectShape();
-        shape.Opacity.Animation = BuildOpacityAnimation();
-        element.Objects.Add(shape);
-
-        CoreSerializer.StoreToUri(element, element.Uri!);
-        var restored = CoreSerializer.RestoreFromUri<Element>(element.Uri!);
-        var restoredAnimation = (KeyFrameAnimation<float>)restored.Objects.OfType<RectShape>().Single().Opacity.Animation!;
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(restoredAnimation.Interpolate(TimeSpan.Zero), Is.EqualTo(0f));
-            Assert.That(restoredAnimation.Interpolate(TimeSpan.FromSeconds(2)), Is.EqualTo(100f));
         });
     }
 }

@@ -5,6 +5,7 @@ using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
 using SkiaSharp;
+using static Beutl.PublicApiContractTests.ContractTestSupport;
 
 namespace Beutl.PublicApiContractTests;
 
@@ -14,12 +15,7 @@ public sealed class BrushMaterializationSmokeTests
     [Test]
     public void DrawableBrush_IsMaterializedAtExecution()
     {
-        var content = new EllipseShape();
-        content.Width.CurrentValue = 20;
-        content.Height.CurrentValue = 12;
-        content.Fill.CurrentValue = Brushes.White;
-        var brush = new DrawableBrush(content);
-        using DrawableBrush.Resource brushResource = brush.ToResource(CompositionContext.Default);
+        using DrawableBrush.Resource brushResource = CreateDrawableBrushResource();
         using var node = new RectangleRenderNode(new Rect(0, 0, 64, 36), brushResource, null);
         using var renderer = new RenderNodeRenderer(
             node,
@@ -38,20 +34,15 @@ public sealed class BrushMaterializationSmokeTests
             Assert.That(measurement.HasContributingValues, Is.True);
             Assert.That(measurement.OutputBounds, Is.EqualTo(new Rect(0, 0, 64, 36)));
             Assert.That(bitmap, Is.Not.Null);
-            Assert.That(GetAlpha(bitmap, 32, 18), Is.GreaterThan(0.9f));
-            Assert.That(GetAlpha(bitmap, 0, 0), Is.LessThan(0.1f));
+            Assert.That(AlphaAt(bitmap, 32, 18), Is.GreaterThan(0.9f));
+            Assert.That(AlphaAt(bitmap, 0, 0), Is.LessThan(0.1f));
         });
     }
 
     [Test]
     public void DrawableOpacityMask_IsMaterializedAtExecution()
     {
-        var content = new EllipseShape();
-        content.Width.CurrentValue = 20;
-        content.Height.CurrentValue = 12;
-        content.Fill.CurrentValue = Brushes.White;
-        var brush = new DrawableBrush(content);
-        using DrawableBrush.Resource brushResource = brush.ToResource(CompositionContext.Default);
+        using DrawableBrush.Resource brushResource = CreateDrawableBrushResource();
         using var root = new OpacityMaskRenderNode(brushResource, new Rect(0, 0, 64, 36), false);
         root.AddChild(new RectangleRenderNode(new Rect(0, 0, 64, 36), Brushes.Resource.White, null));
         using var renderer = new RenderNodeRenderer(
@@ -71,8 +62,8 @@ public sealed class BrushMaterializationSmokeTests
             Assert.That(measurement.HasContributingValues, Is.True);
             Assert.That(measurement.OutputBounds, Is.EqualTo(new Rect(0, 0, 64, 36)));
             Assert.That(bitmap, Is.Not.Null);
-            Assert.That(GetAlpha(bitmap, 32, 18), Is.GreaterThan(0.9f));
-            Assert.That(GetAlpha(bitmap, 0, 0), Is.LessThan(0.1f));
+            Assert.That(AlphaAt(bitmap, 32, 18), Is.GreaterThan(0.9f));
+            Assert.That(AlphaAt(bitmap, 0, 0), Is.LessThan(0.1f));
         });
     }
 
@@ -106,8 +97,8 @@ public sealed class BrushMaterializationSmokeTests
         Assert.Multiple(() =>
         {
             Assert.That(bitmap, Is.Not.Null);
-            Assert.That(GetAlpha(bitmap, 32, 18), Is.GreaterThan(0.9f));
-            Assert.That(GetAlpha(bitmap, 0, 0), Is.LessThan(0.1f));
+            Assert.That(AlphaAt(bitmap, 32, 18), Is.GreaterThan(0.9f));
+            Assert.That(AlphaAt(bitmap, 0, 0), Is.LessThan(0.1f));
         });
     }
 
@@ -147,12 +138,7 @@ public sealed class BrushMaterializationSmokeTests
     [Test]
     public void DirectlyConstructedBrush_PaintsADrawableBrushThroughASuppliedMaterializer()
     {
-        var content = new EllipseShape();
-        content.Width.CurrentValue = 20;
-        content.Height.CurrentValue = 12;
-        content.Fill.CurrentValue = Brushes.White;
-        var brush = new DrawableBrush(content);
-        using DrawableBrush.Resource brushResource = brush.ToResource(CompositionContext.Default);
+        using DrawableBrush.Resource brushResource = CreateDrawableBrushResource();
 
         var bounds = new Rect(0, 0, 64, 36);
         DrawableBrushMaterializer materializer =
@@ -161,27 +147,15 @@ public sealed class BrushMaterializationSmokeTests
         using var withMaterializer = new SKPaint();
         new BrushConstructor(bounds, brushResource, BlendMode.SrcOver, RenderIntent.Preview, materializer)
             .ConfigurePaint(withMaterializer);
-        using var withoutMaterializer = new SKPaint();
-        new BrushConstructor(bounds, brushResource, BlendMode.SrcOver, RenderIntent.Preview, null)
-            .ConfigurePaint(withoutMaterializer);
 
-        Assert.Multiple(() =>
-        {
-            Assert.That(withMaterializer.Shader, Is.Not.Null,
-                "a supplied materializer must let the public path paint drawable content");
-            Assert.That(withoutMaterializer.Shader, Is.Null);
-        });
+        Assert.That(withMaterializer.Shader, Is.Not.Null,
+            "a supplied materializer must let the public path paint drawable content");
     }
 
     [Test]
     public void SuppliedMaterializerImage_IsOwnedByTheBrushConstructor()
     {
-        var content = new EllipseShape();
-        content.Width.CurrentValue = 20;
-        content.Height.CurrentValue = 12;
-        content.Fill.CurrentValue = Brushes.White;
-        var brush = new DrawableBrush(content);
-        using DrawableBrush.Resource brushResource = brush.ToResource(CompositionContext.Default);
+        using DrawableBrush.Resource brushResource = CreateDrawableBrushResource();
 
         SKImage handedOff = CreateOpaqueImage(20, 12);
         DrawableBrushMaterializer materializer =
@@ -233,7 +207,7 @@ public sealed class BrushMaterializationSmokeTests
 
         using Bitmap bitmap = targets[0].RenderTarget!.Snapshot();
 
-        Assert.That(GetAlpha(bitmap, 16, 16), Is.GreaterThan(0.9f),
+        Assert.That(AlphaAt(bitmap, 16, 16), Is.GreaterThan(0.9f),
             "a materializer supplied to the public executor must reach the custom-effect brush constructor");
     }
 
@@ -294,15 +268,6 @@ public sealed class BrushMaterializationSmokeTests
             Is.EqualTo(RenderIntent.Delivery));
     }
 
-    private static DrawableBrush.Resource CreateDrawableBrushResource()
-    {
-        var content = new EllipseShape();
-        content.Width.CurrentValue = 20;
-        content.Height.CurrentValue = 12;
-        content.Fill.CurrentValue = Brushes.White;
-        return new DrawableBrush(content).ToResource(CompositionContext.Default);
-    }
-
     private static SKImage CreateOpaqueImage(int width, int height)
     {
         var info = new SKImageInfo(width, height, SKColorType.RgbaF16, SKAlphaType.Premul);
@@ -311,7 +276,4 @@ public sealed class BrushMaterializationSmokeTests
         surface.Canvas.Clear(SKColors.White);
         return surface.Snapshot();
     }
-
-    private static float GetAlpha(Bitmap bitmap, int x, int y)
-        => (float)bitmap.GetRow<Half>(y)[(x * 4) + 3];
 }

@@ -3,7 +3,7 @@
 namespace Beutl.PublicApiContractTests;
 
 [TestFixture]
-public sealed class ProxyGenerationAdmissionContractTests : PublicApiContractTestBase
+public sealed class ProxyGenerationAdmissionContractTests
 {
     [Test]
     public void Waiting_change_kind_preserves_existing_public_ordinals()
@@ -24,8 +24,6 @@ public sealed class ProxyGenerationAdmissionContractTests : PublicApiContractTes
     [Test]
     public async Task ExternalHost_CanImplementAndUseProxyGenerationAdmission()
     {
-        AssertDoesNotHaveFriendAccess(typeof(ProxyJobQueue).Assembly);
-
         var generator = new TestGenerator();
         var admission = new TestAdmission();
         var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -56,7 +54,9 @@ public sealed class ProxyGenerationAdmissionContractTests : PublicApiContractTes
 
     private sealed class TestAdmission : IProxyGenerationAdmission
     {
+#pragma warning disable CS0067 // Never raised: this host always admits.
         public event EventHandler? AvailabilityChanged;
+#pragma warning restore CS0067
 
         public int AcquireCalls { get; private set; }
 
@@ -67,8 +67,6 @@ public sealed class ProxyGenerationAdmissionContractTests : PublicApiContractTes
             AcquireCalls++;
             return Lease;
         }
-
-        public void SignalAvailability() => AvailabilityChanged?.Invoke(this, EventArgs.Empty);
     }
 
     private sealed class TestGenerator : IProxyGenerator

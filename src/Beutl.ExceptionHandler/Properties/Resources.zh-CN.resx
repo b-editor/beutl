@@ -71,9 +71,6 @@ Beutl 遇到了一个未处理的错误。
   <data name="ErrorOccurred" xml:space="preserve">
     <value>发生错误。</value>
   </data>
-  <data name="LogFileNotFound" xml:space="preserve">
-    <value>未找到日志文件</value>
-  </data>
   <data name="MoreDetails" xml:space="preserve">
     <value>更多详细信息</value>
   </data>

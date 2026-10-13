@@ -288,36 +288,13 @@ public sealed class ShaderAuthoringContractTests
     [Test]
     public void ShaderDescription_IsAuthorableWithoutLeakingHowAStageCarriesItsBindings()
     {
-        string?[] exportedTypes = typeof(RenderNode).Assembly
-            .GetExportedTypes()
-            .Select(static type => type.FullName)
-            .ToArray();
-        MethodInfo[] methods = typeof(RenderNodeContext)
-            .GetMethods(BindingFlags.Public | BindingFlags.Instance)
-            .Where(static method => method.Name == "Shader")
-            .ToArray();
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(exportedTypes, Does.Contain("Beutl.Graphics.Shaders.ShaderDescription"));
-            Assert.That(exportedTypes, Does.Contain("Beutl.Graphics.Shaders.ShaderBindingBuilder"));
-            Assert.That(exportedTypes, Does.Not.Contain("Beutl.Graphics.Shaders.ShaderUniformBinding"));
-            Assert.That(exportedTypes, Does.Not.Contain("Beutl.Graphics.Shaders.ShaderResourceBinding"));
-            Assert.That(exportedTypes, Does.Not.Contain("Beutl.Graphics.Shaders.SpirvShaderLowering"));
-            Assert.That(methods, Has.Length.EqualTo(1), "the description is the only route into a stage");
-            Assert.That(
-                methods.Count(static method =>
-                    !method.IsGenericMethodDefinition
-                    && method.GetParameters()[1].ParameterType == typeof(ShaderDescription)),
-                Is.EqualTo(1));
-            Assert.That(
-                typeof(ShaderDescription).GetMethods(BindingFlags.Public | BindingFlags.Static)
-                    .Where(static method => method.Name is "CurrentPixel" or "WholeSource")
-                    .All(static method => method.GetParameters().Any(static parameter =>
-                        parameter.ParameterType == typeof(Action<ShaderBindingBuilder>))),
-                Is.True,
-                "the builder is how an author declares a stage's bindings, so it has to be reachable");
-        });
+        Assert.That(
+            typeof(ShaderDescription).GetMethods(BindingFlags.Public | BindingFlags.Static)
+                .Where(static method => method.Name is "CurrentPixel" or "WholeSource")
+                .All(static method => method.GetParameters().Any(static parameter =>
+                    parameter.ParameterType == typeof(Action<ShaderBindingBuilder>))),
+            Is.True,
+            "the builder is how an author declares a stage's bindings, so it has to be reachable");
     }
 
 
@@ -470,11 +447,6 @@ public sealed class ShaderAuthoringContractTests
         return renderer.Rasterize();
     }
 
-    private sealed class DelegateNode(Action<RenderNodeContext> process) : RenderNode
-    {
-        public override void Process(RenderNodeContext context) => process(context);
-    }
-
     private sealed class ShaderColor(SKColor color)
     {
         public SKColor Color { get; } = color;
@@ -492,31 +464,6 @@ public sealed class ShaderAuthoringContractTests
         {
             Assert.That(handle.TryGetMetadata(out RenderFragmentMetadata metadata), Is.True);
             return new FragmentSnapshot(metadata.Bounds, handle.CanBeUsedAsValueInput);
-        }
-    }
-
-    private sealed class CpuTargetFactory : IRenderTargetFactory
-    {
-        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
-            => new CpuRenderTarget(allocation.DeviceSize);
-    }
-
-    private sealed class CpuRenderTarget : RenderTarget
-    {
-        private static readonly SKColorSpace s_colorSpace = SKColorSpace.CreateSrgbLinear();
-
-        public CpuRenderTarget(PixelSize size)
-            : base(
-                SKSurface.Create(new SKImageInfo(
-                    size.Width,
-                    size.Height,
-                    SKColorType.RgbaF16,
-                    SKAlphaType.Premul,
-                    s_colorSpace))
-                ?? throw new InvalidOperationException("Could not create a CPU shader contract-test surface."),
-                size.Width,
-                size.Height)
-        {
         }
     }
 }

@@ -54,7 +54,7 @@ public sealed class DeclaredResourceAddressingContractTests
     public void TypedBindingsAddressSameTypedResourcesRegardlessOfBindingOrder(bool reverse)
     {
         var reached = new List<string>();
-        using var node = new DelegateSourceNode(context =>
+        using var node = new DelegateNode(context =>
         {
             RenderResource<Payload> left = context.Borrow(new Payload("left", reached));
             RenderResource<Payload> right = context.Borrow(new Payload("right", reached));
@@ -77,7 +77,7 @@ public sealed class DeclaredResourceAddressingContractTests
     public void ADescriptionRejectsAReleasedBinding()
     {
         RenderResourceBinding binding = default;
-        using (var first = new DelegateSourceNode(context =>
+        using (var first = new DelegateNode(context =>
                {
                    RenderResource<Payload> token = context.Borrow(new Payload());
                    binding = s_leftSlot.Bind(token);
@@ -88,7 +88,7 @@ public sealed class DeclaredResourceAddressingContractTests
         }
 
         ArgumentException? exception = null;
-        using var second = new DelegateSourceNode(_ =>
+        using var second = new DelegateNode(_ =>
             exception = Assert.Throws<ArgumentException>(() => MissingLookupDescription(binding)));
 
         _ = Measure(second);
@@ -99,7 +99,7 @@ public sealed class DeclaredResourceAddressingContractTests
     [Test]
     public void MissingSlotFailsWithoutFallingBackToAnotherSameTypedBinding()
     {
-        using var node = new DelegateSourceNode(context =>
+        using var node = new DelegateNode(context =>
         {
             RenderResource<Payload> token = context.Borrow(new Payload());
             context.Publish(context.OpaqueSource(
@@ -195,11 +195,6 @@ public sealed class DeclaredResourceAddressingContractTests
                 CacheOptions = cacheOptions,
                 Purpose = RenderRequestPurpose.Frame,
             });
-
-    private sealed class DelegateSourceNode(Action<RenderNodeContext> process) : RenderNode
-    {
-        public override void Process(RenderNodeContext context) => process(context);
-    }
 
     private sealed class Payload(string? name = null, List<string>? reached = null)
     {

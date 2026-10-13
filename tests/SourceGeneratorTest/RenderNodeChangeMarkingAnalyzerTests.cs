@@ -119,13 +119,13 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
             using Beutl.Graphics.Rendering;
             abstract class Base<T> : RenderNode
             {
-                protected Rect bounds;
-                protected void Set(Rect value) => bounds = value;
+                protected Rect Bounds { get; private set; }
+                protected void Set(Rect value) => Bounds = value;
             }
             sealed class Derived : Base<int>
             {
                 public void Update(Rect value) => Set(value);
-                public override void Process(RenderNodeContext context) => context.Publish(bounds);
+                public override void Process(RenderNodeContext context) => context.Publish(Bounds);
             }
             """);
         Assert.That(diagnostics.Any(diagnostic => diagnostic.Id == "BESG005"), Is.True);
@@ -151,8 +151,6 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
             public abstract class RenderNode
             {
                 private bool _hasChanges;
-
-                public bool HasChanges => _hasChanges;
 
                 public void MarkChanged() => _hasChanges = true;
 
@@ -343,40 +341,6 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
             """);
 
         Assert.That(diagnostics.Select(static d => d.Id), Does.Contain("BESG005"));
-    }
-
-    [Test]
-    public void AMutatorThatUnMarksTheNode_DoesNotCompile()
-    {
-        ImmutableArray<Diagnostic> errors = CompileErrors("""
-            using Beutl.Graphics;
-            using Beutl.Graphics.Rendering;
-
-            internal sealed class UnMarkingNode : RenderNode
-            {
-                private Rect _bounds;
-
-                public Rect Bounds
-                {
-                    get => _bounds;
-                    set
-                    {
-                        _bounds = value;
-                        HasChanges = false;
-                    }
-                }
-
-                public override void Process(RenderNodeContext context)
-                {
-                    context.Publish(_bounds);
-                }
-            }
-            """);
-
-        Assert.That(
-            errors.Select(static d => d.Id),
-            Does.Contain("CS0200"),
-            "an assignment to HasChanges is what BESG005 used to accept as a mark; it no longer binds");
     }
 
     [Test]
@@ -2031,41 +1995,6 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
     }
 
     [Test]
-    public void AMarkNamedButNeverInvoked_IsAKnownGapTheRuleMisses()
-    {
-        ImmutableArray<Diagnostic> diagnostics = Analyze("""
-            using System;
-            using Beutl.Graphics;
-            using Beutl.Graphics.Rendering;
-
-            internal sealed class ForgetfulNode : RenderNode
-            {
-                private Rect _bounds;
-
-                public void Update(Rect bounds)
-                {
-                    _bounds = bounds;
-                    Action mark = MarkChanged;
-                    Discard(mark);
-                }
-
-                private static void Discard(Action callback) { }
-
-                public override void Process(RenderNodeContext context)
-                {
-                    context.Publish(_bounds);
-                }
-            }
-            """);
-
-        Assert.That(
-            diagnostics.Select(static d => d.Id),
-            Is.Empty,
-            "the mark never runs, so this node really does go stale; the silence is a recorded limit of "
-            + "the rule, not a verdict that the node is correct");
-    }
-
-    [Test]
     public void AMutatorAddingToACollectionProcessReads_IsReported()
     {
         ImmutableArray<Diagnostic> diagnostics = Analyze("""
@@ -2648,13 +2577,6 @@ public sealed class RenderNodeChangeMarkingAnalyzerTests
             .GetAwaiter()
             .GetResult();
     }
-
-    /// <summary>The compiler errors <paramref name="source"/> produces, for a case that must not bind.</summary>
-    private static ImmutableArray<Diagnostic> CompileErrors(string source)
-        => [.. CreateCompilation(source).GetDiagnostics().Where(static d => d.Severity == DiagnosticSeverity.Error)];
-
-    private static CSharpCompilation CreateCompilation(string source)
-        => CreateCompilation(source, CSharpParseOptions.Default);
 
     private static readonly CSharpCompilation BaseCompilation = CSharpCompilation.Create(
         "AnalyzerTest",

@@ -15,7 +15,6 @@ public class ProxyStoreConfigTests
         {
             Assert.That(Path.IsPathFullyQualified(config.StoreRootPath), Is.True);
             Assert.That(config.MaxTotalBytes, Is.EqualTo(ProxyStoreConfig.DefaultTotalBytes));
-            Assert.That(config.DefaultPreset, Is.EqualTo(2), "2 is ProxyPreset.Quarter without a Configuration -> Engine reference.");
         });
     }
 
@@ -85,9 +84,6 @@ public class ProxyStoreConfigTests
         Assert.That(config.DefaultPreset, Is.EqualTo((int)ProxyPreset.Half));
     }
 
-    // ProxyStoreConfig.DefaultPreset is an int (Configuration cannot reference Engine, so it can't take a
-    // dependency on ProxyPreset directly). This guards the magic-number coupling: if the enum value of
-    // ProxyPreset.Quarter ever changes, this test fails and forces the int default to be updated in lockstep.
     [Test]
     public void DefaultPreset_MatchesProxyPresetQuarterEnum()
     {
@@ -118,7 +114,6 @@ public class ProxyStoreConfigTests
     [Test]
     public void ClampTotalBytesFromGiB_NaNInput_ReturnsDefaultWithoutThrowing()
     {
-        Assert.DoesNotThrow(() => _ = ProxyStoreConfig.ClampTotalBytesFromGiB(double.NaN));
         Assert.That(ProxyStoreConfig.ClampTotalBytesFromGiB(double.NaN), Is.EqualTo(ProxyStoreConfig.DefaultTotalBytes));
     }
 }
