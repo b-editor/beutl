@@ -9,22 +9,6 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering.Fusion;
 [TestFixture]
 public sealed class SkslBackendBudgetResolverTests
 {
-    [Test]
-    public void PortableProfile_UsesFiniteConservativeFusionLimits()
-    {
-        SkslBackendBudget budget = SkslBackendBudgetResolver.Portable;
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(budget.CapabilityClass, Is.EqualTo(SkslBackendCapabilityClass.Portable));
-            Assert.That(budget.MaxStages, Is.EqualTo(16));
-            Assert.That(budget.MaxUniformVectors, Is.EqualTo(128));
-            Assert.That(budget.MaxSamplers, Is.EqualTo(12));
-            Assert.That(budget.MaxSourceBytes, Is.EqualTo(64 * 1024));
-            Assert.That(budget.MaxProgramTokens, Is.EqualTo(16 * 1024));
-        });
-    }
-
     [TestCase(GRBackend.Vulkan, "Vulkan")]
     [TestCase(GRBackend.Metal, "Metal")]
     [TestCase(GRBackend.OpenGL, "Portable")]
@@ -63,12 +47,10 @@ public sealed class SkslBackendBudgetResolverTests
         });
     }
 
-    [TestCase("Portable", 12)]
-    [TestCase("Vulkan", 12)]
-    [TestCase("Metal", 12)]
-    public void CapabilityProfiles_UseSupportedBackendFloorWithHeadroom(
-        string capabilityClass,
-        int expectedSamplers)
+    [TestCase("Portable")]
+    [TestCase("Vulkan")]
+    [TestCase("Metal")]
+    public void CapabilityProfiles_UseSupportedBackendFloorWithHeadroom(string capabilityClass)
     {
         SkslBackendBudget budget = capabilityClass switch
         {
@@ -83,21 +65,20 @@ public sealed class SkslBackendBudgetResolverTests
             Assert.That(budget.CapabilityClass.ToString(), Is.EqualTo(capabilityClass));
             Assert.That(budget.MaxStages, Is.EqualTo(16));
             Assert.That(budget.MaxUniformVectors, Is.EqualTo(128));
-            Assert.That(budget.MaxSamplers, Is.EqualTo(expectedSamplers));
+            Assert.That(budget.MaxSamplers, Is.EqualTo(12));
             Assert.That(budget.MaxSourceBytes, Is.EqualTo(64 * 1024));
             Assert.That(budget.MaxProgramTokens, Is.EqualTo(16 * 1024));
         });
     }
 
     [Test]
-    public void CapabilityProfiles_DivergeAndSeparateProgramIdentity()
+    public void CapabilityClass_RemainsPartOfBudgetAndCacheIdentityWhenLimitsMatch()
     {
+        SkslBackendBudget portable = CreateIdentityBudget(SkslBackendCapabilityClass.Portable);
+        SkslBackendBudget vulkan = CreateIdentityBudget(SkslBackendCapabilityClass.Vulkan);
+        SkslBackendBudget metal = CreateIdentityBudget(SkslBackendCapabilityClass.Metal);
         ShaderDescription description = ShaderDescription.CurrentPixel(
             "half4 apply(half4 color) { return color; }");
-        SkslBackendBudget portable = SkslBackendBudgetResolver.Portable;
-        SkslBackendBudget vulkan = SkslBackendBudgetResolver.Resolve(GRBackend.Vulkan);
-        SkslBackendBudget metal = SkslBackendBudgetResolver.Resolve(GRBackend.Metal);
-
         SkslMergedProgram portableProgram = SkslSnippetMerger.MergeAndSplit([description], portable).Single();
         SkslMergedProgram vulkanProgram = SkslSnippetMerger.MergeAndSplit([description], vulkan).Single();
         SkslMergedProgram metalProgram = SkslSnippetMerger.MergeAndSplit([description], metal).Single();
@@ -123,27 +104,6 @@ public sealed class SkslBackendBudgetResolverTests
             Assert.That(portableContext, Is.Not.EqualTo(vulkanContext));
             Assert.That(portableContext, Is.Not.EqualTo(metalContext));
             Assert.That(vulkanContext, Is.Not.EqualTo(metalContext));
-        });
-    }
-
-    [Test]
-    public void CapabilityClass_RemainsPartOfBudgetAndCacheIdentityWhenLimitsMatch()
-    {
-        SkslBackendBudget vulkan = CreateIdentityBudget(SkslBackendCapabilityClass.Vulkan);
-        SkslBackendBudget metal = CreateIdentityBudget(SkslBackendCapabilityClass.Metal);
-        ShaderDescription description = ShaderDescription.CurrentPixel(
-            "half4 apply(half4 color) { return color; }");
-        SkslMergedProgram vulkanProgram = SkslSnippetMerger.MergeAndSplit([description], vulkan).Single();
-        SkslMergedProgram metalProgram = SkslSnippetMerger.MergeAndSplit([description], metal).Single();
-        var contextIdentity = new RenderCacheDeviceContextIdentity("device", "context");
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(vulkan, Is.Not.EqualTo(metal));
-            Assert.That(vulkanProgram.Identity, Is.Not.EqualTo(metalProgram.Identity));
-            Assert.That(
-                SkRuntimeEffectProgramCache.CreateContextKey(contextIdentity, vulkan),
-                Is.Not.EqualTo(SkRuntimeEffectProgramCache.CreateContextKey(contextIdentity, metal)));
         });
     }
 

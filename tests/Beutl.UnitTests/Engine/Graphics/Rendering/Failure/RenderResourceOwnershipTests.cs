@@ -9,9 +9,9 @@ public sealed class RenderResourceOwnershipTests
     [Test]
     public void DuplicateOwnedAndOwnedBorrowedConflicts_AreRejectedBeforeAnotherTransfer()
     {
-        var ownedValue = new TrackedDisposable();
+        var ownedValue = new FailureTestDisposable();
         using var ownedRegistry = new RenderRequestResourceRegistry();
-        RenderResource<TrackedDisposable> owned = ownedRegistry.RegisterOwned(ownedValue);
+        RenderResource<FailureTestDisposable> owned = ownedRegistry.RegisterOwned(ownedValue);
 
         Assert.Multiple(() =>
         {
@@ -24,31 +24,31 @@ public sealed class RenderResourceOwnershipTests
         });
 
         ownedRegistry.Rollback(owned);
-        Assert.That(ownedValue.DisposeCount, Is.EqualTo(1));
+        Assert.That(ownedValue.DisposeCalls, Is.EqualTo(1));
 
-        var borrowedValue = new TrackedDisposable();
+        var borrowedValue = new FailureTestDisposable();
         using var borrowedRegistry = new RenderRequestResourceRegistry();
-        RenderResource<TrackedDisposable> borrowed = borrowedRegistry.RegisterBorrowed(borrowedValue);
+        RenderResource<FailureTestDisposable> borrowed = borrowedRegistry.RegisterBorrowed(borrowedValue);
 
         Assert.That(
             () => borrowedRegistry.RegisterOwned(borrowedValue),
             Throws.TypeOf<InvalidOperationException>());
 
         borrowedRegistry.Rollback(borrowed);
-        Assert.That(borrowedValue.DisposeCount, Is.Zero);
+        Assert.That(borrowedValue.DisposeCalls, Is.Zero);
     }
 
     [Test]
     public void RolledBackOwnership_RemainsATombstoneForTheRequestFamily()
     {
-        var value = new TrackedDisposable();
+        var value = new FailureTestDisposable();
         using var registry = new RenderRequestResourceRegistry();
-        RenderResource<TrackedDisposable> resource = registry.RegisterOwned(value);
+        RenderResource<FailureTestDisposable> resource = registry.RegisterOwned(value);
         registry.Rollback(resource);
 
         Assert.Multiple(() =>
         {
-            Assert.That(value.DisposeCount, Is.EqualTo(1));
+            Assert.That(value.DisposeCalls, Is.EqualTo(1));
             Assert.That(() => registry.RegisterOwned(value), Throws.TypeOf<InvalidOperationException>());
             Assert.That(
                 () => registry.RegisterBorrowed(value),
@@ -59,14 +59,14 @@ public sealed class RenderResourceOwnershipTests
     [Test]
     public void RolledBackBorrow_RemainsATombstoneForTheRequestFamily()
     {
-        var value = new TrackedDisposable();
+        var value = new FailureTestDisposable();
         using var registry = new RenderRequestResourceRegistry();
-        RenderResource<TrackedDisposable> resource = registry.RegisterBorrowed(value);
+        RenderResource<FailureTestDisposable> resource = registry.RegisterBorrowed(value);
         registry.Rollback(resource);
 
         Assert.Multiple(() =>
         {
-            Assert.That(value.DisposeCount, Is.Zero);
+            Assert.That(value.DisposeCalls, Is.Zero);
             Assert.That(() => registry.RegisterOwned(value), Throws.TypeOf<InvalidOperationException>());
         });
     }
@@ -74,9 +74,9 @@ public sealed class RenderResourceOwnershipTests
     [Test]
     public void FinalRelease_DuringUseIsRejectedBeforeOwnershipMutation()
     {
-        var value = new TrackedDisposable();
+        var value = new FailureTestDisposable();
         using var registry = new RenderRequestResourceRegistry();
-        RenderResource<TrackedDisposable> resource = registry.RegisterOwned(value);
+        RenderResource<FailureTestDisposable> resource = registry.RegisterOwned(value);
         registry.Commit(resource);
 
         Assert.That(
@@ -92,11 +92,11 @@ public sealed class RenderResourceOwnershipTests
             Assert.That(resource.RegistrationState, Is.EqualTo(RenderResourceRegistrationState.Committed));
             Assert.That(resource.OwnershipState, Is.EqualTo(RenderResourceOwnershipState.RequestOwned));
             Assert.That(registry.ActiveResourceCount, Is.EqualTo(1));
-            Assert.That(value.DisposeCount, Is.Zero);
+            Assert.That(value.DisposeCalls, Is.Zero);
         });
 
         registry.Release(resource);
-        Assert.That(value.DisposeCount, Is.EqualTo(1));
+        Assert.That(value.DisposeCalls, Is.EqualTo(1));
     }
 
     // A pending registration can still be rolled back, so it stays unreadable from everywhere except the
@@ -107,9 +107,9 @@ public sealed class RenderResourceOwnershipTests
         var owner = new RecordingScopeStub();
         var other = new RecordingScopeStub();
         using var registry = new RenderRequestResourceRegistry();
-        RenderResource<TrackedDisposable> resource =
-            registry.RegisterBorrowed(new TrackedDisposable(), owner);
-        RenderResource<TrackedDisposable> unscoped = registry.RegisterBorrowed(new TrackedDisposable());
+        RenderResource<FailureTestDisposable> resource =
+            registry.RegisterBorrowed(new FailureTestDisposable(), owner);
+        RenderResource<FailureTestDisposable> unscoped = registry.RegisterBorrowed(new FailureTestDisposable());
 
         Assert.Multiple(() =>
         {
@@ -136,9 +136,9 @@ public sealed class RenderResourceOwnershipTests
     public void PendingResource_IsUnreadableOnceItsRegistrationRollsBack()
     {
         var owner = new RecordingScopeStub();
-        var value = new TrackedDisposable();
+        var value = new FailureTestDisposable();
         using var registry = new RenderRequestResourceRegistry();
-        RenderResource<TrackedDisposable> resource = registry.RegisterOwned(value, owner);
+        RenderResource<FailureTestDisposable> resource = registry.RegisterOwned(value, owner);
 
         Assert.That(Read(registry, resource), Is.True);
 
@@ -146,7 +146,7 @@ public sealed class RenderResourceOwnershipTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(value.DisposeCount, Is.EqualTo(1), "the read did not keep the rollback from running");
+            Assert.That(value.DisposeCalls, Is.EqualTo(1), "the read did not keep the rollback from running");
             Assert.That(
                 () => Read(registry, resource),
                 Throws.TypeOf<InvalidOperationException>().With.Message.Contain("not committed"),
@@ -161,9 +161,9 @@ public sealed class RenderResourceOwnershipTests
     public void PendingResource_ReadsReentrantlyAndReturnsItsLease()
     {
         var owner = new RecordingScopeStub();
-        var value = new TrackedDisposable();
+        var value = new FailureTestDisposable();
         using var registry = new RenderRequestResourceRegistry();
-        RenderResource<TrackedDisposable> resource = registry.RegisterBorrowed(value, owner);
+        RenderResource<FailureTestDisposable> resource = registry.RegisterBorrowed(value, owner);
 
         RenderResourceOwnershipState innerState = registry.Use(
             resource,
@@ -182,17 +182,17 @@ public sealed class RenderResourceOwnershipTests
         Assert.Multiple(() =>
         {
             Assert.That(resource.RegistrationState, Is.EqualTo(RenderResourceRegistrationState.Released));
-            Assert.That(value.DisposeCount, Is.Zero, "a borrowed resource is never disposed by the request");
+            Assert.That(value.DisposeCalls, Is.Zero, "a borrowed resource is never disposed by the request");
         });
     }
 
     [Test]
     public void MultipleBorrowsOfTheSameRawValue_HaveIndependentLifecycles()
     {
-        var value = new TrackedDisposable();
+        var value = new FailureTestDisposable();
         using var registry = new RenderRequestResourceRegistry();
-        RenderResource<TrackedDisposable> first = registry.RegisterBorrowed(value);
-        RenderResource<TrackedDisposable> second = registry.RegisterBorrowed(value);
+        RenderResource<FailureTestDisposable> first = registry.RegisterBorrowed(value);
+        RenderResource<FailureTestDisposable> second = registry.RegisterBorrowed(value);
 
         Assert.That(first, Is.Not.SameAs(second));
         registry.Commit(first);
@@ -219,7 +219,7 @@ public sealed class RenderResourceOwnershipTests
         });
 
         registry.Release(first);
-        RenderResource<TrackedDisposable> third = registry.RegisterBorrowed(value);
+        RenderResource<FailureTestDisposable> third = registry.RegisterBorrowed(value);
         registry.Commit(third);
 
         Assert.Multiple(() =>
@@ -232,27 +232,17 @@ public sealed class RenderResourceOwnershipTests
         Assert.Multiple(() =>
         {
             Assert.That(registry.ActiveResourceCount, Is.Zero);
-            Assert.That(value.DisposeCount, Is.Zero);
+            Assert.That(value.DisposeCalls, Is.Zero);
         });
     }
 
     private static bool Read(
         RenderRequestResourceRegistry registry,
-        RenderResource<TrackedDisposable> resource)
+        RenderResource<FailureTestDisposable> resource)
         => registry.Use(resource, static value => value is not null);
 
     private sealed class RecordingScopeStub : IRenderResourceRecordingScope
     {
         public bool IsRecording { get; set; } = true;
-    }
-
-    private sealed class TrackedDisposable : IDisposable
-    {
-        public int DisposeCount { get; private set; }
-
-        public void Dispose()
-        {
-            DisposeCount++;
-        }
     }
 }

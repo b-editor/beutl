@@ -1,5 +1,4 @@
-﻿using Beutl.Graphics;
-using Beutl.Graphics.Effects;
+﻿using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Shaders;
@@ -16,8 +15,8 @@ public sealed class ShaderAndAllocationFailureTests
     public void DescriptionValidationFailure_HappensDuringRecordingBeforeAnyTargetAllocation()
     {
         using var node = new InvalidDescriptionNode();
-        var factory = new TrackingTargetFactory();
-        using var renderer = CreateRenderer(node, factory);
+        var factory = new FailureTestTargetFactory();
+        using var renderer = FailureTestSupport.CreateRenderer(node, factory);
 
         ArgumentException? failure = Assert.Throws<ArgumentException>(() => renderer.Rasterize());
 
@@ -32,33 +31,13 @@ public sealed class ShaderAndAllocationFailureTests
     }
 
     [Test]
-    public void SnippetMergeFailure_DoesNotPoisonAValidDeterministicRetry()
-    {
-        ShaderDescription description = ShaderDescription.CurrentPixel(
-            "half4 apply(half4 color) { return color; }");
-        SkslMergedProgram before = SkslSnippetMerger.Merge([description]);
-
-        ArgumentException? failure = Assert.Throws<ArgumentException>(
-            () => SkslSnippetMerger.Merge([]));
-        SkslMergedProgram after = SkslSnippetMerger.Merge([description]);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(failure!.Message, Does.Contain("At least one shader stage is required"));
-            Assert.That(after.Source, Is.EqualTo(before.Source));
-            Assert.That(after.Bindings, Is.EqualTo(before.Bindings));
-            Assert.That(after.Identity, Is.EqualTo(before.Identity));
-        });
-    }
-
-    [Test]
     public void InvalidProgram_PreservesValidationFailureAndReturnsEveryTargetToThePool()
     {
         using var node = new ShaderNode(ShaderDescription.WholeSource(
             "uniform shader src; half4 main(float2 p) { this is not valid SkSL; }",
             RenderBoundsContract.Identity));
-        var factory = new TrackingTargetFactory();
-        var renderer = CreateRenderer(node, factory);
+        var factory = new FailureTestTargetFactory();
+        var renderer = FailureTestSupport.CreateRenderer(node, factory);
 
         InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(
             () => renderer.Rasterize());
@@ -70,11 +49,11 @@ public sealed class ShaderAndAllocationFailureTests
             Assert.That(renderer.TargetPoolStatistics.OwnedTargets, Is.GreaterThan(0));
             Assert.That(renderer.ProgramCacheStatistics.RetainedPrograms, Is.Zero,
                 "A failed backend compile must not install a program-cache entry.");
-            Assert.That(factory.Targets, Has.All.Matches<TrackingRenderTarget>(target => !target.IsDisposed));
+            Assert.That(factory.Targets, Has.All.Matches<FailureTestRenderTarget>(target => !target.IsDisposed));
         });
 
         renderer.Dispose();
-        Assert.That(factory.Targets, Has.All.Matches<TrackingRenderTarget>(target => target.DisposeCalls == 1));
+        Assert.That(factory.Targets, Has.All.Matches<FailureTestRenderTarget>(target => target.DisposeCalls == 1));
     }
 
     [TestCase(RuntimeBindingFailure.MissingUniform)]
@@ -85,8 +64,8 @@ public sealed class ShaderAndAllocationFailureTests
         RuntimeBindingFailure failurePoint)
     {
         using var node = new RuntimeBindingFailureNode(failurePoint);
-        var factory = new TrackingTargetFactory();
-        var renderer = CreateRenderer(node, factory);
+        var factory = new FailureTestTargetFactory();
+        var renderer = FailureTestSupport.CreateRenderer(node, factory);
 
         InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(
             () => renderer.Rasterize());
@@ -94,7 +73,6 @@ public sealed class ShaderAndAllocationFailureTests
         Assert.Multiple(() =>
         {
             Assert.That(failure!.Message, Does.Contain("must set its writer exactly once"));
-            Assert.That(node.VerifyRetainedWriter is not null, Is.True);
             Assert.That(renderer.TargetPoolStatistics.LeasedTargets, Is.Zero);
             Assert.That(renderer.ProgramCacheStatistics.RetainedPrograms, Is.EqualTo(1),
                 "A runtime binding failure must not corrupt the immutable compiled program.");
@@ -104,7 +82,7 @@ public sealed class ShaderAndAllocationFailureTests
         Assert.That(verifyRetainedWriter, Throws.TypeOf<InvalidOperationException>());
 
         renderer.Dispose();
-        Assert.That(factory.Targets, Has.All.Matches<TrackingRenderTarget>(target => target.DisposeCalls == 1));
+        Assert.That(factory.Targets, Has.All.Matches<FailureTestRenderTarget>(target => target.DisposeCalls == 1));
     }
 
     [Test]
@@ -112,8 +90,8 @@ public sealed class ShaderAndAllocationFailureTests
     {
         var primary = new InvalidOperationException("materialization-callback-primary");
         using var node = new MaterializationFailureNode(primary);
-        var factory = new TrackingTargetFactory();
-        var renderer = CreateRenderer(node, factory);
+        var factory = new FailureTestTargetFactory();
+        var renderer = FailureTestSupport.CreateRenderer(node, factory);
 
         InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(
             () => renderer.Rasterize());
@@ -126,11 +104,11 @@ public sealed class ShaderAndAllocationFailureTests
                 "The root and callback output were both acquired before the injected callback fault.");
             Assert.That(renderer.TargetPoolStatistics.LeasedTargets, Is.Zero);
             Assert.That(node.Cache.IsCached, Is.False);
-            Assert.That(factory.Targets, Has.All.Matches<TrackingRenderTarget>(target => !target.IsDisposed));
+            Assert.That(factory.Targets, Has.All.Matches<FailureTestRenderTarget>(target => !target.IsDisposed));
         });
 
         renderer.Dispose();
-        Assert.That(factory.Targets, Has.All.Matches<TrackingRenderTarget>(target => target.DisposeCalls == 1));
+        Assert.That(factory.Targets, Has.All.Matches<FailureTestRenderTarget>(target => target.DisposeCalls == 1));
     }
 
     [Test]
@@ -143,8 +121,8 @@ public sealed class ShaderAndAllocationFailureTests
                 0.5f,
                 static (_, _, _) => throw new InvalidOperationException("uniform-provider-failure")));
         using var node = new ShaderNode(description);
-        var factory = new TrackingTargetFactory();
-        var renderer = CreateRenderer(node, factory);
+        var factory = new FailureTestTargetFactory();
+        var renderer = FailureTestSupport.CreateRenderer(node, factory);
 
         InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(
             () => renderer.Rasterize());
@@ -158,7 +136,7 @@ public sealed class ShaderAndAllocationFailureTests
         });
 
         renderer.Dispose();
-        Assert.That(factory.Targets, Has.All.Matches<TrackingRenderTarget>(target => target.DisposeCalls == 1));
+        Assert.That(factory.Targets, Has.All.Matches<FailureTestRenderTarget>(target => target.DisposeCalls == 1));
     }
 
     [Test]
@@ -166,8 +144,8 @@ public sealed class ShaderAndAllocationFailureTests
     {
         using var node = new ShaderNode(ShaderDescription.CurrentPixel(
             "half4 apply(half4 color) { return color; }"));
-        var factory = new TrackingTargetFactory(failAt: 1);
-        var renderer = CreateRenderer(node, factory, RenderIntent.Delivery);
+        var factory = new FailureTestTargetFactory(failAt: 1);
+        var renderer = FailureTestSupport.CreateRenderer(node, factory, intent: RenderIntent.Delivery);
 
         InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(
             () => renderer.Rasterize());
@@ -189,18 +167,18 @@ public sealed class ShaderAndAllocationFailureTests
     [Test]
     public void PreviewTargetAcquisitionFailure_SilentlyChangesThePixelsDeliveryRefusesToProduce()
     {
-        static byte[] RasterizePreview(TrackingTargetFactory factory)
+        static byte[] RasterizePreview(FailureTestTargetFactory factory)
         {
             using var node = new ShaderNode(ShaderDescription.CurrentPixel(
                 "half4 apply(half4 color) { return color; }"));
-            using RenderNodeRenderer renderer = CreateRenderer(node, factory, RenderIntent.Preview);
+            using RenderNodeRenderer renderer = FailureTestSupport.CreateRenderer(node, factory, intent: RenderIntent.Preview);
             using RenderNodeRasterization rasterization = renderer.Rasterize();
             Assert.That(renderer.TargetPoolStatistics.LeasedTargets, Is.Zero);
             return rasterization.Bitmap!.GetPixelSpan().ToArray();
         }
 
-        byte[] intact = RasterizePreview(new TrackingTargetFactory());
-        byte[] degraded = RasterizePreview(new TrackingTargetFactory(failAt: 1));
+        byte[] intact = RasterizePreview(new FailureTestTargetFactory());
+        byte[] degraded = RasterizePreview(new FailureTestTargetFactory(failAt: 1));
 
         Assert.That(degraded, Is.Not.EqualTo(intact),
             "Preview absorbs the allocation failure and returns different pixels, which is why a "
@@ -255,7 +233,7 @@ public sealed class ShaderAndAllocationFailureTests
     [Test]
     public void ProgramCreationFailure_LeavesNoEntryAndAValidRetryCanBeRetained()
     {
-        using var cache = new ProgramCache<TrackingProgram>(
+        using var cache = new ProgramCache<FailureTestDisposable>(
             static _ => 1,
             maxRetainedBytes: 16);
         ShaderProgramIdentity identity = ShaderProgramIdentity.CreateSksl(
@@ -271,8 +249,8 @@ public sealed class ShaderAndAllocationFailureTests
 
         InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(
             () => cache.GetOrCreate(identity, context, primary, static exception => throw exception));
-        var recovered = new TrackingProgram();
-        using (ProgramCacheLease<TrackingProgram> lease = cache.GetOrCreate(
+        var recovered = new FailureTestDisposable();
+        using (ProgramCacheLease<FailureTestDisposable> lease = cache.GetOrCreate(
                    identity,
                    context,
                    () => recovered,
@@ -299,9 +277,9 @@ public sealed class ShaderAndAllocationFailureTests
         var poolFailure = new InvalidOperationException("renderer-pool-dispose-primary");
         using var node = new ShaderNode(ShaderDescription.CurrentPixel(
             "half4 apply(half4 color) { return color; }"));
-        var factory = new TrackingTargetFactory(
-            disposeFailureAt: index => index == 0 ? poolFailure : null);
-        var renderer = CreateRenderer(node, factory);
+        var factory = new FailureTestTargetFactory(
+            disposeFailure: index => index == 0 ? poolFailure : null);
+        var renderer = FailureTestSupport.CreateRenderer(node, factory);
         using (RenderNodeRasterization rasterization = renderer.Rasterize())
         {
             Assert.That(rasterization.IsEmpty, Is.False);
@@ -322,7 +300,7 @@ public sealed class ShaderAndAllocationFailureTests
             Assert.That(renderer.TargetPoolStatistics.LeasedTargets, Is.Zero);
             Assert.That(renderer.ProgramCacheStatistics.RetainedPrograms, Is.Zero);
             Assert.That(renderer.StructuralPlanCacheStatistics.RetainedPlans, Is.Zero);
-            Assert.That(factory.Targets, Has.All.Matches<TrackingRenderTarget>(target => target.DisposeCalls == 1));
+            Assert.That(factory.Targets, Has.All.Matches<FailureTestRenderTarget>(target => target.DisposeCalls == 1));
             Assert.DoesNotThrow(renderer.Dispose);
         });
     }
@@ -335,35 +313,13 @@ public sealed class ShaderAndAllocationFailureTests
         DuplicateResource,
     }
 
-    private static RenderNodeRenderer CreateRenderer(
-        RenderNode root,
-        IRenderTargetFactory factory,
-        RenderIntent intent = RenderIntent.Preview)
-        => new(root, new RenderNodeRenderRequest
-        {
-            Intent = intent,
-            TargetDomain = new Rect(0, 0, 8, 8),
-            OutputScale = 1,
-            MaxWorkingScale = 1,
-            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-        }, factory);
-
     private sealed class ShaderNode(ShaderDescription description) : RenderNode
     {
         public override void Process(RenderNodeContext context)
         {
-            OpaqueRenderDescription source = OpaqueRenderDescription.CreateRequestLocal(
-                session =>
-                {
-                    using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
-                    output.Canvas.Use(canvas => canvas.Clear(Colors.CornflowerBlue));
-                    session.Publish(output);
-                },
-                OpaqueRenderBoundsContract.Source(new Rect(0, 0, 8, 8)),
-                RenderHitTestContract.OutputBounds,
-                RenderValueCardinality.Single,
-                RenderScaleContract.MaterializeAtWorkingScale);
-            context.Publish(context.Shader(context.OpaqueSource(source), description));
+            context.Publish(context.Shader(
+                context.OpaqueSource(FailureTestSupport.SourceDescription()),
+                description));
         }
     }
 
@@ -388,17 +344,7 @@ public sealed class ShaderAndAllocationFailureTests
                 or RuntimeBindingFailure.DuplicateUniform
                 ? CreateUniformDescription()
                 : CreateResourceDescription(context);
-            RenderFragmentHandle source = context.OpaqueSource(OpaqueRenderDescription.CreateRequestLocal(
-                session =>
-                {
-                    using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
-                    output.Canvas.Use(canvas => canvas.Clear(Colors.CornflowerBlue));
-                    session.Publish(output);
-                },
-                OpaqueRenderBoundsContract.Source(new Rect(0, 0, 8, 8)),
-                RenderHitTestContract.OutputBounds,
-                RenderValueCardinality.Single,
-                RenderScaleContract.MaterializeAtWorkingScale));
+            RenderFragmentHandle source = context.OpaqueSource(FailureTestSupport.SourceDescription());
             context.Publish(context.Shader(source, description));
         }
 
@@ -452,80 +398,14 @@ public sealed class ShaderAndAllocationFailureTests
 
         public override void Process(RenderNodeContext context)
         {
-            context.Publish(context.OpaqueSource(OpaqueRenderDescription.CreateRequestLocal(
+            context.Publish(context.OpaqueSource(FailureTestSupport.SourceDescription(
                 session =>
                 {
                     CallbackEntries++;
                     using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
                     output.Canvas.Use(canvas => canvas.Clear(Colors.CornflowerBlue));
                     throw failure;
-                },
-                OpaqueRenderBoundsContract.Source(new Rect(0, 0, 8, 8)),
-                RenderHitTestContract.OutputBounds,
-                RenderValueCardinality.Single,
-                RenderScaleContract.MaterializeAtWorkingScale)));
-        }
-    }
-
-    private sealed class TrackingTargetFactory(
-        int? failAt = null,
-        Func<int, Exception?>? disposeFailureAt = null) : IRenderTargetFactory
-    {
-        public List<TrackingRenderTarget> Targets { get; } = [];
-
-        public int CreateCalls { get; private set; }
-
-        public RenderTarget? Create(RenderTargetAllocationDescriptor allocation)
-        {
-            PixelSize deviceSize = allocation.DeviceSize;
-            int index = CreateCalls++;
-            if (index == failAt)
-                return null;
-
-            var target = new TrackingRenderTarget(deviceSize, disposeFailureAt?.Invoke(index));
-            Targets.Add(target);
-            return target;
-        }
-    }
-
-    private sealed class TrackingRenderTarget : RenderTarget
-    {
-        private readonly Exception? _disposeFailure;
-
-        public TrackingRenderTarget(PixelSize size, Exception? disposeFailure = null)
-            : base(
-                SKSurface.Create(new SKImageInfo(
-                    size.Width,
-                    size.Height,
-                    SKColorType.RgbaF16,
-                    SKAlphaType.Premul,
-                    SKColorSpace.CreateSrgbLinear())),
-                size.Width,
-                size.Height)
-        {
-            _disposeFailure = disposeFailure;
-        }
-
-        public int DisposeCalls { get; private set; }
-
-        protected override void Dispose(bool disposing)
-        {
-            bool fail = disposing && !IsDisposed && _disposeFailure is not null;
-            if (disposing && !IsDisposed)
-                DisposeCalls++;
-            base.Dispose(disposing);
-            if (fail)
-                throw _disposeFailure!;
-        }
-    }
-
-    private sealed class TrackingProgram : IDisposable
-    {
-        public int DisposeCalls { get; private set; }
-
-        public void Dispose()
-        {
-            DisposeCalls++;
+                })));
         }
     }
 

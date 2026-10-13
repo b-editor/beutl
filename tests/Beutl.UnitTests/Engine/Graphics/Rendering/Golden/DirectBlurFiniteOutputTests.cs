@@ -3,7 +3,6 @@ using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
-using Beutl.Graphics.Rendering.Requests;
 using Beutl.Graphics.Shaders;
 using Beutl.Media;
 using Beutl.UnitTests.Engine.Graphics.Backend;
@@ -55,37 +54,6 @@ public sealed class DirectBlurFiniteOutputTests
                 "A working scale different from the destination must exercise Blur's materialization path.");
         });
     }
-
-    [Test]
-    public void NonMaterializedFilterLayer_UsesTheRegionReplayedForEachGroupChild()
-    {
-        Matrix deviceTransform = Matrix.CreateScale(2f, 2f);
-        Thickness apron = new(0.5f);
-        Rect hairlineBounds = new(20, 70, 216, 1);
-        Rect replayedHairlineBounds = new(96, 70, 48, 1);
-        Rect offFrameBounds = new(-120, 32, 180, 96);
-        Rect replayedOffFrameBounds = new(-18, 48, 78, 64);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(
-                OpenedLayerBounds(hairlineBounds, replayedHairlineBounds, deviceTransform),
-                Is.EqualTo(replayedHairlineBounds.Inflate(apron)),
-                "The hairline layer must be the replayed region plus the raster apron, never widened to "
-                + "the semantic area that replay did not write.");
-            Assert.That(
-                OpenedLayerBounds(offFrameBounds, replayedOffFrameBounds, deviceTransform),
-                Is.EqualTo(replayedOffFrameBounds.Inflate(apron)),
-                "The off-frame layer must be the replayed region plus the raster apron, never widened to "
-                + "the semantic area that replay did not write.");
-        });
-    }
-
-    /// <summary>Mirrors what <c>ImmediateCanvas.PushFilterLayer</c> opens for a replayed region.</summary>
-    private static Rect OpenedLayerBounds(Rect semanticBounds, Rect replayedBounds, Matrix deviceTransform)
-        => ImmediateCanvas.InflateByOneDevicePixel(
-            RenderRequestExecutor.GetDirectFilterLayerBounds(replayedBounds),
-            deviceTransform);
 
     private static FilterEffectRenderNode CreateBlurNode(float? workingScale)
     {

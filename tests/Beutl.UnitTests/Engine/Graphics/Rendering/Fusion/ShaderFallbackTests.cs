@@ -35,7 +35,7 @@ public sealed class ShaderFallbackTests
             TargetDomain = s_bounds,
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             FusionMode = FusionMode.Disabled,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
 
@@ -43,7 +43,7 @@ public sealed class ShaderFallbackTests
         {
             Assert.That(rasterization.Bitmap, Is.Not.Null);
             Assert.That(rasterization.Bounds, Is.EqualTo(s_bounds));
-            Assert.That(SumAbsoluteChannels(rasterization.Bitmap!), Is.GreaterThan(1));
+            Assert.That(FusionBoundaryExecutionTestSupport.SumAbsoluteChannels(rasterization.Bitmap!), Is.GreaterThan(1));
             AssertBlueRedSwap(sourceBitmap, rasterization.Bitmap!);
         });
     }
@@ -72,28 +72,6 @@ public sealed class ShaderFallbackTests
             Assert.That(disabledRaster.Bounds, Is.EqualTo(requestedRegion));
             Assert.That(enabledRaster.Bounds, Is.EqualTo(requestedRegion));
         });
-    }
-
-    [Test]
-    public void OrdinaryCpuBackend_PreservesExplicitProgramValidationFailure()
-    {
-        using var source = new CpuRenderTarget(6, 4);
-        ShaderDescription invalid = ShaderDescription.WholeSource(
-            "uniform shader src; half4 main(float2 p) { this is not valid SkSL; }",
-            RenderBoundsContract.Identity);
-        using var node = new ShaderNode(source, invalid);
-        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
-        {
-            Intent = RenderIntent.Preview,
-            TargetDomain = s_bounds,
-            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-            FusionMode = FusionMode.Disabled,
-        }, new CpuTargetFactory());
-
-        Assert.That(
-            () => renderer.Rasterize(),
-            Throws.TypeOf<InvalidOperationException>()
-                .With.Message.StartsWith("SkSL program validation failed:"));
     }
 
     [TestCase(ShaderDescriptionKind.WholeSource)]
@@ -135,7 +113,7 @@ public sealed class ShaderFallbackTests
             TargetDomain = s_bounds,
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             FusionMode = FusionMode.Disabled,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
 
         using RenderNodeRasterization cold = renderer.Rasterize();
         ProgramCacheStatistics coldStatistics = renderer.ProgramCacheStatistics;
@@ -156,14 +134,6 @@ public sealed class ShaderFallbackTests
             Assert.That(warmStatistics.Hits, Is.EqualTo(1));
             Assert.That(renderer.LastExecutionStatistics.ProgramCacheHits, Is.EqualTo(1));
         });
-    }
-
-    private static double SumAbsoluteChannels(Bitmap bitmap)
-    {
-        double result = 0;
-        foreach (ushort bits in bitmap.GetPixelSpan<ushort>())
-            result += Math.Abs((float)BitConverter.UInt16BitsToHalf(bits));
-        return result;
     }
 
     private static void AssertBlueRedSwap(Bitmap source, Bitmap actual)
@@ -206,21 +176,16 @@ public sealed class ShaderFallbackTests
             RequestedRegion = requestedRegion,
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             FusionMode = fusionMode,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
 
     private sealed class ShaderNode(RenderTarget source, ShaderDescription description) : RenderNode
     {
         public override void Process(RenderNodeContext context)
         {
-            RenderResource<RenderTarget> resource = context.Borrow(source);
-            RenderFragmentHandle input = context.MaterializedInput(
-                MaterializedInputDescription.FromRenderTarget(
-                    resource,
-                    s_bounds,
-                    EffectiveScale.At(1),
-                    PixelRect.FromRect(s_bounds, 1),
-                    default,
-                    RenderHitTestContract.OutputBounds));
+            RenderFragmentHandle input = FusionBoundaryExecutionTestSupport.BorrowMaterializedInput(
+                context,
+                source,
+                s_bounds);
             context.Publish(context.Shader(input, description));
         }
     }
@@ -242,15 +207,10 @@ public sealed class ShaderFallbackTests
 
         public override void Process(RenderNodeContext context)
         {
-            RenderResource<RenderTarget> resource = context.Borrow(_source);
-            RenderFragmentHandle current = context.MaterializedInput(
-                MaterializedInputDescription.FromRenderTarget(
-                    resource,
-                    s_bounds,
-                    EffectiveScale.At(1),
-                    PixelRect.FromRect(s_bounds, 1),
-                    default,
-                    RenderHitTestContract.OutputBounds));
+            RenderFragmentHandle current = FusionBoundaryExecutionTestSupport.BorrowMaterializedInput(
+                context,
+                _source,
+                s_bounds);
             foreach (ShaderDescription stage in _stages)
                 current = context.Shader(current, stage);
             context.Publish(current);
@@ -270,21 +230,4 @@ public sealed class ShaderFallbackTests
                         writer.Set(value);
                     }));
     }
-
-    private sealed class CpuTargetFactory : IRenderTargetFactory
-    {
-        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
-            => new CpuRenderTarget(allocation.DeviceSize.Width, allocation.DeviceSize.Height);
-    }
-
-    private sealed class CpuRenderTarget(int width, int height)
-        : RenderTarget(
-            SKSurface.Create(new SKImageInfo(
-                width,
-                height,
-                SKColorType.RgbaF16,
-                SKAlphaType.Premul,
-                SKColorSpace.CreateSrgbLinear())),
-            width,
-            height);
 }

@@ -246,7 +246,7 @@ public sealed class FilterEffectCropTests
             RequestedRegion = requestedRegion,
             CacheOptions = RenderCacheOptions.Disabled,
             Purpose = RenderRequestPurpose.Frame,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
 
     private static Bitmap RenderNestedSkiaReference(Rect outputBounds, GradientSpreadMethod spreadMethod)
     {
@@ -274,26 +274,7 @@ public sealed class FilterEffectCropTests
         return target.Snapshot();
     }
 
-    private sealed class CpuTargetFactory : IRenderTargetFactory
-    {
-        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
-            => new CpuRenderTarget(allocation.DeviceSize);
-    }
-
-    private sealed class CpuRenderTarget(PixelSize size)
-        : RenderTarget(
-            SKSurface.Create(new SKImageInfo(
-                    size.Width,
-                    size.Height,
-                    SKColorType.RgbaF16,
-                    SKAlphaType.Premul,
-                    SKColorSpace.CreateSrgbLinear()))
-                ?? throw new InvalidOperationException("Could not create the CPU crop test surface."),
-            size.Width,
-            size.Height);
-
     [SuppressResourceClassGeneration]
-    // Crops, then blurs when blur is not zero.
     private sealed partial class CropEffect(Rect crop, GradientSpreadMethod spreadMethod, Size blur) : FilterEffect
     {
         public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)

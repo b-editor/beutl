@@ -16,9 +16,7 @@ public sealed class FilterEffectCrashSafetyTests
 {
     private static readonly PixelSize Frame = new(320, 180);
 
-    // The positive-horizontal case is the one that originally exposed the decal fringe; the other three
-    // directions each sample a different edge of the source and cost about a third of a second between them,
-    // so they run with it rather than behind a gate nothing invokes.
+    // Each direction samples a different edge of the source.
     [TestCase(100, 0)]
     [TestCase(-100, 0)]
     [TestCase(0, 100)]
@@ -26,11 +24,6 @@ public sealed class FilterEffectCrashSafetyTests
     public void ColorShift_offsets_beyond_source_have_no_decal_fringe_at_quarter_scale(
         int offsetX,
         int offsetY)
-    {
-        AssertColorShiftHasNoDecalFringe(offsetX, offsetY);
-    }
-
-    private static void AssertColorShiftHasNoDecalFringe(int offsetX, int offsetY)
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
@@ -136,7 +129,6 @@ public sealed class FilterEffectCrashSafetyTests
             if (sourceRenderTarget is null)
             {
                 const string reason = "Zero-sized RenderTarget is unavailable in this backend.";
-                TestContext.WriteLine(reason);
                 Assert.Ignore(reason);
             }
 

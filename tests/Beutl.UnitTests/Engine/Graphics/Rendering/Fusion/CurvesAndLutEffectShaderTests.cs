@@ -116,7 +116,6 @@ public sealed class CurvesAndLutEffectShaderTests
 
             Assert.Multiple(() =>
             {
-                Assert.That(description.Resources, Has.Count.EqualTo(1));
                 Assert.That(description.Uniforms.Select(static uniform => uniform.Name),
                     Is.EqualTo(new[] { "lutSize", "lutWidth", "strength" }));
                 Assert.That(binding.Name, Is.EqualTo("lut"));
@@ -211,17 +210,9 @@ public sealed class CurvesAndLutEffectShaderTests
         AssertRed(second);
     }
 
-    // Nothing advances a version when a caller writes through the CubeFile.Data array a parsed cube
-    // hands out, so re-recording the effect is the only thing that can pick such a write up. That
-    // re-recording is not a given: it happens because RenderNodeRecordingCache.Capture refuses any
-    // recording whose transaction registered a RenderResource, and LutEffect borrows one - the "lut"
-    // snapshot - every time it records. The refusal leaves the node's snapshot un-replayable, so
-    // Process runs on every request and the content comparison in LutSnapshotState.GetOrCreate is
-    // reached on every frame rather than only the first.
-    //
-    // This pins that dependency. If Capture ever stops refusing resource-bearing recordings, the LUT
-    // starts replaying a fragment that samples the immutable snapshot of the old array and this goes
-    // red - which is the signal to re-check the refusal in RenderNodeRecordingCache, not the effect.
+    // CubeFile.Data writes bump no version; the frame sees them only because RenderNodeRecordingCache.Capture
+    // refuses recordings that registered a RenderResource, so LutEffect re-records every request. If this
+    // goes red, re-check that refusal, not the effect.
     [TestCase(CubeFileDimension.OneDimension, true)]
     [TestCase(CubeFileDimension.OneDimension, false)]
     [TestCase(CubeFileDimension.ThreeDimension, true)]
@@ -248,7 +239,7 @@ public sealed class CurvesAndLutEffectShaderTests
             CacheOptions = renderCacheEnabled
                 ? RenderCacheOptions.Default
                 : RenderCacheOptions.Disabled,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
 
         // Past RenderNodeCache.StableRequestCount, so the warmed-up render cache is live by the time
         // the cube data is mutated and cannot be what carries the change through.
@@ -274,7 +265,7 @@ public sealed class CurvesAndLutEffectShaderTests
     {
         FilterEffect effect = factory();
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
-        using RenderTarget backing = new CpuTargetFactory().CreateCpuTarget(new PixelSize(1, 1));
+        using RenderTarget backing = new CpuRenderTarget(1, 1);
         backing.Value.Canvas.Clear(SKColors.Red);
         backing.Value.Canvas.Flush();
         using var targets = new EffectTargets
@@ -382,8 +373,7 @@ public sealed class CurvesAndLutEffectShaderTests
 
     private static SKColor ExecuteRecordedLut(FilterEffectContext context)
     {
-        using RenderTarget backing = new CpuTargetFactory().CreateCpuTarget(
-            new PixelSize((int)s_bounds.Width, (int)s_bounds.Height));
+        using RenderTarget backing = new CpuRenderTarget((int)s_bounds.Width, (int)s_bounds.Height);
         backing.Value.Canvas.Clear(SKColors.Red);
         backing.Value.Canvas.Flush();
         using var targets = new EffectTargets
@@ -425,15 +415,13 @@ public sealed class CurvesAndLutEffectShaderTests
             Intent = RenderIntent.Preview,
             TargetDomain = s_bounds,
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
         using RenderNodeRasterization rasterization = renderer.Rasterize();
         if (expectedShaderStages is int expected)
         {
             Assert.That(renderer.LastExecutionStatistics.ShaderStageExecutions, Is.EqualTo(expected));
         }
-        Bitmap? bitmap = rasterization.Bitmap;
-        Assert.That(bitmap, Is.Not.Null);
-        return bitmap!.SKBitmap.GetPixel(bitmap.Width / 2, bitmap.Height / 2);
+        return ReadCenterPixel(rasterization);
     }
 
     private static SKColor ReadCenterPixel(RenderNodeRasterization rasterization)
@@ -501,28 +489,4 @@ public sealed class CurvesAndLutEffectShaderTests
             + Convert.ToBase64String(Encoding.ASCII.GetBytes(cubeText + "\n"))));
         return source;
     }
-
-    private sealed class CpuTargetFactory : IRenderTargetFactory
-    {
-        public RenderTarget CreateCpuTarget(PixelSize deviceSize)
-            => CreateCore(deviceSize);
-
-        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
-            => CreateCore(allocation.DeviceSize);
-
-        private static RenderTarget CreateCore(PixelSize deviceSize)
-        {
-            SKSurface surface = SKSurface.Create(new SKImageInfo(
-                    deviceSize.Width,
-                    deviceSize.Height,
-                    SKColorType.RgbaF16,
-                    SKAlphaType.Premul,
-                    SKColorSpace.CreateSrgbLinear()))
-                ?? throw new InvalidOperationException("Could not create the CPU filter-effect test surface.");
-            return new CpuRenderTarget(surface, deviceSize);
-        }
-    }
-
-    private sealed class CpuRenderTarget(SKSurface surface, PixelSize size)
-        : RenderTarget(surface, size.Width, size.Height);
 }

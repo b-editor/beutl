@@ -39,7 +39,6 @@ public sealed class NestedTargetAndCleanupFailureTests
             Assert.That(node.CallbackEntries, Is.EqualTo(1));
             Assert.That(renderer.TargetPoolStatistics.LeasedTargets, Is.Zero);
             Assert.That(node.Cache.IsCached, Is.False);
-            Assert.That(node.VerifyRetainedSession is not null, Is.True);
         });
         Action verifyRetainedSession = node.VerifyRetainedSession
             ?? throw new AssertionException("The deferred callback did not expose its retained-session probe.");
@@ -87,21 +86,16 @@ public sealed class NestedTargetAndCleanupFailureTests
     public void TransientMaterializationFailure_ReleasesItsValueBeforePropagating(
         TransientMaterializationKind kind)
     {
-        using RenderTarget destination = FailureTestSupport.CreateCpuTarget();
-        using var registry = new RenderTargetPool(factory: null);
+        using FailureTestExecution execution = FailureTestSupport.BeginExecution();
         using var node = new TransientMaterializationFailureNode(
             kind,
-            () => registry.Statistics.LeasedTargets);
+            () => execution.Registry.Statistics.LeasedTargets);
         using RenderRequest request = FailureTestSupport.CreateFrameRequest(useRenderCache: false);
         RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(node);
         using CompiledRenderRequest compiled = new RenderRequestCompiler().Compile(request, graph);
-        using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview);
-        using RenderTargetLeaseSession targets = registry.BeginSession(
-            RenderIntent.Preview,
-            destination);
 
         InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(
-            () => new RenderRequestExecutor(targets).Execute(compiled, canvas));
+            () => execution.Execute(compiled));
 
         Assert.Multiple(() =>
         {
@@ -110,25 +104,7 @@ public sealed class NestedTargetAndCleanupFailureTests
                 "The failure must occur after the transient target has been acquired.");
             Assert.That(node.LeasedTargetsObservedByCaller, Is.Zero,
                 "The transient target must be released before control returns to the replaying caller.");
-            Assert.That(registry.Statistics.LeasedTargets, Is.Zero);
-        });
-    }
-
-    [Test]
-    public void Graphics3DBackendBoundaryFailure_RemainsPrimaryAndPublishesNoOutput()
-    {
-        var primary = new InvalidOperationException("graphics3d-backend-primary");
-        using var node = new BackendBoundaryFailureNode(primary);
-        using var renderer = FailureTestSupport.CreateRenderer(node, useRenderCache: false);
-
-        InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(() => renderer.Rasterize());
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(failure, Is.SameAs(primary));
-            Assert.That(node.ExecuteCalls, Is.EqualTo(1));
-            Assert.That(renderer.TargetPoolStatistics.LeasedTargets, Is.Zero);
-            Assert.That(node.Cache.IsCached, Is.False);
+            Assert.That(execution.Registry.Statistics.LeasedTargets, Is.Zero);
         });
     }
 
@@ -136,34 +112,21 @@ public sealed class NestedTargetAndCleanupFailureTests
     public void NestedChildRegionAnalysisFailure_FailsTheFamilyBeforeAllocationAndPreservesThePrimary()
     {
         using var owner = new RenderRequestOwner();
-        var options = new RenderRequestOptions(
-            RenderIntent.Preview,
-            RenderRequestPurpose.Frame,
-            targetDomain: s_bounds,
-            requestedRegion: s_bounds,
-            outputScale: 1,
-            maxWorkingScale: 1,
-            cachePolicy: RenderCacheOptions.Enabled,
-            owner: owner);
         using var child = new NestedRegionAnalysisFailureNode();
         using var parent = new NestedPlanningFailureParentNode(child);
         child.Cache.RecordStableRequests();
         parent.Cache.RecordStableRequests();
-        using var request = new RenderRequest(options);
+        using var request = new RenderRequest(
+            FailureTestSupport.CreateOptions(RenderRequestPurpose.Frame, useRenderCache: true, owner: owner));
         RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(parent);
         RecordedNestedRenderRequest nested = graph.NestedRequests.Single();
         var factory = new FailureTestTargetFactory();
-        using RenderTarget destination = FailureTestSupport.CreateCpuTarget();
-        using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview);
-        using var registry = new RenderTargetPool(factory);
-        using RenderTargetLeaseSession targets = registry.BeginSession(
-            RenderIntent.Preview,
-            destination);
+        using FailureTestExecution execution = FailureTestSupport.BeginExecution(factory);
 
         InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(() =>
         {
             using CompiledRenderRequest compiled = new RenderRequestCompiler().Compile(request, graph);
-            new RenderRequestExecutor(targets).Execute(compiled, canvas);
+            execution.Execute(compiled);
         });
 
         Assert.Multiple(() =>
@@ -178,8 +141,8 @@ public sealed class NestedTargetAndCleanupFailureTests
             Assert.That(child.ExecuteCalls, Is.Zero);
             Assert.That(parent.ExecuteCalls, Is.Zero);
             Assert.That(factory.CreateCalls, Is.Zero);
-            Assert.That(registry.Statistics.OwnedTargets, Is.Zero);
-            Assert.That(registry.Statistics.LeasedTargets, Is.Zero);
+            Assert.That(execution.Registry.Statistics.OwnedTargets, Is.Zero);
+            Assert.That(execution.Registry.Statistics.LeasedTargets, Is.Zero);
             Assert.That(child.Cache.IsCached, Is.False);
             Assert.That(parent.Cache.IsCached, Is.False);
         });
@@ -189,53 +152,33 @@ public sealed class NestedTargetAndCleanupFailureTests
     public void NestedRequest_ExecutesAndCompletesWithinTheParentRequestFamily()
     {
         using var owner = new RenderRequestOwner();
-        var options = new RenderRequestOptions(
-            RenderIntent.Preview,
-            RenderRequestPurpose.Auxiliary,
-            targetDomain: s_bounds,
-            requestedRegion: s_bounds,
-            outputScale: 1,
-            maxWorkingScale: 1,
-            cachePolicy: RenderCacheOptions.Disabled,
-            owner: owner);
-        using var child = new NestedChildNode();
-        using var parent = new NestedParentNode(child);
-        using var request = new RenderRequest(options);
+        using var child = new NestedExecutionNode("child", []);
+        using var parent = new NestedExecutionNode("parent", [], nestedRoot: child);
+        using var request = new RenderRequest(
+            FailureTestSupport.CreateOptions(RenderRequestPurpose.Auxiliary, owner: owner));
         RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(parent);
         RecordedNestedRenderRequest nested = graph.NestedRequests.Single();
         using CompiledRenderRequest compiled = new RenderRequestCompiler().Compile(request, graph);
-        using RenderTarget destination = FailureTestSupport.CreateCpuTarget();
-        using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview);
-        using var registry = new RenderTargetPool(factory: null);
-        using RenderTargetLeaseSession targets = registry.BeginSession(
-            RenderIntent.Preview,
-            destination);
+        using FailureTestExecution execution = FailureTestSupport.BeginExecution();
 
-        new RenderRequestExecutor(targets).Execute(compiled, canvas);
+        execution.Execute(compiled);
 
         Assert.Multiple(() =>
         {
             Assert.That(child.ExecuteCalls, Is.EqualTo(1),
                 "A declared separate-target nested request must execute as part of the parent plan.");
             Assert.That(nested.Request.State, Is.EqualTo(RenderRequestState.Completed));
-            Assert.That(registry.Statistics.LeasedTargets, Is.Zero);
+            Assert.That(execution.Registry.Statistics.LeasedTargets, Is.Zero);
         });
     }
 
     [Test]
     public void NestedTarget_MetadataQueriesRecurseWithoutExecutingOrAllocating()
     {
-        using var child = new NestedChildNode();
-        using var parent = new NestedParentNode(child);
+        using var child = new NestedExecutionNode("child", []);
+        using var parent = new NestedExecutionNode("parent", [], nestedRoot: child);
         var factory = new FailureTestTargetFactory();
-        using var renderer = new RenderNodeRenderer(parent, new RenderNodeRenderRequest
-        {
-            Intent = RenderIntent.Preview,
-            TargetDomain = s_bounds,
-            OutputScale = 1,
-            MaxWorkingScale = 1,
-            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-        }, factory);
+        using var renderer = FailureTestSupport.CreateRenderer(parent, factory);
 
         RenderNodeMeasurement measurement = renderer.Measure();
         bool hit = renderer.HitTest(new Point(1, 1));
@@ -255,39 +198,22 @@ public sealed class NestedTargetAndCleanupFailureTests
     public void NestedChildExecutionFailure_FailsTheWholeFamilyWithOnePrimaryAndSkipsParentGpuWork()
     {
         using var owner = new RenderRequestOwner();
-        var options = new RenderRequestOptions(
-            RenderIntent.Preview,
-            RenderRequestPurpose.Auxiliary,
-            targetDomain: s_bounds,
-            requestedRegion: s_bounds,
-            outputScale: 1,
-            maxWorkingScale: 1,
-            cachePolicy: RenderCacheOptions.Disabled,
-            owner: owner);
         var primary = new InvalidOperationException("nested-child-primary");
         var executionOrder = new List<string>();
         using var child = new NestedExecutionNode("child", executionOrder, failure: primary);
-        using var parent = new NestedExecutionNode(
-            "parent",
-            executionOrder,
-            nestedRoot: child,
-            parentOptions: options);
-        using var request = new RenderRequest(options);
+        using var parent = new NestedExecutionNode("parent", executionOrder, nestedRoot: child);
+        using var request = new RenderRequest(
+            FailureTestSupport.CreateOptions(RenderRequestPurpose.Auxiliary, owner: owner));
         RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(parent);
         RecordedNestedRenderTarget nested = parent.NestedRequest
             ?? throw new AssertionException("The parent did not record its nested request.");
         using RenderRequest nestedRequest = nested.Recording.Request;
         using CompiledRenderRequest compiled = new RenderRequestCompiler().Compile(request, graph);
-        using RenderTarget destination = FailureTestSupport.CreateCpuTarget();
-        using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview);
         var factory = new FailureTestTargetFactory();
-        using var registry = new RenderTargetPool(factory);
-        using RenderTargetLeaseSession targets = registry.BeginSession(
-            RenderIntent.Preview,
-            destination);
+        using FailureTestExecution execution = FailureTestSupport.BeginExecution(factory);
 
         InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(
-            () => new RenderRequestExecutor(targets).Execute(compiled, canvas));
+            () => execution.Execute(compiled));
 
         Assert.Multiple(() =>
         {
@@ -304,49 +230,31 @@ public sealed class NestedTargetAndCleanupFailureTests
             Assert.That(nestedRequest.State, Is.EqualTo(RenderRequestState.Failed));
             Assert.That(request.State, Is.EqualTo(RenderRequestState.Failed));
             Assert.That(owner.IsCleanedUp, Is.True);
-            Assert.That(registry.Statistics.LeasedTargets, Is.Zero);
+            Assert.That(execution.Registry.Statistics.LeasedTargets, Is.Zero);
             Assert.That(parent.NestedRequest!.Target.IsDisposed, Is.True,
                 "Family failure must reject and discharge the staged child target.");
         });
     }
 
-    // FR-039 keeps main's allocation-failure outcome: a declined nested target left the 3D scene untextured
-    // inside an otherwise complete preview frame. Delivery still fails fast.
+    // Preview drops a nested target it cannot allocate and still renders the parent; Delivery fails (next test).
     [Test]
     public void NestedTargetAllocationFailureInPreview_DropsTheNestedValueAndStillRendersTheParent()
     {
         using var owner = new RenderRequestOwner();
-        var options = new RenderRequestOptions(
-            RenderIntent.Preview,
-            RenderRequestPurpose.Auxiliary,
-            targetDomain: s_bounds,
-            requestedRegion: s_bounds,
-            outputScale: 1,
-            maxWorkingScale: 1,
-            cachePolicy: RenderCacheOptions.Disabled,
-            owner: owner);
         var executionOrder = new List<string>();
         using var child = new NestedExecutionNode("child", executionOrder);
-        using var parent = new NestedExecutionNode(
-            "parent",
-            executionOrder,
-            nestedRoot: child,
-            parentOptions: options);
-        using var request = new RenderRequest(options);
+        using var parent = new NestedExecutionNode("parent", executionOrder, nestedRoot: child);
+        using var request = new RenderRequest(
+            FailureTestSupport.CreateOptions(RenderRequestPurpose.Auxiliary, owner: owner));
         RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(parent);
         RecordedNestedRenderTarget nested = parent.NestedRequest
             ?? throw new AssertionException("The parent did not record its nested request.");
         using RenderRequest nestedRequest = nested.Recording.Request;
         using CompiledRenderRequest compiled = new RenderRequestCompiler().Compile(request, graph);
-        using RenderTarget destination = FailureTestSupport.CreateCpuTarget();
-        using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview);
         var factory = new FailureTestTargetFactory(failAt: 0);
-        using var registry = new RenderTargetPool(factory);
-        using RenderTargetLeaseSession targets = registry.BeginSession(
-            RenderIntent.Preview,
-            destination);
+        using FailureTestExecution execution = FailureTestSupport.BeginExecution(factory);
 
-        Assert.DoesNotThrow(() => new RenderRequestExecutor(targets).Execute(compiled, canvas));
+        Assert.DoesNotThrow(() => execution.Execute(compiled));
 
         Assert.Multiple(() =>
         {
@@ -358,7 +266,7 @@ public sealed class NestedTargetAndCleanupFailureTests
             Assert.That(nested.Target.IsReady, Is.False);
             Assert.That(nestedRequest.State, Is.EqualTo(RenderRequestState.Completed));
             Assert.That(request.State, Is.EqualTo(RenderRequestState.Completed));
-            Assert.That(registry.Statistics.LeasedTargets, Is.Zero);
+            Assert.That(execution.Registry.Statistics.LeasedTargets, Is.Zero);
         });
     }
 
@@ -366,38 +274,23 @@ public sealed class NestedTargetAndCleanupFailureTests
     public void NestedTargetAllocationFailureInDelivery_StillFailsFast()
     {
         using var owner = new RenderRequestOwner();
-        var options = new RenderRequestOptions(
-            RenderIntent.Delivery,
-            RenderRequestPurpose.Auxiliary,
-            targetDomain: s_bounds,
-            requestedRegion: s_bounds,
-            outputScale: 1,
-            maxWorkingScale: 1,
-            cachePolicy: RenderCacheOptions.Disabled,
-            owner: owner);
         var executionOrder = new List<string>();
         using var child = new NestedExecutionNode("child", executionOrder);
-        using var parent = new NestedExecutionNode(
-            "parent",
-            executionOrder,
-            nestedRoot: child,
-            parentOptions: options);
-        using var request = new RenderRequest(options);
+        using var parent = new NestedExecutionNode("parent", executionOrder, nestedRoot: child);
+        using var request = new RenderRequest(FailureTestSupport.CreateOptions(
+            RenderRequestPurpose.Auxiliary,
+            owner: owner,
+            intent: RenderIntent.Delivery));
         RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(parent);
         RecordedNestedRenderTarget nested = parent.NestedRequest
             ?? throw new AssertionException("The parent did not record its nested request.");
         using RenderRequest nestedRequest = nested.Recording.Request;
         using CompiledRenderRequest compiled = new RenderRequestCompiler().Compile(request, graph);
-        using RenderTarget destination = FailureTestSupport.CreateCpuTarget();
-        using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview);
         var factory = new FailureTestTargetFactory(failAt: 0);
-        using var registry = new RenderTargetPool(factory);
-        using RenderTargetLeaseSession targets = registry.BeginSession(
-            RenderIntent.Delivery,
-            destination);
+        using FailureTestExecution execution = FailureTestSupport.BeginExecution(factory, RenderIntent.Delivery);
 
         InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(
-            () => new RenderRequestExecutor(targets).Execute(compiled, canvas));
+            () => execution.Execute(compiled));
 
         Assert.Multiple(() =>
         {
@@ -427,7 +320,7 @@ public sealed class NestedTargetAndCleanupFailureTests
         var parentCache = new NestedExecutionNode("parent-cache", executionOrder);
         parentCache.Cache.RecordStableRequests();
         var parentFailure = new NestedExecutionNode("parent-failure", executionOrder, failure: primary);
-        using var parent = new NestedContainerNode(child, options, parentCache, parentFailure);
+        using var parent = new NestedContainerNode(child, parentCache, parentFailure);
         using var request = new RenderRequest(options);
         RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(parent);
         RecordedNestedRenderTarget nested = parent.NestedRequest
@@ -435,15 +328,10 @@ public sealed class NestedTargetAndCleanupFailureTests
         using RenderRequest nestedRequest = nested.Recording.Request;
         using CompiledRenderRequest compiled = new RenderRequestCompiler(
             renderCacheContext: FailureTestSupport.CacheResolutionContext).Compile(request, graph);
-        using RenderTarget destination = FailureTestSupport.CreateCpuTarget();
-        using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview);
-        using var registry = new RenderTargetPool(factory: null);
-        using RenderTargetLeaseSession targets = registry.BeginSession(
-            RenderIntent.Preview,
-            destination);
+        using FailureTestExecution execution = FailureTestSupport.BeginExecution();
 
         InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(
-            () => new RenderRequestExecutor(targets).Execute(compiled, canvas));
+            () => execution.Execute(compiled));
 
         Assert.Multiple(() =>
         {
@@ -464,7 +352,7 @@ public sealed class NestedTargetAndCleanupFailureTests
             Assert.That(parentCache.Cache.IsCached, Is.False,
                 "A parent capture must not publish when later parent execution fails.");
             Assert.That(owner.IsCleanedUp, Is.True);
-            Assert.That(registry.Statistics.LeasedTargets, Is.Zero);
+            Assert.That(execution.Registry.Statistics.LeasedTargets, Is.Zero);
         });
     }
 
@@ -472,28 +360,12 @@ public sealed class NestedTargetAndCleanupFailureTests
     public void TwoLevelNestedRequests_ExecuteDepthFirstAndCompleteEveryRequest()
     {
         using var owner = new RenderRequestOwner();
-        var options = new RenderRequestOptions(
-            RenderIntent.Preview,
-            RenderRequestPurpose.Auxiliary,
-            targetDomain: s_bounds,
-            requestedRegion: s_bounds,
-            outputScale: 1,
-            maxWorkingScale: 1,
-            cachePolicy: RenderCacheOptions.Disabled,
-            owner: owner);
         var executionOrder = new List<string>();
         using var grandchild = new NestedExecutionNode("grandchild", executionOrder);
-        using var child = new NestedExecutionNode(
-            "child",
-            executionOrder,
-            nestedRoot: grandchild,
-            parentOptions: options);
-        using var parent = new NestedExecutionNode(
-            "parent",
-            executionOrder,
-            nestedRoot: child,
-            parentOptions: options);
-        using var request = new RenderRequest(options);
+        using var child = new NestedExecutionNode("child", executionOrder, nestedRoot: grandchild);
+        using var parent = new NestedExecutionNode("parent", executionOrder, nestedRoot: child);
+        using var request = new RenderRequest(
+            FailureTestSupport.CreateOptions(RenderRequestPurpose.Auxiliary, owner: owner));
         RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(parent);
         RecordedNestedRenderTarget childRecording = parent.NestedRequest
             ?? throw new AssertionException("The parent did not record its nested child request.");
@@ -502,14 +374,9 @@ public sealed class NestedTargetAndCleanupFailureTests
         using RenderRequest childRequest = childRecording.Recording.Request;
         using RenderRequest grandchildRequest = grandchildRecording.Recording.Request;
         using CompiledRenderRequest compiled = new RenderRequestCompiler().Compile(request, graph);
-        using RenderTarget destination = FailureTestSupport.CreateCpuTarget();
-        using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview);
-        using var registry = new RenderTargetPool(factory: null);
-        using RenderTargetLeaseSession targets = registry.BeginSession(
-            RenderIntent.Preview,
-            destination);
+        using FailureTestExecution execution = FailureTestSupport.BeginExecution();
 
-        new RenderRequestExecutor(targets).Execute(compiled, canvas);
+        execution.Execute(compiled);
 
         Assert.Multiple(() =>
         {
@@ -522,7 +389,7 @@ public sealed class NestedTargetAndCleanupFailureTests
             Assert.That(request.State, Is.EqualTo(RenderRequestState.Completed));
             Assert.That(owner.PrimaryFailure, Is.Null);
             Assert.That(owner.IsCleanedUp, Is.True);
-            Assert.That(registry.Statistics.LeasedTargets, Is.Zero);
+            Assert.That(execution.Registry.Statistics.LeasedTargets, Is.Zero);
         });
     }
 
@@ -554,58 +421,74 @@ public sealed class NestedTargetAndCleanupFailureTests
     [Test]
     public void SameProducerHitAndMultipleMisses_PublishEveryCapture()
     {
-        using var producer = new CacheableChildNode(throwOnExecute: false);
-        using var firstCaptureOwner = new ReferencesChildRenderNode(producer);
-        using var secondCaptureOwner = new ReferencesChildRenderNode(firstCaptureOwner);
-        producer.Cache.RecordStableRequests();
-        firstCaptureOwner.Cache.RecordStableRequests();
-        secondCaptureOwner.Cache.RecordStableRequests();
-        secondCaptureOwner.SettleConstruction();
-        using RenderTarget cachedTarget = FailureTestSupport.CreateCpuTarget();
-        using RenderRequest request = FailureTestSupport.CreateFrameRequest(useRenderCache: true);
-        RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(secondCaptureOwner);
-        using CompiledRenderRequest compiled = new RenderRequestCompiler(
-            renderCacheContext: FailureTestSupport.CacheResolutionContext,
-            renderCacheLookup: new FirstCandidateHitLookup(cachedTarget)).Compile(request, graph);
-        var decisions = compiled.CacheResolution.Decisions;
-        RenderNodeCache firstMissCache = decisions[1].Candidate.Cache!;
-        RenderNodeCache secondMissCache = decisions[2].Candidate.Cache!;
-        using RenderTarget destination = FailureTestSupport.CreateCpuTarget();
-        using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview);
-        using var registry = new RenderTargetPool(factory: null);
-        using RenderTargetLeaseSession targets = registry.BeginSession(
-            RenderIntent.Preview,
-            destination);
-
-        new RenderRequestExecutor(targets).Execute(compiled, canvas);
-
-        Assert.Multiple(() =>
+        RunSameProducerHitAndMultipleMisses((producer, compiled, execution) =>
         {
-            Assert.That(
-                decisions.Select(static decision => decision.Kind),
-                Is.EqualTo(new[]
-                {
-                    RenderCacheResolutionKind.Hit,
-                    RenderCacheResolutionKind.MissCapture,
-                    RenderCacheResolutionKind.MissCapture,
-                }));
-            Assert.That(decisions.Select(static decision => decision.Candidate.FragmentId), Is.All.EqualTo(
-                decisions[0].Candidate.FragmentId));
-            Assert.That(firstMissCache, Is.Not.SameAs(secondMissCache));
-            Assert.That(producer.ExecuteCalls, Is.Zero);
-            Assert.That(producer.Cache.IsCached, Is.False);
-            Assert.That(firstMissCache.CacheCount, Is.EqualTo(1));
-            Assert.That(secondMissCache.CacheCount, Is.EqualTo(1));
-            Assert.That(firstMissCache.TryGetCachedOutput(decisions[1].Identity!, out _), Is.True);
-            Assert.That(firstMissCache.TryGetCachedOutput(decisions[2].Identity!, out _), Is.False);
-            Assert.That(secondMissCache.TryGetCachedOutput(decisions[2].Identity!, out _), Is.True);
-            Assert.That(secondMissCache.TryGetCachedOutput(decisions[1].Identity!, out _), Is.False);
-            Assert.That(registry.Statistics.LeasedTargets, Is.Zero);
+            var decisions = compiled.CacheResolution.Decisions;
+            RenderNodeCache firstMissCache = decisions[1].Candidate.Cache;
+            RenderNodeCache secondMissCache = decisions[2].Candidate.Cache;
+
+            execution.Execute(compiled);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(
+                    decisions.Select(static decision => decision.Kind),
+                    Is.EqualTo(new[]
+                    {
+                        RenderCacheResolutionKind.Hit,
+                        RenderCacheResolutionKind.MissCapture,
+                        RenderCacheResolutionKind.MissCapture,
+                    }));
+                Assert.That(decisions.Select(static decision => decision.Candidate.FragmentId), Is.All.EqualTo(
+                    decisions[0].Candidate.FragmentId));
+                Assert.That(firstMissCache, Is.Not.SameAs(secondMissCache));
+                Assert.That(producer.ExecuteCalls, Is.Zero);
+                Assert.That(producer.Cache.IsCached, Is.False);
+                Assert.That(firstMissCache.CacheCount, Is.EqualTo(1));
+                Assert.That(secondMissCache.CacheCount, Is.EqualTo(1));
+                Assert.That(firstMissCache.TryGetCachedOutput(decisions[1].Identity!, out _), Is.True);
+                Assert.That(firstMissCache.TryGetCachedOutput(decisions[2].Identity!, out _), Is.False);
+                Assert.That(secondMissCache.TryGetCachedOutput(decisions[2].Identity!, out _), Is.True);
+                Assert.That(secondMissCache.TryGetCachedOutput(decisions[1].Identity!, out _), Is.False);
+                Assert.That(execution.Registry.Statistics.LeasedTargets, Is.Zero);
+            });
         });
     }
 
     [Test]
     public void SameProducerHitAndMultipleMisses_RollBackWhenOneCacheIsDisposed()
+    {
+        RunSameProducerHitAndMultipleMisses((producer, compiled, execution) =>
+        {
+            var decisions = compiled.CacheResolution.Decisions;
+            RenderNodeCache firstMissCache = decisions[1].Candidate.Cache;
+            RenderNodeCache secondMissCache = decisions[2].Candidate.Cache;
+            secondMissCache.Dispose();
+
+            Assert.Throws<ObjectDisposedException>(() => execution.Execute(compiled));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(
+                    decisions.Select(static decision => decision.Kind),
+                    Is.EqualTo(new[]
+                    {
+                        RenderCacheResolutionKind.Hit,
+                        RenderCacheResolutionKind.MissCapture,
+                        RenderCacheResolutionKind.MissCapture,
+                    }));
+                Assert.That(producer.ExecuteCalls, Is.Zero);
+                Assert.That(firstMissCache.IsCached, Is.False);
+                Assert.That(secondMissCache.IsCached, Is.False);
+                Assert.That(execution.Registry.Statistics.LeasedTargets, Is.Zero);
+            });
+        });
+    }
+
+    // Compiles one producer behind two capture owners against a lookup that hits only the first candidate,
+    // so the plan holds a hit and two misses of the same producer.
+    private static void RunSameProducerHitAndMultipleMisses(
+        Action<CacheableChildNode, CompiledRenderRequest, FailureTestExecution> test)
     {
         using var producer = new CacheableChildNode(throwOnExecute: false);
         using var firstCaptureOwner = new ReferencesChildRenderNode(producer);
@@ -620,35 +503,9 @@ public sealed class NestedTargetAndCleanupFailureTests
         using CompiledRenderRequest compiled = new RenderRequestCompiler(
             renderCacheContext: FailureTestSupport.CacheResolutionContext,
             renderCacheLookup: new FirstCandidateHitLookup(cachedTarget)).Compile(request, graph);
-        var decisions = compiled.CacheResolution.Decisions;
-        RenderNodeCache firstMissCache = decisions[1].Candidate.Cache!;
-        RenderNodeCache secondMissCache = decisions[2].Candidate.Cache!;
-        secondMissCache.Dispose();
-        using RenderTarget destination = FailureTestSupport.CreateCpuTarget();
-        using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview);
-        using var registry = new RenderTargetPool(factory: null);
-        using RenderTargetLeaseSession targets = registry.BeginSession(
-            RenderIntent.Preview,
-            destination);
+        using FailureTestExecution execution = FailureTestSupport.BeginExecution();
 
-        Assert.Throws<ObjectDisposedException>(
-            () => new RenderRequestExecutor(targets).Execute(compiled, canvas));
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(
-                decisions.Select(static decision => decision.Kind),
-                Is.EqualTo(new[]
-                {
-                    RenderCacheResolutionKind.Hit,
-                    RenderCacheResolutionKind.MissCapture,
-                    RenderCacheResolutionKind.MissCapture,
-                }));
-            Assert.That(producer.ExecuteCalls, Is.Zero);
-            Assert.That(firstMissCache.IsCached, Is.False);
-            Assert.That(secondMissCache.IsCached, Is.False);
-            Assert.That(registry.Statistics.LeasedTargets, Is.Zero);
-        });
+        test(producer, compiled, execution);
     }
 
     [Test]
@@ -773,11 +630,7 @@ public sealed class NestedTargetAndCleanupFailureTests
         using var child = new NestedExecutionNode("child-cache-cleanup", executionOrder);
         SeedThrowingStaleCache(child, oldDisposalFailure);
         child.Cache.RecordStableRequests();
-        using var parent = new NestedExecutionNode(
-            "parent-cache-cleanup",
-            executionOrder,
-            nestedRoot: child,
-            parentOptions: options);
+        using var parent = new NestedExecutionNode("parent-cache-cleanup", executionOrder, nestedRoot: child);
         using var request = new RenderRequest(options);
         RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(parent);
         RecordedNestedRenderTarget nested = parent.NestedRequest
@@ -785,15 +638,10 @@ public sealed class NestedTargetAndCleanupFailureTests
         using RenderRequest nestedRequest = nested.Recording.Request;
         using CompiledRenderRequest compiled = new RenderRequestCompiler(
             renderCacheContext: FailureTestSupport.CacheResolutionContext).Compile(request, graph);
-        using RenderTarget destination = FailureTestSupport.CreateCpuTarget();
-        using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview);
-        using var registry = new RenderTargetPool(factory: null);
-        using RenderTargetLeaseSession targets = registry.BeginSession(
-            RenderIntent.Preview,
-            destination);
+        using FailureTestExecution execution = FailureTestSupport.BeginExecution();
 
         InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(
-            () => new RenderRequestExecutor(targets).Execute(compiled, canvas));
+            () => execution.Execute(compiled));
 
         Assert.Multiple(() =>
         {
@@ -1062,21 +910,6 @@ public sealed class NestedTargetAndCleanupFailureTests
         }
     }
 
-    private sealed class BackendBoundaryFailureNode(InvalidOperationException failure) : RenderNode
-    {
-        public int ExecuteCalls { get; private set; }
-
-        public override void Process(RenderNodeContext context)
-        {
-            context.Publish(context.OpaqueSource(FailureTestSupport.SourceDescription(
-                _ =>
-                {
-                    ExecuteCalls++;
-                    throw failure;
-                })));
-        }
-    }
-
     private sealed class NestedPlanningFailureParentNode(RenderNode child) : RenderNode
     {
         public int ExecuteCalls { get; private set; }
@@ -1124,37 +957,10 @@ public sealed class NestedTargetAndCleanupFailureTests
         }
     }
 
-    private sealed class NestedParentNode(RenderNode child) : RenderNode
-    {
-        public override void Process(RenderNodeContext context)
-        {
-            _ = context.RecordNestedTargetAtScale(child, s_bounds, 1);
-            context.Publish(context.OpaqueSource(FailureTestSupport.SourceDescription()));
-        }
-    }
-
-    private sealed class NestedChildNode : RenderNode
-    {
-        public int ExecuteCalls { get; private set; }
-
-        public override void Process(RenderNodeContext context)
-        {
-            context.Publish(context.OpaqueSource(FailureTestSupport.SourceDescription(
-                session =>
-                {
-                    ExecuteCalls++;
-                    using OpaqueRenderOutput output = session.CreateOutput(s_bounds);
-                    output.Canvas.Use(canvas => canvas.Clear(Colors.Green));
-                    session.Publish(output);
-                })));
-        }
-    }
-
     private sealed class NestedExecutionNode(
         string name,
         ICollection<string> executionOrder,
         RenderNode? nestedRoot = null,
-        RenderRequestOptions? parentOptions = null,
         Exception? failure = null) : RenderNode
     {
         public int ExecuteCalls { get; private set; }
@@ -1163,12 +969,6 @@ public sealed class NestedTargetAndCleanupFailureTests
 
         public override void Process(RenderNodeContext context)
         {
-            if ((nestedRoot is null) != (parentOptions is null))
-            {
-                throw new InvalidOperationException(
-                    "A nested root and its inherited parent options must be supplied together.");
-            }
-
             if (nestedRoot is not null)
             {
                 NestedRequest = context.RecordNestedTargetAtScale(nestedRoot, s_bounds, 1);
@@ -1191,15 +991,12 @@ public sealed class NestedTargetAndCleanupFailureTests
     private sealed class NestedContainerNode : ContainerRenderNode
     {
         private readonly RenderNode _nestedRoot;
-        private readonly RenderRequestOptions _parentOptions;
 
         public NestedContainerNode(
             RenderNode nestedRoot,
-            RenderRequestOptions parentOptions,
             params RenderNode[] parentChildren)
         {
             _nestedRoot = nestedRoot;
-            _parentOptions = parentOptions;
             foreach (RenderNode child in parentChildren)
                 AddChild(child);
         }

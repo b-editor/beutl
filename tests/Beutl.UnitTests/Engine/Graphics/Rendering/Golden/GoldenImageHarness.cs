@@ -1,5 +1,6 @@
 ﻿using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Rendering.Requests;
 using Beutl.Media;
 using Beutl.UnitTests.Engine.Graphics.Backend;
 using SkiaSharp;
@@ -20,7 +21,9 @@ internal static class GoldenImageHarness
         PixelSize logicalSize,
         float scale,
         Rect? requestedRegion = null,
-        Color? clearColor = null)
+        Color? clearColor = null,
+        FusionMode fusionMode = FusionMode.Enabled,
+        float? maxWorkingScale = null)
     {
         int dw = (int)MathF.Ceiling(logicalSize.Width * scale);
         int dh = (int)MathF.Ceiling(logicalSize.Height * scale);
@@ -43,7 +46,9 @@ internal static class GoldenImageHarness
             TargetDomain = new Rect(default, logicalSize.ToSize(1)),
             RequestedRegion = requestedRegion,
             OutputScale = scale,
+            MaxWorkingScale = maxWorkingScale ?? float.PositiveInfinity,
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+            FusionMode = fusionMode,
         });
         renderer.Render(canvas);
 

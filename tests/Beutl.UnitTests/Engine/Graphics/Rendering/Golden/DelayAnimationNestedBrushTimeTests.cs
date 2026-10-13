@@ -59,7 +59,6 @@ public class DelayAnimationNestedBrushTimeTests
             }
 
             Array.Sort(factors);
-            TestContext.WriteLine($"per-tile factors: {string.Join(", ", factors.Select(f => f.ToString("F4")))}");
 
             // Amount animates 40 -> 220 over 2s; at 1s the four tiles evaluate it at 1.00, 0.75, 0.50
             // and 0.25s, giving 130, 107.5, 85 and 62.5 percent.

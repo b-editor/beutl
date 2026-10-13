@@ -2,7 +2,6 @@
 using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
-using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Requests;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
@@ -24,9 +23,15 @@ public sealed class CurrentPixelQuantizationTests
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            using Bitmap control = Render(CreateDrawable(invertCount: 0), fusionMode);
-            using Bitmap identity = Render(CreateDrawable(invertCount: -1), fusionMode);
-            using Bitmap inverted = Render(CreateDrawable(invertCount: 2), fusionMode);
+            using Drawable.Resource controlDrawable = CreateDrawable(invertCount: 0);
+            using Drawable.Resource identityDrawable = CreateDrawable(invertCount: -1);
+            using Drawable.Resource invertedDrawable = CreateDrawable(invertCount: 2);
+            using Bitmap control = GoldenImageHarness.RenderAtScale(
+                controlDrawable, s_frame, 1, clearColor: Colors.Transparent, fusionMode: fusionMode);
+            using Bitmap identity = GoldenImageHarness.RenderAtScale(
+                identityDrawable, s_frame, 1, clearColor: Colors.Transparent, fusionMode: fusionMode);
+            using Bitmap inverted = GoldenImageHarness.RenderAtScale(
+                invertedDrawable, s_frame, 1, clearColor: Colors.Transparent, fusionMode: fusionMode);
 
             byte controlRed = ReadRed(control);
             byte identityRed = ReadRed(identity);
@@ -34,10 +39,6 @@ public sealed class CurrentPixelQuantizationTests
             (float controlLinear, float controlAlpha) = ReadLinear(control);
             (float identityLinear, float identityAlpha) = ReadLinear(identity);
             (float invertedLinear, float invertedAlpha) = ReadLinear(inverted);
-            TestContext.WriteLine(
-                $"fusion={fusionEnabled}, control={controlRed} ({controlLinear:R}, a={controlAlpha:R}), "
-                + $"identity-stage={identityRed} ({identityLinear:R}, a={identityAlpha:R}), "
-                + $"double-invert={invertedRed} ({invertedLinear:R}, a={invertedAlpha:R})");
             Assert.Multiple(() =>
             {
                 Assert.That(controlLinear, Is.GreaterThan(0), "The unfiltered control must contain visible color.");
@@ -88,33 +89,6 @@ public sealed class CurrentPixelQuantizationTests
         }
 
         return shape.ToResource(CompositionContext.Default);
-    }
-
-    private static Bitmap Render(Drawable.Resource resource, FusionMode fusionMode)
-    {
-        using (resource)
-        using (var node = new DrawableRenderNode(resource))
-        {
-            using (var graphics = new GraphicsContext2D(node, s_frame.ToSize(1), 1))
-            {
-                resource.RequireOriginal().Render(graphics, resource);
-            }
-
-            using RenderTarget target = RenderTarget.Create(s_frame.Width, s_frame.Height)
-                                        ?? throw new InvalidOperationException("RenderTarget.Create returned null.");
-            using var canvas = new ImmediateCanvas(target, RenderIntent.Preview, 1, logicalSize: s_frame.ToSize(1));
-            canvas.Clear();
-            using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
-            {
-                Intent = RenderIntent.Delivery,
-                TargetDomain = new Rect(default, s_frame.ToSize(1)),
-                OutputScale = 1,
-                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-                FusionMode = fusionMode,
-            });
-            renderer.Render(canvas);
-            return target.Snapshot();
-        }
     }
 
     private static byte ReadRed(Bitmap bitmap)

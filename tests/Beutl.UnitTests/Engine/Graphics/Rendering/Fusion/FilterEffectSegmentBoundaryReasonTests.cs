@@ -1,12 +1,10 @@
 ﻿using System.Reactive;
 
-using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
-using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Rendering.Requests;
-using Beutl.Media;
+using Beutl.Graphics.Shaders;
 using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Fusion;
@@ -88,33 +86,11 @@ public sealed class FilterEffectSegmentBoundaryReasonTests
     }
 
     private static CompiledRenderRequest Compile(FilterEffect effect, int childCount = 1)
-    {
-        using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
-        using var node = new FilterEffectRenderNode(resource);
-        for (int index = 0; index < childCount; index++)
-        {
-            node.AddChild(new EllipseRenderNode(
-                s_bounds.Translate(new Vector(index, 0)),
-                Brushes.Resource.White,
-                null));
-        }
-
-        var request = new RenderRequest(new RenderRequestOptions(
-            RenderIntent.Preview,
-            RenderRequestPurpose.Auxiliary,
-            targetDomain: s_bounds,
-            cachePolicy: RenderCacheOptions.Disabled));
-        try
-        {
-            RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(node);
-            return new RenderRequestCompiler().Compile(request, graph);
-        }
-        catch
-        {
-            request.Dispose();
-            throw;
-        }
-    }
+        => FusionBoundaryExecutionTestSupport.CompileEffect(
+            effect,
+            s_bounds,
+            SkslBackendBudgetResolver.Portable,
+            childCount: childCount);
 }
 
 internal sealed partial class EmptySkiaFilterEffect : FilterEffect

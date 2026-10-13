@@ -11,12 +11,7 @@ public class GeometryRenderNodeTest
     [Test]
     public void Update_ShouldReturnFalse_WhenAllPropertiesMatch()
     {
-        var geometry = new EllipseGeometry { Width = { CurrentValue = 100 }, Height = { CurrentValue = 100 } };
-        Brush fill = new SolidColorBrush(Colors.Red);
-        Pen pen = new Pen { Brush = { CurrentValue = Brushes.Black }, Thickness = { CurrentValue = 1 } };
-        var geometryResource = geometry.ToResource(CompositionContext.Default);
-        var fillResource = fill.ToResource(CompositionContext.Default);
-        var penResource = pen.ToResource(CompositionContext.Default);
+        var (geometryResource, fillResource, penResource) = CreateOutlinedEllipse();
 
         var node = new GeometryRenderNode(geometryResource, fillResource, penResource);
 
@@ -49,12 +44,7 @@ public class GeometryRenderNodeTest
     [Test]
     public void Measure_ShouldReportRecordedFragment()
     {
-        var geometry = new EllipseGeometry { Width = { CurrentValue = 100 }, Height = { CurrentValue = 100 } };
-        Brush fill = new SolidColorBrush(Colors.Red);
-        Pen pen = new Pen { Brush = { CurrentValue = Brushes.Black }, Thickness = { CurrentValue = 1 } };
-        var geometryResource = geometry.ToResource(CompositionContext.Default);
-        var fillResource = fill.ToResource(CompositionContext.Default);
-        var penResource = pen.ToResource(CompositionContext.Default);
+        var (geometryResource, fillResource, penResource) = CreateOutlinedEllipse();
         using var node = new GeometryRenderNode(geometryResource, fillResource, penResource);
         using var renderer = CreateRenderer(node);
         RenderNodeMeasurement measurement = renderer.Measure();
@@ -156,36 +146,15 @@ public class GeometryRenderNodeTest
         }
     }
 
-    [Test]
-    public void HitTest_ShouldReturnTrue_WhenPointIsInsideGeometry()
+    [TestCase(50f, 50f, true, TestName = "HitTest_ShouldReturnTrue_WhenPointIsInsideGeometry")]
+    [TestCase(150f, 150f, false, TestName = "HitTest_ShouldReturnFalse_WhenPointIsOutsideGeometry")]
+    public void HitTest_ShouldMatchTheFilledGeometry(float x, float y, bool expected)
     {
-        var geometry = new EllipseGeometry { Width = { CurrentValue = 100 }, Height = { CurrentValue = 100 } };
-        Brush fill = new SolidColorBrush(Colors.Red);
-        Pen pen = new Pen { Brush = { CurrentValue = Brushes.Black }, Thickness = { CurrentValue = 1 } };
-        var geometryResource = geometry.ToResource(CompositionContext.Default);
-        var fillResource = fill.ToResource(CompositionContext.Default);
-        var penResource = pen.ToResource(CompositionContext.Default);
+        var (geometryResource, fillResource, penResource) = CreateOutlinedEllipse();
         using var node = new GeometryRenderNode(geometryResource, fillResource, penResource);
         using var renderer = CreateRenderer(node);
-        var point = new Point(50, 50);
 
-        Assert.That(renderer.HitTest(point), Is.True);
-    }
-
-    [Test]
-    public void HitTest_ShouldReturnFalse_WhenPointIsOutsideGeometry()
-    {
-        var geometry = new EllipseGeometry { Width = { CurrentValue = 100 }, Height = { CurrentValue = 100 } };
-        Brush fill = new SolidColorBrush(Colors.Red);
-        Pen pen = new Pen { Brush = { CurrentValue = Brushes.Black }, Thickness = { CurrentValue = 1 } };
-        var geometryResource = geometry.ToResource(CompositionContext.Default);
-        var fillResource = fill.ToResource(CompositionContext.Default);
-        var penResource = pen.ToResource(CompositionContext.Default);
-        using var node = new GeometryRenderNode(geometryResource, fillResource, penResource);
-        using var renderer = CreateRenderer(node);
-        var point = new Point(150, 150);
-
-        Assert.That(renderer.HitTest(point), Is.False);
+        Assert.That(renderer.HitTest(new Point(x, y)), Is.EqualTo(expected));
     }
 
     [Test]
@@ -228,6 +197,18 @@ public class GeometryRenderNodeTest
             Assert.That(compilations, Is.GreaterThan(0));
             Assert.That(renderer.StructuralPlanCacheStatistics.Compilations, Is.EqualTo(compilations));
         });
+    }
+
+    // A red 100x100 ellipse outlined by a black pen one unit thick.
+    private static (Geometry.Resource Geometry, Brush.Resource Fill, Pen.Resource Pen) CreateOutlinedEllipse()
+    {
+        var geometry = new EllipseGeometry { Width = { CurrentValue = 100 }, Height = { CurrentValue = 100 } };
+        Brush fill = new SolidColorBrush(Colors.Red);
+        Pen pen = new Pen { Brush = { CurrentValue = Brushes.Black }, Thickness = { CurrentValue = 1 } };
+        return (
+            geometry.ToResource(CompositionContext.Default),
+            fill.ToResource(CompositionContext.Default),
+            pen.ToResource(CompositionContext.Default));
     }
 
     private static RenderNodeRenderer CreateRenderer(RenderNode node)

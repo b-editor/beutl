@@ -283,7 +283,7 @@ public sealed class DeferredCallbackFailureTests
         bool constructBeforeCallback)
     {
         using var hiddenRoot = new RectangleRenderNode(s_bounds, Brushes.Resource.White, null);
-        using var preconstructed = constructBeforeCallback ? CreateHiddenRenderer(hiddenRoot) : null;
+        using var preconstructed = constructBeforeCallback ? FailureTestSupport.CreateRenderer(hiddenRoot) : null;
         using var node = new HiddenRendererLaunchNode(hiddenRoot, preconstructed, call);
         using var renderer = FailureTestSupport.CreateRenderer(node, useRenderCache: false);
 
@@ -297,20 +297,10 @@ public sealed class DeferredCallbackFailureTests
             Assert.That(renderer.TargetPoolStatistics.LeasedTargets, Is.Zero);
         });
 
-        using RenderNodeRenderer outside = preconstructed ?? CreateHiddenRenderer(hiddenRoot);
+        using RenderNodeRenderer outside = preconstructed ?? FailureTestSupport.CreateRenderer(hiddenRoot);
         Assert.That(() => outside.Measure(), Throws.Nothing,
             "The execution-callback guard must be cleared even when the callback fails.");
     }
-
-    private static RenderNodeRenderer CreateHiddenRenderer(RenderNode root)
-        => new(root, new RenderNodeRenderRequest
-        {
-            Intent = RenderIntent.Preview,
-            TargetDomain = s_bounds,
-            OutputScale = 1,
-            MaxWorkingScale = 1,
-            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-        });
 
     public enum GuardedCanvasViolation
     {
@@ -379,7 +369,7 @@ public sealed class DeferredCallbackFailureTests
             using OpaqueRenderOutput output = session.CreateOutput(s_bounds);
             output.Canvas.Use(canvas =>
             {
-                RenderNodeRenderer renderer = preconstructed ?? CreateHiddenRenderer(hiddenRoot);
+                RenderNodeRenderer renderer = preconstructed ?? FailureTestSupport.CreateRenderer(hiddenRoot);
                 try
                 {
                     switch (call)

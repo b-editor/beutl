@@ -7,12 +7,6 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering.Failure;
 [TestFixture]
 public sealed class GeometrySessionTests
 {
-
-
-    private static void RenderNothing(GeometrySession session, (string Kind, int Value) state)
-    {
-    }
-
     [Test]
     public void Description_StructuralIdentityUsesFullValueEquality()
     {

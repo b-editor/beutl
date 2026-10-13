@@ -339,6 +339,20 @@ internal static class ImageMetrics
         return count == 0 ? 0 : sum / count;
     }
 
+    /// <summary>Returns whether any pixel has a finite alpha above <paramref name="alphaThreshold"/>.</summary>
+    public static bool HasFiniteVisibleContent(Bitmap bitmap, float alphaThreshold = 0f)
+    {
+        ReadOnlySpan<ushort> pixels = bitmap.GetPixelSpan<ushort>();
+        for (int i = 3; i < pixels.Length; i += 4)
+        {
+            float alpha = (float)BitConverter.UInt16BitsToHalf(pixels[i]);
+            if (float.IsFinite(alpha) && alpha > alphaThreshold)
+                return true;
+        }
+
+        return false;
+    }
+
     /// <summary>
     /// Returns the first non-finite (NaN/Inf) RGBA component across the given bitmaps, or null if all finite.
     /// </summary>

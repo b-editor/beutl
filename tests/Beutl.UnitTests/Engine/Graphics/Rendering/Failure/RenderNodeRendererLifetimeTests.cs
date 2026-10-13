@@ -17,9 +17,9 @@ public sealed class RenderNodeRendererLifetimeTests
     {
         var bounds = new Rect(0, 0, 8, 8);
         var emptySelection = new Rect(3, 4, 0, 2);
-        using var source = new TrackingRenderTarget(new PixelSize(8, 8));
+        using var source = new CpuRenderTarget(8, 8);
         using var node = new ShaderNode(source, bounds);
-        using var factory = new TrackingTargetFactory();
+        using var factory = new FailureTestTargetFactory();
         using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
         {
             Intent = RenderIntent.Preview,
@@ -53,9 +53,9 @@ public sealed class RenderNodeRendererLifetimeTests
         int height)
     {
         var bounds = new Rect(0, 0, 8, 8);
-        using var source = new TrackingRenderTarget(new PixelSize(8, 8));
+        using var source = new CpuRenderTarget(8, 8);
         using var node = new ShaderNode(source, bounds);
-        using var factory = new TrackingTargetFactory();
+        using var factory = new FailureTestTargetFactory();
         using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
         {
             Intent = RenderIntent.Preview,
@@ -83,10 +83,10 @@ public sealed class RenderNodeRendererLifetimeTests
     {
         var bounds = new Rect(0, 0, 8, 8);
         var cleanup = new InvalidOperationException("empty-selection-target-cleanup");
-        using var source = new TrackingRenderTarget(new PixelSize(8, 8));
+        using var source = new CpuRenderTarget(8, 8);
         using var node = new ShaderNode(source, bounds);
-        using var factory = new TrackingTargetFactory(
-            index => index == 0 ? cleanup : null);
+        using var factory = new FailureTestTargetFactory(
+            disposeFailure: index => index == 0 ? cleanup : null);
         using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
         {
             Intent = RenderIntent.Preview,
@@ -101,7 +101,7 @@ public sealed class RenderNodeRendererLifetimeTests
             Assert.That(seeded.Bitmap, Is.Not.Null);
         }
 
-        TrackingRenderTarget faultingTarget = factory.Targets[0];
+        FailureTestRenderTarget faultingTarget = factory.Targets[0];
         node.StopPublishing();
         Exception? observed = null;
         int emptyResults = 0;
@@ -135,22 +135,15 @@ public sealed class RenderNodeRendererLifetimeTests
     public void Dispose_ReleasesRendererOwnedState_AndPreservesBorrowedState()
     {
         var bounds = new Rect(0, 0, 8, 8);
-        using var source = new TrackingRenderTarget(new PixelSize(8, 8));
+        using var source = new CpuRenderTarget(8, 8);
         source.Value.Canvas.Clear(new SKColor(80, 120, 160, 192));
         using var node = new ShaderNode(source, bounds);
-        using var cacheSeed = new TrackingRenderTarget(new PixelSize(8, 8));
+        using var cacheSeed = new CpuRenderTarget(8, 8);
         RenderNodeCachePublication publication =
             RenderCacheTestSupport.CreatePublication(node.Cache, cacheSeed, bounds);
         RenderNodeCache.PublishAtomically([publication]);
-        using var factory = new TrackingTargetFactory();
-        var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
-        {
-            Intent = RenderIntent.Preview,
-            TargetDomain = bounds,
-            OutputScale = 1,
-            MaxWorkingScale = 1,
-            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-        }, factory);
+        using var factory = new FailureTestTargetFactory();
+        var renderer = FailureTestSupport.CreateRenderer(node, factory);
 
         RenderNodeRasterization rasterization = renderer.Rasterize();
         Bitmap bitmap = rasterization.Bitmap
@@ -162,7 +155,7 @@ public sealed class RenderNodeRendererLifetimeTests
             Assert.That(renderer.ProgramCacheStatistics.RetainedPrograms, Is.EqualTo(1));
             Assert.That(renderer.TargetPoolStatistics.OwnedTargets, Is.GreaterThanOrEqualTo(1));
             Assert.That(factory.Targets, Is.Not.Empty);
-            Assert.That(factory.Targets, Has.All.Matches<TrackingRenderTarget>(target => !target.IsDisposed));
+            Assert.That(factory.Targets, Has.All.Matches<FailureTestRenderTarget>(target => !target.IsDisposed));
         });
 
         renderer.Dispose();
@@ -175,8 +168,8 @@ public sealed class RenderNodeRendererLifetimeTests
             Assert.That(renderer.ProgramCacheStatistics.RetainedBytes, Is.Zero);
             Assert.That(renderer.TargetPoolStatistics.OwnedTargets, Is.Zero);
             Assert.That(renderer.TargetPoolStatistics.OwnedBytes, Is.Zero);
-            Assert.That(factory.Targets, Has.All.Matches<TrackingRenderTarget>(target => target.IsDisposed));
-            Assert.That(factory.Targets, Has.All.Matches<TrackingRenderTarget>(target => target.DisposeCalls == 1));
+            Assert.That(factory.Targets, Has.All.Matches<FailureTestRenderTarget>(target => target.IsDisposed));
+            Assert.That(factory.Targets, Has.All.Matches<FailureTestRenderTarget>(target => target.DisposeCalls == 1));
             Assert.That(factory.IsDisposed, Is.False, "The caller owns the target factory.");
             Assert.That(node.IsDisposed, Is.False, "The caller owns the root node.");
             Assert.That(node.Cache.IsDisposed, Is.False, "The root owns its render cache.");
@@ -220,62 +213,5 @@ public sealed class RenderNodeRendererLifetimeTests
                 static bindings => bindings.Uniform("gain", 0.75f));
             context.Publish(context.Shader(input, shader));
         }
-    }
-
-    private sealed class TrackingTargetFactory(
-        Func<int, Exception?>? disposeFailureAt = null) : IRenderTargetFactory, IDisposable
-    {
-        public List<TrackingRenderTarget> Targets { get; } = [];
-
-        public bool IsDisposed { get; private set; }
-
-        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
-        {
-            PixelSize deviceSize = allocation.DeviceSize;
-            var target = new TrackingRenderTarget(
-                deviceSize,
-                disposeFailureAt?.Invoke(Targets.Count));
-            Targets.Add(target);
-            return target;
-        }
-
-        public void Dispose()
-        {
-            IsDisposed = true;
-        }
-    }
-
-    private sealed class TrackingRenderTarget : RenderTarget
-    {
-        private static readonly SKColorSpace s_colorSpace = SKColorSpace.CreateSrgbLinear();
-        private readonly Exception? _disposeFailure;
-
-        public TrackingRenderTarget(PixelSize size, Exception? disposeFailure = null)
-            : base(CreateSurface(size), size.Width, size.Height)
-        {
-            _disposeFailure = disposeFailure;
-        }
-
-        public int DisposeCalls { get; private set; }
-
-        protected override void Dispose(bool disposing)
-        {
-            bool shouldThrow = disposing && !IsDisposed && _disposeFailure is not null;
-            if (disposing && !IsDisposed)
-                DisposeCalls++;
-
-            base.Dispose(disposing);
-            if (shouldThrow)
-                throw _disposeFailure!;
-        }
-
-        private static SKSurface CreateSurface(PixelSize size)
-            => SKSurface.Create(new SKImageInfo(
-                   size.Width,
-                   size.Height,
-                   SKColorType.RgbaF16,
-                   SKAlphaType.Premul,
-                   s_colorSpace))
-               ?? throw new InvalidOperationException("Could not create the lifetime-test render target.");
     }
 }

@@ -80,7 +80,6 @@ public class CustomEffectSupersampleTests
             //    as 1:1 because tileSize scaled by the working density. Unscaled tileSize would give the 2x
             //    render 2x-finer tiles -> a structurally different image -> low SSIM.
             double ssimVs11 = ImageMetrics.Ssim(oneToOne, delivered);
-            TestContext.WriteLine($"Mosaic 2x-delivered vs 1:1 SSIM={ssimVs11:F4}");
             Assert.That(ssimVs11, Is.GreaterThan(0.95),
                 "supersampled mosaic diverged from 1:1 — tileSize did not scale with the working density");
 
@@ -88,7 +87,6 @@ public class CustomEffectSupersampleTests
             //    truth as 1:1 — buffer activation actually raised the internal density.
             double maeSS = ImageMetrics.MeanAbsoluteError(delivered, truth);
             double mae11 = ImageMetrics.MeanAbsoluteError(oneToOne, truth);
-            TestContext.WriteLine($"Mosaic vs truth: MAE ss={maeSS:F4} 1:1={mae11:F4}");
             Assert.That(maeSS, Is.LessThan(mae11),
                 "supersampled mosaic not strictly closer to ground truth than 1:1 — buffer activation gave no density");
         });
@@ -135,53 +133,11 @@ public class CustomEffectSupersampleTests
         });
     }
 
-    // A spatially-varying displacement map (default RadialGradientBrush) plus a non-zero translate — the
+    // A spatially-varying displacement map (default RadialGradientBrush) plus a non-zero transform — the
     // case a constant-map control cannot catch: the map is laid out in LOGICAL space but cross-sampled at
     // the base's device-px coord, so without the per-effect local-matrix x w the warp is misaligned/zoomed
-    // at w != 1 (a structurally different image, not a denser one).
-    private static Drawable.Resource MakeDisplacedShape()
-    {
-        var shape = new RectShape();
-        shape.AlignmentX.CurrentValue = AlignmentX.Center;
-        shape.AlignmentY.CurrentValue = AlignmentY.Center;
-        shape.TransformOrigin.CurrentValue = RelativePoint.Center;
-        shape.Width.CurrentValue = 150;
-        shape.Height.CurrentValue = 40;
-        shape.Fill.CurrentValue = Brushes.White;
-        var rotation = new RotationTransform();
-        rotation.Rotation.CurrentValue = 21f;
-        shape.Transform.CurrentValue = rotation;
-
-        var effect = new DisplacementMapEffect();          // default DisplacementMap = RadialGradientBrush (spatially varying)
-        var transform = new DisplacementMapTranslateTransform();
-        transform.X.CurrentValue = 40;
-        transform.Y.CurrentValue = 40;
-        effect.Transform.CurrentValue = transform;
-        shape.FilterEffect.CurrentValue = effect;
-        return shape.ToResource(CompositionContext.Default);
-    }
-
-    [Test]
-    public void DisplacementMap_Supersampled_KeepsLogicalWarp()
-    {
-        VulkanTestEnvironment.EnsureAvailable();
-        VulkanTestEnvironment.InvokeOnRenderThread(() =>
-        {
-            using Bitmap oneToOne = GoldenImageHarness.RenderAtScale(MakeDisplacedShape(), Frame, 1f);
-            using Bitmap superHi = GoldenImageHarness.RenderAtScale(MakeDisplacedShape(), Frame, 2f);
-            using Bitmap delivered = GoldenImageHarness.MitchellResampleTo(superHi, Frame);
-
-            // The supersampled-then-downscaled warp must be the SAME logical image as 1:1, since the
-            // displacement map shares the base texture's coord space. The map-vs-base sampling-space bug
-            // drops this well below 0.95 (empirically ~0.84) for a spatially-varying map.
-            double ssim = ImageMetrics.Ssim(oneToOne, delivered);
-            TestContext.WriteLine($"DisplacementMap 2x-delivered vs 1:1 SSIM={ssim:F4}");
-            Assert.That(ssim, Is.GreaterThan(0.95),
-                "supersampled displacement warp diverged from 1:1 — the displacement map is sampled in the wrong space at w != 1");
-        });
-    }
-
-    // Scale/Rotation displacement transforms must also scale uPivot by w.
+    // at w != 1 (a structurally different image, not a denser one). Scale/Rotation transforms must also
+    // scale uPivot by w.
     private static Drawable.Resource MakeDisplacedShape(DisplacementMapTransform transform)
     {
         var shape = new RectShape();
@@ -220,37 +176,22 @@ public class CustomEffectSupersampleTests
         return t;
     }
 
-    [Test]
-    public void DisplacementMapScale_Supersampled_KeepsLogicalWarp()
+    [TestCaseSource(nameof(DisplacementTransforms))]
+    public void DisplacementMap_Supersampled_KeepsLogicalWarp(Func<DisplacementMapTransform> transformFactory)
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            using Bitmap oneToOne = GoldenImageHarness.RenderAtScale(MakeDisplacedShape(MakeScaleTransform()), Frame, 1f);
-            using Bitmap superHi = GoldenImageHarness.RenderAtScale(MakeDisplacedShape(MakeScaleTransform()), Frame, 2f);
+            using Bitmap oneToOne = GoldenImageHarness.RenderAtScale(MakeDisplacedShape(transformFactory()), Frame, 1f);
+            using Bitmap superHi = GoldenImageHarness.RenderAtScale(MakeDisplacedShape(transformFactory()), Frame, 2f);
             using Bitmap delivered = GoldenImageHarness.MitchellResampleTo(superHi, Frame);
 
+            // The supersampled-then-downscaled warp must be the SAME logical image as 1:1, since the
+            // displacement map shares the base texture's coord space. The map-vs-base sampling-space bug
+            // drops this well below 0.95 (empirically ~0.84) for a spatially-varying map.
             double ssim = ImageMetrics.Ssim(oneToOne, delivered);
-            TestContext.WriteLine($"DisplacementMapScale 2x-delivered vs 1:1 SSIM={ssim:F4}");
             Assert.That(ssim, Is.GreaterThan(0.95),
-                "supersampled scale-displacement warp diverged from 1:1 — the pivot is sampled in the wrong space at w != 1");
-        });
-    }
-
-    [Test]
-    public void DisplacementMapRotation_Supersampled_KeepsLogicalWarp()
-    {
-        VulkanTestEnvironment.EnsureAvailable();
-        VulkanTestEnvironment.InvokeOnRenderThread(() =>
-        {
-            using Bitmap oneToOne = GoldenImageHarness.RenderAtScale(MakeDisplacedShape(MakeRotationTransform()), Frame, 1f);
-            using Bitmap superHi = GoldenImageHarness.RenderAtScale(MakeDisplacedShape(MakeRotationTransform()), Frame, 2f);
-            using Bitmap delivered = GoldenImageHarness.MitchellResampleTo(superHi, Frame);
-
-            double ssim = ImageMetrics.Ssim(oneToOne, delivered);
-            TestContext.WriteLine($"DisplacementMapRotation 2x-delivered vs 1:1 SSIM={ssim:F4}");
-            Assert.That(ssim, Is.GreaterThan(0.95),
-                "supersampled rotation-displacement warp diverged from 1:1 — the pivot is sampled in the wrong space at w != 1");
+                "supersampled displacement warp diverged from 1:1 — the map or its pivot is sampled in the wrong space at w != 1");
         });
     }
 
@@ -303,11 +244,11 @@ public class CustomEffectSupersampleTests
             {
                 X = { CurrentValue = 40 },
                 Y = { CurrentValue = 40 },
-            })).SetName("DisplacementMapTranslate_CroppedExecution_MatchesFullRender");
+            })).SetArgDisplayNames("Translate");
         yield return new TestCaseData((Func<DisplacementMapTransform>)MakeScaleTransform)
-            .SetName("DisplacementMapScale_CroppedExecution_MatchesFullRender");
+            .SetArgDisplayNames("Scale");
         yield return new TestCaseData((Func<DisplacementMapTransform>)MakeRotationTransform)
-            .SetName("DisplacementMapRotation_CroppedExecution_MatchesFullRender");
+            .SetArgDisplayNames("Rotation");
     }
 
     private static bool HasNonBlackRgb(Bitmap bitmap)

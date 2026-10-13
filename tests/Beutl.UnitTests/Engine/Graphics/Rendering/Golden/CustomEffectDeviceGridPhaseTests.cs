@@ -58,7 +58,7 @@ public class CustomEffectDeviceGridPhaseTests
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            AssertMatchesAlignedControl(Split(6f), "offset split");
+            AssertMatchesAlignedControl(Split(6f));
         });
     }
 
@@ -69,7 +69,7 @@ public class CustomEffectDeviceGridPhaseTests
     public void DrawableBrushFill_SplitSourceOnTheBoxGrid_KeepsHardFillEdges()
     {
         VulkanTestEnvironment.EnsureAvailable();
-        VulkanTestEnvironment.InvokeOnRenderThread(() => AssertHardFillEdges(Split(8f), "aligned split"));
+        VulkanTestEnvironment.InvokeOnRenderThread(() => AssertHardFillEdges(Split(8f)));
     }
 
     // The same off-grid split behind an ordinary colour stage. The colour stage is a separate render
@@ -82,7 +82,7 @@ public class CustomEffectDeviceGridPhaseTests
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            AssertMatchesAlignedControl(ColourThen(Split(6f)), "colour-chained offset split");
+            AssertMatchesAlignedControl(ColourThen(Split(6f)));
         });
     }
 
@@ -102,10 +102,10 @@ public class CustomEffectDeviceGridPhaseTests
     /// magnification kernel puts on a fully covered edge — which differs between rasterizers, where the
     /// loss under test does not: it costs 23%, against a ripple of about 1.4%.
     /// </summary>
-    private static void AssertMatchesAlignedControl(FilterEffect sourceEffect, string label)
+    private static void AssertMatchesAlignedControl(FilterEffect sourceEffect)
     {
-        (float alignedLeft, float alignedRight) = MeasureEdges(Split(8f), "aligned control");
-        (float left, float right) = MeasureEdges(sourceEffect, label);
+        (float alignedLeft, float alignedRight) = MeasureEdges(Split(8f));
+        (float left, float right) = MeasureEdges(sourceEffect);
 
         const float Ripple = 0.05f;
         Assert.Multiple(() =>
@@ -119,9 +119,9 @@ public class CustomEffectDeviceGridPhaseTests
         });
     }
 
-    private static void AssertHardFillEdges(FilterEffect sourceEffect, string label)
+    private static void AssertHardFillEdges(FilterEffect sourceEffect)
     {
-        (float left, float right) = MeasureEdges(sourceEffect, label);
+        (float left, float right) = MeasureEdges(sourceEffect);
         Assert.Multiple(() =>
         {
             Assert.That(left, Is.GreaterThan(0.95f), "the leading fill edge was not hard to begin with");
@@ -129,12 +129,10 @@ public class CustomEffectDeviceGridPhaseTests
         });
     }
 
-    private static (float Left, float Right) MeasureEdges(FilterEffect sourceEffect, string label)
+    private static (float Left, float Right) MeasureEdges(FilterEffect sourceEffect)
     {
         using Bitmap rendered = GoldenImageHarness.RenderAtScale(BrushHost(sourceEffect), Frame, 0.5f);
-        (float left, float right) = EdgeCoverage(rendered);
-        TestContext.WriteLine($"[{label} brush fill] edge coverage left={left:F4} right={right:F4}");
-        return (left, right);
+        return EdgeCoverage(rendered);
     }
 
     // The weakest leading and trailing edge pixel over the rows the fill covers completely. Rows the

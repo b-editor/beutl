@@ -58,26 +58,6 @@ public sealed class ColorFilterShaderParityTests
     }
 
     [Test]
-    public void Brightness_RecordsOneCurrentPixelStageWithoutAEffectItemBoundary()
-    {
-        using var context = new FilterEffectContext(s_bounds);
-
-        context.Brightness(0.75f);
-
-        IReadOnlyList<IFEItem> items = context.GetOrderedItems();
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(items, Has.Count.EqualTo(1));
-            Assert.That(items.OfType<IFEItem_Skia>(), Is.Empty);
-            Assert.That(items.OfType<IFEItem_Custom>(), Is.Empty);
-            Assert.That(context.Bounds, Is.EqualTo(s_bounds));
-        }
-
-        var item = (FEItem_Shader)items.Single();
-        Assert.That(item.Description.Kind, Is.EqualTo(ShaderDescriptionKind.CurrentPixel));
-    }
-
-    [Test]
     public void IdentityColorMatrices_RecordNothing()
     {
         using var brightnessContext = new FilterEffectContext(s_bounds);
@@ -159,6 +139,7 @@ public sealed class ColorFilterShaderParityTests
     [Test]
     public void MigratedColorEffects_RecordOneCurrentPixelStageWithoutAEffectItemBoundary()
     {
+        AssertRecordsOneCurrentPixelStage(context => context.Brightness(0.75f));
         AssertRecordsOneCurrentPixelStage(context => context.Saturate(2f));
         AssertRecordsOneCurrentPixelStage(context => context.HueRotate(90f));
         AssertRecordsOneCurrentPixelStage(context => context.Lighting(
@@ -444,10 +425,6 @@ public sealed class ColorFilterShaderParityTests
             skia,
             shader,
             SubnormalMagnitudeCeiling);
-        TestContext.WriteLine(
-            $"{label} max per-channel error r={error.Red:R} g={error.Green:R} "
-            + $"b={error.Blue:R} a={error.Alpha:R}; subnormal codes r={codes.Red} g={codes.Green} "
-            + $"b={codes.Blue} a={codes.Alpha}");
 
         Assert.That(
             ImageMetrics.FirstNonFinite(("skia", skia), ("shader", shader)),
@@ -482,6 +459,7 @@ public sealed class ColorFilterShaderParityTests
             Assert.That(items.Single(), Is.TypeOf<FEItem_Shader>());
             Assert.That(((FEItem_Shader)items.Single()).Description.Kind,
                 Is.EqualTo(ShaderDescriptionKind.CurrentPixel));
+            Assert.That(context.Bounds, Is.EqualTo(s_bounds));
         });
     }
 

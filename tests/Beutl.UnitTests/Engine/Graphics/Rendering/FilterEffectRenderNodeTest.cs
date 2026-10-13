@@ -4,7 +4,6 @@ using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Requests;
 using Beutl.Media;
-using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
@@ -140,29 +139,10 @@ public class FilterEffectRenderNodeTest
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             FusionMode = fusionMode,
             Purpose = RenderRequestPurpose.Frame,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
         using RenderNodeRasterization rasterization = renderer.Rasterize();
         statistics = renderer.LastExecutionStatistics;
         return rasterization.Bitmap?.Clone()
                ?? throw new InvalidOperationException("The filter-effect render produced no bitmap.");
     }
-
-    private sealed class CpuTargetFactory : IRenderTargetFactory
-    {
-        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
-        {
-            PixelSize deviceSize = allocation.DeviceSize;
-            SKSurface surface = SKSurface.Create(new SKImageInfo(
-                    deviceSize.Width,
-                    deviceSize.Height,
-                    SKColorType.RgbaF16,
-                    SKAlphaType.Premul,
-                    SKColorSpace.CreateSrgbLinear()))
-                ?? throw new InvalidOperationException("Could not create the CPU filter-effect test surface.");
-            return new CpuRenderTarget(surface, deviceSize);
-        }
-    }
-
-    private sealed class CpuRenderTarget(SKSurface surface, PixelSize size)
-        : RenderTarget(surface, size.Width, size.Height);
 }

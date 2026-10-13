@@ -27,16 +27,7 @@ public sealed class BitmapSamplingQualityTests
                 static (x, y) => (((x / 2) + (y / 2)) & 1) == 0 ? byte.MinValue : byte.MaxValue);
             using Bitmap rendered = GoldenImageHarness.RenderAtScale(source, new PixelSize(64, 64), 0.5f);
 
-            var observed = new HashSet<float>();
-            for (int y = 2; y < rendered.Height - 2; y++)
-            {
-                for (int x = 2; x < rendered.Width - 2; x++)
-                {
-                    observed.Add(ReadRed(rendered, x, y));
-                }
-            }
-
-            TestContext.WriteLine($"Exact 2x2 reduction values: {string.Join(", ", observed.Order())}");
+            float[] observed = ReadInteriorRedValues(rendered);
             Assert.That(observed, Is.EquivalentTo(new[] { 0f, 1f }),
                 "Each destination pixel covers one uniform source block and must retain its exact endpoint.");
         });
@@ -57,7 +48,6 @@ public sealed class BitmapSamplingQualityTests
             float[] observed = ReadInteriorRedValues(rendered);
             float low = Color.FromRgb(96, 96, 96).ToLinear().X;
             float high = Color.FromRgb(176, 176, 176).ToLinear().X;
-            TestContext.WriteLine($"Exact mid-tone reduction values: {string.Join(", ", observed)}");
             Assert.Multiple(() =>
             {
                 Assert.That(observed, Has.Length.EqualTo(2));
@@ -81,7 +71,6 @@ public sealed class BitmapSamplingQualityTests
 
             float[] observed = ReadInteriorRedValues(rendered);
             float spread = observed[^1] - observed[0];
-            TestContext.WriteLine($"0.75x checker values: {string.Join(", ", observed)}; spread={spread:R}");
             Assert.That(spread, Is.LessThanOrEqualTo(0.26f),
                 "Non-integer minification must retain the branch's lower-aliasing two-stage path.");
         });
@@ -113,11 +102,6 @@ public sealed class BitmapSamplingQualityTests
                 .Select(x => ReadRed(result.Bitmap, x, result.Bitmap.Height / 2))
                 .ToArray();
             int distinct = values.Distinct().Count();
-            TestContext.WriteLine(
-                $"Fused 4x magnification values: {string.Join(", ", values)}; "
-                + $"runs={result.Statistics.ShaderRunExecutions}, "
-                + $"stages={result.Statistics.ShaderStageExecutions}, "
-                + $"fused={result.Statistics.FusedShaderRunExecutions}");
             Assert.Multiple(() =>
             {
                 Assert.That(result.Statistics.FusedShaderRunExecutions, Is.EqualTo(1),
@@ -205,15 +189,8 @@ public sealed class BitmapSamplingQualityTests
         return (float)BitConverter.UInt16BitsToHalf(row[x * 4]);
     }
 
-    /// <summary>
-    /// Bounds a reduced block against its source value in RgbaF16 storage codes.
-    /// </summary>
-    /// <remarks>
-    /// One code is 2^-12 at these magnitudes, so an absolute bound tight enough to mean anything is
-    /// finer than the buffer can represent and no implementation can satisfy it. The block structure
-    /// - that exactly two values survive, with no ringing around them - is asserted separately, and
-    /// a kernel that rang would move a block by percent, not by a code or two.
-    /// </remarks>
+    /// <summary>Bounds a reduced block within two RgbaF16 codes of its source: one code is 2^-12 here, so a tighter
+    /// absolute bound is unrepresentable; ringing would move a block by percent and is asserted separately.</summary>
     private static void AssertWithinStorageCodes(float actual, float expected, string label)
     {
         const int budget = 2;
