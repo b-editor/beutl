@@ -2,16 +2,13 @@
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
-using Avalonia.Input;
 using Avalonia.LogicalTree;
 using Avalonia.Media;
-using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Beutl.Controls;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Language;
-using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Tools;
@@ -29,14 +26,7 @@ public class OutputTabBarTests
     [TestCase(640, true)]
     public async Task Profile_bar_stays_separate_from_encoding_content(int width, bool light)
     {
-        await TestReset.ResetShellAsync();
-        string root = Path.Combine(BeutlHomeIsolation.CurrentHome!, $"output-tab-bar-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(root);
-        Project project = (await TestShell.Project.CreateProject(640, 480, 30, 44100, "output-tab-bar", root))!;
-        Scene scene = project.Items.OfType<Scene>().First();
-        TestShell.Editor.ActivateTabItem(scene);
-        HeadlessTestHelpers.Settle();
-        var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("output-tab-bar");
         using var model = new OutputTabViewModel(editor);
         var view = new OutputTab { DataContext = model };
         var window = new Window
@@ -74,17 +64,8 @@ public class OutputTabBarTests
             Assert.That(output.GetLogicalDescendants().OfType<Button>().Select(b => b.Content),
                 Does.Contain(Strings.Encode).And.Contain(Strings.Cancel));
 
-            // Capture only the default profile without loading native encoder-settings views.
-            if (Environment.GetEnvironmentVariable("BEUTL_OUTPUT_TAB_CAPTURE") is { Length: > 0 } directory)
-            {
-                Assert.That(((OutputViewModel)output.DataContext!).SelectedEncoder.Value, Is.Null);
-                Directory.CreateDirectory(directory);
-                using var image = window.CaptureRenderedFrame();
-                image?.Save(Path.Combine(directory, $"output-tab-{width}-{light}.png"), PngBitmapEncoderOptions.Default);
-            }
-
             int previousCount = model.Items.Count;
-            Click(add);
+            HeadlessTestHelpers.Click(add);
             Assert.That(model.Items.Count, Is.EqualTo(previousCount + 1));
             string name = new('P', 160);
             model.SelectedItem.Value!.Context.Name.Value = name;
@@ -96,7 +77,7 @@ public class OutputTabBarTests
                 Assert.That(position.X, Is.GreaterThanOrEqualTo(0));
                 Assert.That(position.X + button.Bounds.Width, Is.LessThanOrEqualTo(bar.Bounds.Width));
             }
-            Click(more);
+            HeadlessTestHelpers.Click(more);
             Assert.That(more.Flyout!.IsOpen, Is.True);
             more.Flyout.Hide();
 
@@ -104,30 +85,21 @@ public class OutputTabBarTests
             window.MouseMove(profileCenter);
             HeadlessTestHelpers.Render();
             Assert.That(((ISolidColorBrush)profileBorder.Background!).Color.A, Is.Zero);
-            Click(profiles);
+            HeadlessTestHelpers.Click(profiles);
             var picker = (OutputPickerFlyout)typeof(OutputTab)
                 .GetField("_activeFlyout", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
                 .GetValue(view)!;
             Assert.That(picker.IsOpen, Is.True);
             var presenter = (OutputPickerFlyoutPresenter)picker.Popup.Child!;
-            Click(presenter.GetVisualDescendants().OfType<Button>().Single(button => button.Name == "ProfilesTabButton"));
+            HeadlessTestHelpers.Click(presenter.GetVisualDescendants().OfType<Button>().Single(button => button.Name == "ProfilesTabButton"));
             Assert.That(picker.ViewModel.ShowPresets.Value, Is.False);
             var profileList = presenter.GetVisualDescendants().OfType<ListBox>().Single(list => list.Name == "PART_ProfileListBox");
             profileList.SelectedItem = presenter.ProfileItems!.Single(item => ReferenceEquals(item.UserData, model.Items[0]));
             HeadlessTestHelpers.Settle();
-            Click(presenter.GetVisualDescendants().OfType<Button>().Single(button => button.Name == "AcceptButton"));
+            HeadlessTestHelpers.Click(presenter.GetVisualDescendants().OfType<Button>().Single(button => button.Name == "AcceptButton"));
             Assert.That(picker.IsOpen, Is.False);
             Assert.That(model.SelectedItem.Value, Is.SameAs(model.Items[0]));
         }
         finally { window.Close(); }
-
-        void Click(Button button)
-        {
-            TopLevel topLevel = TopLevel.GetTopLevel(button)!;
-            Point center = button.TranslatePoint(new Point(button.Bounds.Width / 2, button.Bounds.Height / 2), topLevel)!.Value;
-            topLevel.MouseDown(center, MouseButton.Left);
-            topLevel.MouseUp(center, MouseButton.Left);
-            HeadlessTestHelpers.Render();
-        }
     }
 }

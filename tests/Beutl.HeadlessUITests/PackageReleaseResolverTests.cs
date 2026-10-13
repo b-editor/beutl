@@ -2,10 +2,8 @@
 using System.Reactive.Concurrency;
 using System.Reactive.Subjects;
 
-using Beutl.Api;
-using Beutl.Api.Clients;
 using Beutl.Api.Objects;
-using Beutl.Api.Services;
+using Beutl.Testing.Headless;
 using Beutl.ViewModels.ExtensionsPages.DiscoverPages;
 
 using NuGet.Packaging.Core;
@@ -16,21 +14,10 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class PackageReleaseResolverTests
 {
-    private readonly HttpClient _httpClient;
-    private readonly BeutlApiApplication _clients;
-
-    public PackageReleaseResolverTests()
-    {
-        _httpClient = new HttpClient();
-        _clients = new BeutlApiApplication(_httpClient, new ExtensionProvider());
-    }
+    private readonly StoreClients _store = new();
 
     [OneTimeTearDown]
-    public async Task OneTimeTearDown()
-    {
-        await _clients.DisposeAsync();
-        _httpClient.Dispose();
-    }
+    public async Task OneTimeTearDown() => await _store.DisposeAsync();
 
     [Test]
     public async Task ObserveLatest_IgnoresCompletionFromSupersededRequest()
@@ -99,7 +86,7 @@ public class PackageReleaseResolverTests
             });
 
         requests.OnNext(CreateIdentity("1.0.0"));
-        await WaitForAsync(() => observed.Count == 1);
+        await HeadlessTestHelpers.WaitUntilAsync(() => observed.Count == 1, pump: false);
         requests.OnNext(CreateIdentity("2.0.0"));
         await twoResults.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
@@ -108,8 +95,10 @@ public class PackageReleaseResolverTests
         Assert.That(errors, Has.Count.EqualTo(1));
     }
 
-    [Test]
-    public async Task ObserveLatest_UsesCachedReleaseWithoutNetworkRequest()
+    // The cached 1.0.0 also answers a request for the semantically equal "1.0".
+    [TestCase("1.0.0")]
+    [TestCase("1.0")]
+    public async Task ObserveLatest_UsesCachedReleaseWithoutNetworkRequest(string requested)
     {
         using var requests = new Subject<PackageIdentity?>();
         Release cached = CreateRelease("1.0.0");
@@ -129,35 +118,7 @@ public class PackageReleaseResolverTests
                 ex => Assert.Fail(ex.ToString()))
             .Subscribe(release => observed.TrySetResult(release));
 
-        requests.OnNext(CreateIdentity("1.0.0"));
-        Release? result = await observed.Task.WaitAsync(TimeSpan.FromSeconds(5));
-
-        Assert.That(result, Is.SameAs(cached));
-        Assert.That(requestCount, Is.Zero);
-    }
-
-    [Test]
-    public async Task ObserveLatest_UsesSemanticallyEquivalentCachedReleaseWithoutNetworkRequest()
-    {
-        using var requests = new Subject<PackageIdentity?>();
-        Release cached = CreateRelease("1.0.0");
-        var observed = new TaskCompletionSource<Release?>(TaskCreationOptions.RunContinuationsAsynchronously);
-        int requestCount = 0;
-
-        using IDisposable subscription = PackageReleaseResolver.ObserveLatest(
-                requests,
-                ImmediateScheduler.Instance,
-                () => null,
-                () => [cached],
-                _ =>
-                {
-                    requestCount++;
-                    return Task.FromResult(cached);
-                },
-                ex => Assert.Fail(ex.ToString()))
-            .Subscribe(release => observed.TrySetResult(release));
-
-        requests.OnNext(CreateIdentity("1.0"));
+        requests.OnNext(CreateIdentity(requested));
         Release? result = await observed.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.That(result, Is.SameAs(cached));
@@ -287,55 +248,5 @@ public class PackageReleaseResolverTests
         return new PackageIdentity("Package", NuGetVersion.Parse(version));
     }
 
-    private Release CreateRelease(string version)
-    {
-        var ownerResponse = new ProfileResponse
-        {
-            Id = "owner",
-            Name = "owner",
-            DisplayName = "Owner",
-            Bio = null,
-            IconId = null,
-            IconUrl = null,
-        };
-        var owner = new Profile(ownerResponse, _clients);
-        var package = new Package(owner, new PackageResponse
-        {
-            Id = "package",
-            Owner = ownerResponse,
-            Name = "Package",
-            DisplayName = "Package",
-            Description = "",
-            ShortDescription = "",
-            WebSite = "",
-            Tags = [],
-            LogoId = null,
-            LogoUrl = null,
-            Screenshots = [],
-            Currency = null,
-            Price = null,
-            Paid = false,
-            Owned = true,
-        }, _clients);
-
-        return new Release(package, new ReleaseResponse
-        {
-            Id = version,
-            Version = version,
-            Title = version,
-            Description = "",
-            TargetVersion = null,
-            FileId = null,
-            FileUrl = null,
-        }, _clients);
-    }
-
-    private static async Task WaitForAsync(Func<bool> condition)
-    {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        while (!condition())
-        {
-            await Task.Delay(10, timeout.Token);
-        }
-    }
+    private Release CreateRelease(string version) => _store.CreateRelease(version);
 }

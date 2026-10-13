@@ -6,7 +6,6 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
-using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Beutl.Animation;
@@ -82,67 +81,42 @@ public class PathEditorInteractionTests
         RawInputModifiers modifier, bool preview, bool moveOnHover)
     {
         using var editor = await Fixture.Create();
-        IPathEditorView view = editor.View;
-        var previewModel = editor.Editor.Player.PathEditor;
-        PathEditorView? overlay = null;
-        if (preview)
+        PathEditorView? overlay = preview ? editor.UsePreviewOverlay() : null;
+        IPathEditorView view = overlay is null ? editor.View : overlay;
+        ClickAnchor(0);
+        Assert.That(Selected(), Is.EqualTo(new[] { editor.Figure.Segments[0] }));
+        Thumb anchor = FindAnchor(1);
+        Point positionBeforeHover = default;
+        bool moved = false;
+        if (moveOnHover)
         {
-            previewModel.FigureContext.Value = editor.Model.FigureContext.Value;
-            overlay = new PathEditorView { DataContext = previewModel };
-            editor.Window.Content = overlay;
-            view = overlay;
-            HeadlessTestHelpers.Render(3);
+            // Reproduce layout work invalidating coordinates between mouse move and press.
+            editor.Window.PointerMoved += (_, _) =>
+            {
+                if (moved) return;
+                moved = true;
+                positionBeforeHover = anchor.TranslatePoint(default, editor.Window)!.Value;
+                if (overlay != null) overlay.Matrix *= Matrix.CreateTranslation(40, 30);
+                else editor.View.Matrix *= Matrix.CreateTranslation(40, 30);
+            };
         }
-        try
+        editor.ClickControl(anchor, modifier, beforePress: () =>
         {
-            ClickAnchor(0);
-            Assert.That(Selected(), Is.EqualTo(new[] { editor.Figure.Segments[0] }));
-            Thumb anchor = FindAnchor(1);
-            Point positionBeforeHover = default;
-            bool moved = false;
+            Assert.That(moved, Is.EqualTo(moveOnHover));
             if (moveOnHover)
-            {
-                // Reproduce layout work invalidating coordinates between mouse move and press.
-                editor.Window.PointerMoved += (_, _) =>
-                {
-                    if (moved) return;
-                    moved = true;
-                    positionBeforeHover = anchor.TranslatePoint(default, editor.Window)!.Value;
-                    if (overlay != null) overlay.Matrix *= Matrix.CreateTranslation(40, 30);
-                    else editor.View.Matrix *= Matrix.CreateTranslation(40, 30);
-                };
-            }
-            editor.ClickControl(anchor, modifier, beforePress: () =>
-            {
-                Assert.That(moved, Is.EqualTo(moveOnHover));
-                if (moveOnHover)
-                    Assert.That(anchor.TranslatePoint(default, editor.Window)!.Value,
-                        Is.Not.EqualTo(positionBeforeHover), "The anchor must move in window coordinates before the mouse press.");
-            });
-            Assert.That(Selected(), Is.EqualTo(new[] { editor.Figure.Segments[0], editor.Figure.Segments[1] }));
-            ClickAnchor(0, modifier);
-            Assert.That(Selected(), Is.EqualTo(new[] { editor.Figure.Segments[1] }));
-            ClickAnchor(2);
-            Assert.That(Selected(), Is.EqualTo(new[] { editor.Figure.Segments[2] }));
-            Assert.That(editor.Editor.HistoryManager.UndoCount, Is.Zero);
-        }
-        finally
-        {
-            if (overlay != null)
-            {
-                overlay.DataContext = null;
-                previewModel.FigureContext.Value = null;
-            }
-        }
+                Assert.That(anchor.TranslatePoint(default, editor.Window)!.Value,
+                    Is.Not.EqualTo(positionBeforeHover), "The anchor must move in window coordinates before the mouse press.");
+        });
+        Assert.That(Selected(), Is.EqualTo(new[] { editor.Figure.Segments[0], editor.Figure.Segments[1] }));
+        ClickAnchor(0, modifier);
+        Assert.That(Selected(), Is.EqualTo(new[] { editor.Figure.Segments[1] }));
+        ClickAnchor(2);
+        Assert.That(Selected(), Is.EqualTo(new[] { editor.Figure.Segments[2] }));
+        Assert.That(editor.Editor.HistoryManager.UndoCount, Is.Zero);
 
         PathSegment[] Selected() => view.GetSelectedAnchors().Select(t => (PathSegment)t.DataContext!).ToArray();
 
-        Thumb FindAnchor(int index)
-        {
-            var anchor = editor.Figure.Segments[index];
-            return ((Control)view).FindControl<Canvas>("canvas")!.Children.OfType<Thumb>()
-                .Single(t => ReferenceEquals(t.DataContext, anchor) && !t.Classes.Contains("control"));
-        }
+        Thumb FindAnchor(int index) => Fixture.FindAnchor(view, editor.Figure.Segments[index]);
 
         void ClickAnchor(int index, RawInputModifiers modifiers = RawInputModifiers.None)
             => editor.ClickControl(FindAnchor(index), modifiers);
@@ -201,52 +175,28 @@ public class PathEditorInteractionTests
     public async Task Extending_selection_to_an_earlier_anchor_keeps_it_active(RawInputModifiers modifiers, bool preview)
     {
         using var editor = await Fixture.Create();
-        IPathEditorView view = editor.View;
         var model = editor.Editor.Player.PathEditor;
-        PathEditorView? overlay = null;
-        if (preview)
-        {
-            model.FigureContext.Value = editor.Model.FigureContext.Value;
-            overlay = new PathEditorView { DataContext = model };
-            editor.Window.Content = overlay;
-            view = overlay;
-            HeadlessTestHelpers.Render(3);
-        }
-        try
-        {
-            ClickAnchor(2);
-            ClickAnchor(0, modifiers);
-            Assert.That(view.GetSelectedAnchors(), Has.Length.EqualTo(2));
-            Assert.That(Active(), Is.SameAs(editor.Figure.Segments[0]));
-            if (!preview)
-                Assert.That(((BaseEditorViewModel)editor.Model.PointProperties.Value[0]).PropertyAdapter.GetEngineProperty(),
-                    Is.SameAs(editor.Figure.Segments[0].GetEndPoint()));
-            if (!preview && modifiers == RawInputModifiers.Meta
-                && Environment.GetEnvironmentVariable("BEUTL_PATH_EDITOR_CAPTURE") is { Length: > 0 } directory)
-            {
-                Directory.CreateDirectory(directory);
-                using var frame = editor.Window.CaptureRenderedFrame();
-                frame!.Save(System.IO.Path.Combine(directory, "earlier-active-anchor.png"), PngBitmapEncoderOptions.Default);
-            }
-            ClickAnchor(1, modifiers);
-            Assert.That(Active(), Is.SameAs(editor.Figure.Segments[1]));
-            ClickAnchor(0, modifiers);
-            Assert.That(view.GetSelectedAnchors(), Has.Length.EqualTo(2));
-            Assert.That(Active(), Is.SameAs(editor.Figure.Segments[2]));
-            ClickAnchor(1, modifiers);
-            Assert.That(view.GetSelectedAnchors(), Has.Length.EqualTo(1));
-            Assert.That(Active(), Is.SameAs(editor.Figure.Segments[2]));
-            Assert.That(editor.Editor.HistoryManager.UndoCount, Is.Zero);
-        }
-        finally { if (overlay != null) { overlay.DataContext = null; model.FigureContext.Value = null; } }
+        IPathEditorView view = preview ? editor.UsePreviewOverlay() : editor.View;
+        ClickAnchor(2);
+        ClickAnchor(0, modifiers);
+        Assert.That(view.GetSelectedAnchors(), Has.Length.EqualTo(2));
+        Assert.That(Active(), Is.SameAs(editor.Figure.Segments[0]));
+        if (!preview)
+            Assert.That(((BaseEditorViewModel)editor.Model.PointProperties.Value[0]).PropertyAdapter.GetEngineProperty(),
+                Is.SameAs(editor.Figure.Segments[0].GetEndPoint()));
+        ClickAnchor(1, modifiers);
+        Assert.That(Active(), Is.SameAs(editor.Figure.Segments[1]));
+        ClickAnchor(0, modifiers);
+        Assert.That(view.GetSelectedAnchors(), Has.Length.EqualTo(2));
+        Assert.That(Active(), Is.SameAs(editor.Figure.Segments[2]));
+        ClickAnchor(1, modifiers);
+        Assert.That(view.GetSelectedAnchors(), Has.Length.EqualTo(1));
+        Assert.That(Active(), Is.SameAs(editor.Figure.Segments[2]));
+        Assert.That(editor.Editor.HistoryManager.UndoCount, Is.Zero);
 
         PathSegment? Active() => preview ? model.SelectedOperation.Value : editor.Model.SelectedOperation.Value;
         void ClickAnchor(int index, RawInputModifiers modifier = RawInputModifiers.None)
-        {
-            var thumb = ((Control)view).FindControl<Canvas>("canvas")!.Children.OfType<Thumb>()
-                .Single(t => ReferenceEquals(t.DataContext, editor.Figure.Segments[index]) && !t.Classes.Contains("control"));
-            editor.ClickControl(thumb, modifier);
-        }
+            => editor.ClickControl(Fixture.FindAnchor(view, editor.Figure.Segments[index]), modifier);
     }
 
     [AvaloniaTest]
@@ -278,12 +228,6 @@ public class PathEditorInteractionTests
             Assert.That(((Vector)(frame.TranslatePoint(local, editor.Window)!.Value - cursor)).Length, Is.LessThan(.01));
             Assert.That(model.IsMoveMode.Value, Is.True);
             Assert.That(model.IsHandMode.Value, Is.False);
-            if (Environment.GetEnvironmentVariable("BEUTL_PATH_EDITOR_CAPTURE") is { Length: > 0 } directory)
-            {
-                Directory.CreateDirectory(directory);
-                using var capture = editor.Window.CaptureRenderedFrame();
-                capture!.Save(System.IO.Path.Combine(directory, $"path-wheel-{modifier}-{pathHand}.png"), PngBitmapEncoderOptions.Default);
-            }
             var zoomed = model.FrameMatrix.Value;
             editor.Window.MouseWheel(cursor, new Vector(0, 1));
             HeadlessTestHelpers.Render(3);
@@ -383,12 +327,6 @@ public class PathEditorInteractionTests
         Assert.That(editor.Editor.HistoryManager.UndoCount, Is.EqualTo(1));
         var firstState = CoreSerializer.SerializeToJsonObject(figure);
         var firstEdge = CoreSerializer.SerializeToJsonObject(first);
-        if (Environment.GetEnvironmentVariable("BEUTL_PATH_EDITOR_CAPTURE") is { Length: > 0 } directory)
-        {
-            Directory.CreateDirectory(directory);
-            using var frame = editor.Window.CaptureRenderedFrame();
-            frame!.Save(System.IO.Path.Combine(directory, $"first-explicit-edge-{drag}.png"), PngBitmapEncoderOptions.Default);
-        }
         editor.Click(290, 100);
         Assert.That(figure.Segments, Has.Count.EqualTo(2));
         if (drag) Assert.That(((CubicBezierSegment)figure.Segments[1]).ControlPoint1.CurrentValue, Is.EqualTo(new BtlPoint(215, 160)));
@@ -461,12 +399,6 @@ public class PathEditorInteractionTests
         Assert.That(first.EndPoint.CurrentValue, Is.EqualTo(new BtlPoint(80, 100)));
         Assert.That(editor.Editor.HistoryManager.UndoCount, Is.EqualTo(history + 1));
         var after = CoreSerializer.SerializeToJsonObject(figure);
-        if (Environment.GetEnvironmentVariable("BEUTL_PATH_EDITOR_CAPTURE") is { Length: > 0 } directory)
-        {
-            Directory.CreateDirectory(directory);
-            using var frame = editor.Window.CaptureRenderedFrame();
-            frame!.Save(System.IO.Path.Combine(directory, $"implicit-cubic-close-{animatedIncoming}.png"), PngBitmapEncoderOptions.Default);
-        }
         editor.Editor.HistoryManager.Undo();
         Assert.That(JsonNode.DeepEquals(before, CoreSerializer.SerializeToJsonObject(figure)), Is.True);
         editor.Editor.HistoryManager.Redo();
@@ -534,78 +466,51 @@ public class PathEditorInteractionTests
         figure.Segments.Add(new LineSegment(280, 180));
         using var editor = await Fixture.Create(pathFigure: figure);
         IPathEditorView view = editor.View;
-        PathEditorView? overlay = null;
-        var model = editor.Editor.Player.PathEditor;
         if (preview)
         {
-            model.FigureContext.Value = editor.Model.FigureContext.Value;
-            overlay = new PathEditorView { DataContext = model };
-            editor.Window.Content = overlay;
-            view = overlay;
-            HeadlessTestHelpers.Render(3);
+            PathEditorView overlay = editor.UsePreviewOverlay();
             overlay.Tool = PathEditorTool.Pen;
+            view = overlay;
         }
         else editor.Key(Key.P);
-        try
-        {
-            // Preview matrices are published asynchronously; hit the displayed
-            // anchor instead of predicting where its next layout will place it.
-            ClickAnchor(figure.Segments[^1]);
-            Assert.That(figure.Segments, Has.Count.EqualTo(2));
-            Assert.That(view.GetSelectedAnchors().Single().DataContext, Is.SameAs(figure.Segments[^1]));
-            if (curved) editor.Drag(Screen(new(240, 120)), Screen(new(270, 120)));
-            else Click(new(240, 120));
-            Assert.That(figure.Segments, Has.Count.EqualTo(3), "append the endpoint before testing closure");
-            var originalEdges = figure.Segments.ToArray();
-            var originalFirst = CoreSerializer.SerializeToJsonObject(first);
-            int history = editor.Editor.HistoryManager.UndoCount;
-            ClickAnchor(first);
-            Assert.That(figure.IsClosed.CurrentValue, Is.False, "the first segment endpoint is not the start");
-            Assert.That(figure.Segments, Is.EqualTo(originalEdges));
-            Assert.That(JsonNode.DeepEquals(originalFirst, CoreSerializer.SerializeToJsonObject(first)), Is.True);
-            Assert.That(editor.Editor.HistoryManager.UndoCount, Is.EqualTo(history));
-            Capture("open");
+        // Preview matrices are published asynchronously; hit the displayed
+        // anchor instead of predicting where its next layout will place it.
+        ClickAnchor(figure.Segments[^1]);
+        Assert.That(figure.Segments, Has.Count.EqualTo(2));
+        Assert.That(view.GetSelectedAnchors().Single().DataContext, Is.SameAs(figure.Segments[^1]));
+        if (curved) editor.Drag(Screen(new(240, 120)), Screen(new(270, 120)));
+        else Click(new(240, 120));
+        Assert.That(figure.Segments, Has.Count.EqualTo(3), "append the endpoint before testing closure");
+        var originalEdges = figure.Segments.ToArray();
+        var originalFirst = CoreSerializer.SerializeToJsonObject(first);
+        int history = editor.Editor.HistoryManager.UndoCount;
+        ClickAnchor(first);
+        Assert.That(figure.IsClosed.CurrentValue, Is.False, "the first segment endpoint is not the start");
+        Assert.That(figure.Segments, Is.EqualTo(originalEdges));
+        Assert.That(JsonNode.DeepEquals(originalFirst, CoreSerializer.SerializeToJsonObject(first)), Is.True);
+        Assert.That(editor.Editor.HistoryManager.UndoCount, Is.EqualTo(history));
 
-            var startMarker = ((Control)view).FindControl<Canvas>("canvas")!.Children.OfType<Border>()
-                .Single(b => b.Name == "PathStartPoint");
-            editor.ClickControl(startMarker);
-            Assert.That(figure.IsClosed.CurrentValue, Is.True);
-            Assert.That(figure.Segments.Take(originalEdges.Length), Is.EqualTo(originalEdges));
-            Assert.That(JsonNode.DeepEquals(originalFirst, CoreSerializer.SerializeToJsonObject(first)), Is.True);
-            Assert.That(figure.Segments, Has.Count.EqualTo(originalEdges.Length + (curved ? 1 : 0)));
-            if (curved)
-            {
-                var closing = (CubicBezierSegment)figure.Segments[^1];
-                Assert.That(closing.EndPoint.CurrentValue, Is.EqualTo(figure.StartPoint.CurrentValue));
-                Assert.That(closing.ControlPoint1.CurrentValue, Is.EqualTo(new BtlPoint(270, 120)));
-            }
-            Assert.That(editor.Editor.HistoryManager.UndoCount, Is.EqualTo(history + 1));
-            Capture("closed");
-            editor.Editor.HistoryManager.Undo();
-            Assert.That(figure.IsClosed.CurrentValue, Is.False);
-            Assert.That(figure.Segments, Is.EqualTo(originalEdges));
-        }
-        finally
+        var startMarker = ((Control)view).FindControl<Canvas>("canvas")!.Children.OfType<Border>()
+            .Single(b => b.Name == "PathStartPoint");
+        editor.ClickControl(startMarker);
+        Assert.That(figure.IsClosed.CurrentValue, Is.True);
+        Assert.That(figure.Segments.Take(originalEdges.Length), Is.EqualTo(originalEdges));
+        Assert.That(JsonNode.DeepEquals(originalFirst, CoreSerializer.SerializeToJsonObject(first)), Is.True);
+        Assert.That(figure.Segments, Has.Count.EqualTo(originalEdges.Length + (curved ? 1 : 0)));
+        if (curved)
         {
-            if (overlay != null) { overlay.DataContext = null; model.FigureContext.Value = null; }
+            var closing = (CubicBezierSegment)figure.Segments[^1];
+            Assert.That(closing.EndPoint.CurrentValue, Is.EqualTo(figure.StartPoint.CurrentValue));
+            Assert.That(closing.ControlPoint1.CurrentValue, Is.EqualTo(new BtlPoint(270, 120)));
         }
+        Assert.That(editor.Editor.HistoryManager.UndoCount, Is.EqualTo(history + 1));
+        editor.Editor.HistoryManager.Undo();
+        Assert.That(figure.IsClosed.CurrentValue, Is.False);
+        Assert.That(figure.Segments, Is.EqualTo(originalEdges));
 
         Point Screen(BtlPoint p) => view.Matrix.Transform(new Point(p.X, p.Y)) * view.Scale;
         void Click(BtlPoint p) { Point screen = Screen(p); editor.Click(screen.X, screen.Y); }
-        void ClickAnchor(PathSegment segment)
-        {
-            var thumb = ((Control)view).FindControl<Canvas>("canvas")!.Children.OfType<Thumb>()
-                .Single(t => ReferenceEquals(t.DataContext, segment) && !t.Classes.Contains("control"));
-            editor.ClickControl(thumb);
-        }
-        void Capture(string stage)
-        {
-            if (Environment.GetEnvironmentVariable("BEUTL_PATH_EDITOR_CAPTURE") is not { Length: > 0 } directory) return;
-            Directory.CreateDirectory(directory);
-            HeadlessTestHelpers.Render(3);
-            using var frame = editor.Window.CaptureRenderedFrame();
-            frame!.Save(System.IO.Path.Combine(directory, $"explicit-start-{curved}-{preview}-{stage}.png"), PngBitmapEncoderOptions.Default);
-        }
+        void ClickAnchor(PathSegment segment) => editor.ClickControl(Fixture.FindAnchor(view, segment));
     }
 
     [AvaloniaTest]
@@ -716,10 +621,8 @@ public class PathEditorInteractionTests
             .Single(b => b.Name == "PathStartPoint");
         editor.Key(Key.P);
         Assert.That(marker.IsVisible, Is.False, "selecting Pen alone cannot offer closure");
-        Capture("inactive");
         editor.Click(280, 180);
         Assert.That(marker.IsVisible, Is.True);
-        Capture("active");
         editor.Key(Key.V);
         Assert.That(marker.IsVisible, Is.False);
         editor.Key(Key.P);
@@ -732,23 +635,12 @@ public class PathEditorInteractionTests
         Assert.That(marker.IsVisible, Is.False, "deleting the continuation endpoint clears the close target");
         editor.MouseMove(new(350, 300));
         Assert.That(marker.IsVisible, Is.False);
-
-        void Capture(string state)
-        {
-            if (Environment.GetEnvironmentVariable("BEUTL_PATH_EDITOR_CAPTURE") is not { Length: > 0 } directory) return;
-            Directory.CreateDirectory(directory);
-            HeadlessTestHelpers.Render(3);
-            using var frame = editor.Window.CaptureRenderedFrame();
-            frame!.Save(System.IO.Path.Combine(directory, $"close-marker-{state}.png"), PngBitmapEncoderOptions.Default);
-        }
     }
 
     [AvaloniaTest]
-    [TestCase(false)]
-    [TestCase(true)]
-    public async Task Player_path_toolbar_stays_in_the_viewport_when_the_frame_is_transformed(bool light)
+    public async Task Player_path_toolbar_stays_in_the_viewport_when_the_frame_is_transformed()
     {
-        using var editor = await Fixture.Create(light: light);
+        using var editor = await Fixture.Create();
         var model = editor.Editor.Player;
         model.PathEditor.FigureContext.Value = editor.Model.FigureContext.Value;
         var player = new PlayerView { DataContext = model };
@@ -773,12 +665,6 @@ public class PathEditorInteractionTests
             var position = bar.TranslatePoint(default, editor.Window)!.Value;
             Assert.That(position.X, Is.GreaterThanOrEqualTo(0));
             Assert.That(position.X + bar.Bounds.Width, Is.LessThanOrEqualTo(editor.Window.Bounds.Width));
-            if (Environment.GetEnvironmentVariable("BEUTL_PATH_EDITOR_CAPTURE") is { Length: > 0 } directory)
-            {
-                Directory.CreateDirectory(directory);
-                using var frame = editor.Window.CaptureRenderedFrame();
-                frame!.Save(System.IO.Path.Combine(directory, $"player-toolbar-transformed-{light}.png"), PngBitmapEncoderOptions.Default);
-            }
             model.PathEditor.FigureContext.Value = null;
             HeadlessTestHelpers.Render(3);
             Assert.That(bar.IsEffectivelyVisible, Is.False);
@@ -811,7 +697,6 @@ public class PathEditorInteractionTests
         HeadlessTestHelpers.Render(3);
         evaluations = 0;
         editor.MouseMove(new(100, 100));
-        TestContext.WriteLine($"Control-point evaluations on distant hover: {evaluations}");
         Assert.That(evaluations, Is.LessThanOrEqualTo(count * 4), "far edges must not be adaptively evaluated");
     }
 
@@ -886,12 +771,6 @@ public class PathEditorInteractionTests
         Assert.That(point.X, Is.EqualTo(click.X).Within(.1));
         Assert.That(point.Y, Is.EqualTo(click.Y).Within(.1));
         Assert.That(editor.Editor.HistoryManager.UndoCount, Is.EqualTo(1));
-        if (Environment.GetEnvironmentVariable("BEUTL_PATH_EDITOR_CAPTURE") is { Length: > 0 } directory)
-        {
-            Directory.CreateDirectory(directory);
-            using var frame = editor.Window.CaptureRenderedFrame();
-            frame!.Save(System.IO.Path.Combine(directory, $"insert-{kind}.png"), PngBitmapEncoderOptions.Default);
-        }
         editor.Editor.HistoryManager.Undo();
         Assert.That(editor.Figure.Segments, Is.EqualTo(original));
         editor.Editor.HistoryManager.Redo();
@@ -971,24 +850,6 @@ public class PathEditorInteractionTests
     }
 
     [AvaloniaTest]
-    public async Task Click_control_tracks_layout_changes_triggered_by_hover()
-    {
-        using var editor = await Fixture.Create();
-        var canvas = editor.View.FindControl<Canvas>("canvas")!;
-        var anchor = canvas.Children.OfType<Thumb>().Single(t => ReferenceEquals(t.DataContext, editor.Figure.Segments[0]));
-        bool moved = false;
-        editor.Window.PointerMoved += (_, _) =>
-        {
-            if (moved) return;
-            moved = true;
-            editor.View.Matrix = Matrix.CreateTranslation(40, 30);
-        };
-        editor.ClickControl(anchor);
-        Assert.That(moved, Is.True);
-        Assert.That(editor.Selected, Is.EqualTo(new[] { editor.Figure.Segments[0] }));
-    }
-
-    [AvaloniaTest]
     public async Task Preview_overlay_uses_the_same_selection_nudge_and_pan_operations()
     {
         using var editor = await Fixture.Create();
@@ -1010,19 +871,6 @@ public class PathEditorInteractionTests
         editor.MouseMove(new(370, 300), RawInputModifiers.MiddleMouseButton);
         editor.MouseUp(new(370, 300), MouseButton.Middle);
         Assert.That(pan, Is.EqualTo(new Vector(20, 20)));
-        if (Environment.GetEnvironmentVariable("BEUTL_PATH_EDITOR_CAPTURE") is { Length: > 0 } directory)
-        {
-            Directory.CreateDirectory(directory);
-            foreach (var theme in new[] { ThemeVariant.Dark, ThemeVariant.Light })
-            {
-                editor.Window.RequestedThemeVariant = theme;
-                editor.Window.Background = Avalonia.Media.Brushes.Gray;
-                editor.MouseMove(new(10, 10));
-                HeadlessTestHelpers.Render(3);
-                using var frame = editor.Window.CaptureRenderedFrame();
-                frame!.Save(System.IO.Path.Combine(directory, $"preview-toolbar-{theme}.png"), PngBitmapEncoderOptions.Default);
-            }
-        }
         overlay.DataContext = null;
         model.FigureContext.Value = null;
     }
@@ -1093,13 +941,6 @@ public class PathEditorInteractionTests
         });
         third.ControlPoint2.Animation = singleKey;
         figure.Segments.Add(third);
-        // Optional local reproduction input; the saved project is read only and is never edited by this test.
-        if (Environment.GetEnvironmentVariable("BEUTL_PATH_EDITOR_REPRO") is { Length: > 0 } source)
-        {
-            var json = JsonNode.Parse(File.ReadAllText(source))!;
-            figure = (PathFigure)CoreSerializer.DeserializeFromJsonObject(
-                json["Objects"]![0]!["Data"]!["Figures"]![0]!.AsObject(), typeof(PathFigure));
-        }
         using var editor = await Fixture.Create(pathFigure: figure);
         editor.Window.Width = 900;
         editor.Window.Height = 600;
@@ -1119,7 +960,6 @@ public class PathEditorInteractionTests
         var keyId = key.Id;
         var easing = key.Easing;
         var before = CoreSerializer.SerializeToJsonObject(figure);
-        Capture("before");
         Point click = editor.View.Matrix.Transform(new Point(expected[50].X, expected[50].Y));
         editor.Key(Key.P);
         editor.Click(click.X, click.Y);
@@ -1162,7 +1002,6 @@ public class PathEditorInteractionTests
                 Assert.That(((Beutl.Graphics.Vector)(actual - expected[i])).Length, Is.LessThan(.02));
             }
         }
-        Capture("after");
         var after = CoreSerializer.SerializeToJsonObject(figure);
         var restored = (PathFigure)CoreSerializer.DeserializeFromJsonObject(after, typeof(PathFigure));
         Assert.That(JsonNode.DeepEquals(CoreSerializer.SerializeToJsonObject(restored), after), Is.True);
@@ -1185,15 +1024,6 @@ public class PathEditorInteractionTests
 
         static CubicBezierSegment BaseCurve(CubicBezierSegment curve) => PathEditingOperations.Cubic(
             curve.ControlPoint1.CurrentValue, curve.ControlPoint2.CurrentValue, curve.EndPoint.CurrentValue);
-
-        void Capture(string stage)
-        {
-            if (Environment.GetEnvironmentVariable("BEUTL_PATH_EDITOR_CAPTURE") is not { Length: > 0 } directory) return;
-            Directory.CreateDirectory(directory);
-            HeadlessTestHelpers.Render(3);
-            using var frame = editor.Window.CaptureRenderedFrame();
-            frame!.Save(System.IO.Path.Combine(directory, $"single-key-{index}-{stage}.png"), PngBitmapEncoderOptions.Default);
-        }
     }
 
     [AvaloniaTest]
@@ -1303,7 +1133,6 @@ public class PathEditorInteractionTests
         {
             GraphicsStrings.Position, Strings.PathEditor_IncomingControlPoint, Strings.PathEditor_OutgoingControlPoint
         }));
-        Assert.That(controls, Has.Length.EqualTo(3));
         foreach (var control in controls)
         {
             Assert.That(control.EditorStyle, Is.EqualTo(PropertyEditorStyle.Normal));
@@ -1590,12 +1419,6 @@ public class PathEditorInteractionTests
             Assert.That(thumb.IsVisible, Is.True);
             Assert.That(((Vector)(PathEditorHelper.GetCanvasPosition(thumb) - position)).Length, Is.GreaterThan(8));
         }
-        if (Environment.GetEnvironmentVariable("BEUTL_PATH_EDITOR_CAPTURE") is { Length: > 0 } directory)
-        {
-            Directory.CreateDirectory(directory);
-            using var frame = editor.Window.CaptureRenderedFrame();
-            frame!.Save(System.IO.Path.Combine(directory, $"bend-click-{scenario}.png"), PngBitmapEncoderOptions.Default);
-        }
         Assert.That(editor.Editor.HistoryManager.UndoCount, Is.EqualTo(1));
         editor.Editor.HistoryManager.Undo();
         Assert.That(anchor.ControlPoint2.GetValue(context), Is.EqualTo(originalIncoming));
@@ -1708,34 +1531,6 @@ public class PathEditorInteractionTests
     [AvaloniaTest]
     [TestCase(false)]
     [TestCase(true)]
-    public async Task Render_corner_selection_and_bend_without_artificial_handle_markers(bool light)
-    {
-        using var editor = await Fixture.CreateCollapsed(false, light);
-        Assert.That(editor.Editor.HistoryManager.UndoCount, Is.Zero);
-        Capture("corner-selection");
-        var anchor = (CubicBezierSegment)editor.Figure.Segments[0];
-        Point position = PathEditorHelper.GetCanvasPosition(editor.View.FindAnchorThumb(anchor)!);
-        editor.Key(Key.B);
-        editor.Click(position.X, position.Y);
-        editor.Key(Key.V);
-        Capture("bend-handles");
-
-        void Capture(string stage)
-        {
-            if (Environment.GetEnvironmentVariable("BEUTL_PATH_EDITOR_CAPTURE") is { Length: > 0 } directory)
-            {
-                Directory.CreateDirectory(directory);
-                editor.MouseMove(new(10, 10));
-                HeadlessTestHelpers.Render(3);
-                using var frame = editor.Window.CaptureRenderedFrame();
-                frame!.Save(System.IO.Path.Combine(directory, $"{stage}-{light}.png"), PngBitmapEncoderOptions.Default);
-            }
-        }
-    }
-
-    [AvaloniaTest]
-    [TestCase(false)]
-    [TestCase(true)]
     public async Task Selecting_open_endpoints_shows_their_canvas_handle_at_the_actual_position(bool last)
     {
         using var editor = await Fixture.Create();
@@ -1754,14 +1549,6 @@ public class PathEditorInteractionTests
             editor.View.FindControl<Canvas>("canvas")!)!.Value;
         Assert.That(point.X, Is.EqualTo(property.CurrentValue.X).Within(.51));
         Assert.That(point.Y, Is.EqualTo(property.CurrentValue.Y).Within(.51));
-        if (Environment.GetEnvironmentVariable("BEUTL_PATH_EDITOR_CAPTURE") is { Length: > 0 } directory)
-        {
-            Directory.CreateDirectory(directory);
-            editor.MouseMove(new(10, 10));
-            HeadlessTestHelpers.Render(2);
-            using var frame = editor.Window.CaptureRenderedFrame();
-            frame!.Save(System.IO.Path.Combine(directory, $"endpoint-{last}.png"), PngBitmapEncoderOptions.Default);
-        }
     }
 
     [AvaloniaTest]
@@ -1826,13 +1613,11 @@ public class PathEditorInteractionTests
     }
 
     [AvaloniaTest]
-    [TestCase(false, 640)]
-    [TestCase(true, 640)]
-    [TestCase(false, 320)]
-    [TestCase(true, 320)]
-    public async Task Render_single_curve_inspector_with_control_points_and_menus(bool light, int width)
+    [TestCase(640)]
+    [TestCase(320)]
+    public async Task Render_single_curve_inspector_with_control_points_and_menus(int width)
     {
-        using var editor = await Fixture.Create(light: light);
+        using var editor = await Fixture.Create();
         editor.Window.Width = width;
         editor.Window.Height = width < 560 ? 420 : 560;
         HeadlessTestHelpers.Render(2);
@@ -1851,42 +1636,6 @@ public class PathEditorInteractionTests
             Point right = menu.TranslatePoint(new Point(menu.Bounds.Width, 0), list)!.Value;
             Assert.That(left.X, Is.EqualTo(4).Within(1));
             Assert.That(right.X, Is.LessThanOrEqualTo(list.Bounds.Width));
-        }
-        if (Environment.GetEnvironmentVariable("BEUTL_PATH_EDITOR_CAPTURE") is { Length: > 0 } directory)
-        {
-            Directory.CreateDirectory(directory);
-            using var frame = editor.Window.CaptureRenderedFrame();
-            frame!.Save(System.IO.Path.Combine(directory, $"path-properties-{width}-{light}.png"), PngBitmapEncoderOptions.Default);
-        }
-    }
-
-    [AvaloniaTest]
-    [TestCase(false, 640, 420)]
-    [TestCase(true, 640, 420)]
-    [TestCase(false, 320, 240)]
-    [TestCase(true, 320, 240)]
-    public async Task Render_selected_curve_and_marquee(bool light, int width, int height)
-    {
-        using var editor = await Fixture.Create(light: light);
-        editor.Window.Width = width;
-        editor.Window.Height = height;
-        HeadlessTestHelpers.Render(3);
-        editor.Key(Key.B);
-        editor.Click(180, 100);
-        editor.Key(Key.V);
-        editor.Click(280, 180, RawInputModifiers.Shift);
-        editor.MouseDown(new(55, 60), MouseButton.Left, RawInputModifiers.Shift);
-        editor.MouseMove(new(320, 220), RawInputModifiers.Shift | RawInputModifiers.LeftMouseButton);
-        HeadlessTestHelpers.Render(3);
-        editor.MouseUp(new(320, 220), MouseButton.Left, RawInputModifiers.Shift);
-        editor.MouseMove(new(10, 10));
-        HeadlessTestHelpers.Render(3);
-        if (Environment.GetEnvironmentVariable("BEUTL_PATH_EDITOR_CAPTURE") is { Length: > 0 } directory)
-        {
-            Directory.CreateDirectory(directory);
-            using var frame = editor.Window.CaptureRenderedFrame();
-            Assert.That(frame, Is.Not.Null);
-            frame!.Save(System.IO.Path.Combine(directory, $"path-editor-{width}-{light}.png"), PngBitmapEncoderOptions.Default);
         }
     }
 
@@ -1968,18 +1717,12 @@ public class PathEditorInteractionTests
         public required PathEditorTabView View { get; init; }
         public required Window Window { get; init; }
         private readonly List<IDisposable> _properties = [];
+        private PathEditorView? _overlay;
         public PathSegment[] Selected => View.GetSelectedAnchors().Select(t => (PathSegment)t.DataContext!).ToArray();
 
-        public static async Task<Fixture> Create(bool empty = false, bool light = false, PathFigure? pathFigure = null)
+        public static async Task<Fixture> Create(bool empty = false, PathFigure? pathFigure = null)
         {
-            await TestReset.ResetShellAsync();
-            string root = System.IO.Path.Combine(BeutlHomeIsolation.CurrentHome!, $"path-edit-{Guid.NewGuid():N}");
-            Directory.CreateDirectory(root);
-            var project = (await TestShell.Project.CreateProject(640, 480, 30, 44100, "path-edit", root))!;
-            Scene scene = project.Items.OfType<Scene>().Single();
-            TestShell.Editor.ActivateTabItem(scene);
-            HeadlessTestHelpers.Settle();
-            var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+            (_, Scene scene, EditViewModel editor) = await TestShell.OpenNewSceneAsync("path-edit");
             var figure = pathFigure ?? new PathFigure();
             if (!empty && pathFigure == null)
             {
@@ -2011,7 +1754,7 @@ public class PathEditorInteractionTests
                 Content = view,
                 Width = 640,
                 Height = 420,
-                RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark
+                RequestedThemeVariant = ThemeVariant.Dark
             };
             window.Show();
             HeadlessTestHelpers.Render(3);
@@ -2026,9 +1769,9 @@ public class PathEditorInteractionTests
             return result;
         }
 
-        public static async Task<Fixture> CreateCollapsed(bool last, bool light = false)
+        public static async Task<Fixture> CreateCollapsed(bool last)
         {
-            var fixture = await Create(empty: true, light: light);
+            var fixture = await Create(empty: true);
             var first = PathEditingOperations.Cubic(new(170, 90), new(203.16f, -83.08f), new(203.16f, -83.08f));
             var second = PathEditingOperations.Cubic(first.EndPoint.CurrentValue, new(440, -90), new(430, -20));
             var third = PathEditingOperations.Cubic(new(430, 85), new(310, 155), new(250, 140));
@@ -2051,6 +1794,21 @@ public class PathEditorInteractionTests
             HeadlessTestHelpers.Render(3);
             return fixture;
         }
+
+        // Shows the player's path editor for the figure in place of the tab. Dispose takes it down.
+        public PathEditorView UsePreviewOverlay()
+        {
+            Editor.Player.PathEditor.FigureContext.Value = Model.FigureContext.Value;
+            _overlay = new PathEditorView { DataContext = Editor.Player.PathEditor };
+            Window.Content = _overlay;
+            HeadlessTestHelpers.Render(3);
+            return _overlay;
+        }
+
+        // The anchor thumb of segment in view, the tab or the preview overlay.
+        public static Thumb FindAnchor(IPathEditorView view, PathSegment segment)
+            => ((Control)view).FindControl<Canvas>("canvas")!.Children.OfType<Thumb>()
+                .Single(t => ReferenceEquals(t.DataContext, segment) && !t.Classes.Contains("control"));
 
         private Point WindowPoint(Point point) => ((Control)Window.Content!).FindControl<Canvas>("canvas")!.TranslatePoint(point, Window)!.Value;
 
@@ -2126,6 +1884,11 @@ public class PathEditorInteractionTests
 
         public void Dispose()
         {
+            if (_overlay != null)
+            {
+                _overlay.DataContext = null;
+                Editor.Player.PathEditor.FigureContext.Value = null;
+            }
             View.DataContext = null;
             Window.Close();
             Model.Dispose();

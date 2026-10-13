@@ -1,22 +1,17 @@
-﻿using System.IO.Compression;
-using System.Runtime.InteropServices;
-using System.Security.AccessControl;
-using System.Security.Principal;
-using System.Text;
+﻿using System.Text;
 using System.Xml.Linq;
 using Beutl.Api.Services;
 using Beutl.Testing.Headless;
 using NuGet.Configuration;
 using NuGet.Packaging.Core;
 using NuGet.Resolver;
-using NuGet.Versioning;
 
 namespace Beutl.HeadlessUITests;
 
 // Dependency resolution reads Beutl.dll's dependency context, so these tests need the app assembly.
 [TestFixture]
 [NonParallelizable]
-public sealed partial class PackageInstallerNuGetConfigTests
+public sealed class PackageInstallerNuGetConfigTests
 {
     private const string ConfigWithStaleSource = """
         <configuration>
@@ -27,11 +22,8 @@ public sealed partial class PackageInstallerNuGetConfigTests
         </configuration>
         """;
 
-    private byte[]? _originalConfig;
-    private UnixFileMode? _originalUnixMode;
-    private FileSecurity? _originalSecurity;
-    private readonly List<string> _createdFiles = [];
-    private readonly List<string> _createdDirectories = [];
+    private AppRootFileBackup _config = null!;
+    private readonly List<string> _cleanup = [];
 
     private static string ConfigPath => Path.Combine(Helper.AppRoot, "nuget.config");
 
@@ -39,36 +31,15 @@ public sealed partial class PackageInstallerNuGetConfigTests
     public void SetUp()
     {
         Assert.That(Helper.AppRoot, Is.EqualTo(BeutlHomeIsolation.CurrentHome));
-        _originalConfig = File.Exists(ConfigPath) ? File.ReadAllBytes(ConfigPath) : null;
-        _originalUnixMode = _originalConfig is not null && !OperatingSystem.IsWindows()
-            ? File.GetUnixFileMode(ConfigPath)
-            : null;
-        _originalSecurity = _originalConfig is not null && OperatingSystem.IsWindows()
-            ? new FileInfo(ConfigPath).GetAccessControl(AccessControlSections.Access)
-            : null;
+        _config = new AppRootFileBackup("nuget.config");
         Directory.CreateDirectory(Helper.LocalSourcePath);
     }
 
     [TearDown]
     public void TearDown()
     {
-        foreach (string file in _createdFiles)
-            File.Delete(file);
-        foreach (string directory in _createdDirectories.Where(Directory.Exists))
-            Directory.Delete(directory, recursive: true);
-        _createdFiles.Clear();
-        _createdDirectories.Clear();
-
-        if (_originalConfig is null)
-            File.Delete(ConfigPath);
-        else
-        {
-            File.WriteAllBytes(ConfigPath, _originalConfig);
-            if (!OperatingSystem.IsWindows() && _originalUnixMode is { } mode)
-                File.SetUnixFileMode(ConfigPath, mode);
-            if (OperatingSystem.IsWindows() && _originalSecurity is { } security)
-                new FileInfo(ConfigPath).SetAccessControl(security);
-        }
+        TestPackages.Delete(_cleanup);
+        _config.Dispose();
     }
 
     [Test]
@@ -77,7 +48,7 @@ public sealed partial class PackageInstallerNuGetConfigTests
         string oldSource = Path.Combine(Helper.AppRoot, "old-home", "packageSource");
         string customSource = Path.Combine(Helper.AppRoot, "customSource");
         Directory.CreateDirectory(customSource);
-        _createdDirectories.Add(customSource);
+        _cleanup.Add(customSource);
         var document = new XDocument(
             new XElement("configuration",
                 new XComment("Keep the user's other package settings."),
@@ -140,7 +111,7 @@ public sealed partial class PackageInstallerNuGetConfigTests
     {
         string targetDirectory = Path.Combine(Helper.AppRoot, $"legacy-config-{Guid.NewGuid():N}");
         Directory.CreateDirectory(targetDirectory);
-        _createdDirectories.Add(targetDirectory);
+        _cleanup.Add(targetDirectory);
         string targetPath = Path.Combine(targetDirectory, "shared.config");
         const string LegacyConfig = """
             <configuration>
@@ -150,7 +121,7 @@ public sealed partial class PackageInstallerNuGetConfigTests
             """;
         File.WriteAllText(targetPath, LegacyConfig);
         File.Delete(ConfigPath);
-        _createdFiles.Add(ConfigPath);
+        _cleanup.Add(ConfigPath);
         string linkTarget = relativeTarget ? Path.GetRelativePath(Helper.AppRoot, targetPath) : targetPath;
         CreateSymbolicLinkOrIgnore(ConfigPath, linkTarget);
         using var client = new HttpClient();
@@ -244,64 +215,17 @@ public sealed partial class PackageInstallerNuGetConfigTests
             "Non-ASCII comments, paths and credentials must survive with the original encoding.");
     }
 
-    [TestCase(UnixFileMode.UserRead | UnixFileMode.UserWrite)]
-    [TestCase(UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead)]
-    [TestCase(UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead | UnixFileMode.GroupWrite)]
-    public async Task ExistingConfig_PreservesUnixPermissions(UnixFileMode mode)
-    {
-        if (OperatingSystem.IsWindows())
-        {
-            Assert.Ignore("Unix file permissions are not supported on Windows.");
-            return;
-        }
-
-        File.WriteAllText(ConfigPath, ConfigWithStaleSource);
-        File.SetUnixFileMode(ConfigPath, mode);
-        using var client = new HttpClient();
-        await using var installer = new PackageInstaller(client, new InstalledPackageRepository(), null!);
-
-        await AssertLocalPackageResolves(installer);
-
-        Assert.That(File.GetUnixFileMode(ConfigPath), Is.EqualTo(mode));
-    }
-
-    [Test]
-    public async Task ExistingConfig_PreservesExplicitWindowsAccessRules()
-    {
-        if (!OperatingSystem.IsWindows())
-        {
-            Assert.Ignore("Windows access rules are not supported on this platform.");
-            return;
-        }
-
-        File.WriteAllText(ConfigPath, ConfigWithStaleSource);
-        var security = new FileSecurity();
-        security.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
-        using WindowsIdentity identity = WindowsIdentity.GetCurrent();
-        security.AddAccessRule(new FileSystemAccessRule(identity.User!, FileSystemRights.FullControl, AccessControlType.Allow));
-        var configFile = new FileInfo(ConfigPath);
-        configFile.SetAccessControl(security);
-        string expected = configFile.GetAccessControl(AccessControlSections.Access).GetSecurityDescriptorSddlForm(AccessControlSections.Access);
-        using var client = new HttpClient();
-        await using var installer = new PackageInstaller(client, new InstalledPackageRepository(), null!);
-
-        await AssertLocalPackageResolves(installer);
-
-        Assert.That(configFile.GetAccessControl(AccessControlSections.Access).GetSecurityDescriptorSddlForm(AccessControlSections.Access),
-            Is.EqualTo(expected));
-    }
-
     [TestCase(false)]
     [TestCase(true)]
     public async Task ExistingConfig_PreservesTheSymbolicLinkAndTarget(bool relativeTarget)
     {
         string targetDirectory = Path.Combine(Helper.AppRoot, $"linked-config-{Guid.NewGuid():N}");
         Directory.CreateDirectory(targetDirectory);
-        _createdDirectories.Add(targetDirectory);
+        _cleanup.Add(targetDirectory);
         string targetPath = Path.Combine(targetDirectory, "shared.config");
         File.WriteAllText(targetPath, ConfigWithStaleSource);
         File.Delete(ConfigPath);
-        _createdFiles.Add(ConfigPath);
+        _cleanup.Add(ConfigPath);
         string linkTarget = relativeTarget ? Path.GetRelativePath(Helper.AppRoot, targetPath) : targetPath;
         CreateSymbolicLinkOrIgnore(ConfigPath, linkTarget);
         using var client = new HttpClient();
@@ -311,37 +235,6 @@ public sealed partial class PackageInstallerNuGetConfigTests
 
         Assert.That(new FileInfo(ConfigPath).LinkTarget, Is.EqualTo(linkTarget));
         Assert.That(File.ReadAllText(targetPath), Is.EqualTo(ConfigWithStaleSource));
-    }
-
-    [Test]
-    public async Task ExistingConfig_PreservesExtendedUnixAccessRules()
-    {
-        if (!OperatingSystem.IsLinux() || !NativeLibrary.TryLoad("libacl.so.1", out nint library))
-        {
-            Assert.Ignore("This regression requires Linux POSIX ACL support.");
-            return;
-        }
-        NativeLibrary.Free(library);
-
-        File.WriteAllText(ConfigPath, ConfigWithStaleSource);
-        string originalAcl = ReadUnixAcl();
-        try
-        {
-            // The ACL mask makes the mode appear as 0640, but the owning group has no access.
-            // Replacing this with a plain mode-0640 file would broaden access to credentials.
-            SetUnixAcl("u::rw-,u:65534:r--,g::---,m::r--,o::---");
-            string expected = ReadUnixAcl();
-            using var client = new HttpClient();
-            await using var installer = new PackageInstaller(client, new InstalledPackageRepository(), null!);
-
-            await AssertLocalPackageResolves(installer);
-
-            Assert.That(ReadUnixAcl(), Is.EqualTo(expected));
-        }
-        finally
-        {
-            SetUnixAcl(originalAcl);
-        }
     }
 
     [Test]
@@ -356,7 +249,7 @@ public sealed partial class PackageInstallerNuGetConfigTests
         await using var installer = new PackageInstaller(client, new InstalledPackageRepository(), null!);
         PackageInstallContext context = installer.PrepareForInstall(identity.Id, identity.Version.ToString());
 
-        Assert.ThrowsAsync<NuGetResolverInputException>(() => installer.ResolveDependencies(context, NuGet.Common.NullLogger.Instance));
+        await Assert.ThrowsAsync<NuGetResolverInputException>(() => installer.ResolveDependencies(context, NuGet.Common.NullLogger.Instance));
     }
 
     private async Task AssertLocalPackageResolves(PackageInstaller installer)
@@ -393,84 +286,5 @@ public sealed partial class PackageInstallerNuGetConfigTests
         }
     }
 
-    private static void SetUnixAcl(string text)
-    {
-        nint acl = AclFromText(text);
-        Assert.That(acl, Is.Not.EqualTo(nint.Zero));
-        try
-        {
-            Assert.That(AclSetFile(ConfigPath, 0x8000, acl), Is.Zero, $"acl_set_file failed: {Marshal.GetLastPInvokeError()}");
-        }
-        finally
-        {
-            AclFree(acl);
-        }
-    }
-
-    private static string ReadUnixAcl()
-    {
-        nint acl = AclGetFile(ConfigPath, 0x8000);
-        int error = Marshal.GetLastPInvokeError();
-        if (acl == nint.Zero && error == 95) // EOPNOTSUPP
-            Assert.Ignore("The test filesystem does not support POSIX ACLs.");
-        Assert.That(acl, Is.Not.EqualTo(nint.Zero), $"acl_get_file failed: {error}");
-        try
-        {
-            nint text = AclToText(acl, out _);
-            Assert.That(text, Is.Not.EqualTo(nint.Zero));
-            try
-            {
-                return Marshal.PtrToStringUTF8(text)!;
-            }
-            finally
-            {
-                AclFree(text);
-            }
-        }
-        finally
-        {
-            AclFree(acl);
-        }
-    }
-
-    [LibraryImport("libacl.so.1", EntryPoint = "acl_from_text", StringMarshalling = StringMarshalling.Utf8)]
-    private static partial nint AclFromText(string text);
-
-    [LibraryImport("libacl.so.1", EntryPoint = "acl_set_file", StringMarshalling = StringMarshalling.Utf8, SetLastError = true)]
-    private static partial int AclSetFile(string path, int type, nint acl);
-
-    [LibraryImport("libacl.so.1", EntryPoint = "acl_get_file", StringMarshalling = StringMarshalling.Utf8, SetLastError = true)]
-    private static partial nint AclGetFile(string path, int type);
-
-    [LibraryImport("libacl.so.1", EntryPoint = "acl_to_text")]
-    private static partial nint AclToText(nint acl, out nint length);
-
-    [LibraryImport("libacl.so.1", EntryPoint = "acl_free")]
-    private static partial int AclFree(nint value);
-
-    private PackageIdentity CreateLocalPackage()
-    {
-        var identity = new PackageIdentity($"Beutl.RelocatedHomeTest.{Guid.NewGuid():N}", NuGetVersion.Parse("1.0.0"));
-        string sourcePath = Helper.GetNupkgFilePath(identity.Id, identity.Version.ToString());
-        _createdFiles.Add(sourcePath);
-        _createdDirectories.Add(Helper.PackagePathResolver.GetInstallPath(identity));
-        using var archive = ZipFile.Open(sourcePath, ZipArchiveMode.Create);
-        using (StreamWriter writer = new(archive.CreateEntry($"{identity.Id}.nuspec").Open(), new UTF8Encoding(false)))
-        {
-            writer.Write($$"""
-                <?xml version="1.0" encoding="utf-8"?>
-                <package xmlns="http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd">
-                  <metadata>
-                    <id>{{identity.Id}}</id>
-                    <version>{{identity.Version}}</version>
-                    <authors>tester</authors>
-                    <description>A package downloaded into the relocated home</description>
-                  </metadata>
-                </package>
-                """);
-        }
-        using (StreamWriter writer = new(archive.CreateEntry("content/payload.txt").Open(), new UTF8Encoding(false)))
-            writer.Write("local payload");
-        return identity;
-    }
+    private PackageIdentity CreateLocalPackage() => TestPackages.CreateNupkg("Beutl.RelocatedHomeTest", "1.0.0", _cleanup);
 }

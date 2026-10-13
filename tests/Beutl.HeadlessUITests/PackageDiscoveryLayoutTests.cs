@@ -12,18 +12,7 @@ public class PackageDiscoveryLayoutTests
     [AvaloniaTest]
     public void Package_grid_realizes_and_wraps_items_with_the_current_items_repeater()
     {
-        // The discovery pages use the layout included in Beutl.Controls.
-        var repeater = new ItemsRepeater
-        {
-            ItemsSource = new[] { "one", "two", "three", "four" },
-            ItemTemplate = new FuncDataTemplate<string>((text, _) => new TextBlock { Text = text, Height = 40 }),
-            Layout = new HorizontalGridLayout
-            {
-                MinItemWidth = 345,
-                ColumnSpacing = 16,
-                RowSpacing = 16,
-            },
-        };
+        ItemsRepeater repeater = CreateRepeater();
         var window = new Window { Content = repeater, Width = 740, Height = 300 };
 
         try
@@ -53,8 +42,7 @@ public class PackageDiscoveryLayoutTests
     [AvaloniaTest]
     public void Resizing_the_window_reflows_items_into_one_column()
     {
-        var layout = new HorizontalGridLayout { MinItemWidth = 345, ColumnSpacing = 16, RowSpacing = 16 };
-        ItemsRepeater repeater = CreateRepeater(layout);
+        ItemsRepeater repeater = CreateRepeater();
         var window = new Window { Content = repeater, Width = 740, Height = 300 };
         try
         {
@@ -83,14 +71,14 @@ public class PackageDiscoveryLayoutTests
     [AvaloniaTest]
     public void Changing_column_limit_and_spacing_updates_existing_items()
     {
-        var layout = new HorizontalGridLayout { MinItemWidth = 345, ColumnSpacing = 16, RowSpacing = 16 };
-        ItemsRepeater repeater = CreateRepeater(layout);
+        ItemsRepeater repeater = CreateRepeater();
         var window = new Window { Content = repeater, Width = 740, Height = 300 };
         try
         {
             window.Show();
             HeadlessTestHelpers.Render();
 
+            var layout = (HorizontalGridLayout)repeater.Layout!;
             layout.MaxColumns = 1;
             HeadlessTestHelpers.Render();
             Assert.That(repeater.TryGetElement(1)!.Bounds.Y, Is.GreaterThan(repeater.TryGetElement(0)!.Bounds.Bottom));
@@ -119,8 +107,7 @@ public class PackageDiscoveryLayoutTests
     [AvaloniaTest]
     public void Removing_all_items_clears_the_measured_height()
     {
-        var layout = new HorizontalGridLayout { MinItemWidth = 345, ColumnSpacing = 16, RowSpacing = 16 };
-        ItemsRepeater repeater = CreateRepeater(layout);
+        ItemsRepeater repeater = CreateRepeater();
         var window = new Window { Content = repeater, Width = 740, Height = 300 };
         try
         {
@@ -143,10 +130,11 @@ public class PackageDiscoveryLayoutTests
         }
     }
 
-    private static ItemsRepeater CreateRepeater(HorizontalGridLayout layout) => new()
+    // Four items in the layout from Beutl.Controls that the discovery pages use.
+    private static ItemsRepeater CreateRepeater() => new()
     {
         ItemsSource = new[] { "one", "two", "three", "four" },
         ItemTemplate = new FuncDataTemplate<string>((text, _) => new TextBlock { Text = text, Height = 40 }),
-        Layout = layout,
+        Layout = new HorizontalGridLayout { MinItemWidth = 345, ColumnSpacing = 16, RowSpacing = 16 },
     };
 }

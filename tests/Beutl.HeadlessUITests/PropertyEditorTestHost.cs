@@ -47,6 +47,25 @@ internal static class PropertyEditorTestHost
         return ((BaseEditorViewModel)context!, control);
     }
 
+    // The contexts and those nested in their groups, depth first, with the groups themselves when includeGroups is true.
+    public static IEnumerable<IPropertyEditorContext> Flatten(IEnumerable<IPropertyEditorContext?> contexts, bool includeGroups)
+    {
+        foreach (IPropertyEditorContext? context in contexts)
+        {
+            if (context is PropertyEditorGroupContext group)
+            {
+                if (includeGroups)
+                    yield return group;
+                foreach (IPropertyEditorContext nested in Flatten(group.Properties, includeGroups))
+                    yield return nested;
+            }
+            else if (context is not null)
+            {
+                yield return context;
+            }
+        }
+    }
+
     public sealed class HistoryScope : IDisposable
     {
         private readonly CoreObjectOperationObserver _observer;

@@ -49,18 +49,32 @@ internal static class TestShell
         return (EditViewModel)Editor.SelectedTabItem.Value!.Context.Value;
     }
 
-    // Resets the shell, creates a project in a new folder under BEUTL_HOME and opens its scene.
+    // Resets the shell unless reset is false, creates a project in a new folder under BEUTL_HOME and opens
+    // its scene, after giving the scene the duration when one is given.
     public static async Task<(Project Project, Scene Scene, EditViewModel Editor)> OpenNewSceneAsync(
-        string name, int width = 640, int height = 480)
+        string name, int width = 640, int height = 480, int frameRate = 30, int sampleRate = 44100,
+        TimeSpan? duration = null, bool reset = true)
     {
-        await TestReset.ResetShellAsync();
+        if (reset)
+            await TestReset.ResetShellAsync();
         string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, $"{name}-{Guid.NewGuid():N}");
         Directory.CreateDirectory(location);
-        Project project = (await Project.CreateProject(width, height, 30, 44100, name, location))!;
+        Project project = (await Project.CreateProject(width, height, frameRate, sampleRate, name, location))!;
         Scene scene = project.Items.OfType<Scene>().Single();
+        if (duration is { } length)
+            scene.Duration = length;
         Editor.ActivateTabItem(scene);
         HeadlessTestHelpers.Settle();
         return (project, scene, (EditViewModel)Editor.SelectedTabItem.Value!.Context.Value);
+    }
+
+    // Resets the shell, opens the project at projectPath and opens its scene.
+    public static async Task<EditViewModel> ReopenAsync(string projectPath)
+    {
+        await TestReset.ResetShellAsync();
+        await Project.OpenProject(projectPath);
+        Editor.ActivateTabItem(Project.CurrentProject.Value!.Items.OfType<Scene>().Single());
+        return (EditViewModel)Editor.SelectedTabItem.Value!.Context.Value;
     }
 
     // The folder that holds the editor's scene file.

@@ -35,23 +35,8 @@ namespace Beutl.HeadlessUITests;
 [NonParallelizable]
 public class PaletteCommandTests
 {
-    private static string NewWorkspace(string name)
-    {
-        string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, name);
-        Directory.CreateDirectory(location);
-        return location;
-    }
-
-    private static async Task<EditViewModel> OpenEditorForNewScene(string name)
-    {
-        await TestReset.ResetShellAsync();
-        Project project = (await TestShell.Project.CreateProject(
-            640, 480, 30, 44100, name, NewWorkspace(name)))!;
-        HeadlessTestHelpers.Settle();
-        TestShell.Editor.ActivateTabItem(project.Items.OfType<Scene>().First());
-        HeadlessTestHelpers.Settle();
-        return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value!;
-    }
+    private static async Task<EditViewModel> OpenEditorForNewScene(string name, int frameRate = 30)
+        => (await TestShell.OpenNewSceneAsync(name, frameRate: frameRate)).Editor;
 
     private static ContextCommandExecution Execution(
         string commandName, IEditorContext editor, ScriptedInteraction? interaction = null)
@@ -93,17 +78,6 @@ public class PaletteCommandTests
         return palette.FilteredCommands.Single(i => i.Command.Id == $"{typeof(TimelineTabExtension).FullName}.Split");
     }
 
-    private static async Task UntilAsync(Func<bool> predicate, string message)
-    {
-        for (int i = 0; i < 100 && !predicate(); i++)
-        {
-            HeadlessTestHelpers.Settle();
-            await Task.Delay(10);
-        }
-
-        Assert.That(predicate(), Is.True, message);
-    }
-
     [AvaloniaTest]
     public async Task Goto_timecode_asks_for_the_timecode_in_the_palette()
     {
@@ -143,13 +117,7 @@ public class PaletteCommandTests
     [AvaloniaTest]
     public async Task Accepting_the_prefilled_timecode_keeps_a_frame_milliseconds_cannot_name()
     {
-        await TestReset.ResetShellAsync();
-        Project project = (await TestShell.Project.CreateProject(
-            640, 480, 999, 44100, "palette-goto-999fps", NewWorkspace("palette-goto-999fps")))!;
-        HeadlessTestHelpers.Settle();
-        TestShell.Editor.ActivateTabItem(project.Items.OfType<Scene>().First());
-        HeadlessTestHelpers.Settle();
-        var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value!;
+        EditViewModel editor = await OpenEditorForNewScene("palette-goto-999fps", frameRate: 999);
         // 501 / 999 s prints as 00:00:00.501, which snaps back to frame 500.
         TimeSpan frame501 = TimeSpan.FromSeconds(501 / 999d).RoundToRate(999);
         editor.GetService<IEditorClock>()!.CurrentTime.Value = frame501;
@@ -392,10 +360,10 @@ public class PaletteCommandTests
             Assert.That(PaletteSplit(palette).IsEnabled, Is.False, "The playhead is before the clip.");
 
             SetPlayhead(editor, 3);
-            await UntilAsync(() => PaletteSplit(palette).IsEnabled, "Split did not follow the playhead into the clip.");
+            await HeadlessTestHelpers.WaitUntilAsync(() => PaletteSplit(palette).IsEnabled, message: "Split did not follow the playhead into the clip.");
 
             selection.SelectedObject.Value = null;
-            await UntilAsync(() => !PaletteSplit(palette).IsEnabled, "Split did not follow the cleared selection.");
+            await HeadlessTestHelpers.WaitUntilAsync(() => !PaletteSplit(palette).IsEnabled, message: "Split did not follow the cleared selection.");
             Assert.That(palette.Query.Value, Is.Empty);
         }
         finally
@@ -426,7 +394,7 @@ public class PaletteCommandTests
             Assert.That(PaletteSplit(palette).IsEnabled, Is.False, "The selected clip ends before the playhead.");
 
             timeline.SwitchSelectedElement(timeline.GetViewModelFor(second)!);
-            await UntilAsync(() => PaletteSplit(palette).IsEnabled, "Split did not follow the added clip.");
+            await HeadlessTestHelpers.WaitUntilAsync(() => PaletteSplit(palette).IsEnabled, message: "Split did not follow the added clip.");
         }
         finally
         {
@@ -690,11 +658,11 @@ public class PaletteCommandTests
     {
         await TestReset.ResetShellAsync();
         Project first = (await TestShell.Project.CreateProject(
-            640, 480, 30, 44100, "palette-recent-a", NewWorkspace("palette-recent-a")))!;
+            640, 480, 30, 44100, "palette-recent-a", TestShell.NewWorkspace("palette-recent-a")))!;
         string firstPath = first.Uri!.LocalPath;
         await TestShell.Project.CloseProjectAsync();
         await TestShell.Project.CreateProject(
-            640, 480, 30, 44100, "palette-recent-b", NewWorkspace("palette-recent-b"));
+            640, 480, 30, 44100, "palette-recent-b", TestShell.NewWorkspace("palette-recent-b"));
         HeadlessTestHelpers.Settle();
 
         MainViewModel main = TestShell.MainViewModel;

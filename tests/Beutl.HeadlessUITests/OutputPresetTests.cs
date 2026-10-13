@@ -4,10 +4,8 @@ using Beutl.Editor.Services;
 using Beutl.Extensibility;
 using Beutl.Media;
 using Beutl.Media.Encoding;
-using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
-using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Tools;
 
@@ -70,15 +68,16 @@ public sealed class OutputPresetTests
     }
 
     // Renaming the output file keeps the encoder, so the settings move to a new controller. The output size moves
-    // with them, like the frame rate, whether the user typed it or a preset set it.
+    // with them, like the rates, whether the user typed it or a preset set it.
     [AvaloniaTest]
-    public async Task Changing_only_the_destination_keeps_the_output_size()
+    public async Task Changing_only_the_destination_keeps_the_output_size_and_rates()
     {
         EditViewModel editor = await OpenEditor();
         using var output = CreateOutput(editor);
         EncodingController original = output.Controller.Value!;
         original.VideoSettings.DestinationSize = new PixelSize(1280, 720);
-        original.VideoSettings.FrameRate = new Rational(24, 1);
+        original.VideoSettings.FrameRate = new Rational(24000, 1001);
+        original.AudioSettings.SampleRate = 96000;
 
         output.DestinationFile.Value = Path.Combine(Path.GetDirectoryName(original.OutputFile)!, "renamed.mp4");
 
@@ -87,7 +86,8 @@ public sealed class OutputPresetTests
         {
             Assert.That(renamed, Is.Not.SameAs(original));
             Assert.That(renamed.VideoSettings.DestinationSize, Is.EqualTo(new PixelSize(1280, 720)));
-            Assert.That(renamed.VideoSettings.FrameRate, Is.EqualTo(new Rational(24, 1)));
+            Assert.That(renamed.VideoSettings.FrameRate, Is.EqualTo(new Rational(24000, 1001)));
+            Assert.That(renamed.AudioSettings.SampleRate, Is.EqualTo(96000));
             Assert.That(renamed.VideoSettings.SourceSize, Is.EqualTo(s_sceneSize));
         });
     }
@@ -149,17 +149,7 @@ public sealed class OutputPresetTests
     }
 
     private static async Task<EditViewModel> OpenEditor()
-    {
-        await TestReset.ResetShellAsync();
-        string directory = Path.Combine(BeutlHomeIsolation.CurrentHome!, "output-presets-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(directory);
-        Project project = (await TestShell.Project.CreateProject(
-            s_sceneSize.Width, s_sceneSize.Height, 30, 44100, "presets", directory))!;
-        Scene scene = project.Items.OfType<Scene>().First();
-        TestShell.Editor.ActivateTabItem(scene);
-        HeadlessTestHelpers.Settle();
-        return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
-    }
+        => (await TestShell.OpenNewSceneAsync("output-presets", s_sceneSize.Width, s_sceneSize.Height)).Editor;
 
     private static OutputViewModel CreateOutput(EditViewModel editor)
     {
@@ -186,22 +176,5 @@ public sealed class OutputPresetTests
             [nameof(OutputViewModel.VideoSettings)] = EncoderSettingsJson.Serialize(video),
             [nameof(OutputViewModel.AudioSettings)] = EncoderSettingsJson.Serialize(audio)
         };
-    }
-
-    private sealed class TestEncoder(PixelSize defaultSize = default) : ControllableEncodingExtension
-    {
-        public override IEnumerable<string> SupportExtensions() => [".mp4"];
-
-        public override EncodingController CreateController(string file) => new TestController(file, defaultSize);
-    }
-
-    private sealed class TestController(string file, PixelSize defaultSize) : EncodingController(file)
-    {
-        public override VideoEncoderSettings VideoSettings { get; } = new() { DestinationSize = defaultSize };
-
-        public override AudioEncoderSettings AudioSettings { get; } = new();
-
-        public override ValueTask Encode(IFrameProvider frames, ISampleProvider samples, CancellationToken token)
-            => throw new NotSupportedException();
     }
 }

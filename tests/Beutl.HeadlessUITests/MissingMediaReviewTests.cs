@@ -22,25 +22,13 @@ public partial class MissingMediaTests
         await TestReset.ResetShellAsync();
         var editor = await CreateEditorAsync();
         string directory = NewDirectory();
-        byte[] ReadFont(string name)
-        {
-            using var input = typeof(MissingMediaTests).Assembly.GetManifestResourceStream(name)!;
-            using var output = new MemoryStream(); input.CopyTo(output); byte[] bytes = output.ToArray();
-            foreach (var encoding in new[] { System.Text.Encoding.ASCII, System.Text.Encoding.BigEndianUnicode })
-            {
-                byte[] old = encoding.GetBytes("Roboto"); byte[] renamed = encoding.GetBytes("Relink");
-                for (int i = 0; i <= bytes.Length - old.Length; i++)
-                    if (bytes.AsSpan(i, old.Length).SequenceEqual(old)) renamed.CopyTo(bytes, i);
-            }
-            return bytes;
-        }
         string selected = Path.Combine(directory, "z-selected.ttf");
         string conflict = Path.Combine(directory, "a-conflicting.ttf");
         string companion = Path.Combine(directory, "medium.ttf");
         string unreadable = Path.Combine(directory, "locked.ttf");
-        File.WriteAllBytes(selected, ReadFont("ProjectFontSecondFixture.ttf"));
+        File.WriteAllBytes(selected, RelinkFont("ProjectFontSecondFixture.ttf"));
         File.Copy(selected, conflict);
-        File.WriteAllBytes(companion, ReadFont("ProjectFontMediumFixture.ttf"));
+        File.WriteAllBytes(companion, RelinkFont("ProjectFontMediumFixture.ttf"));
         File.Copy(selected, unreadable);
         var family = new FontFamily("Relink");
         using (editor.HistoryManager.SuppressRecording())
@@ -121,10 +109,7 @@ public partial class MissingMediaTests
         await editor.SaveAsync();
         string projectPath = editor.Scene.FindHierarchicalParent<Project>()!.Uri!.LocalPath;
         File.Delete(original);
-        await TestReset.ResetShellAsync();
-        await TestShell.Project.OpenProject(projectPath);
-        TestShell.Editor.ActivateTabItem(TestShell.Project.CurrentProject.Value!.Items.OfType<Scene>().Single());
-        editor = (Beutl.ViewModels.EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+        editor = await TestShell.ReopenAsync(projectPath);
         model = (Model3D)editor.Scene.Children.Single().Objects.Single();
         var added = model.Children.Single(child => child.Name == "User child");
         string addedJson = CoreSerializer.SerializeToJsonObject(added).ToJsonString();

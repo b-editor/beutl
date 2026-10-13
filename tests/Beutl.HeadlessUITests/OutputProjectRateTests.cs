@@ -1,11 +1,8 @@
 ﻿using System.Text.Json.Nodes;
 using Avalonia.Controls;
-using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
-using Avalonia.Media.Imaging;
 using Avalonia.VisualTree;
 using Beutl.Controls.PropertyEditors;
-using Beutl.Extensibility;
 using Beutl.Media;
 using Beutl.Media.Encoding;
 using Beutl.ProjectSystem;
@@ -41,14 +38,6 @@ public sealed class OutputProjectRateTests
                 Assert.That(view.GetVisualDescendants().OfType<NumberEditor<int>>().Select(control => control.Value),
                     Does.Contain(48000));
             });
-
-            if (Environment.GetEnvironmentVariable("BEUTL_OUTPUT_RATES_CAPTURE") is { Length: > 0 } directory)
-            {
-                Directory.CreateDirectory(directory);
-                using var frame = window.CaptureRenderedFrame();
-                Assert.That(frame, Is.Not.Null);
-                frame!.Save(Path.Combine(directory, "project-rates.png"), PngBitmapEncoderOptions.Default);
-            }
         }
         finally
         {
@@ -89,18 +78,6 @@ public sealed class OutputProjectRateTests
     }
 
     [AvaloniaTest]
-    public async Task Changing_destination_preserves_custom_rates()
-    {
-        EditViewModel editor = await OpenEditor();
-        using var output = CreateOutput(editor, new TestEncoder());
-        SetCustomRates(output);
-
-        output.DestinationFile.Value = Path.Combine(BeutlHomeIsolation.CurrentHome!, "renamed.mp4");
-
-        AssertCustomRates(output);
-    }
-
-    [AvaloniaTest]
     public async Task Restoring_profile_preserves_saved_rates()
     {
         EditViewModel editor = await OpenEditor();
@@ -126,16 +103,7 @@ public sealed class OutputProjectRateTests
     }
 
     private static async Task<EditViewModel> OpenEditor()
-    {
-        await TestReset.ResetShellAsync();
-        string directory = Path.Combine(BeutlHomeIsolation.CurrentHome!, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(directory);
-        Project project = (await TestShell.Project.CreateProject(320, 180, 60, 48000, "rates", directory))!;
-        Scene scene = project.Items.OfType<Scene>().First();
-        TestShell.Editor.ActivateTabItem(scene);
-        HeadlessTestHelpers.Settle();
-        return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
-    }
+        => (await TestShell.OpenNewSceneAsync("rates", 320, 180, frameRate: 60, sampleRate: 48000)).Editor;
 
     private static OutputViewModel CreateOutput(EditViewModel editor, TestEncoder encoder)
     {
@@ -161,20 +129,5 @@ public sealed class OutputProjectRateTests
         });
     }
 
-    private class TestEncoder : ControllableEncodingExtension
-    {
-        public override IEnumerable<string> SupportExtensions() => [".mp4"];
-        public override EncodingController CreateController(string file) => new TestController(file);
-    }
-
     private sealed class OtherTestEncoder : TestEncoder;
-
-    private sealed class TestController(string file) : EncodingController(file)
-    {
-        public override VideoEncoderSettings VideoSettings { get; } = new();
-        public override AudioEncoderSettings AudioSettings { get; } = new();
-
-        public override ValueTask Encode(IFrameProvider frames, ISampleProvider samples, CancellationToken token)
-            => throw new NotSupportedException();
-    }
 }

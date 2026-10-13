@@ -5,7 +5,6 @@ using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Beutl.Editor.Components.Helpers;
@@ -15,7 +14,6 @@ using Beutl.Extensibility;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes;
 using Beutl.NodeGraph.Nodes.Utilities;
-using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 
@@ -51,7 +49,6 @@ public class NodeGraphInputTests
         session.PressKey(Key.Home);
         Assert.That(input.CaretIndex, Is.Zero);
         Assert.That(session.Zoom.Matrix, Is.EqualTo(before));
-        await session.Capture($"typing-{key}-{modifiers}");
 
         // The same shortcut is still available after focus returns to the graph.
         Assert.That(session.Zoom.Focus(), Is.True);
@@ -86,7 +83,6 @@ public class NodeGraphInputTests
         session.Zoom.EnableAnimations = true;
         HeadlessTestHelpers.Render(3);
         session.Zoom.SetMatrix(new Matrix(scale, 0, 0, scale, 45, 30), true);
-        await session.Capture($"scroll-before-{width}-{light}");
         foreach (RawInputModifiers modifiers in new[] { RawInputModifiers.None, RawInputModifiers.Shift })
         {
             foreach (Vector delta in new[] { new Vector(0, -1), new Vector(-1, 0), new Vector(-0.4, -0.7), new Vector(0.25, 0.5) })
@@ -106,7 +102,6 @@ public class NodeGraphInputTests
                 session.AssertRenderedPoint(point, before + delta * 50);
             }
         }
-        await session.Capture($"scroll-after-{width}-{light}");
     }
 
     [AvaloniaTest]
@@ -171,7 +166,6 @@ public class NodeGraphInputTests
             });
             session.AssertRenderedPoint(anchor, position);
         }
-        await session.Capture($"pinch-{scale}");
     }
 
     [AvaloniaTest]
@@ -229,14 +223,7 @@ public class NodeGraphInputTests
 
         public static async Task<GraphSession> CreateAsync(Func<PointerWheelEventArgs, bool>? detector = null)
         {
-            await TestReset.ResetShellAsync();
-            string root = Path.Combine(BeutlHomeIsolation.CurrentHome!, $"node-input-{Guid.NewGuid():N}");
-            Directory.CreateDirectory(root);
-            Project project = (await TestShell.Project.CreateProject(640, 480, 30, 44100, "node-input", root))!;
-            Scene scene = project.Items.OfType<Scene>().Single();
-            TestShell.Editor.ActivateTabItem(scene);
-            HeadlessTestHelpers.Settle();
-            var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+            (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("node-input");
             var expression = new ExpressionNode { Position = (24, 24) };
             expression.Expression.Property!.SetValue("1");
             var output = new OutputNode { Position = (320, 96) };
@@ -274,18 +261,6 @@ public class NodeGraphInputTests
                 Assert.That(actual.X, Is.EqualTo(expected.X).Within(0.001));
                 Assert.That(actual.Y, Is.EqualTo(expected.Y).Within(0.001));
             });
-        }
-
-        public async Task Capture(string name)
-        {
-            if (Environment.GetEnvironmentVariable("BEUTL_NODE_INPUT_CAPTURE") is not { Length: > 0 } directory) return;
-            // Let the existing node/editor entrance transitions finish before capturing.
-            await Task.Delay(350);
-            HeadlessTestHelpers.Render(3);
-            Directory.CreateDirectory(directory);
-            using var image = Window.CaptureRenderedFrame();
-            Assert.That(image, Is.Not.Null);
-            image!.Save(Path.Combine(directory, $"{name}.png"), PngBitmapEncoderOptions.Default);
         }
 
         public void Dispose()

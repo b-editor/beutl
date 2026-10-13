@@ -3,18 +3,17 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
-using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor;
 using Beutl.Editor.Observers;
-using Beutl.Extensibility;
 using Beutl.Graphics.Particles;
 using Beutl.Language;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels.Editors;
 using Beutl.Views.Editors;
+using static Beutl.HeadlessUITests.PropertyEditorTestHost;
 
 namespace Beutl.HeadlessUITests;
 
@@ -37,7 +36,7 @@ public sealed class ParticlePrewarmEditorTests
             property.Name is nameof(ParticleEmitter.PrewarmDuration) or nameof(ParticleEmitter.EmissionRate)
                 or nameof(ParticleEmitter.Lifetime) or nameof(ParticleEmitter.LifetimeRandom));
         foreach (var context in model.Properties)
-            context.Accept(new Services(history));
+            context.Accept(ServiceVisitor.For(history));
 
         var view = new PropertiesEditor { DataContext = model };
         var done = new Button { Content = "OK", HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right };
@@ -87,25 +86,11 @@ public sealed class ParticlePrewarmEditorTests
             HeadlessTestHelpers.Render(3);
             Assert.That(editor.Value, Is.EqualTo(TimeSpan.FromSeconds(2.25)));
             Assert.That(input.Text, Is.EqualTo(editor.Value.ToString()));
-
-            if (Environment.GetEnvironmentVariable("BEUTL_PARTICLE_PREWARM_CAPTURE") is { Length: > 0 } directory)
-            {
-                Directory.CreateDirectory(directory);
-                using var image = window.CaptureRenderedFrame();
-                Assert.That(image, Is.Not.Null);
-                image!.Save(Path.Combine(directory, $"prewarm-{language}-{width}.png"), PngBitmapEncoderOptions.Default);
-            }
         }
         finally
         {
             window.Close();
             CultureInfo.CurrentUICulture = originalCulture;
         }
-    }
-
-    private sealed record Services(HistoryManager History) : IServiceProvider, IPropertyEditorContextVisitor
-    {
-        public object? GetService(Type serviceType) => serviceType == typeof(HistoryManager) ? History : null;
-        public void Visit(IPropertyEditorContext context) { }
     }
 }

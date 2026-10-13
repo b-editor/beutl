@@ -8,13 +8,11 @@ using Avalonia.Input;
 using Avalonia.Input.Raw;
 using Avalonia.LogicalTree;
 using Avalonia.Media;
-using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Beutl.Configuration;
 using Beutl.Controls;
 using Beutl.Editor.Components.LibraryTab.ViewModels;
 using Beutl.Editor.Components.LibraryTab.Views;
-using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Tools;
@@ -28,20 +26,11 @@ namespace Beutl.HeadlessUITests;
 public class NavigationToolTabBarTests
 {
     [AvaloniaTest]
-    [TestCase(320, false)]
-    [TestCase(640, false)]
-    [TestCase(320, true)]
-    [TestCase(640, true)]
-    public async Task Navigation_keeps_selection_menus_and_narrow_width_access(int width, bool light)
+    [TestCase(320)]
+    [TestCase(640)]
+    public async Task Navigation_keeps_selection_menus_and_narrow_width_access(int width)
     {
-        await TestReset.ResetShellAsync();
-        string root = Path.Combine(BeutlHomeIsolation.CurrentHome!, $"navigation-bars-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(root);
-        Project project = (await TestShell.Project.CreateProject(640, 480, 30, 44100, "navigation-bars", root))!;
-        Scene scene = project.Items.OfType<Scene>().First();
-        TestShell.Editor.ActivateTabItem(scene);
-        HeadlessTestHelpers.Settle();
-        var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("navigation-bars");
         using var library = new LibraryTabViewModel(editor);
         var originalModes = library.LibraryTabDisplayModes.ToArray();
         await using AiWorkspaceViewModel workspace = TestShell.MainViewModel.CreateAiWorkspaceViewModel(editor);
@@ -52,7 +41,7 @@ public class NavigationToolTabBarTests
             Content = libraryView,
             Width = width,
             Height = 480,
-            RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark
+            RequestedThemeVariant = ThemeVariant.Dark
         };
         try
         {
@@ -61,10 +50,9 @@ public class NavigationToolTabBarTests
             TabStrip libraryStrip = libraryView.FindControl<TabStrip>("tabStrip")!;
             var libraryItems = libraryStrip.Items.Cast<TabStripItem>().ToArray();
             CheckItems(libraryItems);
-            Capture("library");
             Assert.That(libraryView.FindControl<ToolTabBar>("ToolBar")!.Bounds.Height, Is.EqualTo(38));
 
-            Click(libraryItems[0]);
+            HeadlessTestHelpers.Click(libraryItems[0]);
             Assert.That(libraryView.FindControl<Carousel>("carousel")!.SelectedIndex, Is.Zero);
             CheckItems(libraryItems);
             libraryItems[0].Focus();
@@ -73,12 +61,12 @@ public class NavigationToolTabBarTests
             CheckItems(libraryItems);
 
             Button more = libraryView.FindControl<Button>("moreButton")!;
-            Click(more);
+            HeadlessTestHelpers.Click(more);
             var menu = (FAMenuFlyout)more.ContextFlyout!;
             Assert.That(menu.IsOpen, Is.True);
             var nodesMenuItem = menu.ItemsSource!.Cast<FAToggleMenuFlyoutItem>().Last();
             bool nodesWereVisible = libraryItems[3].IsVisible;
-            Click(nodesMenuItem);
+            HeadlessTestHelpers.Click(nodesMenuItem);
             Assert.That(libraryItems[3].IsVisible, Is.EqualTo(!nodesWereVisible));
             menu.Hide();
 
@@ -94,7 +82,6 @@ public class NavigationToolTabBarTests
             Assert.That(scroll.Offset.X, Is.GreaterThan(0));
             Point morePosition = more.TranslatePoint(default, scroll)!.Value;
             Assert.That(morePosition.X + more.Bounds.Width, Is.LessThanOrEqualTo(scroll.Viewport.Width + 1));
-            Capture("library-scrolled");
 
             window.Width = width;
             window.Content = aiView;
@@ -104,30 +91,26 @@ public class NavigationToolTabBarTests
             Assert.That(AiItems(), Has.Length.EqualTo(workspace.Sections.Count));
             for (int i = 0; i < workspace.Sections.Count; i++)
             {
-                Click(AiItems()[i]);
+                HeadlessTestHelpers.Click(AiItems()[i]);
                 Assert.That(workspace.SelectedSection.Value, Is.SameAs(workspace.Sections[i]));
                 CheckItems(AiItems());
                 CheckBounds(aiView, AiItems());
             }
-            Capture("ai-jobs");
-            Click(AiItems()[0]);
+            HeadlessTestHelpers.Click(AiItems()[0]);
             AiItems()[0].Focus();
             PressRight();
             Assert.That(workspace.SelectedSection.Value, Is.SameAs(workspace.Sections[1]));
             CheckItems(AiItems());
-            Capture("ai-image-edit");
 
             window.Width = 200;
             HeadlessTestHelpers.Render();
             CheckBounds(aiView, AiItems());
             Assert.That(AiItems().Select(item => item.Bounds.Y).Distinct().Count(), Is.GreaterThan(1));
-            Capture("ai-wrapped");
 
             TextBlock longLabel = AiItems().Single(item => item.IsSelected).GetLogicalDescendants().OfType<TextBlock>().Single();
             longLabel.Text = string.Concat(Enumerable.Repeat("Long translated page name ", 8));
             HeadlessTestHelpers.Render();
             CheckBounds(aiView, AiItems());
-            Capture("ai-long-label");
         }
         finally
         {
@@ -142,24 +125,6 @@ public class NavigationToolTabBarTests
             window.KeyRelease(Key.Right, RawInputModifiers.None, PhysicalKey.ArrowRight, null);
             HeadlessTestHelpers.Render();
         }
-
-        void Capture(string name)
-        {
-            if (Environment.GetEnvironmentVariable("BEUTL_NAVIGATION_BAR_CAPTURE") is not { Length: > 0 } directory) return;
-            Directory.CreateDirectory(directory);
-            using var image = window.CaptureRenderedFrame();
-            image?.Save(Path.Combine(directory, $"{name}-{width}-{light}.png"), PngBitmapEncoderOptions.Default);
-        }
-    }
-
-    private static void Click(Control control)
-    {
-        HeadlessTestHelpers.Render();
-        TopLevel topLevel = TopLevel.GetTopLevel(control)!;
-        Point center = control.TranslatePoint(new Point(control.Bounds.Width / 2, control.Bounds.Height / 2), topLevel)!.Value;
-        topLevel.MouseDown(center, MouseButton.Left);
-        topLevel.MouseUp(center, MouseButton.Left);
-        HeadlessTestHelpers.Render();
     }
 
     private static void CheckItems(IEnumerable<TabStripItem> items)

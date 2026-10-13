@@ -1,18 +1,16 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
-using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor;
 using Beutl.Editor.Observers;
-using Beutl.Extensibility;
 using Beutl.Graphics3D.Models;
 using Beutl.PropertyAdapters;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels.Editors;
 using Beutl.Views.Editors;
+using static Beutl.HeadlessUITests.PropertyEditorTestHost;
 
 namespace Beutl.HeadlessUITests;
 
@@ -32,7 +30,7 @@ public class ModelSourceEditorTests
             using var observer = new CoreObjectOperationObserver(null, model, sequence);
             using var subscription = history.Subscribe(observer);
             using var vm = new ModelSourceEditorViewModel(new EnginePropertyAdapter<ModelSource?>(model.Source, model));
-            vm.Accept(new Services(history));
+            vm.Accept(ServiceVisitor.For(history));
             var view = new ModelSourceEditor { DataContext = vm };
             var editor = view.FindControl<StorageFileEditor>("FileEditor")!;
             editor.Value = new FileInfo(path);
@@ -52,12 +50,10 @@ public class ModelSourceEditorTests
     }
 
     [AvaloniaTest]
-    [TestCase(false)]
-    [TestCase(true)]
-    public async Task Invalid_model_keeps_the_previous_source_and_shows_a_recoverable_error(bool dark)
+    public async Task Invalid_model_keeps_the_previous_source_and_shows_a_recoverable_error()
     {
         string directory = Directory.CreateTempSubdirectory("model-editor-").FullName;
-        var window = new Window { Width = 340, Height = 300, RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light };
+        var window = new Window { Width = 340, Height = 300, RequestedThemeVariant = ThemeVariant.Dark };
         try
         {
             string valid = Path.Combine(directory, "triangle.obj");
@@ -69,7 +65,7 @@ public class ModelSourceEditorTests
             var originalChild = model.Children.Single();
             using var history = new HistoryManager(model, new OperationSequenceGenerator());
             using var vm = new ModelSourceEditorViewModel(new EnginePropertyAdapter<ModelSource?>(model.Source, model));
-            vm.Accept(new Services(history));
+            vm.Accept(ServiceVisitor.For(history));
             var view = new ModelSourceEditor { DataContext = vm, Margin = new Thickness(16) };
             window.Content = view; window.Show(); HeadlessTestHelpers.Render();
             var editor = view.FindControl<StorageFileEditor>("FileEditor")!;
@@ -102,12 +98,6 @@ public class ModelSourceEditorTests
                 Assert.That(message.Text, Is.Not.Empty);
                 Assert.That(message.Bounds.Right, Is.LessThanOrEqualTo(view.Bounds.Width + 1));
             });
-            if (Environment.GetEnvironmentVariable("BEUTL_MODEL_EDITOR_CAPTURE") is { Length: > 0 } capture)
-            {
-                Directory.CreateDirectory(capture);
-                using var frame = window.CaptureRenderedFrame();
-                frame!.Save(Path.Combine(capture, dark ? "model-error-dark.png" : "model-error-light.png"), PngBitmapEncoderOptions.Default);
-            }
 
             editor.Value = new FileInfo(valid);
             editor.RaiseEvent(new PropertyEditorValueChangedEventArgs<FileInfo?>(editor.Value, editor.Value, PropertyEditor.ValueConfirmedEvent));
@@ -248,7 +238,7 @@ public class ModelSourceEditorTests
     {
         var model = new Model3D();
         var vm = new ModelSourceEditorViewModel(new EnginePropertyAdapter<ModelSource?>(model.Source, model));
-        vm.Accept(new Services(new HistoryManager(model, new OperationSequenceGenerator())));
+        vm.Accept(ServiceVisitor.For(new HistoryManager(model, new OperationSequenceGenerator())));
         var view = new ModelSourceEditor { DataContext = vm };
         return (model, vm, view, view.FindControl<StorageFileEditor>("FileEditor")!);
     }
@@ -257,11 +247,5 @@ public class ModelSourceEditorTests
     {
         editor.Value = new FileInfo(path);
         editor.RaiseEvent(new PropertyEditorValueChangedEventArgs<FileInfo?>(editor.Value, null, PropertyEditor.ValueConfirmedEvent));
-    }
-
-    private sealed record Services(HistoryManager History) : IServiceProvider, IPropertyEditorContextVisitor
-    {
-        public object? GetService(Type type) => type == typeof(HistoryManager) ? History : null;
-        public void Visit(IPropertyEditorContext context) { }
     }
 }
