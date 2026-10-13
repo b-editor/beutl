@@ -39,6 +39,28 @@ public readonly struct TargetRegion
             ? _value
             : throw new InvalidOperationException("Only a finite target region has a Rect value.");
 
+    /// <summary>Resolves this region against <paramref name="domain"/>; only a Full region without one fails.</summary>
+    internal bool TryResolve(Rect? domain, out Rect resolved)
+    {
+        switch (_kind)
+        {
+            case TargetRegionKind.Empty:
+                resolved = Rect.Empty;
+                return true;
+            case TargetRegionKind.Region:
+                resolved = _value;
+                return true;
+            case TargetRegionKind.Full when domain is { } full:
+                resolved = full;
+                return true;
+            case TargetRegionKind.Full:
+                resolved = default;
+                return false;
+            default:
+                throw new InvalidOperationException("The target region is uninitialized.");
+        }
+    }
+
     internal void ThrowIfUninitialized(string parameterName)
     {
         if (_kind == TargetRegionKind.Uninitialized)

@@ -55,22 +55,7 @@ internal sealed partial class NodeRecordingTransaction
     }
 
     private static InvariantScratch RentScratch()
-    {
-        InvariantScratch? scratch = t_scratch;
-        if (scratch is null)
-        {
-            t_scratch = scratch = new InvariantScratch();
-        }
-        else if (scratch.Rented)
-        {
-            // The sweep runs no user code, so an overlapping rent is not expected. Private sets keep the
-            // sharing an allocation win rather than a correctness assumption.
-            return new InvariantScratch { Rented = true };
-        }
-
-        scratch.Rented = true;
-        return scratch;
-    }
+        => t_scratch ??= new InvariantScratch();
 
     private static void ReturnScratch(InvariantScratch scratch)
     {
@@ -85,8 +70,6 @@ internal sealed partial class NodeRecordingTransaction
             scratch.Reachable.TrimExcess();
             scratch.FanOutRestricted.TrimExcess();
         }
-
-        scratch.Rented = false;
     }
 
     // Drop is not transitive and a parent never receives handles to a child's internal fragments.
@@ -125,7 +108,5 @@ internal sealed partial class NodeRecordingTransaction
 
         public HashSet<RenderFragmentReference> FanOutRestricted { get; } =
             new(ReferenceEqualityComparer.Instance);
-
-        public bool Rented { get; set; }
     }
 }

@@ -119,7 +119,7 @@ public sealed class BackdropOrderingTests
         using var snapshot = new SnapshotBackdropRenderNode();
         var fallback = new Bitmap((int)s_domain.Width, (int)s_domain.Height);
         fallback.GetPixelSpan().Fill(byte.MaxValue);
-        ((IBuiltInBackdropCaptureSink)snapshot).CommitBackdropCapture(fallback, density: 1f);
+        ((IBuiltInBackdropCaptureSink)snapshot).TryCommitBackdropCapture(fallback, density: 1f);
         using var draw = new DrawBackdropRenderNode(snapshot, s_drawBounds);
         using var renderer = new RenderNodeRenderer(draw, new RenderNodeRenderRequest
         {

@@ -120,19 +120,7 @@ public readonly struct BrushConstructor(
     }
 
     private Brush.Resource? ResolvePresentedBrush()
-    {
-        Brush.Resource? brush = Brush;
-        HashSet<Brush.Resource>? visited = null;
-        while (brush is BrushPresenter.Resource { Target: { } target } presenter)
-        {
-            visited ??= new HashSet<Brush.Resource>(ReferenceEqualityComparer.Instance);
-            if (!visited.Add(presenter))
-                throw new InvalidOperationException("A BrushPresenter target cycle was detected.");
-            brush = target;
-        }
-
-        return brush;
-    }
+        => BrushPresenter.Resource.ResolveTarget(Brush, "A BrushPresenter target cycle was detected.");
 
     private SKShader? CreateGradientShader(GradientBrush.Resource gradientBrush)
     {

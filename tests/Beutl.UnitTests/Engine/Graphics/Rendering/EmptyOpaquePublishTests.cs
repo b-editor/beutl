@@ -2,7 +2,6 @@
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Media;
-using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
@@ -115,7 +114,7 @@ public sealed class EmptyOpaquePublishTests
             MaxWorkingScale = 1,
             CacheOptions = RenderCacheOptions.Disabled,
             Purpose = RenderRequestPurpose.Frame,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
 
     /// <summary>
     /// A source that shrinks its output before publishing it, read by a map that records what arrived.
@@ -167,21 +166,4 @@ public sealed class EmptyOpaquePublishTests
         private void RecordInput(OpaqueRenderSession session)
             => PublishedInputBounds.Record(session.Inputs.Single().Bounds);
     }
-
-    private sealed class CpuTargetFactory : IRenderTargetFactory
-    {
-        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
-            => new CpuRenderTarget(allocation.DeviceSize.Width, allocation.DeviceSize.Height);
-    }
-
-    private sealed class CpuRenderTarget(int width, int height)
-        : RenderTarget(
-            SKSurface.Create(new SKImageInfo(
-                width,
-                height,
-                SKColorType.RgbaF16,
-                SKAlphaType.Premul,
-                SKColorSpace.CreateSrgbLinear())),
-            width,
-            height);
 }

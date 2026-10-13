@@ -30,64 +30,48 @@ internal sealed partial class RenderRequestExecutor
                 : fragment.EffectiveScale.Value;
             if (!fragment.EffectiveScale.IsUnbounded
                 && (!replayAtExactReduction && fragment.EffectiveScale.Value != destination.Density
-                    || !DirectRenderTargetGeometry.FromCanvas(destination).CanDrawPixelAligned(
+                    || !ImmediateCanvas.CanDrawPixelAligned(
                         fragment.Bounds,
                         replayScale,
-                        PixelRect.FromRect(fragment.Bounds, replayScale).Size)))
+                        PixelRect.FromRect(fragment.Bounds, replayScale).Size,
+                        destination.Density,
+                        destination.Transform)))
             {
                 return false;
             }
 
-            var inputs = new List<MaterializedRenderValue>();
             EffectiveScale outputSupply = fragment.EffectiveScale.IsUnbounded
                 ? callerScale
                 : fragment.EffectiveScale;
             try
             {
+                // The replay session cannot read its inputs, but materializing them completes their islands.
                 for (int inputIndex = 0; inputIndex < fragment.Inputs.Length; inputIndex++)
                 {
                     RenderFragmentReference input = fragment.Inputs[inputIndex];
-                    inputs.AddRange(Materialize(
+                    _ = Materialize(
                         input,
                         destination,
                         input.EffectiveScale.IsUnbounded
                             ? ResolveOpaqueInputCallerScale(fragment, description, inputIndex, outputSupply)
-                            : null));
+                            : null);
                 }
 
                 ExecuteReplayIsland(
                     fragment,
                     () =>
                     {
-                        var images = new List<SKImage>();
                         RenderExecutionSessionToken token = CreateExecutionSessionToken();
-                        try
-                        {
-                            token.RunAndComplete(
-                                () =>
-                                {
-                                    _ = CreateExecutionInputs(
-                                        token,
-                                        inputs,
-                                        requiresReadback: false,
-                                        images);
-                                    using (destination.BeginDirectExecution(token))
-                                    {
-                                        replay(new EngineDirectRenderSession(
-                                            token,
-                                            destination));
-                                    }
-                                });
-                        }
-                        finally
-                        {
-                            // Reverse index walk: the LINQ form buffers the whole list before yielding,
-                            // and this runs in a per-frame teardown path.
-                            for (int index = images.Count - 1; index >= 0; index--)
+                        token.RunAndComplete(
+                            () =>
                             {
-                                images[index].Dispose();
-                            }
-                        }
+                                using (destination.BeginDirectExecution(token))
+                                {
+                                    replay(new EngineDirectRenderSession(
+                                        token,
+                                        destination));
+                                }
+                            });
                     });
                 return true;
             }
@@ -123,7 +107,7 @@ internal sealed partial class RenderRequestExecutor
                     run,
                     _graph,
                     _regions,
-                    DirectRenderTargetGeometry.FromCanvas(destination),
+                    destination,
                     out DirectShaderRunPlan directPlan))
             {
                 return false;
@@ -237,7 +221,6 @@ internal sealed partial class RenderRequestExecutor
                 : null;
             Rect replayedInputBounds = ResolveFragmentRequirement(input, input.Bounds);
             Rect layerContentBounds = GetDirectFilterLayerBounds(
-                input.Bounds,
                 replayedInputBounds,
                 materializedInput is { Count: 1 } ? materializedInput[0].RasterBounds : null);
             ExecuteSegment(chainIndex: 0);
@@ -321,10 +304,12 @@ internal sealed partial class RenderRequestExecutor
         /// <paramref name="destination"/>, so copying it costs nothing.
         /// </summary>
         private static bool CanCopyPixelsToDestination(Rect bounds, ImmediateCanvas destination)
-            => DirectRenderTargetGeometry.FromCanvas(destination).CanDrawPixelAligned(
+            => ImmediateCanvas.CanDrawPixelAligned(
                 bounds,
                 destination.Density,
-                PixelRect.FromRect(bounds, destination.Density).Size);
+                PixelRect.FromRect(bounds, destination.Density).Size,
+                destination.Density,
+                destination.Transform);
 
         private void DrawMaterializedFragment(
             RenderFragmentReference fragment,

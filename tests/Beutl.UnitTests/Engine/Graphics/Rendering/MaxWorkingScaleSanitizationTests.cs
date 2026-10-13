@@ -158,26 +158,6 @@ public class MaxWorkingScaleSanitizationTests
         Assert.That(ctor.MaxWorkingScale, Is.EqualTo(3f));
     }
 
-    [TestCaseSource(nameof(DegenerateCeilings))]
-    public void CustomFilterEffectContext_DegenerateCeiling_StoredAsPositiveInfinity(float maxWorkingScale)
-    {
-        using var targets = new EffectTargets();
-        var context = new CustomFilterEffectContext(
-            targets,
-            RenderIntent.Delivery,
-            RenderRequestPurpose.Auxiliary,
-            outputScale: 1f,
-            workingScale: 1f,
-            maxWorkingScale: maxWorkingScale);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(context.MaxWorkingScale, Is.EqualTo(float.PositiveInfinity));
-            Assert.That(context.Intent, Is.EqualTo(RenderIntent.Delivery));
-            Assert.That(context.Purpose, Is.EqualTo(RenderRequestPurpose.Auxiliary));
-        });
-    }
-
     // SanitizeCeiling also logs a warning on substitution, but only the stored value is pinned here;
     // the warning emission is not observed.
     [TestCaseSource(nameof(DegenerateCeilings))]

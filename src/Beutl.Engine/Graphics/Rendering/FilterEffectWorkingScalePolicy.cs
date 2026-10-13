@@ -217,7 +217,7 @@ internal readonly record struct FilterEffectWorkingScalePolicy
             {
                 case IFEItem_Skia:
                     Rect previousSemanticBounds = semanticBounds;
-                    if (item is IFEItem_Skia { ResolveBoundsAtExecutionTime: true })
+                    if (item is IFEItem_DeferredBounds)
                     {
                         // A deferred-bound item resolves at execution time; its authoring-time
                         // footprint is unknown, so the segment stays symbolic and conservative.
@@ -340,7 +340,7 @@ internal readonly record struct FilterEffectWorkingScalePolicy
         Rect previous = NormalizeEffectItemSemanticBounds(previousSemanticBounds, fallbackBounds);
         Rect current = NormalizeEffectItemSemanticBounds(semanticBounds, fallbackBounds);
         var result = new Rect[retainedBackingOffsets.Count];
-        bool deferred = item is IFEItem_Skia { ResolveBoundsAtExecutionTime: true };
+        bool deferred = item is IFEItem_DeferredBounds;
         for (int index = 0; index < retainedBackingOffsets.Count; index++)
         {
             Rect physicalBounds = retainedBackingOffsets[index].Translate(previous.Position);

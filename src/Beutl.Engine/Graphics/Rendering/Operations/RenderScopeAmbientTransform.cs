@@ -5,31 +5,10 @@
 /// transform its ancestors contribute.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <see cref="TransformOperator.Prepend"/> is expressed in the input's own logical space, so it is complete on
-/// its own: the scope maps its input by <see cref="Matrix"/> whatever its ancestors do. The other two are
-/// defined against the ambient transform, and recording cannot see it - a graph is recorded bottom-up, and an
-/// ancestor that derives its own matrix from measured content has none until its recording completes. Such a
-/// scope is recorded provisionally and resolved once the whole graph exists, by
-/// <see cref="Requests.AmbientScopeTransformResolver"/>.
-/// </para>
-/// <para>
-/// Resolution rewrites every composition into the input-space matrix that reaches the same destination, so
-/// bounds, hit testing, density and replay all read one matrix expressed in one space. The ambient here is the
-/// scene's own transform stack and excludes the device grid: a scope's placement is a logical relationship,
-/// and folding the target's density into it would make measurement depend on the resolution it is measured at.
-/// The resolved matrix is composed with whatever the canvas already carries, so an engine-owned raster
-/// alignment that is not part of the scene survives a <see cref="TransformOperator.Set"/> below it.
-/// </para>
-/// <para>
-/// The ambient is what the scene's transform scopes declare, and a scope that places its own replay by writing
-/// the destination matrix instead - which is what <see cref="RenderScopeTransformSpace.AmbientTarget"/> names -
-/// contributes nothing to it, because there is no matrix to compose. A composition nested under such a scope
-/// therefore composes against the scene's declared transforms alone. Measurement and execution still agree
-/// there, since the resolved matrix composes with whatever the canvas carries and the graph composes through
-/// that scope's own declared bounds; what the operator should mean across it is
+/// <see cref="TransformOperator.Prepend"/> is complete as declared. Append and Set depend on the ambient, so
+/// <see cref="Requests.AmbientScopeTransformResolver"/> rewrites them into the input-space matrix after recording.
+/// What they should mean under a <see cref="RenderScopeTransformSpace.AmbientTarget"/> scope is open:
 /// https://github.com/b-editor/beutl/issues/2423.
-/// </para>
 /// </remarks>
 internal readonly record struct RenderScopeAmbientTransform(
     Matrix Matrix,
@@ -44,12 +23,8 @@ internal readonly record struct RenderScopeAmbientTransform(
     /// <paramref name="ambient"/>.
     /// </summary>
     /// <remarks>
-    /// A singular ambient has no input-space matrix at all - every product with a singular matrix is singular -
-    /// and the ancestor that holds it already measures the subtree as empty, because with no inverse it
-    /// declares a full-input contract whose forward mapping collapses whatever its input reports. The
-    /// declaration therefore stands as written there, and a <see cref="TransformOperator.Set"/> stays collapsed
-    /// rather than escaping; letting it escape means detaching the subtree from its ancestors' bounds
-    /// composition, which is tracked by https://github.com/b-editor/beutl/issues/2422.
+    /// A singular ambient has no inverse, so the declaration stands as written
+    /// (https://github.com/b-editor/beutl/issues/2422).
     /// </remarks>
     public Matrix Resolve(Matrix ambient)
     {

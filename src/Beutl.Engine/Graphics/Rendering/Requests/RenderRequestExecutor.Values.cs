@@ -184,12 +184,7 @@ internal sealed partial class RenderRequestExecutor
         private void ReleaseUnpublished(MaterializedRenderValue value)
         {
             if (_ownedValues.Remove(value))
-                DisposeOwnedValue(value);
-        }
-
-        private void DisposeOwnedValue(MaterializedRenderValue value)
-        {
-            value.Dispose();
+                value.Dispose();
         }
 
         private EffectiveScale ResolveConcreteScale(RenderFragmentReference fragment)
@@ -287,7 +282,6 @@ internal sealed partial class RenderRequestExecutor
                     bounds,
                     effectiveScale,
                     deviceBounds,
-                    ownsTarget: true,
                     deviceGridOffset: deviceGridOffset,
                     completeBounds: completeBounds,
                     preserveImperativeRasterPlacement: preserveImperativeRasterPlacement);

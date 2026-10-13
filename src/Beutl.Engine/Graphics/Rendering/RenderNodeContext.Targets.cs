@@ -36,15 +36,9 @@ public sealed partial class RenderNodeContext
             RenderFragmentHitTest.FromContract(description.HitTest, description.Resources));
     }
 
-    internal RenderFragmentHandle BuiltInBackdropCapture(object identity)
+    internal RenderFragmentHandle BuiltInBackdropCapture(IBuiltInBackdropCaptureSink identity)
     {
         ArgumentNullException.ThrowIfNull(identity);
-        if (identity is not IBuiltInBackdropCaptureSink)
-        {
-            throw new ArgumentException(
-                "A built-in backdrop capture identity must accept successful fallback publication.",
-                nameof(identity));
-        }
         NodeRecordingTransaction transaction = GetTransaction();
         var placeholder = new Rect(0, 0, 1, 1);
         var description = TargetCaptureDescription.Create(

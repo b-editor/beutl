@@ -93,12 +93,26 @@ public abstract partial class ClipTransition : EngineObject
         }
 
         // The colour a dip passes through, as a resource of a brush owned by the transition.
-        private protected void UpdateDipFill(
-            ref SolidColorBrush? brush, ref SolidColorBrush.Resource? fill, Media.Color color, CompositionContext context)
+        private protected sealed class DipFill
         {
-            brush ??= new SolidColorBrush();
-            brush.Color.CurrentValue = color;
-            Reconcile(brush, ref fill, context);
+            private SolidColorBrush? _brush;
+            private SolidColorBrush.Resource? _fill;
+
+            public void Update(Resource owner, Media.Color color, CompositionContext context)
+            {
+                _brush ??= new SolidColorBrush();
+                _brush.Color.CurrentValue = color;
+                owner.Reconcile(_brush, ref _fill, context);
+            }
+
+            public void Draw(ClipTransitionContext context) => context.DrawThrough(_fill);
+
+            public void Dispose()
+            {
+                _fill?.Dispose();
+                _fill = null;
+                _brush = null;
+            }
         }
     }
 }

@@ -315,7 +315,6 @@ public partial class TextBlock : Drawable
             var fill = Fill.Capture();
             if (fill != _fillCache)
             {
-                _fillCache = fill;
                 _isDirty = true;
             }
 

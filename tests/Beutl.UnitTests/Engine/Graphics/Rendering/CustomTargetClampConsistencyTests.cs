@@ -81,10 +81,9 @@ public class CustomTargetClampConsistencyTests
             float expectedFit = BufferDimensionBudget.Named(TestBufferDimension).ClampWorkingScale(bounds, 2f);
             Assert.That(target.Scale.Value, Is.EqualTo(expectedFit).Within(1e-4));
 
-            // Open must tag the canvas with the clamped density.
             using ImmediateCanvas canvas = context.Open(target);
             Assert.That(canvas.SurfaceDensity, Is.EqualTo(target.Scale.Value).Within(1e-4),
-                "Open must tag the canvas with the clamped density (#6 desync fix), not context.WorkingScale (2.0)");
+                "Open must tag the canvas with the clamped density, not context.WorkingScale (2.0)");
             Assert.That(canvas.SurfaceDensity, Is.LessThan(2f));
         });
     }

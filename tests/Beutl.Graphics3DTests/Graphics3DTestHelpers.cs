@@ -1,6 +1,7 @@
 ﻿using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Requests;
+using Beutl.Graphics.Shaders;
 using Beutl.Media;
 
 namespace Beutl.Graphics3DTests;
@@ -42,7 +43,7 @@ internal static class Graphics3DTestHelpers
         try
         {
             RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(root);
-            return new RenderRequestCompiler().Compile(request, graph);
+            return new RenderRequestCompiler().Compile(request, graph, SkslBackendBudgetResolver.Portable);
         }
         catch
         {

@@ -1,5 +1,4 @@
 ﻿using System.Collections.Immutable;
-using System.Runtime.ExceptionServices;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Media;
@@ -122,11 +121,7 @@ internal sealed partial class RenderRequestExecutor
                     (failures ??= []).Add(ex);
                 }
             }
-            if (failures is null)
-                return;
-            if (failures.Count == 1)
-                ExceptionDispatchInfo.Capture(failures[0]).Throw();
-            throw new AggregateException("One or more staged backdrop captures failed to dispose.", failures);
+            CleanupFailures.ThrowIfAny(failures, "One or more staged backdrop captures failed to dispose.");
         }
 
     }

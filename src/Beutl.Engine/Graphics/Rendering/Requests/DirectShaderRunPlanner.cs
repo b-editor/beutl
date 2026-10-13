@@ -3,23 +3,6 @@ using Beutl.Media;
 
 namespace Beutl.Graphics.Rendering.Requests;
 
-internal readonly record struct DirectRenderTargetGeometry(float Density, Matrix Transform)
-{
-    public static DirectRenderTargetGeometry FromCanvas(ImmediateCanvas canvas)
-    {
-        ArgumentNullException.ThrowIfNull(canvas);
-        return new DirectRenderTargetGeometry(canvas.Density, canvas.Transform);
-    }
-
-    public bool CanDrawPixelAligned(Rect destination, float sourceDensity, PixelSize sourceSize)
-        => ImmediateCanvas.CanDrawPixelAligned(
-            destination,
-            sourceDensity,
-            sourceSize,
-            Density,
-            Transform);
-}
-
 internal readonly record struct DirectShaderRunPlan(
     Rect OutputBounds,
     Rect RequiredRegion,
@@ -34,7 +17,7 @@ internal static class DirectShaderRunPlanner
         CompiledShaderRun run,
         RecordedRenderGraph graph,
         RegionAnalysis regions,
-        DirectRenderTargetGeometry destination,
+        ImmediateCanvas destination,
         out DirectShaderRunPlan plan)
     {
         plan = default;
@@ -61,10 +44,12 @@ internal static class DirectShaderRunPlanner
 
         PixelRect outputDeviceBounds = PixelRect.FromRect(requiredRegion, density);
         Rect rasterBounds = outputDeviceBounds.ToRect(density);
-        if (!destination.CanDrawPixelAligned(
+        if (!ImmediateCanvas.CanDrawPixelAligned(
                 rasterBounds,
                 density,
-                outputDeviceBounds.Size))
+                outputDeviceBounds.Size,
+                destination.Density,
+                destination.Transform))
         {
             return false;
         }

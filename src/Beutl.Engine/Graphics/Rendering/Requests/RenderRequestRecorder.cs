@@ -322,11 +322,8 @@ internal sealed class RenderRequestRecorder : IRenderRequestRecordingHost
         if (outputs.Count != 1)
             return;
 
-        // A node reachable from more than one parent is recorded once per parent, and each recording would
-        // offer the same RenderNodeCache a candidate of its own. Those outputs are only interchangeable when
-        // both parents demanded the same thing, so the family would sooner or later try to publish two
-        // independent outputs to one cache and fail the frame. The first recording keeps the cache; a later
-        // one renders uncached, which costs work rather than correctness.
+        // A node reachable from several parents offers its cache once; later recordings render uncached, which
+        // costs work, not correctness.
         if (!_cacheCandidateNodes.Add(node))
             return;
 

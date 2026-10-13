@@ -163,7 +163,7 @@ internal sealed partial class RenderRequestExecutor
             }
             catch (Exception ex)
             {
-                AppendCleanupFailures(cleanupFailures, ex);
+                CleanupFailures.Append(cleanupFailures, ex);
                 failure ??= new FamilyExecutionException(
                     ExceptionDispatchInfo.Capture(ex));
             }
@@ -171,7 +171,7 @@ internal sealed partial class RenderRequestExecutor
             lease?.Dispose();
             foreach (Exception cleanupFailure in _targets.GetCleanupFailuresSince(cleanupCheckpoint))
             {
-                AppendCleanupFailures(cleanupFailures, cleanupFailure);
+                CleanupFailures.Append(cleanupFailures, cleanupFailure);
                 failure ??= new FamilyExecutionException(
                     ExceptionDispatchInfo.Capture(cleanupFailure));
             }
@@ -206,8 +206,7 @@ internal sealed partial class RenderRequestExecutor
             _targets,
             programCache,
             spirvProgramCache,
-            _shaderBackendPreference,
-            _afterCaptureAllocation);
+            _shaderBackendPreference);
         if (nestedPreviewDropObserved)
             state.MarkPreviewAllocationDropped();
 
@@ -257,7 +256,7 @@ internal sealed partial class RenderRequestExecutor
         }
         catch (Exception ex)
         {
-            AppendCleanupFailures(cleanupFailures, ex);
+            CleanupFailures.Append(cleanupFailures, ex);
             cleanupFailure = ExceptionDispatchInfo.Capture(
                 ex is AggregateException aggregate
                     ? aggregate.Flatten().InnerExceptions[0]
@@ -348,36 +347,6 @@ internal sealed partial class RenderRequestExecutor
 
     private sealed class PreviewAllocationDropException : Exception
     {
-    }
-
-    private static void AppendCleanupFailures(
-        ICollection<Exception> failures,
-        Exception exception)
-    {
-        if (exception is AggregateException aggregate)
-        {
-            foreach (Exception inner in aggregate.Flatten().InnerExceptions)
-            {
-                AddCleanupFailure(failures, inner);
-            }
-        }
-        else
-        {
-            AddCleanupFailure(failures, exception);
-        }
-    }
-
-    private static void AddCleanupFailure(
-        ICollection<Exception> failures,
-        Exception exception)
-    {
-        foreach (Exception existing in failures)
-        {
-            if (ReferenceEquals(existing, exception))
-                return;
-        }
-
-        failures.Add(exception);
     }
 
     private static void RecordAdditionalFailures(

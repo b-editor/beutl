@@ -14,7 +14,7 @@ public sealed partial class MinMaxBarWaveformShape : WaveformShape
         ScanProperties<MinMaxBarWaveformShape>();
     }
 
-    // 0 にすると slotWidth から自動決定（従来の WaveformStyle.MinMaxBar と同じ挙動）。
+    // 0 にすると slotWidth から自動決定。
     [Display(Name = nameof(GraphicsStrings.SpectrumShape_BarWidth), ResourceType = typeof(GraphicsStrings))]
     [Range(0f, 10000f)]
     public IProperty<float> BarWidth { get; } = Property.CreateAnimatable(0f);
@@ -29,57 +29,20 @@ public sealed partial class MinMaxBarWaveformShape : WaveformShape
         private SKPathBuilder? _builder;
 
         protected internal override void Render(in WaveformRenderContext context)
-        {
-            ImmediateCanvas canvas = context.Canvas;
-            Rect bounds = context.Bounds;
-            ReadOnlySpan<float> mins = context.Mins;
-            ReadOnlySpan<float> maxs = context.Maxs;
-            float gain = context.Gain;
-            Brush.Resource fill = context.Fill;
-
-            int barCount = mins.Length;
-            if (barCount == 0) return;
-
-            float width = (float)bounds.Width;
-            float height = (float)bounds.Height;
-            float centerY = (float)bounds.Y + height * 0.5f;
-            float halfHeight = height * 0.5f;
-            float slotWidth = width / barCount;
-            float barWidth = BarGeometry.ResolveWidth(BarWidth, slotWidth);
-            float offsetX = (slotWidth - barWidth) * 0.5f;
-
-            CornerRadius cr = CornerRadius;
-            bool round = !cr.IsEmpty;
-
-            if (round)
-            {
-                BarGeometry.BeginRoundedBars(ref _paint, ref _builder, canvas, bounds, fill);
-            }
-
-            for (int i = 0; i < barCount; i++)
-            {
-                float min = Math.Clamp(mins[i] * gain, -1f, 1f);
-                float max = Math.Clamp(maxs[i] * gain, -1f, 1f);
-                float topY = centerY - max * halfHeight;
-                float bottomY = centerY - min * halfHeight;
-                float barHeight = MathF.Max(1f, bottomY - topY);
-                float x = (float)bounds.X + i * slotWidth + offsetX;
-
-                if (round)
+            => BarGeometry.DrawWaveformBars(
+                in context,
+                ref _paint,
+                ref _builder,
+                BarWidth,
+                CornerRadius,
+                static (in WaveformRenderContext c, int i, float centerY, float halfHeight) =>
                 {
-                    BarGeometry.AddRoundedBar(_builder!, x, topY, barWidth, barHeight, cr);
-                }
-                else
-                {
-                    canvas.DrawRectangle(new Rect(x, topY, barWidth, barHeight), fill, null);
-                }
-            }
-
-            if (round)
-            {
-                BarGeometry.DrawRoundedBars(canvas, _builder!, _paint!);
-            }
-        }
+                    float min = Math.Clamp(c.Mins[i] * c.Gain, -1f, 1f);
+                    float max = Math.Clamp(c.Maxs[i] * c.Gain, -1f, 1f);
+                    float topY = centerY - max * halfHeight;
+                    float bottomY = centerY - min * halfHeight;
+                    return (topY, MathF.Max(1f, bottomY - topY));
+                });
 
         partial void PostDispose(bool disposing)
         {

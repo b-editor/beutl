@@ -5,32 +5,12 @@ using System.Text;
 namespace Beutl.Graphics.Rendering.Requests;
 
 /// <summary>
-/// A comparable description of everything one <see cref="RenderNode.Process(RenderNodeContext)"/> call
-/// recorded.
+/// A comparable description of one <see cref="RenderNode.Process(RenderNodeContext)"/> call's recording: fragment
+/// metadata, graph shape, payload structural identity, and engine-typed per-call values.
 /// </summary>
 /// <remarks>
-/// <para>
-/// This compares recorded fragment metadata, the graph the fragments form, each payload's type, and each
-/// payload's <see cref="StructuralFragmentIdentity"/> - the same parameter-independent identity the plan cache
-/// rebinds a compiled plan on, which reaches into the payload as far as content is defined there: a shader's
-/// or geometry's description fingerprint, a bounds, hit-test, scale or input-demand contract, an opaque
-/// description's replay contract, the resource types a description declares.
-/// </para>
-/// <para>
-/// It also compares the per-call values a payload states in engine types - an opacity, a blend mode, a mask's
-/// bounds and inversion, a layer's domain, a target region. Those are deliberately outside structural identity,
-/// because they are what the plan cache varies while holding one plan, so nothing else compares them; a node
-/// that advances one inside its own <see cref="RenderNode.Process(RenderNodeContext)"/> passes BESG005 too,
-/// which excludes that method because memoizing while recording is legitimate and reads the same. Recording
-/// twice is what separates the two: a memo answers the same value the second time and a drift does not.
-/// </para>
-/// <para>
-/// What is still not compared is a payload's author-supplied callback state. A closure's captured state has no
-/// defined equality, and a state object a node rebuilds per recording would compare unequal while nothing
-/// drifted, so reading it would trade a silent stale frame for a spurious failed one. A drift confined to such
-/// a value therefore still passes here; <see cref="RenderNode.HasChanges"/> remains the only signal for that
-/// half, as it is for output reuse.
-/// </para>
+/// Author callback state is not compared: it has no defined equality, and state a node rebuilds per recording would
+/// compare unequal while nothing drifted.
 /// </remarks>
 internal readonly struct RecordedNodeShape
 {
@@ -58,21 +38,10 @@ internal readonly struct RecordedNodeShape
     public static RecordedNodeShape Capture(
         IReadOnlyList<RenderFragmentReference> inputs,
         NodeRecordingTransaction transaction)
-        => Capture(inputs, transaction.RecordedFragments, transaction.RecordedPublications);
-
-    /// <summary>Describes a recording from its fragments and publications.</summary>
-    /// <remarks>
-    /// This is the seam a recording cache uses: it holds the fragments it would replay, so it can describe
-    /// them here and hand the result to <see cref="RenderRecordingCrossCheck.Verify"/> as the baseline.
-    /// </remarks>
-    public static RecordedNodeShape Capture(
-        IReadOnlyList<RenderFragmentReference> inputs,
-        IReadOnlyList<RecordedRenderFragmentEntry> fragments,
-        IReadOnlyList<RenderFragmentReference> publications)
     {
         ArgumentNullException.ThrowIfNull(inputs);
-        ArgumentNullException.ThrowIfNull(fragments);
-        ArgumentNullException.ThrowIfNull(publications);
+        IReadOnlyList<RecordedRenderFragmentEntry> fragments = transaction.RecordedFragments;
+        IReadOnlyList<RenderFragmentReference> publications = transaction.RecordedPublications;
 
         var labels = new Dictionary<RenderFragmentReference, string>(ReferenceEqualityComparer.Instance);
         var slots = new Dictionary<RenderFragmentReference, int>(ReferenceEqualityComparer.Instance);
@@ -190,7 +159,6 @@ internal readonly struct RecordedNodeShape
         RenderFragmentReference reference = entry.Reference;
         var builder = new StringBuilder();
         builder.Append(reference.Kind)
-            .Append(" role=").Append(entry.Role)
             .Append(" origin=").Append(entry.Origin.GetType().Name)
             .Append(" bounds=").Append(reference.RecordedBounds.ToString())
             .Append(" scale=").Append(
@@ -222,10 +190,7 @@ internal readonly struct RecordedNodeShape
     }
 
     /// <summary>The per-call values a payload states in a type the engine defines and can compare.</summary>
-    /// <remarks>
-    /// Only engine-defined values are read. A payload's author-supplied callback state is left alone - see the
-    /// remarks on this type for why - so this net is narrow by design rather than by omission.
-    /// </remarks>
+    /// <remarks>Only engine-defined values are read; author callback state is left alone (see the type).</remarks>
     private static string DescribeCallValues(RenderFragmentReference reference) => reference.Payload switch
     {
         OpacityRenderFragmentPayload opacity

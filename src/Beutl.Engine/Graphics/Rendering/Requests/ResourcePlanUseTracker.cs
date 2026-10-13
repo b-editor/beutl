@@ -15,17 +15,16 @@ internal sealed class ResourcePlanUseTracker
 
     internal static ResourcePlanUseTracker Create(
         IReadOnlyList<RenderFragmentReference> roots,
-        RenderCacheResolution? cacheResolution = null)
+        RenderCacheResolution cacheResolution)
     {
         ArgumentNullException.ThrowIfNull(roots);
         var remainingUses = new Dictionary<RenderFragmentReference, int>(
             roots.Count,
             ReferenceEqualityComparer.Instance);
-        var visiting = new HashSet<RenderFragmentReference>(ReferenceEqualityComparer.Instance);
         foreach (RenderFragmentReference root in roots)
         {
             ArgumentNullException.ThrowIfNull(root);
-            Visit(root, cacheResolution, visiting, remainingUses);
+            Visit(root, cacheResolution, remainingUses);
             remainingUses[root]++;
         }
 
@@ -33,25 +32,21 @@ internal sealed class ResourcePlanUseTracker
 
         static void Visit(
             RenderFragmentReference fragment,
-            RenderCacheResolution? cacheResolution,
-            HashSet<RenderFragmentReference> visiting,
+            RenderCacheResolution cacheResolution,
             Dictionary<RenderFragmentReference, int> remainingUses)
         {
             if (remainingUses.ContainsKey(fragment))
                 return;
-            if (!visiting.Add(fragment))
-                throw new InvalidOperationException("The resource-use graph contains a fragment cycle.");
 
-            if (fragment.Id is not { } id || cacheResolution?.HasHitProducer(id) != true)
+            if (fragment.Id is not { } id || !cacheResolution.HasHitProducer(id))
             {
                 foreach (RenderFragmentReference input in fragment.ExecutionInputs)
                 {
-                    Visit(input, cacheResolution, visiting, remainingUses);
+                    Visit(input, cacheResolution, remainingUses);
                     remainingUses[input]++;
                 }
             }
 
-            visiting.Remove(fragment);
             remainingUses.Add(fragment, 0);
         }
     }

@@ -84,7 +84,7 @@ public sealed class DirectBlurFiniteOutputTests
     /// <summary>Mirrors what <c>ImmediateCanvas.PushFilterLayer</c> opens for a replayed region.</summary>
     private static Rect OpenedLayerBounds(Rect semanticBounds, Rect replayedBounds, Matrix deviceTransform)
         => ImmediateCanvas.InflateByOneDevicePixel(
-            RenderRequestExecutor.GetDirectFilterLayerBounds(semanticBounds, replayedBounds),
+            RenderRequestExecutor.GetDirectFilterLayerBounds(replayedBounds),
             deviceTransform);
 
     private static FilterEffectRenderNode CreateBlurNode(float? workingScale)

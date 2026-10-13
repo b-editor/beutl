@@ -14,8 +14,7 @@ namespace Beutl.Graphics.AudioVisualizers;
 /// Copy out whatever has to outlive that call.
 /// </para>
 /// <para>
-/// Passing the arguments as a context rather than as a positional parameter list lets the engine hand a
-/// shape new information later on without breaking shapes compiled against an earlier release.
+/// A context rather than a parameter list lets the engine pass new information without breaking older shapes.
 /// </para>
 /// </remarks>
 public readonly ref struct WaveformRenderContext

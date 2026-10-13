@@ -114,6 +114,7 @@ public sealed class GeometryDescription
     /// <remarks>
     /// The opt-out for a callback whose pixel-affecting state cannot be expressed as a lightweight immutable
     /// key. The callback may capture, and the recorded value takes a fresh request-local identity every time.
+    /// Test seam: only tests call this.
     /// </remarks>
     internal static GeometryDescription CreateRequestLocal(
         Action<GeometrySession> render,

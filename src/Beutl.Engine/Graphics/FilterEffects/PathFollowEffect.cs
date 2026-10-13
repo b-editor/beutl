@@ -89,25 +89,8 @@ public sealed partial class PathFollowEffect : FilterEffect
                 m1 = m2 = translate;
             }
 
-            var newBounds = target.Bounds.TransformToAABB(m1);
-            var newTarget = effectContext.CreateTarget(newBounds);
-            if (newTarget.IsEmpty)
-            {
-                newTarget.Dispose();
-                return target;
-            }
-
-            // Open bakes the base CTM from the target's density.
-            using (var canvas = effectContext.Open(newTarget))
-            using (canvas.PushTransform(Matrix.CreateTranslation(target.Bounds.Position - newTarget.Bounds.Position)))
-            using (canvas.PushTransform(m2))
-            {
-                canvas.Clear();
-                target.Draw(canvas);
-            }
-
-            target.Dispose();
-            return newTarget;
+            return TransformEffect.RedrawTransformed(effectContext, target, target.Bounds.TransformToAABB(m1), m2)
+                ?? target;
         });
     }
 }

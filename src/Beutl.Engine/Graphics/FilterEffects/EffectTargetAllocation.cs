@@ -59,4 +59,16 @@ internal static class EffectTargetAllocation
                 deviceGridOffset,
                 preserveImperativeRasterPlacement);
     }
+
+    /// <summary>
+    /// Fails a <see cref="RenderIntent.Delivery"/> render with <paramref name="message"/>, and otherwise records
+    /// on <paramref name="leaseSession"/> that the preview dropped content.
+    /// </summary>
+    public static void FailDeliveryOrDrop(RenderIntent intent, RenderTargetLeaseSession? leaseSession, string message)
+    {
+        if (intent == RenderIntent.Delivery)
+            throw new InvalidOperationException(message);
+
+        leaseSession?.MarkContentDropped();
+    }
 }

@@ -34,7 +34,7 @@ internal sealed class StructuralPlanIdentity : IEquatable<StructuralPlanIdentity
         RenderRequestPlanIdentity request,
         RecordedRenderGraph graph,
         SkslBackendBudget shaderBudget,
-        RenderCacheResolution? cacheResolution = null)
+        RenderCacheResolution cacheResolution)
     {
         ArgumentNullException.ThrowIfNull(graph);
         ArgumentNullException.ThrowIfNull(shaderBudget);
@@ -49,9 +49,7 @@ internal sealed class StructuralPlanIdentity : IEquatable<StructuralPlanIdentity
         for (int index = 0; index < roots.Length; index++)
             publicationRoots[index] = GetFragmentIndex(roots[index], graph);
 
-        StructuralCacheBoundaryIdentity[] cacheBoundaries = cacheResolution is null
-            ? CreateBypassBoundaries(graph)
-            : CreateResolvedBoundaries(cacheResolution, graph);
+        StructuralCacheBoundaryIdentity[] cacheBoundaries = CreateResolvedBoundaries(cacheResolution, graph);
 
         return new StructuralPlanIdentity(
             request,
@@ -84,23 +82,6 @@ internal sealed class StructuralPlanIdentity : IEquatable<StructuralPlanIdentity
         foreach (StructuralCacheBoundaryIdentity boundary in _cacheBoundaries)
             hash.Add(boundary);
         return hash.ToHashCode();
-    }
-
-    private static StructuralCacheBoundaryIdentity[] CreateBypassBoundaries(RecordedRenderGraph graph)
-    {
-        ImmutableArray<RenderCacheCandidate> candidates = graph.CacheCandidates;
-        if (candidates.Length == 0)
-            return [];
-
-        var boundaries = new StructuralCacheBoundaryIdentity[candidates.Length];
-        for (int index = 0; index < candidates.Length; index++)
-        {
-            boundaries[index] = new StructuralCacheBoundaryIdentity(
-                GetFragmentIndex(candidates[index].FragmentId, graph),
-                RenderCacheResolutionKind.Bypass);
-        }
-
-        return boundaries;
     }
 
     private static StructuralCacheBoundaryIdentity[] CreateResolvedBoundaries(

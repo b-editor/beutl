@@ -1,8 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.Numerics;
 using Beutl.Engine;
-using Beutl.Graphics.Rendering;
-using Beutl.Graphics.Shaders;
 using Beutl.Language;
 using Beutl.Media;
 
@@ -11,30 +9,6 @@ namespace Beutl.Graphics.Effects;
 [Display(Name = nameof(GraphicsStrings.TranslateTransform), ResourceType = typeof(GraphicsStrings))]
 public partial class DisplacementMapTranslateTransform : DisplacementMapTransform
 {
-    private const string ShaderSource =
-        """
-        uniform shader src;
-        uniform shader uDisplacementMap;
-
-        uniform float2 uTranslation;
-
-        """
-        + DisplacementSamplingSource
-        + """
-
-
-        half4 main(float2 coord) {
-            half4 dispColor = uDisplacementMap.eval(coord);
-            float2 offset = uTranslation * getDisplacement(dispColor);
-
-            float2 uv = coord + offset;
-            return src.eval(uv);
-        }
-        """;
-
-    private static readonly SkslSource s_shaderSource =
-        new(ShaderSource, ShaderDescriptionKind.WholeSource);
-
     public DisplacementMapTranslateTransform()
     {
         ScanProperties<DisplacementMapTranslateTransform>();
@@ -51,47 +25,15 @@ public partial class DisplacementMapTranslateTransform : DisplacementMapTransfor
         public override void ApplyTo(
             Brush.Resource displacementMap, GradientSpreadMethod spreadMethod,
             DisplacementMapChannel channel, bool signed, FilterEffectContext context)
-        {
-            var translation = new Vector2(X, Y);
-            if (TryApplyDrawableMap(
-                    context,
-                    displacementMap,
-                    spreadMethod,
-                    channel,
-                    signed,
-                    DrawableMapTransformKind.Translate,
-                    translation,
-                    angle: 0,
-                    center: default))
-            {
-                return;
-            }
-
-            RenderResource<Brush.Resource> map = BorrowDisplacementMap(context, displacementMap);
-            var hitTest = DeclareSampling(
+            => ApplyCore(
+                context,
                 displacementMap,
-                map,
-                DrawableMapTransformKind.Translate,
-                translation,
-                angle: 0,
-                center: default,
                 spreadMethod,
                 channel,
-                signed);
-            context.Shader(ShaderDescription.WholeSource(
-                s_shaderSource,
-                RenderBoundsContract.FullInput,
-                bindings =>
-                {
-                    AddDisplacementBindings(bindings, map, channel, signed);
-                    bindings.Uniform(
-                        "uTranslation",
-                        translation,
-                        BindScaledVector);
-                },
-                spreadMethod.ToSKShaderTileMode(),
-                hitTest: hitTest.Contract,
-                hitTestResources: hitTest.Resources));
-        }
+                signed,
+                DrawableMapTransformKind.Translate,
+                new Vector2(X, Y),
+                angle: 0,
+                center: default);
     }
 }

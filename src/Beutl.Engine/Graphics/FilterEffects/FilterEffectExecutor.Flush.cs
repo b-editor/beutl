@@ -10,8 +10,7 @@ public sealed partial class FilterEffectExecutor
     /// <summary>The widest target list a flush plan is held on the stack for.</summary>
     /// <remarks>
     /// A flush almost always sees one target - a split effect is what produces more, and the widest any
-    /// built-in reaches across the graphics suite is nine. Past this width the plan is heap-allocated,
-    /// which costs one array where the map this replaced cost three objects at every width.
+    /// built-in reaches across the graphics suite is nine. Past this width the plan is heap-allocated.
     /// </remarks>
     private const int StackFlushPlanLimit = 16;
 
@@ -30,15 +29,13 @@ public sealed partial class FilterEffectExecutor
         // A forced flush without pending Skia work is the effect-item CustomEffect compatibility
         // boundary. A forced materialization of a Skia chain must retain its canonical device
         // footprint; otherwise unchanged color effects lose edge coverage at fractional scales.
-        bool imperativeSegmentBoundary = force && !hasFilter;
-
         int count = CurrentTargets.Count;
         Span<FlushTarget?> plan = count <= StackFlushPlanLimit
             ? stackalloc FlushTarget?[StackFlushPlanLimit]
             : new FlushTarget?[count];
         plan = plan[..count];
-        PlanFlush(plan, hasFilter, imperativeSegmentBoundary);
-        MaterializeFlush(plan, paint, hasFilter, imperativeSegmentBoundary);
+        PlanFlush(plan, hasFilter);
+        MaterializeFlush(plan, paint, hasFilter);
 
         _pendingSkiaTargets = null;
         Builder.Clear();
@@ -54,7 +51,7 @@ public sealed partial class FilterEffectExecutor
     /// positional - slot <c>i</c> answers for the target at index <c>i</c> - which is what lets
     /// materialization read it while removing entries from the list it was measured against.
     /// </remarks>
-    private void PlanFlush(Span<FlushTarget?> plan, bool hasFilter, bool imperativeSegmentBoundary)
+    private void PlanFlush(Span<FlushTarget?> plan, bool hasFilter)
     {
         for (int i = 0; i < plan.Length; i++)
         {
@@ -72,7 +69,7 @@ public sealed partial class FilterEffectExecutor
                 continue;
 
             plan[i] = flushTarget;
-            ClampWorkingScaleToFlushBudget(target, flushTarget, hasFilter, imperativeSegmentBoundary);
+            ClampWorkingScaleToFlushBudget(target, flushTarget, hasFilter);
         }
     }
 
@@ -80,18 +77,17 @@ public sealed partial class FilterEffectExecutor
     private void ClampWorkingScaleToFlushBudget(
         EffectTarget target,
         FlushTarget flushTarget,
-        bool hasFilter,
-        bool imperativeSegmentBoundary)
+        bool hasFilter)
     {
-        Rect budgetBounds = imperativeSegmentBoundary
-            ? new Rect(default, target.Bounds.Size)
-            : ResolveDeviceRoundingSource(target, flushTarget, hasFilter);
+        Rect budgetBounds = hasFilter
+            ? ResolveDeviceRoundingSource(target, flushTarget)
+            : new Rect(default, target.Bounds.Size);
         BufferDimensionBudget budget = Budget;
-        float fit = imperativeSegmentBoundary
-            ? budget.ClampWorkingScale(budgetBounds, WorkingScale)
-            : budget.ClampWorkingScaleToExactFootprint(
+        float fit = hasFilter
+            ? budget.ClampWorkingScaleToExactFootprint(
                 budgetBounds.Translate(target.DeviceGridOffset),
-                WorkingScale);
+                WorkingScale)
+            : budget.ClampWorkingScale(budgetBounds, WorkingScale);
         if (fit >= WorkingScale)
             return;
 
@@ -105,8 +101,7 @@ public sealed partial class FilterEffectExecutor
     private void MaterializeFlush(
         ReadOnlySpan<FlushTarget?> plan,
         SKPaint? paint,
-        bool hasFilter,
-        bool imperativeSegmentBoundary)
+        bool hasFilter)
     {
         // 'planned' counts targets consumed rather than list positions, so it keeps naming the slot this
         // target was measured into while removals move the list index back under it.
@@ -132,24 +127,21 @@ public sealed partial class FilterEffectExecutor
             }
 
             float w = WorkingScale;
-            if (!hasFilter
-                && imperativeSegmentBoundary
-                && CanReuseEffectItemTarget(target, w))
+            if (!hasFilter && CanReuseEffectItemTarget(target, w))
                 continue;
 
             FlushGeometry geometry = ResolveFlushGeometry(
                 target,
                 flushTarget,
                 w,
-                hasFilter,
-                imperativeSegmentBoundary);
+                hasFilter);
             EffectTarget? newTarget = EffectTargetAllocation.Allocate(
                 _renderTargetLeaseSession,
                 target.Bounds,
                 w,
                 geometry.DeviceBounds,
                 geometry.DeviceGridOffset,
-                preserveImperativeRasterPlacement: imperativeSegmentBoundary);
+                preserveImperativeRasterPlacement: !hasFilter);
             if (newTarget is null)
             {
                 ReportRefusedFlushBuffer(target, i, geometry.DeviceBounds, w, flushTarget.PhysicalBounds);
@@ -204,8 +196,7 @@ public sealed partial class FilterEffectExecutor
     private void DropUnflushableTarget(EffectTarget target, int index, string message)
     {
         target.Dispose();
-        ThrowIfDeliveryAllocationFailure(message);
-        _renderTargetLeaseSession?.MarkContentDropped();
+        EffectTargetAllocation.FailDeliveryOrDrop(Intent, _renderTargetLeaseSession, message);
         CurrentTargets.RemoveAt(index);
     }
 
@@ -219,16 +210,15 @@ public sealed partial class FilterEffectExecutor
         EffectTarget target,
         FlushTarget flushTarget,
         float w,
-        bool hasFilter,
-        bool imperativeSegmentBoundary)
+        bool hasFilter)
     {
-        bool preserveImperativeRasterPlacement = imperativeSegmentBoundary;
+        bool preserveImperativeRasterPlacement = !hasFilter;
         Vector allocationGridOffset = preserveImperativeRasterPlacement
             ? _deviceGridOffset ?? default
             : target.DeviceGridOffset;
-        Rect deviceRoundingSource = imperativeSegmentBoundary
+        Rect deviceRoundingSource = preserveImperativeRasterPlacement
             ? target.Bounds
-            : ResolveDeviceRoundingSource(target, flushTarget, hasFilter);
+            : ResolveDeviceRoundingSource(target, flushTarget);
         PixelRect canonicalDeviceBounds = CustomFilterEffectContext.DeviceBufferBounds(
             deviceRoundingSource.Translate(allocationGridOffset), w);
         PixelRect deviceBounds;
@@ -251,7 +241,7 @@ public sealed partial class FilterEffectExecutor
             outputDeviceGridOffset = target.DeviceGridOffset;
         }
 
-        if (hasFilter && !preserveImperativeRasterPlacement)
+        if (!preserveImperativeRasterPlacement)
             VerifyFilteredDeviceBounds(target, deviceBounds, w);
 
         return new FlushGeometry(
@@ -352,15 +342,10 @@ public sealed partial class FilterEffectExecutor
     // in global space: a locally rounded rect re-anchored by a separately rounded offset cannot reproduce
     // the rounding the semantic device bounds use. The explicit Bounds union keeps containment exact
     // instead of relying on the local round trip being bit-exact in float.
-    private static Rect ResolveDeviceRoundingSource(
-        EffectTarget target,
-        FlushTarget flushTarget,
-        bool hasFilter)
-        => hasFilter
-            ? flushTarget.PhysicalBounds
-                .Translate(target.Bounds.Position - target.OriginalBounds.Position)
-                .Union(target.Bounds)
-            : flushTarget.PhysicalBounds;
+    private static Rect ResolveDeviceRoundingSource(EffectTarget target, FlushTarget flushTarget)
+        => flushTarget.PhysicalBounds
+            .Translate(target.Bounds.Position - target.OriginalBounds.Position)
+            .Union(target.Bounds);
 
     private static void VerifyFilteredDeviceBounds(
         EffectTarget target,
@@ -391,14 +376,6 @@ public sealed partial class FilterEffectExecutor
             target.Bounds,
             density);
         return renderTarget.Width == width && renderTarget.Height == height;
-    }
-
-    private void ThrowIfDeliveryAllocationFailure(string message)
-    {
-        if (Intent == RenderIntent.Delivery)
-        {
-            throw new InvalidOperationException(message);
-        }
     }
 
     private readonly record struct FlushTarget(

@@ -28,6 +28,7 @@ internal readonly struct RenderExecutionChannel<TSession>
         where TState : notnull
         => new(null, new StateRenderExecutionBinding<TSession, TState>(state, execute));
 
+    // Test seam: only the CreateRequestLocal factories, which only tests call, reach this path.
     internal static RenderExecutionChannel<TSession> RequestLocal(Action<TSession> execute)
         => new(execute, null);
 

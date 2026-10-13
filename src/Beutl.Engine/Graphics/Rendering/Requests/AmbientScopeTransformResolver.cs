@@ -1,24 +1,10 @@
 ﻿namespace Beutl.Graphics.Rendering.Requests;
 
 /// <summary>
-/// Rewrites every scope whose declared transform composes against the ambient transform into the input-space
-/// scope that reaches the same destination.
+/// Resolves every scope whose transform is defined against the ambient transform (Append/Set) into the
+/// input-space scope that reaches the same destination. Runs top-down over the finished graph because recording
+/// is bottom-up; running it again is idempotent.
 /// </summary>
-/// <remarks>
-/// <para>
-/// A graph is recorded bottom-up, so a scope is described before anything above it exists, and an ancestor
-/// such as <see cref="DrawableGroup"/>'s alignment transform derives its own matrix from content measured
-/// below it. <see cref="TransformOperator.Append"/> and <see cref="TransformOperator.Set"/> are defined
-/// against that ambient, so they cannot be described where they are recorded - which is why they were
-/// previously measured in one space and replayed in another.
-/// </para>
-/// <para>
-/// Running top-down over the finished graph closes that gap: every scope above is already described, so the
-/// ambient is the product of their resolved matrices, and each composition collapses into a single matrix the
-/// scope's bounds, hit test, density and replay all read. Resolution reads the declaration rather than the
-/// matrix a previous pass derived, so running it again over an already-resolved graph answers the same.
-/// </para>
-/// </remarks>
 internal static class AmbientScopeTransformResolver
 {
     public static void Resolve(IReadOnlyList<RenderFragmentReference> roots)

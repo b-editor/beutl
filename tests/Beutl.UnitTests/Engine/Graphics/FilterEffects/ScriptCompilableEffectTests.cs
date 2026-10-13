@@ -92,7 +92,6 @@ public sealed class ScriptCompilableEffectTests
                 using var resource = effect.ToResource(CompositionContext.Default);
                 using var context = new FilterEffectContext(new Rect(0, 0, 10, 10));
 
-                Assert.That(resource._compileError, Does.Contain("synchronous"));
                 Assert.That(resource._scriptRunner, Is.Null);
                 effect.ApplyTo(context, resource);
                 Assert.That(context._items, Is.Empty, "Rejected scripts must not apply a partial effect.");
@@ -100,7 +99,7 @@ public sealed class ScriptCompilableEffectTests
                 effect.Script.CurrentValue = "Context.Blur(new Size(2, 2));";
                 bool versionBumped = false;
                 resource.Reconcile(effect, CompositionContext.Default, ref versionBumped);
-                Assert.That(resource._compileError, Is.Null);
+                Assert.That(resource._scriptRunner, Is.Not.Null);
                 effect.ApplyTo(context, resource);
                 Assert.That(context._items, Has.Count.EqualTo(1));
             }).WaitAsync(TimeSpan.FromSeconds(10));

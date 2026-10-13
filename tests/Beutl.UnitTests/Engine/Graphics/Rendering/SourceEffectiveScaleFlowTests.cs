@@ -1380,8 +1380,8 @@ public class SourceEffectiveScaleFlowTests
             Assert.That(mismatchRequest.ExecutionPlan.ShaderRuns.Count(), Is.EqualTo(2));
             Assert.That(mismatchRequest.ExecutionPlan.ShaderRuns, Has.All.Matches<CompiledShaderRun>(
                 static run => run.StageFragmentIndices.Length == 1));
-            Assert.That(mismatchRequest.ExecutionPlan.Boundaries, Has.Some.Matches<ExecutionIslandBoundary>(
-                static boundary => boundary.Reason == ExecutionIslandBoundaryReason.ScaleTransition));
+            Assert.That(mismatchRequest.ExecutionPlan.ShaderRuns.Last().GetInput(mismatchRequest.Graph),
+                Is.SameAs(mismatchRequest.ExecutionPlan.ShaderRuns.First().GetOutput(mismatchRequest.Graph)));
             Assert.That(sameDensityRequest.ExecutionPlan.ShaderRuns.Single().StageFragmentIndices,
                 Has.Length.EqualTo(2));
             Assert.That(adoptedVectorRequest.ExecutionPlan.ShaderRuns.Single().StageFragmentIndices,

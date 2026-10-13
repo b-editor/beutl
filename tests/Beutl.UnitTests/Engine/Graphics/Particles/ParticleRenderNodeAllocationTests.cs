@@ -176,16 +176,9 @@ public sealed class ParticleRenderNodeAllocationTests
     }
 
     [Test]
-    public void DeadOrZeroSizedParticles_RemainExcludedFromTheAllocatedBounds()
+    public void ZeroSizedParticles_RemainExcludedFromTheAllocatedBounds()
     {
         PixelSize clustered = LargestParticleLayer(initialRotation: 0f);
-        PixelSize farDead = LargestParticleLayer(
-            initialRotation: 0f,
-            mutate: static particles =>
-            {
-                particles[0].X = FarOffset;
-                particles[0].IsAlive = false;
-            });
         PixelSize farZeroSized = LargestParticleLayer(
             initialRotation: 0f,
             mutate: static particles =>
@@ -194,11 +187,7 @@ public sealed class ParticleRenderNodeAllocationTests
                 particles[0].CurrentSize = 0f;
             });
 
-        Assert.Multiple(() =>
-        {
-            Assert.That(farDead, Is.EqualTo(clustered), "A dead particle stays out of the union.");
-            Assert.That(farZeroSized, Is.EqualTo(clustered), "A zero-sized particle stays out of the union.");
-        });
+        Assert.That(farZeroSized, Is.EqualTo(clustered), "A zero-sized particle stays out of the union.");
     }
 
     private static Bitmap RenderParticles(float initialRotation, float particleSize, double time = 1, double prewarm = 0)

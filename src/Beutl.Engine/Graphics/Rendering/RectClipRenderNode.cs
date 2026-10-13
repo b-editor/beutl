@@ -41,7 +41,7 @@ public sealed class RectClipRenderNode(Rect clip, ClipOperation operation) : Con
                         session.ReplayInput();
                     }
                 }),
-                RenderBoundsContract.Create(TransformBounds, GetRequiredInputBounds),
+                RenderBoundsContract.Create(ClipBounds, ClipBounds),
                 RenderHitTestContract.Custom(HitTest),
                 RenderScaleContract.PreserveInputSupply,
                 deviceGridSensitivity: RenderDeviceGridSensitivity.PhaseDependent,
@@ -49,10 +49,8 @@ public sealed class RectClipRenderNode(Rect clip, ClipOperation operation) : Con
             static (context, input, value) => context.TargetScope(input, value));
     }
 
-    private Rect TransformBounds(Rect value)
-        => Operation == ClipOperation.Intersect ? value.Intersect(Clip) : value;
-
-    private Rect GetRequiredInputBounds(Rect value)
+    // Both directions of the bounds mapping keep only what the clip lets through.
+    private Rect ClipBounds(Rect value)
         => Operation == ClipOperation.Intersect ? value.Intersect(Clip) : value;
 
     private bool HitTest(RenderHitTestContext context, Point point)
