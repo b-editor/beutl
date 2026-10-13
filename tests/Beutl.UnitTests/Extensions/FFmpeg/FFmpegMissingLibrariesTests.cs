@@ -1,5 +1,4 @@
-﻿using System.Collections.Concurrent;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Reactive.Linq;
 using System.Reflection;
 using Avalonia;
@@ -12,6 +11,7 @@ using Beutl.Extensions.FFmpeg.PropertyEditors;
 using Beutl.FFmpegIpc;
 using Beutl.Logging;
 using Beutl.Services;
+using Beutl.UnitTests.TestInfrastructure;
 using Microsoft.Extensions.Logging;
 using Moq;
 using AudioFormat = Beutl.Extensions.FFmpeg.Encoding.FFmpegAudioEncoderSettings.AudioFormat;
@@ -23,7 +23,8 @@ namespace Beutl.UnitTests.Extensions.FFmpeg;
 public sealed class FFmpegMissingLibrariesTests
 {
     private const BindingFlags InstanceFlags = BindingFlags.Instance | BindingFlags.NonPublic;
-    private readonly CaptureLoggerProvider _logs = new();
+    private readonly CapturingLoggerProvider _logs =
+        new(category => category.StartsWith("Beutl.Extensions.FFmpeg", StringComparison.Ordinal));
     private HeadlessUnitTestSession _session = null!;
 
     [OneTimeSetUp]
@@ -235,29 +236,5 @@ public sealed class FFmpegMissingLibrariesTests
         completion.SetException(failure);
         await refresh.WaitAsync(TimeSpan.FromSeconds(10));
         Assert.That(await Assert.CatchAsync<Exception>(async () => await pending), Is.SameAs(failure));
-    }
-
-    private sealed class CaptureLoggerProvider : ILoggerProvider
-    {
-        private bool _disposed;
-        public ConcurrentQueue<(LogLevel Level, Exception? Exception)> Entries { get; } = new();
-
-        public ILogger CreateLogger(string categoryName) => new CaptureLogger(this, categoryName);
-
-        public void Dispose() => _disposed = true;
-
-        private sealed class CaptureLogger(CaptureLoggerProvider provider, string category) : ILogger
-        {
-            public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
-
-            public bool IsEnabled(LogLevel logLevel) => !provider._disposed;
-
-            public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
-                Func<TState, Exception?, string> formatter)
-            {
-                if (IsEnabled(logLevel) && category.StartsWith("Beutl.Extensions.FFmpeg", StringComparison.Ordinal))
-                    provider.Entries.Enqueue((logLevel, exception));
-            }
-        }
     }
 }

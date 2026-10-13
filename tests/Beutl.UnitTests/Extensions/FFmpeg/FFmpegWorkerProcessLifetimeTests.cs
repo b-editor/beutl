@@ -295,9 +295,6 @@ public class FFmpegWorkerProcessLifetimeTests
             try { await startup.WaitAsync(TimeSpan.FromSeconds(10)); }
             catch (Exception ex) { startupFailure = ex; }
 
-            Console.WriteLine($"Startup failure: {startupFailure}");
-            Console.WriteLine($"Remaining worker: pid={worker.WorkerPid}, running={worker.IsRunning}");
-
             // This host runs directly as a subprocess, so each failure must throw to reach Main.
             Assert.That(startupFailure, Is.TypeOf<ObjectDisposedException>());
             Assert.That(worker.IsRunning, Is.False,

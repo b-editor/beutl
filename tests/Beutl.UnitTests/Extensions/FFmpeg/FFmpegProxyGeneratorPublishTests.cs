@@ -5,13 +5,14 @@ using Beutl.FFmpegIpc;
 using Beutl.Media;
 using Beutl.Media.Decoding;
 using Beutl.Media.Proxy;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Extensions.FFmpeg;
 
 [TestFixture]
 public sealed class FFmpegProxyGeneratorPublishTests
 {
-    // Fix #4: a hard-coded H.264 level (4.0) rejects legal high-FPS proxies — a 4K60 source encodes a
+    // A hard-coded H.264 level (4.0) rejects legal high-FPS proxies — a 4K60 source encodes a
     // 1080p60 proxy that exceeds level 4.0's macroblock rate. No level is set so libx264 picks one.
     [Test]
     public void Configure_DoesNotForceH264Level()
@@ -629,7 +630,7 @@ public sealed class FFmpegProxyGeneratorPublishTests
 
     // Records TryTransition calls so a test can assert the generator marked the stale-source entry before
     // skipping; the transition happens before any file I/O, so no real store state is needed.
-    private sealed class TransitionRecordingStore(string root) : IProxyStore
+    private sealed class TransitionRecordingStore(string root) : StubProxyStore(root)
     {
         public List<(ProxyFingerprint Source, ProxyPreset Preset, ProxyState State)> Transitions { get; } = [];
 
@@ -643,80 +644,12 @@ public sealed class FFmpegProxyGeneratorPublishTests
                 new PixelSize(1920, 1080), new PixelSize(480, 270), now, now, null));
         }
 
-        public string StoreRootPath => root;
+        public override IReadOnlyList<ProxyEntry> Enumerate() => Entries;
 
-        public ProxyEntry? TryGet(ProxyFingerprint source, ProxyPreset preset) => null;
-
-        public IReadOnlyList<ProxyEntry> Enumerate() => Entries;
-
-        public void Register(ProxyEntry entry)
-        {
-        }
-
-        public bool TryTransition(ProxyFingerprint source, ProxyPreset preset, ProxyState newState, string? failureReason = null)
+        public override bool TryTransition(ProxyFingerprint source, ProxyPreset preset, ProxyState newState, string? failureReason = null)
         {
             Transitions.Add((source, preset, newState));
             return true;
         }
-
-        public bool Delete(ProxyFingerprint source, ProxyPreset preset) => false;
-
-        public void Touch(ProxyFingerprint source, ProxyPreset preset, DateTime nowUtc)
-        {
-        }
-
-        public long GetTotalBytes() => 0;
-
-        public long GetTotalBytes(IReadOnlySet<string> sourceAbsolutePaths) => 0;
-
-        public Task FlushAsync(CancellationToken cancellationToken) => Task.CompletedTask;
-
-        public Task ReconcileAsync(CancellationToken cancellationToken) => Task.CompletedTask;
-
-#pragma warning disable CS0067 // Not exercised by these tests.
-        public event EventHandler<ProxyStoreChangedEventArgs>? Changed;
-#pragma warning restore CS0067
-    }
-
-    private sealed class CountingStore(string root, int failuresBeforeSuccess) : IProxyStore
-    {
-        public int RegisterAttempts { get; private set; }
-
-        public ProxyEntry? LastRegistered { get; private set; }
-
-        public string StoreRootPath => root;
-
-        public ProxyEntry? TryGet(ProxyFingerprint source, ProxyPreset preset) => null;
-
-        public IReadOnlyList<ProxyEntry> Enumerate() => [];
-
-        public void Register(ProxyEntry entry)
-        {
-            RegisterAttempts++;
-            if (RegisterAttempts <= failuresBeforeSuccess)
-                throw new InvalidOperationException("index locked");
-
-            LastRegistered = entry;
-        }
-
-        public bool TryTransition(ProxyFingerprint source, ProxyPreset preset, ProxyState newState, string? failureReason = null) => false;
-
-        public bool Delete(ProxyFingerprint source, ProxyPreset preset) => false;
-
-        public void Touch(ProxyFingerprint source, ProxyPreset preset, DateTime nowUtc)
-        {
-        }
-
-        public long GetTotalBytes() => 0;
-
-        public long GetTotalBytes(IReadOnlySet<string> sourceAbsolutePaths) => 0;
-
-        public Task FlushAsync(CancellationToken cancellationToken) => Task.CompletedTask;
-
-        public Task ReconcileAsync(CancellationToken cancellationToken) => Task.CompletedTask;
-
-#pragma warning disable CS0067 // Not exercised by these tests.
-        public event EventHandler<ProxyStoreChangedEventArgs>? Changed;
-#pragma warning restore CS0067
     }
 }

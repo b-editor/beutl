@@ -109,19 +109,9 @@ public sealed class FFmpegDecoderInfoTests
             // a synthetic mtime would trip the source-changed skip before the missing-FFmpeg path.
             var job = new ProxyJob(ProxyFingerprint.FromFile(source), ProxyPreset.Quarter);
 
-            try
-            {
-                await generator.GenerateAsync(job);
-
-                // No throw means an FFmpeg worker is available in this environment, so the
-                // missing-libraries path is unreachable; CI (no FFmpeg) exercises the throw.
-                Assert.Ignore("An FFmpeg worker is available; missing-libraries path is unreachable.");
-            }
-            catch (ProxyGeneratorUnavailableException)
-            {
-                // The proxy generator translates a missing FFmpeg install into the unavailable signal
-                // that ProxyJobQueue uses to pause the batch (instead of draining it as failures).
-            }
+            // The proxy generator translates a missing FFmpeg install into the unavailable signal
+            // that ProxyJobQueue uses to pause the batch (instead of draining it as failures).
+            await Assert.ThrowsAsync<ProxyGeneratorUnavailableException>(() => generator.GenerateAsync(job).AsTask());
         }
         finally
         {

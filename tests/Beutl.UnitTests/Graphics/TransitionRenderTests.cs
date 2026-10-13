@@ -293,23 +293,8 @@ public class TransitionRenderTests
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            var scene = new Scene(Width, Height, string.Empty);
-            RectShape outgoingShape = CreateRect(s_red);
-            var outgoing = new Element { Start = TimeSpan.Zero, Length = TimeSpan.FromSeconds(1) };
-            outgoing.Objects.Add(outgoingShape);
-            scene.Children.Add(outgoing);
-
-            RectShape leftHalf = CreateLeftHalf(s_blue);
-            RectShape corner = CreateRect(s_blue);
-            corner.Width.CurrentValue = 8;
-            corner.Height.CurrentValue = 8;
-            corner.AlignmentX.CurrentValue = AlignmentX.Right;
-            corner.AlignmentY.CurrentValue = AlignmentY.Top;
-            var incoming = new Element { Start = TimeSpan.FromSeconds(1), Length = TimeSpan.FromSeconds(2) };
-            incoming.Objects.Add(leftHalf);
-            incoming.Objects.Add(corner);
-            incoming.EnterTransition = new CrossDissolveTransition { Duration = { CurrentValue = TimeSpan.FromSeconds(1) } };
-            scene.Children.Add(incoming);
+            (Scene scene, RectShape outgoingShape, RectShape? leftHalf, RectShape corner) =
+                CreateCornerScene(new CrossDissolveTransition(), withLeftHalf: true);
 
             using var renderer = new SceneRenderer(scene, RenderIntent.Preview);
             var frame = renderer.Compositor.EvaluateGraphics(TimeAt(0.5));
@@ -332,23 +317,8 @@ public class TransitionRenderTests
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            var scene = new Scene(Width, Height, string.Empty);
-            RectShape outgoingShape = CreateRect(s_red);
-            var outgoing = new Element { Start = TimeSpan.Zero, Length = TimeSpan.FromSeconds(1) };
-            outgoing.Objects.Add(outgoingShape);
-            scene.Children.Add(outgoing);
-
-            RectShape leftHalf = CreateLeftHalf(s_blue);
-            RectShape corner = CreateRect(s_blue);
-            corner.Width.CurrentValue = 8;
-            corner.Height.CurrentValue = 8;
-            corner.AlignmentX.CurrentValue = AlignmentX.Right;
-            corner.AlignmentY.CurrentValue = AlignmentY.Top;
-            var incoming = new Element { Start = TimeSpan.FromSeconds(1), Length = TimeSpan.FromSeconds(2) };
-            incoming.Objects.Add(leftHalf);
-            incoming.Objects.Add(corner);
-            incoming.EnterTransition = new PushTransition { Duration = { CurrentValue = TimeSpan.FromSeconds(1) } };
-            scene.Children.Add(incoming);
+            (Scene scene, RectShape outgoingShape, _, RectShape corner) =
+                CreateCornerScene(new PushTransition(), withLeftHalf: true);
 
             using var renderer = new SceneRenderer(scene, RenderIntent.Preview);
             var frame = renderer.Compositor.EvaluateGraphics(TimeAt(0.5));
@@ -374,20 +344,7 @@ public class TransitionRenderTests
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            var scene = new Scene(Width, Height, string.Empty);
-            var outgoing = new Element { Start = TimeSpan.Zero, Length = TimeSpan.FromSeconds(1) };
-            outgoing.Objects.Add(CreateRect(s_red));
-            scene.Children.Add(outgoing);
-
-            RectShape corner = CreateRect(s_blue);
-            corner.Width.CurrentValue = 8;
-            corner.Height.CurrentValue = 8;
-            corner.AlignmentX.CurrentValue = AlignmentX.Right;
-            corner.AlignmentY.CurrentValue = AlignmentY.Top;
-            var incoming = new Element { Start = TimeSpan.FromSeconds(1), Length = TimeSpan.FromSeconds(2) };
-            incoming.Objects.Add(corner);
-            incoming.EnterTransition = new PushTransition { Duration = { CurrentValue = TimeSpan.FromSeconds(1) } };
-            scene.Children.Add(incoming);
+            (Scene scene, _, _, RectShape corner) = CreateCornerScene(new PushTransition(), withLeftHalf: false);
 
             using var renderer = new SceneRenderer(scene, RenderIntent.Preview);
             renderer.Render(renderer.Compositor.EvaluateGraphics(TimeAt(0.5)));
@@ -516,6 +473,32 @@ public class TransitionRenderTests
         incomingElement.EnterTransition = transition;
         scene.Children.Add(incomingElement);
         return (scene, incoming);
+    }
+
+    // A red outgoing clip and an incoming clip with an 8 px square at its top right and, if asked, a left half.
+    private static (Scene Scene, RectShape Outgoing, RectShape? LeftHalf, RectShape Corner) CreateCornerScene(
+        ClipTransition transition, bool withLeftHalf)
+    {
+        var scene = new Scene(Width, Height, string.Empty);
+        RectShape outgoingShape = CreateRect(s_red);
+        var outgoing = new Element { Start = TimeSpan.Zero, Length = TimeSpan.FromSeconds(1) };
+        outgoing.Objects.Add(outgoingShape);
+        scene.Children.Add(outgoing);
+
+        RectShape? leftHalf = withLeftHalf ? CreateLeftHalf(s_blue) : null;
+        RectShape corner = CreateRect(s_blue);
+        corner.Width.CurrentValue = 8;
+        corner.Height.CurrentValue = 8;
+        corner.AlignmentX.CurrentValue = AlignmentX.Right;
+        corner.AlignmentY.CurrentValue = AlignmentY.Top;
+        var incoming = new Element { Start = TimeSpan.FromSeconds(1), Length = TimeSpan.FromSeconds(2) };
+        if (leftHalf is not null)
+            incoming.Objects.Add(leftHalf);
+        incoming.Objects.Add(corner);
+        transition.Duration.CurrentValue = TimeSpan.FromSeconds(1);
+        incoming.EnterTransition = transition;
+        scene.Children.Add(incoming);
+        return (scene, outgoingShape, leftHalf, corner);
     }
 
     private static RectShape CreateRect(Color color)

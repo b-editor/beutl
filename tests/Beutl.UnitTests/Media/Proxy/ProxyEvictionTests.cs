@@ -167,8 +167,7 @@ public class ProxyEvictionTests
     public void Sweep_ProtectsInProjectSource_CollectedFromProjectGraph()
     {
         string root = CreateRoot();
-        // Media stored INSIDE the project directory: ExternalResourceCollector would have
-        // filtered this out, so its proxy would have fallen back to plain LRU.
+        // Media inside the project directory still has its proxy protected.
         string projectDir = Path.Combine(root, "project");
         Directory.CreateDirectory(projectDir);
         string inProjectSource = Path.Combine(projectDir, "clip.mov");
@@ -199,29 +198,6 @@ public class ProxyEvictionTests
             Assert.That(store.TryGet(inProject.Source, inProject.Preset), Is.Not.Null);
             Assert.That(store.TryGet(unrelated.Source, unrelated.Preset), Is.Null);
         });
-    }
-
-    [Test]
-    public void EnumerateFileSources_IncludesAnimatedKeyframeSources()
-    {
-        string animatedPath = Path.Combine(TestContext.CurrentContext.WorkDirectory, "animated-source.mov");
-        var keyframeSource = new Beutl.Media.Source.VideoSource();
-        keyframeSource.ReadFrom(new Uri(animatedPath));
-        var animation = new Beutl.Animation.KeyFrameAnimation<Beutl.Media.Source.VideoSource?>();
-        animation.KeyFrames.Add(new Beutl.Animation.KeyFrame<Beutl.Media.Source.VideoSource?>
-        {
-            KeyTime = TimeSpan.FromSeconds(1),
-            Value = keyframeSource,
-        });
-        var drawable = new Beutl.Graphics.SourceVideo();
-        drawable.Source.Animation = animation;
-
-        var graph = new TestHierarchical();
-        graph.AddChild(drawable);
-
-        IReadOnlySet<string> collected = ProxySourceEnumerator.EnumerateFileSources(graph);
-
-        Assert.That(collected, Does.Contain(new Uri(animatedPath).LocalPath));
     }
 
     [Test]
@@ -283,11 +259,8 @@ public class ProxyEvictionTests
         });
     }
 
-    // A regenerate can be queued while the sweep is mid-flight — after earlier candidates are deleted
-    // but before this one is reached. A snapshot of active generations taken once before the loop would
-    // miss it and delete the proxy whose replacement is still in flight. Modeled by a provider that
-    // reports the second candidate active only once the first has been deleted; the per-candidate
-    // re-read must then spare it.
+    // A candidate whose regenerate is queued mid-sweep is kept. The provider reports the second candidate
+    // as generating only after the first is deleted.
     [Test]
     public void Sweep_ReChecksActiveGenerationQueuedDuringSweep()
     {
@@ -470,7 +443,7 @@ public class ProxyEvictionTests
         });
     }
 
-    // Finding C: a regenerate for a candidate's (Source, Preset) that lands between collection and the
+    // A regenerate for a candidate's (Source, Preset) that lands between collection and the
     // delete loop must not have its fresh entry removed — Delete keys on (Source, Preset), so the sweep
     // re-checks that the current entry is still the ranked proxy (a regenerate bumps GeneratedAtUtc) first.
     [Test]

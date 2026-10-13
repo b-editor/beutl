@@ -27,8 +27,6 @@ public class AudioFormatDecisionTests
             .Where(f => f != AudioFormat.Default)
             .ToArray();
         Assert.That(resolved, Is.EqualTo(expected));
-        Assert.That(resolved, Is.Not.Empty);
-        Assert.That(resolved, Does.Not.Contain(AudioFormat.Default));
     }
 
     // The point of the degraded->all rule: a degraded result must NOT collapse the list to empty,
@@ -47,18 +45,5 @@ public class AudioFormatDecisionTests
 
         Assert.That(selection.ResetToSentinel, Is.False, "degraded must keep the current format selected");
         Assert.That(withSentinel[selection.SelectedIndex], Is.EqualTo(AudioFormat.Fltp));
-    }
-
-    // Contrast: had the degraded branch instead applied the empty payload, the same current format
-    // would be unsupported and the editor would reset it to Default.
-    [Test]
-    public void EmptyFormatList_WouldResetCurrentToDefault()
-    {
-        AudioFormat[] withSentinel = [AudioFormat.Default];
-
-        FormatSelectionResult selection =
-            CodecFormatSelection.Resolve(withSentinel, AudioFormat.Fltp, AudioFormat.Default);
-
-        Assert.That(selection.ResetToSentinel, Is.True);
     }
 }

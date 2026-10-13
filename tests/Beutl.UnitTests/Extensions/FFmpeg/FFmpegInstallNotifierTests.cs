@@ -603,10 +603,7 @@ public class FFmpegInstallNotifierTests
         }
     }
 
-    // Regression test for the TOCTOU race: when many threads observe the same
-    // pre-throttle state simultaneously, exactly one must acquire the slot.
-    // The pre-fix Read/Exchange split allows >=2 winners; the CAS-based fix
-    // collapses that to 1 deterministically.
+    // However many callers race for the notification slot, only one acquires it.
     [Test]
     public void TryAcquireNotifySlot_UnderConcurrency_OnlyOneWinner()
     {

@@ -31,11 +31,7 @@ public class ProxyFingerprintTests
         var lower = new ProxyFingerprint(CreatePath("case.mov"), 123, mtime);
         var upper = new ProxyFingerprint(CreatePath("CASE.MOV"), 123, mtime);
 
-        if (OperatingSystem.IsMacOS())
-        {
-            Assert.That(upper, Is.EqualTo(lower));
-        }
-        else if (OperatingSystem.IsWindows())
+        if (OperatingSystem.IsMacOS() || OperatingSystem.IsWindows())
         {
             Assert.That(upper, Is.EqualTo(lower));
         }

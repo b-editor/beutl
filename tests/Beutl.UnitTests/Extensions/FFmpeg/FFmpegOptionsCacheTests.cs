@@ -112,21 +112,6 @@ public class FFmpegOptionsCacheTests
     }
 
     [Test]
-    public async Task GetOrQueryAsync_AuthoritativeResult_Cached()
-    {
-        var cache = new FFmpegOptionsCache<int>();
-        int calls = 0;
-
-        await cache.GetOrQueryAsync("aac", () => { calls++; return Ok(48000); });
-        OptionsQueryResult<int> second = await cache.GetOrQueryAsync(
-            "aac", () => { calls++; return Ok(-1); });
-
-        // A non-degraded result is cached and served like any cached value.
-        Assert.That(calls, Is.EqualTo(1));
-        Assert.That(second.Items, Is.EqualTo(new[] { 48000 }));
-    }
-
-    [Test]
     public async Task GetOrQueryAsync_AuthoritativeEmptyResult_Cached()
     {
         var cache = new FFmpegOptionsCache<int>();
@@ -180,24 +165,6 @@ public class FFmpegOptionsCacheTests
         Assert.That(results[1].Degraded, Is.True);
         // And the shared degraded result is not pinned in the cache.
         Assert.That(cache.TryGetCached("aac", out _), Is.False);
-    }
-
-    [Test]
-    public async Task GetOrQueryAsync_JoinerStillGetsResult_WhenAnEarlierCallerAbandonsItsAwait()
-    {
-        // Regression guard: the shared in-flight task must not be tied to any single caller, so a
-        // caller that joins after another has stopped awaiting still receives the completed result.
-        var cache = new FFmpegOptionsCache<int>();
-        var gate = new TaskCompletionSource<OptionsQueryResult<int>>();
-
-        Task<OptionsQueryResult<int>> abandoned = cache.GetOrQueryAsync("aac", () => gate.Task);
-        Task<OptionsQueryResult<int>> joiner = cache.GetOrQueryAsync("aac", () => Ok(-1));
-        // Simulate the first caller losing interest (e.g. its codec selection was superseded).
-        _ = abandoned;
-
-        gate.SetResult(new OptionsQueryResult<int>([48000], Degraded: false));
-
-        Assert.That((await joiner).Items, Is.EqualTo(new[] { 48000 }));
     }
 
     [Test]

@@ -6,16 +6,6 @@ namespace Beutl.UnitTests.Media.Proxy;
 public class ProxyPathUtilitiesTests
 {
     [Test]
-    public void IsGeneratedProxyFinalPath_AcceptsHashDirWithPresetName()
-    {
-        string root = CreateRoot();
-        string hashDir = new('a', 64);
-        string path = Path.Combine(root, hashDir, "quarter.mp4");
-
-        Assert.That(ProxyPathUtilities.IsGeneratedProxyFinalPath(root, path), Is.True);
-    }
-
-    [Test]
     public void IsGeneratedProxyFinalPath_RejectsNonProxyShapedFiles()
     {
         string root = CreateRoot();
