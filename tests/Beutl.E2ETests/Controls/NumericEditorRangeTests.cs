@@ -321,6 +321,42 @@ public class NumericEditorRangeTests
 
     [AvaloniaTest]
     [TestCaseSource(nameof(RelativeEditors))]
+    public void Unit_only_edits_update_the_unit_before_scrolling(EditorCase editorCase)
+    {
+        using var editor = new BoundedEditor(editorCase, minimum: 0, maximum: 20);
+        var changes = new List<object?>();
+        editor.Host.Editor.ValueChanged += (_, e) => changes.Add(e.NewValue);
+        float[] initial = editor.Reset(0);
+        int index = editor.VisibleComponentCount - 1;
+        TextBox box = editor.TextBox(index);
+
+        editor.Host.TypeInto(box, "0");
+        changes.Clear();
+        editor.Host.Window.KeyTextInput("%");
+        HeadlessTestHelpers.Settle();
+        Assert.That(box.Text, Is.EqualTo("0%"));
+        Assert.That(changes, Is.EqualTo(new[] { editor.Compose(initial, RelativeUnit.Relative) }));
+
+        editor.Host.WheelOver(box, 1);
+        Assert.That(box.Text, Is.EqualTo($"{10f:f}%"));
+        Assert.That(editor.Values, Is.EqualTo(editor.WithEditedValue(initial, index, 0.1f)).Within(0.00001f));
+        editor.Host.MoveFocusToSink();
+        Assert.That(editor.Confirmed, Is.EqualTo(new[] { editor.Compose(editor.Values, RelativeUnit.Relative) }));
+
+        initial = editor.Reset(0);
+        changes.Clear();
+        editor.Host.TypeInto(box, "0");
+        Assert.That(changes, Is.EqualTo(new[] { editor.Compose(initial) }));
+
+        editor.Host.WheelOver(box, 1);
+        Assert.That(editor.Values, Is.EqualTo(editor.WithEditedValue(initial, index, 10)));
+        editor.AssertTextMatchesValues();
+        editor.Host.MoveFocusToSink();
+        Assert.That(editor.Confirmed, Is.EqualTo(new[] { editor.Compose(editor.Values) }));
+    }
+
+    [AvaloniaTest]
+    [TestCaseSource(nameof(RelativeEditors))]
     public void Percent_input_and_wheel_keep_relative_units(EditorCase editorCase)
     {
         using var editor = new BoundedEditor(editorCase, minimum: 0.5f, maximum: 2);
