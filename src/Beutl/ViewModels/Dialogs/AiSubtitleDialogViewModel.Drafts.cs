@@ -388,7 +388,7 @@ public sealed partial class AiSubtitleDialogViewModel
             if (draft.SceneTranscriptionResume is { } scene
                 && scene.SceneId == _editViewModel?.Scene.Id)
             {
-                RestoreSceneResume(draft, scene, draftScopeRevision);
+                RestoreSceneResume(scene, draftScopeRevision);
             }
 
             if (draft.SourceTranscriptionResume is { } source)
@@ -397,16 +397,12 @@ public sealed partial class AiSubtitleDialogViewModel
             // A draft written the moment its first piece was named holds the
             // way back to that piece and nothing to apply yet.
             HasPartialResult.Value = draft.CompletedSteps > 0;
-            PartialResultMessage.Value = draft.CompletedSteps <= 0
-                ? null
-                : draft.CompletedSteps == draft.TotalSteps
-                    ? Strings.AiSubtitle_CompletedResultAvailable
-                    : string.Format(
-                        kind == PartialResultKind.Translation
-                            ? Strings.AiSubtitle_PartialTranslationAvailable
-                            : Strings.AiSubtitle_PartialTranscriptionAvailable,
-                        draft.CompletedSteps,
-                        draft.TotalSteps);
+            ShowRunProgress(
+                draft.CompletedSteps,
+                draft.TotalSteps,
+                kind == PartialResultKind.Translation
+                    ? Strings.AiSubtitle_PartialTranslationAvailable
+                    : Strings.AiSubtitle_PartialTranscriptionAvailable);
             // Expose the name held by a restored run to the UI. Otherwise a run that looks empty
             // because only its first chunk was sent could be overwritten without confirmation.
             UpdateOutstandingCaptionRequest();
@@ -428,7 +424,7 @@ public sealed partial class AiSubtitleDialogViewModel
         try
         {
             TranslationOperation operation = RestoreTranslationOperation(
-                draft,
+                translation,
                 Interlocked.Read(ref _captionDocumentRevision),
                 draftScopeRevision);
             // The unfinished batches are named partly by the model the
@@ -472,7 +468,6 @@ public sealed partial class AiSubtitleDialogViewModel
     }
 
     private void RestoreSceneResume(
-        CaptionDraft draft,
         CaptionSceneTranscriptionResume scene,
         long draftScopeRevision)
     {
@@ -482,7 +477,7 @@ public sealed partial class AiSubtitleDialogViewModel
         // session identifier so it cannot combine those unverifiable chunks with audio
         // composed by this dialog lifetime.
         _pendingSceneTranscription = RestoreSceneTranscriptionOperation(
-            draft,
+            scene,
             null,
             Interlocked.Read(ref _captionDocumentRevision),
             draftScopeRevision,
@@ -494,38 +489,19 @@ public sealed partial class AiSubtitleDialogViewModel
         SelectSourceLanguage(scene.Language);
     }
 
-    // Built here rather than by RestoreSourceTranscriptionOperation so the segments still
-    // arrive after the model is chosen, as they always have.
     private void RestoreSourceResume(
         CaptionSourceTranscriptionResume source,
         long draftScopeRevision)
     {
-        _pendingSourceTranscription = new SourceTranscriptionOperation(
+        _pendingSourceTranscription = RestoreSourceTranscriptionOperation(
+            source,
             null,
-            source.FilePath,
-            source.ElementId,
-            source.FileLength,
-            source.LastWriteTimeUtcTicks,
-            source.Language,
-            source.SampleRate,
-            source.SourceStartSamples ?? -1,
-            source.TotalSamples,
-            source.ChunkSamples,
-            source.ChunkCount,
             Interlocked.Read(ref _captionDocumentRevision),
-            draftScopeRevision,
-            SeedOrNull(source.RequestKeySeed),
-            source.RequestKeyNamePending)
-        {
-            CompletedChunkCount = source.CompletedChunkCount,
-            DetectedLanguage = source.DetectedLanguage,
-            RequestKeyModel = source.RequestKeyModel,
-        };
+            draftScopeRevision);
         _restoredTranscriptionModel = ModelIdOrNull(source.RequestKeyModel);
         PreferRestoredModel(
             TranscriptionModelPicker,
             _restoredTranscriptionModel);
-        _pendingSourceTranscription.SourceSegments.AddRange(CloneSegments(source.Segments));
         SelectSourceLanguage(source.Language);
     }
 

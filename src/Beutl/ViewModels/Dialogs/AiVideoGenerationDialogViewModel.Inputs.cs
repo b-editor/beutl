@@ -1,8 +1,6 @@
 ﻿using System.Collections.ObjectModel;
 using System.Globalization;
-using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Platform.Storage;
 using Beutl.Api.Services;
 using Beutl.Language;
@@ -76,7 +74,7 @@ internal sealed partial class AiVideoGenerationDialogViewModel
         SourceDuration.Subscribe(_ =>
         {
             RefreshVideoInputs();
-            _availabilityTracker.Check(new AiOperationAvailabilityRequest.Video(Operation, RequestDuration, ModelPicker.SelectedModel));
+            _availabilityTracker.Check(AvailabilityRequest);
         }).DisposeWith(_disposables);
         CharacterImagePath.Subscribe(_ => RefreshVideoInputs()).DisposeWith(_disposables);
         FirstFramePath.Subscribe(_ => RefreshVideoInputs()).DisposeWith(_disposables);
@@ -88,7 +86,7 @@ internal sealed partial class AiVideoGenerationDialogViewModel
     {
         var limits = ModelPicker.Selected.Value?.Model.Video ?? AiVideoModelCapabilities.Unrestricted;
         // Legacy pending requests used the global limit before per-model limits were saved.
-        MaxPromptLength.Value = _selectedRecovery is { } recovery
+        MaxPromptLength.Value = _recovery.Active is { } recovery
             ? recovery.Form?.VideoPromptLimit ?? AiRequestLimits.MaxPromptLength
             : limits.MaxPromptLength;
         foreach (var group in ReferenceGroups)
@@ -118,7 +116,6 @@ internal sealed partial class AiVideoGenerationDialogViewModel
             {
                 ValidateReferenceInputs(limits);
             }
-            InputError.Value = null;
         }
         catch (AiFileTooLargeException) { InputError.Value = Strings.AiFileTooLarge; }
         catch (VideoInputException ex) { InputError.Value = ex.Message; }
@@ -131,7 +128,7 @@ internal sealed partial class AiVideoGenerationDialogViewModel
     {
         var references = ReferenceGroups.SelectMany(group => group.Files).Select(file => Describe(file.Path, file.Name)).ToArray();
         AiVideoInputLimits.ValidateReferences(references);
-        if (_selectedRecovery is null)
+        if (_recovery.Active is null)
         {
             if (references.Length == 0 && !limits.SupportsPromptToVideo) throw new VideoInputException(Strings.AiChooseVideoInput);
             foreach (var group in ReferenceGroups.Where(group => group.Files.Count > 0))
@@ -166,9 +163,9 @@ internal sealed partial class AiVideoGenerationDialogViewModel
 
     private void ValidateSourceVideo(AiUploadSource source, double? duration, AiVideoModelCapabilities limits)
     {
-        AiVideoInputLimits.Validate(source, "video", _selectedRecovery is null ? limits.MaxSourceVideoBytes : AiVideoInputLimits.MaxSourceBytes);
+        AiVideoInputLimits.Validate(source, "video", _recovery.Active is null ? limits.MaxSourceVideoBytes : AiVideoInputLimits.MaxSourceBytes);
         if (duration is not { } seconds || !double.IsFinite(seconds) || seconds <= 0 || seconds > 60
-            || (_selectedRecovery is null && (seconds < (limits.MinSourceVideoSeconds ?? 0) || seconds > (limits.MaxSourceVideoSeconds ?? 60))))
+            || (_recovery.Active is null && (seconds < (limits.MinSourceVideoSeconds ?? 0) || seconds > (limits.MaxSourceVideoSeconds ?? 60))))
             throw new VideoInputException(Strings.AiModelDoesNotSupportRequest);
     }
 
@@ -213,15 +210,15 @@ internal sealed partial class AiVideoGenerationDialogViewModel
             else if (InputPicker is { } picker) paths = await picker(role, operation.CancellationToken);
             else
             {
-                if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime { MainWindow: { } window }) return;
+                if (AiDialogStorage.MainWindowStorage() is not { } storage) return;
                 string[] patterns = GetInputFilePatterns(role);
-                var files = await window.StorageProvider.OpenFilePickerAsync(new()
+                var files = await storage.OpenFilePickerAsync(new()
                 {
                     AllowMultiple = role is "image" or "video" or "audio",
                     FileTypeFilter = [new FilePickerFileType(Strings.AiVideoInput) { Patterns = patterns }],
                 });
+                using IDisposable ownership = SharedFilePickerOptions.OwnStorageFiles(files);
                 paths = files.Select(file => file.TryGetLocalPath()).OfType<string>().ToArray();
-                foreach (var file in files) file.Dispose();
             }
             if (paths.Count == 0) return;
             // Only an actual choice supersedes pending probes; canceling Browse leaves them valid.
@@ -326,7 +323,7 @@ internal sealed partial class AiVideoGenerationDialogViewModel
         long totalBytes = 0;
         foreach (var (role, path, name) in paths)
         {
-            var recovery = _selectedRecovery?.EffectiveSources.FirstOrDefault(item => item.Role == role && item.MatchesPath(path));
+            var recovery = _recovery.Active?.EffectiveSources.FirstOrDefault(item => item.Role == role && item.MatchesPath(path));
             string fileName = recovery?.Name ?? name;
             long maximum = UploadLimitBytes(role, limits);
             byte[] bytes = recovery is null ? await AiUploadBytes.ReadWithinAsync(path, maximum, token) : _requestKey.ReadSourceBytes(recovery);
@@ -342,10 +339,10 @@ internal sealed partial class AiVideoGenerationDialogViewModel
     private long UploadLimitBytes(string role, AiVideoModelCapabilities limits) => role switch
     {
         CharacterImageRole => AiRequestLimits.MaxFrameUploadBytes,
-        SourceVideoRole => _selectedRecovery is null ? limits.MaxSourceVideoBytes : AiVideoInputLimits.MaxSourceBytes,
-        _ when role.StartsWith(ReferenceRolePrefix + "image-", StringComparison.Ordinal) => _selectedRecovery is null ? limits.MaxInputReferenceBytes : AiRequestLimits.MaxFrameUploadBytes,
-        _ when role.StartsWith(ReferenceRolePrefix + "audio-", StringComparison.Ordinal) => _selectedRecovery is null ? limits.MaxAudioReferenceBytes : AiVideoInputLimits.MaxAudioBytes,
-        _ => _selectedRecovery is null ? limits.MaxVideoReferenceBytes : AiVideoInputLimits.MaxSourceBytes,
+        SourceVideoRole => _recovery.Active is null ? limits.MaxSourceVideoBytes : AiVideoInputLimits.MaxSourceBytes,
+        _ when role.StartsWith(ReferenceRolePrefix + "image-", StringComparison.Ordinal) => _recovery.Active is null ? limits.MaxInputReferenceBytes : AiRequestLimits.MaxFrameUploadBytes,
+        _ when role.StartsWith(ReferenceRolePrefix + "audio-", StringComparison.Ordinal) => _recovery.Active is null ? limits.MaxAudioReferenceBytes : AiVideoInputLimits.MaxAudioBytes,
+        _ => _recovery.Active is null ? limits.MaxVideoReferenceBytes : AiVideoInputLimits.MaxSourceBytes,
     };
 
     private void RestoreVideoInputs(AiPendingAttempt attempt, IReadOnlyList<string> paths)
@@ -369,7 +366,7 @@ internal sealed partial class AiVideoGenerationDialogViewModel
 
     internal void CopySourceIntent(AiVideoGenerationDialogViewModel source)
     {
-        if (_selectedRecovery is not null || _requestKey.HasOutstandingName.Value || IsGenerating.Value || source.IsGenerating.Value) return;
+        if (_recovery.Active is not null || _requestKey.HasOutstandingName.Value || IsGenerating.Value || source.IsGenerating.Value) return;
         using var origin = source.TryEnterIdentityOperation();
         using var target = TryEnterIdentityOperation();
         if (origin is null || target is null) return;

@@ -25,9 +25,7 @@ internal sealed partial class AiImageGenerationDialogViewModel
             return;
         }
 
-        foreach (AiReferenceImageViewModel shown in ReferenceImages)
-            shown.Dispose();
-        ReferenceImages.Clear();
+        DisposeReferenceImages();
         foreach (string path in wanted)
         {
             if (LoadReference(path) is { } reference)
@@ -48,11 +46,16 @@ internal sealed partial class AiImageGenerationDialogViewModel
 
     private void ClearReferenceImagesCore()
     {
+        DisposeReferenceImages();
+        _chosenReferencePaths.Clear();
+        UpdateReferenceImageState();
+    }
+
+    private void DisposeReferenceImages()
+    {
         foreach (AiReferenceImageViewModel reference in ReferenceImages)
             reference.Dispose();
         ReferenceImages.Clear();
-        _chosenReferencePaths.Clear();
-        UpdateReferenceImageState();
     }
 
     private void RemoveReferenceImage(AiReferenceImageViewModel reference)
@@ -64,11 +67,8 @@ internal sealed partial class AiImageGenerationDialogViewModel
         UpdateReferenceImageState();
     }
 
-    // What the pictures of one request may come to together is published by the
-    // server and can be lowered. Anything over the new total is dropped here
-    // rather than refused once the request has been built — which is only ever
-    // reached while no name is outstanding, so this cannot rewrite a request
-    // waiting to be collected.
+    // Drops whatever exceeds the server's total-size limit; only reached while no name is
+    // outstanding, so it cannot rewrite a request waiting to be collected.
     private void TrimReferenceImagesToLimit()
     {
         // Trim preserved references as well as visible ones. Otherwise switching back to a less
@@ -83,11 +83,9 @@ internal sealed partial class AiImageGenerationDialogViewModel
         UpdateReferenceImageState();
     }
 
-    // What the pictures may come to together is published by the server. The
-    // ones that fit, in the order they were picked.
     private string[] WithinTotalLimit(IEnumerable<string> paths)
     {
-        long limit = _selectedRecovery?.Form?.MaxReferenceTotalBytes
+        long limit = _recovery.Active?.Form?.MaxReferenceTotalBytes
             ?? ModelPicker.ImageReferenceLimits.MaxTotalBytes;
         long total = 0;
         var within = new List<string>();
@@ -204,7 +202,7 @@ internal sealed partial class AiImageGenerationDialogViewModel
             }
             string fileName = recovered?.Name ?? Path.GetFileName(paths[index]);
             byte[] bytes = recovered is not null
-                ? await ReadRecoveredSourceAsync(recovered, cancellationToken)
+                ? _requestKey.ReadSourceBytes(recovered)
                 : await AiUploadBytes.ReadWithinAsync(
                     paths[index],
                     Math.Min(remaining, AiRequestLimits.MaxImageUploadBytes),
@@ -220,16 +218,6 @@ internal sealed partial class AiImageGenerationDialogViewModel
         }
 
         return (sources, stamps, recoverySources);
-    }
-
-    private async Task<byte[]> ReadRecoveredSourceAsync(
-        AiRequestRecoverySource source,
-        CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        if (source.Path is null && source.DurableFile is null)
-            throw new InvalidDataException($"AI recovery source '{source.Role}' is unavailable.");
-        return _requestKey.ReadSourceBytes(source);
     }
 
     private static long SizeOf(string path)

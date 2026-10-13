@@ -88,8 +88,6 @@ public class SelectLibraryItemDialogViewModel
 
     public ReactiveCollection<PinnableLibraryItem> ReferenceItems { get; } = [];
 
-    public ReactiveProperty<bool> ShowReferences { get; } = new();
-
     public bool HasReferencesTab { get; private set; }
 
     internal Task SearchTask { get; private set; } = Task.CompletedTask;

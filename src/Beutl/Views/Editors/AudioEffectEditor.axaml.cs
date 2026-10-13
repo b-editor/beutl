@@ -88,7 +88,7 @@ public partial class AudioEffectEditor : UserControl
     {
         return PickerGuard.RunAsync(this, async () =>
         {
-            var viewModel = new SelectAudioEffectTypeViewModel();
+            var viewModel = new SelectLibraryItemDialogViewModel(KnownLibraryItemFormats.AudioEffect, typeof(AudioEffect));
             return await LibraryItemPickerHelper.ShowAsync(this, viewModel, KnownLibraryItemFormats.AudioEffect) as Type;
         });
     }

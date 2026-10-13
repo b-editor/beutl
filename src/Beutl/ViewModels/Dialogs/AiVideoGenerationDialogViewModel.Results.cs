@@ -1,7 +1,6 @@
 ﻿using Avalonia.Platform.Storage;
 using Beutl.Services;
 using Beutl.Services.AI;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 
@@ -40,45 +39,14 @@ internal sealed partial class AiVideoGenerationDialogViewModel
             return;
         using IDisposable fileLease = AcquireTemporaryFileLease(filePath);
 
-        try
-        {
-            double durationSeconds = _resultSnapshot?.DurationSeconds ?? SelectedDuration.Value.Seconds;
-            AiResultImportOptions options = AiDialogResults.PlaceAtPlayhead(
-                _editViewModel,
-                TimeSpan.FromSeconds(durationSeconds),
-                Strings.AiVideoGeneration);
-            ElementAddResult result;
-            if (ResultImporter is { } importer)
-            {
-                result = await importer(filePath, options, operation.CancellationToken);
-            }
-            else
-            {
-                var defaultImporter = new AiResultImporter(
-                    _editViewModel.Scene,
-                    _editViewModel.GetRequiredService<IElementAdder>());
-                result = await defaultImporter.ImportVideoAsync(
-                    filePath,
-                    options,
-                    operation.CancellationToken);
-            }
-
-            AiDialogResults.PublishImport(
-                operation,
-                result,
-                Strings.AiVideoGeneration,
-                Strings.AiVideoAddedToScene,
-                "generated video");
-        }
-        catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
-        {
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to add the AI video to the scene.");
-            operation.TryPublish(() => Error.Value = Strings.AiUnexpectedError);
-        }
-
+        await AiDialogResults.AddVideoToSceneAsync(
+            operation,
+            _editViewModel,
+            filePath,
+            _resultDurationSeconds,
+            ResultImporter,
+            Error,
+            ex => _logger.LogError(ex, "Failed to add the AI video to the scene."));
     }
 
     private async Task SaveToFileCore()

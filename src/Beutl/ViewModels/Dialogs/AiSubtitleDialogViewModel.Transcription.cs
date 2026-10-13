@@ -103,11 +103,7 @@ public sealed partial class AiSubtitleDialogViewModel
             captionRevision,
             draftScopeRevision);
         // Read once for the whole run, and taken from the run itself once it has
-        // named anything. Every piece is named partly by the model, so a picker
-        // that moved between naming a piece and sending it would put one model
-        // in the name and another in the body — which the server refuses — and
-        // one that moved between pieces, or fell back because the run's model
-        // was withdrawn, would rename the rest of the run and buy it again.
+        // named anything — see ModelOfRun.
         AiModelId? runModel = ModelOfRun(
             operation.CompletedChunkCount > 0
                 || operation.RequestKey.HasOutstandingName.Value,
@@ -154,76 +150,37 @@ public sealed partial class AiSubtitleDialogViewModel
 
                 AiRequestName name = operation.RequestNameFor(chunkIndex, runModel);
                 UpdateOutstandingCaptionRequest();
-                // Anything that ends here ends before the request went out, so
-                // the name reached nothing — a refusal, a run stopped while the
-                // check was in the air, any of it.
-                try
+                if (!await RecordRunPieceAsync(
+                        operation,
+                        name,
+                        () => new AiOperationAvailabilityRequest.Transcription(
+                            AiOperations.Transcription,
+                            chunk.UploadedDuration.TotalSeconds,
+                            runModel),
+                        PublishSourceTranscriptionPartial,
+                        WithdrawSourceTranscriptionName))
                 {
-                    // Not for a repeat: the server looks up the job this name
-                    // already made before it looks at the balance, so refusing
-                    // here would refuse to collect a piece already paid for.
-                    if (!name.IsRepeat)
-                    {
-                        await EnsureAvailableAsync(
-                            new AiOperationAvailabilityRequest.Transcription(
-                                AiOperations.Transcription,
-                                chunk.UploadedDuration.TotalSeconds,
-                                runModel));
-                    }
-
-                    // Written before the chunk goes out, not after it comes
-                    // back. The first chunk is the one most likely to be charged
-                    // and lost, and without this the name that charged it would
-                    // die with the session: the next run would name the same
-                    // chunk differently and buy it again. A run that cannot be
-                    // written down is not started at all — sending it would be
-                    // paying for something no later session could ask for.
-                    if (!CanRunContinue(PublishSourceTranscriptionPartial(operation)))
-                        return;
-                }
-                catch
-                {
-                    WithdrawSourceTranscriptionName(operation, name);
-                    throw;
+                    return;
                 }
 
-                AiTranscriptionResponse response;
-                try
-                {
-                    response = await _aiService.TranscribeAsync(
-                        new AiTranscriptionRequest(
-                            AiUploadSource.FromFile(
-                                path,
-                                FormatChunkFileName("source", chunkIndex)),
-                            language,
-                            runModel,
-                            name.Key),
-                        RequestToken);
-                    response = NormalizeTranscriptionResponse(response, chunk.UploadedDuration.TotalSeconds, operation.ExpectedDraftScopeRevision);
-                }
-                catch (AiProviderErrorException)
-                {
-                    // Failed or invalid settled responses need a fresh key on retry.
-                    // Its key would keep answering with that failure, so the
-                    // rest of the run takes new ones — and the resume state is
-                    // rewritten with them, or a resumed run would ask under the
-                    // spent key again.
-                    if (operation.RequestKey.Retire())
-                    {
-                        UpdateOutstandingCaptionRequest();
-                        PublishSourceTranscriptionPartial(operation);
-                    }
-                    throw;
-                }
-                catch (Exception ex) when (AiRequestOutcome.CanWithdraw(name, ex))
-                {
-                    WithdrawSourceTranscriptionName(operation, name);
-                    throw;
-                }
-                // Settle the durable key before publishing any local progress.
-                // A failed CAS means another owner replaced the recovery row;
-                // leave this operation untouched so it can still be resumed.
-                if (!operation.RequestKey.Retire(name))
+                (bool settled, AiTranscriptionResponse response) = await SendRunPieceAsync(
+                    operation,
+                    name,
+                    async () => NormalizeTranscriptionResponse(
+                        await _transcription.TranscribeAsync(
+                            new AiTranscriptionRequest(
+                                AiUploadSource.FromFile(
+                                    path,
+                                    FormatChunkFileName("source", chunkIndex)),
+                                language,
+                                runModel,
+                                name.Key),
+                            RequestToken),
+                        chunk.UploadedDuration.TotalSeconds,
+                        operation.ExpectedDraftScopeRevision),
+                    PublishSourceTranscriptionPartial,
+                    WithdrawSourceTranscriptionName);
+                if (!settled)
                     return;
                 operation.DetectedLanguage ??= response.Language;
                 double offsetSeconds = (plan.StartSamples + chunkOffset)
@@ -303,8 +260,6 @@ public sealed partial class AiSubtitleDialogViewModel
         long totalSamples = Math.Min(selectedSamples, availableSamples);
         int chunkSamples = checked((int)Math.Ceiling(
             SceneMixChunkDuration.TotalSeconds * sampleRate));
-        if (totalSamples <= 0 || chunkSamples <= 0)
-            throw new SubtitleInputException(Strings.AiSubtitle_NoAudioInRange);
 
         int chunkCount = checked((int)Math.Ceiling(totalSamples / (double)chunkSamples));
         return new SourceChunkPlan(sampleRate, sourceStartSamples, totalSamples, chunkSamples, chunkCount);
@@ -351,7 +306,7 @@ public sealed partial class AiSubtitleDialogViewModel
             {
                 _retainedCaptionRecoveries.Remove(retained);
                 operation = RestoreSourceTranscriptionOperation(
-                    retained.Draft,
+                    retained.Draft.SourceTranscriptionResume!,
                     source,
                     captionRevision,
                     draftScopeRevision);
@@ -417,11 +372,7 @@ public sealed partial class AiSubtitleDialogViewModel
             chunkCount,
             draftScopeRevision);
         // Read once for the whole run, and taken from the run itself once it has
-        // named anything. Every piece is named partly by the model, so a picker
-        // that moved between naming a piece and sending it would put one model
-        // in the name and another in the body — which the server refuses — and
-        // one that moved between pieces, or fell back because the run's model
-        // was withdrawn, would rename the rest of the run and buy it again.
+        // named anything — see ModelOfRun.
         AiModelId? runModel = ModelOfRun(
             operation.CompletedChunkCount > 0
                 || operation.RequestKey.HasOutstandingName.Value,
@@ -442,36 +393,21 @@ public sealed partial class AiSubtitleDialogViewModel
                 Math.Min(operation.ChunkDuration.Ticks, duration.Ticks - chunkOffset.Ticks));
             AiRequestName name = operation.RequestNameFor(index, runModel);
             UpdateOutstandingCaptionRequest();
-            // Before the scene is composed: mixing a chunk of audio the account
-            // cannot pay for is work thrown away. Anything that ends here ends
-            // before the request went out, so the name reached nothing — a
-            // refusal, a run stopped while the check was in the air, any of it.
-            try
+            // Before the scene is composed: mixing a chunk of audio the account cannot pay for is
+            // work thrown away. Scene audio is composed rather than read from a file, so nothing
+            // written down proves it is still the same audio — the server's own fingerprint does,
+            // and answers a chunk asked for again only when it matches.
+            if (!await RecordRunPieceAsync(
+                    operation,
+                    name,
+                    () => new AiOperationAvailabilityRequest.Transcription(
+                        AiOperations.Transcription,
+                        chunkDuration.TotalSeconds,
+                        runModel),
+                    PublishSceneTranscriptionPartial,
+                    WithdrawSceneTranscriptionName))
             {
-                // Not for a repeat: the server looks up the job this name
-                // already made before it looks at the balance, so refusing here
-                // would refuse to collect a piece already paid for.
-                if (!name.IsRepeat)
-                {
-                    await EnsureAvailableAsync(
-                        new AiOperationAvailabilityRequest.Transcription(
-                            AiOperations.Transcription,
-                            chunkDuration.TotalSeconds,
-                            runModel));
-                }
-
-                // Written before the chunk goes out. Scene audio is composed
-                // rather than read from a file, so nothing written down proves
-                // it is still the same audio — the server's own fingerprint
-                // does, and answers a chunk asked for again only when it
-                // matches.
-                if (!CanRunContinue(PublishSceneTranscriptionPartial(operation)))
-                    return;
-            }
-            catch
-            {
-                WithdrawSceneTranscriptionName(operation, name);
-                throw;
+                return;
             }
 
             (string path, FileStream stream) = AiTemporaryFileStore.Create(
@@ -497,40 +433,24 @@ public sealed partial class AiSubtitleDialogViewModel
                     WithdrawSceneTranscriptionName(operation, name);
                     throw;
                 }
-                AiTranscriptionResponse response;
-                try
-                {
-                    response = await _aiService.TranscribeAsync(
-                        new AiTranscriptionRequest(
-                            AiUploadSource.FromFile(
-                                path,
-                                FormatChunkFileName("scene-mix", index)),
-                            language,
-                            runModel,
+                (bool settled, AiTranscriptionResponse response) = await SendRunPieceAsync(
+                    operation,
+                    name,
+                    async () => NormalizeTranscriptionResponse(
+                        await _transcription.TranscribeAsync(
+                            new AiTranscriptionRequest(
+                                AiUploadSource.FromFile(
+                                    path,
+                                    FormatChunkFileName("scene-mix", index)),
+                                language,
+                                runModel,
                                 name.Key),
-                        RequestToken);
-                    response = NormalizeTranscriptionResponse(response, uploadedDuration.TotalSeconds, operation.ExpectedDraftScopeRevision);
-                }
-                catch (AiProviderErrorException)
-                {
-                    // Failed or invalid settled responses need a fresh key on retry.
-                    // Its key would keep answering with that failure, so the
-                    // rest of the run takes new ones — written down as well, or
-                    // a run picked up later asks under the spent key again and
-                    // gets the same failure every time.
-                    if (operation.RequestKey.Retire())
-                    {
-                        UpdateOutstandingCaptionRequest();
-                        PublishSceneTranscriptionPartial(operation);
-                    }
-                    throw;
-                }
-                catch (Exception ex) when (AiRequestOutcome.CanWithdraw(name, ex))
-                {
-                    WithdrawSceneTranscriptionName(operation, name);
-                    throw;
-                }
-                if (!operation.RequestKey.Retire(name))
+                            RequestToken),
+                        uploadedDuration.TotalSeconds,
+                        operation.ExpectedDraftScopeRevision),
+                    PublishSceneTranscriptionPartial,
+                    WithdrawSceneTranscriptionName);
+                if (!settled)
                     return;
                 operation.DetectedLanguage ??= response.Language;
                 foreach (AiTranscriptionSegment segment in response.Segments)
@@ -545,10 +465,7 @@ public sealed partial class AiSubtitleDialogViewModel
                 RecordCaptionDraftJob(response.JobId, operation.ExpectedDraftScopeRevision);
                 operation.CompletedChunkCount++;
                 UpdateOutstandingCaptionRequest();
-                // If this cannot be written down, the response may already have
-                // been charged. Stop before the final ClearPartialResult can delete
-                // the previous durable seed; the next attempt can persist this
-                // in-memory progress and resume by idempotency key.
+                // Stop if this cannot be written down, as in TranscribeSourceFileAsync.
                 if (!CanRunContinue(PublishSceneTranscriptionPartial(operation)))
                     return;
             }
@@ -615,7 +532,7 @@ public sealed partial class AiSubtitleDialogViewModel
             {
                 _retainedCaptionRecoveries.Remove(retained);
                 operation = RestoreSceneTranscriptionOperation(
-                    retained.Draft,
+                    retained.Draft.SceneTranscriptionResume!,
                     source,
                     Interlocked.Read(ref _captionDocumentRevision),
                     draftScopeRevision,
@@ -732,8 +649,6 @@ public sealed partial class AiSubtitleDialogViewModel
                 || segment.End <= segment.Start
                 || segment.End > maximumEndSeconds + TimestampToleranceSeconds
                 || Math.Min(segment.End, maximumEndSeconds) <= segment.Start
-                || !IsTimeSpanRepresentable(segment.Start)
-                || !IsTimeSpanRepresentable(segment.End)
                 || string.IsNullOrWhiteSpace(segment.Text))
             {
                 // This is a client-side rejection of a potentially paid success, not a
@@ -751,19 +666,6 @@ public sealed partial class AiSubtitleDialogViewModel
             previousEnd = normalized[i].End;
         }
         return normalized;
-    }
-
-    private static bool IsTimeSpanRepresentable(double seconds)
-    {
-        try
-        {
-            _ = TimeSpan.FromSeconds(seconds);
-            return true;
-        }
-        catch (OverflowException)
-        {
-            return false;
-        }
     }
 
     // A run is worth picking up as soon as it has named a piece, not only once a
@@ -815,14 +717,12 @@ public sealed partial class AiSubtitleDialogViewModel
                 || resume.AudioSessionId == _sceneAudioSessionId);
 
     private static SceneTranscriptionOperation RestoreSceneTranscriptionOperation(
-        CaptionDraft draft,
+        CaptionSceneTranscriptionResume resume,
         AudioSourceItem? source,
         long captionRevision,
         long draftScopeRevision,
         long sceneAudioRevision)
     {
-        CaptionSceneTranscriptionResume resume = draft.SceneTranscriptionResume
-            ?? throw new InvalidDataException("The retained scene transcription has no resume state.");
         var operation = new SceneTranscriptionOperation(
             source,
             resume.Language,
@@ -835,7 +735,7 @@ public sealed partial class AiSubtitleDialogViewModel
             sceneAudioRevision,
             resume.SceneId,
             resume.AudioSessionId,
-            SeedOrNull(resume.RequestKeySeed),
+            resume.RequestKeySeed,
             resume.RequestKeyNamePending)
         {
             CompletedChunkCount = resume.CompletedChunkCount,
@@ -920,13 +820,11 @@ public sealed partial class AiSubtitleDialogViewModel
             && resume.LastWriteTimeUtcTicks == fingerprint.LastWriteTimeUtcTicks;
 
     private static SourceTranscriptionOperation RestoreSourceTranscriptionOperation(
-        CaptionDraft draft,
-        AudioSourceItem source,
+        CaptionSourceTranscriptionResume resume,
+        AudioSourceItem? source,
         long captionRevision,
         long draftScopeRevision)
     {
-        CaptionSourceTranscriptionResume resume = draft.SourceTranscriptionResume
-            ?? throw new InvalidDataException("The retained source transcription has no resume state.");
         var operation = new SourceTranscriptionOperation(
             source,
             resume.FilePath,
@@ -941,7 +839,7 @@ public sealed partial class AiSubtitleDialogViewModel
             resume.ChunkCount,
             captionRevision,
             draftScopeRevision,
-            SeedOrNull(resume.RequestKeySeed),
+            resume.RequestKeySeed,
             resume.RequestKeyNamePending)
         {
             CompletedChunkCount = resume.CompletedChunkCount,
@@ -988,16 +886,13 @@ public sealed partial class AiSubtitleDialogViewModel
         AudioStreamInfo audioInfo,
         TimeSpan selectedDuration)
     {
-        if (audioInfo.SampleRate <= 0)
-            throw new SubtitleInputException(Strings.AiSubtitle_NoAudioInRange);
-
         double samples = selectedDuration.TotalSeconds * audioInfo.SampleRate;
         if (!double.IsFinite(samples) || samples <= 0 || samples > int.MaxValue)
             throw new SubtitleInputException("The source audio duration is unsupported.");
         return Math.Max(1, checked((long)Math.Ceiling(samples)));
     }
 
-    private static SourceAudioFingerprint GetSourceAudioFingerprint(string filePath)
+    internal static SourceAudioFingerprint GetSourceAudioFingerprint(string filePath)
     {
         var info = new FileInfo(filePath);
         if (!info.Exists || info.Length <= 0)
@@ -1005,11 +900,6 @@ public sealed partial class AiSubtitleDialogViewModel
 
         return new SourceAudioFingerprint(info.Length, info.LastWriteTimeUtc.Ticks);
     }
-
-    internal static bool HasMatchingSourceAudioFingerprint(
-        string filePath,
-        SourceAudioFingerprint expected)
-        => GetSourceAudioFingerprint(filePath) == expected;
 
     private void DeleteTemporaryAudio(string path)
     {
@@ -1079,7 +969,7 @@ public sealed partial class AiSubtitleDialogViewModel
         TimeSpan duration = source.Duration;
         TimeSpan rangeStart = TimeSpan.Zero;
         if (source.IsSceneMix
-            && (!TryGetSceneRange(out rangeStart, out duration) || duration <= TimeSpan.Zero))
+            && !TryGetSceneRange(out rangeStart, out duration))
         {
             return null;
         }
@@ -1104,9 +994,7 @@ public sealed partial class AiSubtitleDialogViewModel
         }
         else
         {
-            duration = duration <= TimeSpan.Zero
-                ? duration
-                : TimeSpan.FromTicks(Math.Min(duration.Ticks, SceneMixChunkDuration.Ticks));
+            duration = TimeSpan.FromTicks(Math.Min(duration.Ticks, SceneMixChunkDuration.Ticks));
         }
         return duration > TimeSpan.Zero
             ? new AiOperationAvailabilityRequest.Transcription(
@@ -1147,31 +1035,9 @@ public sealed partial class AiSubtitleDialogViewModel
         Guid audioSessionId,
         string? requestKeySeed = null,
         bool requestKeyNamePending = false)
+        : CaptionRunOperation(expectedCaptionRevision, expectedDraftScopeRevision, requestKeySeed, requestKeyNamePending)
     {
         public AudioSourceItem? Source { get; set; } = source;
-
-        /// <summary>
-        /// Names this run's requests, one key per chunk. Held with the rest of
-        /// the resume state so a retried chunk asks for the transcription it
-        /// already paid for instead of buying a second one.
-        /// </summary>
-        public AiRequestKey RequestKey { get; } = new(requestKeySeed, requestKeyNamePending);
-
-        public string RequestKeySeed => RequestKey.Seed;
-
-
-        /// <summary>The model the names handed out so far were built from.</summary>
-        public string RequestKeyModel { get; set; } = string.Empty;
-
-        // The model belongs in the key because the server refuses a key that
-        // comes back with a different request behind it, and it fingerprints
-        // the model. A chunk sent to another model is another request and takes
-        // another key, which is also what it costs.
-        public AiRequestName RequestNameFor(int chunkIndex, AiModelId? model)
-        {
-            RequestKeyModel = model?.Value ?? string.Empty;
-            return RequestKey.NameFor(chunkIndex, model?.Value);
-        }
 
         public string? Language { get; } = language;
 
@@ -1182,10 +1048,6 @@ public sealed partial class AiSubtitleDialogViewModel
         public TimeSpan ChunkDuration { get; } = chunkDuration;
 
         public int ChunkCount { get; } = chunkCount;
-
-        public long ExpectedCaptionRevision { get; set; } = expectedCaptionRevision;
-
-        public long ExpectedDraftScopeRevision { get; } = expectedDraftScopeRevision;
 
         public long ExpectedSceneAudioRevision { get; set; } = expectedSceneAudioRevision;
 
@@ -1216,27 +1078,9 @@ public sealed partial class AiSubtitleDialogViewModel
         long expectedDraftScopeRevision,
         string? requestKeySeed = null,
         bool requestKeyNamePending = false)
+        : CaptionRunOperation(expectedCaptionRevision, expectedDraftScopeRevision, requestKeySeed, requestKeyNamePending)
     {
         public AudioSourceItem? Source { get; set; } = source;
-
-        /// <summary>
-        /// Names this run's requests, one key per chunk. Restored with the rest
-        /// of the resume state so a chunk resumed after a restart asks for the
-        /// transcription it already paid for instead of buying a second one.
-        /// </summary>
-        public AiRequestKey RequestKey { get; } = new(requestKeySeed, requestKeyNamePending);
-
-        public string RequestKeySeed => RequestKey.Seed;
-
-
-        /// <summary>The model the names handed out so far were built from.</summary>
-        public string RequestKeyModel { get; set; } = string.Empty;
-
-        public AiRequestName RequestNameFor(int chunkIndex, AiModelId? model)
-        {
-            RequestKeyModel = model?.Value ?? string.Empty;
-            return RequestKey.NameFor(chunkIndex, model?.Value);
-        }
 
         public string FilePath { get; } = filePath;
 
@@ -1257,10 +1101,6 @@ public sealed partial class AiSubtitleDialogViewModel
         public int ChunkSamples { get; } = chunkSamples;
 
         public int ChunkCount { get; set; } = chunkCount;
-
-        public long ExpectedCaptionRevision { get; set; } = expectedCaptionRevision;
-
-        public long ExpectedDraftScopeRevision { get; } = expectedDraftScopeRevision;
 
         public List<AiTranscriptionSegment> SourceSegments { get; } = [];
 

@@ -122,10 +122,6 @@ public sealed class EditableCaptionCueViewModel : INotifyPropertyChanged
         string input = value.Trim();
         string[] formats =
         [
-            @"h\:mm\:ss\.fff",
-            @"hh\:mm\:ss\.fff",
-            @"h\:mm\:ss",
-            @"hh\:mm\:ss",
             @"m\:ss\.fff",
             @"mm\:ss\.fff",
             @"m\:ss",

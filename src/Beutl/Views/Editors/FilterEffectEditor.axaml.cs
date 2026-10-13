@@ -104,7 +104,7 @@ public partial class FilterEffectEditor : UserControl
     {
         return PickerGuard.RunAsync(this, () =>
         {
-            var selectVm = new SelectFilterEffectTypeViewModel();
+            var selectVm = new SelectLibraryItemDialogViewModel(KnownLibraryItemFormats.FilterEffect, typeof(FilterEffect));
 
             if (DataContext is FilterEffectEditorViewModel { IsDisposed: false } vm
                 && PresenterTypeAttribute.GetPresenterType(typeof(FilterEffect)) != null)

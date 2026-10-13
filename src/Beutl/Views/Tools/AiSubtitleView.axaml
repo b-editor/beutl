@@ -174,7 +174,7 @@
                                    HorizontalAlignment="Center"
                                    VerticalAlignment="Center"
                                    AutomationProperties.Name="{x:Static lang:Strings.AiSubtitle_TemplatePreview}"
-                                   FontSize="{CompiledBinding TemplatePreviewFontSize.Value}"
+                                   FontSize="24"
                                    IsVisible="{CompiledBinding TemplatePreviewImage.Value, Converter={x:Static ObjectConverters.IsNull}}"
                                    Text="{CompiledBinding TemplatePreviewText.Value}"
                                    TextAlignment="Center"

@@ -318,14 +318,14 @@ public sealed class AiSubtitleAdvancedTests
                 new FileInfo(path).Length,
                 File.GetLastWriteTimeUtc(path).Ticks);
             Assert.That(
-                AiSubtitleDialogViewModel.HasMatchingSourceAudioFingerprint(path, original),
-                Is.True);
+                AiSubtitleDialogViewModel.GetSourceAudioFingerprint(path),
+                Is.EqualTo(original));
 
             File.WriteAllBytes(path, [1, 2, 3, 4, 5]);
 
             Assert.That(
-                AiSubtitleDialogViewModel.HasMatchingSourceAudioFingerprint(path, original),
-                Is.False);
+                AiSubtitleDialogViewModel.GetSourceAudioFingerprint(path),
+                Is.Not.EqualTo(original));
         }
         finally
         {
@@ -445,7 +445,20 @@ public sealed class AiSubtitleAdvancedTests
             """);
 
         bool imported = viewModel.ImportCaptionBytes(srt, CaptionFormats.Srt);
-        byte[] exported = viewModel.ExportCaptionBytes(CaptionFormats.WebVtt);
+        Assert.That(viewModel.TryBuildCaptionDocument(out CaptionDocument? document, out _), Is.True);
+        await using CaptionCatalog catalog = CaptionCatalog.CreateDefault("Default");
+        byte[]? exported = null;
+        await AiSubtitleDialogViewModel.TryWriteCaptionExportAsync(
+            document!,
+            CaptionFormats.WebVtt,
+            catalog.Serializer,
+            _ => Task.FromResult(true),
+            (bytes, _) =>
+            {
+                exported = bytes;
+                return Task.CompletedTask;
+            },
+            CancellationToken.None);
         bool mixedImported = viewModel.ImportCaptionBytes(Encoding.UTF8.GetBytes("""
             1
             00:00:01,000 --> 00:00:02,500
@@ -461,7 +474,7 @@ public sealed class AiSubtitleAdvancedTests
         Assert.Multiple(() =>
         {
             Assert.That(imported, Is.True);
-            Assert.That(Encoding.UTF8.GetString(exported), Does.StartWith("WEBVTT"));
+            Assert.That(Encoding.UTF8.GetString(exported!), Does.StartWith("WEBVTT"));
             Assert.That(mixedImported, Is.True);
             Assert.That(viewModel.Cues.Select(cue => cue.Text), Is.EqualTo(new[] { "Preserved caption" }));
             Assert.That(malformed, Is.False);

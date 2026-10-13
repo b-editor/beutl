@@ -1,5 +1,6 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Beutl.Graphics.Transitions;
 using Beutl.Services;
 using Beutl.ViewModels.Dialogs;
 using Beutl.ViewModels.Tools;
@@ -23,7 +24,9 @@ public partial class TransitionTabView : UserControl
             try
             {
                 Type? type = await LibraryItemPickerHelper.ShowAsync(
-                    typeEditor, new SelectClipTransitionTypeViewModel(), KnownLibraryItemFormats.ClipTransition) as Type;
+                    typeEditor,
+                    new SelectLibraryItemDialogViewModel(KnownLibraryItemFormats.ClipTransition, typeof(ClipTransition)),
+                    KnownLibraryItemFormats.ClipTransition) as Type;
                 if (type != null)
                 {
                     viewModel.ChangeType(type);

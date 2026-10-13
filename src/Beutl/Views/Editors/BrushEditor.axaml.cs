@@ -165,7 +165,7 @@ public sealed partial class BrushEditor : UserControl
     {
         return PickerGuard.RunAsync(this, () =>
         {
-            var selectVm = new SelectDrawableTypeViewModel();
+            var selectVm = new SelectLibraryItemDialogViewModel(KnownLibraryItemFormats.Drawable, typeof(Drawable));
 
             if (DataContext is BrushEditorViewModel { IsDisposed: false } vm)
             {

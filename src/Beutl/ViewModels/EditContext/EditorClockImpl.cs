@@ -69,7 +69,6 @@ internal sealed class EditorClockImpl : IEditorClock, IDisposable
 
             if (sender is Element element && (startChanged || lengthChanged))
             {
-                // 変更前の値を取得
                 TimeRange oldRange = element.Range;
                 if (startChanged) oldRange = oldRange.WithStart(typedArgs.OldValue);
                 if (lengthChanged) oldRange = oldRange.WithDuration(typedArgs.OldValue);
