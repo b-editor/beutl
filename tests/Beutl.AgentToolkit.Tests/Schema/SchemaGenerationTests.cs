@@ -26,6 +26,27 @@ namespace Beutl.AgentToolkit.Tests.Schema;
 public sealed class SchemaGenerationTests
 {
     [Test]
+    public void DiagonalClipping_ExposesSignedWidthAndAnimatedParametersWithoutMode()
+    {
+        var generator = new SchemaGenerator();
+        CapabilitySchema schema = generator.Generate(typeFilter: nameof(DiagonalClipping));
+        TypeDescriptor descriptor = schema.Types.Single(type => type.Type == typeof(DiagonalClipping).FullName);
+        PropertyDescriptor width = descriptor.Properties.Single(property => property.Name == nameof(DiagonalClipping.Width));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(generator.ListEffects().Select(effect => effect.Name), Does.Contain(nameof(DiagonalClipping)));
+            Assert.That(descriptor.Properties.Select(property => property.Name), Does.Not.Contain("Mode"));
+            Assert.That(width.Default, Is.EqualTo(0f));
+            Assert.That(width.Range is null || width.Range.Minimum < 0, Is.True, "negative widths must be supported");
+            foreach (string property in new[] { nameof(DiagonalClipping.Angle), nameof(DiagonalClipping.Position), nameof(DiagonalClipping.Width) })
+            {
+                Assert.That(descriptor.Properties.Single(value => value.Name == property).Animatable, Is.True, property);
+            }
+        });
+    }
+
+    [Test]
     public void Base_fields_exclude_non_serialized_scalars_but_keep_explicit_lists()
     {
         var generator = new SchemaGenerator();
