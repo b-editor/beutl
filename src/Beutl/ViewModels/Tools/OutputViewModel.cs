@@ -1,4 +1,5 @@
 ﻿using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Reactive.Subjects;
 using System.Text.Json.Nodes;
@@ -100,10 +101,21 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposable);
 
-        // Pre-validate that FrameSize * factor fits the per-axis buffer limit.
+        var videoEnabled = Controller
+            .Select(c => c == null || SelectedEncoder.Value?.IsSupported(c.OutputFile) != true
+                ? Observable.Return(true)
+                : Observable.FromEventPattern<PropertyChangedEventHandler, PropertyChangedEventArgs>(
+                        h => c.VideoSettings.PropertyChanged += h, h => c.VideoSettings.PropertyChanged -= h)
+                    .Select(_ => c.IsVideoEnabled)
+                    .StartWith(c.IsVideoEnabled))
+            .Switch()
+            .DistinctUntilChanged();
+
+        // Pre-validate the render surface only when the output uses video.
         SupersampleWarning = SupersampleFactor
-            .CombineLatest(Model.GetObservable(Scene.FrameSizeProperty), (factor, frameSize) =>
+            .CombineLatest(Model.GetObservable(Scene.FrameSizeProperty), videoEnabled, (factor, frameSize, enabled) =>
             {
+                if (!enabled) return null;
                 BufferDimensionBudget budget = BufferDimensionBudget.Resolve(BufferBudgetScope.Prediction);
                 if (ExportSupersampling.FitsBufferLimit(frameSize, factor, budget)) return null;
 
@@ -262,7 +274,8 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             throw;
         }
 
-        EnsureSupersamplingFits();
+        if (Controller.Value?.IsVideoEnabled != false)
+            EnsureSupersamplingFits();
 
         EncodingController settingsController = Controller.Value
             ?? throw new InvalidOperationException(MessageStrings.UnexpectedError);

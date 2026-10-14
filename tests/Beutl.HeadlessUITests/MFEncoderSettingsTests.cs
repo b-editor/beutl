@@ -19,6 +19,7 @@ using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Tools;
 using Beutl.Views.Editors;
+using Beutl.Views.Tools;
 
 namespace Beutl.HeadlessUITests;
 
@@ -72,6 +73,13 @@ public sealed class MFEncoderSettingsTests
         controller.VideoSettings.UseHardwareAcceleration = false;
         controller.VideoSettings.Codec = video;
         controller.AudioSettings.Codec = audio;
+        if (!controller.IsVideoEnabled)
+        {
+            editor.Scene.FrameSize = new Media.PixelSize(5000, 48);
+            output.SupersampleFactor.Value = 4;
+            Assert.That(output.SupersampleWarning.Value, Is.Null);
+            Assert.That(output.CanEncode.Value, Is.True);
+        }
         bool hadIntermediateProgress = false;
         using var progress = output.ProgressValue.Subscribe(value =>
             hadIntermediateProgress |= value > 0 && value < output.ProgressMax.Value);
@@ -104,6 +112,70 @@ public sealed class MFEncoderSettingsTests
             Assert.That(failure, Is.InstanceOf<InvalidOperationException>());
             Assert.That(failure!.Message, Does.Contain(missingPath));
             Assert.That(File.Exists(output.DestinationFile.Value), Is.False);
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task SupersamplingWarning_TracksEnabledVideo()
+    {
+        await TestReset.ResetShellAsync();
+        var editor = await TestShell.OpenNewSceneEditorAsync("mf-supersampling", 5000, 48);
+        const int packageId = 302204;
+        var encoder = new MFEncodingExtension();
+        editor.ExtensionProvider.AddExtensions(packageId, [encoder]);
+        using var output = new OutputViewModel(editor);
+        var view = new OutputView { DataContext = output };
+        var window = new Window { Width = 600, Height = 850, Content = new ScrollViewer { Content = view } };
+        try
+        {
+            output.DestinationFile.Value = Path.Combine(TestShell.ProjectRoot(editor), "out.mp4");
+            output.SelectedEncoder.Value = encoder;
+            output.SupersampleFactor.Value = 4;
+            window.Show();
+
+            void AssertState(bool blocked, string? capture = null)
+            {
+                HeadlessTestHelpers.Render(3);
+                Assert.That(output.SupersampleWarning.Value != null, Is.EqualTo(blocked));
+                Assert.That(output.CanEncode.Value, Is.EqualTo(!blocked));
+                Assert.That(view.GetVisualDescendants().OfType<Button>().Single(b => b.Classes.Contains("accent")).IsEnabled,
+                    Is.EqualTo(!blocked));
+                if (capture != null)
+                    HeadlessCapture.SaveIfRequested(window, nameof(MFEncoderSettingsTests), capture);
+            }
+
+            AssertState(true, "supersampling-video");
+            Assert.That(async () => await output.RunAsync(CancellationToken.None), Throws.TypeOf<InvalidOperationException>());
+            var settings = ((MFEncodingController)output.Controller.Value!).VideoSettings;
+            settings.Codec = MFVideoCodec.None;
+            AssertState(false, "supersampling-audio");
+            // Incompatible selections must not terminate the settings subscription.
+            settings.Codec = MFVideoCodec.WMV9;
+            AssertState(true);
+            settings.Codec = MFVideoCodec.Auto;
+            output.DestinationFile.Value = Path.ChangeExtension(output.DestinationFile.Value, ".wav");
+            AssertState(false);
+            output.DestinationFile.Value = Path.ChangeExtension(output.DestinationFile.Value, ".mp4");
+            AssertState(true);
+            settings.Codec = MFVideoCodec.None;
+            AssertState(true); // The old controller is no longer observed.
+            output.DestinationFile.Value = Path.ChangeExtension(output.DestinationFile.Value, ".tmp");
+            AssertState(true);
+            output.DestinationFile.Value = Path.ChangeExtension(output.DestinationFile.Value, ".mp4");
+            output.SelectedEncoder.Value = encoder;
+            AssertState(true);
+            output.SupersampleFactor.Value = 1;
+            AssertState(false);
+            output.SupersampleFactor.Value = 4;
+            editor.Scene.FrameSize = new Media.PixelSize(64, 48);
+            AssertState(false);
+            editor.Scene.FrameSize = new Media.PixelSize(5000, 48);
+            AssertState(true);
+        }
+        finally
+        {
+            window.Close();
+            editor.ExtensionProvider.RemoveExtensions(packageId);
         }
     }
 

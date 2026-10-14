@@ -29,7 +29,7 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
     public override MFAudioEncoderSettings AudioSettings { get; } = new();
 
     public override bool IsVideoEnabled
-        => MFEncodingFormat.FromFile(OutputFile).ResolveVideoCodec(VideoSettings.Codec) != MFVideoCodec.None;
+        => MFEncodingFormat.FromFile(OutputFile).VideoCodecs.Length > 0 && VideoSettings.Codec != MFVideoCodec.None;
 
     public override bool IsAudioEnabled
         => MFEncodingFormat.FromFile(OutputFile).ResolveAudioCodec(AudioSettings.Codec) != MFAudioCodec.None;
