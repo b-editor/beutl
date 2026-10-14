@@ -168,11 +168,13 @@ public static class LibraryRegistrar
         LibraryService.Current
             .RegisterGroup(GraphicsStrings.FilterEffect, g => g
                 .AddFilterEffect<Blur>(GraphicsStrings.Blur)
+                .AddFilterEffect<RadialBlur>(GraphicsStrings.RadialBlur)
                 .AddFilterEffect<DropShadow>(GraphicsStrings.DropShadow)
                 .AddFilterEffect<InnerShadow>(GraphicsStrings.InnerShadow)
                 .AddFilterEffect<FlatShadow>(GraphicsStrings.FlatShadow)
                 .AddFilterEffect<StrokeEffect>(GraphicsStrings.Stroke)
                 .AddFilterEffect<Clipping>(GraphicsStrings.Clipping)
+                .AddFilterEffect<DiagonalClipping>(GraphicsStrings.DiagonalClipping)
                 .AddFilterEffect<Dilate>(GraphicsStrings.Dilate)
                 .AddFilterEffect<Erode>(GraphicsStrings.Erode)
                 .AddFilterEffect<HighContrast>(GraphicsStrings.HighContrast)

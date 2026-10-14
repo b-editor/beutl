@@ -92,11 +92,13 @@ public static class TypeRegistration
     {
         Register<FilterEffectGroup>(KnownLibraryItemFormats.FilterEffect);
         Register<Blur>(KnownLibraryItemFormats.FilterEffect);
+        Register<RadialBlur>(KnownLibraryItemFormats.FilterEffect);
         Register<DropShadow>(KnownLibraryItemFormats.FilterEffect);
         Register<InnerShadow>(KnownLibraryItemFormats.FilterEffect);
         Register<FlatShadow>(KnownLibraryItemFormats.FilterEffect);
         Register<StrokeEffect>(KnownLibraryItemFormats.FilterEffect);
         Register<Clipping>(KnownLibraryItemFormats.FilterEffect);
+        Register<DiagonalClipping>(KnownLibraryItemFormats.FilterEffect);
         Register<Dilate>(KnownLibraryItemFormats.FilterEffect);
         Register<Erode>(KnownLibraryItemFormats.FilterEffect);
         Register<HighContrast>(KnownLibraryItemFormats.FilterEffect);

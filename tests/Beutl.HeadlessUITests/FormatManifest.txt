@@ -102,6 +102,12 @@ Beutl.Utilities
 [Beutl.Embedding.MediaFoundation].Decoding:MFDecodingSettings
   sealed
   keys: MaxVideoBufferSize, ThresholdFrameCount
+[Beutl.Embedding.MediaFoundation].Encoding:MFAudioEncoderSettings
+  sealed
+  keys: BitDepth, Bitrate, Channels, Codec, CodecOptions, Id, Name, SampleRate
+[Beutl.Embedding.MediaFoundation].Encoding:MFVideoEncoderSettings
+  sealed
+  keys: Bitrate, Codec, CodecOptions, DestinationSize, FrameRate, Id, KeyframeRate, Name, SourceSize, UseHardwareAcceleration
 [Beutl.Engine]:EngineObject
   unsealed
   keys: Animations, Expressions, Id, IsEnabled, Name
@@ -168,6 +174,9 @@ Beutl.Utilities
   sealed
   keys: Easing, Id, KeyTime, Name, Value
 [Beutl.Engine]Beutl.Animation:KeyFrame<[Beutl.Engine]Beutl.Media:Stretch>
+  sealed
+  keys: Easing, Id, KeyTime, Name, Value
+[Beutl.Engine]Beutl.Animation:KeyFrame<[Beutl.Engine]Beutl.Media:TextAlignment>
   sealed
   keys: Easing, Id, KeyTime, Name, Value
 [Beutl.Engine]Beutl.Animation:KeyFrame<[Beutl.Engine]Beutl.Media:TileMode>
@@ -244,6 +253,9 @@ Beutl.Utilities
   unsealed
   keys: Id, KeyFrames, Name, UseGlobalClock
 [Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Media:Stretch>
+  unsealed
+  keys: Id, KeyFrames, Name, UseGlobalClock
+[Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Media:TextAlignment>
   unsealed
   keys: Id, KeyFrames, Name, UseGlobalClock
 [Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Media:TileMode>
@@ -388,6 +400,9 @@ Beutl.Utilities
 [Beutl.Engine]Beutl.Graphics.Effects:DelayAnimationEffect
   unsealed
   keys: Animations, Delay, Effect, Expressions, Id, IsEnabled, Name
+[Beutl.Engine]Beutl.Graphics.Effects:DiagonalClipping
+  sealed
+  keys: Angle, Animations, Expressions, Id, IsEnabled, Name, Position, Width
 [Beutl.Engine]Beutl.Graphics.Effects:Dilate
   sealed
   keys: Animations, Expressions, Id, IsEnabled, Name, RadiusX, RadiusY
@@ -470,6 +485,9 @@ Beutl.Utilities
 [Beutl.Engine]Beutl.Graphics.Effects:PixelSortEffect
   sealed
   keys: Animations, Ascending, Direction, Expressions, Id, IsEnabled, Name, SortKey, ThresholdMax, ThresholdMin
+[Beutl.Engine]Beutl.Graphics.Effects:RadialBlur
+  sealed
+  keys: Amount, Animations, Center, Expressions, Id, IsEnabled, Mode, Name, Samples
 [Beutl.Engine]Beutl.Graphics.Effects:SKSLScriptEffect
   sealed
   keys: Animations, Expressions, Id, IsEnabled, Name, Script
@@ -510,7 +528,7 @@ Beutl.Utilities
   abstract
 [Beutl.Engine]Beutl.Graphics.Shapes:TextBlock
   unsealed
-  keys: AlignmentX, AlignmentY, Animations, BlendMode, Expressions, Fill, FilterEffect, FontFamily, FontStyle, FontWeight, Id, IsEnabled, Name, Opacity, Pen, Size, Spacing, SplitByCharacters, Text, Transform, TransformOrigin
+  keys: AlignmentX, AlignmentY, Animations, BlendMode, Expressions, Fill, FilterEffect, FontFamily, FontStyle, FontWeight, Id, IsEnabled, Name, Opacity, Pen, Size, Spacing, SplitByCharacters, Text, TextAlignment, Transform, TransformOrigin
 [Beutl.Engine]Beutl.Graphics.Transformation:FallbackTransform
   sealed
   keys: Animations, Expressions, Id, IsEnabled, Name
@@ -1076,6 +1094,9 @@ Beutl.Utilities
 [Beutl.NodeGraph]:EnginePropertyBackedInputPort<[Beutl.Engine]Beutl.Media:Pen>
   unsealed
   keys: (no public parameterless constructor)
+[Beutl.NodeGraph]:EnginePropertyBackedInputPort<[Beutl.Engine]Beutl.Media:TextAlignment>
+  unsealed
+  keys: (no public parameterless constructor)
 [Beutl.NodeGraph]:EnginePropertyBackedInputPort<[Beutl.ProjectSystem]:Scene>
   unsealed
   keys: (no public parameterless constructor)
@@ -1417,6 +1438,7 @@ Beutl.Services.PrimitiveImpls.TimelineTabExtension.ToggleSlipMode
 # SelectedEncoder in output-profile.json and output-presets.json: the $type of every
 # ControllableEncodingExtension.
 
+[Beutl.Embedding.MediaFoundation].Encoding:MFEncodingExtension
 [Beutl.Extensions.AVFoundation].Encoding:AVFEncodingExtension
 [Beutl.Extensions.FFmpeg.Core]Beutl.Extensions.FFmpeg.Encoding:FFmpegHeadlessEncodingExtension
 [Beutl.Extensions.FFmpeg].Encoding:FFmpegControlledEncodingExtension

@@ -10,6 +10,12 @@ public abstract class EncodingController(string outputFile)
 
     public abstract AudioEncoderSettings AudioSettings { get; }
 
+    /// <summary>Whether the selected settings and container use the graphics pass.</summary>
+    public virtual bool IsVideoEnabled => true;
+
+    /// <summary>Whether the selected settings and container use the audio pass.</summary>
+    public virtual bool IsAudioEnabled => true;
+
     /// <summary>
     /// Encodes the frames and samples produced by the given providers to <see cref="OutputFile"/>.
     /// </summary>

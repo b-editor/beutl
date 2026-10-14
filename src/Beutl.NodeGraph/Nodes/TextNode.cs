@@ -35,6 +35,7 @@ public partial class TextNode : GraphNode
         AddInput(Object, Object.Fill);
         AddInput(Object, Object.Pen);
         AddInput(Object, Object.SplitByCharacters);
+        AddInput(Object, Object.TextAlignment);
     }
 
     public OutputPort<DrawableRenderNode?> Output { get; }

@@ -156,6 +156,7 @@ public static class PropertyEditorService
 
             new(typeof(AlignmentX), new(_ => new AlignmentXEditor(), s => new AlignmentXEditorViewModel(s.ToTyped<AlignmentX>()))),
             new(typeof(AlignmentY), new(_ => new AlignmentYEditor(), s => new AlignmentYEditorViewModel(s.ToTyped<AlignmentY>()))),
+            new(typeof(TextAlignment), new(_ => new TextAlignmentEditor(), s => new TextAlignmentEditorViewModel(s.ToTyped<TextAlignment>()))),
             new(typeof(Enum), new(_ => new EnumEditor(), CreateEnumViewModel)),
             new(typeof(FontFamily), new(_ => new FontFamilyEditor(), s => new FontFamilyEditorViewModel(s.ToTyped<FontFamily?>()))),
             new(typeof(FileInfo), new(_ => new StorageFileEditor(), s => new StorageFileEditorViewModel(s.ToTyped<FileInfo>()))),

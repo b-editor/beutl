@@ -26,8 +26,19 @@ public static class ExportSourceValidator
     /// are walked, since a layer muted for only one pass still contributes the other pass's sources.
     /// </summary>
     public static IReadOnlySet<string> CollectRenderableSources(Scene scene, TimeRange range)
+        => CollectRenderableSources(scene, range, includeVideo: true, includeAudio: true);
+
+    /// <summary>Collects only sources used by the selected export passes.</summary>
+    public static IReadOnlySet<string> CollectRenderableSources(
+        Scene scene, TimeRange range, bool includeVideo, bool includeAudio)
         => CollectRenderableSources(scene, range, element => element.Range.Intersects(range),
-            [CompositionTarget.Graphics, CompositionTarget.Audio]);
+            (includeVideo, includeAudio) switch
+            {
+                (true, true) => [CompositionTarget.Graphics, CompositionTarget.Audio],
+                (true, false) => [CompositionTarget.Graphics],
+                (false, true) => [CompositionTarget.Audio],
+                _ => [],
+            });
 
     private static IReadOnlySet<string> CollectRenderableSources(
         Scene scene, TimeRange sceneWindow, Func<Element, bool> inRange, CompositionTarget[] targets)

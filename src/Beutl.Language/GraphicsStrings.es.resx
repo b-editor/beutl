@@ -749,6 +749,15 @@
   <data name="StrokeEffect_Style" xml:space="preserve">
     <value>Estilo de borde</value>
   </data>
+  <data name="TextAlignment_Center" xml:space="preserve">
+    <value>Alinear al centro</value>
+  </data>
+  <data name="TextAlignment_Left" xml:space="preserve">
+    <value>Alinear a la izquierda</value>
+  </data>
+  <data name="TextAlignment_Right" xml:space="preserve">
+    <value>Alinear a la derecha</value>
+  </data>
   <data name="TextBlock" xml:space="preserve">
     <value>Texto</value>
   </data>
@@ -772,6 +781,9 @@
   </data>
   <data name="TextBlock_Text" xml:space="preserve">
     <value>Texto</value>
+  </data>
+  <data name="TextBlock_TextAlignment" xml:space="preserve">
+    <value>Alineación del texto</value>
   </data>
   <data name="Threshold" xml:space="preserve">
     <value>Umbral</value>

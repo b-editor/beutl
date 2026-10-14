@@ -14,3 +14,15 @@ public sealed class AlignmentXEditorViewModel(IPropertyAdapter<AlignmentX> prope
         }
     }
 }
+
+public sealed class TextAlignmentEditorViewModel(IPropertyAdapter<TextAlignment> property) : ValueEditorViewModel<TextAlignment>(property)
+{
+    public override void Accept(IPropertyEditorContextVisitor visitor)
+    {
+        base.Accept(visitor);
+        if (visitor is TextAlignmentEditor view && !Disposables.IsDisposed)
+        {
+            AttachConfirmedValueBinding(view, TextAlignmentEditor.ValueProperty);
+        }
+    }
+}
