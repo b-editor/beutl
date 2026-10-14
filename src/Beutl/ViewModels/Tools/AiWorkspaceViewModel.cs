@@ -26,10 +26,7 @@ internal enum AiWorkspaceSection
 }
 
 /// <summary>
-/// One page of an AI tool tab. Its view model is built the first time the page
-/// is shown and kept afterwards, so a half-written prompt survives a look at
-/// something else while a page nobody opens never talks to the server. Pages
-/// belong to their own tab: a second tab is a second workbench, not a mirror.
+/// One page of an AI tab; its view model is built on first show and kept for the tab's lifetime.
 /// </summary>
 internal sealed class AiWorkspaceSectionViewModel : IAsyncDisposable
 {
@@ -88,9 +85,7 @@ internal sealed class AiWorkspaceSectionViewModel : IAsyncDisposable
 }
 
 /// <summary>
-/// An AI tool tab. The five AI workflows used to be five dock tabs, which pushed
-/// everything else off the tab strip; they are pages of this one tab now, and a
-/// second tab can be opened when two of them are needed at once.
+/// An AI tool tab whose pages are the AI workflows; open a second tab to use two at once.
 /// </summary>
 internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
 {
@@ -148,10 +143,7 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        // A page is built once and kept, so coming back to it does not reload
-        // the model list the way opening it the first time did. Without this, a
-        // tab left in the foreground goes on offering models an operator has
-        // since withdrawn for as long as the tab lives.
+        // Pages are kept once built, so refresh the model list whenever one is shown again.
         ActiveContent
             .Subscribe(content => (content as IAiModelListConsumer)?.RefreshModels())
             .DisposeWith(_disposables);
@@ -187,10 +179,7 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
             .ToReadOnlyReactivePropertySlim(true)
             .DisposeWith(_disposables);
 
-        // Signed out takes precedence: without a user there are no
-        // entitlements to read a plan from. A signed-in account that has not
-        // produced a snapshot yet is still loading, so the pages stay visible
-        // rather than flashing a gate that a retry would immediately close.
+        // Signed-out wins; a signed-in account without a snapshot is still loading, so the pages stay visible.
         RequiresSignIn = IsSignedIn
             .Select(signed => !signed)
             .ToReadOnlyReactivePropertySlim(false)
@@ -206,11 +195,8 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
             .DisposeWith(_disposables);
         GateRefreshFailed = new ReactivePropertySlim<bool>(false)
             .DisposeWith(_disposables);
-        // A fresh snapshot or account change supersedes any earlier gate failure:
-        // without this, a failed refresh for a previous account keeps the gate
-        // open with a stale error after the new account's entitlements arrive.
-        // The raw authentication stream is observed rather than IsSignedIn because
-        // switching accounts never flips that boolean.
+        // A new snapshot or account clears an earlier gate failure. Observe the raw user stream: switching
+        // accounts does not change IsSignedIn.
         HasEntitlementsSnapshot
             .Where(hasSnapshot => hasSnapshot)
             .Subscribe(_ => ClearGateFailure())
@@ -254,14 +240,8 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
             .WithSubscribe(RetryGateLoadCore)
             .DisposeWith(_disposables);
 
-        // An authenticated user opening the tab without a cached snapshot depends on
-        // the pages' one-shot loads, which swallow failures and accept null results.
-        // Pull once here so a failed initial load surfaces the retry gate instead of
-        // a permanently disabled form. Genuine loading keeps the content visible.
-        // This deliberately duplicates the first page's concurrent refresh when the
-        // cache is cold: the service serializes the two calls and applies them in
-        // order, while sharing that in-flight load would couple the tab to every
-        // page's private retry state.
+        // Without a cached snapshot, pull once so a failed initial load shows the retry gate. This intentionally
+        // duplicates the first page's refresh; the service serializes the two.
         if (authenticatedUser is not null && _entitlementService is not null)
             _ = RefreshInitialGateLoadAsync();
 
@@ -291,35 +271,7 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
         GateRefreshFailed.Value = false;
         try
         {
-            await _signIn(_lifetimeCts.Token);
-            // The sign-in itself changes the account from null to the new user, so
-            // only changes after this point count as superseding this operation.
-            account = Volatile.Read(ref _gateAccount);
-            // The entitlement store clears its snapshot when the user changes, and a
-            // page created while signed out never retried its one-shot load, so pull
-            // fresh entitlements here. Otherwise the gate closes on sign-in alone and
-            // a signed-in account without a plan is shown the usable form.
-            await RefreshGateEntitlementsAsync();
-            RefreshGateModels();
-        }
-        catch (OperationCanceledException ex)
-        {
-            // Timeouts surface as cancellation; a changed account means this session
-            // was superseded and the post-flight recheck owns the new account.
-            if (_lifetimeCts.IsCancellationRequested || IsSuperseded(account))
-                return;
-            _logger.LogError(ex, "AI workspace sign-in failed.");
-            PublishGateFailure(MessageStrings.UnexpectedError, account);
-        }
-        catch (AuthenticationRequiredException) when (IsSuperseded(account))
-        {
-            // SendAuthenticatedAsync converts a superseded session's cancellation
-            // into this exception; the post-flight recheck owns the new account.
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "AI workspace sign-in failed.");
-            ReportGateFailure(ex, account);
+            await RefreshGateAsync(account, "AI workspace sign-in failed.", timeoutOpensRetryGate: false, _signIn);
         }
         finally
         {
@@ -343,28 +295,13 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
         SignInError.Value = null;
         try
         {
-            await RefreshGateEntitlementsAsync();
-            RefreshGateModels();
             // Cleared only on success so the retry control and its progress ring
             // stay visible for the duration of the refresh.
-            GateRefreshFailed.Value = false;
-        }
-        catch (OperationCanceledException ex)
-        {
-            if (_lifetimeCts.IsCancellationRequested || IsSuperseded(account))
-                return;
-            _logger.LogError(ex, "AI workspace entitlement refresh failed.");
-            PublishGateFailure(MessageStrings.UnexpectedError, account);
-        }
-        catch (AuthenticationRequiredException) when (IsSuperseded(account))
-        {
-            // SendAuthenticatedAsync converts a superseded session's cancellation
-            // into this exception; the post-flight recheck owns the new account.
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "AI workspace entitlement refresh failed.");
-            ReportGateFailure(ex, account);
+            await RefreshGateAsync(
+                account,
+                "AI workspace entitlement refresh failed.",
+                timeoutOpensRetryGate: false,
+                onRefreshed: () => GateRefreshFailed.Value = false);
         }
         finally
         {
@@ -381,34 +318,11 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
         if (!IsSignedIn.Value || HasEntitlementsSnapshot.Value)
             return;
         AuthenticatedUser? account = Volatile.Read(ref _gateAccount);
-        try
-        {
-            await RefreshGateEntitlementsAsync();
-            RefreshGateModels();
-        }
-        catch (OperationCanceledException ex)
-        {
-            if (_lifetimeCts.IsCancellationRequested || IsSuperseded(account))
-                return;
-            // HTTP timeouts surface as cancellation without cancelling our token.
-            PublishRefreshTimeout(ex, "AI workspace initial entitlement load failed.", account);
-        }
-        catch (AuthenticationRequiredException) when (IsSuperseded(account))
-        {
-            // SendAuthenticatedAsync converts a superseded session's cancellation
-            // into this exception; the post-flight recheck owns the new account.
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "AI workspace initial entitlement load failed.");
-            ReportGateFailure(ex, account);
-        }
+        await RefreshGateAsync(account, "AI workspace initial entitlement load failed.", timeoutOpensRetryGate: true);
     }
 
-    // An account change that lands while sign-in or a retry is awaiting the server
-    // is dropped by the guard above, and the superseded request is cancelled by the
-    // API application's session handling. Recheck after every flight so the current
-    // account always gets a refresh instead of an unloaded gate.
+    // Account changes during a flight are skipped by RefreshOnAccountChangeAsync's IsSigningIn guard, so
+    // recheck after every flight.
     private void RefreshAfterFlightIfNeeded()
     {
         if (Volatile.Read(ref _disposed)
@@ -424,27 +338,55 @@ internal sealed class AiWorkspaceViewModel : IToolContext, IAsyncDisposable
         if (_entitlementService is null || IsSigningIn.Value)
             return;
         AuthenticatedUser? account = Volatile.Read(ref _gateAccount);
+        await RefreshGateAsync(account, "AI workspace entitlement refresh failed.", timeoutOpensRetryGate: true);
+    }
+
+    // Pulls the gate's entitlements and models for account, signing in first when signIn is given, and
+    // reports a failure. A cancellation (HTTP timeouts surface as one without cancelling our token) counts
+    // unless the lifetime ended or the account changed: a superseded session belongs to the post-flight
+    // recheck, and SendAuthenticatedAsync turns its cancellation into AuthenticationRequiredException.
+    private async Task RefreshGateAsync(
+        AuthenticatedUser? account,
+        string failureLog,
+        bool timeoutOpensRetryGate,
+        Func<CancellationToken, Task>? signIn = null,
+        Action? onRefreshed = null)
+    {
         try
         {
+            if (signIn is not null)
+            {
+                await signIn(_lifetimeCts.Token);
+                // The sign-in itself changes the account from null to the new user, so
+                // only changes after this point count as superseding this operation.
+                account = Volatile.Read(ref _gateAccount);
+                // Sign-in clears the entitlement snapshot, so pull fresh entitlements before the gate closes.
+            }
+
             await RefreshGateEntitlementsAsync();
             RefreshGateModels();
+            onRefreshed?.Invoke();
         }
         catch (OperationCanceledException ex)
         {
             if (_lifetimeCts.IsCancellationRequested || IsSuperseded(account))
                 return;
-            // HTTP timeouts surface as cancellation without cancelling our token.
-            PublishRefreshTimeout(ex, "AI workspace entitlement refresh failed.", account);
+            if (timeoutOpensRetryGate)
+            {
+                PublishRefreshTimeout(ex, failureLog, account);
+            }
+            else
+            {
+                _logger.LogError(ex, failureLog);
+                PublishGateFailure(MessageStrings.UnexpectedError, account);
+            }
         }
         catch (AuthenticationRequiredException) when (IsSuperseded(account))
         {
-            // SendAuthenticatedAsync converts a superseded session's cancellation
-            // into this exception; a fresh load for the new account is already
-            // running or rechecked, so this carries no failure.
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "AI workspace entitlement refresh failed.");
+            _logger.LogError(ex, failureLog);
             ReportGateFailure(ex, account);
         }
     }

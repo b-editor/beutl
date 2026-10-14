@@ -42,13 +42,13 @@ public class ThemeCaptureTests
     // Production seeds FluentAvalonia's accent from the applied theme's descriptor (ThemeService);
     // these captures only flip the variant, so unseeded they would show the headless host's accent.
     // Built-ins declare no design accent, hence null for the light capture.
-    private static void UseCaptureTheme(ThemeVariant variant, Avalonia.Media.Color? designAccent)
+    internal static void UseCaptureTheme(ThemeVariant variant, Avalonia.Media.Color? designAccent)
     {
         Application.Current!.RequestedThemeVariant = variant;
         Application.Current.Styles.OfType<FluentAvaloniaTheme>().Single().CustomAccentColor = designAccent;
     }
 
-    private static string Capture(Window window, string name)
+    internal static string Capture(Window window, string name)
     {
         using WriteableBitmap? frame = window.CaptureRenderedFrame();
         Assert.That(frame, Is.Not.Null, "Headless frame capture returned null.");

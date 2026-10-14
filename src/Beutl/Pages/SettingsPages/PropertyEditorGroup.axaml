@@ -16,8 +16,7 @@
                    Theme="{StaticResource BodyStrongTextBlockStyle}" />
 
         <Border Grid.Row="1" Classes="options-group">
-            <ItemsControl x:Name="properties"
-                          ItemsSource="{Binding Properties}">
+            <ItemsControl ItemsSource="{Binding Properties}">
                 <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
                         <ctrls:OptionsGroupPanel />

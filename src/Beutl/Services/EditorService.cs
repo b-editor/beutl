@@ -226,6 +226,7 @@ public sealed partial class EditorService
 
     public ValueTask CloseTabItem(EditorTabItem item) => CloseTabItem(item, saveChanges: true);
 
+    // Test seam: the app always saves before closing; only tests pass saveChanges: false.
     internal async ValueTask CloseTabItem(EditorTabItem item, bool saveChanges)
     {
         if (saveChanges && !await SaveSceneEditorsBeforeCloseAsync([item]))

@@ -280,7 +280,6 @@ public sealed class AccountSettingsPageViewModel : BasePageViewModel
             {
                 activity?.SetStatus(ActivityStatusCode.Error);
                 _logger.LogError(apiex, "An unexpected error has occurred.");
-                // Present API failures as a localized generic sign-in error.
                 Error.Value = MessageStrings.ApiErrorOccurred;
             }
             catch (Exception ex) when (ex is not OperationCanceledException)

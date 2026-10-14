@@ -208,12 +208,7 @@ internal sealed partial class VersionControlCoordinator :
                 return;
             }
 
-            await CommitSnapshotAsync(
-                _config.AutoCommitOnSave,
-                SaveSnapshotMessage,
-                SnapshotKind.Save,
-                completedWrite,
-                operation.CancellationToken);
+            await CommitSaveSnapshotAsync(completedWrite, operation.CancellationToken);
         });
     }
 

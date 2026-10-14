@@ -22,8 +22,7 @@
                    Text="{Binding ProgressMain.Value}"
                    TextWrapping="Wrap" />
 
-        <ProgressBar IsIndeterminate="{Binding IsIndeterminate.Value}"
-                     Maximum="{Binding ProgressMax.Value}"
+        <ProgressBar Maximum="{Binding ProgressMax.Value}"
                      Value="{Binding ProgressValue.Value}" />
 
         <Grid ColumnDefinitions="Auto,*"

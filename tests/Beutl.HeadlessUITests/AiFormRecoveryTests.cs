@@ -5,8 +5,6 @@ using System.Text;
 using System.Text.Json;
 using Avalonia.Headless.NUnit;
 using Beutl.Api;
-using Beutl.Api.Clients;
-using Beutl.Api.Objects;
 using Beutl.Api.Services;
 using Beutl.Services;
 using Beutl.Services.AI;
@@ -14,7 +12,7 @@ using Beutl.Services.PrimitiveImpls;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Dialogs;
-using Reactive.Bindings;
+using static Beutl.HeadlessUITests.AiTestSupport;
 
 namespace Beutl.HeadlessUITests;
 
@@ -146,9 +144,9 @@ public sealed class AiFormRecoveryTests
                 ? new AiAuthenticatedRequestIdentity(value, User: null)
                 : null);
 
-        await using var generation = CreateGeneration(app, context);
-        await using var edit = CreateEdit(app, context);
-        await using var video = CreateVideo(app, context);
+        await using var generation = CreateImageGenerationDialog(app, context: context, planCoordinator: new TestPlanCoordinator());
+        await using var edit = CreateImageEditDialog(app, context: context, planCoordinator: new TestPlanCoordinator());
+        await using var video = CreateVideoGenerationDialog(app, context: context, planCoordinator: new TestPlanCoordinator());
         await WaitUntilAsync(() => video.ModelPicker.IsLoaded.Value
             && video.SelectedRecoveryAttempt.Value is not null);
         Assert.Multiple(() =>
@@ -235,9 +233,9 @@ public sealed class AiFormRecoveryTests
         await using var app = new BeutlApiApplication(client, new ExtensionProvider());
         SetAuthenticatedUser(app);
         using var context = NewContext(store, "test-user");
-        await using var generation = CreateGeneration(app, context);
-        await using var edit = CreateEdit(app, context);
-        await using var video = CreateVideo(app, context);
+        await using var generation = CreateImageGenerationDialog(app, context: context, planCoordinator: new TestPlanCoordinator());
+        await using var edit = CreateImageEditDialog(app, context: context, planCoordinator: new TestPlanCoordinator());
+        await using var video = CreateVideoGenerationDialog(app, context: context, planCoordinator: new TestPlanCoordinator());
         await WaitUntilAsync(() => generation.SelectedRecoveryAttempt.Value is not null
             && edit.SelectedRecoveryAttempt.Value is not null
             && video.SelectedRecoveryAttempt.Value is not null
@@ -390,14 +388,14 @@ public sealed class AiFormRecoveryTests
         }
 
         var requests = new List<(string Path, string? Key, string Body)>();
-        using var handler = new RecoveryDispatchHandler(requests, s_png);
+        using var handler = new RecoveryDispatchHandler(requests);
         using var client = new HttpClient(handler) { BaseAddress = new Uri("https://beutl.beditor.net") };
         await using var app = new BeutlApiApplication(client, new ExtensionProvider());
         SetAuthenticatedUser(app);
         using var context = NewContext(new FileAiRequestRecoveryStore(root), "test-user");
-        await using var generation = CreateGeneration(app, context);
-        await using var edit = CreateEdit(app, context);
-        await using var video = CreateVideo(app, context);
+        await using var generation = CreateImageGenerationDialog(app, context: context, planCoordinator: new TestPlanCoordinator());
+        await using var edit = CreateImageEditDialog(app, context: context, planCoordinator: new TestPlanCoordinator());
+        await using var video = CreateVideoGenerationDialog(app, context: context, planCoordinator: new TestPlanCoordinator());
         edit.SourceFilePath.Value = sourcePath;
         edit.SelectedTask.Value = edit.Tasks.Single(task => task.Value == "restyle");
 
@@ -512,13 +510,13 @@ public sealed class AiFormRecoveryTests
                 AspectRatio: "9:16")));
 
         var requests = new List<(string Path, string? Key, string Body)>();
-        using var handler = new RecoveryDispatchHandler(requests, s_png);
+        using var handler = new RecoveryDispatchHandler(requests);
         using var client = new HttpClient(handler) { BaseAddress = new Uri("https://beutl.beditor.net") };
         await using var app = new BeutlApiApplication(client, new ExtensionProvider());
         SetAuthenticatedUser(app);
         using var context = NewContext(store, "test-user");
-        await using var generation = CreateGeneration(app, context);
-        await using var video = CreateVideo(app, context);
+        await using var generation = CreateImageGenerationDialog(app, context: context, planCoordinator: new TestPlanCoordinator());
+        await using var video = CreateVideoGenerationDialog(app, context: context, planCoordinator: new TestPlanCoordinator());
 
         await WaitUntilAsync(() => generation.ModelPicker.IsLoaded.Value
             && video.ModelPicker.IsLoaded.Value
@@ -578,7 +576,7 @@ public sealed class AiFormRecoveryTests
             () => account is { } value
                 ? new AiAuthenticatedRequestIdentity(value, User: null)
                 : null);
-        await using var generation = CreateGeneration(app, context);
+        await using var generation = CreateImageGenerationDialog(app, context: context, planCoordinator: new TestPlanCoordinator());
         await WaitUntilAsync(() => generation.Usage.HasSnapshot.Value
             && generation.ModelPicker.IsLoaded.Value);
         generation.Prompt.Value = "Account A secret";
@@ -632,7 +630,7 @@ public sealed class AiFormRecoveryTests
             () => account is { } value
                 ? new AiAuthenticatedRequestIdentity(value, User: null)
                 : null);
-        await using var generation = CreateGeneration(app, context);
+        await using var generation = CreateImageGenerationDialog(app, context: context, planCoordinator: new TestPlanCoordinator());
         await WaitUntilAsync(() => generation.Usage.HasSnapshot.Value && generation.ModelPicker.IsLoaded.Value);
         generation.Prompt.Value = "old account prompt";
         await WaitUntilAsync(() => generation.CanGenerate.Value);
@@ -684,7 +682,7 @@ public sealed class AiFormRecoveryTests
         await using var app = new BeutlApiApplication(client, new ExtensionProvider());
         SetAuthenticatedUser(app);
         using var context = NewContext(store, "test-user");
-        await using var generation = CreateGeneration(app, context);
+        await using var generation = CreateImageGenerationDialog(app, context: context, planCoordinator: new TestPlanCoordinator());
         await WaitUntilAsync(() => generation.ModelPicker.Options.Count > 0
             && generation.Usage.HasSnapshot.Value);
         Assert.That(generation.SelectedRecoveryAttempt.Value, Is.Null);
@@ -701,59 +699,6 @@ public sealed class AiFormRecoveryTests
         Assert.That(generation.ModelPicker.IsSelectionEnabled.Value, Is.False);
         Assert.That(generation.CanGenerate.Value, Is.True);
         Directory.Delete(root, recursive: true);
-    }
-
-    private static AiImageGenerationDialogViewModel CreateGeneration(
-        BeutlApiApplication app,
-        AiRequestRecoveryContext context)
-        => new(
-            app.GetResource<IAiEntitlementService>(),
-            app.GetResource<IAiOperationAvailabilityService>(),
-            app.GetResource<IAiModelCatalogService>(),
-            new TestPlanCoordinator(),
-            app.GetResource<IAiImageGenerationService>(),
-            app.GetResource<IAuthenticatedContentService>(),
-            editViewModel: null,
-            context);
-
-    private static AiImageEditDialogViewModel CreateEdit(
-        BeutlApiApplication app,
-        AiRequestRecoveryContext context)
-        => new(
-            app.GetResource<IAiEntitlementService>(),
-            app.GetResource<IAiOperationAvailabilityService>(),
-            app.GetResource<IAiModelCatalogService>(),
-            new TestPlanCoordinator(),
-            app.GetResource<IAiImageEditingService>(),
-            app.GetResource<IAuthenticatedContentService>(),
-            editViewModel: null,
-            context);
-
-    private static AiVideoGenerationDialogViewModel CreateVideo(
-        BeutlApiApplication app,
-        AiRequestRecoveryContext context)
-        => new(
-            app.GetResource<IAiEntitlementService>(),
-            app.GetResource<IAiOperationAvailabilityService>(),
-            app.GetResource<IAiModelCatalogService>(),
-            new TestPlanCoordinator(),
-            app.GetResource<IAiVideoService>(),
-            app.GetResource<IAuthenticatedContentService>(),
-            app.GetResource<IAiJobKindRegistry>(),
-            app.GetResource<IAiJobMonitor>(),
-            editViewModel: null,
-            context);
-
-    private sealed class NotFoundHandler : HttpMessageHandler
-    {
-        protected override Task<HttpResponseMessage> SendAsync(
-            HttpRequestMessage request,
-            CancellationToken cancellationToken)
-            => Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound)
-            {
-                RequestMessage = request,
-                Content = new StringContent("{}"),
-            });
     }
 
     private sealed class RecoveryCatalogHandler : HttpMessageHandler
@@ -807,33 +752,6 @@ public sealed class AiFormRecoveryTests
         }
     }
 
-    private static void SetAuthenticatedUser(BeutlApiApplication app)
-    {
-        var profile = new Profile(new ProfileResponse
-        {
-            Id = "test-user",
-            Name = "test",
-            DisplayName = "Test User",
-            Bio = null,
-            IconId = null,
-            IconUrl = null,
-        }, app);
-        var user = new AuthenticatedUser(
-            profile,
-            new AuthResponse
-            {
-                Token = "token",
-                RefreshToken = "refresh-token",
-                Expiration = DateTime.UtcNow.AddHours(1),
-            },
-            app,
-            DateTime.UtcNow);
-        FieldInfo field = typeof(BeutlApiApplication).GetField(
-            "_authenticatedUser",
-            BindingFlags.NonPublic | BindingFlags.Instance)!;
-        ((ReactivePropertySlim<AuthenticatedUser?>)field.GetValue(app)!).Value = user;
-    }
-
     private static string RecoveryCapabilitiesJson() => """
         {
           "operations": {
@@ -861,8 +779,7 @@ public sealed class AiFormRecoveryTests
         """;
 
     private sealed class RecoveryDispatchHandler(
-        List<(string Path, string? Key, string Body)> requests,
-        byte[] content) : HttpMessageHandler
+        List<(string Path, string? Key, string Body)> requests) : HttpMessageHandler
     {
         protected override async Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request,
@@ -894,14 +811,6 @@ public sealed class AiFormRecoveryTests
             }
             if (path == "/api/v3/ai/videos/recovered-video-job")
                 return Json("{\"jobId\":\"recovered-video-job\",\"status\":\"failed\",\"error\":\"aiProviderError\"}");
-            if (path == "/api/contents/recovered-file")
-                return new HttpResponseMessage(HttpStatusCode.OK)
-                {
-                    Content = new ByteArrayContent(content)
-                    {
-                        Headers = { ContentType = new MediaTypeHeaderValue("image/png") },
-                    },
-                };
             return new HttpResponseMessage(HttpStatusCode.NotFound)
             {
                 Content = new StringContent("{}"),

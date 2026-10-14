@@ -35,7 +35,6 @@ public static class TutorialHelpers
     public static async Task<bool> EnsureProjectAsync(ProjectService projectService, EditorService editorService, string projectName = "Tutorial")
     {
         Project? currentProject = projectService.CurrentProject.Value;
-        // プロジェクトが開いていない場合、新規プロジェクトを作成
         if (currentProject == null)
         {
             // ~/.beutl/tmp/tutorials フォルダに保存
@@ -46,7 +45,6 @@ public static class TutorialHelpers
 
             string fullProjectName = $"{projectName}_{DateTime.Now:yyyyMMddHHmmss}";
 
-            // プロジェクト作成処理
             currentProject = await projectService.CreateProject(
                 width: 1920,
                 height: 1080,

@@ -57,7 +57,6 @@ public sealed partial class AiSubtitleDialogViewModel
         TemplatePreviewText.Value = string.IsNullOrWhiteSpace(text)
             ? Strings.AiSubtitle_PreviewSample
             : text;
-        TemplatePreviewFontSize.Value = 24;
         CaptionCue cue = SelectedCue.Value?.TryCreateCue(out CaptionCue? selectedCue) == true
             && selectedCue is not null
             ? string.IsNullOrWhiteSpace(selectedCue.Text)

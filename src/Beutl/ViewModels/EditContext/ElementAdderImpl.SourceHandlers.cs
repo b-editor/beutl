@@ -39,14 +39,22 @@ internal sealed partial class ElementAdderImpl
         out TValue value)
         where TValue : EngineObject, new()
     {
-        Element element = CreateElement(description);
-        element.Name = string.IsNullOrWhiteSpace(description.Name)
-            ? Path.GetFileName(fileName)
-            : description.Name;
-        string typeName = typeof(TValue).FullName!;
-        element.AccentColor = ElementAccentColorGenerator.GenerateColor(typeName);
-
         value = new TValue();
+        return CreateElementFor(
+            description,
+            value,
+            string.IsNullOrWhiteSpace(description.Name)
+                ? Path.GetFileName(fileName)
+                : description.Name);
+    }
+
+    // A new element named name, colored after the object's type, that holds the object.
+    private Element CreateElementFor(ElementDescription description, EngineObject value, string name)
+    {
+        Element element = CreateElement(description);
+        element.Name = name;
+        Type type = value.GetType();
+        element.AccentColor = ElementAccentColorGenerator.GenerateColor(type.FullName ?? type.Name);
         element.AddObject(value);
         if (value is Drawable drawable)
         {
@@ -150,26 +158,7 @@ internal sealed partial class ElementAdderImpl
     }
 
     private static bool MatchFileImage(string filePath)
-    {
-        string[] extensions =
-        [
-            "*.bmp",
-            "*.gif",
-            "*.ico",
-            "*.jpg",
-            "*.jpeg",
-            "*.png",
-            "*.wbmp",
-            "*.webp",
-            "*.pkm",
-            "*.ktx",
-            "*.astc",
-            "*.dng",
-            "*.heif",
-            "*.avif",
-        ];
-        return MatchFileExtensions(filePath, extensions);
-    }
+        => MatchFileExtensions(filePath, SharedFilePickerOptions.ImagePatterns);
 
     private sealed class EngineObjectSourceHandler(ElementAdderImpl owner) : IElementSourceHandler
     {
@@ -211,16 +200,10 @@ internal sealed partial class ElementAdderImpl
                     new ElementMaterializationFailure("The engine-object factory failed.", ex)));
             }
 
-            Element element = owner.CreateElement(context.Description);
-            Type objectType = engineObject.GetType();
-            element.Name = context.Description.ResolveName(objectType);
-            element.AccentColor = ElementAccentColorGenerator.GenerateColor(objectType.FullName ?? objectType.Name);
-            element.AddObject(engineObject);
-            if (engineObject is Drawable drawable)
-            {
-                owner.SetTransform(drawable, context.Description);
-            }
-
+            Element element = owner.CreateElementFor(
+                context.Description,
+                engineObject,
+                context.Description.ResolveName(engineObject.GetType()));
             return ValueTask.FromResult(ElementSourceMaterializationResult.Materialized(
                 new ElementMaterialization(element)));
         }

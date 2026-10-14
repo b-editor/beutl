@@ -16,9 +16,7 @@ public sealed class GraphModelEditorViewModel : ValueEditorViewModel<GraphModel?
     public GraphModelEditorViewModel(IPropertyAdapter<GraphModel?> property)
         : base(property)
     {
-        // Gate on the editor session's ExtensionProvider (supplied by Accept) so node-member
-        // view models — which resolve IPropertyEditorFactory through the injected EditViewModel —
-        // are not constructed before Accept has wired it up.
+        // Node members use IPropertyEditorFactory, so they are not created until Accept delivers the ExtensionProvider.
         Value.CombineLatest(ObserveExtensionProvider())
             .Subscribe(t => RebuildNodeMembers(t.First))
             .DisposeWith(Disposables);
@@ -80,7 +78,7 @@ public sealed class GraphModelEditorViewModel : ValueEditorViewModel<GraphModel?
 
     private void AcceptChild()
     {
-        var visitor = new Visitor(this);
+        var visitor = new ChildVisitor(this);
         foreach (GraphModelNodeMemberViewModel nodeMember in NodeMembers)
         {
             foreach (IPropertyEditorContext? prop in nodeMember.Properties)
@@ -155,20 +153,5 @@ public sealed class GraphModelEditorViewModel : ValueEditorViewModel<GraphModel?
         }
 
         return 0;
-    }
-
-    private sealed record Visitor(GraphModelEditorViewModel Obj) : IServiceProvider, IPropertyEditorContextVisitor
-    {
-        public object? GetService(Type serviceType)
-        {
-            if (serviceType == typeof(GraphModelEditorViewModel))
-                return Obj;
-
-            return Obj.GetService(serviceType);
-        }
-
-        public void Visit(IPropertyEditorContext context)
-        {
-        }
     }
 }

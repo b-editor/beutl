@@ -1,5 +1,4 @@
-﻿using Avalonia.Input;
-using Beutl.Services;
+﻿using Beutl.Services;
 
 namespace Beutl.ViewModels;
 
@@ -19,8 +18,6 @@ public sealed class CommandPaletteItemViewModel
     public string? Description => Command.Description;
 
     public string CategoryName => Command.CategoryName;
-
-    public KeyGesture? KeyGesture => Command.KeyGesture;
 
     public string? KeyGestureText => Command.KeyGesture?.ToString("p", null);
 

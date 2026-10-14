@@ -91,8 +91,6 @@ public sealed partial class AiJobCenterViewModel : IDisposable, IAsyncDisposable
 
     internal AiUsageViewModel Usage { get; }
 
-    internal EditViewModel Editor => _editViewModel;
-
     public ReactivePropertySlim<bool> IsLoading { get; } = new();
 
     public ReactivePropertySlim<bool> IsInitialLoading { get; } = new();
@@ -167,50 +165,35 @@ public sealed partial class AiJobCenterViewModel : IDisposable, IAsyncDisposable
         }
     }
 
-    public async Task RetryJobAsync(AiJobItemViewModel item)
-        => await RetryJobAsync(item, confirmedLease: null, confirmedHandler: null);
-
+    // Retries under the lease and handler the confirmation took; the lease is disposed either way.
     private async Task RetryJobAsync(
         AiJobItemViewModel item,
-        IAiJobRetryHandlerLease? confirmedLease,
-        IAiJobRetryHandler? confirmedHandler)
+        IAiJobRetryHandlerLease lease,
+        IAiJobRetryHandler handler)
     {
         using AsyncOperationLifetime.Operation? lifetimeOperation = _operations.TryEnter();
         if (lifetimeOperation is null)
         {
-            confirmedLease?.Dispose();
+            lease.Dispose();
             return;
         }
         ArgumentNullException.ThrowIfNull(item);
         if (!item.CanRetry)
         {
-            confirmedLease?.Dispose();
+            lease.Dispose();
             return;
         }
 
         using IDisposable? operation = TryBeginOperation(item);
         if (operation is null)
         {
-            confirmedLease?.Dispose();
+            lease.Dispose();
             return;
         }
 
-        IAiJobRetryHandlerLease? lease = confirmedLease;
-
         try
         {
-            if (lease is null && !_jobKinds.TryAcquireRetryHandler(item.Job.Kind, out lease))
-            {
-                SetOperationError(Strings.AiPricingUnavailable);
-                return;
-            }
-
-            if (!await SubmitRetryAsync(
-                    item,
-                    lease,
-                    confirmed: confirmedLease is not null,
-                    confirmedHandler,
-                    lifetimeOperation.CancellationToken))
+            if (!await SubmitRetryAsync(item, lease, handler, lifetimeOperation.CancellationToken))
             {
                 return;
             }
@@ -256,30 +239,16 @@ public sealed partial class AiJobCenterViewModel : IDisposable, IAsyncDisposable
     private async Task<bool> SubmitRetryAsync(
         AiJobItemViewModel item,
         IAiJobRetryHandlerLease lease,
-        bool confirmed,
-        IAiJobRetryHandler? confirmedHandler,
+        IAiJobRetryHandler retryHandler,
         CancellationToken cancellationToken)
     {
         using (lease)
         {
             AiJobStatusSemantics status = _jobKinds.GetStatus(item.Job);
-            IAiJobRetryHandler retryHandler = confirmedHandler ?? lease.Handler;
             if (!retryHandler.CanRetry(item.Job, status))
             {
                 SetOperationError(Strings.AiPricingUnavailable);
                 return false;
-            }
-
-            if (!confirmed)
-            {
-                AiJobRetryPreflight estimate = await retryHandler.GetPreflightAsync(
-                    item.Job,
-                    cancellationToken);
-                if (!estimate.CanSubmit)
-                {
-                    SetOperationError(estimate.Explanation);
-                    return false;
-                }
             }
 
             AiJobRetryPreparationResult prepared = await retryHandler.PrepareAsync(

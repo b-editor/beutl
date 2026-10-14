@@ -16,8 +16,7 @@ internal static class TargetObjectSearchHelper
 
         return searcher.SearchAll()
             .Cast<T>()
-            .Select(x => new TargetObjectInfo(
-                CoreObjectHelper.GetDisplayName(x), x, CoreObjectHelper.GetOwnerElement(x)))
+            .Select(x => new TargetObjectInfo(CoreObjectHelper.GetDisplayName(x), x))
             .ToList();
     }
 }

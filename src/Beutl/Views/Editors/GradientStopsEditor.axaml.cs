@@ -46,8 +46,7 @@ public sealed partial class GradientStopsEditor : UserControl
 
         if (e.NewIndex != e.OldIndex)
             list.Move(e.NewIndex, e.OldIndex);
-        GradientStop obj = list[e.OldIndex];
-        viewModel.ConfirmeGradientStop(e.OldIndex, e.NewIndex, e.OldObject.ToBtlImmutableGradientStop(), obj);
+        viewModel.ConfirmeGradientStop(e.OldIndex, e.NewIndex);
     }
 
     private void OnSliderChanged(object? sender, (int OldIndex, int NewIndex, AM.GradientStop Object) e)
@@ -82,14 +81,7 @@ public sealed partial class GradientStopsEditor : UserControl
             int index = viewModel.Stops.Value.IndexOf(astop);
             var bstop = viewModel.Value.Value[index];
             bstop.Color.CurrentValue = args.NewColor.Value.ToBtlColor();
-            viewModel.ConfirmeGradientStop(
-                index, index,
-                new GradientStop.Resource
-                {
-                    Offset = bstop.Offset.CurrentValue,
-                    Color = args.OldColor.Value.ToBtlColor()
-                },
-                bstop);
+            viewModel.ConfirmeGradientStop(index, index);
         }
     }
 }

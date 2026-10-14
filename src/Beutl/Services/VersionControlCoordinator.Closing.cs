@@ -67,7 +67,7 @@ internal partial class VersionControlCoordinator
             close.HoldsOperationGate = true;
             if (closeContext.CloseIntent == ProjectService.ProjectCloseIntent.SaveChanges
                 && _config.AutoCommitOnClose
-                && GetOwnedBackend()?.Repository is not null
+                && _state.OwnedService?.Repository is not null
                 && _projectService.CurrentProject.Value is not null)
             {
                 close.EditorSuspension = _editorService.SuspendEditors();
@@ -101,7 +101,7 @@ internal partial class VersionControlCoordinator
         CancellationToken cancellationToken)
     {
         if (!_config.AutoCommitOnClose
-            || GetOwnedBackend()?.Repository is null
+            || _state.OwnedService?.Repository is null
             || _projectService.CurrentProject.Value is not { } project)
         {
             return;

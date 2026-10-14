@@ -177,7 +177,7 @@ public partial class EditViewModel
         catch (Exception ex) when (ex is not OutOfMemoryException and not OperationCanceledException)
         {
             // Selection is non-critical state; let the rest of restore continue.
-            // OOM / cancellation propagate so the deeper catch can quarantine.
+            // OOM / cancellation propagate and abort the restore.
             _logger.LogWarning(ex, "Could not restore the selected object from {ViewStateFile}; selection cleared ({SceneId}).", viewStateFile, SceneId);
         }
     }
@@ -257,11 +257,8 @@ public partial class EditViewModel
 
     private void QuarantineCorruptViewState(string viewStateFile)
     {
-        // Move the unreadable file aside so subsequent SaveState() calls (AutoSave or
-        // dispose) do not overwrite it with the default layout and erase the user's
-        // customizations. The 8-hex-char random suffix (~4 billion variants per second)
-        // prevents collisions between concurrent restores or other Beutl instances
-        // that hit corruption with the same one-second timestamp.
+        // Move the unreadable file aside so SaveState() does not overwrite it with the default layout.
+        // The random suffix keeps files quarantined within the same second from colliding.
         try
         {
             string suffix = Guid.NewGuid().ToString("N")[..8];

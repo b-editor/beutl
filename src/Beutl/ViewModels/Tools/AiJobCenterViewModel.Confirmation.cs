@@ -27,8 +27,6 @@ public sealed partial class AiJobCenterViewModel
         long revision = Interlocked.Increment(ref _confirmationRevision);
         _confirmationAction = AiJobConfirmationAction.Retry;
         _confirmationItem = item;
-        _confirmationLease = null;
-        _confirmationHandler = null;
         ConfirmationTitle.Value = Strings.AiJobCenter_RetryTitle;
         ConfirmationMessage.Value = Strings.AiJobCenter_CheckingRetryCost;
         ConfirmationActionText.Value = Strings.AiJobCenter_Retry;
@@ -299,14 +297,11 @@ public sealed partial class AiJobCenterViewModel
         switch (action)
         {
             case AiJobConfirmationAction.Retry:
-                await RetryJobAsync(item, lease, handler);
+                // A confirmable retry always holds the lease and handler its preflight took.
+                await RetryJobAsync(item, lease!, handler!);
                 break;
             case AiJobConfirmationAction.Delete:
-                lease?.Dispose();
                 await DeleteJobAsync(item);
-                break;
-            default:
-                lease?.Dispose();
                 break;
         }
     }

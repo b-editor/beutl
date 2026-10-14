@@ -7,49 +7,14 @@ namespace Beutl.ViewModels.Dialogs;
 
 internal sealed partial class AiImageEditDialogViewModel
 {
-    private IReadOnlyList<AiPendingAttempt> GetPendingRecoveryAttempts()
-    {
-        try
-        {
-            return _requestKey.PendingAttempts(new AiOperationId("image.edit"));
-        }
-        catch (InvalidDataException ex)
-        {
-            _logger.LogError(ex, "Failed to read image-edit recovery attempts.");
-            return Array.Empty<AiPendingAttempt>();
-        }
-    }
-
-    private void TryAutoRecoverSingleAttempt()
-    {
-        IReadOnlyList<AiPendingAttempt> attempts = GetPendingRecoveryAttempts();
-        if (attempts.Count == 1 && attempts[0].HasCanonicalForm)
-        {
-            if (!TryRecoverPendingAttempt(attempts[0]))
-                ClearActiveRecovery();
-        }
-
-        _recoveryRevision.Value++;
-    }
-
     private void OnIdentityChanged()
-        => AiFormRecovery.SwitchIdentity(
-            _identityOperations,
-            ClearIdentityState,
-            TryAutoRecoverForCurrentIdentity,
-            ex => _logger.LogError(ex, "Failed to clear image-edit state after an account change."));
-
-    private void TryAutoRecoverForCurrentIdentity()
-    {
-        if (_requestKey.CurrentAccountId is not null)
-            TryAutoRecoverSingleAttempt();
-    }
+        => _recovery.SwitchIdentity(_identityOperations, ClearIdentityState);
 
     private void ClearIdentityState()
     {
         _runningRequest = null;
         IsEditing.Value = false;
-        ClearActiveRecovery();
+        _recovery.Clear();
         SourceFilePath.Value = null;
         Prompt.Value = string.Empty;
         _sourceElementId = null;
@@ -59,7 +24,7 @@ internal sealed partial class AiImageEditDialogViewModel
         ResultImage.Value = null;
         Error.Value = null;
         ModelPicker.ReconcileRecoveryModels();
-        _recoveryRevision.Value++;
+        _recovery.Revision.Value++;
     }
 
     internal bool TryRecoverPendingAttempt(AiPendingAttempt attempt)
@@ -71,7 +36,6 @@ internal sealed partial class AiImageEditDialogViewModel
             return false;
         }
         if (!attempt.HasCanonicalForm
-            || !attempt.Operation.StartsWith("image.edit.", StringComparison.Ordinal)
             || attempt.Form?.Task is not { } task
             || !string.Equals(attempt.Operation, $"image.edit.{task}", StringComparison.Ordinal))
         {
@@ -91,19 +55,8 @@ internal sealed partial class AiImageEditDialogViewModel
             return false;
         }
 
-        if (paths.Count != 1 || attempt.EffectiveSources.Count != 1)
+        if (attempt.EffectiveSources.Count != 1)
         {
-            Error.Value = Strings.AiResultUnavailable;
-            return false;
-        }
-
-        try
-        {
-            _ = _requestKey.ReadSourceBytes(attempt.EffectiveSources[0]);
-        }
-        catch (InvalidDataException ex)
-        {
-            _logger.LogWarning(ex, "Image-edit recovery source changed.");
             Error.Value = Strings.AiResultUnavailable;
             return false;
         }
@@ -123,64 +76,13 @@ internal sealed partial class AiImageEditDialogViewModel
         _sourceElementId = attempt.Form.SourceElementId;
 
         SourceFilePath.Value = paths[0];
-        ActivateRecovery(attempt);
-        _recoveryRevision.Value++;
-        SelectRecoveredModel();
+        _recovery.Activate(attempt);
+        _recovery.Revision.Value++;
+        _recovery.SelectRecoveredModel();
         return true;
     }
 
-    internal void AbandonPendingAttempt(AiPendingAttempt attempt)
-    {
-        try
-        {
-            _requestKey.Abandon(attempt);
-            if (_selectedRecovery is { } selected
-                && AiFormRecovery.IsSameAttempt(selected, attempt))
-            {
-                ClearActiveRecovery();
-                ModelPicker.ReconcileRecoveryModels();
-            }
-
-            _recoveryRevision.Value++;
-            // A request that was sent before may still finish, or may already have been paid for.
-            // Either way its job stays in the account's AI job list.
-            NotificationService.ShowInformation(Strings.AiPendingRequest, Strings.AiAbandonedRequestInJobs);
-        }
-        catch (Exception ex) when (ex is InvalidDataException or AuthenticationRequiredException)
-        {
-            _logger.LogWarning(ex, "Failed to abandon image-edit recovery attempt.");
-            Error.Value = Strings.AiResultUnavailable;
-        }
-    }
-
-    // The model a request should carry: the one the outstanding name was built
-    // from while there is one, and the picker's otherwise.
-    // Whatever the outstanding name was built from, including no model at all:
-    // a request that named none was fingerprinted without one, and letting a
-    // catalog that has since loaded name one would make it a different request.
-    // Only for the same request: an edit of another picture, or with another
-    // prompt, is a new request and is priced and run on the model on screen.
-    private AiModelId? ModelForRequest(AiModelId? selected)
-        => _selectedRecovery is { } attempt
-            ? attempt.Model is { } model ? new AiModelId(model) : null
-            : selected;
-
-    private void ActivateRecovery(AiPendingAttempt attempt)
-    {
-        _selectedRecovery = attempt;
-        SelectedRecoveryAttempt.Value = attempt;
-        ModelPicker.IsSelectionEnabled.Value = false;
-    }
-
-    private void ClearActiveRecovery()
-    {
-        _selectedRecovery = null;
-        SelectedRecoveryAttempt.Value = null;
-        ModelPicker.IsSelectionEnabled.Value = true;
-    }
-
-    private void SelectRecoveredModel()
-        => AiFormRecovery.SelectRecoveredModel(ModelPicker, _selectedRecovery);
+    internal void AbandonPendingAttempt(AiPendingAttempt attempt) => _recovery.Abandon(attempt);
 
     // Only this one request is settled. Retiring the whole run instead would
     // throw away the name of anything else still waiting to be collected.
@@ -188,16 +90,7 @@ internal sealed partial class AiImageEditDialogViewModel
     {
         if (!_requestKey.Retire(name))
             return;
-        Forget(name);
-        if (_selectedRecovery is { } selected
-            && AiFormRecovery.IsSettledBy(_requestKey, selected, name))
-        {
-            if (!string.Equals(selected.Key, name.Key, StringComparison.Ordinal))
-                Forget(new AiRequestName(selected.Key, IsRepeat: true));
-            ClearActiveRecovery();
-            ModelPicker.ReconcileRecoveryModels();
-            _recoveryRevision.Value++;
-        }
+        ForgetSettled(name);
         // Reloads were held back while that name was outstanding, so this is
         // where an operator's change to the model list finally lands.
         _ = ReloadModelsAsync(SelectedTask.Value);
@@ -207,18 +100,19 @@ internal sealed partial class AiImageEditDialogViewModel
     // move again and puts the balance check back in front of the next attempt.
     private void WithdrawRequestName(AiRequestName name)
     {
-        if (!_requestKey.WithdrawAfterNoReservation(name))
-            return;
+        if (_requestKey.WithdrawAfterNoReservation(name))
+            ForgetSettled(name);
+    }
+
+    // Forgets a settled name, and the recovered one when that settles the recovery as well.
+    private void ForgetSettled(AiRequestName name)
+    {
         Forget(name);
-        if (_selectedRecovery is { } selected
-            && AiFormRecovery.IsSettledBy(_requestKey, selected, name))
+        _recovery.Settle(name, recovered =>
         {
-            if (!string.Equals(selected.Key, name.Key, StringComparison.Ordinal))
-                Forget(new AiRequestName(selected.Key, IsRepeat: true));
-            ClearActiveRecovery();
-            ModelPicker.ReconcileRecoveryModels();
-            _recoveryRevision.Value++;
-        }
+            if (!string.Equals(recovered.Key, name.Key, StringComparison.Ordinal))
+                Forget(new AiRequestName(recovered.Key, IsRepeat: true));
+        });
     }
 
     private void Forget(AiRequestName name)

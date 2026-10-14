@@ -8,7 +8,6 @@ using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.Input.Raw;
 using Avalonia.Interactivity;
-using Avalonia.Media.Imaging;
 using Beutl.Editor.Components.FileBrowserTab.ViewModels;
 using Beutl.Language;
 using Beutl.Testing.Headless;
@@ -52,7 +51,8 @@ public sealed class CloudStorageActionsTests
                 _ => ["open", "download", "move", "details"],
             };
             Assert.That(ActionIds(view), Is.EqualTo(expected));
-            Capture(view.StorageMenu!.Popup.Child!, $"menu-{mode}-{visibility}");
+            HeadlessCapture.SaveIfRequested(
+                view.StorageMenu!.Popup.Child!, nameof(CloudStorageActionsTests), $"menu-{mode}-{visibility}");
         }
         finally { window.Close(); }
     }
@@ -285,7 +285,7 @@ public sealed class CloudStorageActionsTests
             Assert.That(dialog.IsPrimaryButtonEnabled, Is.True);
             input.Text = "bad\tname";
             Assert.That(dialog.IsPrimaryButtonEnabled, Is.False);
-            Capture(window, "name-dialog");
+            HeadlessCapture.SaveIfRequested(window, nameof(CloudStorageActionsTests), "name-dialog");
             dialog.Hide();
             await create;
             Assert.That(scope.Handler.Requests, Has.Count.EqualTo(2));
@@ -304,7 +304,7 @@ public sealed class CloudStorageActionsTests
             await WaitFor(() => scope.Handler.Requests.Count == 4);
             scope.Handler.Requests[3].Complete(Response(empty: true));
             await WaitFor(() => dialog.IsPrimaryButtonEnabled);
-            Capture(window, "move-dialog");
+            HeadlessCapture.SaveIfRequested(window, nameof(CloudStorageActionsTests), "move-dialog");
             dialog.Hide();
             await move;
             Assert.That(scope.Handler.Requests.All(x => x.Method == HttpMethod.Get), Is.True);
@@ -381,15 +381,6 @@ public sealed class CloudStorageActionsTests
     private static string[] ActionIds(CloudStorageView view) => view.StorageMenu!.Items.OfType<FAMenuFlyoutItem>()
         .Where(x => x.Name?.StartsWith("StorageAction_", StringComparison.Ordinal) == true)
         .Select(x => x.Name!["StorageAction_".Length..]).ToArray();
-
-    private static void Capture(Control control, string name)
-    {
-        if (Environment.GetEnvironmentVariable("BEUTL_STORAGE_ACTION_CAPTURE") is not { Length: > 0 } path) return;
-        HeadlessTestHelpers.Render();
-        Directory.CreateDirectory(path);
-        using var image = TopLevel.GetTopLevel(control)?.CaptureRenderedFrame();
-        image?.Save(Path.Combine(path, name + ".png"), PngBitmapEncoderOptions.Default);
-    }
 
     private static void ClickAction(CloudStorageView view, string action) => view.StorageMenu!.Items.OfType<FAMenuFlyoutItem>()
         .Single(x => x.Name == $"StorageAction_{action}").RaiseEvent(new RoutedEventArgs(FAMenuFlyoutItem.ClickEvent));

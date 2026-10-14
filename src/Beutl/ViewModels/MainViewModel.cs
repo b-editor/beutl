@@ -58,6 +58,7 @@ public sealed partial class MainViewModel : BasePageViewModel, IContextCommandHa
     {
     }
 
+    // Test seam: the app uses the parameterless constructor; only tests pass these arguments.
     internal MainViewModel(
         Action<BeutlApiApplication>? shutdownHandoff,
         Func<TimeSpan, Task>? waitForPackageInstallerIdle = null)
@@ -259,7 +260,7 @@ public sealed partial class MainViewModel : BasePageViewModel, IContextCommandHa
 
     public ReadOnlyObservableCollection<ToolWindowExtension> ToolWindowExtensions { get; }
 
-    public ContextCommandManager? ContextCommandManager { get; }
+    public ContextCommandManager ContextCommandManager { get; }
 
     public CommandPaletteViewModel CommandPalette { get; }
     public TabSwitcherViewModel TabSwitcher { get; }

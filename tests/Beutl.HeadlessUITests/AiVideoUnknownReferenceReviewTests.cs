@@ -3,6 +3,7 @@ using Beutl.Api;
 using Beutl.Api.Services;
 using Beutl.Services.AI;
 using Beutl.Testing.Headless;
+using static Beutl.HeadlessUITests.AiTestSupport;
 
 namespace Beutl.HeadlessUITests;
 
@@ -12,10 +13,8 @@ public sealed partial class AiDialogWorkflowTests
     public async Task Review_UnknownReferenceRoleDoesNotThrowOrMutateCurrentInputs()
     {
         await TestReset.ResetShellAsync();
-        using var handler = new StubHandler(ProviderVideoResponse);
-        using var http = new HttpClient(handler);
-        await using var clients = new BeutlApiApplication(http, new ExtensionProvider());
-        SetAuthenticatedUser(clients, http);
+        await using var api = new ApiScope(new StubHandler(ProviderVideoResponse));
+        BeutlApiApplication clients = api.Clients;
         using var context = CreateIdentityContext(() => "test-user");
         await using var vm = CreateVideoGenerationDialog(clients, context: context);
         await WaitUntilAsync(() => vm.ModelPicker.IsLoaded.Value);

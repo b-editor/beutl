@@ -1,26 +1,10 @@
 ﻿using Beutl.Media.Source;
-using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class CubeSourceEditorViewModel : ValueEditorViewModel<CubeSource?>
+public sealed class CubeSourceEditorViewModel(IPropertyAdapter<CubeSource?> property)
+    : LocalFileSourceEditorViewModel<CubeSource>(property)
 {
-    public CubeSourceEditorViewModel(IPropertyAdapter<CubeSource?> property)
-        : base(property)
-    {
-        FullName = Value.ObserveLocalPath()
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(Disposables);
-
-        FileInfo = FullName.Select(p => p != null ? new FileInfo(p) : null)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(Disposables);
-    }
-
-    public ReadOnlyReactivePropertySlim<string?> FullName { get; }
-
-    public ReadOnlyReactivePropertySlim<FileInfo?> FileInfo { get; }
-
     public void SetValueAndCommit(CubeSource? oldValue, CubeSource? newValue)
     {
         if (!IsElementEditable) return;

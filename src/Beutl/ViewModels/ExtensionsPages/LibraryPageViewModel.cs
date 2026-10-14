@@ -32,13 +32,10 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
         _projectService = projectService;
 
         Refresh = new AsyncReactiveCommand(IsBusy.Inverse())
-            .WithSubscribe(async () =>
-            {
-                using Activity? activity = Services.Telemetry.StartActivity("LibraryPage.Refresh");
-
-                try
+            .WithSubscribe(() => StorePageCommand.RunAsync(
+                IsBusy, "LibraryPage.Refresh", _lifetimeCts.Token, _logger,
+                async activity =>
                 {
-                    IsBusy.Value = true;
                     Task task = RefreshLocalPackages(_lifetimeCts.Token);
                     DisposeAll(Packages.OfType<IDisposable>());
                     Packages.Clear();
@@ -58,33 +55,16 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
                     }
 
                     await task;
-                }
-                catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
-                {
-                }
-                catch (Exception e)
-                {
-                    activity?.SetStatus(ActivityStatusCode.Error);
-                    await e.Handle();
-                    _logger.LogError(e, "An unexpected error has occurred.");
-                }
-                finally
-                {
-                    IsBusy.Value = false;
-                }
-            })
+                }))
             .DisposeWith(_disposables);
 
         Refresh.Execute();
 
         CheckUpdate = new AsyncReactiveCommand(IsBusy.Inverse())
-            .WithSubscribe(async () =>
-            {
-                using Activity? activity = Services.Telemetry.StartActivity("LibraryPage.CheckUpdate");
-
-                try
+            .WithSubscribe(() => StorePageCommand.RunAsync(
+                IsBusy, "LibraryPage.CheckUpdate", _lifetimeCts.Token, _logger,
+                async activity =>
                 {
-                    IsBusy.Value = true;
                     using (await _clients.Lock.LockAsync(_lifetimeCts.Token))
                     {
                         activity?.AddEvent(new("Entered_AsyncLock"));
@@ -103,21 +83,7 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
                             ApplyPackageUpdate(item);
                         }
                     }
-                }
-                catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested)
-                {
-                }
-                catch (Exception e)
-                {
-                    activity?.SetStatus(ActivityStatusCode.Error);
-                    await e.Handle();
-                    _logger.LogError(e, "An unexpected error has occurred.");
-                }
-                finally
-                {
-                    IsBusy.Value = false;
-                }
-            })
+                }))
             .DisposeWith(_disposables);
     }
 
@@ -231,9 +197,9 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
                 catch
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    var item = installed.FirstOrDefault(i => i.Name == name);
-                    if (item != null)
-                        Packages.Add(new LocalUserPackageViewModel(item, _clients, _editorService, _projectService));
+                    // Not in own, so the name came from installed.
+                    var item = installed.First(i => i.Name == name);
+                    Packages.Add(new LocalUserPackageViewModel(item, _clients, _editorService, _projectService));
                 }
             }
 
@@ -261,7 +227,7 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
 
         RemoteUserPackageViewModel? remotePackage = Packages.OfType<RemoteUserPackageViewModel>()
             .FirstOrDefault(
-                x => x?.Package?.Name?.Equals(item.Package.Name,
+                x => x.Package.Name?.Equals(item.Package.Name,
                     StringComparison.OrdinalIgnoreCase) == true);
 
         if (remotePackage != null)

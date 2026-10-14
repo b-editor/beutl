@@ -127,18 +127,13 @@ public static class PropertyEditorService
         private static readonly Dictionary<Type, ListItemEditor> s_listItemEditorsOverride = new()
         {
             { typeof(FilterEffect), new(_ => new FilterEffectListItemEditor(), s => new FilterEffectEditorViewModel(s.ToTyped<FilterEffect?>())) },
-            { typeof(PathSegment), new(_ => new PathOperationListItemEditor(), s => new PathOperationEditorViewModel(s.ToTyped<PathSegment?>())) },
+            { typeof(PathSegment), new(_ => new PathOperationListItemEditor(), s => new PathSegmentEditorViewModel(s.ToTyped<PathSegment?>())) },
             { typeof(PathFigure), new(_ => new PathFigureListItemEditor(), s => new PathFigureEditorViewModel(s.ToTyped<PathFigure>())) },
             { typeof(AudioEffect), new(_ => new AudioEffectListItemEditor(), s => new AudioEffectEditorViewModel(s.ToTyped<AudioEffect?>())) },
             { typeof(Transform), new(_ => new TransformListItemEditor(), s => new TransformEditorViewModel(s.ToTyped<Transform?>())) },
             { typeof(IFileSource), new(s => CanCreateFileSource(s.PropertyType) ? new StorageFileEditor() : null, CreateFileSourceEditorViewModel) },
             { typeof(CoreObject), new(_ => new CoreObjectListItemEditor(), CreateCoreObjectEditorViewModel) }
         };
-
-        private static readonly Dictionary<int, Editor> s_editorsOverride =
-        [
-            // プロパティのIdから、プロパティエディタを作成
-        ];
 
         private static readonly FrozenDictionary<Type, Editor> s_editors = new KeyValuePair<Type, Editor>[]
         {
@@ -221,14 +216,6 @@ public static class PropertyEditorService
                 {
                     yield return item;
                     yield break;
-                }
-                if (item.GetCoreProperty() is { Id: var id })
-                {
-                    if (s_editorsOverride.ContainsKey(id))
-                    {
-                        yield return item;
-                        yield break;
-                    }
                 }
 
                 if (HasEditorFor(item.PropertyType))
@@ -339,13 +326,6 @@ public static class PropertyEditorService
                 if (attrs.OfType<ChoicesProviderAttribute>().FirstOrDefault() is { } choiceAtt)
                 {
                     viewModel = CreateChoiceViewModel(property, choiceAtt.ProviderType);
-                }
-
-                if (viewModel == null
-                    && property.GetCoreProperty() is { Id: var propId }
-                    && s_editorsOverride.TryGetValue(propId, out Editor editorOverrided))
-                {
-                    viewModel = editorOverrided.CreateViewModel(property);
                 }
 
                 viewModel ??= CreateFromTypeMap(s_editors, property, static (editor, p) => editor.CreateViewModel(p));
@@ -488,17 +468,6 @@ public static class PropertyEditorService
                     {
                         control = new EnumEditor();
                         return true;
-                    }
-                    if (property.GetCoreProperty() is { Id: var propId })
-                    {
-                        if (s_editorsOverride.TryGetValue(propId, out Editor editorOverrided))
-                        {
-                            control = editorOverrided.CreateEditor(property);
-                            if (control != null)
-                            {
-                                return true;
-                            }
-                        }
                     }
 
                     control = CreateFromTypeMap(s_editors, property, static (editor, p) => editor.CreateEditor(p));

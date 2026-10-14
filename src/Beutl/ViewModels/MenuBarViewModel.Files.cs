@@ -71,20 +71,6 @@ public partial class MenuBarViewModel
 
     public ReactiveCommandSlim<EditorTabItem> CloseFileCore { get; set; }
 
-    // File
-    //    Create new
-    //       Project
-    //       File
-    //    Open
-    //       Project
-    //       File
-    //    Close
-    //    Close project
-    //    Save
-    //    Save all
-    //    Recent files
-    //    Recent projects
-    //    Exit
     public AsyncReactiveCommand CreateNewProject { get; } = new();
 
     public AsyncReactiveCommand OpenProject { get; } = new();

@@ -1,5 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
-using Beutl.Logging;
+﻿using Beutl.Logging;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Services;
@@ -18,11 +17,8 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
     private static readonly ILogger s_logger = Log.CreateLogger<AsyncOperationLifetime>();
     private readonly object _gate = new();
     private readonly TimeSpan _shutdownDeadline;
-    private readonly Action<Exception>? _deferredFailureObserver;
     private CancellationTokenSource? _cancellation = new();
     private TaskCompletionSource? _drained;
-    private Task? _stopTask;
-    private TaskCompletionSource? _stopCompletion;
     private Task? _stopDrainTask;
     private TaskCompletionSource? _stopDrainCompletion;
     private Task? _stopCancellationTask;
@@ -33,14 +29,11 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
     private int _activePublications;
     private bool _stopping;
 
-    public AsyncOperationLifetime(
-        TimeSpan? shutdownDeadline = null,
-        Action<Exception>? deferredFailureObserver = null)
+    public AsyncOperationLifetime(TimeSpan? shutdownDeadline = null)
     {
         _shutdownDeadline = shutdownDeadline ?? s_defaultShutdownDeadline;
         if (_shutdownDeadline <= TimeSpan.Zero)
             throw new ArgumentOutOfRangeException(nameof(shutdownDeadline));
-        _deferredFailureObserver = deferredFailureObserver;
     }
 
     public Operation? TryEnter()
@@ -57,20 +50,15 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
         }
     }
 
-    // Creates the single stop state used by DisposeAsync. The caller starts its completion
-    // outside the gate; the returned task completes when no work is active.
-    [MemberNotNull(nameof(_stopTask))]
+    // Starts the stop; the returned task completes when no work is active.
     private Task BeginStop_NoLock(CancellationTokenSource? cancellation)
     {
         Task drained = HasNoActiveWork_NoLock()
             ? Task.CompletedTask
             : (_drained ??= new TaskCompletionSource(
                 TaskCreationOptions.RunContinuationsAsynchronously)).Task;
-        _stopCompletion = new TaskCompletionSource(
-            TaskCreationOptions.RunContinuationsAsynchronously);
         _stopDrainCompletion = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
-        _stopTask = _stopCompletion.Task;
         _stopDrainTask = _stopDrainCompletion.Task;
         _stopCancellationTask = CreateCancellationTask(cancellation);
         return drained;
@@ -149,43 +137,23 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
             completion?.TrySetResult();
     }
 
-    private async Task CompleteStopProxyAsync(
-        TaskCompletionSource completion,
-        Task drain,
-        TimeSpan remaining)
+    // Only logs a drain past its deadline; DisposeCoreAsync reports a failed drain.
+    private async Task ObserveStopDeadlineAsync(Task drain)
     {
-        if (remaining <= TimeSpan.Zero)
-        {
-            AbandonStopDeadline(completion, drain);
-            return;
-        }
-
         try
         {
-            await drain.WaitAsync(remaining).ConfigureAwait(false);
-            if (drain.IsFaulted)
-                completion.TrySetException(drain.Exception!.Flatten().InnerExceptions);
-            else
-                completion.TrySetResult();
+            await drain.WaitAsync(_shutdownDeadline).ConfigureAwait(false);
         }
         catch (TimeoutException)
         {
-            AbandonStopDeadline(completion, drain);
+            s_logger.LogWarning(
+                "Asynchronous operation shutdown exceeded {Deadline}; draining will continue.",
+                _shutdownDeadline);
+            _ = ObserveDeferredStopAsync(drain);
         }
-        catch (Exception ex)
+        catch
         {
-            completion.TrySetException(ex);
         }
-    }
-
-    // A stop past its deadline reports success; draining continues and a later failure is observed.
-    private void AbandonStopDeadline(TaskCompletionSource completion, Task drain)
-    {
-        s_logger.LogWarning(
-            "Asynchronous operation shutdown exceeded {Deadline}; draining will continue.",
-            _shutdownDeadline);
-        completion.TrySetResult();
-        _ = ObserveDeferredStopAsync(drain);
     }
 
     private async Task ObserveDeferredStopAsync(Task drain)
@@ -197,7 +165,6 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
         catch (Exception ex)
         {
             s_logger.LogWarning(ex, "Deferred asynchronous operation shutdown failed.");
-            _deferredFailureObserver?.Invoke(ex);
         }
     }
 
@@ -213,7 +180,6 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
         ArgumentNullException.ThrowIfNull(disposeResources);
         TaskCompletionSource? proxy = null;
         Task? drained = null;
-        bool startStopCompletion = false;
         Task disposeTask;
         lock (_gate)
         {
@@ -222,18 +188,8 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
                 proxy = new TaskCompletionSource(
                     TaskCreationOptions.RunContinuationsAsynchronously);
                 _disposeTask = proxy.Task;
-
-                if (!_stopping)
-                {
-                    _stopping = true;
-                    // The cancellation task is created together with the stop
-                    // state below, before any callback can re-enter.
-                }
-                if (_stopTask is null)
-                {
-                    drained = BeginStop_NoLock(_cancellation);
-                    startStopCompletion = true;
-                }
+                _stopping = true;
+                drained = BeginStop_NoLock(_cancellation);
             }
 
             disposeTask = _disposeTask;
@@ -243,15 +199,11 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
         {
             Task stopDrainTask = _stopDrainTask!;
             Task teardown = Task.Run(() => DisposeCoreAsync(
-                drained,
-                startStopCompletion,
+                drained!,
                 stopDrainTask,
                 cancelAdditionalWork,
                 disposeResources));
-            if (startStopCompletion)
-            {
-                _ = CompleteStopProxyAsync(_stopCompletion!, stopDrainTask, _shutdownDeadline);
-            }
+            _ = ObserveStopDeadlineAsync(stopDrainTask);
             _ = CompleteDisposeAsync(proxy, teardown);
         }
 
@@ -259,8 +211,7 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
     }
 
     private async Task DisposeCoreAsync(
-        Task? drained,
-        bool startStopCompletion,
+        Task drained,
         Task stopDrainTask,
         Action cancelAdditionalWork,
         Func<ValueTask> disposeResources)
@@ -268,8 +219,7 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
         List<Exception>? failures = null;
         Task additionalCancellation = Task.Run(cancelAdditionalWork);
 
-        if (startStopCompletion)
-            _ = CompleteStopDrainAsync(drained!, _stopCancellationTask!);
+        _ = CompleteStopDrainAsync(drained, _stopCancellationTask!);
 
         try
         {
@@ -346,7 +296,6 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
         catch (Exception ex)
         {
             s_logger.LogWarning(ex, "Deferred asynchronous operation resource cleanup failed.");
-            _deferredFailureObserver?.Invoke(ex);
         }
     }
 
@@ -382,9 +331,6 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
         TaskCompletionSource? drained = null;
         lock (_gate)
         {
-            if (_activePublications <= 0)
-                return;
-
             _activePublications--;
             if (_stopping && HasNoActiveWork_NoLock())
                 drained = _drained;
@@ -401,9 +347,6 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
         bool disposeCancellation = true;
         lock (_gate)
         {
-            if (_activeOperations <= 0)
-                return;
-
             _activeOperations--;
             if (_stopping && _stopCancellationTask is { IsCompleted: false })
             {

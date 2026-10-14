@@ -99,11 +99,9 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
         Current = services;
         DecoderRegistry.ProxyResolver = resolver;
 
-        // Observe both config knobs, but handle them differently: a store-root change rebuilds the whole
-        // pipeline against the new directory, while a cap-only change just retargets the live eviction
-        // threshold (rebuilding the queue would cancel unrelated in-flight generation). The setters fire
-        // on the UI thread and both handlers apply synchronously, so consumers re-fetching Current never
-        // see a torn mix. Skip(1) drops each observable's replay of the current value at construction.
+        // A store-root change rebuilds the pipeline; a cap change only retargets eviction, as a rebuild
+        // would cancel in-flight generation. Both apply synchronously on the UI thread, so Current is
+        // never torn, and Skip(1) drops the replay of the current value.
         services._configSubscription = new CompositeDisposable(
             config.GetObservable(ProxyStoreConfig.StoreRootPathProperty).Skip(1)
                 .Subscribe(_ => services.ReinitializeStore(config.StoreRootPath, config.MaxTotalBytes)),
@@ -144,9 +142,7 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
     private static (ProxyStore Store, ProxyResolver Resolver, ProxyJobQueue Queue, ProxyEvictionService Eviction)
         BuildServicesWithFallback(ProxyStoreConfig config)
     {
-        // Capture the resolved path once, before the try: the recovery path below must not re-read the
-        // accessor (its normalization already degrades a malformed value to the default, but reading it
-        // twice is needless and couples recovery to the accessor).
+        // Read once: the fallback below compares this value with the default.
         string storeRootPath = config.StoreRootPath;
         try
         {
@@ -170,14 +166,9 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
         }
     }
 
-    // The generator is resolved lazily from ProxyGeneratorRegistry on the first job dispatch: the
-    // FFmpeg proxy extension registers its factory during the startup extension-load task, which runs
-    // AFTER RegisterServices builds this queue, so the registry is still empty here. Returning null
-    // while empty lets the queue re-probe and pick up a generator that registers later (a plugin, or
-    // the built-in FFmpeg factory once its extension loads). The disk-headroom wrapper runs in the
-    // dispatch path (right before the encoder writes) so a low-disk store does not fail the first job
-    // eviction could have made room for; the availability-aware variant is a distinct type because the
-    // queue type-tests for IProxyGeneratorAvailability — wrapping without it would fabricate a signal.
+    // Resolved lazily: extensions register generators after this queue is built. The headroom wrapper
+    // runs right before the encoder writes, so eviction can make room first, and it implements
+    // IProxyGeneratorAvailability only when the generator does, because the queue type-tests for it.
     private static Func<IProxyGenerator?> ResolveGeneratorFactory(ProxyStore store, ProxyEvictionService eviction)
     {
         return () =>
@@ -428,12 +419,8 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
             if (BeutlApplication.Current.Project is not { } project)
                 return s_noOpenProjectSources;
 
-            // A Generate All batch enqueues one job per source and each runs this pre-encode sweep, so an
-            // uncached full project walk would stall the UI once per job. Memoize on the project instance:
-            // the batch shares one project, so only the first job walks. The set is eviction AFFINITY only
-            // (best-effort, already falling back to global LRU on failure), so a source added mid-batch
-            // just misses protection until the project reopens — its proxy is regenerated if evicted, no
-            // correctness loss.
+            // Each job of a Generate All batch runs this sweep, so memoize on the project to walk it once.
+            // The set only biases eviction, so a source added mid-batch is merely unprotected until reopen.
             lock (s_openProjectSourcesLock)
             {
                 if (ReferenceEquals(s_openProjectSourcesProject, project) && s_openProjectSources is { } cached)

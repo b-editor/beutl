@@ -15,7 +15,7 @@ public interface ICoreObjectEditorViewModel : IServiceProvider
 
     ReactivePropertySlim<string?> Description { get; }
 
-    ReactivePropertySlim<string?> HoverInfo => Description;
+    ReactivePropertySlim<string?> HoverInfo { get; }
 
     IReadOnlyReactiveProperty<CoreObject?> Value { get; }
 
@@ -27,8 +27,6 @@ public interface ICoreObjectEditorViewModel : IServiceProvider
 
     ReadOnlyReactivePropertySlim<bool> IsNull { get; }
 
-    ReadOnlyReactivePropertySlim<bool> IsNotSetAndCanWrite { get; }
-
     ReadOnlyReactivePropertySlim<bool> IsPresenter { get; }
 
     ReadOnlyReactivePropertySlim<string?> CurrentTargetName { get; }
@@ -38,8 +36,6 @@ public interface ICoreObjectEditorViewModel : IServiceProvider
     IReadOnlyReactiveProperty<bool> CanPaste { get; }
 
     IPropertyAdapter PropertyAdapter { get; }
-
-    bool CanWrite { get; }
 
     bool IsDisposed { get; }
 
@@ -58,14 +54,8 @@ public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICore
     public CoreObjectEditorViewModel(IPropertyAdapter<T> property)
         : base(property)
     {
-        CanWrite = !property.IsReadOnly;
-
         IsNull = property.GetObservable()
             .Select(x => x == null)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(Disposables);
-
-        IsNotSetAndCanWrite = IsNull.Select(x => x && CanWrite)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
@@ -112,15 +102,11 @@ public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICore
 
     public ReadOnlyReactivePropertySlim<bool> IsNull { get; }
 
-    public ReadOnlyReactivePropertySlim<bool> IsNotSetAndCanWrite { get; }
-
     public ReadOnlyReactivePropertySlim<bool> IsPresenter { get; }
 
     public ReadOnlyReactivePropertySlim<string?> CurrentTargetName { get; }
 
     IReadOnlyReactiveProperty<CoreObject?> ICoreObjectEditorViewModel.Value => Value;
-
-    public bool CanWrite { get; }
 
     public IReadOnlyReactiveProperty<bool> IsFallback { get; }
 
@@ -164,42 +150,12 @@ public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICore
         if (!CanReplaceContent) return false;
         if (template.CreateInstance() is not T instance) return false;
         IsExpanded.Value = true;
-        if (EditingKeyFrame.Value is { } keyFrame)
-        {
-            SetValue(keyFrame.Value, instance, CommandNames.ApplyTemplate);
-        }
-        else
-        {
-            SetValue(PropertyAdapter.GetValue(), instance, CommandNames.ApplyTemplate);
-        }
-
+        SetValue(GetEditingValue(), instance, CommandNames.ApplyTemplate);
         return true;
     }
 
     public override bool TryPasteJson(string json)
-    {
-        // Pasting into a list inserts an item, an ordinary edit; otherwise SetValue checks the value it replaces.
-        bool inserts = EditingKeyFrame.Value is null && PropertyAdapter is ListItemAccessorImpl<T>;
-        if (!(inserts ? IsElementEditable : CanReplaceContent)) return false;
-        if (!CoreObjectClipboard.TryDeserializeJson<T>(json, out var pasted)) return false;
-
-        IsExpanded.Value = true;
-        if (EditingKeyFrame.Value is { } kf)
-        {
-            SetValue(kf.Value, pasted, CommandNames.PasteObject);
-        }
-        else if (PropertyAdapter is ListItemAccessorImpl<T> listItemAccessor)
-        {
-            listItemAccessor.List.Insert(listItemAccessor.Index, pasted);
-            Commit(CommandNames.PasteObject);
-        }
-        else
-        {
-            SetValue(PropertyAdapter.GetValue(), pasted, CommandNames.PasteObject);
-        }
-
-        return true;
-    }
+        => GroupedEditorHelper.TryPasteJson(json, this!, IsExpanded, null);
 
     public void SetTarget(CoreObject? target)
     {

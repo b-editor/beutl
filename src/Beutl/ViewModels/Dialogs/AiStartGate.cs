@@ -1,10 +1,6 @@
 ﻿namespace Beutl.ViewModels.Dialogs;
 
-/// <summary>
-/// The steps every paid AI request passes before it may start. Each one still lets through a
-/// request that already holds a name, because the server answers a repeated name from the job
-/// that name made.
-/// </summary>
+/// <summary>The checks every paid AI request passes before it may start.</summary>
 internal static class AiStartGate
 {
     /// <summary>

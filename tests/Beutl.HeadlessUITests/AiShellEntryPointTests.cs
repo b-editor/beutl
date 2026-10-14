@@ -1,16 +1,13 @@
 ﻿using System.Globalization;
 using System.Text.Json.Nodes;
-using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Beutl.Language;
-using Beutl.ProjectSystem;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Dialogs;
 using Beutl.ViewModels.Tools;
 using Beutl.Views;
-using Beutl.Views.Tools;
 
 namespace Beutl.HeadlessUITests;
 
@@ -20,9 +17,8 @@ public sealed class AiShellEntryPointTests
     [AvaloniaTest]
     public async Task AiMenu_KeepsEveryWorkflowInOneTabAndTurnsItToTheRightPage()
     {
-        await TestReset.ResetShellAsync();
         MainViewModel mainViewModel = TestShell.MainViewModel;
-        EditViewModel editor = await OpenEditor("ai-shell-entry-points");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-shell-entry-points");
         var mainView = new MainView { DataContext = mainViewModel };
         try
         {
@@ -74,8 +70,6 @@ public sealed class AiShellEntryPointTests
                 workspace ??= current;
                 Assert.That(current, Is.SameAs(workspace));
             }
-
-            Assert.That(new AiWorkspaceView(), Is.InstanceOf<UserControl>());
         }
         finally
         {
@@ -86,9 +80,8 @@ public sealed class AiShellEntryPointTests
     [AvaloniaTest]
     public async Task WorkspaceSectionNames_AreLocalizedForEverySupportedCulture()
     {
-        await TestReset.ResetShellAsync();
         MainViewModel mainViewModel = TestShell.MainViewModel;
-        EditViewModel editor = await OpenEditor("ai-workspace-localized-section-names");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-workspace-localized-section-names");
         CultureInfo previousCulture = CultureInfo.CurrentCulture;
         CultureInfo previousUiCulture = CultureInfo.CurrentUICulture;
         try
@@ -163,9 +156,8 @@ public sealed class AiShellEntryPointTests
     [AvaloniaTest]
     public async Task AiMenu_TurnsTheTabAlreadyOnThatPageRatherThanAnother()
     {
-        await TestReset.ResetShellAsync();
         MainViewModel mainViewModel = TestShell.MainViewModel;
-        EditViewModel editor = await OpenEditor("ai-two-tabs");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-two-tabs");
         var mainView = new MainView { DataContext = mainViewModel };
         try
         {
@@ -214,8 +206,7 @@ public sealed class AiShellEntryPointTests
     [AvaloniaTest]
     public async Task Workspace_BuildsAPageTheFirstTimeItIsShownAndThenKeepsIt()
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("ai-workspace-lazy");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-workspace-lazy");
         var built = new List<AiWorkspaceSection>();
         await using var workspace = new AiWorkspaceViewModel(editor, CreatePages(built));
 
@@ -244,8 +235,7 @@ public sealed class AiShellEntryPointTests
     [AvaloniaTest]
     public async Task Workspace_KeepsEachTabsWorkToItself()
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("ai-workspace-independent");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-workspace-independent");
         var built = new List<AiWorkspaceSection>();
         await using var left = new AiWorkspaceViewModel(editor, CreatePages(built));
         await using var right = new AiWorkspaceViewModel(editor, CreatePages(built));
@@ -266,8 +256,7 @@ public sealed class AiShellEntryPointTests
     [AvaloniaTest]
     public async Task Workspace_ClosingATabClosesItsOwnPagesAndOnlyThose()
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("ai-workspace-dispose");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-workspace-dispose");
         await using var kept = new AiWorkspaceViewModel(editor, CreatePages([]));
         var closed = new AiWorkspaceViewModel(editor, CreatePages([]));
         var keptPage = (StubPage)kept.Show(AiWorkspaceSection.Jobs);
@@ -285,8 +274,7 @@ public sealed class AiShellEntryPointTests
     [AvaloniaTest]
     public async Task Workspace_DisposesItsPagesWhenOpeningANewTabFails()
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("ai-workspace-open-failure");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-workspace-open-failure");
         var page = new StubPage();
         var workspace = new AiWorkspaceViewModel(editor, _ => page);
 
@@ -307,8 +295,7 @@ public sealed class AiShellEntryPointTests
     [AvaloniaTest]
     public async Task Workspace_AsyncDisposeAwaitsChildBeforeEditorResources()
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("ai-workspace-async-dispose");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-workspace-async-dispose");
         var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var page = new AsyncStubPage(started, release);
@@ -326,10 +313,9 @@ public sealed class AiShellEntryPointTests
     [AvaloniaTest]
     public async Task Workspace_AsyncDisposeStartsAllPagesBeforePropagatingFault()
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("ai-workspace-faulting-dispose");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-workspace-faulting-dispose");
         var first = new FaultingPage();
-        var second = new SignalingPage();
+        var second = new StubPage();
         int created = 0;
         var workspace = new AiWorkspaceViewModel(editor, _ =>
             created++ == 0 ? first : second);
@@ -343,8 +329,7 @@ public sealed class AiShellEntryPointTests
     [AvaloniaTest]
     public async Task Workspace_ReopensOnThePageTheLayoutWasSavedOn()
     {
-        await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditor("ai-workspace-layout");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-workspace-layout");
         var saved = new JsonObject();
 
         await using (var workspace = new AiWorkspaceViewModel(editor, CreatePages([])))
@@ -441,28 +426,5 @@ public sealed class AiShellEntryPointTests
     private sealed class FaultingPage : IAsyncDisposable
     {
         public ValueTask DisposeAsync() => ValueTask.FromException(new InvalidOperationException("fault"));
-    }
-
-    private sealed class SignalingPage : IAsyncDisposable
-    {
-        public bool IsDisposed { get; private set; }
-
-        public ValueTask DisposeAsync()
-        {
-            IsDisposed = true;
-            return ValueTask.CompletedTask;
-        }
-    }
-
-    private static async Task<EditViewModel> OpenEditor(string name)
-    {
-        string workspace = Path.Combine(BeutlHomeIsolation.CurrentHome!, name);
-        Directory.CreateDirectory(workspace);
-        Project project = (await TestShell.Project.CreateProject(
-            640, 480, 30, 44100, name, workspace))!;
-        Scene scene = project.Items.OfType<Scene>().First();
-        TestShell.Editor.ActivateTabItem(scene);
-        HeadlessTestHelpers.Settle();
-        return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value!;
     }
 }

@@ -63,11 +63,8 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
     // Set by Pause(), cleared by Play(). Cancels a loop re-arm when a pause lands in the
     // brief IsPlaying=false window at a loop boundary that gating on IsPlaying would miss.
     private volatile bool _stopRequested;
-    // Published snapshots carry the start time of the buffer that was just *queued*
-    // to the audio backend, which is ahead of the current playhead. Replay several
-    // recent snapshots so a visualizer tab opened mid-playback also receives the
-    // already-consumed buffers, avoiding a silent ring-buffer window until the
-    // playhead catches up to the queued-but-not-yet-played audio.
+    // A snapshot is published when its buffer is queued, ahead of the playhead, so the recent ones are
+    // replayed to a visualizer tab opened mid-playback.
     private readonly ReplaySubject<AudioFrameSnapshot> _audioFramePushed = new(bufferSize: 8);
 
     public PlayerViewModel(EditViewModel editViewModel)
@@ -185,7 +182,6 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         PathEditor = new PathEditorViewModel(_editViewModel, this)
             .DisposeWith(_disposables);
 
-        // カメラモードが解除されたらGizmoを非表示にする
         IsCameraMode.Subscribe(isCameraMode =>
             {
                 if (!isCameraMode)
@@ -195,7 +191,6 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             })
             .DisposeWith(_disposables);
 
-        // GizmoModeが変更されたらScene3Dに反映する
         SelectedGizmoMode.Subscribe(mode =>
             {
                 if (IsCameraMode.Value)
@@ -215,8 +210,7 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
         EditorConfig editorConfig = GlobalConfiguration.Instance.EditorConfig;
 
-        // The settings UI now lives in PreviewSettingsTab; observe EditorConfig directly so the
-        // preview re-renders on any onion-skin setting change.
+        // Re-render when an onion-skin setting changes.
         editorConfig.GetObservable(EditorConfig.IsOnionSkinEnabledProperty)
             .CombineLatest(
                 editorConfig.GetObservable(EditorConfig.OnionSkinPrevCountProperty),
@@ -272,18 +266,14 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                      .OfType<Graphics3D.Scene3D>()
                      .Where(s => s.GizmoTarget.CurrentValue.HasValue))
         {
-            // GizmoTargetが設定されている場合のみモードを更新
             scene3D.GizmoMode.CurrentValue = mode;
         }
     }
 
     private void OnSceneEdited(object? sender, EventArgs e)
     {
-        // Scene raises Edited synchronously with no thread guarantee, so marshal onto the UI thread
-        // before HandleSceneEdited reads the EditorConfig CoreProperty getters: those hit CoreObject's
-        // non-synchronized value dictionary and would race the UI-thread write-back if read off-thread.
-        // This mirrors QueueRender, which already snapshots the same config on the UI thread; keeping
-        // both paths consistent is defense-in-depth, not a fix for a known off-thread caller.
+        // Edited has no thread guarantee, and HandleSceneEdited reads EditorConfig, whose values are not
+        // synchronized, so it runs on the UI thread like QueueRender (a safeguard, not a known caller).
         if (Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
         {
             HandleSceneEdited(e);
@@ -587,12 +577,9 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         }
         finally
         {
-            // Restore the stopped state (IsPlaying, buffer/cache, and the preview subscriptions this
-            // task detached on entry) only while this task still owns the session. If a Pause()
-            // timeout disowned it and a newer session took over, restoring here would stomp that
-            // session, so the new owner — or Pause()'s timeout path — restores it instead.
-            // Both on the UI thread, where IsPlaying subscribers run: the ticker is retired there first,
-            // so no frame or stop it posted can land after the stopped state, the rewind or a restart.
+            // Restore the stopped state only while this task owns the session; otherwise the new owner or
+            // Pause()'s timeout path does. On the UI thread, after retiring the ticker, so nothing it posted
+            // lands after the stopped state, the rewind or a restart.
             PlaybackTicker? finishedTicker = ticker;
             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
             {
@@ -603,10 +590,8 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             _logger.LogInformation("End the playback. ({SceneId})", _editViewModel.SceneId);
         }
 
-        // ループが有効でユーザーによる停止ではない場合、ループ先頭に戻して再開を要求。
-        // loopStart は購読で最新化されているため、再生中の In/Out 変更にも追従する。
-        // A task disowned by a Pause() timeout must not rewind the playhead of a stopped editor or
-        // the session that replaced it, so gate the shared CurrentTime write on ownership too.
+        // ループ再生が自然に終端へ達したら先頭に戻して再開を要求する。Pause() のタイムアウトで所有を
+        // 失ったタスクは、停止したエディタや後のセッションの再生位置を戻さない。
         if (_sessionGuard.Owns(generation) && IsLoopEnabled.Value && ticker is { ReachedNaturalEnd: true }
             && Scene is { } loopScene)
         {
@@ -743,11 +728,8 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             Avalonia.Threading.Dispatcher.UIThread.Post(QueueRender, Avalonia.Threading.DispatcherPriority.Background);
     }
 
-    // Wait for the playback task to finish, but never longer than <paramref name="timeout"/>.
-    // Returns true when the task completed (its fault, if any, is re-thrown to the caller);
-    // false when the wait timed out. A timeout is logged and the task is left running but kept
-    // observed via a continuation, so a playback loop blocked in a native audio/COM call cannot
-    // pin the caller (and the history-mutation gate it runs under) indefinitely.
+    // Waits at most timeout: true when the playback task finished (its fault is rethrown), false when a task
+    // blocked in a native audio call is left running, logged and observed, so it cannot hold the history gate.
     internal static async Task<bool> WaitForPlaybackStopAsync(
         Task playbackTask, TimeSpan timeout, ILogger logger, string sceneId)
     {
@@ -784,14 +766,11 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             _cts = null;
         }
 
-        // Stop accepting and cancel preview renders before Pause() can yield. QueueRender and
-        // teardown share the same lock, so a newly created source can never be disposed out from
-        // under the request that captured its token.
+        // Cancel preview renders before Pause() can yield, under the lock QueueRender takes, so a new source is
+        // never disposed under the request holding its token. Pause then drains the compose and render
+        // dispatchers, so the render thread cannot call OnNext on the subjects disposed below.
         renderCts?.Cancel();
         await Pause();
-        // Pause drained both the compose and render dispatchers with admission closed.
-        // 進行中の QueueRender をキャンセルしてから Subject を破棄し、レンダースレッドが
-        // 破棄済みの AfterRendered/_audioFramePushed に OnNext しないようにする
         renderCts?.Dispose();
         Scene!.Edited -= OnSceneEdited;
         _disposables.Dispose();

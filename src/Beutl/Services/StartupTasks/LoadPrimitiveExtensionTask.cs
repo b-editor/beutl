@@ -34,7 +34,6 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
         OutputTabExtension.Instance,
         SceneEditorExtension.Instance,
         SceneOutputExtension.Instance,
-        SceneProjectItemExtension.Instance,
         TimelineTabExtension.Instance,
         ObjectPropertyTabExtension.Instance,
         ElementPropertyTabExtension.Instance,
@@ -141,7 +140,6 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
                 {
                     activity?.AddEvent(new("Loading_MediaFoundation"));
 
-                    // Beutl.Extensions.FFmpeg.csproj
                     var pkg = CreateEmbeddedPackage(
                         "MediaFoundation",
                         "windows",
@@ -174,7 +172,6 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
                 {
                     activity?.AddEvent(new("Loading_AVFoundation"));
 
-                    // Beutl.Extensions.FFmpeg.csproj
                     var pkg = CreateEmbeddedPackage(
                         "AVFoundation",
                         "macos",

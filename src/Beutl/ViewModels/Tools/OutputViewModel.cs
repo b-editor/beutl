@@ -41,6 +41,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
     private readonly ReadOnlyObservableCollection<ControllableEncodingExtension> _encoders;
     private readonly CompositeDisposable _disposable = [];
     private string? _activeDestination;
+    private long _totalFrames;
 
     public OutputViewModel(EditViewModel editViewModel)
     {
@@ -172,8 +173,6 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
     public ReactiveProperty<string> ProgressMain { get; } = new(string.Empty);
 
-    public ReactiveProperty<string> ProgressSub { get; } = new(string.Empty);
-
     public ReactiveProperty<string> Elapsed { get; } = new("00:00:00");
 
     public ReactiveProperty<string> Eta { get; } = new("--:--:--");
@@ -181,10 +180,6 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
     public ReactiveProperty<string> CurrentSize { get; } = new("0 MB");
 
     public ReactiveProperty<string> EstimatedSize { get; } = new("-- MB");
-
-    public ReactiveProperty<long> CurrentFrame { get; } = new();
-
-    public ReactiveProperty<long> TotalFrames { get; } = new();
 
     public ReactiveProperty<string> FrameProgressText { get; } = new("0 / 0");
 
@@ -265,13 +260,10 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             throw;
         }
 
-        // Defensive re-check: reject if supersampled surface cannot be allocated.
         EnsureSupersamplingFits();
 
-        // Snapshot the referenced paths on the UI thread (the scene graph is mutable and not thread-safe),
-        // then run only the per-path File.Exists — which can stall on slow storage — off-thread.
-        // Export renders [Scene.Start, Scene.Start + Duration) (FrameProviderImpl/SampleProviderImpl add
-        // Scene.Start), so the preflight must scan the same interval — not [0, Duration).
+        // Collect sources on the UI thread and check File.Exists off-thread; scan [Start, Start + Duration),
+        // the range export renders.
         IReadOnlySet<string> referencedSources =
             ExportSourceValidator.CollectRenderableSources(Model, new TimeRange(Model.Start, Model.Duration));
         IReadOnlyList<string> missingSources;
@@ -379,13 +371,11 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         IsCompleted.Value = false;
         ProgressText.Value = "";
         ProgressMain.Value = Strings.Encoding;
-        ProgressSub.Value = string.Empty;
         Elapsed.Value = "00:00:00";
         Eta.Value = "--:--:--";
         CurrentSize.Value = "0 MB";
         EstimatedSize.Value = "-- MB";
-        CurrentFrame.Value = 0;
-        TotalFrames.Value = 0;
+        _totalFrames = 0;
         FrameProgressText.Value = "0 / 0";
     }
 
@@ -398,16 +388,14 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         Stopwatch stopwatch,
         CancellationToken cancellationToken)
     {
-        _isIndeterminate.Value = false;
         videoSettings.SourceSize = Model.FrameSize;
 
         ProgressMax.Value = Model.Duration.TotalSeconds * 2;
 
         double frameRate = videoSettings.FrameRate.ToDouble();
         if (!double.IsFinite(frameRate) || frameRate <= 0) frameRate = 30;
-        // The number of frames the frame provider renders
         long totalFrames = FrameProviderImpl.ToFrameCount(Model.Duration, videoSettings.FrameRate);
-        TotalFrames.Value = totalFrames;
+        _totalFrames = totalFrames;
         FrameProgressText.Value = $"0 / {totalFrames}";
 
         _logger.LogInformation("Using encoding controller: {Controller}", controller);
@@ -432,7 +420,6 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                    .Subscribe(t =>
                    {
                        long frame = (long)Math.Round(t.TotalSeconds * frameRate);
-                       CurrentFrame.Value = frame;
                        FrameProgressText.Value = totalFrames > 0
                            ? $"{frame} / {totalFrames}"
                            : $"{frame}";
@@ -452,13 +439,11 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
     private void ShowCompletedProgress()
     {
         ProgressValue.Value = ProgressMax.Value;
-        CurrentFrame.Value = TotalFrames.Value;
-        FrameProgressText.Value = TotalFrames.Value > 0
-            ? $"{TotalFrames.Value} / {TotalFrames.Value}"
+        FrameProgressText.Value = _totalFrames > 0
+            ? $"{_totalFrames} / {_totalFrames}"
             : FrameProgressText.Value;
         ProgressText.Value = Strings.Completed;
         ProgressMain.Value = Strings.Completed;
-        ProgressSub.Value = string.Empty;
         Eta.Value = "00:00:00";
         _logger.LogInformation("Encoding process completed successfully.");
     }
@@ -467,13 +452,11 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
     {
         string userMessage = TranslateEncodingFailure(ex);
 
-        // Keep the translated message visible after failure.
         ProgressText.Value = userMessage;
         NotificationService.ShowError(MessageStrings.OutputException, userMessage);
         MarkFailureAsReported(ex);
         if (ex is FFmpegWorkerException { FFmpegErrorCode: { } ffmpegErrorCode })
         {
-            // Keep the code for diagnostics.
             _logger.LogError(
                 ex, "An exception occurred during the encoding process. FFmpegErrorCode={FFmpegErrorCode}",
                 ffmpegErrorCode);
@@ -484,7 +467,6 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         }
     }
 
-    // Translate known FFmpeg failures for users.
     private static string TranslateEncodingFailure(Exception ex)
     {
         string userMessage = ex.Message;
@@ -509,8 +491,6 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
     {
         stopwatch.Stop();
         Elapsed.Value = FormatDuration(stopwatch.Elapsed);
-        _progress.Value = 0;
-        _isIndeterminate.Value = false;
         _isEncoding.Value = false;
         IsCompleted.Value = succeeded;
         string? completedPath = _activeDestination;
@@ -608,8 +588,6 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                 EstimatedSize.Value = FormatBytes(estimatedTotal);
             }
         }
-
-        ProgressSub.Value = $"{Elapsed.Value} / {Eta.Value}";
     }
 
     private static string FormatDuration(TimeSpan span)

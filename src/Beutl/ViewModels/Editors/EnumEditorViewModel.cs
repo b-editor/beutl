@@ -16,25 +16,12 @@ public sealed class EnumEditorViewModel<T> : ValueEditorViewModel<T>
     {
         _enumValues = Enum.GetValues<T>();
         _enumItems = Enum.GetNames<T>()
-            .Select(typeof(T).GetField)
+            .Select(name => typeof(T).GetField(name)!)
             .Zip(_enumValues)
-            .Select(t =>
-            {
-                if (t.First != null)
-                {
-                    return new EnumItem(
-                        TypeDisplayHelpers.GetLocalizedName(t.First),
-                        TypeDisplayHelpers.GetLocalizedDescription(t.First),
-                        t.Second);
-                }
-                else
-                {
-                    return new EnumItem(
-                        t.Second.ToString(),
-                        null,
-                        t.Second);
-                }
-            })
+            .Select(t => new EnumItem(
+                TypeDisplayHelpers.GetLocalizedName(t.First),
+                TypeDisplayHelpers.GetLocalizedDescription(t.First),
+                t.Second))
             .ToArray();
         SelectedIndex = Value.Select(v => _enumValues.IndexOf(v))
             .ToReadOnlyReactivePropertySlim()

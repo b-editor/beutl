@@ -62,24 +62,8 @@ public class BrowserReviewLifecycleTests
     }
 
     [AvaloniaTest]
-    [TestCase(false)]
-    [TestCase(true)]
-    public void CredentialBearingNativeNavigationIsCanceled(bool includesSubframes)
-    {
-        var safe = new Uri("https://safe.example/");
-        using var vm = new WebBrowserTabViewModel(new Mock<IEditorContext>().Object, safe);
-        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
-            navigationStartedIncludesSubframes: includesSubframes);
-        view.DataContext = vm;
-        var request = new WebViewNavigationStartingEventArgs { Request = new Uri("https://user:password@example.com/") };
-        view.OnNavigationStarted(null, request);
-        Assert.That(request.Cancel, Is.True);
-        Assert.That(vm.CurrentUri, Is.EqualTo(safe));
-        Assert.That(vm.IsLoading.Value, Is.EqualTo(includesSubframes));
-        if (includesSubframes) Assert.That(vm.ErrorMessage.Value, Is.Null);
-    }
-
-    [AvaloniaTest]
+    [TestCase("https://user:password@example.com/", false)]
+    [TestCase("https://user:password@example.com/", true)]
     [TestCase("file:///tmp/media.html", false)]
     [TestCase("file:///tmp/media.html", true)]
     [TestCase("data:text/html,hello", false)]

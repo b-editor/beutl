@@ -51,26 +51,15 @@ public sealed class UserProfilePageViewModel : BasePageViewModel, ISupportRefres
         Refresh.Execute();
 
         More = new AsyncReactiveCommand(IsBusy.Inverse())
-            .WithSubscribe(async () =>
-            {
-                try
+            .WithSubscribe(() => StorePageCommand.RunAsync(
+                IsBusy, null, CancellationToken.None, _logger,
+                async _ =>
                 {
-                    IsBusy.Value = true;
                     using (await Profile.Lock.LockAsync())
                     {
                         await MoreLoadPackages();
                     }
-                }
-                catch (Exception e)
-                {
-                    await e.Handle();
-                    _logger.LogError(e, "An unexpected error has occurred.");
-                }
-                finally
-                {
-                    IsBusy.Value = false;
-                }
-            })
+                }))
             .DisposeWith(_disposables);
     }
 

@@ -22,10 +22,10 @@ public static class NestedEditorContextHelper
     }
 
     // A null slot keeps a missing editor's place, since ReadEditorArray matches editors by position.
-    public static void WriteEditorArray(JsonObject json, string key, IEnumerable<IPropertyEditorContext?> editors)
+    public static void WriteEditorArray(JsonObject json, string key, IEnumerable<IJsonSerializable?> editors)
     {
         var array = new JsonArray();
-        foreach (IPropertyEditorContext? item in editors)
+        foreach (IJsonSerializable? item in editors)
         {
             if (item == null)
             {
@@ -42,12 +42,12 @@ public static class NestedEditorContextHelper
         json[key] = array;
     }
 
-    public static void ReadEditorArray(JsonObject json, string key, IEnumerable<IPropertyEditorContext?> editors)
+    public static void ReadEditorArray(JsonObject json, string key, IEnumerable<IJsonSerializable?> editors)
     {
         if (json.TryGetPropertyValue(key, out JsonNode? propsNode)
             && propsNode is JsonArray propsArray)
         {
-            foreach ((JsonNode? node, IPropertyEditorContext? context) in propsArray.Zip(editors))
+            foreach ((JsonNode? node, IJsonSerializable? context) in propsArray.Zip(editors))
             {
                 if (context != null && node != null)
                 {

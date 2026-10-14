@@ -165,7 +165,7 @@ public sealed partial class BrushEditor : UserControl
     {
         return PickerGuard.RunAsync(this, () =>
         {
-            var selectVm = new SelectDrawableTypeViewModel();
+            var selectVm = new SelectLibraryItemDialogViewModel(KnownLibraryItemFormats.Drawable, typeof(Drawable));
 
             if (DataContext is BrushEditorViewModel { IsDisposed: false } vm)
             {
@@ -332,8 +332,7 @@ public sealed partial class BrushEditor : UserControl
 
         if (e.NewIndex != e.OldIndex)
             list.Move(e.NewIndex, e.OldIndex);
-        GradientStop obj = list[e.OldIndex];
-        viewModel.ConfirmeGradientStop(e.OldIndex, e.NewIndex, e.OldObject.ToBtlImmutableGradientStop(), obj);
+        viewModel.ConfirmeGradientStop(e.OldIndex, e.NewIndex);
     }
 
     private void OnGradientStopChanged(object? sender,

@@ -3,14 +3,13 @@ using System.Reactive.Concurrency;
 using Avalonia.Threading;
 using Beutl.Logging;
 using Beutl.Services;
-using Beutl.ViewModels.ExtensionsPages;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
 namespace Beutl.ViewModels;
 
-public sealed class CommandPaletteViewModel : BaseViewModel
+public sealed class CommandPaletteViewModel : IDisposable
 {
     private readonly ILogger<CommandPaletteViewModel> _logger = Log.CreateLogger<CommandPaletteViewModel>();
     private static readonly TimeSpan s_queryThrottle = TimeSpan.FromMilliseconds(80);
@@ -54,7 +53,7 @@ public sealed class CommandPaletteViewModel : BaseViewModel
                 {
                     Close();
                 }
-                else if (IsOpen.Value && _interaction is null)
+                else if (IsOpen.Value)
                 {
                     RebuildSnapshot();
                 }
@@ -492,7 +491,7 @@ public sealed class CommandPaletteViewModel : BaseViewModel
         {
             score += 30;
         }
-        else if (idx > 0 && !char.IsLetterOrDigit(haystack[idx - 1]))
+        else if (!char.IsLetterOrDigit(haystack[idx - 1]))
         {
             score += 15;
         }
@@ -500,7 +499,7 @@ public sealed class CommandPaletteViewModel : BaseViewModel
         if (score > best) best = score;
     }
 
-    public override void Dispose()
+    public void Dispose()
     {
         _disposed = true;
         Close();

@@ -9,9 +9,7 @@ using Avalonia.Input;
 using Avalonia.Input.Raw;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml.Styling;
-using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
-using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Beutl.Api;
 using Beutl.Api.Services;
@@ -22,6 +20,7 @@ using Beutl.ViewModels;
 using Beutl.ViewModels.Dialogs;
 using Beutl.Views.Tools;
 using Moq;
+using static Beutl.HeadlessUITests.AiTestSupport;
 
 namespace Beutl.HeadlessUITests;
 
@@ -510,7 +509,7 @@ public sealed partial class AiDialogWorkflowTests
     {
         await TestReset.ResetShellAsync();
         await using var scope = new FileDropScope();
-        var editor = await OpenEditor("file-drop-active-capture");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("file-drop-active-capture");
         await using var video = CreateVideoGenerationDialog(scope.Clients, editor);
         await WaitUntilAsync(() => video.ModelPicker.IsLoaded.Value);
         string previous = scope.File("previous.png", s_png);
@@ -733,7 +732,7 @@ public sealed partial class AiDialogWorkflowTests
     {
         await TestReset.ResetShellAsync();
         await using var scope = new FileDropScope();
-        var editor = captured ? await OpenEditor("file-drop-corrupt-captured-frame") : null;
+        var editor = captured ? (await TestShell.OpenNewSceneAsync("file-drop-corrupt-captured-frame")).Editor : null;
         await using var video = CreateVideoGenerationDialog(scope.Clients, editor);
         await WaitUntilAsync(() => video.ModelPicker.IsLoaded.Value);
         if (captured)
@@ -822,7 +821,7 @@ public sealed partial class AiDialogWorkflowTests
     {
         await TestReset.ResetShellAsync();
         await using var scope = new FileDropScope();
-        var editor = await OpenEditor("file-drop-rejected-capture");
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("file-drop-rejected-capture");
         await using var video = CreateVideoGenerationDialog(scope.Clients, editor);
         await WaitUntilAsync(() => video.ModelPicker.IsLoaded.Value);
         video.CurrentFrameRenderer = _ => Task.FromResult(new Beutl.Media.Bitmap(2, 2));
@@ -910,69 +909,6 @@ public sealed partial class AiDialogWorkflowTests
         finally { window.Close(); }
     }
 
-    [AvaloniaTest]
-    [Explicit("Produces headless captures of AI file drop targets.")]
-    [TestCase(false)]
-    [TestCase(true)]
-    public async Task FileDrop_CaptureTargets(bool light)
-    {
-        await TestReset.ResetShellAsync();
-        await using var scope = new FileDropScope();
-        await using var generation = CreateImageGenerationDialog(scope.Clients);
-        await using var edit = CreateImageEditDialog(scope.Clients);
-        await using var video = CreateVideoGenerationDialog(scope.Clients);
-        await using var subtitles = CreateSubtitleDialog(scope.Clients);
-        await using var editing = new AiVideoEditingViewModel(mode => CreateVideoGenerationDialog(scope.Clients, sourceMode: mode));
-        editing.SelectedTask.Value = editing.Tasks.Single(task => task.Mode == AiSourceVideoMode.Motion);
-        subtitles.SelectedSubtitlePageIndex.Value = 1;
-        await WaitUntilAsync(() => generation.ModelPicker.IsLoaded.Value && video.ModelPicker.IsLoaded.Value
-            && edit.ModelPicker.IsLoaded.Value && editing.ActiveContent.Value!.ModelPicker.IsLoaded.Value);
-        var views = new (string Name, Control View)[]
-        {
-            ("image-generation", new AiImageGenerationView { DataContext = generation }),
-            ("image-editing", new AiImageEditView { DataContext = edit }),
-            ("video-generation", new AiVideoGenerationView { DataContext = video }),
-            ("video-editing", new AiVideoEditingView { DataContext = editing }),
-            ("captions", new AiSubtitleView { DataContext = subtitles }),
-        };
-        foreach (var (name, view) in views)
-        {
-            var window = ShowFileDropView(view, 480);
-            window.RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark;
-            try
-            {
-                foreach (var expander in view.GetVisualDescendants().OfType<Expander>())
-                    if (!expander.GetVisualDescendants().OfType<Control>().Any(control => AiFileDrop.GetTarget(control) != AiFileDropTarget.None))
-                        expander.IsExpanded = false;
-                HeadlessTestHelpers.Render(3);
-                Control[] targets = view.GetVisualDescendants().OfType<Control>()
-                    .Where(control => AiFileDrop.GetTarget(control) != AiFileDropTarget.None && control.IsEffectivelyVisible).ToArray();
-                foreach (Control target in targets)
-                {
-                    string extension = AiFileDrop.GetTarget(target) switch
-                    {
-                        AiFileDropTarget.Captions => "srt",
-                        AiFileDropTarget.SourceVideo => "webm",
-                        AiFileDropTarget.VideoReference when target.DataContext is AiVideoInputGroup group => group.Kind == "image" ? "png" : group.Kind == "video" ? "webm" : "wav",
-                        _ => "png",
-                    };
-                    using var data = FileDropTransfer(scope.File($"capture.{extension}", s_png));
-                    Assert.That(RaiseFileDrag(target, DragDrop.DragEnterEvent, data).DragEffects, Is.EqualTo(DragDropEffects.Copy), name);
-                    Assert.That(((Panel)target).Background,
-                        Is.SameAs(target.FindResource(target.ActualThemeVariant, "AiFileDropBackgroundBrush")), name);
-                }
-                HeadlessTestHelpers.Render(3);
-                string directory = Environment.GetEnvironmentVariable("BEUTL_AI_FILE_DROP_CAPTURE_DIR")
-                    ?? Path.Combine(Path.GetTempPath(), "beutl-ai-file-drop-captures");
-                Directory.CreateDirectory(directory);
-                using var image = window.CaptureRenderedFrame();
-                Assert.That(image, Is.Not.Null);
-                image!.Save(Path.Combine(directory, $"{name}-{(light ? "light" : "dark")}.png"), PngBitmapEncoderOptions.Default);
-            }
-            finally { window.Close(); }
-        }
-    }
-
     private static Window ShowFileDropView(Control view, int width = 640)
     {
         var window = new Window { Content = view, Width = width, Height = 1500 };
@@ -1036,10 +972,9 @@ public sealed partial class AiDialogWorkflowTests
 
     private sealed class FileDropScope : IAsyncDisposable
     {
-        private readonly StubHandler _handler;
-        private readonly HttpClient _http;
+        private readonly ApiScope _api;
         public string DirectoryPath { get; } = Path.Combine(BeutlHomeIsolation.CurrentHome!, "file-drop-" + Guid.NewGuid().ToString("N"));
-        public BeutlApiApplication Clients { get; }
+        public BeutlApiApplication Clients => _api.Clients;
 
         public FileDropScope(long? maximumReferenceBytes = null, long? maximumSourceVideoBytes = null, Task? capabilitiesReady = null)
         {
@@ -1056,7 +991,7 @@ public sealed partial class AiDialogWorkflowTests
                     operations["video.generate"]!["models"]![0]![field] = maximum;
             if (maximumSourceVideoBytes is { } sourceMaximum)
                 operations["video.edit"]!["models"]![0]!["maxSourceVideoBytes"] = sourceMaximum;
-            _handler = new StubHandler(async (request, token) =>
+            _api = new ApiScope(new StubHandler(async (request, token) =>
             {
                 if (request.RequestUri?.AbsolutePath == "/api/v3/ai/capabilities" && capabilitiesReady is not null)
                     await capabilitiesReady.WaitAsync(token);
@@ -1067,10 +1002,7 @@ public sealed partial class AiDialogWorkflowTests
                     "/api/v3/user/ai-availability" => JsonResponse(HttpStatusCode.OK, "{\"available\":true}"),
                     _ => JsonResponse(HttpStatusCode.NotFound, "{}"),
                 };
-            });
-            _http = new HttpClient(_handler);
-            Clients = new BeutlApiApplication(_http, new ExtensionProvider());
-            SetAuthenticatedUser(Clients, _http);
+            }));
         }
 
         public string File(string name, byte[] bytes, long? length = null)
@@ -1087,9 +1019,7 @@ public sealed partial class AiDialogWorkflowTests
 
         public async ValueTask DisposeAsync()
         {
-            await Clients.DisposeAsync();
-            _http.Dispose();
-            _handler.Dispose();
+            await _api.DisposeAsync();
             foreach (string path in Directory.GetFiles(DirectoryPath)) System.IO.File.Delete(path);
             Directory.Delete(DirectoryPath);
         }

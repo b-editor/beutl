@@ -4,7 +4,7 @@ using Beutl.Api.Services;
 
 namespace Beutl.Services.StartupTasks;
 
-// エラーの表示、
+// Reports the extensions that failed to load.
 public sealed class AfterLoadingExtensionsTask : StartupTask
 {
     private readonly Startup _startup;

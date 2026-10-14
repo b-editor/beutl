@@ -45,20 +45,7 @@ public sealed class Startup
     public T GetTask<T>()
         where T : StartupTask
     {
-        if (_tasks.TryGetValue(typeof(T), out Lazy<StartupTask>? lazy))
-        {
-            return (T)lazy.Value;
-        }
-
-        foreach (KeyValuePair<Type, Lazy<StartupTask>> item in _tasks)
-        {
-            if (item.Key.IsAssignableTo(typeof(T)))
-            {
-                return (T)item.Value.Value;
-            }
-        }
-
-        throw new Exception("Task not found");
+        return (T)_tasks[typeof(T)].Value;
     }
 
     private void RegisterAll()

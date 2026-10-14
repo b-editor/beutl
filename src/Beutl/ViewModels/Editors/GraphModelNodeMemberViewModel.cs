@@ -187,9 +187,6 @@ public sealed class GraphModelNodeMemberViewModel : IDisposable, IPropertyEditor
 
     public object? GetService(Type serviceType)
     {
-        if (serviceType.IsAssignableTo(typeof(LayerInputNode)))
-            return GraphNode;
-
         return _parent.GetService(serviceType);
     }
 

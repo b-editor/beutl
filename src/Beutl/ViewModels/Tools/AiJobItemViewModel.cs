@@ -109,9 +109,6 @@ public sealed class AiJobItemViewModel : INotifyPropertyChanged, IDisposable
     /// Claims the one download this item's preview is allowed, so a list that
     /// refreshes while polling does not fetch the same picture again.
     /// </summary>
-    internal bool TryClaimPreviewLoad()
-        => TryClaimPreviewLoad(out _);
-
     internal bool TryClaimPreviewLoad(out long loadGeneration)
     {
         lock (_stateGate)
@@ -147,26 +144,25 @@ public sealed class AiJobItemViewModel : INotifyPropertyChanged, IDisposable
         }
     }
 
-    internal void ResetPreviewLoadClaim(long? loadGeneration = null)
+    internal void ResetPreviewLoadClaim(long loadGeneration)
     {
         lock (_stateGate)
         {
-            if (!_disposeRequested
-                && (!loadGeneration.HasValue || loadGeneration.Value == _previewLoadGeneration))
+            if (!_disposeRequested && loadGeneration == _previewLoadGeneration)
             {
                 _previewRequested = false;
             }
         }
     }
 
-    internal void SetPreview(Ref<Bitmap>? preview, long? loadGeneration = null)
+    internal void SetPreview(Ref<Bitmap>? preview, long loadGeneration)
     {
         Ref<Bitmap>? previous;
         lock (_stateGate)
         {
             if (_disposeRequested
-                || (loadGeneration.HasValue
-                    && (!_previewRequested || loadGeneration.Value != _previewLoadGeneration)))
+                || !_previewRequested
+                || loadGeneration != _previewLoadGeneration)
             {
                 preview?.Dispose();
                 return;
@@ -319,7 +315,6 @@ public sealed class AiJobItemViewModel : INotifyPropertyChanged, IDisposable
         }
         catch
         {
-            status = AiJobStatusSemantics.Unknown;
         }
 
         bool canRetry = ReadCanRetry(status);
@@ -362,7 +357,6 @@ public sealed class AiJobItemViewModel : INotifyPropertyChanged, IDisposable
                         ex,
                         "AI job retry handler for '{Kind}' failed while checking eligibility.",
                         _response.Kind);
-                    canRetry = false;
                 }
             }
         }
@@ -413,7 +407,6 @@ public sealed class AiJobItemViewModel : INotifyPropertyChanged, IDisposable
                 }
                 catch
                 {
-                    canHandleResult = false;
                 }
             }
         }

@@ -1,23 +1,6 @@
 ﻿using Beutl.Media.Source;
-using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class SoundSourceEditorViewModel : ValueEditorViewModel<SoundSource?>
-{
-    public SoundSourceEditorViewModel(IPropertyAdapter<SoundSource?> property)
-        : base(property)
-    {
-        FullName = Value.ObserveLocalPath()
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(Disposables);
-
-        FileInfo = FullName.Select(p => p != null ? new FileInfo(p) : null)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(Disposables);
-    }
-
-    public ReadOnlyReactivePropertySlim<string?> FullName { get; }
-
-    public ReadOnlyReactivePropertySlim<FileInfo?> FileInfo { get; }
-}
+public sealed class SoundSourceEditorViewModel(IPropertyAdapter<SoundSource?> property)
+    : LocalFileSourceEditorViewModel<SoundSource>(property);

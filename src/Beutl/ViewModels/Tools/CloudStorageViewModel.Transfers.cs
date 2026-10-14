@@ -373,7 +373,6 @@ internal sealed partial class CloudStorageViewModel : IFileBrowserStorageDropTar
         return null;
     }
 
-    // Streams one file's content from storage into destination.
     private async Task DownloadFileContentAsync(
         string authorization,
         string fileId,

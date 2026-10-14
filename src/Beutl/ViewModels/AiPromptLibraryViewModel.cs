@@ -341,31 +341,38 @@ internal sealed class AiPromptLibraryViewModel : IDisposable
             }
             else
             {
-                try
-                {
-                    Refresh();
-                    if (Error.Value == Strings.AiResultUnavailable
-                        || Error.Value == Strings.AiAuthenticationRequired)
-                    {
-                        Error.Value = null;
-                    }
-                }
-                catch (Exception ex) when (ex is InvalidDataException or NotSupportedException)
-                {
-                    ClearPromptChoices();
-                    Error.Value = Strings.AiResultUnavailable;
-                    System.Diagnostics.Trace.TraceWarning(
-                        "Failed to read the prompt library: {0}",
-                        ex.Message);
-                }
-                catch (Exception ex) when (ex is AuthenticationRequiredException
-                    or IOException
-                    or UnauthorizedAccessException)
-                {
-                    ClearPromptChoices();
-                    Error.Value = ToErrorMessage(ex);
-                }
+                RefreshReportingFailure(clearOnFailure: true, "Failed to read the prompt library: {0}");
             }
+        }
+    }
+
+    // Reads the library and reports a storage or sign-in failure in Error, which a later successful read
+    // clears. clearOnFailure empties the lists a failed read leaves behind.
+    private void RefreshReportingFailure(bool clearOnFailure, string traceFormat)
+    {
+        try
+        {
+            Refresh();
+            if (Error.Value == Strings.AiResultUnavailable
+                || Error.Value == Strings.AiAuthenticationRequired)
+            {
+                Error.Value = null;
+            }
+        }
+        catch (Exception ex) when (ex is InvalidDataException or NotSupportedException)
+        {
+            if (clearOnFailure)
+                ClearPromptChoices();
+            Error.Value = Strings.AiResultUnavailable;
+            System.Diagnostics.Trace.TraceWarning(traceFormat, ex.Message);
+        }
+        catch (Exception ex) when (ex is AuthenticationRequiredException
+            or IOException
+            or UnauthorizedAccessException)
+        {
+            if (clearOnFailure)
+                ClearPromptChoices();
+            Error.Value = ToErrorMessage(ex);
         }
     }
 
@@ -393,25 +400,9 @@ internal sealed class AiPromptLibraryViewModel : IDisposable
         IsHistoryOpen.Value = false;
         TemplateName.Value = string.Empty;
         Error.Value = null;
-        try
-        {
-            Refresh();
-        }
-        catch (Exception ex) when (ex is InvalidDataException or NotSupportedException)
-        {
-            // IdentityChanged is multicast and the dialog must still clear its
-            // previous account's form even when this account's library is corrupt.
-            Error.Value = Strings.AiResultUnavailable;
-            System.Diagnostics.Trace.TraceWarning(
-                "Failed to read prompt library during account switch: {0}",
-                ex.Message);
-        }
-        catch (Exception ex) when (ex is AuthenticationRequiredException
-            or IOException
-            or UnauthorizedAccessException)
-        {
-            Error.Value = ToErrorMessage(ex);
-        }
+        // A failure is reported, not thrown: IdentityChanged is multicast and the dialog must still clear its
+        // previous account's form even when this account's library is corrupt.
+        RefreshReportingFailure(clearOnFailure: false, "Failed to read prompt library during account switch: {0}");
     }
 
     // Failures of the local prompt store that leave the library usable once the cause is fixed.

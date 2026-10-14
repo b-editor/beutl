@@ -20,6 +20,7 @@ public sealed partial class AiSubtitleDialogViewModel
     internal bool CanImportCaptionFile(string name)
         => !_disposed && _captionCodecs.TryGetByFileName(name, out CaptionCodecInfo? codec) && codec.CanDecode;
 
+    // Test seam: the app passes only the dropped path; tests also open the file through openDroppedFile.
     internal async Task ImportCaptionsCore(string? droppedPath, Func<Stream>? openDroppedFile = null)
     {
         using AsyncOperationLifetime.Operation? operationLifetime = _operations.TryEnter();
@@ -169,16 +170,6 @@ public sealed partial class AiSubtitleDialogViewModel
         ReplaceCues(result.Document);
         Error.Value = result.Diagnostics.FirstOrDefault()?.Message;
         return true;
-    }
-
-    internal byte[] ExportCaptionBytes(CaptionFormatId format)
-    {
-        if (!TryBuildCaptionDocument(out CaptionDocument? document, out string? error)
-            || document is null)
-        {
-            throw new CaptionExportException(null, error ?? Strings.AiSubtitle_ExportFailed);
-        }
-        return _captionSerializer.Export(document, format);
     }
 
     internal static async Task<bool> TryWriteCaptionExportAsync(

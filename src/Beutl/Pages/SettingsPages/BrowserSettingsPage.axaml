@@ -41,7 +41,7 @@
                             <ctrls:OptionsDisplayItem.Content>
                                 <StackPanel Spacing="8">
                                     <TextBlock Text="{x:Static lang:Strings.BrowserAdBlockLists}" TextWrapping="Wrap" />
-                                    <TextBox x:Name="FilterListUrlsTextBox" Text="{Binding FilterListUrls.Value, Mode=TwoWay}"
+                                    <TextBox Text="{Binding FilterListUrls.Value, Mode=TwoWay}"
                                              AcceptsReturn="True" TextWrapping="Wrap" MinHeight="72" MaxHeight="160"
                                              IsEnabled="{Binding !IsUpdatingFilters.Value}" />
                                     <TextBlock Text="{x:Static lang:Strings.BrowserAdBlockCompatibility}" TextWrapping="Wrap" Opacity="0.65" />

@@ -215,6 +215,5 @@ internal enum ProjectTransitionPurpose
 }
 
 internal sealed record ProjectTransitionContext(
-    long Id,
     ProjectTransitionPurpose Purpose,
     object Owner);

@@ -139,14 +139,16 @@ public sealed class AiPlanCoordinatorTests
             coordinator.HasPendingRefresh = true;
             other.Activate();
             host.Activate();
-            await WaitUntilAsync(() => coordinator.RefreshCount == initialCount + 1);
-            await WaitUntilAsync(() => refreshCallbacks == 1);
+            await HeadlessTestHelpers.WaitUntilAsync(
+                () => coordinator.RefreshCount == initialCount + 1, TimeSpan.FromSeconds(1));
+            await HeadlessTestHelpers.WaitUntilAsync(() => refreshCallbacks == 1, TimeSpan.FromSeconds(1));
 
             int callbacksBeforeUnrelatedActivation = refreshCallbacks;
             int refreshesBeforeUnrelatedActivation = coordinator.RefreshCount;
             other.Activate();
             host.Activate();
-            await WaitUntilAsync(() => coordinator.RefreshCount == refreshesBeforeUnrelatedActivation + 1);
+            await HeadlessTestHelpers.WaitUntilAsync(
+                () => coordinator.RefreshCount == refreshesBeforeUnrelatedActivation + 1, TimeSpan.FromSeconds(1));
             Assert.That(refreshCallbacks, Is.EqualTo(callbacksBeforeUnrelatedActivation));
 
             host.Content = null;
@@ -158,8 +160,10 @@ public sealed class AiPlanCoordinatorTests
             coordinator.HasPendingRefresh = true;
             other.Activate();
             host.Activate();
-            await WaitUntilAsync(() => coordinator.RefreshCount == refreshesBeforeSecondActivation + 1);
-            await WaitUntilAsync(() => refreshCallbacks == callbacksBeforeSecondActivation + 1);
+            await HeadlessTestHelpers.WaitUntilAsync(
+                () => coordinator.RefreshCount == refreshesBeforeSecondActivation + 1, TimeSpan.FromSeconds(1));
+            await HeadlessTestHelpers.WaitUntilAsync(
+                () => refreshCallbacks == callbacksBeforeSecondActivation + 1, TimeSpan.FromSeconds(1));
 
             subscription.Dispose();
             int disposedCount = coordinator.RefreshCount;
@@ -207,30 +211,14 @@ public sealed class AiPlanCoordinatorTests
 
             other.Activate();
             host.Activate();
-            await WaitUntilAsync(() => firstCallbacks == 1 && secondCallbacks == 1);
-
-            using (Assert.EnterMultipleScope())
-            {
-                Assert.That(firstCallbacks, Is.EqualTo(1));
-                Assert.That(secondCallbacks, Is.EqualTo(1));
-            }
+            await HeadlessTestHelpers.WaitUntilAsync(
+                () => firstCallbacks == 1 && secondCallbacks == 1, TimeSpan.FromSeconds(1));
         }
         finally
         {
             other.Close();
             host.Close();
         }
-    }
-
-    private static async Task WaitUntilAsync(Func<bool> condition)
-    {
-        for (int attempt = 0; attempt < 100 && !condition(); attempt++)
-        {
-            HeadlessTestHelpers.Settle();
-            await Task.Delay(10);
-        }
-
-        Assert.That(condition(), Is.True);
     }
 
     private sealed class StubEntitlementService : IAiEntitlementService

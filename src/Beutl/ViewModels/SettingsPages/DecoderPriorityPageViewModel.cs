@@ -64,7 +64,6 @@ public sealed class DecoderPriorityPageViewModel : BasePageViewModel
     {
         Items.Move(oldIndex, newIndex);
 
-        // Items -> ExtensionConfig.DecoderPriority
         _extensionConfig.DecoderPriority.Replace(Items.Select(v => new TypeLazy(TypeFormat.ToString(v.Model.GetType()))).ToArray());
     }
 }

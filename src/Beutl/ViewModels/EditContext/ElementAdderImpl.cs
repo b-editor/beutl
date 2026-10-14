@@ -440,8 +440,7 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
     {
         Scene currentScene = _context.Scene;
         if (!ReferenceEquals(scene, currentScene)
-            || scene.Id != expectedSceneId
-            || currentScene.Id != expectedSceneId)
+            || scene.Id != expectedSceneId)
         {
             return new CommitValidationFailure(
                 new ElementSceneChangedFailure(expectedSceneId, currentScene.Id),

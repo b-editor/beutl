@@ -28,8 +28,6 @@ public sealed class LibraryItemPickerFlyout(SelectLibraryItemDialogViewModel vie
             .Subscribe(v => viewModel.ShowAll.Value = v);
         pfp.GetObservable(LibraryItemPickerFlyoutPresenter.SearchTextProperty)
             .Subscribe(v => viewModel.SearchText.Value = v);
-        pfp.GetObservable(LibraryItemPickerFlyoutPresenter.ShowReferencesProperty)
-            .Subscribe(v => viewModel.ShowReferences.Value = v);
         viewModel.IsBusy.ObserveOnUIDispatcher()
             .Subscribe(v => pfp.IsBusy = v);
         return pfp;

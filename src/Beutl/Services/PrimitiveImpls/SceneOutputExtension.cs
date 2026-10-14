@@ -20,13 +20,7 @@ public sealed class SceneOutputExtension : OutputExtension
 
     public override FilePickerFileType GetFilePickerFileType()
     {
-        return new FilePickerFileType(Strings.SceneFile)
-        {
-            Patterns =
-            [
-                "*.scene"
-            ]
-        };
+        return SceneEditorExtension.CreateSceneFileType();
     }
 
     public override bool TryCreateContext(

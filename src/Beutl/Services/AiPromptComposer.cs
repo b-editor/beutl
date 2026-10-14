@@ -37,16 +37,20 @@ internal static class AiPromptComposer
     /// </summary>
     public static string? GetValidationError(AiPromptParts parts)
     {
-        try
-        {
-            return string.IsNullOrWhiteSpace(Compose(parts))
-                ? Strings.AiPromptRequired
-                : null;
-        }
-        catch (ArgumentException)
+        string result = PromptSections.Compose(
+            parts.Main,
+            parts.Style,
+            parts.Composition,
+            parts.Motion,
+            parts.Exclusions);
+        if (result.Length > AiRequestLimits.MaxPromptLength)
         {
             return PromptTooLongMessage;
         }
+
+        return string.IsNullOrWhiteSpace(result)
+            ? Strings.AiPromptRequired
+            : null;
     }
 
     internal static string PromptTooLongMessage

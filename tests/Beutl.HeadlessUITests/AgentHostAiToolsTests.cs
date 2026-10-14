@@ -97,8 +97,7 @@ public sealed class AgentHostAiToolsTests
     [AvaloniaTest]
     public async Task AGeneratedPictureIsSavedAndItsPathReturned()
     {
-        await TestReset.ResetShellAsync();
-        Scene scene = await OpenSceneAsync("agent-ai-image");
+        (_, Scene scene, _) = await TestShell.OpenNewSceneAsync("agent-ai-image");
         var backend = new FakeBackend { Result = WritePng("result.png") };
         using var jobs = new AgentAiJobManager();
         var tools = CreateTools(TestShell.Editor, jobs, backend);
@@ -123,8 +122,7 @@ public sealed class AgentHostAiToolsTests
     [AvaloniaTest]
     public async Task ALongJobIsReadBackByIdAndCanBeCancelled()
     {
-        await TestReset.ResetShellAsync();
-        await OpenSceneAsync("agent-ai-video");
+        await TestShell.OpenNewSceneAsync("agent-ai-video");
         var backend = new FakeBackend { Result = WriteFile("clip.mp4"), Gate = new TaskCompletionSource() };
         using var jobs = new AgentAiJobManager();
         var tools = CreateTools(TestShell.Editor, jobs, backend);
@@ -155,8 +153,7 @@ public sealed class AgentHostAiToolsTests
     [AvaloniaTest]
     public async Task ATranscriptIsReturnedWithTheJob()
     {
-        await TestReset.ResetShellAsync();
-        await OpenSceneAsync("agent-ai-transcribe");
+        await TestShell.OpenNewSceneAsync("agent-ai-transcribe");
         var backend = new FakeBackend();
         // The default model is not open to this account, so the one it can use is sent.
         backend.Models["audio.transcribe"] =
@@ -181,8 +178,7 @@ public sealed class AgentHostAiToolsTests
     [AvaloniaTest]
     public async Task BadArgumentsAreTheCallsErrorsAndCostNothing()
     {
-        await TestReset.ResetShellAsync();
-        await OpenSceneAsync("agent-ai-errors");
+        await TestShell.OpenNewSceneAsync("agent-ai-errors");
         var backend = new FakeBackend();
         using var jobs = new AgentAiJobManager();
         var tools = CreateTools(TestShell.Editor, jobs, backend);
@@ -278,8 +274,7 @@ public sealed class AgentHostAiToolsTests
     [AvaloniaTest]
     public async Task OmittedSettingsAreChosenFromTheModelsOwnChoices()
     {
-        await TestReset.ResetShellAsync();
-        await OpenSceneAsync("agent-ai-model-choices");
+        await TestShell.OpenNewSceneAsync("agent-ai-model-choices");
         var backend = new FakeBackend { Result = WritePng("result.png") };
         backend.Models["image.generate"] = [SquareModel];
         backend.Models["video.generate"] = [PortraitModel];
@@ -309,8 +304,7 @@ public sealed class AgentHostAiToolsTests
     [AvaloniaTest]
     public async Task ExplicitSettingsTheModelDoesNotTakeAreRefusedBeforeAJobStarts()
     {
-        await TestReset.ResetShellAsync();
-        await OpenSceneAsync("agent-ai-explicit");
+        await TestShell.OpenNewSceneAsync("agent-ai-explicit");
         var backend = new FakeBackend();
         backend.Models["image.generate"] = [SquareModel];
         backend.Models["video.generate"] = [PortraitModel];
@@ -374,8 +368,7 @@ public sealed class AgentHostAiToolsTests
     [AvaloniaTest]
     public async Task AClipIsOpenedBeforeItsEditIsPaidFor()
     {
-        await TestReset.ResetShellAsync();
-        await OpenSceneAsync("agent-ai-edit-video");
+        await TestShell.OpenNewSceneAsync("agent-ai-edit-video");
         var backend = new FakeBackend { Result = WriteFile("result.mp4") };
         using var jobs = new AgentAiJobManager();
         var tools = CreateTools(TestShell.Editor, jobs, backend);
@@ -407,8 +400,7 @@ public sealed class AgentHostAiToolsTests
     [AvaloniaTest]
     public async Task AnAccountWhosePlanCannotBeReadLeavesTheModelToTheService()
     {
-        await TestReset.ResetShellAsync();
-        await OpenSceneAsync("agent-ai-plan-unknown");
+        await TestShell.OpenNewSceneAsync("agent-ai-plan-unknown");
         // Without the plan the catalog marks every model unavailable; that is not a refusal.
         var backend = new FakeBackend { Result = WritePng("result.png"), KnowsModelAvailability = false };
         backend.Models["image.generate"] = [SquareModel with { IsAvailable = false }];
@@ -436,8 +428,7 @@ public sealed class AgentHostAiToolsTests
     [AvaloniaTest]
     public async Task AnAccountOutOfCreditsIsUnavailableNotAFailedGeneration()
     {
-        await TestReset.ResetShellAsync();
-        await OpenSceneAsync("agent-ai-credits");
+        await TestShell.OpenNewSceneAsync("agent-ai-credits");
         var backend = new FakeBackend
         {
             Failure = new GenerativeExecutionException("Out of credits.", new AiUsageLimitExceededException()),
@@ -472,8 +463,7 @@ public sealed class AgentHostAiToolsTests
     [AvaloniaTest]
     public async Task AnInputIsReadFromAnyAbsolutePathButARelativePathIsRefused()
     {
-        await TestReset.ResetShellAsync();
-        await OpenSceneAsync("agent-ai-paths");
+        await TestShell.OpenNewSceneAsync("agent-ai-paths");
         string outside = Path.Combine(Path.GetTempPath(), "beutl-agent-ai-outside-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(outside);
         try
@@ -595,17 +585,6 @@ public sealed class AgentHostAiToolsTests
         ToolResult<AgentAiJobSnapshot> result = await tools.GenerateImage("a lighthouse", waitSeconds: 0);
 
         Assert.That(result.Error?.Code, Is.EqualTo(ErrorCode.NoActiveEditorSession));
-    }
-
-    private static async Task<Scene> OpenSceneAsync(string name)
-    {
-        string workspace = Path.Combine(BeutlHomeIsolation.CurrentHome!, name);
-        Directory.CreateDirectory(workspace);
-        Project project = (await TestShell.Project.CreateProject(640, 480, 30, 44100, name, workspace))!;
-        Scene scene = project.Items.OfType<Scene>().First();
-        TestShell.Editor.ActivateTabItem(scene);
-        HeadlessTestHelpers.Settle();
-        return scene;
     }
 
     private static GenerativeModelInfo PortraitModel { get; } =
