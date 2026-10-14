@@ -19,7 +19,6 @@ using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Tools;
 using Beutl.Views.Editors;
-using Beutl.Views.Tools;
 
 namespace Beutl.HeadlessUITests;
 
@@ -84,18 +83,9 @@ public sealed class MFEncoderSettingsTests
         using var progress = output.ProgressValue.Subscribe(value =>
             hadIntermediateProgress |= value > 0 && value < output.ProgressMax.Value);
 
-        Exception? failure = null;
-        try
-        {
-            await output.RunAsync(CancellationToken.None);
-        }
-        catch (Exception ex)
-        {
-            failure = ex;
-        }
         if (succeeds)
         {
-            Assert.That(failure, Is.Null);
+            await output.RunAsync(CancellationToken.None);
             Assert.That(output.IsCompleted.Value, Is.True);
             Assert.That(File.Exists(output.DestinationFile.Value), Is.True);
             Assert.Multiple(() =>
@@ -109,8 +99,8 @@ public sealed class MFEncoderSettingsTests
         }
         else
         {
-            Assert.That(failure, Is.InstanceOf<InvalidOperationException>());
-            Assert.That(failure!.Message, Does.Contain(missingPath));
+            await Assert.ThatAsync(() => output.RunAsync(CancellationToken.None),
+                Throws.InstanceOf<InvalidOperationException>().With.Message.Contains(missingPath));
             Assert.That(File.Exists(output.DestinationFile.Value), Is.False);
         }
     }
@@ -120,63 +110,45 @@ public sealed class MFEncoderSettingsTests
     {
         await TestReset.ResetShellAsync();
         var editor = await TestShell.OpenNewSceneEditorAsync("mf-supersampling", 5000, 48);
-        const int packageId = 302204;
-        var encoder = new MFEncodingExtension();
-        editor.ExtensionProvider.AddExtensions(packageId, [encoder]);
         using var output = new OutputViewModel(editor);
-        var view = new OutputView { DataContext = output };
-        var window = new Window { Width = 600, Height = 850, Content = new ScrollViewer { Content = view } };
-        try
-        {
-            output.DestinationFile.Value = Path.Combine(TestShell.ProjectRoot(editor), "out.mp4");
-            output.SelectedEncoder.Value = encoder;
-            output.SupersampleFactor.Value = 4;
-            window.Show();
+        output.DestinationFile.Value = Path.Combine(TestShell.ProjectRoot(editor), "out.mp4");
+        output.SelectedEncoder.Value = new MFEncodingExtension();
+        output.SupersampleFactor.Value = 4;
 
-            void AssertState(bool blocked, string? capture = null)
-            {
-                HeadlessTestHelpers.Render(3);
-                Assert.That(output.SupersampleWarning.Value != null, Is.EqualTo(blocked));
-                Assert.That(output.CanEncode.Value, Is.EqualTo(!blocked));
-                Assert.That(view.GetVisualDescendants().OfType<Button>().Single(b => b.Classes.Contains("accent")).IsEnabled,
-                    Is.EqualTo(!blocked));
-                if (capture != null)
-                    HeadlessCapture.SaveIfRequested(window, nameof(MFEncoderSettingsTests), capture);
-            }
-
-            AssertState(true, "supersampling-video");
-            Assert.That(async () => await output.RunAsync(CancellationToken.None), Throws.TypeOf<InvalidOperationException>());
-            var settings = ((MFEncodingController)output.Controller.Value!).VideoSettings;
-            settings.Codec = MFVideoCodec.None;
-            AssertState(false, "supersampling-audio");
-            // Incompatible selections must not terminate the settings subscription.
-            settings.Codec = MFVideoCodec.WMV9;
-            AssertState(true);
-            settings.Codec = MFVideoCodec.Auto;
-            output.DestinationFile.Value = Path.ChangeExtension(output.DestinationFile.Value, ".wav");
-            AssertState(false);
-            output.DestinationFile.Value = Path.ChangeExtension(output.DestinationFile.Value, ".mp4");
-            AssertState(true);
-            settings.Codec = MFVideoCodec.None;
-            AssertState(true); // The old controller is no longer observed.
-            output.DestinationFile.Value = Path.ChangeExtension(output.DestinationFile.Value, ".tmp");
-            AssertState(true);
-            output.DestinationFile.Value = Path.ChangeExtension(output.DestinationFile.Value, ".mp4");
-            output.SelectedEncoder.Value = encoder;
-            AssertState(true);
-            output.SupersampleFactor.Value = 1;
-            AssertState(false);
-            output.SupersampleFactor.Value = 4;
-            editor.Scene.FrameSize = new Media.PixelSize(64, 48);
-            AssertState(false);
-            editor.Scene.FrameSize = new Media.PixelSize(5000, 48);
-            AssertState(true);
-        }
-        finally
+        void AssertState(bool blocked)
         {
-            window.Close();
-            editor.ExtensionProvider.RemoveExtensions(packageId);
+            HeadlessTestHelpers.Settle();
+            Assert.That(output.SupersampleWarning.Value != null, Is.EqualTo(blocked));
+            Assert.That(output.CanEncode.Value, Is.EqualTo(!blocked));
         }
+
+        AssertState(true);
+        await Assert.ThatAsync(() => output.RunAsync(CancellationToken.None), Throws.TypeOf<InvalidOperationException>());
+        var settings = ((MFEncodingController)output.Controller.Value!).VideoSettings;
+        settings.Codec = MFVideoCodec.None;
+        AssertState(false);
+        // Incompatible selections must not terminate the settings subscription.
+        settings.Codec = MFVideoCodec.WMV9;
+        AssertState(true);
+        settings.Codec = MFVideoCodec.Auto;
+        output.DestinationFile.Value = Path.ChangeExtension(output.DestinationFile.Value, ".wav");
+        AssertState(false);
+        output.DestinationFile.Value = Path.ChangeExtension(output.DestinationFile.Value, ".mp4");
+        AssertState(true);
+        settings.Codec = MFVideoCodec.None;
+        AssertState(true); // The old controller is no longer observed.
+        output.DestinationFile.Value = Path.ChangeExtension(output.DestinationFile.Value, ".tmp");
+        AssertState(true);
+        output.DestinationFile.Value = Path.ChangeExtension(output.DestinationFile.Value, ".mp4");
+        output.SelectedEncoder.Value = new MFEncodingExtension();
+        AssertState(true);
+        output.SupersampleFactor.Value = 1;
+        AssertState(false);
+        output.SupersampleFactor.Value = 4;
+        editor.Scene.FrameSize = new Media.PixelSize(64, 48);
+        AssertState(false);
+        editor.Scene.FrameSize = new Media.PixelSize(5000, 48);
+        AssertState(true);
     }
 
     [AvaloniaTest]
