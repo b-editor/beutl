@@ -64,7 +64,6 @@ public sealed partial class ElementViewModel : IDisposable, IContextCommandHandl
 
         InitializeElementGroup();
 
-        // プロパティを構成
         IsEnabled = element.GetObservable(Element.IsEnabledProperty)
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
@@ -107,7 +106,6 @@ public sealed partial class ElementViewModel : IDisposable, IContextCommandHandl
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
-        // コマンドを構成
         Split.Where(_ => GetClickedTime != null)
             .Subscribe(_ => OnSplit(GetClickedTime!()))
             .AddTo(_disposables);
@@ -143,14 +141,16 @@ public sealed partial class ElementViewModel : IDisposable, IContextCommandHandl
         ChangeToOriginalDuration.Subscribe(OnChangeToOriginalDuration)
             .AddTo(_disposables);
 
-        // ZIndexが変更されたら、LayerHeaderのカウントを増減して、新しいLayerHeaderを設定する。
         zIndexSubject.Subscribe(number =>
             {
-                LayerHeaderViewModel? newLH = Timeline.LayerHeaders.FirstOrDefault(i => i.Number.Value == number);
+                // A header's number is its index in LayerHeaders.
+                LayerHeaderViewModel? newLH = number >= 0 && number < Timeline.LayerHeaders.Count
+                    ? Timeline.LayerHeaders[number]
+                    : null;
 
-                LayerHeader.Value?.ElementRemoved(this);
+                LayerHeader.Value?.ElementRemoved();
 
-                newLH?.ElementAdded(this);
+                newLH?.ElementAdded();
                 LayerHeader.Value = newLH;
             })
             .AddTo(_disposables);
@@ -176,12 +176,6 @@ public sealed partial class ElementViewModel : IDisposable, IContextCommandHandl
         // loaded (saving would not write the edits).
         IsEditable = IsLockedByUser
             .CombineLatest(IsRecoveryProtected, (locked, isProtected) => !locked && !isProtected)
-            .ToReadOnlyReactivePropertySlim()
-            .AddTo(_disposables);
-
-        // Only the user's locks stop a delete or an exclude: removing a protected element leaves its
-        // retained file alone.
-        CanRemove = IsLockedByUser.Select(locked => !locked)
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
@@ -212,7 +206,6 @@ public sealed partial class ElementViewModel : IDisposable, IContextCommandHandl
 
         InitializeTransition();
 
-        // プレビュー関連の初期化
         IsThumbnailsKindAudio = ThumbnailsKind.Select(k => k == Engine.ThumbnailsKind.Audio)
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
@@ -254,11 +247,6 @@ public sealed partial class ElementViewModel : IDisposable, IContextCommandHandl
             .AddTo(_disposables);
     }
 
-    ~ElementViewModel()
-    {
-        _disposables.Dispose();
-    }
-
     public Func<(Thickness Margin, Thickness BorderMargin, double Width), CancellationToken, Task> AnimationRequested
     {
         get;
@@ -288,8 +276,6 @@ public sealed partial class ElementViewModel : IDisposable, IContextCommandHandl
 
     public ReadOnlyReactivePropertySlim<bool> IsEditable { get; }
 
-    public ReadOnlyReactivePropertySlim<bool> CanRemove { get; }
-
     public ReadOnlyReactivePropertySlim<bool> CanToggleLock { get; }
 
     public ReadOnlyReactivePropertySlim<string?> RecoveryProtectionToolTip { get; }
@@ -304,7 +290,7 @@ public sealed partial class ElementViewModel : IDisposable, IContextCommandHandl
 
     public ReactiveProperty<bool> IsSelected { get; } = new(false);
 
-    public ReactivePropertySlim<LayerHeaderViewModel?> LayerHeader { get; set; } = new();
+    public ReactivePropertySlim<LayerHeaderViewModel?> LayerHeader { get; } = new();
 
     public ReactiveProperty<Avalonia.Media.Color> Color { get; }
 
@@ -402,7 +388,6 @@ public sealed partial class ElementViewModel : IDisposable, IContextCommandHandl
     {
         _isDisposed = true;
 
-        // ThumbnailsInvalidatedイベントの購読を解除
         if (_currentThumbnailsProvider != null && _thumbnailsInvalidatedHandler != null)
         {
             _currentThumbnailsProvider.ThumbnailsInvalidated -= _thumbnailsInvalidatedHandler;
@@ -419,7 +404,6 @@ public sealed partial class ElementViewModel : IDisposable, IContextCommandHandl
         if (_lastThumbnailsCacheKey != null)
             InvalidateAllThumbnailCacheKeys(_thumbnailCacheService, _lastThumbnailsCacheKey);
 
-        // ThumbnailsDisabledElementsイベントの購読を解除
         Timeline.ThumbnailsDisabledElements.Attached -= OnThumbnailsDisabledElementsAttached;
         Timeline.ThumbnailsDisabledElements.Detached -= OnThumbnailsDisabledElementsDetached;
 
@@ -437,11 +421,9 @@ public sealed partial class ElementViewModel : IDisposable, IContextCommandHandl
         AnimationRequested = (_, _) => Task.CompletedTask;
         GetClickedTime = null;
         GetMissingThumbnailIndices = null;
-        GC.SuppressFinalize(this);
     }
 
-    public async void AnimationRequest(int layerNum, bool affectModel = true,
-        CancellationToken cancellationToken = default)
+    public async void AnimationRequest(int layerNum)
     {
         var inlines = Timeline.Inlines
             .Where(x => x.Element == this)
@@ -450,17 +432,12 @@ public sealed partial class ElementViewModel : IDisposable, IContextCommandHandl
         var scope = Scope.PrepareAnimation();
 
         Thickness newMargin = new(0, Timeline.CalculateLayerTop(layerNum), 0, 0);
-        Thickness oldMargin = Margin.Value;
-        if (affectModel)
-            Model.ZIndex = layerNum;
-
-        Margin.Value = oldMargin;
 
         foreach (var (item, context) in inlines)
-            item.AnimationRequest(context, newMargin, BorderMargin.Value, cancellationToken);
+            item.AnimationRequest(context, newMargin, BorderMargin.Value);
 
-        Task task1 = Scope.AnimationRequest(scope, cancellationToken);
-        Task task2 = AnimationRequested((newMargin, BorderMargin.Value, Width.Value), cancellationToken);
+        Task task1 = Scope.AnimationRequest(scope);
+        Task task2 = AnimationRequested((newMargin, BorderMargin.Value, Width.Value), CancellationToken.None);
 
         await Task.WhenAll(task1, task2);
         Margin.Value = newMargin;
@@ -506,7 +483,7 @@ public sealed partial class ElementViewModel : IDisposable, IContextCommandHandl
         PrepareAnimationContext context = PrepareAnimation();
 
         float scale = Timeline.Options.Value.Scale;
-        int rate = Scene.FindHierarchicalParent<Project>().GetFrameRate();
+        int rate = SceneTimeRangeService.GetFrameRate(Scene);
         TimeSpan roundedStart = BorderMargin.Value.Left.PixelToTimeSpan(scale).RoundToRate(rate);
         TimeSpan roundedLength = Width.Value.PixelToTimeSpan(scale).RoundToRate(rate);
         (TimeSpan start, TimeSpan length) = ripple || leftEdge
@@ -553,8 +530,10 @@ public sealed partial class ElementViewModel : IDisposable, IContextCommandHandl
     private Element[] EditableTargets()
         => GetGroupOrSelectedElements().Where(e => e.IsEditable.Value).Select(e => e.Model).ToArray();
 
+    // Only the user's locks stop a delete or an exclude: removing a protected element leaves its
+    // retained file alone.
     private Element[] RemovableTargets()
-        => GetGroupOrSelectedElements().Where(e => e.CanRemove.Value).Select(e => e.Model).ToArray();
+        => GetGroupOrSelectedElements().Where(e => !e.IsLockedByUser.Value).Select(e => e.Model).ToArray();
 
     private void OnBringAnimationToTop()
     {
@@ -649,11 +628,6 @@ public sealed partial class ElementViewModel : IDisposable, IContextCommandHandl
         SplitCore([this], timeSpan);
     }
 
-    internal void SplitAt(IReadOnlyList<ElementViewModel> targets, TimeSpan timeSpan)
-    {
-        SplitCore(targets, timeSpan);
-    }
-
     private void OnSplit(TimeSpan timeSpan)
     {
         IReadOnlyList<ElementViewModel> targets = GetGroupOrSelectedElements();
@@ -669,7 +643,7 @@ public sealed partial class ElementViewModel : IDisposable, IContextCommandHandl
     {
         Element[] models = targets.Where(t => t.IsEditable.Value).Select(t => t.Model).ToArray();
         if (models.Length == 0) return;
-        int rate = Scene.FindHierarchicalParent<Project>().GetFrameRate();
+        int rate = SceneTimeRangeService.GetFrameRate(Scene);
         TimeSpan at = timeSpan.RoundToRate(rate);
 
         Timeline.EditorContext.GetRequiredService<IElementStructureService>().Split(Scene, models, at);

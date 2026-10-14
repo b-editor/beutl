@@ -4,10 +4,9 @@ using FluentAvalonia.UI.Media;
 
 namespace Beutl.Controls.PropertyEditors;
 
-// ColorPickerComponent.cs
+// Adapted from FluentAvalonia's ColorPickerComponent.
 public class ColorComponentsEditor : Vector3Editor<int>
 {
-    // ColorPickerComponent.properties.cs
     public static readonly DirectProperty<ColorComponentsEditor, Color2> ColorProperty =
         AvaloniaProperty.RegisterDirect<ColorComponentsEditor, Color2>(nameof(Color),
             x => x.Color, (x, v) => x.Color = v);

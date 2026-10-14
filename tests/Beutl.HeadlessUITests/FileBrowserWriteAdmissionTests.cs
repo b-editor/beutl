@@ -8,7 +8,6 @@ using Beutl.Editor.Components.FileBrowserTab.ViewModels;
 using Beutl.Editor.VersionControl;
 using Beutl.Extensibility;
 using Beutl.Language;
-using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
@@ -30,31 +29,31 @@ public sealed class FileBrowserWriteAdmissionTests
     [AvaloniaTest]
     public async Task Built_in_editor_context_writes_wait_out_a_worktree_mutation()
     {
-        EditViewModel editor = await CreateEditor("filebrowser-admission-builtin");
+        EditViewModel editor = (await TestShell.OpenNewSceneAsync("filebrowser-admission-builtin", 320, 180)).Editor;
         using var browser = new FileBrowserTabViewModel(editor);
 
-        await AssertWritesFollowWorkspaceReservation(browser, ProjectRoot(editor), coversResources: true);
+        await AssertWritesFollowWorkspaceReservation(browser, TestShell.ProjectRoot(editor), coversResources: true);
     }
 
     [AvaloniaTest]
     public async Task Plugin_provided_editor_context_writes_wait_out_a_worktree_mutation()
     {
-        EditViewModel editor = await CreateEditor("filebrowser-admission-plugin");
-        using PluginEditorTab tab = await PluginEditorTab.OpenAsync(ProjectRoot(editor));
+        EditViewModel editor = (await TestShell.OpenNewSceneAsync("filebrowser-admission-plugin", 320, 180)).Editor;
+        using PluginEditorTab tab = await PluginEditorTab.OpenAsync(TestShell.ProjectRoot(editor));
         using var browser = new FileBrowserTabViewModel(tab.Context);
 
         // The context the plugin authored serves no admission of its own; the host that opened it does.
         Assert.That(tab.Context.GetService(typeof(IProjectFileWriteAdmission)), Is.Null);
-        await AssertWritesFollowWorkspaceReservation(browser, ProjectRoot(editor), coversResources: false);
+        await AssertWritesFollowWorkspaceReservation(browser, TestShell.ProjectRoot(editor), coversResources: false);
     }
 
     [AvaloniaTest]
     public async Task A_context_no_host_owns_is_refused()
     {
-        EditViewModel editor = await CreateEditor("filebrowser-admission-unowned");
+        EditViewModel editor = (await TestShell.OpenNewSceneAsync("filebrowser-admission-unowned", 320, 180)).Editor;
         using var context = new PluginEditorContext(new PluginDocument());
         using var browser = new FileBrowserTabViewModel(context);
-        Fixture fixture = Fixture.Create(ProjectRoot(editor));
+        Fixture fixture = Fixture.Create(TestShell.ProjectRoot(editor));
         using var notifications = new NotificationCapture();
 
         await browser.TransferFilesToDirectoryAsync([(fixture.CopySource, false)], fixture.TargetDir, move: false);
@@ -65,7 +64,7 @@ public sealed class FileBrowserWriteAdmissionTests
             Assert.That(File.Exists(Path.Combine(fixture.TargetDir, "copy.txt")), Is.False);
             Assert.That(File.Exists(fixture.MoveSource), Is.True);
             Assert.That(
-                notifications.Handler.Notifications.Select(n => n.Type),
+                notifications.All.Select(n => n.Type),
                 Is.EqualTo(new[] { NotificationType.Error, NotificationType.Error }),
                 "an unowned context is a wiring fault, not permission");
         });
@@ -74,9 +73,9 @@ public sealed class FileBrowserWriteAdmissionTests
     [AvaloniaTest]
     public async Task A_second_host_does_not_admit_the_first_hosts_tabs()
     {
-        EditViewModel editor = await CreateEditor("filebrowser-admission-second-host");
+        EditViewModel editor = (await TestShell.OpenNewSceneAsync("filebrowser-admission-second-host", 320, 180)).Editor;
         using var browser = new FileBrowserTabViewModel(editor);
-        Fixture fixture = Fixture.Create(ProjectRoot(editor));
+        Fixture fixture = Fixture.Create(TestShell.ProjectRoot(editor));
         using var notifications = new NotificationCapture();
         var secondHost = new EditorService(TestShell.Extensions);
 
@@ -92,7 +91,7 @@ public sealed class FileBrowserWriteAdmissionTests
         {
             Assert.That(File.Exists(Path.Combine(fixture.TargetDir, "copy.txt")), Is.False);
             Assert.That(
-                notifications.Handler.Notifications.Select(n => (n.Type, n.Message)),
+                notifications.All.Select(n => (n.Type, n.Message)),
                 Is.EqualTo(new[] { (NotificationType.Warning, Strings.FileBrowser_WorkspaceBusy) }));
         });
     }
@@ -100,9 +99,9 @@ public sealed class FileBrowserWriteAdmissionTests
     [AvaloniaTest]
     public async Task Single_delete_confirmed_during_a_worktree_mutation_is_refused()
     {
-        EditViewModel editor = await CreateEditor("filebrowser-admission-delete");
+        EditViewModel editor = (await TestShell.OpenNewSceneAsync("filebrowser-admission-delete", 320, 180)).Editor;
         using var browser = new FileBrowserTabViewModel(editor);
-        Fixture fixture = Fixture.Create(ProjectRoot(editor));
+        Fixture fixture = Fixture.Create(TestShell.ProjectRoot(editor));
         using var item = new FileSystemItemViewModel(fixture.CopySource, isDirectory: false);
         using var notifications = new NotificationCapture();
 
@@ -117,7 +116,7 @@ public sealed class FileBrowserWriteAdmissionTests
         {
             Assert.That(File.Exists(fixture.CopySource), Is.True, "delete");
             Assert.That(
-                notifications.Handler.Notifications.Select(n => (n.Type, n.Message)),
+                notifications.All.Select(n => (n.Type, n.Message)),
                 Is.EqualTo(new[] { (NotificationType.Warning, Strings.FileBrowser_WorkspaceBusy) }));
         });
 
@@ -127,16 +126,16 @@ public sealed class FileBrowserWriteAdmissionTests
         Assert.Multiple(() =>
         {
             Assert.That(File.Exists(fixture.CopySource), Is.False, "delete on a free workspace");
-            Assert.That(notifications.Handler.Notifications, Has.Count.EqualTo(1));
+            Assert.That(notifications.All, Has.Count.EqualTo(1));
         });
     }
 
     [AvaloniaTest]
     public async Task Multi_delete_confirmed_during_a_worktree_mutation_is_refused()
     {
-        EditViewModel editor = await CreateEditor("filebrowser-admission-multi-delete");
+        EditViewModel editor = (await TestShell.OpenNewSceneAsync("filebrowser-admission-multi-delete", 320, 180)).Editor;
         using var browser = new FileBrowserTabViewModel(editor);
-        Fixture fixture = Fixture.Create(ProjectRoot(editor));
+        Fixture fixture = Fixture.Create(TestShell.ProjectRoot(editor));
         using var first = new FileSystemItemViewModel(fixture.CopySource, isDirectory: false);
         using var second = new FileSystemItemViewModel(fixture.MoveSource, isDirectory: false);
         using var notifications = new NotificationCapture();
@@ -152,7 +151,7 @@ public sealed class FileBrowserWriteAdmissionTests
             Assert.That(File.Exists(fixture.CopySource), Is.True, "first");
             Assert.That(File.Exists(fixture.MoveSource), Is.True, "second");
             Assert.That(
-                notifications.Handler.Notifications.Select(n => (n.Type, n.Message)),
+                notifications.All.Select(n => (n.Type, n.Message)),
                 Is.EqualTo(new[] { (NotificationType.Warning, Strings.FileBrowser_WorkspaceBusy) }),
                 "one refusal covers the whole batch");
         });
@@ -164,7 +163,7 @@ public sealed class FileBrowserWriteAdmissionTests
         {
             Assert.That(File.Exists(fixture.CopySource), Is.False, "first on a free workspace");
             Assert.That(File.Exists(fixture.MoveSource), Is.False, "second on a free workspace");
-            Assert.That(notifications.Handler.Notifications, Has.Count.EqualTo(1));
+            Assert.That(notifications.All, Has.Count.EqualTo(1));
         });
     }
 
@@ -174,9 +173,9 @@ public sealed class FileBrowserWriteAdmissionTests
     [AvaloniaTest]
     public async Task Copy_runs_off_the_UI_thread_and_keeps_the_project_files_reserved_until_it_ends()
     {
-        EditViewModel editor = await CreateEditor("filebrowser-background-copy");
+        EditViewModel editor = (await TestShell.OpenNewSceneAsync("filebrowser-background-copy", 320, 180)).Editor;
         using var browser = new FileBrowserTabViewModel(editor);
-        Fixture fixture = Fixture.Create(ProjectRoot(editor));
+        Fixture fixture = Fixture.Create(TestShell.ProjectRoot(editor));
         using var copyStarted = new ManualResetEventSlim();
         using var releaseCopy = new ManualResetEventSlim();
         browser.CopyFile = (source, destination) =>
@@ -224,9 +223,9 @@ public sealed class FileBrowserWriteAdmissionTests
     [AvaloniaTest]
     public async Task A_long_copy_is_canceled_from_its_notification()
     {
-        EditViewModel editor = await CreateEditor("filebrowser-cancel-copy");
+        EditViewModel editor = (await TestShell.OpenNewSceneAsync("filebrowser-cancel-copy", 320, 180)).Editor;
         using var browser = new FileBrowserTabViewModel(editor);
-        Fixture fixture = Fixture.Create(ProjectRoot(editor));
+        Fixture fixture = Fixture.Create(TestShell.ProjectRoot(editor));
         using var notifications = new NotificationCapture();
         using var copyStarted = new ManualResetEventSlim();
         using var releaseCopy = new ManualResetEventSlim();
@@ -247,8 +246,8 @@ public sealed class FileBrowserWriteAdmissionTests
         try
         {
             Assert.That(copyStarted.Wait(TimeSpan.FromSeconds(30)), Is.True, "the copy must start");
-            await WaitUntilAsync(() => notifications.Handler.Notifications.Count > 0);
-            Notification shown = notifications.Handler.Notifications.Single();
+            await HeadlessTestHelpers.WaitUntilAsync(() => !notifications.All.IsEmpty, TimeSpan.FromSeconds(30));
+            Notification shown = notifications.All.Single();
             running = shown;
             Assert.Multiple(() =>
             {
@@ -279,7 +278,7 @@ public sealed class FileBrowserWriteAdmissionTests
             Assert.That(File.Exists(Path.Combine(fixture.TargetDir, "copy.txt")), Is.True);
             Assert.That(File.Exists(Path.Combine(fixture.TargetDir, "move.txt")), Is.False);
             Assert.That(running?.CancellationToken.IsCancellationRequested, Is.True, "the notification is dismissed");
-            Assert.That(notifications.Handler.Notifications, Has.Count.EqualTo(1), "a canceled copy is no failure");
+            Assert.That(notifications.All, Has.Count.EqualTo(1), "a canceled copy is no failure");
         });
     }
 
@@ -289,9 +288,9 @@ public sealed class FileBrowserWriteAdmissionTests
     [AvaloniaTest]
     public async Task A_folder_copy_canceled_partway_keeps_what_it_copied_and_a_second_drop_skips_it()
     {
-        EditViewModel editor = await CreateEditor("filebrowser-cancel-folder-copy");
+        EditViewModel editor = (await TestShell.OpenNewSceneAsync("filebrowser-cancel-folder-copy", 320, 180)).Editor;
         using var browser = new FileBrowserTabViewModel(editor);
-        Fixture fixture = Fixture.Create(ProjectRoot(editor));
+        Fixture fixture = Fixture.Create(TestShell.ProjectRoot(editor));
         string folder = Directory.CreateDirectory(Path.Combine(fixture.SourceDir, "footage")).FullName;
         File.WriteAllText(Path.Combine(folder, "a.txt"), "a");
         File.WriteAllText(Path.Combine(folder, "b.txt"), "b");
@@ -313,8 +312,8 @@ public sealed class FileBrowserWriteAdmissionTests
         try
         {
             Assert.That(copyStarted.Wait(TimeSpan.FromSeconds(30)), Is.True, "the copy must start");
-            await WaitUntilAsync(() => notifications.Handler.Notifications.Count > 0);
-            notifications.Handler.Notifications.Single().Actions![0].Callback();
+            await HeadlessTestHelpers.WaitUntilAsync(() => !notifications.All.IsEmpty, TimeSpan.FromSeconds(30));
+            notifications.All.Single().Actions![0].Callback();
         }
         finally
         {
@@ -327,7 +326,7 @@ public sealed class FileBrowserWriteAdmissionTests
             Assert.That(copy.IsCompletedSuccessfully, Is.True);
             Assert.That(Volatile.Read(ref copies), Is.EqualTo(1), "nothing is copied after Cancel");
             Assert.That(Directory.GetFiles(copiedFolder), Has.Length.EqualTo(1), "the copied file stays");
-            Assert.That(notifications.Handler.Notifications, Has.Count.EqualTo(1), "a canceled copy is no failure");
+            Assert.That(notifications.All, Has.Count.EqualTo(1), "a canceled copy is no failure");
         });
 
         string kept = Directory.GetFiles(copiedFolder).Single();
@@ -339,7 +338,7 @@ public sealed class FileBrowserWriteAdmissionTests
         Assert.Multiple(() =>
         {
             Assert.That(Directory.GetFiles(copiedFolder), Is.EqualTo(new[] { kept }), "the existing folder is skipped");
-            Assert.That(notifications.Handler.Notifications, Has.Count.EqualTo(1), "the second drop is no failure");
+            Assert.That(notifications.All, Has.Count.EqualTo(1), "the second drop is no failure");
         });
     }
 
@@ -350,9 +349,9 @@ public sealed class FileBrowserWriteAdmissionTests
     [AvaloniaTest]
     public async Task A_file_listed_while_it_was_copied_shows_its_finished_size_once_the_copy_ends()
     {
-        EditViewModel editor = await CreateEditor("filebrowser-copy-listing");
+        EditViewModel editor = (await TestShell.OpenNewSceneAsync("filebrowser-copy-listing", 320, 180)).Editor;
         using var browser = new FileBrowserTabViewModel(editor);
-        Fixture fixture = Fixture.Create(ProjectRoot(editor));
+        Fixture fixture = Fixture.Create(TestShell.ProjectRoot(editor));
         string source = Path.Combine(fixture.SourceDir, "main.scene");
         File.WriteAllText(source, "scene");
         string copied = Path.Combine(fixture.TargetDir, "main.scene");
@@ -394,16 +393,15 @@ public sealed class FileBrowserWriteAdmissionTests
         });
     }
 
-    // An access error from the copy used to escape the async drop handler. Like any other failure, it
-    // is now reported on the UI thread once the transfer is over, in one notification however many
-    // entries failed.
+    // A copy failure is reported once, on the UI thread, after the transfer ends.
     [AvaloniaTest]
     public async Task A_copy_failure_is_reported_on_the_UI_thread()
     {
-        EditViewModel editor = await CreateEditor("filebrowser-copy-failure");
+        EditViewModel editor = (await TestShell.OpenNewSceneAsync("filebrowser-copy-failure", 320, 180)).Editor;
         using var browser = new FileBrowserTabViewModel(editor);
-        Fixture fixture = Fixture.Create(ProjectRoot(editor));
-        using var notifications = new NotificationCapture();
+        Fixture fixture = Fixture.Create(TestShell.ProjectRoot(editor));
+        var shownOnUiThread = new List<bool>();
+        using var notifications = new NotificationCapture(_ => shownOnUiThread.Add(Dispatcher.UIThread.CheckAccess()));
         browser.TransferNotificationDelay = Timeout.InfiniteTimeSpan;
         browser.CopyFile = static (_, _) => throw new UnauthorizedAccessException("Access denied.");
 
@@ -415,23 +413,11 @@ public sealed class FileBrowserWriteAdmissionTests
         Assert.Multiple(() =>
         {
             Assert.That(
-                notifications.Handler.Notifications.Select(n => (n.Type, n.Title, n.Message)),
+                notifications.All.Select(n => (n.Type, n.Title, n.Message)),
                 Is.EqualTo(new[] { (NotificationType.Error, Strings.Copy, MessageStrings.OperationFailed) }));
-            Assert.That(notifications.Handler.ShownOnUiThread, Is.EqualTo(new[] { true }));
+            Assert.That(shownOnUiThread, Is.EqualTo(new[] { true }));
             Assert.That(File.Exists(Path.Combine(fixture.TargetDir, "copy.txt")), Is.False);
         });
-    }
-
-    private static async Task WaitUntilAsync(Func<bool> condition)
-    {
-        var timeout = System.Diagnostics.Stopwatch.StartNew();
-        while (!condition() && timeout.Elapsed < TimeSpan.FromSeconds(30))
-        {
-            HeadlessTestHelpers.Settle();
-            await Task.Delay(10);
-        }
-
-        Assert.That(condition(), Is.True, "The expected state was not reached.");
     }
 
     private static async Task ObserveAsync(Task task)
@@ -486,7 +472,7 @@ public sealed class FileBrowserWriteAdmissionTests
                 if (coversResources)
                     Assert.That(Directory.Exists(resourcesDir), Is.False, "resource import");
                 Assert.That(
-                    notifications.Handler.Notifications.Select(n => (n.Type, n.Message)),
+                    notifications.All.Select(n => (n.Type, n.Message)),
                     Is.EqualTo(Enumerable.Repeat(
                         (NotificationType.Warning, Strings.FileBrowser_WorkspaceBusy),
                         rejectedWrites)),
@@ -510,25 +496,11 @@ public sealed class FileBrowserWriteAdmissionTests
             if (coversResources)
                 Assert.That(File.Exists(Path.Combine(resourcesDir, "renamed.txt")), Is.True, "resource import");
             Assert.That(
-                notifications.Handler.Notifications,
+                notifications.All,
                 Has.Count.EqualTo(rejectedWrites),
                 "writes on a free workspace must not raise notifications");
         });
     }
-
-    private static async Task<EditViewModel> CreateEditor(string name)
-    {
-        await TestReset.ResetShellAsync();
-        string directory = Path.Combine(BeutlHomeIsolation.CurrentHome!, name);
-        Directory.CreateDirectory(directory);
-        Project project = (await TestShell.Project.CreateProject(320, 180, 30, 44100, name, directory))!;
-        TestShell.Editor.ActivateTabItem(project.Items.OfType<Scene>().First());
-        HeadlessTestHelpers.Settle();
-        return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
-    }
-
-    private static string ProjectRoot(EditViewModel editor)
-        => Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!;
 
     private sealed record Fixture(
         string SourceDir,
@@ -578,36 +550,6 @@ public sealed class FileBrowserWriteAdmissionTests
         public bool Confirmed { get; private set; }
 
         public void Dispose() => _mutation?.Dispose();
-    }
-
-    private sealed class NotificationCapture : IDisposable
-    {
-        private readonly INotificationServiceHandler _previous = NotificationService.Handler;
-
-        public NotificationCapture()
-        {
-            NotificationService.Handler = Handler;
-        }
-
-        public CaptureNotificationHandler Handler { get; } = new();
-
-        public void Dispose()
-        {
-            NotificationService.Handler = _previous;
-        }
-    }
-
-    private sealed class CaptureNotificationHandler : INotificationServiceHandler
-    {
-        public List<Notification> Notifications { get; } = [];
-
-        public List<bool> ShownOnUiThread { get; } = [];
-
-        public void Show(Notification notification)
-        {
-            ShownOnUiThread.Add(Dispatcher.UIThread.CheckAccess());
-            Notifications.Add(notification);
-        }
     }
 
     /// <summary>

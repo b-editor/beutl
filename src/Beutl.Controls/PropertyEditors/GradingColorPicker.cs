@@ -13,8 +13,6 @@ using Beutl.Reactive;
 using FluentAvalonia.Core;
 using UnboundedHsv = (float H, float S, float V);
 
-#nullable enable
-
 namespace Beutl.Controls.PropertyEditors;
 
 public enum GradingColorPickerInputType
@@ -118,20 +116,20 @@ public class GradingColorPicker : TemplatedControl
         if (_ringSpectrum != null)
         {
             _ringSpectrum.ColorChanged += OnSpectrumColorChanged;
-            AddConfirmHandlers(_ringSpectrum);
+            ColorPickerParts.AddConfirmHandlers(_ringSpectrum, OnSpectrumPointerPressed, OnSpectrumPointerReleased);
         }
 
         if (_previewer != null)
         {
             _previewer.ColorChanged += OnSpectrumColorChanged;
-            AddConfirmHandlers(_previewer);
+            ColorPickerParts.AddConfirmHandlers(_previewer, OnSpectrumPointerPressed, OnSpectrumPointerReleased);
         }
 
         foreach (ColorSlider? item in GetColorSliders())
         {
             if (item == null) continue;
             item.ColorChanged += OnColorSliderColorChanged;
-            AddConfirmHandlers(item);
+            ColorPickerParts.AddConfirmHandlers(item, OnSpectrumPointerPressed, OnSpectrumPointerReleased);
         }
 
         foreach (GradingWheel? item in GetWheels())
@@ -158,18 +156,6 @@ public class GradingColorPicker : TemplatedControl
                 .Subscribe(OnToggleDetailsButtonIsCheckedChanged)
                 .DisposeWith(_disposables);
         }
-    }
-
-    private void AddConfirmHandlers(Interactive target)
-    {
-        target.AddHandler(PointerPressedEvent, OnSpectrumPointerPressed, handledEventsToo: true);
-        target.AddHandler(PointerReleasedEvent, OnSpectrumPointerReleased, handledEventsToo: true);
-    }
-
-    private void RemoveConfirmHandlers(Interactive target)
-    {
-        target.RemoveHandler(PointerPressedEvent, OnSpectrumPointerPressed);
-        target.RemoveHandler(PointerReleasedEvent, OnSpectrumPointerReleased);
     }
 
     private void OnWheelDragStarted(object? sender, VectorEventArgs e)
@@ -385,13 +371,13 @@ public class GradingColorPicker : TemplatedControl
         if (_ringSpectrum != null)
         {
             _ringSpectrum.ColorChanged -= OnSpectrumColorChanged;
-            RemoveConfirmHandlers(_ringSpectrum);
+            ColorPickerParts.RemoveConfirmHandlers(_ringSpectrum, OnSpectrumPointerPressed, OnSpectrumPointerReleased);
         }
 
         if (_previewer != null)
         {
             _previewer.ColorChanged -= OnSpectrumColorChanged;
-            RemoveConfirmHandlers(_previewer);
+            ColorPickerParts.RemoveConfirmHandlers(_previewer, OnSpectrumPointerPressed, OnSpectrumPointerReleased);
         }
 
         if (_componentsBox != null)
@@ -405,7 +391,7 @@ public class GradingColorPicker : TemplatedControl
             if (item == null) continue;
 
             item.ColorChanged -= OnColorSliderColorChanged;
-            RemoveConfirmHandlers(item);
+            ColorPickerParts.RemoveConfirmHandlers(item, OnSpectrumPointerPressed, OnSpectrumPointerReleased);
         }
 
         foreach (GradingWheel? item in GetWheels())

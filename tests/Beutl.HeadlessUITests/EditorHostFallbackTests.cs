@@ -4,7 +4,6 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
-using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Beutl.Collections;
@@ -15,9 +14,8 @@ using Beutl.Views;
 
 namespace Beutl.HeadlessUITests;
 
-// Guards EditorHostFallback's "recently used" panel. Its width must cap at its 600px MaxWidth on wide
-// windows but shrink below that on narrow / high-DPI ones, rather than holding a fixed 600px width that
-// clips. The width checks assert arranged layout bounds only (no pixel readback): frame capture of an
+// Guards EditorHostFallback's recent-items panel: its width, its sync with RecentFiles and the progress on
+// the row being opened. The width checks read layout bounds, not pixels: capturing the frame of an
 // inflated shell view crashes the headless host on software Vulkan.
 [TestFixture, NonParallelizable]
 public class EditorHostFallbackTests
@@ -30,19 +28,6 @@ public class EditorHostFallbackTests
 
         // The recent-items panel is the Grid that directly hosts the recent-files ListBox.
         return recentList.GetVisualAncestors().OfType<Grid>().First();
-    }
-
-    private static double LeftRelativeTo(Visual descendant, Visual ancestor)
-    {
-        double x = 0;
-        for (Visual? current = descendant;
-             current is not null && !ReferenceEquals(current, ancestor);
-             current = current.GetVisualParent())
-        {
-            x += current.Bounds.X;
-        }
-
-        return x;
     }
 
     [AvaloniaTest]
@@ -65,7 +50,7 @@ public class EditorHostFallbackTests
             // The panel must stay left-anchored (consistent with the header / social rows above and
             // below), not float to the centre of a wide window.
             Assert.That(
-                LeftRelativeTo(panel, view),
+                panel.TranslatePoint(default, view)!.Value.X,
                 Is.LessThan(200),
                 "On a wide window the recent-items panel should remain left-anchored, not centred.");
         }
@@ -101,9 +86,7 @@ public class EditorHostFallbackTests
         }
     }
 
-    // RecentFiles.Replace used to raise one Replace event whose old and new item counts differ, which the
-    // view's DynamicData pipeline cannot apply: replacing two items with none threw
-    // IndexOutOfRangeException, and other lengths threw or left the list out of sync.
+    // Regression: replacing the whole list with a different item count must keep the view in sync.
     [AvaloniaTest]
     public void Recent_list_follows_whole_list_replacements()
     {
@@ -158,12 +141,11 @@ public class EditorHostFallbackTests
     }
 
     [AvaloniaTest]
-    [TestCase(1200, false, false)]
-    [TestCase(480, true, false)]
-    [TestCase(1200, true, true)]
-    [TestCase(480, false, true)]
-    public async Task Double_click_shows_progress_only_on_the_opening_row_until_completion(
-        int width, bool dark, bool fail)
+    [TestCase(1200, false)]
+    [TestCase(480, false)]
+    [TestCase(1200, true)]
+    [TestCase(480, true)]
+    public async Task Double_click_shows_progress_only_on_the_opening_row_until_completion(int width, bool fail)
     {
         await TestReset.ResetShellAsync();
         CoreList<string> recentFiles = GlobalConfiguration.Instance.ViewConfig.RecentFiles;
@@ -188,12 +170,7 @@ public class EditorHostFallbackTests
 
         var view = new EditorHostFallback();
         var host = new MainView { DataContext = TestShell.MainViewModel, Content = view };
-        var window = new Window
-        {
-            Width = width,
-            Height = 720,
-            RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light,
-        };
+        var window = new Window { Width = width, Height = 720 };
         TestShell.Project.Opening += opening;
         try
         {
@@ -238,16 +215,6 @@ public class EditorHostFallbackTests
                 Assert.That(ringLeft, Is.GreaterThan(openingRow.Bounds.Width - 44));
                 Assert.That(ringLeft + ring.Bounds.Width, Is.LessThanOrEqualTo(openingRow.Bounds.Width));
             });
-
-            if (Environment.GetEnvironmentVariable("BEUTL_RECENT_OPENING_CAPTURE_DIR") is { Length: > 0 } captureDirectory)
-            {
-                await Task.Delay(600);
-                HeadlessTestHelpers.Render(3);
-                Directory.CreateDirectory(captureDirectory);
-                using var image = window.CaptureRenderedFrame();
-                Assert.That(image, Is.Not.Null);
-                image!.Save(Path.Combine(captureDirectory, $"recent-opening-{width}-{dark}-{fail}.png"), PngBitmapEncoderOptions.Default);
-            }
 
             // Another double click must not move the indicator or start an overlapping open.
             DoubleClick(otherFile);

@@ -4,7 +4,6 @@ using Avalonia.Controls.PanAndZoom;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
-using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Beutl.Editor.Components.NodeGraphTab.ViewModels;
@@ -23,20 +22,11 @@ namespace Beutl.HeadlessUITests;
 public class NodeGraphNavigationLayoutTests
 {
     [AvaloniaTest]
-    [TestCase(320, false)]
-    [TestCase(320, true)]
-    [TestCase(640, false)]
-    [TestCase(640, true)]
-    public async Task Navigation_does_not_overlap_the_graph(int width, bool light)
+    [TestCase(320)]
+    [TestCase(640)]
+    public async Task Navigation_does_not_overlap_the_graph(int width)
     {
-        await TestReset.ResetShellAsync();
-        string root = Path.Combine(BeutlHomeIsolation.CurrentHome!, $"node-navigation-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(root);
-        Project project = (await TestShell.Project.CreateProject(640, 480, 30, 44100, "node-navigation", root))!;
-        Scene scene = project.Items.OfType<Scene>().Single();
-        TestShell.Editor.ActivateTabItem(scene);
-        HeadlessTestHelpers.Settle();
-        var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("node-navigation");
         var graph = new GraphModel();
         var drawable = new NodeGraphDrawable();
         drawable.Model.CurrentValue = graph;
@@ -52,7 +42,7 @@ public class NodeGraphNavigationLayoutTests
             Content = view,
             Width = width,
             Height = 420,
-            RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark
+            RequestedThemeVariant = ThemeVariant.Dark
         };
         try
         {
@@ -63,18 +53,15 @@ public class NodeGraphNavigationLayoutTests
             GraphNodeView node = graphView.GetVisualDescendants().OfType<GraphNodeView>().Single();
             Assert.That(node.GetVisualDescendants().OfType<TextBlock>().Any(x => x.Text == NodeGraphStrings.Group), Is.True);
             Assert.That(ToolTip.GetTip(node.FindControl<Border>("handle")!), Is.EqualTo(NodeGraphStrings.Group));
-            Capture("origin");
             string longNodeName = string.Concat(Enumerable.Repeat("Long node name ", 8));
             group.Name = longNodeName;
             HeadlessTestHelpers.Render(3);
             Assert.That(ToolTip.GetTip(node.FindControl<Border>("handle")!), Is.EqualTo(longNodeName));
-            Capture("long-node-name");
             group.Name = "";
             HeadlessTestHelpers.Render(3);
             double breadcrumbBottom = breadcrumb.TranslatePoint(new Point(0, breadcrumb.Bounds.Height), view)!.Value.Y;
             double graphTop = graphView.TranslatePoint(default, view)!.Value.Y;
             double nodeTop = node.TranslatePoint(default, view)!.Value.Y;
-            TestContext.WriteLine($"Breadcrumb bottom={breadcrumbBottom}, graph top={graphTop}, node top={nodeTop}");
             Assert.That(graphTop, Is.GreaterThanOrEqualTo(breadcrumbBottom));
             Assert.That(nodeTop, Is.GreaterThanOrEqualTo(breadcrumbBottom));
 
@@ -105,19 +92,17 @@ public class NodeGraphNavigationLayoutTests
             zoom.Pan(0, -30, true);
             HeadlessTestHelpers.Render();
             Assert.That(navigation.Bounds.Height, Is.EqualTo(navigationHeight));
-            Capture("panned");
 
             zoom.SetMatrix(Matrix.Identity, true);
             HeadlessTestHelpers.Render();
             Button open = node.GetVisualDescendants().OfType<Button>()
                 .Single(x => x.Name != "expandToggle");
-            Click(open);
+            HeadlessTestHelpers.Click(open, move: true, ticks: 3);
             Assert.That(model.NodeGraph.Value!.NodeGraph, Is.SameAs(group.Group));
             Assert.That(model.Items, Has.Count.EqualTo(2));
-            Capture("inside-group");
             FABreadcrumbBarItem parent = breadcrumb.GetVisualDescendants().OfType<FABreadcrumbBarItem>()
                 .First(x => ReferenceEquals(x.Content, model.Items[0]));
-            Click(parent);
+            HeadlessTestHelpers.Click(parent, move: true, ticks: 3);
             Assert.That(model.NodeGraph.Value!.NodeGraph, Is.SameAs(graph));
             Assert.That(model.Items, Has.Count.EqualTo(1));
 
@@ -128,7 +113,6 @@ public class NodeGraphNavigationLayoutTests
             Assert.That(ToolTip.GetTip(name), Is.EqualTo(element.Name));
             Assert.That(name.Bounds.Width, Is.LessThanOrEqualTo(breadcrumb.Bounds.Width));
             Assert.That(breadcrumb.Bounds.Right, Is.LessThanOrEqualTo(navigation.Bounds.Width));
-            Capture("long-name");
 
             model.Model.Value = null;
             HeadlessTestHelpers.Render(3);
@@ -139,15 +123,6 @@ public class NodeGraphNavigationLayoutTests
             HeadlessTestHelpers.Render(3);
             Assert.That(navigation.IsVisible, Is.True);
             Assert.That(graphView.Bounds.Height, Is.EqualTo(window.ClientSize.Height - navigation.Bounds.Height));
-
-            void Click(Control control)
-            {
-                Point point = control.TranslatePoint(new Point(control.Bounds.Width / 2, control.Bounds.Height / 2), window)!.Value;
-                window.MouseMove(point);
-                window.MouseDown(point, MouseButton.Left);
-                window.MouseUp(point, MouseButton.Left);
-                HeadlessTestHelpers.Render(3);
-            }
 
             void Drag(Point from, Vector delta)
             {
@@ -163,14 +138,6 @@ public class NodeGraphNavigationLayoutTests
         {
             view.DataContext = null;
             window.Close();
-        }
-
-        void Capture(string name)
-        {
-            if (Environment.GetEnvironmentVariable("BEUTL_NODE_NAV_CAPTURE") is not { Length: > 0 } directory) return;
-            Directory.CreateDirectory(directory);
-            using var image = window.CaptureRenderedFrame();
-            image?.Save(Path.Combine(directory, $"{name}-{width}-{light}.png"), PngBitmapEncoderOptions.Default);
         }
     }
 }

@@ -13,13 +13,12 @@ namespace Beutl.Editor.Components.TimelineTab.Views;
 
 public sealed partial class TimelineTabView
 {
-    // ポインター移動
     private void TimelinePanel_PointerMoved(object? sender, PointerEventArgs e)
     {
         if (ViewModel == null) return;
         TimelineTabViewModel viewModel = ViewModel;
         PointerPoint pointerPt = e.GetCurrentPoint(TimelinePanel);
-        int rate = viewModel.Scene.FindHierarchicalParent<Project>().GetFrameRate();
+        int rate = SceneTimeRangeService.GetFrameRate(viewModel.Scene);
         _pointerFrame = pointerPt.Position.X.PixelToTimeSpan(viewModel.Options.Value.Scale).RoundToRate(rate);
 
         if (_pointerFrame < TimeSpan.Zero)
@@ -37,12 +36,6 @@ public sealed partial class TimelineTabView
             overlay.SelectionRange = new(rect.Position, pointerPt.Position);
             UpdateRangeSelection();
         }
-        else if (_mouseFlag == MouseFlags.EndingBarMarkerPressed)
-        {
-            viewModel.EditorContext
-                .GetRequiredService<ISceneTimeRangeService>()
-                .UpdateEndDrag(viewModel.Scene, _pointerFrame);
-        }
         else if (_mouseFlag == MouseFlags.MarkerPressed && _pressedMarker is { } draggingMarker)
         {
             // 閾値を超えるまではドラッグとみなさず、クリックでのフライアウト表示の余地を残す
@@ -56,13 +49,7 @@ public sealed partial class TimelineTabView
             _markerDragged = true;
             draggingMarker.Time = _pointerFrame;
         }
-        else if (_mouseFlag == MouseFlags.StartingBarMarkerPressed)
-        {
-            viewModel.EditorContext
-                .GetRequiredService<ISceneTimeRangeService>()
-                .UpdateStartDrag(viewModel.Scene, _pointerFrame, _initialStart, _initialDuration);
-        }
-        else
+        else if (!_rulerDrag.Move(_mouseFlag, viewModel.EditorContext, viewModel.Scene, _pointerFrame))
         {
             UpdateScaleHover(viewModel, e, pointerPt);
         }
@@ -74,7 +61,6 @@ public sealed partial class TimelineTabView
         double startingBarX = viewModel.StartingBarMargin.Value.Left;
         double endingBarX = viewModel.EndingBarMargin.Value.Left;
 
-        // EndingBarマーカーやポイントマーカーの当たり判定チェック
         if (TimelineHelper.IsPointInTimelineScaleMarker(pointerPt.Position.X, posScale.Y, startingBarX, endingBarX)
             || (Scale.IsPointerOver && Scale.HitTestMarker(pointerPt.Position.X, posScale.Y) != null))
         {
@@ -98,7 +84,6 @@ public sealed partial class TimelineTabView
         }
     }
 
-    // ポインターが放された
     private void TimelinePanel_PointerReleased(object? sender, PointerReleasedEventArgs e)
     {
         if (ViewModel == null) return;
@@ -111,21 +96,13 @@ public sealed partial class TimelineTabView
             {
                 overlay.SelectionRange = default;
             }
-            else if (_mouseFlag == MouseFlags.EndingBarMarkerPressed)
-            {
-                ViewModel.EditorContext
-                    .GetRequiredService<ISceneTimeRangeService>()
-                    .CommitEndChange();
-            }
-            else if (_mouseFlag == MouseFlags.StartingBarMarkerPressed)
-            {
-                ViewModel.EditorContext
-                    .GetRequiredService<ISceneTimeRangeService>()
-                    .CommitStartChange();
-            }
             else if (_mouseFlag == MouseFlags.MarkerPressed && _pressedMarker is { } releasedMarker)
             {
                 ReleaseMarker(releasedMarker, history);
+            }
+            else
+            {
+                TimelineRulerDrag.Release(_mouseFlag, ViewModel.EditorContext);
             }
 
             if (Scale.IsPointerOver && ViewModel.HoveredCacheBlock.Value is { } cache)
@@ -204,7 +181,6 @@ public sealed partial class TimelineTabView
         }
     }
 
-    // ポインターが押された
     private void TimelinePanel_PointerPressed(object? sender, PointerPressedEventArgs e)
     {
         if (ViewModel == null) return;
@@ -218,7 +194,7 @@ public sealed partial class TimelineTabView
         {
             if (viewModel.IsRazorMode.Value)
             {
-                viewModel.RazorSplitAt(viewModel.ClickedFrame, acrossAllLayers: true);
+                viewModel.RazorSplitAt(viewModel.ClickedFrame);
                 e.Handled = true;
                 _rightButtonPressed = false;
                 return;
@@ -227,7 +203,6 @@ public sealed partial class TimelineTabView
             if (e.KeyModifiers == KeyGestureHelper.GetCommandModifier())
             {
                 _mouseFlag = MouseFlags.RangeSelectionPressed;
-                // すでに選択されているものはリセット
                 ViewModel.ClearSelected();
 
                 overlay.SelectionRange = new(pointerPt.Position, default(Size));
@@ -261,22 +236,9 @@ public sealed partial class TimelineTabView
             return true;
         }
 
-        // マーカーの当たり判定チェック - TimelineScaleのマーカーのみ
-        if (TimelineHelper.IsPointInTimelineScaleEndingMarker(pointerPt.Position.X, scalePoint.Y, endingBarX))
+        _mouseFlag = _rulerDrag.Press(viewModel.Scene, pointerPt.Position.X, scalePoint.Y, startingBarX, endingBarX);
+        if (_mouseFlag == MouseFlags.SeekBarPressed)
         {
-            _mouseFlag = MouseFlags.EndingBarMarkerPressed;
-            _initialStart = viewModel.Scene.Start;
-            _initialDuration = viewModel.Scene.Duration;
-        }
-        else if (TimelineHelper.IsPointInTimelineScaleStartingMarker(pointerPt.Position.X, scalePoint.Y, startingBarX))
-        {
-            _mouseFlag = MouseFlags.StartingBarMarkerPressed;
-            _initialStart = viewModel.Scene.Start;
-            _initialDuration = viewModel.Scene.Duration;
-        }
-        else
-        {
-            _mouseFlag = MouseFlags.SeekBarPressed;
             viewModel.CurrentTime.Value = viewModel.ClickedFrame;
         }
 
@@ -286,11 +248,10 @@ public sealed partial class TimelineTabView
     private static void SetClickedPosition(TimelineTabViewModel viewModel, Point position)
     {
         viewModel.ClickedFrame = position.X.PixelToTimeSpan(viewModel.Options.Value.Scale)
-            .RoundToRate(viewModel.Scene.FindHierarchicalParent<Project>().GetFrameRate());
+            .RoundToRate(SceneTimeRangeService.GetFrameRate(viewModel.Scene));
         viewModel.ClickedPosition = position;
     }
 
-    // ポインターが離れた
     private void TimelinePanel_PointerExited(object? sender, PointerEventArgs e)
     {
         if (ViewModel == null) return;

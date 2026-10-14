@@ -15,8 +15,6 @@ using Beutl.Reactive;
 using FluentAvalonia.Core;
 using FluentAvalonia.UI.Media;
 
-#nullable enable
-
 namespace Beutl.Controls.PropertyEditors;
 
 public enum SimpleColorPickerInputType
@@ -121,17 +119,17 @@ public class SimpleColorPicker : TemplatedControl
         if (_spectrum != null)
         {
             _spectrum.ColorChanged += OnSpectrumColorChanged;
-            AddConfirmHandlers(_spectrum);
+            ColorPickerParts.AddConfirmHandlers(_spectrum, OnSpectrumPointerPressed, OnSpectrumPointerReleased);
         }
         if (_ringSpectrum != null)
         {
             _ringSpectrum.ColorChanged += OnSpectrumColorChanged;
-            AddConfirmHandlers(_ringSpectrum);
+            ColorPickerParts.AddConfirmHandlers(_ringSpectrum, OnSpectrumPointerPressed, OnSpectrumPointerReleased);
         }
         if (_previewer != null)
         {
             _previewer.ColorChanged += OnSpectrumColorChanged;
-            AddConfirmHandlers(_previewer);
+            ColorPickerParts.AddConfirmHandlers(_previewer, OnSpectrumPointerPressed, OnSpectrumPointerReleased);
         }
 
         foreach (ColorSlider? item in GetColorSliders())
@@ -139,7 +137,7 @@ public class SimpleColorPicker : TemplatedControl
             if (item != null)
             {
                 item.ColorChanged += OnColorSliderColorChanged;
-                AddConfirmHandlers(item);
+                ColorPickerParts.AddConfirmHandlers(item, OnSpectrumPointerPressed, OnSpectrumPointerReleased);
             }
         }
 
@@ -189,18 +187,6 @@ public class SimpleColorPicker : TemplatedControl
                 .Subscribe(OnToggleSpectrumShapeButtonIsCheckedChanged)
                 .DisposeWith(_disposables);
         }
-    }
-
-    private void AddConfirmHandlers(Interactive target)
-    {
-        target.AddHandler(PointerPressedEvent, OnSpectrumPointerPressed, handledEventsToo: true);
-        target.AddHandler(PointerReleasedEvent, OnSpectrumPointerReleased, handledEventsToo: true);
-    }
-
-    private void RemoveConfirmHandlers(Interactive target)
-    {
-        target.RemoveHandler(PointerPressedEvent, OnSpectrumPointerPressed);
-        target.RemoveHandler(PointerReleasedEvent, OnSpectrumPointerReleased);
     }
 
     private void OnComponentsBoxValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
@@ -338,7 +324,7 @@ public class SimpleColorPicker : TemplatedControl
             {
                 1 => SimpleColorPickerInputType.Rgb,
                 2 => SimpleColorPickerInputType.Hsv,
-                0 or _ => SimpleColorPickerInputType.Hex,
+                _ => SimpleColorPickerInputType.Hex,
             };
         }
     }
@@ -418,7 +404,7 @@ public class SimpleColorPicker : TemplatedControl
         r = 0;
         if (string.IsNullOrWhiteSpace(s)) return false;
 
-        string text = s.Trim() ?? "";
+        string text = s.Trim();
         if (text.EndsWith('%'))
         {
             text = text.TrimEnd('%');
@@ -565,17 +551,17 @@ public class SimpleColorPicker : TemplatedControl
         if (_spectrum != null)
         {
             _spectrum.ColorChanged -= OnSpectrumColorChanged;
-            RemoveConfirmHandlers(_spectrum);
+            ColorPickerParts.RemoveConfirmHandlers(_spectrum, OnSpectrumPointerPressed, OnSpectrumPointerReleased);
         }
         if (_ringSpectrum != null)
         {
             _ringSpectrum.ColorChanged -= OnSpectrumColorChanged;
-            RemoveConfirmHandlers(_ringSpectrum);
+            ColorPickerParts.RemoveConfirmHandlers(_ringSpectrum, OnSpectrumPointerPressed, OnSpectrumPointerReleased);
         }
         if (_previewer != null)
         {
             _previewer.ColorChanged -= OnSpectrumColorChanged;
-            RemoveConfirmHandlers(_previewer);
+            ColorPickerParts.RemoveConfirmHandlers(_previewer, OnSpectrumPointerPressed, OnSpectrumPointerReleased);
         }
         if (_componentsBox != null)
         {
@@ -593,7 +579,7 @@ public class SimpleColorPicker : TemplatedControl
             if (item != null)
             {
                 item.ColorChanged -= OnColorSliderColorChanged;
-                RemoveConfirmHandlers(item);
+                ColorPickerParts.RemoveConfirmHandlers(item, OnSpectrumPointerPressed, OnSpectrumPointerReleased);
             }
         }
     }

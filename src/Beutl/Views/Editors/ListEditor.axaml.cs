@@ -1,12 +1,10 @@
-﻿using Avalonia;
-using Avalonia.Controls;
-using Avalonia.Controls.Presenters;
-using Avalonia.Input;
+﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
-using Avalonia.LogicalTree;
+using Avalonia.Layout;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Avalonia.Xaml.Interactivity;
+using Beutl.Controls.Behaviors;
 using Beutl.Engine;
 using Beutl.Language;
 using Beutl.Services;
@@ -16,231 +14,28 @@ using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Views.Editors;
 
-public sealed class ListEditorDragBehavior : Behavior<Control>
+public sealed class ListEditorDragBehavior : GenericDragBehavior
 {
-    private bool _enableDrag;
-    private bool _dragStarted;
-    private Point _start;
-    private int _draggedIndex;
-    private int _targetIndex;
-    private ItemsControl? _itemsControl;
-    private Control? _draggedContainer;
-
-    private const double DragThreshold = 3;
-
-    public Control? DragControl { get; set; }
-
-    protected override void OnAttached()
+    public ListEditorDragBehavior()
     {
-        base.OnAttached();
-
-        if (DragControl is { })
-        {
-            DragControl.AddHandler(InputElement.PointerReleasedEvent, Released, RoutingStrategies.Tunnel);
-            DragControl.AddHandler(InputElement.PointerPressedEvent, Pressed, RoutingStrategies.Tunnel);
-            DragControl.AddHandler(InputElement.PointerMovedEvent, Moved, RoutingStrategies.Tunnel);
-            DragControl.AddHandler(InputElement.PointerCaptureLostEvent, CaptureLost, RoutingStrategies.Tunnel);
-        }
+        Orientation = Orientation.Vertical;
     }
 
-    protected override void OnDetaching()
-    {
-        base.OnDetaching();
+    // The reorder handle can be the item's expander toggle, so the press and the pointer capture stay with it and
+    // only a release that ends a drag is handled here.
+    protected override bool CapturesPointer => false;
 
-        if (DragControl is { })
-        {
-            DragControl.RemoveHandler(InputElement.PointerReleasedEvent, Released);
-            DragControl.RemoveHandler(InputElement.PointerPressedEvent, Pressed);
-            DragControl.RemoveHandler(InputElement.PointerMovedEvent, Moved);
-            DragControl.RemoveHandler(InputElement.PointerCaptureLostEvent, CaptureLost);
-        }
-    }
+    protected override DragEventHandling HandledEvents => DragEventHandling.WhileDragging;
 
-    private void Pressed(object? sender, PointerPressedEventArgs e)
-    {
-        PointerPointProperties properties = e.GetCurrentPoint(AssociatedObject).Properties;
-        if (properties.IsLeftButtonPressed
-            && AssociatedObject?.FindLogicalAncestorOfType<ItemsControl>() is { } itemsControl)
-        {
-            _enableDrag = true;
-            _dragStarted = false;
-            _start = e.GetPosition(itemsControl);
-            _draggedIndex = -1;
-            _targetIndex = -1;
-            _itemsControl = itemsControl;
-            _draggedContainer = AssociatedObject?.FindAncestorOfType<ContentPresenter>();
+    protected override bool CountsItems => true;
 
-            if (_draggedContainer is { })
-            {
-                ReorderDragHelper.SetDraggingPseudoClasses(_draggedContainer, true);
-            }
+    protected override bool CancelsDragOnDetach => false;
 
-            ResetTransforms(_itemsControl);
-        }
-    }
-
-    private void Released(object? sender, PointerReleasedEventArgs e)
-    {
-        if (_enableDrag)
-        {
-            if (_dragStarted)
-            {
-                e.Handled = true;
-            }
-
-            if (e.InitialPressMouseButton == MouseButton.Left)
-            {
-                Released();
-            }
-        }
-    }
-
-    private void CaptureLost(object? sender, PointerCaptureLostEventArgs e)
-    {
-        if (_dragStarted)
-        {
-            e.Handled = true;
-        }
-
-        Released();
-    }
-
-    private void Released()
-    {
-        if (!_enableDrag)
-        {
-            return;
-        }
-
-        ResetTransforms(_itemsControl);
-
-        if (_itemsControl is { })
-        {
-            foreach (Control container in _itemsControl.GetRealizedContainers())
-            {
-                ReorderDragHelper.SetDraggingPseudoClasses(container, true);
-            }
-        }
-
-        if (_dragStarted && _draggedIndex >= 0 && _targetIndex >= 0 && _draggedIndex != _targetIndex)
-        {
-            OnMoveDraggedItem(_itemsControl, _draggedIndex, _targetIndex);
-        }
-
-        if (_itemsControl is { })
-        {
-            foreach (Control container in _itemsControl.GetRealizedContainers())
-            {
-                ReorderDragHelper.SetDraggingPseudoClasses(container, false);
-            }
-        }
-
-        if (_draggedContainer is { })
-        {
-            ReorderDragHelper.SetDraggingPseudoClasses(_draggedContainer, false);
-        }
-
-        _draggedIndex = -1;
-        _targetIndex = -1;
-        _enableDrag = false;
-        _dragStarted = false;
-        _itemsControl = null;
-
-        _draggedContainer = null;
-    }
-
-    private static void ResetTransforms(ItemsControl? itemsControl)
-    {
-        if (itemsControl?.Items is null)
-        {
-            return;
-        }
-
-        ReorderDragHelper.ResetTranslateTransforms(itemsControl, itemsControl.Items);
-    }
-
-    private static void OnMoveDraggedItem(ItemsControl? itemsControl, int oldIndex, int newIndex)
+    protected override void OnMoveDraggedItem(ItemsControl? itemsControl, int oldIndex, int newIndex)
     {
         if (itemsControl?.DataContext is IListEditorViewModel viewModel)
         {
             viewModel.MoveItem(oldIndex, newIndex);
-        }
-    }
-
-    private void Moved(object? sender, PointerEventArgs e)
-    {
-        PointerPointProperties properties = e.GetCurrentPoint(AssociatedObject).Properties;
-        if (_enableDrag && properties.IsLeftButtonPressed)
-        {
-            if (_itemsControl?.Items is null || _draggedContainer?.RenderTransform is null)
-            {
-                return;
-            }
-
-            Point position = e.GetPosition(_itemsControl);
-            double delta = position.Y - _start.Y;
-
-            if (!_dragStarted)
-            {
-                Point diff = _start - position;
-
-                if (Math.Abs(diff.Y) > DragThreshold)
-                {
-                    _dragStarted = true;
-                }
-                else
-                {
-                    return;
-                }
-            }
-
-            ReorderDragHelper.SetTranslateTransform(_draggedContainer, 0, delta);
-
-            _draggedIndex = _itemsControl.IndexFromContainer(_draggedContainer);
-            _targetIndex = -1;
-
-            Rect draggedBounds = _draggedContainer.Bounds;
-            double draggedStart = draggedBounds.Y;
-            double draggedDeltaStart = draggedBounds.Y + delta;
-            double draggedDeltaEnd = draggedBounds.Y + delta + draggedBounds.Height;
-
-            int i = 0;
-
-            foreach (object? _ in _itemsControl.Items)
-            {
-                Control? targetContainer = _itemsControl.ContainerFromIndex(i);
-                if (targetContainer?.RenderTransform is null || ReferenceEquals(targetContainer, _draggedContainer))
-                {
-                    i++;
-                    continue;
-                }
-
-                Rect targetBounds = targetContainer.Bounds;
-                double targetStart = targetBounds.Y;
-                double targetMid = targetBounds.Y + targetBounds.Height / 2;
-                int targetIndex = i;
-
-                if (targetStart > draggedStart && draggedDeltaEnd >= targetMid)
-                {
-                    ReorderDragHelper.SetTranslateTransform(targetContainer, 0, -draggedBounds.Height);
-
-                    _targetIndex = _targetIndex == -1 ? targetIndex :
-                        targetIndex > _targetIndex ? targetIndex : _targetIndex;
-                }
-                else if (targetStart < draggedStart && draggedDeltaStart <= targetMid)
-                {
-                    ReorderDragHelper.SetTranslateTransform(targetContainer, 0, draggedBounds.Height);
-
-                    _targetIndex = _targetIndex == -1 ? targetIndex :
-                        targetIndex < _targetIndex ? targetIndex : _targetIndex;
-                }
-                else
-                {
-                    ReorderDragHelper.SetTranslateTransform(targetContainer, 0, 0);
-                }
-
-                i++;
-            }
         }
     }
 }

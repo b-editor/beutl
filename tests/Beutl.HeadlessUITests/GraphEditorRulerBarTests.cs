@@ -4,7 +4,6 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
-using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
@@ -14,13 +13,9 @@ using Beutl.Editor.Components.GraphEditorTab.ViewModels;
 using Beutl.Editor.Components.GraphEditorTab.Views;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.Views;
-using Beutl.Editor.Models;
-using Beutl.Editor.Services;
 using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
-using Beutl.ViewModels;
 using GraphScope = Beutl.HeadlessUITests.GraphEditorContextMenuTests.GraphScope;
-using RectShape = Beutl.Graphics.Shapes.RectShape;
 
 namespace Beutl.HeadlessUITests;
 
@@ -62,15 +57,22 @@ public class GraphEditorRulerBarTests
     [TestCase(double.NaN, 350)]
     [TestCase(1e-15, 350)]
     [TestCase(1, 1e20)]
-    public async Task Extreme_grid_inputs_render_without_stalling(double scale, double baseline)
+    public void Extreme_grid_inputs_render_without_stalling(double scale, double baseline)
     {
-        using var graph = await GraphScope.CreateAsync();
         var background = new GraphEditorBackground { Scale = scale, Baseline = baseline, Viewport = new Size(600, 400), IsSpeedGraph = true };
         var ruler = new GraphEditorScale { Scale = scale, Baseline = baseline, Width = 60 };
-        graph.Window.Content = new Grid { Children = { background, ruler } };
-        HeadlessTestHelpers.Render(3);
-        using var frame = graph.Window.CaptureRenderedFrame();
-        Assert.That(frame, Is.Not.Null);
+        var window = new Window { Content = new Grid { Children = { background, ruler } }, Width = 640, Height = 420 };
+        window.Show();
+        try
+        {
+            HeadlessTestHelpers.Render(3);
+            using var frame = window.CaptureRenderedFrame();
+            Assert.That(frame, Is.Not.Null);
+        }
+        finally
+        {
+            window.Close();
+        }
     }
 
     [AvaloniaTest]
@@ -91,7 +93,6 @@ public class GraphEditorRulerBarTests
         double majorY = scroll.Viewport.Height - step * scaleY * 0.7;
         graph.Model.ScrollOffset.Value = new Vector(0, graph.Model.Baseline.Value - lowestMajor * scaleY - majorY);
         HeadlessTestHelpers.Render(3);
-        graph.Capture($"bottom-grid-{light}-{scaleY}-{lowestMajor}-{dpi}");
         using var frame = graph.Window.CaptureRenderedFrame();
         Assert.That(frame, Is.Not.Null);
         using var pixels = frame!.Lock();
@@ -133,26 +134,17 @@ public class GraphEditorRulerBarTests
         HeadlessTestHelpers.Render();
 
         // The ending bar sits at 300 px (2 s at 150 px per second); drop it onto the start.
-        Drag(new Point(298, 8), new Point(0, 8));
+        graph.Drag(OnRuler(298), OnRuler(0));
         Assert.That(scene.Duration, Is.EqualTo(frame));
 
         scene.Duration = TimeSpan.FromSeconds(2);
         HeadlessTestHelpers.Render();
         // Drop the starting bar onto the end.
-        Drag(new Point(2, 8), new Point(300, 8));
+        graph.Drag(OnRuler(2), OnRuler(300));
         Assert.That(scene.Start, Is.EqualTo(TimeSpan.FromSeconds(2) - frame));
         Assert.That(scene.Duration, Is.EqualTo(frame));
 
-        void Drag(Point from, Point to)
-        {
-            Point start = horizontal.TranslatePoint(from, graph.Window)!.Value;
-            Point end = horizontal.TranslatePoint(to, graph.Window)!.Value;
-            graph.Window.MouseMove(start);
-            graph.Window.MouseDown(start, MouseButton.Left);
-            graph.Window.MouseMove(end, RawInputModifiers.LeftMouseButton);
-            graph.Window.MouseUp(end, MouseButton.Left);
-            HeadlessTestHelpers.Render();
-        }
+        Point OnRuler(double x) => horizontal.TranslatePoint(new Point(x, 8), graph.Window)!.Value;
     }
 
     [AvaloniaTest]
@@ -162,37 +154,20 @@ public class GraphEditorRulerBarTests
     [TestCase(960, true)]
     public async Task Both_rulers_stay_aligned_during_seek_pan_zoom_and_keyframe_drag(int width, bool light)
     {
-        await TestReset.ResetShellAsync();
-        string root = Path.Combine(BeutlHomeIsolation.CurrentHome!, $"graph-rulers-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(root);
-        Project project = (await TestShell.Project.CreateProject(640, 480, 30, 44100, "graph-rulers", root))!;
-        Scene scene = project.Items.OfType<Scene>().Single();
-        TestShell.Editor.ActivateTabItem(scene);
-        HeadlessTestHelpers.Settle();
-        var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
-        var animation = new KeyFrameAnimation<float>();
-        var first = new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(0.5), Value = 100 };
-        animation.KeyFrames.Add(first);
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1.5), Value = 500 });
-        var shape = new RectShape();
-        shape.Width.Animation = animation;
-        await ((IElementAdder)editor.GetService(typeof(IElementAdder))!).AddAsync(
-            [new ElementDescription(TimeSpan.FromSeconds(0.2), TimeSpan.FromSeconds(2), 0,
-                new ElementSource.EngineObject(() => shape))], CancellationToken.None);
-        Element element = scene.Children.Single();
-        using var model = new GraphEditorTabViewModel(editor);
+        using var scope = await GraphScope.CreateAsync(light, elementStart: TimeSpan.FromSeconds(0.2));
+        scope.View.DataContext = null;
+        Scene scene = scope.Model.Scene;
+        Element element = scope.Model.Element!;
+        KeyFrameAnimation<float> animation = scope.Animation;
+        KeyFrame<float> first = scope.First;
+        using var model = new GraphEditorTabViewModel(scope.Model.EditorContext);
         var view = new GraphEditorTabView { DataContext = model };
-        var window = new Window
-        {
-            Content = view,
-            Width = width,
-            Height = 420,
-            RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark
-        };
+        Window window = scope.Window;
+        window.Content = view;
+        window.Width = width;
         GraphEditorViewModel? graph = null;
         try
         {
-            window.Show();
             HeadlessTestHelpers.Render();
             GraphEditorView graphView = view.GetVisualDescendants().OfType<GraphEditorView>().Single();
             Assert.That(graphView.IsVisible, Is.False);
@@ -213,16 +188,15 @@ public class GraphEditorRulerBarTests
             Panel canvas = graphView.FindControl<Panel>("graphPanel")!;
             GraphEditorBackground background = graphView.FindControl<GraphEditorBackground>("background")!;
             CheckAlignment();
-            Capture("selected");
 
-            Click(horizontal, new Point(75, 24));
+            scope.Click(horizontal.TranslatePoint(new Point(75, 24), window)!.Value);
             Assert.That(graph.CurrentTime.Value, Is.EqualTo(TimeSpan.FromSeconds(0.5)));
-            Click(bar, new Point(90, 4));
+            scope.Click(bar.TranslatePoint(new Point(90, 4), window)!.Value);
             Assert.That(graph.CurrentTime.Value, Is.EqualTo(TimeSpan.FromSeconds(0.6)));
 
-            Drag(horizontal, new Point(298, 8), new Point(270, 8));
+            scope.Drag(horizontal.TranslatePoint(new Point(298, 8), window)!.Value, horizontal.TranslatePoint(new Point(270, 8), window)!.Value);
             Assert.That(scene.Duration, Is.EqualTo(TimeSpan.FromSeconds(1.8)));
-            Drag(horizontal, new Point(2, 8), new Point(30, 8));
+            scope.Drag(horizontal.TranslatePoint(new Point(2, 8), window)!.Value, horizontal.TranslatePoint(new Point(30, 8), window)!.Value);
             Assert.That(scene.Start, Is.EqualTo(TimeSpan.FromSeconds(0.2)));
             Assert.That(scene.Duration, Is.EqualTo(TimeSpan.FromSeconds(1.6)));
 
@@ -245,7 +219,7 @@ public class GraphEditorRulerBarTests
             Assert.That(scroll.Offset.X, Is.EqualTo(75));
             Assert.That(scroll.Offset.Y, Is.EqualTo(60));
             CheckAlignment();
-            Click(bar, new Point(75, 4));
+            scope.Click(bar.TranslatePoint(new Point(75, 4), window)!.Value);
             Assert.That(graph.CurrentTime.Value, Is.EqualTo(TimeSpan.FromSeconds(1)));
 
             Point verticalPoint = vertical.TranslatePoint(new Point(10, 80), window)!.Value;
@@ -257,9 +231,7 @@ public class GraphEditorRulerBarTests
             Assert.That(scroll.Offset.X, Is.EqualTo(75));
             CheckAlignment();
 
-            RawInputModifiers modifier = KeyGestureHelper.GetCommandModifier() == KeyModifiers.Meta
-                ? RawInputModifiers.Meta : RawInputModifiers.Control;
-            window.MouseWheel(verticalPoint, new Vector(0, 1), modifier);
+            window.MouseWheel(verticalPoint, new Vector(0, 1), GraphScope.CommandModifier);
             HeadlessTestHelpers.Render();
             Assert.That(graph.ScaleY.Value, Is.EqualTo(0.6).Within(0.001));
             CheckAlignment();
@@ -267,22 +239,17 @@ public class GraphEditorRulerBarTests
             HeadlessTestHelpers.Render();
             Assert.That(graph.Options.Value.Scale, Is.EqualTo(1.2f).Within(0.001));
             CheckAlignment();
-            Capture("zoomed");
 
             graph.SelectedView.Value!.SetSelection(animation.KeyFrames);
             graphView.Focus();
-            window.KeyPress(Key.F9, RawInputModifiers.None, PhysicalKey.None, null);
-            window.KeyRelease(Key.F9, RawInputModifiers.None, PhysicalKey.None, null);
-            window.KeyPress(Key.F, RawInputModifiers.None, PhysicalKey.None, "f");
-            window.KeyRelease(Key.F, RawInputModifiers.None, PhysicalKey.None, "f");
+            scope.PressKey(Key.F9);
+            scope.FitAll();
             HeadlessTestHelpers.Render(3);
             CheckAlignment();
-            Capture("value-overview");
             graph.IsSpeedGraph.Value = true;
             HeadlessTestHelpers.Render(3);
             CheckAlignment();
             Assert.That(graphView.FindControl<GraphEditorSpeedGraph>("SpeedGraph")!.IsVisible, Is.True);
-            Capture("speed-overview");
             graph.IsSpeedGraph.Value = false;
             HeadlessTestHelpers.Render(3);
 
@@ -331,40 +298,11 @@ public class GraphEditorRulerBarTests
                         Is.EqualTo(background.TranslatePoint(new Point(0, graph.Baseline.Value), graphView)!.Value.Y).Within(0.001));
                 });
             }
-
-            void Click(Control control, Point point)
-            {
-                Point position = control.TranslatePoint(point, window)!.Value;
-                window.MouseMove(position);
-                window.MouseDown(position, MouseButton.Left);
-                window.MouseUp(position, MouseButton.Left);
-                HeadlessTestHelpers.Render();
-            }
-
-            void Drag(Control control, Point from, Point to)
-            {
-                Point start = control.TranslatePoint(from, window)!.Value;
-                Point end = control.TranslatePoint(to, window)!.Value;
-                window.MouseMove(start);
-                window.MouseDown(start, MouseButton.Left);
-                window.MouseMove(end, RawInputModifiers.LeftMouseButton);
-                window.MouseUp(end, MouseButton.Left);
-                HeadlessTestHelpers.Render();
-            }
         }
         finally
         {
             view.DataContext = null;
             graph?.Dispose();
-            window.Close();
-        }
-
-        void Capture(string name)
-        {
-            if (Environment.GetEnvironmentVariable("BEUTL_GRAPH_RULER_CAPTURE") is not { Length: > 0 } directory) return;
-            Directory.CreateDirectory(directory);
-            using var image = window.CaptureRenderedFrame();
-            image?.Save(Path.Combine(directory, $"{name}-{width}-{light}.png"), PngBitmapEncoderOptions.Default);
         }
     }
 }

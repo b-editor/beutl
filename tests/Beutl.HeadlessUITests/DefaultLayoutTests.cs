@@ -2,9 +2,7 @@
 using Beutl.Editor.Components.ElementPropertyTab;
 using Beutl.Editor.Components.FileBrowserTab;
 using Beutl.Editor.Components.LibraryTab;
-using Beutl.ProjectSystem;
 using Beutl.Services.PrimitiveImpls;
-using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Dock;
 using Dock.Model.Controls;
@@ -15,32 +13,11 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class DefaultLayoutTests
 {
-    private static Task ResetProjectAsync() => TestReset.ResetShellAsync();
-
-    private static string NewWorkspace(string name)
-    {
-        string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, name);
-        Directory.CreateDirectory(location);
-        return location;
-    }
-
-    private static async Task<EditViewModel> OpenEditorForNewScene(int width, int height, string name)
-    {
-        Project project = (await TestShell.Project.CreateProject(
-            width, height, 30, 44100, name, NewWorkspace(name)))!;
-        HeadlessTestHelpers.Settle();
-        Scene scene = project.Items.OfType<Scene>().First();
-
-        TestShell.Editor.ActivateTabItem(scene);
-        HeadlessTestHelpers.Settle();
-        return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
-    }
-
     [AvaloniaTest]
     public async Task Landscape_scene_uses_landscape_default_layout()
     {
-        await ResetProjectAsync();
-        EditViewModel editor = await OpenEditorForNewScene(1920, 1080, "layout-landscape");
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("layout-landscape", 1920, 1080);
 
         IRootDock root = editor.DockHost.Layout.Value;
         var docks = BeutlDockFactory.Traverse(root).OfType<IDock>().ToList();
@@ -62,8 +39,8 @@ public class DefaultLayoutTests
     [AvaloniaTest]
     public async Task Portrait_scene_uses_portrait_default_layout()
     {
-        await ResetProjectAsync();
-        EditViewModel editor = await OpenEditorForNewScene(1080, 1920, "layout-portrait");
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("layout-portrait", 1080, 1920);
 
         IRootDock root = editor.DockHost.Layout.Value;
         var docks = BeutlDockFactory.Traverse(root).OfType<IDock>().ToList();

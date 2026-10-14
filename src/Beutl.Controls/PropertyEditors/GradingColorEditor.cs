@@ -6,8 +6,6 @@ using Avalonia.Interactivity;
 
 using Beutl.Media;
 
-#nullable enable
-
 namespace Beutl.Controls.PropertyEditors;
 
 public class GradingColorEditor : PropertyEditor
@@ -22,6 +20,9 @@ public class GradingColorEditor : PropertyEditor
     public static readonly StyledProperty<bool> IsLivePreviewEnabledProperty =
         AvaloniaProperty.Register<GradingColorEditor, bool>(nameof(IsLivePreviewEnabled));
 
+    public static readonly DirectProperty<GradingColorEditor, Avalonia.Media.IBrush> PreviewBrushProperty =
+        AvaloniaProperty.RegisterDirect<GradingColorEditor, Avalonia.Media.IBrush>(nameof(PreviewBrush), o => o.PreviewBrush);
+
     private GradingColorPickerFlyout? _flyout;
 
     private bool _flyoutActive;
@@ -29,12 +30,22 @@ public class GradingColorEditor : PropertyEditor
 
     private GradingColor _oldValue;
     private GradingColor _value;
+    private Avalonia.Media.IBrush _previewBrush = CreatePreviewBrush(default);
 
     public GradingColor Value
     {
         get => _value;
-        set => SetAndRaise(ValueProperty, ref _value, value);
+        set
+        {
+            if (SetAndRaise(ValueProperty, ref _value, value))
+            {
+                SetAndRaise(PreviewBrushProperty, ref _previewBrush, CreatePreviewBrush(value));
+            }
+        }
     }
+
+    // The swatch the shared ColorEditor theme shows for the value.
+    public Avalonia.Media.IBrush PreviewBrush => _previewBrush;
 
     public bool IsLivePreviewEnabled
     {
@@ -59,10 +70,7 @@ public class GradingColorEditor : PropertyEditor
         }
         base.OnApplyTemplate(e);
         _button = e.NameScope.Get<Button>("PART_ColorPickerButton");
-        if (_button != null)
-        {
-            _button.Click += OnButtonClick;
-        }
+        _button.Click += OnButtonClick;
     }
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
@@ -82,6 +90,8 @@ public class GradingColorEditor : PropertyEditor
             _flyout.Confirmed -= OnFlyoutConfirmed;
         }
     }
+
+    private static Avalonia.Media.SolidColorBrush CreatePreviewBrush(GradingColor color) => new(color.ToColor().ToAvaColor());
 
     private void OnButtonClick(object? sender, RoutedEventArgs e)
     {
@@ -119,7 +129,7 @@ public class GradingColorEditor : PropertyEditor
         }
     }
 
-    private void OnFlyoutConfirmed(GradingColorPickerFlyout sender, EventArgs args)
+    private void OnFlyoutConfirmed(DraggablePickerFlyout<GradingColorPicker> sender, EventArgs args)
     {
         if (_flyoutActive && _flyout != null)
         {

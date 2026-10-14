@@ -6,6 +6,7 @@ using Avalonia.Threading;
 using Beutl.Configuration;
 using Beutl.Editor.Components.GraphEditorTab.ViewModels;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Services;
 using Vector = Avalonia.Vector;
 
 namespace Beutl.Editor.Components.GraphEditorTab.Views;
@@ -139,7 +140,7 @@ public partial class GraphEditorView
             {
                 double first = keys.Min(x => x.Model.KeyTime.TotalSeconds);
                 double last = keys.Max(x => x.Model.KeyTime.TotalSeconds);
-                double duration = Math.Max(last - first, 1d / model.Scene.FindHierarchicalParent<Project>().GetFrameRate());
+                double duration = Math.Max(last - first, 1d / SceneTimeRangeService.GetFrameRate(model.Scene));
                 float scale = (float)Math.Clamp(Math.Max(1, scroll.Viewport.Width - padding * 2)
                     / TimeSpan.FromSeconds(duration).TimeToPixel(1), 0.001, 100);
                 model.Options.Value = model.Options.Value with { Scale = scale };

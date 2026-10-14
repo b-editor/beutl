@@ -1,5 +1,4 @@
-﻿using System.IO.Compression;
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 using System.Security.AccessControl;
 using System.Security.Principal;
 using System.Text;
@@ -9,7 +8,6 @@ using Beutl.Testing.Headless;
 using NuGet.Configuration;
 using NuGet.Packaging.Core;
 using NuGet.Resolver;
-using NuGet.Versioning;
 
 namespace Beutl.HeadlessUITests;
 
@@ -27,11 +25,10 @@ public sealed partial class PackageInstallerNuGetConfigTests
         </configuration>
         """;
 
-    private byte[]? _originalConfig;
+    private AppRootFileBackup _config = null!;
     private UnixFileMode? _originalUnixMode;
     private FileSecurity? _originalSecurity;
-    private readonly List<string> _createdFiles = [];
-    private readonly List<string> _createdDirectories = [];
+    private readonly List<string> _cleanup = [];
 
     private static string ConfigPath => Path.Combine(Helper.AppRoot, "nuget.config");
 
@@ -39,11 +36,11 @@ public sealed partial class PackageInstallerNuGetConfigTests
     public void SetUp()
     {
         Assert.That(Helper.AppRoot, Is.EqualTo(BeutlHomeIsolation.CurrentHome));
-        _originalConfig = File.Exists(ConfigPath) ? File.ReadAllBytes(ConfigPath) : null;
-        _originalUnixMode = _originalConfig is not null && !OperatingSystem.IsWindows()
+        _config = new AppRootFileBackup("nuget.config");
+        _originalUnixMode = _config.Existed && !OperatingSystem.IsWindows()
             ? File.GetUnixFileMode(ConfigPath)
             : null;
-        _originalSecurity = _originalConfig is not null && OperatingSystem.IsWindows()
+        _originalSecurity = _config.Existed && OperatingSystem.IsWindows()
             ? new FileInfo(ConfigPath).GetAccessControl(AccessControlSections.Access)
             : null;
         Directory.CreateDirectory(Helper.LocalSourcePath);
@@ -52,23 +49,12 @@ public sealed partial class PackageInstallerNuGetConfigTests
     [TearDown]
     public void TearDown()
     {
-        foreach (string file in _createdFiles)
-            File.Delete(file);
-        foreach (string directory in _createdDirectories.Where(Directory.Exists))
-            Directory.Delete(directory, recursive: true);
-        _createdFiles.Clear();
-        _createdDirectories.Clear();
-
-        if (_originalConfig is null)
-            File.Delete(ConfigPath);
-        else
-        {
-            File.WriteAllBytes(ConfigPath, _originalConfig);
-            if (!OperatingSystem.IsWindows() && _originalUnixMode is { } mode)
-                File.SetUnixFileMode(ConfigPath, mode);
-            if (OperatingSystem.IsWindows() && _originalSecurity is { } security)
-                new FileInfo(ConfigPath).SetAccessControl(security);
-        }
+        TestPackages.Delete(_cleanup);
+        _config.Dispose();
+        if (!OperatingSystem.IsWindows() && _originalUnixMode is { } mode)
+            File.SetUnixFileMode(ConfigPath, mode);
+        if (OperatingSystem.IsWindows() && _originalSecurity is { } security)
+            new FileInfo(ConfigPath).SetAccessControl(security);
     }
 
     [Test]
@@ -77,7 +63,7 @@ public sealed partial class PackageInstallerNuGetConfigTests
         string oldSource = Path.Combine(Helper.AppRoot, "old-home", "packageSource");
         string customSource = Path.Combine(Helper.AppRoot, "customSource");
         Directory.CreateDirectory(customSource);
-        _createdDirectories.Add(customSource);
+        _cleanup.Add(customSource);
         var document = new XDocument(
             new XElement("configuration",
                 new XComment("Keep the user's other package settings."),
@@ -140,7 +126,7 @@ public sealed partial class PackageInstallerNuGetConfigTests
     {
         string targetDirectory = Path.Combine(Helper.AppRoot, $"legacy-config-{Guid.NewGuid():N}");
         Directory.CreateDirectory(targetDirectory);
-        _createdDirectories.Add(targetDirectory);
+        _cleanup.Add(targetDirectory);
         string targetPath = Path.Combine(targetDirectory, "shared.config");
         const string LegacyConfig = """
             <configuration>
@@ -150,7 +136,7 @@ public sealed partial class PackageInstallerNuGetConfigTests
             """;
         File.WriteAllText(targetPath, LegacyConfig);
         File.Delete(ConfigPath);
-        _createdFiles.Add(ConfigPath);
+        _cleanup.Add(ConfigPath);
         string linkTarget = relativeTarget ? Path.GetRelativePath(Helper.AppRoot, targetPath) : targetPath;
         CreateSymbolicLinkOrIgnore(ConfigPath, linkTarget);
         using var client = new HttpClient();
@@ -297,11 +283,11 @@ public sealed partial class PackageInstallerNuGetConfigTests
     {
         string targetDirectory = Path.Combine(Helper.AppRoot, $"linked-config-{Guid.NewGuid():N}");
         Directory.CreateDirectory(targetDirectory);
-        _createdDirectories.Add(targetDirectory);
+        _cleanup.Add(targetDirectory);
         string targetPath = Path.Combine(targetDirectory, "shared.config");
         File.WriteAllText(targetPath, ConfigWithStaleSource);
         File.Delete(ConfigPath);
-        _createdFiles.Add(ConfigPath);
+        _cleanup.Add(ConfigPath);
         string linkTarget = relativeTarget ? Path.GetRelativePath(Helper.AppRoot, targetPath) : targetPath;
         CreateSymbolicLinkOrIgnore(ConfigPath, linkTarget);
         using var client = new HttpClient();
@@ -356,7 +342,7 @@ public sealed partial class PackageInstallerNuGetConfigTests
         await using var installer = new PackageInstaller(client, new InstalledPackageRepository(), null!);
         PackageInstallContext context = installer.PrepareForInstall(identity.Id, identity.Version.ToString());
 
-        Assert.ThrowsAsync<NuGetResolverInputException>(() => installer.ResolveDependencies(context, NuGet.Common.NullLogger.Instance));
+        await Assert.ThrowsAsync<NuGetResolverInputException>(() => installer.ResolveDependencies(context, NuGet.Common.NullLogger.Instance));
     }
 
     private async Task AssertLocalPackageResolves(PackageInstaller installer)
@@ -448,29 +434,5 @@ public sealed partial class PackageInstallerNuGetConfigTests
     [LibraryImport("libacl.so.1", EntryPoint = "acl_free")]
     private static partial int AclFree(nint value);
 
-    private PackageIdentity CreateLocalPackage()
-    {
-        var identity = new PackageIdentity($"Beutl.RelocatedHomeTest.{Guid.NewGuid():N}", NuGetVersion.Parse("1.0.0"));
-        string sourcePath = Helper.GetNupkgFilePath(identity.Id, identity.Version.ToString());
-        _createdFiles.Add(sourcePath);
-        _createdDirectories.Add(Helper.PackagePathResolver.GetInstallPath(identity));
-        using var archive = ZipFile.Open(sourcePath, ZipArchiveMode.Create);
-        using (StreamWriter writer = new(archive.CreateEntry($"{identity.Id}.nuspec").Open(), new UTF8Encoding(false)))
-        {
-            writer.Write($$"""
-                <?xml version="1.0" encoding="utf-8"?>
-                <package xmlns="http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd">
-                  <metadata>
-                    <id>{{identity.Id}}</id>
-                    <version>{{identity.Version}}</version>
-                    <authors>tester</authors>
-                    <description>A package downloaded into the relocated home</description>
-                  </metadata>
-                </package>
-                """);
-        }
-        using (StreamWriter writer = new(archive.CreateEntry("content/payload.txt").Open(), new UTF8Encoding(false)))
-            writer.Write("local payload");
-        return identity;
-    }
+    private PackageIdentity CreateLocalPackage() => TestPackages.CreateNupkg("Beutl.RelocatedHomeTest", "1.0.0", _cleanup);
 }

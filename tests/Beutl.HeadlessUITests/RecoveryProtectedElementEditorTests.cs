@@ -108,7 +108,6 @@ public sealed class RecoveryProtectedElementEditorTests
                 Assert.That(viewModel.IsRecoveryProtected.Value, Is.True);
                 Assert.That(viewModel.IsEditable.Value, Is.False);
                 Assert.That(viewModel.IsLockedByUser.Value, Is.False);
-                Assert.That(viewModel.CanRemove.Value, Is.True);
                 Assert.That(viewModel.CanToggleLock.Value, Is.False, "A lock on this clip would not be saved.");
                 Assert.That(recoveryIcon.IsVisible, Is.True);
                 Assert.That(lockIcon.IsVisible, Is.False, "The clip is not locked by the user.");

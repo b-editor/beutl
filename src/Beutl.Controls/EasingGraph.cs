@@ -1,6 +1,4 @@
-﻿#nullable enable
-
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls.Primitives;
 using Avalonia.Media;
 

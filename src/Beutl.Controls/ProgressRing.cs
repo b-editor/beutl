@@ -30,11 +30,13 @@ public class ProgressRing : RangeBase
 
     static ProgressRing()
     {
-        MinimumProperty.Changed.AddClassHandler<ProgressRing>(OnMinimumPropertyChanged);
-        MaximumProperty.Changed.AddClassHandler<ProgressRing>(OnMaximumPropertyChanged);
-        ValueProperty.Changed.AddClassHandler<ProgressRing>(OnValuePropertyChanged);
-        StartAngleProperty.Changed.AddClassHandler<ProgressRing>(OnAnglePropertyChanged);
-        EndAngleProperty.Changed.AddClassHandler<ProgressRing>(OnAnglePropertyChanged);
+        // Redraws the arc for the new value instead of writing the value back, which could replace a binding.
+        Action<ProgressRing, AvaloniaPropertyChangedEventArgs> updateValueAngle = (sender, _) => sender.UpdateValueAngle();
+        MinimumProperty.Changed.AddClassHandler<ProgressRing>(updateValueAngle);
+        MaximumProperty.Changed.AddClassHandler<ProgressRing>(updateValueAngle);
+        ValueProperty.Changed.AddClassHandler<ProgressRing>(updateValueAngle);
+        StartAngleProperty.Changed.AddClassHandler<ProgressRing>(updateValueAngle);
+        EndAngleProperty.Changed.AddClassHandler<ProgressRing>(updateValueAngle);
     }
 
     public ProgressRing()
@@ -100,29 +102,6 @@ public class ProgressRing : RangeBase
         {
             PseudoClasses.Set(":preserveaspect", preserveAspect.Value);
         }
-    }
-
-    static void OnMinimumPropertyChanged(ProgressRing sender, AvaloniaPropertyChangedEventArgs e)
-    {
-        sender.Minimum = e.GetNewValue<double>();
-        sender.UpdateValueAngle();
-    }
-
-    static void OnMaximumPropertyChanged(ProgressRing sender, AvaloniaPropertyChangedEventArgs e)
-    {
-        sender.Maximum = e.GetNewValue<double>();
-        sender.UpdateValueAngle();
-    }
-
-    static void OnValuePropertyChanged(ProgressRing sender, AvaloniaPropertyChangedEventArgs e)
-    {
-        sender.UpdateValueAngle();
-    }
-
-    // Redraws the arc for the new angles instead of writing the angle back, which could replace a binding.
-    static void OnAnglePropertyChanged(ProgressRing sender, AvaloniaPropertyChangedEventArgs e)
-    {
-        sender.UpdateValueAngle();
     }
 
     // An empty range has no progress to show, so it draws no arc instead of a NaN sweep.

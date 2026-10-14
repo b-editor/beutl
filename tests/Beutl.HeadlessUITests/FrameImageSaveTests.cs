@@ -17,16 +17,6 @@ public class FrameImageSaveTests
     public void TearDown() => Directory.Delete(_root, recursive: true);
 
     [Test]
-    public void The_save_picker_only_offers_encodable_formats_while_open_keeps_decoder_formats()
-    {
-        FilePickerSaveOptions options = SharedFilePickerOptions.SaveImage();
-        Assert.That(options.DefaultExtension, Is.EqualTo("png"));
-        Assert.That(options.FileTypeChoices!.Single().Patterns,
-            Is.EquivalentTo(new[] { "*.png", "*.jpg", "*.jpeg", "*.webp" }));
-        Assert.That(SharedFilePickerOptions.OpenImage().FileTypeFilter!.Single().Patterns, Does.Contain("*.bmp").And.Contain("*.gif"));
-    }
-
-    [Test]
     public async Task The_image_picker_passes_png_defaults_and_suggested_name_to_storage()
     {
         var folder = new Mock<IStorageFolder>(MockBehavior.Strict);
@@ -52,6 +42,8 @@ public class FrameImageSaveTests
             Assert.That(result, Is.SameAs(file.Object));
         });
         storage.Verify(value => value.SaveFilePickerAsync(It.IsAny<FilePickerSaveOptions>()), Times.Once);
+        // Opening keeps the formats that can only be decoded.
+        Assert.That(SharedFilePickerOptions.OpenImage().FileTypeFilter!.Single().Patterns, Does.Contain("*.bmp").And.Contain("*.gif"));
     }
 
     [Test]

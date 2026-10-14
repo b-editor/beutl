@@ -107,7 +107,6 @@ public class HorizontalGridLayout : NonVirtualizingLayout
             || change.Property == RowSpacingProperty)
         {
             InvalidateMeasure();
-            InvalidateArrange();
         }
     }
 }

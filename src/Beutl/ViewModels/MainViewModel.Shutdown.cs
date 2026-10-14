@@ -170,6 +170,7 @@ public partial class MainViewModel
         }
     }
 
+    // For tests: completes when the shutdown request in flight, if any, has finished.
     internal Task WaitForShutdownRequestAsync()
     {
         lock (_disposeGate)

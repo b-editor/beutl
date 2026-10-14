@@ -2,10 +2,8 @@
 
 namespace Beutl.Controls.Styling.Themes;
 
-// The resources behind the first-party dark design theme (FirstPartyThemeIds.DarkBorder). Shared,
-// because PackageTools loads no extensions and merges the dictionary itself instead of going through
-// the editor's ThemeExtension. BeutlDarkBorder.axaml must stay self-contained (every StaticResource it
-// uses is a key it defines) for that standalone merge to work.
+// PackageTools merges this dictionary directly instead of through a ThemeExtension, so
+// BeutlDarkBorder.axaml must define every key its StaticResources use.
 public static class BeutlDarkBorderTheme
 {
     public static Uri ResourceUri { get; } =

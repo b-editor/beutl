@@ -1,17 +1,12 @@
 ﻿using System.Globalization;
-using System.Reactive.Disposables;
 
 using Avalonia;
-using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
 using Avalonia.Data;
 using Avalonia.Input;
-using Avalonia.Interactivity;
-using Beutl.Reactive;
 
 namespace Beutl.Controls.PropertyEditors;
 
-public class RationalEditor : StringEditor
+public class RationalEditor : ValueStringEditor<Rational>
 {
     public static readonly DirectProperty<RationalEditor, Rational> ValueProperty =
         AvaloniaProperty.RegisterDirect<RationalEditor, Rational>(
@@ -19,176 +14,48 @@ public class RationalEditor : StringEditor
             o => o.Value,
             (o, v) => o.Value = v,
             defaultBindingMode: BindingMode.TwoWay);
-    private Rational _value;
-    private Rational _oldValue;
-    private readonly CompositeDisposable _disposables = [];
-    private HeaderScrubGesture _scrub;
-    private TextBlock? _headerText;
 
     public RationalEditor()
+        : base(default, canScrub: true)
     {
         Text = "0/1";
     }
 
-    public Rational Value
+    private protected override DirectPropertyBase<Rational> ValuePropertyCore => ValueProperty;
+
+    private protected override string Format(Rational value)
     {
-        get => _value;
-        set
-        {
-            if (SetAndRaise(ValueProperty, ref _value, value))
-            {
-                Text = $"{value.Numerator}/{value.Denominator}";
-            }
-        }
+        return $"{value.Numerator}/{value.Denominator}";
     }
 
-    protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
-    {
-        _disposables.Clear();
-        base.OnApplyTemplate(e);
-        if (InnerTextBox == null) return;
-        InnerTextBox.AddDisposableHandler(PointerWheelChangedEvent, OnTextBoxPointerWheelChanged, RoutingStrategies.Tunnel)
-            .DisposeWith(_disposables);
+    private protected override bool Differs(Rational x, Rational y) => x != y;
 
-        _headerText = e.NameScope.Find<TextBlock>("PART_HeaderTextBlock");
-        new ScrubHeaderHandlers(
-                OnTextBlockPointerPressed, OnTextBlockPointerReleased, OnTextBlockPointerMoved,
-                OnTextBlockPointerCaptureLost, RoutingStrategies.Direct | RoutingStrategies.Bubble)
-            .Subscribe(_headerText, _disposables);
+    private protected override bool TryParse(string? text, out Rational value)
+    {
+        return Rational.TryParse(text, CultureInfo.CurrentCulture, out value);
     }
 
-    private void OnTextBlockPointerMoved(object? sender, PointerEventArgs e)
+    // Steps by whole numbers, without the decimal rounding of NumberEditor.
+    private protected override Rational StepByWheel(Rational value, PointerWheelEventArgs e)
     {
-        // A move with the button up means the release never reached the header.
-        if (_scrub.IsActive && !e.Properties.IsLeftButtonPressed)
+        var delta = new Rational(10);
+        double wheelDelta = e.Delta.Y;
+        if (e.KeyModifiers.HasFlag(KeyModifiers.Shift))
         {
-            CompleteScrub();
-            return;
+            delta = Rational.One;
+            wheelDelta = -e.Delta.X;
         }
 
-        if (InnerTextBox == null) return;
-        if (_headerText is not { } headerText) return;
-        if (!InnerTextBox.IsKeyboardFocusWithin && _scrub.IsActive)
+        return wheelDelta switch
         {
-            int truncated = _scrub.NextDelta<int>(headerText, e);
-            var delta = new Rational(truncated, 1);
-            Rational oldValue = Value;
-            Rational newValue = Value + delta;
-            if (newValue != oldValue)
-            {
-                Value = newValue;
-                RaiseEvent(new PropertyEditorValueChangedEventArgs<Rational>(newValue, oldValue, ValueChangedEvent));
-            }
-
-            e.Handled = true;
-
-            UpdateErrors();
-        }
+            < 0 => value - delta,
+            > 0 => value + delta,
+            _ => value
+        };
     }
 
-    private void OnTextBlockPointerReleased(object? sender, PointerReleasedEventArgs e)
+    private protected override Rational Scrub(Rational value, ref HeaderScrubGesture scrub, Visual header, PointerEventArgs e)
     {
-        if (_scrub.IsActive)
-        {
-            CompleteScrub();
-            e.Handled = true;
-        }
-    }
-
-    // Another window, a dialog or a rebuilt header took the pointer; end as a release would.
-    private void OnTextBlockPointerCaptureLost(object? sender, PointerCaptureLostEventArgs e)
-    {
-        CompleteScrub();
-    }
-
-    private void CompleteScrub()
-    {
-        if (!_scrub.IsActive) return;
-
-        // Ended before confirming, so a confirmation that rebuilds the header cannot end it twice.
-        _scrub.End();
-        if (Value != _oldValue)
-        {
-            RaiseEvent(new PropertyEditorValueChangedEventArgs<Rational>(Value, _oldValue, ValueConfirmedEvent));
-        }
-    }
-
-    private void OnTextBlockPointerPressed(object? sender, PointerPressedEventArgs e)
-    {
-        if (InnerTextBox == null) return;
-        if (_headerText is not { } headerText) return;
-        PointerPoint pointerPoint = e.GetCurrentPoint(headerText);
-        if (pointerPoint.Properties.IsLeftButtonPressed
-            && !DataValidationErrors.GetHasErrors(InnerTextBox))
-        {
-            _oldValue = Value;
-            _scrub.Begin(headerText, pointerPoint.Position);
-            e.Handled = true;
-        }
-    }
-
-    protected override void OnTextBoxGotFocus(FocusChangedEventArgs e)
-    {
-        if (InnerTextBox == null) return;
-        if (!DataValidationErrors.GetHasErrors(InnerTextBox))
-        {
-            _oldValue = Value;
-        }
-    }
-
-    protected override void OnTextBoxLostFocus(RoutedEventArgs e)
-    {
-        if (InnerTextBox == null) return;
-        if (!DataValidationErrors.GetHasErrors(InnerTextBox)
-            && Value != _oldValue)
-        {
-            RaiseEvent(new PropertyEditorValueChangedEventArgs<Rational>(Value, _oldValue, ValueConfirmedEvent));
-        }
-    }
-
-    protected override void OnTextBoxTextChanged(string newValue, string oldValue)
-    {
-        if (InnerTextBox?.IsKeyboardFocusWithin == true
-            && NumberEditorHelper.TryParseEdit(newValue, oldValue, out Rational newValue2, out Rational oldValue2))
-        {
-            Value = newValue2;
-            RaiseEvent(new PropertyEditorValueChangedEventArgs<Rational>(newValue2, oldValue2, ValueChangedEvent));
-        }
-
-        UpdateErrors();
-    }
-
-    private void UpdateErrors()
-    {
-        if (InnerTextBox == null) return;
-        DataValidationMessages.UpdateInvalidString(InnerTextBox, Rational.TryParse(InnerTextBox.Text, CultureInfo.CurrentCulture, out _));
-    }
-
-    private void OnTextBoxPointerWheelChanged(object? sender, PointerWheelEventArgs e)
-    {
-        if (InnerTextBox == null) return;
-        if (!DataValidationErrors.GetHasErrors(InnerTextBox)
-            && InnerTextBox.IsKeyboardFocusWithin
-            && Rational.TryParse(InnerTextBox.Text, CultureInfo.CurrentCulture, out Rational value))
-        {
-            var delta = new Rational(10);
-            double wheelDelta = e.Delta.Y;
-            if (e.KeyModifiers.HasFlag(KeyModifiers.Shift))
-            {
-                delta = Rational.One;
-                wheelDelta = -e.Delta.X;
-            }
-
-            value = wheelDelta switch
-            {
-                < 0 => value - delta,
-                > 0 => value + delta,
-                _ => value
-            };
-
-            Value = value;
-
-            e.Handled = true;
-        }
+        return value + new Rational(scrub.NextDelta<int>(header, e), 1);
     }
 }

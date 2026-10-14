@@ -1,6 +1,7 @@
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:icons="using:FluentIcons.Avalonia.Fluent"
+                    xmlns:local="using:Beutl.Editor.Components.TimelineTab.Views"
                     xmlns:ui="using:FluentAvalonia.UI.Controls">
     <!--
         Elements are only LayerHeight tall and sit edge to edge, so the shell's ControlCornerRadius
@@ -121,5 +122,40 @@
         <Style Selector="^:checked:pressed /template/ Border#PART_Root">
             <Setter Property="Background" Value="{DynamicResource ToggleButtonBackgroundIndeterminatePressed}" />
         </Style>
+    </ControlTheme>
+
+    <!-- The frame around the timeline in a tool mode; each mode sets its color. -->
+    <ControlTheme x:Key="TimelineToolModeFrameTheme" TargetType="Border">
+        <Setter Property="BorderThickness" Value="4" />
+        <Setter Property="IsHitTestVisible" Value="False" />
+        <Setter Property="ZIndex" Value="100" />
+    </ControlTheme>
+
+    <ControlTheme x:Key="{x:Type local:TimelineToolModeBadge}" TargetType="local:TimelineToolModeBadge">
+        <Setter Property="Margin" Value="8,4" />
+        <Setter Property="Padding" Value="8,2" />
+        <Setter Property="HorizontalAlignment" Value="Left" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="CornerRadius" Value="{DynamicResource ControlCornerRadius}" />
+        <Setter Property="IsHitTestVisible" Value="False" />
+        <Setter Property="ZIndex" Value="100" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Padding="{TemplateBinding Padding}"
+                        Background="{TemplateBinding Background}"
+                        CornerRadius="{TemplateBinding CornerRadius}">
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <icons:FluentIcon FontSize="14"
+                                          Foreground="White"
+                                          Icon="{TemplateBinding Icon}" />
+                        <TextBlock VerticalAlignment="Center"
+                                   FontSize="12"
+                                   FontWeight="SemiBold"
+                                   Foreground="White"
+                                   Text="{TemplateBinding Text}" />
+                    </StackPanel>
+                </Border>
+            </ControlTemplate>
+        </Setter>
     </ControlTheme>
 </ResourceDictionary>

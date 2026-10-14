@@ -1,5 +1,4 @@
-﻿#nullable enable
-using Avalonia.Automation.Peers;
+﻿using Avalonia.Automation.Peers;
 using Avalonia.Controls;
 
 namespace Beutl.Controls;

@@ -269,15 +269,8 @@ public sealed class EditorServiceTests
         var editorService = new EditorService(new ExtensionProvider());
         var project = new Project();
 
-        InvalidOperationException? exception = null;
-        try
-        {
-            await editorService.SaveProjectFilesAsync(project, CancellationToken.None);
-        }
-        catch (InvalidOperationException ex)
-        {
-            exception = ex;
-        }
+        InvalidOperationException? exception = await Assert.CatchAsync<InvalidOperationException>(async () =>
+            await editorService.SaveProjectFilesAsync(project, CancellationToken.None));
 
         Assert.That(exception, Is.Not.Null);
     }
@@ -546,13 +539,7 @@ public sealed class EditorServiceTests
 
     private class StubEditorContext : IEditorContext
     {
-        public int AsyncDisposeCount { get; private set; }
-
-        public ValueTask DisposeAsync()
-        {
-            AsyncDisposeCount++;
-            return ValueTask.CompletedTask;
-        }
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 
         public CoreObject Object { get; } = new Scene { Uri = new Uri("file:///scene.scene") };
 

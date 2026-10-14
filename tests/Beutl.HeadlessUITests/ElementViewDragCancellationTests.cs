@@ -4,14 +4,12 @@ using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using Avalonia.Media.Imaging;
 using Avalonia.VisualTree;
 using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.Views;
 using Beutl.Editor.Models;
-using Beutl.Editor.Services;
 using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
@@ -89,12 +87,10 @@ public class ElementViewDragCancellationTests
                 Assert.That(view.TimelinePanel.Children.Count, Is.GreaterThan(childCount), "The duplicate preview must include ghosts.");
             if (snapping)
                 Assert.That(timeline.SnapBarPosition.Value, Is.Not.Null, "The drag must display a real snap guide before cancellation.");
-            Capture(window, $"{kind}-grouped-{grouped}-snap-{snapping}-preview");
 
             // Cover both platform-style release and capture stolen by another control.
             pointer!.Capture(grouped ? view.FindControl<Border>("RulerBar") : null);
             HeadlessTestHelpers.Render(5);
-            Capture(window, $"{kind}-grouped-{grouped}-snap-{snapping}-cancelled");
             AssertOriginalState();
             Assert.Multiple(() =>
             {
@@ -136,7 +132,6 @@ public class ElementViewDragCancellationTests
             await Task.Delay(300);
             HeadlessTestHelpers.Render(5);
             foreach (ElementViewModel vm in elements) AssertVisualMatchesModel(vm);
-            Capture(window, $"{kind}-grouped-{grouped}-snap-{snapping}-committed");
 
             void DragToPreview()
             {
@@ -163,12 +158,9 @@ public class ElementViewDragCancellationTests
         }
         finally
         {
-            window?.MouseUp(new Point(5, 5), MouseButton.Left);
-            if (view is not null) view.DataContext = null;
-            window?.Close();
+            TimelineTestHost.Close(view, window);
             GlobalConfiguration.Instance.EditorConfig.IsRippleEnabled = originalRipple;
             GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled = originalSnap;
-            HeadlessTestHelpers.Settle();
         }
     }
 
@@ -212,7 +204,6 @@ public class ElementViewDragCancellationTests
             Assert.That(timeline.SelectedElements, Is.EqualTo(new[] { selected }), "Modifier drag must leave the pressed clip unselected.");
             foreach (ElementViewModel vm in elements)
                 Assert.That(vm.BorderMargin.Value.Left, Is.Not.EqualTo(vm.Model.Start.TimeToPixel(timeline.Options.Value.Scale)));
-            Capture(window, $"{modifiers}-unselected-preview");
 
             pointer!.Capture(null);
             HeadlessTestHelpers.Render(5);
@@ -225,7 +216,6 @@ public class ElementViewDragCancellationTests
                 Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(undoCount));
                 Assert.That(editor.HistoryManager.HasPendingOperations, Is.False);
             });
-            Capture(window, $"{modifiers}-unselected-cancelled");
             window.MouseUp(new Point(5, 5), MouseButton.Left);
             Point hover = border.TranslatePoint(new Point(border.Bounds.Width / 2, border.Bounds.Height / 2), window)!.Value;
             window.MouseMove(hover);
@@ -234,36 +224,20 @@ public class ElementViewDragCancellationTests
         }
         finally
         {
-            window?.MouseUp(new Point(5, 5), MouseButton.Left);
-            if (view is not null) view.DataContext = null;
-            window?.Close();
+            TimelineTestHost.Close(view, window);
             GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled = originalSnap;
-            HeadlessTestHelpers.Settle();
         }
     }
 
     private static async Task<(EditViewModel Editor, ElementViewModel[] Elements)> OpenElements(bool grouped, int count = 1)
     {
-        await TestReset.ResetShellAsync();
-        string name = $"element-drag-cancel-{Guid.NewGuid():N}";
-        string directory = Path.Combine(BeutlHomeIsolation.CurrentHome!, name);
-        Directory.CreateDirectory(directory);
-        Project project = (await TestShell.Project.CreateProject(640, 480, 30, 44100, name, directory))!;
-        Scene scene = project.Items.OfType<Scene>().Single();
-        TestShell.Editor.ActivateTabItem(scene);
-        HeadlessTestHelpers.Settle();
-        var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
-        var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
         ElementDescription[] descriptions = Enumerable.Range(0, grouped ? 2 : count)
             .Select(layer => new ElementDescription(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2), layer,
                 new ElementSource.EngineObject(() => new RectShape())))
             .ToArray();
-        Assert.That((await adder.AddAsync(descriptions, CancellationToken.None)).IsSuccess, Is.True);
-        scene.Duration = TimeSpan.FromSeconds(10);
-        TimelineTabViewModel timeline = editor.FindToolTab<TimelineTabViewModel>()!;
-        timeline.Options.Value = timeline.Options.Value with { Scale = 1, Offset = System.Numerics.Vector2.Zero };
-        HeadlessTestHelpers.Settle();
-        ElementViewModel[] elements = scene.Children.OrderBy(model => model.ZIndex)
+        (EditViewModel editor, TimelineTabViewModel timeline) = await TimelineTestHost.OpenTimelineAsync(
+            $"element-drag-cancel-{Guid.NewGuid():N}", descriptions);
+        ElementViewModel[] elements = editor.Scene.Children.OrderBy(model => model.ZIndex)
             .Select(model => timeline.GetViewModelFor(model)!).ToArray();
         timeline.ClearSelected();
         foreach (ElementViewModel vm in elements) timeline.SelectElement(vm);
@@ -281,14 +255,5 @@ public class ElementViewDragCancellationTests
             Assert.That(vm.Width.Value, Is.EqualTo(vm.Model.Length.TimeToPixel(scale)).Within(0.0001));
             Assert.That(vm.Margin.Value.Top, Is.EqualTo(vm.Timeline.CalculateLayerTop(vm.Model.ZIndex)).Within(0.0001));
         });
-    }
-
-    private static void Capture(Window window, string name)
-    {
-        if (Environment.GetEnvironmentVariable("BEUTL_DRAG_CAPTURE_DIR") is not { Length: > 0 } directory) return;
-        Directory.CreateDirectory(directory);
-        using var frame = window.CaptureRenderedFrame();
-        Assert.That(frame, Is.Not.Null);
-        frame!.Save(Path.Combine(directory, $"{name}.png"), PngBitmapEncoderOptions.Default);
     }
 }

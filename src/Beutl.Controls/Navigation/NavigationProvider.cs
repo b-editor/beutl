@@ -7,83 +7,39 @@ using FluentAvalonia.UI.Navigation;
 
 namespace Beutl.Controls.Navigation;
 
-#nullable enable
-
 public class NavigationProvider : INavigationProvider
 {
     private readonly FAFrame _frame;
     private readonly IPageResolver _pageResolver;
-    private readonly TransitionMode _transitionMode;
     private readonly FAEntranceNavigationTransitionInfo _transitionInfo = new();
-    private const int Orientation_SameOrder = 0b_1_0_0_0;
-    private const int Orientation_SameOrder_Reverse = 0b_0_1_0_0;
-    private const int Orientation_DifferenceOrder = 0b_0_0_1_0;
-    private const int Orientation_DifferenceOrder_Reverse = 0b_0_0_0_1;
 
-    public NavigationProvider(FAFrame frame, IPageResolver pageResolver, TransitionMode transitionMode = TransitionMode.LeftNavigationAndBreadcrumbs)
+    public NavigationProvider(FAFrame frame, IPageResolver pageResolver)
     {
         _frame = frame;
         _pageResolver = pageResolver;
-        _transitionMode = transitionMode;
         frame.Navigated += OnNavigated;
         frame.Navigating += OnNavigating;
     }
 
-    [Flags]
-    public enum TransitionMode
-    {
-        // 0: Horizontal
-        // 1: Vertical
-        // 1. Orderが同じときの方向 | 2. 1を反転 | 3. Orderが違うときの方向 | 4. 3を反転
-        LeftNavigationAndBreadcrumbs = 0b_0_0_1_0,
-        TopNavigation = 0b_0_0_0_0,
-    }
-
     private void OnNavigating(object sender, FANavigatingCancelEventArgs e)
     {
-        static bool HasFlags(TransitionMode @enum, int flags)
-        {
-            return ((int)@enum & flags) == flags;
-        }
-
-        static void Locate(bool b, int value, ref double horizontal, ref double vertical)
-        {
-            if (b)
-            {
-                horizontal = 0;
-                vertical *= value;
-            }
-            else
-            {
-                horizontal *= value;
-                vertical = 0;
-            }
-        }
-
         if (e.NavigationTransitionInfo is FAEntranceNavigationTransitionInfo entrance)
         {
             Type type1 = _frame.CurrentSourcePageType;
             Type type2 = e.SourcePageType;
             (int order1, int depth1) = (_pageResolver.GetOrder(type1), _pageResolver.GetDepth(type1));
             (int order2, int depth2) = (_pageResolver.GetOrder(type2), _pageResolver.GetDepth(type2));
-            double horizontal = 28;
-            double vertical = 28;
-            int signWhenSameOrder = HasFlags(_transitionMode, Orientation_SameOrder_Reverse) ? -1 : 1;
-            int signWhenDiffOrder = HasFlags(_transitionMode, Orientation_DifferenceOrder_Reverse) ? -1 : 1;
 
             if (order1 == order2)
             {
-                Locate(HasFlags(_transitionMode, Orientation_SameOrder), Math.Sign(depth2 - depth1) * signWhenSameOrder,
-                    ref horizontal, ref vertical);
+                entrance.FromHorizontalOffset = 28 * Math.Sign(depth2 - depth1);
+                entrance.FromVerticalOffset = 0;
             }
             else
             {
-                Locate(HasFlags(_transitionMode, Orientation_DifferenceOrder), Math.Sign(order2 - order1) * signWhenDiffOrder,
-                    ref horizontal, ref vertical);
+                entrance.FromHorizontalOffset = 0;
+                entrance.FromVerticalOffset = 28;
             }
-
-            entrance.FromHorizontalOffset = horizontal;
-            entrance.FromVerticalOffset = Math.Abs(vertical);
         }
     }
 

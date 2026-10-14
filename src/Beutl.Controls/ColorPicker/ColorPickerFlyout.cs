@@ -1,5 +1,4 @@
-﻿using System.ComponentModel;
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 using FluentAvalonia.Core;
 using FluentAvalonia.UI.Controls.Primitives;
 
@@ -44,11 +43,6 @@ public sealed class ColorPickerFlyout : FAPickerFlyoutBase
     {
         Confirmed?.Invoke(this, EventArgs.Empty);
         Hide();
-    }
-
-    protected override void OnOpening(CancelEventArgs args)
-    {
-        base.OnOpening(args);
     }
 
     protected override bool ShouldShowConfirmationButtons() => _showButtons;

@@ -1,6 +1,5 @@
 ﻿using Avalonia.Headless.NUnit;
 using Beutl.Editor.Components.FileBrowserTab.ViewModels;
-using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 
@@ -14,8 +13,8 @@ public sealed class FileBrowserMoveCaseTests
     public async Task A_file_moves_into_a_sibling_folder_that_differs_only_in_case()
     {
         IgnoreUnlessCaseSensitive();
-        EditViewModel editor = await CreateEditor("filebrowser-move-case-file");
-        (string upper, string lower) = CaseVariantFolders(ProjectRoot(editor));
+        EditViewModel editor = (await TestShell.OpenNewSceneAsync("filebrowser-move-case-file", 320, 180)).Editor;
+        (string upper, string lower) = CaseVariantFolders(TestShell.ProjectRoot(editor));
         string source = Path.Combine(upper, "clip.txt");
         File.WriteAllText(source, "clip");
         using var browser = new FileBrowserTabViewModel(editor);
@@ -33,8 +32,8 @@ public sealed class FileBrowserMoveCaseTests
     public async Task A_folder_moves_under_a_sibling_folder_that_differs_only_in_case()
     {
         IgnoreUnlessCaseSensitive();
-        EditViewModel editor = await CreateEditor("filebrowser-move-case-folder");
-        (string upper, string lower) = CaseVariantFolders(ProjectRoot(editor));
+        EditViewModel editor = (await TestShell.OpenNewSceneAsync("filebrowser-move-case-folder", 320, 180)).Editor;
+        (string upper, string lower) = CaseVariantFolders(TestShell.ProjectRoot(editor));
         string target = Directory.CreateDirectory(Path.Combine(lower, "sub")).FullName;
         using var browser = new FileBrowserTabViewModel(editor);
 
@@ -51,8 +50,8 @@ public sealed class FileBrowserMoveCaseTests
     public async Task A_folder_link_moves_into_the_folder_it_points_to()
     {
         IgnoreUnlessLinksCanBeCreated();
-        EditViewModel editor = await CreateEditor("filebrowser-move-link");
-        string root = ProjectRoot(editor);
+        EditViewModel editor = (await TestShell.OpenNewSceneAsync("filebrowser-move-link", 320, 180)).Editor;
+        string root = TestShell.ProjectRoot(editor);
         string real = Directory.CreateDirectory(Path.Combine(root, "real")).FullName;
         string target = Directory.CreateDirectory(Path.Combine(real, "sub")).FullName;
         // A relative target leaves the moved link dangling rather than looping back into real.
@@ -106,18 +105,4 @@ public sealed class FileBrowserMoveCaseTests
             Directory.CreateDirectory(Path.Combine(root, "Foo")).FullName,
             Directory.CreateDirectory(Path.Combine(root, "foo")).FullName);
     }
-
-    private static async Task<EditViewModel> CreateEditor(string name)
-    {
-        await TestReset.ResetShellAsync();
-        string directory = Path.Combine(BeutlHomeIsolation.CurrentHome!, name);
-        Directory.CreateDirectory(directory);
-        Project project = (await TestShell.Project.CreateProject(320, 180, 30, 44100, name, directory))!;
-        TestShell.Editor.ActivateTabItem(project.Items.OfType<Scene>().First());
-        HeadlessTestHelpers.Settle();
-        return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
-    }
-
-    private static string ProjectRoot(EditViewModel editor)
-        => Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!;
 }

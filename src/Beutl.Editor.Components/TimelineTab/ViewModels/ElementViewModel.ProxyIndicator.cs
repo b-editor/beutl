@@ -43,12 +43,8 @@ public sealed partial class ElementViewModel
             .Subscribe(_ => RefreshProxyState(invalidateFingerprintCache: true))
             .AddTo(_disposables);
 
-        // A source reachable only through a node graph or referenced scene never raises the top-level
-        // provider's ThumbnailsInvalidated, so its URI edits would leave the fingerprint cache stale and
-        // the badge frozen. Element.Edited fires for those edits too; the URI-set key in
-        // ResolveProxyFingerprints keeps unrelated edits from re-stating.
-        // Dispose() disposes _elementEditedSubject before _disposables removes this handler, so guard
-        // against a teardown-time Edited raising OnNext on the disposed subject.
+        // Sources behind a node graph or a referenced scene raise no ThumbnailsInvalidated, so Element.Edited
+        // re-resolves the badge too. Dispose disposes the subject before this handler is removed.
         EventHandler editedHandler = (_, _) =>
         {
             if (!_isDisposed)
@@ -67,20 +63,30 @@ public sealed partial class ElementViewModel
 
     private void OnProxyStateInvalidated(ProxyJobChangedEventArgs e)
     {
+        OnUIThreadIfRelevant(e.Job.Source.AbsolutePath, () => RefreshProxyState(invalidateFingerprintCache: true));
+    }
+
+    // Runs action on the UI thread unless the element is disposed or does not use the changed source. A null
+    // sourceKey, from a store Reset, skips that check.
+    private void OnUIThreadIfRelevant(string? sourceKey, Action action)
+    {
         if (_isDisposed)
             return;
 
         if (!Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
         {
-            Avalonia.Threading.Dispatcher.UIThread.Post(() => OnProxyStateInvalidated(e));
+            Avalonia.Threading.Dispatcher.UIThread.Post(() => OnUIThreadIfRelevant(sourceKey, action));
             return;
         }
 
-        if (!ElementUsesChangedSourceCached(e.Job.Source.AbsolutePath))
+        if (sourceKey != null && !ElementUsesChangedSourceCached(sourceKey))
             return;
 
-        RefreshProxyState(invalidateFingerprintCache: true);
+        action();
     }
+
+    private static string? GetChangedSourceKey(ProxyStoreChangedEventArgs e)
+        => e.Kind == ProxyStoreChangeKind.Reset ? null : e.Source.AbsolutePath;
 
     private IReadOnlyList<ProxyFingerprint> ResolveProxyFingerprints(bool invalidateCache)
     {
@@ -110,12 +116,8 @@ public sealed partial class ElementViewModel
     private ProxyFingerprint? StatOrProxyFallback(Uri uri)
         => ResolveSourceFingerprint(_proxyStore, uri);
 
-    // Prefer-proxy preview can open a Ready proxy after the original is moved/deleted. TryFromFile then
-    // fails, and dropping that URI would hide the badge and filter out the proxy's own store/job events.
-    // Prefer the resolved Ready entry's own fingerprint (exact, so the badge reads Ready); otherwise fall
-    // back to the path key so the offline source is still tracked before any proxy exists — a proxy
-    // registered for this path then matches the store event and refreshes the badge/filmstrip, instead
-    // of the URI staying absent from the cache until the view is rebuilt.
+    // A Ready proxy still opens when the original is gone, so when TryFromFile fails this uses the fingerprint
+    // of the newest same-path entry, or the path key when there is none.
     internal static ProxyFingerprint? ResolveSourceFingerprint(IProxyStore? store, Uri uri)
     {
         if (ProxyFingerprint.TryFromFile(uri.LocalPath, out ProxyFingerprint fingerprint))
@@ -124,9 +126,8 @@ public sealed partial class ElementViewModel
         string key = ProxyFingerprint.ResolveComparableKey(uri.LocalPath);
         if (store is not null)
         {
-            // Choose the newest same-path source across all states, then return a Ready fingerprint only
-            // from that source — matching ProxyResolver.ResolveByPath, so the badge does not report Ready
-            // off a stale older proxy when a newer regeneration failed for the current source.
+            // Only the newest same-path source counts, so an older Ready proxy does not show as Ready. Its exact
+            // fingerprint is returned, since a path key would read as Stale and hide a failed generation.
             List<ProxyEntry> pathEntries = [.. store.Enumerate()
                 .Where(e => string.Equals(e.Source.AbsolutePath, key, StringComparison.Ordinal))];
             if (pathEntries.Count > 0)
@@ -138,11 +139,6 @@ public sealed partial class ElementViewModel
                     .OrderByDescending(e => newestBySource[e.Source])
                     .ThenByDescending(e => e.Source.MtimeUtc)
                     .First().Source;
-                // Return the newest same-path source's own (exact) fingerprint even when it is not Ready.
-                // A path-key fallback has no size/mtime, so ResolveProxyState treats every entry as
-                // non-exact and forces Stale, hiding a failed generation for an offline clip; the exact
-                // newest fingerprint lets the badge read the real state while still never reporting Ready
-                // off a stale older proxy (newest, not any-Ready, is chosen).
                 return newest;
             }
         }
@@ -178,32 +174,12 @@ public sealed partial class ElementViewModel
 
     private void OnProxyStateInvalidated(ProxyStoreChangedEventArgs e)
     {
-        if (_isDisposed)
-            return;
-
-        if (!Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
-        {
-            Avalonia.Threading.Dispatcher.UIThread.Post(() => OnProxyStateInvalidated(e));
-            return;
-        }
-
-        // A Reset (store swap) has no meaningful Source, so skip the per-source relevance gate and always
-        // re-resolve; otherwise ElementUsesChangedSourceCached reads Model (UI-thread state) here so a
-        // store event for an unrelated source skips the per-clip walk in RefreshProxyState.
-        if (e.Kind != ProxyStoreChangeKind.Reset && !ElementUsesChangedSourceCached(e.Source.AbsolutePath))
-            return;
-
-        // A store registration/state change/delete can flip which entry ResolveSourceFingerprint
-        // picks — in particular it turns an offline ForPathKey fingerprint (cached before any Ready
-        // proxy existed) into the Ready entry's exact fingerprint, or back — so re-resolve the cache;
-        // otherwise the row stays Stale until an unrelated edit invalidates it. Store events are
-        // per-source (already relevance-gated), not the high-frequency queue refresh, so re-stat here.
-        RefreshProxyState(invalidateFingerprintCache: true);
+        // A registration, a state change or a deletion can change what ResolveSourceFingerprint picks, so re-stat.
+        OnUIThreadIfRelevant(GetChangedSourceKey(e), () => RefreshProxyState(invalidateFingerprintCache: true));
     }
 
-    // Per-event relevance gate: matches against this element's cached fingerprints so a burst of
-    // store/job events never re-stats the source files (ResolveLinkTarget) on the UI thread. The
-    // cache re-stats only when the source URI set changes or a source edit fires ThumbnailsInvalidated.
+    // Matches the cached fingerprints, so a burst of store and job events does not re-stat the source files on
+    // the UI thread.
     private bool ElementUsesChangedSourceCached(string changedSourceKey)
     {
         foreach (ProxyFingerprint fingerprint in ResolveProxyFingerprints(invalidateCache: false))
@@ -263,12 +239,6 @@ public sealed partial class ElementViewModel
         return ProxyState.Partial;
     }
 
-    internal static ProxyState ResolveProxyState(IProxyStore store, IProxyJobQueue? queue, ProxyFingerprint fingerprint)
-    {
-        ArgumentNullException.ThrowIfNull(store);
-        return ResolveProxyState(store.Enumerate(), queue?.Pending() ?? [], fingerprint);
-    }
-
     private static ProxyState ResolveProxyState(
         IReadOnlyList<ProxyEntry> entries, IReadOnlyList<ProxyJob> pending, ProxyFingerprint fingerprint)
     {
@@ -295,9 +265,8 @@ public sealed partial class ElementViewModel
                 continue;
             }
 
-            // An exact-fingerprint entry reflects the current source, so it always wins over an old
-            // (forced-Stale) entry — otherwise a same-path Stale leftover would outrank the current
-            // fingerprint's Failed and hide the real state. Among equally-exact entries, rank wins.
+            // An exact entry is the current source and beats an old one, which would otherwise hide a Failed
+            // state as Stale. Among equally exact entries, the higher rank wins.
             bool takeNew = isExact != bestIsExact
                 ? isExact
                 : ProxyStateRank(effective) > ProxyStateRank(current);

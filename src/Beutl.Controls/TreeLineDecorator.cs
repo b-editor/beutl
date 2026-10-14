@@ -1,6 +1,4 @@
-﻿#nullable enable
-
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
@@ -25,7 +23,6 @@ public class TreeLineDecorator : Decorator
     {
         AffectsRender<TreeLineDecorator>(IndentLevelProperty, IndentWidthProperty, LineBrushProperty, LineThicknessProperty, UseLayoutRoundingProperty);
         AffectsMeasure<TreeLineDecorator>(IndentLevelProperty, IndentWidthProperty);
-        AffectsArrange<TreeLineDecorator>(IndentLevelProperty, IndentWidthProperty);
     }
 
     public int IndentLevel
@@ -65,7 +62,6 @@ public class TreeLineDecorator : Decorator
             ? LayoutHelper.RoundLayoutValueUp(LineThickness, scale)
             : LineThickness;
 
-        // Draw vertical lines for each indent level
         for (int i = 0; i < IndentLevel; i++)
         {
             double x = (i * IndentWidth) + (IndentWidth / 2.0) - (thickness / 2.0);

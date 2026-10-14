@@ -1,8 +1,4 @@
-﻿using Avalonia.Controls;
-using Avalonia.Headless;
-using Avalonia.Headless.NUnit;
-using Avalonia.Media.Imaging;
-using Avalonia.Styling;
+﻿using Avalonia.Headless.NUnit;
 using Beutl.Language;
 using Beutl.Services;
 using Beutl.Testing.Headless;
@@ -22,14 +18,12 @@ public sealed class LegacyNodeTreeNoticeTests
         await TestReset.ResetShellAsync();
         (string projectPath, string elementPath) = WriteLegacyProject();
         byte[] original = File.ReadAllBytes(elementPath);
-        INotificationServiceHandler previousHandler = NotificationService.Handler;
-        var handler = new CaptureNotificationHandler();
-        NotificationService.Handler = handler;
         try
         {
+            using var notifications = new NotificationCapture();
             await TestShell.Project.OpenProject(projectPath);
             HeadlessTestHelpers.Settle();
-            Notification[] notices = handler.Notifications
+            Notification[] notices = notifications.All
                 .Where(notification => notification.Title == MessageStrings.UnmigratedNodeTreeTitle)
                 .ToArray();
 
@@ -43,9 +37,6 @@ public sealed class LegacyNodeTreeNoticeTests
                 Assert.That(notices[0].CancellationToken.IsCancellationRequested, Is.False);
             });
 
-            SaveNotice(notices[0], "legacy-node-tree-notice-dark.png", ThemeVariant.Dark);
-            SaveNotice(notices[0], "legacy-node-tree-notice-light.png", ThemeVariant.Light);
-
             // Closing saves every open scene.
             await TestReset.ResetShellAsync();
             Assert.Multiple(() =>
@@ -57,30 +48,7 @@ public sealed class LegacyNodeTreeNoticeTests
         }
         finally
         {
-            NotificationService.Handler = previousHandler;
             await TestReset.ResetShellAsync();
-        }
-    }
-
-    private static void SaveNotice(Notification notice, string fileName, ThemeVariant theme)
-    {
-        using ThemeVariantScope scope = ThemeVariantScope.Use(theme);
-        var infoBar = new NotificationServiceHandler(() => null)
-            .BuildInfoBar(notice, new TaskCompletionSource(), () => { });
-        var window = new Window { Content = infoBar, Width = 380, Height = 420 };
-        try
-        {
-            window.Show();
-            HeadlessTestHelpers.Render(5);
-            using WriteableBitmap? frame = window.CaptureRenderedFrame();
-            Assert.That(frame, Is.Not.Null);
-            string output = Path.Combine(TestContext.CurrentContext.WorkDirectory, "TestResults", fileName);
-            Directory.CreateDirectory(Path.GetDirectoryName(output)!);
-            frame!.Save(output, PngBitmapEncoderOptions.Default);
-        }
-        finally
-        {
-            window.Close();
         }
     }
 
@@ -162,12 +130,5 @@ public sealed class LegacyNodeTreeNoticeTests
             }
             """);
         return (projectPath, elementPath);
-    }
-
-    private sealed class CaptureNotificationHandler : INotificationServiceHandler
-    {
-        public List<Notification> Notifications { get; } = [];
-
-        public void Show(Notification notification) => Notifications.Add(notification);
     }
 }

@@ -47,13 +47,16 @@ public class GetCommandGestureExtension : MarkupExtension
             .ToBinding();
     }
 
-    private KeyGesture? GetKeyGestureFromExtensionType(Type extensionType)
+    private KeyGesture? GetKeyGestureFromExtensionType(Type extensionType) => GetKeyGesture(extensionType, Name);
+
+    // The gesture of the command for this platform, for menus that are built in code.
+    internal static KeyGesture? GetKeyGesture(Type extensionType, string name)
     {
         if (AppHelper.GetContextCommandManager?.Invoke() is not ContextCommandManager cm)
             return null;
 
         var entries = cm.GetDefinitions(extensionType);
-        var e = entries.FirstOrDefault(i => i.Definition.Name == Name);
+        var e = entries.FirstOrDefault(i => i.Definition.Name == name);
         if (e == null)
             return null;
 

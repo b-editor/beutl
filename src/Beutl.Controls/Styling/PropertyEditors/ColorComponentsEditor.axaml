@@ -16,11 +16,10 @@
     </Design.PreviewWith>
 
     <ControlTheme x:Key="ColorComponentsEditorStyle" TargetType="local:Vector3Editor">
-        <!--<Setter Property="MinWidth" Value="{DynamicResource PropertyEditorMinWidth}" />-->
         <Setter Property="Margin" Value="0" />
         <Setter Property="Template">
             <ControlTemplate>
-                <DataValidationErrors Grid.Row="2">
+                <DataValidationErrors>
                     <Grid ColumnDefinitions="*,1,*,1,*">
                         <Border Name="PART_BackgroundBorder"
                                 Grid.ColumnSpan="5"

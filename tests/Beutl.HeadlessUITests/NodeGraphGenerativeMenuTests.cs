@@ -28,13 +28,7 @@ public class NodeGraphGenerativeMenuTests
     {
         var graph = new GraphModel();
         graph.Nodes.Add(new TimeNode());
-        var editor = new Mock<IEditorContext>();
-        editor.Setup(x => x.GetService(typeof(IPropertyEditorFactory)))
-            .Returns(new Mock<IPropertyEditorFactory>().Object);
-        var player = new Mock<IPreviewPlayer>();
-        player.SetupGet(x => x.IsPlaying).Returns(new ReactivePropertySlim<bool>(false));
-        editor.Setup(x => x.GetService(typeof(IPreviewPlayer))).Returns(player.Object);
-        using var vm = new NodeGraphViewModel(graph, editor.Object);
+        using var vm = new NodeGraphViewModel(graph, CreateEditor().Object);
         var view = new NodeGraphView { DataContext = vm };
         var window = new Window { Content = view, Width = 800, Height = 550 };
         try
@@ -350,16 +344,7 @@ public class NodeGraphGenerativeMenuTests
         }
     }
 
-    private static Mock<IEditorContext> CreateEditor()
-    {
-        var editor = new Mock<IEditorContext>();
-        editor.Setup(x => x.GetService(typeof(IPropertyEditorFactory)))
-            .Returns(new Mock<IPropertyEditorFactory>().Object);
-        var player = new Mock<IPreviewPlayer>();
-        player.SetupGet(x => x.IsPlaying).Returns(new ReactivePropertySlim<bool>(false));
-        editor.Setup(x => x.GetService(typeof(IPreviewPlayer))).Returns(player.Object);
-        return editor;
-    }
+    private static Mock<IEditorContext> CreateEditor() => NodeGraphTestContext.Create(player: true);
 
     private static FAMenuFlyoutItem FindItem(FAMenuFlyout menu, string header)
         => menu.Items.OfType<FAMenuFlyoutItem>().Single(item => Equals(item.Text, header));

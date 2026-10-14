@@ -182,7 +182,7 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
 
     public ReadOnlyReactivePropertySlim<double> StartY { get; }
 
-    public ReactiveProperty<double> EndY { get; } = new();
+    public ReactiveProperty<double> EndY { get; }
 
     public ReadOnlyReactivePropertySlim<double> Height { get; }
 
@@ -202,9 +202,9 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
 
     public ReadOnlyReactivePropertySlim<Point> RightTop { get; }
 
-    public AsyncReactiveCommand CopyCommand { get; set; }
+    public AsyncReactiveCommand CopyCommand { get; }
 
-    public AsyncReactiveCommand PasteCommand { get; set; }
+    public AsyncReactiveCommand PasteCommand { get; }
 
     public ReactiveCommand RemoveCommand { get; }
 

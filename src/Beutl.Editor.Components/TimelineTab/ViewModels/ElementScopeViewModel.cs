@@ -35,14 +35,13 @@ public sealed class ElementScopeViewModel : IDisposable
             .DisposeWith(_disposables);
 
         IObservable<int> zIndex = element.GetObservable(Element.ZIndexProperty);
-        IObservable<(int EndZIndex, int ZIndex)> zIndexTuple = zIndex
+        IObservable<(int EndZIndex, int ZIndex, int Count)> zIndexTuple = zIndex
             .CombineLatest(Count)
-            .Select(t => (t.First + t.Second + 1, t.First));
+            .Select(t => (t.First + t.Second + 1, t.First, t.Second));
 
         Height = zIndexTuple.Select(t =>
             {
-                // CountがZero
-                if (t.EndZIndex - 1 == t.ZIndex)
+                if (t.Count == 0)
                 {
                     return Observable.ReturnThenNever(0d);
                 }

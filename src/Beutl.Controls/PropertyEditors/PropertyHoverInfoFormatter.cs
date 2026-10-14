@@ -2,8 +2,6 @@
 using System.Globalization;
 using Beutl.Language;
 
-#nullable enable annotations
-
 namespace Beutl.Controls.PropertyEditors;
 
 public static class PropertyHoverInfoFormatter

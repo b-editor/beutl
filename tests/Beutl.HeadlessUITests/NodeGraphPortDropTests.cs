@@ -4,14 +4,12 @@ using Avalonia.Controls.PanAndZoom;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
-using Avalonia.Media.Imaging;
 using Avalonia.VisualTree;
 using Beutl.Editor;
 using Beutl.Editor.Components.NodeGraphTab.ViewModels;
 using Beutl.Editor.Components.NodeGraphTab.Views;
 using Beutl.Editor.Observers;
 using Beutl.Editor.Services;
-using Beutl.Extensibility;
 using Beutl.Language;
 using Beutl.Media;
 using Beutl.NodeGraph;
@@ -32,7 +30,7 @@ public class NodeGraphPortDropTests
     [TestCase(1d)]
     [TestCase(1.5d)]
     [TestCase(2d)]
-    public async Task OutputDroppedOnEmptyGraph_OffersCompatibleNodesAndConnectsSelectedNode(double scale)
+    public void OutputDroppedOnEmptyGraph_OffersCompatibleNodesAndConnectsSelectedNode(double scale)
     {
         var graph = new GraphModel();
         var source = new FilterEffectInputNode { Position = (20, 40) };
@@ -78,14 +76,7 @@ public class NodeGraphPortDropTests
                 Is.EquivalentTo(new[] { NodeGraphStrings.Port_True, NodeGraphStrings.Port_False }));
             FAMenuFlyoutItem outputItem = menu.Items.OfType<FAMenuFlyoutItem>()
                 .Single(item => Equals(item.Text, GraphNodeRegistry.FindItem(typeof(OutputNode))!.DisplayName));
-            TopLevel popup = TopLevel.GetTopLevel(menu.Popup.Child!)!;
-            Capture(popup, $"compatible-menu-{scale}");
-            Point action = outputItem.TranslatePoint(
-                new Point(outputItem.Bounds.Width / 2, outputItem.Bounds.Height / 2), popup)!.Value;
-            popup.MouseMove(action);
-            popup.MouseDown(action, MouseButton.Left);
-            popup.MouseUp(action, MouseButton.Left);
-            HeadlessTestHelpers.Render(3);
+            HeadlessTestHelpers.Click(outputItem, move: true, ticks: 3);
 
             OutputNode added = graph.Nodes.OfType<OutputNode>().Single();
             Assert.Multiple(() =>
@@ -97,9 +88,6 @@ public class NodeGraphPortDropTests
                 Assert.That(graph.AllConnections[0].Input.Value, Is.SameAs(added.InputPort));
                 Assert.That(history.UndoCount, Is.EqualTo(1));
             });
-            await Task.Delay(300);
-            HeadlessTestHelpers.Render(3);
-            Capture(window, $"connected-node-{scale}");
 
             history.Undo();
             Assert.That(graph.Nodes, Has.Count.EqualTo(1));
@@ -123,7 +111,7 @@ public class NodeGraphPortDropTests
     }
 
     [AvaloniaTest]
-    public async Task InputDroppedOnEmptyGraph_OffersDynamicSourceAndConnectsIt()
+    public void InputDroppedOnEmptyGraph_OffersDynamicSourceAndConnectsIt()
     {
         var graph = new GraphModel();
         var target = new RandomSingleNode { Position = (20, 40) };
@@ -161,14 +149,7 @@ public class NodeGraphPortDropTests
                 Equals(item.Text, GraphNodeRegistry.FindItem(typeof(OutputNode))!.DisplayName)), Is.False);
             FAMenuFlyoutItem inputItem = menu.Items.OfType<FAMenuFlyoutItem>()
                 .Single(item => Equals(item.Text, GraphNodeRegistry.FindItem(typeof(LayerInputNode))!.DisplayName));
-            TopLevel popup = TopLevel.GetTopLevel(menu.Popup.Child!)!;
-            Capture(popup, "compatible-input-menu");
-            Point action = inputItem.TranslatePoint(
-                new Point(inputItem.Bounds.Width / 2, inputItem.Bounds.Height / 2), popup)!.Value;
-            popup.MouseMove(action);
-            popup.MouseDown(action, MouseButton.Left);
-            popup.MouseUp(action, MouseButton.Left);
-            HeadlessTestHelpers.Render(3);
+            HeadlessTestHelpers.Click(inputItem, move: true, ticks: 3);
 
             LayerInputNode added = graph.Nodes.OfType<LayerInputNode>().Single();
             Assert.Multiple(() =>
@@ -179,9 +160,6 @@ public class NodeGraphPortDropTests
                 Assert.That(graph.AllConnections[0].Output.Value, Is.SameAs(added.Items[0]));
                 Assert.That(history.UndoCount, Is.EqualTo(1));
             });
-            await Task.Delay(300);
-            HeadlessTestHelpers.Render(3);
-            Capture(window, "connected-input-node");
 
             history.Undo();
             Assert.That(graph.Nodes, Has.Count.EqualTo(1));
@@ -297,21 +275,7 @@ public class NodeGraphPortDropTests
     }
 
     private static NodeGraphViewModel CreateViewModel(GraphModel graph, INodeGraphMutationService mutation)
-    {
-        var editor = new Mock<IEditorContext>();
-        editor.Setup(x => x.GetService(typeof(IPropertyEditorFactory)))
-            .Returns(new Mock<IPropertyEditorFactory>().Object);
-        editor.Setup(x => x.GetService(typeof(INodeGraphMutationService))).Returns(mutation);
-        return new NodeGraphViewModel(graph, editor.Object);
-    }
-
-    private static void Capture(TopLevel topLevel, string name)
-    {
-        if (Environment.GetEnvironmentVariable("BEUTL_PORT_DROP_CAPTURE") is not { Length: > 0 } directory) return;
-        Directory.CreateDirectory(directory);
-        using var image = topLevel.CaptureRenderedFrame();
-        image?.Save(Path.Combine(directory, $"{name}.png"), PngBitmapEncoderOptions.Default);
-    }
+        => new(graph, NodeGraphTestContext.Create(mutation).Object);
 }
 
 public sealed partial class DisposableCandidateNode : GraphNode, IDisposable

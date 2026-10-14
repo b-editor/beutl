@@ -2,9 +2,7 @@
 using System.Text;
 using System.Text.Json;
 using Avalonia.Headless.NUnit;
-using Avalonia.Platform.Storage;
 using Beutl.Language;
-using Moq;
 using static Beutl.HeadlessUITests.CloudStorageTests;
 using StorageScope = Beutl.HeadlessUITests.CloudStorageIncrementalTests.StorageScope;
 
@@ -92,29 +90,5 @@ public sealed class CloudStorageUploadRollbackTests
         Assert.That(await upload, Is.False);
         Assert.That(vm.ActionError.Value, Does.Contain(Strings.CloudStorageUploadRollbackIncomplete));
         Assert.That(scope.Handler.Requests.Any(request => request.Method == HttpMethod.Delete), Is.False);
-    }
-
-    private static IStorageFile FileSource(string name, Func<Task<Stream>> read)
-    {
-        var file = new Mock<IStorageFile>();
-        file.SetupGet(x => x.Name).Returns(name);
-        file.SetupGet(x => x.Path).Returns(new Uri($"content://files/{name}"));
-        file.Setup(x => x.OpenReadAsync()).Returns(read);
-        return file.Object;
-    }
-
-    private static IStorageFolder Folder(string name, params IStorageItem[] children)
-    {
-        var folder = new Mock<IStorageFolder>();
-        folder.SetupGet(x => x.Name).Returns(name);
-        folder.SetupGet(x => x.Path).Returns(new Uri($"content://folders/{name}"));
-        folder.Setup(x => x.GetItemsAsync()).Returns(Children(children));
-        return folder.Object;
-    }
-
-    private static async IAsyncEnumerable<IStorageItem> Children(IStorageItem[] children)
-    {
-        foreach (var child in children) yield return child;
-        await Task.CompletedTask;
     }
 }

@@ -7,7 +7,6 @@
                     xmlns:viewModel="using:Beutl.Editor.Components.GraphEditorTab.ViewModels">
     <ResourceDictionary.ThemeDictionaries>
         <ResourceDictionary x:Key="Light">
-            <!-- GraphEditor Light Mode Colors -->
             <SolidColorBrush x:Key="GraphEditorBackgroundBrush">#F5F5F5</SolidColorBrush>
             <SolidColorBrush x:Key="GraphEditorGridLineBrush">#19000000</SolidColorBrush>
             <SolidColorBrush x:Key="GraphEditorScaleTextBrush">#B4404040</SolidColorBrush>
@@ -17,7 +16,6 @@
             <SolidColorBrush x:Key="GraphEditorKeyFrameBrush">#FF8C3D</SolidColorBrush>
         </ResourceDictionary>
         <ResourceDictionary x:Key="Dark">
-            <!-- GraphEditor Dark Mode Colors -->
             <SolidColorBrush x:Key="GraphEditorBackgroundBrush">#1E1E1E</SolidColorBrush>
             <SolidColorBrush x:Key="GraphEditorGridLineBrush">#28FFFFFF</SolidColorBrush>
             <SolidColorBrush x:Key="GraphEditorScaleTextBrush">#B4C8C8C8</SolidColorBrush>
@@ -91,7 +89,6 @@
                           HorizontalAlignment="Left"
                           VerticalAlignment="Top"
                           Data="{StaticResource GraphEditorKeyTimeGeometry}"
-                          Classes.decreasing="{Binding Decreasing.Value}"
                           Classes.selected="{Binding IsSelected.Value}"
                           view:KeyTimeBehavior.Attached="True">
                         <Path.Styles>

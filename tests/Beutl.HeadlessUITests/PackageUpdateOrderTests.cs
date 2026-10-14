@@ -1,5 +1,4 @@
-﻿using System.Reflection;
-using Avalonia.Headless.NUnit;
+﻿using Avalonia.Headless.NUnit;
 using Beutl.Api;
 using Beutl.Api.Services;
 using Beutl.Services;
@@ -17,8 +16,7 @@ public class PackageUpdateOrderTests
     private string _name = null!;
     private PackageIdentity _oldId = null!;
     private PackageIdentity _newId = null!;
-    private string _registrationFile = null!;
-    private byte[]? _originalRegistration;
+    private AppRootFileBackup _registration = null!;
     private readonly List<string> _directories = [];
 
     private string Materials => Path.Combine(BeutlEnvironment.GetMaterialsDirectoryPath(), _name);
@@ -31,8 +29,7 @@ public class PackageUpdateOrderTests
         _name = "UpdateOrder." + Guid.NewGuid().ToString("N");
         _oldId = new PackageIdentity(_name, NuGetVersion.Parse("1.0.0"));
         _newId = new PackageIdentity(_name, NuGetVersion.Parse("2.0.0"));
-        _registrationFile = Path.Combine(Helper.AppRoot, "installedPackages.json");
-        _originalRegistration = File.Exists(_registrationFile) ? File.ReadAllBytes(_registrationFile) : null;
+        _registration = new AppRootFileBackup("installedPackages.json");
         _directories.AddRange([Materials, Templates]);
     }
 
@@ -42,8 +39,7 @@ public class PackageUpdateOrderTests
         foreach (string directory in _directories.Where(Directory.Exists))
             Directory.Delete(directory, true);
         _directories.Clear();
-        if (_originalRegistration is not null) File.WriteAllBytes(_registrationFile, _originalRegistration);
-        else File.Delete(_registrationFile);
+        _registration.Dispose();
     }
 
     [AvaloniaTest]
@@ -108,14 +104,12 @@ public class PackageUpdateOrderTests
         string oldDirectory = InstallOldVersion(app);
         string newDirectory = CreatePackage(_newId);
         bool oldVersionPresentDuringActivation = false;
-        MethodInfo activate = typeof(PackageOperationHandler).GetMethod("ActivateInstalledPackageAsync",
-            BindingFlags.Instance | BindingFlags.NonPublic)!;
 
         await operation.UpdateOrQueueAsync(_name, _newId,
             token =>
             {
                 oldVersionPresentDuringActivation = Directory.Exists(oldDirectory) && repository.ExistsPackage(_oldId);
-                return (Task)activate.Invoke(operation, [_newId, token])!;
+                return operation.ActivateInstalledPackageAsync(_newId, token);
             },
             NullLogger.Instance, CancellationToken.None);
 
@@ -144,20 +138,5 @@ public class PackageUpdateOrderTests
 
     // An extracted material and template package whose payload files contain its version.
     private string CreatePackage(PackageIdentity identity)
-    {
-        string version = identity.Version.ToString();
-        string directory = Path.Combine(Helper.InstallPath, $"{identity.Id}.{version}");
-        _directories.Add(directory);
-        Directory.CreateDirectory(directory);
-        File.WriteAllText(Path.Combine(directory, $"{identity.Id}.{version}.nupkg"), "");
-        File.WriteAllText(Path.Combine(directory, identity.Id + ".nuspec"),
-            $"<package><metadata><id>{identity.Id}</id><version>{version}</version><authors>test</authors><description>test</description><tags>{PackageKinds.MaterialTag} {PackageKinds.TemplateTag}</tags></metadata></package>");
-        foreach (string kind in new[] { "materials", "templates" })
-        {
-            Directory.CreateDirectory(Path.Combine(directory, kind));
-            File.WriteAllText(Path.Combine(directory, kind, "item.txt"), version);
-        }
-
-        return directory;
-    }
+        => TestPackages.CreateExtracted(identity, data: true, cleanup: _directories).InstalledPath!;
 }

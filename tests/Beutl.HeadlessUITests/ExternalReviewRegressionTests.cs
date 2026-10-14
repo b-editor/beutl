@@ -2,7 +2,6 @@
 using Avalonia.Headless.NUnit;
 using Beutl.Editor;
 using Beutl.Editor.Components.FileBrowserTab.ViewModels;
-using Beutl.Editor.Models;
 using Beutl.Editor.Services;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
@@ -15,21 +14,10 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public sealed class ExternalReviewRegressionTests
 {
-    private static async Task<EditViewModel> CreateEditor(string name)
-    {
-        await TestReset.ResetShellAsync();
-        string directory = Path.Combine(BeutlHomeIsolation.CurrentHome!, name);
-        Directory.CreateDirectory(directory);
-        Project project = (await TestShell.Project.CreateProject(320, 180, 30, 44100, name, directory))!;
-        TestShell.Editor.ActivateTabItem(project.Items.OfType<Scene>().First());
-        HeadlessTestHelpers.Settle();
-        return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
-    }
-
     [AvaloniaTest]
     public async Task FileBrowser_ProtectsNestedFileBackedObjects()
     {
-        EditViewModel editor = await CreateEditor("nested-sidecar-review");
+        EditViewModel editor = (await TestShell.OpenNewSceneAsync("nested-sidecar-review", 320, 180)).Editor;
         string path = Path.Combine(Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!, "brush.json");
         var brush = new Beutl.Media.SolidColorBrush(Beutl.Media.Colors.Red) { Uri = new Uri(path) };
         var shape = new Beutl.Graphics.Shapes.RectShape();
@@ -49,7 +37,7 @@ public sealed class ExternalReviewRegressionTests
     [AvaloniaTest]
     public async Task ReopeningCurrentProject_PreservesUnsavedSceneEdits()
     {
-        EditViewModel editor = await CreateEditor("reopen-unsaved-review");
+        EditViewModel editor = (await TestShell.OpenNewSceneAsync("reopen-unsaved-review", 320, 180)).Editor;
         Project project = TestShell.Project.CurrentProject.Value!;
         bool autoSave = EditViewModel.IsAutoSaveSuppressedForTesting;
         try
@@ -69,19 +57,14 @@ public sealed class ExternalReviewRegressionTests
     [AvaloniaTest]
     public async Task Edits_are_auto_saved_even_when_a_legacy_config_disabled_auto_save()
     {
-        EditViewModel editor = await CreateEditor("legacy-auto-save-off");
+        EditViewModel editor = (await TestShell.OpenNewSceneAsync("legacy-auto-save-off", 320, 180)).Editor;
         // Configs written before auto save became mandatory may still carry the old opt-out.
         CoreSerializer.PopulateFromJsonObject(
             Beutl.Configuration.GlobalConfiguration.Instance.EditorConfig,
             new JsonObject { ["IsAutoSaveEnabled"] = false });
 
-        var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
-        ElementAddResult result = await adder.AddAsync([new ElementDescription(
-            Start: TimeSpan.Zero,
-            Length: TimeSpan.FromSeconds(1),
-            Layer: 0,
-            Source: new ElementSource.EngineObject(() => new Beutl.Graphics.Shapes.RectShape()))],
-            CancellationToken.None);
+        ElementAddResult result = await TestShell.AddElementAsync(
+            editor, () => new Beutl.Graphics.Shapes.RectShape(), TimeSpan.Zero, TimeSpan.FromSeconds(1));
         Assert.That(result.IsSuccess, Is.True, result.Failure?.Message);
         Element element = editor.Scene.Children.Single();
         // Let the save queued by the add land first, so only the rename's own save can write the name.
@@ -112,7 +95,7 @@ public sealed class ExternalReviewRegressionTests
     [AvaloniaTest]
     public async Task InvalidProjectOpen_KeepsTheCurrentProject()
     {
-        EditViewModel editor = await CreateEditor("invalid-open-review");
+        EditViewModel editor = (await TestShell.OpenNewSceneAsync("invalid-open-review", 320, 180)).Editor;
         Project current = TestShell.Project.CurrentProject.Value!;
         string invalid = Path.Combine(Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!, "invalid.bep");
         File.WriteAllText(invalid, "{ invalid json");
@@ -124,7 +107,7 @@ public sealed class ExternalReviewRegressionTests
     [AvaloniaTest]
     public async Task UnavailableReadOnlyOutputProfile_SurvivesARewrite()
     {
-        EditViewModel editor = await CreateEditor("output-profile-review");
+        EditViewModel editor = (await TestShell.OpenNewSceneAsync("output-profile-review", 320, 180)).Editor;
         string path = Path.Combine(Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!, EditorConstants.BeutlFolder, "output-profile.json");
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         var original = new JsonArray(new JsonObject
@@ -147,7 +130,7 @@ public sealed class ExternalReviewRegressionTests
     [AvaloniaTest]
     public async Task FileBrowser_DoesNotRenameOrDeleteAnOpenScene()
     {
-        EditViewModel editor = await CreateEditor("open-file-review");
+        EditViewModel editor = (await TestShell.OpenNewSceneAsync("open-file-review", 320, 180)).Editor;
         string path = editor.Scene.Uri!.LocalPath;
         using var browser = new FileBrowserTabViewModel(editor);
         using var item = new FileSystemItemViewModel(path, false);

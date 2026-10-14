@@ -6,11 +6,8 @@ using Beutl.Views.Tools;
 
 namespace Beutl.HeadlessUITests;
 
-// Layout-only assertions for OutputView. The save-destination / Encoder / Supersampling rows used a
-// hard 150px input column, which clipped long file paths and translated labels. These tests pin the
-// fix: the input column is flexible (star-sized) and actually grows with the available width.
-// They inflate the real view headlessly and assert arranged layout (column sizing / bounds) only -
-// never pixels, which crashes the software-Vulkan host when a heavy view is frame-captured.
+// Checks only that OutputView's input columns are star-sized and grow with the width. Capturing a frame of
+// this view crashes the software Vulkan host, so no pixels are read.
 [TestFixture]
 public class OutputViewLayoutTests
 {
@@ -48,10 +45,6 @@ public class OutputViewLayoutTests
                     input.Width.IsStar,
                     Is.True,
                     "the input column must be flexible (star-sized), not a fixed width");
-                Assert.That(
-                    input.Width.IsAbsolute && input.Width.Value == 150,
-                    Is.False,
-                    "the input column must not keep the old 150px fixed width");
             }
         }
         finally

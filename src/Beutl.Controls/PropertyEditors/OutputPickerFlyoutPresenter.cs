@@ -1,6 +1,4 @@
-﻿#nullable enable
-
-using System.Reactive.Disposables;
+﻿using System.Reactive.Disposables;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -12,51 +10,19 @@ using Reactive.Bindings;
 
 namespace Beutl.Controls.PropertyEditors;
 
-public sealed class PinnableOutputItem(
-    string displayName,
-    bool isPinned,
-    object userData,
-    string? description = null) : IEquatable<PinnableOutputItem?>
-{
-    public string DisplayName { get; } = displayName;
-
-    public bool IsPinned { get; } = isPinned;
-
-    public object UserData { get; } = userData;
-
-    public string? Description { get; } = description;
-
-    public bool Equals(PinnableOutputItem? other)
-    {
-        if (ReferenceEquals(null, other)) return false;
-        if (ReferenceEquals(this, other)) return true;
-        return DisplayName == other.DisplayName && IsPinned == other.IsPinned && Equals(UserData, other.UserData);
-    }
-
-    public override bool Equals(object? obj)
-    {
-        return ReferenceEquals(this, obj) || obj is PinnableOutputItem other && Equals(other);
-    }
-
-    public override int GetHashCode()
-    {
-        return HashCode.Combine(IsPinned, UserData);
-    }
-}
-
 public class OutputPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
 {
-    public static readonly StyledProperty<ReactiveCollection<PinnableOutputItem>?> ProfileItemsProperty =
-        AvaloniaProperty.Register<OutputPickerFlyoutPresenter, ReactiveCollection<PinnableOutputItem>?>(nameof(ProfileItems));
+    public static readonly StyledProperty<ReactiveCollection<PinnableLibraryItem>?> ProfileItemsProperty =
+        AvaloniaProperty.Register<OutputPickerFlyoutPresenter, ReactiveCollection<PinnableLibraryItem>?>(nameof(ProfileItems));
 
-    public static readonly StyledProperty<ReactiveCollection<PinnableOutputItem>?> PresetItemsProperty =
-        AvaloniaProperty.Register<OutputPickerFlyoutPresenter, ReactiveCollection<PinnableOutputItem>?>(nameof(PresetItems));
+    public static readonly StyledProperty<ReactiveCollection<PinnableLibraryItem>?> PresetItemsProperty =
+        AvaloniaProperty.Register<OutputPickerFlyoutPresenter, ReactiveCollection<PinnableLibraryItem>?>(nameof(PresetItems));
 
-    public static readonly StyledProperty<PinnableOutputItem?> SelectedProfileProperty =
-        AvaloniaProperty.Register<OutputPickerFlyoutPresenter, PinnableOutputItem?>(nameof(SelectedProfile));
+    public static readonly StyledProperty<PinnableLibraryItem?> SelectedProfileProperty =
+        AvaloniaProperty.Register<OutputPickerFlyoutPresenter, PinnableLibraryItem?>(nameof(SelectedProfile));
 
-    public static readonly StyledProperty<PinnableOutputItem?> SelectedPresetProperty =
-        AvaloniaProperty.Register<OutputPickerFlyoutPresenter, PinnableOutputItem?>(nameof(SelectedPreset));
+    public static readonly StyledProperty<PinnableLibraryItem?> SelectedPresetProperty =
+        AvaloniaProperty.Register<OutputPickerFlyoutPresenter, PinnableLibraryItem?>(nameof(SelectedPreset));
 
     public static readonly StyledProperty<bool> ShowPresetsProperty =
         AvaloniaProperty.Register<OutputPickerFlyoutPresenter, bool>(nameof(ShowPresets));
@@ -77,31 +43,37 @@ public class OutputPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
     private ToggleButton? _profilesTabButton;
     private ToggleButton? _presetsTabButton;
 
-    public event Action<PinnableOutputItem>? Pinned;
+    public OutputPickerFlyoutPresenter()
+    {
+        // The pin and more buttons belong to the item template, so the presenter handles their clicks.
+        AddHandler(Button.ClickEvent, OnItemButtonClick, handledEventsToo: true);
+    }
 
-    public event Action<PinnableOutputItem>? Unpinned;
+    public event Action<PinnableLibraryItem>? Pinned;
 
-    public event Action<PinnableOutputItem, Control>? MoreMenuRequested;
+    public event Action<PinnableLibraryItem>? Unpinned;
 
-    public ReactiveCollection<PinnableOutputItem>? ProfileItems
+    public event Action<PinnableLibraryItem, Control>? MoreMenuRequested;
+
+    public ReactiveCollection<PinnableLibraryItem>? ProfileItems
     {
         get => GetValue(ProfileItemsProperty);
         set => SetValue(ProfileItemsProperty, value);
     }
 
-    public ReactiveCollection<PinnableOutputItem>? PresetItems
+    public ReactiveCollection<PinnableLibraryItem>? PresetItems
     {
         get => GetValue(PresetItemsProperty);
         set => SetValue(PresetItemsProperty, value);
     }
 
-    public PinnableOutputItem? SelectedProfile
+    public PinnableLibraryItem? SelectedProfile
     {
         get => GetValue(SelectedProfileProperty);
         set => SetValue(SelectedProfileProperty, value);
     }
 
-    public PinnableOutputItem? SelectedPreset
+    public PinnableLibraryItem? SelectedPreset
     {
         get => GetValue(SelectedPresetProperty);
         set => SetValue(SelectedPresetProperty, value);
@@ -239,7 +211,20 @@ public class OutputPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
         }
     }
 
-    internal void UpdatePinState(PinnableOutputItem item, bool isPinned)
+    private void OnItemButtonClick(object? sender, RoutedEventArgs e)
+    {
+        switch (e.Source)
+        {
+            case ToggleButton { Name: "PinButton", DataContext: PinnableLibraryItem item } pinButton:
+                UpdatePinState(item, pinButton.IsChecked == true);
+                break;
+            case Button { Name: "MoreItemButton", DataContext: PinnableLibraryItem item } moreButton:
+                MoreMenuRequested?.Invoke(item, moreButton);
+                break;
+        }
+    }
+
+    private void UpdatePinState(PinnableLibraryItem item, bool isPinned)
     {
         if (isPinned)
         {
@@ -249,10 +234,5 @@ public class OutputPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
         {
             Unpinned?.Invoke(item);
         }
-    }
-
-    internal void RequestMoreMenu(PinnableOutputItem item, Control anchor)
-    {
-        MoreMenuRequested?.Invoke(item, anchor);
     }
 }

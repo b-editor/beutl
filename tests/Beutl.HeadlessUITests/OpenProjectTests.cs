@@ -15,21 +15,12 @@ public class OpenProjectTests
 {
     private const string LegacyAppVersion = "2.0.0";
 
-    private static Task ResetProjectAsync() => TestReset.ResetShellAsync();
-
-    private static string NewWorkspace(string name)
-    {
-        string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, name);
-        Directory.CreateDirectory(location);
-        return location;
-    }
-
     [AvaloniaTest]
     [TestCase(false)]
     [TestCase(true)]
     public async Task Failed_project_switch_restores_the_previous_project_and_edits(bool failActivation)
     {
-        await ResetProjectAsync();
+        await TestReset.ResetShellAsync();
         VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
         bool oldAutoCommitOnClose = config.AutoCommitOnClose;
         bool oldAutoSave = EditViewModel.IsAutoSaveSuppressedForTesting;
@@ -40,7 +31,7 @@ public class OpenProjectTests
         {
             config.AutoCommitOnClose = false;
             Project original = (await TestShell.Project.CreateProject(320, 180, 30, 44100,
-                "original", NewWorkspace($"failed-project-switch-{failActivation}")))!;
+                "original", TestShell.NewWorkspace($"failed-project-switch-{failActivation}")))!;
             Scene scene = original.Items.OfType<Scene>().Single();
             var otherScene = new Scene(320, 180, "other")
             {
@@ -106,7 +97,7 @@ public class OpenProjectTests
             if (corruptTarget is not null) TestShell.Project.ClosingFinalizing -= corruptTarget;
             if (rejectTarget is not null) TestShell.Project.Opened -= rejectTarget;
             if (recordTransition is not null) TestShell.Project.TransitionCommitted -= recordTransition;
-            try { await ResetProjectAsync(); }
+            try { await TestReset.ResetShellAsync(); }
             finally
             {
                 config.AutoCommitOnClose = oldAutoCommitOnClose;
@@ -140,10 +131,10 @@ public class OpenProjectTests
     [AvaloniaTest]
     public async Task OpenProject_loads_a_persisted_project_file()
     {
-        await ResetProjectAsync();
+        await TestReset.ResetShellAsync();
 
         Project created = (await TestShell.Project.CreateProject(
-            1280, 720, 30, 44100, "reopen", NewWorkspace("reopen")))!;
+            800, 600, 60, 22050, "reopen", TestShell.NewWorkspace("reopen")))!;
         HeadlessTestHelpers.Settle();
 
         string projectFile = created.Uri!.LocalPath;
@@ -161,59 +152,27 @@ public class OpenProjectTests
         Assert.That(TestShell.Project.IsOpened.Value, Is.True);
         Project reopened = BeutlApplication.Current.Project!;
         Assert.That(reopened, Is.Not.Null);
-        Assert.That(reopened, Is.Not.SameAs(created));
-        Assert.That(reopened.Uri!.LocalPath, Is.EqualTo(projectFile));
-
         Scene reopenedScene = reopened.Items.OfType<Scene>().Single();
-        Assert.That(reopenedScene.Id, Is.EqualTo(originalSceneId));
-    }
-
-    [AvaloniaTest]
-    public async Task OpenProject_round_trips_frame_size()
-    {
-        await ResetProjectAsync();
-
-        Project created = (await TestShell.Project.CreateProject(
-            800, 600, 25, 48000, "framesize", NewWorkspace("framesize")))!;
-        HeadlessTestHelpers.Settle();
-        string projectFile = created.Uri!.LocalPath;
-
-        await TestShell.Project.CloseProjectAsync();
-        await TestShell.Project.OpenProject(projectFile);
-        HeadlessTestHelpers.Settle();
-
-        Scene scene = BeutlApplication.Current.Project!.Items.OfType<Scene>().Single();
-        Assert.That(scene.FrameSize.Width, Is.EqualTo(800));
-        Assert.That(scene.FrameSize.Height, Is.EqualTo(600));
-        Assert.That(File.Exists(scene.Uri!.LocalPath), Is.True);
-    }
-
-    [AvaloniaTest]
-    public async Task OpenProject_preserves_project_variables()
-    {
-        await ResetProjectAsync();
-
-        Project created = (await TestShell.Project.CreateProject(
-            640, 480, 60, 22050, "vars", NewWorkspace("vars")))!;
-        HeadlessTestHelpers.Settle();
-        string projectFile = created.Uri!.LocalPath;
-
-        await TestShell.Project.CloseProjectAsync();
-        await TestShell.Project.OpenProject(projectFile);
-        HeadlessTestHelpers.Settle();
-
-        Project reopened = BeutlApplication.Current.Project!;
-        Assert.That(reopened.Variables[ProjectVariableKeys.FrameRate], Is.EqualTo("60"));
-        Assert.That(reopened.Variables[ProjectVariableKeys.SampleRate], Is.EqualTo("22050"));
+        Assert.Multiple(() =>
+        {
+            Assert.That(reopened, Is.Not.SameAs(created));
+            Assert.That(reopened.Uri!.LocalPath, Is.EqualTo(projectFile));
+            Assert.That(reopenedScene.Id, Is.EqualTo(originalSceneId));
+            Assert.That(reopenedScene.FrameSize.Width, Is.EqualTo(800));
+            Assert.That(reopenedScene.FrameSize.Height, Is.EqualTo(600));
+            Assert.That(File.Exists(reopenedScene.Uri!.LocalPath), Is.True);
+            Assert.That(reopened.Variables[ProjectVariableKeys.FrameRate], Is.EqualTo("60"));
+            Assert.That(reopened.Variables[ProjectVariableKeys.SampleRate], Is.EqualTo("22050"));
+        });
     }
 
     [AvaloniaTest]
     public async Task OpenProject_resave_records_the_version_that_saved_it()
     {
-        await ResetProjectAsync();
+        await TestReset.ResetShellAsync();
 
         Project project = (await TestShell.Project.CreateProject(
-            640, 480, 30, 44100, "resave-version", NewWorkspace("resave-version")))!;
+            640, 480, 30, 44100, "resave-version", TestShell.NewWorkspace("resave-version")))!;
         HeadlessTestHelpers.Settle();
         string projectFile = project.Uri!.LocalPath;
 

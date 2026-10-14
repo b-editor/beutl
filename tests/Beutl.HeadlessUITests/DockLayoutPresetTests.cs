@@ -6,7 +6,6 @@ using Beutl.Editor.Models;
 using Beutl.Editor.Services;
 using Beutl.Extensibility;
 using Beutl.Graphics.Shapes;
-using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.Testing.Headless;
@@ -22,35 +21,14 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class DockLayoutPresetTests
 {
-    private static Task ResetProjectAsync() => TestReset.ResetShellAsync();
-
-    private static string NewWorkspace(string name)
-    {
-        string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, name);
-        Directory.CreateDirectory(location);
-        return location;
-    }
-
-    private static async Task<EditViewModel> OpenEditorForNewScene(string name, int width = 1920, int height = 1080)
-    {
-        Project project = (await TestShell.Project.CreateProject(
-            width, height, 30, 44100, name, NewWorkspace(name)))!;
-        HeadlessTestHelpers.Settle();
-        Scene scene = project.Items.OfType<Scene>().First();
-
-        TestShell.Editor.ActivateTabItem(scene);
-        HeadlessTestHelpers.Settle();
-        return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
-    }
-
-    private static DockLayoutPresetService NewService()
+    internal static DockLayoutPresetService NewService()
     {
         string path = Path.Combine(
             BeutlHomeIsolation.CurrentHome!, $"dock-layout-presets-{Guid.NewGuid():N}.json");
         return new DockLayoutPresetService(path);
     }
 
-    private static string[] ToolExtensionNames(EditViewModel editor)
+    internal static string[] ToolExtensionNames(EditViewModel editor)
     {
         return editor.DockHost.Factory.EnumerateTools()
             .Select(t => t.ToolContext.Extension.GetType().FullName!)
@@ -61,8 +39,8 @@ public class DockLayoutPresetTests
     [AvaloniaTest]
     public async Task Saved_layout_can_be_applied_to_another_scene()
     {
-        await ResetProjectAsync();
-        EditViewModel source = await OpenEditorForNewScene("preset-source");
+        await TestReset.ResetShellAsync();
+        EditViewModel source = await TestShell.OpenNewSceneEditorAsync("preset-source", 1920, 1080);
 
         // Make the layout distinguishable from the default: close the library tab.
         BeutlToolDockable library = source.DockHost.Factory.EnumerateTools()
@@ -77,7 +55,7 @@ public class DockLayoutPresetTests
         DockLayoutPresetItem? preset = service.Save("No library", source.DockHost.CaptureLayout());
         Assert.That(preset, Is.Not.Null);
 
-        EditViewModel target = await OpenEditorForNewScene("preset-target");
+        EditViewModel target = await TestShell.OpenNewSceneEditorAsync("preset-target", 1920, 1080);
         Assert.That(ToolExtensionNames(target), Does.Contain(typeof(LibraryTabExtension).FullName));
 
         Assert.That(target.DockHost.ApplyLayout(preset!.Layout), Is.True);
@@ -90,8 +68,8 @@ public class DockLayoutPresetTests
     [AvaloniaTest]
     public async Task Captured_layout_does_not_carry_per_tool_state()
     {
-        await ResetProjectAsync();
-        EditViewModel editor = await OpenEditorForNewScene("preset-strip-state");
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("preset-strip-state", 1920, 1080);
 
         JsonObject captured = editor.DockHost.CaptureLayout();
 
@@ -125,8 +103,8 @@ public class DockLayoutPresetTests
     [AvaloniaTest]
     public async Task Applying_a_malformed_layout_keeps_the_current_one()
     {
-        await ResetProjectAsync();
-        EditViewModel editor = await OpenEditorForNewScene("preset-malformed");
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("preset-malformed", 1920, 1080);
 
         string[] before = ToolExtensionNames(editor);
         IRootDock layoutBefore = editor.DockHost.Layout.Value;
@@ -143,8 +121,8 @@ public class DockLayoutPresetTests
     [AvaloniaTest]
     public async Task A_failed_restore_disposes_the_tools_it_already_built()
     {
-        await ResetProjectAsync();
-        EditViewModel editor = await OpenEditorForNewScene("preset-partial-restore");
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("preset-partial-restore", 1920, 1080);
 
         JsonObject captured = editor.DockHost.CaptureLayout();
 
@@ -156,8 +134,6 @@ public class DockLayoutPresetTests
         IRootDock layoutBefore = editor.DockHost.Layout.Value;
         BeutlToolDockable[] liveBefore = editor.DockHost.Factory.EnumerateTools().ToArray();
 
-        // Each live tool tracks its selection through its context, so a disposed context stops
-        // mirroring. Record the current state to prove the survivors were left alone.
         bool[] selectedBefore = liveBefore.Select(t => t.ToolContext.IsSelected.Value).ToArray();
 
         Assert.That(editor.DockHost.ApplyLayout(broken), Is.False);
@@ -179,8 +155,8 @@ public class DockLayoutPresetTests
     [AvaloniaTest]
     public async Task A_layout_from_an_incompatible_version_is_refused()
     {
-        await ResetProjectAsync();
-        EditViewModel editor = await OpenEditorForNewScene("preset-version");
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("preset-version", 1920, 1080);
 
         JsonObject captured = editor.DockHost.CaptureLayout();
         Assert.That(editor.DockHost.ApplyLayout(captured), Is.True, "the captured layout should apply as-is");
@@ -235,8 +211,8 @@ public class DockLayoutPresetTests
     [AvaloniaTest]
     public async Task Capturing_a_layout_does_not_write_per_scene_view_state()
     {
-        await ResetProjectAsync();
-        EditViewModel editor = await OpenEditorForNewScene("preset-no-side-effects");
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("preset-no-side-effects", 1920, 1080);
 
         // The element property tab writes a per-element config from its serializer, but only once
         // an element is selected — so select one to arm the side effect.
@@ -281,8 +257,8 @@ public class DockLayoutPresetTests
     [AvaloniaTest]
     public async Task Pinned_tools_are_enumerated_when_replacing_a_layout()
     {
-        await ResetProjectAsync();
-        EditViewModel editor = await OpenEditorForNewScene("preset-pinned");
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("preset-pinned", 1920, 1080);
 
         IRootDock root = editor.DockHost.Layout.Value;
         BeutlToolDockable pinned = editor.DockHost.Factory.EnumerateTools()
@@ -351,14 +327,15 @@ public class DockLayoutPresetTests
         }
     }
 
-    [Test]
-    public void An_unparsable_store_file_still_accepts_later_saves()
+    // One file is not JSON at all, the other parses but its root is not the expected array.
+    [TestCase("{ this is not json")]
+    [TestCase("{ \"not\": \"an array\" }")]
+    public void A_corrupt_store_file_still_accepts_later_saves(string content)
     {
         string path = Path.Combine(Path.GetTempPath(), $"beutl-dock-presets-{Guid.NewGuid():N}.json");
         try
         {
-            // Syntactically invalid, so this exercises the JsonNode.Parse failure path.
-            File.WriteAllText(path, "{ this is not json");
+            File.WriteAllText(path, content);
 
             var service = new DockLayoutPresetService(path);
             Assert.That(service.Items, Is.Empty);
@@ -396,7 +373,6 @@ public class DockLayoutPresetTests
         }
         finally
         {
-            if (Directory.Exists(path)) Directory.Delete(path, recursive: true);
             if (File.Exists(path)) File.Delete(path);
         }
     }
@@ -424,29 +400,6 @@ public class DockLayoutPresetTests
                 File.SetAttributes(path, FileAttributes.Normal);
                 File.Delete(path);
             }
-        }
-    }
-
-    [Test]
-    public void A_store_file_that_is_not_an_array_still_accepts_later_saves()
-    {
-        string path = Path.Combine(Path.GetTempPath(), $"beutl-dock-presets-{Guid.NewGuid():N}.json");
-        try
-        {
-            // Parses, but the root is not the expected array.
-            File.WriteAllText(path, "{ \"not\": \"an array\" }");
-
-            var service = new DockLayoutPresetService(path);
-            Assert.That(service.Items, Is.Empty);
-
-            var layout = new JsonObject { ["DockLayout"] = new JsonObject { ["$type"] = "root" } };
-            Assert.That(service.Save("Editing", layout), Is.Not.Null);
-            Assert.That(new DockLayoutPresetService(path).Items.Select(i => i.Name.Value),
-                Is.EqualTo(new[] { "Editing" }));
-        }
-        finally
-        {
-            if (File.Exists(path)) File.Delete(path);
         }
     }
 }

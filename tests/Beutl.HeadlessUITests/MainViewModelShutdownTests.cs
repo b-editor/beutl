@@ -71,7 +71,7 @@ public sealed class MainViewModelShutdownTests
             Assert.That(viewModel.ProjectService.CurrentProject.Value, Is.Not.Null);
             viewModel.ProjectService.ClosingPreparing -= veto;
             window.Close();
-            await WaitUntilAsync(() => !window.IsVisible, TimeSpan.FromSeconds(10));
+            await HeadlessTestHelpers.WaitUntilAsync(() => !window.IsVisible, TimeSpan.FromSeconds(10), pump: false);
         }
         finally
         {
@@ -144,7 +144,7 @@ public sealed class MainViewModelShutdownTests
             window.Show();
             window.Close();
             await viewModel.WaitForDisposalAsync();
-            await WaitUntilAsync(() => !window.IsVisible, TimeSpan.FromSeconds(5));
+            await HeadlessTestHelpers.WaitUntilAsync(() => !window.IsVisible, TimeSpan.FromSeconds(5), pump: false);
 
             Assert.That(handedOffQueue, Is.Not.Null);
             Assert.Throws<ObjectDisposedException>(() =>
@@ -186,7 +186,7 @@ public sealed class MainViewModelShutdownTests
             window.Show();
             window.Close();
             await viewModel.WaitForDisposalAsync().WaitAsync(TimeSpan.FromSeconds(5));
-            await WaitUntilAsync(() => !window.IsVisible, TimeSpan.FromSeconds(5));
+            await HeadlessTestHelpers.WaitUntilAsync(() => !window.IsVisible, TimeSpan.FromSeconds(5), pump: false);
 
             Assert.That(viewModel.EditorService.TabItems, Is.Empty);
         }
@@ -243,7 +243,7 @@ public sealed class MainViewModelShutdownTests
             Assert.That(guard.Reissues, Is.Empty);
 
             releaseClose.TrySetResult();
-            await WaitUntilAsync(() => guard.Reissues.Count > 0, TimeSpan.FromSeconds(10));
+            await HeadlessTestHelpers.WaitUntilAsync(() => guard.Reissues.Count > 0, TimeSpan.FromSeconds(10), pump: false);
             HeadlessTestHelpers.Settle();
             viewModel.CompleteShutdown();
 
@@ -301,7 +301,7 @@ public sealed class MainViewModelShutdownTests
 
             viewModel.ProjectService.ClosingPreparing -= veto;
             Assert.That(lifetime.TryShutdown(), Is.False, "The retry drains asynchronously as well.");
-            await WaitUntilAsync(() => guard.Reissues.Count > 0, TimeSpan.FromSeconds(10));
+            await HeadlessTestHelpers.WaitUntilAsync(() => guard.Reissues.Count > 0, TimeSpan.FromSeconds(10), pump: false);
             HeadlessTestHelpers.Settle();
 
             Assert.Multiple(() =>
@@ -356,8 +356,8 @@ public sealed class MainViewModelShutdownTests
             Assert.That(window.IsVisible, Is.True);
 
             releaseClose.TrySetResult();
-            await WaitUntilAsync(() => guard.Reissues.Count > 0, TimeSpan.FromSeconds(10));
-            await WaitUntilAsync(() => !window.IsVisible, TimeSpan.FromSeconds(5));
+            await HeadlessTestHelpers.WaitUntilAsync(() => guard.Reissues.Count > 0, TimeSpan.FromSeconds(10), pump: false);
+            await HeadlessTestHelpers.WaitUntilAsync(() => !window.IsVisible, TimeSpan.FromSeconds(5), pump: false);
             HeadlessTestHelpers.Settle();
 
             Assert.Multiple(() =>
@@ -519,16 +519,4 @@ public sealed class MainViewModelShutdownTests
         object guard = window.GetType().GetField("_closeGuard", flags)!.GetValue(window)!;
         return (Task)typeof(MainWindowCloseGuard).GetField("_viewModelDisposeTask", flags)!.GetValue(guard)!;
     }
-
-    private static async Task WaitUntilAsync(Func<bool> predicate, TimeSpan timeout)
-    {
-        DateTime deadline = DateTime.UtcNow + timeout;
-        while (!predicate())
-        {
-            if (DateTime.UtcNow >= deadline)
-                throw new TimeoutException("The shell did not finish closing.");
-            await Task.Delay(10);
-        }
-    }
-
 }

@@ -63,11 +63,6 @@ public sealed partial class ElementViewModel
             .AddTo(_disposables);
     }
 
-    public static string GetTransitionName(Type transitionType)
-    {
-        return TypeDisplayHelpers.GetLocalizedName(transitionType);
-    }
-
     // The type of the transition at edge, as the boundary blends; null when the edge has none.
     public Type? GetTransitionType(ElementEdge edge)
     {
@@ -189,7 +184,7 @@ public sealed partial class ElementViewModel
         double startFraction = (partStart - region.Start).Ticks / regionTicks;
         double endFraction = (partEnd - region.Start).Ticks / regionTicks;
         ClipTransition transition = boundary.Transition;
-        string toolTip = $"{GetTransitionName(transition.GetType())} "
+        string toolTip = $"{TypeDisplayHelpers.GetLocalizedName(transition.GetType())} "
                          + $"({region.Duration.TotalSeconds:0.##}s)";
         return new TransitionPartLayout(
             true,

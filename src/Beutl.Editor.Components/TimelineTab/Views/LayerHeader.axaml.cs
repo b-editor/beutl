@@ -98,7 +98,7 @@ public sealed partial class LayerHeader : UserControl
         ElementViewModel[] directElements = _elements;
         _elements = [];
 
-        if (newLayerNum == vm.Number.Value)
+        if (newLayerNum == vm.Number)
         {
             vm.PosY.Value = 0;
             return;
@@ -118,16 +118,15 @@ public sealed partial class LayerHeader : UserControl
 
         // The headers stay on their rows and follow the TimelineLayer models the service moved, as they do on undo
         // and redo; only the clip views animate to their new rows.
-        // affectModel: false — ZIndex already written by the service; just drive the visual.
         foreach (ElementViewModel item in directElements)
         {
-            item.AnimationRequest(newLayerNum, affectModel: false);
+            item.AnimationRequest(newLayerNum);
         }
 
         foreach (Element shifted in plan.ShiftedElements)
         {
-            ElementViewModel? shiftedVm = vm.Timeline.Elements.FirstOrDefault(v => v.Model == shifted);
-            shiftedVm?.AnimationRequest(shifted.ZIndex, affectModel: false);
+            ElementViewModel? shiftedVm = vm.Timeline.GetViewModelFor(shifted);
+            shiftedVm?.AnimationRequest(shifted.ZIndex);
         }
     }
 
@@ -148,11 +147,11 @@ public sealed partial class LayerHeader : UserControl
             && GetOrFindTimeline() is { } timeline)
         {
             _pressed = true;
-            _newLayer = ViewModel.Number.Value;
+            _newLayer = ViewModel.Number;
             _startRel = point.Position;
             _start = e.GetCurrentPoint(timeline.TimelinePanel).Position;
             _elements = ViewModel.Timeline.Elements
-                .Where(i => i.Model.ZIndex == ViewModel.Number.Value && i.IsEditable.Value)
+                .Where(i => i.Model.ZIndex == ViewModel.Number && i.IsEditable.Value)
                 .ToArray();
         }
     }

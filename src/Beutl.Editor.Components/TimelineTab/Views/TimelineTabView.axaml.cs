@@ -23,8 +23,7 @@ public sealed partial class TimelineTabView : UserControl
 {
     internal MouseFlags _mouseFlag = MouseFlags.Free;
     internal TimeSpan _pointerFrame;
-    private TimeSpan _initialStart;
-    private TimeSpan _initialDuration;
+    private readonly TimelineRulerDrag _rulerDrag = new();
     private bool _rightButtonPressed;
     private SceneMarker? _pressedMarker;
     private TimeSpan _markerInitialTime;
@@ -51,6 +50,7 @@ public sealed partial class TimelineTabView : UserControl
         _usesGestureAxes = usesGestureAxes;
         _attachNativeInput = attachNativeInput ?? NativeScrollInput.Attach;
         InitializeComponent();
+        TimelineEditingModeMenu.Populate(EditingModeMenu, "");
 
         gridSplitter.DragDelta += GridSplitter_DragDelta;
 
@@ -222,7 +222,6 @@ public sealed partial class TimelineTabView : UserControl
         }
     }
 
-    // 要素を追加
     private void AddElement(int index, ElementViewModel viewModel)
     {
         var view = new ElementView { DataContext = viewModel };
@@ -232,7 +231,6 @@ public sealed partial class TimelineTabView : UserControl
         TimelinePanel.Children.Add(scopeView);
     }
 
-    // 要素を削除
     private void RemoveElement(int index, ElementViewModel viewModel)
     {
         Element elm = viewModel.Model;

@@ -22,6 +22,7 @@ using ModelContextProtocol.Protocol;
 using Moq;
 using Reactive.Bindings;
 using SkiaSharp;
+using static Beutl.HeadlessUITests.AgentHostTestHelpers;
 
 namespace Beutl.HeadlessUITests;
 
@@ -449,14 +450,6 @@ public sealed class AgentHostSceneRoutingTests
         {
             LiveMcpToken = "scene-routing-test-token"
         });
-
-    private static async Task<McpClient> ConnectAsync(AgentHostEndpoint host)
-        => await McpClient.CreateAsync(new HttpClientTransport(new HttpClientTransportOptions
-        {
-            Endpoint = host.EndpointUri!,
-            TransportMode = HttpTransportMode.StreamableHttp,
-            AdditionalHeaders = new Dictionary<string, string> { ["Authorization"] = "Bearer " + host.Token }
-        }));
 
     private static Dictionary<string, object?> Target(Guid sceneId)
         => new() { ["sceneId"] = sceneId.ToString() };

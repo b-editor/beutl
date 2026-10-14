@@ -1,4 +1,5 @@
-﻿using Avalonia.Input;
+﻿using System.Diagnostics.CodeAnalysis;
+using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
@@ -7,6 +8,7 @@ using Beutl.Editor.Services;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Editor.Components.GraphEditorTab.ViewModels;
@@ -15,6 +17,99 @@ namespace Beutl.Editor.Components.GraphEditorTab.ViewModels;
 // Callers pass their own logger so the log category stays that of the calling view model.
 internal static class KeyFrameClipboardCommands
 {
+    internal static Task CopyAnimationAsync(ICoreSerializable animation, ILogger logger)
+    {
+        return CopyAsync(animation, BeutlDataFormats.KeyFrameAnimation, ex =>
+        {
+            logger.LogError(ex, "Failed to copy all keyframes");
+            NotificationService.ShowError(Strings.Copy, MessageStrings.FailedToCopyAnimation);
+        });
+    }
+
+    // Pastes the first of a keyframe, a keyframe selection and an animation that the clipboard holds.
+    // Reading the clipboard yields, so canPaste is asked again before anything is pasted.
+    internal static async Task PasteAtPositionAsync(
+        IClipboard clipboard, Func<bool> canPaste, Func<bool> canShowFailure, Action<string> pasteKeyFrame,
+        Action<string> pasteSelection, Action<string> pasteAnimation, ILogger logger)
+    {
+        try
+        {
+            if (await clipboard.TryGetValueAsync(BeutlDataFormats.KeyFrame) is { } keyFrameJson)
+            {
+                if (canPaste()) pasteKeyFrame(keyFrameJson);
+                return;
+            }
+            else if (await clipboard.TryGetValueAsync(BeutlDataFormats.KeyFrameSelection) is { } selectionJson)
+            {
+                if (canPaste()) pasteSelection(selectionJson);
+                return;
+            }
+            else if (await clipboard.TryGetValueAsync(BeutlDataFormats.KeyFrameAnimation) is { } keyFrameAnimationJson)
+            {
+                if (canPaste()) pasteAnimation(keyFrameAnimationJson);
+                return;
+            }
+
+            if (canPaste()) NotificationService.ShowWarning(Strings.Paste, MessageStrings.InvalidKeyframeDataFormat);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to paste keyframe at position");
+            if (canShowFailure()) NotificationService.ShowError(Strings.Paste, MessageStrings.FailedToPasteKeyframe);
+        }
+    }
+
+    internal static void PasteAnimation(IServiceProvider services, IAnimation animation, string json, ILogger logger)
+    {
+        logger.LogInformation("Pasting JSON");
+        var keyFrameAnimation = (KeyFrameAnimation)animation;
+        IKeyFrameClipboardService service = services.GetRequiredService<IKeyFrameClipboardService>();
+        KeyFrameAnimationPasteOutcome outcome = service.PasteAnimation(keyFrameAnimation, json);
+
+        ReportAnimationPaste(outcome, keyFrameAnimation, logger);
+    }
+
+    internal static void PasteKeyFrame(
+        IServiceProvider services, IAnimation animation, string json, Func<KeyFrameAnimation, TimeSpan> getKeyTime,
+        Action<Easing> insertWithEasing, ILogger logger)
+    {
+        logger.LogInformation("Pasting JSON");
+        var keyFrameAnimation = (KeyFrameAnimation)animation;
+        TimeSpan keyTime = getKeyTime(keyFrameAnimation);
+        IKeyFrameClipboardService service = services.GetRequiredService<IKeyFrameClipboardService>();
+        KeyFramePasteResult result = service.PasteKeyFrame(keyFrameAnimation, json, keyTime);
+
+        ReportKeyFramePaste(result, logger, insertWithEasing);
+    }
+
+    // The easing replaces that of the keyframe near keyTime, the drop position as a key time, or comes with a
+    // new keyframe inserted at dropTime.
+    internal static void DropEasing(
+        IKeyFrameAnimation animation, Scene scene, HistoryManager history, Easing easing, TimeSpan dropTime,
+        TimeSpan keyTime, Action<Easing, TimeSpan> insertKeyFrame, ILogger? logger)
+    {
+        IKeyFrame? keyFrame = FindEasingDropTarget(animation, keyTime, scene);
+        if (keyFrame != null)
+        {
+            logger?.LogInformation("Editing existing key frame at {KeyTime}", keyTime);
+            keyFrame.Easing = easing;
+            history.Commit(CommandNames.ChangeEasing);
+        }
+        else
+        {
+            insertKeyFrame(easing, dropTime);
+        }
+    }
+
+    // The easing that an easing dragged from the library creates.
+    internal static bool TryCreateDroppedEasing(IDataTransfer data, [NotNullWhen(true)] out Easing? easing)
+    {
+        easing = data.TryGetValue(BeutlDataFormats.Easing) is { } typeName && TypeFormat.ToType(typeName) is { } type
+            ? Activator.CreateInstance(type) as Easing
+            : null;
+        return easing != null;
+    }
+
     internal static async Task CopyAsync(ICoreSerializable source, DataFormat<string> format, Action<Exception> onFailure)
     {
         IClipboard? clipboard = ClipboardHelper.GetClipboard();
@@ -102,10 +197,7 @@ internal static class KeyFrameClipboardCommands
     // A dropped easing lands on an existing keyframe within three frames of the drop position.
     internal static IKeyFrame? FindEasingDropTarget(IKeyFrameAnimation animation, TimeSpan keyTime, Scene scene)
     {
-        Project? proj = scene.FindHierarchicalParent<Project>();
-        int rate = proj?.GetFrameRate() ?? 30;
-
-        TimeSpan threshold = TimeSpan.FromSeconds(1d / rate) * 3;
+        TimeSpan threshold = SceneTimeRangeService.GetFrameDuration(scene) * 3;
 
         return animation.KeyFrames.FirstOrDefault(v => Math.Abs(v.KeyTime.Ticks - keyTime.Ticks) <= threshold.Ticks);
     }

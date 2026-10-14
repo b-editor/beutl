@@ -37,4 +37,4 @@ public sealed class OutputPickerFlyout(OutputPickerViewModel viewModel)
     }
 }
 
-public sealed record MoreMenuRequestedArgs(PinnableOutputItem Item, Control Anchor);
+public sealed record MoreMenuRequestedArgs(PinnableLibraryItem Item, Control Anchor);

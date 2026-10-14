@@ -32,10 +32,8 @@ public class GraphEditorTangentTests
             ChoosePreset(graph, mode, false);
             midpointValues[mode] = graph.Second.Easing.Ease(0.5f);
             graph.View.Focus();
-            graph.Window.KeyPress(Key.F, RawInputModifiers.None, PhysicalKey.None, "f");
-            graph.Window.KeyRelease(Key.F, RawInputModifiers.None, PhysicalKey.None, "f");
+            graph.FitAll();
             HeadlessTestHelpers.Render(3);
-            graph.Capture($"fresh-linear-{mode}-{speed}");
         }
         Assert.That(midpointValues["Ease"], Is.EqualTo(0.5f).Within(0.001));
         Assert.That(midpointValues["EaseIn"], Is.EqualTo(0.625f).Within(0.001));
@@ -62,7 +60,7 @@ public class GraphEditorTangentTests
         var easing = (SplineEasing)graph.Second.Easing;
         float x1 = easing.X1, y1 = easing.Y1, x2 = easing.X2, y2 = easing.Y2;
         Point originalCp2 = Incoming(graph, graph.Second);
-        Point kf2Position = Position(graph, graph.Second), kf3Position = Position(graph, kf3);
+        Point kf2Position = graph.Position(graph.Second), kf3Position = graph.Position(kf3);
         Point rightEdge = new(kf3Position.X, (kf2Position.Y + kf3Position.Y) / 2);
         int undo = graph.Model.HistoryManager.UndoCount;
         graph.HitTest(rightEdge);
@@ -86,7 +84,6 @@ public class GraphEditorTangentTests
         HeadlessTestHelpers.Render(3);
         Assert.That(kf3.KeyTime.TotalSeconds, Is.EqualTo(2.8333333).Within(0.00001));
         Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo + 1));
-        graph.Capture($"three-key-cp2-{mode}-{speed}");
         graph.Model.HistoryManager.Undo();
         Assert.That(graph.Second.KeyTime, Is.EqualTo(TimeSpan.FromSeconds(1.5)));
         Assert.That(kf3.KeyTime, Is.EqualTo(TimeSpan.FromSeconds(2.5)));
@@ -112,9 +109,9 @@ public class GraphEditorTangentTests
         Point firstFar = Outgoing(graph, graph.First), lastFar = Incoming(graph, last);
         Point leftOutside = Incoming(graph, middle), rightOutside = Outgoing(graph, next);
         int undo = graph.Model.HistoryManager.UndoCount;
-        Point a = Position(graph, middle), b = Position(graph, next);
+        Point a = graph.Position(middle), b = graph.Position(next);
         Point from = new(b.X, (a.Y + b.Y) / 2);
-        Drag(graph, from, from + new Vector(30, 0));
+        graph.Drag(from, from + new Vector(30, 0));
 
         AssertCoupling(mode, speed, Outgoing(graph, middle), leftOutside, Incoming(graph, middle));
         AssertCoupling(mode, speed, Incoming(graph, next), rightOutside, Outgoing(graph, next));
@@ -123,7 +120,6 @@ public class GraphEditorTangentTests
         Assert.That(middle.KeyTime, Is.EqualTo(TimeSpan.FromSeconds(1.5)));
         Assert.That(next.KeyTime.TotalSeconds, Is.EqualTo(2.8333333).Within(0.00001));
         Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo + 1));
-        graph.Capture($"box-tangents-{mode}-{speed}");
         graph.Model.HistoryManager.Undo();
         AssertPoint(Incoming(graph, middle), leftOutside, "Undo must restore the incoming handle.");
         AssertPoint(Outgoing(graph, next), rightOutside, "Undo must restore the outgoing handle.");
@@ -150,9 +146,8 @@ public class GraphEditorTangentTests
         Point from = speed
             ? graph.View.FindControl<Panel>("graphPanel")!.TranslatePoint(GraphEditorView.GetSpeedHandlePoint(item, true), graph.Window)!.Value
             : graph.Handle("ControlPoint2").TranslatePoint(default, graph.Window)!.Value;
-        Drag(graph, from, from + new Vector(-8, -5), alt ? RawInputModifiers.Alt : RawInputModifiers.None);
+        graph.Drag(from, from + new Vector(-8, -5), alt ? RawInputModifiers.Alt : RawInputModifiers.None);
         AssertCoupling(alt ? "Separately" : mode, speed, Incoming(graph, graph.Second), opposite, Outgoing(graph, graph.Second));
-        graph.Capture($"handle-tangents-{mode}-{speed}-{alt}");
     }
 
     [AvaloniaTest]
@@ -191,8 +186,7 @@ public class GraphEditorTangentTests
         if (speed)
         {
             graph.View.Focus();
-            graph.Window.KeyPress(Key.F, RawInputModifiers.None, PhysicalKey.None, "f");
-            graph.Window.KeyRelease(Key.F, RawInputModifiers.None, PhysicalKey.None, "f");
+            graph.FitAll();
             HeadlessTestHelpers.Render(3);
         }
         var before = SplineCoordinates(graph);
@@ -208,14 +202,13 @@ public class GraphEditorTangentTests
             if (speed ? hit is GraphEditorSpeedGraph : hit is AvaloniaPath) break;
             HeadlessTestHelpers.Render();
         }
-        double initialVelocity = GraphEditorView.GetKeyVelocity(left, !incoming);
+        double initialVelocity = GraphEditorCurveMath.KeyVelocity(left, !incoming);
         double initialScaleY = graph.Model.ScaleY.Value;
-        double keyX = Position(graph, graph.Second).X;
+        double keyX = graph.Position(graph.Second).X;
         int direction = incoming ? 1 : -1;
         var modifiers = alt ? RawInputModifiers.Alt : RawInputModifiers.None;
         Assert.That(hit, speed ? Is.TypeOf<GraphEditorSpeedGraph>() : Is.TypeOf<AvaloniaPath>(),
             "The starting handle must be visible and receive the press.");
-        graph.Capture($"crossing-before-{mode}-{speed}-{incoming}-{alt}");
         graph.Window.MouseMove(from, modifiers);
         graph.Window.MouseDown(from, MouseButton.Left, modifiers);
         Point? frozen = null;
@@ -232,7 +225,6 @@ public class GraphEditorTangentTests
             AssertCoupling(alt ? "Separately" : mode, speed, driver,
                 mode == "Separately" || alt ? frozen.Value : originalOpposite, opposite);
         }
-        graph.Capture($"crossing-after-{mode}-{speed}-{incoming}-{alt}");
 
         to = new Point(keyX - direction * 18, from.Y - 5);
         graph.Window.MouseMove(to, modifiers | RawInputModifiers.LeftMouseButton);
@@ -260,7 +252,7 @@ public class GraphEditorTangentTests
             // A changing speed range can round the ScrollViewer offset to a physical pixel.
             Assert.That(actual.Y, Is.EqualTo(pointer.Y).Within(speed ? 1 : 0.003), message);
             if (speed)
-                Assert.That(GraphEditorView.GetKeyVelocity(left, !activeIncoming),
+                Assert.That(GraphEditorCurveMath.KeyVelocity(left, !activeIncoming),
                     Is.EqualTo(initialVelocity + (from.Y - pointer.Y) / initialScaleY).Within(0.001),
                     "Switching sides must preserve the velocity under the pointer.");
         }
@@ -282,7 +274,7 @@ public class GraphEditorTangentTests
         graph.HitTest(from);
         graph.Window.MouseMove(from);
         graph.Window.MouseDown(from, MouseButton.Left);
-        graph.Window.MouseMove(new Point(Position(graph, graph.Second).X + 20, from.Y - 5), RawInputModifiers.LeftMouseButton);
+        graph.Window.MouseMove(new Point(graph.Position(graph.Second).X + 20, from.Y - 5), RawInputModifiers.LeftMouseButton);
         HeadlessTestHelpers.Render(3);
         Assert.That(SplineCoordinates(graph), Is.Not.EqualTo(before));
         graph.Window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.None, null);
@@ -320,8 +312,8 @@ public class GraphEditorTangentTests
         HeadlessTestHelpers.Render(3);
         var item = graph.Model.SelectedView.Value.KeyFrames.Single(x => x.Model == graph.Second);
         Point from = HandlePosition(graph, item, incoming, speed);
-        Point key = Position(graph, incoming ? graph.Second : graph.First);
-        Drag(graph, from, new Point(key.X + (incoming ? 20 : -20), from.Y));
+        Point key = graph.Position(incoming ? graph.Second : graph.First);
+        graph.Drag(from, new Point(key.X + (incoming ? 20 : -20), from.Y));
         var spline = (SplineEasing)graph.Second.Easing;
         Assert.That(incoming ? spline.X2 : spline.X1,
             Is.EqualTo(incoming ? (speed ? 0.999 : 1) : (speed ? 0.001 : 0)).Within(0.00001));
@@ -348,7 +340,7 @@ public class GraphEditorTangentTests
         using var graph = await GraphScope.CreateAsync(separateHandles: true);
         SetMode(graph, "Separately");
         HeadlessTestHelpers.Render();
-        Point first = Position(graph, graph.First), second = Position(graph, graph.Second);
+        Point first = graph.Position(graph.First), second = graph.Position(graph.Second);
         Point from = new((first.X + second.X) / 2, second.Y);
         graph.HitTest(from);
         graph.Window.MouseDown(from, MouseButton.Left);
@@ -393,10 +385,8 @@ public class GraphEditorTangentTests
             if (!keyboard && mode is "EaseIn" or "EaseOut")
             {
                 graph.View.Focus();
-                graph.Window.KeyPress(Key.F, RawInputModifiers.None, PhysicalKey.None, "f");
-                graph.Window.KeyRelease(Key.F, RawInputModifiers.None, PhysicalKey.None, "f");
+                graph.FitAll();
                 HeadlessTestHelpers.Render(3);
-                graph.Capture($"preset-{mode}-{speed}");
             }
         }
     }
@@ -424,9 +414,7 @@ public class GraphEditorTangentTests
         if (keyboard && mode != "Linear")
         {
             graph.View.Focus();
-            var command = Beutl.Editor.Components.Helpers.KeyGestureHelper.GetCommandModifier() == KeyModifiers.Meta
-                ? RawInputModifiers.Meta : RawInputModifiers.Control;
-            var modifiers = mode == "EaseIn" ? RawInputModifiers.Shift : mode == "EaseOut" ? command : RawInputModifiers.None;
+            var modifiers = mode == "EaseIn" ? RawInputModifiers.Shift : mode == "EaseOut" ? GraphScope.CommandModifier : RawInputModifiers.None;
             graph.Window.KeyPress(Key.F9, modifiers, PhysicalKey.None, null);
             graph.Window.KeyRelease(Key.F9, modifiers, PhysicalKey.None, null);
         }
@@ -490,12 +478,6 @@ public class GraphEditorTangentTests
         return next.ControlPoint1.Value - next.LeftBottom.Value;
     }
 
-    private static Point Position(GraphScope graph, IKeyFrame key)
-    {
-        var item = graph.Model.SelectedView.Value!.KeyFrames.Single(x => x.Model == key);
-        return graph.View.FindControl<Panel>("graphPanel")!.TranslatePoint(graph.View.GetKeyPoint(item), graph.Window)!.Value;
-    }
-
     private static void AssertCoupling(string mode, bool speed, Point driver, Point originalOpposite, Point actual)
     {
         double Length(Point point) => speed ? Math.Abs(point.X) : Math.Sqrt(point.X * point.X + point.Y * point.Y);
@@ -512,15 +494,5 @@ public class GraphEditorTangentTests
     {
         Assert.That(actual.X, Is.EqualTo(expected.X).Within(0.003), message);
         Assert.That(actual.Y, Is.EqualTo(expected.Y).Within(0.003), message);
-    }
-
-    private static void Drag(GraphScope graph, Point from, Point to, RawInputModifiers modifiers = RawInputModifiers.None)
-    {
-        graph.HitTest(from);
-        graph.Window.MouseMove(from, modifiers);
-        graph.Window.MouseDown(from, MouseButton.Left, modifiers);
-        graph.Window.MouseMove(to, modifiers | RawInputModifiers.LeftMouseButton);
-        graph.Window.MouseUp(to, MouseButton.Left, modifiers);
-        HeadlessTestHelpers.Render(3);
     }
 }

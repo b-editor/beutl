@@ -1,5 +1,7 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Media;
 
 namespace Beutl.Controls.PropertyEditors;
@@ -19,5 +21,23 @@ internal static class ColorPickerParts
         }
 
         return color;
+    }
+
+    public static void AddConfirmHandlers(
+        Interactive target,
+        EventHandler<PointerPressedEventArgs> pressed,
+        EventHandler<PointerReleasedEventArgs> released)
+    {
+        target.AddHandler(InputElement.PointerPressedEvent, pressed, handledEventsToo: true);
+        target.AddHandler(InputElement.PointerReleasedEvent, released, handledEventsToo: true);
+    }
+
+    public static void RemoveConfirmHandlers(
+        Interactive target,
+        EventHandler<PointerPressedEventArgs> pressed,
+        EventHandler<PointerReleasedEventArgs> released)
+    {
+        target.RemoveHandler(InputElement.PointerPressedEvent, pressed);
+        target.RemoveHandler(InputElement.PointerReleasedEvent, released);
     }
 }

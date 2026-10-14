@@ -24,7 +24,6 @@ public sealed partial class GraphEditorTabViewModel : IToolContext
     {
         _editorContext = editorContext;
         _clock = editorContext.GetRequiredService<IEditorClock>();
-        // Element の DetachedFromHierarchy を購読
         Element.CombineWithPrevious()
             .Subscribe(v =>
             {
@@ -42,9 +41,7 @@ public sealed partial class GraphEditorTabViewModel : IToolContext
             {
                 if (t.First == null || t.Second == null) return null;
 
-                Type type = t.First.Object.ValueType;
-                Type viewModelType = typeof(GraphEditorViewModel<>).MakeGenericType(type);
-                return (GraphEditorViewModel)Activator.CreateInstance(viewModelType, _editorContext, t.First.Object, t.Second)!;
+                return new GraphEditorViewModel(_editorContext, t.First.Object, t.Second);
             })
             .Do(graph =>
             {

@@ -1,8 +1,6 @@
 ﻿using System.Net;
 using Avalonia.Controls;
-using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
-using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Beutl.Api.Clients;
 using Beutl.Language;
@@ -166,14 +164,6 @@ public sealed class FlatpakUpdaterTests
             { "complete" => MessageStrings.FlatpakUpdateCompleted, "cancel" => MessageStrings.Canceled, _ => "install failed" }));
             Assert.That(dialog.PrimaryButtonText, Is.Empty);
             Assert.That(window.IsVisible, Is.True);
-            if (outcome != "cancel" && Environment.GetEnvironmentVariable("BEUTL_FLATPAK_CAPTURE_DIR") is { Length: > 0 } directory)
-            {
-                await Task.Delay(400); // Wait for the entrance animation only when taking a manual capture.
-                HeadlessTestHelpers.Render();
-                Directory.CreateDirectory(directory);
-                using var image = window.CaptureRenderedFrame();
-                image!.Save(Path.Combine(directory, $"flatpak-{outcome}-{light}.png"), PngBitmapEncoderOptions.Default);
-            }
         }
         finally { vm.Cancel(); finish.TrySetResult(); if (vm.UpdateTask != null) await vm.UpdateTask; dialog.Hide(); await closed; window.Close(); }
     }

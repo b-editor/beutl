@@ -9,7 +9,6 @@ public static class GradingColorHelper
 
     public static UnboundedHsv GetUnboundedHsv(GradingColor color)
     {
-        // HSVに変換する
         var r = MathF.Abs(color.R);
         var g = MathF.Abs(color.G);
         var b = MathF.Abs(color.B);

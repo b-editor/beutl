@@ -39,30 +39,13 @@ public sealed class RoundedClippingBehavior : Behavior<Control>
 
     private void Invalidate()
     {
-        // Avalonia.Controls.Shapes.Rectangle
+        // Adapted from Avalonia.Controls.Shapes.Rectangle: four edges joined by elliptical corner arcs.
         const double PiOver2 = 1.57079633; // 90 deg to rad
         var rect = new Rect(AssociatedObject!.Bounds.Size);
         var cornerRadius = CornerRadius;
         var geometry = new StreamGeometry();
         using (StreamGeometryContext context = geometry.Open())
         {
-            // The rectangle is constructed as follows:
-            //
-            //   (origin)
-            //   Corner 4            Corner 1
-            //   Top/Left  Line 1    Top/Right
-            //      \_   __________   _/
-            //          |          |
-            //   Line 4 |          | Line 2
-            //       _  |__________|  _
-            //      /      Line 3      \
-            //   Corner 3            Corner 2
-            //   Bottom/Left         Bottom/Right
-            //
-            // - Lines 1,3 follow the deflated rectangle bounds minus RadiusX
-            // - Lines 2,4 follow the deflated rectangle bounds minus RadiusY
-            // - All corners are constructed using elliptical arcs 
-
             // Line 1 + Corner 1
             context.BeginFigure(new Point(rect.Left + cornerRadius.TopLeft, rect.Top), true);
             context.LineTo(new Point(rect.Right - cornerRadius.TopRight, rect.Top));

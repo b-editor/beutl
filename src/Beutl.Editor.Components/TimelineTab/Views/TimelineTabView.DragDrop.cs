@@ -16,7 +16,6 @@ namespace Beutl.Editor.Components.TimelineTab.Views;
 
 public sealed partial class TimelineTabView
 {
-    // ドロップされた
     private async void TimelinePanel_Drop(object? sender, DragEventArgs e)
     {
         var storage = e.DataTransfer.TryGetValue(StorageDragData.Format);
@@ -119,7 +118,6 @@ public sealed partial class TimelineTabView
 
     private static ObjectTemplateItem? TryResolveDroppedTemplate(DragEventArgs e)
     {
-        // テンプレート経路（優先）
         ObjectTemplateItem? template = null;
         if (e.DataTransfer.TryGetValue(BeutlDataFormats.ObjectTemplate) is { } idStr
             && Guid.TryParse(idStr, out Guid templateId))

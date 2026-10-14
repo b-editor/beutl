@@ -1,19 +1,12 @@
-﻿using System.Net;
-using System.Reactive.Linq;
+﻿using System.Reactive.Linq;
 using System.Reactive.Threading.Tasks;
-using System.Text;
-using System.Text.Json;
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
-using Avalonia.Input;
 using Avalonia.LogicalTree;
-using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Beutl.Api;
-using Beutl.Api.Clients;
 using Beutl.Api.Services;
 using Beutl.Converters;
 using Beutl.Pages.ExtensionsPages.DiscoverPages;
@@ -68,7 +61,7 @@ public class PackageDetailsMarkdownTests
     [TestCase(1100, "high-contrast")]
     public async Task DetailsRenderMarkdownAndFollowDescriptionAndReleaseChanges(int width, string theme)
     {
-        using var handler = new StoreHandler();
+        using StoreHandler handler = CreateHandler();
         using var http = new HttpClient(handler);
         var provider = new ExtensionProvider();
         await using var app = new BeutlApiApplication(http, provider);
@@ -121,14 +114,6 @@ public class PackageDetailsMarkdownTests
                 Assert.That(((Avalonia.Media.ISolidColorBrush)header.Background!).Color, Is.EqualTo(background));
             }
 
-            if (Environment.GetEnvironmentVariable("BEUTL_MARKDOWN_CAPTURE") is { Length: > 0 } directory)
-            {
-                Directory.CreateDirectory(directory);
-                using var image = window.CaptureRenderedFrame();
-                Assert.That(image, Is.Not.Null);
-                image!.Save(Path.Combine(directory, $"package-markdown-{width}-{theme}.png"), PngBitmapEncoderOptions.Default);
-            }
-
             description.SelectAll();
             Assert.That(description.SelectedText, Does.Contain("Sample Extension").And.Not.Contain("**Sample Extension**"));
             description.ClearSelection();
@@ -146,7 +131,7 @@ public class PackageDetailsMarkdownTests
             Assert.That(notes.DocumentUpdate!.Document, Is.Empty, "A release with no notes must clear the previous version's text.");
 
             var previousDescription = description.DocumentUpdate;
-            handler.DescriptionText = "";
+            handler.Package = TestStore.CreatePackageResponse("Beutl.MarkdownSample");
             await package.RefreshAsync(CancellationToken.None);
             await WaitForUpdate(description, previousDescription);
             Assert.That(description.DocumentUpdate!.Document, Is.Empty, "Refreshing an empty description must clear the previous text.");
@@ -182,7 +167,7 @@ public class PackageDetailsMarkdownTests
     public async Task PackageImagesKeepAltTextWithoutCreatingImageControls(string url)
     {
         string markdown = $"![Inline preview]({url})\n\n![Reference preview][preview]\n\n[preview]: {url}\n\n[![Linked preview]({url})](https://example.com/docs)\n\n![Outer ![Nested preview]({url})]({url})";
-        using var handler = new StoreHandler { DescriptionText = markdown, ReleaseNotesText = markdown };
+        using StoreHandler handler = CreateHandler(markdown, markdown);
         using var http = new HttpClient(handler);
         var provider = new ExtensionProvider();
         await using var app = new BeutlApiApplication(http, provider);
@@ -233,8 +218,9 @@ public class PackageDetailsMarkdownTests
             await WaitForUpdate(renderer, null);
             var text = renderer.GetVisualDescendants().OfType<MarkdownTextBlock>().Single();
             Assert.That(launched, Is.Empty);
-            Click(window, text, new Point(5, text.Bounds.Height / 2));
-            await WaitUntil(() => window.GetVisualDescendants().OfType<FAContentDialog>().Any());
+            HeadlessTestHelpers.Click(text, new Point(5, text.Bounds.Height / 2), move: true);
+            await HeadlessTestHelpers.WaitUntilAsync(() => window.GetVisualDescendants().OfType<FAContentDialog>().Any());
+            HeadlessTestHelpers.Render();
             var dialog = window.GetVisualDescendants().OfType<FAContentDialog>().Single();
             Assert.Multiple(() =>
             {
@@ -242,16 +228,10 @@ public class PackageDetailsMarkdownTests
                 Assert.That(((SelectableTextBlock)dialog.Content!).Text, Does.Contain(url));
                 Assert.That(launched, Is.Empty, "Clicking the link must only show a confirmation dialog.");
             });
-            if (Environment.GetEnvironmentVariable("BEUTL_MARKDOWN_CAPTURE") is { Length: > 0 } directory)
-            {
-                Directory.CreateDirectory(directory);
-                using var image = window.CaptureRenderedFrame();
-                image!.Save(Path.Combine(directory, $"package-link-{new Uri(url).Scheme}-{(open ? "open" : "cancel")}.png"), PngBitmapEncoderOptions.Default);
-            }
 
             var button = dialog.GetVisualDescendants().OfType<Button>().Single(control => control.Name == (open ? "PrimaryButton" : "CloseButton"));
-            Click(window, button, new Point(button.Bounds.Width / 2, button.Bounds.Height / 2));
-            await WaitUntil(() => !window.GetVisualDescendants().OfType<FAContentDialog>().Any());
+            HeadlessTestHelpers.Click(button, move: true);
+            await HeadlessTestHelpers.WaitUntilAsync(() => !window.GetVisualDescendants().OfType<FAContentDialog>().Any());
             Assert.That(launched, Is.EqualTo(open ? new[] { url } : Array.Empty<string>()));
         }
         finally
@@ -261,26 +241,6 @@ public class PackageDetailsMarkdownTests
             window.Close();
             HeadlessTestHelpers.Settle();
         }
-    }
-
-    private static void Click(Window window, Control control, Point point)
-    {
-        Point position = control.TranslatePoint(point, window)!.Value;
-        window.MouseMove(position);
-        window.MouseDown(position, MouseButton.Left);
-        window.MouseUp(position, MouseButton.Left);
-        HeadlessTestHelpers.Render();
-    }
-
-    private static async Task WaitUntil(Func<bool> condition)
-    {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        while (!condition())
-        {
-            HeadlessTestHelpers.Render();
-            await Task.Delay(10, timeout.Token);
-        }
-        HeadlessTestHelpers.Render();
     }
 
     private static async Task WaitForUpdate(MarkdownRenderer renderer, MarkdownDocumentUpdate? previous)
@@ -294,49 +254,9 @@ public class PackageDetailsMarkdownTests
         HeadlessTestHelpers.Render();
     }
 
-    private sealed class StoreHandler : HttpMessageHandler
-    {
-        public string DescriptionText { get; set; } = Description;
-
-        public string ReleaseNotesText { get; set; } = ReleaseNotes;
-
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-        {
-            object response = request.RequestUri!.AbsolutePath.EndsWith("/releases", StringComparison.Ordinal)
-                ? new[] { Release("2.0.0", ReleaseNotesText), Release("1.0.0", "Previous release"), Release("0.9.0", "") }
-                : new PackageResponse
-                {
-                    Id = "markdown-sample",
-                    Name = "Beutl.MarkdownSample",
-                    DisplayName = "Sample Extension",
-                    Description = DescriptionText,
-                    ShortDescription = "Markdown descriptions and release notes",
-                    Owner = new ProfileResponse { Id = "owner", Name = "b-editor", DisplayName = "b-editor", Bio = null, IconId = null, IconUrl = null },
-                    WebSite = "",
-                    Tags = [],
-                    LogoId = null,
-                    LogoUrl = null,
-                    Screenshots = [],
-                    Currency = null,
-                    Price = null,
-                    Paid = false,
-                    Owned = true,
-                };
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new StringContent(JsonSerializer.Serialize(response, new JsonSerializerOptions(JsonSerializerDefaults.Web)), Encoding.UTF8, "application/json"),
-            });
-        }
-
-        private static ReleaseResponse Release(string version, string notes) => new()
-        {
-            Id = version,
-            Version = version,
-            Title = $"Version {version}",
-            Description = notes,
-            TargetVersion = null,
-            FileId = null,
-            FileUrl = null,
-        };
-    }
+    private static StoreHandler CreateHandler(string description = Description, string releaseNotes = ReleaseNotes)
+        => new(TestStore.CreatePackageResponse("Beutl.MarkdownSample", description),
+            TestStore.CreateReleaseResponse("2.0.0", releaseNotes),
+            TestStore.CreateReleaseResponse("1.0.0", "Previous release"),
+            TestStore.CreateReleaseResponse("0.9.0"));
 }

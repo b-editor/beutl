@@ -8,6 +8,7 @@ using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Editor.Components.GraphEditorTab.ViewModels;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Services;
 using Beutl.Language;
 using FluentAvalonia.UI.Controls;
 using Reactive.Bindings.Extensions;
@@ -334,7 +335,8 @@ public partial class GraphEditorView
     internal Point GetKeyPoint(GraphEditorKeyFrameViewModel item)
     {
         var model = item.Parent.Parent;
-        double value = model.IsSpeedGraph.Value ? GetKeyVelocity(item) : item.Parent.ConvertToDouble(item.Model.Value);
+        double value = model.IsSpeedGraph.Value
+            ? GraphEditorCurveMath.KeyVelocity(item) : item.Parent.ConvertToDouble(item.Model.Value);
         return new Point(item.Model.KeyTime.TimeToPixel(model.Options.Value.Scale) + model.Margin.Value.Left,
             model.Baseline.Value - value * model.ScaleY.Value);
     }
@@ -415,7 +417,7 @@ public partial class GraphEditorView
     private static void NudgeSelection(GraphEditorViewModel model, GraphEditorViewViewModel channel, KeyEventArgs e)
     {
         double frames = e.KeyModifiers.HasFlag(KeyModifiers.Shift) ? 10 : 1;
-        double delta = (e.Key == Key.Left ? -frames : frames) / model.Scene.FindHierarchicalParent<Project>().GetFrameRate();
+        double delta = (e.Key == Key.Left ? -frames : frames) / SceneTimeRangeService.GetFrameRate(model.Scene);
         var snapshot = new GraphEditorDragSnapshot(channel);
         if (snapshot.Entries.Length > 0)
             model.HistoryManager.ExecuteInTransaction(() => snapshot.Apply(entry => (entry.Time.TotalSeconds + delta, entry.Number)), CommandNames.MoveKeyFrame);
@@ -529,7 +531,6 @@ public partial class GraphEditorView
         }
         else if (action == "FitAll") FitGraph(false);
         else if (action == "FitSelection") FitGraph(true);
-        else if (action == "Delete") DeleteSelection();
         else if (action == "DistributeEvenly") DistributeSelectionEvenly();
         else if (action == "Reverse") ReverseSelection();
         else if (action is "Ease" or "EaseIn" or "EaseOut" or "Linear" or "Hold") ApplyEasing(action);

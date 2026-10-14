@@ -1,6 +1,4 @@
-﻿#nullable enable
-
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
 using Beutl.Media;
@@ -133,8 +131,6 @@ public sealed class CurveVisualizationRenderer
 
         Bitmap rgbaGamma;
         bool requireDispose = false;
-        // TODO: Linear/Gammaを切り替えられるようにする
-        // TODO: 解像度を高くする
         if (bitmap.ColorType == BitmapColorType.Bgra8888 && bitmap.ColorSpace == BitmapColorSpace.Srgb)
         {
             rgbaGamma = bitmap;
@@ -267,11 +263,9 @@ public sealed class CurveVisualizationRenderer
         float min = Math.Min(rf, Math.Min(gf, bf));
         float delta = max - min;
 
-        // Luminance
         float l = (max + min) / 2f;
         luminance = (int)Math.Round(l * 255);
 
-        // Saturation
         float s = 0;
         if (delta > 0.0001f)
         {
@@ -279,7 +273,6 @@ public sealed class CurveVisualizationRenderer
         }
         saturation = (int)Math.Clamp(Math.Round(s * 255), 0, 255);
 
-        // Hue
         float h = 0;
         if (delta > 0.0001f)
         {

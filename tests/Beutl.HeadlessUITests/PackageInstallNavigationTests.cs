@@ -1,15 +1,9 @@
-﻿using System.Net;
-using System.Reactive.Linq;
+﻿using System.Reactive.Linq;
 using System.Reactive.Threading.Tasks;
-using System.Text;
-using System.Text.Json;
 using Avalonia.Controls;
-using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
-using Avalonia.Media.Imaging;
 using Avalonia.VisualTree;
 using Beutl.Api;
-using Beutl.Api.Clients;
 using Beutl.Api.Services;
 using Beutl.Pages;
 using Beutl.Pages.ExtensionsPages.DiscoverPages;
@@ -28,7 +22,7 @@ public class PackageInstallNavigationTests
     public async Task LinkReceivedBeforeWindowLoadsOpensTheSelectedReleaseWithoutInstalling()
     {
         await TestReset.ResetShellAsync();
-        using var handler = new StoreHandler();
+        using StoreHandler handler = CreateHandler();
         using var http = new HttpClient(handler);
         await using var app = new BeutlApiApplication(http, new ExtensionProvider());
         using var context = new ExtensionsPageViewModel(app, TestShell.MainViewModel.EditorService, TestShell.MainViewModel.ProjectService);
@@ -53,13 +47,6 @@ public class PackageInstallNavigationTests
                 Assert.That(handler.Requests.Any(r => r.RequestUri!.AbsolutePath.Contains("download")), Is.False);
             });
 
-            if (Environment.GetEnvironmentVariable("BEUTL_INSTALL_CAPTURE") is { Length: > 0 } directory)
-            {
-                Directory.CreateDirectory(directory);
-                using var image = window.CaptureRenderedFrame();
-                image!.Save(Path.Combine(directory, "desktop-install.png"), PngBitmapEncoderOptions.Default);
-            }
-
             // A second click reuses the open dialog and selects that link's version.
             window.OpenPackage(package, "2.0.0");
             HeadlessTestHelpers.Render();
@@ -79,7 +66,7 @@ public class PackageInstallNavigationTests
     public async Task MissingRequestedVersionDoesNotFallBackToInstallingLatest()
     {
         await TestReset.ResetShellAsync();
-        using var handler = new StoreHandler();
+        using StoreHandler handler = CreateHandler();
         using var http = new HttpClient(handler);
         await using var app = new BeutlApiApplication(http, new ExtensionProvider());
         var package = await app.GetResource<DiscoverService>().GetPackage("Beutl.Sample", CancellationToken.None);
@@ -100,7 +87,7 @@ public class PackageInstallNavigationTests
     public async Task MissingRequestedVersionStillResolvesTheInstalledRelease()
     {
         await TestReset.ResetShellAsync();
-        using var handler = new StoreHandler();
+        using StoreHandler handler = CreateHandler();
         using var http = new HttpClient(handler);
         await using var app = new BeutlApiApplication(http, new ExtensionProvider());
         var package = await app.GetResource<DiscoverService>().GetPackage("Beutl.Sample", CancellationToken.None);
@@ -128,12 +115,6 @@ public class PackageInstallNavigationTests
             HeadlessTestHelpers.Render();
             Assert.That(message.IsVisible, Is.True);
             Assert.That(viewModel.SelectedRelease.Value, Is.Null);
-            if (Environment.GetEnvironmentVariable("BEUTL_INSTALL_CAPTURE") is { Length: > 0 } directory)
-            {
-                Directory.CreateDirectory(directory);
-                using var image = window.CaptureRenderedFrame();
-                image!.Save(Path.Combine(directory, "desktop-install-unavailable.png"), PngBitmapEncoderOptions.Default);
-            }
 
             viewModel.SelectedRelease.Value = viewModel.AllReleases.Single(release => release.Version.Value == "2.0.0");
             Assert.That(viewModel.IsUpdateButtonVisible.Value, Is.True);
@@ -151,48 +132,8 @@ public class PackageInstallNavigationTests
         }
     }
 
-    private sealed class StoreHandler : HttpMessageHandler
-    {
-        public List<HttpRequestMessage> Requests { get; } = [];
-
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-        {
-            Requests.Add(request);
-            object response = request.RequestUri!.AbsolutePath.EndsWith("/releases", StringComparison.Ordinal)
-                ? new[] { Release("2.0.0"), Release("1.2.3") }
-                : new PackageResponse
-                {
-                    Id = "sample",
-                    Name = "Beutl.Sample",
-                    DisplayName = "Sample Extension",
-                    Description = "An extension opened from the Beutl web store.",
-                    ShortDescription = "Sample extension",
-                    Owner = new ProfileResponse { Id = "owner", Name = "b-editor", DisplayName = "b-editor", Bio = null, IconId = null, IconUrl = null },
-                    WebSite = "",
-                    Tags = [],
-                    LogoId = null,
-                    LogoUrl = null,
-                    Screenshots = [],
-                    Currency = null,
-                    Price = null,
-                    Paid = false,
-                    Owned = true,
-                };
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new StringContent(JsonSerializer.Serialize(response, new JsonSerializerOptions(JsonSerializerDefaults.Web)), Encoding.UTF8, "application/json"),
-            });
-        }
-
-        private static ReleaseResponse Release(string version) => new()
-        {
-            Id = version,
-            Version = version,
-            Title = version,
-            Description = "Release notes",
-            TargetVersion = null,
-            FileId = null,
-            FileUrl = null,
-        };
-    }
+    private static StoreHandler CreateHandler()
+        => new(TestStore.CreatePackageResponse("Beutl.Sample", "An extension opened from the Beutl web store."),
+            TestStore.CreateReleaseResponse("2.0.0", "Release notes"),
+            TestStore.CreateReleaseResponse("1.2.3", "Release notes"));
 }

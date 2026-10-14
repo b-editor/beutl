@@ -4,7 +4,6 @@ using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using Avalonia.Media.Imaging;
 using Avalonia.VisualTree;
 using Beutl.Animation.Easings;
 using Beutl.Configuration;
@@ -72,7 +71,7 @@ public class ElementTransitionTimelineTests
         }
         finally
         {
-            Close(view, window);
+            TimelineTestHost.Close(view, window);
         }
     }
 
@@ -105,7 +104,7 @@ public class ElementTransitionTimelineTests
 
             Assert.Multiple(() =>
             {
-                Assert.That(typeName, Is.EqualTo(ElementViewModel.GetTransitionName(typeof(WipeTransition))));
+                Assert.That(typeName, Is.EqualTo(TypeDisplayHelpers.GetLocalizedName(typeof(WipeTransition))));
                 Assert.That(showsDirection, Is.True, "a wipe shows its direction beneath the type");
                 Assert.That(exitAfterChange, Is.EqualTo(typeof(WipeTransition)));
                 Assert.That(undoAfterChange, Is.EqualTo(undoCount + 1));
@@ -116,7 +115,7 @@ public class ElementTransitionTimelineTests
         }
         finally
         {
-            Close(view, window);
+            TimelineTestHost.Close(view, window);
         }
     }
 
@@ -134,7 +133,6 @@ public class ElementTransitionTimelineTests
             incoming.ApplyTransition(ElementEdge.Start, typeof(CrossDissolveTransition));
             HeadlessTestHelpers.Settle(3);
             HeadlessTestHelpers.Render(5);
-            Capture(window, "transition-parts");
             float scale = incoming.Timeline.Options.Value.Scale;
             Panel exitPart = FindElementView(view, outgoing).FindControl<Panel>("exitTransitionPart")!;
             Panel enterPart = FindElementView(view, incoming).FindControl<Panel>("enterTransitionPart")!;
@@ -155,12 +153,11 @@ public class ElementTransitionTimelineTests
             Border handle = FindElementView(view, incoming).FindControl<Border>("enterTransitionHandle")!;
             Point press = handle.TranslatePoint(new Point(handle.Bounds.Width / 2, handle.Bounds.Height / 2), window)!.Value;
             Point release = press + new Vector(quarter, 0);
-            WaitForHitTest(window, handle, press);
+            TimelineTestHost.WaitForHitTest(window, handle, press);
             window.MouseMove(press);
             window.MouseDown(press, MouseButton.Left);
             window.MouseMove(release, RawInputModifiers.LeftMouseButton);
             HeadlessTestHelpers.Settle(2);
-            Capture(window, "transition-parts-dragging");
             double previewWidth = enterPart.Bounds.Width;
             TimeSpan durationDuringDrag = incoming.Model.EnterTransition!.Duration.CurrentValue;
             // The span grows to 0.75 s with the cut a third of the way in, so both halves of the ramp
@@ -191,7 +188,6 @@ public class ElementTransitionTimelineTests
             incoming.Model.EnterTransition!.Easing.CurrentValue = easing;
             HeadlessTestHelpers.Settle(3);
             HeadlessTestHelpers.Render(3);
-            Capture(window, "transition-parts-eased");
             Assert.Multiple(() =>
             {
                 Assert.That(enterPart.GetVisualDescendants().OfType<TransitionRamp>().Single().Easing, Is.SameAs(easing));
@@ -201,7 +197,7 @@ public class ElementTransitionTimelineTests
         finally
         {
             GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled = originalSnap;
-            Close(view, window);
+            TimelineTestHost.Close(view, window);
         }
     }
 
@@ -223,7 +219,7 @@ public class ElementTransitionTimelineTests
             int undoCount = editor.HistoryManager.UndoCount;
             Border handle = FindElementView(view, incoming).FindControl<Border>("enterTransitionHandle")!;
             Point press = handle.TranslatePoint(new Point(handle.Bounds.Width / 2, handle.Bounds.Height / 2), window)!.Value;
-            WaitForHitTest(window, handle, press);
+            TimelineTestHost.WaitForHitTest(window, handle, press);
 
             window.MouseMove(press);
             window.MouseDown(press, MouseButton.Left);
@@ -238,7 +234,7 @@ public class ElementTransitionTimelineTests
         }
         finally
         {
-            Close(view, window);
+            TimelineTestHost.Close(view, window);
         }
     }
 
@@ -272,7 +268,7 @@ public class ElementTransitionTimelineTests
         }
         finally
         {
-            Close(view, window);
+            TimelineTestHost.Close(view, window);
         }
     }
 
@@ -312,7 +308,7 @@ public class ElementTransitionTimelineTests
         }
         finally
         {
-            Close(view, window);
+            TimelineTestHost.Close(view, window);
         }
 
         static BaseEditorViewModel EditorOf(EditViewModel editor)
@@ -357,7 +353,7 @@ public class ElementTransitionTimelineTests
         }
         finally
         {
-            Close(view, window);
+            TimelineTestHost.Close(view, window);
         }
     }
 
@@ -395,7 +391,7 @@ public class ElementTransitionTimelineTests
         }
         finally
         {
-            Close(view, window);
+            TimelineTestHost.Close(view, window);
         }
     }
 
@@ -422,7 +418,7 @@ public class ElementTransitionTimelineTests
         }
         finally
         {
-            Close(view, window);
+            TimelineTestHost.Close(view, window);
         }
     }
 
@@ -432,20 +428,6 @@ public class ElementTransitionTimelineTests
         TransitionTabViewModel? tab = editor.FindToolTab<TransitionTabViewModel>();
         Assert.That(tab, Is.Not.Null);
         return tab!;
-    }
-
-    // Avalonia's headless hit test answers only after the window has rendered a frame, so a press made
-    // before then lands on nothing.
-    private static void WaitForHitTest(Window window, Visual target, Point point)
-    {
-        for (int i = 0; i < 20; i++)
-        {
-            HeadlessTestHelpers.Render();
-            if (window.InputHitTest(point) is Visual hit && (hit == target || target.IsVisualAncestorOf(hit)))
-                return;
-        }
-
-        Assert.Fail($"{target.Name} never became hit-testable at {point}.");
     }
 
     // Clicks once and lets the double-click window (500 ms by default) pass first. The first press on an
@@ -469,28 +451,14 @@ public class ElementTransitionTimelineTests
     // Two rectangles on layer 0 meeting at two seconds.
     private static async Task<(EditViewModel Editor, ElementViewModel Outgoing, ElementViewModel Incoming)> OpenCut()
     {
-        await TestReset.ResetShellAsync();
-        string name = $"element-transition-{Guid.NewGuid():N}";
-        string directory = Path.Combine(BeutlHomeIsolation.CurrentHome!, name);
-        Directory.CreateDirectory(directory);
-        Project project = (await TestShell.Project.CreateProject(640, 480, 30, 44100, name, directory))!;
-        Scene scene = project.Items.OfType<Scene>().Single();
-        TestShell.Editor.ActivateTabItem(scene);
-        HeadlessTestHelpers.Settle();
-        var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
-        var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
-        ElementDescription[] descriptions =
-        [
-            new(TimeSpan.Zero, TimeSpan.FromSeconds(2), 0, new ElementSource.EngineObject(() => new RectShape())),
-            new(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3), 0, new ElementSource.EngineObject(() => new RectShape())),
-        ];
-        Assert.That((await adder.AddAsync(descriptions, CancellationToken.None)).IsSuccess, Is.True);
-        scene.Duration = TimeSpan.FromSeconds(10);
-        TimelineTabViewModel timeline = editor.FindToolTab<TimelineTabViewModel>()!;
-        timeline.Options.Value = timeline.Options.Value with { Scale = 1, Offset = System.Numerics.Vector2.Zero };
-        HeadlessTestHelpers.Settle();
-        Element outgoing = scene.Children.Single(model => model.Start == TimeSpan.Zero);
-        Element incoming = scene.Children.Single(model => model.Start == TimeSpan.FromSeconds(2));
+        (EditViewModel editor, TimelineTabViewModel timeline) = await TimelineTestHost.OpenTimelineAsync(
+            $"element-transition-{Guid.NewGuid():N}",
+            [
+                new(TimeSpan.Zero, TimeSpan.FromSeconds(2), 0, new ElementSource.EngineObject(() => new RectShape())),
+                new(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3), 0, new ElementSource.EngineObject(() => new RectShape())),
+            ]);
+        Element outgoing = editor.Scene.Children.Single(model => model.Start == TimeSpan.Zero);
+        Element incoming = editor.Scene.Children.Single(model => model.Start == TimeSpan.FromSeconds(2));
         editor.HistoryManager.Commit();
         return (editor, timeline.GetViewModelFor(outgoing)!, timeline.GetViewModelFor(incoming)!);
     }
@@ -508,22 +476,5 @@ public class ElementTransitionTimelineTests
     {
         return view.GetVisualDescendants().OfType<ElementView>()
             .Single(v => ReferenceEquals(v.DataContext, element));
-    }
-
-    private static void Close(TimelineTabView? view, Window? window)
-    {
-        window?.MouseUp(new Point(5, 5), MouseButton.Left);
-        if (view is not null) view.DataContext = null;
-        window?.Close();
-        HeadlessTestHelpers.Settle();
-    }
-
-    private static void Capture(Window window, string name)
-    {
-        if (Environment.GetEnvironmentVariable("BEUTL_DRAG_CAPTURE_DIR") is not { Length: > 0 } directory) return;
-        Directory.CreateDirectory(directory);
-        using var frame = window.CaptureRenderedFrame();
-        Assert.That(frame, Is.Not.Null);
-        frame!.Save(Path.Combine(directory, $"{name}.png"), PngBitmapEncoderOptions.Default);
     }
 }

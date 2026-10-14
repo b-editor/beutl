@@ -15,11 +15,6 @@ namespace FluentAvalonia.UI.Controls;
 /// </summary>
 public partial class FAColorPicker : TemplatedControl
 {
-    public FAColorPicker()
-    {
-
-    }
-
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
         //Disconnect event handlers...

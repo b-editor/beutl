@@ -63,8 +63,8 @@ internal readonly struct ComponentHoverHandlers(
     public void SubscribePointerOver(Control? control, CompositeDisposable disposables)
     {
         control?.GetObservable(InputElement.IsPointerOverProperty)
-            ?.Subscribe(pointerOverChanged)
-            ?.DisposeWith(disposables);
+            .Subscribe(pointerOverChanged)
+            .DisposeWith(disposables);
     }
 }
 

@@ -1,5 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Input;
 using Avalonia.LogicalTree;
 using Avalonia.VisualTree;
@@ -20,25 +19,14 @@ public class ControlPointMoveState
     internal Point OppositeVector;
 }
 
-public class ControlPointBehavior : Behavior<Path>
+public class ControlPointBehavior : GraphEditorPathBehavior
 {
-    private GraphEditorView? _view;
-
     public static void SetAttached(Path obj, bool value)
     {
         if (value)
         {
             var behavior = new ControlPointBehavior();
             Interaction.GetBehaviors(obj).Add(behavior);
-        }
-        else
-        {
-            var behaviors = Interaction.GetBehaviors(obj);
-            var behavior = behaviors.OfType<ControlPointBehavior>().FirstOrDefault();
-            if (behavior != null)
-            {
-                behaviors.Remove(behavior);
-            }
         }
     }
 
@@ -64,18 +52,6 @@ public class ControlPointBehavior : Behavior<Path>
         AssociatedObject.PointerReleased -= OnPointerReleased;
         AssociatedObject.ContextRequested -= OnContextRequested;
         AssociatedObject.PointerCaptureLost -= OnCaptureLost;
-    }
-
-    // GraphEditorView, GraphEditorViewModel, GraphEditorKeyFrameViewModelを取得
-    private bool TryGetValues(
-        [NotNullWhen(true)] out GraphEditorView? view,
-        [NotNullWhen(true)] out GraphEditorViewModel? viewModel,
-        [NotNullWhen(true)] out GraphEditorKeyFrameViewModel? keyFrameViewModel)
-    {
-        view = _view ??= AssociatedObject.FindAncestorOfType<GraphEditorView>();
-        viewModel = view?.DataContext as GraphEditorViewModel;
-        keyFrameViewModel = AssociatedObject?.DataContext as GraphEditorKeyFrameViewModel;
-        return view != null && viewModel != null && keyFrameViewModel != null;
     }
 
     private void OnPointerMoved(object? sender, PointerEventArgs e)

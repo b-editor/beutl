@@ -13,7 +13,6 @@ public sealed class ThumbnailStripControl : Control
         AvaloniaProperty.Register<ThumbnailStripControl, int>(nameof(ThumbnailCount));
 
     private readonly Dictionary<int, WriteableBitmap?> _thumbnails = new();
-    private readonly Lock _lock = new();
     private ScrollViewer? _scrollViewer;
     private int _lastNotifiedStart = -1;
     private int _lastNotifiedEnd = -1;
@@ -33,30 +32,24 @@ public sealed class ThumbnailStripControl : Control
 
     public void SetThumbnail(int index, WriteableBitmap? thumbnail)
     {
-        lock (_lock)
+        if (_thumbnails.TryGetValue(index, out var old))
         {
-            if (_thumbnails.TryGetValue(index, out var old))
-            {
-                old?.Dispose();
-            }
-
-            _thumbnails[index] = thumbnail;
+            old?.Dispose();
         }
 
-        Avalonia.Threading.Dispatcher.UIThread.Post(InvalidateVisual);
+        _thumbnails[index] = thumbnail;
+
+        InvalidateVisual();
     }
 
     public void ClearThumbnails()
     {
-        lock (_lock)
+        foreach (var kvp in _thumbnails)
         {
-            foreach (var kvp in _thumbnails)
-            {
-                kvp.Value?.Dispose();
-            }
-
-            _thumbnails.Clear();
+            kvp.Value?.Dispose();
         }
+
+        _thumbnails.Clear();
 
         InvalidateVisual();
     }
@@ -72,51 +65,16 @@ public sealed class ThumbnailStripControl : Control
         }
     }
 
-
     private (int Start, int End) ComputeVisibleRange()
-    {
-        int count = ThumbnailCount;
-        if (count <= 0)
-            return (0, -1);
-
-        double width = Bounds.Width;
-        double height = Bounds.Height;
-        if (width <= 0 || height <= 0)
-            return (0, -1);
-
-        double slotWidth = width / count;
-        int startIndex = 0;
-        int endIndex = count - 1;
-
-        if (_scrollViewer != null)
-        {
-            var topLeft = this.TranslatePoint(Bounds.TopLeft, _scrollViewer);
-            var bottomRight = this.TranslatePoint(Bounds.BottomRight, _scrollViewer);
-            if (topLeft.HasValue && bottomRight.HasValue)
-            {
-                var translatedBounds = new Rect(topLeft.Value, bottomRight.Value);
-                double minX = Math.Max(0, -translatedBounds.Left);
-                double maxX = _scrollViewer.Viewport.Width - translatedBounds.Left;
-
-                // バッファ2スロット分
-                startIndex = Math.Max(0, (int)(minX / slotWidth) - 2);
-                endIndex = Math.Min(count - 1, (int)Math.Ceiling(maxX / slotWidth) + 2);
-            }
-        }
-
-        return (startIndex, endIndex);
-    }
+        => TimelineSlotRange.Compute(this, _scrollViewer, ThumbnailCount, buffer: 2);
 
     public List<int> GetMissingIndices(int start, int end)
     {
         var missing = new List<int>();
-        lock (_lock)
+        for (int i = start; i <= end; i++)
         {
-            for (int i = start; i <= end; i++)
-            {
-                if (!_thumbnails.ContainsKey(i))
-                    missing.Add(i);
-            }
+            if (!_thumbnails.ContainsKey(i))
+                missing.Add(i);
         }
         return missing;
     }
@@ -148,38 +106,34 @@ public sealed class ThumbnailStripControl : Control
             return;
 
         double slotWidth = width / count;
-        lock (_lock)
+        var (startIndex, endIndex) = ComputeVisibleRange();
+
+        foreach (var kvp in _thumbnails)
         {
-            var (startIndex, endIndex) = ComputeVisibleRange();
+            int i = kvp.Key;
+            var img = kvp.Value;
 
-            foreach (var kvp in _thumbnails)
-            {
-                int i = kvp.Key;
-                var img = kvp.Value;
+            if (img == null || i < startIndex || i > endIndex)
+                continue;
 
-                // 範囲外はスキップ
-                if (img == null || i < startIndex || i > endIndex)
-                    continue;
+            double slotX = i * slotWidth;
 
-                double slotX = i * slotWidth;
+            // 背景が見えてしまうので微調整
+            var dstSize = new Size(slotWidth + 1, height);
+            var srcSize = img.Size;
+            var viewPort = new Rect(dstSize);
 
-                // 背景が見えてしまうので微調整
-                var dstSize = new Size(slotWidth + 1, height);
-                var srcSize = img.Size;
-                var viewPort = new Rect(dstSize);
+            Vector scale = Stretch.UniformToFill.CalculateScaling(dstSize, srcSize);
+            Size scaledSize = srcSize * scale;
+            Rect dstRect = viewPort
+                .CenterRect(new Rect(scaledSize))
+                .Intersect(viewPort);
+            Rect srcRect = new Rect(srcSize)
+                .CenterRect(new Rect(dstRect.Size / scale));
 
-                Vector scale = Stretch.UniformToFill.CalculateScaling(dstSize, srcSize);
-                Size scaledSize = srcSize * scale;
-                Rect dstRect = viewPort
-                    .CenterRect(new Rect(scaledSize))
-                    .Intersect(viewPort);
-                Rect srcRect = new Rect(srcSize)
-                    .CenterRect(new Rect(dstRect.Size / scale));
+            dstRect = dstRect.Translate(new(slotX, 0));
 
-                dstRect = dstRect.Translate(new(slotX, 0));
-
-                context.DrawImage(img, srcRect, dstRect);
-            }
+            context.DrawImage(img, srcRect, dstRect);
         }
     }
 

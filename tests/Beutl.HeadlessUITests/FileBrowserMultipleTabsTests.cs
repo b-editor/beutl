@@ -5,7 +5,6 @@ using Beutl.Editor.Components.FileBrowserTab;
 using Beutl.Editor.Components.FileBrowserTab.ViewModels;
 using Beutl.Extensibility;
 using Beutl.Language;
-using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Dock;
@@ -18,25 +17,6 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class FileBrowserMultipleTabsTests
 {
-    private static string NewWorkspace(string name)
-    {
-        string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, name);
-        Directory.CreateDirectory(location);
-        return location;
-    }
-
-    private static async Task<EditViewModel> OpenEditorForNewScene(string name)
-    {
-        Project project = (await TestShell.Project.CreateProject(
-            640, 480, 30, 44100, name, NewWorkspace(name)))!;
-        HeadlessTestHelpers.Settle();
-        Scene scene = project.Items.OfType<Scene>().First();
-
-        TestShell.Editor.ActivateTabItem(scene);
-        HeadlessTestHelpers.Settle();
-        return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
-    }
-
     private static BeutlToolDockable[] FileBrowsers(EditViewModel editor)
     {
         return editor.DockHost.Factory.EnumerateTools()
@@ -56,7 +36,7 @@ public class FileBrowserMultipleTabsTests
     public async Task A_second_file_browser_tab_can_be_opened()
     {
         await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditorForNewScene("filebrowser-second-tab");
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("filebrowser-second-tab");
         IToolDock left = editor.DockHost.Factory.GetAnchoredDock(DockAnchor.Left)!;
 
         Assert.That(editor.DockHost.OpenToolTabFromExtension(FileBrowserTabExtension.Instance, left), Is.True);
@@ -74,7 +54,7 @@ public class FileBrowserMultipleTabsTests
     public async Task Each_file_browser_tab_is_titled_after_the_folder_it_shows()
     {
         await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditorForNewScene("filebrowser-titles");
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("filebrowser-titles");
         IToolDock left = editor.DockHost.Factory.GetAnchoredDock(DockAnchor.Left)!;
         editor.DockHost.OpenToolTabFromExtension(FileBrowserTabExtension.Instance, left);
         HeadlessTestHelpers.Settle();
@@ -124,7 +104,7 @@ public class FileBrowserMultipleTabsTests
     public async Task Two_file_browser_tabs_survive_a_view_state_round_trip()
     {
         await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditorForNewScene("filebrowser-roundtrip");
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("filebrowser-roundtrip");
         IToolDock left = editor.DockHost.Factory.GetAnchoredDock(DockAnchor.Left)!;
         editor.DockHost.OpenToolTabFromExtension(FileBrowserTabExtension.Instance, left);
         HeadlessTestHelpers.Settle();
@@ -163,7 +143,7 @@ public class FileBrowserMultipleTabsTests
     public async Task A_effectItem_layout_restores_a_single_file_browser_and_keeps_its_id()
     {
         await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditorForNewScene("filebrowser-effectItem-id");
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("filebrowser-effectItem-id");
 
         string folder = NewDirectory(editor, "resources");
         FileBrowserTabViewModel browser =
@@ -206,7 +186,7 @@ public class FileBrowserMultipleTabsTests
     public async Task The_new_tab_page_keeps_the_file_browser_enabled_once_it_is_open()
     {
         await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditorForNewScene("filebrowser-add-menu");
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("filebrowser-add-menu");
         IToolDock left = editor.DockHost.Factory.GetAnchoredDock(DockAnchor.Left)!;
         Assert.That(FileBrowsers(editor), Is.Not.Empty);
 
@@ -223,7 +203,7 @@ public class FileBrowserMultipleTabsTests
     public async Task Closing_one_file_browser_tab_leaves_the_other_usable()
     {
         await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditorForNewScene("filebrowser-close-one");
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("filebrowser-close-one");
         IToolDock left = editor.DockHost.Factory.GetAnchoredDock(DockAnchor.Left)!;
         editor.DockHost.OpenToolTabFromExtension(FileBrowserTabExtension.Instance, left);
         HeadlessTestHelpers.Settle();

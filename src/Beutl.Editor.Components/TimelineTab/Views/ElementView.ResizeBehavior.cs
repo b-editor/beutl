@@ -188,7 +188,7 @@ public sealed partial class ElementView
             if (view._timeline is null || !_pressed) return;
 
             bool alt = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
-            int rate = FrameRateOf(viewModel);
+            int rate = SceneTimeRangeService.GetFrameRate(viewModel.Scene);
 
             if (_trimDrag.Kind is not TrimDragKind.None)
             {
@@ -199,7 +199,7 @@ public sealed partial class ElementView
 
             pointerFrame = view.RoundStartTime(pointerFrame, scale, alt);
             point = point.WithX(pointerFrame.TimeToPixel(scale));
-            double minWidth = TimeSpan.FromSeconds(1d / rate).TimeToPixel(scale);
+            double minWidth = SceneTimeRangeService.GetFrameDuration(viewModel.Scene).TimeToPixel(scale);
 
             if (view.Cursor != Cursors.Arrow && view.Cursor is { })
             {
@@ -207,12 +207,10 @@ public sealed partial class ElementView
                 {
                     if (_resizeType == AlignmentX.Right)
                     {
-                        // 右
                         PreviewRightEdge(ctx, point.X, scale, minWidth, viewModel.Timeline.IsRippleEnabled.Value);
                     }
                     else if (_resizeType == AlignmentX.Left && pointerFrame >= TimeSpan.Zero)
                     {
-                        // 左
                         PreviewLeftEdge(ctx, point.X, scale, minWidth, viewModel.Timeline.IsRippleEnabled.Value);
                     }
                 }
@@ -327,9 +325,7 @@ public sealed partial class ElementView
                 if (TryStartSlideDrag(viewModel, e.GetPosition(view)))
                 {
                     _pressed = true;
-                    // Re-target Avalonia's implicit capture from the hit-tested child to the
-                    // border: PointerCaptureLost routes Direct (no bubbling), so the reset
-                    // handler below only fires reliably when the border itself is captured.
+                    // PointerCaptureLost routes Direct, so move the capture to the border.
                     e.Pointer.Capture(view.border);
                 }
 
@@ -372,17 +368,14 @@ public sealed partial class ElementView
                 .Where(el => el.IsEditable.Value)
                 .ToArray();
 
-            // リサイズタイプに応じて、同じ時間の要素のみをフィルタリング
             IEnumerable<ElementViewModel> filteredElements;
             if (_resizeType == AlignmentX.Right)
             {
-                // 右端リサイズ: 同じEnd時間の要素のみ
                 TimeSpan targetEndTime = viewModel.Model.Range.End;
                 filteredElements = relatedElements.Where(elem => elem.Model.Range.End == targetEndTime);
             }
             else if (_resizeType == AlignmentX.Left)
             {
-                // 左端リサイズ: 同じStart時間の要素のみ
                 TimeSpan targetStartTime = viewModel.Model.Start;
                 filteredElements = relatedElements.Where(elem => elem.Model.Start == targetStartTime);
             }
@@ -554,7 +547,7 @@ public sealed partial class ElementView
             _trimDrag = default;
 
             float scale = viewModel.Timeline.Options.Value.Scale;
-            int rate = FrameRateOf(viewModel);
+            int rate = SceneTimeRangeService.GetFrameRate(viewModel.Scene);
             Point released = e.GetPosition(view);
             bool alt = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
             TimeSpan delta = TrimDeltaCalculator.SnappedDelta(
@@ -589,7 +582,7 @@ public sealed partial class ElementView
                 .ToArray();
 
             float scale = viewModel.Timeline.Options.Value.Scale;
-            int rate = FrameRateOf(viewModel);
+            int rate = SceneTimeRangeService.GetFrameRate(viewModel.Scene);
 
             TimeSpan RoundEdge(ElementResizeContext ctx)
             {
@@ -669,8 +662,7 @@ public sealed partial class ElementView
                 else if (!_pressed)
                 {
                     float scale = viewModel.Timeline.Options.Value.Scale;
-                    int rate = FrameRateOf(viewModel);
-                    double minWidth = TimeSpan.FromSeconds(1d / rate).TimeToPixel(scale);
+                    double minWidth = SceneTimeRangeService.GetFrameDuration(viewModel.Scene).TimeToPixel(scale);
 
                     Point point = e.GetPosition(border);
                     double horizon = point.X;
@@ -681,7 +673,6 @@ public sealed partial class ElementView
                         handleWidth = minWidth / 2;
                     }
 
-                    // 左右 10px内 なら左右矢印
                     if (horizon < handleWidth)
                     {
                         view.Cursor = Cursors.SizeWestEast;

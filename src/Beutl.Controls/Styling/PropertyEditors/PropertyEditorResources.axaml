@@ -1,38 +1,38 @@
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:behaviors="using:Beutl.Controls.Behaviors"
                     xmlns:i="using:Avalonia.Xaml.Interactions.Core"
                     xmlns:icons="using:FluentIcons.Avalonia.Fluent"
                     xmlns:intv="using:Avalonia.Xaml.Interactivity"
                     xmlns:local="using:Beutl.Controls.Styling.PropertyEditors"
-                    xmlns:pe="using:Beutl.Controls.PropertyEditors"
                     xmlns:ui="using:FluentAvalonia.UI.Controls">
 
-    <pe:GradingColorBrushConverter x:Key="GradingColorBrushConv" />
     <Design.PreviewWith>
         <Border Width="300">
             <ToggleButton Margin="8,4"
                           HorizontalAlignment="Stretch"
                           VerticalAlignment="Center"
                           Content="Header"
-                          Theme="{DynamicResource ListEditorMiniExpanderToggleButton}">
-                <!--<ToggleButton.Tag>
-
-                    <Button Width="24"
-                            Height="24"
-                            Padding="0"
-                            HorizontalContentAlignment="Center"
-                            VerticalContentAlignment="Center"
-                            Theme="{StaticResource TransparentButton}">
-                        <icons:FluentIcon Icon="Compose" />
-                    </Button>
-
-                </ToggleButton.Tag>-->
-            </ToggleButton>
+                          Theme="{DynamicResource ListEditorMiniExpanderToggleButton}" />
         </Border>
     </Design.PreviewWith>
     <x:Double x:Key="PropertyEditorMinWidth">200</x:Double>
     <x:Double x:Key="BrushEditorPreviewWidth">80</x:Double>
     <x:Double x:Key="ColorEditorValueMinWidth">120</x:Double>
+
+    <DataTemplate x:Key="ColorPaletteItemTemplate"
+                  x:CompileBindings="True"
+                  x:DataType="Color">
+        <ui:ColorPaletteItem Height="{Binding $self.Bounds.Width}"
+                             Margin="{DynamicResource ColorPaletteItemMargin}"
+                             BorderBrushPointerOver="{DynamicResource ColorPickerColorPaletteItemBorderBrushPointerOver}"
+                             BorderThicknessPointerOver="1"
+                             Color="{Binding}">
+            <Interaction.Behaviors>
+                <behaviors:ColorPaletteItemBehavior />
+            </Interaction.Behaviors>
+        </ui:ColorPaletteItem>
+    </DataTemplate>
 
     <ControlTheme x:Key="ListEditorMiniExpanderToggleButton" TargetType="ToggleButton">
         <Setter Property="Background" Value="Transparent" />
@@ -104,13 +104,150 @@
 
     </ControlTheme>
 
-    <ControlTheme x:Key="PropertyEditorLeftRightButton"
-                  BasedOn="{StaticResource FlipButton}"
-                  TargetType="Button">
+    <ControlTheme x:Key="PropertyEditorLeftRightButton" TargetType="Button">
         <Setter Property="Margin" Value="0,4" />
-        <Setter Property="Padding" Value="0" />
-        <Setter Property="VerticalAlignment" Value="Stretch" />
         <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{DynamicResource ControlStrongFillColorDefaultBrush}" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="HorizontalAlignment" Value="Left" />
+        <Setter Property="VerticalAlignment" Value="Stretch" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="CornerRadius" Value="3" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Panel>
+                    <Border Name="PART_Background"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{TemplateBinding CornerRadius}"
+                            Opacity="0.8" />
+                    <ui:FAFontIcon Name="PART_Icon"
+                                   Margin="{TemplateBinding Padding}"
+                                   HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                   VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                   FontFamily="{DynamicResource SymbolThemeFontFamily}"
+                                   Foreground="{TemplateBinding Foreground}"
+                                   Glyph="&#xEDD9;"
+                                   RenderTransformOrigin="50%,50%" />
+                </Panel>
+            </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^.right /template/ ui|FAFontIcon#PART_Icon">
+            <Setter Property="Glyph" Value="&#xEDDA;" />
+        </Style>
+
+        <Style Selector="^ /template/ ui|FAFontIcon#PART_Icon">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Foreground" Duration="00:00:00.083" />
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.1" />
+                </Transitions>
+            </Setter>
+        </Style>
+
+        <Style Selector="^:pointerover /template/ ui|FAFontIcon#PART_Icon">
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+        </Style>
+
+        <Style Selector="^:pressed /template/ ui|FAFontIcon#PART_Icon">
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+            <Setter Property="RenderTransform" Value="scale(0.9)" />
+        </Style>
+
+        <Style Selector="^:disabled /template/ Border#PART_Background">
+            <Setter Property="Opacity" Value="0.5" />
+        </Style>
+        <Style Selector="^:disabled /template/ ui|FAFontIcon#PART_Icon">
+            <Setter Property="Opacity" Value="0.5" />
+        </Style>
+    </ControlTheme>
+
+    <ControlTheme x:Key="PickerPinToggleButton"
+                  BasedOn="{StaticResource TransparentToggleButton}"
+                  TargetType="ToggleButton">
+        <Setter Property="Padding" Value="6,5,6,6" />
+        <Setter Property="CornerRadius" Value="{DynamicResource ControlCornerRadius}" />
+    </ControlTheme>
+
+    <ControlTheme x:Key="PickerListBoxItemBase" TargetType="ListBoxItem">
+        <Setter Property="FontFamily" Value="{DynamicResource ContentControlThemeFontFamily}" />
+        <Setter Property="FontSize" Value="{DynamicResource ControlContentThemeFontSize}" />
+        <Setter Property="Background" Value="{DynamicResource ListViewItemBackground}" />
+        <Setter Property="CornerRadius" Value="{DynamicResource ControlCornerRadius}" />
+        <Setter Property="Foreground" Value="{DynamicResource ListViewItemForeground}" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="MinWidth" Value="{DynamicResource ListViewItemMinWidth}" />
+        <Setter Property="MinHeight" Value="{DynamicResource ListViewItemMinHeight}" />
+
+        <Style Selector="^:pointerover">
+            <Style Selector="^ /template/ Border#Root">
+                <Setter Property="Background" Value="{DynamicResource ListViewItemBackgroundPointerOver}" />
+            </Style>
+            <Style Selector="^ /template/ ContentPresenter#PART_ContentPresenter">
+                <Setter Property="Foreground" Value="{DynamicResource ListViewItemForegroundPointerOver}" />
+            </Style>
+        </Style>
+
+        <Style Selector="^:pressed">
+            <Style Selector="^ /template/ Border#Root">
+                <Setter Property="Background" Value="{DynamicResource ListViewItemBackgroundPressed}" />
+            </Style>
+            <Style Selector="^ /template/ ContentPresenter">
+                <Setter Property="Foreground" Value="{DynamicResource ListViewItemForegroundPressed}" />
+            </Style>
+        </Style>
+
+        <Style Selector="^:selected">
+            <Style Selector="^ /template/ Border#Root">
+                <Setter Property="Background" Value="{DynamicResource ListViewItemBackgroundSelected}" />
+            </Style>
+            <Style Selector="^ /template/ ContentPresenter">
+                <Setter Property="Foreground" Value="{DynamicResource ListViewItemForegroundSelected}" />
+            </Style>
+            <Style Selector="^ /template/ Rectangle#SelectionIndicator">
+                <Setter Property="IsVisible" Value="True" />
+                <Setter Property="RenderTransform" Value="scaleY(1)" />
+            </Style>
+            <Style Selector="^:not(:focus) /template/ Border#Root">
+                <Setter Property="Background" Value="{DynamicResource ListViewItemBackgroundSelected}" />
+            </Style>
+            <Style Selector="^:not(:focus) /template/ ContentPresenter#PART_ContentPresenter">
+                <Setter Property="Foreground" Value="{DynamicResource ListViewItemForegroundSelected}" />
+            </Style>
+
+
+            <Style Selector="^:pointerover">
+                <Style Selector="^ /template/ Border#Root">
+                    <Setter Property="Background" Value="{DynamicResource ListViewItemBackgroundSelectedPointerOver}" />
+                </Style>
+                <Style Selector="^ /template/ ContentPresenter">
+                    <Setter Property="Foreground" Value="{DynamicResource ListViewItemForegroundSelectedPointerOver}" />
+                </Style>
+                <Style Selector="^ /template/ Rectangle#SelectionIndicator">
+                    <Setter Property="Fill" Value="{DynamicResource ListViewItemSelectionIndicatorPointerOverBrush}" />
+                </Style>
+            </Style>
+
+            <Style Selector="^:pressed">
+                <Style Selector="^ /template/ Border#Root">
+                    <Setter Property="Background" Value="{DynamicResource ListViewItemBackgroundSelectedPressed}" />
+                </Style>
+                <Style Selector="^ /template/ ContentPresenter#PART_ContentPresenter">
+                    <Setter Property="Foreground" Value="{DynamicResource ListViewItemForegroundSelectedPressed}" />
+                </Style>
+                <Style Selector="^ /template/ Rectangle#SelectionIndicator">
+                    <Setter Property="Fill" Value="{DynamicResource ListViewItemSelectionIndicatorPressedBrush}" />
+                </Style>
+            </Style>
+
+            <Style Selector="^:disabled /template/ Rectangle#SelectionIndicator">
+                <Setter Property="Fill" Value="{DynamicResource ListViewItemSelectionIndicatorDisabledBrush}" />
+            </Style>
+        </Style>
     </ControlTheme>
 
     <ControlTheme x:Key="PropertyEditorReorderHandle" TargetType="Border">

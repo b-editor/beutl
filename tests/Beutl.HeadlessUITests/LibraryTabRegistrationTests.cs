@@ -2,6 +2,7 @@
 using Avalonia.Threading;
 using Beutl.Editor.Components.LibraryTab.ViewModels;
 using Beutl.Services;
+using Beutl.Testing.Headless;
 
 namespace Beutl.HeadlessUITests;
 
@@ -84,22 +85,12 @@ public sealed class LibraryTabRegistrationTests
         {
             LibraryService.Current.Register<LateItem>(LateFormat, LateName);
 
-            await WaitUntil(() => viewModel.SearchResult.Any(item => item.Value.DisplayName == LateName));
+            await HeadlessTestHelpers.WaitUntilAsync(() => viewModel.SearchResult.Any(item => item.Value.DisplayName == LateName));
         }
         finally
         {
             TypeUnloadNotifier.NotifyUnloading([typeof(LateItem)]);
             Dispatcher.UIThread.RunJobs();
-        }
-    }
-
-    private static async Task WaitUntil(Func<bool> condition)
-    {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        while (!condition())
-        {
-            Dispatcher.UIThread.RunJobs();
-            await Task.Delay(10, timeout.Token);
         }
     }
 

@@ -170,7 +170,7 @@ internal class PackageOperationHandler
         PackageNotifications.Updated(packageId.Id);
     }
 
-    private async Task ActivateInstalledPackageAsync(PackageIdentity packageId, CancellationToken cancellationToken)
+    internal async Task ActivateInstalledPackageAsync(PackageIdentity packageId, CancellationToken cancellationToken)
     {
         string directory = Helper.PackagePathResolver.GetInstalledPath(packageId)
                            ?? throw new InvalidOperationException(

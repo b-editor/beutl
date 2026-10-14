@@ -13,10 +13,8 @@ using FluentAvalonia.UI.Controls;
 
 namespace Beutl.HeadlessUITests;
 
-// File > New > Scene, Ctrl+N and the start screen's New > Scene used to run a command that nothing
-// subscribed to, so they did nothing (#2857). Each must run MenuBar.NewScene, the command whose
-// handler opens the new scene dialog (Scene > New uses it too). The dialog itself cannot open in
-// the headless host: FAContentDialog.ShowAsync() needs an application lifetime to find its window.
+// Guards #2857: every New Scene entry point runs MenuBar.NewScene. The dialog itself cannot open in the
+// headless host, because FAContentDialog.ShowAsync() needs an application lifetime to find its window.
 [TestFixture]
 public class NewSceneEntryPointTests
 {

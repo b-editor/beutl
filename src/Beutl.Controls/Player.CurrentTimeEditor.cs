@@ -4,8 +4,6 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 
-using Microsoft.Extensions.Logging;
-
 namespace Beutl.Controls;
 
 public partial class Player
@@ -21,10 +19,7 @@ public partial class Player
         _currentTimeTextBox.Classes.Remove("invalid");
         ToolTip.SetTip(_currentTimeTextBox, null);
         _currentTimeTextBox.Text = _currentTime;
-        // Snapshot the text the editor was opened with; CurrentTime is bound to
-        // the live playhead and may advance under the user during playback, so
-        // SubmitCurrentTimeEdit cannot compare against the latest _currentTime
-        // to decide whether the user edited the value.
+        // Playback advances CurrentTime, so SubmitCurrentTimeEdit compares with the text at edit start.
         _editStartText = _currentTime;
         _currentTimeTextBox.IsVisible = true;
         if (_currentTimeTextBlock != null)
@@ -82,10 +77,8 @@ public partial class Player
         for (int i = 0; i < source.Count; i++)
         {
             PlayerMarkerEntry m = source[i];
-            if (m == null) continue;
-            string name = m.Name ?? string.Empty;
             if (prefix.Length == 0
-                || name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                || m.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
             {
                 filtered.Add(m);
             }
@@ -107,7 +100,7 @@ public partial class Player
         if (_markerListBox == null || _currentTimeTextBox == null || _markerPopup == null) return;
         if (_markerListBox.SelectedItem is not PlayerMarkerEntry selected) return;
 
-        _currentTimeTextBox.Text = "@" + (selected.Name ?? string.Empty);
+        _currentTimeTextBox.Text = "@" + selected.Name;
         _markerPopup.IsOpen = false;
         SubmitCurrentTimeEdit();
     }
@@ -117,43 +110,16 @@ public partial class Player
         if (_currentTimeTextBox == null) return;
         string input = _currentTimeTextBox.Text ?? string.Empty;
 
-        // No-op when the user pressed Enter without editing the displayed text.
-        // The CurrentTime string format (hh\:mm\:ss\.ff) day-wraps for timelines
-        // >= 24h, so re-parsing it would silently jump the playhead backwards
-        // by one day. Compare against the snapshot taken at edit start, not the
-        // live _currentTime, because the playhead may have advanced while the
-        // editor was open during playback.
+        // Enter without an edit does nothing. The display format wraps at 24 hours, so re-parsing it
+        // would move the playhead back a day.
         if (string.Equals(input, _editStartText, StringComparison.Ordinal))
         {
             EndEditCurrentTime();
             return;
         }
 
-        var handler = CurrentTimeSubmitted;
-
-        if (handler == null)
-        {
-            // The editor stays open with the fallback tooltip below; surface the
-            // misconfiguration so it is detectable in telemetry rather than
-            // silently masquerading as a user input error.
-            s_logger.LogWarning("CurrentTimeSubmitted has no subscribers; timecode '{Input}' cannot be processed.", input);
-        }
-
         TimecodeSubmittedEventArgs args = new TimecodeSubmittedEventArgs(input);
-        try
-        {
-            handler?.Invoke(this, args);
-        }
-        catch (Exception ex)
-        {
-            // Subscribers must not let exceptions escape into the Avalonia
-            // event loop (it would either crash the app or be swallowed by the
-            // global unhandled-exception handler with no UI feedback). Log the
-            // exception so the stack trace is recoverable, then reject the
-            // submission and let the view show the fallback tooltip below.
-            s_logger.LogError(ex, "A CurrentTimeSubmitted subscriber threw while processing '{Input}'.", input);
-            args.Reject(string.Empty);
-        }
+        CurrentTimeSubmitted?.Invoke(this, args);
 
         if (args.Handled)
         {

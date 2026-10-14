@@ -15,7 +15,6 @@
     <ControlTheme x:Key="GradientStopSliderThumbStyle" TargetType="Thumb">
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="BorderBrush" Value="{DynamicResource SliderOuterThumbBackground}" />
-        <!--TODO: <Setter Property="BorderBrush" Value="{DynamicResource ColorControlDefaultSelectorBrush}" />-->
         <Setter Property="BorderThickness" Value="3" />
         <Setter Property="CornerRadius" Value="{DynamicResource ColorSliderCornerRadius}" />
         <Setter Property="Width" Value="20" />
@@ -56,11 +55,7 @@
                         <Rectangle Name="BackgroundElement"
                                    Height="20"
                                    RadiusX="10"
-                                   RadiusY="10">
-                            <!--<Rectangle.Fill>
-                                <LinearGradientBrush GradientStops="{Binding Stops, RelativeSource={RelativeSource TemplatedParent}}" StartPoint="0%,50%" EndPoint="100%,50%" />
-                            </Rectangle.Fill>-->
-                        </Rectangle>
+                                   RadiusY="10" />
                     </Border>
 
                     <ItemsControl Name="ItemsControl"

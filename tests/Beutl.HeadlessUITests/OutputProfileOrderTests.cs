@@ -8,7 +8,6 @@ using Beutl.Extensibility;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Services;
-using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Reactive.Bindings;
 
@@ -20,13 +19,7 @@ public sealed class OutputProfileOrderTests
     [AvaloniaTest]
     public async Task InterleavedUnavailableProfiles_RetainOrderAndRecoveredDefault()
     {
-        await TestReset.ResetShellAsync();
-        string directory = Path.Combine(BeutlHomeIsolation.CurrentHome!, "output-order");
-        Directory.CreateDirectory(directory);
-        Project project = (await TestShell.Project.CreateProject(320, 180, 30, 44100, "output-order", directory))!;
-        Scene scene = project.Items.OfType<Scene>().First();
-        TestShell.Editor.ActivateTabItem(scene);
-        var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+        (_, Scene scene, EditViewModel editor) = await TestShell.OpenNewSceneAsync("output-order", 320, 180);
         const int packageId = 1938201;
         var extension = new OrderOutputExtension();
         editor.ExtensionProvider.AddExtensions(packageId, [extension]);

@@ -260,7 +260,7 @@
                                         Expands="True"
                                         Header="{TemplateBinding Header}">
                         <OptionsDisplayItem.Content>
-                            <DataValidationErrors Grid.Row="2" IsEnabled="{Binding IsReadOnly, Converter={x:Static BoolConverters.Not}, RelativeSource={RelativeSource AncestorType={x:Type local:Vector3Editor}}}">
+                            <DataValidationErrors IsEnabled="{Binding IsReadOnly, Converter={x:Static BoolConverters.Not}, RelativeSource={RelativeSource AncestorType={x:Type local:Vector3Editor}}}">
                                 <StackPanel Margin="40,0" Spacing="16">
                                     <Grid Margin="4" ColumnDefinitions="*,Auto">
                                         <TextBlock Name="PART_HeaderFirstTextBlock"
@@ -330,7 +330,7 @@
                                   MinWidth="120"
                                   Margin="4"
                                   ColumnDefinitions="*,Auto">
-                                <DataValidationErrors Grid.Row="2">
+                                <DataValidationErrors>
                                     <Panel>
                                         <Border Name="PART_BackgroundBorder"
                                                 Background="{DynamicResource TextControlBackground}"

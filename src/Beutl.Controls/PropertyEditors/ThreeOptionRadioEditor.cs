@@ -12,6 +12,10 @@ namespace Beutl.Controls.PropertyEditors;
 public abstract class ThreeOptionRadioEditor<T> : PropertyEditor
     where T : struct
 {
+    private const string ButtonAName = "PART_OptionA";
+    private const string ButtonBName = "PART_OptionB";
+    private const string ButtonCName = "PART_OptionC";
+
     private readonly CompositeDisposable _disposables = [];
     private RadioButton? _buttonA;
     private RadioButton? _buttonB;
@@ -19,17 +23,9 @@ public abstract class ThreeOptionRadioEditor<T> : PropertyEditor
 
     protected T _value;
 
-    protected abstract string ButtonAName { get; }
-    protected abstract string ButtonBName { get; }
-    protected abstract string ButtonCName { get; }
-
     protected abstract T ButtonAValue { get; }
     protected abstract T ButtonBValue { get; }
     protected abstract T ButtonCValue { get; }
-
-    protected abstract string PseudoClassA { get; }
-    protected abstract string PseudoClassB { get; }
-    protected abstract string PseudoClassC { get; }
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
@@ -46,7 +42,7 @@ public abstract class ThreeOptionRadioEditor<T> : PropertyEditor
         _buttonC.AddDisposableHandler(Button.ClickEvent, OnButtonClick)
             .DisposeWith(_disposables);
 
-        UpdatePseudoClassesAndCheckState();
+        UpdateCheckState();
     }
 
     protected override Size MeasureOverride(Size availableSize)
@@ -58,39 +54,27 @@ public abstract class ThreeOptionRadioEditor<T> : PropertyEditor
 
     protected abstract void SetValue(T value);
 
-    protected void UpdatePseudoClassesAndCheckState()
+    protected void UpdateCheckState()
     {
-        PseudoClasses.Remove(PseudoClassA);
-        PseudoClasses.Remove(PseudoClassB);
-        PseudoClasses.Remove(PseudoClassC);
-        string? pseudoClass = null;
         RadioButton? radioButton = null;
 
         var comparer = EqualityComparer<T>.Default;
         if (comparer.Equals(_value, ButtonAValue))
         {
-            pseudoClass = PseudoClassA;
             radioButton = _buttonA;
         }
         else if (comparer.Equals(_value, ButtonBValue))
         {
-            pseudoClass = PseudoClassB;
             radioButton = _buttonB;
         }
         else if (comparer.Equals(_value, ButtonCValue))
         {
-            pseudoClass = PseudoClassC;
             radioButton = _buttonC;
         }
 
         if (radioButton != null)
         {
             radioButton.IsChecked = true;
-        }
-
-        if (pseudoClass != null)
-        {
-            PseudoClasses.Add(pseudoClass);
         }
     }
 

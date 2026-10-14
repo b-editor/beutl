@@ -4,7 +4,7 @@
                     xmlns:local="using:Beutl.Controls.PropertyEditors"
                     xmlns:ui="using:FluentAvalonia.UI.Controls"
                     x:CompileBindings="True">
-    <!--なぜか <Style Selector="^"> でのプロパティ設定が効かないので、属性で設定している部分があります-->
+    <!--  LiteNavRadioButton's Padding wins over this theme's styles, so each RadioButton sets its Padding.  -->
     <Design.PreviewWith>
         <Border Width="300" Height="200">
             <StackPanel>
@@ -17,7 +17,7 @@
     </Design.PreviewWith>
 
 
-    <ControlTheme x:Key="{x:Type local:AlignmentXEditor}" TargetType="local:AlignmentXEditor">
+    <ControlTheme x:Key="ThreeOptionRadioEditorTheme" TargetType="local:PropertyEditor">
         <Setter Property="MinWidth" Value="{DynamicResource PropertyEditorMinWidth}" />
         <Setter Property="Template">
             <ControlTemplate>
@@ -48,14 +48,14 @@
                                     Margin="4,2"
                                     IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
                                     Orientation="Horizontal">
-                            <RadioButton Name="PART_LeftRadioButton" Padding="12,4">
-                                <icons:FluentIcon Icon="AlignLeft" />
+                            <RadioButton Name="PART_OptionA" Padding="12,4">
+                                <icons:FluentIcon Name="PART_IconA" />
                             </RadioButton>
-                            <RadioButton Name="PART_CenterRadioButton" Padding="12,4">
-                                <icons:FluentIcon Icon="AlignCenterVertical" />
+                            <RadioButton Name="PART_OptionB" Padding="12,4">
+                                <icons:FluentIcon Name="PART_IconB" />
                             </RadioButton>
-                            <RadioButton Name="PART_RightRadioButton" Padding="12,4">
-                                <icons:FluentIcon Icon="AlignRight" />
+                            <RadioButton Name="PART_OptionC" Padding="12,4">
+                                <icons:FluentIcon Name="PART_IconC" />
                             </RadioButton>
                         </StackPanel>
 
@@ -114,20 +114,20 @@
                                   Margin="4,2"
                                   ColumnDefinitions="*,*,*"
                                   IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}">
-                                <RadioButton Name="PART_LeftRadioButton"
+                                <RadioButton Name="PART_OptionA"
                                              Grid.Column="0"
                                              Padding="12,4">
-                                    <icons:FluentIcon Icon="AlignLeft" />
+                                    <icons:FluentIcon Name="PART_IconA" />
                                 </RadioButton>
-                                <RadioButton Name="PART_CenterRadioButton"
+                                <RadioButton Name="PART_OptionB"
                                              Grid.Column="1"
                                              Padding="12,4">
-                                    <icons:FluentIcon Icon="AlignCenterVertical" />
+                                    <icons:FluentIcon Name="PART_IconB" />
                                 </RadioButton>
-                                <RadioButton Name="PART_RightRadioButton"
+                                <RadioButton Name="PART_OptionC"
                                              Grid.Column="2"
                                              Padding="12,4">
-                                    <icons:FluentIcon Icon="AlignRight" />
+                                    <icons:FluentIcon Name="PART_IconC" />
                                 </RadioButton>
                             </Grid>
 
@@ -157,14 +157,14 @@
                                         HorizontalAlignment="Right"
                                         IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
                                         Orientation="Horizontal">
-                                <RadioButton Name="PART_LeftRadioButton" Padding="12,4">
-                                    <icons:FluentIcon Icon="AlignLeft" />
+                                <RadioButton Name="PART_OptionA" Padding="12,4">
+                                    <icons:FluentIcon Name="PART_IconA" />
                                 </RadioButton>
-                                <RadioButton Name="PART_CenterRadioButton" Padding="12,4">
-                                    <icons:FluentIcon Icon="AlignCenterVertical" />
+                                <RadioButton Name="PART_OptionB" Padding="12,4">
+                                    <icons:FluentIcon Name="PART_IconB" />
                                 </RadioButton>
-                                <RadioButton Name="PART_RightRadioButton" Padding="12,4">
-                                    <icons:FluentIcon Icon="AlignRight" />
+                                <RadioButton Name="PART_OptionC" Padding="12,4">
+                                    <icons:FluentIcon Name="PART_IconC" />
                                 </RadioButton>
                             </StackPanel>
 
@@ -183,19 +183,8 @@
         </Style>
 
         <Style Selector="^ /template/ RadioButton">
-            <!-- <Setter Property="Padding" Value="12,4" /> -->
             <Setter Property="Theme" Value="{StaticResource LiteNavRadioButton}" />
             <Setter Property="FontSize" Value="18" />
-        </Style>
-
-        <Style Selector="^:left-selected /template/ RadioButton#PART_LeftRadioButton">
-            <Setter Property="IsChecked" Value="True" />
-        </Style>
-        <Style Selector="^:center-selected /template/ RadioButton#PART_CenterRadioButton">
-            <Setter Property="IsChecked" Value="True" />
-        </Style>
-        <Style Selector="^:right-selected /template/ RadioButton#PART_RightRadioButton">
-            <Setter Property="IsChecked" Value="True" />
         </Style>
 
         <Style Selector="^:not(:visible-left-button) /template/ Button#PART_LeftButton">
@@ -212,199 +201,31 @@
         </Style>
     </ControlTheme>
 
-
-    <ControlTheme x:Key="{x:Type local:AlignmentYEditor}" TargetType="local:AlignmentYEditor">
-        <Setter Property="MinWidth" Value="{DynamicResource PropertyEditorMinWidth}" />
-        <Setter Property="Template">
-            <ControlTemplate>
-                <Border Padding="{TemplateBinding Padding}"
-                        BorderBrush="{TemplateBinding BorderBrush}"
-                        BorderThickness="{TemplateBinding BorderThickness}"
-                        CornerRadius="{TemplateBinding CornerRadius}">
-                    <local:PropertyEditorGrid ColumnDefinitions="2*,3*,Auto,Auto" ValueColumn="1">
-                        <local:PropertyEditorGrid.Styles>
-                            <Style Selector="StackPanel#PART_AlignmentButtons">
-                                <Setter Property="HorizontalAlignment" Value="Right" />
-                            </Style>
-                            <Style Selector="local|PropertyEditorGrid:aligned > StackPanel#PART_AlignmentButtons">
-                                <Setter Property="HorizontalAlignment" Value="Left" />
-                            </Style>
-                        </local:PropertyEditorGrid.Styles>
-                        <TextBlock Name="PART_HeaderTextBlock"
-                                   Margin="4,0,0,0"
-                                   HorizontalAlignment="Left"
-                                   VerticalAlignment="Center"
-                                   ClipToBounds="False"
-                                   Text="{TemplateBinding Header}"
-                                   ToolTip.Tip="{TemplateBinding HeaderTooltip}"
-                                   TextTrimming="CharacterEllipsis" />
-
-                        <StackPanel Name="PART_AlignmentButtons"
-                                    Grid.Column="1"
-                                    Margin="4,2"
-                                    IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
-                                    Orientation="Horizontal">
-                            <RadioButton Name="PART_TopRadioButton" Padding="12,4">
-                                <icons:FluentIcon Icon="AlignTop" />
-                            </RadioButton>
-                            <RadioButton Name="PART_CenterRadioButton" Padding="12,4">
-                                <icons:FluentIcon Icon="AlignCenterHorizontal" />
-                            </RadioButton>
-                            <RadioButton Name="PART_BottomRadioButton" Padding="12,4">
-                                <icons:FluentIcon Icon="AlignBottom" />
-                            </RadioButton>
-                        </StackPanel>
-
-                        <StackPanel Name="LeftRightButtons"
-                                    Grid.Column="2"
-                                    Margin="0,0,4,0"
-                                    Orientation="Horizontal">
-                            <Button Name="PART_LeftButton"
-                                    Classes="left"
-                                    Theme="{StaticResource PropertyEditorLeftRightButton}" />
-
-                            <Button Name="PART_RightButton"
-                                    Classes="right"
-                                    Theme="{StaticResource PropertyEditorLeftRightButton}" />
-                        </StackPanel>
-
-                        <ContentPresenter Name="PART_MenuContentPresenter"
-                                          Grid.Column="3"
-                                          Content="{TemplateBinding MenuContent}"
-                                          ContentTemplate="{TemplateBinding MenuContentTemplate}" />
-                    </local:PropertyEditorGrid>
-                </Border>
-            </ControlTemplate>
-        </Setter>
-
-        <Style Selector="^:compact">
-            <Setter Property="Template">
-                <ControlTemplate>
-                    <Border Padding="{TemplateBinding Padding}"
-                            BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="{TemplateBinding CornerRadius}">
-                        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,*">
-                            <TextBlock Name="PART_HeaderTextBlock"
-                                       Margin="4,0,0,0"
-                                       HorizontalAlignment="Left"
-                                       VerticalAlignment="Center"
-                                       ClipToBounds="False"
-                                       ToolTip.Tip="{TemplateBinding HeaderTooltip}"
-                                       Text="{TemplateBinding Header}" />
-
-                            <StackPanel Name="LeftRightButtons"
-                                        Margin="0,0,4,0"
-                                        HorizontalAlignment="Right"
-                                        Orientation="Horizontal">
-                                <Button Name="PART_LeftButton"
-                                        Classes="left"
-                                        Theme="{StaticResource PropertyEditorLeftRightButton}" />
-
-                                <Button Name="PART_RightButton"
-                                        Classes="right"
-                                        Theme="{StaticResource PropertyEditorLeftRightButton}" />
-                            </StackPanel>
-
-                            <Grid Grid.Row="1"
-                                  Margin="4,2"
-                                  ColumnDefinitions="*,*,*"
-                                  IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}">
-                                <RadioButton Name="PART_TopRadioButton"
-                                             Grid.Column="0"
-                                             Padding="12,4">
-                                    <icons:FluentIcon Icon="AlignTop" />
-                                </RadioButton>
-                                <RadioButton Name="PART_CenterRadioButton"
-                                             Grid.Column="1"
-                                             Padding="12,4">
-                                    <icons:FluentIcon Icon="AlignCenterHorizontal" />
-                                </RadioButton>
-                                <RadioButton Name="PART_BottomRadioButton"
-                                             Grid.Column="2"
-                                             Padding="12,4">
-                                    <icons:FluentIcon Icon="AlignBottom" />
-                                </RadioButton>
-                            </Grid>
-
-                            <ContentPresenter Name="PART_MenuContentPresenter"
-                                              Grid.Row="1"
-                                              Grid.Column="1"
-                                              Content="{TemplateBinding MenuContent}"
-                                              ContentTemplate="{TemplateBinding MenuContentTemplate}" />
-                        </Grid>
-                    </Border>
-                </ControlTemplate>
-            </Setter>
+    <ControlTheme x:Key="{x:Type local:AlignmentXEditor}"
+                  BasedOn="{StaticResource ThreeOptionRadioEditorTheme}"
+                  TargetType="local:AlignmentXEditor">
+        <Style Selector="^ /template/ icons|FluentIcon#PART_IconA">
+            <Setter Property="Icon" Value="AlignLeft" />
         </Style>
-
-        <Style Selector="^:list-item">
-            <Setter Property="Template">
-                <ControlTemplate>
-                    <Border Padding="{TemplateBinding Padding}"
-                            BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="{TemplateBinding CornerRadius}">
-                        <Grid ColumnDefinitions="Auto,*,Auto">
-                            <Border Name="PART_ReorderHandle" Theme="{StaticResource PropertyEditorReorderHandle}" />
-
-                            <StackPanel Grid.Column="1"
-                                        Margin="4,2"
-                                        HorizontalAlignment="Right"
-                                        IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
-                                        Orientation="Horizontal">
-                                <RadioButton Name="PART_TopRadioButton" Padding="12,4">
-                                    <icons:FluentIcon Icon="AlignTop" />
-                                </RadioButton>
-                                <RadioButton Name="PART_CenterRadioButton" Padding="12,4">
-                                    <icons:FluentIcon Icon="AlignCenterHorizontal" />
-                                </RadioButton>
-                                <RadioButton Name="PART_BottomRadioButton" Padding="12,4">
-                                    <icons:FluentIcon Icon="AlignBottom" />
-                                </RadioButton>
-                            </StackPanel>
-
-                            <Button Name="PART_DeleteButton"
-                                    Grid.Column="2"
-                                    Margin="4,0"
-                                    Padding="0"
-                                    Classes="size-24x24"
-                                    Theme="{StaticResource TransparentButton}">
-                                <icons:FluentIcon Icon="Delete" />
-                            </Button>
-                        </Grid>
-                    </Border>
-                </ControlTemplate>
-            </Setter>
+        <Style Selector="^ /template/ icons|FluentIcon#PART_IconB">
+            <Setter Property="Icon" Value="AlignCenterVertical" />
         </Style>
+        <Style Selector="^ /template/ icons|FluentIcon#PART_IconC">
+            <Setter Property="Icon" Value="AlignRight" />
+        </Style>
+    </ControlTheme>
 
-        <Style Selector="^ /template/ RadioButton">
-            <!-- <Setter Property="Padding" Value="12,4" /> -->
-            <Setter Property="Theme" Value="{StaticResource LiteNavRadioButton}" />
-            <Setter Property="FontSize" Value="18" />
+    <ControlTheme x:Key="{x:Type local:AlignmentYEditor}"
+                  BasedOn="{StaticResource ThreeOptionRadioEditorTheme}"
+                  TargetType="local:AlignmentYEditor">
+        <Style Selector="^ /template/ icons|FluentIcon#PART_IconA">
+            <Setter Property="Icon" Value="AlignTop" />
         </Style>
-
-        <Style Selector="^:top-selected /template/ RadioButton#PART_TopRadioButton">
-            <Setter Property="IsChecked" Value="True" />
+        <Style Selector="^ /template/ icons|FluentIcon#PART_IconB">
+            <Setter Property="Icon" Value="AlignCenterHorizontal" />
         </Style>
-        <Style Selector="^:center-selected /template/ RadioButton#PART_CenterRadioButton">
-            <Setter Property="IsChecked" Value="True" />
-        </Style>
-        <Style Selector="^:bottom-selected /template/ RadioButton#PART_BottomRadioButton">
-            <Setter Property="IsChecked" Value="True" />
-        </Style>
-
-        <Style Selector="^:not(:visible-left-button) /template/ Button#PART_LeftButton">
-            <Setter Property="IsEnabled" Value="False" />
-        </Style>
-        <Style Selector="^:not(:visible-right-button) /template/ Button#PART_RightButton">
-            <Setter Property="IsEnabled" Value="False" />
-        </Style>
-
-        <Style Selector="^[KeyFrameCount=0]">
-            <Style Selector="^ /template/ StackPanel#LeftRightButtons">
-                <Setter Property="IsVisible" Value="False" />
-            </Style>
+        <Style Selector="^ /template/ icons|FluentIcon#PART_IconC">
+            <Setter Property="Icon" Value="AlignBottom" />
         </Style>
     </ControlTheme>
 
