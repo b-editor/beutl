@@ -168,7 +168,6 @@ public sealed partial class ObjectTemplateService
                     return cached;
                 }
 
-                // 外部変更されているので再読み込み
                 ObjectTemplateItem? reloaded = LoadFromFile(filePath);
                 if (reloaded != null)
                 {
@@ -435,9 +434,7 @@ public sealed partial class ObjectTemplateService
             {
                 _items.RemoveAt(i);
                 _logger.LogInformation("Removed template (file gone): {FilePath}", item.FilePath);
-                continue;
             }
-
         }
     }
 
