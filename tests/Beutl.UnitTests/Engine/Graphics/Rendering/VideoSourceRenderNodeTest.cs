@@ -55,7 +55,6 @@ public class VideoSourceRenderNodeTest
         _videoSource = null;
     }
 
-    // A decoded video frame reports concrete At(1) density, not Unbounded.
     [Test]
     public void Measure_ReportsConcreteNativeDensity_NotUnbounded()
     {

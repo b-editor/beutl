@@ -86,46 +86,17 @@ public sealed class BlurFilterLayerBoundsTests
 
     private static void AssertAllChannelsFinite(Bitmap bitmap, string scenario)
     {
-        ReadOnlySpan<ushort> pixels = bitmap.GetPixelSpan<ushort>();
-        int nonFinite = 0;
-        int firstIndex = -1;
-        for (int i = 0; i < pixels.Length; i++)
-        {
-            float value = (float)BitConverter.UInt16BitsToHalf(pixels[i]);
-            if (float.IsFinite(value))
-                continue;
-
-            nonFinite++;
-            if (firstIndex < 0)
-                firstIndex = i;
-        }
-
         Assert.Multiple(() =>
         {
             Assert.That(
-                nonFinite,
-                Is.Zero,
-                $"{scenario} produced {nonFinite} non-finite channel values "
-                + $"(first at pixel {(firstIndex < 0 ? -1 : firstIndex / 4)}); "
-                + "the filter sampled outside its input.");
+                ImageMetrics.FirstNonFinite((scenario, bitmap)),
+                Is.Null,
+                $"{scenario} produced a non-finite channel value; the filter sampled outside its input.");
             Assert.That(
-                HasVisibleContent(bitmap),
+                ImageMetrics.HasFiniteVisibleContent(bitmap, alphaThreshold: 0.01f),
                 Is.True,
                 $"{scenario} rendered nothing, so the finiteness check proves nothing.");
         });
-    }
-
-    private static bool HasVisibleContent(Bitmap bitmap)
-    {
-        ReadOnlySpan<ushort> pixels = bitmap.GetPixelSpan<ushort>();
-        for (int i = 3; i < pixels.Length; i += 4)
-        {
-            float alpha = (float)BitConverter.UInt16BitsToHalf(pixels[i]);
-            if (float.IsFinite(alpha) && alpha > 0.01f)
-                return true;
-        }
-
-        return false;
     }
 
     private static RectShape CreateRectangle(float width, float height, Brush fill)

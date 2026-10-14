@@ -3,6 +3,7 @@ using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shaders;
 using SkiaSharp;
+using static Beutl.UnitTests.Engine.Graphics.Rendering.Fusion.FusionBoundaryExecutionTestSupport;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Fusion;
 
@@ -101,6 +102,14 @@ public sealed class SkslSnippetMergerTests
             Assert.That(error, Is.Null);
             Assert.That(effect, Is.Not.Null);
         });
+    }
+
+    [Test]
+    public void Merge_RejectsAnEmptyStageList()
+    {
+        ArgumentException? failure = Assert.Throws<ArgumentException>(() => SkslSnippetMerger.Merge([]));
+
+        Assert.That(failure!.Message, Does.Contain("At least one shader stage is required"));
     }
 
     [Test]
@@ -270,7 +279,7 @@ public sealed class SkslSnippetMergerTests
     {
         using var registry = new RenderRequestResourceRegistry();
         SkslBackendBudget budget = SkslBackendBudgetResolver.Resolve(backend);
-        ShaderDescription description = ResourceShader(budget.MaxSamplers, registry);
+        ShaderDescription description = ResourceHeavyShader(budget.MaxSamplers, registry);
 
         SkslMergedProgram program = SkslSnippetMerger.MergeAndSplit(
             [description],
@@ -286,48 +295,27 @@ public sealed class SkslSnippetMergerTests
         });
     }
 
-    [Test]
-    public void MergeAndSplit_AccountsForGeneratedSourceLimit()
+    [TestCase(false, TestName = "MergeAndSplit_AccountsForGeneratedSourceLimit")]
+    [TestCase(true, TestName = "MergeAndSplit_AccountsForBackendProgramTokenLimit")]
+    public void MergeAndSplit_AccountsForSourceSizeLimits(bool countTokens)
     {
         ShaderDescription first = ShaderDescription.CurrentPixel(Identity);
         ShaderDescription second = ShaderDescription.CurrentPixel(
             "half4 helper(half4 value) { return value; } "
             + "half4 apply(half4 color) { return helper(color); }");
-        SkslMergedProgram firstOnly = SkslSnippetMerger.Merge([first]);
-        SkslMergedProgram secondOnly = SkslSnippetMerger.Merge([second]);
-        int limit = Math.Max(firstOnly.SourceByteCount, secondOnly.SourceByteCount);
+        Func<SkslMergedProgram, int> size = countTokens
+            ? static program => program.ProgramTokenCount
+            : static program => program.SourceByteCount;
+        int limit = Math.Max(size(SkslSnippetMerger.Merge([first])), size(SkslSnippetMerger.Merge([second])));
 
         IReadOnlyList<SkslMergedProgram> programs = SkslSnippetMerger.MergeAndSplit(
             [first, second],
-            Budget(maxSourceBytes: limit));
+            countTokens ? Budget(maxProgramTokens: limit) : Budget(maxSourceBytes: limit));
 
         Assert.Multiple(() =>
         {
             Assert.That(programs, Has.Count.EqualTo(2));
-            Assert.That(programs, Has.All.Matches<SkslMergedProgram>(program => program.SourceByteCount <= limit));
-            Assert.That(programs.SelectMany(StageIndices), Is.EqualTo(new[] { 0, 1 }));
-        });
-    }
-
-    [Test]
-    public void MergeAndSplit_AccountsForBackendProgramTokenLimit()
-    {
-        ShaderDescription first = ShaderDescription.CurrentPixel(Identity);
-        ShaderDescription second = ShaderDescription.CurrentPixel(
-            "half4 helper(half4 value) { return value; } "
-            + "half4 apply(half4 color) { return helper(color); }");
-        SkslMergedProgram firstOnly = SkslSnippetMerger.Merge([first]);
-        SkslMergedProgram secondOnly = SkslSnippetMerger.Merge([second]);
-        int limit = Math.Max(firstOnly.ProgramTokenCount, secondOnly.ProgramTokenCount);
-
-        IReadOnlyList<SkslMergedProgram> programs = SkslSnippetMerger.MergeAndSplit(
-            [first, second],
-            Budget(maxProgramTokens: limit));
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(programs, Has.Count.EqualTo(2));
-            Assert.That(programs, Has.All.Matches<SkslMergedProgram>(program => program.ProgramTokenCount <= limit));
+            Assert.That(programs.Select(size), Is.All.LessThanOrEqualTo(limit));
             Assert.That(programs.SelectMany(StageIndices), Is.EqualTo(new[] { 0, 1 }));
         });
     }
@@ -499,48 +487,5 @@ public sealed class SkslSnippetMergerTests
                 resource,
                 ShaderResourceCoordinateSpace.Value,
                 static (writer, _, _) => writer.Set(SKShader.CreateColor(StableColors.White))));
-    }
-
-    private static ShaderDescription ResourceShader(
-        int resourceCount,
-        RenderRequestResourceRegistry registry)
-    {
-        string[] names = Enumerable.Range(0, resourceCount)
-            .Select(static index => $"lookup{index}")
-            .ToArray();
-        RenderResource<object>[] resources = names
-            .Select(_ => registry.RegisterBorrowed(new object()))
-            .ToArray();
-        string declarations = string.Join(' ', names.Select(static name => $"uniform shader {name};"));
-
-        return ShaderDescription.CurrentPixel(
-            $"{declarations} half4 apply(half4 color) {{ return color; }}",
-            bindings =>
-            {
-                for (int index = 0; index < names.Length; index++)
-                {
-                    bindings.Resource(
-                        names[index],
-                        resources[index],
-                        ShaderResourceCoordinateSpace.Value,
-                        static (writer, _, _) => writer.Set(SKShader.CreateColor(StableColors.White)));
-                }
-            });
-    }
-
-    private static SkslBackendBudget Budget(
-        int maxStages = int.MaxValue,
-        int maxUniformVectors = int.MaxValue,
-        int maxSamplers = int.MaxValue,
-        int maxSourceBytes = int.MaxValue,
-        int maxProgramTokens = int.MaxValue)
-    {
-        return new SkslBackendBudget(
-            "unit-test-backend",
-            maxStages,
-            maxUniformVectors,
-            maxSamplers,
-            maxSourceBytes,
-            maxProgramTokens);
     }
 }

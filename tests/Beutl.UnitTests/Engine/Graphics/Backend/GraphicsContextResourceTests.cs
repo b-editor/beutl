@@ -7,7 +7,6 @@ namespace Beutl.UnitTests.Engine.Graphics.Backend;
 public class GraphicsContextResourceTests
 {
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void IsolatedSubmission_DoesNotConsumeTheOpenRecordingBatch()
     {
         VulkanContext vulkanContext = VulkanTestEnvironment.EnsureVulkanContext();
@@ -54,7 +53,6 @@ public class GraphicsContextResourceTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void DeferredRelease_CanReenterCommandPoolWithoutDoubleCompletion()
     {
         VulkanContext vulkanContext = VulkanTestEnvironment.EnsureVulkanContext();
@@ -187,7 +185,6 @@ public class GraphicsContextResourceTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void ColorOnlyRenderPass_UsesMatchingFramebufferAndPipelineState()
     {
         var ctx = VulkanTestEnvironment.EnsureAvailable();

@@ -96,32 +96,14 @@ public sealed class ResourcePlanUseTrackerTests
     {
         RenderFragmentId fragmentId = producer.Id
             ?? throw new InvalidOperationException("A cache-hit producer must be committed.");
-        var cacheKey = new object();
         var candidate = new RenderCacheCandidate(
             new RenderCacheCandidateId(requestId, 1),
             fragmentId,
-            cacheKey,
+            new object(),
             Cache: new ContainerRenderNode().Cache,
             AuthoredOrder: 0);
-        var identity = new RenderOutputCacheIdentity(
-            cacheKey,
-            RenderFragmentOutputIdentity.Create(producer, requestId),
-            producer.Bounds,
-            RequiredRegion.Full,
-            density: 1,
-            RenderCacheFormatIdentity.LinearPremultipliedRgba16Float,
-            RenderIntent.Preview,
-            RenderRequestPurpose.Frame,
-            FusionMode.Enabled,
-            new RenderCacheDeviceContextIdentity(new object(), new object()));
         return new RenderCacheResolution(
-        [
-            new RenderCacheDecision(
-                candidate,
-                RenderCacheResolutionKind.Hit,
-                null,
-                new RenderCacheEntry(identity, new object())),
-        ]);
+            [RenderCacheTestSupport.CreateDecision(candidate, RenderCacheResolutionKind.Hit, producer.Bounds)]);
     }
 
     private static RenderFragmentReference Fragment(

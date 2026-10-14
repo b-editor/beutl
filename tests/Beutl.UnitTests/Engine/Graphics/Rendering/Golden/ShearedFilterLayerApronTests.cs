@@ -1,11 +1,8 @@
 ﻿using Beutl.Graphics;
 using Beutl.Graphics.Effects;
-using Beutl.Graphics.Rendering;
-using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
-using Beutl.ProjectSystem;
 using Beutl.UnitTests.Engine.Graphics.Backend;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
@@ -99,7 +96,6 @@ public class ShearedFilterLayerApronTests
 
     [TestCase(0f, TestName = "unsheared control")]
     [TestCase(80f, TestName = "80 degree skew")]
-    [Category("GpuPassFusionGpu")]
     public void ANegligibleBlurOnShearedContent_KeepsTheInkItHasWithoutTheBlur(float skewX)
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -176,33 +172,12 @@ public class ShearedFilterLayerApronTests
         group.Children.Add(scale);
         rectangle.Transform.CurrentValue = group;
 
-        var scene = new Scene(640, 360, "sheared-apron") { Uri = new Uri("file:///sheared-apron/scene") };
-        var element = new Element
-        {
-            Start = TimeSpan.Zero,
-            Length = TimeSpan.FromSeconds(4),
-            ZIndex = 0,
-            IsEnabled = true,
-            Uri = new Uri("file:///sheared-apron/element"),
-        };
-        element.AddObject(rectangle);
-        scene.Children.Add(element);
-
-        using var renderer = new SceneRenderer(scene, RenderIntent.Preview, 2f, false, 4f)
-        {
-            CacheOptions = RenderCacheOptions.Disabled,
-        };
-        renderer.Render(renderer.Compositor.EvaluateGraphics(TimeSpan.Zero));
-        using Bitmap bitmap = renderer.Snapshot();
-
-        double ink = 0;
-        for (int y = 0; y < bitmap.Height; y++)
-        {
-            ReadOnlySpan<ushort> row = bitmap.GetRow<ushort>(y)[..(bitmap.Width * 4)];
-            for (int x = 3; x < row.Length; x += 4)
-                ink += (float)BitConverter.UInt16BitsToHalf(row[x]);
-        }
-
-        return ink;
+        using Bitmap bitmap = SceneRenderHarness.RenderSingle(
+            rectangle,
+            new PixelSize(640, 360),
+            2f,
+            4f,
+            TimeSpan.Zero);
+        return SceneRenderHarness.SumAlpha(bitmap);
     }
 }

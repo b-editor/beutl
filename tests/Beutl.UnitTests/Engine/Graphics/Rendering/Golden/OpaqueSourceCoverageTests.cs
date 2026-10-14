@@ -7,6 +7,7 @@ using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.UnitTests.Engine.Graphics.Backend;
+using Beutl.UnitTests.Engine.Graphics.Rendering.Fusion;
 using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
@@ -24,8 +25,8 @@ public sealed class OpaqueSourceCoverageTests
         using Drawable.Resource direct = CreateAliasingProneSource(shifted, effectItemIdentityEffect: false);
         using Drawable.Resource materialized = CreateAliasingProneSource(shifted, effectItemIdentityEffect: true);
 
-        using Bitmap expected = RenderProductionSource(direct, density: 1f, useRenderCache: false);
-        using Bitmap actual = RenderProductionSource(materialized, density: 1f, useRenderCache: false);
+        using Bitmap expected = RenderProductionSource(direct);
+        using Bitmap actual = RenderProductionSource(materialized);
 
         AssertCoverageParity(expected, actual, $"aliasing-prone shifted={shifted}");
     }
@@ -43,6 +44,8 @@ public sealed class OpaqueSourceCoverageTests
         {
             Assert.That(rasterization.IsEmpty, Is.False);
             Assert.That(GetNonBlackExtent(rasterization.Bitmap!), Is.Not.EqualTo(default(PixelRect)));
+            Assert.That(rasterization.Bitmap!.Width, Is.EqualTo(rasterization.Bounds.Width * 2));
+            Assert.That(rasterization.Bitmap!.Height, Is.EqualTo(rasterization.Bounds.Height * 2));
         });
     }
 
@@ -51,7 +54,7 @@ public sealed class OpaqueSourceCoverageTests
     {
         using Drawable.Resource source = CreateFallbackBrushSource();
 
-        using Bitmap rendered = RenderProductionSource(source, density: 1f, useRenderCache: false);
+        using Bitmap rendered = RenderProductionSource(source);
 
         Assert.That(
             GetNonBlackExtent(rendered),
@@ -82,49 +85,14 @@ public sealed class OpaqueSourceCoverageTests
         return renderer.Rasterize();
     }
 
-    private static Bitmap RenderProductionSource(
-        Drawable.Resource resource,
-        float density,
-        bool useRenderCache)
-    {
-        using DrawableRenderNode node = CreateProductionNode(resource, density);
-        using var renderer = CreateRenderer(node, density, useRenderCache);
-        return RenderWithRenderer(renderer, density);
-    }
-
-    private static DrawableRenderNode CreateProductionNode(Drawable.Resource resource, float density)
-    {
-        var node = new DrawableRenderNode(resource);
-        using var context = new GraphicsContext2D(node, s_frame.ToSize(1), density);
-        resource.RequireOriginal().Render(context, resource);
-        return node;
-    }
-
-    private static RenderNodeRenderer CreateRenderer(
-        RenderNode node,
-        float density,
-        bool useRenderCache)
-        => new(node, new RenderNodeRenderRequest
-        {
-            Intent = RenderIntent.Delivery,
-            TargetDomain = new Rect(default, s_frame.ToSize(1)),
-            OutputScale = density,
-            MaxWorkingScale = density,
-            CacheOptions = new Beutl.Graphics.Rendering.Cache.RenderCacheOptions(useRenderCache, Beutl.Graphics.Rendering.Cache.RenderCacheRules.Default),
-            Purpose = RenderRequestPurpose.Frame,
-        });
-
-    private static Bitmap RenderWithRenderer(RenderNodeRenderer renderer, float density)
-    {
-        int deviceWidth = (int)MathF.Ceiling(s_frame.Width * density);
-        int deviceHeight = (int)MathF.Ceiling(s_frame.Height * density);
-        using RenderTarget target = RenderTarget.Create(deviceWidth, deviceHeight)
-                                    ?? throw new InvalidOperationException("RenderTarget.Create returned null.");
-        using var canvas = new ImmediateCanvas(target, RenderIntent.Preview, density, logicalSize: s_frame.ToSize(1));
-        canvas.Clear();
-        renderer.Render(canvas);
-        return target.Snapshot();
-    }
+    private static Bitmap RenderProductionSource(Drawable.Resource resource)
+        => GoldenImageHarness.RenderAtScale(
+            resource,
+            s_frame,
+            1f,
+            clearColor: Colors.Transparent,
+            maxWorkingScale: 1f,
+            purpose: RenderRequestPurpose.Frame);
 
     private static Drawable.Resource CreateAliasingProneSource(bool shifted, bool effectItemIdentityEffect)
     {
@@ -199,7 +167,7 @@ public sealed class OpaqueSourceCoverageTests
         RgbaMaximumError maximum = ImageMetrics.MaximumAbsoluteErrorPerChannel(expected, actual);
         RgbaMaximumError edgeMaximum = ImageMetrics.EdgeBandMaximumAbsoluteErrorPerChannel(expected, actual);
         PixelRect expectedExtent = GetNonBlackExtent(expected);
-        int fractionalReferencePixels = CountFractionalAlphaPixels(expected);
+        int fractionalReferencePixels = FusionBoundaryExecutionTestSupport.CountFractionalAlphaPixels(expected);
         TestContext.WriteLine(
             $"{scenario}: extent={GetNonBlackExtent(actual)}, max={maximum.Maximum:F6}, edge-max={edgeMaximum.Maximum:F6}");
 
@@ -220,21 +188,6 @@ public sealed class OpaqueSourceCoverageTests
             Assert.That(edgeMaximum.Maximum, Is.LessThanOrEqualTo(0.02),
                 "Materialization changed an antialiased edge pixel.");
         });
-    }
-
-    private static int CountFractionalAlphaPixels(Bitmap bitmap)
-    {
-        int count = 0;
-        ReadOnlySpan<ushort> pixels = bitmap.GetPixelSpan<ushort>();
-        for (int index = 3; index < pixels.Length; index += 4)
-        {
-            float alpha = (float)BitConverter.UInt16BitsToHalf(pixels[index]);
-            Assert.That(float.IsFinite(alpha), Is.True, "Reference alpha must be finite.");
-            if (alpha > 0 && alpha < 1)
-                count++;
-        }
-
-        return count;
     }
 
     private static PixelRect GetNonBlackExtent(Bitmap bitmap)

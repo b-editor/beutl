@@ -1,12 +1,10 @@
 ﻿using System.Collections.Immutable;
-using Beutl.Composition;
-using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Media;
 using Beutl.Threading;
-using SkiaSharp;
+using static Beutl.UnitTests.Engine.Graphics.Rendering.RendererTestSupport;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
@@ -22,13 +20,13 @@ public class ReferencedChildRevalidationTests
             using var first = new RectangleRenderNode(new Rect(0, 0, 4, 4), Brushes.Resource.White, null);
             using var second = new RectangleRenderNode(new Rect(0, 0, 4, 4), Brushes.Resource.White, null);
             var drawable = new ReferencingDrawable(first);
-            using Renderer renderer = CreateRenderer();
+            using Renderer renderer = CreateCpuRenderer(16, 16);
 
-            renderer.Render(CreateFrame(drawable));
+            renderer.Render(CreateFrame(new(16, 16), drawable));
             bool steadyState = drawable.LastRecordingObservedChange;
 
             drawable.Child = second;
-            renderer.Render(CreateFrame(drawable));
+            renderer.Render(CreateFrame(new(16, 16), drawable));
             bool afterSwap = drawable.LastRecordingObservedChange;
 
             Assert.Multiple(() =>
@@ -48,15 +46,15 @@ public class ReferencedChildRevalidationTests
         RenderThread.Dispatcher.Invoke(() =>
         {
             var drawable = new SwitchableFaultingDrawable();
-            using Renderer renderer = CreateRenderer();
-            renderer.Render(CreateFrame(drawable));
+            using Renderer renderer = CreateCpuRenderer(16, 16);
+            renderer.Render(CreateFrame(new(16, 16), drawable));
 
             drawable.ShouldFault = true;
-            Assert.Throws<InvalidOperationException>(() => renderer.Render(CreateFrame(drawable)));
+            Assert.Throws<InvalidOperationException>(() => renderer.Render(CreateFrame(new(16, 16), drawable)));
 
             drawable.ShouldFault = false;
             Assert.DoesNotThrow(
-                () => renderer.Render(CreateFrame(drawable)),
+                () => renderer.Render(CreateFrame(new(16, 16), drawable)),
                 "A failed recording must not poison the retained node tree.");
         });
     }
@@ -67,34 +65,6 @@ public class ReferencedChildRevalidationTests
             ?? throw new InvalidOperationException("The drawable was never recorded.");
         return node.Children.OfType<ReferencesChildRenderNode>().Single();
     }
-
-    private static Renderer CreateRenderer()
-        => new(
-            width: 16,
-            height: 16,
-            intent: RenderIntent.Preview,
-            renderScale: 1,
-            maxWorkingScale: float.PositiveInfinity,
-            surface: new CpuRenderTarget(16, 16));
-
-    private static CompositionFrame CreateFrame(params Drawable[] drawables)
-        => new(
-            [.. drawables.Select(static drawable =>
-                (EngineObject.Resource)drawable.ToResource(CompositionContext.Default))],
-            new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
-            new PixelSize(16, 16),
-            null);
-
-    private sealed class CpuRenderTarget(int width, int height)
-        : RenderTarget(
-            SKSurface.Create(new SKImageInfo(
-                width,
-                height,
-                SKColorType.RgbaF16,
-                SKAlphaType.Premul,
-                SKColorSpace.CreateSrgbLinear())),
-            width,
-            height);
 }
 
 // Top-level partial because EngineObjectResourceGenerator does not support nested types.
@@ -126,8 +96,11 @@ internal sealed partial class SwitchableFaultingDrawable : Drawable
 {
     public bool ShouldFault { get; set; }
 
+    public int RenderCalls { get; private set; }
+
     public override void Render(GraphicsContext2D context, Drawable.Resource resource)
     {
+        RenderCalls++;
         context.DrawRectangle(new Rect(0, 0, 4, 4), Brushes.Resource.White, null);
         if (ShouldFault)
         {

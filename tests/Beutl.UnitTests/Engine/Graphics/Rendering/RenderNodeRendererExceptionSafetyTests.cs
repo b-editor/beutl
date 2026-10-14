@@ -3,10 +3,7 @@ using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Rendering.Requests;
-using Beutl.Media;
 using Beutl.UnitTests.Engine.Graphics.Rendering.Failure;
-
-using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
@@ -46,7 +43,7 @@ public class RenderNodeRendererExceptionSafetyTests
             new RecordedOperationSpec("first"),
             new RecordedOperationSpec("fault", ThrowOnDispose: true),
             new RecordedOperationSpec("remaining"));
-        using var target = CreateCpuTarget(4, 4);
+        using var target = FailureTestSupport.CreateCpuTarget(4, 4);
         using var canvas = new ImmediateCanvas(target, RenderIntent.Preview);
 
         var ex = Assert.Throws<AggregateException>(() => ExecuteRequestAndSurfaceOwnerFailure(node, canvas));
@@ -113,16 +110,16 @@ public class RenderNodeRendererExceptionSafetyTests
             new RecordedOperationSpec("first"),
             new RecordedOperationSpec("second"));
         int throwingTarget = entryPoint == EntryPoint.Rasterize ? 1 : 0;
-        var factory = new TrackingTargetFactory(index => index == throwingTarget);
+        FailureTestTargetFactory factory = CreateDisposeFaultingFactory(throwingTarget);
         var renderer = CreateRenderer(node, factory);
 
         Assert.DoesNotThrow(() => Execute(entryPoint, renderer));
-        Assert.That(factory.CreatedTargets, Has.All.Property(nameof(FakeRenderTarget.DisposeWasCalled)).False);
+        Assert.That(factory.Targets, Has.All.Property(nameof(FailureTestRenderTarget.DisposeCalls)).Zero);
         var ex = Assert.Throws<InvalidOperationException>(renderer.Dispose);
 
         Assert.That(ex!.Message, Is.EqualTo("rt-dispose-fault"));
-        Assert.That(factory.CreatedTargets, Has.Count.EqualTo(entryPoint == EntryPoint.Rasterize ? 2 : 1));
-        Assert.That(factory.CreatedTargets, Has.All.Property(nameof(FakeRenderTarget.DisposeWasCalled)).True);
+        Assert.That(factory.Targets, Has.Count.EqualTo(entryPoint == EntryPoint.Rasterize ? 2 : 1));
+        Assert.That(factory.Targets, Has.All.Property(nameof(FailureTestRenderTarget.DisposeCalls)).EqualTo(1));
         Assert.That(discharged, Is.EqualTo(new[] { "second", "first" }));
     }
 
@@ -184,18 +181,18 @@ public class RenderNodeRendererExceptionSafetyTests
             discharged,
             new RecordedOperationSpec("render-fault", ThrowOnExecute: true, AllocateBeforeThrow: true));
         int throwingTarget = entryPoint == EntryPoint.Rasterize ? 1 : 0;
-        var factory = new TrackingTargetFactory(index => index == throwingTarget);
+        FailureTestTargetFactory factory = CreateDisposeFaultingFactory(throwingTarget);
         var renderer = CreateRenderer(node, factory);
 
         var ex = Assert.Throws<InvalidOperationException>(() => Execute(entryPoint, renderer));
 
         Assert.That(ex!.Message, Is.EqualTo("render-fault"));
-        Assert.That(factory.CreatedTargets, Has.Count.EqualTo(entryPoint == EntryPoint.Rasterize ? 2 : 1));
-        Assert.That(factory.CreatedTargets, Has.All.Property(nameof(FakeRenderTarget.DisposeWasCalled)).False);
+        Assert.That(factory.Targets, Has.Count.EqualTo(entryPoint == EntryPoint.Rasterize ? 2 : 1));
+        Assert.That(factory.Targets, Has.All.Property(nameof(FailureTestRenderTarget.DisposeCalls)).Zero);
         Assert.That(discharged, Is.EqualTo(new[] { "render-fault" }));
         var cleanup = Assert.Throws<InvalidOperationException>(renderer.Dispose);
         Assert.That(cleanup!.Message, Is.EqualTo("rt-dispose-fault"));
-        Assert.That(factory.CreatedTargets, Has.All.Property(nameof(FakeRenderTarget.DisposeWasCalled)).True);
+        Assert.That(factory.Targets, Has.All.Property(nameof(FailureTestRenderTarget.DisposeCalls)).EqualTo(1));
     }
 
     [TestCase(EntryPoint.Rasterize)]
@@ -207,7 +204,7 @@ public class RenderNodeRendererExceptionSafetyTests
             discharged,
             new RecordedOperationSpec("first"),
             new RecordedOperationSpec("second"));
-        var factory = new TrackingTargetFactory(_ => false, throwOnCreate: true);
+        var factory = new FailureTestTargetFactory(createFailure: new InvalidOperationException("rt-create-fault"));
         using var renderer = CreateRenderer(node, factory);
 
         var ex = Assert.Throws<InvalidOperationException>(() => Execute(entryPoint, renderer));
@@ -225,7 +222,7 @@ public class RenderNodeRendererExceptionSafetyTests
             discharged,
             new RecordedOperationSpec("first"),
             new RecordedOperationSpec("second"));
-        var factory = new TrackingTargetFactory(_ => false, returnNullOnCreate: true);
+        var factory = new FailureTestTargetFactory(failAt: 0);
         using var renderer = CreateRenderer(node, factory);
 
         var ex = Assert.Throws<InvalidOperationException>(() => Execute(entryPoint, renderer));
@@ -243,7 +240,7 @@ public class RenderNodeRendererExceptionSafetyTests
     {
         using var node = new ExpandedCaptureNode(
             publishRasterOutput: entryPoint == EntryPoint.Rasterize);
-        var factory = new TrackingTargetFactory(_ => false, throwOnCreate: true);
+        var factory = new FailureTestTargetFactory(createFailure: new InvalidOperationException("rt-create-fault"));
         using var renderer = CreateRenderer(node, factory);
 
         InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(
@@ -268,7 +265,7 @@ public class RenderNodeRendererExceptionSafetyTests
             discharged,
             new RecordedOperationSpec("first", ThrowOnDispose: true),
             new RecordedOperationSpec("second"));
-        var factory = new TrackingTargetFactory(_ => false, returnNullOnCreate: true);
+        var factory = new FailureTestTargetFactory(failAt: 0);
         using var renderer = CreateRenderer(node, factory);
 
         var ex = Assert.Throws<InvalidOperationException>(() => Execute(entryPoint, renderer));
@@ -335,18 +332,18 @@ public class RenderNodeRendererExceptionSafetyTests
             new RecordedOperationSpec("first"),
             new RecordedOperationSpec("second"),
             new RecordedOperationSpec("render-fault", ThrowOnExecute: true, AllocateBeforeThrow: true));
-        var factory = new TrackingTargetFactory(index => index == 1);
+        FailureTestTargetFactory factory = CreateDisposeFaultingFactory(1);
         var renderer = CreateRenderer(node, factory);
 
         var ex = Assert.Throws<InvalidOperationException>(() => renderer.Rasterize());
 
         Assert.That(ex!.Message, Is.EqualTo("render-fault"));
-        Assert.That(factory.CreatedTargets, Has.Count.EqualTo(2));
-        Assert.That(factory.CreatedTargets, Has.All.Property(nameof(FakeRenderTarget.DisposeWasCalled)).False);
+        Assert.That(factory.Targets, Has.Count.EqualTo(2));
+        Assert.That(factory.Targets, Has.All.Property(nameof(FailureTestRenderTarget.DisposeCalls)).Zero);
         Assert.That(discharged, Is.EqualTo(new[] { "render-fault", "second", "first" }));
         var cleanup = Assert.Throws<InvalidOperationException>(renderer.Dispose);
         Assert.That(cleanup!.Message, Is.EqualTo("rt-dispose-fault"));
-        Assert.That(factory.CreatedTargets, Has.All.Property(nameof(FakeRenderTarget.DisposeWasCalled)).True);
+        Assert.That(factory.Targets, Has.All.Property(nameof(FailureTestRenderTarget.DisposeCalls)).EqualTo(1));
     }
 
     [Test]
@@ -354,17 +351,17 @@ public class RenderNodeRendererExceptionSafetyTests
     {
         var discharged = new List<string>();
         using var node = CreateNode(discharged, new RecordedOperationSpec("ok"));
-        var factory = new TrackingTargetFactory(index => index == 0);
+        FailureTestTargetFactory factory = CreateDisposeFaultingFactory(0);
         var renderer = CreateRenderer(node, factory);
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
-        Assert.That(factory.CreatedTargets, Has.All.Property(nameof(FakeRenderTarget.DisposeWasCalled)).False);
+        Assert.That(factory.Targets, Has.All.Property(nameof(FailureTestRenderTarget.DisposeCalls)).Zero);
         var ex = Assert.Throws<InvalidOperationException>(renderer.Dispose);
 
         Assert.That(ex!.Message, Is.EqualTo("rt-dispose-fault"));
-        Assert.That(factory.CreatedTargets, Has.Count.EqualTo(2));
-        Assert.That(factory.CreatedTargets[0].DisposeWasCalled, Is.True);
-        Assert.That(factory.CreatedTargets[1].DisposeWasCalled, Is.True);
+        Assert.That(factory.Targets, Has.Count.EqualTo(2));
+        Assert.That(factory.Targets[0].DisposeCalls, Is.EqualTo(1));
+        Assert.That(factory.Targets[1].DisposeCalls, Is.EqualTo(1));
         Assert.That(discharged, Is.EqualTo(new[] { "ok" }));
     }
 
@@ -443,7 +440,7 @@ public class RenderNodeRendererExceptionSafetyTests
             return;
         }
 
-        using RenderTarget target = CreateCpuTarget(4, 4);
+        using RenderTarget target = FailureTestSupport.CreateCpuTarget(4, 4);
         using var canvas = new ImmediateCanvas(target, RenderIntent.Preview);
         renderer.Render(canvas);
     }
@@ -497,32 +494,11 @@ public class RenderNodeRendererExceptionSafetyTests
         return resource;
     }
 
-    private static RenderTarget CreateCpuTarget(int width, int height)
-        => new FakeRenderTarget(width, height, throwOnDispose: false);
-
-    private sealed class TrackingTargetFactory(
-        Func<int, bool> shouldThrowOnDispose,
-        bool throwOnCreate = false,
-        bool returnNullOnCreate = false) : IRenderTargetFactory
-    {
-        public List<FakeRenderTarget> CreatedTargets { get; } = [];
-
-        public RenderTarget? Create(RenderTargetAllocationDescriptor allocation)
-        {
-            PixelSize deviceSize = allocation.DeviceSize;
-            if (throwOnCreate)
-                throw new InvalidOperationException("rt-create-fault");
-            if (returnNullOnCreate)
-                return null;
-
-            var target = new FakeRenderTarget(
-                deviceSize.Width,
-                deviceSize.Height,
-                shouldThrowOnDispose(CreatedTargets.Count));
-            CreatedTargets.Add(target);
-            return target;
-        }
-    }
+    // The target created at faultingTarget throws "rt-dispose-fault" when it is disposed.
+    private static FailureTestTargetFactory CreateDisposeFaultingFactory(int faultingTarget)
+        => new(disposeFailure: index => index == faultingTarget
+            ? new InvalidOperationException("rt-dispose-fault")
+            : null);
 
     private sealed class ExpandedCaptureNode(bool publishRasterOutput = false) : RenderNode
     {
@@ -557,31 +533,6 @@ public class RenderNodeRendererExceptionSafetyTests
     {
         public override void Process(RenderNodeContext context)
         {
-        }
-    }
-
-    private sealed class FakeRenderTarget(int width, int height, bool throwOnDispose)
-        : RenderTarget(CreateReadbackSurface(width, height), width, height)
-    {
-        public bool DisposeWasCalled { get; private set; }
-
-        private static SKSurface CreateReadbackSurface(int width, int height)
-            => SKSurface.Create(new SKImageInfo(
-                width,
-                height,
-                SKColorType.RgbaF16,
-                SKAlphaType.Premul,
-                SKColorSpace.CreateSrgbLinear()));
-
-        protected override void Dispose(bool disposing)
-        {
-            bool shouldThrow = disposing && throwOnDispose;
-            if (disposing)
-                DisposeWasCalled = true;
-
-            base.Dispose(disposing);
-            if (shouldThrow)
-                throw new InvalidOperationException("rt-dispose-fault");
         }
     }
 }

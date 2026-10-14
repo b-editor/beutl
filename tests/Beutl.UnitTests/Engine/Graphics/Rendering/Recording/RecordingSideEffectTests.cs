@@ -94,7 +94,7 @@ public sealed class RecordingSideEffectTests
         Assert.Multiple(() =>
         {
             Assert.That(measurement.HasFragments, Is.True);
-            Assert.That(tripwire.Counts.Values, Is.All.Zero,
+            Assert.That(tripwire.Touches, Is.Zero,
                 "Recording and metadata resolution must not execute any deferred callback.");
             Assert.That(targetFactory.CreateCalls, Is.Zero);
         });
@@ -612,7 +612,6 @@ public sealed class RecordingSideEffectTests
                 OpaqueRenderBoundsContract.Source(Bounds),
                 RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale,
-                "source",
                 inputCount: 0));
             RenderFragmentHandle mapped = context.OpaqueMap(
                 source,
@@ -620,7 +619,6 @@ public sealed class RecordingSideEffectTests
                     OpaqueRenderBoundsContract.Map(RenderBoundsContract.Identity),
                     RenderValueCardinality.Single,
                     RenderScaleContract.PreserveInputSupply,
-                    "map",
                     inputCount: 1));
             RenderFragmentHandle combined = context.OpaqueCombine(
                 [source, mapped],
@@ -630,7 +628,6 @@ public sealed class RecordingSideEffectTests
                         static (output, inputs) => inputs.Select(_ => output).ToArray()),
                     RenderValueCardinality.Single,
                     RenderScaleContract.MaterializeAtWorkingScale,
-                    "combine",
                     inputCount: 2));
             RenderFragmentHandle expanded = context.OpaqueExpand(
                 [source],
@@ -639,7 +636,6 @@ public sealed class RecordingSideEffectTests
                         static inputs => inputs.Aggregate(static (left, right) => left.Union(right))),
                     RenderValueCardinality.Dynamic,
                     RenderScaleContract.MaterializeAtWorkingScale,
-                    "expand",
                     inputCount: 1));
             RenderFragmentHandle shader = context.Shader(
                 source,
@@ -696,7 +692,6 @@ public sealed class RecordingSideEffectTests
             OpaqueRenderBoundsContract bounds,
             RenderValueCardinality cardinality,
             RenderScaleContract scale,
-            string key,
             int inputCount)
         {
             return OpaqueRenderDescription.CreateRequestLocal(
@@ -724,31 +719,8 @@ public sealed class RecordingSideEffectTests
 
     private sealed class SideEffectTripwire
     {
-        public IReadOnlyDictionary<RecordingSideEffect, int> Counts => _counts;
+        public int Touches { get; private set; }
 
-        private readonly Dictionary<RecordingSideEffect, int> _counts = Enum
-            .GetValues<RecordingSideEffect>()
-            .ToDictionary(static value => value, static _ => 0);
-
-        public void TouchAll()
-        {
-            foreach (RecordingSideEffect sideEffect in Enum.GetValues<RecordingSideEffect>())
-            {
-                _counts[sideEffect]++;
-            }
-        }
-    }
-
-    private enum RecordingSideEffect
-    {
-        GpuContext,
-        TargetFactory,
-        Snapshot,
-        MediaRead,
-        MediaDecode,
-        NestedRenderer,
-        Flush,
-        Synchronization,
-        Readback,
+        public void TouchAll() => Touches++;
     }
 }

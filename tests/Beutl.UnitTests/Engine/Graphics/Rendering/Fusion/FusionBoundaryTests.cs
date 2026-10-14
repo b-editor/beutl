@@ -6,6 +6,7 @@ using Beutl.Graphics.Rendering.Requests;
 using Beutl.Graphics.Shaders;
 using Beutl.UnitTests.Engine.Graphics.Backend;
 using Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
+using static Beutl.UnitTests.Engine.Graphics.Rendering.Fusion.FusionBoundaryExecutionTestSupport;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Fusion;
 
@@ -16,7 +17,6 @@ public sealed class FusionBoundaryTests
     private static readonly Rect s_bounds = new(0, 0, 24, 16);
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void AntialiasedThinStroke_NonlinearShaderPreservesCoverageAtTheExactBoundary()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -50,7 +50,6 @@ public sealed class FusionBoundaryTests
 
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void StandaloneBackendOverflow_ExecutesCompatibilityPathWithParityAndExactReason()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -58,13 +57,9 @@ public sealed class FusionBoundaryTests
         {
             using RenderTarget source = FusionBoundaryExecutionTestSupport.CreatePatternSource(s_bounds);
             using var node = new BackendOverflowBoundaryNode(source, s_bounds);
-            SkslBackendBudget budget = new(
+            SkslBackendBudget budget = Budget(
                 capabilityClass: (typeof(FusionBoundaryTests), "runtime-standalone-overflow"),
-                maxStages: int.MaxValue,
-                maxUniformVectors: 0,
-                maxSamplers: int.MaxValue,
-                maxSourceBytes: int.MaxValue,
-                maxProgramTokens: int.MaxValue);
+                maxUniformVectors: 0);
             using FusionBoundaryExecutionResult disabled = FusionBoundaryExecutionTestSupport.ExecuteWithBudget(
                 node,
                 s_bounds,
@@ -226,7 +221,7 @@ public sealed class FusionBoundaryTests
     [Test]
     public void BackendStageBudget_SplitsBeforeOverflowAndPreservesOrderDeterministically()
     {
-        SkslBackendBudget budget = Budget(maxStages: 2);
+        SkslBackendBudget budget = Budget(capabilityClass: (typeof(FusionBoundaryTests), 2), maxStages: 2);
         using CompiledRenderRequest first = Compile(FiveStageGraph, budget: budget);
         using CompiledRenderRequest second = Compile(FiveStageGraph, budget: budget);
 
@@ -247,8 +242,9 @@ public sealed class FusionBoundaryTests
     public void DefaultCompiler_UsesFinitePortableBudgetAndSplitsBeforeOverflow()
     {
         SkslBackendBudget budget = SkslBackendBudgetResolver.Portable;
-        using CompiledRenderRequest compiled = CompileWithProductionDefaults(
-            (requestId, cache) => StageGraph(requestId, cache, budget.MaxStages + 1));
+        using CompiledRenderRequest compiled = Compile(
+            (requestId, cache) => StageGraph(requestId, cache, budget.MaxStages + 1),
+            budget: budget);
 
         CompiledShaderRun[] runs = compiled.ExecutionPlan.ShaderRuns.ToArray();
         Assert.Multiple(() =>
@@ -263,13 +259,9 @@ public sealed class FusionBoundaryTests
     [Test]
     public void StandaloneBackendOverflow_RunsTheShaderInItsOwnSemanticIsland()
     {
-        SkslBackendBudget budget = new(
+        SkslBackendBudget budget = Budget(
             capabilityClass: (typeof(FusionBoundaryTests), "standalone-uniform-overflow"),
-            maxStages: int.MaxValue,
-            maxUniformVectors: 0,
-            maxSamplers: int.MaxValue,
-            maxSourceBytes: int.MaxValue,
-            maxProgramTokens: int.MaxValue);
+            maxUniformVectors: 0);
         using CompiledRenderRequest compiled = Compile((requestId, cache) =>
         {
             RenderFragmentReference source = Fragment(RenderFragmentKind.MaterializedInput, payload: null);
@@ -296,7 +288,7 @@ public sealed class FusionBoundaryTests
     {
         using var registry = new RenderRequestResourceRegistry();
         SkslBackendBudget budget = SkslBackendBudgetResolver.Portable;
-        ShaderDescription description = ResourceHeavyDescription(budget.MaxSamplers, registry);
+        ShaderDescription description = ResourceHeavyShader(budget.MaxSamplers, registry);
         using CompiledRenderRequest compiled = Compile((requestId, cache) =>
         {
             RenderFragmentReference source = Fragment(RenderFragmentKind.MaterializedInput, payload: null);
@@ -528,109 +520,14 @@ public sealed class FusionBoundaryTests
         Func<RenderRequestId, HashSet<RenderFragmentReference>, RecordedRenderGraph> createGraph,
         FusionMode fusionMode = FusionMode.Enabled,
         SkslBackendBudget? budget = null)
-    {
-        var options = new RenderRequestOptions(
-            RenderIntent.Preview,
-            RenderRequestPurpose.Frame,
-            targetDomain: s_bounds,
-            fusionMode: fusionMode);
-        var request = new RenderRequest(options);
-        var cache = new HashSet<RenderFragmentReference>(ReferenceEqualityComparer.Instance);
-        RecordedRenderGraph graph = createGraph(request.Id, cache);
-        request.TransitionTo(RenderRequestState.Recording);
-        request.TransitionTo(RenderRequestState.Recorded);
-        return new RenderRequestCompiler().Compile(
-            request,
-            graph,
+        => CompileGraph(
+            new RenderRequestOptions(
+                RenderIntent.Preview,
+                RenderRequestPurpose.Frame,
+                targetDomain: s_bounds,
+                fusionMode: fusionMode),
+            requestId => createGraph(
+                requestId,
+                new HashSet<RenderFragmentReference>(ReferenceEqualityComparer.Instance)),
             budget ?? SkslBackendBudget.Unlimited);
-    }
-
-    private static CompiledRenderRequest CompileWithProductionDefaults(
-        Func<RenderRequestId, HashSet<RenderFragmentReference>, RecordedRenderGraph> createGraph)
-    {
-        var options = new RenderRequestOptions(
-            RenderIntent.Preview,
-            RenderRequestPurpose.Frame,
-            targetDomain: s_bounds,
-            fusionMode: FusionMode.Enabled);
-        var request = new RenderRequest(options);
-        var cache = new HashSet<RenderFragmentReference>(ReferenceEqualityComparer.Instance);
-        RecordedRenderGraph graph = createGraph(request.Id, cache);
-        request.TransitionTo(RenderRequestState.Recording);
-        request.TransitionTo(RenderRequestState.Recorded);
-        return new RenderRequestCompiler().Compile(request, graph);
-    }
-
-    private static RecordedRenderGraph BuildGraph(
-        RenderRequestId requestId,
-        IReadOnlyList<RenderFragmentReference> references,
-        IReadOnlyList<RenderFragmentReference> roots,
-        IReadOnlySet<RenderFragmentReference> cache)
-    {
-        var builder = new RecordedRenderGraphBuilder(requestId);
-        foreach (RenderFragmentReference reference in references)
-        {
-            builder.AddFragment(reference);
-            if (cache.Contains(reference))
-                builder.AddCacheCandidate(
-                    reference.Id!.Value,
-                    (typeof(FusionBoundaryTests), reference.Id!.Value.Value));
-        }
-        foreach (RenderFragmentReference root in roots)
-            builder.PublishRoot(root.Id!.Value);
-        return builder.Build();
-    }
-
-    private static SkslBackendBudget Budget(int maxStages)
-        => new(
-            capabilityClass: (typeof(FusionBoundaryTests), maxStages),
-            maxStages,
-            maxUniformVectors: int.MaxValue,
-            maxSamplers: int.MaxValue,
-            maxSourceBytes: int.MaxValue,
-            maxProgramTokens: int.MaxValue);
-
-    private static ShaderDescription ResourceHeavyDescription(
-        int resourceCount,
-        RenderRequestResourceRegistry registry)
-    {
-        string[] names = Enumerable.Range(0, resourceCount)
-            .Select(static index => $"lookup{index}")
-            .ToArray();
-        RenderResource<object>[] resources = names
-            .Select(_ => registry.RegisterBorrowed(new object()))
-            .ToArray();
-        string declarations = string.Join(' ', names.Select(static name => $"uniform shader {name};"));
-
-        return ShaderDescription.CurrentPixel(
-            $"{declarations} half4 apply(half4 color) {{ return color; }}",
-            bindings =>
-            {
-                for (int index = 0; index < names.Length; index++)
-                {
-                    bindings.Resource(
-                        names[index],
-                        resources[index],
-                        ShaderResourceCoordinateSpace.Value,
-                        static (writer, _, _) => writer.Set(
-                            SkiaSharp.SKShader.CreateColor(StableColors.White)));
-                }
-            });
-    }
-
-
-    private static RenderNodeRenderer CreateBoundaryRenderer(
-        RenderNode node,
-        FusionMode fusionMode,
-        bool useRenderCache)
-        => new(node, new RenderNodeRenderRequest
-        {
-            Intent = RenderIntent.Preview,
-            TargetDomain = s_bounds,
-            OutputScale = 1,
-            MaxWorkingScale = 1,
-            CacheOptions = new Beutl.Graphics.Rendering.Cache.RenderCacheOptions(useRenderCache, Beutl.Graphics.Rendering.Cache.RenderCacheRules.Default),
-            FusionMode = fusionMode,
-            Purpose = RenderRequestPurpose.Frame,
-        });
 }

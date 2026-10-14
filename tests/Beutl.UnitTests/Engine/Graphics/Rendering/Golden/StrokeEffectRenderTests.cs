@@ -7,7 +7,7 @@ using Beutl.UnitTests.Engine.Graphics.Backend;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
-// Guards the render half of the StrokeEffect.Offset fix (commit 0019b728a): the Apply() origin rewrite that
+// Guards the render half of the StrokeEffect.Offset fix: the Apply() origin rewrite that
 // keeps the source anchored at its bounds while only the stroke moves by Offset. StrokeEffectOffsetBoundsTests
 // does not exercise Apply(), leaving the source-placement origin otherwise untested. White fill = source,
 // red pen = stroke; the two are measured separately by colour.
@@ -57,12 +57,7 @@ public class StrokeEffectRenderTests
                 rn == 0 ? 0 : rx / rn, rn == 0 ? 0 : ry / rn, rn);
     }
 
-    // The source (white) must stay anchored on the frame centre for every Offset / pen.Offset / style, while the
-    // stroke (red) moves by Offset. For a plain pen the old code already centred the source (its origin compensated
-    // the asymmetric box), so the positive/negative/Foreground cases pass on pre-fix code too — they document the
-    // contract and guard future breakage; the box-centering regression itself is covered by
-    // StrokeEffectOffsetBoundsTests. Only Stroke_PenOffset distinguishes old from new: the old origin used
-    // min(Offset, thickness) and ignored pen.Offset, so the source drifted by pen.Offset; the fix anchors it.
+    // Only Stroke_PenOffset fails on the old origin rule, which ignored pen.Offset; the other cases pin the contract.
     [TestCase(0f, 0f, 0f, StrokeEffect.StrokeStyles.Background, TestName = "Stroke_NoOffset")]
     [TestCase(50f, 50f, 0f, StrokeEffect.StrokeStyles.Background, TestName = "Stroke_PositiveOffset")]
     [TestCase(-50f, -50f, 0f, StrokeEffect.StrokeStyles.Background, TestName = "Stroke_NegativeOffset")]

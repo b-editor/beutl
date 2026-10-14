@@ -7,9 +7,7 @@ using Beutl.UnitTests.Engine.Graphics.Backend;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
-// Regression for the Clipping.AutoCenter "original image drawn in the wrong place" bug. AutoCenter must
-// recenter the cropped window while drawing the SAME kept region the in-place crop would. The old code
-// blitted at +centeredRect instead of the crop offset, showing the clipped-away corner off-center.
+// AutoCenter must recenter the kept window and draw the same region the in-place crop keeps.
 [NonParallelizable]
 [TestFixture]
 public class ClippingAutoCenterTests
@@ -59,7 +57,7 @@ public class ClippingAutoCenterTests
     }
 
     // AutoCenter must put the kept window's center back on the frame center.
-    // Fractional margins also exercise the pointX/pointY sub-pixel rounding path (Clipping.cs:120-136).
+    // Fractional margins also exercise the pointX/pointY sub-pixel rounding path.
     [TestCase(60f, 0f, 0f, 0f, TestName = "AutoCenter_LeftClip")]
     [TestCase(0f, 60f, 0f, 0f, TestName = "AutoCenter_TopClip")]
     [TestCase(0f, 0f, 50f, 0f, TestName = "AutoCenter_RightClip")]
@@ -181,7 +179,6 @@ public class ClippingAutoCenterTests
             using Bitmap delivered = GoldenImageHarness.MitchellResampleTo(hi, Frame);
 
             double ssim = ImageMetrics.Ssim(r1, delivered);
-            TestContext.WriteLine($"AutoClip 2x-delivered vs 1:1 SSIM={ssim:F4}");
             Assert.That(ssim, Is.GreaterThan(0.95),
                 "AutoClip diverged at s_out>1 — the device-px detected margin was not converted to logical via / w");
         });

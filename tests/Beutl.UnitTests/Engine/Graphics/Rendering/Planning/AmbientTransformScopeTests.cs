@@ -116,13 +116,8 @@ public sealed class AmbientTransformScopeTests
     }
 
     /// <remarks>
-    /// A known limit, pinned so it is met where it applies. A composition reaches its destination by composing
-    /// with what its ancestors contribute, so <see cref="TransformOperator.Set"/> is the input-space matrix
-    /// <c>M * ambient⁻¹</c> - and a singular ambient has none, because every product with a singular matrix is
-    /// singular. The ancestor measures the subtree as empty on its own account too: with no inverse it declares
-    /// a full-input contract whose forward mapping collapses whatever its input reports. Escaping it means
-    /// detaching the subtree from its ancestors' bounds composition, which is tracked by #2422; measured
-    /// identical on f6596ea05, before any of this was resolved.
+    /// A known limit, pinned: under a singular ambient a <see cref="TransformOperator.Set"/> has no input-space
+    /// matrix, so the subtree measures as empty. Tracked by #2422.
     /// </remarks>
     [Test]
     public void ASetUnderASingularAmbientStaysCollapsed()

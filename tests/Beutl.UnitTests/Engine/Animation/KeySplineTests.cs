@@ -212,7 +212,6 @@ public class KeySplineTests
     public void ControlPoints_Y_AnyValue_Allowed()
     {
         var keySpline = new KeySpline();
-        // Y values are not range-restricted.
         Assert.DoesNotThrow(() => keySpline.ControlPointY1 = -1f);
         Assert.DoesNotThrow(() => keySpline.ControlPointY2 = 5f);
         Assert.That(keySpline.ControlPointY1, Is.EqualTo(-1f));

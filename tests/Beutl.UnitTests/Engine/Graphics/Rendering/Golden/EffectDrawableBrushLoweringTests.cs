@@ -224,10 +224,47 @@ internal sealed partial class TypedOperationBeforeBrushEffect : FilterEffect
     {
         var r = (Resource)resource;
         context.Shader(ShaderDescription.CurrentPixel(IdentityShader));
-        context.CustomEffect(new BrushPaintState(r.Brush), PaintBrush, static (_, bounds) => bounds);
+        context.CustomEffect(
+            new BrushPaintState(r.Brush),
+            BrushPaintOperation.PaintBrush,
+            static (_, bounds) => bounds);
+    }
+}
+
+// Exercises the public FilterEffectExecutor.Activate(FilterEffectContext) seam: a registered brush must stay
+// resolvable inside the nested executor that seam builds.
+internal sealed partial class NestedActivateBrushEffect : FilterEffect
+{
+    public NestedActivateBrushEffect()
+    {
+        ScanProperties<NestedActivateBrushEffect>();
     }
 
-    private static void PaintBrush(BrushPaintState state, CustomFilterEffectContext context)
+    public IProperty<Brush?> Brush { get; } = Property.Create<Brush?>();
+
+    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
+    {
+        var r = (Resource)resource;
+        context.AppendSkiaFilter(
+            new BrushPaintState(r.Brush),
+            static (state, _, executor) =>
+            {
+                using var nested = new FilterEffectContext(
+                    executor.CurrentTargets.CalculateBounds(),
+                    executor.OutputScale,
+                    executor.WorkingScale);
+                nested.CustomEffect(state, BrushPaintOperation.PaintBrush, static (_, bounds) => bounds);
+                return executor.Activate(nested);
+            },
+            static (_, bounds) => bounds);
+    }
+}
+
+internal sealed record BrushPaintState(Brush.Resource? Brush);
+
+internal static class BrushPaintOperation
+{
+    public static void PaintBrush(BrushPaintState state, CustomFilterEffectContext context)
     {
         for (int i = 0; i < context.Targets.Count; i++)
         {
@@ -256,64 +293,3 @@ internal sealed partial class TypedOperationBeforeBrushEffect : FilterEffect
         }
     }
 }
-
-// Exercises the public FilterEffectExecutor.Activate(FilterEffectContext) seam: a registered brush must stay
-// resolvable inside the nested executor that seam builds.
-internal sealed partial class NestedActivateBrushEffect : FilterEffect
-{
-    public NestedActivateBrushEffect()
-    {
-        ScanProperties<NestedActivateBrushEffect>();
-    }
-
-    public IProperty<Brush?> Brush { get; } = Property.Create<Brush?>();
-
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
-    {
-        var r = (Resource)resource;
-        context.AppendSkiaFilter(
-            new BrushPaintState(r.Brush),
-            static (state, _, executor) =>
-            {
-                using var nested = new FilterEffectContext(
-                    executor.CurrentTargets.CalculateBounds(),
-                    executor.OutputScale,
-                    executor.WorkingScale);
-                nested.CustomEffect(state, PaintBrush, static (_, bounds) => bounds);
-                return executor.Activate(nested);
-            },
-            static (_, bounds) => bounds);
-    }
-
-    private static void PaintBrush(BrushPaintState state, CustomFilterEffectContext context)
-    {
-        for (int i = 0; i < context.Targets.Count; i++)
-        {
-            EffectTarget target = context.Targets[i];
-            if (target.RenderTarget is null)
-                continue;
-
-            Size size = target.Bounds.Size;
-            EffectTarget newTarget = context.CreateTarget(target.Bounds);
-            float w = newTarget.Scale.Value;
-            using var paint = new SKPaint();
-            context.CreateBrushConstructor(new Rect(size), state.Brush, BlendMode.SrcIn, w)
-                .ConfigurePaint(paint);
-            using (ImmediateCanvas canvas = context.Open(newTarget))
-            {
-                canvas.Clear();
-                using (canvas.PushDeviceSpace())
-                {
-                    canvas.DrawRenderTarget(target.RenderTarget, default);
-                }
-
-                canvas.Canvas.DrawRect(SKRect.Create(size.ToSKSize()), paint);
-            }
-
-            target.Dispose();
-            context.Targets[i] = newTarget;
-        }
-    }
-}
-
-internal sealed record BrushPaintState(Brush.Resource? Brush);

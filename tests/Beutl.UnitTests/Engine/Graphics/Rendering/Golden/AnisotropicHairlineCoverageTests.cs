@@ -17,57 +17,25 @@ public class AnisotropicHairlineCoverageTests
     /// <summary>Skia publishes coverage in 1/255 steps, which accumulates over a whole bar.</summary>
     private const double InkTolerance = 0.06;
 
-    [TestCase(0.25f)]
-    [TestCase(0.333f)]
-    [TestCase(0.5f)]
-    [TestCase(1f)]
-    [TestCase(2f)]
-    [Category("GpuPassFusionGpu")]
-    public void ABlurredHairline_KeepsTheInkItHasWithoutTheBlur(float outputScale)
+    [Test]
+    public void AnEffectOverAHairline_KeepsTheInkItHasWithoutTheEffect(
+        [Values("blur", "shadow-only", "dilate", "blur over shadow-only")] string scenario,
+        [Values(0.25f, 0.333f, 0.5f, 1f, 2f)] float outputScale)
     {
-        AssertEffectPreservesHairlineInk(Blur(), outputScale, "blur");
-    }
-
-    [TestCase(0.25f)]
-    [TestCase(0.333f)]
-    [TestCase(0.5f)]
-    [TestCase(1f)]
-    [TestCase(2f)]
-    [Category("GpuPassFusionGpu")]
-    public void AShadowedHairline_KeepsTheInkItHasWithoutTheShadow(float outputScale)
-    {
-        AssertEffectPreservesHairlineInk(WhiteShadowOnly(), outputScale, "shadow-only");
-    }
-
-    [TestCase(0.25f)]
-    [TestCase(0.333f)]
-    [TestCase(0.5f)]
-    [TestCase(1f)]
-    [TestCase(2f)]
-    [Category("GpuPassFusionGpu")]
-    public void ADilatedHairline_KeepsTheInkItHasWithoutTheDilation(float outputScale)
-    {
-        AssertEffectPreservesHairlineInk(Dilate(), outputScale, "dilate");
-    }
-
-    [TestCase(0.25f)]
-    [TestCase(0.333f)]
-    [TestCase(0.5f)]
-    [TestCase(1f)]
-    [TestCase(2f)]
-    [Category("GpuPassFusionGpu")]
-    public void AHairlineUnderStackedEffects_KeepsTheInkItHasWithoutThem(float outputScale)
-    {
-        AssertEffectPreservesHairlineInk(
-            Group(Blur(), WhiteShadowOnly()),
-            outputScale,
-            "blur over shadow-only");
+        FilterEffect effect = scenario switch
+        {
+            "blur" => Blur(),
+            "shadow-only" => WhiteShadowOnly(),
+            "dilate" => Dilate(),
+            "blur over shadow-only" => Group(Blur(), WhiteShadowOnly()),
+            _ => throw new ArgumentOutOfRangeException(nameof(scenario)),
+        };
+        AssertEffectPreservesHairlineInk(effect, outputScale, scenario);
     }
 
     [TestCase(0.25f)]
     [TestCase(0.5f)]
     [TestCase(1f)]
-    [Category("GpuPassFusionGpu")]
     public void AnAnisotropicallyScaledHairline_KeepsItsInkUnderABlur(float outputScale)
     {
         AssertEffectPreservesHairlineInk(Blur(), outputScale, "anisotropic blur", scaleY: 2000f);

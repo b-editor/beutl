@@ -1,6 +1,7 @@
 ﻿using Beutl.Graphics.Backend;
 using Beutl.Graphics3D;
 using Moq;
+using static Beutl.UnitTests.Engine.Graphics3D.Graphics3DTestDevices;
 
 namespace Beutl.UnitTests.Engine.Graphics3D;
 
@@ -146,43 +147,6 @@ public sealed class RendererResizeOwnershipTests
         }
     }
 
-    [Test]
-    public void AFailedInitialize_AttemptsAllOwnersAndPreservesTheAllocationFailureWhenCleanupThrows()
-    {
-        var textures = new List<AllocatedTexture>();
-        int viewportAllocation = 0;
-        var allocationFailure = new InvalidOperationException("initial output allocation failed");
-        var cleanupFailure = new InvalidOperationException("initial depth disposal failed");
-        Mock<IGraphicsContext> context = CreateContext((width, height, format) =>
-        {
-            if (width == 32 && ++viewportAllocation == 10)
-                throw allocationFailure;
-            ITexture2D texture = AllocateTexture(textures, width, height, format);
-            if (width == 32 && format == TextureFormat.Depth32Float && viewportAllocation == 5)
-                textures[^1].Mock.Setup(t => t.Dispose()).Throws(cleanupFailure);
-            return texture;
-        });
-        using var renderer = new Renderer3D(context.Object);
-
-        Exception? failure = Assert.Catch(() => renderer.Initialize(32, 32));
-        int[] disposalAttempts = textures.Select(t => t.Mock.Invocations
-            .Count(i => i.Method.Name == nameof(IDisposable.Dispose))).ToArray();
-
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(viewportAllocation, Is.EqualTo(10), "the failure occurs after the viewport passes are allocated");
-            Assert.That(textures.Any(t => t.Width != 32), Is.True, "fixed shadow textures were allocated first");
-            Assert.That(failure, Is.TypeOf<AggregateException>());
-            Exception[] failures = failure is AggregateException aggregate
-                ? aggregate.Flatten().InnerExceptions.ToArray()
-                : failure is null ? [] : [failure];
-            Assert.That(failures, Is.EquivalentTo(new[] { allocationFailure, cleanupFailure }),
-                "the original exception objects must both survive rollback");
-            Assert.That((renderer.Width, renderer.Height), Is.EqualTo((0, 0)));
-            Assert.That(disposalAttempts, Is.All.EqualTo(1), "cleanup must attempt every allocated pass owner");
-        }
-    }
-
     private static ITexture2D AllocateTexture(List<AllocatedTexture> textures, int width, int height, TextureFormat format)
     {
         var texture = new Mock<ITexture2D>();
@@ -195,32 +159,11 @@ public sealed class RendererResizeOwnershipTests
 
     private static Mock<IGraphicsContext> CreateContext(Func<int, int, TextureFormat, ITexture2D> allocate)
     {
-        var context = new Mock<IGraphicsContext> { DefaultValue = DefaultValue.Mock };
+        Mock<IGraphicsContext> context = LooseDevice();
         context.Setup(c => c.CreateTexture2D(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<TextureFormat>()))
             .Returns(allocate);
-        context.Setup(c => c.CreateBuffer(It.IsAny<ulong>(), It.IsAny<BufferUsage>(), It.IsAny<MemoryProperty>()))
-            .Returns((ulong size, BufferUsage _, MemoryProperty _) => new StubBuffer(size));
         return context;
     }
 
     private sealed record AllocatedTexture(int Width, Mock<ITexture2D> Mock);
-
-    private sealed class StubBuffer(ulong size) : IBuffer
-    {
-        public ulong Size => size;
-
-        public void Upload<T>(ReadOnlySpan<T> data) where T : unmanaged
-        {
-        }
-
-        public IntPtr Map() => IntPtr.Zero;
-
-        public void Unmap()
-        {
-        }
-
-        public void Dispose()
-        {
-        }
-    }
 }

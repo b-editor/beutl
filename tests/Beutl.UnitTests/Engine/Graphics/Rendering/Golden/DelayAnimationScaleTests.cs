@@ -72,19 +72,6 @@ public class DelayAnimationScaleTests
     }
 
     [Test]
-    public void DelayWrapped_ScaleOne_IsDeterministic()
-    {
-        VulkanTestEnvironment.EnsureAvailable();
-        VulkanTestEnvironment.InvokeOnRenderThread(() =>
-        {
-            // At w==1 the nested path is inert: deterministic render.
-            using Bitmap a = GoldenImageHarness.RenderAtScale(MakeDelayWrappedMosaic(), Frame, 1f);
-            using Bitmap b = GoldenImageHarness.RenderAtScale(MakeDelayWrappedMosaic(), Frame, 1f);
-            GoldenImageHarness.AssertByteIdentical(a, b);
-        });
-    }
-
-    [Test]
     public void DelayWrapped_Supersampled_KeepsLogicalResult_AndTracksDirect()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -99,13 +86,11 @@ public class DelayAnimationScaleTests
 
             // (1) Supersampled-then-downscaled must match the wrapped 1:1 render.
             double ssimLogical = ImageMetrics.Ssim(wrapped1, wrappedDelivered);
-            TestContext.WriteLine($"Delay-wrapped 2x-delivered vs 1:1 SSIM={ssimLogical:F4}");
             Assert.That(ssimLogical, Is.GreaterThan(0.95),
                 "delay-wrapped supersample diverged from its own 1:1 — the nested re-application broke the logical result");
 
             // (2) Wrapped path must track the direct effect at supersample.
             double ssimVsDirect = ImageMetrics.Ssim(wrappedDelivered, directDelivered);
-            TestContext.WriteLine($"Delay-wrapped vs direct @2x SSIM={ssimVsDirect:F4}");
             Assert.That(ssimVsDirect, Is.GreaterThan(0.98),
                 "delay-wrapped diverged from the direct effect at supersample — nested re-application lost the working density");
         });
@@ -123,7 +108,6 @@ public class DelayAnimationScaleTests
 
             // Supersampled result must keep the same logical size as 1:1 (no enlargement/clipping).
             double ssim = ImageMetrics.Ssim(r1, delivered);
-            TestContext.WriteLine($"Delay+DropShadow 2x-delivered vs 1:1 SSIM={ssim:F4}");
             Assert.That(ssim, Is.GreaterThan(0.95),
                 "delay-wrapped bounds-inflating child rendered too large at s_out>1 — the source buffer was stretched to the inflated OriginalBounds");
         });

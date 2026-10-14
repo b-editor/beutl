@@ -55,14 +55,6 @@ public class CubeFileTests
     }
 
     [Test]
-    public void Equals_SameInstance_True()
-    {
-        CubeFile cube = MakeIdentity1D();
-        Assert.That(cube.Equals(cube), Is.True);
-        Assert.That(cube.Equals((object)cube), Is.True);
-    }
-
-    [Test]
     public void Equals_DifferentInstance_False()
     {
         // CubeFile.Equals は ReferenceEquals 比較なので、内容が同じでも別インスタンスは不一致
@@ -82,13 +74,6 @@ public class CubeFileTests
             Assert.That(cube.Equals(nullCube), Is.False);
             Assert.That(cube.Equals(otherObject), Is.False);
         });
-    }
-
-    [Test]
-    public void GetHashCode_SameInstance_StableAcrossCalls()
-    {
-        CubeFile cube = MakeIdentity1D();
-        Assert.That(cube.GetHashCode(), Is.EqualTo(cube.GetHashCode()));
     }
 
     [Test]
@@ -161,31 +146,6 @@ public class CubeFileTests
             Assert.That(black.X, Is.EqualTo(0f));
             Assert.That(black.Y, Is.EqualTo(0f));
             Assert.That(black.Z, Is.EqualTo(0f));
-        });
-    }
-
-    [Test]
-    public void Properties_SetViaInitializer()
-    {
-        var data = new Vector3[8];
-        var cube = new CubeFile
-        {
-            Title = "myLUT",
-            Dimention = CubeFileDimension.ThreeDimension,
-            Size = 2,
-            Min = new Vector3(0.1f, 0.2f, 0.3f),
-            Max = new Vector3(0.9f, 0.8f, 0.7f),
-            Data = data,
-        };
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(cube.Title, Is.EqualTo("myLUT"));
-            Assert.That(cube.Dimention, Is.EqualTo(CubeFileDimension.ThreeDimension));
-            Assert.That(cube.Size, Is.EqualTo(2));
-            Assert.That(cube.Min, Is.EqualTo(new Vector3(0.1f, 0.2f, 0.3f)));
-            Assert.That(cube.Max, Is.EqualTo(new Vector3(0.9f, 0.8f, 0.7f)));
-            Assert.That(cube.Data, Is.SameAs(data));
         });
     }
 

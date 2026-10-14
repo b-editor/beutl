@@ -1,10 +1,7 @@
 ﻿using Beutl.Graphics;
-using Beutl.Graphics.Rendering;
-using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
-using Beutl.ProjectSystem;
 using Beutl.UnitTests.Engine.Graphics.Backend;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
@@ -97,33 +94,12 @@ public class ShrinkingTransformKeepsItsFootprintTests
 
     private static double MeasureInk(Drawable drawable, float outputScale)
     {
-        var scene = new Scene(640, 360, "shrink") { Uri = new Uri("file:///shrink/scene") };
-        var element = new Element
-        {
-            Start = TimeSpan.Zero,
-            Length = TimeSpan.FromSeconds(4),
-            ZIndex = 0,
-            IsEnabled = true,
-            Uri = new Uri("file:///shrink/element"),
-        };
-        element.AddObject(drawable);
-        scene.Children.Add(element);
-
-        using var renderer = new SceneRenderer(scene, RenderIntent.Preview, outputScale, false, outputScale * 2f)
-        {
-            CacheOptions = RenderCacheOptions.Disabled,
-        };
-        renderer.Render(renderer.Compositor.EvaluateGraphics(TimeSpan.Zero));
-        using Bitmap bitmap = renderer.Snapshot();
-
-        double ink = 0;
-        for (int y = 0; y < bitmap.Height; y++)
-        {
-            ReadOnlySpan<ushort> row = bitmap.GetRow<ushort>(y)[..(bitmap.Width * 4)];
-            for (int x = 3; x < row.Length; x += 4)
-                ink += (float)BitConverter.UInt16BitsToHalf(row[x]);
-        }
-
-        return ink;
+        using Bitmap bitmap = SceneRenderHarness.RenderSingle(
+            drawable,
+            new PixelSize(640, 360),
+            outputScale,
+            outputScale * 2f,
+            TimeSpan.Zero);
+        return SceneRenderHarness.SumAlpha(bitmap);
     }
 }

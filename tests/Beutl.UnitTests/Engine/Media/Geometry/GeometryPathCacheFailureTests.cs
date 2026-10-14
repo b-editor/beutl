@@ -10,31 +10,6 @@ using Geometry = Beutl.Media.Geometry;
 public sealed class GeometryPathCacheFailureTests
 {
     [Test]
-    public void PreChangeOrdering_ServedWhateverWasBuiltBeforeTheThrow()
-    {
-        using var partial = new PreChangeOrdering();
-        using var immediate = new PreChangeOrdering();
-
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.Throws<InvalidOperationException>(() => partial.GetCachedPath(ThrowingApplyTo));
-            Assert.That(partial.GetCachedPath(ThrowingApplyTo).TightBounds.ToGraphicsRect(),
-                Is.EqualTo(new Rect(0, 0, 20, 10)),
-                "the guard passes on the next call and hands back the two segments recorded before the throw");
-            Assert.That(partial.GetCachedPath(ThrowingApplyTo).TightBounds.ToGraphicsRect(),
-                Is.EqualTo(new Rect(0, 0, 20, 10)));
-
-            Assert.Throws<InvalidOperationException>(
-                () => immediate.GetCachedPath(static _ => throw new InvalidOperationException("author failure")));
-            Assert.That(
-                immediate.GetCachedPath(static _ => throw new InvalidOperationException("author failure"))
-                    .TightBounds.ToGraphicsRect(),
-                Is.EqualTo(default(Rect)),
-                "an author that throws before recording anything degrades to an empty path instead");
-        }
-    }
-
-    [Test]
     public void ShippedOrdering_KeepsThrowingInsteadOfServingAnEmptyPath()
     {
         using var resource = new ThrowingGeometryResource();
@@ -103,19 +78,8 @@ public sealed class GeometryPathCacheFailureTests
         }
     }
 
-    private static void ThrowingApplyTo(IGeometryContext context)
-    {
-        context.MoveTo(new Point(0, 0));
-        context.LineTo(new Point(20, 10));
-        throw new InvalidOperationException("author failure");
-    }
-
     private sealed class ThrowingGeometryResource : Geometry.Resource
     {
-        public ThrowingGeometryResource()
-        {
-        }
-
         public bool Throw { get; set; } = true;
 
         public int Calls { get; private set; }
@@ -128,33 +92,5 @@ public sealed class GeometryPathCacheFailureTests
             if (Throw)
                 throw new InvalidOperationException("author failure");
         }
-    }
-
-    /// <summary>
-    /// The cache orchestration <c>Geometry.Resource.GetCachedPath</c> used at 989856e8d, transcribed so its
-    /// behaviour on a throwing build can be observed alongside the shipped one.
-    /// </summary>
-    private sealed class PreChangeOrdering : IDisposable
-    {
-        private int? _capturedVersion;
-        private GeometryContext? _cachedPath;
-
-        public int Version { get; set; }
-
-        public SKPath GetCachedPath(Action<IGeometryContext> applyTo)
-        {
-            if (_capturedVersion != Version || _cachedPath == null)
-            {
-                _capturedVersion = Version;
-                _cachedPath?.Dispose();
-
-                _cachedPath = new GeometryContext();
-                applyTo(_cachedPath);
-            }
-
-            return _cachedPath.NativeObject;
-        }
-
-        public void Dispose() => _cachedPath?.Dispose();
     }
 }

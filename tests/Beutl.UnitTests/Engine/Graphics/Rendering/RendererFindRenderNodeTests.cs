@@ -1,9 +1,7 @@
-﻿using Beutl.Composition;
-using Beutl.Graphics;
+﻿using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
-using Beutl.Media;
-using SkiaSharp;
+using static Beutl.UnitTests.Engine.Graphics.Rendering.RendererTestSupport;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
@@ -24,8 +22,11 @@ public class RendererFindRenderNodeTests
         var group = new DrawableGroup();
         group.Children.Add(rect);
 
-        (DrawableRenderNode? Rect, DrawableRenderNode[] Drawn) found =
-            Find(renderer => (renderer.FindRenderNode(rect), DrawableNodesUnder(renderer, group)), group);
+        (DrawableRenderNode? Rect, DrawableRenderNode[] Drawn) found = QueryFrame(
+            Width,
+            Height,
+            renderer => (renderer.FindRenderNode(rect), DrawableNodesUnder(renderer, group)),
+            group);
 
         Assert.That(found.Drawn, Has.Length.EqualTo(1), "The child is drawn into a drawable node of its own.");
         Assert.That(found.Rect, Is.SameAs(found.Drawn[0]));
@@ -41,7 +42,9 @@ public class RendererFindRenderNodeTests
         var outer = new DrawableGroup();
         outer.Children.Add(inner);
 
-        (DrawableRenderNode? Inner, DrawableRenderNode? Rect, DrawableRenderNode[] Drawn) found = Find(
+        (DrawableRenderNode? Inner, DrawableRenderNode? Rect, DrawableRenderNode[] Drawn) found = QueryFrame(
+            Width,
+            Height,
             renderer => (renderer.FindRenderNode(inner), renderer.FindRenderNode(rect), DrawableNodesUnder(renderer, outer)),
             outer);
 
@@ -86,37 +89,4 @@ public class RendererFindRenderNodeTests
             }
         }
     }
-
-    // The nodes are disposed with the renderer, so the query walks them before it returns and only their identities
-    // are compared afterwards.
-    private static T Find<T>(Func<Renderer, T> query, Drawable drawable)
-    {
-        return RenderThread.Dispatcher.Invoke(() =>
-        {
-            using var renderer = new Renderer(
-                Width,
-                Height,
-                RenderIntent.Preview,
-                renderScale: 1,
-                maxWorkingScale: float.PositiveInfinity,
-                surface: new CpuRenderTarget(Width, Height));
-            renderer.UpdateFrame(new CompositionFrame(
-                [drawable.ToResource(CompositionContext.Default)],
-                new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
-                new PixelSize(Width, Height),
-                null));
-            return query(renderer);
-        });
-    }
-
-    private sealed class CpuRenderTarget(int width, int height)
-        : RenderTarget(
-            SKSurface.Create(new SKImageInfo(
-                width,
-                height,
-                SKColorType.RgbaF16,
-                SKAlphaType.Premul,
-                SKColorSpace.CreateSrgbLinear())),
-            width,
-            height);
 }

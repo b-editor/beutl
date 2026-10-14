@@ -17,7 +17,6 @@ public sealed class PerspectiveNearPlaneCrossingTests
     // At the default Depth of 500 any layer wider than the frame goes past the camera plane at ~31 degrees
     // of Y rotation, so this is the shape the defect takes in an ordinary project.
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void DefaultDepth_WideLayerRotatedPastTheCameraPlane_MatchesTheAnalyticImage()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -33,7 +32,7 @@ public sealed class PerspectiveNearPlaneCrossingTests
             Matrix matrix = ComposeCenteredRotation(Width, Height, 60f, depth: 500f);
             AnalyticAgreement agreement = CompareWithAnalyticImage(bitmap, matrix, Width, Height);
             TestContext.WriteLine(
-                $"[wdefault 1200x54 @60deg depth500] rendered={CountCoveredPixels(bitmap)} "
+                $"[wdefault 1200x54 @60deg depth500] rendered={ImageMetrics.CountCoveredPixels(bitmap)} "
                 + $"analytic={agreement.AnalyticCovered} missing={agreement.MissingFromRender} "
                 + $"agreement={agreement.Ratio:P3}");
             Assert.Multiple(() =>
@@ -49,7 +48,6 @@ public sealed class PerspectiveNearPlaneCrossingTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void DefaultDepth_NearEdgeOnRotation_DrawsTheWedgeThePragmaticBoundsExcluded()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -85,7 +83,6 @@ public sealed class PerspectiveNearPlaneCrossingTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void NestedGroupTranslate_StraddlingChild_KeepsContentAtTheFrameOrigin()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -97,7 +94,7 @@ public sealed class PerspectiveNearPlaneCrossingTests
             using Drawable.Resource nested = group.ToResource(CompositionContext.Default);
             using Bitmap bitmap = GoldenImageHarness.RenderAtScale(
                 nested, s_frame, 1f, clearColor: Colors.Transparent);
-            int covered = CountCoveredPixels(bitmap);
+            long covered = ImageMetrics.CountCoveredPixels(bitmap);
             int leftmost = LeftmostCoveredColumn(bitmap);
             TestContext.WriteLine($"[nested group-t60 depth50] covered={covered} leftmost={leftmost}");
             Assert.Multiple(() =>
@@ -161,8 +158,7 @@ public sealed class PerspectiveNearPlaneCrossingTests
             {
                 var device = new Point(x + 0.5f, y + 0.5f);
                 Point local = device.Transform(inverse);
-                float recoveredDivisor =
-                    (device.X * inverse.M13) + (device.Y * inverse.M23) + inverse.M33;
+                float recoveredDivisor = inverse.GetTransformDivisor(device);
                 bool expected = recoveredDivisor > 0
                                 && local.X >= 0 && local.X <= width
                                 && local.Y >= 0 && local.Y <= height;
@@ -227,19 +223,6 @@ public sealed class PerspectiveNearPlaneCrossingTests
 
         return new NearPlaneResidual(
             insideDeclared, insideDeclaredMissing, outsideDeclared, outsideDeclaredRendered);
-    }
-
-    private static int CountCoveredPixels(Bitmap bitmap)
-    {
-        ReadOnlySpan<ushort> pixels = bitmap.GetPixelSpan<ushort>();
-        int count = 0;
-        for (int i = 3; i < pixels.Length; i += 4)
-        {
-            if ((float)BitConverter.UInt16BitsToHalf(pixels[i]) > 0.5f)
-                count++;
-        }
-
-        return count;
     }
 
     private static int LeftmostCoveredColumn(Bitmap bitmap)

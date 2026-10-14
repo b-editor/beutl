@@ -10,7 +10,6 @@ namespace Beutl.UnitTests.Engine.Graphics.Backend;
 [TestFixture]
 [NonParallelizable]
 [Platform("Linux")]
-[Category("GpuPassFusionGpu")]
 public sealed class SwiftShaderLifetimeTests
 {
     [TestCase("enumerate")]

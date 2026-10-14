@@ -71,7 +71,7 @@ public sealed class RenderNodeRendererSnapshotFastPathTests
         using var source = new CpuRenderTarget(4, 2);
         DrawColumnPattern(source);
         using var node = new MaterializedSourceNode(source, bounds, requireFullReadback: false);
-        var factory = new TrackingTargetFactory();
+        var factory = new FailureTestTargetFactory();
         var renderer = CreateRenderer(node, bounds, requestedRegion: null, factory);
         RenderNodeRasterization? rasterization = null;
 
@@ -97,7 +97,7 @@ public sealed class RenderNodeRendererSnapshotFastPathTests
                 Assert.That(bitmap.IsDisposed, Is.False);
                 AssertDominant(bitmap, 2, 0, red: false, green: false, blue: true);
                 Assert.That(factory.Targets, Is.Not.Empty);
-                Assert.That(factory.Targets, Has.All.Matches<TrackingRenderTarget>(
+                Assert.That(factory.Targets, Has.All.Matches<FailureTestRenderTarget>(
                     target => target.IsDisposed && target.DisposeCalls == 1));
                 Assert.That(source.IsDisposed, Is.False);
             });
@@ -127,7 +127,7 @@ public sealed class RenderNodeRendererSnapshotFastPathTests
         using var source = new CpuRenderTarget(4, 2);
         DrawColumnPattern(source);
         using var node = new MaterializedSourceNode(source, bounds, requireFullReadback: true);
-        var factory = new TrackingTargetFactory();
+        var factory = new FailureTestTargetFactory();
         using var renderer = CreateRenderer(node, bounds, requestedRegion, factory);
 
         using RenderNodeRasterization rasterization = renderer.Rasterize();
@@ -263,43 +263,4 @@ public sealed class RenderNodeRendererSnapshotFastPathTests
                     TargetAccess.Readback)));
         }
     }
-
-    private sealed class TrackingTargetFactory : IRenderTargetFactory
-    {
-        public List<TrackingRenderTarget> Targets { get; } = [];
-
-        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
-        {
-            PixelSize deviceSize = allocation.DeviceSize;
-            var target = new TrackingRenderTarget(deviceSize.Width, deviceSize.Height);
-            Targets.Add(target);
-            return target;
-        }
-    }
-
-    private sealed class TrackingRenderTarget(int width, int height)
-        : RenderTarget(CreateSurface(width, height), width, height)
-    {
-        public int DisposeCalls { get; private set; }
-
-        protected override void Dispose(bool disposing)
-        {
-            if (disposing && !IsDisposed)
-                DisposeCalls++;
-
-            base.Dispose(disposing);
-        }
-    }
-
-    private sealed class CpuRenderTarget(int width, int height)
-        : RenderTarget(CreateSurface(width, height), width, height);
-
-    private static SKSurface CreateSurface(int width, int height)
-        => SKSurface.Create(new SKImageInfo(
-               width,
-               height,
-               SKColorType.RgbaF16,
-               SKAlphaType.Premul,
-               SKColorSpace.CreateSrgbLinear()))
-           ?? throw new InvalidOperationException("Could not create a CPU render target.");
 }

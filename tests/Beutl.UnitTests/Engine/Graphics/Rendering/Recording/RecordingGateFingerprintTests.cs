@@ -1,12 +1,8 @@
-﻿using Beutl.Composition;
-using Beutl.Graphics;
-using Beutl.Graphics.Effects;
+﻿using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
-using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Rendering.Requests;
-using Beutl.Graphics.Shapes;
-using Beutl.Graphics.Transformation;
 using Beutl.Media;
+using static Beutl.UnitTests.Engine.Graphics.Rendering.Recording.RenderNodeRecordingCacheTests;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Recording;
 
@@ -255,7 +251,7 @@ public sealed class RecordingGateFingerprintTests
 
         RenderThread.Dispatcher.Invoke(static () =>
         {
-            Drawable.Resource[] resources = CreateSceneResources();
+            Drawable.Resource[] resources = RenderCacheTestSupport.CreateRepresentativeScene();
             try
             {
                 using var root = new DrawableRenderNode(resources[0]);
@@ -268,7 +264,7 @@ public sealed class RecordingGateFingerprintTests
                     {
                         leaf.MarkChanged();
                         Assert.That(() => Record(root), Throws.Nothing);
-                        ClearChanges(root);
+                        root.SettleConstruction();
                     }
                 }
             }
@@ -285,7 +281,7 @@ public sealed class RecordingGateFingerprintTests
     {
         (int served, int rejected, int refused) = RenderThread.Dispatcher.Invoke(static () =>
         {
-            Drawable.Resource[] resources = CreateSceneResources();
+            Drawable.Resource[] resources = RenderCacheTestSupport.CreateRepresentativeScene();
             try
             {
                 using var root = new DrawableRenderNode(resources[0]);
@@ -297,7 +293,7 @@ public sealed class RecordingGateFingerprintTests
                 {
                     leaf.MarkChanged();
                     Record(root);
-                    ClearChanges(root);
+                    root.SettleConstruction();
                 }
 
                 var before = new RenderNodeRecordingSnapshot?[nodes.Count];
@@ -341,45 +337,9 @@ public sealed class RecordingGateFingerprintTests
             Assert.That(
                 served,
                 Is.EqualTo(20),
-                "every replayable node in the scene is served, including the six the descendant rule rejected");
+                "every replayable node in the scene is served");
             Assert.That(refused, Is.EqualTo(3), "the two geometries and the text still refuse to be stored");
         });
-    }
-
-    private static Drawable.Resource[] CreateSceneResources()
-    {
-        var background = new RectShape
-        {
-            Width = { CurrentValue = s_frameSize.Width },
-            Height = { CurrentValue = s_frameSize.Height },
-            Fill = { CurrentValue = Brushes.CornflowerBlue },
-        };
-
-        var accent = new EllipseShape
-        {
-            Width = { CurrentValue = 76 },
-            Height = { CurrentValue = 76 },
-            Fill = { CurrentValue = Brushes.OrangeRed },
-            FilterEffect = { CurrentValue = new Brightness { Amount = { CurrentValue = 78 } } },
-            Transform = { CurrentValue = new TranslateTransform(44, -18) },
-        };
-
-        var label = new TextBlock
-        {
-            FontFamily = { CurrentValue = FontFamily.Default },
-            Size = { CurrentValue = 28 },
-            Fill = { CurrentValue = Brushes.White },
-            Text = { CurrentValue = "CACHE" },
-            Transform = { CurrentValue = new TranslateTransform(-28, 30) },
-        };
-
-        CompositionContext context = CompositionContext.Default;
-        return
-        [
-            background.ToResource(context),
-            accent.ToResource(context),
-            label.ToResource(context),
-        ];
     }
 
     private static void RecordScene(DrawableRenderNode root, Drawable.Resource[] resources)
@@ -408,12 +368,6 @@ public sealed class RecordingGateFingerprintTests
         }
     }
 
-    private static void ClearChanges(RenderNode root)
-    {
-        foreach (RenderNode node in CollectNodes(root))
-            node.ClearChanges(node.ChangeVersion);
-    }
-
     private static RenderFragmentReference OnlyFragmentOf(
         RecordedRenderGraph graph,
         RenderFragmentKind? kind = null)
@@ -437,17 +391,6 @@ public sealed class RecordingGateFingerprintTests
         }
 
         throw new InvalidOperationException("The recorded graph has no published fragment.");
-    }
-
-    private static RecordedRenderGraph Record(RenderNode node)
-    {
-        RenderNodeCacheLifecycle lifecycle = RenderNodeCacheHelper.BeginLifecycle(node);
-        using var owner = new RenderRequestOwner();
-        using var request = new RenderRequest(
-            new RenderNodeRecordingCacheTests.RequestSetup().CreateOptions(owner));
-        RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(node);
-        lifecycle.CompleteSuccessfully(false);
-        return graph;
     }
 
     /// <summary>Records one bounds with a swappable hit-test contract, so only the rule moves.</summary>

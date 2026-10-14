@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics;
+﻿using Beutl.Composition;
+using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
@@ -8,145 +9,6 @@ using Beutl.Media;
 using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Fusion;
-
-internal enum FusionBoundaryRuntimeScenario
-{
-    MaterializedInput,
-    WholeSource,
-    Geometry,
-    OpaqueCallback,
-    TargetReadback,
-    DestinationBlend,
-    DynamicExpansion,
-    Graphics3D,
-}
-
-internal sealed class FusionBoundaryRuntimeNode(
-    RenderTarget source,
-    Rect bounds,
-    FusionBoundaryRuntimeScenario scenario) : RenderNode
-{
-    private static readonly ShaderDescription s_firstShader = ShaderDescription.CurrentPixel(
-        "half4 apply(half4 color) { return half4(color.rg * 0.875, color.ba); }");
-
-    private static readonly ShaderDescription s_secondShader = ShaderDescription.CurrentPixel(
-        "half4 apply(half4 color) { return half4(color.b, color.g, color.r, color.a); }");
-
-    public override void Process(RenderNodeContext context)
-    {
-        RenderResource<RenderTarget> resource = context.Borrow(
-            source);
-        RenderFragmentHandle current = context.MaterializedInput(
-            MaterializedInputDescription.FromRenderTarget(
-                resource,
-                bounds,
-                EffectiveScale.At(1),
-                PixelRect.FromRect(bounds, 1),
-                default,
-                RenderHitTestContract.OutputBounds));
-        current = context.Shader(current, s_firstShader);
-
-        switch (scenario)
-        {
-            case FusionBoundaryRuntimeScenario.MaterializedInput:
-                context.Publish(current);
-                return;
-
-            case FusionBoundaryRuntimeScenario.WholeSource:
-                current = context.Shader(current, ShaderDescription.WholeSource(
-                    "uniform shader src; half4 main(float2 coord) { return src.eval(coord); }",
-                    RenderBoundsContract.Identity));
-                break;
-
-            case FusionBoundaryRuntimeScenario.Geometry:
-                current = context.Geometry(current, GeometryDescription.CreateRequestLocal(
-                    session => session.Canvas.Use(session.Input.Draw),
-                    RenderBoundsContract.Identity,
-                    RenderHitTestContract.AnyInput));
-                break;
-
-            case FusionBoundaryRuntimeScenario.OpaqueCallback:
-                current = context.OpaqueMap(current, CreateOpaqueMap(
-                    RenderBackendBoundary.None,
-                    RenderValueCardinality.Single,
-                    "opaque-identity"));
-                break;
-
-            case FusionBoundaryRuntimeScenario.TargetReadback:
-                context.Publish(current);
-                context.Publish(context.TargetCommand(
-                    [current],
-                    TargetCommandDescription.CreateRequestLocal(
-                        session => session.UseSnapshot(static _ => { }),
-                        TargetRegion.Full,
-                        Rect.Empty,
-                        RenderHitTestContract.None,
-                        TargetAccess.Readback)));
-                return;
-
-            case FusionBoundaryRuntimeScenario.DestinationBlend:
-                context.Publish(context.Blend(current, BlendMode.DstOver));
-                return;
-
-            case FusionBoundaryRuntimeScenario.DynamicExpansion:
-                current = context.OpaqueExpand(
-                    [current],
-                    OpaqueRenderDescription.CreateRequestLocal(
-                        CopySingleInput,
-                        OpaqueRenderBoundsContract.FullInputs(
-                            static inputs => inputs.Single()),
-                        RenderHitTestContract.AnyInput,
-                        RenderValueCardinality.Dynamic,
-                        RenderScaleContract.MaterializeAtWorkingScale));
-                break;
-
-            case FusionBoundaryRuntimeScenario.Graphics3D:
-                current = context.OpaqueMap(current, CreateOpaqueMap(
-                    RenderBackendBoundary.Graphics3D,
-                    RenderValueCardinality.Single,
-                    "graphics-3d"));
-                break;
-
-            default:
-                throw new ArgumentOutOfRangeException();
-        }
-
-        context.Publish(context.Shader(current, s_secondShader));
-    }
-
-    private static OpaqueRenderDescription CreateOpaqueMap(
-        RenderBackendBoundary backendBoundary,
-        RenderValueCardinality cardinality,
-        string identity)
-    {
-        if (backendBoundary == RenderBackendBoundary.None)
-        {
-            return OpaqueRenderDescription.CreateRequestLocal(
-                CopySingleInput,
-                OpaqueRenderBoundsContract.Map(RenderBoundsContract.Identity),
-                RenderHitTestContract.AnyInput,
-                cardinality,
-                RenderScaleContract.PreserveInputSupply);
-        }
-
-        return OpaqueRenderDescription.CreateBackendBoundary(
-            backendBoundary,
-            backendBoundary,
-            static (session, _) => CopySingleInput(session),
-            OpaqueRenderBoundsContract.Map(RenderBoundsContract.Identity),
-            RenderHitTestContract.AnyInput,
-            cardinality,
-            RenderScaleContract.PreserveInputSupply,
-            deviceGridSensitivity: RenderDeviceGridSensitivity.Insensitive);
-    }
-
-    private static void CopySingleInput(OpaqueRenderSession session)
-    {
-        using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
-        output.Canvas.Use(session.Inputs.Single().Draw);
-        session.Publish(output);
-    }
-}
 
 internal sealed class AntialiasedCoverageBoundaryNode(Rect bounds) : RenderNode
 {
@@ -180,73 +42,14 @@ internal sealed class AntialiasedCoverageBoundaryNode(Rect bounds) : RenderNode
     }
 }
 
-internal sealed class CachedBoundaryRoot(RenderTarget source, Rect bounds) : RenderNode
-{
-    private readonly CachedBoundaryShaderNode _cached = new();
-    private readonly BoundaryShaderNode _after = new(
-        ShaderDescription.CurrentPixel(
-            "half4 apply(half4 color) { return half4(color.bgr, color.a); }"));
-
-    public CachedBoundaryShaderNode Cached => _cached;
-
-    public override void Process(RenderNodeContext context)
-    {
-        RenderResource<RenderTarget> resource = context.Borrow(
-            source);
-        RenderFragmentHandle current = context.MaterializedInput(
-            MaterializedInputDescription.FromRenderTarget(
-                resource,
-                bounds,
-                EffectiveScale.At(1),
-                PixelRect.FromRect(bounds, 1),
-                default,
-                RenderHitTestContract.OutputBounds));
-        current = context.RecordNode(_cached, [current]).Single();
-        current = context.RecordNode(_after, [current]).Single();
-        context.Publish(current);
-    }
-
-    protected override void OnDispose(bool disposing)
-    {
-        _after.Dispose();
-        _cached.Dispose();
-        base.OnDispose(disposing);
-    }
-}
-
-internal sealed class CachedBoundaryShaderNode : RenderNode
-{
-    private static readonly ShaderDescription s_description = ShaderDescription.CurrentPixel(
-        "half4 apply(half4 color) { return color * 0.75; }");
-
-    public override void Process(RenderNodeContext context)
-    {
-        context.Publish(context.Shader(context.Inputs.Single(), s_description));
-    }
-}
-
-internal sealed class BoundaryShaderNode(ShaderDescription description) : RenderNode
-{
-    public override void Process(RenderNodeContext context)
-    {
-        context.Publish(context.Shader(context.Inputs.Single(), description));
-    }
-}
-
 internal sealed class BackendOverflowBoundaryNode(RenderTarget source, Rect bounds) : RenderNode
 {
     public override void Process(RenderNodeContext context)
     {
-        RenderResource<RenderTarget> resource = context.Borrow(
-            source);
-        RenderFragmentHandle current = context.MaterializedInput(
-            MaterializedInputDescription.FromRenderTarget(
-                resource,
-                bounds,
-                EffectiveScale.At(1),
-                PixelRect.FromRect(bounds, 1),
-                default,
-                RenderHitTestContract.OutputBounds));
+        RenderFragmentHandle current = FusionBoundaryExecutionTestSupport.BorrowMaterializedInput(
+            context,
+            source,
+            bounds);
         ShaderDescription description = ShaderDescription.CurrentPixel(
             "uniform float gain; half4 apply(half4 color) { return color * gain; }",
             static bindings => bindings.Uniform("gain", 0.625f));
@@ -278,22 +81,24 @@ internal static class FusionBoundaryExecutionTestSupport
         return target;
     }
 
-    public static FusionBoundaryExecutionResult Execute(
-        RenderNode node,
-        Rect bounds,
-        FusionMode fusionMode,
-        bool useRenderCache = false)
-    {
-        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+    public static RenderNodeRenderer CreateRenderer(RenderNode node, Rect bounds, FusionMode fusionMode)
+        => new(node, new RenderNodeRenderRequest
         {
             Intent = RenderIntent.Preview,
             TargetDomain = bounds,
             OutputScale = 1,
             MaxWorkingScale = 1,
-            CacheOptions = new Beutl.Graphics.Rendering.Cache.RenderCacheOptions(useRenderCache, Beutl.Graphics.Rendering.Cache.RenderCacheRules.Default),
+            CacheOptions = RenderCacheOptions.Disabled,
             FusionMode = fusionMode,
             Purpose = RenderRequestPurpose.Frame,
         });
+
+    public static FusionBoundaryExecutionResult Execute(
+        RenderNode node,
+        Rect bounds,
+        FusionMode fusionMode)
+    {
+        using RenderNodeRenderer renderer = CreateRenderer(node, bounds, fusionMode);
         using RenderNodeRasterization rasterization = renderer.Rasterize();
         Bitmap bitmap = rasterization.Bitmap?.Clone()
             ?? throw new InvalidOperationException("The fusion-boundary render unexpectedly produced no bitmap.");
@@ -335,6 +140,171 @@ internal static class FusionBoundaryExecutionTestSupport
             return new FusionBoundaryExecutionResult(bitmap, executor.Statistics);
         }
     }
+
+    // Borrows the source and records it as a materialized input at density 1 over the given bounds.
+    public static RenderFragmentHandle BorrowMaterializedInput(
+        RenderNodeContext context,
+        RenderTarget source,
+        Rect bounds)
+        => context.MaterializedInput(MaterializedInputDescription.FromRenderTarget(
+            context.Borrow(source),
+            bounds,
+            EffectiveScale.At(1),
+            PixelRect.FromRect(bounds, 1),
+            default,
+            RenderHitTestContract.OutputBounds));
+
+    public static RenderFragmentReference Fragment(
+        RenderFragmentKind kind,
+        Rect bounds,
+        EffectiveScale scale,
+        object? payload,
+        params RenderFragmentReference[] inputs)
+        => new(
+            kind,
+            bounds,
+            scale,
+            RenderValueCardinality.Single,
+            contributesValuesToTarget: true,
+            canBeUsedAsValueInput: true,
+            hasTargetEffects: false,
+            hasOpaqueExternalWork: false,
+            [.. inputs],
+            payload,
+            RenderFragmentHitTest.Bounds);
+
+    // Commits the fragments in order and publishes the roots, registering a cache candidate for each
+    // fragment in cacheCandidates.
+    public static RecordedRenderGraph BuildGraph(
+        RenderRequestId requestId,
+        IReadOnlyList<RenderFragmentReference> references,
+        IReadOnlyList<RenderFragmentReference> roots,
+        IReadOnlySet<RenderFragmentReference>? cacheCandidates = null)
+    {
+        var builder = new RecordedRenderGraphBuilder(requestId);
+        foreach (RenderFragmentReference reference in references)
+        {
+            builder.AddFragment(reference);
+            if (cacheCandidates?.Contains(reference) == true)
+            {
+                builder.AddCacheCandidate(
+                    reference.Id!.Value,
+                    (typeof(FusionBoundaryExecutionTestSupport), reference.Id!.Value.Value));
+            }
+        }
+
+        foreach (RenderFragmentReference root in roots)
+            builder.PublishRoot(root.Id!.Value);
+        return builder.Build();
+    }
+
+    // Compiles a hand-built graph; without a budget the compiler uses the portable one.
+    public static CompiledRenderRequest CompileGraph(
+        RenderRequestOptions options,
+        Func<RenderRequestId, RecordedRenderGraph> createGraph,
+        SkslBackendBudget? budget = null)
+    {
+        var request = new RenderRequest(options);
+        RecordedRenderGraph graph = createGraph(request.Id);
+        request.TransitionTo(RenderRequestState.Recording);
+        request.TransitionTo(RenderRequestState.Recorded);
+        return budget is null
+            ? new RenderRequestCompiler().Compile(request, graph)
+            : new RenderRequestCompiler().Compile(request, graph, budget);
+    }
+
+    // Records the effect over white ellipses, each offset one unit right of the last, and compiles it.
+    public static CompiledRenderRequest CompileEffect(
+        FilterEffect effect,
+        Rect bounds,
+        SkslBackendBudget budget,
+        Rect? requestedRegion = null,
+        int childCount = 1)
+    {
+        using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
+        using var node = new FilterEffectRenderNode(resource);
+        for (int index = 0; index < childCount; index++)
+        {
+            node.AddChild(new EllipseRenderNode(
+                bounds.Translate(new Vector(index, 0)),
+                Brushes.Resource.White,
+                null));
+        }
+
+        var request = new RenderRequest(new RenderRequestOptions(
+            RenderIntent.Preview,
+            RenderRequestPurpose.Auxiliary,
+            targetDomain: bounds,
+            requestedRegion: requestedRegion,
+            cachePolicy: RenderCacheOptions.Disabled));
+        try
+        {
+            RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(node);
+            return new RenderRequestCompiler().Compile(request, graph, budget);
+        }
+        catch
+        {
+            request.Dispose();
+            throw;
+        }
+    }
+
+    public static CompiledRenderRequest CompileEffects(
+        Rect bounds,
+        IEnumerable<FilterEffect> effects,
+        SkslBackendBudget budget,
+        Rect? requestedRegion = null)
+    {
+        var group = new FilterEffectGroup();
+        foreach (FilterEffect effect in effects)
+            group.Children.Add(effect);
+
+        return CompileEffect(group, bounds, budget, requestedRegion);
+    }
+
+    // A pass-through CurrentPixel stage that declares resourceCount shader resources.
+    public static ShaderDescription ResourceHeavyShader(
+        int resourceCount,
+        RenderRequestResourceRegistry registry)
+    {
+        string[] names = Enumerable.Range(0, resourceCount)
+            .Select(static index => $"lookup{index}")
+            .ToArray();
+        RenderResource<object>[] resources = names
+            .Select(_ => registry.RegisterBorrowed(new object()))
+            .ToArray();
+        string declarations = string.Join(' ', names.Select(static name => $"uniform shader {name};"));
+
+        return ShaderDescription.CurrentPixel(
+            $"{declarations} half4 apply(half4 color) {{ return color; }}",
+            bindings =>
+            {
+                for (int index = 0; index < names.Length; index++)
+                {
+                    bindings.Resource(
+                        names[index],
+                        resources[index],
+                        ShaderResourceCoordinateSpace.Value,
+                        static (writer, _, _) => writer.Set(SKShader.CreateColor(StableColors.White)));
+                }
+            });
+    }
+
+    // A budget that leaves every limit it is not given unbounded.
+    public static SkslBackendBudget Budget(
+        object? capabilityClass = null,
+        int maxStages = int.MaxValue,
+        int maxUniformVectors = int.MaxValue,
+        int maxSamplers = int.MaxValue,
+        int maxSourceBytes = int.MaxValue,
+        int maxProgramTokens = int.MaxValue)
+        => new(
+            capabilityClass ?? "unit-test-backend",
+            maxStages,
+            maxUniformVectors,
+            maxSamplers,
+            maxSourceBytes,
+            maxProgramTokens);
 
     public static double SumAbsoluteChannels(Bitmap bitmap)
     {

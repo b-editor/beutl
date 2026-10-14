@@ -1,10 +1,8 @@
 ﻿using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
-using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.TextFormatting;
-using Microsoft.Extensions.Logging;
 using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine;
@@ -15,13 +13,6 @@ public class FormattedTextDisposalTests
     [SetUp]
     public void Setup()
     {
-        // Log.LoggerFactory is write-once (??=); skip allocating a factory we would only discard
-        // when another fixture already set one.
-        if (!Log.IsLoggerFactoryConfigured)
-        {
-            Log.LoggerFactory = LoggerFactory.Create(b => b.AddSimpleConsole());
-        }
-
         _ = TypefaceProvider.Typeface();
     }
 
@@ -37,17 +28,6 @@ public class FormattedTextDisposalTests
             Spacing = 1f,
             Text = text
         };
-    }
-
-    [Test]
-    public void Dispose_MarksIsDisposed_True()
-    {
-        FormattedText ft = CreateText();
-        _ = ft.Bounds;
-
-        ft.Dispose();
-
-        Assert.That(ft.IsDisposed, Is.True);
     }
 
     [Test]

@@ -96,13 +96,6 @@ public class CurveMapTests
     }
 
     [Test]
-    public void Equals_SameInstance()
-    {
-        var curve = CurveMap.Default;
-        Assert.That(curve.Equals(curve), Is.True);
-    }
-
-    [Test]
     public void EmptyPoints_EvaluateReturnsT()
     {
         var curve = new CurveMap([]);

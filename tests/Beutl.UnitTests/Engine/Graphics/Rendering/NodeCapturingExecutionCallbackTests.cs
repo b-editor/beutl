@@ -5,7 +5,6 @@ using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Shaders;
 using Beutl.Media;
-using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
@@ -23,24 +22,6 @@ public sealed class NodeCapturingExecutionCallbackTests
 
     private static readonly Rect s_domain = new(0, 0, 200, 100);
     private static readonly Rect s_sourceBounds = new(0, 0, 40, 20);
-
-    [Test]
-    public void ANodeDrawingFromItsOwnProperty_RecordsAndRasterizes()
-    {
-        using var node = new PaintingNode(200);
-        using RenderNodeRenderer renderer = CreateRenderer(node);
-
-        using RenderNodeRasterization rasterization = renderer.Rasterize();
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(rasterization.Bitmap, Is.Not.Null);
-            Assert.That(
-                rasterization.Bitmap!.GetPixelSpan<ushort>().ToArray(),
-                Has.Some.Not.Zero,
-                "the drawing must have answered from the node's own property");
-        });
-    }
 
     [Test]
     public void TwoNodesOfOneTypeDrawingDifferentValues_ShareOnePlanAndRenderTheirOwn()
@@ -192,7 +173,7 @@ public sealed class NodeCapturingExecutionCallbackTests
             TargetDomain = s_domain,
             CacheOptions = RenderCacheOptions.Disabled,
             Purpose = RenderRequestPurpose.Frame,
-        }, new CpuTargetFactory());
+        }, new CpuRenderTargetFactory());
 
     /// <summary>A source whose drawing reads the level the node holds.</summary>
     private sealed class PaintingNode(byte level) : RenderNode
@@ -273,21 +254,4 @@ public sealed class NodeCapturingExecutionCallbackTests
                 RenderScaleContract.MaterializeAtWorkingScale)));
         }
     }
-
-    private sealed class CpuTargetFactory : IRenderTargetFactory
-    {
-        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
-            => new CpuRenderTarget(allocation.DeviceSize.Width, allocation.DeviceSize.Height);
-    }
-
-    private sealed class CpuRenderTarget(int width, int height)
-        : RenderTarget(
-            SKSurface.Create(new SKImageInfo(
-                width,
-                height,
-                SKColorType.RgbaF16,
-                SKAlphaType.Premul,
-                SKColorSpace.CreateSrgbLinear())),
-            width,
-            height);
 }

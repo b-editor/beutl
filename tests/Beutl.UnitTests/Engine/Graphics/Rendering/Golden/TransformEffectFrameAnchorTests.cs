@@ -8,18 +8,10 @@ using Beutl.UnitTests.Engine.Graphics.Backend;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
-// A TransformEffect with ApplyToTarget=false is the only in-tree filter whose SKImageFilter is not
-// translation-invariant: it conjugates the transform by an origin derived from the input bounds. The
-// Skia chain executes in a frame anchored at the pending chain's InputBounds, so that anchor has to
-// track the bounds the item maps; a stale anchor rotates the content about a point displaced by
-// Bounds.Position - OriginalBounds.Position, which a preceding bounds-expanding pass makes non-zero.
-//
-// The invariant needs no golden baseline: a Gaussian blur is symmetric, so it leaves the input bounds
-// centred where they were, and a rotation about the centre of those bounds cannot move the alpha
-// centroid. The centroid must stay on the content centre for every sigma.
+// A non-target TransformEffect after a symmetric blur must rotate about the blurred bounds' own centre, so the
+// alpha centroid stays on the content centre; a stale chain anchor moves it.
 [NonParallelizable]
 [TestFixture]
-[Category("GpuPassFusionGpu")]
 public class TransformEffectFrameAnchorTests
 {
     private const float ContentWidth = 160f;

@@ -14,7 +14,6 @@ using Semaphore = Silk.NET.Vulkan.Semaphore;
 public sealed unsafe class VulkanTimelineSubmissionTests
 {
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void SubmitSignalingTimeline_SignalsOnceTheBatchCompletes()
     {
         VulkanContext context = RequireTimelineContext();

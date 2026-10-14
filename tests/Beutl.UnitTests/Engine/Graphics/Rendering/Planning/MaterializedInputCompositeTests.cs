@@ -264,16 +264,4 @@ public sealed class MaterializedInputCompositeTests
                     RenderHitTestContract.OutputBounds)));
         }
     }
-
-    private sealed class CpuRenderTarget(int width, int height)
-        : RenderTarget(
-            SKSurface.Create(new SKImageInfo(
-                    width,
-                    height,
-                    SKColorType.RgbaF16,
-                    SKAlphaType.Premul,
-                    SKColorSpace.CreateSrgbLinear()))
-                ?? throw new InvalidOperationException("Could not create the CPU test surface."),
-            width,
-            height);
 }

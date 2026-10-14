@@ -1,79 +1,72 @@
-﻿using System.Numerics;
+﻿using System.ComponentModel;
+using System.Numerics;
 using Beutl.Converters;
 using Beutl.Graphics;
 using Beutl.Media;
 
 namespace Beutl.UnitTests.Engine;
 
-public class RelativePointConverterTests
+// The converters that read their type from a string share one contract.
+public class StringConverterTests
 {
-    private readonly RelativePointConverter _converter = new();
-
-    [Test]
-    public void CanConvertFrom_String_ReturnsTrue()
+    public static IEnumerable<ConverterCase> Converters()
     {
-        Assert.That(_converter.CanConvertFrom(null, typeof(string)), Is.True);
+        yield return new(new CornerRadiusConverter(), "1,2,3,4", new CornerRadius(1, 2, 3, 4), typeof(int));
+        yield return new(new PixelPointConverter(), "12,34", new PixelPoint(12, 34), typeof(DateTime));
+        yield return new(new PixelRectConverter(), "1,2,3,4", new PixelRect(1, 2, 3, 4), typeof(DateTime));
+        yield return new(new PixelSizeConverter(), "10,20", new PixelSize(10, 20), typeof(DateTime));
+        yield return new(new PointConverter(), "1.5,2.5", new Point(1.5f, 2.5f), typeof(DateTime));
+        yield return new(new RectConverter(), "1,2,3,4", new Rect(1, 2, 3, 4), typeof(DateTime));
+        yield return new(new SizeConverter(), "10,20", new Size(10, 20), typeof(DateTime));
+        yield return new(new VectorConverter(), "1.5,2.5", new Beutl.Graphics.Vector(1.5f, 2.5f), typeof(DateTime));
+        yield return new(new ThicknessConverter(), "1,2,3,4", new Thickness(1, 2, 3, 4), typeof(float));
+        yield return new(new ColorConverter(), "#FF0000", Color.Parse("#FF0000"), typeof(int));
+        yield return new(new RelativePointConverter(), "0.5,0.5", RelativePoint.Parse("0.5,0.5"), typeof(int));
+        yield return new(
+            new RelativeRectConverter(),
+            "0%,0%,100%,100%",
+            RelativeRect.Parse("0%,0%,100%,100%"),
+            typeof(double));
+        yield return new(new FontFamilyConverter(), "Arial", new FontFamily("Arial"), typeof(int));
     }
 
-    [Test]
-    public void CanConvertFrom_Other_ReturnsFalse()
+    // Any string is a font family name, so FontFamilyConverter has no invalid input.
+    public static IEnumerable<ConverterCase> ParsingConverters()
+        => Converters().Where(static c => c.Converter is not FontFamilyConverter);
+
+    [TestCaseSource(nameof(Converters))]
+    public void CanConvertFrom_String_ReturnsTrue(ConverterCase c)
     {
-        Assert.That(_converter.CanConvertFrom(null, typeof(int)), Is.False);
+        Assert.That(c.Converter.CanConvertFrom(null, typeof(string)), Is.True);
     }
 
-    [Test]
-    public void ConvertFrom_String_UsesParse()
+    [TestCaseSource(nameof(Converters))]
+    public void CanConvertFrom_UnknownSource_ReturnsFalse(ConverterCase c)
     {
-        var result = (RelativePoint)_converter.ConvertFrom(null, null, "0.5,0.5")!;
-        Assert.That(result, Is.EqualTo(RelativePoint.Parse("0.5,0.5")));
-    }
-}
-
-public class RelativeRectConverterTests
-{
-    private readonly RelativeRectConverter _converter = new();
-
-    [Test]
-    public void CanConvertFrom_String_ReturnsTrue()
-    {
-        Assert.That(_converter.CanConvertFrom(null, typeof(string)), Is.True);
+        Assert.That(c.Converter.CanConvertFrom(null, c.UnknownSource), Is.False);
     }
 
-    [Test]
-    public void CanConvertFrom_Other_ReturnsFalse()
+    [TestCaseSource(nameof(Converters))]
+    public void ConvertFrom_String_UsesParse(ConverterCase c)
     {
-        Assert.That(_converter.CanConvertFrom(null, typeof(double)), Is.False);
+        Assert.That(c.Converter.ConvertFrom(null, null, c.Valid), Is.EqualTo(c.Expected));
     }
 
-    [Test]
-    public void ConvertFrom_String_UsesParse()
+    [TestCaseSource(nameof(ParsingConverters))]
+    public void ConvertFrom_InvalidString_ThrowsFormatException(ConverterCase c)
     {
-        var result = (RelativeRect)_converter.ConvertFrom(null, null, "0%,0%,100%,100%")!;
-        Assert.That(result, Is.EqualTo(RelativeRect.Parse("0%,0%,100%,100%")));
-    }
-}
-
-public class FontFamilyConverterTests
-{
-    private readonly FontFamilyConverter _converter = new();
-
-    [Test]
-    public void CanConvertFrom_String_ReturnsTrue()
-    {
-        Assert.That(_converter.CanConvertFrom(null, typeof(string)), Is.True);
+        Assert.Throws<FormatException>(() => c.Converter.ConvertFrom(null, null, "invalid"));
     }
 
-    [Test]
-    public void CanConvertFrom_Other_ReturnsFalse()
+    [TestCaseSource(nameof(Converters))]
+    public void ConvertFrom_UnsupportedType_ThrowsNotSupportedException(ConverterCase c)
     {
-        Assert.That(_converter.CanConvertFrom(null, typeof(int)), Is.False);
+        Assert.Throws<NotSupportedException>(() => c.Converter.ConvertFrom(null, null, 42));
     }
 
-    [Test]
-    public void ConvertFrom_String_ReturnsFontFamily()
+    public sealed record ConverterCase(TypeConverter Converter, string Valid, object Expected, Type UnknownSource)
     {
-        var family = (FontFamily)_converter.ConvertFrom(null, null, "Arial")!;
-        Assert.That(family.Name, Is.EqualTo("Arial"));
+        public override string ToString() => Converter.GetType().Name;
     }
 }
 
@@ -133,42 +126,6 @@ public class MatrixConverterTests
         Assert.That(array[0], Is.EqualTo(1));
         Assert.That(array[4], Is.EqualTo(1));
         Assert.That(array[8], Is.EqualTo(1));
-    }
-}
-
-public class ThicknessConverterTests
-{
-    private readonly ThicknessConverter _converter = new();
-
-    [Test]
-    public void CanConvertFrom_String_ReturnsTrue()
-    {
-        Assert.That(_converter.CanConvertFrom(null, typeof(string)), Is.True);
-    }
-
-    [Test]
-    public void CanConvertFrom_Other_ReturnsFalse()
-    {
-        Assert.That(_converter.CanConvertFrom(null, typeof(float)), Is.False);
-    }
-
-    [Test]
-    public void ConvertFrom_String_UsesParse()
-    {
-        var t = (Thickness)_converter.ConvertFrom(null, null, "1,2,3,4")!;
-        Assert.That(t, Is.EqualTo(new Thickness(1, 2, 3, 4)));
-    }
-
-    [Test]
-    public void ConvertFrom_InvalidString_ThrowsFormatException()
-    {
-        Assert.Throws<FormatException>(() => _converter.ConvertFrom(null, null, "invalid"));
-    }
-
-    [Test]
-    public void ConvertFrom_UnsupportedType_ThrowsNotSupportedException()
-    {
-        Assert.Throws<NotSupportedException>(() => _converter.ConvertFrom(null, null, 42));
     }
 }
 
@@ -267,41 +224,5 @@ public class GradingColorConverterTests
     {
         var c = (GradingColor)_converter.ConvertFrom(null, null, "0.1, 0.2, 0.3")!;
         Assert.That(c, Is.EqualTo(GradingColor.Parse("0.1, 0.2, 0.3")));
-    }
-}
-
-public class ColorConverterTests
-{
-    private readonly ColorConverter _converter = new();
-
-    [Test]
-    public void CanConvertFrom_String_ReturnsTrue()
-    {
-        Assert.That(_converter.CanConvertFrom(null, typeof(string)), Is.True);
-    }
-
-    [Test]
-    public void CanConvertFrom_Other_ReturnsFalse()
-    {
-        Assert.That(_converter.CanConvertFrom(null, typeof(int)), Is.False);
-    }
-
-    [Test]
-    public void ConvertFrom_String_UsesParse()
-    {
-        var color = (Color)_converter.ConvertFrom(null, null, "#FF0000")!;
-        Assert.That(color, Is.EqualTo(Color.Parse("#FF0000")));
-    }
-
-    [Test]
-    public void ConvertFrom_InvalidString_ThrowsFormatException()
-    {
-        Assert.Throws<FormatException>(() => _converter.ConvertFrom(null, null, "invalid"));
-    }
-
-    [Test]
-    public void ConvertFrom_UnsupportedType_ThrowsNotSupportedException()
-    {
-        Assert.Throws<NotSupportedException>(() => _converter.ConvertFrom(null, null, 42));
     }
 }

@@ -242,7 +242,6 @@ public sealed class PixelSortSpecializationTests
     }
 
     [TestCaseSource(nameof(SpecializationCases))]
-    [Category("GpuPassFusionGpu")]
     public void SpecializedVariants_MatchPreChangeRuntimeBranches(
         PixelSortKey sortKey,
         PixelSortDirection direction,
@@ -269,7 +268,6 @@ public sealed class PixelSortSpecializationTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void DifferentSortKeySpecializations_ProduceDifferentRenders()
     {
         VulkanTestEnvironment.EnsureAvailable();

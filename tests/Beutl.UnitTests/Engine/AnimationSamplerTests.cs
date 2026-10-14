@@ -1,7 +1,7 @@
 ﻿using Beutl.Animation;
-using Beutl.Animation.Easings;
 using Beutl.Engine;
 using Beutl.Media;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Engine;
 
@@ -24,21 +24,7 @@ public class AnimationSamplerTests
     {
         var property = Property.CreateAnimatable(from);
         property.SetAttributes("Value", []);
-
-        var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float>
-        {
-            KeyTime = TimeSpan.Zero,
-            Value = from,
-            Easing = new LinearEasing()
-        });
-        animation.KeyFrames.Add(new KeyFrame<float>
-        {
-            KeyTime = TimeSpan.FromSeconds(durationSeconds),
-            Value = to,
-            Easing = new LinearEasing()
-        });
-        property.Animation = animation;
+        property.Animation = TestAnimations.Linear(from, to, TimeSpan.FromSeconds(durationSeconds));
         return property;
     }
 
@@ -49,21 +35,7 @@ public class AnimationSamplerTests
 
         var property = Property.CreateAnimatable(from);
         property.SetAttributes("Value", []);
-
-        var animation = new KeyFrameAnimation<float> { UseGlobalClock = useGlobalClock };
-        animation.KeyFrames.Add(new KeyFrame<float>
-        {
-            KeyTime = TimeSpan.Zero,
-            Value = from,
-            Easing = new LinearEasing()
-        });
-        animation.KeyFrames.Add(new KeyFrame<float>
-        {
-            KeyTime = TimeSpan.FromSeconds(durationSeconds),
-            Value = to,
-            Easing = new LinearEasing()
-        });
-        property.Animation = animation;
+        property.Animation = TestAnimations.Linear(from, to, TimeSpan.FromSeconds(durationSeconds), useGlobalClock);
         property.SetOwnerObject(owner);
         return (property, owner);
     }
@@ -72,7 +44,6 @@ public class AnimationSamplerTests
     public void SampleBuffer_NullProperty_Throws()
     {
         var sampler = new AnimationSampler();
-        Span<float> buffer = stackalloc float[8];
 
         // Need to use an indirect call because of stackalloc + lambda issue
         Assert.Throws<ArgumentNullException>(() => Invoke(sampler));
@@ -111,7 +82,6 @@ public class AnimationSamplerTests
         sampler.SampleBuffer(property, new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)), 10, buffer);
 
         Assert.That(buffer[0], Is.EqualTo(0f).Within(1e-3));
-        // Linearly interpolated => values should monotonically increase.
         for (int i = 1; i < buffer.Length; i++)
         {
             Assert.That(buffer[i], Is.GreaterThanOrEqualTo(buffer[i - 1]));

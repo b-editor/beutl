@@ -1,7 +1,7 @@
 ﻿using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
-using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Rendering.Requests;
+using static Beutl.UnitTests.Engine.Graphics.Rendering.Recording.RenderNodeRecordingCacheTests;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Recording;
 
@@ -106,16 +106,5 @@ public sealed class RecordingIdentityCollisionTests
                     s_bounds,
                     RenderHitTestContract.None)));
         }
-    }
-
-    private static RecordedRenderGraph Record(RenderNode node)
-    {
-        RenderNodeCacheLifecycle lifecycle = RenderNodeCacheHelper.BeginLifecycle(node);
-        using var owner = new RenderRequestOwner();
-        using var request = new RenderRequest(
-            new RenderNodeRecordingCacheTests.RequestSetup().CreateOptions(owner));
-        RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(node);
-        lifecycle.CompleteSuccessfully(false);
-        return graph;
     }
 }

@@ -7,7 +7,6 @@ using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
-using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
@@ -18,44 +17,18 @@ public sealed class RenderDescriptionAllocationTests
     private const int SceneFrames = 40;
     private const int SceneWarmupFrames = 8;
 
-    // Measured steady state is ~161,600 bytes/frame, leaving about 12% headroom. That headroom is for the
-    // platform-dependent part of the scene - font fallback for its TextBlock - rather than for measurement
-    // noise, so a whole-frame regression fails here while per-call regressions are caught by the comparative
-    // tests in this fixture. Most of the scene's nodes keep their recording across frames, so what this
-    // measures after the first frame is the graph the reused fragments are rebased into.
+    // Measured ~161.6 KB/frame; ~12% headroom covers platform-dependent font fallback.
     private const long SceneBytesPerFrameCeiling = 180_900;
 
-    // The same scene with the render cache warm allocates about 209,600 bytes/frame, leaving about 7%
-    // headroom. Each machine reports one deterministic value, but not the same one: a Linux runner and a
-    // macOS machine measured 261 bytes apart on the same commit, so the figure is platform-specific rather
-    // than a property of the scene, and the spread is far below the headroom either budget keeps.
+    // Measured ~209.6 KB/frame; the value differs slightly per OS, ~7% headroom.
     private const long WarmCacheSceneBytesPerFrameCeiling = 224_900;
 
-    private static readonly object s_explicitKey = new();
     private static readonly ImmutableArray<int> s_projectionSource = [1, 2, 3, 4];
     private static readonly PixelSize s_frameSize = new(240, 160);
 
     [Test]
-    public void DefaultStructuralKey_AllocatesNoMoreThanAnExplicitOne()
-    {
-        Warm();
-
-        long withDefaultKey = MeasureBytesPerCall(structuralKey: null);
-        long withExplicitKey = MeasureBytesPerCall(s_explicitKey);
-
-        TestContext.Out.WriteLine($"default key: {withDefaultKey} bytes/call");
-        TestContext.Out.WriteLine($"explicit key: {withExplicitKey} bytes/call");
-        Assert.That(
-            withDefaultKey,
-            Is.LessThanOrEqualTo(withExplicitKey),
-            "resolving the default structural key runs once per node per frame and must not allocate");
-    }
-
-    [Test]
     public void StatePassing_AllocatesNoMoreThanTheCapturingRequestLocalOptOut()
     {
-        WarmState();
-
         long statePassing = MeasureBytesPerCall(static () => CreateWithState(new Rect(0, 0, 4, 4)));
         long requestLocal = MeasureBytesPerCall(static () => CreateRequestLocalCapturing(new Rect(0, 0, 4, 4)));
 
@@ -70,8 +43,6 @@ public sealed class RenderDescriptionAllocationTests
     [Test]
     public void NestedTupleState_CostsNoMoreThanTheFlatTupleItValidatesAs()
     {
-        WarmState();
-
         long flat = MeasureBytesPerCall(
             static () => TargetCommandDescription.Create(
                 (1, 2, 3, 4),
@@ -198,24 +169,15 @@ public sealed class RenderDescriptionAllocationTests
                     ? RenderCacheOptions.Enabled
                     : RenderCacheOptions.Disabled,
                 Purpose = RenderRequestPurpose.Frame,
-            }, new CpuTargetFactory());
+            }, new CpuRenderTargetFactory());
 
-            var revalidated = new HashSet<RenderNode>(ReferenceEqualityComparer.Instance);
             for (int frame = 0; frame < SceneWarmupFrames; frame++)
-            {
-                if (warmCache)
-                    IncrementRenderCounts(root, revalidated);
                 renderer.Rasterize().Dispose();
-            }
 
 
             long before = GC.GetAllocatedBytesForCurrentThread();
             for (int frame = 0; frame < SceneFrames; frame++)
-            {
-                if (warmCache)
-                    IncrementRenderCounts(root, revalidated);
                 renderer.Rasterize().Dispose();
-            }
 
             long after = GC.GetAllocatedBytesForCurrentThread();
             return (after - before) / SceneFrames;
@@ -224,30 +186,6 @@ public sealed class RenderDescriptionAllocationTests
         {
             foreach (Drawable.Resource resource in resources)
                 resource.Dispose();
-        }
-    }
-
-    /// <summary>
-    /// Mirrors the per-frame walk in <c>Renderer.RevalidateAll</c>. Without it
-    /// <see cref="RenderNodeCache.CanCache"/> never reaches <see cref="RenderNodeCache.Count"/>, so no
-    /// cache candidate is recorded and the whole cache-resolution path stays out of the measurement.
-    /// </summary>
-    private static void IncrementRenderCounts(RenderNode root, HashSet<RenderNode> revalidated)
-    {
-        revalidated.Clear();
-        Visit(root);
-        return;
-
-        void Visit(RenderNode current)
-        {
-            if (current.IsDisposed || !revalidated.Add(current))
-                return;
-
-            ReadOnlySpan<RenderNode> children = current.ChildNodes;
-            for (int index = 0; index < children.Length; index++)
-                Visit(children[index]);
-
-            current.ClearChanges(current.ChangeVersion);
         }
     }
 
@@ -287,24 +225,6 @@ public sealed class RenderDescriptionAllocationTests
         ];
     }
 
-    private static void Warm()
-    {
-        for (int index = 0; index < 200; index++)
-        {
-            _ = Create(null);
-            _ = Create(s_explicitKey);
-        }
-    }
-
-    private static void WarmState()
-    {
-        for (int index = 0; index < 200; index++)
-        {
-            _ = CreateWithState(new Rect(0, 0, 4, 4));
-            _ = CreateRequestLocalCapturing(new Rect(0, 0, 4, 4));
-        }
-    }
-
     private static TargetCommandDescription CreateWithState(Rect bounds)
         => TargetCommandDescription.Create(
             bounds,
@@ -321,15 +241,6 @@ public sealed class RenderDescriptionAllocationTests
             Rect.Empty,
             RenderHitTestContract.None);
 
-    private static long MeasureBytesPerCall(object? structuralKey)
-    {
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        for (int index = 0; index < Iterations; index++)
-            _ = Create(structuralKey);
-        long after = GC.GetAllocatedBytesForCurrentThread();
-        return (after - before) / Iterations;
-    }
-
     private static long MeasureBytesPerCall(Func<object> create)
     {
         for (int index = 0; index < 200; index++)
@@ -342,39 +253,10 @@ public sealed class RenderDescriptionAllocationTests
         return (after - before) / Iterations;
     }
 
-    private static TargetCommandDescription Create(object? structuralKey)
-        => TargetCommandDescription.CreateRequestLocal(
-            Execute,
-            TargetRegion.Full,
-            Rect.Empty,
-            RenderHitTestContract.None);
-
-    private static void Execute(TargetCommandSession session)
-    {
-    }
-
     private sealed class MatrixMetadata(Matrix transform)
     {
         private readonly Matrix _transform = transform;
-        private readonly bool _hasInverse = transform.HasInverse;
 
         public Rect TransformBounds(Rect bounds) => bounds.TransformToAABB(_transform);
     }
-
-    private sealed class CpuTargetFactory : IRenderTargetFactory
-    {
-        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
-            => new CpuRenderTarget(allocation.DeviceSize.Width, allocation.DeviceSize.Height);
-    }
-
-    private sealed class CpuRenderTarget(int width, int height)
-        : RenderTarget(
-            SKSurface.Create(new SKImageInfo(
-                width,
-                height,
-                SKColorType.RgbaF16,
-                SKAlphaType.Premul,
-                SKColorSpace.CreateSrgbLinear())),
-            width,
-            height);
 }

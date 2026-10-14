@@ -6,8 +6,6 @@ using Beutl.Graphics.Rendering.Requests;
 using Beutl.Graphics.Shaders;
 using Beutl.Media;
 
-using SkiaSharp;
-
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Failure;
 
 [TestFixture]
@@ -132,13 +130,8 @@ public sealed class RecordingAndPlanningFailureTests
         var primaryFailure = new InvalidOperationException("recording-primary");
         using var owner = new RenderRequestOwner();
         using var node = new RecordingFailureNode(resource, primaryFailure);
-        using var request = new RenderRequest(new RenderRequestOptions(
-            RenderIntent.Preview,
-            RenderRequestPurpose.Auxiliary,
-            targetDomain: s_bounds,
-            requestedRegion: s_bounds,
-            cachePolicy: RenderCacheOptions.Disabled,
-            owner: owner));
+        using var request = new RenderRequest(
+            FailureTestSupport.CreateOptions(RenderRequestPurpose.Auxiliary, owner: owner));
 
         InvalidOperationException? thrown = Assert.Throws<InvalidOperationException>(
             () => new RenderRequestRecorder(request).Record(node));
@@ -250,16 +243,10 @@ public sealed class RecordingAndPlanningFailureTests
     public void EveryRecordingRecursionShape_FailsWithAPathBeforeAllocation(RecordingRecursion shape)
     {
         using var owner = new RenderRequestOwner();
-        var options = new RenderRequestOptions(
-            RenderIntent.Preview,
-            RenderRequestPurpose.Auxiliary,
-            targetDomain: s_bounds,
-            requestedRegion: s_bounds,
-            cachePolicy: RenderCacheOptions.Disabled,
-            owner: owner);
         var resource = new FailureTestDisposable();
-        using var node = RecursionNode.Create(shape, options, resource);
-        using var request = new RenderRequest(options);
+        using var node = RecursionNode.Create(shape, resource);
+        using var request = new RenderRequest(
+            FailureTestSupport.CreateOptions(RenderRequestPurpose.Auxiliary, owner: owner));
 
         InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(
             () => new RenderRequestRecorder(request).Record(node));
@@ -316,22 +303,17 @@ public sealed class RecordingAndPlanningFailureTests
             renderCacheContext: FailureTestSupport.CacheResolutionContext,
             renderCacheLookup: new InvalidPayloadCacheLookup());
         using CompiledRenderRequest compiled = compiler.Compile(request, graph);
-        using RenderTarget destination = FailureTestSupport.CreateCpuTarget(8, 8);
-        using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview);
-        using var registry = new RenderTargetPool(factory: null);
-        using RenderTargetLeaseSession targets = registry.BeginSession(
-            RenderIntent.Preview,
-            destination);
+        using FailureTestExecution execution = FailureTestSupport.BeginExecution();
 
         InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(
-            () => new RenderRequestExecutor(targets).Execute(compiled, canvas));
+            () => execution.Execute(compiled));
 
         Assert.Multiple(() =>
         {
             Assert.That(failure!.Message, Does.Contain("node-cache output payload"));
             Assert.That(node.ExecuteCalls, Is.Zero, "A hit substitution must not execute its producer.");
             Assert.That(node.Cache.IsCached, Is.False);
-            Assert.That(registry.Statistics.LeasedTargets, Is.Zero);
+            Assert.That(execution.Registry.Statistics.LeasedTargets, Is.Zero);
         });
     }
 
@@ -347,22 +329,17 @@ public sealed class RecordingAndPlanningFailureTests
                 renderCacheLookup: RenderNodeCacheLookup.Instance)
             .Compile(request, graph);
         node.Cache.Dispose();
-        using RenderTarget destination = FailureTestSupport.CreateCpuTarget(8, 8);
-        using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview);
-        using var registry = new RenderTargetPool(factory: null);
-        using RenderTargetLeaseSession targets = registry.BeginSession(
-            RenderIntent.Preview,
-            destination);
+        using FailureTestExecution execution = FailureTestSupport.BeginExecution();
 
         Assert.That(
-            () => new RenderRequestExecutor(targets).Execute(compiled, canvas),
+            () => execution.Execute(compiled),
             Throws.TypeOf<ObjectDisposedException>());
 
         Assert.Multiple(() =>
         {
             Assert.That(node.ExecuteCalls, Is.EqualTo(1));
             Assert.That(node.Cache.IsCached, Is.False);
-            Assert.That(registry.Statistics.LeasedTargets, Is.Zero);
+            Assert.That(execution.Registry.Statistics.LeasedTargets, Is.Zero);
         });
     }
 
@@ -488,17 +465,14 @@ public sealed class RecordingAndPlanningFailureTests
     private sealed class RecursionNode : RenderNode
     {
         private readonly RecordingRecursion _shape;
-        private readonly RenderRequestOptions _options;
         private readonly FailureTestDisposable? _resource;
         private RecursionNode? _other;
 
         private RecursionNode(
             RecordingRecursion shape,
-            RenderRequestOptions options,
             FailureTestDisposable? resource = null)
         {
             _shape = shape;
-            _options = options;
             _resource = resource;
         }
 
@@ -506,13 +480,12 @@ public sealed class RecordingAndPlanningFailureTests
 
         public static RecursionNode Create(
             RecordingRecursion shape,
-            RenderRequestOptions options,
             FailureTestDisposable? resource = null)
         {
-            var result = new RecursionNode(shape, options, resource);
+            var result = new RecursionNode(shape, resource);
             if (shape == RecordingRecursion.IndirectRecordNode)
             {
-                result._other = new RecursionNode(shape, options) { _other = result };
+                result._other = new RecursionNode(shape) { _other = result };
             }
 
             return result;
@@ -618,15 +591,28 @@ internal static class FailureTestSupport
             Purpose = purpose,
         }, factory);
 
-    public static RenderRequest CreateFrameRequest(bool useRenderCache)
-        => new(new RenderRequestOptions(
-            RenderIntent.Preview,
-            RenderRequestPurpose.Frame,
+    public static RenderRequestOptions CreateOptions(
+        RenderRequestPurpose purpose,
+        bool useRenderCache = false,
+        RenderRequestOwner? owner = null,
+        RenderIntent intent = RenderIntent.Preview)
+        => new(
+            intent,
+            purpose,
             targetDomain: s_bounds,
             requestedRegion: s_bounds,
             outputScale: 1,
             maxWorkingScale: 1,
-            cachePolicy: useRenderCache ? RenderCacheOptions.Enabled : RenderCacheOptions.Disabled));
+            cachePolicy: useRenderCache ? RenderCacheOptions.Enabled : RenderCacheOptions.Disabled,
+            owner: owner);
+
+    public static RenderRequest CreateFrameRequest(bool useRenderCache)
+        => new(CreateOptions(RenderRequestPurpose.Frame, useRenderCache));
+
+    public static FailureTestExecution BeginExecution(
+        IRenderTargetFactory? factory = null,
+        RenderIntent intent = RenderIntent.Preview)
+        => new(factory, intent);
 
     public static OpaqueRenderDescription SourceDescription(
         Action<OpaqueRenderSession>? execute = null)
@@ -659,6 +645,36 @@ internal static class FailureTestSupport
         => new FailureTestRenderTarget(new PixelSize(width, height));
 }
 
+/// <summary>A CPU destination with its canvas and a lease session that compiled requests execute into.</summary>
+internal sealed class FailureTestExecution : IDisposable
+{
+    private readonly RenderTarget _destination = FailureTestSupport.CreateCpuTarget();
+
+    public FailureTestExecution(IRenderTargetFactory? factory, RenderIntent intent)
+    {
+        Canvas = new ImmediateCanvas(_destination, RenderIntent.Preview);
+        Registry = new RenderTargetPool(factory);
+        Targets = Registry.BeginSession(intent, _destination);
+    }
+
+    public ImmediateCanvas Canvas { get; }
+
+    public RenderTargetPool Registry { get; }
+
+    public RenderTargetLeaseSession Targets { get; }
+
+    public void Execute(CompiledRenderRequest compiled)
+        => new RenderRequestExecutor(Targets).Execute(compiled, Canvas);
+
+    public void Dispose()
+    {
+        Targets.Dispose();
+        Registry.Dispose();
+        Canvas.Dispose();
+        _destination.Dispose();
+    }
+}
+
 internal sealed class FailureTestDisposable(Exception? failure = null) : IDisposable
 {
     public int DisposeCalls { get; private set; }
@@ -668,60 +684,5 @@ internal sealed class FailureTestDisposable(Exception? failure = null) : IDispos
         DisposeCalls++;
         if (failure is not null)
             throw failure;
-    }
-}
-
-internal sealed class FailureTestTargetFactory(
-    int? failAt = null,
-    Exception? createFailure = null,
-    Func<int, Exception?>? disposeFailure = null) : IRenderTargetFactory
-{
-    public List<FailureTestRenderTarget> Targets { get; } = [];
-
-    public int CreateCalls { get; private set; }
-
-    public RenderTarget? Create(RenderTargetAllocationDescriptor allocation)
-    {
-        PixelSize deviceSize = allocation.DeviceSize;
-        int index = CreateCalls++;
-        if (createFailure is not null)
-            throw createFailure;
-        if (index == failAt)
-            return null;
-
-        var target = new FailureTestRenderTarget(deviceSize, disposeFailure?.Invoke(index));
-        Targets.Add(target);
-        return target;
-    }
-}
-
-internal sealed class FailureTestRenderTarget : RenderTarget
-{
-    private readonly Exception? _disposeFailure;
-
-    public FailureTestRenderTarget(PixelSize size, Exception? disposeFailure = null)
-        : base(
-            SKSurface.Create(new SKImageInfo(
-                size.Width,
-                size.Height,
-                SKColorType.RgbaF16,
-                SKAlphaType.Premul,
-                SKColorSpace.CreateSrgbLinear())),
-            size.Width,
-            size.Height)
-    {
-        _disposeFailure = disposeFailure;
-    }
-
-    public int DisposeCalls { get; private set; }
-
-    protected override void Dispose(bool disposing)
-    {
-        bool shouldThrow = disposing && !IsDisposed && _disposeFailure is not null;
-        if (disposing && !IsDisposed)
-            DisposeCalls++;
-        base.Dispose(disposing);
-        if (shouldThrow)
-            throw _disposeFailure!;
     }
 }

@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics;
+﻿using Beutl.Collections.Pooled;
+using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
@@ -15,7 +16,6 @@ public sealed class FilterEffectAlphaReadbackTests
     private static readonly PixelSize s_sourceSize = new(72, 56);
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void SnapshotAlpha_ReadsAlpha8AndMatchesEffectItemConversionExactly()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -40,7 +40,6 @@ public sealed class FilterEffectAlphaReadbackTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void SnapshotAlpha_RetainsCompletionWaitForCpuReadback()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -63,7 +62,6 @@ public sealed class FilterEffectAlphaReadbackTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void ClippingAutoClip_DirectAlphaReadbackMatchesEffectItemBoundsExactly()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -80,9 +78,10 @@ public sealed class FilterEffectAlphaReadbackTests
         });
     }
 
+    // FlatShadow and StrokeEffect outline these contours, and PartsSplitEffect splits by the hierarchy, so
+    // identical contours from both readbacks give identical effect output.
     [Test]
-    [Category("GpuPassFusionGpu")]
-    public void FlatShadow_DirectAlphaReadbackMatchesEffectItemContourRenderingExactly()
+    public void FindContours_DirectAlphaReadbackMatchesEffectItemContoursExactly()
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
@@ -90,16 +89,15 @@ public sealed class FilterEffectAlphaReadbackTests
             using RenderTarget source = CreatePatternTarget();
             using Bitmap effectItemSource = source.Snapshot();
             using Bitmap directAlpha = source.SnapshotAlpha();
-            using Bitmap expected = RenderFlatShadowContours(effectItemSource);
-            using Bitmap actual = RenderFlatShadowContours(directAlpha);
+            using Contours expected = ContourTracer.FindContours(effectItemSource);
+            using Contours actual = ContourTracer.FindContours(directAlpha);
 
-            AssertRowsIdentical(expected, actual, "effectItem FlatShadow contours", "direct-alpha FlatShadow contours");
+            Assert.That(Points(actual), Is.EqualTo(Points(expected)));
         });
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
-    public void StrokeEffect_DirectAlphaReadbackMatchesEffectItemContourRenderingExactly()
+    public void FindContoursWithHierarchy_DirectAlphaReadbackMatchesEffectItemContoursExactly()
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
@@ -107,27 +105,22 @@ public sealed class FilterEffectAlphaReadbackTests
             using RenderTarget source = CreatePatternTarget();
             using Bitmap effectItemSource = source.Snapshot();
             using Bitmap directAlpha = source.SnapshotAlpha();
-            using Bitmap expected = RenderStrokeContours(effectItemSource);
-            using Bitmap actual = RenderStrokeContours(directAlpha);
-
-            AssertRowsIdentical(expected, actual, "effectItem StrokeEffect contours", "direct-alpha StrokeEffect contours");
-        });
-    }
-
-    [Test]
-    [Category("GpuPassFusionGpu")]
-    public void PartsSplitEffect_DirectAlphaReadbackMatchesEffectItemContourRenderingExactly()
-    {
-        VulkanTestEnvironment.EnsureAvailable();
-        VulkanTestEnvironment.InvokeOnRenderThread(() =>
-        {
-            using RenderTarget source = CreatePatternTarget();
-            using Bitmap effectItemSource = source.Snapshot();
-            using Bitmap directAlpha = source.SnapshotAlpha();
-            using Bitmap expected = RenderSplitContours(effectItemSource);
-            using Bitmap actual = RenderSplitContours(directAlpha);
-
-            AssertRowsIdentical(expected, actual, "effectItem PartsSplitEffect contours", "direct-alpha PartsSplitEffect contours");
+            ContourTracer.FindContoursWithHierarchy(
+                effectItemSource,
+                out Contours expected,
+                out PooledList<int> expectedParents);
+            ContourTracer.FindContoursWithHierarchy(directAlpha, out Contours actual, out PooledList<int> actualParents);
+            using (expected)
+            using (expectedParents)
+            using (actual)
+            using (actualParents)
+            {
+                Assert.Multiple(() =>
+                {
+                    Assert.That(Points(actual), Is.EqualTo(Points(expected)));
+                    Assert.That(actualParents.ToArray(), Is.EqualTo(expectedParents.ToArray()));
+                });
+            }
         });
     }
 
@@ -162,153 +155,8 @@ public sealed class FilterEffectAlphaReadbackTests
         return new Thickness(x0, y0, bitmap.Width - x1, bitmap.Height - y1);
     }
 
-    private static Bitmap RenderFlatShadowContours(Bitmap source)
-    {
-        using SKPath path = CreateContourPath(source);
-        Bitmap result = CreateReferenceBitmap();
-        using var canvas = new SKCanvas(result.SKBitmap);
-        canvas.Clear(SKColors.Transparent);
-        using var paint = new SKPaint
-        {
-            Color = SKColors.White,
-            IsAntialias = true,
-            Style = SKPaintStyle.Fill,
-        };
-
-        float x = MathF.Cos(MathF.PI * 31 / 180);
-        float y = MathF.Sin(MathF.PI * 31 / 180);
-        for (int i = 0; i < 13; i++)
-        {
-            canvas.Translate(x, y);
-            canvas.DrawPath(path, paint);
-        }
-
-        return result;
-    }
-
-    private static Bitmap RenderStrokeContours(Bitmap source)
-    {
-        using SKPath path = CreateContourPath(source);
-        Bitmap result = CreateReferenceBitmap();
-        using var canvas = new SKCanvas(result.SKBitmap);
-        canvas.Clear(SKColors.Transparent);
-        canvas.Translate(4, 3);
-        using var paint = new SKPaint
-        {
-            Color = SKColors.Blue,
-            IsAntialias = true,
-            Style = SKPaintStyle.Stroke,
-            StrokeWidth = 7,
-        };
-        canvas.DrawPath(path, paint);
-        return result;
-    }
-
-    private static Bitmap RenderSplitContours(Bitmap source)
-    {
-        List<SKPath> paths = CreateSplitPaths(source);
-        try
-        {
-            Bitmap result = CreateReferenceBitmap();
-            using var canvas = new SKCanvas(result.SKBitmap);
-            canvas.Clear(SKColors.Transparent);
-            using var paint = new SKPaint
-            {
-                IsAntialias = true,
-                Style = SKPaintStyle.Fill,
-            };
-            SKColor[] colors = [SKColors.Red, SKColors.Green, SKColors.Blue, SKColors.Yellow];
-            for (int i = 0; i < paths.Count; i++)
-            {
-                paint.Color = colors[i % colors.Length];
-                canvas.DrawPath(paths[i], paint);
-            }
-
-            return result;
-        }
-        finally
-        {
-            foreach (SKPath path in paths)
-                path.Dispose();
-        }
-    }
-
-    private static SKPath CreateContourPath(Bitmap source)
-    {
-        using Contours contours = ContourTracer.FindContours(source);
-        using var builder = new SKPathBuilder();
-        for (int contourIndex = 0; contourIndex < contours.Count; contourIndex++)
-        {
-            ReadOnlySpan<PixelPoint> contour = contours[contourIndex];
-            for (int i = 0; i < contour.Length; i++)
-            {
-                if (i == 0)
-                    builder.MoveTo(contour[i].X, contour[i].Y);
-                else
-                    builder.LineTo(contour[i].X, contour[i].Y);
-            }
-            builder.Close();
-        }
-
-        return builder.Detach();
-    }
-
-    private static List<SKPath> CreateSplitPaths(Bitmap source)
-    {
-        ContourTracer.FindContoursWithHierarchy(source, out Contours contours, out var parentIndices);
-        using (contours)
-        using (parentIndices)
-        {
-            var paths = new List<(SKPath Path, int Parent, int Index)>(contours.Count);
-            for (int i = 0; i < contours.Count; i++)
-            {
-                ReadOnlySpan<PixelPoint> contour = contours[i];
-                using var builder = new SKPathBuilder();
-                for (int j = 0; j < contour.Length; j++)
-                {
-                    if (j == 0)
-                        builder.MoveTo(contour[j].X, contour[j].Y);
-                    else
-                        builder.LineTo(contour[j].X, contour[j].Y);
-                }
-                builder.Close();
-                paths.Add((builder.Detach(), parentIndices[i], i));
-            }
-
-            for (int i = 0; i < paths.Count; i++)
-            {
-                (SKPath path, int parent, int _) = paths[i];
-                if (parent < 0)
-                    continue;
-
-                int parentIndex = paths.FindIndex(item => item.Index == parent);
-                if (parentIndex < 0)
-                    continue;
-
-                (SKPath parentPath, int grandParent, int originalIndex) = paths[parentIndex];
-                SKPath? merged = parentPath.Op(path, SKPathOp.Xor);
-                if (merged is null)
-                    continue;
-
-                path.Dispose();
-                parentPath.Dispose();
-                paths[parentIndex] = (merged, grandParent, originalIndex);
-                paths.RemoveAt(i);
-                if (parentIndex < i)
-                    i--;
-            }
-
-            return paths.Select(static item => item.Path).ToList();
-        }
-    }
-
-    private static Bitmap CreateReferenceBitmap()
-        => new(
-            96,
-            80,
-            BitmapColorType.RgbaF16,
-            BitmapAlphaType.Premul,
-            BitmapColorSpace.LinearSrgb);
+    private static PixelPoint[][] Points(Contours contours)
+        => [.. Enumerable.Range(0, contours.Count).Select(index => contours[index].ToArray())];
 
     private static RenderTarget CreatePatternTarget()
     {

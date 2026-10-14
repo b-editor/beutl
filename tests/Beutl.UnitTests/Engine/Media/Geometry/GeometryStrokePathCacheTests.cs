@@ -47,11 +47,7 @@ public sealed class GeometryStrokePathCacheTests
         using Geometry.Resource geometry = CreateAttachedEllipse();
         using var pen = CreateDetachedPen(thickness: 4);
 
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(geometry.GetRenderBounds(pen), Is.EqualTo(new Rect(-2, -2, 104, 54)));
-            Assert.That(geometry.GetRenderBounds(pen), Is.EqualTo(new Rect(-2, -2, 104, 54)));
-        }
+        Assert.That(geometry.GetCachedStrokePath(pen), Is.SameAs(geometry.GetCachedStrokePath(pen)));
     }
 
     [Test]

@@ -1,7 +1,5 @@
 ﻿using Beutl.Graphics.Shapes;
-using Beutl.Logging;
 using Beutl.Media.TextFormatting;
-using Microsoft.Extensions.Logging;
 
 namespace Beutl.UnitTests.Engine;
 
@@ -10,14 +8,14 @@ public class TextElementsTests
     [SetUp]
     public void Setup()
     {
-        Log.LoggerFactory = LoggerFactory.Create(b => b.AddSimpleConsole());
         _ = TypefaceProvider.Typeface();
     }
 
+    // A line feed or a lone carriage return breaks the line, so "\n\r" and "\r" then "\n" each leave an empty line.
     [Test]
     public void LinesEnumerator()
     {
-        var items = new TextElements(
+        using var items = new TextElements(
         [
             new TextElement()
             {
@@ -36,9 +34,23 @@ public class TextElementsTests
             }
         ]);
 
-        foreach (Span<FormattedText> _ in items.Lines)
+        var lines = new List<string[]>();
+        foreach (Span<FormattedText> line in items.Lines)
         {
-
+            string[] texts = new string[line.Length];
+            for (int i = 0; i < line.Length; i++)
+                texts[i] = line[i].Text.ToString();
+            lines.Add(texts);
         }
+
+        Assert.That(lines, Is.EqualTo(new[]
+        {
+            new[] { "ABC" },
+            new[] { "DEF", "GHI" },
+            new[] { "" },
+            new[] { "JKL" },
+            new[] { "" },
+            new[] { "MNO" },
+        }));
     }
 }

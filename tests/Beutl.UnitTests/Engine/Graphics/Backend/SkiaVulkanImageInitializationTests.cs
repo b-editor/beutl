@@ -15,7 +15,6 @@ namespace Beutl.UnitTests.Engine.Graphics.Backend;
 public class SkiaVulkanImageInitializationTests
 {
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void BackendClear_CompletesBeforeSkiaPartiallyOverwritesTarget()
     {
         IGraphicsContext context = VulkanTestEnvironment.EnsureAvailable();
@@ -56,7 +55,6 @@ public class SkiaVulkanImageInitializationTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void SkiaImageState_FollowsInitializationBeforeUntouchedSnapshot()
     {
         IGraphicsContext context = VulkanTestEnvironment.EnsureAvailable();
@@ -92,7 +90,6 @@ public class SkiaVulkanImageInitializationTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void NewRenderTarget_SubmitsInitializationBeforeUntouchedSnapshot()
     {
         IGraphicsContext context = VulkanTestEnvironment.EnsureAvailable();

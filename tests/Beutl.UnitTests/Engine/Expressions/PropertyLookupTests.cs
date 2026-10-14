@@ -83,32 +83,33 @@ public class PropertyLookupTests
     public void TryGetPropertyValue_WithBracedGuid_ShouldWork()
     {
         // Arrange
-        var root = new TestCoreObject();
+        var root = new TestEngineObject();
+        root.Value.CurrentValue = 42.0;
         var lookup = new PropertyLookup(root);
         var context = CreateContext(lookup);
-        var guid = Guid.NewGuid();
 
         // Act - Test with braced GUID format {guid}
-        bool result = lookup.TryGetPropertyValue<double>($"{{{guid}}}.PropertyName", context, out var value);
+        bool result = lookup.TryGetPropertyValue<double>($"{{{root.Id}}}.Value", context, out var value);
 
-        // Assert - Should be false because object doesn't exist, but should parse correctly
-        Assert.That(result, Is.False);
+        // Assert
+        Assert.That(result, Is.True);
+        Assert.That(value, Is.EqualTo(42.0));
     }
 
     [Test]
     public void TryGetPropertyValue_WithEmptyPropertyName_ShouldReturnFalse()
     {
         // Arrange
-        var root = new TestCoreObject();
+        var root = new TestEngineObject();
         var lookup = new PropertyLookup(root);
         var context = CreateContext(lookup);
-        var guid = Guid.NewGuid();
 
         // Act - Path with empty property name
-        bool result = lookup.TryGetPropertyValue<double>($"{guid}.", context, out var value);
+        bool result = lookup.TryGetPropertyValue<double>($"{root.Id}.", context, out var value);
 
-        // Assert - Returns false because the object is not found (GUID doesn't exist in the hierarchy)
+        // Assert
         Assert.That(result, Is.False);
+        Assert.That(value, Is.EqualTo(default(double)));
     }
 
     [Test]

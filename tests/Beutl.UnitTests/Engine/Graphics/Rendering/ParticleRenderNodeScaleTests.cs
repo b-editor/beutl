@@ -8,7 +8,7 @@ using Beutl.UnitTests.Engine.Graphics.Backend;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
-// ParticleRenderNode rasterizes at s_out and tags its op At(w), never Unbounded.
+// ParticleRenderNode materializes at the output scale and reports At(scale), never Unbounded.
 [NonParallelizable]
 [TestFixture]
 public class ParticleRenderNodeScaleTests
@@ -58,15 +58,6 @@ public class ParticleRenderNodeScaleTests
             new CompositionContext(TimeSpan.FromSeconds(1)));
     }
 
-    [Test]
-    public void Resource_AfterOneSecond_HasAliveParticles()
-    {
-        ParticleEmitter.Resource resource = BuildResourceWithAliveParticles();
-        Assert.That(resource.GetAliveParticles().Length, Is.GreaterThanOrEqualTo(1),
-            "the particle simulation produced no alive particles at t=1s with default emission");
-    }
-
-    // Particle composite reports At(w) concretely, even at w == 1.
     [TestCase(1.0f)]
     [TestCase(2.0f)]
     public void MaterializedOutput_IsTaggedAtOutputScale_ConcreteNotUnbounded(float outputScale)

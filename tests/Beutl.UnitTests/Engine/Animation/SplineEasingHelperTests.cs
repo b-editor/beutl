@@ -6,42 +6,40 @@ namespace Beutl.UnitTests.Engine.Animation;
 [TestFixture]
 public class SplineEasingHelperTests
 {
+    // Each half is rescaled to the unit square, so mapping it back must trace the original curve on its side
+    // of the split.
     [Test]
-    public void SplitByT_ReturnsTwoEasings()
-    {
-        var src = new SplineEasing(0.25f, 0.1f, 0.25f, 1f);
-
-        var (left, right) = SplineEasingHelper.SplitByT(src, 0.5f);
-
-        Assert.That(left, Is.Not.Null);
-        Assert.That(right, Is.Not.Null);
-    }
-
-    [Test]
-    public void SplitByT_ClampsBelowZero()
-    {
-        var src = new SplineEasing();
-        Assert.DoesNotThrow(() => SplineEasingHelper.SplitByT(src, -1f));
-    }
-
-    [Test]
-    public void SplitByT_ClampsAboveOne()
-    {
-        var src = new SplineEasing();
-        Assert.DoesNotThrow(() => SplineEasingHelper.SplitByT(src, 2f));
-    }
-
-    [Test]
-    public void SplitByT_LeftAndRightControlPointsValid()
+    public void SplitByT_HalvesReproduceTheOriginalCurve()
     {
         var src = new SplineEasing(0.42f, 0f, 0.58f, 1f);
+        const float t = 0.4f;
+        float splitValue = src.Ease(t);
 
-        var (left, right) = SplineEasingHelper.SplitByT(src, 0.5f);
+        var (left, right) = SplineEasingHelper.SplitByT(src, t);
 
-        Assert.That(left.X1, Is.InRange(0f, 1f));
-        Assert.That(left.X2, Is.InRange(0f, 1f));
-        Assert.That(right.X1, Is.InRange(0f, 1f));
-        Assert.That(right.X2, Is.InRange(0f, 1f));
+        Assert.Multiple(() =>
+        {
+            foreach (float x in new[] { 0.1f, 0.2f, 0.3f })
+            {
+                Assert.That(left.Ease(x / t) * splitValue, Is.EqualTo(src.Ease(x)).Within(2e-3), $"left at {x}");
+            }
+
+            foreach (float x in new[] { 0.5f, 0.7f, 0.9f })
+            {
+                Assert.That(
+                    splitValue + (right.Ease((x - t) / (1 - t)) * (1 - splitValue)),
+                    Is.EqualTo(src.Ease(x)).Within(2e-3),
+                    $"right at {x}");
+            }
+        });
+    }
+
+    [TestCase(-1f)]
+    [TestCase(2f)]
+    public void SplitByT_OutOfRangeT_DoesNotThrow(float t)
+    {
+        var src = new SplineEasing();
+        Assert.DoesNotThrow(() => SplineEasingHelper.SplitByT(src, t));
     }
 
     [Test]

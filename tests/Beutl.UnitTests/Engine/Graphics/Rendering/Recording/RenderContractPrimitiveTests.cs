@@ -133,8 +133,4 @@ public sealed class RenderContractPrimitiveTests
                 Throws.TypeOf<ArgumentException>().With.Property("ParamName").EqualTo("bounds"));
         });
     }
-
-    private sealed class DerivedMutableKey : List<int>;
-
-    private sealed record ImmutableIdentity(string Name, int Version);
 }

@@ -13,7 +13,7 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 [TestFixture]
 public class WorkingScaleClampConsistencyTests
 {
-    // 4000 logical px × w 8 = 32000 px > MaxBufferDimension (16384) → the clamp must fire.
+    // 4000 logical px × w 8 = 32000 px, past TestBufferDimension, so the clamp must fire.
     private static readonly Rect s_pathologicalBounds = new(0, 0, 4000, 10);
 
     // Below every device the suite runs on, so the clamp fires and the buffer stays allocatable everywhere.

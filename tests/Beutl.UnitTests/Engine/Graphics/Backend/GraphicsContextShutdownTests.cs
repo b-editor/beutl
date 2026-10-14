@@ -194,7 +194,6 @@ public sealed class GraphicsContextShutdownTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void AShutdown_LeavesAPooledTargetsBackendReleaseOnALiveDevice()
     {
         VulkanTestEnvironment.EnsureAvailable();

@@ -9,6 +9,7 @@ using Beutl.Media;
 using Beutl.UnitTests.Engine.Graphics.Backend;
 using Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 using SkiaSharp;
+using static Beutl.UnitTests.Engine.Graphics.Rendering.Fusion.FusionBoundaryExecutionTestSupport;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Fusion;
 
@@ -91,9 +92,8 @@ public sealed class CrossNodeShaderFusionTests
         float authoredOpacity,
         float expectedOpacity)
     {
-        var targetFactory = new CpuTargetFactory();
-        using RenderTarget source = targetFactory.CreateCpuTarget(
-            new PixelSize((int)s_bounds.Width, (int)s_bounds.Height));
+        var targetFactory = new CpuRenderTargetFactory();
+        using var source = new CpuRenderTarget((int)s_bounds.Width, (int)s_bounds.Height);
         source.Value.Canvas.Clear(new SKColor(48, 112, 216, 176));
         using var enabledNode = new PrimaryChainNode(source, s_bounds, authoredOpacity);
         using var disabledNode = new PrimaryChainNode(source, s_bounds, authoredOpacity);
@@ -131,37 +131,9 @@ public sealed class CrossNodeShaderFusionTests
     }
 
     [Test]
-    public void CpuDestination_UsesPortableBudgetAndSplitsLongShaderChain()
-    {
-        int stageCount = SkslBackendBudgetResolver.Portable.MaxStages + 1;
-        var targetFactory = new CpuTargetFactory();
-        using var node = new LongShaderChainNode(stageCount);
-        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
-        {
-            Intent = RenderIntent.Preview,
-            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-            FusionMode = FusionMode.Enabled,
-            Purpose = RenderRequestPurpose.Frame,
-        }, targetFactory);
-        using RenderTarget destination = targetFactory.CreateCpuTarget(new PixelSize(24, 16));
-        using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview, logicalSize: new Size(24, 16));
-
-        Assert.That(destination.Value.Context, Is.Null);
-        renderer.Render(canvas);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(renderer.LastExecutionStatistics.ShaderRunExecutions, Is.EqualTo(2));
-            Assert.That(renderer.LastExecutionStatistics.ShaderStageExecutions, Is.EqualTo(stageCount));
-            Assert.That(renderer.LastExecutionStatistics.FusedShaderRunExecutions, Is.EqualTo(1));
-        });
-    }
-
-    [Test]
     public void CpuDestination_SplitLongShaderChainMapsFinalCallbackStage()
     {
         int stageCount = SkslBackendBudgetResolver.Portable.MaxStages + 1;
-        var targetFactory = new CpuTargetFactory();
         using var node = new LongShaderChainNode(stageCount, bindLastStage: true);
         using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
         {
@@ -169,10 +141,11 @@ public sealed class CrossNodeShaderFusionTests
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             FusionMode = FusionMode.Enabled,
             Purpose = RenderRequestPurpose.Frame,
-        }, targetFactory);
-        using RenderTarget destination = targetFactory.CreateCpuTarget(new PixelSize(24, 16));
+        }, new CpuRenderTargetFactory());
+        using var destination = new CpuRenderTarget(24, 16);
         using var canvas = new ImmediateCanvas(destination, RenderIntent.Preview, logicalSize: new Size(24, 16));
 
+        Assert.That(destination.Value.Context, Is.Null);
         renderer.Render(canvas);
 
         Assert.Multiple(() =>
@@ -180,18 +153,17 @@ public sealed class CrossNodeShaderFusionTests
             Assert.That(node.BindingCalls, Is.EqualTo(1));
             Assert.That(renderer.LastExecutionStatistics.ShaderRunExecutions, Is.EqualTo(2));
             Assert.That(renderer.LastExecutionStatistics.ShaderStageExecutions, Is.EqualTo(stageCount));
+            Assert.That(renderer.LastExecutionStatistics.FusedShaderRunExecutions, Is.EqualTo(1));
         });
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void ChangingFromCpuToGpuDestination_SelectsTheActualSurfaceCapabilityClass()
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             int stageCount = SkslBackendBudgetResolver.Portable.MaxStages + 1;
-            var cpuFactory = new CpuTargetFactory();
             using var node = new LongShaderChainNode(stageCount);
             using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
             {
@@ -200,7 +172,7 @@ public sealed class CrossNodeShaderFusionTests
                 FusionMode = FusionMode.Enabled,
                 Purpose = RenderRequestPurpose.Frame,
             });
-            using RenderTarget cpuDestination = cpuFactory.CreateCpuTarget(new PixelSize(24, 16));
+            using var cpuDestination = new CpuRenderTarget(24, 16);
             using var cpuCanvas = new ImmediateCanvas(cpuDestination, RenderIntent.Preview, logicalSize: new Size(24, 16));
             using RenderTarget gpuDestination = RenderTarget.Create(24, 16)
                 ?? throw new InvalidOperationException("Could not create the GPU fusion-test surface.");
@@ -235,7 +207,6 @@ public sealed class CrossNodeShaderFusionTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void ProgramCache_ContextChangeMissesAndThenWarmsTheNewContext()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -253,8 +224,7 @@ public sealed class CrossNodeShaderFusionTests
                 secondDestination,
                 RenderIntent.Preview,
                 logicalSize: new Size(24, 16));
-            using RenderTarget source = new CpuTargetFactory().CreateCpuTarget(
-                new PixelSize((int)s_bounds.Width, (int)s_bounds.Height));
+            using var source = new CpuRenderTarget((int)s_bounds.Width, (int)s_bounds.Height);
             source.Value.Canvas.Clear(new SKColor(48, 112, 216, 176));
             using var node = new PrimaryChainNode(source, s_bounds);
             using var renderer = CreateRenderer(node, FusionMode.Enabled);
@@ -318,12 +288,14 @@ public sealed class CrossNodeShaderFusionTests
         var requestId = new RenderRequestId(1);
         RenderFragmentReference source = Fragment(
             RenderFragmentKind.MaterializedInput,
+            s_bounds,
             EffectiveScale.At(1),
             payload: null);
         ShaderDescription description = ShaderDescription.CurrentPixel(
             "half4 apply(half4 color) { return color; }");
         RenderFragmentReference unpublished = Fragment(
             RenderFragmentKind.Shader,
+            s_bounds,
             EffectiveScale.At(1),
             new ShaderRenderFragmentPayload(description),
             source);
@@ -344,7 +316,6 @@ public sealed class CrossNodeShaderFusionTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void Enabled_ExecutesDistinctNodePrimaryChainOnce_WithParityAndAWarmedProgram()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -369,7 +340,7 @@ public sealed class CrossNodeShaderFusionTests
                 enabledRaster.Bitmap!,
                 warmedRaster.Bitmap!);
             double ssim = ImageMetrics.Ssim(disabledRaster.Bitmap!, enabledRaster.Bitmap!);
-            double energy = SumAbsoluteChannels(enabledRaster.Bitmap!);
+            double energy = FusionBoundaryExecutionTestSupport.SumAbsoluteChannels(enabledRaster.Bitmap!);
 
             Assert.Multiple(() =>
             {
@@ -408,7 +379,6 @@ public sealed class CrossNodeShaderFusionTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void UnboundedVectorShaderRoot_DrawsTerminalRunDirectlyAndCacheForcesMaterialization()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -456,7 +426,6 @@ public sealed class CrossNodeShaderFusionTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void PublishedShaderFanOut_DisablesTerminalDirectDraw()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -479,7 +448,6 @@ public sealed class CrossNodeShaderFusionTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void TerminalDirectDraw_PreservesActiveDestinationState_WithCacheMissAsReference()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -492,8 +460,8 @@ public sealed class CrossNodeShaderFusionTests
             using var direct = CreateRenderer(directNode, FusionMode.Enabled);
             using var cached = CreateRenderer(cachedNode, FusionMode.Enabled, useRenderCache: true);
 
-            using Bitmap directBitmap = RenderWithActiveDestinationState(direct);
-            using Bitmap cachedBitmap = RenderWithActiveDestinationState(cached);
+            using Bitmap directBitmap = RenderWithDestinationTranslation(direct, 2, 1);
+            using Bitmap cachedBitmap = RenderWithDestinationTranslation(cached, 2, 1);
             using Bitmap background = CreateActiveDestinationBackground();
             RgbaMaximumError parity = ImageMetrics.MaximumAbsoluteErrorPerChannel(
                 directBitmap,
@@ -520,7 +488,6 @@ public sealed class CrossNodeShaderFusionTests
     }
 
     [Test]
-    [Category("GpuPassFusionGpu")]
     public void TerminalDirectDraw_FractionalDestinationFallsBackToMaterializedComposite()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -578,9 +545,6 @@ public sealed class CrossNodeShaderFusionTests
             FusionMode = fusionMode,
             Purpose = RenderRequestPurpose.Frame,
         }, targetFactory);
-
-    private static Bitmap RenderWithActiveDestinationState(RenderNodeRenderer renderer)
-        => RenderWithDestinationTranslation(renderer, 2, 1);
 
     private static Bitmap CreateActiveDestinationBackground()
     {
@@ -644,14 +608,6 @@ public sealed class CrossNodeShaderFusionTests
         }
     }
 
-    private static double SumAbsoluteChannels(Bitmap bitmap)
-    {
-        double result = 0;
-        foreach (ushort bits in bitmap.GetPixelSpan<ushort>())
-            result += Math.Abs((float)BitConverter.UInt16BitsToHalf(bits));
-        return result;
-    }
-
     private sealed class PrimaryChainNode : RenderNode
     {
         private static readonly ShaderDescription s_gamma = ShaderDescription.CurrentPixel(
@@ -704,15 +660,7 @@ public sealed class CrossNodeShaderFusionTests
         public override void Process(RenderNodeContext context)
         {
             ProcessCalls++;
-            RenderResource<RenderTarget> target = context.Borrow(source);
-            context.Publish(context.MaterializedInput(
-                MaterializedInputDescription.FromRenderTarget(
-                    target,
-                    bounds,
-                    EffectiveScale.At(1),
-                    PixelRect.FromRect(bounds, 1),
-                    default,
-                    RenderHitTestContract.OutputBounds)));
+            context.Publish(FusionBoundaryExecutionTestSupport.BorrowMaterializedInput(context, source, bounds));
         }
     }
 
@@ -781,32 +729,6 @@ public sealed class CrossNodeShaderFusionTests
         }
     }
 
-    private sealed class CpuTargetFactory : IRenderTargetFactory
-    {
-        public RenderTarget CreateCpuTarget(PixelSize deviceSize)
-            => CreateCore(deviceSize);
-
-        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
-            => CreateCore(allocation.DeviceSize);
-
-        private static RenderTarget CreateCore(PixelSize deviceSize)
-        {
-            SKSurface surface = SKSurface.Create(new SKImageInfo(
-                    deviceSize.Width,
-                    deviceSize.Height,
-                    SKColorType.RgbaF16,
-                    SKAlphaType.Premul,
-                    SKColorSpace.CreateSrgbLinear()))
-                ?? throw new InvalidOperationException("Could not create the CPU fusion-test surface.");
-            return new CpuRenderTarget(surface, deviceSize);
-        }
-    }
-
-    private sealed class CpuRenderTarget(SKSurface surface, PixelSize size)
-        : RenderTarget(surface, size.Width, size.Height)
-    {
-    }
-
     private sealed class TextureRenderTarget : RenderTarget
     {
         private ITexture2D? _texture;
@@ -867,78 +789,46 @@ public sealed class CrossNodeShaderFusionTests
     private static CompiledRenderRequest CompilePrimaryChain(
         FusionMode fusionMode,
         bool publishFirstShader = false)
-    {
-        var options = new RenderRequestOptions(
-            RenderIntent.Preview,
-            RenderRequestPurpose.Frame,
-            fusionMode: fusionMode);
-        var request = new RenderRequest(options);
+        => CompileGraph(
+            new RenderRequestOptions(
+                RenderIntent.Preview,
+                RenderRequestPurpose.Frame,
+                fusionMode: fusionMode),
+            requestId =>
+            {
+                RenderFragmentReference source = Fragment(
+                    RenderFragmentKind.MaterializedInput,
+                    s_bounds,
+                    EffectiveScale.At(1),
+                    payload: null);
+                ShaderDescription gamma = ShaderDescription.CurrentPixel(
+                    "half4 apply(half4 color) { return half4(sqrt(color.rgb), color.a); }");
+                RenderFragmentReference firstShader = Fragment(
+                    RenderFragmentKind.Shader,
+                    s_bounds,
+                    EffectiveScale.At(1),
+                    new ShaderRenderFragmentPayload(gamma),
+                    source);
+                RenderFragmentReference opacity = Fragment(
+                    RenderFragmentKind.Opacity,
+                    s_bounds,
+                    EffectiveScale.At(1),
+                    new OpacityRenderFragmentPayload(
+                        0.625f,
+                        OpacityRenderNode.CreateFusionDescription(0.625f)),
+                    firstShader);
+                ShaderDescription invert = ShaderDescription.CurrentPixel(
+                    "half4 apply(half4 color) { return half4(color.a - color.rgb, color.a); }");
+                RenderFragmentReference secondShader = Fragment(
+                    RenderFragmentKind.Shader,
+                    s_bounds,
+                    EffectiveScale.At(1),
+                    new ShaderRenderFragmentPayload(invert),
+                    opacity);
 
-        RenderFragmentReference source = Fragment(
-            RenderFragmentKind.MaterializedInput,
-            EffectiveScale.At(1),
-            payload: null);
-        ShaderDescription gamma = ShaderDescription.CurrentPixel(
-            "half4 apply(half4 color) { return half4(sqrt(color.rgb), color.a); }");
-        RenderFragmentReference firstShader = Fragment(
-            RenderFragmentKind.Shader,
-            EffectiveScale.At(1),
-            new ShaderRenderFragmentPayload(gamma),
-            source);
-        RenderFragmentReference opacity = Fragment(
-            RenderFragmentKind.Opacity,
-            EffectiveScale.At(1),
-            new OpacityRenderFragmentPayload(
-                0.625f,
-                OpacityRenderNode.CreateFusionDescription(0.625f)),
-            firstShader);
-        ShaderDescription invert = ShaderDescription.CurrentPixel(
-            "half4 apply(half4 color) { return half4(color.a - color.rgb, color.a); }");
-        RenderFragmentReference secondShader = Fragment(
-            RenderFragmentKind.Shader,
-            EffectiveScale.At(1),
-            new ShaderRenderFragmentPayload(invert),
-            opacity);
-
-        RecordedRenderGraph graph = BuildGraph(
-            request.Id,
-            [source, firstShader, opacity, secondShader],
-            publishFirstShader ? [firstShader, secondShader] : [secondShader]);
-        request.TransitionTo(RenderRequestState.Recording);
-        request.TransitionTo(RenderRequestState.Recorded);
-        return new RenderRequestCompiler().Compile(request, graph);
-    }
-
-    private static RenderFragmentReference Fragment(
-        RenderFragmentKind kind,
-        EffectiveScale scale,
-        object? payload,
-        params RenderFragmentReference[] inputs)
-    {
-        return new RenderFragmentReference(
-            kind,
-            s_bounds,
-            scale,
-            RenderValueCardinality.Single,
-            contributesValuesToTarget: true,
-            canBeUsedAsValueInput: true,
-            hasTargetEffects: false,
-            hasOpaqueExternalWork: false,
-            [.. inputs],
-            payload,
-            RenderFragmentHitTest.Bounds);
-    }
-
-    private static RecordedRenderGraph BuildGraph(
-        RenderRequestId requestId,
-        IReadOnlyList<RenderFragmentReference> references,
-        IReadOnlyList<RenderFragmentReference> roots)
-    {
-        var builder = new RecordedRenderGraphBuilder(requestId);
-        foreach (RenderFragmentReference reference in references)
-            builder.AddFragment(reference);
-        foreach (RenderFragmentReference root in roots)
-            builder.PublishRoot(root.Id!.Value);
-        return builder.Build();
-    }
+                return BuildGraph(
+                    requestId,
+                    [source, firstShader, opacity, secondShader],
+                    publishFirstShader ? [firstShader, secondShader] : [secondShader]);
+            });
 }

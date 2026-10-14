@@ -432,8 +432,3 @@ public sealed class RenderDescriptionAndExecutionContractTests
         token.Complete();
     }
 }
-
-internal static class RenderDescriptionAndExecutionContractSlots
-{
-    internal static readonly RenderResourceSlot<object> Resource = new();
-}

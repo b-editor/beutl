@@ -71,14 +71,10 @@ public sealed class LutEffectTextureTests
             Directory.Delete(_directory, recursive: true);
     }
 
-    [TestCase(CubeFileDimension.OneDimension, 17)]
-    [TestCase(CubeFileDimension.OneDimension, 65536)]
-    [TestCase(CubeFileDimension.ThreeDimension, 2)]
-    [TestCase(CubeFileDimension.ThreeDimension, 33)]
-    [TestCase(CubeFileDimension.ThreeDimension, 65)]
+    [TestCaseSource(nameof(Tables))]
     public void CpuLookup_PreservesColorsAndAlpha(CubeFileDimension dimension, int size)
     {
-        SKColor[] pixels = Render(CreateSource(dimension, size), RenderIntent.Preview, new CpuTargetFactory());
+        SKColor[] pixels = Render(CreateSource(dimension, size), RenderIntent.Preview, new CpuRenderTargetFactory());
 
         AssertInvertedEndpointsAndAlpha(pixels);
     }
@@ -95,7 +91,7 @@ public sealed class LutEffectTextureTests
         CubeSource source = CreateSource(dimension, size);
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            SKColor[] expected = Render(source, intent, new CpuTargetFactory());
+            SKColor[] expected = Render(source, intent, new CpuRenderTargetFactory());
             SKColor[] actual = Render(source, intent);
 
             AssertInvertedEndpointsAndAlpha(actual);
@@ -112,6 +108,9 @@ public sealed class LutEffectTextureTests
             });
         });
     }
+
+    private static IEnumerable<TestCaseData> Tables()
+        => s_tables.Select(static table => new TestCaseData(table.Dimension, table.Size));
 
     private string TablePath(CubeFileDimension dimension, int size)
         => Path.Combine(_directory, $"{dimension}-{size}.cube");
@@ -168,20 +167,4 @@ public sealed class LutEffectTextureTests
                 fill.Dispose();
         }
     }
-
-    private sealed class CpuTargetFactory : IRenderTargetFactory
-    {
-        public RenderTarget Create(RenderTargetAllocationDescriptor allocation)
-        {
-            using SKColorSpace colorSpace = SKColorSpace.CreateSrgbLinear();
-            PixelSize size = allocation.DeviceSize;
-            SKSurface surface = SKSurface.Create(new SKImageInfo(
-                size.Width, size.Height, SKColorType.RgbaF16, SKAlphaType.Premul, colorSpace))
-                ?? throw new InvalidOperationException("Could not create the CPU LUT test surface.");
-            return new CpuRenderTarget(surface, size);
-        }
-    }
-
-    private sealed class CpuRenderTarget(SKSurface surface, PixelSize size)
-        : RenderTarget(surface, size.Width, size.Height);
 }

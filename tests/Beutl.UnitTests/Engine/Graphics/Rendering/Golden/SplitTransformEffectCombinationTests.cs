@@ -8,14 +8,9 @@ using Beutl.UnitTests.Engine.Graphics.Backend;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
-// Guards SplitEffect combined with TransformEffect(ApplyToTarget=false) in both orders.
-//
-// SplitEffect declares its own output extent, so a TransformEffect on either side of it resolves one shared
-// matrix from concrete bounds; the order still matters, because splitting first tiles the untransformed shape
-// while transforming first tiles the transformed one. The order placed after the split also exercises the
-// re-anchoring the executor has to apply once a custom effect has re-targeted the buffers. Each order
-// therefore gets an oracle rendered in this same process, which keeps the gate free of any checked-in
-// baseline, machine-local snapshot directory, or inter-test ordering.
+// Guards SplitEffect with TransformEffect(ApplyToTarget=false) in both orders. SplitEffect declares its own extent,
+// so either order resolves one shared matrix from concrete bounds, yet splitting first tiles the untransformed shape
+// and transforming first the transformed one; the later transform also exercises re-anchoring of re-targeted buffers.
 [NonParallelizable]
 [TestFixture]
 public class SplitTransformEffectCombinationTests
@@ -87,7 +82,7 @@ public class SplitTransformEffectCombinationTests
                     ImageMetrics.FirstNonFinite(("split-first", splitFirst), ("transform-first", transformFirst)),
                     Is.Null);
                 GoldenImageHarness.AssertByteIdentical(splitFirst, splitFirstAgain);
-                Assert.That(CoveredPixelRatio(splitFirst), Is.GreaterThan(MinimumCoverageRatio));
+                Assert.That(ImageMetrics.CoveredPixelRatio(splitFirst), Is.GreaterThan(MinimumCoverageRatio));
                 Assert.That(
                     divergence,
                     Is.GreaterThan(MinimumOrderDivergence),
@@ -108,7 +103,7 @@ public class SplitTransformEffectCombinationTests
 
             // Without this both sides could agree on a blank frame.
             Assert.That(
-                CoveredPixelRatio(actual),
+                ImageMetrics.CoveredPixelRatio(actual),
                 Is.GreaterThan(MinimumCoverageRatio),
                 $"{label} must produce substantial coverage.");
             Assert.That(
@@ -196,21 +191,5 @@ public class SplitTransformEffectCombinationTests
         shape.FilterEffect.CurrentValue = effect;
 
         return GoldenImageHarness.RenderAtScale(shape.ToResource(CompositionContext.Default), Frame, 1f);
-    }
-
-    private static double CoveredPixelRatio(Bitmap bitmap)
-    {
-        long covered = 0;
-        for (int y = 0; y < bitmap.Height; y++)
-        {
-            ReadOnlySpan<ushort> row = bitmap.GetRow<ushort>(y);
-            for (int x = 0; x < bitmap.Width; x++)
-            {
-                if ((float)BitConverter.UInt16BitsToHalf(row[(x * 4) + 3]) > 0.5f)
-                    covered++;
-            }
-        }
-
-        return covered / ((double)bitmap.Width * bitmap.Height);
     }
 }
