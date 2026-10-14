@@ -36,11 +36,13 @@ public class MFEncodingTests
         controller.VideoSettings.DestinationSize = new PixelSize(128, 96);
         controller.AudioSettings.SampleRate = sampleRate;
         controller.AudioSettings.Channels = channels;
+        File.WriteAllText(controller.OutputFile, "replace only after encoding succeeds");
         using var frames = new GradientFrameProvider(30, new Rational(30, 1), 64, 48);
         // Deliberately differs from the output rate, and ends in a partial 1024-sample block.
         using var samples = new TrackedSamples(44100 + 137, 44100);
         await controller.Encode(frames, samples, CancellationToken.None);
 
+        Assert.That(Directory.GetDirectories(_directory), Is.Empty);
         Assert.That(samples.WasDisposed, Is.False, "Providers belong to the caller.");
         Assert.That(samples.RequestedSamples, Is.EqualTo(samples.SampleCount));
         MFThread.Dispatcher.Invoke(() =>
@@ -80,13 +82,21 @@ public class MFEncodingTests
         AssertAudioSignal(controller.OutputFile, MFAudioCodec.AAC, samples, sampleRate);
     }
 
-    [TestCase(15)]
-    [TestCase(30)]
-    public async Task Encode_H264_UsesRequestedKeyframeInterval(int interval)
+    [TestCase(MFVideoCodec.H264, ".mp4", 15)]
+    [TestCase(MFVideoCodec.H264, ".mp4", 30)]
+    [TestCase(MFVideoCodec.WMV7, ".wmv", 15)]
+    [TestCase(MFVideoCodec.WMV7, ".wmv", 30)]
+    [TestCase(MFVideoCodec.WMV8, ".wmv", 15)]
+    [TestCase(MFVideoCodec.WMV8, ".wmv", 30)]
+    [TestCase(MFVideoCodec.WMV9, ".wmv", 15)]
+    [TestCase(MFVideoCodec.WMV9, ".wmv", 30)]
+    [TestCase(MFVideoCodec.VC1, ".wmv", 15)]
+    [TestCase(MFVideoCodec.VC1, ".wmv", 30)]
+    public async Task Encode_UsesRequestedKeyframeInterval(MFVideoCodec codec, string extension, int interval)
     {
         const int frameCount = 120;
-        var controller = CreateController();
-        controller.VideoSettings.Codec = MFVideoCodec.H264;
+        var controller = CreateController(extension);
+        controller.VideoSettings.Codec = codec;
         controller.VideoSettings.KeyframeRate = interval;
         // A static scene avoids additional scene-change keyframes.
         using var frames = new SolidFrameProvider(new PixelSize(64, 48), frameCount);
@@ -98,7 +108,7 @@ public class MFEncodingTests
             using var source = MediaFactory.MFCreateSourceReaderFromURL(controller.OutputFile, null);
             int stream = (int)SourceReaderIndex.FirstVideoStream;
             using var type = source.GetCurrentMediaType(stream);
-            Assert.That(type.GetGUID(MediaTypeAttributeKeys.Subtype), Is.EqualTo(VideoFormatGuids.H264));
+            Assert.That(type.GetGUID(MediaTypeAttributeKeys.Subtype), Is.EqualTo(MFEncodingFormat.VideoSubtype(codec)));
             var keyframes = new List<int>();
             int count = 0;
             while (true)
@@ -107,13 +117,15 @@ public class MFEncodingTests
                 if (sample != null)
                 {
                     if (MediaFactory.MFGetAttributeUInt32(sample, SampleAttributeKeys.CleanPoint) != 0)
-                        keyframes.Add(count);
+                        keyframes.Add((int)Math.Round(sample.SampleTime * 30.0 / TimeSpan.TicksPerSecond));
                     count++;
                 }
                 if (flags.HasFlag(SourceReaderFlag.EndOfStream))
                     break;
             }
-            Assert.That(count, Is.EqualTo(frameCount));
+            // Windows Media can omit unchanged frames; their timestamps still identify keyframe spacing.
+            if (codec == MFVideoCodec.H264)
+                Assert.That(count, Is.EqualTo(frameCount));
             Assert.That(keyframes, Is.EqualTo(Enumerable.Range(0, frameCount / interval).Select(i => i * interval)));
         });
     }
@@ -368,11 +380,14 @@ public class MFEncodingTests
         Assert.That(File.ReadAllText(controller.OutputFile), Is.EqualTo("keep existing file"));
     }
 
-    [TestCase(false)]
-    [TestCase(true)]
-    public void Encode_CancellationThrowsAndReleasesOutput(bool beforeStart)
+    [TestCase(false, false)]
+    [TestCase(true, false)]
+    [TestCase(false, true)]
+    [TestCase(true, true)]
+    public void Encode_CancellationThrowsAndReleasesOutput(bool beforeStart, bool existingFile)
     {
         var controller = CreateController();
+        if (existingFile) File.WriteAllText(controller.OutputFile, "keep existing file");
         using var cancellation = new CancellationTokenSource();
         using var frames = new CancelAfterFirstFrameProvider(cancellation, 30, new Rational(30, 1), 64, 48);
         using var samples = new TrackedSamples(44100, 44100);
@@ -381,10 +396,27 @@ public class MFEncodingTests
         Assert.That(async () => await controller.Encode(frames, samples, cancellation.Token),
             Throws.InstanceOf<OperationCanceledException>());
         Assert.That(samples.WasDisposed, Is.False);
-        if (beforeStart)
+        Assert.That(Directory.GetDirectories(_directory), Is.Empty);
+        if (existingFile)
+            Assert.That(File.ReadAllText(controller.OutputFile), Is.EqualTo("keep existing file"));
+        else if (beforeStart)
             Assert.That(File.Exists(controller.OutputFile), Is.False);
         else
             using (File.Open(controller.OutputFile, FileMode.Open, FileAccess.ReadWrite, FileShare.None)) { }
+    }
+
+    [Test]
+    public void Encode_UnsupportedVideoSize_DoesNotTruncateExistingFile()
+    {
+        var controller = CreateController();
+        controller.VideoSettings.DestinationSize = new PixelSize(2, 2);
+        File.WriteAllText(controller.OutputFile, "keep existing file");
+        using var frames = new FailingFrames();
+        using var samples = new TrackedSamples(0, 0);
+        Assert.That(async () => await controller.Encode(frames, samples, CancellationToken.None),
+            Throws.TypeOf<SharpGen.Runtime.SharpGenException>());
+        Assert.That(File.ReadAllText(controller.OutputFile), Is.EqualTo("keep existing file"));
+        Assert.That(Directory.GetDirectories(_directory), Is.Empty);
     }
 
     [Test]
@@ -400,16 +432,21 @@ public class MFEncodingTests
         Assert.That(File.ReadAllText(controller.OutputFile), Is.EqualTo("keep existing file"));
     }
 
-    [Test]
-    public void Encode_AsynchronousProviderFailurePropagatesAndReleasesOutput()
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Encode_AsynchronousProviderFailurePropagatesAndReleasesOutput(bool existingFile)
     {
         var controller = CreateController();
+        if (existingFile) File.WriteAllText(controller.OutputFile, "keep existing file");
         using var frames = new FailingFrames();
         using var samples = new TrackedSamples(44100, 44100);
         Assert.That(async () => await controller.Encode(frames, samples, CancellationToken.None),
             Throws.InvalidOperationException.With.Message.EqualTo("Render failed."));
         Assert.That(frames.WasDisposed, Is.False);
         Assert.That(samples.WasDisposed, Is.False);
+        Assert.That(Directory.GetDirectories(_directory), Is.Empty);
+        if (existingFile)
+            Assert.That(File.ReadAllText(controller.OutputFile), Is.EqualTo("keep existing file"));
         using (File.Open(controller.OutputFile, FileMode.Open, FileAccess.ReadWrite, FileShare.None)) { }
     }
 

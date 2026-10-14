@@ -262,10 +262,14 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
         EnsureSupersamplingFits();
 
+        EncodingController settingsController = Controller.Value
+            ?? throw new InvalidOperationException(MessageStrings.UnexpectedError);
+
         // Collect sources on the UI thread and check File.Exists off-thread; scan [Start, Start + Duration),
         // the range export renders.
         IReadOnlySet<string> referencedSources =
-            ExportSourceValidator.CollectRenderableSources(Model, new TimeRange(Model.Start, Model.Duration));
+            ExportSourceValidator.CollectRenderableSources(Model, new TimeRange(Model.Start, Model.Duration),
+                settingsController.IsVideoEnabled, settingsController.IsAudioEnabled);
         IReadOnlyList<string> missingSources;
         try
         {
@@ -290,8 +294,6 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             string destination = DestinationFile.Value
                 ?? throw new InvalidOperationException(MessageStrings.UnexpectedError);
             ControllableEncodingExtension encoder = SelectedEncoder.Value
-                ?? throw new InvalidOperationException(MessageStrings.UnexpectedError);
-            EncodingController settingsController = Controller.Value
                 ?? throw new InvalidOperationException(MessageStrings.UnexpectedError);
             using var output = new StagedOutputFile(destination);
             EncodingController controller = encoder.CreateController(output.TemporaryPath);

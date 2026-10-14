@@ -1,8 +1,10 @@
 ﻿using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using Beutl.Extensibility;
+using Beutl.IO;
 using Beutl.Media;
 using SharpGen.Runtime;
+using SharpGen.Runtime.Win32;
 using SkiaSharp;
 using Vortice.MediaFoundation;
 using Windows.Win32.Media.MediaFoundation;
@@ -26,6 +28,12 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
 
     public override MFAudioEncoderSettings AudioSettings { get; } = new();
 
+    public override bool IsVideoEnabled
+        => MFEncodingFormat.FromFile(OutputFile).ResolveVideoCodec(VideoSettings.Codec) != MFVideoCodec.None;
+
+    public override bool IsAudioEnabled
+        => MFEncodingFormat.FromFile(OutputFile).ResolveAudioCodec(AudioSettings.Codec) != MFAudioCodec.None;
+
     public override async ValueTask Encode(
         IFrameProvider frameProvider, ISampleProvider sampleProvider, CancellationToken cancellationToken)
     {
@@ -39,14 +47,17 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
         long frameCount = videoCodec == MFVideoCodec.None ? 0 : frameProvider.FrameCount;
         long sampleCount = audioCodec == MFAudioCodec.None ? 0 : sampleProvider.SampleCount;
         ValidateSettings(format, videoCodec, audioCodec, frameCount, sampleCount, sampleProvider.SampleRate);
+        // Product exports already use a fresh staging path. Protect existing files for direct callers too.
+        using var output = File.Exists(OutputFile) ? new StagedOutputFile(OutputFile) : null;
         // Keep the writer, its samples, and their disposal on the initialized MF thread.
         // Await the operation itself even on cancellation so the file handle is released before returning.
         await MFThread.Dispatcher.InvokeAsync(() => EncodeCore(frameProvider, sampleProvider,
-            format, videoCodec, audioCodec, frameCount, sampleCount, cancellationToken));
+            output?.TemporaryPath ?? OutputFile, format, videoCodec, audioCodec, frameCount, sampleCount, cancellationToken));
+        output?.Commit(cancellationToken);
     }
 
     private async Task EncodeCore(
-        IFrameProvider frames, ISampleProvider samples, MFEncodingFormat format,
+        IFrameProvider frames, ISampleProvider samples, string outputFile, MFEncodingFormat format,
         MFVideoCodec videoCodec, MFAudioCodec audioCodec, long frameCount, long sampleCount,
         CancellationToken cancellationToken)
     {
@@ -61,7 +72,7 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
         attributes.Set(SinkWriterAttributeKeys.ReadwriteEnableHardwareTransforms,
             VideoSettings.UseHardwareAcceleration).CheckError();
         attributes.Set(SinkWriterAttributeKeys.DisableThrottling, true).CheckError();
-        using var writer = MediaFactory.MFCreateSinkWriterFromURL(OutputFile, null, attributes);
+        using var writer = MediaFactory.MFCreateSinkWriterFromURL(outputFile, null, attributes);
 
         int videoStream = frameCount > 0 ? AddVideoStream(writer, videoCodec) : -1;
         int audioStream = audioType != null ? AddAudioStream(writer, audioType, checked((int)samples.SampleRate)) : -1;
@@ -139,10 +150,29 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
         using var inputType = CreateVideoType(VideoFormatGuids.Rgb32);
         using var parameters = MediaFactory.MFCreateAttributes(1);
         if (codec is MFVideoCodec.H264 or MFVideoCodec.HEVC)
+        {
             parameters.Set(typeof(CODECAPI_AVEncMPVGOPSize).GUID, (uint)VideoSettings.KeyframeRate).CheckError();
+        }
+        else if (codec is MFVideoCodec.WMV7 or MFVideoCodec.WMV8 or MFVideoCodec.WMV9 or MFVideoCodec.VC1)
+        {
+            Marshal.ThrowExceptionForHR(PSCreateMemoryPropertyStore(typeof(IPropertyStore).GUID, out nint pointer));
+            using var properties = new IPropertyStore(pointer);
+            // MFPKEY_KEYDIST (wmcodecdsp.h) is absent from the Win32 metadata.
+            var key = new PropertyKey(new Guid("18d6f8c5-2416-4d7b-90d7-9f3f21e752b4"), 10);
+            // Windows Media expects milliseconds, while KeyframeRate is measured in frames.
+            int milliseconds = checked((int)Math.Max(1,
+                GetTimestamp(VideoSettings.KeyframeRate, VideoSettings.FrameRate.Numerator,
+                    VideoSettings.FrameRate.Denominator) / TimeSpan.TicksPerMillisecond));
+            properties[key] = new Variant { Value = milliseconds };
+            // Scope this to the video stream: WMA rejects video encoder properties.
+            parameters.Set(SinkWriterAttributeKeys.EncoderConfig, properties).CheckError();
+        }
         writer.SetInputMediaType(stream, inputType, parameters);
         return stream;
     }
+
+    [DllImport("propsys.dll", ExactSpelling = true)]
+    private static extern int PSCreateMemoryPropertyStore(in Guid riid, out nint propertyStore);
 
     private IMFMediaType CreateVideoType(Guid subtype)
     {

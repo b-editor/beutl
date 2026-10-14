@@ -7,11 +7,14 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Headless.NUnit;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
+using Beutl.Audio;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Services;
 using Beutl.Embedding.MediaFoundation.Encoding;
+using Beutl.Media.Source;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
+using Beutl.ViewModels.Tools;
 using Beutl.Views.Editors;
 
 namespace Beutl.HeadlessUITests;
@@ -21,6 +24,67 @@ namespace Beutl.HeadlessUITests;
 [SupportedOSPlatform("windows")]
 public sealed class MFEncoderSettingsTests
 {
+    [AvaloniaTest]
+    [TestCase(".wav", MFVideoCodec.Auto, MFAudioCodec.Auto, true, true)]
+    [TestCase(".mp3", MFVideoCodec.Auto, MFAudioCodec.Auto, true, true)]
+    [TestCase(".aac", MFVideoCodec.Auto, MFAudioCodec.Auto, true, true)]
+    [TestCase(".mp4", MFVideoCodec.None, MFAudioCodec.Auto, true, true)]
+    [TestCase(".mp4", MFVideoCodec.Auto, MFAudioCodec.None, false, true)]
+    [TestCase(".mp4", MFVideoCodec.Auto, MFAudioCodec.Auto, true, false)]
+    [TestCase(".wav", MFVideoCodec.Auto, MFAudioCodec.Auto, false, false)]
+    public async Task ExportPreflight_OnlyRequiresEnabledStreamSources(
+        string extension, MFVideoCodec video, MFAudioCodec audio, bool missingVideo, bool succeeds)
+    {
+        await TestReset.ResetShellAsync();
+        TestGpu.RequireAnyDevice();
+        var editor = await TestShell.OpenNewSceneEditorAsync("mf-preflight", 64, 48);
+        editor.Scene.Duration = TimeSpan.FromMilliseconds(200);
+        string missingPath = Path.Combine(TestShell.ProjectRoot(editor), missingVideo ? "missing.mov" : "missing.wav");
+        await TestShell.AddElementAsync(editor, () =>
+        {
+            if (missingVideo)
+            {
+                var source = new VideoSource();
+                source.ReadFrom(new Uri(missingPath));
+                return new Beutl.Graphics.SourceVideo { Source = { CurrentValue = source } };
+            }
+            var sound = new SoundSource();
+            sound.ReadFrom(new Uri(missingPath));
+            return new SourceSound { Source = { CurrentValue = sound } };
+        }, TimeSpan.Zero, editor.Scene.Duration);
+
+        using var output = new OutputViewModel(editor);
+        output.DestinationFile.Value = Path.Combine(TestShell.ProjectRoot(editor), Guid.NewGuid() + extension);
+        output.SelectedEncoder.Value = new MFEncodingExtension();
+        HeadlessTestHelpers.Settle();
+        var controller = (MFEncodingController)output.Controller.Value!;
+        controller.VideoSettings.UseHardwareAcceleration = false;
+        controller.VideoSettings.Codec = video;
+        controller.AudioSettings.Codec = audio;
+
+        Exception? failure = null;
+        try
+        {
+            await output.RunAsync(CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            failure = ex;
+        }
+        if (succeeds)
+        {
+            Assert.That(failure, Is.Null);
+            Assert.That(output.IsCompleted.Value, Is.True);
+            Assert.That(File.Exists(output.DestinationFile.Value), Is.True);
+        }
+        else
+        {
+            Assert.That(failure, Is.InstanceOf<InvalidOperationException>());
+            Assert.That(failure!.Message, Does.Contain(missingPath));
+            Assert.That(File.Exists(output.DestinationFile.Value), Is.False);
+        }
+    }
+
     [AvaloniaTest]
     [TestCase("ja", false)]
     [TestCase("en", true)]

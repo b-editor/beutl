@@ -12,6 +12,8 @@
 [assembly: InternalsVisibleTo("Beutl.Api")]
 [assembly: InternalsVisibleTo("Beutl.NodeGraph")]
 [assembly: InternalsVisibleTo("Beutl.FFmpegWorker")]
+[assembly: InternalsVisibleTo("Beutl.Embedding.MediaFoundation")]
+[assembly: InternalsVisibleTo("Beutl.Extensions.MediaFoundation")]
 [assembly: InternalsVisibleTo("Beutl.FFmpegWorker.Tests")]
 [assembly: InternalsVisibleTo("Beutl.AgentToolkit.Mcp")]
 [assembly: InternalsVisibleTo("Beutl.AgentToolkit")]
