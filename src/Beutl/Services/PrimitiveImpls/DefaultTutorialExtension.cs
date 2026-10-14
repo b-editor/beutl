@@ -2,7 +2,6 @@
 
 namespace Beutl.Services.PrimitiveImpls;
 
-[PrimitiveImpl]
 public class DefaultTutorialExtension : TutorialExtension
 {
     private readonly EditorService _editorService;

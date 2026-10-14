@@ -10,7 +10,6 @@ using Icon = FluentIcons.Common.Icon;
 
 namespace Beutl.Editor.Components.SceneSettingsTab;
 
-[PrimitiveImpl]
 public sealed partial class SceneSettingsTabExtension : ToolTabExtension
 {
     public static readonly SceneSettingsTabExtension Instance = new();

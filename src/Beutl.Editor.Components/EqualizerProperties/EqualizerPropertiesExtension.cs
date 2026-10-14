@@ -7,7 +7,6 @@ using Beutl.PropertyAdapters;
 
 namespace Beutl.Editor.Components.EqualizerProperties;
 
-[PrimitiveImpl]
 public sealed class EqualizerPropertiesExtension : PropertyEditorExtension
 {
     public static new readonly EqualizerPropertiesExtension Instance = new();

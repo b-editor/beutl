@@ -9,7 +9,6 @@ using Icon = FluentIcons.Common.Icon;
 
 namespace Beutl.Services.PrimitiveImpls;
 
-[PrimitiveImpl]
 public sealed partial class TimelineTabExtension : ToolTabExtension
 {
     public static readonly TimelineTabExtension Instance = new();

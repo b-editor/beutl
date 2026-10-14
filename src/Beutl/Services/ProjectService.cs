@@ -100,24 +100,6 @@ public sealed partial class ProjectService
         }
     }
 
-    public void CloseProject()
-    {
-        TryCloseProject();
-    }
-
-    internal bool TryCloseProject()
-    {
-        try
-        {
-            CloseProjectOrThrow();
-            return true;
-        }
-        catch (ProjectCloseAbortedException)
-        {
-            return false;
-        }
-    }
-
     internal void CloseProjectOrThrow()
     {
         Task close = CloseProjectAsync();

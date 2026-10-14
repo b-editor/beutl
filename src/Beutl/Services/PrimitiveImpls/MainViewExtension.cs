@@ -3,7 +3,6 @@
 namespace Beutl.Services.PrimitiveImpls;
 
 // ショートカット用の拡張クラス
-[PrimitiveImpl]
 public class MainViewExtension : ViewExtension
 {
     public const string ShowCommandPaletteCommandName = "ShowCommandPalette";

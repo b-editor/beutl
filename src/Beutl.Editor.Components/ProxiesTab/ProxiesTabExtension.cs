@@ -8,7 +8,6 @@ using Icon = FluentIcons.Common.Icon;
 
 namespace Beutl.Editor.Components.ProxiesTab;
 
-[PrimitiveImpl]
 public sealed class ProxiesTabExtension : ToolTabExtension
 {
     public static readonly ProxiesTabExtension Instance = new();

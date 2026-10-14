@@ -25,7 +25,6 @@ internal interface IPropertyEditorExtensionImpl
     bool TryCreateControlForSettings(IPropertyEditorContext context, [NotNullWhen(true)] out Control? control);
 }
 
-[PrimitiveImpl]
 public class PropertyEditorExtension : Extension
 {
     public static readonly PropertyEditorExtension Instance = new();

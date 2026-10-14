@@ -8,7 +8,6 @@ using Beutl.Graphics.Effects;
 
 namespace Beutl.Editor.Components.ColorGradingProperties;
 
-[PrimitiveImpl]
 public sealed class ColorGradingPropertiesExtension : PropertyEditorExtension
 {
     public static new readonly ColorGradingPropertiesExtension Instance = new();

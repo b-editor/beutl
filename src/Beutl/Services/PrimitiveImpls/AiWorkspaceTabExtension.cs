@@ -11,7 +11,6 @@ using Icon = FluentIcons.Common.Icon;
 
 namespace Beutl.Services.PrimitiveImpls;
 
-[PrimitiveImpl]
 public sealed class AiWorkspaceTabExtension : ToolTabExtension
 {
     public static readonly AiWorkspaceTabExtension Instance = new();

@@ -52,7 +52,7 @@ public class CommandPaletteViewLayoutTests
                 CategoryName: CategoryText,
                 KeyGesture: new KeyGesture(Key.P, KeyModifiers.Control),
                 CanExecute: () => true,
-                ExecuteAsync: () => Task.CompletedTask);
+                ExecuteAsync: _ => Task.CompletedTask);
             var item = new CommandPaletteItemViewModel(command, isEnabled: true, relevance: 0);
 
             Control? built = template!.Build(item);
@@ -190,7 +190,7 @@ public class CommandPaletteViewLayoutTests
     }
 
     private static CommandPaletteItemViewModel CreateItem(KeyGesture? gesture)
-        => new(new PaletteCommand("test", "Test", null, "Test", gesture, () => true, () => Task.CompletedTask), true, 0);
+        => new(new PaletteCommand("test", "Test", null, "Test", gesture, () => true, _ => Task.CompletedTask), true, 0);
 
     private sealed class SearchExtension : ViewExtension
     {

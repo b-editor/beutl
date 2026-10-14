@@ -114,11 +114,9 @@ public sealed class CommandPaletteService
                     CategoryName: category,
                     KeyGesture: gesture,
                     CanExecute: () => CanExecuteExtension(id, commandName, editorContext),
-                    ExecuteAsync: () => ExecuteExtensionAsync(id, commandName, editorContext, null))
+                    ExecuteAsync: interaction => ExecuteExtensionAsync(id, commandName, editorContext, interaction))
                 {
-                    StateChanged = extensionStateChanged,
-                    ExecuteWithInteractionAsync = interaction =>
-                        ExecuteExtensionAsync(id, commandName, editorContext, interaction)
+                    StateChanged = extensionStateChanged
                 });
                 continue;
             }
@@ -144,24 +142,17 @@ public sealed class CommandPaletteService
                 CategoryName: category,
                 KeyGesture: gesture,
                 CanExecute: () => handler.CanExecute(CreateExecution(commandName, activeContext, null)),
-                ExecuteAsync: () =>
+                ExecuteAsync: interaction =>
                 {
                     // スロットル窓や状態変化で表示と実行可否がずれる可能性があるため、
                     // 実行直前にもう一度 CanExecute を確認してから Execute する。
-                    var execution = CreateExecution(commandName, activeContext, null);
+                    var execution = CreateExecution(commandName, activeContext, interaction);
                     return handler.CanExecute(execution)
                         ? handler.ExecuteAsync(execution)
                         : Task.CompletedTask;
                 })
             {
-                StateChanged = stateChanged,
-                ExecuteWithInteractionAsync = interaction =>
-                {
-                    var execution = CreateExecution(commandName, activeContext, interaction);
-                    return handler.CanExecute(execution)
-                        ? handler.ExecuteAsync(execution)
-                        : Task.CompletedTask;
-                }
+                StateChanged = stateChanged
             });
         }
 
@@ -284,7 +275,7 @@ public sealed class CommandPaletteService
                 CategoryName: category,
                 KeyGesture: null,
                 CanExecute: () => command.CanExecute(null),
-                ExecuteAsync: () => MenuBarViewModel.ExecuteCommandAsync(command)));
+                ExecuteAsync: _ => MenuBarViewModel.ExecuteCommandAsync(command)));
         }
     }
 }

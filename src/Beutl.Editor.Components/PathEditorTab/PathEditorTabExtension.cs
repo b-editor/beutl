@@ -12,7 +12,6 @@ using Icon = FluentIcons.Common.Icon;
 
 namespace Beutl.Editor.Components.PathEditorTab;
 
-[PrimitiveImpl]
 public sealed class PathEditorTabExtension : ToolTabExtension
 {
     public static readonly PathEditorTabExtension Instance = new();

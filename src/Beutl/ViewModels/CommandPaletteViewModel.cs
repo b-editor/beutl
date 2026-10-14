@@ -242,9 +242,7 @@ public sealed class CommandPaletteViewModel : IDisposable
         _interaction = interaction;
         try
         {
-            Task operation = item.Command.ExecuteWithInteractionAsync is { } execute
-                ? execute(interaction)
-                : item.ExecuteAsync();
+            Task operation = item.ExecuteAsync(interaction);
 
             // Ordinary commands still close immediately. A handler can request a prompt either
             // synchronously or after an await; only this invocation may reopen the palette.

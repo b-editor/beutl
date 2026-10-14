@@ -9,7 +9,6 @@ using Beutl.Views.Tools;
 
 namespace Beutl.Services.PrimitiveImpls;
 
-[PrimitiveImpl]
 public sealed class SceneOutputExtension : OutputExtension
 {
     public static readonly SceneOutputExtension Instance = new();

@@ -10,7 +10,6 @@ using Icon = FluentIcons.Common.Icon;
 
 namespace Beutl.Editor.Components.TerminalTab;
 
-[PrimitiveImpl]
 public sealed class TerminalTabExtension : ToolTabExtension
 {
     public static readonly TerminalTabExtension Instance = new();
