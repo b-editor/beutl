@@ -1,5 +1,6 @@
 ﻿#if !WITHOUT_MEDIA_FOUNDATION
 using System.Globalization;
+using System.Reactive.Linq;
 using System.Runtime.Versioning;
 using Avalonia;
 using Avalonia.Controls;
@@ -8,9 +9,11 @@ using Avalonia.Headless.NUnit;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Beutl.Audio;
+using Beutl.Composition;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Services;
 using Beutl.Embedding.MediaFoundation.Encoding;
+using Beutl.Engine;
 using Beutl.Media.Source;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
@@ -30,28 +33,36 @@ public sealed class MFEncoderSettingsTests
     [TestCase(".aac", MFVideoCodec.Auto, MFAudioCodec.Auto, true, true)]
     [TestCase(".mp4", MFVideoCodec.None, MFAudioCodec.Auto, true, true)]
     [TestCase(".mp4", MFVideoCodec.Auto, MFAudioCodec.None, false, true)]
+    [TestCase(".mp4", MFVideoCodec.Auto, MFAudioCodec.Auto, null, true)]
     [TestCase(".mp4", MFVideoCodec.Auto, MFAudioCodec.Auto, true, false)]
     [TestCase(".wav", MFVideoCodec.Auto, MFAudioCodec.Auto, false, false)]
     public async Task ExportPreflight_OnlyRequiresEnabledStreamSources(
-        string extension, MFVideoCodec video, MFAudioCodec audio, bool missingVideo, bool succeeds)
+        string extension, MFVideoCodec video, MFAudioCodec audio, bool? missingVideo, bool succeeds)
     {
         await TestReset.ResetShellAsync();
         TestGpu.RequireAnyDevice();
         var editor = await TestShell.OpenNewSceneEditorAsync("mf-preflight", 64, 48);
         editor.Scene.Duration = TimeSpan.FromMilliseconds(200);
-        string missingPath = Path.Combine(TestShell.ProjectRoot(editor), missingVideo ? "missing.mov" : "missing.wav");
-        await TestShell.AddElementAsync(editor, () =>
+        var videoProbe = new ExportPassProbe { Target = CompositionTarget.Graphics };
+        var audioProbe = new ExportPassProbe { Target = CompositionTarget.Audio };
+        await TestShell.AddElementAsync(editor, () => videoProbe, TimeSpan.Zero, editor.Scene.Duration);
+        await TestShell.AddElementAsync(editor, () => audioProbe, TimeSpan.Zero, editor.Scene.Duration);
+        string missingPath = Path.Combine(TestShell.ProjectRoot(editor), missingVideo == true ? "missing.mov" : "missing.wav");
+        if (missingVideo.HasValue)
         {
-            if (missingVideo)
+            await TestShell.AddElementAsync(editor, () =>
             {
-                var source = new VideoSource();
-                source.ReadFrom(new Uri(missingPath));
-                return new Beutl.Graphics.SourceVideo { Source = { CurrentValue = source } };
-            }
-            var sound = new SoundSource();
-            sound.ReadFrom(new Uri(missingPath));
-            return new SourceSound { Source = { CurrentValue = sound } };
-        }, TimeSpan.Zero, editor.Scene.Duration);
+                if (missingVideo == true)
+                {
+                    var source = new VideoSource();
+                    source.ReadFrom(new Uri(missingPath));
+                    return new Beutl.Graphics.SourceVideo { Source = { CurrentValue = source } };
+                }
+                var sound = new SoundSource();
+                sound.ReadFrom(new Uri(missingPath));
+                return new SourceSound { Source = { CurrentValue = sound } };
+            }, TimeSpan.Zero, editor.Scene.Duration);
+        }
 
         using var output = new OutputViewModel(editor);
         output.DestinationFile.Value = Path.Combine(TestShell.ProjectRoot(editor), Guid.NewGuid() + extension);
@@ -61,6 +72,9 @@ public sealed class MFEncoderSettingsTests
         controller.VideoSettings.UseHardwareAcceleration = false;
         controller.VideoSettings.Codec = video;
         controller.AudioSettings.Codec = audio;
+        bool hadIntermediateProgress = false;
+        using var progress = output.ProgressValue.Subscribe(value =>
+            hadIntermediateProgress |= value > 0 && value < output.ProgressMax.Value);
 
         Exception? failure = null;
         try
@@ -76,6 +90,14 @@ public sealed class MFEncoderSettingsTests
             Assert.That(failure, Is.Null);
             Assert.That(output.IsCompleted.Value, Is.True);
             Assert.That(File.Exists(output.DestinationFile.Value), Is.True);
+            Assert.Multiple(() =>
+            {
+                Assert.That(videoProbe.EvaluationCount > 0, Is.EqualTo(controller.IsVideoEnabled));
+                Assert.That(audioProbe.EvaluationCount > 0, Is.EqualTo(controller.IsAudioEnabled));
+                Assert.That(hadIntermediateProgress, Is.True, "Progress must advance before completion.");
+                Assert.That(output.ProgressMax.Value, Is.EqualTo(editor.Scene.Duration.TotalSeconds
+                    * ((controller.IsVideoEnabled ? 1 : 0) + (controller.IsAudioEnabled ? 1 : 0))));
+            });
         }
         else
         {
@@ -159,6 +181,24 @@ public sealed class MFEncoderSettingsTests
         {
             window.Close();
             CultureInfo.CurrentUICulture = originalCulture;
+        }
+    }
+}
+
+internal sealed partial class ExportPassProbe : EngineObject, IFlowOperator
+{
+    private int _evaluationCount;
+    public CompositionTarget Target { get; init; }
+    public int EvaluationCount => Volatile.Read(ref _evaluationCount);
+    public override CompositionTarget GetCompositionTarget() => Target;
+
+    public partial class Resource
+    {
+        partial void PostReconcile(ExportPassProbe obj, CompositionContext context)
+        {
+            // Final export uses its own resources; live preview must not affect these counts.
+            if (context.DisableResourceShare)
+                Interlocked.Increment(ref obj._evaluationCount);
         }
     }
 }

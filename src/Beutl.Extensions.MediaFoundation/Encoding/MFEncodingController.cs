@@ -67,11 +67,10 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
         // Negotiate audio before opening the file so an unsupported format cannot truncate it.
         using var audioType = sampleCount > 0 ? CreateAudioOutput(audioCodec, AudioSettings) : null;
         cancellationToken.ThrowIfCancellationRequested();
-        using var attributes = MediaFactory.MFCreateAttributes(3);
+        using var attributes = MediaFactory.MFCreateAttributes(2);
         attributes.Set(TranscodeAttributeKeys.TranscodeContainertype, format.ContainerType).CheckError();
         attributes.Set(SinkWriterAttributeKeys.ReadwriteEnableHardwareTransforms,
             VideoSettings.UseHardwareAcceleration).CheckError();
-        attributes.Set(SinkWriterAttributeKeys.DisableThrottling, true).CheckError();
         using var writer = MediaFactory.MFCreateSinkWriterFromURL(outputFile, null, attributes);
 
         int videoStream = frameCount > 0 ? AddVideoStream(writer, videoCodec) : -1;
