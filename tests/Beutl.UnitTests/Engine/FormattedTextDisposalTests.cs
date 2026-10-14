@@ -10,30 +10,10 @@ namespace Beutl.UnitTests.Engine;
 [TestFixture]
 public class FormattedTextDisposalTests
 {
-    [SetUp]
-    public void Setup()
-    {
-        _ = TypefaceProvider.Typeface();
-    }
-
-    private static FormattedText CreateText(string text = "ABC", float size = 24f)
-    {
-        Typeface typeface = TypefaceProvider.Typeface();
-        return new FormattedText
-        {
-            Font = typeface.FontFamily,
-            Style = typeface.Style,
-            Weight = typeface.Weight,
-            Size = size,
-            Spacing = 1f,
-            Text = text
-        };
-    }
-
     [Test]
     public void Dispose_IsIdempotent()
     {
-        FormattedText ft = CreateText();
+        FormattedText ft = TypefaceProvider.CreateText("ABC", 24f, spacing: 1f);
         _ = ft.Bounds;
 
         ft.Dispose();
@@ -44,7 +24,7 @@ public class FormattedTextDisposalTests
     [Test]
     public void MeasuringMembers_AfterDispose_ThrowObjectDisposedException()
     {
-        FormattedText ft = CreateText();
+        FormattedText ft = TypefaceProvider.CreateText("ABC", 24f, spacing: 1f);
         _ = ft.Bounds;
 
         ft.Dispose();
@@ -64,7 +44,7 @@ public class FormattedTextDisposalTests
     [Test]
     public void ScaledAccessors_AfterDispose_ThrowObjectDisposedException()
     {
-        FormattedText ft = CreateText();
+        FormattedText ft = TypefaceProvider.CreateText("ABC", 24f, spacing: 1f);
         // Leave the instance dirty so a post-dispose access would otherwise re-measure and
         // re-populate the scaled cache, leaking handles the idempotent Dispose can no longer release.
         ft.Size = 32f;
@@ -81,7 +61,7 @@ public class FormattedTextDisposalTests
     [Test]
     public void Dispose_ReleasesPathListResources()
     {
-        FormattedText ft = CreateText("AB");
+        FormattedText ft = TypefaceProvider.CreateText("AB", 24f, spacing: 1f);
         // ToGeometries() hands out a borrowed span that cannot outlive the Dispose below, so snapshot the
         // engine-owned references (not the outlines) while the borrow is still valid.
         Geometry.Resource[] geometries = ft.ToGeometries().ToArray();
@@ -101,7 +81,7 @@ public class FormattedTextDisposalTests
     [Test]
     public void Dispose_DisposesOwnedGlyphPaths()
     {
-        FormattedText ft = CreateText("AB");
+        FormattedText ft = TypefaceProvider.CreateText("AB", 24f, spacing: 1f);
         Geometry.Resource[] geometries = ft.ToGeometries().ToArray();
 
         // The per-glyph SKPath is owned separately from the resource's cached render path; capture those
@@ -127,7 +107,7 @@ public class FormattedTextDisposalTests
     [Test]
     public void MeasureCore_ShrinkingGlyphCount_DisposesTruncatedTrailingResources()
     {
-        FormattedText ft = CreateText("ABCDE");
+        FormattedText ft = TypefaceProvider.CreateText("ABCDE", 24f, spacing: 1f);
 
         // ToGeometries() borrows the live _pathList; snapshot the references before any shrink.
         Geometry.Resource[] longGeometries = ft.ToGeometries().ToArray();
@@ -137,7 +117,7 @@ public class FormattedTextDisposalTests
 
         // Glyph count is driven by HarfBuzz Codepoints.Length, not Text.Length, so derive it from a probe.
         int shortCount;
-        using (FormattedText probe = CreateText("AB"))
+        using (FormattedText probe = TypefaceProvider.CreateText("AB", 24f, spacing: 1f))
         {
             shortCount = probe.ToGeometries().Length;
         }
@@ -183,7 +163,7 @@ public class FormattedTextDisposalTests
     [Test]
     public void MeasureCore_ShrinkThenGrow_KeepsSurvivorsLiveAndRebuildsTruncatedSlots()
     {
-        FormattedText ft = CreateText("ABCDE");
+        FormattedText ft = TypefaceProvider.CreateText("ABCDE", 24f, spacing: 1f);
 
         // ToGeometries() borrows the live _pathList; snapshot the references before any shrink.
         Geometry.Resource[] longGeometries = ft.ToGeometries().ToArray();
@@ -192,7 +172,7 @@ public class FormattedTextDisposalTests
         Assume.That(longCount, Is.GreaterThan(2), "Need more glyphs than the shrunk text to exercise truncation.");
 
         int shortCount;
-        using (FormattedText probe = CreateText("AB"))
+        using (FormattedText probe = TypefaceProvider.CreateText("AB", 24f, spacing: 1f))
         {
             shortCount = probe.ToGeometries().Length;
         }

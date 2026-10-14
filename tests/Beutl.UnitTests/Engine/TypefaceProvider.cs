@@ -1,6 +1,7 @@
 ﻿using System.Reflection;
 using Beutl.Configuration;
 using Beutl.Media;
+using Beutl.Media.TextFormatting;
 
 namespace Beutl.UnitTests.Engine;
 
@@ -37,5 +38,19 @@ public static class TypefaceProvider
     public static Typeface Typeface()
     {
         return new Typeface(new FontFamily("Noto Sans JP"));
+    }
+
+    public static FormattedText CreateText(string text, float size, float spacing = 0)
+    {
+        Typeface typeface = Typeface();
+        return new FormattedText
+        {
+            Font = typeface.FontFamily,
+            Style = typeface.Style,
+            Weight = typeface.Weight,
+            Size = size,
+            Spacing = spacing,
+            Text = text
+        };
     }
 }
