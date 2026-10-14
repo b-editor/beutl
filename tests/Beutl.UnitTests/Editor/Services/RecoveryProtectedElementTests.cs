@@ -74,7 +74,7 @@ public class RecoveryProtectedElementTests
         var objects = new ElementObjectService(harness.History);
         var resize = new ElementResizeService(harness.History);
         EngineObject unavailable = element.Objects.Single();
-        Assert.That(Scene.HoldsRecoveryBlocker(unavailable), Is.True);
+        Assert.That(SceneRecovery.HoldsRecoveryBlocker(unavailable), Is.True);
 
         bool removed = objects.Remove(element, unavailable);
         TimeSpan moved = element.Start + TimeSpan.FromSeconds(1);
@@ -142,7 +142,7 @@ public class RecoveryProtectedElementTests
         Element element = scene.Children.Single();
         EngineObject unavailable = element.Objects[0];
         EngineObject healthy = element.Objects[1];
-        Assert.That(Scene.HoldsRecoveryBlocker(unavailable), Is.True);
+        Assert.That(SceneRecovery.HoldsRecoveryBlocker(unavailable), Is.True);
         using var harness = new HistoryHarness(scene);
         var objects = new ElementObjectService(harness.History);
         var attributes = new ElementAttributeService(harness.History);

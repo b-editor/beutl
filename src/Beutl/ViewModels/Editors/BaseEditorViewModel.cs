@@ -177,7 +177,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
     // so the edit would be lost on save.
     protected internal bool CanReplace(object? content, object? replacement)
         => CanReplace(content)
-           && !(_element is { IsRecoveryProtected: true } && Scene.HoldsRecoveryBlocker(replacement));
+           && !(_element is { IsRecoveryProtected: true } && SceneRecovery.HoldsRecoveryBlocker(replacement));
 
     // CanReplace for everything the property holds: its value and its animation.
     protected internal bool CanReplaceContent

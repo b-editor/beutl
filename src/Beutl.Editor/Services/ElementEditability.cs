@@ -26,7 +26,7 @@ internal static class ElementEditability
         scene ??= element!.FindHierarchicalParent<Scene>();
         return element!.IsRecoveryProtected
                && !(scene?.IsElementLockedByUser(element) ?? element.IsLocked)
-               && (Scene.HoldsRecoveryBlocker(content) || !Scene.HasUnresolvedRecoveryBlocker(element));
+               && (SceneRecovery.HoldsRecoveryBlocker(content) || !SceneRecovery.HasUnresolvedRecoveryBlocker(element));
     }
 
     public static IObservable<bool> Observe(Element? element, Scene? scene = null)

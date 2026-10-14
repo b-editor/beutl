@@ -199,10 +199,10 @@ public sealed class MalformedElementRecoveryTests
         var recoveredHolder = recovered.Objects.OfType<WrappedStorageHolder>().Single();
         var keyFrame = (KeyFrame<float>)recoveredHolder.Wrapped.CurrentValue!.Single().Value;
         recovered.Name = "Unrelated edit";
-        Assert.That(Scene.TryResumeElementPersistence(recovered), Is.Null);
+        Assert.That(SceneRecovery.TryResumeElementPersistence(recovered), Is.Null);
         EngineObject unrelated = recovered.Objects[0];
         recovered.Objects.Remove(unrelated);
-        Assert.That(Scene.TryResumeElementPersistence(recovered), Is.Null);
+        Assert.That(SceneRecovery.TryResumeElementPersistence(recovered), Is.Null);
         CoreSerializer.StoreToUri(recovered, recovered.Uri!);
         Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(originalBytes));
 
@@ -210,7 +210,7 @@ public sealed class MalformedElementRecoveryTests
             recoveredHolder.Wrapped.CurrentValue = [];
         else
             keyFrame.Easing = new LinearEasing();
-        SuppressedStorageSource? suppression = Scene.TryResumeElementPersistence(recovered);
+        SuppressedStorageSource? suppression = SceneRecovery.TryResumeElementPersistence(recovered);
         Assert.That(suppression, Is.Not.Null);
         CoreSerializer.StoreToUri(recovered, recovered.Uri!);
         Assert.That(File.ReadAllBytes(elementPath), Is.Not.EqualTo(originalBytes));
@@ -802,9 +802,9 @@ public sealed class MalformedElementRecoveryTests
         Assert.That(recoveredElement.Objects[1], Is.InstanceOf<IFallback>());
 
         recoveredElement.Objects[1] = new RectShape();
-        SuppressedStorageSource? blocked = Scene.TryResumeElementPersistence(recoveredElement);
+        SuppressedStorageSource? blocked = SceneRecovery.TryResumeElementPersistence(recoveredElement);
         recoveredAnimation.KeyFrames.Single().Easing = new SplineEasing();
-        SuppressedStorageSource? resumed = Scene.TryResumeElementPersistence(recoveredElement);
+        SuppressedStorageSource? resumed = SceneRecovery.TryResumeElementPersistence(recoveredElement);
         CoreSerializer.StoreToUri(recovered, sceneUri);
 
         Assert.Multiple(() =>
@@ -2929,7 +2929,7 @@ public sealed class MalformedElementRecoveryTests
         File.WriteAllBytes(elementPath, originalBytes);
         element.SuppressedStorageSource = new SuppressedStorageSource(originalBytes, element.Uri!);
 
-        SuppressedStorageSource? suppression = Scene.TryResumeElementPersistence(element);
+        SuppressedStorageSource? suppression = SceneRecovery.TryResumeElementPersistence(element);
 
         Assert.That(suppression, Is.Not.Null);
     }

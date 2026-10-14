@@ -230,7 +230,7 @@ public sealed class ProjectOperationsTests
 
             ProjectOperations.Save(project);
 
-            string regenerated = PathBoundary.ResolveDeepestExistingTarget(scene.Uri!.LocalPath);
+            string regenerated = FilePathComparison.ResolveCanonicalPath(scene.Uri!.LocalPath);
             Assert.That(
                 regenerated.StartsWith(projectDir, PathBoundary.Comparison),
                 Is.True,

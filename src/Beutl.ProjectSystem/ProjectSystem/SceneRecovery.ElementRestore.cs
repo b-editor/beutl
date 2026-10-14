@@ -223,10 +223,10 @@ internal sealed partial class SceneRecovery
     {
         string sourceRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(sourceRootPath));
         string resolvedSourceRoot = Path.TrimEndingDirectorySeparator(
-            PathBoundary.ResolveDeepestExistingTarget(sourceRoot));
+            FilePathComparison.ResolveCanonicalPath(sourceRoot));
         string elementPath = Path.GetFullPath(elementUri.LocalPath);
-        string resolvedElementPath = PathBoundary.ResolveDeepestExistingTarget(elementPath);
-        if (!PathBoundary.IsPathInsideRoot(resolvedSourceRoot, resolvedElementPath))
+        string resolvedElementPath = FilePathComparison.ResolveCanonicalPath(elementPath);
+        if (!FilePathComparison.IsSameOrDescendant(resolvedSourceRoot, resolvedElementPath))
         {
             return null;
         }
@@ -244,12 +244,12 @@ internal sealed partial class SceneRecovery
             .Where(static uri => uri is { IsFile: true })
             .Select(static uri => Path.GetFullPath(uri!.LocalPath)))
         {
-            string resolvedSourcePath = PathBoundary.ResolveDeepestExistingTarget(sourcePath);
+            string resolvedSourcePath = FilePathComparison.ResolveCanonicalPath(sourcePath);
             if (string.Equals(
                     resolvedSourcePath,
                     resolvedElementPath,
                     StringComparison.Ordinal)
-                || !PathBoundary.IsPathInsideRoot(resolvedSourceRoot, resolvedSourcePath)
+                || !FilePathComparison.IsSameOrDescendant(resolvedSourceRoot, resolvedSourcePath)
                 || !File.Exists(sourcePath)
                 || !seenPaths.Add(sourcePath))
             {

@@ -32,7 +32,7 @@ public sealed class PathBoundaryTests
         string missingTarget = Path.Combine(Path.GetTempPath(), "pb-target-" + Guid.NewGuid().ToString("N"));
         TestWorkspace.CreateSymbolicLinkOrIgnore(linkPath, missingTarget, directory: false);
 
-        string resolved = PathBoundary.ResolveDeepestExistingTarget(linkPath);
+        string resolved = FilePathComparison.ResolveCanonicalPath(linkPath);
 
         Assert.That(
             resolved.StartsWith(_tempRoot, PathBoundary.Comparison),
@@ -51,7 +51,7 @@ public sealed class PathBoundaryTests
         string relativeTarget = Path.Combine("..", "pb-rel-missing-" + Guid.NewGuid().ToString("N"));
         TestWorkspace.CreateSymbolicLinkOrIgnore(linkPath, relativeTarget, directory: false);
 
-        string resolved = PathBoundary.ResolveDeepestExistingTarget(linkPath);
+        string resolved = FilePathComparison.ResolveCanonicalPath(linkPath);
 
         Assert.That(resolved, Is.EqualTo(Path.GetFullPath(Path.Combine(linkDir, relativeTarget))));
     }
@@ -61,7 +61,7 @@ public sealed class PathBoundaryTests
     {
         string missing = Path.Combine(_tempRoot, "a", "b", "c.txt");
 
-        string resolved = PathBoundary.ResolveDeepestExistingTarget(missing);
+        string resolved = FilePathComparison.ResolveCanonicalPath(missing);
 
         Assert.That(resolved, Is.EqualTo(Path.GetFullPath(missing)));
     }
@@ -80,7 +80,7 @@ public sealed class PathBoundaryTests
             string link = Path.Combine(_tempRoot, "link");
             TestWorkspace.CreateSymbolicLinkOrIgnore(link, outsideRoot, directory: true);
 
-            string resolved = PathBoundary.ResolveExistingPath(Path.Combine(link, "leaf.txt"));
+            string resolved = FilePathComparison.ResolveCanonicalPath(Path.Combine(link, "leaf.txt"));
 
             Assert.That(
                 resolved.StartsWith(_tempRoot, PathBoundary.Comparison),
@@ -110,7 +110,7 @@ public sealed class PathBoundaryTests
             string link = Path.Combine(linkDir, "link");
             TestWorkspace.CreateSymbolicLinkOrIgnore(link, Path.GetRelativePath(linkDir, outsideLeaf), directory: false);
 
-            string resolved = PathBoundary.ResolveExistingPath(link);
+            string resolved = FilePathComparison.ResolveCanonicalPath(link);
 
             Assert.That(resolved, Is.EqualTo(outsideLeaf));
         }
@@ -126,7 +126,7 @@ public sealed class PathBoundaryTests
         string leaf = Path.Combine(_tempRoot, "leaf.txt");
         File.WriteAllText(leaf, "x");
 
-        string resolved = PathBoundary.ResolveExistingPath(leaf);
+        string resolved = FilePathComparison.ResolveCanonicalPath(leaf);
 
         Assert.That(resolved, Is.EqualTo(Path.GetFullPath(leaf)));
     }
