@@ -34,7 +34,7 @@ public class OutputFileSafetyTests
             Assert.That(File.ReadAllText(destination), Is.EqualTo("previous complete output"));
             cancellation.Cancel();
             Assert.That(await execution, Is.InstanceOf<OperationCanceledException>());
-            Assert.That(output.IsCompleted.Value, Is.False);
+            Assert.That(output.WasCancelled.Value, Is.True);
             Assert.That(File.ReadAllText(destination), Is.EqualTo("previous complete output"));
             AssertNoStaging(destination);
         }
@@ -59,7 +59,7 @@ public class OutputFileSafetyTests
 
         Assert.That(await CaptureFailure(output.RunAsync(CancellationToken.None)), Is.TypeOf<IOException>());
         Assert.That(File.ReadAllText(destination), Is.EqualTo("previous complete output"));
-        Assert.That(output.IsCompleted.Value, Is.False);
+        Assert.That(output.WasCancelled.Value, Is.False);
         AssertNoStaging(destination);
     }
 
@@ -92,7 +92,7 @@ public class OutputFileSafetyTests
         Assert.Multiple(() =>
         {
             Assert.That(File.ReadAllText(destination), Is.EqualTo("new"));
-            Assert.That(output.IsCompleted.Value, Is.True);
+            Assert.That(output.WasCancelled.Value, Is.False);
             Assert.That(output.Controller.Value, Is.SameAs(settings));
             Assert.That(executionController!.OutputFile, Is.Not.EqualTo(destination));
             Assert.That(Path.GetFileName(executionController.OutputFile), Is.EqualTo(Path.GetFileName(destination)));
@@ -137,7 +137,7 @@ public class OutputFileSafetyTests
         using var output = CreateOutput(editor, destination, encoder);
 
         Assert.That(await CaptureFailure(output.RunAsync(CancellationToken.None)), Is.Not.Null);
-        Assert.That(output.IsCompleted.Value, Is.False);
+        Assert.That(output.WasCancelled.Value, Is.False);
         Assert.That(File.ReadAllText(Path.Combine(destination, "keep.txt")), Is.EqualTo("keep"));
         AssertNoStaging(destination);
     }

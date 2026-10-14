@@ -118,8 +118,6 @@ public sealed class MissingMediaViewModel : IToolContext
     { get; set; }
     public Task RefreshAsync() => _editor.OpenMissingMediaAsync(refresh: true);
 
-    public void Close() => _editor.CloseToolTab(this);
-
     // Test seam: tests await the candidate scan.
     internal Task WaitForCandidatesAsync() => _candidateScanTask;
 

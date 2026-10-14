@@ -31,10 +31,6 @@ public sealed class DockLayoutViewModel : IToolContext
         _service = service;
 
         SelectedItem = new ReactiveProperty<DockLayoutPresetItem?>().AddTo(_disposables);
-
-        HasSelection = SelectedItem.Select(i => i is not null)
-            .ToReadOnlyReactivePropertySlim()
-            .AddTo(_disposables);
     }
 
     public ToolTabExtension Extension => DockLayoutTabExtension.Instance;
@@ -46,8 +42,6 @@ public sealed class DockLayoutViewModel : IToolContext
     public ICoreList<DockLayoutPresetItem> Items => _service.Items;
 
     public ReactiveProperty<DockLayoutPresetItem?> SelectedItem { get; }
-
-    public ReadOnlyReactivePropertySlim<bool> HasSelection { get; }
 
     public string SuggestName()
     {
@@ -81,49 +75,42 @@ public sealed class DockLayoutViewModel : IToolContext
         return saved;
     }
 
-    /// <summary>Applies <paramref name="item"/>, or the selected layout when null.</summary>
-    public bool Apply(DockLayoutPresetItem? item = null)
+    /// <summary>Applies <paramref name="item"/>.</summary>
+    public bool Apply(DockLayoutPresetItem item)
     {
-        DockLayoutPresetItem? target = item ?? SelectedItem.Value;
-        if (target is null) return false;
-
-        if (_editViewModel.DockHost.ApplyLayout(target.Layout))
+        if (_editViewModel.DockHost.ApplyLayout(item.Layout))
         {
-            _logger.LogInformation("Applied dock layout '{Name}'.", target.Name.Value);
+            _logger.LogInformation("Applied dock layout '{Name}'.", item.Name.Value);
             return true;
         }
 
-        _logger.LogWarning("Failed to apply dock layout '{Name}'.", target.Name.Value);
+        _logger.LogWarning("Failed to apply dock layout '{Name}'.", item.Name.Value);
         NotificationService.ShowError(Strings.DockLayout, MessageStrings.OperationFailed);
         return false;
     }
 
-    public void Remove(DockLayoutPresetItem? item = null)
+    public void Remove(DockLayoutPresetItem item)
     {
-        DockLayoutPresetItem? target = item ?? SelectedItem.Value;
-        if (target is null) return;
-
-        if (!_service.Remove(target))
+        if (!_service.Remove(item))
         {
             NotificationService.ShowError(Strings.DockLayout, MessageStrings.OperationFailed);
             return;
         }
 
-        if (ReferenceEquals(SelectedItem.Value, target))
+        if (ReferenceEquals(SelectedItem.Value, item))
         {
             SelectedItem.Value = null;
         }
     }
 
-    public bool Rename(DockLayoutPresetItem? item, string? newName)
+    public bool Rename(DockLayoutPresetItem item, string? newName)
     {
-        DockLayoutPresetItem? target = item ?? SelectedItem.Value;
-        if (target is null || string.IsNullOrWhiteSpace(newName)) return false;
+        if (string.IsNullOrWhiteSpace(newName)) return false;
 
         // Dismissing the flyout unedited must not report an error.
-        if (string.Equals(target.Name.Value, newName.Trim(), StringComparison.Ordinal)) return true;
+        if (string.Equals(item.Name.Value, newName.Trim(), StringComparison.Ordinal)) return true;
 
-        if (_service.Rename(target, newName)) return true;
+        if (_service.Rename(item, newName)) return true;
 
         NotificationService.ShowError(Strings.DockLayout, MessageStrings.OperationFailed);
         return false;
