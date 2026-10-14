@@ -26,14 +26,11 @@ internal struct MFMediaInfo
 
         sb.AppendLine($"Play time: {TimeSpan.FromTicks(HnsDuration)}");
 
-        if (VideoStreamIndex != -1)
-        {
-            double fps = (double)Fps.Numerator / Fps.Denominator;
-            sb.AppendLine($"VideoStreamIndex: {VideoStreamIndex}");
-            sb.AppendLine($"  Fps: {fps}");
-            sb.AppendLine($"  TotalFrameCount: {TotalFrameCount}");
-            sb.AppendLine($"  FrameSize: {ImageFormat.Width}x{ImageFormat.Height}");
-        }
+        double fps = (double)Fps.Numerator / Fps.Denominator;
+        sb.AppendLine($"VideoStreamIndex: {VideoStreamIndex}");
+        sb.AppendLine($"  Fps: {fps}");
+        sb.AppendLine($"  TotalFrameCount: {TotalFrameCount}");
+        sb.AppendLine($"  FrameSize: {ImageFormat.Width}x{ImageFormat.Height}");
 
         return sb.ToString();
     }
