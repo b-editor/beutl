@@ -39,7 +39,6 @@ public partial class TextBlock : Drawable
     [Display(Name = nameof(GraphicsStrings.TextBlock_Spacing), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> Spacing { get; } = Property.CreateAnimatable<float>(0);
 
-    /// <summary>Aligns each line within the width of the longest line.</summary>
     [Display(Name = nameof(GraphicsStrings.TextBlock_TextAlignment), ResourceType = typeof(GraphicsStrings))]
     public IProperty<TextAlignment> TextAlignment { get; } = Property.CreateAnimatable(Media.TextAlignment.Start);
 
