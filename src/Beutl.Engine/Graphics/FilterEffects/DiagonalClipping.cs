@@ -9,7 +9,6 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
-/// <summary>Clips along a line or a parallel-sided band without moving the source or changing its layout bounds.</summary>
 [Display(Name = nameof(GraphicsStrings.DiagonalClipping), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class DiagonalClipping : FilterEffect
 {
@@ -66,18 +65,12 @@ public sealed partial class DiagonalClipping : FilterEffect
         ScanProperties<DiagonalClipping>();
     }
 
-    /// <summary>The line's clockwise angle in degrees. At zero, single-side clipping keeps the lower side.</summary>
     [Display(Name = nameof(GraphicsStrings.Angle), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> Angle { get; } = Property.CreateAnimatable(45f);
 
-    /// <summary>The line or band's signed distance from the source centre, in logical pixels along its normal.</summary>
     [Display(Name = nameof(GraphicsStrings.Position), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> Position { get; } = Property.CreateAnimatable(0f);
 
-    /// <summary>
-    /// The signed full perpendicular band width in logical pixels: zero clips one side, positive clips outside
-    /// the band, and negative clips inside the band. The band's extent uses the absolute value.
-    /// </summary>
     [Display(Name = nameof(GraphicsStrings.Width),
         Description = nameof(GraphicsStrings.DiagonalClipping_Width_Description), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> Width { get; } = Property.CreateAnimatable(0f);
