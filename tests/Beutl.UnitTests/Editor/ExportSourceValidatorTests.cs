@@ -54,6 +54,27 @@ public sealed class ExportSourceValidatorTests
         Assert.That(missing, Is.EqualTo(new[] { missingPath }));
     }
 
+    [TestCase(true, true)]
+    [TestCase(true, false)]
+    [TestCase(false, true)]
+    [TestCase(false, false)]
+    public void CollectRenderableSources_OnlyChecksEnabledExportPasses(bool video, bool audio)
+    {
+        string missingVideo = Path.Combine(_root, "missing.mov");
+        string missingSound = Path.Combine(_root, "missing.wav");
+        var scene = new Scene(1920, 1080, string.Empty);
+        scene.Children.Add(CreateVideoElement(_root, missingVideo));
+        scene.Children.Add(CreateSoundElement(_root, missingSound));
+
+        var paths = ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene, video, audio);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(paths.Contains(missingVideo), Is.EqualTo(video));
+            Assert.That(paths.Contains(missingSound), Is.EqualTo(audio));
+        });
+    }
+
     // A SceneDrawable renders only the referenced scene's graphics (SceneDrawable.EvaluateGraphics), so
     // a missing image inside it blocks export, but an audio-only Sound the video render never opens must
     // not — even for a full export. A SceneSound (below) is what pulls that scene's audio.

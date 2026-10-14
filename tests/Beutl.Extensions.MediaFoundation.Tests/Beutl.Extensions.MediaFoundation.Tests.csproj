@@ -18,6 +18,7 @@
 
   <ItemGroup>
     <Using Include="NUnit.Framework" />
+    <Compile Include="..\EncoderTestProviders.cs" Link="EncoderTestProviders.cs" />
   </ItemGroup>
 
   <ItemGroup>

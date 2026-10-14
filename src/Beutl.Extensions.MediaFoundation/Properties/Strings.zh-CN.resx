@@ -55,4 +55,31 @@
   <data name="Cache" xml:space="preserve">
     <value>缓存</value>
   </data>
+  <data name="EncodingName" xml:space="preserve">
+    <value>Media Foundation 编码</value>
+  </data>
+  <data name="UseHardwareAcceleration" xml:space="preserve">
+    <value>使用硬件加速</value>
+  </data>
+  <data name="Codec" xml:space="preserve">
+    <value>编码器</value>
+  </data>
+  <data name="AutoByExtension" xml:space="preserve">
+    <value>自动</value>
+  </data>
+  <data name="DisableStream" xml:space="preserve">
+    <value>不输出</value>
+  </data>
+  <data name="VideoCodecDescription" xml:space="preserve">
+    <value>自动模式根据扩展名选择编码器。HEVC需要兼容的Windows编码器。纯音频文件不输出视频。AVI使用未压缩的RGB32。</value>
+  </data>
+  <data name="AudioCodecDescription" xml:space="preserve">
+    <value>自动模式根据扩展名选择编码器。压缩音频使用最接近的受支持比特率；无损音频和PCM忽略比特率设置。</value>
+  </data>
+  <data name="BitDepth" xml:space="preserve">
+    <value>位深度</value>
+  </data>
+  <data name="BitDepthDescription" xml:space="preserve">
+    <value>用于PCM、FLAC和ALAC。可用位深度取决于编码器。浮点PCM始终使用32位。</value>
+  </data>
 </root>
