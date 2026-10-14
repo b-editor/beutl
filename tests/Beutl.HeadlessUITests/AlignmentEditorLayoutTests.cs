@@ -1,4 +1,5 @@
 ﻿using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
@@ -9,6 +10,8 @@ using Beutl.Language;
 using Beutl.Media;
 using Beutl.PropertyAdapters;
 using Beutl.Testing.Headless;
+using FluentIcons.Avalonia.Fluent;
+using FluentIcons.Common;
 using static Beutl.HeadlessUITests.PropertyEditorTestHost;
 
 namespace Beutl.HeadlessUITests;
@@ -21,7 +24,7 @@ public class AlignmentEditorLayoutTests
     [TestCase(EditorSurface.Node)]
     [TestCase(EditorSurface.Settings)]
     [TestCase(EditorSurface.ListItem)]
-    public void Text_alignment_choices_edit_the_text_property_and_support_undo(EditorSurface surface)
+    public void Text_alignment_icons_edit_the_text_property_and_support_undo(EditorSurface surface)
     {
         var text = new Beutl.Graphics.Shapes.TextBlock();
         Assert.That(text.GetDisplayProperties(), Does.Contain(text.TextAlignment));
@@ -29,32 +32,45 @@ public class AlignmentEditorLayoutTests
         using var viewModel = vm;
         using var history = new HistoryScope(text);
         vm.Accept(ServiceVisitor.For(history.History));
-        Assert.That(control, Is.TypeOf<EnumEditor>());
-        var editor = (EnumEditor)control;
+        Assert.That(control, Is.TypeOf<TextAlignmentEditor>());
+        var editor = (TextAlignmentEditor)control;
         var window = new Window { Content = control, Width = 400, Height = 180 };
         try
         {
             window.Show();
             HeadlessTestHelpers.Render(3);
-            var comboBox = editor.GetVisualDescendants().OfType<ComboBox>().Single();
-            Assert.That(editor.Items!.Select(item => item.DisplayName), Is.EqualTo(new[]
+            RadioButton[] buttons = editor.GetVisualDescendants().OfType<RadioButton>().ToArray();
+            Assert.That(buttons, Has.Length.EqualTo(3));
+            Assert.That(buttons.Select(button => ((FluentIcon)button.Content!).Icon), Is.EqualTo(new[]
+            {
+                Icon.TextAlignLeft, Icon.TextAlignCenter, Icon.TextAlignRight,
+            }));
+            string[] labels =
             {
                 GraphicsStrings.TextAlignment_Left, GraphicsStrings.TextAlignment_Center, GraphicsStrings.TextAlignment_Right,
-            }));
-            Assert.That(comboBox.SelectedIndex, Is.Zero);
+            };
+            Assert.That(buttons.Select(ToolTip.GetTip), Is.EqualTo(labels));
+            Assert.That(buttons.Select(AutomationProperties.GetName), Is.EqualTo(labels));
+            Assert.That(buttons[0].IsChecked, Is.True);
 
             foreach (int index in new[] { 1, 2, 0 })
             {
-                comboBox.SelectedIndex = index;
+                RadioButton button = buttons[index];
+                Point point = button.TranslatePoint(new Point(button.Bounds.Width / 2, button.Bounds.Height / 2), window)!.Value;
+                window.MouseDown(point, MouseButton.Left);
+                window.MouseUp(point, MouseButton.Left);
                 HeadlessTestHelpers.Render();
                 Assert.That(text.TextAlignment.CurrentValue, Is.EqualTo((TextAlignment)index));
+                Assert.That(button.IsChecked, Is.True);
+                Assert.That(buttons.Count(b => b.IsChecked == true), Is.EqualTo(1));
             }
 
             Assert.That(history.History.UndoCount, Is.EqualTo(3));
             history.History.Undo();
             HeadlessTestHelpers.Render();
             Assert.That(text.TextAlignment.CurrentValue, Is.EqualTo(TextAlignment.End));
-            Assert.That(comboBox.SelectedIndex, Is.EqualTo(2));
+            Assert.That(editor.Value, Is.EqualTo(TextAlignment.End));
+            Assert.That(buttons[2].IsChecked, Is.True);
         }
         finally { window.Close(); }
     }
@@ -73,20 +89,21 @@ public class AlignmentEditorLayoutTests
         var number = new NumberEditor<float> { Header = "Opacity", Value = 75 };
         var x = new AlignmentXEditor { Header = "Alignment X", Value = AlignmentX.Center };
         var y = new AlignmentYEditor { Header = "Alignment Y", Value = AlignmentY.Center };
-        var scope = new StackPanel { Children = { number, x, y } };
+        var text = new TextAlignmentEditor { Header = "Text Alignment", Value = TextAlignment.Center };
+        var scope = new StackPanel { Children = { number, x, y, text } };
         PropertyEditorGrid.SetIsAlignmentScope(scope, true);
-        foreach (PropertyEditor editor in new PropertyEditor[] { number, x, y })
+        foreach (PropertyEditor editor in new PropertyEditor[] { number, x, y, text })
         {
             editor.KeyFrameCount = keyFrames;
             editor.MenuContent = new Border { Width = 24, Height = 24 };
         }
-        var window = new Window { Content = scope, Width = width, Height = 300 };
+        var window = new Window { Content = scope, Width = width, Height = 400 };
         try
         {
             window.Show();
             HeadlessTestHelpers.Render(3);
             double inputX = number.GetVisualDescendants().OfType<TextBox>().Single().TranslatePoint(default, scope)!.Value.X;
-            foreach (PropertyEditor editor in new PropertyEditor[] { x, y })
+            foreach (PropertyEditor editor in new PropertyEditor[] { x, y, text })
             {
                 RadioButton[] buttons = editor.GetVisualDescendants().OfType<RadioButton>().ToArray();
                 Assert.That(buttons, Has.Length.EqualTo(3));
@@ -139,6 +156,7 @@ public class AlignmentEditorLayoutTests
             }
             Assert.That(x.Value, Is.EqualTo(AlignmentX.Right));
             Assert.That(y.Value, Is.EqualTo(AlignmentY.Bottom));
+            Assert.That(text.Value, Is.EqualTo(TextAlignment.End));
         }
         finally { window.Close(); }
     }
