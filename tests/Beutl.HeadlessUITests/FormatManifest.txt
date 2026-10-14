@@ -170,6 +170,9 @@ Beutl.Utilities
 [Beutl.Engine]Beutl.Animation:KeyFrame<[Beutl.Engine]Beutl.Media:Stretch>
   sealed
   keys: Easing, Id, KeyTime, Name, Value
+[Beutl.Engine]Beutl.Animation:KeyFrame<[Beutl.Engine]Beutl.Media:TextAlignment>
+  sealed
+  keys: Easing, Id, KeyTime, Name, Value
 [Beutl.Engine]Beutl.Animation:KeyFrame<[Beutl.Engine]Beutl.Media:TileMode>
   sealed
   keys: Easing, Id, KeyTime, Name, Value
@@ -244,6 +247,9 @@ Beutl.Utilities
   unsealed
   keys: Id, KeyFrames, Name, UseGlobalClock
 [Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Media:Stretch>
+  unsealed
+  keys: Id, KeyFrames, Name, UseGlobalClock
+[Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Media:TextAlignment>
   unsealed
   keys: Id, KeyFrames, Name, UseGlobalClock
 [Beutl.Engine]Beutl.Animation:KeyFrameAnimation<[Beutl.Engine]Beutl.Media:TileMode>
@@ -510,7 +516,7 @@ Beutl.Utilities
   abstract
 [Beutl.Engine]Beutl.Graphics.Shapes:TextBlock
   unsealed
-  keys: AlignmentX, AlignmentY, Animations, BlendMode, Expressions, Fill, FilterEffect, FontFamily, FontStyle, FontWeight, Id, IsEnabled, Name, Opacity, Pen, Size, Spacing, SplitByCharacters, Text, Transform, TransformOrigin
+  keys: AlignmentX, AlignmentY, Animations, BlendMode, Expressions, Fill, FilterEffect, FontFamily, FontStyle, FontWeight, Id, IsEnabled, Name, Opacity, Pen, Size, Spacing, SplitByCharacters, Text, TextAlignment, Transform, TransformOrigin
 [Beutl.Engine]Beutl.Graphics.Transformation:FallbackTransform
   sealed
   keys: Animations, Expressions, Id, IsEnabled, Name
@@ -1074,6 +1080,9 @@ Beutl.Utilities
   unsealed
   keys: (no public parameterless constructor)
 [Beutl.NodeGraph]:EnginePropertyBackedInputPort<[Beutl.Engine]Beutl.Media:Pen>
+  unsealed
+  keys: (no public parameterless constructor)
+[Beutl.NodeGraph]:EnginePropertyBackedInputPort<[Beutl.Engine]Beutl.Media:TextAlignment>
   unsealed
   keys: (no public parameterless constructor)
 [Beutl.NodeGraph]:EnginePropertyBackedInputPort<[Beutl.ProjectSystem]:Scene>
