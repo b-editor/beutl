@@ -55,4 +55,31 @@
   <data name="Cache" xml:space="preserve">
     <value>Caché</value>
   </data>
+  <data name="EncodingName" xml:space="preserve">
+    <value>Codificación de Media Foundation</value>
+  </data>
+  <data name="UseHardwareAcceleration" xml:space="preserve">
+    <value>Usar aceleración de hardware</value>
+  </data>
+  <data name="Codec" xml:space="preserve">
+    <value>Códec</value>
+  </data>
+  <data name="AutoByExtension" xml:space="preserve">
+    <value>Automático</value>
+  </data>
+  <data name="DisableStream" xml:space="preserve">
+    <value>Desactivado</value>
+  </data>
+  <data name="VideoCodecDescription" xml:space="preserve">
+    <value>Automático selecciona un códec según la extensión. HEVC requiere un codificador de Windows compatible. Los archivos de solo audio omiten el vídeo. AVI utiliza RGB32 sin compresión.</value>
+  </data>
+  <data name="AudioCodecDescription" xml:space="preserve">
+    <value>Automático selecciona un códec según la extensión. El audio comprimido utiliza la tasa de bits compatible más cercana; el audio sin pérdida y PCM ignoran la tasa de bits.</value>
+  </data>
+  <data name="BitDepth" xml:space="preserve">
+    <value>Profundidad de bits</value>
+  </data>
+  <data name="BitDepthDescription" xml:space="preserve">
+    <value>Se utiliza para PCM, FLAC y ALAC. Las profundidades disponibles dependen del codificador. PCM de coma flotante siempre utiliza 32 bits.</value>
+  </data>
 </root>

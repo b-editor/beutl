@@ -102,6 +102,12 @@ Beutl.Utilities
 [Beutl.Embedding.MediaFoundation].Decoding:MFDecodingSettings
   sealed
   keys: MaxVideoBufferSize, ThresholdFrameCount
+[Beutl.Embedding.MediaFoundation].Encoding:MFAudioEncoderSettings
+  sealed
+  keys: BitDepth, Bitrate, Channels, Codec, CodecOptions, Id, Name, SampleRate
+[Beutl.Embedding.MediaFoundation].Encoding:MFVideoEncoderSettings
+  sealed
+  keys: Bitrate, Codec, CodecOptions, DestinationSize, FrameRate, Id, KeyframeRate, Name, SourceSize, UseHardwareAcceleration
 [Beutl.Engine]:EngineObject
   unsealed
   keys: Animations, Expressions, Id, IsEnabled, Name
@@ -1417,6 +1423,7 @@ Beutl.Services.PrimitiveImpls.TimelineTabExtension.ToggleSlipMode
 # SelectedEncoder in output-profile.json and output-presets.json: the $type of every
 # ControllableEncodingExtension.
 
+[Beutl.Embedding.MediaFoundation].Encoding:MFEncodingExtension
 [Beutl.Extensions.AVFoundation].Encoding:AVFEncodingExtension
 [Beutl.Extensions.FFmpeg.Core]Beutl.Extensions.FFmpeg.Encoding:FFmpegHeadlessEncodingExtension
 [Beutl.Extensions.FFmpeg].Encoding:FFmpegControlledEncodingExtension

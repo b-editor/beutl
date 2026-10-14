@@ -112,4 +112,31 @@
   <data name="Cache" xml:space="preserve">
     <value>キャッシュ</value>
   </data>
+  <data name="EncodingName" xml:space="preserve">
+    <value>Media Foundation エンコーディング</value>
+  </data>
+  <data name="UseHardwareAcceleration" xml:space="preserve">
+    <value>ハードウェアアクセラレーションを使用</value>
+  </data>
+  <data name="Codec" xml:space="preserve">
+    <value>コーデック</value>
+  </data>
+  <data name="AutoByExtension" xml:space="preserve">
+    <value>自動</value>
+  </data>
+  <data name="DisableStream" xml:space="preserve">
+    <value>出力しない</value>
+  </data>
+  <data name="VideoCodecDescription" xml:space="preserve">
+    <value>自動では拡張子に合う形式を選択します。HEVCには対応するWindowsエンコーダーが必要です。音声専用ファイルでは映像を出力しません。AVIは非圧縮RGB32で出力します。</value>
+  </data>
+  <data name="AudioCodecDescription" xml:space="preserve">
+    <value>自動では拡張子に合う形式を選択します。圧縮音声は対応する最も近いビットレートを使用します。可逆圧縮とPCMではビットレートの設定は使用しません。</value>
+  </data>
+  <data name="BitDepth" xml:space="preserve">
+    <value>ビット深度</value>
+  </data>
+  <data name="BitDepthDescription" xml:space="preserve">
+    <value>PCM・FLAC・ALACに使用します。対応する深度はエンコーダーによって異なります。浮動小数点PCMは常に32ビットです。</value>
+  </data>
 </root>
