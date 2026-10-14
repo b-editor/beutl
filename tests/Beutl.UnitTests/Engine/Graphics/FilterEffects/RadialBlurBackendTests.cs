@@ -1,5 +1,7 @@
-﻿using Beutl.Composition;
+﻿using System.Reflection;
+using Beutl.Composition;
 using Beutl.Graphics;
+using Beutl.Graphics.Backend;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
@@ -17,6 +19,57 @@ namespace Beutl.UnitTests.Engine.Graphics.FilterEffects;
 [NonParallelizable]
 public sealed class RadialBlurBackendTests
 {
+    [TestCase(RadialBlurMode.Zoom)]
+    [TestCase(RadialBlurMode.Spin)]
+    public void ShaderCache_RecreatesForReplacementContextAndReusesWithinContext(RadialBlurMode mode)
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            GLSLShader first = GetShader();
+            ushort[] expected = Render();
+            Assert.That(expected, Has.Some.Not.Zero);
+            Assert.That(GetShader(), Is.SameAs(first));
+
+            using IGraphicsContext replacement = GraphicsContextFactory.CreateContext();
+            GLSLShader? second = null;
+            try
+            {
+                using var scope = InstalledGraphicsScope.Install(replacement);
+                second = GetShader();
+                // Check before drawing so a regression cannot submit resources from different devices.
+                Assert.That(second, Is.Not.SameAs(first));
+                Assert.That(() => first.InputCount, Throws.TypeOf<ObjectDisposedException>());
+                Assert.That(Render(), Is.EqualTo(expected));
+                Assert.That(GetShader(), Is.SameAs(second));
+            }
+            finally
+            {
+                // Restore the original context's shader before destroying the replacement device.
+                GetShader();
+            }
+
+            Assert.That(() => second!.InputCount, Throws.TypeOf<ObjectDisposedException>());
+            Assert.That(Render(), Is.EqualTo(expected));
+        });
+
+        static GLSLShader GetShader()
+            => (GLSLShader)typeof(RadialBlur)
+                .GetMethod("GetOrCreateShader", BindingFlags.NonPublic | BindingFlags.Static)!.Invoke(null, null)!;
+
+        ushort[] Render()
+        {
+            var effect = new RadialBlur { Mode = { CurrentValue = mode }, Amount = { CurrentValue = 50 } };
+            using var brush = (Brush.Resource)new SolidColorBrush(Colors.Red).ToResource(CompositionContext.Default);
+            using var root = new FilterEffectRenderNode(effect.ToResource(CompositionContext.Default));
+            root.AddChild(new RectangleRenderNode(new Rect(4, 4, 16, 8), brush, null));
+            using var renderer = new RenderNodeRenderer(root,
+                new RenderNodeRenderRequest { Intent = RenderIntent.Delivery, CacheOptions = RenderCacheOptions.Disabled });
+            using RenderNodeRasterization output = renderer.Rasterize();
+            return output.Bitmap!.GetPixelSpan<ushort>().ToArray();
+        }
+    }
+
     [TestCase(RenderIntent.Preview)]
     [TestCase(RenderIntent.Delivery)]
     public void CpuRenderer_RejectsRadialBlurWithoutFallback(RenderIntent intent)

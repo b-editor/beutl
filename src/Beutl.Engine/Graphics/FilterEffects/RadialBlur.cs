@@ -47,8 +47,9 @@ public sealed partial class RadialBlur : FilterEffect
         }
         """;
 
-    // One fixed pipeline, retained like the built-in PixelSort pipelines. Failed creation can be retried.
+    // One fixed pipeline for the current shared graphics context. Failed creation can be retried.
     private static readonly object s_shaderLock = new();
+    private static IGraphicsContext? s_shaderContext;
     private static GLSLShader? s_shader;
 
     public RadialBlur()
@@ -88,6 +89,15 @@ public sealed partial class RadialBlur : FilterEffect
     {
         lock (s_shaderLock)
         {
+            IGraphicsContext? graphicsContext = GraphicsContextFactory.SharedContext;
+            if (!ReferenceEquals(s_shaderContext, graphicsContext))
+            {
+                GLSLShader? previous = s_shader;
+                s_shader = null;
+                s_shaderContext = graphicsContext;
+                previous?.Dispose();
+            }
+
             return s_shader ??= GLSLShader.CreateBuiltIn(ShaderSource, inputCount: 2);
         }
     }
