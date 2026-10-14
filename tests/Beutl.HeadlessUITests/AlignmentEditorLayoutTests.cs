@@ -5,14 +5,60 @@ using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.VisualTree;
 using Beutl.Controls.PropertyEditors;
+using Beutl.Language;
 using Beutl.Media;
+using Beutl.PropertyAdapters;
 using Beutl.Testing.Headless;
+using static Beutl.HeadlessUITests.PropertyEditorTestHost;
 
 namespace Beutl.HeadlessUITests;
 
 [TestFixture]
 public class AlignmentEditorLayoutTests
 {
+    [AvaloniaTest]
+    [TestCase(EditorSurface.Property)]
+    [TestCase(EditorSurface.Node)]
+    [TestCase(EditorSurface.Settings)]
+    [TestCase(EditorSurface.ListItem)]
+    public void Text_alignment_choices_edit_the_text_property_and_support_undo(EditorSurface surface)
+    {
+        var text = new Beutl.Graphics.Shapes.TextBlock();
+        Assert.That(text.GetDisplayProperties(), Does.Contain(text.TextAlignment));
+        var (vm, control) = CreateControl(new EnginePropertyAdapter<TextAlignment>(text.TextAlignment, text), surface);
+        using var viewModel = vm;
+        using var history = new HistoryScope(text);
+        vm.Accept(ServiceVisitor.For(history.History));
+        Assert.That(control, Is.TypeOf<EnumEditor>());
+        var editor = (EnumEditor)control;
+        var window = new Window { Content = control, Width = 400, Height = 180 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(3);
+            var comboBox = editor.GetVisualDescendants().OfType<ComboBox>().Single();
+            Assert.That(editor.Items!.Select(item => item.DisplayName), Is.EqualTo(new[]
+            {
+                GraphicsStrings.TextAlignment_Left, GraphicsStrings.TextAlignment_Center, GraphicsStrings.TextAlignment_Right,
+            }));
+            Assert.That(comboBox.SelectedIndex, Is.Zero);
+
+            foreach (int index in new[] { 1, 2, 0 })
+            {
+                comboBox.SelectedIndex = index;
+                HeadlessTestHelpers.Render();
+                Assert.That(text.TextAlignment.CurrentValue, Is.EqualTo((TextAlignment)index));
+            }
+
+            Assert.That(history.History.UndoCount, Is.EqualTo(3));
+            history.History.Undo();
+            HeadlessTestHelpers.Render();
+            Assert.That(text.TextAlignment.CurrentValue, Is.EqualTo(TextAlignment.End));
+            Assert.That(comboBox.SelectedIndex, Is.EqualTo(2));
+        }
+        finally { window.Close(); }
+    }
+
     [AvaloniaTest]
     [TestCase(220, 0)]
     [TestCase(220, 3)]

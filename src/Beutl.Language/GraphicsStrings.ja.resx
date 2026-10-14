@@ -730,6 +730,15 @@
   <data name="StrokeEffect_Style" xml:space="preserve">
     <value>ボーダースタイル</value>
   </data>
+  <data name="TextAlignment_Center" xml:space="preserve">
+    <value>中央揃え</value>
+  </data>
+  <data name="TextAlignment_Left" xml:space="preserve">
+    <value>左揃え</value>
+  </data>
+  <data name="TextAlignment_Right" xml:space="preserve">
+    <value>右揃え</value>
+  </data>
   <data name="TextBlock" xml:space="preserve">
     <value>テキスト</value>
   </data>
@@ -753,6 +762,9 @@
   </data>
   <data name="TextBlock_Text" xml:space="preserve">
     <value>テキスト</value>
+  </data>
+  <data name="TextBlock_TextAlignment" xml:space="preserve">
+    <value>行揃え</value>
   </data>
   <data name="Threshold" xml:space="preserve">
     <value>二階調化</value>
