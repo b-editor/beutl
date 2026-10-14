@@ -32,3 +32,31 @@ public class AlignmentXEditor : ThreeOptionRadioEditor<AlignmentX>
 
     protected override void SetValue(AlignmentX value) => Value = value;
 }
+
+public class TextAlignmentEditor : ThreeOptionRadioEditor<TextAlignment>
+{
+    public static readonly DirectProperty<TextAlignmentEditor, TextAlignment> ValueProperty =
+        AvaloniaProperty.RegisterDirect<TextAlignmentEditor, TextAlignment>(
+            nameof(Value),
+            o => o.Value,
+            (o, v) => o.Value = v,
+            defaultBindingMode: BindingMode.TwoWay);
+
+    public TextAlignment Value
+    {
+        get => _value;
+        set
+        {
+            if (SetAndRaise(ValueProperty, ref _value, value))
+            {
+                UpdateCheckState();
+            }
+        }
+    }
+
+    protected override TextAlignment ButtonAValue => TextAlignment.Start;
+    protected override TextAlignment ButtonBValue => TextAlignment.Center;
+    protected override TextAlignment ButtonCValue => TextAlignment.End;
+
+    protected override void SetValue(TextAlignment value) => Value = value;
+}

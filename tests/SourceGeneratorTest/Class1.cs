@@ -3,11 +3,21 @@
 using Beutl.Engine;
 
 namespace SourceGeneratorTest;
+
+public enum TextAlignment
+{
+    Start,
+    Center,
+    End,
+}
+
 public partial class Derived : EngineObject
 {
     public IProperty<float> X { get; } = Property.Create(0f);
 
     public IProperty<float> Y { get; } = Property.Create(17f);
+
+    public IProperty<TextAlignment> TextAlignment { get; } = Property.Create(SourceGeneratorTest.TextAlignment.Start);
 }
 
 public partial class Derived2 : Derived

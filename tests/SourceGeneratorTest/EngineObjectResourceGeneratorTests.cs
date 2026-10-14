@@ -44,6 +44,13 @@ public class EngineObjectResourceGeneratorTests
             Assert.That(derived, Does.Contain("X.SetAttributes(\"X\", __attrs_X);"));
             Assert.That(derived, Does.Contain("Y.SetAttributes(\"Y\", __attrs_Y);"));
 
+            Assert.That(derived, Does.Contain("public global::SourceGeneratorTest.TextAlignment TextAlignment"));
+            Assert.That(derived, Does.Contain("set => _textAlignment = value;"));
+            Assert.That(derived, Does.Contain(
+                "ResourceReconciler.ReconcileValue(this, context, ((global::SourceGeneratorTest.Derived)obj).TextAlignment, ref _textAlignment, ref versionBumped);"));
+            Assert.That(derived, Does.Contain("yield return TextAlignment;"));
+            Assert.That(derived, Does.Contain("TextAlignment.SetAttributes(\"TextAlignment\", __attrs_TextAlignment);"));
+
             Assert.That(derived2, Does.Contain("Derived.Resource"));
             Assert.That(derived2, Does.Contain("public float Z"));
             Assert.That(derived2, Does.Contain("yield return Z;"));

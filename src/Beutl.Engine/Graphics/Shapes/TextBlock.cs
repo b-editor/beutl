@@ -39,6 +39,9 @@ public partial class TextBlock : Drawable
     [Display(Name = nameof(GraphicsStrings.TextBlock_Spacing), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> Spacing { get; } = Property.CreateAnimatable<float>(0);
 
+    [Display(Name = nameof(GraphicsStrings.TextBlock_TextAlignment), ResourceType = typeof(GraphicsStrings))]
+    public IProperty<TextAlignment> TextAlignment { get; } = Property.CreateAnimatable(Media.TextAlignment.Start);
+
     [Display(Name = nameof(GraphicsStrings.TextBlock_SplitByCharacters), ResourceType = typeof(GraphicsStrings))]
     public IProperty<bool> SplitByCharacters { get; } = Property.CreateAnimatable<bool>(false);
 
@@ -74,18 +77,19 @@ public partial class TextBlock : Drawable
     protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
     {
         var r = (Resource)resource;
+        float width = r.TextAlignment == Media.TextAlignment.Start ? 0 : MeasureCore(context.Size, resource).Width;
 
         if (r.SplitByCharacters)
         {
-            DrawSplitted(context, r);
+            DrawSplitted(context, r, width);
         }
         else
         {
-            DrawGrouped(context, r);
+            DrawGrouped(context, r, width);
         }
     }
 
-    private void DrawGrouped(GraphicsContext2D context, Resource resource)
+    private void DrawGrouped(GraphicsContext2D context, Resource resource, float width)
     {
         var elements = resource.GetTextElements();
         using (context.Push())
@@ -95,8 +99,9 @@ public partial class TextBlock : Drawable
             {
                 Size lineBounds = MeasureLine(line);
                 float ascent = MinAscent(line);
+                float x = GetLineOffset(resource.TextAlignment, width, lineBounds.Width);
 
-                using (context.PushTransform(Matrix.CreateTranslation(0, prevBottom - ascent)))
+                using (context.PushTransform(Matrix.CreateTranslation(x, prevBottom - ascent)))
                 {
                     float prevRight = 0;
                     foreach (FormattedText item in line)
@@ -120,7 +125,7 @@ public partial class TextBlock : Drawable
         }
     }
 
-    private void DrawSplitted(GraphicsContext2D context, Resource resource)
+    private void DrawSplitted(GraphicsContext2D context, Resource resource, float width)
     {
         var elements = resource.GetTextElements();
         float prevBottom = 0;
@@ -130,7 +135,7 @@ public partial class TextBlock : Drawable
             float ascent = MinAscent(line);
             float yPosition = prevBottom - ascent;
 
-            float prevRight = 0;
+            float prevRight = GetLineOffset(resource.TextAlignment, width, lineBounds.Width);
             foreach (FormattedText item in line)
             {
                 if (item.Text.Length > 0)
@@ -159,6 +164,16 @@ public partial class TextBlock : Drawable
 
             prevBottom += lineBounds.Height;
         }
+    }
+
+    private static float GetLineOffset(TextAlignment alignment, float width, float lineWidth)
+    {
+        return alignment switch
+        {
+            Media.TextAlignment.Center => (width - lineWidth) / 2,
+            Media.TextAlignment.End => width - lineWidth,
+            _ => 0,
+        };
     }
 
     private static Size MeasureLine(Span<FormattedText> items)
