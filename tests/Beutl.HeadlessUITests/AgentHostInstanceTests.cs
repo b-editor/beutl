@@ -49,7 +49,7 @@ public sealed class AgentHostInstanceTests
                 ["schemaVersion"] = "1",
                 ["patch"] = new JsonObject { ["Id"] = second.SceneId, ["Name"] = "remote-process-edited" }
             };
-            AssertSuccess(await client.CallToolAsync("apply_edit", edit));
+            Success(await client.CallToolAsync("apply_edit", edit));
             JsonObject firstDocument = Payload(await client.CallToolAsync("read_document", firstTarget));
             JsonObject secondDocument = Payload(await client.CallToolAsync("read_document", secondTarget));
             Assert.Multiple(() =>
@@ -119,7 +119,7 @@ public sealed class AgentHostInstanceTests
                 ["schemaVersion"] = "1",
                 ["patch"] = new JsonObject { ["Id"] = second.SceneId, ["Name"] = "edited-through-agent-server" }
             };
-            AssertSuccess(await client.CallToolAsync("apply_edit", edit));
+            Success(await client.CallToolAsync("apply_edit", edit));
 
             if (crash)
                 first.Process.Kill(entireProcessTree: true);
@@ -165,7 +165,7 @@ public sealed class AgentHostInstanceTests
             Assert.That((await server.Client.ListToolsAsync()).Select(tool => tool.Name), Does.Not.Contain("list_scenes"));
             AssertError(await server.Client.CallToolAsync("list_scenes"), "validation_rejected");
             // Headless work needs no editor at all.
-            AssertSuccess(await server.Client.CallToolAsync("read_operation_status"));
+            Success(await server.Client.CallToolAsync("read_operation_status"));
 
             Worker worker = await Worker.StartAsync(directory, "appearing", AvailablePort());
             try
@@ -226,8 +226,8 @@ public sealed class AgentHostInstanceTests
                 Assert.That(instances.Single(info => info!["instanceId"]!.GetValue<string>() == second.InstanceId)!["sceneName"]!.GetValue<string>(), Is.EqualTo("second"));
             });
 
-            AssertSuccess(await client.CallToolAsync("list_scenes", Target(first)));
-            AssertSuccess(await client.CallToolAsync("list_scenes", Target(second)));
+            Success(await client.CallToolAsync("list_scenes", Target(first)));
+            Success(await client.CallToolAsync("list_scenes", Target(second)));
             await Task.WhenAll(
                 RenameAsync(client, second, secondScene, "second-edited"),
                 RenameAsync(otherClient, first, firstScene, "first-edited"));
@@ -237,13 +237,13 @@ public sealed class AgentHostInstanceTests
                 Assert.That(secondScene.Name, Is.EqualTo("second-edited"));
             });
 
-            AssertSuccess(await client.CallToolAsync("undo", Target(second, secondScene)));
+            Success(await client.CallToolAsync("undo", Target(second, secondScene)));
             Assert.Multiple(() =>
             {
                 Assert.That(firstScene.Name, Is.EqualTo("first-edited"));
                 Assert.That(secondScene.Name, Is.EqualTo("second"));
             });
-            AssertSuccess(await client.CallToolAsync("redo", Target(second, secondScene)));
+            Success(await client.CallToolAsync("redo", Target(second, secondScene)));
             JsonObject remote = Payload(await client.CallToolAsync("read_document_summary", Target(second, secondScene)));
             JsonObject local = Payload(await client.CallToolAsync("read_document_summary", Target(first, firstScene)));
             Assert.Multiple(() =>
@@ -288,7 +288,7 @@ public sealed class AgentHostInstanceTests
             await replacement.StartAsync();
             Assert.That(replacement.EndpointUri!.Port, Is.EqualTo(port));
             File.WriteAllText(registrationPath, staleRegistration); // Simulate a crashed host's leftover entry.
-            AssertSuccess(await client.CallToolAsync("list_scenes", Target(replacement)));
+            Success(await client.CallToolAsync("list_scenes", Target(replacement)));
             var arguments = Target(second, scene);
             arguments["patch"] = new JsonObject { ["Id"] = scene.Id.ToString(), ["Name"] = "wrong-instance" };
             arguments["schemaVersion"] = "1";
@@ -326,8 +326,8 @@ public sealed class AgentHostInstanceTests
             var unknown = Target(second);
             unknown["unexpected"] = true;
             AssertError(await client.CallToolAsync("read_operation_status", unknown), "validation_rejected");
-            AssertSuccess(await client.CallToolAsync("read_operation_status", Target(first)));
-            AssertSuccess(await client.CallToolAsync("read_operation_status", Target(second)));
+            Success(await client.CallToolAsync("read_operation_status", Target(first)));
+            Success(await client.CallToolAsync("read_operation_status", Target(second)));
 
             using var http = new HttpClient();
             Uri infoUri = new(first.EndpointUri!, "/agent-host");
@@ -413,7 +413,6 @@ public sealed class AgentHostInstanceTests
     }
 
     [Test]
-    [Platform("Linux,MacOSX")]
     public void Directory_read_permission_errors_return_no_peers_and_preserve_registrations()
     {
         if (OperatingSystem.IsWindows())
@@ -455,17 +454,8 @@ public sealed class AgentHostInstanceTests
         var arguments = Target(endpoint, scene);
         arguments["patch"] = new JsonObject { ["Id"] = scene.Id.ToString(), ["Name"] = name };
         arguments["schemaVersion"] = "1";
-        AssertSuccess(await client.CallToolAsync("apply_edit", arguments));
+        Success(await client.CallToolAsync("apply_edit", arguments));
     }
-
-    private static JsonObject Payload(CallToolResult result)
-        => JsonNode.Parse(result.Content.OfType<TextContentBlock>().First().Text)!.AsObject();
-
-    private static void AssertSuccess(CallToolResult result)
-        => Assert.That(Payload(result)["isSuccess"]!.GetValue<bool>(), Is.True, Payload(result).ToJsonString());
-
-    private static void AssertError(CallToolResult result, string code)
-        => Assert.That(Payload(result)["error"]?["code"]?.GetValue<string>(), Is.EqualTo(code), Payload(result).ToJsonString());
 
     // The installed MCP server, wired like Program.cs but over an in-memory stdio pair and pointed
     // at the test registry and token; the Beutl instances it routes to are real separate processes.

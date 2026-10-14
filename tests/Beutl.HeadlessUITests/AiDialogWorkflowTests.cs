@@ -5127,15 +5127,8 @@ public sealed partial class AiDialogWorkflowTests
             .GetField("_lifetimeCts", BindingFlags.NonPublic | BindingFlags.Instance)!
             .GetValue(viewModel)!;
 
-    private static async Task WaitUntilAsync(Func<bool> condition)
-    {
-        using var cancellationTokenSource = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        while (!condition())
-        {
-            HeadlessTestHelpers.Settle();
-            await Task.Delay(10, cancellationTokenSource.Token);
-        }
-    }
+    private static Task WaitUntilAsync(Func<bool> condition)
+        => HeadlessTestHelpers.WaitUntilAsync(condition, TimeSpan.FromSeconds(5));
 
     // Two video models with different shapes: one takes 4/6/8 seconds at 720p or
     // 1080p, the other renders only at 2K, refuses anything under five seconds
@@ -5304,36 +5297,6 @@ public sealed partial class AiDialogWorkflowTests
         content.Headers.ContentType = new MediaTypeHeaderValue("text/event-stream");
         return new HttpResponseMessage(HttpStatusCode.OK) { Content = content };
     }
-
-    private static string EntitlementsJson() => """
-        {
-          "plan": "pro",
-          "subscriptionStatus": "active",
-          "currentPeriodStart": "2026-08-01T00:00:00Z",
-          "currentPeriodEnd": "2026-09-01T00:00:00Z",
-          "canUseAi": true,
-          "balance": {
-            "monthlyUsage": {
-              "usedPercent": 0,
-              "remainingPercent": 100,
-              "isExhausted": false
-            },
-            "additionalCredits": 0,
-            "hasAdditionalCreditDebt": false
-          },
-          "availability": {
-            "image.generate": true,
-            "image.edit.remove_background": true,
-            "image.edit.upscale": true,
-            "image.edit.restyle": true,
-            "image.edit.remove_object": true,
-            "image.edit.outpaint": true,
-            "audio.transcribe": true,
-            "subtitle.translate": true,
-            "video.generate": true
-          }
-        }
-        """;
 
     private static string EntitlementsWithUnavailableImageModelJson()
         => EntitlementsJson().Replace(

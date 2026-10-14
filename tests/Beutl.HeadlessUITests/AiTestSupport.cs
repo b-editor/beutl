@@ -19,6 +19,19 @@ namespace Beutl.HeadlessUITests;
 // Stubbed API clients, a signed-in user and the AI dialog view models for the AI tests.
 internal static class AiTestSupport
 {
+    private static readonly string[] s_aiOperations =
+    [
+        "image.generate",
+        "image.edit.remove_background",
+        "image.edit.upscale",
+        "image.edit.restyle",
+        "image.edit.remove_object",
+        "image.edit.outpaint",
+        "audio.transcribe",
+        "subtitle.translate",
+        "video.generate",
+    ];
+
     public static HttpResponseMessage JsonResponse(HttpStatusCode status, string json)
         => new(status)
         {
@@ -42,12 +55,12 @@ internal static class AiTestSupport
             "_authenticatedUser",
             BindingFlags.NonPublic | BindingFlags.Instance)!;
         var state = (ReactivePropertySlim<AuthenticatedUser?>)field.GetValue(clients)!;
-        if (id is null)
-        {
-            state.Value = null;
-            return;
-        }
+        state.Value = id is null ? null : CreateUser(clients, id);
+    }
 
+    // A user of the clients whose names and tokens come from id, signed in for the next hour.
+    public static AuthenticatedUser CreateUser(BeutlApiApplication clients, string id = "test-user")
+    {
         var profile = new Profile(new ProfileResponse
         {
             Id = id,
@@ -57,12 +70,44 @@ internal static class AiTestSupport
             IconId = null,
             IconUrl = null,
         }, clients);
-        state.Value = new AuthenticatedUser(profile, new AuthResponse
+        return new AuthenticatedUser(profile, new AuthResponse
         {
             Token = $"token-{id}",
             RefreshToken = $"refresh-{id}",
             Expiration = DateTime.UtcNow.AddHours(1),
         }, clients, DateTime.UtcNow);
+    }
+
+    // An entitlements response for an active pro plan from 2026-08-01 to 2026-09-01 that can use AI for
+    // operations, or for every AI operation unless given.
+    public static string EntitlementsJson(
+        string[]? operations = null, int usedPercent = 0, int additionalCredits = 0, bool cancelAtPeriodEnd = false)
+    {
+        string availability = string.Join(
+            ",\n",
+            (operations ?? s_aiOperations).Select(operation => $"    \"{operation}\": true"));
+        return $$"""
+            {
+              "plan": "pro",
+              "subscriptionStatus": "active",
+              "currentPeriodStart": "2026-08-01T00:00:00Z",
+              "currentPeriodEnd": "2026-09-01T00:00:00Z",
+              "cancelAtPeriodEnd": {{(cancelAtPeriodEnd ? "true" : "false")}},
+              "canUseAi": true,
+              "balance": {
+                "monthlyUsage": {
+                  "usedPercent": {{usedPercent}},
+                  "remainingPercent": {{100 - usedPercent}},
+                  "isExhausted": false
+                },
+                "additionalCredits": {{additionalCredits}},
+                "hasAdditionalCreditDebt": false
+              },
+              "availability": {
+            {{availability}}
+              }
+            }
+            """;
     }
 
     // The AI dialog view models over a test's API clients. Unless a test passes its own, each gets a fresh

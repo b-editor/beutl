@@ -1,7 +1,6 @@
 ﻿using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Http.Headers;
-using System.Net.Sockets;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Avalonia.Headless.NUnit;
@@ -14,6 +13,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
+using static Beutl.HeadlessUITests.AgentHostTestHelpers;
 
 namespace Beutl.HeadlessUITests;
 
@@ -85,21 +85,16 @@ public sealed class AgentHostInstanceAuthenticationTests
             await replacement.StartAsync();
             try
             {
-                await using McpClient client = await McpClient.CreateAsync(new HttpClientTransport(new HttpClientTransportOptions
-                {
-                    Endpoint = source.EndpointUri!,
-                    TransportMode = HttpTransportMode.StreamableHttp,
-                    AdditionalHeaders = new Dictionary<string, string> { ["Authorization"] = "Bearer " + source.Token }
-                }));
+                await using McpClient client = await ConnectAsync(source);
                 File.WriteAllText(path, stale);
                 CallToolResult discovery = await client.CallToolAsync("list_instances");
-                JsonObject result = JsonNode.Parse(discovery.Content.OfType<TextContentBlock>().First().Text)!.AsObject();
+                JsonObject result = Payload(discovery);
                 Assert.That(result["value"]!["instances"]!.AsArray(), Has.Count.EqualTo(1));
                 if (!proveIdentity) Assert.That(File.Exists(path), Is.False);
                 File.WriteAllText(path, stale); // Exercise forwarding independently of discovery cleanup.
                 CallToolResult forwarded = await client.CallToolAsync("read_operation_status",
                     new Dictionary<string, object?> { ["instanceId"] = target.InstanceId });
-                JsonObject failure = JsonNode.Parse(forwarded.Content.OfType<TextContentBlock>().First().Text)!.AsObject();
+                JsonObject failure = Payload(forwarded);
                 Assert.That(failure["error"]!["code"]!.GetValue<string>(), Is.EqualTo("instance_unavailable"));
                 Assert.That(observed, Does.Not.Contain("Bearer " + source.Token));
                 Assert.That(observed.First(), Is.Empty, "The identity proof must be requested without credentials.");
@@ -139,16 +134,11 @@ public sealed class AgentHostInstanceAuthenticationTests
         {
             await endpoint.StartAsync();
             Assert.That(endpoint.IsRunning, Is.True);
-            await using McpClient client = await McpClient.CreateAsync(new HttpClientTransport(new HttpClientTransportOptions
-            {
-                Endpoint = endpoint.EndpointUri!,
-                TransportMode = HttpTransportMode.StreamableHttp,
-                AdditionalHeaders = new Dictionary<string, string> { ["Authorization"] = "Bearer " + endpoint.Token }
-            }));
+            await using McpClient client = await ConnectAsync(endpoint);
             CallToolResult status = await client.CallToolAsync("read_operation_status");
-            Assert.That(JsonNode.Parse(status.Content.OfType<TextContentBlock>().First().Text)!["isSuccess"]!.GetValue<bool>(), Is.True);
+            Assert.That(Payload(status)["isSuccess"]!.GetValue<bool>(), Is.True);
             CallToolResult result = await client.CallToolAsync("list_instances");
-            JsonArray instances = JsonNode.Parse(result.Content.OfType<TextContentBlock>().First().Text)!["value"]!["instances"]!.AsArray();
+            JsonArray instances = Payload(result)["value"]!["instances"]!.AsArray();
             Assert.That(instances.Single()!["instanceId"]!.GetValue<string>(), Is.EqualTo(endpoint.InstanceId));
         }
         finally
@@ -160,11 +150,8 @@ public sealed class AgentHostInstanceAuthenticationTests
 
     private static AgentHostEndpoint CreateHost(string directory)
     {
-        using var listener = new TcpListener(IPAddress.Loopback, 0);
-        listener.Start();
-        int port = ((IPEndPoint)listener.LocalEndpoint).Port;
         return new AgentHostEndpoint(new ProjectService(), new EditorService(TestShell.Extensions),
             UnavailableAgentAiBackend.Instance,
-            port, AgentHostInstanceTestWorker.Token, registryDirectory: directory);
+            AvailablePort(), AgentHostInstanceTestWorker.Token, registryDirectory: directory);
     }
 }

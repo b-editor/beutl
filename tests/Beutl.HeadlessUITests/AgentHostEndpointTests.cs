@@ -16,6 +16,7 @@ using Beutl.Services;
 using Beutl.ViewModels;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
+using static Beutl.HeadlessUITests.AgentHostTestHelpers;
 
 namespace Beutl.HeadlessUITests;
 
@@ -200,7 +201,7 @@ public sealed class AgentHostEndpointTests
         await using var endpoint = new AgentHostEndpoint(
             new ProjectService(), new EditorService(new ExtensionProvider()),
             UnavailableAgentAiBackend.Instance,
-            GetAvailableLoopbackPort(), "test-token");
+            AvailablePort(), "test-token");
         await endpoint.StartAsync();
         var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         typeof(AgentHostEndpoint).GetField("_startupTask",
@@ -228,7 +229,7 @@ public sealed class AgentHostEndpointTests
         await using var endpoint = new AgentHostEndpoint(
             new ProjectService(), new EditorService(new ExtensionProvider()),
             UnavailableAgentAiBackend.Instance,
-            GetAvailableLoopbackPort(), "test-token", _ =>
+            AvailablePort(), "test-token", _ =>
             {
                 entered.TrySetResult();
                 release.Wait();
@@ -409,7 +410,7 @@ public sealed class AgentHostEndpointTests
             new ProjectService(),
             new EditorService(new ExtensionProvider()),
             UnavailableAgentAiBackend.Instance,
-            GetAvailableLoopbackPort(),
+            AvailablePort(),
             "test-token",
             async token =>
             {
@@ -491,7 +492,7 @@ public sealed class AgentHostEndpointTests
             new ProjectService(),
             new EditorService(new ExtensionProvider()),
             UnavailableAgentAiBackend.Instance,
-            GetAvailableLoopbackPort(),
+            AvailablePort(),
             "test-token",
             async _ =>
             {
@@ -525,7 +526,7 @@ public sealed class AgentHostEndpointTests
             new ProjectService(),
             new EditorService(new ExtensionProvider()),
             UnavailableAgentAiBackend.Instance,
-            GetAvailableLoopbackPort(),
+            AvailablePort(),
             "test-token",
             async _ =>
             {
@@ -555,23 +556,14 @@ public sealed class AgentHostEndpointTests
             new ProjectService(),
             new EditorService(new ExtensionProvider()),
             UnavailableAgentAiBackend.Instance,
-            GetAvailableLoopbackPort(),
+            AvailablePort(),
             "test-token");
 
         try
         {
             await endpoint.StartAsync();
 
-            var transport = new HttpClientTransport(new HttpClientTransportOptions
-            {
-                Endpoint = endpoint.EndpointUri!,
-                TransportMode = HttpTransportMode.StreamableHttp,
-                AdditionalHeaders = new Dictionary<string, string>
-                {
-                    ["Authorization"] = "Bearer " + endpoint.Token
-                }
-            });
-            await using McpClient client = await McpClient.CreateAsync(transport);
+            await using McpClient client = await ConnectAsync(endpoint);
 
             string[] toolNames = [.. (await client.ListToolsAsync()).Select(tool => tool.Name)];
 
@@ -599,23 +591,14 @@ public sealed class AgentHostEndpointTests
             new ProjectService(),
             new EditorService(new ExtensionProvider()),
             UnavailableAgentAiBackend.Instance,
-            GetAvailableLoopbackPort(),
+            AvailablePort(),
             "test-token");
 
         try
         {
             await endpoint.StartAsync();
 
-            var transport = new HttpClientTransport(new HttpClientTransportOptions
-            {
-                Endpoint = endpoint.EndpointUri!,
-                TransportMode = HttpTransportMode.StreamableHttp,
-                AdditionalHeaders = new Dictionary<string, string>
-                {
-                    ["Authorization"] = "Bearer " + endpoint.Token
-                }
-            });
-            await using McpClient client = await McpClient.CreateAsync(transport);
+            await using McpClient client = await ConnectAsync(endpoint);
 
             CallToolResult result = await client.CallToolAsync(
                 "analyze_audio_rhythm",
@@ -679,26 +662,5 @@ public sealed class AgentHostEndpointTests
         try { await task.WaitAsync(TimeSpan.FromSeconds(5)); }
         catch (OperationCanceledException) { return; }
         Assert.Fail("Expected startup cancellation.");
-    }
-
-    private static int GetAvailableLoopbackPort()
-    {
-        using TcpListener listener = new(IPAddress.Loopback, 0);
-        listener.Start();
-        return ((IPEndPoint)listener.LocalEndpoint).Port;
-    }
-
-    private static bool CanBindLoopbackPort(int port)
-    {
-        try
-        {
-            using TcpListener listener = new(IPAddress.Loopback, port);
-            listener.Start();
-            return true;
-        }
-        catch (SocketException ex) when (ex.SocketErrorCode is SocketError.AddressAlreadyInUse or SocketError.AccessDenied)
-        {
-            return false;
-        }
     }
 }

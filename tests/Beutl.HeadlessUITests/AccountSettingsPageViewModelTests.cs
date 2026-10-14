@@ -1,5 +1,4 @@
 ﻿using System.Net;
-using System.Text;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Beutl.Api;
@@ -239,42 +238,12 @@ public sealed class AccountSettingsPageViewModelTests
             _ => { },
             () => "en");
 
-    private static HttpResponseMessage JsonResponse(HttpStatusCode statusCode, string json)
-        => new(statusCode)
-        {
-            Content = new StringContent(json, Encoding.UTF8, "application/json"),
-        };
+    private static string EntitlementsJson(bool cancelAtPeriodEnd = false)
+        => AiTestSupport.EntitlementsJson(
+            ["image.generate"], usedPercent: 2, additionalCredits: 5, cancelAtPeriodEnd: cancelAtPeriodEnd);
 
-    private static string EntitlementsJson(bool cancelAtPeriodEnd = false) => $$"""
-        {
-          "plan": "pro",
-          "subscriptionStatus": "active",
-          "currentPeriodStart": "2026-08-01T00:00:00Z",
-          "currentPeriodEnd": "2026-09-01T00:00:00Z",
-          "cancelAtPeriodEnd": {{(cancelAtPeriodEnd ? "true" : "false")}},
-          "canUseAi": true,
-          "balance": {
-            "monthlyUsage": {
-              "usedPercent": 2,
-              "remainingPercent": 98,
-              "isExhausted": false
-            },
-            "additionalCredits": 5,
-            "hasAdditionalCreditDebt": false
-          },
-          "availability": { "image.generate": true }
-        }
-        """;
-
-    private static async Task WaitUntilAsync(Func<bool> condition)
-    {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        while (!condition())
-        {
-            HeadlessTestHelpers.Settle();
-            await Task.Delay(10, timeout.Token);
-        }
-    }
+    private static Task WaitUntilAsync(Func<bool> condition)
+        => HeadlessTestHelpers.WaitUntilAsync(condition, TimeSpan.FromSeconds(5));
 
     private sealed class ControlledHandler(bool honorCancellation) : HttpMessageHandler
     {

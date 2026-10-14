@@ -1,7 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-using System.Net;
 using System.Net.Http.Headers;
-using System.Net.Sockets;
 using System.Text.Json.Nodes;
 using Avalonia.Headless.NUnit;
 using Beutl.AgentHost;
@@ -22,6 +20,7 @@ using Beutl.ViewModels;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
 using SkiaSharp;
+using static Beutl.HeadlessUITests.AgentHostTestHelpers;
 
 namespace Beutl.HeadlessUITests;
 
@@ -58,19 +57,13 @@ public sealed class AgentHostAiToolsTests
             new ProjectService(),
             new EditorService(new ExtensionProvider()),
             UnavailableAgentAiBackend.Instance,
-            GetAvailableLoopbackPort(),
+            AvailablePort(),
             "test-token",
             registryDirectory: _directory);
         try
         {
             await endpoint.StartAsync();
-            var transport = new HttpClientTransport(new HttpClientTransportOptions
-            {
-                Endpoint = endpoint.EndpointUri!,
-                TransportMode = HttpTransportMode.StreamableHttp,
-                AdditionalHeaders = new Dictionary<string, string> { ["Authorization"] = "Bearer " + endpoint.Token },
-            });
-            await using McpClient client = await McpClient.CreateAsync(transport);
+            await using McpClient client = await ConnectAsync(endpoint);
 
             string[] names = [.. (await client.ListToolsAsync()).Select(tool => tool.Name)];
             CallToolResult result = await client.CallToolAsync(
@@ -528,21 +521,15 @@ public sealed class AgentHostAiToolsTests
             TestShell.Project,
             TestShell.Editor,
             backend,
-            GetAvailableLoopbackPort(),
+            AvailablePort(),
             "test-token",
             registryDirectory: _directory);
         try
         {
             await endpoint.StartAsync();
-            var transport = new HttpClientTransport(new HttpClientTransportOptions
-            {
-                Endpoint = endpoint.EndpointUri!,
-                TransportMode = HttpTransportMode.StreamableHttp,
-                AdditionalHeaders = new Dictionary<string, string> { ["Authorization"] = "Bearer " + endpoint.Token },
-            });
-            await using McpClient client = await McpClient.CreateAsync(transport);
+            await using McpClient client = await ConnectAsync(endpoint);
 
-            JsonObject targeted = Succeeded(await client.CallToolAsync(
+            JsonObject targeted = Success(await client.CallToolAsync(
                 "generate_image",
                 new Dictionary<string, object?>
                 {
@@ -550,7 +537,7 @@ public sealed class AgentHostAiToolsTests
                     ["waitSeconds"] = 10,
                     ["sceneId"] = portrait.Id.ToString(),
                 }));
-            JsonObject selected = Succeeded(await client.CallToolAsync(
+            JsonObject selected = Success(await client.CallToolAsync(
                 "generate_image",
                 new Dictionary<string, object?> { ["prompt"] = "a harbour", ["waitSeconds"] = 10 }));
 
@@ -610,13 +597,6 @@ public sealed class AgentHostAiToolsTests
     private AgentHostAiTools CreateTools(EditorService editor, AgentAiJobManager jobs, FakeBackend backend)
         => new(editor, jobs, backend, new AgentSessionManager());
 
-    private static JsonObject Succeeded(CallToolResult result)
-    {
-        JsonObject payload = JsonNode.Parse(result.Content.OfType<TextContentBlock>().First().Text)!.AsObject();
-        Assert.That(payload["isSuccess"]?.GetValue<bool>(), Is.True, payload.ToJsonString());
-        return payload["value"]!.AsObject();
-    }
-
     private static string WritePngIn(string directory)
     {
         Directory.CreateDirectory(directory);
@@ -639,13 +619,6 @@ public sealed class AgentHostAiToolsTests
         string path = Path.Combine(_directory, name);
         File.WriteAllBytes(path, [0, 1, 2, 3]);
         return path;
-    }
-
-    private static int GetAvailableLoopbackPort()
-    {
-        using TcpListener listener = new(IPAddress.Loopback, 0);
-        listener.Start();
-        return ((IPEndPoint)listener.LocalEndpoint).Port;
     }
 
     private sealed class StubVideoDecoder : IDecoderInfo
