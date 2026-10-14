@@ -1053,7 +1053,6 @@ public class NodeGraphFilterEffectRenderNodeTests
         Assert.That(source.ExecutionCount, Is.LessThan(8), "The control must actually have cached an earlier frame.");
         int priorExecutions = source.ExecutionCount;
         source.DrawColor = Colors.Red;
-        source.MarkChanged();
         renderNode.MarkChanged();
         snapshot.Evaluate(CompositionTarget.Graphics, context);
         Assert.That(renderNode.HasChanges, Is.True, "An auxiliary preview must not consume the main render's change flag.");
@@ -1321,10 +1320,6 @@ internal sealed partial class ScaleProbeEffect : FilterEffect
 
     public new sealed class Resource : FilterEffect.Resource
     {
-        public Resource()
-        {
-        }
-
         public override FilterEffectRenderNode CreateRenderNode() => new ScaleProbeRenderNode(this);
     }
 }

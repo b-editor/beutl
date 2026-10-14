@@ -21,8 +21,6 @@ public class CorePropertyJsonConverterTests
     [Test]
     public void Write_EmitsNameAndOwner()
     {
-        // Touch the static field so the property is registered before serialization.
-        _ = JsonOwner.CountProperty;
         string json = JsonSerializer.Serialize<CoreProperty>(JsonOwner.CountProperty, s_options);
         using JsonDocument doc = JsonDocument.Parse(json);
 
@@ -34,7 +32,6 @@ public class CorePropertyJsonConverterTests
     [Test]
     public void Read_ResolvesPropertyByOwnerAndName()
     {
-        _ = JsonOwner.CountProperty;
         string json = JsonSerializer.Serialize<CoreProperty>(JsonOwner.CountProperty, s_options);
 
         CoreProperty? back = JsonSerializer.Deserialize<CoreProperty>(json, s_options);
