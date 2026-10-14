@@ -628,7 +628,7 @@ public class DockTabAddButtonTests
         var json = new JsonObject();
         editor.DockHost.WriteToJson(json);
 
-        var restored = new DockHostViewModel("dock-tab-add-persist", editor);
+        var restored = new DockHostViewModel(editor);
         try
         {
             restored.ReadFromJson(json);
@@ -671,7 +671,7 @@ public class DockTabAddButtonTests
         editor.DockHost.WriteToJson(json);
         JsonObject captured = editor.DockHost.CaptureLayout();
 
-        var restored = new DockHostViewModel("dock-tab-add-only-new-tab", editor);
+        var restored = new DockHostViewModel(editor);
         try
         {
             restored.ReadFromJson(json);

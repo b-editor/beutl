@@ -119,7 +119,7 @@ public class FileBrowserMultipleTabsTests
         var json = new JsonObject();
         editor.DockHost.WriteToJson(json);
 
-        var restored = new DockHostViewModel("filebrowser-roundtrip", editor);
+        var restored = new DockHostViewModel(editor);
         try
         {
             restored.ReadFromJson(json);
@@ -156,7 +156,7 @@ public class FileBrowserMultipleTabsTests
         string effectItemId = typeof(FileBrowserTabExtension).FullName!;
         RewriteFileBrowserId(json, effectItemId);
 
-        var restored = new DockHostViewModel("filebrowser-effectItem-id", editor);
+        var restored = new DockHostViewModel(editor);
         try
         {
             restored.ReadFromJson(json);
