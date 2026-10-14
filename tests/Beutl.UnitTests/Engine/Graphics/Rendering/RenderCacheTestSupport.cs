@@ -100,6 +100,23 @@ internal static class RenderCacheTestSupport
     }
 
     /// <summary>
+    /// Asserts that a cache has recorded no stable request yet: it admits a capture only after all
+    /// <see cref="RenderNodeCache.StableRequestCount"/> of them. It records those requests, so call it where the
+    /// rest of the test no longer reads this cache's warm-up.
+    /// </summary>
+    public static void AssertWarmupRestarted(this RenderNodeCache cache)
+    {
+        for (int recorded = 1; recorded < RenderNodeCache.StableRequestCount; recorded++)
+        {
+            cache.RecordSuccessfulStableRequest();
+            Assert.That(cache.CanCapture, Is.False, $"capture admitted after {recorded} stable requests");
+        }
+
+        cache.RecordSuccessfulStableRequest();
+        Assert.That(cache.CanCapture, Is.True);
+    }
+
+    /// <summary>
     /// Clears the changes a freshly built tree reports, so a fixture starts in the settled state a renderer
     /// reaches one frame later.
     /// </summary>

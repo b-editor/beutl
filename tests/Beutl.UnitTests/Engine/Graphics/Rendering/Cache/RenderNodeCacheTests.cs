@@ -40,6 +40,7 @@ public class RenderNodeCacheTests
             Assert.That(node.Cache.CanCapture, Is.False);
             Assert.That(node.HasChanges, Is.True);
         });
+        node.Cache.AssertWarmupRestarted();
 
         lifecycle.CompleteSuccessfully(advanceWarmup: true);
 
@@ -83,6 +84,8 @@ public class RenderNodeCacheTests
             Assert.That(sibling.Cache.IsCached, Is.True, "an unrelated sibling remains reusable");
             Assert.That(sibling.Cache.CanCapture, Is.True, "an unrelated sibling retains its warm-up");
         });
+        root.Cache.AssertWarmupRestarted();
+        dirtyBranch.Cache.AssertWarmupRestarted();
 
         lifecycle.CompleteSuccessfully(advanceWarmup: true);
 

@@ -163,6 +163,7 @@ public class RenderNodeCacheHelperTest
             Assert.That(node.HasChanges, Is.True);
             Assert.That(node.Cache.CanCapture, Is.False);
         });
+        node.Cache.AssertWarmupRestarted();
     }
 
     [Test]
@@ -202,6 +203,7 @@ public class RenderNodeCacheHelperTest
             Assert.That(node.Cache.IsCached, Is.False);
             Assert.That(node.Cache.CanCapture, Is.False);
         });
+        node.Cache.AssertWarmupRestarted();
     }
 
     [Test]
