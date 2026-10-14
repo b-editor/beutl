@@ -77,6 +77,45 @@ public class MFEncodingTests
             Assert.That(data.Length, Is.EqualTo(1024));
             Assert.That(data.Any(s => Math.Abs(s.Left) > 0.05f), Is.True, "AAC should contain the input signal.");
         }
+        AssertAudioSignal(controller.OutputFile, MFAudioCodec.AAC, samples, sampleRate);
+    }
+
+    [TestCase(15)]
+    [TestCase(30)]
+    public async Task Encode_H264_UsesRequestedKeyframeInterval(int interval)
+    {
+        const int frameCount = 120;
+        var controller = CreateController();
+        controller.VideoSettings.Codec = MFVideoCodec.H264;
+        controller.VideoSettings.KeyframeRate = interval;
+        // A static scene avoids additional scene-change keyframes.
+        using var frames = new SolidFrameProvider(new PixelSize(64, 48), frameCount);
+        using var samples = new TrackedSamples(0, 0);
+        await controller.Encode(frames, samples, CancellationToken.None);
+
+        MFThread.Dispatcher.Invoke(() =>
+        {
+            using var source = MediaFactory.MFCreateSourceReaderFromURL(controller.OutputFile, null);
+            int stream = (int)SourceReaderIndex.FirstVideoStream;
+            using var type = source.GetCurrentMediaType(stream);
+            Assert.That(type.GetGUID(MediaTypeAttributeKeys.Subtype), Is.EqualTo(VideoFormatGuids.H264));
+            var keyframes = new List<int>();
+            int count = 0;
+            while (true)
+            {
+                using var sample = source.ReadSample(stream, SourceReaderControlFlag.None, out _, out var flags, out _);
+                if (sample != null)
+                {
+                    if (MediaFactory.MFGetAttributeUInt32(sample, SampleAttributeKeys.CleanPoint) != 0)
+                        keyframes.Add(count);
+                    count++;
+                }
+                if (flags.HasFlag(SourceReaderFlag.EndOfStream))
+                    break;
+            }
+            Assert.That(count, Is.EqualTo(frameCount));
+            Assert.That(keyframes, Is.EqualTo(Enumerable.Range(0, frameCount / interval).Select(i => i * interval)));
+        });
     }
 
     [Test]
@@ -121,7 +160,8 @@ public class MFEncodingTests
         // These settings and the non-empty frame provider must be ignored for audio-only output.
         controller.VideoSettings.DestinationSize = default;
         using var frames = new FailingFrames();
-        using var samples = new TrackedSamples(44100 + 137, 44100);
+        // Keep codec-frame allowances small relative to the input, with a partial final block.
+        using var samples = new TrackedSamples(5 * 44100 + 137, 44100);
         await controller.Encode(frames, samples, CancellationToken.None);
         Assert.That(samples.RequestedSamples, Is.EqualTo(samples.SampleCount));
         Assert.That(samples.WasDisposed || frames.WasDisposed, Is.False);
@@ -137,7 +177,7 @@ public class MFEncodingTests
                 Assert.That(audio.GetUInt32(MediaTypeAttributeKeys.AudioBitsPerSample),
                     Is.EqualTo(expected == MFAudioCodec.Float ? 32 : (int)bitDepth));
         });
-        AssertAudioSignal(controller.OutputFile, expected);
+        AssertAudioSignal(controller.OutputFile, expected, samples, controller.AudioSettings.SampleRate);
     }
 
     [TestCase(".wmv", MFVideoCodec.Auto, MFVideoCodec.WMV9, MFAudioCodec.Auto, MFAudioCodec.WMA)]
@@ -199,14 +239,14 @@ public class MFEncodingTests
             Assert.That(data[top + 200 * stride + 40 * 4 + 1], Is.GreaterThan(data[top + 40 * stride + 40 * 4 + 1] + 80));
             Assert.That(data[top + 40 * stride + 250 * 4], Is.GreaterThan(data[top + 40 * stride + 40 * 4] + 100));
         });
-        AssertAudioSignal(controller.OutputFile, expectedAudio);
+        AssertAudioSignal(controller.OutputFile, expectedAudio, samples, controller.AudioSettings.SampleRate);
     }
 
     // The MP4 source reports ALAC using its sample-entry FourCC rather than the WAVEFORMAT GUID.
     private static Guid AudioSourceSubtype(MFAudioCodec codec) => codec == MFAudioCodec.ALAC
         ? new Guid("616c6163-767a-494d-b478-f29d25dc9037") : MFEncodingFormat.AudioSubtype(codec);
 
-    private static void AssertAudioSignal(string file, MFAudioCodec codec)
+    private static void AssertAudioSignal(string file, MFAudioCodec codec, ISampleProvider input, int sampleRate)
     {
         MFThread.Dispatcher.Invoke(() =>
         {
@@ -214,7 +254,7 @@ public class MFEncodingTests
             int stream = (int)SourceReaderIndex.FirstAudioStream;
             source.SetStreamSelection((int)SourceReaderIndex.AllStreams, false);
             source.SetStreamSelection(stream, true);
-            using var type = MFEncodingController.CreatePcm(AudioFormatGuids.Float, 44100, 2, 32);
+            using var type = MFEncodingController.CreatePcm(AudioFormatGuids.Float, sampleRate, 2, 32);
             source.SetCurrentMediaType(stream, type);
             bool signal = false;
             long sampleCount = 0;
@@ -234,7 +274,22 @@ public class MFEncodingTests
                     break;
             }
             Assert.That(signal, Is.True, $"{codec} must contain the input signal.");
-            Assert.That(sampleCount, Is.InRange(40000, 50000), "Encoded audio should last about one second.");
+            long expectedSamples = (long)Math.Round((double)input.SampleCount * sampleRate / input.SampleRate);
+            // Bound native frame padding instead of allowing a fixed fraction of the clip.
+            int padding = codec switch
+            {
+                MFAudioCodec.AAC => 2 * 1024,
+                MFAudioCodec.MP3 => 2 * 1152,
+                MFAudioCodec.WMA => 2 * 2048,
+                MFAudioCodec.ALAC => 4096,
+                _ => 0,
+            };
+            // Budget three MP3 frames for priming/trimming and 5 ms for AVI timestamp rounding.
+            // Other paths permit only a single sample of resampling rounding.
+            int trimming = codec == MFAudioCodec.MP3 ? 3 * 1152
+                : Path.GetExtension(file) == ".avi" ? sampleRate / 200 : input.SampleRate == sampleRate ? 0 : 1;
+            Assert.That(sampleCount, Is.InRange(expectedSamples - trimming, expectedSamples + padding),
+                $"{codec} must preserve the input duration within codec framing and container rounding limits.");
         });
     }
 
