@@ -2,9 +2,6 @@
   <Folder Name="/Build/">
     <File Path="build\AppEntitlements.entitlements" />
   </Folder>
-  <Folder Name="/Build/Props/">
-    <File Path="build\props\CoreLibraries.props" />
-  </Folder>
   <Folder Name="/GitHub/">
     <File Path=".github\dependabot.yml" />
   </Folder>
