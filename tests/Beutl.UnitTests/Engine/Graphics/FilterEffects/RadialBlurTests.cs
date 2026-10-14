@@ -276,6 +276,60 @@ public sealed class RadialBlurTests
         });
     }
 
+    [TestCase(RadialBlurMode.Zoom, 0.5f, RelativeUnit.Relative)]
+    [TestCase(RadialBlurMode.Spin, 0.5f, RelativeUnit.Relative)]
+    [TestCase(RadialBlurMode.Zoom, 1.5f, RelativeUnit.Relative)]
+    [TestCase(RadialBlurMode.Spin, 1.5f, RelativeUnit.Relative)]
+    [TestCase(RadialBlurMode.Zoom, 50f, RelativeUnit.Absolute)]
+    [TestCase(RadialBlurMode.Spin, 50f, RelativeUnit.Absolute)]
+    public void FragmentedInputs_UseOneCenterForBoundsAndSampling(RadialBlurMode mode, float centerX, RelativeUnit unit)
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using RenderTarget backing = RenderTarget.Create(10, 10)!;
+            backing.Value.Canvas.Clear(SKColors.White);
+            backing.Value.Canvas.Flush();
+            using var targets = new EffectTargets
+            {
+                new EffectTarget(backing, new Rect(0, 0, 10, 10), EffectiveScale.At(1)),
+                new EffectTarget(backing, new Rect(90, 0, 10, 10), EffectiveScale.At(1)),
+            };
+            RadialBlur effect = Create(mode, mode == RadialBlurMode.Zoom ? 100 : 90, 65);
+            effect.Center.CurrentValue = new RelativePoint(centerX, unit == RelativeUnit.Relative ? 0.5f : 5, unit);
+            using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
+            using var context = new FilterEffectContext(targets.CalculateBounds());
+            context.ApplyTransactional(effect, resource);
+            using var builder = new SKImageFilterBuilder();
+            using var executor = new FilterEffectExecutor(targets, builder, RenderIntent.Preview,
+                RenderRequestPurpose.Auxiliary, drawableBrushMaterializer: null);
+            executor.Apply(context);
+            executor.Flush(false);
+
+            Assert.That(targets, Has.Count.EqualTo(2));
+            Rect actual = targets.CalculateBounds();
+            Assert.Multiple(() =>
+            {
+                Assert.That(actual.X, Is.EqualTo(context.Bounds.X).Within(0.001f));
+                Assert.That(actual.Y, Is.EqualTo(context.Bounds.Y).Within(0.001f));
+                Assert.That(actual.Right, Is.EqualTo(context.Bounds.Right).Within(0.001f));
+                Assert.That(actual.Bottom, Is.EqualTo(context.Bounds.Bottom).Within(0.001f));
+            });
+
+            float center = unit == RelativeUnit.Relative ? centerX * 100 : centerX;
+            for (int i = 0; i < targets.Count; i++)
+            {
+                float offset = 5 + i * 90 - center;
+                Point trail = mode == RadialBlurMode.Zoom
+                    ? new Point(center + offset * 1.5f, 5)
+                    : new Point(center + offset * MathF.Cos(MathF.PI / 6), 5 - offset * MathF.Sin(MathF.PI / 6));
+                using Bitmap bitmap = targets[i].RenderTarget!.Snapshot();
+                Assert.That(AlphaAt(bitmap, targets[i].RasterBounds, (int)MathF.Floor(trail.X), (int)MathF.Floor(trail.Y)),
+                    Is.GreaterThan(0.02f), "Both shapes must leave trails around the group's center.");
+            }
+        });
+    }
+
     private static Rect RecordBounds(RadialBlur effect, Rect bounds)
     {
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);

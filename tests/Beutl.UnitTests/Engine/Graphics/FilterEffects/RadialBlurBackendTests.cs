@@ -3,6 +3,7 @@ using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
+using Beutl.Graphics.Rendering.Requests;
 using Beutl.Graphics.Shaders;
 using Beutl.Media;
 using Beutl.UnitTests.Engine.Graphics.Backend;
@@ -47,6 +48,50 @@ public sealed class RadialBlurBackendTests
             RenderRequestPurpose.Auxiliary, drawableBrushMaterializer: null);
 
         Assert.Throws<NotSupportedException>(() => executor.Apply(context));
+    }
+
+    [TestCase(RadialBlurMode.Zoom, RenderIntent.Preview)]
+    [TestCase(RadialBlurMode.Spin, RenderIntent.Preview)]
+    [TestCase(RadialBlurMode.Zoom, RenderIntent.Delivery)]
+    [TestCase(RadialBlurMode.Spin, RenderIntent.Delivery)]
+    public void DeclinedOutputAllocation_KeepsPreviewSourceButFailsDelivery(RadialBlurMode mode, RenderIntent intent)
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var bounds = new Rect(0, 0, 16, 16);
+            using RenderTarget backing = RenderTarget.Create(16, 16)!;
+            backing.Value.Canvas.Clear(SKColors.Red);
+            backing.Value.Canvas.Flush();
+            using var targets = new EffectTargets { new EffectTarget(backing, bounds, EffectiveScale.At(1)) };
+            EffectTarget source = targets[0];
+            using Bitmap expected = source.RenderTarget!.Snapshot();
+            var factory = new DecliningTargetFactory();
+            using var pool = new RenderTargetPool(factory);
+            using RenderTargetLeaseSession session = pool.BeginSession(intent);
+            var custom = new CustomFilterEffectContext(targets, intent, RenderRequestPurpose.Auxiliary,
+                renderTargetLeaseSession: session);
+            var effect = new RadialBlur { Mode = { CurrentValue = mode } };
+            using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
+            using var context = new FilterEffectContext(bounds);
+            context.ApplyTransactional(effect, resource);
+            var item = (IFEItem_Custom)context.GetOrderedItems().Single();
+
+            if (intent == RenderIntent.Preview)
+                Assert.DoesNotThrow(() => item.Accepts(custom));
+            else
+                Assert.That(() => item.Accepts(custom), Throws.TypeOf<InvalidOperationException>()
+                    .With.Message.Contains("could not allocate"));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(factory.Declined, Is.GreaterThan(0));
+                Assert.That(session.ContentDropObserved, Is.EqualTo(intent == RenderIntent.Preview));
+                Assert.That(targets[0], Is.SameAs(source));
+            });
+            using Bitmap actual = source.RenderTarget!.Snapshot();
+            Assert.That(actual.GetPixelSpan<ushort>().ToArray(), Is.EqualTo(expected.GetPixelSpan<ushort>().ToArray()));
+        });
     }
 
     [TestCase(RadialBlurMode.Zoom)]
@@ -153,6 +198,17 @@ public sealed class RadialBlurBackendTests
         {
             foreach (RenderFragmentHandle input in context.Inputs)
                 context.Publish(context.Shader(input, description));
+        }
+    }
+
+    private sealed class DecliningTargetFactory : IRenderTargetFactory
+    {
+        public int Declined { get; private set; }
+
+        public RenderTarget? Create(RenderTargetAllocationDescriptor allocation)
+        {
+            Declined++;
+            return null;
         }
     }
 }

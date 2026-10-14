@@ -100,17 +100,24 @@ public sealed partial class RadialBlur : FilterEffect
             throw new NotSupportedException("Radial blur requires GPU textures and GLSL execution.");
         }
 
+        Point center = data.ResolveCenter(context.Targets.CalculateBounds());
         GLSLShader shader = GetOrCreateShader();
         // A small float32 lookup texture uses the existing two-input GLSL API without a shared uniform ABI.
-        var samples = new Vector4[data.Samples];
+        Span<Vector4> samples = stackalloc Vector4[data.Samples];
         for (int i = 0; i < samples.Length; i++)
             samples[i] = new Vector4(data.GetSampleTransform(i), 0, 0);
         using ITexture2D transforms = graphicsContext.CreateTexture2D(samples.Length, 1, TextureFormat.RGBA32Float);
-        transforms.Upload(MemoryMarshal.AsBytes(samples.AsSpan()));
+        transforms.Upload(MemoryMarshal.AsBytes(samples));
 
         context.ForEach((_, input) =>
         {
-            EffectTarget output = context.CreateNativeTarget(data.TransformBounds(input.Bounds));
+            EffectTarget output = context.CreateNativeTarget(data.TransformBounds(input.Bounds, center));
+            if (output.IsEmpty)
+            {
+                output.Dispose();
+                return input;
+            }
+
             try
             {
                 if (output.RenderTarget?.Texture is not { } destination)
@@ -120,7 +127,7 @@ public sealed partial class RadialBlur : FilterEffect
 
                 input.RenderTarget!.PrepareForSampling(RenderTargetSamplingIntent.BackendInterop);
                 shader.ExecuteSingleTargetWithMask(
-                    input.RenderTarget.Texture!, transforms, destination, CreatePushConstants(data, input, output));
+                    input.RenderTarget.Texture!, transforms, destination, CreatePushConstants(data, center, input, output));
                 shader.SubmitPendingCommands();
                 return output;
             }
@@ -132,10 +139,9 @@ public sealed partial class RadialBlur : FilterEffect
         });
     }
 
-    private static PushConstants CreatePushConstants(EffectData data, EffectTarget input, EffectTarget output)
+    private static PushConstants CreatePushConstants(EffectData data, Point center, EffectTarget input, EffectTarget output)
     {
         float scale = output.Scale.Value;
-        Point center = data.ResolveCenter(input.Bounds);
         Vector centerOffset = (center - output.RasterBounds.Position) * scale;
         Vector sourceOrigin = (input.RasterBounds.Position - output.RasterBounds.Position) * scale;
         float inputScale = input.Scale.Value;
@@ -183,11 +189,13 @@ public sealed partial class RadialBlur : FilterEffect
         }
 
         public Rect TransformBounds(Rect bounds)
+            => TransformBounds(bounds, ResolveCenter(bounds));
+
+        public Rect TransformBounds(Rect bounds, Point origin)
         {
             if (bounds.IsEmpty)
                 return bounds;
 
-            Point origin = ResolveCenter(bounds);
             Rect result = bounds;
             for (int i = 0; i < Samples; i++)
             {
