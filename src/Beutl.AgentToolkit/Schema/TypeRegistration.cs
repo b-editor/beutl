@@ -98,6 +98,7 @@ public static class TypeRegistration
         Register<FlatShadow>(KnownLibraryItemFormats.FilterEffect);
         Register<StrokeEffect>(KnownLibraryItemFormats.FilterEffect);
         Register<Clipping>(KnownLibraryItemFormats.FilterEffect);
+        Register<DiagonalClipping>(KnownLibraryItemFormats.FilterEffect);
         Register<Dilate>(KnownLibraryItemFormats.FilterEffect);
         Register<Erode>(KnownLibraryItemFormats.FilterEffect);
         Register<HighContrast>(KnownLibraryItemFormats.FilterEffect);

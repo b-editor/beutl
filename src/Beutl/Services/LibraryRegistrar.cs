@@ -174,6 +174,7 @@ public static class LibraryRegistrar
                 .AddFilterEffect<FlatShadow>(GraphicsStrings.FlatShadow)
                 .AddFilterEffect<StrokeEffect>(GraphicsStrings.Stroke)
                 .AddFilterEffect<Clipping>(GraphicsStrings.Clipping)
+                .AddFilterEffect<DiagonalClipping>(GraphicsStrings.DiagonalClipping)
                 .AddFilterEffect<Dilate>(GraphicsStrings.Dilate)
                 .AddFilterEffect<Erode>(GraphicsStrings.Erode)
                 .AddFilterEffect<HighContrast>(GraphicsStrings.HighContrast)

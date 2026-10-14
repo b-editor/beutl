@@ -175,6 +175,7 @@ public sealed partial class SchemaGenerator
             [typeof(InnerShadow)] = Metadata(["shadow", "depth", "inset"], []),
             [typeof(FlatShadow)] = Metadata(["shadow", "poster", "depth"], ["Good for flat editorial graphics and bold labels."]),
             [typeof(StrokeEffect)] = Metadata(["outline", "poster", "graphic"], ["Pair with FlatShadow for sticker-like typography or icon treatments."]),
+            [typeof(DiagonalClipping)] = Metadata(["clip", "mask", "diagonal"], ["Width: zero keeps one side, positive keeps a band, negative removes it."]),
             [typeof(HighContrast)] = Metadata(["color", "grade", "contrast"], []),
             [typeof(HueRotate)] = Metadata(["color", "grade", "palette"], []),
             [typeof(LumaColor)] = Metadata(["color", "luma", "grade"], []),

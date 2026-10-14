@@ -48,6 +48,7 @@ public static class NodesRegistrar
             .Add<FilterEffectNode<FlatShadow>>(GraphicsStrings.FlatShadow)
             .Add<FilterEffectNode<StrokeEffect>>(GraphicsStrings.Stroke)
             .Add<FilterEffectNode<Clipping>>(GraphicsStrings.Clipping)
+            .Add<FilterEffectNode<DiagonalClipping>>(GraphicsStrings.DiagonalClipping)
             .Add<FilterEffectNode<Dilate>>(GraphicsStrings.Dilate)
             .Add<FilterEffectNode<Erode>>(GraphicsStrings.Erode)
             .Add<FilterEffectNode<HighContrast>>(GraphicsStrings.HighContrast)

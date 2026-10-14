@@ -388,6 +388,9 @@ Beutl.Utilities
 [Beutl.Engine]Beutl.Graphics.Effects:DelayAnimationEffect
   unsealed
   keys: Animations, Delay, Effect, Expressions, Id, IsEnabled, Name
+[Beutl.Engine]Beutl.Graphics.Effects:DiagonalClipping
+  sealed
+  keys: Angle, Animations, Expressions, Id, IsEnabled, Name, Position, Width
 [Beutl.Engine]Beutl.Graphics.Effects:Dilate
   sealed
   keys: Animations, Expressions, Id, IsEnabled, Name, RadiusX, RadiusY

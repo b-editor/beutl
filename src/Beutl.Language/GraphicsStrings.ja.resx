@@ -232,6 +232,12 @@
   <data name="Clipping_Top" xml:space="preserve">
     <value>上</value>
   </data>
+  <data name="DiagonalClipping" xml:space="preserve">
+    <value>斜めクリッピング</value>
+  </data>
+  <data name="DiagonalClipping_Width_Description" xml:space="preserve">
+    <value>0は片側を切り落とします。正の値は帯の外側、負の値は帯の内側を切り落とします。絶対値が帯の幅になります。</value>
+  </data>
   <data name="ColorGrading" xml:space="preserve">
     <value>カラーグレーディング</value>
   </data>

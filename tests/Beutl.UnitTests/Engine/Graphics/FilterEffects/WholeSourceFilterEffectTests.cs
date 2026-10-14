@@ -1,10 +1,12 @@
 ﻿using System.Numerics;
+using Beutl.Animation;
 using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shaders;
 using Beutl.Media;
+using Beutl.Serialization;
 using Beutl.UnitTests.TestInfrastructure;
 using SkiaSharp;
 
@@ -14,6 +16,133 @@ namespace Beutl.UnitTests.Engine.Graphics.FilterEffects;
 public sealed class WholeSourceFilterEffectTests
 {
     private static readonly Rect s_bounds = new(10, 20, 100, 60);
+
+    [TestCase(0f, 4f, 0f, 0f, 1f, 1f)]
+    [TestCase(16f, 4f, 0f, 0f, 1f, 0f)]
+    [TestCase(-16f, 4f, 0f, 1f, 0f, 1f)]
+    [TestCase(0f, 10000f, 0f, 0f, 0f, 0f)]
+    [TestCase(0f, -10000f, 0f, 1f, 1f, 1f)]
+    [TestCase(float.NaN, float.PositiveInfinity, float.NaN, 0f, 1f, 1f)]
+    public void DiagonalClipping_SignedWidthControlsPixelsAndHits(
+        float width, float position, float angle, float top, float middle, float bottom)
+    {
+        var effect = MakeDiagonalClipping(angle, position, width);
+        (float[] before, float[] pixels) = FilterEffectTestHarness.RunOnSolidTarget(
+            effect, new SKColor(230, 40, 20, 160), new PixelSize(64, 64));
+        var bounds = new Rect(10.25f, 20.5f, 64, 64);
+        (ShaderDescription description, Rect output) = FilterEffectTestHarness.RecordShader(effect, bounds);
+        var input = new RenderHitTestInput(bounds, point => point.X >= bounds.Center.X);
+        bool Hit(float x, float y) => description.HitTest!.Value.Evaluate(
+            output, [input], [], new Point(bounds.X + x, bounds.Y + y));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(output, Is.EqualTo(bounds), "clipping must not recenter the drawable");
+            Assert.That(pixels.All(float.IsFinite), Is.True);
+            foreach ((int y, float coverage) in new[] { (16, top), (36, middle), (52, bottom) })
+            {
+                for (int channel = 0; channel < 4; channel++)
+                {
+                    int index = (y * 64 + 40) * 4 + channel;
+                    Assert.That(pixels[index], Is.EqualTo(before[index] * coverage));
+                }
+                Assert.That(Hit(40, y), Is.EqualTo(coverage != 0));
+            }
+            Assert.That(Hit(16, 36), Is.False, "transparent input must not become selectable");
+            Assert.That(Hit(80, 36), Is.False, "the mask must not hit beyond its output");
+        });
+        (_, float[] transparent) = FilterEffectTestHarness.RunOnSolidTarget(effect, SKColors.Transparent, new PixelSize(64, 64));
+        Assert.That(transparent, Is.All.Zero);
+    }
+
+    [TestCase(0f, 16, 48, 48, 16)]
+    [TestCase(90f, 16, 48, 48, 16)]
+    [TestCase(180f, 48, 16, 16, 48)]
+    [TestCase(270f, 48, 16, 16, 48)]
+    [TestCase(45f, 16, 48, 48, 16)]
+    [TestCase(405f, 16, 48, 48, 16)]
+    [TestCase(-45f, 48, 48, 16, 16)]
+    public void DiagonalClipping_RotatesTheBoundary(float angle, int keptX, int keptY, int cutX, int cutY)
+    {
+        float[] pixels = RenderDiagonalClipping(MakeDiagonalClipping(angle));
+        Assert.Multiple(() =>
+        {
+            Assert.That(ClipAlpha(pixels, keptX, keptY), Is.EqualTo(1f));
+            Assert.That(ClipAlpha(pixels, cutX, cutY), Is.Zero);
+        });
+    }
+
+    [TestCase(45f, 0f, 0f, 0.5f, 0f, 1f)]
+    [TestCase(0f, 0.5f, 0.25f, 0.25f, 0f, 0f)]
+    [TestCase(0f, 0.5f, -0.25f, 0.75f, 1f, 1f)]
+    public void DiagonalClipping_AntialiasesEdgesAndSubpixelBands(
+        float angle, float position, float width, float center, float top, float bottom)
+    {
+        float[] pixels = RenderDiagonalClipping(MakeDiagonalClipping(angle, position, width));
+        Assert.Multiple(() =>
+        {
+            Assert.That(ClipAlpha(pixels, 32, 32), Is.EqualTo(center).Within(0.001f));
+            Assert.That(ClipAlpha(pixels, 32, 31), Is.EqualTo(top).Within(0.001f));
+            Assert.That(ClipAlpha(pixels, 32, 33), Is.EqualTo(bottom).Within(0.001f));
+            if (width == 0)
+                Assert.That(pixels.Where((_, index) => index % 4 == 3).Sum(), Is.EqualTo(2048f).Within(0.1f));
+        });
+    }
+
+    [Test]
+    public void DiagonalClipping_OppositeSignsReconstructThePremultipliedSource()
+    {
+        var color = new SKColor(230, 40, 20, 160);
+        (float[] before, float[] inside) = FilterEffectTestHarness.RunOnSolidTarget(
+            MakeDiagonalClipping(31, 1.35f, 7.5f), color, new PixelSize(64, 64));
+        (_, float[] outside) = FilterEffectTestHarness.RunOnSolidTarget(
+            MakeDiagonalClipping(31, 1.35f, -7.5f), color, new PixelSize(64, 64));
+        for (int index = 0; index < before.Length; index++)
+            Assert.That(inside[index] + outside[index], Is.EqualTo(before[index]).Within(0.001f), $"premultiplied channel {index}");
+    }
+
+    [TestCase(0, 16f)]
+    [TestCase(1, 0f)]
+    [TestCase(2, -16f)]
+    public void DiagonalClipping_SerializationPreservesWidthAnimationAcrossZero(int seconds, float expectedWidth)
+    {
+        var effect = MakeDiagonalClipping(30, 4, -20);
+        effect.Width.Animation = new KeyFrameAnimation<float>
+        {
+            KeyFrames =
+            {
+                new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 16 },
+                new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(2), Value = -16 },
+            },
+        };
+        var json = CoreSerializer.SerializeToJsonObject(effect);
+        var restored = (DiagonalClipping)CoreSerializer.DeserializeFromJsonObject(json, typeof(DiagonalClipping));
+        using DiagonalClipping.Resource resource = restored.ToResource(new CompositionContext(TimeSpan.FromSeconds(seconds)));
+        using var context = new FilterEffectContext(s_bounds);
+        context.ApplyTransactional(restored, resource);
+        ShaderDescription description = ((FEItem_Shader)context.GetOrderedItems().Single()).Description;
+        Assert.Multiple(() =>
+        {
+            Assert.That(json.ContainsKey("Mode"), Is.False);
+            Assert.That(restored.Angle.CurrentValue, Is.EqualTo(30));
+            Assert.That(restored.Position.CurrentValue, Is.EqualTo(4));
+            Assert.That(restored.Width.CurrentValue, Is.EqualTo(-20));
+            Assert.That(resource.Width, Is.EqualTo(expectedWidth));
+            Assert.That(FilterEffectTestHarness.BindUniform(description, "width", s_bounds).Floats![0], Is.EqualTo(expectedWidth));
+        });
+    }
+
+    private static DiagonalClipping MakeDiagonalClipping(float angle = 45, float position = 0, float width = 0) => new()
+    {
+        Angle = { CurrentValue = angle },
+        Position = { CurrentValue = position },
+        Width = { CurrentValue = width },
+    };
+
+    private static float[] RenderDiagonalClipping(DiagonalClipping effect)
+        => FilterEffectTestHarness.RunOnSolidTarget(effect, SKColors.White, new PixelSize(64, 64)).After;
+
+    private static float ClipAlpha(float[] pixels, int x, int y) => pixels[(y * 64 + x) * 4 + 3];
 
     [TestCaseSource(nameof(MigratedEffects))]
     public void MigratedEffects_RecordWholeSourceWithoutEffectItemBoundary(

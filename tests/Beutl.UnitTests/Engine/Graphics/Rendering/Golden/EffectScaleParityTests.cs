@@ -71,6 +71,11 @@ public class EffectScaleParityTests
             e.AutoCenter.CurrentValue = true;
             return e;
         }));
+        foreach (float width in new[] { 0f, 36.5f, -36.5f })
+        {
+            yield return new TestCaseData($"DiagonalClipping-Width{width}",
+                (Func<FilterEffect>)(() => MakeDiagonalClipping(width)));
+        }
         yield return new TestCaseData("StrokeEffect", (Func<FilterEffect>)(() =>
         {
             var pen = new Pen();
@@ -461,6 +466,39 @@ public class EffectScaleParityTests
         Assert.Fail(message
             + " The device is a hardware GPU, so a non-finite pixel is a defect, not a software-Vulkan artifact.");
     }
+
+    [TestCase(0f)]
+    [TestCase(36.5f)]
+    [TestCase(-36.5f)]
+    public void DiagonalClipping_PartialRequestPreservesTheBoundary(float width)
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var region = new Rect(50, 70, 80, 70);
+            using Drawable.Resource resource = RotatedRect(() => MakeDiagonalClipping(width));
+            using Bitmap full = RenderAtScale(resource, Frame, 2, clearColor: Colors.Transparent);
+            using Bitmap partial = RenderAtScale(resource, Frame, 2, requestedRegion: region, clearColor: Colors.Transparent);
+            using Bitmap expected = full.ExtractSubset(PixelRect.FromRect(region, 2));
+            using Bitmap actual = partial.ExtractSubset(PixelRect.FromRect(region, 2));
+            float[] alpha = expected.GetPixelSpan<ushort>().ToArray()
+                .Where((_, index) => index % 4 == 3).Select(bits => (float)BitConverter.UInt16BitsToHalf(bits)).ToArray();
+            Assert.Multiple(() =>
+            {
+                // Changing the device origin affects rotated-source GPU sampling by about 0.004 in alpha.
+                Assert.That(ImageMetrics.MaximumAbsoluteErrorPerChannel(expected, actual).Maximum, Is.LessThanOrEqualTo(0.005));
+                Assert.That(alpha.Count(value => value > 0.99f), Is.GreaterThan(100));
+                Assert.That(alpha.Count(value => value < 0.01f), Is.GreaterThan(100));
+            });
+        });
+    }
+
+    private static DiagonalClipping MakeDiagonalClipping(float width) => new()
+    {
+        Angle = { CurrentValue = 31f },
+        Position = { CurrentValue = 17.25f },
+        Width = { CurrentValue = width },
+    };
 
     private static Drawable.Resource MakeForCase(string name, Func<FilterEffect> makeEffect)
     {
