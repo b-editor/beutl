@@ -283,28 +283,12 @@ public class PreviewFrameOrderIndependenceTests
                 File.WriteAllBytes(originalPath, [1, 2, 3, 4]);
             }
 
-            var proxySize = new PixelSize(originalSize.Width / 4, originalSize.Height / 4);
-            string template = TestMediaHelper.CreateTestVideoFile(
-                proxySize.Width, proxySize.Height, new Rational(Rate, 1), FrameCount * 4);
-            File.WriteAllBytes(template, [1, 2, 3, 4]);
-
-            string relative = $"proxy/{Path.GetFileName(template)}";
-            string proxyPath = Path.Combine(_root, relative);
-            Directory.CreateDirectory(Path.GetDirectoryName(proxyPath)!);
-            File.Copy(template, proxyPath, overwrite: true);
-
-            var now = DateTime.UtcNow;
-            _store!.Register(new ProxyEntry(
-                ProxyFingerprint.FromFile(originalPath),
-                ProxyPreset.Quarter,
-                ProxyState.Ready,
-                relative,
-                new FileInfo(proxyPath).Length,
+            ProxyTestScope.RegisterTestVideoProxy(
+                _store!,
+                originalPath,
                 originalSize,
-                proxySize,
-                now,
-                now,
-                null));
+                new PixelSize(originalSize.Width / 4, originalSize.Height / 4),
+                ProxyPreset.Quarter);
         }
 
         private Element NewElement(Drawable drawable, TimeSpan start, TimeSpan length, int zIndex)

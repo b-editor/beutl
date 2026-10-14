@@ -3,6 +3,7 @@ using System.Threading.Channels;
 
 using Beutl.Media;
 using Beutl.Media.Proxy;
+using Beutl.UnitTests.Engine.Graphics.Rendering;
 using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Media.Proxy;
@@ -313,7 +314,7 @@ public class ProxyJobQueueTests
     [Test]
     public async Task Failed_store_bookkeeping_stays_admitted_until_terminal_publication()
     {
-        string root = CreateRoot();
+        string root = ProxyTestScope.CreateRoot();
         var store = new ProxyStore(root);
         var admission = new SequencedAdmission(rejections: 0);
         int leaseDisposeCountAtRegistration = -1;
@@ -351,7 +352,7 @@ public class ProxyJobQueueTests
     [Test]
     public async Task Cancellation_during_failure_cleanup_rolls_back_the_failed_store_entry()
     {
-        string root = CreateRoot();
+        string root = ProxyTestScope.CreateRoot();
         var store = new ProxyStore(root);
         var releaseStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
@@ -563,7 +564,7 @@ public class ProxyJobQueueTests
     [Test]
     public async Task Completed_generation_wins_cancellation_during_admission_release()
     {
-        string root = CreateRoot();
+        string root = ProxyTestScope.CreateRoot();
         var store = new ProxyStore(root);
         var releaseStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
@@ -610,7 +611,7 @@ public class ProxyJobQueueTests
     [Test]
     public async Task Admission_release_failure_remains_failed_when_cancellation_races_cleanup()
     {
-        string root = CreateRoot();
+        string root = ProxyTestScope.CreateRoot();
         var store = new ProxyStore(root);
         var releaseStarted = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
@@ -689,7 +690,7 @@ public class ProxyJobQueueTests
     [Test]
     public async Task Cancel_wins_when_a_blocked_admission_callback_later_throws()
     {
-        string root = CreateRoot();
+        string root = ProxyTestScope.CreateRoot();
         var store = new ProxyStore(root);
         var generator = new RecordingGenerator();
         var expected = new InvalidOperationException("admission callback failed");
@@ -754,7 +755,7 @@ public class ProxyJobQueueTests
     [Test]
     public async Task Dispose_wins_when_a_blocked_admission_callback_later_throws()
     {
-        string root = CreateRoot();
+        string root = ProxyTestScope.CreateRoot();
         var store = new ProxyStore(root);
         var generator = new RecordingGenerator();
         var admission = new BlockingThrowingAdmission(
@@ -1008,7 +1009,7 @@ public class ProxyJobQueueTests
     [Test]
     public async Task FailedException_WithStore_PreservesFailedEntry()
     {
-        string root = CreateRoot();
+        string root = ProxyTestScope.CreateRoot();
         var store = new ProxyStore(root);
         await using var queue = new ProxyJobQueue(new FailingGenerator(), store);
         ProxyFingerprint source = CreateFingerprint("failed.mov");
@@ -1030,7 +1031,7 @@ public class ProxyJobQueueTests
     [Test]
     public async Task FailedException_WithExistingReadyEntry_KeepsReadyEntry()
     {
-        string root = CreateRoot();
+        string root = ProxyTestScope.CreateRoot();
         var store = new ProxyStore(root);
         ProxyFingerprint source = CreateFingerprint("ready-before-failure.mov");
         ProxyEntry ready = CreateReadyEntry(root, source);
@@ -1073,7 +1074,7 @@ public class ProxyJobQueueTests
     [Test]
     public async Task UnavailableGenerator_KeepsAllJobsQueuedUntilAvailabilityReturns()
     {
-        string root = CreateRoot();
+        string root = ProxyTestScope.CreateRoot();
         var store = new ProxyStore(root);
         var generator = new ToggleAvailabilityGenerator();
         await using var queue = new ProxyJobQueue(generator, store);
@@ -1111,7 +1112,7 @@ public class ProxyJobQueueTests
     [Test]
     public async Task UnavailableGenerator_SelfRecoversViaBackoffWithoutAvailabilityEvent()
     {
-        string root = CreateRoot();
+        string root = ProxyTestScope.CreateRoot();
         var store = new ProxyStore(root);
         var generator = new ToggleAvailabilityGenerator();
         await using var queue = new ProxyJobQueue(
@@ -1234,7 +1235,7 @@ public class ProxyJobQueueTests
     public async Task GenerateBulk_WhileGeneratorUnavailable_DoesNotBlockEnqueue()
     {
         // A large bulk enqueue must not stall while the generator is unavailable.
-        string root = CreateRoot();
+        string root = ProxyTestScope.CreateRoot();
         var store = new ProxyStore(root);
         var generator = new ToggleAvailabilityGenerator();
         await using var queue = new ProxyJobQueue(
@@ -1638,7 +1639,7 @@ public class ProxyJobQueueTests
     [Test]
     public async Task GeneratorThrowsOceWithoutCancellation_ReportsFailedNotCanceled()
     {
-        string root = CreateRoot();
+        string root = ProxyTestScope.CreateRoot();
         var store = new ProxyStore(root);
         var admission = new SequencedAdmission(rejections: 0);
         int leaseDisposeCountAtRegistration = -1;
@@ -1752,13 +1753,6 @@ public class ProxyJobQueueTests
     {
         string path = Path.Combine(TestContext.CurrentContext.WorkDirectory, fileName);
         return new ProxyFingerprint(path, 1, DateTime.UtcNow);
-    }
-
-    private static string CreateRoot()
-    {
-        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        return root;
     }
 
     private static ProxyEntry CreateReadyEntry(string root, ProxyFingerprint source)

@@ -31,7 +31,7 @@ public sealed class ProxyGenerationE2ETests
         if (!FFmpegWorkerProcess.IsWorkerAvailable(AppContext.BaseDirectory))
             Assert.Ignore("FFmpeg worker deployment is unavailable; skipping the native integration test.");
 
-        string root = CreateRoot();
+        string root = ProxyTestScope.CreateRoot();
         var store = new ProxyStore(root);
         var generator = new FFmpegProxyGenerator(store);
         string source = TestMediaHelper.CreateTestVideoFile(64, 48, new Rational(12, 1), 4);
@@ -72,7 +72,7 @@ public sealed class ProxyGenerationE2ETests
     [Test]
     public async Task GenerateAsync_AudioOnlySource_IsSkipped()
     {
-        string root = CreateRoot();
+        string root = ProxyTestScope.CreateRoot();
         var store = new ProxyStore(root);
         var generator = new FFmpegProxyGenerator(store);
         string source = TestMediaHelper.CreateTestAudioFile();
@@ -87,7 +87,7 @@ public sealed class ProxyGenerationE2ETests
     [Test]
     public async Task GenerateAsync_AlwaysStillImageSource_IsSkippedBeforeOpeningReader()
     {
-        string root = CreateRoot();
+        string root = ProxyTestScope.CreateRoot();
         var store = new ProxyStore(root);
         var generator = new FFmpegProxyGenerator(store);
         // A JPEG can only be a single frame, so it is rejected by extension without opening a reader
@@ -165,7 +165,7 @@ public sealed class ProxyGenerationE2ETests
     [Test]
     public void WriteMetadata_PreservesSiblingPresetEntries()
     {
-        string root = CreateRoot();
+        string root = ProxyTestScope.CreateRoot();
         string source = Path.Combine(root, "source.mov");
         File.WriteAllBytes(source, [1, 2, 3, 4]);
         ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(source);
@@ -192,7 +192,7 @@ public sealed class ProxyGenerationE2ETests
     [Test]
     public async Task FinalizeAsync_WhenRegisterKeepsThrowing_KeepsProxyFileAndSurfacesError()
     {
-        string root = CreateRoot();
+        string root = ProxyTestScope.CreateRoot();
         var store = new CountingStore(root, failuresBeforeSuccess: int.MaxValue);
         var generator = new FFmpegProxyGenerator(store);
         (string finalPath, ProxyEntry entry) = SeedFinalizedArtifact(root);
@@ -210,7 +210,7 @@ public sealed class ProxyGenerationE2ETests
     [Test]
     public async Task FinalizeAsync_RetriesTransientRegisterFailureThenSucceeds()
     {
-        string root = CreateRoot();
+        string root = ProxyTestScope.CreateRoot();
         var store = new CountingStore(root, failuresBeforeSuccess: 2);
         var generator = new FFmpegProxyGenerator(store);
         (string finalPath, ProxyEntry entry) = SeedFinalizedArtifact(root);
@@ -228,7 +228,7 @@ public sealed class ProxyGenerationE2ETests
     [Test]
     public async Task FinalizeAsync_WhenSidecarWriteFails_StillRegistersEntry()
     {
-        string root = CreateRoot();
+        string root = ProxyTestScope.CreateRoot();
         var store = new CountingStore(root, failuresBeforeSuccess: 0);
         var generator = new FFmpegProxyGenerator(store);
         (string finalPath, ProxyEntry entry) = SeedFinalizedArtifact(root);
@@ -249,7 +249,7 @@ public sealed class ProxyGenerationE2ETests
     [Test]
     public async Task PublishAsync_CanceledToken_DoesNotMoveOrRegister()
     {
-        string root = CreateRoot();
+        string root = ProxyTestScope.CreateRoot();
         var store = new CountingStore(root, failuresBeforeSuccess: 0);
         var generator = new FFmpegProxyGenerator(store);
         string source = Path.Combine(root, "src.mov");
@@ -278,7 +278,7 @@ public sealed class ProxyGenerationE2ETests
     [Test]
     public async Task PublishAsync_WhenMetadataBackupFails_StillRegistersMovedProxy()
     {
-        string root = CreateRoot();
+        string root = ProxyTestScope.CreateRoot();
         var store = new CountingStore(root, failuresBeforeSuccess: 0);
         var generator = new FFmpegProxyGenerator(store);
         string source = Path.Combine(root, "src.mov");
@@ -318,7 +318,7 @@ public sealed class ProxyGenerationE2ETests
     [Test]
     public async Task PublishAsync_CanceledDuringRegisterRetry_RemovesMovedArtifactAndSidecar()
     {
-        string root = CreateRoot();
+        string root = ProxyTestScope.CreateRoot();
         var store = new CountingStore(root, failuresBeforeSuccess: int.MaxValue);
         var generator = new FFmpegProxyGenerator(store);
         string source = Path.Combine(root, "src.mov");
@@ -359,7 +359,7 @@ public sealed class ProxyGenerationE2ETests
     [Test]
     public async Task PublishAsync_CanceledDuringRegisterRetry_RestoresExistingProxyAndSidecar()
     {
-        string root = CreateRoot();
+        string root = ProxyTestScope.CreateRoot();
         var store = new CountingStore(root, failuresBeforeSuccess: int.MaxValue);
         var generator = new FFmpegProxyGenerator(store);
         string source = Path.Combine(root, "src.mov");
@@ -413,7 +413,7 @@ public sealed class ProxyGenerationE2ETests
     public async Task PublishAsync_CanceledAfterRegisterMutation_KeepsStoreAndFilesConsistent(
         [Values] bool hasPrevious, [Values] bool rollbackFails)
     {
-        string root = CreateRoot();
+        string root = ProxyTestScope.CreateRoot();
         var store = new CountingStore(root, failuresBeforeSuccess: 1)
         {
             MutateBeforeFailure = true,
@@ -508,13 +508,6 @@ public sealed class ProxyGenerationE2ETests
         File.WriteAllBytes(finalPath, [9, 9, 9, 9, 9]);
         ProxyEntry entry = CreateEntry(fingerprint, ProxyPreset.Quarter, "hash/quarter.mp4");
         return (finalPath, entry);
-    }
-
-    private static string CreateRoot()
-    {
-        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        return root;
     }
 
     private static ProxyEntry CreateEntry(ProxyFingerprint source, ProxyPreset preset, string relative)
