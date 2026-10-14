@@ -415,7 +415,7 @@ public class DirectoryWatcherServiceTests
     }
 
     [Test]
-    public void Template_thumbnail_scope_is_cached_per_containing_directory()
+    public void Template_thumbnail_scope_includes_both_files_in_the_same_directory()
     {
         string directory = BeutlEnvironment.GetTemplatesDirectoryPath();
         Directory.CreateDirectory(directory);
