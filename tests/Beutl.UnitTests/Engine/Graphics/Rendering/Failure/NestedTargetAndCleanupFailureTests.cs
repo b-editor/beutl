@@ -444,11 +444,15 @@ public sealed class NestedTargetAndCleanupFailureTests
                 Assert.That(firstMissCache, Is.Not.SameAs(secondMissCache));
                 Assert.That(producer.ExecuteCalls, Is.Zero);
                 Assert.That(producer.Cache.IsCached, Is.False);
-                Assert.That(firstMissCache.CacheCount, Is.EqualTo(1));
-                Assert.That(secondMissCache.CacheCount, Is.EqualTo(1));
-                Assert.That(firstMissCache.TryGetCachedOutput(decisions[1].Identity!, out _), Is.True);
+                Assert.That(
+                    firstMissCache.TryGetCachedOutput(decisions[1].Identity!, out RenderNodeCachedOutput? firstOutput),
+                    Is.True);
+                Assert.That(firstOutput?.Values, Has.Count.EqualTo(1));
                 Assert.That(firstMissCache.TryGetCachedOutput(decisions[2].Identity!, out _), Is.False);
-                Assert.That(secondMissCache.TryGetCachedOutput(decisions[2].Identity!, out _), Is.True);
+                Assert.That(
+                    secondMissCache.TryGetCachedOutput(decisions[2].Identity!, out RenderNodeCachedOutput? secondOutput),
+                    Is.True);
+                Assert.That(secondOutput?.Values, Has.Count.EqualTo(1));
                 Assert.That(secondMissCache.TryGetCachedOutput(decisions[1].Identity!, out _), Is.False);
                 Assert.That(execution.Registry.Statistics.LeasedTargets, Is.Zero);
             });
@@ -591,7 +595,8 @@ public sealed class NestedTargetAndCleanupFailureTests
                     [new RenderNodeCachedValue(
                         new FailureTestRenderTarget(new PixelSize(8, 8), oldDisposalFailure),
                         s_bounds,
-                        EffectiveScale.At(1))]),
+                        EffectiveScale.At(1),
+                        PixelRect.FromRect(s_bounds, 1))]),
             ]);
         }
         node.Cache.RecordStableRequests();
@@ -607,7 +612,8 @@ public sealed class NestedTargetAndCleanupFailureTests
             Assert.That(failure, Is.SameAs(oldDisposalFailure));
             Assert.That(node.ExecuteCalls, Is.EqualTo(1));
             Assert.That(node.Cache.IsCached, Is.True);
-            Assert.That(node.Cache.CacheCount, Is.EqualTo(1));
+            Assert.That(node.Cache.TryGetCachedOutput(node.Cache.CurrentCacheIdentity(), out RenderNodeCachedOutput? cached));
+            Assert.That(cached?.Values, Has.Count.EqualTo(1));
             Assert.That(renderer.TargetPoolStatistics.LeasedTargets, Is.Zero);
         });
     }
@@ -674,7 +680,8 @@ public sealed class NestedTargetAndCleanupFailureTests
                 [new RenderNodeCachedValue(
                     new FailureTestRenderTarget(new PixelSize(8, 8), disposalFailure),
                     s_bounds,
-                    EffectiveScale.At(1))]),
+                    EffectiveScale.At(1),
+                    PixelRect.FromRect(s_bounds, 1))]),
         ]);
     }
 
@@ -698,7 +705,8 @@ public sealed class NestedTargetAndCleanupFailureTests
                     new RenderNodeCachedValue(
                         target,
                         identity.Bounds,
-                        EffectiveScale.At(identity.Density)),
+                        EffectiveScale.At(identity.Density),
+                        PixelRect.FromRect(identity.Bounds, identity.Density)),
                 ]));
             return true;
         }

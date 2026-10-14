@@ -841,7 +841,7 @@ public class SourceEffectiveScaleFlowTests
             Assert.That(observedWorkingScales, Has.Count.EqualTo(1));
             Assert.That(observedWorkingScales.Single(), Is.EqualTo(expectedDensity).Within(1e-4));
             Assert.That(layer.Cache.IsCached, Is.True);
-            Assert.That(layer.Cache.IdentityDensity, Is.EqualTo(expectedDensity));
+            Assert.That(layer.Cache.CurrentCacheIdentity().Density, Is.EqualTo(expectedDensity));
         });
     }
 
@@ -921,7 +921,7 @@ public class SourceEffectiveScaleFlowTests
             Assert.That(cold.IsEmpty, Is.False);
             Assert.That(warm.IsEmpty, Is.False);
             Assert.That(node.Cache.IsCached, Is.True);
-            Assert.That(node.Cache.IdentityDensity, Is.EqualTo(sourceScale.Value));
+            Assert.That(node.Cache.CurrentCacheIdentity().Density, Is.EqualTo(sourceScale.Value));
             Assert.That(
                 warm.Bitmap!.GetPixelSpan().SequenceEqual(cold.Bitmap!.GetPixelSpan()),
                 Is.True);
@@ -962,7 +962,7 @@ public class SourceEffectiveScaleFlowTests
             Assert.That(cold.IsEmpty, Is.False);
             Assert.That(warm.IsEmpty, Is.False);
             Assert.That(opacity.Cache.IsCached, Is.True);
-            Assert.That(opacity.Cache.IdentityDensity, Is.EqualTo(expectedDensity));
+            Assert.That(opacity.Cache.CurrentCacheIdentity().Density, Is.EqualTo(expectedDensity));
             Assert.That(
                 warm.Bitmap!.GetPixelSpan().SequenceEqual(cold.Bitmap!.GetPixelSpan()),
                 Is.True);

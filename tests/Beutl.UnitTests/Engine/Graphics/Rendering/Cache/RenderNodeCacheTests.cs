@@ -37,7 +37,7 @@ public class RenderNodeCacheTests
         Assert.Multiple(() =>
         {
             Assert.That(node.Cache.IsCached, Is.False);
-            Assert.That(node.Cache.SuccessfulStableRequestCount, Is.Zero);
+            Assert.That(node.Cache.CanCapture, Is.False);
             Assert.That(node.HasChanges, Is.True);
         });
 
@@ -76,8 +76,8 @@ public class RenderNodeCacheTests
         {
             Assert.That(root.Cache.IsCached, Is.False, "a dirty descendant must invalidate its ancestor");
             Assert.That(dirtyBranch.Cache.IsCached, Is.False);
-            Assert.That(root.Cache.SuccessfulStableRequestCount, Is.Zero);
-            Assert.That(dirtyBranch.Cache.SuccessfulStableRequestCount, Is.Zero);
+            Assert.That(root.Cache.CanCapture, Is.False);
+            Assert.That(dirtyBranch.Cache.CanCapture, Is.False);
             Assert.That(dirtyLeaf.Cache.IsCached, Is.True, "an unchanged descendant remains reusable");
             Assert.That(dirtyLeaf.Cache.CanCapture, Is.True, "an unchanged descendant retains its warm-up");
             Assert.That(sibling.Cache.IsCached, Is.True, "an unrelated sibling remains reusable");
@@ -146,7 +146,7 @@ public class RenderNodeCacheTests
             new RenderNodeCachePublication(
                 cache,
                 identity,
-                [new RenderNodeCachedValue(target, bounds, EffectiveScale.At(1))]),
+                [new RenderNodeCachedValue(target, bounds, EffectiveScale.At(1), PixelRect.FromRect(bounds, 1))]),
         ]);
         return new WeakReference(cache);
     }

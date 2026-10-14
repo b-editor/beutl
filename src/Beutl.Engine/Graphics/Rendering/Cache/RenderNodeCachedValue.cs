@@ -7,18 +7,6 @@ internal sealed record RenderNodeCachedValue
     public RenderNodeCachedValue(
         RenderTarget target,
         Rect bounds,
-        EffectiveScale effectiveScale)
-        : this(
-            target,
-            bounds,
-            effectiveScale,
-            CreateDeviceBounds(target, bounds, effectiveScale))
-    {
-    }
-
-    public RenderNodeCachedValue(
-        RenderTarget target,
-        Rect bounds,
         EffectiveScale effectiveScale,
         PixelRect deviceBounds,
         Vector deviceGridOffset = default)
@@ -65,14 +53,4 @@ internal sealed record RenderNodeCachedValue
     public PixelRect DeviceBounds { get; }
 
     public Vector DeviceGridOffset { get; }
-
-    private static PixelRect CreateDeviceBounds(
-        RenderTarget target,
-        Rect bounds,
-        EffectiveScale effectiveScale)
-    {
-        ArgumentNullException.ThrowIfNull(target);
-        PixelRect canonical = PixelRect.FromRect(bounds, effectiveScale.Value);
-        return new PixelRect(canonical.Position, new PixelSize(target.Width, target.Height));
-    }
 }

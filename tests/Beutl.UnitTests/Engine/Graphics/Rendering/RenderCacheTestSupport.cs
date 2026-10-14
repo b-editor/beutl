@@ -1,4 +1,5 @@
-﻿using Beutl.Composition;
+﻿using System.Reflection;
+using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
@@ -73,7 +74,20 @@ internal static class RenderCacheTestSupport
         return new RenderNodeCachePublication(
             cache,
             CreateCacheIdentity(bounds, name),
-            [new RenderNodeCachedValue(target, bounds, EffectiveScale.At(1))]);
+            [new RenderNodeCachedValue(target, bounds, EffectiveScale.At(1), PixelRect.FromRect(bounds, 1))]);
+    }
+
+    /// <summary>
+    /// Reads back the identity the cache last published. The cache shares it only with the renderer that
+    /// resolved it, so a test reads it here to check it or to look the published values up through the
+    /// production lookup.
+    /// </summary>
+    public static RenderOutputCacheIdentity CurrentCacheIdentity(this RenderNodeCache cache)
+    {
+        object storage = typeof(RenderNodeCache)
+            .GetField("_storage", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(cache)!;
+        return (RenderOutputCacheIdentity)storage.GetType().GetProperty("Identity")!.GetValue(storage)!;
     }
 
     /// <summary>Drives a cache to the stable-request count at which it may capture.</summary>
