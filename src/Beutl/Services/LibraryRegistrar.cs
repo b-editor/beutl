@@ -168,6 +168,7 @@ public static class LibraryRegistrar
         LibraryService.Current
             .RegisterGroup(GraphicsStrings.FilterEffect, g => g
                 .AddFilterEffect<Blur>(GraphicsStrings.Blur)
+                .AddFilterEffect<RadialBlur>(GraphicsStrings.RadialBlur)
                 .AddFilterEffect<DropShadow>(GraphicsStrings.DropShadow)
                 .AddFilterEffect<InnerShadow>(GraphicsStrings.InnerShadow)
                 .AddFilterEffect<FlatShadow>(GraphicsStrings.FlatShadow)

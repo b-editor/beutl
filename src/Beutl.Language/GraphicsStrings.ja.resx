@@ -1546,4 +1546,28 @@
   <data name="ClipTransitionOrientation_Vertical" xml:space="preserve">
     <value>垂直</value>
   </data>
+  <data name="RadialBlur" xml:space="preserve">
+    <value>放射ブラー</value>
+  </data>
+  <data name="RadialBlur_Mode" xml:space="preserve">
+    <value>種類</value>
+  </data>
+  <data name="RadialBlur_Center" xml:space="preserve">
+    <value>中心</value>
+  </data>
+  <data name="RadialBlur_Amount" xml:space="preserve">
+    <value>強さ</value>
+  </data>
+  <data name="RadialBlur_Amount_Description" xml:space="preserve">
+    <value>ズーム型では拡大率（%）、回転型では全体の回転角度（度）を指定します。</value>
+  </data>
+  <data name="RadialBlur_Samples" xml:space="preserve">
+    <value>サンプル数</value>
+  </data>
+  <data name="RadialBlurMode_Zoom" xml:space="preserve">
+    <value>ズーム</value>
+  </data>
+  <data name="RadialBlurMode_Spin" xml:space="preserve">
+    <value>回転</value>
+  </data>
 </root>

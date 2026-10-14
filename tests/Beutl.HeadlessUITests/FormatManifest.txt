@@ -470,6 +470,9 @@ Beutl.Utilities
 [Beutl.Engine]Beutl.Graphics.Effects:PixelSortEffect
   sealed
   keys: Animations, Ascending, Direction, Expressions, Id, IsEnabled, Name, SortKey, ThresholdMax, ThresholdMin
+[Beutl.Engine]Beutl.Graphics.Effects:RadialBlur
+  sealed
+  keys: Amount, Animations, Center, Expressions, Id, IsEnabled, Mode, Name, Samples
 [Beutl.Engine]Beutl.Graphics.Effects:SKSLScriptEffect
   sealed
   keys: Animations, Expressions, Id, IsEnabled, Name, Script
