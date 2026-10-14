@@ -46,31 +46,12 @@ public class SubFrameResizeClampTests
         }
     }
 
-    private static string NewWorkspace(string name)
-    {
-        string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, name);
-        Directory.CreateDirectory(location);
-        return location;
-    }
-
-    private static async Task<EditViewModel> OpenEditorForNewScene(string name)
-    {
-        Project project = (await TestShell.Project.CreateProject(
-            640, 480, 30, 44100, name, NewWorkspace(name)))!;
-        HeadlessTestHelpers.Settle();
-        Scene scene = project.Items.OfType<Scene>().First();
-
-        TestShell.Editor.ActivateTabItem(scene);
-        HeadlessTestHelpers.Settle();
-        return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
-    }
-
     // ElementViewModel.OnChangeToOriginalDuration -> ElementResizeService.Resize -> Scene.MoveChild.
     [AvaloniaTest]
     public async Task ChangeToOriginalDuration_SubFrameMedia_ClampsToOneFrameWithoutCrashing()
     {
         await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditorForNewScene("original-duration-subframe");
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("original-duration-subframe");
         RegisterSubFrameDecoder();
 
         string path = CreateSubFrameAudioFile();
@@ -134,7 +115,7 @@ public class SubFrameResizeClampTests
     public async Task SubmitViewModelChanges_ZeroPixelWidth_ClampsToOneFrameWithoutCrashing()
     {
         await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditorForNewScene("resize-zero-width");
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("resize-zero-width");
 
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
         ElementAddResult added = await adder.AddAsync([new ElementDescription(
@@ -188,7 +169,7 @@ public class SubFrameResizeClampTests
     public async Task SubmitLeftEdge_OffFrameEnd_PreservesEnd(bool ripple, double endSeconds)
     {
         await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditorForNewScene($"left-edge-{ripple}-{endSeconds}");
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync($"left-edge-{ripple}-{endSeconds}");
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
         TimeSpan end = TimeSpan.FromSeconds(endSeconds);
         ElementAddResult added = await adder.AddAsync([new ElementDescription(

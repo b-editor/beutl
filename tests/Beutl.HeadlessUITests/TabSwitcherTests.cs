@@ -7,7 +7,6 @@ using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Beutl.Api.Services;
@@ -619,14 +618,12 @@ public sealed class TabSwitcherTests
                 Assert.That(tools.TranslatePoint(default, session.Overlay)!.Value.X,
                     Is.LessThan(documents.TranslatePoint(default, session.Overlay)!.Value.X));
             });
-            session.Capture($"switcher-{width}-{light}");
             session.Overlay.FindControl<Button>("NewTabButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             HeadlessTestHelpers.Render(2);
             Assert.That(session.Overlay.FindControl<ListBox>("NewToolsList")!.IsEffectivelyVisible, Is.True);
             Assert.That(documents.IsEffectivelyVisible, Is.False);
             Assert.That(tools.IsEffectivelyVisible, Is.False);
             Assert.That(container.Bounds.Height, Is.LessThanOrEqualTo(390));
-            session.Capture($"create-{width}-{light}");
         }
         finally
         {
@@ -729,15 +726,6 @@ public sealed class TabSwitcherTests
         {
             Window.KeyRelease(key, modifiers, PhysicalKey.None, null);
             HeadlessTestHelpers.Settle();
-        }
-
-        public void Capture(string name)
-        {
-            string directory = Path.Combine(Path.GetTempPath(), "beutl-tab-switcher-captures");
-            Directory.CreateDirectory(directory);
-            using var frame = Window.CaptureRenderedFrame();
-            Assert.That(frame, Is.Not.Null);
-            frame!.Save(Path.Combine(directory, name + ".png"), PngBitmapEncoderOptions.Default);
         }
 
         public async ValueTask DisposeAsync()

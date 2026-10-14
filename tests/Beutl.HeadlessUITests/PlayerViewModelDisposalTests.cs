@@ -1,13 +1,9 @@
-﻿using System.Diagnostics;
-using System.Reactive.Linq;
+﻿using System.Reactive.Linq;
 using Avalonia.Headless.NUnit;
-using Beutl.Editor.Models;
 using Beutl.Editor.Services;
 using Beutl.Graphics.Shapes;
 using Beutl.Media.Music;
 using Beutl.Media.Music.Samples;
-using Beutl.ProjectSystem;
-using Beutl.Services;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
@@ -18,43 +14,11 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class PlayerViewModelDisposalTests
 {
-    private static string NewWorkspace(string name)
-    {
-        string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, name);
-        Directory.CreateDirectory(location);
-        return location;
-    }
-
-    private static async Task<EditViewModel> OpenEditorForNewScene(string name)
-    {
-        Project project = (await TestShell.Project.CreateProject(
-            640, 480, 30, 44100, name, NewWorkspace(name)))!;
-        HeadlessTestHelpers.Settle();
-        Scene scene = project.Items.OfType<Scene>().First();
-
-        TestShell.Editor.ActivateTabItem(scene);
-        HeadlessTestHelpers.Settle();
-        return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
-    }
-
-    private static async Task<Element> AddRectangleAsync(EditViewModel editor)
-    {
-        var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
-        await adder.AddAsync([new ElementDescription(
-            Start: TimeSpan.Zero,
-            Length: TimeSpan.FromSeconds(4),
-            Layer: 0,
-            Source: new ElementSource.EngineObject(() => new RectShape()))],
-            CancellationToken.None);
-        HeadlessTestHelpers.Settle();
-        return editor.Scene.Children[^1];
-    }
-
     [AvaloniaTest]
     public async Task Publishing_audio_after_dispose_is_safe_for_abandoned_playback_tasks()
     {
         await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditorForNewScene("player-dispose");
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("player-dispose");
         PlayerViewModel player = editor.Player;
 
         await TestShell.Editor.CloseTabItem(TestShell.Editor.SelectedTabItem.Value!);
@@ -76,9 +40,9 @@ public class PlayerViewModelDisposalTests
     {
         TestGpu.RequireAnyDevice();
         await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditorForNewScene("player-timer-dispose");
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("player-timer-dispose");
         PlayerViewModel player = editor.Player;
-        await AddRectangleAsync(editor);
+        await TestShell.AddElementAsync(editor, () => new RectShape(), TimeSpan.Zero, TimeSpan.FromSeconds(4));
         IEditorClock clock = editor.GetRequiredService<IEditorClock>();
 
         var frameApplied = new TaskCompletionSource<bool>(
@@ -87,20 +51,23 @@ public class PlayerViewModelDisposalTests
         player.PreviewInvalidated += OnPreviewInvalidated;
 
         // Capture backend errors for diagnostics.
-        var notifications = new CaptureNotificationHandler();
-        INotificationServiceHandler previousHandler = NotificationService.Handler;
-        NotificationService.Handler = notifications;
+        using var notifications = new NotificationCapture();
 
         try
         {
             player.Play();
 
             await frameApplied.Task.WaitAsync(TimeSpan.FromSeconds(10));
-            bool clockAdvanced = await WaitUntilAsync(
-                () => clock.CurrentTime.Value > TimeSpan.Zero, TimeSpan.FromSeconds(5));
+            try
+            {
+                await HeadlessTestHelpers.WaitUntilAsync(
+                    () => clock.CurrentTime.Value > TimeSpan.Zero, TimeSpan.FromSeconds(5), pump: false);
+            }
+            catch (TimeoutException)
+            {
+                Assert.Fail($"the playback timer must advance the editor clock; {Diagnostics()}");
+            }
 
-            Assert.That(clockAdvanced, Is.True,
-                $"the playback timer must advance the editor clock; {Diagnostics()}");
             Assert.That(player.IsPlaying.Value, Is.True,
                 $"playback must still be running before the mid-playback disposal; {Diagnostics()}");
 
@@ -116,31 +83,11 @@ public class PlayerViewModelDisposalTests
         }
         finally
         {
-            NotificationService.Handler = previousHandler;
             player.PreviewInvalidated -= OnPreviewInvalidated;
         }
 
         string Diagnostics() =>
             $"renderError={player.PreviewRenderError.Value}, clock={clock.CurrentTime.Value}, " +
             $"notifications=[{string.Join(" | ", notifications.All.Select(static n => n.Message))}]";
-    }
-
-    private static async Task<bool> WaitUntilAsync(Func<bool> condition, TimeSpan timeout)
-    {
-        long deadline = Stopwatch.GetTimestamp() + timeout.Ticks * Stopwatch.Frequency / TimeSpan.TicksPerSecond;
-        while (!condition())
-        {
-            if (Stopwatch.GetTimestamp() >= deadline) return false;
-            await Task.Delay(10);
-        }
-
-        return true;
-    }
-
-    private sealed class CaptureNotificationHandler : INotificationServiceHandler
-    {
-        public System.Collections.Concurrent.ConcurrentQueue<Notification> All { get; } = new();
-
-        public void Show(Notification notification) => All.Enqueue(notification);
     }
 }

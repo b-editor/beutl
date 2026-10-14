@@ -1,14 +1,11 @@
 ﻿using System.Collections.Concurrent;
-using System.Diagnostics;
 using System.Reactive.Linq;
 
 using Avalonia.Headless.NUnit;
 using Avalonia.Threading;
 
 using Beutl.Editor.Services;
-using Beutl.Graphics.Rendering;
 using Beutl.Models;
-using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 
@@ -55,7 +52,8 @@ public class PlaybackUIThreadTests
 
         // The scene is half a second long, so playback stops at its end by itself.
         editor.Player.Play();
-        await WaitUntilAsync(() => playingChanges >= 2 && !editor.Player.IsPlaybackActive, TimeSpan.FromMinutes(2));
+        await HeadlessTestHelpers.WaitUntilAsync(
+            () => playingChanges >= 2 && !editor.Player.IsPlaybackActive, TimeSpan.FromMinutes(2), pump: false);
 
         Assert.Multiple(() =>
         {
@@ -87,7 +85,7 @@ public class PlaybackUIThreadTests
         {
             editor.Player.Play();
             // A stop that landed after a restart would end playback before the second rewind.
-            await WaitUntilAsync(() => Rewinds(times) >= 2, TimeSpan.FromMinutes(2));
+            await HeadlessTestHelpers.WaitUntilAsync(() => Rewinds(times) >= 2, TimeSpan.FromMinutes(2), pump: false);
         }
         finally
         {
@@ -119,7 +117,8 @@ public class PlaybackUIThreadTests
         IEditorClock clock = editor.GetRequiredService<IEditorClock>();
 
         editor.Player.Play();
-        await WaitUntilAsync(() => clock.CurrentTime.Value >= TimeSpan.FromSeconds(0.2), TimeSpan.FromMinutes(2));
+        await HeadlessTestHelpers.WaitUntilAsync(
+            () => clock.CurrentTime.Value >= TimeSpan.FromSeconds(0.2), TimeSpan.FromMinutes(2), pump: false);
         await editor.Player.Pause();
         TimeSpan pausedAt = clock.CurrentTime.Value;
 
@@ -149,7 +148,8 @@ public class PlaybackUIThreadTests
         });
 
         editor.Player.Play();
-        await WaitUntilAsync(() => thrown == 1 && !editor.Player.IsPlaybackActive, TimeSpan.FromMinutes(2));
+        await HeadlessTestHelpers.WaitUntilAsync(
+            () => thrown == 1 && !editor.Player.IsPlaybackActive, TimeSpan.FromMinutes(2), pump: false);
 
         Assert.That(editor.Player.IsPlaying.Value, Is.False);
     }
@@ -173,7 +173,8 @@ public class PlaybackUIThreadTests
         try
         {
             editor.Player.Play();
-            await WaitUntilAsync(() => starts >= 2 && !editor.Player.IsPlaybackActive, TimeSpan.FromMinutes(2));
+            await HeadlessTestHelpers.WaitUntilAsync(
+                () => starts >= 2 && !editor.Player.IsPlaybackActive, TimeSpan.FromMinutes(2), pump: false);
             Assert.That(editor.Player.IsPlaying.Value, Is.False);
 
             editor.Player.Play();
@@ -207,7 +208,8 @@ public class PlaybackUIThreadTests
         try
         {
             editor.Player.Play();
-            await WaitUntilAsync(() => stops >= 1 && !editor.Player.IsPlaybackActive, TimeSpan.FromMinutes(2));
+            await HeadlessTestHelpers.WaitUntilAsync(
+                () => stops >= 1 && !editor.Player.IsPlaybackActive, TimeSpan.FromMinutes(2), pump: false);
 
             Assert.Multiple(() =>
             {
@@ -239,16 +241,18 @@ public class PlaybackUIThreadTests
         });
 
         editor.Player.Play();
-        await WaitUntilAsync(() => stops >= 1 && !editor.Player.IsPlaybackActive, TimeSpan.FromMinutes(2));
+        await HeadlessTestHelpers.WaitUntilAsync(
+            () => stops >= 1 && !editor.Player.IsPlaybackActive, TimeSpan.FromMinutes(2), pump: false);
         Assert.That(editor.FrameCacheManager.Value.Options.DeletionStrategy, Is.EqualTo(FrameCacheDeletionStrategy.Old));
 
         // Let the render that the stopped state queued land first, so that only the seek below can change the preview.
-        DrainPreviewRender();
+        RenderThreadDrain.Drain(TimeSpan.FromMinutes(2));
         int previews = 0;
         using IDisposable previewSubscription =
             editor.Player.PreviewImage.Skip(1).Subscribe(_ => Interlocked.Increment(ref previews));
         clock.CurrentTime.Value = TimeSpan.FromSeconds(0.1);
-        await WaitUntilAsync(() => Volatile.Read(ref previews) >= 1, TimeSpan.FromMinutes(2));
+        await HeadlessTestHelpers.WaitUntilAsync(
+            () => Volatile.Read(ref previews) >= 1, TimeSpan.FromMinutes(2), pump: false);
     }
 
     private static void Record(ref int count, ConcurrentQueue<string> offThread, string what)
@@ -273,39 +277,10 @@ public class PlaybackUIThreadTests
 
     private static async Task<EditViewModel> OpenEditor(TimeSpan duration)
     {
-        await TestReset.ResetShellAsync();
-        string name = $"playback-ui-thread-{Guid.NewGuid():N}";
-        string directory = Path.Combine(BeutlHomeIsolation.CurrentHome!, name);
-        Directory.CreateDirectory(directory);
-        Project project = (await TestShell.Project.CreateProject(320, 240, 30, 44100, name, directory))!;
-        HeadlessTestHelpers.Settle();
-        Scene scene = project.Items.OfType<Scene>().First();
-        scene.Duration = duration;
-        TestShell.Editor.ActivateTabItem(scene);
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("playback-ui-thread", 320, 240, duration: duration);
 
         // Let the preview render queued by opening the scene finish first.
-        DrainPreviewRender();
-        return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
-    }
-
-    // Runs the UI job that hands a queued preview render to the render thread, then waits for the render thread.
-    private static void DrainPreviewRender()
-    {
-        HeadlessTestHelpers.Settle();
-        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        RenderThread.Dispatcher.Invoke(static () => { }, ct: timeout.Token);
-        HeadlessTestHelpers.Settle();
-    }
-
-    private static async Task WaitUntilAsync(Func<bool> condition, TimeSpan timeout)
-    {
-        var stopwatch = Stopwatch.StartNew();
-        while (!condition())
-        {
-            if (stopwatch.Elapsed >= timeout)
-                Assert.Fail($"Condition was not met within {timeout}.");
-
-            await Task.Delay(10);
-        }
+        RenderThreadDrain.Drain(TimeSpan.FromMinutes(2));
+        return editor;
     }
 }

@@ -21,20 +21,13 @@ public class SaveRoundTripTests
         Scene,
     }
 
-    private static string NewWorkspace(string name)
-    {
-        string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, name);
-        Directory.CreateDirectory(location);
-        return location;
-    }
-
     [AvaloniaTest]
     public async Task Mutation_made_through_the_editor_survives_save_and_reopen()
     {
         await TestReset.ResetShellAsync();
 
         Project project = (await TestShell.Project.CreateProject(
-            640, 480, 30, 44100, "saveroundtrip", NewWorkspace("saveroundtrip")))!;
+            640, 480, 30, 44100, "saveroundtrip", TestShell.NewWorkspace("saveroundtrip")))!;
         HeadlessTestHelpers.Settle();
         string projectFile = project.Uri!.LocalPath;
         Scene scene = project.Items.OfType<Scene>().First();
@@ -219,7 +212,7 @@ public class SaveRoundTripTests
         await TestReset.ResetShellAsync();
 
         Project project = (await TestShell.Project.CreateProject(
-            640, 480, 30, 44100, name, NewWorkspace(name)))!;
+            640, 480, 30, 44100, name, TestShell.NewWorkspace(name)))!;
         string projectFile = project.Uri!.LocalPath;
         Scene sourceScene = project.Items.OfType<Scene>().Single();
         TestShell.Editor.ActivateTabItem(sourceScene);

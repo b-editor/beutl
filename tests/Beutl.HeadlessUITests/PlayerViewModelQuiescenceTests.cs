@@ -12,7 +12,6 @@ using Beutl.Media.Music.Samples;
 using Beutl.Media.Source;
 using Beutl.Models;
 using Beutl.ProjectSystem;
-using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Reactive.Bindings;
 
@@ -502,16 +501,7 @@ public class PlayerViewModelQuiescenceTests
     }
 
     private static async Task<EditViewModel> OpenEditor()
-    {
-        await TestReset.ResetShellAsync();
-        string name = $"playback-quiescence-{Guid.NewGuid():N}";
-        string directory = Path.Combine(BeutlHomeIsolation.CurrentHome!, name);
-        Directory.CreateDirectory(directory);
-        Project project = (await TestShell.Project.CreateProject(640, 480, 30, 44100, name, directory))!;
-        TestShell.Editor.ActivateTabItem(project.Items.OfType<Scene>().First());
-        HeadlessTestHelpers.Settle();
-        return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
-    }
+        => (await TestShell.OpenNewSceneAsync("playback-quiescence")).Editor;
 
     private static BlockingPlaybackSound AddBlockingSound(Scene scene)
     {

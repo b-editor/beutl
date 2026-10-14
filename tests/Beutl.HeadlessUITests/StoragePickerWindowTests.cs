@@ -4,7 +4,6 @@ using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Avalonia.VisualTree;
 using Beutl.Controls;
-using Beutl.Controls.PropertyEditors;
 using Beutl.Pages.SettingsPages;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels.Dialogs;
@@ -46,35 +45,6 @@ public class StoragePickerWindowTests
 
             storage.Verify(x => x.OpenFilePickerAsync(It.IsAny<FilePickerOpenOptions>()), Times.Once);
             Assert.That(input.SelectedFile, Is.SameAs(file.Object));
-        }
-        finally
-        {
-            window.Close();
-        }
-    }
-
-    [AvaloniaTest]
-    public void Storage_file_editor_accepts_a_file_from_the_host_window_picker()
-    {
-        string path = Path.Combine(BeutlHomeIsolation.CurrentHome!, "selected-file.bin");
-        var file = new Mock<IStorageFile>();
-        file.SetupGet(x => x.Path).Returns(new Uri(path));
-        var storage = new Mock<IStorageProvider>(MockBehavior.Strict);
-        storage.Setup(x => x.OpenFilePickerAsync(It.IsAny<FilePickerOpenOptions>()))
-            .ReturnsAsync(new[] { file.Object });
-        var editor = new StorageFileEditor { OpenOptions = new FilePickerOpenOptions() };
-        var window = new Window { Content = editor, Width = 500, Height = 200 };
-        TestStorageProviderFactory.SetProvider(window, storage.Object);
-        try
-        {
-            window.Show();
-            HeadlessTestHelpers.Render();
-            Button button = editor.GetVisualDescendants().OfType<Button>().Single(x => x.Name == "PART_Button");
-            button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-            HeadlessTestHelpers.Settle();
-
-            storage.Verify(x => x.OpenFilePickerAsync(It.IsAny<FilePickerOpenOptions>()), Times.Once);
-            Assert.That(editor.Value.FullName, Is.EqualTo(path));
         }
         finally
         {

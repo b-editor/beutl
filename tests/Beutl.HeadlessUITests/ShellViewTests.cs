@@ -2,7 +2,6 @@
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Avalonia.Styling;
-using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
@@ -15,25 +14,6 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class ShellViewTests
 {
-    private static string NewWorkspace(string name)
-    {
-        string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, name);
-        Directory.CreateDirectory(location);
-        return location;
-    }
-
-    private static async Task<EditViewModel> OpenEditorForNewScene(string name)
-    {
-        Project project = (await TestShell.Project.CreateProject(
-            640, 480, 30, 44100, name, NewWorkspace(name)))!;
-        HeadlessTestHelpers.Settle();
-        Scene scene = project.Items.OfType<Scene>().First();
-
-        TestShell.Editor.ActivateTabItem(scene);
-        HeadlessTestHelpers.Settle();
-        return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
-    }
-
     [AvaloniaTest]
     [TestCase(640, false)]
     [TestCase(1280, false)]
@@ -42,7 +22,7 @@ public class ShellViewTests
     public async Task EditView_preserves_horizontal_dock_insets_when_resized(int width, bool light)
     {
         await TestReset.ResetShellAsync();
-        EditViewModel editor = await OpenEditorForNewScene($"dock-insets-{width}-{light}");
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync($"dock-insets-{width}-{light}");
 
         var view = new EditView { DataContext = editor };
         var window = new Window
