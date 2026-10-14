@@ -36,7 +36,6 @@
     <Project Path="tests\Beutl.PublicApiContractTests\Beutl.PublicApiContractTests.csproj" />
     <Project Path="tests\Beutl.Testing.Headless\Beutl.Testing.Headless.csproj" />
     <Project Path="tests\SourceGeneratorTest\SourceGeneratorTest.csproj" />
-    <File Path="tests\ArtifactProvider.cs" />
     <File Path="tests\Directory.Build.props" />
   </Folder>
   <Project Path="nukebuild\_build.csproj" />

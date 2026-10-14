@@ -32,34 +32,16 @@ public class DebugBuildOptimizationTests
     public async Task AProjectEvaluatedWithoutAConfigurationIsUnoptimizedDebug()
     {
         string project = Path.Combine(RepositoryPaths.Root, "src", "Beutl.Utilities", "Beutl.Utilities.csproj");
-        var startInfo = new ProcessStartInfo(Environment.GetEnvironmentVariable("DOTNET_HOST_PATH") ?? "dotnet")
-        {
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-        };
+        var startInfo = new ProcessStartInfo(Environment.GetEnvironmentVariable("DOTNET_HOST_PATH") ?? "dotnet");
         foreach (string argument in new[] { "msbuild", project, "-getProperty:Configuration", "-getProperty:Optimize" })
             startInfo.ArgumentList.Add(argument);
         // MSBuild reads environment variables as properties; an inherited one would hide the default.
         startInfo.Environment.Remove("Configuration");
 
-        using Process process = Process.Start(startInfo)!;
-        Task<string> output = process.StandardOutput.ReadToEndAsync();
-        Task<string> error = process.StandardError.ReadToEndAsync();
-        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        try
-        {
-            await process.WaitForExitAsync(timeout.Token);
-        }
-        catch (OperationCanceledException) when (timeout.IsCancellationRequested)
-        {
-            // Kill does not wait, so reap the tree before reporting what it printed.
-            process.Kill(entireProcessTree: true);
-            await process.WaitForExitAsync();
-            Assert.Fail($"dotnet msbuild did not finish within two minutes.\n{await error}\n{await output}");
-        }
+        (int exitCode, string output, string error) = await TestProcesses.RunAsync(startInfo, TimeSpan.FromMinutes(2));
 
-        Assert.That(process.ExitCode, Is.Zero, await error);
-        JsonNode properties = JsonNode.Parse(await output)!["Properties"]!;
+        Assert.That(exitCode, Is.Zero, error);
+        JsonNode properties = JsonNode.Parse(output)!["Properties"]!;
         Assert.Multiple(() =>
         {
             Assert.That(properties["Configuration"]!.GetValue<string>(), Is.EqualTo("Debug"));

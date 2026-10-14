@@ -5,6 +5,7 @@ using Beutl.Api;
 using Beutl.Api.Clients;
 using Beutl.Api.Services;
 using Beutl.PackageTools.UI.Models;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.PackageTools;
 
@@ -14,7 +15,7 @@ public sealed class ChangesModelTests
     [Test]
     public async Task Load_ClassifiesActionsAndDeduplicatesIdsWithinEachAction()
     {
-        using var handler = new DelegateHandler((request, _) =>
+        using var handler = new DelegateHttpHandler((request, _) =>
             Task.FromResult(CreatePackageResponse(request)));
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
@@ -62,7 +63,7 @@ public sealed class ChangesModelTests
         var requestStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseResponse = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         int requestCount = 0;
-        using var handler = new DelegateHandler(async (request, cancellationToken) =>
+        using var handler = new DelegateHttpHandler(async (request, cancellationToken) =>
         {
             Interlocked.Increment(ref requestCount);
             requestStarted.TrySetResult();
@@ -101,7 +102,7 @@ public sealed class ChangesModelTests
         var secondRequestStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseResponse = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         int requestCount = 0;
-        using var handler = new DelegateHandler(async (request, cancellationToken) =>
+        using var handler = new DelegateHttpHandler(async (request, cancellationToken) =>
         {
             int count = Interlocked.Increment(ref requestCount);
             if (count > 1)
@@ -137,7 +138,7 @@ public sealed class ChangesModelTests
     {
         var requestCompleted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using var cancellation = new CancellationTokenSource();
-        using var handler = new DelegateHandler((request, cancellationToken) =>
+        using var handler = new DelegateHttpHandler((request, cancellationToken) =>
         {
             HttpResponseMessage response = CreatePackageResponse(request);
             // Cancel while the response is being processed, before the publish loops run.
@@ -196,15 +197,5 @@ public sealed class ChangesModelTests
         {
             Content = JsonContent.Create(response),
         };
-    }
-
-    private sealed class DelegateHandler(
-        Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> handler)
-        : HttpMessageHandler
-    {
-        protected override Task<HttpResponseMessage> SendAsync(
-            HttpRequestMessage request,
-            CancellationToken cancellationToken)
-            => handler(request, cancellationToken);
     }
 }
