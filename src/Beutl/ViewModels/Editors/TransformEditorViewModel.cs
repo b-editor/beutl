@@ -19,51 +19,46 @@ public enum KnownTransformType
     Presenter
 }
 
+// A transform the editor offers: its type, how to create one, its name and the resource key of its icon (null for
+// none). The name is read on each use, so it follows the UI culture.
+internal sealed record KnownTransform(
+    KnownTransformType Kind, Type Type, Func<Transform> Create, Func<string> Name, string? IconKey);
+
 public sealed class TransformEditorViewModel : GroupableEditorViewModel<Transform, TransformGroup, FallbackTransform>
 {
+    // In the order the menus list them.
+    internal static IReadOnlyList<KnownTransform> KnownTransforms { get; } =
+    [
+        new(KnownTransformType.Group, typeof(TransformGroup), () => new TransformGroup(),
+            () => GraphicsStrings.Group, null),
+        new(KnownTransformType.Translate, typeof(TranslateTransform), () => new TranslateTransform(),
+            () => GraphicsStrings.TranslateTransform, "TranslateTransformIconData"),
+        new(KnownTransformType.Rotation, typeof(RotationTransform), () => new RotationTransform(),
+            () => GraphicsStrings.Rotation, "RotationTransformIconData"),
+        new(KnownTransformType.Scale, typeof(ScaleTransform), () => new ScaleTransform(),
+            () => GraphicsStrings.Scale, "ScaleTransformIconData"),
+        new(KnownTransformType.Skew, typeof(SkewTransform), () => new SkewTransform(),
+            () => GraphicsStrings.SkewTransform, "SkewTransformIconData"),
+        new(KnownTransformType.Rotation3D, typeof(Rotation3DTransform), () => new Rotation3DTransform(),
+            () => GraphicsStrings.Rotation3DTransform, "Rotation3DTransformIconData"),
+        new(KnownTransformType.Presenter, typeof(TransformPresenter), () => new TransformPresenter(),
+            () => GraphicsStrings.Presenter, null),
+    ];
+
+    internal static KnownTransform? Find(KnownTransformType type)
+        => KnownTransforms.FirstOrDefault(t => t.Kind == type);
+
+    // A drop is taken only for exactly one of these types, and not for a presenter.
+    internal static KnownTransformType FromDroppedType(Type type)
+        => KnownTransforms.FirstOrDefault(t => t.Type == type && t.Kind != KnownTransformType.Presenter)?.Kind
+           ?? KnownTransformType.Unknown;
+
     private static KnownTransformType GetTransformType(Transform? obj)
     {
-        return obj switch
-        {
-            TransformGroup => KnownTransformType.Group,
-            TranslateTransform => KnownTransformType.Translate,
-            RotationTransform => KnownTransformType.Rotation,
-            ScaleTransform => KnownTransformType.Scale,
-            SkewTransform => KnownTransformType.Skew,
-            Rotation3DTransform => KnownTransformType.Rotation3D,
-            IPresenter<Transform> => KnownTransformType.Presenter,
-            _ => KnownTransformType.Unknown
-        };
-    }
+        if (obj is IPresenter<Transform>)
+            return KnownTransformType.Presenter;
 
-    private static Transform? CreateTransform(KnownTransformType type)
-    {
-        return type switch
-        {
-            KnownTransformType.Group => new TransformGroup(),
-            KnownTransformType.Translate => new TranslateTransform(),
-            KnownTransformType.Rotation => new RotationTransform(),
-            KnownTransformType.Scale => new ScaleTransform(),
-            KnownTransformType.Skew => new SkewTransform(),
-            KnownTransformType.Rotation3D => new Rotation3DTransform(),
-            KnownTransformType.Presenter => new TransformPresenter(),
-            _ => null
-        };
-    }
-
-    private static string ToDisplayName(KnownTransformType type)
-    {
-        return type switch
-        {
-            KnownTransformType.Group => GraphicsStrings.Group,
-            KnownTransformType.Translate => GraphicsStrings.TranslateTransform,
-            KnownTransformType.Rotation => GraphicsStrings.Rotation,
-            KnownTransformType.Scale => GraphicsStrings.Scale,
-            KnownTransformType.Skew => GraphicsStrings.SkewTransform,
-            KnownTransformType.Rotation3D => GraphicsStrings.Rotation3DTransform,
-            KnownTransformType.Presenter => GraphicsStrings.Presenter,
-            _ => "Null"
-        };
+        return KnownTransforms.FirstOrDefault(t => t.Type.IsInstanceOfType(obj))?.Kind ?? KnownTransformType.Unknown;
     }
 
     public TransformEditorViewModel(IPropertyAdapter<Transform?> property)
@@ -73,7 +68,7 @@ public sealed class TransformEditorViewModel : GroupableEditorViewModel<Transfor
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        TransformName = TransformType.Select(ToDisplayName)
+        TransformName = TransformType.Select(type => Find(type)?.Name() ?? "Null")
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
@@ -94,13 +89,13 @@ public sealed class TransformEditorViewModel : GroupableEditorViewModel<Transfor
 
     public void ChangeType(KnownTransformType type)
     {
-        if (CreateTransform(type) is { } obj)
+        if (Find(type)?.Create() is { } obj)
             ChangeTransform(obj);
     }
 
     public void AddItem(KnownTransformType type)
     {
-        if (CreateTransform(type) is { } obj)
+        if (Find(type)?.Create() is { } obj)
             AddItem(obj);
     }
 

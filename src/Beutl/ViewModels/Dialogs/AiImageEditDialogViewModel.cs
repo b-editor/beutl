@@ -19,7 +19,8 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Dialogs;
 
-internal sealed partial class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, IAiModelListConsumer
+internal sealed partial class AiImageEditDialogViewModel : IDisposable, IAsyncDisposable, IAiModelListConsumer,
+    IAiRecoverableForm, IAiPlanOffer, IAiResultActions
 {
     private readonly CompositeDisposable _disposables = [];
     private readonly AsyncOperationLifetime _operations = new();
@@ -313,15 +314,15 @@ internal sealed partial class AiImageEditDialogViewModel : IDisposable, IAsyncDi
     /// </summary>
     public ReactiveCommand StopEditing { get; }
 
-    internal ReactivePropertySlim<AiPendingAttempt?> SelectedRecoveryAttempt => _recovery.SelectedAttempt;
+    public ReactivePropertySlim<AiPendingAttempt?> SelectedRecoveryAttempt => _recovery.SelectedAttempt;
 
-    internal ReadOnlyReactivePropertySlim<IReadOnlyList<AiPendingAttempt>> RecoveryAttempts => _recovery.Attempts;
+    public ReadOnlyReactivePropertySlim<IReadOnlyList<AiPendingAttempt>> RecoveryAttempts => _recovery.Attempts;
 
-    internal ReadOnlyReactivePropertySlim<bool> RecoveryAvailable => _recovery.Available;
+    public ReadOnlyReactivePropertySlim<bool> RecoveryAvailable => _recovery.Available;
 
-    internal ReactiveCommand RecoverSelectedAttempt => _recovery.RecoverSelected;
+    public ReactiveCommand RecoverSelectedAttempt => _recovery.RecoverSelected;
 
-    internal ReactiveCommand AbandonSelectedAttempt => _recovery.AbandonSelected;
+    public ReactiveCommand AbandonSelectedAttempt => _recovery.AbandonSelected;
 
     public ReadOnlyReactivePropertySlim<bool> CanAddToScene { get; }
 
