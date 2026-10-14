@@ -1,5 +1,4 @@
 ﻿using Avalonia;
-using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Media;
@@ -25,22 +24,14 @@ public class ColorPaletteItemTests
             BorderThickness = new Thickness(1, 2, 3, 4),
             CornerRadius = new CornerRadius(2, 4, 6, 8),
         };
-        var window = new Window { Width = 120, Height = 120, Content = item };
-        try
-        {
-            window.Show();
-            HeadlessTestHelpers.Render();
-            using var first = window.CaptureRenderedFrame();
-            Assert.That(first, Is.Not.Null);
+        using var host = new ControlHost(item, 120, 120);
+        HeadlessTestHelpers.Render();
+        using var first = host.Window.CaptureRenderedFrame();
+        Assert.That(first, Is.Not.Null);
 
-            item.CornerRadius = new CornerRadius(8, 6, 4, 2);
-            HeadlessTestHelpers.Render();
-            using var second = window.CaptureRenderedFrame();
-            Assert.That(second, Is.Not.Null);
-        }
-        finally
-        {
-            window.Close();
-        }
+        item.CornerRadius = new CornerRadius(8, 6, 4, 2);
+        HeadlessTestHelpers.Render();
+        using var second = host.Window.CaptureRenderedFrame();
+        Assert.That(second, Is.Not.Null);
     }
 }

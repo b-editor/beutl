@@ -391,16 +391,18 @@ public class FontFamilyPickerTests
 
     private sealed class PickerHost : IDisposable
     {
-        private PickerHost(Window window, FontFamilyPickerFlyout flyout)
+        private readonly ControlHost _host;
+
+        private PickerHost(ControlHost host, FontFamilyPickerFlyout flyout)
         {
-            Window = window;
+            _host = host;
             Flyout = flyout;
-            Presenter = window.GetVisualDescendants().OfType<LibraryItemPickerFlyoutPresenter>().Single();
+            Presenter = Window.GetVisualDescendants().OfType<LibraryItemPickerFlyoutPresenter>().Single();
             SearchBox = Find<TextBox>("SearchTextBox");
             List = Find<ListBox>("PART_ListBox");
         }
 
-        public Window Window { get; }
+        public Window Window => _host.Window;
 
         public FontFamilyPickerFlyout Flyout { get; }
 
@@ -417,13 +419,12 @@ public class FontFamilyPickerTests
         public static PickerHost Open(FontFamilyPickerFlyoutViewModel viewModel)
         {
             var anchor = new Button { Content = "Font" };
-            var window = new Window { Width = 600, Height = 500, Content = anchor };
-            window.Show();
+            var host = new ControlHost(anchor, 600, 500);
             HeadlessTestHelpers.Render();
             var flyout = new FontFamilyPickerFlyout(viewModel);
             flyout.ShowAt(anchor);
             HeadlessTestHelpers.Render(3);
-            return new PickerHost(window, flyout);
+            return new PickerHost(host, flyout);
         }
 
         public T Find<T>(string name)
@@ -447,8 +448,7 @@ public class FontFamilyPickerTests
         public void Dispose()
         {
             Flyout.Hide();
-            Window.Close();
-            HeadlessTestHelpers.Settle();
+            _host.Dispose();
         }
     }
 }

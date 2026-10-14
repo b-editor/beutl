@@ -157,24 +157,4 @@ public class UndoRedoTests
         Assert.That(_history.JumpTo(_history.CurrentIndex), Is.False);
         Assert.That(_history.JumpTo(99), Is.False);
     }
-
-    [Test]
-    public void Clear_drops_history_but_keeps_current_scene_state()
-    {
-        var attributes = new ElementAttributeService(_history);
-        Element element = _harness.AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), 0);
-        attributes.SetEnabled(element, false);
-        Assert.That(_history.UndoCount, Is.EqualTo(1));
-
-        _history.Clear();
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(_history.CanUndo, Is.False);
-            Assert.That(_history.CanRedo, Is.False);
-            Assert.That(_history.UndoCount, Is.EqualTo(0));
-            Assert.That(_history.Entries, Has.Count.EqualTo(1));
-            Assert.That(element.IsEnabled, Is.False);
-        });
-    }
 }

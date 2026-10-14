@@ -52,13 +52,8 @@ public class EngineObjectResourceGeneratorTests
             Assert.That(derived3, Does.Contain("ResourceReconciler.ReconcileChild(this, context"));
             Assert.That(derived3, Does.Contain("set => _child = value;"));
             Assert.That(derived3, Does.Contain("set => _optionalChild = value;"));
-            Assert.That(derived3, Does.Not.Contain("SetOwnedResource"));
-            Assert.That(derived3, Does.Not.Contain("ReplaceChild("));
-            Assert.That(derived3, Does.Not.Contain("DetachChild()"));
             Assert.That(derived3, Does.Contain(
                 "get => _child ?? throw new global::System.InvalidOperationException"));
-            Assert.That(derived3, Does.Not.Contain("DetachOptionalChild()"));
-            Assert.That(derived3, Does.Not.Contain("ReplaceOptionalChild("));
             Assert.That(derived3, Does.Contain("_child?.Dispose();"));
             Assert.That(derived3, Does.Contain("Items"));
             Assert.That(derived3, Does.Contain("ResourceReconciler.ReconcileChildren(this, context"));

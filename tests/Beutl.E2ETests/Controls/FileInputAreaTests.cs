@@ -1,6 +1,5 @@
 ﻿using System.Reflection;
 using Avalonia;
-using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.Platform.Storage;
@@ -23,12 +22,11 @@ public class FileInputAreaTests
         {
             OpenOptions = setOptions ? new FilePickerOpenOptions { FileTypeFilter = [] } : null,
         };
-        var window = new Window { Content = input, Width = 400, Height = 200 };
+        var host = new ControlHost(input, 400, 200);
         try
         {
-            window.Show();
             HeadlessTestHelpers.Render();
-            IStorageFile? file = await window.StorageProvider.TryGetFileFromPathAsync(new Uri(path));
+            IStorageFile? file = await host.Window.StorageProvider.TryGetFileFromPathAsync(new Uri(path));
             Assert.That(file, Is.Not.Null);
 
             var data = new DataTransfer();
@@ -46,7 +44,7 @@ public class FileInputAreaTests
         }
         finally
         {
-            window.Close();
+            host.Dispose();
             File.Delete(path);
         }
     }
@@ -63,12 +61,11 @@ public class FileInputAreaTests
                 FileTypeFilter = [new FilePickerFileType("PNG") { Patterns = ["*.png"] }],
             },
         };
-        var window = new Window { Content = input, Width = 400, Height = 200 };
+        var host = new ControlHost(input, 400, 200);
         try
         {
-            window.Show();
             HeadlessTestHelpers.Render();
-            IStorageFile? file = await window.StorageProvider.TryGetFileFromPathAsync(new Uri(path));
+            IStorageFile? file = await host.Window.StorageProvider.TryGetFileFromPathAsync(new Uri(path));
             Assert.That(file, Is.Not.Null);
 
             var data = new DataTransfer();
@@ -81,7 +78,7 @@ public class FileInputAreaTests
         }
         finally
         {
-            window.Close();
+            host.Dispose();
             File.Delete(path);
         }
     }
@@ -93,29 +90,21 @@ public class FileInputAreaTests
         Assert.That(file.TryGetLocalPath(), Is.Null);
 
         var input = new FileInputArea();
-        var window = new Window { Content = input, Width = 400, Height = 200 };
-        try
-        {
-            window.Show();
-            HeadlessTestHelpers.Render();
+        using var host = new ControlHost(input, 400, 200);
+        HeadlessTestHelpers.Render();
 
-            var data = new DataTransfer();
-            data.Add(DataTransferItem.CreateFile(file));
-            var enter = new DragEventArgs(DragDrop.DragEnterEvent, data, input, new Point(10, 10), KeyModifiers.None);
-            input.RaiseEvent(enter);
-            Assert.That(enter.DragEffects, Is.EqualTo(DragDropEffects.Copy));
+        var data = new DataTransfer();
+        data.Add(DataTransferItem.CreateFile(file));
+        var enter = new DragEventArgs(DragDrop.DragEnterEvent, data, input, new Point(10, 10), KeyModifiers.None);
+        input.RaiseEvent(enter);
+        Assert.That(enter.DragEffects, Is.EqualTo(DragDropEffects.Copy));
 
-            var drop = new DragEventArgs(DragDrop.DropEvent, data, input, new Point(10, 10), KeyModifiers.None)
-            {
-                DragEffects = enter.DragEffects,
-            };
-            input.RaiseEvent(drop);
-            Assert.That(input.SelectedFile, Is.SameAs(file));
-        }
-        finally
+        var drop = new DragEventArgs(DragDrop.DropEvent, data, input, new Point(10, 10), KeyModifiers.None)
         {
-            window.Close();
-        }
+            DragEffects = enter.DragEffects,
+        };
+        input.RaiseEvent(drop);
+        Assert.That(input.SelectedFile, Is.SameAs(file));
     }
 
     public class VirtualFileProxy : DispatchProxy

@@ -115,7 +115,6 @@ public class UiFontsTests
     public void Shared_font_resources_render_mixed_language_controls_without_missing_glyphs(string cultureName)
     {
         CultureInfo previous = CultureInfo.CurrentUICulture;
-        Window? window = null;
         try
         {
             CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo(cultureName);
@@ -140,7 +139,7 @@ public class UiFontsTests
             }).ToArray();
             foreach (TextBlock sample in samples)
                 panel.Children.Add(sample);
-            window = new Window
+            var window = new Window
             {
                 Width = 780,
                 Height = 460,
@@ -148,7 +147,7 @@ public class UiFontsTests
                 RequestedThemeVariant = ThemeVariant.Dark,
             };
             window.Resources.MergedDictionaries.Add(fontResources);
-            window.Show();
+            using var host = new ControlHost(window);
             HeadlessTestHelpers.Render(3);
             Assert.That(family, Is.EqualTo(UiFonts.GetFontFamily(CultureInfo.CurrentUICulture)));
             foreach (TextBlock sample in samples)
@@ -164,15 +163,7 @@ public class UiFontsTests
         }
         finally
         {
-            try
-            {
-                window?.Close();
-                HeadlessTestHelpers.Settle();
-            }
-            finally
-            {
-                CultureInfo.CurrentUICulture = previous;
-            }
+            CultureInfo.CurrentUICulture = previous;
         }
     }
 

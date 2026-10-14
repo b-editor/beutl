@@ -19,10 +19,9 @@ public class DirectoryTreeViewTests
 
         using var watcher = new FileSystemWatcher(root) { EnableRaisingEvents = true };
         var tree = new DirectoryTreeView(watcher);
-        var window = new Window { Width = 320, Height = 240, Content = tree };
+        var host = new ControlHost(tree, 320, 240);
         try
         {
-            window.Show();
             HeadlessTestHelpers.Render();
             tree.Sort();
 
@@ -48,7 +47,7 @@ public class DirectoryTreeViewTests
         {
             watcher.EnableRaisingEvents = false;
             HeadlessTestHelpers.Settle();
-            window.Close();
+            host.Dispose();
             Directory.Delete(root, recursive: true);
         }
     }
@@ -192,15 +191,7 @@ public class DirectoryTreeViewTests
         }
     }
 
-    private static async Task WaitUntil(Func<bool> condition)
-    {
-        for (int attempt = 0; attempt < 250; attempt++)
-        {
-            HeadlessTestHelpers.Settle();
-            if (condition()) return;
-            await Task.Delay(20);
-        }
-
-        Assert.Fail("The file watcher did not update the tree.");
-    }
+    private static Task WaitUntil(Func<bool> condition)
+        => HeadlessTestHelpers.WaitUntilAsync(
+            condition, TimeSpan.FromSeconds(5), "The file watcher did not update the tree.");
 }

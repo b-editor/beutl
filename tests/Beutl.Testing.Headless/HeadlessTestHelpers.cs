@@ -99,4 +99,25 @@ public static class HeadlessTestHelpers
         Marshal.Copy(buffer.Address, pixels, 0, pixels.Length);
         return (pixels, buffer.RowBytes, buffer.Size);
     }
+
+    // Reads one pixel of a 32bpp RGBA or BGRA frame.
+    public static (int R, int G, int B) ReadPixel(WriteableBitmap frame, PixelPoint point)
+    {
+        using ILockedFramebuffer buffer = frame.Lock();
+        nint pixel = buffer.Address + point.Y * buffer.RowBytes + point.X * 4;
+        byte first = Marshal.ReadByte(pixel);
+        byte second = Marshal.ReadByte(pixel, 1);
+        byte third = Marshal.ReadByte(pixel, 2);
+        if (buffer.Format == PixelFormat.Rgba8888)
+        {
+            return (first, second, third);
+        }
+
+        if (buffer.Format == PixelFormat.Bgra8888)
+        {
+            return (third, second, first);
+        }
+
+        throw new InvalidOperationException($"Expected a 32bpp RGBA or BGRA frame, but it is {buffer.Format}.");
+    }
 }

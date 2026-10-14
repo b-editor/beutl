@@ -26,16 +26,11 @@ public class GenericDragBehaviorTests
         var items = new ItemsControl { Items = { item } };
         var behavior = new ProbeDragBehavior { DragControl = first };
         Interaction.GetBehaviors(item).Add(behavior);
-        var window = new Window
-        {
-            Width = 200,
-            Height = 200,
-            Content = new StackPanel { Children = { first, second, items } },
-        };
+        var host = new ControlHost(new StackPanel { Children = { first, second, items } }, 200, 200);
+        Window window = host.Window;
 
         try
         {
-            window.Show();
             HeadlessTestHelpers.Render();
             Assert.That(item.FindLogicalAncestorOfType<ItemsControl>(), Is.SameAs(items));
 
@@ -55,8 +50,7 @@ public class GenericDragBehaviorTests
         finally
         {
             Interaction.GetBehaviors(item).Remove(behavior);
-            window.Close();
-            HeadlessTestHelpers.Settle();
+            host.Dispose();
         }
 
         void Click(Control control)
@@ -76,22 +70,15 @@ public class GenericDragBehaviorTests
         var item = new Border { Width = 80, Height = 40 };
         var behavior = new ProbeDragBehavior { DragControl = first };
         Interaction.GetBehaviors(item).Add(behavior);
-        var window = new Window
-        {
-            Width = 200,
-            Height = 200,
-            Content = new StackPanel
-            {
-                Children = { first, second, new ItemsControl { Items = { item } } },
-            },
-        };
         IPointer? pointer = null;
         first.AddHandler(InputElement.PointerPressedEvent, (_, e) => pointer = e.Pointer,
             RoutingStrategies.Bubble, handledEventsToo: true);
+        var host = new ControlHost(
+            new StackPanel { Children = { first, second, new ItemsControl { Items = { item } } } }, 200, 200);
+        Window window = host.Window;
 
         try
         {
-            window.Show();
             HeadlessTestHelpers.Render();
             Point point = first.TranslatePoint(new Point(first.Bounds.Width / 2, first.Bounds.Height / 2), window)!.Value;
 
@@ -109,8 +96,7 @@ public class GenericDragBehaviorTests
         {
             window.MouseUp(new Point(20, 20), MouseButton.Left);
             Interaction.GetBehaviors(item).Remove(behavior);
-            window.Close();
-            HeadlessTestHelpers.Settle();
+            host.Dispose();
         }
     }
 
