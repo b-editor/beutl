@@ -51,6 +51,11 @@ internal static class AiRetryTestContext
 
     private sealed class UnusedVideoService : IAiVideoService
     {
+        public Task<AiVideoGenerationResult> CreateFromSourceAsync(
+            AiSourceVideoRequest request,
+            CancellationToken cancellationToken)
+            => throw new NotSupportedException();
+
         public Task<AiVideoGenerationResult> CreateAsync(
             AiVideoGenerationRequest request,
             CancellationToken cancellationToken)

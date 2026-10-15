@@ -1900,17 +1900,14 @@ public sealed partial class AiCapabilityServiceTests
             Assert.That(completed.FileId, Is.EqualTo(new AiContentId("video-file-1")));
             Assert.That(completed.ContentMetadata?.FileName, Is.EqualTo("generated-video.webm"));
             Assert.That(completed.ContentMetadata?.ContentType, Is.EqualTo("video/webm"));
-            Assert.That(completed.ContentMetadata?.GetFileExtension(".mp4", "video"), Is.EqualTo(".webm"));
+            Assert.That(completed.ContentMetadata?.GetFileExtension(), Is.EqualTo(".webm"));
             Assert.That(
-                new AiContentMetadata("generated-video", "video/mp4")
-                    .GetFileExtension(".webm", "video"),
-                Is.EqualTo(".mp4"));
+                new AiContentMetadata("generated-video", "video/webm").GetFileExtension(),
+                Is.EqualTo(".webm"));
             Assert.Throws<AiException>(() =>
-                new AiContentMetadata("payload.png", "image/png")
-                    .GetFileExtension(".mp4", "video"));
+                new AiContentMetadata("payload.png", "image/png").GetFileExtension());
             Assert.Throws<AiException>(() =>
-                new AiContentMetadata("payload.webm", "application/octet-stream")
-                    .GetFileExtension(".mp4", "video"));
+                new AiContentMetadata("payload.webm", "application/octet-stream").GetFileExtension());
             Assert.That(handler.Requests.Select(request => request.Path),
                 Does.Contain("/api/v3/ai/videos/video-job-1"));
         }
