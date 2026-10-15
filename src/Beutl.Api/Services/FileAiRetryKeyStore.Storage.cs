@@ -23,13 +23,9 @@ internal sealed partial class FileAiRetryKeyStore
                 throw new AiRetryStoreUnavailableException("Retry key store has an unsupported version.");
             }
 
-            int value = version.GetInt32();
-            return value switch
-            {
-                1 => LoadVersion1(root),
-                Version => LoadVersion2(root),
-                _ => throw new AiRetryStoreUnavailableException("Retry key store has an unsupported version."),
-            };
+            if (version.GetInt32() != Version)
+                throw new AiRetryStoreUnavailableException("Retry key store has an unsupported version.");
+            return LoadVersion2(root);
         }
         catch (AiRetryStoreUnavailableException)
         {
@@ -45,38 +41,6 @@ internal sealed partial class FileAiRetryKeyStore
         {
             throw new AiRetryStoreUnavailableException("Retry key store could not be read.", ex);
         }
-    }
-
-    private static StoreData LoadVersion1(JsonElement root)
-    {
-        if (root.EnumerateObject().Count() != 2
-            || !root.TryGetProperty("entries", out JsonElement entriesElement)
-            || entriesElement.ValueKind != JsonValueKind.Array)
-        {
-            throw new AiRetryStoreUnavailableException("Retry key store has an invalid legacy shape.");
-        }
-
-        var data = new StoreData();
-        int count = 0;
-        foreach (JsonElement element in entriesElement.EnumerateArray())
-        {
-            if (++count > MaximumEntries
-                || element.ValueKind != JsonValueKind.Object
-                || element.EnumerateObject().Count() != 2
-                || !element.TryGetProperty("identity", out JsonElement identity)
-                || !element.TryGetProperty("key", out JsonElement key))
-            {
-                throw new AiRetryStoreUnavailableException("Retry key store contains invalid entries.");
-            }
-
-            string identityValue = ReadIdentity(identity);
-            string keyValue = ReadKey(key);
-            if (!data.Entries.TryAdd(identityValue, new Entry(keyValue, 1, string.Empty, 0, null, null)))
-                throw new AiRetryStoreUnavailableException("Retry key store contains duplicate entries.");
-            data.Generations[identityValue] = 1;
-        }
-
-        return data;
     }
 
     private static StoreData LoadVersion2(JsonElement root)

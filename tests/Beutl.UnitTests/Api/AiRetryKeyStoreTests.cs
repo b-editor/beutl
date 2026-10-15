@@ -331,7 +331,9 @@ public sealed class AiRetryKeyStoreTests
 
     [TestCase("{")]
     [TestCase("{\"version\":2,\"entries\":[]}")]
-    [TestCase("{\"version\":1,\"entries\":[],\"unexpected\":true}")]
+    [TestCase("{\"version\":2,\"entries\":[],\"generations\":[],\"attempts\":[],\"unexpected\":true}")]
+    // No release wrote version 1, so it is an unknown version.
+    [TestCase("{\"version\":1,\"entries\":[]}")]
     public void CorruptFutureAndUnknownShapeFailClosed(string contents)
     {
         File.WriteAllText(Path.Combine(_directory, "retry-keys.json"), contents);
@@ -351,14 +353,17 @@ public sealed class AiRetryKeyStoreTests
             oversized.PrepareAttempt(Job("job", "prompt"), "account"));
 
         string identity = new('A', 64);
+        string digest = new('B', 64);
         File.WriteAllText(path, JsonSerializer.Serialize(new
         {
-            version = 1,
+            version = 2,
             entries = new[]
             {
-                new { identity, key = "key-one" },
-                new { identity, key = "key-two" },
+                StoredEntry(identity, "key-one", digest),
+                StoredEntry(identity, "key-two", digest),
             },
+            generations = new[] { new { identity, generation = 1 } },
+            attempts = Array.Empty<object>(),
         }));
         var duplicate = new FileAiRetryKeyStore(_directory);
         Assert.Throws<AiRetryStoreUnavailableException>(() =>
@@ -462,6 +467,18 @@ public sealed class AiRetryKeyStoreTests
         Assert.That(store.TryRelease(job, accountId, key, attempt.Generation + 1, attempt.Token), Is.True);
         return key;
     }
+
+    // A released version-2 entry as the store writes it.
+    private static object StoredEntry(string identity, string key, string digest) => new
+    {
+        identity,
+        key,
+        generation = 1,
+        payloadDigest = digest,
+        payloadVersion = 1,
+        inFlightOwner = (string?)null,
+        inFlightUntil = (DateTimeOffset?)null,
+    };
 
     private static AiJob Job(string id, string prompt)
         => JobWithInput(id, $$"""{"prompt":"{{prompt}}","aspectRatio":"1:1"}""");

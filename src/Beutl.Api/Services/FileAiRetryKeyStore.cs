@@ -40,7 +40,6 @@ internal sealed partial class FileAiRetryKeyStore : IAiRetryKeyStore
             using FileStream lease = AcquireLock();
             StoreData data = LoadPruned();
             if (data.Entries.TryGetValue(identity, out Entry? entry)
-                && entry.PayloadVersion == 1
                 && StringComparer.Ordinal.Equals(entry.PayloadDigest, PayloadDigest(job)))
             {
                 key = entry.Key;
@@ -168,8 +167,7 @@ internal sealed partial class FileAiRetryKeyStore : IAiRetryKeyStore
         isRepeat = false;
         if (!StringComparer.Ordinal.Equals(attempt.AccountId, accountId)
             || !StringComparer.Ordinal.Equals(attempt.CanonicalIdentity, identity)
-            || !StringComparer.Ordinal.Equals(attempt.PayloadDigest, PayloadDigest(job))
-            || attempt.PayloadVersion != 1)
+            || !StringComparer.Ordinal.Equals(attempt.PayloadDigest, PayloadDigest(job)))
         {
             return false;
         }
@@ -198,7 +196,6 @@ internal sealed partial class FileAiRetryKeyStore : IAiRetryKeyStore
                 if (!data.Entries.TryGetValue(identity, out Entry? entry)
                     || entry.Generation != attempt.Generation
                     || !StringComparer.Ordinal.Equals(entry.Key, attempt.Key)
-                    || entry.PayloadVersion != attempt.PayloadVersion
                     || !StringComparer.Ordinal.Equals(entry.PayloadDigest, attempt.PayloadDigest)
                     || entry.IsLeaseActive)
                 {
@@ -263,19 +260,12 @@ internal sealed partial class FileAiRetryKeyStore : IAiRetryKeyStore
         => data.Entries.TryGetValue(identity, out entry)
             && entry.Generation == generation
             && StringComparer.Ordinal.Equals(entry.Key, key)
-            && entry.PayloadVersion == 1
             && StringComparer.Ordinal.Equals(entry.PayloadDigest, PayloadDigest(job))
             && StringComparer.Ordinal.Equals(entry.InFlightOwner, ownerToken);
 
     private Entry ClaimExistingEntry(StoreData data, string identity, Entry entry, AiJob job)
     {
-        if (entry.PayloadVersion == 0)
-        {
-            entry = entry with { PayloadDigest = PayloadDigest(job), PayloadVersion = 1 };
-            data.Entries[identity] = entry;
-            Save(data);
-        }
-        else if (!StringComparer.Ordinal.Equals(entry.PayloadDigest, PayloadDigest(job)))
+        if (!StringComparer.Ordinal.Equals(entry.PayloadDigest, PayloadDigest(job)))
             throw new AiRetryAttemptRejectedException();
         return ClearExpiredLease(data, identity, entry);
     }
@@ -432,7 +422,6 @@ internal sealed partial class FileAiRetryKeyStore : IAiRetryKeyStore
                 stale = !data.Entries.TryGetValue(attempt.Identity, out Entry? entry)
                     || entry.Generation != attempt.Generation
                     || entry.Key != attempt.Key
-                    || entry.PayloadVersion != attempt.PayloadVersion
                     || entry.PayloadDigest != attempt.PayloadDigest
                     || entry.IsLeaseActive;
             }
