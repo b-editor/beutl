@@ -71,8 +71,6 @@ internal sealed class StableProxyStoreFacade(IProxyStore initial) : IProxyStore
 
     public long GetTotalBytes(IReadOnlySet<string> sourceAbsolutePaths) => _inner.GetTotalBytes(sourceAbsolutePaths);
 
-    public Task FlushAsync(CancellationToken cancellationToken) => _inner.FlushAsync(cancellationToken);
-
     public Task ReconcileAsync(CancellationToken cancellationToken) => _inner.ReconcileAsync(cancellationToken);
 
     public event EventHandler<ProxyStoreChangedEventArgs>? Changed

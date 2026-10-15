@@ -30,6 +30,9 @@ public sealed class ProxyEvictionService : IProxyStoreCapInfo
     /// The media paths of the open project, whose proxies are evicted last. It is called once per sweep, so it
     /// must be cheap (for example a cached snapshot).
     /// </param>
+    /// <param name="availableFreeSpaceProvider">
+    /// A test hook that reports the free space of the store's drive; when null the drive is queried.
+    /// </param>
     /// <param name="isGenerationActive">
     /// Whether a generation for the (source, preset) is in flight. It is asked right before each delete, so it
     /// must be a cheap membership test.

@@ -9,13 +9,12 @@ public sealed class ProxyResolver : IProxyResolver
     private static readonly TimeSpan s_stalenessCheckInterval = TimeSpan.FromSeconds(30);
     private const float DensityTolerance = 1e-6f;
 
-    private readonly IProxyStore _store;
+    private readonly ProxyStore _store;
     private readonly long _versionBaseOffset;
-    private readonly ConcurrentDictionary<string, int> _pins = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, long> _sourceVersions = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, (DateTime Time, ProxyFingerprint Fingerprint)> _stalenessLastChecked = new(StringComparer.Ordinal);
 
-    public ProxyResolver(IProxyStore store)
+    public ProxyResolver(ProxyStore store)
         : this(store, versionBaseOffset: 0)
     {
     }
@@ -24,7 +23,7 @@ public sealed class ProxyResolver : IProxyResolver
     // resolver takes a strictly larger offset than the old one issued, so a reader that cached the old
     // resolver's version (commonly 0 for a startup-index entry) observes a change and reopens against the
     // new store instead of decoding the previous directory's proxy under the same version.
-    public ProxyResolver(IProxyStore store, long versionBaseOffset)
+    public ProxyResolver(ProxyStore store, long versionBaseOffset)
     {
         ArgumentNullException.ThrowIfNull(store);
         ArgumentOutOfRangeException.ThrowIfNegative(versionBaseOffset);
@@ -164,12 +163,7 @@ public sealed class ProxyResolver : IProxyResolver
     public IDisposable Pin(ProxyResolution resolution)
     {
         ArgumentNullException.ThrowIfNull(resolution);
-        if (_store is ProxyStore store)
-            return store.Pin(resolution);
-
-        string path = resolution.AbsoluteProxyFilePath;
-        _pins.AddOrUpdate(path, 1, static (_, count) => checked(count + 1));
-        return new PinHandle(this, path);
+        return _store.Pin(resolution);
     }
 
     /// <summary>
@@ -178,10 +172,7 @@ public sealed class ProxyResolver : IProxyResolver
     /// </summary>
     public bool IsPinned(string absoluteProxyFilePath)
     {
-        if (_store is ProxyStore store)
-            return store.IsPinned(absoluteProxyFilePath);
-
-        return _pins.TryGetValue(Path.GetFullPath(absoluteProxyFilePath), out int count) && count > 0;
+        return _store.IsPinned(absoluteProxyFilePath);
     }
 
     private ProxyResolution? Evaluate(ProxyFingerprint fingerprint, ProxyPreset preset)
@@ -261,38 +252,6 @@ public sealed class ProxyResolver : IProxyResolver
             // Bump only the changed source's version (e.Source is already normalized)
             // so unrelated proxied sources are not invalidated.
             _sourceVersions.AddOrUpdate(e.Source.AbsolutePath, 1, static (_, version) => version + 1);
-        }
-    }
-
-    private void Unpin(string path)
-    {
-        // Decrement or remove only while the count still equals the observed value, so a concurrent Pin is never dropped.
-        while (_pins.TryGetValue(path, out int current))
-        {
-            if (current > 1)
-            {
-                if (_pins.TryUpdate(path, current - 1, current))
-                    return;
-            }
-            else
-            {
-                if (_pins.TryRemove(new KeyValuePair<string, int>(path, current)))
-                    return;
-            }
-        }
-
-        // Key absent: a concurrent Unpin already cleaned it up. Idempotent.
-    }
-
-    // Disposable release token for a transient decode-lifetime safety pin (see Pin).
-    private sealed class PinHandle(ProxyResolver resolver, string path) : IDisposable
-    {
-        private int _disposed;
-
-        public void Dispose()
-        {
-            if (Interlocked.Exchange(ref _disposed, 1) == 0)
-                resolver.Unpin(path);
         }
     }
 }

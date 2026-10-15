@@ -298,7 +298,7 @@ public class ProxiesTabLayoutTests
         public void ReportProgress(ProxyJob job, double progress)
         {
             SetState(job, ProxyJobStatus.Running);
-            typeof(ProxyJob).GetProperty(nameof(ProxyJob.LatestProgress))!.SetValue(job, new ProxyJobProgress(progress, TimeSpan.FromSeconds(18)));
+            typeof(ProxyJob).GetProperty(nameof(ProxyJob.LatestProgress))!.SetValue(job, new ProxyJobProgress(progress));
             JobChanged?.Invoke(this, new ProxyJobChangedEventArgs { Job = job, Kind = ProxyJobChangeKind.Progressed });
         }
         // The real queue owns these engine-internal setters; the test queue drives the same events.

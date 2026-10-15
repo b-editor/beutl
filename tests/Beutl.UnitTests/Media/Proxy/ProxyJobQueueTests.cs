@@ -1,10 +1,12 @@
 ﻿using System.Runtime.ExceptionServices;
 using System.Threading.Channels;
 
+using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Proxy;
 using Beutl.UnitTests.Engine.Graphics.Rendering;
 using Beutl.UnitTests.TestInfrastructure;
+using Microsoft.Extensions.Logging;
 
 namespace Beutl.UnitTests.Media.Proxy;
 
@@ -92,7 +94,7 @@ public class ProxyJobQueueTests
     public async Task EnqueueAsync_DispatchesSeriallyInArrivalOrder()
     {
         var generator = new RecordingGenerator();
-        await using var queue = new ProxyJobQueue(generator);
+        await using var queue = new ProxyJobQueue(() => generator, store: null);
         ProxyFingerprint first = CreateFingerprint("a.mov");
         ProxyFingerprint second = CreateFingerprint("b.mov");
 
@@ -278,7 +280,7 @@ public class ProxyJobQueueTests
         var admission = new SequencedAdmission(rejections: 0);
         int leaseDisposeCountAtSuccess = -1;
         var succeeded = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        await using var queue = new ProxyJobQueue(generator, store: null, admission);
+        await using var queue = new ProxyJobQueue(() => generator, store: null, admission);
         queue.JobChanged += (_, args) =>
         {
             if (args.Kind == ProxyJobChangeKind.Succeeded)
@@ -326,7 +328,7 @@ public class ProxyJobQueueTests
                 leaseDisposeCountAtRegistration = admission.Leases[0].DisposeCount;
             }
         };
-        await using var queue = new ProxyJobQueue(new FailingGenerator(), store, admission);
+        await using var queue = new ProxyJobQueue(() => new FailingGenerator(), store, admission);
         queue.JobChanged += (_, args) =>
         {
             if (args.Kind == ProxyJobChangeKind.Failed)
@@ -371,7 +373,7 @@ public class ProxyJobQueueTests
                 leaseReleasedAtRollback = admission.Leases.Single().ReleaseCompleted;
             }
         };
-        await using var queue = new ProxyJobQueue(new FailingGenerator(), store, admission);
+        await using var queue = new ProxyJobQueue(() => new FailingGenerator(), store, admission);
         ProxyFingerprint source = CreateFingerprint("failure-cleanup-cancel.mov");
 
         ProxyJob job = await queue.EnqueueAsync(source, ProxyPreset.Quarter);
@@ -403,7 +405,7 @@ public class ProxyJobQueueTests
             leaseFactory: () => new CountingLease(
                 disposeStarted: releaseStarted,
                 disposeRelease: releaseLease.Task));
-        await using var queue = new ProxyJobQueue(new FailingGenerator(), store, admission);
+        await using var queue = new ProxyJobQueue(() => new FailingGenerator(), store, admission);
         ProxyFingerprint source = CreateFingerprint("failure-rollback-error.mov");
 
         ProxyJob job = await queue.EnqueueAsync(source, ProxyPreset.Quarter);
@@ -433,7 +435,7 @@ public class ProxyJobQueueTests
             leaseFactory: () => new CountingLease(
                 disposeStarted: releaseStarted,
                 disposeRelease: releaseLease.Task));
-        await using var queue = new ProxyJobQueue(new FailingGenerator(), store, admission);
+        await using var queue = new ProxyJobQueue(() => new FailingGenerator(), store, admission);
         ProxyFingerprint source = CreateFingerprint("ambiguous-failure-registration.mov");
 
         ProxyJob job = await queue.EnqueueAsync(source, ProxyPreset.Quarter);
@@ -445,7 +447,6 @@ public class ProxyJobQueueTests
         Assert.Multiple(() =>
         {
             Assert.That(job.Status, Is.EqualTo(ProxyJobStatus.Canceled));
-            Assert.That(job.BookkeepingError, Is.InstanceOf<InvalidOperationException>());
             Assert.That(store.TryGet(source, ProxyPreset.Quarter), Is.Null);
         });
     }
@@ -460,7 +461,7 @@ public class ProxyJobQueueTests
     {
         var admission = new SequencedAdmission(rejections: 0);
         await using var queue = new ProxyJobQueue(
-            new OutcomeGenerator(outcome),
+            () => new OutcomeGenerator(outcome),
             store: null,
             admission);
 
@@ -483,7 +484,7 @@ public class ProxyJobQueueTests
     {
         var generator = new SignalingGenerator(ignoreCancellation: false);
         var admission = new SequencedAdmission(rejections: 0);
-        await using var queue = new ProxyJobQueue(generator, store: null, admission);
+        await using var queue = new ProxyJobQueue(() => generator, store: null, admission);
 
         ProxyJob job = await queue.EnqueueAsync(
             CreateFingerprint("admission-cancel.mov"),
@@ -511,7 +512,7 @@ public class ProxyJobQueueTests
             _ = queue!.Pending();
             callbackCompleted.TrySetResult();
         });
-        await using var activeQueue = new ProxyJobQueue(generator);
+        await using var activeQueue = new ProxyJobQueue(() => generator, store: null);
         queue = activeQueue;
         ProxyJob job = await activeQueue.EnqueueAsync(
             CreateFingerprint("cancellation-callback-query.mov"),
@@ -537,7 +538,7 @@ public class ProxyJobQueueTests
             callbackStarted.TrySetResult();
             releaseCallback.Wait();
         });
-        await using var queue = new ProxyJobQueue(generator);
+        await using var queue = new ProxyJobQueue(() => generator, store: null);
         ProxyJob job = await queue.EnqueueAsync(
             CreateFingerprint("blocking-cancellation-callback.mov"),
             ProxyPreset.Quarter);
@@ -577,7 +578,7 @@ public class ProxyJobQueueTests
                 disposeRelease: releaseLease.Task));
         int succeededEvents = 0;
         await using var queue = new ProxyJobQueue(
-            new ReadyPublishingGenerator(store, root),
+            () => new ReadyPublishingGenerator(store, root),
             store,
             admission);
         queue.JobChanged += (_, args) =>
@@ -624,7 +625,7 @@ public class ProxyJobQueueTests
                 expected,
                 releaseStarted,
                 releaseLease.Task));
-        await using var queue = new ProxyJobQueue(new RecordingGenerator(), store, admission);
+        await using var queue = new ProxyJobQueue(() => new RecordingGenerator(), store, admission);
         ProxyFingerprint source = CreateFingerprint("admission-release-failure-cancel-race.mov");
 
         ProxyJob job = await queue.EnqueueAsync(source, ProxyPreset.Quarter);
@@ -695,7 +696,7 @@ public class ProxyJobQueueTests
         var generator = new RecordingGenerator();
         var expected = new InvalidOperationException("admission callback failed");
         var admission = new BlockingThrowingAdmission(expected);
-        await using var queue = new ProxyJobQueue(generator, store, admission);
+        await using var queue = new ProxyJobQueue(() => generator, store, admission);
         ProxyFingerprint source = CreateFingerprint("admission-callback-cancel.mov");
 
         ProxyJob job = await queue.EnqueueAsync(source, ProxyPreset.Quarter);
@@ -719,7 +720,7 @@ public class ProxyJobQueueTests
         var admission = new BlockingThrowingAdmission(
             new InvalidOperationException("admission callback failed"));
         await using var queue = new ProxyJobQueue(
-            new RecordingGenerator(),
+            () => new RecordingGenerator(),
             store: null,
             admission);
         ProxyJob job = await queue.EnqueueAsync(
@@ -760,7 +761,7 @@ public class ProxyJobQueueTests
         var generator = new RecordingGenerator();
         var admission = new BlockingThrowingAdmission(
             new InvalidOperationException("admission callback failed"));
-        var queue = new ProxyJobQueue(generator, store, admission);
+        var queue = new ProxyJobQueue(() => generator, store, admission);
         ProxyFingerprint source = CreateFingerprint("admission-callback-dispose.mov");
         ProxyJob job = await queue.EnqueueAsync(source, ProxyPreset.Quarter);
         await admission.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
@@ -826,7 +827,7 @@ public class ProxyJobQueueTests
     {
         var generator = new SignalingGenerator(ignoreCancellation: true);
         var admission = new SequencedAdmission(rejections: 0);
-        var queue = new ProxyJobQueue(generator, store: null, admission);
+        var queue = new ProxyJobQueue(() => generator, store: null, admission);
         ProxyJob job = await queue.EnqueueAsync(
             CreateFingerprint("admission-dispose.mov"),
             ProxyPreset.Quarter);
@@ -862,7 +863,7 @@ public class ProxyJobQueueTests
             rejections: 0,
             leaseFactory: () => new CountingLease(expected));
         int succeededEvents = 0;
-        await using var queue = new ProxyJobQueue(new RecordingGenerator(), store: null, admission);
+        await using var queue = new ProxyJobQueue(() => new RecordingGenerator(), store: null, admission);
         queue.JobChanged += (_, args) =>
         {
             if (args.Kind == ProxyJobChangeKind.Succeeded)
@@ -924,7 +925,7 @@ public class ProxyJobQueueTests
     {
         var generator = new ToggleAvailabilityGenerator();
         generator.SetAvailable();
-        var queue = new ProxyJobQueue(generator);
+        var queue = new ProxyJobQueue(() => generator, store: null);
         ProxyJob job = await queue.EnqueueAsync(CreateFingerprint("a.mov"), ProxyPreset.Quarter);
         await WaitForTerminalAsync(job);
         Assume.That(generator.AvailabilityChangedSubscriberCount, Is.EqualTo(1),
@@ -940,7 +941,7 @@ public class ProxyJobQueueTests
     public async Task EnqueueAsync_DeduplicatesSourcePreset()
     {
         var generator = new BlockingGenerator();
-        await using var queue = new ProxyJobQueue(generator);
+        await using var queue = new ProxyJobQueue(() => generator, store: null);
         ProxyFingerprint source = CreateFingerprint("a.mov");
 
         ProxyJob first = await queue.EnqueueAsync(source, ProxyPreset.Quarter);
@@ -958,7 +959,7 @@ public class ProxyJobQueueTests
     [Test]
     public async Task SkippedException_ProducesSkippedTerminalState()
     {
-        await using var queue = new ProxyJobQueue(new SkippingGenerator());
+        await using var queue = new ProxyJobQueue(() => new SkippingGenerator(), store: null);
         ProxyFingerprint source = CreateFingerprint("a.mov");
 
         ProxyJob job = await queue.EnqueueAsync(source, ProxyPreset.Quarter);
@@ -975,7 +976,7 @@ public class ProxyJobQueueTests
     public async Task DisposeAsync_CancelsAndDrainsQueuedJobs()
     {
         var generator = new BlockingGenerator();
-        var queue = new ProxyJobQueue(generator);
+        var queue = new ProxyJobQueue(() => generator, store: null);
         ProxyFingerprint firstSource = CreateFingerprint("a.mov");
         ProxyFingerprint secondSource = CreateFingerprint("b.mov");
 
@@ -996,7 +997,7 @@ public class ProxyJobQueueTests
     public async Task Cancel_DoesNotThrowAfterJobAlreadyCompleted()
     {
         var generator = new RecordingGenerator();
-        await using var queue = new ProxyJobQueue(generator);
+        await using var queue = new ProxyJobQueue(() => generator, store: null);
         ProxyFingerprint source = CreateFingerprint("a.mov");
 
         ProxyJob job = await queue.EnqueueAsync(source, ProxyPreset.Quarter);
@@ -1011,7 +1012,7 @@ public class ProxyJobQueueTests
     {
         string root = ProxyTestScope.CreateRoot();
         var store = new ProxyStore(root);
-        await using var queue = new ProxyJobQueue(new FailingGenerator(), store);
+        await using var queue = new ProxyJobQueue(() => new FailingGenerator(), store);
         ProxyFingerprint source = CreateFingerprint("failed.mov");
 
         ProxyJob job = await queue.EnqueueAsync(source, ProxyPreset.Quarter);
@@ -1036,7 +1037,7 @@ public class ProxyJobQueueTests
         ProxyFingerprint source = CreateFingerprint("ready-before-failure.mov");
         ProxyEntry ready = CreateReadyEntry(root, source);
         store.Register(ready);
-        await using var queue = new ProxyJobQueue(new FailingGenerator(), store);
+        await using var queue = new ProxyJobQueue(() => new FailingGenerator(), store);
 
         ProxyJob job = await queue.EnqueueAsync(source, ProxyPreset.Quarter);
         await WaitForTerminalAsync(job);
@@ -1052,7 +1053,7 @@ public class ProxyJobQueueTests
     public async Task Cancel_QueuedJobRemovesItFromPendingWithoutRunningIt()
     {
         var generator = new BlockingGenerator();
-        await using var queue = new ProxyJobQueue(generator);
+        await using var queue = new ProxyJobQueue(() => generator, store: null);
         ProxyFingerprint firstSource = CreateFingerprint("running.mov");
         ProxyFingerprint secondSource = CreateFingerprint("queued.mov");
 
@@ -1077,7 +1078,7 @@ public class ProxyJobQueueTests
         string root = ProxyTestScope.CreateRoot();
         var store = new ProxyStore(root);
         var generator = new ToggleAvailabilityGenerator();
-        await using var queue = new ProxyJobQueue(generator, store);
+        await using var queue = new ProxyJobQueue(() => generator, store);
         ProxyFingerprint firstSource = CreateFingerprint("unavailable-a.mov");
         ProxyFingerprint secondSource = CreateFingerprint("unavailable-b.mov");
 
@@ -1141,7 +1142,7 @@ public class ProxyJobQueueTests
     public async Task EnqueueAsync_HigherPriorityJumpsAheadOfEarlierQueuedBulk()
     {
         var generator = new ControlledBlockingGenerator();
-        await using var queue = new ProxyJobQueue(generator);
+        await using var queue = new ProxyJobQueue(() => generator, store: null);
         IProxyJobQueue sut = queue;
         ProxyFingerprint running = CreateFingerprint("running.mov");
         ProxyFingerprint bulkA = CreateFingerprint("bulk-a.mov");
@@ -1183,7 +1184,7 @@ public class ProxyJobQueueTests
         // no cancel-mid-write. A token already canceled at enqueue must still be rejected before the job
         // can dispatch, and the queue must keep processing the buffered job.
         var generator = new ControlledBlockingGenerator();
-        await using var queue = new ProxyJobQueue(generator);
+        await using var queue = new ProxyJobQueue(() => generator, store: null);
         ProxyFingerprint running = CreateFingerprint("running.mov");
         ProxyFingerprint bulk = CreateFingerprint("bulk.mov");
         ProxyFingerprint canceled = CreateFingerprint("canceled.mov");
@@ -1266,8 +1267,10 @@ public class ProxyJobQueueTests
     [Test]
     public async Task RegisterFailure_WhenStoreRegisterThrows_SurfacesSecondaryErrorNotSilently()
     {
+        using var logs = new CapturingLoggerProvider(category => category == "ProxyJobQueue");
+        Log.LoggerFactory.AddProvider(logs);
         var store = new ThrowingRegisterStore();
-        await using var queue = new ProxyJobQueue(new FailingGenerator(), store);
+        await using var queue = new ProxyJobQueue(() => new FailingGenerator(), store);
         ProxyFingerprint source = CreateFingerprint("bookkeeping.mov");
         var failed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         queue.JobChanged += (_, e) =>
@@ -1282,7 +1285,11 @@ public class ProxyJobQueueTests
         Assert.Multiple(() =>
         {
             Assert.That(job.Status, Is.EqualTo(ProxyJobStatus.Failed));
-            Assert.That(job.BookkeepingError, Is.InstanceOf<InvalidOperationException>());
+            Assert.That(
+                logs.Entries,
+                Has.Some.Matches<(LogLevel Level, Exception? Exception)>(entry =>
+                    entry.Level == LogLevel.Error
+                    && entry.Exception is InvalidOperationException { Message: "index locked" }));
         });
     }
 
@@ -1290,7 +1297,7 @@ public class ProxyJobQueueTests
     public async Task Cancel_QueuedReplacementKeepsDeduplicationAfterCanceledItemDrains()
     {
         var generator = new ControlledBlockingGenerator();
-        await using var queue = new ProxyJobQueue(generator);
+        await using var queue = new ProxyJobQueue(() => generator, store: null);
         ProxyFingerprint runningSource = CreateFingerprint("running-replacement.mov");
         ProxyFingerprint replacementSource = CreateFingerprint("queued-replacement.mov");
 
@@ -1321,7 +1328,7 @@ public class ProxyJobQueueTests
     public async Task EnqueueAsync_DuplicateWithHigherPriority_PromotesQueuedJobAheadOfBulk()
     {
         var generator = new ControlledBlockingGenerator();
-        await using var queue = new ProxyJobQueue(generator);
+        await using var queue = new ProxyJobQueue(() => generator, store: null);
         ProxyFingerprint running = CreateFingerprint("running.mov");
         ProxyFingerprint bulkA = CreateFingerprint("bulk-a.mov");
         ProxyFingerprint bulkB = CreateFingerprint("bulk-b.mov");
@@ -1356,7 +1363,7 @@ public class ProxyJobQueueTests
     public async Task EnqueueAsync_SameKeyDuringTerminalWindow_ReplacesWithoutThrowing()
     {
         var generator = new RecordingGenerator();
-        await using var queue = new ProxyJobQueue(generator);
+        await using var queue = new ProxyJobQueue(() => generator, store: null);
         ProxyFingerprint source = CreateFingerprint("terminal-window.mov");
 
         ProxyJob? replacement = null;
@@ -1397,7 +1404,7 @@ public class ProxyJobQueueTests
     [Test]
     public async Task UnavailableGenerator_WithoutAvailabilitySignal_SkipsInsteadOfRequeueingForever()
     {
-        await using var queue = new ProxyJobQueue(new PermanentlyUnavailableGenerator());
+        await using var queue = new ProxyJobQueue(() => new PermanentlyUnavailableGenerator(), store: null);
         ProxyFingerprint first = CreateFingerprint("a.mov");
         ProxyFingerprint second = CreateFingerprint("b.mov");
 
@@ -1536,7 +1543,7 @@ public class ProxyJobQueueTests
     public async Task EnqueueAsync_ConcurrentBurst_AllJobsReachTerminal()
     {
         var generator = new RecordingGenerator();
-        await using var queue = new ProxyJobQueue(generator);
+        await using var queue = new ProxyJobQueue(() => generator, store: null);
 
         Task<ProxyJob>[] enqueues = [.. Enumerable.Range(0, 16)
             .Select(n => queue.EnqueueAsync(CreateFingerprint($"burst-{n}.mov"), ProxyPreset.Quarter).AsTask())];
@@ -1556,7 +1563,7 @@ public class ProxyJobQueueTests
         for (int i = 0; i < 50; i++)
         {
             var generator = new RecordingGenerator();
-            var queue = new ProxyJobQueue(generator);
+            var queue = new ProxyJobQueue(() => generator, store: null);
             var seenJobs = new List<ProxyJob>();
             queue.JobChanged += (_, e) =>
             {
@@ -1604,7 +1611,7 @@ public class ProxyJobQueueTests
     public async Task JobChanged_ThrowingSubscriber_DoesNotKillQueueOrStarveOtherSubscribers()
     {
         var generator = new RecordingGenerator();
-        await using var queue = new ProxyJobQueue(generator);
+        await using var queue = new ProxyJobQueue(() => generator, store: null);
         var seenKinds = new List<(ProxyJob Job, ProxyJobChangeKind Kind)>();
         queue.JobChanged += (_, _) => throw new InvalidOperationException("bad subscriber");
         queue.JobChanged += (_, e) =>
@@ -1651,7 +1658,7 @@ public class ProxyJobQueueTests
             }
         };
         await using var queue = new ProxyJobQueue(
-            new OceThrowingGenerator(),
+            () => new OceThrowingGenerator(),
             store,
             admission);
         ProxyFingerprint source = CreateFingerprint("spurious-oce.mov");

@@ -33,33 +33,6 @@ public sealed partial class ProxyJobQueue : IProxyJobQueue
     private int _consecutiveUnavailable;
     private bool _disposed;
 
-    public ProxyJobQueue(IProxyGenerator generator)
-        : this(EagerProvider(generator), store: null)
-    {
-    }
-
-    public ProxyJobQueue(IProxyGenerator generator, IProxyStore? store)
-        : this(EagerProvider(generator), store, s_defaultMinUnavailableBackoff, s_defaultMaxUnavailableBackoff)
-    {
-    }
-
-    /// <summary>
-    /// Constructs a queue whose generator runs only while <paramref name="admission"/> grants a
-    /// lease.
-    /// </summary>
-    public ProxyJobQueue(
-        IProxyGenerator generator,
-        IProxyStore? store,
-        IProxyGenerationAdmission admission)
-        : this(
-            EagerProvider(generator),
-            store,
-            s_defaultMinUnavailableBackoff,
-            s_defaultMaxUnavailableBackoff,
-            admission ?? throw new ArgumentNullException(nameof(admission)))
-    {
-    }
-
     internal ProxyJobQueue(
         IProxyGenerator generator,
         IProxyStore? store,
@@ -145,7 +118,7 @@ public sealed partial class ProxyJobQueue : IProxyJobQueue
         _drainTask = Task.Run(DrainAsync);
     }
 
-    // Wraps a concrete generator as a provider for the eager constructors; a null generator throws at construction.
+    // Wraps a concrete generator as a provider for the eager constructor; a null generator throws at construction.
     private static Func<IProxyGenerator?> EagerProvider(IProxyGenerator generator)
     {
         ArgumentNullException.ThrowIfNull(generator);

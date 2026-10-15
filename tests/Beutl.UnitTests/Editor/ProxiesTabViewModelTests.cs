@@ -484,7 +484,7 @@ public sealed class ProxiesTabViewModelTests
         var job = new ProxyJob(fingerprint, ProxyPreset.Quarter)
         {
             Status = ProxyJobStatus.Running,
-            LatestProgress = new ProxyJobProgress(0.42, null),
+            LatestProgress = new ProxyJobProgress(0.42),
         };
         var queue = new TestProxyJobQueue(job);
 

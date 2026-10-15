@@ -37,12 +37,9 @@ public sealed class ProxyJob
     public Exception? Error { get; internal set; }
 
     public string? StatusMessage { get; internal set; }
-
-    // Non-null when recording the Failed proxy entry itself threw; distinct from the primary Error.
-    public Exception? BookkeepingError { get; internal set; }
 }
 
-public readonly record struct ProxyJobProgress(double FractionComplete, TimeSpan? Eta);
+public readonly record struct ProxyJobProgress(double FractionComplete);
 
 public enum ProxyJobStatus
 {

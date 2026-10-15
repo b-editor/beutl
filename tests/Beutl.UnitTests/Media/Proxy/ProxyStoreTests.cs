@@ -135,7 +135,7 @@ public sealed class ProxyStoreTests
             });
         }
 
-        await store.FlushAsync(CancellationToken.None);
+        store.Flush();
         Assert.Multiple(() =>
         {
             Assert.That(File.Exists(path), Is.False);
@@ -439,7 +439,7 @@ public sealed class ProxyStoreTests
 
         // Lock released: the replay flush must persist the pending registration, not drop it via the
         // touch-replay branch.
-        store.FlushAsync(CancellationToken.None).GetAwaiter().GetResult();
+        store.Flush();
 
         var reloaded = new ProxyStore(root);
         ProxyEntry? persisted = reloaded.TryGet(entry.Source, entry.Preset);
@@ -636,7 +636,7 @@ public sealed class ProxyStoreTests
         File.WriteAllText(Path.Combine(root, "index.json"), JsonSerializer.Serialize(emptyIndex, s_jsonOptions));
 
         staleStore.Touch(entry.Source, entry.Preset, DateTime.UtcNow.AddMinutes(1));
-        await staleStore.FlushAsync(CancellationToken.None);
+        staleStore.Flush();
 
         string indexJson = File.ReadAllText(Path.Combine(root, "index.json"));
         var reloaded = new ProxyStore(root);
@@ -710,7 +710,7 @@ public sealed class ProxyStoreTests
             });
         }
 
-        store.FlushAsync(CancellationToken.None).GetAwaiter().GetResult();
+        store.Flush();
 
         var reloaded = new ProxyStore(root);
         Assert.Multiple(() =>
@@ -782,7 +782,7 @@ public sealed class ProxyStoreTests
             });
         }
 
-        store.FlushAsync(CancellationToken.None).GetAwaiter().GetResult();
+        store.Flush();
 
         var reloaded = new ProxyStore(root);
         Assert.Multiple(() =>
@@ -812,7 +812,7 @@ public sealed class ProxyStoreTests
         });
 
         Directory.Delete(indexPath);
-        store.FlushAsync(CancellationToken.None).GetAwaiter().GetResult();
+        store.Flush();
 
         var reloaded = new ProxyStore(root);
         Assert.Multiple(() =>
@@ -858,7 +858,7 @@ public sealed class ProxyStoreTests
             SetMode(root, writable);
         }
 
-        store.FlushAsync(CancellationToken.None).GetAwaiter().GetResult();
+        store.Flush();
 
         var reloaded = new ProxyStore(root);
         Assert.Multiple(() =>
@@ -911,7 +911,7 @@ public sealed class ProxyStoreTests
             });
         }
 
-        await store.FlushAsync(CancellationToken.None);
+        store.Flush();
         Assert.That(File.Exists(Path.Combine(root, transient.ProxyFileRelative)), Is.False);
     }
 
@@ -1039,7 +1039,7 @@ public sealed class ProxyStoreTests
                 {
                     try
                     {
-                        store.FlushAsync(CancellationToken.None).GetAwaiter().GetResult();
+                        store.Flush();
                     }
                     catch (Exception ex)
                     {
@@ -1048,7 +1048,7 @@ public sealed class ProxyStoreTests
                 }
             });
 
-        store.FlushAsync(CancellationToken.None).GetAwaiter().GetResult();
+        store.Flush();
 
         Assert.Multiple(() =>
         {
@@ -1102,7 +1102,7 @@ public sealed class ProxyStoreTests
             });
         }
 
-        await store.FlushAsync(CancellationToken.None);
+        store.Flush();
         Assert.Multiple(() =>
         {
             Assert.That(File.Exists(Path.Combine(root, old.ProxyFileRelative)), Is.False);
@@ -1157,7 +1157,7 @@ public sealed class ProxyStoreTests
         File.WriteAllBytes(Path.Combine(root, relative), [9, 9, 9]);
         store.Register(old with { ProxyFileRelative = relative });
         first.Dispose();
-        await store.FlushAsync(CancellationToken.None);
+        store.Flush();
         Assert.That(File.Exists(Path.Combine(root, old.ProxyFileRelative)), Is.True);
         Assert.That(firstResolver.IsPinned(resolution.AbsoluteProxyFilePath), Is.True);
         second.Dispose();
