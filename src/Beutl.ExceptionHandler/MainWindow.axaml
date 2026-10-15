@@ -46,21 +46,12 @@
                       HorizontalScrollBarVisibility="Disabled"
                       VerticalScrollBarVisibility="Auto">
             <StackPanel Spacing="18">
-                <TextBlock Grid.Row="2"
-                           HorizontalAlignment="Stretch"
+                <TextBlock HorizontalAlignment="Stretch"
                            VerticalAlignment="Stretch"
                            Text="{Binding Content}"
                            TextWrapping="Wrap" />
 
-                <ItemsControl Name="CommandsHost" Grid.Row="4">
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <StackPanel Spacing="2" />
-                        </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                </ItemsControl>
-
-                <StackPanel Grid.Row="5">
+                <StackPanel>
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <Button Name="MoreDetailsButton"
                                 Classes="TaskDialog_MoreDetails"
