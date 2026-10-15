@@ -22,10 +22,10 @@ public sealed record ReconcilePlan
         Validation = validation;
     }
 
-    [JsonIgnore]
+    [JsonPropertyName("changes")]
     public IReadOnlyList<ChangeSetEntry> Changes { get; init; }
 
-    [JsonIgnore]
+    [JsonPropertyName("validation")]
     public IReadOnlyList<ValidationOutcome> Validation { get; init; }
 
     public int ChangeCount => Changes.Count;
@@ -42,26 +42,9 @@ public sealed record ReconcilePlan
 
     public bool Valid => Validation.All(item => item.Status != ValidationStatus.Rejected);
 
-    public bool DetailedChangesIncluded { get; init; } = true;
-
-    public bool DetailedValidationIncluded { get; init; } = true;
-
-    public bool ExpectedChangeSetIncluded { get; init; } = true;
-
-    [JsonPropertyName("changes")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public IReadOnlyList<ChangeSetEntry>? SerializedChanges => DetailedChangesIncluded ? Changes : null;
-
-    [JsonPropertyName("validation")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public IReadOnlyList<ValidationOutcome>? SerializedValidation => DetailedValidationIncluded ? Validation : null;
-
+    // The change set a stored plan is checked against when apply_composition gets its planId.
     [JsonIgnore]
     public JsonArray ExpectedChangeSet => ChangeSetJson.ToJsonArray(Changes);
-
-    [JsonPropertyName("expectedChangeSet")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public JsonArray? SerializedExpectedChangeSet => ExpectedChangeSetIncluded ? ExpectedChangeSet : null;
 }
 
 public sealed record ReconcileResult(

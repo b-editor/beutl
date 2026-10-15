@@ -809,7 +809,7 @@ public sealed class ApplyEditTests
     }
 
     [Test]
-    public void Composition_plan_can_include_detailed_expected_change_set_when_requested()
+    public void Composition_plan_can_include_the_detailed_plan_when_requested()
     {
         Scene scene = TestWorkspace.CreateScene();
         using var session = new AgentToolkitTestSession(scene);
@@ -824,8 +824,8 @@ public sealed class ApplyEditTests
         {
             Assert.That(plan.IsSuccess, Is.True, plan.Error?.Message);
             Assert.That(plan.Value!.DetailedPlan, Is.Not.Null);
-            Assert.That(plan.Value.DetailedPlan!.ExpectedChangeSet, Has.Count.EqualTo(plan.Value.Plan.ChangeCount));
-            Assert.That(plan.Value.Plan.UsageHint, Does.Contain("planId"));
+            Assert.That(plan.Value.DetailedPlan!.Changes, Has.Count.EqualTo(plan.Value.Plan.ChangeCount));
+            Assert.That(plan.Value.Plan.UsageHint, Is.EqualTo("Set includeDetailedPlan=true to list every change."));
         });
     }
 

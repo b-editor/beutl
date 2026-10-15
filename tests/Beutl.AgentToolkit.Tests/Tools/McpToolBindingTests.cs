@@ -90,6 +90,50 @@ public sealed class McpToolBindingTests
         });
     }
 
+    // A plan is checked only through planId: expectedChangeSet is refused as an unknown argument, so a stale
+    // change set is never applied unchecked, and the detailed plan no longer writes it or the always-true flags.
+    [Test]
+    public async Task Composition_plan_is_checked_through_plan_id_only()
+    {
+        string workspace = TestWorkspace.CreateDirectory();
+        await using InProcessAgentToolkitServer server =
+            await InProcessAgentToolkitServer.StartAsync(TestWorkspace.CreateDirectory());
+        McpClient client = server.Client;
+        AssertToolResultSuccess(await client.CallToolAsync("create_project", new Dictionary<string, object?>
+        {
+            ["path"] = Path.Combine(workspace, "composition.bep"),
+            ["width"] = 320,
+            ["height"] = 180,
+            ["frameRate"] = 30,
+            ["duration"] = "00:00:02"
+        }));
+
+        CallToolResult plan = await client.CallToolAsync("plan_composition", new Dictionary<string, object?>
+        {
+            ["name"] = "kinetic-ribbon-title",
+            ["includeDetailedPlan"] = true
+        });
+        CallToolResult apply = await client.CallToolAsync("apply_composition", new Dictionary<string, object?>
+        {
+            ["name"] = "kinetic-ribbon-title",
+            ["expectedChangeSet"] = Array.Empty<object>()
+        });
+
+        AssertToolResultSuccess(plan);
+        using JsonDocument planDocument = JsonDocument.Parse(ReadText(plan));
+        using JsonDocument applyDocument = JsonDocument.Parse(ReadText(apply));
+        string[] detailedPlanKeys = planDocument.RootElement.GetProperty("value").GetProperty("detailedPlan")
+            .EnumerateObject().Select(property => property.Name).ToArray();
+        Assert.Multiple(() =>
+        {
+            Assert.That(detailedPlanKeys, Does.Contain("changes").And.Contain("validation"));
+            Assert.That(detailedPlanKeys, Has.None.EndsWith("Included").And.None.EqualTo("expectedChangeSet"));
+            AssertToolResultError(apply, ErrorCode.ValidationRejected);
+            Assert.That(applyDocument.RootElement.GetProperty("error").GetProperty("message").GetString(),
+                Does.StartWith("Unknown argument(s) for 'apply_composition': expectedChangeSet."));
+        });
+    }
+
     [Test]
     public async Task Missing_required_tool_argument_returns_typed_validation_error_through_mcp()
     {

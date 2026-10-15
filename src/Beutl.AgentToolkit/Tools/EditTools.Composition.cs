@@ -1,5 +1,4 @@
 ﻿using System.ComponentModel;
-using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -63,15 +62,14 @@ public sealed partial class EditTools
     }
 
     [McpServerTool(Name = "apply_composition")]
-    [Description("Applies an explicitly named reusable composition template through the declarative editor loop. Prefer planId from plan_composition for compact plan/apply parity; expectedChangeSet remains supported.")]
+    [Description("Applies an explicitly named reusable composition template through the declarative editor loop. With planId from plan_composition, applies that plan and refuses it when the scene changed since.")]
     public ToolResult<ApplyCompositionResponse> ApplyComposition(
         string? name = null,
         // Unused because a name is required; kept so calls that pass it stay valid.
         string? tag = null,
         JsonObject? inputProps = null,
         string? seed = null,
-        string? planId = null,
-        JsonNode? expectedChangeSet = null)
+        string? planId = null)
     {
         return Execute(() =>
         {
@@ -109,8 +107,7 @@ public sealed partial class EditTools
                 name,
                 inputProps,
                 sessions.ResolveCompositionSeed(seed));
-            JsonArray? normalizedExpectedChangeSet = NormalizeExpectedChangeSet(expectedChangeSet);
-            ReconcileResult result = _reconciler.ApplyValidated(
+            ReconcileResult result = _reconciler.ApplyFromCurrent(
                 session,
                 current =>
                 {
@@ -118,14 +115,7 @@ public sealed partial class EditTools
                         composition.Patch, ReadSceneStart(current));
                     ResolvedEdit resolved = ResolvePatchEdit(current, patch, SchemaVersion.Current);
                     return (resolved.Document, resolved.KnownNewIds);
-                },
-                plan => normalizedExpectedChangeSet is null || ChangeSetMatches(plan, normalizedExpectedChangeSet)
-                    ? null
-                    : new ToolError(
-                        ErrorCode.ValidationRejected,
-                        "The live composition change set differs from expectedChangeSet.",
-                        null,
-                        "Run plan_composition again and submit the updated expectedChangeSet."));
+                });
             return new ApplyCompositionResponse(
                 SchemaVersion.Current,
                 CreateCompositionRunSummary(composition),
@@ -154,7 +144,7 @@ public sealed partial class EditTools
             plan.Changes
                 .GroupBy(change => change.Operation, StringComparer.Ordinal)
                 .ToDictionary(group => group.Key, group => group.Count(), StringComparer.Ordinal),
-            "Pass planId to apply_composition for compact plan/apply parity. Set includeDetailedPlan=true only if you explicitly need expectedChangeSet.");
+            "Set includeDetailedPlan=true to list every change.");
     }
 
     private static TimeSpan ReadSceneStart(JsonObject current)
@@ -185,92 +175,6 @@ public sealed partial class EditTools
         return true;
     }
 
-    private static JsonArray? NormalizeExpectedChangeSet(JsonNode? expectedChangeSet)
-    {
-        if (expectedChangeSet is null)
-        {
-            return null;
-        }
-
-        if (expectedChangeSet is JsonArray array)
-        {
-            if (array.Count == 1 && TryReadString(array[0], out string? singleText))
-            {
-                return ParseExpectedChangeSet(singleText);
-            }
-
-            var normalized = new JsonArray();
-            foreach (JsonNode? item in array)
-            {
-                if (item is JsonObject obj)
-                {
-                    normalized.Add(obj.DeepClone());
-                }
-                else if (TryReadString(item, out string? text))
-                {
-                    JsonNode? parsed = JsonNode.Parse(text);
-                    if (parsed is not JsonObject parsedObject)
-                    {
-                        throw InvalidExpectedChangeSet();
-                    }
-
-                    normalized.Add(parsedObject);
-                }
-                else
-                {
-                    throw InvalidExpectedChangeSet();
-                }
-            }
-
-            return normalized;
-        }
-
-        if (TryReadString(expectedChangeSet, out string? serialized))
-        {
-            return ParseExpectedChangeSet(serialized);
-        }
-
-        throw InvalidExpectedChangeSet();
-    }
-
-    private static JsonArray ParseExpectedChangeSet(string serialized)
-    {
-        try
-        {
-            return JsonNode.Parse(serialized) switch
-            {
-                JsonArray parsedArray => parsedArray,
-                JsonObject parsedObject => new JsonArray(parsedObject),
-                _ => throw InvalidExpectedChangeSet()
-            };
-        }
-        catch (JsonException)
-        {
-            throw InvalidExpectedChangeSet();
-        }
-    }
-
-    private static bool TryReadString(JsonNode? node, [NotNullWhen(true)] out string? text)
-    {
-        text = null;
-        if (node is null || node.GetValueKind() != JsonValueKind.String)
-        {
-            return false;
-        }
-
-        text = node.GetValue<string>();
-        return true;
-    }
-
-    private static ReconcileException InvalidExpectedChangeSet()
-    {
-        return new ReconcileException(new ToolError(
-            ErrorCode.ValidationRejected,
-            "expectedChangeSet must be the JSON array returned by plan_composition, not a shorthand summary.",
-            null,
-            "Pass plan_composition.expectedChangeSet verbatim. If a client exposes it as strings, pass either the whole JSON array string or one JSON object string per change entry; do not replace it with text like '2 changes'."));
-    }
-
     private static bool EntryMatches(ChangeSetEntry actual, JsonObject expected)
     {
         return string.Equals(actual.Operation, ReadString(expected, nameof(ChangeSetEntry.Operation)), StringComparison.Ordinal)
@@ -281,9 +185,10 @@ public sealed partial class EditTools
                && JsonNode.DeepEquals(actual.NewValue, ReadNode(expected, nameof(ChangeSetEntry.NewValue)));
     }
 
+    // A stored plan's change set comes from ChangeSetJson, which writes camelCase names.
     private static JsonNode? ReadNode(JsonObject obj, string name)
     {
-        return obj[name] ?? obj[JsonNamingPolicy.CamelCase.ConvertName(name)];
+        return obj[JsonNamingPolicy.CamelCase.ConvertName(name)];
     }
 
     private static string? ReadString(JsonObject obj, string name)
