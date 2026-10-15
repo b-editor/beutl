@@ -17,21 +17,6 @@ public class MediaSourceJsonConverter : FileSourceJsonConverter
             throw new InvalidOperationException("Cannot create instance of abstract type MediaSource.");
         }
 
-        if (typeToConvert == typeof(ImageSource))
-        {
-            return new ImageSource();
-        }
-
-        if (typeToConvert == typeof(SoundSource))
-        {
-            return new SoundSource();
-        }
-
-        if (typeToConvert == typeof(VideoSource))
-        {
-            return new VideoSource();
-        }
-
         return Activator.CreateInstance(typeToConvert) as MediaSource;
     }
 }

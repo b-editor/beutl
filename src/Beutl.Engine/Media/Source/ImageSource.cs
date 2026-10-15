@@ -5,37 +5,15 @@ using Beutl.Serialization;
 
 namespace Beutl.Media.Source;
 
-[JsonConverter(typeof(ImageSourceJsonConverter))]
+[JsonConverter(typeof(MediaSourceJsonConverter))]
 [SuppressResourceClassGeneration]
 public sealed class ImageSource : MediaSource
 {
     private WeakReference<Counter<Bitmap>>? _bitmapRef;
 
-    public override void ReadFrom(Uri uri)
-    {
-        if (HasUri && Uri != uri)
-        {
-            // 古い URI の Counter を別 Resource が保持していると
-            // TryAddRef が成功して新 URI でも古いビットマップを返してしまうため、
-            // URI が切り替わったタイミングで共有参照を破棄する。
-            Volatile.Write(ref _bitmapRef, null);
-        }
-        Uri = uri;
-    }
+    public override Resource ToResource(CompositionContext context) => CreateResource<Resource>(context);
 
-    public override Resource ToResource(CompositionContext context)
-    {
-        var resource = new Resource();
-        bool versionBumped = true;
-        resource.Reconcile(this, context, ref versionBumped);
-        return resource;
-    }
-
-    internal override void InvalidateResourceCache()
-    {
-        Volatile.Write(ref _bitmapRef, null);
-        base.InvalidateResourceCache();
-    }
+    protected override void ClearSharedResource() => Volatile.Write(ref _bitmapRef, null);
 
     public new sealed class Resource : MediaSource.Resource
     {

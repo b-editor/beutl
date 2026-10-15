@@ -197,7 +197,7 @@ public class VideoSourceTests
             Assert.That(resource.LogicalFrameSize, Is.EqualTo(OfflineMediaPlaceholder.Size));
             Assert.That(resource.ProxyResolution, Is.Null);
         });
-        Assert.That(resource.Read(TimeSpan.Zero, out Ref<Bitmap>? bitmap), Is.True);
+        Assert.That(resource.Read(0, out Ref<Bitmap>? bitmap), Is.True);
         using (bitmap)
             Assert.That(new PixelSize(bitmap!.Value.Width, bitmap.Value.Height), Is.EqualTo(OfflineMediaPlaceholder.Size));
         Assert.That(resource.Read(10, out bitmap), Is.True);
