@@ -733,15 +733,8 @@ public sealed class AiFormRecoveryTests
                 viewModel,
                 [new AiRequestName(attempt.Key, IsRepeat: true)]);
 
-    private static async Task WaitUntilAsync(Func<bool> condition)
-    {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(8));
-        while (!condition())
-        {
-            await Task.Delay(10, timeout.Token);
-            HeadlessTestHelpers.Settle();
-        }
-    }
+    private static Task WaitUntilAsync(Func<bool> condition)
+        => HeadlessTestHelpers.WaitUntilAsync(condition, TimeSpan.FromSeconds(8), settleAfterDelay: true);
 
     private static string RecoveryCapabilitiesJson() => """
         {

@@ -137,7 +137,7 @@ public class StoragePickerWindowTests
         var window = new Window { Width = 800, Height = 600 };
         TestStorageProviderFactory.SetProvider(window, storage.Object);
         FAContentDialog dialog = project
-            ? new CreateNewProject { DataContext = new CreateNewProjectViewModel(TestShell.Project, null, null) }
+            ? new CreateNewProject { DataContext = new CreateNewProjectViewModel(TestShell.Project, null) }
             : new CreateNewScene { DataContext = new CreateNewSceneViewModel(TestShell.Project, TestShell.Editor) };
         Task? closed = null;
         try

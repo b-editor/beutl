@@ -32,7 +32,7 @@ public class RenderNodeCacheTests
         node.Cache.RecordStableRequests();
         node.MarkChanged();
 
-        RenderNodeCacheLifecycle lifecycle = RenderNodeCacheHelper.BeginLifecycle(node);
+        RenderNodeCacheLifecycle lifecycle = RenderNodeCacheLifecycle.Create(node);
 
         Assert.Multiple(() =>
         {
@@ -71,7 +71,7 @@ public class RenderNodeCacheTests
         sibling.Cache.RecordStableRequests();
         dirtyBranch.MarkChanged();
 
-        RenderNodeCacheLifecycle lifecycle = RenderNodeCacheHelper.BeginLifecycle(root);
+        RenderNodeCacheLifecycle lifecycle = RenderNodeCacheLifecycle.Create(root);
 
         Assert.Multiple(() =>
         {

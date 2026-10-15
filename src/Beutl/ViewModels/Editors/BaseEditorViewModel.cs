@@ -76,13 +76,8 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
             .ToReadOnlyReactivePropertySlim()
             .AddTo(Disposables);
 
-        // TODO: CanEditとIsReadOnlyどちらかだけにしたい
         CanEdit = CanEditProperty
             .CombineLatest(hasExpression, (canEdit, hasExpr) => canEdit && !hasExpr)
-            .ToReadOnlyReactivePropertySlim()
-            .AddTo(Disposables);
-
-        IsReadOnly = CanEdit.Inverse()
             .ToReadOnlyReactivePropertySlim()
             .AddTo(Disposables);
 
@@ -182,8 +177,6 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
     // CanReplace for everything the property holds: its value and its animation.
     protected internal bool CanReplaceContent
         => !IsDisposed && CanReplace(new object?[] { PropertyAdapter.GetValue(), GetAnimation() });
-
-    public ReadOnlyReactivePropertySlim<bool> IsReadOnly { get; }
 
     public ReadOnlyReactiveProperty<bool> HasAnimation { get; }
 
@@ -355,7 +348,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
         }
         else if (visitor is PropertyEditor editor)
         {
-            editor[!PropertyEditor.IsReadOnlyProperty] = IsReadOnly.ToBinding();
+            editor[!PropertyEditor.IsReadOnlyProperty] = CanEdit.Inverse().ToBinding();
             editor.Header = Header;
             editor[!PropertyEditor.DescriptionProperty] = Description.ToBinding();
             editor[!PropertyEditor.HoverInfoProperty] = HoverInfo.ToBinding();

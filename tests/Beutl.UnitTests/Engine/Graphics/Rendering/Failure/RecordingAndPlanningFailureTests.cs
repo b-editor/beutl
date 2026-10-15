@@ -637,7 +637,7 @@ internal static class FailureTestSupport
     {
         for (int i = 0; i < RenderNodeCache.StableRequestCount; i++)
         {
-            RenderNodeCacheHelper.BeginLifecycle(node).CompleteSuccessfully(advanceWarmup: true);
+            RenderNodeCacheLifecycle.Create(node).CompleteSuccessfully(advanceWarmup: true);
         }
     }
 

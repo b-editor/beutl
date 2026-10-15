@@ -176,14 +176,11 @@ internal sealed partial class VersionControlCoordinator :
         });
     }
 
-    public INewProjectVersionControlSetup BeginNewProject(
-        Func<CancellationToken, Task<GitIdentity?>> requestIdentityAsync)
+    public INewProjectVersionControlSetup BeginNewProject()
     {
-        ArgumentNullException.ThrowIfNull(requestIdentityAsync);
         ObjectDisposedException.ThrowIf(_disposed, this);
         return new NewProjectSetup(
             this,
-            requestIdentityAsync,
             _editorService.BeginLifecycleActivity(ProjectLifecycleActivity.CreatingProject));
     }
 

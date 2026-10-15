@@ -84,13 +84,13 @@ public class RectangleRenderNodeTest
         for (int frame = 0; frame < RenderNodeCache.StableRequestCount; frame++)
         {
             node.Update(rect, fill, null);
-            RenderNodeCacheHelper.BeginLifecycle(node).CompleteSuccessfully(advanceWarmup: true);
+            RenderNodeCacheLifecycle.Create(node).CompleteSuccessfully(advanceWarmup: true);
         }
 
         Assert.That(node.Cache.CanCapture, Is.True, "a stable rectangle must become a cache candidate");
 
         node.Update(new Rect(0, 0, 200, 200), fill, null);
-        RenderNodeCacheHelper.BeginLifecycle(node);
+        RenderNodeCacheLifecycle.Create(node);
 
         Assert.That(node.Cache.CanCapture, Is.False);
     }

@@ -149,11 +149,10 @@ public class CreateNewProjectDialogTests
             config.EnableForNewProjects = true;
             var initializer = new TestVersionControlInitializer(
                 _ => availabilitySource.Task,
-                (_, _, _) => Task.FromResult(true));
+                (_, _) => Task.FromResult(true));
             var viewModel = new CreateNewProjectViewModel(
                 TestShell.Project,
-                initializer,
-                TestIdentity);
+                initializer);
 
             Assert.Multiple(() =>
             {
@@ -190,15 +189,14 @@ public class CreateNewProjectDialogTests
             config.EnableForNewProjects = true;
             var initializer = new TestVersionControlInitializer(
                 _ => availabilitySource.Task,
-                (_, _, _) =>
+                (_, _) =>
                 {
                     Interlocked.Increment(ref initializationRequests);
                     return Task.FromResult(true);
                 });
             var viewModel = new CreateNewProjectViewModel(
                 TestShell.Project,
-                initializer,
-                TestIdentity);
+                initializer);
             var availabilityPublished = new TaskCompletionSource(
                 TaskCreationOptions.RunContinuationsAsynchronously);
             using IDisposable availabilitySubscription = viewModel.IsGitAvailable
@@ -262,15 +260,14 @@ public class CreateNewProjectDialogTests
             var initializer = new TestVersionControlInitializer(
                 _ => Task.FromException<GitAvailability>(
                     new IOException("simulated Git probe failure")),
-                (_, _, _) =>
+                (_, _) =>
                 {
                     Interlocked.Increment(ref initializationRequests);
                     return Task.FromResult(true);
                 });
             var viewModel = new CreateNewProjectViewModel(
                 TestShell.Project,
-                initializer,
-                TestIdentity);
+                initializer);
             string location = Path.Combine(
                 Beutl.Testing.Headless.BeutlHomeIsolation.CurrentHome!,
                 "create-detection-failure");
@@ -311,7 +308,7 @@ public class CreateNewProjectDialogTests
         {
             var initializer = new TestVersionControlInitializer(
                 _ => Task.FromResult(s_installedGit),
-                async (project, _, _) =>
+                async (project, _) =>
                 {
                     initializationTarget = project;
                     openProjectDuringInitialization = TestShell.Project.CurrentProject.Value;
@@ -323,8 +320,7 @@ public class CreateNewProjectDialogTests
                 });
             var viewModel = new CreateNewProjectViewModel(
                 TestShell.Project,
-                initializer,
-                TestIdentity);
+                initializer);
             await Beutl.Testing.Headless.HeadlessTestHelpers.WaitUntilAsync(
                 () => viewModel.IsGitAvailable.Value, TimeSpan.FromSeconds(10));
             string location = Path.Combine(
@@ -388,7 +384,7 @@ public class CreateNewProjectDialogTests
             using var notifications = new NotificationCapture();
             var initializer = new TestVersionControlInitializer(
                 _ => Task.FromResult(s_installedGit),
-                (_, _, _) =>
+                (_, _) =>
                 {
                     Interlocked.Increment(ref initializationRequests);
                     return Task.FromException<bool>(
@@ -396,8 +392,7 @@ public class CreateNewProjectDialogTests
                 });
             var viewModel = new CreateNewProjectViewModel(
                 TestShell.Project,
-                initializer,
-                TestIdentity);
+                initializer);
             await Beutl.Testing.Headless.HeadlessTestHelpers.WaitUntilAsync(
                 () => viewModel.IsGitAvailable.Value, TimeSpan.FromSeconds(10));
             string location = Path.Combine(
@@ -434,33 +429,22 @@ public class CreateNewProjectDialogTests
     private static readonly GitAvailability s_installedGit =
         new(GitAvailabilityState.Installed, "git", new Version(2, 50, 0), LfsInstalled: false);
 
-    private static Task<GitIdentity?> TestIdentity(CancellationToken cancellationToken)
-        => Task.FromResult<GitIdentity?>(new GitIdentity("Beutl Headless Test", "headless@example.invalid"));
-
     private static CreateNewProjectViewModel CreateViewModel(ProjectService projectService)
     {
         return new CreateNewProjectViewModel(
             projectService,
             new TestVersionControlInitializer(
                 _ => Task.FromResult(GitAvailability.NotInstalled),
-                (_, _, _) => Task.FromResult(true)),
-            _ => Task.FromResult<GitIdentity?>(null));
+                (_, _) => Task.FromResult(true)));
     }
 
     private sealed class TestVersionControlInitializer(
         Func<CancellationToken, Task<GitAvailability>> getAvailabilityAsync,
-        Func<
-            Project,
-            Func<CancellationToken, Task<GitIdentity?>>,
-            CancellationToken,
-            Task<bool>> initializeNewProjectAsync)
+        Func<Project, CancellationToken, Task<bool>> initializeNewProjectAsync)
         : IProjectVersionControlInitializer
     {
-        private readonly Func<
-            Project,
-            Func<CancellationToken, Task<GitIdentity?>>,
-            CancellationToken,
-            Task<bool>> _initializeNewProjectAsync = initializeNewProjectAsync;
+        private readonly Func<Project, CancellationToken, Task<bool>> _initializeNewProjectAsync =
+            initializeNewProjectAsync;
         private int _beginCalls;
         private int _disposeCalls;
 
@@ -478,28 +462,23 @@ public class CreateNewProjectDialogTests
         // open project.
         public Task<bool> InitializeCurrentProjectAsync(
             Project project,
-            Func<CancellationToken, Task<GitIdentity?>> requestIdentityAsync,
             CancellationToken cancellationToken)
         {
             throw new InvalidOperationException(
                 "The new-project dialog must not initialize the open project.");
         }
 
-        public INewProjectVersionControlSetup BeginNewProject(
-            Func<CancellationToken, Task<GitIdentity?>> requestIdentityAsync)
+        public INewProjectVersionControlSetup BeginNewProject()
         {
             Interlocked.Increment(ref _beginCalls);
-            return new Setup(this, requestIdentityAsync);
+            return new Setup(this);
         }
 
-        private sealed class Setup(
-            TestVersionControlInitializer owner,
-            Func<CancellationToken, Task<GitIdentity?>> requestIdentityAsync)
-            : INewProjectVersionControlSetup
+        private sealed class Setup(TestVersionControlInitializer owner) : INewProjectVersionControlSetup
         {
             public Task<bool> InitializeAsync(Project project, CancellationToken cancellationToken)
             {
-                return owner._initializeNewProjectAsync(project, requestIdentityAsync, cancellationToken);
+                return owner._initializeNewProjectAsync(project, cancellationToken);
             }
 
             public ValueTask DisposeAsync()

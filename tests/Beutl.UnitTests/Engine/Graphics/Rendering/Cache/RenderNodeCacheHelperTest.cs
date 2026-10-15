@@ -30,7 +30,7 @@ public class RenderNodeCacheHelperTest
         ]);
         child.MarkChanged();
 
-        RenderNodeCacheHelper.BeginLifecycle(root);
+        RenderNodeCacheLifecycle.Create(root);
 
         Assert.Multiple(() =>
         {
@@ -45,7 +45,7 @@ public class RenderNodeCacheHelperTest
         using var root = new ContainerRenderNode();
         root.MarkChanged();
 
-        _ = RenderNodeCacheHelper.BeginLifecycle(root);
+        _ = RenderNodeCacheLifecycle.Create(root);
 
         Assert.That(root.HasChanges, Is.True);
     }

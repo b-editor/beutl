@@ -58,6 +58,24 @@ internal static class GitTestSupport
         Assert.That(process.ExitCode, Is.Zero, stderr);
         return stdout;
     }
+
+    // Initializes version control for the shell's open project with requestIdentityAsync as its identity
+    // prompt, and puts the shell's own prompt back once that ends.
+    public static async Task<bool> InitializeCurrentProjectAsync(
+        Project project,
+        Func<CancellationToken, Task<GitIdentity?>> requestIdentityAsync)
+    {
+        Func<CancellationToken, Task<GitIdentity?>> shellPrompt = TestShell.VersionControl.RequestIdentityAsync;
+        TestShell.VersionControl.RequestIdentityAsync = requestIdentityAsync;
+        try
+        {
+            return await TestShell.VersionControl.InitializeCurrentProjectAsync(project);
+        }
+        finally
+        {
+            TestShell.VersionControl.RequestIdentityAsync = shellPrompt;
+        }
+    }
 }
 
 internal sealed class IsolatedGitEnvironment : IDisposable
@@ -169,7 +187,7 @@ internal sealed class RealGitScope : IAsyncDisposable
         HeadlessTestHelpers.Settle();
         if (initialize)
         {
-            bool initialized = await TestShell.VersionControl.InitializeCurrentProjectAsync(
+            bool initialized = await GitTestSupport.InitializeCurrentProjectAsync(
                 project,
                 _ => Task.FromResult<GitIdentity?>(
                     new GitIdentity("Beutl Headless Test", "headless@example.invalid")));

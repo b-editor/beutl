@@ -287,11 +287,11 @@ public class ElementTransitionTimelineTests
 
             incoming.EditTransition(ElementEdge.Start);
             BaseEditorViewModel unlocked = EditorOf(editor);
-            bool readOnlyWhileUnlocked = unlocked.IsReadOnly.Value;
+            bool readOnlyWhileUnlocked = !unlocked.CanEdit.Value;
             bool typeEditableWhileUnlocked = TransitionTabOf(editor).CanEdit.Value;
             incoming.Model.IsLocked = true;
             HeadlessTestHelpers.Settle(3);
-            bool readOnlyOnceLocked = unlocked.IsReadOnly.Value;
+            bool readOnlyOnceLocked = !unlocked.CanEdit.Value;
             bool typeEditableOnceLocked = TransitionTabOf(editor).CanEdit.Value;
             // From the outgoing side the tool shows the locked incoming side, which decides the boundary.
             outgoing.EditTransition(ElementEdge.End);
