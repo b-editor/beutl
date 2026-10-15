@@ -1292,13 +1292,52 @@ public sealed class RenderToolsStoryboardTests
         scene.Children.Add(element);
     }
 
-    // The limit depends on the device, so it is read here instead of hard-coding 16384. The scale is
-    // compared by its truncated three-decimal prefix, which survives the validator's bit adjustment.
+    // 2000 divides 1000 times a power-of-two limit, so the exact limit has three decimals and the hint is the
+    // step below it.
+    [TestCase(1920, 1080)]
+    [TestCase(1080, 1920)]
+    [TestCase(2000, 2000)]
+    [TestCase(7, 5)]
+    public void Render_scale_hint_is_three_decimals_below_the_limit_and_accepted(int width, int height)
+    {
+        var scene = new Scene(width, height, "hint");
+        int limit = BufferDimensionBudget.Resolve(BufferBudgetScope.Prediction).MaxDimension;
+        long thousandths = ((1000L * limit) - 1) / Math.Max(width, height);
+        string expected = (thousandths / 1000.0).ToString("0.###", CultureInfo.InvariantCulture);
+
+        var rejected = Assert.Throws<ReconcileException>(
+            () => RenderTools.ValidateRenderScale(scene, limit + 1f, "render_still"));
+        float hinted = float.Parse(expected, CultureInfo.InvariantCulture);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rejected!.Error.Hint, Is.EqualTo($"Use renderScale <= {expected} for this frame size."));
+            Assert.That(RenderTools.ValidateRenderScale(scene, hinted, "render_still"), Is.EqualTo(hinted));
+        });
+    }
+
+    [Test]
+    public void Render_scale_hint_for_a_frame_over_a_thousand_times_the_limit_names_no_scale()
+    {
+        int limit = BufferDimensionBudget.Resolve(BufferBudgetScope.Prediction).MaxDimension;
+        var scene = new Scene(1000 * limit + 1, 1, "huge");
+
+        var rejected = Assert.Throws<ReconcileException>(
+            () => RenderTools.ValidateRenderScale(scene, 1f, "render_still"));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rejected!.Error.Message, Does.EndWith("needs a renderScale below 0.001."));
+            Assert.That(rejected.Error.Hint, Is.EqualTo("Use a renderScale below 0.001 for this frame size."));
+        });
+    }
+
+    // The limit depends on the device, so it is read here instead of hard-coding 16384.
     private static void AssertRenderScaleLimitError(ToolError? error, string requestedExtent)
     {
         int limit = BufferDimensionBudget.Resolve(BufferBudgetScope.Prediction).MaxDimension;
-        string maximumScalePrefix = (Math.Truncate(limit / 1920.0 * 1000) / 1000)
-            .ToString("0.000", CultureInfo.InvariantCulture);
+        string maximumScale = (((1000L * limit) - 1) / 1920 / 1000.0)
+            .ToString("0.###", CultureInfo.InvariantCulture);
 
         Assert.Multiple(() =>
         {
@@ -1307,7 +1346,8 @@ public sealed class RenderToolsStoryboardTests
             Assert.That(error.Target, Is.EqualTo("renderScale"));
             Assert.That(error.Message, Does.Contain(limit.ToString(CultureInfo.InvariantCulture)));
             Assert.That(error.Message, Does.Contain(requestedExtent));
-            Assert.That(error.Message, Does.Contain(maximumScalePrefix));
+            Assert.That(error.Message, Does.EndWith($"is {maximumScale}."));
+            Assert.That(error.Hint, Is.EqualTo($"Use renderScale <= {maximumScale} for this frame size."));
         });
     }
 
