@@ -11,7 +11,7 @@ public class HistoryManagerTests
     public void PartialHistoryFailure_RetryDoesNotRepeatSuccessfulOperations(bool redo)
     {
         using var manager = new HistoryManager(_root, _sequenceGenerator);
-        void RecordAtomic(Action apply, Action revert) => manager.Record(new CustomOperation(_ => apply(), _ => revert())
+        void RecordAtomic(Action apply, Action revert) => manager.Record(new CustomOperation(apply, revert)
         {
             SequenceNumber = _sequenceGenerator.GetNext(),
             FailureIsAtomic = true,
@@ -243,7 +243,7 @@ public class HistoryManagerTests
     public void AtomicUndoFailureKeepsHistory()
     {
         using var manager = new HistoryManager(_root, _sequenceGenerator);
-        manager.Record(new CustomOperation(_ => { }, _ => throw new InvalidOperationException("probe"))
+        manager.Record(new CustomOperation(() => { }, () => throw new InvalidOperationException("probe"))
         {
             SequenceNumber = _sequenceGenerator.GetNext(),
             FailureIsAtomic = true,
@@ -257,7 +257,7 @@ public class HistoryManagerTests
     public void AtomicRedoFailureKeepsHistory()
     {
         using var manager = new HistoryManager(_root, _sequenceGenerator);
-        manager.Record(new CustomOperation(_ => throw new InvalidOperationException("probe"), _ => { })
+        manager.Record(new CustomOperation(() => throw new InvalidOperationException("probe"), () => { })
         {
             SequenceNumber = _sequenceGenerator.GetNext(),
             FailureIsAtomic = true,
@@ -273,7 +273,7 @@ public class HistoryManagerTests
     {
         using var manager = new HistoryManager(_root, _sequenceGenerator);
         int value = 2;
-        manager.Record(new CustomOperation(_ => { }, _ => throw new InvalidOperationException("failure"))
+        manager.Record(new CustomOperation(() => { }, () => throw new InvalidOperationException("failure"))
         {
             SequenceNumber = _sequenceGenerator.GetNext(),
             FailureIsAtomic = true,
@@ -398,7 +398,7 @@ public class HistoryManagerTests
             "Set Value");
 
         manager.Record(operation);
-        operation.Apply(new OperationExecutionContext(_root));
+        operation.Apply();
         Assert.That(_root.Value, Is.EqualTo(100));
 
         manager.Rollback();
@@ -429,7 +429,7 @@ public class HistoryManagerTests
             _sequenceGenerator,
             "Retryable revert");
         operation.FailureIsAtomic = true;
-        operation.Apply(new OperationExecutionContext(_root));
+        operation.Apply();
         manager.Record(operation);
 
         Assert.Throws<InvalidOperationException>(() => manager.Rollback());
@@ -459,7 +459,7 @@ public class HistoryManagerTests
             _sequenceGenerator,
             "Set Value");
 
-        operation.Apply(new OperationExecutionContext(_root));
+        operation.Apply();
         manager.Record(operation);
         manager.Commit("Set Value");
 
@@ -496,7 +496,7 @@ public class HistoryManagerTests
             _sequenceGenerator,
             "Set Value");
 
-        operation.Apply(new OperationExecutionContext(_root));
+        operation.Apply();
         manager.Record(operation);
         manager.Commit("Set Value");
         manager.Undo();
@@ -603,7 +603,7 @@ public class HistoryManagerTests
                 () => _root.Value = 0,
                 _sequenceGenerator,
                 "Set Value");
-            operation.Apply(new OperationExecutionContext(_root));
+            operation.Apply();
             manager.Record(operation);
         }, "Transaction");
 
@@ -629,7 +629,7 @@ public class HistoryManagerTests
                     () => _root.Value = 0,
                     _sequenceGenerator,
                     "Set Value");
-                operation.Apply(new OperationExecutionContext(_root));
+                operation.Apply();
                 manager.Record(operation);
                 throw new InvalidOperationException("Test exception");
             }, "Transaction");
@@ -806,7 +806,7 @@ public class HistoryManagerTests
         AggregateException? exception = Assert.Throws<AggregateException>(() =>
             manager.ExecuteInTransaction(() =>
             {
-                operation.Apply(new OperationExecutionContext(_root));
+                operation.Apply();
                 manager.Record(operation);
                 throw new InvalidOperationException("mutation failed");
             }, "Isolated"));
@@ -905,9 +905,9 @@ public class HistoryManagerTests
     {
         public override ChangeOperationFailureState FailureState => failureState;
 
-        public override void Apply(OperationExecutionContext context) => throw new NotSupportedException();
+        public override void Apply() => throw new NotSupportedException();
 
-        public override void Revert(OperationExecutionContext context) => revert();
+        public override void Revert() => revert();
     }
 
     [Test]
@@ -1181,7 +1181,7 @@ public class HistoryManagerTests
                     () => firstValue = 0,
                     _sequenceGenerator,
                     "First");
-                first.Apply(new OperationExecutionContext(_root));
+                first.Apply();
                 manager.Record(first);
 
                 var second = CustomOperation.Create(
@@ -1189,7 +1189,7 @@ public class HistoryManagerTests
                     () => throw new InvalidOperationException("second revert failed"),
                     _sequenceGenerator,
                     "Second");
-                second.Apply(new OperationExecutionContext(_root));
+                second.Apply();
                 manager.Record(second);
                 throw new InvalidOperationException("mutation failed");
             }, "Isolated"));
@@ -1332,7 +1332,7 @@ public class HistoryManagerTests
                 () => _root.Value = prevValue,
                 _sequenceGenerator,
                 $"Set to {value}");
-            operation.Apply(new OperationExecutionContext(_root));
+            operation.Apply();
             manager.Record(operation);
             manager.Commit($"Step {i}");
         }
@@ -1372,7 +1372,7 @@ public class HistoryManagerTests
             () => _root.Value = previousValue,
             _sequenceGenerator,
             description);
-        op.Apply(new OperationExecutionContext(_root));
+        op.Apply();
         manager.Record(op);
         return op;
     }
@@ -1561,7 +1561,7 @@ public class HistoryManagerTests
             () => _root.Value = 100,
             _sequenceGenerator,
             "Pending");
-        pending.Apply(new OperationExecutionContext(_root));
+        pending.Apply();
         manager.Record(pending);
 
         bool moved = manager.JumpTo(0);
@@ -1690,7 +1690,7 @@ public class HistoryManagerTests
             _sequenceGenerator,
             "Faulty");
         faulty.FailureIsAtomic = true;
-        faulty.Apply(new OperationExecutionContext(_root));
+        faulty.Apply();
         manager.Record(faulty);
         manager.Commit("Faulty");
 
@@ -1729,7 +1729,7 @@ public class HistoryManagerTests
             _sequenceGenerator,
             "Faulty");
         faulty.FailureIsAtomic = true;
-        faulty.Apply(new OperationExecutionContext(_root));
+        faulty.Apply();
         manager.Record(faulty);
         manager.Commit("Faulty");
 
@@ -1769,7 +1769,7 @@ public class HistoryManagerTests
             () => throw new InvalidOperationException("PendingRevertFailed"),
             _sequenceGenerator,
             "Pending");
-        pending.Apply(new OperationExecutionContext(_root));
+        pending.Apply();
         manager.Record(pending);
 
         Assert.Throws<HistoryReplayException>(() => manager.JumpTo(0));

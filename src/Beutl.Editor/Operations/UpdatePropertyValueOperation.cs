@@ -95,9 +95,9 @@ public sealed class UpdatePropertyValueOperation<T>(CoreObject obj, string prope
         }
     }
 
-    public override void Apply(OperationExecutionContext context) => SetValue(NewValue);
+    public override void Apply() => SetValue(NewValue);
 
-    public override void Revert(OperationExecutionContext context) => SetValue(OldValue);
+    public override void Revert() => SetValue(OldValue);
 
     // Mirrors the setters SetValue goes through: an engine property replaces its animation or
     // expression by reference, and a value by the property's replacement rule.

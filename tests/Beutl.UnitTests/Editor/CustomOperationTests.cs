@@ -6,14 +6,12 @@ namespace Beutl.UnitTests.Editor;
 public class CustomOperationTests
 {
     private TestCoreObject _root = null!;
-    private OperationExecutionContext _context = null!;
     private OperationSequenceGenerator _sequenceGenerator = null!;
 
     [SetUp]
     public void Setup()
     {
         _root = new TestCoreObject();
-        _context = new OperationExecutionContext(_root);
         _sequenceGenerator = new OperationSequenceGenerator();
     }
 
@@ -22,8 +20,8 @@ public class CustomOperationTests
     [Test]
     public void Constructor_ShouldCreateInstance_WithValidArguments()
     {
-        Action<OperationExecutionContext> apply = _ => { };
-        Action<OperationExecutionContext> revert = _ => { };
+        Action apply = () => { };
+        Action revert = () => { };
 
         var operation = new CustomOperation(apply, revert, "Test Description")
         {
@@ -38,7 +36,7 @@ public class CustomOperationTests
     [Test]
     public void Constructor_ShouldThrowArgumentNullException_WhenApplyIsNull()
     {
-        Action<OperationExecutionContext> revert = _ => { };
+        Action revert = () => { };
 
         var exception = Assert.Throws<ArgumentNullException>(() =>
             new CustomOperation(null!, revert, "Test") { SequenceNumber = 1 });
@@ -49,7 +47,7 @@ public class CustomOperationTests
     [Test]
     public void Constructor_ShouldThrowArgumentNullException_WhenRevertIsNull()
     {
-        Action<OperationExecutionContext> apply = _ => { };
+        Action apply = () => { };
 
         var exception = Assert.Throws<ArgumentNullException>(() =>
             new CustomOperation(apply, null!, "Test") { SequenceNumber = 1 });
@@ -60,8 +58,8 @@ public class CustomOperationTests
     [Test]
     public void Constructor_ShouldAllowNullDescription()
     {
-        Action<OperationExecutionContext> apply = _ => { };
-        Action<OperationExecutionContext> revert = _ => { };
+        Action apply = () => { };
+        Action revert = () => { };
 
         var operation = new CustomOperation(apply, revert, null)
         {
@@ -73,61 +71,23 @@ public class CustomOperationTests
 
     #endregion
 
-    #region Apply Tests
-
-    [Test]
-    public void Apply_ShouldPassContextToAction()
-    {
-        OperationExecutionContext? receivedContext = null;
-        var operation = new CustomOperation(
-            ctx => receivedContext = ctx,
-            _ => { },
-            "Test")
-        {
-            SequenceNumber = 1
-        };
-
-        operation.Apply(_context);
-
-        Assert.That(receivedContext, Is.SameAs(_context));
-    }
-
-    #endregion
-
     #region Revert Tests
-
-    [Test]
-    public void Revert_ShouldPassContextToAction()
-    {
-        OperationExecutionContext? receivedContext = null;
-        var operation = new CustomOperation(
-            _ => { },
-            ctx => receivedContext = ctx,
-            "Test")
-        {
-            SequenceNumber = 1
-        };
-
-        operation.Revert(_context);
-
-        Assert.That(receivedContext, Is.SameAs(_context));
-    }
 
     [Test]
     public void ApplyThenRevert_ShouldRestoreOriginalState()
     {
         _root.Value = 50;
         var operation = new CustomOperation(
-            _ => _root.Value = 200,
-            _ => _root.Value = 50,
+            () => _root.Value = 200,
+            () => _root.Value = 50,
             "Modify Value")
         {
             SequenceNumber = 1
         };
 
-        operation.Apply(_context);
+        operation.Apply();
         Assert.That(_root.Value, Is.EqualTo(200));
-        operation.Revert(_context);
+        operation.Revert();
 
         Assert.That(_root.Value, Is.EqualTo(50));
     }
@@ -191,48 +151,17 @@ public class CustomOperationTests
             _sequenceGenerator,
             "Set to 999");
 
-        operation.Apply(_context);
+        operation.Apply();
 
         Assert.That(_root.Value, Is.EqualTo(999));
 
-        operation.Revert(_context);
+        operation.Revert();
         Assert.That(_root.Value, Is.EqualTo(0));
     }
 
     #endregion
 
     #region Integration Tests
-
-    [Test]
-    public void CustomOperation_ShouldWorkWithContextFindObject()
-    {
-        // Use root object since it's always findable by context
-        _root.Value = 0;
-        var rootId = _root.Id;
-
-        var operation = new CustomOperation(
-            ctx =>
-            {
-                var obj = ctx.FindObject(rootId) as TestCoreObject;
-                if (obj != null) obj.Value = 500;
-            },
-            ctx =>
-            {
-                var obj = ctx.FindObject(rootId) as TestCoreObject;
-                if (obj != null) obj.Value = 0;
-            },
-            "Modify Root via FindObject")
-        {
-            SequenceNumber = 1
-        };
-
-        operation.Apply(_context);
-
-        Assert.That(_root.Value, Is.EqualTo(500));
-
-        operation.Revert(_context);
-        Assert.That(_root.Value, Is.EqualTo(0));
-    }
 
     [Test]
     public void SequenceNumber_ShouldBeUniqueAcrossOperations()

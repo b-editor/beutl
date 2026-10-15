@@ -129,13 +129,13 @@ public abstract class CollectionChangeOperation<T> : ChangeOperation, IPropertyP
         }
     }
 
-    public override void Apply(OperationExecutionContext context) => Execute(revert: false);
+    public override void Apply() => Execute(revert: false);
 
     protected virtual void ApplyToEngineProperty(IListProperty<T> listProperty) => ApplyTo(listProperty);
 
     protected abstract void ApplyTo(IList<T> list);
 
-    public override void Revert(OperationExecutionContext context) => Execute(revert: true);
+    public override void Revert() => Execute(revert: true);
 
     protected virtual void RevertToEngineProperty(IListProperty<T> listProperty) => RevertTo(listProperty);
 

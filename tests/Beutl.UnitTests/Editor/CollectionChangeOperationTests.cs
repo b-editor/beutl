@@ -8,13 +8,11 @@ namespace Beutl.UnitTests.Editor;
 
 public class CollectionChangeOperationTests
 {
-    private OperationExecutionContext _context = null!;
 
     [SetUp]
     public void Setup()
     {
         var root = new TestCoreObjectWithList();
-        _context = new OperationExecutionContext(root);
     }
 
     #region Failure Classification Tests
@@ -136,7 +134,7 @@ public class CollectionChangeOperationTests
             SequenceNumber = 1
         };
 
-        operation.Apply(_context);
+        operation.Apply();
 
         Assert.That(list, Is.EqualTo(new[] { "A", "B", "C", "D" }));
     }
@@ -155,7 +153,7 @@ public class CollectionChangeOperationTests
             SequenceNumber = 1
         };
 
-        operation.Revert(_context);
+        operation.Revert();
 
         Assert.That(list, Is.EqualTo(new[] { "A", "D" }));
     }
@@ -175,7 +173,7 @@ public class CollectionChangeOperationTests
             SequenceNumber = 1
         };
 
-        operation.Apply(_context);
+        operation.Apply();
 
         Assert.That(owner.Items, Is.EqualTo(new[] { "A", "B", "X", "Y" }));
     }
@@ -195,7 +193,7 @@ public class CollectionChangeOperationTests
             SequenceNumber = 1
         };
 
-        operation.Apply(_context);
+        operation.Apply();
 
         Assert.That(owner.Items, Is.EqualTo(new[] { "A", "B", "X", "Y" }));
     }
@@ -237,7 +235,7 @@ public class CollectionChangeOperationTests
             SequenceNumber = 1
         };
 
-        operation.Apply(_context);
+        operation.Apply();
 
         Assert.That(list, Is.EqualTo(new[] { "A", "D" }));
     }
@@ -256,7 +254,7 @@ public class CollectionChangeOperationTests
             SequenceNumber = 1
         };
 
-        operation.Revert(_context);
+        operation.Revert();
 
         Assert.That(list, Is.EqualTo(new[] { "A", "B", "C", "D" }));
     }
@@ -299,7 +297,7 @@ public class CollectionChangeOperationTests
             SequenceNumber = 1
         };
 
-        operation.Apply(_context);
+        operation.Apply();
 
         Assert.That(list, Is.EqualTo(new[] { "C", "D", "E", "A", "B" }));
     }
@@ -319,7 +317,7 @@ public class CollectionChangeOperationTests
             SequenceNumber = 1
         };
 
-        operation.Revert(_context);
+        operation.Revert();
 
         Assert.That(list, Is.EqualTo(new[] { "A", "B", "C", "D", "E" }));
     }
@@ -340,7 +338,7 @@ public class CollectionChangeOperationTests
             SequenceNumber = 1
         };
 
-        operation.Apply(_context);
+        operation.Apply();
 
         Assert.That(owner.Items, Is.EqualTo(new[] { "A", "D", "E", "B", "C" }));
     }
@@ -382,7 +380,7 @@ public class CollectionChangeOperationTests
             SequenceNumber = 1
         };
 
-        Assert.Throws<InvalidOperationException>(() => operation.Apply(_context));
+        Assert.Throws<InvalidOperationException>(() => operation.Apply());
     }
 
     [Test]
@@ -400,7 +398,7 @@ public class CollectionChangeOperationTests
             SequenceNumber = 1
         };
 
-        Assert.DoesNotThrow(() => operation.Apply(_context));
+        Assert.DoesNotThrow(() => operation.Apply());
     }
 
     [Test]
@@ -417,7 +415,7 @@ public class CollectionChangeOperationTests
             SequenceNumber = 1
         };
 
-        Assert.Throws<InvalidOperationException>(() => operation.Revert(_context));
+        Assert.Throws<InvalidOperationException>(() => operation.Revert());
     }
 
     [Test]
@@ -434,7 +432,7 @@ public class CollectionChangeOperationTests
             SequenceNumber = 1
         };
 
-        Assert.Throws<InvalidOperationException>(() => operation.Apply(_context));
+        Assert.Throws<InvalidOperationException>(() => operation.Apply());
     }
 
     [Test]
@@ -451,7 +449,7 @@ public class CollectionChangeOperationTests
             SequenceNumber = 1
         };
 
-        Assert.Throws<InvalidOperationException>(() => operation.Apply(_context));
+        Assert.Throws<InvalidOperationException>(() => operation.Apply());
     }
 
     #endregion
@@ -472,7 +470,7 @@ public class CollectionChangeOperationTests
             SequenceNumber = 1
         };
 
-        Assert.Throws<InvalidOperationException>(() => operation.Apply(_context));
+        Assert.Throws<InvalidOperationException>(() => operation.Apply());
     }
 
     [Test]
@@ -491,7 +489,7 @@ public class CollectionChangeOperationTests
             SequenceNumber = 1
         };
 
-        Assert.Throws<InvalidOperationException>(() => operation.Apply(_context));
+        Assert.Throws<InvalidOperationException>(() => operation.Apply());
     }
 
     [Test]
@@ -513,7 +511,7 @@ public class CollectionChangeOperationTests
         };
 
         // Act & Assert
-        Assert.Throws<InvalidOperationException>(() => operation.Apply(_context));
+        Assert.Throws<InvalidOperationException>(() => operation.Apply());
     }
 
     #endregion

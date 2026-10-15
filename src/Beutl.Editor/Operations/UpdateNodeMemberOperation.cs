@@ -40,12 +40,12 @@ public sealed class UpdateNodeMemberOperation(
         NodeMember.Property?.SetValue(value);
     }
 
-    public override void Apply(OperationExecutionContext context)
+    public override void Apply()
     {
         UpdateValue(NewValue);
     }
 
-    public override void Revert(OperationExecutionContext context)
+    public override void Revert()
     {
         UpdateValue(OldValue);
     }

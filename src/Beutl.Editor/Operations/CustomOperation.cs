@@ -2,12 +2,12 @@
 
 public sealed class CustomOperation : ChangeOperation
 {
-    private readonly Action<OperationExecutionContext> _apply;
-    private readonly Action<OperationExecutionContext> _revert;
+    private readonly Action _apply;
+    private readonly Action _revert;
 
     public CustomOperation(
-        Action<OperationExecutionContext> apply,
-        Action<OperationExecutionContext> revert,
+        Action apply,
+        Action revert,
         string? description = null)
     {
         _apply = apply ?? throw new ArgumentNullException(nameof(apply));
@@ -23,14 +23,14 @@ public sealed class CustomOperation : ChangeOperation
     public override ChangeOperationFailureState FailureState => FailureIsAtomic
         ? ChangeOperationFailureState.Unchanged : ChangeOperationFailureState.Unknown;
 
-    public override void Apply(OperationExecutionContext context)
+    public override void Apply()
     {
-        _apply(context);
+        _apply();
     }
 
-    public override void Revert(OperationExecutionContext context)
+    public override void Revert()
     {
-        _revert(context);
+        _revert();
     }
 
     public static CustomOperation Create(
@@ -43,10 +43,7 @@ public sealed class CustomOperation : ChangeOperation
         ArgumentNullException.ThrowIfNull(undoAction);
         ArgumentNullException.ThrowIfNull(sequenceGenerator);
 
-        return new CustomOperation(
-            _ => doAction(),
-            _ => undoAction(),
-            description)
+        return new CustomOperation(doAction, undoAction, description)
         { SequenceNumber = sequenceGenerator.GetNext() };
     }
 }

@@ -662,16 +662,16 @@ public class AutoSaveServiceTests
 
         public IEnumerable<object?> Items => _items;
 
-        public override void Apply(OperationExecutionContext context) { }
+        public override void Apply() { }
 
-        public override void Revert(OperationExecutionContext context) { }
+        public override void Revert() { }
     }
 
     private class TestUnknownChangeOperation : ChangeOperation
     {
-        public override void Apply(OperationExecutionContext context) { }
+        public override void Apply() { }
 
-        public override void Revert(OperationExecutionContext context) { }
+        public override void Revert() { }
     }
 
     #endregion

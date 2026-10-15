@@ -20,12 +20,12 @@ public sealed class UpdateSplineEasingOperation(
 
     public float OldValue { get; set; } = oldValue;
 
-    public override void Apply(OperationExecutionContext context)
+    public override void Apply()
     {
         SetValue(Easing, PropertyPath, NewValue);
     }
 
-    public override void Revert(OperationExecutionContext context)
+    public override void Revert()
     {
         SetValue(Easing, PropertyPath, OldValue);
     }

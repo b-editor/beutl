@@ -16,7 +16,6 @@ public sealed partial class HistoryManager : IDisposable
     private readonly ILogger _logger = Log.CreateLogger<HistoryManager>();
     private readonly Stack<HistoryTransaction> _undoStack = new();
     private readonly Stack<HistoryTransaction> _redoStack = new();
-    private readonly OperationExecutionContext _context;
     private readonly OperationSequenceGenerator _sequenceGenerator;
     private readonly FaultIsolatedSubject<HistoryState> _stateChanged;
     private readonly FaultIsolatedSubject<System.Reactive.Unit> _beforeMutation;
@@ -42,7 +41,6 @@ public sealed partial class HistoryManager : IDisposable
             _logger.LogError(ex, "A BeforeMutation observer failed; continuing publication."));
         Root = root ?? throw new ArgumentNullException(nameof(root));
         _sequenceGenerator = sequenceGenerator ?? throw new ArgumentNullException(nameof(sequenceGenerator));
-        _context = new OperationExecutionContext(root);
         _currentTransaction = CreateTransaction();
         _entries.Add(HistoryEntry.CreateInitial());
         _readOnlyEntries = new IsolatedEntryCollection(_entries, _logger);
@@ -361,7 +359,7 @@ public sealed partial class HistoryManager : IDisposable
                 {
                     try
                     {
-                        transaction.Operations[i].Revert(_context);
+                        transaction.Operations[i].Revert();
                     }
                     catch (Exception ex)
                     {
@@ -596,9 +594,9 @@ public sealed partial class HistoryManager : IDisposable
             using (SuppressRecording())
             {
                 if (redo)
-                    transaction.Apply(_context);
+                    transaction.Apply();
                 else
-                    transaction.Revert(_context);
+                    transaction.Revert();
             }
         }
         catch (Exception ex) when (transaction.HasUncertainFailure)

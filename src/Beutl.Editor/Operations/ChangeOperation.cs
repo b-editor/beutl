@@ -14,7 +14,7 @@ public abstract class ChangeOperation
     /// <summary>Describes the last failed Apply/Revert. Unknown failures cannot be replayed safely.</summary>
     public virtual ChangeOperationFailureState FailureState => ChangeOperationFailureState.Unknown;
 
-    public abstract void Apply(OperationExecutionContext context);
+    public abstract void Apply();
 
-    public abstract void Revert(OperationExecutionContext context);
+    public abstract void Revert();
 }
