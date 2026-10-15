@@ -4,6 +4,7 @@ using System.Reflection;
 using Beutl.Api.Objects;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
+using NuGet.Frameworks;
 using NuGet.Packaging;
 using NuGet.Packaging.Core;
 using NuGet.Versioning;
@@ -13,7 +14,7 @@ namespace Beutl.Api.Services;
 
 public record LoadedPackageInfo(LocalPackage Package, PluginLoadContext? LoadContext);
 
-public sealed partial class PackageManager : PackageLoader
+public sealed partial class PackageManager : IBeutlApiResource
 {
     private readonly InstalledPackageRepository installedPackageRepository;
     private readonly IExtensionRegistry extensionRegistry;
@@ -290,7 +291,7 @@ public sealed partial class PackageManager : PackageLoader
                 package.InstalledPath = Helper.PackagePathResolver.GetInstallPath(packageId);
             }
 
-            PackageLoadResult result = !package.SideLoad
+            (Assembly[] Assemblies, PluginLoadContext LoadContext) result = !package.SideLoad
                 ? Load(package.InstalledPath)
                 : SideLoad(package.InstalledPath);
 
@@ -307,6 +308,42 @@ public sealed partial class PackageManager : PackageLoader
                 result.LoadContext,
                 result.Assemblies.SelectMany(assembly => assembly.GetExportedTypes()));
         }
+    }
+
+    private static (Assembly[] Assemblies, PluginLoadContext LoadContext) Load(string installedPath)
+    {
+        NuGetFramework framework = Helper.GetFrameworkName();
+        using var reader = new PackageFolderReader(installedPath);
+
+        NuGetFramework nearest = Helper.FrameworkReducer
+            .GetNearest(framework, reader.GetLibItems().Select(x => x.TargetFramework))
+            ?? Helper.FrameworkReducer.GetNearest(framework, reader.GetPackageDependencies().Select(x => x.TargetFramework))
+            ?? throw new Exception("Unknown Framework");
+
+        string mainDirectory = Path.Combine(installedPath, "lib", nearest.ToString());
+
+        var loadContext = new PluginLoadContext(mainDirectory, reader);
+        string[] asmFiles = Directory.GetFiles(mainDirectory, "*.dll");
+        Assembly[] assemblies = new Assembly[asmFiles.Length];
+
+        int index = 0;
+        foreach (string asmFile in asmFiles)
+        {
+            assemblies[index++] = loadContext.LoadFromAssemblyPath(asmFile);
+        }
+
+        return (assemblies, loadContext);
+    }
+
+    private static (Assembly[] Assemblies, PluginLoadContext LoadContext) SideLoad(string installedPath)
+    {
+        string mainDirectory = Path.Combine(installedPath);
+
+        var loadContext = new PluginLoadContext(mainDirectory);
+        string name = Path.GetFileName(mainDirectory);
+        string asmFile = Path.Combine(mainDirectory, $"{name}.dll");
+
+        return ([loadContext.LoadFromAssemblyPath(asmFile)], loadContext);
     }
 
     public LocalPackage[] FindLoadedPackage(string name)

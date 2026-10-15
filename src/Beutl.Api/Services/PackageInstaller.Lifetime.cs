@@ -203,8 +203,8 @@ public partial class PackageInstaller
     private bool RejectsNewWork_NoLock()
         => _drained || (_disposed && !ReferenceEquals(s_transactionOwner.Value, this));
 
-    // Virtual so tests can shorten the drain window; production keeps the 30-second budget.
-    protected virtual long DrainDeadlineMilliseconds => 30_000;
+    // Test seam: tests shorten the drain window; production keeps the 30-second budget.
+    internal virtual long DrainDeadlineMilliseconds => 30_000;
 
     private Task TrackAsync(Func<Task> operation)
     {
@@ -222,7 +222,8 @@ public partial class PackageInstaller
         return proxy.Task;
     }
 
-    public Task TrackInstallOperationAsync(Func<Task> operation)
+    // Test seam: only tests track an operation without a shutdown fallback.
+    internal Task TrackInstallOperationAsync(Func<Task> operation)
         => TrackInstallOperationWithShutdownFallbackAsync(operation, null);
 
     internal Task TrackInstallOperationWithShutdownFallbackAsync(

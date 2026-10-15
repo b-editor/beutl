@@ -82,7 +82,7 @@ public class PluginDependencyResolutionTests
     {
         var (root, current) = CreateDiamond(reverse: false);
         using var client = new HttpClient();
-        await using var installer = new PackageInstaller(client, new InstalledPackageRepository(), null!);
+        await using var installer = new PackageInstaller(client, ownsHttpClient: false, new InstalledPackageRepository(), null!);
         PackageInstallContext context = installer.PrepareForInstall(_prefix + "Root", "1.0.0");
 
         await installer.ResolveDependencies(context, NuGet.Common.NullLogger.Instance);
@@ -103,7 +103,7 @@ public class PluginDependencyResolutionTests
     {
         string root = CreatePackageDependingOn("Root", "1.0.0", ("Beutl.Engine.SourceGenerators", "2.0.0-preview.8"));
         using var client = new HttpClient();
-        await using var installer = new PackageInstaller(client, new InstalledPackageRepository(), null!);
+        await using var installer = new PackageInstaller(client, ownsHttpClient: false, new InstalledPackageRepository(), null!);
         PackageInstallContext context = installer.PrepareForInstall(_prefix + "Root", "1.0.0");
 
         await installer.ResolveDependencies(context, NuGet.Common.NullLogger.Instance);
@@ -121,7 +121,7 @@ public class PluginDependencyResolutionTests
         string root = CreatePackage("Root", "1.0.0", ("Common", "1.0.0"));
         DeleteDownloads();
         using var client = new HttpClient();
-        await using var installer = new PackageInstaller(client, new InstalledPackageRepository(), null!);
+        await using var installer = new PackageInstaller(client, ownsHttpClient: false, new InstalledPackageRepository(), null!);
 
         await installer.ReResolveDependencies(Identity("Root", "1.0.0"), NuGet.Common.NullLogger.Instance);
 
@@ -139,7 +139,7 @@ public class PluginDependencyResolutionTests
         DeleteDownloads();
         AddUnreachableSource();
         using var client = new HttpClient();
-        await using var installer = new PackageInstaller(client, new InstalledPackageRepository(), null!);
+        await using var installer = new PackageInstaller(client, ownsHttpClient: false, new InstalledPackageRepository(), null!);
 
         await installer.ReResolveDependencies(Identity("Root", "1.0.0"), NuGet.Common.NullLogger.Instance);
 
@@ -153,7 +153,7 @@ public class PluginDependencyResolutionTests
         // The installed copy of the nupkg is truncated; the download in the local source is intact.
         File.WriteAllText(Path.Combine(root, Helper.PackagePathResolver.GetPackageFileName(Identity("Root", "1.0.0"))), "truncated");
         using var client = new HttpClient();
-        await using var installer = new PackageInstaller(client, new InstalledPackageRepository(), null!);
+        await using var installer = new PackageInstaller(client, ownsHttpClient: false, new InstalledPackageRepository(), null!);
 
         await installer.ReResolveDependencies(Identity("Root", "1.0.0"), NuGet.Common.NullLogger.Instance);
 
@@ -168,10 +168,10 @@ public class PluginDependencyResolutionTests
         CreatePackage("Root", "1.0.0", ("Common", "1.0.0"));
         DeleteDownloads();
         var repository = new InstalledPackageRepository();
-        repository.UpgradePackages(Identity("Root", "1.0.0"));
+        repository.UpgradePackagesAndDeferNotifications(Identity("Root", "1.0.0"))();
         repository.SetResolvedBeutlVersion(_prefix + "Root", "1.0.0-older");
         using var client = new HttpClient();
-        await using var installer = new PackageInstaller(client, repository, null!);
+        await using var installer = new PackageInstaller(client, ownsHttpClient: false, repository, null!);
 
         var task = new Beutl.Services.StartupTasks.ResolvePackageDependenciesTask(repository, installer);
         await task.Task;
@@ -215,9 +215,9 @@ public class PluginDependencyResolutionTests
         string root = CreatePackage("Root", "1.0.0", ("Common", "1.0.0"));
         ResolvedPackageDependencies.Save(root, Helper.GetFrameworkName(), [Identity("Root", "1.0.0"), Identity("Common", "2.0.0")]);
         var repository = new InstalledPackageRepository();
-        repository.UpgradePackages(Identity("Root", "1.0.0"));
+        repository.UpgradePackagesAndDeferNotifications(Identity("Root", "1.0.0"))();
         using var client = new HttpClient();
-        await using var installer = new PackageInstaller(client, repository, null!);
+        await using var installer = new PackageInstaller(client, ownsHttpClient: false, repository, null!);
 
         PackageCleanContext context = installer.PrepareForClean();
 
@@ -239,9 +239,9 @@ public class PluginDependencyResolutionTests
         string root = CreatePackage("Root", "1.0.0", ("Common", "1.0.0"));
         if (corrupt) File.WriteAllText(Path.Combine(root, ResolvedPackageDependencies.FileName), "{");
         var repository = new InstalledPackageRepository();
-        repository.UpgradePackages(Identity("Root", "1.0.0"));
+        repository.UpgradePackagesAndDeferNotifications(Identity("Root", "1.0.0"))();
         using var client = new HttpClient();
-        await using var installer = new PackageInstaller(client, repository, null!);
+        await using var installer = new PackageInstaller(client, ownsHttpClient: false, repository, null!);
 
         PackageCleanContext context = installer.PrepareForClean();
 

@@ -17,7 +17,6 @@ public enum PackageInstallPhase
 public class PackageInstallContext(string packageName, string version, string downloadUrl)
 {
     private PackageInstallPhase _phase;
-    private IReadOnlyList<string>? _installedPaths;
 
     public string PackageName { get; } = packageName;
 
@@ -41,12 +40,6 @@ public class PackageInstallContext(string packageName, string version, string do
 
             _phase = value;
         }
-    }
-
-    public IReadOnlyList<string> InstalledPaths
-    {
-        get => _installedPaths ?? throw new InvalidOperationException("ResolvedDependencies <= Phase");
-        internal set => _installedPaths = value;
     }
 
     public IList<(PackageIdentity, LicenseMetadata)> LicensesRequiringApproval { get; } = new List<(PackageIdentity, LicenseMetadata)>();

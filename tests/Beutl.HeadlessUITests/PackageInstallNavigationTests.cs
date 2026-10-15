@@ -93,7 +93,7 @@ public class PackageInstallNavigationTests
         var package = await app.GetResource<DiscoverService>().GetPackage("Beutl.Sample", CancellationToken.None);
         var repository = app.GetResource<InstalledPackageRepository>();
         var installed = new PackageIdentity(package.Name, NuGetVersion.Parse("1.2.3"));
-        repository.UpgradePackages(installed);
+        repository.UpgradePackagesAndDeferNotifications(installed)();
         using var context = new ExtensionsPageViewModel(app, TestShell.MainViewModel.EditorService, TestShell.MainViewModel.ProjectService);
         var window = new ExtensionsPage { DataContext = context };
         try

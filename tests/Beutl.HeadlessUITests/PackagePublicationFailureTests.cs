@@ -42,7 +42,7 @@ public class PackagePublicationFailureTests
         {
             if (existing)
             {
-                repository.UpgradePackages(oldId);
+                repository.UpgradePackagesAndDeferNotifications(oldId)();
                 installer.InstallDataPackage(old);
             }
             byte[]? oldMarker = existing ? File.ReadAllBytes(Path.Combine(materials, ".beutl-package-owner")) : null;

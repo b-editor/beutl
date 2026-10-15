@@ -14,7 +14,7 @@ public class PackageInstallerCleanupTests : PackageInstallerFixture
     {
         var package = new PackageIdentity("Beutl.Package.CleanTest.NoNupkg", NuGetVersion.Parse("1.0.0"));
         (string directory, long size) = CreateInstalledDirectory(package);
-        _repository.UpgradePackages(package);
+        _repository.UpgradePackagesAndDeferNotifications(package)();
 
         RemovePackage(clean, package, directory, size);
 
@@ -30,7 +30,7 @@ public class PackageInstallerCleanupTests : PackageInstallerFixture
     public void Removal_DropsTheRepositoryEntry_WhenTheInstallDirectoryIsGone(bool clean)
     {
         var package = new PackageIdentity("Beutl.Package.CleanTest.Missing", NuGetVersion.Parse("1.0.0"));
-        _repository.UpgradePackages(package);
+        _repository.UpgradePackagesAndDeferNotifications(package)();
         string missing = Helper.ResolveInstalledDirectory(package);
 
         Assert.DoesNotThrow(() => RemovePackage(clean, package, missing, 0));
@@ -47,25 +47,6 @@ public class PackageInstallerCleanupTests : PackageInstallerFixture
         (string directory, _) = CreateInstalledDirectory(package);
 
         Assert.That(Helper.ResolveInstalledDirectory(package), Is.EqualTo(directory));
-    }
-
-    [Test]
-    public void PackageUninstallContext_ResolvesTheDirectory_WhenTheNupkgIsMissing()
-    {
-        var package = new PackageIdentity("Beutl.Package.ContextTest.NoNupkg", NuGetVersion.Parse("1.0.0"));
-        (string directory, _) = CreateInstalledDirectory(package);
-
-        var context = new PackageUninstallContext(package);
-
-        Assert.That(context.InstalledPath, Is.EqualTo(directory));
-    }
-
-    [Test]
-    public void PackageUninstallContext_Throws_WhenThePackageIsNotInstalled()
-    {
-        var package = new PackageIdentity("Beutl.Package.UninstallTest.Unknown", NuGetVersion.Parse("1.0.0"));
-
-        Assert.Throws<ArgumentException>(() => new PackageUninstallContext(package));
     }
 
     // No .nupkg: PackagePathResolver.GetInstalledPath resolves such a directory to null even though

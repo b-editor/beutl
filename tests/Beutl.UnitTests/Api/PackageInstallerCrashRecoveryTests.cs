@@ -189,18 +189,18 @@ public class PackageInstallerCrashRecoveryTests
 
         using var client = new HttpClient();
         var repository = new InstalledPackageRepository();
-        var installer = new PackageInstaller(client, repository, null!);
+        var installer = new PackageInstaller(client, ownsHttpClient: false, repository, null!);
         if (action != "first-install")
         {
             LocalPackage old = CreatePackage(home!, "1.0.0", "old");
             installer.InstallDataPackage(old);
-            repository.UpgradePackages(new PackageIdentity(PackageName, NuGetVersion.Parse("1.0.0")));
+            repository.UpgradePackagesAndDeferNotifications(new PackageIdentity(PackageName, NuGetVersion.Parse("1.0.0")))();
         }
         LocalPackage current = CreatePackage(home!, "2.0.0", "new");
         if (action == "remove-materials") current.Tags = [PackageKinds.TemplateTag];
         installer.AfterDataInstallStep = AfterStep;
         using var deployment = installer.PrepareDataPackage(current, CancellationToken.None);
-        deployment.Commit(() => repository.UpgradePackages(new PackageIdentity(PackageName, NuGetVersion.Parse("2.0.0"))));
+        deployment.Commit(() => repository.UpgradePackagesAndDeferNotifications(new PackageIdentity(PackageName, NuGetVersion.Parse("2.0.0")))());
         throw new InvalidOperationException("The worker did not reach the requested termination point.");
     }
 
