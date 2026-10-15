@@ -773,6 +773,12 @@ public sealed class CrossNodeShaderFusionTests
         {
             try
             {
+                // Skia submits draws into this texture without waiting for the device, and the engine's own
+                // waits cover only the shared context. Freeing the texture while those draws are still queued
+                // hands the driver a destroyed image, so this context finishes its work first.
+                if (disposing && !IsDisposed)
+                    RawValue.Flush(submit: true, synchronous: true);
+
                 base.Dispose(disposing);
             }
             finally
