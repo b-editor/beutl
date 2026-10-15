@@ -11,10 +11,9 @@ public class HistoryManagerTests
     public void PartialHistoryFailure_RetryDoesNotRepeatSuccessfulOperations(bool redo)
     {
         using var manager = new HistoryManager(_root, _sequenceGenerator);
-        void RecordAtomic(Action apply, Action revert) => manager.Record(new CustomOperation(apply, revert)
+        void RecordAtomic(Action apply, Action revert) => manager.Record(new AtomicOperation(apply, revert)
         {
             SequenceNumber = _sequenceGenerator.GetNext(),
-            FailureIsAtomic = true,
         });
         int value = 2;
         bool fail = true;
@@ -243,10 +242,9 @@ public class HistoryManagerTests
     public void AtomicUndoFailureKeepsHistory()
     {
         using var manager = new HistoryManager(_root, _sequenceGenerator);
-        manager.Record(new CustomOperation(() => { }, () => throw new InvalidOperationException("probe"))
+        manager.Record(new AtomicOperation(() => { }, () => throw new InvalidOperationException("probe"))
         {
             SequenceNumber = _sequenceGenerator.GetNext(),
-            FailureIsAtomic = true,
         });
         manager.Commit("probe");
         Assert.Throws<InvalidOperationException>(() => manager.Undo());
@@ -257,10 +255,9 @@ public class HistoryManagerTests
     public void AtomicRedoFailureKeepsHistory()
     {
         using var manager = new HistoryManager(_root, _sequenceGenerator);
-        manager.Record(new CustomOperation(() => throw new InvalidOperationException("probe"), () => { })
+        manager.Record(new AtomicOperation(() => throw new InvalidOperationException("probe"), () => { })
         {
             SequenceNumber = _sequenceGenerator.GetNext(),
-            FailureIsAtomic = true,
         });
         manager.Commit("probe");
         manager.Undo();
@@ -273,10 +270,9 @@ public class HistoryManagerTests
     {
         using var manager = new HistoryManager(_root, _sequenceGenerator);
         int value = 2;
-        manager.Record(new CustomOperation(() => { }, () => throw new InvalidOperationException("failure"))
+        manager.Record(new AtomicOperation(() => { }, () => throw new InvalidOperationException("failure"))
         {
             SequenceNumber = _sequenceGenerator.GetNext(),
-            FailureIsAtomic = true,
         });
         manager.Record(() => value = 2, () => value = 1);
         manager.Commit("partial");
@@ -414,7 +410,7 @@ public class HistoryManagerTests
     {
         using var manager = new HistoryManager(_root, _sequenceGenerator);
         bool failFirstRevert = true;
-        var operation = CustomOperation.Create(
+        var operation = new AtomicOperation(
             () => _root.Value = 100,
             () =>
             {
@@ -424,9 +420,8 @@ public class HistoryManagerTests
                     throw new InvalidOperationException("Injected revert failure");
                 }
                 _root.Value = 0;
-            },
-            _sequenceGenerator);
-        operation.FailureIsAtomic = true;
+            })
+        { SequenceNumber = _sequenceGenerator.GetNext() };
         operation.Apply();
         manager.Record(operation);
 
@@ -895,6 +890,16 @@ public class HistoryManagerTests
         public override ChangeOperationFailureState FailureState => failureState;
 
         public override void Apply() => throw new NotSupportedException();
+
+        public override void Revert() => revert();
+    }
+
+    // Leaves the state unchanged whenever its delegates throw, so history may retry it.
+    private sealed class AtomicOperation(Action apply, Action revert) : ChangeOperation
+    {
+        public override ChangeOperationFailureState FailureState => ChangeOperationFailureState.Unchanged;
+
+        public override void Apply() => apply();
 
         public override void Revert() => revert();
     }
@@ -1653,7 +1658,7 @@ public class HistoryManagerTests
         // Faulty's first Apply (the explicit pre-record call) succeeds; any
         // subsequent Apply (e.g. via Redo / JumpTo forward) throws.
         bool firstApply = true;
-        var faulty = CustomOperation.Create(
+        var faulty = new AtomicOperation(
             () =>
             {
                 if (firstApply)
@@ -1664,9 +1669,8 @@ public class HistoryManagerTests
                 }
                 throw new InvalidOperationException("Boom");
             },
-            () => _root.Value = 200,
-            _sequenceGenerator);
-        faulty.FailureIsAtomic = true;
+            () => _root.Value = 200)
+        { SequenceNumber = _sequenceGenerator.GetNext() };
         faulty.Apply();
         manager.Record(faulty);
         manager.Commit("Faulty");
@@ -1700,11 +1704,10 @@ public class HistoryManagerTests
 
         // _undoStack (bottom -> top): Faulty, Step2, Step3
         // JumpTo(0) reverts Step3 (ok) -> Step2 (ok) -> Faulty (throws).
-        var faulty = CustomOperation.Create(
+        var faulty = new AtomicOperation(
             () => _root.Value = 100,
-            () => throw new InvalidOperationException("Boom"),
-            _sequenceGenerator);
-        faulty.FailureIsAtomic = true;
+            () => throw new InvalidOperationException("Boom"))
+        { SequenceNumber = _sequenceGenerator.GetNext() };
         faulty.Apply();
         manager.Record(faulty);
         manager.Commit("Faulty");

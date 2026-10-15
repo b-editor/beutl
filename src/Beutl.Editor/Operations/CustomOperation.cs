@@ -11,12 +11,6 @@ public sealed class CustomOperation : ChangeOperation
         _revert = revert ?? throw new ArgumentNullException(nameof(revert));
     }
 
-    /// <summary>Set only when both delegates leave state unchanged whenever they throw.</summary>
-    public bool FailureIsAtomic { get; set; }
-
-    public override ChangeOperationFailureState FailureState => FailureIsAtomic
-        ? ChangeOperationFailureState.Unchanged : ChangeOperationFailureState.Unknown;
-
     public override void Apply()
     {
         _apply();
