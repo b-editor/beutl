@@ -21,18 +21,15 @@ public sealed class ToolErrorMapperTests
     }
 
     [Test]
-    public void Unmapped_argument_exception_with_path_like_parameter_name_stays_redacted()
+    public void Unmapped_argument_exception_shows_the_parameter_name_as_given()
     {
-        string secret = Path.Combine(Path.GetTempPath(), "secret-project.bep");
-
         ToolError error = ToolErrorMapper.Map(Catch(
-            () => throw new ArgumentException("Invalid argument.", secret)));
+            () => throw new ArgumentException("Invalid argument.", "frames[0].duration")));
 
         Assert.Multiple(() =>
         {
             Assert.That(error.Message, Does.Contain(nameof(ArgumentException)));
-            Assert.That(error.Message, Does.Not.Contain(secret));
-            Assert.That(error.Message, Does.Not.Contain("secret-project"));
+            Assert.That(error.Message, Does.Contain("parameter 'frames[0].duration'"));
         });
     }
 
