@@ -69,6 +69,35 @@ public class GlobalConfigurationKeepTests() : GlobalConfigurationFileFixture("gl
         });
     }
 
+    // Settings that were removed are read and dropped, not written back like ones from a newer build.
+    [Test]
+    public void Removed_settings_are_dropped_when_a_setting_changes()
+    {
+        GlobalConfiguration config = Restore(new JsonObject
+        {
+            ["Backup"] = new JsonObject { ["BackupSettings"] = false },
+            ["backup"] = new JsonObject { ["BackupSettings"] = false },
+            ["Tutorial"] = new JsonObject
+            {
+                ["CompletedTutorialIds"] = new JsonArray("intro"),
+                ["ShowTutorialsOnStartup"] = false,
+            },
+            ["Graphics"] = new JsonObject { ["SelectedGpuName"] = "before" },
+        }.ToJsonString());
+
+        config.GraphicsConfig.SelectedGpuName = "after";
+
+        JsonObject saved = ReadSaved();
+        Assert.Multiple(() =>
+        {
+            Assert.That(config.RestoreFailures, Is.Empty);
+            Assert.That(saved.ContainsKey("Backup"), Is.False);
+            Assert.That(saved.ContainsKey("backup"), Is.False);
+            Assert.That(saved["Tutorial"]!.AsObject().ContainsKey("ShowTutorialsOnStartup"), Is.False);
+            Assert.That(saved["Tutorial"]?["CompletedTutorialIds"]?[0]?.GetValue<string>(), Is.EqualTo("intro"));
+        });
+    }
+
     [Test]
     public void Kept_sections_follow_the_known_ones_in_the_order_the_file_had_them()
     {

@@ -1,22 +1,19 @@
 ﻿using System.ComponentModel;
 
 using Beutl.Collections;
+using Beutl.Serialization;
 
 namespace Beutl.Configuration;
 
+[DroppedMembers("ShowTutorialsOnStartup")]
 public sealed class TutorialConfig : ConfigurationBase
 {
     public static readonly CoreProperty<CoreList<string>> CompletedTutorialIdsProperty;
-    public static readonly CoreProperty<bool> ShowTutorialsOnStartupProperty;
 
     static TutorialConfig()
     {
         CompletedTutorialIdsProperty = ConfigureProperty<CoreList<string>, TutorialConfig>(nameof(CompletedTutorialIds))
             .DefaultValue([])
-            .Register();
-
-        ShowTutorialsOnStartupProperty = ConfigureProperty<bool, TutorialConfig>(nameof(ShowTutorialsOnStartup))
-            .DefaultValue(true)
             .Register();
     }
 
@@ -24,12 +21,6 @@ public sealed class TutorialConfig : ConfigurationBase
     {
         get => GetValue(CompletedTutorialIdsProperty);
         set => SetValue(CompletedTutorialIdsProperty, value);
-    }
-
-    public bool ShowTutorialsOnStartup
-    {
-        get => GetValue(ShowTutorialsOnStartupProperty);
-        set => SetValue(ShowTutorialsOnStartupProperty, value);
     }
 
     public void MarkCompleted(string tutorialId)
