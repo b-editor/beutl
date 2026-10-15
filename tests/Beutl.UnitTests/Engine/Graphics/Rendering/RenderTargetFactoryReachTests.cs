@@ -144,7 +144,7 @@ public sealed class RenderTargetFactoryReachTests
         content.Width.CurrentValue = 4;
         content.Height.CurrentValue = 4;
         content.Fill.CurrentValue = Brushes.White;
-        var brush = new DrawableBrush(content);
+        var brush = new DrawableBrush { Drawable = { CurrentValue = content } };
         brush.Stretch.CurrentValue = Stretch.Fill;
         using var brushResource = (Brush.Resource)brush.ToResource(CompositionContext.Default);
 

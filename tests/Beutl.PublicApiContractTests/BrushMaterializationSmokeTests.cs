@@ -76,7 +76,7 @@ public sealed class BrushMaterializationSmokeTests
             Height = { CurrentValue = 12 },
             Fill = { CurrentValue = Brushes.White },
         };
-        var drawableBrush = new DrawableBrush(content);
+        var drawableBrush = CreateDrawableBrush(content);
         var presenter = new BrushPresenter
         {
             Target = { CurrentValue = drawableBrush },
@@ -182,7 +182,7 @@ public sealed class BrushMaterializationSmokeTests
         content.Height.CurrentValue = 24;
         content.Fill.CurrentValue = Brushes.White;
         var effect = new DisplacementMapEffect();
-        effect.DisplacementMap.CurrentValue = new DrawableBrush(content);
+        effect.DisplacementMap.CurrentValue = CreateDrawableBrush(content);
         effect.ShowDisplacementMap.CurrentValue = true;
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
 

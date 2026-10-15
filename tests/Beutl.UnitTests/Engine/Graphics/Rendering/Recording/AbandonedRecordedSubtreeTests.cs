@@ -105,7 +105,8 @@ public sealed class AbandonedRecordedSubtreeTests
             drawable.Transform.CurrentValue = collapse;
         }
 
-        return (Brush.Resource)new DrawableBrush(drawable).ToResource(CompositionContext.Default);
+        var brush = new DrawableBrush { Drawable = { CurrentValue = drawable } };
+        return (Brush.Resource)brush.ToResource(CompositionContext.Default);
     }
 
     private static RenderNodeRasterization Rasterize(RenderNode node)

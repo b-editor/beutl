@@ -75,7 +75,7 @@ public sealed class OpaqueRenderDescriptionDirectReplayTests
         content.Width.CurrentValue = 8;
         content.Height.CurrentValue = 8;
         content.Fill.CurrentValue = Brushes.White;
-        var brush = new DrawableBrush(content);
+        var brush = new DrawableBrush { Drawable = { CurrentValue = content } };
         brush.Stretch.CurrentValue = Stretch.Fill;
         return brush.ToResource(CompositionContext.Default);
     }

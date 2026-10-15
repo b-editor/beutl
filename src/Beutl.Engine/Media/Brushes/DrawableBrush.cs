@@ -16,11 +16,6 @@ public partial class DrawableBrush : TileBrush
         ScanProperties<DrawableBrush>();
     }
 
-    public DrawableBrush(Drawable drawable) : this()
-    {
-        Drawable.CurrentValue = drawable;
-    }
-
     /// <summary>
     /// Gets or sets the visual to draw.
     /// </summary>

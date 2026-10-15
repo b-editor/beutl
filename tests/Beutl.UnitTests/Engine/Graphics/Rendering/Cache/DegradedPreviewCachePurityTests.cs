@@ -295,7 +295,7 @@ public sealed class DegradedPreviewCachePurityTests
         content.Width.CurrentValue = 12;
         content.Height.CurrentValue = 12;
         content.Fill.CurrentValue = Brushes.White;
-        var brush = new DrawableBrush(content);
+        var brush = new DrawableBrush { Drawable = { CurrentValue = content } };
         brush.Stretch.CurrentValue = Stretch.Fill;
         return brush;
     }

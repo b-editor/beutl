@@ -23,8 +23,11 @@ internal static class ContractTestSupport
         content.Width.CurrentValue = 20;
         content.Height.CurrentValue = 12;
         content.Fill.CurrentValue = Brushes.White;
-        return new DrawableBrush(content).ToResource(CompositionContext.Default);
+        return CreateDrawableBrush(content).ToResource(CompositionContext.Default);
     }
+
+    public static DrawableBrush CreateDrawableBrush(Drawable content)
+        => new() { Drawable = { CurrentValue = content } };
 
     public static FilterEffectRenderNode CreateScene(FilterEffect.Resource resource, Rect domain)
     {

@@ -152,7 +152,7 @@ public class DrawableBrushThumbnailTests
     public async Task Reentrant_source_callback_can_dispose_without_lock_inversion()
     {
         TestGpu.RequireAnyDevice();
-        var drawableBrush = new DrawableBrush(CreateRectangle(40, 24, Colors.Red));
+        var drawableBrush = new DrawableBrush { Drawable = { CurrentValue = CreateRectangle(40, 24, Colors.Red) } };
         var resource = (DrawableBrush.Resource)drawableBrush.ToResource(new CompositionContext(TimeSpan.Zero));
         var imageBrush = new AvaImageBrush();
         var handler = new AvaloniaTypeConverter.DrawableImageBrushHandler(resource, imageBrush, RenderThread.Dispatcher);
@@ -199,7 +199,7 @@ public class DrawableBrushThumbnailTests
     public async Task Superseding_update_during_stretch_notification_cancels_pending_source_publication()
     {
         TestGpu.RequireAnyDevice();
-        var drawableBrush = new DrawableBrush(CreateRectangle(40, 24, Colors.Red));
+        var drawableBrush = new DrawableBrush { Drawable = { CurrentValue = CreateRectangle(40, 24, Colors.Red) } };
         drawableBrush.Stretch.CurrentValue = Stretch.Uniform;
         var resource = (DrawableBrush.Resource)drawableBrush.ToResource(new CompositionContext(TimeSpan.Zero));
         var imageBrush = new AvaImageBrush();
@@ -277,7 +277,7 @@ public class DrawableBrushThumbnailTests
     public async Task Reentrant_source_callback_that_restores_previous_bitmap_prevents_commit()
     {
         TestGpu.RequireAnyDevice();
-        var drawableBrush = new DrawableBrush(CreateRectangle(40, 24, Colors.Red));
+        var drawableBrush = new DrawableBrush { Drawable = { CurrentValue = CreateRectangle(40, 24, Colors.Red) } };
         drawableBrush.Stretch.CurrentValue = Stretch.Uniform;
         var resource = (DrawableBrush.Resource)drawableBrush.ToResource(new CompositionContext(TimeSpan.Zero));
         var imageBrush = new AvaImageBrush();
@@ -341,7 +341,7 @@ public class DrawableBrushThumbnailTests
     public async Task Throwing_publication_callbacks_roll_back_bitmap_and_stretch_ownership()
     {
         TestGpu.RequireAnyDevice();
-        var drawableBrush = new DrawableBrush(CreateRectangle(40, 24, Colors.Red));
+        var drawableBrush = new DrawableBrush { Drawable = { CurrentValue = CreateRectangle(40, 24, Colors.Red) } };
         drawableBrush.Stretch.CurrentValue = Stretch.Uniform;
         var resource = (DrawableBrush.Resource)drawableBrush.ToResource(new CompositionContext(TimeSpan.Zero));
         var imageBrush = new AvaImageBrush();
@@ -521,7 +521,7 @@ public class DrawableBrushThumbnailTests
     public async Task Dispose_completes_its_cleanup_when_a_source_subscriber_throws()
     {
         TestGpu.RequireAnyDevice();
-        var drawableBrush = new DrawableBrush(CreateRectangle(40, 24, Colors.Red));
+        var drawableBrush = new DrawableBrush { Drawable = { CurrentValue = CreateRectangle(40, 24, Colors.Red) } };
         drawableBrush.Stretch.CurrentValue = Stretch.Uniform;
         var resource = (DrawableBrush.Resource)drawableBrush.ToResource(new CompositionContext(TimeSpan.Zero));
         var imageBrush = new AvaImageBrush();
@@ -585,7 +585,7 @@ public class DrawableBrushThumbnailTests
     public async Task Disposal_during_stretch_notification_leaves_no_thumbnail_behind()
     {
         TestGpu.RequireAnyDevice();
-        var drawableBrush = new DrawableBrush(CreateRectangle(40, 24, Colors.Red));
+        var drawableBrush = new DrawableBrush { Drawable = { CurrentValue = CreateRectangle(40, 24, Colors.Red) } };
         drawableBrush.Stretch.CurrentValue = Stretch.Uniform;
         var resource = (DrawableBrush.Resource)drawableBrush.ToResource(new CompositionContext(TimeSpan.Zero));
         var imageBrush = new AvaImageBrush();
@@ -678,7 +678,7 @@ public class DrawableBrushThumbnailTests
     {
         public ThumbnailScope(Drawable drawable, Stretch? stretch = null, AvaImageBrush? imageBrush = null)
         {
-            DrawableBrush = new DrawableBrush(drawable);
+            DrawableBrush = new DrawableBrush { Drawable = { CurrentValue = drawable } };
             if (stretch is { } value)
                 DrawableBrush.Stretch.CurrentValue = value;
             Resource = (DrawableBrush.Resource)DrawableBrush.ToResource(new CompositionContext(TimeSpan.Zero));

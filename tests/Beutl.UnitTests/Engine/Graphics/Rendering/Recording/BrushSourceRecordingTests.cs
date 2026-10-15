@@ -58,7 +58,7 @@ public sealed class BrushSourceRecordingTests
         content.Width.CurrentValue = 10;
         content.Height.CurrentValue = 10;
         content.Fill.CurrentValue = Brushes.White;
-        var brush = new DrawableBrush(content);
+        var brush = new DrawableBrush { Drawable = { CurrentValue = content } };
         brush.Stretch.CurrentValue = Stretch.Fill;
         return brush;
     }

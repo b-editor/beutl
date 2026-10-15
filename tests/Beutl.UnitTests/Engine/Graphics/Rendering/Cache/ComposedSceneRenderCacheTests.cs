@@ -300,8 +300,9 @@ public sealed class ComposedSceneRenderCacheTests
                 Height = { CurrentValue = height },
                 Fill = { CurrentValue = Brushes.White },
             };
-        var brush = new DrawableBrush(content)
+        var brush = new DrawableBrush
         {
+            Drawable = { CurrentValue = content },
             Stretch = { CurrentValue = Stretch.Fill },
             TileMode = { CurrentValue = TileMode.None },
             DestinationRect = { CurrentValue = RelativeRect.Fill },

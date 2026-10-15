@@ -127,7 +127,7 @@ public sealed class OpaqueSourceCoverageTests
         content.Height.CurrentValue = 44;
         content.Fill.CurrentValue = Brushes.White;
 
-        var brush = new DrawableBrush(content);
+        var brush = new DrawableBrush { Drawable = { CurrentValue = content } };
         brush.Stretch.CurrentValue = Stretch.Fill;
         brush.TileMode.CurrentValue = TileMode.None;
         brush.DestinationRect.CurrentValue = RelativeRect.Fill;
