@@ -88,16 +88,22 @@ public class Dispatcher
             throw new InvalidOperationException("Call from invalid thread");
     }
 
-    public static Dispatcher Spawn(TimeProvider? timeProvider = null)
+    public static Dispatcher Spawn()
     {
-        var dispatcher = new Dispatcher(timeProvider ?? TimeProvider.System);
+        return Spawn(TimeProvider.System);
+    }
+
+    // For tests: they inject a clock to drive Schedule.
+    internal static Dispatcher Spawn(TimeProvider timeProvider)
+    {
+        var dispatcher = new Dispatcher(timeProvider);
         dispatcher.Thread.Start();
         return dispatcher;
     }
 
-    public static Dispatcher Spawn(Action operation, TimeProvider? timeProvider = null)
+    public static Dispatcher Spawn(Action operation)
     {
-        Dispatcher dispatcher = Spawn(timeProvider);
+        Dispatcher dispatcher = Spawn();
         dispatcher.Dispatch(operation, DispatchPriority.High);
         return dispatcher;
     }
