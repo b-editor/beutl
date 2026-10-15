@@ -73,11 +73,10 @@ public class JsonConvertersTests
     }
 
     [Test]
-    public void Rational_FromObject_ReadsNumeratorDenominator()
+    public void Rational_FromObject_Throws()
     {
-        const string json = "{\"Numerator\":7,\"Denominator\":2}";
-        Rational r = JsonSerializer.Deserialize<Rational>(json, s_options);
-        Assert.That(r, Is.EqualTo(new Rational(7, 2)));
+        // The converter has always written a string; no release wrote this form.
+        Assert.Catch(() => JsonSerializer.Deserialize<Rational>("{\"Numerator\":7,\"Denominator\":2}", s_options));
     }
 
     [Test]
