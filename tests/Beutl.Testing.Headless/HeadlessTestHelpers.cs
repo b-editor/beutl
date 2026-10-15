@@ -28,8 +28,13 @@ public static class HeadlessTestHelpers
 
     // Waits until the condition holds, settling the dispatcher between checks unless pump is false (off the UI
     // thread), and throws a TimeoutException if it still does not hold after the timeout (10 seconds unless given).
+    // With settleAfterDelay it settles after each delay instead of before it, so every check follows a settle.
     public static async Task WaitUntilAsync(
-        Func<bool> condition, TimeSpan? timeout = null, string? message = null, bool pump = true)
+        Func<bool> condition,
+        TimeSpan? timeout = null,
+        string? message = null,
+        bool pump = true,
+        bool settleAfterDelay = false)
     {
         var elapsed = Stopwatch.StartNew();
         TimeSpan limit = timeout ?? TimeSpan.FromSeconds(10);
@@ -40,12 +45,16 @@ public static class HeadlessTestHelpers
                 throw new TimeoutException(message ?? "The expected state was not reached.");
             }
 
-            if (pump)
+            if (pump && !settleAfterDelay)
             {
                 Settle();
             }
 
             await Task.Delay(10);
+            if (pump && settleAfterDelay)
+            {
+                Settle();
+            }
         }
     }
 
