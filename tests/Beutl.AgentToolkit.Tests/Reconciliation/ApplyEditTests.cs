@@ -985,6 +985,26 @@ public sealed class ApplyEditTests
         });
     }
 
+    [Test]
+    public void Apply_edit_rejects_a_desired_document_whose_schema_version_is_a_number()
+    {
+        Scene scene = TestWorkspace.CreateScene();
+        TestWorkspace.AddElement(scene, TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        using var session = new AgentToolkitTestSession(scene);
+        EditTools tools = session.CreateEditTools();
+        JsonObject desired = session.Documents.Read(scene);
+        desired[SchemaVersion.PropertyName] = 1;
+
+        ToolResult<ApplyEditResponse> rejected = tools.ApplyEdit(desired: desired);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rejected.IsSuccess, Is.False);
+            Assert.That(rejected.Error!.Code, Is.EqualTo(ErrorCode.SchemaVersionMismatch));
+            Assert.That(session.History.UndoCount, Is.Zero);
+        });
+    }
+
     private static JsonObject CreateInsertedTextElementPatch()
     {
         var element = new Element
