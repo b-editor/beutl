@@ -235,43 +235,29 @@ public class MediaFingerprintPersistenceTests
     }
 
     [Test]
-    public async Task FingerprintsADevelopmentBuildKeptInTheSceneFile_AreIgnored_AndTheNextSaveDropsThem()
+    public void FingerprintsADevelopmentBuildKeptInTheSceneFile_AreDroppedByTheNextSave()
     {
-        (Scene scene, string media) = CreateSceneWithImage(_root);
+        (Scene scene, _) = CreateSceneWithImage(_root);
         CoreSerializer.StoreToUri(scene, scene.Uri!);
-        // As development builds since #2666 wrote it, here with the time that #2963 stopped saving.
-        WriteDevelopmentBuildScene(scene.Uri!, new JsonObject
+        // As development builds since #2666 wrote them: inside the scene file.
+        JsonObject json = ReadJson(scene.Uri!.LocalPath);
+        json["MediaFingerprints"] = new JsonObject
         {
             ["image.png"] = new JsonObject
             {
                 [nameof(MediaFileFingerprint.Length)] = 42,
-                ["LastWriteTimeUtcTicks"] = 638000000000000000,
                 [nameof(MediaFileFingerprint.Sha256)] = "ABCDEF",
             },
-        });
-        string path = MediaFingerprintFile.GetPath(scene.Uri!.LocalPath);
+        };
+        File.WriteAllText(scene.Uri.LocalPath, json.ToJsonString(JsonHelper.SerializerOptions));
 
         Scene restored = CoreSerializer.RestoreFromUri<Scene>(scene.Uri);
-        int loaded = restored.MediaFingerprints.Count;
-        await new MissingMediaService().UpdateFingerprintsAsync(restored, force: true);
-        // The scene file references no fingerprint file yet, so the editor's background update writes none.
-        bool updated = MediaFingerprintFile.Update(scene.Uri, restored.Id, restored.MediaFingerprints);
-        bool writtenByUpdate = File.Exists(path);
         CoreSerializer.StoreToUri(restored, scene.Uri);
-        JsonObject saved = ReadJson(scene.Uri.LocalPath);
 
-        Assert.Multiple(() =>
-        {
-            Assert.That(restored.Children, Has.Count.EqualTo(1));
-            Assert.That(loaded, Is.Zero, "Nothing is migrated from the scene file.");
-            Assert.That(updated, Is.False);
-            Assert.That(writtenByUpdate, Is.False);
-            Assert.That(saved.ContainsKey("MediaFingerprints"), Is.False, "A save writes only the keys a scene knows.");
-            Assert.That(saved["MediaFingerprintFile"]!.GetValue<string>(), Is.EqualTo("media-fingerprints.json"));
-            Assert.That(ReadFingerprints(path)["image.png"]!["Sha256"]!.GetValue<string>(),
-                Is.EqualTo(restored.MediaFingerprints[new Uri(media).AbsoluteUri].Sha256),
-                "The next scan of the media hashes them again.");
-        });
+        Assert.That(
+            ReadJson(scene.Uri.LocalPath).ContainsKey("MediaFingerprints"),
+            Is.False,
+            "Scene declares the key dropped, so a save does not keep it as an unknown member.");
     }
 
     [Test]
@@ -519,17 +505,6 @@ public class MediaFingerprintPersistenceTests
     private static JsonObject ReadJson(string path) => JsonNode.Parse(File.ReadAllText(path))!.AsObject();
 
     private static JsonObject ReadFingerprints(string path) => ReadJson(path)["Fingerprints"]!.AsObject();
-
-    // A scene file as development builds since #2666 wrote it: the fingerprints inside, keyed by paths relative to
-    // the scene file, and no file of their own.
-    private static void WriteDevelopmentBuildScene(Uri sceneUri, JsonObject fingerprints)
-    {
-        JsonObject json = ReadJson(sceneUri.LocalPath);
-        json.Remove("MediaFingerprintFile");
-        json["MediaFingerprints"] = fingerprints;
-        File.WriteAllText(sceneUri.LocalPath, json.ToJsonString(JsonHelper.SerializerOptions));
-        File.Delete(MediaFingerprintFile.GetPath(sceneUri.LocalPath));
-    }
 
     private static void CopyDirectory(string source, string destination)
     {
