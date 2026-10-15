@@ -67,8 +67,8 @@ public sealed class RecordingSideEffectTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(overrides, Has.Length.EqualTo(31),
-                "The recording probe must cover the 28 surviving baseline overrides, both new request facades, "
+            Assert.That(overrides, Has.Length.EqualTo(30),
+                "The recording probe must cover the 27 surviving baseline overrides, both new request facades, "
                 + "and the group's content-isolation node.");
             Assert.That(findings, Is.Empty,
                 "RenderNode.Process must only capture immutable CPU state and descriptions; execution belongs in "
