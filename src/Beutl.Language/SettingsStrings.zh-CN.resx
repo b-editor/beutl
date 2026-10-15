@@ -80,10 +80,6 @@
   <data name="DeviceInformation" xml:space="preserve">
     <value>设备信息</value>
   </data>
-  <data name="EditorSettings" xml:space="preserve">
-    <value>编辑器设置</value>
-    <comment />
-  </data>
   <data name="DecoderPriority" xml:space="preserve">
     <value>解码器优先级</value>
     <comment />
@@ -154,10 +150,6 @@
   </data>
   <data name="AutoAdjustSceneDuration_Description" xml:space="preserve">
     <value>添加元素时，如果需要调整场景的时长，将自动进行调整。</value>
-    <comment />
-  </data>
-  <data name="SomeSettingsHaveBeenMoved" xml:space="preserve">
-    <value>某些设置已移动。</value>
     <comment />
   </data>
   <data name="EnablePointerLockInProperty" xml:space="preserve">
