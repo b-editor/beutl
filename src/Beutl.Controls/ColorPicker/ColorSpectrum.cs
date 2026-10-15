@@ -816,7 +816,7 @@ public partial class ColorSpectrum : ColorPickerComponent
         }
     }
 
-    public static bool PointInTriangle(Point p, Point p0, Point p1, Point p2)
+    private static bool PointInTriangle(Point p, Point p0, Point p1, Point p2)
     {
         // https://stackoverflow.com/questions/2049582/how-to-determine-if-a-point-is-in-a-2d-triangle
         static double sign(Point p1, Point p2, Point p3)

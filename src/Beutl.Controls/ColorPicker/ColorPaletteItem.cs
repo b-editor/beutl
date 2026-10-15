@@ -26,9 +26,10 @@ public partial class ColorPaletteItem : Control
     public override void Render(DrawingContext context)
     {
         base.Render(context);
-        Thickness borderThickness = _isPressed ? BorderThicknessPressed :
+        // A pressed item draws no border.
+        Thickness borderThickness = _isPressed ? default :
             IsPointerOver ? BorderThicknessPointerOver : BorderThickness;
-        IBrush? borderBrush = _isPressed ? BorderBrushPressed :
+        IBrush? borderBrush = _isPressed ? null :
             IsPointerOver ? BorderBrushPointerOver : BorderBrush;
 
         // A non-uniform border is drawn with the top thickness.

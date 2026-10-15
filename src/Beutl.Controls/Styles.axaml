@@ -21,7 +21,6 @@
                 <ResourceInclude Source="/Styling/SimpleBreadcrumbBar.axaml" />
 
                 <ResourceInclude Source="/Styling/ProgressRing.axaml" />
-                <ResourceInclude Source="/Styling/FileInputArea.axaml" />
                 <ResourceInclude Source="/Styling/ContextMenu.axaml" />
                 <ResourceInclude Source="/Styling/Separator.axaml" />
                 <ResourceInclude Source="/Styling/SegmentedControl.axaml" />
@@ -131,13 +130,6 @@
 
     <Style Selector="MenuFlyoutPresenter /template/ Border#LayoutRoot">
         <Setter Property="Background" Value="{DynamicResource AcrylicInAppFillColorDefaultBrush}" />
-    </Style>
-
-    <Style Selector="Border.CardStyle">
-        <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
-        <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}" />
-        <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="CornerRadius" Value="{DynamicResource ControlCornerRadius}" />
     </Style>
 
     <!--  Opacity rather than IsVisible: the row must not change height when actions appear.  -->

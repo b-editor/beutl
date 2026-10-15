@@ -65,8 +65,8 @@ public class LockedClipPropertyTests
         });
 
         number.Value = 250;
-        number.RaiseEvent(new PropertyEditorValueChangedEventArgs<float>(250, 100, PropertyEditor.ValueChangedEvent, number));
-        number.RaiseEvent(new PropertyEditorValueChangedEventArgs<float>(250, 100, PropertyEditor.ValueConfirmedEvent, number));
+        number.RaiseEvent(new PropertyEditorValueChangedEventArgs<float>(250, 100, PropertyEditor.ValueChangedEvent));
+        number.RaiseEvent(new PropertyEditorValueChangedEventArgs<float>(250, 100, PropertyEditor.ValueConfirmedEvent));
         property.SetValue(100, 250);
         property.SetValue(250);
         property.Reset();

@@ -41,17 +41,15 @@ public class ReferenceEditor : PropertyEditor
         remove => RemoveHandler(SelectTargetRequestedEvent, value);
     }
 
-    protected Button? TargetPickerButton { get; private set; }
-
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
         _eventRevokers.Clear();
         base.OnApplyTemplate(e);
 
-        TargetPickerButton = e.NameScope.Find<Button>("PART_TargetPickerButton");
-        if (TargetPickerButton != null)
+        Button? targetPickerButton = e.NameScope.Find<Button>("PART_TargetPickerButton");
+        if (targetPickerButton != null)
         {
-            TargetPickerButton.AddDisposableHandler(Button.ClickEvent, OnTargetPickerButtonClick)
+            targetPickerButton.AddDisposableHandler(Button.ClickEvent, OnTargetPickerButtonClick)
                 .DisposeWith(_eventRevokers);
         }
     }

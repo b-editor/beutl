@@ -9,11 +9,6 @@ public abstract class PropertyEditorValueChangedEventArgs : RoutedEventArgs
     {
     }
 
-    protected PropertyEditorValueChangedEventArgs(RoutedEvent routedEvent, Interactive source)
-        : base(routedEvent, source)
-    {
-    }
-
     public object? NewValue => GetNewValue();
 
     protected abstract object? GetNewValue();
@@ -23,13 +18,6 @@ public class PropertyEditorValueChangedEventArgs<TValue> : PropertyEditorValueCh
 {
     public PropertyEditorValueChangedEventArgs(TValue newValue, TValue oldValue, RoutedEvent routedEvent)
         : base(routedEvent)
-    {
-        NewValue = newValue;
-        OldValue = oldValue;
-    }
-
-    public PropertyEditorValueChangedEventArgs(TValue newValue, TValue oldValue, RoutedEvent routedEvent, Interactive source)
-        : base(routedEvent, source)
     {
         NewValue = newValue;
         OldValue = oldValue;

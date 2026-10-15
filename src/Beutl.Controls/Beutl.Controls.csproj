@@ -32,7 +32,6 @@
     <PackageReference Include="DynamicData" />
     <PackageReference Include="FluentAvaloniaUI" />
     <PackageReference Include="FluentIcons.Avalonia.Fluent" />
-    <PackageReference Include="Microsoft.Extensions.FileSystemGlobbing" />
   </ItemGroup>
 
   <ItemGroup>
