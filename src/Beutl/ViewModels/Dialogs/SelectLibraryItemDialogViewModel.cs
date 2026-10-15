@@ -76,6 +76,24 @@ public class SelectLibraryItemDialogViewModel
         ProcessSearchText();
     }
 
+    // Lists only the given references, for picking the target of a presenter, so no types are looked up.
+    internal SelectLibraryItemDialogViewModel(IReadOnlyList<TargetObjectInfo> targets)
+    {
+        _format = string.Empty;
+        _baseType = typeof(object);
+        _itemsTask = Task.FromResult<PinnableLibraryItem[]>([]);
+        _pinnedItems = [];
+        ShowsOnlyReferences = true;
+
+        SearchText
+            .Skip(1)
+            .Throttle(TimeSpan.FromMilliseconds(100))
+            .ObserveOnUIDispatcher()
+            .Subscribe(_ => ProcessReferenceSearchText());
+
+        InitializeReferences(targets);
+    }
+
     public ReactiveCollection<PinnableLibraryItem> Items { get; } = [];
 
     public ReactiveProperty<bool> ShowAll { get; } = new();
@@ -88,7 +106,10 @@ public class SelectLibraryItemDialogViewModel
 
     public ReactiveCollection<PinnableLibraryItem> ReferenceItems { get; } = [];
 
-    public bool HasReferencesTab { get; private set; }
+    public bool HasReferencesTab => !ShowsOnlyReferences && _allReferenceItems.Length > 0;
+
+    // The references are shown alone, without the type list or the tab that switches to it.
+    public bool ShowsOnlyReferences { get; }
 
     internal Task SearchTask { get; private set; } = Task.CompletedTask;
 
@@ -177,7 +198,6 @@ public class SelectLibraryItemDialogViewModel
         _allReferenceItems = targets
             .Select(t => new PinnableLibraryItem(t.DisplayName, false, t))
             .ToArray();
-        HasReferencesTab = _allReferenceItems.Length > 0;
         ProcessReferenceSearchText();
     }
 

@@ -1,6 +1,7 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Beutl.Engine;
+using Beutl.ViewModels.Dialogs;
 using Beutl.ViewModels.Editors;
 
 namespace Beutl.Views.Editors;
@@ -12,10 +13,8 @@ public static class TargetSelectionHelper
         IReadOnlyList<TargetObjectInfo> targets)
         where T : CoreObject
     {
-        var pickerVm = new TargetPickerFlyoutViewModel();
-        pickerVm.Initialize(targets);
-
-        var flyout = new TargetPickerFlyout(pickerVm);
+        var pickerVm = new SelectLibraryItemDialogViewModel(targets);
+        var flyout = new LibraryItemPickerFlyout(pickerVm);
         flyout.ShowAt(host, true);
 
         var tcs = new TaskCompletionSource<T?>();

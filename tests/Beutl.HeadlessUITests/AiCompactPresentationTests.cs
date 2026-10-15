@@ -540,8 +540,9 @@ public sealed class AiCompactPresentationTests
                     .Any(text => text.IsVisible && text.Text == Strings.AiImageGenerationIdle),
                 Is.True,
                 "What stands there instead says what to do next.");
+            // The actions sit in a panel whose content joins the visual tree only once it is shown.
             Assert.That(
-                view.GetLogicalDescendants().OfType<Button>()
+                view.GetVisualDescendants().OfType<Button>()
                     .Any(button => button.IsEffectivelyVisible
                         && Equals(button.Content, Strings.AiAddToScene)),
                 Is.False,

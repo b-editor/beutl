@@ -71,15 +71,8 @@ public partial class TransformListItemEditor : UserControl, IListItemEditor
 
         public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
         {
-            return value switch
-            {
-                KnownTransformType.Translate => Application.Current!.FindResource("TranslateTransformIconData"),
-                KnownTransformType.Rotation => Application.Current!.FindResource("RotationTransformIconData"),
-                KnownTransformType.Scale => Application.Current!.FindResource("ScaleTransformIconData"),
-                KnownTransformType.Skew => Application.Current!.FindResource("SkewTransformIconData"),
-                KnownTransformType.Rotation3D => Application.Current!.FindResource("Rotation3DTransformIconData"),
-                _ => Application.Current!.FindResource("TransformListItemEditor_ReOrderIcon")
-            };
+            string? key = value is KnownTransformType type ? TransformEditorViewModel.Find(type)?.IconKey : null;
+            return Application.Current!.FindResource(key ?? "TransformListItemEditor_ReOrderIcon");
         }
 
         public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)

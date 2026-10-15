@@ -23,7 +23,7 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Dialogs;
 
-public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDisposable, IAiModelListConsumer
+public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDisposable, IAiModelListConsumer, IAiPlanOffer
 {
     private readonly CompositeDisposable _disposables = [];
     private readonly AsyncOperationLifetime _operations = new();

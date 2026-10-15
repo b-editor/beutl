@@ -474,13 +474,7 @@
                        Text="{CompiledBinding Error.Value}"
                        TextWrapping="Wrap" />
 
-            <StackPanel IsVisible="{CompiledBinding ShowJoinPro.Value}" Spacing="8">
-                <TextBlock Text="{x:Static lang:Strings.AiProRequired}" TextWrapping="Wrap" />
-                <Button HorizontalAlignment="Left"
-                        usage:UsageTracking.Feature="AiWorkspace.Subtitle.OpenAiPlan"
-                        Command="{CompiledBinding OpenAiPlan}"
-                        Content="{x:Static lang:Strings.AiJoinPro}" />
-            </StackPanel>
+            <tools:AiJoinProPanel Feature="AiWorkspace.Subtitle" />
 
             <Button usage:UsageTracking.Feature="AiWorkspace.Subtitle.AddToScene"
                     Command="{CompiledBinding AddToScene}"
