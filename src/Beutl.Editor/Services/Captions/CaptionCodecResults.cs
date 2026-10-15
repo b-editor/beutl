@@ -47,7 +47,6 @@ public static class CaptionDiagnosticKinds
 
 public sealed record CaptionDiagnostic(
     CaptionDiagnosticKind Kind,
-    int? LineNumber,
     string Message);
 
 public sealed class CaptionImportResult
@@ -88,12 +87,6 @@ public sealed class CaptionImportResult
             throw new ArgumentException("A failed import must contain at least one diagnostic.", nameof(diagnostics));
 
         return new CaptionImportResult(null, Array.AsReadOnly(diagnosticList));
-    }
-
-    public static CaptionImportResult Failure(CaptionDiagnostic diagnostic)
-    {
-        ArgumentNullException.ThrowIfNull(diagnostic);
-        return Failure([diagnostic]);
     }
 
     private static CaptionDiagnostic[] ValidateDiagnostics(

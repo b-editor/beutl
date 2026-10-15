@@ -124,10 +124,11 @@ public class CaptionCodecExtensibilityTests
         {
             if (content.StartsWith('!'))
             {
-                return CaptionImportResult.Failure(new CaptionDiagnostic(
-                    CaptionDiagnosticKinds.InvalidStructure,
-                    1,
-                    "Custom codec rejected the content."));
+                return CaptionImportResult.Failure([
+                    new CaptionDiagnostic(
+                        CaptionDiagnosticKinds.InvalidStructure,
+                        "Custom codec rejected the content."),
+                ]);
             }
 
             return CaptionImportResult.Imported(new CaptionDocument(
