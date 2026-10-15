@@ -154,12 +154,6 @@ public sealed partial class ProxiesTabViewModel
         {
             clip.UpdateJob(pendingJobs.FirstOrDefault(job => IsMatchingJob(job, clip)));
         }
-
-        JobSummary.Value = pendingJobs.Length == 0
-            ? Strings.ProxyQueueIdle
-            : pendingJobs.Length == 1
-                ? Strings.ProxyQueuedJobSingular
-                : string.Format(CultureInfo.CurrentCulture, Strings.ProxyQueuedJobPlural, pendingJobs.Length);
     });
 
     /// <summary>
@@ -299,11 +293,6 @@ public sealed partial class ProxiesTabViewModel
 
     private void OnJobChanged(object? sender, ProxyJobChangedEventArgs e) => RunOnUIIfLive(() =>
     {
-        StatusMessage.Value = string.Format(
-            CultureInfo.CurrentCulture,
-            Strings.ProxyJobStatusWithMessageFormat,
-            Path.GetFileName(e.Job.Source.AbsolutePath),
-            GetJobStatusText(e.Job.Status));
         RefreshJobs();
         if (e.Kind is ProxyJobChangeKind.Succeeded
             or ProxyJobChangeKind.Failed

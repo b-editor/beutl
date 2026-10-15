@@ -1459,15 +1459,6 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="ProxyBulkNoEligibleClips" xml:space="preserve">
     <value>일괄 생성 임계값을 충족하는 클립이 없습니다. 클립별 생성을 사용하세요.</value>
   </data>
-  <data name="ProxyQueueIdle" xml:space="preserve">
-    <value>큐 유휴</value>
-  </data>
-  <data name="ProxyQueuedJobSingular" xml:space="preserve">
-    <value>대기 중인 작업 1개</value>
-  </data>
-  <data name="ProxyQueuedJobPlural" xml:space="preserve">
-    <value>대기 중인 작업 {0}개</value>
-  </data>
   <data name="ProxyDeleteFailedSingular" xml:space="preserve">
     <value>파일이 사용 중이어서 프록시 1개를 삭제할 수 없습니다.</value>
   </data>
