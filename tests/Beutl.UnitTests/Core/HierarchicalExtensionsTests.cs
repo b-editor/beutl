@@ -12,6 +12,19 @@ public class HierarchicalExtensionsTests
 
     private sealed class SpecialNode : TestNode;
 
+    private sealed class ThrowingParentNode : IHierarchical
+    {
+        public IHierarchical? HierarchicalParent => throw new InvalidOperationException("The parent cannot be read.");
+
+        public IHierarchicalRoot? HierarchicalRoot => null;
+
+        public ICoreReadOnlyList<IHierarchical> HierarchicalChildren { get; } = new CoreList<IHierarchical>();
+
+        public event EventHandler<HierarchyAttachmentEventArgs> AttachedToHierarchy { add { } remove { } }
+
+        public event EventHandler<HierarchyAttachmentEventArgs> DetachedFromHierarchy { add { } remove { } }
+    }
+
     [Test]
     public void FindHierarchicalParent_Generic_FindsAncestor()
     {
@@ -42,6 +55,22 @@ public class HierarchicalExtensionsTests
         var root = new TestNode();
 
         TestHierarchicalRoot? found = ((IHierarchical)root).FindHierarchicalParent<TestHierarchicalRoot>();
+
+        Assert.That(found, Is.Null);
+    }
+
+    [Test]
+    public void FindHierarchicalParent_Generic_LetsAThrowingParentGetterThrow()
+    {
+        var node = new ThrowingParentNode();
+
+        Assert.That(() => node.FindHierarchicalParent<TestHierarchicalRoot>(), Throws.InvalidOperationException);
+    }
+
+    [Test]
+    public void FindHierarchicalParent_Generic_NullReceiver_ReturnsDefault([Values] bool includeSelf)
+    {
+        TestHierarchicalRoot? found = ((IHierarchical)null!).FindHierarchicalParent<TestHierarchicalRoot>(includeSelf);
 
         Assert.That(found, Is.Null);
     }
