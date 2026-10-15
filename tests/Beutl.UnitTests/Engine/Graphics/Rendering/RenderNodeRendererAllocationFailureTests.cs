@@ -1,5 +1,4 @@
 ﻿using Beutl.Composition;
-using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
@@ -111,52 +110,6 @@ public sealed class RenderNodeRendererAllocationFailureTests
     }
 
     [Test]
-    public void PreviewGeometryCropAllocationFailure_DropsContributionAndRecordsDiagnostics()
-    {
-        using FilterEffect.Resource resource = new ShrinkingGeometryEffect()
-            .ToResource(CompositionContext.Default);
-        using FilterEffectRenderNode node = CreateScene(resource);
-        var factory = new FailSpecificSizeTargetFactory(new PixelSize(98, 98));
-        using var renderer = CreateRenderer(node, RenderIntent.Preview, factory);
-
-        using RenderNodeRasterization rasterization = renderer.Rasterize();
-        Bitmap bitmap = rasterization.Bitmap
-            ?? throw new AssertionException("The preview Geometry crop allocation-drop request produced no bitmap.");
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(bitmap.GetPixelSpan<ushort>().ToArray(), Is.All.Zero,
-                "a dropped Geometry crop must leave the cleared destination transparent");
-            Assert.That(factory.FailureConsumed, Is.True);
-            Assert.That(factory.FailedDeviceSize, Is.EqualTo(new PixelSize(98, 98)));
-        });
-    }
-
-    [Test]
-    public void DeliveryGeometryCropAllocationFailure_Throws()
-    {
-        using FilterEffect.Resource resource = new ShrinkingGeometryEffect()
-            .ToResource(CompositionContext.Default);
-        using FilterEffectRenderNode node = CreateScene(resource);
-        var factory = new FailSpecificSizeTargetFactory(new PixelSize(98, 98));
-        using var renderer = CreateRenderer(node, RenderIntent.Delivery, factory);
-
-        InvalidOperationException? exception = Assert.Throws<InvalidOperationException>(() =>
-        {
-            using RenderNodeRasterization unexpected = renderer.Rasterize();
-        });
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(
-                exception!.Message,
-                Is.EqualTo("The render-target factory could not allocate 98x98 pixels."));
-            Assert.That(factory.FailureConsumed, Is.True);
-            Assert.That(factory.FailedDeviceSize, Is.EqualTo(new PixelSize(98, 98)));
-        });
-    }
-
-    [Test]
     public void PreviewExpandedTargetAllocationFailureLeavesBorrowedDestinationUnmodified()
     {
         using var node = new ExpandedTargetReadNode();
@@ -221,38 +174,6 @@ public sealed class RenderNodeRendererAllocationFailureTests
         return effect.ToResource(CompositionContext.Default);
     }
 
-    [SuppressResourceClassGeneration]
-    private sealed partial class ShrinkingGeometryEffect : FilterEffect
-    {
-        private static readonly GeometryDescription s_geometry = GeometryDescription.Create(
-            state: true,
-            static (session, _) =>
-            {
-                session.Canvas.Use(session.Input.Draw);
-                session.SetOutputBounds(session.OutputBounds.Inflate(new Thickness(-1)));
-            },
-            RenderBoundsContract.Identity,
-            RenderHitTestContract.AnyInput);
-
-        public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
-            => context.Geometry(s_geometry);
-
-        public override Resource ToResource(CompositionContext context)
-        {
-            var resource = new Resource();
-            bool versionBumped = false;
-            resource.Reconcile(this, context, ref versionBumped);
-            return resource;
-        }
-
-        public new sealed class Resource : FilterEffect.Resource
-        {
-            public Resource()
-            {
-            }
-        }
-    }
-
     private static FilterEffectRenderNode CreateScene(FilterEffect.Resource resource)
     {
         var node = new FilterEffectRenderNode(resource);
@@ -277,27 +198,6 @@ public sealed class RenderNodeRendererAllocationFailureTests
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
             Purpose = RenderRequestPurpose.Frame,
         }, factory);
-
-    private sealed class FailSpecificSizeTargetFactory(PixelSize failureSize) : CpuTargetFactory
-    {
-        public bool FailureConsumed { get; private set; }
-
-        public PixelSize? FailedDeviceSize { get; private set; }
-
-        public override RenderTarget? Create(RenderTargetAllocationDescriptor allocation)
-        {
-            PixelSize deviceSize = allocation.DeviceSize;
-            CreateCalls++;
-            if (!FailureConsumed && deviceSize == failureSize)
-            {
-                FailureConsumed = true;
-                FailedDeviceSize = deviceSize;
-                return null;
-            }
-
-            return new CpuRenderTarget(deviceSize);
-        }
-    }
 
     private sealed class AlwaysFailTargetFactory : IRenderTargetFactory
     {

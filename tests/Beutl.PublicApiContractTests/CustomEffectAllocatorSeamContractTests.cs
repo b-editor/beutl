@@ -40,16 +40,6 @@ public sealed class CustomEffectAllocatorSeamContractTests
                 Has.Some.SameAs(probe.SeamIntermediate),
                 "the context-minted executor has to allocate its intermediate through the caller's factory, "
                 + "so the buffer shares a graphics context with the inputs it draws");
-
-            Assert.That(
-                probe.StandaloneIntermediate,
-                Is.Not.Null,
-                "an executor built through the public constructor still produces a flush buffer");
-            Assert.That(
-                factory.Created,
-                Has.None.SameAs(probe.StandaloneIntermediate),
-                "the public constructor documents a standalone executor: it belongs to no render, so it "
-                + "self-allocates and this recording factory never sees the request");
         });
     }
 
@@ -92,31 +82,17 @@ public sealed class CustomEffectAllocatorSeamContractTests
 
         public RenderTarget? SeamIntermediate { get; private set; }
 
-        public RenderTarget? StandaloneIntermediate { get; private set; }
-
         public void Run(CustomFilterEffectContext context)
         {
             Ran = true;
-            SeamIntermediate = FlushOneIntermediate(context, throughSeam: true);
-            StandaloneIntermediate = FlushOneIntermediate(context, throughSeam: false);
+            SeamIntermediate = FlushOneIntermediate(context);
         }
 
-        private static RenderTarget? FlushOneIntermediate(CustomFilterEffectContext context, bool throughSeam)
+        private static RenderTarget? FlushOneIntermediate(CustomFilterEffectContext context)
         {
             using EffectTargets targets = context.Targets.Clone();
             using var builder = new SKImageFilterBuilder();
-            using FilterEffectExecutor executor = throughSeam
-                ? context.CreateExecutor(targets, builder)
-                : new FilterEffectExecutor(
-                    targets,
-                    builder,
-                    context.Intent,
-                    context.Purpose,
-                    drawableBrushMaterializer: null,
-                    context.OutputScale,
-                    context.WorkingScale,
-                    context.MaxWorkingScale,
-                    context.TargetDomain);
+            using FilterEffectExecutor executor = context.CreateExecutor(targets, builder);
 
             // A pending Skia filter forces Flush down the allocating path rather than letting it reuse the
             // target it already holds.

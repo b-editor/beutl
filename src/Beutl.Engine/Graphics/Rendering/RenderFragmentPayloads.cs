@@ -20,10 +20,6 @@ internal sealed record ShaderRenderFragmentPayload(
     ShaderDescription Description,
     FilterEffectWorkingScalePolicy? WorkingScalePolicy = null);
 
-internal sealed record GeometryRenderFragmentPayload(
-    GeometryDescription Description,
-    FilterEffectWorkingScalePolicy? WorkingScalePolicy = null);
-
 internal sealed record OpaqueRenderFragmentPayload(
     OpaqueRenderTopology Topology,
     OpaqueRenderDescription Description,

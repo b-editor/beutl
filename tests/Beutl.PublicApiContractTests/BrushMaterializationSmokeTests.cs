@@ -175,7 +175,7 @@ public sealed class BrushMaterializationSmokeTests
     }
 
     [Test]
-    public void PublicExecutor_PaintsADrawableBrushDisplacementMapThroughASuppliedMaterializer()
+    public void ARenderedDrawableBrushDisplacementMap_ReachesTheCustomEffectBrushConstructor()
     {
         var content = new EllipseShape();
         content.Width.CurrentValue = 24;
@@ -187,28 +187,20 @@ public sealed class BrushMaterializationSmokeTests
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
 
         var bounds = new Rect(0, 0, 32, 32);
-        using RenderTarget backing = RenderTarget.Create(32, 32)
-                                     ?? throw new InvalidOperationException("Could not create the backing target.");
-        using var targets = new EffectTargets { new EffectTarget(backing, bounds, EffectiveScale.At(1)) };
-        using var builder = new SKImageFilterBuilder();
-        using var context = new FilterEffectContext(bounds);
-        effect.ApplyTo(context, resource);
-
-        DrawableBrushMaterializer materializer =
-            (_, _, _) => new MaterializedDrawableBrush(CreateOpaqueImage(32, 32), bounds);
-        using var executor = new FilterEffectExecutor(
-            targets,
-            builder,
-            RenderIntent.Preview,
-            RenderRequestPurpose.Auxiliary,
-            drawableBrushMaterializer: materializer);
-        executor.Apply(context);
-        executor.Flush(false);
-
-        using Bitmap bitmap = targets[0].RenderTarget!.Snapshot();
+        using FilterEffectRenderNode node = CreateScene(resource, bounds);
+        using var renderer = new RenderNodeRenderer(
+            node,
+            new RenderNodeRenderRequest
+            {
+                Intent = RenderIntent.Preview,
+                TargetDomain = bounds,
+                CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+            });
+        using RenderNodeRasterization rasterization = renderer.Rasterize();
+        Bitmap bitmap = rasterization.Bitmap!;
 
         Assert.That(AlphaAt(bitmap, 16, 16), Is.GreaterThan(0.9f),
-            "a materializer supplied to the public executor must reach the custom-effect brush constructor");
+            "the renderer's materializer must reach the custom-effect brush constructor");
     }
 
     // The absent hook is the failure, not the brush: a delivery frame that painted the fill transparent would

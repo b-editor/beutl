@@ -19,12 +19,6 @@ public sealed partial class TranslateTransform : Transform
         Y.CurrentValue = y;
     }
 
-    public TranslateTransform(Vector vector) : this()
-    {
-        X.CurrentValue = vector.X;
-        Y.CurrentValue = vector.Y;
-    }
-
     public TranslateTransform(Point point) : this()
     {
         X.CurrentValue = point.X;

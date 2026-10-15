@@ -12,17 +12,9 @@ namespace Beutl.Graphics.Effects;
 /// Executes the filter operations recorded in a <see cref="FilterEffectContext"/> on a set of <see cref="EffectTargets"/>.
 /// </summary>
 /// <remarks>
-/// <para>
-/// The public constructor builds a <i>standalone</i> executor, which allocates its own intermediates from
-/// the process-wide shared graphics context. That is the right answer only when the executor belongs to no
-/// render — there is no caller allocation policy to honour.
-/// </para>
-/// <para>
-/// Inside a custom effect callback there is one, so call
-/// <see cref="CustomFilterEffectContext.CreateExecutor"/> instead of constructing an executor: it carries
-/// the running render's lease session, and so allocates through a caller-supplied
+/// Inside a custom effect callback, call <see cref="CustomFilterEffectContext.CreateExecutor"/> to get an
+/// executor: it carries the running render's lease session, and so allocates through a caller-supplied
 /// <see cref="IRenderTargetFactory"/> rather than drawing factory-made inputs into a shared-context buffer.
-/// </para>
 /// </remarks>
 public sealed partial class FilterEffectExecutor : IDisposable
 {
@@ -38,12 +30,13 @@ public sealed partial class FilterEffectExecutor : IDisposable
     private Dictionary<EffectTarget, PendingSkiaTarget>? _pendingSkiaTargets;
     private bool _customEffectBoundaryMaterialized;
 
+    /// <summary>Builds a standalone executor, which allocates its own intermediates from the shared graphics context.</summary>
     /// <param name="drawableBrushMaterializer">
     /// The hook that rasterizes a <see cref="DrawableBrush.Resource"/> an effect paints with, or
     /// <see langword="null"/> when the caller applies no drawable brush. Stated rather than defaulted: left
     /// implicit, a <see cref="DrawableBrush"/> resolves to transparent instead of to its content.
     /// </param>
-    public FilterEffectExecutor(
+    internal FilterEffectExecutor(
         EffectTargets targets,
         SKImageFilterBuilder builder,
         RenderIntent intent,
@@ -318,20 +311,6 @@ public sealed partial class FilterEffectExecutor : IDisposable
                         _renderTargetLeaseSession,
                         Budget);
                     break;
-                case FEItem_Geometry geometry:
-                    Flush(false);
-                    if (CurrentTargets.Count == 0) return;
-                    FilterEffectStageFallbackExecutor.ApplyGeometry(
-                        CurrentTargets,
-                        geometry.Description,
-                        OutputScale,
-                        WorkingScale,
-                        MaxWorkingScale,
-                        Intent,
-                        Purpose,
-                        _renderTargetLeaseSession,
-                        Budget);
-                    break;
             }
         }
 
@@ -416,7 +395,7 @@ public sealed partial class FilterEffectExecutor : IDisposable
         Apply(ctx);
     }
 
-    public SKImageFilter? Activate(FilterEffectContext context)
+    internal SKImageFilter? Activate(FilterEffectContext context)
     {
         // A no-op Flush still drops the pending-Skia bookkeeping, which the caller's own in-progress chain
         // still needs when it authored this call from a Skia factory.

@@ -252,13 +252,13 @@ public class AudioVisualizerDrawableTests
             };
             AttachSyntheticSource(drawable);
 
-            drawable.Transform.CurrentValue = new ScaleTransform(transformPercent, transformPercent);
+            drawable.Transform.CurrentValue = new ScaleTransform { ScaleX = { CurrentValue = transformPercent }, ScaleY = { CurrentValue = transformPercent } };
             var transformedFrame = new PixelSize(
                 (int)(400 / outputScale),
                 (int)(225 / outputScale));
             using Bitmap transformed = RenderWithSamples(drawable, transformedFrame, outputScale);
 
-            drawable.Transform.CurrentValue = new ScaleTransform(100f, 100f);
+            drawable.Transform.CurrentValue = new ScaleTransform { ScaleX = { CurrentValue = 100f }, ScaleY = { CurrentValue = 100f } };
             using Bitmap reference = RenderWithSamples(drawable, new PixelSize(320, 180), 1.25f);
 
             GoldenImageHarness.AssertByteIdentical(reference, transformed);

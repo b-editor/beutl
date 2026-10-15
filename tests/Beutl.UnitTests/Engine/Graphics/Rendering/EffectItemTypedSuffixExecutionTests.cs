@@ -167,11 +167,7 @@ public sealed class EffectItemTypedSuffixExecutionTests
                 (_, execution) =>
                 {
                     EffectTarget source = execution.Targets.Single();
-                    using RenderTarget replacementBacking = source.RenderTarget!.ShallowCopy();
-                    EffectTarget replacement = execution.CreateReplacement(
-                        source,
-                        replacementBacking);
-                    source.Dispose();
+                    EffectTarget replacement = execution.CreateTargetLike(source);
                     execution.Targets[0] = replacement;
                     replacementGrid = replacement.DeviceGridOffset;
                 },
@@ -292,79 +288,6 @@ public sealed class EffectItemTypedSuffixExecutionTests
         });
     }
 
-    // The compatibility executor had the request intent in scope but opened every canvas on the
-    // RenderIntent.Preview default, so a delivery render degraded there instead of failing.
-    [TestCase(RenderIntent.Preview)]
-    [TestCase(RenderIntent.Delivery)]
-    public void CompatibilityGeometry_CallbackCanvasCarriesTheRequestIntent(RenderIntent intent)
-    {
-        Rect bounds = new(0, 0, 8, 6);
-        using EffectTargets targets = CreateSolidTargets(bounds, Colors.Red);
-        RenderIntent? observedIntent = null;
-
-        FilterEffectStageFallbackExecutor.ApplyGeometry(
-            targets,
-            GeometryDescription.CreateRequestLocal(
-                session => session.Canvas.Use(canvas => observedIntent = canvas.Intent),
-                RenderBoundsContract.Identity,
-                RenderHitTestContract.AnyInput),
-            outputScale: 1,
-            workingScale: 1,
-            maxWorkingScale: 1,
-            intent,
-            RenderRequestPurpose.Auxiliary,
-            leaseSession: null,
-            budget: BufferDimensionBudget.Resolve(BufferBudgetScope.Allocation));
-
-        Assert.That(observedIntent, Is.EqualTo(intent));
-    }
-
-    [Test]
-    public void GeometryAfterUnknownCustomEffect_UsesRuntimeBoundsAndPublishesShrink()
-    {
-        Rect runtimeBounds = new(30, 40, 8, 6);
-        Rect mappedBounds = runtimeBounds.Inflate(new Thickness(2));
-        Rect selectedBounds = mappedBounds.Inflate(new Thickness(-1));
-        Rect observedInput = default;
-        var effect = new EffectItemSuffixCallbackFilterEffect((context, _) =>
-        {
-            context.CustomEffect(
-                runtimeBounds,
-                static (bounds, execution) =>
-                {
-                    foreach (EffectTarget target in execution.Targets)
-                        target.Bounds = bounds;
-                });
-            context.Geometry(GeometryDescription.CreateRequestLocal(
-                session =>
-                {
-                    observedInput = session.Input.Bounds;
-                    session.Canvas.Use(static canvas => canvas.Clear(Colors.Lime));
-                    session.SetOutputBounds(session.OutputBounds.Inflate(new Thickness(-1)));
-                },
-                RenderBoundsContract.Create(
-                    static bounds => bounds.Inflate(new Thickness(2)),
-                    static bounds => bounds.Inflate(new Thickness(2))),
-                RenderHitTestContract.AnyInput));
-        });
-        Rect recordedBounds = new(10, 20, 8, 6);
-
-        using EffectTargets targets = CreateSolidTargets(recordedBounds, Colors.Red);
-        Apply(effect, recordedBounds, targets);
-
-        Assert.That(targets, Has.Count.EqualTo(1));
-        SKColor color = ReadCenterPixel(targets[0]);
-        Assert.Multiple(() =>
-        {
-            Assert.That(observedInput, Is.EqualTo(runtimeBounds));
-            Assert.That(targets[0].Bounds, Is.EqualTo(selectedBounds));
-            Assert.That(color.Red, Is.LessThan(16));
-            Assert.That(color.Green, Is.GreaterThan(239));
-            Assert.That(color.Blue, Is.LessThan(16));
-            Assert.That(color.Alpha, Is.GreaterThan(239));
-        });
-    }
-
     [Test]
     public void DelayAnimationEffect_ExecutesTypedChildEffect()
     {
@@ -454,14 +377,18 @@ public sealed class EffectItemTypedSuffixExecutionTests
                     return expanded;
                 })));
         var downstreamEffect = new EffectItemSuffixCallbackFilterEffect((context, _) =>
-            context.Geometry(GeometryDescription.CreateRequestLocal(
-                session =>
-                {
-                    observedDownstreamInput = session.Input.Bounds;
-                    session.Canvas.Use(session.Input.Draw);
-                },
+            context.Shader(ShaderDescription.WholeSource(
+                "uniform shader src; uniform float gain; "
+                + "half4 main(float2 coord) { return src.eval(coord) * half(gain); }",
                 RenderBoundsContract.Identity,
-                RenderHitTestContract.AnyInput)));
+                bindings => bindings.Uniform(
+                    "gain",
+                    1f,
+                    (writer, value, execution) =>
+                    {
+                        observedDownstreamInput = execution.InputBounds;
+                        writer.Set(value);
+                    }))));
         var inner = new FilterEffectRenderNode(expandingEffect.ToResource(CompositionContext.Default));
         inner.AddChild(new RectangleRenderNode(
             new Rect(4, 2, 6, 4),
@@ -575,26 +502,21 @@ public sealed class EffectItemTypedSuffixExecutionTests
                         target.Bounds = bounds;
                 },
                 static (bounds, _) => bounds));
-        var observingEffect = new EffectItemSuffixCallbackFilterEffect((context, _) =>
-            context.Geometry(GeometryDescription.CreateRequestLocal(
-                session =>
-                {
-                    observedBounds = session.Input.Bounds;
-                    observedDeviceBounds = session.Input.DeviceBounds;
-                    observedRasterBounds = session.Input.RasterBounds;
-                    session.Canvas.Use(session.Input.Draw);
-                },
-                RenderBoundsContract.Identity,
-                RenderHitTestContract.AnyInput)));
         using var source = new CpuRenderTarget((int)inputBounds.Width, (int)inputBounds.Height);
         source.Value.Canvas.Clear(SKColors.White);
         source.Value.Flush();
         var movingNode = new FilterEffectRenderNode(
             movingEffect.ToResource(CompositionContext.Default));
         movingNode.AddChild(new MaterializedInputNode(source, inputBounds));
-        using var root = new FilterEffectRenderNode(
-            observingEffect.ToResource(CompositionContext.Default));
-        root.AddChild(movingNode);
+        using var root = new InputObservingNode(
+            movingNode,
+            new Rect(0, 0, 24, 20),
+            input =>
+            {
+                observedBounds = input.Bounds;
+                observedDeviceBounds = input.DeviceBounds;
+                observedRasterBounds = input.RasterBounds;
+            });
         using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
         {
             Intent = RenderIntent.Preview,
@@ -758,16 +680,6 @@ public sealed class EffectItemTypedSuffixExecutionTests
                 0,
                 static (_, _, _) => null,
                 static (_, current) => current));
-        var observingEffect = new EffectItemSuffixCallbackFilterEffect((context, _) =>
-            context.Geometry(GeometryDescription.CreateRequestLocal(
-                session =>
-                {
-                    observedScale = session.Input.EffectiveScale;
-                    observedDeviceBounds = session.Input.DeviceBounds;
-                    session.Canvas.Use(session.Input.Draw);
-                },
-                RenderBoundsContract.Identity,
-                RenderHitTestContract.AnyInput)));
         PixelRect inputDeviceBounds = PixelRect.FromRect(bounds, inputDensity);
         using var source = new CpuRenderTarget(inputDeviceBounds.Width, inputDeviceBounds.Height);
         source.Value.Canvas.Clear(SKColors.White);
@@ -775,9 +687,14 @@ public sealed class EffectItemTypedSuffixExecutionTests
         var noOpNode = new FilterEffectRenderNode(
             noOpSkiaEffect.ToResource(CompositionContext.Default));
         noOpNode.AddChild(new MaterializedInputNode(source, bounds, inputDensity));
-        using var root = new FilterEffectRenderNode(
-            observingEffect.ToResource(CompositionContext.Default));
-        root.AddChild(noOpNode);
+        using var root = new InputObservingNode(
+            noOpNode,
+            bounds,
+            input =>
+            {
+                observedScale = input.EffectiveScale;
+                observedDeviceBounds = input.DeviceBounds;
+            });
         using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
         {
             Intent = RenderIntent.Preview,
@@ -971,6 +888,40 @@ public sealed class EffectItemTypedSuffixExecutionTests
         {
             DisposeCount++;
             throw new InvalidOperationException("delay-child-cleanup");
+        }
+    }
+
+    /// <summary>Hands what its child publishes to a target command, which sees each value as it was materialized.</summary>
+    private sealed class InputObservingNode(
+        RenderNode child,
+        Rect queryBounds,
+        Action<RenderExecutionInput> observe) : RenderNode
+    {
+        public override void Process(RenderNodeContext context)
+        {
+            IReadOnlyList<RenderFragmentHandle> inputs = context.RecordSubtree(child);
+            context.Publish(context.TargetCommand(
+                inputs,
+                TargetCommandDescription.CreateRequestLocal(
+                    session => session.Canvas.Use(canvas =>
+                    {
+                        foreach (RenderExecutionInput input in session.Inputs)
+                        {
+                            observe(input);
+                            input.Draw(canvas);
+                        }
+                    }),
+                    TargetRegion.Full,
+                    queryBounds,
+                    RenderHitTestContract.OutputBounds)));
+        }
+
+        protected override void OnDispose(bool disposing)
+        {
+            if (disposing)
+                child.Dispose();
+
+            base.OnDispose(disposing);
         }
     }
 

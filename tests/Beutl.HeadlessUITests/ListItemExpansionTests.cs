@@ -53,7 +53,7 @@ public class ListItemExpansionTests
         var effects = new FilterEffectGroup { Children = { blur, shadow } };
         var transforms = new TransformGroup
         {
-            Children = { new TranslateTransform(24, 12), new ScaleTransform(120, 80) }
+            Children = { new TranslateTransform(24, 12), new ScaleTransform { ScaleX = { CurrentValue = 120 }, ScaleY = { CurrentValue = 80 } } }
         };
         var card = new RoundedRectShape
         {

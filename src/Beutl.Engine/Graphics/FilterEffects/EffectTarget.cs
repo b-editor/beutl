@@ -10,7 +10,7 @@ public sealed class EffectTarget : IDisposable
     private readonly Rect _allocationBounds;
     private readonly Rect _allocationRasterBounds;
 
-    public EffectTarget(RenderTarget renderTarget, Rect originalBounds, EffectiveScale scale = default)
+    internal EffectTarget(RenderTarget renderTarget, Rect originalBounds, EffectiveScale scale = default)
         : this(
             renderTarget,
             originalBounds,

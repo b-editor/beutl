@@ -1,9 +1,12 @@
-﻿using Beutl.Graphics;
+﻿using Beutl.Composition;
+using Beutl.Engine;
+using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shaders;
 using Beutl.Media;
 using SkiaSharp;
+using static Beutl.PublicApiContractTests.ContractTestSupport;
 
 namespace Beutl.PublicApiContractTests;
 
@@ -15,30 +18,49 @@ public sealed class RasterFootprintContractTests
     {
         const float density = 2;
         var bounds = new Rect(10.25f, 20.25f, 8, 6);
-        PixelRect canonical = PixelRect.FromRect(bounds, density);
-        using RenderTarget renderTarget = RenderTarget.CreateNull(
-            canonical.Width + 1,
-            canonical.Height + 2);
-        using var target = new EffectTarget(
-            renderTarget,
-            bounds,
-            EffectiveScale.At(density));
-        PixelRect allocation = target.DeviceBounds;
-        Rect initialRasterBounds = target.RasterBounds;
         var translation = new Vector(3.25f, -1.5f);
+        TargetFootprints? observed = null;
+        using FilterEffect.Resource resource = new CustomEffectProbe(execution =>
+        {
+            using EffectTarget target = execution.CreateTarget(bounds);
+            PixelRect allocation = target.DeviceBounds;
+            Rect initialRasterBounds = target.RasterBounds;
 
-        target.Bounds = target.Bounds.Translate(translation);
+            target.Bounds = target.Bounds.Translate(translation);
 
+            observed = new TargetFootprints(
+                allocation,
+                new PixelSize(target.RenderTarget!.Width, target.RenderTarget.Height),
+                initialRasterBounds,
+                target.DeviceBounds,
+                target.RasterBounds,
+                target.Bounds);
+        }).ToResource(CompositionContext.Default);
+        using FilterEffectRenderNode node = CreateScene(resource, new Rect(0, 0, 40, 40));
+        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Preview,
+            OutputScale = density,
+            MaxWorkingScale = density,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        }, new CpuTargetFactory());
+        using (renderer.Rasterize())
+        {
+        }
+
+        Assert.That(observed, Is.Not.Null, "the custom effect callback has to have executed");
+        TargetFootprints footprints = observed!.Value;
         Assert.Multiple(() =>
         {
-            Assert.That(allocation.Position, Is.EqualTo(canonical.Position));
-            Assert.That(allocation.Size,
-                Is.EqualTo(new PixelSize(renderTarget.Width, renderTarget.Height)));
-            Assert.That(target.DeviceBounds, Is.EqualTo(allocation));
-            Assert.That(target.RasterBounds, Is.EqualTo(initialRasterBounds.Translate(translation)));
-            Assert.That(target.RasterBounds.Size, Is.EqualTo(initialRasterBounds.Size));
-            Assert.That(initialRasterBounds.Position, Is.EqualTo(bounds.Position));
-            Assert.That(target.Bounds.Size, Is.EqualTo(bounds.Size));
+            Assert.That(footprints.Allocation.Position, Is.EqualTo(PixelRect.FromRect(bounds, density).Position));
+            Assert.That(footprints.Allocation.Size, Is.EqualTo(footprints.BackingSize));
+            Assert.That(footprints.TranslatedDeviceBounds, Is.EqualTo(footprints.Allocation));
+            Assert.That(
+                footprints.TranslatedRasterBounds,
+                Is.EqualTo(footprints.InitialRasterBounds.Translate(translation)));
+            Assert.That(footprints.TranslatedRasterBounds.Size, Is.EqualTo(footprints.InitialRasterBounds.Size));
+            Assert.That(footprints.InitialRasterBounds.Position, Is.EqualTo(bounds.Position));
+            Assert.That(footprints.TranslatedBounds.Size, Is.EqualTo(bounds.Size));
         });
     }
 
@@ -83,11 +105,6 @@ public sealed class RasterFootprintContractTests
                 contextType.GetMethod(
                     nameof(CustomFilterEffectContext.CreateTargetLike),
                     [typeof(EffectTarget)]),
-                Is.Not.Null);
-            Assert.That(
-                contextType.GetMethod(
-                    nameof(CustomFilterEffectContext.CreateReplacement),
-                    [typeof(EffectTarget), typeof(RenderTarget)]),
                 Is.Not.Null);
             Assert.That(
                 contextType.GetMethod(
@@ -161,5 +178,41 @@ public sealed class RasterFootprintContractTests
                     nameof(ShaderExecutionContext.DeviceGridOffset)),
                 Is.Not.Null);
         });
+    }
+
+    private readonly record struct TargetFootprints(
+        PixelRect Allocation,
+        PixelSize BackingSize,
+        Rect InitialRasterBounds,
+        PixelRect TranslatedDeviceBounds,
+        Rect TranslatedRasterBounds,
+        Rect TranslatedBounds);
+
+    // A plugin author's effect that hands its custom-effect context to the test.
+    [SuppressResourceClassGeneration]
+    private sealed partial class CustomEffectProbe(Action<CustomFilterEffectContext> run) : FilterEffect
+    {
+        public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
+            => context.CustomEffect(
+                new ProbeAction(run),
+                static (probe, execution) => probe.Run(execution),
+                static (_, value) => value);
+
+        public override Resource ToResource(CompositionContext context)
+        {
+            var created = new Resource();
+            bool versionBumped = false;
+            created.Reconcile(this, context, ref versionBumped);
+            return created;
+        }
+
+        public new sealed class Resource : FilterEffect.Resource;
+    }
+
+    private sealed class ProbeAction(Action<CustomFilterEffectContext> run) : IEquatable<ProbeAction>
+    {
+        public void Run(CustomFilterEffectContext context) => run(context);
+
+        public bool Equals(ProbeAction? other) => ReferenceEquals(this, other);
     }
 }

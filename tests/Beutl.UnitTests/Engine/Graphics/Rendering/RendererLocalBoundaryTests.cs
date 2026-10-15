@@ -113,10 +113,16 @@ public class RendererLocalBoundaryTests
         ((Blur)((FilterEffectGroup)rect.FilterEffect.CurrentValue!).Children[0]).Sigma.CurrentValue = new Size(20, 20);
         // The divisor is 1 - 0.012 * (x - 50) about the rectangle's centre: from 0.4 to 1.6 across its 100 px,
         // and below zero 60 px further right, where the blur still draws.
-        rect.Transform.CurrentValue = new MatrixTransform(new Matrix(
-            1, 0, -0.012f,
-            0, 1, 0,
-            0, 0, 1));
+        rect.Transform.CurrentValue = new MatrixTransform
+        {
+            Matrix =
+            {
+                CurrentValue = new Matrix(
+                    1, 0, -0.012f,
+                    0, 1, 0,
+                    0, 0, 1),
+            },
+        };
 
         (Rect? boundary, (Rect Bounds, Matrix Transform)? local) = QueryFrame(
             Width,

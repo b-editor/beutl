@@ -48,32 +48,6 @@ public sealed class RenderTargetFactoryReachTests
     }
 
     [Test]
-    public void EffectItemGeometryStage_AllocatesThroughTheFactory()
-    {
-        using EffectTargets targets = CreateSolidTargets(s_bounds);
-        var factory = new FailureTestTargetFactory();
-        using var registry = new RenderTargetPool(factory);
-        using RenderTargetLeaseSession session = registry.BeginSession(RenderIntent.Preview);
-
-        FilterEffectStageFallbackExecutor.ApplyGeometry(
-            targets,
-            GeometryDescription.CreateRequestLocal(
-                static session => session.Canvas.Use(static canvas => canvas.Clear()),
-                RenderBoundsContract.Identity,
-                RenderHitTestContract.AnyInput),
-            outputScale: 1,
-            workingScale: 1,
-            maxWorkingScale: 1,
-            RenderIntent.Preview,
-            RenderRequestPurpose.Auxiliary,
-            session,
-            budget: BufferDimensionBudget.Resolve(BufferBudgetScope.Allocation));
-
-        Assert.That(factory.Targets, Is.Not.Empty,
-            "A typed geometry stage must ask the caller's factory for its output surface.");
-    }
-
-    [Test]
     public void CustomEffectTargets_AllocateThroughTheFactory()
     {
         using EffectTargets targets = CreateSolidTargets(s_bounds);

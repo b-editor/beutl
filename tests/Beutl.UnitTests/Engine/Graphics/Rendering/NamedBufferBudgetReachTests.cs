@@ -36,26 +36,6 @@ public sealed class NamedBufferBudgetReachTests
     }
 
     [Test]
-    public void TypedGeometryStage_ClampsToTheNamedBudget()
-    {
-        using EffectTargets targets = CreateSolidTargets(s_bounds);
-        var effect = new EffectItemSuffixCallbackFilterEffect((context, _) =>
-            context.Geometry(GeometryDescription.CreateRequestLocal(
-                static session => session.Canvas.Use(session.Input.Draw),
-                RenderBoundsContract.Identity,
-                RenderHitTestContract.AnyInput)));
-
-        Apply(effect, targets, BufferDimensionBudget.Named(TestBufferDimension));
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(targets, Has.Count.EqualTo(1));
-            Assert.That(targets[0].DeviceBounds.Width, Is.LessThanOrEqualTo(TestBufferDimension));
-            Assert.That(targets[0].Scale.Value, Is.LessThan(1f));
-        });
-    }
-
-    [Test]
     public void NestedActivation_ClampsToTheNamedBudget()
     {
         PixelSize observed = default;

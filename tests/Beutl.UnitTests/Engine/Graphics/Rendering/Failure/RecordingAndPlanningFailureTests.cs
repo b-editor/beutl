@@ -190,12 +190,11 @@ public sealed class RecordingAndPlanningFailureTests
             context.ApplyTransactional(() =>
             {
                 _ = context.Own(resource);
-                context.Geometry(GeometryDescription.CreateRequestLocal(
-                    static _ => { },
+                context.Shader(ShaderDescription.WholeSource(
+                    "uniform shader src; half4 main(float2 coord) { return src.eval(coord); }",
                     RenderBoundsContract.Create(
                         static bounds => bounds.Inflate(new Thickness(3)),
-                        static bounds => bounds.Inflate(new Thickness(3))),
-                    RenderHitTestContract.AnyInput));
+                        static bounds => bounds.Inflate(new Thickness(3)))));
                 throw failure;
             }));
 
@@ -454,11 +453,10 @@ public sealed class RecordingAndPlanningFailureTests
             RenderBoundsContract bounds = failurePoint == BoundsFailure.Forward
                 ? RenderBoundsContract.Create(ThrowForward, static value => value)
                 : RenderBoundsContract.Create(static value => value, ThrowBackward);
-            GeometryDescription geometry = GeometryDescription.CreateRequestLocal(
-                static _ => { },
-                bounds,
-                RenderHitTestContract.AnyInput);
-            context.Publish(context.Geometry(source, geometry));
+            ShaderDescription shader = ShaderDescription.WholeSource(
+                "uniform shader src; half4 main(float2 coord) { return src.eval(coord); }",
+                bounds);
+            context.Publish(context.Shader(source, shader));
         }
     }
 

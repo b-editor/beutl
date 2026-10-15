@@ -115,8 +115,9 @@ public sealed class PerspectiveNearPlaneCrossingTests
         shape.Width.CurrentValue = width;
         shape.Height.CurrentValue = height;
         shape.Fill.CurrentValue = Brushes.White;
-        shape.Transform.CurrentValue = new Rotation3DTransform(0f, rotationY, 0f, 0f, 0f, 0f)
+        shape.Transform.CurrentValue = new Rotation3DTransform
         {
+            RotationY = { CurrentValue = rotationY },
             Depth = { CurrentValue = depth },
         };
         return shape;

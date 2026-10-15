@@ -111,7 +111,6 @@ internal sealed partial class RenderRequestExecutor
                     or RenderFragmentKind.OpaqueExpand => ExecuteOpaque(fragment, currentTarget, requestedScale),
                 RenderFragmentKind.FilterEffectSegment => ExecuteEffectItem(fragment, currentTarget, requestedScale),
                 RenderFragmentKind.Shader => ExecuteShader(fragment, currentTarget, requestedScale),
-                RenderFragmentKind.Geometry => ExecuteGeometry(fragment, currentTarget, requestedScale),
                 RenderFragmentKind.Opacity or RenderFragmentKind.OpacityMask
                     => MaterializeOpacityComposite(fragment, currentTarget, requestedScale),
                 RenderFragmentKind.Layer => MaterializeLayer(fragment, currentTarget, requestedScale),

@@ -27,9 +27,4 @@ public sealed partial class RotationTransform : Transform
         float rot = context.Get(Rotation);
         return Matrix.CreateRotation(MathUtilities.Deg2Rad(rot));
     }
-
-    public static RotationTransform FromRadians(float radians)
-    {
-        return new RotationTransform(MathUtilities.Rad2Deg(radians));
-    }
 }

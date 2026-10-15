@@ -9,11 +9,6 @@ public class TextElements : IReadOnlyList<TextElement>, IDisposable
 {
     private readonly TextElement[] _array;
 
-    public TextElements(IEnumerable<TextElement> items)
-        : this(items.ToArray())
-    {
-    }
-
     internal TextElements(TextElement[] array)
     {
         _array = array;
@@ -161,12 +156,6 @@ public class TextElements : IReadOnlyList<TextElement>, IDisposable
             _prevIndex = index;
 
             return _index < _arrayCount;
-        }
-
-        public void Reset()
-        {
-            _index = 0;
-            _count = 0;
         }
 
         public void Dispose()

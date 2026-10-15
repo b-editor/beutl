@@ -413,7 +413,7 @@ public class TransformHandlesOverlayTests
                 scaled.Width.CurrentValue = 160;
                 scaled.Height.CurrentValue = 100;
                 var layout = (TransformGroup)scaled.Transform.CurrentValue!;
-                layout.Children.Add(new ScaleTransform(100, 100, 106));
+                layout.Children.Add(new ScaleTransform { ScaleX = { CurrentValue = 100 }, ScaleY = { CurrentValue = 100 }, Scale = { CurrentValue = 106 } });
                 layout.Children.Add(new TranslateTransform(0, -60));
                 return scaled;
 
@@ -434,7 +434,7 @@ public class TransformHandlesOverlayTests
                 var canonical = (TransformGroup)big.Transform.CurrentValue!;
                 canonical.Children.Add(new TranslateTransform());
                 canonical.Children.Add(new RotationTransform(30));
-                canonical.Children.Add(new ScaleTransform(200, 200));
+                canonical.Children.Add(new ScaleTransform { ScaleX = { CurrentValue = 200 }, ScaleY = { CurrentValue = 200 } });
                 return big;
 
             case Content.Thin:

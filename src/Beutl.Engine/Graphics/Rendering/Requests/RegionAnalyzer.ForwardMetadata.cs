@@ -228,9 +228,6 @@ internal sealed partial class RegionAnalyzer
             RenderFragmentKind.Shader
                 => ((ShaderRenderFragmentPayload)reference.Payload!).Description.Bounds
                     .TransformBounds(reference.Inputs[0].Bounds),
-            RenderFragmentKind.Geometry
-                => ((GeometryRenderFragmentPayload)reference.Payload!).Description.Bounds
-                    .TransformBounds(reference.Inputs[0].Bounds),
             RenderFragmentKind.Layer
                 => ResolveLayerBounds(
                     reference,
@@ -292,17 +289,6 @@ internal sealed partial class RegionAnalyzer
                         return reference.Inputs[0].EffectiveScale;
 
                     return ResolveMaterializedScale(InputScales(reference), resolvedBounds, options);
-                }
-            case RenderFragmentKind.Geometry:
-                {
-                    var payload = (GeometryRenderFragmentPayload)reference.Payload!;
-                    return payload.WorkingScalePolicy is { } policy
-                        ? policy.Resolve(
-                            reference.Inputs,
-                            resolvedBounds,
-                            options.OutputScale,
-                            options.MaxWorkingScale)
-                        : ResolveMaterializedScale(InputScales(reference), resolvedBounds, options);
                 }
             case RenderFragmentKind.FilterEffectSegment:
                 {
@@ -389,8 +375,6 @@ internal sealed partial class RegionAnalyzer
                 => RenderFragmentHitTest.Inputs,
             RenderFragmentKind.Shader
                 => ((ShaderRenderFragmentPayload)reference.Payload!).Description.CreateFragmentHitTest(),
-            RenderFragmentKind.Geometry
-                => FromDescription(((GeometryRenderFragmentPayload)reference.Payload!).Description),
             RenderFragmentKind.OpaqueSource
                 or RenderFragmentKind.OpaqueMap
                 or RenderFragmentKind.OpaqueCombine
@@ -421,9 +405,6 @@ internal sealed partial class RegionAnalyzer
                 $"Fragment kind '{reference.Kind}' has no symbolic hit-test lowering rule."),
         };
     }
-
-    private static RenderFragmentHitTest FromDescription(GeometryDescription description)
-        => RenderFragmentHitTest.FromContract(description.HitTest, description.Resources);
 
     private static RenderFragmentHitTest FromDescription(OpaqueRenderDescription description)
         => RenderFragmentHitTest.FromContract(description.HitTest, description.Resources);

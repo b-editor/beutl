@@ -145,9 +145,8 @@ public sealed class FusionBoundaryTests
     }
 
     [Test]
-    public void GeometryAndTargetCaptureRemainExplicitBarriers()
+    public void TargetCaptureRemainsAnExplicitBarrier()
     {
-        AssertBarrier(RenderFragmentKind.Geometry, GeometryPayload());
         AssertBarrier(RenderFragmentKind.TargetCapture, TargetCapturePayload());
     }
 
@@ -450,15 +449,6 @@ public sealed class FusionBoundaryTests
             RenderFragmentKind.Shader,
             new ShaderRenderFragmentPayload(description),
             input);
-    }
-
-    private static GeometryRenderFragmentPayload GeometryPayload()
-    {
-        GeometryDescription description = GeometryDescription.CreateRequestLocal(
-            static _ => { },
-            RenderBoundsContract.Identity,
-            RenderHitTestContract.OutputBounds);
-        return new GeometryRenderFragmentPayload(description);
     }
 
     private static OpaqueRenderFragmentPayload OpaquePayload(

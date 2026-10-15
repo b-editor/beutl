@@ -119,7 +119,6 @@ public sealed class NodeCapturingMetadataCallbackTests
         yield return Uninitialized<RenderCallbackCanvas>();
         yield return Uninitialized<OpaqueRenderSession>();
         yield return Uninitialized<OpaqueRenderOutput>();
-        yield return Uninitialized<GeometrySession>();
         yield return Uninitialized<ShaderExecutionContext>();
         yield return Uninitialized<ShaderUniformWriter>();
         yield return Uninitialized<ShaderResourceWriter>();

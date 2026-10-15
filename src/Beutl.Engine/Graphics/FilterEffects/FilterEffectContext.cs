@@ -105,33 +105,6 @@ public sealed partial class FilterEffectContext : IDisposable
         _items = [];
     }
 
-    private FilterEffectContext(FilterEffectContext obj)
-    {
-        OriginalBounds = obj.OriginalBounds;
-        _bounds = obj._bounds;
-        OutputScale = obj.OutputScale;
-        _resolvedWorkingScale = obj._resolvedWorkingScale;
-        _workingScaleResolver = obj._workingScaleResolver;
-        _hasResolvedWorkingScale = obj._hasResolvedWorkingScale;
-        _resourceState = obj._resourceState.AddReference();
-        _renderTimeItems = new PooledList<IFEItem>(obj._renderTimeItems);
-        _items = new PooledList<IFEItem>(obj._items);
-    }
-
-    private FilterEffectContext(
-        FilterEffectContext obj,
-        Rect bounds)
-    {
-        OriginalBounds = _bounds = bounds;
-        OutputScale = obj.OutputScale;
-        _resolvedWorkingScale = obj._resolvedWorkingScale;
-        _workingScaleResolver = obj._workingScaleResolver;
-        _hasResolvedWorkingScale = obj._hasResolvedWorkingScale;
-        _resourceState = obj._resourceState.AddReference();
-        _renderTimeItems = [];
-        _items = [];
-    }
-
     private Rect _bounds;
 
     internal Rect Bounds => _bounds;
@@ -152,7 +125,7 @@ public sealed partial class FilterEffectContext : IDisposable
     /// <exception cref="InvalidOperationException">
     /// The effect is being authored against unresolved or branch-dependent input metadata, so one final working
     /// scale is not available. Use <see cref="TryGetWorkingScale"/> to probe availability and defer device-pixel
-    /// math to execution-time shader, geometry, or custom-effect callbacks.
+    /// math to execution-time shader or custom-effect callbacks.
     /// </exception>
     public float WorkingScale
         => TryGetWorkingScale(out float workingScale)
@@ -179,18 +152,6 @@ public sealed partial class FilterEffectContext : IDisposable
             ? _workingScaleResolver?.Value ?? _resolvedWorkingScale
             : default;
         return _hasResolvedWorkingScale;
-    }
-
-    public FilterEffectContext Clone()
-    {
-        ThrowIfDisposed();
-        return new FilterEffectContext(this);
-    }
-
-    public FilterEffectContext CreateChildContext()
-    {
-        ThrowIfDisposed();
-        return new FilterEffectContext(this, _bounds);
     }
 
     private void AddItem(IFEItem item)
@@ -220,21 +181,7 @@ public sealed partial class FilterEffectContext : IDisposable
         AppendDescription(new FEItem_Shader(description));
     }
 
-    /// <summary>Appends one deferred geometry operation to this filter-effect stream.</summary>
-    /// <param name="description">
-    /// The non-null immutable geometry contract. Every declared resource must belong to this context's family.
-    /// </param>
-    public void Geometry(GeometryDescription description)
-    {
-        ArgumentNullException.ThrowIfNull(description);
-        _resourceState.ValidateResources(
-            description.Resources,
-            static binding => binding.Resource,
-            nameof(description));
-        AppendDescription(new FEItem_Geometry(description));
-    }
-
-    public RenderResource<T> Own<T>(T resource)
+    internal RenderResource<T> Own<T>(T resource)
         where T : class, IDisposable
     {
         ThrowIfDisposed();
@@ -328,7 +275,7 @@ public sealed partial class FilterEffectContext : IDisposable
         _bounds = Rect.Invalid;
     }
 
-    public int CountItems()
+    internal int CountItems()
     {
         return _items.Count + _renderTimeItems.Count;
     }

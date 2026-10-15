@@ -33,7 +33,6 @@ internal static class RenderIdentityKeyValidator
             or RenderCallbackCanvas
             or OpaqueRenderSession
             or OpaqueRenderOutput
-            or GeometrySession
             or ShaderExecutionContext
             or ShaderUniformWriter
             or ShaderResourceWriter

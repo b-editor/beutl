@@ -15,22 +15,6 @@ public sealed partial class Rotation3DTransform : Transform
         ScanProperties<Rotation3DTransform>();
     }
 
-    public Rotation3DTransform(
-        float rotationX,
-        float rotationY,
-        float rotationZ,
-        float centerX,
-        float centerY,
-        float centerZ) : this()
-    {
-        RotationX.CurrentValue = rotationX;
-        RotationY.CurrentValue = rotationY;
-        RotationZ.CurrentValue = rotationZ;
-        CenterX.CurrentValue = centerX;
-        CenterY.CurrentValue = centerY;
-        CenterZ.CurrentValue = centerZ;
-    }
-
     [Display(Name = nameof(GraphicsStrings.Rotation3DTransform_RotationX), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> RotationX { get; } = Property.CreateAnimatable<float>();
 

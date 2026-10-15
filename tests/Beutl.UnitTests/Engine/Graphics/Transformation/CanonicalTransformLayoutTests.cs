@@ -20,7 +20,7 @@ public class CanonicalTransformLayoutTests
     {
         var t = new TranslateTransform(5f, 5f);
         var r = new RotationTransform(45f);
-        var s = new ScaleTransform(150f, 150f);
+        var s = new ScaleTransform { ScaleX = { CurrentValue = 150f }, ScaleY = { CurrentValue = 150f } };
         var group = new TransformGroup();
         foreach (char kind in order)
         {
@@ -106,7 +106,7 @@ public class CanonicalTransformLayoutTests
     public void Ensure_OnlyScale_InsertsTranslateAndRotationAtFront()
     {
         var drawable = CreateDrawable();
-        var existing = new ScaleTransform(200f, 200f);
+        var existing = new ScaleTransform { ScaleX = { CurrentValue = 200f }, ScaleY = { CurrentValue = 200f } };
         var group = new TransformGroup();
         group.Children.Add(existing);
         drawable.Transform.CurrentValue = group;
@@ -129,7 +129,7 @@ public class CanonicalTransformLayoutTests
     public void Ensure_SkewAndTranslate_PreservesSkewAndAppendsAfterT()
     {
         var drawable = CreateDrawable();
-        var skew = new SkewTransform(15f, 0f);
+        var skew = new SkewTransform { SkewX = { CurrentValue = 15f }, SkewY = { CurrentValue = 0f } };
         var translate = new TranslateTransform(10f, 20f);
         var group = new TransformGroup();
         group.Children.Add(skew);
@@ -185,8 +185,8 @@ public class CanonicalTransformLayoutTests
         var drawable = CreateDrawable();
         var r1 = new RotationTransform(10f);
         var r2 = new RotationTransform(20f);
-        var s1 = new ScaleTransform(150f, 150f);
-        var s2 = new ScaleTransform(80f, 80f);
+        var s1 = new ScaleTransform { ScaleX = { CurrentValue = 150f }, ScaleY = { CurrentValue = 150f } };
+        var s2 = new ScaleTransform { ScaleX = { CurrentValue = 80f }, ScaleY = { CurrentValue = 80f } };
         var t = new TranslateTransform(5f, 5f);
         var group = new TransformGroup();
         group.Children.Add(r1);
@@ -220,7 +220,7 @@ public class CanonicalTransformLayoutTests
         // [T, S] is missing R. Insert R right after T(0) → [T, R_new, S].
         var drawable = CreateDrawable();
         var t = new TranslateTransform(10f, 20f);
-        var s = new ScaleTransform(400f, 200f);
+        var s = new ScaleTransform { ScaleX = { CurrentValue = 400f }, ScaleY = { CurrentValue = 200f } };
         var group = new TransformGroup();
         group.Children.Add(t);
         group.Children.Add(s);
@@ -276,7 +276,7 @@ public class CanonicalTransformLayoutTests
         var drawable = CreateDrawable();
         var tCanonical = new TranslateTransform(50f, 50f);
         var r = new RotationTransform(45f);
-        var s = new ScaleTransform(150f, 150f);
+        var s = new ScaleTransform { ScaleX = { CurrentValue = 150f }, ScaleY = { CurrentValue = 150f } };
         var tExtra = new TranslateTransform(10f, 0f);
         var group = new TransformGroup();
         group.Children.Add(tCanonical);
@@ -350,7 +350,7 @@ public class CanonicalTransformLayoutTests
     public void FindCanonicalTransforms_DoesNotMutateGroup()
     {
         var t = new TranslateTransform(10f, 20f);
-        var s = new ScaleTransform(400f, 200f);
+        var s = new ScaleTransform { ScaleX = { CurrentValue = 400f }, ScaleY = { CurrentValue = 200f } };
         var group = new TransformGroup();
         group.Children.Add(t);
         group.Children.Add(s);
@@ -386,7 +386,7 @@ public class CanonicalTransformLayoutTests
     {
         // [T, S] (missing R) → R is null; T and S return their first occurrences.
         var t = new TranslateTransform(10f, 20f);
-        var s = new ScaleTransform(400f, 200f);
+        var s = new ScaleTransform { ScaleX = { CurrentValue = 400f }, ScaleY = { CurrentValue = 200f } };
         var group = new TransformGroup();
         group.Children.Add(t);
         group.Children.Add(s);
@@ -436,7 +436,7 @@ public class CanonicalTransformLayoutTests
         var enabledT = new TranslateTransform(30f, 40f);
         var disabledR = new RotationTransform(15f) { IsEnabled = false };
         var enabledR = new RotationTransform(45f);
-        var s = new ScaleTransform(150f, 150f);
+        var s = new ScaleTransform { ScaleX = { CurrentValue = 150f }, ScaleY = { CurrentValue = 150f } };
         var group = new TransformGroup();
         group.Children.Add(disabledT);
         group.Children.Add(enabledT);
@@ -475,7 +475,7 @@ public class CanonicalTransformLayoutTests
         var drawable = CreateDrawable();
         var disabledT = new TranslateTransform(10f, 20f) { IsEnabled = false };
         var disabledR = new RotationTransform(30f) { IsEnabled = false };
-        var disabledS = new ScaleTransform(200f, 200f) { IsEnabled = false };
+        var disabledS = new ScaleTransform { ScaleX = { CurrentValue = 200f }, ScaleY = { CurrentValue = 200f }, IsEnabled = false };
         var group = new TransformGroup();
         group.Children.Add(disabledT);
         group.Children.Add(disabledR);

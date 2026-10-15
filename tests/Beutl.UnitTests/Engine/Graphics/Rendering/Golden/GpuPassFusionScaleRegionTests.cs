@@ -163,7 +163,7 @@ public sealed class GpuPassFusionScaleRegionTests
     }
 
     [Test]
-    public void TypedGeometryShaderAndTargetScope_ReceiveTheCroppedRuntimeRequirement()
+    public void TypedShaderAndTargetScope_ReceiveTheCroppedRuntimeRequirement()
     {
         var declaredBounds = new Rect(10, 20, 12, 8);
         var requestedRegion = new Rect(12, 22, 4, 3);
@@ -187,10 +187,6 @@ public sealed class GpuPassFusionScaleRegionTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(node.GeometryOutputBounds, Is.EqualTo(declaredBounds));
-            Assert.That(node.GeometryRequiredRegion, Is.EqualTo(requestedRegion));
-            Assert.That(node.GeometryDeviceBounds, Is.EqualTo(expectedDeviceBounds));
-            Assert.That(node.GeometryCanvasBounds, Is.EqualTo(requestedRegion));
             Assert.That(node.ShaderInputBounds, Is.EqualTo(requestedRegion));
             Assert.That(node.ShaderOutputBounds, Is.EqualTo(declaredBounds));
             Assert.That(node.ShaderRequiredRegion, Is.EqualTo(requestedRegion));
@@ -668,14 +664,6 @@ public sealed class GpuPassFusionScaleRegionTests
     {
         public int TotalCallbackCount { get; private set; }
 
-        public Rect GeometryOutputBounds { get; private set; }
-
-        public Rect GeometryRequiredRegion { get; private set; }
-
-        public PixelRect GeometryDeviceBounds { get; private set; }
-
-        public Rect GeometryCanvasBounds { get; private set; }
-
         public Rect ShaderInputBounds { get; private set; }
 
         public Rect ShaderOutputBounds { get; private set; }
@@ -695,19 +683,6 @@ public sealed class GpuPassFusionScaleRegionTests
         public override void Process(RenderNodeContext context)
         {
             RenderFragmentHandle source = context.OpaqueSource(CreateRoiSourceDescription(bounds));
-            GeometryDescription geometry = GeometryDescription.CreateRequestLocal(
-                session =>
-                {
-                    TotalCallbackCount++;
-                    GeometryOutputBounds = session.OutputBounds;
-                    GeometryRequiredRegion = session.RequiredRegion;
-                    GeometryDeviceBounds = session.DeviceBounds;
-                    GeometryCanvasBounds = session.Canvas.LogicalBounds;
-                    session.Canvas.Use(session.Input.Draw);
-                },
-                RenderBoundsContract.Identity,
-                RenderHitTestContract.AnyInput);
-            RenderFragmentHandle current = context.Geometry(source, geometry);
             ShaderDescription shader = ShaderDescription.CurrentPixel(
                 "uniform float gain; half4 apply(half4 color) { return color * gain; }",
                 bindings => bindings.Uniform(
@@ -722,7 +697,7 @@ public sealed class GpuPassFusionScaleRegionTests
                         ShaderDeviceBounds = execution.DeviceBounds;
                         writer.Set(value);
                     }));
-            current = context.Shader(current, shader);
+            RenderFragmentHandle current = context.Shader(source, shader);
             TargetScopeDescription scope = TargetScopeDescription.CreateRequestLocal(
                 session =>
                 {

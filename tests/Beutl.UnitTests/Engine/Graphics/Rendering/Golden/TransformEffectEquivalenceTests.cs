@@ -119,7 +119,7 @@ public class TransformEffectEquivalenceTests
             {
                 CurrentValue = transformKind switch
                 {
-                    TransformKind.FractionalScale => new ScaleTransform(60, 60),
+                    TransformKind.FractionalScale => new ScaleTransform { ScaleX = { CurrentValue = 60 }, ScaleY = { CurrentValue = 60 } },
                     TransformKind.Rotation5 => new RotationTransform(5),
                     TransformKind.NearIdentityRotation => new RotationTransform(0.5f),
                     TransformKind.QuarterTurnRotation => new RotationTransform(90f),

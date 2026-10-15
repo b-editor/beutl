@@ -251,7 +251,7 @@ public sealed class SymbolicOwningDomainTests
     }
 
     [Test]
-    public void UnknownEffectItem_KeepsShaderAndGeometrySuffixInOneOpaqueSegment()
+    public void UnknownEffectItem_KeepsTypedShaderSuffixInOneOpaqueSegment()
     {
         var effect = new SymbolicDomainFilterEffect { AppendTypedSuffix = true };
         using FilterEffectRenderNode root = CreateFilter(effect, new Rect(5, 6, 20, 12));
@@ -268,17 +268,17 @@ public sealed class SymbolicOwningDomainTests
         Assert.Multiple(() =>
         {
             Assert.That(references.Any(static reference =>
-                reference.Kind is RenderFragmentKind.Shader or RenderFragmentKind.Geometry), Is.False);
+                reference.Kind is RenderFragmentKind.Shader), Is.False);
             Assert.That(items, Has.Length.EqualTo(3));
             Assert.That(items[0], Is.InstanceOf<IFEItem_Custom>());
             Assert.That(items[1], Is.InstanceOf<FEItem_Shader>());
-            Assert.That(items[2], Is.InstanceOf<FEItem_Geometry>());
+            Assert.That(items[2], Is.InstanceOf<FEItem_Shader>());
             Assert.That(effectItem.Bounds, Is.EqualTo(s_rootDomain));
         });
     }
 
     [Test]
-    public void BuiltInBackdrop_DerivedShaderGeometryFanOut_UsesProducerDomain()
+    public void BuiltInBackdrop_DerivedShaderFanOut_UsesProducerDomain()
     {
         var producerDomain = new Rect(0, 0, 40, 30);
         var secondConsumerDomain = new Rect(20, 0, 40, 30);
@@ -289,9 +289,13 @@ public sealed class SymbolicOwningDomainTests
         RenderFragmentReference capture = references.Single(static reference =>
             reference.Kind == RenderFragmentKind.BuiltInBackdropCapture);
         RenderFragmentReference shader = references.Single(static reference =>
-            reference.Kind == RenderFragmentKind.Shader);
-        RenderFragmentReference geometry = references.Single(static reference =>
-            reference.Kind == RenderFragmentKind.Geometry);
+            reference.Kind == RenderFragmentKind.Shader
+            && ((ShaderRenderFragmentPayload)reference.Payload!).Description.Kind
+                == ShaderDescriptionKind.CurrentPixel);
+        RenderFragmentReference wholeSource = references.Single(static reference =>
+            reference.Kind == RenderFragmentKind.Shader
+            && ((ShaderRenderFragmentPayload)reference.Payload!).Description.Kind
+                == ShaderDescriptionKind.WholeSource);
         RenderFragmentReference[] layers = references
             .Where(static reference => reference.Kind == RenderFragmentKind.Layer)
             .ToArray();
@@ -300,7 +304,7 @@ public sealed class SymbolicOwningDomainTests
         {
             Assert.That(capture.Bounds, Is.EqualTo(producerDomain));
             Assert.That(shader.Bounds, Is.EqualTo(producerDomain));
-            Assert.That(geometry.Bounds, Is.EqualTo(producerDomain));
+            Assert.That(wholeSource.Bounds, Is.EqualTo(producerDomain));
             Assert.That(layers.Single(reference =>
                     ((LayerRenderFragmentPayload)reference.Payload!).Domain == producerDomain).Bounds,
                 Is.EqualTo(producerDomain));
@@ -554,13 +558,12 @@ public sealed class SymbolicOwningDomainTests
             RenderFragmentHandle shader = context.Shader(
                 capture,
                 ShaderDescription.CurrentPixel(IdentityShader));
-            RenderFragmentHandle geometry = context.Geometry(
+            RenderFragmentHandle wholeSource = context.Shader(
                 shader,
-                GeometryDescription.CreateRequestLocal(
-                    static _ => { },
-                    RenderBoundsContract.Identity,
-                    RenderHitTestContract.AnyInput));
-            RenderFragmentHandle contributing = context.ContributeValues(geometry);
+                ShaderDescription.WholeSource(
+                    "uniform shader src; half4 main(float2 coord) { return src.eval(coord); }",
+                    RenderBoundsContract.Identity));
+            RenderFragmentHandle contributing = context.ContributeValues(wholeSource);
             context.Publish(context.Layer([contributing], producerDomain));
             context.Publish(context.Layer([contributing], secondConsumerDomain));
         }
@@ -623,10 +626,9 @@ internal sealed partial class SymbolicDomainFilterEffect : FilterEffect
             return;
 
         context.Shader(ShaderDescription.CurrentPixel(IdentityShader));
-        context.Geometry(GeometryDescription.CreateRequestLocal(
-            static _ => { },
-            RenderBoundsContract.Identity,
-            RenderHitTestContract.AnyInput));
+        context.Shader(ShaderDescription.WholeSource(
+            "uniform shader src; half4 main(float2 coord) { return src.eval(coord); }",
+            RenderBoundsContract.Identity));
     }
 
     public override Resource ToResource(CompositionContext context)

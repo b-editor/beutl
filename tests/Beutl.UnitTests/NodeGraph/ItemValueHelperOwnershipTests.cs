@@ -15,7 +15,7 @@ public sealed class ItemValueHelperOwnershipTests
     {
         var owner = new TestHierarchy();
         var consumer = new TestHierarchy();
-        var borrowed = new MatrixTransform(Matrix.CreateTranslation(1, 2));
+        var borrowed = new MatrixTransform { Matrix = { CurrentValue = Matrix.CreateTranslation(1, 2) } };
         ((IModifiableHierarchical)owner).AddChild(borrowed);
         using var value = new ItemValue<Transform?>();
         value.AcceptMatrix(consumer);

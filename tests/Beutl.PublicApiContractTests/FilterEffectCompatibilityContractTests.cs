@@ -17,122 +17,6 @@ public sealed class FilterEffectCompatibilityContractTests
         ShaderDescription.CurrentPixel("half4 apply(half4 color) { return color; }");
 
     [Test]
-    public void ExecutionContexts_RequireExplicitIntentAndPurpose()
-    {
-        using var targets = new EffectTargets();
-        using var builder = new SKImageFilterBuilder();
-        using var executor = new FilterEffectExecutor(
-            targets,
-            builder,
-            RenderIntent.Preview,
-            RenderRequestPurpose.Frame,
-            drawableBrushMaterializer: null);
-        using var unboundedCeilingExecutor = new FilterEffectExecutor(
-            targets,
-            builder,
-            RenderIntent.Preview,
-            RenderRequestPurpose.CacheWarmup,
-            drawableBrushMaterializer: null,
-            maxWorkingScale: float.PositiveInfinity);
-        using var deliveryExecutor = new FilterEffectExecutor(
-            targets,
-            builder,
-            RenderIntent.Delivery,
-            RenderRequestPurpose.Auxiliary,
-            drawableBrushMaterializer: null,
-            maxWorkingScale: 2);
-
-        Type[] expectedParameterTypes =
-        [
-            typeof(EffectTargets),
-            typeof(SKImageFilterBuilder),
-            typeof(RenderIntent),
-            typeof(RenderRequestPurpose),
-            typeof(DrawableBrushMaterializer),
-            typeof(float),
-            typeof(float),
-            typeof(float),
-            typeof(Rect?),
-        ];
-        System.Reflection.ParameterInfo[] constructorParameters = typeof(FilterEffectExecutor)
-            .GetConstructors()
-            .Single()
-            .GetParameters();
-        Type[] actualParameterTypes = constructorParameters
-            .Select(static parameter => parameter.ParameterType)
-            .ToArray();
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(executor.Intent, Is.EqualTo(RenderIntent.Preview));
-            Assert.That(executor.Purpose, Is.EqualTo(RenderRequestPurpose.Frame));
-            Assert.That(unboundedCeilingExecutor.Intent, Is.EqualTo(RenderIntent.Preview),
-                "an unbounded working-scale ceiling must not promote a caller to delivery fail-fast");
-            Assert.That(unboundedCeilingExecutor.Purpose, Is.EqualTo(RenderRequestPurpose.CacheWarmup));
-            Assert.That(deliveryExecutor.Intent, Is.EqualTo(RenderIntent.Delivery),
-                "a finite working-scale ceiling must not demote an explicit delivery intent");
-            Assert.That(deliveryExecutor.Purpose, Is.EqualTo(RenderRequestPurpose.Auxiliary));
-            Assert.That(actualParameterTypes, Is.EqualTo(expectedParameterTypes),
-                "the only public constructor must require both execution classifications and the brush materializer");
-            Assert.That(constructorParameters[2].IsOptional, Is.False);
-            Assert.That(constructorParameters[3].IsOptional, Is.False);
-            Assert.That(constructorParameters[4].IsOptional, Is.False,
-                "a materializer left implicit paints a DrawableBrush transparent instead of its content");
-            Assert.That(constructorParameters.Skip(5).All(static parameter => parameter.IsOptional), Is.True);
-            Assert.That(typeof(FilterEffectExecutor).GetProperty(nameof(FilterEffectExecutor.Intent))!.CanWrite,
-                Is.False);
-            Assert.That(typeof(FilterEffectExecutor).GetProperty(nameof(FilterEffectExecutor.Purpose))!.CanWrite,
-                Is.False);
-            Assert.That(typeof(CustomFilterEffectContext).GetProperty(nameof(CustomFilterEffectContext.Intent))!.CanWrite,
-                Is.False);
-            Assert.That(typeof(CustomFilterEffectContext).GetProperty(nameof(CustomFilterEffectContext.Purpose))!.CanWrite,
-                Is.False);
-        });
-    }
-
-    [Test]
-    public void ExplicitPurpose_ReachesTheCustomEffectCallback()
-    {
-        var bounds = new Rect(0, 0, 4, 4);
-        RenderRequestPurpose? observedPurpose = null;
-        using var renderTarget = new CpuRenderTarget(new PixelSize(4, 4));
-        using var targets = new EffectTargets
-        {
-            new EffectTarget(renderTarget, bounds, EffectiveScale.At(1)),
-        };
-        using var builder = new SKImageFilterBuilder();
-        using var executor = new FilterEffectExecutor(
-            targets,
-            builder,
-            RenderIntent.Delivery,
-            RenderRequestPurpose.CacheWarmup,
-            drawableBrushMaterializer: null);
-        using var context = new FilterEffectContext(bounds);
-        context.CustomEffect(
-            0,
-            (_, execution) => observedPurpose = execution.Purpose,
-            static (_, value) => value);
-
-        executor.Apply(context);
-
-        Assert.That(observedPurpose, Is.EqualTo(RenderRequestPurpose.CacheWarmup));
-    }
-
-    // Once bounds go symbolic the context defers further operations to a second list, but they still
-    // execute, so an authoring decision made from the public count has to see them.
-    [Test]
-    public void CountItems_IncludesOperationsAppendedAfterBoundsBecameSymbolic()
-    {
-        using var context = new FilterEffectContext(s_bounds, outputScale: 1, workingScale: 1);
-
-        context.CustomEffect(0, static (_, _) => { });
-        int beforeDeferral = context.CountItems();
-        context.CustomEffect(0, static (_, _) => { });
-
-        Assert.That(context.CountItems(), Is.EqualTo(beforeDeferral + 1));
-    }
-
-    [Test]
     public void ExistingApplyToEffect_RetainsEffectItemMembersAndDeferredExecution()
     {
         var executionOrder = new List<string>();
@@ -150,9 +34,6 @@ public sealed class FilterEffectCompatibilityContractTests
             Assert.That(context.WorkingScale, Is.EqualTo(1.5f));
             Assert.That(hasWorkingScale, Is.True);
             Assert.That(workingScale, Is.EqualTo(1.5f));
-            // Brightness(1) is an exact identity colour matrix and records no stage, so the effect-item
-            // fixture contributes four items rather than five.
-            Assert.That(context.CountItems(), Is.EqualTo(4));
             Assert.That(executionOrder, Is.Empty,
                 "ApplyTo must record effectItem custom work rather than execute it.");
         });

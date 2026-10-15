@@ -31,7 +31,6 @@ public sealed class DisplacementTransformAuthoringContractTests
         Assert.That(pluginResource, Is.Not.Null, "The effect resource must snapshot the plugin transform.");
 
         using var context = new FilterEffectContext(new Rect(0, 0, 8, 8));
-        int itemsBefore = context.CountItems();
 
         effect.ApplyTo(context, resource);
 
@@ -43,10 +42,6 @@ public sealed class DisplacementTransformAuthoringContractTests
             Assert.That(pluginResource.LastChannel, Is.EqualTo(DisplacementMapChannel.Green));
             Assert.That(pluginResource.LastSigned, Is.True);
             Assert.That(pluginResource.LastStrength, Is.EqualTo(0.25f));
-            Assert.That(
-                context.CountItems(),
-                Is.GreaterThan(itemsBefore),
-                "The stage the plugin recorded must reach the effect context.");
         });
     }
 }

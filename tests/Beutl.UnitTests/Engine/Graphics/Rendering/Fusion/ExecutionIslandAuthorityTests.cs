@@ -129,15 +129,14 @@ public sealed class ExecutionIslandAuthorityTests
         return maximum;
     }
 
-    [TestCase(false)]
-    [TestCase(true)]
-    public void DeclaredInputReadback_IsPlannedAndCountedOnlyAtActualUse(bool opaque)
+    [Test]
+    public void DeclaredInputReadback_IsPlannedAndCountedOnlyAtActualUse()
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             using RenderTarget source = FusionBoundaryExecutionTestSupport.CreatePatternSource(s_bounds);
-            using var node = new DeclaredInputReadbackNode(source, opaque);
+            using var node = new DeclaredInputReadbackNode(source);
             using FusionBoundaryExecutionResult result = FusionBoundaryExecutionTestSupport.Execute(
                 node,
                 s_bounds,
@@ -233,9 +232,9 @@ public sealed class ExecutionIslandAuthorityTests
             fixture.Graph.RequestId,
             [
                 Fragment(RenderFragmentKind.MaterializedInput, s_bounds, EffectiveScale.At(1), payload: null),
-                Fragment(RenderFragmentKind.Geometry, s_bounds, EffectiveScale.At(1), payload: null),
+                Fragment(RenderFragmentKind.FilterEffectSegment, s_bounds, EffectiveScale.At(1), payload: null),
                 Fragment(RenderFragmentKind.MaterializedInput, s_bounds, EffectiveScale.At(1), payload: null),
-                Fragment(RenderFragmentKind.Geometry, s_bounds, EffectiveScale.At(1), payload: null),
+                Fragment(RenderFragmentKind.FilterEffectSegment, s_bounds, EffectiveScale.At(1), payload: null),
             ],
             []);
 
@@ -336,7 +335,7 @@ public sealed class ExecutionIslandAuthorityTests
             EffectiveScale.At(1),
             payload: null);
         RenderFragmentReference first = Fragment(
-            RenderFragmentKind.Geometry,
+            RenderFragmentKind.FilterEffectSegment,
             s_bounds,
             EffectiveScale.At(1),
             payload: null,
@@ -347,7 +346,7 @@ public sealed class ExecutionIslandAuthorityTests
             EffectiveScale.At(1),
             payload: null);
         RenderFragmentReference second = Fragment(
-            RenderFragmentKind.Geometry,
+            RenderFragmentKind.FilterEffectSegment,
             s_bounds,
             EffectiveScale.At(1),
             payload: null,
@@ -394,41 +393,28 @@ public sealed class ExecutionIslandAuthorityTests
         }
     }
 
-    private sealed class DeclaredInputReadbackNode(RenderTarget source, bool opaque) : RenderNode
+    private sealed class DeclaredInputReadbackNode(RenderTarget source) : RenderNode
     {
         public override void Process(RenderNodeContext context)
         {
             RenderFragmentHandle current = BorrowMaterializedInput(context, source, s_bounds);
-            current = opaque
-                ? context.OpaqueMap(
-                    current,
-                    OpaqueRenderDescription.Create(
-                        "opaque-readback",
-                        static (session, _) =>
-                        {
-                            RenderExecutionInput input = session.Inputs.Single();
-                            input.UseSnapshot(static _ => { });
-                            using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
-                            output.Canvas.Use(input.Draw);
-                            session.Publish(output);
-                        },
-                        OpaqueRenderBoundsContract.Map(RenderBoundsContract.Identity),
-                        RenderHitTestContract.AnyInput,
-                        RenderValueCardinality.Single,
-                        RenderScaleContract.PreserveInputSupply,
-                        inputReadbacks: [RenderInputReadback.All]))
-                : context.Geometry(
-                    current,
-                    GeometryDescription.Create(
-                        "geometry-readback",
-                        static (session, _) =>
-                        {
-                            session.Input.UseSnapshot(static _ => { });
-                            session.Canvas.Use(session.Input.Draw);
-                        },
-                        RenderBoundsContract.Identity,
-                        RenderHitTestContract.AnyInput,
-                        requiresReadback: true));
+            current = context.OpaqueMap(
+                current,
+                OpaqueRenderDescription.Create(
+                    "opaque-readback",
+                    static (session, _) =>
+                    {
+                        RenderExecutionInput input = session.Inputs.Single();
+                        input.UseSnapshot(static _ => { });
+                        using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
+                        output.Canvas.Use(input.Draw);
+                        session.Publish(output);
+                    },
+                    OpaqueRenderBoundsContract.Map(RenderBoundsContract.Identity),
+                    RenderHitTestContract.AnyInput,
+                    RenderValueCardinality.Single,
+                    RenderScaleContract.PreserveInputSupply,
+                    inputReadbacks: [RenderInputReadback.All]));
             context.Publish(current);
         }
     }

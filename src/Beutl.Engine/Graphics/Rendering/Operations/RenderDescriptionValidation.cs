@@ -200,7 +200,6 @@ internal static class RenderDescriptionValidation
             or RenderCallbackCanvas
             or OpaqueRenderSession
             or OpaqueRenderOutput
-            or GeometrySession
             or ShaderExecutionContext
             or ShaderUniformWriter
             or ShaderResourceWriter

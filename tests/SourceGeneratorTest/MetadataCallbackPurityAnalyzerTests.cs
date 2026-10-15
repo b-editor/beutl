@@ -243,26 +243,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
                     Action<ShaderBindingBuilder>? bindings = null) => null!;
             }
         }
-
-        namespace Beutl.Graphics.Effects
-        {
-            using System;
-            using Beutl.Graphics.Rendering;
-
-            public sealed class GeometrySession { }
-
-            public sealed class GeometryDescription
-            {
-                public static GeometryDescription Create<TState>(
-                    TState state,
-                    Action<GeometrySession, TState> render,
-                    RenderBoundsContract bounds) => null!;
-
-                internal static GeometryDescription CreateRequestLocal(
-                    Action<GeometrySession> render,
-                    RenderBoundsContract bounds) => null!;
-            }
-        }
         """;
 
     [Test]
@@ -1957,7 +1937,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
     [TestCase("TargetCommandDescription", "TargetCommandSession")]
     [TestCase("RawTargetScopeDescription", "RawTargetScopeSession")]
     [TestCase("RawTargetCommandDescription", "RawTargetCommandSession")]
-    [TestCase("GeometryDescription", "GeometrySession")]
     public void ACapturingExecutionCallbackOnADescriptionFactory_IsReported(
         string description,
         string session)
@@ -1978,7 +1957,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
     [TestCase("TargetCommandDescription", "TargetCommandSession")]
     [TestCase("RawTargetScopeDescription", "RawTargetScopeSession")]
     [TestCase("RawTargetCommandDescription", "RawTargetCommandSession")]
-    [TestCase("GeometryDescription", "GeometrySession")]
     public void AStaticExecutionCallbackOnADescriptionFactory_IsNotReported(
         string description,
         string session)
@@ -1996,7 +1974,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
     [TestCase("TargetCommandDescription", "TargetCommandSession")]
     [TestCase("RawTargetScopeDescription", "RawTargetScopeSession")]
     [TestCase("RawTargetCommandDescription", "RawTargetCommandSession")]
-    [TestCase("GeometryDescription", "GeometrySession")]
     public void ACapturingCallbackOnARequestLocalFactory_IsNotReported(
         string description,
         string session)
@@ -7065,7 +7042,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             using System;
             using Beutl.Graphics;
             using Beutl.Graphics.Rendering;
-            using Beutl.Graphics.Effects;
 
             internal static class Author
             {
@@ -7093,7 +7069,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
             using System;
             using Beutl.Graphics;
             using Beutl.Graphics.Rendering;
-            using Beutl.Graphics.Effects;
 
             internal static class Author
             {

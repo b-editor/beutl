@@ -26,14 +26,15 @@ public sealed class SymbolicTransformActivationTests
     }
 
     [Test]
-    public void SymbolicTransform_ClonedAfterFirstActivation_ReportsTheBoundsItRenders()
+    public void SymbolicTransform_RebuiltAfterFirstActivation_ReportsTheBoundsItRenders()
     {
         using var context = new FilterEffectContext(Rect.Invalid);
         AppendBoundsDependentTranslation(context);
 
         Activation first = Activate(context, s_firstBounds);
-        using FilterEffectContext clone = context.Clone();
-        Activation second = Activate(clone, s_secondBounds);
+        using var rebuilt = new FilterEffectContext(Rect.Invalid);
+        AppendBoundsDependentTranslation(rebuilt);
+        Activation second = Activate(rebuilt, s_secondBounds);
 
         AssertConsistent(first, second);
     }

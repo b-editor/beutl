@@ -1,5 +1,4 @@
 ﻿using Beutl.Graphics;
-using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 
 namespace Beutl.PublicApiContractTests;
@@ -29,20 +28,6 @@ internal static class RenderDescriptionFactory
             scale,
             resources: resources,
             inputDemand: inputDemand);
-    }
-
-    public static GeometryDescription Geometry(
-        Action<GeometrySession> render,
-        RenderBoundsContract bounds,
-        RenderHitTestContract hitTest,
-        bool requiresReadback = false)
-    {
-        return GeometryDescription.Create(
-            render,
-            static (session, action) => action(session),
-            bounds,
-            hitTest,
-            requiresReadback);
     }
 
     public static TargetScopeDescription TargetScope(

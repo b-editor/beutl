@@ -172,7 +172,7 @@ public class SourceEffectiveScaleFlowTests
     [Test]
     public void CustomTransformRenderNode_ScalesChildDensity_LikeTransformRenderNode()
     {
-        Transform.Resource scale = new ScaleTransform(50, 50).ToResource(CompositionContext.Default);
+        Transform.Resource scale = new ScaleTransform { ScaleX = { CurrentValue = 50 }, ScaleY = { CurrentValue = 50 } }.ToResource(CompositionContext.Default);
         RenderNodeMeasurement measurement = ScaleRecordingTestHelper.MeasureThrough(
             new DrawableGroup.CustomTransformRenderNode(
                 scale,
@@ -192,7 +192,7 @@ public class SourceEffectiveScaleFlowTests
     [Test]
     public void CustomTransformRenderNode_VectorChild_StaysUnbounded()
     {
-        Transform.Resource scale = new ScaleTransform(50, 50).ToResource(CompositionContext.Default);
+        Transform.Resource scale = new ScaleTransform { ScaleX = { CurrentValue = 50 }, ScaleY = { CurrentValue = 50 } }.ToResource(CompositionContext.Default);
         RenderNodeMeasurement measurement = ScaleRecordingTestHelper.MeasureThrough(
             new DrawableGroup.CustomTransformRenderNode(
                 scale,
@@ -1218,7 +1218,6 @@ public class SourceEffectiveScaleFlowTests
     public void CustomWorkingScale_CurrentPixelShader_ProducesDeclaredDensityAndDeviceFootprint()
     {
         EffectiveScale observedInputScale = default;
-        PixelRect observedInputDeviceBounds = default;
         float observedWorkingScale = default;
         PixelRect observedOutputDeviceBounds = default;
         Rect bounds = new(3, 5, 12, 8);
@@ -1226,17 +1225,20 @@ public class SourceEffectiveScaleFlowTests
         {
             context.Shader(ShaderDescription.CurrentPixel(
                 "half4 apply(half4 color) { return color; }"));
-            context.Geometry(GeometryDescription.CreateRequestLocal(
-                session =>
-                {
-                    observedInputScale = session.Input.EffectiveScale;
-                    observedInputDeviceBounds = session.Input.DeviceBounds;
-                    observedWorkingScale = session.WorkingScale;
-                    observedOutputDeviceBounds = session.DeviceBounds;
-                    session.Canvas.Use(session.Input.Draw);
-                },
+            context.Shader(ShaderDescription.WholeSource(
+                "uniform shader src; uniform float gain; "
+                + "half4 main(float2 coord) { return src.eval(coord) * half(gain); }",
                 RenderBoundsContract.Identity,
-                RenderHitTestContract.AnyInput));
+                bindings => bindings.Uniform(
+                    "gain",
+                    1f,
+                    (writer, value, execution) =>
+                    {
+                        observedInputScale = execution.InputEffectiveScale;
+                        observedWorkingScale = execution.WorkingScale;
+                        observedOutputDeviceBounds = execution.DeviceBounds;
+                        writer.Set(value);
+                    })));
         });
         using var pipeline = ScaleRecordingTestHelper.Pipeline(
             ScaleRecordingTestHelper.Source(EffectiveScale.At(1), bounds),
@@ -1254,9 +1256,8 @@ public class SourceEffectiveScaleFlowTests
             Assert.That(result.IsEmpty, Is.False);
             Assert.That(observedInputScale, Is.EqualTo(EffectiveScale.At(2)));
             Assert.That(observedWorkingScale, Is.EqualTo(2));
-            Assert.That(observedInputDeviceBounds, Is.EqualTo(PixelRect.FromRect(bounds, 2)));
             Assert.That(observedOutputDeviceBounds, Is.EqualTo(PixelRect.FromRect(bounds, 2)));
-            Assert.That(observedInputDeviceBounds.Size, Is.EqualTo(new PixelSize(24, 16)));
+            Assert.That(observedOutputDeviceBounds.Size, Is.EqualTo(new PixelSize(24, 16)));
         });
     }
 

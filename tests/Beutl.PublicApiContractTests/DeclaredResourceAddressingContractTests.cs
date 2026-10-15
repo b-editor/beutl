@@ -118,7 +118,6 @@ public sealed class DeclaredResourceAddressingContractTests
         Type[] slotSessions =
         [
             typeof(OpaqueRenderSession),
-            typeof(GeometrySession),
             typeof(TargetScopeSession),
             typeof(TargetCommandSession),
         ];

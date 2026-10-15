@@ -130,9 +130,6 @@ public sealed class AudioVisualizerShapeAuthoringContractTests
 
         using Bitmap bitmap = target.Snapshot();
 
-        TimeSpan expectedWindow = TimeSpan.FromSeconds(
-            (double)PluginVisualizerDrawable.WindowSampleCount / ToneDecoderInfo.SampleRate);
-
         using (Assert.EnterMultipleScope())
         {
             Assert.That(resource.RenderCalls, Is.EqualTo(1));
@@ -141,8 +138,6 @@ public sealed class AudioVisualizerShapeAuthoringContractTests
             Assert.That(resource.ObservedSampleSpanLength, Is.EqualTo(resource.ObservedSampleLength));
             Assert.That(resource.ObservedSampleRate, Is.EqualTo(ToneDecoderInfo.SampleRate));
             Assert.That(resource.ObservedComposerSampleRate, Is.EqualTo(ToneDecoderInfo.SampleRate));
-            Assert.That(resource.ObservedStart, Is.EqualTo(currentTime));
-            Assert.That(resource.ObservedDuration, Is.EqualTo(expectedWindow));
             Assert.That(resource.ObservedPeak, Is.EqualTo(ToneDecoderInfo.Amplitude).Within(0.001f));
 
             // The peak is half scale, so the level bar covers the bottom half and nothing above it.
@@ -327,10 +322,6 @@ public sealed partial class PluginVisualizerDrawable : AudioVisualizerDrawable
 
         public int ObservedComposerSampleRate { get; private set; }
 
-        public TimeSpan ObservedStart { get; private set; }
-
-        public TimeSpan ObservedDuration { get; private set; }
-
         public float ObservedPeak { get; private set; }
 
         public void Draw(ImmediateCanvas canvas, Rect bounds) => RenderForeground(canvas, bounds);
@@ -347,8 +338,6 @@ public sealed partial class PluginVisualizerDrawable : AudioVisualizerDrawable
             ObservedSampleLength = CachedSampleLength;
             ObservedSampleRate = CachedSampleRate;
             ObservedComposerSampleRate = ComposerSampleRate;
-            ObservedStart = CachedStart;
-            ObservedDuration = CachedDuration;
 
             ReadOnlySpan<float> samples = CachedSampleSpan;
             ObservedSampleSpanLength = samples.Length;

@@ -19,7 +19,7 @@ public sealed class SymbolicSupplyMappingTests
             new Rect(5, 6, 20, 12),
             Brushes.Resource.White,
             null));
-        using Transform.Resource scale = new ScaleTransform(50, 50)
+        using Transform.Resource scale = new ScaleTransform { ScaleX = { CurrentValue = 50 }, ScaleY = { CurrentValue = 50 } }
             .ToResource(CompositionContext.Default);
         using var root = ScaleRecordingTestHelper.SubtreePipeline(
             filter,

@@ -117,8 +117,9 @@ public sealed class ValueReplaySafetyTests
     [Test]
     public void PerspectiveTransform_LayerRendersWithoutScalarDensity()
     {
-        var perspective = new Rotation3DTransform(0, 55, 0, 0, 0, 0)
+        var perspective = new Rotation3DTransform
         {
+            RotationY = { CurrentValue = 55 },
             Depth = { CurrentValue = 400 },
         };
         using RenderNode root = CreateTransformedLayer(

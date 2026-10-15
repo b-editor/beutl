@@ -50,32 +50,6 @@ internal static class FilterEffectStageFallbackExecutor
             target => ExecuteShader(target, description, acquireProgram, environment));
     }
 
-    public static void ApplyGeometry(
-        EffectTargets targets,
-        GeometryDescription description,
-        float outputScale,
-        float workingScale,
-        float maxWorkingScale,
-        RenderIntent intent,
-        RenderRequestPurpose purpose,
-        RenderTargetLeaseSession? leaseSession,
-        BufferDimensionBudget budget)
-    {
-        ArgumentNullException.ThrowIfNull(targets);
-        ArgumentNullException.ThrowIfNull(description);
-        var environment = new StageEnvironment(
-            outputScale,
-            workingScale,
-            maxWorkingScale,
-            intent,
-            purpose,
-            leaseSession,
-            budget);
-        ReplaceTargets(
-            targets,
-            target => ExecuteGeometry(target, description, environment));
-    }
-
     private static EffectTarget? ExecuteShader(
         EffectTarget source,
         ShaderDescription description,
@@ -398,121 +372,6 @@ internal static class FilterEffectStageFallbackExecutor
         }
     }
 
-    private static EffectTarget? ExecuteGeometry(
-        EffectTarget source,
-        GeometryDescription description,
-        StageEnvironment environment)
-    {
-        using EffectTarget? input = NormalizeInput(source, environment);
-        if (input?.RenderTarget is not { } inputTarget)
-            return null;
-
-        Rect outputBounds = description.Bounds.TransformBounds(input.Bounds);
-        if (IsEmpty(outputBounds))
-            return null;
-
-        float density = ResolveSupplyDensity(input, environment);
-        EffectTarget? output = AllocateStageOutput(input, outputBounds, density, environment);
-        if (output?.RenderTarget is not { } outputTarget)
-        {
-            output?.Dispose();
-            return null;
-        }
-
-        try
-        {
-            using SurfaceSnapshot.Lease inputSnapshot = SurfaceSnapshot.Take(inputTarget.Value);
-            SKImage inputImage = inputSnapshot.Image;
-            Rect? selectedBounds = RenderGeometryStage(
-                description,
-                input,
-                inputImage,
-                inputTarget,
-                output,
-                outputTarget,
-                outputBounds,
-                environment);
-
-            if (selectedBounds is not { Width: > 0, Height: > 0 } selected)
-                return null;
-
-            if (selected == outputBounds)
-            {
-                EffectTarget result = output;
-                output = null;
-                return result;
-            }
-
-            return CropTarget(output, selected, environment);
-        }
-        finally
-        {
-            output?.Dispose();
-        }
-    }
-
-    /// <summary>
-    /// Runs the description's render callback against the output buffer, and reports what it painted.
-    /// </summary>
-    /// <returns>
-    /// The part of <paramref name="outputBounds"/> the callback selected, or <see langword="null"/> when it
-    /// discarded its output altogether.
-    /// </returns>
-    private static Rect? RenderGeometryStage(
-        GeometryDescription description,
-        EffectTarget input,
-        SKImage inputImage,
-        RenderTarget inputTarget,
-        EffectTarget output,
-        RenderTarget outputTarget,
-        Rect outputBounds,
-        StageEnvironment environment)
-    {
-        var token = new RenderExecutionSessionToken();
-        return token.RunAndComplete<Rect?>(
-            () =>
-            {
-                Func<Bitmap>? createSnapshot = description.RequiresReadback
-                    ? inputTarget.Snapshot
-                    : null;
-                var executionInput = new RenderExecutionInput(
-                    token,
-                    input.Bounds,
-                    input.Scale,
-                    input.DeviceBounds,
-                    input.RasterBounds,
-                    inputImage,
-                    createSnapshot);
-                var callbackCanvas = new RenderCallbackCanvas(
-                    token,
-                    output.Scale.Value,
-                    outputBounds,
-                    output.DeviceBounds,
-                    () => ImmediateCanvas.CreateExecutorManaged(
-                        outputTarget,
-                        output.Scale.Value,
-                        environment.MaxWorkingScale,
-                        output.RasterBounds.Size,
-                        environment.Intent,
-                        output.DeviceBounds.Position),
-                    CallbackCanvasCapability.Draw,
-                    rasterBounds: output.RasterBounds);
-                var session = new GeometrySession(
-                    executionInput,
-                    outputBounds,
-                    environment.OutputScale,
-                    environment.MaxWorkingScale,
-                    environment.Intent,
-                    environment.Purpose,
-                    callbackCanvas,
-                    description.Resources);
-                description.Render(session);
-                return session.IsOutputDiscarded
-                    ? null
-                    : session.OutputBounds.Intersect(outputBounds);
-            });
-    }
-
     private static EffectTarget? NormalizeInput(EffectTarget source, StageEnvironment environment)
     {
         if (source.RenderTarget is not { } sourceTarget)
@@ -573,51 +432,6 @@ internal static class FilterEffectStageFallbackExecutor
         catch
         {
             normalized.Dispose();
-            throw;
-        }
-    }
-
-    private static EffectTarget? CropTarget(EffectTarget source, Rect selectedBounds, StageEnvironment environment)
-    {
-        if (source.RenderTarget is not { } sourceTarget)
-            return null;
-
-        EffectTarget? cropped = AllocateTarget(
-            selectedBounds,
-            source.Scale.Value,
-            environment,
-            deviceGridOffset: source.DeviceGridOffset);
-        if (cropped?.RenderTarget is not { } croppedTarget)
-        {
-            cropped?.Dispose();
-            return null;
-        }
-
-        try
-        {
-            Vector rasterTranslation = DeviceGridAlignment.ResolveRasterTranslation(
-                cropped.DeviceBounds,
-                cropped.DeviceGridOffset,
-                cropped.Scale.Value);
-            using var canvas = ImmediateCanvas.CreateExecutorManaged(
-                croppedTarget,
-                cropped.Scale.Value,
-                environment.MaxWorkingScale,
-                cropped.RasterBounds.Size,
-                environment.Intent);
-            using (canvas.PushTransform(Matrix.CreateTranslation(
-                       rasterTranslation.X,
-                       rasterTranslation.Y)))
-            {
-                canvas.ClipRect(selectedBounds);
-                canvas.DrawRenderTargetScaledWithoutFlush(sourceTarget, source.RasterBounds);
-            }
-
-            return cropped;
-        }
-        catch
-        {
-            cropped.Dispose();
             throw;
         }
     }

@@ -26,17 +26,6 @@ public class TransformsTests
     }
 
     [Test]
-    public void TranslateTransform_FromVector_StoresValues()
-    {
-        var t = new TranslateTransform(new Vector(3f, 5f));
-        Assert.Multiple(() =>
-        {
-            Assert.That(t.X.CurrentValue, Is.EqualTo(3f));
-            Assert.That(t.Y.CurrentValue, Is.EqualTo(5f));
-        });
-    }
-
-    [Test]
     public void TranslateTransform_FromPoint_StoresValues()
     {
         var t = new TranslateTransform(new Point(7f, -2f));
@@ -61,16 +50,9 @@ public class TransformsTests
     }
 
     [Test]
-    public void RotationTransform_FromRadians_ConvertsToDegrees()
-    {
-        RotationTransform t = RotationTransform.FromRadians(MathF.PI);
-        Assert.That(t.Rotation.CurrentValue, Is.EqualTo(180f).Within(1e-3));
-    }
-
-    [Test]
     public void ScaleTransform_FromXY_AppliesPercentScale()
     {
-        var t = new ScaleTransform(200f, 50f);
+        var t = new ScaleTransform { ScaleX = { CurrentValue = 200f }, ScaleY = { CurrentValue = 50f } };
         Matrix m = t.CreateMatrix(Context);
         Assert.Multiple(() =>
         {
@@ -82,7 +64,12 @@ public class TransformsTests
     [Test]
     public void ScaleTransform_OverallScaleIsApplied()
     {
-        var t = new ScaleTransform(100f, 100f, scale: 50f);
+        var t = new ScaleTransform
+        {
+            ScaleX = { CurrentValue = 100f },
+            ScaleY = { CurrentValue = 100f },
+            Scale = { CurrentValue = 50f },
+        };
         Matrix m = t.CreateMatrix(Context);
         Assert.Multiple(() =>
         {
@@ -92,30 +79,12 @@ public class TransformsTests
     }
 
     [Test]
-    public void ScaleTransform_FromVector_StoresValues()
-    {
-        var t = new ScaleTransform(new Vector(150f, 250f));
-        Assert.Multiple(() =>
-        {
-            Assert.That(t.ScaleX.CurrentValue, Is.EqualTo(150f));
-            Assert.That(t.ScaleY.CurrentValue, Is.EqualTo(250f));
-        });
-    }
-
-    [Test]
     public void SkewTransform_FromDegrees_ProducesMatrix()
     {
-        var t = new SkewTransform(45f, 0f);
+        var t = new SkewTransform { SkewX = { CurrentValue = 45f } };
         Matrix expected = Matrix.CreateSkew(MathUtilities.Deg2Rad(45f), 0f);
         Matrix actual = t.CreateMatrix(Context);
         Assert.That(actual.M21, Is.EqualTo(expected.M21).Within(1e-5));
-    }
-
-    [Test]
-    public void SkewTransform_FromRadians_RoundtripsToDegrees()
-    {
-        SkewTransform t = SkewTransform.FromRadians(MathF.PI / 4f, 0f);
-        Assert.That(t.SkewX.CurrentValue, Is.EqualTo(45f).Within(1e-3));
     }
 
     [Test]
@@ -129,7 +98,7 @@ public class TransformsTests
     public void MatrixTransform_StoresProvidedMatrix()
     {
         var matrix = new Matrix(2, 0, 0, 3, 5, 7);
-        var t = new MatrixTransform(matrix);
+        var t = new MatrixTransform { Matrix = { CurrentValue = matrix } };
         Assert.That(t.CreateMatrix(Context), Is.EqualTo(matrix));
     }
 
@@ -145,11 +114,11 @@ public class TransformsTests
     {
         var group = new TransformGroup();
         group.Children.Add(new TranslateTransform(10f, 0f));
-        group.Children.Add(new ScaleTransform(200f, 200f));
+        group.Children.Add(new ScaleTransform { ScaleX = { CurrentValue = 200f }, ScaleY = { CurrentValue = 200f } });
 
         // 子 transforms は順番に乗算され、Aggregate の初期値に左から掛けられる
         Matrix expected =
-            new ScaleTransform(200f, 200f).CreateMatrix(Context)
+            new ScaleTransform { ScaleX = { CurrentValue = 200f }, ScaleY = { CurrentValue = 200f } }.CreateMatrix(Context)
             * new TranslateTransform(10f, 0f).CreateMatrix(Context);
 
         Assert.That(group.CreateMatrix(Context), Is.EqualTo(expected));

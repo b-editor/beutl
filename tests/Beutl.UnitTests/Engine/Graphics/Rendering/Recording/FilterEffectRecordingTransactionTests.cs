@@ -14,77 +14,7 @@ public sealed class FilterEffectRecordingTransactionTests
     private const string IdentityShader = "half4 apply(half4 color) { return color; }";
 
     [Test]
-    public void DeferredWorkingScaleResolver_IsSharedAcrossClones()
-    {
-        using var owner = new RenderRequestOwner();
-        using var request = new RenderRequest(new RenderRequestOptions(
-            RenderIntent.Preview,
-            RenderRequestPurpose.Auxiliary,
-            owner: owner));
-        var recorder = new RenderRequestRecorder(request);
-        var transaction = new NodeRecordingTransaction(recorder, new object(), []);
-        var renderContext = new RenderNodeContext(transaction);
-        int resolverCalls = 0;
-        try
-        {
-            using var original = new FilterEffectContext(
-                new Rect(0, 0, 10, 10),
-                outputScale: 1,
-                resolveWorkingScale: () =>
-                {
-                    resolverCalls++;
-                    return 1.5f;
-                },
-                renderContext: renderContext);
-            using FilterEffectContext clone = original.Clone();
-
-            float originalScale = original.WorkingScale;
-            float cloneScale = clone.WorkingScale;
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(originalScale, Is.EqualTo(1.5f));
-                Assert.That(cloneScale, Is.EqualTo(originalScale));
-                Assert.That(resolverCalls, Is.EqualTo(1));
-            });
-        }
-        finally
-        {
-            transaction.Abandon();
-        }
-    }
-
-    [Test]
-    public void StandaloneClone_ReleasesOwnedResourcesOnlyAfterLastReference()
-    {
-        var owned = new TrackingDisposable();
-        var borrowed = new TrackingDisposable();
-        using var original = new FilterEffectContext(new Rect(0, 0, 10, 10));
-        _ = original.Own(owned);
-        _ = original.Borrow(borrowed);
-        using FilterEffectContext clone = original.Clone();
-
-        original.Dispose();
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(owned.DisposeCount, Is.Zero);
-            Assert.That(borrowed.DisposeCount, Is.Zero);
-        });
-
-        clone.Dispose();
-        clone.Dispose();
-        original.Dispose();
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(owned.DisposeCount, Is.EqualTo(1));
-            Assert.That(borrowed.DisposeCount, Is.Zero);
-        });
-    }
-
-    [Test]
-    public void ShaderAndGeometry_UpdateBoundsSynchronouslyInAuthoredOrder()
+    public void Shaders_UpdateBoundsSynchronouslyInAuthoredOrder()
     {
         using var context = new FilterEffectContext(new Rect(10, 20, 30, 40));
         ShaderDescription currentPixel = ShaderDescription.CurrentPixel(IdentityShader);
@@ -93,18 +23,17 @@ public sealed class FilterEffectRecordingTransactionTests
             RenderBoundsContract.Create(
                 static bounds => bounds.Inflate(new Thickness(2)),
                 static bounds => bounds.Inflate(new Thickness(2))));
-        GeometryDescription geometry = GeometryDescription.CreateRequestLocal(
-            static _ => { },
+        ShaderDescription translating = ShaderDescription.WholeSource(
+            "uniform shader src; half4 main(float2 coord) { return src.eval(coord); }",
             RenderBoundsContract.Create(
                 static bounds => bounds.Translate(new Vector(3, 4)),
-                static bounds => bounds.Translate(new Vector(-3, -4))),
-            RenderHitTestContract.AnyInput);
+                static bounds => bounds.Translate(new Vector(-3, -4))));
 
         context.Shader(currentPixel);
         Rect afterCurrentPixel = context.Bounds;
         context.Shader(wholeSource);
         Rect afterWholeSource = context.Bounds;
-        context.Geometry(geometry);
+        context.Shader(translating);
 
         Assert.Multiple(() =>
         {
@@ -117,7 +46,7 @@ public sealed class FilterEffectRecordingTransactionTests
                 {
                     typeof(FEItem_Shader),
                     typeof(FEItem_Shader),
-                    typeof(FEItem_Geometry),
+                    typeof(FEItem_Shader),
                 }));
         });
     }
@@ -134,19 +63,18 @@ public sealed class FilterEffectRecordingTransactionTests
             RenderBoundsContract.Create(
                 static _ => throw new InvalidOperationException("bounds-failure"),
                 static bounds => bounds));
-        GeometryDescription invalid = GeometryDescription.CreateRequestLocal(
-            static _ => { },
+        ShaderDescription invalid = ShaderDescription.WholeSource(
+            "uniform shader src; half4 main(float2 coord) { return src.eval(coord); }",
             RenderBoundsContract.Create(
                 static _ => Rect.Invalid,
-                static bounds => bounds),
-            RenderHitTestContract.AnyInput);
+                static bounds => bounds));
 
         Assert.Multiple(() =>
         {
             Assert.That(() => context.Shader(throwing), Throws.Exception.Message.EqualTo("bounds-failure"));
             Assert.That(context.GetOrderedItems(), Has.Count.EqualTo(originalCount));
             Assert.That(context.Bounds, Is.EqualTo(originalBounds));
-            Assert.That(() => context.Geometry(invalid), Throws.TypeOf<InvalidOperationException>());
+            Assert.That(() => context.Shader(invalid), Throws.TypeOf<InvalidOperationException>());
             Assert.That(context.GetOrderedItems(), Has.Count.EqualTo(originalCount));
             Assert.That(context.Bounds, Is.EqualTo(originalBounds));
         });
@@ -190,10 +118,7 @@ public sealed class FilterEffectRecordingTransactionTests
             recording.Shader(ShaderDescription.CurrentPixel(IdentityShader)));
         var second = new CallbackFilterEffect((recording, _) =>
         {
-            recording.Geometry(GeometryDescription.CreateRequestLocal(
-                static _ => { },
-                RenderBoundsContract.Identity,
-                RenderHitTestContract.AnyInput));
+            recording.Shader(ShaderDescription.CurrentPixel(IdentityShader));
             throw new InvalidOperationException("nested-failure");
         });
         var group = new CallbackFilterEffect((recording, childResource) =>
@@ -226,10 +151,7 @@ public sealed class FilterEffectRecordingTransactionTests
         var second = new CallbackFilterEffect((recording, _) =>
         {
             recording.Own(secondResource);
-            recording.Geometry(GeometryDescription.CreateRequestLocal(
-                static _ => { },
-                RenderBoundsContract.Identity,
-                RenderHitTestContract.AnyInput));
+            recording.Shader(ShaderDescription.CurrentPixel(IdentityShader));
             throw new InvalidOperationException("group-child-failure");
         });
         var group = new FilterEffectGroup { Children = { first, second } };

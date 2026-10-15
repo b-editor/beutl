@@ -495,8 +495,8 @@ internal sealed partial class RenderRequestExecutor
 
         /// <summary>
         /// Carries the scale an operation is materialized at back to one of its inputs through the operation's
-        /// declared <see cref="RenderInputDemandContract"/>, the step the demand resolver takes for a Shader, a
-        /// Geometry, or a many-input opaque operation.
+        /// declared <see cref="RenderInputDemandContract"/>, the step the demand resolver takes for a Shader or a
+        /// many-input opaque operation.
         /// </summary>
         private EffectiveScale ResolveInputCallerScale(
             RenderInputDemandContract inputDemand,
@@ -673,7 +673,6 @@ internal sealed partial class RenderRequestExecutor
                 case RenderFragmentKind.OpaqueExpand:
                 case RenderFragmentKind.MaterializedInput:
                 case RenderFragmentKind.Shader:
-                case RenderFragmentKind.Geometry:
                     DrawMaterializedFragment(fragment, destination, callerScale);
                     return;
                 case RenderFragmentKind.FilterEffectSegment:

@@ -527,7 +527,7 @@ public sealed class RasterFootprintMetadataTests
     }
 
     [Test]
-    public void CustomFilterContext_WrapsReplacementOnTheSourceDeviceGrid()
+    public void EffectTarget_WrapsReplacementOnTheSourceDeviceGrid()
     {
         var bounds = new Rect(10, 12, 8, 6);
         var gridOffset = new Vector(0.25f, 0.75f);
@@ -541,18 +541,11 @@ public sealed class RasterFootprintMetadataTests
             EffectiveScale.At(1),
             deviceBounds,
             gridOffset);
-        using var targets = new EffectTargets { source.Clone() };
-        var context = new CustomFilterEffectContext(
-            targets,
-            RenderIntent.Preview,
-            RenderRequestPurpose.Frame);
         using RenderTarget replacementBacking = RenderTarget.CreateNull(
             deviceBounds.Width,
             deviceBounds.Height);
 
-        using EffectTarget replacement = context.CreateReplacement(
-            source,
-            replacementBacking);
+        using EffectTarget replacement = source.CreateReplacement(replacementBacking);
 
         Assert.Multiple(() =>
         {
@@ -654,39 +647,6 @@ public sealed class RasterFootprintMetadataTests
         Assert.That(
             () => disposedOwnerBuilder.Build(),
             Throws.TypeOf<ObjectDisposedException>());
-    }
-
-    [Test]
-    public void CustomFilterContext_ReplacementFootprintFailureNamesPublicArgument()
-    {
-        var bounds = new Rect(10, 12, 8, 6);
-        PixelRect deviceBounds = PixelRect.FromRect(bounds, 1);
-        using RenderTarget sourceBacking = RenderTarget.CreateNull(
-            deviceBounds.Width,
-            deviceBounds.Height);
-        using var source = new EffectTarget(
-            sourceBacking,
-            bounds,
-            EffectiveScale.At(1),
-            deviceBounds);
-        using var targets = new EffectTargets { source.Clone() };
-        var context = new CustomFilterEffectContext(
-            targets,
-            RenderIntent.Preview,
-            RenderRequestPurpose.Frame);
-        using RenderTarget wrongSize = RenderTarget.CreateNull(
-            deviceBounds.Width + 1,
-            deviceBounds.Height);
-
-        ArgumentException exception = Assert.Throws<ArgumentException>(
-            () => context.CreateReplacement(source, wrongSize))!;
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(exception.ParamName, Is.EqualTo("renderTarget"));
-            Assert.That(exception.Message, Does.Contain("footprint"));
-            Assert.That(exception.Message, Does.Contain($"{deviceBounds.Width}x{deviceBounds.Height}"));
-        });
     }
 
     [Test]

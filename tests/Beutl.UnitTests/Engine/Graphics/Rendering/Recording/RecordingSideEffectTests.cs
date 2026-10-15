@@ -641,13 +641,6 @@ public sealed class RecordingSideEffectTests
                 source,
                 ShaderDescription.CurrentPixel(
                     "half4 apply(half4 color) { return color; }"));
-            RenderFragmentHandle geometry = context.Geometry(
-                source,
-                GeometryDescription.CreateRequestLocal(
-                    _ => tripwire.TouchAll(),
-                    RenderBoundsContract.Identity,
-                    RenderHitTestContract.AnyInput,
-                    requiresReadback: true));
             RenderFragmentHandle capture = context.TargetCapture(
                 TargetCaptureDescription.Create(
                     TargetRegion.Full,
@@ -685,7 +678,7 @@ public sealed class RecordingSideEffectTests
                     RenderHitTestContract.OutputBounds));
 
             context.PublishRange(
-                [source, mapped, combined, expanded, shader, geometry, capture, command, scope, rawScope, rawCommand]);
+                [source, mapped, combined, expanded, shader, capture, command, scope, rawScope, rawCommand]);
         }
 
         private OpaqueRenderDescription CreateOpaque(

@@ -3,6 +3,7 @@ using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Rendering.Requests;
+using Beutl.Graphics.Shaders;
 using Beutl.Media;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Failure;
@@ -957,11 +958,10 @@ public sealed class NestedTargetAndCleanupFailureTests
                 PrimaryFailure,
                 static (_, value) => value,
                 static (failure, _) => throw failure);
-            GeometryDescription geometry = GeometryDescription.CreateRequestLocal(
-                static _ => { },
-                bounds,
-                RenderHitTestContract.AnyInput);
-            context.Publish(context.Geometry(source, geometry));
+            ShaderDescription shader = ShaderDescription.WholeSource(
+                "uniform shader src; half4 main(float2 coord) { return src.eval(coord); }",
+                bounds);
+            context.Publish(context.Shader(source, shader));
         }
     }
 

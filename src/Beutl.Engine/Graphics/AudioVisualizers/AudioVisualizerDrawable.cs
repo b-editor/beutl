@@ -83,16 +83,6 @@ public abstract partial class AudioVisualizerDrawable : Drawable
         protected int CachedSampleRate => _cachedSampleRate;
 
         /// <summary>
-        /// Gets the start of the time window the cached samples cover.
-        /// </summary>
-        protected TimeSpan CachedStart => _cachedStart;
-
-        /// <summary>
-        /// Gets the length of the time window the cached samples cover.
-        /// </summary>
-        protected TimeSpan CachedDuration => _cachedDuration;
-
-        /// <summary>
         /// Gets the rate the visualizer's own composer runs at, which is available before any source has
         /// been composed and so can size the window <see cref="ComputeSampleWindow"/> asks for.
         /// </summary>

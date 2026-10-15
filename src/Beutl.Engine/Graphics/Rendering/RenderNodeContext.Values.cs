@@ -182,54 +182,6 @@ public sealed partial class RenderNodeContext
             description.CreateFragmentHitTest());
     }
 
-    /// <summary>Records a deferred geometry callback over one value-eligible fragment.</summary>
-    /// <param name="input">
-    /// A non-null transaction-scoped fragment whose <see cref="RenderFragmentHandle.CanBeUsedAsValueInput"/> is
-    /// <see langword="true"/>.
-    /// </param>
-    /// <param name="description">
-    /// The non-null caller-owned immutable geometry contract. Every declared resource must belong to this request
-    /// family.
-    /// </param>
-    /// <returns>A new transaction-scoped geometry fragment. The result is not published automatically.</returns>
-    public RenderFragmentHandle Geometry(
-        RenderFragmentHandle input,
-        GeometryDescription description)
-        => Geometry(input, description, workingScalePolicy: null);
-
-    internal RenderFragmentHandle Geometry(
-        RenderFragmentHandle input,
-        GeometryDescription description,
-        FilterEffectWorkingScalePolicy? workingScalePolicy)
-    {
-        ArgumentNullException.ThrowIfNull(description);
-        NodeRecordingTransaction transaction = GetTransaction();
-        RenderFragmentReference reference = transaction.GetReference(input);
-        EnsureValueInput(reference, nameof(input));
-        ValidateDescriptionResources(description.Resources, nameof(description));
-
-        Rect bounds = description.Bounds.TransformBounds(reference.Bounds);
-        EffectiveScale scale = ResolveMaterializingScale(reference, bounds, workingScalePolicy);
-
-        RenderValueCardinality cardinality = RenderValueCardinality.Range(
-            minimum: 0,
-            maximum: reference.ValueCardinality.Maximum);
-        return transaction.CreateFragment(
-            RenderFragmentKind.Geometry,
-            bounds,
-            scale,
-            cardinality,
-            reference.ContributesValuesToTarget,
-            canBeUsedAsValueInput: true,
-            reference.HasTargetEffects,
-            reference.HasOpaqueExternalWork,
-            [reference],
-            new GeometryRenderFragmentPayload(
-                description,
-                workingScalePolicy),
-            RenderFragmentHitTest.FromContract(description.HitTest, description.Resources));
-    }
-
     // A working-scale policy decides the scale; without one the fragment materializes at the working scale its
     // input supply and the output allow, clamped so its exact footprint fits the engine's buffer ceiling.
     private EffectiveScale ResolveMaterializingScale(

@@ -141,7 +141,6 @@ public sealed class InputLogicalScopeCallerDensityTests
     /// asks the input for that mapped density, not for the consumer's own: the demand resolver compiled the
     /// input at the mapped value, and a caller above it would trip the materialization cross-check.
     /// </summary>
-    [TestCase(DemandReducingConsumerKind.Geometry)]
     [TestCase(DemandReducingConsumerKind.Shader)]
     [TestCase(DemandReducingConsumerKind.OpaqueCombine)]
     public void DemandReducingConsumer_AsksItsUnboundedInputForTheMappedDemand(DemandReducingConsumerKind kind)
@@ -244,7 +243,6 @@ public sealed class InputLogicalScopeCallerDensityTests
 
     public enum DemandReducingConsumerKind
     {
-        Geometry,
         Shader,
         OpaqueCombine,
     }
@@ -266,14 +264,6 @@ public sealed class InputLogicalScopeCallerDensityTests
             RenderFragmentHandle input = context.RecordNode(producer, []).Single();
             RenderFragmentHandle output = kind switch
             {
-                DemandReducingConsumerKind.Geometry => context.Geometry(
-                    input,
-                    GeometryDescription.Create(
-                        state: true,
-                        static (session, _) => session.Canvas.Use(session.Input.Draw),
-                        RenderBoundsContract.Identity,
-                        RenderHitTestContract.AnyInput,
-                        inputDemand: s_inputDemand)),
                 DemandReducingConsumerKind.Shader => context.Shader(
                     input,
                     ShaderDescription.WholeSource(

@@ -41,79 +41,6 @@ public sealed class DeferredCallbackFailureTests
         });
     }
 
-    [TestCase(GeometryFailure.UndeclaredInputReadback)]
-    [TestCase(GeometryFailure.DuplicateInputReadback)]
-    [TestCase(GeometryFailure.Callback)]
-    [TestCase(GeometryFailure.InvalidShrink)]
-    [TestCase(GeometryFailure.SecondCanvasOpen)]
-    [TestCase(GeometryFailure.UseAfterCanvasClose)]
-    public void GeometryDeferredPhases_PreserveTheFirstFailureAndInvalidateTheSession(
-        GeometryFailure failurePoint)
-    {
-        using var node = new GeometryFailureNode(failurePoint);
-        using var renderer = FailureTestSupport.CreateRenderer(node, useRenderCache: false);
-
-        Type expectedType = failurePoint switch
-        {
-            GeometryFailure.InvalidShrink => typeof(ArgumentException),
-            GeometryFailure.UseAfterCanvasClose => typeof(ObjectDisposedException),
-            _ => typeof(InvalidOperationException),
-        };
-        Assert.That(
-            () => renderer.Rasterize(),
-            failurePoint == GeometryFailure.Callback
-                ? Throws.TypeOf(expectedType).And.Message.EqualTo("geometry-callback-primary")
-                : Throws.TypeOf(expectedType));
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(node.CallbackEntries, Is.EqualTo(1));
-            Assert.That(renderer.TargetPoolStatistics.LeasedTargets, Is.Zero);
-            Assert.That(node.Cache.IsCached, Is.False);
-            Assert.That(node.RetainedSession, Is.Not.Null);
-            Assert.That(() => _ = node.RetainedSession!.OutputBounds, Throws.TypeOf<InvalidOperationException>());
-        });
-    }
-
-    [Test]
-    public void GeometryOutputAcquisitionFailure_HappensBeforeCallbackAndReturnsPriorTargets()
-    {
-        using var node = new GeometryFailureNode(GeometryFailure.Callback);
-        var factory = new FailureTestTargetFactory(failAt: 2);
-        using var renderer = FailureTestSupport.CreateRenderer(
-            node, factory, useRenderCache: false, intent: RenderIntent.Delivery);
-
-        InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(() => renderer.Rasterize());
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(failure!.Message, Does.Contain("could not allocate"));
-            Assert.That(node.CallbackEntries, Is.Zero);
-            Assert.That(factory.CreateCalls, Is.EqualTo(3));
-            Assert.That(renderer.TargetPoolStatistics.LeasedTargets, Is.Zero);
-            Assert.That(node.Cache.IsCached, Is.False);
-        });
-    }
-
-    [Test]
-    public void GeometryOutputAcquisitionFailure_DropsInPreviewWithoutEnteringTheCallback()
-    {
-        using var node = new GeometryFailureNode(GeometryFailure.Callback);
-        var factory = new FailureTestTargetFactory(failAt: 2);
-        using var renderer = FailureTestSupport.CreateRenderer(
-            node, factory, useRenderCache: false);
-
-        using RenderNodeRasterization rasterization = renderer.Rasterize();
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(node.CallbackEntries, Is.Zero);
-            Assert.That(factory.CreateCalls, Is.EqualTo(3));
-            Assert.That(renderer.TargetPoolStatistics.LeasedTargets, Is.Zero);
-            Assert.That(node.Cache.IsCached, Is.False);
-        });
-    }
-
     [Test]
     public void CallbackCanvasOpenFailure_PreservesProviderExceptionAndKeepsTheFacadeOneShot()
     {
@@ -317,16 +244,6 @@ public sealed class DeferredCallbackFailureTests
         HiddenFlush,
     }
 
-    public enum GeometryFailure
-    {
-        UndeclaredInputReadback,
-        DuplicateInputReadback,
-        Callback,
-        InvalidShrink,
-        SecondCanvasOpen,
-        UseAfterCanvasClose,
-    }
-
     public enum OpaqueTopology
     {
         Source,
@@ -465,57 +382,6 @@ public sealed class DeferredCallbackFailureTests
                 default:
                     throw new ArgumentOutOfRangeException();
             }
-        }
-    }
-
-    private sealed class GeometryFailureNode(GeometryFailure failurePoint) : RenderNode
-    {
-        public int CallbackEntries { get; private set; }
-
-        public GeometrySession? RetainedSession { get; private set; }
-
-        public override void Process(RenderNodeContext context)
-        {
-            RenderFragmentHandle source = context.OpaqueSource(FailureTestSupport.SourceDescription());
-            bool readback = failurePoint == GeometryFailure.DuplicateInputReadback;
-            GeometryDescription description = GeometryDescription.CreateRequestLocal(
-                session =>
-                {
-                    CallbackEntries++;
-                    RetainedSession = session;
-                    switch (failurePoint)
-                    {
-                        case GeometryFailure.UndeclaredInputReadback:
-                            session.Input.UseSnapshot(static _ => { });
-                            break;
-                        case GeometryFailure.DuplicateInputReadback:
-                            session.Input.UseSnapshot(static _ => { });
-                            session.Input.UseSnapshot(static _ => { });
-                            break;
-                        case GeometryFailure.Callback:
-                            throw new InvalidOperationException("geometry-callback-primary");
-                        case GeometryFailure.InvalidShrink:
-                            session.SetOutputBounds(new Rect(-1, -1, 12, 12));
-                            break;
-                        case GeometryFailure.SecondCanvasOpen:
-                            session.Canvas.Use(static canvas => canvas.Clear(Colors.Red));
-                            session.Canvas.Use(static canvas => canvas.Clear(Colors.Blue));
-                            break;
-                        case GeometryFailure.UseAfterCanvasClose:
-                            {
-                                ImmediateCanvas? retained = null;
-                                session.Canvas.Use(canvas => retained = canvas);
-                                retained!.Clear();
-                                break;
-                            }
-                        default:
-                            throw new ArgumentOutOfRangeException();
-                    }
-                },
-                RenderBoundsContract.Identity,
-                RenderHitTestContract.AnyInput,
-                requiresReadback: readback);
-            context.Publish(context.Geometry(source, description));
         }
     }
 

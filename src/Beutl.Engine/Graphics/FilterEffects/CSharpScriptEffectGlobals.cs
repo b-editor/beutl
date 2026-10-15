@@ -7,16 +7,11 @@ namespace Beutl.Graphics.Effects;
 public class CSharpScriptEffectGlobals
 {
     private readonly FilterEffectContext _context;
-    private readonly ScriptGlslProgramCache? _glslPrograms;
-
-    public CSharpScriptEffectGlobals(FilterEffectContext context, float progress, float duration, float time)
-        : this(context, progress, duration, time, null)
-    {
-    }
+    private readonly ScriptGlslProgramCache _glslPrograms;
 
     internal CSharpScriptEffectGlobals(
         FilterEffectContext context, float progress, float duration, float time,
-        ScriptGlslProgramCache? glslPrograms)
+        ScriptGlslProgramCache glslPrograms)
     {
         _context = context ?? throw new ArgumentNullException(nameof(context));
         _glslPrograms = glslPrograms;
@@ -38,11 +33,9 @@ public class CSharpScriptEffectGlobals
     /// Call during the CustomEffect execution callback and dispose the returned wrapper with using.
     /// Keep source and inputCount stable; pass animated values as push constants. Programs are retained
     /// within a bounded cache until the effect resource is disposed; this does not retain frame textures.
-    /// Standalone globals constructed by callers own each program through the returned wrapper instead.
     /// </remarks>
     public GLSLShader CreateGlslShader(string fragmentSource, int inputCount = 1)
-        => _glslPrograms?.Create(fragmentSource, inputCount)
-           ?? GLSLShader.Create(fragmentSource, inputCount);
+        => _glslPrograms.Create(fragmentSource, inputCount);
 
     public double PI => Math.PI;
 

@@ -13,20 +13,6 @@ public sealed partial class ScaleTransform : Transform
         ScanProperties<ScaleTransform>();
     }
 
-    public ScaleTransform(Vector vector, float scale = 100) : this()
-    {
-        Scale.CurrentValue = scale;
-        ScaleX.CurrentValue = vector.X;
-        ScaleY.CurrentValue = vector.Y;
-    }
-
-    public ScaleTransform(float x, float y, float scale = 100) : this()
-    {
-        Scale.CurrentValue = scale;
-        ScaleX.CurrentValue = x;
-        ScaleY.CurrentValue = y;
-    }
-
     [Display(Name = nameof(GraphicsStrings.Scale), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> Scale { get; } = Property.CreateAnimatable(100f);
 

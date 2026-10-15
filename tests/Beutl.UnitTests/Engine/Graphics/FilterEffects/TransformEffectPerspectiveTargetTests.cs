@@ -64,7 +64,11 @@ public sealed class TransformEffectPerspectiveTargetTests
     }
 
     private static Rotation3DTransform Rotation3D(float rotationY, float centerX)
-        => new(0f, rotationY, 0f, centerX, 0f, 0f);
+        => new()
+        {
+            RotationY = { CurrentValue = rotationY },
+            CenterX = { CurrentValue = centerX },
+        };
 
     /// <summary>
     /// Rebuilds the matrix <see cref="TransformEffect"/> maps a target's own bounds through: the transform

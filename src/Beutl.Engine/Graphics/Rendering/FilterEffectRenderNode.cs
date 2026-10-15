@@ -279,20 +279,6 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
                     current = shaderOutputs;
                     pendingWorkingScalePolicy = null;
                     break;
-                case FEItem_Geometry geometry when !opaqueTail:
-                    FlushEffectItems();
-                    var geometryOutputs = new RenderFragmentHandle[current.Count];
-                    for (int index = 0; index < geometryOutputs.Length; index++)
-                    {
-                        geometryOutputs[index] = context.Geometry(
-                            current[index],
-                            geometry.Description,
-                            pendingWorkingScalePolicy);
-                    }
-
-                    current = geometryOutputs;
-                    pendingWorkingScalePolicy = null;
-                    break;
                 default:
                     AppendEffectItem(item);
                     break;

@@ -7,7 +7,6 @@ internal enum RenderFragmentKind : byte
     Blend,
     OpacityMask,
     Shader,
-    Geometry,
     OpaqueSource,
     OpaqueMap,
     OpaqueCombine,

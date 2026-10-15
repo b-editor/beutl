@@ -127,33 +127,6 @@ public class CustomFilterEffectContext
         }
     }
 
-    /// <summary>Replaces each target with the targets the callback returns.</summary>
-    /// <remarks>
-    /// The callback receives a clone of the target, which it must return or dispose; the original is disposed
-    /// afterwards. The returned list must be the callback's own, not <see cref="Targets"/>, and is emptied by
-    /// the move, so disposing it later releases nothing.
-    /// </remarks>
-    public void ForEach(Func<int, EffectTarget, EffectTargets> action)
-    {
-        for (int i = 0; i < Targets.Count; i++)
-        {
-            EffectTarget clone = Targets[i].Clone();
-            EffectTargets newTargets = action(i, clone);
-            if (ReferenceEquals(newTargets, Targets))
-            {
-                if (clone.Owner is null)
-                    clone.Dispose();
-                throw new InvalidOperationException(
-                    "The callback must return a list of its own, not the context's Targets.");
-            }
-
-            Targets.RemoveAt(i);
-            int inserted = newTargets.Count;
-            Targets.InsertRange(i, newTargets);
-            i += inserted - 1;
-        }
-    }
-
     /// <summary>
     /// Device-buffer dimensions for a logical <paramref name="bounds"/> at density <paramref name="w"/>.
     /// The effect-item custom-effect contract sizes the local buffer from the logical dimensions only;
@@ -390,33 +363,6 @@ public class CustomFilterEffectContext
             lease.Dispose();
             throw;
         }
-    }
-
-    /// <summary>
-    /// Wraps a caller-created target as a replacement with the source's logical placement,
-    /// density, physical footprint, device-grid alignment, and effect-item placement mode.
-    /// </summary>
-    /// <remarks>
-    /// The returned effect target owns a shallow copy; the caller retains ownership of
-    /// <paramref name="renderTarget"/>.
-    /// </remarks>
-    public EffectTarget CreateReplacement(
-        EffectTarget source,
-        RenderTarget renderTarget)
-    {
-        ArgumentNullException.ThrowIfNull(source);
-        ArgumentNullException.ThrowIfNull(renderTarget);
-        RequireMaterialized(source, nameof(source));
-        if (renderTarget.Width != source.DeviceBounds.Width
-            || renderTarget.Height != source.DeviceBounds.Height)
-        {
-            throw new ArgumentException(
-                $"The replacement render target must match the source device footprint "
-                + $"{source.DeviceBounds.Width}x{source.DeviceBounds.Height}.",
-                nameof(renderTarget));
-        }
-
-        return source.CreateReplacement(renderTarget);
     }
 
     /// <summary>

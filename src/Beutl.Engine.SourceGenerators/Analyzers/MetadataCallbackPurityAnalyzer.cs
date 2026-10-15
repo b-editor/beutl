@@ -35,8 +35,7 @@ public sealed partial class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             ("Beutl.Graphics.Rendering.TargetScopeDescription", "Create"),
             ("Beutl.Graphics.Rendering.TargetCommandDescription", "Create"),
             ("Beutl.Graphics.Rendering.RawTargetScopeDescription", "Create"),
-            ("Beutl.Graphics.Rendering.RawTargetCommandDescription", "Create"),
-            ("Beutl.Graphics.Effects.GeometryDescription", "Create"));
+            ("Beutl.Graphics.Rendering.RawTargetCommandDescription", "Create"));
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } =
         ImmutableArray.Create(

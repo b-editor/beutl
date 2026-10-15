@@ -15,7 +15,7 @@ public sealed class ExecutionIslandPlannerCacheBoundaryTests
     [Test]
     public void BypassedCandidate_DoesNotSplitMaximalCompatibleRun()
     {
-        GraphFixture fixture = CreateShaderGraph(includeGeometryPrefix: false);
+        GraphFixture fixture = CreateShaderGraph(includeEffectPrefix: false);
         RenderCacheResolution resolution = CreateResolution(
             fixture,
             RenderCacheResolutionKind.Bypass);
@@ -34,7 +34,7 @@ public sealed class ExecutionIslandPlannerCacheBoundaryTests
     [Test]
     public void BypassedCandidate_WithFusionDisabledUsesOnlyFusionDisabledSplit()
     {
-        GraphFixture fixture = CreateShaderGraph(includeGeometryPrefix: false);
+        GraphFixture fixture = CreateShaderGraph(includeEffectPrefix: false);
         RenderCacheResolution resolution = CreateResolution(
             fixture,
             RenderCacheResolutionKind.Bypass);
@@ -48,7 +48,7 @@ public sealed class ExecutionIslandPlannerCacheBoundaryTests
     [Test]
     public void SelectedMissCapture_SplitsTheRunAfterTheProducer()
     {
-        GraphFixture fixture = CreateShaderGraph(includeGeometryPrefix: false);
+        GraphFixture fixture = CreateShaderGraph(includeEffectPrefix: false);
         RenderCacheResolution resolution = CreateResolution(
             fixture,
             RenderCacheResolutionKind.MissCapture);
@@ -63,7 +63,7 @@ public sealed class ExecutionIslandPlannerCacheBoundaryTests
     [Test]
     public void SelectedHit_OmitsReplacedProducerAndPrivateSubtreeFromExecutablePlan()
     {
-        GraphFixture fixture = CreateShaderGraph(includeGeometryPrefix: true);
+        GraphFixture fixture = CreateShaderGraph(includeEffectPrefix: true);
         RenderCacheResolution resolution = CreateResolution(
             fixture,
             RenderCacheResolutionKind.Hit);
@@ -91,7 +91,7 @@ public sealed class ExecutionIslandPlannerCacheBoundaryTests
     public void SelectedHit_DoesNotPruneSubtreeStillPublishedByAnotherRoot()
     {
         GraphFixture fixture = CreateShaderGraph(
-            includeGeometryPrefix: true,
+            includeEffectPrefix: true,
             publishPrefix: true);
         RenderCacheResolution resolution = CreateResolution(
             fixture,
@@ -111,7 +111,7 @@ public sealed class ExecutionIslandPlannerCacheBoundaryTests
     [Test]
     public void StructuralIdentity_DistinguishesHitFromMissCaptureAtSameCandidate()
     {
-        GraphFixture fixture = CreateShaderGraph(includeGeometryPrefix: false);
+        GraphFixture fixture = CreateShaderGraph(includeEffectPrefix: false);
         RenderCacheResolution hit = CreateResolution(fixture, RenderCacheResolutionKind.Hit);
         RenderCacheResolution miss = CreateResolution(fixture, RenderCacheResolutionKind.MissCapture);
         var options = new RenderRequestOptions(
@@ -176,7 +176,7 @@ public sealed class ExecutionIslandPlannerCacheBoundaryTests
             : RenderCacheTestSupport.CreateDecision(candidate, kind, fixture.CachedProducer.Bounds);
 
     private static GraphFixture CreateShaderGraph(
-        bool includeGeometryPrefix,
+        bool includeEffectPrefix,
         bool publishPrefix = false)
     {
         var requestId = new RenderRequestId(1);
@@ -184,12 +184,12 @@ public sealed class ExecutionIslandPlannerCacheBoundaryTests
             RenderFragmentKind.MaterializedInput,
             payload: null,
             EffectiveScale.At(1));
-        RenderFragmentReference prefix = includeGeometryPrefix
-            ? Fragment(RenderFragmentKind.Geometry, payload: null, EffectiveScale.At(1), source)
+        RenderFragmentReference prefix = includeEffectPrefix
+            ? Fragment(RenderFragmentKind.FilterEffectSegment, payload: null, EffectiveScale.At(1), source)
             : source;
         RenderFragmentReference cachedProducer = CurrentPixel(prefix, "return color * 0.75;");
         RenderFragmentReference tail = CurrentPixel(cachedProducer, "return half4(color.bgr, color.a);");
-        RenderFragmentReference[] references = includeGeometryPrefix
+        RenderFragmentReference[] references = includeEffectPrefix
             ? [source, prefix, cachedProducer, tail]
             : [source, cachedProducer, tail];
 

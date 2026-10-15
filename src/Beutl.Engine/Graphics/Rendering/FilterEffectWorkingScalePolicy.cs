@@ -261,7 +261,6 @@ internal readonly record struct FilterEffectWorkingScalePolicy
                     hasPendingSkiaWork = false;
                     break;
                 case FEItem_Shader:
-                case FEItem_Geometry:
                     if (hasPendingSkiaWork)
                     {
                         result.Add(NormalizeEffectItemAllocationBounds(allocationBounds, fallbackBounds));

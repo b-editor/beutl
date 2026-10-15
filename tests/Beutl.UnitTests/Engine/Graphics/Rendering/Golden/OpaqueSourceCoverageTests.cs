@@ -111,7 +111,7 @@ public sealed class OpaqueSourceCoverageTests
         if (effectItemIdentityEffect)
         {
             var effect = new TransformEffect();
-            effect.Transform.CurrentValue = new MatrixTransform(Matrix.Identity);
+            effect.Transform.CurrentValue = new MatrixTransform { Matrix = { CurrentValue = Matrix.Identity } };
             shape.FilterEffect.CurrentValue = effect;
         }
 

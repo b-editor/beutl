@@ -34,7 +34,6 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
         "TargetCommandDescription.Create",
         "RawTargetScopeDescription.Create",
         "RawTargetCommandDescription.Create",
-        "GeometryDescription.Create",
         "ShaderDescription.CurrentPixel",
         "ShaderDescription.WholeSource",
         "TargetCaptureDescription.Create",
@@ -80,11 +79,7 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
         AssertContextRecordingSurface(
             typeof(RenderNodeContext), "RawTargetCommand", typeof(RawTargetCommandDescription));
         AssertContextRecordingSurface(
-            typeof(RenderNodeContext), "Geometry", typeof(GeometryDescription));
-        AssertContextRecordingSurface(
             typeof(RenderNodeContext), "Shader", typeof(ShaderDescription));
-        AssertContextRecordingSurface(
-            typeof(FilterEffectContext), "Geometry", typeof(GeometryDescription));
         AssertContextRecordingSurface(
             typeof(FilterEffectContext), "Shader", typeof(ShaderDescription));
     }
@@ -139,7 +134,6 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
             (typeof(TargetCommandDescription), "Create"),
             (typeof(RawTargetScopeDescription), "Create"),
             (typeof(RawTargetCommandDescription), "Create"),
-            (typeof(GeometryDescription), "Create"),
             (typeof(ShaderDescription), "CurrentPixel"),
             (typeof(ShaderDescription), "WholeSource"),
             (typeof(TargetCaptureDescription), "Create"),
@@ -206,8 +200,6 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
                 ["DefinitionFingerprint", "Execute", "CreateRequestLocal", "CreateCore"]),
             (typeof(RawTargetCommandDescription),
                 ["DefinitionFingerprint", "Execute", "CreateRequestLocal", "CreateCore"]),
-            (typeof(GeometryDescription),
-                ["DefinitionFingerprint", "Render", "StructuralIdentity", "CreateRequestLocal", "CreateCore"]),
             (typeof(ShaderDescription),
             [
                 "Uniforms", "Resources", "SpirvLowering", "HasExecutionContextBinder", "CreateFragmentHitTest",
@@ -282,7 +274,6 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
     {
         string[] roster =
         [
-            "Beutl.Graphics.Effects.GeometryDescription",
             "Beutl.Graphics.Rendering.MaterializedInputDescription",
             "Beutl.Graphics.Rendering.OpaqueRenderDescription",
             "Beutl.Graphics.Rendering.RawTargetCommandDescription",
@@ -469,7 +460,6 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
         yield return typeof(TargetCommandDescription);
         yield return typeof(RawTargetScopeDescription);
         yield return typeof(RawTargetCommandDescription);
-        yield return typeof(GeometryDescription);
         yield return typeof(ShaderDescription);
     }
 
@@ -524,14 +514,6 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
                 s_resourceProbeBounds,
                 RenderHitTestContract.OutputBounds,
                 resources).Resources);
-
-        yield return ("GeometryDescription.Create", static resources
-            => GeometryDescription.Create(
-                (byte)0,
-                static (_, _) => { },
-                RenderBoundsContract.Identity,
-                RenderHitTestContract.OutputBounds,
-                resources: resources).Resources);
 
         yield return ("ShaderDescription.CurrentPixel", static resources
             => ShaderDescription.CurrentPixel(

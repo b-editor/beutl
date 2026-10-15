@@ -102,8 +102,7 @@ internal sealed partial class RenderCacheResolver
         private static bool IsDeviceGridSensitive(RenderFragmentReference reference)
         {
             if (reference.Kind is RenderFragmentKind.FilterEffectSegment
-                or RenderFragmentKind.Shader
-                or RenderFragmentKind.Geometry)
+                or RenderFragmentKind.Shader)
             {
                 return true;
             }

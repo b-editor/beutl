@@ -36,8 +36,6 @@ internal sealed partial class RegionAnalyzer
         {
             ShaderRenderFragmentPayload shader
                 => MapUnary(reference, outputRequirement, shader.Description.Bounds),
-            GeometryRenderFragmentPayload geometry
-                => MapUnary(reference, outputRequirement, geometry.Description.Bounds),
             TargetScopeRenderFragmentPayload scope
                 => MapTargetScope(
                     reference,

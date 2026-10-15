@@ -30,7 +30,7 @@ public class Perspective3DScaleProbeTests
         shape.Width.CurrentValue = 160;
         shape.Height.CurrentValue = 160;
         shape.Fill.CurrentValue = brush;
-        shape.Transform.CurrentValue = new Rotation3DTransform(0f, 55f, 0f, 0f, 0f, 0f) { Depth = { CurrentValue = 400f } };
+        shape.Transform.CurrentValue = new Rotation3DTransform { RotationY = { CurrentValue = 55f }, Depth = { CurrentValue = 400f } };
         return shape.ToResource(CompositionContext.Default);
     }
 

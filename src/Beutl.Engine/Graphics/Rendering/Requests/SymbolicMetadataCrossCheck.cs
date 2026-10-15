@@ -68,9 +68,6 @@ internal static class SymbolicMetadataCrossCheck
             case RenderFragmentKind.Shader:
                 return ((ShaderRenderFragmentPayload)reference.Payload!).Description.Bounds
                     .TransformBounds(RecordedBoundsOf(reference, 0));
-            case RenderFragmentKind.Geometry:
-                return ((GeometryRenderFragmentPayload)reference.Payload!).Description.Bounds
-                    .TransformBounds(RecordedBoundsOf(reference, 0));
             case RenderFragmentKind.OpaqueSource:
             case RenderFragmentKind.OpaqueMap:
             case RenderFragmentKind.OpaqueCombine:
@@ -116,11 +113,6 @@ internal static class SymbolicMetadataCrossCheck
                 return ReplayWorkingScalePolicy(
                     reference,
                     ((ShaderRenderFragmentPayload)reference.Payload!).WorkingScalePolicy,
-                    options);
-            case RenderFragmentKind.Geometry:
-                return ReplayWorkingScalePolicy(
-                    reference,
-                    ((GeometryRenderFragmentPayload)reference.Payload!).WorkingScalePolicy,
                     options);
             case RenderFragmentKind.FilterEffectSegment:
                 return ReplayEffectItemScale(reference, options);

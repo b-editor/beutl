@@ -17,14 +17,6 @@ internal sealed class FilterEffectResourceState
 
     public int Count => _resources?.Count ?? 0;
 
-    public FilterEffectResourceState AddReference()
-    {
-        if (_references <= 0)
-            throw new ObjectDisposedException(nameof(FilterEffectResourceState));
-        _references++;
-        return this;
-    }
-
     public RenderResource<T> Own<T>(T resource)
         where T : class, IDisposable
     {
@@ -47,10 +39,6 @@ internal sealed class FilterEffectResourceState
         return token;
     }
 
-    /// <remarks>
-    /// Shader and geometry stages declare their bindings as different types, so the resource is read through a
-    /// selector rather than by projecting each list into a common one.
-    /// </remarks>
     public void ValidateResources<TBinding>(
         IReadOnlyList<TBinding> bindings,
         Func<TBinding, RenderResource> selectResource,

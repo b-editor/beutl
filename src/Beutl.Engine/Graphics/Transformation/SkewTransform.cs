@@ -9,12 +9,6 @@ namespace Beutl.Graphics.Transformation;
 [Display(Name = nameof(GraphicsStrings.SkewTransform), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class SkewTransform : Transform
 {
-    public SkewTransform(float skewX, float skewY) : this()
-    {
-        SkewX.CurrentValue = skewX;
-        SkewY.CurrentValue = skewY;
-    }
-
     public SkewTransform()
     {
         ScanProperties<SkewTransform>();
@@ -31,10 +25,5 @@ public sealed partial class SkewTransform : Transform
         float skewX = context.Get(SkewX);
         float skewY = context.Get(SkewY);
         return Matrix.CreateSkew(MathUtilities.Deg2Rad(skewX), MathUtilities.Deg2Rad(skewY));
-    }
-
-    public static SkewTransform FromRadians(float skewX, float skewY)
-    {
-        return new SkewTransform(MathUtilities.Rad2Deg(skewX), MathUtilities.Rad2Deg(skewY));
     }
 }
