@@ -3161,8 +3161,8 @@ public class VersionControlRestoreTests
                         AvailabilityOverride = locator.LocateAsync,
                         Branches =
                         [
-                            new BranchInfo("main", true, null),
-                            new BranchInfo("configuration-ready", false, null),
+                            new BranchInfo("main", true),
+                            new BranchInfo("configuration-ready", false),
                         ],
                         EnsureHygieneStarted = candidate is not null ? hygieneStarted : null,
                         EnsureHygieneRelease = candidate is not null ? releaseHygiene.Task : null,
@@ -3237,8 +3237,8 @@ public class VersionControlRestoreTests
                 AvailabilityOverride = locator.LocateAsync,
                 Branches =
                 [
-                    new BranchInfo("main", true, null),
-                    new BranchInfo("config-change", false, null),
+                    new BranchInfo("main", true),
+                    new BranchInfo("config-change", false),
                 ],
                 SwitchBranchStarted = branchStarted,
                 SwitchBranchRelease = releaseBranch.Task,
@@ -4024,8 +4024,8 @@ public class VersionControlRestoreTests
                 RunsExclusiveOperationsOnThreadPool = true,
                 Branches =
                 [
-                    new BranchInfo("main", true, null),
-                    new BranchInfo("other", false, null),
+                    new BranchInfo("main", true),
+                    new BranchInfo("other", false),
                 ],
                 PullResult = new RemoteOpResult.Success(),
             };
@@ -4187,8 +4187,8 @@ public class VersionControlRestoreTests
                 HasConflicts: false),
             Branches =
             [
-                new BranchInfo("main", true, null),
-                new BranchInfo("feature", false, null),
+                new BranchInfo("main", true),
+                new BranchInfo("feature", false),
             ],
         };
         bool? projectWasOpenDuringPrefetch = null;
@@ -4469,10 +4469,10 @@ public class VersionControlRestoreTests
         };
         backend.EnqueueBranchSnapshot(
             [
-                new BranchInfo("main", true, null),
-                new BranchInfo("target", false, null),
+                new BranchInfo("main", true),
+                new BranchInfo("target", false),
             ]);
-        backend.EnqueueBranchSnapshot([new BranchInfo("main", true, null)]);
+        backend.EnqueueBranchSnapshot([new BranchInfo("main", true)]);
         var config = new VersionControlConfig();
         VersionControlCoordinator coordinator = session.Start(
             config,
@@ -7798,7 +7798,7 @@ public class VersionControlRestoreTests
         public Exception? RestoreProjectTreeFailure { get; set; }
 
         public IReadOnlyList<BranchInfo> Branches { get; init; } =
-            [new BranchInfo("main", true, null)];
+            [new BranchInfo("main", true)];
 
         public TaskCompletionSource? EnsureHygieneStarted { get; init; }
 
