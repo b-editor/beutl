@@ -23,18 +23,6 @@ public class DiscoverService(BeutlApiApplication clients) : IBeutlApiResource
         return new Package(owner, package, clients);
     }
 
-    public async Task<Profile> GetProfile(string name, CancellationToken cancellationToken)
-    {
-        using CancellationTokenSource lifetimeCts = clients.CreateLifetimeLinkedTokenSource(cancellationToken);
-        CancellationToken token = lifetimeCts.Token;
-        token.ThrowIfCancellationRequested();
-        using Activity? activity = clients.ActivitySource.StartActivity("DiscoverService.GetProfile", ActivityKind.Client);
-
-        ProfileResponse response = await clients.Users.GetUser(name, token).ConfigureAwait(false);
-        token.ThrowIfCancellationRequested();
-        return new Profile(response, clients);
-    }
-
     public async Task<Package[]> GetFeatured(
         CancellationToken cancellationToken,
         int start = 0,
