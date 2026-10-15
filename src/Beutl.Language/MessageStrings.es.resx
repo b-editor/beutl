@@ -60,14 +60,8 @@
   <data name="EditorContextAlreadyCreated" xml:space="preserve">
     <value>El contexto del editor ya se ha creado.</value>
   </data>
-  <data name="InputRequired" xml:space="preserve">
-    <value>Introduce una cadena.</value>
-  </data>
   <data name="InvalidString" xml:space="preserve">
     <value>Cadena no válida.</value>
-  </data>
-  <data name="MultipleTypesAvailable" xml:space="preserve">
-    <value>Hay varios tipos disponibles.</value>
   </data>
   <data name="AnimationIsEnabled" xml:space="preserve">
     <value>La animación está habilitada</value>

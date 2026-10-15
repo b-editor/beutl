@@ -1,7 +1,5 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.Editor.Components.Helpers;
-using Beutl.Engine;
-using Beutl.Graphics;
 using Beutl.Graphics3D.Textures;
 using Beutl.Services;
 using Reactive.Bindings;
@@ -108,35 +106,6 @@ public sealed class TextureSourceEditorViewModel : BaseEditorViewModel
         SetValue(oldValue, null);
     }
 
-    // These replace only the drawable, so they check it rather than the whole texture source: replacing
-    // it while the source's own animation holds an unreadable easing leaves the element protected, so
-    // that change would not be saved.
-    public void SetDrawableType(Type type)
-    {
-        if (IsDisposed || Value.Value is not DrawableTextureSource drawableSource) return;
-        if (!CanReplace(drawableSource.Drawable.CurrentValue)) return;
-
-        var drawable = (Drawable?)Activator.CreateInstance(type);
-        drawableSource.Drawable.CurrentValue = drawable;
-        CompleteElementRepair();
-        Commit();
-    }
-
-    public void SetDrawableTarget(Drawable target)
-    {
-        if (IsDisposed || Value.Value is not DrawableTextureSource drawableSource) return;
-        if (!CanReplace(drawableSource.Drawable.CurrentValue)) return;
-        Type? presenterType = PresenterTypeAttribute.GetPresenterType(typeof(Drawable));
-        if (presenterType != null
-            && Activator.CreateInstance(presenterType) is Drawable presenterDrawable
-            && presenterDrawable is IPresenter<Drawable> presenterInterface)
-        {
-            PresenterEditorHelper.AssignTarget(presenterInterface, target);
-            drawableSource.Drawable.CurrentValue = presenterDrawable;
-            CompleteElementRepair();
-            Commit();
-        }
-    }
 
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {

@@ -92,13 +92,8 @@ public partial class GeometryEditor : UserControl
 
         if (await dialog.ShowAsync() == FAContentDialogResult.Primary)
         {
-            string? path = textBox.Text;
-            if (string.IsNullOrWhiteSpace(path))
-            {
-                _logger.LogWarning("SVG path is empty.");
-                NotificationService.ShowWarning(Strings.ImportSvgPath, MessageStrings.InputRequired);
-                return;
-            }
+            // Import is enabled only while the text is not blank.
+            string path = textBox.Text!;
 
             try
             {

@@ -60,14 +60,8 @@
   <data name="EditorContextAlreadyCreated" xml:space="preserve">
     <value>编辑器上下文已创建。</value>
   </data>
-  <data name="InputRequired" xml:space="preserve">
-    <value>请输入字符串。</value>
-  </data>
   <data name="InvalidString" xml:space="preserve">
     <value>无效的字符串。</value>
-  </data>
-  <data name="MultipleTypesAvailable" xml:space="preserve">
-    <value>有多个可用类型。</value>
   </data>
   <data name="AnimationIsEnabled" xml:space="preserve">
     <value>动画已启用</value>

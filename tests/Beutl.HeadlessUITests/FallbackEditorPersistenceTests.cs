@@ -299,48 +299,6 @@ public sealed class FallbackEditorPersistenceTests
         Assert.That(((SolidColorBrush)keyFrame.Value!).Color.CurrentValue, Is.EqualTo(Colors.Green));
     }
 
-    // A texture source's drawable edits replace only its drawable. While the texture's own size animation
-    // holds an unreadable easing, such an edit would not complete the repair, so it is refused.
-    [AvaloniaTest]
-    public async Task TextureDrawableEdits_CheckTheDrawableTheyReplace()
-    {
-        await TestReset.ResetShellAsync();
-        string root = CreateRoot();
-        try
-        {
-            var holder = new EditorValueHolder();
-            var texture = new DrawableTextureSource();
-            texture.Drawable.CurrentValue = new RectShape();
-            var widthAnimation = new KeyFrameAnimation<int>();
-            widthAnimation.KeyFrames.Add(new KeyFrame<int> { KeyTime = TimeSpan.Zero, Value = 256 });
-            texture.TextureWidth.Animation = widthAnimation;
-            holder.TextureValue.CurrentValue = texture;
-            Element recovered = StoreCorruptAndRestore(root, holder, CorruptTheEasing).Element;
-            var recoveredHolder = (EditorValueHolder)recovered.Objects.Single();
-            var recoveredTexture = (DrawableTextureSource)recoveredHolder.TextureValue.CurrentValue!;
-            Drawable? drawableBefore = recoveredTexture.Drawable.CurrentValue;
-            Assert.That(recovered.SuppressedStorageSource, Is.Not.Null);
-            using var history = new HistoryScope(recovered);
-            using var viewModel = new TextureSourceEditorViewModel(new SimplePropertyAdapter<TextureSource?>(
-                (SimpleProperty<TextureSource?>)recoveredHolder.TextureValue, recoveredHolder));
-            viewModel.Accept(Services(recovered, history.History));
-
-            viewModel.SetDrawableType(typeof(EllipseShape));
-            viewModel.SetDrawableTarget(new EllipseShape());
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(recoveredTexture.Drawable.CurrentValue, Is.SameAs(drawableBefore));
-                Assert.That(recovered.SuppressedStorageSource, Is.Not.Null);
-                Assert.That(history.History.CanUndo, Is.False);
-            });
-        }
-        finally
-        {
-            Directory.Delete(root, true);
-        }
-    }
-
     // A generic presenter editor that keeps the presenter replaces only its target. While the presenter's
     // own transform holds an easing that could not be read, pointing it at another target would not complete
     // the repair.
@@ -386,44 +344,6 @@ public sealed class FallbackEditorPersistenceTests
     }
 
     [AvaloniaTest]
-    public async Task TextureDrawableType_OverAFallback_IsSavedAndUndoWritesTheFallbackBack()
-    {
-        await TestReset.ResetShellAsync();
-
-        string root = CreateRoot();
-        try
-        {
-            var holder = new EditorValueHolder();
-            var texture = new DrawableTextureSource();
-            texture.Drawable.CurrentValue = new RectShape();
-            holder.TextureValue.CurrentValue = texture;
-            Recovered recovered = StoreCorruptAndRestore(
-                root,
-                holder,
-                json => DrawableJson(json)["$type"] = "[Beutl.Engine]Beutl.Graphics:MissingDrawable");
-            Element recoveredElement = recovered.Element;
-            var recoveredHolder = (EditorValueHolder)recoveredElement.Objects.Single();
-            var recoveredTexture = (DrawableTextureSource)recoveredHolder.TextureValue.CurrentValue!;
-            Assert.That(recoveredTexture.Drawable.CurrentValue, Is.InstanceOf<FallbackDrawable>());
-            Assert.That(recoveredElement.SuppressedStorageSource, Is.Null);
-            using var history = new HistoryScope(recoveredElement);
-            var adapter = new SimplePropertyAdapter<TextureSource?>(
-                (SimpleProperty<TextureSource?>)recoveredHolder.TextureValue,
-                recoveredHolder);
-            using var viewModel = new TextureSourceEditorViewModel(adapter);
-            viewModel.Accept(Services(recoveredElement, history.History));
-
-            viewModel.SetDrawableType(typeof(RectShape));
-            AssertRepairThenUndoRestoresBytes(recovered, history.History,
-                () => Assert.That(recoveredTexture.Drawable.CurrentValue, Is.InstanceOf<FallbackDrawable>()));
-        }
-        finally
-        {
-            Directory.Delete(root, true);
-        }
-    }
-
-    [AvaloniaTest]
     public async Task TextureSourceReplacement_OverAFallbackDrawable_IsSavedAndUndoWritesTheFallbackBack()
     {
         await TestReset.ResetShellAsync();
@@ -457,45 +377,6 @@ public sealed class FallbackEditorPersistenceTests
                 Assert.That(recoveredHolder.TextureValue.CurrentValue, Is.SameAs(recoveredTexture));
                 Assert.That(recoveredTexture.Drawable.CurrentValue, Is.InstanceOf<FallbackDrawable>());
             });
-        }
-        finally
-        {
-            Directory.Delete(root, true);
-        }
-    }
-
-    [AvaloniaTest]
-    public async Task TextureDrawableTarget_OverAFallback_IsSavedAndUndoWritesTheFallbackBack()
-    {
-        await TestReset.ResetShellAsync();
-
-        string root = CreateRoot();
-        try
-        {
-            var holder = new EditorValueHolder();
-            var texture = new DrawableTextureSource();
-            texture.Drawable.CurrentValue = new RectShape();
-            holder.TextureValue.CurrentValue = texture;
-            Recovered recovered = StoreCorruptAndRestore(
-                root,
-                holder,
-                json => DrawableJson(json)["$type"] = "[Beutl.Engine]Beutl.Graphics:MissingDrawable");
-            Element recoveredElement = recovered.Element;
-            var recoveredHolder = (EditorValueHolder)recoveredElement.Objects.Single();
-            var recoveredTexture = (DrawableTextureSource)recoveredHolder.TextureValue.CurrentValue!;
-            Assert.That(recoveredTexture.Drawable.CurrentValue, Is.InstanceOf<FallbackDrawable>());
-            Assert.That(recoveredElement.SuppressedStorageSource, Is.Null);
-            using var history = new HistoryScope(recoveredElement);
-            var adapter = new SimplePropertyAdapter<TextureSource?>(
-                (SimpleProperty<TextureSource?>)recoveredHolder.TextureValue,
-                recoveredHolder);
-            using var viewModel = new TextureSourceEditorViewModel(adapter);
-            viewModel.Accept(Services(recoveredElement, history.History));
-
-            var target = new RectShape();
-            viewModel.SetDrawableTarget(target);
-            AssertRepairThenUndoRestoresBytes(recovered, history.History,
-                () => Assert.That(recoveredTexture.Drawable.CurrentValue, Is.InstanceOf<FallbackDrawable>()));
         }
         finally
         {

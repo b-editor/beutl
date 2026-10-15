@@ -8,7 +8,7 @@ namespace Beutl.Views.Editors;
 
 public static class TargetSelectionHelper
 {
-    public static async Task<T?> ShowTargetPickerAsync<T>(
+    private static async Task<T?> ShowTargetPickerAsync<T>(
         Control host,
         IReadOnlyList<TargetObjectInfo> targets)
         where T : CoreObject
