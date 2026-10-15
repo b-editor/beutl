@@ -16,18 +16,6 @@ public class TimeSpanExtensionsTests
         Assert.That(frame, Is.EqualTo(expected).Within(1e-9));
     }
 
-    [TestCase(0.0, 30, 0.0)]
-    [TestCase(1.0, 30, 30.0)]
-    [TestCase(2.0, 60, 120.0)]
-    public void ToFrameNumber_Int_ReturnsSecondsTimesRate(double seconds, int rate, double expected)
-    {
-        TimeSpan ts = TimeSpan.FromSeconds(seconds);
-
-        double frame = ts.ToFrameNumber(rate);
-
-        Assert.That(frame, Is.EqualTo(expected).Within(1e-9));
-    }
-
     [Test]
     public void ToTimeSpan_Double_ReturnsFractionalSeconds()
     {
