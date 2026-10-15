@@ -7,16 +7,6 @@ namespace Beutl.Editor.Services;
 
 public sealed partial class ElementResizeService
 {
-    public (TimeSpan Min, TimeSpan Max) GetTrimDeltaBounds(Scene scene, IReadOnlyList<ElementTrimPair> pairs)
-    {
-        ArgumentNullException.ThrowIfNull(scene);
-        ArgumentNullException.ThrowIfNull(pairs);
-        ThrowIfAnyNullParticipant(pairs);
-
-        TrimConstraints constraints = CreateTrimConstraints(scene, pairs);
-        return (constraints.Min, constraints.Max);
-    }
-
     public bool Roll(Scene scene, IReadOnlyList<ElementTrimPair> pairs, TimeSpan delta)
     {
         ArgumentNullException.ThrowIfNull(scene);
