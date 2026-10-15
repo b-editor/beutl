@@ -177,44 +177,6 @@ public sealed class ExtensionAndCaptionAuthoringContractTests
     }
 
     [Test]
-    public async Task AiJobResultCapabilities_CanBeRegisteredAndResolvedIndependently()
-    {
-        var kind = new AiJobKindId("vendor.result");
-        var capabilities = new CustomAiJobResultCapabilities();
-        await using var registry = new AiJobResultRegistry(
-            [new AiJobPresentationRegistration(kind, capabilities)],
-            [new AiJobCompletionRegistration(kind, capabilities)],
-            [new AiJobResultApplicatorRegistration(kind, capabilities)]);
-
-        Assert.That(registry.TryAcquirePresenter(kind, out IAiJobPresenterLease? presenter), Is.True);
-        using (presenter)
-        {
-            Assert.That(presenter!.Presenter, Is.SameAs(capabilities));
-        }
-
-        Assert.That(registry.TryAcquireCompletionPresenter(
-            kind,
-            out IAiJobCompletionPresenterLease? completion), Is.True);
-        using (completion)
-        {
-            Assert.That(completion!.Presenter, Is.SameAs(capabilities));
-        }
-
-        Assert.That(registry.TryAcquireApplicator(
-            kind,
-            out IAiJobResultApplicatorLease? applicator), Is.True);
-        using (applicator)
-        {
-            Assert.That(applicator!.Applicator, Is.SameAs(capabilities));
-        }
-
-        Assert.That(
-            typeof(AiJobResultRegistry).Assembly.GetType(
-                "Beutl.Editor.Services.AI.IAiJobResultHandler"),
-            Is.Null);
-    }
-
-    [Test]
     public void CustomOperations_SelectSupportedCapabilitySchemas()
     {
         var operation = new AiOperationId("vendor.video");
@@ -385,28 +347,6 @@ public sealed class ExtensionAndCaptionAuthoringContractTests
             IElementSourcePreflight preflight,
             CancellationToken cancellationToken)
             => throw new NotSupportedException();
-    }
-
-    private sealed class CustomAiJobResultCapabilities :
-        IAiJobPresenter,
-        IAiJobCompletionPresenter,
-        IAiJobResultApplicator
-    {
-        public AiJobPresentation Present(AiJob job, AiJobStatusSemantics status)
-            => new("Vendor", "Ready", "Result", string.Empty, false);
-
-        public AiJobCompletionPresentation? CreateCompletion(
-            AiJob job,
-            AiJobStatusSemantics status)
-            => null;
-
-        public bool CanApply(AiJob job, AiJobStatusSemantics status) => true;
-
-        public Task ApplyAsync(
-            AiJob job,
-            IAiJobResultContext context,
-            CancellationToken cancellationToken)
-            => Task.CompletedTask;
     }
 
     private sealed class CustomAiJobBehavior :

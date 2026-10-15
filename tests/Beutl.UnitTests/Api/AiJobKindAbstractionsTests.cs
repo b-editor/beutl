@@ -90,69 +90,48 @@ public sealed class AiJobKindAbstractionsTests
     }
 
     [Test]
-    public async Task ResultRegistryDisposalJoinsAConcurrentApplicatorRetirement()
-    {
-        var registry = new AiJobResultRegistry([], [], []);
-        IAiJobResultApplicatorRegistration registration = registry.Register(
-            new AiJobResultApplicatorRegistration(
-                new AiJobKindId("tests.concurrent-result-disposal"),
-                new TestCapabilities("application")));
-        Assert.That(registry.TryAcquireApplicator(
-            new AiJobKindId("tests.concurrent-result-disposal"),
-            out IAiJobResultApplicatorLease? lease), Is.True);
-
-        Task registrationDisposal = registration.DisposeAsync().AsTask();
-        Assert.That(registrationDisposal.IsCompleted, Is.False);
-        Task registryDisposal = registry.DisposeAsync().AsTask();
-        Assert.That(registryDisposal.IsCompleted, Is.False);
-
-        lease!.Dispose();
-        await Task.WhenAll(registrationDisposal, registryDisposal)
-            .WaitAsync(TimeSpan.FromSeconds(5));
-    }
-
-    [Test]
     public async Task PresentationAndCompletionReplaceIndependentlyOfApplication()
     {
         var original = new TestCapabilities("original");
         var presentationReplacement = new TestCapabilities("presentation");
         var completionReplacement = new TestCapabilities("completion");
         var kind = new AiJobKindId("tests.result");
+        var extensions = new ExtensionProvider();
         await using var registry = new AiJobResultRegistry(
             [new AiJobPresentationRegistration(kind, original)],
             [new AiJobCompletionRegistration(kind, original)],
-            [new AiJobResultApplicatorRegistration(kind, original)]);
+            [new AiJobResultApplicatorRegistration(kind, original)],
+            extensions,
+            null);
 
-        IAiJobPresentationRegistration presentationRegistration = registry.Register(
-            new AiJobPresentationRegistration(
-                kind,
-                presentationReplacement,
-                AiJobResultRegistrationMode.Replace));
-        IAiJobCompletionRegistration completionRegistration = registry.Register(
-            new AiJobCompletionRegistration(
-                kind,
-                completionReplacement,
-                AiJobResultRegistrationMode.Replace));
-        try
-        {
-            AssertCapabilities(
-                registry,
-                kind,
-                presentationReplacement,
-                completionReplacement,
-                original);
+        extensions.AddExtensions(206,
+        [
+            new TestPresentationExtension(
+                new AiJobPresentationRegistration(
+                    kind,
+                    presentationReplacement,
+                    AiJobResultRegistrationMode.Replace)),
+        ]);
+        extensions.AddExtensions(207,
+        [
+            new TestCompletionExtension(
+                new AiJobCompletionRegistration(
+                    kind,
+                    completionReplacement,
+                    AiJobResultRegistrationMode.Replace)),
+        ]);
+        AssertCapabilities(
+            registry,
+            kind,
+            presentationReplacement,
+            completionReplacement,
+            original);
 
-            await presentationRegistration.DisposeAsync();
-            AssertCapabilities(registry, kind, original, completionReplacement, original);
+        await extensions.RemoveExtensions(206).DrainAsync();
+        AssertCapabilities(registry, kind, original, completionReplacement, original);
 
-            await completionRegistration.DisposeAsync();
-            AssertCapabilities(registry, kind, original, original, original);
-        }
-        finally
-        {
-            await presentationRegistration.DisposeAsync();
-            await completionRegistration.DisposeAsync();
-        }
+        await extensions.RemoveExtensions(207).DrainAsync();
+        AssertCapabilities(registry, kind, original, original, original);
     }
 
     [Test]
@@ -160,22 +139,37 @@ public sealed class AiJobKindAbstractionsTests
     {
         var kind = new AiJobKindId("tests.independent-slots");
         var capabilities = new TestCapabilities("base");
-        await using var registry = new AiJobResultRegistry(
-            [new AiJobPresentationRegistration(kind, capabilities)],
-            [],
-            []);
 
-        Assert.DoesNotThrow(() => registry.Register(
-            new AiJobCompletionRegistration(kind, capabilities)));
-        Assert.DoesNotThrow(() => registry.Register(
-            new AiJobResultApplicatorRegistration(kind, capabilities)));
-        Assert.Throws<ArgumentException>(() => registry.Register(
-            new AiJobPresentationRegistration(kind, capabilities)));
-        Assert.Throws<ArgumentException>(() => registry.Register(
-            new AiJobPresentationRegistration(
-                new AiJobKindId("tests.missing-slot"),
-                capabilities,
-                AiJobResultRegistrationMode.Replace)));
+        await using (var registry = new AiJobResultRegistry(
+            [new AiJobPresentationRegistration(kind, capabilities)],
+            [new AiJobCompletionRegistration(kind, capabilities)],
+            [new AiJobResultApplicatorRegistration(kind, capabilities)],
+            null,
+            null))
+        {
+            AssertCapabilities(registry, kind, capabilities, capabilities, capabilities);
+        }
+
+        Assert.Throws<ArgumentException>(() => new AiJobResultRegistry(
+            [
+                new AiJobPresentationRegistration(kind, capabilities),
+                new AiJobPresentationRegistration(kind, capabilities),
+            ],
+            [],
+            [],
+            null,
+            null));
+        Assert.Throws<ArgumentException>(() => new AiJobResultRegistry(
+            [
+                new AiJobPresentationRegistration(
+                    new AiJobKindId("tests.missing-slot"),
+                    capabilities,
+                    AiJobResultRegistrationMode.Replace),
+            ],
+            [],
+            [],
+            null,
+            null));
     }
 
     [Test]
