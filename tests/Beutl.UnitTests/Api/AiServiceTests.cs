@@ -881,6 +881,20 @@ public sealed partial class AiCapabilityServiceTests
         }
     }
 
+    // The removed length check rejected these before decoding; Convert.FromBase64String
+    // and the empty-result check still do.
+    [TestCase(" \t\r\n")]
+    [TestCase("AAA")]
+    [TestCase("A===")]
+    public void ImagePreviewBudget_PassesOverMalformedImagesWithoutCountingThem(string image)
+    {
+        var budget = new AiImageGenerationService.ImagePreviewBudget();
+        Assert.That(budget.TryDecode(image, out byte[] bytes), Is.False);
+        Assert.That(bytes, Is.Empty);
+        for (int index = 0; index < 4; index++)
+            Assert.That(budget.TryDecode("AA==", out _), Is.True);
+    }
+
     [Test]
     public void ImagePreviewBudget_InvalidImageDoesNotConsumeBudget()
     {
