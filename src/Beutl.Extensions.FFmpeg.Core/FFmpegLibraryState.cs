@@ -40,7 +40,8 @@ public static class FFmpegLibraryState
 
     public static bool IsVerificationInProgress => s_verificationInProgress;
 
-    public static long MissingSinceTicks => Interlocked.Read(ref s_missingSinceTicks);
+    // Test-only: the tick count when the re-probe cooldown was armed, or 0.
+    internal static long MissingSinceTicks => Interlocked.Read(ref s_missingSinceTicks);
 
     public static void NotifyMissing()
     {
