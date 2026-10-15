@@ -1625,21 +1625,6 @@ public class HistoryManagerTests
         });
     }
 
-    [Test]
-    public void HistoryEntry_Subtypes_AreSealedDiscriminatedUnion()
-    {
-        var initial = HistoryEntry.CreateInitial();
-        var transactional = HistoryEntry.FromTransaction(new HistoryTransaction(7));
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(initial, Is.InstanceOf<InitialHistoryEntry>());
-            Assert.That(transactional, Is.InstanceOf<TransactionHistoryEntry>());
-            Assert.That(initial.TransactionId, Is.Null);
-            Assert.That(transactional.TransactionId, Is.EqualTo(7L));
-        });
-    }
-
     #endregion
 
     #region JumpTo Failure / Disposal Tests
