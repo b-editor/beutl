@@ -37,7 +37,7 @@ public sealed class OpenFileResponse
     public int AudioNumChannels { get; set; }
 
     // リングバッファ情報
-    public int VideoRingBufferSlotCount { get; set; } // 0 = リングバッファ無効
+    public int VideoRingBufferSlotCount { get; set; } // 0 when the file has no video
     public long VideoRingBufferSlotSize { get; set; }
 }
 
@@ -53,7 +53,6 @@ public sealed class ReadVideoResponse
     public int Width { get; set; }
     public int Height { get; set; }
     public int BytesPerPixel { get; set; }
-    public int DataLength { get; set; }
     // 共有メモリ名。リサイズにより変更された場合に設定される
     public string? SharedMemoryName { get; set; }
     // Color space can change per frame in some cases

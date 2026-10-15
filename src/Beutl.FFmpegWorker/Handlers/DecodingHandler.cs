@@ -170,7 +170,6 @@ internal sealed partial class DecodingHandler : IDisposable
             Width = result.Width,
             Height = result.Height,
             BytesPerPixel = result.BytesPerPixel,
-            DataLength = result.DataLength,
             SharedMemoryName = result.NewSharedMemoryName,
             RingBufferSlotSize = result.NewSharedMemoryName != null ? result.NewSlotSize : null,
             RingBufferSlotCount = result.NewSharedMemoryName != null ? result.NewSlotCount : null,

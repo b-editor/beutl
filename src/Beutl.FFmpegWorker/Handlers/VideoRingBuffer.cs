@@ -11,7 +11,6 @@ internal struct RingBufferReadResult
     public int Width;
     public int Height;
     public int BytesPerPixel;
-    public int DataLength;
     public string? NewSharedMemoryName;
     public long NewSlotSize;
     public int NewSlotCount;
@@ -145,7 +144,6 @@ internal sealed class VideoRingBuffer : IDisposable
             Width = slotMeta.Width,
             Height = slotMeta.Height,
             BytesPerPixel = slotMeta.BytesPerPixel,
-            DataLength = slotMeta.DataLength,
             TransferFn = colorSpaceChanged ? _lastTransferFn : null,
             ToXyzD50 = colorSpaceChanged ? _lastToXyzD50 : null,
         };
@@ -191,7 +189,6 @@ internal sealed class VideoRingBuffer : IDisposable
             Width = fi.Width,
             Height = fi.Height,
             BytesPerPixel = fi.BytesPerPixel,
-            DataLength = fi.DataLength,
             NewSharedMemoryName = newShmName,
             NewSlotSize = newShmName != null ? _slotSize : 0,
             NewSlotCount = newShmName != null ? _slotCount : 0,
@@ -404,7 +401,6 @@ internal sealed class VideoRingBuffer : IDisposable
         public int Width;
         public int Height;
         public int BytesPerPixel;
-        public int DataLength;
         public BitmapColorSpace ColorSpace;
 
         public static SlotMetadata FromFrameInfo(VideoFrameInfo fi)
@@ -414,7 +410,6 @@ internal sealed class VideoRingBuffer : IDisposable
                 Width = fi.Width,
                 Height = fi.Height,
                 BytesPerPixel = fi.BytesPerPixel,
-                DataLength = fi.DataLength,
                 ColorSpace = fi.ColorSpace
             };
         }
