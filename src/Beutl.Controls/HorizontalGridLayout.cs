@@ -20,12 +20,6 @@ public class HorizontalGridLayout : NonVirtualizingLayout
     public static readonly StyledProperty<double> MinItemWidthProperty =
         AvaloniaProperty.Register<HorizontalGridLayout, double>(nameof(MinItemWidth));
 
-    public static readonly StyledProperty<int> MaxColumnsProperty =
-        AvaloniaProperty.Register<HorizontalGridLayout, int>(
-            nameof(MaxColumns),
-            defaultValue: int.MaxValue,
-            coerce: (_, v) => Math.Max(v, 1));
-
     public double ColumnSpacing
     {
         get => GetValue(ColumnSpacingProperty);
@@ -44,12 +38,6 @@ public class HorizontalGridLayout : NonVirtualizingLayout
         set => SetValue(MinItemWidthProperty, value);
     }
 
-    public int MaxColumns
-    {
-        get => GetValue(MaxColumnsProperty);
-        set => SetValue(MaxColumnsProperty, value);
-    }
-
     protected override Size MeasureOverride(NonVirtualizingLayoutContext context, Size availableSize)
     {
         if (double.IsInfinity(availableSize.Width))
@@ -58,7 +46,7 @@ public class HorizontalGridLayout : NonVirtualizingLayout
         }
 
         var columns = (int)Math.Floor(availableSize.Width / MinItemWidth);
-        columns = Math.Clamp(columns, 1, MaxColumns);
+        columns = Math.Max(columns, 1);
 
         var spacingWidth = (columns - 1) * ColumnSpacing;
 
@@ -102,7 +90,6 @@ public class HorizontalGridLayout : NonVirtualizingLayout
     {
         base.OnPropertyChanged(change);
         if (change.Property == MinItemWidthProperty
-            || change.Property == MaxColumnsProperty
             || change.Property == ColumnSpacingProperty
             || change.Property == RowSpacingProperty)
         {

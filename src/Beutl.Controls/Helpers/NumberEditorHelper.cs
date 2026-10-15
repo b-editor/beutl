@@ -8,7 +8,7 @@ namespace Beutl;
 
 public static class NumberEditorHelper
 {
-    public static double GetScrubModifierCoefficient(KeyModifiers modifiers)
+    private static double GetScrubModifierCoefficient(KeyModifiers modifiers)
     {
         bool shift = modifiers.HasFlag(KeyModifiers.Shift);
         bool fine = modifiers.HasFlag(KeyModifiers.Alt) || modifiers.HasFlag(KeyModifiers.Meta);
@@ -64,7 +64,7 @@ public static class NumberEditorHelper
         }
     }
 
-    public static int GetScale(decimal value)
+    private static int GetScale(decimal value)
     {
         int[] bits = decimal.GetBits(value);
         return (bits[3] >> 16) & 0xFF;

@@ -74,7 +74,6 @@ public partial class Player : RangeBase
     private RepeatButton? _previousButton;
     private Button? _endButton;
     private Button? _startButton;
-    private Slider? _slider;
     private ContentPresenter? _innerLeftPresenter;
     private ContentPresenter? _contentPresenter;
     private TextBlock? _currentTimeTextBlock;
@@ -169,14 +168,6 @@ public partial class Player : RangeBase
         set => SetValue(MarkersProperty, value);
     }
 
-    public void SetSeekBarOpacity(double opacity)
-    {
-        if (_slider != null)
-        {
-            _slider.Opacity = opacity;
-        }
-    }
-
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
         base.OnApplyTemplate(e);
@@ -188,7 +179,6 @@ public partial class Player : RangeBase
         _previousButton = e.NameScope.Find<RepeatButton>("PART_PreviousButton");
         _endButton = e.NameScope.Find<Button>("PART_EndButton");
         _startButton = e.NameScope.Find<Button>("PART_StartButton");
-        _slider = e.NameScope.Find<Slider>("PART_Slider");
         _innerLeftPresenter = e.NameScope.Find<ContentPresenter>("InnerLeftPresenter");
         _contentPresenter = e.NameScope.Find<ContentPresenter>("ContentPresenter");
         _currentTimeTextBlock = e.NameScope.Find<TextBlock>("PART_CurrentTimeTextBlock");

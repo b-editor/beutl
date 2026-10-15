@@ -33,9 +33,6 @@
   <data name="ExportProjectPartialFailure" xml:space="preserve">
     <value>エクスポートは完了しましたが、{0}件のリソースのコピーに失敗しました。書き出されたパッケージが不完全な可能性があります。</value>
   </data>
-  <data name="ConfirmDeleteDirectory" xml:space="preserve">
-    <value>このディレクトリを削除しますか？</value>
-  </data>
   <data name="ConfirmDeleteFile" xml:space="preserve">
     <value>このファイルを削除しますか？</value>
   </data>

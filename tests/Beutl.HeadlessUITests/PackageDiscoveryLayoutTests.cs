@@ -69,7 +69,7 @@ public class PackageDiscoveryLayoutTests
     }
 
     [AvaloniaTest]
-    public void Changing_column_limit_and_spacing_updates_existing_items()
+    public void Changing_spacing_updates_existing_items()
     {
         ItemsRepeater repeater = CreateRepeater();
         var window = new Window { Content = repeater, Width = 740, Height = 300 };
@@ -79,11 +79,6 @@ public class PackageDiscoveryLayoutTests
             HeadlessTestHelpers.Render();
 
             var layout = (HorizontalGridLayout)repeater.Layout!;
-            layout.MaxColumns = 1;
-            HeadlessTestHelpers.Render();
-            Assert.That(repeater.TryGetElement(1)!.Bounds.Y, Is.GreaterThan(repeater.TryGetElement(0)!.Bounds.Bottom));
-
-            layout.MaxColumns = 2;
             layout.ColumnSpacing = 32;
             layout.RowSpacing = 24;
             HeadlessTestHelpers.Render();

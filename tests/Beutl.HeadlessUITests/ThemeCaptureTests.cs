@@ -178,12 +178,6 @@ public class ThemeCaptureTests
                     tabs,
                     listBox,
                     new Expander { Header = "Expander", IsExpanded = true, Content = new Avalonia.Controls.TextBlock { Text = "Nested content", Margin = new Thickness(8) } },
-                    new Border
-                    {
-                        Classes = { "CardStyle" },
-                        Padding = new Thickness(12),
-                        Child = new Avalonia.Controls.TextBlock { Text = "Border.CardStyle" },
-                    },
                 },
             },
         };

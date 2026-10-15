@@ -38,9 +38,6 @@
   <data name="ExportProjectPartialFailure" xml:space="preserve">
     <value>导出已完成，但 {0} 个资源复制失败。导出的包可能不完整。</value>
   </data>
-  <data name="ConfirmDeleteDirectory" xml:space="preserve">
-    <value>是否要删除此目录？</value>
-  </data>
   <data name="ConfirmDeleteFile" xml:space="preserve">
     <value>是否要删除此文件？</value>
   </data>

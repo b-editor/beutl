@@ -28,12 +28,6 @@ public partial class ColorPaletteItem
         AvaloniaProperty.Register<ColorPaletteItem, IBrush?>(nameof(BorderBrushPointerOver));
 
     /// <summary>
-    /// Defines the <see cref="BorderBrushPressed"/> property
-    /// </summary>
-    public static readonly StyledProperty<IBrush?> BorderBrushPressedProperty =
-        AvaloniaProperty.Register<ColorPaletteItem, IBrush?>(nameof(BorderBrushPressed));
-
-    /// <summary>
     /// Defines the <see cref="BorderThickness"/> property
     /// </summary>
     public static readonly StyledProperty<Thickness> BorderThicknessProperty =
@@ -44,12 +38,6 @@ public partial class ColorPaletteItem
     /// </summary>
     public static readonly StyledProperty<Thickness> BorderThicknessPointerOverProperty =
         AvaloniaProperty.Register<ColorPaletteItem, Thickness>(nameof(BorderThicknessPointerOver));
-
-    /// <summary>
-    /// Defines the <see cref="BorderThicknessPressed"/> property
-    /// </summary>
-    public static readonly StyledProperty<Thickness> BorderThicknessPressedProperty =
-        AvaloniaProperty.Register<ColorPaletteItem, Thickness>(nameof(BorderThicknessPressed));
 
     /// <summary>
     /// Defines the <see cref="CornerRadius"/> property
@@ -95,16 +83,6 @@ public partial class ColorPaletteItem
     }
 
     /// <summary>
-    /// Gets or sets the Border Brush this item should use when rendering and the
-    /// pointer is pressed on the item
-    /// </summary>
-    public IBrush? BorderBrushPressed
-    {
-        get => GetValue(BorderBrushPressedProperty);
-        set => SetValue(BorderBrushPressedProperty, value);
-    }
-
-    /// <summary>
     /// Gets or sets the Border Thickness this item should use when rendering
     /// </summary>
     public Thickness BorderThickness
@@ -121,16 +99,6 @@ public partial class ColorPaletteItem
     {
         get => GetValue(BorderThicknessPointerOverProperty);
         set => SetValue(BorderThicknessPointerOverProperty, value);
-    }
-
-    /// <summary>
-    /// Gets or sets the Border Thickness this item should use when rendering and the
-    /// pointer is pressed on the item
-    /// </summary>
-    public Thickness BorderThicknessPressed
-    {
-        get => GetValue(BorderThicknessPressedProperty);
-        set => SetValue(BorderThicknessPressedProperty, value);
     }
 
     /// <summary>
