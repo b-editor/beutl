@@ -275,7 +275,34 @@ public partial class PackageInstaller
     {
         if (GetPayloadOwnership(packageName, directory) != PayloadOwnership.Owned)
             return true;
-        return DeleteIfExists(directory);
+        return DeleteOwnedPayload(directory);
+    }
+
+    // Deletes the owner marker last. A deletion that stops partway, at a locked file for
+    // example, leaves the rest identifiable, so the next uninstall retries it.
+    private bool DeleteOwnedPayload(string directory)
+    {
+        try
+        {
+            foreach (FileSystemInfo entry in new DirectoryInfo(directory).GetFileSystemInfos())
+            {
+                if (entry.Name == PayloadOwnerFileName)
+                    continue;
+                // Directory.Delete removes a linked directory without following the link.
+                if (entry is DirectoryInfo)
+                    Directory.Delete(entry.FullName, recursive: true);
+                else
+                    entry.Delete();
+            }
+
+            Directory.Delete(directory, recursive: true);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to delete the package data directory {Directory}.", directory);
+            return false;
+        }
     }
 
     private enum PayloadOwnership

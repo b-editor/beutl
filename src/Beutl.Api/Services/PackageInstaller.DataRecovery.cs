@@ -216,6 +216,9 @@ public partial class PackageInstaller
             string backup = BackupDirectory(staging, payload.Kind);
             // A damaged staged copy is not an original and need not be trusted to
             // restore the backup. Only validate a published directory we must move.
+            // Journals written before owner markers were required can record a markerless original.
+            if (payload.HadOriginal && payload.OriginalOwner is null)
+                throw new IOException($"The legacy original for '{payload.Destination}' has no recorded owner; keeping it for diagnosis.");
             if (Path.Exists(backup))
             {
                 RejectDataInstallLink(Path.Combine(backup, PayloadOwnerFileName));

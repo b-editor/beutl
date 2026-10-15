@@ -498,6 +498,27 @@ public partial class PackageInstallerDataTests : PackageInstallerFixture
         Assert.That(_installer.UninstallDataPackage(Name), Is.True);
     }
 
+    [Test]
+    public void UninstallDataPackage_RetriesAPayloadWhoseDeletionStoppedPartway()
+    {
+        const string Name = "Beutl.Package.DataTest.PartialDeletion";
+        LocalPackage materials = CreateDataPackage(
+            Name, PackageKinds.MaterialTag, ("materials/a.png", "png"), ("materials/locked/b.png", "png"));
+        _installer.InstallDataPackage(materials);
+
+        string payload = MaterialsDirectoryOf(Name);
+        using (BlockDeletion(Path.Combine(payload, "locked")))
+        {
+            Assert.That(_installer.UninstallDataPackage(Name), Is.False);
+            // The marker goes last, so what is left still identifies as the package's.
+            Assert.That(File.Exists(Path.Combine(payload, ".beutl-package-owner")), Is.True);
+            Assert.That(_installer.UninstallDataPackage(Name), Is.False);
+        }
+
+        Assert.That(_installer.UninstallDataPackage(Name), Is.True);
+        Assert.That(Directory.Exists(payload), Is.False);
+    }
+
     // Makes the directory's contents undeletable: on Unix by clearing the parent's write
     // permission, on Windows by holding an exclusive handle on the file inside it.
     private static IDisposable BlockDeletion(string directory)
