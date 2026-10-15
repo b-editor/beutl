@@ -788,30 +788,6 @@
   <data name="EnableElement" xml:space="preserve">
     <value>启用元素</value>
   </data>
-  <data name="DockArea_LeftTop" xml:space="preserve">
-    <value>左上</value>
-  </data>
-  <data name="DockArea_LeftBottom" xml:space="preserve">
-    <value>左下</value>
-  </data>
-  <data name="DockArea_RightTop" xml:space="preserve">
-    <value>右上</value>
-  </data>
-  <data name="DockArea_RightBottom" xml:space="preserve">
-    <value>右下</value>
-  </data>
-  <data name="DockArea_BottomLeft" xml:space="preserve">
-    <value>左下</value>
-  </data>
-  <data name="DockArea_BottomRight" xml:space="preserve">
-    <value>右下</value>
-  </data>
-  <data name="DockArea_TopLeft" xml:space="preserve">
-    <value>左上</value>
-  </data>
-  <data name="DockArea_TopRight" xml:space="preserve">
-    <value>右上</value>
-  </data>
   <data name="MoveTo" xml:space="preserve">
     <value>移动到</value>
   </data>
