@@ -1459,15 +1459,6 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="ProxyBulkNoEligibleClips" xml:space="preserve">
     <value>没有剪辑达到批量生成阈值；请使用逐剪辑生成。</value>
   </data>
-  <data name="ProxyQueueIdle" xml:space="preserve">
-    <value>队列空闲</value>
-  </data>
-  <data name="ProxyQueuedJobSingular" xml:space="preserve">
-    <value>1 个排队任务</value>
-  </data>
-  <data name="ProxyQueuedJobPlural" xml:space="preserve">
-    <value>{0} 个排队任务</value>
-  </data>
   <data name="ProxyDeleteFailedSingular" xml:space="preserve">
     <value>1 个代理无法删除，因为其文件正在使用中。</value>
   </data>

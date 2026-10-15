@@ -10,7 +10,6 @@ public sealed partial class ProxiesTabViewModel
 {
     private void ReportActionStatus(string message, NotificationType type)
     {
-        StatusMessage.Value = message;
         Notify(new Notification(Strings.Proxies, message, type));
     }
 

@@ -1459,15 +1459,6 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="ProxyBulkNoEligibleClips" xml:space="preserve">
     <value>Ningún clip alcanzó el umbral de generación masiva; usa la generación por clip.</value>
   </data>
-  <data name="ProxyQueueIdle" xml:space="preserve">
-    <value>Cola inactiva</value>
-  </data>
-  <data name="ProxyQueuedJobSingular" xml:space="preserve">
-    <value>1 trabajo en cola</value>
-  </data>
-  <data name="ProxyQueuedJobPlural" xml:space="preserve">
-    <value>{0} trabajos en cola</value>
-  </data>
   <data name="ProxyDeleteFailedSingular" xml:space="preserve">
     <value>No se pudo eliminar 1 proxy porque su archivo está en uso.</value>
   </data>

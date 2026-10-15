@@ -83,7 +83,7 @@ public class ToolTabBarViewTests
             Assert.That(proxyIcon.FontSize, Is.EqualTo(repairIcon.FontSize));
             Assert.That(proxyIcon.Bounds.Size, Is.EqualTo(repairIcon.Bounds.Size));
             window.Content = proxyView;
-            string longSummary = string.Join(" ", Enumerable.Repeat(Strings.ProxyQueueIdle, 20));
+            string longSummary = string.Join(" ", Enumerable.Repeat(Strings.ProxyEmptyDescription, 20));
             proxies.ClipSummary.Value = longSummary;
             CheckBar(proxyView, "proxies-long-summary");
             Assert.That(proxies.ClipSummary.Value, Is.EqualTo(longSummary));

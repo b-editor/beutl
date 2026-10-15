@@ -68,15 +68,11 @@ public sealed partial class ProxiesTabViewModel : IDisposable, IToolContext
             .DisposeWith(_disposables);
         SelectionSummary = new ReactiveProperty<string>()
             .DisposeWith(_disposables);
-        JobSummary = new ReactiveProperty<string>()
-            .DisposeWith(_disposables);
         ProjectUsageText = new ReactiveProperty<string>()
             .DisposeWith(_disposables);
         StoreUsageText = new ReactiveProperty<string>()
             .DisposeWith(_disposables);
         StoreCapText = new ReactiveProperty<string>()
-            .DisposeWith(_disposables);
-        StatusMessage = new ReactiveProperty<string>(Strings.ProxyReady)
             .DisposeWith(_disposables);
 
         GenerateSelectedCommand = new AsyncReactiveCommand()
@@ -146,15 +142,11 @@ public sealed partial class ProxiesTabViewModel : IDisposable, IToolContext
 
     public ReactiveProperty<string> SelectionSummary { get; }
 
-    public ReactiveProperty<string> JobSummary { get; }
-
     public ReactiveProperty<string> ProjectUsageText { get; }
 
     public ReactiveProperty<string> StoreUsageText { get; }
 
     public ReactiveProperty<string> StoreCapText { get; }
-
-    public ReactiveProperty<string> StatusMessage { get; }
 
     public AsyncReactiveCommand GenerateSelectedCommand { get; }
 
