@@ -36,31 +36,6 @@ public sealed class CaptionDocument
 
     public CaptionCue this[int index] => _cues[index];
 
-    public void Add(CaptionCue cue)
-    {
-        ArgumentNullException.ThrowIfNull(cue);
-        _cues.Add(cue);
-    }
-
-    public void Insert(int index, CaptionCue cue)
-    {
-        ArgumentNullException.ThrowIfNull(cue);
-        _cues.Insert(index, cue);
-    }
-
-    public void Replace(int index, CaptionCue cue)
-    {
-        ArgumentNullException.ThrowIfNull(cue);
-        _cues[index] = cue;
-    }
-
-    public CaptionCue RemoveAt(int index)
-    {
-        CaptionCue cue = _cues[index];
-        _cues.RemoveAt(index);
-        return cue;
-    }
-
     /// <summary>
     /// Splits a cue at a timeline position and UTF-16 text offset while retaining its metadata.
     /// </summary>
@@ -110,9 +85,8 @@ public sealed class CaptionDocument
     /// Merges a cue with the cue immediately after it.
     /// Metadata is retained only when both cues agree on its value.
     /// </summary>
-    public CaptionCue MergeWithNext(int firstCueIndex, string separator = "\n")
+    public CaptionCue MergeWithNext(int firstCueIndex)
     {
-        ArgumentNullException.ThrowIfNull(separator);
         CaptionCue first = GetCue(firstCueIndex);
         if (firstCueIndex == _cues.Count - 1)
         {
@@ -126,7 +100,7 @@ public sealed class CaptionDocument
         var merged = new CaptionCue(
             Min(first.Start, second.Start),
             Max(first.End, second.End),
-            first.Text + separator + second.Text,
+            first.Text + "\n" + second.Text,
             MergeMetadata(first.Speaker, second.Speaker),
             MergeMetadata(first.Language, second.Language),
             first.Metadata.RetainMatching(second.Metadata));
