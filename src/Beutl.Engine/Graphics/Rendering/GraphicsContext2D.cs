@@ -1,6 +1,5 @@
 ﻿using Beutl.Engine;
 using Beutl.Graphics.Effects;
-using Beutl.Graphics.Transformation;
 using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Source;
@@ -18,7 +17,6 @@ public sealed class GraphicsContext2D(
     private readonly Stack<(ContainerRenderNode Container, int OperationIndex, bool HasChanges)> _nodes = [];
     private int _drawOperationindex;
 
-    private readonly ContainerRenderNode _rootContainer = container;
     private ContainerRenderNode _container = container;
 
     // Belongs to the innermost open scope, not to the pass: it accumulates until that scope closes.
@@ -226,15 +224,6 @@ public sealed class GraphicsContext2D(
         }
     }
 
-    public void Reset()
-    {
-        _drawOperationindex = 0;
-        _nodes.Clear();
-        _container = _rootContainer;
-        _faulted = false;
-        _hasChanges = false;
-    }
-
     public MemoryNode<T> UseMemory<T>(T defaultValue)
     {
         bool wasFaulted = BeginRecordingOperation();
@@ -264,20 +253,6 @@ public sealed class GraphicsContext2D(
         if (next == null || !next.Equals(default))
         {
             Add(new ClearRenderNode(default));
-        }
-
-        ++_drawOperationindex;
-        CompleteRecordingOperation(wasFaulted);
-    }
-
-    public void Clear(Color color)
-    {
-        bool wasFaulted = BeginRecordingOperation();
-        ClearRenderNode? next = Next<ClearRenderNode>();
-
-        if (next == null || !next.Equals(color))
-        {
-            Add(new ClearRenderNode(color));
         }
 
         ++_drawOperationindex;
@@ -516,9 +491,6 @@ public sealed class GraphicsContext2D(
     public PushedState Push()
         => PushNode(0, static _ => new PushRenderNode(), static (_, _) => false);
 
-    public PushedState PushLayer(Rect limit = default)
-        => PushNode(limit, static limit => new LayerRenderNode(limit), static (node, limit) => node.Update(limit));
-
     public PushedState PushBlendMode(BlendMode blendMode)
         => PushNode(
             blendMode,
@@ -597,21 +569,6 @@ public sealed class GraphicsContext2D(
             (Matrix: matrix, Operator: transformOperator),
             static p => new TransformRenderNode(p.Matrix, p.Operator),
             static (node, p) => node.Update(p.Matrix, p.Operator));
-
-    public PushedState PushTransform(Transform.Resource transform,
-        TransformOperator transformOperator = TransformOperator.Prepend)
-        => PushNode(
-            (Transform: transform, Operator: transformOperator),
-            static p =>
-            {
-                ThrowIfUnusable(p.Transform, nameof(transform));
-                return new TransformRenderNode(p.Transform.Matrix, p.Operator);
-            },
-            static (node, p) =>
-            {
-                ThrowIfUnusable(p.Transform, nameof(transform));
-                return node.Update(p.Transform.Matrix, p.Operator);
-            });
 
     public PushedState PushNode<TNode, TParams>(in TParams parameters, Func<TParams, TNode> createNode,
         Func<TNode, TParams, bool> updateNode)

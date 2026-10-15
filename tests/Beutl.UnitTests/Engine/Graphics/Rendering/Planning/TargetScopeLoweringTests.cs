@@ -46,7 +46,7 @@ public sealed class TargetScopeLoweringTests
     {
         var domain = new Rect(10, 20, 50, 30);
         using var root = new ContainerRenderNode();
-        var layer = new LayerRenderNode(domain);
+        var layer = new TestLayerRenderNode(domain);
         layer.AddChild(new SourceNode(new Rect(12, 22, 5, 4), "layer-a"));
         layer.AddChild(new ClearRenderNode(Colors.Transparent));
         layer.AddChild(new SourceNode(new Rect(30, 35, 6, 7), "layer-b"));
@@ -112,7 +112,7 @@ public sealed class TargetScopeLoweringTests
         var transform = new TransformRenderNode(
             Matrix.CreateTranslation(10, 0),
             TransformOperator.Prepend);
-        var isolation = new LayerRenderNode(default);
+        var isolation = new TestLayerRenderNode(default);
         isolation.AddChild(new ClearRenderNode(Colors.White));
         transform.AddChild(isolation);
         root.AddChild(transform);
@@ -163,7 +163,7 @@ public sealed class TargetScopeLoweringTests
         var transform = new TransformRenderNode(
             Matrix.CreateTranslation(10, 0),
             TransformOperator.Prepend);
-        var isolation = new LayerRenderNode(default);
+        var isolation = new TestLayerRenderNode(default);
         isolation.AddChild(new ClearRenderNode(Colors.White));
         transform.AddChild(isolation);
         root.AddChild(transform);
@@ -474,7 +474,7 @@ public sealed class TargetScopeLoweringTests
             Throws.TypeOf<RenderTargetDomainRequiredException>());
 
         using var root = new ContainerRenderNode();
-        var finite = new LayerRenderNode(new Rect(10, 20, 30, 40));
+        var finite = new TestLayerRenderNode(new Rect(10, 20, 30, 40));
         var nestedFull = new EmptyTargetLayerNode(TargetRegion.Full);
         nestedFull.AddChild(new ClearRenderNode(Colors.Transparent));
         finite.AddChild(nestedFull);

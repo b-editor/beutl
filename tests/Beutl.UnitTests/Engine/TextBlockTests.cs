@@ -46,7 +46,7 @@ public class TextBlockTests
         var node = new DrawableRenderNode(resource);
         using (var context = new GraphicsContext2D(node, new(1920, 1080)))
         {
-            context.Clear(Colors.White);
+            context.DrawRectangle(new Rect(0, 0, 1920, 1080), Brushes.Resource.White, null);
             tb.Render(context, resource);
         }
 

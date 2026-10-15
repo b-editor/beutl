@@ -330,27 +330,6 @@ public class ResolutionScaleTests
             Is.EqualTo((16, 12)), "fractional origins do not affect a local buffer's dimensions");
     }
 
-    // --- Flatten nodes own no buffer and re-rasterize at any scale: must report Unbounded supply ---------
-
-    [Test]
-    public void LayerRenderNode_Measure_ReportsUnboundedEffectiveScale()
-    {
-        // SaveLayer flatten owns no buffer and re-rasterizes at any working scale, so it must report
-        // Unbounded supply density; a wrongly-concrete value would inflate the upstream working scale.
-        using var node = new LayerRenderNode(new Rect(0, 0, 100, 100));
-
-        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
-        {
-            Intent = RenderIntent.Preview,
-            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-        });
-        RenderNodeMeasurement measurement = renderer.Measure();
-
-        Assert.That(measurement.HasFragments, Is.True);
-        Assert.That(measurement.EffectiveScale.IsUnbounded, Is.True,
-            "LayerRenderNode replays at the eventual target density, so it reports Unbounded.");
-    }
-
     // --- Pass-through input boundary: EffectiveScale must survive request-local facade remapping ----------
 
     [Test]

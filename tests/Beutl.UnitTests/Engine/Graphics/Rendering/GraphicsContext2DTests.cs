@@ -3,7 +3,6 @@ using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
-using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.Media.Source;
 using Moq;
@@ -317,23 +316,6 @@ public class GraphicsContext2DTests
         Assert.That(scope.HasChanges, Is.True);
     }
 
-    [Test]
-    public void Reset_ShouldRestartRecordingAtTheRootContainer()
-    {
-        var size = new Size(1920, 1080);
-        using var root = new ContainerRenderNode();
-
-        using (var context = new GraphicsContext2D(root, size))
-        {
-            context.Push();
-            context.Reset();
-            context.DrawRectangle(new Rect(0, 0, 10, 10), Brushes.Resource.White, null);
-        }
-
-        Assert.That(root.Children, Has.Count.EqualTo(1));
-        Assert.That(root.Children[0], Is.InstanceOf<RectangleRenderNode>());
-    }
-
     private static void RecordBareRectangle(ContainerRenderNode root, Size size, Rect rect)
     {
         using var context = new GraphicsContext2D(root, size);
@@ -440,19 +422,6 @@ public class GraphicsContext2DTests
             if (disposing && DisposeCalls == 1)
                 throw failure;
         }
-    }
-
-    [Test]
-    public void ClearWithColor_ShouldCreateClearRenderNode()
-    {
-        var node = new ContainerRenderNode();
-        var context = new GraphicsContext2D(node, new Size(1920, 1080));
-
-        context.Clear(Colors.White);
-
-        Assert.That(node.Children, Is.Not.Empty);
-        Assert.That(node.Children[0], Is.InstanceOf<ClearRenderNode>());
-        Assert.That(((ClearRenderNode)node.Children[0]).Color, Is.EqualTo(Colors.White));
     }
 
     [Test]
@@ -594,18 +563,6 @@ public class GraphicsContext2DTests
     }
 
     [Test]
-    public void PushLayer_ShouldCreateLayerRenderNode()
-    {
-        var node = new ContainerRenderNode();
-        var context = new GraphicsContext2D(node, new Size(1920, 1080));
-
-        context.PushLayer().Dispose();
-
-        Assert.That(node.Children, Is.Not.Empty);
-        Assert.That(node.Children[0], Is.InstanceOf<LayerRenderNode>());
-    }
-
-    [Test]
     public void PushBlendMode_ShouldCreateBlendModeRenderNode()
     {
         var node = new ContainerRenderNode();
@@ -682,20 +639,6 @@ public class GraphicsContext2DTests
 
         Assert.That(node.Children, Is.Not.Empty);
         Assert.That(node.Children[0], Is.InstanceOf<OpacityMaskRenderNode>());
-    }
-
-    [Test]
-    public void PushTransform_ShouldCreateTransformRenderNode()
-    {
-        var node = new ContainerRenderNode();
-        var context = new GraphicsContext2D(node, new Size(1920, 1080));
-        var transform = new RotationTransform();
-        var resource = transform.ToResource(CompositionContext.Default);
-
-        context.PushTransform(resource).Dispose();
-
-        Assert.That(node.Children, Is.Not.Empty);
-        Assert.That(node.Children[0], Is.InstanceOf<TransformRenderNode>());
     }
 
     [Test]

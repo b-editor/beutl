@@ -240,7 +240,7 @@ public class SourceEffectiveScaleFlowTests
         var domain = new Rect(0, 0, 120, 90);
         using Transform.Resource translation = new TranslateTransform(10, 0)
             .ToResource(CompositionContext.Default);
-        var layer = new LayerRenderNode(default);
+        var layer = new TestLayerRenderNode(default);
         layer.AddChild(new ClearRenderNode(Colors.White));
         using var transform = new DrawableGroup.CustomTransformRenderNode(
             translation,

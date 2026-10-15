@@ -387,7 +387,7 @@ public class FormattedTextFallbackTests
             using var node = new DrawableRenderNode(resource);
             using (var context = new GraphicsContext2D(node, new Size(800, 220)))
             {
-                context.Clear(Colors.White);
+                context.DrawRectangle(new Rect(0, 0, 800, 220), Brushes.Resource.White, null);
                 block.Render(context, resource);
             }
             using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest

@@ -178,7 +178,7 @@ public sealed class SymbolicOwningDomainTests
     {
         var domain = new Rect(-20, 5, 40, 30);
         var effect = new SymbolicDomainFilterEffect();
-        using var root = new LayerRenderNode(domain);
+        using var root = new TestLayerRenderNode(domain);
         root.AddChild(CreateFilter(effect, new Rect(-10, 10, 5, 5)));
 
         using CompiledRenderRequest compiled = Compile(root, targetDomain: null);
@@ -302,7 +302,7 @@ public sealed class SymbolicOwningDomainTests
     public void BuiltInBackdrop_InsideFiniteLayer_ResolvesLayerDomainWithoutRootDomain()
     {
         var domain = new Rect(12, 8, 40, 30);
-        using var root = new LayerRenderNode(domain);
+        using var root = new TestLayerRenderNode(domain);
         root.AddChild(new SnapshotBackdropRenderNode());
 
         using CompiledRenderRequest compiled = Compile(root, targetDomain: null);
@@ -375,7 +375,7 @@ public sealed class SymbolicOwningDomainTests
     {
         var domain = new Rect(12, 8, 40, 30);
         var probe = new BuiltInCaptureProbeNode();
-        using var root = new LayerRenderNode(domain);
+        using var root = new TestLayerRenderNode(domain);
         root.AddChild(new RectangleRenderNode(domain, Brushes.Resource.White, null));
         root.AddChild(probe);
         using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest

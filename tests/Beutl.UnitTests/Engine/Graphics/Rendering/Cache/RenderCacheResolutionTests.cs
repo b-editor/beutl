@@ -20,7 +20,7 @@ public sealed class RenderCacheResolutionTests
     public void LayerDoesNotCacheAnOptedOutDescendant()
     {
         var child = new SolidCacheNode(disableCache: true);
-        using var layer = new LayerRenderNode(s_bounds);
+        using var layer = new TestLayerRenderNode(s_bounds);
         layer.AddChild(child);
         layer.Cache.RecordStableRequests();
         using var renderer = CreateFrameRenderer(layer);

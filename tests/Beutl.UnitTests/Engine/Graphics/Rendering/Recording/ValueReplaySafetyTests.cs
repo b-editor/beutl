@@ -140,7 +140,7 @@ public sealed class ValueReplaySafetyTests
         Rect bounds)
     {
         var root = new TransformRenderNode(transform, transformOperator);
-        var layer = new LayerRenderNode(bounds);
+        var layer = new TestLayerRenderNode(bounds);
         layer.AddChild(new RectangleRenderNode(bounds, Brushes.Resource.White, null));
         root.AddChild(layer);
         return root;

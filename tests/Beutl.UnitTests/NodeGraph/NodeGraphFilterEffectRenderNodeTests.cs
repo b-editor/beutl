@@ -628,7 +628,7 @@ public class NodeGraphFilterEffectRenderNodeTests
         var source = new CountingOpaqueSourceRenderNode(new Rect(3, 5, 24, 18));
         using var pipeline = ScaleRecordingTestHelper.Pipeline(
             source,
-            new LayerRenderNode(default),
+            new TestLayerRenderNode(default),
             resource.CreateRenderNode());
         using var renderer = CreatePreviewRenderer(pipeline, new Rect(0, 0, 64, 48));
 
@@ -722,7 +722,7 @@ public class NodeGraphFilterEffectRenderNodeTests
         var source = new CountingOpaqueSourceRenderNode(new Rect(-40, -40, 80, 80));
         using var pipeline = ScaleRecordingTestHelper.Pipeline(
             source,
-            new LayerRenderNode(default),
+            new TestLayerRenderNode(default),
             resource.CreateRenderNode(),
             new TransformRenderNode(Matrix.CreateTranslation(100, 100), TransformOperator.Prepend));
         using var renderer = CreatePreviewRenderer(pipeline, new Rect(0, 0, 200, 200));
@@ -762,7 +762,7 @@ public class NodeGraphFilterEffectRenderNodeTests
         var source = new CountingOpaqueSourceRenderNode(new Rect(3, 5, 24, 18));
         using var pipeline = ScaleRecordingTestHelper.Pipeline(
             source,
-            new LayerRenderNode(default),
+            new TestLayerRenderNode(default),
             resource.CreateRenderNode());
         using var renderer = CreatePreviewRenderer(pipeline, new Rect(0, 0, 64, 48));
 
@@ -805,7 +805,7 @@ public class NodeGraphFilterEffectRenderNodeTests
         var source = new CountingOpaqueSourceRenderNode(new Rect(3, 5, 24, 18));
         using var pipeline = ScaleRecordingTestHelper.Pipeline(
             source,
-            new LayerRenderNode(default),
+            new TestLayerRenderNode(default),
             resource.CreateRenderNode());
         using var renderer = CreatePreviewRenderer(pipeline);
 
@@ -840,7 +840,7 @@ public class NodeGraphFilterEffectRenderNodeTests
         var source = new CountingOpaqueSourceRenderNode(bounds);
         using var pipeline = ScaleRecordingTestHelper.Pipeline(
             source,
-            new LayerRenderNode(default),
+            new TestLayerRenderNode(default),
             resource.CreateRenderNode());
         using var renderer = CreatePreviewRenderer(pipeline, new Rect(0, 0, 64, 48));
 
@@ -948,7 +948,7 @@ public class NodeGraphFilterEffectRenderNodeTests
     {
         var bounds = new Rect(3, 5, 24, 18);
         var source = new CountingOpaqueSourceRenderNode(bounds);
-        using var renderNode = new LayerRenderNode(default);
+        using var renderNode = new TestLayerRenderNode(default);
         renderNode.AddChild(source);
         var model = new GraphModel();
         var sourceNode = new FixedRenderNodeGraphNode(renderNode);
@@ -983,7 +983,7 @@ public class NodeGraphFilterEffectRenderNodeTests
     public void Preview_WithoutFilterBinding_RendersTheCompositionDomainForFullScopes()
     {
         var source = new CountingOpaqueSourceRenderNode(new Rect(0, 0, 14, 9));
-        using var renderNode = new LayerRenderNode(default);
+        using var renderNode = new TestLayerRenderNode(default);
         renderNode.AddChild(source);
         var model = new GraphModel();
         var sourceNode = new FixedRenderNodeGraphNode(renderNode);
@@ -1020,7 +1020,7 @@ public class NodeGraphFilterEffectRenderNodeTests
     public void StandalonePreview_IgnoresOldCacheWithoutConsumingDirtyFlags()
     {
         var source = new PreviewCacheableSourceRenderNode();
-        using var renderNode = new LayerRenderNode(default);
+        using var renderNode = new TestLayerRenderNode(default);
         renderNode.AddChild(source);
         var model = new GraphModel();
         var sourceNode = new FixedRenderNodeGraphNode(renderNode);

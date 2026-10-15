@@ -385,7 +385,7 @@ internal sealed partial class SelectedDrawableFullTargetDrawable : Drawable
         => Size.Empty;
 
     protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
-        => context.Clear(Colors.CornflowerBlue);
+        => context.Clear();
 }
 
 internal sealed partial class SelectedDrawableScaleCaptureDrawable : Drawable
@@ -419,5 +419,5 @@ internal sealed partial class SelectedDrawableScaleCaptureFullTargetDrawable : D
         => Size.Empty;
 
     protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
-        => context.Clear(Colors.CornflowerBlue);
+        => context.Clear();
 }
