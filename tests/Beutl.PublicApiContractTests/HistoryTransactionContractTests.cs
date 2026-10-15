@@ -15,7 +15,7 @@ public sealed class HistoryTransactionContractTests
         var actions = new List<NotifyCollectionChangedAction>();
         ((INotifyCollectionChanged)manager.Entries).CollectionChanged += (_, args) => actions.Add(args.Action);
 
-        manager.Record(() => { }, () => { }, "Recorded");
+        manager.Record(() => { }, () => { });
         manager.Commit("Recorded");
 
         Assert.That(actions, Does.Contain(NotifyCollectionChangedAction.Add));
@@ -26,7 +26,7 @@ public sealed class HistoryTransactionContractTests
     {
         using var manager = new HistoryManager(new Scene(), new OperationSequenceGenerator());
         int value = 1;
-        manager.Record(() => value = 1, () => value = 0, "Pending");
+        manager.Record(() => value = 1, () => value = 0);
         using var cancellation = new CancellationTokenSource();
         using IDisposable subscription = manager.BeforeMutation.Subscribe(_ => cancellation.Cancel());
         bool actionInvoked = false;

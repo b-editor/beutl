@@ -462,8 +462,7 @@ public class ElementAdderTests
             unrelatedValue = 1;
             editor.HistoryManager.Record(
                 () => unrelatedValue = 1,
-                () => unrelatedValue = 0,
-                "Concurrent edit");
+                () => unrelatedValue = 0);
             handler.ReleaseMaterialization.TrySetResult();
             ElementAddResult result = await operation.WaitAsync(TimeSpan.FromSeconds(5));
 
@@ -1030,8 +1029,7 @@ public class ElementAdderTests
                     {
                         editor.Scene.AddChild(materialized[1]);
                         throw new InvalidOperationException("Injected rollback failure");
-                    },
-                    "Injected rollback operation");
+                    });
             }
             else if (editor.Scene.Children.Count == 2 && shouldInjectMutationFailure)
             {

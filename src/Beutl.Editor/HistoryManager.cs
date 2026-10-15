@@ -649,13 +649,13 @@ public sealed partial class HistoryManager : IDisposable
         }
     }
 
-    public void Record(Action doAction, Action undoAction, string? description = null)
+    public void Record(Action doAction, Action undoAction)
     {
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(doAction);
         ArgumentNullException.ThrowIfNull(undoAction);
 
-        var operation = CustomOperation.Create(doAction, undoAction, _sequenceGenerator, description);
+        var operation = CustomOperation.Create(doAction, undoAction, _sequenceGenerator);
         Record(operation);
     }
 

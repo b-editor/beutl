@@ -23,13 +23,12 @@ public class CustomOperationTests
         Action apply = () => { };
         Action revert = () => { };
 
-        var operation = new CustomOperation(apply, revert, "Test Description")
+        var operation = new CustomOperation(apply, revert)
         {
             SequenceNumber = 1
         };
 
         Assert.That(operation, Is.Not.Null);
-        Assert.That(operation.Description, Is.EqualTo("Test Description"));
         Assert.That(operation.SequenceNumber, Is.EqualTo(1));
     }
 
@@ -39,7 +38,7 @@ public class CustomOperationTests
         Action revert = () => { };
 
         var exception = Assert.Throws<ArgumentNullException>(() =>
-            new CustomOperation(null!, revert, "Test") { SequenceNumber = 1 });
+            new CustomOperation(null!, revert) { SequenceNumber = 1 });
 
         Assert.That(exception!.ParamName, Is.EqualTo("apply"));
     }
@@ -50,23 +49,9 @@ public class CustomOperationTests
         Action apply = () => { };
 
         var exception = Assert.Throws<ArgumentNullException>(() =>
-            new CustomOperation(apply, null!, "Test") { SequenceNumber = 1 });
+            new CustomOperation(apply, null!) { SequenceNumber = 1 });
 
         Assert.That(exception!.ParamName, Is.EqualTo("revert"));
-    }
-
-    [Test]
-    public void Constructor_ShouldAllowNullDescription()
-    {
-        Action apply = () => { };
-        Action revert = () => { };
-
-        var operation = new CustomOperation(apply, revert, null)
-        {
-            SequenceNumber = 1
-        };
-
-        Assert.That(operation.Description, Is.Null);
     }
 
     #endregion
@@ -79,8 +64,7 @@ public class CustomOperationTests
         _root.Value = 50;
         var operation = new CustomOperation(
             () => _root.Value = 200,
-            () => _root.Value = 50,
-            "Modify Value")
+            () => _root.Value = 50)
         {
             SequenceNumber = 1
         };
@@ -95,30 +79,6 @@ public class CustomOperationTests
     #endregion
 
     #region Create Static Method Tests
-
-    [Test]
-    public void Create_ShouldSetDescription()
-    {
-        var operation = CustomOperation.Create(
-            () => { },
-            () => { },
-            _sequenceGenerator,
-            "My Description");
-
-        Assert.That(operation.Description, Is.EqualTo("My Description"));
-    }
-
-    [Test]
-    public void Create_ShouldAllowNullDescription()
-    {
-        var operation = CustomOperation.Create(
-            () => { },
-            () => { },
-            _sequenceGenerator,
-            null);
-
-        Assert.That(operation.Description, Is.Null);
-    }
 
     [Test]
     public void Create_ShouldThrowArgumentNullException_WhenDoActionIsNull()
@@ -148,8 +108,7 @@ public class CustomOperationTests
         var operation = CustomOperation.Create(
             () => _root.Value = 999,
             () => _root.Value = 0,
-            _sequenceGenerator,
-            "Set to 999");
+            _sequenceGenerator);
 
         operation.Apply();
 
@@ -174,8 +133,7 @@ public class CustomOperationTests
             operations.Add(CustomOperation.Create(
                 () => { },
                 () => { },
-                generator,
-                $"Op {i}"));
+                generator));
         }
 
         var sequenceNumbers = operations.Select(op => op.SequenceNumber).ToList();

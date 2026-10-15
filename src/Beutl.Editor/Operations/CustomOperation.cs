@@ -5,17 +5,11 @@ public sealed class CustomOperation : ChangeOperation
     private readonly Action _apply;
     private readonly Action _revert;
 
-    public CustomOperation(
-        Action apply,
-        Action revert,
-        string? description = null)
+    public CustomOperation(Action apply, Action revert)
     {
         _apply = apply ?? throw new ArgumentNullException(nameof(apply));
         _revert = revert ?? throw new ArgumentNullException(nameof(revert));
-        Description = description;
     }
-
-    public string? Description { get; }
 
     /// <summary>Set only when both delegates leave state unchanged whenever they throw.</summary>
     public bool FailureIsAtomic { get; set; }
@@ -36,14 +30,13 @@ public sealed class CustomOperation : ChangeOperation
     public static CustomOperation Create(
         Action doAction,
         Action undoAction,
-        OperationSequenceGenerator sequenceGenerator,
-        string? description = null)
+        OperationSequenceGenerator sequenceGenerator)
     {
         ArgumentNullException.ThrowIfNull(doAction);
         ArgumentNullException.ThrowIfNull(undoAction);
         ArgumentNullException.ThrowIfNull(sequenceGenerator);
 
-        return new CustomOperation(doAction, undoAction, description)
+        return new CustomOperation(doAction, undoAction)
         { SequenceNumber = sequenceGenerator.GetNext() };
     }
 }
