@@ -92,7 +92,6 @@ internal sealed partial class RenderRequestExecutor
 
             return fragment.Kind switch
             {
-                RenderFragmentKind.MaterializedInput => MaterializeExternal(fragment),
                 RenderFragmentKind.ContributeValues => MaterializeSingleInput(fragment, currentTarget),
                 _ => throw new InvalidOperationException(
                     $"Executable fragment '{fragment.Kind}' is not assigned to an execution island."),

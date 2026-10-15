@@ -4,6 +4,7 @@ using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Requests;
 using Beutl.Graphics.Shaders;
 using Beutl.Media;
+using Beutl.UnitTests.Engine.Graphics.Rendering.Fusion;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Planning;
 
@@ -180,9 +181,8 @@ public sealed class ExecutionIslandPlannerCacheBoundaryTests
         bool publishPrefix = false)
     {
         var requestId = new RenderRequestId(1);
-        RenderFragmentReference source = Fragment(
-            RenderFragmentKind.MaterializedInput,
-            payload: null,
+        RenderFragmentReference source = FusionBoundaryExecutionTestSupport.SourceFragment(
+            s_bounds,
             EffectiveScale.At(1));
         RenderFragmentReference prefix = includeEffectPrefix
             ? Fragment(RenderFragmentKind.FilterEffectSegment, payload: null, EffectiveScale.At(1), source)

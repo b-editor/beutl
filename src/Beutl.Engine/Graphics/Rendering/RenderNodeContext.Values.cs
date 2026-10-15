@@ -7,37 +7,6 @@ namespace Beutl.Graphics.Rendering;
 
 public sealed partial class RenderNodeContext
 {
-    /// <summary>Wraps a value-eligible fragment so its values contribute to target composition when published.</summary>
-    /// <param name="input">
-    /// A non-null transaction-scoped fragment whose <see cref="RenderFragmentHandle.CanBeUsedAsValueInput"/> is
-    /// <see langword="true"/>.
-    /// </param>
-    /// <returns>
-    /// The borrowed original handle when it already contributes; otherwise a new transaction-scoped contributing
-    /// handle. The result is not published automatically.
-    /// </returns>
-    public RenderFragmentHandle ContributeValues(RenderFragmentHandle input)
-    {
-        NodeRecordingTransaction transaction = GetTransaction();
-        RenderFragmentReference reference = transaction.GetReference(input);
-        EnsureValueInput(reference, nameof(input));
-        if (reference.ContributesValuesToTarget)
-            return input;
-
-        return transaction.CreateFragment(
-            RenderFragmentKind.ContributeValues,
-            reference.Bounds,
-            reference.EffectiveScale,
-            reference.ValueCardinality,
-            contributesValuesToTarget: true,
-            canBeUsedAsValueInput: true,
-            reference.HasTargetEffects,
-            reference.HasOpaqueExternalWork,
-            [reference],
-            payload: null,
-            RenderFragmentHitTest.Inputs);
-    }
-
     /// <summary>Records a deferred premultiplied-opacity scope around one fragment stream.</summary>
     /// <param name="input">A non-null fragment borrowed from the active transaction.</param>
     /// <param name="opacity">A finite opacity value. Values outside [0, 1] are clamped.</param>

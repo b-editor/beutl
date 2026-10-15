@@ -238,8 +238,7 @@ public class RenderNodeRendererExceptionSafetyTests
     public void PreExecutionAllocationFailureRecordsTheFamilyOwnerWithoutDiagnostics(
         EntryPoint entryPoint)
     {
-        using var node = new ExpandedCaptureNode(
-            publishRasterOutput: entryPoint == EntryPoint.Rasterize);
+        using var node = new NestedTargetSourceNode();
         var factory = new FailureTestTargetFactory(createFailure: new InvalidOperationException("rt-create-fault"));
         using var renderer = CreateRenderer(node, factory);
 
@@ -500,7 +499,7 @@ public class RenderNodeRendererExceptionSafetyTests
             ? new InvalidOperationException("rt-dispose-fault")
             : null);
 
-    private sealed class ExpandedCaptureNode(bool publishRasterOutput = false) : RenderNode
+    private sealed class NestedTargetSourceNode : RenderNode
     {
         private static readonly Rect s_domain = new(0, 0, 4, 4);
         private readonly EmptyNode _nested = new();
@@ -510,16 +509,7 @@ public class RenderNodeRendererExceptionSafetyTests
         public override void Process(RenderNodeContext context)
         {
             NestedRequest = context.RecordNestedTargetAtScale(_nested, s_domain, 1);
-            context.Publish(context.TargetCapture(TargetCaptureDescription.Create(
-                TargetRegion.Region(s_domain),
-                s_domain,
-                RenderHitTestContract.None,
-                TargetCaptureScaleContract.MaterializeAtWorkingScale)));
-            if (publishRasterOutput)
-            {
-                context.Publish(context.OpaqueSource(
-                    FailureTestSupport.SourceDescription()));
-            }
+            context.Publish(context.OpaqueSource(FailureTestSupport.SourceDescription()));
         }
 
         protected override void OnDispose(bool disposing)

@@ -17,11 +17,6 @@ public readonly struct RenderInputReadback : IEquatable<RenderInputReadback>
         RenderInputReadbackKind.None,
         Array.AsReadOnly(Array.Empty<int>()));
 
-    /// <summary>Schedules CPU readback for every runtime value produced by the authored input.</summary>
-    public static RenderInputReadback All { get; } = new(
-        RenderInputReadbackKind.All,
-        Array.AsReadOnly(Array.Empty<int>()));
-
     /// <summary>Gets the sorted local runtime-value indices selected by <see cref="Values"/>.</summary>
     public IReadOnlyList<int> ValueIndices => _valueIndices ?? Array.Empty<int>();
 
@@ -72,13 +67,12 @@ public readonly struct RenderInputReadback : IEquatable<RenderInputReadback>
     public static bool operator !=(RenderInputReadback left, RenderInputReadback right)
         => !left.Equals(right);
 
-    internal bool RequiresAnyReadback => _kind is RenderInputReadbackKind.All or RenderInputReadbackKind.Values;
+    internal bool RequiresAnyReadback => _kind == RenderInputReadbackKind.Values;
 
     internal int StructuralKind => (int)_kind;
 
     internal bool RequiresValue(int localIndex)
-        => _kind == RenderInputReadbackKind.All
-           || (_kind == RenderInputReadbackKind.Values && BinarySearch(ValueIndices, localIndex) >= 0);
+        => _kind == RenderInputReadbackKind.Values && BinarySearch(ValueIndices, localIndex) >= 0;
 
     internal void ThrowIfUninitialized(string parameterName)
     {
@@ -133,6 +127,5 @@ internal enum RenderInputReadbackKind : byte
 {
     Uninitialized,
     None,
-    All,
     Values,
 }

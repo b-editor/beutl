@@ -626,8 +626,8 @@ public sealed class StructuralAndProgramCacheTests
                     Rect.Empty,
                     RenderHitTestContract.None,
                     inputReadbacks: ReadFirstInput
-                        ? [RenderInputReadback.All, RenderInputReadback.None]
-                        : [RenderInputReadback.None, RenderInputReadback.All]));
+                        ? [RenderInputReadback.Values([0]), RenderInputReadback.None]
+                        : [RenderInputReadback.None, RenderInputReadback.Values([0])]));
             context.PublishRange([first, second, command]);
         }
 
@@ -663,16 +663,10 @@ public sealed class StructuralAndProgramCacheTests
 
         public override void Process(RenderNodeContext context)
         {
-            RenderResource<RenderTarget> target = context.Borrow(
-                source);
-            RenderFragmentHandle input = context.MaterializedInput(
-                MaterializedInputDescription.FromRenderTarget(
-                    target,
-                    new Rect(0, 0, 8, 8),
-                    EffectiveScale.At(1),
-                    new PixelRect(0, 0, 8, 8),
-                    default,
-                    RenderHitTestContract.OutputBounds));
+            RenderFragmentHandle input = TargetPixelSourceTestSupport.RecordTargetPixels(
+                context,
+                source,
+                new Rect(0, 0, 8, 8));
             ShaderDescription shader = ShaderDescription.CurrentPixel(
                 FirstSource,
                 bindings => bindings.Uniform("gain", Value));

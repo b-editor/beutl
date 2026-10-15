@@ -27,7 +27,8 @@ public sealed class CrossNodeShaderFusionTests
         CompiledShaderRun run = compiled.ExecutionPlan.ShaderRuns.Single();
         Assert.Multiple(() =>
         {
-            Assert.That(compiled.ExecutionPlan.Islands, Has.Length.EqualTo(1));
+            Assert.That(compiled.ExecutionPlan.Islands, Has.Length.EqualTo(2),
+                "the source runs in its own island ahead of the fused run");
             Assert.That(run.StageFragmentIndices.Select(index => compiled.Graph.Fragments[index].Kind), Is.EqualTo(new[]
             {
                 RenderFragmentKind.Shader,
@@ -38,7 +39,7 @@ public sealed class CrossNodeShaderFusionTests
             Assert.That(run.IsFused, Is.True);
             Assert.That(run.GetOutput(compiled.Graph).CanBeUsedAsValueInput, Is.True,
                 "The typed opacity descriptor must preserve value-input eligibility.");
-            Assert.That(run.GetInput(compiled.Graph).Kind, Is.EqualTo(RenderFragmentKind.MaterializedInput));
+            Assert.That(run.GetInput(compiled.Graph).Kind, Is.EqualTo(RenderFragmentKind.OpaqueSource));
         });
 
         string source = run.Program.Source;
@@ -227,7 +228,10 @@ public sealed class CrossNodeShaderFusionTests
             using var source = new CpuRenderTarget((int)s_bounds.Width, (int)s_bounds.Height);
             source.Value.Canvas.Clear(new SKColor(48, 112, 216, 176));
             using var node = new PrimaryChainNode(source, s_bounds);
-            using var renderer = CreateRenderer(node, FusionMode.Enabled);
+            using var renderer = CreateRenderer(
+                node,
+                FusionMode.Enabled,
+                targetFactory: new DestinationContextTargetFactory());
 
             renderer.Render(firstCanvas);
             ProgramCacheStatistics firstCold = renderer.ProgramCacheStatistics;
@@ -286,11 +290,7 @@ public sealed class CrossNodeShaderFusionTests
     public void Planner_OmitsCommittedFragmentsThatAreNotReachableFromAPublication()
     {
         var requestId = new RenderRequestId(1);
-        RenderFragmentReference source = Fragment(
-            RenderFragmentKind.MaterializedInput,
-            s_bounds,
-            EffectiveScale.At(1),
-            payload: null);
+        RenderFragmentReference source = SourceFragment(s_bounds, EffectiveScale.At(1));
         ShaderDescription description = ShaderDescription.CurrentPixel(
             "half4 apply(half4 color) { return color; }");
         RenderFragmentReference unpublished = Fragment(
@@ -311,7 +311,8 @@ public sealed class CrossNodeShaderFusionTests
         Assert.Multiple(() =>
         {
             Assert.That(graph.Fragments, Has.Length.EqualTo(2));
-            Assert.That(plan.Islands, Is.Empty);
+            Assert.That(plan.Islands.SelectMany(static island => island.FragmentIndices), Is.EqualTo(new[] { 0 }),
+                "only the published source is planned; the unpublished shader above it is omitted");
         });
     }
 
@@ -351,14 +352,15 @@ public sealed class CrossNodeShaderFusionTests
                 Assert.That(enabled.LastExecutionStatistics.ShaderRunExecutions, Is.EqualTo(1));
                 Assert.That(enabled.LastExecutionStatistics.ShaderStageExecutions, Is.EqualTo(3));
                 Assert.That(enabled.LastExecutionStatistics.FusedShaderRunExecutions, Is.EqualTo(1));
-                Assert.That(enabled.LastExecutionStatistics.IntermediateTargetAcquisitions, Is.Zero);
+                Assert.That(enabled.LastExecutionStatistics.IntermediateTargetAcquisitions, Is.EqualTo(1),
+                    "only the source materializes; the fused run draws into the root target");
                 Assert.That(enabled.LastExecutionStatistics.Synchronizations, Is.Zero);
                 Assert.That(enabled.LastExecutionStatistics.ProgramCacheHits, Is.EqualTo(1));
                 Assert.That(enabled.ProgramCacheStatistics.Creations, Is.EqualTo(1));
                 Assert.That(enabled.ProgramCacheStatistics.Hits, Is.EqualTo(1));
-                Assert.That(enabled.TargetPoolStatistics.Creates, Is.EqualTo(1));
-                Assert.That(enabled.TargetPoolStatistics.Misses, Is.EqualTo(1));
-                Assert.That(enabled.TargetPoolStatistics.Reuses, Is.EqualTo(1));
+                Assert.That(enabled.TargetPoolStatistics.Creates, Is.EqualTo(2));
+                Assert.That(enabled.TargetPoolStatistics.Misses, Is.EqualTo(2));
+                Assert.That(enabled.TargetPoolStatistics.Reuses, Is.EqualTo(2));
                 Assert.That(enabled.TargetPoolStatistics.LeasedTargets, Is.Zero);
                 Assert.That(disabled.LastExecutionStatistics.ShaderRunExecutions, Is.EqualTo(3));
                 Assert.That(disabled.LastExecutionStatistics.FusedShaderRunExecutions, Is.Zero);
@@ -475,8 +477,9 @@ public sealed class CrossNodeShaderFusionTests
 
             Assert.Multiple(() =>
             {
-                Assert.That(direct.LastExecutionStatistics.IntermediateTargetAcquisitions, Is.Zero);
-                Assert.That(cached.LastExecutionStatistics.IntermediateTargetAcquisitions, Is.GreaterThan(0));
+                Assert.That(direct.LastExecutionStatistics.IntermediateTargetAcquisitions, Is.EqualTo(1),
+                    "only the source materializes; the terminal run draws into the destination");
+                Assert.That(cached.LastExecutionStatistics.IntermediateTargetAcquisitions, Is.GreaterThan(1));
                 Assert.That(cachedNode.Cache.IsCached, Is.True);
                 Assert.That(directChange.Maximum, Is.GreaterThan(0.02),
                     "The terminal direct draw must modify the cleared destination.");
@@ -519,7 +522,8 @@ public sealed class CrossNodeShaderFusionTests
     private static RenderNodeRenderer CreateRenderer(
         RenderNode node,
         FusionMode fusionMode,
-        bool useRenderCache = false)
+        bool useRenderCache = false,
+        IRenderTargetFactory? targetFactory = null)
         => new(node, new RenderNodeRenderRequest
         {
             Intent = RenderIntent.Preview,
@@ -529,7 +533,7 @@ public sealed class CrossNodeShaderFusionTests
             CacheOptions = new Beutl.Graphics.Rendering.Cache.RenderCacheOptions(useRenderCache, Beutl.Graphics.Rendering.Cache.RenderCacheRules.Default),
             FusionMode = fusionMode,
             Purpose = RenderRequestPurpose.Frame,
-        });
+        }, targetFactory);
 
     private static RenderNodeRenderer CreateCpuRenderer(
         RenderNode node,
@@ -608,6 +612,32 @@ public sealed class CrossNodeShaderFusionTests
         }
     }
 
+    // Allocates on the context the destination is bound to, so a chain that materializes its source can render
+    // into a destination that is not on the shared context.
+    private sealed class DestinationContextTargetFactory : IRenderTargetFactory
+    {
+        public RenderTarget? Create(RenderTargetAllocationDescriptor allocation)
+        {
+            PixelSize size = allocation.DeviceSize;
+            if (allocation.GraphicsContext is null)
+                return RenderTarget.Create(size.Width, size.Height);
+
+            SKSurface? surface = SKSurface.Create(
+                allocation.GraphicsContext,
+                false,
+                new SKImageInfo(
+                    size.Width,
+                    size.Height,
+                    SKColorType.RgbaF16,
+                    SKAlphaType.Premul,
+                    SKColorSpace.CreateSrgbLinear()));
+            return surface is null ? null : new SurfaceRenderTarget(surface, size);
+        }
+    }
+
+    private sealed class SurfaceRenderTarget(SKSurface surface, PixelSize size)
+        : RenderTarget(surface, size.Width, size.Height);
+
     private sealed class PrimaryChainNode : RenderNode
     {
         private static readonly ShaderDescription s_gamma = ShaderDescription.CurrentPixel(
@@ -660,7 +690,7 @@ public sealed class CrossNodeShaderFusionTests
         public override void Process(RenderNodeContext context)
         {
             ProcessCalls++;
-            context.Publish(FusionBoundaryExecutionTestSupport.BorrowMaterializedInput(context, source, bounds));
+            context.Publish(FusionBoundaryExecutionTestSupport.RecordSourcePixels(context, source, bounds));
         }
     }
 
@@ -796,11 +826,7 @@ public sealed class CrossNodeShaderFusionTests
                 fusionMode: fusionMode),
             requestId =>
             {
-                RenderFragmentReference source = Fragment(
-                    RenderFragmentKind.MaterializedInput,
-                    s_bounds,
-                    EffectiveScale.At(1),
-                    payload: null);
+                RenderFragmentReference source = SourceFragment(s_bounds, EffectiveScale.At(1));
                 ShaderDescription gamma = ShaderDescription.CurrentPixel(
                     "half4 apply(half4 color) { return half4(sqrt(color.rgb), color.a); }");
                 RenderFragmentReference firstShader = Fragment(

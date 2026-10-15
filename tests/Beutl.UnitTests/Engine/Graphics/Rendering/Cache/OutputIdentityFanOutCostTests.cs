@@ -81,7 +81,7 @@ public sealed class OutputIdentityFanOutCostTests
         public override void Process(RenderNodeContext context)
         {
             RenderFragmentHandle input = context.Inputs[0];
-            context.Publish(context.OpaqueCombine([input, input], DescribeCombine(bounds)));
+            context.Publish(context.Layer([input, input], bounds));
         }
     }
 
@@ -90,15 +90,6 @@ public sealed class OutputIdentityFanOutCostTests
             bounds,
             Draw,
             OpaqueRenderBoundsContract.Source(bounds),
-            RenderHitTestContract.OutputBounds,
-            RenderValueCardinality.Single,
-            RenderScaleContract.MaterializeAtWorkingScale);
-
-    private static OpaqueRenderDescription DescribeCombine(Rect bounds)
-        => OpaqueRenderDescription.Create(
-            bounds,
-            Draw,
-            OpaqueRenderBoundsContract.FullInputs(_ => bounds),
             RenderHitTestContract.OutputBounds,
             RenderValueCardinality.Single,
             RenderScaleContract.MaterializeAtWorkingScale);

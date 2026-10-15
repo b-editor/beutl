@@ -50,7 +50,9 @@ public sealed class ExecutionIslandOrderTests
             .ToResource(CompositionContext.Default);
         using var root = new ContainerRenderNode();
         root.AddChild(new RectangleRenderNode(s_frame, fill, null));
-        root.AddChild(new ContributingTargetCaptureNode(s_frame));
+        var snapshot = new SnapshotBackdropRenderNode();
+        root.AddChild(snapshot);
+        root.AddChild(new DrawBackdropRenderNode(snapshot, s_frame));
 
         using RenderNodeRasterization raster = Rasterize(root);
 
@@ -161,18 +163,5 @@ public sealed class ExecutionIslandOrderTests
             for (int index = context.Inputs.Count - 1; index >= 0; index--)
                 context.Publish(context.Inputs[index]);
         }
-    }
-}
-
-internal sealed class ContributingTargetCaptureNode(Rect bounds) : RenderNode
-{
-    public override void Process(RenderNodeContext context)
-    {
-        RenderFragmentHandle capture = context.TargetCapture(TargetCaptureDescription.Create(
-            TargetRegion.Region(bounds),
-            bounds,
-            RenderHitTestContract.OutputBounds,
-            TargetCaptureScaleContract.MaterializeAtWorkingScale));
-        context.Publish(context.ContributeValues(capture));
     }
 }

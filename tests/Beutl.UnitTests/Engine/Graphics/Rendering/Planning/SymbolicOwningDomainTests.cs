@@ -278,43 +278,6 @@ public sealed class SymbolicOwningDomainTests
     }
 
     [Test]
-    public void BuiltInBackdrop_DerivedShaderFanOut_UsesProducerDomain()
-    {
-        var producerDomain = new Rect(0, 0, 40, 30);
-        var secondConsumerDomain = new Rect(20, 0, 40, 30);
-        using var root = new BuiltInDerivedFanOutNode(producerDomain, secondConsumerDomain);
-
-        using CompiledRenderRequest compiled = Compile(root, targetDomain: null);
-        RenderFragmentReference[] references = References(compiled.Graph).Values.ToArray();
-        RenderFragmentReference capture = references.Single(static reference =>
-            reference.Kind == RenderFragmentKind.BuiltInBackdropCapture);
-        RenderFragmentReference shader = references.Single(static reference =>
-            reference.Kind == RenderFragmentKind.Shader
-            && ((ShaderRenderFragmentPayload)reference.Payload!).Description.Kind
-                == ShaderDescriptionKind.CurrentPixel);
-        RenderFragmentReference wholeSource = references.Single(static reference =>
-            reference.Kind == RenderFragmentKind.Shader
-            && ((ShaderRenderFragmentPayload)reference.Payload!).Description.Kind
-                == ShaderDescriptionKind.WholeSource);
-        RenderFragmentReference[] layers = references
-            .Where(static reference => reference.Kind == RenderFragmentKind.Layer)
-            .ToArray();
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(capture.Bounds, Is.EqualTo(producerDomain));
-            Assert.That(shader.Bounds, Is.EqualTo(producerDomain));
-            Assert.That(wholeSource.Bounds, Is.EqualTo(producerDomain));
-            Assert.That(layers.Single(reference =>
-                    ((LayerRenderFragmentPayload)reference.Payload!).Domain == producerDomain).Bounds,
-                Is.EqualTo(producerDomain));
-            Assert.That(layers.Single(reference =>
-                    ((LayerRenderFragmentPayload)reference.Payload!).Domain == secondConsumerDomain).Bounds,
-                Is.EqualTo(producerDomain.Intersect(secondConsumerDomain)));
-        });
-    }
-
-    [Test]
     public void UnknownEffectItem_DerivedFanOutAcrossDifferentDomains_IsRejected()
     {
         var effect = new SymbolicDomainFilterEffect();
@@ -540,36 +503,6 @@ public sealed class SymbolicOwningDomainTests
             CaptureCount++;
             CapturedDeviceSize = new PixelSize(bitmap.Width, bitmap.Height);
             CapturedDensity = density;
-            bitmap.Dispose();
-            return true;
-        }
-    }
-
-    private sealed class BuiltInDerivedFanOutNode(
-        Rect producerDomain,
-        Rect secondConsumerDomain)
-        : RenderNode, IBuiltInBackdropCaptureSink
-    {
-        private const string IdentityShader = "half4 apply(half4 color) { return color; }";
-
-        public override void Process(RenderNodeContext context)
-        {
-            RenderFragmentHandle capture = context.BuiltInBackdropCapture(this);
-            RenderFragmentHandle shader = context.Shader(
-                capture,
-                ShaderDescription.CurrentPixel(IdentityShader));
-            RenderFragmentHandle wholeSource = context.Shader(
-                shader,
-                ShaderDescription.WholeSource(
-                    "uniform shader src; half4 main(float2 coord) { return src.eval(coord); }",
-                    RenderBoundsContract.Identity));
-            RenderFragmentHandle contributing = context.ContributeValues(wholeSource);
-            context.Publish(context.Layer([contributing], producerDomain));
-            context.Publish(context.Layer([contributing], secondConsumerDomain));
-        }
-
-        bool IBuiltInBackdropCaptureSink.TryCommitBackdropCapture(Bitmap bitmap, float density)
-        {
             bitmap.Dispose();
             return true;
         }

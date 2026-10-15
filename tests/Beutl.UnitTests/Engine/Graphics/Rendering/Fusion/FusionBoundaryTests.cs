@@ -91,9 +91,7 @@ public sealed class FusionBoundaryTests
         {
             RenderFragmentReference source = Fragment(
                 RenderFragmentKind.OpaqueSource,
-                OpaquePayload(
-                    OpaqueRenderTopology.Source,
-                    RenderValueCardinality.Single));
+                OpaquePayload(RenderValueCardinality.Single));
             ShaderDescription nonlinear = ShaderDescription.CurrentPixel(
                 "half4 apply(half4 color) { return color * color.a; }");
             RenderFragmentReference shader = Fragment(
@@ -116,7 +114,7 @@ public sealed class FusionBoundaryTests
     {
         using CompiledRenderRequest compiled = Compile((requestId, cache) =>
         {
-            RenderFragmentReference source = Fragment(RenderFragmentKind.MaterializedInput, payload: null);
+            RenderFragmentReference source = SourceFragment();
             RenderFragmentReference first = CurrentPixel(source, "return color * 0.75;");
             ShaderDescription description = ShaderDescription.CurrentPixel(
                 "half4 apply(half4 color) { return color.bgra; }");
@@ -140,7 +138,7 @@ public sealed class FusionBoundaryTests
             Assert.That(compiled.ExecutionPlan.ShaderRuns, Has.Exactly(1).Items);
             Assert.That(compiled.ExecutionPlan.ShaderRuns.Single().GetOutput(compiled.Graph),
                 Is.SameAs(compiled.Graph.Fragments[1]));
-            Assert.That(SemanticIslandFragments(compiled), Is.EqualTo(new[] { 2 }));
+            Assert.That(SemanticIslandFragments(compiled), Is.EqualTo(new[] { 0, 2 }));
         });
     }
 
@@ -155,7 +153,7 @@ public sealed class FusionBoundaryTests
     {
         using CompiledRenderRequest compiled = Compile((requestId, cache) =>
         {
-            RenderFragmentReference source = Fragment(RenderFragmentKind.MaterializedInput, payload: null);
+            RenderFragmentReference source = SourceFragment();
             RenderFragmentReference first = Fragment(RenderFragmentKind.Shader, WholeSourcePayload(), source);
             RenderFragmentReference second = Fragment(RenderFragmentKind.Shader, WholeSourcePayload(), first);
             RenderFragmentReference currentPixel = CurrentPixel(second, "return color * 0.5;");
@@ -181,7 +179,7 @@ public sealed class FusionBoundaryTests
     {
         using CompiledRenderRequest compiled = Compile((requestId, cache) =>
         {
-            RenderFragmentReference source = Fragment(RenderFragmentKind.MaterializedInput, payload: null);
+            RenderFragmentReference source = SourceFragment();
             RenderFragmentReference wholeSource = Fragment(
                 RenderFragmentKind.Shader,
                 WholeSourcePayload(),
@@ -193,10 +191,10 @@ public sealed class FusionBoundaryTests
         Assert.Multiple(() =>
         {
             Assert.That(compiled.ExecutionPlan.Islands.Select(static island => island.ShaderRun is not null),
-                Is.EqualTo(new[] { false, true }));
+                Is.EqualTo(new[] { false, false, true }));
             Assert.That(compiled.ExecutionPlan.ShaderRuns.Single().StageFragmentIndices, Has.Length.EqualTo(1));
             Assert.That(compiled.ExecutionPlan.ShaderRuns.Single().GetWholeSourceHead(compiled.Graph), Is.Null);
-            Assert.That(SemanticIslandFragments(compiled), Is.EqualTo(new[] { 1 }));
+            Assert.That(SemanticIslandFragments(compiled), Is.EqualTo(new[] { 0, 1 }));
         });
     }
 
@@ -206,7 +204,7 @@ public sealed class FusionBoundaryTests
     {
         using CompiledRenderRequest compiled = Compile((requestId, cache) =>
         {
-            RenderFragmentReference source = Fragment(RenderFragmentKind.MaterializedInput, payload: null);
+            RenderFragmentReference source = SourceFragment();
             RenderFragmentReference first = CurrentPixel(source, "return color * 0.75;");
             RenderFragmentReference second = CurrentPixel(first, "return half4(color.bgr, color.a);");
             cache.Add(first);
@@ -263,7 +261,7 @@ public sealed class FusionBoundaryTests
             maxUniformVectors: 0);
         using CompiledRenderRequest compiled = Compile((requestId, cache) =>
         {
-            RenderFragmentReference source = Fragment(RenderFragmentKind.MaterializedInput, payload: null);
+            RenderFragmentReference source = SourceFragment();
             ShaderDescription description = ShaderDescription.CurrentPixel(
                 "uniform float gain; half4 apply(half4 color) { return color * gain; }",
                 static bindings => bindings.Uniform("gain", 0.5f));
@@ -277,8 +275,8 @@ public sealed class FusionBoundaryTests
         Assert.Multiple(() =>
         {
             Assert.That(compiled.ExecutionPlan.ShaderRuns, Is.Empty);
-            Assert.That(compiled.ExecutionPlan.Islands, Has.Exactly(1).Items);
-            Assert.That(SemanticIslandFragments(compiled), Is.EqualTo(new[] { 1 }));
+            Assert.That(compiled.ExecutionPlan.Islands, Has.Exactly(2).Items);
+            Assert.That(SemanticIslandFragments(compiled), Is.EqualTo(new[] { 0, 1 }));
         });
     }
 
@@ -290,7 +288,7 @@ public sealed class FusionBoundaryTests
         ShaderDescription description = ResourceHeavyShader(budget.MaxSamplers, registry);
         using CompiledRenderRequest compiled = Compile((requestId, cache) =>
         {
-            RenderFragmentReference source = Fragment(RenderFragmentKind.MaterializedInput, payload: null);
+            RenderFragmentReference source = SourceFragment();
             RenderFragmentReference shader = Fragment(
                 RenderFragmentKind.Shader,
                 new ShaderRenderFragmentPayload(description),
@@ -301,21 +299,19 @@ public sealed class FusionBoundaryTests
         Assert.Multiple(() =>
         {
             Assert.That(compiled.ExecutionPlan.ShaderRuns, Is.Empty);
-            Assert.That(compiled.ExecutionPlan.Islands, Has.Exactly(1).Items);
-            Assert.That(compiled.ExecutionPlan.Islands[0].ShaderRun, Is.Null);
+            Assert.That(compiled.ExecutionPlan.Islands, Has.Exactly(2).Items);
+            Assert.That(SemanticIslandFragments(compiled), Is.EqualTo(new[] { 0, 1 }));
         });
     }
 
     [Test]
-    public void DynamicCardinalityAndGroupOpacityDoNotClaimShaderEligibility()
+    public void DynamicCardinalityDoesNotClaimShaderEligibility()
     {
         using CompiledRenderRequest dynamic = Compile((requestId, cache) =>
         {
             RenderFragmentReference source = Fragment(
-                RenderFragmentKind.OpaqueExpand,
-                OpaquePayload(
-                    OpaqueRenderTopology.Expand,
-                    RenderValueCardinality.Dynamic),
+                RenderFragmentKind.OpaqueSource,
+                OpaquePayload(RenderValueCardinality.Dynamic),
                 cardinality: RenderValueCardinality.Dynamic);
             ShaderDescription description = ShaderDescription.CurrentPixel(
                 "half4 apply(half4 color) { return color; }");
@@ -326,29 +322,10 @@ public sealed class FusionBoundaryTests
                 source);
             return BuildGraph(requestId, [source, shader], [shader], cache);
         });
-        using CompiledRenderRequest groupOpacity = Compile((requestId, cache) =>
-        {
-            RenderFragmentReference source = Fragment(
-                RenderFragmentKind.OpaqueExpand,
-                OpaquePayload(
-                    OpaqueRenderTopology.Expand,
-                    RenderValueCardinality.Exactly(2)),
-                cardinality: RenderValueCardinality.Exactly(2));
-            RenderFragmentReference opacity = Fragment(
-                RenderFragmentKind.Opacity,
-                new OpacityRenderFragmentPayload(0.5f, OpacityRenderNode.CreateFusionDescription(0.5f)),
-                RenderValueCardinality.Exactly(2),
-                source);
-            return BuildGraph(requestId, [source, opacity], [opacity], cache);
-        });
-
         Assert.Multiple(() =>
         {
             Assert.That(dynamic.ExecutionPlan.ShaderRuns, Is.Empty);
             Assert.That(SemanticIslandFragments(dynamic), Is.EqualTo(new[] { 0, 1 }));
-            Assert.That(groupOpacity.ExecutionPlan.ShaderRuns, Is.Empty,
-                "Group opacity over multiple values is not equivalent to per-value color multiplication.");
-            Assert.That(SemanticIslandFragments(groupOpacity), Is.EqualTo(new[] { 0, 1 }));
         });
     }
 
@@ -359,9 +336,7 @@ public sealed class FusionBoundaryTests
         {
             RenderFragmentReference source = Fragment(
                 RenderFragmentKind.OpaqueSource,
-                OpaquePayload(
-                    OpaqueRenderTopology.Source,
-                    RenderValueCardinality.ZeroOrOne),
+                OpaquePayload(RenderValueCardinality.ZeroOrOne),
                 cardinality: RenderValueCardinality.ZeroOrOne);
             RenderFragmentReference shader = Fragment(
                 RenderFragmentKind.Shader,
@@ -379,7 +354,7 @@ public sealed class FusionBoundaryTests
     {
         using CompiledRenderRequest compiled = Compile((requestId, cache) =>
         {
-            RenderFragmentReference source = Fragment(RenderFragmentKind.MaterializedInput, payload: null);
+            RenderFragmentReference source = SourceFragment();
             RenderFragmentReference barrier = Fragment(barrierKind, payload, source);
             RenderFragmentReference shader = CurrentPixel(barrier, "return color * color.a;");
             return BuildGraph(requestId, [source, barrier, shader], [shader], cache);
@@ -388,7 +363,7 @@ public sealed class FusionBoundaryTests
         Assert.Multiple(() =>
         {
             Assert.That(compiled.ExecutionPlan.ShaderRuns, Has.Exactly(1).Items);
-            Assert.That(SemanticIslandFragments(compiled), Is.EqualTo(new[] { 1 }));
+            Assert.That(SemanticIslandFragments(compiled), Is.EqualTo(new[] { 0, 1 }));
             Assert.That(compiled.ExecutionPlan.ShaderRuns.Single().GetInput(compiled.Graph),
                 Is.SameAs(compiled.Graph.Fragments[1]));
         });
@@ -410,7 +385,7 @@ public sealed class FusionBoundaryTests
         HashSet<RenderFragmentReference> cache,
         int stageCount)
     {
-        RenderFragmentReference source = Fragment(RenderFragmentKind.MaterializedInput, payload: null);
+        RenderFragmentReference source = SourceFragment();
         var references = new List<RenderFragmentReference> { source };
         RenderFragmentReference current = source;
         for (int index = 0; index < stageCount; index++)
@@ -435,7 +410,7 @@ public sealed class FusionBoundaryTests
             TargetRegion.Full,
             s_bounds,
             RenderHitTestContract.None,
-            TargetCaptureScaleContract.MaterializeAtWorkingScale);
+            TargetCaptureScaleContract.PreserveTargetSupply);
         return new TargetCaptureRenderFragmentPayload(description);
     }
 
@@ -451,28 +426,21 @@ public sealed class FusionBoundaryTests
             input);
     }
 
-    private static OpaqueRenderFragmentPayload OpaquePayload(
-        OpaqueRenderTopology topology,
-        RenderValueCardinality cardinality)
+    private static RenderFragmentReference SourceFragment()
+        => Fragment(RenderFragmentKind.OpaqueSource, OpaquePayload(RenderValueCardinality.Single));
+
+    private static OpaqueRenderFragmentPayload OpaquePayload(RenderValueCardinality cardinality)
     {
-        OpaqueRenderBoundsContract bounds = topology switch
-        {
-            OpaqueRenderTopology.Source => OpaqueRenderBoundsContract.Source(s_bounds),
-            OpaqueRenderTopology.Map => OpaqueRenderBoundsContract.Map(RenderBoundsContract.Identity),
-            OpaqueRenderTopology.Combine or OpaqueRenderTopology.Expand
-                => OpaqueRenderBoundsContract.FullInputs(static _ => s_bounds),
-            _ => throw new ArgumentOutOfRangeException(nameof(topology)),
-        };
         OpaqueRenderDescription description = OpaqueRenderDescription.CreateRequestLocal(
             static _ => { },
-            bounds,
+            OpaqueRenderBoundsContract.Source(s_bounds),
             RenderHitTestContract.OutputBounds,
             cardinality,
             RenderScaleContract.MaterializeAtWorkingScale);
-        IReadOnlyList<RenderInputReadback> inputReadbacks = topology == OpaqueRenderTopology.Map
-            ? [RenderInputReadback.None]
-            : Array.Empty<RenderInputReadback>();
-        return new OpaqueRenderFragmentPayload(topology, description, inputReadbacks);
+        return new OpaqueRenderFragmentPayload(
+            OpaqueRenderTopology.Source,
+            description,
+            Array.Empty<RenderInputReadback>());
     }
 
     private static RenderFragmentReference Fragment(
@@ -490,16 +458,13 @@ public sealed class FusionBoundaryTests
         return new RenderFragmentReference(
             kind,
             s_bounds,
-            kind == RenderFragmentKind.MaterializedInput ? EffectiveScale.At(1) : EffectiveScale.Unbounded,
+            EffectiveScale.Unbounded,
             cardinality,
             contributesValuesToTarget: true,
             canBeUsedAsValueInput: true,
             hasTargetEffects: kind == RenderFragmentKind.TargetCapture
                 || inputs.Any(static input => input.HasTargetEffects),
-            hasOpaqueExternalWork: kind is RenderFragmentKind.OpaqueSource
-                    or RenderFragmentKind.OpaqueMap
-                    or RenderFragmentKind.OpaqueCombine
-                    or RenderFragmentKind.OpaqueExpand
+            hasOpaqueExternalWork: kind == RenderFragmentKind.OpaqueSource
                 || inputs.Any(static input => input.HasOpaqueExternalWork),
             [.. inputs],
             payload,

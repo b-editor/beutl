@@ -285,7 +285,7 @@ public sealed class DegradedPreviewCachePurityTests
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale);
-            context.Publish(context.ContributeValues(context.OpaqueSource(description)));
+            context.Publish(context.OpaqueSource(description));
         }
     }
 
@@ -356,7 +356,7 @@ public sealed class DegradedPreviewCachePurityTests
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale);
-            context.Publish(context.ContributeValues(context.OpaqueSource(description)));
+            context.Publish(context.OpaqueSource(description));
         }
     }
 

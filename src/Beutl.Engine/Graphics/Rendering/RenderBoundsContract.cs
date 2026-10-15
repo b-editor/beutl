@@ -54,20 +54,6 @@ public readonly struct RenderBoundsContract
             RenderBoundsStructuralIdentity.Create(transformBounds, getRequiredInputBounds));
     }
 
-    public static RenderBoundsContract CreateFullInput(
-        Func<Rect, Rect> transformBounds)
-    {
-        ArgumentNullException.ThrowIfNull(transformBounds);
-        RenderDescriptionValidation.ValidatePureMetadataCallback(
-            transformBounds,
-            nameof(transformBounds));
-        return new RenderBoundsContract(
-            transformBounds,
-            IdentityMap,
-            requiresFullInput: true,
-            RenderBoundsStructuralIdentity.CreateFullInput(transformBounds));
-    }
-
     /// <summary>
     /// Creates a bounds contract whose mappings read call-owned state instead of closing over it.
     /// </summary>

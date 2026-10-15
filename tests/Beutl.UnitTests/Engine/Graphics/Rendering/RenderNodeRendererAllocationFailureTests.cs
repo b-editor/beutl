@@ -32,7 +32,7 @@ public sealed class RenderNodeRendererAllocationFailureTests
             RenderFragmentHandle input = context.RecordSubtree(_source).Single();
             RenderFragmentHandle output = context.Shader(input, ShaderDescription.WholeSource(
                 "uniform shader src; half4 main(float2 p) { return src.eval(p * 0.5); }",
-                RenderBoundsContract.CreateFullInput(static _ => new Rect(0, 0, 100, 100))));
+                RenderBoundsContract.CreateFullInput(new Rect(0, 0, 100, 100), static (bounds, _) => bounds)));
             context.Publish(output);
             context.Publish(output);
         }

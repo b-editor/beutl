@@ -31,17 +31,6 @@ public readonly struct RenderScaleContract
 
     private RenderScaleContract(
         Func<EffectiveScale, EffectiveScale> mapInputSupply,
-        object structuralIdentity)
-    {
-        _kind = RenderScaleContractKind.MapInputSupply;
-        _resolve = null;
-        _mapInputSupply = mapInputSupply;
-        _mapOutputDemandToInput = null;
-        _structuralIdentity = new RenderScaleContractStructuralIdentity(_kind, structuralIdentity);
-    }
-
-    private RenderScaleContract(
-        Func<EffectiveScale, EffectiveScale> mapInputSupply,
         Func<EffectiveScale, EffectiveScale> mapOutputDemandToInput,
         object structuralIdentity)
     {
@@ -96,50 +85,6 @@ public readonly struct RenderScaleContract
             new RenderScaleBidirectionalMappingStructuralIdentity(
                 RenderDescriptionValidation.StructuralIdentityOf(map),
                 RenderDescriptionValidation.StructuralIdentityOf(mapOutputDemandToInput)));
-    }
-
-    /// <summary>
-    /// Maps the resolved supply metadata of an element-wise one-input operation that consumes its input at the
-    /// density its own consumer demands, so backward demand passes through unchanged.
-    /// </summary>
-    /// <param name="map">
-    /// A pure metadata callback that maps the corresponding input supply to the output supply.
-    /// The callback may return <see cref="EffectiveScale.Unbounded"/>.
-    /// </param>
-    /// <returns>A declarative forward-only one-input supply mapping contract.</returns>
-    /// <remarks>
-    /// The unchanged demand is the precondition, not a degraded default: it is what a supply map that reports a
-    /// different density without resampling, or one that collapses to <see cref="EffectiveScale.Unbounded"/>,
-    /// actually needs. An operation that resamples — an enlargement, a reduction — must use
-    /// <see cref="MapInputSupply"/> instead, because leaving demand unchanged lets an unbounded input
-    /// materialize below the density the operation consumes and blurs the result by the resampling factor.
-    /// The callback may be evaluated again during graph-wide metadata resolution when an upstream fragment has
-    /// symbolic recording metadata, so it must remain deterministic and side-effect-free.
-    /// </remarks>
-    public static RenderScaleContract MapInputSupplyPreservingDemand(
-        Func<EffectiveScale, EffectiveScale> map)
-    {
-        ArgumentNullException.ThrowIfNull(map);
-        RenderDescriptionValidation.ValidatePureMetadataCallback(map, nameof(map));
-        return new RenderScaleContract(map, RenderDescriptionValidation.StructuralIdentityOf(map));
-    }
-
-    /// <summary>
-    /// Maps input supply with a forward map that reads call-owned state instead of closing over it.
-    /// </summary>
-    /// <typeparam name="TState">The immutable state the map reads.</typeparam>
-    /// <param name="state">The per-recording values the map needs, which are request data.</param>
-    /// <param name="map">A pure forward supply map, declared <see langword="static"/>.</param>
-    public static RenderScaleContract MapInputSupplyPreservingDemand<TState>(
-        TState state,
-        Func<TState, EffectiveScale, EffectiveScale> map)
-    {
-        ArgumentNullException.ThrowIfNull(map);
-        RenderDescriptionValidation.ValidatePureMetadataCallback(map, nameof(map));
-        var binding = new ScaleMapping<TState>(state, map, null);
-        return new RenderScaleContract(
-            binding.MapSupply,
-            RenderDescriptionValidation.StructuralIdentityOf(map));
     }
 
     /// <summary>
@@ -214,11 +159,11 @@ public readonly struct RenderScaleContract
     private sealed class ScaleMapping<TState>(
         TState state,
         Func<TState, EffectiveScale, EffectiveScale> map,
-        Func<TState, EffectiveScale, EffectiveScale>? mapOutputDemandToInput)
+        Func<TState, EffectiveScale, EffectiveScale> mapOutputDemandToInput)
     {
         public EffectiveScale MapSupply(EffectiveScale supply) => map(state, supply);
 
-        public EffectiveScale MapDemand(EffectiveScale demand) => mapOutputDemandToInput!(state, demand);
+        public EffectiveScale MapDemand(EffectiveScale demand) => mapOutputDemandToInput(state, demand);
     }
 
     /// <summary>Holds one recording's state so the resolver itself stays static.</summary>

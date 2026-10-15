@@ -114,8 +114,6 @@ internal sealed partial class RegionAnalyzer
         {
             TargetScopeRenderFragmentPayload scope
                 => scope.Description.Bounds.TransformBounds(result),
-            RawTargetScopeRenderFragmentPayload scope
-                => scope.Description.Bounds.TransformBounds(result),
             TargetLayerScopeRenderFragmentPayload layer
                 => layer.Region.Kind == TargetRegionKind.Region
                     ? result.Intersect(layer.Region.Value)

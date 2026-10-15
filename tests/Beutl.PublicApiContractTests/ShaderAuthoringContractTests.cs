@@ -272,9 +272,8 @@ public sealed class ShaderAuthoringContractTests
                     token,
                     ShaderResourceCoordinateSpace.OutputDevice,
                     static (writer, shared, _) => writer.Set(SKShader.CreateColor(shared.Color))),
-                hitTest: RenderHitTestContract.FromSlot<ShaderColor>(
-                    s_sharedColorSlot,
-                    static (_, _) => true),
+                hitTest: RenderHitTestContract.Custom(
+                    static (context, _) => context.UseResource(s_sharedColorSlot, static _ => true)),
                 hitTestResources: [binding, binding]));
             context.Publish(context.OpaqueSource(SourceDescription(Colors.White)));
         });
@@ -354,13 +353,14 @@ public sealed class ShaderAuthoringContractTests
                     token,
                     ShaderResourceCoordinateSpace.OutputDevice,
                     static (writer, tint, _) => writer.Set(SKShader.CreateColor(tint.Color))),
-                hitTest: RenderHitTestContract.FromSlot<ShaderColor>(
-                    s_colorSlot,
-                    static (tint, point) =>
-                    {
-                        tint.HitTests++;
-                        return tint.Color.Alpha > 0 && point.X < 4;
-                    }),
+                hitTest: RenderHitTestContract.Custom(
+                    static (context, point) => context.UseResource(
+                        s_colorSlot,
+                        tint =>
+                        {
+                            tint.HitTests++;
+                            return tint.Color.Alpha > 0 && point.X < 4;
+                        })),
                 hitTestResources: [s_colorSlot.Bind(token)]);
             RenderFragmentHandle source = context.OpaqueSource(SourceDescription(Colors.White));
             context.Publish(context.Shader(source, description));

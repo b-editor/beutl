@@ -471,7 +471,7 @@ public sealed class RecordingGateFingerprintTests
             foreach (RenderFragmentHandle input in context.Inputs)
             {
                 input.TryHitTest(s_inside, out bool hit);
-                context.Publish(hit ? context.Opacity(input, 0.5f) : context.ContributeValues(input));
+                context.Publish(hit ? context.Opacity(input, 0.5f) : input);
             }
         }
     }

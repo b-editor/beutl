@@ -59,7 +59,7 @@ public sealed class RenderNodeAuthoringContractTests
         {
             Assert.That(passed.HasFragments, Is.True);
             Assert.That(passed.HasContributingValues, Is.True);
-            Assert.That(passed.ValueCardinality, Is.EqualTo(RenderValueCardinality.Exactly(2)));
+            Assert.That(passed.ValueCardinality, Is.EqualTo(RenderValueCardinality.Range(2, 2)));
             Assert.That(passed.OutputBounds, Is.EqualTo(firstBounds.Union(secondBounds)));
         });
     }
@@ -107,7 +107,7 @@ public sealed class RenderNodeAuthoringContractTests
                 mappedInputs.Select(static snapshot => snapshot.Bounds),
                 Is.EqualTo(new[] { firstBounds, secondBounds }));
             Assert.That(mappedOutputs, Is.EqualTo(mappedInputs));
-            Assert.That(simpleMeasurement.ValueCardinality, Is.EqualTo(RenderValueCardinality.Exactly(2)));
+            Assert.That(simpleMeasurement.ValueCardinality, Is.EqualTo(RenderValueCardinality.Range(2, 2)));
             Assert.That(simpleMeasurement.HasContributingValues, Is.True);
             Assert.That(simpleMeasurement.OutputBounds, Is.EqualTo(firstBounds.Union(secondBounds)));
 
@@ -160,79 +160,29 @@ public sealed class RenderNodeAuthoringContractTests
     }
 
     [Test]
-    public void OpaqueShapes_ExposeTheirApplicableCardinalityContributionAndValueEligibility()
+    public void OpaqueSource_ExposesItsCardinalityContributionAndValueEligibility()
     {
-        var firstBounds = new Rect(0, 0, 10, 10);
-        var secondBounds = new Rect(20, 5, 8, 12);
-        var observed = new Dictionary<string, FragmentSnapshot>();
+        var bounds = new Rect(0, 0, 10, 10);
+        FragmentSnapshot source = default;
 
         using var node = new DelegateNode(context =>
         {
-            RenderFragmentHandle first = context.OpaqueSource(SourceDescription(
-                firstBounds,
+            RenderFragmentHandle handle = context.OpaqueSource(SourceDescription(
+                bounds,
                 RenderValueCardinality.Single,
                 RenderScaleContract.Vector));
-            RenderFragmentHandle second = context.OpaqueSource(SourceDescription(
-                secondBounds,
-                RenderValueCardinality.Single,
-                RenderScaleContract.Custom(static _ => 2f)));
-            RenderFragmentHandle map = context.OpaqueMap(
-                first,
-                MapDescription(RenderValueCardinality.ZeroOrOne));
-            RenderFragmentHandle combine = context.OpaqueCombine(
-                [first, second],
-                CombineDescription(RenderValueCardinality.Single));
-            RenderFragmentHandle expand = context.OpaqueExpand(
-                [first, second],
-                CombineDescription(RenderValueCardinality.Dynamic));
-            RenderFragmentHandle emptyCombine = context.OpaqueCombine(
-                [],
-                EmptyInputDescription(RenderValueCardinality.ZeroOrOne));
-            RenderFragmentHandle emptyExpand = context.OpaqueExpand(
-                [],
-                EmptyInputDescription(RenderValueCardinality.Dynamic));
-
-            observed["source"] = FragmentSnapshot.From(first);
-            observed["map"] = FragmentSnapshot.From(map);
-            observed["combine"] = FragmentSnapshot.From(combine);
-            observed["expand"] = FragmentSnapshot.From(expand);
-            observed["empty-combine"] = FragmentSnapshot.From(emptyCombine);
-            observed["empty-expand"] = FragmentSnapshot.From(emptyExpand);
-
-            RenderFragmentHandle contributed = context.ContributeValues(emptyCombine);
-            observed["contributed"] = FragmentSnapshot.From(contributed);
-            Assert.That(context.ContributeValues(contributed), Is.SameAs(contributed));
-
-            context.PublishRange([map, combine, expand, contributed]);
+            source = FragmentSnapshot.From(handle);
+            context.Publish(handle);
         });
 
         RenderNodeMeasurement measurement = Measure(node, outputScale: 1, maxWorkingScale: 4);
 
         Assert.Multiple(() =>
         {
-            Assert.That(observed["source"].Cardinality, Is.EqualTo(RenderValueCardinality.Single));
-            Assert.That(observed["source"].CanBeUsedAsValueInput, Is.True);
-            Assert.That(observed["source"].ContributesValues, Is.True);
-            Assert.That(observed["source"].EffectiveScale, Is.EqualTo(EffectiveScale.Unbounded));
-
-            Assert.That(observed["map"].Cardinality, Is.EqualTo(RenderValueCardinality.ZeroOrOne));
-            Assert.That(observed["map"].CanBeUsedAsValueInput, Is.True);
-            Assert.That(observed["map"].ContributesValues, Is.True);
-
-            Assert.That(observed["combine"].Bounds, Is.EqualTo(firstBounds.Union(secondBounds)));
-            Assert.That(observed["combine"].Cardinality, Is.EqualTo(RenderValueCardinality.Single));
-            Assert.That(observed["combine"].CanBeUsedAsValueInput, Is.True);
-            Assert.That(observed["combine"].ContributesValues, Is.True);
-
-            Assert.That(observed["expand"].Cardinality, Is.EqualTo(RenderValueCardinality.Dynamic));
-            Assert.That(observed["expand"].CanBeUsedAsValueInput, Is.True);
-
-            Assert.That(observed["empty-combine"].CanBeUsedAsValueInput, Is.True);
-            Assert.That(observed["empty-combine"].ContributesValues, Is.False);
-            Assert.That(observed["empty-expand"].CanBeUsedAsValueInput, Is.True);
-            Assert.That(observed["empty-expand"].ContributesValues, Is.False);
-            Assert.That(observed["contributed"].CanBeUsedAsValueInput, Is.True);
-            Assert.That(observed["contributed"].ContributesValues, Is.True);
+            Assert.That(source.Cardinality, Is.EqualTo(RenderValueCardinality.Single));
+            Assert.That(source.CanBeUsedAsValueInput, Is.True);
+            Assert.That(source.ContributesValues, Is.True);
+            Assert.That(source.EffectiveScale, Is.EqualTo(EffectiveScale.Unbounded));
 
             Assert.That(measurement.HasFragments, Is.True);
             Assert.That(measurement.HasContributingValues, Is.True);
@@ -286,7 +236,7 @@ public sealed class RenderNodeAuthoringContractTests
             RenderFragmentHandle targetLayer = context.TargetLayerScope(
                 [source, command],
                 TargetRegion.Region(bounds));
-            RenderFragmentHandle layer = context.Layer([source, command], bounds);
+            RenderFragmentHandle layer = context.Layer([targetLayer], bounds);
 
             observed["opacity-value"] = FragmentSnapshot.From(opacityValue);
             observed["opacity-command"] = FragmentSnapshot.From(opacityCommand);
@@ -299,12 +249,6 @@ public sealed class RenderNodeAuthoringContractTests
             observed["target-layer"] = FragmentSnapshot.From(targetLayer);
             observed["layer"] = FragmentSnapshot.From(layer);
 
-            Assert.That(
-                () => context.OpaqueMap(command, MapDescription(RenderValueCardinality.Single)),
-                Throws.TypeOf<ArgumentException>());
-            Assert.That(() => context.ContributeValues(command), Throws.TypeOf<ArgumentException>());
-
-            context.Drop(targetLayer);
             context.PublishRange(
                 [opacityValue, maskValue, maskFallback, blend, targetScope, layer]);
         });
@@ -327,35 +271,21 @@ public sealed class RenderNodeAuthoringContractTests
             Assert.That(observed["opacity-value"].Cardinality, Is.EqualTo(RenderValueCardinality.Single));
             Assert.That(observed["blend"].Cardinality, Is.EqualTo(RenderValueCardinality.Single));
             Assert.That(observed["command"].Cardinality, Is.EqualTo(RenderValueCardinality.None));
-            Assert.That(observed["target-layer"].Cardinality, Is.EqualTo(RenderValueCardinality.Exactly(1)));
+            Assert.That(observed["target-layer"].Cardinality, Is.EqualTo(RenderValueCardinality.Single));
             Assert.That(observed["layer"].Cardinality, Is.EqualTo(RenderValueCardinality.Single));
         });
     }
 
     [Test]
-    public void MaterializedInputAndResourceTokens_AreUsableWithoutFriendAccessAndHonorOwnership()
+    public void ResourceTokens_AreUsableWithoutFriendAccessAndHonorOwnership()
     {
-        var bounds = new Rect(10, 20, 10, 20);
-        using RenderTarget target = RenderTarget.CreateNull(20, 40);
         var owned = new TrackingDisposable();
         var borrowed = new TrackingDisposable();
-        FragmentSnapshot materialized = default;
 
         using var node = new DelegateNode(context =>
         {
             RenderResource<TrackingDisposable> ownedToken = context.Own(owned);
             RenderResource<TrackingDisposable> borrowedToken = context.Borrow(borrowed);
-            RenderResource<RenderTarget> targetToken = context.Borrow(target);
-
-            RenderFragmentHandle input = context.MaterializedInput(
-                MaterializedInputDescription.FromRenderTarget(
-                    targetToken,
-                    bounds,
-                    EffectiveScale.At(2),
-                    PixelRect.FromRect(bounds, 2),
-                    default,
-                    RenderHitTestContract.OutputBounds));
-            materialized = FragmentSnapshot.From(input);
 
             RenderFragmentHandle declaredResourceSource = context.OpaqueSource(
                 RenderDescriptionFactory.Opaque(
@@ -369,24 +299,16 @@ public sealed class RenderNodeAuthoringContractTests
                         s_ownedSlot.Bind(ownedToken),
                         s_borrowedSlot.Bind(borrowedToken),
                     ]));
-            context.PublishRange([input, declaredResourceSource]);
+            context.Publish(declaredResourceSource);
         });
 
         RenderNodeMeasurement measurement = Measure(node);
 
         Assert.Multiple(() =>
         {
-            Assert.That(materialized.Bounds, Is.EqualTo(bounds));
-            Assert.That(materialized.EffectiveScale, Is.EqualTo(EffectiveScale.At(2)));
-            Assert.That(materialized.Cardinality, Is.EqualTo(RenderValueCardinality.Single));
-            Assert.That(materialized.CanBeUsedAsValueInput, Is.True);
-            Assert.That(materialized.ContributesValues, Is.True);
-            Assert.That(materialized.HitAtCenter, Is.True);
-            Assert.That(measurement.OutputBounds, Is.EqualTo(bounds.Union(new Rect(0, 0, 1, 1))));
-
+            Assert.That(measurement.OutputBounds, Is.EqualTo(new Rect(0, 0, 1, 1)));
             Assert.That(owned.DisposeCalls, Is.EqualTo(1));
             Assert.That(borrowed.DisposeCalls, Is.Zero);
-            Assert.That(target.IsDisposed, Is.False);
         });
     }
 
@@ -404,7 +326,7 @@ public sealed class RenderNodeAuthoringContractTests
         RenderNodeMeasurement pureMeasurement = Measure(pureNode);
         Assert.Multiple(() =>
         {
-            Assert.That(pureMeasurement.ValueCardinality, Is.EqualTo(RenderValueCardinality.Exactly(2)));
+            Assert.That(pureMeasurement.ValueCardinality, Is.EqualTo(RenderValueCardinality.Range(2, 2)));
             Assert.That(pureMeasurement.OutputBounds, Is.EqualTo(bounds));
         });
 
@@ -626,11 +548,10 @@ public sealed class RenderNodeAuthoringContractTests
     {
         Assert.Multiple(() =>
         {
-            Assert.That(RenderValueCardinality.None, Is.EqualTo(RenderValueCardinality.Exactly(0)));
-            Assert.That(RenderValueCardinality.Single, Is.EqualTo(RenderValueCardinality.Exactly(1)));
+            Assert.That(RenderValueCardinality.None, Is.EqualTo(RenderValueCardinality.Range(0, 0)));
+            Assert.That(RenderValueCardinality.Single, Is.EqualTo(RenderValueCardinality.Range(1, 1)));
             Assert.That(RenderValueCardinality.ZeroOrOne, Is.EqualTo(RenderValueCardinality.Range(0, 1)));
             Assert.That(RenderValueCardinality.Dynamic, Is.EqualTo(RenderValueCardinality.Range(0, null)));
-            Assert.That(() => RenderValueCardinality.Exactly(-1), Throws.TypeOf<ArgumentOutOfRangeException>());
             Assert.That(() => RenderValueCardinality.Range(-1, null), Throws.TypeOf<ArgumentOutOfRangeException>());
             Assert.That(() => RenderValueCardinality.Range(2, 1), Throws.TypeOf<ArgumentOutOfRangeException>());
             Assert.That(
@@ -643,21 +564,12 @@ public sealed class RenderNodeAuthoringContractTests
                 Throws.TypeOf<ArgumentException>());
         });
 
-        using var invalidMap = new DelegateNode(context =>
-        {
-            RenderFragmentHandle source = context.OpaqueSource(SourceDescription(new Rect(0, 0, 1, 1)));
-            _ = context.OpaqueMap(source, MapDescription(RenderValueCardinality.Dynamic));
-        });
-        Assert.That(() => Measure(invalidMap), Throws.TypeOf<ArgumentException>());
-
-        using var invalidCombine = new DelegateNode(context =>
-        {
-            RenderFragmentHandle source = context.OpaqueSource(SourceDescription(new Rect(0, 0, 1, 1)));
-            _ = context.OpaqueCombine(
-                [source],
-                CombineDescription(RenderValueCardinality.Exactly(2)));
-        });
-        Assert.That(() => Measure(invalidCombine), Throws.TypeOf<ArgumentException>());
+        using var invalidSource = new DelegateNode(context =>
+            _ = context.OpaqueSource(SourceDescription(
+                new Rect(0, 0, 1, 1),
+                RenderValueCardinality.Dynamic,
+                RenderScaleContract.Vector)));
+        Assert.That(() => Measure(invalidSource), Throws.TypeOf<ArgumentException>());
     }
 
     private static DelegateNode SourceNode(Rect bounds)
@@ -683,48 +595,6 @@ public sealed class RenderNodeAuthoringContractTests
             RenderHitTestContract.OutputBounds,
             cardinality,
             scale);
-    }
-
-    private static OpaqueRenderDescription MapDescription(RenderValueCardinality cardinality)
-    {
-        return RenderDescriptionFactory.Opaque(
-            static _ => throw new AssertionException("Metadata queries must not execute opaque callbacks."),
-            OpaqueRenderBoundsContract.Map(RenderBoundsContract.Identity),
-            RenderHitTestContract.AnyInput,
-            cardinality,
-            RenderScaleContract.PreserveInputSupply);
-    }
-
-    private static OpaqueRenderDescription CombineDescription(RenderValueCardinality cardinality)
-    {
-        return RenderDescriptionFactory.Opaque(
-            static _ => throw new AssertionException("Metadata queries must not execute opaque callbacks."),
-            OpaqueRenderBoundsContract.FullInputs(UnionAll),
-            RenderHitTestContract.AnyInput,
-            cardinality,
-            RenderScaleContract.MaterializeAtWorkingScale);
-    }
-
-    private static OpaqueRenderDescription EmptyInputDescription(RenderValueCardinality cardinality)
-    {
-        return RenderDescriptionFactory.Opaque(
-            static _ => throw new AssertionException("Metadata queries must not execute opaque callbacks."),
-            OpaqueRenderBoundsContract.FullInputs(
-                static _ => new Rect(40, 50, 3, 2)),
-            RenderHitTestContract.OutputBounds,
-            cardinality,
-            RenderScaleContract.MaterializeAtWorkingScale);
-    }
-
-    private static Rect UnionAll(IReadOnlyList<Rect> inputs)
-    {
-        Rect result = default;
-        foreach (Rect input in inputs)
-        {
-            result = result.Union(input);
-        }
-
-        return result;
     }
 
     private static RenderNodeMeasurement Measure(

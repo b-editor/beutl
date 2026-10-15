@@ -22,14 +22,6 @@ public readonly struct TargetCaptureScaleContract
     }
 
     /// <summary>
-    /// Resolves a concrete output-derived density without observing the enclosing target's density.
-    /// </summary>
-    public static TargetCaptureScaleContract MaterializeAtWorkingScale { get; } =
-        new(
-            TargetCaptureScaleContractKind.Declared,
-            RenderScaleContract.MaterializeAtWorkingScale);
-
-    /// <summary>
     /// Preserves the resolved density of the enclosing root, finite layer, or target-layer scope.
     /// </summary>
     /// <remarks>
@@ -38,36 +30,6 @@ public readonly struct TargetCaptureScaleContract
     /// </remarks>
     public static TargetCaptureScaleContract PreserveTargetSupply { get; } =
         new(TargetCaptureScaleContractKind.PreserveTargetSupply);
-
-    /// <summary>Creates a concrete output-derived capture density contract.</summary>
-    /// <param name="resolve">
-    /// A pure resolver that receives no input supplies and may use output bounds, output scale, and maximum working
-    /// scale.
-    /// </param>
-    /// <returns>A validated target-capture scale contract.</returns>
-    /// <exception cref="ArgumentNullException"><paramref name="resolve"/> is <see langword="null"/>.</exception>
-    public static TargetCaptureScaleContract Custom(
-        Func<RenderScaleContext, float> resolve)
-#pragma warning disable BESG003 // This method is itself a contract entry point, so the author's own call
-        // to it is where the rule applies to `resolve`. Forwarding it here checks nothing twice.
-        => new(
-            TargetCaptureScaleContractKind.Declared,
-            RenderScaleContract.Custom(resolve));
-#pragma warning restore BESG003
-
-    /// <summary>Creates a capture density contract whose resolver reads call-owned state.</summary>
-    /// <typeparam name="TState">The immutable state the resolver reads.</typeparam>
-    /// <param name="state">The per-recording values the resolver needs, which are request data.</param>
-    /// <param name="resolve">A pure resolver, declared <see langword="static"/>.</param>
-    /// <returns>A validated target-capture scale contract.</returns>
-    public static TargetCaptureScaleContract Custom<TState>(
-        TState state,
-        Func<TState, RenderScaleContext, float> resolve)
-#pragma warning disable BESG003 // Same forwarding as the stateless overload above.
-        => new(
-            TargetCaptureScaleContractKind.Declared,
-            RenderScaleContract.Custom(state, resolve));
-#pragma warning restore BESG003
 
     internal bool PreservesTargetSupply
     {

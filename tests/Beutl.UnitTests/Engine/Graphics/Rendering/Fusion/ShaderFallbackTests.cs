@@ -204,7 +204,7 @@ public sealed class ShaderFallbackTests
     {
         public override void Process(RenderNodeContext context)
         {
-            RenderFragmentHandle input = FusionBoundaryExecutionTestSupport.BorrowMaterializedInput(
+            RenderFragmentHandle input = FusionBoundaryExecutionTestSupport.RecordSourcePixels(
                 context,
                 source,
                 s_bounds);
@@ -229,7 +229,7 @@ public sealed class ShaderFallbackTests
 
         public override void Process(RenderNodeContext context)
         {
-            RenderFragmentHandle current = FusionBoundaryExecutionTestSupport.BorrowMaterializedInput(
+            RenderFragmentHandle current = FusionBoundaryExecutionTestSupport.RecordSourcePixels(
                 context,
                 _source,
                 s_bounds);

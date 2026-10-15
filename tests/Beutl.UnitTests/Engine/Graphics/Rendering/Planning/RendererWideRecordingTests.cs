@@ -942,31 +942,20 @@ public sealed class RendererWideRecordingTests
     private sealed class OrderedCaptureNode(
         int index,
         bool[] recorded,
-        ICollection<string> executed) : RenderNode
+        ICollection<string> executed) : SnapshotBackdropRenderNode, IBuiltInBackdropCaptureSink
     {
         public override void Process(RenderNodeContext context)
         {
             recorded[index] = true;
-            Rect bounds = new(0, 0, 8, 8);
-            RenderFragmentHandle capture = context.TargetCapture(TargetCaptureDescription.Create(
-                TargetRegion.Full,
-                bounds,
-                RenderHitTestContract.None,
-                TargetCaptureScaleContract.MaterializeAtWorkingScale));
-            OpaqueRenderDescription replay = OpaqueRenderDescription.CreateRequestLocal(
-                session =>
-                {
-                    Assert.That(recorded, Is.All.True);
-                    executed.Add("capture");
-                    using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
-                    output.Canvas.Use(session.Inputs.Single().Draw);
-                    session.Publish(output);
-                },
-                OpaqueRenderBoundsContract.Map(RenderBoundsContract.Identity),
-                RenderHitTestContract.AnyInput,
-                RenderValueCardinality.Single,
-                RenderScaleContract.PreserveInputSupply);
-            context.Publish(context.ContributeValues(context.OpaqueMap(capture, replay)));
+            base.Process(context);
+        }
+
+        bool IBuiltInBackdropCaptureSink.TryCommitBackdropCapture(Bitmap bitmap, float density)
+        {
+            Assert.That(recorded, Is.All.True);
+            executed.Add("capture");
+            bitmap.Dispose();
+            return true;
         }
     }
 

@@ -42,7 +42,6 @@ internal static class TargetWriteMetadataResolver
                     recorded,
                     out affectedBounds);
             case RenderFragmentKind.RawTargetCommand:
-            case RenderFragmentKind.RawTargetScope:
                 return TryResolveRegion(TargetRegion.Full, targetDomain, recorded, out affectedBounds);
             case RenderFragmentKind.TargetLayerScope:
                 return TryResolveRegion(

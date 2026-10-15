@@ -99,14 +99,11 @@ public sealed class DeferredCallbackFailureTests
         });
     }
 
-    [TestCase(OpaqueTopology.Source)]
-    [TestCase(OpaqueTopology.Map)]
-    [TestCase(OpaqueTopology.Combine)]
-    [TestCase(OpaqueTopology.Expand)]
-    public void EveryOpaqueTopology_PropagatesItsDeferredCallbackFailure(OpaqueTopology topology)
+    [Test]
+    public void AnOpaqueSource_PropagatesItsDeferredCallbackFailure()
     {
-        var primary = new InvalidOperationException($"opaque-{topology}");
-        using var node = new OpaqueTopologyFailureNode(topology, primary);
+        var primary = new InvalidOperationException("opaque-source");
+        using var node = new OpaqueSourceFailureNode(primary);
         using var renderer = FailureTestSupport.CreateRenderer(node, useRenderCache: false);
 
         InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(() => renderer.Rasterize());
@@ -171,7 +168,7 @@ public sealed class DeferredCallbackFailureTests
     }
 
     [Test]
-    public void SuccessfulDeferredCallback_SealsSessionInputOutputAndCanvasFacadesAfterReturn()
+    public void SuccessfulDeferredCallback_SealsSessionOutputAndCanvasFacadesAfterReturn()
     {
         using var node = new RetainedFacadeNode();
         using var renderer = FailureTestSupport.CreateRenderer(node, useRenderCache: false);
@@ -182,7 +179,6 @@ public sealed class DeferredCallbackFailureTests
         {
             Assert.That(rasterization.IsEmpty, Is.False);
             Assert.That(() => _ = node.Session!.OutputBounds, Throws.TypeOf<InvalidOperationException>());
-            Assert.That(() => _ = node.Input!.Bounds, Throws.TypeOf<InvalidOperationException>());
             Assert.That(() => _ = node.Output!.Bounds, Throws.TypeOf<InvalidOperationException>());
             Assert.That(() => _ = node.CanvasFacade!.LogicalBounds, Throws.TypeOf<InvalidOperationException>());
             Assert.That(node.ImmediateCanvas, Is.Not.Null);
@@ -234,14 +230,6 @@ public sealed class DeferredCallbackFailureTests
         PaintLayer,
         NativeTarget,
         HiddenAllocation,
-    }
-
-    public enum OpaqueTopology
-    {
-        Source,
-        Map,
-        Combine,
-        Expand,
     }
 
     public enum DynamicOutputFailure
@@ -364,9 +352,7 @@ public sealed class DeferredCallbackFailureTests
         }
     }
 
-    private sealed class OpaqueTopologyFailureNode(
-        OpaqueTopology topology,
-        InvalidOperationException failure) : RenderNode
+    private sealed class OpaqueSourceFailureNode(InvalidOperationException failure) : RenderNode
     {
         public int FaultingCallbackEntries { get; private set; }
 
@@ -378,42 +364,12 @@ public sealed class DeferredCallbackFailureTests
                 throw failure;
             }
 
-            if (topology == OpaqueTopology.Source)
-            {
-                context.Publish(context.OpaqueSource(OpaqueRenderDescription.CreateRequestLocal(
-                    Fail,
-                    OpaqueRenderBoundsContract.Source(s_bounds),
-                    RenderHitTestContract.OutputBounds,
-                    RenderValueCardinality.Single,
-                    RenderScaleContract.MaterializeAtWorkingScale)));
-                return;
-            }
-
-            RenderFragmentHandle first = context.OpaqueSource(FailureTestSupport.SourceDescription());
-            if (topology == OpaqueTopology.Map)
-            {
-                OpaqueRenderDescription map = OpaqueRenderDescription.CreateRequestLocal(
-                    Fail,
-                    OpaqueRenderBoundsContract.Map(RenderBoundsContract.Identity),
-                    RenderHitTestContract.AnyInput,
-                    RenderValueCardinality.Single,
-                    RenderScaleContract.PreserveInputSupply);
-                context.Publish(context.OpaqueMap(first, map));
-                return;
-            }
-
-            RenderFragmentHandle second = context.OpaqueSource(FailureTestSupport.SourceDescription());
-            OpaqueRenderDescription many = OpaqueRenderDescription.CreateRequestLocal(
+            context.Publish(context.OpaqueSource(OpaqueRenderDescription.CreateRequestLocal(
                 Fail,
-                OpaqueRenderBoundsContract.FullInputs(
-                    static bounds => bounds.Aggregate(default(Rect), static (result, value) => result.Union(value))),
-                RenderHitTestContract.AnyInput,
-                topology == OpaqueTopology.Combine ? RenderValueCardinality.Single : RenderValueCardinality.Dynamic,
-                RenderScaleContract.Vector);
-            RenderFragmentHandle output = topology == OpaqueTopology.Combine
-                ? context.OpaqueCombine([first, second], many)
-                : context.OpaqueExpand([first, second], many);
-            context.Publish(output);
+                OpaqueRenderBoundsContract.Source(s_bounds),
+                RenderHitTestContract.OutputBounds,
+                RenderValueCardinality.Single,
+                RenderScaleContract.MaterializeAtWorkingScale)));
         }
     }
 
@@ -483,8 +439,6 @@ public sealed class DeferredCallbackFailureTests
     {
         public OpaqueRenderSession? Session { get; private set; }
 
-        public RenderExecutionInput? Input { get; private set; }
-
         public OpaqueRenderOutput? Output { get; private set; }
 
         public RenderCallbackCanvas? CanvasFacade { get; private set; }
@@ -493,27 +447,25 @@ public sealed class DeferredCallbackFailureTests
 
         public override void Process(RenderNodeContext context)
         {
-            RenderFragmentHandle source = context.OpaqueSource(FailureTestSupport.SourceDescription());
-            OpaqueRenderDescription map = OpaqueRenderDescription.CreateRequestLocal(
+            OpaqueRenderDescription source = OpaqueRenderDescription.CreateRequestLocal(
                 session =>
                 {
                     Session = session;
-                    Input = session.Inputs.Single();
                     OpaqueRenderOutput output = session.CreateOutput(s_bounds);
                     Output = output;
                     CanvasFacade = output.Canvas;
                     output.Canvas.Use(canvas =>
                     {
                         ImmediateCanvas = canvas;
-                        session.Inputs.Single().Draw(canvas);
+                        canvas.Clear(Colors.White);
                     });
                     session.Publish(output);
                 },
-                OpaqueRenderBoundsContract.Map(RenderBoundsContract.Identity),
-                RenderHitTestContract.AnyInput,
+                OpaqueRenderBoundsContract.Source(s_bounds),
+                RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
-                RenderScaleContract.PreserveInputSupply);
-            context.Publish(context.OpaqueMap(source, map));
+                RenderScaleContract.MaterializeAtWorkingScale);
+            context.Publish(context.OpaqueSource(source));
         }
     }
 }

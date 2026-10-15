@@ -10,56 +10,16 @@ public sealed class RenderDescriptionAndExecutionContractTests
 {
 
     [Test]
-    public void OperationBounds_ValidateTopologyAndMultiInputBackwardMapping()
+    public void OperationBounds_ValidateTheSourceTopology()
     {
         Rect first = new(0, 0, 10, 20);
-        Rect second = new(30, 5, 10, 10);
-        Rect requested = new(4, 5, 6, 7);
         OpaqueRenderBoundsContract source = OpaqueRenderBoundsContract.Source(first);
-        OpaqueRenderBoundsContract map = OpaqueRenderBoundsContract.Map(
-            RenderBoundsContract.Create(
-                static value => value.Translate(new Vector(3, 4)),
-                static value => value.Translate(new Vector(-3, -4))));
-        OpaqueRenderBoundsContract combine = OpaqueRenderBoundsContract.Combine(
-            static inputs => inputs.Aggregate(static (left, right) => left.Union(right)),
-            static (output, inputs) => inputs.Select(_ => output).ToArray());
-        OpaqueRenderBoundsContract full = OpaqueRenderBoundsContract.FullInputs(
-            static inputs => inputs.Aggregate(static (left, right) => left.Union(right)));
 
         Assert.Multiple(() =>
         {
             Assert.That(source.TransformBounds([]), Is.EqualTo(first));
-            Assert.That(map.TransformBounds([first]), Is.EqualTo(first.Translate(new Vector(3, 4))));
-            Assert.That(map.GetRequiredInputBounds(requested, [first]), Is.EqualTo(new[]
-            {
-                requested.Translate(new Vector(-3, -4)),
-            }));
-            Assert.That(combine.TransformBounds([first, second]), Is.EqualTo(first.Union(second)));
-            Assert.That(combine.GetRequiredInputBounds(requested, [first, second]),
-                Is.EqualTo(new[] { requested, requested }));
-            Assert.That(full.GetRequiredInputBounds(requested, [first, second]),
-                Is.EqualTo(new[] { first, second }));
-            Assert.That(
-                () => combine.GetRequiredInputBounds(
-                    requested,
-                    [first]),
-                Throws.Nothing);
-        });
-
-        OpaqueRenderBoundsContract badCount = OpaqueRenderBoundsContract.Combine(
-            static inputs => inputs.Aggregate(static (left, right) => left.Union(right)),
-            static (_, _) => [Rect.Empty]);
-        Assert.That(
-            () => badCount.GetRequiredInputBounds(requested, [first, second]),
-            Throws.TypeOf<InvalidOperationException>());
-
-        Assert.Multiple(() =>
-        {
             Assert.That(() => source.ThrowIfIncompatible(OpaqueRenderTopology.Source, "bounds"), Throws.Nothing);
             Assert.That(() => source.ThrowIfIncompatible(OpaqueRenderTopology.Map, "bounds"), Throws.TypeOf<ArgumentException>());
-            Assert.That(() => map.ThrowIfIncompatible(OpaqueRenderTopology.Map, "bounds"), Throws.Nothing);
-            Assert.That(() => combine.ThrowIfIncompatible(OpaqueRenderTopology.Combine, "bounds"), Throws.Nothing);
-            Assert.That(() => full.ThrowIfIncompatible(OpaqueRenderTopology.Expand, "bounds"), Throws.Nothing);
         });
     }
 
@@ -144,9 +104,6 @@ public sealed class RenderDescriptionAndExecutionContractTests
             RenderScaleContract.Custom(
                     static _ => 1)
                 .Resolve([], positiveOrigin, outputScale: 1, maxWorkingScale: 1),
-            RenderScaleContract.MapInputSupplyPreservingDemand(
-                    static _ => EffectiveScale.At(1))
-                .Resolve([EffectiveScale.At(1)], positiveOrigin, outputScale: 1, maxWorkingScale: 1),
         ];
 
         Assert.Multiple(() =>
@@ -171,71 +128,6 @@ public sealed class RenderDescriptionAndExecutionContractTests
                 Is.EqualTo(EffectiveScale.At(1)));
         });
     }
-
-    [Test]
-    public void MaterializedInput_RequiresConcreteMatchingBackingAndSourceHitTest()
-    {
-        using var registry = new RenderRequestResourceRegistry();
-        var bounds = new Rect(10.25f, 20.25f, 10, 20);
-        var deviceGridOffset = new Vector(0.25f, 0.5f);
-        PixelRect deviceBounds = PixelRect.FromRect(bounds.Translate(deviceGridOffset), 2);
-        using RenderTarget target = RenderTarget.CreateNull(deviceBounds.Width, deviceBounds.Height);
-        using RenderTarget wrongSize = RenderTarget.CreateNull(deviceBounds.Width + 1, deviceBounds.Height);
-        RenderResource<RenderTarget> token = registry.RegisterBorrowed(target);
-
-        MaterializedInputDescription description = MaterializedInputDescription.FromRenderTarget(
-            token,
-            bounds,
-            EffectiveScale.At(2),
-            deviceBounds,
-            deviceGridOffset,
-            RenderHitTestContract.OutputBounds);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(description.Bounds, Is.EqualTo(bounds));
-            Assert.That(description.EffectiveScale, Is.EqualTo(EffectiveScale.At(2)));
-            Assert.That(description.DeviceBounds, Is.EqualTo(deviceBounds));
-            Assert.That(description.DeviceGridOffset, Is.EqualTo(deviceGridOffset));
-            Assert.That(
-                description.RasterBounds,
-                Is.EqualTo(deviceBounds.ToRect(2).Translate(-deviceGridOffset)));
-            Assert.That(description.Target, Is.SameAs(token));
-            Assert.That(description.HitTest, Is.EqualTo(RenderHitTestContract.OutputBounds));
-            Assert.That(
-                () => MaterializedInputDescription.FromRenderTarget(
-                    token,
-                    bounds,
-                    EffectiveScale.Unbounded,
-                    deviceBounds,
-                    deviceGridOffset,
-                    RenderHitTestContract.None),
-                Throws.TypeOf<ArgumentException>());
-            Assert.That(
-                () => description.ValidateTargetDeviceSize(wrongSize),
-                Throws.TypeOf<ArgumentException>());
-            Assert.That(
-                () => MaterializedInputDescription.FromRenderTarget(
-                    token,
-                    bounds,
-                    EffectiveScale.At(2),
-                    deviceBounds,
-                    deviceGridOffset,
-                    RenderHitTestContract.AnyInput),
-                Throws.TypeOf<ArgumentException>());
-            Assert.That(
-                () => MaterializedInputDescription.FromRenderTarget(
-                    token,
-                    bounds,
-                    EffectiveScale.At(2),
-                    new PixelRect(0, 0, deviceBounds.Width, deviceBounds.Height),
-                    deviceGridOffset,
-                    RenderHitTestContract.None),
-                Throws.TypeOf<ArgumentException>());
-        });
-    }
-
-
 
     [Test]
     public void CallbackCanvas_MapsCompositionGlobalOriginAndEnforcesOneShotCapabilities()
@@ -320,13 +212,7 @@ public sealed class RenderDescriptionAndExecutionContractTests
 
         Assert.That(() => input.Draw(externalCanvas), Throws.TypeOf<InvalidOperationException>());
 
-        facade.Use(canvas =>
-        {
-            input.Draw(canvas);
-            input.DrawDeviceSpace(
-                canvas,
-                new Point(callbackDeviceBounds.X + 3, callbackDeviceBounds.Y + 5));
-        });
+        facade.Use(canvas => input.Draw(canvas));
 
         Assert.Multiple(() =>
         {

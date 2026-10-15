@@ -169,7 +169,7 @@ public sealed class ShaderRequestScaleIdentityTests
                 resources: [s_probeSlot.Bind(probeToken)]);
 
             RenderFragmentHandle input = context.OpaqueSource(source);
-            context.Publish(context.ContributeValues(context.Shader(input, description)));
+            context.Publish(context.Shader(input, description));
         }
     }
 }

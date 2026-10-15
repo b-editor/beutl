@@ -169,16 +169,13 @@ internal sealed class RenderFragmentReference
 
     public bool HitTest(Point point) => _hitTest.Evaluate(Bounds, Inputs, point);
 
-    // Target scopes and raw target scopes carry the bounds contract that maps their content onto the enclosing
-    // target; no other payload does.
+    // Target scopes carry the bounds contract that maps their content onto the enclosing target; no other
+    // payload does.
     internal bool TryGetScopeBoundsContract(out RenderBoundsContract bounds)
     {
         switch (Payload)
         {
             case TargetScopeRenderFragmentPayload scope:
-                bounds = scope.Description.Bounds;
-                return true;
-            case RawTargetScopeRenderFragmentPayload scope:
                 bounds = scope.Description.Bounds;
                 return true;
             default:
@@ -340,7 +337,7 @@ internal sealed class RenderFragmentReference
             RenderFragmentKind.TargetCommand
                 => Payload is TargetCommandRenderFragmentPayload command
                    && command.Description.AffectedRegion.Kind == TargetRegionKind.Full,
-            RenderFragmentKind.RawTargetCommand or RenderFragmentKind.RawTargetScope => true,
+            RenderFragmentKind.RawTargetCommand => true,
             RenderFragmentKind.TargetCapture or RenderFragmentKind.BuiltInBackdropCapture => false,
             RenderFragmentKind.TargetLayerScope
                 => Payload is TargetLayerScopeRenderFragmentPayload layer
@@ -373,7 +370,6 @@ internal sealed class RenderFragmentReference
                 or RenderFragmentKind.Opacity
                 or RenderFragmentKind.OpacityMask
                 => replayWrites,
-            RenderFragmentKind.RawTargetScope => true,
             _ => false,
         };
     }

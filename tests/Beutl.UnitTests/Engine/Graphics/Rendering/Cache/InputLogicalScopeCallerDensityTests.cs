@@ -71,28 +71,6 @@ public sealed class InputLogicalScopeCallerDensityTests
     }
 
     /// <summary>
-    /// A raw scope's scale contract is the only statement of how its replayed input is consumed, so its
-    /// backward map carries the caller's demand to the input the same way an InputLogical guarded scope does.
-    /// </summary>
-    [TestCase(0.5f)]
-    [TestCase(2f)]
-    public void AuthoredRawScope_ReplaysAnUnboundedInput(float scale)
-    {
-        using var producer = new ProbeSourceNode();
-        using var root = new ScalingScopeNode(producer, scale, raw: true);
-        using var renderer = CreateRenderer(root, RenderCacheOptions.Disabled);
-
-        using RenderNodeRasterization rasterization = renderer.Rasterize();
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(rasterization.IsEmpty, Is.False);
-            Assert.That(GetPixels(rasterization), Has.Some.Not.Zero);
-            Assert.That(producer.ExecuteCount, Is.EqualTo(1));
-        });
-    }
-
-    /// <summary>
     /// A built-in Skia filter segment carries a concrete working scale, and the demand resolver restarts the
     /// input demand there, so a direct filter chain under an enlarging scope asks its unbounded base for the
     /// segment's scale rather than the outer caller's.
@@ -136,28 +114,6 @@ public sealed class InputLogicalScopeCallerDensityTests
         });
     }
 
-    /// <summary>
-    /// A consumer that declares its input's demand lower than its own through <see cref="RenderInputDemandContract"/>
-    /// asks the input for that mapped density, not for the consumer's own: the demand resolver compiled the
-    /// input at the mapped value, and a caller above it would trip the materialization cross-check.
-    /// </summary>
-    [TestCase(DemandReducingConsumerKind.Shader)]
-    [TestCase(DemandReducingConsumerKind.OpaqueCombine)]
-    public void DemandReducingConsumer_AsksItsUnboundedInputForTheMappedDemand(DemandReducingConsumerKind kind)
-    {
-        using var producer = new ProbeSourceNode();
-        using var root = new DemandReducingConsumerNode(producer, kind);
-        using var renderer = CreateRenderer(root, RenderCacheOptions.Disabled);
-
-        using RenderNodeRasterization rasterization = renderer.Rasterize();
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(rasterization.IsEmpty, Is.False);
-            Assert.That(producer.ExecuteCount, Is.EqualTo(1));
-        });
-    }
-
     private static RenderNodeRenderer CreateRenderer(RenderNode root, RenderCacheOptions cacheOptions)
         => new(root, new RenderNodeRenderRequest
         {
@@ -180,7 +136,7 @@ public sealed class InputLogicalScopeCallerDensityTests
     /// space and declares the matching density relationship, the way <see cref="TransformRenderNode"/> does
     /// for <see cref="TransformOperator.Prepend"/>.
     /// </summary>
-    private sealed class ScalingScopeNode(RenderNode producer, float scale, bool raw = false) : RenderNode
+    private sealed class ScalingScopeNode(RenderNode producer, float scale) : RenderNode
     {
         public override void Process(RenderNodeContext context)
         {
@@ -197,25 +153,6 @@ public sealed class InputLogicalScopeCallerDensityTests
                     ? supply
                     : EffectiveScale.At(supply.Value / factor),
                 static (factor, demand) => EffectiveScale.At(demand.Value * factor));
-            if (raw)
-            {
-                context.Publish(context.RawTargetScope(
-                    input,
-                    RawTargetScopeDescription.Create(
-                        scale,
-                        static (session, factor) =>
-                        {
-                            using (session.Canvas.PushTransform(Matrix.CreateScale(factor, factor)))
-                            {
-                                session.ReplayInput();
-                            }
-                        },
-                        bounds,
-                        RenderHitTestContract.None,
-                        scaleContract)));
-                return;
-            }
-
             TargetScopeDescription description = TargetScopeDescription.Create(
                 scale,
                 static (session, factor) => session.Canvas.Use(canvas =>
@@ -232,66 +169,6 @@ public sealed class InputLogicalScopeCallerDensityTests
                 RenderDeviceGridMapping.Remapped,
                 RenderScopeTransformSpace.InputLogical);
             context.Publish(context.TargetScope(input, description));
-        }
-
-        protected override void OnDispose(bool disposing)
-        {
-            producer.Dispose();
-            base.OnDispose(disposing);
-        }
-    }
-
-    public enum DemandReducingConsumerKind
-    {
-        Shader,
-        OpaqueCombine,
-    }
-
-    /// <summary>
-    /// Consumes one input at three quarters of its own demand through each fragment kind that carries a
-    /// <see cref="RenderInputDemandContract"/>.
-    /// </summary>
-    private sealed class DemandReducingConsumerNode(RenderNode producer, DemandReducingConsumerKind kind) : RenderNode
-    {
-        private const float InputDemandFactor = 0.75f;
-
-        private static readonly RenderInputDemandContract s_inputDemand =
-            RenderInputDemandContract.MapOutputDemandToInput(
-                static demand => EffectiveScale.At(demand.Value * InputDemandFactor));
-
-        public override void Process(RenderNodeContext context)
-        {
-            RenderFragmentHandle input = context.RecordNode(producer, []).Single();
-            RenderFragmentHandle output = kind switch
-            {
-                DemandReducingConsumerKind.Shader => context.Shader(
-                    input,
-                    ShaderDescription.WholeSource(
-                        "uniform shader src; half4 main(float2 coord) { return src.eval(coord); }",
-                        RenderBoundsContract.Identity,
-                        inputDemand: s_inputDemand)),
-                DemandReducingConsumerKind.OpaqueCombine => context.OpaqueCombine(
-                    [input],
-                    OpaqueRenderDescription.Create(
-                        s_bounds,
-                        static (session, bounds) =>
-                        {
-                            using OpaqueRenderOutput output = session.CreateOutput(bounds);
-                            output.Canvas.Use(canvas =>
-                            {
-                                foreach (RenderExecutionInput item in session.Inputs)
-                                    item.Draw(canvas);
-                            });
-                            session.Publish(output);
-                        },
-                        OpaqueRenderBoundsContract.FullInputs(static _ => s_bounds),
-                        RenderHitTestContract.OutputBounds,
-                        RenderValueCardinality.Single,
-                        RenderScaleContract.MaterializeAtWorkingScale,
-                        inputDemand: s_inputDemand)),
-                _ => throw new ArgumentOutOfRangeException(nameof(kind)),
-            };
-            context.Publish(output);
         }
 
         protected override void OnDispose(bool disposing)

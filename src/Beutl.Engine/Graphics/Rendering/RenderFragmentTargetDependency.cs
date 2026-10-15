@@ -27,8 +27,7 @@ internal static class RenderFragmentTargetDependency
             or RenderFragmentKind.BuiltInBackdropCapture
             or RenderFragmentKind.TargetCommand
             or RenderFragmentKind.RawTargetCommand
-            or RenderFragmentKind.TargetLayerScope
-            or RenderFragmentKind.RawTargetScope)
+            or RenderFragmentKind.TargetLayerScope)
         {
             return true;
         }

@@ -54,8 +54,6 @@ internal sealed partial class RegionAnalyzer
             {
                 TargetScopeRenderFragmentPayload scope when domain is { } finite
                     => scope.Description.Bounds.GetRequiredInputBounds(finite),
-                RawTargetScopeRenderFragmentPayload scope when domain is { } finite
-                    => scope.Description.Bounds.GetRequiredInputBounds(finite),
                 LayerRenderFragmentPayload layer => layer.Domain ?? domain,
                 TargetLayerScopeRenderFragmentPayload layer
                     => ResolveTargetRegion(layer.Region, domain),
@@ -238,9 +236,6 @@ internal sealed partial class RegionAnalyzer
             RenderFragmentKind.TargetScope
                 => ((TargetScopeRenderFragmentPayload)reference.Payload!).Description.Bounds
                     .TransformBounds(reference.Inputs[0].Bounds),
-            RenderFragmentKind.RawTargetScope
-                => ((RawTargetScopeRenderFragmentPayload)reference.Payload!).Description.Bounds
-                    .TransformBounds(reference.Inputs[0].Bounds),
             _ => reference.RecordedBounds,
         };
     }
@@ -340,12 +335,6 @@ internal sealed partial class RegionAnalyzer
                     resolvedBounds,
                     options.OutputScale,
                     options.MaxWorkingScale);
-            case RenderFragmentKind.RawTargetScope:
-                return ((RawTargetScopeRenderFragmentPayload)reference.Payload!).Description.Scale.Resolve(
-                    InputScales(reference),
-                    resolvedBounds,
-                    options.OutputScale,
-                    options.MaxWorkingScale);
             default:
                 return reference.RecordedEffectiveScale;
         }
@@ -381,10 +370,6 @@ internal sealed partial class RegionAnalyzer
                 or RenderFragmentKind.OpaqueExpand
                 => FromDescription(((OpaqueRenderFragmentPayload)reference.Payload!).Description),
             RenderFragmentKind.FilterEffectSegment => RenderFragmentHitTest.Bounds,
-            RenderFragmentKind.MaterializedInput
-                => RenderFragmentHitTest.FromContract(
-                    ((MaterializedInputRenderFragmentPayload)reference.Payload!).Description.HitTest,
-                    ((MaterializedInputRenderFragmentPayload)reference.Payload!).Description.Resources),
             RenderFragmentKind.TargetCapture
                 => RenderFragmentHitTest.FromContract(
                     ((TargetCaptureRenderFragmentPayload)reference.Payload!).Description.HitTest,
@@ -395,8 +380,6 @@ internal sealed partial class RegionAnalyzer
                     ((BuiltInBackdropCaptureRenderFragmentPayload)reference.Payload!).Description.Resources),
             RenderFragmentKind.TargetScope
                 => FromDescription(((TargetScopeRenderFragmentPayload)reference.Payload!).Description),
-            RenderFragmentKind.RawTargetScope
-                => FromDescription(((RawTargetScopeRenderFragmentPayload)reference.Payload!).Description),
             RenderFragmentKind.RawTargetCommand
                 => FromDescription(((RawTargetCommandRenderFragmentPayload)reference.Payload!).Description),
             RenderFragmentKind.TargetCommand
@@ -410,9 +393,6 @@ internal sealed partial class RegionAnalyzer
         => RenderFragmentHitTest.FromContract(description.HitTest, description.Resources);
 
     private static RenderFragmentHitTest FromDescription(TargetScopeDescription description)
-        => RenderFragmentHitTest.FromContract(description.HitTest, description.Resources);
-
-    private static RenderFragmentHitTest FromDescription(RawTargetScopeDescription description)
         => RenderFragmentHitTest.FromContract(description.HitTest, description.Resources);
 
     private static RenderFragmentHitTest FromDescription(RawTargetCommandDescription description)

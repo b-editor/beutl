@@ -10,14 +10,17 @@ public sealed class OpaqueOutputPublicationContractTests
     private static readonly Rect s_domain = new(0, 0, 32, 32);
     private static readonly Rect s_sourceBounds = new(0, 0, 32, 32);
 
-    private static OpaqueRenderDescription RecordingMap(PublishedBoundsRecorder recorder)
-        => OpaqueRenderDescription.Create(
+    private static TargetCommandDescription RecordingCommand(PublishedBoundsRecorder recorder)
+        => TargetCommandDescription.Create(
             recorder,
-            static (session, current) => current.Record(session.Inputs.Single().Bounds),
-            OpaqueRenderBoundsContract.Map(RenderBoundsContract.Identity),
-            RenderHitTestContract.AnyInput,
-            RenderValueCardinality.ZeroOrOne,
-            RenderScaleContract.PreserveInputSupply);
+            static (session, current) =>
+            {
+                foreach (RenderExecutionInput input in session.Inputs)
+                    current.Record(input.Bounds);
+            },
+            TargetRegion.Region(s_domain),
+            s_domain,
+            RenderHitTestContract.OutputBounds);
 
     // A zero-extent rectangle at an integer origin is zero device pixels wide, while one at a fractional
     // origin covers a device pixel, because a device rectangle floors its left edge and ceils its right.
@@ -33,34 +36,6 @@ public sealed class OpaqueOutputPublicationContractTests
 
         Assert.That(() => RenderOnce(node), Throws.Nothing);
         Assert.That(recorder.Records, Is.Empty, "an output shrunk to nothing carries no value downstream");
-    }
-
-    [Test]
-    public void AnOutputShrunkToNothing_FailsExactlyAsDiscardDoesWhereAValueIsRequired()
-    {
-        var recorder = new PublishedBoundsRecorder();
-        using var shrunkToNothing = new SourceNode(
-            new PublishPlan(new Rect(8, 8, 0, 0)),
-            RenderValueCardinality.Single,
-            recorder);
-        using var discarded = new SourceNode(
-            new PublishPlan(Selection: null),
-            RenderValueCardinality.Single,
-            new PublishedBoundsRecorder());
-
-        InvalidOperationException? fromShrinkToNothing = Assert.Throws<InvalidOperationException>(
-            () => RenderOnce(shrunkToNothing));
-        InvalidOperationException? fromDiscard = Assert.Throws<InvalidOperationException>(
-            () => RenderOnce(discarded));
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(
-                fromShrinkToNothing!.Message,
-                Does.Contain("published 0 values outside its declared cardinality [1, 1]"));
-            Assert.That(fromShrinkToNothing.Message, Is.EqualTo(fromDiscard!.Message));
-            Assert.That(recorder.Records, Is.Empty);
-        });
     }
 
     [Test]
@@ -94,21 +69,13 @@ public sealed class OpaqueOutputPublicationContractTests
         renderer.Rasterize().Dispose();
     }
 
-    /// <param name="Selection">
-    /// The rectangle to shrink the output to before publishing it, or <see langword="null"/> to discard it.
-    /// </param>
-    private sealed record PublishPlan(Rect? Selection)
+    /// <param name="Selection">The rectangle to shrink the output to before publishing it.</param>
+    private sealed record PublishPlan(Rect Selection)
     {
         public void Execute(OpaqueRenderSession session)
         {
             using OpaqueRenderOutput output = session.CreateOutput(s_sourceBounds);
-            if (Selection is not { } selection)
-            {
-                output.Discard();
-                return;
-            }
-
-            output.SetOutputBounds(selection);
+            output.SetOutputBounds(Selection);
             session.Publish(output);
         }
     }
@@ -136,9 +103,9 @@ public sealed class OpaqueOutputPublicationContractTests
                 RenderHitTestContract.OutputBounds,
                 cardinality,
                 RenderScaleContract.MaterializeAtWorkingScale);
-            context.Publish(context.OpaqueMap(
-                context.OpaqueSource(source),
-                RecordingMap(recorder)));
+            context.Publish(context.TargetCommand(
+                [context.OpaqueSource(source)],
+                RecordingCommand(recorder)));
         }
     }
 }

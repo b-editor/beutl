@@ -59,7 +59,12 @@ public sealed class RawTargetCommandDescription
     /// <summary>
     /// Creates a raw command whose recorded work can never satisfy a later request's plan lookup.
     /// </summary>
-    /// <inheritdoc cref="RawTargetScopeDescription.CreateRequestLocal" path="/remarks"/>
+    /// <remarks>
+    /// The opt-out for a callback whose pixel-affecting state cannot be expressed as copied, deeply immutable
+    /// CPU state. The callback may capture, and the recorded work takes a fresh request-local identity every
+    /// time.
+    /// Test seam: only tests call this.
+    /// </remarks>
     internal static RawTargetCommandDescription CreateRequestLocal(
         Action<RawTargetCommandSession> execute,
         Rect queryBounds,

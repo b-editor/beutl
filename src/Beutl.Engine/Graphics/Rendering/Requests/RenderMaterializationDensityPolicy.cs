@@ -7,8 +7,7 @@ internal static class RenderMaterializationDensityPolicy
         float density)
     {
         ArgumentNullException.ThrowIfNull(fragment);
-        if (fragment.Kind is RenderFragmentKind.MaterializedInput
-            or RenderFragmentKind.BuiltInBackdropCapture)
+        if (fragment.Kind == RenderFragmentKind.BuiltInBackdropCapture)
         {
             return density;
         }

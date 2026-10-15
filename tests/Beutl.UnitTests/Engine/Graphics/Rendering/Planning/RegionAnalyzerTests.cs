@@ -2,6 +2,7 @@
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Requests;
+using Beutl.Graphics.Shaders;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Planning;
 
@@ -247,65 +248,6 @@ public sealed class RegionAnalyzerTests
         });
     }
 
-    [Test]
-    public void Analyze_RejectsNonDeterministicSymbolicSupplyContract()
-    {
-        var graph = new FragmentGraph();
-        RenderFragmentReference source = graph.Source(
-            new Rect(0, 0, 10, 10),
-            requirement: RenderFragmentBoundsRequirement.OwningTargetDomain);
-        var supply = new DriftingSupply();
-        RenderFragmentReference output = graph.Map(
-            source,
-            RenderBoundsContract.Identity,
-            scale: RenderScaleContract.MapInputSupplyPreservingDemand(
-                supply,
-                static (state, input) => state.Map(input)));
-
-        InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(
-            () => new RegionAnalyzer().Analyze(Options(new Rect(0, 0, 200, 200)), [output]));
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(output.RecordedEffectiveScale, Is.EqualTo(EffectiveScale.At(1)));
-            Assert.That(
-                failure!.Message,
-                Does.Contain("A supply-density contract changed between recording and graph-wide metadata resolution"));
-            // Recording, resolving over the moved input supply, and replaying at the recorded point.
-            Assert.That(supply.Reads, Is.EqualTo(3));
-        });
-    }
-
-    [Test]
-    public void Analyze_AcceptsDeterministicSymbolicMappingsOverAnInputThatMoved()
-    {
-        var graph = new FragmentGraph();
-        RenderFragmentReference source = graph.Source(
-            new Rect(0, 0, 10, 10),
-            requirement: RenderFragmentBoundsRequirement.OwningTargetDomain);
-        RenderBoundsContract grow = RenderBoundsContract.Create(
-            static input => input.Inflate(new Thickness(4)),
-            static requested => requested.Inflate(new Thickness(4)));
-        RenderFragmentReference output = graph.Map(
-            source,
-            grow,
-            scale: RenderScaleContract.MapInputSupplyPreservingDemand(HalveSupply));
-        var domain = new Rect(0, 0, 200, 200);
-
-        RegionAnalysis result = new RegionAnalyzer().Analyze(Options(domain), [output]);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(result.Metadata[source.Id!.Value].Bounds, Is.EqualTo(domain),
-                "The symbolic input must resolve away from its recorded placeholder.");
-            Assert.That(result.Metadata[output.Id!.Value].Bounds, Is.EqualTo(domain.Inflate(new Thickness(4))));
-            Assert.That(result.Metadata[output.Id!.Value].EffectiveScale, Is.EqualTo(EffectiveScale.At(0.5f)));
-        });
-    }
-
-    private static EffectiveScale HalveSupply(EffectiveScale input)
-        => input.IsUnbounded ? EffectiveScale.Unbounded : EffectiveScale.At(input.Value / 2);
-
     private sealed class DriftingInset
     {
         private int _reads;
@@ -313,19 +255,6 @@ public sealed class RegionAnalyzerTests
         public int Reads => _reads;
 
         public Thickness Next => new(_reads++ == 0 ? 0 : 4);
-    }
-
-    /// <summary>A supply mapping whose factor moves once, the same way <see cref="DriftingInset"/> does.</summary>
-    private sealed class DriftingSupply
-    {
-        private int _reads;
-
-        public int Reads => _reads;
-
-        public EffectiveScale Map(EffectiveScale input)
-            => input.IsUnbounded
-                ? EffectiveScale.Unbounded
-                : EffectiveScale.At(input.Value / (_reads++ == 0 ? 1 : 2));
     }
 
     [Test]
@@ -398,9 +327,6 @@ public sealed class RegionAnalyzerTests
 
     private sealed class FragmentGraph
     {
-        private const float DefaultOutputScale = 1;
-        private const float DefaultMaxWorkingScale = float.PositiveInfinity;
-
         private readonly RenderRequestId _requestId = new(1);
         private long _nextId;
 
@@ -443,38 +369,24 @@ public sealed class RegionAnalyzerTests
             RenderFragmentReference input,
             RenderBoundsContract bounds,
             bool? contributes = null,
-            Rect? recordedBounds = null,
-            RenderScaleContract? scale = null)
+            Rect? recordedBounds = null)
         {
             Rect outputBounds = recordedBounds ?? bounds.TransformBounds(input.Bounds);
-            RenderScaleContract scaleContract = scale ?? RenderScaleContract.PreserveInputSupply;
-            // Recording resolves the density from the contract over the input's recorded supply, so a graph
-            // built here has to state the same answer rather than copy the input's.
-            EffectiveScale outputScale = scaleContract.Resolve(
-                [input.EffectiveScale],
-                outputBounds,
-                DefaultOutputScale,
-                DefaultMaxWorkingScale);
-            OpaqueRenderDescription description = OpaqueRenderDescription.CreateRequestLocal(
-                static _ => { },
-                OpaqueRenderBoundsContract.Map(bounds),
-                RenderHitTestContract.AnyInput,
-                RenderValueCardinality.Single,
-                scaleContract);
+            ShaderDescription description = ShaderDescription.WholeSource(
+                "uniform shader src; half4 main(float2 coord) { return src.eval(coord); }",
+                bounds);
             return Stamp(new RenderFragmentReference(
-                RenderFragmentKind.OpaqueMap,
+                RenderFragmentKind.Shader,
                 outputBounds,
-                outputScale,
+                // Every input here has a finite supply, which a whole-source stage materializes at unchanged.
+                input.EffectiveScale,
                 RenderValueCardinality.Single,
                 contributes ?? input.ContributesValuesToTarget,
                 canBeUsedAsValueInput: true,
                 hasTargetEffects: input.HasTargetEffects,
-                hasOpaqueExternalWork: true,
+                hasOpaqueExternalWork: input.HasOpaqueExternalWork,
                 [input],
-                new OpaqueRenderFragmentPayload(
-                    OpaqueRenderTopology.Map,
-                    description,
-                    [RenderInputReadback.None]),
+                new ShaderRenderFragmentPayload(description),
                 RenderFragmentHitTest.Bounds));
         }
 
@@ -484,7 +396,7 @@ public sealed class RegionAnalyzerTests
                 TargetRegion.Full,
                 bounds,
                 RenderHitTestContract.None,
-                TargetCaptureScaleContract.MaterializeAtWorkingScale);
+                TargetCaptureScaleContract.PreserveTargetSupply);
             return Stamp(new RenderFragmentReference(
                 RenderFragmentKind.TargetCapture,
                 bounds,

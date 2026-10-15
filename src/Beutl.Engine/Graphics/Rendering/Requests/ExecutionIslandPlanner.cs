@@ -169,7 +169,7 @@ internal sealed class ExecutionIslandPlanner
         {
             if (compiledFragments.Contains(reference)
                 || cacheResolution.HasHitProducer(GetId(reference))
-                || reference.Kind is RenderFragmentKind.ContributeValues or RenderFragmentKind.MaterializedInput)
+                || reference.Kind == RenderFragmentKind.ContributeValues)
             {
                 continue;
             }

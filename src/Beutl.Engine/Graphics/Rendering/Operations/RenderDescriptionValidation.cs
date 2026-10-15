@@ -205,7 +205,6 @@ internal static class RenderDescriptionValidation
             or ShaderResourceWriter
             or TargetScopeSession
             or TargetCommandSession
-            or RawTargetScopeSession
             or RawTargetCommandSession)
         {
             throw new ArgumentException(

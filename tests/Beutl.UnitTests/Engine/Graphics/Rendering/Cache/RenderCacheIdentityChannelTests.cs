@@ -119,7 +119,7 @@ public sealed class RenderCacheIdentityChannelTests
         => OpaqueRenderDescription.Create(
             state,
             execute,
-            OpaqueRenderBoundsContract.FullInputs(static _ => s_bounds),
+            OpaqueRenderBoundsContract.Source(s_bounds),
             RenderHitTestContract.OutputBounds,
             RenderValueCardinality.Single,
             RenderScaleContract.MaterializeAtWorkingScale,
@@ -157,7 +157,7 @@ public sealed class RenderCacheIdentityChannelTests
                     session.Publish(output);
                 }),
                 resources: [BindProbe(context)]);
-            context.Publish(context.ContributeValues(context.OpaqueCombine([], description)));
+            context.Publish(context.OpaqueSource(description));
         }
     }
 
@@ -178,7 +178,7 @@ public sealed class RenderCacheIdentityChannelTests
                     session.Publish(output);
                 }),
                 resources: [BindProbe(context)]);
-            context.Publish(context.ContributeValues(context.OpaqueCombine([], description)));
+            context.Publish(context.OpaqueSource(description));
         }
     }
 
@@ -207,7 +207,7 @@ public sealed class RenderCacheIdentityChannelTests
                     session.Publish(output);
                 }),
                 resources: [BindProbe(context)]);
-            context.Publish(context.ContributeValues(context.OpaqueCombine([], description)));
+            context.Publish(context.OpaqueSource(description));
         }
 
         private sealed class ColorSource(Func<Color> read)
@@ -238,7 +238,7 @@ public sealed class RenderCacheIdentityChannelTests
                     });
                 }),
                 resources: [RenderCacheIdentityChannelSlots.Payload.Bind(resource), BindProbe(context)]);
-            context.Publish(context.ContributeValues(context.OpaqueCombine([], description)));
+            context.Publish(context.OpaqueSource(description));
         }
     }
 
@@ -272,7 +272,7 @@ public sealed class RenderCacheIdentityChannelTests
                     });
                 }),
                 resources: [RenderCacheIdentityChannelSlots.ReadColor.Bind(sink), BindProbe(context)]);
-            context.Publish(context.ContributeValues(context.OpaqueCombine([], description)));
+            context.Publish(context.OpaqueSource(description));
         }
     }
 }

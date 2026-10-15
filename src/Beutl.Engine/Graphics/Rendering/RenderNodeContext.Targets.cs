@@ -5,37 +5,6 @@ namespace Beutl.Graphics.Rendering;
 
 public sealed partial class RenderNodeContext
 {
-    /// <summary>Records a declared capture of the active target.</summary>
-    /// <param name="description">The non-null immutable capture region, bounds, scale, and access contract.</param>
-    /// <returns>
-    /// A new transaction-scoped, non-contributing value fragment that contains the captured pixels when executed.
-    /// The result is not published automatically.
-    /// </returns>
-    /// <remarks>The captured value is request-owned until it is released or transferred to an accepted cache.</remarks>
-    public RenderFragmentHandle TargetCapture(TargetCaptureDescription description)
-    {
-        ArgumentNullException.ThrowIfNull(description);
-        ValidateDescriptionResources(description.Resources, nameof(description));
-        EffectiveScale scale = description.Scale.PreservesTargetSupply
-            ? EffectiveScale.Unbounded
-            : description.Scale.ResolveDeclared(
-                description.Bounds,
-                OutputScale,
-                MaxWorkingScale);
-        return GetTransaction().CreateFragment(
-            RenderFragmentKind.TargetCapture,
-            description.Bounds,
-            scale,
-            RenderValueCardinality.Single,
-            contributesValuesToTarget: false,
-            canBeUsedAsValueInput: true,
-            hasTargetEffects: true,
-            hasOpaqueExternalWork: false,
-            inputs: [],
-            new TargetCaptureRenderFragmentPayload(description),
-            RenderFragmentHitTest.FromContract(description.HitTest, description.Resources));
-    }
-
     internal RenderFragmentHandle BuiltInBackdropCapture(IBuiltInBackdropCaptureSink identity)
     {
         ArgumentNullException.ThrowIfNull(identity);
@@ -230,21 +199,35 @@ public sealed partial class RenderNodeContext
         TargetScopeDescription description)
     {
         ArgumentNullException.ThrowIfNull(description);
-        return RecordTargetScope(input, description, raw: false);
-    }
-
-    /// <summary>Records an opaque external target scope around one input.</summary>
-    /// <param name="input">A non-null fragment borrowed from the active transaction and replayed inside the scope.</param>
-    /// <param name="description">
-    /// The non-null caller-owned raw scope contract. Every declared resource must belong to this request family.
-    /// </param>
-    /// <returns>A new transaction-scoped external-work boundary. The result is not published automatically.</returns>
-    public RenderFragmentHandle RawTargetScope(
-        RenderFragmentHandle input,
-        RawTargetScopeDescription description)
-    {
-        ArgumentNullException.ThrowIfNull(description);
-        return RecordTargetScope(input, description, raw: true);
+        NodeRecordingTransaction transaction = GetTransaction();
+        RenderFragmentReference reference = transaction.GetReference(input);
+        ValidateDescriptionResources(description.Resources, nameof(description));
+        Rect bounds = description.Bounds.TransformBounds(reference.Bounds);
+        EffectiveScale scale = description.Scale.Resolve(
+            [reference.EffectiveScale],
+            bounds,
+            OutputScale,
+            MaxWorkingScale);
+        bool isValueReplayMap = description.IsValueReplayMap;
+        return transaction.CreateFragment(
+            RenderFragmentKind.TargetScope,
+            bounds,
+            scale,
+            reference.ValueCardinality,
+            reference.ContributesValuesToTarget,
+            canBeUsedAsValueInput: isValueReplayMap
+                && reference.CanBeUsedAsValueInput
+                && reference.ValueCardinality.Equals(RenderValueCardinality.Single)
+                && reference.ContributesValuesToTarget
+                && !RenderFragmentTargetDependency.HasExternalTargetDependency(reference),
+            hasTargetEffects: isValueReplayMap ? reference.HasTargetEffects : true,
+            hasOpaqueExternalWork: reference.HasOpaqueExternalWork,
+            [reference],
+            new TargetScopeRenderFragmentPayload(description),
+            RenderFragmentHitTest.FromContract(description.HitTest, description.Resources),
+            // A scope whose transform composes against the ambient is recorded over the matrix as declared and
+            // rewritten once the graph exists, so the bounds recorded here are provisional by construction.
+            hasDirectSymbolicBoundsDependency: description.AmbientTransform is { DependsOnAmbient: true });
     }
 
     /// <summary>Records an opaque external command against the active target.</summary>
@@ -307,69 +290,6 @@ public sealed partial class RenderNodeContext
             references,
             new TargetCommandRenderFragmentPayload(description, inputReadbacks),
             RenderFragmentHitTest.FromContract(description.HitTest, description.Resources));
-    }
-
-    private RenderFragmentHandle RecordTargetScope(
-        RenderFragmentHandle input,
-        object description,
-        bool raw)
-    {
-        NodeRecordingTransaction transaction = GetTransaction();
-        RenderFragmentReference reference = transaction.GetReference(input);
-        RenderBoundsContract boundsContract;
-        RenderHitTestContract hitTestContract;
-        RenderScaleContract scaleContract;
-        IReadOnlyList<RenderResourceBinding> resourceBindings;
-        if (description is TargetScopeDescription typed)
-        {
-            boundsContract = typed.Bounds;
-            hitTestContract = typed.HitTest;
-            scaleContract = typed.Scale;
-            resourceBindings = typed.Resources;
-        }
-        else if (description is RawTargetScopeDescription rawDescription)
-        {
-            boundsContract = rawDescription.Bounds;
-            hitTestContract = rawDescription.HitTest;
-            scaleContract = rawDescription.Scale;
-            resourceBindings = rawDescription.Resources;
-        }
-        else
-        {
-            throw new ArgumentException("The target scope description type is invalid.", nameof(description));
-        }
-
-        ValidateDescriptionResources(resourceBindings, nameof(description));
-        Rect bounds = boundsContract.TransformBounds(reference.Bounds);
-        EffectiveScale scale = scaleContract.Resolve(
-            [reference.EffectiveScale],
-            bounds,
-            OutputScale,
-            MaxWorkingScale);
-        bool isValueReplayMap = !raw
-            && ((TargetScopeDescription)description).IsValueReplayMap;
-        return transaction.CreateFragment(
-            raw ? RenderFragmentKind.RawTargetScope : RenderFragmentKind.TargetScope,
-            bounds,
-            scale,
-            reference.ValueCardinality,
-            reference.ContributesValuesToTarget,
-            canBeUsedAsValueInput: isValueReplayMap
-                && reference.CanBeUsedAsValueInput
-                && reference.ValueCardinality.Equals(RenderValueCardinality.Single)
-                && reference.ContributesValuesToTarget
-                && !RenderFragmentTargetDependency.HasExternalTargetDependency(reference),
-            hasTargetEffects: isValueReplayMap ? reference.HasTargetEffects : true,
-            hasOpaqueExternalWork: raw || reference.HasOpaqueExternalWork,
-            [reference],
-            raw
-                ? new RawTargetScopeRenderFragmentPayload((RawTargetScopeDescription)description)
-                : new TargetScopeRenderFragmentPayload((TargetScopeDescription)description),
-            RenderFragmentHitTest.FromContract(hitTestContract, resourceBindings),
-            // A scope whose transform composes against the ambient is recorded over the matrix as declared and
-            // rewritten once the graph exists, so the bounds recorded here are provisional by construction.
-            hasDirectSymbolicBoundsDependency:
-                description is TargetScopeDescription { AmbientTransform.DependsOnAmbient: true });
     }
 
     private static Rect CalculateReferenceBounds(

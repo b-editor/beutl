@@ -608,45 +608,16 @@ public sealed class RecordingSideEffectTests
 
         public override void Process(RenderNodeContext context)
         {
-            RenderFragmentHandle source = context.OpaqueSource(CreateOpaque(
+            RenderFragmentHandle source = context.OpaqueSource(OpaqueRenderDescription.CreateRequestLocal(
+                _ => tripwire.TouchAll(),
                 OpaqueRenderBoundsContract.Source(Bounds),
+                RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
-                RenderScaleContract.MaterializeAtWorkingScale,
-                inputCount: 0));
-            RenderFragmentHandle mapped = context.OpaqueMap(
-                source,
-                CreateOpaque(
-                    OpaqueRenderBoundsContract.Map(RenderBoundsContract.Identity),
-                    RenderValueCardinality.Single,
-                    RenderScaleContract.PreserveInputSupply,
-                    inputCount: 1));
-            RenderFragmentHandle combined = context.OpaqueCombine(
-                [source, mapped],
-                CreateOpaque(
-                    OpaqueRenderBoundsContract.Combine(
-                        static inputs => inputs.Aggregate(static (left, right) => left.Union(right)),
-                        static (output, inputs) => inputs.Select(_ => output).ToArray()),
-                    RenderValueCardinality.Single,
-                    RenderScaleContract.MaterializeAtWorkingScale,
-                    inputCount: 2));
-            RenderFragmentHandle expanded = context.OpaqueExpand(
-                [source],
-                CreateOpaque(
-                    OpaqueRenderBoundsContract.FullInputs(
-                        static inputs => inputs.Aggregate(static (left, right) => left.Union(right))),
-                    RenderValueCardinality.Dynamic,
-                    RenderScaleContract.MaterializeAtWorkingScale,
-                    inputCount: 1));
+                RenderScaleContract.MaterializeAtWorkingScale));
             RenderFragmentHandle shader = context.Shader(
                 source,
                 ShaderDescription.CurrentPixel(
                     "half4 apply(half4 color) { return color; }"));
-            RenderFragmentHandle capture = context.TargetCapture(
-                TargetCaptureDescription.Create(
-                    TargetRegion.Full,
-                    Bounds,
-                    RenderHitTestContract.OutputBounds,
-                    TargetCaptureScaleContract.MaterializeAtWorkingScale));
             RenderFragmentHandle command = context.TargetCommand(
                 [source],
                 TargetCommandDescription.CreateRequestLocal(
@@ -655,7 +626,7 @@ public sealed class RecordingSideEffectTests
                     Bounds,
                     RenderHitTestContract.OutputBounds,
                     TargetAccess.Readback,
-                    inputReadbacks: [RenderInputReadback.All]));
+                    inputReadbacks: [RenderInputReadback.Values([0])]));
             RenderFragmentHandle scope = context.TargetScope(
                 source,
                 TargetScopeDescription.CreateRequestLocal(
@@ -664,36 +635,13 @@ public sealed class RecordingSideEffectTests
                     RenderHitTestContract.AnyInput,
                     RenderScaleContract.PreserveInputSupply,
                     deviceGridSensitivity: RenderDeviceGridSensitivity.PhaseDependent));
-            RenderFragmentHandle rawScope = context.RawTargetScope(
-                source,
-                RawTargetScopeDescription.CreateRequestLocal(
-                    _ => tripwire.TouchAll(),
-                    RenderBoundsContract.Identity,
-                    RenderHitTestContract.AnyInput,
-                    RenderScaleContract.PreserveInputSupply));
             RenderFragmentHandle rawCommand = context.RawTargetCommand(
                 RawTargetCommandDescription.CreateRequestLocal(
                     _ => tripwire.TouchAll(),
                     Bounds,
                     RenderHitTestContract.OutputBounds));
 
-            context.PublishRange(
-                [source, mapped, combined, expanded, shader, capture, command, scope, rawScope, rawCommand]);
-        }
-
-        private OpaqueRenderDescription CreateOpaque(
-            OpaqueRenderBoundsContract bounds,
-            RenderValueCardinality cardinality,
-            RenderScaleContract scale,
-            int inputCount)
-        {
-            return OpaqueRenderDescription.CreateRequestLocal(
-                _ => tripwire.TouchAll(),
-                bounds,
-                RenderHitTestContract.OutputBounds,
-                cardinality,
-                scale,
-                inputReadbacks: Enumerable.Repeat(RenderInputReadback.All, inputCount));
+            context.PublishRange([source, shader, command, scope, rawCommand]);
         }
     }
 

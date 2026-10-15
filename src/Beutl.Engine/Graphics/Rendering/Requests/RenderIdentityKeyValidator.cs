@@ -38,7 +38,6 @@ internal static class RenderIdentityKeyValidator
             or ShaderResourceWriter
             or TargetScopeSession
             or TargetCommandSession
-            or RawTargetScopeSession
             or RawTargetCommandSession;
 
         // A non-generic collection interface marks the payload as mutable without asking the type anything.

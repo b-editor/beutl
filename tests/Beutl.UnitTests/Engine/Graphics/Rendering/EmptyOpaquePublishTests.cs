@@ -34,34 +34,23 @@ public sealed class EmptyOpaquePublishTests
     }
 
     [Test]
-    public void AnEmptyPublishUnderSingle_FailsTheCardinalityCheckExactlyAsDiscardDoes()
+    public void AnEmptyPublishUnderSingle_FailsTheCardinalityCheck()
     {
         using var empty = new ShrinkingOpaqueSourceNode(
             s_emptyAtIntegerOrigin,
             RenderValueCardinality.Single);
-        using var discarded = new ShrinkingOpaqueSourceNode(
-            publishBounds: null,
-            RenderValueCardinality.Single);
         using RenderNodeRenderer emptyRenderer = CreateRenderer(empty);
-        using RenderNodeRenderer discardedRenderer = CreateRenderer(discarded);
 
         InvalidOperationException? fromEmptyPublish = Assert.Throws<InvalidOperationException>(
             () => emptyRenderer.Rasterize().Dispose());
-        InvalidOperationException? fromDiscard = Assert.Throws<InvalidOperationException>(
-            () => discardedRenderer.Rasterize().Dispose());
 
         Assert.Multiple(() =>
         {
             Assert.That(
                 fromEmptyPublish!.Message,
                 Does.Contain("The deferred callback published 0 values outside its declared cardinality [1, 1]"));
-            Assert.That(
-                fromEmptyPublish.Message,
-                Is.EqualTo(fromDiscard!.Message),
-                "an operation that shrinks to nothing and one that discards answer the same way");
             Assert.That(empty.PublishedInputBounds.Records, Is.Empty);
             Assert.That(emptyRenderer.TargetPoolStatistics.LeasedTargets, Is.Zero);
-            Assert.That(discardedRenderer.TargetPoolStatistics.LeasedTargets, Is.Zero);
         });
     }
 
@@ -117,13 +106,11 @@ public sealed class EmptyOpaquePublishTests
         }, new CpuRenderTargetFactory());
 
     /// <summary>
-    /// A source that shrinks its output before publishing it, read by a map that records what arrived.
+    /// A source that shrinks its output before publishing it, read by a command that records what arrived.
     /// </summary>
-    /// <param name="publishBounds">
-    /// The rectangle to shrink to before publishing, or <see langword="null"/> to discard the output instead.
-    /// </param>
+    /// <param name="publishBounds">The rectangle to shrink to before publishing.</param>
     private sealed class ShrinkingOpaqueSourceNode(
-        Rect? publishBounds,
+        Rect publishBounds,
         RenderValueCardinality cardinality) : RenderNode
     {
         public int SourceCallbackEntries { get; private set; }
@@ -138,14 +125,13 @@ public sealed class EmptyOpaquePublishTests
                 RenderHitTestContract.OutputBounds,
                 cardinality,
                 RenderScaleContract.MaterializeAtWorkingScale));
-            context.Publish(context.OpaqueMap(
-                source,
-                OpaqueRenderDescription.CreateRequestLocal(
-                    RecordInput,
-                    OpaqueRenderBoundsContract.Map(RenderBoundsContract.Identity),
-                    RenderHitTestContract.AnyInput,
-                    RenderValueCardinality.ZeroOrOne,
-                    RenderScaleContract.PreserveInputSupply)));
+            context.Publish(context.TargetCommand(
+                [source],
+                TargetCommandDescription.CreateRequestLocal(
+                    RecordInputs,
+                    TargetRegion.Region(s_domain),
+                    s_domain,
+                    RenderHitTestContract.OutputBounds)));
         }
 
         private void Execute(OpaqueRenderSession session)
@@ -153,17 +139,14 @@ public sealed class EmptyOpaquePublishTests
             SourceCallbackEntries++;
             using OpaqueRenderOutput output = session.CreateOutput(s_sourceBounds);
             output.Canvas.Use(static canvas => canvas.Clear(Colors.CornflowerBlue));
-            if (publishBounds is not { } bounds)
-            {
-                output.Discard();
-                return;
-            }
-
-            output.SetOutputBounds(bounds);
+            output.SetOutputBounds(publishBounds);
             session.Publish(output);
         }
 
-        private void RecordInput(OpaqueRenderSession session)
-            => PublishedInputBounds.Record(session.Inputs.Single().Bounds);
+        private void RecordInputs(TargetCommandSession session)
+        {
+            foreach (RenderExecutionInput input in session.Inputs)
+                PublishedInputBounds.Record(input.Bounds);
+        }
     }
 }

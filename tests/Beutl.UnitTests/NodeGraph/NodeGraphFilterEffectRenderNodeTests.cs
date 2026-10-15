@@ -1328,26 +1328,23 @@ internal sealed class ScaleProbeRenderNode(FilterEffect.Resource fe) : FilterEff
 {
     public override void Process(RenderNodeContext context)
     {
-        // Resolve w as FilterEffectRenderNode.Process would, but retain an identity opaque map so the
+        // Resolve w as FilterEffectRenderNode.Process would, but retain an identity value-replay scope so the
         // forwarded supply-driven scale can be observed without invoking a GPU filter during recording.
         foreach (RenderFragmentHandle input in context.Inputs)
         {
-            OpaqueRenderDescription description = OpaqueRenderDescription.CreateRequestLocal(
-                execute: session =>
-                {
-                    using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
-                    output.Canvas.Use(session.Inputs[0].Draw);
-                    session.Publish(output);
-                },
-                bounds: OpaqueRenderBoundsContract.Map(RenderBoundsContract.Identity),
-                hitTest: RenderHitTestContract.AnyInput,
-                valueCardinality: RenderValueCardinality.Single,
-                scale: RenderScaleContract.Custom(
+            TargetScopeDescription description = TargetScopeDescription.CreateValueReplayMap(
+                nameof(ScaleProbeRenderNode),
+                static (session, _) => session.Canvas.Use(_ => session.ReplayInput()),
+                RenderBoundsContract.Identity,
+                RenderHitTestContract.AnyInput,
+                RenderScaleContract.Custom(
                     static metadata => RenderScaleUtilities.ResolveWorkingScale(
                         metadata.InputSupplies.ToArray(),
                         metadata.OutputScale,
-                        metadata.MaxWorkingScale)));
-            context.Publish(context.OpaqueMap(input, description));
+                        metadata.MaxWorkingScale)),
+                deviceGridSensitivity: RenderDeviceGridSensitivity.Insensitive,
+                deviceGridMapping: RenderDeviceGridMapping.Preserved);
+            context.Publish(context.TargetScope(input, description));
         }
     }
 }

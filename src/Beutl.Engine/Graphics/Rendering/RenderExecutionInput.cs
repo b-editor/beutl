@@ -126,18 +126,6 @@ public sealed class RenderExecutionInput
         canvas.DrawExecutionInput(_image, _rasterBounds, paint, sampling);
     }
 
-    public void DrawDeviceSpace(ImmediateCanvas canvas, Point devicePoint)
-    {
-        ArgumentNullException.ThrowIfNull(canvas);
-        if (!float.IsFinite(devicePoint.X) || !float.IsFinite(devicePoint.Y))
-            throw new ArgumentException("The device-space point must be finite.", nameof(devicePoint));
-
-        PixelPoint canvasOrigin = _token.GetActiveCanvasDeviceOrigin(canvas);
-        canvas.DrawExecutionInputDeviceSpace(
-            _image,
-            new Point(devicePoint.X - canvasOrigin.X, devicePoint.Y - canvasOrigin.Y));
-    }
-
     public void UseSnapshot(Action<Bitmap> use)
     {
         _token.ThrowIfInactive();

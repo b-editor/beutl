@@ -51,42 +51,6 @@ public sealed class OpaqueSourceStateContractTests
     }
 
     [Test]
-    public void ACombiningContractsState_IsBoundWhenTheContractIsBuilt_NotByTheDescriptionsOwnState()
-    {
-        var seen = new List<Vector>();
-        OpaqueRenderBoundsContract bounds = OpaqueRenderBoundsContract.Combine(
-            new Vector(7, 7),
-            (offset, inputs) =>
-            {
-                seen.Add(offset);
-                return inputs[0].Translate(offset);
-            },
-            static (offset, output, inputs) => new[] { output.Translate(-offset) });
-        OpaqueRenderDescription combine = OpaqueRenderDescription.Create(
-            new Vector(999, 999),
-            static (session, _) => Draw(session, session.RequiredRegion),
-            bounds,
-            RenderHitTestContract.OutputBounds,
-            RenderValueCardinality.Single,
-            RenderScaleContract.Vector);
-
-        using var node = new DelegateContainerNode(context => context.Publish(
-            context.OpaqueCombine(context.Inputs, combine)));
-        node.AddChild(new DelegateNode(context => context.Publish(
-            context.OpaqueSource(FixedBoundsSource(new Point(0, 0))))));
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(
-                Measure(node).OutputBounds,
-                Is.EqualTo(new Rect(7, 7, 10, 10)),
-                "the state-passing combine overload keeps the mapping static-declared; it is not a channel "
-                + "for the execution state the description carries");
-            Assert.That(seen, Has.All.EqualTo(new Vector(7, 7)));
-        });
-    }
-
-    [Test]
     public void ASourceThatMoves_DeclaresItsPlaceByBuildingItsDescriptionPerRecording()
     {
         using var moved = new DelegateNode(context =>

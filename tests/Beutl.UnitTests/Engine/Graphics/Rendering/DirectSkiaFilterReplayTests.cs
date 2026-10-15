@@ -508,12 +508,12 @@ public sealed class DirectSkiaFilterReplayTests
     {
         using var actualNode = new FilterEffectRenderNode(
             CreateBlur(2).ToResource(CompositionContext.Default));
-        actualNode.AddChild(new TwoValueExpansionNode());
+        actualNode.AddChild(new TwoValueSourceNode());
         using RenderNodeRenderer actualRenderer = CreateRenderer(actualNode);
 
         using var referenceNode = new FilterEffectRenderNode(
             CreatePublicSkiaBlurEffect().ToResource(CompositionContext.Default));
-        referenceNode.AddChild(new TwoValueExpansionNode());
+        referenceNode.AddChild(new TwoValueSourceNode());
         using RenderNodeRenderer referenceRenderer = CreateRenderer(referenceNode);
 
         using RenderNodeRasterization actual = actualRenderer.Rasterize();
@@ -973,41 +973,28 @@ public sealed class DirectSkiaFilterReplayTests
         }
     }
 
-    private sealed class TwoValueExpansionNode : RenderNode
+    // Publishes two values, a red one and a blue one, over the same bounds.
+    private sealed class TwoValueSourceNode : RenderNode
     {
         public override void Process(RenderNodeContext context)
         {
-            RenderFragmentHandle seed = context.OpaqueSource(
-                OpaqueRenderDescription.CreateRequestLocal(
-                    static session =>
-                    {
-                        using OpaqueRenderOutput output = session.CreateOutput(s_sourceBounds);
-                        output.Canvas.Use(canvas => canvas.Clear(Colors.Transparent));
-                        session.Publish(output);
-                    },
-                    OpaqueRenderBoundsContract.Source(s_sourceBounds),
-                    RenderHitTestContract.OutputBounds,
-                    RenderValueCardinality.Single,
-                    RenderScaleContract.MaterializeAtWorkingScale));
-            RenderFragmentHandle expanded = context.OpaqueExpand(
-                [seed],
-                OpaqueRenderDescription.CreateRequestLocal(
-                    static session =>
-                    {
-                        using OpaqueRenderOutput red = session.CreateOutput(session.OutputBounds);
-                        red.Canvas.Use(canvas => canvas.Clear(Colors.Red));
-                        session.Publish(red);
-
-                        using OpaqueRenderOutput blue = session.CreateOutput(session.OutputBounds);
-                        blue.Canvas.Use(canvas => canvas.Clear(Colors.Blue));
-                        session.Publish(blue);
-                    },
-                    OpaqueRenderBoundsContract.FullInputs(static inputs => inputs.Single()),
-                    RenderHitTestContract.AnyInput,
-                    RenderValueCardinality.Exactly(2),
-                    RenderScaleContract.MaterializeAtWorkingScale));
-            context.Publish(expanded);
+            context.Publish(context.OpaqueSource(CreateSolidSource(Colors.Red)));
+            context.Publish(context.OpaqueSource(CreateSolidSource(Colors.Blue)));
         }
+
+        private static OpaqueRenderDescription CreateSolidSource(Color color)
+            => OpaqueRenderDescription.Create(
+                color,
+                static (session, color) =>
+                {
+                    using OpaqueRenderOutput output = session.CreateOutput(s_sourceBounds);
+                    output.Canvas.Use(canvas => canvas.Clear(color));
+                    session.Publish(output);
+                },
+                OpaqueRenderBoundsContract.Source(s_sourceBounds),
+                RenderHitTestContract.OutputBounds,
+                RenderValueCardinality.Single,
+                RenderScaleContract.MaterializeAtWorkingScale);
     }
 
     private static FilterEffect CreateCallbackCustomEffect(Action callback)

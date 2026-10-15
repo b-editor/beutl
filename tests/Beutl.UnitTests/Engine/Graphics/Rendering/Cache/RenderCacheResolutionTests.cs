@@ -373,7 +373,6 @@ public sealed class RenderCacheResolutionTests
     }
 
     [TestCase("TargetCommand")]
-    [TestCase("RawTargetScope")]
     [TestCase("TargetCapture")]
     public void TargetAndRawCandidates_BypassWhilePureChildrenRemainSelectable(
         string boundaryKindName)
@@ -524,8 +523,8 @@ public sealed class RenderCacheResolutionTests
         float expectedDensity)
     {
         RenderFragmentReference source = Pure();
-        RenderFragmentReference unitScale = FixedScaleMap(source, 1, 1);
-        RenderFragmentReference doubleScale = FixedScaleMap(source, 2, expectedDensity);
+        RenderFragmentReference unitScale = DemandScalingScope(source, 1);
+        RenderFragmentReference doubleScale = DemandScalingScope(source, 2);
         using Scenario scenario = Build(
             [source, unitScale, doubleScale],
             [unitScale, doubleScale],
@@ -886,7 +885,8 @@ public sealed class RenderCacheResolutionTests
             expandedBounds,
             expandChild);
         RenderBoundsContract shrinkToParent = RenderBoundsContract.CreateFullInput(
-            static _ => new Rect(0, 0, 32, 32));
+            new Rect(0, 0, 32, 32),
+            static (parentBounds, _) => parentBounds);
         RenderFragmentReference parent = ValueReplayMap(
             child,
             EffectiveScale.At(2),
@@ -991,42 +991,6 @@ public sealed class RenderCacheResolutionTests
             leaf,
             RenderScaleContract.MapInputSupply(ReduceSupplyByFour, QuadrupleDemand),
             RenderScopeTransformSpace.AmbientTarget);
-
-        IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> demands =
-            RenderMaterializationDemandResolver.Resolve(
-                [scope],
-                outputScale: 1,
-                maxWorkingScale: float.PositiveInfinity,
-                cacheBoundaries: ImmutableHashSet<RenderFragmentReference>.Empty).Demands;
-
-        Assert.That(demands[leaf], Is.EqualTo(EffectiveScale.At(1)));
-    }
-
-    [Test]
-    public void MaterializationDemands_RawTargetScopeCarriesItsDeclaredDemandBackwards()
-    {
-        RenderFragmentReference leaf = Pure();
-        RenderFragmentReference scope = RawTargetScope(
-            leaf,
-            RenderScaleContract.MapInputSupply(ReduceSupplyByFour, QuadrupleDemand));
-
-        IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> demands =
-            RenderMaterializationDemandResolver.Resolve(
-                [scope],
-                outputScale: 1,
-                maxWorkingScale: float.PositiveInfinity,
-                cacheBoundaries: ImmutableHashSet<RenderFragmentReference>.Empty).Demands;
-
-        Assert.That(demands[leaf], Is.EqualTo(EffectiveScale.At(4)));
-    }
-
-    [Test]
-    public void MaterializationDemands_RawTargetScopeWithoutABackwardMapLeavesTheDemandAlone()
-    {
-        RenderFragmentReference leaf = Pure();
-        RenderFragmentReference scope = RawTargetScope(
-            leaf,
-            RenderScaleContract.MapInputSupplyPreservingDemand(ReduceSupplyByFour));
 
         IReadOnlyDictionary<RenderFragmentReference, EffectiveScale> demands =
             RenderMaterializationDemandResolver.Resolve(
@@ -1428,29 +1392,6 @@ public sealed class RenderCacheResolutionTests
             RenderFragmentHitTest.Bounds);
     }
 
-    private static RenderFragmentReference RawTargetScope(
-        RenderFragmentReference input,
-        RenderScaleContract scale)
-    {
-        RawTargetScopeDescription description = RawTargetScopeDescription.CreateRequestLocal(
-            static session => session.ReplayInput(),
-            RenderBoundsContract.Identity,
-            RenderHitTestContract.AnyInput,
-            scale);
-        return new RenderFragmentReference(
-            RenderFragmentKind.RawTargetScope,
-            input.Bounds,
-            EffectiveScale.Unbounded,
-            RenderValueCardinality.Single,
-            contributesValuesToTarget: true,
-            canBeUsedAsValueInput: false,
-            hasTargetEffects: true,
-            hasOpaqueExternalWork: true,
-            [input],
-            new RawTargetScopeRenderFragmentPayload(description),
-            RenderFragmentHitTest.Bounds);
-    }
-
     private static EffectiveScale ReduceSupplyByFour(EffectiveScale inputSupply)
         => inputSupply.IsUnbounded ? EffectiveScale.Unbounded : EffectiveScale.At(inputSupply.Value / 4);
 
@@ -1614,34 +1555,16 @@ public sealed class RenderCacheResolutionTests
             RenderFragmentHitTest.Bounds);
     }
 
-    private static RenderFragmentReference FixedScaleMap(
-        RenderFragmentReference input,
-        float authoredScale,
-        float resolvedScale)
-    {
-        OpaqueRenderDescription description = OpaqueRenderDescription.CreateRequestLocal(
-            static _ => { },
-            OpaqueRenderBoundsContract.Map(RenderBoundsContract.Identity),
-            RenderHitTestContract.AnyInput,
-            RenderValueCardinality.Single,
-            RenderScaleContract.Custom(
-                new FixedScaleResolver(authoredScale).Resolve));
-        return new RenderFragmentReference(
-            RenderFragmentKind.OpaqueMap,
-            s_bounds,
-            EffectiveScale.At(resolvedScale),
-            RenderValueCardinality.Single,
-            contributesValuesToTarget: true,
-            canBeUsedAsValueInput: true,
-            hasTargetEffects: false,
-            hasOpaqueExternalWork: true,
-            [input],
-            new OpaqueRenderFragmentPayload(
-                OpaqueRenderTopology.Map,
-                description,
-                [RenderInputReadback.None]),
-            RenderFragmentHitTest.Bounds);
-    }
+    // An input-logical scope that asks its input for its own demand times the factor, as an enlarging
+    // transform does.
+    private static RenderFragmentReference DemandScalingScope(RenderFragmentReference input, float factor)
+        => AuthoredTargetScope(
+            input,
+            RenderScaleContract.MapInputSupply(
+                factor,
+                static (_, supply) => supply,
+                static (factor, demand) => EffectiveScale.At(demand.Value * factor)),
+            RenderScopeTransformSpace.InputLogical);
 
     private static RenderFragmentReference Boundary(
         RenderFragmentKind kind,
@@ -1668,25 +1591,13 @@ public sealed class RenderCacheResolutionTests
                 canBeUsed = false;
                 inputs = [child];
                 break;
-            case RenderFragmentKind.RawTargetScope:
-                payload = new RawTargetScopeRenderFragmentPayload(
-                    RawTargetScopeDescription.CreateRequestLocal(
-                        static _ => { },
-                        RenderBoundsContract.Identity,
-                        RenderHitTestContract.AnyInput,
-                        RenderScaleContract.PreserveInputSupply));
-                cardinality = RenderValueCardinality.Single;
-                contributes = true;
-                canBeUsed = false;
-                inputs = [child];
-                break;
             case RenderFragmentKind.TargetCapture:
                 payload = new TargetCaptureRenderFragmentPayload(
                     TargetCaptureDescription.Create(
                         TargetRegion.Region(s_bounds),
                         s_bounds,
                         RenderHitTestContract.None,
-                        TargetCaptureScaleContract.MaterializeAtWorkingScale));
+                        TargetCaptureScaleContract.PreserveTargetSupply));
                 cardinality = RenderValueCardinality.Single;
                 contributes = false;
                 canBeUsed = true;
@@ -1704,7 +1615,7 @@ public sealed class RenderCacheResolutionTests
             contributes,
             canBeUsed,
             hasTargetEffects: true,
-            hasOpaqueExternalWork: kind == RenderFragmentKind.RawTargetScope,
+            hasOpaqueExternalWork: false,
             [.. inputs],
             payload,
             RenderFragmentHitTest.None);
@@ -1847,11 +1758,6 @@ public sealed class RenderCacheResolutionTests
     }
 
     private sealed record RuntimeValue(int Value);
-
-    private sealed record FixedScaleResolver(float Scale)
-    {
-        public float Resolve(RenderScaleContext _) => Scale;
-    }
 
     private sealed record CollidingKey(string Value)
     {

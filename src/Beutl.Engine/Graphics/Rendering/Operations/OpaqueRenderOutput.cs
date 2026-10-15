@@ -48,13 +48,6 @@ public sealed class OpaqueRenderOutput : IDisposable
         _bounds = logicalBounds;
     }
 
-    public void Discard()
-    {
-        ThrowIfUnavailable();
-        _state = OpaqueRenderOutputState.Discarded;
-        _release(this);
-    }
-
     public void Dispose()
     {
         _owner.Token.ThrowIfInactive();
@@ -87,6 +80,5 @@ internal enum OpaqueRenderOutputState : byte
 {
     Active,
     Published,
-    Discarded,
     Disposed,
 }

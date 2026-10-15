@@ -22,9 +22,6 @@ public sealed class NestedTargetAndCleanupFailureTests
     [TestCase(TargetCallbackFailure.ScopeMissingReplay)]
     [TestCase(TargetCallbackFailure.ScopeDoubleReplay)]
     [TestCase(TargetCallbackFailure.RawCommandCallback)]
-    [TestCase(TargetCallbackFailure.RawScopeCallback)]
-    [TestCase(TargetCallbackFailure.RawScopeMissingReplay)]
-    [TestCase(TargetCallbackFailure.RawScopeDoubleReplay)]
     public void TargetCommandScopeAndRawFailures_DischargeAllStateAndSealTheSession(
         TargetCallbackFailure failurePoint)
     {
@@ -58,29 +55,8 @@ public sealed class NestedTargetAndCleanupFailureTests
             TargetCallbackFailure.ScopeMissingReplay or TargetCallbackFailure.ScopeDoubleReplay
                 => "A target scope input must be replayed exactly once",
             TargetCallbackFailure.RawCommandCallback => "raw-command-primary",
-            TargetCallbackFailure.RawScopeCallback => "raw-scope-primary",
-            TargetCallbackFailure.RawScopeMissingReplay or TargetCallbackFailure.RawScopeDoubleReplay
-                => "A raw target scope input must be replayed exactly once",
             _ => throw new ArgumentOutOfRangeException(nameof(failurePoint), failurePoint, null),
         };
-
-    [Test]
-    public void TargetCaptureAllocationFailure_DischargesTheRootAndPublishesNoCapture()
-    {
-        using var node = new TargetCaptureNode();
-        var factory = new FailureTestTargetFactory(failAt: 1);
-        using var renderer = FailureTestSupport.CreateRenderer(node, factory, useRenderCache: false);
-
-        InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(() => renderer.Rasterize());
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(failure!.Message, Does.Contain("could not allocate"));
-            Assert.That(factory.CreateCalls, Is.EqualTo(2));
-            Assert.That(renderer.TargetPoolStatistics.LeasedTargets, Is.Zero);
-            Assert.That(node.Cache.IsCached, Is.False);
-        });
-    }
 
     [TestCase(TransientMaterializationKind.Layer)]
     [TestCase(TransientMaterializationKind.TargetLayerScope)]
@@ -724,9 +700,6 @@ public sealed class NestedTargetAndCleanupFailureTests
         ScopeMissingReplay,
         ScopeDoubleReplay,
         RawCommandCallback,
-        RawScopeCallback,
-        RawScopeMissingReplay,
-        RawScopeDoubleReplay,
     }
 
     public enum TransientMaterializationKind
@@ -842,7 +815,7 @@ public sealed class NestedTargetAndCleanupFailureTests
                     s_bounds,
                     RenderHitTestContract.OutputBounds,
                     targetReadback ? TargetAccess.Readback : TargetAccess.ReadWrite,
-                    inputReadbacks: inputReadback ? [RenderInputReadback.All] : null);
+                    inputReadbacks: inputReadback ? [RenderInputReadback.Values([0])] : null);
                 context.Publish(source);
                 context.Publish(context.TargetCommand([source], command));
                 return;
@@ -880,42 +853,7 @@ public sealed class NestedTargetAndCleanupFailureTests
                 return;
             }
 
-            RawTargetScopeDescription rawScope = RawTargetScopeDescription.CreateRequestLocal(
-                session =>
-                {
-                    CallbackEntries++;
-                    VerifyRetainedSession = () => _ = session.Intent;
-                    switch (failurePoint)
-                    {
-                        case TargetCallbackFailure.RawScopeCallback:
-                            throw new InvalidOperationException("raw-scope-primary");
-                        case TargetCallbackFailure.RawScopeMissingReplay:
-                            break;
-                        case TargetCallbackFailure.RawScopeDoubleReplay:
-                            session.ReplayInput();
-                            session.ReplayInput();
-                            break;
-                        default:
-                            throw new ArgumentOutOfRangeException();
-                    }
-                },
-                RenderBoundsContract.Identity,
-                RenderHitTestContract.AnyInput,
-                RenderScaleContract.PreserveInputSupply);
-            context.Publish(context.RawTargetScope(source, rawScope));
-        }
-    }
-
-    private sealed class TargetCaptureNode : RenderNode
-    {
-        public override void Process(RenderNodeContext context)
-        {
-            RenderFragmentHandle capture = context.TargetCapture(TargetCaptureDescription.Create(
-                TargetRegion.Region(s_bounds),
-                s_bounds,
-                RenderHitTestContract.OutputBounds,
-                TargetCaptureScaleContract.MaterializeAtWorkingScale));
-            context.Publish(context.ContributeValues(capture));
+            throw new ArgumentOutOfRangeException(nameof(failurePoint), failurePoint, null);
         }
     }
 

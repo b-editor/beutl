@@ -21,46 +21,6 @@ public sealed class RawScopeNestingAndCaptureOffsetTests
     private const byte StrayAlpha = 64;
 
     [Test]
-    public void RawTargetScope_ExecutesNestedTargetWorkInsideItsReplay()
-    {
-        using var node = new NestedRawCommandNode();
-        using var renderer = CreateRenderer(node);
-
-        using RenderNodeRasterization rasterization = renderer.Rasterize();
-
-        Bitmap bitmap = rasterization.Bitmap
-            ?? throw new AssertionException("The nested raw target work produced no bitmap.");
-        var sample = bitmap.SKBitmap.GetPixel(
-            (int)(s_mark.Center.X - rasterization.Bounds.X),
-            (int)(s_mark.Center.Y - rasterization.Bounds.Y));
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(node.NestedExecutions, Is.EqualTo(1),
-                "A raw target scope must let its replayed subtree perform nested target work.");
-            Assert.That(sample.Red, Is.EqualTo(byte.MaxValue));
-            Assert.That(sample.Alpha, Is.EqualTo(byte.MaxValue));
-        });
-    }
-
-    [Test]
-    public void RawTargetScope_RemainsAnOpaqueExternalBarrierWhileNestingIsAllowed()
-    {
-        using var node = new NestedRawCommandNode();
-        using var request = new RenderRequest(new RenderRequestOptions(
-            RenderIntent.Preview,
-            RenderRequestPurpose.Frame,
-            targetDomain: s_domain));
-
-        RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(node);
-        RenderFragmentReference scope = graph.Fragments
-            .Single(static reference => reference.Kind == RenderFragmentKind.RawTargetScope);
-
-        Assert.That(scope.HasOpaqueExternalWork, Is.True,
-            "Nested target work must not relax the raw scope's opaque-external barrier.");
-    }
-
-    [Test]
     public void TargetCapture_UnderANonZeroDeviceGridOffset_CopiesTheTargetWithoutDisplacingIt()
     {
         using var root = new ContainerRenderNode();
@@ -94,51 +54,6 @@ public sealed class RawScopeNestingAndCaptureOffsetTests
         using RenderNodeRasterization rasterization = renderer.Rasterize();
 
         AssertCaptureLandedOnTheMark(rasterization);
-    }
-
-    [Test]
-    public void TargetCapture_UnderAScaledTarget_MaterializesAtTheTargetsPixelSupply()
-    {
-        using var root = new ContainerRenderNode();
-        root.AddChild(new MarkNode());
-        var scope = new TransformRenderNode(
-            Matrix.CreateScale(2, 2),
-            TransformOperator.Append);
-        // Local (0, 0, 32, 32) covers the whole target, so the round trip must land in place.
-        scope.AddChild(new CaptureRoundTripNode(new Rect(0, 0, 32, 32)));
-        root.AddChild(scope);
-        using var renderer = CreateRenderer(root);
-
-        using RenderNodeRasterization rasterization = renderer.Rasterize();
-
-        Bitmap bitmap = rasterization.Bitmap
-            ?? throw new AssertionException("The scaled target capture produced no bitmap.");
-        var origin = new PixelPoint((int)rasterization.Bounds.X, (int)rasterization.Bounds.Y);
-        var mark = bitmap.SKBitmap.GetPixel(
-            (int)s_mark.Center.X - origin.X,
-            (int)s_mark.Center.Y - origin.Y);
-
-        // A capture taken below the target's supply comes back through a 2x upsample, which leaves a
-        // one-pixel fringe of half the mark's alpha around it.
-        int fringe = 0;
-        for (int y = 0; y < bitmap.Height; y++)
-        {
-            for (int x = 0; x < bitmap.Width; x++)
-            {
-                if (bitmap.SKBitmap.GetPixel(x, y).Alpha == 0)
-                    continue;
-                if (!s_mark.Contains(new Point(x + origin.X, y + origin.Y)))
-                    fringe++;
-            }
-        }
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(mark.Alpha, Is.EqualTo(RoundTripAlpha).Within(8),
-                "Replaying a capture of the target back into the same place must reproduce the mark there.");
-            Assert.That(fringe, Is.Zero,
-                "A capture under a scaled target must materialize at the target's own pixel supply.");
-        });
     }
 
     [Test]
@@ -426,40 +341,14 @@ public sealed class RawScopeNestingAndCaptureOffsetTests
                 RenderScaleContract.MaterializeAtWorkingScale)));
     }
 
-    private sealed class NestedRawCommandNode : RenderNode
+    // Captures the target through the built-in backdrop and draws the copy back over captureBounds.
+    private sealed class CaptureRoundTripNode : ContainerRenderNode
     {
-        public int NestedExecutions { get; private set; }
-
-        public override void Process(RenderNodeContext context)
+        public CaptureRoundTripNode(Rect captureBounds)
         {
-            RenderFragmentHandle nested = context.RawTargetCommand(RawTargetCommandDescription.CreateRequestLocal(
-                session =>
-                {
-                    NestedExecutions++;
-                    session.Canvas.Clear(Colors.Red);
-                },
-                s_domain,
-                RenderHitTestContract.OutputBounds));
-            context.Publish(context.RawTargetScope(
-                nested,
-                RawTargetScopeDescription.CreateRequestLocal(
-                    static session => session.ReplayInput(),
-                    RenderBoundsContract.FullInput,
-                    RenderHitTestContract.AnyInput,
-                    RenderScaleContract.PreserveInputSupply)));
-        }
-    }
-
-    private sealed class CaptureRoundTripNode(Rect captureBounds) : RenderNode
-    {
-        public override void Process(RenderNodeContext context)
-        {
-            RenderFragmentHandle capture = context.TargetCapture(TargetCaptureDescription.Create(
-                TargetRegion.Region(captureBounds),
-                captureBounds,
-                RenderHitTestContract.OutputBounds,
-                TargetCaptureScaleContract.PreserveTargetSupply));
-            context.Publish(context.ContributeValues(capture));
+            var snapshot = new SnapshotBackdropRenderNode();
+            AddChild(snapshot);
+            AddChild(new DrawBackdropRenderNode(snapshot, captureBounds));
         }
     }
 }

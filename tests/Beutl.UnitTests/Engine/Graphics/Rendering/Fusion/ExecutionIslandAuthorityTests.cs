@@ -77,7 +77,8 @@ public sealed class ExecutionIslandAuthorityTests
         Assert.Multiple(() =>
         {
             Assert.That(compiled.ExecutionPlan.ShaderRuns, Is.Empty);
-            Assert.That(compiled.ExecutionPlan.Islands, Has.Exactly(1).Items);
+            Assert.That(compiled.ExecutionPlan.Islands, Has.Exactly(2).Items,
+                "the source and the opacity each run as their own semantic island");
             Assert.That(compiled.ExecutionPlan.TryGetMembership(
                     compiled.Graph,
                     opacity,
@@ -231,9 +232,9 @@ public sealed class ExecutionIslandAuthorityTests
         RecordedRenderGraph otherGraph = BuildGraph(
             fixture.Graph.RequestId,
             [
-                Fragment(RenderFragmentKind.MaterializedInput, s_bounds, EffectiveScale.At(1), payload: null),
+                SourceFragment(s_bounds, EffectiveScale.At(1)),
                 Fragment(RenderFragmentKind.FilterEffectSegment, s_bounds, EffectiveScale.At(1), payload: null),
-                Fragment(RenderFragmentKind.MaterializedInput, s_bounds, EffectiveScale.At(1), payload: null),
+                SourceFragment(s_bounds, EffectiveScale.At(1)),
                 Fragment(RenderFragmentKind.FilterEffectSegment, s_bounds, EffectiveScale.At(1), payload: null),
             ],
             []);
@@ -272,11 +273,7 @@ public sealed class ExecutionIslandAuthorityTests
                 fusionMode: FusionMode.Enabled),
             requestId =>
             {
-                RenderFragmentReference source = Fragment(
-                    RenderFragmentKind.MaterializedInput,
-                    s_bounds,
-                    EffectiveScale.At(1),
-                    payload: null);
+                RenderFragmentReference source = SourceFragment(s_bounds, EffectiveScale.At(1));
                 ShaderDescription shader = ShaderDescription.CurrentPixel(
                     "half4 apply(half4 color) { return half4(color.bgr, color.a); }");
                 RenderFragmentReference stage = Fragment(
@@ -306,11 +303,7 @@ public sealed class ExecutionIslandAuthorityTests
                 fusionMode: FusionMode.Enabled),
             requestId =>
             {
-                RenderFragmentReference source = Fragment(
-                    RenderFragmentKind.MaterializedInput,
-                    s_bounds,
-                    EffectiveScale.At(1),
-                    payload: null);
+                RenderFragmentReference source = SourceFragment(s_bounds, EffectiveScale.At(1));
                 RenderFragmentReference opacity = Fragment(
                     RenderFragmentKind.Opacity,
                     s_bounds,
@@ -329,22 +322,14 @@ public sealed class ExecutionIslandAuthorityTests
         RenderFragmentReference Second) CreateReversePublicationFixture()
     {
         var requestId = new RenderRequestId(1);
-        RenderFragmentReference firstSource = Fragment(
-            RenderFragmentKind.MaterializedInput,
-            s_bounds,
-            EffectiveScale.At(1),
-            payload: null);
+        RenderFragmentReference firstSource = SourceFragment(s_bounds, EffectiveScale.At(1));
         RenderFragmentReference first = Fragment(
             RenderFragmentKind.FilterEffectSegment,
             s_bounds,
             EffectiveScale.At(1),
             payload: null,
             firstSource);
-        RenderFragmentReference secondSource = Fragment(
-            RenderFragmentKind.MaterializedInput,
-            s_bounds,
-            EffectiveScale.At(1),
-            payload: null);
+        RenderFragmentReference secondSource = SourceFragment(s_bounds, EffectiveScale.At(1));
         RenderFragmentReference second = Fragment(
             RenderFragmentKind.FilterEffectSegment,
             s_bounds,
@@ -376,7 +361,7 @@ public sealed class ExecutionIslandAuthorityTests
 
         public override void Process(RenderNodeContext context)
         {
-            RenderFragmentHandle current = BorrowMaterializedInput(context, source, s_bounds);
+            RenderFragmentHandle current = RecordSourcePixels(context, source, s_bounds);
             current = context.Shader(current, s_shader);
             current = context.Opacity(current, 0.625f);
             context.Publish(current);
@@ -387,7 +372,7 @@ public sealed class ExecutionIslandAuthorityTests
     {
         public override void Process(RenderNodeContext context)
         {
-            RenderFragmentHandle current = BorrowMaterializedInput(context, source, s_bounds);
+            RenderFragmentHandle current = RecordSourcePixels(context, source, s_bounds);
             current = context.Opacity(current, 0.625f);
             context.Publish(current);
         }
@@ -397,25 +382,20 @@ public sealed class ExecutionIslandAuthorityTests
     {
         public override void Process(RenderNodeContext context)
         {
-            RenderFragmentHandle current = BorrowMaterializedInput(context, source, s_bounds);
-            current = context.OpaqueMap(
-                current,
-                OpaqueRenderDescription.Create(
-                    "opaque-readback",
-                    static (session, _) =>
+            RenderFragmentHandle current = RecordSourcePixels(context, source, s_bounds);
+            context.Publish(context.TargetCommand(
+                [current],
+                TargetCommandDescription.CreateRequestLocal(
+                    static session =>
                     {
                         RenderExecutionInput input = session.Inputs.Single();
                         input.UseSnapshot(static _ => { });
-                        using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
-                        output.Canvas.Use(input.Draw);
-                        session.Publish(output);
+                        session.Canvas.Use(input.Draw);
                     },
-                    OpaqueRenderBoundsContract.Map(RenderBoundsContract.Identity),
-                    RenderHitTestContract.AnyInput,
-                    RenderValueCardinality.Single,
-                    RenderScaleContract.PreserveInputSupply,
-                    inputReadbacks: [RenderInputReadback.All]));
-            context.Publish(current);
+                    TargetRegion.Region(s_bounds),
+                    s_bounds,
+                    RenderHitTestContract.OutputBounds,
+                    inputReadbacks: [RenderInputReadback.Values([0])])));
         }
     }
 }

@@ -46,7 +46,7 @@ internal sealed class BackendOverflowBoundaryNode(RenderTarget source, Rect boun
 {
     public override void Process(RenderNodeContext context)
     {
-        RenderFragmentHandle current = FusionBoundaryExecutionTestSupport.BorrowMaterializedInput(
+        RenderFragmentHandle current = FusionBoundaryExecutionTestSupport.RecordSourcePixels(
             context,
             source,
             bounds);
@@ -141,18 +141,28 @@ internal static class FusionBoundaryExecutionTestSupport
         }
     }
 
-    // Borrows the source and records it as a materialized input at density 1 over the given bounds.
-    public static RenderFragmentHandle BorrowMaterializedInput(
+    // Records the source's pixels at density 1 over the given bounds.
+    public static RenderFragmentHandle RecordSourcePixels(
         RenderNodeContext context,
         RenderTarget source,
         Rect bounds)
-        => context.MaterializedInput(MaterializedInputDescription.FromRenderTarget(
-            context.Borrow(source),
+        => TargetPixelSourceTestSupport.RecordTargetPixels(context, source, bounds);
+
+    // An opaque source leaf over the given bounds, for a graph built by hand.
+    public static RenderFragmentReference SourceFragment(Rect bounds, EffectiveScale scale)
+        => Fragment(
+            RenderFragmentKind.OpaqueSource,
             bounds,
-            EffectiveScale.At(1),
-            PixelRect.FromRect(bounds, 1),
-            default,
-            RenderHitTestContract.OutputBounds));
+            scale,
+            new OpaqueRenderFragmentPayload(
+                OpaqueRenderTopology.Source,
+                OpaqueRenderDescription.CreateRequestLocal(
+                    static _ => { },
+                    OpaqueRenderBoundsContract.Source(bounds),
+                    RenderHitTestContract.OutputBounds,
+                    RenderValueCardinality.Single,
+                    RenderScaleContract.MaterializeAtWorkingScale),
+                Array.Empty<RenderInputReadback>()));
 
     public static RenderFragmentReference Fragment(
         RenderFragmentKind kind,

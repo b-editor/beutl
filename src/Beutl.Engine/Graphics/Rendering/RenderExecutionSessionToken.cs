@@ -152,12 +152,6 @@ internal sealed class RenderExecutionSessionToken
         }
     }
 
-    public PixelPoint GetActiveCanvasDeviceOrigin(ImmediateCanvas canvas)
-    {
-        VerifyActiveCanvas(canvas);
-        return _activeFacade!.DeviceOriginUnchecked;
-    }
-
     public void AuthorizeResource(object resource, Action use)
     {
         ThrowIfInactive();

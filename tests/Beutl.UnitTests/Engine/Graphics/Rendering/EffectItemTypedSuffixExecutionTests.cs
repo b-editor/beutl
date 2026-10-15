@@ -931,16 +931,6 @@ public sealed class EffectItemTypedSuffixExecutionTests
         float density = 1) : RenderNode
     {
         public override void Process(RenderNodeContext context)
-        {
-            RenderResource<RenderTarget> target = context.Borrow(source);
-            context.Publish(context.MaterializedInput(
-                MaterializedInputDescription.FromRenderTarget(
-                    target,
-                    bounds,
-                    EffectiveScale.At(density),
-                    PixelRect.FromRect(bounds, density),
-                    default,
-                    RenderHitTestContract.OutputBounds)));
-        }
+            => context.Publish(TargetPixelSourceTestSupport.RecordTargetPixels(context, source, bounds, density));
     }
 }

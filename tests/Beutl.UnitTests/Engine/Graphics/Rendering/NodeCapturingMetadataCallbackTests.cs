@@ -124,7 +124,6 @@ public sealed class NodeCapturingMetadataCallbackTests
         yield return Uninitialized<ShaderResourceWriter>();
         yield return Uninitialized<TargetScopeSession>();
         yield return Uninitialized<TargetCommandSession>();
-        yield return Uninitialized<RawTargetScopeSession>();
         yield return Uninitialized<RawTargetCommandSession>();
         yield return new TestCaseData(new int[1]).SetArgDisplayNames("Array");
         yield return new TestCaseData(new List<int>()).SetArgDisplayNames("IList");
@@ -178,16 +177,10 @@ public sealed class NodeCapturingMetadataCallbackTests
                 RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale));
 
-            context.Publish(context.OpaqueMap(source, OpaqueRenderDescription.CreateRequestLocal(
-                static session =>
-                {
-                    using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
-                    output.Canvas.Use(session.Inputs[0].Draw);
-                    session.Publish(output);
-                },
-                OpaqueRenderBoundsContract.Map(CreateBounds()),
+            context.Publish(context.TargetScope(source, TargetScopeDescription.CreateRequestLocal(
+                static session => session.Canvas.Use(_ => session.ReplayInput()),
+                CreateBounds(),
                 RenderHitTestContract.AnyInput,
-                RenderValueCardinality.Single,
                 RenderScaleContract.PreserveInputSupply)));
         }
     }

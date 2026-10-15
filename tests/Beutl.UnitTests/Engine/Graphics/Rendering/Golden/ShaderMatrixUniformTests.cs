@@ -176,7 +176,8 @@ public class ShaderMatrixUniformTests
             """;
 
         private static readonly RenderBoundsContract s_bounds = RenderBoundsContract.CreateFullInput(
-            static input => input.Inflate(96));
+            96f,
+            static (inflation, input) => input.Inflate(inflation));
 
         private readonly RectGeometry _geometry;
         private readonly Geometry.Resource _geometryResource;

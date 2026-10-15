@@ -23,7 +23,7 @@ public sealed class ProductionResourceLifetimeTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(node.ExecutionCount, Is.EqualTo(8));
+            Assert.That(node.ExecutionCount, Is.EqualTo(6));
             Assert.That(renderer.TargetPoolStatistics.LeasedTargets, Is.Zero);
         });
     }
@@ -45,11 +45,8 @@ public sealed class ProductionResourceLifetimeTests
         public override void Process(RenderNodeContext context)
         {
             RenderFragmentHandle source = context.OpaqueSource(CreateSourceDescription(() => ExecutionCount++));
-            RenderFragmentHandle left = context.OpaqueMap(source, CreateMapDescription(() => ExecutionCount++));
-            RenderFragmentHandle right = context.OpaqueMap(source, CreateMapDescription(() => ExecutionCount++));
-            context.Publish(context.OpaqueCombine(
-                [left, right],
-                CreateCombineDescription(() => ExecutionCount++)));
+            context.Publish(context.TargetCommand([source], CreateDrawDescription(() => ExecutionCount++)));
+            context.Publish(context.TargetCommand([source], CreateDrawDescription(() => ExecutionCount++)));
         }
     }
 
@@ -67,36 +64,14 @@ public sealed class ProductionResourceLifetimeTests
             RenderValueCardinality.Single,
             RenderScaleContract.MaterializeAtWorkingScale);
 
-    private static OpaqueRenderDescription CreateMapDescription(Action? onExecute = null)
-        => OpaqueRenderDescription.CreateRequestLocal(
+    private static TargetCommandDescription CreateDrawDescription(Action onExecute)
+        => TargetCommandDescription.CreateRequestLocal(
             session =>
             {
-                onExecute?.Invoke();
-                using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
-                output.Canvas.Use(session.Inputs.Single().Draw);
-                session.Publish(output);
+                onExecute();
+                session.Canvas.Use(session.Inputs.Single().Draw);
             },
-            OpaqueRenderBoundsContract.Map(RenderBoundsContract.Identity),
-            RenderHitTestContract.AnyInput,
-            RenderValueCardinality.Single,
-            RenderScaleContract.PreserveInputSupply);
-
-    private static OpaqueRenderDescription CreateCombineDescription(Action? onExecute = null)
-        => OpaqueRenderDescription.CreateRequestLocal(
-            session =>
-            {
-                onExecute?.Invoke();
-                using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
-                output.Canvas.Use(canvas =>
-                {
-                    foreach (RenderExecutionInput input in session.Inputs)
-                        input.Draw(canvas);
-                });
-                session.Publish(output);
-            },
-            OpaqueRenderBoundsContract.FullInputs(
-                static inputs => inputs.Aggregate(Rect.Empty, static (result, input) => result.Union(input))),
-            RenderHitTestContract.AnyInput,
-            RenderValueCardinality.Single,
-            RenderScaleContract.MaterializeAtWorkingScale);
+            TargetRegion.Region(s_bounds),
+            s_bounds,
+            RenderHitTestContract.OutputBounds);
 }

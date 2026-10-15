@@ -239,15 +239,7 @@ public sealed class RenderNodeRendererSnapshotFastPathTests
 
         public override void Process(RenderNodeContext context)
         {
-            RenderResource<RenderTarget> target = context.Borrow(source);
-            context.Publish(context.MaterializedInput(
-                MaterializedInputDescription.FromRenderTarget(
-                    target,
-                    bounds,
-                    EffectiveScale.At(1),
-                    PixelRect.FromRect(bounds, 1),
-                    default,
-                    RenderHitTestContract.OutputBounds)));
+            context.Publish(TargetPixelSourceTestSupport.RecordTargetPixels(context, source, bounds));
 
             if (!requireFullReadback)
                 return;

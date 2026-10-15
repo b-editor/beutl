@@ -89,12 +89,6 @@ public sealed partial class RenderNodeContext
         get { VerifyActive(); return _targetDomain; }
     }
 
-    /// <summary>Gets whether the current transaction remains eligible for persistent render caching.</summary>
-    public bool IsRenderCacheEnabled
-    {
-        get { VerifyActive(); return _transaction.IsRenderCacheEnabled; }
-    }
-
     /// <summary>
     /// Gets the positive finite final output density in device pixels per root logical unit.
     /// </summary>
@@ -217,12 +211,6 @@ public sealed partial class RenderNodeContext
     /// <param name="fragment">A non-null handle borrowed from the active transaction.</param>
     public void Publish(RenderFragmentHandle fragment)
         => GetTransaction().Publish(fragment);
-
-    /// <summary>Abandons a recorded fragment so it is neither published nor executed.</summary>
-    /// <remarks>Required for a target-effect fragment recorded only to inspect its metadata.</remarks>
-    /// <param name="fragment">A non-null unpublished handle borrowed from the active transaction.</param>
-    public void Drop(RenderFragmentHandle fragment)
-        => GetTransaction().Drop(fragment);
 
     /// <summary>Publishes recorded fragment streams in enumeration order.</summary>
     /// <param name="fragments">A non-null sequence of non-null handles borrowed from the active transaction.</param>

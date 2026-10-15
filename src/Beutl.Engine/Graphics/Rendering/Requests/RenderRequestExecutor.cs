@@ -671,7 +671,6 @@ internal sealed partial class RenderRequestExecutor
                     return;
                 case RenderFragmentKind.OpaqueMap:
                 case RenderFragmentKind.OpaqueExpand:
-                case RenderFragmentKind.MaterializedInput:
                 case RenderFragmentKind.Shader:
                     DrawMaterializedFragment(fragment, destination, callerScale);
                     return;
@@ -706,9 +705,6 @@ internal sealed partial class RenderRequestExecutor
                     return;
                 case RenderFragmentKind.TargetScope:
                     ExecuteReplayIsland(fragment, () => ExecuteTargetScope(fragment, destination, callerScale));
-                    return;
-                case RenderFragmentKind.RawTargetScope:
-                    ExecuteReplayIsland(fragment, () => ExecuteRawTargetScope(fragment, destination, callerScale));
                     return;
                 default:
                     throw new InvalidOperationException("The recorded render-fragment kind is invalid.");

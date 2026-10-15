@@ -19,7 +19,6 @@ public sealed class RenderContractPrimitiveTests
             Assert.That(RenderValueCardinality.ZeroOrOne.Maximum, Is.EqualTo(1));
             Assert.That(RenderValueCardinality.Dynamic.Minimum, Is.Zero);
             Assert.That(RenderValueCardinality.Dynamic.Maximum, Is.Null);
-            Assert.That(RenderValueCardinality.Exactly(3), Is.EqualTo(RenderValueCardinality.Range(3, 3)));
         });
     }
 
@@ -28,7 +27,6 @@ public sealed class RenderContractPrimitiveTests
     {
         Assert.Multiple(() =>
         {
-            Assert.That(() => RenderValueCardinality.Exactly(-1), Throws.TypeOf<ArgumentOutOfRangeException>());
             Assert.That(() => RenderValueCardinality.Range(-1, null), Throws.TypeOf<ArgumentOutOfRangeException>());
             Assert.That(() => RenderValueCardinality.Range(2, 1), Throws.TypeOf<ArgumentOutOfRangeException>());
             Assert.That(
@@ -97,7 +95,7 @@ public sealed class RenderContractPrimitiveTests
             Assert.That(contract.GetRequiredInputBounds(bounds), Is.EqualTo(bounds.Inflate(new Thickness(4, 5))));
             Assert.That(contract.RequiresFullInput, Is.False);
             Assert.That(
-                RenderBoundsContract.CreateFullInput(static input => input.Translate(new Vector(3, 4)))
+                RenderBoundsContract.CreateFullInput(new Vector(3, 4), static (offset, input) => input.Translate(offset))
                     .RequiresFullInput,
                 Is.True);
             Assert.That(
@@ -123,7 +121,7 @@ public sealed class RenderContractPrimitiveTests
                 () => RenderBoundsContract.Create(static value => value, null!),
                 Throws.TypeOf<ArgumentNullException>());
             Assert.That(
-                () => RenderBoundsContract.CreateFullInput(null!),
+                () => RenderBoundsContract.CreateFullInput<object?>(null, null!),
                 Throws.TypeOf<ArgumentNullException>());
             Assert.That(
                 () => default(RenderBoundsContract).TransformBounds(Rect.Empty),

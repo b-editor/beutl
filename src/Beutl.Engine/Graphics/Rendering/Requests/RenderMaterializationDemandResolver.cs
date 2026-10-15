@@ -188,18 +188,6 @@ internal static class RenderMaterializationDemandResolver
             case RenderFragmentKind.TargetLayerScope:
                 EnqueueInputs(fragment, targetDemand, DemandUse.ReplayTarget, pending);
                 return;
-            case RenderFragmentKind.RawTargetScope:
-                // A raw scope's declared scale contract is the only statement of how its replayed input is
-                // consumed, so its backward map always applies.
-                float rawScopeInputDemand =
-                    fragment.Payload is RawTargetScopeRenderFragmentPayload rawScopePayload
-                        ? ResolveMappedInputDemand(
-                            rawScopePayload.Description.Scale,
-                            targetDemand,
-                            maxWorkingScale)
-                        : targetDemand;
-                EnqueueInputs(fragment, rawScopeInputDemand, DemandUse.ReplayTarget, pending);
-                return;
             case RenderFragmentKind.TargetScope:
                 float inputDemand = ResolveTargetScopeInputDemand(fragment, targetDemand, maxWorkingScale);
                 EnqueueInputs(fragment, inputDemand, DemandUse.ReplayTarget, pending);
@@ -328,7 +316,6 @@ internal static class RenderMaterializationDemandResolver
                     pending,
                     IsEffectClassConsumer(fragment));
                 return;
-            case RenderFragmentKind.MaterializedInput:
             case RenderFragmentKind.TargetCapture:
             case RenderFragmentKind.BuiltInBackdropCapture:
                 return;

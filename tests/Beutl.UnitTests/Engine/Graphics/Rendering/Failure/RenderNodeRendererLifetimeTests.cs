@@ -199,15 +199,7 @@ public sealed class RenderNodeRendererLifetimeTests
             if (!PublishOutput)
                 return;
 
-            RenderResource<RenderTarget> target = context.Borrow(source);
-            RenderFragmentHandle input = context.MaterializedInput(
-                MaterializedInputDescription.FromRenderTarget(
-                    target,
-                    bounds,
-                    EffectiveScale.At(1),
-                    PixelRect.FromRect(bounds, 1),
-                    default,
-                    RenderHitTestContract.OutputBounds));
+            RenderFragmentHandle input = TargetPixelSourceTestSupport.RecordTargetPixels(context, source, bounds);
             ShaderDescription shader = ShaderDescription.CurrentPixel(
                 "uniform float gain; half4 apply(half4 color) { return color * gain; }",
                 static bindings => bindings.Uniform("gain", 0.75f));

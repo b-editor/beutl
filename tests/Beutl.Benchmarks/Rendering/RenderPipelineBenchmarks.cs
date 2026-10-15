@@ -844,22 +844,36 @@ internal sealed class BenchmarkMaterializedSourceNode(
     RenderTarget target,
     Rect bounds) : RenderNode
 {
+    private static readonly RenderResourceSlot<SKImage> s_imageSlot = new();
+    private readonly SKImage _image = target.Value.Snapshot();
+
     public override void Process(RenderNodeContext context)
     {
-        RenderResource<RenderTarget> resource = context.Borrow(target);
-        context.Publish(context.MaterializedInput(MaterializedInputDescription.FromRenderTarget(
-            resource,
+        RenderResource<SKImage> image = context.Borrow(_image);
+        context.Publish(context.OpaqueSource(OpaqueRenderDescription.Create(
             bounds,
-            EffectiveScale.At(1),
-            PixelRect.FromRect(bounds, 1),
-            default,
-            RenderHitTestContract.OutputBounds)));
+            static (session, bounds) =>
+            {
+                using OpaqueRenderOutput output = session.CreateOutput(bounds);
+                session.UseResource(
+                    s_imageSlot,
+                    image => output.Canvas.Use(canvas => canvas.DrawImageScaled(image, bounds)));
+                session.Publish(output);
+            },
+            OpaqueRenderBoundsContract.Source(bounds),
+            RenderHitTestContract.OutputBounds,
+            RenderValueCardinality.Single,
+            RenderScaleContract.Custom(static _ => 1f),
+            resources: [s_imageSlot.Bind(image)])));
     }
 
     protected override void OnDispose(bool disposing)
     {
         if (disposing)
+        {
+            _image.Dispose();
             target.Dispose();
+        }
     }
 }
 

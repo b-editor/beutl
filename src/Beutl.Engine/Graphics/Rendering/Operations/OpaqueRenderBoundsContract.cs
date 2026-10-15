@@ -1,13 +1,8 @@
-﻿using System.Collections.ObjectModel;
-
-namespace Beutl.Graphics.Rendering;
+﻿namespace Beutl.Graphics.Rendering;
 
 public sealed class OpaqueRenderBoundsContract
 {
     private readonly Rect _sourceBounds;
-    private readonly RenderBoundsContract _mapBounds;
-    private readonly Func<IReadOnlyList<Rect>, Rect>? _transformBounds;
-    private readonly Func<Rect, IReadOnlyList<Rect>, IReadOnlyList<Rect>>? _getRequiredInputBounds;
 
     private OpaqueRenderBoundsContract(Rect sourceBounds, Thickness rasterOutset)
     {
@@ -15,36 +10,6 @@ public sealed class OpaqueRenderBoundsContract
         _sourceBounds = sourceBounds;
         RasterOutset = rasterOutset;
         StructuralIdentity = new OpaqueRenderBoundsStructuralIdentity(Kind, null, null);
-    }
-
-    private OpaqueRenderBoundsContract(RenderBoundsContract mapBounds)
-    {
-        Kind = OpaqueRenderBoundsKind.Map;
-        _mapBounds = mapBounds;
-        StructuralIdentity = new OpaqueRenderBoundsStructuralIdentity(
-            Kind,
-            mapBounds.StructuralIdentity,
-            null);
-    }
-
-    private OpaqueRenderBoundsContract(
-        OpaqueRenderBoundsKind kind,
-        Func<IReadOnlyList<Rect>, Rect> transformBounds,
-        Func<Rect, IReadOnlyList<Rect>, IReadOnlyList<Rect>>? getRequiredInputBounds,
-        Delegate? forwardIdentity = null,
-        Delegate? backwardIdentity = null)
-    {
-        Kind = kind;
-        _transformBounds = transformBounds;
-        _getRequiredInputBounds = getRequiredInputBounds;
-        // A state-passing factory names the author's own callback here; a capturing one has none to name and
-        // the invoked delegate is the author's. Declaring these Delegate rather than object is what keeps a
-        // future factory from putting a per-recording binding into the identity by omitting the argument.
-        Delegate? backward = backwardIdentity ?? getRequiredInputBounds;
-        StructuralIdentity = new OpaqueRenderBoundsStructuralIdentity(
-            kind,
-            RenderDescriptionValidation.StructuralIdentityOf(forwardIdentity ?? transformBounds),
-            backward is null ? null : RenderDescriptionValidation.StructuralIdentityOf(backward));
     }
 
     /// <summary>
@@ -91,98 +56,6 @@ public sealed class OpaqueRenderBoundsContract
            && outset.Right >= 0
            && outset.Bottom >= 0;
 
-    public static OpaqueRenderBoundsContract Map(RenderBoundsContract bounds)
-    {
-        bounds.ThrowIfUninitialized(nameof(bounds));
-        return new OpaqueRenderBoundsContract(bounds);
-    }
-
-    public static OpaqueRenderBoundsContract Combine(
-        Func<IReadOnlyList<Rect>, Rect> transformBounds,
-        Func<Rect, IReadOnlyList<Rect>, IReadOnlyList<Rect>> getRequiredInputBounds)
-    {
-        ArgumentNullException.ThrowIfNull(transformBounds);
-        ArgumentNullException.ThrowIfNull(getRequiredInputBounds);
-        RenderDescriptionValidation.ValidatePureMetadataCallback(transformBounds, nameof(transformBounds));
-        RenderDescriptionValidation.ValidatePureMetadataCallback(
-            getRequiredInputBounds,
-            nameof(getRequiredInputBounds));
-        return new OpaqueRenderBoundsContract(
-            OpaqueRenderBoundsKind.Combine,
-            transformBounds,
-            getRequiredInputBounds);
-    }
-
-    public static OpaqueRenderBoundsContract FullInputs(
-        Func<IReadOnlyList<Rect>, Rect> transformBounds)
-    {
-        ArgumentNullException.ThrowIfNull(transformBounds);
-        RenderDescriptionValidation.ValidatePureMetadataCallback(transformBounds, nameof(transformBounds));
-        return new OpaqueRenderBoundsContract(
-            OpaqueRenderBoundsKind.FullInputs,
-            transformBounds,
-            null);
-    }
-
-    /// <summary>
-    /// Creates a combining bounds contract whose mappings read call-owned state instead of closing over it.
-    /// </summary>
-    /// <typeparam name="TState">The immutable state the mappings read.</typeparam>
-    /// <param name="state">The per-recording values the mappings need, which are request data.</param>
-    /// <param name="transformBounds">A pure forward mapping, declared <see langword="static"/>.</param>
-    /// <param name="getRequiredInputBounds">A pure backward mapping, declared the same way.</param>
-    public static OpaqueRenderBoundsContract Combine<TState>(
-        TState state,
-        Func<TState, IReadOnlyList<Rect>, Rect> transformBounds,
-        Func<TState, Rect, IReadOnlyList<Rect>, IReadOnlyList<Rect>> getRequiredInputBounds)
-    {
-        ArgumentNullException.ThrowIfNull(transformBounds);
-        ArgumentNullException.ThrowIfNull(getRequiredInputBounds);
-        RenderDescriptionValidation.ValidatePureMetadataCallback(transformBounds, nameof(transformBounds));
-        RenderDescriptionValidation.ValidatePureMetadataCallback(
-            getRequiredInputBounds,
-            nameof(getRequiredInputBounds));
-        var binding = new CombineBoundsMapping<TState>(state, transformBounds, getRequiredInputBounds);
-        return new OpaqueRenderBoundsContract(
-            OpaqueRenderBoundsKind.Combine,
-            binding.TransformBounds,
-            binding.GetRequiredInputBounds,
-            transformBounds,
-            getRequiredInputBounds);
-    }
-
-    /// <summary>
-    /// Creates a full-inputs bounds contract whose forward mapping reads call-owned state.
-    /// </summary>
-    /// <typeparam name="TState">The immutable state the mapping reads.</typeparam>
-    /// <param name="state">The per-recording values the mapping needs, which are request data.</param>
-    /// <param name="transformBounds">A pure forward mapping, declared <see langword="static"/>.</param>
-    public static OpaqueRenderBoundsContract FullInputs<TState>(
-        TState state,
-        Func<TState, IReadOnlyList<Rect>, Rect> transformBounds)
-    {
-        ArgumentNullException.ThrowIfNull(transformBounds);
-        RenderDescriptionValidation.ValidatePureMetadataCallback(transformBounds, nameof(transformBounds));
-        var binding = new CombineBoundsMapping<TState>(state, transformBounds, null);
-        return new OpaqueRenderBoundsContract(
-            OpaqueRenderBoundsKind.FullInputs,
-            binding.TransformBounds,
-            null,
-            transformBounds);
-    }
-
-    /// <summary>Holds one recording's state so the combining mappings themselves stay static.</summary>
-    private sealed class CombineBoundsMapping<TState>(
-        TState state,
-        Func<TState, IReadOnlyList<Rect>, Rect> transformBounds,
-        Func<TState, Rect, IReadOnlyList<Rect>, IReadOnlyList<Rect>>? getRequiredInputBounds)
-    {
-        public Rect TransformBounds(IReadOnlyList<Rect> inputs) => transformBounds(state, inputs);
-
-        public IReadOnlyList<Rect> GetRequiredInputBounds(Rect output, IReadOnlyList<Rect> inputs)
-            => getRequiredInputBounds!(state, output, inputs);
-    }
-
     internal OpaqueRenderBoundsKind Kind { get; }
 
     internal object StructuralIdentity { get; }
@@ -192,22 +65,13 @@ public sealed class OpaqueRenderBoundsContract
         ArgumentNullException.ThrowIfNull(inputBounds);
         ValidateRectangles(inputBounds, nameof(inputBounds));
 
-        Rect result = Kind switch
-        {
-            OpaqueRenderBoundsKind.Source when inputBounds.Count == 0 => _sourceBounds,
-            OpaqueRenderBoundsKind.Source => throw new InvalidOperationException(
-                "A source bounds contract cannot receive input bounds."),
-            OpaqueRenderBoundsKind.Map when inputBounds.Count == 1 => _mapBounds.TransformBounds(inputBounds[0]),
-            OpaqueRenderBoundsKind.Map => throw new InvalidOperationException(
-                "A map bounds contract requires exactly one input bound."),
-            OpaqueRenderBoundsKind.Combine or OpaqueRenderBoundsKind.FullInputs => _transformBounds!(inputBounds),
-            _ => throw new InvalidOperationException("The opaque render bounds contract is invalid."),
-        };
+        if (inputBounds.Count != 0)
+            throw new InvalidOperationException("A source bounds contract cannot receive input bounds.");
 
         RenderRectValidation.ThrowIfInvalidResult(
-            result,
+            _sourceBounds,
             "The opaque render bounds forward mapping returned an invalid rectangle.");
-        return result;
+        return _sourceBounds;
     }
 
     internal IReadOnlyList<Rect> GetRequiredInputBounds(
@@ -218,48 +82,10 @@ public sealed class OpaqueRenderBoundsContract
         ArgumentNullException.ThrowIfNull(inputBounds);
         ValidateRectangles(inputBounds, nameof(inputBounds));
 
-        if (Kind == OpaqueRenderBoundsKind.Source)
-        {
-            if (inputBounds.Count != 0)
-                throw new InvalidOperationException("A source bounds contract cannot receive input bounds.");
+        if (inputBounds.Count != 0)
+            throw new InvalidOperationException("A source bounds contract cannot receive input bounds.");
 
-            return Array.Empty<Rect>();
-        }
-
-        bool emptyRequirement = requestedOutputBounds.Width == 0 || requestedOutputBounds.Height == 0;
-        IReadOnlyList<Rect> result;
-        if (Kind == OpaqueRenderBoundsKind.Map)
-        {
-            if (inputBounds.Count != 1)
-                throw new InvalidOperationException("A map bounds contract requires exactly one input bound.");
-
-            Rect required = emptyRequirement
-                ? Rect.Empty
-                : _mapBounds.RequiresFullInput
-                    ? inputBounds[0]
-                    : _mapBounds.GetRequiredInputBounds(requestedOutputBounds);
-            result = [required];
-        }
-        else if (Kind == OpaqueRenderBoundsKind.FullInputs)
-        {
-            result = emptyRequirement
-                ? Enumerable.Repeat(Rect.Empty, inputBounds.Count).ToArray()
-                : inputBounds.ToArray();
-        }
-        else
-        {
-            result = _getRequiredInputBounds!(requestedOutputBounds, inputBounds)
-                ?? throw new InvalidOperationException("The opaque render bounds backward mapping returned null.");
-        }
-
-        if (result.Count != inputBounds.Count)
-        {
-            throw new InvalidOperationException(
-                "The opaque render bounds backward mapping must return exactly one rectangle per input.");
-        }
-
-        ValidateResultRectangles(result);
-        return result is ReadOnlyCollection<Rect> ? result : Array.AsReadOnly(result.ToArray());
+        return Array.Empty<Rect>();
     }
 
     internal void ThrowIfIncompatible(OpaqueRenderTopology topology, string parameterName)
@@ -290,18 +116,6 @@ public sealed class OpaqueRenderBoundsContract
                 throw new ArgumentException(
                     $"Input bound {index} must be finite and have non-negative dimensions.",
                     parameterName);
-            }
-        }
-    }
-
-    private static void ValidateResultRectangles(IReadOnlyList<Rect> values)
-    {
-        for (int index = 0; index < values.Count; index++)
-        {
-            if (!RenderRectValidation.IsFiniteNonNegative(values[index]))
-            {
-                throw new InvalidOperationException(
-                    $"The opaque render bounds backward mapping returned an invalid rectangle at index {index}.");
             }
         }
     }

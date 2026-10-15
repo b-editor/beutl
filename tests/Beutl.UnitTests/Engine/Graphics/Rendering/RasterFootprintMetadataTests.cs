@@ -98,43 +98,6 @@ public sealed class RasterFootprintMetadataTests
     }
 
     [Test]
-    public void TargetAttachedCallback_DrawDeviceSpaceUsesTheBackingSurfaceOrigin()
-    {
-        var callbackBounds = new Rect(10, 12, 8, 6);
-        var token = new RenderExecutionSessionToken();
-        var inputBounds = new Rect(0, 0, 2, 2);
-        PixelRect inputDeviceBounds = PixelRect.FromRect(inputBounds, 1);
-        using var inputTarget = new CpuRenderTarget(inputDeviceBounds.Width, inputDeviceBounds.Height);
-        inputTarget.Value.Canvas.Clear(SKColors.White);
-        using SKImage inputImage = inputTarget.Value.Snapshot();
-        var input = new RenderExecutionInput(
-            token,
-            inputBounds,
-            EffectiveScale.At(1),
-            inputDeviceBounds,
-            inputDeviceBounds.ToRect(1),
-            inputImage,
-            createSnapshot: null);
-        using var target = new CpuRenderTarget(64, 48);
-        target.Value.Canvas.Clear(SKColors.Transparent);
-        PixelRect callbackDeviceBounds = PixelRect.FromRect(callbackBounds, 1);
-        var facade = new RenderCallbackCanvas(
-            token,
-            density: 1,
-            callbackBounds,
-            callbackDeviceBounds,
-            () => new ImmediateCanvas(target, RenderIntent.Preview, logicalSize: new Size(64, 48)),
-            CallbackCanvasCapability.TargetCommandRegion,
-            mapLogicalOrigin: false);
-
-        facade.Use(canvas => input.DrawDeviceSpace(canvas, new Point(14, 15)));
-        using Bitmap rendered = target.Snapshot();
-
-        Assert.That(MeasureAlphaBounds(rendered), Is.EqualTo(new PixelRect(14, 15, 2, 2)));
-        token.Complete();
-    }
-
-    [Test]
     public void TargetAttachedCallback_ReportsTheAmbientTranslationDeviceGrid()
     {
         var callbackBounds = new Rect(10, 12, 8, 6);

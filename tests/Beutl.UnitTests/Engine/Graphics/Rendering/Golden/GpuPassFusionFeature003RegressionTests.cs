@@ -379,16 +379,7 @@ public sealed class GpuPassFusionFeature003RegressionTests
         private static readonly Rect s_bounds = new(48, 32, 96, 64);
 
         public override void Process(RenderNodeContext context)
-        {
-            RenderResource<RenderTarget> target = context.Borrow(source);
-            context.Publish(context.MaterializedInput(MaterializedInputDescription.FromRenderTarget(
-                target,
-                s_bounds,
-                EffectiveScale.At(1),
-                PixelRect.FromRect(s_bounds, 1),
-                default,
-                RenderHitTestContract.OutputBounds)));
-        }
+            => context.Publish(TargetPixelSourceTestSupport.RecordTargetPixels(context, source, s_bounds));
     }
 
     private readonly record struct GoldenLimits(

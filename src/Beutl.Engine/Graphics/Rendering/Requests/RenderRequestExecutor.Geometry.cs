@@ -255,27 +255,5 @@ internal sealed partial class RenderRequestExecutor
 
             return density;
         }
-
-        private IReadOnlyList<MaterializedRenderValue> MaterializeExternal(
-            RenderFragmentReference fragment)
-        {
-            var payload = (MaterializedInputRenderFragmentPayload)fragment.Payload!;
-            MaterializedInputDescription description = payload.Description;
-            MaterializedRenderValue value = description.Target.Registry.Use(
-                description.Target,
-                target =>
-                {
-                    description.ValidateTargetDeviceSize(target);
-                    return CreateOwnedShallowCopy(
-                        target,
-                        description.Bounds,
-                        description.EffectiveScale,
-                        description.DeviceBounds,
-                        description.DeviceGridOffset);
-                });
-            _ownedValues.Add(value);
-            return [value];
-        }
-
     }
 }

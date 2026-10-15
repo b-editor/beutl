@@ -75,10 +75,6 @@ internal static class TargetDependencyLowerer
                 case RenderFragmentKind.TargetScope:
                     LowerScopeWrapper(reference, scopeId, compositeOutput);
                     return;
-                case RenderFragmentKind.RawTargetScope:
-                    ValidateFullDomain(reference, scopeId);
-                    LowerScopeWrapper(reference, scopeId, compositeOutput);
-                    return;
                 case RenderFragmentKind.ContributeValues:
                     LowerDependencies(reference, scopeId);
                     if (compositeOutput)

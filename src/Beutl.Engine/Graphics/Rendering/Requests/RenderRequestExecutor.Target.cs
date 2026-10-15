@@ -232,41 +232,6 @@ internal sealed partial class RenderRequestExecutor
             }
         }
 
-        private void ExecuteRawTargetScope(
-            RenderFragmentReference fragment,
-            ImmediateCanvas destination,
-            EffectiveScale callerScale)
-        {
-            RawTargetScopeDescription description =
-                ((RawTargetScopeRenderFragmentPayload)fragment.Payload!).Description;
-            RenderFragmentReference input = fragment.Inputs.Single();
-            // A raw scope's declared scale contract is the only statement of how its replayed input is
-            // consumed, so its backward map applies unconditionally, as it does in the demand resolver.
-            EffectiveScale inputCallerScale = ResolveScopeInputCallerScale(description.Scale, callerScale);
-            using ImmediateCanvas view = destination.CreateExecutionView();
-            RenderExecutionSessionToken token = CreateExecutionSessionToken();
-            token.RunAndComplete(
-                () =>
-                {
-                    token.UseRawCanvas(
-                        view,
-                        canvas =>
-                        {
-                            var session = new RawTargetScopeSession(
-                                token,
-                                canvas,
-                                fragment.Bounds,
-                                _options.Intent,
-                                _options.Purpose,
-                                description.Resources,
-                                replayCanvas => replayCanvas.ReplayTargetScopeInput(
-                                    nested => Replay(input, nested, inputCallerScale)));
-                            description.Execute(session);
-                            session.ValidateCompletion();
-                        });
-                });
-        }
-
         private IReadOnlyList<RenderExecutionInput> CreateTargetCommandExecutionInputs(
             RenderExecutionSessionToken token,
             IReadOnlyList<MaterializedRenderValue> values,

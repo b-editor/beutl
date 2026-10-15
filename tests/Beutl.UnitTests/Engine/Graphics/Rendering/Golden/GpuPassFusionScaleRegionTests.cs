@@ -5,7 +5,6 @@ using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Requests;
 using Beutl.Graphics.Shaders;
 using Beutl.Media;
-using Beutl.Media.TextFormatting;
 using Beutl.UnitTests.Engine.Graphics.Backend;
 using Beutl.UnitTests.Engine.Graphics.Rendering.Baseline;
 using Beutl.UnitTests.Engine.Graphics.Rendering.Fusion;
@@ -28,42 +27,6 @@ public sealed class GpuPassFusionScaleRegionTests
     // antialiased stroke edge sweeps through that coverage, so the observed maximum is 0.2406. This floor sits
     // well under it and far above the 0 that a stage which never ran would produce.
     private const double MinimumSelfAlphaProductChange = 0.10;
-
-    [Test]
-    public void MixedVectorBitmapAndTextInputs_ResolveDensestSupplyThenMaximumWorkingScale()
-    {
-        using var root = new MixedDensityNode();
-        using var owner = new RenderRequestOwner();
-        var request = new RenderRequest(new RenderRequestOptions(
-            RenderIntent.Preview,
-            RenderRequestPurpose.Bounds,
-            targetDomain: s_domain,
-            outputScale: 1,
-            maxWorkingScale: 2.5f,
-            owner: owner));
-        using (request)
-        {
-            RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(root);
-            RenderFragmentReference combined = graph.Fragments
-                .Single(static reference => reference.Kind == RenderFragmentKind.OpaqueCombine);
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(combined.Inputs, Has.Length.EqualTo(4));
-                Assert.That(combined.Inputs.Count(static input => input.EffectiveScale.IsUnbounded),
-                    Is.EqualTo(2), "vector geometry and text must remain re-rasterizable");
-                Assert.That(
-                    combined.Inputs
-                        .Where(static input => !input.EffectiveScale.IsUnbounded)
-                        .Select(static input => input.EffectiveScale.Value),
-                    Is.EquivalentTo(new[] { 0.5f, 2.5f }),
-                    "each concrete source is capped as it is recorded before the combined boundary resolves");
-                Assert.That(combined.EffectiveScale.IsUnbounded, Is.False);
-                Assert.That(combined.EffectiveScale.Value, Is.EqualTo(2.5f),
-                    "the dense bitmap supply wins before the request ceiling is applied");
-            });
-        }
-    }
 
     [Test]
     public void CompleteBoundsClamp_PrecedesRequestedRegionAndNeverExceedsTheAxisBudget()
@@ -397,42 +360,6 @@ public sealed class GpuPassFusionScaleRegionTests
             CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
         }, new CpuRenderTargetFactory());
 
-    [TestCase(CaptureContainer.FiniteLayer)]
-    [TestCase(CaptureContainer.TargetLayerScope)]
-    public void DeclaredTargetCaptureResamplesWhileBackdropLateBindsToDenserScopeAndCacheIdentity(
-        CaptureContainer container)
-    {
-        using var node = new CaptureDensityNode(container);
-
-        RenderFragmentOutputIdentity declaredAtOne = RecordCaptureIdentity(node, outputScale: 1, builtIn: false);
-        RenderFragmentOutputIdentity declaredAtTwo = RecordCaptureIdentity(node, outputScale: 2, builtIn: false);
-        RenderFragmentOutputIdentity backdropIdentity = RecordCaptureIdentity(node, outputScale: 1, builtIn: true);
-
-        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
-        {
-            Intent = RenderIntent.Preview,
-            TargetDomain = s_domain,
-            OutputScale = 1,
-            MaxWorkingScale = 2,
-            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-        }, new CpuRenderTargetFactory());
-        using RenderNodeRasterization rasterization = renderer.Rasterize();
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(node.PublicCaptureInputDensity, Is.EqualTo(1),
-                "a public capture uses its no-input, output-derived declared density");
-            Assert.That(node.BuiltInCaptureInputDensity, Is.EqualTo(2),
-                "the engine backdrop must bind to the actual denser owning target");
-            Assert.That(node.CommittedBackdropDensity, Is.EqualTo(2));
-            Assert.That(declaredAtOne, Is.Not.EqualTo(declaredAtTwo),
-                "declared capture density must participate in the output-cache identity");
-            Assert.That(declaredAtOne, Is.Not.EqualTo(backdropIdentity),
-                "a late-bound backdrop is request-local and cannot alias a public declared-density capture");
-            Assert.That(rasterization.Bitmap, Is.Not.Null);
-        });
-    }
-
     [Test]
     public void AntialiasedThinStroke_CurrentPixelBoundaryPreservesEdgeCoverage()
     {
@@ -483,27 +410,6 @@ public sealed class GpuPassFusionScaleRegionTests
                     "the color*alpha CurrentPixel shader must actually change the thin-stroke image.");
             });
         });
-    }
-
-    private static RenderFragmentOutputIdentity RecordCaptureIdentity(
-        RenderNode root,
-        float outputScale,
-        bool builtIn)
-    {
-        using var owner = new RenderRequestOwner();
-        using var request = new RenderRequest(new RenderRequestOptions(
-            RenderIntent.Preview,
-            RenderRequestPurpose.Frame,
-            targetDomain: s_domain,
-            outputScale: outputScale,
-            maxWorkingScale: 2,
-            owner: owner));
-        RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(root);
-        RenderFragmentReference reference = graph.Fragments
-            .Single(item => item.Kind == (builtIn
-                ? RenderFragmentKind.BuiltInBackdropCapture
-                : RenderFragmentKind.TargetCapture));
-        return RenderFragmentOutputIdentity.Create(reference, request.Id);
     }
 
     /// <summary>CPU oracle for the <c>color * color.a</c> CurrentPixel stage over premultiplied RGBA16F.</summary>
@@ -561,60 +467,6 @@ public sealed class GpuPassFusionScaleRegionTests
             Is.GreaterThan(0),
             $"The {mode} thin-stroke fixture must contain antialiased coverage before parity is evaluated.");
         return result;
-    }
-
-    public enum CaptureContainer
-    {
-        FiniteLayer,
-        TargetLayerScope,
-    }
-
-    private sealed class MixedDensityNode : RenderNode
-    {
-        private readonly RenderNode _lowDensity = ScaleRecordingTestHelper.Source(EffectiveScale.At(0.5f));
-        private readonly RenderNode _highDensity = ScaleRecordingTestHelper.Source(EffectiveScale.At(4));
-        private readonly RectangleRenderNode _vector = new(
-            new Rect(4, 6, 60, 38),
-            Brushes.Resource.White,
-            null);
-        private readonly FormattedText _text;
-        private readonly TextRenderNode _textNode;
-
-        public MixedDensityNode()
-        {
-            Typeface typeface = TypefaceProvider.Typeface();
-            _text = new FormattedText
-            {
-                Font = typeface.FontFamily,
-                Style = typeface.Style,
-                Weight = typeface.Weight,
-                Size = 18,
-                Text = "density",
-            };
-            _textNode = new TextRenderNode(_text, Brushes.Resource.White, null);
-        }
-
-        public override void Process(RenderNodeContext context)
-        {
-            RenderFragmentHandle[] inputs =
-            [
-                context.RecordNode(_lowDensity, [])[0],
-                context.RecordNode(_highDensity, [])[0],
-                context.RecordNode(_vector, [])[0],
-                context.RecordNode(_textNode, [])[0],
-            ];
-            context.Publish(context.OpaqueCombine(inputs, CreateCombineDescription()));
-        }
-
-        protected override void OnDispose(bool disposing)
-        {
-            _lowDensity.Dispose();
-            _highDensity.Dispose();
-            _vector.Dispose();
-            _textNode.Dispose();
-            _text.Dispose();
-            base.OnDispose(disposing);
-        }
     }
 
     private sealed class ShiftedCallbackNode(Rect bounds) : RenderNode
@@ -845,93 +697,6 @@ public sealed class GpuPassFusionScaleRegionTests
             RenderValueCardinality.Single,
             RenderScaleContract.Custom(static _ => 2));
 
-    private sealed class CaptureDensityNode(CaptureContainer container)
-        : RenderNode, IBuiltInBackdropCaptureSink
-    {
-        private readonly RenderNode _localSource = ScaleRecordingTestHelper.Source(EffectiveScale.Unbounded, s_domain);
-        private readonly RenderNode _denseSource = ScaleRecordingTestHelper.Source(EffectiveScale.At(2), s_domain);
-        private Bitmap? _committedBackdrop;
-
-        public float PublicCaptureInputDensity { get; private set; }
-
-        public float BuiltInCaptureInputDensity { get; private set; }
-
-        public float CommittedBackdropDensity { get; private set; }
-
-        public override void Process(RenderNodeContext context)
-        {
-            RenderFragmentHandle source = context.RecordNode(_localSource, [])[0];
-            RenderFragmentHandle publicCapture = context.TargetCapture(TargetCaptureDescription.Create(
-                TargetRegion.Region(s_domain),
-                s_domain,
-                RenderHitTestContract.None,
-                TargetCaptureScaleContract.MaterializeAtWorkingScale));
-            RenderFragmentHandle publicReplay = context.ContributeValues(
-                context.OpaqueMap(publicCapture, CreateCaptureObserver(CaptureKind.Public)));
-
-            RenderFragmentHandle builtInCapture = context.BuiltInBackdropCapture(this);
-            RenderFragmentHandle builtInReplay = context.ContributeValues(
-                context.OpaqueMap(builtInCapture, CreateCaptureObserver(CaptureKind.BuiltIn)));
-            RenderFragmentHandle[] localInputs =
-                [source, publicCapture, publicReplay, builtInCapture, builtInReplay];
-
-            RenderFragmentHandle layer = container switch
-            {
-                CaptureContainer.FiniteLayer => context.Layer(localInputs, s_domain),
-                CaptureContainer.TargetLayerScope => context.Layer(
-                    [context.TargetLayerScope(localInputs, TargetRegion.Region(s_domain))],
-                    s_domain),
-                _ => throw new ArgumentOutOfRangeException(),
-            };
-            RenderFragmentHandle dense = context.RecordNode(_denseSource, [])[0];
-            context.Publish(context.OpaqueCombine([layer, dense], CreateCombineDescription()));
-        }
-
-        bool IBuiltInBackdropCaptureSink.TryCommitBackdropCapture(Bitmap bitmap, float density)
-        {
-            _committedBackdrop?.Dispose();
-            _committedBackdrop = bitmap;
-            CommittedBackdropDensity = density;
-            return true;
-        }
-
-        protected override void OnDispose(bool disposing)
-        {
-            _committedBackdrop?.Dispose();
-            _committedBackdrop = null;
-            _localSource.Dispose();
-            _denseSource.Dispose();
-            base.OnDispose(disposing);
-        }
-
-        private OpaqueRenderDescription CreateCaptureObserver(CaptureKind kind)
-        {
-            return OpaqueRenderDescription.CreateRequestLocal(
-                execute: session =>
-                {
-                    float density = session.Inputs.Single().EffectiveScale.Value;
-                    if (kind == CaptureKind.Public)
-                        PublicCaptureInputDensity = density;
-                    else
-                        BuiltInCaptureInputDensity = density;
-
-                    using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
-                    output.Canvas.Use(session.Inputs[0].Draw);
-                    session.Publish(output);
-                },
-                bounds: OpaqueRenderBoundsContract.Map(RenderBoundsContract.Identity),
-                hitTest: RenderHitTestContract.AnyInput,
-                valueCardinality: RenderValueCardinality.Single,
-                scale: RenderScaleContract.PreserveInputSupply);
-        }
-
-        private enum CaptureKind
-        {
-            Public,
-            BuiltIn,
-        }
-    }
-
     private sealed class ThinStrokeShaderNode : RenderNode
     {
         private static readonly ShaderDescription s_colorTimesAlpha = ShaderDescription.CurrentPixel(
@@ -973,25 +738,5 @@ public sealed class GpuPassFusionScaleRegionTests
             _geometryResource.Dispose();
             base.OnDispose(disposing);
         }
-    }
-
-    private static OpaqueRenderDescription CreateCombineDescription()
-    {
-        return OpaqueRenderDescription.CreateRequestLocal(
-            execute: static session =>
-            {
-                using OpaqueRenderOutput output = session.CreateOutput(session.OutputBounds);
-                output.Canvas.Use(canvas =>
-                {
-                    foreach (RenderExecutionInput input in session.Inputs)
-                        input.Draw(canvas);
-                });
-                session.Publish(output);
-            },
-            bounds: OpaqueRenderBoundsContract.FullInputs(
-                static inputs => inputs.Aggregate(Rect.Empty, static (result, input) => result.Union(input))),
-            hitTest: RenderHitTestContract.AnyInput,
-            valueCardinality: RenderValueCardinality.Single,
-            scale: RenderScaleContract.MaterializeAtWorkingScale);
     }
 }

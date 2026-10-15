@@ -11,39 +11,13 @@ public sealed class RawSessionSlotResourceTests
     private static readonly Rect s_domain = new(0, 0, 8, 8);
 
     [Test]
-    public void ARawScopeReachesTheResourceBoundToItsDeclaredSlot()
-    {
-        using var node = new SlotAddressingNode(throughScope: true);
-
-        Render(node);
-
-        Assert.That(node.Reached, Is.EqualTo(new[] { "bound" }));
-    }
-
-    [Test]
     public void ARawCommandReachesTheResourceBoundToItsDeclaredSlot()
     {
-        using var node = new SlotAddressingNode(throughScope: false);
+        using var node = new SlotAddressingNode();
 
         Render(node);
 
         Assert.That(node.Reached, Is.EqualTo(new[] { "bound" }));
-    }
-
-    [Test]
-    public void RebindingTheSlotChangesWhatTheSameDefinitionReaches()
-    {
-        using var node = new SlotAddressingNode(throughScope: true);
-
-        Render(node);
-        node.RebindToTheOtherPayload();
-        Render(node);
-
-        Assert.That(
-            node.Reached,
-            Is.EqualTo(new[] { "bound", "rebound" }),
-            "The slot is what the callback names, so a new binding has to reach it without the callback "
-            + "changing.");
     }
 
     private static void Render(RenderNode node)
@@ -58,56 +32,23 @@ public sealed class RawSessionSlotResourceTests
         renderer.Rasterize().Dispose();
     }
 
-    private sealed class SlotAddressingNode(bool throughScope) : RenderNode
+    private sealed class SlotAddressingNode : RenderNode
     {
         private static readonly RenderResourceSlot<Payload> s_slot = new();
 
         private readonly Payload _bound = new("bound");
-        private readonly Payload _rebound = new("rebound");
-        private bool _useRebound;
 
         public List<string> Reached { get; } = [];
 
-        public void RebindToTheOtherPayload()
-        {
-            _useRebound = true;
-            MarkChanged();
-        }
-
         public override void Process(RenderNodeContext context)
         {
-            Payload payload = _useRebound ? _rebound : _bound;
-            payload.Reached = Reached;
-            RenderResource<Payload> token = context.Borrow(payload);
-
-            if (!throughScope)
-            {
-                context.Publish(context.RawTargetCommand(RawTargetCommandDescription.Create(
-                    s_domain,
-                    static (session, _) => session.UseResource(s_slot, static payload => payload.Reach()),
-                    s_domain,
-                    RenderHitTestContract.OutputBounds,
-                    resources: [s_slot.Bind(token)])));
-                return;
-            }
-
-            // A scope needs something to replay, and this inner command must not reach the slot itself or
-            // the assertion could not tell which of the two sessions addressed it.
-            RenderFragmentHandle inert = context.RawTargetCommand(
-                RawTargetCommandDescription.CreateRequestLocal(
-                    static _ => { },
-                    s_domain,
-                    RenderHitTestContract.OutputBounds));
-            context.Publish(context.RawTargetScope(inert, RawTargetScopeDescription.Create(
+            _bound.Reached = Reached;
+            RenderResource<Payload> token = context.Borrow(_bound);
+            context.Publish(context.RawTargetCommand(RawTargetCommandDescription.Create(
                 s_domain,
-                static (session, _) =>
-                {
-                    session.UseResource(s_slot, static payload => payload.Reach());
-                    session.ReplayInput();
-                },
-                RenderBoundsContract.FullInput,
-                RenderHitTestContract.AnyInput,
-                RenderScaleContract.PreserveInputSupply,
+                static (session, _) => session.UseResource(s_slot, static payload => payload.Reach()),
+                s_domain,
+                RenderHitTestContract.OutputBounds,
                 resources: [s_slot.Bind(token)])));
         }
     }

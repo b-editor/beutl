@@ -187,22 +187,6 @@ public partial class ImmediateCanvas
             effective);
     }
 
-    internal void DrawExecutionInputDeviceSpace(SKImage image, Point localDevicePoint)
-    {
-        ArgumentNullException.ThrowIfNull(image);
-        VerifyPixelOperation();
-        using (PushDeviceSpace())
-        {
-            PrepareBlitPaint(antialias: true);
-            Canvas.DrawImage(
-                image,
-                localDevicePoint.X,
-                localDevicePoint.Y,
-                new SKSamplingOptions(SKCubicResampler.Mitchell),
-                _sharedFillPaint);
-        }
-    }
-
     /// <summary>
     /// Replays a target scope's recorded input, permitting nested render work for the replay's duration.
     /// </summary>

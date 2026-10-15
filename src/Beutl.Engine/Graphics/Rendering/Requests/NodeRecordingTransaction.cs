@@ -203,19 +203,6 @@ internal sealed partial class NodeRecordingTransaction : IRenderResourceRecordin
         }
     }
 
-    public void Drop(RenderFragmentHandle fragment)
-    {
-        RenderFragmentReference reference = GetReference(fragment);
-        if (_publications.Contains(reference))
-        {
-            throw new InvalidOperationException(
-                "The render fragment was already published and cannot be dropped.");
-        }
-
-        (_dropped ??= new HashSet<RenderFragmentReference>(ReferenceEqualityComparer.Instance))
-            .Add(reference);
-    }
-
     public void DisableRenderCache()
     {
         VerifyActive();

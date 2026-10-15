@@ -158,9 +158,6 @@ internal sealed class StructuralFragmentIdentity : IEquatable<StructuralFragment
                 AddWorkingScalePolicy(effectItem.WorkingScalePolicy, ref components);
                 components.AddInt32(effectItem.StreamInputCount);
                 return;
-            case MaterializedInputRenderFragmentPayload input:
-                components.AddReference(input.Description.HitTest.StructuralIdentity);
-                return;
             case TargetCaptureRenderFragmentPayload capture:
                 AddTargetCaptureComponents(capture.Description, ref components);
                 return;
@@ -169,13 +166,6 @@ internal sealed class StructuralFragmentIdentity : IEquatable<StructuralFragment
                 return;
             case TargetScopeRenderFragmentPayload scope:
                 AddTargetScopeComponents(scope.Description, ref components);
-                return;
-            case RawTargetScopeRenderFragmentPayload scope:
-                components.AddReference(scope.Description.DefinitionFingerprint);
-                components.AddReference(scope.Description.Bounds.StructuralIdentity);
-                components.AddReference(scope.Description.HitTest.StructuralIdentity);
-                components.AddReference(scope.Description.Scale.StructuralIdentity);
-                AddResourceTypes(scope.Description.Resources, ref components);
                 return;
             case RawTargetCommandRenderFragmentPayload command:
                 components.AddReference(command.Description.DefinitionFingerprint);

@@ -68,52 +68,6 @@ public readonly struct RenderHitTestContract
             RenderDescriptionValidation.StructuralIdentityOf(hitTest));
     }
 
-    /// <summary>
-    /// Creates a hit test that reads the resource a call bound to <paramref name="slot"/>.
-    /// </summary>
-    /// <typeparam name="T">The raw resource type the slot addresses.</typeparam>
-    /// <param name="slot">A slot the owning description declares.</param>
-    /// <param name="hitTest">
-    /// The pure test, given the bound resource. It must not capture a resource of its own; the slot is
-    /// resolved against the bindings of the description being tested, so one hit test can be reused across
-    /// recordings that bind different resources.
-    /// </param>
-    public static RenderHitTestContract FromSlot<T>(
-        RenderResourceSlot<T> slot,
-        Func<T, Point, bool> hitTest)
-        where T : class
-    {
-        ArgumentNullException.ThrowIfNull(slot);
-        ArgumentNullException.ThrowIfNull(hitTest);
-        RenderDescriptionValidation.ValidatePureMetadataCallback(hitTest, nameof(hitTest));
-        return new RenderHitTestContract(
-            (context, point) => context.UseResource(slot, value => hitTest(value, point)),
-            RenderDescriptionValidation.StructuralIdentityOf(hitTest));
-    }
-
-    /// <summary>
-    /// Creates a hit test that reads the resource a call bound to <paramref name="slot"/> and also
-    /// consults the operation's output bounds and inputs.
-    /// </summary>
-    /// <typeparam name="T">The raw resource type the slot addresses.</typeparam>
-    /// <param name="slot">A slot the owning description declares.</param>
-    /// <param name="hitTest">
-    /// The pure test, given the bound resource and the hit-test context. It must not capture a resource
-    /// of its own.
-    /// </param>
-    public static RenderHitTestContract FromSlot<T>(
-        RenderResourceSlot<T> slot,
-        Func<T, RenderHitTestContext, Point, bool> hitTest)
-        where T : class
-    {
-        ArgumentNullException.ThrowIfNull(slot);
-        ArgumentNullException.ThrowIfNull(hitTest);
-        RenderDescriptionValidation.ValidatePureMetadataCallback(hitTest, nameof(hitTest));
-        return new RenderHitTestContract(
-            (context, point) => context.UseResource(slot, value => hitTest(value, context, point)),
-            RenderDescriptionValidation.StructuralIdentityOf(hitTest));
-    }
-
     internal static RenderHitTestContract FromResource<T, TState>(
         RenderResource<T> resource,
         TState state,

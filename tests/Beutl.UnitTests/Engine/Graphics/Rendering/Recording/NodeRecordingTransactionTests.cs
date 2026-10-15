@@ -248,7 +248,7 @@ public sealed class NodeRecordingTransactionTests
         bool? childSawCacheEnabled = null;
         var host = new RecordingHost(request)
         {
-            ChildAction = context => childSawCacheEnabled = context.IsRenderCacheEnabled,
+            ChildTransactionAction = child => childSawCacheEnabled = child.IsRenderCacheEnabled,
         };
         var parent = new NodeRecordingTransaction(host, new object(), []);
         using var childNode = new MemoryNode<int>(0);
@@ -377,7 +377,6 @@ public sealed class NodeRecordingTransactionTests
             Assert.That(
                 () => _ = committedContext.Device3DExtentBudget,
                 Throws.TypeOf<InvalidOperationException>());
-            Assert.That(() => _ = committedContext.IsRenderCacheEnabled, Throws.TypeOf<InvalidOperationException>());
             Assert.That(
                 () => committedContext.TryCalculateInputBounds(out _),
                 Throws.TypeOf<InvalidOperationException>());
@@ -802,6 +801,8 @@ public sealed class NodeRecordingTransactionTests
 
         public Action<RenderNodeContext>? ChildAction { get; init; }
 
+        public Action<NodeRecordingTransaction>? ChildTransactionAction { get; init; }
+
         public IReadOnlyList<RenderFragmentHandle> LastChildInputs { get; private set; } = [];
 
         public List<NodeRecordingCommit> Commits { get; } = [];
@@ -815,6 +816,7 @@ public sealed class NodeRecordingTransactionTests
             var child = new NodeRecordingTransaction(this, node, inputs, parent);
             LastChildInputs = child.InputHandles;
             ChildAction?.Invoke(new RenderNodeContext(child));
+            ChildTransactionAction?.Invoke(child);
             return child.Commit();
         }
 

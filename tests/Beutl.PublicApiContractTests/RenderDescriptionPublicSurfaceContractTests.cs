@@ -32,12 +32,10 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
         "OpaqueRenderDescription.Create",
         "TargetScopeDescription.Create",
         "TargetCommandDescription.Create",
-        "RawTargetScopeDescription.Create",
         "RawTargetCommandDescription.Create",
         "ShaderDescription.CurrentPixel",
         "ShaderDescription.WholeSource",
         "TargetCaptureDescription.Create",
-        "MaterializedInputDescription.FromRenderTarget",
     ];
 
     private delegate IReadOnlyList<RenderResourceBinding> BindResources(
@@ -65,17 +63,9 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
         AssertContextRecordingSurface(
             typeof(RenderNodeContext), "OpaqueSource", typeof(OpaqueRenderDescription));
         AssertContextRecordingSurface(
-            typeof(RenderNodeContext), "OpaqueMap", typeof(OpaqueRenderDescription));
-        AssertContextRecordingSurface(
-            typeof(RenderNodeContext), "OpaqueCombine", typeof(OpaqueRenderDescription));
-        AssertContextRecordingSurface(
-            typeof(RenderNodeContext), "OpaqueExpand", typeof(OpaqueRenderDescription));
-        AssertContextRecordingSurface(
             typeof(RenderNodeContext), "TargetScope", typeof(TargetScopeDescription));
         AssertContextRecordingSurface(
             typeof(RenderNodeContext), "TargetCommand", typeof(TargetCommandDescription));
-        AssertContextRecordingSurface(
-            typeof(RenderNodeContext), "RawTargetScope", typeof(RawTargetScopeDescription));
         AssertContextRecordingSurface(
             typeof(RenderNodeContext), "RawTargetCommand", typeof(RawTargetCommandDescription));
         AssertContextRecordingSurface(
@@ -132,12 +122,10 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
             (typeof(OpaqueRenderDescription), "Create"),
             (typeof(TargetScopeDescription), "Create"),
             (typeof(TargetCommandDescription), "Create"),
-            (typeof(RawTargetScopeDescription), "Create"),
             (typeof(RawTargetCommandDescription), "Create"),
             (typeof(ShaderDescription), "CurrentPixel"),
             (typeof(ShaderDescription), "WholeSource"),
             (typeof(TargetCaptureDescription), "Create"),
-            (typeof(MaterializedInputDescription), "FromRenderTarget"),
         ];
 
         Assert.Multiple(() =>
@@ -196,8 +184,6 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
             [
                 "DefinitionFingerprint", "Execute", "ResolveInputReadbacks", "CreateRequestLocal", "CreateCore",
             ]),
-            (typeof(RawTargetScopeDescription),
-                ["DefinitionFingerprint", "Execute", "CreateRequestLocal", "CreateCore"]),
             (typeof(RawTargetCommandDescription),
                 ["DefinitionFingerprint", "Execute", "CreateRequestLocal", "CreateCore"]),
             (typeof(ShaderDescription),
@@ -274,10 +260,8 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
     {
         string[] roster =
         [
-            "Beutl.Graphics.Rendering.MaterializedInputDescription",
             "Beutl.Graphics.Rendering.OpaqueRenderDescription",
             "Beutl.Graphics.Rendering.RawTargetCommandDescription",
-            "Beutl.Graphics.Rendering.RawTargetScopeDescription",
             "Beutl.Graphics.Rendering.TargetCaptureDescription",
             "Beutl.Graphics.Rendering.TargetCommandDescription",
             "Beutl.Graphics.Rendering.TargetScopeDescription",
@@ -306,14 +290,13 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
     {
         RenderResourceSlot<SlotSubject> slot = new();
         var subject = new SlotSubject();
-        using RenderTarget target = RenderTarget.CreateNull(4, 4);
         List<(string Name, Exception? Duplicate, Exception? Uninitialized)> observed = [];
 
         using var node = new DelegateNode(context =>
         {
             RenderResourceBinding binding = slot.Bind(context.Borrow(subject));
 
-            foreach ((string name, BindResources bind) in ResourceBindingFamilies(context.Borrow(target)))
+            foreach ((string name, BindResources bind) in ResourceBindingFamilies())
             {
                 observed.Add((
                     name,
@@ -458,7 +441,6 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
         yield return typeof(OpaqueRenderDescription);
         yield return typeof(TargetScopeDescription);
         yield return typeof(TargetCommandDescription);
-        yield return typeof(RawTargetScopeDescription);
         yield return typeof(RawTargetCommandDescription);
         yield return typeof(ShaderDescription);
     }
@@ -467,8 +449,7 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
     /// <remarks>
     /// Shader descriptions expose bindings through <see cref="ShaderDescription.HitTestResources"/>.
     /// </remarks>
-    private static IEnumerable<(string Name, BindResources Bind)> ResourceBindingFamilies(
-        RenderResource<RenderTarget> materializedTarget)
+    private static IEnumerable<(string Name, BindResources Bind)> ResourceBindingFamilies()
     {
         yield return ("OpaqueRenderDescription.Create", static resources
             => OpaqueRenderDescription.Create(
@@ -498,15 +479,6 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
                 RenderHitTestContract.OutputBounds,
                 resources: resources).Resources);
 
-        yield return ("RawTargetScopeDescription.Create", static resources
-            => RawTargetScopeDescription.Create(
-                (byte)0,
-                static (_, _) => { },
-                RenderBoundsContract.Identity,
-                RenderHitTestContract.OutputBounds,
-                RenderScaleContract.PreserveInputSupply,
-                resources).Resources);
-
         yield return ("RawTargetCommandDescription.Create", static resources
             => RawTargetCommandDescription.Create(
                 (byte)0,
@@ -531,17 +503,7 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
                 TargetRegion.Full,
                 s_resourceProbeBounds,
                 RenderHitTestContract.OutputBounds,
-                TargetCaptureScaleContract.MaterializeAtWorkingScale,
-                resources).Resources);
-
-        yield return ("MaterializedInputDescription.FromRenderTarget", resources
-            => MaterializedInputDescription.FromRenderTarget(
-                materializedTarget,
-                s_resourceProbeBounds,
-                EffectiveScale.At(1),
-                PixelRect.FromRect(s_resourceProbeBounds, 1),
-                default,
-                RenderHitTestContract.OutputBounds,
+                TargetCaptureScaleContract.PreserveTargetSupply,
                 resources).Resources);
     }
 

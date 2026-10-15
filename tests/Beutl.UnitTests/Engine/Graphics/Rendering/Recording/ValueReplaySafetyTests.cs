@@ -40,25 +40,6 @@ public sealed class ValueReplaySafetyTests
     }
 
     [Test]
-    public void ValueReplayMap_RejectsContributingTargetCapture()
-    {
-        using var node = new TargetCaptureReplayNode();
-        using var request = CreateRequest(cacheEnabled: false);
-
-        RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(node);
-        RenderFragmentReference root = GetSingleRoot(graph);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(root.ContributesValuesToTarget, Is.True);
-            Assert.That(root.ValueCardinality, Is.EqualTo(RenderValueCardinality.Single));
-            Assert.That(root.CanBeUsedAsValueInput, Is.False,
-                "A target capture must not be replayed against a fresh transparent value target.");
-            Assert.That(RenderFragmentTargetDependency.HasExternalTargetDependency(root), Is.True);
-        });
-    }
-
-    [Test]
     public void ValueReplayMap_AllowsSelfContainedFiniteLayerCacheCandidate()
     {
         using var node = new FiniteLayerReplayNode();
@@ -174,23 +155,6 @@ public sealed class ValueReplaySafetyTests
             RenderScaleContract.PreserveInputSupply,
             deviceGridSensitivity: RenderDeviceGridSensitivity.Insensitive,
             deviceGridMapping: RenderDeviceGridMapping.Preserved);
-
-    private sealed class TargetCaptureReplayNode : RenderNode
-    {
-        public override void Process(RenderNodeContext context)
-        {
-            var bounds = new Rect(0, 0, 24, 16);
-            RenderFragmentHandle capture = context.TargetCapture(TargetCaptureDescription.Create(
-                TargetRegion.Region(bounds),
-                bounds,
-                RenderHitTestContract.OutputBounds,
-                TargetCaptureScaleContract.MaterializeAtWorkingScale));
-            RenderFragmentHandle contributing = context.ContributeValues(capture);
-            context.Publish(context.TargetScope(
-                contributing,
-                CreateIdentityValueReplayDescription(nameof(TargetCaptureReplayNode))));
-        }
-    }
 
     private sealed class FiniteLayerReplayNode : RenderNode
     {

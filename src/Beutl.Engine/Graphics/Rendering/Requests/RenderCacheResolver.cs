@@ -331,13 +331,6 @@ internal sealed partial class RenderCacheResolver
             return CandidateEvaluation.Bypass;
         if (!reference.CanBeUsedAsValueInput || reference.ValueCardinality.Maximum == 0)
             return CandidateEvaluation.Bypass;
-        if (reference.Kind == RenderFragmentKind.MaterializedInput
-            && reference.Payload is MaterializedInputRenderFragmentPayload input
-            && !BufferDimensionBudget.EngineCeiling.Fits(input.Description.DeviceBounds.Size))
-        {
-            return CandidateEvaluation.Bypass;
-        }
-
         RenderFragmentId fragmentId = reference.Id
             ?? throw new InvalidOperationException("A cache candidate refers to an uncommitted fragment.");
         if (!regions.FragmentRequirements.TryGetValue(fragmentId, out RequiredRegion requirement)
@@ -412,13 +405,6 @@ internal sealed partial class RenderCacheResolver
                 out result);
         }
 
-        if (reference.Kind == RenderFragmentKind.MaterializedInput
-            && reference.Payload is MaterializedInputRenderFragmentPayload materializedInput)
-        {
-            result = materializedInput.Description.DeviceBounds.Size;
-            return true;
-        }
-
         Rect captureBounds = reference.Kind == RenderFragmentKind.Layer
                              && reference.Payload is LayerRenderFragmentPayload layer
             ? layer.Domain ?? reference.Bounds
@@ -467,8 +453,7 @@ internal sealed partial class RenderCacheResolver
         {
             if (!visited.Add(current))
                 continue;
-            if (current.Kind is RenderFragmentKind.RawTargetScope
-                or RenderFragmentKind.RawTargetCommand
+            if (current.Kind == RenderFragmentKind.RawTargetCommand
                 || current.Kind == RenderFragmentKind.FilterEffectSegment
                 && !FilterEffectSegmentDirectReplaySupport.CanMaterialize(current))
             {

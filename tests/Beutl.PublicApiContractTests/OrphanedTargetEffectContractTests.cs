@@ -80,53 +80,6 @@ public sealed class OrphanedTargetEffectContractTests
         Assert.That(rasterization.IsEmpty, Is.False);
     }
 
-    [Test]
-    public void Drop_AbandonsARecordedTargetEffectWithoutExecutingIt()
-    {
-        int executions = 0;
-        bool metadataIsConcrete = false;
-        using var node = new DelegateNode(context =>
-        {
-            RenderFragmentHandle source = context.OpaqueSource(ExecutingSource());
-            RenderFragmentHandle command = RecordTargetEffect(
-                context,
-                TargetEffectKind.TargetCommand,
-                source,
-                () => executions++);
-            metadataIsConcrete = command.TryGetMetadata(out _);
-            context.Drop(command);
-            context.Publish(source);
-        });
-
-        using RenderNodeRasterization rasterization = Rasterize(node);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(rasterization.IsEmpty, Is.False);
-            Assert.That(metadataIsConcrete, Is.True);
-            Assert.That(executions, Is.Zero);
-        });
-    }
-
-    [Test]
-    public void Drop_SurvivesAbsorptionIntoTheRecordingParent()
-    {
-        using var inner = new DelegateNode(context =>
-        {
-            RenderFragmentHandle source = context.OpaqueSource(ExecutingSource());
-            context.Drop(RecordTargetEffect(context, TargetEffectKind.TargetCommand, source));
-            context.Publish(source);
-        });
-        using var outer = new DelegateNode(context =>
-        {
-            context.PublishRange(context.RecordNode(inner, []));
-        });
-
-        using RenderNodeRasterization rasterization = Rasterize(outer);
-
-        Assert.That(rasterization.IsEmpty, Is.False);
-    }
-
     [TestCase(TargetEffectKind.TargetCommand)]
     [TestCase(TargetEffectKind.TargetScope)]
     [TestCase(TargetEffectKind.TargetLayerScope)]
@@ -152,7 +105,7 @@ public sealed class OrphanedTargetEffectContractTests
                 .And.Message.Contains($"recorded by: {typeof(OrphaningChildNode).FullName}"));
     }
 
-    // Drop is not transitive and a parent never receives handles to a child's internal fragments.
+    // A parent never receives handles to a child's internal fragments.
     [Test]
     public void AChildTargetEffectPublicationTheParentNeverConsumes_StaysLegal()
     {
@@ -200,79 +153,6 @@ public sealed class OrphanedTargetEffectContractTests
         Assert.That(rasterization.IsEmpty, Is.True);
     }
 
-    [Test]
-    public void AChildDroppingAnInputItWasHanded_AbandonsTheParentsOwnTargetEffect()
-    {
-        using var inner = new DelegateNode(context => context.Drop(context.Inputs[0]));
-        using var outer = new DelegateNode(context =>
-        {
-            RenderFragmentHandle source = context.OpaqueSource(ExecutingSource());
-            RenderFragmentHandle command = RecordTargetEffect(
-                context,
-                TargetEffectKind.TargetCommand,
-                source);
-            context.RecordNode(inner, [command]);
-            context.Publish(context.OpaqueSource(ExecutingSource()));
-        });
-
-        using RenderNodeRasterization rasterization = Rasterize(outer);
-
-        Assert.That(rasterization.IsEmpty, Is.False);
-    }
-
-    [Test]
-    public void Drop_RejectsAHandleFromAnotherTransaction()
-    {
-        RenderFragmentHandle? foreign = null;
-        using var inner = new DelegateNode(context => context.Drop(foreign!));
-        using var outer = new DelegateNode(context =>
-        {
-            foreign = context.OpaqueSource(ExecutingSource());
-            context.RecordNode(inner, []);
-            context.Publish(foreign);
-        });
-
-        Assert.That(
-            () => Rasterize(outer),
-            Throws.TypeOf<InvalidOperationException>()
-                .With.Message.EqualTo(
-                    "The render fragment handle belongs to a different recording transaction."));
-    }
-
-    [Test]
-    public void Drop_RejectsAnAlreadyPublishedHandle()
-    {
-        using var node = new DelegateNode(context =>
-        {
-            RenderFragmentHandle source = context.OpaqueSource(ExecutingSource());
-            context.Publish(source);
-            context.Drop(source);
-        });
-
-        Assert.That(
-            () => Rasterize(node),
-            Throws.TypeOf<InvalidOperationException>()
-                .With.Message.EqualTo(
-                    "The render fragment was already published and cannot be dropped."));
-    }
-
-    [Test]
-    public void Publish_RejectsAnAlreadyDroppedHandle()
-    {
-        using var node = new DelegateNode(context =>
-        {
-            RenderFragmentHandle source = context.OpaqueSource(ExecutingSource());
-            context.Drop(source);
-            context.Publish(source);
-        });
-
-        Assert.That(
-            () => Rasterize(node),
-            Throws.TypeOf<InvalidOperationException>()
-                .With.Message.EqualTo(
-                    "The render fragment was already dropped and cannot be published."));
-    }
-
     private static RenderFragmentHandle RecordTargetEffect(
         RenderNodeContext context,
         TargetEffectKind kind,
@@ -302,7 +182,7 @@ public sealed class OrphanedTargetEffectContractTests
             TargetEffectKind.TargetLayerScope => context.TargetLayerScope(
                 [
                     onExecute is null
-                        ? context.ContributeValues(source)
+                        ? source
                         : RecordTargetEffect(context, TargetEffectKind.TargetCommand, source, onExecute)
                 ],
                 TargetRegion.Region(s_bounds)),

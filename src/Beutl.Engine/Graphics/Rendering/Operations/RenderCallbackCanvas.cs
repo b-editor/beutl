@@ -9,7 +9,6 @@ public sealed class RenderCallbackCanvas
     private readonly float _density;
     private readonly Rect _logicalBounds;
     private readonly PixelRect _deviceBounds;
-    private readonly PixelPoint _backingDeviceOrigin;
     private readonly Rect _rasterBounds;
     private readonly Func<ImmediateCanvas> _openCanvas;
     private readonly CallbackCanvasCapability _capability;
@@ -24,7 +23,6 @@ public sealed class RenderCallbackCanvas
         Func<ImmediateCanvas> openCanvas,
         CallbackCanvasCapability capability,
         bool mapLogicalOrigin = true,
-        PixelPoint? backingDeviceOrigin = null,
         Rect? rasterBounds = null)
     {
         ArgumentNullException.ThrowIfNull(token);
@@ -48,9 +46,6 @@ public sealed class RenderCallbackCanvas
             density,
             deviceBounds,
             _rasterBounds);
-        _backingDeviceOrigin = mapLogicalOrigin
-            ? _deviceBounds.Position
-            : backingDeviceOrigin ?? default;
         _openCanvas = openCanvas;
         _capability = capability;
         _mapLogicalOrigin = mapLogicalOrigin;
@@ -78,7 +73,6 @@ public sealed class RenderCallbackCanvas
             destination.CreateExecutionView,
             capability,
             mapLogicalOrigin: false,
-            backingDeviceOrigin: destination.DeviceOrigin,
             rasterBounds: rasterBounds);
     }
 
@@ -127,8 +121,6 @@ public sealed class RenderCallbackCanvas
     }
 
     internal RenderExecutionSessionToken Token => _token;
-
-    internal PixelPoint DeviceOriginUnchecked => _backingDeviceOrigin;
 
     public void Use(Action<ImmediateCanvas> draw)
     {

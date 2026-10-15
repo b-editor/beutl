@@ -28,7 +28,6 @@ internal static class RenderFragmentDeviceGrid
                 or RenderFragmentKind.OpaqueCombine
                 or RenderFragmentKind.OpaqueExpand
                 or RenderFragmentKind.FilterEffectSegment
-                or RenderFragmentKind.MaterializedInput
                 or RenderFragmentKind.TargetCapture
                 or RenderFragmentKind.Layer
                 or RenderFragmentKind.TargetLayerScope

@@ -42,8 +42,6 @@ internal sealed partial class RegionAnalyzer
                     outputRequirement,
                     scope.Description.Bounds,
                     targetDomain),
-            RawTargetScopeRenderFragmentPayload
-                => FullInputs(reference),
             OpaqueRenderFragmentPayload opaque
                 => MapOpaque(reference, outputRequirement, opaque.Description.Bounds),
             TargetCommandRenderFragmentPayload or RawTargetCommandRenderFragmentPayload
@@ -343,8 +341,6 @@ internal sealed partial class RegionAnalyzer
                 when BlendModeRenderNode.RequiresFullTargetRegion(blend.BlendMode)
                 => MapTargetAccess(outputRequirement, TargetRegion.Full, targetDomain),
             RawTargetCommandRenderFragmentPayload
-                => outputRequirement.IsEmpty ? RequiredRegion.Empty : RequiredRegion.Full,
-            RawTargetScopeRenderFragmentPayload
                 => outputRequirement.IsEmpty ? RequiredRegion.Empty : RequiredRegion.Full,
             TargetLayerScopeRenderFragmentPayload layer
                 => MapTargetAccess(outputRequirement, layer.Region, targetDomain),

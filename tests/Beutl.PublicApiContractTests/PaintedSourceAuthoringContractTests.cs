@@ -223,9 +223,10 @@ public sealed class PaintedSourceAuthoringContractTests
     {
         private static readonly RenderResourceSlot<PaintRecord> s_recordSlot = new();
 
-        private static readonly RenderHitTestContract s_hitTest = RenderHitTestContract.FromSlot(
-            s_recordSlot,
-            static (state, point) => state.Rect.ContainsExclusive(point));
+        private static readonly RenderHitTestContract s_hitTest = RenderHitTestContract.Custom(
+            static (context, point) => context.UseResource(
+                s_recordSlot,
+                state => state.Rect.ContainsExclusive(point)));
 
         public Rect DeclaredBounds { get; private set; }
 

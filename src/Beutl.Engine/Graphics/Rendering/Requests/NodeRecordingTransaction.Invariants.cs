@@ -99,7 +99,6 @@ internal sealed partial class NodeRecordingTransaction
         => kind is RenderFragmentKind.TargetCommand
             or RenderFragmentKind.RawTargetCommand
             or RenderFragmentKind.TargetScope
-            or RenderFragmentKind.RawTargetScope
             or RenderFragmentKind.TargetLayerScope;
 
     private sealed class InvariantScratch

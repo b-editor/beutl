@@ -175,7 +175,6 @@ internal sealed class RenderFragmentOutputIdentity : IEquatable<RenderFragmentOu
                 components.Add(capture.Description.Bounds);
                 components.Add(RequestLocalIdentity(reference, requestId, "backdrop"));
                 return;
-            case RawTargetScopeRenderFragmentPayload:
             case RawTargetCommandRenderFragmentPayload:
                 components.Add(RequestLocalIdentity(reference, requestId, "raw-target"));
                 return;

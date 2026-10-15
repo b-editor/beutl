@@ -60,9 +60,6 @@ internal sealed record FilterEffectSegmentRenderFragmentPayload(
            && BoundsItems.All(static item => item is IFEItem_Skia { SupportsDirectReplay: true });
 }
 
-internal sealed record MaterializedInputRenderFragmentPayload(
-    MaterializedInputDescription Description);
-
 internal sealed record TargetCaptureRenderFragmentPayload(
     TargetCaptureDescription Description);
 
@@ -72,9 +69,6 @@ internal sealed record TargetLayerScopeRenderFragmentPayload(TargetRegion Region
 
 internal sealed record TargetScopeRenderFragmentPayload(
     TargetScopeDescription Description);
-
-internal sealed record RawTargetScopeRenderFragmentPayload(
-    RawTargetScopeDescription Description);
 
 internal sealed record RawTargetCommandRenderFragmentPayload(
     RawTargetCommandDescription Description);

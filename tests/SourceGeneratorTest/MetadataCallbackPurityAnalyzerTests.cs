@@ -138,8 +138,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
 
             public sealed class TargetCommandSession { }
 
-            public sealed class RawTargetScopeSession { }
-
             public sealed class RawTargetCommandSession { }
 
             public sealed class OpaqueRenderDescription
@@ -175,18 +173,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
 
                 internal static TargetCommandDescription CreateRequestLocal(
                     Action<TargetCommandSession> execute,
-                    RenderBoundsContract bounds) => null!;
-            }
-
-            public sealed class RawTargetScopeDescription
-            {
-                public static RawTargetScopeDescription Create<TState>(
-                    TState state,
-                    Action<RawTargetScopeSession, TState> execute,
-                    RenderBoundsContract bounds) => null!;
-
-                internal static RawTargetScopeDescription CreateRequestLocal(
-                    Action<RawTargetScopeSession> execute,
                     RenderBoundsContract bounds) => null!;
             }
 
@@ -1935,7 +1921,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
     [TestCase("OpaqueRenderDescription", "OpaqueRenderSession")]
     [TestCase("TargetScopeDescription", "TargetScopeSession")]
     [TestCase("TargetCommandDescription", "TargetCommandSession")]
-    [TestCase("RawTargetScopeDescription", "RawTargetScopeSession")]
     [TestCase("RawTargetCommandDescription", "RawTargetCommandSession")]
     public void ACapturingExecutionCallbackOnADescriptionFactory_IsReported(
         string description,
@@ -1955,7 +1940,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
     [TestCase("OpaqueRenderDescription", "OpaqueRenderSession")]
     [TestCase("TargetScopeDescription", "TargetScopeSession")]
     [TestCase("TargetCommandDescription", "TargetCommandSession")]
-    [TestCase("RawTargetScopeDescription", "RawTargetScopeSession")]
     [TestCase("RawTargetCommandDescription", "RawTargetCommandSession")]
     public void AStaticExecutionCallbackOnADescriptionFactory_IsNotReported(
         string description,
@@ -1972,7 +1956,6 @@ public sealed class MetadataCallbackPurityAnalyzerTests
     [TestCase("OpaqueRenderDescription", "OpaqueRenderSession")]
     [TestCase("TargetScopeDescription", "TargetScopeSession")]
     [TestCase("TargetCommandDescription", "TargetCommandSession")]
-    [TestCase("RawTargetScopeDescription", "RawTargetScopeSession")]
     [TestCase("RawTargetCommandDescription", "RawTargetCommandSession")]
     public void ACapturingCallbackOnARequestLocalFactory_IsNotReported(
         string description,

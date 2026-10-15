@@ -79,9 +79,6 @@ internal static class SymbolicMetadataCrossCheck
             case RenderFragmentKind.TargetScope:
                 return ((TargetScopeRenderFragmentPayload)reference.Payload!).Description.Bounds
                     .TransformBounds(RecordedBoundsOf(reference, 0));
-            case RenderFragmentKind.RawTargetScope:
-                return ((RawTargetScopeRenderFragmentPayload)reference.Payload!).Description.Bounds
-                    .TransformBounds(RecordedBoundsOf(reference, 0));
             default:
                 return null;
         }
@@ -138,12 +135,6 @@ internal static class SymbolicMetadataCrossCheck
                 }
             case RenderFragmentKind.TargetScope:
                 return ((TargetScopeRenderFragmentPayload)reference.Payload!).Description.Scale.Resolve(
-                    RecordedInputScales(reference, reference.Inputs.Length),
-                    reference.RecordedBounds,
-                    options.OutputScale,
-                    options.MaxWorkingScale);
-            case RenderFragmentKind.RawTargetScope:
-                return ((RawTargetScopeRenderFragmentPayload)reference.Payload!).Description.Scale.Resolve(
                     RecordedInputScales(reference, reference.Inputs.Length),
                     reference.RecordedBounds,
                     options.OutputScale,

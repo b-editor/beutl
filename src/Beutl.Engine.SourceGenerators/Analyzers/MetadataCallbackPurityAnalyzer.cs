@@ -21,9 +21,7 @@ public sealed partial class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
         "Beutl.Graphics.Rendering.RenderBoundsContract",
         "Beutl.Graphics.Rendering.RenderHitTestContract",
         "Beutl.Graphics.Rendering.RenderScaleContract",
-        "Beutl.Graphics.Rendering.RenderInputDemandContract",
         "Beutl.Graphics.Rendering.OpaqueRenderBoundsContract",
-        "Beutl.Graphics.Rendering.TargetCaptureScaleContract",
 
         // ShaderBindingBuilder retains callbacks under the same identity rules as the factories below.
         "Beutl.Graphics.Shaders.ShaderBindingBuilder");
@@ -34,7 +32,6 @@ public sealed partial class MetadataCallbackPurityAnalyzer : DiagnosticAnalyzer
             ("Beutl.Graphics.Rendering.OpaqueRenderDescription", "Create"),
             ("Beutl.Graphics.Rendering.TargetScopeDescription", "Create"),
             ("Beutl.Graphics.Rendering.TargetCommandDescription", "Create"),
-            ("Beutl.Graphics.Rendering.RawTargetScopeDescription", "Create"),
             ("Beutl.Graphics.Rendering.RawTargetCommandDescription", "Create"));
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } =

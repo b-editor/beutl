@@ -506,16 +506,7 @@ public sealed class RenderNodeRendererContractTests
         });
         RenderNodeMeasurement command = Measure(commandNode, targetDomain: domain);
 
-        using var captureNode = new DelegateNode(context =>
-        {
-            RenderFragmentHandle capture = context.TargetCapture(
-                TargetCaptureDescription.Create(
-                    TargetRegion.Full,
-                    query,
-                    RenderHitTestContract.OutputBounds,
-                    TargetCaptureScaleContract.MaterializeAtWorkingScale));
-            context.Publish(capture);
-        });
+        using var captureNode = new SnapshotBackdropRenderNode();
         RenderNodeMeasurement capture = Measure(captureNode, targetDomain: domain);
 
         Assert.Multiple(() =>

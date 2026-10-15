@@ -26,14 +26,6 @@ public readonly struct RenderValueCardinality : IEquatable<RenderValueCardinalit
 
     public static RenderValueCardinality Dynamic { get; } = new(0, null);
 
-    public static RenderValueCardinality Exactly(int count)
-    {
-        if (count < 0)
-            throw new ArgumentOutOfRangeException(nameof(count), count, "The value count cannot be negative.");
-
-        return new RenderValueCardinality(count, count);
-    }
-
     public static RenderValueCardinality Range(int minimum, int? maximum)
     {
         if (minimum < 0)

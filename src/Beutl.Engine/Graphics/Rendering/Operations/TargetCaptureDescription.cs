@@ -26,9 +26,9 @@ public sealed class TargetCaptureDescription
 
     /// <summary>Gets the resources the hit-test contract resolves its slots against.</summary>
     /// <remarks>
-    /// A capture runs no callback of its own, so these are read only by
-    /// <see cref="RenderHitTestContract.FromSlot{T}(RenderResourceSlot{T}, Func{T, Point, bool})"/>. A slot the
-    /// contract names and this list does not bind has nothing to resolve against and fails the hit test.
+    /// A capture runs no callback of its own, so these are read only by a hit test that resolves a slot through
+    /// <see cref="RenderHitTestContext.UseResource{T, TResult}(RenderResourceSlot{T}, Func{T, TResult})"/>. A slot
+    /// the contract names and this list does not bind has nothing to resolve against and fails the hit test.
     /// </remarks>
     public IReadOnlyList<RenderResourceBinding> Resources { get; }
 

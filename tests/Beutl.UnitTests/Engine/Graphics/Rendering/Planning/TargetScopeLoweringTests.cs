@@ -466,21 +466,6 @@ public sealed class TargetScopeLoweringTests
     }
 
     [Test]
-    public void FullTargetCaptureBoundsOutsideFiniteLayer_LowerToTransparentInsteadOfFailing()
-    {
-        var layerDomain = new Rect(10, 20, 30, 20);
-        var captureBounds = new Rect(5, 20, 10, 10);
-        using var root = new OutOfDomainCaptureLayerNode(layerDomain, captureBounds);
-
-        Assert.That(
-            () =>
-            {
-                using CompiledRenderRequest _ = Compile(root, targetDomain: null);
-            },
-            Throws.Nothing);
-    }
-
-    [Test]
     public void RequestedRegionDoesNotSupplyMissingTargetDomain_ButFiniteLayerDoes()
     {
         using var command = new FullCommandNode();
@@ -726,20 +711,6 @@ public sealed class TargetScopeLoweringTests
         {
             _source.Dispose();
             base.OnDispose(disposing);
-        }
-    }
-
-    private sealed class OutOfDomainCaptureLayerNode(Rect layerDomain, Rect captureBounds) : RenderNode
-    {
-        public override void Process(RenderNodeContext context)
-        {
-            RenderFragmentHandle capture = context.TargetCapture(TargetCaptureDescription.Create(
-                TargetRegion.Full,
-                captureBounds,
-                RenderHitTestContract.OutputBounds,
-                TargetCaptureScaleContract.MaterializeAtWorkingScale));
-            RenderFragmentHandle contributing = context.ContributeValues(capture);
-            context.Publish(context.Layer([contributing], layerDomain));
         }
     }
 
