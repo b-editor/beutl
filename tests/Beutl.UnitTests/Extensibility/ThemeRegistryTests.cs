@@ -119,7 +119,7 @@ public class ThemeRegistryTests
         Assert.Multiple(() =>
         {
             Assert.That(ThemeRegistry.Resolve(BuiltinThemeIds.Dark), Is.SameAs(builtin));
-            Assert.That(ThemeRegistry.GetExtension(BuiltinThemeIds.Dark), Is.Null);
+            Assert.That(ThemeRegistry.GetOwner(builtin), Is.Null);
             Assert.That(hijacker.Descriptor, Is.Null, "a rejected Load must not leave a descriptor behind");
         });
     }
@@ -160,7 +160,7 @@ public class ThemeRegistryTests
         var ext = new TestThemeExtension(id, "Custom");
 
         Assert.DoesNotThrow(() => ext.Load());
-        Assert.That(ThemeRegistry.GetExtension(id), Is.SameAs(ext));
+        Assert.That(ThemeRegistry.GetOwner(ext.Descriptor!), Is.SameAs(ext));
     }
 
     [Test]
@@ -186,7 +186,7 @@ public class ThemeRegistryTests
         first.Load();
 
         Assert.DoesNotThrow(() => second.Load());
-        Assert.That(ThemeRegistry.GetExtension("test.shared"), Is.SameAs(second));
+        Assert.That(ThemeRegistry.GetOwner(second.Descriptor!), Is.SameAs(second));
     }
 
     [Test]
@@ -203,9 +203,6 @@ public class ThemeRegistryTests
 
         Assert.That(ThemeRegistry.GetOwner(firstDescriptor), Is.Null);
         Assert.That(ThemeRegistry.GetOwner(secondExt.Descriptor!), Is.SameAs(secondExt));
-
-        // GetExtension is id-based and cannot make this distinction; that is why GetOwner exists.
-        Assert.That(ThemeRegistry.GetExtension("test.owner"), Is.SameAs(secondExt));
     }
 
     [Test]
@@ -230,17 +227,17 @@ public class ThemeRegistryTests
     }
 
     [Test]
-    public void Register_KeepsExtension_AndGetExtension_ReturnsIt()
+    public void Register_KeepsExtension_AndGetOwner_ReturnsIt()
     {
         var ext = new TestThemeExtension("test.ext", "Ext");
         ext.Load();
+        ThemeDescriptor descriptor = ext.Descriptor!;
 
-        Assert.That(ThemeRegistry.GetExtension("test.ext"), Is.SameAs(ext));
-        Assert.That(ThemeRegistry.GetExtension("nonexistent"), Is.Null);
-        Assert.That(ext.Descriptor?.Id, Is.EqualTo("test.ext"));
+        Assert.That(ThemeRegistry.GetOwner(descriptor), Is.SameAs(ext));
+        Assert.That(descriptor.Id, Is.EqualTo("test.ext"));
 
         ext.Unload();
-        Assert.That(ThemeRegistry.GetExtension("test.ext"), Is.Null);
+        Assert.That(ThemeRegistry.GetOwner(descriptor), Is.Null);
     }
 
     [Test]
@@ -275,7 +272,7 @@ public class ThemeRegistryTests
         ThemeDescriptor descriptor = ThemeRegistry.Resolve("test.revert")!;
 
         ext.Unload();
-        Assert.That(ThemeRegistry.GetExtension("test.revert"), Is.Null);
+        Assert.That(ThemeRegistry.GetOwner(descriptor), Is.Null);
 
         ThemeNotifier.NotifyReverted(descriptor, ext);
 

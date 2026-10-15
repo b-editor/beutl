@@ -80,23 +80,11 @@ public static class ThemeRegistry
         }
     }
 
-    // The ThemeExtension that registered the descriptor, or null for a host-registered built-in.
-    public static ThemeExtension? GetExtension(string? id)
-    {
-        if (string.IsNullOrEmpty(id))
-            return null;
-
-        lock (s_lock)
-        {
-            return s_themes.TryGetValue(id, out var entry) ? entry.Extension : null;
-        }
-    }
-
     /// <summary>
     /// The <see cref="ThemeExtension"/> that registered this exact <paramref name="descriptor"/>, or
     /// null when it is a host-registered built-in or no longer the registration under its id.
-    /// Prefer this over <see cref="GetExtension(string?)"/> when holding a descriptor: an id lookup
-    /// can hand back the owner of a replacement registered since the descriptor was resolved.
+    /// Matching the instance rather than the id keeps it from handing back the owner of a
+    /// replacement registered since the descriptor was resolved.
     /// </summary>
     public static ThemeExtension? GetOwner(ThemeDescriptor descriptor)
     {
