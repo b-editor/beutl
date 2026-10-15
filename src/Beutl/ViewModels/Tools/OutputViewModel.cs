@@ -502,7 +502,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
     {
         string userMessage = ex.Message;
         if (ex is FFmpegWorkerException ffmpegEx
-            && FFmpegErrorMessageMapper.TryClassify(ffmpegEx.FFmpegErrorCode, ffmpegEx.Message) is { } ffmpegErrorKind)
+            && FFmpegErrorMessageMapper.TryClassify(ffmpegEx.FFmpegErrorCode) is { } ffmpegErrorKind)
         {
             userMessage = ffmpegErrorKind switch
             {
