@@ -82,8 +82,6 @@ public sealed class Bitmap : ICloneable, IDisposable
 
     internal SKBitmap SKBitmap => _skBitmap;
 
-    public BitmapInfo Info => new(Width, Height, ByteCount, BytesPerPixel, ColorType, AlphaType, _colorSpace);
-
     public unsafe Span<byte> GetPixelSpan()
     {
         ThrowIfDisposed();
@@ -304,16 +302,6 @@ public sealed class Bitmap : ICloneable, IDisposable
         img.CopyFrom(this, new PixelRect(left, top, Width, Height));
 
         return img;
-    }
-
-    public Bitmap MakeBorder(int width, int height)
-    {
-        ThrowIfDisposed();
-
-        int v = (height - Height) / 2;
-        int h = (width - Width) / 2;
-
-        return MakeBorder(v, v, h, h);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

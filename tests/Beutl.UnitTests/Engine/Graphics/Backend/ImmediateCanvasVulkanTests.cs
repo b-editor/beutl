@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics;
+﻿using Beutl.Composition;
+using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
 
@@ -12,6 +13,9 @@ namespace Beutl.UnitTests.Engine.Graphics.Backend;
 [NonParallelizable]
 public class ImmediateCanvasVulkanTests
 {
+    private static readonly SolidColorBrush.Resource s_lime =
+        KnownColor.Lime.ToBrush().ToResource(CompositionContext.Default);
+
     [Test]
     public void Clear_FillsSurfaceWithSolidColor()
     {
@@ -45,7 +49,7 @@ public class ImmediateCanvasVulkanTests
             using (var canvas = new ImmediateCanvas(target!, RenderIntent.Preview))
             {
                 canvas.Clear(Colors.Black);
-                canvas.DrawRectangle(new Rect(0, 0, 16, 16), Brushes.Resource.Lime, pen: null);
+                canvas.DrawRectangle(new Rect(0, 0, 16, 16), s_lime, pen: null);
             }
 
             using var snapshot = target!.Snapshot();

@@ -13,6 +13,11 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 [NonParallelizable]
 public sealed class EffectItemTypedSuffixExecutionTests
 {
+    private static readonly SolidColorBrush.Resource s_red =
+        KnownColor.Red.ToBrush().ToResource(CompositionContext.Default);
+    private static readonly SolidColorBrush.Resource s_orangeRed =
+        KnownColor.OrangeRed.ToBrush().ToResource(CompositionContext.Default);
+
     private const string BlueShader =
         "half4 apply(half4 color) { return half4(0.0, 0.0, color.a, color.a); }";
 
@@ -87,7 +92,7 @@ public sealed class EffectItemTypedSuffixExecutionTests
             effect.ToResource(CompositionContext.Default));
         root.AddChild(new RectangleRenderNode(
             bounds,
-            Brushes.Resource.Red,
+            s_red,
             null));
         using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
         {
@@ -522,7 +527,7 @@ public sealed class EffectItemTypedSuffixExecutionTests
             expandingEffect.ToResource(CompositionContext.Default));
         root.AddChild(new RectangleRenderNode(
             new Rect(4, 2, 6, 4),
-            Brushes.Resource.Red,
+            s_red,
             null));
         using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
         {
@@ -709,7 +714,7 @@ public sealed class EffectItemTypedSuffixExecutionTests
             effect.ToResource(CompositionContext.Default));
         root.AddChild(new RectangleRenderNode(
             sourceBounds,
-            Brushes.Resource.OrangeRed,
+            s_orangeRed,
             null));
         using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
         {
@@ -926,7 +931,7 @@ public sealed class EffectItemTypedSuffixExecutionTests
         canvas.Clear();
         canvas.DrawRectangle(
             new Rect(0.25f, 0.25f, 8.25f, 6.25f),
-            Brushes.Resource.OrangeRed,
+            s_orangeRed,
             null);
         canvas.DrawRectangle(
             new Rect(2.25f, 1.75f, 3.5f, 2.5f),

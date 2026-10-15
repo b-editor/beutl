@@ -94,7 +94,7 @@ public sealed class CurrentPixelQuantizationTests
     private static byte ReadRed(Bitmap bitmap)
     {
         (float red, _) = ReadLinear(bitmap);
-        return Color.FromLinear(new Vector4(red, red, red, 1)).R;
+        return (byte)Math.Clamp(Color.LinearToSrgb(red) * 255f, 0, 255);
     }
 
     private static (float Red, float Alpha) ReadLinear(Bitmap bitmap)

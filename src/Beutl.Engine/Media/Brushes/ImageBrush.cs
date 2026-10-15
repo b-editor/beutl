@@ -15,11 +15,6 @@ public partial class ImageBrush : TileBrush
         ScanProperties<ImageBrush>();
     }
 
-    public ImageBrush(ImageSource source) : this()
-    {
-        Source.CurrentValue = source;
-    }
-
     /// <summary>
     /// Gets or sets the image to draw.
     /// </summary>

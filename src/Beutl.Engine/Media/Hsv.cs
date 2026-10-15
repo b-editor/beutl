@@ -17,16 +17,6 @@ public readonly struct Hsv : IEquatable<Hsv>
         A = a;
     }
 
-    public Hsv(Color rgb)
-    {
-        this = rgb.ToHsv();
-    }
-
-    public Hsv(Cmyk cmyk)
-    {
-        this = cmyk.ToHsv();
-    }
-
     public float H { get; }
 
     public float S { get; }
@@ -110,11 +100,6 @@ public readonly struct Hsv : IEquatable<Hsv>
         a = MathF.Round(a * 255.0F);
 
         return Color.FromArgb((byte)a, (byte)r, (byte)g, (byte)b);
-    }
-
-    public Cmyk ToCmyk()
-    {
-        return ToColor().ToCmyk();
     }
 
     public override bool Equals(object? obj)

@@ -19,8 +19,6 @@ public sealed class BitmapColorSpace : IEquatable<BitmapColorSpace>
 
     public bool GammaIsLinear => _skColorSpace.GammaIsLinear;
 
-    public bool GammaIsCloseToSrgb => _skColorSpace.GammaIsCloseToSrgb;
-
     internal SKColorSpace SKColorSpace => _skColorSpace;
 
     public static BitmapColorSpace? CreateIcc(ReadOnlySpan<byte> iccData)
@@ -48,16 +46,6 @@ public sealed class BitmapColorSpace : IEquatable<BitmapColorSpace>
     {
         _skColorSpace.ToColorSpaceXyz(out var xyz);
         return BitmapColorSpaceXyz.FromSK(xyz);
-    }
-
-    public BitmapColorSpace ToLinearGamma()
-    {
-        return new(_skColorSpace.ToLinearGamma());
-    }
-
-    public BitmapColorSpace ToSrgbGamma()
-    {
-        return new(_skColorSpace.ToSrgbGamma());
     }
 
     internal static BitmapColorSpace FromSKColorSpace(SKColorSpace? colorSpace)

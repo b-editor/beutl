@@ -123,22 +123,6 @@ public class CornerRadiusTests
     }
 
     [Test]
-    public void With_ReplaceIndividualCorners()
-    {
-        var r = new CornerRadius(1, 2, 3, 4);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(r.WithTopLeft(9), Is.EqualTo(new CornerRadius(9, 2, 3, 4)));
-            Assert.That(r.WithTopRight(9), Is.EqualTo(new CornerRadius(1, 9, 3, 4)));
-            Assert.That(r.WithBottomRight(9), Is.EqualTo(new CornerRadius(1, 2, 9, 4)));
-            Assert.That(r.WithBottomLeft(9), Is.EqualTo(new CornerRadius(1, 2, 3, 9)));
-            Assert.That(r.WithTop(9), Is.EqualTo(new CornerRadius(9, 9, 3, 4)));
-            Assert.That(r.WithBottom(9), Is.EqualTo(new CornerRadius(1, 2, 9, 9)));
-        });
-    }
-
-    [Test]
     public void TupleConvertible_RoundTripPreservesOrder()
     {
         Assert.That(GetTupleLength<CornerRadius>(), Is.EqualTo(4));

@@ -126,36 +126,6 @@ public readonly struct CornerRadius : IEquatable<CornerRadius>, ITupleConvertibl
         }
     }
 
-    public CornerRadius WithTopLeft(float topLeft)
-    {
-        return new CornerRadius(topLeft, TopRight, BottomRight, BottomLeft);
-    }
-
-    public CornerRadius WithTopRight(float topRight)
-    {
-        return new CornerRadius(TopLeft, topRight, BottomRight, BottomLeft);
-    }
-
-    public CornerRadius WithBottomRight(float bottomRight)
-    {
-        return new CornerRadius(TopLeft, TopRight, bottomRight, BottomLeft);
-    }
-
-    public CornerRadius WithBottomLeft(float bottomLeft)
-    {
-        return new CornerRadius(TopLeft, TopRight, BottomRight, bottomLeft);
-    }
-
-    public CornerRadius WithTop(float top)
-    {
-        return new CornerRadius(top, top, BottomRight, BottomLeft);
-    }
-
-    public CornerRadius WithBottom(float bottom)
-    {
-        return new CornerRadius(TopLeft, TopRight, bottom, bottom);
-    }
-
     static void ITupleConvertible<CornerRadius, float>.ConvertTo(CornerRadius self, Span<float> tuple)
     {
         tuple[0] = self.TopLeft;

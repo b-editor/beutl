@@ -52,34 +52,6 @@ public class ColorTests
     }
 
     [Test]
-    [TestCase("Aqua")]
-    [TestCase("DeepPink")]
-    [TestCase("Blue")]
-    [TestCase("Gold")]
-    public void ToHsv(string color)
-    {
-        var expected = Color.Parse(color);
-        var hsv = expected.ToHsv();
-        var actual = hsv.ToColor();
-
-        Assert.That(actual, Is.EqualTo(expected));
-    }
-
-    [Test]
-    [TestCase("Aqua")]
-    [TestCase("DeepPink")]
-    [TestCase("Blue")]
-    [TestCase("Gold")]
-    public void ToCmyk(string color)
-    {
-        var expected = Color.Parse(color);
-        var cmyk = expected.ToCmyk();
-        var actual = cmyk.ToColor();
-
-        Assert.That(actual, Is.EqualTo(expected));
-    }
-
-    [Test]
     public void FromArgb_StoresComponents()
     {
         var c = Color.FromArgb(0x12, 0x34, 0x56, 0x78);
@@ -103,14 +75,6 @@ public class ColorTests
         uint value = 0x12345678;
         var color = Color.FromUInt32(value);
         Assert.That(color.ToUint32(), Is.EqualTo(value));
-    }
-
-    [Test]
-    public void FromInt32_RoundTripsToInt32()
-    {
-        int value = 0x12345678;
-        var color = Color.FromInt32(value);
-        Assert.That(color.ToInt32(), Is.EqualTo(value));
     }
 
     [Test]
@@ -214,26 +178,6 @@ public class ColorTests
     }
 
     [Test]
-    public void FromLinear_RoundTrip()
-    {
-        var input = Color.FromArgb(255, 100, 150, 200);
-        var linear = input.ToLinear();
-        var result = Color.FromLinear(linear);
-
-        Assert.That(result.R, Is.EqualTo(input.R).Within(1));
-        Assert.That(result.G, Is.EqualTo(input.G).Within(1));
-        Assert.That(result.B, Is.EqualTo(input.B).Within(1));
-        Assert.That(result.A, Is.EqualTo(input.A));
-    }
-
-    [Test]
-    public void FromLinear_ClampsOutOfRange()
-    {
-        var clamped = Color.FromLinear(new Vector4(2f, -1f, 0.5f, 2f));
-        Assert.That(clamped.A, Is.EqualTo(255));
-    }
-
-    [Test]
     public void IParsable_Parse()
     {
         var color = ParseViaInterface<Color>("Red");
@@ -264,13 +208,6 @@ public class ColorTests
 
     private static T SpanParseViaInterface<T>(ReadOnlySpan<char> s) where T : ISpanParsable<T>
         => T.Parse(s, null);
-
-    [Test]
-    public void ToBrushExtension_CreatesBrush()
-    {
-        var brush = Color.Parse("Red").ToBrush();
-        Assert.That(brush.Color.CurrentValue, Is.EqualTo(Color.Parse("Red")));
-    }
 
     [Test]
     public void Colors_WellKnownConstants()

@@ -32,20 +32,6 @@ public class BitmapColorSpaceTests
     }
 
     [Test]
-    public void ToLinearGamma_IsEquivalentToLinearSrgb()
-    {
-        var converted = BitmapColorSpace.Srgb.ToLinearGamma();
-        Assert.That(converted.GammaIsLinear, Is.True);
-    }
-
-    [Test]
-    public void ToSrgbGamma_IsEquivalentToSrgb()
-    {
-        var converted = BitmapColorSpace.LinearSrgb.ToSrgbGamma();
-        Assert.That(converted.IsSrgb, Is.True);
-    }
-
-    [Test]
     public void ToString_ReturnsNonEmpty()
     {
         Assert.That(BitmapColorSpace.Srgb.ToString(), Is.Not.Null.And.Not.Empty);

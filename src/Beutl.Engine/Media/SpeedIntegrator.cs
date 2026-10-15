@@ -74,7 +74,7 @@ public sealed class SpeedIntegrator : IDisposable
     /// <summary>
     /// Returns the largest cache entry at or below the specified second.
     /// </summary>
-    public (int Key, double Value) TryGetCache(int targetSec)
+    private (int Key, double Value) TryGetCache(int targetSec)
     {
         if (_integralCache == null) return (-1, 0);
         if (_integralCache.TryGetValue(targetSec, out double exact)) return (targetSec, exact);

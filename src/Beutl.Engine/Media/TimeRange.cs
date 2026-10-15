@@ -30,16 +30,6 @@ public readonly struct TimeRange : IEquatable<TimeRange>
 
     public bool IsEmpty => Duration <= TimeSpan.Zero;
 
-    public static TimeRange FromSeconds(double start, double duration)
-    {
-        return new TimeRange(TimeSpan.FromSeconds(start), TimeSpan.FromSeconds(duration));
-    }
-
-    public static TimeRange FromSeconds(double duration)
-    {
-        return new TimeRange(TimeSpan.FromSeconds(duration));
-    }
-
     public static TimeRange FromRange(TimeSpan start, TimeSpan end)
     {
         return new TimeRange(start, end - start);

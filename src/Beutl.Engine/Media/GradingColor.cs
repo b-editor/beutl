@@ -57,18 +57,6 @@ public readonly struct GradingColor
     public float B { get; }
 
     /// <summary>
-    /// Creates a <see cref="GradingColor"/> from red, green and blue components.
-    /// </summary>
-    /// <param name="r">The red component.</param>
-    /// <param name="g">The green component.</param>
-    /// <param name="b">The blue component.</param>
-    /// <returns>The grading color.</returns>
-    public static GradingColor FromRgb(float r, float g, float b)
-    {
-        return new GradingColor(r, g, b);
-    }
-
-    /// <summary>
     /// Creates a <see cref="GradingColor"/> from a <see cref="Color"/>.
     /// </summary>
     /// <param name="color">The source color.</param>

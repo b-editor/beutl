@@ -16,13 +16,6 @@ public class GradingColorTests
     }
 
     [Test]
-    public void FromRgb_AndFromVector3_AreEquivalent()
-    {
-        Assert.That(GradingColor.FromRgb(0.1f, 0.2f, 0.3f),
-            Is.EqualTo(GradingColor.FromVector3(new Vector3(0.1f, 0.2f, 0.3f))));
-    }
-
-    [Test]
     public void FromColor_DivBy255_ProducesNormalizedComponents()
     {
         var color = Color.FromArgb(255, 51, 102, 204);

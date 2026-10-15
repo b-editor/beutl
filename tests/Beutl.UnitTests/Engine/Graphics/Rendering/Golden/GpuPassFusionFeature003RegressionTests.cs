@@ -13,6 +13,9 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 [TestFixture]
 public sealed class GpuPassFusionFeature003RegressionTests
 {
+    private static readonly SolidColorBrush.Resource s_orangeRed =
+        KnownColor.OrangeRed.ToBrush().ToResource(CompositionContext.Default);
+
     private static readonly PixelSize s_frame = new(192, 128);
 
     public static IEnumerable<TestCaseData> DensityCases()
@@ -295,7 +298,7 @@ public sealed class GpuPassFusionFeature003RegressionTests
         using (var sourceCanvas = new ImmediateCanvas(source, RenderIntent.Preview, 1, logicalSize: sourceSize.ToSize(1)))
         {
             sourceCanvas.Clear(Colors.CornflowerBlue);
-            sourceCanvas.DrawRectangle(new Rect(12, 10, 72, 44), Brushes.Resource.OrangeRed, null);
+            sourceCanvas.DrawRectangle(new Rect(12, 10, 72, 44), s_orangeRed, null);
         }
 
         int width = (int)MathF.Ceiling(s_frame.Width * scale);

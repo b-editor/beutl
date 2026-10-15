@@ -62,16 +62,6 @@ public readonly struct Color(byte a, byte r, byte g, byte b)
         );
     }
 
-    public static Color FromInt32(int value)
-    {
-        return new Color(
-            (byte)(value >> 24 & 0xff),
-            (byte)(value >> 16 & 0xff),
-            (byte)(value >> 8 & 0xff),
-            (byte)(value & 0xff)
-        );
-    }
-
     public static Color Parse(string s)
     {
         if (s is null)
@@ -213,76 +203,6 @@ public readonly struct Color(byte a, byte r, byte g, byte b)
         return (uint)A << 24 | (uint)R << 16 | (uint)G << 8 | B;
     }
 
-    public int ToInt32()
-    {
-        return A << 24 | R << 16 | G << 8 | B;
-    }
-
-    public Hsv ToHsv()
-    {
-        float h = default;
-        float s;
-        float v;
-        float a = A / 255F;
-        float min = Math.Min(Math.Min(R, G), B);
-        float max = Math.Max(Math.Max(R, G), B);
-
-        float delta = max - min;
-
-        v = 100.0F * max / 255.0F;
-
-        if (max == 0.0F)
-        {
-            s = 0;
-        }
-        else
-        {
-            s = 100.0F * delta / max;
-        }
-
-        if (s == 0)
-        {
-            h = 0;
-        }
-        else
-        {
-            if (R == max)
-            {
-                h = 60.0F * (G - B) / delta;
-            }
-            else if (G == max)
-            {
-                h = 120.0F + (60.0F * (B - R) / delta);
-            }
-            else if (B == max)
-            {
-                h = 240.0F + (60.0F * (R - G) / delta);
-            }
-
-            if (h < 0.0)
-            {
-                h += 360.0F;
-            }
-        }
-
-        return new Hsv(h, s, v, a);
-    }
-
-    public Cmyk ToCmyk()
-    {
-        float rr = R / 255.0F;
-        float gg = G / 255.0F;
-        float bb = B / 255.0F;
-        float aa = A / 255.0F;
-
-        float k = 1.0F - Math.Max(Math.Max(rr, gg), bb);
-        float c = (1.0F - rr - k) / (1.0F - k);
-        float m = (1.0F - gg - k) / (1.0F - k);
-        float y = (1.0F - bb - k) / (1.0F - k);
-
-        return new Cmyk(c, m, y, k, aa);
-    }
-
     public Vector4 ToLinear()
     {
         float a = A / 255f;
@@ -306,16 +226,6 @@ public readonly struct Color(byte a, byte r, byte g, byte b)
     internal static float SrgbToLinear(float srgb)
     {
         return srgb <= 0.04045f ? srgb / 12.92f : MathF.Pow((srgb + 0.055f) / 1.055f, 2.4f);
-    }
-
-    public static Color FromLinear(Vector4 linear)
-    {
-        byte r = (byte)Math.Clamp(LinearToSrgb(linear.X) * 255f, 0, 255);
-        byte g = (byte)Math.Clamp(LinearToSrgb(linear.Y) * 255f, 0, 255);
-        byte b = (byte)Math.Clamp(LinearToSrgb(linear.Z) * 255f, 0, 255);
-        byte a = (byte)Math.Clamp(linear.W * 255f, 0, 255);
-
-        return FromArgb(a, r, g, b);
     }
 
     internal static float LinearToSrgb(float linear)

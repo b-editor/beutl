@@ -16,6 +16,9 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering.Fusion;
 [NonParallelizable]
 public sealed class CurvesAndLutEffectShaderTests
 {
+    private static readonly SolidColorBrush.Resource s_red =
+        KnownColor.Red.ToBrush().ToResource(CompositionContext.Default);
+
     private static readonly Rect s_bounds = new(0, 0, 16, 12);
 
     [Test]
@@ -228,7 +231,7 @@ public sealed class CurvesAndLutEffectShaderTests
         var effectResource = (LutEffect.Resource)effect.ToResource(CompositionContext.Default);
         CubeFile cube = effectResource.Source!.Cube!;
         var lutNode = new FilterEffectRenderNode(effectResource);
-        lutNode.AddChild(new RectangleRenderNode(s_bounds, Brushes.Resource.Red, null));
+        lutNode.AddChild(new RectangleRenderNode(s_bounds, s_red, null));
         // Under a container, so an ancestor whose own recording is replayable is in play too.
         using var root = new ContainerRenderNode();
         root.AddChild(lutNode);
@@ -408,7 +411,7 @@ public sealed class CurvesAndLutEffectShaderTests
             effect.ToResource(CompositionContext.Default));
         root.AddChild(new RectangleRenderNode(
             s_bounds,
-            fill ?? Brushes.Resource.Red,
+            fill ?? s_red,
             null));
         using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
         {

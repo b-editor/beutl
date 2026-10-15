@@ -9,12 +9,17 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 [TestFixture]
 public class RectangleRenderNodeTest
 {
+    private static readonly SolidColorBrush.Resource s_red =
+        KnownColor.Red.ToBrush().ToResource(CompositionContext.Default);
+    private static readonly SolidColorBrush.Resource s_blue =
+        KnownColor.Blue.ToBrush().ToResource(CompositionContext.Default);
+
     [TestCase(false)]
     [TestCase(true)]
     public void Update_ShouldNotMarkChanges_WhenAllPropertiesMatch(bool withPen)
     {
         var rect = new Rect(0, 0, 100, 100);
-        var fill = Brushes.Resource.Red;
+        var fill = s_red;
         Pen.Resource? pen = withPen ? CreatePen(thickness: 1) : null;
         using var node = new RectangleRenderNode(rect, fill, pen);
         node.ClearChanges(node.ChangeVersion);
@@ -31,8 +36,8 @@ public class RectangleRenderNodeTest
     {
         var rect1 = new Rect(0, 0, 100, 100);
         var rect2 = new Rect(0, 0, 200, 200);
-        var fill1 = Brushes.Resource.Red;
-        var fill2 = Brushes.Resource.Blue;
+        var fill1 = s_red;
+        var fill2 = s_blue;
         Pen.Resource penResource = CreatePen(thickness: 1);
         Pen.Resource otherPenResource = CreatePen(thickness: 2);
         using var node = new RectangleRenderNode(rect1, fill1, null);
@@ -78,7 +83,7 @@ public class RectangleRenderNodeTest
     public void ChangedParameters_ShouldRevokeAnAdmittedCache()
     {
         var rect = new Rect(0, 0, 100, 100);
-        var fill = Brushes.Resource.Red;
+        var fill = s_red;
         using var node = new RectangleRenderNode(rect, fill, null);
 
         for (int frame = 0; frame < RenderNodeCache.StableRequestCount; frame++)
@@ -99,7 +104,7 @@ public class RectangleRenderNodeTest
     public void Measure_ShouldReportRecordedFragment()
     {
         var rect = new Rect(0, 0, 100, 100);
-        var fill = Brushes.Resource.Red;
+        var fill = s_red;
         var pen = new Pen();
         pen.Brush.CurrentValue = Brushes.Black;
         pen.Thickness.CurrentValue = 1;
@@ -120,7 +125,7 @@ public class RectangleRenderNodeTest
     public void HitTest_ShouldReturnTrue_WhenPointIsInsideRectangle()
     {
         var rect = new Rect(0, 0, 100, 100);
-        var fill = Brushes.Resource.Red;
+        var fill = s_red;
         var pen = new Pen();
         pen.Brush.CurrentValue = Brushes.Black;
         pen.Thickness.CurrentValue = 1;
@@ -136,7 +141,7 @@ public class RectangleRenderNodeTest
     public void HitTest_ShouldReturnFalse_WhenPointIsOutsideRectangle()
     {
         var rect = new Rect(0, 0, 100, 100);
-        var fill = Brushes.Resource.Red;
+        var fill = s_red;
         var pen = new Pen();
         pen.Brush.CurrentValue = Brushes.Black;
         pen.Thickness.CurrentValue = 1;

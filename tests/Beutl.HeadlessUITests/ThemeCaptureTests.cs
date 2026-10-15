@@ -223,10 +223,10 @@ public class ThemeCaptureTests
     private static RectShape CreateDecoratedRect()
     {
         var rect = new RectShape();
-        rect.Fill.CurrentValue = new SolidColorBrush(0xFF3B82F6);
+        rect.Fill.CurrentValue = new SolidColorBrush(Color.FromUInt32(0xFF3B82F6));
 
         var pen = new Pen();
-        pen.Brush.CurrentValue = new SolidColorBrush(0xFFE9EBF1);
+        pen.Brush.CurrentValue = new SolidColorBrush(Color.FromUInt32(0xFFE9EBF1));
         pen.Thickness.CurrentValue = 4;
         rect.Pen.CurrentValue = pen;
 
