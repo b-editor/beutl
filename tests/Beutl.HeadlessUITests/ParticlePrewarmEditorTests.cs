@@ -29,7 +29,7 @@ public sealed class ParticlePrewarmEditorTests
         CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo(language);
         var emitter = new ParticleEmitter();
         var sequence = new OperationSequenceGenerator();
-        using var history = new HistoryManager(emitter, sequence);
+        using var history = new HistoryManager(sequence);
         using var observer = new CoreObjectOperationObserver(null, emitter, sequence);
         using var subscription = history.Subscribe(observer);
         using var model = new PropertiesEditorViewModel(emitter, TestShell.Extensions, property =>

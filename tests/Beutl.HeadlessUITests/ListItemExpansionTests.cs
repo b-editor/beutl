@@ -68,7 +68,7 @@ public class ListItemExpansionTests
             Uri = new Uri(Path.Combine(BeutlHomeIsolation.CurrentHome!, $"list-expansion-{Guid.NewGuid():N}.belm")),
             Objects = { card }
         };
-        using var history = new HistoryManager(element, new OperationSequenceGenerator());
+        using var history = new HistoryManager(new OperationSequenceGenerator());
         using var selected = new ReactivePropertySlim<CoreObject?>(null);
         var selection = new Mock<IEditorSelection>();
         selection.SetupGet(s => s.SelectedObject).Returns(selected);

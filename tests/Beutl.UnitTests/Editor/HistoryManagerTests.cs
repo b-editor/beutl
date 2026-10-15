@@ -10,7 +10,7 @@ public class HistoryManagerTests
     [TestCase(true)]
     public void PartialHistoryFailure_RetryDoesNotRepeatSuccessfulOperations(bool redo)
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
         void RecordAtomic(Action apply, Action revert) => manager.Record(new AtomicOperation(apply, revert)
         {
             SequenceNumber = _sequenceGenerator.GetNext(),
@@ -49,7 +49,7 @@ public class HistoryManagerTests
     [TestCase(true, true)]
     public void UnknownPartialFailure_PreservesHistoryAndAllowsReplayOfNewEdits(bool redo, bool jump)
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
         CreateValueOperation(manager, 1, 0);
         manager.Commit("Earlier operation");
         HistoryTransaction earlier = manager.PeekUndo()!;
@@ -140,7 +140,7 @@ public class HistoryManagerTests
     [TestCase("JumpTo")]
     public void UnknownPendingFailure_PreservesBothStacksAndNotifies(string action)
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
         CreateValueOperation(manager, 1, 0);
         manager.Commit("Undo entry");
         CreateValueOperation(manager, 2, 1);
@@ -192,7 +192,7 @@ public class HistoryManagerTests
     [Test]
     public void UnknownFailure_BlockedJumpDoesNotDiscardPendingEdit()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
         manager.Record(() => { }, () => throw new IOException("unknown undo failure"));
         manager.Commit("unsafe operation");
         Assert.Throws<HistoryReplayException>(() => manager.Undo());
@@ -211,7 +211,7 @@ public class HistoryManagerTests
     [Test]
     public void UnknownFailure_SecondFailureAdvancesBoundaryAndExplicitClearResetsIt()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
         for (int i = 0; i < 2; i++)
         {
             manager.Record(() => { }, () => throw new IOException("unknown undo failure"));
@@ -241,7 +241,7 @@ public class HistoryManagerTests
     [Test]
     public void AtomicUndoFailureKeepsHistory()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
         manager.Record(new AtomicOperation(() => { }, () => throw new InvalidOperationException("probe"))
         {
             SequenceNumber = _sequenceGenerator.GetNext(),
@@ -254,7 +254,7 @@ public class HistoryManagerTests
     [Test]
     public void AtomicRedoFailureKeepsHistory()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
         manager.Record(new AtomicOperation(() => throw new InvalidOperationException("probe"), () => { })
         {
             SequenceNumber = _sequenceGenerator.GetNext(),
@@ -268,7 +268,7 @@ public class HistoryManagerTests
     [Test]
     public void PartialAtomicUndoFailureNotifiesAndKeepsTheEntry()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
         int value = 2;
         manager.Record(new AtomicOperation(() => { }, () => throw new InvalidOperationException("failure"))
         {
@@ -302,11 +302,10 @@ public class HistoryManagerTests
     [Test]
     public void Constructor_ShouldInitializeWithCorrectDefaults()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
 
         Assert.Multiple(() =>
         {
-            Assert.That(manager.Root, Is.EqualTo(_root));
             Assert.That(manager.CanUndo, Is.False);
             Assert.That(manager.CanRedo, Is.False);
             Assert.That(manager.UndoCount, Is.EqualTo(0));
@@ -315,21 +314,15 @@ public class HistoryManagerTests
     }
 
     [Test]
-    public void Constructor_ShouldThrowArgumentNullException_WhenRootIsNull()
-    {
-        Assert.Throws<ArgumentNullException>(() => new HistoryManager(null!, _sequenceGenerator));
-    }
-
-    [Test]
     public void Constructor_ShouldThrowArgumentNullException_WhenSequenceGeneratorIsNull()
     {
-        Assert.Throws<ArgumentNullException>(() => new HistoryManager(_root, null!));
+        Assert.Throws<ArgumentNullException>(() => new HistoryManager(null!));
     }
 
     [Test]
     public void Record_ShouldThrowArgumentNullException_WhenOperationIsNull()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
 
         Assert.Throws<ArgumentNullException>(() => manager.Record((ChangeOperation)null!));
     }
@@ -337,7 +330,7 @@ public class HistoryManagerTests
     [Test]
     public void Commit_ShouldPushCurrentTransactionToUndoStack()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
         var operation = CreateTestOperation();
 
         manager.Record(operation);
@@ -355,7 +348,7 @@ public class HistoryManagerTests
     [Test]
     public void Commit_ShouldNotPushEmptyTransaction()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
 
         manager.Commit("Empty");
 
@@ -369,7 +362,7 @@ public class HistoryManagerTests
     [Test]
     public void Commit_ShouldClearRedoStack()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
         manager.Record(CreateTestOperation());
         manager.Commit("First");
         manager.Undo();
@@ -384,7 +377,7 @@ public class HistoryManagerTests
     [Test]
     public void Rollback_ShouldRevertCurrentTransaction()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
         _root.Value = 0;
 
         var operation = CustomOperation.Create(
@@ -408,7 +401,7 @@ public class HistoryManagerTests
     [Test]
     public void Rollback_WhenRevertFails_RetainsThePendingTransactionForRetry()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
         bool failFirstRevert = true;
         var operation = new AtomicOperation(
             () => _root.Value = 100,
@@ -443,7 +436,7 @@ public class HistoryManagerTests
     [Test]
     public void Undo_ShouldRevertLastCommittedTransaction()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
         _root.Value = 0;
 
         var operation = CustomOperation.Create(
@@ -469,7 +462,7 @@ public class HistoryManagerTests
     [Test]
     public void Undo_ShouldReturnFalse_WhenNoUndoAvailable()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
 
         var result = manager.Undo();
 
@@ -479,7 +472,7 @@ public class HistoryManagerTests
     [Test]
     public void Redo_ShouldReapplyLastUndoneTransaction()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
         _root.Value = 0;
 
         var operation = CustomOperation.Create(
@@ -506,7 +499,7 @@ public class HistoryManagerTests
     [Test]
     public void Redo_ShouldReturnFalse_WhenNoRedoAvailable()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
 
         var result = manager.Redo();
 
@@ -516,7 +509,7 @@ public class HistoryManagerTests
     [Test]
     public void Clear_ShouldRemoveAllHistory()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
         manager.Record(CreateTestOperation());
         manager.Commit("First");
         manager.Record(CreateTestOperation());
@@ -537,7 +530,7 @@ public class HistoryManagerTests
     [Test]
     public void PeekUndo_ShouldReturnLastTransaction()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
         manager.Record(CreateTestOperation());
         manager.Commit("First");
         manager.Record(CreateTestOperation());
@@ -551,7 +544,7 @@ public class HistoryManagerTests
     [Test]
     public void PeekUndo_ShouldReturnNull_WhenNoUndoAvailable()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
 
         var transaction = manager.PeekUndo();
 
@@ -561,7 +554,7 @@ public class HistoryManagerTests
     [Test]
     public void PeekRedo_ShouldReturnLastUndoneTransaction()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
         manager.Record(CreateTestOperation());
         manager.Commit("First");
         manager.Undo();
@@ -574,7 +567,7 @@ public class HistoryManagerTests
     [Test]
     public void PeekRedo_ShouldReturnNull_WhenNoRedoAvailable()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
 
         var transaction = manager.PeekRedo();
 
@@ -584,7 +577,7 @@ public class HistoryManagerTests
     [Test]
     public void ExecuteInTransaction_ShouldCommitOnSuccess()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
         _root.Value = 0;
 
         manager.ExecuteInTransaction(() =>
@@ -607,7 +600,7 @@ public class HistoryManagerTests
     [Test]
     public void ExecuteInTransaction_ShouldRollbackOnException()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
         _root.Value = 0;
 
         Assert.Throws<InvalidOperationException>(() =>
@@ -634,7 +627,7 @@ public class HistoryManagerTests
     [Test]
     public void ExecuteInTransaction_CommitsPendingOperationsSeparately()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
         CreateValueOperation(manager, targetValue: 1, previousValue: 0);
 
         manager.ExecuteInTransaction(
@@ -661,7 +654,7 @@ public class HistoryManagerTests
     [Test]
     public void ExecuteInTransaction_RollsBackOnlyItsOwnFailedOperations()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
         CreateValueOperation(manager, targetValue: 1, previousValue: 0);
 
         Assert.Throws<InvalidOperationException>(() => manager.ExecuteInTransaction(() =>
@@ -686,7 +679,7 @@ public class HistoryManagerTests
     [Test]
     public async Task ExecuteInTransaction_QueuesConcurrentRecordsForTheNextTransaction()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
         using var isolatedEntered = new ManualResetEventSlim();
         using var releaseIsolated = new ManualResetEventSlim();
         using var concurrentStarted = new ManualResetEventSlim();
@@ -730,7 +723,7 @@ public class HistoryManagerTests
     [TestCase(false)]
     public void ExecuteInTransaction_RejectsReentrantTransactionControl(bool commit)
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
 
         Assert.Throws<InvalidOperationException>(() => manager.ExecuteInTransaction(() =>
         {
@@ -755,7 +748,7 @@ public class HistoryManagerTests
     [Test]
     public void ExecuteInTransaction_ContainsPostCommitStateObserverFailure()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
         using IDisposable subscription = manager.StateChanged.Subscribe(_ =>
             throw new InvalidOperationException("observer failed"));
         HistoryState? laterState = null;
@@ -781,7 +774,7 @@ public class HistoryManagerTests
     [Test]
     public void ExecuteInTransaction_DetachesAFailedRollbackTransaction()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
         var operation = CustomOperation.Create(
             () => _root.Value = 1,
             () => throw new InvalidOperationException("revert failed"),
@@ -814,7 +807,7 @@ public class HistoryManagerTests
     [TestCase(ChangeOperationFailureState.Completed)]
     public void ExecuteInTransaction_FailedRollbackRestrictsReplayUnlessCompleted(ChangeOperationFailureState failureState)
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
         CreateValueOperation(manager, 1, 0);
         manager.Commit("Undo entry");
         CreateValueOperation(manager, 2, 1);
@@ -907,7 +900,7 @@ public class HistoryManagerTests
     [Test]
     public void ExecuteInTransaction_ContainsHistoryEntryObserverFailure()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
         int laterSubscriberNotifications = 0;
         INotifyCollectionChanged entries = manager.Entries;
         NotifyCollectionChangedEventHandler handler = (_, _) =>
@@ -946,7 +939,7 @@ public class HistoryManagerTests
     [Test]
     public void Commit_RejectsDirectHistoryControlReentrancyBeforeManagedPublication()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
         var mirroredEntries = manager.GetEntriesSnapshot().ToList();
         using IDisposable managedSubscription = manager.SubscribeEntries((_, args) =>
         {
@@ -992,7 +985,7 @@ public class HistoryManagerTests
     [Test]
     public void Commit_DoesNotReplayAddToManagedSubscriberCreatedDuringDirectPublication()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
         List<HistoryEntry>? lateMirror = null;
         IDisposable? lateSubscription = null;
         INotifyCollectionChanged entries = manager.Entries;
@@ -1034,7 +1027,7 @@ public class HistoryManagerTests
     [Test]
     public void ExecuteInTransaction_GuardsPendingEntryPublication()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
         CreateValueOperation(manager, targetValue: 1, previousValue: 0);
         int reentrantAttempts = 0;
         INotifyCollectionChanged entries = manager.Entries;
@@ -1076,7 +1069,7 @@ public class HistoryManagerTests
     public void ExecuteInTransaction_SeparatesRecordsProducedByPendingEntryPublication(
         bool useAtomicSubscription)
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
         CreateValueOperation(manager, targetValue: 1, previousValue: 0);
         bool injected = false;
         INotifyCollectionChanged entries = manager.Entries;
@@ -1127,7 +1120,7 @@ public class HistoryManagerTests
     [Test]
     public void ExecuteInTransaction_RejectsNonConvergingEntryPublicationBeforeCallback()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
         manager.Record(CreateTestOperation());
         bool actionInvoked = false;
         INotifyCollectionChanged entries = manager.Entries;
@@ -1159,7 +1152,7 @@ public class HistoryManagerTests
     [Test]
     public void ExecuteInTransaction_ContinuesRollbackAfterARevertFailure()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
         int firstValue = 0;
         int secondValue = 0;
 
@@ -1197,7 +1190,7 @@ public class HistoryManagerTests
     [Test]
     public void Record_WithActions_ShouldCreateCustomOperation()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
         _root.Value = 0;
         bool doExecuted = false;
 
@@ -1219,7 +1212,7 @@ public class HistoryManagerTests
     [TestCase("Clear", false, false, 0, 0)]
     public void StateChanged_ShouldBeNotified(string operation, bool canUndo, bool canRedo, int undoCount, int redoCount)
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
         if (operation != "Commit")
         {
             manager.Record(CreateTestOperation());
@@ -1262,7 +1255,7 @@ public class HistoryManagerTests
     [Test]
     public void StateChanged_DisposingOneOfTwoEqualObserversRemovesOnlyItsSubscription()
     {
-        var manager = new HistoryManager(_root, _sequenceGenerator);
+        var manager = new HistoryManager(_sequenceGenerator);
         var first = new EqualHistoryObserver();
         var second = new EqualHistoryObserver();
         using IDisposable firstSubscription = manager.StateChanged.Subscribe(first);
@@ -1285,7 +1278,7 @@ public class HistoryManagerTests
     [Test]
     public void Dispose_ShouldPreventFurtherOperations()
     {
-        var manager = new HistoryManager(_root, _sequenceGenerator);
+        var manager = new HistoryManager(_sequenceGenerator);
         manager.Dispose();
 
         Assert.Throws<ObjectDisposedException>(() => manager.Record(CreateTestOperation()));
@@ -1307,7 +1300,7 @@ public class HistoryManagerTests
     [Test]
     public void MultipleUndoRedo_ShouldMaintainCorrectState()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
         _root.Value = 0;
 
         for (int i = 1; i <= 3; i++)
@@ -1371,7 +1364,7 @@ public class HistoryManagerTests
     [Test]
     public void Entries_AfterConstruction_ShouldContainSingleInitialEntry()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
 
         Assert.Multiple(() =>
         {
@@ -1384,7 +1377,7 @@ public class HistoryManagerTests
     [Test]
     public void Entries_AfterCommit_ShouldAppendTransactionEntry()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
         _root.Value = 0;
         CreateValueOperation(manager, 100, 0);
         manager.Commit("First");
@@ -1402,7 +1395,7 @@ public class HistoryManagerTests
     [Test]
     public void Commit_AfterUndo_ShouldTruncateEntriesAndKeepInitial()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
         _root.Value = 0;
         CreateValueOperation(manager, 100, 0);
         manager.Commit("Step1");
@@ -1427,7 +1420,7 @@ public class HistoryManagerTests
     [Test]
     public void Clear_ShouldLeaveSingleInitialEntry()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
         CreateValueOperation(manager, 100, 0);
         manager.Commit("Step1");
         CreateValueOperation(manager, 200, 100);
@@ -1446,7 +1439,7 @@ public class HistoryManagerTests
     [Test]
     public void JumpTo_OutOfRangeIndex_ShouldReturnFalseWithoutMutation()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
         _root.Value = 0;
         CreateValueOperation(manager, 100, 0);
         manager.Commit("Step1");
@@ -1467,7 +1460,7 @@ public class HistoryManagerTests
     [Test]
     public void JumpTo_ToCurrentIndex_ShouldReturnFalseAndNotNotify()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
         CreateValueOperation(manager, 100, 0);
         manager.Commit("Step1");
 
@@ -1486,7 +1479,7 @@ public class HistoryManagerTests
     [Test]
     public void JumpTo_ToPastIndex_ShouldRevertInLifoOrder()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
         _root.Value = 0;
         CreateValueOperation(manager, 100, 0);
         manager.Commit("Step1");
@@ -1509,7 +1502,7 @@ public class HistoryManagerTests
     [Test]
     public void JumpTo_ToFutureIndex_ShouldReapplyInOrder()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
         _root.Value = 0;
         CreateValueOperation(manager, 100, 0);
         manager.Commit("Step1");
@@ -1535,7 +1528,7 @@ public class HistoryManagerTests
     [Test]
     public void JumpTo_WithUncommittedOperations_ShouldRollbackBeforeJumping()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
         _root.Value = 0;
         CreateValueOperation(manager, 100, 0);
         manager.Commit("Committed");
@@ -1563,7 +1556,7 @@ public class HistoryManagerTests
     [Test]
     public void JumpTo_ToInitialIndex_ShouldRestoreInitialState()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
         _root.Value = 0;
         CreateValueOperation(manager, 100, 0);
         manager.Commit("Step1");
@@ -1601,7 +1594,7 @@ public class HistoryManagerTests
     [Test]
     public void HistoryEntry_FromTransaction_DisplayLabelPrefersDisplayName()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
         manager.Record(CreateTestOperation());
         manager.Commit("Friendly");
 
@@ -1632,7 +1625,7 @@ public class HistoryManagerTests
     [Test]
     public void JumpTo_WhenApplyThrowsMidForwardLoop_ShouldKeepFailingTransactionOnRedoStack()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
         _root.Value = 0;
 
         CreateValueOperation(manager, 100, 0);
@@ -1684,7 +1677,7 @@ public class HistoryManagerTests
     [Test]
     public void JumpTo_WhenRevertThrowsMidLoop_ShouldNotifyForCompletedStepsAndRethrow()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
         _root.Value = 0;
 
         // _undoStack (bottom -> top): Faulty, Step2, Step3
@@ -1721,7 +1714,7 @@ public class HistoryManagerTests
     [Test]
     public void JumpTo_WhenPendingRevertThrows_ShouldStillReplaceCurrentTransaction()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
         _root.Value = 0;
         CreateValueOperation(manager, 100, 0);
         manager.Commit("Committed");
@@ -1746,7 +1739,7 @@ public class HistoryManagerTests
     [Test]
     public void JumpTo_RejumpForwardAfterCommitCollapse_ShouldFail()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
         _root.Value = 0;
         CreateValueOperation(manager, 100, 0);
         manager.Commit("Step1");
@@ -1778,7 +1771,7 @@ public class HistoryManagerTests
     [Test]
     public void GetEntriesSnapshot_ReturnsLockSafeCopy()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
         CreateValueOperation(manager, 100, 0);
         manager.Commit("Step1");
 
@@ -1801,7 +1794,7 @@ public class HistoryManagerTests
     [Test]
     public void SubscribeEntries_ReturnsCurrentSnapshotAndForwardsLaterChanges()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
         CreateValueOperation(manager, 100, 0);
         manager.Commit("Step1");
 
@@ -1827,7 +1820,7 @@ public class HistoryManagerTests
     [Test]
     public void Direct_entry_subscribers_continue_after_collection_and_property_failures()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
         var collection = (INotifyCollectionChanged)manager.Entries;
         var properties = (System.ComponentModel.INotifyPropertyChanged)manager.Entries;
         var actions = new List<NotifyCollectionChangedAction>();
@@ -1853,7 +1846,7 @@ public class HistoryManagerTests
     [Test]
     public void SubscribeEntries_DisposalUnsubscribesHandler()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
         int callCount = 0;
         var (sub, _, _) = manager.SubscribeEntries((_, _) => callCount++);
 
@@ -1868,7 +1861,7 @@ public class HistoryManagerTests
     [Test]
     public void SubscribeEntries_NullHandler_ShouldThrow()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
 
         Assert.Throws<ArgumentNullException>(() =>
             manager.SubscribeEntries(null!));
@@ -1877,7 +1870,7 @@ public class HistoryManagerTests
     [Test]
     public void Clear_DoesNotEmitResetEvent()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
         CreateValueOperation(manager, 100, 0);
         manager.Commit("Step1");
         CreateValueOperation(manager, 200, 100);
@@ -1906,7 +1899,7 @@ public class HistoryManagerTests
     [TestCase(true)]
     public void BeforeMutation_transaction_flush_does_not_recursively_publish(bool crossThread)
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
         int calls = 0;
         bool flushed = false;
         using var subscription = manager.BeforeMutation.Subscribe(_ =>
@@ -1932,7 +1925,7 @@ public class HistoryManagerTests
     [Test]
     public async Task BeforeMutation_deferred_work_can_publish_after_the_original_dispatch_completes()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         Task? deferred = null;
         int calls = 0;
@@ -1954,7 +1947,7 @@ public class HistoryManagerTests
     [Test]
     public void BeforeMutation_Undo_FiresBeforeStackMutates()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
         manager.Record(CreateTestOperation());
         manager.Commit("Step");
 
@@ -1982,7 +1975,7 @@ public class HistoryManagerTests
     [Test]
     public void BeforeMutation_Redo_FiresBeforeStackMutates()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
         manager.Record(CreateTestOperation());
         manager.Commit("Step");
         manager.Undo();
@@ -2011,7 +2004,7 @@ public class HistoryManagerTests
         // Reproduces the timeline-nudge flush contract: a subscriber Commit
         // during Undo must produce an undo entry of its own that gets popped
         // by the very Undo that triggered it, not merged with the prior entry.
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
         manager.Record(CreateTestOperation());
         manager.Commit("First");
 
@@ -2038,7 +2031,7 @@ public class HistoryManagerTests
     [Test]
     public void BeforeMutation_SubscriberThrows_DoesNotAbortUndo()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
         manager.Record(CreateTestOperation());
         manager.Commit("Step");
 
@@ -2055,7 +2048,7 @@ public class HistoryManagerTests
         // Pending nudge operations live on _currentTransaction; without a flush
         // before JumpTo walks the stacks, those operations would silently revert
         // and never reach the undo history.
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
         manager.Record(CreateTestOperation());
         manager.Commit("First");
 
@@ -2081,7 +2074,7 @@ public class HistoryManagerTests
     [Test]
     public void BeforeMutation_Dispose_CompletesObservable()
     {
-        var manager = new HistoryManager(_root, _sequenceGenerator);
+        var manager = new HistoryManager(_sequenceGenerator);
 
         bool completed = false;
         using var subscription = manager.BeforeMutation.Subscribe(
@@ -2096,7 +2089,7 @@ public class HistoryManagerTests
     [Test]
     public void BeforeMutation_ContinuesAfterAnObserverThrows()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
         using IDisposable throwingSubscription = manager.BeforeMutation.Subscribe(_ =>
             throw new InvalidOperationException("observer failed"));
         int laterNotifications = 0;
@@ -2116,7 +2109,7 @@ public class HistoryManagerTests
     public bool WouldJumpToMove_ReflectsWhetherJumpWouldMove(int index)
     {
         // Two commits: entries [initial, First, Second] (Count 3), CurrentIndex 2.
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
         manager.Record(CreateTestOperation());
         manager.Commit("First");
         manager.Record(CreateTestOperation());
@@ -2128,7 +2121,7 @@ public class HistoryManagerTests
     [Test]
     public void WouldJumpToMove_ShouldReturnTrue_ForCurrentIndexWithPendingTransaction()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
         manager.Record(CreateTestOperation());
         manager.Commit("First");
         // CurrentIndex == 1. An uncommitted operation makes JumpTo(1) still mutate
@@ -2145,7 +2138,7 @@ public class HistoryManagerTests
     [Test]
     public void HasPendingOperations_ShouldTrackUncommittedRecord()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
 
         Assert.That(manager.HasPendingOperations, Is.False);
 
@@ -2159,7 +2152,7 @@ public class HistoryManagerTests
     [Test]
     public void FlushPendingMutations_ShouldFireBeforeMutation()
     {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        using var manager = new HistoryManager(_sequenceGenerator);
         int fired = 0;
         using var subscription = manager.BeforeMutation.Subscribe(_ => fired++);
 

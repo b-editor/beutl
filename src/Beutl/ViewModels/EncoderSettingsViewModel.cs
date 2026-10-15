@@ -16,7 +16,7 @@ public sealed class EncoderSettingsViewModel : IPropertyEditorContextVisitor, IS
         Settings = settings;
         _extensionProvider = extensionProvider;
         var sequenceGenerator = new OperationSequenceGenerator();
-        _services = new PropertyEditorHostServices(new HistoryManager(settings, sequenceGenerator), extensionProvider);
+        _services = new PropertyEditorHostServices(new HistoryManager(sequenceGenerator), extensionProvider);
         InitializeCoreObject(settings, (_, m) => m.Browsable);
     }
 

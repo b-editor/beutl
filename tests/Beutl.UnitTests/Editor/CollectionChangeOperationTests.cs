@@ -31,7 +31,7 @@ public class CollectionChangeOperationTests
             Count = 1,
             SequenceNumber = 1,
         };
-        using var history = new Beutl.Editor.HistoryManager(owner, new Beutl.Editor.OperationSequenceGenerator());
+        using var history = new Beutl.Editor.HistoryManager(new Beutl.Editor.OperationSequenceGenerator());
         history.Record(operation);
         history.Commit("value move");
         System.Collections.Specialized.NotifyCollectionChangedEventHandler handler = (_, change) =>
@@ -74,7 +74,7 @@ public class CollectionChangeOperationTests
         var owner = new TestCoreObjectWithList();
         owner.Items.AddRange(["A", "B", "C"]);
         var operation = new MoveCollectionRangeOperation<string> { Object = owner, PropertyPath = "Items", OldIndex = 5, NewIndex = 0, Count = count, SequenceNumber = 1 };
-        using var history = new Beutl.Editor.HistoryManager(owner, new Beutl.Editor.OperationSequenceGenerator());
+        using var history = new Beutl.Editor.HistoryManager(new Beutl.Editor.OperationSequenceGenerator());
         history.Record(operation);
         history.Commit("stale move");
         for (int i = 0; i < 2; i++)
@@ -98,7 +98,7 @@ public class CollectionChangeOperationTests
             Count = 1,
             SequenceNumber = 1,
         };
-        using var history = new Beutl.Editor.HistoryManager(owner, new Beutl.Editor.OperationSequenceGenerator());
+        using var history = new Beutl.Editor.HistoryManager(new Beutl.Editor.OperationSequenceGenerator());
         history.Record(operation);
         history.Commit("move");
         System.Collections.Specialized.NotifyCollectionChangedEventHandler handler = (_, change) =>

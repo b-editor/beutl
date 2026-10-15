@@ -13,7 +13,7 @@ public sealed class HistoryHarness : IDisposable
     public HistoryHarness(CoreObject root)
     {
         Sequence = new OperationSequenceGenerator();
-        History = new HistoryManager(root, Sequence);
+        History = new HistoryManager(Sequence);
         Observer = new CoreObjectOperationObserver(null, root, Sequence);
         History.Subscribe(Observer);
     }

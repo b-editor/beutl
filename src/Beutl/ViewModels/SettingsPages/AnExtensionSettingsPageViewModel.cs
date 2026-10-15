@@ -19,7 +19,7 @@ public sealed class AnExtensionSettingsPageViewModel : PageContext, IPropertyEdi
 
         var sequenceGenerator = new OperationSequenceGenerator();
         _services = new PropertyEditorHostServices(
-            new HistoryManager(extension.Settings!, sequenceGenerator), extensionProvider);
+            new HistoryManager(sequenceGenerator), extensionProvider);
 
         InitializeCoreObject(extension.Settings!, (_, m) => m.Browsable, extensionProvider);
 

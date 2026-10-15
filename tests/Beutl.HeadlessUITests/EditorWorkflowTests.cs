@@ -39,7 +39,6 @@ public class EditorWorkflowTests
         Assert.That(editor, Is.Not.Null);
         Assert.That(editor.Scene, Is.SameAs(TestShell.Editor.SelectedTabItem.Value!.Context.Value.Object));
         Assert.That(editor.HistoryManager, Is.Not.Null);
-        Assert.That(editor.HistoryManager.Root, Is.SameAs(editor.Scene));
     }
 
     [AvaloniaTest]

@@ -42,7 +42,7 @@ public class ElementRecoveryContractTests
         var recoveredShape = (RectShape)recovered.Objects.Single();
         Transform? fallback = recoveredShape.Transform.CurrentValue;
         var sequence = new OperationSequenceGenerator();
-        using var history = new HistoryManager(recoveredScene, sequence);
+        using var history = new HistoryManager(sequence);
         using var observer = new CoreObjectOperationObserver(null, recoveredScene, sequence);
         using IDisposable subscription = history.Subscribe(observer);
         Assert.Multiple(() =>

@@ -259,7 +259,7 @@ public class NodeGraphGenerativeMenuTests
             group.Group.Nodes.Add(new AiPromptNode());
             graph.Nodes.Add(group);
             var sequence = new Beutl.Editor.OperationSequenceGenerator();
-            using var history = new Beutl.Editor.HistoryManager(graph, sequence);
+            using var history = new Beutl.Editor.HistoryManager(sequence);
             using var observer = new Beutl.Editor.Observers.CoreObjectOperationObserver(null, graph, sequence);
             history.Subscribe(observer);
             Mock<IEditorContext> editor = CreateEditor();
