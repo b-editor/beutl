@@ -62,7 +62,7 @@ public class AiSubtitleTemplateTests
             "Default",
             [zulu, shape, alpha],
             new ExtensionProvider(),
-            DefaultTextCaptionElementFactory.Instance);
+            new DefaultTextCaptionElementFactory(Beutl.Media.FontFamily.Default));
         IReadOnlyList<CaptionTemplateDescriptor> result = catalog.Templates.Templates;
 
         using (Assert.EnterMultipleScope())
@@ -405,7 +405,7 @@ public class AiSubtitleTemplateTests
             "Default",
             [],
             new ExtensionProvider(),
-            DefaultTextCaptionElementFactory.Instance);
+            new DefaultTextCaptionElementFactory(Beutl.Media.FontFamily.Default));
         byte[] png = CreatePng();
         var viewModel = new AiSubtitleDialogViewModel(
             clients.GetResource<IAiEntitlementService>(),

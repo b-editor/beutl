@@ -34,21 +34,6 @@ public sealed class ExtensionAndCaptionAuthoringContractTests
     }
 
     [Test]
-    public async Task CaptionCatalogSurface_DoesNotExposeMutableRegistries()
-    {
-        await using CaptionCatalog catalog = CaptionCatalog.CreateDefault("Default");
-
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(catalog.Codecs, Is.InstanceOf<ICaptionCodecProvider>());
-            Assert.That(catalog.Codecs, Is.Not.InstanceOf<CaptionCodecRegistry>());
-            Assert.That(catalog.Templates, Is.InstanceOf<ICaptionTemplateProvider>());
-            Assert.That(catalog.Templates, Is.Not.InstanceOf<CaptionTemplateRegistry>());
-            Assert.That(typeof(CaptionDocumentSerializer).GetProperty("Codecs"), Is.Null);
-        }
-    }
-
-    [Test]
     public async Task CaptionCodecCapabilities_CanBeRegisteredIndependently()
     {
         var format = new CaptionFormatId("vendor.caption");

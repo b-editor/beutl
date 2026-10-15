@@ -1,4 +1,5 @@
 ﻿using System.Text;
+using Beutl.Api.Services;
 using Beutl.Editor.Services.Captions;
 
 namespace Beutl.UnitTests.Editor.Services.Captions;
@@ -7,7 +8,11 @@ namespace Beutl.UnitTests.Editor.Services.Captions;
 public class CaptionDocumentSerializerTests
 {
     private readonly CaptionDocumentSerializer _serializer =
-        CaptionCatalog.CreateDefault("Default").Serializer;
+        CaptionCatalog.ComposeWithDefaultElementFactory(
+            "Default",
+            [],
+            new ExtensionProvider(),
+            new DefaultTextCaptionElementFactory(Beutl.Media.FontFamily.Default)).Serializer;
 
     [Test]
     public void Import_InvalidUtf8_ReturnsFailureWithoutThrowing()

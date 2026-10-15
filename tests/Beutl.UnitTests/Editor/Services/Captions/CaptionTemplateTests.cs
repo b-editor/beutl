@@ -15,37 +15,6 @@ namespace Beutl.UnitTests.Editor.Services.Captions;
 public class CaptionTemplateTests
 {
     [Test]
-    public async Task DefaultCatalogDisposesItsOwnedRegistries()
-    {
-        CaptionCatalog catalog = CaptionCatalog.CreateDefault("Default");
-        Assert.That(catalog.Codecs.Codecs, Is.Not.Empty);
-        Assert.That(catalog.Templates.Templates, Is.Not.Empty);
-
-        await catalog.DisposeAsync();
-        await catalog.DisposeAsync();
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(catalog.Codecs.Codecs, Is.Empty);
-            Assert.That(catalog.Templates.Templates, Is.Empty);
-            Assert.That(catalog.Codecs.TryGet(CaptionFormats.Srt, out _), Is.False);
-            Assert.That(catalog.Templates.TryGet(CaptionTemplateIds.DefaultText, out _), Is.False);
-        });
-    }
-
-    [Test]
-    public void DefaultFactory_UsesTheRenderingEngineDefaultFont()
-    {
-        CaptionTemplateRegistrationSet template = CaptionTemplateDefaults.CreateDefaultText("Default");
-        var cue = new CaptionCue(TimeSpan.Zero, TimeSpan.FromSeconds(1), "Hello");
-        var context = new CaptionElementContext(0, "Caption");
-
-        TextBlock text = CreateTextBlock(CreateElements(template, cue, context).Single());
-
-        Assert.That(text.FontFamily.CurrentValue, Is.EqualTo(FontFamily.Default));
-    }
-
-    [Test]
     public void DefaultTemplate_CreatesTextDescriptionAndAppliesContextPlacement()
     {
         var fontFamily = new FontFamily("Noto Sans JP");
@@ -199,7 +168,7 @@ public class CaptionTemplateTests
         CaptionTemplateRegistrationSet nullPlacementTemplate = CaptionTemplateRegistryTests.CreateTemplate(
             new CaptionTemplateId("beutl.tests.null-placement"),
             "Null placement item",
-            DefaultTextCaptionElementFactory.Instance,
+            new DefaultTextCaptionElementFactory(FontFamily.Default),
             new NullPlacementPolicy());
 
         Assert.Multiple(() =>

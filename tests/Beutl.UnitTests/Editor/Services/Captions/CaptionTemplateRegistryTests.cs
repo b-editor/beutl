@@ -13,6 +13,8 @@ using Beutl.Graphics;
 public sealed class CaptionTemplateRegistryTests
 {
     private static readonly CaptionTemplateProviderId s_provider = new("beutl.tests");
+    private static readonly DefaultTextCaptionElementFactory s_textFactory =
+        new(Beutl.Media.FontFamily.Default);
 
     [Test]
     public async Task Catalog_RejectsCaseInsensitiveTemplateIdentifierCollision()
@@ -126,6 +128,21 @@ public sealed class CaptionTemplateRegistryTests
                 out CaptionTemplateDescriptor? registered),
             Is.True);
         Assert.That(registered!.Name, Is.EqualTo("Safe"));
+    }
+
+    [Test]
+    public async Task Catalog_DoesNotExposeMutableRegistries()
+    {
+        await using CaptionCatalog catalog = Compose("Default", [], new ExtensionProvider());
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(catalog.Codecs, Is.InstanceOf<ICaptionCodecProvider>());
+            Assert.That(catalog.Codecs, Is.Not.InstanceOf<CaptionCodecRegistry>());
+            Assert.That(catalog.Templates, Is.InstanceOf<ICaptionTemplateProvider>());
+            Assert.That(catalog.Templates, Is.Not.InstanceOf<CaptionTemplateRegistry>());
+            Assert.That(typeof(CaptionDocumentSerializer).GetProperty("Codecs"), Is.Null);
+        }
     }
 
     [Test]
@@ -496,10 +513,11 @@ public sealed class CaptionTemplateRegistryTests
         CaptionTemplateRegistrationSet valid = CreateText(
             "beutl.tests.valid-before-collision",
             "Valid before collision");
-        CaptionTemplateRegistrationSet duplicateDefault = CaptionTemplateDefaults.CreateText(
+        CaptionTemplateRegistrationSet duplicateDefault = CreateTemplate(
             CaptionTemplateIds.DefaultText,
-            s_provider,
-            "Unexpected replacement");
+            "Unexpected replacement",
+            s_textFactory,
+            DefaultCaptionPlacementPolicy.Instance);
         var extension = new TestTemplateDescriptorExtension(
         [
             valid.DescriptorRegistration,
@@ -785,19 +803,21 @@ public sealed class CaptionTemplateRegistryTests
         string id,
         string name,
         int order = 0)
-        => CaptionTemplateDefaults.CreateText(
+        => CreateTemplate(
             new CaptionTemplateId(id),
-            s_provider,
             name,
+            s_textFactory,
+            DefaultCaptionPlacementPolicy.Instance,
             order);
 
     internal static CaptionTemplateRegistrationSet CreateTemplate(
         CaptionTemplateId id,
         string name,
         ICaptionElementFactory factory,
-        ICaptionPlacementPolicy placement)
+        ICaptionPlacementPolicy placement,
+        int order = 0)
     {
-        var descriptor = new CaptionTemplateDescriptor(id, s_provider, name);
+        var descriptor = new CaptionTemplateDescriptor(id, s_provider, name, order);
         return new CaptionTemplateRegistrationSet(
             new CaptionTemplateDescriptorRegistration(descriptor),
             new CaptionElementFactoryRegistration(id, factory),

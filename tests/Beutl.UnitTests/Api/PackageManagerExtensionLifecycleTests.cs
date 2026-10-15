@@ -462,7 +462,7 @@ public class PackageManagerExtensionLifecycleTests
             "Default",
             [],
             provider,
-            DefaultTextCaptionElementFactory.Instance);
+            new DefaultTextCaptionElementFactory(Beutl.Media.FontFamily.Default));
         var package = new LocalPackage { Name = "LiveCaptionPresentation" };
         manager.LoadExtensionsAndRegister(
             activity: null,
@@ -548,7 +548,7 @@ public class PackageManagerExtensionLifecycleTests
             "Default",
             [],
             provider,
-            DefaultTextCaptionElementFactory.Instance);
+            new DefaultTextCaptionElementFactory(Beutl.Media.FontFamily.Default));
         var package = new LocalPackage { Name = "BlockingCaption" };
         manager.LoadExtensionsAndRegister(
             activity: null,
