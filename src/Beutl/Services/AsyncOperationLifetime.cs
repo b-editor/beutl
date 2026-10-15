@@ -19,8 +19,6 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
     private readonly TimeSpan _shutdownDeadline;
     private CancellationTokenSource? _cancellation = new();
     private TaskCompletionSource? _drained;
-    private Task? _stopDrainTask;
-    private TaskCompletionSource? _stopDrainCompletion;
     private Task? _stopCancellationTask;
     private readonly List<CancellationTokenSource> _deferredOperationCancellations = [];
     private Exception? _cancellationFailure;
@@ -57,9 +55,6 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
             ? Task.CompletedTask
             : (_drained ??= new TaskCompletionSource(
                 TaskCreationOptions.RunContinuationsAsynchronously)).Task;
-        _stopDrainCompletion = new TaskCompletionSource(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        _stopDrainTask = _stopDrainCompletion.Task;
         _stopCancellationTask = CreateCancellationTask(cancellation);
         return drained;
     }
@@ -85,7 +80,9 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
                 TaskCreationOptions.DenyChildAttach | TaskCreationOptions.LongRunning,
                 TaskScheduler.Default);
 
-    private async Task CompleteStopDrainAsync(Task drained, Task cancellationTask)
+    // Waits for the drain and the cancellation, disposes the operation sources whose disposal waited for the
+    // cancellation, and returns the failures to report.
+    private async Task<List<Exception>?> CompleteStopDrainAsync(Task drained, Task cancellationTask)
     {
         List<Exception>? failures = null;
         try
@@ -98,12 +95,10 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
             AddFailures(cancellationTask, ref failures);
         }
 
-        TaskCompletionSource? completion;
         Exception? failure;
         List<CancellationTokenSource>? deferredCancellations;
         lock (_gate)
         {
-            completion = _stopDrainCompletion;
             failure = _cancellationFailure;
             deferredCancellations = _deferredOperationCancellations.Count == 0
                 ? null
@@ -129,43 +124,7 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
             }
         }
 
-        if (failures is { Count: 1 })
-            completion?.TrySetException(failures[0]);
-        else if (failures is { Count: > 1 })
-            completion?.TrySetException(new AggregateException(failures));
-        else
-            completion?.TrySetResult();
-    }
-
-    // Only logs a drain past its deadline; DisposeCoreAsync reports a failed drain.
-    private async Task ObserveStopDeadlineAsync(Task drain)
-    {
-        try
-        {
-            await drain.WaitAsync(_shutdownDeadline).ConfigureAwait(false);
-        }
-        catch (TimeoutException)
-        {
-            s_logger.LogWarning(
-                "Asynchronous operation shutdown exceeded {Deadline}; draining will continue.",
-                _shutdownDeadline);
-            _ = ObserveDeferredStopAsync(drain);
-        }
-        catch
-        {
-        }
-    }
-
-    private async Task ObserveDeferredStopAsync(Task drain)
-    {
-        try
-        {
-            await drain.ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            s_logger.LogWarning(ex, "Deferred asynchronous operation shutdown failed.");
-        }
+        return failures;
     }
 
     public ValueTask DisposeAsync()
@@ -197,13 +156,10 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
 
         if (proxy is not null)
         {
-            Task stopDrainTask = _stopDrainTask!;
             Task teardown = Task.Run(() => DisposeCoreAsync(
                 drained!,
-                stopDrainTask,
                 cancelAdditionalWork,
                 disposeResources));
-            _ = ObserveStopDeadlineAsync(stopDrainTask);
             _ = CompleteDisposeAsync(proxy, teardown);
         }
 
@@ -212,22 +168,19 @@ internal sealed class AsyncOperationLifetime : IAsyncDisposable
 
     private async Task DisposeCoreAsync(
         Task drained,
-        Task stopDrainTask,
         Action cancelAdditionalWork,
         Func<ValueTask> disposeResources)
     {
-        List<Exception>? failures = null;
         Task additionalCancellation = Task.Run(cancelAdditionalWork);
-
-        _ = CompleteStopDrainAsync(drained, _stopCancellationTask!);
+        List<Exception>? failures = await CompleteStopDrainAsync(drained, _stopCancellationTask!)
+            .ConfigureAwait(false);
 
         try
         {
-            await Task.WhenAll(stopDrainTask, additionalCancellation).ConfigureAwait(false);
+            await additionalCancellation.ConfigureAwait(false);
         }
         catch
         {
-            AddFailures(stopDrainTask, ref failures);
             AddFailures(additionalCancellation, ref failures);
         }
 
