@@ -269,13 +269,7 @@ internal sealed partial class FileAiRetryKeyStore : IAiRetryKeyStore
 
     private Entry ClaimExistingEntry(StoreData data, string identity, Entry entry, AiJob job)
     {
-        if (entry.PayloadVersion == 0)
-        {
-            entry = entry with { PayloadDigest = PayloadDigest(job), PayloadVersion = 1 };
-            data.Entries[identity] = entry;
-            Save(data);
-        }
-        else if (!StringComparer.Ordinal.Equals(entry.PayloadDigest, PayloadDigest(job)))
+        if (!StringComparer.Ordinal.Equals(entry.PayloadDigest, PayloadDigest(job)))
             throw new AiRetryAttemptRejectedException();
         return ClearExpiredLease(data, identity, entry);
     }
