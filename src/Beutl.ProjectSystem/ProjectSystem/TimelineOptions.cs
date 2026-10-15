@@ -26,20 +26,10 @@ public readonly record struct TimelineOptions
     private readonly Vector2 _offset;
 
     public TimelineOptions()
-        : this(1, Vector2.Zero)
     {
-    }
-
-    public TimelineOptions(float scale, Vector2 offset)
-        : this(scale, offset, 50)
-    {
-    }
-
-    public TimelineOptions(float scale, Vector2 offset, int maxLayerCount)
-    {
-        _scale = scale;
-        _offset = offset;
-        MaxLayerCount = maxLayerCount;
+        _scale = 1;
+        _offset = Vector2.Zero;
+        MaxLayerCount = 50;
     }
 
     public float Scale

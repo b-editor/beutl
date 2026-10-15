@@ -18,9 +18,9 @@ public class TimelineOptionsTests
     }
 
     [Test]
-    public void Constructor_WithScaleAndOffset_DefaultsLayerCountToFifty()
+    public void Initializer_WithScaleAndOffset_DefaultsLayerCountToFifty()
     {
-        var options = new TimelineOptions(0.5f, new Vector2(10, 20));
+        var options = new TimelineOptions { Scale = 0.5f, Offset = new Vector2(10, 20) };
 
         Assert.That(options.Scale, Is.EqualTo(0.5f));
         Assert.That(options.Offset, Is.EqualTo(new Vector2(10, 20)));
@@ -28,9 +28,9 @@ public class TimelineOptionsTests
     }
 
     [Test]
-    public void Constructor_AcceptsCustomMaxLayerCount()
+    public void Initializer_AcceptsCustomMaxLayerCount()
     {
-        var options = new TimelineOptions(1f, Vector2.Zero, 200);
+        var options = new TimelineOptions { MaxLayerCount = 200 };
 
         Assert.That(options.MaxLayerCount, Is.EqualTo(200));
     }
