@@ -188,26 +188,6 @@ public class CoreListTests
     }
 
     [Test]
-    public void GetMarshal_ThrowsAfterMutation()
-    {
-        var list = new CoreList<int>(new[] { 10 });
-        CoreListMarshal<int> marshal = list.GetMarshal();
-        list.Add(20);
-
-        bool threw = false;
-        try
-        {
-            _ = marshal.Value.Length;
-        }
-        catch (InvalidOperationException)
-        {
-            threw = true;
-        }
-
-        Assert.That(threw, Is.True);
-    }
-
-    [Test]
     public void EnsureCapacity_GrowsBackingList()
     {
         var list = new CoreList<int>();

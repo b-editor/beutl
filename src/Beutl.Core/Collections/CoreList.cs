@@ -1,7 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Specialized;
 using System.ComponentModel;
-using System.Runtime.CompilerServices;
 using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices;
 
@@ -9,29 +8,12 @@ namespace Beutl.Collections;
 
 public readonly ref struct CoreListMarshal<T>
 {
-    private readonly ListReflection<T> _refAs;
-    private readonly int _version;
-    private readonly Span<T> _value;
-
     public CoreListMarshal(CoreList<T> list)
     {
-        _refAs = list.GetReflection();
-        _version = _refAs.Version;
-        _value = _refAs.Items.AsSpan().Slice(0, _refAs.Count);
+        Value = list.GetInnerSpan();
     }
 
-    public Span<T> Value
-    {
-        get
-        {
-            if (_refAs.Version != _version)
-            {
-                throw new InvalidOperationException();
-            }
-
-            return _value;
-        }
-    }
+    public Span<T> Value { get; }
 }
 
 public class CoreList<T> : ICoreList<T>
@@ -475,9 +457,9 @@ public class CoreList<T> : ICoreList<T>
         return new CoreListMarshal<T>(this);
     }
 
-    internal ListReflection<T> GetReflection()
+    internal Span<T> GetInnerSpan()
     {
-        return Unsafe.As<ListReflection<T>>(Inner);
+        return CollectionsMarshal.AsSpan(Inner);
     }
 
     int IList.Add(object? value)
