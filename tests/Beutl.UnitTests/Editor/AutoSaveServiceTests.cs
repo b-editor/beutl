@@ -130,11 +130,11 @@ public class AutoSaveServiceTests
         service.SaveObjects([scene, element, shape]);
         Assert.That(File.Exists(shape.Uri.LocalPath), Is.True);
         element.Objects.Remove(shape);
-        var removal = new RemoveCollectionItemOperation<EngineObject>
+        var removal = new RemoveCollectionRangeOperation<EngineObject>
         {
             Object = element,
             PropertyPath = nameof(element.Objects),
-            Item = shape,
+            Items = [shape],
             Index = 0,
             SequenceNumber = 1,
         };
@@ -262,11 +262,11 @@ public class AutoSaveServiceTests
         var owner = new TestCoreObjectWithUri();
         owner.SetUri(CreateUri("owner.json"));
 
-        var operation = new InsertCollectionItemOperation<string>
+        var operation = new InsertCollectionRangeOperation<string>
         {
             Object = owner,
             PropertyPath = "Items",
-            Item = "NewItem",
+            Items = ["NewItem"],
             Index = 0,
             SequenceNumber = 1
         };
