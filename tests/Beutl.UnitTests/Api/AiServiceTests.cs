@@ -1474,7 +1474,7 @@ public sealed partial class AiCapabilityServiceTests
     }
 
     [Test]
-    public async Task ModelCatalog_SchemaChangeBeforePublicationRemapsTheSameResponse()
+    public async Task ModelCatalog_SchemaChangeBeforePublicationIsFetchedAgainOnTheNextCall()
     {
         using var handler = new RecordingHandler(_ => TestHttp.Json(HttpStatusCode.OK, """
             {
@@ -1491,34 +1491,35 @@ public sealed partial class AiCapabilityServiceTests
         var extensions = new ExtensionProvider();
         await using var app = new BeutlApiApplication(httpClient, extensions);
         ApiTestAuthentication.SignIn(app);
-        var service = (AiModelCatalogService)app.GetResource<IAiModelCatalogService>();
         var operation = new AiOperationId("vendor.image");
-        service.BeforeCachePublication = () =>
-        {
-            service.BeforeCachePublication = null;
-            extensions.AddExtensions(902,
-            [
-                new TestCapabilitySchemaExtension(
-                    new AiOperationCapabilitySchemaRegistration(
-                        operation,
-                        AiModelCapabilitySchema.Image)),
-            ]);
-        };
+        using var service = new AiModelCatalogService(
+            app,
+            new AfterResponseCapabilitySchemas(
+                app.GetResource<IAiOperationCapabilitySchemaProvider>(),
+                handler,
+                () => extensions.AddExtensions(902,
+                [
+                    new TestCapabilitySchemaExtension(
+                        new AiOperationCapabilitySchemaRegistration(
+                            operation,
+                            AiModelCapabilitySchema.Image)),
+                ])));
 
         AiModelCatalog first = await service.GetAsync(CancellationToken.None);
-        AiModelCatalog cached = await service.GetAsync(CancellationToken.None);
+        AiModelCatalog second = await service.GetAsync(CancellationToken.None);
 
         using (Assert.EnterMultipleScope())
         {
+            // The racing call returns the mapping of the schema it read; the cached
+            // copy is stale, so the next call fetches and maps again.
             Assert.That(first.GetCapabilitySchema(operation),
+                Is.EqualTo(AiModelCapabilitySchema.Generic));
+            Assert.That(second.GetCapabilitySchema(operation),
                 Is.EqualTo(AiModelCapabilitySchema.Image));
-            Assert.That(first.ModelsFor(operation).Single().Image, Is.Not.Null);
-            Assert.That(first.GetImageReferenceLimits(operation).MaxTotalBytes,
+            Assert.That(second.ModelsFor(operation).Single().Image, Is.Not.Null);
+            Assert.That(second.GetImageReferenceLimits(operation).MaxTotalBytes,
                 Is.EqualTo(11 * 1024 * 1024));
-            Assert.That(cached, Is.SameAs(first));
-            Assert.That(cached.GetImageReferenceLimits(operation).MaxTotalBytes,
-                Is.EqualTo(11 * 1024 * 1024));
-            Assert.That(handler.Requests, Has.Count.EqualTo(1));
+            Assert.That(handler.Requests, Has.Count.EqualTo(2));
         }
     }
 
@@ -1658,12 +1659,13 @@ public sealed partial class AiCapabilityServiceTests
         using var httpClient = new HttpClient(handler);
         await using var app = new BeutlApiApplication(httpClient, new ExtensionProvider());
         ApiTestAuthentication.SignIn(app);
-        using var catalog = CatalogService(app, new StepTimeProvider());
-        catalog.BeforeCachePublication = () =>
-        {
-            catalog.BeforeCachePublication = null;
-            ApiTestAuthentication.SignIn(app);
-        };
+        using var catalog = new AiModelCatalogService(
+            app,
+            new AfterResponseCapabilitySchemas(
+                EmptyCapabilitySchemas.Instance,
+                handler,
+                () => ApiTestAuthentication.SignIn(app)),
+            new StepTimeProvider());
 
         AiModelCatalog stale = await catalog.GetAsync(CancellationToken.None);
         await catalog.GetAsync(CancellationToken.None);
@@ -2205,6 +2207,34 @@ public sealed partial class AiCapabilityServiceTests
         }
 
         public AiOperationCapabilitySchemaSnapshot GetSnapshot() => AiOperationCapabilitySchemaSnapshot.Empty;
+    }
+
+    // Runs an action at the first schema read after the server has answered, so the
+    // catalog maps the earlier snapshot and publishes after the action.
+    private sealed class AfterResponseCapabilitySchemas(
+        IAiOperationCapabilitySchemaProvider inner,
+        RecordingHandler handler,
+        Action afterResponse) : IAiOperationCapabilitySchemaProvider
+    {
+        private bool _ran;
+
+        public event EventHandler? Changed
+        {
+            add => inner.Changed += value;
+            remove => inner.Changed -= value;
+        }
+
+        public AiOperationCapabilitySchemaSnapshot GetSnapshot()
+        {
+            AiOperationCapabilitySchemaSnapshot snapshot = inner.GetSnapshot();
+            if (!_ran && handler.Requests.Count > 0)
+            {
+                _ran = true;
+                afterResponse();
+            }
+
+            return snapshot;
+        }
     }
 
     // Freshness is measured, not waited for.
