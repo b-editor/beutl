@@ -26,10 +26,33 @@ public abstract class MediaSource : EngineObject, IFileSource
 
     public bool HasUri => _uri != null;
 
-    public abstract void ReadFrom(Uri uri);
-
-    internal virtual void InvalidateResourceCache()
+    public virtual void ReadFrom(Uri uri)
     {
+        if (HasUri && Uri != uri)
+        {
+            // 古い URI の共有参照を別 Resource が保持していると
+            // TryAddRef が成功して新 URI でも古いリソースを返してしまうため、
+            // URI が切り替わったタイミングで共有参照を破棄する。
+            ClearSharedResource();
+        }
+        Uri = uri;
+    }
+
+    /// <summary>Drops the media that resources of this source share, so the next resource opens it again.</summary>
+    protected abstract void ClearSharedResource();
+
+    protected TResource CreateResource<TResource>(CompositionContext context)
+        where TResource : Resource, new()
+    {
+        var resource = new TResource();
+        bool versionBumped = true;
+        resource.Reconcile(this, context, ref versionBumped);
+        return resource;
+    }
+
+    internal void InvalidateResourceCache()
+    {
+        ClearSharedResource();
         Interlocked.Increment(ref _reloadVersion);
         RaiseEdited();
     }

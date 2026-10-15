@@ -1,4 +1,5 @@
-﻿using Beutl.Audio.Effects;
+﻿using Beutl.Animation;
+using Beutl.Audio.Effects;
 using Beutl.Engine;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
@@ -109,12 +110,12 @@ public sealed class CompressorNode : DynamicsNode
 
                 var chunkRange = context.GetChunkRange(processed, chunkSize);
 
-                context.AnimationSampler.SampleBuffer(Threshold, chunkRange, context.SampleRate, thresholds[..chunkSize]);
-                context.AnimationSampler.SampleBuffer(Ratio, chunkRange, context.SampleRate, ratios[..chunkSize]);
-                context.AnimationSampler.SampleBuffer(Attack, chunkRange, context.SampleRate, attacks[..chunkSize]);
-                context.AnimationSampler.SampleBuffer(Release, chunkRange, context.SampleRate, releases[..chunkSize]);
-                context.AnimationSampler.SampleBuffer(Knee, chunkRange, context.SampleRate, knees[..chunkSize]);
-                context.AnimationSampler.SampleBuffer(MakeupGain, chunkRange, context.SampleRate, makeups[..chunkSize]);
+                AnimationSampler.SampleBuffer(Threshold, chunkRange, context.SampleRate, thresholds[..chunkSize]);
+                AnimationSampler.SampleBuffer(Ratio, chunkRange, context.SampleRate, ratios[..chunkSize]);
+                AnimationSampler.SampleBuffer(Attack, chunkRange, context.SampleRate, attacks[..chunkSize]);
+                AnimationSampler.SampleBuffer(Release, chunkRange, context.SampleRate, releases[..chunkSize]);
+                AnimationSampler.SampleBuffer(Knee, chunkRange, context.SampleRate, knees[..chunkSize]);
+                AnimationSampler.SampleBuffer(MakeupGain, chunkRange, context.SampleRate, makeups[..chunkSize]);
 
                 gain.ChunkStart = processed;
                 ApplyLinkedGain(inputChannels, outputChannels, input.ChannelCount, processed, chunkSize, ref gain);

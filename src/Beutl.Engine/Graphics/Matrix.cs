@@ -29,8 +29,8 @@ namespace Beutl.Graphics;
 /// <param name="offsetX">The first element of the third row.</param>
 /// <param name="offsetY">The second element of the third row.</param>
 /// <param name="persZ">The third element of the third row.</param>
-[JsonConverter(typeof(MatrixJsonConverter))]
-[TypeConverter(typeof(MatrixConverter))]
+[JsonConverter(typeof(ParsableJsonConverter<Matrix>))]
+[TypeConverter(typeof(ParsableTypeConverter<Matrix>))]
 public readonly struct Matrix(
     float scaleX, float skewY, float persX,
     float skewX, float scaleY, float persY,

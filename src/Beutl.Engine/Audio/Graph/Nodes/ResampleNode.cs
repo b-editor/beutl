@@ -142,7 +142,6 @@ public sealed class ResampleNode : AudioNode
         return new AudioProcessContext(
             new TimeRange(start, duration),
             SourceSampleRate,
-            context.AnimationSampler,
             context.OriginalTimeRange)
         {
             ProcessEndTime = context.ProcessEndTime

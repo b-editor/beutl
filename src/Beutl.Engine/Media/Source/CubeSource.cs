@@ -6,31 +6,15 @@ using Beutl.Serialization;
 
 namespace Beutl.Media.Source;
 
-[JsonConverter(typeof(CubeSourceJsonConverter))]
+[JsonConverter(typeof(MediaSourceJsonConverter))]
 [SuppressResourceClassGeneration]
 public sealed class CubeSource : MediaSource
 {
     private WeakReference<CubeFile>? _cubeRef;
 
-    public override void ReadFrom(Uri uri)
-    {
-        if (HasUri && Uri != uri) Volatile.Write(ref _cubeRef, null);
-        Uri = uri;
-    }
+    public override Resource ToResource(CompositionContext context) => CreateResource<Resource>(context);
 
-    public override Resource ToResource(CompositionContext context)
-    {
-        var resource = new Resource();
-        bool versionBumped = true;
-        resource.Reconcile(this, context, ref versionBumped);
-        return resource;
-    }
-
-    internal override void InvalidateResourceCache()
-    {
-        Volatile.Write(ref _cubeRef, null);
-        base.InvalidateResourceCache();
-    }
+    protected override void ClearSharedResource() => Volatile.Write(ref _cubeRef, null);
 
     public new sealed class Resource : MediaSource.Resource
     {

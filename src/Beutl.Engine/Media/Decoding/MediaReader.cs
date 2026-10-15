@@ -24,11 +24,6 @@ public abstract class MediaReader : IDisposable
 
     public virtual ProxyResolution? ProxyResolution => null;
 
-    public static MediaReader Open(string file)
-    {
-        return Open(file, new MediaOptions());
-    }
-
     public static MediaReader Open(string file, MediaOptions options)
     {
         ArgumentNullException.ThrowIfNull(file);

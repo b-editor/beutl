@@ -5,7 +5,6 @@ namespace Beutl.Audio.Graph.Nodes;
 
 public sealed class MixerNode : AudioNode
 {
-    private float[] _gains = Array.Empty<float>();
     private readonly Dictionary<AudioNode, TimeSpan> _branchEndTimes =
         new(ReferenceEqualityComparer.Instance);
     private readonly HashSet<AudioNode> _processedBranches =
@@ -23,7 +22,6 @@ public sealed class MixerNode : AudioNode
     }
 
     private sealed record InputState(
-        float[] Gains,
         bool HasBranchEndTime,
         TimeSpan BranchEndTime,
         bool WasProcessed,
@@ -32,12 +30,6 @@ public sealed class MixerNode : AudioNode
         int RemainingTailSamples,
         int TailBudgetSampleRate,
         TimeSpan? LastTimeRangeEnd);
-
-    public float[] Gains
-    {
-        get => _gains;
-        set => _gains = value ?? Array.Empty<float>();
-    }
 
     /// <summary>
     /// Records the group-local time when a connected input branch ends. A branch without an end time is
@@ -52,19 +44,6 @@ public sealed class MixerNode : AudioNode
         _processedBranches.Remove(input);
         _unknownDrainAttempts.Remove(input);
         _branchTailBudgets.Remove(input);
-    }
-
-    /// <summary>
-    /// Removes the recorded end time for a connected input so the branch is considered live again.
-    /// </summary>
-    /// <returns><see langword="true"/> when an end time was removed; otherwise, <see langword="false"/>.</returns>
-    /// <exception cref="ArgumentException"><paramref name="input"/> is not connected to this mixer.</exception>
-    public bool ClearBranchEndTime(AudioNode input)
-    {
-        EnsureConnectedInput(input);
-        _branchTailBudgets.Remove(input);
-        _unknownDrainAttempts.Remove(input);
-        return _branchEndTimes.Remove(input);
     }
 
     public override AudioBuffer Process(AudioProcessContext context)
@@ -83,7 +62,7 @@ public sealed class MixerNode : AudioNode
         return result;
     }
 
-    // Fan-in flush drains and mixes live branch tails using the normal gain fold.
+    // Fan-in flush drains and mixes live branch tails the same way Process mixes its inputs.
     public override AudioBuffer Flush(AudioProcessContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
@@ -208,12 +187,11 @@ public sealed class MixerNode : AudioNode
                         if (inBuffer == null)
                             continue;
 
-                        var gain = i < _gains.Length ? _gains[i] : 1.0f;
                         var inData = inBuffer.GetChannelData(ch);
 
                         for (int s = 0; s < output.SampleCount; s++)
                         {
-                            outData[s] += inData[s] * gain;
+                            outData[s] += inData[s];
                         }
                     }
                 }
@@ -359,15 +337,9 @@ public sealed class MixerNode : AudioNode
         => _branchEndTimes.TryGetValue(Inputs[index], out TimeSpan branchEndTime)
             && context.TimeRange.Start >= branchEndTime;
 
-    protected override void OnInputAdded(AudioNode input, int index)
-    {
-        AppendDefaultIfConfigured(ref _gains, index, 1f);
-    }
-
     protected override object CaptureInputState(AudioNode input, int index)
     {
         return new InputState(
-            (float[])_gains.Clone(),
             _branchEndTimes.TryGetValue(input, out TimeSpan branchEndTime),
             branchEndTime,
             _processedBranches.Contains(input),
@@ -383,7 +355,6 @@ public sealed class MixerNode : AudioNode
         if (state is not InputState snapshot)
             return;
 
-        _gains = (float[])snapshot.Gains.Clone();
         if (snapshot.HasBranchEndTime)
             _branchEndTimes[input] = snapshot.BranchEndTime;
         else
@@ -417,7 +388,6 @@ public sealed class MixerNode : AudioNode
 
     protected override void OnInputRemoved(AudioNode input, int index)
     {
-        _gains = RemoveAt(_gains, index);
         _branchEndTimes.Remove(input);
         _processedBranches.Remove(input);
         _unknownDrainAttempts.Remove(input);
@@ -442,7 +412,6 @@ public sealed class MixerNode : AudioNode
 
     private void ResetBranchState()
     {
-        _gains = Array.Empty<float>();
         _branchEndTimes.Clear();
         _processedBranches.Clear();
         _unknownDrainAttempts.Clear();
@@ -461,26 +430,5 @@ public sealed class MixerNode : AudioNode
         }
 
         throw new ArgumentException("The input must be connected before configuring its branch end time.", nameof(input));
-    }
-
-    private static void AppendDefaultIfConfigured<T>(ref T[] values, int index, T defaultValue)
-    {
-        if (values.Length == 0 || values.Length > index)
-            return;
-
-        int oldLength = values.Length;
-        Array.Resize(ref values, index + 1);
-        Array.Fill(values, defaultValue, oldLength, values.Length - oldLength);
-    }
-
-    private static T[] RemoveAt<T>(T[] values, int index)
-    {
-        if (index >= values.Length)
-            return values;
-
-        var result = new T[values.Length - 1];
-        values.AsSpan(0, index).CopyTo(result);
-        values.AsSpan(index + 1).CopyTo(result.AsSpan(index));
-        return result;
     }
 }

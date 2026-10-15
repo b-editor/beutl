@@ -195,11 +195,11 @@ public sealed class SessionToolsTests
         Scene scene = project.Items.OfType<Scene>().Single();
         var holder = new AnimatedValueHolder();
         var animation = new KeyFrameAnimation<EngineObject?>();
-        animation.KeyFrames.Add(new KeyFrame<EngineObject?>
+        animation.KeyFrames.AddSorted(new KeyFrame<EngineObject?>
         {
             KeyTime = TimeSpan.Zero,
             Value = new RectShape(),
-        }, out _);
+        });
         holder.AnimatedValue.Animation = animation;
         var element = new Element
         {

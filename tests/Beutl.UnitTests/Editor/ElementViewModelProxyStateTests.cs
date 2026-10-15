@@ -456,8 +456,6 @@ public sealed class ElementViewModelProxyStateTests
 
         public long GetTotalBytes(IReadOnlySet<string> sourceAbsolutePaths) => 0;
 
-        public Task FlushAsync(CancellationToken cancellationToken) => Task.CompletedTask;
-
         public Task ReconcileAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 
         public event EventHandler<ProxyStoreChangedEventArgs>? Changed

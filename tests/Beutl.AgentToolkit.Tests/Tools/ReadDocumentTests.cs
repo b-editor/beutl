@@ -903,22 +903,20 @@ public sealed class ReadDocumentTests
     private static KeyFrameAnimation<float> CreateFloatAnimation()
     {
         var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(
+        animation.KeyFrames.AddSorted(
             new KeyFrame<float>
             {
                 KeyTime = TimeSpan.Zero,
                 Value = 0,
                 Easing = new LinearEasing()
-            },
-            out _);
-        animation.KeyFrames.Add(
+            });
+        animation.KeyFrames.AddSorted(
             new KeyFrame<float>
             {
                 KeyTime = TimeSpan.FromSeconds(1),
                 Value = 1,
                 Easing = new SineEaseOut()
-            },
-            out _);
+            });
         return animation;
     }
 }

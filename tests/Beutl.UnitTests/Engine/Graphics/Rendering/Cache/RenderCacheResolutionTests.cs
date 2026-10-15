@@ -1,4 +1,5 @@
 ﻿using System.Collections.Immutable;
+using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
@@ -11,6 +12,9 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering.Cache;
 [TestFixture]
 public sealed class RenderCacheResolutionTests
 {
+    private static readonly SolidColorBrush.Resource s_red =
+        KnownColor.Red.ToBrush().ToResource(CompositionContext.Default);
+
     private static readonly Rect s_bounds = new(0, 0, 64, 64);
     private static readonly RenderCacheResolutionContext s_context = new(
         RenderCacheFormatIdentity.LinearPremultipliedRgba16Float,
@@ -1822,7 +1826,7 @@ public sealed class RenderCacheResolutionTests
         public override void Process(RenderNodeContext context)
         {
             if (disableCache) context.DisableRenderCache();
-            Brush.Resource fill = Brushes.Resource.Red;
+            Brush.Resource fill = s_red;
             RenderResource<Brush.Resource> fillResource = context.Borrow(fill);
             RenderResource<SolidCacheProbe> probeResource = context.Borrow(_probe);
             OpaqueRenderDescription description = OpaqueRenderDescription.Create(

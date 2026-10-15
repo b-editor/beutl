@@ -11,8 +11,8 @@ using Beutl.Utilities;
 
 namespace Beutl.Graphics;
 
-[JsonConverter(typeof(SizeJsonConverter))]
-[TypeConverter(typeof(SizeConverter))]
+[JsonConverter(typeof(ParsableJsonConverter<Size>))]
+[TypeConverter(typeof(ParsableTypeConverter<Size>))]
 public readonly struct Size(float width, float height)
     : IEquatable<Size>,
       IParsable<Size>,

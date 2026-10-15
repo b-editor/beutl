@@ -515,8 +515,6 @@ public class UpdatePropertyValueOperationTests
             _value = value;
         }
 
-        public Type ResultType => typeof(T);
-
         public string ExpressionString => _value?.ToString() ?? "";
 
         public T Evaluate(ExpressionContext context)

@@ -43,28 +43,25 @@ public class AnimationSamplerTests
     [Test]
     public void SampleBuffer_NullProperty_Throws()
     {
-        var sampler = new AnimationSampler();
-
         // Need to use an indirect call because of stackalloc + lambda issue
-        Assert.Throws<ArgumentNullException>(() => Invoke(sampler));
+        Assert.Throws<ArgumentNullException>(() => Invoke());
 
-        static void Invoke(AnimationSampler sampler)
+        static void Invoke()
         {
             Span<float> b = stackalloc float[8];
-            sampler.SampleBuffer<float>(null!, new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)), 8, b);
+            AnimationSampler.SampleBuffer<float>(null!, new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)), 8, b);
         }
     }
 
     [Test]
     public void SampleBuffer_NoAnimation_FillsWithCurrentValue()
     {
-        var sampler = new AnimationSampler();
         var property = Property.CreateAnimatable(3.5f);
         property.SetAttributes("Value", []);
         property.CurrentValue = 9.5f;
 
         Span<float> buffer = stackalloc float[4];
-        sampler.SampleBuffer(property, new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)), 4, buffer);
+        AnimationSampler.SampleBuffer(property, new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)), 4, buffer);
 
         for (int i = 0; i < buffer.Length; i++)
         {
@@ -75,11 +72,10 @@ public class AnimationSamplerTests
     [Test]
     public void SampleBuffer_KeyFrameAnimation_ProducesIncreasingSamples()
     {
-        var sampler = new AnimationSampler();
         var property = AnimatedFloat(0f, 10f, 1.0);
 
         Span<float> buffer = stackalloc float[10];
-        sampler.SampleBuffer(property, new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)), 10, buffer);
+        AnimationSampler.SampleBuffer(property, new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)), 10, buffer);
 
         Assert.That(buffer[0], Is.EqualTo(0f).Within(1e-3));
         for (int i = 1; i < buffer.Length; i++)
@@ -91,11 +87,10 @@ public class AnimationSamplerTests
     [Test]
     public void SampleBuffer_RangeOffsetMovesStartingValue()
     {
-        var sampler = new AnimationSampler();
         var property = AnimatedFloat(0f, 100f, 1.0);
 
         Span<float> buffer = stackalloc float[1];
-        sampler.SampleBuffer(property, new TimeRange(TimeSpan.FromSeconds(0.5), TimeSpan.FromSeconds(0.5)), 4, buffer);
+        AnimationSampler.SampleBuffer(property, new TimeRange(TimeSpan.FromSeconds(0.5), TimeSpan.FromSeconds(0.5)), 4, buffer);
 
         Assert.That(buffer[0], Is.EqualTo(50f).Within(1f));
     }
@@ -103,10 +98,9 @@ public class AnimationSamplerTests
     [Test]
     public void SampleBuffer_EmptyOutput_DoesNothing()
     {
-        var sampler = new AnimationSampler();
         var property = AnimatedFloat(0f, 10f, 1.0);
 
-        Assert.DoesNotThrow(() => sampler.SampleBuffer(
+        Assert.DoesNotThrow(() => AnimationSampler.SampleBuffer(
             property, new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)), 4, Span<float>.Empty));
     }
 
@@ -115,7 +109,6 @@ public class AnimationSamplerTests
     [Test]
     public void SampleBuffer_RespectsElementLocalTime_WhenUseGlobalClockIsFalse()
     {
-        var sampler = new AnimationSampler();
         var (property, _) = AttachedAnimatedFloat(
             from: 0f,
             to: 100f,
@@ -125,7 +118,7 @@ public class AnimationSamplerTests
 
         Span<float> buffer = stackalloc float[10];
         // production と同じく ClipNode 通過後のローカル range (0..1s) を渡す。
-        sampler.SampleBuffer(
+        AnimationSampler.SampleBuffer(
             property,
             new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
             10,
@@ -143,7 +136,6 @@ public class AnimationSamplerTests
     [Test]
     public void SampleBuffer_UsesGlobalTime_WhenUseGlobalClockIsTrue()
     {
-        var sampler = new AnimationSampler();
         var (property, _) = AttachedAnimatedFloat(
             from: 0f,
             to: 100f,
@@ -155,7 +147,7 @@ public class AnimationSamplerTests
         // production と同じくローカル range (0..1s) を渡す。owner が 5s に置かれているため、
         // グローバル時刻換算では 5s..6s に相当する。キーフレームは 0s/1s に存在するので
         // 最後の値 (100) で保持されることを期待する。
-        sampler.SampleBuffer(
+        AnimationSampler.SampleBuffer(
             property,
             new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
             10,

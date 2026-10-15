@@ -1,4 +1,5 @@
-﻿using Beutl.Audio.Effects;
+﻿using Beutl.Animation;
+using Beutl.Audio.Effects;
 using Beutl.Engine;
 using static Beutl.Audio.Effects.DelayParameters;
 
@@ -133,10 +134,10 @@ public sealed class DelayNode : AudioNode
 
                 var chunkRange = context.GetChunkRange(processed, chunkSize);
 
-                context.AnimationSampler.SampleBuffer(DelayTime, chunkRange, context.SampleRate, delayTimes[..chunkSize]);
-                context.AnimationSampler.SampleBuffer(Feedback, chunkRange, context.SampleRate, feedbacks[..chunkSize]);
-                context.AnimationSampler.SampleBuffer(DryMix, chunkRange, context.SampleRate, dryMixes[..chunkSize]);
-                context.AnimationSampler.SampleBuffer(WetMix, chunkRange, context.SampleRate, wetMixes[..chunkSize]);
+                AnimationSampler.SampleBuffer(DelayTime, chunkRange, context.SampleRate, delayTimes[..chunkSize]);
+                AnimationSampler.SampleBuffer(Feedback, chunkRange, context.SampleRate, feedbacks[..chunkSize]);
+                AnimationSampler.SampleBuffer(DryMix, chunkRange, context.SampleRate, dryMixes[..chunkSize]);
+                AnimationSampler.SampleBuffer(WetMix, chunkRange, context.SampleRate, wetMixes[..chunkSize]);
 
                 for (int ch = 0; ch < input.ChannelCount; ch++)
                 {

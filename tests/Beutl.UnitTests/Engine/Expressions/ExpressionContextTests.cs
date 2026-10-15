@@ -19,20 +19,6 @@ public class ExpressionContextTests
     }
 
     [Test]
-    public void CurrentProperty_CanBeChanged()
-    {
-        // Arrange
-        var context = TestHelper.CreateExpressionContext(TimeSpan.Zero);
-        var newProperty = Property.Create(0.0);
-
-        // Act
-        context.CurrentProperty = newProperty;
-
-        // Assert
-        Assert.That(context.CurrentProperty, Is.EqualTo(newProperty));
-    }
-
-    [Test]
     public void IsEvaluating_WithoutBeginEvaluation_ShouldReturnFalse()
     {
         // Arrange

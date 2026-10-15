@@ -377,8 +377,8 @@ public sealed class ApplyEditLockTests
         locked.ExitTransition = new WipeTransition();
         var text = new TextBlock { Name = "Caption", Text = { CurrentValue = "Hello" } };
         var opacity = new KeyFrameAnimation<float>();
-        opacity.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 0, Easing = new LinearEasing() }, out _);
-        opacity.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 100, Easing = new SineEaseOut() }, out _);
+        opacity.KeyFrames.AddSorted(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 0, Easing = new LinearEasing() });
+        opacity.KeyFrames.AddSorted(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 100, Easing = new SineEaseOut() });
         text.Opacity.Animation = opacity;
         locked.AddObject(text);
         var group = new TransformGroup();

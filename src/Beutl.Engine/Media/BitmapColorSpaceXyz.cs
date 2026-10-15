@@ -12,14 +12,13 @@ public readonly struct BitmapColorSpaceXyz : IEquatable<BitmapColorSpaceXyz>
         _values = values;
     }
 
-    public float this[int row, int col] => _values[row * 3 + col];
-
     public ReadOnlySpan<float> Values => _values;
 
     /// <summary>sRGB / ITU-R BT.709</summary>
     public static BitmapColorSpaceXyz Srgb { get; } = FromSK(SKColorSpaceXyz.Srgb);
 
-    public static BitmapColorSpaceXyz AdobeRgb { get; } = FromSK(SKColorSpaceXyz.AdobeRgb);
+    // Only ToString names this gamut.
+    private static readonly BitmapColorSpaceXyz s_adobeRgb = FromSK(SKColorSpaceXyz.AdobeRgb);
 
     /// <summary>SMPTE ST 432-1 / Display P3 (D65)</summary>
     public static BitmapColorSpaceXyz Dcip3 { get; } = FromSK(SKColorSpaceXyz.DisplayP3);
@@ -112,16 +111,6 @@ public readonly struct BitmapColorSpaceXyz : IEquatable<BitmapColorSpaceXyz>
         return new BitmapColorSpaceXyz(scaled);
     }
 
-    public BitmapColorSpaceXyz Invert()
-    {
-        return FromSK(ToSKXyz().Invert());
-    }
-
-    public static BitmapColorSpaceXyz Concat(BitmapColorSpaceXyz a, BitmapColorSpaceXyz b)
-    {
-        return FromSK(SKColorSpaceXyz.Concat(a.ToSKXyz(), b.ToSKXyz()));
-    }
-
     public bool Equals(BitmapColorSpaceXyz other)
     {
         if (_values is null && other._values is null) return true;
@@ -156,7 +145,7 @@ public readonly struct BitmapColorSpaceXyz : IEquatable<BitmapColorSpaceXyz>
     public override string ToString()
     {
         if (this == Srgb) return "sRGB";
-        else if (this == AdobeRgb) return "Adobe RGB";
+        else if (this == s_adobeRgb) return "Adobe RGB";
         else if (this == Dcip3) return "DCI-P3";
         else if (this == Rec2020) return "Rec.2020";
         else if (this == Xyz) return "XYZ";

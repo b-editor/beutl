@@ -65,7 +65,8 @@ public class GainNodeTests
     {
         var gain = Property.CreateAnimatable(50f);
         var previous = new GainNode { Gain = gain };
-        using var context = new AudioContext(SampleRate, 2, new[] { previous });
+        using var context = new AudioContext(SampleRate, 2);
+        context.BeginUpdate(new[] { previous });
 
         GainNode created = context.CreateGainNode(gain);
 

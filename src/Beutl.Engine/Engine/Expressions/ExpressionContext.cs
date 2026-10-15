@@ -6,7 +6,7 @@ public class ExpressionContext(TimeSpan time, IProperty currentProperty, Propert
 {
     private readonly HashSet<IProperty> _evaluationStack = [];
 
-    public IProperty CurrentProperty { get; set; } = currentProperty;
+    public IProperty CurrentProperty { get; } = currentProperty;
 
     public PropertyLookup PropertyLookup { get; init; } = propertyLookup;
 

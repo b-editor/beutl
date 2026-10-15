@@ -1,4 +1,5 @@
-﻿using Beutl.Engine;
+﻿using Beutl.Animation;
+using Beutl.Engine;
 
 namespace Beutl.Audio.Graph.Nodes;
 
@@ -43,7 +44,7 @@ public sealed class GainNode : AudioNode
 
                     var chunkRange = context.GetChunkRange(processed, chunkSize);
 
-                    context.AnimationSampler.SampleBuffer(
+                    AnimationSampler.SampleBuffer(
                         gain,
                         chunkRange,
                         context.SampleRate,

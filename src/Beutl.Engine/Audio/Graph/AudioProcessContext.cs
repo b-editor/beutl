@@ -1,5 +1,4 @@
 ﻿using System;
-using Beutl.Animation;
 using Beutl.Media;
 
 namespace Beutl.Audio.Graph;
@@ -8,17 +7,14 @@ public sealed class AudioProcessContext
 {
     internal const long TimestampQuantizationToleranceTicks = 1;
 
-    public AudioProcessContext(TimeRange timeRange, int sampleRate, AnimationSampler animationSampler, TimeRange? originalTimeRange)
+    public AudioProcessContext(TimeRange timeRange, int sampleRate, TimeRange? originalTimeRange)
     {
-        ArgumentNullException.ThrowIfNull(animationSampler);
-
         if (sampleRate <= 0)
             throw new ArgumentOutOfRangeException(nameof(sampleRate), "Sample rate must be positive.");
 
         OriginalTimeRange = originalTimeRange ?? timeRange;
         TimeRange = timeRange;
         SampleRate = sampleRate;
-        AnimationSampler = animationSampler;
     }
 
     public TimeRange TimeRange { get; }
@@ -30,8 +26,6 @@ public sealed class AudioProcessContext
     internal TimeSpan? ProcessEndTime { get; init; }
 
     public int SampleRate { get; }
-
-    public AnimationSampler AnimationSampler { get; }
 
     public int GetSampleCount()
     {
@@ -140,14 +134,5 @@ public sealed class AudioProcessContext
         var chunkStart = GetTimeForSample(startSample);
         var chunkEnd = GetTimeForSample(startSample + sampleCount);
         return new TimeRange(chunkStart, chunkEnd - chunkStart);
-    }
-
-    public int GetSampleForTime(TimeSpan time)
-    {
-        var offset = time - TimeRange.Start;
-        if (offset < TimeSpan.Zero)
-            return -1;
-
-        return (int)(offset.TotalSeconds * SampleRate);
     }
 }

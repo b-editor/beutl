@@ -203,42 +203,9 @@ public sealed class BiQuadFilter
         return output;
     }
 
-    public void ProcessBuffer(ReadOnlySpan<float> input, Span<float> output)
-    {
-        if (input.Length != output.Length)
-            throw new ArgumentException("Input and output buffers must have the same length.");
-
-        for (int i = 0; i < input.Length; i++)
-        {
-            output[i] = Process(input[i]);
-        }
-    }
-
     public void Reset()
     {
         _z1 = 0f;
         _z2 = 0f;
-    }
-
-    /// <summary>
-    /// Creates a new instance of the filter with the same coefficients.
-    /// </summary>
-    /// <returns>A new BiQuadFilter instance.</returns>
-    public BiQuadFilter Clone()
-    {
-        return new BiQuadFilter
-        {
-            _b0 = _b0,
-            _b1 = _b1,
-            _b2 = _b2,
-            _a1 = _a1,
-            _a2 = _a2,
-            _type = _type,
-            _frequency = _frequency,
-            _q = _q,
-            _gainDb = _gainDb,
-            _sampleRate = _sampleRate
-            // State variables are reset
-        };
     }
 }

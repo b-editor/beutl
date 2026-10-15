@@ -24,8 +24,6 @@ public class DelegatingProxyStore(IProxyStore inner) : IProxyStore
 
     public virtual long GetTotalBytes(IReadOnlySet<string> sourceAbsolutePaths) => inner.GetTotalBytes(sourceAbsolutePaths);
 
-    public virtual Task FlushAsync(CancellationToken cancellationToken) => inner.FlushAsync(cancellationToken);
-
     public virtual Task ReconcileAsync(CancellationToken cancellationToken) => inner.ReconcileAsync(cancellationToken);
 
     public virtual event EventHandler<ProxyStoreChangedEventArgs>? Changed
@@ -60,8 +58,6 @@ public class StubProxyStore(string storeRootPath) : IProxyStore
     public virtual long GetTotalBytes() => 0;
 
     public virtual long GetTotalBytes(IReadOnlySet<string> sourceAbsolutePaths) => 0;
-
-    public virtual Task FlushAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 
     public virtual Task ReconcileAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 

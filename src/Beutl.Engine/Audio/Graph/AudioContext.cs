@@ -8,14 +8,12 @@ namespace Beutl.Audio.Graph;
 /// <summary>
 /// Provides a context for building audio processing graphs, similar to GraphicsContext2D pattern.
 /// </summary>
-public sealed partial class AudioContext : IDisposable
+public sealed class AudioContext : IDisposable
 {
     private readonly List<AudioNode> _nodes = new();
     private readonly HashSet<AudioNode> _outputNodes = new(ReferenceEqualityComparer.Instance);
     private List<AudioNode>? _previousNodes;
-    private AudioNode? _currentNode;
     private bool _disposed;
-    private bool _topologyMutationInProgress;
 
     public int SampleRate { get; }
 
@@ -33,15 +31,6 @@ public sealed partial class AudioContext : IDisposable
     }
 
     /// <summary>
-    /// Initializes a new instance with previous nodes for differential update.
-    /// </summary>
-    public AudioContext(int sampleRate, int channelCount, IEnumerable<AudioNode> previousNodes)
-        : this(sampleRate, channelCount)
-    {
-        _previousNodes = previousNodes.ToList();
-    }
-
-    /// <summary>
     /// Adds a node to the context.
     /// </summary>
     /// <param name="node">The node to add.</param>
@@ -49,7 +38,6 @@ public sealed partial class AudioContext : IDisposable
     public T AddNode<T>(T node) where T : AudioNode
     {
         ThrowIfDisposed();
-        ThrowIfTopologyMutation();
         ArgumentNullException.ThrowIfNull(node, nameof(node));
 
         if (!ContainsReference(_nodes, node))
@@ -57,7 +45,6 @@ public sealed partial class AudioContext : IDisposable
             _nodes.Add(node);
         }
 
-        _currentNode = node;
         return node;
     }
 
@@ -79,7 +66,6 @@ public sealed partial class AudioContext : IDisposable
         where TNode : AudioNode
     {
         ThrowIfDisposed();
-        ThrowIfTopologyMutation();
         ArgumentNullException.ThrowIfNull(factory, nameof(factory));
         ArgumentNullException.ThrowIfNull(updater, nameof(updater));
         ArgumentNullException.ThrowIfNull(comparer, nameof(comparer));
@@ -102,7 +88,6 @@ public sealed partial class AudioContext : IDisposable
     public SourceNode CreateSourceNode(SoundSource.Resource source)
     {
         ThrowIfDisposed();
-        ThrowIfTopologyMutation();
         ArgumentNullException.ThrowIfNull(source);
 
         if (_previousNodes?.OfType<SourceNode>().FirstOrDefault(n => source.Compare(n.Source)) is { } existing)
@@ -122,7 +107,6 @@ public sealed partial class AudioContext : IDisposable
     public GainNode CreateGainNode(IProperty<float> gain)
     {
         ThrowIfDisposed();
-        ThrowIfTopologyMutation();
         ArgumentNullException.ThrowIfNull(gain);
 
         if (_previousNodes?.OfType<GainNode>().FirstOrDefault(n => n.Gain == gain) is { } existing)
@@ -146,7 +130,6 @@ public sealed partial class AudioContext : IDisposable
     public ShiftNode CreateShiftNode(TimeSpan shift)
     {
         ThrowIfDisposed();
-        ThrowIfTopologyMutation();
 
         if (_previousNodes?.OfType<ShiftNode>().FirstOrDefault(n => n.Shift == shift) is { } existing)
         {
@@ -168,7 +151,6 @@ public sealed partial class AudioContext : IDisposable
     public ClipNode CreateClipNode(TimeSpan start, TimeSpan duration)
     {
         ThrowIfDisposed();
-        ThrowIfTopologyMutation();
         if (duration <= TimeSpan.Zero)
             throw new ArgumentOutOfRangeException(nameof(duration), "Duration must be positive.");
 
@@ -192,7 +174,6 @@ public sealed partial class AudioContext : IDisposable
     public MixerNode CreateMixerNode()
     {
         ThrowIfDisposed();
-        ThrowIfTopologyMutation();
 
         if (_previousNodes?.OfType<MixerNode>().FirstOrDefault() is { } existing)
         {
@@ -211,7 +192,6 @@ public sealed partial class AudioContext : IDisposable
     public ResampleNode CreateResampleNode(int sourceSampleRate)
     {
         ThrowIfDisposed();
-        ThrowIfTopologyMutation();
         if (sourceSampleRate <= 0)
             throw new ArgumentOutOfRangeException(nameof(sourceSampleRate), "Source sample rate must be positive.");
 
@@ -232,7 +212,6 @@ public sealed partial class AudioContext : IDisposable
     public SpeedNode CreateSpeedNode(IProperty<float> speed)
     {
         ThrowIfDisposed();
-        ThrowIfTopologyMutation();
         ArgumentNullException.ThrowIfNull(speed);
 
         if (_previousNodes?.OfType<SpeedNode>().FirstOrDefault(n => n.Speed == speed) is { } existing)
@@ -248,25 +227,6 @@ public sealed partial class AudioContext : IDisposable
     }
 
     /// <summary>
-    /// Connects the current node to another node.
-    /// </summary>
-    /// <param name="destination">The destination node.</param>
-    /// <returns>The destination node.</returns>
-    public T ConnectTo<T>(T destination) where T : AudioNode
-    {
-        ThrowIfDisposed();
-        ThrowIfTopologyMutation();
-        ArgumentNullException.ThrowIfNull(destination, nameof(destination));
-
-        if (_currentNode == null)
-            throw new InvalidOperationException("No current node to connect from. Add a node first.");
-
-        Connect(_currentNode, destination);
-        _currentNode = destination;
-        return destination;
-    }
-
-    /// <summary>
     /// Connects two nodes.
     /// </summary>
     /// <param name="source">The source node.</param>
@@ -274,7 +234,6 @@ public sealed partial class AudioContext : IDisposable
     public void Connect(AudioNode source, AudioNode destination)
     {
         ThrowIfDisposed();
-        ThrowIfTopologyMutation();
         ArgumentNullException.ThrowIfNull(source, nameof(source));
         ArgumentNullException.ThrowIfNull(destination, nameof(destination));
 
@@ -297,31 +256,12 @@ public sealed partial class AudioContext : IDisposable
     public void MarkAsOutput(AudioNode node)
     {
         ThrowIfDisposed();
-        ThrowIfTopologyMutation();
         ArgumentNullException.ThrowIfNull(node, nameof(node));
 
         if (!ContainsReference(_nodes, node))
             AddNode(node);
 
         _outputNodes.Add(node);
-    }
-
-    /// <summary>
-    /// Sets the current node for chaining operations.
-    /// </summary>
-    /// <param name="node">The node to set as current.</param>
-    /// <returns>The node.</returns>
-    public T SetCurrent<T>(T node) where T : AudioNode
-    {
-        ThrowIfDisposed();
-        ThrowIfTopologyMutation();
-        ArgumentNullException.ThrowIfNull(node, nameof(node));
-
-        if (!ContainsReference(_nodes, node))
-            throw new ArgumentException("Node must be added to the context first.", nameof(node));
-
-        _currentNode = node;
-        return node;
     }
 
     /// <summary>
@@ -340,7 +280,6 @@ public sealed partial class AudioContext : IDisposable
     public void Clear()
     {
         ThrowIfDisposed();
-        ThrowIfTopologyMutation();
 
         foreach (var node in _nodes)
         {
@@ -349,13 +288,7 @@ public sealed partial class AudioContext : IDisposable
 
         _nodes.Clear();
         _outputNodes.Clear();
-        _currentNode = null;
     }
-
-    /// <summary>
-    /// Gets whether this context has been disposed.
-    /// </summary>
-    public bool IsDisposed => _disposed;
 
     /// <summary>
     /// Gets the list of nodes in this context.
@@ -368,13 +301,11 @@ public sealed partial class AudioContext : IDisposable
     public void BeginUpdate(IEnumerable<AudioNode> previousNodes)
     {
         ThrowIfDisposed();
-        ThrowIfTopologyMutation();
 
         _previousNodes = previousNodes.ToList();
 
         _nodes.Clear();
         _outputNodes.Clear();
-        _currentNode = null;
     }
 
     /// <summary>
@@ -383,7 +314,6 @@ public sealed partial class AudioContext : IDisposable
     public void EndUpdate()
     {
         ThrowIfDisposed();
-        ThrowIfTopologyMutation();
 
         if (_previousNodes is { Count: > 0 })
         {
@@ -405,7 +335,6 @@ public sealed partial class AudioContext : IDisposable
 
     public void Dispose()
     {
-        ThrowIfTopologyMutation();
         if (_disposed)
             return;
 
@@ -456,14 +385,5 @@ public sealed partial class AudioContext : IDisposable
     {
         if (_disposed)
             throw new ObjectDisposedException(nameof(AudioContext));
-    }
-
-    private void ThrowIfTopologyMutation()
-    {
-        if (_topologyMutationInProgress)
-        {
-            throw new InvalidOperationException(
-                "Audio graph mutations are not allowed while a topology transaction is in progress.");
-        }
     }
 }

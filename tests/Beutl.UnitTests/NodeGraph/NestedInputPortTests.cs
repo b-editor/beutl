@@ -162,7 +162,7 @@ public class NestedInputPortTests
             node = factory;
             input = (IInputPort)node.Items.Single(p => p.Name == nameof(Brush.Opacity));
         }
-        var originalExpression = Expression.Create<float>("75");
+        var originalExpression = new StringExpression<float>("75");
         brush.Opacity.Expression = originalExpression;
         graph.Nodes.Add(node);
         var output = Source(graph, 25f);
@@ -174,7 +174,7 @@ public class NestedInputPortTests
         history.History.Commit("Disconnect");
         Assert.That(brush.Opacity.Expression, Is.SameAs(originalExpression), "Disconnecting gives the replaced expression back.");
 
-        var editedExpression = Expression.Create<float>("30");
+        var editedExpression = new StringExpression<float>("30");
         brush.Opacity.Expression = editedExpression;
         history.History.Commit("Edit expression");
         Assert.That(history.History.UndoCount, Is.EqualTo(3));

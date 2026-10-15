@@ -84,15 +84,6 @@ public class SpeedIntegratorTests
     }
 
     [Test]
-    public void TryGetCache_BeforeInit_ReturnsMinusOne()
-    {
-        using var integrator = new SpeedIntegrator(60);
-        var (key, value) = integrator.TryGetCache(0);
-        Assert.That(key, Is.EqualTo(-1));
-        Assert.That(value, Is.EqualTo(0));
-    }
-
-    [Test]
     public void Integrate_Speed100_ReturnsSameTime()
     {
         using var integrator = new SpeedIntegrator(60);
@@ -156,17 +147,6 @@ public class SpeedIntegratorTests
     {
         using var integrator = new SpeedIntegrator(60);
         Assert.DoesNotThrow(() => integrator.EnsureCache(null));
-    }
-
-    [Test]
-    public void Dispose_ClearsState()
-    {
-        var integrator = new SpeedIntegrator(60);
-        integrator.EnsureCache(ConstantSpeed(100f));
-        integrator.Dispose();
-
-        var (key, _) = integrator.TryGetCache(0);
-        Assert.That(key, Is.EqualTo(-1));
     }
 
     [Test]

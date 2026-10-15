@@ -98,7 +98,7 @@ public class KeyFrameClipboardServiceTests
         _history.Subscribe(observer);
 
         var source = new KeyFrameAnimation<double>();
-        source.KeyFrames.Add(new KeyFrame<double> { KeyTime = TimeSpan.FromSeconds(1), Value = 0.5 }, out _);
+        source.KeyFrames.AddSorted(new KeyFrame<double> { KeyTime = TimeSpan.FromSeconds(1), Value = 0.5 });
         string json = CoreSerializer.SerializeToJsonString(source);
         int before = _history.UndoCount;
 
@@ -189,7 +189,7 @@ public class KeyFrameClipboardServiceTests
             Value = 0.0,
             Easing = new LinearEasing(),
         };
-        animation.KeyFrames.Add(existing, out _);
+        animation.KeyFrames.AddSorted(existing);
         _history.Commit("seed"); // seal so the next paste is a fresh entry
 
         // Paste a different value at the same time.

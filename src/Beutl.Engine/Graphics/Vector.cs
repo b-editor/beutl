@@ -9,8 +9,8 @@ using Beutl.Utilities;
 
 namespace Beutl.Graphics;
 
-[JsonConverter(typeof(VectorJsonConverter))]
-[TypeConverter(typeof(VectorConverter))]
+[JsonConverter(typeof(ParsableJsonConverter<Vector>))]
+[TypeConverter(typeof(ParsableTypeConverter<Vector>))]
 public readonly struct Vector(float x, float y)
     : IEquatable<Vector>,
       IParsable<Vector>,

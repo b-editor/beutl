@@ -134,7 +134,8 @@ public sealed class SchemaGenerationTests
             Assert.That(transformChildren.ElementType, Is.EqualTo(typeof(Transform).FullName));
             Assert.That(rectGeometry.Category, Is.EqualTo(KnownLibraryItemFormats.Geometry));
             Assert.That(pen.Category, Is.EqualTo(KnownLibraryItemFormats.Pen));
-            Assert.That(gradientStopColor.Converter, Does.Contain("ColorJsonConverter"));
+            Assert.That(gradientStopColor.Converter, Does.Contain("ParsableJsonConverter"));
+            Assert.That(gradientStopColor.Converter, Does.Contain(typeof(Color).FullName));
             Assert.That(gradientStopColor.UsageHint, Does.Contain("#ffffb34d"));
             Assert.That(gradientStopColor.UsageHint, Does.Contain("Amber"));
             Assert.That(penBrush.UsageHint, Does.Contain("$type"));

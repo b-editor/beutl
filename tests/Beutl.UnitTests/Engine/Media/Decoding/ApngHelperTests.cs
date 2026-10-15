@@ -40,7 +40,7 @@ public class ApngHelperTests
 
         byte[] raw = BuildIhdrChunk(64, 48);
 
-        var chunk = new IHDRChunk(raw);
+        var chunk = new IHDRChunk(new MemoryStream(raw));
 
         Assert.That(chunk.ChunkType, Is.EqualTo("IHDR"));
         Assert.That(chunk.Width, Is.EqualTo(64));

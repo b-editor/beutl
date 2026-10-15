@@ -123,7 +123,6 @@ public class APNG
         if (DefaultImage.fcTLChunk != null)
         {
             frames.Insert(0, DefaultImage);
-            DefaultImageIsAnimated = true;
         }
 
         // Now we should apply every chunk in otherChunks to every frame.
@@ -135,11 +134,6 @@ public class APNG
     ///     Indicate whether the file is a simple PNG.
     /// </summary>
     public bool IsSimplePNG { get; }
-
-    /// <summary>
-    ///     Indicate whether the default image is part of the animation
-    /// </summary>
-    public bool DefaultImageIsAnimated { get; private set; }
 
     /// <summary>
     ///     Gets the base image.

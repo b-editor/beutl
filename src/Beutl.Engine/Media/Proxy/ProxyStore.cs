@@ -349,16 +349,15 @@ public sealed partial class ProxyStore : IProxyStore
         }
     }
 
-    public Task FlushAsync(CancellationToken cancellationToken)
+    // Persists pending changes now; tests use it to read back what the store wrote.
+    internal void Flush()
     {
-        cancellationToken.ThrowIfCancellationRequested();
         lock (_lock)
         {
             FlushCore();
         }
 
         ReclaimRetiredProxyFiles();
-        return Task.CompletedTask;
     }
 
     internal string GetAbsolutePath(ProxyEntry entry)

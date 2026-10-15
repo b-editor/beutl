@@ -117,15 +117,4 @@ public class AnimatablePropertyTests
 
         Assert.That(property.Animation, Is.Null);
     }
-
-    [Test]
-    public void CompoundAssign_SetsCurrentValue()
-    {
-        var property = Make(0);
-
-        property <<= 99;
-
-        Assert.That(property.CurrentValue, Is.EqualTo(99));
-    }
-
 }

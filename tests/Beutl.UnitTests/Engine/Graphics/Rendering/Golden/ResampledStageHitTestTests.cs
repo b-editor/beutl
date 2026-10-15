@@ -14,6 +14,11 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 [NonParallelizable]
 public sealed class ResampledStageHitTestTests
 {
+    private static readonly SolidColorBrush.Resource s_red =
+        KnownColor.Red.ToBrush().ToResource(CompositionContext.Default);
+    private static readonly SolidColorBrush.Resource s_lime =
+        KnownColor.Lime.ToBrush().ToResource(CompositionContext.Default);
+
     private const int Size = 100;
     private const int LargeSize = 300;
 
@@ -290,7 +295,9 @@ public sealed class ResampledStageHitTestTests
 
         var source = new ImageSource();
         source.ReadFrom(UriHelper.CreateBase64DataUri("image/png", stream.ToArray()));
-        return new ImageBrush(source);
+        var brush = new ImageBrush();
+        brush.Source.CurrentValue = source;
+        return brush;
     }
 
     [TestCase(0.5f)]
@@ -511,9 +518,9 @@ public sealed class ResampledStageHitTestTests
             ColorShift GreenOnly() => Shift(default, Right(20), default, default);
 
             using Bitmap overRed = Render(
-                s_shiftContent, GreenOnly(), fullBleed: true, fill: Brushes.Resource.Red);
+                s_shiftContent, GreenOnly(), fullBleed: true, fill: s_red);
             using Bitmap overGreen = Render(
-                s_shiftContent, GreenOnly(), fullBleed: true, fill: Brushes.Resource.Lime);
+                s_shiftContent, GreenOnly(), fullBleed: true, fill: s_lime);
 
             Assert.Multiple(() =>
             {
@@ -526,13 +533,13 @@ public sealed class ResampledStageHitTestTests
                     Is.True,
                     "the same shift over a green input paints it, from input coverage the contract cannot tell apart");
                 Assert.That(
-                    HitTest(s_shiftContent, GreenOnly(), arrived, fullBleed: true, fill: Brushes.Resource.Red),
+                    HitTest(s_shiftContent, GreenOnly(), arrived, fullBleed: true, fill: s_red),
                     Is.EqualTo(
                         HitTest(
-                            s_shiftContent, GreenOnly(), arrived, fullBleed: true, fill: Brushes.Resource.Lime)),
+                            s_shiftContent, GreenOnly(), arrived, fullBleed: true, fill: s_lime)),
                     "so no coverage-only contract can answer both, and it must answer the painted one");
                 Assert.That(
-                    HitTest(s_shiftContent, GreenOnly(), arrived, fullBleed: true, fill: Brushes.Resource.Red),
+                    HitTest(s_shiftContent, GreenOnly(), arrived, fullBleed: true, fill: s_red),
                     Is.True,
                     "which makes the red case an over-claim the contract accepts rather than miss the green one");
             });
@@ -548,7 +555,7 @@ public sealed class ResampledStageHitTestTests
             var beyond = new Point(90, 50);
             ColorShift GreenOnly() => Shift(default, Right(20), default, default);
             using Bitmap rendered = Render(
-                s_shiftContent, GreenOnly(), fullBleed: true, fill: Brushes.Resource.Red);
+                s_shiftContent, GreenOnly(), fullBleed: true, fill: s_red);
 
             Assert.Multiple(() =>
             {
@@ -557,7 +564,7 @@ public sealed class ResampledStageHitTestTests
                     Is.False,
                     "x = 90 is past both the input and its shifted copy");
                 Assert.That(
-                    HitTest(s_shiftContent, GreenOnly(), beyond, fullBleed: true, fill: Brushes.Resource.Red),
+                    HitTest(s_shiftContent, GreenOnly(), beyond, fullBleed: true, fill: s_red),
                     Is.False,
                     "so the contract misses it whatever colour the input carries");
             });

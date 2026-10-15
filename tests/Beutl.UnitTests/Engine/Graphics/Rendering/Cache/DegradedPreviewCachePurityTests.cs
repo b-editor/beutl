@@ -197,7 +197,8 @@ public sealed class DegradedPreviewCachePurityTests
     {
         var source = new ImageSource();
         source.ReadFrom(TestMediaHelper.CreateTestImageUri(4, 4));
-        var brush = new ImageBrush(source);
+        var brush = new ImageBrush();
+        brush.Source.CurrentValue = source;
         brush.Stretch.CurrentValue = Stretch.Fill;
         brush.TileMode.CurrentValue = TileMode.None;
         brush.DestinationRect.CurrentValue = RelativeRect.Fill;

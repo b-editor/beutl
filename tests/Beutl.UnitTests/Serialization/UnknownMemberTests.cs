@@ -112,7 +112,7 @@ public class UnknownMemberTests
         var source = new RenamedHolder { Title = "title" };
         source.Amount.CurrentValue = 3;
         source.Amount.Animation = CreateAnimation(4f);
-        source.Amount.Expression = Expression.Create<float>("5");
+        source.Amount.Expression = new StringExpression<float>("5");
         JsonObject json = CoreSerializer.SerializeToJsonObject(source);
         RenameKey(json, nameof(RenamedHolder.Amount), RenamedHolder.FormerAmount);
         RenameKey(json["Animations"]!.AsObject(), nameof(RenamedHolder.Amount), RenamedHolder.FormerAmount);

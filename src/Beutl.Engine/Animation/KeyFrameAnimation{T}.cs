@@ -71,7 +71,7 @@ public class KeyFrameAnimation<T> : KeyFrameAnimation, IAnimation<T>
         }
         else
         {
-            return KeyFrame<T>.s_animator.DefaultValue();
+            return default;
         }
     }
 

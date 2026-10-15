@@ -476,14 +476,4 @@ public class AnimatorInterpolateTests
         Assert.That(result.G, Is.EqualTo(2f).Within(1e-6));
         Assert.That(result.B, Is.EqualTo(3f).Within(1e-6));
     }
-
-    [Test]
-    public void Animator_DefaultValueReturnsDefault()
-    {
-        var animator = new FloatAnimator();
-        Assert.That(animator.DefaultValue(), Is.EqualTo(0f));
-
-        var colorAnim = new ColorAnimator();
-        Assert.That(colorAnim.DefaultValue(), Is.EqualTo(default(Color)));
-    }
 }

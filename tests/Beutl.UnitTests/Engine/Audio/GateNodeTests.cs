@@ -201,7 +201,6 @@ public class GateNodeTests
         var ctx44 = new AudioProcessContext(
             new TimeRange(TimeSpan.FromSeconds(chunkSamples / (double)SampleRate), TimeSpan.FromSeconds(0.1)),
             altSampleRate,
-            new AnimationSampler(),
             null);
         using var secondOutput = node.Process(ctx44);
 
@@ -211,7 +210,6 @@ public class GateNodeTests
         var ctxFresh = new AudioProcessContext(
             new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(0.1)),
             altSampleRate,
-            new AnimationSampler(),
             null);
         using var freshOutput = nodeFresh.Process(ctxFresh);
 

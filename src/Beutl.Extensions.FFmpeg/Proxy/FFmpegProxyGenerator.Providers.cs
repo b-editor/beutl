@@ -27,8 +27,7 @@ public sealed partial class FFmpegProxyGenerator
             using (bitmapRef)
             {
                 progress?.Report(new ProxyJobProgress(
-                    Math.Clamp((frame + 1) / (double)FrameCount, 0, 1),
-                    null));
+                    Math.Clamp((frame + 1) / (double)FrameCount, 0, 1)));
 
                 return ValueTask.FromResult(bitmapRef.Value.Clone());
             }

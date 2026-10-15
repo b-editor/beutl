@@ -276,7 +276,7 @@ public class ProxySourceEnumeratorTests
 
     private static void SetPropertyValueSilently<T>(IProperty<T> property, T value)
     {
-        property.GetType()
+        typeof(PropertyBase<T>)
             .GetField("_currentValue", BindingFlags.Instance | BindingFlags.NonPublic)!
             .SetValue(property, value);
     }
@@ -1056,7 +1056,7 @@ public class ProxySourceEnumeratorTests
         referenced.Source.CurrentValue = CreateImageSource("expr-target.png");
 
         var driven = new SourceImage();
-        driven.Source.Expression = Expression.CreateReference<ImageSource>(referenced.Id, "Source");
+        driven.Source.Expression = new ReferenceExpression<ImageSource>(referenced.Id, "Source");
 
         Scene root = CreateScene("expr.scene");
         root.Children.Add(ElementWith(referenced));

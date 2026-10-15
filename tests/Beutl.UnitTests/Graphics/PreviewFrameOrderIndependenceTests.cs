@@ -310,7 +310,7 @@ public class PreviewFrameOrderIndependenceTests
             DecoderRegistry.ProxyResolver = null;
             // A resolved proxy touches the store, scheduling a delayed flush that would recreate this
             // directory after the delete, or race it.
-            _store?.FlushAsync(CancellationToken.None).GetAwaiter().GetResult();
+            _store?.Flush();
             if (Directory.Exists(_root))
             {
                 Directory.Delete(_root, true);

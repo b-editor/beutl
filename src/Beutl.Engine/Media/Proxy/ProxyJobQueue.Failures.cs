@@ -65,19 +65,11 @@ public sealed partial class ProxyJobQueue
 
     private static void RecordBookkeepingFailure(ProxyJob job, Exception failure)
     {
-        AppendBookkeepingError(job, failure);
         s_logger.LogError(
             failure,
             "Failed to record Failed proxy entry for {Source} ({Preset}).",
             job.Source.AbsolutePath,
             job.Preset);
-    }
-
-    private static void AppendBookkeepingError(ProxyJob job, Exception failure)
-    {
-        job.BookkeepingError = job.BookkeepingError is null
-            ? failure
-            : new AggregateException(job.BookkeepingError, failure);
     }
 
     private Exception? RollBackFailure(ProxyJob job, FailureRegistration registration)
@@ -109,7 +101,6 @@ public sealed partial class ProxyJobQueue
         }
         catch (Exception ex)
         {
-            AppendBookkeepingError(job, ex);
             s_logger.LogError(
                 ex,
                 "Failed to roll back the proxy failure entry after cancellation for {Source} ({Preset}).",

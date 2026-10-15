@@ -12,11 +12,6 @@ public class SplineEasing : Easing
         Y2 = y2;
     }
 
-    public SplineEasing(KeySpline keySpline)
-    {
-        _internalKeySpline = keySpline;
-    }
-
     public SplineEasing()
     {
         _internalKeySpline = new KeySpline();

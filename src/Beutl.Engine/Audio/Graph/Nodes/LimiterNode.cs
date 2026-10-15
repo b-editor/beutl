@@ -1,4 +1,5 @@
 ﻿using System.Numerics;
+using Beutl.Animation;
 using Beutl.Audio.Effects;
 using Beutl.Engine;
 using Beutl.Logging;
@@ -346,11 +347,11 @@ public sealed class LimiterNode : AudioNode
 
                 var chunkRange = context.GetChunkRange(processed, chunkSize);
 
-                context.AnimationSampler.SampleBuffer(Threshold, chunkRange, context.SampleRate, thresholds[..chunkSize]);
-                context.AnimationSampler.SampleBuffer(Release, chunkRange, context.SampleRate, releases[..chunkSize]);
+                AnimationSampler.SampleBuffer(Threshold, chunkRange, context.SampleRate, thresholds[..chunkSize]);
+                AnimationSampler.SampleBuffer(Release, chunkRange, context.SampleRate, releases[..chunkSize]);
                 if (frozenLookaheadSamples is null)
-                    context.AnimationSampler.SampleBuffer(Lookahead, chunkRange, context.SampleRate, lookaheads[..chunkSize]);
-                context.AnimationSampler.SampleBuffer(MakeupGain, chunkRange, context.SampleRate, makeups[..chunkSize]);
+                    AnimationSampler.SampleBuffer(Lookahead, chunkRange, context.SampleRate, lookaheads[..chunkSize]);
+                AnimationSampler.SampleBuffer(MakeupGain, chunkRange, context.SampleRate, makeups[..chunkSize]);
 
                 for (int i = 0; i < chunkSize; i++)
                 {

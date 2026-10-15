@@ -29,9 +29,9 @@ public class GraphEditorSelectionCommandTests
         var third = new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(0.7), Value = 200 };
         var fourth = new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1.1), Value = 300 };
         var unselected = new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(2), Value = 900 };
-        graph.Animation.KeyFrames.Add(third, out _);
-        graph.Animation.KeyFrames.Add(fourth, out _);
-        graph.Animation.KeyFrames.Add(unselected, out _);
+        graph.Animation.KeyFrames.AddSorted(third);
+        graph.Animation.KeyFrames.AddSorted(fourth);
+        graph.Animation.KeyFrames.AddSorted(unselected);
         graph.Model.SelectedView.Value!.SetSelection([graph.First, third, fourth, graph.Second]);
         graph.Model.HistoryManager.Commit();
         string before = GraphScope.Snapshot(graph.Animation);
@@ -89,12 +89,12 @@ public class GraphEditorSelectionCommandTests
         using var graph = await GraphScope.CreateAsync(separateHandles: true);
         for (int index = 1; index < count - 1; index++)
         {
-            graph.Animation.KeyFrames.Add(new KeyFrame<float>
+            graph.Animation.KeyFrames.AddSorted(new KeyFrame<float>
             {
                 KeyTime = TimeSpan.FromSeconds(0.5 + (double)index / (count - 1)),
                 Value = 100 + 50 * index,
                 Easing = new SplineEasing(0.25f, 0.1f, 0.75f, 0.9f)
-            }, out _);
+            });
         }
         var keys = graph.Animation.KeyFrames.ToArray();
         graph.Model.SelectedView.Value!.SetSelection(keys);
@@ -141,18 +141,18 @@ public class GraphEditorSelectionCommandTests
         else
         {
             var third = new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(0.7), Value = 200 };
-            graph.Animation.KeyFrames.Add(third, out _);
+            graph.Animation.KeyFrames.AddSorted(third);
             graph.Model.SelectedView.Value!.SetSelection([graph.First, third, graph.Second]);
             if (reason == "distribute-rounding")
             {
                 third.KeyTime = TimeSpan.FromSeconds(0.51);
                 graph.Second.KeyTime = TimeSpan.FromSeconds(0.52);
             }
-            else graph.Animation.KeyFrames.Add(new KeyFrame<float>
+            else graph.Animation.KeyFrames.AddSorted(new KeyFrame<float>
             {
                 KeyTime = TimeSpan.FromSeconds(reason == "reverse-collision" ? 1.3 : 1),
                 Value = 999
-            }, out _);
+            });
         }
         graph.Model.HistoryManager.Commit();
         string before = GraphScope.Snapshot(graph.Animation);
@@ -256,7 +256,7 @@ public class GraphEditorSelectionCommandTests
     {
         using var graph = await GraphScope.CreateAsync();
         var third = new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(0.7), Value = 200 };
-        graph.Animation.KeyFrames.Add(third, out _);
+        graph.Animation.KeyFrames.AddSorted(third);
         graph.Model.SelectedView.Value!.SetSelection(graph.Animation.KeyFrames);
         graph.Model.HistoryManager.Commit();
         var textBox = new TextBox { Text = "edit", Width = 100 };

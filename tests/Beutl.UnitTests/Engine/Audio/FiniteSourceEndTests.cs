@@ -5,7 +5,6 @@ using Beutl.Audio.Effects;
 using Beutl.Audio.Graph;
 using Beutl.Audio.Graph.Nodes;
 using Beutl.Engine;
-using Beutl.Validation;
 
 namespace Beutl.UnitTests.Engine.Audio;
 
@@ -96,30 +95,33 @@ public class FiniteSourceEndTests
     [TestCase(true)]
     public void AnimatedEnd_IsCachedAndRecomputedAfterAnimationSourceOrRateChanges(bool preservePitch)
     {
-        var animation = new CountingAnimation();
+        var easing = new CountingEasing();
+        var first = new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100 };
+        var last = new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 100, Easing = easing };
         var property = Property.CreateAnimatable(100f);
-        property.Animation = animation;
+        property.Animation = new KeyFrameAnimation<float> { KeyFrames = { first, last } };
         using var source = new MutableFiniteSource { Seconds = 0.125 };
         using AudioNode node = preservePitch
             ? new TimeStretchNode { Speed = property }
             : new SpeedNode { Speed = property };
         node.AddInput(source);
-        double? first = node.GetFiniteSourceEndSample(SampleRate);
-        int calls = animation.Calls;
+        double? initial = node.GetFiniteSourceEndSample(SampleRate);
+        int calls = easing.Calls;
 
-        Assert.That(node.GetFiniteSourceEndSample(SampleRate), Is.EqualTo(first));
-        Assert.That(animation.Calls, Is.EqualTo(calls), "An unchanged EOF query must not interpolate again.");
+        Assert.That(node.GetFiniteSourceEndSample(SampleRate), Is.EqualTo(initial));
+        Assert.That(easing.Calls, Is.EqualTo(calls), "An unchanged EOF query must not interpolate again.");
 
-        animation.SetSpeed(200);
-        Assert.That(node.GetFiniteSourceEndSample(SampleRate), Is.EqualTo(first / 2).Within(1));
-        Assert.That(animation.Calls, Is.GreaterThan(calls));
-        calls = animation.Calls;
+        first.Value = 200;
+        last.Value = 200;
+        Assert.That(node.GetFiniteSourceEndSample(SampleRate), Is.EqualTo(initial / 2).Within(1));
+        Assert.That(easing.Calls, Is.GreaterThan(calls));
+        calls = easing.Calls;
         source.Seconds = 0.25;
-        Assert.That(node.GetFiniteSourceEndSample(SampleRate), Is.EqualTo(first).Within(1));
-        Assert.That(animation.Calls, Is.GreaterThan(calls));
-        calls = animation.Calls;
+        Assert.That(node.GetFiniteSourceEndSample(SampleRate), Is.EqualTo(initial).Within(1));
+        Assert.That(easing.Calls, Is.GreaterThan(calls));
+        calls = easing.Calls;
         Assert.That(node.GetFiniteSourceEndSample(44100), Is.EqualTo(5512.5).Within(1));
-        Assert.That(animation.Calls, Is.GreaterThan(calls));
+        Assert.That(easing.Calls, Is.GreaterThan(calls));
     }
 
     [Test]
@@ -143,19 +145,16 @@ public class FiniteSourceEndTests
         public override AudioBuffer Process(AudioProcessContext context) => new(context.SampleRate, 2, context.GetSampleCount());
     }
 
-    private sealed class CountingAnimation : Hierarchical, IAnimationRange<float>
+    // Counts the interpolations between the two keyframes.
+    private sealed class CountingEasing : UnitRangeEasing
     {
         public int Calls { get; private set; }
-        private float _speed = 100;
-        public TimeSpan Duration => TimeSpan.FromSeconds(1);
-        public bool UseGlobalClock => false;
-        public Type ValueType => typeof(float);
-        public IValidator<float>? Validator { get; set; }
-        public event EventHandler? Edited;
-        public float GetAnimatedValue(TimeSpan time) => Interpolate(time);
-        public float Interpolate(TimeSpan time) { Calls++; return _speed; }
-        public bool TryGetOutputRange(out float minimum, out float maximum) { minimum = maximum = _speed; return true; }
-        public void SetSpeed(float speed) { _speed = speed; Edited?.Invoke(this, EventArgs.Empty); }
+
+        public override float Ease(float progress)
+        {
+            Calls++;
+            return progress;
+        }
     }
 
     private sealed class FiniteSource(double seconds) : AudioNode

@@ -12,10 +12,10 @@ public class KeyFrames : HierarchicalList<IKeyFrame>
     {
     }
 
-    public void Add(IKeyFrame item, out int index)
+    // Inserts at the position that keeps the keyframes in KeyTime order; Add appends.
+    public void AddSorted(IKeyFrame item)
     {
-        index = IndexAtOrCount(item.KeyTime);
-        Insert(index, item);
+        Insert(IndexAtOrCount(item.KeyTime), item);
     }
 
     public (IKeyFrame? Previous, IKeyFrame? Next) GetPreviousAndNextKeyFrame(IKeyFrame keyframe)
@@ -47,12 +47,6 @@ public class KeyFrames : HierarchicalList<IKeyFrame>
         IKeyFrame? prev = index > 0 ? this[index - 1] : null;
         IKeyFrame? next = index < Count ? this[index] : null;
         return (prev, next);
-    }
-
-    public int IndexAt(TimeSpan timeSpan)
-    {
-        // Past the last keyframe this is the last index, and -1 on an empty list.
-        return Math.Min(IndexAtOrCount(timeSpan), Count - 1);
     }
 
     public int IndexAtOrCount(TimeSpan timeSpan)

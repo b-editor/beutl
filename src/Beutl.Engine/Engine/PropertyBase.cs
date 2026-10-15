@@ -1,0 +1,281 @@
+﻿using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Nodes;
+using Beutl.Animation;
+using Beutl.Composition;
+using Beutl.Engine.Expressions;
+using Beutl.Serialization;
+using Beutl.Validation;
+using ValidationContext = Beutl.Validation.ValidationContext;
+
+namespace Beutl.Engine;
+
+/// <summary>
+/// The implementation shared by <see cref="SimpleProperty{T}"/> and <see cref="AnimatableProperty{T}"/>.
+/// </summary>
+public abstract class PropertyBase<T> : IProperty<T>
+{
+    private T _currentValue;
+    private IValidator<T>? _validator;
+    private Attribute[]? _attributes;
+    private string? _name;
+    private EngineObject? _owner;
+    private ExpressionEvaluationState<T>? _expressionState;
+    private PropertyLookup? _propertyLookup;
+
+    private protected PropertyBase(T defaultValue, IValidator<T>? validator)
+    {
+        DefaultValue = defaultValue;
+        _currentValue = defaultValue;
+        _validator = validator;
+    }
+
+    public string Name => _name ?? throw new InvalidOperationException("Property is not initialized.");
+
+    public Type ValueType { get; } = typeof(T);
+
+    public abstract bool IsAnimatable { get; }
+
+    bool IProperty.SupportsExpression => SupportsExpressionCore;
+
+    // Each property declares its own SupportsExpression, because SimpleProperty<T> sets it with init.
+    private protected abstract bool SupportsExpressionCore { get; }
+
+    public T DefaultValue { get; }
+
+    public T CurrentValue
+    {
+        get => _currentValue;
+        set => SetCurrentValue(value, replaceEquivalent: false);
+    }
+
+    private void SetCurrentValue(T value, bool replaceEquivalent)
+    {
+        var validatedValue = ValidateAndCoerce(value);
+        bool hasReplacement = ValueReplacement.RequiresReplacement(
+            _currentValue,
+            validatedValue,
+            replaceEquivalent);
+        if (hasReplacement)
+        {
+            var oldValue = _currentValue;
+            _currentValue = validatedValue;
+            HasLocalValue = true;
+
+            ValueChanged?.Invoke(this, new PropertyValueChangedEventArgs<T>(this, oldValue, validatedValue));
+            Edited?.Invoke(this, EventArgs.Empty);
+            PropertyValueOwnership.Reparent(_owner, oldValue, validatedValue);
+
+            if (oldValue is INotifyEdited oldEdited)
+                oldEdited.Edited -= OnChildEdited;
+            if (validatedValue is INotifyEdited newEdited)
+                newEdited.Edited += OnChildEdited;
+        }
+    }
+
+    public void ReplaceCurrentValue(T value)
+        => SetCurrentValue(value, replaceEquivalent: true);
+
+    public abstract IAnimation<T>? Animation { get; set; }
+
+    public virtual IExpression<T>? Expression
+    {
+        get => Volatile.Read(ref _expressionState)?.Expression;
+        set
+        {
+            if (Expression != value)
+            {
+                Volatile.Write(ref _expressionState, value == null ? null : new ExpressionEvaluationState<T>(value));
+                ExpressionChanged?.Invoke(value);
+                Edited?.Invoke(this, EventArgs.Empty);
+            }
+        }
+    }
+
+    public bool HasLocalValue { get; private set; }
+
+    public bool HasExpression => Volatile.Read(ref _expressionState) != null;
+
+    public string? ExpressionError => Volatile.Read(ref _expressionState)?.Error;
+
+    public event EventHandler<PropertyValueChangedEventArgs<T>>? ValueChanged;
+
+    public event EventHandler? Edited;
+
+    public event Action<IExpression<T>?>? ExpressionChanged;
+
+    private protected void RaiseEdited()
+    {
+        Edited?.Invoke(this, EventArgs.Empty);
+    }
+
+    private protected void OnChildEdited(object? sender, EventArgs e)
+    {
+        Edited?.Invoke(sender, e);
+    }
+
+    public T GetValue(CompositionContext context)
+    {
+        T value;
+
+        if (Volatile.Read(ref _expressionState) is { } expressionState)
+        {
+            _propertyLookup ??= new PropertyLookup(_owner?.FindHierarchicalRoot() as ICoreObject ?? BeutlApplication.Current);
+            if (context is ExpressionContext expressionContext)
+            {
+                if (expressionContext.IsEvaluating(this))
+                    return DefaultValue;
+            }
+            else
+            {
+                expressionContext = new ExpressionContext(context.Time, this, _propertyLookup);
+            }
+
+            expressionContext.BeginEvaluation(this);
+            try
+            {
+                value = expressionState.Expression.Evaluate(expressionContext);
+                expressionState.ClearError();
+                return ValidateAndCoerce(value);
+            }
+            catch (ExpressionException ex)
+            {
+                expressionState.ReportFailure(_name, _owner, ex);
+            }
+            finally
+            {
+                expressionContext.EndEvaluation(this);
+            }
+        }
+        if (Animation is { } animation)
+        {
+            value = animation.GetAnimatedValue(context.Time) ?? _currentValue;
+            value = ValidateAndCoerce(value);
+        }
+        else
+        {
+            value = _currentValue;
+        }
+
+        return value;
+    }
+
+    public void SetAttributes(string name, Attribute[] attributes)
+    {
+        _name = name;
+        _attributes = attributes;
+    }
+
+    public Attribute[]? GetAttributes() => _attributes;
+
+    public IValidator CreateValidator(Attribute[] attributes)
+    {
+        IValidator<T>[] validations = Property.ConvertValidators<T>(attributes.OfType<ValidationAttribute>());
+
+        return new MultipleValidator<T>(validations);
+    }
+
+    public void SetValidator(IValidator validator)
+    {
+        _validator = (IValidator<T>)validator;
+        if (Animation != null)
+        {
+            Animation.Validator = _validator;
+        }
+    }
+
+    public IValidator? GetValidator() => _validator;
+
+    public void SetOwnerObject(EngineObject? owner)
+    {
+        if (_owner == owner) return;
+        _propertyLookup = null;
+
+        if (owner is IModifiableHierarchical ownerHierarchical)
+        {
+            if (CurrentValue is IHierarchical hierarchical)
+                ownerHierarchical.AddChild(hierarchical);
+
+            if (Animation != null)
+                ownerHierarchical.AddChild(Animation);
+        }
+        else if (_owner is IModifiableHierarchical oldOwnerHierarchical)
+        {
+            if (CurrentValue is IHierarchical hierarchical)
+                oldOwnerHierarchical.RemoveChild(hierarchical);
+
+            if (Animation != null)
+                oldOwnerHierarchical.RemoveChild(Animation);
+        }
+
+        _owner = owner;
+    }
+
+    public EngineObject? GetOwnerObject()
+    {
+        return _owner;
+    }
+
+    private T ValidateAndCoerce(T value)
+    {
+        if (_validator == null)
+            return value;
+
+        var context = new ValidationContext(this, null);
+        if (_validator.TryCoerce(context, ref value!))
+        {
+            return value;
+        }
+
+        // Coerceできなかった場合、Validateを試みる
+        if (_validator.Validate(context, value) == null)
+        {
+            return value;
+        }
+
+        return DefaultValue;
+    }
+
+    public void ResetToDefault()
+    {
+        CurrentValue = DefaultValue;
+        HasLocalValue = false;
+        Animation = null;
+        Expression = null;
+    }
+
+    public void DeserializeValue(ICoreSerializationContext context)
+    {
+        if (context is JsonSerializationContext jsonContext
+            && jsonContext.TryGetPreservedValue(Name, typeof(T), out _, allowCollections: true))
+        {
+            return;
+        }
+
+        var optional = context.GetValue<Optional<T>>(FormerPersistedNames.ResolveMemberKey(context, Name, _attributes));
+        if (optional.HasValue)
+        {
+            ResolveDeserializedReference(context, optional.Value);
+            CurrentValue = optional.Value;
+        }
+    }
+
+    // Called with a deserialized value before it is installed; SimpleProperty<T> resolves references here.
+    private protected virtual void ResolveDeserializedReference(ICoreSerializationContext context, T value)
+    {
+    }
+
+    public void SerializeValue(ICoreSerializationContext context)
+    {
+        context.SetValue(Name, CurrentValue);
+    }
+
+    public virtual void DeserializeExpression(JsonNode expressionNode)
+    {
+        Expression = Expressions.Expression.CreateFromNode<T>(expressionNode);
+    }
+
+    public JsonNode? SerializeExpression()
+    {
+        return Expression == null ? null : Expressions.Expression.ToNode(Expression);
+    }
+}

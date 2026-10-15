@@ -1296,7 +1296,7 @@ public class ElementResizeServiceTests
         Element? middle = slide ? AddElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2)) : null;
         TimeSpan backStart = TimeSpan.FromSeconds(slide ? 4 : 2);
         Element back = AddElement(backStart, TimeSpan.FromSeconds(2));
-        var video = new SourceVideo { Speed = { Expression = Expression.Create<float>("200") } };
+        var video = new SourceVideo { Speed = { Expression = new StringExpression<float>("200") } };
         back.Objects.Add(video);
         _history.Commit();
         int before = _history.UndoCount;

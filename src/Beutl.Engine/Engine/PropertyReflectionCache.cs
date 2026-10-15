@@ -6,7 +6,7 @@ using LinqExpression = System.Linq.Expressions.Expression;
 
 namespace Beutl.Engine;
 
-public class PropertyCacheEntry
+internal class PropertyCacheEntry
 {
     public readonly ConcurrentDictionary<PropertyInfo, Func<object, IProperty?>> Accessors = new();
     public readonly ConcurrentDictionary<string, Attribute[]> Attributes = new();
@@ -15,7 +15,7 @@ public class PropertyCacheEntry
 
 public static class PropertyReflectionCache
 {
-    public static readonly ConditionalWeakTable<Type, PropertyCacheEntry> Cache = [];
+    private static readonly ConditionalWeakTable<Type, PropertyCacheEntry> Cache = [];
 
     static PropertyReflectionCache()
     {

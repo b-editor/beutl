@@ -78,7 +78,7 @@ public class DelayNodeTests
         continuing.Process(ContextAt(0)).Dispose();
         using AudioBuffer afterRounding = continuing.Process(new AudioProcessContext(
             new TimeRange(TimeSpan.FromSeconds(1) + TimeSpan.FromTicks(tickOffset), TimeSpan.FromSeconds(1)),
-            SampleRate, new AnimationSampler(), null));
+            SampleRate, null));
 
         using var fresh = CreateNode(new BufferReplayNode(input));
         using AudioBuffer freshRun = fresh.Process(ContextAt(1));

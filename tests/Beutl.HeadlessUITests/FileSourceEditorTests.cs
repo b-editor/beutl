@@ -450,6 +450,10 @@ public sealed class FileSourceEditorTests
                 throw new InvalidDataException("Invalid source file.");
             Uri = uri;
         }
+
+        protected override void ClearSharedResource()
+        {
+        }
     }
 
     [JsonConverter(typeof(FileSourceJsonConverter))]

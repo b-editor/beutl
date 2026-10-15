@@ -120,7 +120,7 @@ public class PropertyContractTests(PropertyContractTests.PropertyKind kind)
         property.ExpressionChanged += e => captured = e;
         property.Edited += (_, _) => edited++;
 
-        var expression = Expression.Create<double>("1+2");
+        var expression = new StringExpression<double>("1+2");
         property.Expression = expression;
 
         Assert.That(captured, Is.SameAs(expression));
@@ -164,7 +164,7 @@ public class PropertyContractTests(PropertyContractTests.PropertyKind kind)
     {
         IProperty<int> property = Make(7);
         property.CurrentValue = 100;
-        property.Expression = Expression.Create<int>("1+2");
+        property.Expression = new StringExpression<int>("1+2");
 
         ResetToDefault(property);
 

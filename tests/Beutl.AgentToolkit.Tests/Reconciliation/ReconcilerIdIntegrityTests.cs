@@ -309,7 +309,7 @@ public sealed class ReconcilerIdIntegrityTests
         {
             Value.SetAttributes(nameof(Value), []);
             Value.SetValidator(Value.CreateValidator([]));
-            RegisterProperty(Value);
+            RegisterProperty(Value, 0);
         }
 
         public IProperty<EngineObject?> Value { get; } = Property.Create<EngineObject?>();

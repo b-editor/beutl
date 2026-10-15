@@ -20,8 +20,6 @@ public interface IProxyStore
 
     long GetTotalBytes(IReadOnlySet<string> sourceAbsolutePaths);
 
-    Task FlushAsync(CancellationToken cancellationToken);
-
     Task ReconcileAsync(CancellationToken cancellationToken);
 
     event EventHandler<ProxyStoreChangedEventArgs>? Changed;

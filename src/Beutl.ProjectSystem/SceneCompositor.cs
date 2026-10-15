@@ -14,7 +14,7 @@ using Beutl.ProjectSystem;
 
 namespace Beutl;
 
-public sealed class SceneCompositor : ICompositor
+public sealed class SceneCompositor : IDisposable
 {
     private readonly ConditionalWeakTable<EngineObject, EngineObject.Resource> _resourceCache = new();
     private readonly ConcurrentQueue<EngineObject.Resource> _detachedResources = new();

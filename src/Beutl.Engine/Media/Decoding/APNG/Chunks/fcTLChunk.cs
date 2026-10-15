@@ -5,25 +5,10 @@ namespace Beutl.Media.Decoding.APNG.Chunks;
 // ReSharper disable once InconsistentNaming
 public class fcTLChunk : Chunk
 {
-    public fcTLChunk(byte[] bytes)
-        : base(bytes)
-    {
-    }
-
-    public fcTLChunk(MemoryStream ms)
-        : base(ms)
-    {
-    }
-
     public fcTLChunk(Chunk chunk)
         : base(chunk)
     {
     }
-
-    /// <summary>
-    ///     Sequence number of the animation chunk, starting from 0
-    /// </summary>
-    public uint SequenceNumber { get; private set; }
 
     /// <summary>
     ///     Width of the following frame
@@ -67,7 +52,8 @@ public class fcTLChunk : Chunk
 
     protected override void ParseData(MemoryStream ms)
     {
-        SequenceNumber = BinaryPrimitives.ReadUInt32BigEndian(ms.ReadBytes(4));
+        // Skips the sequence number; chunks are read in file order.
+        ms.Seek(4, SeekOrigin.Current);
         Width = BinaryPrimitives.ReadUInt32BigEndian(ms.ReadBytes(4));
         Height = BinaryPrimitives.ReadUInt32BigEndian(ms.ReadBytes(4));
         XOffset = BinaryPrimitives.ReadUInt32BigEndian(ms.ReadBytes(4));

@@ -96,11 +96,6 @@ public readonly struct BitmapColorSpaceTransferFn : IEquatable<BitmapColorSpaceT
         return new() { G = fn.G, A = fn.A, B = fn.B, C = fn.C, D = fn.D, E = fn.E, F = fn.F };
     }
 
-    public BitmapColorSpaceTransferFn Invert()
-    {
-        return FromSK(ToSKTransferFn().Invert());
-    }
-
     public float Transform(float x)
     {
         return ToSKTransferFn().Transform(x);

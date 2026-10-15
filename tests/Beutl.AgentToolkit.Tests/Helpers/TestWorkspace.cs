@@ -66,12 +66,10 @@ internal static class TestWorkspace
     public static KeyFrameAnimation<float> CreateLinearFloatAnimation(float firstValue, float secondValue)
     {
         var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(
-            new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = firstValue, Easing = new LinearEasing() },
-            out _);
-        animation.KeyFrames.Add(
-            new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = secondValue, Easing = new LinearEasing() },
-            out _);
+        animation.KeyFrames.AddSorted(
+            new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = firstValue, Easing = new LinearEasing() });
+        animation.KeyFrames.AddSorted(
+            new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = secondValue, Easing = new LinearEasing() });
         return animation;
     }
 }

@@ -27,7 +27,7 @@ public sealed class ProxyGenerationAdmissionContractTests
         var generator = new TestGenerator();
         var admission = new TestAdmission();
         var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        await using var queue = new ProxyJobQueue(generator, store: null, admission);
+        await using var queue = new ProxyJobQueue(() => generator, store: null, admission);
         queue.JobChanged += (_, args) =>
         {
             if (args.Kind == ProxyJobChangeKind.Succeeded)

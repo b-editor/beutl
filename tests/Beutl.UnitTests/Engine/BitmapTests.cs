@@ -91,16 +91,6 @@ public class BitmapTests
     }
 
     [Test]
-    public void Info_ContainsAllProperties()
-    {
-        using var bitmap = new Bitmap(5, 6);
-        BitmapInfo info = bitmap.Info;
-        Assert.That(info.Width, Is.EqualTo(5));
-        Assert.That(info.Height, Is.EqualTo(6));
-        Assert.That(info.ByteCount, Is.EqualTo(bitmap.ByteCount));
-    }
-
-    [Test]
     public void GetPixelSpan_HasCorrectLength()
     {
         using var bitmap = new Bitmap(3, 4);

@@ -114,14 +114,6 @@ public sealed class FontManager
         }
     }
 
-    public int FontFamilyCount
-    {
-        get
-        {
-            lock (_gate) return _fonts.Keys.Concat(_projectFonts.Keys).Concat(_deferredFonts.Keys).Distinct().Count();
-        }
-    }
-
     public Typeface DefaultTypeface { get; }
 
     internal void SetFallbackFonts(IEnumerable<FontFamily> families, FontFamily? emojiFamily)

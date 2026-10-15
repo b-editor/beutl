@@ -135,7 +135,7 @@ public class PathEditorInteractionTests
         var source = empty ? figure.StartPoint : figure.Segments[^1].GetEndPoint();
         using (editor.Editor.HistoryManager.SuppressRecording())
         {
-            if (expression) source.Expression = Expression.Create<BtlPoint>(empty ? "new Point(80, 100)" : "new Point(180, 100)");
+            if (expression) source.Expression = new StringExpression<BtlPoint>(empty ? "new Point(80, 100)" : "new Point(180, 100)");
             else
             {
                 var animation = new KeyFrameAnimation<BtlPoint>();
@@ -423,7 +423,7 @@ public class PathEditorInteractionTests
         editor.Drag(new(240, 120), new(270, 120));
         using (editor.Editor.HistoryManager.SuppressRecording())
         {
-            if (kind == "expression") cubic.ControlPoint1.Expression = Expression.Create<BtlPoint>("new Point(30, 90)");
+            if (kind == "expression") cubic.ControlPoint1.Expression = new StringExpression<BtlPoint>("new Point(30, 90)");
             if (kind is "animation" or "last-point-animation")
             {
                 var property = kind == "animation" ? cubic.ControlPoint1 : figure.Segments[^1].GetEndPoint();
@@ -533,7 +533,7 @@ public class PathEditorInteractionTests
         {
             if (expression)
             {
-                figure.IsClosed.Expression = Expression.Create<bool>("false");
+                figure.IsClosed.Expression = new StringExpression<bool>("false");
             }
             else
             {
@@ -577,7 +577,7 @@ public class PathEditorInteractionTests
         {
             if (expression)
             {
-                property.Expression = Expression.Create<BtlPoint>(last ? "new Point(240, 120)" : "new Point(80, 100)");
+                property.Expression = new StringExpression<BtlPoint>(last ? "new Point(240, 120)" : "new Point(80, 100)");
             }
             else
             {

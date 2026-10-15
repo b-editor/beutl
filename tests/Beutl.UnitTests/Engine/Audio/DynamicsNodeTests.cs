@@ -1,5 +1,4 @@
-﻿using Beutl.Animation;
-using Beutl.Audio;
+﻿using Beutl.Audio;
 using Beutl.Audio.Graph;
 using Beutl.Audio.Graph.Nodes;
 using Beutl.Logging;
@@ -154,7 +153,7 @@ public class DynamicsNodeTests
         node.AddInput(new BufferReplayNode(input));
 
         using var output = node.Process(new AudioProcessContext(
-            new TimeRange(TimeSpan.Zero, TimeSpan.Zero), SampleRate, new AnimationSampler(), null));
+            new TimeRange(TimeSpan.Zero, TimeSpan.Zero), SampleRate, null));
 
         Assert.That(output.SampleCount, Is.EqualTo(0));
         Assert.That(output.ChannelCount, Is.EqualTo(2));
@@ -198,7 +197,7 @@ public class DynamicsNodeTests
         node.AddInput(new BufferReplayNode(second));
         using var secondOut = node.Process(new AudioProcessContext(
             new TimeRange(s_chunk, TimeSpan.FromSeconds(0.1)),
-            altSampleRate, new AnimationSampler(), null));
+            altSampleRate, null));
         Assert.That(node.NonFiniteSampleWarnings, Is.EqualTo(2),
             "A sample-rate change is a session boundary, so the recurring fault must warn again.");
     }

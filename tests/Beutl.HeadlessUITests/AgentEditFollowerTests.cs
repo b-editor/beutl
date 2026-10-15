@@ -78,8 +78,8 @@ public sealed class AgentEditFollowerTests
             var animation = new KeyFrameAnimation<float>();
             var first = new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100 };
             var second = new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1.5), Value = 100 };
-            animation.KeyFrames.Add(first, out _);
-            animation.KeyFrames.Add(second, out _);
+            animation.KeyFrames.AddSorted(first);
+            animation.KeyFrames.AddSorted(second);
             fixture.FarRect.Opacity.Animation = animation;
             await using AgentHostEndpoint host = fixture.CreateHost();
             await host.StartAsync();

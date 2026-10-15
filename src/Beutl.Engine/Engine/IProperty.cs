@@ -148,8 +148,6 @@ public interface IProperty<T> : IProperty
     event EventHandler<PropertyValueChangedEventArgs<T>>? ValueChanged;
 
     event Action<IExpression<T>?>? ExpressionChanged;
-
-    void operator <<=(T value);
 }
 
 public class PropertyValueChangedEventArgs<T>(IProperty<T> property, T oldValue, T newValue) : EventArgs

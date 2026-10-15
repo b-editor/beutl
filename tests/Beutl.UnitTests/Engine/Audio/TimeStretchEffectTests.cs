@@ -280,7 +280,7 @@ public class TimeStretchEffectTests
             var context = new AudioProcessContext(new TimeRange(
                     TimeSpan.FromTicks((long)((Int128)start * TimeSpan.TicksPerSecond / sampleRate)),
                     AudioProcessContext.GetDurationForSampleCount(count, sampleRate)),
-                sampleRate, new AnimationSampler(), null);
+                sampleRate, null);
             using AudioBuffer part = chunkedNode.Process(context);
             part.GetChannelData(0).CopyTo(output.AsSpan(start, count));
         }

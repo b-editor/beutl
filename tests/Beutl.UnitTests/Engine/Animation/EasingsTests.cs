@@ -73,15 +73,6 @@ public class EasingsTests
     }
 
     [Test]
-    public void SplineEasing_FromKeySplineUsesProvidedSpline()
-    {
-        var keySpline = new KeySpline(0.25f, 0.1f, 0.25f, 1f);
-        var easing = new SplineEasing(keySpline);
-
-        Assert.That(easing.Ease(0.5f), Is.EqualTo(keySpline.GetSplineProgress(0.5f)).Within(1e-5));
-    }
-
-    [Test]
     public void SplineEasing_InvalidX1_Throws()
     {
         var easing = new SplineEasing();

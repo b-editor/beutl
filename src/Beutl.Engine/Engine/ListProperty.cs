@@ -46,8 +46,6 @@ public class ListProperty<T> : IListProperty<T>
         _items.CollectionChanged += (s, e) => Edited?.Invoke(this, EventArgs.Empty);
     }
 
-    public bool HasValidator => false;
-
     public string Name => _name ?? throw new InvalidOperationException("Property is not initialized.");
 
     public Type ValueType { get; } = typeof(ICoreList<T>);
@@ -98,11 +96,6 @@ public class ListProperty<T> : IListProperty<T>
     }
 
     public event EventHandler? Edited;
-
-    public void operator <<=(ICoreList<T> value)
-    {
-        CurrentValue = value;
-    }
 
     private void OnChildEdited(object? sender, EventArgs e)
     {

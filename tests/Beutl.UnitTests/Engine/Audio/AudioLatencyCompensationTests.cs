@@ -875,29 +875,6 @@ public class AudioLatencyCompensationTests
     }
 
     [Test]
-    public void MixerNode_ClearBranchEndTime_RearmsUnknownDrainState()
-    {
-        const int processSamples = 4096;
-        const int drainSamples = 256;
-        var branchEnd = ExactDuration(processSamples, SampleRate);
-
-        using var branch = new RecordingLatencyNode(int.MaxValue);
-        using var mixer = new MixerNode();
-        mixer.AddInput(branch);
-        mixer.SetBranchEndTime(branch, branchEnd);
-
-        using var processed = mixer.Process(Exact(TimeSpan.Zero, processSamples, SampleRate));
-        using var drain = mixer.Process(Exact(branchEnd, drainSamples, SampleRate));
-        Assert.That(mixer.ClearBranchEndTime(branch), Is.True);
-
-        using var live = mixer.Process(
-            Exact(branchEnd + ExactDuration(drainSamples, SampleRate), drainSamples, SampleRate));
-
-        Assert.That(mixer.GetDrainLatencySamples(SampleRate), Is.EqualTo(int.MaxValue),
-            "Clearing a branch end must make an unknown-latency branch visible to enclosing drain reports again.");
-    }
-
-    [Test]
     public void MixerNode_RemoveInput_KeepsBranchEndTimeAligned()
     {
         const float lookaheadMs = 5f;
@@ -989,50 +966,6 @@ public class AudioLatencyCompensationTests
     }
 
     [Test]
-    public void MixerNode_ClearBranchEndTime_MakesBranchLiveAgain()
-    {
-        const float lookaheadMs = 5f;
-        const int sampleCount = 1024;
-        int L = LookaheadSamples(lookaheadMs);
-        var groupEnd = TimeSpan.FromSeconds((double)sampleCount / SampleRate);
-
-        using var input = CreateBuffer(2, sampleCount, (_, i) =>
-            0.25f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
-        using var limiter = CreateTransparentLimiter(lookaheadMs);
-        limiter.AddInput(new BufferReplayNode(input));
-
-        using var mixer = new MixerNode();
-        mixer.AddInput(limiter);
-        mixer.SetBranchEndTime(limiter, TimeSpan.Zero);
-
-        Assert.That(mixer.ClearBranchEndTime(limiter), Is.True);
-
-        using var processed = mixer.Process(Context(TimeSpan.Zero, sampleCount));
-        using var tail = mixer.Flush(Context(groupEnd, sampleCount));
-
-        Assert.That(tail.GetChannelData(0)[..L].ToArray(), Has.Some.Not.EqualTo(0f),
-            "Clearing a branch end time must return the connected branch to the live state.");
-    }
-
-    [Test]
-    public void MixerNode_ClearInputs_WhenEmpty_DropsStaleGains()
-    {
-        const int sampleCount = 64;
-
-        using var input = CreateConstantBuffer(0.25f, sampleCount);
-        using var inputNode = new BufferReplayNode(input);
-        using var mixer = new MixerNode { Gains = [0f] };
-
-        mixer.ClearInputs();
-        mixer.AddInput(inputNode);
-
-        using var processed = mixer.Process(Context(TimeSpan.Zero, sampleCount));
-
-        Assert.That(processed.GetChannelData(0)[0], Is.EqualTo(0.25f).Within(1e-6f),
-            "ClearInputs must clear connection metadata even when the mixer is already empty.");
-    }
-
-    [Test]
     public void MixerNode_SetBranchEndTime_RejectsDisconnectedInput()
     {
         using var buffer = CreateConstantBuffer(0f, 64);
@@ -1061,12 +994,6 @@ public class AudioLatencyCompensationTests
         Assert.That(mixer.Inputs, Has.Count.EqualTo(2));
         Assert.That(mixer.Inputs[0], Is.SameAs(first));
         Assert.That(mixer.Inputs[1], Is.SameAs(second));
-
-        context.RemoveNode(second);
-
-        Assert.That(context.Nodes, Has.Count.EqualTo(2));
-        Assert.That(mixer.Inputs, Has.Count.EqualTo(1));
-        Assert.That(mixer.Inputs[0], Is.SameAs(first));
     }
 
     [Test]
@@ -1782,7 +1709,7 @@ public class AudioLatencyCompensationTests
     }
 
     [Test]
-    public void Composer_GetDrainLatencySamples_UsesRemainingInlineBudgetThroughIComposer()
+    public void Composer_GetDrainLatencySamples_UsesRemainingInlineBudget()
     {
         const float lookaheadMs = 5f;
         int latencySamples = LookaheadSamples(lookaheadMs);
@@ -1797,12 +1724,11 @@ public class AudioLatencyCompensationTests
         using var resource = Setup(sound, out var eligibility);
 
         using var composer = new Composer { SampleRate = SampleRate };
-        IComposer composerContract = composer;
         var firstRange = new TimeRange(TimeSpan.Zero, clipDuration + oneSample);
         using var first = ComposeWindow(composer, firstRange, eligibility, resource);
 
-        Assert.That(composerContract.GetDrainLatencySamples(SampleRate), Is.EqualTo(latencySamples - 1),
-            "The interface contract must expose the nested composer's remaining, not full, drain budget.");
+        Assert.That(composer.GetDrainLatencySamples(SampleRate), Is.EqualTo(latencySamples - 1),
+            "The composer must expose the nested composer's remaining, not full, drain budget.");
     }
 
     [Test]
@@ -2167,33 +2093,6 @@ public class AudioLatencyCompensationTests
     }
 
     [Test]
-    public void Composer_Flush_AfterInvalidationDoesNotUseDisposedCurrentEntries()
-    {
-        const float lookaheadMs = 5f;
-        var oneSecond = TimeSpan.FromSeconds(1);
-
-        var sound = new LimiterTailSound
-        {
-            LookaheadMs = lookaheadMs,
-            TimeRange = new TimeRange(TimeSpan.Zero, oneSecond),
-        };
-        using var resource = Setup(sound, out var eligibility);
-
-        using var composer = new Composer { SampleRate = SampleRate };
-        var firstRange = new TimeRange(TimeSpan.Zero, oneSecond);
-        using var processed = ComposeWindow(composer, firstRange, eligibility, resource);
-
-        composer.InvalidateCache();
-
-        Assert.That(composer.GetTotalLatencySamples(SampleRate), Is.EqualTo(0));
-        Assert.DoesNotThrow(() =>
-        {
-            using AudioBuffer? tail = composer.Flush(new TimeRange(oneSecond, oneSecond));
-            Assert.That(tail, Is.Not.Null);
-        });
-    }
-
-    [Test]
     public void Composer_DoesNotFlushSoundThatBecomesIneligibleAtItsNaturalEnd()
     {
         const float lookaheadMs = 5f;
@@ -2331,35 +2230,6 @@ public class AudioLatencyCompensationTests
         Assert.That(buffer2, Is.Not.Null);
         Assert.That(buffer2!.GetChannelData(0)[..L].ToArray(), Has.All.EqualTo(0f).Within(1e-5f),
             "A discontinuous window must not inject the previous clip's stale limiter tail.");
-    }
-
-    [Test]
-    public void Composer_InvalidateCache_SuppressesEndedSoundTailFlush()
-    {
-        const float lookaheadMs = 5f;
-        int L = LookaheadSamples(lookaheadMs);
-        var oneSecond = TimeSpan.FromSeconds(1);
-
-        var sound = new LimiterTailSound
-        {
-            LookaheadMs = lookaheadMs,
-            TimeRange = new TimeRange(TimeSpan.Zero, oneSecond),
-        };
-        using var resource = Setup(sound, out var eligibility);
-
-        using var composer = new Composer { SampleRate = SampleRate };
-
-        var window1 = new TimeRange(TimeSpan.Zero, oneSecond);
-        using var buffer1 = ComposeWindow(composer, window1, eligibility, resource);
-
-        composer.InvalidateCache();
-
-        var window2 = new TimeRange(oneSecond, oneSecond);
-        using var buffer2 = ComposeWindow(composer, window2, eligibility);
-
-        Assert.That(buffer2, Is.Not.Null);
-        Assert.That(buffer2!.GetChannelData(0)[..L].ToArray(), Has.All.EqualTo(0f).Within(1e-5f),
-            "InvalidateCache must drop the recorded previous window so no stale tail is flushed.");
     }
 
     private static IEnumerable<TestCaseData> ProcessTailNodes()

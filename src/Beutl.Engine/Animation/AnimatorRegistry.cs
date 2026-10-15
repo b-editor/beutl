@@ -64,34 +64,6 @@ public static class AnimatorRegistry
         }
     }
 
-    public static void RegisterAnimator(Type animatorType, Func<Type, bool> condition)
-    {
-        lock (s_animators)
-        {
-            s_animators.Insert(0, (condition, animatorType));
-        }
-    }
-
-    public static void RegisterAnimator<T, TAnimator>()
-        where T : struct
-        where TAnimator : Animator<T>
-    {
-        lock (s_animators)
-        {
-            s_animators.Insert(0, (type => typeof(T).IsAssignableFrom(type), typeof(TAnimator)));
-        }
-    }
-
-    public static void RegisterAnimator<T, TAnimator>(Func<Type, bool> condition)
-        where T : struct
-        where TAnimator : Animator<T>
-    {
-        lock (s_animators)
-        {
-            s_animators.Insert(0, (condition, typeof(TAnimator)));
-        }
-    }
-
     internal sealed class _Animator<T> : Animator<T>
     {
         public override T Interpolate(float progress, T oldValue, T newValue)

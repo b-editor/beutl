@@ -6,8 +6,8 @@
 public static class AnimationRangeExtensions
 {
     /// <summary>
-    /// Attempts to resolve an animation's output range through its provider contract or the
-    /// built-in <c>KeyFrameAnimation&lt;float&gt;</c> implementation.
+    /// Attempts to resolve an animation's output range for the built-in
+    /// <c>KeyFrameAnimation&lt;float&gt;</c> implementation.
     /// </summary>
     public static bool TryGetOutputRange<T>(
         this IAnimation<T> animation,
@@ -16,9 +16,6 @@ public static class AnimationRangeExtensions
         where T : IComparable<T>
     {
         ArgumentNullException.ThrowIfNull(animation);
-
-        if (animation is IAnimationRange<T> provider)
-            return provider.TryGetOutputRange(out minimum, out maximum);
 
         if (animation is KeyFrameAnimation<float> floatAnimation && typeof(T) == typeof(float))
         {

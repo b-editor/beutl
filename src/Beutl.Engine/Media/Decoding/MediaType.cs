@@ -2,7 +2,6 @@
 
 public enum MediaType
 {
-    None,
     Video,
     Audio,
 }

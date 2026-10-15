@@ -1,6 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Serialization;
-using Beutl.Audio.Graph;
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Media.Decoding;
@@ -8,7 +7,7 @@ using Beutl.Media.Music;
 
 namespace Beutl.Media.Source;
 
-[JsonConverter(typeof(SoundSourceJsonConverter))]
+[JsonConverter(typeof(MediaSourceJsonConverter))]
 [SuppressResourceClassGeneration]
 public sealed class SoundSource : MediaSource
 {
@@ -18,29 +17,12 @@ public sealed class SoundSource : MediaSource
     {
         if (!uri.IsFile) throw new NotSupportedException("Only file URIs are supported.");
 
-        if (HasUri && Uri != uri)
-        {
-            // 古い URI の Counter を別 Resource が保持していると
-            // TryAddRef が成功して新 URI でも古い MediaReader を返してしまうため、
-            // URI が切り替わったタイミングで共有参照を破棄する。
-            Volatile.Write(ref _mediaReaderRef, null);
-        }
-        Uri = uri;
+        base.ReadFrom(uri);
     }
 
-    public override Resource ToResource(CompositionContext context)
-    {
-        var resource = new Resource();
-        bool versionBumped = true;
-        resource.Reconcile(this, context, ref versionBumped);
-        return resource;
-    }
+    public override Resource ToResource(CompositionContext context) => CreateResource<Resource>(context);
 
-    internal override void InvalidateResourceCache()
-    {
-        Volatile.Write(ref _mediaReaderRef, null);
-        base.InvalidateResourceCache();
-    }
+    protected override void ClearSharedResource() => Volatile.Write(ref _mediaReaderRef, null);
 
     public new sealed class Resource : MediaSource.Resource
     {
@@ -64,47 +46,6 @@ public sealed class SoundSource : MediaSource
             }
 
             return _counter.Value.ReadAudio(start, length, out sound);
-        }
-
-        public bool Read(TimeSpan start, TimeSpan length, [NotNullWhen(true)] out Ref<IPcm>? sound)
-        {
-            if (IsDisposed || _counter == null)
-            {
-                sound = null;
-                return false;
-            }
-
-            return _counter.Value.ReadAudio(ToSamples(start), ToSamples(length), out sound);
-        }
-
-        public bool Read(TimeSpan start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
-        {
-            if (IsDisposed || _counter == null)
-            {
-                sound = null;
-                return false;
-            }
-
-            return _counter.Value.ReadAudio(ToSamples(start), length, out sound);
-        }
-
-        public bool Read(int start, TimeSpan length, [NotNullWhen(true)] out Ref<IPcm>? sound)
-        {
-            if (IsDisposed || _counter == null)
-            {
-                sound = null;
-                return false;
-            }
-
-            return _counter.Value.ReadAudio(start, ToSamples(length), out sound);
-        }
-
-        private int ToSamples(TimeSpan timeSpan)
-        {
-            // Compute in long and clamp to a valid int offset, so a time past int.MaxValue samples
-            // does not wrap to a negative offset.
-            long samples = AudioMath.TimeToSampleIndex(timeSpan, SampleRate);
-            return (int)Math.Clamp(samples, 0, int.MaxValue);
         }
 
         public override void Reconcile(EngineObject obj, CompositionContext context, ref bool versionBumped)

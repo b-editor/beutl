@@ -1,4 +1,5 @@
-﻿using Beutl.Audio.Effects.Equalizer;
+﻿using Beutl.Animation;
+using Beutl.Audio.Effects.Equalizer;
 
 namespace Beutl.Audio.Graph.Nodes;
 
@@ -150,9 +151,9 @@ public sealed class EqualizerNode : AudioNode
                         var filter = _filters![bandIndex][ch];
                         var filterType = band.FilterType.CurrentValue;
 
-                        context.AnimationSampler.SampleBuffer(band.Frequency, chunkRange, context.SampleRate, frequencies[..chunkSize]);
-                        context.AnimationSampler.SampleBuffer(band.Gain, chunkRange, context.SampleRate, gains[..chunkSize]);
-                        context.AnimationSampler.SampleBuffer(band.Q, chunkRange, context.SampleRate, qs[..chunkSize]);
+                        AnimationSampler.SampleBuffer(band.Frequency, chunkRange, context.SampleRate, frequencies[..chunkSize]);
+                        AnimationSampler.SampleBuffer(band.Gain, chunkRange, context.SampleRate, gains[..chunkSize]);
+                        AnimationSampler.SampleBuffer(band.Q, chunkRange, context.SampleRate, qs[..chunkSize]);
 
                         for (int i = 0; i < chunkSize; i++)
                         {

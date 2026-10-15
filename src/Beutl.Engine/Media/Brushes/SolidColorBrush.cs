@@ -21,11 +21,6 @@ public partial class SolidColorBrush : Brush
         Opacity.CurrentValue = opacity;
     }
 
-    public SolidColorBrush(uint color)
-        : this(Media.Color.FromUInt32(color))
-    {
-    }
-
     /// <summary>
     /// Gets or sets the color of the brush.
     /// </summary>

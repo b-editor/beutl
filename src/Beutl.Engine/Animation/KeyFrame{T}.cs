@@ -11,11 +11,6 @@ public sealed class KeyFrame<T> : KeyFrame, IKeyFrame
     internal static readonly Animator<T> s_animator;
     private T? _value;
 
-    public KeyFrame()
-    {
-        _value = s_animator.DefaultValue();
-    }
-
     static KeyFrame()
     {
         s_animator = AnimatorRegistry.CreateAnimator<T>();

@@ -59,7 +59,7 @@ internal sealed class AudioSourceStream(int sampleRate, int channels, Func<TimeS
             ticks = checked(ticks + 1);
         var range = new TimeRange(TimeSpan.FromTicks(ticks),
             AudioProcessContext.GetDurationForSampleCount(requestedFrames, sampleRate));
-        var subContext = new AudioProcessContext(range, sampleRate, context.AnimationSampler, context.OriginalTimeRange)
+        var subContext = new AudioProcessContext(range, sampleRate, context.OriginalTimeRange)
         {
             ProcessEndTime = context.ProcessEndTime is { } processEnd ? mapTime(processEnd) : null
         };

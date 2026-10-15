@@ -7,7 +7,7 @@ using Beutl.Media.Proxy;
 
 namespace Beutl.Media.Source;
 
-[JsonConverter(typeof(VideoSourceJsonConverter))]
+[JsonConverter(typeof(MediaSourceJsonConverter))]
 [SuppressResourceClassGeneration]
 public sealed class VideoSource : MediaSource
 {
@@ -24,29 +24,12 @@ public sealed class VideoSource : MediaSource
     {
         if (!uri.IsFile) throw new NotSupportedException("Only file URIs are supported.");
 
-        if (HasUri && Uri != uri)
-        {
-            // 古い URI の Counter を別 Resource が保持していると
-            // TryAddRef が成功して新 URI でも古い MediaReader を返してしまうため、
-            // URI が切り替わったタイミングで共有参照を破棄する。
-            Volatile.Write(ref _mediaReaderRef, null);
-        }
-        Uri = uri;
+        base.ReadFrom(uri);
     }
 
-    public override Resource ToResource(CompositionContext context)
-    {
-        var resource = new Resource();
-        bool versionBumped = true;
-        resource.Reconcile(this, context, ref versionBumped);
-        return resource;
-    }
+    public override Resource ToResource(CompositionContext context) => CreateResource<Resource>(context);
 
-    internal override void InvalidateResourceCache()
-    {
-        Volatile.Write(ref _mediaReaderRef, null);
-        base.InvalidateResourceCache();
-    }
+    protected override void ClearSharedResource() => Volatile.Write(ref _mediaReaderRef, null);
 
     public new sealed class Resource : MediaSource.Resource
     {
@@ -76,24 +59,6 @@ public sealed class VideoSource : MediaSource
         public MediaReader? MediaReader => _counter?.Value;
 
         public bool IsOffline => _offlineBitmap != null;
-
-        public bool Read(TimeSpan frame, [NotNullWhen(true)] out Ref<Bitmap>? bitmap)
-        {
-            if (!IsDisposed && _offlineBitmap is { } offline)
-            {
-                bitmap = offline.Clone();
-                return true;
-            }
-            if (IsDisposed || _counter == null)
-            {
-                bitmap = null;
-                return false;
-            }
-
-            double frameRate = FrameRate.ToDouble();
-            double frameNum = frame.TotalSeconds * frameRate;
-            return _counter.Value.ReadVideo((int)frameNum, out bitmap);
-        }
 
         public bool Read(int frame, [NotNullWhen(true)] out Ref<Bitmap>? bitmap)
         {

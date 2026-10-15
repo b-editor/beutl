@@ -147,7 +147,7 @@ public class TrimDisabledFlowControllerTests
     public void Slip_DisabledUnconsumedExpression_DoesNotRejectLaterVideo()
     {
         var controller = new DrawableTimeController { IsEnabled = false };
-        controller.Speed.Expression = Expression.Create<float>("200");
+        controller.Speed.Expression = new StringExpression<float>("200");
         Element element = AddElement(0, 2, controller);
         var video = CreateVideo(10);
         element.Objects.Add(video);
@@ -272,7 +272,7 @@ public class TrimDisabledFlowControllerTests
         var video = CreateVideo(20);
         Element element = AddElement(0, 2, video);
         var controller = AddDisabledController(element);
-        controller.Speed.Expression = Expression.Create<float>("200");
+        controller.Speed.Expression = new StringExpression<float>("200");
         var linked = CreateVideo(20);
         Element linkedElement = AddElement(5, 2, linked);
         int history = _harness.History.UndoCount;

@@ -162,7 +162,7 @@ public sealed partial class ProxyStore
         {
             // A durable-write failure (transient I/O or a store root without write permission)
             // degrades like a contended lock instead of throwing out of Register/TryTransition/
-            // FlushAsync; the pending sets are left populated (not cleared above) so the change
+            // Flush; the pending sets are left populated (not cleared above) so the change
             // replays on the next flush.
             DegradePersistence(changedKeys, removedKeys, ex);
         }

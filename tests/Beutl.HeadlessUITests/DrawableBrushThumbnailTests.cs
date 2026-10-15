@@ -23,6 +23,9 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class DrawableBrushThumbnailTests
 {
+    private static readonly SolidColorBrush.Resource s_red =
+        new SolidColorBrush(Colors.Red).ToResource(CompositionContext.Default);
+
     [AvaloniaTest]
     public async Task Update_publishes_initial_thumbnail_and_propagates_resource_changes()
     {
@@ -93,7 +96,7 @@ public class DrawableBrushThumbnailTests
     public async Task Superseded_update_never_publishes_its_stale_thumbnail()
     {
         TestGpu.RequireAnyDevice();
-        var staleDrawable = new BlockingThumbnailDrawable(40, 24, Brushes.Resource.Red);
+        var staleDrawable = new BlockingThumbnailDrawable(40, 24, s_red);
         var imageBrush = new AvaImageBrush();
         ConcurrentQueue<AvaPixelSize> publishedSizes = RecordPublishedSizes(imageBrush);
         await using var scope = new ThumbnailScope(staleDrawable, imageBrush: imageBrush);

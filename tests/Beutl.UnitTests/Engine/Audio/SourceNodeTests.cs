@@ -1,5 +1,4 @@
-﻿using Beutl.Animation;
-using Beutl.Audio;
+﻿using Beutl.Audio;
 using Beutl.Audio.Graph;
 using Beutl.Audio.Graph.Nodes;
 using Beutl.Media;
@@ -21,7 +20,7 @@ public class SourceNodeTests
 
         var node = new SourceNode { Source = (resource, 0) };
         var range = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1));
-        var context = new AudioProcessContext(range, 44100, new AnimationSampler(), null);
+        var context = new AudioProcessContext(range, 44100, null);
 
         AudioBuffer? buffer = null;
         Assert.DoesNotThrow(() => buffer = node.Process(context));

@@ -26,7 +26,6 @@ public sealed class NoiseReductionNode : AudioNode
     private List<AudioNode>? _upstreamSnapshot;
     private int _sampleRate;
     private TimeSpan? _lastTimeRangeEnd;
-    private AnimationSampler? _sampler;
     private NoiseReductionSettings _staticSettings;
     private bool _animated;
 
@@ -101,10 +100,6 @@ public sealed class NoiseReductionNode : AudioNode
             output.Dispose();
             throw;
         }
-        finally
-        {
-            _sampler = null;
-        }
     }
 
     // Returns false when a drain has nothing to release.
@@ -120,7 +115,7 @@ public sealed class NoiseReductionNode : AudioNode
             _lastTimeRangeEnd = null;
         }
 
-        CaptureSettings(context);
+        CaptureSettings();
         bool contiguous = _lastTimeRangeEnd is { } end && context.ContinuesFrom(end);
         if (draining)
         {
@@ -257,9 +252,8 @@ public sealed class NoiseReductionNode : AudioNode
         }
     }
 
-    private void CaptureSettings(AudioProcessContext context)
+    private void CaptureSettings()
     {
-        _sampler = context.AnimationSampler;
         _processedControls = ReadControls();
         _animated = Reduction.Animation != null
                     || Sensitivity.Animation != null
@@ -302,7 +296,7 @@ public sealed class NoiseReductionNode : AudioNode
             return property.CurrentValue;
 
         Span<float> value = stackalloc float[1];
-        _sampler!.SampleBuffer(property, new TimeRange(time, TimeSpan.Zero), _sampleRate, value);
+        AnimationSampler.SampleBuffer(property, new TimeRange(time, TimeSpan.Zero), _sampleRate, value);
         return value[0];
     }
 
@@ -329,7 +323,6 @@ public sealed class NoiseReductionNode : AudioNode
         _reducer = null;
         _stream = null;
         _upstreamSnapshot = null;
-        _sampler = null;
         base.Dispose(disposing);
     }
 }

@@ -16,8 +16,8 @@ namespace Beutl.Media;
 /// </summary>
 /// <param name="x">The X co-ordinate.</param>
 /// <param name="y">The Y co-ordinate.</param>
-[JsonConverter(typeof(PixelPointJsonConverter))]
-[TypeConverter(typeof(PixelPointConverter))]
+[JsonConverter(typeof(ParsableJsonConverter<PixelPoint>))]
+[TypeConverter(typeof(ParsableTypeConverter<PixelPoint>))]
 public readonly struct PixelPoint(int x, int y)
     : IEquatable<PixelPoint>,
       IParsable<PixelPoint>,
@@ -157,56 +157,6 @@ public readonly struct PixelPoint(int x, int y)
     public Point ToPoint(Vector scale)
     {
         return new Point(X / scale.X, Y / scale.Y);
-    }
-
-    /// <summary>
-    /// Converts a <see cref="Point"/> to device pixels, truncating each co-ordinate toward zero.
-    /// </summary>
-    /// <param name="point">The point.</param>
-    /// <returns>The device pixel point.</returns>
-    /// <remarks>
-    /// Truncation is not a floor: negative co-ordinates round up. Use <see cref="PixelRect.FromRect(Rect)"/>
-    /// when a conservative device-pixel cover is required.
-    /// </remarks>
-    public static PixelPoint FromPoint(Point point)
-    {
-        return new PixelPoint((int)point.X, (int)point.Y);
-    }
-
-    /// <summary>
-    /// Converts a <see cref="Point"/> to device pixels using the specified scaling factor, truncating each
-    /// co-ordinate toward zero.
-    /// </summary>
-    /// <param name="point">The point.</param>
-    /// <param name="scale">The scaling factor.</param>
-    /// <returns>The device pixel point.</returns>
-    /// <remarks>
-    /// Truncation is not a floor: negative co-ordinates round up. Use
-    /// <see cref="PixelRect.FromRect(Rect, float)"/> when a conservative device-pixel cover is required.
-    /// </remarks>
-    public static PixelPoint FromPoint(Point point, float scale)
-    {
-        return new PixelPoint(
-            (int)(point.X * scale),
-            (int)(point.Y * scale));
-    }
-
-    /// <summary>
-    /// Converts a <see cref="Point"/> to device pixels using the specified scaling factor, truncating each
-    /// co-ordinate toward zero.
-    /// </summary>
-    /// <param name="point">The point.</param>
-    /// <param name="scale">The scaling factor.</param>
-    /// <returns>The device pixel point.</returns>
-    /// <remarks>
-    /// Truncation is not a floor: negative co-ordinates round up. Use
-    /// <see cref="PixelRect.FromRect(Rect, Vector)"/> when a conservative device-pixel cover is required.
-    /// </remarks>
-    public static PixelPoint FromPoint(Point point, Vector scale)
-    {
-        return new PixelPoint(
-            (int)(point.X * scale.X),
-            (int)(point.Y * scale.Y));
     }
 
     /// <summary>

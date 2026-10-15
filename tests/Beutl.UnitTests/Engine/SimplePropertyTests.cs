@@ -34,16 +34,6 @@ public class SimplePropertyTests
     }
 
     [Test]
-    public void CompoundAssign_SetsCurrentValue()
-    {
-        var property = Make(0);
-
-        property <<= 7;
-
-        Assert.That(property.CurrentValue, Is.EqualTo(7));
-    }
-
-    [Test]
     public void Animation_SetNonNull_Throws()
     {
         var property = Make(0);
@@ -64,7 +54,7 @@ public class SimplePropertyTests
     public void Expression_AssigningSameValue_DoesNotRaise()
     {
         var property = Make(0.0);
-        var expression = Expression.Create<double>("1+2");
+        var expression = new StringExpression<double>("1+2");
         property.Expression = expression;
         int edited = 0;
         property.Edited += (_, _) => edited++;
@@ -111,35 +101,10 @@ public class SimplePropertyTests
     public void ToString_WithExpression_IncludesExpressionString()
     {
         var property = Make(0.0);
-        property.Expression = Expression.Create<double>("1+2");
+        property.Expression = new StringExpression<double>("1+2");
 
         Assert.That(property.ToString(), Does.Contain("Expression"));
         Assert.That(property.ToString(), Does.Contain("1+2"));
-    }
-
-    [Test]
-    public void ToAnimatable_PreservesLocalValue()
-    {
-        var property = Make(1);
-        property.CurrentValue = 42;
-
-        IProperty<int> animatable = property.ToAnimatable();
-
-        Assert.That(animatable, Is.InstanceOf<AnimatableProperty<int>>());
-        Assert.That(animatable.DefaultValue, Is.EqualTo(1));
-        Assert.That(animatable.CurrentValue, Is.EqualTo(42));
-        Assert.That(animatable.IsAnimatable, Is.True);
-    }
-
-    [Test]
-    public void ToAnimatable_WithoutLocalValue_KeepsDefault()
-    {
-        var property = Make(7);
-
-        IProperty<int> animatable = property.ToAnimatable();
-
-        Assert.That(animatable.CurrentValue, Is.EqualTo(7));
-        Assert.That(animatable.HasLocalValue, Is.False);
     }
 }
 
