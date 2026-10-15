@@ -379,7 +379,7 @@ public sealed class SchemaGenerationTests
             Assert.That(script, Does.Not.Contain("0.35"));
         });
 
-        using SKSLShader shader = CompileSkslOrSkip(script);
+        using SKSLShader shader = CompileSksl(script);
         using SKSLShaderBuilder builder = shader.CreateBuilder();
 
         Assert.That(builder.Children.Contains("src"), Is.True);
@@ -394,7 +394,7 @@ public sealed class SchemaGenerationTests
         string organic = generator.GetEffectRecipe("organic-shader-field").Patch.ToJsonString();
         string script = FindRequiredStringProperty(scaffoldRecipe.Patch, nameof(SKSLScriptEffect.Script));
 
-        using SKSLShader shader = CompileSkslOrSkip(script);
+        using SKSLShader shader = CompileSksl(script);
         using SKSLShaderBuilder builder = shader.CreateBuilder();
 
         Assert.Multiple(() =>
@@ -827,29 +827,10 @@ public sealed class SchemaGenerationTests
         return result!.Value;
     }
 
-    private static SKSLShader CompileSkslOrSkip(string script)
+    private static SKSLShader CompileSksl(string script)
     {
-        if (SKSLShader.TryCreate(script, out SKSLShader? shader, out string? errorText))
-        {
-            return shader!;
-        }
-
-        if (IsNativeSkiaUnavailable(errorText))
-        {
-            Assert.Ignore($"SKSL compilation is unavailable in this environment: {errorText}");
-        }
-
-        Assert.Fail($"SKSL script should compile: {errorText}");
-        return null!;
-    }
-
-    private static bool IsNativeSkiaUnavailable(string? errorText)
-    {
-        return !string.IsNullOrWhiteSpace(errorText)
-               && (errorText.Contains("Unable to load shared library", StringComparison.OrdinalIgnoreCase)
-                   || errorText.Contains("DllNotFoundException", StringComparison.OrdinalIgnoreCase)
-                   || errorText.Contains("libSkiaSharp", StringComparison.OrdinalIgnoreCase)
-                   || errorText.Contains("dlopen", StringComparison.OrdinalIgnoreCase));
+        Assert.That(SKSLShader.TryCreate(script, out SKSLShader? shader, out string? errorText), Is.True, errorText);
+        return shader!;
     }
 
     private static void Visit(JsonNode? node, Action<JsonNode> visitor)
