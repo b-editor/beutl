@@ -1477,9 +1477,6 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="ProxyUnavailable" xml:space="preserve">
     <value>不可用</value>
   </data>
-  <data name="ProxyStoreUnavailable" xml:space="preserve">
-    <value>代理存储不可用。</value>
-  </data>
   <data name="ProxyQueueUnavailable" xml:space="preserve">
     <value>代理队列不可用。</value>
   </data>
@@ -1509,9 +1506,6 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   </data>
   <data name="ProxySelectedPlural" xml:space="preserve">
     <value>已选择 {0} 个</value>
-  </data>
-  <data name="ProxyStoreSummaryFormat" xml:space="preserve">
-    <value>项目 {0} / 存储 {1} / 上限 {2}</value>
   </data>
   <data name="ProxySourceInfoFormat" xml:space="preserve">
     <value>源 {0} / {1}</value>

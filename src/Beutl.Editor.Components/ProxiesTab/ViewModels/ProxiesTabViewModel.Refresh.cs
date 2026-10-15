@@ -212,7 +212,6 @@ public sealed partial class ProxiesTabViewModel
             ProjectUsageText.Value = Strings.ProxyUnavailable;
             StoreUsageText.Value = Strings.ProxyUnavailable;
             StoreCapText.Value = Strings.ProxyUnavailable;
-            StoreSummary.Value = Strings.ProxyStoreUnavailable;
             return;
         }
 
@@ -222,12 +221,6 @@ public sealed partial class ProxiesTabViewModel
         ProjectUsageText.Value = FormatBytes(projectBytes);
         StoreUsageText.Value = FormatBytes(totalBytes);
         StoreCapText.Value = FormatBytes(_storeCapInfo?.MaxTotalBytes ?? _config.MaxTotalBytes);
-        StoreSummary.Value = string.Format(
-            CultureInfo.CurrentCulture,
-            Strings.ProxyStoreSummaryFormat,
-            ProjectUsageText.Value,
-            StoreUsageText.Value,
-            StoreCapText.Value);
     }
 
     internal void UpdateClipSummary()

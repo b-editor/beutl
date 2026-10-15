@@ -15,8 +15,6 @@ public static class BeutlDataFormats
     public static readonly DataFormat<string> KeyFrameSelection = DataFormat.CreateStringApplicationFormat("Beutl.KeyFrameSelection");
     public static readonly DataFormat<string> EngineObject = DataFormat.CreateStringApplicationFormat(KnownLibraryItemFormats.EngineObject);
     public static readonly DataFormat<string> GraphNode = DataFormat.CreateStringApplicationFormat(KnownLibraryItemFormats.GraphNode);
-    public static readonly DataFormat<string> Drawable = DataFormat.CreateStringApplicationFormat(KnownLibraryItemFormats.Drawable);
-    public static readonly DataFormat<string> Sound = DataFormat.CreateStringApplicationFormat(KnownLibraryItemFormats.Sound);
     public static readonly DataFormat<string> Transform = DataFormat.CreateStringApplicationFormat(KnownLibraryItemFormats.Transform);
     public static readonly DataFormat<string> FilterEffect = DataFormat.CreateStringApplicationFormat(KnownLibraryItemFormats.FilterEffect);
     public static readonly DataFormat<string> ClipTransition = DataFormat.CreateStringApplicationFormat(KnownLibraryItemFormats.ClipTransition);
