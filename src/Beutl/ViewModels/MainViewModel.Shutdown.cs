@@ -293,19 +293,11 @@ public partial class MainViewModel
     internal void RegisterExitHandler(IControlledApplicationLifetime lifetime)
     {
         ArgumentNullException.ThrowIfNull(lifetime);
-        lifetime.Exit -= OnExit;
         lifetime.Exit += OnExit;
 
         if (lifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            if (_desktopLifetime is { } previous && !ReferenceEquals(previous, desktop))
-            {
-                previous.Exit -= OnExit;
-                previous.ShutdownRequested -= OnShutdownRequested;
-            }
-
             _desktopLifetime = desktop;
-            desktop.ShutdownRequested -= OnShutdownRequested;
             desktop.ShutdownRequested += OnShutdownRequested;
         }
     }
