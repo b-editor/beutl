@@ -60,9 +60,6 @@
   <data name="EditorContextAlreadyCreated" xml:space="preserve">
     <value>编辑器上下文已创建。</value>
   </data>
-  <data name="EditorContextNull" xml:space="preserve">
-    <value>为编辑器上下文指定了 null。</value>
-  </data>
   <data name="InputRequired" xml:space="preserve">
     <value>请输入字符串。</value>
   </data>

@@ -55,9 +55,6 @@
   <data name="EditorContextAlreadyCreated" xml:space="preserve">
     <value>エディターコンテキストは既に作成されています。</value>
   </data>
-  <data name="EditorContextNull" xml:space="preserve">
-    <value>エディターコンテキストにNullが指定されました。</value>
-  </data>
   <data name="InputRequired" xml:space="preserve">
     <value>文字列を入力してください。</value>
   </data>

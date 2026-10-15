@@ -60,9 +60,6 @@
   <data name="EditorContextAlreadyCreated" xml:space="preserve">
     <value>편집기 컨텍스트가 이미 생성되었습니다.</value>
   </data>
-  <data name="EditorContextNull" xml:space="preserve">
-    <value>편집기 컨텍스트에 null이 지정되었습니다.</value>
-  </data>
   <data name="InputRequired" xml:space="preserve">
     <value>문자열을 입력하세요.</value>
   </data>

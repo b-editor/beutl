@@ -60,9 +60,6 @@
   <data name="EditorContextAlreadyCreated" xml:space="preserve">
     <value>El contexto del editor ya se ha creado.</value>
   </data>
-  <data name="EditorContextNull" xml:space="preserve">
-    <value>Se especificó null para el contexto del editor.</value>
-  </data>
   <data name="InputRequired" xml:space="preserve">
     <value>Introduce una cadena.</value>
   </data>
