@@ -51,7 +51,8 @@ public sealed class FFmpegWorkerProcess : IDisposable
         }
     }
 
-    public int WorkerPid
+    // Test-only: the worker's process ID, or 0 without a worker.
+    internal int WorkerPid
     {
         get
         {
