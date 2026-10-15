@@ -606,13 +606,33 @@ public sealed class SchemaGenerationTests
         Assert.That(drawableObject3D?.Category, Is.EqualTo(KnownLibraryItemFormats.EngineObject));
     }
 
+    // The editor lists every LibraryService item in its Library tab and timeline menu, so the schema's own types
+    // stay out of it.
+    [Test]
+    public void Schema_types_the_app_does_not_register_stay_out_of_the_library_service()
+    {
+        CapabilitySchema schema = new SchemaGenerator().Generate(includeProperties: false, includeExamples: false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(LibraryService.Current.FindItem(typeof(SolidColorBrush)), Is.Null);
+            Assert.That(LibraryService.Current.FindItem(typeof(LinearEasing)), Is.Null);
+            Assert.That(LibraryService.Current.GetTypesFromFormat(KnownLibraryItemFormats.Brush), Is.Empty);
+            Assert.That(schema.Types.Single(type => type.Type == typeof(SolidColorBrush).FullName).DisplayName,
+                Is.EqualTo(nameof(SolidColorBrush)));
+            Assert.That(schema.Types.Single(type => type.Type == typeof(LinearEasing).FullName).Category,
+                Is.EqualTo(KnownLibraryItemFormats.Easing));
+        });
+    }
+
     [Test]
     public void Effect_catalog_exposes_recipe_for_every_registered_filter_effect()
     {
-        TypeRegistration.EnsureRegistered();
         var generator = new SchemaGenerator();
-        string[] registeredEffectNames = LibraryService.Current
-            .GetTypesFromFormat(KnownLibraryItemFormats.FilterEffect)
+        string[] registeredEffectNames = TypeRegistration.Types
+            .Where(entry => entry.Format == KnownLibraryItemFormats.FilterEffect)
+            .Select(entry => entry.Type)
+            .Concat(LibraryService.Current.GetTypesFromFormat(KnownLibraryItemFormats.FilterEffect))
             .Select(type => type.Name)
             .Distinct(StringComparer.Ordinal)
             .OrderBy(name => name, StringComparer.Ordinal)
