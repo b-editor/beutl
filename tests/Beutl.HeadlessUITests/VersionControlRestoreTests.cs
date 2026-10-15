@@ -1177,13 +1177,12 @@ public class VersionControlRestoreTests
             await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
 
             int identityRequests = 0;
-            Task<bool> initialization = coordinator.InitializeCurrentProjectAsync(
-                session.Project,
-                _ =>
-                {
-                    identityRequests++;
-                    return Task.FromResult<GitIdentity?>(null);
-                });
+            coordinator.RequestIdentityAsync = _ =>
+            {
+                identityRequests++;
+                return Task.FromResult<GitIdentity?>(null);
+            };
+            Task<bool> initialization = coordinator.InitializeCurrentProjectAsync(session.Project);
             await initializeStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
             Assert.Multiple(() =>
@@ -1266,16 +1265,15 @@ public class VersionControlRestoreTests
             int identityRequests = 0;
             ProjectLifecycleActivity? activityWhileAsking = null;
             bool? editorEnabledWhileAsking = null;
-            Task<bool> initialization = coordinator.InitializeCurrentProjectAsync(
-                session.Project,
-                _ =>
-                {
-                    identityRequests++;
-                    activityWhileAsking = session.EditorService.LifecycleActivity.Value;
-                    editorEnabledWhileAsking = context.IsEnabled.Value;
-                    return Task.FromResult<GitIdentity?>(
-                        new GitIdentity("Identity Retry", "identity-retry@example.invalid"));
-                });
+            coordinator.RequestIdentityAsync = _ =>
+            {
+                identityRequests++;
+                activityWhileAsking = session.EditorService.LifecycleActivity.Value;
+                editorEnabledWhileAsking = context.IsEnabled.Value;
+                return Task.FromResult<GitIdentity?>(
+                    new GitIdentity("Identity Retry", "identity-retry@example.invalid"));
+            };
+            Task<bool> initialization = coordinator.InitializeCurrentProjectAsync(session.Project);
             await retryStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
             Assert.Multiple(() =>
@@ -1346,9 +1344,7 @@ public class VersionControlRestoreTests
             _ => backend);
         await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
 
-        bool initialized = await coordinator.InitializeCurrentProjectAsync(
-            session.Project,
-            _ => Task.FromResult<GitIdentity?>(null));
+        bool initialized = await coordinator.InitializeCurrentProjectAsync(session.Project);
 
         Assert.Multiple(() =>
         {
@@ -1395,9 +1391,7 @@ public class VersionControlRestoreTests
         await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
 
         InvalidOperationException? failure = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
-            await coordinator.InitializeCurrentProjectAsync(
-                session.Project,
-                _ => Task.FromResult<GitIdentity?>(null)));
+            await coordinator.InitializeCurrentProjectAsync(session.Project));
 
         Assert.Multiple(() =>
         {
@@ -1449,9 +1443,7 @@ public class VersionControlRestoreTests
         await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
 
         AggregateException? failure = await Assert.ThrowsAsync<AggregateException>(async () =>
-            await coordinator.InitializeCurrentProjectAsync(
-                session.Project,
-                _ => Task.FromResult<GitIdentity?>(null)));
+            await coordinator.InitializeCurrentProjectAsync(session.Project));
 
         Assert.Multiple(() =>
         {
@@ -1508,9 +1500,7 @@ public class VersionControlRestoreTests
 
             // The call moves to the UI thread before it touches the editors, so the progress and the
             // suspension still appear together.
-            Task<bool> initialization = Task.Run(() => coordinator.InitializeCurrentProjectAsync(
-                session.Project,
-                _ => Task.FromResult<GitIdentity?>(null)));
+            Task<bool> initialization = Task.Run(() => coordinator.InitializeCurrentProjectAsync(session.Project));
             await initializeStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
             Assert.That(
@@ -1581,9 +1571,7 @@ public class VersionControlRestoreTests
                 _ => backend);
             await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
 
-            initialization = coordinator.InitializeCurrentProjectAsync(
-                session.Project,
-                _ => Task.FromResult<GitIdentity?>(null));
+            initialization = coordinator.InitializeCurrentProjectAsync(session.Project);
             await initializeStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
             close = TestShell.Project.TryCloseProjectAsync(
@@ -1659,15 +1647,15 @@ public class VersionControlRestoreTests
         CancellationToken observedToken = default;
         int identityRequests = 0;
 
+        coordinator.RequestIdentityAsync = token =>
+        {
+            identityRequests++;
+            observedToken = token;
+            cancellation.Cancel();
+            return Task.FromCanceled<GitIdentity?>(token);
+        };
         Task<bool> initialization = coordinator.InitializeCurrentProjectAsync(
             TestShell.Project.CurrentProject.Value!,
-            token =>
-            {
-                identityRequests++;
-                observedToken = token;
-                cancellation.Cancel();
-                return Task.FromCanceled<GitIdentity?>(token);
-            },
             cancellation.Token);
 
         await Assert.CatchAsync<OperationCanceledException>(async () => await initialization);
@@ -1702,9 +1690,9 @@ public class VersionControlRestoreTests
             _ => backend);
         await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
 
+        coordinator.RequestIdentityAsync = _ => Task.FromResult<GitIdentity?>(identity);
         bool initialized = await coordinator.InitializeCurrentProjectAsync(
-            TestShell.Project.CurrentProject.Value!,
-            _ => Task.FromResult<GitIdentity?>(identity));
+            TestShell.Project.CurrentProject.Value!);
 
         Assert.Multiple(() =>
         {
@@ -1734,9 +1722,7 @@ public class VersionControlRestoreTests
         await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
 
         InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(
-            async () => await coordinator.InitializeCurrentProjectAsync(
-                session.Project,
-                _ => Task.FromResult<GitIdentity?>(null)));
+            async () => await coordinator.InitializeCurrentProjectAsync(session.Project));
 
         Assert.Multiple(() =>
         {
@@ -1767,9 +1753,9 @@ public class VersionControlRestoreTests
                 _ => backend);
             await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
 
+            coordinator.RequestIdentityAsync = identity.AnswerLateAsync;
             Task<bool> initialization = coordinator.InitializeCurrentProjectAsync(
-                TestShell.Project.CurrentProject.Value!,
-                identity.AnswerLateAsync);
+                TestShell.Project.CurrentProject.Value!);
             await identity.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
             Task disposal = coordinator.DisposeAsync().AsTask();
@@ -1999,9 +1985,9 @@ public class VersionControlRestoreTests
                 _ => backend);
             await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
 
+            coordinator.RequestIdentityAsync = identity.AnswerLateAsync;
             initialization = coordinator.InitializeCurrentProjectAsync(
-                TestShell.Project.CurrentProject.Value!,
-                identity.AnswerLateAsync);
+                TestShell.Project.CurrentProject.Value!);
             await identity.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
             closing = TestShell.Project.CloseProjectAsync();
@@ -2416,15 +2402,15 @@ public class VersionControlRestoreTests
                 _ => backend);
             await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
 
+            coordinator.RequestIdentityAsync = async cancellationToken =>
+            {
+                using CancellationTokenRegistration registration = cancellationToken.Register(
+                    static () => throw new InvalidOperationException(
+                        "Cancellation callback failure."));
+                return await identity.AnswerLateAsync(cancellationToken);
+            };
             initialization = coordinator.InitializeCurrentProjectAsync(
-                TestShell.Project.CurrentProject.Value!,
-                async cancellationToken =>
-                {
-                    using CancellationTokenRegistration registration = cancellationToken.Register(
-                        static () => throw new InvalidOperationException(
-                            "Cancellation callback failure."));
-                    return await identity.AnswerLateAsync(cancellationToken);
-                });
+                TestShell.Project.CurrentProject.Value!);
             await identity.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
             Exception? synchronousDisposalFailure = null;
@@ -2897,8 +2883,7 @@ public class VersionControlRestoreTests
             await staleHygieneStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
             Task<bool> initialization = coordinator.InitializeCurrentProjectAsync(
-                TestShell.Project.CurrentProject.Value!,
-                _ => Task.FromResult<GitIdentity?>(null));
+                TestShell.Project.CurrentProject.Value!);
             Assert.That(initialization.IsCompleted, Is.False);
 
             config.GitExecutablePath = invalidGitPath;
@@ -3042,8 +3027,7 @@ public class VersionControlRestoreTests
             var initialService = (PullCycleTestBackend)coordinator.CurrentService!;
 
             Task<bool> initialization = coordinator.InitializeCurrentProjectAsync(
-                TestShell.Project.CurrentProject.Value!,
-                _ => Task.FromResult<GitIdentity?>(null));
+                TestShell.Project.CurrentProject.Value!);
             await initializeStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
             config.GitExecutablePath = validGitPath;
@@ -3121,8 +3105,7 @@ public class VersionControlRestoreTests
             await hygieneStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
             Task<bool> initialization = coordinator.InitializeCurrentProjectAsync(
-                TestShell.Project.CurrentProject.Value!,
-                _ => Task.FromResult<GitIdentity?>(null));
+                TestShell.Project.CurrentProject.Value!);
 
             Assert.That(initialization.IsCompleted, Is.False);
 
@@ -5101,9 +5084,9 @@ public class VersionControlRestoreTests
             // With "Track history" checked, the dialog initializes the project before it opens.
             bool? initialized = null;
             Project? project;
-            await using (INewProjectVersionControlSetup setup = coordinator.BeginNewProject(
-                             _ => Task.FromResult<GitIdentity?>(
-                                 new GitIdentity("Beutl Headless Test", "headless@example.invalid"))))
+            coordinator.RequestIdentityAsync = _ => Task.FromResult<GitIdentity?>(
+                new GitIdentity("Beutl Headless Test", "headless@example.invalid"));
+            await using (INewProjectVersionControlSetup setup = coordinator.BeginNewProject())
             {
                 project = await projectService.CreateProject(
                     640,
@@ -5179,12 +5162,13 @@ public class VersionControlRestoreTests
             Project? openProjectWhileInitializing = null;
             ProjectLifecycleActivity activityWhenOpened;
             Project? project;
-            INewProjectVersionControlSetup setup = coordinator.BeginNewProject(_ =>
+            coordinator.RequestIdentityAsync = _ =>
             {
                 identityRequests++;
                 return Task.FromResult<GitIdentity?>(
                     new GitIdentity("Beutl Headless Test", "headless@example.invalid"));
-            });
+            };
+            INewProjectVersionControlSetup setup = coordinator.BeginNewProject();
             try
             {
                 Assert.That(
@@ -5320,8 +5304,7 @@ public class VersionControlRestoreTests
 
             Exception? initializationFailure = null;
             Project? project;
-            await using (INewProjectVersionControlSetup setup = coordinator.BeginNewProject(
-                             _ => Task.FromResult<GitIdentity?>(null)))
+            await using (INewProjectVersionControlSetup setup = coordinator.BeginNewProject())
             {
                 project = await projectService.CreateProject(
                     640,
@@ -5418,8 +5401,7 @@ public class VersionControlRestoreTests
 
             Exception? initializationFailure = null;
             Project? project;
-            await using (INewProjectVersionControlSetup setup = coordinator.BeginNewProject(
-                             _ => Task.FromResult<GitIdentity?>(null)))
+            await using (INewProjectVersionControlSetup setup = coordinator.BeginNewProject())
             {
                 project = await projectService.CreateProject(
                     640,
@@ -5494,8 +5476,7 @@ public class VersionControlRestoreTests
 
             bool? initialized = null;
             Project? project;
-            await using (INewProjectVersionControlSetup setup = coordinator.BeginNewProject(
-                             _ => Task.FromResult<GitIdentity?>(null)))
+            await using (INewProjectVersionControlSetup setup = coordinator.BeginNewProject())
             {
                 project = await projectService.CreateProject(
                     640,
@@ -5570,22 +5551,22 @@ public class VersionControlRestoreTests
                 });
             bool identityCanceled = false;
             Exception? initializationFailure = null;
-            await using INewProjectVersionControlSetup setup = coordinator.BeginNewProject(
-                async cancellationToken =>
+            coordinator.RequestIdentityAsync = async cancellationToken =>
+            {
+                identityRequested.TrySetResult();
+                try
                 {
-                    identityRequested.TrySetResult();
-                    try
-                    {
-                        await Task.Delay(Timeout.Infinite, cancellationToken);
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        identityCanceled = true;
-                        throw;
-                    }
+                    await Task.Delay(Timeout.Infinite, cancellationToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    identityCanceled = true;
+                    throw;
+                }
 
-                    return null;
-                });
+                return null;
+            };
+            await using INewProjectVersionControlSetup setup = coordinator.BeginNewProject();
             creation = projectService.CreateProject(
                 640,
                 480,
@@ -5677,7 +5658,7 @@ public class VersionControlRestoreTests
                     backends.Add(backend);
                     return backend;
                 });
-            setup = coordinator.BeginNewProject(_ => Task.FromResult<GitIdentity?>(null));
+            setup = coordinator.BeginNewProject();
             var initialized = new TaskCompletionSource<bool>(
                 TaskCreationOptions.RunContinuationsAsynchronously);
             INewProjectVersionControlSetup activeSetup = setup;
@@ -5841,13 +5822,12 @@ public class VersionControlRestoreTests
                 session.EditorService.LifecycleActivity.Value,
                 Is.EqualTo(ProjectLifecycleActivity.None));
 
-            initialization = coordinator.InitializeCurrentProjectAsync(
-                session.Project,
-                _ =>
-                {
-                    identityRequested.TrySetResult();
-                    return identity.Task;
-                });
+            coordinator.RequestIdentityAsync = _ =>
+            {
+                identityRequested.TrySetResult();
+                return identity.Task;
+            };
+            initialization = coordinator.InitializeCurrentProjectAsync(session.Project);
             await identityRequested.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
             close = TestShell.Project.TryCloseProjectAsync(
@@ -7330,7 +7310,7 @@ public class VersionControlRestoreTests
     {
         Project project = await CreateProjectForFakeVersionControlAsync(directoryName);
 
-        bool initialized = await TestShell.VersionControl.InitializeCurrentProjectAsync(
+        bool initialized = await GitTestSupport.InitializeCurrentProjectAsync(
             TestShell.Project.CurrentProject.Value!,
             _ => Task.FromResult<GitIdentity?>(
                 new GitIdentity("Beutl Headless Test", "headless@example.invalid")));

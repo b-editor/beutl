@@ -6,20 +6,16 @@ internal partial class VersionControlCoordinator
 {
     public Task<bool> InitializeCurrentProjectAsync(
         Project expectedProject,
-        Func<CancellationToken, Task<GitIdentity?>> requestIdentityAsync,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(expectedProject);
-        ArgumentNullException.ThrowIfNull(requestIdentityAsync);
         return RunOnUiThreadAsync(() => InitializeCurrentProjectCoreAsync(
             expectedProject,
-            requestIdentityAsync,
             cancellationToken));
     }
 
     private async Task<bool> InitializeCurrentProjectCoreAsync(
         Project expectedProject,
-        Func<CancellationToken, Task<GitIdentity?>> requestIdentityAsync,
         CancellationToken cancellationToken)
     {
         using OperationLease operation = await BeginOperationAsync(cancellationToken);
@@ -95,7 +91,7 @@ internal partial class VersionControlCoordinator
                 // InitializeWithEditorSuspensionAsync has released the editor and hidden the progress
                 // view over it before this prompt. The user can keep editing while entering an identity;
                 // the retry re-saves those edits after acquiring a fresh suspension.
-                GitIdentity? identity = await requestIdentityAsync(operationCancellation);
+                GitIdentity? identity = await RequestIdentityAsync(operationCancellation);
                 if (identity is null)
                 {
                     return false;
@@ -204,7 +200,7 @@ internal partial class VersionControlCoordinator
                     }
                     catch (GitIdentityRequiredException)
                     {
-                        GitIdentity? identity = await setup.RequestIdentityAsync(operationCancellation);
+                        GitIdentity? identity = await RequestIdentityAsync(operationCancellation);
                         if (identity is null)
                         {
                             return false;
@@ -411,13 +407,10 @@ internal partial class VersionControlCoordinator
 
     private sealed class NewProjectSetup(
         VersionControlCoordinator owner,
-        Func<CancellationToken, Task<GitIdentity?>> requestIdentityAsync,
         IDisposable presentation) : INewProjectVersionControlSetup
     {
         private int _initializationStarted;
         private int _disposed;
-
-        public Func<CancellationToken, Task<GitIdentity?>> RequestIdentityAsync => requestIdentityAsync;
 
         public bool IsDisposed => Volatile.Read(ref _disposed) != 0;
 

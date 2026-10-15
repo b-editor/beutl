@@ -40,7 +40,7 @@ public class ProjectLifecyclePerformanceTests
             string file = project.Uri!.LocalPath;
             if (trackHistory)
             {
-                Assert.That(await TestShell.VersionControl.InitializeCurrentProjectAsync(project,
+                Assert.That(await GitTestSupport.InitializeCurrentProjectAsync(project,
                     _ => Task.FromResult<GitIdentity?>(new("Lifecycle Test", "lifecycle@example.invalid"))), Is.True);
             }
 

@@ -41,8 +41,7 @@ public partial class MainView
             var dialog = new CreateNewProject();
             dialog.DataContext = new CreateNewProjectViewModel(
                 viewModel.ProjectService,
-                viewModel.VersionControlCoordinator,
-                RequestGitIdentityAsync);
+                viewModel.VersionControlCoordinator);
             await dialog.ShowAsync();
         }).AddTo(_disposables);
 
@@ -154,9 +153,7 @@ public partial class MainView
 
             Project project = viewModel.ProjectService.CurrentProject.Value
                               ?? throw new InvalidOperationException("No project is open.");
-            await viewModel.VersionControlCoordinator.InitializeCurrentProjectAsync(
-                project,
-                RequestGitIdentityAsync);
+            await viewModel.VersionControlCoordinator.InitializeCurrentProjectAsync(project);
         }
         catch (Exception ex)
         {
