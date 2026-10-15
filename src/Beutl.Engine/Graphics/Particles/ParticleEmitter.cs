@@ -198,13 +198,9 @@ public partial class ParticleEmitter : Drawable
             return _simulator.GetAliveParticles();
         }
 
-        public override void Reconcile(EngineObject obj, CompositionContext context, ref bool versionBumped)
+        internal static ParticleSettings CreateSettings(ParticleEmitter emitter, CompositionContext context)
         {
-            base.Reconcile(obj, context, ref versionBumped);
-
-            var emitter = (ParticleEmitter)obj;
-
-            var settings = new ParticleSettings(
+            return new ParticleSettings(
                 context.Get(emitter.Seed),
                 context.Get(emitter.EmitterShape),
                 context.Get(emitter.EmitterWidth),
@@ -234,6 +230,15 @@ public partial class ParticleEmitter : Drawable
                 context.Get(emitter.EndOpacityMultiplier),
                 context.Get(emitter.EndColor),
                 context.Get(emitter.UseEndColor));
+        }
+
+        public override void Reconcile(EngineObject obj, CompositionContext context, ref bool versionBumped)
+        {
+            base.Reconcile(obj, context, ref versionBumped);
+
+            var emitter = (ParticleEmitter)obj;
+
+            var settings = CreateSettings(emitter, context);
             // Base properties may have already bumped the render version. Track simulation changes separately.
             bool parametersChanged = !settings.Equals(_settings);
             _settings = settings;
