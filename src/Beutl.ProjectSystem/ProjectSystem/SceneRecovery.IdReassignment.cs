@@ -78,13 +78,6 @@ internal sealed partial class SceneRecovery
         RecoveredIdClaims claims)
     {
         var occurrences = new Dictionary<Guid, int>();
-        var legacyIndices = new Dictionary<CoreObject, int>(ReferenceEqualityComparer.Instance);
-        int legacyIndex = 0;
-        foreach (CoreObject descendant in EnumerateSerializedGraphDescendants(child))
-        {
-            legacyIndices.TryAdd(descendant, legacyIndex++);
-        }
-
         foreach ((CoreObject descendant, SerializedGraphPath graphPath) in
                  SerializedGraphPaths.EnumerateSerializedGraphDescendantPaths(child))
         {
@@ -98,11 +91,9 @@ internal sealed partial class SceneRecovery
             occurrences[originalId] = occurrence + 1;
             string remapKey = RecoveredIdentity.CreateRecoveredDescendantKey(relativePath, originalId, occurrence);
             bool hasPreviousAssignedId = claims.TryFindPreviouslyAssignedDescendantId(
-                descendant,
                 graphPath,
                 relativePath,
                 remapKey,
-                legacyIndices,
                 out Guid previousAssignedId);
 
             if (claims.ClaimedIds.Add(originalId))
@@ -332,11 +323,9 @@ internal sealed partial class SceneRecovery
         public Dictionary<string, Guid> PersistedDescendantIdentities { get; } = persistedDescendantIdentities;
 
         public bool TryFindPreviouslyAssignedDescendantId(
-            CoreObject descendant,
             SerializedGraphPath graphPath,
             string relativePath,
             string remapKey,
-            Dictionary<CoreObject, int> legacyIndices,
             out Guid previousAssignedId)
         {
             string identityKey = RecoveredIdentity.CreateRecoveredDescendantIdentityKey(relativePath, graphPath.Stable);
@@ -344,26 +333,12 @@ internal sealed partial class SceneRecovery
             bool hasPersistedIdentity = PersistedDescendantIdentities.TryGetValue(
                 identityKey,
                 out Guid persistedIdentityId);
-            bool ambiguousPositionalIdentity = false;
             if (!hasPersistedIdentity && graphPath.Positional != graphPath.Stable)
             {
                 hasPersistedIdentity = RecoveredIdentity.TryGetRecoveredDescendantPositionalIdentity(
                     PersistedDescendantIdentities,
                     relativePath,
                     graphPath.Positional,
-                    out persistedIdentityId,
-                    out ambiguousPositionalIdentity);
-            }
-
-            if (!hasPersistedIdentity
-                && !ambiguousPositionalIdentity
-                && legacyIndices.TryGetValue(descendant, out int persistedIndex))
-            {
-                string legacyIdentityKey = RecoveredIdentity.CreateLegacyRecoveredDescendantIdentityKey(
-                    relativePath,
-                    persistedIndex);
-                hasPersistedIdentity = PersistedDescendantIdentities.TryGetValue(
-                    legacyIdentityKey,
                     out persistedIdentityId);
             }
 

@@ -54,8 +54,7 @@ internal static class RecoveredIdentity
         IReadOnlyDictionary<string, Guid> identities,
         string relativePath,
         string positionalPath,
-        out Guid identityId,
-        out bool ambiguous)
+        out Guid identityId)
     {
         string keyPrefix = $"{relativePath}!path:";
         string normalizedPath = SerializedGraphPaths.NormalizeSerializedGraphPositionalPath(positionalPath);
@@ -69,7 +68,6 @@ internal static class RecoveredIdentity
             }
         }
 
-        ambiguous = candidates.Count > 1;
         if (candidates.Count == 1)
         {
             identityId = candidates.Single();
@@ -88,11 +86,6 @@ internal static class RecoveredIdentity
     public static string CreateRecoveredDescendantIdentityKey(string relativePath, string graphPath)
     {
         return $"{relativePath}!path:{graphPath}";
-    }
-
-    public static string CreateLegacyRecoveredDescendantIdentityKey(string relativePath, int index)
-    {
-        return $"{relativePath}!@{index}";
     }
 
     public static string NormalizeRelativePath(string path)
