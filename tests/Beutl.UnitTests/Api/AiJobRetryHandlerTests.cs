@@ -104,19 +104,27 @@ public class AiJobRetryHandlerTests
         IAiJobRetryPreparation secondPreparation = secondResult.TakePreparation();
         Task first = firstPreparation.ExecuteAsync(CancellationToken.None);
         await entered.Task;
-        Task second = secondPreparation.ExecuteAsync(CancellationToken.None);
+        // Both preparations hold the same confirmation. The first run consumed it, so the
+        // second is refused instead of joining the paid request.
+        AiJobRetryPreparationRejectedException? rejected =
+            await Assert.ThrowsAsync<AiJobRetryPreparationRejectedException>(() =>
+                secondPreparation.ExecuteAsync(CancellationToken.None));
         release.TrySetResult();
-        await Task.WhenAll(first, second);
+        await first;
         await firstPreparation.DisposeAsync();
         await secondPreparation.DisposeAsync();
         await firstResult.DisposeAsync();
         await secondResult.DisposeAsync();
 
-        Assert.That(keys, Has.Count.EqualTo(1));
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(rejected?.InnerException, Is.TypeOf<AiRetryAttemptRejectedException>());
+            Assert.That(keys, Has.Count.EqualTo(1));
+        }
     }
 
     [Test]
-    public async Task CallerCancellationDoesNotReleasePreparationBeforePaidFlightDrains()
+    public async Task CallerCancellationWaitsForThePaidRequestAndReturnsItsOutcome()
     {
         var images = new Mock<IAiImageGenerationService>();
         var started = new TaskCompletionSource(
@@ -152,8 +160,9 @@ public class AiJobRetryHandlerTests
         cancellation.Cancel();
         Assert.That(execution.IsCompleted, Is.False);
 
+        // The paid request takes no cancellation token; the call ends with its result.
         release.TrySetResult();
-        await Assert.CatchAsync<OperationCanceledException>(() => execution);
+        await execution;
         await preparation.DisposeAsync();
         await prepared.DisposeAsync();
     }

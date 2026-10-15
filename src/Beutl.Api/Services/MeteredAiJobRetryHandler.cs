@@ -13,9 +13,9 @@ internal abstract class MeteredAiJobRetryHandler(
     IAiModelCatalogService modelCatalogService,
     AiRetryAttemptContext retryContext) : IAiJobRetryHandler
 {
-    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, Lazy<Task>> _inFlight = [];
-
-    protected async Task RunRetrySingleFlightAsync(
+    // The store consumes a confirmation once, so a second run of the same attempt is rejected. The paid
+    // operation takes no cancellation token, and the returned task completes only after it has drained.
+    protected async Task RunRetryAsync(
         AiJob job,
         CancellationToken cancellationToken,
         Func<string, bool, Task> operation,
@@ -25,45 +25,7 @@ internal abstract class MeteredAiJobRetryHandler(
         AiAuthenticatedRequestIdentity authenticated = retryContext.GetRequiredIdentity();
         if (!StringComparer.Ordinal.Equals(authenticated.AccountId, attempt.AccountId))
             throw new AiRetryAttemptRejectedException();
-        string identity = CanonicalIdentity(job, authenticated.AccountId);
-        string flightIdentity = $"{identity}:{attempt.Token}";
-        var flight = new Lazy<Task>(
-            () => ExecuteRetryAsync(job, authenticated, attempt, operation),
-            LazyThreadSafetyMode.ExecutionAndPublication);
-        Lazy<Task> selected = _inFlight.GetOrAdd(flightIdentity, flight);
-        _ = selected.Value.ContinueWith(
-            _ => _inFlight.TryRemove(new KeyValuePair<string, Lazy<Task>>(flightIdentity, selected)),
-            CancellationToken.None,
-            TaskContinuationOptions.ExecuteSynchronously,
-            TaskScheduler.Default);
-        try
-        {
-            // Cancellation only stops this caller waiting. The paid operation is
-            // deliberately executed with CancellationToken.None.
-            await selected.Value.WaitAsync(cancellationToken);
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            // The caller may stop waiting, but the single-flight operation still owns
-            // the paid request and extension resources. Keep this task alive until it
-            // drains so the preparation lease cannot be released underneath it.
-            try
-            {
-                await selected.Value.ConfigureAwait(false);
-            }
-            catch
-            {
-                // Preserve the caller's cancellation outcome after the underlying
-                // operation has been observed and allowed to release its resources.
-            }
-
-            throw;
-        }
-        finally
-        {
-            if (selected.IsValueCreated && selected.Value.IsCompleted)
-                _inFlight.TryRemove(new KeyValuePair<string, Lazy<Task>>(flightIdentity, selected));
-        }
+        await ExecuteRetryAsync(job, authenticated, attempt, operation);
     }
 
     private async Task ExecuteRetryAsync(
@@ -129,9 +91,6 @@ internal abstract class MeteredAiJobRetryHandler(
             Log.CreateLogger(typeof(BuiltInAiJobKinds)).LogWarning(ex, "The AI retry succeeded, but its recovery key could not be retired.");
         }
     }
-
-    protected static string CanonicalIdentity(AiJob job, string accountId)
-        => FileAiRetryKeyStore.CanonicalIdentity(job, accountId);
 
     protected static bool IsDefinitive(Exception exception)
         => exception is AiPlanRequiredException
@@ -345,7 +304,7 @@ internal abstract class MeteredAiJobRetryHandler(
             {
                 try
                 {
-                    await owner.RunRetrySingleFlightAsync(
+                    await owner.RunRetryAsync(
                         job,
                         cancellationToken,
                         (key, isRepeat) => owner.DispatchAsync(job, key, isRepeat),
