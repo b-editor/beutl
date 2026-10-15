@@ -1,4 +1,5 @@
 ﻿using Beutl.Media.Proxy;
+using Beutl.UnitTests.Engine.Graphics.Rendering;
 
 namespace Beutl.UnitTests.Media.Proxy;
 
@@ -8,7 +9,7 @@ public class ProxyPathUtilitiesTests
     [Test]
     public void IsGeneratedProxyFinalPath_RejectsNonProxyShapedFiles()
     {
-        string root = CreateRoot();
+        string root = ProxyTestScope.CreateRoot();
         string hashDir = new('a', 64);
         string unrelatedTopLevel = Path.Combine(root, "archive.mp4");
         string wrongNameInHashDir = Path.Combine(root, hashDir, "render-final.mp4");
@@ -25,7 +26,7 @@ public class ProxyPathUtilitiesTests
     [Test]
     public void IsGeneratedProxyFinalPath_RejectsNestedHashDir()
     {
-        string root = CreateRoot();
+        string root = ProxyTestScope.CreateRoot();
         string hashDir = new('a', 64);
         string path = Path.Combine(root, "nested", hashDir, "quarter.mp4");
 
@@ -35,7 +36,7 @@ public class ProxyPathUtilitiesTests
     [Test]
     public void IsGeneratedProxyFinalPath_AndTempPath_AreMutuallyExclusive()
     {
-        string root = CreateRoot();
+        string root = ProxyTestScope.CreateRoot();
         string hashDir = new('a', 64);
         string finalPath = Path.Combine(root, hashDir, "quarter.mp4");
         string tempPath = Path.Combine(root, hashDir, $"quarter.{Guid.NewGuid():N}.tmp.mp4");
@@ -52,7 +53,7 @@ public class ProxyPathUtilitiesTests
     [Test]
     public void IsGeneratedProxyBackupPath_AcceptsBakOnly_AndIsDisjointFromFinalAndTemp()
     {
-        string root = CreateRoot();
+        string root = ProxyTestScope.CreateRoot();
         string hashDir = new('a', 64);
         string backupPath = Path.Combine(root, hashDir, $"quarter.{Guid.NewGuid():N}.bak.mp4");
         string finalPath = Path.Combine(root, hashDir, "quarter.mp4");
@@ -78,7 +79,7 @@ public class ProxyPathUtilitiesTests
     [Test]
     public void BuildRelativePath_OutputIsRecognizedAsGeneratedProxyFinalPath([Values] ProxyPreset preset)
     {
-        string root = CreateRoot();
+        string root = ProxyTestScope.CreateRoot();
         string sourcePath = Path.Combine(root, "source.mov");
         File.WriteAllBytes(sourcePath, [1, 2, 3]);
         ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(sourcePath);
@@ -92,7 +93,7 @@ public class ProxyPathUtilitiesTests
     [Test]
     public void BuildRelativePath_GenerationsAndTheirTempFilesAreRecognized([Values] ProxyPreset preset)
     {
-        string root = CreateRoot();
+        string root = ProxyTestScope.CreateRoot();
         string source = Path.Combine(root, "source.mov");
         File.WriteAllBytes(source, [1, 2, 3]);
         ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(source);
@@ -111,12 +112,5 @@ public class ProxyPathUtilitiesTests
             Assert.That(ProxyPathUtilities.IsGeneratedProxyFinalPath(root,
                 Path.Combine(root, new string('a', 64), "quarter.user-video.mp4")), Is.False);
         });
-    }
-
-    private static string CreateRoot()
-    {
-        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        return root;
     }
 }

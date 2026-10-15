@@ -1,6 +1,7 @@
 ﻿using Beutl.Editor;
 using Beutl.Media;
 using Beutl.Media.Proxy;
+using Beutl.UnitTests.Engine.Graphics.Rendering;
 using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Media.Proxy;
@@ -11,7 +12,7 @@ public class ProxyEvictionTests
     [Test]
     public void Sweep_RemovesLeastRecentlyUsedUntilUnderCap()
     {
-        string root = CreateRoot();
+        string root = ProxyTestScope.CreateRoot();
         var store = new ProxyStore(root);
         ProxyEntry oldEntry = Register(store, root, "old.mp4", DateTime.UtcNow.AddMinutes(-10), 7);
         ProxyEntry newEntry = Register(store, root, "new.mp4", DateTime.UtcNow, 7);
@@ -30,7 +31,7 @@ public class ProxyEvictionTests
     [Test]
     public void Sweep_SkipsPinnedEntries()
     {
-        string root = CreateRoot();
+        string root = ProxyTestScope.CreateRoot();
         var store = new ProxyStore(root);
         ProxyEntry pinned = Register(store, root, "pinned.mp4", DateTime.UtcNow.AddMinutes(-10), 7);
         ProxyEntry candidate = Register(store, root, "candidate.mp4", DateTime.UtcNow, 7);
@@ -57,7 +58,7 @@ public class ProxyEvictionTests
     [Test]
     public void Sweep_ReChecksPinTakenAfterCandidateCollection()
     {
-        string root = CreateRoot();
+        string root = ProxyTestScope.CreateRoot();
         var store = new ProxyStore(root);
         ProxyEntry candidate = Register(store, root, "candidate.mp4", DateTime.UtcNow.AddMinutes(-10), 7);
         // Simulates a decode-lifetime pin taken between candidate collection and the delete loop:
@@ -77,7 +78,7 @@ public class ProxyEvictionTests
     [Test]
     public void Sweep_PinAcquiredAfterFinalCheck_DoesNotCreditRetainedBytesTowardCap()
     {
-        string root = CreateRoot();
+        string root = ProxyTestScope.CreateRoot();
         var store = new ProxyStore(root);
         ProxyEntry old = Register(store, root, "old.mp4", DateTime.UtcNow.AddMinutes(-10), 7);
         ProxyEntry next = Register(store, root, "next.mp4", DateTime.UtcNow, 7);
@@ -122,7 +123,7 @@ public class ProxyEvictionTests
     [Test]
     public void Sweep_FileSurvivesDelete_DoesNotCreditDiskReclamation()
     {
-        string root = CreateRoot();
+        string root = ProxyTestScope.CreateRoot();
         var inner = new ProxyStore(root);
         Register(inner, root, "survives.mp4", DateTime.UtcNow.AddMinutes(-10), 7);
         var store = new RestoreFileOnDeleteStore(inner);
@@ -142,7 +143,7 @@ public class ProxyEvictionTests
     [Test]
     public void Sweep_ProtectsOpenProjectEntries_EvictingUnrelatedFirst()
     {
-        string root = CreateRoot();
+        string root = ProxyTestScope.CreateRoot();
         var store = new ProxyStore(root);
         // The open-project proxy is the OLDEST, so pure LRU would reap it first.
         ProxyEntry openProject = Register(store, root, "open.mp4", DateTime.UtcNow.AddMinutes(-10), 7);
@@ -166,7 +167,7 @@ public class ProxyEvictionTests
     [Test]
     public void Sweep_ProtectsInProjectSource_CollectedFromProjectGraph()
     {
-        string root = CreateRoot();
+        string root = ProxyTestScope.CreateRoot();
         // Media inside the project directory still has its proxy protected.
         string projectDir = Path.Combine(root, "project");
         Directory.CreateDirectory(projectDir);
@@ -203,7 +204,7 @@ public class ProxyEvictionTests
     [Test]
     public void Constructor_NegativeMaxTotalBytes_Throws()
     {
-        var store = new ProxyStore(CreateRoot());
+        var store = new ProxyStore(ProxyTestScope.CreateRoot());
 
         Assert.Throws<ArgumentOutOfRangeException>(() =>
             new ProxyEvictionService(store, resolver: null, maxTotalBytes: -1));
@@ -214,7 +215,7 @@ public class ProxyEvictionTests
     [Test]
     public void MaxTotalBytes_LoweredAtRuntime_NextSweepEnforcesNewCap()
     {
-        string root = CreateRoot();
+        string root = ProxyTestScope.CreateRoot();
         var store = new ProxyStore(root);
         ProxyEntry oldEntry = Register(store, root, "old.mp4", DateTime.UtcNow.AddMinutes(-10), 7);
         ProxyEntry newEntry = Register(store, root, "new.mp4", DateTime.UtcNow, 7);
@@ -237,7 +238,7 @@ public class ProxyEvictionTests
     [Test]
     public void Sweep_SkipsEntriesWithActiveGeneration()
     {
-        string root = CreateRoot();
+        string root = ProxyTestScope.CreateRoot();
         var store = new ProxyStore(root);
         ProxyEntry generating = Register(store, root, "generating.mp4", DateTime.UtcNow.AddMinutes(-10), 7);
         ProxyEntry idle = Register(store, root, "idle.mp4", DateTime.UtcNow, 7);
@@ -264,7 +265,7 @@ public class ProxyEvictionTests
     [Test]
     public void Sweep_ReChecksActiveGenerationQueuedDuringSweep()
     {
-        string root = CreateRoot();
+        string root = ProxyTestScope.CreateRoot();
         var store = new ProxyStore(root);
         ProxyEntry first = Register(store, root, "first.mp4", DateTime.UtcNow.AddMinutes(-10), 7);
         ProxyEntry second = Register(store, root, "second.mp4", DateTime.UtcNow, 7);
@@ -290,7 +291,7 @@ public class ProxyEvictionTests
     [Test]
     public void Sweep_EvictsOpenProjectEntries_AsLastResort()
     {
-        string root = CreateRoot();
+        string root = ProxyTestScope.CreateRoot();
         var store = new ProxyStore(root);
         ProxyEntry olderOpen = Register(store, root, "older.mp4", DateTime.UtcNow.AddMinutes(-10), 7);
         ProxyEntry newerOpen = Register(store, root, "newer.mp4", DateTime.UtcNow, 7);
@@ -319,7 +320,7 @@ public class ProxyEvictionTests
     [Test]
     public void SweepForDiskPressure_EvictsWhenHostFreeSpaceLow()
     {
-        string root = CreateRoot();
+        string root = ProxyTestScope.CreateRoot();
         var store = new ProxyStore(root);
         ProxyEntry oldEntry = Register(store, root, "old.mp4", DateTime.UtcNow.AddMinutes(-10), 20);
         ProxyEntry newEntry = Register(store, root, "new.mp4", DateTime.UtcNow, 20);
@@ -346,7 +347,7 @@ public class ProxyEvictionTests
     [Test]
     public void SweepForDiskPressure_MissingProxyFileDoesNotCreditDiskHeadroom()
     {
-        string root = CreateRoot();
+        string root = ProxyTestScope.CreateRoot();
         var store = new ProxyStore(root);
         ProxyEntry missing = Register(store, root, "missing.mp4", DateTime.UtcNow.AddMinutes(-10), 20);
         ProxyEntry real = Register(store, root, "real.mp4", DateTime.UtcNow, 20);
@@ -371,7 +372,7 @@ public class ProxyEvictionTests
     [Test]
     public void SweepForDiskPressure_DoesNotEvictWhenEvictionCannotFreeEnough()
     {
-        string root = CreateRoot();
+        string root = ProxyTestScope.CreateRoot();
         var store = new ProxyStore(root);
         ProxyEntry a = Register(store, root, "a.mp4", DateTime.UtcNow.AddMinutes(-10), 5);
         ProxyEntry b = Register(store, root, "b.mp4", DateTime.UtcNow, 5);
@@ -396,7 +397,7 @@ public class ProxyEvictionTests
     [Test]
     public void SweepForDiskPressure_NoEvictionWhenHeadroomSatisfied()
     {
-        string root = CreateRoot();
+        string root = ProxyTestScope.CreateRoot();
         var store = new ProxyStore(root);
         ProxyEntry a = Register(store, root, "a.mp4", DateTime.UtcNow.AddMinutes(-10), 20);
         ProxyEntry b = Register(store, root, "b.mp4", DateTime.UtcNow, 20);
@@ -420,7 +421,7 @@ public class ProxyEvictionTests
     [Test]
     public void SweepForDiskPressure_StillEnforcesCapWhenDiskGoalUnreachable()
     {
-        string root = CreateRoot();
+        string root = ProxyTestScope.CreateRoot();
         var store = new ProxyStore(root);
         ProxyEntry oldEntry = Register(store, root, "old.mp4", DateTime.UtcNow.AddMinutes(-10), 7);
         ProxyEntry newEntry = Register(store, root, "new.mp4", DateTime.UtcNow, 7);
@@ -449,7 +450,7 @@ public class ProxyEvictionTests
     [Test]
     public void Sweep_EntryRegeneratedSinceCollection_IsNotDeleted()
     {
-        string root = CreateRoot();
+        string root = ProxyTestScope.CreateRoot();
         var inner = new ProxyStore(root);
         ProxyEntry collected = Register(inner, root, "old.mp4", DateTime.UtcNow.AddMinutes(-10), 7);
         ProxyEntry regenerated = collected with { GeneratedAtUtc = collected.GeneratedAtUtc.AddMinutes(1) };
@@ -472,7 +473,7 @@ public class ProxyEvictionTests
     [Test]
     public void Sweep_EntryTouchedSinceCollection_StillEvicts()
     {
-        string root = CreateRoot();
+        string root = ProxyTestScope.CreateRoot();
         var inner = new ProxyStore(root);
         ProxyEntry collected = Register(inner, root, "old.mp4", DateTime.UtcNow.AddMinutes(-10), 7);
         ProxyEntry touched = collected with { LastUsedUtc = collected.LastUsedUtc.AddMinutes(1) };
@@ -486,13 +487,6 @@ public class ProxyEvictionTests
             Assert.That(store.DeleteCalls, Is.EqualTo(1), "a touch-only change must not block eviction");
             Assert.That(result.RemovedCount, Is.EqualTo(1));
         });
-    }
-
-    private static string CreateRoot()
-    {
-        string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        return root;
     }
 
     private static ProxyEntry Register(ProxyStore store, string root, string fileName, DateTime lastUsed, int bytes)
