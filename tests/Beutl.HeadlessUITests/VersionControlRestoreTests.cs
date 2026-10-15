@@ -32,8 +32,10 @@ public class VersionControlRestoreTests
         "refs/heads/main",
         "1111111111111111111111111111111111111111");
 
+    // Discovery cannot pass a path with control characters to Git, so the project opens without version
+    // control and says why, as for a folder Git refuses.
     [AvaloniaTest]
-    public async Task Project_open_ignores_optional_Git_discovery_for_a_control_character_path()
+    public async Task Project_open_without_Git_discovery_for_a_control_character_path_says_why()
     {
         if (OperatingSystem.IsWindows())
         {
@@ -56,9 +58,12 @@ public class VersionControlRestoreTests
         string projectFile = project.Uri!.LocalPath;
         await TestShell.Project.CloseProjectAsync();
 
+        using var notifications = new NotificationCapture();
         await TestShell.Project.OpenProject(projectFile);
         HeadlessTestHelpers.Settle();
+        await WaitUntilAsync(() => notifications.All.Any(n => n.Title == Strings.VersionControl));
 
+        Notification[] warnings = notifications.All.Where(n => n.Title == Strings.VersionControl).ToArray();
         Assert.Multiple(() =>
         {
             Assert.That(TestShell.Project.CurrentProject.Value, Is.Not.Null);
@@ -66,6 +71,9 @@ public class VersionControlRestoreTests
                 TestShell.Project.CurrentProject.Value!.Uri!.LocalPath,
                 Is.EqualTo(projectFile));
             Assert.That(TestShell.VersionControl.IsTracked.Value, Is.False);
+            Assert.That(warnings, Has.Length.EqualTo(1));
+            Assert.That(warnings[0].Type, Is.EqualTo(NotificationType.Warning));
+            Assert.That(warnings[0].Message, Does.Contain("control characters"));
         });
     }
 

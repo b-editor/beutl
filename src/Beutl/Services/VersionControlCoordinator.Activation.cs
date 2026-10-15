@@ -260,22 +260,12 @@ internal partial class VersionControlCoordinator
                 activation.ProjectRoot,
                 activation.CancellationToken);
         }
-        catch (ArgumentException ex) when (activation.ProjectRoot.Any(char.IsControl))
-        {
-            // Git commands cannot safely carry control-character repository paths through the
-            // line-oriented discovery protocol. Version control is optional, so the project stays
-            // untracked.
-            _logger.LogInformation(
-                ex,
-                "Opened {ProjectFile} without version control because its path is unsupported by repository discovery.",
-                activation.ProjectFile);
-            return null;
-        }
         catch (Exception ex)
             when (ex is not OperationCanceledException and not OutOfMemoryException)
         {
             // Git refused the folder itself (for example dubious ownership on a shared or
-            // removable volume). The project stays open without version control and says why.
+            // removable volume), or discovery cannot pass its path to Git (control characters).
+            // The project stays open without version control and says why.
             _logger.LogWarning(
                 ex,
                 "Opened {ProjectFile} without version control because repository discovery failed.",
