@@ -60,17 +60,8 @@
   <data name="EditorContextAlreadyCreated" xml:space="preserve">
     <value>The editor context has already been created.</value>
   </data>
-  <data name="EditorContextNull" xml:space="preserve">
-    <value>Null was specified for the editor context.</value>
-  </data>
-  <data name="InputRequired" xml:space="preserve">
-    <value>Please enter a string.</value>
-  </data>
   <data name="InvalidString" xml:space="preserve">
     <value>Invalid string.</value>
-  </data>
-  <data name="MultipleTypesAvailable" xml:space="preserve">
-    <value>Multiple types are available.</value>
   </data>
   <data name="AnimationIsEnabled" xml:space="preserve">
     <value>Animation is enabled</value>

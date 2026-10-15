@@ -81,7 +81,6 @@ public class Avalonia12MenuTests
     [TestCase(typeof(NodeGraphView))]
     [TestCase(typeof(InlineAnimationLayer))]
     [TestCase(typeof(GraphModelNodeMemberView))]
-    [TestCase(typeof(NavigateButton))]
     [TestCase(typeof(EditorHostFallback))]
     public void Editor_menus_open_with_their_items_and_labels(Type viewType)
     {
