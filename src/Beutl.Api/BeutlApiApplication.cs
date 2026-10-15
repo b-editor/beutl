@@ -399,18 +399,9 @@ public partial class BeutlApiApplication : IAsyncDisposable
             GetResource<AiJobChangeNotifier>().Changes,
             TimeSpan.FromSeconds(5)));
         Register(CreatePackageInstaller);
-        Register(() =>
-        {
-            // Unload diagnostics take a heavy ClrMD self-snapshot and write a dump; they are a development-only aid,
-            // so Release builds wire null and neither snapshot, dump, nor log on an unload failure.
-            ILoadContextUnloadDiagnostics? unloadDiagnostics = null;
-#if DEBUG
-            unloadDiagnostics = new ClrmdLoadContextUnloadDiagnostics();
-#endif
-            return new PackageManager(
-                GetResource<InstalledPackageRepository>(), GetResource<ExtensionProvider>(),
-                GetResource<ContextCommandManager>(), this, unloadDiagnostics);
-        });
+        Register(() => new PackageManager(
+            GetResource<InstalledPackageRepository>(), GetResource<ExtensionProvider>(),
+            GetResource<ContextCommandManager>(), this));
     }
 
     private void Register<T>(Func<T> factory)

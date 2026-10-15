@@ -19,7 +19,6 @@ public sealed partial class PackageManager : PackageLoader
     private readonly IExtensionRegistry extensionRegistry;
     private readonly ContextCommandManager commandManager;
     private readonly BeutlApiApplication apiApplication;
-    private readonly ILoadContextUnloadDiagnostics? unloadDiagnostics;
     private readonly ILogger _logger = Log.CreateLogger<PackageManager>();
     private readonly ConcurrentDictionary<int, LoadedPackageInfo> _loadedPackages = new();
     private readonly Dictionary<int, Task<bool>> _unloadOperations = [];
@@ -32,14 +31,12 @@ public sealed partial class PackageManager : PackageLoader
         InstalledPackageRepository installedPackageRepository,
         IExtensionRegistry extensionRegistry,
         ContextCommandManager commandManager,
-        BeutlApiApplication apiApplication,
-        ILoadContextUnloadDiagnostics? unloadDiagnostics = null)
+        BeutlApiApplication apiApplication)
     {
         this.installedPackageRepository = installedPackageRepository;
         this.extensionRegistry = extensionRegistry;
         this.commandManager = commandManager;
         this.apiApplication = apiApplication;
-        this.unloadDiagnostics = unloadDiagnostics;
     }
 
     public IEnumerable<LocalPackage> LoadedPackage => _loadedPackages.Values.Select(x => x.Package);
@@ -311,8 +308,6 @@ public sealed partial class PackageManager : PackageLoader
                 result.Assemblies.SelectMany(assembly => assembly.GetExportedTypes()));
         }
     }
-
-    private Action<string>? _dumpOpener;
 
     public LocalPackage[] FindLoadedPackage(string name)
     {
