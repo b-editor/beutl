@@ -153,27 +153,6 @@ public sealed class GroupLibraryItem(string displayName, string? description = n
             return LibraryService.RemoveUnloaded(_items, types);
         }
     }
-
-    internal int Count()
-    {
-        int count = 1;
-        lock (_lock)
-        {
-            foreach (LibraryItem item in _items)
-            {
-                if (item is GroupLibraryItem groupable1)
-                {
-                    count += groupable1.Count();
-                }
-                else
-                {
-                    count++;
-                }
-            }
-        }
-
-        return count;
-    }
 }
 
 public static class KnownLibraryItemFormats
@@ -197,7 +176,6 @@ public sealed class LibraryService
     private readonly List<LibraryItem> _items = [];
     private readonly Dictionary<string, HashSet<Type>> _formatToType = [];
     private readonly object _lock = new();
-    internal int _totalCount;
 
     private LibraryService()
     {
@@ -236,8 +214,6 @@ public sealed class LibraryService
             item.SetLibraryService(this);
             if (item is GroupLibraryItem group)
             {
-                _totalCount += group.Count();
-
                 if (_items.FirstOrDefault(x => x.DisplayName == item.DisplayName) is GroupLibraryItem registered)
                 {
                     registered.Merge(group.Items);
@@ -249,7 +225,6 @@ public sealed class LibraryService
             }
             else
             {
-                _totalCount++;
                 _items.Add(item);
             }
         }
