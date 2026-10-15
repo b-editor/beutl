@@ -357,7 +357,7 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
         // 以降の OnNext を抑止してから内部 Subject を Dispose する。
         _isDisposed = true;
         _disposables.Dispose();
-        foreach (ElementViewModel? item in Elements.GetMarshal().Value)
+        foreach (ElementViewModel? item in Elements.AsSpan())
         {
             item.Dispose();
         }

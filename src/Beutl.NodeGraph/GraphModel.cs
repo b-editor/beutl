@@ -167,7 +167,7 @@ public partial class GraphModel : EngineObject
 
     public INodePort? FindNodePort(Guid id)
     {
-        foreach (GraphNode node in Nodes.GetMarshal().Value)
+        foreach (GraphNode node in Nodes.AsSpan())
         {
             foreach (INodeMember item in node.EnumerateMembers())
             {

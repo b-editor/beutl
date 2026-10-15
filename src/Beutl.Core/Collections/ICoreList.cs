@@ -29,8 +29,6 @@ public interface ICoreList<T> : IObservableList<T>, ICoreReadOnlyList<T>, ICoreL
 
     public event Action<T>? Detached;
 
-    CoreListMarshal<T> GetMarshal();
-
     void AddRange(IEnumerable<T> items);
 
     void InsertRange(int index, IEnumerable<T> items);

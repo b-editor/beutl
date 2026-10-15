@@ -329,7 +329,7 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
 
     private void ClearItems()
     {
-        foreach (InlineKeyFrameViewModel item in Items.GetMarshal().Value)
+        foreach (InlineKeyFrameViewModel item in Items.AsSpan())
         {
             item.Dispose();
         }

@@ -6,16 +6,6 @@ using System.Runtime.InteropServices;
 
 namespace Beutl.Collections;
 
-public readonly ref struct CoreListMarshal<T>
-{
-    public CoreListMarshal(CoreList<T> list)
-    {
-        Value = list.GetInnerSpan();
-    }
-
-    public Span<T> Value { get; }
-}
-
 public class CoreList<T> : ICoreList<T>
 {
     private static readonly PropertyChangedEventArgs s_countPropertyChanged = new(nameof(CoreList<object>.Count));
@@ -452,12 +442,8 @@ public class CoreList<T> : ICoreList<T>
         }
     }
 
-    public CoreListMarshal<T> GetMarshal()
-    {
-        return new CoreListMarshal<T>(this);
-    }
-
-    internal Span<T> GetInnerSpan()
+    // For in-repo loops: unlike the enumerator, the span does not throw when the list changes.
+    internal Span<T> AsSpan()
     {
         return CollectionsMarshal.AsSpan(Inner);
     }

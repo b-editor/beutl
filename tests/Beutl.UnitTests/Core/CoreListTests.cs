@@ -180,11 +180,10 @@ public class CoreListTests
     }
 
     [Test]
-    public void GetMarshal_ProvidesCurrentSpan()
+    public void AsSpan_ProvidesCurrentSpan()
     {
         var list = new CoreList<int>(new[] { 10, 20, 30 });
-        CoreListMarshal<int> marshal = list.GetMarshal();
-        Assert.That(marshal.Value.ToArray(), Is.EqualTo(new[] { 10, 20, 30 }));
+        Assert.That(list.AsSpan().ToArray(), Is.EqualTo(new[] { 10, 20, 30 }));
     }
 
     [Test]

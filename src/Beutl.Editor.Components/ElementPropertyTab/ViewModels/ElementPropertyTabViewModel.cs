@@ -132,7 +132,7 @@ public sealed class ElementPropertyTabViewModel : IPinnableToolContext
 
     private void RemoveItems(int index, int count)
     {
-        foreach (EngineObjectPropertyViewModel item in Items.GetMarshal().Value.Slice(index, count))
+        foreach (EngineObjectPropertyViewModel item in Items.AsSpan().Slice(index, count))
         {
             item.Dispose();
         }
@@ -246,7 +246,7 @@ public sealed class ElementPropertyTabViewModel : IPinnableToolContext
 
     private void ClearItems()
     {
-        foreach (EngineObjectPropertyViewModel item in Items.GetMarshal().Value)
+        foreach (EngineObjectPropertyViewModel item in Items.AsSpan())
         {
             item.Dispose();
         }

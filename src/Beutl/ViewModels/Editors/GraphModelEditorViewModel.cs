@@ -114,7 +114,7 @@ public sealed class GraphModelEditorViewModel : ValueEditorViewModel<GraphModel?
 
     private void DisposeNodeMembers()
     {
-        foreach (GraphModelNodeMemberViewModel item in NodeMembers.GetMarshal().Value)
+        foreach (GraphModelNodeMemberViewModel item in NodeMembers.AsSpan())
         {
             item.Dispose();
         }

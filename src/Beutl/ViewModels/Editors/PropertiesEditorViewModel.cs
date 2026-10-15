@@ -37,7 +37,7 @@ public sealed class PropertiesEditorViewModel : IDisposable, IJsonSerializable, 
 
     public void Dispose()
     {
-        foreach (IPropertyEditorContext item in Properties.GetMarshal().Value)
+        foreach (IPropertyEditorContext item in Properties.AsSpan())
         {
             item.Dispose();
         }
