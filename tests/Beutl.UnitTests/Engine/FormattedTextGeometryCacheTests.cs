@@ -9,31 +9,12 @@ namespace Beutl.UnitTests.Engine;
 [TestFixture]
 public class FormattedTextGeometryCacheTests
 {
-    [SetUp]
-    public void Setup()
-    {
-        _ = TypefaceProvider.Typeface();
-    }
-
-    private static FormattedText CreateText(string text, float size = 64f)
-    {
-        Typeface typeface = TypefaceProvider.Typeface();
-        return new FormattedText
-        {
-            Font = typeface.FontFamily,
-            Style = typeface.Style,
-            Weight = typeface.Weight,
-            Size = size,
-            Text = text
-        };
-    }
-
     // Regression: re-measuring in place reuses the per-glyph slot without bumping Version, so before the
     // fix the Version-keyed path cache kept returning the previous glyph (narrow 'I' after switching to 'W').
     [Test]
     public void ReMeasure_ReusingGlyphSlot_RebuildsCachedGeometryPath()
     {
-        using FormattedText text = CreateText("I");
+        using FormattedText text = TypefaceProvider.CreateText("I", 64f);
 
         // Populate the cache for the narrow glyph 'I'.
         Geometry.Resource glyph = text.ToGeometries()[0];
@@ -48,7 +29,7 @@ public class FormattedTextGeometryCacheTests
         Rect wideBounds = reused.Bounds;
 
         // Ground truth: a freshly built FormattedText for 'W' has no stale cache to confuse it.
-        using FormattedText reference = CreateText("W");
+        using FormattedText reference = TypefaceProvider.CreateText("W", 64f);
         Rect referenceBounds = reference.ToGeometries()[0].Bounds;
 
         Assert.That(wideBounds.Width, Is.GreaterThan(narrowBounds.Width),
@@ -64,7 +45,7 @@ public class FormattedTextGeometryCacheTests
     [Test]
     public void ReMeasure_ReusingGlyphSlot_BumpsVersionExactlyOncePerReassignment()
     {
-        using FormattedText text = CreateText("I");
+        using FormattedText text = TypefaceProvider.CreateText("I", 64f);
         Geometry.Resource glyph = text.ToGeometries()[0];
         int before = glyph.Version;
 
@@ -87,7 +68,7 @@ public class FormattedTextGeometryCacheTests
     [Test]
     public void ReMeasure_ReusingGlyphSlot_RebuildsCachedStrokePath()
     {
-        using FormattedText text = CreateText("I");
+        using FormattedText text = TypefaceProvider.CreateText("I", 64f);
         using Pen.Resource pen = new Pen
         {
             Thickness = { CurrentValue = 4f },
@@ -104,7 +85,7 @@ public class FormattedTextGeometryCacheTests
 
         Rect wideStroke = reused.GetRenderBounds(pen);
 
-        using FormattedText reference = CreateText("W");
+        using FormattedText reference = TypefaceProvider.CreateText("W", 64f);
         Rect referenceStroke = reference.ToGeometries()[0].GetRenderBounds(pen);
 
         Assert.That(wideStroke.Width, Is.GreaterThan(narrowStroke.Width),
@@ -119,7 +100,7 @@ public class FormattedTextGeometryCacheTests
     [Test]
     public void ReMeasure_ReusingGlyphSlot_MarksGeometryRenderNodeChanged()
     {
-        using FormattedText text = CreateText("I");
+        using FormattedText text = TypefaceProvider.CreateText("I", 64f);
         Geometry.Resource glyph = text.ToGeometries()[0];
 
         using var node = new GeometryRenderNode(glyph, null, null);

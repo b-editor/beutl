@@ -68,11 +68,15 @@ public class FontFamilyTests
 [TestFixture]
 public class FontManagerResolutionTests
 {
+    [OneTimeSetUp]
+    public void RegisterFonts()
+    {
+        _ = TypefaceProvider.Typeface();
+    }
+
     [Test]
     public void Unregistered_family_falls_back_instead_of_throwing()
     {
-        _ = TypefaceProvider.Typeface();
-
         // Optical-size names such as "Inter 28pt" can also be real installed families.
         // Use an absent name regardless of which project/system fonts have already loaded.
         var missing = new Typeface(new FontFamily("Missing-" + Guid.NewGuid().ToString("N")), FontStyle.Normal, FontWeight.SemiBold);
@@ -84,8 +88,6 @@ public class FontManagerResolutionTests
     [Test]
     public void Registered_family_resolves_an_unavailable_weight_to_its_nearest_match()
     {
-        _ = TypefaceProvider.Typeface();
-
         var semiBold = new Typeface(new FontFamily("Roboto"), FontStyle.Normal, FontWeight.SemiBold);
 
         Assert.That(() => semiBold.ToSkia(), Throws.Nothing);
@@ -95,8 +97,6 @@ public class FontManagerResolutionTests
     [Test]
     public void IsRegistered_distinguishes_a_known_family_from_an_unregistered_name()
     {
-        _ = TypefaceProvider.Typeface();
-
         Assert.Multiple(() =>
         {
             Assert.That(FontManager.Instance.IsRegistered(new FontFamily("Roboto")), Is.True);

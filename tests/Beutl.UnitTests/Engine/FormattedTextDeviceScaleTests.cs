@@ -12,7 +12,7 @@ public class FormattedTextDeviceScaleTests
     [Test]
     public void GetTextBlob_WithDeviceDensity_ShapesAtScaledFontSize()
     {
-        FormattedText text = CreateText();
+        FormattedText text = TypefaceProvider.CreateText("Scale", 24f, spacing: 1f);
         Rect logicalLayoutBounds = text.Bounds;
 
         SKRect logicalBounds = text.GetTextBlob()!.Bounds;
@@ -26,7 +26,7 @@ public class FormattedTextDeviceScaleTests
     [Test]
     public void GetStrokePath_WithDeviceDensity_ReturnsDenseScaledPathWithoutMutatingLogicalBounds()
     {
-        FormattedText text = CreateText();
+        FormattedText text = TypefaceProvider.CreateText("Scale", 24f, spacing: 1f);
         text.Pen = new Pen
         {
             Thickness = { CurrentValue = 2f },
@@ -45,7 +45,7 @@ public class FormattedTextDeviceScaleTests
     [Test]
     public void GetTextBlob_EmptyText_ReturnsNullInsteadOfThrowing()
     {
-        FormattedText text = CreateText();
+        FormattedText text = TypefaceProvider.CreateText("Scale", 24f, spacing: 1f);
         text.Text = string.Empty;
 
         Assert.That(text.GetTextBlob(), Is.Null);
@@ -55,7 +55,7 @@ public class FormattedTextDeviceScaleTests
     [Test]
     public void GetTextBlob_AfterPropertyChange_ReshapesScaledBlob()
     {
-        FormattedText text = CreateText();
+        FormattedText text = TypefaceProvider.CreateText("Scale", 24f, spacing: 1f);
         SKTextBlob before = text.GetTextBlob(2f)!;
         float beforeWidth = before.Bounds.Width;
 
@@ -68,19 +68,5 @@ public class FormattedTextDeviceScaleTests
             "a property change must invalidate the scaled cache so a re-access reshapes");
         Assert.That(after.Bounds.Width, Is.GreaterThan(beforeWidth),
             "the larger font size must produce a wider device blob");
-    }
-
-    private static FormattedText CreateText()
-    {
-        Typeface typeface = TypefaceProvider.Typeface();
-        return new FormattedText
-        {
-            Font = typeface.FontFamily,
-            Style = typeface.Style,
-            Weight = typeface.Weight,
-            Size = 24f,
-            Spacing = 1f,
-            Text = "Scale"
-        };
     }
 }
