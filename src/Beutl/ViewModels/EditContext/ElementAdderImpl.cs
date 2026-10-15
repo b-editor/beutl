@@ -28,15 +28,9 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
         _context = context;
         _sourceHandlers = new ElementSourceHandlerRegistry(
         [
-            new ElementSourceHandlerRegistration(
-                new EngineObjectSourceHandler(this),
-                order: 0),
-            new ElementSourceHandlerRegistration(
-                new ElementTemplateSourceHandler(this),
-                order: 10),
-            new ElementSourceHandlerRegistration(
-                new FileSourceHandler(this),
-                order: 20),
+            new ElementSourceHandlerRegistration(new EngineObjectSourceHandler(this)),
+            new ElementSourceHandlerRegistration(new ElementTemplateSourceHandler(this)),
+            new ElementSourceHandlerRegistration(new FileSourceHandler(this)),
         ],
         context.ExtensionProvider,
         failure => _logger.LogWarning(
@@ -44,8 +38,6 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
             "Ignoring invalid element source-handler contribution from {ExtensionType}.",
             failure.ExtensionType));
     }
-
-    public IElementSourceHandlerRegistry SourceHandlers => _sourceHandlers;
 
     public async ValueTask DisposeAsync()
     {

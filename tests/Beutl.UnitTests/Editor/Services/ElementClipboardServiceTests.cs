@@ -391,8 +391,6 @@ public class ElementClipboardServiceTests
 
     private sealed class StubElementAdder(IReadOnlyList<Element> result) : IElementAdder
     {
-        public IElementSourceHandlerRegistry SourceHandlers { get; } = new ElementSourceHandlerRegistry();
-
         public int CallCount { get; private set; }
 
         public IReadOnlyList<ElementDescription> Descriptions { get; private set; } = [];

@@ -1,7 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using Beutl.Api.Services;
 using Beutl.Editor.Models;
-using Beutl.Editor.Services;
 using Beutl.Editor.Services.AI;
 using Beutl.Editor.Services.Captions;
 using Beutl.Extensibility;
@@ -26,10 +25,6 @@ public sealed class ExtensionAndCaptionAuthoringContractTests
             Assert.That(
                 typeof(ExtensionDescriptor).GetProperties().Select(property => property.PropertyType),
                 Does.Not.Contain(typeof(Type)).And.Not.Contain(typeof(Extension)));
-            Assert.That(
-                typeof(ElementSourceHandlerDescriptor).GetProperties()
-                    .Select(property => property.PropertyType),
-                Does.Not.Contain(typeof(Type)).And.Not.Contain(typeof(IElementSourceHandler)));
         }
     }
 
@@ -71,38 +66,12 @@ public sealed class ExtensionAndCaptionAuthoringContractTests
     }
 
     [Test]
-    public async Task CustomElementSource_CanDelegateLengthToItsHandler()
-    {
-        var handler = new CustomSourceHandler();
-        await using var registry = new ElementSourceHandlerRegistry();
-        await using IElementSourceHandlerRegistration registration = registry.Register(
-            new ElementSourceHandlerRegistration(handler));
-        var description = new ElementDescription(
-            TimeSpan.Zero,
-            null,
-            0,
-            new CustomSource());
-
-        Assert.That(description.Length, Is.Null);
-        Assert.That(registry.Handlers, Is.SameAs(registry.Handlers));
-        Assert.That(registry.Handlers.Single().SourceTypeName, Is.EqualTo(typeof(CustomSource).AssemblyQualifiedName));
-        Assert.That(registry.TryAcquire(typeof(CustomSource), out IElementSourceHandlerLease? lease), Is.True);
-        using (lease)
-        {
-            Assert.That(lease!.Handler, Is.SameAs(handler));
-        }
-    }
-
-    [Test]
     public void MetadataTypes_CanBeCreatedByExternalProviderImplementations()
     {
         var extension = new ExtensionDescriptor(
             new ExtensionId(Guid.NewGuid()),
             "Example.Extension, Example.Package");
         IExtensionProvider provider = new MetadataExtensionProvider(extension);
-        var handler = new ElementSourceHandlerDescriptor(
-            "Example.Source, Example.Package",
-            order: 10);
         var captionFormat = new CaptionFormatId("example");
         var codecDescriptor = new CaptionCodecDescriptor(
             captionFormat,
@@ -122,7 +91,6 @@ public sealed class ExtensionAndCaptionAuthoringContractTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(handler.SourceTypeName, Is.EqualTo("Example.Source, Example.Package"));
             Assert.That(codecDescriptor.Order, Is.EqualTo(20));
             Assert.That(codec.FileExtensions, Is.EqualTo(new[] { ".example" }));
             Assert.That(template.Name, Is.EqualTo("Example template"));
@@ -299,8 +267,6 @@ public sealed class ExtensionAndCaptionAuthoringContractTests
         }
     }
 
-    private sealed record CustomSource : ElementSource;
-
     private sealed class CustomCapabilitySchemaExtension(
         params AiOperationCapabilitySchemaRegistration[] registrations)
         : AiOperationCapabilitySchemaExtension
@@ -331,22 +297,6 @@ public sealed class ExtensionAndCaptionAuthoringContractTests
             lease = null;
             return false;
         }
-    }
-
-    private sealed class CustomSourceHandler : IElementSourceHandler
-    {
-        public Type SourceType => typeof(CustomSource);
-
-        public ValueTask<ElementSourcePreflightResult> PreflightAsync(
-            ElementSourcePreflightContext context,
-            CancellationToken cancellationToken)
-            => throw new NotSupportedException();
-
-        public ValueTask<ElementSourceMaterializationResult> MaterializeAsync(
-            ElementSourceMaterializationContext context,
-            IElementSourcePreflight preflight,
-            CancellationToken cancellationToken)
-            => throw new NotSupportedException();
     }
 
     private sealed class CustomAiJobBehavior :

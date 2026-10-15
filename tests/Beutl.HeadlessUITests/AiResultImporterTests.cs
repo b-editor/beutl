@@ -686,8 +686,6 @@ public sealed class AiResultImporterTests
 
     private sealed class CapturingElementAdder(int producedElementCount) : IElementAdder
     {
-        public IElementSourceHandlerRegistry SourceHandlers { get; } = new ElementSourceHandlerRegistry();
-
         public string? StagedPath { get; private set; }
 
         public ValueTask<ElementAddResult> AddAsync(

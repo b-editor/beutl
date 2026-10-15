@@ -1,7 +1,6 @@
 ﻿using System.Collections.Specialized;
 using System.Diagnostics.CodeAnalysis;
 using Beutl.Api.Services;
-using Beutl.Collections;
 using Beutl.Extensibility;
 
 namespace Beutl.Editor.Services;
@@ -20,7 +19,6 @@ public sealed partial class ElementSourceHandlerRegistry : IElementSourceHandler
     ];
 
     private readonly Dictionary<Type, List<Registration>> _handlers = [];
-    private readonly CoreList<ElementSourceHandlerDescriptor> _handlerMetadata = [];
     private readonly HashSet<Task> _activeRegistrationRetirements = [];
     private readonly Dictionary<ElementSourceHandlerExtension, List<Registration>> _extensionRegistrations =
         new(ReferenceEqualityComparer.Instance);
@@ -29,20 +27,7 @@ public sealed partial class ElementSourceHandlerRegistry : IElementSourceHandler
     private readonly Action<ElementSourceHandlerExtensionFailure>? _reportFailure;
     private IExtensionRegistry? _extensionProvider;
     private Task? _disposeTask;
-    private long _registrationSequence;
-    private int _metadataBatchDepth;
     private bool _disposed;
-
-    public ElementSourceHandlerRegistry()
-        : this([])
-    {
-    }
-
-    public ElementSourceHandlerRegistry(
-        IEnumerable<ElementSourceHandlerRegistration> hostRegistrations)
-        : this(hostRegistrations, null, null)
-    {
-    }
 
     internal ElementSourceHandlerRegistry(
         IEnumerable<ElementSourceHandlerRegistration> hostRegistrations,
@@ -62,23 +47,16 @@ public sealed partial class ElementSourceHandlerRegistry : IElementSourceHandler
         }
     }
 
-    public ICoreReadOnlyList<ElementSourceHandlerDescriptor> Handlers => _handlerMetadata;
-
-    public IElementSourceHandlerRegistration Register(ElementSourceHandlerRegistration registration)
+    private void Register(ElementSourceHandlerRegistration registration)
     {
         PreparedRegistration prepared = PrepareRegistration(registration);
 
         lock (_extensionCompositionGate)
         {
-            Registration result;
-            ElementSourceHandlerDescriptor[] metadata;
             lock (_gate)
             {
-                result = RegisterPrepared_NoLock(prepared);
-                metadata = CreateMetadata_NoLock();
+                RegisterPrepared_NoLock(prepared);
             }
-            PublishMetadata(metadata);
-            return result;
         }
     }
 
@@ -166,7 +144,6 @@ public sealed partial class ElementSourceHandlerRegistry : IElementSourceHandler
     {
         Registration[] registrations;
         Task[] activeRetirements;
-        ElementSourceHandlerDescriptor[] metadata;
         KeyValuePair<ElementSourceHandlerExtension, List<Registration>>[] extensionRegistrations;
         lock (_extensionCompositionGate)
         {
@@ -175,12 +152,9 @@ public sealed partial class ElementSourceHandlerRegistry : IElementSourceHandler
                 _disposed = true;
                 registrations = _handlers.Values.SelectMany(value => value).ToArray();
                 _handlers.Clear();
-                metadata = CreateMetadata_NoLock();
                 activeRetirements = _activeRegistrationRetirements.ToArray();
                 _activeRegistrationRetirements.Clear();
             }
-
-            PublishMetadata(metadata);
 
             if (_extensionProvider is not null)
             {
@@ -270,25 +244,12 @@ public sealed partial class ElementSourceHandlerRegistry : IElementSourceHandler
 
         var failures = new Dictionary<ElementSourceHandlerExtension, Exception>(
             ReferenceEqualityComparer.Instance);
-        ElementSourceHandlerDescriptor[] metadata;
         lock (_gate)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
-            _metadataBatchDepth++;
-            try
-            {
-                RetireRemovedRegistrations_NoLock(removedRegistrations);
-                RegisterCandidates_NoLock(candidates, failures);
-            }
-            finally
-            {
-                _metadataBatchDepth--;
-            }
-
-            metadata = CreateMetadata_NoLock();
+            RetireRemovedRegistrations_NoLock(removedRegistrations);
+            RegisterCandidates_NoLock(candidates, failures);
         }
-
-        PublishMetadata(metadata);
 
         foreach ((ElementSourceHandlerExtension extension, Exception failure) in failures)
             ReportFailure(extension, failure);
@@ -393,7 +354,6 @@ public sealed partial class ElementSourceHandlerRegistry : IElementSourceHandler
     private Task UnregisterAsync(Registration registration, RegistrationState state)
     {
         Task drain;
-        ElementSourceHandlerDescriptor[]? metadata = null;
         lock (_extensionCompositionGate)
         {
             lock (_gate)
@@ -413,13 +373,7 @@ public sealed partial class ElementSourceHandlerRegistry : IElementSourceHandler
                         _handlers.Remove(state.SourceType);
                     }
                 }
-
-                if (_metadataBatchDepth == 0)
-                    metadata = CreateMetadata_NoLock();
             }
-
-            if (metadata is not null)
-                PublishMetadata(metadata);
         }
 
         return drain;
@@ -445,36 +399,6 @@ public sealed partial class ElementSourceHandlerRegistry : IElementSourceHandler
         }
     }
 
-    private ElementSourceHandlerDescriptor[] CreateMetadata_NoLock()
-        => _handlers
-            .Select(pair => pair.Value[^1].State)
-            .OrderBy(state => state.Order)
-            .ThenBy(state => state.SourceType.FullName, StringComparer.Ordinal)
-            .ThenBy(state => state.Sequence)
-            .Select(state => state.Descriptor)
-            .ToArray();
-
-    private void PublishMetadata(ElementSourceHandlerDescriptor[] metadata)
-    {
-        if (_handlerMetadata.Count == metadata.Length
-            && _handlerMetadata.Select((current, index) =>
-                    current.SourceTypeName == metadata[index].SourceTypeName
-                    && current.Order == metadata[index].Order)
-                .All(matches => matches))
-        {
-            return;
-        }
-
-        try
-        {
-            _handlerMetadata.Replace(metadata);
-        }
-        catch
-        {
-            // Metadata observers cannot veto or roll back handler registration changes.
-        }
-    }
-
     private static PreparedRegistration PrepareRegistration(
         ElementSourceHandlerRegistration registration)
     {
@@ -493,8 +417,7 @@ public sealed partial class ElementSourceHandlerRegistry : IElementSourceHandler
         return new PreparedRegistration(
             sourceType,
             handler,
-            registration.Mode,
-            registration.Order);
+            registration.Mode);
     }
 
     private Registration RegisterPrepared_NoLock(PreparedRegistration registration)
@@ -508,9 +431,7 @@ public sealed partial class ElementSourceHandlerRegistry : IElementSourceHandler
         _handlers[registration.SourceType] = entries;
         var state = new RegistrationState(
             registration.SourceType,
-            registration.Handler,
-            registration.Order,
-            ++_registrationSequence);
+            registration.Handler);
         var owner = new Registration(this, state);
         entries.Add(owner);
         return owner;
@@ -567,8 +488,7 @@ public sealed partial class ElementSourceHandlerRegistry : IElementSourceHandler
     private readonly record struct PreparedRegistration(
         Type SourceType,
         IElementSourceHandler Handler,
-        ElementSourceHandlerRegistrationMode Mode,
-        int Order);
+        ElementSourceHandlerRegistrationMode Mode);
 
     private void ReportFailure(ElementSourceHandlerExtension extension, Exception exception)
     {

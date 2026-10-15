@@ -7,25 +7,13 @@ public sealed partial class ElementSourceHandlerRegistry
 {
     private sealed class RegistrationState(
         Type sourceType,
-        IElementSourceHandler handler,
-        int order,
-        long sequence)
+        IElementSourceHandler handler)
     {
         private readonly LeaseDrain _drain = new();
 
         public Type SourceType { get; } = sourceType;
 
         public IElementSourceHandler Handler { get; } = handler;
-
-        public ElementSourceHandlerDescriptor Descriptor { get; } = new(
-            sourceType.AssemblyQualifiedName
-                ?? sourceType.FullName
-                ?? sourceType.Name,
-            order);
-
-        public int Order { get; } = order;
-
-        public long Sequence { get; } = sequence;
 
         public bool TryAcquire([NotNullWhen(true)] out HandlerLease? lease)
         {
