@@ -13,8 +13,7 @@ internal abstract class MeteredAiJobRetryHandler(
     IAiModelCatalogService modelCatalogService,
     AiRetryAttemptContext retryContext) : IAiJobRetryHandler
 {
-    // The store consumes a confirmation once, so a second run of the same attempt is rejected. The paid
-    // operation takes no cancellation token, and the returned task completes only after it has drained.
+    // The store consumes a confirmation once, so a second run of the same attempt is rejected.
     protected async Task RunRetryAsync(
         AiJob job,
         CancellationToken cancellationToken,
@@ -25,7 +24,30 @@ internal abstract class MeteredAiJobRetryHandler(
         AiAuthenticatedRequestIdentity authenticated = retryContext.GetRequiredIdentity();
         if (!StringComparer.Ordinal.Equals(authenticated.AccountId, attempt.AccountId))
             throw new AiRetryAttemptRejectedException();
-        await ExecuteRetryAsync(job, authenticated, attempt, operation);
+        Task retry = ExecuteRetryAsync(job, authenticated, attempt, operation);
+        try
+        {
+            // Cancellation only stops this caller waiting. The paid operation is
+            // deliberately executed with CancellationToken.None.
+            await retry.WaitAsync(cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // The caller may stop waiting, but the operation still owns the paid request
+            // and extension resources. Keep this task alive until it drains so the
+            // preparation lease cannot be released underneath it.
+            try
+            {
+                await retry.ConfigureAwait(false);
+            }
+            catch
+            {
+                // Preserve the caller's cancellation outcome after the underlying
+                // operation has been observed and allowed to release its resources.
+            }
+
+            throw;
+        }
     }
 
     private async Task ExecuteRetryAsync(

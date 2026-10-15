@@ -124,7 +124,7 @@ public class AiJobRetryHandlerTests
     }
 
     [Test]
-    public async Task CallerCancellationWaitsForThePaidRequestAndReturnsItsOutcome()
+    public async Task CallerCancellationDoesNotReleasePreparationBeforePaidFlightDrains()
     {
         var images = new Mock<IAiImageGenerationService>();
         var started = new TaskCompletionSource(
@@ -160,9 +160,52 @@ public class AiJobRetryHandlerTests
         cancellation.Cancel();
         Assert.That(execution.IsCompleted, Is.False);
 
-        // The paid request takes no cancellation token; the call ends with its result.
         release.TrySetResult();
-        await execution;
+        await Assert.CatchAsync<OperationCanceledException>(() => execution);
+        await preparation.DisposeAsync();
+        await prepared.DisposeAsync();
+    }
+
+    [Test]
+    public async Task CallerCancellationStillReportsCancellationWhenThePaidRequestFails()
+    {
+        var images = new Mock<IAiImageGenerationService>();
+        var started = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        images
+            .Setup(service => service.GenerateAsync(
+                It.IsAny<AiImageGenerationRequest>(),
+                It.IsAny<CancellationToken>()))
+            .Returns(async () =>
+            {
+                started.TrySetResult();
+                await release.Task;
+                throw new IOException("The response was lost.");
+            });
+        var handler = new AiImageJobRetryHandler(
+            images.Object,
+            EntitlementService(),
+            AvailabilityService(true),
+            ModelCatalogService(),
+            RetryContext());
+        AiJob job = Job("image", "{\"prompt\":\"slow\",\"aspectRatio\":\"1:1\"}");
+
+        AiJobRetryPreparationResult prepared = await handler.PrepareAsync(
+            job,
+            CancellationToken.None);
+        IAiJobRetryPreparation preparation = prepared.TakePreparation();
+        using var cancellation = new CancellationTokenSource();
+        Task execution = preparation.ExecuteAsync(cancellation.Token);
+        await started.Task;
+
+        cancellation.Cancel();
+        Assert.That(execution.IsCompleted, Is.False);
+
+        // The failure is observed after the drain, but the caller still sees its cancellation.
+        release.TrySetResult();
+        await Assert.CatchAsync<OperationCanceledException>(() => execution);
         await preparation.DisposeAsync();
         await prepared.DisposeAsync();
     }
