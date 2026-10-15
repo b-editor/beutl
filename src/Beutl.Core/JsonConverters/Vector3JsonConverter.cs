@@ -23,6 +23,6 @@ internal sealed class Vector3JsonConverter : JsonConverter<Vector3>
 
     public override void Write(Utf8JsonWriter writer, Vector3 value, JsonSerializerOptions options)
     {
-        writer.WriteStringValue($"{value.X},{value.Y},{value.Z}");
+        writer.WriteStringValue(FormattableString.Invariant($"{value.X},{value.Y},{value.Z}"));
     }
 }
