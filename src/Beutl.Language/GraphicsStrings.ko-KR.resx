@@ -1298,17 +1298,11 @@
   <data name="EndPoint" xml:space="preserve">
     <value>끝점</value>
   </data>
-  <data name="FixImageSize" xml:space="preserve">
-    <value>이미지 크기 고정</value>
-  </data>
   <data name="Group" xml:space="preserve">
     <value>그룹</value>
   </data>
   <data name="Height" xml:space="preserve">
     <value>높이</value>
-  </data>
-  <data name="KernelSize" xml:space="preserve">
-    <value>커널 크기</value>
   </data>
   <data name="Offset" xml:space="preserve">
     <value>오프셋</value>

@@ -1298,17 +1298,11 @@
   <data name="EndPoint" xml:space="preserve">
     <value>终点</value>
   </data>
-  <data name="FixImageSize" xml:space="preserve">
-    <value>固定图像大小</value>
-  </data>
   <data name="Group" xml:space="preserve">
     <value>组</value>
   </data>
   <data name="Height" xml:space="preserve">
     <value>高度</value>
-  </data>
-  <data name="KernelSize" xml:space="preserve">
-    <value>内核大小</value>
   </data>
   <data name="Offset" xml:space="preserve">
     <value>偏移</value>

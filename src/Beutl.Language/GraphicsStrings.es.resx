@@ -1298,17 +1298,11 @@
   <data name="EndPoint" xml:space="preserve">
     <value>Punto final</value>
   </data>
-  <data name="FixImageSize" xml:space="preserve">
-    <value>Fijar tamaño de imagen</value>
-  </data>
   <data name="Group" xml:space="preserve">
     <value>Grupo</value>
   </data>
   <data name="Height" xml:space="preserve">
     <value>Altura</value>
-  </data>
-  <data name="KernelSize" xml:space="preserve">
-    <value>Tamaño del núcleo</value>
   </data>
   <data name="Offset" xml:space="preserve">
     <value>Desplazamiento</value>

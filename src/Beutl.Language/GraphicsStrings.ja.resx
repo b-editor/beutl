@@ -1303,17 +1303,11 @@
   <data name="EndPoint" xml:space="preserve">
     <value>終了点</value>
   </data>
-  <data name="FixImageSize" xml:space="preserve">
-    <value>画像サイズを固定</value>
-  </data>
   <data name="Group" xml:space="preserve">
     <value>グループ</value>
   </data>
   <data name="Height" xml:space="preserve">
     <value>高さ</value>
-  </data>
-  <data name="KernelSize" xml:space="preserve">
-    <value>カーネルサイズ</value>
   </data>
   <data name="Offset" xml:space="preserve">
     <value>オフセット</value>
