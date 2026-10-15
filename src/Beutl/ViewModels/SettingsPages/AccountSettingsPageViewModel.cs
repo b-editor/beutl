@@ -61,8 +61,10 @@ public sealed class AccountSettingsPageViewModel : BasePageViewModel
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
+        // Switch follows only the signed-in user's profile, so a previous account's updates stop reaching the page.
         ProfileImage = _clients.AuthenticatedUser
-            .SelectMany(x => x?.Profile?.AvatarUrl ?? Observable.ReturnThenNever<string?>(null))
+            .Select(x => x?.Profile?.AvatarUrl ?? Observable.ReturnThenNever<string?>(null))
+            .Switch()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
@@ -72,8 +74,9 @@ public sealed class AccountSettingsPageViewModel : BasePageViewModel
             .DisposeWith(_disposables);
 
         DisplayName = _clients.AuthenticatedUser
-            .SelectMany(x => x?.Profile?.DisplayName ?? Observable.ReturnThenNever<string?>(null))
-            .Zip(Name, (x, y) => string.IsNullOrEmpty(x) ? y : x)
+            .Select(x => x?.Profile?.DisplayName ?? Observable.ReturnThenNever<string?>(null))
+            .Switch()
+            .CombineLatest(Name, (x, y) => string.IsNullOrEmpty(x) ? y : x)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
