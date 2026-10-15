@@ -14,20 +14,13 @@ public enum AiModelCapabilitySchema
     Video,
 }
 
-public enum AiOperationCapabilitySchemaRegistrationMode
-{
-    Add,
-    Replace,
-}
-
 /// <summary>Associates one open AI operation identifier with a model-capability schema.</summary>
 public sealed class AiOperationCapabilitySchemaRegistration
 {
     public AiOperationCapabilitySchemaRegistration(
         AiOperationId operation,
         AiModelCapabilitySchema schema,
-        AiOperationCapabilitySchemaRegistrationMode mode =
-            AiOperationCapabilitySchemaRegistrationMode.Add)
+        AiJobBehaviorRegistrationMode mode = AiJobBehaviorRegistrationMode.Add)
     {
         if (string.IsNullOrWhiteSpace(operation.Value))
             throw new ArgumentException("An AI operation identifier is required.", nameof(operation));
@@ -45,7 +38,7 @@ public sealed class AiOperationCapabilitySchemaRegistration
 
     public AiModelCapabilitySchema Schema { get; }
 
-    public AiOperationCapabilitySchemaRegistrationMode Mode { get; }
+    public AiJobBehaviorRegistrationMode Mode { get; }
 }
 
 /// <summary>
@@ -94,10 +87,10 @@ internal sealed class AiOperationCapabilitySchemaRegistry :
 {
     private static readonly ILogger s_logger =
         Log.CreateLogger<AiOperationCapabilitySchemaRegistry>();
-    private static readonly AiOperationCapabilitySchemaRegistrationMode[] s_compositionPhases =
+    private static readonly AiJobBehaviorRegistrationMode[] s_compositionPhases =
     [
-        AiOperationCapabilitySchemaRegistrationMode.Add,
-        AiOperationCapabilitySchemaRegistrationMode.Replace,
+        AiJobBehaviorRegistrationMode.Add,
+        AiJobBehaviorRegistrationMode.Replace,
     ];
     private readonly IExtensionRegistry _extensions;
     private readonly Action<string, Exception> _reportFailure;
@@ -230,7 +223,7 @@ internal sealed class AiOperationCapabilitySchemaRegistry :
         SchemaCandidate candidate,
         int phaseIndex)
     {
-        AiOperationCapabilitySchemaRegistrationMode phase = s_compositionPhases[phaseIndex];
+        AiJobBehaviorRegistrationMode phase = s_compositionPhases[phaseIndex];
         var working = new Dictionary<AiOperationId, AiModelCapabilitySchema>(
             accepted);
         foreach (AiOperationCapabilitySchemaRegistration registration
@@ -294,12 +287,12 @@ internal sealed class AiOperationCapabilitySchemaRegistry :
         bool exists = schemas.ContainsKey(registration.Operation)
             || AiOperationCapabilitySchemaSnapshot.GetBuiltInSchema(registration.Operation)
                 != AiModelCapabilitySchema.Generic;
-        if (registration.Mode == AiOperationCapabilitySchemaRegistrationMode.Add && exists)
+        if (registration.Mode == AiJobBehaviorRegistrationMode.Add && exists)
         {
             throw new ArgumentException(
                 $"A capability schema for '{registration.Operation}' is already registered.");
         }
-        if (registration.Mode == AiOperationCapabilitySchemaRegistrationMode.Replace && !exists)
+        if (registration.Mode == AiJobBehaviorRegistrationMode.Replace && !exists)
         {
             throw new ArgumentException(
                 $"A capability schema for '{registration.Operation}' cannot be replaced because it is not registered.");

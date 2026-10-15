@@ -395,7 +395,7 @@ public class AiModelCatalogTests
             new AiOperationCapabilitySchemaRegistration(
                 operation,
                 AiModelCapabilitySchema.Video,
-                AiOperationCapabilitySchemaRegistrationMode.Replace));
+                AiJobBehaviorRegistrationMode.Replace));
         var @base = new TestCapabilitySchemaExtension(
             new AiOperationCapabilitySchemaRegistration(
                 operation,
@@ -417,7 +417,7 @@ public class AiModelCatalogTests
             new AiOperationCapabilitySchemaRegistration(
                 AiOperations.VideoGeneration,
                 AiModelCapabilitySchema.Image,
-                AiOperationCapabilitySchemaRegistrationMode.Replace));
+                AiJobBehaviorRegistrationMode.Replace));
         extensions.AddExtensions(12, [builtInReplacement]);
         Assert.That(
             schemas.GetSnapshot().GetSchema(AiOperations.VideoGeneration),
@@ -445,7 +445,7 @@ public class AiModelCatalogTests
             new AiOperationCapabilitySchemaRegistration(
                 new AiOperationId("vendor.missing-shape"),
                 AiModelCapabilitySchema.Video,
-                AiOperationCapabilitySchemaRegistrationMode.Replace));
+                AiJobBehaviorRegistrationMode.Replace));
         var healthy = new TestCapabilitySchemaExtension(
             new AiOperationCapabilitySchemaRegistration(
                 operation,

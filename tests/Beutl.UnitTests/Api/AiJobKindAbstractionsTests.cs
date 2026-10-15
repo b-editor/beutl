@@ -110,7 +110,7 @@ public sealed class AiJobKindAbstractionsTests
                 new AiJobPresentationRegistration(
                     kind,
                     presentationReplacement,
-                    AiJobResultRegistrationMode.Replace)),
+                    AiJobBehaviorRegistrationMode.Replace)),
         ]);
         extensions.AddExtensions(207,
         [
@@ -118,7 +118,7 @@ public sealed class AiJobKindAbstractionsTests
                 new AiJobCompletionRegistration(
                     kind,
                     completionReplacement,
-                    AiJobResultRegistrationMode.Replace)),
+                    AiJobBehaviorRegistrationMode.Replace)),
         ]);
         AssertCapabilities(
             registry,
@@ -164,7 +164,7 @@ public sealed class AiJobKindAbstractionsTests
                 new AiJobPresentationRegistration(
                     new AiJobKindId("tests.missing-slot"),
                     capabilities,
-                    AiJobResultRegistrationMode.Replace),
+                    AiJobBehaviorRegistrationMode.Replace),
             ],
             [],
             [],
@@ -183,7 +183,7 @@ public sealed class AiJobKindAbstractionsTests
             new AiJobPresentationRegistration(
                 kind,
                 replacement,
-                AiJobResultRegistrationMode.Replace));
+                AiJobBehaviorRegistrationMode.Replace));
         var addExtension = new TestPresentationExtension(
             new AiJobPresentationRegistration(kind, original));
         await using var registry = new AiJobResultRegistry([], [], [], extensions, null);
@@ -251,7 +251,7 @@ public sealed class AiJobKindAbstractionsTests
             new AiJobPresentationRegistration(
                 new AiJobKindId("tests.missing-replacement"),
                 provisional,
-                AiJobResultRegistrationMode.Replace));
+                AiJobBehaviorRegistrationMode.Replace));
         var healthyExtension = new TestPresentationExtension(
             new AiJobPresentationRegistration(kind, healthy));
         await using var registry = new AiJobResultRegistry([], [], [], extensions, failures.Add);
