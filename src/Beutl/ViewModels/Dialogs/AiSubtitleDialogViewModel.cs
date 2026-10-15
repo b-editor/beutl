@@ -399,8 +399,8 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
                     && source.HasUri
                     && source.Uri.IsFile)
                 {
-                    // Use the original audio duration. Element length is user-editable and cannot
-                    // be trusted for usage calculation.
+                    // The original audio duration bounds what a run can send; the element can run
+                    // past the end of the audio.
                     TimeSpan duration = sound.TryGetOriginalDuration(out TimeSpan original)
                         ? original
                         : element.Length;

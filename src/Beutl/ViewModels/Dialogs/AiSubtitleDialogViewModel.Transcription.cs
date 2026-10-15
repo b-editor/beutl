@@ -994,7 +994,13 @@ public sealed partial class AiSubtitleDialogViewModel
         }
         else
         {
-            duration = TimeSpan.FromTicks(Math.Min(duration.Ticks, SceneMixChunkDuration.Ticks));
+            // The run sends the element's span of the file from its offset (PlanSourceChunks), so the estimate
+            // prices that audio rather than the whole file.
+            TimeSpan offset = source.SourceOffset > TimeSpan.Zero ? source.SourceOffset : TimeSpan.Zero;
+            double seconds = Math.Min(source.GetSourceElapsedSeconds(), (duration - offset).TotalSeconds);
+            if (!double.IsFinite(seconds) || seconds <= 0)
+                return null;
+            duration = TimeSpan.FromSeconds(Math.Min(seconds, SceneMixChunkDuration.TotalSeconds));
         }
         return duration > TimeSpan.Zero
             ? new AiOperationAvailabilityRequest.Transcription(
