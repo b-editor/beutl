@@ -856,6 +856,8 @@ Beutl.Utilities
 [Beutl.NodeGraph].Nodes.Generative:AiVideoGenerationNode
   sealed
   keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position, RequestKeySeed
+[Beutl.NodeGraph].Nodes.Generative:SeededGenerativeNode
+  abstract
 [Beutl.NodeGraph].Nodes.Group:GroupInput
   unsealed
   keys: Animations, Expressions, Id, IsEnabled, IsExpanded, Items, Name, Position
@@ -1133,8 +1135,6 @@ Beutl.Utilities
 [Beutl.NodeGraph]:ListInputPort<[System.Private.CoreLib]System:Object>
   unsealed
   keys: Animations, Connections, Expressions, Id, IsEnabled, Name
-[Beutl.NodeGraph]:ListOutputPort<T>
-  unsealed
 [Beutl.NodeGraph]:NestedInputPort<T>
   sealed
 [Beutl.NodeGraph]:NestedInputPort<[Beutl.Engine]Beutl.Graphics.Transformation:Transform>
