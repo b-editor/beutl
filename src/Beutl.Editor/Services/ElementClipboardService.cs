@@ -165,7 +165,6 @@ public sealed class ElementClipboardService : IElementClipboardService
 
         return new ElementPasteOutcome(
             Pasted: true,
-            NewElements: [],
             ScrollTo: outcome.ScrollToRange,
             ScrollToZIndex: outcome.ScrollToZIndex,
             AddFailure: null);
@@ -224,17 +223,14 @@ public sealed class ElementClipboardService : IElementClipboardService
         {
             return new ElementPasteOutcome(
                 Pasted: false,
-                NewElements: [],
                 ScrollTo: default,
                 ScrollToZIndex: 0,
                 AddFailure: result.Failure);
         }
 
-        IReadOnlyList<Element> newElements = result.Elements;
         Element scrollTarget = result.Items[^1].PrimaryElement;
         return new ElementPasteOutcome(
             Pasted: true,
-            NewElements: newElements,
             ScrollTo: scrollTarget.Range,
             ScrollToZIndex: scrollTarget.ZIndex,
             AddFailure: null);
@@ -314,7 +310,6 @@ public sealed class ElementClipboardService : IElementClipboardService
 
         return new ElementPasteOutcome(
             Pasted: true,
-            NewElements: [newElement],
             ScrollTo: newElement.Range,
             ScrollToZIndex: newElement.ZIndex,
             AddFailure: null);

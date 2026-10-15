@@ -25,10 +25,9 @@ public interface IElementClipboardService
 
 public sealed record ElementPasteOutcome(
     bool Pasted,
-    IReadOnlyList<Element> NewElements,
     TimeRange ScrollTo,
     int ScrollToZIndex,
     ElementAddFailure? AddFailure)
 {
-    public static readonly ElementPasteOutcome Empty = new(false, [], default, 0, null);
+    public static readonly ElementPasteOutcome Empty = new(false, default, 0, null);
 }
