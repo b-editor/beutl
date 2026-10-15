@@ -23,8 +23,6 @@ internal sealed class AiModelCatalogService : IAiModelCatalogService, IDisposabl
     private long _fetchedAt;
     private int _disposed;
 
-    internal Action? BeforeCachePublication { get; set; }
-
     public AiModelCatalogService(
         BeutlApiApplication application,
         IAiOperationCapabilitySchemaProvider capabilitySchemas,
@@ -74,8 +72,7 @@ internal sealed class AiModelCatalogService : IAiModelCatalogService, IDisposabl
                 AiOperationCapabilitySchemaSnapshot schemaSnapshot =
                     _capabilitySchemas.GetSnapshot();
                 AiModelCatalog catalog = AiModelMapper.ToModel(response.Value, schemaSnapshot);
-                BeforeCachePublication?.Invoke();
-                return PublishCatalog(response, schemaSnapshot, catalog);
+                return PublishCatalog(response, schemaSnapshot.Revision, catalog);
             }
             catch (ApiException ex)
             {
@@ -92,56 +89,25 @@ internal sealed class AiModelCatalogService : IAiModelCatalogService, IDisposabl
         }
     }
 
-    // Caches the catalog only while its schema revision is still current, remapping until it is; an account
-    // change returns an empty catalog without caching it.
+    // Caches the catalog with the schema revision it was mapped with, so a schema that changed meanwhile makes the
+    // next TryGetFresh fetch it again; an account change returns an empty catalog without caching it.
     private AiModelCatalog PublishCatalog(
         AuthenticatedApiResult<AiCapabilitiesResponse> response,
-        AiOperationCapabilitySchemaSnapshot schemaSnapshot,
+        long schemaRevision,
         AiModelCatalog catalog)
     {
-        while (true)
+        lock (_cacheGate)
         {
-            AiOperationCapabilitySchemaSnapshot latestSchemaSnapshot =
-                _capabilitySchemas.GetSnapshot();
-            if (latestSchemaSnapshot.Revision != schemaSnapshot.Revision)
-            {
-                schemaSnapshot = latestSchemaSnapshot;
-                catalog = AiModelMapper.ToModel(response.Value, schemaSnapshot);
-                continue;
-            }
+            if (!ReferenceEquals(_application.AuthenticatedUser.Value, response.User))
+                return AiModelCatalog.Empty;
 
-            bool published = false;
-            lock (_cacheGate)
-            {
-                if (!ReferenceEquals(_application.AuthenticatedUser.Value, response.User))
-                    return AiModelCatalog.Empty;
-
-                latestSchemaSnapshot = _capabilitySchemas.GetSnapshot();
-                if (latestSchemaSnapshot.Revision == schemaSnapshot.Revision)
-                {
-                    _catalog = catalog;
-                    _catalogOwner = response.User;
-                    _catalogSchemaRevision = schemaSnapshot.Revision;
-                    _fetchedAt = _timeProvider.GetTimestamp();
-                    published = true;
-                }
-            }
-
-            if (!published)
-            {
-                schemaSnapshot = latestSchemaSnapshot;
-                catalog = AiModelMapper.ToModel(response.Value, schemaSnapshot);
-                continue;
-            }
-
-            latestSchemaSnapshot = _capabilitySchemas.GetSnapshot();
-            if (latestSchemaSnapshot.Revision == schemaSnapshot.Revision)
-                return catalog;
-
-            Invalidate();
-            schemaSnapshot = latestSchemaSnapshot;
-            catalog = AiModelMapper.ToModel(response.Value, schemaSnapshot);
+            _catalog = catalog;
+            _catalogOwner = response.User;
+            _catalogSchemaRevision = schemaRevision;
+            _fetchedAt = _timeProvider.GetTimestamp();
         }
+
+        return catalog;
     }
 
     public void Invalidate()
@@ -169,24 +135,14 @@ internal sealed class AiModelCatalogService : IAiModelCatalogService, IDisposabl
 
     private bool TryGetFresh(out AiModelCatalog? catalog)
     {
-        while (true)
+        long schemaRevision = _capabilitySchemas.GetSnapshot().Revision;
+        lock (_cacheGate)
         {
-            AiOperationCapabilitySchemaSnapshot schemaSnapshot =
-                _capabilitySchemas.GetSnapshot();
-            lock (_cacheGate)
-            {
-                catalog = _catalog;
-                if (catalog is null
-                    || !ReferenceEquals(_catalogOwner, _application.AuthenticatedUser.Value)
-                    || _catalogSchemaRevision != schemaSnapshot.Revision
-                    || _timeProvider.GetElapsedTime(_fetchedAt) >= s_freshness)
-                {
-                    return false;
-                }
-            }
-
-            if (_capabilitySchemas.GetSnapshot().Revision == schemaSnapshot.Revision)
-                return true;
+            catalog = _catalog;
+            return catalog is not null
+                && ReferenceEquals(_catalogOwner, _application.AuthenticatedUser.Value)
+                && _catalogSchemaRevision == schemaRevision
+                && _timeProvider.GetElapsedTime(_fetchedAt) < s_freshness;
         }
     }
 
