@@ -53,21 +53,17 @@ public sealed class ExtensionAndCaptionAuthoringContractTests
     {
         var format = new CaptionFormatId("vendor.caption");
         var codec = new CustomCaptionCodec();
-        var descriptorRegistration = new CaptionCodecDescriptorRegistration(
-            new CaptionCodecDescriptor(format, [".vendor-caption"]));
-        var decoderRegistration = new CaptionDecoderRegistration(format, codec);
-        var encoderRegistration = new CaptionEncoderRegistration(format, codec);
         var descriptorExtension = new CustomCaptionCodecDescriptorExtension(
-            descriptorRegistration);
-        var decoderExtension = new CustomCaptionDecoderExtension(decoderRegistration);
-        var encoderExtension = new CustomCaptionEncoderExtension(encoderRegistration);
-        await using var registry = new CaptionCodecRegistry();
-        await using ICaptionCodecDescriptorRegistration descriptor = registry.Register(
-            descriptorRegistration);
-        await using ICaptionDecoderRegistration decoder = registry.Register(
-            decoderRegistration);
-        await using ICaptionEncoderRegistration encoder = registry.Register(
-            encoderRegistration);
+            new CaptionCodecDescriptorRegistration(
+                new CaptionCodecDescriptor(format, [".vendor-caption"])));
+        var decoderExtension = new CustomCaptionDecoderExtension(
+            new CaptionDecoderRegistration(format, codec));
+        var encoderExtension = new CustomCaptionEncoderExtension(
+            new CaptionEncoderRegistration(format, codec));
+        await using var registry = new CaptionCodecRegistry(
+            descriptorExtension.Registrations,
+            decoderExtension.Registrations,
+            encoderExtension.Registrations);
 
         using (Assert.EnterMultipleScope())
         {

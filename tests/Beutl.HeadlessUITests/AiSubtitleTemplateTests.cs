@@ -395,15 +395,17 @@ public class AiSubtitleTemplateTests
         }
     }
 
-    // A registry can hold no template: before anything is registered, and once it has been disposed.
+    // A catalog holds no template once it has been disposed.
     [AvaloniaTest]
-    public async Task ShownTool_OffersNoTemplateWhileNoneIsRegistered()
+    public async Task ShownTool_OffersNoTemplateOnceTheCatalogIsDisposed()
     {
         await TestReset.ResetShellAsync();
         var clients = TestShell.MainViewModel._beutlClients;
-        await using var codecs = new CaptionCodecRegistry();
-        var templates = new CaptionTemplateRegistry();
-        await using var catalog = new CaptionCatalog(codecs, templates);
+        CaptionCatalog catalog = CaptionCatalog.ComposeWithDefaultElementFactory(
+            "Default",
+            [],
+            new ExtensionProvider(),
+            DefaultTextCaptionElementFactory.Instance);
         byte[] png = CreatePng();
         var viewModel = new AiSubtitleDialogViewModel(
             clients.GetResource<IAiEntitlementService>(),
@@ -431,50 +433,37 @@ public class AiSubtitleTemplateTests
             AvaloniaComboBox picker = view.GetVisualDescendants()
                 .OfType<AvaloniaComboBox>()
                 .Single(comboBox => comboBox.Name == "CaptionTemplateComboBox");
-            AssertNoTemplate("before a template is registered");
-
-            CaptionTemplateRegistrationSet template = CreateTemplate(
-                new CaptionTemplateId("beutl.tests.only-template"),
-                "Only template",
-                new PreviewCaptionFactory());
-            templates.Register(template.DescriptorRegistration);
-            templates.Register(template.ElementFactoryRegistration);
-            templates.Register(template.PlacementPolicyRegistration);
-            HeadlessTestHelpers.Render();
-            CaptionTemplateDescriptor registered = viewModel.CaptionTemplates.Single();
+            CaptionTemplateDescriptor offered = viewModel.CaptionTemplates.Single();
             await HeadlessTestHelpers.WaitUntilAsync(
                 () => viewModel.TemplatePreviewImage.Value is not null, TimeSpan.FromSeconds(3));
             using (Assert.EnterMultipleScope())
             {
-                Assert.That(viewModel.SelectedCaptionTemplate.Value, Is.EqualTo(registered));
-                Assert.That(picker.SelectedItem, Is.EqualTo(registered));
+                Assert.That(offered.Id, Is.EqualTo(CaptionTemplateIds.DefaultText));
+                Assert.That(viewModel.SelectedCaptionTemplate.Value, Is.EqualTo(offered));
+                Assert.That(picker.SelectedItem, Is.EqualTo(offered));
                 Assert.That(viewModel.CanAddToScene.Value, Is.True);
                 Assert.That(viewModel.TemplatePreviewImage.Value, Is.Not.Null);
             }
 
-            ValueTask disposal = templates.DisposeAsync();
+            ValueTask disposal = catalog.DisposeAsync();
             HeadlessTestHelpers.Render();
-            AssertNoTemplate("after the registry was disposed");
-            await disposal.AsTask().WaitAsync(TimeSpan.FromSeconds(5));
-
-            void AssertNoTemplate(string step)
+            using (Assert.EnterMultipleScope())
             {
-                using (Assert.EnterMultipleScope())
-                {
-                    Assert.That(viewModel.CaptionTemplates, Is.Empty, step);
-                    Assert.That(viewModel.SelectedCaptionTemplate.Value, Is.Null, step);
-                    Assert.That(picker.SelectedItem, Is.Null, step);
-                    Assert.That(viewModel.CanAddToScene.Value, Is.False, step);
-                    Assert.That(viewModel.TemplatePreviewImage.Value, Is.Null, step);
-                }
+                Assert.That(viewModel.CaptionTemplates, Is.Empty);
+                Assert.That(viewModel.SelectedCaptionTemplate.Value, Is.Null);
+                Assert.That(picker.SelectedItem, Is.Null);
+                Assert.That(viewModel.CanAddToScene.Value, Is.False);
+                Assert.That(viewModel.TemplatePreviewImage.Value, Is.Null);
             }
+
+            await disposal.AsTask().WaitAsync(TimeSpan.FromSeconds(5));
         }
         finally
         {
             window.Close();
             HeadlessTestHelpers.Settle();
             await viewModel.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
-            await templates.DisposeAsync();
+            await catalog.DisposeAsync();
         }
     }
 

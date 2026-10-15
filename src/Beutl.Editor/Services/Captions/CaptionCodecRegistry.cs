@@ -69,21 +69,6 @@ public sealed class CaptionCodecInfo
     }
 }
 
-/// <summary>Owns one descriptor registration.</summary>
-public interface ICaptionCodecDescriptorRegistration : IAsyncDisposable
-{
-}
-
-/// <summary>Owns one decoder registration and drains its active decode calls on disposal.</summary>
-public interface ICaptionDecoderRegistration : IAsyncDisposable
-{
-}
-
-/// <summary>Owns one encoder registration and drains its active encode calls on disposal.</summary>
-public interface ICaptionEncoderRegistration : IAsyncDisposable
-{
-}
-
 /// <summary>
 /// Resolves caption capabilities by exact format identifier. Only formats with registered
 /// descriptors appear in <see cref="Codecs"/> and file-extension lookup.
@@ -114,19 +99,12 @@ public interface ICaptionCodecProvider
 /// <summary>Composes descriptor, decoder, and encoder slots independently by format.</summary>
 public sealed class CaptionCodecRegistry : ICaptionCodecProvider, IAsyncDisposable
 {
-    private readonly object _mutationGate = new();
-    private readonly object _stateGate = new();
     private readonly CoreList<CaptionCodecInfo> _codecs = [];
-    private readonly List<DescriptorEntry> _descriptorEntries = [];
-    private readonly List<DecoderEntry> _decoderEntries = [];
-    private readonly List<EncoderEntry> _encoderEntries = [];
-    private readonly HashSet<State> _retiredStates = [];
-    private State _state = State.Create([], [], []);
-    private Task? _disposeTask;
-    private bool _disposed;
+    private readonly CaptionRegistryStates<State> _states;
 
     public CaptionCodecRegistry()
     {
+        _states = CreateStates(State.Create([], [], []));
     }
 
     public CaptionCodecRegistry(
@@ -137,74 +115,12 @@ public sealed class CaptionCodecRegistry : ICaptionCodecProvider, IAsyncDisposab
         ArgumentNullException.ThrowIfNull(descriptors);
         ArgumentNullException.ThrowIfNull(decoders);
         ArgumentNullException.ThrowIfNull(encoders);
-        _descriptorEntries.AddRange(descriptors.Select(registration =>
-            new DescriptorEntry(registration)));
-        _decoderEntries.AddRange(decoders.Select(registration => new DecoderEntry(registration)));
-        _encoderEntries.AddRange(encoders.Select(registration => new EncoderEntry(registration)));
-        _state = State.Create(
-            _descriptorEntries.Select(entry => entry.Registration),
-            _decoderEntries.Select(entry => entry.Registration),
-            _encoderEntries.Select(entry => entry.Registration));
-        _codecs.Replace(_state.Codecs);
+        State state = State.Create(descriptors, decoders, encoders);
+        _codecs.Replace(state.Codecs);
+        _states = CreateStates(state);
     }
 
     public ICoreReadOnlyList<CaptionCodecInfo> Codecs => _codecs;
-
-    public ICaptionCodecDescriptorRegistration Register(
-        CaptionCodecDescriptorRegistration registration)
-    {
-        ArgumentNullException.ThrowIfNull(registration);
-        lock (_mutationGate)
-        {
-            ThrowIfDisposed();
-            ValidateRegistrationMode(
-                registration.Descriptor.Format,
-                registration.Mode,
-                _descriptorEntries.Any(entry =>
-                    entry.Registration.Descriptor.Format == registration.Descriptor.Format),
-                "descriptor");
-            return AddEntry(
-                _descriptorEntries,
-                new DescriptorEntry(registration),
-                entry => new DescriptorHandle(this, entry));
-        }
-    }
-
-    public ICaptionDecoderRegistration Register(CaptionDecoderRegistration registration)
-    {
-        ArgumentNullException.ThrowIfNull(registration);
-        lock (_mutationGate)
-        {
-            ThrowIfDisposed();
-            ValidateRegistrationMode(
-                registration.Format,
-                registration.Mode,
-                _decoderEntries.Any(entry => entry.Registration.Format == registration.Format),
-                "decoder");
-            return AddEntry(
-                _decoderEntries,
-                new DecoderEntry(registration),
-                entry => new DecoderHandle(this, entry));
-        }
-    }
-
-    public ICaptionEncoderRegistration Register(CaptionEncoderRegistration registration)
-    {
-        ArgumentNullException.ThrowIfNull(registration);
-        lock (_mutationGate)
-        {
-            ThrowIfDisposed();
-            ValidateRegistrationMode(
-                registration.Format,
-                registration.Mode,
-                _encoderEntries.Any(entry => entry.Registration.Format == registration.Format),
-                "encoder");
-            return AddEntry(
-                _encoderEntries,
-                new EncoderEntry(registration),
-                entry => new EncoderHandle(this, entry));
-        }
-    }
 
     internal CaptionRegistryDrain ReplaceOwned(
         IEnumerable<CaptionCodecDescriptorRegistration> descriptors,
@@ -212,25 +128,19 @@ public sealed class CaptionCodecRegistry : ICaptionCodecProvider, IAsyncDisposab
         IEnumerable<CaptionEncoderRegistration> encoders,
         IReadOnlyDictionary<CaptionFormatId, Extension> decoderOwners,
         IReadOnlyDictionary<CaptionFormatId, Extension> encoderOwners)
-    {
-        lock (_mutationGate)
-        {
-            ThrowIfDisposed();
-            return SwapState(State.Create(
-                descriptors,
-                decoders,
-                encoders,
-                ToObjectOwners(decoderOwners),
-                ToObjectOwners(encoderOwners)));
-        }
-    }
+        => _states.Replace(() => State.Create(
+            descriptors,
+            decoders,
+            encoders,
+            ToObjectOwners(decoderOwners),
+            ToObjectOwners(encoderOwners)));
 
     public bool TryGet(
         CaptionFormatId format,
         [NotNullWhen(true)] out CaptionCodecInfo? codec)
     {
-        lock (_stateGate)
-            return _state.CodecsByFormat.TryGetValue(format, out codec);
+        lock (_states.StateGate)
+            return _states.Current.CodecsByFormat.TryGetValue(format, out codec);
     }
 
     public CaptionCodecInfo GetRequired(CaptionFormatId format)
@@ -246,10 +156,10 @@ public sealed class CaptionCodecRegistry : ICaptionCodecProvider, IAsyncDisposab
         [NotNullWhen(true)] out CaptionCodecInfo? codec)
     {
         string normalized = NormalizeExtension(extension);
-        lock (_stateGate)
+        lock (_states.StateGate)
         {
-            if (_state.FormatsByExtension.TryGetValue(normalized, out CaptionFormatId format))
-                return _state.CodecsByFormat.TryGetValue(format, out codec);
+            if (_states.Current.FormatsByExtension.TryGetValue(normalized, out CaptionFormatId format))
+                return _states.Current.CodecsByFormat.TryGetValue(format, out codec);
         }
 
         codec = null;
@@ -261,10 +171,10 @@ public sealed class CaptionCodecRegistry : ICaptionCodecProvider, IAsyncDisposab
         [NotNullWhen(true)] out CaptionCodecInfo? codec)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(fileName);
-        lock (_stateGate)
+        lock (_states.StateGate)
         {
             KeyValuePair<string, CaptionFormatId>? bestMatch = null;
-            foreach (KeyValuePair<string, CaptionFormatId> candidate in _state.FormatsByExtension)
+            foreach (KeyValuePair<string, CaptionFormatId> candidate in _states.Current.FormatsByExtension)
             {
                 if (fileName.EndsWith(candidate.Key, StringComparison.OrdinalIgnoreCase)
                     && (bestMatch is null || candidate.Key.Length > bestMatch.Value.Key.Length))
@@ -274,7 +184,7 @@ public sealed class CaptionCodecRegistry : ICaptionCodecProvider, IAsyncDisposab
             }
 
             if (bestMatch is { } match)
-                return _state.CodecsByFormat.TryGetValue(match.Value, out codec);
+                return _states.Current.CodecsByFormat.TryGetValue(match.Value, out codec);
         }
 
         codec = null;
@@ -299,17 +209,16 @@ public sealed class CaptionCodecRegistry : ICaptionCodecProvider, IAsyncDisposab
                    $"Caption encoder '{format}' returned null export content.");
     }
 
-    public ValueTask DisposeAsync()
-    {
-        lock (_mutationGate)
-            return new ValueTask(_disposeTask ??= DisposeCoreAsync());
-    }
+    public ValueTask DisposeAsync() => _states.DisposeAsync();
+
+    private CaptionRegistryStates<State> CreateStates(State initial)
+        => new(this, initial, static () => State.Create([], [], []), PublishMetadata);
 
     private CapabilityLease<ICaptionDecoder> AcquireDecoder(CaptionFormatId format)
     {
-        lock (_stateGate)
+        lock (_states.StateGate)
         {
-            State state = _state;
+            State state = _states.Current;
             if (!state.Decoders.TryGetValue(format, out ICaptionDecoder? decoder))
             {
                 throw new NotSupportedException(
@@ -324,9 +233,9 @@ public sealed class CaptionCodecRegistry : ICaptionCodecProvider, IAsyncDisposab
 
     private CapabilityLease<ICaptionEncoder> AcquireEncoder(CaptionFormatId format)
     {
-        lock (_stateGate)
+        lock (_states.StateGate)
         {
-            State state = _state;
+            State state = _states.Current;
             if (!state.Encoders.TryGetValue(format, out ICaptionEncoder? encoder))
             {
                 throw new NotSupportedException(
@@ -339,83 +248,10 @@ public sealed class CaptionCodecRegistry : ICaptionCodecProvider, IAsyncDisposab
         }
     }
 
-    private Task DisposeCoreAsync()
+    private void PublishMetadata(State state)
     {
-        if (_disposed)
-            return Task.CompletedTask;
-        _disposed = true;
-        _descriptorEntries.Clear();
-        _decoderEntries.Clear();
-        _encoderEntries.Clear();
-        CaptionRegistryDrain retired = SwapState(State.Create([], [], []));
-        return Task.WhenAll(
-            _retiredStates.Select(state => state.RetireAsync())
-                .Append(retired.All.AsTask())
-                .Distinct());
-    }
-
-    private State CreateDirectState()
-    {
-        DescriptorEntry[] descriptors = _descriptorEntries
-            .GroupBy(entry => entry.Registration.Descriptor.Format)
-            .Select(group => group.Last())
-            .ToArray();
-        DecoderEntry[] decoders = _decoderEntries
-            .GroupBy(entry => entry.Registration.Format)
-            .Select(group => group.Last())
-            .ToArray();
-        EncoderEntry[] encoders = _encoderEntries
-            .GroupBy(entry => entry.Registration.Format)
-            .Select(group => group.Last())
-            .ToArray();
-        return State.Create(
-            descriptors.Select(entry => new CaptionCodecDescriptorRegistration(
-                entry.Registration.Descriptor)),
-            decoders.Select(entry => new CaptionDecoderRegistration(
-                entry.Registration.Format,
-                entry.Registration.Decoder)),
-            encoders.Select(entry => new CaptionEncoderRegistration(
-                entry.Registration.Format,
-                entry.Registration.Encoder)),
-            decoders.ToDictionary(
-                entry => entry.Registration.Format,
-                entry => (object)entry),
-            encoders.ToDictionary(
-                entry => entry.Registration.Format,
-                entry => (object)entry));
-    }
-
-    private CaptionRegistryDrain SwapState(State next)
-    {
-        State previous;
-        lock (_stateGate)
-        {
-            previous = _state;
-            _state = next;
-        }
-
-        try
-        {
-            if (!HaveSameMetadata(_codecs, next.Codecs))
-                _codecs.Replace(next.Codecs);
-        }
-        catch
-        {
-            // Metadata observers cannot roll back a committed capability transition.
-        }
-
-        Task retired = previous.RetireAndReleasePayloadAsync();
-        if (!retired.IsCompleted)
-        {
-            _retiredStates.Add(previous);
-            _ = retired.ContinueWith(
-                _ => RemoveRetiredState(previous),
-                CancellationToken.None,
-                TaskContinuationOptions.ExecuteSynchronously,
-                TaskScheduler.Default);
-        }
-
-        return new CaptionRegistryDrain(retired, previous.DrainOwnerAsync);
+        if (!HaveSameMetadata(_codecs, state.Codecs))
+            _codecs.Replace(state.Codecs);
     }
 
     private static bool HaveSameMetadata(
@@ -444,74 +280,9 @@ public sealed class CaptionCodecRegistry : ICaptionCodecProvider, IAsyncDisposab
         return true;
     }
 
-    private void RemoveRetiredState(State state)
-    {
-        lock (_mutationGate)
-            _retiredStates.Remove(state);
-    }
-
-    private THandle AddEntry<TEntry, THandle>(List<TEntry> entries, TEntry entry, Func<TEntry, THandle> createHandle)
-    {
-        entries.Add(entry);
-        try
-        {
-            SwapState(CreateDirectState());
-            return createHandle(entry);
-        }
-        catch
-        {
-            entries.Remove(entry);
-            throw;
-        }
-    }
-
-    private Task RemoveAsync(DescriptorEntry entry) => RemoveEntryAsync(_descriptorEntries, entry);
-
-    private Task RemoveAsync(DecoderEntry entry) => RemoveEntryAsync(_decoderEntries, entry);
-
-    private Task RemoveAsync(EncoderEntry entry) => RemoveEntryAsync(_encoderEntries, entry);
-
-    private Task RemoveEntryAsync<TEntry>(List<TEntry> entries, TEntry entry)
-        where TEntry : class
-    {
-        lock (_mutationGate)
-        {
-            if (!entries.Remove(entry))
-                return _disposeTask ?? Task.CompletedTask;
-            CaptionRegistryDrain retired = SwapState(CreateDirectState());
-            return DrainOwnerAcrossRetiredStates(entry, retired);
-        }
-    }
-
-    private Task DrainOwnerAcrossRetiredStates(object owner, CaptionRegistryDrain retired)
-        => Task.WhenAll(
-            _retiredStates.Select(state => state.DrainOwnerAsync(owner))
-                .Append(retired.DrainOwnerAsync(owner))
-                .Distinct());
-
     private static IReadOnlyDictionary<CaptionFormatId, object> ToObjectOwners(
         IReadOnlyDictionary<CaptionFormatId, Extension> owners)
         => owners.ToDictionary(pair => pair.Key, pair => (object)pair.Value);
-
-    private void ThrowIfDisposed() => ObjectDisposedException.ThrowIf(_disposed, this);
-
-    private static void ValidateRegistrationMode(
-        CaptionFormatId format,
-        CaptionCodecRegistrationMode mode,
-        bool exists,
-        string capabilityName)
-    {
-        if (mode == CaptionCodecRegistrationMode.Add && exists)
-        {
-            throw new ArgumentException(
-                $"Caption format '{format}' already has a {capabilityName}. Use Replace explicitly.");
-        }
-        if (mode == CaptionCodecRegistrationMode.Replace && !exists)
-        {
-            throw new ArgumentException(
-                $"Caption format '{format}' has no {capabilityName} to replace.");
-        }
-    }
 
     private static string NormalizeExtension(string extension)
     {
@@ -578,9 +349,8 @@ public sealed class CaptionCodecRegistry : ICaptionCodecProvider, IAsyncDisposab
         public IReadOnlyCollection<object> GetEncoderOwners(CaptionFormatId format)
             => EncoderOwners.TryGetValue(format, out object? owner) ? [owner] : [];
 
-        public Task RetireAndReleasePayloadAsync()
+        protected override void ReleasePayload()
         {
-            Task drain = RetireAsync();
             Decoders = [];
             Encoders = [];
             Codecs = [];
@@ -589,7 +359,6 @@ public sealed class CaptionCodecRegistry : ICaptionCodecProvider, IAsyncDisposab
                 StringComparer.OrdinalIgnoreCase);
             DecoderOwners = new Dictionary<CaptionFormatId, object>();
             EncoderOwners = new Dictionary<CaptionFormatId, object>();
-            return drain;
         }
 
         public static State Create(
@@ -604,29 +373,32 @@ public sealed class CaptionCodecRegistry : ICaptionCodecProvider, IAsyncDisposab
             var encoders = new Dictionary<CaptionFormatId, ICaptionEncoder>();
             foreach (CaptionCodecDescriptorRegistration registration in descriptorRegistrations)
             {
-                Apply(
+                ApplyRegistration(
+                    descriptors,
                     registration.Descriptor.Format,
                     registration.Descriptor,
-                    registration.Mode,
-                    descriptors,
+                    registration.Mode == CaptionCodecRegistrationMode.Replace,
+                    "Caption format",
                     "descriptor");
             }
             foreach (CaptionDecoderRegistration registration in decoderRegistrations)
             {
-                Apply(
+                ApplyRegistration(
+                    decoders,
                     registration.Format,
                     registration.Decoder,
-                    registration.Mode,
-                    decoders,
+                    registration.Mode == CaptionCodecRegistrationMode.Replace,
+                    "Caption format",
                     "decoder");
             }
             foreach (CaptionEncoderRegistration registration in encoderRegistrations)
             {
-                Apply(
+                ApplyRegistration(
+                    encoders,
                     registration.Format,
                     registration.Encoder,
-                    registration.Mode,
-                    encoders,
+                    registration.Mode == CaptionCodecRegistrationMode.Replace,
+                    "Caption format",
                     "encoder");
             }
 
@@ -661,17 +433,6 @@ public sealed class CaptionCodecRegistry : ICaptionCodecProvider, IAsyncDisposab
                 decoderOwners ?? new Dictionary<CaptionFormatId, object>(),
                 encoderOwners ?? new Dictionary<CaptionFormatId, object>());
         }
-
-        private static void Apply<TCapability>(
-            CaptionFormatId format,
-            TCapability capability,
-            CaptionCodecRegistrationMode mode,
-            Dictionary<CaptionFormatId, TCapability> capabilities,
-            string capabilityName)
-        {
-            ValidateRegistrationMode(format, mode, capabilities.ContainsKey(format), capabilityName);
-            capabilities[format] = capability;
-        }
     }
 
     private sealed class CapabilityLease<TCapability>(
@@ -690,56 +451,5 @@ public sealed class CaptionCodecRegistry : ICaptionCodecProvider, IAsyncDisposab
             _capability = null;
             Interlocked.Exchange(ref _lifetime, null)?.Dispose();
         }
-    }
-
-    private sealed class DescriptorEntry(CaptionCodecDescriptorRegistration registration)
-    {
-        public CaptionCodecDescriptorRegistration Registration { get; } = registration;
-    }
-
-    private sealed class DecoderEntry(CaptionDecoderRegistration registration)
-    {
-        public CaptionDecoderRegistration Registration { get; } = registration;
-    }
-
-    private sealed class EncoderEntry(CaptionEncoderRegistration registration)
-    {
-        public CaptionEncoderRegistration Registration { get; } = registration;
-    }
-
-    private abstract class Handle
-    {
-        private readonly Lazy<Task> _dispose;
-
-        protected Handle(Func<Task> dispose)
-        {
-            _dispose = new Lazy<Task>(dispose, LazyThreadSafetyMode.ExecutionAndPublication);
-        }
-
-        protected ValueTask DisposeCoreAsync() => new(_dispose.Value);
-    }
-
-    private sealed class DescriptorHandle(
-        CaptionCodecRegistry registry,
-        DescriptorEntry entry) : Handle(() => registry.RemoveAsync(entry)),
-        ICaptionCodecDescriptorRegistration
-    {
-        public ValueTask DisposeAsync() => DisposeCoreAsync();
-    }
-
-    private sealed class DecoderHandle(
-        CaptionCodecRegistry registry,
-        DecoderEntry entry) : Handle(() => registry.RemoveAsync(entry)),
-        ICaptionDecoderRegistration
-    {
-        public ValueTask DisposeAsync() => DisposeCoreAsync();
-    }
-
-    private sealed class EncoderHandle(
-        CaptionCodecRegistry registry,
-        EncoderEntry entry) : Handle(() => registry.RemoveAsync(entry)),
-        ICaptionEncoderRegistration
-    {
-        public ValueTask DisposeAsync() => DisposeCoreAsync();
     }
 }

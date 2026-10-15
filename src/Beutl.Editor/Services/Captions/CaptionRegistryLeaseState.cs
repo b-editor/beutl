@@ -57,6 +57,39 @@ internal abstract class CaptionRegistryLeaseState
         }
     }
 
+    public Task RetireAndReleasePayloadAsync()
+    {
+        Task drain = RetireAsync();
+        ReleasePayload();
+        return drain;
+    }
+
+    protected abstract void ReleasePayload();
+
+    protected static void ApplyRegistration<TId, TCapability>(
+        Dictionary<TId, TCapability> capabilities,
+        TId id,
+        TCapability capability,
+        bool replace,
+        string subject,
+        string capabilityName)
+        where TId : notnull
+    {
+        bool exists = capabilities.ContainsKey(id);
+        if (!replace && exists)
+        {
+            throw new ArgumentException(
+                $"{subject} '{id}' already has a {capabilityName}. Use Replace explicitly.");
+        }
+        if (replace && !exists)
+        {
+            throw new ArgumentException(
+                $"{subject} '{id}' has no {capabilityName} to replace.");
+        }
+
+        capabilities[id] = capability;
+    }
+
     private TaskCompletionSource AddOwnerDrain(object owner)
     {
         var drain = new TaskCompletionSource(
