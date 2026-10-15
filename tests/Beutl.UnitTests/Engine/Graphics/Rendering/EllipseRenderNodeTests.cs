@@ -81,13 +81,13 @@ public class EllipseRenderNodeTest
         for (int frame = 0; frame < RenderNodeCache.StableRequestCount; frame++)
         {
             node.Update(rect, fillResource, null);
-            RenderNodeCacheHelper.BeginLifecycle(node).CompleteSuccessfully(advanceWarmup: true);
+            RenderNodeCacheLifecycle.Create(node).CompleteSuccessfully(advanceWarmup: true);
         }
 
         Assert.That(node.Cache.CanCapture, Is.True, "a stable ellipse must become a cache candidate");
 
         node.Update(new Rect(0, 0, 200, 200), fillResource, null);
-        RenderNodeCacheHelper.BeginLifecycle(node);
+        RenderNodeCacheLifecycle.Create(node);
 
         Assert.That(node.Cache.CanCapture, Is.False);
     }

@@ -49,7 +49,7 @@ public class RectClipRenderNodeTest
         for (int frame = 0; frame < RenderNodeCache.StableRequestCount; frame++)
         {
             node.Update(rect, operation);
-            RenderNodeCacheHelper.BeginLifecycle(node).CompleteSuccessfully(advanceWarmup: true);
+            RenderNodeCacheLifecycle.Create(node).CompleteSuccessfully(advanceWarmup: true);
         }
 
         Assert.That(node.Cache.CanCapture, Is.True);
@@ -68,7 +68,7 @@ public class RectClipRenderNodeTest
         for (int frame = 0; frame < RenderNodeCache.StableRequestCount; frame++)
         {
             node.Update(rect, operation);
-            RenderNodeCacheHelper.BeginLifecycle(parent).CompleteSuccessfully(advanceWarmup: true);
+            RenderNodeCacheLifecycle.Create(parent).CompleteSuccessfully(advanceWarmup: true);
         }
 
         Assert.Multiple(() =>

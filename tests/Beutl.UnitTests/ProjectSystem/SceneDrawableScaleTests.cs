@@ -474,7 +474,7 @@ public class SceneDrawableScaleTests
 
     private static void CompleteSuccessfulFrame(RenderNode node)
     {
-        RenderNodeCacheHelper.BeginLifecycle(node).CompleteSuccessfully(advanceWarmup: true);
+        RenderNodeCacheLifecycle.Create(node).CompleteSuccessfully(advanceWarmup: true);
     }
 }
 

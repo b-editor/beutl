@@ -168,7 +168,7 @@ public sealed class RenderPipelineBenchmarkNodeTests
 
         var first = new RenderPipelineBenchmarkFrameState(0.75f, StructuralVariant: false);
         tail.Apply(first);
-        RenderNodeCacheLifecycle lifecycle = RenderNodeCacheHelper.BeginLifecycle(root);
+        RenderNodeCacheLifecycle lifecycle = RenderNodeCacheLifecycle.Create(root);
 
         Assert.Multiple(() =>
         {
@@ -188,7 +188,7 @@ public sealed class RenderPipelineBenchmarkNodeTests
 
         var second = new RenderPipelineBenchmarkFrameState(0.8f, StructuralVariant: false);
         tail.Apply(second);
-        lifecycle = RenderNodeCacheHelper.BeginLifecycle(root);
+        lifecycle = RenderNodeCacheLifecycle.Create(root);
 
         Assert.Multiple(() =>
         {

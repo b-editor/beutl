@@ -165,7 +165,7 @@ public class NodeGraphFilterEffectRenderNodeTests
             bool versionBumped = false;
             resource.Reconcile(effect, CompositionContext.Default, ref versionBumped);
             node.Update(resource);
-            RenderNodeCacheHelper.BeginLifecycle(node).CompleteSuccessfully(advanceWarmup: true);
+            RenderNodeCacheLifecycle.Create(node).CompleteSuccessfully(advanceWarmup: true);
 
             Assert.That(node.Cache.CanCapture, Is.False,
                 "a build left the graph render node cacheable although its subtree is invisible to the cache pass");

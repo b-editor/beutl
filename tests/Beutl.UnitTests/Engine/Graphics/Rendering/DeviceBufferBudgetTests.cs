@@ -883,7 +883,7 @@ public sealed class DeviceBufferBudgetTests
             ScaleRecordingTestHelper.Source(EffectiveScale.At(1), s_overBudgetDomain),
             effectNode);
         for (int i = 0; i < RenderNodeCache.StableRequestCount; i++)
-            RenderNodeCacheHelper.BeginLifecycle(effectNode).CompleteSuccessfully(advanceWarmup: true);
+            RenderNodeCacheLifecycle.Create(effectNode).CompleteSuccessfully(advanceWarmup: true);
 
         RenderCacheDecision[] segmentDecisions = ResolveEffectSegmentDecisions(pipeline);
         using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRenderRequest
