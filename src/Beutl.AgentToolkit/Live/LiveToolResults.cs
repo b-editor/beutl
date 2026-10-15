@@ -7,8 +7,6 @@ namespace Beutl.AgentToolkit.Live;
 // same ToolResult<T> shape toolkit tools return, so clients parse every outcome the same way.
 public static class LiveToolResults
 {
-    public static CallToolResult Success<T>(T value) => ToolResult<T>.Success(value).ToCallToolResult();
-
     public static CallToolResult Error(string code, string message, string? target = null, string? hint = null)
         => ToolResult<object?>.Failure(code, message, target, hint).ToCallToolResult();
 
