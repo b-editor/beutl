@@ -243,11 +243,7 @@ public readonly struct Point(float x, float y)
 
     public static Point Parse(ReadOnlySpan<byte> utf8Text, IFormatProvider? provider)
     {
-        using var tokenizer = new RefUtf8StringTokenizer(utf8Text, provider ?? CultureInfo.InvariantCulture, exceptionMessage: "Invalid Point.");
-        return new Point(
-            tokenizer.ReadSingle(),
-            tokenizer.ReadSingle()
-        );
+        return Utf8TextParser.Parse<Point>(utf8Text, provider);
     }
 
     public static bool TryParse(ReadOnlySpan<byte> utf8Text, out Point result)

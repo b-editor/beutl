@@ -569,13 +569,7 @@ public readonly struct Rect
 
     public static Rect Parse(ReadOnlySpan<byte> utf8Text, IFormatProvider? provider)
     {
-        using var tokenizer = new RefUtf8StringTokenizer(utf8Text, provider ?? CultureInfo.InvariantCulture, exceptionMessage: "Invalid Rect.");
-        return new Rect(
-            tokenizer.ReadSingle(),
-            tokenizer.ReadSingle(),
-            tokenizer.ReadSingle(),
-            tokenizer.ReadSingle()
-        );
+        return Utf8TextParser.Parse<Rect>(utf8Text, provider);
     }
 
     public static bool TryParse(ReadOnlySpan<byte> utf8Text, out Rect result)

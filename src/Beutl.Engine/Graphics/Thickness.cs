@@ -348,25 +348,7 @@ public readonly struct Thickness
 
     public static Thickness Parse(ReadOnlySpan<byte> utf8Text, IFormatProvider? provider)
     {
-        const string exceptionMessage = "Invalid Thickness.";
-
-        using var tokenizer = new RefUtf8StringTokenizer(utf8Text, provider ?? CultureInfo.InvariantCulture, exceptionMessage);
-        if (tokenizer.TryReadSingle(out float a))
-        {
-            if (tokenizer.TryReadSingle(out float b))
-            {
-                if (tokenizer.TryReadSingle(out float c))
-                {
-                    return new Thickness(a, b, c, tokenizer.ReadSingle());
-                }
-
-                return new Thickness(a, b);
-            }
-
-            return new Thickness(a);
-        }
-
-        throw new FormatException(exceptionMessage);
+        return Utf8TextParser.Parse<Thickness>(utf8Text, provider);
     }
 
     public static bool TryParse(ReadOnlySpan<byte> utf8Text, IFormatProvider? provider, out Thickness result)
