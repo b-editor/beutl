@@ -5,8 +5,6 @@ namespace Beutl.AgentToolkit.Installation;
 
 internal static class CodexMcpConfigWriter
 {
-    private const UnixFileMode OwnerReadWrite = UnixFileMode.UserRead | UnixFileMode.UserWrite;
-
     // writeContents is a test hook that replaces the write of the new contents.
     public static async Task WriteAsync(
         string path,
@@ -32,47 +30,10 @@ internal static class CodexMcpConfigWriter
         string updated = CodexMcpConfigEditor.Update(
             text, root, options.McpServersPropertyName, servers, AgentToolkitInstaller.ObsoleteServerNames());
         cancellationToken.ThrowIfCancellationRequested();
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        await using FileStream? existingStream = File.Exists(path)
-            ? new FileStream(path, FileMode.Open, FileAccess.Write, FileShare.None)
-            : null;
-        // Restrict existing files before writing a token, including no-op
-        // reinstalls of configurations created by an earlier version.
-        if (existingStream is not null && !OperatingSystem.IsWindows())
-            File.SetUnixFileMode(existingStream.SafeFileHandle, OwnerReadWrite);
         if (updated == text)
             return;
 
-        string temporaryPath = Path.Combine(Path.GetDirectoryName(path)!, $".beutl-mcp-{Guid.NewGuid():N}.tmp");
-        var streamOptions = new FileStreamOptions
-        {
-            Mode = FileMode.CreateNew,
-            Access = FileAccess.Write,
-            Share = FileShare.None,
-            Options = FileOptions.Asynchronous,
-        };
-        if (!OperatingSystem.IsWindows())
-            streamOptions.UnixCreateMode = OwnerReadWrite;
-
-        try
-        {
-            await using (var temporary = new FileStream(temporaryPath, streamOptions))
-            {
-                if (!OperatingSystem.IsWindows())
-                    File.SetUnixFileMode(temporary.SafeFileHandle, OwnerReadWrite);
-                await (writeContents ?? WriteContentsAsync)(temporary, updated, cancellationToken).ConfigureAwait(false);
-                temporary.Flush(flushToDisk: true);
-            }
-
-            cancellationToken.ThrowIfCancellationRequested();
-            if (existingStream is not null)
-                await existingStream.DisposeAsync().ConfigureAwait(false);
-            File.Move(temporaryPath, path, overwrite: true);
-        }
-        finally
-        {
-            File.Delete(temporaryPath);
-        }
+        await McpConfigFile.ReplaceAsync(path, updated, writeContents, cancellationToken).ConfigureAwait(false);
     }
 
     // A stdio launcher; the server authenticates to the running editors itself, so no URL or
@@ -98,13 +59,6 @@ internal static class CodexMcpConfigWriter
         }
 
         return new TomlTable { [AgentToolkitInstallOptions.DefaultServerName] = server };
-    }
-
-    private static async Task WriteContentsAsync(Stream stream, string text, CancellationToken cancellationToken)
-    {
-        await using var writer = new StreamWriter(stream, leaveOpen: true);
-        await writer.WriteAsync(text.AsMemory(), cancellationToken).ConfigureAwait(false);
-        await writer.FlushAsync(cancellationToken).ConfigureAwait(false);
     }
 
     private static TomlTable ToTable(IReadOnlyDictionary<string, string> values)

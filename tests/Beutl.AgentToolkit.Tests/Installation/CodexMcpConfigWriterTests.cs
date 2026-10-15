@@ -45,7 +45,7 @@ public sealed class CodexMcpConfigWriterTests
     private static string Home(TomlTable server) => (string)((TomlTable)server["env"])["BEUTL_HOME"];
 
     [Test]
-    public async Task New_codex_config_is_private_on_unix()
+    public async Task New_codex_config_gets_the_default_file_mode()
     {
         if (OperatingSystem.IsWindows())
         {
@@ -53,14 +53,20 @@ public sealed class CodexMcpConfigWriterTests
             return;
         }
 
+        string reference = Path.Combine(_root, "reference.toml");
+        await File.WriteAllTextAsync(reference, "");
+
         await AgentToolkitInstaller.InstallAsync(Options, []);
 
-        Assert.That(File.GetUnixFileMode(ConfigPath), Is.EqualTo(UnixFileMode.UserRead | UnixFileMode.UserWrite));
+        Assert.That(File.GetUnixFileMode(ConfigPath), Is.EqualTo(File.GetUnixFileMode(reference)));
     }
 
-    [TestCase(false)]
-    [TestCase(true)]
-    public async Task Reinstall_restricts_existing_config_permissions_even_when_content_is_unchanged(bool unchanged)
+    // A read-only file is replaced too, as the JSON configs are, and stays read-only.
+    [TestCase(ReadWriteForAll, false)]
+    [TestCase(ReadWriteForAll, true)]
+    [TestCase(ReadOnlyForAll, false)]
+    [TestCase(ReadOnlyForAll, true)]
+    public async Task Reinstall_keeps_the_existing_config_permissions(UnixFileMode mode, bool unchanged)
     {
         if (OperatingSystem.IsWindows())
         {
@@ -69,15 +75,20 @@ public sealed class CodexMcpConfigWriterTests
         }
 
         await AgentToolkitInstaller.InstallAsync(Options, []);
-        File.SetUnixFileMode(ConfigPath, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead | UnixFileMode.OtherRead);
+        File.SetUnixFileMode(ConfigPath, mode);
         AgentToolkitInstallOptions options = unchanged ? Options : WithHome(Options, OtherHome);
 
         await AgentToolkitInstaller.InstallAsync(options, []);
 
-        Assert.That(File.GetUnixFileMode(ConfigPath), Is.EqualTo(UnixFileMode.UserRead | UnixFileMode.UserWrite));
+        Assert.That(File.GetUnixFileMode(ConfigPath), Is.EqualTo(mode));
         var servers = (TomlTable)TomlSerializer.Deserialize<TomlTable>(await File.ReadAllTextAsync(ConfigPath))!["mcp_servers"];
         Assert.That(Home(Server(servers)), Is.EqualTo(options.McpEnvironment["BEUTL_HOME"]));
     }
+
+    private const UnixFileMode ReadWriteForAll =
+        UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead | UnixFileMode.OtherRead;
+
+    private const UnixFileMode ReadOnlyForAll = UnixFileMode.UserRead | UnixFileMode.GroupRead | UnixFileMode.OtherRead;
 
     [TestCase(false, false)]
     [TestCase(false, true)]
@@ -124,6 +135,8 @@ public sealed class CodexMcpConfigWriterTests
 
         string target = Path.Combine(_root, "managed-config.toml");
         await File.WriteAllTextAsync(target, "model = 'custom'\n");
+        const UnixFileMode mode = UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead;
+        File.SetUnixFileMode(target, mode);
         File.CreateSymbolicLink(ConfigPath, target);
 
         await AgentToolkitInstaller.InstallAsync(Options, []);
@@ -132,7 +145,7 @@ public sealed class CodexMcpConfigWriterTests
         TomlTable root = TomlSerializer.Deserialize<TomlTable>(await File.ReadAllTextAsync(target))!;
         Assert.That(root["model"], Is.EqualTo("custom"));
         Assert.That(((TomlTable)root["mcp_servers"]).ContainsKey("beutl-agent"), Is.True);
-        Assert.That(File.GetUnixFileMode(target), Is.EqualTo(UnixFileMode.UserRead | UnixFileMode.UserWrite));
+        Assert.That(File.GetUnixFileMode(target), Is.EqualTo(mode));
     }
 
     [Test]
