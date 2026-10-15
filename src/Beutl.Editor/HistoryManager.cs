@@ -33,20 +33,17 @@ public sealed partial class HistoryManager : IDisposable
     private bool _isolatedTransactionActive;
     private bool _isDisposed;
 
-    public HistoryManager(CoreObject root, OperationSequenceGenerator sequenceGenerator)
+    public HistoryManager(OperationSequenceGenerator sequenceGenerator)
     {
         _stateChanged = new FaultIsolatedSubject<HistoryState>(ex =>
             _logger.LogError(ex, "A history state observer failed; continuing publication."));
         _beforeMutation = new FaultIsolatedSubject<System.Reactive.Unit>(ex =>
             _logger.LogError(ex, "A BeforeMutation observer failed; continuing publication."));
-        Root = root ?? throw new ArgumentNullException(nameof(root));
         _sequenceGenerator = sequenceGenerator ?? throw new ArgumentNullException(nameof(sequenceGenerator));
         _currentTransaction = CreateTransaction();
         _entries.Add(HistoryEntry.CreateInitial());
         _readOnlyEntries = new IsolatedEntryCollection(_entries, _logger);
     }
-
-    public CoreObject Root { get; }
 
     public bool CanUndo => _undoStack.Count > _minimumReplayIndex;
     public bool CanRedo => _redoStack.Count > 0 && _undoStack.Count < _maximumReplayIndex;

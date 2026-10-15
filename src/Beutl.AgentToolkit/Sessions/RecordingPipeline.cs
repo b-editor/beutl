@@ -25,7 +25,7 @@ public sealed class RecordingPipeline : IDisposable
         ArgumentNullException.ThrowIfNull(root);
 
         var sequence = new OperationSequenceGenerator();
-        var history = new HistoryManager(root, sequence);
+        var history = new HistoryManager(sequence);
         var observer = new CoreObjectOperationObserver(null, root, sequence);
         IDisposable subscription = history.Subscribe(observer);
         return new RecordingPipeline(history, observer, subscription);

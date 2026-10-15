@@ -26,7 +26,7 @@ public class ModelSourceEditorTests
             File.WriteAllText(path, "v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n");
             var model = new Model3D();
             var sequence = new OperationSequenceGenerator();
-            using var history = new HistoryManager(model, sequence);
+            using var history = new HistoryManager(sequence);
             using var observer = new CoreObjectOperationObserver(null, model, sequence);
             using var subscription = history.Subscribe(observer);
             using var vm = new ModelSourceEditorViewModel(new EnginePropertyAdapter<ModelSource?>(model.Source, model));
@@ -63,7 +63,7 @@ public class ModelSourceEditorTests
             var original = new ModelSource(); original.ReadFrom(new Uri(valid));
             var model = new Model3D(); model.Source.CurrentValue = original;
             var originalChild = model.Children.Single();
-            using var history = new HistoryManager(model, new OperationSequenceGenerator());
+            using var history = new HistoryManager(new OperationSequenceGenerator());
             using var vm = new ModelSourceEditorViewModel(new EnginePropertyAdapter<ModelSource?>(model.Source, model));
             vm.Accept(ServiceVisitor.For(history));
             var view = new ModelSourceEditor { DataContext = vm, Margin = new Thickness(16) };
@@ -238,7 +238,7 @@ public class ModelSourceEditorTests
     {
         var model = new Model3D();
         var vm = new ModelSourceEditorViewModel(new EnginePropertyAdapter<ModelSource?>(model.Source, model));
-        vm.Accept(ServiceVisitor.For(new HistoryManager(model, new OperationSequenceGenerator())));
+        vm.Accept(ServiceVisitor.For(new HistoryManager(new OperationSequenceGenerator())));
         var view = new ModelSourceEditor { DataContext = vm };
         return (model, vm, view, view.FindControl<StorageFileEditor>("FileEditor")!);
     }

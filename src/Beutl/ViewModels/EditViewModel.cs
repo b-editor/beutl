@@ -160,7 +160,7 @@ public sealed partial class EditViewModel
         var sequenceGenerator = new OperationSequenceGenerator();
         var observer = new CoreObjectOperationObserver(null, Scene, sequenceGenerator)
             .DisposeWith(_disposables);
-        HistoryManager = new HistoryManager(Scene, sequenceGenerator);
+        HistoryManager = new HistoryManager(sequenceGenerator);
         HistoryManager.Subscribe(observer)
             .DisposeWith(_disposables);
         Usage = new EditorUsageTracker(Scene, HistoryManager).DisposeWith(_disposables);

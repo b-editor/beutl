@@ -33,8 +33,8 @@ public sealed class PreviewSettingsTabViewModel : IToolContext, IPropertyEditorC
                     ?? new ReactivePropertySlim<bool>(false).DisposeWith(_disposables);
 
         // Editors target global EditorConfig, not the scene, so commit into a dedicated
-        // EditorConfig-rooted HistoryManager (same as the Output / encoder-settings editors).
-        _history = new HistoryManager(config, new OperationSequenceGenerator());
+        // HistoryManager (same as the Output / encoder-settings editors).
+        _history = new HistoryManager(new OperationSequenceGenerator());
 
         // Each group's "enabled" ToggleSwitch (bound two-way below) gates its dependent rows,
         // which reuse the standard property editors. EditorConfig stays the single source of truth.

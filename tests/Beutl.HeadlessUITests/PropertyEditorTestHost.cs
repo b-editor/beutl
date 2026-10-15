@@ -74,7 +74,7 @@ internal static class PropertyEditorTestHost
         public HistoryScope(CoreObject target)
         {
             var sequence = new OperationSequenceGenerator();
-            History = new HistoryManager(target, sequence);
+            History = new HistoryManager(sequence);
             _observer = new CoreObjectOperationObserver(null, target, sequence);
             _subscription = History.Subscribe(_observer);
         }

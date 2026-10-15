@@ -36,7 +36,7 @@ public class NodeGraphPortDropTests
         var source = new FilterEffectInputNode { Position = (20, 40) };
         graph.Nodes.Add(source);
         var sequence = new OperationSequenceGenerator();
-        using var history = new HistoryManager(graph, sequence);
+        using var history = new HistoryManager(sequence);
         using var observer = new CoreObjectOperationObserver(null, graph, sequence);
         history.Subscribe(observer);
         var service = new NodeGraphMutationService(history);
@@ -117,7 +117,7 @@ public class NodeGraphPortDropTests
         var target = new RandomSingleNode { Position = (20, 40) };
         graph.Nodes.Add(target);
         var sequence = new OperationSequenceGenerator();
-        using var history = new HistoryManager(graph, sequence);
+        using var history = new HistoryManager(sequence);
         using var observer = new CoreObjectOperationObserver(null, graph, sequence);
         history.Subscribe(observer);
         var service = new NodeGraphMutationService(history);
