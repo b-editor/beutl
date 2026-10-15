@@ -28,7 +28,8 @@ public class Dispatcher
 
     public bool HasShutdownFinished => _synchronizationContext.HasShutdownFinished;
 
-    public event EventHandler<DispatcherUnhandledExceptionEventArgs>? UnhandledException
+    // For tests: only they subscribe, to observe what operations throw on the dispatcher thread.
+    internal event EventHandler<DispatcherUnhandledExceptionEventArgs>? UnhandledException
     {
         add => _synchronizationContext.UnhandledException += value;
         [ExcludeFromCodeCoverage]
@@ -69,13 +70,6 @@ public class Dispatcher
             s_current = oldDispatcher;
             SynchronizationContext.SetSynchronizationContext(oldSynchronizationContext);
         }
-    }
-
-    [Obsolete("Use Shutdown.")]
-    [ExcludeFromCodeCoverage]
-    public void Stop()
-    {
-        Shutdown();
     }
 
     public void Shutdown()
@@ -166,32 +160,6 @@ public class Dispatcher
         _synchronizationContext.Post(priority, () => operation(), ct);
     }
 
-    public void Run(Action operation, DispatchPriority priority = DispatchPriority.Medium, CancellationToken ct = default)
-    {
-        if (CheckAccess())
-        {
-            if (!ct.IsCancellationRequested)
-                operation();
-        }
-        else
-        {
-            Dispatch(operation, priority, ct);
-        }
-    }
-
-    public void Run(Func<Task> operation, DispatchPriority priority = DispatchPriority.Medium, CancellationToken ct = default)
-    {
-        if (CheckAccess())
-        {
-            if (!ct.IsCancellationRequested)
-                operation();
-        }
-        else
-        {
-            Dispatch(operation, priority, ct);
-        }
-    }
-
     public void Schedule(TimeSpan delay, Action operation, DispatchPriority priority = DispatchPriority.Medium, CancellationToken ct = default)
     {
         _synchronizationContext.PostDelayed(_timeProvider.GetUtcNow() + delay, priority, operation, ct);
@@ -200,10 +168,5 @@ public class Dispatcher
     public void Schedule(TimeSpan delay, Func<Task> operation, DispatchPriority priority = DispatchPriority.Medium, CancellationToken ct = default)
     {
         _synchronizationContext.PostDelayed(_timeProvider.GetUtcNow() + delay, priority, () => operation(), ct);
-    }
-
-    public static YieldTask Yield(DispatchPriority priority = DispatchPriority.Low)
-    {
-        return new YieldTask(priority);
     }
 }

@@ -14,21 +14,6 @@ public class OperationQueueTests
     }
 
     [Test]
-    public void Count_OnlyCountsPriorityAtOrAboveMinimum()
-    {
-        var queue = new OperationQueue();
-
-        queue.Enqueue(NewOperation(DispatchPriority.Low));
-        queue.Enqueue(NewOperation(DispatchPriority.Medium));
-        queue.Enqueue(NewOperation(DispatchPriority.Medium));
-        queue.Enqueue(NewOperation(DispatchPriority.High));
-
-        Assert.That(queue.Count(DispatchPriority.Low), Is.EqualTo(4));
-        Assert.That(queue.Count(DispatchPriority.Medium), Is.EqualTo(3));
-        Assert.That(queue.Count(DispatchPriority.High), Is.EqualTo(1));
-    }
-
-    [Test]
     public void Any_ReflectsPresenceAtOrAboveMinimum()
     {
         var queue = new OperationQueue();

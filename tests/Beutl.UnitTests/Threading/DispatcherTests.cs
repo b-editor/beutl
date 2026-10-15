@@ -61,53 +61,6 @@ public class DispatcherTests
     }
 
     [Test]
-    public async Task Yield()
-    {
-        var dispatcher = Dispatcher.Spawn();
-        var tcs = new TaskCompletionSource();
-
-        bool yielded = false;
-        var task2 = dispatcher.InvokeAsync(async () =>
-        {
-            await tcs.Task;
-            await Dispatcher.Yield();
-            Assert.That(yielded, Is.True, "Dispatcher did not yield control as expected.");
-        });
-        var task1 = dispatcher.InvokeAsync(() => yielded = true);
-        tcs.SetResult();
-
-        await Task.WhenAll(task1, task2);
-
-        dispatcher.Shutdown();
-    }
-
-    [Test]
-    public void Yield_OnCompleted()
-    {
-        var dispatcher = Dispatcher.Spawn();
-        dispatcher.Invoke(() =>
-        {
-            var task = Dispatcher.Yield();
-            var awaiter = task.GetAwaiter();
-
-            awaiter.OnCompleted(() => { });
-        });
-        dispatcher.Shutdown();
-    }
-
-    [Test]
-    public async Task YieldOutsideDispatcher()
-    {
-        await Assert.CatchAsync<DispatcherException>(async () => await Dispatcher.Yield());
-    }
-
-    [Test]
-    public void YieldOutsideDispatcher_Completed_Throws()
-    {
-        Assert.Throws<DispatcherException>(() => Dispatcher.Yield().GetAwaiter().OnCompleted(() => { }));
-    }
-
-    [Test]
     public async Task Schedule()
     {
         var dispatcher = Dispatcher.Spawn();
@@ -318,60 +271,6 @@ public class DispatcherTests
             Assert.That(dispatcher.Invoke(() => dispatcher.CheckAccess()), Is.True);
         });
 
-        dispatcher.Shutdown();
-    }
-
-    [Test]
-    public void Run()
-    {
-        var dispatcher = Dispatcher.Spawn();
-        dispatcher.Run(() =>
-        {
-            Assert.That(dispatcher.CheckAccess(), Is.True);
-        });
-        dispatcher.Shutdown();
-    }
-
-    [Test]
-    public void RunAsync()
-    {
-        var dispatcher = Dispatcher.Spawn();
-        dispatcher.Run(async () =>
-        {
-            Assert.That(dispatcher.CheckAccess(), Is.True);
-            await Task.CompletedTask;
-        });
-        dispatcher.Shutdown();
-    }
-
-    [Test]
-    public void Run_InsideDispatcherThread()
-    {
-        var dispatcher = Dispatcher.Spawn();
-        dispatcher.Run(() =>
-        {
-            Assert.That(dispatcher.CheckAccess(), Is.True);
-            dispatcher.Run(() =>
-            {
-                Assert.That(dispatcher.CheckAccess(), Is.True);
-            });
-        });
-        dispatcher.Shutdown();
-    }
-
-    [Test]
-    public void RunAsync_InsideDispatcherThread()
-    {
-        var dispatcher = Dispatcher.Spawn();
-        dispatcher.Run(() =>
-        {
-            Assert.That(dispatcher.CheckAccess(), Is.True);
-            dispatcher.Run(async () =>
-            {
-                Assert.That(dispatcher.CheckAccess(), Is.True);
-                await Task.CompletedTask;
-            });
-        });
         dispatcher.Shutdown();
     }
 
