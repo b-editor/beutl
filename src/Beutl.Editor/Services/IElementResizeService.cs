@@ -70,20 +70,6 @@ public interface IElementResizeService
     /// clamps to zero.
     /// </summary>
     bool Slide(Scene scene, IReadOnlyList<ElementSlideLane> lanes, TimeSpan delta);
-
-    /// <summary>
-    /// The delta window shared by <see cref="Roll"/> and <see cref="Slide"/>: the
-    /// intersection over <paramref name="pairs"/> of each front/back window,
-    /// <c>Min ≤ 0 ≤ Max</c>, bounded per pair by both clips keeping at least one frame at
-    /// the scene's frame rate, the back in-point staying at or above zero, and — when the
-    /// editor's ClampResizeToOriginalLength preference is on — the front out-point staying
-    /// within its source. This is an outer envelope: animated clocks and shared media can impose
-    /// additional constraints inside it. The Timeline View and both commit operations
-    /// validate the actual delta using the same media-clock snapshot calculation. <c>(Zero, Zero)</c> when
-    /// <paramref name="pairs"/> is empty or no trim is possible. Adjacency is not validated
-    /// here; callers check it before starting a drag.
-    /// </summary>
-    (TimeSpan Min, TimeSpan Max) GetTrimDeltaBounds(Scene scene, IReadOnlyList<ElementTrimPair> pairs);
 }
 
 public readonly record struct ElementResizeRequest(

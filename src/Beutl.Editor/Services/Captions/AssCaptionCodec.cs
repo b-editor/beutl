@@ -11,8 +11,6 @@ public sealed class AssCaptionCodec : ICaptionDecoder, ICaptionEncoder
     private const string GeneratedStyleSuffix =
         ",Arial,48,&H00FFFFFF,&H000000FF,&H00000000,&H80000000,0,0,0,0,100,100,0,0,1,2,1,2,20,20,20,1";
 
-    public CaptionFormatId Format => CaptionFormats.Ass;
-
     public CaptionImportResult Decode(string content)
     {
         ArgumentNullException.ThrowIfNull(content);
@@ -55,7 +53,6 @@ public sealed class AssCaptionCodec : ICaptionDecoder, ICaptionEncoder
                 {
                     styleDefinitions.Add(new AssStyleDefinition(
                         GetStyleDefinitionName(styleDefinition),
-                        i + 1,
                         usesGeneratedStyleFormat && IsGeneratedStyleDefinition(styleDefinition)));
                 }
                 continue;
@@ -66,14 +63,14 @@ public sealed class AssCaptionCodec : ICaptionDecoder, ICaptionEncoder
 
             if (TryGetDirective(directiveLine, "Format", out string formatValue))
             {
-                format = ReadEventFormat(formatValue, i + 1, errors);
+                format = ReadEventFormat(formatValue, errors);
                 continue;
             }
 
             if (!TryGetDirective(directiveLine, "Dialogue", out string dialogue))
                 continue;
 
-            if (DecodeDialogue(dialogue, format, i + 1, errors) is { } cue)
+            if (DecodeDialogue(dialogue, format, errors) is { } cue)
                 cues.Add(cue);
         }
 
@@ -86,14 +83,13 @@ public sealed class AssCaptionCodec : ICaptionDecoder, ICaptionEncoder
             : CaptionImportResult.Failure(errors);
     }
 
-    private static string[]? ReadEventFormat(string formatValue, int lineNumber, List<CaptionDiagnostic> errors)
+    private static string[]? ReadEventFormat(string formatValue, List<CaptionDiagnostic> errors)
     {
         string[] candidate = formatValue.Split(',').Select(field => field.Trim()).ToArray();
         if (!IsSupportedFormat(candidate))
         {
             errors.Add(new CaptionDiagnostic(
                 CaptionDiagnosticKinds.InvalidStructure,
-                lineNumber,
                 "ASS/SSA event format must contain Start, End, and a final Text field."));
             return null;
         }
@@ -102,13 +98,12 @@ public sealed class AssCaptionCodec : ICaptionDecoder, ICaptionEncoder
     }
 
     private static CaptionCue? DecodeDialogue(
-        string dialogue, string[]? format, int lineNumber, List<CaptionDiagnostic> errors)
+        string dialogue, string[]? format, List<CaptionDiagnostic> errors)
     {
         if (format is null)
         {
             errors.Add(new CaptionDiagnostic(
                 CaptionDiagnosticKinds.InvalidStructure,
-                lineNumber,
                 "ASS/SSA Dialogue appears before a supported event Format line."));
             return null;
         }
@@ -118,7 +113,6 @@ public sealed class AssCaptionCodec : ICaptionDecoder, ICaptionEncoder
         {
             errors.Add(new CaptionDiagnostic(
                 CaptionDiagnosticKinds.InvalidStructure,
-                lineNumber,
                 "ASS/SSA Dialogue has fewer fields than its event Format line."));
             return null;
         }
@@ -132,7 +126,6 @@ public sealed class AssCaptionCodec : ICaptionDecoder, ICaptionEncoder
         {
             errors.Add(new CaptionDiagnostic(
                 CaptionDiagnosticKinds.InvalidTiming,
-                lineNumber,
                 "ASS/SSA timing must use H:MM:SS.cc and have an end after its start."));
             return null;
         }
@@ -157,7 +150,6 @@ public sealed class AssCaptionCodec : ICaptionDecoder, ICaptionEncoder
         {
             errors.Add(new CaptionDiagnostic(
                 CaptionDiagnosticKinds.UnsupportedMarkup,
-                lineNumber,
                 "ASS/SSA override blocks cannot be represented and were removed from the cue text."));
         }
         return new CaptionCue(
@@ -187,7 +179,6 @@ public sealed class AssCaptionCodec : ICaptionDecoder, ICaptionEncoder
             {
                 errors.Add(new CaptionDiagnostic(
                     CaptionDiagnosticKinds.UnsupportedMarkup,
-                    definition.LineNumber,
                     "ASS/SSA custom style definitions cannot be represented and were removed."));
             }
         }
@@ -199,14 +190,12 @@ public sealed class AssCaptionCodec : ICaptionDecoder, ICaptionEncoder
         {
             errors.Add(new CaptionDiagnostic(
                 CaptionDiagnosticKinds.InvalidHeader,
-                null,
                 "An ASS/SSA document must contain an [Events] section."));
         }
         else if (format is null && !errors.Any(error => error.Kind == CaptionDiagnosticKinds.InvalidStructure))
         {
             errors.Add(new CaptionDiagnostic(
                 CaptionDiagnosticKinds.InvalidStructure,
-                null,
                 "The ASS/SSA [Events] section must contain a supported Format line."));
         }
     }
@@ -503,5 +492,5 @@ public sealed class AssCaptionCodec : ICaptionDecoder, ICaptionEncoder
 
     private static string? EmptyToNull(string value) => value.Length == 0 ? null : value;
 
-    private sealed record AssStyleDefinition(string Name, int LineNumber, bool HasGeneratedValues);
+    private sealed record AssStyleDefinition(string Name, bool HasGeneratedValues);
 }

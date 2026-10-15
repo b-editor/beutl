@@ -38,263 +38,10 @@ public sealed class ElementSourceHandlerRegistryTests
     }
 
     [Test]
-    public async Task Register_OrdersHandlersAndRequiresExplicitReplacement()
-    {
-        await using var registry = new ElementSourceHandlerRegistry();
-        var original = new TestHandler(typeof(FirstSource));
-        var other = new TestHandler(typeof(SecondSource));
-        await using IElementSourceHandlerRegistration originalRegistration = registry.Register(
-            new ElementSourceHandlerRegistration(original, order: 20));
-        await using IElementSourceHandlerRegistration otherRegistration = registry.Register(
-            new ElementSourceHandlerRegistration(other, order: -10));
-
-        Assert.That(
-            registry.Handlers.Select(handler => handler.SourceTypeName),
-            Is.EqualTo(new[]
-            {
-                typeof(SecondSource).AssemblyQualifiedName,
-                typeof(FirstSource).AssemblyQualifiedName,
-            }));
-        Assert.Throws<ArgumentException>(() => registry.Register(
-            new ElementSourceHandlerRegistration(new TestHandler(typeof(FirstSource)))));
-
-        var replacement = new TestHandler(typeof(FirstSource));
-        IElementSourceHandlerRegistration replacementRegistration = registry.Register(
-            new ElementSourceHandlerRegistration(
-                replacement,
-                ElementSourceHandlerRegistrationMode.Replace,
-                order: 0));
-
-        Assert.That(registry.TryAcquire(typeof(FirstSource), out IElementSourceHandlerLease? lease), Is.True);
-        using (lease)
-        {
-            Assert.That(lease!.Handler, Is.SameAs(replacement));
-        }
-        Assert.That(
-            registry.Handlers.Select(handler => handler.Order),
-            Is.EqualTo(new[] { -10, 0 }));
-
-        await replacementRegistration.DisposeAsync();
-        Assert.That(registry.TryAcquire(typeof(FirstSource), out lease), Is.True);
-        using (lease)
-        {
-            Assert.That(lease!.Handler, Is.SameAs(original));
-        }
-    }
-
-    [Test]
-    public async Task Handlers_IsStableAndNotifiesOncePerVisibleDirectMutation()
-    {
-        await using var registry = new ElementSourceHandlerRegistry();
-        var handlers = registry.Handlers;
-        var snapshots = new List<int[]>();
-        handlers.CollectionChanged += (_, _) =>
-            snapshots.Add(handlers.Select(handler => handler.Order).ToArray());
-
-        IElementSourceHandlerRegistration original = registry.Register(
-            new ElementSourceHandlerRegistration(
-                new TestHandler(typeof(FirstSource)),
-                order: 20));
-        IElementSourceHandlerRegistration replacement = registry.Register(
-            new ElementSourceHandlerRegistration(
-                new TestHandler(typeof(FirstSource)),
-                ElementSourceHandlerRegistrationMode.Replace,
-                order: -10));
-        await replacement.DisposeAsync();
-        await original.DisposeAsync();
-
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(registry.Handlers, Is.SameAs(handlers));
-            Assert.That(snapshots, Is.EqualTo(new[]
-            {
-                new[] { 20 },
-                new[] { -10 },
-                new[] { 20 },
-                Array.Empty<int>(),
-            }));
-            Assert.That(handlers, Is.Empty);
-        }
-    }
-
-    [Test]
-    public async Task Handlers_DoesNotNotifyWhenOnlyTheImplementationChanges()
-    {
-        await using var registry = new ElementSourceHandlerRegistry();
-        int metadataChanges = 0;
-        registry.Handlers.CollectionChanged += (_, _) => metadataChanges++;
-        var original = new TestHandler(typeof(FirstSource));
-        var replacement = new TestHandler(typeof(FirstSource));
-        IElementSourceHandlerRegistration originalRegistration = registry.Register(
-            new ElementSourceHandlerRegistration(original));
-        IElementSourceHandlerRegistration replacementRegistration = registry.Register(
-            new ElementSourceHandlerRegistration(
-                replacement,
-                ElementSourceHandlerRegistrationMode.Replace));
-
-        Assert.That(registry.TryAcquire(
-            typeof(FirstSource),
-            out IElementSourceHandlerLease? replacementLease), Is.True);
-        using (replacementLease)
-        {
-            Assert.That(replacementLease!.Handler, Is.SameAs(replacement));
-        }
-        await replacementRegistration.DisposeAsync();
-        Assert.That(registry.TryAcquire(
-            typeof(FirstSource),
-            out IElementSourceHandlerLease? originalLease), Is.True);
-        using (originalLease)
-        {
-            Assert.That(originalLease!.Handler, Is.SameAs(original));
-        }
-
-        Assert.That(metadataChanges, Is.EqualTo(1));
-        await originalRegistration.DisposeAsync();
-        Assert.That(metadataChanges, Is.EqualTo(2));
-    }
-
-    [Test]
-    public async Task HandlerMetadataObserverFailureDoesNotRollBackRegistryMutation()
-    {
-        await using var registry = new ElementSourceHandlerRegistry();
-        registry.Handlers.CollectionChanged += (_, _) =>
-            throw new InvalidOperationException("observer failure");
-        IElementSourceHandlerRegistration? registration = null;
-
-        Assert.DoesNotThrow(() => registration = registry.Register(
-            new ElementSourceHandlerRegistration(new TestHandler(typeof(FirstSource)))));
-        Assert.That(registry.TryAcquire(
-            typeof(FirstSource),
-            out IElementSourceHandlerLease? lease), Is.True);
-        lease!.Dispose();
-        await Assert.DoesNotThrowAsync(async () => await registration!.DisposeAsync());
-        Assert.That(registry.Handlers, Is.Empty);
-    }
-
-    [Test]
-    public async Task Register_ReplaceRequiresAnExistingHandler()
-    {
-        await using var registry = new ElementSourceHandlerRegistry();
-
-        Assert.Throws<ArgumentException>(() => registry.Register(
-            new ElementSourceHandlerRegistration(
-                new TestHandler(typeof(FirstSource)),
-                ElementSourceHandlerRegistrationMode.Replace)));
-    }
-
-    [Test]
-    public async Task RegistrationDispose_RetiresBeforeWaitingAndDrainsActiveLeases()
-    {
-        await using var registry = new ElementSourceHandlerRegistry();
-        var fallback = new TestHandler(typeof(FirstSource));
-        var replacement = new TestHandler(typeof(FirstSource));
-        await using IElementSourceHandlerRegistration fallbackRegistration = registry.Register(
-            new ElementSourceHandlerRegistration(fallback, order: 10));
-        IElementSourceHandlerRegistration replacementRegistration = registry.Register(
-            new ElementSourceHandlerRegistration(
-                replacement,
-                ElementSourceHandlerRegistrationMode.Replace,
-                order: -10));
-        Assert.That(
-            registry.TryAcquire(typeof(FirstSource), out IElementSourceHandlerLease? activeLease),
-            Is.True);
-        IElementSourceHandlerLease lease = activeLease!;
-        int metadataChanges = 0;
-        registry.Handlers.CollectionChanged += (_, _) => metadataChanges++;
-
-        Task disposeTask = replacementRegistration.DisposeAsync().AsTask();
-        try
-        {
-            await WaitUntilAsync(IsFallbackActive, TimeSpan.FromSeconds(5));
-
-            using (Assert.EnterMultipleScope())
-            {
-                Assert.That(disposeTask.IsCompleted, Is.False);
-                Assert.That(lease.Handler, Is.SameAs(replacement));
-                Assert.That(registry.Handlers.Single().Order, Is.EqualTo(10));
-                Assert.That(metadataChanges, Is.EqualTo(1));
-            }
-        }
-        finally
-        {
-            lease.Dispose();
-            await disposeTask.WaitAsync(TimeSpan.FromSeconds(5));
-        }
-
-        Assert.Throws<ObjectDisposedException>(() => _ = lease.Handler);
-
-        bool IsFallbackActive()
-        {
-            if (!registry.TryAcquire(typeof(FirstSource), out IElementSourceHandlerLease? candidate))
-                return false;
-
-            using (candidate)
-            {
-                return ReferenceEquals(candidate!.Handler, fallback);
-            }
-        }
-    }
-
-    [Test]
-    public async Task RegistryDisposalJoinsAConcurrentDirectRegistrationRetirement()
-    {
-        var registry = new ElementSourceHandlerRegistry();
-        IElementSourceHandlerRegistration registration = registry.Register(
-            new ElementSourceHandlerRegistration(new TestHandler(typeof(FirstSource))));
-        Assert.That(
-            registry.TryAcquire(typeof(FirstSource), out IElementSourceHandlerLease? lease),
-            Is.True);
-
-        Task registrationDisposal = registration.DisposeAsync().AsTask();
-        Assert.That(registrationDisposal.IsCompleted, Is.False);
-        Task registryDisposal = registry.DisposeAsync().AsTask();
-        Assert.That(registryDisposal.IsCompleted, Is.False);
-
-        lease!.Dispose();
-        await Task.WhenAll(registrationDisposal, registryDisposal)
-            .WaitAsync(TimeSpan.FromSeconds(5));
-    }
-
-    [Test]
-    public async Task ReentrantRegistryDisposalFromMetadataObserverStillWaitsForActiveLease()
-    {
-        await using var registry = new ElementSourceHandlerRegistry();
-        IElementSourceHandlerRegistration registration = registry.Register(
-            new ElementSourceHandlerRegistration(new TestHandler(typeof(FirstSource))));
-        Assert.That(registry.TryAcquire(
-            typeof(FirstSource),
-            out IElementSourceHandlerLease? lease), Is.True);
-        Task? reentrantDisposal = null;
-        registry.Handlers.CollectionChanged += (_, _) =>
-            reentrantDisposal ??= registry.DisposeAsync().AsTask();
-
-        Task registrationDisposal = registration.DisposeAsync().AsTask();
-        try
-        {
-            using (Assert.EnterMultipleScope())
-            {
-                Assert.That(registrationDisposal.IsCompleted, Is.False);
-                Assert.That(reentrantDisposal, Is.Not.Null);
-                Assert.That(reentrantDisposal!.IsCompleted, Is.False);
-            }
-        }
-        finally
-        {
-            lease!.Dispose();
-        }
-
-        await Task.WhenAll(registrationDisposal, reentrantDisposal!)
-            .WaitAsync(TimeSpan.FromSeconds(5));
-    }
-
-    [Test]
     public async Task ExtensionRegistrations_AreComposedAndRetiredWhenPackageIsRemoved()
     {
         var provider = new ExtensionProvider();
         await using var registry = new ElementSourceHandlerRegistry([], provider);
-        var handlers = registry.Handlers;
-        int metadataChanges = 0;
-        handlers.CollectionChanged += (_, _) => metadataChanges++;
         var handler = new TestHandler(typeof(FirstSource));
         var extension = new TestExtension(
         [
@@ -311,17 +58,11 @@ public sealed class ElementSourceHandlerRegistryTests
 
         await provider.RemoveExtensions(1).DrainAsync();
 
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(registry.TryAcquire(typeof(FirstSource), out lease), Is.False);
-            Assert.That(registry.Handlers, Is.SameAs(handlers));
-            Assert.That(handlers, Is.Empty);
-            Assert.That(metadataChanges, Is.EqualTo(2));
-        }
+        Assert.That(registry.TryAcquire(typeof(FirstSource), out lease), Is.False);
     }
 
     [Test]
-    public async Task ExtensionRemovalRetiresMetadataBeforeActiveLeaseDrainCompletes()
+    public async Task ExtensionRemovalRetiresTheHandlerBeforeActiveLeaseDrainCompletes()
     {
         var provider = new ExtensionProvider();
         await using var registry = new ElementSourceHandlerRegistry([], provider);
@@ -343,7 +84,6 @@ public sealed class ElementSourceHandlerRegistryTests
         {
             using (Assert.EnterMultipleScope())
             {
-                Assert.That(registry.Handlers, Is.Empty);
                 Assert.That(registry.TryAcquire(typeof(FirstSource), out _), Is.False);
                 Assert.That(drain.IsCompleted, Is.False);
                 Assert.That(lease!.Handler, Is.SameAs(handler));
@@ -358,12 +98,10 @@ public sealed class ElementSourceHandlerRegistryTests
     }
 
     [Test]
-    public async Task FailedProviderAdditionDoesNotPublishHandlerMetadata()
+    public async Task FailedProviderAdditionDoesNotPublishTheHandler()
     {
         var provider = new ExtensionProvider();
         await using var registry = new ElementSourceHandlerRegistry([], provider);
-        int metadataChanges = 0;
-        registry.Handlers.CollectionChanged += (_, _) => metadataChanges++;
         provider.AllExtensions.CollectionChanged += (_, args) =>
         {
             if (args.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Add)
@@ -378,12 +116,7 @@ public sealed class ElementSourceHandlerRegistryTests
             provider.AddExtensions(11, [extension]));
         await failure!.Removal.DrainAsync();
 
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(registry.Handlers, Is.Empty);
-            Assert.That(metadataChanges, Is.Zero);
-            Assert.That(registry.TryAcquire(typeof(FirstSource), out _), Is.False);
-        }
+        Assert.That(registry.TryAcquire(typeof(FirstSource), out _), Is.False);
     }
 
     [Test]
@@ -392,8 +125,6 @@ public sealed class ElementSourceHandlerRegistryTests
         var provider = new ExtensionProvider();
         var failures = new List<ElementSourceHandlerExtensionFailure>();
         await using var registry = new ElementSourceHandlerRegistry([], provider, failures.Add);
-        int metadataChanges = 0;
-        registry.Handlers.CollectionChanged += (_, _) => metadataChanges++;
         var baseHandler = new TestHandler(typeof(FirstSource));
         var replacementHandler = new TestHandler(typeof(FirstSource));
         var replacement = new TestExtension(
@@ -419,7 +150,6 @@ public sealed class ElementSourceHandlerRegistryTests
             Assert.That(replacement.RegistrationsReadCount, Is.EqualTo(1));
             Assert.That(baseExtension.RegistrationsReadCount, Is.EqualTo(1));
             Assert.That(failures, Is.Empty);
-            Assert.That(metadataChanges, Is.EqualTo(1));
         }
     }
 
@@ -435,8 +165,6 @@ public sealed class ElementSourceHandlerRegistryTests
         ],
         provider,
         failures.Add);
-        int metadataChanges = 0;
-        registry.Handlers.CollectionChanged += (_, _) => metadataChanges++;
         var extension = new TestExtension(
         [
             new ElementSourceHandlerRegistration(new TestHandler(typeof(SecondSource))),
@@ -454,9 +182,6 @@ public sealed class ElementSourceHandlerRegistryTests
             {
                 Assert.That(lease!.Handler, Is.SameAs(hostHandler));
             }
-            Assert.That(registry.Handlers.Select(handler => handler.SourceTypeName),
-                Is.EqualTo(new[] { typeof(FirstSource).AssemblyQualifiedName }));
-            Assert.That(metadataChanges, Is.Zero);
         }
     }
 
@@ -479,10 +204,6 @@ public sealed class ElementSourceHandlerRegistryTests
         [
             new ElementSourceHandlerRegistration(validHandler),
         ]);
-        var metadataSnapshots = new List<string[]>();
-        registry.Handlers.CollectionChanged += (_, _) => metadataSnapshots.Add(
-            registry.Handlers.Select(handler => handler.SourceTypeName).ToArray());
-
         provider.AddExtensions(5, [invalidExtension, validExtension]);
 
         Assert.That(registry.TryAcquire(typeof(FirstSource), out IElementSourceHandlerLease? lease), Is.True);
@@ -492,9 +213,6 @@ public sealed class ElementSourceHandlerRegistryTests
             Assert.That(lease!.Handler, Is.SameAs(validHandler));
             Assert.That(registry.TryAcquire(typeof(SecondSource), out _), Is.False);
             Assert.That(failures, Has.Count.EqualTo(1));
-            Assert.That(metadataSnapshots, Has.Count.EqualTo(1));
-            Assert.That(metadataSnapshots.Single(),
-                Is.EqualTo(new[] { typeof(FirstSource).AssemblyQualifiedName }));
         }
     }
 
@@ -537,21 +255,6 @@ public sealed class ElementSourceHandlerRegistryTests
             Assert.That(acquisition.Result, Is.False);
             Assert.That(failures, Has.Count.EqualTo(1));
         }
-    }
-
-    private static async Task WaitUntilAsync(Func<bool> condition, TimeSpan timeout)
-    {
-        const int DelayMilliseconds = 10;
-        int attempts = (int)Math.Ceiling(timeout.TotalMilliseconds / DelayMilliseconds);
-        for (int index = 0; index < attempts; index++)
-        {
-            if (condition())
-                return;
-
-            await Task.Delay(DelayMilliseconds);
-        }
-
-        Assert.Fail("The expected registry state was not reached before the timeout.");
     }
 
     private sealed record FirstSource : ElementSource;

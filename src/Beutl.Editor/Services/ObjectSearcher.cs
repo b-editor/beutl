@@ -24,12 +24,6 @@ public class ObjectSearcher
         _obj = obj;
     }
 
-    public void Reset()
-    {
-        _hashSet.Clear();
-        _stack?.Clear();
-    }
-
     public object? Search()
     {
         return SearchRecursive(_obj);

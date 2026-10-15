@@ -13,110 +13,34 @@ using Beutl.Graphics;
 public sealed class CaptionTemplateRegistryTests
 {
     private static readonly CaptionTemplateProviderId s_provider = new("beutl.tests");
+    private static readonly DefaultTextCaptionElementFactory s_textFactory =
+        new(Beutl.Media.FontFamily.Default);
 
     [Test]
-    public async Task Register_RejectsCaseInsensitiveIdentifierCollision()
+    public async Task Catalog_RejectsCaseInsensitiveTemplateIdentifierCollision()
     {
-        await using CaptionTemplateRegistry registry = CreateRegistry(
-            CreateText("Vendor.Template", "First"));
+        var failures = new List<CaptionCatalogExtensionFailure>();
+        var extensions = new ExtensionProvider();
+        await using CaptionCatalog catalog = Compose("Default", [], extensions, failures.Add);
+        extensions.AddExtensions(1, CreateTemplateExtensions(CreateText("Vendor.Template", "First")));
 
-        Assert.That(() => registry.Register(
-                CreateText("vendor.template", "Second").DescriptorRegistration),
-            Throws.ArgumentException.With.Message.Contains("already has a descriptor"));
-    }
-
-    [Test]
-    public async Task Register_RequiresExplicitReplacementOfExistingTemplate()
-    {
-        CaptionTemplateRegistrationSet original = CaptionTemplateDefaults.CreateDefaultText("Default");
-        CaptionTemplateRegistrationSet replacement = CaptionTemplateDefaults.CreateText(
-            CaptionTemplateIds.DefaultText,
-            s_provider,
-            "Replacement");
-        await using CaptionTemplateRegistry registry = CreateRegistry(original);
-
-        await using ICaptionTemplateDescriptorRegistration replacementRegistration = registry.Register(
-            new CaptionTemplateDescriptorRegistration(
-                replacement.DescriptorRegistration.Descriptor,
-                CaptionTemplateRegistrationMode.Replace));
+        extensions.AddExtensions(2,
+        [
+            new TestTemplateDescriptorExtension(
+                [CreateText("vendor.template", "Second").DescriptorRegistration]),
+        ]);
 
         using (Assert.EnterMultipleScope())
         {
+            Assert.That(failures, Has.Count.EqualTo(1));
+            Assert.That(failures[0].Exception,
+                Is.TypeOf<ArgumentException>().With.Message.Contains("already has a descriptor"));
             Assert.That(
-                registry.GetRequired(CaptionTemplateIds.DefaultText).Name,
-                Is.EqualTo("Replacement"));
-            Assert.That(
-                () => registry.Register(new CaptionTemplateDescriptorRegistration(
-                    CreateText("beutl.tests.missing", "Missing").DescriptorRegistration.Descriptor,
-                    CaptionTemplateRegistrationMode.Replace)),
-                Throws.ArgumentException.With.Message.Contains("no descriptor"));
-        }
-    }
-
-    [Test]
-    public async Task DescriptorFactoryAndPlacementReplaceAndRestoreIndependently()
-    {
-        CaptionTemplateRegistrationSet original = CreateText(
-            "beutl.tests.independent-template",
-            "Original");
-        CaptionTemplateId id = original.DescriptorRegistration.Descriptor.Id;
-        var replacementFactory = new TaggedFactory("Replacement factory");
-        var replacementPlacement = new FixedPlacementPolicy(new Point(9, 10), layer: 42);
-        await using CaptionTemplateRegistry registry = CreateRegistry(original);
-        ICaptionTemplateDescriptorRegistration descriptor = registry.Register(
-            new CaptionTemplateDescriptorRegistration(
-                new CaptionTemplateDescriptor(id, s_provider, "Replacement"),
-                CaptionTemplateRegistrationMode.Replace));
-        ICaptionElementFactoryRegistration factory = registry.Register(
-            new CaptionElementFactoryRegistration(
-                id,
-                replacementFactory,
-                CaptionTemplateRegistrationMode.Replace));
-        ICaptionPlacementPolicyRegistration placement = registry.Register(
-            new CaptionPlacementPolicyRegistration(
-                id,
-                replacementPlacement,
-                CaptionTemplateRegistrationMode.Replace));
-        var cue = new CaptionCue(TimeSpan.Zero, TimeSpan.FromSeconds(1), "text");
-        var context = new CaptionElementContext(3, "Caption", new Point(1, 2));
-        try
-        {
-            Assert.That(registry.GetRequired(id).Name, Is.EqualTo("Replacement"));
-            ElementDescription replaced = CreateOne(registry, id, cue, context);
-            using (Assert.EnterMultipleScope())
-            {
-                Assert.That(replaced.Name, Is.EqualTo("Replacement factory"));
-                Assert.That(replaced.Position, Is.EqualTo(new Point(9, 10)));
-                Assert.That(replaced.Layer, Is.EqualTo(42));
-            }
-
-            await descriptor.DisposeAsync();
-            Assert.That(registry.GetRequired(id).Name, Is.EqualTo("Original"));
-            Assert.That(CreateOne(registry, id, cue, context).Name,
-                Is.EqualTo("Replacement factory"));
-
-            await factory.DisposeAsync();
-            ElementDescription originalFactory = CreateOne(registry, id, cue, context);
-            using (Assert.EnterMultipleScope())
-            {
-                Assert.That(originalFactory.Name, Is.EqualTo("Caption"));
-                Assert.That(originalFactory.Position, Is.EqualTo(new Point(9, 10)));
-                Assert.That(originalFactory.Layer, Is.EqualTo(42));
-            }
-
-            await placement.DisposeAsync();
-            ElementDescription restored = CreateOne(registry, id, cue, context);
-            using (Assert.EnterMultipleScope())
-            {
-                Assert.That(restored.Layer, Is.EqualTo(3));
-                Assert.That(restored.Position, Is.EqualTo(new Point(1, 2)));
-            }
-        }
-        finally
-        {
-            await descriptor.DisposeAsync();
-            await factory.DisposeAsync();
-            await placement.DisposeAsync();
+                catalog.Templates.TryGet(
+                    new CaptionTemplateId("vendor.template"),
+                    out CaptionTemplateDescriptor? template),
+                Is.True);
+            Assert.That(template!.Name, Is.EqualTo("First"));
         }
     }
 
@@ -126,158 +50,23 @@ public sealed class CaptionTemplateRegistryTests
         CaptionTemplateRegistrationSet template = CreateText(
             "beutl.tests.partial-template",
             "Partial");
-        await using var registry = new CaptionTemplateRegistry();
-        await using ICaptionTemplateDescriptorRegistration descriptor =
-            registry.Register(template.DescriptorRegistration);
-        Assert.That(registry.Templates, Is.Empty);
-        await using ICaptionElementFactoryRegistration factory =
-            registry.Register(template.ElementFactoryRegistration);
-        Assert.That(registry.Templates, Is.Empty);
-        ICaptionPlacementPolicyRegistration placement = registry.Register(template.PlacementPolicyRegistration);
+        var extensions = new ExtensionProvider();
+        await using CaptionCatalog catalog = Compose("Default", [], extensions);
+        extensions.AddExtensions(1,
+            [new TestTemplateDescriptorExtension([template.DescriptorRegistration])]);
+        Assert.That(catalog.Templates.Templates.Select(item => item.Name), Is.EqualTo(["Default"]));
+        extensions.AddExtensions(2,
+            [new TestElementFactoryExtension([template.ElementFactoryRegistration])]);
+        Assert.That(catalog.Templates.Templates.Select(item => item.Name), Is.EqualTo(["Default"]));
+        extensions.AddExtensions(3,
+            [new TestPlacementExtension([template.PlacementPolicyRegistration])]);
 
-        Assert.That(registry.Templates.Select(item => item.Name), Is.EqualTo(["Partial"]));
+        Assert.That(
+            catalog.Templates.Templates.Select(item => item.Name),
+            Is.EqualTo(["Default", "Partial"]));
 
-        await placement.DisposeAsync();
-        Assert.That(registry.Templates, Is.Empty);
-    }
-
-    [Test]
-    public async Task DisposingDescriptorBaseKeepsItsActiveReplacementUntilThatHandleEnds()
-    {
-        var id = new CaptionTemplateId("beutl.tests.base-disposal");
-        CaptionTemplateRegistrationSet template = CreateTemplate(
-            id,
-            "Base",
-            new TaggedFactory("Factory"),
-            PreserveCaptionPlacementPolicy.Instance);
-        await using var registry = new CaptionTemplateRegistry();
-        ICaptionTemplateDescriptorRegistration baseRegistration = registry.Register(
-            template.DescriptorRegistration);
-        await using ICaptionElementFactoryRegistration factory = registry.Register(
-            template.ElementFactoryRegistration);
-        await using ICaptionPlacementPolicyRegistration placement = registry.Register(
-            template.PlacementPolicyRegistration);
-        ICaptionTemplateDescriptorRegistration replacement = registry.Register(
-            new CaptionTemplateDescriptorRegistration(
-                new CaptionTemplateDescriptor(id, s_provider, "Replacement"),
-                CaptionTemplateRegistrationMode.Replace));
-        try
-        {
-            await baseRegistration.DisposeAsync();
-            Assert.That(registry.GetRequired(id).Name, Is.EqualTo("Replacement"));
-
-            await replacement.DisposeAsync();
-            Assert.That(registry.TryGet(id, out _), Is.False);
-        }
-        finally
-        {
-            await baseRegistration.DisposeAsync();
-            await replacement.DisposeAsync();
-        }
-    }
-
-    [Test]
-    public async Task ReplacedFactoryRegistrationWaitsForItsRetiredTemplateLease()
-    {
-        CaptionTemplateRegistrationSet template = CreateText(
-            "beutl.tests.direct-owner-drain",
-            "Direct owner drain");
-        CaptionTemplateId id = template.DescriptorRegistration.Descriptor.Id;
-        await using var registry = new CaptionTemplateRegistry();
-        await using ICaptionTemplateDescriptorRegistration descriptor = registry.Register(
-            template.DescriptorRegistration);
-        ICaptionElementFactoryRegistration factory = registry.Register(template.ElementFactoryRegistration);
-        await using ICaptionPlacementPolicyRegistration placement = registry.Register(
-            template.PlacementPolicyRegistration);
-        using CaptionTemplateLease oldLease = registry.Acquire(id);
-        await using ICaptionElementFactoryRegistration replacement = registry.Register(
-            new CaptionElementFactoryRegistration(
-                id,
-                new TaggedFactory("Replacement"),
-                CaptionTemplateRegistrationMode.Replace));
-
-        Task disposal = factory.DisposeAsync().AsTask();
-        await Task.Yield();
-        Assert.That(disposal.IsCompleted, Is.False);
-
-        oldLease.Dispose();
-        await disposal.WaitAsync(TimeSpan.FromSeconds(5));
-    }
-
-    [Test]
-    public async Task EqualReplacementEntriesKeepReferenceIdentityForOwnerDrains()
-    {
-        CaptionTemplateRegistrationSet template = CreateText(
-            "beutl.tests.equal-registration-owners",
-            "Equal registration owners");
-        CaptionTemplateId id = template.DescriptorRegistration.Descriptor.Id;
-        await using var registry = new CaptionTemplateRegistry();
-        await using ICaptionTemplateDescriptorRegistration descriptor = registry.Register(
-            template.DescriptorRegistration);
-        await using ICaptionElementFactoryRegistration factory = registry.Register(
-            template.ElementFactoryRegistration);
-        await using ICaptionPlacementPolicyRegistration placement = registry.Register(
-            template.PlacementPolicyRegistration);
-        var replacementRegistration = new CaptionElementFactoryRegistration(
-            id,
-            new TaggedFactory("Replacement"),
-            CaptionTemplateRegistrationMode.Replace);
-        ICaptionElementFactoryRegistration firstReplacement = registry.Register(
-            replacementRegistration);
-        ICaptionElementFactoryRegistration secondReplacement = registry.Register(
-            replacementRegistration);
-        try
-        {
-            using (CaptionTemplateLease topLease = registry.Acquire(id))
-            {
-                Task topDisposal = secondReplacement.DisposeAsync().AsTask();
-                await Task.Yield();
-                Assert.That(topDisposal.IsCompleted, Is.False);
-                topLease.Dispose();
-                await topDisposal.WaitAsync(TimeSpan.FromSeconds(5));
-            }
-
-            using CaptionTemplateLease fallbackLease = registry.Acquire(id);
-            Task fallbackDisposal = firstReplacement.DisposeAsync().AsTask();
-            await Task.Yield();
-            Assert.That(fallbackDisposal.IsCompleted, Is.False);
-            fallbackLease.Dispose();
-            await fallbackDisposal.WaitAsync(TimeSpan.FromSeconds(5));
-        }
-        finally
-        {
-            await secondReplacement.DisposeAsync();
-            await firstReplacement.DisposeAsync();
-        }
-    }
-
-    [Test]
-    public async Task RegistryDisposeWaitsForLeaseFromStateRetiredByReplacement()
-    {
-        CaptionTemplateRegistrationSet template = CreateText(
-            "beutl.tests.registry-retired-state-drain",
-            "Registry retired-state drain");
-        CaptionTemplateId id = template.DescriptorRegistration.Descriptor.Id;
-        var registry = new CaptionTemplateRegistry();
-        await using ICaptionTemplateDescriptorRegistration descriptor = registry.Register(
-            template.DescriptorRegistration);
-        await using ICaptionElementFactoryRegistration factory = registry.Register(
-            template.ElementFactoryRegistration);
-        await using ICaptionPlacementPolicyRegistration placement = registry.Register(
-            template.PlacementPolicyRegistration);
-        using CaptionTemplateLease oldLease = registry.Acquire(id);
-        await using ICaptionElementFactoryRegistration replacement = registry.Register(
-            new CaptionElementFactoryRegistration(
-                id,
-                new TaggedFactory("Replacement"),
-                CaptionTemplateRegistrationMode.Replace));
-
-        Task disposal = registry.DisposeAsync().AsTask();
-        await Task.Yield();
-        Assert.That(disposal.IsCompleted, Is.False);
-
-        oldLease.Dispose();
-        await disposal.WaitAsync(TimeSpan.FromSeconds(5));
+        await extensions.RemoveExtensions(3).DrainAsync();
+        Assert.That(catalog.Templates.Templates.Select(item => item.Name), Is.EqualTo(["Default"]));
     }
 
     [Test]
@@ -324,19 +113,36 @@ public sealed class CaptionTemplateRegistryTests
     }
 
     [Test]
-    public async Task Register_MetadataObserverFailureDoesNotInterruptRegistryReplacement()
+    public async Task Catalog_TemplateMetadataObserverFailureDoesNotInterruptRegistryReplacement()
     {
-        await using var registry = new CaptionTemplateRegistry();
         CaptionTemplateRegistrationSet template = CreateText("beutl.tests.safe", "Safe");
-        await using ICaptionElementFactoryRegistration factory = registry.Register(
-            template.ElementFactoryRegistration);
-        await using ICaptionPlacementPolicyRegistration placement = registry.Register(
-            template.PlacementPolicyRegistration);
-        registry.Templates.CollectionChanged += (_, _) =>
+        var extensions = new ExtensionProvider();
+        await using CaptionCatalog catalog = Compose("Default", [], extensions);
+        catalog.Templates.Templates.CollectionChanged += (_, _) =>
             throw new InvalidOperationException("Observer failure");
 
-        Assert.DoesNotThrow(() => registry.Register(template.DescriptorRegistration));
-        Assert.That(registry.GetRequired(new CaptionTemplateId("beutl.tests.safe")).Name, Is.EqualTo("Safe"));
+        Assert.DoesNotThrow(() => extensions.AddExtensions(1, CreateTemplateExtensions(template)));
+        Assert.That(
+            catalog.Templates.TryGet(
+                new CaptionTemplateId("beutl.tests.safe"),
+                out CaptionTemplateDescriptor? registered),
+            Is.True);
+        Assert.That(registered!.Name, Is.EqualTo("Safe"));
+    }
+
+    [Test]
+    public async Task Catalog_DoesNotExposeMutableRegistries()
+    {
+        await using CaptionCatalog catalog = Compose("Default", [], new ExtensionProvider());
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(catalog.Codecs, Is.InstanceOf<ICaptionCodecProvider>());
+            Assert.That(catalog.Codecs, Is.Not.InstanceOf<CaptionCodecRegistry>());
+            Assert.That(catalog.Templates, Is.InstanceOf<ICaptionTemplateProvider>());
+            Assert.That(catalog.Templates, Is.Not.InstanceOf<CaptionTemplateRegistry>());
+            Assert.That(typeof(CaptionDocumentSerializer).GetProperty("Codecs"), Is.Null);
+        }
     }
 
     [Test]
@@ -369,7 +175,12 @@ public sealed class CaptionTemplateRegistryTests
                 Assert.That(imported.IsSuccess, Is.True);
                 Assert.That(imported.Document!.Cues.Single().Text, Is.EqualTo("From extension"));
                 Assert.That(
-                    catalog.Templates.GetRequired(template.DescriptorRegistration.Descriptor.Id).Name,
+                    catalog.Templates.TryGet(
+                        template.DescriptorRegistration.Descriptor.Id,
+                        out CaptionTemplateDescriptor? registered),
+                    Is.True);
+                Assert.That(
+                    registered!.Name,
                     Is.EqualTo(template.DescriptorRegistration.Descriptor.Name));
             }
         }
@@ -406,6 +217,26 @@ public sealed class CaptionTemplateRegistryTests
             Assert.That(catalog.Codecs.TryGet(format, out _), Is.False);
             Assert.That(changes, Is.EqualTo(2));
         }
+    }
+
+    [Test]
+    public async Task Catalog_CodecMetadataObserverFailureDoesNotRollBackRegistryCommit()
+    {
+        var format = new CaptionFormatId("beutl.tests.observer-codec");
+        var extensions = new ExtensionProvider();
+        await using CaptionCatalog catalog = Compose("Default", [], extensions);
+        catalog.Codecs.Codecs.CollectionChanged += (_, _) =>
+            throw new InvalidOperationException("Observer failure");
+
+        Assert.DoesNotThrow(() => extensions.AddExtensions(1,
+        [
+            new RegistrationCodecDescriptorExtension([
+                new CaptionCodecDescriptorRegistration(
+                    new CaptionCodecDescriptor(format, [".pipe"])),
+            ]),
+        ]));
+        Assert.That(catalog.Codecs.TryGet(format, out CaptionCodecInfo? codec), Is.True);
+        Assert.That(codec!.FileExtensions, Is.EqualTo(new[] { ".pipe" }));
     }
 
     [Test]
@@ -504,10 +335,10 @@ public sealed class CaptionTemplateRegistryTests
         failures.Clear();
         extensions.AddExtensions(6, [@base, descriptor]);
 
-        CaptionCodecInfo info = catalog.Codecs.GetRequired(format);
+        Assert.That(catalog.Codecs.TryGet(format, out CaptionCodecInfo? info), Is.True);
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(info.CanDecode, Is.True);
+            Assert.That(info!.CanDecode, Is.True);
             Assert.That(info.CanEncode, Is.False);
             Assert.That(
                 catalog.Serializer.Import("text"u8, format).Document![0].Text,
@@ -554,8 +385,9 @@ public sealed class CaptionTemplateRegistryTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(catalog.Codecs.GetRequired(format).CanDecode, Is.True);
-            Assert.That(catalog.Codecs.GetRequired(format).CanEncode, Is.True);
+            Assert.That(catalog.Codecs.TryGet(format, out CaptionCodecInfo? info), Is.True);
+            Assert.That(info!.CanDecode, Is.True);
+            Assert.That(info.CanEncode, Is.True);
             Assert.That(failures, Is.Empty);
         }
     }
@@ -575,7 +407,7 @@ public sealed class CaptionTemplateRegistryTests
 
         extensions.AddExtensions(7, [replacement]);
 
-        CaptionCodecInfo info = catalog.Codecs.GetRequired(CaptionFormats.Srt);
+        Assert.That(catalog.Codecs.TryGet(CaptionFormats.Srt, out CaptionCodecInfo? info), Is.True);
         byte[] exported = catalog.Serializer.Export(
             new CaptionDocument([
                 new CaptionCue(TimeSpan.Zero, TimeSpan.FromSeconds(1), "text"),
@@ -583,7 +415,7 @@ public sealed class CaptionTemplateRegistryTests
             CaptionFormats.Srt);
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(info.FileExtensions, Is.EqualTo(new[] { ".srt" }));
+            Assert.That(info!.FileExtensions, Is.EqualTo(new[] { ".srt" }));
             Assert.That(info.CanDecode, Is.True);
             Assert.That(info.CanEncode, Is.True);
             Assert.That(
@@ -629,8 +461,8 @@ public sealed class CaptionTemplateRegistryTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(catalog.Codecs.GetRequired(format).FileExtensions,
-                Is.EqualTo(new[] { ".healthy" }));
+            Assert.That(catalog.Codecs.TryGet(format, out CaptionCodecInfo? codec), Is.True);
+            Assert.That(codec!.FileExtensions, Is.EqualTo(new[] { ".healthy" }));
             Assert.That(failures, Has.Count.EqualTo(1));
             Assert.That(failures[0].Kind,
                 Is.EqualTo(CaptionCatalogContributionKind.CodecDescriptor));
@@ -675,8 +507,12 @@ public sealed class CaptionTemplateRegistryTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(catalog.Templates.GetRequired(healthyTemplate.DescriptorRegistration.Descriptor.Id).Name,
-                Is.EqualTo("Healthy"));
+            Assert.That(
+                catalog.Templates.TryGet(
+                    healthyTemplate.DescriptorRegistration.Descriptor.Id,
+                    out CaptionTemplateDescriptor? healthyDescriptor),
+                Is.True);
+            Assert.That(healthyDescriptor!.Name, Is.EqualTo("Healthy"));
             Assert.That(failures, Has.Count.EqualTo(1));
         }
     }
@@ -687,10 +523,11 @@ public sealed class CaptionTemplateRegistryTests
         CaptionTemplateRegistrationSet valid = CreateText(
             "beutl.tests.valid-before-collision",
             "Valid before collision");
-        CaptionTemplateRegistrationSet duplicateDefault = CaptionTemplateDefaults.CreateText(
+        CaptionTemplateRegistrationSet duplicateDefault = CreateTemplate(
             CaptionTemplateIds.DefaultText,
-            s_provider,
-            "Unexpected replacement");
+            "Unexpected replacement",
+            s_textFactory,
+            DefaultCaptionPlacementPolicy.Instance);
         var extension = new TestTemplateDescriptorExtension(
         [
             valid.DescriptorRegistration,
@@ -719,8 +556,11 @@ public sealed class CaptionTemplateRegistryTests
                 Is.EqualTo(CaptionCatalogContributionKind.TemplateDescriptor));
             Assert.That(catalog.Templates.TryGet(valid.DescriptorRegistration.Descriptor.Id, out _), Is.False);
             Assert.That(
-                catalog.Templates.GetRequired(CaptionTemplateIds.DefaultText).Name,
-                Is.EqualTo("Default"));
+                catalog.Templates.TryGet(
+                    CaptionTemplateIds.DefaultText,
+                    out CaptionTemplateDescriptor? defaultTemplate),
+                Is.True);
+            Assert.That(defaultTemplate!.Name, Is.EqualTo("Default"));
         }
 
         extensions.RemoveExtensions(1);
@@ -976,19 +816,21 @@ public sealed class CaptionTemplateRegistryTests
         string id,
         string name,
         int order = 0)
-        => CaptionTemplateDefaults.CreateText(
+        => CreateTemplate(
             new CaptionTemplateId(id),
-            s_provider,
             name,
+            s_textFactory,
+            DefaultCaptionPlacementPolicy.Instance,
             order);
 
     internal static CaptionTemplateRegistrationSet CreateTemplate(
         CaptionTemplateId id,
         string name,
         ICaptionElementFactory factory,
-        ICaptionPlacementPolicy placement)
+        ICaptionPlacementPolicy placement,
+        int order = 0)
     {
-        var descriptor = new CaptionTemplateDescriptor(id, s_provider, name);
+        var descriptor = new CaptionTemplateDescriptor(id, s_provider, name, order);
         return new CaptionTemplateRegistrationSet(
             new CaptionTemplateDescriptorRegistration(descriptor),
             new CaptionElementFactoryRegistration(id, factory),

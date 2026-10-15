@@ -35,7 +35,8 @@ public class EncoderSettingsJsonTests
             KeyframeRate = 12
         };
 
-        EncoderSettingsJson.PopulateVideoPreset(target, EncoderSettingsJson.Serialize(preset)!);
+        EncoderSettingsJson.PopulateVideoPreset(
+            target, EncoderSettingsJson.Serialize(preset)!, appliesFrameSizeAndRate: false);
 
         Assert.Multiple(() =>
         {
@@ -67,7 +68,9 @@ public class EncoderSettingsJsonTests
             Bitrate = 5_000_000
         };
 
-        Assert.That(() => EncoderSettingsJson.PopulateVideoPreset(target, json), Throws.Exception);
+        Assert.That(
+            () => EncoderSettingsJson.PopulateVideoPreset(target, json, appliesFrameSizeAndRate: false),
+            Throws.Exception);
 
         Assert.Multiple(() =>
         {
@@ -199,7 +202,8 @@ public class EncoderSettingsJsonTests
             Bitrate = 128_000
         };
 
-        EncoderSettingsJson.PopulateAudioPreset(target, EncoderSettingsJson.Serialize(preset)!);
+        EncoderSettingsJson.PopulateAudioPreset(
+            target, EncoderSettingsJson.Serialize(preset)!, appliesSampleRate: false);
 
         Assert.Multiple(() =>
         {
@@ -227,7 +231,9 @@ public class EncoderSettingsJsonTests
             Bitrate = 128_000
         };
 
-        Assert.That(() => EncoderSettingsJson.PopulateAudioPreset(target, json), Throws.Exception);
+        Assert.That(
+            () => EncoderSettingsJson.PopulateAudioPreset(target, json, appliesSampleRate: false),
+            Throws.Exception);
 
         Assert.That(target.SampleRate, Is.EqualTo(44100));
     }

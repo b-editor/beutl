@@ -243,8 +243,6 @@ public class PackageManagerExtensionLifecycleTests
         await using var handlers = new ElementSourceHandlerRegistry([], provider);
         var package = new LocalPackage { Name = "ProvisionalMaterialization" };
         bool provisionalAcquired = false;
-        int metadataChanges = 0;
-        handlers.Handlers.CollectionChanged += (_, _) => metadataChanges++;
         provider.AllExtensions.CollectionChanged += (_, args) =>
         {
             if (args.Action != NotifyCollectionChangedAction.Add)
@@ -276,8 +274,7 @@ public class PackageManagerExtensionLifecycleTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(provisionalAcquired, Is.False);
-            Assert.That(handlers.Handlers, Is.Empty);
-            Assert.That(metadataChanges, Is.Zero);
+            Assert.That(handlers.TryAcquire(typeof(MaterializedSource), out _), Is.False);
             Assert.That(MaterializingElementSourceHandlerExtension.UnloadCount, Is.Zero);
             Assert.That(manager.LoadedPackage, Is.Empty);
         }
@@ -300,8 +297,6 @@ public class PackageManagerExtensionLifecycleTests
         await using var handlers = new ElementSourceHandlerRegistry([], provider);
         var package = new LocalPackage { Name = "CommittedMaterialization" };
         Element? retainedGraph = null;
-        int metadataChanges = 0;
-        handlers.Handlers.CollectionChanged += (_, _) => metadataChanges++;
         manager.AfterExtensionRegistration = () =>
         {
             retainedGraph = MaterializePackageGraph(handlers);
@@ -323,8 +318,7 @@ public class PackageManagerExtensionLifecycleTests
             Assert.That(
                 retainedGraph!.Objects.Single(),
                 Is.TypeOf<MaterializedPackageObject>());
-            Assert.That(handlers.Handlers, Is.Empty);
-            Assert.That(metadataChanges, Is.EqualTo(2));
+            Assert.That(handlers.TryAcquire(typeof(MaterializedSource), out _), Is.False);
             Assert.That(MaterializingElementSourceHandlerExtension.UnloadCount, Is.Zero);
             Assert.That(manager.LoadedPackage, Is.Empty);
         }
@@ -462,7 +456,7 @@ public class PackageManagerExtensionLifecycleTests
             "Default",
             [],
             provider,
-            DefaultTextCaptionElementFactory.Instance);
+            new DefaultTextCaptionElementFactory(Beutl.Media.FontFamily.Default));
         var package = new LocalPackage { Name = "LiveCaptionPresentation" };
         manager.LoadExtensionsAndRegister(
             activity: null,
@@ -484,8 +478,11 @@ public class PackageManagerExtensionLifecycleTests
             Assert.That(LeaseManagedCaptionTemplateDescriptorExtension.UnloadCount, Is.Zero);
             Assert.That(LeaseManagedCaptionPlacementExtension.UnloadCount, Is.Zero);
             Assert.That(
-                catalog.Templates.GetRequired(CaptionTemplateIds.DefaultText).Name,
-                Is.EqualTo("Default"));
+                catalog.Templates.TryGet(
+                    CaptionTemplateIds.DefaultText,
+                    out CaptionTemplateDescriptor? defaultTemplate),
+                Is.True);
+            Assert.That(defaultTemplate!.Name, Is.EqualTo("Default"));
         }
 
         lease.Dispose();
@@ -548,7 +545,7 @@ public class PackageManagerExtensionLifecycleTests
             "Default",
             [],
             provider,
-            DefaultTextCaptionElementFactory.Instance);
+            new DefaultTextCaptionElementFactory(Beutl.Media.FontFamily.Default));
         var package = new LocalPackage { Name = "BlockingCaption" };
         manager.LoadExtensionsAndRegister(
             activity: null,

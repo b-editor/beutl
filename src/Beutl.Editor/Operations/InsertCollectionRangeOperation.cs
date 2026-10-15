@@ -10,16 +10,6 @@ public sealed class InsertCollectionRangeOperation<T> : CollectionChangeOperatio
 
     IEnumerable<object?> ICollectionChangeOperation.Items => Items.Cast<object?>();
 
-    protected override void ApplyToEngineProperty(IListProperty<T> listProperty)
-    {
-        int insertIndex = Index < 0 || Index > listProperty.Count ? listProperty.Count : Index;
-
-        for (int i = 0; i < Items.Length; i++)
-        {
-            listProperty.Insert(insertIndex + i, Items[i]);
-        }
-    }
-
     protected override void ApplyTo(IList<T> list)
     {
         int insertIndex = Index < 0 || Index > list.Count ? list.Count : Index;

@@ -18,19 +18,4 @@ public class AudioFrameSnapshotTests
         var snapshot = new AudioFrameSnapshot([], 48000, 0, TimeSpan.Zero);
         Assert.That(snapshot.SampleCount, Is.EqualTo(0));
     }
-
-    [Test]
-    public void Duration_FromSampleCountAndRate()
-    {
-        // 48000 samples per channel @ 48000 Hz = 1s
-        var snapshot = new AudioFrameSnapshot(new float[48000 * 2], 48000, 2, TimeSpan.Zero);
-        Assert.That(snapshot.Duration, Is.EqualTo(TimeSpan.FromSeconds(1)));
-    }
-
-    [Test]
-    public void Duration_ZeroSampleRate_ReturnsZero()
-    {
-        var snapshot = new AudioFrameSnapshot(new float[8], 0, 2, TimeSpan.FromSeconds(5));
-        Assert.That(snapshot.Duration, Is.EqualTo(TimeSpan.Zero));
-    }
 }

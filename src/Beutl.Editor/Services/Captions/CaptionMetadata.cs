@@ -56,17 +56,6 @@ public sealed class CaptionMetadata : IReadOnlyDictionary<string, string>, IEqua
         return new CaptionMetadata(copy);
     }
 
-    public CaptionMetadata Remove(string key)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(key);
-        if (!_values.ContainsKey(key))
-            return this;
-
-        var copy = new Dictionary<string, string>(_values, StringComparer.Ordinal);
-        copy.Remove(key);
-        return copy.Count == 0 ? Empty : new CaptionMetadata(copy);
-    }
-
     public string? GetValueOrDefault(string key)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(key);

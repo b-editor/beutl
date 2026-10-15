@@ -29,12 +29,11 @@ public sealed class CaptionCatalog : IAsyncDisposable
     private readonly object _gate = new();
     private readonly CaptionCodecRegistry _codecs;
     private readonly CaptionTemplateRegistry _templates;
-    private readonly bool _ownsRegistries;
-    private readonly IExtensionRegistry? _extensionProvider;
+    private readonly IExtensionRegistry _extensionProvider;
     private readonly CaptionCodecDescriptorRegistration[] _hostCodecDescriptors;
     private readonly CaptionDecoderRegistration[] _hostCodecDecoders;
     private readonly CaptionEncoderRegistration[] _hostCodecEncoders;
-    private readonly CaptionTemplateRegistrationSet? _defaultTemplateRegistrations;
+    private readonly CaptionTemplateRegistrationSet _defaultTemplateRegistrations;
     private readonly Action<CaptionCatalogExtensionFailure>? _reportFailure;
     private readonly HashSet<CaptionCodecDescriptorExtension> _activeCodecDescriptorExtensions =
         new(ReferenceEqualityComparer.Instance);
@@ -54,35 +53,6 @@ public sealed class CaptionCatalog : IAsyncDisposable
     private Task? _disposeTask;
     private bool _disposed;
 
-    public CaptionCatalog(
-        CaptionCodecRegistry codecs,
-        CaptionTemplateRegistry templates)
-        : this(codecs, templates, ownsRegistries: false)
-    {
-    }
-
-    private CaptionCatalog(
-        CaptionCodecRegistry codecs,
-        CaptionTemplateRegistry templates,
-        bool ownsRegistries)
-    {
-        ArgumentNullException.ThrowIfNull(codecs);
-        ArgumentNullException.ThrowIfNull(templates);
-
-        _codecs = codecs;
-        _templates = templates;
-        _ownsRegistries = ownsRegistries;
-        Codecs = new CaptionCodecProviderView(codecs);
-        Templates = new CaptionTemplateProviderView(templates);
-        Serializer = new CaptionDocumentSerializer(Codecs);
-        _hostCodecDescriptors = [];
-        _hostCodecDecoders = [];
-        _hostCodecEncoders = [];
-        _hostTemplateDescriptors = [];
-        _hostTemplateFactories = [];
-        _hostTemplatePlacements = [];
-    }
-
     private CaptionCatalog(
         IExtensionRegistry extensionProvider,
         CaptionCodecDescriptorRegistration[] hostCodecDescriptors,
@@ -93,8 +63,12 @@ public sealed class CaptionCatalog : IAsyncDisposable
         CaptionElementFactoryRegistration[] hostTemplateFactories,
         CaptionPlacementPolicyRegistration[] hostTemplatePlacements,
         Action<CaptionCatalogExtensionFailure>? reportFailure)
-        : this(new CaptionCodecRegistry(), new CaptionTemplateRegistry(), ownsRegistries: true)
     {
+        _codecs = new CaptionCodecRegistry();
+        _templates = new CaptionTemplateRegistry();
+        Codecs = new CaptionCodecProviderView(_codecs);
+        Templates = new CaptionTemplateProviderView(_templates);
+        Serializer = new CaptionDocumentSerializer(Codecs);
         _extensionProvider = extensionProvider;
         _hostCodecDescriptors = hostCodecDescriptors;
         _hostCodecDecoders = hostCaptionDecoders;
@@ -130,22 +104,6 @@ public sealed class CaptionCatalog : IAsyncDisposable
     public ICaptionTemplateProvider Templates { get; }
 
     public CaptionDocumentSerializer Serializer { get; }
-
-    public static CaptionCatalog CreateDefault(string defaultTemplateName)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(defaultTemplateName);
-        CaptionTemplateRegistrationSet template =
-            CaptionTemplateDefaults.CreateDefaultText(defaultTemplateName);
-        var templates = new CaptionTemplateRegistry(
-            [template.DescriptorRegistration],
-            [template.ElementFactoryRegistration],
-            [template.PlacementPolicyRegistration]);
-        BuiltInCaptionCodecRegistrations codecs = CreateDefaultCodecRegistrations();
-        return new CaptionCatalog(
-            new CaptionCodecRegistry(codecs.Descriptors, codecs.Decoders, codecs.Encoders),
-            templates,
-            ownsRegistries: true);
-    }
 
     /// <summary>
     /// Creates a dynamically composed catalog using a host-supplied factory for its default template.
@@ -191,31 +149,23 @@ public sealed class CaptionCatalog : IAsyncDisposable
         ArgumentNullException.ThrowIfNull(objectTemplates);
         CaptionTemplateRegistrationSet[] registrations =
             CreateObjectTemplateRegistrations(objectTemplates);
-        IExtensionRegistry extensionProvider = _extensionProvider
-            ?? throw new InvalidOperationException(
-                "Only a dynamically composed caption catalog can refresh object templates.");
-        extensionProvider.SynchronizeMutation(() =>
+        _extensionProvider.SynchronizeMutation(() =>
         {
             lock (_gate)
             {
                 ObjectDisposedException.ThrowIf(_disposed, this);
                 (_hostTemplateDescriptors, _hostTemplateFactories, _hostTemplatePlacements) =
-                    PrependDefaultTemplate(_defaultTemplateRegistrations!, registrations);
-                RebuildCore(extensionProvider);
+                    PrependDefaultTemplate(_defaultTemplateRegistrations, registrations);
+                RebuildCore(_extensionProvider);
             }
         });
     }
 
     public ValueTask DisposeAsync()
     {
-        if (_extensionProvider is IExtensionRegistry registry)
-        {
-            ValueTask result = default;
-            registry.SynchronizeMutation(() => result = StartDispose());
-            return result;
-        }
-
-        return StartDispose();
+        ValueTask result = default;
+        _extensionProvider.SynchronizeMutation(() => result = StartDispose());
+        return result;
     }
 
     private ValueTask StartDispose()
@@ -236,36 +186,28 @@ public sealed class CaptionCatalog : IAsyncDisposable
                 return Task.CompletedTask;
 
             _disposed = true;
-            if (_extensionProvider is not null)
-            {
-                _extensionProvider.AllExtensions.CollectionChanged -= OnExtensionsChanged;
-                _extensionProvider.ExtensionsChanged -= OnExtensionsCommitted;
-                Extension[] codecExtensions = SnapshotCodecExtensions();
-                Extension[] templateExtensions = SnapshotTemplateExtensions();
-                ClearActiveExtensions();
-                CaptionRegistryDrain retiredCodecs = _codecs.ReplaceOwned(
-                    _hostCodecDescriptors,
-                    _hostCodecDecoders,
-                    _hostCodecEncoders,
-                    new Dictionary<CaptionFormatId, Extension>(),
-                    new Dictionary<CaptionFormatId, Extension>());
-                CaptionRegistryDrain retiredTemplates = _templates.ReplaceOwned(
-                    _hostTemplateDescriptors,
-                    _hostTemplateFactories,
-                    _hostTemplatePlacements,
-                    new Dictionary<CaptionTemplateId, Extension>(),
-                    new Dictionary<CaptionTemplateId, Extension>(),
-                    new Dictionary<CaptionTemplateId, Extension>());
-                codecDrain = Combine(retiredCodecs.All, _codecs.DisposeAsync());
-                templateDrain = Combine(retiredTemplates.All, _templates.DisposeAsync());
-                RetireExtensions(codecExtensions, retiredCodecs);
-                RetireExtensions(templateExtensions, retiredTemplates);
-            }
-            else
-            {
-                codecDrain = _ownsRegistries ? _codecs.DisposeAsync() : ValueTask.CompletedTask;
-                templateDrain = _ownsRegistries ? _templates.DisposeAsync() : ValueTask.CompletedTask;
-            }
+            _extensionProvider.AllExtensions.CollectionChanged -= OnExtensionsChanged;
+            _extensionProvider.ExtensionsChanged -= OnExtensionsCommitted;
+            Extension[] codecExtensions = SnapshotCodecExtensions();
+            Extension[] templateExtensions = SnapshotTemplateExtensions();
+            ClearActiveExtensions();
+            CaptionRegistryDrain retiredCodecs = _codecs.ReplaceOwned(
+                _hostCodecDescriptors,
+                _hostCodecDecoders,
+                _hostCodecEncoders,
+                new Dictionary<CaptionFormatId, Extension>(),
+                new Dictionary<CaptionFormatId, Extension>());
+            CaptionRegistryDrain retiredTemplates = _templates.ReplaceOwned(
+                _hostTemplateDescriptors,
+                _hostTemplateFactories,
+                _hostTemplatePlacements,
+                new Dictionary<CaptionTemplateId, Extension>(),
+                new Dictionary<CaptionTemplateId, Extension>(),
+                new Dictionary<CaptionTemplateId, Extension>());
+            codecDrain = Combine(retiredCodecs.All, _codecs.DisposeAsync());
+            templateDrain = Combine(retiredTemplates.All, _templates.DisposeAsync());
+            RetireExtensions(codecExtensions, retiredCodecs);
+            RetireExtensions(templateExtensions, retiredTemplates);
         }
 
         return Combine(codecDrain, templateDrain).AsTask();
@@ -283,7 +225,7 @@ public sealed class CaptionCatalog : IAsyncDisposable
     {
         lock (_gate)
         {
-            if (_disposed || _extensionProvider is null)
+            if (_disposed)
                 return;
 
             RebuildCore(_extensionProvider);
@@ -500,13 +442,6 @@ public sealed class CaptionCatalog : IAsyncDisposable
             [NotNullWhen(true)] out CaptionCodecInfo? codec)
             => registry.TryGet(format, out codec);
 
-        public CaptionCodecInfo GetRequired(CaptionFormatId format) => registry.GetRequired(format);
-
-        public bool TryGetByFileExtension(
-            string extension,
-            [NotNullWhen(true)] out CaptionCodecInfo? codec)
-            => registry.TryGetByFileExtension(extension, out codec);
-
         public bool TryGetByFileName(
             string fileName,
             [NotNullWhen(true)] out CaptionCodecInfo? codec)
@@ -528,8 +463,6 @@ public sealed class CaptionCatalog : IAsyncDisposable
             CaptionTemplateId id,
             [NotNullWhen(true)] out CaptionTemplateDescriptor? template)
             => registry.TryGet(id, out template);
-
-        public CaptionTemplateDescriptor GetRequired(CaptionTemplateId id) => registry.GetRequired(id);
 
         public ICaptionTemplateLease Acquire(CaptionTemplateId id) => registry.Acquire(id);
     }

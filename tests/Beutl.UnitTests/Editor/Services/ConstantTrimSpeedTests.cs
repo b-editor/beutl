@@ -192,7 +192,7 @@ public class ConstantTrimSpeedTests(string mediaKind)
         var fastBack = new SourceSound { Speed = { CurrentValue = 200 } };
         back.Objects.Add(fastBack);
 
-        var bounds = _resize.GetTrimDeltaBounds(Scene, [new ElementTrimPair(front, back)]);
+        var bounds = ElementResizeService.CreateTrimConstraints(Scene, [new ElementTrimPair(front, back)]);
         Assert.That(bounds.Max, Is.EqualTo(TimeSpan.FromSeconds(expectedLength - 2)));
 
         bool applied = Trim(front, middle, back, 15);
@@ -222,7 +222,7 @@ public class ConstantTrimSpeedTests(string mediaKind)
         Element back = AddElement(backStart, 2);
         var offset = AddMedia(back, speed, 1);
 
-        var bounds = _resize.GetTrimDeltaBounds(Scene, [new ElementTrimPair(front, back)]);
+        var bounds = ElementResizeService.CreateTrimConstraints(Scene, [new ElementTrimPair(front, back)]);
         Assert.That(bounds.Min, Is.EqualTo(TimeSpan.FromSeconds(expectedDelta)));
 
         bool applied = Trim(front, middle, back, -10);
@@ -328,7 +328,7 @@ public class ConstantTrimSpeedTests(string mediaKind)
         History.Commit();
         int before = History.UndoCount;
 
-        var bounds = _resize.GetTrimDeltaBounds(Scene, [new ElementTrimPair(front, back)]);
+        var bounds = ElementResizeService.CreateTrimConstraints(Scene, [new ElementTrimPair(front, back)]);
         bool applied = Trim(front, middle, back, 1);
 
         Assert.Multiple(() =>

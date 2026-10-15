@@ -23,14 +23,6 @@ public sealed class RemoveCollectionRangeOperation<T> : CollectionChangeOperatio
         }
     }
 
-    protected override void RevertToEngineProperty(IListProperty<T> listProperty)
-    {
-        for (int i = 0; i < Items.Length; i++)
-        {
-            listProperty.Insert(Index + i, Items[i]);
-        }
-    }
-
     protected override void RevertTo(IList<T> list)
     {
         for (int i = 0; i < Items.Length; i++)

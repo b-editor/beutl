@@ -20,7 +20,8 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         await service.SetRemoteAsync(remoteRoot, CancellationToken.None);
         RemoteOpResult result = await service.PushAsync(progress, CancellationToken.None);
         IReadOnlyList<RemoteInfo> remotes = await service.GetRemotesAsync(CancellationToken.None);
-        IReadOnlyList<BranchInfo> branches = await service.GetBranchesAsync(CancellationToken.None);
+        string upstream = (await RunGitAsync("for-each-ref", "--format=%(upstream:short)", "refs/heads/main"))
+            .Stdout.Trim();
         string localHead = (await RunGitAsync("rev-parse", "HEAD")).Stdout.Trim();
         string remoteHead = await ReadRemoteHeadAsync(remoteRoot);
 
@@ -28,8 +29,7 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
         {
             Assert.That(result, Is.TypeOf<RemoteOpResult.Success>());
             Assert.That(remotes, Is.EqualTo(new[] { new RemoteInfo("origin", remoteRoot) }));
-            Assert.That(branches.Single(branch => branch.Name == "main").UpstreamName,
-                Is.EqualTo("origin/main"));
+            Assert.That(upstream, Is.EqualTo("origin/main"));
             Assert.That(remoteHead, Is.EqualTo(localHead));
             Assert.That(progress.Messages, Is.Not.Empty);
         });
@@ -98,8 +98,8 @@ public sealed class RemoteOperationsTests : RealGitTestRepository
                 branches,
                 Is.EqualTo(new[]
                 {
-                    new BranchInfo("main", true, "origin/main"),
-                    new BranchInfo("feature", false, null, IsRemote: true),
+                    new BranchInfo("main", true),
+                    new BranchInfo("feature", false, IsRemote: true),
                 }));
             Assert.That(canCreateSameName, Is.True);
             await Assert.ThrowsAsync<ArgumentException>(

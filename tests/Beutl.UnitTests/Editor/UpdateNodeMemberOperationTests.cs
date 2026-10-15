@@ -35,12 +35,8 @@ public class UpdateNodeMemberOperationTests
 
     private sealed class TestChangeOperation : ChangeOperation
     {
-        public override void Apply(OperationExecutionContext context) { }
-        public override void Revert(OperationExecutionContext context) { }
-    }
-
-    private sealed class TestCoreObject : CoreObject
-    {
+        public override void Apply() { }
+        public override void Revert() { }
     }
 
     #endregion
@@ -57,11 +53,6 @@ public class UpdateNodeMemberOperationTests
         {
             SequenceNumber = _sequenceGenerator.GetNext()
         };
-    }
-
-    private static OperationExecutionContext CreateContext()
-    {
-        return new OperationExecutionContext(new TestCoreObject());
     }
 
     #endregion
@@ -95,9 +86,8 @@ public class UpdateNodeMemberOperationTests
     {
         var nodeMember = new TestNodeMember<int>("TestProperty", 10);
         var op = CreateOp(nodeMember, propertyPath, 20, 10);
-        var context = CreateContext();
 
-        op.Apply(context);
+        op.Apply();
 
         Assert.That(nodeMember.GetProperty()!.GetValue(), Is.EqualTo(20));
     }
@@ -109,9 +99,8 @@ public class UpdateNodeMemberOperationTests
         var newAnimation = new KeyFrameAnimation<float>();
         var nodeMember = new TestNodeMember<float>("TestProperty", 1.0f, null);
         var op = CreateOp(nodeMember, propertyPath, newAnimation, null);
-        var context = CreateContext();
 
-        op.Apply(context);
+        op.Apply();
 
         Assert.That(nodeMember.GetProperty()!.Animation, Is.SameAs(newAnimation));
     }
@@ -122,9 +111,8 @@ public class UpdateNodeMemberOperationTests
         var nodeMember = new TestNodeMember<float>("TestProperty", 1.0f, null);
         // Passing a non-animation value should result in null animation (due to "as IAnimation" cast)
         var op = CreateOp(nodeMember, "Property.Animation", "not-an-animation", null);
-        var context = CreateContext();
 
-        op.Apply(context);
+        op.Apply();
 
         Assert.That(nodeMember.GetProperty()!.Animation, Is.Null);
     }
@@ -135,9 +123,8 @@ public class UpdateNodeMemberOperationTests
         // NodePropertyAdapter does not support expressions, so this should be a no-op
         var nodeMember = new TestNodeMember<float>("TestProperty", 1.0f);
         var op = CreateOp(nodeMember, "Property.Expression", null, null);
-        var context = CreateContext();
 
-        Assert.DoesNotThrow(() => op.Apply(context));
+        Assert.DoesNotThrow(() => op.Apply());
     }
 
     #endregion
@@ -149,9 +136,8 @@ public class UpdateNodeMemberOperationTests
     {
         var nodeMember = new TestNodeMember<int>("TestProperty", 20);
         var op = CreateOp(nodeMember, "Property", 20, 10);
-        var context = CreateContext();
 
-        op.Revert(context);
+        op.Revert();
 
         Assert.That(nodeMember.GetProperty()!.GetValue(), Is.EqualTo(10));
     }
@@ -161,9 +147,8 @@ public class UpdateNodeMemberOperationTests
     {
         var nodeMember = new TestNodeMember<float>("TestProperty", 2.5f);
         var op = CreateOp(nodeMember, "Property", 2.5f, 1.5f);
-        var context = CreateContext();
 
-        op.Revert(context);
+        op.Revert();
 
         Assert.That(nodeMember.GetProperty()!.GetValue(), Is.EqualTo(1.5f));
     }
@@ -324,12 +309,11 @@ public class UpdateNodeMemberOperationTests
     {
         var nodeMember = new TestNodeMember<int>("TestProperty", 10);
         var op = CreateOp(nodeMember, "Property", 20, 10);
-        var context = CreateContext();
 
         var originalValue = nodeMember.GetProperty()!.GetValue();
 
-        op.Apply(context);
-        op.Revert(context);
+        op.Apply();
+        op.Revert();
 
         Assert.That(nodeMember.GetProperty()!.GetValue(), Is.EqualTo(originalValue));
     }
@@ -339,14 +323,13 @@ public class UpdateNodeMemberOperationTests
     {
         var nodeMember = new TestNodeMember<int>("TestProperty", 10);
         var op = CreateOp(nodeMember, "Property", 20, 10);
-        var context = CreateContext();
 
         for (int i = 0; i < 5; i++)
         {
-            op.Apply(context);
+            op.Apply();
             Assert.That(nodeMember.GetProperty()!.GetValue(), Is.EqualTo(20));
 
-            op.Revert(context);
+            op.Revert();
             Assert.That(nodeMember.GetProperty()!.GetValue(), Is.EqualTo(10));
         }
     }
@@ -358,15 +341,14 @@ public class UpdateNodeMemberOperationTests
         var newAnimation = new KeyFrameAnimation<float>();
         var nodeMember = new TestNodeMember<float>("TestProperty", 1.0f, oldAnimation);
         var op = CreateOp(nodeMember, "Property.Animation", newAnimation, oldAnimation);
-        var context = CreateContext();
 
-        op.Apply(context);
+        op.Apply();
         Assert.That(nodeMember.GetProperty()!.Animation, Is.SameAs(newAnimation));
 
-        op.Revert(context);
+        op.Revert();
         Assert.That(nodeMember.GetProperty()!.Animation, Is.SameAs(oldAnimation));
 
-        op.Apply(context);
+        op.Apply();
         Assert.That(nodeMember.GetProperty()!.Animation, Is.SameAs(newAnimation));
     }
 
@@ -375,12 +357,11 @@ public class UpdateNodeMemberOperationTests
     {
         var nodeMember = new TestNodeMember<string>("TestProperty", "initial");
         var op = CreateOp(nodeMember, "Property", null, "initial");
-        var context = CreateContext();
 
-        op.Apply(context);
+        op.Apply();
         Assert.That(nodeMember.GetProperty()!.GetValue(), Is.Null);
 
-        op.Revert(context);
+        op.Revert();
         Assert.That(nodeMember.GetProperty()!.GetValue(), Is.EqualTo("initial"));
     }
 
@@ -389,12 +370,11 @@ public class UpdateNodeMemberOperationTests
     {
         var nodeMember = new TestNodeMember<string>("TestProperty", null);
         var op = CreateOp(nodeMember, "Property", "new-value", null);
-        var context = CreateContext();
 
-        op.Apply(context);
+        op.Apply();
         Assert.That(nodeMember.GetProperty()!.GetValue(), Is.EqualTo("new-value"));
 
-        op.Revert(context);
+        op.Revert();
         Assert.That(nodeMember.GetProperty()!.GetValue(), Is.Null);
     }
 
@@ -404,12 +384,11 @@ public class UpdateNodeMemberOperationTests
         var animation = new KeyFrameAnimation<float>();
         var nodeMember = new TestNodeMember<float>("TestProperty", 1.0f, animation);
         var op = CreateOp(nodeMember, "Property.Animation", null, animation);
-        var context = CreateContext();
 
-        op.Apply(context);
+        op.Apply();
         Assert.That(nodeMember.GetProperty()!.Animation, Is.Null);
 
-        op.Revert(context);
+        op.Revert();
         Assert.That(nodeMember.GetProperty()!.Animation, Is.SameAs(animation));
     }
 
@@ -421,28 +400,27 @@ public class UpdateNodeMemberOperationTests
     public void UndoRedo_Integration_ShouldWorkCorrectly()
     {
         var nodeMember = new TestNodeMember<int>("TestProperty", 0);
-        var context = CreateContext();
 
         var op1 = CreateOp(nodeMember, "Property", 10, 0);
         var op2 = CreateOp(nodeMember, "Property", 20, 10);
         var op3 = CreateOp(nodeMember, "Property", 30, 20);
 
-        op1.Apply(context);
+        op1.Apply();
         Assert.That(nodeMember.GetProperty()!.GetValue(), Is.EqualTo(10));
 
-        op2.Apply(context);
+        op2.Apply();
         Assert.That(nodeMember.GetProperty()!.GetValue(), Is.EqualTo(20));
 
-        op3.Apply(context);
+        op3.Apply();
         Assert.That(nodeMember.GetProperty()!.GetValue(), Is.EqualTo(30));
 
-        op3.Revert(context);
+        op3.Revert();
         Assert.That(nodeMember.GetProperty()!.GetValue(), Is.EqualTo(20));
 
-        op2.Revert(context);
+        op2.Revert();
         Assert.That(nodeMember.GetProperty()!.GetValue(), Is.EqualTo(10));
 
-        op1.Revert(context);
+        op1.Revert();
         Assert.That(nodeMember.GetProperty()!.GetValue(), Is.EqualTo(0));
     }
 
@@ -450,7 +428,6 @@ public class UpdateNodeMemberOperationTests
     public void MergeAndApply_Integration_ShouldWorkCorrectly()
     {
         var nodeMember = new TestNodeMember<int>("TestProperty", 0);
-        var context = CreateContext();
 
         var op1 = CreateOp(nodeMember, "Property", 10, 0);
         var op2 = CreateOp(nodeMember, "Property", 20, 10);
@@ -459,10 +436,10 @@ public class UpdateNodeMemberOperationTests
         op1.TryMerge(op2);
         op1.TryMerge(op3);
 
-        op1.Apply(context);
+        op1.Apply();
         Assert.That(nodeMember.GetProperty()!.GetValue(), Is.EqualTo(30));
 
-        op1.Revert(context);
+        op1.Revert();
         Assert.That(nodeMember.GetProperty()!.GetValue(), Is.EqualTo(0));
     }
 
@@ -471,22 +448,21 @@ public class UpdateNodeMemberOperationTests
     {
         var nodeMember = new TestNodeMember<float>("TestProperty", 1.0f);
         var animation = new KeyFrameAnimation<float>();
-        var context = CreateContext();
 
         var valueOp = CreateOp(nodeMember, "Property", 2.0f, 1.0f);
-        valueOp.Apply(context);
+        valueOp.Apply();
         Assert.That(nodeMember.GetProperty()!.GetValue(), Is.EqualTo(2.0f));
 
         var animOp = CreateOp(nodeMember, "Property.Animation", animation, null);
-        animOp.Apply(context);
+        animOp.Apply();
         Assert.That(nodeMember.GetProperty()!.Animation, Is.SameAs(animation));
 
-        animOp.Revert(context);
+        animOp.Revert();
         Assert.That(nodeMember.GetProperty()!.Animation, Is.Null);
 
         Assert.That(nodeMember.GetProperty()!.GetValue(), Is.EqualTo(2.0f));
 
-        valueOp.Revert(context);
+        valueOp.Revert();
         Assert.That(nodeMember.GetProperty()!.GetValue(), Is.EqualTo(1.0f));
     }
 
@@ -499,9 +475,8 @@ public class UpdateNodeMemberOperationTests
     {
         var nodeMember = new DefaultNodeMember<int>();
         var op = CreateOp(nodeMember, "Property", 20, 10);
-        var context = CreateContext();
 
-        Assert.DoesNotThrow(() => op.Apply(context));
+        Assert.DoesNotThrow(() => op.Apply());
     }
 
     [Test]
@@ -509,9 +484,8 @@ public class UpdateNodeMemberOperationTests
     {
         var nodeMember = new DefaultNodeMember<int>();
         var op = CreateOp(nodeMember, "Property", 20, 10);
-        var context = CreateContext();
 
-        Assert.DoesNotThrow(() => op.Revert(context));
+        Assert.DoesNotThrow(() => op.Revert());
     }
 
     #endregion

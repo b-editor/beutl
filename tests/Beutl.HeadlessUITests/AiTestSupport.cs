@@ -174,10 +174,17 @@ internal static class AiTestSupport
             CreatePlanCoordinator(clients),
             clients.GetResource<IAiTranscriptionService>(),
             clients.GetResource<IAiCaptionTranslationService>(),
-            CaptionCatalog.CreateDefault("Default"),
+            CreateCaptionCatalog(),
             draftStore ?? CaptionDraftStoreProvider.Current,
             draftScopes ?? Observable.Return<CaptionDraftScope?>(null),
             editor);
+
+    public static CaptionCatalog CreateCaptionCatalog()
+        => CaptionCatalog.ComposeWithDefaultElementFactory(
+            "Default",
+            [],
+            new ExtensionProvider(),
+            new DefaultTextCaptionElementFactory(Beutl.Media.FontFamily.Default));
 
     private static IAiPlanCoordinator CreatePlanCoordinator(BeutlApiApplication clients)
         => new AiPlanCoordinator(clients.GetResource<IAiEntitlementService>());

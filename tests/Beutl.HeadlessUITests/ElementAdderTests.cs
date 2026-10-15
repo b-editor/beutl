@@ -129,9 +129,6 @@ public class ElementAdderTests
         {
             Assert.That(empty.Failure, Is.TypeOf<EmptyElementAddRequestFailure>());
             Assert.That(unsupported.Failure, Is.TypeOf<UnsupportedElementSourceFailure>());
-            Assert.That(
-                (unsupported.FailedDescription?.Source as ElementSource.File)?.FileName,
-                Does.EndWith("unsupported.beutl-test"));
             Assert.That(editor.Scene.Children, Is.Empty);
             Assert.That(editor.HistoryManager.UndoCount, Is.Zero);
         }
@@ -172,7 +169,6 @@ public class ElementAdderTests
         {
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.Failure, Is.TypeOf<LockedElementLayerFailure>());
-            Assert.That(((LockedElementLayerFailure)result.Failure!).Layer, Is.EqualTo(2));
             Assert.That(result.Elements, Is.Empty);
             Assert.That(factoryCalled, Is.False);
             Assert.That(editor.Scene.Children, Is.Empty);
@@ -245,8 +241,7 @@ public class ElementAdderTests
             4,
             new TestElementSource("plugin"));
 
-        IElementSourceHandlerRegistration registration = adder.SourceHandlers.Register(
-            new ElementSourceHandlerRegistration(handler));
+        await using IAsyncDisposable registration = PackageSourceHandlers.Register(editor.ExtensionProvider, handler);
         ElementAddResult result = await adder.AddAsync([description], CancellationToken.None);
         await registration.DisposeAsync();
         ElementAddResult afterUnregister = await adder.AddAsync([description], CancellationToken.None);
@@ -274,8 +269,7 @@ public class ElementAdderTests
         EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("element-adder-handler-length");
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
         var handler = new LengthPreservingTestSourceHandler();
-        await using IElementSourceHandlerRegistration registration = adder.SourceHandlers.Register(
-            new ElementSourceHandlerRegistration(handler));
+        await using IAsyncDisposable registration = PackageSourceHandlers.Register(editor.ExtensionProvider, handler);
 
         ElementAddResult result = await adder.AddAsync(
         [
@@ -336,8 +330,7 @@ public class ElementAdderTests
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
         var failure = new TestElementAddFailure("The plugin rejected this source.");
         var handler = new RejectingTestSourceHandler(failure);
-        await using IElementSourceHandlerRegistration registration = adder.SourceHandlers.Register(
-            new ElementSourceHandlerRegistration(handler));
+        await using IAsyncDisposable registration = PackageSourceHandlers.Register(editor.ExtensionProvider, handler);
 
         ElementAddResult result = await adder.AddAsync(
         [
@@ -365,8 +358,7 @@ public class ElementAdderTests
         EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("element-adder-plugin-cancellation");
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
         var handler = new BlockingTestSourceHandler();
-        await using IElementSourceHandlerRegistration registration = adder.SourceHandlers.Register(
-            new ElementSourceHandlerRegistration(handler));
+        await using IAsyncDisposable registration = PackageSourceHandlers.Register(editor.ExtensionProvider, handler);
         using var cancellationTokenSource = new CancellationTokenSource();
         ValueTask<ElementAddResult> operation = adder.AddAsync(
         [
@@ -400,8 +392,7 @@ public class ElementAdderTests
         EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("element-adder-handler-lease");
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
         var handler = new LeaseBlockingTestSourceHandler();
-        IElementSourceHandlerRegistration registration = adder.SourceHandlers.Register(
-            new ElementSourceHandlerRegistration(handler));
+        IAsyncDisposable registration = PackageSourceHandlers.Register(editor.ExtensionProvider, handler);
         Task<ElementAddResult> operation = adder.AddAsync(
             [CreateTestDescription("lease", 0)],
             CancellationToken.None).AsTask();
@@ -412,7 +403,11 @@ public class ElementAdderTests
             await handler.PreflightStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
             disposeTask = registration.DisposeAsync().AsTask();
-            await HeadlessTestHelpers.WaitUntilAsync(IsHandlerRetired);
+            // Removing the package retires the handler at once, so a new add finds no handler.
+            ElementAddResult retiredProbe = await adder.AddAsync(
+                [CreateTestDescription("retired", 1)],
+                CancellationToken.None).AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(retiredProbe.Failure, Is.TypeOf<UnsupportedElementSourceFailure>());
             Assert.That(disposeTask.IsCompleted, Is.False);
 
             handler.ReleasePreflight.TrySetResult();
@@ -443,19 +438,6 @@ public class ElementAdderTests
                 await finalDisposeTask.WaitAsync(TimeSpan.FromSeconds(5));
             }
         }
-
-        bool IsHandlerRetired()
-        {
-            if (!adder.SourceHandlers.TryAcquire(
-                    typeof(TestElementSource),
-                    out IElementSourceHandlerLease? candidate))
-            {
-                return true;
-            }
-
-            candidate!.Dispose();
-            return false;
-        }
     }
 
     [AvaloniaTest]
@@ -465,8 +447,7 @@ public class ElementAdderTests
         EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("element-adder-history-isolation");
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
         var handler = new LeaseBlockingTestSourceHandler();
-        await using IElementSourceHandlerRegistration registration = adder.SourceHandlers.Register(
-            new ElementSourceHandlerRegistration(handler));
+        await using IAsyncDisposable registration = PackageSourceHandlers.Register(editor.ExtensionProvider, handler);
         Task<ElementAddResult> operation = adder.AddAsync(
             [CreateTestDescription("isolated-history", 0)],
             CancellationToken.None).AsTask();
@@ -481,8 +462,7 @@ public class ElementAdderTests
             unrelatedValue = 1;
             editor.HistoryManager.Record(
                 () => unrelatedValue = 1,
-                () => unrelatedValue = 0,
-                "Concurrent edit");
+                () => unrelatedValue = 0);
             handler.ReleaseMaterialization.TrySetResult();
             ElementAddResult result = await operation.WaitAsync(TimeSpan.FromSeconds(5));
 
@@ -634,7 +614,7 @@ public class ElementAdderTests
         EditorTabItem tab = TestShell.Editor.SelectedTabItem.Value!;
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
         var handler = new BlockingTestSourceHandler();
-        _ = adder.SourceHandlers.Register(new ElementSourceHandlerRegistration(handler));
+        await using IAsyncDisposable registration = PackageSourceHandlers.Register(editor.ExtensionProvider, handler);
         Task<ElementAddResult> operation = adder.AddAsync(
             [CreateTestDescription("dispose", 0)],
             CancellationToken.None).AsTask();
@@ -666,8 +646,7 @@ public class ElementAdderTests
         }
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
         var handler = new GroupedTestSourceHandler();
-        await using IElementSourceHandlerRegistration registration = adder.SourceHandlers.Register(
-            new ElementSourceHandlerRegistration(handler));
+        await using IAsyncDisposable registration = PackageSourceHandlers.Register(editor.ExtensionProvider, handler);
 
         ElementAddResult result = await adder.AddAsync(
         [
@@ -695,8 +674,7 @@ public class ElementAdderTests
         EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("element-adder-transfer-ownership");
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
         var successfulHandler = new OwnershipTestSourceHandler();
-        await using (IElementSourceHandlerRegistration registration = adder.SourceHandlers.Register(
-                         new ElementSourceHandlerRegistration(successfulHandler)))
+        await using (IAsyncDisposable registration = PackageSourceHandlers.Register(editor.ExtensionProvider, successfulHandler))
         {
             ElementAddResult success = await adder.AddAsync(
             [
@@ -716,8 +694,7 @@ public class ElementAdderTests
         }
 
         var rollbackHandler = new OwnershipTestSourceHandler();
-        await using IElementSourceHandlerRegistration rollbackRegistration = adder.SourceHandlers.Register(
-            new ElementSourceHandlerRegistration(rollbackHandler));
+        await using IAsyncDisposable rollbackRegistration = PackageSourceHandlers.Register(editor.ExtensionProvider, rollbackHandler);
         NotifyCollectionChangedEventHandler mutationFailure = (_, args) =>
         {
             if (args.Action == NotifyCollectionChangedAction.Add)
@@ -797,8 +774,7 @@ public class ElementAdderTests
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
         var fixedId = Guid.NewGuid();
         var handler = new MutationTestSourceHandler((_, element) => element.Id = fixedId);
-        await using IElementSourceHandlerRegistration registration = adder.SourceHandlers.Register(
-            new ElementSourceHandlerRegistration(handler));
+        await using IAsyncDisposable registration = PackageSourceHandlers.Register(editor.ExtensionProvider, handler);
 
         ElementAddResult duplicateBatch = await adder.AddAsync(
         [
@@ -839,8 +815,7 @@ public class ElementAdderTests
                 });
             }
         });
-        await using IElementSourceHandlerRegistration registration = adder.SourceHandlers.Register(
-            new ElementSourceHandlerRegistration(handler));
+        await using IAsyncDisposable registration = PackageSourceHandlers.Register(editor.ExtensionProvider, handler);
 
         ElementAddResult result = await adder.AddAsync(
             [CreateTestDescription("late-lock", 3)],
@@ -869,8 +844,7 @@ public class ElementAdderTests
                 context.Scene.Id = changedId;
             }
         });
-        await using IElementSourceHandlerRegistration registration = adder.SourceHandlers.Register(
-            new ElementSourceHandlerRegistration(handler));
+        await using IAsyncDisposable registration = PackageSourceHandlers.Register(editor.ExtensionProvider, handler);
 
         ElementAddResult result;
         try
@@ -890,8 +864,6 @@ public class ElementAdderTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(result.Failure, Is.TypeOf<ElementSceneChangedFailure>());
-            Assert.That(((ElementSceneChangedFailure)result.Failure!).ExpectedSceneId, Is.EqualTo(originalId));
-            Assert.That(((ElementSceneChangedFailure)result.Failure!).ActualSceneId, Is.EqualTo(changedId));
             Assert.That(editor.Scene.Children, Is.Empty);
         }
     }
@@ -920,8 +892,7 @@ public class ElementAdderTests
             }
             materialized.Id = competing.Id;
         });
-        await using IElementSourceHandlerRegistration registration = adder.SourceHandlers.Register(
-            new ElementSourceHandlerRegistration(handler));
+        await using IAsyncDisposable registration = PackageSourceHandlers.Register(editor.ExtensionProvider, handler);
 
         ElementAddResult result = await adder.AddAsync(
             [CreateTestDescription("id-conflict", 0)],
@@ -943,8 +914,7 @@ public class ElementAdderTests
         EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("element-adder-release-failure");
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
         var handler = new ThrowingDisposeSourceHandler();
-        await using IElementSourceHandlerRegistration registration = adder.SourceHandlers.Register(
-            new ElementSourceHandlerRegistration(handler));
+        await using IAsyncDisposable registration = PackageSourceHandlers.Register(editor.ExtensionProvider, handler);
 
         ElementAddResult result = await adder.AddAsync(
             [CreateTestDescription("release", 0)],
@@ -1044,8 +1014,7 @@ public class ElementAdderTests
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
         var materialized = new List<Element>();
         var sourceHandler = new MutationTestSourceHandler((_, element) => materialized.Add(element));
-        await using IElementSourceHandlerRegistration registration = adder.SourceHandlers.Register(
-            new ElementSourceHandlerRegistration(sourceHandler));
+        await using IAsyncDisposable registration = PackageSourceHandlers.Register(editor.ExtensionProvider, sourceHandler);
         bool shouldInjectMutationFailure = true;
         NotifyCollectionChangedEventHandler handler = (_, args) =>
         {
@@ -1060,8 +1029,7 @@ public class ElementAdderTests
                     {
                         editor.Scene.AddChild(materialized[1]);
                         throw new InvalidOperationException("Injected rollback failure");
-                    },
-                    "Injected rollback operation");
+                    });
             }
             else if (editor.Scene.Children.Count == 2 && shouldInjectMutationFailure)
             {
@@ -1140,7 +1108,7 @@ public class ElementAdderTests
 
         public int MaterializationCount { get; private set; }
 
-        public TrackingAsyncDisposable Resource { get; } = new();
+        public TrackingDisposable Resource { get; } = new();
 
         public TestPreflight? LastPreflight { get; private set; }
 
@@ -1184,7 +1152,7 @@ public class ElementAdderTests
                     primary,
                     [companion],
                     [group],
-                    [ElementMaterializationResource.TemporaryAsync(Resource)]));
+                    [ElementMaterializationResource.Temporary(Resource)]));
         }
     }
 
@@ -1313,7 +1281,7 @@ public class ElementAdderTests
     {
         public ThrowingPreflight Preflight { get; } = new();
 
-        public ThrowingAsyncDisposable Resource { get; } = new();
+        public ThrowingDisposable Resource { get; } = new();
 
         protected override IElementSourcePreflight CreatePreflight(ElementSourcePreflightContext context)
             => Preflight;
@@ -1321,7 +1289,7 @@ public class ElementAdderTests
         protected override ElementMaterialization Materialize(
             ElementSourceMaterializationContext context,
             Element element)
-            => new(element, resources: [ElementMaterializationResource.TemporaryAsync(Resource)]);
+            => new(element, resources: [ElementMaterializationResource.Temporary(Resource)]);
     }
 
     private sealed class RejectingTestSourceHandler(TestElementAddFailure failure)
@@ -1397,11 +1365,11 @@ public class ElementAdderTests
         }
     }
 
-    private sealed class ThrowingAsyncDisposable : IAsyncDisposable
+    private sealed class ThrowingDisposable : IDisposable
     {
         public int DisposeAttempts { get; private set; }
 
-        public ValueTask DisposeAsync()
+        public void Dispose()
         {
             DisposeAttempts++;
             throw new InvalidOperationException("Injected resource disposal failure");
@@ -1413,16 +1381,5 @@ public class ElementAdderTests
         public bool IsDisposed { get; private set; }
 
         public void Dispose() => IsDisposed = true;
-    }
-
-    private sealed class TrackingAsyncDisposable : IAsyncDisposable
-    {
-        public bool IsDisposed { get; private set; }
-
-        public async ValueTask DisposeAsync()
-        {
-            await Task.Yield();
-            IsDisposed = true;
-        }
     }
 }

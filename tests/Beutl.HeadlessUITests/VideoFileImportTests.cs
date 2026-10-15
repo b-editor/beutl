@@ -190,7 +190,6 @@ public class VideoFileImportTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(result.Failure, Is.TypeOf<LockedElementLayerFailure>());
-            Assert.That(((LockedElementLayerFailure)result.Failure!).Layer, Is.EqualTo(1));
             Assert.That(result.Elements, Is.Empty);
             Assert.That(editor.Scene.Children, Is.Empty);
             Assert.That(editor.Scene.Groups, Is.Empty);

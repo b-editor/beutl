@@ -444,7 +444,7 @@ public sealed class AiSubtitleAdvancedTests
 
         bool imported = viewModel.ImportCaptionBytes(srt, CaptionFormats.Srt);
         Assert.That(viewModel.TryBuildCaptionDocument(out CaptionDocument? document, out _), Is.True);
-        await using CaptionCatalog catalog = CaptionCatalog.CreateDefault("Default");
+        await using CaptionCatalog catalog = AiTestSupport.CreateCaptionCatalog();
         byte[]? exported = null;
         await AiSubtitleDialogViewModel.TryWriteCaptionExportAsync(
             document!,
@@ -544,7 +544,7 @@ public sealed class AiSubtitleAdvancedTests
     [Test]
     public async Task LossySrtExport_DeclinedConfirmationDoesNotWrite()
     {
-        await using CaptionCatalog catalog = CaptionCatalog.CreateDefault("Default");
+        await using CaptionCatalog catalog = AiTestSupport.CreateCaptionCatalog();
         var document = new CaptionDocument(
         [
             new CaptionCue(
@@ -584,7 +584,7 @@ public sealed class AiSubtitleAdvancedTests
     [Test]
     public async Task LossySrtExport_ConfirmedProjectionPreservesTheSourceDocument()
     {
-        await using CaptionCatalog catalog = CaptionCatalog.CreateDefault("Default");
+        await using CaptionCatalog catalog = AiTestSupport.CreateCaptionCatalog();
         var cue = new CaptionCue(
             TimeSpan.FromSeconds(1),
             TimeSpan.FromSeconds(2),
@@ -627,7 +627,7 @@ public sealed class AiSubtitleAdvancedTests
     public async Task LossySrtExport_CancellationAfterConfirmationDoesNotWrite()
     {
         using var cancellation = new CancellationTokenSource();
-        await using CaptionCatalog catalog = CaptionCatalog.CreateDefault("Default");
+        await using CaptionCatalog catalog = AiTestSupport.CreateCaptionCatalog();
         var document = new CaptionDocument(
         [
             new CaptionCue(
@@ -728,7 +728,7 @@ public sealed class AiSubtitleAdvancedTests
             new AiPlanCoordinator(clients.GetResource<IAiEntitlementService>()),
             clients.GetResource<IAiTranscriptionService>(),
             clients.GetResource<IAiCaptionTranslationService>(),
-            CaptionCatalog.CreateDefault("Default"),
+            AiTestSupport.CreateCaptionCatalog(),
             draftStore ?? CaptionDraftStoreProvider.Current,
             scopes ?? Observable.Return<CaptionDraftScope?>(null));
 
@@ -742,7 +742,7 @@ public sealed class AiSubtitleAdvancedTests
             new SubtitleStubPlanCoordinator(),
             new SubtitleStubTranscription(),
             translation ?? new SubtitleStubTranslation(),
-            CaptionCatalog.CreateDefault("Default"),
+            AiTestSupport.CreateCaptionCatalog(),
             new FileCaptionDraftStore(directory),
             Observable.Return<CaptionDraftScope?>(null));
 

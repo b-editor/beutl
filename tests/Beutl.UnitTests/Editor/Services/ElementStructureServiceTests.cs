@@ -239,12 +239,13 @@ public class ElementStructureServiceTests
         // Splitting a ~1-frame element leaves both halves under minDuration, so it must bail.
         Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromMilliseconds(20));
         int before = _history.UndoCount;
+        int childrenBefore = _scene.Children.Count;
 
-        SplitOutcome outcome = _service.Split(_scene, [element], element.Start + TimeSpan.FromMilliseconds(10));
+        _service.Split(_scene, [element], element.Start + TimeSpan.FromMilliseconds(10));
 
         Assert.Multiple(() =>
         {
-            Assert.That(outcome.NewElements, Is.Empty);
+            Assert.That(_scene.Children.Count, Is.EqualTo(childrenBefore));
             Assert.That(_history.UndoCount, Is.EqualTo(before));
         });
     }
@@ -255,17 +256,18 @@ public class ElementStructureServiceTests
         Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(4));
         _history.Commit("Add element");
         int before = _history.UndoCount;
-        int childrenBefore = _scene.Children.Count;
+        Element[] childrenBefore = [.. _scene.Children];
         TimeSpan splitAt = TimeSpan.FromSeconds(3);
 
-        SplitOutcome outcome = _service.Split(_scene, [element], splitAt);
+        _service.Split(_scene, [element], splitAt);
 
+        Element[] added = [.. _scene.Children.Except(childrenBefore)];
         Assert.Multiple(() =>
         {
-            Assert.That(outcome.NewElements, Has.Count.EqualTo(1));
+            Assert.That(added, Has.Length.EqualTo(1));
             Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
-            Assert.That(outcome.NewElements[0].Start, Is.EqualTo(splitAt));
-            Assert.That(_scene.Children.Count, Is.EqualTo(childrenBefore + 1));
+            Assert.That(added[0].Start, Is.EqualTo(splitAt));
+            Assert.That(_scene.Children.Count, Is.EqualTo(childrenBefore.Length + 1));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
     }
@@ -279,9 +281,10 @@ public class ElementStructureServiceTests
         element.EnterTransition = enter;
         element.ExitTransition = exit;
         _history.Commit("Add element");
+        Element[] childrenBefore = [.. _scene.Children];
 
-        SplitOutcome outcome = _service.Split(_scene, [element], TimeSpan.FromSeconds(3));
-        Element back = outcome.NewElements[0];
+        _service.Split(_scene, [element], TimeSpan.FromSeconds(3));
+        Element back = _scene.Children.Except(childrenBefore).Single();
 
         Assert.Multiple(() =>
         {
@@ -301,11 +304,10 @@ public class ElementStructureServiceTests
         int before = _history.UndoCount;
         int groupsBefore = _scene.Groups.Count;
 
-        GroupOutcome outcome = _service.Group(_scene, [e1.Id, e2.Id]);
+        _service.Group(_scene, [e1.Id, e2.Id]);
 
         Assert.Multiple(() =>
         {
-            Assert.That(outcome.Created, Is.True);
             Assert.That(_scene.Groups.Count, Is.EqualTo(groupsBefore + 1));
             Assert.That(_scene.Groups[^1], Does.Contain(e1.Id).And.Contain(e2.Id));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
@@ -319,11 +321,10 @@ public class ElementStructureServiceTests
         int beforeUndo = _history.UndoCount;
         int beforeGroups = _scene.Groups.Count;
 
-        GroupOutcome outcome = _service.Group(_scene, [element.Id]);
+        _service.Group(_scene, [element.Id]);
 
         Assert.Multiple(() =>
         {
-            Assert.That(outcome.Created, Is.False);
             // Commit() must no-op when the transaction recorded no operations.
             Assert.That(_scene.Groups.Count, Is.EqualTo(beforeGroups));
             Assert.That(_history.UndoCount, Is.EqualTo(beforeUndo));
@@ -385,11 +386,10 @@ public class ElementStructureServiceTests
         Element e1 = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
         Element e2 = AddElement(TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(2));
 
-        GroupOutcome outcome = _service.Group(_scene, [locked.Id, e1.Id, e2.Id]);
+        _service.Group(_scene, [locked.Id, e1.Id, e2.Id]);
 
         Assert.Multiple(() =>
         {
-            Assert.That(outcome.Created, Is.True);
             Assert.That(_scene.Groups, Has.Count.EqualTo(1));
             Assert.That(_scene.Groups[0], Is.EquivalentTo(new[] { e1.Id, e2.Id }));
         });
@@ -444,11 +444,10 @@ public class ElementStructureServiceTests
         int before = _history.UndoCount;
 
         // A single-id Group acts as "ungroup this element"; it must not strand the locked member.
-        GroupOutcome outcome = _service.Group(_scene, [editable.Id]);
+        _service.Group(_scene, [editable.Id]);
 
         Assert.Multiple(() =>
         {
-            Assert.That(outcome.Created, Is.False);
             Assert.That(_scene.Groups, Has.Count.EqualTo(1));
             Assert.That(_scene.Groups[0], Is.EquivalentTo(new[] { editable.Id, locked.Id }));
             Assert.That(_history.UndoCount, Is.EqualTo(before));
@@ -486,11 +485,10 @@ public class ElementStructureServiceTests
 
         // Regrouping b with c would strand locked a in {a}; b is refused, so {a,b} stays intact and
         // no overlapping {b,c} group is created that would confuse group-based selection.
-        GroupOutcome outcome = _service.Group(_scene, [b.Id, c.Id]);
+        _service.Group(_scene, [b.Id, c.Id]);
 
         Assert.Multiple(() =>
         {
-            Assert.That(outcome.Created, Is.False);
             Assert.That(_scene.Groups, Has.Count.EqualTo(1));
             Assert.That(_scene.Groups[0], Is.EquivalentTo(new[] { a.Id, b.Id }));
         });
@@ -553,12 +551,8 @@ public class ElementStructureServiceTests
         locked.IsLocked = true;
         int beforeCount = _scene.Children.Count;
 
-        SplitOutcome outcome = _service.Split(_scene, [locked], TimeSpan.FromSeconds(2));
+        _service.Split(_scene, [locked], TimeSpan.FromSeconds(2));
 
-        Assert.Multiple(() =>
-        {
-            Assert.That(outcome.NewElements, Is.Empty);
-            Assert.That(_scene.Children.Count, Is.EqualTo(beforeCount));
-        });
+        Assert.That(_scene.Children.Count, Is.EqualTo(beforeCount));
     }
 }

@@ -26,7 +26,7 @@ public static class RenderScaleExtensions
     private const float MinScale = 1f / 64f;
 
     /// <summary>Resolves the output scale for this quality level, clamped to [MinScale, 1].</summary>
-    public static float ToFloat(this RenderScale scale, PixelSize frameSize, Size previewSize)
+    private static float ToFloat(this RenderScale scale, PixelSize frameSize, Size previewSize)
     {
         float s = scale switch
         {
