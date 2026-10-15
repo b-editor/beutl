@@ -92,8 +92,7 @@ different topology, not merely a different density.
 
 - **Bitmap sources.** A decoded image or video reports the density its pixels exist at, separately from its
   logical footprint. A proxy reports its reduced density (the proxy's long edge divided by the original's).
-  Mixed-density compositing resamples bitmaps through `ImmediateCanvas.DrawRenderTargetScaled` and
-  `DrawSurfaceScaled`.
+  Mixed-density compositing resamples bitmaps through `ImmediateCanvas.DrawRenderTargetScaled`.
 - **Tile and drawable brushes.** `BrushConstructor` rasterizes `TileBrush` and `DrawableBrush` content at the
   canvas density (`ImmediateCanvas.Density`), so fills stay sharp at `s_out > 1` without author action. Solid,
   gradient, and Perlin brushes are resolution-independent shaders.
