@@ -13,8 +13,6 @@ public class FontFamily(string familyname) : IEquatable<FontFamily?>
 
     public string Name { get; } = familyname;
 
-    public IEnumerable<Typeface> Typefaces => FontManager.Instance.GetTypefaces(this);
-
     public override bool Equals(object? obj)
     {
         return obj is FontFamily family && Equals(family);

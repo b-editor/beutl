@@ -2,8 +2,6 @@
 
 public readonly struct Sample(float left, float right) : IEquatable<Sample>
 {
-    public static readonly Sample One = new(1, 1);
-
     public float Left { get; } = left;
 
     public float Right { get; } = right;

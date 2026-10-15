@@ -1,7 +1,4 @@
-﻿using System.Runtime.InteropServices;
-using System.Text;
-
-namespace Beutl.Media.TextFormatting;
+﻿namespace Beutl.Media.TextFormatting;
 
 public readonly struct FormattedTextTokenizer(string str)
 {
@@ -10,26 +7,6 @@ public readonly struct FormattedTextTokenizer(string str)
     public void Tokenize()
     {
         Tokenize(new StringSpan(str, 0, str.Length));
-    }
-
-    public void WriteTo(StringBuilder sb)
-    {
-        foreach (Token item in CollectionsMarshal.AsSpan(Result))
-        {
-            switch (item.Type)
-            {
-                case TokenType.TagStart:
-                case TokenType.TagClose:
-                case TokenType.Content:
-                    sb.Append(item.Text.AsSpan());
-                    break;
-                case TokenType.NewLine:
-                    sb.AppendLine();
-                    break;
-                default:
-                    break;
-            }
-        }
     }
 
     private void Process(StringSpan s, int start, int length)
@@ -89,11 +66,6 @@ public readonly struct FormattedTextTokenizer(string str)
     {
         public override string ToString()
         {
-            if (Type == TokenType.NewLine)
-            {
-                return "newline";
-            }
-
             return Text.AsSpan().ToString();
         }
     }
@@ -103,6 +75,5 @@ public readonly struct FormattedTextTokenizer(string str)
         TagStart,
         TagClose,
         Content,
-        NewLine,
     }
 }

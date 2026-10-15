@@ -6,22 +6,6 @@ namespace Beutl.Media.Decoding.APNG.Chunks;
 
 public class Chunk
 {
-    internal Chunk(byte[] bytes)
-    {
-        var ms = new MemoryStream(bytes);
-        Length = BinaryPrimitives.ReadUInt32BigEndian(ms.ReadBytes(4));
-        ChunkType = System.Text.Encoding.ASCII.GetString(ms.ReadBytes(4));
-        ChunkData = ms.ReadBytes((int)Length);
-        Crc = BinaryPrimitives.ReadUInt32BigEndian(ms.ReadBytes(4));
-
-        if (ms.Position != ms.Length)
-            throw new Exception("Chunk length not correct.");
-        if (Length != ChunkData.Length)
-            throw new Exception("Chunk data length not correct.");
-
-        ParseData(new MemoryStream(ChunkData));
-    }
-
     internal Chunk(MemoryStream ms)
     {
         Length = BinaryPrimitives.ReadUInt32BigEndian(ms.ReadBytes(4));
@@ -41,11 +25,11 @@ public class Chunk
         ParseData(new MemoryStream(ChunkData));
     }
 
-    public uint Length { get; set; }
+    public uint Length { get; }
 
-    public string ChunkType { get; set; }
+    public string ChunkType { get; }
 
-    public byte[] ChunkData { get; set; }
+    public byte[] ChunkData { get; }
 
     public uint Crc { get; set; }
 

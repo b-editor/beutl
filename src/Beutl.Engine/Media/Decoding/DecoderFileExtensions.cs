@@ -59,8 +59,6 @@ public static class DecoderFileExtensions
         DecoderRegistry.DecodersChanged += (_, _) => Invalidate();
     }
 
-    public static IReadOnlyCollection<string> Image => s_image;
-
     public static IReadOnlyCollection<string> Video =>
         GetOrBuild(ref s_video, i => i.VideoExtensions(), s_videoBaseline);
 
@@ -82,12 +80,6 @@ public static class DecoderFileExtensions
 
         return MediaFileKind.None;
     }
-
-    public static bool IsImage(string file) => Classify(file) == MediaFileKind.Image;
-
-    public static bool IsVideo(string file) => Classify(file) == MediaFileKind.Video;
-
-    public static bool IsAudio(string file) => Classify(file) == MediaFileKind.Audio;
 
     public static bool IsMedia(string file) => Classify(file) != MediaFileKind.None;
 

@@ -127,8 +127,6 @@ public static class FormattedTextParser
 
     public readonly record struct TagInfo(StringSpan Value, TagType Type)
     {
-        public static readonly TagInfo Invalid = new(StringSpan.Empty, TagType.Invalid);
-
         public bool TryGetColor(out Color color)
         {
             if (Type is TagType.Color or TagType.ColorHash &&
