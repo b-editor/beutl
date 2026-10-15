@@ -43,8 +43,11 @@ public abstract record GenerativeRequest
         CatalogOperationId = catalogOperationId;
     }
 
-    /// <summary>The node that made the request, or null when it was made outside a graph.</summary>
-    public GenerativeNode? Node { get; }
+    /// <summary>
+    /// The node that made the request, or null when it was made outside a graph. Only for tests,
+    /// which check which nodes ran and in what order; the executor goes by the request's type.
+    /// </summary>
+    internal GenerativeNode? Node { get; }
 
     /// <summary>The operation whose models apply, captured with the rest of the inputs.</summary>
     public string CatalogOperationId { get; init; }
@@ -73,7 +76,16 @@ public abstract record GenerativeRequest
         => prompt.Length <= 80 ? prompt : string.Concat(prompt.AsSpan(0, 79), "…");
 }
 
-public sealed record AiImageGenerationNodeRequest : GenerativeRequest
+/// <summary>A request with a seed, which each of several variations queued at once moves on.</summary>
+internal interface ISeededGenerativeRequest
+{
+    int? Seed { get; }
+
+    /// <summary>The same request, sending <paramref name="seed"/> instead.</summary>
+    GenerativeRequest WithSeed(int seed, string parameterFingerprint);
+}
+
+public sealed record AiImageGenerationNodeRequest : GenerativeRequest, ISeededGenerativeRequest
 {
     public AiImageGenerationNodeRequest(GenerativeNode node) : base(node)
     {
@@ -103,6 +115,9 @@ public sealed record AiImageGenerationNodeRequest : GenerativeRequest
         ]);
 
     public override string Summary => Abbreviate(Prompt);
+
+    GenerativeRequest ISeededGenerativeRequest.WithSeed(int seed, string parameterFingerprint)
+        => this with { Seed = seed, ParameterFingerprint = parameterFingerprint };
 }
 
 public enum AiImageEditTask
@@ -272,7 +287,7 @@ public sealed record GenerativeFileInput(string Name, string MediaType, byte[] C
     public string ContentHash { get; } = GenerativeFingerprint.Hash(Content);
 }
 
-public sealed record AiVideoGenerationNodeRequest : GenerativeRequest
+public sealed record AiVideoGenerationNodeRequest : GenerativeRequest, ISeededGenerativeRequest
 {
     public AiVideoGenerationNodeRequest(GenerativeNode node) : base(node)
     {
@@ -315,6 +330,9 @@ public sealed record AiVideoGenerationNodeRequest : GenerativeRequest
         ]);
 
     public override string Summary => Abbreviate(Prompt);
+
+    GenerativeRequest ISeededGenerativeRequest.WithSeed(int seed, string parameterFingerprint)
+        => this with { Seed = seed, ParameterFingerprint = parameterFingerprint };
 }
 
 /// <summary>A report from a running generation: what it is doing and a rough picture.</summary>

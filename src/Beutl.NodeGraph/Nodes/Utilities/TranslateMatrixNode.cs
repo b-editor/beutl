@@ -1,5 +1,4 @@
 ﻿using Beutl.Graphics;
-using Beutl.NodeGraph.Composition;
 
 namespace Beutl.NodeGraph.Nodes.Utilities;
 
@@ -17,7 +16,7 @@ public partial class TranslateMatrixNode : MatrixNode
 
     public partial class Resource
     {
-        protected override Matrix GetMatrix(GraphCompositionContext context, MatrixNode node)
+        protected override Matrix GetMatrix()
         {
             return Matrix.CreateTranslation(X, Y);
         }

@@ -12,7 +12,7 @@ namespace Beutl.NodeGraph.Nodes.Generative;
 /// Generates a clip from a prompt, optionally guided by first and last frames or by
 /// reference pictures and clips. Any picture in the graph can be a frame or a reference.
 /// </summary>
-public sealed partial class AiVideoGenerationNode : GenerativeNode, IPromptLibraryTarget
+public sealed partial class AiVideoGenerationNode : SeededGenerativeNode, IPromptInputNode
 {
     public AiVideoGenerationNode()
     {
@@ -38,7 +38,7 @@ public sealed partial class AiVideoGenerationNode : GenerativeNode, IPromptLibra
         Resolution.Property?.SetValue(GenerativeVideoCapabilities.DefaultResolutions[0]);
         AspectRatio.Property?.SetValue(GenerativeVideoCapabilities.DefaultAspectRatios[0]);
         GenerateAudio.Property?.SetValue(true);
-        Seed.Property?.SetValue(Random.Shared.Next(AiImageGenerationNode.MinSeed, AiImageGenerationNode.MaxSeed));
+        Seed.Property?.SetValue(Random.Shared.Next(MinSeed, MaxSeed));
         UseMultilineEditor(Prompt);
         RegisterChoice(Model, GenerativeChoiceKind.Model);
         RegisterChoice(Duration, GenerativeChoiceKind.Duration);
@@ -66,10 +66,6 @@ public sealed partial class AiVideoGenerationNode : GenerativeNode, IPromptLibra
 
     public InputPort<bool> GenerateAudio { get; }
 
-    public InputPort<int> Seed { get; }
-
-    public InputPort<GenerativeSeedControl> SeedControl { get; }
-
     public InputPort<RenderNode?> FirstFrame { get; }
 
     public InputPort<RenderNode?> LastFrame { get; }
@@ -77,14 +73,6 @@ public sealed partial class AiVideoGenerationNode : GenerativeNode, IPromptLibra
     public ListInputPort<RenderNode?> ImageReferences { get; }
 
     public ListInputPort<VideoSource?> VideoReferences { get; }
-
-    public GenerativeOperation PromptOperation => Operation;
-
-    public bool CanApplyPrompt => Prompt.Connection.IsNull;
-
-    public string ComposePrompt() => Prompt.Property?.GetValue()?.Trim() ?? string.Empty;
-
-    public void ApplyPrompt(string prompt) => Prompt.Property?.SetValue(prompt);
 
     protected internal override GenerativeRequest BuildRequest(GraphNode.Resource resource, GraphCompositionContext context)
     {
@@ -123,7 +111,7 @@ public sealed partial class AiVideoGenerationNode : GenerativeNode, IPromptLibra
             Resolution = string.IsNullOrWhiteSpace(r.Resolution) ? GenerativeVideoCapabilities.DefaultResolutions[0] : r.Resolution!.Trim(),
             AspectRatio = string.IsNullOrWhiteSpace(r.AspectRatio) ? GenerativeVideoCapabilities.DefaultAspectRatios[0] : r.AspectRatio!.Trim(),
             GenerateAudio = r.GenerateAudio,
-            Seed = r.SeedControl == GenerativeSeedControl.ModelDefault ? null : r.Seed,
+            Seed = r.RequestSeed,
             FirstFrame = first,
             LastFrame = last,
             ImageReferences = images,
@@ -132,36 +120,6 @@ public sealed partial class AiVideoGenerationNode : GenerativeNode, IPromptLibra
             RequestKeySeed = RequestKeySeed,
             ParameterFingerprint = r.ComputeParameterFingerprint(),
         };
-    }
-
-    protected internal override void OnGenerated(GenerationRecord record)
-        => AiImageGenerationNode.AdvanceSeed(Seed, SeedControl);
-
-    protected internal override GenerativeRequest BuildVariation(
-        GraphNode.Resource resource,
-        GraphCompositionContext context,
-        int index)
-    {
-        var request = (AiVideoGenerationNodeRequest)BuildRequest(resource, context);
-        if (index == 0 || request.Seed is not int seed)
-            return request;
-
-        int varied = AiImageGenerationNode.VarySeed(seed, index);
-        return request with
-        {
-            Seed = varied,
-            ParameterFingerprint = ((Resource)resource).ComputeParameterFingerprint(varied),
-        };
-    }
-
-    protected internal override void ApplyRequestInputs(GenerativeRequest request)
-    {
-        AiImageGenerationNode.ApplySeedInput(Seed, (request as AiVideoGenerationNodeRequest)?.Seed);
-    }
-
-    protected internal override void ApplyRecordInputs(GenerationRecord record)
-    {
-        AiImageGenerationNode.ApplySeedInput(Seed, record.Seed);
     }
 
     public partial class Resource
@@ -175,12 +133,10 @@ public sealed partial class AiVideoGenerationNode : GenerativeNode, IPromptLibra
             RequireOriginal().ReportParameterFingerprint(ComputeParameterFingerprint());
         }
 
-        internal string ComputeParameterFingerprint() => ComputeParameterFingerprint(null);
-
-        internal string ComputeParameterFingerprint(int? seedOverride)
+        internal override string ComputeParameterFingerprint(int? seedOverride)
         {
             var parameters = (Prompt?.Trim(), Model?.Trim(), Duration, Resolution?.Trim(), AspectRatio?.Trim(),
-                GenerateAudio, seedOverride ?? (SeedControl == GenerativeSeedControl.ModelDefault ? (int?)null : Seed));
+                GenerateAudio, seedOverride ?? RequestSeed);
             if (seedOverride is null && _lastParameterFingerprint is not null && parameters == _lastParameters)
                 return _lastParameterFingerprint;
 

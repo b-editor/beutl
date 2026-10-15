@@ -31,7 +31,7 @@ public class GraphGroup : GraphModel
     public GroupInput? Input
     {
         get => _input;
-        set => SetAndRaise(InputProperty, ref _input, value);
+        private set => SetAndRaise(InputProperty, ref _input, value);
     }
 
     [NotAutoSerialized]
@@ -39,7 +39,7 @@ public class GraphGroup : GraphModel
     public GroupOutput? Output
     {
         get => _output;
-        set => SetAndRaise(OutputProperty, ref _output, value);
+        private set => SetAndRaise(OutputProperty, ref _output, value);
     }
 
     private void OnNodeAttached(GraphNode obj)
@@ -69,34 +69,13 @@ public class GraphGroup : GraphModel
     protected override void OnPropertyChanged(PropertyChangedEventArgs args)
     {
         base.OnPropertyChanged(args);
-        if (args is CorePropertyChangedEventArgs e)
+        // Input and Output are set as a node is attached, when it is already in Nodes, so a
+        // second GroupInput or GroupOutput only has to take the place of the first.
+        if (args is CorePropertyChangedEventArgs e
+            && (e.Property == InputProperty || e.Property == OutputProperty)
+            && e.OldValue is GraphNode oldNode)
         {
-            if (e.Property == InputProperty
-                || e.Property == OutputProperty)
-            {
-                int index = -1;
-
-                if (e.OldValue is GraphNode oldNode)
-                {
-                    index = Nodes.IndexOf(oldNode);
-                    Nodes.Remove(oldNode);
-                }
-
-                if (index == -1)
-                {
-                    index = Nodes.Count;
-                }
-
-                if (e.NewValue is GraphNode newNode)
-                {
-                    if (e.Property == InputProperty && Nodes.Any(x => x is GroupInput))
-                        return;
-                    else if (e.Property == OutputProperty && Nodes.Any(x => x is GroupOutput))
-                        return;
-
-                    Nodes.Insert(index, newNode);
-                }
-            }
+            Nodes.Remove(oldNode);
         }
     }
 }

@@ -29,7 +29,7 @@ internal static class NodeGraphTestHelpers
     {
         using var snapshot = new GraphSnapshot();
         snapshot.Build(graph, CompositionContext.Default);
-        snapshot.Evaluate(CompositionTarget.Graphics, CompositionContext.Default);
+        snapshot.Evaluate(CompositionContext.Default);
     }
 
     // Puts graph in an element of a scene under a hierarchy root, as in the editor: a group mirrors its inner

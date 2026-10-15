@@ -65,7 +65,7 @@ public sealed class ConfigureNodeOwnershipTests
         using (var snapshot = new GraphSnapshot())
         {
             snapshot.Build(model, CompositionContext.Default);
-            snapshot.Evaluate(CompositionTarget.Graphics, CompositionContext.Default);
+            snapshot.Evaluate(CompositionContext.Default);
 
             ContainerRenderNode firstOutput = firstConsumer.OutputContainer
                 ?? throw new AssertionException("The first ConfigureNode consumer did not produce a container.");
@@ -151,7 +151,7 @@ public sealed class ConfigureNodeOwnershipTests
         using (var snapshot = new GraphSnapshot())
         {
             snapshot.Build(model, CompositionContext.Default);
-            snapshot.Evaluate(CompositionTarget.Graphics, CompositionContext.Default);
+            snapshot.Evaluate(CompositionContext.Default);
 
             ContainerRenderNode output = consumer.OutputContainer
                 ?? throw new AssertionException("The ConfigureNode consumer did not produce a container.");
@@ -159,7 +159,7 @@ public sealed class ConfigureNodeOwnershipTests
                 ?? throw new AssertionException("ConfigureNode must wrap its input in a non-owning reference.");
             output.ClearChanges(output.ChangeVersion);
 
-            snapshot.Evaluate(CompositionTarget.Graphics, CompositionContext.Default);
+            snapshot.Evaluate(CompositionContext.Default);
 
             Assert.Multiple(() =>
             {
@@ -169,7 +169,7 @@ public sealed class ConfigureNodeOwnershipTests
             });
 
             source.Select(replacement);
-            snapshot.Evaluate(CompositionTarget.Graphics, CompositionContext.Default);
+            snapshot.Evaluate(CompositionContext.Default);
 
             Assert.Multiple(() =>
             {
@@ -185,7 +185,7 @@ public sealed class ConfigureNodeOwnershipTests
 
             output.ClearChanges(output.ChangeVersion);
             source.Select(null);
-            snapshot.Evaluate(CompositionTarget.Graphics, CompositionContext.Default);
+            snapshot.Evaluate(CompositionContext.Default);
 
             Assert.Multiple(() =>
             {

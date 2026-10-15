@@ -969,7 +969,7 @@ public class NodeGraphFilterEffectRenderNodeTests
             TargetDomain = new Rect(0, 0, 64, 48),
         };
         snapshot.Build(model, context);
-        snapshot.Evaluate(CompositionTarget.Graphics, context);
+        snapshot.Evaluate(context);
 
         Assert.Multiple(() =>
         {
@@ -1001,7 +1001,7 @@ public class NodeGraphFilterEffectRenderNodeTests
         };
         snapshot.Build(model, context);
         renderNode.MarkChanged();
-        snapshot.Evaluate(CompositionTarget.Graphics, context);
+        snapshot.Evaluate(context);
         Assert.That(renderNode.HasChanges, Is.True, "An auxiliary preview must not consume the main render's change flag.");
 
         Assert.Multiple(() =>
@@ -1054,7 +1054,7 @@ public class NodeGraphFilterEffectRenderNodeTests
         int priorExecutions = source.ExecutionCount;
         source.DrawColor = Colors.Red;
         renderNode.MarkChanged();
-        snapshot.Evaluate(CompositionTarget.Graphics, context);
+        snapshot.Evaluate(context);
         Assert.That(renderNode.HasChanges, Is.True, "An auxiliary preview must not consume the main render's change flag.");
 
         Assert.Multiple(() =>
@@ -1099,7 +1099,7 @@ public class NodeGraphFilterEffectRenderNodeTests
         snapshot.Build(model, context);
 
         Assert.That(
-            () => snapshot.Evaluate(CompositionTarget.Graphics, context),
+            () => snapshot.Evaluate(context),
             Throws.TypeOf<InvalidOperationException>().With.Message.EqualTo(ThrowingRenderNode.Message));
         Assert.That(renderNode.ProcessCount, Is.EqualTo(1),
             "An unrelated InvalidOperationException must propagate without a target-domain retry.");

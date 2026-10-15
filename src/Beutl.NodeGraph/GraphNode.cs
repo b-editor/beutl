@@ -3,7 +3,6 @@ using System.Globalization;
 using System.Text.Json.Nodes;
 using Beutl.Collections;
 using Beutl.Engine;
-using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.NodeGraph.Composition;
@@ -114,8 +113,6 @@ public abstract partial class GraphNode : EngineObject
     }
 
     internal void RemoveNestedInputPorts(IEnumerable<INestedInputPort> ports) => _nestedInputPorts.RemoveAll(ports);
-
-    public void SynchronizeNestedInputPorts() => _nestedPortManager.Synchronize();
 
     /// <summary>Root members come first, retaining the indices used by group-node resources.</summary>
     public IEnumerable<INodeMember> EnumerateMembers()
@@ -249,51 +246,9 @@ public abstract partial class GraphNode : EngineObject
         return port;
     }
 
-    protected IInputPort AddInput(string name, Type type, DisplayAttribute? display = null)
-    {
-        IInputPort port = CreateInput(name, type, display);
-        Items.Add(port);
-        return port;
-    }
-
     protected ListInputPort<T> AddListInput<T>(string name, DisplayAttribute? display = null)
     {
         var port = new ListInputPort<T>() { Name = name, Display = display };
-        Items.Add(port);
-        return port;
-    }
-
-    protected ListOutputPort<T> AddListOutput<T>(string name, DisplayAttribute? display = null)
-    {
-        var port = new ListOutputPort<T>() { Name = name, Display = display };
-        Items.Add(port);
-        return port;
-    }
-
-    protected IListInputPort AddListInput(string name, Type type, DisplayAttribute? display = null)
-    {
-        var portType = typeof(ListInputPort<>).MakeGenericType(type);
-        var port = (IListInputPort)Activator.CreateInstance(portType)!;
-        port.Name = name;
-        if (port is NodeMember nodeMember)
-        {
-            nodeMember.Display = display;
-        }
-
-        Items.Add(port);
-        return port;
-    }
-
-    protected IListOutputPort AddListOutput(string name, Type type, DisplayAttribute? display = null)
-    {
-        var portType = typeof(ListOutputPort<>).MakeGenericType(type);
-        var port = (IListOutputPort)Activator.CreateInstance(portType)!;
-        port.Name = name;
-        if (port is NodeMember nodeMember)
-        {
-            nodeMember.Display = display;
-        }
-
         Items.Add(port);
         return port;
     }
@@ -459,7 +414,6 @@ public abstract partial class GraphNode : EngineObject
         public int SlotIndex { get; internal set; }
         public IItemValue[] ItemValues { get; internal set; } = [];
         public INodeMember[] Members { get; internal set; } = [];
-        public IRenderer? Renderer { get; internal set; }
         public Dictionary<INodeMember, int> ItemIndexMap { get; set; } = new();
 
         public virtual void Initialize(GraphCompositionContext context)

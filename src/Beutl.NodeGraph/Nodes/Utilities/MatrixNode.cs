@@ -20,7 +20,7 @@ public abstract partial class MatrixNode : GraphNode
         public override void Update(GraphCompositionContext context)
         {
             var node = RequireOriginal();
-            Matrix matrix = GetMatrix(context, node);
+            Matrix matrix = GetMatrix();
 
             if (context.HasConnection(node.Input))
             {
@@ -32,7 +32,7 @@ public abstract partial class MatrixNode : GraphNode
             }
         }
 
-        protected virtual Matrix GetMatrix(GraphCompositionContext context, MatrixNode node)
+        protected virtual Matrix GetMatrix()
             => Matrix.Identity;
     }
 }

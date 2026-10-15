@@ -119,8 +119,6 @@ public abstract partial class GenerativeNode : GraphNode
         }
     }
 
-    public event EventHandler? StatusChanged;
-
     protected NodeMonitor<Ref<Bitmap>?> PreviewMonitor
         => _previewMonitor ?? throw new InvalidOperationException("Call AddGenerativeMonitors first.");
 
@@ -259,10 +257,7 @@ public abstract partial class GenerativeNode : GraphNode
         bool wasStale = IsStale;
         _currentParameterFingerprint = fingerprint;
         if (wasStale != IsStale)
-        {
             _statusMonitor?.Value = FormatStatus();
-            StatusChanged?.Invoke(this, EventArgs.Empty);
-        }
     }
 
     /// <summary>The picture the node outputs, safe to read from the render thread.</summary>
@@ -282,7 +277,6 @@ public abstract partial class GenerativeNode : GraphNode
         LoadActivePreview();
         UpdateBusy();
         _statusMonitor?.Value = FormatStatus();
-        StatusChanged?.Invoke(this, EventArgs.Empty);
         // The output changed: without this the scene is not rendered again, and neither the
         // canvas nor anything downstream would show the new result.
         RaiseEdited();

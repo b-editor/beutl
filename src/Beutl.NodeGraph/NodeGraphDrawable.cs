@@ -72,7 +72,7 @@ public sealed partial class NodeGraphDrawable : Drawable
                 {
                     _snapshot.Build(_model, context);
 
-                    _snapshot.Evaluate(CompositionTarget.Graphics, context);
+                    _snapshot.Evaluate(context);
 
                     _snapshot.CollectOutputRenderNodes(_model, OutputRenderNode);
 

@@ -294,11 +294,7 @@ public sealed class GraphSnapshot : IDisposable
         var connectionToIndex = new Dictionary<Connection, int>();
         for (int i = 0; i < connectionList.Count; i++)
         {
-            var conn = connectionList[i];
-            if (conn.OriginalConnection != null)
-            {
-                connectionToIndex[conn.OriginalConnection] = i;
-            }
+            connectionToIndex[connectionList[i].OriginalConnection] = i;
         }
 
         for (int resourceIdx = 0; resourceIdx < _resources.Length; resourceIdx++)
@@ -341,11 +337,10 @@ public sealed class GraphSnapshot : IDisposable
         }
     }
 
-    public void Evaluate(CompositionTarget target, CompositionContext context)
+    public void Evaluate(CompositionContext context)
     {
         foreach (var ctx in _contexts)
         {
-            ctx.Target = target;
             ctx.Time = context.Time;
             ctx.DisableResourceShare = context.DisableResourceShare;
             ctx.PreferProxy = context.PreferProxy;
@@ -426,16 +421,16 @@ public sealed class GraphSnapshot : IDisposable
                 if (outputValue is IReadOnlyItemValue<T> typed)
                 {
                     result.Add(typed.GetValue());
-                    conn.OriginalConnection?.Status = ConnectionStatus.Success;
+                    conn.OriginalConnection.Status = ConnectionStatus.Success;
                 }
                 else if (outputValue.GetBoxed() is T unboxed)
                 {
                     result.Add(unboxed);
-                    conn.OriginalConnection?.Status = ConnectionStatus.Convert;
+                    conn.OriginalConnection.Status = ConnectionStatus.Convert;
                 }
                 else
                 {
-                    conn.OriginalConnection?.Status = ConnectionStatus.Error;
+                    conn.OriginalConnection.Status = ConnectionStatus.Error;
                 }
             }
         }
@@ -484,7 +479,7 @@ public sealed class GraphSnapshot : IDisposable
                 IItemValue inputValue = _resources[conn.InputSlotIndex].ItemValues[conn.InputItemIndex];
 
                 var propagateResult = inputValue.PropagateFrom(outputValue);
-                conn.OriginalConnection?.Status = propagateResult switch
+                conn.OriginalConnection.Status = propagateResult switch
                 {
                     PropagateResult.Success => ConnectionStatus.Success,
                     PropagateResult.Converted => ConnectionStatus.Convert,
