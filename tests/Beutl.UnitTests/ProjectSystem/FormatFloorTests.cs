@@ -307,7 +307,7 @@ public class FormatFloorTests
     [Test]
     public void A_refused_file_does_not_become_a_fallback()
     {
-        var refused = new UnsupportedFileVersionException(new Uri(_elementPath), AboveRunningVersion);
+        var refused = new UnsupportedFileVersionException(new Uri(_elementPath), AboveRunningVersion, isNewer: true);
 
         Assert.Multiple(() =>
         {

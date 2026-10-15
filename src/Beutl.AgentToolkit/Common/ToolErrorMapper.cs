@@ -24,7 +24,7 @@ internal static class ToolErrorMapper
             return new ToolError(
                 ErrorCode.UnsupportedFileVersion,
                 unsupported.Message,
-                unsupported.Uri.IsFile ? unsupported.Uri.LocalPath : unsupported.Uri.ToString(),
+                unsupported.Location,
                 unsupported.DisplayVersion is { } version
                     ? $"Open it with Beutl {version} or later."
                     : "The file's minAppVersion is not a version string. Restore the file from a backup.");

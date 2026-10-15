@@ -14,8 +14,6 @@ public sealed class Project : Hierarchical
 {
     public static readonly CoreProperty<HierarchicalList<ProjectItem>> ItemsProperty;
     public static readonly CoreProperty<Dictionary<string, string>> VariablesProperty;
-    public static readonly CoreProperty<string> AppVersionProperty;
-    public static readonly CoreProperty<string> MinAppVersionProperty;
     private readonly HierarchicalList<ProjectItem> _items;
 
     static Project()
@@ -26,15 +24,6 @@ public sealed class Project : Hierarchical
 
         VariablesProperty = ConfigureProperty<Dictionary<string, string>, Project>(nameof(Variables))
             .Accessor(o => o.Variables)
-            .Register();
-
-        AppVersionProperty = ConfigureProperty<string, Project>(nameof(AppVersion))
-            .Accessor(o => o.AppVersion)
-            .Register();
-
-        MinAppVersionProperty = ConfigureProperty<string, Project>(nameof(MinAppVersion))
-            .Accessor(o => o.MinAppVersion)
-            .DefaultValue(FileFormat.Floor)
             .Register();
     }
 
