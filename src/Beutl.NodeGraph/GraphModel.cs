@@ -168,7 +168,7 @@ public partial class GraphModel : EngineObject
     // For tests, which find a restored port by its Id.
     internal INodePort? FindNodePort(Guid id)
     {
-        foreach (GraphNode node in Nodes.GetMarshal().Value)
+        foreach (GraphNode node in Nodes.AsSpan())
         {
             foreach (INodeMember item in node.EnumerateMembers())
             {

@@ -100,7 +100,7 @@ public sealed class EngineObjectPropertyViewModel : IDisposable, IPropertyEditor
     {
         if (_isDisposed) return;
         _isDisposed = true;
-        foreach (IPropertyEditorContext? item in Properties.GetMarshal().Value)
+        foreach (IPropertyEditorContext? item in Properties.AsSpan())
         {
             item?.Dispose();
         }

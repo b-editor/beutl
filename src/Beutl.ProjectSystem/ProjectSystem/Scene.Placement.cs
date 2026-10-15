@@ -43,7 +43,7 @@ public partial class Scene
         Element? coverTmp = null;
         TimeRange range = element.Range;
 
-        foreach (Element? item in Children.GetMarshal().Value)
+        foreach (Element? item in Children.AsSpan())
         {
             if (item != element && item.ZIndex == element.ZIndex)
             {

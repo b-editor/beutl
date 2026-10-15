@@ -77,7 +77,7 @@ public sealed class OutputService(EditViewModel editViewModel) : IDisposable
         OutputProfileItem? lastRestored = _items.LastOrDefault(before.ContainsKey);
         if (lastRestored is null)
             foreach (JsonNode unavailable in pending) array.Add(unavailable.DeepClone());
-        foreach (OutputProfileItem item in _items.GetMarshal().Value)
+        foreach (OutputProfileItem item in _items.AsSpan())
         {
             if (before.TryGetValue(item, out List<JsonNode>? hidden))
                 foreach (JsonNode unavailable in hidden) array.Add(unavailable.DeepClone());

@@ -111,7 +111,7 @@ public sealed class ExtensionProvider : IExtensionRegistry
                     Type extType = extension.GetType();
                     if (extension is not EditorExtension editorExtension) continue;
 
-                    foreach (TypeLazy type in list.GetMarshal().Value)
+                    foreach (TypeLazy type in list)
                     {
                         if (extType == type.Type
                             && editorExtension.IsSupported(file))

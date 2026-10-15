@@ -402,7 +402,7 @@ public class Element : Hierarchical, INotifyEdited
         if (HierarchicalParent is Scene scene)
         {
             Element? tmp = null;
-            foreach (Element? item in scene.Children.GetMarshal().Value)
+            foreach (Element? item in scene.Children.AsSpan())
             {
                 if (item != this && item.ZIndex == zindex && item.Start < start)
                 {
@@ -423,7 +423,7 @@ public class Element : Hierarchical, INotifyEdited
         if (HierarchicalParent is Scene scene)
         {
             Element? tmp = null;
-            foreach (Element? item in scene.Children.GetMarshal().Value)
+            foreach (Element? item in scene.Children.AsSpan())
             {
                 if (item != this && item.ZIndex == zindex && item.Range.End > end)
                 {
@@ -448,7 +448,7 @@ public class Element : Hierarchical, INotifyEdited
             Element? coverTmp = null;
             var range = TimeRange.FromRange(start, end);
 
-            foreach (Element? item in scene.Children.GetMarshal().Value)
+            foreach (Element? item in scene.Children.AsSpan())
             {
                 if (item != this && item.ZIndex == zindex)
                 {

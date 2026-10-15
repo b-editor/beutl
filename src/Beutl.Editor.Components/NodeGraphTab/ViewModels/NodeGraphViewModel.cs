@@ -35,7 +35,7 @@ public sealed class NodeGraphViewModel : IDisposable, IJsonSerializable
                 },
                 () =>
                 {
-                    foreach (GraphNodeViewModel item in Nodes.GetMarshal().Value)
+                    foreach (GraphNodeViewModel item in Nodes.AsSpan())
                     {
                         item.Dispose();
                     }
@@ -152,7 +152,7 @@ public sealed class NodeGraphViewModel : IDisposable, IJsonSerializable
 
     public NodePortViewModel? FindNodePortViewModel(INodePort port)
     {
-        foreach (GraphNodeViewModel node in Nodes.GetMarshal().Value)
+        foreach (GraphNodeViewModel node in Nodes.AsSpan())
         {
             foreach (NodeMemberViewModel item in node.EnumerateMembers())
             {
