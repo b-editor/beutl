@@ -159,8 +159,6 @@ public interface ICaptionTemplateProvider
         CaptionTemplateId id,
         [NotNullWhen(true)] out CaptionTemplateDescriptor? template);
 
-    CaptionTemplateDescriptor GetRequired(CaptionTemplateId id);
-
     ICaptionTemplateLease Acquire(CaptionTemplateId id);
 }
 
@@ -210,13 +208,6 @@ public sealed class CaptionTemplateRegistry : ICaptionTemplateProvider, IAsyncDi
     {
         lock (_states.StateGate)
             return _states.Current.TemplatesById.TryGetValue(id, out template);
-    }
-
-    public CaptionTemplateDescriptor GetRequired(CaptionTemplateId id)
-    {
-        if (TryGet(id, out CaptionTemplateDescriptor? template))
-            return template;
-        throw new KeyNotFoundException($"No caption template is registered with identifier '{id}'.");
     }
 
     public CaptionTemplateLease Acquire(CaptionTemplateId id)

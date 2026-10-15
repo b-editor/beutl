@@ -442,13 +442,6 @@ public sealed class CaptionCatalog : IAsyncDisposable
             [NotNullWhen(true)] out CaptionCodecInfo? codec)
             => registry.TryGet(format, out codec);
 
-        public CaptionCodecInfo GetRequired(CaptionFormatId format) => registry.GetRequired(format);
-
-        public bool TryGetByFileExtension(
-            string extension,
-            [NotNullWhen(true)] out CaptionCodecInfo? codec)
-            => registry.TryGetByFileExtension(extension, out codec);
-
         public bool TryGetByFileName(
             string fileName,
             [NotNullWhen(true)] out CaptionCodecInfo? codec)
@@ -470,8 +463,6 @@ public sealed class CaptionCatalog : IAsyncDisposable
             CaptionTemplateId id,
             [NotNullWhen(true)] out CaptionTemplateDescriptor? template)
             => registry.TryGet(id, out template);
-
-        public CaptionTemplateDescriptor GetRequired(CaptionTemplateId id) => registry.GetRequired(id);
 
         public ICaptionTemplateLease Acquire(CaptionTemplateId id) => registry.Acquire(id);
     }

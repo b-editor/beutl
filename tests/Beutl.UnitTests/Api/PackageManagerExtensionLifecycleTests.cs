@@ -484,8 +484,11 @@ public class PackageManagerExtensionLifecycleTests
             Assert.That(LeaseManagedCaptionTemplateDescriptorExtension.UnloadCount, Is.Zero);
             Assert.That(LeaseManagedCaptionPlacementExtension.UnloadCount, Is.Zero);
             Assert.That(
-                catalog.Templates.GetRequired(CaptionTemplateIds.DefaultText).Name,
-                Is.EqualTo("Default"));
+                catalog.Templates.TryGet(
+                    CaptionTemplateIds.DefaultText,
+                    out CaptionTemplateDescriptor? defaultTemplate),
+                Is.True);
+            Assert.That(defaultTemplate!.Name, Is.EqualTo("Default"));
         }
 
         lease.Dispose();

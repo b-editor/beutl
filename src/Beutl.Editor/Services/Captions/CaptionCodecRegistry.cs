@@ -81,12 +81,6 @@ public interface ICaptionCodecProvider
         CaptionFormatId format,
         [NotNullWhen(true)] out CaptionCodecInfo? codec);
 
-    CaptionCodecInfo GetRequired(CaptionFormatId format);
-
-    bool TryGetByFileExtension(
-        string extension,
-        [NotNullWhen(true)] out CaptionCodecInfo? codec);
-
     bool TryGetByFileName(
         string fileName,
         [NotNullWhen(true)] out CaptionCodecInfo? codec);
@@ -141,29 +135,6 @@ public sealed class CaptionCodecRegistry : ICaptionCodecProvider, IAsyncDisposab
     {
         lock (_states.StateGate)
             return _states.Current.CodecsByFormat.TryGetValue(format, out codec);
-    }
-
-    public CaptionCodecInfo GetRequired(CaptionFormatId format)
-    {
-        if (TryGet(format, out CaptionCodecInfo? codec))
-            return codec;
-        throw new KeyNotFoundException(
-            $"No caption codec descriptor is registered for format '{format}'.");
-    }
-
-    public bool TryGetByFileExtension(
-        string extension,
-        [NotNullWhen(true)] out CaptionCodecInfo? codec)
-    {
-        string normalized = NormalizeExtension(extension);
-        lock (_states.StateGate)
-        {
-            if (_states.Current.FormatsByExtension.TryGetValue(normalized, out CaptionFormatId format))
-                return _states.Current.CodecsByFormat.TryGetValue(format, out codec);
-        }
-
-        codec = null;
-        return false;
     }
 
     public bool TryGetByFileName(

@@ -175,7 +175,12 @@ public sealed class CaptionTemplateRegistryTests
                 Assert.That(imported.IsSuccess, Is.True);
                 Assert.That(imported.Document!.Cues.Single().Text, Is.EqualTo("From extension"));
                 Assert.That(
-                    catalog.Templates.GetRequired(template.DescriptorRegistration.Descriptor.Id).Name,
+                    catalog.Templates.TryGet(
+                        template.DescriptorRegistration.Descriptor.Id,
+                        out CaptionTemplateDescriptor? registered),
+                    Is.True);
+                Assert.That(
+                    registered!.Name,
                     Is.EqualTo(template.DescriptorRegistration.Descriptor.Name));
             }
         }
@@ -330,10 +335,10 @@ public sealed class CaptionTemplateRegistryTests
         failures.Clear();
         extensions.AddExtensions(6, [@base, descriptor]);
 
-        CaptionCodecInfo info = catalog.Codecs.GetRequired(format);
+        Assert.That(catalog.Codecs.TryGet(format, out CaptionCodecInfo? info), Is.True);
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(info.CanDecode, Is.True);
+            Assert.That(info!.CanDecode, Is.True);
             Assert.That(info.CanEncode, Is.False);
             Assert.That(
                 catalog.Serializer.Import("text"u8, format).Document![0].Text,
@@ -380,8 +385,9 @@ public sealed class CaptionTemplateRegistryTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(catalog.Codecs.GetRequired(format).CanDecode, Is.True);
-            Assert.That(catalog.Codecs.GetRequired(format).CanEncode, Is.True);
+            Assert.That(catalog.Codecs.TryGet(format, out CaptionCodecInfo? info), Is.True);
+            Assert.That(info!.CanDecode, Is.True);
+            Assert.That(info.CanEncode, Is.True);
             Assert.That(failures, Is.Empty);
         }
     }
@@ -401,7 +407,7 @@ public sealed class CaptionTemplateRegistryTests
 
         extensions.AddExtensions(7, [replacement]);
 
-        CaptionCodecInfo info = catalog.Codecs.GetRequired(CaptionFormats.Srt);
+        Assert.That(catalog.Codecs.TryGet(CaptionFormats.Srt, out CaptionCodecInfo? info), Is.True);
         byte[] exported = catalog.Serializer.Export(
             new CaptionDocument([
                 new CaptionCue(TimeSpan.Zero, TimeSpan.FromSeconds(1), "text"),
@@ -409,7 +415,7 @@ public sealed class CaptionTemplateRegistryTests
             CaptionFormats.Srt);
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(info.FileExtensions, Is.EqualTo(new[] { ".srt" }));
+            Assert.That(info!.FileExtensions, Is.EqualTo(new[] { ".srt" }));
             Assert.That(info.CanDecode, Is.True);
             Assert.That(info.CanEncode, Is.True);
             Assert.That(
@@ -455,8 +461,8 @@ public sealed class CaptionTemplateRegistryTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(catalog.Codecs.GetRequired(format).FileExtensions,
-                Is.EqualTo(new[] { ".healthy" }));
+            Assert.That(catalog.Codecs.TryGet(format, out CaptionCodecInfo? codec), Is.True);
+            Assert.That(codec!.FileExtensions, Is.EqualTo(new[] { ".healthy" }));
             Assert.That(failures, Has.Count.EqualTo(1));
             Assert.That(failures[0].Kind,
                 Is.EqualTo(CaptionCatalogContributionKind.CodecDescriptor));
@@ -501,8 +507,12 @@ public sealed class CaptionTemplateRegistryTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(catalog.Templates.GetRequired(healthyTemplate.DescriptorRegistration.Descriptor.Id).Name,
-                Is.EqualTo("Healthy"));
+            Assert.That(
+                catalog.Templates.TryGet(
+                    healthyTemplate.DescriptorRegistration.Descriptor.Id,
+                    out CaptionTemplateDescriptor? healthyDescriptor),
+                Is.True);
+            Assert.That(healthyDescriptor!.Name, Is.EqualTo("Healthy"));
             Assert.That(failures, Has.Count.EqualTo(1));
         }
     }
@@ -546,8 +556,11 @@ public sealed class CaptionTemplateRegistryTests
                 Is.EqualTo(CaptionCatalogContributionKind.TemplateDescriptor));
             Assert.That(catalog.Templates.TryGet(valid.DescriptorRegistration.Descriptor.Id, out _), Is.False);
             Assert.That(
-                catalog.Templates.GetRequired(CaptionTemplateIds.DefaultText).Name,
-                Is.EqualTo("Default"));
+                catalog.Templates.TryGet(
+                    CaptionTemplateIds.DefaultText,
+                    out CaptionTemplateDescriptor? defaultTemplate),
+                Is.True);
+            Assert.That(defaultTemplate!.Name, Is.EqualTo("Default"));
         }
 
         extensions.RemoveExtensions(1);
