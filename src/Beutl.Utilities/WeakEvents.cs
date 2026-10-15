@@ -1,6 +1,4 @@
 ﻿using System.Collections.Specialized;
-using System.ComponentModel;
-using System.Windows.Input;
 
 namespace Beutl.Utilities;
 
@@ -14,17 +12,4 @@ public class WeakEvents
                 c.CollectionChanged += handler;
                 return () => c.CollectionChanged -= handler;
             });
-
-    public static readonly WeakEvent<INotifyPropertyChanged, PropertyChangedEventArgs>
-        PropertyChanged = WeakEvent.Register<INotifyPropertyChanged, PropertyChangedEventArgs>(
-            (s, h) =>
-            {
-                void handler(object? _, PropertyChangedEventArgs e) => h(s, e);
-                s.PropertyChanged += handler;
-                return () => s.PropertyChanged -= handler;
-            });
-
-    public static readonly WeakEvent<ICommand, EventArgs> CommandCanExecuteChanged =
-        WeakEvent.Register<ICommand>((s, h) => s.CanExecuteChanged += h,
-            (s, h) => s.CanExecuteChanged -= h);
 }

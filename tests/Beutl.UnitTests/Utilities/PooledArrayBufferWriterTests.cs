@@ -30,7 +30,7 @@ public class PooledArrayBufferWriterTests
     [Test]
     public void GetMemory_ShouldReturnMemoryWithSufficientCapacity()
     {
-        using var writer = new PooledArrayBufferWriter<int>();
+        using var writer = new PooledArrayBufferWriter<int>(1);
         var memory = writer.GetMemory(5);
         Assert.That(memory.Length, Is.GreaterThanOrEqualTo(5));
     }
@@ -45,7 +45,7 @@ public class PooledArrayBufferWriterTests
     [Test]
     public void GetSpan_ShouldReturnSpanWithSufficientCapacity()
     {
-        using var writer = new PooledArrayBufferWriter<int>();
+        using var writer = new PooledArrayBufferWriter<int>(1);
         var span = writer.GetSpan(5);
         Assert.That(span.Length, Is.GreaterThanOrEqualTo(5));
     }
@@ -58,18 +58,9 @@ public class PooledArrayBufferWriterTests
     }
 
     [Test]
-    public void Clear_ShouldResetWrittenCount()
-    {
-        using var writer = new PooledArrayBufferWriter<int>(10);
-        writer.Advance(10);
-        writer.Clear();
-        Assert.That(writer.WrittenCount, Is.EqualTo(0));
-    }
-
-    [Test]
     public void Dispose_ShouldMarkAsDisposed()
     {
-        var writer = new PooledArrayBufferWriter<int>();
+        var writer = new PooledArrayBufferWriter<int>(10);
         writer.Dispose();
         Assert.That(writer.IsDisposed, Is.True);
     }
@@ -77,7 +68,7 @@ public class PooledArrayBufferWriterTests
     [Test]
     public void Dispose_ShouldThrowObjectDisposedExceptionWhenAccessingAfterDispose()
     {
-        var writer = new PooledArrayBufferWriter<int>();
+        var writer = new PooledArrayBufferWriter<int>(10);
         writer.Dispose();
         Assert.That(() => writer.Advance(1), Throws.TypeOf<ObjectDisposedException>());
     }
@@ -89,27 +80,9 @@ public class PooledArrayBufferWriterTests
     }
 
     [Test]
-    public void WrittenMemory_ShouldReturnCorrectMemory()
-    {
-        using var writer = new PooledArrayBufferWriter<int>(10);
-        writer.Advance(10);
-        var memory = writer.WrittenMemory;
-        Assert.That(memory.Length, Is.EqualTo(10));
-    }
-
-    [Test]
-    public void WrittenSpan_ShouldReturnCorrectSpan()
-    {
-        using var writer = new PooledArrayBufferWriter<int>(10);
-        writer.Advance(10);
-        var span = writer.WrittenSpan;
-        Assert.That(span.Length, Is.EqualTo(10));
-    }
-
-    [Test]
     public void GetArray_ShouldReturnInternalBuffer()
     {
-        using var writer = new PooledArrayBufferWriter<int>();
+        using var writer = new PooledArrayBufferWriter<int>(10);
         int[] buffer = PooledArrayBufferWriter<int>.GetArray(writer);
         Assert.That(buffer, Is.Not.Null);
     }
@@ -122,16 +95,6 @@ public class PooledArrayBufferWriterTests
         writer.Advance(10);
         int[] bufferAfterAdvance = PooledArrayBufferWriter<int>.GetArray(writer);
         Assert.That(bufferAfterAdvance, Is.SameAs(initialBuffer));
-    }
-
-    [Test]
-    public void GetArray_ShouldReturnSameBufferAfterClear()
-    {
-        using var writer = new PooledArrayBufferWriter<int>(10);
-        int[] initialBuffer = PooledArrayBufferWriter<int>.GetArray(writer);
-        writer.Clear();
-        int[] bufferAfterClear = PooledArrayBufferWriter<int>.GetArray(writer);
-        Assert.That(bufferAfterClear, Is.SameAs(initialBuffer));
     }
 
     [Test]

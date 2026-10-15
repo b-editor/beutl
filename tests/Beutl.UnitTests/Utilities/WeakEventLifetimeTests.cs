@@ -163,8 +163,11 @@ public class WeakEventLifetimeTests
 
     private static WeakEvent<EventSource, EventArgs> CreateEvent()
         => WeakEvent.Register<EventSource, EventArgs>(
-            (source, handler) => source.Changed += handler,
-            (source, handler) => source.Changed -= handler);
+            (source, handler) =>
+            {
+                source.Changed += handler;
+                return () => source.Changed -= handler;
+            });
 
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static WeakReference SubscribeTemporary(EventSource source, WeakEvent<EventSource, EventArgs> weakEvent)
