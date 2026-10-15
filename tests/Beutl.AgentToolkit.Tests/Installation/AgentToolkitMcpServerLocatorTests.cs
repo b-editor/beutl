@@ -49,20 +49,15 @@ public sealed class AgentToolkitMcpServerLocatorTests
         });
     }
 
+    // No build places the server in a subdirectory, so one there is not looked for.
     [Test]
-    public void Probes_the_AgentToolkitMcp_subdirectory()
+    public void Does_not_look_in_an_AgentToolkitMcp_subdirectory()
     {
         string subdirectory = Path.Combine(_tempRoot, "AgentToolkitMcp");
         Directory.CreateDirectory(subdirectory);
         File.WriteAllText(Path.Combine(subdirectory, "Beutl.AgentToolkit.Mcp.dll"), "");
 
-        AgentToolkitMcpServerCommand? command = AgentToolkitMcpServerLocator.ResolveDefault(_tempRoot);
-
-        Assert.That(command, Is.Not.Null);
-        Assert.That(command!.Arguments, Is.EqualTo(new[]
-        {
-            Path.Combine(subdirectory, "Beutl.AgentToolkit.Mcp.dll"),
-        }));
+        Assert.That(AgentToolkitMcpServerLocator.ResolveDefault(_tempRoot), Is.Null);
     }
 
     [Test]

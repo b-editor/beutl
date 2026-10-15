@@ -10,8 +10,8 @@ public static class AgentToolkitMcpServerLocator
     {
         string startDirectory = Path.GetFullPath(baseDirectory ?? AppContext.BaseDirectory);
 
-        AgentToolkitMcpServerCommand? published = FindPublishedServer(startDirectory)
-                                                  ?? FindPublishedServer(Path.Combine(startDirectory, "AgentToolkitMcp"));
+        // Every build merges the server into the app directory.
+        AgentToolkitMcpServerCommand? published = FindPublishedServer(startDirectory);
         if (published is not null)
         {
             return published;
