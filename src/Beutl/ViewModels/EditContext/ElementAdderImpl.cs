@@ -139,8 +139,7 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
                     out IElementSourceHandlerLease? handlerLease))
             {
                 return ElementAddResult.Failed(
-                    new UnsupportedElementSourceFailure(description.Source.GetType()),
-                    description);
+                    new UnsupportedElementSourceFailure(description.Source.GetType()));
             }
             handlerLeases.Add(handlerLease);
             IElementSourceHandler handler = handlerLease.Handler;
@@ -161,23 +160,20 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
                 return ElementAddResult.Failed(
                     new ElementSourcePreflightFailure(
                         $"Preflight failed for element source '{description.Source.GetType().FullName}'.",
-                        ex),
-                    description);
+                        ex));
             }
 
             if (preflight is null)
             {
                 return ElementAddResult.Failed(
-                    new ElementSourcePreflightFailure("The element source handler returned no preflight result."),
-                    description);
+                    new ElementSourcePreflightFailure("The element source handler returned no preflight result."));
             }
             if (!preflight.IsSuccess)
-                return ElementAddResult.Failed(preflight.Failure!, description);
+                return ElementAddResult.Failed(preflight.Failure!);
             if (preflight.Preflight is null || preflight.TargetLayers.Count == 0)
             {
                 return ElementAddResult.Failed(
-                    new ElementSourcePreflightFailure("The element source handler returned an incomplete preflight result."),
-                    description);
+                    new ElementSourcePreflightFailure("The element source handler returned an incomplete preflight result."));
             }
             preflightLeases.Add(preflight.Preflight);
 
@@ -188,7 +184,7 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
                     _logger.LogInformation(
                         "Refusing element batch because target layer {Layer} is locked.",
                         layer);
-                    return ElementAddResult.Failed(new LockedElementLayerFailure(layer), description);
+                    return ElementAddResult.Failed(new LockedElementLayerFailure(layer));
                 }
             }
 
@@ -242,25 +238,22 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
                 return ElementAddResult.Failed(
                     new ElementMaterializationFailure(
                         $"Materialization failed for element source '{plan.Description.Source.GetType().FullName}'.",
-                        ex),
-                    plan.Description);
+                        ex));
             }
 
             if (result is null)
             {
                 return FailMaterialization(
                     preparedElements,
-                    plan.Description,
                     new InvalidElementMaterializationFailure(
                         "The element source handler returned no materialization result."));
             }
             if (!result.IsSuccess)
-                return FailMaterialization(preparedElements, plan.Description, result.Failure!);
+                return FailMaterialization(preparedElements, result.Failure!);
             if (result.Materialization is not { } materialization)
             {
                 return FailMaterialization(
                     preparedElements,
-                    plan.Description,
                     new InvalidElementMaterializationFailure(
                         "The element source handler returned an incomplete materialization result."));
             }
@@ -276,7 +269,7 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
                 elementIds);
             if (validationFailure is not null)
             {
-                return FailMaterialization(preparedElements, plan.Description, validationFailure);
+                return FailMaterialization(preparedElements, validationFailure);
             }
 
             try
@@ -288,8 +281,7 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
                 CleanupStagedFiles(preparedElements.Select(element => element.Uri?.LocalPath), ex);
                 return ElementAddResult.Failed(
                     new InvalidElementMaterializationFailure(
-                        $"The materialized elements could not apply their request metadata: {ex.Message}"),
-                    plan.Description);
+                        $"The materialized elements could not apply their request metadata: {ex.Message}"));
             }
 
             groups.AddRange(materialization.Groups.Select(group => group.ToImmutableHashSet()));
@@ -419,9 +411,7 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
             stagedFiles,
             validation.Failure.Exception
             ?? new InvalidOperationException(validation.Failure.Message));
-        return ElementAddResult.Failed(
-            validation.Failure,
-            validation.Description);
+        return ElementAddResult.Failed(validation.Failure);
     }
 
     private CommitValidationFailure? RevalidateBeforeCommit(
@@ -435,8 +425,7 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
             || scene.Id != expectedSceneId)
         {
             return new CommitValidationFailure(
-                new ElementSceneChangedFailure(expectedSceneId, currentScene.Id),
-                null);
+                new ElementSceneChangedFailure(expectedSceneId, currentScene.Id));
         }
 
         for (int index = 0; index < plans.Count; index++)
@@ -447,8 +436,7 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
                 if (scene.IsLayerLocked(layer))
                 {
                     return new CommitValidationFailure(
-                        new LockedElementLayerFailure(layer),
-                        plan.Description);
+                        new LockedElementLayerFailure(layer));
                 }
             }
 
@@ -456,8 +444,7 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
             {
                 return new CommitValidationFailure(
                     new InvalidElementMaterializationFailure(
-                        "A materialized element changed to a layer that was not reserved during preflight."),
-                    plan.Description);
+                        "A materialized element changed to a layer that was not reserved during preflight."));
             }
         }
 
@@ -470,8 +457,7 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
                 {
                     return new CommitValidationFailure(
                         new InvalidElementMaterializationFailure(
-                            "Materialized element identifiers must still be unique immediately before commit."),
-                        item.Description);
+                            "Materialized element identifiers must still be unique immediately before commit."));
                 }
             }
         }
@@ -481,13 +467,12 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
 
     private ElementAddResult FailMaterialization(
         IReadOnlyCollection<Element> preparedElements,
-        ElementDescription description,
         ElementAddFailure failure)
     {
         CleanupStagedFiles(
             preparedElements.Select(element => element.Uri?.LocalPath),
             failure.Exception ?? new InvalidOperationException(failure.Message));
-        return ElementAddResult.Failed(failure, description);
+        return ElementAddResult.Failed(failure);
     }
 
     private static ElementAddFailure? ValidateMaterialization(
@@ -630,7 +615,5 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
         IElementSourcePreflight Preflight,
         IReadOnlySet<int> TargetLayers);
 
-    private sealed record CommitValidationFailure(
-        ElementAddFailure Failure,
-        ElementDescription? Description);
+    private sealed record CommitValidationFailure(ElementAddFailure Failure);
 }

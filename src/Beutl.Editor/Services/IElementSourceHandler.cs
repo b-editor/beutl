@@ -85,13 +85,6 @@ public sealed class ElementMaterializationResource : IAsyncDisposable
             });
     }
 
-    public static ElementMaterializationResource TemporaryAsync(IAsyncDisposable resource)
-    {
-        ArgumentNullException.ThrowIfNull(resource);
-        return new ElementMaterializationResource(
-            resource.DisposeAsync);
-    }
-
     public ValueTask DisposeAsync()
         => Interlocked.Exchange(ref _disposeAsync, null)?.Invoke() ?? ValueTask.CompletedTask;
 }

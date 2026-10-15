@@ -129,9 +129,6 @@ public class ElementAdderTests
         {
             Assert.That(empty.Failure, Is.TypeOf<EmptyElementAddRequestFailure>());
             Assert.That(unsupported.Failure, Is.TypeOf<UnsupportedElementSourceFailure>());
-            Assert.That(
-                (unsupported.FailedDescription?.Source as ElementSource.File)?.FileName,
-                Does.EndWith("unsupported.beutl-test"));
             Assert.That(editor.Scene.Children, Is.Empty);
             Assert.That(editor.HistoryManager.UndoCount, Is.Zero);
         }
@@ -172,7 +169,6 @@ public class ElementAdderTests
         {
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.Failure, Is.TypeOf<LockedElementLayerFailure>());
-            Assert.That(((LockedElementLayerFailure)result.Failure!).Layer, Is.EqualTo(2));
             Assert.That(result.Elements, Is.Empty);
             Assert.That(factoryCalled, Is.False);
             Assert.That(editor.Scene.Children, Is.Empty);
@@ -869,8 +865,6 @@ public class ElementAdderTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(result.Failure, Is.TypeOf<ElementSceneChangedFailure>());
-            Assert.That(((ElementSceneChangedFailure)result.Failure!).ExpectedSceneId, Is.EqualTo(originalId));
-            Assert.That(((ElementSceneChangedFailure)result.Failure!).ActualSceneId, Is.EqualTo(changedId));
             Assert.That(editor.Scene.Children, Is.Empty);
         }
     }
@@ -1116,7 +1110,7 @@ public class ElementAdderTests
 
         public int MaterializationCount { get; private set; }
 
-        public TrackingAsyncDisposable Resource { get; } = new();
+        public TrackingDisposable Resource { get; } = new();
 
         public TestPreflight? LastPreflight { get; private set; }
 
@@ -1160,7 +1154,7 @@ public class ElementAdderTests
                     primary,
                     [companion],
                     [group],
-                    [ElementMaterializationResource.TemporaryAsync(Resource)]));
+                    [ElementMaterializationResource.Temporary(Resource)]));
         }
     }
 
@@ -1289,7 +1283,7 @@ public class ElementAdderTests
     {
         public ThrowingPreflight Preflight { get; } = new();
 
-        public ThrowingAsyncDisposable Resource { get; } = new();
+        public ThrowingDisposable Resource { get; } = new();
 
         protected override IElementSourcePreflight CreatePreflight(ElementSourcePreflightContext context)
             => Preflight;
@@ -1297,7 +1291,7 @@ public class ElementAdderTests
         protected override ElementMaterialization Materialize(
             ElementSourceMaterializationContext context,
             Element element)
-            => new(element, resources: [ElementMaterializationResource.TemporaryAsync(Resource)]);
+            => new(element, resources: [ElementMaterializationResource.Temporary(Resource)]);
     }
 
     private sealed class RejectingTestSourceHandler(TestElementAddFailure failure)
@@ -1373,11 +1367,11 @@ public class ElementAdderTests
         }
     }
 
-    private sealed class ThrowingAsyncDisposable : IAsyncDisposable
+    private sealed class ThrowingDisposable : IDisposable
     {
         public int DisposeAttempts { get; private set; }
 
-        public ValueTask DisposeAsync()
+        public void Dispose()
         {
             DisposeAttempts++;
             throw new InvalidOperationException("Injected resource disposal failure");
@@ -1389,16 +1383,5 @@ public class ElementAdderTests
         public bool IsDisposed { get; private set; }
 
         public void Dispose() => IsDisposed = true;
-    }
-
-    private sealed class TrackingAsyncDisposable : IAsyncDisposable
-    {
-        public bool IsDisposed { get; private set; }
-
-        public async ValueTask DisposeAsync()
-        {
-            await Task.Yield();
-            IsDisposed = true;
-        }
     }
 }

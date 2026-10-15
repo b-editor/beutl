@@ -702,8 +702,7 @@ public sealed class AiResultImporterTests
             }
             ElementAddResult addResult = result.Count == 0
                 ? ElementAddResult.Failed(
-                    new ElementMaterializationFailure("The test element could not be materialized."),
-                    description)
+                    new ElementMaterializationFailure("The test element could not be materialized."))
                 : ElementAddResult.Succeeded(
                 [
                     new ElementAddItemResult(
