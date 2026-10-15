@@ -135,11 +135,6 @@ public sealed class SceneNodeTests
         var model = new GraphModel();
         model.Nodes.Add(new SceneNode());
         var json = Beutl.Serialization.CoreSerializer.SerializeToJsonObject(model);
-        // A graph saved before the node anchored its time carries no time range of its own.
-        var saved = (System.Text.Json.Nodes.JsonObject)json["Nodes"]![0]!["Object"]!;
-        saved.Remove("Start");
-        saved.Remove("Duration");
-        saved.Remove("ZIndex");
         var restored = (GraphModel)Beutl.Serialization.CoreSerializer.DeserializeFromJsonObject(json, typeof(GraphModel));
         SceneNode node = restored.Nodes.OfType<SceneNode>().Single();
 
