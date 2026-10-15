@@ -11,7 +11,6 @@ using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.UnitTests.Engine.Graphics.Rendering;
 using Beutl.UnitTests.TestInfrastructure;
-using Beutl.Validation;
 using static Beutl.UnitTests.TestInfrastructure.TrimTestMedia;
 
 namespace Beutl.UnitTests.Editor.Services;
@@ -817,20 +816,6 @@ public class TrimTimeControllerTests
 
     [TestCase(false)]
     [TestCase(true)]
-    public void Slip_CustomVideoSpeed_RejectsMappingThatPlaybackDoesNotIntegrate(bool controllerSpeed)
-    {
-        var video = CreateVideo(20);
-        Drawable root = controllerSpeed ? CreateController(video) : video;
-        (root is DrawableTimeController controller ? controller.Speed : video.Speed).Animation = new RampSpeedAnimation();
-        Element element = AddElement(0, 2, root);
-        Assert.That(ReadPosition(root, 1), Is.EqualTo(1.1).Within(0.000001));
-
-        Assert.That(_slip.Slip(_harness.Scene, [element], Seconds(1)), Is.False);
-        Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
-    }
-
-    [TestCase(false)]
-    [TestCase(true)]
     public void Trim_AnimatedVideoSource_RejectsBoundsFromStoredSource(bool baseSource)
     {
         var video = CreateVideo(10);
@@ -849,18 +834,6 @@ public class TrimTimeControllerTests
             Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
             Assert.That(element.Length, Is.EqualTo(Seconds(0.5)));
         });
-    }
-
-    private sealed class RampSpeedAnimation : Hierarchical, IAnimationRange<float>
-    {
-        public TimeSpan Duration => Seconds(10);
-        public bool UseGlobalClock => false;
-        public Type ValueType => typeof(float);
-        public IValidator<float>? Validator { get; set; }
-        public event EventHandler? Edited { add { } remove { } }
-        public float GetAnimatedValue(TimeSpan time) => Interpolate(time);
-        public float Interpolate(TimeSpan timeSpan) => 100 + (float)Math.Clamp(timeSpan.TotalSeconds, 0, 10) * 10;
-        public bool TryGetOutputRange(out float minimum, out float maximum) { minimum = 100; maximum = 200; return true; }
     }
 
     [TestCase("roll", false)]

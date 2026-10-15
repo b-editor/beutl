@@ -119,7 +119,7 @@ public sealed class KeyFrameClipboardService : IKeyFrameClipboardService
             }
 
             newKeyFrame.KeyTime = keyTime;
-            target.KeyFrames.Add((IKeyFrame)newKeyFrame, out _);
+            target.KeyFrames.AddSorted((IKeyFrame)newKeyFrame);
             _historyManager.Commit(CommandNames.PasteKeyFrame);
             return new KeyFramePasteResult(KeyFramePasteOutcome.Inserted);
         }

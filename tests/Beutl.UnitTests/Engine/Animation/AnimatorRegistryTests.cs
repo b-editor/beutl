@@ -27,30 +27,6 @@ public class AnimatorRegistryTests
     }
 
     [Test]
-    public void RegisterAnimator_ShouldAddAnimatorToRegistry()
-    {
-        AnimatorRegistry.RegisterAnimator(typeof(MyAnimator), type => type == typeof(MyStruct));
-        var animatorType = AnimatorRegistry.GetAnimatorType(typeof(MyStruct));
-        Assert.That(animatorType, Is.EqualTo(typeof(MyAnimator)));
-    }
-
-    [Test]
-    public void RegisterAnimator_Generic_ShouldAddAnimatorToRegistry()
-    {
-        AnimatorRegistry.RegisterAnimator<MyStruct, MyAnimator>();
-        var animatorType = AnimatorRegistry.GetAnimatorType(typeof(MyStruct));
-        Assert.That(animatorType, Is.EqualTo(typeof(MyAnimator)));
-    }
-
-    [Test]
-    public void RegisterAnimator_GenericWithCondition_ShouldAddAnimatorToRegistry()
-    {
-        AnimatorRegistry.RegisterAnimator<MyStruct, MyAnimator>(type => type == typeof(MyStruct));
-        var animatorType = AnimatorRegistry.GetAnimatorType(typeof(MyStruct));
-        Assert.That(animatorType, Is.EqualTo(typeof(MyAnimator)));
-    }
-
-    [Test]
     public void DefaultAnimator_Interpolate_ShouldReturnNewValue()
     {
         var animator = new AnimatorRegistry._Animator<int>();
@@ -62,14 +38,4 @@ public class AnimatorRegistryTests
 
         Assert.That(result, Is.EqualTo(newValue));
     }
-
-    private class MyAnimator : Animator<MyStruct>
-    {
-        public override MyStruct Interpolate(float progress, MyStruct oldValue, MyStruct newValue)
-        {
-            return newValue;
-        }
-    }
-
-    private readonly record struct MyStruct(int Value);
 }

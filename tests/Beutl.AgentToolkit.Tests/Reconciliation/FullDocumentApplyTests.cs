@@ -113,8 +113,8 @@ public sealed class FullDocumentApplyTests
         var element = new Element { Length = TimeSpan.FromSeconds(1), Uri = new Uri(Path.Combine(dir, "first.belm")) };
         var text = new TextBlock { Text = { CurrentValue = "Title" } };
         var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 0 }, out _);
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 100 }, out _);
+        animation.KeyFrames.AddSorted(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 0 });
+        animation.KeyFrames.AddSorted(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 100 });
         text.Opacity.Animation = animation;
         element.AddObject(text);
         scene.Children.Add(element);
@@ -138,8 +138,8 @@ public sealed class FullDocumentApplyTests
         var element = new Element { Length = TimeSpan.FromSeconds(1), Uri = new Uri(Path.Combine(dir, "first.belm")) };
         var text = new TextBlock { Text = { CurrentValue = "Title" } };
         var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 0 }, out _);
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 100 }, out _);
+        animation.KeyFrames.AddSorted(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 0 });
+        animation.KeyFrames.AddSorted(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 100 });
         text.Opacity.Animation = animation;
         element.AddObject(text);
         scene.Children.Add(element);

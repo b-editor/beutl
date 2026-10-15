@@ -300,7 +300,7 @@ public sealed class KeyFrameShorthandTests
         var rect = (RectShape)element.Objects.Single();
         var animation = new KeyFrameAnimation<float>();
         var keyFrame = new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = -25 };
-        animation.KeyFrames.Add(keyFrame, out _);
+        animation.KeyFrames.AddSorted(keyFrame);
         rect.Opacity.Animation = animation;
 
         ToolResult<ApplyEditResponse> apply = tools.ApplyEdit(
@@ -337,7 +337,7 @@ public sealed class KeyFrameShorthandTests
         var rect = (RectShape)element.Objects.Single();
         var animation = new KeyFrameAnimation<float>();
         var keyFrame = new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = -25 };
-        animation.KeyFrames.Add(keyFrame, out _);
+        animation.KeyFrames.AddSorted(keyFrame);
         rect.Opacity.Animation = animation;
 
         ToolResult<ApplyEditResponse> apply = tools.ApplyEdit(
@@ -579,7 +579,7 @@ public sealed class KeyFrameShorthandTests
         var rect = new RectShape { Name = name };
         var animation = new KeyFrameAnimation<float>();
         var keyFrame = new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = opacity };
-        animation.KeyFrames.Add(keyFrame, out _);
+        animation.KeyFrames.AddSorted(keyFrame);
         rect.Opacity.Animation = animation;
         element.AddObject(rect);
         scene.Children.Add(element);

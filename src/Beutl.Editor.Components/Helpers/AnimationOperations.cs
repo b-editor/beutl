@@ -74,7 +74,7 @@ public static class AnimationOperations
                 KeyTime = keyTime
             };
 
-            animation.KeyFrames.Add(createdKeyFrame, out _);
+            animation.KeyFrames.AddSorted(createdKeyFrame);
             if (split is { } s)
                 s.Next.Easing = s.Right;
         }

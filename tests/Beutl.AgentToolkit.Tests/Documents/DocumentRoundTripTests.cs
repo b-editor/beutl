@@ -18,8 +18,8 @@ public class DocumentRoundTripTests
     {
         var text = new TextBlock { Text = { CurrentValue = "Title" } };
         var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 0 }, out _);
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 100 }, out _);
+        animation.KeyFrames.AddSorted(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 0 });
+        animation.KeyFrames.AddSorted(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 100 });
         text.Opacity.Animation = animation;
         var adapter = new DocumentAdapter();
 

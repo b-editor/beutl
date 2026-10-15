@@ -82,7 +82,7 @@ public sealed class ApplierReviewFollowupTests
                 Value = 100,
                 Easing = new LinearEasing(),
             };
-            animation.KeyFrames.Add(keyFrame, out _);
+            animation.KeyFrames.AddSorted(keyFrame);
             text.Opacity.Animation = animation;
             element.AddObject(text);
             scene.Children.Add(element);
@@ -168,8 +168,8 @@ public sealed class ApplierReviewFollowupTests
         Scene scene = CreateSceneWithElement(out element);
         text = element.Objects.OfType<TextBlock>().Single();
         var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 0, Easing = new LinearEasing() }, out _);
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 100, Easing = new LinearEasing() }, out _);
+        animation.KeyFrames.AddSorted(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 0, Easing = new LinearEasing() });
+        animation.KeyFrames.AddSorted(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 100, Easing = new LinearEasing() });
         text.Opacity.Animation = animation;
         return scene;
     }

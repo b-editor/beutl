@@ -305,7 +305,7 @@ internal sealed partial class DeclarativeDocumentApplier
                     NormalizeCoreSerializableJson(itemJson, typeof(IKeyFrame)),
                     typeof(IKeyFrame),
                     CreateOptions(owner));
-                list.Add((IKeyFrame)item, out _);
+                list.AddSorted((IKeyFrame)item);
             }
 
             desiredIds.Add(item.Id);

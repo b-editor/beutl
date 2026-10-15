@@ -478,22 +478,20 @@ public sealed class DeclarativeAnimationTests
     private static JsonObject CreateOpacityAnimationDocument(TimeSpan firstKeyTime, TimeSpan secondKeyTime)
     {
         var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(
+        animation.KeyFrames.AddSorted(
             new KeyFrame<float>
             {
                 KeyTime = firstKeyTime,
                 Value = 0,
                 Easing = new LinearEasing()
-            },
-            out _);
-        animation.KeyFrames.Add(
+            });
+        animation.KeyFrames.AddSorted(
             new KeyFrame<float>
             {
                 KeyTime = secondKeyTime,
                 Value = 100,
                 Easing = new SineEaseOut()
-            },
-            out _);
+            });
 
         return SamplePatchBuilder.SerializeWithoutIds(animation);
     }

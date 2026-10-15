@@ -1,7 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
-using System.Globalization;
-using System.Threading;
-using Beutl.Utilities;
+﻿using System.Threading;
 
 namespace Beutl.Animation;
 
@@ -23,39 +20,6 @@ public class KeySpline
     public KeySpline(float x1, float y1, float x2, float y2)
     {
         _state = new SplineState(x1, y1, x2, y2);
-    }
-
-    public static bool TryParse(string s, [NotNullWhen(true)] out KeySpline? keySpline, IFormatProvider? provider = null)
-    {
-        return TryParse(s.AsSpan(), out keySpline, provider);
-    }
-
-    public static bool TryParse(ReadOnlySpan<char> s, [NotNullWhen(true)] out KeySpline? keySpline, IFormatProvider? provider = null)
-    {
-        try
-        {
-            keySpline = Parse(s, provider);
-            return true;
-        }
-        catch
-        {
-            keySpline = default;
-            return false;
-        }
-    }
-
-    public static KeySpline Parse(string value, IFormatProvider? provider = null)
-    {
-        return Parse(value.AsSpan(), provider);
-    }
-
-    public static KeySpline Parse(ReadOnlySpan<char> value, IFormatProvider? provider = null)
-    {
-        provider ??= CultureInfo.InvariantCulture;
-
-        using var tokenizer = new RefStringTokenizer(value, provider, exceptionMessage: $"Invalid KeySpline string: \"{value}\".");
-
-        return new KeySpline(tokenizer.ReadSingle(), tokenizer.ReadSingle(), tokenizer.ReadSingle(), tokenizer.ReadSingle());
     }
 
     public float ControlPointX1
@@ -136,12 +100,6 @@ public class KeySpline
             float parameter = GetParameterFromX(state, linearProgress);
             return GetBezierValue(state.By, state.Cy, parameter);
         }
-    }
-
-    public bool IsValid()
-    {
-        SplineState state = Volatile.Read(ref _state);
-        return IsValidXValue(state.ControlPointX1) && IsValidXValue(state.ControlPointX2);
     }
 
     private static bool IsValidXValue(float value)

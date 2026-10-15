@@ -40,7 +40,7 @@ internal static class KeyFrameSelectionClipboard
                 }
                 else
                 {
-                    animation.KeyFrames.Add(clone, out _);
+                    animation.KeyFrames.AddSorted(clone);
                     pasted.Add(clone);
                 }
             }
