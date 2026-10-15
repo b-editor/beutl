@@ -86,7 +86,7 @@ public sealed class MFEncoderSettingsTests
         if (succeeds)
         {
             await output.RunAsync(CancellationToken.None);
-            Assert.That(output.IsCompleted.Value, Is.True);
+            Assert.That(output.WasCancelled.Value, Is.False);
             Assert.That(File.Exists(output.DestinationFile.Value), Is.True);
             Assert.Multiple(() =>
             {

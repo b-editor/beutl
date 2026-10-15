@@ -10,7 +10,6 @@ using Icon = FluentIcons.Common.Icon;
 
 namespace Beutl.Editor.Components.ColorGradingTab;
 
-[PrimitiveImpl]
 public sealed class ColorGradingTabExtension : ToolTabExtension
 {
     public static readonly ColorGradingTabExtension Instance = new();

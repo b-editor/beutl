@@ -10,7 +10,6 @@ using Icon = FluentIcons.Common.Icon;
 
 namespace Beutl.Editor.Components.ColorScopesTab;
 
-[PrimitiveImpl]
 public sealed class ColorScopesTabExtension : ToolTabExtension
 {
     public static readonly ColorScopesTabExtension Instance = new();

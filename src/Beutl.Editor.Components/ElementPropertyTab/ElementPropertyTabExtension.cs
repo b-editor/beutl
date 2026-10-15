@@ -8,7 +8,6 @@ using Icon = FluentIcons.Common.Icon;
 
 namespace Beutl.Editor.Components.ElementPropertyTab;
 
-[PrimitiveImpl]
 public sealed class ElementPropertyTabExtension : ToolTabExtension
 {
     public static readonly ElementPropertyTabExtension Instance = new();

@@ -9,7 +9,6 @@ using Icon = FluentIcons.Common.Icon;
 
 namespace Beutl.Services.PrimitiveImpls;
 
-[PrimitiveImpl]
 public sealed class MissingMediaTabExtension : ToolTabExtension
 {
     public static readonly MissingMediaTabExtension Instance = new();

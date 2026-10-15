@@ -33,7 +33,6 @@ public class DockLayoutTabTests
 
         // Saving selects the new entry so the row actions act on it.
         Assert.That(viewModel.SelectedItem.Value?.Name.Value, Is.EqualTo("Default"));
-        Assert.That(viewModel.HasSelection.Value, Is.True);
 
         BeutlToolDockable library = editor.DockHost.Factory.EnumerateTools()
             .First(t => t.ToolContext.Extension is LibraryTabExtension);
@@ -41,7 +40,7 @@ public class DockLayoutTabTests
         HeadlessTestHelpers.Settle();
         Assert.That(DockLayoutPresetTests.ToolExtensionNames(editor), Is.Not.EqualTo(saved));
 
-        Assert.That(viewModel.Apply(), Is.True);
+        Assert.That(viewModel.Apply(viewModel.SelectedItem.Value!), Is.True);
         HeadlessTestHelpers.Settle();
         Assert.That(DockLayoutPresetTests.ToolExtensionNames(editor), Is.EqualTo(saved));
 
@@ -124,13 +123,13 @@ public class DockLayoutTabTests
         string[] afterClose = DockLayoutPresetTests.ToolExtensionNames(editor);
         editor.DockHost.ResetLayout();
         HeadlessTestHelpers.Settle();
-        Assert.That(viewModel.Apply(), Is.True);
+        Assert.That(viewModel.Apply(viewModel.SelectedItem.Value!), Is.True);
         HeadlessTestHelpers.Settle();
         Assert.That(DockLayoutPresetTests.ToolExtensionNames(editor), Is.EqualTo(afterClose));
 
         viewModel.Remove(service.Items[0]);
         Assert.That(service.Items.Select(i => i.Name.Value), Is.EqualTo(new[] { "Grading" }));
-        Assert.That(viewModel.HasSelection.Value, Is.False, "removing the selected layout clears the selection");
+        Assert.That(viewModel.SelectedItem.Value, Is.Null, "removing the selected layout clears the selection");
 
         viewModel.Dispose();
     }
@@ -182,7 +181,7 @@ public class DockLayoutTabTests
         viewModel.Remove(service.Items[0]);
         Assert.That(service.Items.Select(i => i.Name.Value), Is.EqualTo(new[] { "Grading" }));
         Assert.That(
-            viewModel.HasSelection.Value, Is.True,
+            viewModel.SelectedItem.Value, Is.Not.Null,
             "removing another row must not clear the selection");
 
         viewModel.Dispose();
@@ -247,7 +246,6 @@ public class DockLayoutTabTests
             // claiming nothing is selected while the row is still listed.
             Assert.That(service.Items, Has.Count.EqualTo(1));
             Assert.That(viewModel.SelectedItem.Value, Is.SameAs(target));
-            Assert.That(viewModel.HasSelection.Value, Is.True);
         }
         finally
         {

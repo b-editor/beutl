@@ -8,7 +8,6 @@ using Icon = FluentIcons.Common.Icon;
 
 namespace Beutl.Editor.Components.AudioVisualizerTab;
 
-[PrimitiveImpl]
 public sealed class AudioVisualizerTabExtension : ToolTabExtension
 {
     public static readonly AudioVisualizerTabExtension Instance = new();

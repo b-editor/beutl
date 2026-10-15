@@ -393,7 +393,6 @@ public class ExportTests
                 Assert.That(execution.IsCanceled, Is.True);
                 Assert.That(output.WasCancelled.Value, Is.True);
                 Assert.That(output.IsEncoding.Value, Is.False);
-                Assert.That(output.IsCompleted.Value, Is.False);
             });
             AssertWorkspaceMutationAvailable();
         }
@@ -419,7 +418,6 @@ public class ExportTests
         EditViewModel editor = await OpenEditorWithRectangle("export-preflight-cancel");
         using var output = new OutputViewModel(editor);
         using var cancellation = new CancellationTokenSource();
-        output.IsCompleted.Value = true;
         cancellation.Cancel();
 
         try
@@ -434,7 +432,6 @@ public class ExportTests
         Assert.Multiple(() =>
         {
             Assert.That(output.WasCancelled.Value, Is.True);
-            Assert.That(output.IsCompleted.Value, Is.False);
             Assert.That(output.IsEncoding.Value, Is.False);
             Assert.That(output.ProgressText.Value, Is.EqualTo(Strings.Cancel));
         });

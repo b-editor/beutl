@@ -197,8 +197,6 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
     public ReactiveProperty<string> FrameProgressText { get; } = new("0 / 0");
 
-    public ReactiveProperty<bool> IsCompleted { get; } = new();
-
     public ReactiveProperty<bool> WasCancelled { get; } = new();
 
     public IReadOnlyReactiveProperty<bool> IsIndeterminate => _isIndeterminate;
@@ -270,7 +268,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            HandlePreflightCancellation();
+            HandleCancellation();
             throw;
         }
 
@@ -295,7 +293,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            HandlePreflightCancellation();
+            HandleCancellation();
             throw;
         }
 
@@ -385,7 +383,6 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
     private void BeginProgress()
     {
         _isEncoding.Value = true;
-        IsCompleted.Value = false;
         ProgressText.Value = "";
         ProgressMain.Value = Strings.Encoding;
         Elapsed.Value = "00:00:00";
@@ -532,7 +529,6 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         stopwatch.Stop();
         Elapsed.Value = FormatDuration(stopwatch.Elapsed);
         _isEncoding.Value = false;
-        IsCompleted.Value = succeeded;
         string? completedPath = _activeDestination;
         _activeDestination = null;
         _logger.LogInformation("Encoding process finished.");
@@ -570,12 +566,6 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         var failure = new InvalidOperationException(message);
         MarkFailureAsReported(failure);
         return failure;
-    }
-
-    private void HandlePreflightCancellation()
-    {
-        IsCompleted.Value = false;
-        HandleCancellation();
     }
 
     private void HandleCancellation()

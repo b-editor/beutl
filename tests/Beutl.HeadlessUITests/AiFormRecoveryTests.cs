@@ -1,7 +1,5 @@
 ﻿using System.Net;
-using System.Net.Http.Headers;
 using System.Reflection;
-using System.Text;
 using System.Text.Json;
 using Avalonia.Headless.NUnit;
 using Beutl.Api;
@@ -135,7 +133,7 @@ public sealed class AiFormRecoveryTests
             null,
             new AiRequestFormSnapshot(Prompt: "video", DurationSeconds: 4, Resolution: "720p", AspectRatio: "16:9")));
 
-        using var handler = new RecoveryCatalogHandler();
+        using var handler = CreateRecoveryCatalogHandler();
         using var client = new HttpClient(handler) { BaseAddress = new Uri("https://beutl.beditor.net") };
         await using var app = new BeutlApiApplication(client, new ExtensionProvider());
         using var context = new AiRequestRecoveryContext(
@@ -228,7 +226,7 @@ public sealed class AiFormRecoveryTests
                 SupportsFirstFrame: true),
             [frameSource]));
 
-        using var handler = new RecoveryCatalogHandler();
+        using var handler = CreateRecoveryCatalogHandler();
         using var client = new HttpClient(handler) { BaseAddress = new Uri("https://beutl.beditor.net") };
         await using var app = new BeutlApiApplication(client, new ExtensionProvider());
         SetAuthenticatedUser(app);
@@ -388,7 +386,7 @@ public sealed class AiFormRecoveryTests
         }
 
         var requests = new List<(string Path, string? Key, string Body)>();
-        using var handler = new RecoveryDispatchHandler(requests);
+        using var handler = CreateRecoveryDispatchHandler(requests);
         using var client = new HttpClient(handler) { BaseAddress = new Uri("https://beutl.beditor.net") };
         await using var app = new BeutlApiApplication(client, new ExtensionProvider());
         SetAuthenticatedUser(app);
@@ -510,7 +508,7 @@ public sealed class AiFormRecoveryTests
                 AspectRatio: "9:16")));
 
         var requests = new List<(string Path, string? Key, string Body)>();
-        using var handler = new RecoveryDispatchHandler(requests);
+        using var handler = CreateRecoveryDispatchHandler(requests);
         using var client = new HttpClient(handler) { BaseAddress = new Uri("https://beutl.beditor.net") };
         await using var app = new BeutlApiApplication(client, new ExtensionProvider());
         SetAuthenticatedUser(app);
@@ -564,7 +562,7 @@ public sealed class AiFormRecoveryTests
         var store = new FileAiRequestRecoveryStore(root);
         var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        using var handler = new LateAccountSwitchHandler(started, release, s_png);
+        using var handler = CreateLateAccountSwitchHandler(started, release, s_png);
         using var client = new HttpClient(handler)
         {
             BaseAddress = new Uri("https://beutl.beditor.net"),
@@ -621,7 +619,7 @@ public sealed class AiFormRecoveryTests
         string? account = "account-a";
         var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        using var handler = new LateAccountSwitchHandler(started, release, s_png);
+        using var handler = CreateLateAccountSwitchHandler(started, release, s_png);
         using var client = new HttpClient(handler) { BaseAddress = new Uri("https://beutl.beditor.net") };
         await using var app = new BeutlApiApplication(client, new ExtensionProvider());
         SetAuthenticatedUser(app);
@@ -677,7 +675,7 @@ public sealed class AiFormRecoveryTests
         AiRequestRecoverySource source = FileAiRequestRecoveryStore.CreateExternalSource("reference-0", sourcePath, "source.png", s_png);
         store.WriteOrGet(new AiPendingAttempt("test-user", "image.generate", "model-a", "key-a", "model-a", new AiRequestFormSnapshot(Prompt: "A"), [source]));
         store.WriteOrGet(new AiPendingAttempt("test-user", "image.generate", "model-b", "key-b", "model-b", new AiRequestFormSnapshot(Prompt: "B"), [source]));
-        using var handler = new RecoveryCatalogHandler();
+        using var handler = CreateRecoveryCatalogHandler();
         using var client = new HttpClient(handler) { BaseAddress = new Uri("https://beutl.beditor.net") };
         await using var app = new BeutlApiApplication(client, new ExtensionProvider());
         SetAuthenticatedUser(app);
@@ -701,31 +699,24 @@ public sealed class AiFormRecoveryTests
         Directory.Delete(root, recursive: true);
     }
 
-    private sealed class RecoveryCatalogHandler : HttpMessageHandler
+    // Answers the entitlement and capability reads of the recovery tests, or null for another path.
+    private static HttpResponseMessage? RecoveryCatalog(string path) => path switch
     {
-        protected override Task<HttpResponseMessage> SendAsync(
-            HttpRequestMessage request,
-            CancellationToken cancellationToken)
-        {
-            string path = request.RequestUri?.AbsolutePath ?? string.Empty;
-            return Task.FromResult(path switch
-            {
-                "/api/v3/user/entitlements" => Json(RecoveryEntitlementsJson()),
-                "/api/v3/ai/capabilities" => Json(RecoveryCapabilitiesJson()),
-                _ => new HttpResponseMessage(HttpStatusCode.NotFound)
-                {
-                    RequestMessage = request,
-                    Content = new StringContent("{}"),
-                },
-            });
-        }
+        "/api/v3/user/entitlements" => JsonResponse(
+            HttpStatusCode.OK,
+            EntitlementsJson(["image.generate", "image.edit.upscale", "video.generate"], additionalCredits: 10)),
+        "/api/v3/ai/capabilities" => JsonResponse(HttpStatusCode.OK, RecoveryCapabilitiesJson()),
+        _ => null,
+    };
 
-        private static HttpResponseMessage Json(string body)
-            => new(HttpStatusCode.OK)
-            {
-                Content = new StringContent(body, Encoding.UTF8, "application/json"),
-            };
-    }
+    private static HttpResponseMessage NotFoundResponse()
+        => new(HttpStatusCode.NotFound) { Content = new StringContent("{}") };
+
+    // Answers the catalog reads and 404 to anything else, the availability check included.
+    private static StubHandler CreateRecoveryCatalogHandler()
+        => new(
+            request => RecoveryCatalog(request.RequestUri?.AbsolutePath ?? string.Empty) ?? NotFoundResponse(),
+            handleAvailability: false);
 
     private static AiRequestRecoveryContext NewContext(FileAiRequestRecoveryStore store, string account)
         => new(store, () => new AiAuthenticatedRequestIdentity(account, User: null));
@@ -770,29 +761,17 @@ public sealed class AiFormRecoveryTests
         }
         """;
 
-    private static string RecoveryEntitlementsJson() => """
-        {
-          "plan":"pro","subscriptionStatus":"active","currentPeriodStart":"2026-08-01T00:00:00Z","currentPeriodEnd":"2026-09-01T00:00:00Z","canUseAi":true,
-          "balance":{"monthlyUsage":{"usedPercent":0,"remainingPercent":100,"isExhausted":false},"additionalCredits":10,"hasAdditionalCreditDebt":false},
-          "availability":{"image.generate":true,"image.edit.upscale":true,"video.generate":true}
-        }
-        """;
-
-    private sealed class RecoveryDispatchHandler(
-        List<(string Path, string? Key, string Body)> requests) : HttpMessageHandler
-    {
-        protected override async Task<HttpResponseMessage> SendAsync(
-            HttpRequestMessage request,
-            CancellationToken cancellationToken)
+    // Records each generation request with its idempotency key and body. Image requests fail at the
+    // provider; a video request starts a job that then fails. The availability check gets a 404.
+    private static StubHandler CreateRecoveryDispatchHandler(List<(string Path, string? Key, string Body)> requests)
+        => new(async (request, cancellationToken) =>
         {
             string path = request.RequestUri?.AbsolutePath ?? string.Empty;
             string body = request.Content is null
                 ? string.Empty
                 : await request.Content.ReadAsStringAsync(cancellationToken);
-            if (path is "/api/v3/user/entitlements")
-                return Json(RecoveryEntitlementsJson());
-            if (path is "/api/v3/ai/capabilities")
-                return Json(RecoveryCapabilitiesJson());
+            if (RecoveryCatalog(path) is { } catalog)
+                return catalog;
             if (path is "/api/v3/ai/images" or "/api/v3/ai/images/edit" or "/api/v3/ai/videos")
             {
                 string? key = request.Headers.TryGetValues("Idempotency-Key", out IEnumerable<string>? values)
@@ -800,76 +779,43 @@ public sealed class AiFormRecoveryTests
                     : null;
                 requests.Add((path, key, body));
                 if (path == "/api/v3/ai/videos")
-                    return Json("{\"jobId\":\"recovered-video-job\",\"status\":\"queued\"}");
-                return new HttpResponseMessage(HttpStatusCode.InternalServerError)
-                {
-                    Content = new StringContent(
-                        "{\"error_code\":\"aiProviderError\",\"message\":\"Provider failed.\"}",
-                        Encoding.UTF8,
-                        "application/json"),
-                };
+                    return JsonResponse(HttpStatusCode.OK, "{\"jobId\":\"recovered-video-job\",\"status\":\"queued\"}");
+                return JsonResponse(
+                    HttpStatusCode.InternalServerError,
+                    "{\"error_code\":\"aiProviderError\",\"message\":\"Provider failed.\"}");
             }
             if (path == "/api/v3/ai/videos/recovered-video-job")
-                return Json("{\"jobId\":\"recovered-video-job\",\"status\":\"failed\",\"error\":\"aiProviderError\"}");
-            return new HttpResponseMessage(HttpStatusCode.NotFound)
             {
-                Content = new StringContent("{}"),
-            };
-        }
+                return JsonResponse(
+                    HttpStatusCode.OK,
+                    "{\"jobId\":\"recovered-video-job\",\"status\":\"failed\",\"error\":\"aiProviderError\"}");
+            }
+            return NotFoundResponse();
+        }, handleAvailability: false);
 
-        private static HttpResponseMessage Json(string body)
-            => new(HttpStatusCode.OK)
-            {
-                Content = new StringContent(body, Encoding.UTF8, "application/json"),
-            };
-    }
-
-    private sealed class LateAccountSwitchHandler(
+    // Holds the image request until release completes, then answers it with content.
+    private static StubHandler CreateLateAccountSwitchHandler(
         TaskCompletionSource started,
         TaskCompletionSource release,
-        byte[] content) : HttpMessageHandler
-    {
-        protected override async Task<HttpResponseMessage> SendAsync(
-            HttpRequestMessage request,
-            CancellationToken cancellationToken)
+        byte[] content)
+        => new(async (request, _) =>
         {
             string path = request.RequestUri?.AbsolutePath ?? string.Empty;
-            if (path == "/api/v3/user/entitlements")
-                return Json(RecoveryEntitlementsJson());
-            if (path == "/api/v3/ai/capabilities")
-                return Json(RecoveryCapabilitiesJson());
-            if (path == "/api/v3/user/ai-availability")
-                return Json("{\"available\":true}");
+            if (RecoveryCatalog(path) is { } catalog)
+                return catalog;
             if (path == "/api/v3/ai/images")
             {
                 started.TrySetResult();
                 await release.Task;
-                return Json(
+                return JsonResponse(
+                    HttpStatusCode.OK,
                     "{\"jobId\":\"late-account-job\",\"fileId\":\"late-account-file\","
                     + "\"url\":\"https://beutl.beditor.net/api/contents/late-account-file\"}");
             }
             if (path == "/api/contents/late-account-file")
-            {
-                return new HttpResponseMessage(HttpStatusCode.OK)
-                {
-                    Content = new ByteArrayContent(content)
-                    {
-                        Headers = { ContentType = new MediaTypeHeaderValue("image/png") },
-                    },
-                };
-            }
-            return new HttpResponseMessage(HttpStatusCode.NotFound)
-            {
-                Content = new StringContent("{}"),
-            };
-        }
-
-        private static HttpResponseMessage Json(string body)
-            => new(HttpStatusCode.OK)
-            {
-                Content = new StringContent(body, Encoding.UTF8, "application/json"),
-            };
-    }
+                return ByteResponse(content, "image/png");
+            return NotFoundResponse();
+        });
 
     private sealed class TestPlanCoordinator : IAiPlanCoordinator
     {

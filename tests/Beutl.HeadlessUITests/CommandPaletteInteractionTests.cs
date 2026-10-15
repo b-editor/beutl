@@ -340,11 +340,11 @@ public sealed class CommandPaletteInteractionTests
 
             PaletteCommand command = service.EnumerateCommands().Single();
             extension.Enabled = false;
-            await command.ExecuteAsync();
+            await command.ExecuteAsync(null);
             Assert.That(extension.Executions, Is.EqualTo(1), "CanExecute is checked again immediately before execution.");
             provider.RemoveExtensions(-43001);
             Assert.That(command.CanExecute(), Is.False);
-            await command.ExecuteAsync();
+            await command.ExecuteAsync(null);
             Assert.That(extension.Executions, Is.EqualTo(1), "Removed extensions cannot be invoked by a stale snapshot.");
         }
     }
@@ -357,7 +357,7 @@ public sealed class CommandPaletteInteractionTests
         var (provider, service, palette) = CreateClosedToolPalette(extension, -43002);
         using (palette)
         {
-            Task operation = service.EnumerateCommands().Single().ExecuteAsync();
+            Task operation = service.EnumerateCommands().Single().ExecuteAsync(null);
             Task drain = provider.RemoveExtensions(-43002).DrainAsync().AsTask();
             Assert.That(drain.IsCompleted, Is.False);
             gate.SetResult();

@@ -411,9 +411,6 @@ public partial class MainViewModel
 
     private async Task CompleteShutdownAsync()
     {
-        if (Interlocked.Exchange(ref _shutdownCompleted, 1) != 0)
-            return;
-
         try
         {
             if (_waitForPackageInstallerIdle is not null)
@@ -436,7 +433,14 @@ public partial class MainViewModel
         }
         finally
         {
-            await DisposeApiClientsAsync();
+            try
+            {
+                await _beutlClients.DisposeAsync();
+            }
+            finally
+            {
+                _authHttpClient.Dispose();
+            }
         }
     }
 
@@ -507,26 +511,6 @@ public partial class MainViewModel
             {
                 startInfo.ArgumentList.Add(item.HasVersion ? $"{item.Id}/{item.Version}" : item.Id);
             }
-        }
-    }
-
-    private Task DisposeApiClientsAsync()
-    {
-        lock (_apiClientDisposeGate)
-        {
-            return _apiClientDisposeTask ??= DisposeApiClientsCoreAsync();
-        }
-    }
-
-    private async Task DisposeApiClientsCoreAsync()
-    {
-        try
-        {
-            await _beutlClients.DisposeAsync();
-        }
-        finally
-        {
-            _authHttpClient.Dispose();
         }
     }
 }

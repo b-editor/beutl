@@ -44,9 +44,6 @@ public sealed partial class MenuBarViewModel
             .WithSubscribe(OnRedo);
     }
 
-    // Edit
-    //    Undo
-    //    Redo
     public AsyncReactiveCommand Undo { get; }
 
     public AsyncReactiveCommand Redo { get; }

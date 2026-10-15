@@ -6,7 +6,6 @@ using Beutl.NodeGraph.Generative;
 namespace Beutl.Editor.Components.NodeGraphTab.PropertyEditors;
 
 /// <summary>Shows catalog choices of generative nodes as drop-downs.</summary>
-[PrimitiveImpl]
 public sealed class GenerativeChoicePropertyExtension : PropertyEditorExtension
 {
     public static new readonly GenerativeChoicePropertyExtension Instance = new();

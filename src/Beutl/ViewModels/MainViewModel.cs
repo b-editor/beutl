@@ -44,14 +44,11 @@ public sealed partial class MainViewModel : BasePageViewModel, IContextCommandHa
     private readonly Func<TimeSpan, Task>? _waitForPackageInstallerIdle;
     private PackageInstaller? _packageInstallerForShutdown;
     private readonly object _disposeGate = new();
-    private readonly object _apiClientDisposeGate = new();
-    private int _shutdownCompleted;
     private int _exitObserved;
     private Task? _disposeTask;
     private Task<bool>? _closeForShutdownTask;
     private Task? _shutdownRequestTask;
     private IClassicDesktopStyleApplicationLifetime? _desktopLifetime;
-    private Task? _apiClientDisposeTask;
 
     public MainViewModel()
         : this(null)

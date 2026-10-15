@@ -9,7 +9,6 @@ using Icon = FluentIcons.Common.Icon;
 
 namespace Beutl.Services.PrimitiveImpls;
 
-[PrimitiveImpl]
 public sealed partial class TransitionTabExtension : ToolTabExtension
 {
     public static readonly TransitionTabExtension Instance = new();

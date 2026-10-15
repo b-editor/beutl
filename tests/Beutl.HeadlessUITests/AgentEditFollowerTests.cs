@@ -19,7 +19,6 @@ using Beutl.ViewModels;
 using Beutl.Views;
 using Microsoft.Extensions.DependencyInjection;
 using ModelContextProtocol.Client;
-using ModelContextProtocol.Protocol;
 using Reactive.Bindings;
 using static Beutl.HeadlessUITests.AgentHostTestHelpers;
 
@@ -371,14 +370,4 @@ public sealed class AgentEditFollowerTests
 
     private static Dictionary<string, object?> Target(Guid sceneId)
         => new() { ["sceneId"] = sceneId.ToString() };
-
-    private static JsonObject Payload(CallToolResult result)
-        => JsonNode.Parse(result.Content.OfType<TextContentBlock>().First().Text)!.AsObject();
-
-    private static JsonObject Success(CallToolResult result)
-    {
-        JsonObject payload = Payload(result);
-        Assert.That(payload["isSuccess"]!.GetValue<bool>(), Is.True, payload.ToJsonString());
-        return payload["value"]!.AsObject();
-    }
 }

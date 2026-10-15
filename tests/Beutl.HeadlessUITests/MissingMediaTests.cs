@@ -129,7 +129,7 @@ public partial class MissingMediaTests
             Assert.That(tool.Rows.Single().Name, Is.EqualTo("second.png"));
             Assert.That(tool.Rows.Single().IsOffline.Value, Is.True);
             Assert.That(notification.CancellationToken.IsCancellationRequested, Is.False);
-            tool.Close();
+            editor.CloseToolTab(tool);
             Assert.That(editor.FindToolTab<MissingMediaViewModel>(), Is.Null);
             await editor.OpenMissingMediaAsync();
             Assert.That(editor.FindToolTab<MissingMediaViewModel>(), Is.Not.SameAs(tool));
@@ -1113,7 +1113,7 @@ public partial class MissingMediaTests
             Assert.That(vm.Rows.Select(row => row.Name), Is.EquivalentTo(new[] { "missing-image.png", "unreadable.obj" }));
             Assert.That(source.MeshCount, Is.Zero);
             Assert.That(owner.OwnedWindows, Is.Empty);
-            vm.Close();
+            editor.CloseToolTab(vm);
         }
         finally
         {

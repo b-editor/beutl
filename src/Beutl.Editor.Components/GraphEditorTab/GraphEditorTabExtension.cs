@@ -8,7 +8,6 @@ using Icon = FluentIcons.Common.Icon;
 
 namespace Beutl.Editor.Components.GraphEditorTab;
 
-[PrimitiveImpl]
 public sealed class GraphEditorTabExtension : ToolTabExtension
 {
     public static readonly GraphEditorTabExtension Instance = new();

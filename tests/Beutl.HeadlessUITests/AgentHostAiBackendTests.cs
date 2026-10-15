@@ -15,6 +15,7 @@ using Beutl.Media.Source;
 using Beutl.NodeGraph.Generative;
 using Beutl.ProjectSystem;
 using Reactive.Bindings;
+using static Beutl.HeadlessUITests.AiTestSupport;
 
 namespace Beutl.HeadlessUITests;
 
@@ -303,25 +304,6 @@ public sealed class AgentHostAiBackendTests
             () => new StubCatalog([]),
             _ => new StubExecutor(),
             modelCatalog ?? new StubModelCatalog());
-
-    private static AuthenticatedUser CreateUser(BeutlApiApplication app)
-    {
-        var profile = new Profile(new ProfileResponse
-        {
-            Id = "test-user",
-            Name = "test",
-            DisplayName = "Test User",
-            Bio = null,
-            IconId = null,
-            IconUrl = null,
-        }, app);
-        return new AuthenticatedUser(profile, new AuthResponse
-        {
-            Token = "token",
-            RefreshToken = "refresh-token",
-            Expiration = DateTime.UtcNow.AddHours(1),
-        }, app, DateTime.UtcNow);
-    }
 
     private static AiEntitlements Entitlements(bool canUseAi)
         => new(

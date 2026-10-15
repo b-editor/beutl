@@ -1,11 +1,13 @@
 ﻿using System.Net;
 using System.Net.Sockets;
+using System.Text.Json.Nodes;
 using Beutl.AgentHost;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.Testing.Headless;
 using ModelContextProtocol.Client;
+using ModelContextProtocol.Protocol;
 
 namespace Beutl.HeadlessUITests;
 
@@ -32,6 +34,38 @@ internal static class AgentHostTestHelpers
         using var listener = new TcpListener(IPAddress.Loopback, 0);
         listener.Start();
         return ((IPEndPoint)listener.LocalEndpoint).Port;
+    }
+
+    public static bool CanBindLoopbackPort(int port)
+    {
+        try
+        {
+            using TcpListener listener = new(IPAddress.Loopback, port);
+            listener.Start();
+            return true;
+        }
+        catch (SocketException ex) when (ex.SocketErrorCode is SocketError.AddressAlreadyInUse or SocketError.AccessDenied)
+        {
+            return false;
+        }
+    }
+
+    // The JSON envelope a tool call returned in its first text block.
+    public static JsonObject Payload(CallToolResult result)
+        => JsonNode.Parse(result.Content.OfType<TextContentBlock>().First().Text)!.AsObject();
+
+    // Asserts that the tool call succeeded and returns its value.
+    public static JsonObject Success(CallToolResult result)
+    {
+        JsonObject payload = Payload(result);
+        Assert.That(payload["isSuccess"]!.GetValue<bool>(), Is.True, payload.ToJsonString());
+        return payload["value"]!.AsObject();
+    }
+
+    public static void AssertError(CallToolResult result, string code)
+    {
+        JsonObject payload = Payload(result);
+        Assert.That(payload["error"]?["code"]?.GetValue<string>(), Is.EqualTo(code), payload.ToJsonString());
     }
 
     // A new folder in the temporary folder whose name starts with prefix.

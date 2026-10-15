@@ -173,7 +173,7 @@ public sealed partial class EditViewModel
         BufferStatus = new BufferStatusViewModel(this)
             .DisposeWith(_disposables);
 
-        DockHost = new DockHostViewModel(SceneId, this);
+        DockHost = new DockHostViewModel(this);
         _editorSelection.SelectedObject
             .Subscribe(OpenSelectionInPropertyTabs)
             .DisposeWith(_disposables);

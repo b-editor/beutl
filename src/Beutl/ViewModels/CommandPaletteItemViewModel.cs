@@ -25,11 +25,11 @@ public sealed class CommandPaletteItemViewModel
 
     internal int Relevance { get; }
 
-    public Task ExecuteAsync()
+    public Task ExecuteAsync(IContextCommandInteraction? interaction)
     {
         if (IsEnabled)
         {
-            return Command.ExecuteAsync();
+            return Command.ExecuteAsync(interaction);
         }
 
         return Task.CompletedTask;

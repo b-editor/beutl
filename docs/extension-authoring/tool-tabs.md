@@ -23,7 +23,7 @@ The context implements `Extension`, `IsSelected`, and the reactive per-instance 
 
 ## Registration
 
-In-tree primitive tabs use `[PrimitiveImpl]`, expose a stable singleton `Instance`, and add that instance to `LoadPrimitiveExtensionTask.PrimitiveExtensions` in `src/Beutl/Services/StartupTasks/LoadPrimitiveExtensionTask.cs`.
+In-tree primitive tabs expose a stable singleton `Instance` and add that instance to `LoadPrimitiveExtensionTask.PrimitiveExtensions` in `src/Beutl/Services/StartupTasks/LoadPrimitiveExtensionTask.cs`.
 
 Out-of-tree extensions use `[Export]` and are discovered by the extension loader. They should inject the current `ToolTabExtension` instance into their `IToolContext` instead of defining a global singleton.
 
