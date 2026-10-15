@@ -1,4 +1,3 @@
 {
-  "$schema": "./build.schema.json",
-  "Solution": "Beutl.sln"
+  "$schema": "./build.schema.json"
 }
