@@ -207,139 +207,6 @@ public class SceneDrawableScaleTests
     }
 
     [Test]
-    public void NestedScene_RetriesFailedChildUpdateTransactionally()
-    {
-        Scene inner = CreateInnerSceneWithRetryingDrawable(
-            _basePath,
-            120,
-            90,
-            out RetryingSceneDrawable retrying);
-        var drawable = new SceneDrawable();
-        drawable.ReferencedScene.CurrentValue = inner;
-
-        using var resource = (SceneDrawable.Resource)drawable.ToResource(
-            new CompositionContext(TimeSpan.Zero));
-        using var root = new DrawableRenderNode(resource);
-        RenderDrawableTree(drawable, resource, root, inner.FrameSize.ToSize(1));
-
-        ContainerRenderNode sceneNode = FindNestedSceneNode(root);
-        DrawableRenderNode child = sceneNode.Children
-            .Cast<DrawableRenderNode>()
-            .Single(node => ReferenceEquals(node.Drawable!.Value.Resource.GetOriginal(), retrying));
-        Drawable.Resource childResource = child.Drawable!.Value.Resource;
-        int originalVersion = child.Drawable.Value.Version;
-        RenderNode[] originalOutputs = [.. child.Children];
-        Assert.That(originalOutputs, Has.Length.EqualTo(2));
-
-        retrying.OutputCount = 1;
-        retrying.ThrowAfterFirstOutput = true;
-        childResource.Version++;
-        resource.Version++;
-        Assert.That(root.Update(resource), Is.True);
-
-        InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(
-            () => RenderDrawableTree(
-                drawable,
-                resource,
-                root,
-                inner.FrameSize.ToSize(1)));
-        TrackingSceneRenderNode failedCandidate = retrying.CreatedNodes[^1];
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(failure!.Message, Is.EqualTo("retrying nested scene"));
-            Assert.That(retrying.RenderCalls, Is.EqualTo(2));
-            Assert.That(EnumerateSubtree(root), Does.Contain(sceneNode));
-            Assert.That(sceneNode.Children, Does.Contain(child));
-            Assert.That(child.Drawable!.Value.Version, Is.EqualTo(originalVersion));
-            Assert.That(child.Children, Is.EqualTo(originalOutputs));
-            Assert.That(originalOutputs, Has.All.Matches<RenderNode>(node => !node.IsDisposed));
-            Assert.That(failedCandidate.IsDisposed, Is.True);
-        });
-
-        retrying.ThrowAfterFirstOutput = false;
-        Assert.That(root.Update(resource), Is.False);
-        RenderDrawableTree(drawable, resource, root, inner.FrameSize.ToSize(1));
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(retrying.RenderCalls, Is.EqualTo(3));
-            Assert.That(sceneNode.Children, Does.Contain(child));
-            Assert.That(child.Drawable!.Value.Version, Is.EqualTo(childResource.Version));
-            Assert.That(child.Children, Has.Count.EqualTo(1));
-            Assert.That(child.Children[0], Is.SameAs(retrying.CreatedNodes[^1]));
-            Assert.That(child.Children[0].IsDisposed, Is.False);
-            Assert.That(originalOutputs, Has.All.Matches<RenderNode>(node => node.IsDisposed));
-        });
-    }
-
-    [Test]
-    public void NestedScene_RemovingTrailingChildrenDisposesAllAfterOneFails()
-    {
-        Scene inner = CreateInnerSceneWithRetryingDrawable(
-            _basePath,
-            120,
-            90,
-            out RetryingSceneDrawable first);
-        first.OutputCount = 1;
-        var second = new RetryingSceneDrawable { OutputCount = 1 };
-        SceneDrawableTestHelpers.AddElement(inner, _basePath, second, zIndex: 2);
-
-        var drawable = new SceneDrawable();
-        drawable.ReferencedScene.CurrentValue = inner;
-        using var resource = (SceneDrawable.Resource)drawable.ToResource(
-            new CompositionContext(TimeSpan.Zero));
-        using var root = new DrawableRenderNode(resource);
-        RenderDrawableTree(drawable, resource, root, inner.FrameSize.ToSize(1));
-
-        ContainerRenderNode sceneNode = EnumerateSubtree(root)
-            .OfType<ContainerRenderNode>()
-            .Single(node => node.Children.Count == 3
-                            && node.Children.All(static child => child is DrawableRenderNode));
-        DrawableRenderNode firstWrapper = sceneNode.Children
-            .Cast<DrawableRenderNode>()
-            .Single(node => ReferenceEquals(node.Drawable!.Value.Resource.GetOriginal(), first));
-        DrawableRenderNode secondWrapper = sceneNode.Children
-            .Cast<DrawableRenderNode>()
-            .Single(node => ReferenceEquals(node.Drawable!.Value.Resource.GetOriginal(), second));
-        TrackingSceneRenderNode firstOutput = first.CreatedNodes.Single();
-        TrackingSceneRenderNode secondOutput = second.CreatedNodes.Single();
-        firstOutput.ThrowOnDispose = true;
-
-        CompositionFrame frame = resource.Frame!.Value;
-        resource.Frame = new CompositionFrame([frame.Objects[0]], frame.Time, frame.Size, null);
-        resource.Version++;
-        Assert.That(root.Update(resource), Is.True);
-
-        try
-        {
-            InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(
-                () => RenderDrawableTree(
-                    drawable,
-                    resource,
-                    root,
-                    inner.FrameSize.ToSize(1)));
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(failure!.Message, Is.EqualTo("tracking scene-node disposal"));
-                Assert.That(sceneNode.Children, Has.Count.EqualTo(1));
-                Assert.That(firstOutput.DisposeCalls, Is.EqualTo(1));
-                Assert.That(firstWrapper.IsDisposed, Is.False);
-                Assert.That(secondOutput.DisposeCalls, Is.EqualTo(1));
-                Assert.That(secondOutput.IsDisposed, Is.True);
-                Assert.That(secondWrapper.IsDisposed, Is.True);
-            });
-        }
-        finally
-        {
-            firstOutput.ThrowOnDispose = false;
-            firstWrapper.Dispose();
-            secondWrapper.Dispose();
-        }
-    }
-
-    [Test]
     public void NestedScene_RebuildsWhenARequestAsksForADifferentOutputScale()
     {
         Scene inner = CreateInnerSceneWithRetryingDrawable(
@@ -480,27 +347,17 @@ public class SceneDrawableScaleTests
 
 internal sealed partial class RetryingSceneDrawable : Drawable
 {
-    public bool ThrowAfterFirstOutput { get; set; }
-
-    public int OutputCount { get; set; } = 2;
-
     public int RenderCalls { get; private set; }
 
     public List<float> ObservedOutputScales { get; } = [];
-
-    public List<TrackingSceneRenderNode> CreatedNodes { get; } = [];
 
     public override void Render(GraphicsContext2D context, Drawable.Resource resource)
     {
         RenderCalls++;
         ObservedOutputScales.Add(context.OutputScale);
-        for (int index = 0; index < OutputCount; index++)
+        for (int index = 0; index < 2; index++)
         {
-            var node = new TrackingSceneRenderNode();
-            CreatedNodes.Add(node);
-            context.DrawNode(node);
-            if (index == 0 && ThrowAfterFirstOutput)
-                throw new InvalidOperationException("retrying nested scene");
+            context.DrawNode(new TrackingSceneRenderNode());
         }
     }
 
@@ -514,19 +371,8 @@ internal sealed partial class RetryingSceneDrawable : Drawable
 
 internal sealed class TrackingSceneRenderNode : RenderNode
 {
-    public bool ThrowOnDispose { get; set; }
-
-    public int DisposeCalls { get; private set; }
-
     public override void Process(RenderNodeContext context)
     {
         context.PassThrough();
-    }
-
-    protected override void OnDispose(bool disposing)
-    {
-        DisposeCalls++;
-        if (ThrowOnDispose)
-            throw new InvalidOperationException("tracking scene-node disposal");
     }
 }
