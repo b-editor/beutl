@@ -1,6 +1,5 @@
 ﻿using System.Text.Json;
 using Microsoft.Extensions.Logging;
-using NuGet.Packaging;
 
 namespace Beutl.Api.Services;
 
@@ -137,10 +136,7 @@ public partial class PackageInstaller
             var active = new List<PayloadChange>();
             foreach (PayloadChange change in changes)
             {
-                PayloadOwnership ownership = owner.GetPayloadOwnership(name, change.Kind, change.Destination);
-                if (ownership == PayloadOwnership.Unknown)
-                    throw new IOException($"Cannot determine ownership of the legacy package directory '{change.Destination}' without its installed metadata.");
-                bool owned = ownership == PayloadOwnership.Owned;
+                bool owned = GetPayloadOwnership(name, change.Destination) == PayloadOwnership.Owned;
                 if (!change.Enabled && !owned) continue;
                 if (File.Exists(change.Destination))
                     throw new IOException($"The payload destination '{change.Destination}' is a file.");
@@ -252,12 +248,10 @@ public partial class PackageInstaller
 
     /// <summary>
     /// Removes the payload directories <see cref="InstallDataPackage"/> created.
-    /// Returns <see langword="false"/> when removal fails or legacy ownership cannot be determined.
+    /// Returns <see langword="false"/> when removal fails.
     /// </summary>
     /// <remarks>
-    /// Owner markers remain sufficient when the extracted package is gone. Markerless legacy
-    /// directories require installed metadata; missing metadata must not authorize deletion
-    /// or let callers discard the package registration as if removal had succeeded.
+    /// Owner markers remain sufficient when the extracted package is gone.
     /// </remarks>
     public bool UninstallDataPackage(string packageName)
     {
@@ -270,52 +264,35 @@ public partial class PackageInstaller
                 EnsureNoPendingDataInstall(name, null);
                 string templatesPath = Path.Combine(BeutlEnvironment.GetTemplatesDirectoryPath(), name);
                 string materialsPath = Path.Combine(BeutlEnvironment.GetMaterialsDirectoryPath(), name);
-                bool templates = RemoveOwnedPayload(name, TemplatesContentDirectory, templatesPath);
-                bool materials = RemoveOwnedPayload(name, MaterialsContentDirectory, materialsPath);
+                bool templates = RemoveOwnedPayload(name, templatesPath);
+                bool materials = RemoveOwnedPayload(name, materialsPath);
                 return templates && materials;
             }
         });
     }
 
-    private bool RemoveOwnedPayload(string packageName, string kind, string directory)
+    private bool RemoveOwnedPayload(string packageName, string directory)
     {
-        switch (GetPayloadOwnership(packageName, kind, directory))
-        {
-            case PayloadOwnership.Owned:
-                return DeleteIfExists(directory);
-            case PayloadOwnership.Unknown:
-                _logger.LogWarning("Cannot determine ownership of {Directory} because installed package metadata is missing. Keeping the directory and package registration.", directory);
-                return false;
-            default:
-                return true;
-        }
+        if (GetPayloadOwnership(packageName, directory) != PayloadOwnership.Owned)
+            return true;
+        return DeleteIfExists(directory);
     }
 
     private enum PayloadOwnership
     {
         Unowned,
         Owned,
-        Unknown,
     }
 
     private sealed record PayloadOwner(string Name, string Version, string? DeploymentId = null);
 
     private static PayloadOwner? ReadPayloadOwner(string directory)
-        => ReadPayloadOwner(directory, out _);
-
-    private static PayloadOwner? ReadPayloadOwner(string directory, out bool markerPresent)
     {
         string marker = Path.Combine(directory, PayloadOwnerFileName);
-        markerPresent = true;
         try
         {
             if ((File.GetAttributes(marker) & FileAttributes.Directory) != 0)
                 return null;
-        }
-        catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
-        {
-            markerPresent = false;
-            return null;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -330,37 +307,20 @@ public partial class PackageInstaller
         }
         catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
         {
-            // An existing unreadable marker is not proof of legacy ownership.
+            // An existing unreadable marker is not proof of ownership.
             return null;
         }
     }
 
-    private PayloadOwnership GetPayloadOwnership(string packageName, string kind, string directory)
+    // Only an owner marker that names the package proves ownership; a matching directory
+    // name is insufficient, so a directory without a marker belongs to someone else.
+    private static PayloadOwnership GetPayloadOwnership(string packageName, string directory)
     {
         if (!Directory.Exists(directory))
             return PayloadOwnership.Unowned;
-        PayloadOwner? owner = ReadPayloadOwner(directory, out bool markerPresent);
-        if (markerPresent)
-            return owner is not null && StringComparer.OrdinalIgnoreCase.Equals(owner.Name, packageName)
-                ? PayloadOwnership.Owned : PayloadOwnership.Unowned;
-
-        // Older installations had no marker. Only extracted, registered package metadata
-        // can authorize taking over their payload; a matching directory name is insufficient.
-        string tag = kind == MaterialsContentDirectory ? PackageKinds.MaterialTag : PackageKinds.TemplateTag;
-        bool missingMetadata = false;
-        foreach (var identity in _installedPackageRepository.GetLocalPackages(packageName))
-        {
-            string installed = Helper.ResolveInstalledDirectory(identity);
-            if (!Directory.Exists(installed))
-            {
-                missingMetadata = true;
-                continue;
-            }
-            using var reader = new PackageFolderReader(installed);
-            if (new LocalPackage(reader.NuspecReader).Tags.Contains(tag))
-                return PayloadOwnership.Owned;
-        }
-        return missingMetadata ? PayloadOwnership.Unknown : PayloadOwnership.Unowned;
+        PayloadOwner? owner = ReadPayloadOwner(directory);
+        return owner is not null && StringComparer.OrdinalIgnoreCase.Equals(owner.Name, packageName)
+            ? PayloadOwnership.Owned : PayloadOwnership.Unowned;
     }
 
     // The name is a NuGet id read out of a downloaded nuspec, and it becomes a directory

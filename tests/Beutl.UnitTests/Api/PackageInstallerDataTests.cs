@@ -110,7 +110,7 @@ public partial class PackageInstallerDataTests : PackageInstallerFixture
     [TestCase("{}")]
     [TestCase("[]")]
     [TestCase("directory")]
-    public void InvalidOwnerMarker_DoesNotAuthorizeLegacyReplacementOrDeletion(string contents)
+    public void InvalidOrMissingOwnerMarker_DoesNotAuthorizeReplacementOrDeletion(string contents)
     {
         const string name = "Beutl.Package.DataTest.InvalidOwner";
         LocalPackage package = CreateDataPackage(name, PackageKinds.MaterialTag, ("materials/new.txt", "package"));
@@ -128,12 +128,13 @@ public partial class PackageInstallerDataTests : PackageInstallerFixture
         Assert.That(_installer.UninstallDataPackage(name), Is.True);
         Assert.That(File.ReadAllText(userFile), Is.EqualTo("user data"));
 
-        // Only actual absence enables the legacy fallback.
+        // Without a marker the directory is someone else's, even though installed metadata has the tag.
         if (contents == "directory") Directory.Delete(marker);
         else File.Delete(marker);
-        Assert.DoesNotThrow(() => _installer.InstallDataPackage(package));
-        Assert.That(File.Exists(userFile), Is.False);
-        Assert.That(File.ReadAllText(Path.Combine(directory, "new.txt")), Is.EqualTo("package"));
+        Assert.Throws<IOException>(() => _installer.InstallDataPackage(package));
+        Assert.That(_installer.UninstallDataPackage(name), Is.True);
+        Assert.That(File.ReadAllText(userFile), Is.EqualTo("user data"));
+        Assert.That(File.Exists(Path.Combine(directory, "new.txt")), Is.False);
     }
 
     [TestCase(false)]
@@ -623,96 +624,6 @@ public partial class PackageInstallerDataTests : PackageInstallerFixture
             new Progress<double>());
 
         Assert.That(Directory.Exists(TemplatesDirectoryOf(identity.Id)), Is.False);
-    }
-
-    [TestCase(false)]
-    [TestCase(true)]
-    public void MissingLegacyMetadata_PreservesRegistrationAndReportsFailureUntilRepair(bool clean)
-    {
-        const string name = "Beutl.Package.DataTest.MissingLegacyMetadata";
-        var identity = new PackageIdentity(name, NuGetVersion.Parse("1.0.0"));
-        LocalPackage package = CreateDataPackage(name, [PackageKinds.MaterialTag, PackageKinds.TemplateTag], "1.0.0",
-            [("materials/item.txt", "material"), ("templates/item.json", "template")]);
-        _repository.UpgradePackagesAndDeferNotifications(identity)();
-        _installer.InstallDataPackage(package);
-        File.Delete(Path.Combine(MaterialsDirectoryOf(name), ".beutl-package-owner"));
-        File.Delete(Path.Combine(TemplatesDirectoryOf(name), ".beutl-package-owner"));
-        string installedPath = package.InstalledPath!;
-        Directory.Delete(installedPath, true);
-
-        LocalPackage other = CreateDataPackage(name + ".Other", PackageKinds.MaterialTag, ("materials/other.txt", "other"));
-        var otherIdentity = new PackageIdentity(other.Name, NuGetVersion.Parse(other.Version));
-        _repository.UpgradePackagesAndDeferNotifications(otherIdentity)();
-        _installer.InstallDataPackage(other);
-
-        for (int attempt = 0; attempt < 2; attempt++)
-        {
-            IReadOnlyList<string> failures = Remove([identity, otherIdentity]);
-            Assert.Multiple(() =>
-            {
-                Assert.That(failures, Is.EqualTo(new[] { installedPath }));
-                Assert.That(_repository.ExistsPackage(identity), Is.True);
-                Assert.That(File.ReadAllText(Path.Combine(MaterialsDirectoryOf(name), "item.txt")), Is.EqualTo("material"));
-                Assert.That(File.ReadAllText(Path.Combine(TemplatesDirectoryOf(name), "item.json")), Is.EqualTo("template"));
-                Assert.That(_repository.ExistsPackage(otherIdentity), Is.False);
-                Assert.That(Directory.Exists(MaterialsDirectoryOf(other.Name)), Is.False);
-            });
-        }
-
-        // Restoring the installed metadata supplies proof of ownership for the legacy directories.
-        Directory.CreateDirectory(installedPath);
-        WriteNuspec(package, $"{PackageKinds.MaterialTag} {PackageKinds.TemplateTag}");
-        File.WriteAllText(Path.Combine(installedPath, name + ".1.0.0.nupkg"), "");
-        Assert.That(Remove([identity]), Is.Empty);
-        Assert.Multiple(() =>
-        {
-            Assert.That(_repository.ExistsPackage(identity), Is.False);
-            Assert.That(Directory.Exists(MaterialsDirectoryOf(name)), Is.False);
-            Assert.That(Directory.Exists(TemplatesDirectoryOf(name)), Is.False);
-        });
-
-        IReadOnlyList<string> Remove(PackageIdentity[] identities)
-        {
-            if (clean)
-            {
-                var context = new PackageCleanContext(identities, 1);
-                _installer.Clean(context, new Progress<double>());
-                return context.FailedPackages;
-            }
-            else
-            {
-                var context = new PackageUninstallContext(identity, installedPath)
-                {
-                    UnnecessaryPackages = identities,
-                    SizeToBeReleased = 1,
-                };
-                _installer.Uninstall(context, new Progress<double>());
-                return context.FailedPackages;
-            }
-        }
-    }
-
-    [Test]
-    public void TypeChange_DoesNotForgetAnUnverifiableLegacyPayload()
-    {
-        const string name = "Beutl.Package.DataTest.LegacyTypeChange";
-        var oldIdentity = new PackageIdentity(name, NuGetVersion.Parse("1.0.0"));
-        var newIdentity = new PackageIdentity(name, NuGetVersion.Parse("2.0.0"));
-        LocalPackage old = CreateDataPackage(name, PackageKinds.MaterialTag, ("materials/item.txt", "legacy"));
-        _repository.UpgradePackagesAndDeferNotifications(oldIdentity)();
-        _installer.InstallDataPackage(old);
-        File.Delete(Path.Combine(MaterialsDirectoryOf(name), ".beutl-package-owner"));
-        Directory.Delete(old.InstalledPath!, true);
-
-        LocalPackage extension = CreateDataPackage(name, "effects", "2.0.0", []);
-        using var deployment = _installer.PrepareDataPackage(extension, CancellationToken.None);
-        Assert.Throws<IOException>(() => deployment.Commit(() => _repository.UpgradePackagesAndDeferNotifications(newIdentity)()));
-        Assert.Multiple(() =>
-        {
-            Assert.That(_repository.ExistsPackage(oldIdentity), Is.True);
-            Assert.That(_repository.ExistsPackage(newIdentity), Is.False);
-            Assert.That(File.ReadAllText(Path.Combine(MaterialsDirectoryOf(name), "item.txt")), Is.EqualTo("legacy"));
-        });
     }
 
     private static string TemplatesDirectoryOf(string packageName)

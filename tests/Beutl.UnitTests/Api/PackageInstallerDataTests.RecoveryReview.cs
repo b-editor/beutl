@@ -210,36 +210,6 @@ public partial class PackageInstallerDataTests
         }
     }
 
-    [TestCase(false)]
-    [TestCase(true)]
-    public void RecoveryReview_UnverifiableLegacyBackupIsRetained(bool replaceBackup)
-    {
-        const string name = "Beutl.Package.DataTest.LegacyRecovery";
-        string staging = CreatePublishedRecoveryJournal(name);
-        Directory.Delete(Path.Combine(staging, "install.json.tmp"));
-        string journalPath = Path.Combine(staging, "install.json");
-        JsonNode journal = JsonNode.Parse(File.ReadAllText(journalPath))!;
-        journal["Phase"] = 0;
-        journal["Payloads"]![0]!["OriginalOwner"] = null;
-        File.WriteAllText(journalPath, journal.ToJsonString());
-        string backup = Path.Combine(staging, "backup-materials");
-        File.Delete(Path.Combine(backup, ".beutl-package-owner"));
-        if (replaceBackup)
-        {
-            Directory.Delete(backup, true);
-            Directory.CreateDirectory(backup);
-            File.WriteAllText(Path.Combine(backup, "item.txt"), "unowned replacement");
-        }
-        PackageInstaller.RecoverDataPackageInstalls(_repository);
-        Assert.Multiple(() =>
-        {
-            Assert.That(Directory.Exists(staging), Is.True);
-            Assert.That(File.Exists(Path.Combine(backup, "item.txt")), Is.True);
-            Assert.That(File.ReadAllText(Path.Combine(MaterialsDirectoryOf(name), "item.txt")), Is.EqualTo("new"));
-            Assert.That(File.ReadAllText(Path.Combine(TemplatesDirectoryOf(name), "item.txt")), Is.EqualTo("new"));
-        });
-    }
-
     private string CreatePublishedRecoveryJournal(string name)
     {
         LocalPackage old = CreateDataPackage(name, [PackageKinds.MaterialTag, PackageKinds.TemplateTag], "1.0.0",

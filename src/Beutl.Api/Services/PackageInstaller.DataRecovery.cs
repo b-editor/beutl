@@ -216,8 +216,6 @@ public partial class PackageInstaller
             string backup = BackupDirectory(staging, payload.Kind);
             // A damaged staged copy is not an original and need not be trusted to
             // restore the backup. Only validate a published directory we must move.
-            if (payload.HadOriginal && payload.OriginalOwner is null)
-                throw new IOException($"The legacy original for '{payload.Destination}' has no recorded owner; keeping it for diagnosis.");
             if (Path.Exists(backup))
             {
                 RejectDataInstallLink(Path.Combine(backup, PayloadOwnerFileName));
@@ -304,7 +302,7 @@ public partial class PackageInstaller
             {
                 journal = DeserializeDataInstallJournal(staging);
             }
-            catch { continue; } // Unknown legacy data is retained, never deleted or inferred to belong to this package.
+            catch { continue; } // Unreadable data is retained, never deleted or inferred to belong to this package.
             if (journal is null || !StringComparer.OrdinalIgnoreCase.Equals(journal.Name, name)) continue;
             // A readable identity still blocks writes when its paths or state are invalid.
             // Otherwise a failed recovery could be overwritten by the very next install.
