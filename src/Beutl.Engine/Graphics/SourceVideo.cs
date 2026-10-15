@@ -51,7 +51,7 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
         }
     }
 
-    public void NotifySplitted(bool backward, TimeSpan startDelta, TimeSpan durationDelta)
+    public void NotifySplitted(bool backward, TimeSpan startDelta)
     {
         if (backward)
         {

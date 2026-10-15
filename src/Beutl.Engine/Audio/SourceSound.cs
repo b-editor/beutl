@@ -37,7 +37,7 @@ public sealed partial class SourceSound : Sound, IOriginalDurationProvider, ISpl
         }
     }
 
-    public void NotifySplitted(bool backward, TimeSpan startDelta, TimeSpan durationDelta)
+    public void NotifySplitted(bool backward, TimeSpan startDelta)
     {
         if (backward)
         {

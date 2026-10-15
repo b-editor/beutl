@@ -303,11 +303,10 @@ public class ElementBehaviorTests
         var splittable = new TestSplittable();
         element.AddObject(splittable);
 
-        element.NotifySplitted(backward: true, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        element.NotifySplitted(backward: true, TimeSpan.FromSeconds(1));
 
         Assert.That(splittable.LastBackward, Is.True);
         Assert.That(splittable.LastStartDelta, Is.EqualTo(TimeSpan.FromSeconds(1)));
-        Assert.That(splittable.LastDurationDelta, Is.EqualTo(TimeSpan.FromSeconds(2)));
     }
 
     [SuppressResourceClassGeneration]
@@ -345,13 +344,11 @@ public class ElementBehaviorTests
     {
         public bool LastBackward { get; private set; }
         public TimeSpan LastStartDelta { get; private set; }
-        public TimeSpan LastDurationDelta { get; private set; }
 
-        public void NotifySplitted(bool backward, TimeSpan startDelta, TimeSpan durationDelta)
+        public void NotifySplitted(bool backward, TimeSpan startDelta)
         {
             LastBackward = backward;
             LastStartDelta = startDelta;
-            LastDurationDelta = durationDelta;
         }
     }
 }

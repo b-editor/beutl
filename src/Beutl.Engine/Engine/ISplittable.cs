@@ -2,5 +2,5 @@
 
 public interface ISplittable
 {
-    void NotifySplitted(bool backward, TimeSpan startDelta, TimeSpan durationDelta);
+    void NotifySplitted(bool backward, TimeSpan startDelta);
 }

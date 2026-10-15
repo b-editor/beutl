@@ -201,12 +201,12 @@ public class Element : Hierarchical, INotifyEdited
         Objects.Remove(obj);
     }
 
-    public void NotifySplitted(bool backward, TimeSpan startDelta, TimeSpan durationDelta)
+    public void NotifySplitted(bool backward, TimeSpan startDelta)
     {
         foreach (EngineObject item in _objects)
         {
             if (item is ISplittable splittable)
-                splittable.NotifySplitted(backward, startDelta, durationDelta);
+                splittable.NotifySplitted(backward, startDelta);
         }
     }
 

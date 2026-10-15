@@ -78,8 +78,8 @@ public sealed class ElementStructureService : IElementStructureService
                     target.ExitTransition = null;
                     scene.MoveChild(target.ZIndex, target.Start, forwardDuration, target);
                     scene.AddChild(backward);
-                    backward.NotifySplitted(true, forwardDuration, -forwardDuration);
-                    target.NotifySplitted(false, TimeSpan.Zero, -backwardDuration);
+                    backward.NotifySplitted(true, forwardDuration);
+                    target.NotifySplitted(false, TimeSpan.Zero);
 
                     // Track group membership so back-clips stay in their source's group.
                     int groupIndex = FindGroupIndex(scene, target.Id);
