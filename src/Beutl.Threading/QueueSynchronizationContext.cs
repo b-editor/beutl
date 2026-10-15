@@ -235,11 +235,6 @@ internal sealed class QueueSynchronizationContext(Dispatcher dispatcher, TimePro
         }
     }
 
-    internal bool HasQueuedTasks(DispatchPriority priority)
-    {
-        return _operationQueue.Any(priority);
-    }
-
     private void FlushTimerQueue()
     {
         while (_timerQueue.TryDequeue(out List<DispatcherOperation>? operations))
