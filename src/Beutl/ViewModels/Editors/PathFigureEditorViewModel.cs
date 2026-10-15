@@ -127,43 +127,6 @@ public sealed class PathFigureEditorViewModel : ValueEditorViewModel<PathFigure>
         }
     }
 
-    public void CollapseEditedOperations()
-    {
-        if (Group.Value is { } group)
-        {
-            foreach (ListItemEditorViewModel<PathSegment> item in group.Items)
-            {
-                if (item.Context is PathSegmentEditorViewModel opEditor
-                    && opEditor.ProgrammaticallyExpanded)
-                {
-                    opEditor.IsExpanded.Value = false;
-                }
-            }
-        }
-    }
-
-    public void ExpandOperationForSegment(PathSegment segment)
-    {
-        if (Group.Value is { } group)
-        {
-            foreach (ListItemEditorViewModel<PathSegment> item in group.Items)
-            {
-                if (item.Context is PathSegmentEditorViewModel itemvm)
-                {
-                    if (ReferenceEquals(itemvm.Value.Value, segment))
-                    {
-                        itemvm.IsExpanded.Value = true;
-                        itemvm.ProgrammaticallyExpanded = true;
-                    }
-                    else if (itemvm.ProgrammaticallyExpanded)
-                    {
-                        itemvm.IsExpanded.Value = false;
-                    }
-                }
-            }
-        }
-    }
-
     public int GetSegmentIndex(PathSegment segment)
     {
         return Group.Value?.List.Value?.IndexOf(segment) ?? -1;

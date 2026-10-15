@@ -11,10 +11,6 @@ public interface IPathFigureEditorContext
 
     void ExpandForEditing();
 
-    void CollapseEditedOperations();
-
-    void ExpandOperationForSegment(PathSegment segment);
-
     void InvalidateFrameCache();
 
     int GetSegmentIndex(PathSegment segment);
