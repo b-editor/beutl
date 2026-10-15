@@ -98,14 +98,12 @@ public class IpcProviderContractTests
     }
 
     private static IpcMessage ProvideFrame(
-        IpcMessage request, int width, int height, int dataLength,
-        int bytesPerPixel = RgbaF16BytesPerPixel, int colorType = -1)
+        IpcMessage request, int width, int height, int dataLength, int colorType = (int)BitmapColorType.RgbaF16)
     {
         return IpcMessage.Create(request.Id, MessageType.ProvideFrame, new ProvideFrameMessage
         {
             Width = width,
             Height = height,
-            BytesPerPixel = bytesPerPixel,
             DataLength = dataLength,
             Premul = false,
             ColorType = colorType,
@@ -134,9 +132,9 @@ public class IpcProviderContractTests
     // Replies to every request with one fixed ProvideFrame, so a test can drive the
     // provider's frame-validation guards with specific Width/Height/DataLength values.
     private static HostResponse MalformedFrameHost(
-        int width, int height, int dataLength, int bytesPerPixel = RgbaF16BytesPerPixel, int colorType = -1)
+        int width, int height, int dataLength, int colorType = (int)BitmapColorType.RgbaF16)
     {
-        return (request, _) => ProvideFrame(request, width, height, dataLength, bytesPerPixel, colorType);
+        return (request, _) => ProvideFrame(request, width, height, dataLength, colorType);
     }
 
     // Like the real host, answers with a CancelEncode whose id differs from the request's.
@@ -232,7 +230,7 @@ public class IpcProviderContractTests
     {
         await using var host = new FakeHost(MalformedFrameHost(
             width: 1, height: 1, dataLength: Bgra8888BytesPerPixel,
-            bytesPerPixel: Bgra8888BytesPerPixel));
+            colorType: (int)BitmapColorType.Bgra8888));
         var provider = new IpcFrameProvider(host.Connection, host.Buffers, frameCount: 1, frameRate: new Rational(30, 1), sourceWidth: 1, sourceHeight: 1);
 
         using Bitmap bitmap = await provider.RenderFrame(0);
@@ -246,14 +244,14 @@ public class IpcProviderContractTests
         });
     }
 
-    // Two 8-byte formats share the same byte width; an explicit color type must be honored so an
+    // Two 8-byte formats share the same byte width; the color type must be honored so an
     // integer Rgba16161616 frame is not rebuilt as half-float RgbaF16 (which would corrupt colors).
     [Test]
-    public async Task RenderFrame_WhenWorkerReportsExplicitColorType_UsesItOverByteWidth()
+    public async Task RenderFrame_WhenWorkerReportsRgba16161616_KeepsTheIntegerFormat()
     {
         await using var host = new FakeHost(MalformedFrameHost(
             width: 1, height: 1, dataLength: RgbaF16BytesPerPixel,
-            bytesPerPixel: RgbaF16BytesPerPixel, colorType: (int)BitmapColorType.Rgba16161616));
+            colorType: (int)BitmapColorType.Rgba16161616));
         var provider = new IpcFrameProvider(host.Connection, host.Buffers, frameCount: 1, frameRate: new Rational(30, 1), sourceWidth: 1, sourceHeight: 1);
 
         using Bitmap bitmap = await provider.RenderFrame(0);
@@ -277,8 +275,7 @@ public class IpcProviderContractTests
         BitmapColorType colorType, int bytesPerPixel, bool linear)
     {
         await using var host = new FakeHost(MalformedFrameHost(
-            width: 1, height: 1, dataLength: bytesPerPixel,
-            bytesPerPixel: bytesPerPixel, colorType: (int)colorType));
+            width: 1, height: 1, dataLength: bytesPerPixel, colorType: (int)colorType));
         var provider = new IpcFrameProvider(host.Connection, host.Buffers, frameCount: 1, frameRate: new Rational(30, 1), sourceWidth: 1, sourceHeight: 1);
 
         using Bitmap bitmap = await provider.RenderFrame(0);
@@ -291,15 +288,14 @@ public class IpcProviderContractTests
         });
     }
 
-    // The bytes-per-pixel used for the DataLength/Capacity guards must come from the color type, not
-    // the payload: an under-reported BytesPerPixel (4) with a wider ColorType (8-byte Rgba16161616)
-    // and a matching-lie DataLength must be rejected, not allocate/read a wider bitmap.
+    // The DataLength/Capacity guards use the color type's width: a 4-byte DataLength for an 8-byte
+    // Rgba16161616 frame must be rejected, not allocate/read a wider bitmap.
     [Test]
-    public async Task RenderFrame_UnderreportedBytesPerPixelWithWiderColorType_Throws()
+    public async Task RenderFrame_DataLengthNarrowerThanTheColorType_Throws()
     {
         await using var host = new FakeHost(MalformedFrameHost(
             width: 1, height: 1, dataLength: Bgra8888BytesPerPixel,
-            bytesPerPixel: Bgra8888BytesPerPixel, colorType: (int)BitmapColorType.Rgba16161616));
+            colorType: (int)BitmapColorType.Rgba16161616));
         var provider = new IpcFrameProvider(host.Connection, host.Buffers, frameCount: 1, frameRate: new Rational(30, 1), sourceWidth: 1, sourceHeight: 1);
 
         Assert.That(async () => await provider.RenderFrame(0),
@@ -321,15 +317,18 @@ public class IpcProviderContractTests
             "a DataLength that does not match the bitmap allocation must be rejected, not copied");
     }
 
-    [Test]
-    public async Task RenderFrame_WhenWorkerReportsUnsupportedBytesPerPixel_Throws()
+    // The color type is no longer inferred from the byte width, so a frame without a valid one is refused.
+    [TestCase(-1)]
+    [TestCase(999)]
+    public async Task RenderFrame_WhenFrameHasNoValidColorType_Throws(int colorType)
     {
-        await using var host = new FakeHost(MalformedFrameHost(width: 1, height: 1, dataLength: 3, bytesPerPixel: 3));
+        await using var host = new FakeHost(MalformedFrameHost(
+            width: 1, height: 1, dataLength: Bgra8888BytesPerPixel, colorType: colorType));
         var provider = new IpcFrameProvider(host.Connection, host.Buffers, frameCount: 1, frameRate: new Rational(30, 1), sourceWidth: 1, sourceHeight: 1);
 
         Assert.That(async () => await provider.RenderFrame(0),
             Throws.TypeOf<InvalidOperationException>()
-                .With.Message.Contains("Unsupported frame BytesPerPixel"));
+                .With.Message.Contains("no valid color type"));
     }
 
     [TestCase(0, 1)]
@@ -376,7 +375,7 @@ public class IpcProviderContractTests
         // A 2x1 BGRA frame clears the DataLength and capacity guards but would overrun the encoder's 1x1 MediaFrame.
         await using var host = new FakeHost(MalformedFrameHost(
             width: 2, height: 1, dataLength: 2 * 1 * Bgra8888BytesPerPixel,
-            bytesPerPixel: Bgra8888BytesPerPixel));
+            colorType: (int)BitmapColorType.Bgra8888));
         var provider = new IpcFrameProvider(
             host.Connection, host.Buffers, frameCount: 1, frameRate: new Rational(30, 1), sourceWidth: 1, sourceHeight: 1);
 

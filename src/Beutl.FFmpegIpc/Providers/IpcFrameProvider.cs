@@ -95,11 +95,6 @@ internal sealed class IpcFrameProvider : IFrameProvider
         return bmp;
     }
 
-    // The encoding IPC accepts the two formats produced by Beutl's frame providers:
-    // SDR decoded frames are BGRA8888, while render-target frames are linear RgbaF16.
-    private const int Bgra8888BytesPerPixel = 4;
-    private const int RgbaF16BytesPerPixel = 8;
-
     private Bitmap BuildBitmap(ProvideFrameMessage frameInfo, int bufferIndex)
     {
         // SharedMemoryBuffer.Read checks only the shared buffer, so reject a frame that would overrun the bitmap.
@@ -144,25 +139,12 @@ internal sealed class IpcFrameProvider : IFrameProvider
     private static (BitmapColorType ColorType, BitmapColorSpace ColorSpace, int BytesPerPixel) GetFrameFormat(
         ProvideFrameMessage frameInfo)
     {
-        // An explicit color type disambiguates two frames of the same byte width (e.g. half-float
-        // RgbaF16 vs integer Rgba16161616 at 8 bytes). Without it, fall back to inferring from the
-        // byte width (older peers that do not send a color type).
-        if (frameInfo.ColorType >= 0 && Enum.IsDefined((BitmapColorType)frameInfo.ColorType))
-        {
-            var colorType = (BitmapColorType)frameInfo.ColorType;
-            // Derive bytes-per-pixel from the color type itself, never the payload: trusting the
-            // payload's BytesPerPixel here would let a peer underreport it, pass the DataLength /
-            // Capacity guards, yet allocate/read a wider BitmapColorType.
-            return (colorType, ColorSpaceFor(colorType), BytesPerPixelOf(colorType));
-        }
+        // The host always sends the frame's color type, which the guards and the bitmap are built from.
+        if (frameInfo.ColorType < 0 || !Enum.IsDefined((BitmapColorType)frameInfo.ColorType))
+            throw new InvalidOperationException($"Frame has no valid color type ({frameInfo.ColorType}).");
 
-        return frameInfo.BytesPerPixel switch
-        {
-            Bgra8888BytesPerPixel => (BitmapColorType.Bgra8888, BitmapColorSpace.Srgb, Bgra8888BytesPerPixel),
-            RgbaF16BytesPerPixel => (BitmapColorType.RgbaF16, BitmapColorSpace.LinearSrgb, RgbaF16BytesPerPixel),
-            _ => throw new InvalidOperationException(
-                $"Unsupported frame BytesPerPixel {frameInfo.BytesPerPixel}."),
-        };
+        var colorType = (BitmapColorType)frameInfo.ColorType;
+        return (colorType, ColorSpaceFor(colorType), BytesPerPixelOf(colorType));
     }
 
     private static readonly ConcurrentDictionary<BitmapColorType, int> s_bytesPerPixelCache = new();
