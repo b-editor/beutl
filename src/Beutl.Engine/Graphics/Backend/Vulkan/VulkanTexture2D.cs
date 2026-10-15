@@ -71,10 +71,6 @@ internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
 
     public TextureFormat Format => _format;
 
-    public IntPtr NativeHandle => (IntPtr)_image.Handle;
-
-    public IntPtr NativeViewHandle => (IntPtr)_imageView.Handle;
-
     public Silk.NET.Vulkan.Image ImageHandle => _image;
 
     public ImageView ImageViewHandle => _imageView;
@@ -109,8 +105,6 @@ internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
             TextureFormat.RGBA16Float => 8,
             TextureFormat.RGBA32Float => 16,
             TextureFormat.R8Unorm => 1,
-            TextureFormat.R16Float => 2,
-            TextureFormat.R32Float => 4,
             _ => 4
         };
 

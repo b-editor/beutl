@@ -85,10 +85,6 @@ public sealed class RenderTargetSharedSurfaceTests
 
         public TextureFormat Format => TextureFormat.RGBA16Float;
 
-        public IntPtr NativeHandle => IntPtr.Zero;
-
-        public IntPtr NativeViewHandle => IntPtr.Zero;
-
         public bool RequiresSkiaFlushForBackendInterop => false;
 
         public abstract bool HasTransparentContents { get; }

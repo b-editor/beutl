@@ -20,8 +20,7 @@ internal sealed class VulkanTextureCubeArray : VulkanLayeredTexture, ITextureCub
             usage,
             ImageCreateFlags.CreateCubeCompatibleBit,
             ImageViewType.TypeCubeArray,
-            "cube map array image",
-            static layer => $"cube array face image view [{layer / 6},{layer % 6}]")
+            "cube map array image")
     {
         ArraySize = arraySize;
     }
@@ -46,13 +45,6 @@ internal sealed class VulkanTextureCubeArray : VulkanLayeredTexture, ITextureCub
 
     public uint ArraySize { get; }
 
-    public void TransitionToSampled()
-    {
-        ThrowIfDisposed();
-
-        TransitionAllLayers(ImageLayout.ShaderReadOnlyOptimal);
-    }
-
     internal void TransitionFaceToTransferDestination(uint arrayIndex, int faceIndex)
     {
         ThrowIfDisposed();
@@ -63,16 +55,5 @@ internal sealed class VulkanTextureCubeArray : VulkanLayeredTexture, ITextureCub
     {
         ThrowIfDisposed();
         TransitionLayer(arrayIndex * 6 + (uint)faceIndex, ImageLayout.ShaderReadOnlyOptimal);
-    }
-
-    public IntPtr GetFaceView(uint arrayIndex, int faceIndex)
-    {
-        ThrowIfDisposed();
-
-        if (arrayIndex >= ArraySize)
-            throw new ArgumentOutOfRangeException(nameof(arrayIndex));
-        VulkanTextureCube.ThrowIfFaceOutOfRange(faceIndex);
-
-        return GetLayerViewHandle(arrayIndex * 6 + (uint)faceIndex);
     }
 }

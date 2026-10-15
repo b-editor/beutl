@@ -294,7 +294,7 @@ public sealed partial class PixelSortEffect : FilterEffect
     private static void OnApplyTo(EffectData r, CustomFilterEffectContext ctx)
     {
         IGraphicsContext? gfx = GraphicsContextFactory.SharedContext;
-        if (gfx == null || !gfx.Supports3DRendering)
+        if (gfx == null)
         {
             s_logger.LogWarning("Vulkan 3D rendering is not available; PixelSort effect will be inactive.");
             return;

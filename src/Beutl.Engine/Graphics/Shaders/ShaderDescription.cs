@@ -223,7 +223,7 @@ public sealed class ShaderDescription
         RenderHitTestContract? hitTest = null,
         IReadOnlyList<RenderResourceBinding>? hitTestResources = null)
         => CurrentPixel(
-            new SkslSource(source, ShaderDescriptionKind.CurrentPixel),
+            SkslSource.CurrentPixel(source),
             bindings,
             hitTest,
             hitTestResources);
@@ -290,7 +290,7 @@ public sealed class ShaderDescription
     {
         ThrowIfInvalidWholeSourceContract(bounds, hitTest, sourceTileMode);
         return CreateWholeSource(
-            new SkslSource(source, ShaderDescriptionKind.WholeSource),
+            SkslSource.WholeSource(source),
             bounds,
             bindings,
             sourceTileMode,

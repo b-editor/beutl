@@ -47,10 +47,6 @@ public class HitTestRenderScaleTests
     public void RealRenderer3D_CenterLogicalPoint_HitsSameObject_AcrossScales(float scale)
     {
         IGraphicsContext ctx = VulkanTestEnvironment.EnsureAvailable();
-        if (!ctx.Supports3DRendering)
-        {
-            Assert.Ignore("3D rendering is not supported on this GPU.");
-        }
 
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {

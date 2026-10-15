@@ -252,7 +252,6 @@ public sealed class GLSLFilterPipelineLifetimeTests
         {
             CompilerLifetime = Compiler.As<IDisposable>();
 
-            Context.SetupGet(x => x.Supports3DRendering).Returns(true);
             Context.Setup(x => x.CreateShaderCompiler()).Returns(Compiler.Object);
             Compiler
                 .Setup(x => x.CompileToSpirv(It.IsAny<string>(), It.IsAny<ShaderStage>(), "main"))

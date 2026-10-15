@@ -4,18 +4,16 @@ using Silk.NET.Vulkan;
 namespace Beutl.Graphics.Backend.Vulkan;
 
 /// <summary>
-/// The image, views and per-layer layout tracking shared by the array, cube and cube-array textures, which
+/// The image, view and per-layer layout tracking shared by the array, cube and cube-array textures, which
 /// differ only in how many layers they hold, how their full view samples them and how a face maps to a layer.
 /// </summary>
 internal abstract unsafe class VulkanLayeredTexture : IVulkanContextResource
 {
     private readonly DeviceMemory _memory;
-    private readonly ImageView[] _layerViews;
     private readonly ImageLayout[] _layerLayouts;
     private bool _disposed;
 
     /// <param name="resourceName">Names the image in a thrown message, e.g. <c>"cube map image"</c>.</param>
-    /// <param name="describeLayerView">Names the view of one layer in a thrown message.</param>
     protected VulkanLayeredTexture(
         VulkanContext context,
         int width,
@@ -25,14 +23,12 @@ internal abstract unsafe class VulkanLayeredTexture : IVulkanContextResource
         ImageUsageFlags usage,
         ImageCreateFlags flags,
         ImageViewType viewType,
-        string resourceName,
-        Func<uint, string> describeLayerView)
+        string resourceName)
     {
         OwnerContext = context;
         LayerWidth = width;
         LayerHeight = height;
         Format = format;
-        _layerViews = new ImageView[layerCount];
         _layerLayouts = new ImageLayout[layerCount];
 
         var vk = context.Vk;
@@ -53,17 +49,6 @@ internal abstract unsafe class VulkanLayeredTexture : IVulkanContextResource
         }
         ImageViewHandle = fullView;
 
-        for (uint i = 0; i < layerCount; i++)
-        {
-            result = context.TryCreateSingleLayerView(ImageHandle, format, i, out ImageView layerView);
-            if (result != Result.Success)
-            {
-                ReleaseConstructedHandles(vk, device, createdLayerViews: i);
-                throw new InvalidOperationException($"Failed to create Vulkan {describeLayerView(i)}: {result}");
-            }
-            _layerViews[i] = layerView;
-        }
-
         // The full view samples every layer whether or not anything writes to it, so each starts shader-readable.
         // A constructor that throws leaves no instance to dispose, so a failed transition releases what was built.
         try
@@ -78,7 +63,7 @@ internal abstract unsafe class VulkanLayeredTexture : IVulkanContextResource
         }
         catch
         {
-            ReleaseConstructedHandles(vk, device, createdLayerViews: layerCount);
+            ReleaseConstructedHandles(vk, device);
             throw;
         }
 
@@ -88,8 +73,6 @@ internal abstract unsafe class VulkanLayeredTexture : IVulkanContextResource
     public VulkanContext OwnerContext { get; }
 
     public TextureFormat Format { get; }
-
-    public IntPtr NativeHandle => (IntPtr)ImageHandle.Handle;
 
     public Silk.NET.Vulkan.Image ImageHandle { get; }
 
@@ -109,12 +92,10 @@ internal abstract unsafe class VulkanLayeredTexture : IVulkanContextResource
         return arraySize;
     }
 
-    // Releases what the constructor created before a later step failed: the first createdLayerViews layer views,
-    // then the full view, the image and, last, its memory.
-    private void ReleaseConstructedHandles(Vk vk, Device device, uint createdLayerViews)
+    // Releases what the constructor created before a later step failed: the full view, the image and, last, its
+    // memory.
+    private void ReleaseConstructedHandles(Vk vk, Device device)
     {
-        for (uint j = 0; j < createdLayerViews; j++)
-            vk.DestroyImageView(device, _layerViews[j], null);
         vk.DestroyImageView(device, ImageViewHandle, null);
         vk.DestroyImage(device, ImageHandle, null);
         vk.FreeMemory(device, _memory, null);
@@ -147,34 +128,6 @@ internal abstract unsafe class VulkanLayeredTexture : IVulkanContextResource
         _layerLayouts[layerIndex] = newLayout;
     }
 
-    protected void TransitionAllLayers(ImageLayout newLayout)
-    {
-        for (uint i = 0; i < LayerCount; i++)
-        {
-            TransitionLayer(i, newLayout);
-        }
-    }
-
-    protected void UploadToLayer(uint layerIndex, ReadOnlySpan<byte> data)
-    {
-        TransitionLayer(layerIndex, ImageLayout.TransferDstOptimal);
-
-        OwnerContext.UploadToImageLayer(
-            data,
-            ImageHandle,
-            Format.GetAspectMask(),
-            layerIndex,
-            (uint)LayerWidth,
-            (uint)LayerHeight);
-
-        TransitionLayer(layerIndex, ImageLayout.ShaderReadOnlyOptimal);
-    }
-
-    protected IntPtr GetLayerViewHandle(uint layerIndex)
-    {
-        return (IntPtr)_layerViews[layerIndex].Handle;
-    }
-
     /// <summary>The layout the given layer is tracked as being in.</summary>
     /// <remarks>
     /// Every allocated layer must be readable by a sampler even before anything writes to it, because the
@@ -193,7 +146,6 @@ internal abstract unsafe class VulkanLayeredTexture : IVulkanContextResource
         if (_disposed) return;
         _disposed = true;
 
-        ImageView[] layerViews = _layerViews;
         ImageView imageView = ImageViewHandle;
         Silk.NET.Vulkan.Image image = ImageHandle;
         DeviceMemory memory = _memory;
@@ -202,11 +154,6 @@ internal abstract unsafe class VulkanLayeredTexture : IVulkanContextResource
         {
             var vk = context.Vk;
             var device = context.Device;
-
-            foreach (ImageView layerView in layerViews)
-            {
-                vk.DestroyImageView(device, layerView, null);
-            }
 
             vk.DestroyImageView(device, imageView, null);
             vk.DestroyImage(device, image, null);

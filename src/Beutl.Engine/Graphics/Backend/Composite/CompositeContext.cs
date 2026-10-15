@@ -49,8 +49,6 @@ internal sealed class CompositeContext : IGraphicsContext
     /// <summary>Gets the GPU-side ordering between Skia's Metal queue and the Vulkan queue, when the device has one.</summary>
     internal MetalVulkanTimeline? Timeline { get; }
 
-    public bool Supports3DRendering => Vulkan.Supports3DRendering;
-
     public int MaxAttachmentDimension => Vulkan.MaxAttachmentDimension;
 
     public int MaxCubeFaceDimension => Vulkan.MaxCubeFaceDimension;

@@ -114,11 +114,6 @@ internal sealed class GLSLFilterPipeline : IDisposable
         int inputCount = 1)
     {
         ValidateInputCount(context, inputCount);
-        if (!context.Supports3DRendering)
-        {
-            s_logger.LogWarning("3D rendering is not supported on this platform.");
-            return null;
-        }
 
         IRenderPass3D? renderPass = null;
         IPipeline3D? pipeline = null;

@@ -112,10 +112,6 @@ public sealed class NativeFilterScratchTextureTests
 
         public TextureFormat Format => TextureFormat.RGBA16Float;
 
-        public IntPtr NativeHandle => IntPtr.Zero;
-
-        public IntPtr NativeViewHandle => IntPtr.Zero;
-
         public bool RequiresSkiaFlushForBackendInterop => false;
 
         public bool HasTransparentContents => ClearCount > 0;

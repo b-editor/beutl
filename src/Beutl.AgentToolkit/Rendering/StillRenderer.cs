@@ -208,7 +208,7 @@ public sealed partial class StillRenderer
     internal static async ValueTask<bool> Has3DGraphicsContextAsync(CancellationToken cancellationToken)
     {
         return await RenderThread.Dispatcher.InvokeAsync(
-            () => GraphicsContextFactory.GetOrCreateShared()?.Supports3DRendering == true,
+            () => GraphicsContextFactory.GetOrCreateShared() is not null,
             ct: cancellationToken).ConfigureAwait(false);
     }
 

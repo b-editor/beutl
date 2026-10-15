@@ -166,8 +166,6 @@ public sealed class RendererDisposalFailureTests
     {
         public ulong Size => size;
         public void Upload<T>(ReadOnlySpan<T> data) where T : unmanaged { }
-        public IntPtr Map() => IntPtr.Zero;
-        public void Unmap() { }
         public void Dispose() => owner.Dispose();
     }
 }

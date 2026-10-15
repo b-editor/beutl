@@ -43,9 +43,6 @@ internal record VulkanPhysicalDeviceInfo(
             _ => GraphicsDeviceType.Other
         };
 
-        return new GraphicsDeviceInfo(Name, deviceType, ApiVersion, Memory.DeviceLocalMemory / (1024 * 1024))
-        {
-            IsMoltenVK = IsMoltenVK
-        };
+        return new GraphicsDeviceInfo(Name, deviceType, ApiVersion, Memory.DeviceLocalMemory / (1024 * 1024));
     }
 }

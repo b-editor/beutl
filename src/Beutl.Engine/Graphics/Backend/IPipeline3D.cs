@@ -7,8 +7,4 @@ namespace Beutl.Graphics.Backend;
 /// </summary>
 public interface IPipeline3D : IDisposable
 {
-    /// <summary>
-    /// Binds this pipeline for use in rendering.
-    /// </summary>
-    void Bind();
 }

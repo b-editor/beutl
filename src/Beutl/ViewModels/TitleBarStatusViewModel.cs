@@ -259,7 +259,6 @@ public sealed class TitleBarStatusViewModel : IDisposable
             device is null ? null : $"{device.Name} ({device.DeviceType})",
             api.TrimEnd(),
             device is { TotalMemoryMB: > 0 } ? StringFormats.ToHumanReadableSize(device.TotalMemoryMB * 1024d * 1024d) : null,
-            context.Supports3DRendering,
             context.MaxAttachmentDimension > 0 ? $"{context.MaxAttachmentDimension} px" : null);
     }
 
@@ -270,7 +269,7 @@ public sealed class TitleBarStatusViewModel : IDisposable
         GraphicsApiText.Value = status?.Api ?? "-";
         VideoMemoryText.Value = status?.VideoMemory ?? "-";
         MaxRenderBufferSizeText.Value = status?.MaxRenderBufferSize ?? "-";
-        bool supports3D = status?.Supports3DRendering ?? false;
+        bool supports3D = status is not null;
         Rendering3DText.Value = supports3D ? StatusStrings.Available : StatusStrings.Unavailable;
         IsRendering3DUnavailable.Value = !supports3D;
     }
@@ -315,6 +314,5 @@ public sealed class TitleBarStatusViewModel : IDisposable
         string? Device,
         string Api,
         string? VideoMemory,
-        bool Supports3DRendering,
         string? MaxRenderBufferSize);
 }

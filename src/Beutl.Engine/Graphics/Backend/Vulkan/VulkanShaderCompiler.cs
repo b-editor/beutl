@@ -96,7 +96,6 @@ internal sealed unsafe class VulkanShaderCompiler : IShaderCompiler, IDisposable
         {
             ShaderStage.Vertex => ShaderKind.VertexShader,
             ShaderStage.Fragment => ShaderKind.FragmentShader,
-            ShaderStage.Compute => ShaderKind.ComputeShader,
             _ => throw new ArgumentOutOfRangeException(nameof(stage), stage, null)
         };
     }
@@ -107,7 +106,6 @@ internal sealed unsafe class VulkanShaderCompiler : IShaderCompiler, IDisposable
         {
             ShaderStage.Vertex => "shader.vert",
             ShaderStage.Fragment => "shader.frag",
-            ShaderStage.Compute => "shader.comp",
             _ => "shader.glsl"
         };
     }

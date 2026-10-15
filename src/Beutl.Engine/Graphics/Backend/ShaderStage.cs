@@ -24,32 +24,12 @@ public enum ShaderStage
     Fragment = 1 << 1,
 
     /// <summary>
-    /// Compute shader stage.
+    /// All graphics stages (vertex and fragment).
     /// </summary>
-    Compute = 1 << 2,
-
-    /// <summary>
-    /// Geometry shader stage.
-    /// </summary>
-    Geometry = 1 << 3,
-
-    /// <summary>
-    /// Tessellation control shader stage.
-    /// </summary>
-    TessellationControl = 1 << 4,
-
-    /// <summary>
-    /// Tessellation evaluation shader stage.
-    /// </summary>
-    TessellationEvaluation = 1 << 5,
-
-    /// <summary>
-    /// All graphics stages (vertex, fragment, geometry, tessellation).
-    /// </summary>
-    AllGraphics = Vertex | Fragment | Geometry | TessellationControl | TessellationEvaluation,
+    AllGraphics = Vertex | Fragment,
 
     /// <summary>
     /// All stages.
     /// </summary>
-    All = AllGraphics | Compute,
+    All = AllGraphics,
 }

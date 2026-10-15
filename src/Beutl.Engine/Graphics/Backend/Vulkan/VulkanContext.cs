@@ -151,8 +151,6 @@ internal sealed unsafe partial class VulkanContext : IGraphicsContext
     public IEnumerable<string> EnabledExtensions =>
         _vulkanInstance.EnabledExtensions.Concat(_vulkanDevice.EnabledExtensions);
 
-    public bool Supports3DRendering => true;
-
     public int MaxAttachmentDimension => _vulkanDevice.MaxAttachmentDimension;
 
     /// <inheritdoc cref="VulkanDevice.MaxFragmentShaderInputTextures"/>

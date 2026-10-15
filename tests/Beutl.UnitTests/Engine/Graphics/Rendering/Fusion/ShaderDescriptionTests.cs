@@ -27,7 +27,6 @@ public sealed class ShaderDescriptionTests
         {
             Assert.That(first.Kind, Is.EqualTo(ShaderDescriptionKind.CurrentPixel));
             Assert.That(first.Source.Text, Is.EqualTo(second.Source.Text));
-            Assert.That(first.Source.IdentityHash, Is.EqualTo(second.Source.IdentityHash));
             Assert.That(first.Bounds, Is.EqualTo(RenderBoundsContract.Identity));
             Assert.That(
                 typeof(ShaderDescription).GetProperties(BindingFlags.Instance | BindingFlags.Public)

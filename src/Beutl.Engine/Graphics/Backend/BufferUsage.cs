@@ -29,11 +29,6 @@ public enum BufferUsage
     UniformBuffer = 1 << 2,
 
     /// <summary>
-    /// Buffer can be used as a storage buffer.
-    /// </summary>
-    StorageBuffer = 1 << 3,
-
-    /// <summary>
     /// Buffer can be used as a source for transfer operations.
     /// </summary>
     TransferSource = 1 << 4,
@@ -42,9 +37,4 @@ public enum BufferUsage
     /// Buffer can be used as a destination for transfer operations.
     /// </summary>
     TransferDestination = 1 << 5,
-
-    /// <summary>
-    /// Buffer can be used as an indirect buffer.
-    /// </summary>
-    IndirectBuffer = 1 << 6,
 }

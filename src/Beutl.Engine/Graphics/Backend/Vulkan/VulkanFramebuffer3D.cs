@@ -71,10 +71,6 @@ internal sealed unsafe class VulkanFramebuffer3D : IFramebuffer3D, IVulkanContex
 
     public int Height => _height;
 
-    public IReadOnlyList<ITexture2D> ColorTextures => _colorTextures;
-
-    public ITexture2D? DepthTexture => _depthTexture;
-
     public Framebuffer Handle => _framebuffer;
 
     public bool IsCompatibleWith(VulkanRenderPass3D renderPass) => ReferenceEquals(_renderPass, renderPass);

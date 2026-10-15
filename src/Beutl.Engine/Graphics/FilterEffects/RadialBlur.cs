@@ -104,7 +104,7 @@ public sealed partial class RadialBlur : FilterEffect
 
     private static void OnApplyTo(EffectData data, CustomFilterEffectContext context)
     {
-        if (GraphicsContextFactory.SharedContext is not { Supports3DRendering: true } graphicsContext
+        if (GraphicsContextFactory.SharedContext is not { } graphicsContext
             || context.Targets.Any(target => target.RenderTarget?.Texture is null))
         {
             throw new NotSupportedException("Radial blur requires GPU textures and GLSL execution.");

@@ -12,11 +12,6 @@ public interface IGraphicsContext : IDisposable
     GRContext SkiaContext { get; }
 
     /// <summary>
-    /// Gets a value indicating whether 3D rendering is supported.
-    /// </summary>
-    bool Supports3DRendering { get; }
-
-    /// <summary>
     /// Gets the largest square this device can both sample and attach, in pixels.
     /// </summary>
     /// <remarks>

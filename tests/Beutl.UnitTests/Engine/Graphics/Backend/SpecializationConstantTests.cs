@@ -83,8 +83,7 @@ public sealed class SpecializationConstantTests
     }
 
     [TestCase(ShaderStage.None)]
-    [TestCase(ShaderStage.Compute)]
-    [TestCase(ShaderStage.AllGraphics)]
+    [TestCase((ShaderStage)(1 << 2))]
     public void ValidateSpecializationConstants_RejectsUnsupportedStages(ShaderStage stages)
     {
         ImmutableArray<SpecializationConstant> constants =

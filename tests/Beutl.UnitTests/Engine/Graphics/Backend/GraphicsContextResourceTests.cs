@@ -92,7 +92,6 @@ public class GraphicsContextResourceTests
             Assert.That(texture.Width, Is.EqualTo(64));
             Assert.That(texture.Height, Is.EqualTo(32));
             Assert.That(texture.Format, Is.EqualTo(TextureFormat.RGBA8Unorm));
-            Assert.That(texture.NativeHandle, Is.Not.EqualTo(IntPtr.Zero));
         });
     }
 
@@ -147,7 +146,7 @@ public class GraphicsContextResourceTests
             Assert.That(buffer.Size, Is.EqualTo(size));
             buffer.Upload<int>(payload);
 
-            IntPtr ptr = buffer.Map();
+            IntPtr ptr = ((VulkanBuffer)buffer).Map();
             try
             {
                 Assert.That(ptr, Is.Not.EqualTo(IntPtr.Zero));
@@ -157,7 +156,7 @@ public class GraphicsContextResourceTests
             }
             finally
             {
-                buffer.Unmap();
+                ((VulkanBuffer)buffer).Unmap();
             }
         });
     }
@@ -243,8 +242,6 @@ public class GraphicsContextResourceTests
             renderPass.Draw(3);
             renderPass.End();
             ctx.WaitIdle();
-
-            Assert.That(framebuffer.DepthTexture, Is.Null);
         });
     }
 

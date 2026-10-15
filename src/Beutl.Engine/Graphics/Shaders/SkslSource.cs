@@ -81,18 +81,10 @@ public sealed partial class SkslSource
 
         Text = normalized;
         Kind = kind;
-        IdentityHash = ComputeHash(normalized);
     }
 
     /// <summary>Gets the contract-checked source normalized to LF line endings with one trailing newline.</summary>
     public string Text { get; }
-
-    /// <summary>Gets a deterministic, non-cryptographic hash of the normalized source.</summary>
-    /// <remarks>
-    /// The hash is a convenience value, not a unique identity. Do not use it as the sole equality key; the renderer's
-    /// own reuse contract compares the complete normalized source and the remaining structural metadata.
-    /// </remarks>
-    public string IdentityHash { get; }
 
     /// <summary>Gets the entry-point and execution contract validated for this source.</summary>
     public ShaderDescriptionKind Kind { get; }
@@ -265,7 +257,4 @@ public sealed partial class SkslSource
     /// </summary>
     private static bool IsFilterEffectBindingName(string name)
         => name.StartsWith("fe", StringComparison.Ordinal) && name.Contains('_', StringComparison.Ordinal);
-
-    private static string ComputeHash(string source)
-        => Fnv1a.HashUtf8(source).ToString("x16");
 }

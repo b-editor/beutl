@@ -28,11 +28,7 @@ public sealed class MoltenVKDeviceSelectionTests
     {
         VulkanPhysicalDeviceInfo device = CreateDevice(name, type, driver);
 
-        Assert.Multiple(() =>
-        {
-            Assert.That(device.IsMoltenVK, Is.EqualTo(expected));
-            Assert.That(device.ToGraphicsDeviceInfo().IsMoltenVK, Is.EqualTo(expected));
-        });
+        Assert.That(device.IsMoltenVK, Is.EqualTo(expected));
     }
 
     [Test]
@@ -106,13 +102,14 @@ public sealed class MoltenVKDeviceSelectionTests
         VulkanPhysicalDeviceInfo? swiftShader = enumerated.FirstOrDefault(
             static device => device.Name.Contains("SwiftShader", StringComparison.OrdinalIgnoreCase));
         GraphicsDeviceInfo[] offered = GraphicsContextFactory.GetAvailableDevices();
+        VulkanPhysicalDeviceInfo[] offeredGpus = instance.GetAvailableGpus();
 
         Assert.Multiple(() =>
         {
             Assert.That(enumerated.Where(static device => device.IsMoltenVK), Is.Not.Empty,
                 "the shared context is up, so MoltenVK has to report at least one device by its driver ID");
             Assert.That(offered, Is.Not.Empty);
-            Assert.That(offered.Select(static device => device.IsMoltenVK), Has.All.True);
+            Assert.That(offeredGpus.Select(static device => device.IsMoltenVK), Has.All.True);
         });
 
         if (swiftShader is null)

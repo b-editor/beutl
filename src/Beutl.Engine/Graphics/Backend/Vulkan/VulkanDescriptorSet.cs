@@ -115,12 +115,6 @@ internal sealed unsafe class VulkanDescriptorSet : IDescriptorSet, IVulkanContex
             _context.RequireOwned<VulkanTexture2D>(texture, nameof(texture)).ImageViewHandle,
             sampler);
 
-    public void UpdateTextureCube(int binding, ITextureCube texture, ISampler sampler)
-        => UpdateCombinedImageSampler(
-            binding,
-            _context.RequireOwned<VulkanTextureCube>(texture, nameof(texture)).ImageViewHandle,
-            sampler);
-
     public void UpdateTextureArray(int binding, ITextureArray texture, ISampler sampler)
         => UpdateCombinedImageSampler(
             binding,
@@ -164,12 +158,6 @@ internal sealed unsafe class VulkanDescriptorSet : IDescriptorSet, IVulkanContex
         };
 
         _context.Vk.UpdateDescriptorSets(_context.Device, 1, &writeDescriptor, 0, null);
-    }
-
-    public void Bind()
-    {
-        // Binding is done through command buffer in VulkanPipeline3D
-        // This method is kept for interface compatibility
     }
 
     public void Dispose()

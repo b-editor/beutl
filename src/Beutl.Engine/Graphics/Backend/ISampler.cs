@@ -27,23 +27,4 @@ public enum SamplerAddressMode
 /// </summary>
 public interface ISampler : IDisposable
 {
-    /// <summary>
-    /// Gets the minification filter.
-    /// </summary>
-    SamplerFilter MinFilter { get; }
-
-    /// <summary>
-    /// Gets the magnification filter.
-    /// </summary>
-    SamplerFilter MagFilter { get; }
-
-    /// <summary>
-    /// Gets the address mode for U coordinate.
-    /// </summary>
-    SamplerAddressMode AddressModeU { get; }
-
-    /// <summary>
-    /// Gets the address mode for V coordinate.
-    /// </summary>
-    SamplerAddressMode AddressModeV { get; }
 }

@@ -44,46 +44,37 @@ public class GraphicsContextFactoryTests
 
     // The prediction is what a recording reads, so it must be settled by the installed state alone: true
     // until the process has established that no 3D backend exists, false from then on.
-    [TestCase(false, null, true, TestName = "Predict3DRenderingSupport_BeforeAnyContext_IsTrue")]
-    [TestCase(true, null, false, TestName = "Predict3DRenderingSupport_AfterInitializationFailed_IsFalse")]
+    [TestCase(false, false, true, TestName = "Predict3DRenderingSupport_BeforeAnyContext_IsTrue")]
+    [TestCase(true, false, false, TestName = "Predict3DRenderingSupport_AfterInitializationFailed_IsFalse")]
     [TestCase(false, true, true, TestName = "Predict3DRenderingSupport_UnderA3DCapableContext_IsTrue")]
-    [TestCase(false, false, false, TestName = "Predict3DRenderingSupport_UnderAContextWithout3D_IsFalse")]
     public void Predict3DRenderingSupport_FollowsTheInstalledState(
         bool failedToInitialize,
-        bool? installedSupports3D,
+        bool contextInstalled,
         bool expected)
     {
-        IGraphicsContext? installed = null;
-        if (installedSupports3D is { } supports3D)
-        {
-            var context = new Mock<IGraphicsContext>();
-            context.SetupGet(static c => c.Supports3DRendering).Returns(supports3D);
-            installed = context.Object;
-        }
+        IGraphicsContext? installed = contextInstalled ? Mock.Of<IGraphicsContext>() : null;
 
         using var scope = InstalledGraphicsScope.Install(
             new InstalledGraphics(installed, null, null, failedToInitialize));
         Assert.That(GraphicsContextFactory.Predict3DRenderingSupport(), Is.EqualTo(expected));
     }
 
-    // The extent budget is settled the same way: only a context that exists and can render 3D reports
-    // limits, and every other state answers Unreported, which refuses nothing.
-    [TestCase(null, 0, 0, 0, 0, TestName = "Predict3DExtentBudget_BeforeAnyContext_IsUnreported")]
+    // The extent budget is settled the same way: only a context that exists reports limits, and every
+    // other state answers Unreported, which refuses nothing.
+    [TestCase(false, 0, 0, 0, 0, TestName = "Predict3DExtentBudget_BeforeAnyContext_IsUnreported")]
     [TestCase(true, 8192, 4096, 8192, 4096, TestName = "Predict3DExtentBudget_UnderA3DCapableContext_IsTheDeviceLimits")]
-    [TestCase(false, 8192, 4096, 0, 0, TestName = "Predict3DExtentBudget_UnderAContextWithout3D_IsUnreported")]
     [TestCase(true, 0, 4096, 0, 4096, TestName = "Predict3DExtentBudget_CarriesTheOneLimitTheDeviceReported")]
     public void Predict3DExtentBudget_FollowsTheInstalledState(
-        bool? installedSupports3D,
+        bool contextInstalled,
         int installedAttachment,
         int installedCube,
         int expectedAttachment,
         int expectedCube)
     {
         IGraphicsContext? installed = null;
-        if (installedSupports3D is { } supports3D)
+        if (contextInstalled)
         {
             var context = new Mock<IGraphicsContext>();
-            context.SetupGet(static c => c.Supports3DRendering).Returns(supports3D);
             context.SetupGet(c => c.MaxAttachmentDimension).Returns(installedAttachment);
             context.SetupGet(c => c.MaxCubeFaceDimension).Returns(installedCube);
             installed = context.Object;

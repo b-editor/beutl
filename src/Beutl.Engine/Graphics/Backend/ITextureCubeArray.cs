@@ -22,22 +22,4 @@ public interface ITextureCubeArray : IDisposable
     /// Gets the format of the texture.
     /// </summary>
     TextureFormat Format { get; }
-
-    /// <summary>
-    /// Gets the native handle of the cube map array texture.
-    /// </summary>
-    IntPtr NativeHandle { get; }
-
-    /// <summary>
-    /// Transitions the entire texture array to be used as a sampled texture in shaders.
-    /// </summary>
-    void TransitionToSampled();
-
-    /// <summary>
-    /// Gets the image view for a specific cube face in a specific array layer (for framebuffer attachment).
-    /// </summary>
-    /// <param name="arrayIndex">The array layer index.</param>
-    /// <param name="faceIndex">The cube face index (0=+X, 1=-X, 2=+Y, 3=-Y, 4=+Z, 5=-Z).</param>
-    /// <returns>The native handle of the face's image view.</returns>
-    IntPtr GetFaceView(uint arrayIndex, int faceIndex);
 }

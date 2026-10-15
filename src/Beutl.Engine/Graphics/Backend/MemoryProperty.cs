@@ -29,11 +29,6 @@ public enum MemoryProperty
     HostCoherent = 1 << 2,
 
     /// <summary>
-    /// Memory is cached on the host.
-    /// </summary>
-    HostCached = 1 << 3,
-
-    /// <summary>
     /// Memory can be lazily allocated.
     /// </summary>
     LazilyAllocated = 1 << 4,

@@ -72,7 +72,6 @@ public sealed class ShaderAuthoringContractTests
         {
             Assert.That(parsed.Kind, Is.EqualTo(ShaderDescriptionKind.CurrentPixel));
             Assert.That(parsed.Text.TrimEnd(), Is.EqualTo(CurrentPixelSource), "the text is normalized, not rewritten");
-            Assert.That(parsed.IdentityHash, Is.Not.Empty);
             Assert.That(first, Is.Not.SameAs(second));
         }
     }

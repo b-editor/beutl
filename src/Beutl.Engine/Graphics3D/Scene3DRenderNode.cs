@@ -301,7 +301,7 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
     private static void RenderCore(OpaqueRenderSession session, SceneExecutionSnapshot snapshot)
     {
         IGraphicsContext? graphicsContext = GraphicsContextFactory.SharedContext;
-        if (graphicsContext is null || !graphicsContext.Supports3DRendering)
+        if (graphicsContext is null)
             return;
 
         float density = session.WorkingScale;

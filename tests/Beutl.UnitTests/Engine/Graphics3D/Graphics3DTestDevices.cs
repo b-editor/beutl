@@ -35,12 +35,6 @@ internal sealed class StubBuffer(ulong size) : IBuffer
     {
     }
 
-    public IntPtr Map() => IntPtr.Zero;
-
-    public void Unmap()
-    {
-    }
-
     public void Dispose()
     {
     }

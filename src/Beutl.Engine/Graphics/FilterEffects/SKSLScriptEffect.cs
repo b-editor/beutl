@@ -57,7 +57,7 @@ public sealed partial class SKSLScriptEffect : FilterEffect, IScriptCompilableEf
         {
             try
             {
-                var source = new SkslSource(script, ShaderDescriptionKind.CurrentPixel);
+                var source = SkslSource.CurrentPixel(script);
                 ValidateDeclarativeUniforms(source, ShaderDescriptionKind.CurrentPixel);
                 using SKRuntimeEffect? currentPixelEffect = SKRuntimeEffect.CreateShader(
                     CreateCurrentPixelProgram(source),
@@ -265,7 +265,7 @@ public sealed partial class SKSLScriptEffect : FilterEffect, IScriptCompilableEf
 
         private static SkslSource ParseCurrentPixelSource(string script)
         {
-            var source = new SkslSource(script, ShaderDescriptionKind.CurrentPixel);
+            var source = SkslSource.CurrentPixel(script);
             ValidateDeclarativeUniforms(source, ShaderDescriptionKind.CurrentPixel);
             return source;
         }
@@ -275,7 +275,7 @@ public sealed partial class SKSLScriptEffect : FilterEffect, IScriptCompilableEf
             string declarativeSource = SkslSource.HasUniformDeclaration(script, "src")
                 ? script
                 : "uniform shader src;\n" + script;
-            var source = new SkslSource(declarativeSource, ShaderDescriptionKind.WholeSource);
+            var source = SkslSource.WholeSource(declarativeSource);
 
             ValidateDeclarativeUniforms(source, ShaderDescriptionKind.WholeSource);
             return source;

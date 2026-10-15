@@ -17,14 +17,10 @@ internal static class VulkanFlagConverter
             result |= BufferUsageFlags.IndexBufferBit;
         if ((usage & BufferUsage.UniformBuffer) != 0)
             result |= BufferUsageFlags.UniformBufferBit;
-        if ((usage & BufferUsage.StorageBuffer) != 0)
-            result |= BufferUsageFlags.StorageBufferBit;
         if ((usage & BufferUsage.TransferSource) != 0)
             result |= BufferUsageFlags.TransferSrcBit;
         if ((usage & BufferUsage.TransferDestination) != 0)
             result |= BufferUsageFlags.TransferDstBit;
-        if ((usage & BufferUsage.IndirectBuffer) != 0)
-            result |= BufferUsageFlags.IndirectBufferBit;
 
         return result;
     }
@@ -39,8 +35,6 @@ internal static class VulkanFlagConverter
             result |= MemoryPropertyFlags.HostVisibleBit;
         if ((memoryProperty & MemoryProperty.HostCoherent) != 0)
             result |= MemoryPropertyFlags.HostCoherentBit;
-        if ((memoryProperty & MemoryProperty.HostCached) != 0)
-            result |= MemoryPropertyFlags.HostCachedBit;
         if ((memoryProperty & MemoryProperty.LazilyAllocated) != 0)
             result |= MemoryPropertyFlags.LazilyAllocatedBit;
 
@@ -51,17 +45,8 @@ internal static class VulkanFlagConverter
     {
         return type switch
         {
-            Backend.DescriptorType.Sampler => Silk.NET.Vulkan.DescriptorType.Sampler,
             Backend.DescriptorType.CombinedImageSampler => Silk.NET.Vulkan.DescriptorType.CombinedImageSampler,
-            Backend.DescriptorType.SampledImage => Silk.NET.Vulkan.DescriptorType.SampledImage,
-            Backend.DescriptorType.StorageImage => Silk.NET.Vulkan.DescriptorType.StorageImage,
-            Backend.DescriptorType.UniformTexelBuffer => Silk.NET.Vulkan.DescriptorType.UniformTexelBuffer,
-            Backend.DescriptorType.StorageTexelBuffer => Silk.NET.Vulkan.DescriptorType.StorageTexelBuffer,
             Backend.DescriptorType.UniformBuffer => Silk.NET.Vulkan.DescriptorType.UniformBuffer,
-            Backend.DescriptorType.StorageBuffer => Silk.NET.Vulkan.DescriptorType.StorageBuffer,
-            Backend.DescriptorType.UniformBufferDynamic => Silk.NET.Vulkan.DescriptorType.UniformBufferDynamic,
-            Backend.DescriptorType.StorageBufferDynamic => Silk.NET.Vulkan.DescriptorType.StorageBufferDynamic,
-            Backend.DescriptorType.InputAttachment => Silk.NET.Vulkan.DescriptorType.InputAttachment,
             _ => throw new ArgumentOutOfRangeException(nameof(type))
         };
     }
@@ -74,14 +59,6 @@ internal static class VulkanFlagConverter
             result |= ShaderStageFlags.VertexBit;
         if ((stage & ShaderStage.Fragment) != 0)
             result |= ShaderStageFlags.FragmentBit;
-        if ((stage & ShaderStage.Compute) != 0)
-            result |= ShaderStageFlags.ComputeBit;
-        if ((stage & ShaderStage.Geometry) != 0)
-            result |= ShaderStageFlags.GeometryBit;
-        if ((stage & ShaderStage.TessellationControl) != 0)
-            result |= ShaderStageFlags.TessellationControlBit;
-        if ((stage & ShaderStage.TessellationEvaluation) != 0)
-            result |= ShaderStageFlags.TessellationEvaluationBit;
 
         return result;
     }

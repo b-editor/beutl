@@ -233,10 +233,6 @@ public class ImageTextureSourceUploadTests
 
         public TextureFormat Format => format;
 
-        public IntPtr NativeHandle => IntPtr.Zero;
-
-        public IntPtr NativeViewHandle => IntPtr.Zero;
-
         public bool RequiresSkiaFlushForBackendInterop => false;
 
         public void Upload(ReadOnlySpan<byte> data)

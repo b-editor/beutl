@@ -20,29 +20,6 @@ public sealed class LayeredTextureTransferTests
 
     [TestCase(TextureKind.Cube)]
     [TestCase(TextureKind.Array)]
-    public void UploadColorLayer_PreservesPixels(TextureKind kind)
-    {
-        VulkanContext context = GpuTestEnvironment.EnsureVulkanAvailable();
-        GpuTestEnvironment.InvokeOnRenderThread(() =>
-        {
-            byte[] expected = CreatePixels();
-            using IDisposable texture = CreateTexture(context, kind, out Image image, out uint layer);
-            switch (texture)
-            {
-                case ITextureCube cube:
-                    cube.UploadFace((int)layer, expected);
-                    break;
-                case ITextureArray array:
-                    array.UploadLayer(layer, expected);
-                    break;
-            }
-
-            Assert.That(ReadLayer(context, image, layer), Is.EqualTo(expected));
-        });
-    }
-
-    [TestCase(TextureKind.Cube)]
-    [TestCase(TextureKind.Array)]
     [TestCase(TextureKind.CubeArray)]
     public void CopyToColorLayer_PreservesPixels(TextureKind kind)
     {
@@ -128,14 +105,14 @@ public sealed class LayeredTextureTransferTests
             ImageAspectFlags.ColorBit, layer, 1);
         context.FlushCommands(waitForCompletion: true);
 
-        IntPtr mapped = buffer.Map();
+        IntPtr mapped = ((VulkanBuffer)buffer).Map();
         try
         {
             Marshal.Copy(mapped, pixels, 0, pixels.Length);
         }
         finally
         {
-            buffer.Unmap();
+            ((VulkanBuffer)buffer).Unmap();
         }
         return pixels;
     }

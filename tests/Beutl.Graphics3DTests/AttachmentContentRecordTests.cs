@@ -1,4 +1,5 @@
 ﻿using Beutl.Graphics.Backend;
+using Beutl.Graphics.Backend.Vulkan;
 
 namespace Beutl.Graphics3DTests;
 
@@ -52,7 +53,7 @@ public sealed class AttachmentContentRecordTests
             clearable.ClearToTransparent();
             bool transparentBeforeThePass = clearable.HasTransparentContents;
 
-            framebuffer.PrepareForRendering();
+            ((VulkanFramebuffer3D)framebuffer).PrepareForRendering();
             bool transparentAfterThePass = clearable.HasTransparentContents;
 
             context.WaitIdle();

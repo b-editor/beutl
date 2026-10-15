@@ -373,12 +373,6 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D, IVulkanContextResou
         }
     }
 
-    public void Bind()
-    {
-        // Binding is done through command buffer
-        // This method is kept for interface compatibility
-    }
-
     /// <remarks>Also releases a partially built pipeline, whose later handles are still unset.</remarks>
     public void Dispose()
     {

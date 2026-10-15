@@ -24,16 +24,6 @@ public interface ITexture2D : IDisposable
     TextureFormat Format { get; }
 
     /// <summary>
-    /// Gets the native handle of the texture (Vulkan Image handle).
-    /// </summary>
-    IntPtr NativeHandle { get; }
-
-    /// <summary>
-    /// Gets the native view handle of the texture (Vulkan ImageView handle).
-    /// </summary>
-    IntPtr NativeViewHandle { get; }
-
-    /// <summary>
     /// Uploads pixel data to the texture.
     /// </summary>
     /// <param name="data">The pixel data to upload.</param>

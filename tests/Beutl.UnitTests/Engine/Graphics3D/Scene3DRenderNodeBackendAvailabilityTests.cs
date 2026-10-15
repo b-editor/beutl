@@ -4,7 +4,6 @@ using Beutl.Graphics.Backend;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics3D;
 using Beutl.Media;
-using Moq;
 using static Beutl.UnitTests.Engine.Graphics3D.Scene3DRenderNodeTestScenes;
 
 namespace Beutl.UnitTests.Engine.Graphics3D;
@@ -93,19 +92,6 @@ public sealed class Scene3DRenderNodeBackendAvailabilityTests
             Assert.That(beforeAnyContext, Is.True,
                 "the control: before any context exists the first allocation builds one, so the scene records");
         });
-    }
-
-    [Test]
-    public void HitTest_UnderAContextWithout3DRendering_ReportsNoHit()
-    {
-        var context = new Mock<IGraphicsContext>();
-        context.SetupGet(static c => c.Supports3DRendering).Returns(false);
-
-        bool result = HitTestSceneCenterUnder(
-            new InstalledGraphics(context.Object, null, null, FailedToInitialize: false),
-            supports3DRendering: null);
-
-        Assert.That(result, Is.False, "an installed context that cannot render 3D leaves the scene undrawn");
     }
 
     private static bool HitTestSceneCenterUnder(InstalledGraphics graphics, bool? supports3DRendering)

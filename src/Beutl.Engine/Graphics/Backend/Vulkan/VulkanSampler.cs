@@ -19,10 +19,6 @@ internal sealed unsafe class VulkanSampler : ISampler, IVulkanContextResource
         SamplerAddressMode addressModeV = SamplerAddressMode.ClampToEdge)
     {
         _context = context;
-        MinFilter = minFilter;
-        MagFilter = magFilter;
-        AddressModeU = addressModeU;
-        AddressModeV = addressModeV;
 
         var vk = context.Vk;
         var device = context.Device;
@@ -57,14 +53,6 @@ internal sealed unsafe class VulkanSampler : ISampler, IVulkanContextResource
     }
 
     public Sampler Handle => _sampler;
-
-    public SamplerFilter MinFilter { get; }
-
-    public SamplerFilter MagFilter { get; }
-
-    public SamplerAddressMode AddressModeU { get; }
-
-    public SamplerAddressMode AddressModeV { get; }
 
     private static Filter ToVulkanFilter(SamplerFilter filter) => filter switch
     {

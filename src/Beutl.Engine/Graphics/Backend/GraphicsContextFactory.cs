@@ -106,19 +106,18 @@ public class GraphicsContextFactory
     /// </returns>
     internal static bool Predict3DRenderingSupport()
     {
-        IGraphicsContext? installed = SharedContext;
-        return installed is not null ? installed.Supports3DRendering : !s_failedToInitialize;
+        return SharedContext is not null || !s_failedToInitialize;
     }
 
     /// <summary>Predicts the 3D extents the shared context can attach, from any thread.</summary>
     /// <remarks>
     /// Before a context exists the answer is <see cref="Device3DExtentBudget.Unreported"/>, so nothing is refused
-    /// on a guess about a device not chosen yet; a context that cannot render 3D reports nothing either.
+    /// on a guess about a device not chosen yet.
     /// </remarks>
     internal static Device3DExtentBudget Predict3DExtentBudget()
     {
         IGraphicsContext? installed = SharedContext;
-        return installed is null || !installed.Supports3DRendering
+        return installed is null
             ? Device3DExtentBudget.Unreported
             : Device3DExtentBudget.FromContext(installed);
     }

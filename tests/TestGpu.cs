@@ -78,9 +78,6 @@ internal static class TestGpu
                         + "MoltenVK or a GPU's) could be initialized.");
                 }
 
-                if (!context.Supports3DRendering)
-                    return new SharedDevice(null, null, $"the shared {context.Backend} context cannot render 3D.");
-
                 return new SharedDevice(context, SelectedDevice(), null);
             });
         }

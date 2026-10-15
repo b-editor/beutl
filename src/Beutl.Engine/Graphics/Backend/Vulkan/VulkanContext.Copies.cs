@@ -155,7 +155,7 @@ internal sealed unsafe partial class VulkanContext
 
     /// <summary>
     /// The aspect a copy from a texture of <paramref name="format"/> transfers. A depth format copies its depth
-    /// aspect alone, even where <see cref="TextureFormatExtensions.GetAspectMask"/> adds stencil.
+    /// aspect alone.
     /// </summary>
     private static ImageAspectFlags GetCopyAspectMask(TextureFormat format)
     {

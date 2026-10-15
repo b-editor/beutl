@@ -229,7 +229,6 @@ public sealed class Scene3DRenderNodeDeviceBudgetTests
     private static IGraphicsContext CreateDevice(int attachment)
     {
         var device = new Mock<IGraphicsContext>();
-        device.SetupGet(static c => c.Supports3DRendering).Returns(true);
         device.SetupGet(c => c.MaxAttachmentDimension).Returns(attachment);
         device.SetupGet(static c => c.MaxCubeFaceDimension).Returns(CubeFaceBudget);
         return device.Object;

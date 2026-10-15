@@ -35,7 +35,6 @@ public sealed class ProgramCacheTests
     public void SpirvExecution_RejectsAnUnknownThreeDimensionalContext()
     {
         var context = new Mock<IGraphicsContext>();
-        context.SetupGet(x => x.Supports3DRendering).Returns(true);
 
         Assert.That(SpirvShaderProgramCache.SupportsExecution(context.Object), Is.False);
     }

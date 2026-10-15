@@ -1,7 +1,4 @@
-﻿using System.Buffers;
-using System.Text;
-
-namespace Beutl.Graphics;
+﻿namespace Beutl.Graphics;
 
 /// <summary>The FNV-1a hash behind the engine's stable digests, which must not vary between processes.</summary>
 internal static class Fnv1a
@@ -33,31 +30,6 @@ internal static class Fnv1a
     {
         foreach (char value in text)
             hash = Append(hash, value);
-
-        return hash;
-    }
-
-    /// <summary>Hashes the UTF-8 encoding of <paramref name="text"/>.</summary>
-    public static ulong HashUtf8(string text)
-    {
-        const int stackBufferSize = 512;
-        int byteCount = Encoding.UTF8.GetByteCount(text);
-        byte[]? rented = null;
-        Span<byte> bytes = byteCount <= stackBufferSize
-            ? stackalloc byte[byteCount]
-            : (rented = ArrayPool<byte>.Shared.Rent(byteCount));
-        ulong hash = Offset64;
-        try
-        {
-            int written = Encoding.UTF8.GetBytes(text, bytes);
-            foreach (byte value in bytes[..written])
-                hash = Append(hash, value);
-        }
-        finally
-        {
-            if (rented is not null)
-                ArrayPool<byte>.Shared.Return(rented);
-        }
 
         return hash;
     }
