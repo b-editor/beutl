@@ -65,15 +65,6 @@ public static partial class ProxySourceEnumerator
     /// node-graph inputs and referenced scenes.
     /// </summary>
     public static IReadOnlySet<string> EnumerateFileSources(IHierarchical root)
-        => EnumerateFileSources(root, includeObjectUris: true);
-
-    /// <summary>
-    /// Collects media file paths while excluding project document URIs such as scene and layer files.
-    /// </summary>
-    public static IReadOnlySet<string> EnumerateMediaFileSources(IHierarchical root)
-        => EnumerateFileSources(root, includeObjectUris: false);
-
-    private static IReadOnlySet<string> EnumerateFileSources(IHierarchical root, bool includeObjectUris)
     {
         ArgumentNullException.ThrowIfNull(root);
 
@@ -85,10 +76,10 @@ public static partial class ProxySourceEnumerator
         List<IHierarchical> allChildren = [.. EnumerateAllChildrenCycleSafe(root)];
 
         foreach (CoreObject obj in allChildren.OfType<CoreObject>())
-            CollectFileSourcePaths(obj, paths, includeObjectUris);
+            CollectFileSourcePaths(obj, paths);
 
         if (root is CoreObject rootObj)
-            CollectFileSourcePaths(rootObj, paths, includeObjectUris);
+            CollectFileSourcePaths(rootObj, paths);
 
         // The property walk above cannot see node-graph adapter inputs (a port is an IPropertyAdapter,
         // not an EngineObject property), including ports inside referenced scenes, so descend the
@@ -107,7 +98,7 @@ public static partial class ProxySourceEnumerator
         return paths;
     }
 
-    private static void CollectFileSourcePaths(CoreObject obj, HashSet<string> paths, bool includeObjectUri)
+    private static void CollectFileSourcePaths(CoreObject obj, HashSet<string> paths)
     {
         // The broad asset walk retains authored layer values for later reconnection, even when
         // render/proxy discovery excludes an output with no accepted consumers.
@@ -129,8 +120,7 @@ public static partial class ProxySourceEnumerator
                 AddFileSourcePath(source.Uri, paths);
         }
 
-        if (includeObjectUri)
-            AddFileSourcePath(obj.Uri, paths);
+        AddFileSourcePath(obj.Uri, paths);
     }
 
     private static void AddFileSourcePath(Uri? uri, HashSet<string> paths)
