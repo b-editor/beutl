@@ -11,8 +11,8 @@ namespace Beutl.Media;
 /// <summary>
 /// An ARGB color.
 /// </summary>
-[JsonConverter(typeof(ColorJsonConverter))]
-[TypeConverter(typeof(ColorConverter))]
+[JsonConverter(typeof(ParsableJsonConverter<Color>))]
+[TypeConverter(typeof(ParsableTypeConverter<Color>))]
 public readonly struct Color(byte a, byte r, byte g, byte b)
     : IEquatable<Color>,
       IParsable<Color>,

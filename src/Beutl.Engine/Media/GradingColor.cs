@@ -11,8 +11,8 @@ namespace Beutl.Media;
 /// A color value used for color grading operations (Lift, Gamma, Gain, Offset).
 /// Each component (R, G, B) is a float value that can be negative.
 /// </summary>
-[JsonConverter(typeof(GradingColorJsonConverter))]
-[TypeConverter(typeof(GradingColorConverter))]
+[JsonConverter(typeof(ParsableJsonConverter<GradingColor>))]
+[TypeConverter(typeof(ParsableTypeConverter<GradingColor>))]
 public readonly struct GradingColor
     : IEquatable<GradingColor>,
         IParsable<GradingColor>,

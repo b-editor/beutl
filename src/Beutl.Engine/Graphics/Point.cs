@@ -10,8 +10,8 @@ using Beutl.Utilities;
 
 namespace Beutl.Graphics;
 
-[JsonConverter(typeof(PointJsonConverter))]
-[TypeConverter(typeof(PointConverter))]
+[JsonConverter(typeof(ParsableJsonConverter<Point>))]
+[TypeConverter(typeof(ParsableTypeConverter<Point>))]
 public readonly struct Point(float x, float y)
     : IEquatable<Point>,
       IParsable<Point>,

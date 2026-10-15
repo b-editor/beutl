@@ -10,8 +10,8 @@ using Beutl.Utilities;
 
 namespace Beutl.Graphics;
 
-[JsonConverter(typeof(RectJsonConverter))]
-[TypeConverter(typeof(RectConverter))]
+[JsonConverter(typeof(ParsableJsonConverter<Rect>))]
+[TypeConverter(typeof(ParsableTypeConverter<Rect>))]
 public readonly struct Rect
     : IEquatable<Rect>,
       IParsable<Rect>,

@@ -2,11 +2,13 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 
-using Beutl.Graphics;
-
 namespace Beutl.Converters;
 
-public sealed class VectorConverter : TypeConverter
+/// <summary>
+/// Converts a string to <typeparamref name="T"/> with its <see cref="IParsable{TSelf}"/> implementation.
+/// </summary>
+public sealed class ParsableTypeConverter<T> : TypeConverter
+    where T : IParsable<T>
 {
     public override bool CanConvertFrom(ITypeDescriptorContext? context, [NotNullWhen(true)] Type? sourceType)
     {
@@ -17,7 +19,7 @@ public sealed class VectorConverter : TypeConverter
     {
         if (value is string str)
         {
-            return Vector.Parse(str);
+            return T.Parse(str, null);
         }
 
         return base.ConvertFrom(context, culture, value);
