@@ -35,7 +35,7 @@ public sealed class AudioVisualizerTabExtension : ToolTabExtension
 
     public override bool TryCreateContext(IEditorContext editorContext, [NotNullWhen(true)] out IToolContext? context)
     {
-        context = new AudioVisualizerTabViewModel(editorContext, Instance);
+        context = new AudioVisualizerTabViewModel(editorContext);
         return true;
     }
 }

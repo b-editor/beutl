@@ -76,8 +76,6 @@ public sealed partial class ProxiesTabViewModel : IDisposable, IToolContext
             .DisposeWith(_disposables);
         StoreCapText = new ReactiveProperty<string>()
             .DisposeWith(_disposables);
-        StoreSummary = new ReactiveProperty<string>()
-            .DisposeWith(_disposables);
         StatusMessage = new ReactiveProperty<string>(Strings.ProxyReady)
             .DisposeWith(_disposables);
 
@@ -155,8 +153,6 @@ public sealed partial class ProxiesTabViewModel : IDisposable, IToolContext
     public ReactiveProperty<string> StoreUsageText { get; }
 
     public ReactiveProperty<string> StoreCapText { get; }
-
-    public ReactiveProperty<string> StoreSummary { get; }
 
     public ReactiveProperty<string> StatusMessage { get; }
 

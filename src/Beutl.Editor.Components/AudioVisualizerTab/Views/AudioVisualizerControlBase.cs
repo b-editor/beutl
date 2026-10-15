@@ -14,9 +14,6 @@ public abstract class AudioVisualizerControlBase : Control
     public static readonly StyledProperty<TimeSpan> PlayheadTimeProperty =
         AvaloniaProperty.Register<AudioVisualizerControlBase, TimeSpan>(nameof(PlayheadTime));
 
-    public static readonly StyledProperty<IBrush?> ForegroundProperty =
-        TextBlock.ForegroundProperty.AddOwner<AudioVisualizerControlBase>();
-
     public static readonly StyledProperty<IBrush> SecondaryBrushProperty =
         AvaloniaProperty.Register<AudioVisualizerControlBase, IBrush>(
             nameof(SecondaryBrush), new SolidColorBrush(Color.FromArgb(160, 120, 200, 255)));
@@ -37,12 +34,6 @@ public abstract class AudioVisualizerControlBase : Control
     {
         get => GetValue(PlayheadTimeProperty);
         set => SetValue(PlayheadTimeProperty, value);
-    }
-
-    public IBrush? Foreground
-    {
-        get => GetValue(ForegroundProperty);
-        set => SetValue(ForegroundProperty, value);
     }
 
     public IBrush PrimaryBrush

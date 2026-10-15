@@ -20,13 +20,11 @@ public sealed class AudioVisualizerTabViewModel : IToolContext
     private readonly IEditorContext _editorContext;
     private readonly IPreviewPlayer _player;
     private readonly IEditorClock _clock;
-    private readonly AudioVisualizerTabExtension _extension;
     private int _composeInFlight;
 
-    public AudioVisualizerTabViewModel(IEditorContext editorContext, AudioVisualizerTabExtension extension)
+    public AudioVisualizerTabViewModel(IEditorContext editorContext)
     {
         _editorContext = editorContext;
-        _extension = extension;
         _player = editorContext.GetRequiredService<IPreviewPlayer>();
         _clock = editorContext.GetRequiredService<IEditorClock>();
 
@@ -79,7 +77,7 @@ public sealed class AudioVisualizerTabViewModel : IToolContext
 
     public IReadOnlyReactiveProperty<string> Header { get; }
 
-    public ToolTabExtension Extension => _extension;
+    public ToolTabExtension Extension => AudioVisualizerTabExtension.Instance;
 
     public IReactiveProperty<bool> IsSelected { get; } = new ReactiveProperty<bool>();
 

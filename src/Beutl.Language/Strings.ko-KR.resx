@@ -1477,9 +1477,6 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="ProxyUnavailable" xml:space="preserve">
     <value>사용할 수 없음</value>
   </data>
-  <data name="ProxyStoreUnavailable" xml:space="preserve">
-    <value>프록시 저장소를 사용할 수 없습니다.</value>
-  </data>
   <data name="ProxyQueueUnavailable" xml:space="preserve">
     <value>프록시 큐를 사용할 수 없습니다.</value>
   </data>
@@ -1509,9 +1506,6 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
   </data>
   <data name="ProxySelectedPlural" xml:space="preserve">
     <value>선택 {0}개</value>
-  </data>
-  <data name="ProxyStoreSummaryFormat" xml:space="preserve">
-    <value>프로젝트 {0} / 저장소 {1} / 상한 {2}</value>
   </data>
   <data name="ProxySourceInfoFormat" xml:space="preserve">
     <value>소스 {0} / {1}</value>

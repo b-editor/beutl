@@ -100,18 +100,6 @@ public sealed class AudioSampleRingBuffer
         }
     }
 
-    // Returns the `length` most recent samples, oldest-first. Used when no
-    // playback-time anchor is meaningful (e.g. metering fallback).
-    public int ReadLatest(Span<float> destLeft, Span<float> destRight, int length, out int leadingZeros)
-    {
-        leadingZeros = 0;
-        if (destLeft.Length < length || destRight.Length < length) return 0;
-        lock (_gate)
-        {
-            return ReadEndingAtLocked(_totalWritten, destLeft, destRight, length, out leadingZeros);
-        }
-    }
-
     // Reads `length` samples that end exactly at the sample corresponding to
     // `playheadTime` in scene time. Missing samples before/after the available
     // window are zero-padded. Returns the number of real (non-padded) samples,
@@ -141,22 +129,13 @@ public sealed class AudioSampleRingBuffer
     }
 
     // Snapshot of `windowSamples` ending at `playheadTime` used for RMS / peak
-    // calculations. Falls back to the newest samples if no anchor is available.
+    // calculations.
     public (float LeftRms, float RightRms, float LeftPeak, float RightPeak) ComputeMeters(
-        int windowSamples, TimeSpan? playheadTime = null)
+        int windowSamples, TimeSpan playheadTime)
     {
         Span<float> l = windowSamples <= 4096 ? stackalloc float[windowSamples] : new float[windowSamples];
         Span<float> r = windowSamples <= 4096 ? stackalloc float[windowSamples] : new float[windowSamples];
-        int got;
-        int leadingZeros;
-        if (playheadTime is { } t)
-        {
-            got = ReadAroundTime(t, l, r, windowSamples, out leadingZeros);
-        }
-        else
-        {
-            got = ReadLatest(l, r, windowSamples, out leadingZeros);
-        }
+        int got = ReadAroundTime(playheadTime, l, r, windowSamples, out int leadingZeros);
         if (got <= 0) return (0, 0, 0, 0);
 
         // Real samples live at [leadingZeros, leadingZeros + got). Slicing from 0

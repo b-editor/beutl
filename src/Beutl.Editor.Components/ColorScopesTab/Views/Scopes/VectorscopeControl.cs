@@ -14,10 +14,6 @@ namespace Beutl.Editor.Components.ColorScopesTab.Views.Scopes;
 
 public class VectorscopeControl : ScopeControlBase
 {
-    public static readonly DirectProperty<VectorscopeControl, bool> ShowColorTargetsProperty =
-        AvaloniaProperty.RegisterDirect<VectorscopeControl, bool>(nameof(ShowColorTargets), o => o.ShowColorTargets,
-            (o, v) => o.ShowColorTargets = v, true);
-
     private static readonly SolidColorBrush s_gridBrush = new(Color.FromArgb(160, 40, 40, 40));
     private static readonly Pen s_gridPen = new(s_gridBrush, 1.5);
     private static readonly SolidColorBrush s_innerGridBrush = new(Color.FromArgb(120, 30, 30, 30));
@@ -29,12 +25,6 @@ public class VectorscopeControl : ScopeControlBase
     private static readonly Pen s_cyanTargetPen = new(new SolidColorBrush(Color.FromArgb(180, 0, 255, 255)), 1.5);
     private static readonly Pen s_magentaTargetPen = new(new SolidColorBrush(Color.FromArgb(180, 255, 0, 255)), 1.5);
     private static readonly Pen s_yellowTargetPen = new(new SolidColorBrush(Color.FromArgb(180, 255, 255, 0)), 1.5);
-
-    public bool ShowColorTargets
-    {
-        get;
-        set => SetAndRaise(ShowColorTargetsProperty, ref field, value);
-    } = true;
 
     protected override string[]? VerticalAxisLabels => null;
 
@@ -140,11 +130,7 @@ public class VectorscopeControl : ScopeControlBase
         double offsetY = (availableHeight - squareSize) / 2;
 
         DrawVectorscopeGridOnContext(context, offsetX, offsetY, squareSize);
-
-        if (ShowColorTargets)
-        {
-            DrawColorTargetsOnContext(context, offsetX, offsetY, squareSize);
-        }
+        DrawColorTargetsOnContext(context, offsetX, offsetY, squareSize);
 
         var bitmap = RenderedBitmap;
         if (bitmap != null)
